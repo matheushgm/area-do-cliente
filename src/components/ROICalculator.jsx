@@ -1,0 +1,413 @@
+import { useState, useMemo, useCallback } from 'react'
+import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircle, FileDown } from 'lucide-react'
+import { exportROIPDF } from '../utils/exportPDF'
+
+// ─── Formatters ───────────────────────────────────────────────────────────────
+export function fmt(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—'
+  if (!isFinite(n)) return '∞'
+  return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+}
+export function fmtCurrency(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—'
+  if (!isFinite(n)) return '∞'
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+}
+
+// ─── Number input ─────────────────────────────────────────────────────────────
+function NumInput({ label, value, onChange, prefix, suffix, hint, min = 0 }) {
+  return (
+    <div>
+      <label className="label-field">{label}</label>
+      {hint && <p className="text-xs text-rl-muted mb-1">{hint}</p>}
+      <div className="relative">
+        {prefix && (
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm pointer-events-none">
+            {prefix}
+          </span>
+        )}
+        <input
+          type="number"
+          min={min}
+          value={value}
+          onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+          className={`input-field ${prefix ? 'pl-10' : ''} ${suffix ? 'pr-12' : ''}`}
+        />
+        {suffix && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm pointer-events-none">
+            {suffix}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Benchmark data ───────────────────────────────────────────────────────────
+const BENCHMARKS = {
+  b2c: [
+    { label: 'Lead → MQL', min: 20, max: 50 },
+    { label: 'MQL → SQL',  min: 25, max: 40 },
+    { label: 'SQL → Venda',min: 10, max: 30 },
+  ],
+  b2b: [
+    { label: 'Lead → MQL', min: 10, max: 40 },
+    { label: 'MQL → SQL',  min: 15, max: 40 },
+    { label: 'SQL → Venda',min: 15, max: 35 },
+  ],
+}
+
+// ─── ROI Calculator ───────────────────────────────────────────────────────────
+export default function ROICalculator({ project, onSave }) {
+  const [benchmarkType, setBenchmarkType] = useState(null)
+
+  const [calc, setCalc] = useState(() => ({
+    mediaOrcamento:  Number(project.mediaBudget)    || 5000,
+    custoMarketing:  Number(project.managementFee)  || 2000,
+    ticketMedio:     Number(project.averageTicket)  || 500,
+    qtdCompras:      1,
+    margemBruta:     40,
+    roiDesejado:     0,
+    taxaLead2MQL:    30,
+    taxaMQL2SQL:     50,
+    taxaSQL2Venda:   20,
+    ...(project.roiCalc || {}),
+  }))
+
+  const set = useCallback((field, val) => setCalc((prev) => ({ ...prev, [field]: val })), [])
+
+  const result = useMemo(() => {
+    const {
+      mediaOrcamento, custoMarketing, ticketMedio, qtdCompras,
+      margemBruta, roiDesejado, taxaLead2MQL, taxaMQL2SQL, taxaSQL2Venda,
+    } = calc
+
+    const totalInvestimento = mediaOrcamento + custoMarketing
+    const lucroPorVenda     = ticketMedio * qtdCompras * (margemBruta / 100)
+    if (!lucroPorVenda) return null
+
+    const retornoAlvo        = totalInvestimento * (1 + roiDesejado / 100)
+    const vendasNecessarias  = retornoAlvo / lucroPorVenda
+
+    const sqlsNecessarios  = taxaSQL2Venda  ? vendasNecessarias / (taxaSQL2Venda  / 100) : Infinity
+    const mqlsNecessarios  = taxaMQL2SQL    ? sqlsNecessarios   / (taxaMQL2SQL    / 100) : Infinity
+    const leadsNecessarios = taxaLead2MQL   ? mqlsNecessarios   / (taxaLead2MQL   / 100) : Infinity
+
+    const faturamento  = vendasNecessarias * ticketMedio * qtdCompras
+    const lucroBruto   = faturamento * (margemBruta / 100)
+    const lucroLiquido = lucroBruto - totalInvestimento
+
+    const cac              = vendasNecessarias ? mediaOrcamento / vendasNecessarias : Infinity
+    const vendasBreakeven  = totalInvestimento / lucroPorVenda
+
+    // Custo por Lead/MQL/SQL usa APENAS mídia paga (valor visível nas dashboards de anúncios)
+    const custoPorLead  = leadsNecessarios  ? mediaOrcamento / leadsNecessarios  : Infinity
+    const custoPorMQL   = mqlsNecessarios   ? mediaOrcamento / mqlsNecessarios   : Infinity
+    const custoPorSQL   = sqlsNecessarios   ? mediaOrcamento / sqlsNecessarios   : Infinity
+
+    return {
+      totalInvestimento, lucroPorVenda,
+      vendasNecessarias, sqlsNecessarios, mqlsNecessarios, leadsNecessarios,
+      faturamento, lucroBruto, lucroLiquido, cac, vendasBreakeven,
+      custoPorLead, custoPorMQL, custoPorSQL,
+    }
+  }, [calc])
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
+            <Calculator className="w-5 h-5 text-rl-purple" />
+            Calculadora de ROI
+          </h2>
+          <p className="text-sm text-rl-muted mt-0.5">
+            Defina seu ROI alvo e descubra quantos leads, MQLs, SQLs e vendas você precisa gerar
+          </p>
+        </div>
+        <button
+          onClick={() => exportROIPDF(calc, result, project)}
+          disabled={!result}
+          className="btn-secondary flex items-center gap-2 text-sm shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Exportar PDF"
+        >
+          <FileDown className="w-4 h-4" />
+          PDF
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* ── Inputs ──────────────────────────────── */}
+        <div className="space-y-4">
+
+          {/* Investimento */}
+          <div className="glass-card p-5 space-y-4">
+            <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider flex items-center gap-2">
+              <DollarSign className="w-3.5 h-3.5" /> Investimento
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <NumInput
+                label="Orçamento em Mídia"
+                value={calc.mediaOrcamento}
+                onChange={(v) => set('mediaOrcamento', v)}
+                prefix="R$"
+                hint="Verba para anúncios"
+              />
+              <NumInput
+                label="Custo de Marketing"
+                value={calc.custoMarketing}
+                onChange={(v) => set('custoMarketing', v)}
+                prefix="R$"
+                hint="Fee de gestão / assessoria"
+              />
+            </div>
+            {result && (
+              <div className="flex items-center justify-between rounded-lg bg-rl-surface px-4 py-2.5">
+                <span className="text-xs text-rl-muted">Total investido</span>
+                <span className="text-sm font-bold text-rl-text">{fmtCurrency(result.totalInvestimento)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Produto */}
+          <div className="glass-card p-5 space-y-4">
+            <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider flex items-center gap-2">
+              <BarChart3 className="w-3.5 h-3.5" /> Produto / Serviço
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <NumInput
+                label="Ticket Médio"
+                value={calc.ticketMedio}
+                onChange={(v) => set('ticketMedio', v)}
+                prefix="R$"
+              />
+              <NumInput
+                label="Compras por cliente (LT)"
+                value={calc.qtdCompras}
+                onChange={(v) => set('qtdCompras', v)}
+                min={1}
+                hint="Lifetime do cliente"
+              />
+              <div className="col-span-2">
+                <NumInput
+                  label="Margem Bruta"
+                  value={calc.margemBruta}
+                  onChange={(v) => set('margemBruta', v)}
+                  suffix="%"
+                  hint="% que sobra do ticket após custos do produto"
+                />
+              </div>
+            </div>
+            {result && (
+              <div className="flex items-center justify-between rounded-lg bg-rl-surface px-4 py-2.5">
+                <span className="text-xs text-rl-muted">Lucro por venda</span>
+                <span className="text-sm font-bold text-rl-green">{fmtCurrency(result.lucroPorVenda)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* ROI Alvo */}
+          <div className="glass-card p-5 space-y-3">
+            <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider flex items-center gap-2">
+              <Target className="w-3.5 h-3.5" /> ROI Desejado
+            </p>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-rl-muted">
+                  {calc.roiDesejado === 0 ? 'Ponto de equilíbrio' : `Retorno de ${calc.roiDesejado}% sobre o investimento`}
+                </span>
+                <span className="text-lg font-bold text-rl-purple">{calc.roiDesejado}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={500}
+                step={10}
+                value={calc.roiDesejado}
+                onChange={(e) => set('roiDesejado', Number(e.target.value))}
+                className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, #164496 ${calc.roiDesejado / 5}%, #DDE3EF ${calc.roiDesejado / 5}%)`
+                }}
+              />
+              <div className="flex justify-between text-[10px] text-rl-muted mt-1">
+                <span>0%</span><span>100%</span><span>200%</span><span>300%</span><span>500%</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {[0, 100, 200, 300, 400, 500].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => set('roiDesejado', v)}
+                  className={`text-xs py-1.5 rounded-lg font-medium transition-all ${
+                    calc.roiDesejado === v
+                      ? 'bg-gradient-rl text-white'
+                      : 'bg-rl-surface text-rl-muted hover:text-rl-text'
+                  }`}
+                >
+                  {v === 0 ? 'Equilíbrio' : `ROI ${v}%`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Taxas do Funil */}
+          <div className="glass-card p-5 space-y-3">
+            {/* Header + toggle B2B/B2C */}
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider flex items-center gap-2">
+                <TrendingUp className="w-3.5 h-3.5" /> Taxas de Conversão do Funil
+              </p>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-rl-muted mr-1">Benchmark:</span>
+                {['b2c', 'b2b'].map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setBenchmarkType(benchmarkType === type ? null : type)}
+                    className={`text-[11px] font-bold px-2.5 py-1 rounded-full border transition-all ${
+                      benchmarkType === type
+                        ? 'bg-rl-purple text-white border-rl-purple'
+                        : 'bg-rl-surface text-rl-muted border-rl-border hover:border-rl-purple/40 hover:text-rl-text'
+                    }`}
+                  >
+                    {type.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Inputs */}
+            <div className="space-y-3">
+              <NumInput label="Lead → MQL"   value={calc.taxaLead2MQL}  onChange={(v) => set('taxaLead2MQL', v)}  suffix="%" />
+              <NumInput label="MQL → SQL"    value={calc.taxaMQL2SQL}   onChange={(v) => set('taxaMQL2SQL', v)}   suffix="%" />
+              <NumInput label="SQL → Venda"  value={calc.taxaSQL2Venda} onChange={(v) => set('taxaSQL2Venda', v)} suffix="%" />
+            </div>
+
+            {/* Benchmark panel */}
+            {benchmarkType && (
+              <div className="rounded-xl border border-rl-purple/20 bg-rl-purple/5 p-3 space-y-2">
+                <p className="text-[10px] font-bold text-rl-purple uppercase tracking-wider">
+                  Referência de mercado — {benchmarkType.toUpperCase()}
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {BENCHMARKS[benchmarkType].map((b) => (
+                    <div key={b.label} className="rounded-lg bg-rl-surface p-2.5 text-center">
+                      <p className="text-[10px] text-rl-muted mb-1">{b.label}</p>
+                      <p className="text-sm font-bold text-rl-text">
+                        {b.min}%<span className="text-rl-muted font-normal"> – </span>{b.max}%
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Results ─────────────────────────────── */}
+        <div className="space-y-4">
+
+          {result && (
+            <div className="glass-card p-5 border border-rl-purple/20">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-semibold text-rl-text">
+                  Meta para ROI de <span className="text-rl-purple">{calc.roiDesejado}%</span>
+                </p>
+                <span className="text-xs bg-rl-purple/10 text-rl-purple border border-rl-purple/20 px-2.5 py-1 rounded-full">
+                  {fmt(result.vendasNecessarias)} vendas/mês
+                </span>
+              </div>
+
+              <div className="space-y-2 mb-4">
+                {[
+                  { label: 'Leads necessários',  value: result.leadsNecessarios,  cost: result.custoPorLead, costLabel: 'CPL (mídia)',      color: 'text-rl-purple', bg: 'bg-rl-purple/10', border: 'border-rl-purple/20', rate: null },
+                  { label: 'MQLs necessários',   value: result.mqlsNecessarios,   cost: result.custoPorMQL,  costLabel: 'Custo MQL (mídia)', color: 'text-rl-blue',   bg: 'bg-rl-blue/10',   border: 'border-rl-blue/20',   rate: calc.taxaLead2MQL },
+                  { label: 'SQLs necessários',   value: result.sqlsNecessarios,   cost: result.custoPorSQL,  costLabel: 'Custo SQL (mídia)', color: 'text-rl-cyan',   bg: 'bg-rl-cyan/10',   border: 'border-rl-cyan/20',   rate: calc.taxaMQL2SQL },
+                  { label: 'Vendas necessárias', value: result.vendasNecessarias, cost: result.cac,          costLabel: 'CAC (mídia)',      color: 'text-rl-green',  bg: 'bg-rl-green/10',  border: 'border-rl-green/20',  rate: calc.taxaSQL2Venda },
+                ].map((row) => (
+                  <div key={row.label} className={`flex items-center justify-between rounded-xl px-4 py-3 border ${row.border} ${row.bg}`}>
+                    <div>
+                      <p className={`text-lg font-bold ${row.color}`}>{fmt(row.value)}</p>
+                      <p className="text-xs text-rl-muted">{row.label}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-sm font-semibold text-rl-text">{fmtCurrency(row.cost)}</span>
+                      <span className="text-[10px] text-rl-muted">{row.costLabel}</span>
+                      {row.rate !== null && (
+                        <span className="text-[10px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-md">
+                          {row.rate}% conv.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-rl-muted text-center">
+                ↑ calculado de baixo para cima com base nas suas taxas de conversão
+              </p>
+            </div>
+          )}
+
+          {result && (
+            <div className="glass-card p-5 space-y-3">
+              <p className="text-sm font-semibold text-rl-text mb-1">Financeiro Projetado</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-rl-surface p-3">
+                  <p className="text-xs text-rl-muted mb-1">Total Investido</p>
+                  <p className="text-base font-bold text-rl-text">{fmtCurrency(result.totalInvestimento)}</p>
+                </div>
+                <div className="rounded-xl bg-rl-surface p-3">
+                  <p className="text-xs text-rl-muted mb-1">Faturamento Alvo</p>
+                  <p className="text-base font-bold text-rl-purple">{fmtCurrency(result.faturamento)}</p>
+                </div>
+                <div className="rounded-xl bg-rl-surface p-3">
+                  <p className="text-xs text-rl-muted mb-1">Lucro Bruto</p>
+                  <p className="text-base font-bold text-rl-cyan">{fmtCurrency(result.lucroBruto)}</p>
+                </div>
+                <div className={`rounded-xl p-3 ${result.lucroLiquido >= 0 ? 'bg-rl-green/10' : 'bg-rl-red/10'}`}>
+                  <p className="text-xs text-rl-muted mb-1">Lucro Líquido</p>
+                  <p className={`text-base font-bold ${result.lucroLiquido >= 0 ? 'text-rl-green' : 'text-rl-red'}`}>
+                    {fmtCurrency(result.lucroLiquido)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-lg bg-rl-surface px-4 py-2.5 mt-1">
+                <span className="text-xs text-rl-muted">CAC (custo de aquisição — mídia)</span>
+                <span className="text-sm font-bold text-rl-gold">{fmtCurrency(result.cac)}</span>
+              </div>
+              <div className="rounded-lg border border-rl-border px-4 py-2.5 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-rl-muted">Ponto de equilíbrio (ROI 0%)</p>
+                  <p className="text-xs text-rl-muted">Mínimo de vendas para cobrir o investimento</p>
+                </div>
+                <span className="text-sm font-bold text-rl-text">{fmt(result.vendasBreakeven)} vendas</span>
+              </div>
+            </div>
+          )}
+
+          {!result && (
+            <div className="glass-card p-8 text-center">
+              <AlertCircle className="w-8 h-8 text-rl-muted/40 mx-auto mb-2" />
+              <p className="text-rl-muted text-sm">Preencha os dados para ver os resultados</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Save button */}
+      {onSave && (
+        <div className="flex justify-end pt-2">
+          <button
+            onClick={() => onSave(calc, result)}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Save className="w-4 h-4" />
+            Salvar Calculadora
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}

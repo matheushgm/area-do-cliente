@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    background-color: #EEF2F9;
+    color: #0F172A;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #E4EAF7; }
+  ::-webkit-scrollbar-thumb { background: rgba(22,68,150,0.20); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(22,68,150,0.40); }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: opacity(0.45);
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-rl-card border border-rl-border rounded-2xl shadow-card;
+  }
+
+  .input-field {
+    @apply w-full bg-rl-surface border border-rl-border rounded-xl px-4 py-3 text-rl-text
+           placeholder-rl-muted transition-all duration-200 outline-none text-sm
+           focus:border-rl-purple focus:ring-2 focus:ring-rl-purple/20;
+  }
+
+  .input-field:focus { box-shadow: 0 0 0 3px rgba(22,68,150,0.10); }
+
+  .btn-primary {
+    @apply bg-gradient-rl text-white font-semibold px-6 py-3 rounded-xl transition-all duration-200
+           hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] cursor-pointer;
+  }
+
+  .btn-secondary {
+    @apply bg-rl-surface border border-rl-border text-rl-subtle font-medium px-6 py-3 rounded-xl
+           transition-all duration-200 hover:border-rl-purple/40 hover:text-rl-text cursor-pointer;
+  }
+
+  .step-indicator {
+    @apply flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold
+           transition-all duration-300;
+  }
+
+  .label-field {
+    @apply block text-sm font-medium text-rl-subtle mb-2;
+  }
+
+  .tag-chip {
+    @apply inline-flex items-center gap-1.5 bg-rl-purple/10 border border-rl-purple/30
+           text-rl-purple text-xs font-medium px-3 py-1.5 rounded-full cursor-pointer
+           transition-all duration-150 hover:bg-rl-purple/20;
+  }
+
+  .tag-chip.selected {
+    @apply bg-rl-purple text-white border-rl-purple;
+  }
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.scroll-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Progress bar fill */
+.progress-fill {
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Completion burst */
+@keyframes burst {
+  0%   { transform: scale(0); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+.burst { animation: burst 0.5s ease-out forwards; }
