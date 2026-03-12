@@ -437,7 +437,7 @@ export default function NewOnboarding() {
               <ArrowLeft className="w-4 h-4" /> Dashboard
             </button>
             <button
-              onClick={() => { setForm(initialForm); setStep(0); setDone(false); setEarnedXP(0); setCompletedSteps([]) }}
+              onClick={() => { setForm(initialForm); setStep(0); setDone(false); setCompletedSteps([]) }}
               className="btn-primary flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> Novo Onboarding

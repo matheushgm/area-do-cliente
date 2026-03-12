@@ -116,13 +116,19 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!isSupabaseReady) return;
     setLoadingProjects(true);
-    sbFetchAll().then((rows) => {
-      if (rows !== null) {
-        setProjects(rows);
-        localStorage.setItem("rl_projects", JSON.stringify(rows));
-      }
-      setLoadingProjects(false);
-    });
+    sbFetchAll()
+      .then((rows) => {
+        if (rows !== null) {
+          setProjects(rows);
+          localStorage.setItem("rl_projects", JSON.stringify(rows));
+        }
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar projetos:", err);
+      })
+      .finally(() => {
+        setLoadingProjects(false);
+      });
 
     // Load team members from profiles table
     supabase.from("profiles").select("*").then(({ data }) => {
