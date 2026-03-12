@@ -5,11 +5,27 @@
  * para evitar reenvio desnecessário de tokens. Os dados estruturais
  * da oferta (campos individuais) são enviados completos — eles são curtos
  * e relevantes para qualquer geração.
+ *
+ * Anexos:
+ * - Arquivos de texto (text/*, application/json): conteúdo decodificado e incluído no contexto
+ * - PDFs: enviados como bloco nativo { type: 'document' } da API Anthropic
+ * - Imagens: enviadas como bloco nativo { type: 'image' } da API Anthropic
+ * - Outros (.docx, .xlsx…): apenas o nome é listado
  */
 
 // Limites de truncamento (caracteres)
 const MAX_OFFER_TEXT  = 800  // generatedOffer pode ter 3.000-4.000 chars; só o início é necessário
 const MAX_PERSONA_BIO = 600  // generatedProfile por persona
+const MAX_TEXT_FILE   = 4000 // caracteres máximos por arquivo de texto
+
+// Limites de tamanho base64 para blocos nativos (evitar estourar body da Edge Function)
+const MAX_PDF_B64   = 2_000_000  // ~1.5 MB original
+const MAX_IMAGE_B64 = 1_500_000  // ~1.1 MB original
+
+/** Remove o prefixo "data:...;base64," retornando apenas o base64 puro */
+function extractBase64(dataUrl) {
+  return dataUrl.replace(/^data:[^;]+;base64,/, '')
+}
 
 const BTYPE = {
   b2b: 'B2B',
@@ -83,10 +99,66 @@ export function buildContext(project) {
   const atts = project.attachments || []
   if (atts.length) {
     lines.push('\n## DOCUMENTOS DO CLIENTE')
-    atts.forEach((a) => lines.push(`- ${a.name}`))
+    atts.forEach((a) => {
+      const isText = a.type?.startsWith('text/') || a.type === 'application/json'
+      if (isText && a.data) {
+        // Arquivos de texto: decodifica e inclui o conteúdo diretamente
+        try {
+          const raw     = atob(extractBase64(a.data))
+          const snippet = raw.length > MAX_TEXT_FILE
+            ? raw.slice(0, MAX_TEXT_FILE) + '\n…(truncado)'
+            : raw
+          lines.push(`\n### ${a.name}\n\`\`\`\n${snippet}\n\`\`\``)
+        } catch {
+          lines.push(`- ${a.name}`)
+        }
+      } else if (a.type === 'application/pdf') {
+        // PDF: nome aqui; conteúdo vai como bloco nativo em buildCachedPayload
+        const b64 = a.data ? extractBase64(a.data) : ''
+        const nota = b64.length > MAX_PDF_B64 ? ' (arquivo muito grande — apenas referenciado)' : ' (PDF — conteúdo incluído abaixo)'
+        lines.push(`- ${a.name}${nota}`)
+      } else if (a.type?.startsWith('image/')) {
+        // Imagem: nome aqui; conteúdo vai como bloco nativo em buildCachedPayload
+        const b64 = a.data ? extractBase64(a.data) : ''
+        const nota = b64.length > MAX_IMAGE_B64 ? ' (imagem muito grande — apenas referenciada)' : ' (imagem — conteúdo incluído abaixo)'
+        lines.push(`- ${a.name}${nota}`)
+      } else {
+        // Outros formatos (.docx, .xlsx…): apenas o nome
+        lines.push(`- ${a.name}`)
+      }
+    })
   }
 
   return lines.join('\n')
+}
+
+/**
+ * Gera blocos nativos da API Anthropic para PDFs e imagens.
+ * Esses blocos são inseridos na mensagem do usuário APÓS o contexto de texto,
+ * permitindo que o Claude leia o conteúdo real dos arquivos.
+ *
+ * @param {Array} attachments — project.attachments[]
+ * @returns {Array} — array de content blocks (document | image)
+ */
+export function buildAttachmentBlocks(attachments = []) {
+  const blocks = []
+  for (const a of attachments) {
+    if (!a.data) continue
+    const b64 = extractBase64(a.data)
+
+    if (a.type === 'application/pdf' && b64.length <= MAX_PDF_B64) {
+      blocks.push({
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data: b64 },
+      })
+    } else if (a.type?.startsWith('image/') && b64.length <= MAX_IMAGE_B64) {
+      blocks.push({
+        type: 'image',
+        source: { type: 'base64', media_type: a.type, data: b64 },
+      })
+    }
+  }
+  return blocks
 }
 
 /**
@@ -95,6 +167,7 @@ export function buildContext(project) {
  * Como funciona:
  * - O system prompt é marcado como ephemeral (cacheable por 5 min)
  * - O contexto do cliente também é marcado como ephemeral
+ * - Blocos de PDF/imagem são inseridos APÓS o contexto (NÃO cacheados — dinâmicos)
  * - A instrução específica NÃO é cacheada (varia a cada geração)
  *
  * Economia real: a partir da 2ª geração no mesmo módulo/cliente na sessão,
@@ -108,6 +181,8 @@ export function buildContext(project) {
  * @returns {{ system: Array, messages: Array }}
  */
 export function buildCachedPayload({ systemPrompt, project, instruction }) {
+  const attBlocks = buildAttachmentBlocks(project.attachments)
+
   return {
     system: [
       {
@@ -125,6 +200,7 @@ export function buildCachedPayload({ systemPrompt, project, instruction }) {
             text: buildContext(project),
             cache_control: { type: 'ephemeral' },
           },
+          ...attBlocks,          // PDFs e imagens como blocos nativos (lidos pelo Claude)
           {
             type: 'text',
             text: instruction,

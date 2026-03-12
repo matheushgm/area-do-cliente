@@ -37,7 +37,7 @@ export default async function handler(req) {
       headers: {
         'x-api-key':          apiKey,
         'anthropic-version':  '2023-06-01',
-        'anthropic-beta':     'prompt-caching-2024-07-31',
+        'anthropic-beta':     'prompt-caching-2024-07-31,pdfs-2024-09-25',
         'content-type':       'application/json',
       },
       body: JSON.stringify(payload),
