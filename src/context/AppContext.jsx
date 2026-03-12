@@ -9,20 +9,6 @@ import { supabase, isSupabaseReady } from "../lib/supabase";
 
 const AppContext = createContext();
 
-// ─── Team Members ─────────────────────────────────────────────────────────────
-const MOCK_USERS = [
-  { id: 1, name: 'Matheus Martins',  email: 'matheus@revenuelab.com',               role: 'admin',   avatar: 'MM' },
-  { id: 2, name: 'Account Manager',  email: 'account@revenuelab.com',               role: 'account', avatar: 'AM' },
-  { id: 3, name: 'Eduardo',          email: 'eduardo@revenuelab.com.br',             role: 'account', avatar: 'ED' },
-  { id: 4, name: 'Victor Zampieri',  email: 'victor.zampieri@revenuelab.com.br',     role: 'account', avatar: 'VZ' },
-  { id: 5, name: 'Mario',            email: 'mario@revenuelab.com.br',               role: 'account', avatar: 'MA' },
-  { id: 6, name: 'Matheus Assis',    email: 'matheus.assis@revenuelab.com.br',       role: 'account', avatar: 'MA' },
-  { id: 7, name: 'André Fontes',     email: 'andre.fontes@revenuelab.com.br',        role: 'account', avatar: 'AF' },
-  { id: 8, name: 'Vitória Martins',  email: 'vitoria.martins@revenuelab.com.br',     role: 'account', avatar: 'VM' },
-]
-
-export { MOCK_USERS }
-
 // Enrich a Supabase auth user with user_metadata
 function enrichUser(authUser) {
   if (!authUser) return null;
