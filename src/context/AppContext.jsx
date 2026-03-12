@@ -208,7 +208,9 @@ export function AppProvider({ children }) {
         localStorage.setItem("rl_projects", JSON.stringify(updated));
         return updated;
       });
-      sbUpsert(project);
+      sbUpsert(project).catch((err) =>
+        console.error("Erro ao salvar projeto no Supabase:", err),
+      );
       return project;
     },
     [user],
@@ -216,12 +218,13 @@ export function AppProvider({ children }) {
 
   const updateProject = useCallback((id, patch) => {
     setProjects((prev) => {
-      const updated = prev.map((p) => {
-        if (p.id !== id) return p;
-        const merged = { ...p, ...patch };
-        sbUpsert(merged);
-        return merged;
-      });
+      const updated = prev.map((p) => (p.id !== id ? p : { ...p, ...patch }));
+      const merged = updated.find((p) => p.id === id);
+      if (merged) {
+        sbUpsert(merged).catch((err) =>
+          console.error("Erro ao atualizar projeto no Supabase:", err),
+        );
+      }
       localStorage.setItem("rl_projects", JSON.stringify(updated));
       return updated;
     });
