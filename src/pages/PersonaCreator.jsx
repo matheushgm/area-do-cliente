@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
 import {
   Plus, Trash2, Loader2, User, Sparkles,
-  AlertTriangle, CheckCircle2, UserPlus, X, Settings, FileDown,
+  AlertTriangle, CheckCircle2, UserPlus, X, FileDown,
 } from 'lucide-react'
 import { exportPersonasPDF } from '../utils/exportPDF'
 import { streamClaude } from '../lib/claude'
@@ -118,7 +118,7 @@ function PersonaResult({ text }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function PersonaCreator({ project, onSave }) {
-  const { anthropicKey: apiKey, updateProject } = useApp()
+  const { updateProject } = useApp()
   const [personas, setPersonas] = useState(() => {
     return project.personas?.length ? project.personas : [newPersona('Persona 1')]
   })
@@ -174,7 +174,6 @@ ${sections.join('\n\n')}`
     setError(null)
     try {
       const profile = await streamClaude({
-        apiKey,
         model: 'claude-sonnet-4-5',
         max_tokens: 4000,
         system: SYSTEM_PROMPT,
@@ -292,29 +291,20 @@ ${sections.join('\n\n')}`
               <Sparkles className="w-4 h-4 text-rl-purple" />
               <p className="text-sm font-semibold text-rl-text">Gerar com IA</p>
             </div>
-            {!apiKey ? (
-              <div className="flex items-center gap-2 text-xs text-rl-gold mt-2">
-                <Settings className="w-3.5 h-3.5 shrink-0" />
-                <span>Configure a chave da API no ícone ⚙️ do menu principal.</span>
-              </div>
-            ) : (
-              <>
-                <p className="text-xs text-rl-muted mb-4">
-                  Preencha as perguntas e clique em gerar para criar o perfil psicológico completo da persona.
-                </p>
-                <button
-                  onClick={generate}
-                  disabled={!hasAnswers || loading}
-                  className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Gerando persona...</>
-                  ) : (
-                    <><Sparkles className="w-4 h-4" /> Gerar Persona com IA</>
-                  )}
-                </button>
-              </>
-            )}
+            <p className="text-xs text-rl-muted mb-4">
+              Preencha as perguntas e clique em gerar para criar o perfil psicológico completo da persona.
+            </p>
+            <button
+              onClick={generate}
+              disabled={!hasAnswers || loading}
+              className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Gerando persona...</>
+              ) : (
+                <><Sparkles className="w-4 h-4" /> Gerar Persona com IA</>
+              )}
+            </button>
           </div>
 
           {/* Error */}

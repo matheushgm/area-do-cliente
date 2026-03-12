@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
   Zap, Plus, Layers, Clock, CheckCircle2,
-  Settings, LogOut, Cloud, CloudOff, Loader2,
+  LogOut, Cloud, CloudOff, Loader2,
   X, Users, UserCog,
 } from 'lucide-react'
 
@@ -23,7 +23,6 @@ const NAV_ITEMS = [
 export default function AppSidebar({
   filter,
   setFilter,
-  onShowSettings,
   counts,           // { all, onboarding, active }
   activeAccounts,   // [{ id, name, avatar }]
   open,             // mobile overlay open
@@ -199,13 +198,6 @@ export default function AppSidebar({
           <p className="text-xs font-semibold text-rl-text leading-none truncate">{user.name.split(' ')[0]}</p>
           <p className="text-[10px] text-rl-muted capitalize mt-0.5">{user.role}</p>
         </div>
-        <button
-          onClick={onShowSettings}
-          className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-          title="Configurações"
-        >
-          <Settings className="w-3.5 h-3.5" />
-        </button>
         <button
           onClick={logout}
           className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"

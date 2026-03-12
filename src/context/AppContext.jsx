@@ -85,11 +85,6 @@ export function AppProvider({ children }) {
   // ── Team members (from profiles table) ────────────────────────────────────
   const [teamMembers, setTeamMembers] = useState([]);
 
-  // ── Anthropic key ─────────────────────────────────────────────────────────
-  const [anthropicKey, setAnthropicKeyState] = useState(
-    () => localStorage.getItem("anthropic_api_key") || "",
-  );
-
   // ── Supabase Auth session restore + listener ───────────────────────────────
   useEffect(() => {
     if (!supabase) return;
@@ -193,11 +188,6 @@ export function AppProvider({ children }) {
   }, []);
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
-  const setAnthropicKey = useCallback((key) => {
-    localStorage.setItem("anthropic_api_key", key);
-    setAnthropicKeyState(key);
-  }, []);
-
   const addProject = useCallback(
     (data) => {
       const project = {
@@ -257,8 +247,6 @@ export function AppProvider({ children }) {
     addProject,
     updateProject,
     deleteProject,
-    anthropicKey,
-    setAnthropicKey,
     isSupabaseReady,
     teamMembers,
   };

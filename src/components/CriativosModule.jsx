@@ -359,7 +359,7 @@ function CreativeHistory({ project, updateProject }) {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function CriativosModule({ project }) {
-  const { anthropicKey, updateProject } = useApp()
+  const { updateProject } = useApp()
 
   const [view,       setView]       = useState('select')   // 'select' | 'estaticos' | 'video'
   const [adTypes,    setAdTypes]    = useState(new Set())
@@ -425,7 +425,6 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
   // ── Generate ────────────────────────────────────────────────────────────────
   const generate = useCallback(async () => {
     if (!adTypes.size) return
-    if (!anthropicKey) { setError('Configure sua chave de API Anthropic nas Configurações.'); return }
     setLoading(true)
     setError(null)
     setResult(null)
@@ -436,7 +435,6 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
         instruction: buildInstruction(),
       })
       const fullText = await streamClaude({
-        apiKey:     anthropicKey,
         model:      'claude-sonnet-4-5',
         max_tokens: Math.max(4000, quantity * (isVideo ? 2500 : 900)),
         system,
@@ -464,7 +462,7 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
     } finally {
       setLoading(false)
     }
-  }, [adTypes, anthropicKey, buildInstruction, customNote, isVideo, project, quantity, selectedList, updateProject])
+  }, [adTypes, buildInstruction, customNote, isVideo, project, quantity, selectedList, updateProject])
 
   // ── View: Select format ────────────────────────────────────────────────────
   if (view === 'select') {
