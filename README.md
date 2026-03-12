@@ -16,12 +16,13 @@ Ao completar as 3 etapas, o projeto se torna um **Perfil Completo** — um docum
 
 ### Funcionalidades
 
-- Autenticação via Supabase
+- Autenticação via Supabase Auth (email/senha + Google OAuth)
 - Dashboard com cards de projetos, stats (em onboarding, ativos, total) e filtros por status ou membro do time
 - Controle de acesso: admins veem todos os projetos; usuários comuns veem apenas os seus
 - IA integrada (Claude API) para geração de personas e ofertas — chave configurável via Settings
 - Sincronização em nuvem via Supabase
 - Exportação de perfis em PDF
+- Gestão de usuários (admin): criar, editar nome/role, desativar/reativar membros do time
 
 ## Stack
 
@@ -36,7 +37,8 @@ Ao completar as 3 etapas, o projeto se torna um **Perfil Completo** — um docum
 area-do-cliente/
 │
 ├── api/
-│   └── anthropic.js          # Serverless function (Vercel) — proxy para a API da Anthropic/Claude
+│   ├── anthropic.js          # Serverless function (Vercel) — proxy para a API da Anthropic/Claude
+│   └── admin-users.js        # Edge Function (Vercel) — operações admin no Supabase Auth
 │
 ├── src/
 │   ├── main.jsx               # Entry point do React
@@ -50,7 +52,8 @@ area-do-cliente/
 │   │   ├── ProjectDetail.jsx  # Detalhes de um projeto/campanha
 │   │   ├── NewOnboarding.jsx  # Fluxo de onboarding de novo cliente
 │   │   ├── OfertaMatadora.jsx # Criador de oferta matadora
-│   │   └── PersonaCreator.jsx # Criador de persona
+│   │   ├── PersonaCreator.jsx # Criador de persona
+│   │   └── UserManagement.jsx # Gestão de usuários do time (admin only)
 │   │
 │   ├── components/            # Componentes reutilizáveis
 │   │   ├── AppSidebar.jsx         # Menu lateral da aplicação
@@ -94,10 +97,58 @@ npm install
 
 # Configurar variáveis de ambiente
 cp .env.example .env
-# Preencha VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY
-
-# Iniciar em desenvolvimento
-npm run dev
+# Preencha SUPABASE_URL, SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY
 ```
 
+Há dois modos de desenvolvimento:
+
+| Comando | Porta | O que serve |
+|---|---|---|
+| `npm run dev` | 5173 | Apenas frontend (sem `/api/*`) |
+| `vercel dev` | 3000 | Frontend + Edge Functions — necessário para IA e gestão de usuários |
+
+> Use `vercel dev` para o desenvolvimento completo. `npm run dev` é suficiente para trabalho exclusivo no frontend.
+
 A chave da API Anthropic pode ser configurada diretamente na interface, em **Settings**, sem necessidade de variável de ambiente.
+
+## Autenticação
+
+O sistema usa **Supabase Auth**. Os 6 usuários do time já estão cadastrados no projeto Supabase com senha padrão `Revenue@lab!`.
+
+Configure no painel do Supabase antes de usar em novo ambiente:
+
+1. **Authentication → Providers → Google** — habilite e configure o Client ID/Secret do Google Cloud Console (opcional)
+2. **Authentication → URL Configuration** — adicione a URL da aplicação em "Redirect URLs" (ex: `http://localhost:3000` para `vercel dev`, ou `http://localhost:5173` se usar apenas `npm run dev`)
+
+### Usuários
+
+| E-mail | Nome | Role |
+|---|---|---|
+| matheus@revenuelab.com.br | Matheus Martins | admin |
+| account@revenuelab.com.br | Account Manager | account |
+| eduardo@revenuelab.com.br | Eduardo | account |
+| victor.zampieri@revenuelab.com.br | Victor Zampieri | account |
+| mario.marques@revenuelab.com.br | Mario Marques | account |
+| matheus.assis@revenuelab.com.br | Matheus Assis | account |
+
+Nome, avatar e role de cada usuário são armazenados em `user_metadata` no Supabase Auth e sincronizados automaticamente na tabela `profiles` a cada login.
+
+## Banco de dados
+
+Tabelas no Supabase:
+
+| Tabela | Descrição |
+|---|---|
+| `projects` | Projetos de onboarding — coluna `data` (JSONB) contém todo o estado do projeto |
+| `profiles` | Perfis do time — colunas `id`, `name`, `email`, `avatar`, `role`, `disabled boolean`, `created_at`; sincronizados do Auth, usados para listagem no Dashboard e gestão de usuários |
+
+### Row Level Security (RLS)
+
+Ambas as tabelas têm RLS habilitado:
+
+| Tabela | Regra |
+|---|---|
+| `projects` | Admins acessam todos os registros; accounts acessam apenas projetos onde `data->>'accountId'` = `auth.uid()` |
+| `profiles` | Qualquer usuário autenticado pode ler todos os perfis; admins podem ler e escrever qualquer perfil (policies `profiles_admin_write` e `profiles_admin_insert`); cada usuário só escreve o próprio |
+
+A role é lida diretamente do token JWT (`auth.jwt() -> 'user_metadata' ->> 'role'`), sem depender de tabela auxiliar.

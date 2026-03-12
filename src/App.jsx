@@ -4,10 +4,17 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import NewOnboarding from './pages/NewOnboarding'
 import ProjectDetail from './pages/ProjectDetail'
+import UserManagement from './pages/UserManagement'
 
 function RequireAuth({ children }) {
   const { user } = useApp()
   return user ? children : <Navigate to="/login" replace />
+}
+
+function RequireAdmin({ children }) {
+  const { user } = useApp()
+  if (!user) return <Navigate to="/login" replace />
+  return user.role === 'admin' ? children : <Navigate to="/" replace />
 }
 
 function AppRoutes() {
@@ -19,6 +26,7 @@ function AppRoutes() {
         <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/onboarding/new" element={<RequireAuth><NewOnboarding /></RequireAuth>} />
         <Route path="/project/:id" element={<RequireAuth><ProjectDetail /></RequireAuth>} />
+        <Route path="/users" element={<RequireAdmin><UserManagement /></RequireAdmin>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

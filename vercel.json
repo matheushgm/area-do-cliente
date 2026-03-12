@@ -1,8 +1,11 @@
 {
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
+  "rewrites": [{ "source": "/((?!api/|@vite|@react-refresh|src/|node_modules/).*)", "destination": "/index.html" }],
   "functions": {
     "api/anthropic.js": {
       "maxDuration": 60
+    },
+    "api/admin-users.js": {
+      "maxDuration": 30
     }
   }
 }

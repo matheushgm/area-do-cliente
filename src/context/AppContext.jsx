@@ -1,7 +1,13 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import { supabase, isSupabaseReady } from '../lib/supabase'
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
+import { supabase, isSupabaseReady } from "../lib/supabase";
 
-const AppContext = createContext()
+const AppContext = createContext();
 
 // ─── Team Members ─────────────────────────────────────────────────────────────
 const MOCK_USERS = [
@@ -17,165 +23,249 @@ const MOCK_USERS = [
 
 export { MOCK_USERS }
 
+// Enrich a Supabase auth user with user_metadata
+function enrichUser(authUser) {
+  if (!authUser) return null;
+  const meta = authUser.user_metadata || {};
+  return {
+    id:     authUser.id,
+    email:  authUser.email,
+    name:   meta.name   || authUser.email.split("@")[0],
+    avatar: meta.avatar || authUser.email.slice(0, 2).toUpperCase(),
+    role:   meta.role   || "account",
+  };
+}
+
 // ─── Supabase helpers ──────────────────────────────────────────────────────────
 async function sbFetchAll() {
-  if (!supabase) return null
+  if (!supabase) return null;
   const { data, error } = await supabase
-    .from('projects')
-    .select('id, data')
-    .order('created_at', { ascending: false })
-  if (error) { console.error('[Supabase] fetch:', error.message); return null }
-  return data.map(row => ({ ...row.data, id: row.id }))
+    .from("projects")
+    .select("id, data")
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("[Supabase] fetch:", error.message);
+    return null;
+  }
+  return data.map((row) => ({ ...row.data, id: row.id }));
 }
 
 async function sbUpsert(project) {
-  if (!supabase) return
-  const { error } = await supabase
-    .from('projects')
-    .upsert({ id: project.id, data: project, updated_at: new Date().toISOString() })
-  if (error) console.error('[Supabase] upsert:', error.message)
+  if (!supabase) return;
+  const { error } = await supabase.from("projects").upsert({
+    id: project.id,
+    data: project,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) console.error("[Supabase] upsert:", error.message);
 }
 
 async function sbDelete(id) {
-  if (!supabase) return
-  const { error } = await supabase.from('projects').delete().eq('id', id)
-  if (error) console.error('[Supabase] delete:', error.message)
+  if (!supabase) return;
+  const { error } = await supabase.from("projects").delete().eq("id", id);
+  if (error) console.error("[Supabase] delete:", error.message);
+}
+
+async function upsertProfile(authUser) {
+  if (!supabase || !authUser) return;
+  const profile = enrichUser(authUser);
+  const { error } = await supabase.from("profiles").upsert({
+    id:     profile.id,
+    name:   profile.name,
+    email:  profile.email,
+    avatar: profile.avatar,
+    role:   profile.role,
+  });
+  if (error) console.error("[Supabase] profile upsert:", error.message);
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export function AppProvider({ children }) {
   // ── Auth ──────────────────────────────────────────────────────────────────
-  const [user, setUser] = useState(() => {
-    try { const s = localStorage.getItem('rl_user'); return s ? JSON.parse(s) : null }
-    catch { return null }
-  })
+  const [user, setUser] = useState(null);
 
   // ── Projects ──────────────────────────────────────────────────────────────
   const [projects, setProjects] = useState(() => {
-    try { const s = localStorage.getItem('rl_projects'); return s ? JSON.parse(s) : [] }
-    catch { return [] }
-  })
+    try {
+      const s = localStorage.getItem("rl_projects");
+      return s ? JSON.parse(s) : [];
+    } catch {
+      return [];
+    }
+  });
 
-  const [loadingProjects, setLoadingProjects] = useState(isSupabaseReady)
+  const [loadingProjects, setLoadingProjects] = useState(isSupabaseReady);
+
+  // ── Team members (from profiles table) ────────────────────────────────────
+  const [teamMembers, setTeamMembers] = useState([]);
 
   // ── Anthropic key ─────────────────────────────────────────────────────────
   const [anthropicKey, setAnthropicKeyState] = useState(
-    () => localStorage.getItem('anthropic_api_key') || ''
-  )
+    () => localStorage.getItem("anthropic_api_key") || "",
+  );
+
+  // ── Supabase Auth session restore + listener ───────────────────────────────
+  useEffect(() => {
+    if (!supabase) return;
+
+    // Restore existing session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(enrichUser(session?.user ?? null));
+    });
+
+    // Keep user in sync (login, logout, token refresh, cross-tab)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(enrichUser(session?.user ?? null));
+      if (event === "SIGNED_IN" && session?.user) {
+        upsertProfile(session.user);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // ── Cloud sync on mount ───────────────────────────────────────────────────
   useEffect(() => {
-    if (!isSupabaseReady) return
-    setLoadingProjects(true)
-    sbFetchAll().then(rows => {
+    if (!isSupabaseReady) return;
+    setLoadingProjects(true);
+    sbFetchAll().then((rows) => {
       if (rows !== null) {
-        setProjects(rows)
-        localStorage.setItem('rl_projects', JSON.stringify(rows))
+        setProjects(rows);
+        localStorage.setItem("rl_projects", JSON.stringify(rows));
       }
-      setLoadingProjects(false)
-    })
-  }, [])
+      setLoadingProjects(false);
+    });
+
+    // Load team members from profiles table
+    supabase.from("profiles").select("*").then(({ data }) => {
+      if (data) setTeamMembers(data);
+    });
+  }, []);
 
   // ── Real-time subscription ─────────────────────────────────────────────────
   useEffect(() => {
-    if (!supabase) return
+    if (!supabase) return;
     const channel = supabase
-      .channel('projects-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => {
-        // Re-fetch on any change from another session
-        sbFetchAll().then(rows => {
-          if (rows !== null) {
-            setProjects(rows)
-            localStorage.setItem('rl_projects', JSON.stringify(rows))
-          }
-        })
-      })
-      .subscribe()
-    return () => supabase.removeChannel(channel)
-  }, [])
+      .channel("projects-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "projects" },
+        () => {
+          sbFetchAll().then((rows) => {
+            if (rows !== null) {
+              setProjects(rows);
+              localStorage.setItem("rl_projects", JSON.stringify(rows));
+            }
+          });
+        },
+      )
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, []);
 
   // ── Auth actions ──────────────────────────────────────────────────────────
-  const login = useCallback((email, password) => {
-    const found = MOCK_USERS.find(
-      u => u.email.toLowerCase() === email.toLowerCase() &&
-           (password === 'Revenue@lab!' || password === 'revenue123')
-    )
-    if (found) {
-      setUser(found)
-      localStorage.setItem('rl_user', JSON.stringify(found))
-      return { ok: true, user: found }
-    }
-    return { ok: false, error: 'E-mail ou senha incorretos.' }
-  }, [])
+  const login = useCallback(async (email, password) => {
+    if (!supabase) return { ok: false, error: "Supabase não configurado." };
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, user: enrichUser(data.user) };
+  }, []);
 
-  const logout = useCallback(() => {
-    setUser(null)
-    localStorage.removeItem('rl_user')
-  }, [])
+  const logout = useCallback(async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+      // onAuthStateChange will call setUser(null)
+    }
+  }, []);
+
+  const loginWithGoogle = useCallback(async () => {
+    if (!supabase) return { ok: false, error: "Supabase não configurado." };
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  }, []);
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
-  const setAnthropicKey = useCallback(key => {
-    localStorage.setItem('anthropic_api_key', key)
-    setAnthropicKeyState(key)
-  }, [])
+  const setAnthropicKey = useCallback((key) => {
+    localStorage.setItem("anthropic_api_key", key);
+    setAnthropicKeyState(key);
+  }, []);
 
-  const addProject = useCallback((data) => {
-    const project = {
-      ...data,
-      id: Date.now(),
-      createdAt: new Date().toISOString(),
-      status: 'onboarding',
-      progress: 0,
-      accountId:   user?.id,
-      accountName: user?.name,
-      completedSteps: [],
-    }
-    setProjects(prev => {
-      const updated = [project, ...prev]
-      localStorage.setItem('rl_projects', JSON.stringify(updated))
-      return updated
-    })
-    sbUpsert(project)
-    return project
-  }, [user])
+  const addProject = useCallback(
+    (data) => {
+      const project = {
+        ...data,
+        id: Date.now(),
+        createdAt: new Date().toISOString(),
+        status: "onboarding",
+        progress: 0,
+        accountId: user?.id,
+        accountName: user?.name,
+        completedSteps: [],
+      };
+      setProjects((prev) => {
+        const updated = [project, ...prev];
+        localStorage.setItem("rl_projects", JSON.stringify(updated));
+        return updated;
+      });
+      sbUpsert(project);
+      return project;
+    },
+    [user],
+  );
 
   const updateProject = useCallback((id, patch) => {
-    setProjects(prev => {
-      const updated = prev.map(p => {
-        if (p.id !== id) return p
-        const merged = { ...p, ...patch }
-        sbUpsert(merged)
-        return merged
-      })
-      localStorage.setItem('rl_projects', JSON.stringify(updated))
-      return updated
-    })
-  }, [])
+    setProjects((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id !== id) return p;
+        const merged = { ...p, ...patch };
+        sbUpsert(merged);
+        return merged;
+      });
+      localStorage.setItem("rl_projects", JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
 
   const deleteProject = useCallback((id) => {
-    setProjects(prev => {
-      const updated = prev.filter(p => p.id !== id)
-      localStorage.setItem('rl_projects', JSON.stringify(updated))
-      return updated
-    })
-    sbDelete(id)
-  }, [])
+    setProjects((prev) => {
+      const updated = prev.filter((p) => p.id !== id);
+      localStorage.setItem("rl_projects", JSON.stringify(updated));
+      return updated;
+    });
+    sbDelete(id);
+  }, []);
 
   // ── Context value ─────────────────────────────────────────────────────────
   const value = {
-    user, projects, loadingProjects,
-    login, logout,
-    addProject, updateProject, deleteProject,
-    anthropicKey, setAnthropicKey,
+    user,
+    projects,
+    loadingProjects,
+    login,
+    logout,
+    loginWithGoogle,
+    addProject,
+    updateProject,
+    deleteProject,
+    anthropicKey,
+    setAnthropicKey,
     isSupabaseReady,
-    teamMembers: MOCK_USERS,
-  }
+    teamMembers,
+  };
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
 export const useApp = () => {
-  const ctx = useContext(AppContext)
-  if (!ctx) throw new Error('useApp must be inside AppProvider')
-  return ctx
-}
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error("useApp must be inside AppProvider");
+  return ctx;
+};

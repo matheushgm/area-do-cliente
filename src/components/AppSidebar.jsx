@@ -1,9 +1,9 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
   Zap, Plus, Layers, Clock, CheckCircle2,
   Settings, LogOut, Cloud, CloudOff, Loader2,
-  X, Users,
+  X, Users, UserCog,
 } from 'lucide-react'
 
 const DOT_COLORS = [
@@ -30,6 +30,7 @@ export default function AppSidebar({
   onClose,
 }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const {
     user, logout,
     loadingProjects, isSupabaseReady,
@@ -112,6 +113,24 @@ export default function AppSidebar({
 
       {/* ── Divider ─────────────────────────────────────── */}
       <div className="border-t border-rl-border mx-1 my-3" />
+
+      {/* ── Admin ────────────────────────────────────────── */}
+      {isAdmin && (
+        <div className="mb-3">
+          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider px-3 mb-1.5">Admin</p>
+          <button
+            onClick={() => { navigate('/users'); onClose() }}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group border ${
+              location.pathname === '/users'
+                ? 'bg-rl-purple/15 text-rl-purple border-rl-purple/25'
+                : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text border-transparent'
+            }`}
+          >
+            <UserCog className={`w-4 h-4 shrink-0 ${location.pathname === '/users' ? 'text-rl-purple' : 'text-rl-muted group-hover:text-rl-text'}`} />
+            Usuários
+          </button>
+        </div>
+      )}
 
       {/* ── Equipe (admin only) ──────────────────────────── */}
       {isAdmin && activeAccounts.length > 0 && (
