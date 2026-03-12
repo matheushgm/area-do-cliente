@@ -113,23 +113,12 @@ A chave da API Anthropic pode ser configurada diretamente na interface, em **Set
 
 ## Autenticação
 
-O sistema usa **Supabase Auth**. Os 6 usuários do time já estão cadastrados no projeto Supabase com senha padrão `Revenue@lab!`.
+O sistema usa **Supabase Auth**. Os usuários do time são gerenciados via painel de administração da aplicação.
 
 Configure no painel do Supabase antes de usar em novo ambiente:
 
 1. **Authentication → Providers → Google** — habilite e configure o Client ID/Secret do Google Cloud Console (opcional)
 2. **Authentication → URL Configuration** — adicione a URL da aplicação em "Redirect URLs" (ex: `http://localhost:3000` para `vercel dev`, ou `http://localhost:5173` se usar apenas `npm run dev`)
-
-### Usuários
-
-| E-mail | Nome | Role |
-|---|---|---|
-| matheus@revenuelab.com.br | Matheus Martins | admin |
-| account@revenuelab.com.br | Account Manager | account |
-| eduardo@revenuelab.com.br | Eduardo | account |
-| victor.zampieri@revenuelab.com.br | Victor Zampieri | account |
-| mario.marques@revenuelab.com.br | Mario Marques | account |
-| matheus.assis@revenuelab.com.br | Matheus Assis | account |
 
 Nome, avatar e role de cada usuário são armazenados em `user_metadata` no Supabase Auth e sincronizados automaticamente na tabela `profiles` a cada login.
 
