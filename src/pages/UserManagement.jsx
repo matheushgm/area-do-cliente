@@ -57,7 +57,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
       <div className="glass-card w-full max-w-md p-6 border border-rl-border animate-slide-up shadow-2xl">
 
         {/* Header */}
@@ -148,7 +148,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
 function ToggleConfirmModal({ user, onConfirm, onClose, saving }) {
   const isDisabling = !user.disabled
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
       <div className={`glass-card w-full max-w-sm p-6 border animate-slide-up shadow-2xl ${
         isDisabling ? 'border-red-500/30' : 'border-rl-green/30'
       }`}>
