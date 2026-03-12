@@ -131,9 +131,16 @@ export function AppProvider({ children }) {
       });
 
     // Load team members from profiles table
-    supabase.from("profiles").select("*").then(({ data }) => {
-      if (data) setTeamMembers(data);
-    });
+    supabase
+      .from("profiles")
+      .select("*")
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Erro ao carregar membros do time:", error);
+          return;
+        }
+        if (data) setTeamMembers(data);
+      });
   }, []);
 
   // ── Real-time subscription ─────────────────────────────────────────────────

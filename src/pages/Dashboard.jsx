@@ -401,10 +401,8 @@ export default function Dashboard() {
       )
     : filteredProjects
 
-  // Accounts that have at least one project (for sidebar team list)
-  const activeAccounts = teamMembers.filter(m =>
-    baseProjects.some(p => String(p.accountId) === String(m.id))
-  )
+  // All active (non-disabled) team members appear in the sidebar filter
+  const activeAccounts = teamMembers.filter(m => !m.disabled)
 
   // Counts for sidebar nav
   const counts = {
