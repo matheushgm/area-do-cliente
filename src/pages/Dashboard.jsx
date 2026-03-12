@@ -20,6 +20,32 @@ function fmtCurrency(n) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
 
+// ─── Creator badge ─────────────────────────────────────────────────────────────
+const CREATOR_COLORS = [
+  { bg: 'bg-rl-purple/15', text: 'text-rl-purple', avatar: 'bg-rl-purple' },
+  { bg: 'bg-rl-blue/15',   text: 'text-rl-blue',   avatar: 'bg-rl-blue'   },
+  { bg: 'bg-rl-green/15',  text: 'text-rl-green',  avatar: 'bg-rl-green'  },
+  { bg: 'bg-rl-cyan/15',   text: 'text-rl-cyan',   avatar: 'bg-rl-cyan'   },
+  { bg: 'bg-rl-gold/15',   text: 'text-rl-gold',   avatar: 'bg-rl-gold'   },
+  { bg: 'bg-red-500/15',   text: 'text-red-400',   avatar: 'bg-red-400'   },
+]
+
+function CreatorBadge({ accountName, accountId }) {
+  if (!accountName) return null
+  const c = CREATOR_COLORS[Number(accountId || 0) % CREATOR_COLORS.length]
+  const parts    = accountName.trim().split(' ')
+  const initials = parts.slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
+  const display  = parts.length > 1 ? `${parts[0]} ${parts[1][0]}.` : parts[0]
+  return (
+    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg ${c.bg}`}>
+      <div className={`w-5 h-5 rounded-full ${c.avatar} flex items-center justify-center text-[9px] font-bold text-white shrink-0`}>
+        {initials}
+      </div>
+      <span className={`text-xs font-semibold ${c.text} whitespace-nowrap`}>{display}</span>
+    </div>
+  )
+}
+
 function ProjectCard({ project, onClick, onDelete }) {
   const daysSince = Math.floor(
     (Date.now() - new Date(project.createdAt).getTime()) / 86400000
@@ -51,16 +77,20 @@ function ProjectCard({ project, onClick, onDelete }) {
         <Trash2 className="w-3.5 h-3.5" />
       </button>
 
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <h3 className="font-semibold text-rl-text group-hover:text-white transition-colors">
-            {project.companyName}
-          </h3>
-          <p className="text-rl-muted text-xs mt-0.5">{project.responsibleName} · {project.responsibleRole}</p>
-        </div>
-        <span className={`text-xs font-medium px-2.5 py-1 rounded-full border mr-7 ${statusColor}`}>
+      {/* Header */}
+      <div className="flex items-start justify-between mb-1">
+        <h3 className="font-semibold text-rl-text group-hover:text-rl-purple transition-colors leading-tight">
+          {project.companyName}
+        </h3>
+        <span className={`text-xs font-medium px-2.5 py-1 rounded-full border mr-7 shrink-0 ml-2 ${statusColor}`}>
           {statusLabel}
         </span>
+      </div>
+      <p className="text-rl-muted text-xs mb-3">{project.responsibleName}{project.responsibleRole ? ` · ${project.responsibleRole}` : ''}</p>
+
+      {/* Creator badge */}
+      <div className="mb-3">
+        <CreatorBadge accountName={project.accountName} accountId={project.accountId} />
       </div>
 
       {/* Progress */}
@@ -89,10 +119,6 @@ function ProjectCard({ project, onClick, onDelete }) {
             <span>{daysLeft > 0 ? `${daysLeft}d restantes` : 'Vencido'}</span>
           </div>
         )}
-        <div className="flex items-center gap-1">
-          <User className="w-3 h-3" />
-          <span>{project.accountName?.split(' ')[0]}</span>
-        </div>
       </div>
     </div>
   )
@@ -121,24 +147,29 @@ function ClientProfileCard({ project, onClick, onDelete }) {
       </button>
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between mb-1">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-rl-green/10 flex items-center justify-center shrink-0">
             <FileText className="w-4 h-4 text-rl-green" />
           </div>
-          <div>
-            <h3 className="font-semibold text-rl-text group-hover:text-white transition-colors">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-rl-text group-hover:text-rl-purple transition-colors truncate">
               {project.companyName}
             </h3>
-            <p className="text-rl-muted text-xs mt-0.5">
+            <p className="text-rl-muted text-xs mt-0.5 truncate">
               {project.businessType && <span className="mr-1">{project.businessType} ·</span>}
               {project.responsibleName}
             </p>
           </div>
         </div>
-        <span className="text-xs font-medium px-2.5 py-1 rounded-full border text-rl-green bg-rl-green/10 border-rl-green/30 whitespace-nowrap mr-7">
+        <span className="text-xs font-medium px-2.5 py-1 rounded-full border text-rl-green bg-rl-green/10 border-rl-green/30 whitespace-nowrap mr-7 shrink-0 ml-2">
           Perfil Completo
         </span>
+      </div>
+
+      {/* Creator badge */}
+      <div className="mt-3 mb-3">
+        <CreatorBadge accountName={project.accountName} accountId={project.accountId} />
       </div>
 
       {/* Chips de resumo */}
@@ -172,10 +203,6 @@ function ClientProfileCard({ project, onClick, onDelete }) {
         <div className="flex items-center gap-1 text-rl-green/70">
           <CheckCircle2 className="w-3 h-3" />
           <span>Documentação completa</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <User className="w-3 h-3" />
-          <span>{project.accountName?.split(' ')[0]}</span>
         </div>
       </div>
     </div>
@@ -344,10 +371,8 @@ export default function Dashboard() {
 
   const isAdmin = user?.role === 'admin'
 
-  // Admin sees all; regular users see only their own
-  const baseProjects = isAdmin
-    ? projects
-    : projects.filter((p) => p.accountId === user?.id)
+  // Everyone sees all projects
+  const baseProjects = projects
 
   // Apply filter
   const visibleProjects = (() => {
@@ -415,7 +440,7 @@ export default function Dashboard() {
         setFilter={setFilter}
         onShowSettings={() => setShowSettings(true)}
         counts={counts}
-        activeAccounts={isAdmin ? activeAccounts : []}
+        activeAccounts={activeAccounts}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -460,18 +485,16 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* Admin badge */}
-          {isAdmin && (
-            <div
-              className="flex items-center gap-2 animate-slide-up"
-              style={{ animationDelay: '0.03s' }}
-            >
-              <Eye className="w-3.5 h-3.5 text-rl-purple" />
-              <p className="text-xs text-rl-purple font-medium">
-                Visão Admin — {projects.length} projeto{projects.length !== 1 ? 's' : ''} no workspace
-              </p>
-            </div>
-          )}
+          {/* Workspace badge */}
+          <div
+            className="flex items-center gap-2 animate-slide-up"
+            style={{ animationDelay: '0.03s' }}
+          >
+            <Eye className="w-3.5 h-3.5 text-rl-purple" />
+            <p className="text-xs text-rl-purple font-medium">
+              {isAdmin ? 'Visão Admin' : 'Visão Geral'} — {projects.length} projeto{projects.length !== 1 ? 's' : ''} no workspace
+            </p>
+          </div>
 
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up" style={{ animationDelay: '0.05s' }}>
