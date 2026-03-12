@@ -30,9 +30,17 @@ const CREATOR_COLORS = [
   { bg: 'bg-red-500/15',   text: 'text-red-400',   avatar: 'bg-red-400'   },
 ]
 
+// Funciona com IDs numéricos antigos (1, 2...) e UUIDs do Supabase
+function hashId(id) {
+  if (!id) return 0
+  const n = Number(id)
+  if (!isNaN(n) && isFinite(n)) return n
+  return String(id).split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+}
+
 function CreatorBadge({ accountName, accountId }) {
   if (!accountName) return null
-  const c = CREATOR_COLORS[Number(accountId || 0) % CREATOR_COLORS.length]
+  const c = CREATOR_COLORS[hashId(accountId) % CREATOR_COLORS.length]
   const parts    = accountName.trim().split(' ')
   const initials = parts.slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
   const display  = parts.length > 1 ? `${parts[0]} ${parts[1][0]}.` : parts[0]
