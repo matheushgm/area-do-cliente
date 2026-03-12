@@ -132,8 +132,8 @@ export default function AppSidebar({
         </div>
       )}
 
-      {/* ── Equipe (admin only) ──────────────────────────── */}
-      {isAdmin && activeAccounts.length > 0 && (
+      {/* ── Equipe ───────────────────────────────────────── */}
+      {activeAccounts.length > 0 && (
         <div className="mb-3">
           <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider px-3 mb-1.5 flex items-center gap-1.5">
             <Users className="w-3 h-3" />
