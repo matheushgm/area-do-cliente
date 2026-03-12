@@ -129,6 +129,7 @@ export function AppProvider({ children }) {
     supabase
       .from("profiles")
       .select("*")
+      .eq("disabled", false)
       .then(({ data, error }) => {
         if (error) {
           console.error("Erro ao carregar membros do time:", error);
