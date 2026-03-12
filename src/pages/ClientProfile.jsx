@@ -4,7 +4,7 @@ import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays, ChevronRight, Building2,
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
-  Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers,
+  Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -17,6 +17,7 @@ import ResultadosModule from '../components/ResultadosModule'
 import MetaLabModule from '../components/MetaLabModule'
 import GoogleAdsModule from '../components/GoogleAdsModule'
 import EstrategiaModule from '../components/EstrategiaModule'
+import BancoMidiaModule from '../components/BancoMidiaModule'
 import { exportOnboardingPDF } from '../utils/exportPDF'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -366,6 +367,7 @@ export default function ClientProfile({ project: projectProp }) {
   const hasCampaignPlan = !!(project.campaignPlan?.totalBudget > 0 && project.campaignPlan?.channels?.length > 0)
   const hasGoogleAds    = (project.googleAds || []).length > 0
   const hasEstrategia   = !!project.estrategia?.narrativa
+  const hasBancoMidia   = !!(project.brandKit?.logo || (project.brandKit?.cores || []).length > 0 || (project.brandFotos || []).length > 0 || (project.brandVideos || []).length > 0)
   const hasAnexos       = (project.attachments || []).length > 0
   const hasLandingPages = (project.landingPages || []).length > 0
   const hasResultados   = !!project.resultados?.modelo
@@ -642,7 +644,27 @@ export default function ClientProfile({ project: projectProp }) {
           onClick={() => setOpenModal('googleads')}
         />
 
-        {/* 12. Estratégia Digital */}
+        {/* 12. Banco de Imagens e Vídeos */}
+        <SectionCard
+          icon={ImagePlay}
+          iconColor="text-rl-blue"
+          iconBg="bg-rl-blue/10"
+          title="Banco de Imagens e Vídeos"
+          preview={
+            hasBancoMidia
+              ? [
+                  (project.brandKit?.cores || []).length > 0 && `${project.brandKit.cores.length} cor${project.brandKit.cores.length !== 1 ? 'es' : ''}`,
+                  (project.brandFotos || []).length > 0 && `${project.brandFotos.length} foto${project.brandFotos.length !== 1 ? 's' : ''}`,
+                  (project.brandVideos || []).length > 0 && `${project.brandVideos.length} vídeo${project.brandVideos.length !== 1 ? 's' : ''}`,
+                ].filter(Boolean).join(' · ')
+              : 'Logo, paleta de cores, fontes, fotos e vídeos da marca'
+          }
+          badge={hasBancoMidia ? 'Preenchido' : null}
+          badgeColor="text-rl-blue bg-rl-blue/10 border-rl-blue/20"
+          onClick={() => setOpenModal('bancomídia')}
+        />
+
+        {/* 13. Estratégia Digital */}
         <SectionCard
           icon={Layers}
           iconColor="text-rl-purple"
@@ -724,6 +746,12 @@ export default function ClientProfile({ project: projectProp }) {
       {openModal === 'googleads' && (
         <Modal title="Google Ads com IA" icon={Search} iconColor="text-rl-cyan" onClose={() => setOpenModal(null)}>
           <GoogleAdsModule project={project} />
+        </Modal>
+      )}
+
+      {openModal === 'bancomídia' && (
+        <Modal title="Banco de Imagens e Vídeos" icon={ImagePlay} iconColor="text-rl-blue" onClose={() => setOpenModal(null)}>
+          <BancoMidiaModule project={project} />
         </Modal>
       )}
 

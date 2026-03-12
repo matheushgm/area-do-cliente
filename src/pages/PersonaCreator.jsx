@@ -5,6 +5,7 @@ import {
   AlertTriangle, CheckCircle2, UserPlus, X, Settings, FileDown,
 } from 'lucide-react'
 import { exportPersonasPDF } from '../utils/exportPDF'
+import { streamClaude } from '../lib/claude'
 
 // ─── Questions ────────────────────────────────────────────────────────────────
 const QUESTIONS = [
@@ -123,6 +124,7 @@ export default function PersonaCreator({ project, onSave }) {
   })
   const [activeIdx, setActiveIdx] = useState(0)
   const [loading, setLoading]     = useState(false)
+  const [streaming, setStreaming] = useState('')
   const [error, setError]         = useState(null)
 
   const persona = personas[activeIdx]
@@ -168,25 +170,20 @@ ${sections.join('\n\n')}`
 
   const generate = async () => {
     setLoading(true)
+    setStreaming('')
     setError(null)
     try {
-      const res = await fetch('/api/anthropic', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          apiKey,
-          model: 'claude-sonnet-4-5',
-          max_tokens: 4000,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: buildPrompt() }],
-        }),
+      const profile = await streamClaude({
+        apiKey,
+        model: 'claude-sonnet-4-5',
+        max_tokens: 4000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: buildPrompt() }],
+        onChunk: (text) => setStreaming(text),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error?.message || `Erro ${res.status}`)
-      const profile = data.content[0].text
       const updatedPersonas = personas.map((p, i) => i === activeIdx ? { ...p, generatedProfile: profile } : p)
       setPersonas(updatedPersonas)
-      // Auto-save so the generated profile persists when modal closes
+      setStreaming('')
       updateProject(project.id, { personas: updatedPersonas })
     } catch (e) {
       setError(e.message)
@@ -196,7 +193,7 @@ ${sections.join('\n\n')}`
   }
 
   const hasAnswers = QUESTIONS.some((q) => (persona.answers[q.id] || []).some((a) => a.trim()))
-  const currentProfile = persona.generatedProfile
+  const currentProfile = streaming || persona.generatedProfile
 
   return (
     <div className="space-y-6">
