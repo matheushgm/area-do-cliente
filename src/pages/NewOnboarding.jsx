@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
@@ -282,6 +282,26 @@ function FileUpload({ label, file, onChange, description }) {
   )
 }
 
+// ─── Draft persistence ────────────────────────────────────────────────────────
+const DRAFT_KEY = 'rl_new_onboarding_draft'
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function saveDraft(form, step, completedSteps) {
+  // File objects não são serializáveis — excluir do rascunho
+  const { raioXFile, slaFile, ...rest } = form
+  localStorage.setItem(DRAFT_KEY, JSON.stringify({ form: rest, step, completedSteps }))
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY)
+}
+
 // ─── Initial form state ───────────────────────────────────────────────────────
 const initialForm = {
   // Step 1 — Empresa
@@ -319,11 +339,19 @@ export default function NewOnboarding() {
   const { addProject } = useApp()
   const navigate = useNavigate()
 
-  const [step, setStep]                   = useState(0)
-  const [form, setForm]                   = useState(initialForm)
+  const draft = loadDraft()
+  const [step, setStep]                   = useState(draft?.step ?? 0)
+  const [form, setForm]                   = useState(draft?.form ? { ...initialForm, ...draft.form } : initialForm)
   const [errors, setErrors]               = useState({})
   const [done, setDone]                   = useState(false)
-  const [completedSteps, setCompletedSteps] = useState([])
+  const [completedSteps, setCompletedSteps] = useState(draft?.completedSteps ?? [])
+  const [hasDraft]                        = useState(!!draft?.form?.companyName)
+
+  // Auto-save rascunho a cada mudança
+  useEffect(() => {
+    if (done) return
+    saveDraft(form, step, completedSteps)
+  }, [form, step, completedSteps, done])
 
   const set = useCallback((field, value) => {
     setForm((f) => ({ ...f, [field]: value }))
@@ -407,6 +435,7 @@ export default function NewOnboarding() {
         raioXFileName:       form.raioXFile?.name ?? null,
         slaFileName:         form.slaFile?.name ?? null,
       })
+      clearDraft()
       setDone(true)
     } else {
       setStep(step + 1)
@@ -444,7 +473,7 @@ export default function NewOnboarding() {
               <ArrowLeft className="w-4 h-4" /> Dashboard
             </button>
             <button
-              onClick={() => { setForm(initialForm); setStep(0); setDone(false); setCompletedSteps([]) }}
+              onClick={() => { clearDraft(); setForm(initialForm); setStep(0); setDone(false); setCompletedSteps([]) }}
               className="btn-primary flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> Novo Onboarding
@@ -485,6 +514,23 @@ export default function NewOnboarding() {
           </div>
         </div>
       </div>
+
+      {/* ── Draft banner ────────────────────────────────────────────────────── */}
+      {hasDraft && (
+        <div className="max-w-2xl mx-auto px-6 pt-4">
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-rl-purple/10 border border-rl-purple/20">
+            <p className="text-xs text-rl-purple font-medium">
+              📋 Rascunho recuperado — continuando de onde você parou.
+            </p>
+            <button
+              onClick={() => { clearDraft(); setForm(initialForm); setStep(0); setCompletedSteps([]) }}
+              className="text-xs text-rl-muted hover:text-rl-text transition-colors whitespace-nowrap"
+            >
+              Limpar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Step indicators ─────────────────────────────────────────────────── */}
       <div className="max-w-2xl mx-auto px-6 pt-6 pb-2">
