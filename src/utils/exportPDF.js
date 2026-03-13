@@ -1241,7 +1241,8 @@ const V2_CSS = `
 export function exportEstrategiaV2PDF(project, data) {
   const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
-  const { problemas = [], swot = {}, concorrentes = [], riscos = [], funis = [] } = data
+  const { problemas = [], swot = {}, concorrentes = [], riscos = [], funis = [],
+          roiResult = null, roiCalc = null } = data
   const personas     = project.personas     || []
   const campaignPlan = project.campaignPlan || null
   const totalBudget  = campaignPlan?.orcamentoTotal || campaignPlan?.totalBudget || 0
@@ -1249,6 +1250,11 @@ export function exportEstrategiaV2PDF(project, data) {
   function fmtBudget(n) {
     if (!n || !isFinite(n) || isNaN(n)) return '—'
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+  }
+  function fmtN(n) {
+    if (n == null || isNaN(n)) return '—'
+    if (!isFinite(n)) return '∞'
+    return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
   }
 
   // ── Cover ──────────────────────────────────────────────────────────────────
@@ -1396,10 +1402,73 @@ export function exportEstrategiaV2PDF(project, data) {
         </div>
       ` : '<div class="empty-state">Nenhum funil selecionado.</div>'}`
 
+  // ── Metas do Funil (ROI) ─────────────────────────────────────────────────
+  let metasHTML = `<div class="section page-break"><div class="section-title">07 · Metas do Funil (ROI)</div>`
+
+  if (!roiResult) {
+    metasHTML += '<div class="empty-state">Calculadora de ROI não preenchida.</div>'
+  } else {
+    const nivelLiquidoClass = roiResult.lucroLiquido >= 0 ? 'color:#16A34A' : 'color:#DC2626'
+    metasHTML += `
+      <!-- KPI strip -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+        <tr>
+          ${[
+            { label: 'ROI Desejado',    value: roiCalc?.roiDesejado != null ? `${roiCalc.roiDesejado}%` : '—', style: 'color:#7C3AED;font-weight:800' },
+            { label: 'Total Investido', value: fmtBudget(roiResult.totalInvestimento), style: 'color:#1a1a2e;font-weight:800' },
+            { label: 'Faturamento Alvo',value: fmtBudget(roiResult.faturamento),       style: 'color:#2563EB;font-weight:800' },
+            { label: 'Lucro Líquido',   value: fmtBudget(roiResult.lucroLiquido),      style: nivelLiquidoClass+';font-weight:800' },
+          ].map(k => `<td style="text-align:center;padding:10px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px">
+            <div style="font-size:11px;color:#94A3B8;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">${k.label}</div>
+            <div style="font-size:15px;${k.style}">${k.value}</div>
+          </td>`).join('<td style="width:8px"></td>')}
+        </tr>
+      </table>
+
+      <!-- Funil step -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+        <thead>
+          <tr>
+            ${['Leads', 'MQLs', 'SQLs', 'Vendas'].map(h => `<th style="text-align:center;padding:6px;font-size:10px;color:#64748B;font-weight:800;text-transform:uppercase;letter-spacing:.07em;border-bottom:2px solid #E2E8F0">${h}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            ${[
+              { value: roiResult.leadsNecessarios,  cost: roiResult.custoPorLead, label: 'CPL',  rate: null, color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+              { value: roiResult.mqlsNecessarios,   cost: roiResult.custoPorMQL,  label: 'C.MQL', rate: roiCalc?.taxaLead2MQL, color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
+              { value: roiResult.sqlsNecessarios,   cost: roiResult.custoPorSQL,  label: 'C.SQL', rate: roiCalc?.taxaMQL2SQL,  color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
+              { value: roiResult.vendasNecessarias, cost: roiResult.cac,          label: 'CAC',  rate: roiCalc?.taxaSQL2Venda, color: '#16A34A', bg: '#F0FDF4', border: '#86EFAC' },
+            ].map(s => `<td style="text-align:center;padding:10px 6px;background:${s.bg};border:1px solid ${s.border};border-radius:6px">
+              <div style="font-size:22px;font-weight:900;color:${s.color}">${fmtN(s.value)}</div>
+              <div style="font-size:11px;font-weight:700;color:${s.color};margin-top:1px">${fmtBudget(s.cost)}<br><span style="font-size:9px;color:#94A3B8">${s.label}</span></div>
+              ${s.rate != null ? `<div style="font-size:9px;color:#94A3B8;margin-top:3px">${s.rate}% conv.</div>` : ''}
+            </td>`).join('<td style="width:6px;text-align:center;color:#CBD5E1;font-size:14px">→</td>')}
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Financeiro -->
+      <table style="width:100%;border-collapse:collapse">
+        <tr>
+          ${[
+            { label: 'Lucro Bruto',        value: fmtBudget(roiResult.lucroBruto),      style: 'color:#0891B2' },
+            { label: 'CAC (mídia)',         value: fmtBudget(roiResult.cac),             style: 'color:#B45309' },
+            { label: 'Breakeven (vendas)',  value: fmtN(roiResult.vendasBreakeven),      style: 'color:#1a1a2e' },
+            { label: 'Lucro/Venda',        value: fmtBudget(roiResult.lucroPorVenda),   style: 'color:#16A34A' },
+          ].map(k => `<td style="text-align:center;padding:8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px">
+            <div style="font-size:10px;color:#94A3B8;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">${k.label}</div>
+            <div style="font-size:13px;font-weight:800;${k.style}">${k.value}</div>
+          </td>`).join('<td style="width:6px"></td>')}
+        </tr>
+      </table>`
+  }
+  metasHTML += '</div>'
+
   // ── Campanhas ─────────────────────────────────────────────────────────────
   let campanhasHTML = `
     <div class="section page-break">
-      <div class="section-title">07 · Planejamento de Campanhas por Canais</div>`
+      <div class="section-title">08 · Planejamento de Campanhas por Canais</div>`
 
   if (!campaignPlan || !campaignPlan.channels?.length) {
     campanhasHTML += '<div class="empty-state">Planejamento de campanhas não preenchido.</div>'
@@ -1459,6 +1528,7 @@ export function exportEstrategiaV2PDF(project, data) {
     ${riscosHTML}
     ${icpsHTML}
     ${funisHTML}
+    ${metasHTML}
     ${campanhasHTML}
     ${footer}
   </div>
