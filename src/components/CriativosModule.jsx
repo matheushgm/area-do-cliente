@@ -42,13 +42,9 @@ Sua missão é criar anúncios de alta conversão seguindo a metodologia ADIG:
 - I: Indicar um intervalo de tempo
 - G: Garantia ou palavra de força
 
-Antes de criar os anúncios, gere uma ANÁLISE RÁPIDA DO PÚBLICO:
-**Problemas mais comuns:** [liste 5 problemas específicos]
-**Sonhos e vontades:** [liste 5 desejos pós-solução]
-**Principais objeções:** [liste 5 objeções à compra]
-**Situações constrangedoras:** [liste 3 situações de dor do público]
+Use as informações de público-alvo, personas e oferta já fornecidas no contexto do cliente para personalizar cada anúncio. Não gere análise de público — vá direto aos criativos.
 
-Em seguida, crie cada anúncio com a seguinte estrutura obrigatória:
+Crie cada anúncio com a seguinte estrutura obrigatória:
 
 ## ANÚNCIO [N] — [Tipo] | [Etapa do Funil]
 
@@ -79,13 +75,9 @@ const VIDEO_SYSTEM = `Você é um especialista em roteiros de vídeos de anúnci
 
 Os vídeos têm duração entre 30 e 60 segundos e são criados para Meta Ads e YouTube Ads.
 
-Antes de criar os roteiros, gere uma ANÁLISE RÁPIDA DO PÚBLICO:
-**Problemas mais comuns:** [liste 5 problemas específicos]
-**Sonhos e vontades:** [liste 5 desejos pós-solução]
-**Principais objeções:** [liste 5 objeções]
-**Situações constrangedoras:** [liste 3 situações de dor]
+Use as informações de público-alvo, personas e oferta já fornecidas no contexto do cliente para personalizar cada roteiro. Não gere análise de público — vá direto aos roteiros.
 
-Em seguida, crie cada roteiro seguindo a ESTRUTURA DO LABORATÓRIO DE ANÚNCIOS (4 etapas):
+Crie cada roteiro seguindo a ESTRUTURA DO LABORATÓRIO DE ANÚNCIOS (4 etapas):
 
 ## ROTEIRO [N] — Gancho: [Tipo] | [Etapa do Funil]
 
@@ -426,7 +418,7 @@ ${typesStr}
 
 Distribua os tipos entre os anúncios de forma equilibrada, cobrindo diferentes etapas do funil quando possível. Se houver mais anúncios do que tipos, crie variações do mesmo tipo.
 
-Use todas as informações do cliente acima para personalizar ao máximo. Comece com a análise rápida do público antes de criar os anúncios.`
+Use todas as informações do cliente acima para personalizar ao máximo.`
     }
   }, [customNote, isVideo, quantity, selectedList])
 
