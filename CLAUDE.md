@@ -31,11 +31,11 @@ Crie um `.env` a partir de `.env.example`:
 SUPABASE_URL=...
 SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...   # apenas para api/admin-users.js
+ANTHROPIC_API_KEY=sk-ant-...    # lida apenas pelo servidor (api/anthropic.js)
 ```
 
-O Vite expõe `SUPABASE_URL` e `SUPABASE_ANON_KEY` ao browser via `define` em `vite.config.js`. `SUPABASE_SERVICE_ROLE_KEY` fica apenas no servidor (Edge Function) e nunca é exposto ao cliente.
-
-A chave da Anthropic (`sk-ant-...`) **não vai para o `.env`** — é configurada pelo usuário na interface (Settings) e salva no `localStorage`.
+- `SUPABASE_URL` e `SUPABASE_ANON_KEY` são expostas ao browser via `define` no `vite.config.js`
+- `SUPABASE_SERVICE_ROLE_KEY` e `ANTHROPIC_API_KEY` ficam exclusivamente no servidor — nunca usar prefixo `VITE_`
 
 ## Arquitetura
 
@@ -56,12 +56,18 @@ O projeto é um SPA React com 5 rotas:
 Todo o estado da aplicação vive em `src/context/AppContext.jsx`. Ele expõe:
 
 - `user` / `login` / `logout` / `loginWithGoogle` — autenticação via Supabase Auth; sessão gerenciada por JWT (Supabase). **Supabase é obrigatório** — não há fallback mock.
+- `loadingAuth` — `true` até `getSession()` resolver; `RequireAuth` e `RequireAdmin` retornam `null` enquanto `true`, evitando redirect prematuro no callback OAuth (PKCE flow)
+- `authError` — string de erro de autenticação; setada quando `SIGNED_IN` ocorre para um usuário sem perfil em `profiles`
 - `projects` / `addProject` / `updateProject` / `deleteProject` — CRUD de projetos
-- `anthropicKey` / `setAnthropicKey` — chave da API salva em `localStorage`
-- `teamMembers` — array de perfis do time, buscado da tabela `profiles` no Supabase
+- `teamMembers` — array de perfis do time com `disabled=false`, buscado da tabela `profiles`
 - `loadingProjects` / `isSupabaseReady` — estado de sincronização com a nuvem
 
-**Persistência dupla:** toda mutação salva em `localStorage` (offline-first) e faz upsert/delete no Supabase em paralelo. Na montagem, se o Supabase estiver configurado, os dados da nuvem sobrescrevem o `localStorage`. Há também um listener de realtime (`postgres_changes`) que re-sincroniza quando outro dispositivo faz alterações.
+### Persistência e sincronização
+
+- **Offline-first:** toda mutação salva em `localStorage` imediatamente
+- **Debounce:** `updateProject` tem debounce de 1s por `id` antes de escrever no Supabase (via `upsertTimers` ref)
+- **Race condition:** `pendingWrites` ref contador — o listener de realtime ignora eventos enquanto há escritas locais pendentes
+- **Realtime granular:** listener usa handlers separados por evento (`INSERT`/`UPDATE`/`DELETE`), atualizando apenas o registro afetado no state local
 
 ### Jornada de onboarding (`ProjectDetail`)
 
@@ -75,8 +81,9 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
 
 ### IA (Claude API)
 
-- `src/lib/claude.js` — função `streamClaude()` que faz POST para `/api/anthropic` com SSE streaming
-- `api/anthropic.js` — Vercel Edge Function que faz proxy para `api.anthropic.com`, mantendo o streaming passthrough. A `apiKey` vai no body da requisição (nunca em variável de ambiente do servidor)
+- `src/lib/claude.js` — `streamClaude()` faz POST para `/api/anthropic` com SSE streaming; não transmite nem recebe apiKey
+- `api/anthropic.js` — Vercel Edge Function; lê `process.env.ANTHROPIC_API_KEY` e faz proxy para `api.anthropic.com`
+- Renderização de output da IA: `react-markdown` + `rehype-sanitize` (sem `dangerouslySetInnerHTML`)
 - Em desenvolvimento local, use `vercel dev`; o Vite puro (`npm run dev`) não serve `/api/*` e a IA não funcionará
 
 ### Supabase
@@ -95,11 +102,17 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
 - `logout()` → `supabase.auth.signOut()`
 - Sessão restaurada no mount via `getSession()` e mantida em sync via `onAuthStateChange()`
 - Nome, avatar e role do usuário vêm de `user_metadata` no Supabase Auth (campo `raw_user_meta_data`)
-- A cada login (`SIGNED_IN`), `upsertProfile()` sincroniza os metadados na tabela `profiles`
+- `syncProfileIfExists(authUser)` — chamada a cada `SIGNED_IN`; consulta `profiles` por `id`; se não encontrar, faz `signOut()` e seta `authError`; se encontrar, atualiza `name`/`email`/`avatar` (não altera `role`)
+- `loadingAuth` previne que `RequireAuth` redirecione antes do PKCE code exchange completar
 - Os 6 usuários do time já estão criados no projeto Supabase — não é necessário recriar
 - **Configuração ao usar em novo ambiente:**
   - Authentication → Providers → Google: habilitar e configurar Client ID/Secret
-  - Authentication → URL Configuration: adicionar domínio em "Redirect URLs"
+  - Supabase → Authentication → Redirect URLs: adicionar URL raiz **e** wildcard (ex: `http://localhost:3000` e `http://localhost:3000/**`)
+  - Google Cloud Console → OAuth Client → URIs de redirecionamento: `https://<projeto>.supabase.co/auth/v1/callback`
+
+### Draft de onboarding
+
+`NewOnboarding` persiste rascunho em `localStorage` sob a chave `rl_onboarding_draft`; restaurado automaticamente na próxima visita.
 
 ### Gestão de Usuários
 
