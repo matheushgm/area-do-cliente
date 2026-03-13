@@ -167,14 +167,39 @@ export function AppProvider({ children }) {
       .channel("projects-realtime")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "projects" },
-        () => {
+        { event: "INSERT", schema: "public", table: "projects" },
+        ({ new: row }) => {
           if (pendingWrites.current > 0) return;
-          sbFetchAll().then((rows) => {
-            if (rows !== null) {
-              setProjects(rows);
-              localStorage.setItem("rl_projects", JSON.stringify(rows));
-            }
+          const project = { ...row.data, id: row.id };
+          setProjects((prev) => {
+            const updated = [project, ...prev];
+            localStorage.setItem("rl_projects", JSON.stringify(updated));
+            return updated;
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "projects" },
+        ({ new: row }) => {
+          if (pendingWrites.current > 0) return;
+          const project = { ...row.data, id: row.id };
+          setProjects((prev) => {
+            const updated = prev.map((p) => (String(p.id) === String(row.id) ? project : p));
+            localStorage.setItem("rl_projects", JSON.stringify(updated));
+            return updated;
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "projects" },
+        ({ old: row }) => {
+          if (pendingWrites.current > 0) return;
+          setProjects((prev) => {
+            const updated = prev.filter((p) => String(p.id) !== String(row.id));
+            localStorage.setItem("rl_projects", JSON.stringify(updated));
+            return updated;
           });
         },
       )
