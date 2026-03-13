@@ -45,8 +45,9 @@ export default async function handler(req) {
     })
 
   } catch (err) {
+    console.error('[/api/anthropic] Erro interno:', err)
     return new Response(
-      JSON.stringify({ error: { message: `Erro interno: ${err.message}` } }),
+      JSON.stringify({ error: { message: 'Erro interno. Tente novamente.' } }),
       { status: 500, headers: { 'content-type': 'application/json' } }
     )
   }
