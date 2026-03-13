@@ -248,7 +248,7 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange }) {
 }
 
 // ─── New / Regenerate Copy Form ───────────────────────────────────────────────
-function CopyForm({ project, copyCount, onSave, onCancel, anthropicKey, isRegen, existingName, defaultCustomNote }) {
+function CopyForm({ project, copyCount, onSave, onCancel, isRegen, existingName, defaultCustomNote }) {
   const [name,            setName]            = useState(isRegen ? existingName : `Copy Landing Page ${copyCount + 1}`)
   const [customNote,      setCustomNote]      = useState(defaultCustomNote || '')
   const [loading,         setLoading]         = useState(false)
@@ -256,7 +256,6 @@ function CopyForm({ project, copyCount, onSave, onCancel, anthropicKey, isRegen,
   const [streamPreview,   setStreamPreview]   = useState('')
 
   const generate = useCallback(async () => {
-    if (!anthropicKey) { setError('Configure sua chave de API Anthropic nas Configurações.'); return }
     setLoading(true)
     setError(null)
     setStreamPreview('')
@@ -279,7 +278,6 @@ Com base em todas as informações do cliente acima, crie uma copy COMPLETA de l
       })
 
       const fullText = await streamClaude({
-        apiKey:     anthropicKey,
         model:      'claude-sonnet-4-5',
         max_tokens: 6000,
         system,
@@ -300,7 +298,7 @@ Com base em todas as informações do cliente acima, crie uma copy COMPLETA de l
     } finally {
       setLoading(false)
     }
-  }, [anthropicKey, copyCount, customNote, existingName, isRegen, name, onSave, project])
+  }, [copyCount, customNote, existingName, isRegen, name, onSave, project])
 
 
   return (
@@ -395,7 +393,7 @@ Com base em todas as informações do cliente acima, crie uma copy COMPLETA de l
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function LandingPageModule({ project }) {
-  const { anthropicKey, updateProject } = useApp()
+  const { updateProject } = useApp()
 
   const [showForm,    setShowForm]    = useState(false)
   const [regenTarget, setRegenTarget] = useState(null) // { id, name, customNote } | null
@@ -498,7 +496,6 @@ export default function LandingPageModule({ project }) {
           copyCount={landingPages.length}
           onSave={handleSave}
           onCancel={handleCancel}
-          anthropicKey={anthropicKey}
           isRegen={!!regenTarget}
           existingName={regenTarget?.name || ''}
           defaultCustomNote={regenTarget?.customNote || ''}

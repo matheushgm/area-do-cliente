@@ -28,6 +28,11 @@ export default async function handler(req) {
   const meRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: { Authorization: `Bearer ${jwt}`, apikey: SERVICE_KEY },
   })
+
+  if (!meRes.ok) {
+    return json({ error: 'Sessão inválida ou expirada.' }, 401)
+  }
+
   const me = await meRes.json()
 
   if (me?.user_metadata?.role !== 'admin') {

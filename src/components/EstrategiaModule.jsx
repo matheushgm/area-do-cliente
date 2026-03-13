@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
+import ReactMarkdown from 'react-markdown'
+import rehypeSanitize from 'rehype-sanitize'
 import { buildCachedPayload } from '../lib/buildContext'
 import { exportEstrategiaPDF } from '../utils/exportPDF'
 import {
@@ -141,57 +143,60 @@ function FunnelViz({ roi }) {
 }
 
 // ─── Narrative Renderer ────────────────────────────────────────────────────────
+const mdComponents = {
+  h2({ children }) {
+    const text = String(children)
+    const match = text.match(/^(\d+)\.\s*(.+)/)
+    if (match) {
+      return (
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-8 h-8 rounded-xl bg-rl-purple flex items-center justify-center shrink-0 mt-0.5">
+            <span className="text-xs font-black text-white">{match[1]}</span>
+          </div>
+          <h3 className="text-base font-bold text-rl-text pt-1">{match[2]}</h3>
+        </div>
+      )
+    }
+    return <h3 className="text-base font-bold text-rl-text mt-3 mb-2">{children}</h3>
+  },
+  p({ children }) {
+    return <p className="text-sm text-rl-subtle leading-relaxed">{children}</p>
+  },
+  li({ children }) {
+    return (
+      <div className="flex items-start gap-2 mt-1">
+        <div className="w-1.5 h-1.5 rounded-full bg-rl-purple mt-2 shrink-0" />
+        <p className="text-sm text-rl-subtle leading-relaxed flex-1">{children}</p>
+      </div>
+    )
+  },
+  ul({ children }) {
+    return <div className="space-y-0.5">{children}</div>
+  },
+  strong({ children }) {
+    return <strong className="font-semibold text-rl-text">{children}</strong>
+  },
+}
+
 function NarrativaRenderer({ content }) {
   const sections = content.split(/\n---\n/).map((s) => s.trim()).filter(Boolean)
 
   return (
     <div className="space-y-6">
-      {sections.map((section, idx) => {
-        const lines = section.split('\n')
-        const rendered = lines.map((line, i) => {
-          if (/^## \d+\./.test(line)) {
-            const num = line.match(/^## (\d+)/)?.[1]
-            const title = line.replace(/^## \d+\.\s*/, '')
-            return (
-              <div key={i} className="flex items-start gap-3 mb-3">
-                <div className="w-8 h-8 rounded-xl bg-rl-purple flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-xs font-black text-white">{num}</span>
-                </div>
-                <h3 className="text-base font-bold text-rl-text pt-1">{title}</h3>
-              </div>
-            )
-          }
-          if (/^## /.test(line)) return <h3 key={i} className="text-base font-bold text-rl-text mt-3 mb-2">{line.replace(/^## /, '')}</h3>
-          if (/^\*\*.*\*\*/.test(line)) {
-            const rendered = line.replace(/\*\*(.*?)\*\*/g, (_, t) => `<strong class="font-bold text-rl-text">${t}</strong>`)
-            return <p key={i} className="text-sm text-rl-subtle leading-relaxed" dangerouslySetInnerHTML={{ __html: rendered }} />
-          }
-          if (/^- /.test(line)) {
-            const text = line.slice(2).replace(/\*\*(.*?)\*\*/g, (_, t) => `<strong class="font-semibold text-rl-text">${t}</strong>`)
-            return (
-              <div key={i} className="flex items-start gap-2 mt-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-rl-purple mt-2 shrink-0" />
-                <p className="text-sm text-rl-subtle leading-relaxed flex-1" dangerouslySetInnerHTML={{ __html: text }} />
-              </div>
-            )
-          }
-          if (line.trim() === '') return <div key={i} className="h-2" />
-          const text = line.replace(/\*\*(.*?)\*\*/g, (_, t) => `<strong class="font-semibold text-rl-text">${t}</strong>`)
-          return <p key={i} className="text-sm text-rl-subtle leading-relaxed" dangerouslySetInnerHTML={{ __html: text }} />
-        })
-        return (
-          <div key={idx} className="glass-card p-5 border border-rl-border/70">
-            {rendered}
-          </div>
-        )
-      })}
+      {sections.map((section, idx) => (
+        <div key={idx} className="glass-card p-5 border border-rl-border/70">
+          <ReactMarkdown rehypePlugins={[rehypeSanitize]} components={mdComponents}>
+            {section}
+          </ReactMarkdown>
+        </div>
+      ))}
     </div>
   )
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function EstrategiaModule({ project }) {
-  const { anthropicKey, updateProject } = useApp()
+  const { updateProject } = useApp()
 
   // Load saved narrative
   const [narrativa,   setNarrativa]   = useState(() => project.estrategia?.narrativa || '')
@@ -246,7 +251,6 @@ Seja específico, cite números reais, mencione as personas pelo nome, a oferta 
 
   // ── Generate narrative ────────────────────────────────────────────────────────
   const generate = useCallback(async () => {
-    if (!anthropicKey) { setError('Configure sua chave de API Anthropic nas Configurações.'); return }
     setLoading(true)
     setError(null)
     setStreaming('')
@@ -258,7 +262,6 @@ Seja específico, cite números reais, mencione as personas pelo nome, a oferta 
         instruction:  buildInstruction(),
       })
       const fullText = await streamClaude({
-        apiKey:     anthropicKey,
         model:      'claude-sonnet-4-5',
         max_tokens: 10000,
         system,
@@ -276,7 +279,7 @@ Seja específico, cite números reais, mencione as personas pelo nome, a oferta 
     } finally {
       setLoading(false)
     }
-  }, [anthropicKey, buildInstruction, project, updateProject])
+  }, [buildInstruction, project, updateProject])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(narrativa)

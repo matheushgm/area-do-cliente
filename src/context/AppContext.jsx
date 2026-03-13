@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useState,
+  useRef,
   useCallback,
   useEffect,
 } from "react";
@@ -52,23 +53,30 @@ async function sbDelete(id) {
   if (error) console.error("[Supabase] delete:", error.message);
 }
 
-async function upsertProfile(authUser) {
-  if (!supabase || !authUser) return;
+async function syncProfileIfExists(authUser) {
+  if (!supabase || !authUser) return false;
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", authUser.id)
+    .maybeSingle();
+  if (error) { console.error("[Supabase] profile check:", error.message); return false; }
+  if (!data) return false; // usuário não cadastrado
   const profile = enrichUser(authUser);
-  const { error } = await supabase.from("profiles").upsert({
-    id:     profile.id,
+  await supabase.from("profiles").update({
     name:   profile.name,
     email:  profile.email,
     avatar: profile.avatar,
-    role:   profile.role,
-  });
-  if (error) console.error("[Supabase] profile upsert:", error.message);
+  }).eq("id", profile.id);
+  return true;
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export function AppProvider({ children }) {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const [user, setUser] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
   // ── Projects ──────────────────────────────────────────────────────────────
   const [projects, setProjects] = useState(() => {
@@ -82,30 +90,41 @@ export function AppProvider({ children }) {
 
   const [loadingProjects, setLoadingProjects] = useState(isSupabaseReady);
 
+  // ── Contador de escritas locais em andamento (evita sobrescrever via realtime) ──
+  const pendingWrites = useRef(0);
+
+  // ── Debounce timers por projeto (evita múltiplos upserts em edições rápidas) ──
+  const upsertTimers = useRef({});
+
   // ── Team members (from profiles table) ────────────────────────────────────
   const [teamMembers, setTeamMembers] = useState([]);
 
-  // ── Anthropic key ─────────────────────────────────────────────────────────
-  const [anthropicKey, setAnthropicKeyState] = useState(
-    () => localStorage.getItem("anthropic_api_key") || "",
-  );
-
   // ── Supabase Auth session restore + listener ───────────────────────────────
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) { setLoadingAuth(false); return; }
 
     // Restore existing session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(enrichUser(session?.user ?? null));
+      setLoadingAuth(false);
     });
 
     // Keep user in sync (login, logout, token refresh, cross-tab)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(enrichUser(session?.user ?? null));
       if (event === "SIGNED_IN" && session?.user) {
-        upsertProfile(session.user);
+        syncProfileIfExists(session.user).then((exists) => {
+          if (!exists) {
+            supabase.auth.signOut();
+            setAuthError("Acesso não autorizado. Entre em contato com o administrador.");
+          } else {
+            setAuthError(null);
+            setUser(enrichUser(session.user));
+          }
+        });
+      } else {
+        setUser(enrichUser(session?.user ?? null));
       }
     });
 
@@ -116,18 +135,32 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!isSupabaseReady) return;
     setLoadingProjects(true);
-    sbFetchAll().then((rows) => {
-      if (rows !== null) {
-        setProjects(rows);
-        localStorage.setItem("rl_projects", JSON.stringify(rows));
-      }
-      setLoadingProjects(false);
-    });
+    sbFetchAll()
+      .then((rows) => {
+        if (rows !== null) {
+          setProjects(rows);
+          localStorage.setItem("rl_projects", JSON.stringify(rows));
+        }
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar projetos:", err);
+      })
+      .finally(() => {
+        setLoadingProjects(false);
+      });
 
     // Load team members from profiles table
-    supabase.from("profiles").select("*").then(({ data }) => {
-      if (data) setTeamMembers(data);
-    });
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("disabled", false)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Erro ao carregar membros do time:", error);
+          return;
+        }
+        if (data) setTeamMembers(data);
+      });
   }, []);
 
   // ── Real-time subscription ─────────────────────────────────────────────────
@@ -137,13 +170,39 @@ export function AppProvider({ children }) {
       .channel("projects-realtime")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "projects" },
-        () => {
-          sbFetchAll().then((rows) => {
-            if (rows !== null) {
-              setProjects(rows);
-              localStorage.setItem("rl_projects", JSON.stringify(rows));
-            }
+        { event: "INSERT", schema: "public", table: "projects" },
+        ({ new: row }) => {
+          if (pendingWrites.current > 0) return;
+          const project = { ...row.data, id: row.id };
+          setProjects((prev) => {
+            const updated = [project, ...prev];
+            localStorage.setItem("rl_projects", JSON.stringify(updated));
+            return updated;
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "projects" },
+        ({ new: row }) => {
+          if (pendingWrites.current > 0) return;
+          const project = { ...row.data, id: row.id };
+          setProjects((prev) => {
+            const updated = prev.map((p) => (String(p.id) === String(row.id) ? project : p));
+            localStorage.setItem("rl_projects", JSON.stringify(updated));
+            return updated;
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "projects" },
+        ({ old: row }) => {
+          if (pendingWrites.current > 0) return;
+          setProjects((prev) => {
+            const updated = prev.filter((p) => String(p.id) !== String(row.id));
+            localStorage.setItem("rl_projects", JSON.stringify(updated));
+            return updated;
           });
         },
       )
@@ -180,11 +239,6 @@ export function AppProvider({ children }) {
   }, []);
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
-  const setAnthropicKey = useCallback((key) => {
-    localStorage.setItem("anthropic_api_key", key);
-    setAnthropicKeyState(key);
-  }, []);
-
   const addProject = useCallback(
     (data) => {
       const project = {
@@ -202,7 +256,10 @@ export function AppProvider({ children }) {
         localStorage.setItem("rl_projects", JSON.stringify(updated));
         return updated;
       });
-      sbUpsert(project);
+      pendingWrites.current += 1;
+      sbUpsert(project)
+        .catch((err) => console.error("Erro ao salvar projeto no Supabase:", err))
+        .finally(() => { pendingWrites.current -= 1; });
       return project;
     },
     [user],
@@ -210,12 +267,17 @@ export function AppProvider({ children }) {
 
   const updateProject = useCallback((id, patch) => {
     setProjects((prev) => {
-      const updated = prev.map((p) => {
-        if (p.id !== id) return p;
-        const merged = { ...p, ...patch };
-        sbUpsert(merged);
-        return merged;
-      });
+      const updated = prev.map((p) => (p.id !== id ? p : { ...p, ...patch }));
+      const merged = updated.find((p) => p.id === id);
+      if (merged) {
+        clearTimeout(upsertTimers.current[id]);
+        upsertTimers.current[id] = setTimeout(() => {
+          pendingWrites.current += 1;
+          sbUpsert(merged)
+            .catch((err) => console.error("Erro ao atualizar projeto no Supabase:", err))
+            .finally(() => { pendingWrites.current -= 1; });
+        }, 1000);
+      }
       localStorage.setItem("rl_projects", JSON.stringify(updated));
       return updated;
     });
@@ -233,6 +295,8 @@ export function AppProvider({ children }) {
   // ── Context value ─────────────────────────────────────────────────────────
   const value = {
     user,
+    loadingAuth,
+    authError,
     projects,
     loadingProjects,
     login,
@@ -241,8 +305,6 @@ export function AppProvider({ children }) {
     addProject,
     updateProject,
     deleteProject,
-    anthropicKey,
-    setAnthropicKey,
     isSupabaseReady,
     teamMembers,
   };

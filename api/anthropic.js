@@ -15,21 +15,15 @@ export default async function handler(req) {
     )
   }
 
-  const { apiKey, ...payload } = body
-
+  const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: { message: 'API key não informada. Configure nas Configurações (⚙️).' } }),
-      { status: 400, headers: { 'content-type': 'application/json' } }
+      JSON.stringify({ error: { message: 'ANTHROPIC_API_KEY não configurada no servidor.' } }),
+      { status: 500, headers: { 'content-type': 'application/json' } }
     )
   }
 
-  if (!apiKey.startsWith('sk-ant-')) {
-    return new Response(
-      JSON.stringify({ error: { message: 'API key inválida. Deve começar com sk-ant-' } }),
-      { status: 400, headers: { 'content-type': 'application/json' } }
-    )
-  }
+  const payload = body
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -51,8 +45,9 @@ export default async function handler(req) {
     })
 
   } catch (err) {
+    console.error('[/api/anthropic] Erro interno:', err)
     return new Response(
-      JSON.stringify({ error: { message: `Erro interno: ${err.message}` } }),
+      JSON.stringify({ error: { message: 'Erro interno. Tente novamente.' } }),
       { status: 500, headers: { 'content-type': 'application/json' } }
     )
   }

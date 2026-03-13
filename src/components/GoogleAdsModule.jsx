@@ -302,7 +302,7 @@ function AdsHistory({ project, updateProject }) {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function GoogleAdsModule({ project }) {
-  const { anthropicKey, updateProject } = useApp()
+  const { updateProject } = useApp()
 
   // ── Form state ───────────────────────────────────────────────────────────────
   const [keywords,      setKeywords]      = useState('')
@@ -365,7 +365,6 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
   // ── Generate ─────────────────────────────────────────────────────────────────
   const generate = useCallback(async () => {
     if (!campaignTypes.size) return
-    if (!anthropicKey) { setError('Configure sua chave de API Anthropic nas Configurações.'); return }
     setLoading(true)
     setError(null)
     setResult(null)
@@ -376,7 +375,6 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
         instruction:  buildInstruction(),
       })
       const fullText = await streamClaude({
-        apiKey:     anthropicKey,
         model:      'claude-sonnet-4-5',
         max_tokens: 8000,
         system,
@@ -401,7 +399,7 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
     } finally {
       setLoading(false)
     }
-  }, [anthropicKey, buildInstruction, campaignTypes, city, keywords, project, updateProject])
+  }, [buildInstruction, campaignTypes, city, keywords, project, updateProject])
 
   const canGenerate = campaignTypes.size > 0 && keywords.trim().length > 0
 

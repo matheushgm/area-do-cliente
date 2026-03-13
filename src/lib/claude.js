@@ -2,7 +2,6 @@
  * streamClaude — gera texto via Anthropic API com streaming SSE.
  *
  * @param {object}   opts
- * @param {string}   opts.apiKey
  * @param {string}   opts.model
  * @param {number}   opts.max_tokens
  * @param {string}   opts.system
@@ -11,12 +10,11 @@
  * @param {AbortSignal} [opts.signal]
  * @returns {Promise<string>} texto completo gerado
  */
-export async function streamClaude({ apiKey, model, max_tokens, system, messages, onChunk, signal }) {
+export async function streamClaude({ model, max_tokens, system, messages, onChunk, signal }) {
   const res = await fetch('/api/anthropic', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      apiKey,
       model,
       max_tokens,
       system,

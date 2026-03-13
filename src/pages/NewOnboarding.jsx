@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
@@ -100,7 +100,8 @@ function formatCurrency(v) {
 }
 
 function parseCurrencyToNumber(v) {
-  return parseFloat(v.replace(/\D/g, '')) / 100 || 0
+  if (!v || !v.trim()) return null
+  return parseFloat(v.replace(/\D/g, '')) / 100 || null
 }
 
 // ─── Segmento Field ───────────────────────────────────────────────────────────
@@ -281,6 +282,26 @@ function FileUpload({ label, file, onChange, description }) {
   )
 }
 
+// ─── Draft persistence ────────────────────────────────────────────────────────
+const DRAFT_KEY = 'rl_new_onboarding_draft'
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function saveDraft(form, step, completedSteps) {
+  // File objects não são serializáveis — excluir do rascunho
+  const { raioXFile, slaFile, ...rest } = form
+  localStorage.setItem(DRAFT_KEY, JSON.stringify({ form: rest, step, completedSteps }))
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY)
+}
+
 // ─── Initial form state ───────────────────────────────────────────────────────
 const initialForm = {
   // Step 1 — Empresa
@@ -318,11 +339,20 @@ export default function NewOnboarding() {
   const { addProject } = useApp()
   const navigate = useNavigate()
 
-  const [step, setStep]                   = useState(0)
-  const [form, setForm]                   = useState(initialForm)
+  const draft = loadDraft()
+  const [step, setStep]                   = useState(draft?.step ?? 0)
+  const [form, setForm]                   = useState(draft?.form ? { ...initialForm, ...draft.form } : initialForm)
   const [errors, setErrors]               = useState({})
   const [done, setDone]                   = useState(false)
-  const [completedSteps, setCompletedSteps] = useState([])
+  const [createdId, setCreatedId]         = useState(null)
+  const [completedSteps, setCompletedSteps] = useState(draft?.completedSteps ?? [])
+  const [hasDraft]                        = useState(!!draft?.form?.companyName)
+
+  // Auto-save rascunho a cada mudança
+  useEffect(() => {
+    if (done) return
+    saveDraft(form, step, completedSteps)
+  }, [form, step, completedSteps, done])
 
   const set = useCallback((field, value) => {
     setForm((f) => ({ ...f, [field]: value }))
@@ -354,6 +384,12 @@ export default function NewOnboarding() {
     if (s === 2) {
       if (form.services.length === 0) e.services = 'Selecione ao menos um serviço'
     }
+    if (s === 3) {
+      if (form.averageTicket && !parseCurrencyToNumber(form.averageTicket))
+        e.averageTicket = 'Valor inválido — verifique o formato'
+      if (form.mediaBudget && !parseCurrencyToNumber(form.mediaBudget))
+        e.mediaBudget = 'Valor inválido — verifique o formato'
+    }
     if (s === 4) {
       if (!form.contractModel) e.contractModel = 'Selecione o modelo de contratação'
       if (!form.contractDate)  e.contractDate  = 'Informe a data de assinatura'
@@ -376,7 +412,7 @@ export default function NewOnboarding() {
       // Convert service IDs → labels for display
       const serviceLabels = form.services.map((id) => SERVICES_CONFIG.find((s) => s.id === id)?.label || id)
 
-      addProject({
+      const created = addProject({
         businessType:        form.businessType,
         companyName:         form.companyName,
         cnpj:                form.cnpj,
@@ -400,6 +436,8 @@ export default function NewOnboarding() {
         raioXFileName:       form.raioXFile?.name ?? null,
         slaFileName:         form.slaFile?.name ?? null,
       })
+      clearDraft()
+      setCreatedId(created.id)
       setDone(true)
     } else {
       setStep(step + 1)
@@ -429,19 +467,21 @@ export default function NewOnboarding() {
 
           <h1 className="text-3xl font-bold text-rl-text mb-2">Onboarding criado!</h1>
           <p className="text-rl-muted mb-6">
-            O projeto <span className="text-white font-semibold">{form.companyName}</span> foi adicionado com sucesso.
+            O projeto <span className="text-rl-text font-semibold">{form.companyName}</span> foi adicionado com sucesso.
           </p>
 
           <div className="flex gap-3 justify-center">
-            <button onClick={() => navigate('/')} className="btn-secondary flex items-center gap-2">
+            <button onClick={() => navigate('/')} className="btn-ghost flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" /> Dashboard
             </button>
-            <button
-              onClick={() => { setForm(initialForm); setStep(0); setDone(false); setEarnedXP(0); setCompletedSteps([]) }}
-              className="btn-primary flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" /> Novo Onboarding
-            </button>
+            {createdId && (
+              <button
+                onClick={() => navigate(`/project/${createdId}`)}
+                className="btn-primary flex items-center gap-2"
+              >
+                Ver Projeto <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -478,6 +518,23 @@ export default function NewOnboarding() {
           </div>
         </div>
       </div>
+
+      {/* ── Draft banner ────────────────────────────────────────────────────── */}
+      {hasDraft && (
+        <div className="max-w-2xl mx-auto px-6 pt-4">
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-rl-purple/10 border border-rl-purple/20">
+            <p className="text-xs text-rl-purple font-medium">
+              📋 Rascunho recuperado — continuando de onde você parou.
+            </p>
+            <button
+              onClick={() => { clearDraft(); setForm(initialForm); setStep(0); setCompletedSteps([]) }}
+              className="text-xs text-rl-muted hover:text-rl-text transition-colors whitespace-nowrap"
+            >
+              Limpar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Step indicators ─────────────────────────────────────────────────── */}
       <div className="max-w-2xl mx-auto px-6 pt-6 pb-2">
@@ -672,9 +729,10 @@ export default function NewOnboarding() {
                       value={form.averageTicket}
                       onChange={(e) => set('averageTicket', formatCurrency(e.target.value))}
                       placeholder="R$ 0,00"
-                      className="input-field pl-9"
+                      className={`input-field pl-9 ${errors.averageTicket ? 'border-rl-red' : ''}`}
                     />
                   </div>
+                  {errors.averageTicket && <p className="text-rl-red text-xs mt-1">{errors.averageTicket}</p>}
                 </div>
                 <div>
                   <label className="label-field">Orçamento em Mídia Paga</label>
@@ -684,9 +742,10 @@ export default function NewOnboarding() {
                       value={form.mediaBudget}
                       onChange={(e) => set('mediaBudget', formatCurrency(e.target.value))}
                       placeholder="R$ 0,00"
-                      className="input-field pl-9"
+                      className={`input-field pl-9 ${errors.mediaBudget ? 'border-rl-red' : ''}`}
                     />
                   </div>
+                  {errors.mediaBudget && <p className="text-rl-red text-xs mt-1">{errors.mediaBudget}</p>}
                 </div>
               </div>
               <p className="text-xs text-rl-muted text-center">

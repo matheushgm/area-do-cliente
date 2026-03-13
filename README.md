@@ -97,7 +97,7 @@ npm install
 
 # Configurar variáveis de ambiente
 cp .env.example .env
-# Preencha SUPABASE_URL, SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY
+# Preencha SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY e ANTHROPIC_API_KEY
 ```
 
 Há dois modos de desenvolvimento:
@@ -109,16 +109,18 @@ Há dois modos de desenvolvimento:
 
 > Use `vercel dev` para o desenvolvimento completo. `npm run dev` é suficiente para trabalho exclusivo no frontend.
 
-A chave da API Anthropic pode ser configurada diretamente na interface, em **Settings**, sem necessidade de variável de ambiente.
 
 ## Autenticação
 
 O sistema usa **Supabase Auth**. Os usuários do time são gerenciados via painel de administração da aplicação.
 
+- Login com Google restringe acesso a e-mails com perfil existente em `profiles` — usuários não cadastrados são bloqueados automaticamente.
+
 Configure no painel do Supabase antes de usar em novo ambiente:
 
 1. **Authentication → Providers → Google** — habilite e configure o Client ID/Secret do Google Cloud Console (opcional)
-2. **Authentication → URL Configuration** — adicione a URL da aplicação em "Redirect URLs" (ex: `http://localhost:3000` para `vercel dev`, ou `http://localhost:5173` se usar apenas `npm run dev`)
+2. **Authentication → Redirect URLs** — adicione a URL raiz **e** wildcard (ex: `http://localhost:3000` e `http://localhost:3000/**`) para o PKCE flow funcionar corretamente
+3. **Google Cloud Console → OAuth Client → URIs de redirecionamento** — adicione `https://<projeto>.supabase.co/auth/v1/callback`
 
 Nome, avatar e role de cada usuário são armazenados em `user_metadata` no Supabase Auth e sincronizados automaticamente na tabela `profiles` a cada login.
 

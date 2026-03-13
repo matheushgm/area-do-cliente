@@ -5,7 +5,7 @@ import {
   Zap, Plus, LogOut, Clock, CheckCircle2, Layers,
   Calendar, User,
   BarChart3, FileText, DollarSign, Users,
-  Settings, Eye, EyeOff, X, Key, Trash2, AlertTriangle,
+  Eye, X, Trash2, AlertTriangle,
   Cloud, CloudOff, Loader2, Menu, Search,
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
@@ -297,82 +297,12 @@ function EmptyState({ onNew }) {
   )
 }
 
-function SettingsModal({ onClose }) {
-  const { anthropicKey, setAnthropicKey } = useApp()
-  const [keyValue, setKeyValue] = useState(anthropicKey)
-  const [show, setShow] = useState(false)
-  const [saved, setSaved] = useState(false)
-
-  function handleSave() {
-    setAnthropicKey(keyValue.trim())
-    setSaved(true)
-    setTimeout(() => { setSaved(false); onClose() }, 800)
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="glass-card w-full max-w-md p-6 border border-rl-border animate-slide-up">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Settings className="w-5 h-5 text-rl-purple" />
-            <h2 className="text-lg font-bold text-rl-text">Configurações</h2>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* API Key Field */}
-        <div className="space-y-2 mb-6">
-          <label className="flex items-center gap-2 text-sm font-semibold text-rl-text">
-            <Key className="w-4 h-4 text-rl-gold" />
-            Chave da API Anthropic
-          </label>
-          <p className="text-xs text-rl-muted">
-            Usada para gerar personas e ofertas com IA. Salva localmente no navegador.
-          </p>
-          <div className="flex gap-2 mt-2">
-            <input
-              type={show ? 'text' : 'password'}
-              value={keyValue}
-              onChange={(e) => setKeyValue(e.target.value)}
-              placeholder="sk-ant-api03-..."
-              className="input-field flex-1 text-sm font-mono"
-            />
-            <button
-              onClick={() => setShow((s) => !s)}
-              className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
-              title={show ? 'Ocultar' : 'Mostrar'}
-            >
-              {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 btn-ghost">Cancelar</button>
-          <button
-            onClick={handleSave}
-            disabled={!keyValue.startsWith('sk-')}
-            className="flex-1 btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {saved ? '✓ Salvo!' : 'Salvar'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function Dashboard() {
   const {
     user, projects, logout, deleteProject,
     loadingProjects, isSupabaseReady, teamMembers,
   } = useApp()
   const navigate = useNavigate()
-  const [showSettings, setShowSettings] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [filter, setFilter] = useState('all') // 'all' | 'onboarding' | 'active' | accountId
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -401,10 +331,8 @@ export default function Dashboard() {
       )
     : filteredProjects
 
-  // Accounts that have at least one project (for sidebar team list)
-  const activeAccounts = teamMembers.filter(m =>
-    baseProjects.some(p => String(p.accountId) === String(m.id))
-  )
+  // All active (non-disabled) team members appear in the sidebar filter
+  const activeAccounts = teamMembers.filter(m => !m.disabled)
 
   // Counts for sidebar nav
   const counts = {
@@ -456,7 +384,6 @@ export default function Dashboard() {
       <AppSidebar
         filter={filter}
         setFilter={setFilter}
-        onShowSettings={() => setShowSettings(true)}
         counts={counts}
         activeAccounts={activeAccounts}
         open={sidebarOpen}
@@ -595,8 +522,6 @@ export default function Dashboard() {
 
         </main>
       </div>
-
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
       {deleteTarget && (
         <DeleteConfirmModal

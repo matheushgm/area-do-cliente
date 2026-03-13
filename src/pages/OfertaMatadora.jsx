@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
-import { Plus, X, Sparkles, Loader2, AlertTriangle, CheckCircle2, Zap, Settings, FileDown } from 'lucide-react'
+import { Plus, X, Sparkles, Loader2, AlertTriangle, CheckCircle2, Zap, FileDown } from 'lucide-react'
 import { exportOfertaPDF } from '../utils/exportPDF'
 import { streamClaude } from '../lib/claude'
 
@@ -180,7 +180,7 @@ function OfertaResult({ text }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function OfertaMatadora({ project, onSave }) {
-  const { anthropicKey: apiKey, updateProject } = useApp()
+  const { updateProject } = useApp()
   const [oferta, setOferta]   = useState(() => project.ofertaData || newOferta())
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
@@ -222,14 +222,12 @@ Com base nesses dados, crie a Grande Oferta Matadora completa e refinada seguind
   }
 
   const generate = async () => {
-    if (!apiKey) return
     setLoading(true)
     setError(null)
     // Limpa geração anterior durante o streaming
     set('generatedOffer', '')
     try {
       const fullText = await streamClaude({
-        apiKey,
         model:      'claude-sonnet-4-5',
         max_tokens: 4000,
         system:     [{ type: 'text', text: GOM_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
@@ -335,31 +333,22 @@ Com base nesses dados, crie a Grande Oferta Matadora completa e refinada seguind
               <Sparkles className="w-4 h-4 text-rl-gold" />
               <p className="text-sm font-semibold text-rl-text">Gerar com IA</p>
             </div>
-            {!apiKey ? (
-              <div className="flex items-center gap-2 text-xs text-rl-gold mt-2">
-                <Settings className="w-3.5 h-3.5 shrink-0" />
-                <span>Configure a chave da API no ícone ⚙️ do menu principal.</span>
-              </div>
-            ) : (
-              <>
-                <p className="text-xs text-rl-muted mb-4">
-                  Preencha os campos e a IA vai refinar sua oferta usando a metodologia $100M Offers, com pitch completo.
-                </p>
-                <button
-                  onClick={generate}
-                  disabled={!hasContent || loading}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-semibold text-sm
-                    bg-gradient-gold text-white disabled:opacity-50 disabled:cursor-not-allowed
-                    hover:opacity-90 transition-opacity"
-                >
-                  {loading ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Gerando oferta...</>
-                  ) : (
-                    <><Sparkles className="w-4 h-4" /> Gerar Oferta Matadora</>
-                  )}
-                </button>
-              </>
-            )}
+            <p className="text-xs text-rl-muted mb-4">
+              Preencha os campos e a IA vai refinar sua oferta usando a metodologia $100M Offers, com pitch completo.
+            </p>
+            <button
+              onClick={generate}
+              disabled={!hasContent || loading}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-semibold text-sm
+                bg-gradient-gold text-white disabled:opacity-50 disabled:cursor-not-allowed
+                hover:opacity-90 transition-opacity"
+            >
+              {loading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Gerando oferta...</>
+              ) : (
+                <><Sparkles className="w-4 h-4" /> Gerar Oferta Matadora</>
+              )}
+            </button>
           </div>
 
           {/* Erro */}
