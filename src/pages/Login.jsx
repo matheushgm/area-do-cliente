@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext'
 import { Eye, EyeOff, Zap, Lock, Mail } from 'lucide-react'
 
 export default function Login() {
-  const { login, loginWithGoogle, isSupabaseReady } = useApp()
+  const { login, loginWithGoogle, isSupabaseReady, authError } = useApp()
   const navigate = useNavigate()
 
   const [email, setEmail] = useState('')
@@ -111,10 +111,10 @@ export default function Login() {
             </div>
 
             {/* Error */}
-            {error && (
+            {(error || authError) && (
               <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm animate-fade-in">
                 <span className="w-4 h-4 shrink-0">⚠</span>
-                {error}
+                {authError || error}
               </div>
             )}
 

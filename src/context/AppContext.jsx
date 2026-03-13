@@ -53,17 +53,22 @@ async function sbDelete(id) {
   if (error) console.error("[Supabase] delete:", error.message);
 }
 
-async function upsertProfile(authUser) {
-  if (!supabase || !authUser) return;
+async function syncProfileIfExists(authUser) {
+  if (!supabase || !authUser) return false;
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", authUser.id)
+    .maybeSingle();
+  if (error) { console.error("[Supabase] profile check:", error.message); return false; }
+  if (!data) return false; // usuário não cadastrado
   const profile = enrichUser(authUser);
-  const { error } = await supabase.from("profiles").upsert({
-    id:     profile.id,
+  await supabase.from("profiles").update({
     name:   profile.name,
     email:  profile.email,
     avatar: profile.avatar,
-    role:   profile.role,
-  });
-  if (error) console.error("[Supabase] profile upsert:", error.message);
+  }).eq("id", profile.id);
+  return true;
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -71,6 +76,7 @@ export function AppProvider({ children }) {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const [user, setUser] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
   // ── Projects ──────────────────────────────────────────────────────────────
   const [projects, setProjects] = useState(() => {
@@ -104,9 +110,18 @@ export function AppProvider({ children }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(enrichUser(session?.user ?? null));
       if (event === "SIGNED_IN" && session?.user) {
-        upsertProfile(session.user);
+        syncProfileIfExists(session.user).then((exists) => {
+          if (!exists) {
+            supabase.auth.signOut();
+            setAuthError("Acesso não autorizado. Entre em contato com o administrador.");
+          } else {
+            setAuthError(null);
+            setUser(enrichUser(session.user));
+          }
+        });
+      } else {
+        setUser(enrichUser(session?.user ?? null));
       }
     });
 
@@ -250,6 +265,7 @@ export function AppProvider({ children }) {
   const value = {
     user,
     loadingAuth,
+    authError,
     projects,
     loadingProjects,
     login,
