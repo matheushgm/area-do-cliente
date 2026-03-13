@@ -6,7 +6,7 @@ import {
   Calendar, User,
   BarChart3, FileText, DollarSign, Users,
   Settings, Eye, EyeOff, X, Key, Trash2, AlertTriangle,
-  Cloud, CloudOff, Loader2, Menu,
+  Cloud, CloudOff, Loader2, Menu, Search,
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
 
@@ -376,20 +376,30 @@ export default function Dashboard() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [filter, setFilter] = useState('all') // 'all' | 'onboarding' | 'active' | accountId
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const isAdmin = user?.role === 'admin'
 
   // Everyone sees all projects
   const baseProjects = projects
 
-  // Apply filter
-  const visibleProjects = (() => {
+  // Apply status/member filter
+  const filteredProjects = (() => {
     if (filter === 'all')        return baseProjects
     if (filter === 'onboarding') return baseProjects.filter(p => p.status === 'onboarding')
     if (filter === 'active')     return baseProjects.filter(p => p.status === 'active')
-    // Member filter (admin only)
+    // Member filter
     return baseProjects.filter(p => String(p.accountId) === String(filter))
   })()
+
+  // Apply search on top of the status/member filter
+  const query = searchQuery.trim().toLowerCase()
+  const visibleProjects = query
+    ? filteredProjects.filter(p =>
+        (p.companyName    || '').toLowerCase().includes(query) ||
+        (p.responsibleName|| '').toLowerCase().includes(query)
+      )
+    : filteredProjects
 
   // Accounts that have at least one project (for sidebar team list)
   const activeAccounts = teamMembers.filter(m =>
@@ -519,13 +529,34 @@ export default function Dashboard() {
 
           {/* Projects */}
           <div className="animate-slide-up" style={{ animationDelay: '0.15s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+              {/* Title + count */}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
                 <h2 className="text-lg font-semibold text-rl-text">{pageTitle}</h2>
                 {visibleProjects.length > 0 && (
                   <span className="text-xs bg-rl-cyan/10 text-rl-cyan border border-rl-cyan/30 px-2 py-0.5 rounded-full font-medium">
                     {visibleProjects.length}
                   </span>
+                )}
+              </div>
+
+              {/* Search input */}
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-rl-muted pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Buscar por nome..."
+                  className="input-field w-full pl-8 pr-8 py-2 text-sm"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-rl-muted hover:text-rl-text transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
             </div>
@@ -537,8 +568,20 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {visibleProjects.length === 0 ? (
+                {visibleProjects.length === 0 && !query ? (
                   <EmptyState onNew={() => navigate('/onboarding/new')} />
+                ) : visibleProjects.length === 0 && query ? (
+                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                    <Search className="w-10 h-10 text-rl-muted/30 mb-3" />
+                    <p className="text-rl-text font-semibold mb-1">Nenhum resultado para "{searchQuery}"</p>
+                    <p className="text-rl-muted text-sm">Tente outro nome ou responsável.</p>
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="mt-4 text-xs text-rl-purple hover:underline"
+                    >
+                      Limpar busca
+                    </button>
+                  </div>
                 ) : (
                   visibleProjects.map((p) =>
                     isProfileComplete(p)
