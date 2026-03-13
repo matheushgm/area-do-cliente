@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
   Plus, X, Trash2, AlertTriangle, Target, TrendingUp,
   Shield, Zap, Users, BarChart3, Save, FileDown,
-  ChevronRight, Link, CheckSquare, Square,
+  ChevronRight, Link, CheckSquare, Square, Calculator,
+  DollarSign, ArrowRight,
 } from 'lucide-react'
 import { exportEstrategiaV2PDF } from '../utils/exportPDF'
 
@@ -43,6 +44,38 @@ function fmtBRL(n) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
 
+function fmtNum(n) {
+  if (n == null || isNaN(n)) return '—'
+  if (!isFinite(n)) return '∞'
+  return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+}
+
+/** Recalcula o resultado do ROI a partir dos inputs salvos */
+function computeROI(c) {
+  if (!c) return null
+  const { mediaOrcamento, custoMarketing, ticketMedio, qtdCompras,
+          margemBruta, roiDesejado, taxaLead2MQL, taxaMQL2SQL, taxaSQL2Venda } = c
+  const totalInvestimento = (mediaOrcamento || 0) + (custoMarketing || 0)
+  const lucroPorVenda     = (ticketMedio || 0) * (qtdCompras || 1) * ((margemBruta || 0) / 100)
+  if (!lucroPorVenda) return null
+  const retornoAlvo        = totalInvestimento * (1 + (roiDesejado || 0) / 100)
+  const vendasNecessarias  = retornoAlvo / lucroPorVenda
+  const sqlsNecessarios  = taxaSQL2Venda  ? vendasNecessarias / (taxaSQL2Venda  / 100) : Infinity
+  const mqlsNecessarios  = taxaMQL2SQL    ? sqlsNecessarios   / (taxaMQL2SQL    / 100) : Infinity
+  const leadsNecessarios = taxaLead2MQL   ? mqlsNecessarios   / (taxaLead2MQL   / 100) : Infinity
+  const faturamento  = vendasNecessarias * (ticketMedio || 0) * (qtdCompras || 1)
+  const lucroBruto   = faturamento * ((margemBruta || 0) / 100)
+  const lucroLiquido = lucroBruto - totalInvestimento
+  const cac              = vendasNecessarias ? (mediaOrcamento || 0) / vendasNecessarias : Infinity
+  const vendasBreakeven  = totalInvestimento / lucroPorVenda
+  const custoPorLead  = leadsNecessarios  ? (mediaOrcamento || 0) / leadsNecessarios  : Infinity
+  const custoPorMQL   = mqlsNecessarios   ? (mediaOrcamento || 0) / mqlsNecessarios   : Infinity
+  const custoPorSQL   = sqlsNecessarios   ? (mediaOrcamento || 0) / sqlsNecessarios   : Infinity
+  return { totalInvestimento, lucroPorVenda, vendasNecessarias, sqlsNecessarios,
+           mqlsNecessarios, leadsNecessarios, faturamento, lucroBruto, lucroLiquido,
+           cac, vendasBreakeven, custoPorLead, custoPorMQL, custoPorSQL }
+}
+
 // ─── Subcomponentes ────────────────────────────────────────────────────────────
 
 function SectionHeader({ icon: Icon, title, subtitle, color = 'text-rl-purple' }) {
@@ -73,6 +106,12 @@ export default function EstrategiaV2Module({ project, onSave }) {
 
   const personas     = project.personas     || []
   const campaignPlan = project.campaignPlan || null
+  const roiCalc      = project.roiCalc      || null
+  // Usa roiResult salvo ou recalcula se só tiver roiCalc
+  const roiResult    = useMemo(
+    () => project.roiResult || computeROI(roiCalc),
+    [project.roiResult, roiCalc]
+  )
 
   // ── Problemas ──────────────────────────────────────────────────────────────
   const addProblema = useCallback(() => {
@@ -128,7 +167,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
   }
 
   function handleExport() {
-    exportEstrategiaV2PDF(project, { problemas, swot, concorrentes, riscos, funis })
+    exportEstrategiaV2PDF(project, { problemas, swot, concorrentes, riscos, funis, roiResult, roiCalc })
   }
 
   // ── Budget helpers ─────────────────────────────────────────────────────
@@ -504,7 +543,113 @@ export default function EstrategiaV2Module({ project, onSave }) {
         )}
       </div>
 
-      {/* ═══ SEÇÃO 7: CAMPANHAS (read-only) ═══════════════════════════════ */}
+      {/* ═══ SEÇÃO 7: METAS DO FUNIL (ROI — read-only) ═══════════════════ */}
+      <div className="glass-card p-5">
+        <SectionHeader
+          icon={Calculator}
+          title="Metas do Funil"
+          subtitle="Resultados necessários para atingir o ROI definido na Calculadora — lido automaticamente"
+          color="text-rl-purple"
+        />
+
+        {!roiResult ? (
+          <div className="text-center py-6 text-rl-muted text-sm">
+            <Calculator className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            <p>Calculadora de ROI não preenchida ainda.</p>
+            <p className="text-xs mt-1">Preencha o módulo de ROI para ver as metas do funil.</p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+
+            {/* ROI alvo + investimento */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'ROI Desejado',    value: roiCalc?.roiDesejado != null ? `${roiCalc.roiDesejado}%` : '—', color: 'text-rl-purple', bg: 'bg-rl-purple/10 border-rl-purple/20' },
+                { label: 'Total Investido', value: fmtBRL(roiResult.totalInvestimento),   color: 'text-rl-text',   bg: 'bg-rl-surface border-rl-border' },
+                { label: 'Faturamento Alvo',value: fmtBRL(roiResult.faturamento),          color: 'text-rl-blue',   bg: 'bg-rl-blue/10 border-rl-blue/20' },
+                { label: 'Lucro Líquido',   value: fmtBRL(roiResult.lucroLiquido),
+                  color: roiResult.lucroLiquido >= 0 ? 'text-rl-green' : 'text-red-400',
+                  bg:    roiResult.lucroLiquido >= 0 ? 'bg-rl-green/10 border-rl-green/20' : 'bg-red-400/10 border-red-400/20' },
+              ].map(({ label, value, color, bg }) => (
+                <div key={label} className={`rounded-xl border px-4 py-3 ${bg}`}>
+                  <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1">{label}</p>
+                  <p className={`text-base font-bold ${color}`}>{value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Funil step-by-step */}
+            <div>
+              <p className="text-xs font-bold text-rl-muted uppercase tracking-wider mb-3">
+                Metas por etapa do funil — por mês
+              </p>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1">
+                {[
+                  { label: 'Leads',  value: roiResult.leadsNecessarios,  cost: roiResult.custoPorLead, costLabel: 'CPL (mídia)',  color: 'text-rl-purple', bg: 'bg-rl-purple/10 border-rl-purple/25', rate: null },
+                  { label: 'MQLs',   value: roiResult.mqlsNecessarios,   cost: roiResult.custoPorMQL,  costLabel: 'C. MQL',      color: 'text-rl-blue',   bg: 'bg-rl-blue/10 border-rl-blue/25',     rate: roiCalc?.taxaLead2MQL },
+                  { label: 'SQLs',   value: roiResult.sqlsNecessarios,   cost: roiResult.custoPorSQL,  costLabel: 'C. SQL',      color: 'text-rl-cyan',   bg: 'bg-rl-cyan/10 border-rl-cyan/25',     rate: roiCalc?.taxaMQL2SQL },
+                  { label: 'Vendas', value: roiResult.vendasNecessarias, cost: roiResult.cac,          costLabel: 'CAC (mídia)', color: 'text-rl-green',  bg: 'bg-rl-green/10 border-rl-green/25',   rate: roiCalc?.taxaSQL2Venda },
+                ].map((step, i, arr) => (
+                  <div key={step.label} className="flex sm:flex-col items-center gap-1 flex-1">
+                    <div className={`w-full rounded-xl border px-3 py-3 ${step.bg} flex sm:flex-col gap-3 sm:gap-1 items-center sm:items-start`}>
+                      <div className="sm:w-full">
+                        <p className={`text-xl font-black ${step.color}`}>{fmtNum(step.value)}</p>
+                        <p className="text-xs font-bold text-rl-muted">{step.label}</p>
+                      </div>
+                      <div className="ml-auto sm:ml-0 sm:mt-2 text-right sm:text-left">
+                        <p className="text-xs font-semibold text-rl-text">{fmtBRL(step.cost)}</p>
+                        <p className="text-[10px] text-rl-muted">{step.costLabel}</p>
+                        {step.rate != null && (
+                          <span className="text-[10px] text-rl-muted bg-rl-surface/80 px-1.5 py-0.5 rounded-md inline-block mt-0.5">
+                            {step.rate}% conv.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {i < arr.length - 1 && (
+                      <ArrowRight className="w-4 h-4 text-rl-border shrink-0 sm:rotate-90 hidden sm:block" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Linha financeira + breakeven */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1 border-t border-rl-border">
+              {[
+                { label: 'Lucro Bruto',         value: fmtBRL(roiResult.lucroBruto),    color: 'text-rl-cyan' },
+                { label: 'CAC (mídia)',          value: fmtBRL(roiResult.cac),           color: 'text-rl-gold' },
+                { label: 'Breakeven (vendas)',   value: fmtNum(roiResult.vendasBreakeven), color: 'text-rl-text' },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="bg-rl-surface rounded-xl px-4 py-3 border border-rl-border">
+                  <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1">{label}</p>
+                  <p className={`text-base font-bold ${color}`}>{value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Ticket + margem resumo */}
+            {roiCalc && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {[
+                  { label: 'Ticket Médio', value: fmtBRL(roiCalc.ticketMedio) },
+                  { label: 'Margem Bruta', value: `${roiCalc.margemBruta}%` },
+                  { label: 'Lucro/Venda',  value: fmtBRL(roiResult.lucroPorVenda) },
+                  { label: 'Orçamento Mídia', value: fmtBRL(roiCalc.mediaOrcamento) },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex items-center gap-2 bg-rl-surface border border-rl-border rounded-lg px-3 py-1.5">
+                    <span className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">{label}</span>
+                    <span className="text-xs font-semibold text-rl-text">{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+          </div>
+        )}
+      </div>
+
+      {/* ═══ SEÇÃO 9: CAMPANHAS (read-only) ═══════════════════════════════ */}
       <div className="glass-card p-5">
         <SectionHeader
           icon={BarChart3}
