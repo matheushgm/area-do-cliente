@@ -93,6 +93,9 @@ export function AppProvider({ children }) {
   // ── Contador de escritas locais em andamento (evita sobrescrever via realtime) ──
   const pendingWrites = useRef(0);
 
+  // ── Debounce timers por projeto (evita múltiplos upserts em edições rápidas) ──
+  const upsertTimers = useRef({});
+
   // ── Team members (from profiles table) ────────────────────────────────────
   const [teamMembers, setTeamMembers] = useState([]);
 
@@ -267,10 +270,13 @@ export function AppProvider({ children }) {
       const updated = prev.map((p) => (p.id !== id ? p : { ...p, ...patch }));
       const merged = updated.find((p) => p.id === id);
       if (merged) {
-        pendingWrites.current += 1;
-        sbUpsert(merged)
-          .catch((err) => console.error("Erro ao atualizar projeto no Supabase:", err))
-          .finally(() => { pendingWrites.current -= 1; });
+        clearTimeout(upsertTimers.current[id]);
+        upsertTimers.current[id] = setTimeout(() => {
+          pendingWrites.current += 1;
+          sbUpsert(merged)
+            .catch((err) => console.error("Erro ao atualizar projeto no Supabase:", err))
+            .finally(() => { pendingWrites.current -= 1; });
+        }, 1000);
       }
       localStorage.setItem("rl_projects", JSON.stringify(updated));
       return updated;
