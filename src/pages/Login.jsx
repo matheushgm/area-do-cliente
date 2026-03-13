@@ -33,12 +33,17 @@ export default function Login() {
   async function handleGoogle() {
     setError('')
     setLoadingGoogle(true)
-    const result = await loginWithGoogle()
-    setLoadingGoogle(false)
-    if (!result.ok) {
-      setError(result.error)
+    try {
+      const result = await loginWithGoogle()
+      if (!result.ok) {
+        setError(result.error || 'Falha no login com Google. Tente novamente.')
+      }
+      // On success, Supabase redirects the page — no navigate() needed
+    } catch {
+      setError('Falha no login com Google. Tente novamente.')
+    } finally {
+      setLoadingGoogle(false)
     }
-    // On success, Supabase redirects the page — no navigate() needed
   }
 
   return (
