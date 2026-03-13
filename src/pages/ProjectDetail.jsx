@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
   ArrowLeft, Zap, Calculator, Target, Lock, CheckCircle2,
-  TrendingUp, Users,
+  TrendingUp, Users, PartyPopper, FileText,
 } from 'lucide-react'
 import PersonaCreator from './PersonaCreator'
 import OfertaMatadora from './OfertaMatadora'
@@ -20,6 +20,69 @@ const JOURNEY_STEPS = [
 
 const CORE_STEPS = ['roi', 'strategy', 'oferta']
 
+// ─── Conclusion Modal ─────────────────────────────────────────────────────────
+function ConclusionModal({ project, onViewProfile, onDashboard }) {
+  const personaCount = project.personas?.length || 0
+  const ofertaNome   = project.ofertaData?.nome
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="glass-card w-full max-w-md p-8 border border-rl-green/40 animate-slide-up shadow-2xl text-center">
+
+        {/* Icon */}
+        <div className="w-16 h-16 rounded-2xl bg-rl-green/10 border border-rl-green/30 flex items-center justify-center mx-auto mb-5">
+          <PartyPopper className="w-8 h-8 text-rl-green" />
+        </div>
+
+        {/* Title */}
+        <h2 className="text-xl font-bold text-rl-text mb-1">Onboarding Concluído!</h2>
+        <p className="text-sm text-rl-muted mb-6">
+          O perfil de <span className="font-semibold text-rl-text">{project.companyName}</span> está pronto.
+        </p>
+
+        {/* Summary chips */}
+        <div className="flex flex-wrap justify-center gap-2 mb-8">
+          <div className="flex items-center gap-1.5 bg-rl-purple/10 border border-rl-purple/20 px-3 py-1.5 rounded-full">
+            <CheckCircle2 className="w-3.5 h-3.5 text-rl-purple" />
+            <span className="text-xs font-medium text-rl-purple">ROI Calculado</span>
+          </div>
+          {personaCount > 0 && (
+            <div className="flex items-center gap-1.5 bg-rl-blue/10 border border-rl-blue/20 px-3 py-1.5 rounded-full">
+              <Users className="w-3.5 h-3.5 text-rl-blue" />
+              <span className="text-xs font-medium text-rl-blue">
+                {personaCount} Persona{personaCount > 1 ? 's' : ''} criada{personaCount > 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
+          {ofertaNome && (
+            <div className="flex items-center gap-1.5 bg-rl-gold/10 border border-rl-gold/20 px-3 py-1.5 rounded-full">
+              <Zap className="w-3.5 h-3.5 text-rl-gold" />
+              <span className="text-xs font-medium text-rl-gold truncate max-w-[160px]">{ofertaNome}</span>
+            </div>
+          )}
+        </div>
+
+        {/* CTAs */}
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={onViewProfile}
+            className="btn-primary flex items-center justify-center gap-2 w-full"
+          >
+            <FileText className="w-4 h-4" />
+            Ver Perfil do Cliente
+          </button>
+          <button
+            onClick={onDashboard}
+            className="btn-ghost w-full"
+          >
+            Voltar ao Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ProjectDetail() {
@@ -30,6 +93,7 @@ export default function ProjectDetail() {
   const project = projects.find((p) => String(p.id) === String(id))
 
   const [activeStep, setActiveStep] = useState('roi')
+  const [showConclusion, setShowConclusion] = useState(false)
 
   if (!project) {
     return (
@@ -48,7 +112,7 @@ export default function ProjectDetail() {
   const allDone = CORE_STEPS.every(s => completedSteps.includes(s))
 
   // ── Modo Perfil Puro (onboarding completo) ────────────────────────────────
-  if (allDone) {
+  if (allDone && !showConclusion) {
     return (
       <div className="min-h-screen bg-gradient-dark">
         <nav className="sticky top-0 z-50 border-b border-rl-border bg-rl-bg/80 backdrop-blur-xl">
@@ -116,7 +180,11 @@ export default function ProjectDetail() {
       completedSteps: newCompleted,
       progress: calcProgress(newCompleted),
     })
-    setActiveStep('profile')
+    if (!alreadyDone) {
+      setShowConclusion(true)
+    } else {
+      setActiveStep('profile')
+    }
   }
 
   return (
@@ -232,6 +300,14 @@ export default function ProjectDetail() {
           )}
         </main>
       </div>
+
+      {showConclusion && (
+        <ConclusionModal
+          project={project}
+          onViewProfile={() => setShowConclusion(false)}
+          onDashboard={() => navigate('/')}
+        />
+      )}
     </div>
   )
 }
