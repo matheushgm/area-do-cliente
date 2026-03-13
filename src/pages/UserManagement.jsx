@@ -220,9 +220,9 @@ export default function UserManagement() {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
 
-  function showToast(msg, type = 'success') {
+  function showToast(msg, type = 'success', duration = 4000) {
     setToast({ msg, type })
-    setTimeout(() => setToast(null), 3000)
+    setTimeout(() => setToast(null), duration)
   }
 
   const loadUsers = useCallback(async () => {
@@ -292,7 +292,7 @@ export default function UserManagement() {
       showToast(result.error, 'error')
     } else {
       await supabase.from('profiles').update({ disabled: !toggleTarget.disabled }).eq('id', toggleTarget.id)
-      showToast(toggleTarget.disabled ? 'Usuário reativado.' : 'Usuário desativado.')
+      showToast(toggleTarget.disabled ? 'Usuário reativado.' : 'Usuário desativado.', 'success', 6000)
       setToggleTarget(null)
       loadUsers()
     }
