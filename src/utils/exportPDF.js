@@ -921,3 +921,553 @@ export function exportEstrategiaPDF(project, narrativa) {
   win.document.write(html)
   win.document.close()
 }
+
+// ─── Estratégia V2 PDF ────────────────────────────────────────────────────────
+
+const V2_CSS = `
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    color: #1a1a2e;
+    background: #fff;
+  }
+  @media print {
+    .print-btn { display: none !important; }
+    .page-break { page-break-before: always; }
+  }
+  .print-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #164496;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(22,68,150,0.3);
+    z-index: 999;
+  }
+
+  /* Cover */
+  .cover {
+    background: linear-gradient(135deg, #0F172A 0%, #1a1a2e 50%, #16203a 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 60px 40px;
+    position: relative;
+  }
+  .cover-logo {
+    position: absolute;
+    top: 32px;
+    left: 40px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #4F7EF8;
+  }
+  .cover-badge {
+    background: rgba(79,126,248,0.15);
+    border: 1px solid rgba(79,126,248,0.35);
+    color: #4F7EF8;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 100px;
+    margin-bottom: 24px;
+    display: inline-block;
+  }
+  .cover-company {
+    font-size: 42px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.1;
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+  }
+  .cover-title {
+    font-size: 18px;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 40px;
+    font-weight: 500;
+  }
+  .cover-meta {
+    display: flex;
+    gap: 40px;
+    margin-top: 16px;
+  }
+  .cover-meta-item {
+    text-align: center;
+  }
+  .cover-meta-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 4px;
+  }
+  .cover-meta-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.8);
+  }
+
+  /* Content wrapper */
+  .content {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 40px 80px;
+  }
+
+  /* Section */
+  .section { margin-bottom: 40px; }
+  .section-title {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #164496;
+    border-bottom: 2px solid #D8E0F0;
+    padding-bottom: 8px;
+    margin-bottom: 18px;
+  }
+
+  /* Problemas */
+  .problema-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .problema-item {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    background: #FFFBF0;
+    border: 1px solid #F0D080;
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .problema-num {
+    font-size: 11px;
+    font-weight: 800;
+    color: #B8860B;
+    min-width: 20px;
+  }
+  .problema-text { font-size: 13px; color: #1a1a2e; line-height: 1.4; }
+
+  /* SWOT */
+  .swot-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .swot-cell {
+    border-radius: 10px;
+    padding: 16px;
+    min-height: 100px;
+  }
+  .swot-cell.forcas      { background: #F0FDF4; border: 1px solid #86EFAC; }
+  .swot-cell.fraquezas   { background: #FFF1F2; border: 1px solid #FDA4AF; }
+  .swot-cell.oportunidades { background: #EFF6FF; border: 1px solid #93C5FD; }
+  .swot-cell.ameacas     { background: #FFFBEB; border: 1px solid #FCD34D; }
+  .swot-label {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .swot-cell.forcas      .swot-label { color: #16A34A; }
+  .swot-cell.fraquezas   .swot-label { color: #DC2626; }
+  .swot-cell.oportunidades .swot-label { color: #2563EB; }
+  .swot-cell.ameacas     .swot-label { color: #B45309; }
+  .swot-content { font-size: 12px; color: #374151; line-height: 1.5; white-space: pre-line; }
+
+  /* Benchmark */
+  .competitor-block { margin-bottom: 24px; }
+  .competitor-name {
+    font-size: 14px;
+    font-weight: 800;
+    color: #0F172A;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #E2E8F0;
+  }
+  .competitor-table { width: 100%; border-collapse: collapse; }
+  .competitor-table td {
+    padding: 6px 10px;
+    font-size: 12px;
+    border-bottom: 1px solid #F1F5F9;
+    vertical-align: top;
+  }
+  .competitor-table td:first-child {
+    font-weight: 700;
+    color: #64748B;
+    width: 160px;
+    white-space: nowrap;
+  }
+  .platform-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-right: 6px;
+  }
+  .badge-meta   { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
+  .badge-google { background: #F0FDF4; color: #15803D; border: 1px solid #86EFAC; }
+  .badge-no     { background: #F8FAFC; color: #94A3B8; border: 1px solid #E2E8F0; }
+
+  /* Riscos */
+  .risk-table { width: 100%; border-collapse: collapse; }
+  .risk-table th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #64748B;
+    padding: 6px 10px;
+    border-bottom: 2px solid #E2E8F0;
+  }
+  .risk-table td {
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #1a1a2e;
+    border-bottom: 1px solid #F1F5F9;
+    vertical-align: top;
+    line-height: 1.4;
+  }
+  .nivel-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .nivel-baixo { background: #F0FDF4; color: #16A34A; border: 1px solid #86EFAC; }
+  .nivel-medio { background: #FFFBEB; color: #B45309; border: 1px solid #FCD34D; }
+  .nivel-alto  { background: #FFF1F2; color: #DC2626; border: 1px solid #FDA4AF; }
+
+  /* ICPs */
+  .icp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .icp-card { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 16px; }
+  .icp-name { font-size: 14px; font-weight: 800; color: #0F172A; margin-bottom: 10px; }
+  .icp-attr-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+  .icp-attr-label {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #94A3B8;
+    width: 44px;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+  .icp-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .icp-chip {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 100px;
+    font-weight: 600;
+  }
+  .chip-green  { background: #F0FDF4; color: #16A34A; }
+  .chip-red    { background: #FFF1F2; color: #DC2626; }
+  .chip-gold   { background: #FFFBEB; color: #B45309; }
+  .chip-purple { background: #F5F3FF; color: #7C3AED; }
+  .icp-profile { font-size: 11px; color: #64748B; margin-top: 8px; line-height: 1.5; }
+
+  /* Funis */
+  .funil-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .funil-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #F5F3FF;
+    border: 1px solid #DDD6FE;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #5B21B6;
+  }
+  .funil-dot { width: 8px; height: 8px; border-radius: 50%; background: #7C3AED; flex-shrink: 0; }
+
+  /* Campanhas */
+  .channel-block { margin-bottom: 16px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; overflow: hidden; }
+  .channel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #EFF6FF;
+    padding: 10px 14px;
+    border-bottom: 1px solid #DBEAFE;
+  }
+  .channel-name { font-size: 13px; font-weight: 800; color: #1E40AF; }
+  .channel-budget { font-size: 13px; font-weight: 700; color: #1D4ED8; }
+  .channel-pct { font-size: 11px; color: #64748B; margin-left: 8px; }
+  .stage-row { padding: 6px 14px; border-bottom: 1px solid #F1F5F9; }
+  .stage-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: #94A3B8; margin-bottom: 4px; }
+  .campaign-row { display: flex; justify-content: space-between; font-size: 11px; color: #64748B; padding: 2px 0 2px 12px; }
+
+  /* Footer */
+  .footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 40px;
+    font-size: 10px;
+    color: #94A3B8;
+    background: #fff;
+    border-top: 1px solid #E2E8F0;
+  }
+  .footer-brand { font-weight: 800; color: #164496; }
+  .empty-state { color: #94A3B8; font-style: italic; font-size: 12px; padding: 12px 0; }
+`
+
+export function exportEstrategiaV2PDF(project, data) {
+  const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+
+  const { problemas = [], swot = {}, concorrentes = [], riscos = [], funis = [] } = data
+  const personas     = project.personas     || []
+  const campaignPlan = project.campaignPlan || null
+  const totalBudget  = campaignPlan?.orcamentoTotal || campaignPlan?.totalBudget || 0
+
+  function fmtBudget(n) {
+    if (!n || !isFinite(n) || isNaN(n)) return '—'
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+  }
+
+  // ── Cover ──────────────────────────────────────────────────────────────────
+  const cover = `
+    <div class="cover">
+      <div class="cover-logo">Revenue Lab</div>
+      <div class="cover-badge">Estratégia Digital V2</div>
+      <div class="cover-company">${esc(project.companyName)}</div>
+      <div class="cover-title">Documento de Estratégia Digital</div>
+      <div class="cover-meta">
+        <div class="cover-meta-item">
+          <div class="cover-meta-label">Data</div>
+          <div class="cover-meta-value">${today}</div>
+        </div>
+        ${project.businessType ? `<div class="cover-meta-item">
+          <div class="cover-meta-label">Tipo de Negócio</div>
+          <div class="cover-meta-value">${esc({ b2b:'B2B', local:'Negócio Local', ecommerce:'E-commerce', infoproduto:'Infoproduto' }[project.businessType] || project.businessType)}</div>
+        </div>` : ''}
+        ${problemas.length ? `<div class="cover-meta-item">
+          <div class="cover-meta-label">Problemas</div>
+          <div class="cover-meta-value">${problemas.length}</div>
+        </div>` : ''}
+        ${funis.length ? `<div class="cover-meta-item">
+          <div class="cover-meta-label">Funis</div>
+          <div class="cover-meta-value">${funis.length}</div>
+        </div>` : ''}
+      </div>
+    </div>`
+
+  // ── Problemas ─────────────────────────────────────────────────────────────
+  const problemasHTML = `
+    <div class="section">
+      <div class="section-title">01 · Problemas Identificados no Kickoff</div>
+      ${problemas.length ? `
+        <ul class="problema-list">
+          ${problemas.map((p, i) => `
+            <li class="problema-item">
+              <span class="problema-num">${String(i + 1).padStart(2, '0')}</span>
+              <span class="problema-text">${esc(p)}</span>
+            </li>`).join('')}
+        </ul>
+      ` : '<div class="empty-state">Nenhum problema registrado.</div>'}`
+
+  // ── SWOT ──────────────────────────────────────────────────────────────────
+  const swotHTML = `
+    <div class="section page-break">
+      <div class="section-title">02 · Análise SWOT</div>
+      <div class="swot-grid">
+        <div class="swot-cell forcas">
+          <div class="swot-label">Forças</div>
+          <div class="swot-content">${esc(swot.forcas || '—')}</div>
+        </div>
+        <div class="swot-cell fraquezas">
+          <div class="swot-label">Fraquezas</div>
+          <div class="swot-content">${esc(swot.fraquezas || '—')}</div>
+        </div>
+        <div class="swot-cell oportunidades">
+          <div class="swot-label">Oportunidades</div>
+          <div class="swot-content">${esc(swot.oportunidades || '—')}</div>
+        </div>
+        <div class="swot-cell ameacas">
+          <div class="swot-label">Ameaças</div>
+          <div class="swot-content">${esc(swot.ameacas || '—')}</div>
+        </div>
+      </div>
+    </div>`
+
+  // ── Benchmark ─────────────────────────────────────────────────────────────
+  const benchmarkHTML = `
+    <div class="section page-break">
+      <div class="section-title">03 · Benchmark de Concorrentes</div>
+      ${concorrentes.length ? concorrentes.map(c => `
+        <div class="competitor-block">
+          <div class="competitor-name">${esc(c.nome || 'Concorrente')}</div>
+          <table class="competitor-table">
+            <tr>
+              <td>Plataformas</td>
+              <td>
+                ${c.metaAds   ? '<span class="platform-badge badge-meta">Meta Ads</span>'   : '<span class="platform-badge badge-no">Sem Meta Ads</span>'}
+                ${c.googleAds ? '<span class="platform-badge badge-google">Google Ads</span>' : '<span class="platform-badge badge-no">Sem Google Ads</span>'}
+              </td>
+            </tr>
+            ${c.metaAds && c.linkBiblioteca ? `<tr><td>Biblioteca de Anúncios</td><td style="word-break:break-all">${esc(c.linkBiblioteca)}</td></tr>` : ''}
+            ${c.grandePromessa ? `<tr><td>Grande Promessa</td><td>${esc(c.grandePromessa)}</td></tr>` : ''}
+            ${c.comunicacao ? `<tr><td>Comunicação</td><td>${esc(c.comunicacao)}</td></tr>` : ''}
+          </table>
+        </div>`).join('') : '<div class="empty-state">Nenhum concorrente registrado.</div>'}`
+
+  // ── Riscos ────────────────────────────────────────────────────────────────
+  const nivelLabel = { baixo: 'Baixo', medio: 'Médio', alto: 'Alto' }
+  const riscosHTML = `
+    <div class="section">
+      <div class="section-title">04 · Riscos do Projeto</div>
+      ${riscos.length ? `
+        <table class="risk-table">
+          <thead>
+            <tr>
+              <th style="width:28%">Problema / Causa</th>
+              <th style="width:28%">Risco Gerado</th>
+              <th style="width:28%">Impacto</th>
+              <th style="width:16%">Nível</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${riscos.map(r => `
+              <tr>
+                <td>${esc(r.problema  || '—')}</td>
+                <td>${esc(r.riscoGerado || '—')}</td>
+                <td>${esc(r.impacto   || '—')}</td>
+                <td><span class="nivel-badge nivel-${r.nivel || 'medio'}">${nivelLabel[r.nivel] || 'Médio'}</span></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      ` : '<div class="empty-state">Nenhum risco registrado.</div>'}`
+
+  // ── ICPs ──────────────────────────────────────────────────────────────────
+  const icpsHTML = `
+    <div class="section page-break">
+      <div class="section-title">05 · Resumo dos ICPs</div>
+      ${personas.length ? `
+        <div class="icp-grid">
+          ${personas.map(p => {
+            const a    = p.answers || {}
+            const pick = (key) => (a[key] || []).filter(Boolean).slice(0, 3)
+            return `
+              <div class="icp-card">
+                <div class="icp-name">${esc(p.name || 'Persona Principal')}</div>
+                ${pick('resultado').length ? `<div class="icp-attr-row"><span class="icp-attr-label">Deseja</span><div class="icp-chips">${pick('resultado').map(x => `<span class="icp-chip chip-green">${esc(x)}</span>`).join('')}</div></div>` : ''}
+                ${pick('objecoes').length  ? `<div class="icp-attr-row"><span class="icp-attr-label">Objeção</span><div class="icp-chips">${pick('objecoes').map(x => `<span class="icp-chip chip-red">${esc(x)}</span>`).join('')}</div></div>` : ''}
+                ${pick('medos').length     ? `<div class="icp-attr-row"><span class="icp-attr-label">Medo</span><div class="icp-chips">${pick('medos').map(x => `<span class="icp-chip chip-gold">${esc(x)}</span>`).join('')}</div></div>` : ''}
+                ${pick('sonhos').length    ? `<div class="icp-attr-row"><span class="icp-attr-label">Sonha</span><div class="icp-chips">${pick('sonhos').map(x => `<span class="icp-chip chip-purple">${esc(x)}</span>`).join('')}</div></div>` : ''}
+                ${p.generatedProfile ? `<div class="icp-profile">${esc(p.generatedProfile.slice(0, 220))}${p.generatedProfile.length > 220 ? '…' : ''}</div>` : ''}
+              </div>`
+          }).join('')}
+        </div>
+      ` : '<div class="empty-state">Nenhum ICP cadastrado.</div>'}`
+
+  // ── Funis ─────────────────────────────────────────────────────────────────
+  const funisHTML = `
+    <div class="section">
+      <div class="section-title">06 · Tipos de Funis Selecionados</div>
+      ${funis.length ? `
+        <div class="funil-grid">
+          ${funis.map(f => `<div class="funil-item"><span class="funil-dot"></span>${esc(f)}</div>`).join('')}
+        </div>
+      ` : '<div class="empty-state">Nenhum funil selecionado.</div>'}`
+
+  // ── Campanhas ─────────────────────────────────────────────────────────────
+  let campanhasHTML = `
+    <div class="section page-break">
+      <div class="section-title">07 · Planejamento de Campanhas por Canais</div>`
+
+  if (!campaignPlan || !campaignPlan.channels?.length) {
+    campanhasHTML += '<div class="empty-state">Planejamento de campanhas não preenchido.</div>'
+  } else {
+    campanhasHTML += campaignPlan.channels.map(ch => {
+      const chBudget = totalBudget * (ch.percentage / 100)
+      const stages   = ch.stages || {}
+      const stagesHTML = ['topo', 'meio', 'fundo'].map(key => {
+        const stage = stages[key]
+        if (!stage || !stage.campaigns?.length) return ''
+        const stageBudget = chBudget * (stage.percentage / 100)
+        const label = key === 'topo' ? 'Topo de Funil' : key === 'meio' ? 'Meio de Funil' : 'Fundo de Funil'
+        return `
+          <div class="stage-row">
+            <div class="stage-label">${label} — ${fmtBudget(stageBudget)}/mês</div>
+            ${stage.campaigns.map(camp => `
+              <div class="campaign-row">
+                <span>${esc(camp.name || '—')}</span>
+                <span>${fmtBudget(stageBudget * (camp.percentage / 100))}/mês</span>
+              </div>`).join('')}
+          </div>`
+      }).join('')
+      return `
+        <div class="channel-block">
+          <div class="channel-header">
+            <span class="channel-name">${esc(ch.name)}</span>
+            <span><span class="channel-budget">${fmtBudget(chBudget)}/mês</span><span class="channel-pct">${ch.percentage}%</span></span>
+          </div>
+          ${stagesHTML}
+        </div>`
+    }).join('')
+  }
+  campanhasHTML += '</div>'
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  const footer = `
+    <div class="footer">
+      <span class="footer-brand">Revenue Lab</span>
+      <span>Documento confidencial · ${esc(project.companyName)}</span>
+      <span>${today}</span>
+    </div>`
+
+  // ── Assemble ──────────────────────────────────────────────────────────────
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Estratégia V2 — ${esc(project.companyName)}</title>
+  <style>${V2_CSS}</style>
+</head>
+<body>
+  ${cover}
+  <div class="content">
+    ${problemasHTML}
+    ${swotHTML}
+    ${benchmarkHTML}
+    ${riscosHTML}
+    ${icpsHTML}
+    ${funisHTML}
+    ${campanhasHTML}
+    ${footer}
+  </div>
+  <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>
+</body>
+</html>`
+
+  const win = window.open('', '_blank', 'width=1100,height=900')
+  if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
+  win.document.write(html)
+  win.document.close()
+}

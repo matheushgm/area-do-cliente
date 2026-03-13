@@ -4,7 +4,7 @@ import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays, ChevronRight, Building2,
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
-  Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay,
+  Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -17,6 +17,7 @@ import ResultadosModule from '../components/ResultadosModule'
 import MetaLabModule from '../components/MetaLabModule'
 import GoogleAdsModule from '../components/GoogleAdsModule'
 import EstrategiaModule from '../components/EstrategiaModule'
+import EstrategiaV2Module from '../components/EstrategiaV2Module'
 import BancoMidiaModule from '../components/BancoMidiaModule'
 import { exportOnboardingPDF } from '../utils/exportPDF'
 
@@ -360,6 +361,11 @@ export default function ClientProfile({ project: projectProp }) {
     updateProject(project.id, { estrategia: estrategiaData })
   }
 
+  function handleSaveEstrategiaV2(data) {
+    updateProject(project.id, { estrategiaV2: data })
+    setOpenModal(null)
+  }
+
   const companyInitials = initials(project.companyName)
   const hasROI          = !!project.roiResult
   const hasPersonas     = project.personas?.length > 0
@@ -367,6 +373,7 @@ export default function ClientProfile({ project: projectProp }) {
   const hasCampaignPlan = !!(project.campaignPlan?.totalBudget > 0 && project.campaignPlan?.channels?.length > 0)
   const hasGoogleAds    = (project.googleAds || []).length > 0
   const hasEstrategia   = !!project.estrategia?.narrativa
+  const hasEstrategiaV2 = !!(project.estrategiaV2?.problemas?.length || project.estrategiaV2?.swot?.forcas)
   const hasBancoMidia   = !!(project.brandKit?.logo || (project.brandKit?.cores || []).length > 0 || (project.brandFotos || []).length > 0 || (project.brandVideos || []).length > 0)
   const hasAnexos       = (project.attachments || []).length > 0
   const hasLandingPages = (project.landingPages || []).length > 0
@@ -679,6 +686,18 @@ export default function ClientProfile({ project: projectProp }) {
           badgeColor="text-rl-purple bg-rl-purple/10 border-rl-purple/20"
           onClick={() => setOpenModal('estrategia')}
         />
+
+        {/* 14. Estratégia V2 */}
+        <SectionCard
+          icon={Map}
+          iconColor="text-rl-blue"
+          iconBg="bg-rl-blue/10"
+          title="Estratégia V2"
+          preview={hasEstrategiaV2 ? 'SWOT · Benchmark · Riscos · Funis' : 'Preencha problemas, SWOT, benchmark e funis'}
+          badge={hasEstrategiaV2 ? 'Preenchida' : null}
+          badgeColor="text-rl-blue bg-rl-blue/10 border-rl-blue/20"
+          onClick={() => setOpenModal('estrategiav2')}
+        />
       </div>
 
       {/* ── Modals ────────────────────────────────────────────────────────── */}
@@ -758,6 +777,12 @@ export default function ClientProfile({ project: projectProp }) {
       {openModal === 'estrategia' && (
         <Modal title="Estratégia Digital" icon={Layers} iconColor="text-rl-purple" onClose={() => setOpenModal(null)}>
           <EstrategiaModule project={project} onSave={handleSaveEstrategia} />
+        </Modal>
+      )}
+
+      {openModal === 'estrategiav2' && (
+        <Modal title="Estratégia V2" icon={Map} iconColor="text-rl-blue" onClose={() => setOpenModal(null)}>
+          <EstrategiaV2Module project={project} onSave={handleSaveEstrategiaV2} />
         </Modal>
       )}
     </div>
