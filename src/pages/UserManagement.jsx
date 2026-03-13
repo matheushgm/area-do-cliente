@@ -357,9 +357,14 @@ export default function UserManagement() {
                 <span className="text-sm">Carregando usuários...</span>
               </div>
             ) : error ? (
-              <div className="flex items-center gap-3 px-6 py-8 text-red-400">
-                <AlertTriangle className="w-5 h-5 shrink-0" />
-                <p className="text-sm">{error}</p>
+              <div className="flex flex-col items-center gap-3 px-6 py-8 text-red-400">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-5 h-5 shrink-0" />
+                  <p className="text-sm">{error}</p>
+                </div>
+                <button onClick={loadUsers} className="btn-ghost text-sm text-rl-muted hover:text-rl-text">
+                  Tentar novamente
+                </button>
               </div>
             ) : users.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-rl-muted">
