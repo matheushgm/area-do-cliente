@@ -100,7 +100,8 @@ function formatCurrency(v) {
 }
 
 function parseCurrencyToNumber(v) {
-  return parseFloat(v.replace(/\D/g, '')) / 100 || 0
+  if (!v || !v.trim()) return null
+  return parseFloat(v.replace(/\D/g, '')) / 100 || null
 }
 
 // ─── Segmento Field ───────────────────────────────────────────────────────────
@@ -353,6 +354,12 @@ export default function NewOnboarding() {
     }
     if (s === 2) {
       if (form.services.length === 0) e.services = 'Selecione ao menos um serviço'
+    }
+    if (s === 3) {
+      if (form.averageTicket && !parseCurrencyToNumber(form.averageTicket))
+        e.averageTicket = 'Valor inválido — verifique o formato'
+      if (form.mediaBudget && !parseCurrencyToNumber(form.mediaBudget))
+        e.mediaBudget = 'Valor inválido — verifique o formato'
     }
     if (s === 4) {
       if (!form.contractModel) e.contractModel = 'Selecione o modelo de contratação'
@@ -672,9 +679,10 @@ export default function NewOnboarding() {
                       value={form.averageTicket}
                       onChange={(e) => set('averageTicket', formatCurrency(e.target.value))}
                       placeholder="R$ 0,00"
-                      className="input-field pl-9"
+                      className={`input-field pl-9 ${errors.averageTicket ? 'border-rl-red' : ''}`}
                     />
                   </div>
+                  {errors.averageTicket && <p className="text-rl-red text-xs mt-1">{errors.averageTicket}</p>}
                 </div>
                 <div>
                   <label className="label-field">Orçamento em Mídia Paga</label>
@@ -684,9 +692,10 @@ export default function NewOnboarding() {
                       value={form.mediaBudget}
                       onChange={(e) => set('mediaBudget', formatCurrency(e.target.value))}
                       placeholder="R$ 0,00"
-                      className="input-field pl-9"
+                      className={`input-field pl-9 ${errors.mediaBudget ? 'border-rl-red' : ''}`}
                     />
                   </div>
+                  {errors.mediaBudget && <p className="text-rl-red text-xs mt-1">{errors.mediaBudget}</p>}
                 </div>
               </div>
               <p className="text-xs text-rl-muted text-center">
