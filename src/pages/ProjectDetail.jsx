@@ -226,9 +226,11 @@ export default function ProjectDetail() {
                 const done    = completedSteps.includes(step.id)
                 const active  = activeStep === step.id
                 const allCoreDone = CORE_STEPS.every(s => completedSteps.includes(s))
-                const locked  = step.id === 'profile'
-                  ? !allCoreDone
-                  : (!done && i > 0 && !completedSteps.includes(JOURNEY_STEPS[i - 1].id))
+                const locked  = done ? false : (
+                  step.id === 'profile'
+                    ? !allCoreDone
+                    : (i > 0 && !completedSteps.includes(JOURNEY_STEPS[i - 1].id))
+                )
                 const Icon    = step.icon
 
                 return (
