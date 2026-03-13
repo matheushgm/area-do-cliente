@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useState,
+  useRef,
   useCallback,
   useEffect,
 } from "react";
@@ -82,6 +83,9 @@ export function AppProvider({ children }) {
 
   const [loadingProjects, setLoadingProjects] = useState(isSupabaseReady);
 
+  // ── Contador de escritas locais em andamento (evita sobrescrever via realtime) ──
+  const pendingWrites = useRef(0);
+
   // ── Team members (from profiles table) ────────────────────────────────────
   const [teamMembers, setTeamMembers] = useState([]);
 
@@ -148,6 +152,7 @@ export function AppProvider({ children }) {
         "postgres_changes",
         { event: "*", schema: "public", table: "projects" },
         () => {
+          if (pendingWrites.current > 0) return;
           sbFetchAll().then((rows) => {
             if (rows !== null) {
               setProjects(rows);
@@ -206,9 +211,10 @@ export function AppProvider({ children }) {
         localStorage.setItem("rl_projects", JSON.stringify(updated));
         return updated;
       });
-      sbUpsert(project).catch((err) =>
-        console.error("Erro ao salvar projeto no Supabase:", err),
-      );
+      pendingWrites.current += 1;
+      sbUpsert(project)
+        .catch((err) => console.error("Erro ao salvar projeto no Supabase:", err))
+        .finally(() => { pendingWrites.current -= 1; });
       return project;
     },
     [user],
@@ -219,9 +225,10 @@ export function AppProvider({ children }) {
       const updated = prev.map((p) => (p.id !== id ? p : { ...p, ...patch }));
       const merged = updated.find((p) => p.id === id);
       if (merged) {
-        sbUpsert(merged).catch((err) =>
-          console.error("Erro ao atualizar projeto no Supabase:", err),
-        );
+        pendingWrites.current += 1;
+        sbUpsert(merged)
+          .catch((err) => console.error("Erro ao atualizar projeto no Supabase:", err))
+          .finally(() => { pendingWrites.current -= 1; });
       }
       localStorage.setItem("rl_projects", JSON.stringify(updated));
       return updated;
