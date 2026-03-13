@@ -64,10 +64,11 @@ Todo o estado da aplicação vive em `src/context/AppContext.jsx`. Ele expõe:
 
 ### Persistência e sincronização
 
-- **Offline-first:** toda mutação salva em `localStorage` imediatamente
+- **Offline-first:** toda mutação salva em `localStorage` imediatamente sob a chave `rl_projects_v2`
 - **Debounce:** `updateProject` tem debounce de 1s por `id` antes de escrever no Supabase (via `upsertTimers` ref)
 - **Race condition:** `pendingWrites` ref contador — o listener de realtime ignora eventos enquanto há escritas locais pendentes
-- **Realtime granular:** listener usa handlers separados por evento (`INSERT`/`UPDATE`/`DELETE`), atualizando apenas o registro afetado no state local
+- **Realtime granular:** listener em `projects_v2` usa handlers separados por evento (`INSERT`/`UPDATE`/`DELETE`), atualizando apenas o registro afetado no state local. Mudanças em tabelas filhas (personas, criativos, etc.) **não** disparam realtime — são refletidas apenas via escrita local imediata.
+- **Aliases camelCase:** `assembleProject()` em AppContext expõe tanto os campos snake_case do DB quanto aliases camelCase (ex: `company_name` + `companyName`) para compatibilidade com os componentes existentes.
 
 ### Jornada de onboarding (`ProjectDetail`)
 
@@ -86,14 +87,49 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
 - Renderização de output da IA: `react-markdown` + `rehype-sanitize` (sem `dangerouslySetInnerHTML`)
 - Em desenvolvimento local, use `vercel dev`; o Vite puro (`npm run dev`) não serve `/api/*` e a IA não funcionará
 
-### Supabase
+### Supabase — Schema normalizado
 
-- `src/lib/supabase.js` — retorna `null` se as env vars não estiverem definidas
-- Tabela `projects`: colunas `id`, `data` (JSONB com todo o projeto), `created_at`, `updated_at`
-  - RLS habilitado: admins acessam todos os projetos; accounts acessam apenas os próprios (`data->>'accountId' = auth.uid()`)
+`src/lib/supabase.js` — retorna `null` se as env vars não estiverem definidas. Exporta também helpers de Storage: `uploadFile`, `deleteFile`, `getSignedUrl`.
+
+#### Tabela principal
+
+- **`projects_v2`** — projetos com schema normalizado; UUID PK gerado via `crypto.randomUUID()` no browser antes do INSERT. Contém campos da empresa, contrato, equipe e serviços.
+  - RLS: admins acessam todos; accounts acessam apenas onde `account_id = auth.uid()`
   - A role é lida diretamente do JWT: `auth.jwt() -> 'user_metadata' ->> 'role'`
-- Tabela `profiles`: colunas `id`, `name`, `email`, `avatar`, `role`, `disabled boolean`, `created_at` — espelha os metadados do Auth; usada para listar membros do time no Dashboard e pela gestão de usuários
-  - RLS habilitado: leitura para qualquer autenticado; admins podem escrever qualquer perfil (policies `profiles_admin_write` e `profiles_admin_insert`); cada usuário só escreve o próprio
+- **`profiles`** — espelha os metadados do Auth; usada para listar membros do time no Dashboard e pela gestão de usuários
+  - RLS: leitura para qualquer autenticado; admins podem escrever qualquer perfil; cada usuário só escreve o próprio
+
+#### Tabelas filhas (FK `project_id → projects_v2(id) ON DELETE CASCADE`)
+
+| Tabela | Cardinalidade | Chave patch no AppContext |
+|---|---|---|
+| `roi_calculators` | N por projeto | `roiCalc` + `roiResult` |
+| `personas` | N por projeto | `personas` (array — delete+insert) |
+| `ofertas` | 1 por projeto | `ofertaData` |
+| `campaign_plans` | N por projeto | `campaignPlan` |
+| `resultados` | N por projeto (UNIQUE `project_id, period`) | pendente Phase 5 |
+| `criativos` | N por projeto | `creatives` (array — delete+insert) |
+| `google_ads` | N por projeto | `googleAds` (array — delete+insert) |
+| `landing_pages` | N por projeto | `landingPages` (array — delete+insert) |
+| `banco_midia` | 1:1 com projeto | `brandFotos` / `brandVideos` / `brandKit` |
+| `estrategia` | 1:1 com projeto | `estrategia` |
+| `estrategia_v2` | 1:1 com projeto | `estrategiaV2` |
+| `attachments` | N por projeto | `attachments` (array — delete+insert) |
+
+#### Roteamento de patches em `updateProject`
+
+`sbUpdateProjectV2(id, patch)` inspeciona as chaves do patch e roteia cada uma para a tabela correta. Campos de `projects_v2` são mapeados via `PROJECT_FIELD_MAP` (aceita tanto camelCase quanto snake_case). Campos não reconhecidos são ignorados silenciosamente (ex: `progress`, que é derivado de `completedSteps`).
+
+#### Supabase Storage — buckets
+
+| Bucket | Acesso | Uso |
+|---|---|---|
+| `project-docs` | privado | `raio_x` e `sla` do onboarding (pendente Phase 5) |
+| `brand-media` | privado | fotos e vídeos do banco de mídia (pendente Phase 5) |
+| `brand-logos` | privado | logotipo da marca |
+| `attachments` | privado | uploads avulsos do `AnexosModule` (base64 ainda; pendente Phase 5) |
+
+Path convention: `{projectId}/{filename}`. Storage policies espelham as RLS das tabelas filhas.
 
 ### Autenticação (Supabase Auth)
 
@@ -112,7 +148,7 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
 
 ### Draft de onboarding
 
-`NewOnboarding` persiste rascunho em `localStorage` sob a chave `rl_onboarding_draft`; restaurado automaticamente na próxima visita.
+`NewOnboarding` persiste rascunho em `localStorage` sob a chave `rl_new_onboarding_draft`; restaurado automaticamente na próxima visita. O payload enviado a `addProject` usa **snake_case** (mapeado direto para `projects_v2`).
 
 ### Gestão de Usuários
 
@@ -121,6 +157,16 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
   - Actions suportadas: `create_user` (cria usuário no Auth + perfil em `profiles`), `update_user` (atualiza metadados e perfil), `toggle_user` (ativa/desativa via campo `disabled` em `profiles` e `user_metadata`)
 - `src/pages/UserManagement.jsx` — página de gestão; protegida pelo HOC `RequireAdmin` em `App.jsx`, que redireciona para `/` caso o usuário não seja admin
 - Item "Usuários" na sidebar (`AppSidebar.jsx`) é renderizado apenas para admins
+
+### Pendências (Phase 5)
+
+Os seguintes componentes ainda usam base64 / estrutura legada e precisam ser atualizados:
+
+| Componente | Trabalho |
+|---|---|
+| `AnexosModule.jsx` | Substituir FileReader base64 por `uploadFile('attachments', ...)` de `src/lib/supabase.js` |
+| `BancoMidiaModule.jsx` | Upload de fotos/vídeos para `brand-media`; logo para `brand-logos` |
+| `ResultadosModule.jsx` | Adaptar estrutura legada `b2b{month{week}}` para array de rows `{ period: DATE, ... }` na tabela `resultados` |
 
 ### Estilo
 

@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
+import { getSignedUrl } from '../lib/supabase'
 import {
   Upload, Download, Trash2, AlertCircle, Plus, X,
   Image, Film, Palette, Type, AlertTriangle, Camera,
@@ -177,14 +178,25 @@ export default function BancoMidiaModule({ project }) {
   const photoInputRef = useRef(null)
   const videoInputRef = useRef(null)
 
-  const [error,    setError]    = useState(null)
-  const [newColor, setNewColor] = useState({ hex: '#164496', nome: '' })
+  const [error,      setError]      = useState(null)
+  const [newColor,   setNewColor]   = useState({ hex: '#164496', nome: '' })
   const [showAddColor, setShowAddColor] = useState(false)
+  const [logoSrc,    setLogoSrc]    = useState(null)
 
   // ── Data shortcuts ──────────────────────────────────────────────────────────
   const kit    = project.brandKit    || {}
   const fotos  = project.brandFotos  || []
   const videos = project.brandVideos || []
+
+  // ── Resolve logo: base64 direto ou signed URL do Storage ───────────────────
+  useEffect(() => {
+    if (!kit.logo) { setLogoSrc(null); return }
+    if (kit.logo.startsWith('data:') || kit.logo.startsWith('http')) {
+      setLogoSrc(kit.logo)
+    } else {
+      getSignedUrl('brand-logos', kit.logo).then((url) => setLogoSrc(url))
+    }
+  }, [kit.logo])
 
   function saveKit(patch) {
     updateProject(project.id, { brandKit: { ...kit, ...patch } })
@@ -295,9 +307,9 @@ export default function BancoMidiaModule({ project }) {
               onClick={() => logoInputRef.current?.click()}
               className="relative group cursor-pointer w-full aspect-video rounded-xl border-2 border-dashed border-rl-border hover:border-rl-purple/50 bg-rl-surface flex items-center justify-center overflow-hidden transition-all"
             >
-              {kit.logo ? (
+              {logoSrc ? (
                 <>
-                  <img src={kit.logo} alt="Logo" className="w-full h-full object-contain p-3" />
+                  <img src={logoSrc} alt="Logo" className="w-full h-full object-contain p-3" />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <Camera className="w-5 h-5 text-white" />
                   </div>
@@ -309,7 +321,7 @@ export default function BancoMidiaModule({ project }) {
                 </div>
               )}
             </div>
-            {kit.logo && (
+            {logoSrc && (
               <button
                 onClick={() => saveKit({ logo: null })}
                 className="w-full text-xs text-rl-red/70 hover:text-rl-red transition-colors"
