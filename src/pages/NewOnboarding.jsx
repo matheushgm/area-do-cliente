@@ -344,6 +344,7 @@ export default function NewOnboarding() {
   const [form, setForm]                   = useState(draft?.form ? { ...initialForm, ...draft.form } : initialForm)
   const [errors, setErrors]               = useState({})
   const [done, setDone]                   = useState(false)
+  const [createdId, setCreatedId]         = useState(null)
   const [completedSteps, setCompletedSteps] = useState(draft?.completedSteps ?? [])
   const [hasDraft]                        = useState(!!draft?.form?.companyName)
 
@@ -411,7 +412,7 @@ export default function NewOnboarding() {
       // Convert service IDs → labels for display
       const serviceLabels = form.services.map((id) => SERVICES_CONFIG.find((s) => s.id === id)?.label || id)
 
-      addProject({
+      const created = addProject({
         businessType:        form.businessType,
         companyName:         form.companyName,
         cnpj:                form.cnpj,
@@ -436,6 +437,7 @@ export default function NewOnboarding() {
         slaFileName:         form.slaFile?.name ?? null,
       })
       clearDraft()
+      setCreatedId(created.id)
       setDone(true)
     } else {
       setStep(step + 1)
@@ -468,13 +470,21 @@ export default function NewOnboarding() {
             O projeto <span className="text-white font-semibold">{form.companyName}</span> foi adicionado com sucesso.
           </p>
 
-          <div className="flex gap-3 justify-center">
-            <button onClick={() => navigate('/')} className="btn-secondary flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button onClick={() => navigate('/')} className="btn-ghost flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" /> Dashboard
             </button>
+            {createdId && (
+              <button
+                onClick={() => navigate(`/project/${createdId}`)}
+                className="btn-primary flex items-center gap-2"
+              >
+                Ver Projeto <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={() => { clearDraft(); setForm(initialForm); setStep(0); setDone(false); setCompletedSteps([]) }}
-              className="btn-primary flex items-center gap-2"
+              className="btn-secondary flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> Novo Onboarding
             </button>
