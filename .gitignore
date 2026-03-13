@@ -19,9 +19,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Editor
+# Editor e ferramentas locais
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 .DS_Store
@@ -29,3 +30,9 @@ Thumbs.db
 
 # Cache
 .eslintcache
+
+#Personal
+screenshot/
+
+# Migration artifacts
+scripts/id-map-*.json

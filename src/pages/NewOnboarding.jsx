@@ -79,9 +79,8 @@ const STEPS = [
   { id: 1, label: 'Empresa',    icon: Building2,  title: 'Dados da Empresa',        sub: 'Informações básicas e segmento do cliente' },
   { id: 2, label: 'Documentos', icon: FileText,   title: 'Documentos',              sub: 'Anexe os arquivos enviados pelo vendedor' },
   { id: 3, label: 'Serviços',   icon: Briefcase,  title: 'Serviços Contratados',    sub: 'Selecione os serviços e configure quantidades' },
-  { id: 4, label: 'Métricas',   icon: DollarSign, title: 'Métricas Financeiras',    sub: 'Ticket médio e verba destinada à mídia paga' },
-  { id: 5, label: 'Contrato',   icon: Calendar,   title: 'Contrato & Concorrência', sub: 'Modelo de contratação, valores e data de assinatura' },
-  { id: 6, label: 'Equipe',     icon: Users,      title: 'Equipe & Potencial',      sub: 'Estrutura interna e oportunidades futuras' },
+  { id: 4, label: 'Contrato',   icon: Calendar,   title: 'Contrato & Concorrência', sub: 'Modelo de contratação, valores e data de assinatura' },
+  { id: 5, label: 'Equipe',     icon: Users,      title: 'Equipe & Potencial',      sub: 'Estrutura interna e oportunidades futuras' },
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -317,10 +316,7 @@ const initialForm = {
   // Step 3 — Serviços
   services:            [],   // array of service IDs
   servicesData:        {},   // { [serviceId]: { [fieldKey]: value } }
-  // Step 4 — Métricas
-  averageTicket:       '',
-  mediaBudget:         '',
-  // Step 5 — Contrato
+  // Step 4 — Contrato
   contractModel:       '',   // 'aceleracao' | 'assessoria'
   contractPaymentType: '',   // 'unico' | 'mensal'  (only for aceleração)
   contractValue:       '',
@@ -385,16 +381,10 @@ export default function NewOnboarding() {
       if (form.services.length === 0) e.services = 'Selecione ao menos um serviço'
     }
     if (s === 3) {
-      if (form.averageTicket && !parseCurrencyToNumber(form.averageTicket))
-        e.averageTicket = 'Valor inválido — verifique o formato'
-      if (form.mediaBudget && !parseCurrencyToNumber(form.mediaBudget))
-        e.mediaBudget = 'Valor inválido — verifique o formato'
-    }
-    if (s === 4) {
       if (!form.contractModel) e.contractModel = 'Selecione o modelo de contratação'
       if (!form.contractDate)  e.contractDate  = 'Informe a data de assinatura'
     }
-    if (s === 5) {
+    if (s === 4) {
       if (form.hasSalesTeam === null)    e.hasSalesTeam    = 'Informe se tem equipe comercial'
       if (!form.digitalMaturity)         e.digitalMaturity = 'Selecione a maturidade digital'
       if (form.upsellPotential === null) e.upsellPotential = 'Informe o potencial de upsell'
@@ -413,28 +403,26 @@ export default function NewOnboarding() {
       const serviceLabels = form.services.map((id) => SERVICES_CONFIG.find((s) => s.id === id)?.label || id)
 
       const created = addProject({
-        businessType:        form.businessType,
-        companyName:         form.companyName,
-        cnpj:                form.cnpj,
-        responsibleName:     form.responsibleName,
-        responsibleRole:     form.responsibleRole,
-        segmento:            form.segmento,
-        services:            serviceLabels,
-        servicesData:        form.servicesData,
-        contractModel:       form.contractModel,
-        contractPaymentType: form.contractPaymentType,
-        contractValue:       parseCurrencyToNumber(form.contractValue),
-        averageTicket:       parseCurrencyToNumber(form.averageTicket),
-        mediaBudget:         parseCurrencyToNumber(form.mediaBudget),
-        competitors:         form.competitors.filter(Boolean),
-        contractDate:        form.contractDate,
-        hasSalesTeam:        form.hasSalesTeam,
-        digitalMaturity:     form.digitalMaturity,
-        otherPeople:         form.otherPeople.filter((p) => p.name),
-        upsellPotential:     form.upsellPotential,
-        upsellNotes:         form.upsellNotes,
-        raioXFileName:       form.raioXFile?.name ?? null,
-        slaFileName:         form.slaFile?.name ?? null,
+        business_type:         form.businessType,
+        company_name:          form.companyName,
+        cnpj:                  form.cnpj,
+        responsible_name:      form.responsibleName,
+        responsible_role:      form.responsibleRole,
+        segmento:              form.segmento,
+        services:              serviceLabels,
+        services_data:         form.servicesData,
+        contract_model:        form.contractModel,
+        contract_payment_type: form.contractPaymentType,
+        contract_value:        parseCurrencyToNumber(form.contractValue),
+        competitors:           form.competitors.filter(Boolean),
+        contract_date:         form.contractDate,
+        has_sales_team:        form.hasSalesTeam,
+        digital_maturity:      form.digitalMaturity,
+        other_people:          form.otherPeople.filter((p) => p.name),
+        upsell_potential:      form.upsellPotential,
+        upsell_notes:          form.upsellNotes,
+        raio_x_file_url:       form.raioXFile?.name ?? null,
+        sla_file_url:          form.slaFile?.name ?? null,
       })
       clearDraft()
       setCreatedId(created.id)
@@ -717,45 +705,8 @@ export default function NewOnboarding() {
             </div>
           )}
 
-          {/* ─── STEP 4: Métricas Financeiras ──────────────────── */}
+          {/* ─── STEP 4: Contrato & Concorrência ───────────────── */}
           {step === 3 && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="label-field">Ticket Médio</label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rl-muted" />
-                    <input
-                      value={form.averageTicket}
-                      onChange={(e) => set('averageTicket', formatCurrency(e.target.value))}
-                      placeholder="R$ 0,00"
-                      className={`input-field pl-9 ${errors.averageTicket ? 'border-rl-red' : ''}`}
-                    />
-                  </div>
-                  {errors.averageTicket && <p className="text-rl-red text-xs mt-1">{errors.averageTicket}</p>}
-                </div>
-                <div>
-                  <label className="label-field">Orçamento em Mídia Paga</label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rl-muted" />
-                    <input
-                      value={form.mediaBudget}
-                      onChange={(e) => set('mediaBudget', formatCurrency(e.target.value))}
-                      placeholder="R$ 0,00"
-                      className={`input-field pl-9 ${errors.mediaBudget ? 'border-rl-red' : ''}`}
-                    />
-                  </div>
-                  {errors.mediaBudget && <p className="text-rl-red text-xs mt-1">{errors.mediaBudget}</p>}
-                </div>
-              </div>
-              <p className="text-xs text-rl-muted text-center">
-                Esses valores serão usados na Calculadora de ROI e nos módulos de IA do cliente.
-              </p>
-            </div>
-          )}
-
-          {/* ─── STEP 5: Contrato & Concorrência ───────────────── */}
-          {step === 4 && (
             <div className="space-y-6">
 
               {/* Modelo de Contratação */}
@@ -873,8 +824,8 @@ export default function NewOnboarding() {
             </div>
           )}
 
-          {/* ─── STEP 6: Equipe & Potencial ────────────────────── */}
-          {step === 5 && (
+          {/* ─── STEP 5: Equipe & Potencial ────────────────────── */}
+          {step === 4 && (
             <div className="space-y-6">
 
               {/* Equipe Comercial */}

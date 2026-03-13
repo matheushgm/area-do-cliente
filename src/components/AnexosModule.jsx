@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
+import { getSignedUrl } from '../lib/supabase'
 import {
   Upload, Paperclip, Download, Trash2, AlertCircle,
   FileText, Image, File, FileSpreadsheet, FileVideo,
@@ -105,9 +106,24 @@ export default function AnexosModule({ project }) {
     updateProject(project.id, { attachments: attachments.filter((a) => a.id !== id) })
   }, [attachments, project.id, updateProject])
 
-  const handleDownload = useCallback((a) => {
+  const handleDownload = useCallback(async (a) => {
+    let href = a.data  // base64 para uploads novos (ainda não migrados)
+
+    if (!href && a.storage_path) {
+      href = await getSignedUrl('attachments', a.storage_path)
+      if (!href) {
+        setError('Erro ao gerar link de download. Tente novamente.')
+        return
+      }
+    }
+
+    if (!href) {
+      setError('Arquivo não disponível para download.')
+      return
+    }
+
     const link = document.createElement('a')
-    link.href     = a.data
+    link.href     = href
     link.download = a.name
     document.body.appendChild(link)
     link.click()

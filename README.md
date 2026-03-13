@@ -19,8 +19,9 @@ Ao completar as 3 etapas, o projeto se torna um **Perfil Completo** — um docum
 - Autenticação via Supabase Auth (email/senha + Google OAuth)
 - Dashboard com cards de projetos, stats (em onboarding, ativos, total) e filtros por status ou membro do time
 - Controle de acesso: admins veem todos os projetos; usuários comuns veem apenas os seus
-- IA integrada (Claude API) para geração de personas e ofertas — chave configurável via Settings
-- Sincronização em nuvem via Supabase
+- IA integrada (Claude API) para geração de personas, ofertas, criativos, Google Ads, landing pages e estratégia
+- Sincronização em nuvem via Supabase com schema normalizado
+- Upload de arquivos para Supabase Storage (PDFs, logos, anexos)
 - Exportação de perfis em PDF
 - Gestão de usuários (admin): criar, editar nome/role, desativar/reativar membros do time
 
@@ -28,7 +29,7 @@ Ao completar as 3 etapas, o projeto se torna um **Perfil Completo** — um docum
 
 - React 18 + Vite + Tailwind CSS
 - React Router v6
-- Supabase (auth + banco de dados)
+- Supabase (auth + banco de dados + storage)
 - Anthropic Claude API (IA generativa)
 
 ## Estrutura de pastas
@@ -59,25 +60,30 @@ area-do-cliente/
 │   │   ├── AppSidebar.jsx         # Menu lateral da aplicação
 │   │   ├── CampaignPlanner.jsx    # Planejador de campanhas
 │   │   ├── CriativosModule.jsx    # Módulo de criativos
-│   │   ├── EstrategiaModule.jsx   # Módulo de estratégia
+│   │   ├── EstrategiaModule.jsx   # Módulo de estratégia (narrativa IA)
+│   │   ├── EstrategiaV2Module.jsx # Módulo de estratégia estruturada (SWOT, riscos, funis)
 │   │   ├── GoogleAdsModule.jsx    # Módulo Google Ads
 │   │   ├── MetaLabModule.jsx      # Módulo Meta (Facebook/Instagram Ads)
 │   │   ├── LandingPageModule.jsx  # Módulo de landing pages
 │   │   ├── ResultadosModule.jsx   # Módulo de resultados/métricas
 │   │   ├── AnexosModule.jsx       # Módulo de anexos/arquivos
+│   │   ├── BancoMidiaModule.jsx   # Biblioteca de marca (fotos, vídeos, cores, tipografia)
 │   │   ├── ROICalculator.jsx      # Calculadora de ROI
-│   │   └── RatingSelector.jsx     # Componente de avaliação por estrelas
+│   │   └── RatingSelector.jsx     # Componente de avaliação
 │   │
 │   ├── context/
-│   │   └── AppContext.jsx     # Context global (estado compartilhado entre páginas)
+│   │   └── AppContext.jsx     # Context global — CRUD de projetos com roteamento por tabela
 │   │
-│   ├── lib/
-│   │   ├── claude.js          # Cliente para chamadas à API do Claude (IA)
-│   │   ├── supabase.js        # Cliente Supabase (banco de dados/auth)
-│   │   └── buildContext.js    # Helper para montar o contexto enviado ao Claude
-│   │
-│   └── utils/
-│       └── exportPDF.js       # Utilitário para exportar dados em PDF
+│   └── lib/
+│       ├── claude.js          # Cliente para chamadas à API do Claude (IA)
+│       ├── supabase.js        # Cliente Supabase + helpers de Storage
+│       └── buildContext.js    # Helper para montar o contexto enviado ao Claude
+│
+├── supabase/
+│   └── migrations/            # DDL versionado (001–016); aplicar em ordem no Supabase
+│
+├── docs/
+│   └── schema-inputs.md       # Mapeamento completo de inputs → tipos SQL por entidade
 │
 ├── index.html                 # HTML raiz do Vite
 ├── vite.config.js             # Configuração do Vite (bundler)
@@ -85,7 +91,6 @@ area-do-cliente/
 ├── postcss.config.js          # Configuração do PostCSS
 ├── vercel.json                # Configuração de deploy na Vercel
 ├── package.json               # Dependências e scripts
-├── start.sh                   # Script de inicialização local
 └── .env.example               # Variáveis de ambiente necessárias
 ```
 
@@ -109,7 +114,6 @@ Há dois modos de desenvolvimento:
 
 > Use `vercel dev` para o desenvolvimento completo. `npm run dev` é suficiente para trabalho exclusivo no frontend.
 
-
 ## Autenticação
 
 O sistema usa **Supabase Auth**. Os usuários do time são gerenciados via painel de administração da aplicação.
@@ -126,20 +130,54 @@ Nome, avatar e role de cada usuário são armazenados em `user_metadata` no Supa
 
 ## Banco de dados
 
-Tabelas no Supabase:
+O schema é normalizado. A tabela principal é `projects_v2`; cada domínio tem sua própria tabela com FK para o projeto.
+
+### Tabelas
 
 | Tabela | Descrição |
 |---|---|
-| `projects` | Projetos de onboarding — coluna `data` (JSONB) contém todo o estado do projeto |
-| `profiles` | Perfis do time — colunas `id`, `name`, `email`, `avatar`, `role`, `disabled boolean`, `created_at`; sincronizados do Auth, usados para listagem no Dashboard e gestão de usuários |
+| `projects_v2` | Projetos — empresa, contrato, equipe, serviços; UUID PK |
+| `profiles` | Perfis do time — sincronizados do Auth |
+| `roi_calculators` | Cenários de ROI (múltiplos por projeto) |
+| `personas` | Personas geradas por IA |
+| `ofertas` | Oferta matadora (1 por projeto) |
+| `campaign_plans` | Planos de campanha |
+| `resultados` | Métricas semanais/mensais (UNIQUE por projeto + período) |
+| `criativos` | Criativos gerados por IA |
+| `google_ads` | Campanhas Google Ads geradas por IA |
+| `landing_pages` | Landing pages geradas por IA |
+| `banco_midia` | Biblioteca de marca (1:1 com projeto) |
+| `estrategia` | Narrativa estratégica gerada por IA (1:1 com projeto) |
+| `estrategia_v2` | Análise estratégica estruturada — SWOT, concorrentes, riscos, funis (1:1) |
+| `attachments` | Anexos — metadados + path no Storage |
 
 ### Row Level Security (RLS)
 
-Ambas as tabelas têm RLS habilitado:
+Todas as tabelas têm RLS habilitado:
 
-| Tabela | Regra |
+| Escopo | Regra |
 |---|---|
-| `projects` | Admins acessam todos os registros; accounts acessam apenas projetos onde `data->>'accountId'` = `auth.uid()` |
-| `profiles` | Qualquer usuário autenticado pode ler todos os perfis; admins podem ler e escrever qualquer perfil (policies `profiles_admin_write` e `profiles_admin_insert`); cada usuário só escreve o próprio |
+| `projects_v2` | Admins acessam todos; accounts acessam apenas onde `account_id = auth.uid()` |
+| Tabelas filhas | RLS via subquery: `project_id IN (SELECT id FROM projects_v2 WHERE account_id = auth.uid())` |
+| `profiles` | Qualquer autenticado lê; admins escrevem qualquer perfil; cada usuário escreve o próprio |
 
 A role é lida diretamente do token JWT (`auth.jwt() -> 'user_metadata' ->> 'role'`), sem depender de tabela auxiliar.
+
+### Supabase Storage
+
+| Bucket | Uso |
+|---|---|
+| `attachments` | Anexos de projetos (PDFs, docs) |
+| `brand-logos` | Logotipos de marca |
+| `brand-media` | Fotos e vídeos do banco de mídia |
+| `project-docs` | Raio-X e SLA do onboarding |
+
+Todos os buckets são privados. Path: `{projectId}/{filename}`.
+
+### Aplicar migrations em novo ambiente
+
+```bash
+# As migrations estão em supabase/migrations/ — aplicar em ordem numérica (001 → 016)
+# via Supabase Dashboard → SQL Editor, ou com a Supabase CLI:
+supabase db push
+```
