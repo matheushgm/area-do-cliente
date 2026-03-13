@@ -467,10 +467,10 @@ export default function NewOnboarding() {
 
           <h1 className="text-3xl font-bold text-rl-text mb-2">Onboarding criado!</h1>
           <p className="text-rl-muted mb-6">
-            O projeto <span className="text-white font-semibold">{form.companyName}</span> foi adicionado com sucesso.
+            O projeto <span className="text-rl-text font-semibold">{form.companyName}</span> foi adicionado com sucesso.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="flex gap-3 justify-center">
             <button onClick={() => navigate('/')} className="btn-ghost flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" /> Dashboard
             </button>
@@ -482,12 +482,6 @@ export default function NewOnboarding() {
                 Ver Projeto <ArrowRight className="w-4 h-4" />
               </button>
             )}
-            <button
-              onClick={() => { clearDraft(); setForm(initialForm); setStep(0); setDone(false); setCompletedSteps([]) }}
-              className="btn-secondary flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" /> Novo Onboarding
-            </button>
           </div>
         </div>
       </div>
