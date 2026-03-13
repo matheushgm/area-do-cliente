@@ -70,6 +70,7 @@ async function upsertProfile(authUser) {
 export function AppProvider({ children }) {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const [user, setUser] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
   // ── Projects ──────────────────────────────────────────────────────────────
   const [projects, setProjects] = useState(() => {
@@ -91,11 +92,12 @@ export function AppProvider({ children }) {
 
   // ── Supabase Auth session restore + listener ───────────────────────────────
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) { setLoadingAuth(false); return; }
 
     // Restore existing session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(enrichUser(session?.user ?? null));
+      setLoadingAuth(false);
     });
 
     // Keep user in sync (login, logout, token refresh, cross-tab)
@@ -247,6 +249,7 @@ export function AppProvider({ children }) {
   // ── Context value ─────────────────────────────────────────────────────────
   const value = {
     user,
+    loadingAuth,
     projects,
     loadingProjects,
     login,

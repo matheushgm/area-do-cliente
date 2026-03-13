@@ -7,22 +7,24 @@ import ProjectDetail from './pages/ProjectDetail'
 import UserManagement from './pages/UserManagement'
 
 function RequireAuth({ children }) {
-  const { user } = useApp()
+  const { user, loadingAuth } = useApp()
+  if (loadingAuth) return null
   return user ? children : <Navigate to="/login" replace />
 }
 
 function RequireAdmin({ children }) {
-  const { user } = useApp()
+  const { user, loadingAuth } = useApp()
+  if (loadingAuth) return null
   if (!user) return <Navigate to="/login" replace />
   return user.role === 'admin' ? children : <Navigate to="/" replace />
 }
 
 function AppRoutes() {
-  const { user } = useApp()
+  const { user, loadingAuth } = useApp()
   return (
     <>
       <Routes>
-        <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/login" element={loadingAuth ? null : user ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/onboarding/new" element={<RequireAuth><NewOnboarding /></RequireAuth>} />
         <Route path="/project/:id" element={<RequireAuth><ProjectDetail /></RequireAuth>} />
