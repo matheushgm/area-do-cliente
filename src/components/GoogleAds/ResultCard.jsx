@@ -56,7 +56,7 @@ export default function ResultCard({ content, index }) {
       )
     }
     // Keywords (bracket, quote, plus)
-    if (/^\s{4}[\["+]/.test(line)) {
+    if (/^\s{4}[["+]/.test(line)) {
       return <p key={i} className="text-xs font-mono pl-4 text-rl-green leading-5">{line.trim()}</p>
     }
     // Triggers line
