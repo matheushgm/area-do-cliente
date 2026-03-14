@@ -39,6 +39,7 @@ function assembleProject(row, rel = {}) {
     estrategiaV2 = null,
     attachments = [],
     resultados  = [],
+    produtos    = [],
   } = rel;
 
   const progress = Math.min(
@@ -156,6 +157,14 @@ function assembleProject(row, rel = {}) {
       ? { narrativa: estrategia.narrativa, updatedAt: estrategia.generated_at }
       : null,
     estrategiaV2: estrategiaV2 ?? null,
+
+    // Produtos / Serviços
+    produtos: produtos.map((p) => ({
+      id:      p.id,
+      nome:    p.nome    || '',
+      tipo:    p.tipo    || 'produto',
+      answers: p.answers || {},
+    })),
   };
 }
 
@@ -186,6 +195,7 @@ async function sbFetchAll() {
     { data: ev2Data },
     { data: attachmentsData },
     { data: resultadosData },
+    { data: produtosData },
   ] = await Promise.all([
     supabase.from("roi_calculators").select("*").in("project_id", ids),
     supabase.from("personas").select("*").in("project_id", ids),
@@ -199,6 +209,7 @@ async function sbFetchAll() {
     supabase.from("estrategia_v2").select("*").in("project_id", ids),
     supabase.from("attachments").select("*").in("project_id", ids),
     supabase.from("resultados").select("*").in("project_id", ids),
+    supabase.from("produtos").select("*").in("project_id", ids),
   ]);
 
   return projects.map((p) =>
@@ -215,6 +226,7 @@ async function sbFetchAll() {
       estrategiaV2: (ev2Data      || []).find ((r) => r.project_id === p.id) ?? null,
       attachments:  (attachmentsData || []).filter((r) => r.project_id === p.id),
       resultados:   (resultadosData  || []).filter((r) => r.project_id === p.id),
+      produtos:     (produtosData || []).filter((r) => r.project_id === p.id),
     }),
   );
 }
@@ -457,7 +469,24 @@ async function sbUpdateProjectV2(id, patch) {
     if (error) console.error("[Supabase] upsert resultados:", error.message);
   }
 
-  // ── 13. Attachments (base64 por enquanto; storage_path nullable até Phase 5) ──
+  // ── 13. Produtos / Serviços ───────────────────────────────────────────────
+  if (patch.produtos !== undefined) {
+    await supabase.from("produtos").delete().eq("project_id", id);
+    if (Array.isArray(patch.produtos) && patch.produtos.length > 0) {
+      const { error } = await supabase.from("produtos").insert(
+        patch.produtos.map((p) => ({
+          id:         p.id || crypto.randomUUID(),
+          project_id: id,
+          nome:       p.nome    || '',
+          tipo:       p.tipo    || 'produto',
+          answers:    p.answers || {},
+        })),
+      );
+      if (error) console.error("[Supabase] insert produtos:", error.message);
+    }
+  }
+
+  // ── 14. Attachments (base64 por enquanto; storage_path nullable até Phase 5) ──
   if (patch.attachments !== undefined) {
     await supabase.from("attachments").delete().eq("project_id", id);
     if (Array.isArray(patch.attachments) && patch.attachments.length > 0) {
@@ -621,6 +650,7 @@ export function AppProvider({ children }) {
                 estrategiaV2:p.estrategiaV2|| null,
                 attachments: p.attachments || [],
                 resultados:  p.resultados  || [],
+                produtos:    p.produtos    || [],
               });
             });
             localStorage.setItem("rl_projects_v2", JSON.stringify(updated));
