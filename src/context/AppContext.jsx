@@ -274,6 +274,7 @@ const PROJECT_FIELD_MAP = {
   sla_file_url:         "sla_file_url",
   completed_steps:      "completed_steps",
   account_id:           "account_id",
+  cnpj:                 "cnpj",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────
