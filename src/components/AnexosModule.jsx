@@ -220,6 +220,7 @@ export default function AnexosModule({ project }) {
                 <button
                   onClick={() => handleDownload(a)}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
+                  aria-label="Baixar arquivo"
                   title="Baixar arquivo"
                 >
                   <Download className="w-4 h-4" />
@@ -227,6 +228,7 @@ export default function AnexosModule({ project }) {
                 <button
                   onClick={() => handleDelete(a.id)}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
+                  aria-label="Remover arquivo"
                   title="Remover arquivo"
                 >
                   <Trash2 className="w-4 h-4" />

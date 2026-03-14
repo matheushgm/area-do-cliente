@@ -311,6 +311,7 @@ function CreativeHistory({ project, updateProject }) {
                 <button
                   onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
+                  aria-label={expandedId === c.id ? 'Ocultar conteúdo' : 'Ver conteúdo'}
                   title="Ver conteúdo"
                 >
                   {expandedId === c.id
@@ -321,6 +322,7 @@ function CreativeHistory({ project, updateProject }) {
                 <button
                   onClick={() => handleDelete(c.id)}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
+                  aria-label="Excluir criativo"
                   title="Excluir"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -527,6 +529,7 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
       <div className="flex items-start gap-3">
         <button
           onClick={() => { setView('select'); setResult(null); setAdTypes(new Set()); setError(null) }}
+          aria-label="Voltar à seleção de formato"
           className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all mt-0.5"
         >
           <ChevronLeft className="w-4 h-4" />

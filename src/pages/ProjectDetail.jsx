@@ -119,6 +119,7 @@ export default function ProjectDetail() {
           <div className="max-w-4xl mx-auto px-6 h-16 flex items-center gap-4">
             <button
               onClick={() => navigate('/')}
+              aria-label="Voltar ao dashboard"
               className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all duration-150"
             >
               <ArrowLeft className="w-4 h-4" />

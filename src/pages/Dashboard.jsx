@@ -80,6 +80,7 @@ function ProjectCard({ project, onClick, onDelete }) {
       <button
         onClick={(e) => { e.stopPropagation(); onDelete() }}
         className="absolute top-3 right-3 p-1.5 rounded-lg text-rl-muted opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-400/10 transition-all duration-150 z-10"
+        aria-label="Excluir projeto"
         title="Excluir projeto"
       >
         <Trash2 className="w-3.5 h-3.5" />
@@ -149,6 +150,7 @@ function ClientProfileCard({ project, onClick, onDelete }) {
       <button
         onClick={(e) => { e.stopPropagation(); onDelete() }}
         className="absolute top-3 right-3 p-1.5 rounded-lg text-rl-muted opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-400/10 transition-all duration-150 z-10"
+        aria-label="Excluir projeto"
         title="Excluir projeto"
       >
         <Trash2 className="w-3.5 h-3.5" />
@@ -397,6 +399,7 @@ export default function Dashboard() {
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
           <button
             onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menu de navegação"
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
           >
             <Menu className="w-5 h-5" />
@@ -480,6 +483,7 @@ export default function Dashboard() {
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
+                    aria-label="Limpar busca"
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-rl-muted hover:text-rl-text transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />

@@ -64,6 +64,7 @@ export default function AppSidebar({
         {/* Mobile close */}
         <button
           onClick={onClose}
+          aria-label="Fechar menu de navegação"
           className="lg:hidden p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
         >
           <X className="w-4 h-4" />
@@ -200,6 +201,7 @@ export default function AppSidebar({
         </div>
         <button
           onClick={logout}
+          aria-label="Fazer logout"
           className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
           title="Sair"
         >
