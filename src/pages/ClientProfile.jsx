@@ -4,7 +4,7 @@ import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays, ChevronRight, Building2,
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
-  Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map,
+  Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -18,6 +18,7 @@ import MetaLabModule from '../components/MetaLabModule'
 import GoogleAdsModule from '../components/GoogleAdsModule'
 import EstrategiaModule from '../components/EstrategiaModule'
 import EstrategiaV2Module from '../components/EstrategiaV2Module'
+import ProdutoServicoModule from '../components/ProdutoServicoModule'
 import BancoMidiaModule from '../components/BancoMidiaModule'
 import { exportOnboardingPDF } from '../utils/exportPDF'
 
@@ -344,6 +345,11 @@ export default function ClientProfile({ project: projectProp }) {
 
   function handleSavePersonas(personas) {
     updateProject(project.id, { personas })
+    setOpenModal('produtos')
+  }
+
+  function handleSaveProdutos(produtos) {
+    updateProject(project.id, { produtos })
     setOpenModal(null)
   }
 
@@ -371,6 +377,7 @@ export default function ClientProfile({ project: projectProp }) {
   const hasPersonas     = project.personas?.length > 0
   const hasOferta       = !!(project.ofertaData?.nome || project.ofertaData?.resultadoSonho)
   const hasCampaignPlan = !!(project.campaignPlan?.totalBudget > 0 && project.campaignPlan?.channels?.length > 0)
+  const hasProdutos     = (project.produtos || []).length > 0 && !!(project.produtos[0]?.nome || project.produtos[0]?.answers?.q1)
   const hasGoogleAds    = (project.googleAds || []).length > 0
   const hasEstrategia   = !!project.estrategia?.narrativa
   const hasEstrategiaV2 = !!(project.estrategiaV2?.problemas?.length || project.estrategiaV2?.swot?.forcas)
@@ -537,7 +544,23 @@ export default function ClientProfile({ project: projectProp }) {
           onClick={() => setOpenModal('icp')}
         />
 
-        {/* 4. Oferta Matadora */}
+        {/* 4. Produto / Serviço */}
+        <SectionCard
+          icon={Package}
+          iconColor="text-rl-gold"
+          iconBg="bg-rl-gold/10"
+          title="Produto / Serviço"
+          preview={
+            hasProdutos
+              ? `${project.produtos.length} produto${project.produtos.length !== 1 ? 's' : ''}: ${project.produtos.map((p) => p.nome || 'Sem nome').join(', ')}`
+              : '17 perguntas para documentar o produto e embasar anúncios'
+          }
+          badge={hasProdutos ? `${project.produtos.length} produto${project.produtos.length !== 1 ? 's' : ''}` : null}
+          badgeColor="text-rl-gold bg-rl-gold/10 border-rl-gold/20"
+          onClick={() => setOpenModal('produtos')}
+        />
+
+        {/* 5. Oferta Matadora */}
         <SectionCard
           icon={Zap}
           iconColor="text-rl-gold"
@@ -717,6 +740,12 @@ export default function ClientProfile({ project: projectProp }) {
       {openModal === 'icp' && (
         <Modal title="ICP / Personas" icon={Users} iconColor="text-rl-blue" onClose={() => setOpenModal(null)}>
           <PersonaCreator project={project} onSave={handleSavePersonas} />
+        </Modal>
+      )}
+
+      {openModal === 'produtos' && (
+        <Modal title="Produto / Serviço" icon={Package} iconColor="text-rl-gold" onClose={() => setOpenModal(null)}>
+          <ProdutoServicoModule project={project} onSave={handleSaveProdutos} />
         </Modal>
       )}
 
