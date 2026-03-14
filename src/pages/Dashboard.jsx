@@ -7,6 +7,7 @@ import {
   BarChart3, FileText, DollarSign, Users,
   Eye, X, Trash2, AlertTriangle,
   Cloud, CloudOff, Loader2, Menu, Search,
+  LayoutGrid, List, ChevronUp, ChevronDown, ChevronsUpDown,
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
 
@@ -219,6 +220,174 @@ function ClientProfileCard({ project, onClick, onDelete }) {
   )
 }
 
+// ─── List View ────────────────────────────────────────────────────────────────
+const LIST_COLS = [
+  { key: 'companyName',     label: 'Empresa'              },
+  { key: 'responsibleName', label: 'Responsável / Cargo' },
+  { key: 'status',          label: 'Status'               },
+  { key: 'progress',        label: 'Progresso'            },
+  { key: 'contractValue',   label: 'Contrato'             },
+  { key: 'createdAt',       label: 'Criado em'            },
+]
+
+const STATUS_LABEL = { onboarding: 'Onboarding', active: 'Ativo', paused: 'Pausado' }
+const STATUS_COLOR = {
+  onboarding: 'text-rl-cyan  bg-rl-cyan/10  border-rl-cyan/30',
+  active:     'text-rl-green bg-rl-green/10 border-rl-green/30',
+  paused:     'text-rl-gold  bg-rl-gold/10  border-rl-gold/30',
+}
+
+function SortIcon({ col, sortBy, sortDir }) {
+  if (sortBy !== col) return <ChevronsUpDown className="w-3 h-3 text-rl-muted/40" />
+  return sortDir === 'asc'
+    ? <ChevronUp   className="w-3 h-3 text-rl-purple" />
+    : <ChevronDown className="w-3 h-3 text-rl-purple" />
+}
+
+function ProjectListView({ projects, onNavigate, onDelete }) {
+  const [sortBy,  setSortBy]  = useState('createdAt')
+  const [sortDir, setSortDir] = useState('desc')
+
+  function handleSort(key) {
+    if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(key); setSortDir('asc') }
+  }
+
+  const sorted = [...projects].sort((a, b) => {
+    let av = a[sortBy] ?? ''
+    let bv = b[sortBy] ?? ''
+    if (sortBy === 'progress' || sortBy === 'contractValue') {
+      av = Number(av) || 0; bv = Number(bv) || 0
+    } else if (sortBy === 'createdAt') {
+      av = new Date(av).getTime() || 0; bv = new Date(bv).getTime() || 0
+    } else {
+      av = String(av).toLowerCase(); bv = String(bv).toLowerCase()
+    }
+    if (av < bv) return sortDir === 'asc' ? -1 :  1
+    if (av > bv) return sortDir === 'asc' ?  1 : -1
+    return 0
+  })
+
+  return (
+    <div className="glass-card overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          {/* Header */}
+          <thead>
+            <tr className="border-b border-rl-border">
+              {LIST_COLS.map(col => (
+                <th
+                  key={col.key}
+                  onClick={() => handleSort(col.key)}
+                  className="px-4 py-3 text-left text-xs font-semibold text-rl-muted uppercase tracking-wider whitespace-nowrap cursor-pointer select-none hover:text-rl-text transition-colors"
+                >
+                  <span className="flex items-center gap-1.5">
+                    {col.label}
+                    <SortIcon col={col.key} sortBy={sortBy} sortDir={sortDir} />
+                  </span>
+                </th>
+              ))}
+              <th className="px-4 py-3 w-10" />
+            </tr>
+          </thead>
+
+          {/* Body */}
+          <tbody>
+            {sorted.map((p, i) => {
+              const complete = isProfileComplete(p)
+              const statusLabel = complete ? 'Perfil Completo' : (STATUS_LABEL[p.status] || p.status)
+              const statusColor = complete
+                ? 'text-rl-green bg-rl-green/10 border-rl-green/30'
+                : (STATUS_COLOR[p.status] || 'text-rl-muted bg-rl-muted/10 border-rl-muted/30')
+              const createdStr = p.createdAt
+                ? new Date(p.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+                : '—'
+
+              return (
+                <tr
+                  key={p.id}
+                  onClick={() => onNavigate(p.id)}
+                  className={`cursor-pointer transition-colors hover:bg-rl-surface/50 group
+                    ${i !== sorted.length - 1 ? 'border-b border-rl-border/50' : ''}`}
+                >
+                  {/* Empresa */}
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-rl-text group-hover:text-rl-purple transition-colors leading-tight">
+                        {p.companyName}
+                      </span>
+                      {p.businessType && (
+                        <span className="text-[10px] text-rl-muted mt-0.5">{p.businessType}</span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Responsável / Cargo */}
+                  <td className="px-4 py-3">
+                    {p.responsibleName
+                      ? <div className="flex flex-col">
+                          <span className="text-rl-text leading-tight">{p.responsibleName}</span>
+                          {p.responsibleRole && (
+                            <span className="text-xs text-rl-muted mt-0.5">{p.responsibleRole}</span>
+                          )}
+                        </div>
+                      : <span className="text-rl-muted">—</span>
+                    }
+                  </td>
+
+                  {/* Status */}
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${statusColor}`}>
+                      {statusLabel}
+                    </span>
+                  </td>
+
+                  {/* Progresso */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 min-w-[80px]">
+                      <div className="flex-1 h-1.5 bg-rl-surface rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-rl rounded-full"
+                          style={{ width: `${p.progress ?? 0}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-rl-muted w-7 text-right shrink-0">
+                        {p.progress ?? 0}%
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Contrato */}
+                  <td className="px-4 py-3 text-rl-muted whitespace-nowrap">
+                    {p.contractValue ? fmtCurrency(Number(p.contractValue)) : '—'}
+                  </td>
+
+                  {/* Criado em */}
+                  <td className="px-4 py-3 text-rl-muted whitespace-nowrap text-xs">
+                    {createdStr}
+                  </td>
+
+                  {/* Ações */}
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => onDelete(p)}
+                      aria-label="Excluir projeto"
+                      title="Excluir projeto"
+                      className="p-1.5 rounded-lg text-rl-muted opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 function DeleteConfirmModal({ project, onConfirm, onCancel }) {
   const [typed, setTyped] = useState('')
   const canDelete = typed === 'DELETE'
@@ -309,6 +478,9 @@ export default function Dashboard() {
   const [filter, setFilter] = useState('all') // 'all' | 'onboarding' | 'active' | accountId
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [view, setView] = useState(() => localStorage.getItem('rl_dashboard_view') || 'grid')
+
+  function switchView(v) { setView(v); localStorage.setItem('rl_dashboard_view', v) }
 
   const isAdmin = user?.role === 'admin'
 
@@ -490,6 +662,34 @@ export default function Dashboard() {
                   </button>
                 )}
               </div>
+
+              {/* View switcher */}
+              <div className="flex items-center gap-1 bg-rl-surface border border-rl-border rounded-xl p-1 shrink-0">
+                <button
+                  onClick={() => switchView('grid')}
+                  aria-label="Visualização em cards"
+                  title="Cards"
+                  className={`p-1.5 rounded-lg transition-all ${
+                    view === 'grid'
+                      ? 'bg-rl-purple text-white shadow-sm'
+                      : 'text-rl-muted hover:text-rl-text'
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => switchView('list')}
+                  aria-label="Visualização em lista"
+                  title="Lista"
+                  className={`p-1.5 rounded-lg transition-all ${
+                    view === 'list'
+                      ? 'bg-rl-purple text-white shadow-sm'
+                      : 'text-rl-muted hover:text-rl-text'
+                  }`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {loadingProjects ? (
@@ -497,28 +697,34 @@ export default function Dashboard() {
                 <Loader2 className="w-8 h-8 animate-spin text-rl-purple" />
                 <p className="text-sm">Carregando projetos da nuvem...</p>
               </div>
+            ) : visibleProjects.length === 0 && !query ? (
+              <div className="grid grid-cols-1">
+                <EmptyState onNew={() => navigate('/onboarding/new')} />
+              </div>
+            ) : visibleProjects.length === 0 && query ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <Search className="w-10 h-10 text-rl-muted/30 mb-3" />
+                <p className="text-rl-text font-semibold mb-1">Nenhum resultado para "{searchQuery}"</p>
+                <p className="text-rl-muted text-sm">Tente outro nome ou responsável.</p>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="mt-4 text-xs text-rl-purple hover:underline"
+                >
+                  Limpar busca
+                </button>
+              </div>
+            ) : view === 'list' ? (
+              <ProjectListView
+                projects={visibleProjects}
+                onNavigate={(id) => navigate(`/project/${id}`)}
+                onDelete={(p) => setDeleteTarget(p)}
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {visibleProjects.length === 0 && !query ? (
-                  <EmptyState onNew={() => navigate('/onboarding/new')} />
-                ) : visibleProjects.length === 0 && query ? (
-                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
-                    <Search className="w-10 h-10 text-rl-muted/30 mb-3" />
-                    <p className="text-rl-text font-semibold mb-1">Nenhum resultado para "{searchQuery}"</p>
-                    <p className="text-rl-muted text-sm">Tente outro nome ou responsável.</p>
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      className="mt-4 text-xs text-rl-purple hover:underline"
-                    >
-                      Limpar busca
-                    </button>
-                  </div>
-                ) : (
-                  visibleProjects.map((p) =>
-                    isProfileComplete(p)
-                      ? <ClientProfileCard key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
-                      : <ProjectCard       key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
-                  )
+                {visibleProjects.map((p) =>
+                  isProfileComplete(p)
+                    ? <ClientProfileCard key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
+                    : <ProjectCard       key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
                 )}
               </div>
             )}
