@@ -14,9 +14,10 @@
  */
 
 // Limites de truncamento (caracteres)
-const MAX_OFFER_TEXT  = 800  // generatedOffer pode ter 3.000-4.000 chars; só o início é necessário
-const MAX_PERSONA_BIO = 600  // generatedProfile por persona
-const MAX_TEXT_FILE   = 4000 // caracteres máximos por arquivo de texto
+const MAX_OFFER_TEXT   = 800   // generatedOffer pode ter 3.000-4.000 chars; só o início é necessário
+const MAX_PERSONA_BIO  = 600   // generatedProfile por persona
+const MAX_TEXT_FILE    = 4000  // caracteres máximos por arquivo de texto
+const MAX_CONTEXT_CHARS = 50_000 // ~12.500 tokens — limite total do contexto de texto
 
 // Limites de tamanho base64 para blocos nativos (evitar estourar body da Edge Function)
 const MAX_PDF_B64   = 2_000_000  // ~1.5 MB original
@@ -129,7 +130,11 @@ export function buildContext(project) {
     })
   }
 
-  return lines.join('\n')
+  const ctx = lines.join('\n')
+  if (ctx.length > MAX_CONTEXT_CHARS) {
+    return ctx.slice(0, MAX_CONTEXT_CHARS) + '\n\n[contexto truncado — projeto excede o limite de tamanho]'
+  }
+  return ctx
 }
 
 /**
