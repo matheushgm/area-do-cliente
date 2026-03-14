@@ -1,15 +1,17 @@
 import { useState, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
-import ReactMarkdown from 'react-markdown'
-import rehypeSanitize from 'rehype-sanitize'
 import { buildCachedPayload } from '../lib/buildContext'
 import { exportEstrategiaPDF } from '../utils/exportPDF'
 import {
   CheckCircle2, Circle, Sparkles, Loader2, AlertTriangle,
   Copy, CheckCheck, RotateCcw, FileDown, TrendingUp, Users,
-  Zap, BarChart3, ArrowRight, Target, ChevronDown, ChevronUp,
+  Zap, BarChart3, Target, ChevronDown, ChevronUp,
 } from 'lucide-react'
+import StatusItem from './Estrategia/StatusItem'
+import KPICard from './Estrategia/KPICard'
+import FunnelViz from './Estrategia/FunnelViz'
+import NarrativaRenderer from './Estrategia/NarrativaRenderer'
 
 // ─── Formatters ────────────────────────────────────────────────────────────────
 function fmtCurrency(n) {
@@ -60,139 +62,6 @@ Apresente a projeção completa: leads mensais necessários → MQL → SQL → 
 Um plano de ação concreto e prático para o primeiro mês de trabalho. Liste ações específicas, responsáveis e resultados esperados.
 
 Use markdown rico: ## para títulos de seção, **negrito** para termos-chave e números, - para listas de ação.`
-
-// ─── Module status panel ───────────────────────────────────────────────────────
-function StatusItem({ icon: Icon, label, ok, detail, color }) {
-  return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-rl-border/40 last:border-0">
-      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-        ok ? `bg-rl-green/10` : 'bg-rl-border/60'
-      }`}>
-        <Icon className={`w-3.5 h-3.5 ${ok ? 'text-rl-green' : 'text-rl-muted'}`} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium ${ok ? 'text-rl-text' : 'text-rl-muted'}`}>{label}</p>
-        {detail && <p className="text-xs text-rl-muted truncate">{detail}</p>}
-      </div>
-      <div className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-        ok
-          ? 'text-rl-green bg-rl-green/10 border-rl-green/20'
-          : 'text-rl-muted bg-rl-border/30 border-rl-border'
-      }`}>
-        {ok ? '✓ Preenchido' : '○ Pendente'}
-      </div>
-    </div>
-  )
-}
-
-// ─── KPI Card ──────────────────────────────────────────────────────────────────
-function KPICard({ label, value, sub, colorClass }) {
-  return (
-    <div className="bg-rl-bg rounded-2xl p-4 border border-rl-border">
-      <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-2">{label}</p>
-      <p className={`text-2xl font-black ${colorClass}`}>{value}</p>
-      {sub && <p className="text-xs text-rl-muted mt-1">{sub}</p>}
-    </div>
-  )
-}
-
-// ─── Funnel Visualization ──────────────────────────────────────────────────────
-function FunnelViz({ roi }) {
-  if (!roi) return null
-  const stages = [
-    { label: 'Leads', value: roi.leadsNecessarios, pct: 100, color: 'bg-rl-purple' },
-    { label: 'MQLs', value: roi.mqlsNecessarios, pct: roi.taxaLeadMql, color: 'bg-rl-blue' },
-    { label: 'SQLs', value: roi.sqlsNecessarios, pct: roi.taxaMqlSql, color: 'bg-rl-cyan' },
-    { label: 'Vendas', value: roi.vendasNecessarias, pct: roi.taxaSqlVenda, color: 'bg-rl-green' },
-  ]
-
-  return (
-    <div>
-      <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-3">Funil Projetado</p>
-      <div className="flex items-end gap-1 h-20">
-        {stages.map((s, i) => {
-          const h = Math.max(20, (s.pct / 100) * 80)
-          return (
-            <div key={s.label} className="flex-1 flex flex-col items-center gap-1.5">
-              {i > 0 && (
-                <div className="absolute">
-                  <ArrowRight className="w-3 h-3 text-rl-muted" />
-                </div>
-              )}
-              <div className="w-full flex flex-col items-center justify-end" style={{ height: '80px' }}>
-                <div
-                  className={`w-full rounded-t-lg ${s.color} opacity-80 transition-all`}
-                  style={{ height: `${h}px` }}
-                />
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      <div className="flex gap-1 mt-2">
-        {stages.map((s, i) => (
-          <div key={s.label} className="flex-1 text-center">
-            <p className="text-xs font-bold text-rl-text">{fmtNum(s.value)}</p>
-            <p className="text-[9px] text-rl-muted">{s.label}</p>
-            {i > 0 && <p className="text-[9px] text-rl-purple">{s.pct}%</p>}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ─── Narrative Renderer ────────────────────────────────────────────────────────
-const mdComponents = {
-  h2({ children }) {
-    const text = String(children)
-    const match = text.match(/^(\d+)\.\s*(.+)/)
-    if (match) {
-      return (
-        <div className="flex items-start gap-3 mb-3">
-          <div className="w-8 h-8 rounded-xl bg-rl-purple flex items-center justify-center shrink-0 mt-0.5">
-            <span className="text-xs font-black text-white">{match[1]}</span>
-          </div>
-          <h3 className="text-base font-bold text-rl-text pt-1">{match[2]}</h3>
-        </div>
-      )
-    }
-    return <h3 className="text-base font-bold text-rl-text mt-3 mb-2">{children}</h3>
-  },
-  p({ children }) {
-    return <p className="text-sm text-rl-subtle leading-relaxed">{children}</p>
-  },
-  li({ children }) {
-    return (
-      <div className="flex items-start gap-2 mt-1">
-        <div className="w-1.5 h-1.5 rounded-full bg-rl-purple mt-2 shrink-0" />
-        <p className="text-sm text-rl-subtle leading-relaxed flex-1">{children}</p>
-      </div>
-    )
-  },
-  ul({ children }) {
-    return <div className="space-y-0.5">{children}</div>
-  },
-  strong({ children }) {
-    return <strong className="font-semibold text-rl-text">{children}</strong>
-  },
-}
-
-function NarrativaRenderer({ content }) {
-  const sections = content.split(/\n---\n/).map((s) => s.trim()).filter(Boolean)
-
-  return (
-    <div className="space-y-6">
-      {sections.map((section, idx) => (
-        <div key={idx} className="glass-card p-5 border border-rl-border/70">
-          <ReactMarkdown rehypePlugins={[rehypeSanitize]} components={mdComponents}>
-            {section}
-          </ReactMarkdown>
-        </div>
-      ))}
-    </div>
-  )
-}
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function EstrategiaModule({ project }) {
