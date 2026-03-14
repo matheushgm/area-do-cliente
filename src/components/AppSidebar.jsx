@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
@@ -235,4 +236,23 @@ export default function AppSidebar({
       )}
     </>
   )
+}
+
+AppSidebar.propTypes = {
+  filter:         PropTypes.string.isRequired,
+  setFilter:      PropTypes.func.isRequired,
+  counts:         PropTypes.shape({
+    all:          PropTypes.number,
+    onboarding:   PropTypes.number,
+    active:       PropTypes.number,
+  }),
+  activeAccounts: PropTypes.arrayOf(
+    PropTypes.shape({
+      id:     PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      name:   PropTypes.string,
+      avatar: PropTypes.string,
+    })
+  ),
+  open:    PropTypes.bool,
+  onClose: PropTypes.func,
 }

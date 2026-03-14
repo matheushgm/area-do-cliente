@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types'
 import { useState, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
@@ -463,4 +464,21 @@ Seja específico, cite números reais, mencione as personas pelo nome, a oferta 
       </div>
     </div>
   )
+}
+
+EstrategiaModule.propTypes = {
+  project: PropTypes.shape({
+    id:              PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    companyName:     PropTypes.string,
+    businessType:    PropTypes.string,
+    responsibleName: PropTypes.string,
+    personas:        PropTypes.array,
+    ofertaData:      PropTypes.object,
+    attachments:     PropTypes.array,
+    estrategia:      PropTypes.shape({
+      narrativa:     PropTypes.string,
+      generated_at:  PropTypes.string,
+    }),
+    completedSteps:  PropTypes.arrayOf(PropTypes.string),
+  }).isRequired,
 }
