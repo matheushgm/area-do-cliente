@@ -9,6 +9,7 @@ import PersonaCreator from './PersonaCreator'
 import OfertaMatadora from './OfertaMatadora'
 import ClientProfile from './ClientProfile'
 import ROICalculator from '../components/ROICalculator'
+import Badge from '../components/UI/Badge'
 
 // ─── Journey Steps ────────────────────────────────────────────────────────────
 const JOURNEY_STEPS = [
@@ -133,9 +134,7 @@ export default function ProjectDetail() {
               <span className="text-rl-muted text-sm">{project.responsibleName}</span>
             </div>
             <div className="ml-auto">
-              <span className="text-xs bg-rl-green/10 text-rl-green border border-rl-green/30 px-2.5 py-1 rounded-full font-medium">
-                Perfil Completo
-              </span>
+              <Badge color="green">Perfil Completo</Badge>
             </div>
           </div>
         </nav>
@@ -208,9 +207,7 @@ export default function ProjectDetail() {
             <span className="text-rl-muted text-sm">{project.responsibleName}</span>
           </div>
           <div className="ml-auto">
-            <span className="text-xs bg-rl-cyan/10 text-rl-cyan border border-rl-cyan/30 px-2.5 py-1 rounded-full font-medium">
-              {project.progress ?? 0}% concluído
-            </span>
+            <Badge color="cyan">{project.progress ?? 0}% concluído</Badge>
           </div>
         </div>
       </nav>
