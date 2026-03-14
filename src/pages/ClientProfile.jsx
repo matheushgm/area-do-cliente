@@ -80,7 +80,7 @@ function initials(name = '') {
 function Modal({ title, icon: Icon, iconColor = 'text-rl-purple', onClose, children }) {
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-50 bg-black/70 overflow-y-auto"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="min-h-screen flex items-start justify-center p-4 py-8">

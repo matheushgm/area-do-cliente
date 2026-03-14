@@ -224,7 +224,7 @@ function DeleteConfirmModal({ project, onConfirm, onCancel }) {
   const canDelete = typed === 'DELETE'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
       <div className="glass-card w-full max-w-md p-6 border border-red-500/30 animate-slide-up shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 mb-5">

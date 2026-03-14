@@ -27,7 +27,7 @@ function ConclusionModal({ project, onViewProfile, onDashboard }) {
   const ofertaNome   = project.ofertaData?.nome
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
       <div className="glass-card w-full max-w-md p-8 border border-rl-green/40 animate-slide-up shadow-2xl text-center">
 
         {/* Icon */}
