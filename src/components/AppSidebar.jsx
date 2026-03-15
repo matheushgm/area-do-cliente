@@ -70,7 +70,7 @@ export default function AppSidebar({
         className="btn-primary flex items-center justify-center gap-2 mx-1 mb-5 text-sm py-2.5 animate-pulse-glow"
       >
         <Plus className="w-4 h-4" />
-        Novo Onboarding
+        Novo Cliente
       </button>
 
       {/* ── Navigation ──────────────────────────────────── */}

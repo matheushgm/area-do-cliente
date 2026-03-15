@@ -350,7 +350,7 @@ ${sections.join('\n\n')}`
             className="btn-primary flex items-center gap-2"
           >
             <CheckCircle2 className="w-4 h-4" />
-            Concluir Criação de ICP
+            Concluir Criação de Personas
           </button>
         </div>
       )}

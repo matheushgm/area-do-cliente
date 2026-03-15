@@ -208,76 +208,84 @@ export function exportOnboardingPDF(project) {
   const competitors = (project.competitors || []).filter(Boolean)
   const otherPeople = (project.otherPeople || []).filter((p) => p?.name)
 
-  const competitorsHTML = competitors.length
-    ? `<section>
-        <div class="section-title">🏆 Concorrentes</div>
-        <div>${competitors.map((c) => `<span class="chip">${esc(c)}</span>`).join('')}</div>
-      </section>`
-    : ''
+  const serviceDetailEntries = Object.entries(project.servicesData || {}).reduce((acc, [id, data]) => {
+    if (!data || Object.keys(data).length === 0) return acc
+    const SERVICE_DETAIL_LABELS = { imagemQty: 'Imagens', videoQty: 'Vídeos', estaticosQty: 'Estáticos', qty: 'Qtd.', nivel: 'Nível' }
+    const parts = Object.entries(data).filter(([, v]) => v).map(([key, val]) => `${SERVICE_DETAIL_LABELS[key] || key}: ${val}`).join(' · ')
+    if (parts) acc.push({ id, detail: parts })
+    return acc
+  }, [])
 
-  const otherPeopleHTML = otherPeople.length
-    ? `<section>
-        <div class="section-title">👥 Outras Pessoas da Conta</div>
-        <div class="grid grid-3">
-          ${otherPeople.map((p) => `
-            <div class="field">
-              <div class="field-label">Nome</div>
-              <div class="field-value">${esc(p.name)}</div>
-              ${p.role ? `<div class="field-value" style="font-size:11px;color:#9ca3af;margin-top:2px">${esc(p.role)}</div>` : ''}
-            </div>
-          `).join('')}
-        </div>
-      </section>`
-    : ''
-
-  const servicesHTML = project.services?.length
-    ? `<section>
-        <div class="section-title">⚙️ Serviços Contratados</div>
-        <div>${project.services.map((s) => `<span class="chip">${esc(s)}</span>`).join('')}</div>
-      </section>`
-    : ''
+  const CONTRACT_MODEL_LABELS = { aceleracao: '🚀 Programa de Aceleração', assessoria: '📅 Assessoria Mensal' }
+  const CONTRACT_PAYMENT_LABELS = { unico: 'Valor Único', mensal: 'Parcelado (Mensal)' }
 
   const body = `
     <section>
-      <div class="section-title">🏢 Dados da Empresa</div>
+      <div class="section-title">🏢 Empresa</div>
       <div class="grid grid-3">
-        <div class="field"><div class="field-label">Tipo de Negócio</div><div class="field-value">${esc(BUSINESS_LABELS[project.businessType] || project.businessType)}</div></div>
-        <div class="field"><div class="field-label">CNPJ</div><div class="field-value">${esc(project.cnpj || '—')}</div></div>
-        <div class="field"><div class="field-label">Responsável</div><div class="field-value">${esc(project.responsibleName)}</div></div>
-        <div class="field"><div class="field-label">Cargo</div><div class="field-value">${esc(project.responsibleRole)}</div></div>
-        <div class="field"><div class="field-label">Data do Contrato</div><div class="field-value">${project.contractDate ? new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</div></div>
-        <div class="field"><div class="field-label">Maturidade Digital</div><div class="field-value">${esc(MATURITY_LABELS[project.maturityLevel] || '—')}</div></div>
+        ${project.businessType    ? `<div class="field"><div class="field-label">Tipo de Negócio</div><div class="field-value">${esc(BUSINESS_LABELS[project.businessType] || project.businessType)}</div></div>` : ''}
+        ${project.segmento        ? `<div class="field"><div class="field-label">Segmento</div><div class="field-value">${esc(project.segmento)}</div></div>` : ''}
+        ${project.cnpj            ? `<div class="field"><div class="field-label">CNPJ</div><div class="field-value">${esc(project.cnpj)}</div></div>` : ''}
+        ${project.responsibleName ? `<div class="field"><div class="field-label">Responsável</div><div class="field-value">${esc(project.responsibleName)}</div></div>` : ''}
+        ${project.responsibleRole ? `<div class="field"><div class="field-label">Cargo</div><div class="field-value">${esc(project.responsibleRole)}</div></div>` : ''}
+        ${project.contractDate    ? `<div class="field"><div class="field-label">Data do Contrato</div><div class="field-value">${new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')}</div></div>` : ''}
       </div>
     </section>
+
+    ${(project.contractModel || project.contractValue) ? `
+    <section>
+      <div class="section-title">📋 Contrato</div>
+      <div class="grid grid-3">
+        ${project.contractModel ? `<div class="field"><div class="field-label">Modelo</div><div class="field-value">${esc(CONTRACT_MODEL_LABELS[project.contractModel] || project.contractModel)}</div></div>` : ''}
+        ${project.contractModel === 'aceleracao' && project.contractPaymentType ? `<div class="field"><div class="field-label">Tipo de Pagamento</div><div class="field-value">${esc(CONTRACT_PAYMENT_LABELS[project.contractPaymentType])}</div></div>` : ''}
+        ${project.contractValue ? `<div class="field"><div class="field-label">${project.contractModel === 'aceleracao' ? 'Valor do Contrato' : 'Valor Mensal'}</div><div class="field-value purple">${fmtBRL(project.contractValue)}</div></div>` : ''}
+      </div>
+    </section>` : ''}
+
+    ${project.services?.length ? `
+    <section>
+      <div class="section-title">⚙️ Serviços Contratados</div>
+      <div>${project.services.map((s) => `<span class="chip">${esc(s)}</span>`).join('')}</div>
+      ${serviceDetailEntries.length ? `<div style="margin-top:8px">${serviceDetailEntries.map(({ detail }) => `<p style="font-size:11px;color:#64748b;margin-top:4px">↳ ${esc(detail)}</p>`).join('')}</div>` : ''}
+    </section>` : ''}
+
+    <section>
+      <div class="section-title">👥 Equipe &amp; Maturidade</div>
+      <div class="grid grid-3">
+        ${project.hasSalesTeam != null ? `<div class="field"><div class="field-label">Time de Vendas</div><div class="field-value">${project.hasSalesTeam ? 'Sim' : 'Não'}</div></div>` : ''}
+        ${project.digitalMaturity ? `<div class="field"><div class="field-label">Maturidade Digital</div><div class="field-value">${esc(MATURITY_LABELS[project.digitalMaturity] || project.digitalMaturity)}</div></div>` : ''}
+        ${project.upsellPotential != null ? `<div class="field"><div class="field-label">Potencial de Upsell</div><div class="field-value">${project.upsellPotential ? 'Sim' : 'Não'}</div></div>` : ''}
+      </div>
+      ${project.upsellNotes ? `<div class="field" style="margin-top:8px"><div class="field-label">Obs. Upsell</div><div class="field-value" style="font-weight:400">${esc(project.upsellNotes)}</div></div>` : ''}
+    </section>
+
+    ${otherPeople.length ? `
+    <section>
+      <div class="section-title">👤 Outras Pessoas Envolvidas</div>
+      <div class="grid grid-3">
+        ${otherPeople.map((p) => `<div class="field"><div class="field-label">${esc(p.name)}</div>${p.role ? `<div class="field-value" style="font-size:11px;color:#9ca3af">${esc(p.role)}</div>` : ''}</div>`).join('')}
+      </div>
+    </section>` : ''}
+
+    ${competitors.length ? `
+    <section>
+      <div class="section-title">⚔️ Concorrentes</div>
+      <div>${competitors.map((c) => `<span class="chip">${esc(c)}</span>`).join('')}</div>
+    </section>` : ''}
+
     ${project.productDescription ? `
     <section>
       <div class="section-title">🛍️ Produto / Serviço</div>
       <div class="field"><div class="field-value" style="font-weight:400;line-height:1.6">${esc(project.productDescription)}</div></div>
     </section>` : ''}
-    ${project.mainGoal ? `
+    ${project.targetAudience ? `
     <section>
-      <div class="section-title">🎯 Objetivo Principal</div>
-      <div class="field"><div class="field-value" style="font-weight:400">${esc(project.mainGoal)}</div></div>
-    </section>` : ''}
-    ${servicesHTML}
-    <section>
-      <div class="section-title">💰 Orçamento e Ticket</div>
-      <div class="grid grid-3">
-        <div class="field"><div class="field-label">Verba de Mídia</div><div class="field-value purple">${fmtBRL(project.mediaBudget)}</div></div>
-        <div class="field"><div class="field-label">Fee de Gestão</div><div class="field-value">${fmtBRL(project.managementFee)}</div></div>
-        <div class="field"><div class="field-label">Ticket Médio</div><div class="field-value green">${fmtBRL(project.averageTicket)}</div></div>
-      </div>
-    </section>
-    ${competitorsHTML}
-    ${otherPeopleHTML}
-    ${project.additionalInfo ? `
-    <section>
-      <div class="section-title">📝 Informações Adicionais</div>
-      <div class="field"><div class="field-value" style="font-weight:400;line-height:1.6">${esc(project.additionalInfo)}</div></div>
+      <div class="section-title">🎯 Público-Alvo</div>
+      <div class="field"><div class="field-value" style="font-weight:400;line-height:1.6">${esc(project.targetAudience)}</div></div>
     </section>` : ''}
   `
 
-  printHTML('Onboarding', project.companyName, body)
+  printHTML('Dados do Cliente', project.companyName, body)
 }
 
 // ─── ROI Calculator PDF ───────────────────────────────────────────────────────
@@ -1540,4 +1548,166 @@ export function exportEstrategiaV2PDF(project, data) {
   if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
   win.document.write(html)
   win.document.close()
+}
+
+// ─── Perfil Completo do Cliente PDF ──────────────────────────────────────────
+
+const CONTRACT_MODEL_LABELS_PDF = {
+  aceleracao: '🚀 Programa de Aceleração',
+  assessoria: '📅 Assessoria Mensal',
+}
+const CONTRACT_PAYMENT_LABELS_PDF = {
+  unico:  'Valor Único',
+  mensal: 'Parcelado (Mensal)',
+}
+
+export function exportClientProfilePDF(project) {
+  const competitors  = (project.competitors || []).filter(Boolean)
+  const otherPeople  = (project.otherPeople || []).filter((p) => p?.name)
+  const personas     = project.personas || []
+  const oferta       = project.ofertaData || null
+  const roiCalc      = project.roiCalc || null
+  const roiResult    = project.roiResult || null
+  const campaignPlan = project.campaignPlan || null
+  const produtos     = (project.produtos || []).filter((p) => p?.nome || p?.answers?.q1)
+
+  // ── 1. Empresa
+  const empresaHTML = `
+    <section>
+      <div class="section-title">🏢 Dados da Empresa</div>
+      <div class="grid grid-3">
+        ${project.businessType    ? `<div class="field"><div class="field-label">Tipo de Negócio</div><div class="field-value">${esc(BUSINESS_LABELS[project.businessType] || project.businessType)}</div></div>` : ''}
+        ${project.segmento        ? `<div class="field"><div class="field-label">Segmento</div><div class="field-value">${esc(project.segmento)}</div></div>` : ''}
+        ${project.cnpj            ? `<div class="field"><div class="field-label">CNPJ</div><div class="field-value">${esc(project.cnpj)}</div></div>` : ''}
+        ${project.responsibleName ? `<div class="field"><div class="field-label">Responsável</div><div class="field-value">${esc(project.responsibleName)}</div></div>` : ''}
+        ${project.responsibleRole ? `<div class="field"><div class="field-label">Cargo</div><div class="field-value">${esc(project.responsibleRole)}</div></div>` : ''}
+        ${project.contractDate    ? `<div class="field"><div class="field-label">Data do Contrato</div><div class="field-value">${new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')}</div></div>` : ''}
+        ${project.contractModel   ? `<div class="field"><div class="field-label">Modelo de Contrato</div><div class="field-value">${esc(CONTRACT_MODEL_LABELS_PDF[project.contractModel] || project.contractModel)}</div></div>` : ''}
+        ${project.contractModel === 'aceleracao' && project.contractPaymentType ? `<div class="field"><div class="field-label">Tipo de Pagamento</div><div class="field-value">${esc(CONTRACT_PAYMENT_LABELS_PDF[project.contractPaymentType] || project.contractPaymentType)}</div></div>` : ''}
+        ${project.contractValue   ? `<div class="field"><div class="field-label">${project.contractModel === 'aceleracao' ? 'Valor do Contrato' : 'Valor Mensal'}</div><div class="field-value purple">${fmtBRL(project.contractValue)}</div></div>` : ''}
+        ${project.digitalMaturity ? `<div class="field"><div class="field-label">Maturidade Digital</div><div class="field-value">${esc(MATURITY_LABELS[project.digitalMaturity] || project.digitalMaturity)}</div></div>` : ''}
+        ${project.hasSalesTeam != null ? `<div class="field"><div class="field-label">Time de Vendas</div><div class="field-value">${project.hasSalesTeam ? 'Sim' : 'Não'}</div></div>` : ''}
+        ${project.upsellPotential != null ? `<div class="field"><div class="field-label">Potencial de Upsell</div><div class="field-value">${project.upsellPotential ? 'Sim' : 'Não'}</div></div>` : ''}
+      </div>
+      ${project.upsellNotes ? `<div class="field" style="margin-top:8px"><div class="field-label">Obs. Upsell</div><div class="field-value" style="font-weight:400">${esc(project.upsellNotes)}</div></div>` : ''}
+    </section>
+    ${project.services?.length ? `<section><div class="section-title">⚙️ Serviços Contratados</div><div>${project.services.map((s) => `<span class="chip">${esc(s)}</span>`).join('')}</div></section>` : ''}
+    ${competitors.length ? `<section><div class="section-title">⚔️ Concorrentes</div><div>${competitors.map((c) => `<span class="chip">${esc(c)}</span>`).join('')}</div></section>` : ''}
+    ${otherPeople.length ? `<section><div class="section-title">👥 Outras Pessoas Envolvidas</div><div class="grid grid-3">${otherPeople.map((p) => `<div class="field"><div class="field-label">${esc(p.name)}</div>${p.role ? `<div class="field-value" style="font-size:11px;color:#9ca3af">${esc(p.role)}</div>` : ''}</div>`).join('')}</div></section>` : ''}
+  `
+
+  // ── 2. ROI
+  const roiHTML = (roiCalc && roiResult) ? `
+    <section>
+      <div class="section-title">📊 Calculadora de ROI</div>
+      <div class="grid grid-3">
+        <div class="field"><div class="field-label">Orçamento em Mídia</div><div class="field-value purple">${fmtBRL(roiCalc.mediaOrcamento)}</div></div>
+        <div class="field"><div class="field-label">Custo de Marketing</div><div class="field-value">${fmtBRL(roiCalc.custoMarketing)}</div></div>
+        <div class="field"><div class="field-label">Total Investido</div><div class="field-value">${fmtBRL(roiResult.totalInvestimento)}</div></div>
+        <div class="field"><div class="field-label">Ticket Médio</div><div class="field-value">${fmtBRL(roiCalc.ticketMedio)}</div></div>
+        <div class="field"><div class="field-label">Margem Bruta</div><div class="field-value">${roiCalc.margemBruta}%</div></div>
+        <div class="field"><div class="field-label">ROI Desejado</div><div class="field-value">${roiCalc.roiDesejado}%</div></div>
+      </div>
+      <div class="grid grid-4" style="margin-top:12px">
+        <div class="field"><div class="field-label">Leads Necessários</div><div class="field-value purple" style="font-size:18px">${fmtNum(roiResult.leadsNecessarios)}</div><div class="field-label">CPL: ${fmtBRL(roiResult.custoPorLead)}</div></div>
+        <div class="field"><div class="field-label">MQLs</div><div class="field-value cyan" style="font-size:18px">${fmtNum(roiResult.mqlsNecessarios)}</div><div class="field-label">Taxa: ${roiCalc.taxaLead2MQL}%</div></div>
+        <div class="field"><div class="field-label">SQLs</div><div class="field-value" style="font-size:18px;color:#0891b2">${fmtNum(roiResult.sqlsNecessarios)}</div><div class="field-label">Taxa: ${roiCalc.taxaMQL2SQL}%</div></div>
+        <div class="field"><div class="field-label">Vendas</div><div class="field-value green" style="font-size:18px">${fmtNum(roiResult.vendasNecessarias)}</div><div class="field-label">CAC: ${fmtBRL(roiResult.cac)}</div></div>
+      </div>
+      <div class="grid grid-3" style="margin-top:12px">
+        <div class="field"><div class="field-label">Faturamento Alvo</div><div class="field-value purple">${fmtBRL(roiResult.faturamento)}</div></div>
+        <div class="field"><div class="field-label">Lucro Bruto</div><div class="field-value cyan">${fmtBRL(roiResult.lucroBruto)}</div></div>
+        <div class="field"><div class="field-label">Lucro Líquido</div><div class="field-value ${roiResult.lucroLiquido >= 0 ? 'green' : 'red'}">${fmtBRL(roiResult.lucroLiquido)}</div></div>
+      </div>
+    </section>
+  ` : ''
+
+  // ── 3. Personas
+  const personasHTML = personas.length ? `
+    <section>
+      <div class="section-title">👤 Personas</div>
+      ${personas.map((persona) => {
+        const answersHTML = PERSONA_QUESTIONS.map((q) => {
+          const answers = (persona.answers?.[q.id] || []).filter((a) => a.trim())
+          if (!answers.length) return ''
+          return `<div class="qa-item"><div class="qa-label">${esc(q.label)}</div><div class="qa-value">${answers.map((a, i) => `${i + 1}. ${esc(a)}`).join(' · ')}</div></div>`
+        }).filter(Boolean).join('')
+        const generatedHTML = persona.generatedProfile
+          ? `<div style="margin-top:12px;padding-top:10px;border-top:1px dashed #e9d5ff"><div class="qa-label" style="margin-bottom:6px">✨ Perfil Gerado por IA</div><div class="prose">${mdToHTML(persona.generatedProfile)}</div></div>`
+          : ''
+        return `<div class="persona-block"><div class="persona-name">${esc(persona.name || 'Persona')}</div>${answersHTML}${generatedHTML}</div>`
+      }).join('')}
+    </section>
+  ` : ''
+
+  // ── 4. Oferta Matadora
+  const ofertaHTML = oferta ? `
+    <section>
+      <div class="section-title">⚡ Oferta Matadora</div>
+      <div class="grid" style="grid-template-columns:1fr">
+        ${oferta.nome               ? `<div class="field"><div class="field-label">🏷️ Nome da Oferta</div><div class="field-value purple">${esc(oferta.nome)}</div></div>` : ''}
+        ${oferta.resultadoSonho     ? `<div class="field"><div class="field-label">✨ Resultado do Sonho</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.resultadoSonho)}</div></div>` : ''}
+        ${oferta.porqueVaiFuncionar ? `<div class="field"><div class="field-label">💡 Por que vai funcionar</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.porqueVaiFuncionar)}</div></div>` : ''}
+        ${oferta.velocidade         ? `<div class="field"><div class="field-label">⚡ Velocidade</div><div class="field-value" style="font-weight:400">${esc(oferta.velocidade)}</div></div>` : ''}
+        ${oferta.esforcoMinimo      ? `<div class="field"><div class="field-label">🤝 Esforço Mínimo</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.esforcoMinimo)}</div></div>` : ''}
+        ${oferta.garantia           ? `<div class="field"><div class="field-label">🛡️ Garantia</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.garantia)}</div></div>` : ''}
+        ${oferta.escassez           ? `<div class="field"><div class="field-label">🔥 Escassez / Urgência</div><div class="field-value" style="font-weight:400">${esc(oferta.escassez)}</div></div>` : ''}
+      </div>
+      ${(oferta.bonus || []).filter((b) => b.trim()).length ? `<div class="section-title" style="margin-top:12px">🎁 Stack de Bônus</div><div>${(oferta.bonus || []).filter((b) => b.trim()).map((b, i) => `<div class="field"><div class="field-label">Bônus ${i + 1}</div><div class="field-value" style="font-weight:400">${esc(b)}</div></div>`).join('')}</div>` : ''}
+      ${oferta.generatedOffer ? `<div class="section-title" style="margin-top:12px">🤖 Copy Gerada por IA</div><div class="prose">${mdToHTML(oferta.generatedOffer)}</div>` : ''}
+    </section>
+  ` : ''
+
+  // ── 5. Planejamento de Campanhas
+  let campaignHTML = ''
+  if (campaignPlan?.totalBudget && campaignPlan.channels?.length) {
+    const today    = new Date()
+    const daysLeft = Math.max(new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1, 1)
+    const { totalBudget, channels } = campaignPlan
+    const rows = channels.map((ch) => {
+      const chMon = totalBudget * (ch.percentage / 100)
+      const stageRows = STAGE_KEYS.map((key) => {
+        const st = ch.stages?.[key]
+        if (!st || st.percentage === 0) return ''
+        const stMon = chMon * (st.percentage / 100)
+        const campRows = (st.campaigns || []).filter((c) => c.name || c.percentage).map((c) =>
+          `<tr class="campaign-row"><td>${esc(c.name || '(sem nome)')}</td><td>${c.percentage}%</td><td>${fmtBRL(stMon * (c.percentage / 100))}</td><td>${fmtBRL(stMon * (c.percentage / 100) / daysLeft)}</td></tr>`
+        ).join('')
+        return `<tr class="stage-row"><td>${esc(STAGE_LABELS[key])}</td><td>${st.percentage}%</td><td>${fmtBRL(stMon)}</td><td>${fmtBRL(stMon / daysLeft)}</td></tr>${campRows}`
+      }).join('')
+      return `<tr class="channel-header"><td><strong>${esc(ch.name)}</strong></td><td>${ch.percentage}%</td><td>${fmtBRL(chMon)}</td><td>${fmtBRL(chMon / daysLeft)}</td></tr>${stageRows}`
+    }).join('')
+    campaignHTML = `
+      <section>
+        <div class="section-title">📅 Planejamento de Campanhas</div>
+        <div class="grid grid-2" style="margin-bottom:12px">
+          <div class="field"><div class="field-label">Orçamento Total Mensal</div><div class="field-value purple" style="font-size:18px">${fmtBRL(totalBudget)}</div></div>
+          <div class="field"><div class="field-label">Orçamento Diário Médio</div><div class="field-value">${fmtBRL(totalBudget / daysLeft)}</div></div>
+        </div>
+        <table>
+          <thead><tr><th>Canal / Etapa / Campanha</th><th>%</th><th>Mensal</th><th>Diário</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </section>
+    `
+  }
+
+  // ── 6. Produtos / Serviços
+  const produtosHTML = produtos.length ? `
+    <section>
+      <div class="section-title">📦 Produto / Serviço</div>
+      ${produtos.map((p) => `
+        <div class="persona-block">
+          <div class="persona-name">${esc(p.nome || 'Produto')}</div>
+          ${Object.entries(p.answers || {}).map(([, answers]) => {
+            const valid = (Array.isArray(answers) ? answers : [answers]).filter((a) => a?.trim())
+            if (!valid.length) return ''
+            return `<div class="qa-item"><div class="qa-value">${valid.map((a) => esc(a)).join(' · ')}</div></div>`
+          }).join('')}
+        </div>
+      `).join('')}
+    </section>
+  ` : ''
+
+  printHTML('Perfil Completo do Cliente', project.companyName, empresaHTML + roiHTML + personasHTML + ofertaHTML + campaignHTML + produtosHTML)
 }

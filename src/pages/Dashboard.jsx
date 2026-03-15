@@ -70,7 +70,7 @@ function ProjectCard({ project, onClick, onDelete }) {
   }[project.status] || 'text-rl-muted bg-rl-muted/10 border-rl-muted/30'
 
   const statusLabel = {
-    onboarding: 'Onboarding',
+    onboarding: 'Em Onboarding',
     active:     'Ativo',
     paused:     'Pausado',
   }[project.status] || project.status
@@ -106,7 +106,7 @@ function ProjectCard({ project, onClick, onDelete }) {
       {/* Progress */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-rl-muted">Progresso do Onboarding</span>
+          <span className="text-xs text-rl-muted">Progresso</span>
           <span className="text-xs font-semibold text-rl-purple">{project.progress}%</span>
         </div>
         <div className="h-1.5 bg-rl-surface rounded-full overflow-hidden">
@@ -308,7 +308,7 @@ const LIST_COLS = [
   { key: 'createdAt',       label: 'Criado em'           },
 ]
 
-const STATUS_LABEL = { onboarding: 'Onboarding', active: 'Ativo', paused: 'Pausado' }
+const STATUS_LABEL = { onboarding: 'Em Onboarding', active: 'Ativo', paused: 'Pausado' }
 const STATUS_COLOR = {
   onboarding: 'text-rl-cyan  bg-rl-cyan/10  border-rl-cyan/30',
   active:     'text-rl-green bg-rl-green/10 border-rl-green/30',
@@ -484,14 +484,14 @@ function DeleteConfirmModal({ project, onConfirm, onCancel }) {
             <AlertTriangle className="w-5 h-5 text-red-400" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-rl-text">Excluir projeto</h2>
+            <h2 className="text-base font-bold text-rl-text">Excluir cliente</h2>
             <p className="text-xs text-rl-muted mt-0.5">Esta ação é permanente e não pode ser desfeita.</p>
           </div>
         </div>
 
         {/* Project name */}
         <div className="rounded-xl bg-rl-surface border border-rl-border px-4 py-3 mb-5">
-          <p className="text-[11px] text-rl-muted mb-0.5">Projeto a ser excluído</p>
+          <p className="text-[11px] text-rl-muted mb-0.5">Cliente a ser excluído</p>
           <p className="text-sm font-bold text-red-400">{project.companyName}</p>
           {project.responsibleName && (
             <p className="text-xs text-rl-muted mt-0.5">{project.responsibleName} · {project.responsibleRole}</p>
@@ -525,7 +525,7 @@ function DeleteConfirmModal({ project, onConfirm, onCancel }) {
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 font-semibold text-sm transition-all hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Trash2 className="w-4 h-4" />
-            Excluir projeto
+            Excluir cliente
           </button>
         </div>
       </div>
@@ -539,13 +539,13 @@ function EmptyState({ onNew }) {
       <div className="w-16 h-16 rounded-2xl bg-rl-purple/10 flex items-center justify-center mb-4 animate-float">
         <Layers className="w-8 h-8 text-rl-purple/60" />
       </div>
-      <h3 className="text-lg font-semibold text-rl-text mb-2">Nenhum onboarding ainda</h3>
+      <h3 className="text-lg font-semibold text-rl-text mb-2">Nenhum cliente ainda</h3>
       <p className="text-rl-muted text-sm mb-6 max-w-xs">
-        Crie seu primeiro onboarding de cliente para começar a gerenciar seus projetos.
+        Adicione seu primeiro cliente para começar a gerenciar sua carteira.
       </p>
       <button onClick={onNew} className="btn-primary flex items-center gap-2">
         <Plus className="w-4 h-4" />
-        Novo Onboarding
+        Novo Cliente
       </button>
     </div>
   )
@@ -634,7 +634,7 @@ export default function Dashboard() {
       bg: 'bg-rl-green/10',
     },
     {
-      label: 'Total de Projetos',
+      label: 'Total de Clientes',
       value: baseProjects.length,
       icon: <BarChart3 className="w-5 h-5" />,
       color: 'text-rl-purple',
@@ -692,7 +692,7 @@ export default function Dashboard() {
               className="hidden sm:flex btn-primary items-center gap-2 whitespace-nowrap animate-pulse-glow"
             >
               <Plus className="w-4 h-4" />
-              Novo Onboarding
+              Novo Cliente
             </button>
           </div>
 
