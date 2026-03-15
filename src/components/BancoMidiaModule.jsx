@@ -52,6 +52,7 @@ function ColorChip({ color, onDelete }) {
       </div>
       <button
         onClick={onDelete}
+        aria-label="Remover cor"
         className="ml-1 p-0.5 rounded text-rl-muted/40 hover:text-rl-red opacity-0 group-hover:opacity-100 transition-all shrink-0"
       >
         <X className="w-3 h-3" />

@@ -66,7 +66,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
             <Users className="w-5 h-5 text-rl-purple" />
             <h2 className="text-base font-bold text-rl-text">{title}</h2>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+          <button onClick={onClose} aria-label="Fechar formulário" className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -325,6 +325,7 @@ export default function UserManagement() {
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
           <button
             onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menu de navegação"
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
           >
             <Menu className="w-5 h-5" />
@@ -424,6 +425,7 @@ export default function UserManagement() {
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => setEditTarget(u)}
+                            aria-label="Editar usuário"
                             className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
                             title="Editar"
                           >
@@ -437,6 +439,7 @@ export default function UserManagement() {
                                   ? 'text-rl-muted hover:text-rl-green hover:bg-rl-green/10'
                                   : 'text-rl-muted hover:text-red-400 hover:bg-red-400/10'
                               }`}
+                              aria-label={u.disabled ? 'Reativar usuário' : 'Desativar usuário'}
                               title={u.disabled ? 'Reativar' : 'Desativar'}
                             >
                               {u.disabled ? <UserCheck className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}

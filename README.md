@@ -19,7 +19,7 @@ Ao completar as 3 etapas, o projeto se torna um **Perfil Completo** — um docum
 - Autenticação via Supabase Auth (email/senha + Google OAuth)
 - Dashboard com cards de projetos, stats (em onboarding, ativos, total) e filtros por status ou membro do time
 - Controle de acesso: admins veem todos os projetos; usuários comuns veem apenas os seus
-- IA integrada (Claude API) para geração de personas, ofertas, criativos, Google Ads, landing pages e estratégia
+- IA integrada (Claude API) para geração de personas, ofertas, criativos, Google Ads, landing pages e estratégia — anexos (PDF, imagens, texto) são enviados como conteúdo real ao Claude, não apenas o nome do arquivo
 - Sincronização em nuvem via Supabase com schema normalizado
 - Upload de arquivos para Supabase Storage (PDFs, logos, anexos)
 - Exportação de perfis em PDF
@@ -57,6 +57,14 @@ area-do-cliente/
 │   │   └── UserManagement.jsx # Gestão de usuários do time (admin only)
 │   │
 │   ├── components/            # Componentes reutilizáveis
+│   │   ├── UI/                    # Componentes genéricos de design system
+│   │   │   ├── Badge.jsx          # Chip colorido (variantes: purple, blue, green, gold, cyan, red, muted)
+│   │   │   └── EmptyState.jsx     # Estado vazio padronizado (ícone + título + subtítulo + CTA)
+│   │   ├── Criativos/             # Sub-componentes do CriativosModule
+│   │   ├── CampaignPlanner/       # Sub-componentes do CampaignPlanner
+│   │   ├── GoogleAds/             # Sub-componentes do GoogleAdsModule
+│   │   ├── Resultados/            # Sub-componentes do ResultadosModule
+│   │   ├── Estrategia/            # Sub-componentes do EstrategiaModule
 │   │   ├── AppSidebar.jsx         # Menu lateral da aplicação
 │   │   ├── CampaignPlanner.jsx    # Planejador de campanhas
 │   │   ├── CriativosModule.jsx    # Módulo de criativos
@@ -89,6 +97,8 @@ area-do-cliente/
 ├── vite.config.js             # Configuração do Vite (bundler)
 ├── tailwind.config.js         # Configuração do Tailwind CSS
 ├── postcss.config.js          # Configuração do PostCSS
+├── eslint.config.js           # ESLint 9 flat config (react + react-hooks + prettier)
+├── .prettierrc                # Prettier (semi=false, singleQuote, tabWidth=2)
 ├── vercel.json                # Configuração de deploy na Vercel
 ├── package.json               # Dependências e scripts
 └── .env.example               # Variáveis de ambiente necessárias

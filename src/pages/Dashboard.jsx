@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
@@ -7,6 +7,7 @@ import {
   BarChart3, FileText, DollarSign, Users,
   Eye, X, Trash2, AlertTriangle,
   Cloud, CloudOff, Loader2, Menu, Search,
+  LayoutGrid, List, ChevronUp, ChevronDown, ChevronsUpDown,
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
 
@@ -38,18 +39,18 @@ function hashId(id) {
   return String(id).split('').reduce((a, c) => a + c.charCodeAt(0), 0)
 }
 
-function CreatorBadge({ accountName, accountId }) {
+function CreatorBadge({ accountName, colorIndex = 0 }) {
   if (!accountName) return null
-  const c = CREATOR_COLORS[hashId(accountId) % CREATOR_COLORS.length]
+  const c = CREATOR_COLORS[colorIndex % CREATOR_COLORS.length]
   const parts    = accountName.trim().split(' ')
   const initials = parts.slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
   const display  = parts.length > 1 ? `${parts[0]} ${parts[1][0]}.` : parts[0]
   return (
-    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg ${c.bg}`}>
-      <div className={`w-5 h-5 rounded-full ${c.avatar} flex items-center justify-center text-[9px] font-bold text-white shrink-0`}>
+    <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${c.bg} ${c.text} border-current/20`}>
+      <div className={`w-4 h-4 rounded-full ${c.avatar} flex items-center justify-center text-[8px] font-bold text-white shrink-0`}>
         {initials}
       </div>
-      <span className={`text-xs font-semibold ${c.text} whitespace-nowrap`}>{display}</span>
+      <span className="text-[11px] font-semibold whitespace-nowrap">{display}</span>
     </div>
   )
 }
@@ -80,6 +81,7 @@ function ProjectCard({ project, onClick, onDelete }) {
       <button
         onClick={(e) => { e.stopPropagation(); onDelete() }}
         className="absolute top-3 right-3 p-1.5 rounded-lg text-rl-muted opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-400/10 transition-all duration-150 z-10"
+        aria-label="Excluir projeto"
         title="Excluir projeto"
       >
         <Trash2 className="w-3.5 h-3.5" />
@@ -98,7 +100,7 @@ function ProjectCard({ project, onClick, onDelete }) {
 
       {/* Creator badge */}
       <div className="mb-3">
-        <CreatorBadge accountName={project.accountName} accountId={project.accountId} />
+        <CreatorBadge accountName={project.accountName} colorIndex={project.accountColorIndex} />
       </div>
 
       {/* Progress */}
@@ -149,6 +151,7 @@ function ClientProfileCard({ project, onClick, onDelete }) {
       <button
         onClick={(e) => { e.stopPropagation(); onDelete() }}
         className="absolute top-3 right-3 p-1.5 rounded-lg text-rl-muted opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-400/10 transition-all duration-150 z-10"
+        aria-label="Excluir projeto"
         title="Excluir projeto"
       >
         <Trash2 className="w-3.5 h-3.5" />
@@ -177,7 +180,7 @@ function ClientProfileCard({ project, onClick, onDelete }) {
 
       {/* Creator badge */}
       <div className="mt-3 mb-3">
-        <CreatorBadge accountName={project.accountName} accountId={project.accountId} />
+        <CreatorBadge accountName={project.accountName} colorIndex={project.accountColorIndex} />
       </div>
 
       {/* Chips de resumo */}
@@ -217,12 +220,263 @@ function ClientProfileCard({ project, onClick, onDelete }) {
   )
 }
 
+// ─── Team Dropdown ────────────────────────────────────────────────────────────
+
+function TeamDropdown({ filter, setFilter, activeAccounts, counts, teamMembers }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  // Fecha ao clicar fora
+  useEffect(() => {
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const activeMember = activeAccounts.find(m => String(m.id) === String(filter))
+  const label = activeMember ? activeMember.name.split(' ')[0] : 'Equipe'
+  const isFiltered = !!activeMember
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all ${
+          isFiltered
+            ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
+            : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
+        }`}
+      >
+        <Users className="w-3.5 h-3.5 shrink-0" />
+        <span>{label}</span>
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-52 glass-card border border-rl-border shadow-xl py-1 rounded-xl overflow-hidden">
+          {/* Todos */}
+          <button
+            onClick={() => { setFilter('all'); setOpen(false) }}
+            className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
+              !isFiltered ? 'text-rl-purple font-semibold' : 'text-rl-muted'
+            }`}
+          >
+            <span>Todos os membros</span>
+            {!isFiltered && <span className="w-1.5 h-1.5 rounded-full bg-rl-purple" />}
+          </button>
+
+          {activeAccounts.length > 0 && <div className="border-t border-rl-border/60 my-1" />}
+
+          {/* Members */}
+          {activeAccounts.map((m) => {
+            const isActive = String(filter) === String(m.id)
+            const colorIdx = teamMembers.findIndex(tm => String(tm.id) === String(m.id))
+            const dot = CREATOR_COLORS[colorIdx >= 0 ? colorIdx % CREATOR_COLORS.length : 0].avatar
+            const count = counts?.members?.[String(m.id)] ?? 0
+            return (
+              <button
+                key={m.id}
+                onClick={() => { setFilter(String(m.id)); setOpen(false) }}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
+                  isActive ? 'text-rl-text font-medium' : 'text-rl-muted'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
+                  <span>{m.name.split(' ').slice(0, 2).join(' ')}</span>
+                </div>
+                <span className="text-[11px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-full">
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── List View ────────────────────────────────────────────────────────────────
+const LIST_COLS = [
+  { key: 'companyName',     label: 'Empresa'             },
+  { key: 'accountName',     label: 'Equipe'              },
+  { key: 'responsibleName', label: 'Responsável / Cargo' },
+  { key: 'status',          label: 'Status'              },
+  { key: 'progress',        label: 'Progresso'           },
+  { key: 'contractValue',   label: 'Contrato'            },
+  { key: 'createdAt',       label: 'Criado em'           },
+]
+
+const STATUS_LABEL = { onboarding: 'Onboarding', active: 'Ativo', paused: 'Pausado' }
+const STATUS_COLOR = {
+  onboarding: 'text-rl-cyan  bg-rl-cyan/10  border-rl-cyan/30',
+  active:     'text-rl-green bg-rl-green/10 border-rl-green/30',
+  paused:     'text-rl-gold  bg-rl-gold/10  border-rl-gold/30',
+}
+
+function SortIcon({ col, sortBy, sortDir }) {
+  if (sortBy !== col) return <ChevronsUpDown className="w-3 h-3 text-rl-muted/40" />
+  return sortDir === 'asc'
+    ? <ChevronUp   className="w-3 h-3 text-rl-purple" />
+    : <ChevronDown className="w-3 h-3 text-rl-purple" />
+}
+
+function ProjectListView({ projects, onNavigate, onDelete }) {
+  const [sortBy,  setSortBy]  = useState('createdAt')
+  const [sortDir, setSortDir] = useState('desc')
+
+  function handleSort(key) {
+    if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(key); setSortDir('asc') }
+  }
+
+  const sorted = [...projects].sort((a, b) => {
+    let av = a[sortBy] ?? ''
+    let bv = b[sortBy] ?? ''
+    if (sortBy === 'progress' || sortBy === 'contractValue') {
+      av = Number(av) || 0; bv = Number(bv) || 0
+    } else if (sortBy === 'createdAt') {
+      av = new Date(av).getTime() || 0; bv = new Date(bv).getTime() || 0
+    } else {
+      av = String(av).toLowerCase(); bv = String(bv).toLowerCase()
+    }
+    if (av < bv) return sortDir === 'asc' ? -1 :  1
+    if (av > bv) return sortDir === 'asc' ?  1 : -1
+    return 0
+  })
+
+  return (
+    <div className="glass-card overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          {/* Header */}
+          <thead>
+            <tr className="border-b border-rl-border">
+              {LIST_COLS.map(col => (
+                <th
+                  key={col.key}
+                  onClick={() => handleSort(col.key)}
+                  className="px-4 py-3 text-left text-xs font-semibold text-rl-muted uppercase tracking-wider whitespace-nowrap cursor-pointer select-none hover:text-rl-text transition-colors"
+                >
+                  <span className="flex items-center gap-1.5">
+                    {col.label}
+                    <SortIcon col={col.key} sortBy={sortBy} sortDir={sortDir} />
+                  </span>
+                </th>
+              ))}
+              <th className="px-4 py-3 w-10" />
+            </tr>
+          </thead>
+
+          {/* Body */}
+          <tbody>
+            {sorted.map((p, i) => {
+              const complete = isProfileComplete(p)
+              const statusLabel = complete ? 'Perfil Completo' : (STATUS_LABEL[p.status] || p.status)
+              const statusColor = complete
+                ? 'text-rl-green bg-rl-green/10 border-rl-green/30'
+                : (STATUS_COLOR[p.status] || 'text-rl-muted bg-rl-muted/10 border-rl-muted/30')
+              const createdStr = p.createdAt
+                ? new Date(p.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+                : '—'
+
+              return (
+                <tr
+                  key={p.id}
+                  onClick={() => onNavigate(p.id)}
+                  className={`cursor-pointer transition-colors hover:bg-rl-surface/50 group
+                    ${i !== sorted.length - 1 ? 'border-b border-rl-border/50' : ''}`}
+                >
+                  {/* Empresa */}
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium text-rl-text group-hover:text-rl-purple transition-colors leading-tight">
+                        {p.companyName}
+                      </span>
+                      {p.businessType && (
+                        <span className="text-[10px] text-rl-muted">{p.businessType}</span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Equipe */}
+                  <td className="px-4 py-3">
+                    <CreatorBadge accountName={p.accountName} colorIndex={p.accountColorIndex} />
+                  </td>
+
+                  {/* Responsável / Cargo */}
+                  <td className="px-4 py-3">
+                    {p.responsibleName
+                      ? <div className="flex flex-col">
+                          <span className="text-rl-text leading-tight">{p.responsibleName}</span>
+                          {p.responsibleRole && (
+                            <span className="text-xs text-rl-muted mt-0.5">{p.responsibleRole}</span>
+                          )}
+                        </div>
+                      : <span className="text-rl-muted">—</span>
+                    }
+                  </td>
+
+                  {/* Status */}
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${statusColor}`}>
+                      {statusLabel}
+                    </span>
+                  </td>
+
+                  {/* Progresso */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 min-w-[80px]">
+                      <div className="flex-1 h-1.5 bg-rl-surface rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-rl rounded-full"
+                          style={{ width: `${p.progress ?? 0}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-rl-muted w-7 text-right shrink-0">
+                        {p.progress ?? 0}%
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Contrato */}
+                  <td className="px-4 py-3 text-rl-muted whitespace-nowrap">
+                    {p.contractValue ? fmtCurrency(Number(p.contractValue)) : '—'}
+                  </td>
+
+                  {/* Criado em */}
+                  <td className="px-4 py-3 text-rl-muted whitespace-nowrap text-xs">
+                    {createdStr}
+                  </td>
+
+                  {/* Ações */}
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => onDelete(p)}
+                      aria-label="Excluir projeto"
+                      title="Excluir projeto"
+                      className="p-1.5 rounded-lg text-rl-muted opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 function DeleteConfirmModal({ project, onConfirm, onCancel }) {
   const [typed, setTyped] = useState('')
   const canDelete = typed === 'DELETE'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
       <div className="glass-card w-full max-w-md p-6 border border-red-500/30 animate-slide-up shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 mb-5">
@@ -307,6 +561,9 @@ export default function Dashboard() {
   const [filter, setFilter] = useState('all') // 'all' | 'onboarding' | 'active' | accountId
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [view, setView] = useState(() => localStorage.getItem('rl_dashboard_view') || 'grid')
+
+  function switchView(v) { setView(v); localStorage.setItem('rl_dashboard_view', v) }
 
   const isAdmin = user?.role === 'admin'
 
@@ -322,17 +579,25 @@ export default function Dashboard() {
     return baseProjects.filter(p => String(p.accountId) === String(filter))
   })()
 
+  // All active (non-disabled) team members appear in the sidebar filter
+  const activeAccounts = teamMembers.filter(m => !m.disabled)
+
   // Apply search on top of the status/member filter
   const query = searchQuery.trim().toLowerCase()
-  const visibleProjects = query
+  const visibleProjects = (query
     ? filteredProjects.filter(p =>
         (p.companyName    || '').toLowerCase().includes(query) ||
         (p.responsibleName|| '').toLowerCase().includes(query)
       )
     : filteredProjects
-
-  // All active (non-disabled) team members appear in the sidebar filter
-  const activeAccounts = teamMembers.filter(m => !m.disabled)
+  ).map(p => {
+    const memberIdx = teamMembers.findIndex(m => String(m.id) === String(p.accountId))
+    return {
+      ...p,
+      accountName:       teamMembers[memberIdx]?.name ?? p.accountName,
+      accountColorIndex: memberIdx >= 0 ? memberIdx : 0,
+    }
+  })
 
   // Counts for sidebar nav
   const counts = {
@@ -397,6 +662,7 @@ export default function Dashboard() {
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
           <button
             onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menu de navegação"
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
           >
             <Menu className="w-5 h-5" />
@@ -409,7 +675,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <main className="flex-1 px-6 py-8 space-y-8 max-w-5xl w-full mx-auto">
+        <main className="flex-1 px-6 py-8 space-y-8">
 
           {/* Welcome */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up">
@@ -480,11 +746,51 @@ export default function Dashboard() {
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
+                    aria-label="Limpar busca"
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-rl-muted hover:text-rl-text transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
+              </div>
+
+              {/* Team filter dropdown */}
+              {activeAccounts.length > 0 && (
+                <TeamDropdown
+                  filter={filter}
+                  setFilter={setFilter}
+                  activeAccounts={activeAccounts}
+                  counts={counts}
+                  teamMembers={teamMembers}
+                />
+              )}
+
+              {/* View switcher */}
+              <div className="flex items-center gap-1 bg-rl-surface border border-rl-border rounded-xl p-1 shrink-0">
+                <button
+                  onClick={() => switchView('grid')}
+                  aria-label="Visualização em cards"
+                  title="Cards"
+                  className={`p-1.5 rounded-lg transition-all ${
+                    view === 'grid'
+                      ? 'bg-rl-purple text-white shadow-sm'
+                      : 'text-rl-muted hover:text-rl-text'
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => switchView('list')}
+                  aria-label="Visualização em lista"
+                  title="Lista"
+                  className={`p-1.5 rounded-lg transition-all ${
+                    view === 'list'
+                      ? 'bg-rl-purple text-white shadow-sm'
+                      : 'text-rl-muted hover:text-rl-text'
+                  }`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
@@ -493,28 +799,34 @@ export default function Dashboard() {
                 <Loader2 className="w-8 h-8 animate-spin text-rl-purple" />
                 <p className="text-sm">Carregando projetos da nuvem...</p>
               </div>
+            ) : visibleProjects.length === 0 && !query ? (
+              <div className="grid grid-cols-1">
+                <EmptyState onNew={() => navigate('/onboarding/new')} />
+              </div>
+            ) : visibleProjects.length === 0 && query ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <Search className="w-10 h-10 text-rl-muted/30 mb-3" />
+                <p className="text-rl-text font-semibold mb-1">Nenhum resultado para "{searchQuery}"</p>
+                <p className="text-rl-muted text-sm">Tente outro nome ou responsável.</p>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="mt-4 text-xs text-rl-purple hover:underline"
+                >
+                  Limpar busca
+                </button>
+              </div>
+            ) : view === 'list' ? (
+              <ProjectListView
+                projects={visibleProjects}
+                onNavigate={(id) => navigate(`/project/${id}`)}
+                onDelete={(p) => setDeleteTarget(p)}
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {visibleProjects.length === 0 && !query ? (
-                  <EmptyState onNew={() => navigate('/onboarding/new')} />
-                ) : visibleProjects.length === 0 && query ? (
-                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
-                    <Search className="w-10 h-10 text-rl-muted/30 mb-3" />
-                    <p className="text-rl-text font-semibold mb-1">Nenhum resultado para "{searchQuery}"</p>
-                    <p className="text-rl-muted text-sm">Tente outro nome ou responsável.</p>
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      className="mt-4 text-xs text-rl-purple hover:underline"
-                    >
-                      Limpar busca
-                    </button>
-                  </div>
-                ) : (
-                  visibleProjects.map((p) =>
-                    isProfileComplete(p)
-                      ? <ClientProfileCard key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
-                      : <ProjectCard       key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
-                  )
+                {visibleProjects.map((p) =>
+                  isProfileComplete(p)
+                    ? <ClientProfileCard key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
+                    : <ProjectCard       key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
                 )}
               </div>
             )}

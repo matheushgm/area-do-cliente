@@ -6,6 +6,7 @@ import {
   FileText, Image, File, FileSpreadsheet, FileVideo,
   FileAudio, Archive,
 } from 'lucide-react'
+import EmptyState from './UI/EmptyState'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MAX_FILE_MB  = 8
@@ -193,11 +194,11 @@ export default function AnexosModule({ project }) {
 
       {/* File list */}
       {attachments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-10 text-center">
-          <Paperclip className="w-8 h-8 text-rl-muted/30 mb-3" />
-          <p className="text-sm text-rl-muted">Nenhum anexo ainda</p>
-          <p className="text-xs text-rl-muted/60 mt-1">Adicione contratos, briefings, relatórios e documentos importantes</p>
-        </div>
+        <EmptyState
+          icon={<Paperclip className="w-8 h-8" />}
+          title="Nenhum anexo ainda"
+          subtitle="Adicione contratos, briefings, relatórios e documentos importantes"
+        />
       ) : (
         <div className="space-y-2">
           {attachments.map((a) => (
@@ -220,6 +221,7 @@ export default function AnexosModule({ project }) {
                 <button
                   onClick={() => handleDownload(a)}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
+                  aria-label="Baixar arquivo"
                   title="Baixar arquivo"
                 >
                   <Download className="w-4 h-4" />
@@ -227,6 +229,7 @@ export default function AnexosModule({ project }) {
                 <button
                   onClick={() => handleDelete(a.id)}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
+                  aria-label="Remover arquivo"
                   title="Remover arquivo"
                 >
                   <Trash2 className="w-4 h-4" />

@@ -9,6 +9,7 @@ import PersonaCreator from './PersonaCreator'
 import OfertaMatadora from './OfertaMatadora'
 import ClientProfile from './ClientProfile'
 import ROICalculator from '../components/ROICalculator'
+import Badge from '../components/UI/Badge'
 
 // ─── Journey Steps ────────────────────────────────────────────────────────────
 const JOURNEY_STEPS = [
@@ -26,7 +27,7 @@ function ConclusionModal({ project, onViewProfile, onDashboard }) {
   const ofertaNome   = project.ofertaData?.nome
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
       <div className="glass-card w-full max-w-md p-8 border border-rl-green/40 animate-slide-up shadow-2xl text-center">
 
         {/* Icon */}
@@ -116,9 +117,10 @@ export default function ProjectDetail() {
     return (
       <div className="min-h-screen bg-gradient-dark">
         <nav className="sticky top-0 z-50 border-b border-rl-border bg-rl-bg/80 backdrop-blur-xl">
-          <div className="max-w-4xl mx-auto px-6 h-16 flex items-center gap-4">
+          <div className="px-6 h-16 flex items-center gap-4">
             <button
               onClick={() => navigate('/')}
+              aria-label="Voltar ao dashboard"
               className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all duration-150"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -132,13 +134,11 @@ export default function ProjectDetail() {
               <span className="text-rl-muted text-sm">{project.responsibleName}</span>
             </div>
             <div className="ml-auto">
-              <span className="text-xs bg-rl-green/10 text-rl-green border border-rl-green/30 px-2.5 py-1 rounded-full font-medium">
-                Perfil Completo
-              </span>
+              <Badge color="green">Perfil Completo</Badge>
             </div>
           </div>
         </nav>
-        <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-6 py-8">
           <ClientProfile project={project} />
         </div>
       </div>
@@ -191,7 +191,7 @@ export default function ProjectDetail() {
     <div className="min-h-screen bg-gradient-dark">
       {/* Top Nav */}
       <nav className="sticky top-0 z-50 border-b border-rl-border bg-rl-bg/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center gap-4">
+        <div className="px-6 h-16 flex items-center gap-4">
           <button
             onClick={() => navigate('/')}
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all duration-150"
@@ -207,9 +207,7 @@ export default function ProjectDetail() {
             <span className="text-rl-muted text-sm">{project.responsibleName}</span>
           </div>
           <div className="ml-auto">
-            <span className="text-xs bg-rl-cyan/10 text-rl-cyan border border-rl-cyan/30 px-2.5 py-1 rounded-full font-medium">
-              {project.progress ?? 0}% concluído
-            </span>
+            <Badge color="cyan">{project.progress ?? 0}% concluído</Badge>
           </div>
         </div>
       </nav>

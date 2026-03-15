@@ -10,6 +10,44 @@ import { supabase, isSupabaseReady } from "../lib/supabase";
 
 const AppContext = createContext();
 
+// ─── localStorage schema versioning ───────────────────────────────────────────
+const LS_KEY      = "rl_projects_v2";
+const LS_VER_KEY  = "rl_projects_schema_v";
+const SCHEMA_VERSION = 1;
+
+/**
+ * Migrações incrementais do cache local.
+ * Adicione um bloco `if (v < N)` para cada versão futura.
+ */
+function migrateProjects(data, fromVersion) {
+  let v = fromVersion;
+  // Exemplo de migração futura:
+  // if (v < 2) { data = data.map(p => ({ ...p, newField: p.oldField ?? null })); v = 2; }
+  void v;
+  return data;
+}
+
+function loadFromStorage() {
+  try {
+    const raw     = localStorage.getItem(LS_KEY);
+    const version = Number(localStorage.getItem(LS_VER_KEY) || 0);
+    const data    = raw ? JSON.parse(raw) : [];
+    if (version < SCHEMA_VERSION) {
+      const migrated = migrateProjects(data, version);
+      saveToStorage(migrated);
+      return migrated;
+    }
+    return data;
+  } catch { return []; }
+}
+
+function saveToStorage(data) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+    localStorage.setItem(LS_VER_KEY, String(SCHEMA_VERSION));
+  } catch { /* quota exceeded — ignorar */ }
+}
+
 // ─── Helpers de usuário ────────────────────────────────────────────────────────
 function enrichUser(authUser) {
   if (!authUser) return null;
@@ -545,12 +583,7 @@ export function AppProvider({ children }) {
   const [authError, setAuthError]   = useState(null);
 
   // ── Projects ──────────────────────────────────────────────────────────────
-  const [projects, setProjects] = useState(() => {
-    try {
-      const s = localStorage.getItem("rl_projects_v2");
-      return s ? JSON.parse(s) : [];
-    } catch { return []; }
-  });
+  const [projects, setProjects] = useState(loadFromStorage);
 
   const [loadingProjects, setLoadingProjects] = useState(isSupabaseReady);
   const pendingWrites = useRef(0);
@@ -595,7 +628,7 @@ export function AppProvider({ children }) {
       .then((rows) => {
         if (rows !== null) {
           setProjects(rows);
-          localStorage.setItem("rl_projects_v2", JSON.stringify(rows));
+          saveToStorage(rows);
         }
       })
       .catch((err) => console.error("Erro ao carregar projetos:", err))
@@ -624,7 +657,7 @@ export function AppProvider({ children }) {
           const project = assembleProject(row);
           setProjects((prev) => {
             const updated = [project, ...prev];
-            localStorage.setItem("rl_projects_v2", JSON.stringify(updated));
+            saveToStorage(updated);
             return updated;
           });
         },
@@ -654,7 +687,7 @@ export function AppProvider({ children }) {
                 produtos:    p.produtos    || [],
               });
             });
-            localStorage.setItem("rl_projects_v2", JSON.stringify(updated));
+            saveToStorage(updated);
             return updated;
           });
         },
@@ -666,7 +699,7 @@ export function AppProvider({ children }) {
           if (pendingWrites.current > 0) return;
           setProjects((prev) => {
             const updated = prev.filter((p) => p.id !== row.id);
-            localStorage.setItem("rl_projects_v2", JSON.stringify(updated));
+            saveToStorage(updated);
             return updated;
           });
         },
@@ -738,7 +771,7 @@ export function AppProvider({ children }) {
 
       setProjects((prev) => {
         const updated = [project, ...prev];
-        localStorage.setItem("rl_projects_v2", JSON.stringify(updated));
+        saveToStorage(updated);
         return updated;
       });
 
@@ -775,7 +808,7 @@ export function AppProvider({ children }) {
         }, 1000);
       }
 
-      localStorage.setItem("rl_projects_v2", JSON.stringify(updated));
+      saveToStorage(updated);
       return updated;
     });
   }, []);
@@ -783,7 +816,7 @@ export function AppProvider({ children }) {
   const deleteProject = useCallback((id) => {
     setProjects((prev) => {
       const updated = prev.filter((p) => p.id !== id);
-      localStorage.setItem("rl_projects_v2", JSON.stringify(updated));
+      saveToStorage(updated);
       return updated;
     });
     sbDeleteProject(id);

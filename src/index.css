@@ -4,6 +4,12 @@
 
 @layer base {
   * { box-sizing: border-box; }
+
+  /* Focus visível global — garante WCAG AA para navegação por teclado */
+  :focus-visible {
+    outline: 2px solid #164496;
+    outline-offset: 2px;
+  }
   body {
     background-color: #EEF2F9;
     color: #0F172A;
@@ -30,19 +36,20 @@
   .input-field {
     @apply w-full bg-rl-surface border border-rl-border rounded-xl px-4 py-3 text-rl-text
            placeholder-rl-muted transition-all duration-200 outline-none text-sm
-           focus:border-rl-purple focus:ring-2 focus:ring-rl-purple/20;
+           focus:border-rl-purple
+           focus-visible:ring-2 focus-visible:ring-rl-purple focus-visible:ring-offset-1;
   }
-
-  .input-field:focus { box-shadow: 0 0 0 3px rgba(22,68,150,0.10); }
 
   .btn-primary {
     @apply bg-gradient-rl text-white font-semibold px-6 py-3 rounded-xl transition-all duration-200
-           hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] cursor-pointer;
+           hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] cursor-pointer
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rl-purple;
   }
 
   .btn-secondary {
     @apply bg-rl-surface border border-rl-border text-rl-subtle font-medium px-6 py-3 rounded-xl
-           transition-all duration-200 hover:border-rl-purple/40 hover:text-rl-text cursor-pointer;
+           transition-all duration-200 hover:border-rl-purple/40 hover:text-rl-text cursor-pointer
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rl-purple;
   }
 
   .step-indicator {

@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types'
 import { useState, useMemo, useCallback } from 'react'
 import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircle, FileDown } from 'lucide-react'
 import { exportROIPDF } from '../utils/exportPDF'
@@ -410,4 +411,26 @@ export default function ROICalculator({ project, onSave }) {
       )}
     </div>
   )
+}
+
+ROICalculator.propTypes = {
+  project: PropTypes.shape({
+    id:              PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    companyName:     PropTypes.string,
+    businessType:    PropTypes.string,
+    roiCalc:         PropTypes.object,
+    roiResult:       PropTypes.object,
+    completedSteps:  PropTypes.arrayOf(PropTypes.string),
+  }).isRequired,
+  onSave: PropTypes.func,
+}
+
+NumInput.propTypes = {
+  label:    PropTypes.string.isRequired,
+  value:    PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  onChange: PropTypes.func.isRequired,
+  prefix:   PropTypes.string,
+  suffix:   PropTypes.string,
+  hint:     PropTypes.string,
+  min:      PropTypes.number,
 }

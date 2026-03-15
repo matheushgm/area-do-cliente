@@ -1,29 +1,48 @@
 // Edge Runtime: sem timeout fixo, suporta streaming nativo
 export const config = { runtime: 'edge' }
 
+function jsonErr(message, status) {
+  return new Response(
+    JSON.stringify({ error: { message } }),
+    { status, headers: { 'content-type': 'application/json' } }
+  )
+}
+
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
   }
 
+  // ── Verificar autenticação ────────────────────────────────────────────────
+  const SUPABASE_URL  = process.env.SUPABASE_URL
+  const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
+
+  if (!SUPABASE_URL || !SUPABASE_ANON) {
+    return jsonErr('Servidor não configurado corretamente.', 500)
+  }
+
+  const authHeader = req.headers.get('authorization') || ''
+  const jwt = authHeader.replace(/^Bearer\s+/i, '').trim()
+  if (!jwt) return jsonErr('Não autorizado.', 401)
+
+  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
+  })
+  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+
+  // ── Validar env e body ────────────────────────────────────────────────────
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) return jsonErr('ANTHROPIC_API_KEY não configurada no servidor.', 500)
+
   let body
   try { body = await req.json() }
   catch {
-    return new Response(
-      JSON.stringify({ error: { message: 'Corpo da requisição inválido.' } }),
-      { status: 400, headers: { 'content-type': 'application/json' } }
-    )
+    return jsonErr('Corpo da requisição inválido.', 400)
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) {
-    return new Response(
-      JSON.stringify({ error: { message: 'ANTHROPIC_API_KEY não configurada no servidor.' } }),
-      { status: 500, headers: { 'content-type': 'application/json' } }
-    )
-  }
-
-  const payload = body
+  // Permitir apenas campos esperados pela API da Anthropic
+  const { model, max_tokens, system, messages, stream } = body
+  const payload = { model, max_tokens, system, messages, stream }
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {

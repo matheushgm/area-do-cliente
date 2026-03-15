@@ -19,9 +19,14 @@ npm run build
 
 # Preview do build
 npm run preview
+
+# Linting e formatação
+npm run lint       # ESLint em src/ (0 errors esperados; warnings são informativos)
+npm run lint:fix   # ESLint com autocorreção automática
+npm run format     # Prettier em src/
 ```
 
-Não há testes automatizados nem linter configurado neste projeto.
+Não há testes automatizados. ESLint 9 (flat config) + Prettier estão configurados — ver `eslint.config.js` e `.prettierrc`.
 
 ## Variáveis de ambiente
 
@@ -82,8 +87,9 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
 
 ### IA (Claude API)
 
-- `src/lib/claude.js` — `streamClaude()` faz POST para `/api/anthropic` com SSE streaming; não transmite nem recebe apiKey
-- `api/anthropic.js` — Vercel Edge Function; lê `process.env.ANTHROPIC_API_KEY` e faz proxy para `api.anthropic.com`
+- `src/lib/claude.js` — `streamClaude()` faz POST para `/api/anthropic` com SSE streaming; obtém o `access_token` da sessão Supabase e envia no header `Authorization: Bearer <token>`
+- `api/anthropic.js` — Vercel Edge Function; valida o JWT do caller via `/auth/v1/user` do Supabase antes de prosseguir (retorna 401 se inválido); lê `process.env.ANTHROPIC_API_KEY` e faz proxy para `api.anthropic.com`; sanitiza o payload para aceitar apenas os campos esperados pela Anthropic API
+- Contexto enviado à IA: texto + PDFs como blocos nativos `{ type: 'document' }` + imagens como `{ type: 'image' }` — ver `src/lib/buildContext.js`
 - Renderização de output da IA: `react-markdown` + `rehype-sanitize` (sem `dangerouslySetInnerHTML`)
 - Em desenvolvimento local, use `vercel dev`; o Vite puro (`npm run dev`) não serve `/api/*` e a IA não funcionará
 
