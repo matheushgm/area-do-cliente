@@ -233,7 +233,7 @@ function TeamDropdown({ filter, setFilter, activeAccounts, counts, teamMembers }
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const activeMember = activeAccounts.find(m => String(m.id) === String(filter))
+  const activeMember = filter ? activeAccounts.find(m => String(m.id) === String(filter)) : null
   const label = activeMember ? activeMember.name.split(' ')[0] : 'Equipe'
   const isFiltered = !!activeMember
 
@@ -256,7 +256,7 @@ function TeamDropdown({ filter, setFilter, activeAccounts, counts, teamMembers }
         <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-52 glass-card border border-rl-border shadow-xl py-1 rounded-xl overflow-hidden">
           {/* Todos */}
           <button
-            onClick={() => { setFilter('all'); setOpen(false) }}
+            onClick={() => { setFilter(null); setOpen(false) }}
             className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
               !isFiltered ? 'text-rl-purple font-semibold' : 'text-rl-muted'
             }`}
@@ -269,7 +269,7 @@ function TeamDropdown({ filter, setFilter, activeAccounts, counts, teamMembers }
 
           {/* Members */}
           {activeAccounts.map((m) => {
-            const isActive = String(filter) === String(m.id)
+            const isActive = filter && String(filter) === String(m.id)
             const colorIdx = teamMembers.findIndex(tm => String(tm.id) === String(m.id))
             const dot = CREATOR_COLORS[colorIdx >= 0 ? colorIdx % CREATOR_COLORS.length : 0].avatar
             const count = counts?.members?.[String(m.id)] ?? 0
@@ -558,7 +558,8 @@ export default function Dashboard() {
   } = useApp()
   const navigate = useNavigate()
   const [deleteTarget, setDeleteTarget] = useState(null)
-  const [filter, setFilter] = useState('all') // 'all' | 'onboarding' | 'active' | accountId
+  const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'onboarding' | 'active'
+  const [memberFilter, setMemberFilter] = useState(null)  // null | accountId
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [view, setView] = useState(() => localStorage.getItem('rl_dashboard_view') || 'grid')
@@ -567,22 +568,15 @@ export default function Dashboard() {
 
   const isAdmin = user?.role === 'admin'
 
-  // Everyone sees all projects
   const baseProjects = projects
-
-  // Apply status/member filter
-  const filteredProjects = (() => {
-    if (filter === 'all')        return baseProjects
-    if (filter === 'onboarding') return baseProjects.filter(p => p.status === 'onboarding')
-    if (filter === 'active')     return baseProjects.filter(p => p.status === 'active')
-    // Member filter
-    return baseProjects.filter(p => String(p.accountId) === String(filter))
-  })()
-
-  // All active (non-disabled) team members appear in the sidebar filter
   const activeAccounts = teamMembers.filter(m => !m.disabled)
 
-  // Apply search on top of the status/member filter
+  // Aplica os dois filtros de forma independente
+  const filteredProjects = baseProjects
+    .filter(p => statusFilter === 'all' || p.status === statusFilter)
+    .filter(p => !memberFilter || String(p.accountId) === String(memberFilter))
+
+  // Aplica busca e enriquece com accountName/colorIndex
   const query = searchQuery.trim().toLowerCase()
   const visibleProjects = (query
     ? filteredProjects.filter(p =>
@@ -599,46 +593,57 @@ export default function Dashboard() {
     }
   })
 
-  // Counts for sidebar nav
+  // Counts: respeitam o memberFilter para os cards refletirem o contexto do membro selecionado
+  const memberBase = memberFilter
+    ? baseProjects.filter(p => String(p.accountId) === String(memberFilter))
+    : baseProjects
   const counts = {
-    all:        baseProjects.length,
-    onboarding: baseProjects.filter(p => p.status === 'onboarding').length,
-    active:     baseProjects.filter(p => p.status === 'active').length,
+    all:        memberBase.length,
+    onboarding: memberBase.filter(p => p.status === 'onboarding').length,
+    active:     memberBase.filter(p => p.status === 'active').length,
     members:    Object.fromEntries(
       activeAccounts.map(m => [String(m.id), baseProjects.filter(p => String(p.accountId) === String(m.id)).length])
     ),
   }
 
-  // Derive page title from filter
+  // Título da seção
+  const activeMemberName = memberFilter
+    ? teamMembers.find(m => String(m.id) === String(memberFilter))?.name?.split(' ')[0]
+    : null
   const pageTitle = (() => {
-    if (filter === 'all')        return 'Clientes'
-    if (filter === 'onboarding') return 'Em Onboarding'
-    if (filter === 'active')     return 'Perfis Ativos'
-    const member = teamMembers.find(m => String(m.id) === String(filter))
-    return member ? `Clientes de ${member.name.split(' ')[0]}` : 'Clientes'
+    const base = statusFilter === 'onboarding' ? 'Em Onboarding'
+               : statusFilter === 'active'     ? 'Perfis Ativos'
+               : 'Clientes'
+    return activeMemberName ? `${base} de ${activeMemberName}` : base
   })()
 
   const stats = [
     {
+      id:    'onboarding',
       label: 'Em Onboarding',
       value: counts.onboarding,
-      icon: <Clock className="w-5 h-5" />,
+      icon:  <Clock className="w-5 h-5" />,
       color: 'text-rl-cyan',
-      bg: 'bg-rl-cyan/10',
+      bg:    'bg-rl-cyan/10',
+      ring:  'border-rl-cyan/50',
     },
     {
+      id:    'active',
       label: 'Clientes Ativos',
       value: counts.active,
-      icon: <CheckCircle2 className="w-5 h-5" />,
+      icon:  <CheckCircle2 className="w-5 h-5" />,
       color: 'text-rl-green',
-      bg: 'bg-rl-green/10',
+      bg:    'bg-rl-green/10',
+      ring:  'border-rl-green/50',
     },
     {
+      id:    'all',
       label: 'Total de Projetos',
       value: baseProjects.length,
-      icon: <BarChart3 className="w-5 h-5" />,
+      icon:  <BarChart3 className="w-5 h-5" />,
       color: 'text-rl-purple',
-      bg: 'bg-rl-purple/10',
+      bg:    'bg-rl-purple/10',
+      ring:  'border-rl-purple/50',
     },
   ]
 
@@ -647,10 +652,6 @@ export default function Dashboard() {
 
       {/* ── Sidebar ─────────────────────────────────────── */}
       <AppSidebar
-        filter={filter}
-        setFilter={setFilter}
-        counts={counts}
-        activeAccounts={activeAccounts}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -709,15 +710,24 @@ export default function Dashboard() {
 
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up" style={{ animationDelay: '0.05s' }}>
-            {stats.map((s) => (
-              <div key={s.label} className="glass-card p-5">
-                <div className={`w-10 h-10 rounded-xl ${s.bg} flex items-center justify-center mb-3 ${s.color}`}>
-                  {s.icon}
-                </div>
-                <p className="text-2xl font-bold text-rl-text">{s.value}</p>
-                <p className="text-rl-muted text-xs mt-0.5">{s.label}</p>
-              </div>
-            ))}
+            {stats.map((s) => {
+              const isActive = statusFilter === s.id
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setStatusFilter(isActive ? 'all' : s.id)}
+                  className={`glass-card p-5 text-left transition-all duration-150 hover:border-opacity-60 ${
+                    isActive ? `border ${s.ring}` : 'hover:brightness-105'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-xl ${s.bg} flex items-center justify-center mb-3 ${s.color}`}>
+                    {s.icon}
+                  </div>
+                  <p className="text-2xl font-bold text-rl-text">{s.value}</p>
+                  <p className="text-rl-muted text-xs mt-0.5">{s.label}</p>
+                </button>
+              )
+            })}
           </div>
 
           {/* Projects */}
@@ -757,8 +767,8 @@ export default function Dashboard() {
               {/* Team filter dropdown */}
               {activeAccounts.length > 0 && (
                 <TeamDropdown
-                  filter={filter}
-                  setFilter={setFilter}
+                  filter={memberFilter}
+                  setFilter={setMemberFilter}
                   activeAccounts={activeAccounts}
                   counts={counts}
                   teamMembers={teamMembers}

@@ -2,22 +2,12 @@ import PropTypes from 'prop-types'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
-  Zap, Plus, Layers, Clock, CheckCircle2,
+  Zap, Plus, Layers, BarChart3,
   LogOut, Cloud, CloudOff, Loader2,
   X, UserCog,
 } from 'lucide-react'
 
-const NAV_ITEMS = [
-  { id: 'all',        label: 'Todos os Clientes', Icon: Layers },
-  { id: 'onboarding', label: 'Em Onboarding',    Icon: Clock },
-  { id: 'active',    label: 'Perfis Ativos',      Icon: CheckCircle2 },
-]
-
 export default function AppSidebar({
-  filter,
-  setFilter,
-  counts,           // { all, onboarding, active }
-  activeAccounts,   // [{ id, name, avatar }]
   open,             // mobile overlay open
   onClose,
 }) {
@@ -28,12 +18,9 @@ export default function AppSidebar({
     loadingProjects, isSupabaseReady,
   } = useApp()
 
-  const isAdmin = user?.role === 'admin'
-
-  const handleNav = (id) => {
-    setFilter(id)
-    onClose()
-  }
+  const isAdmin    = user?.role === 'admin'
+  const isHome     = location.pathname === '/'
+  const isOverview = location.pathname === '/overview'
 
   const handleNew = () => {
     navigate('/onboarding/new')
@@ -75,33 +62,28 @@ export default function AppSidebar({
 
       {/* ── Navigation ──────────────────────────────────── */}
       <nav className="space-y-0.5 mb-2">
-        {NAV_ITEMS.map(({ id, label, Icon }) => {
-          const count = counts?.[id] ?? 0
-          const active = filter === id && location.pathname !== '/users'
-          return (
-            <button
-              key={id}
-              onClick={() => handleNav(id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group ${
-                active
-                  ? 'bg-rl-purple/15 text-rl-purple border border-rl-purple/25'
-                  : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text border border-transparent'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-rl-purple' : 'text-rl-muted group-hover:text-rl-text'}`} />
-                {label}
-              </div>
-              {count > 0 && (
-                <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
-                  active ? 'bg-rl-purple/30 text-rl-purple' : 'bg-rl-surface text-rl-muted'
-                }`}>
-                  {count}
-                </span>
-              )}
-            </button>
-          )
-        })}
+        <button
+          onClick={() => { navigate('/overview'); onClose() }}
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group border ${
+            isOverview
+              ? 'bg-rl-purple/15 text-rl-purple border-rl-purple/25'
+              : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text border-transparent'
+          }`}
+        >
+          <BarChart3 className={`w-4 h-4 shrink-0 ${isOverview ? 'text-rl-purple' : 'text-rl-muted group-hover:text-rl-text'}`} />
+          Visão Geral
+        </button>
+        <button
+          onClick={() => { navigate('/'); onClose() }}
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group border ${
+            isHome
+              ? 'bg-rl-purple/15 text-rl-purple border-rl-purple/25'
+              : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text border-transparent'
+          }`}
+        >
+          <Layers className={`w-4 h-4 shrink-0 ${isHome ? 'text-rl-purple' : 'text-rl-muted group-hover:text-rl-text'}`} />
+          Clientes
+        </button>
       </nav>
 
       {/* ── Spacer ──────────────────────────────────────── */}
@@ -188,20 +170,6 @@ export default function AppSidebar({
 }
 
 AppSidebar.propTypes = {
-  filter:         PropTypes.string.isRequired,
-  setFilter:      PropTypes.func.isRequired,
-  counts:         PropTypes.shape({
-    all:          PropTypes.number,
-    onboarding:   PropTypes.number,
-    active:       PropTypes.number,
-  }),
-  activeAccounts: PropTypes.arrayOf(
-    PropTypes.shape({
-      id:     PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-      name:   PropTypes.string,
-      avatar: PropTypes.string,
-    })
-  ),
   open:    PropTypes.bool,
   onClose: PropTypes.func,
 }
