@@ -733,7 +733,7 @@ export function AppProvider({ children }) {
   // ── CRUD ──────────────────────────────────────────────────────────────────
   const addProject = useCallback(
     (data) => {
-      const id  = crypto.randomUUID();
+      const id  = data.id || crypto.randomUUID();
       const now = new Date().toISOString();
 
       // Aceita tanto snake_case (NewOnboarding atualizado) quanto camelCase (legado)

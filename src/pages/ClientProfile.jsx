@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
+import { getSignedUrl } from '../lib/supabase'
 import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays, ChevronRight, Building2,
@@ -22,7 +23,7 @@ import EstrategiaV2Module from '../components/EstrategiaV2Module'
 import ProdutoServicoModule from '../components/ProdutoServicoModule'
 import BancoMidiaModule from '../components/BancoMidiaModule'
 import { SERVICES_CONFIG } from './NewOnboarding'
-import { exportOnboardingPDF } from '../utils/exportPDF'
+import { exportOnboardingPDF, exportClientProfilePDF } from '../utils/exportPDF'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtCurrency(n) {
@@ -696,31 +697,62 @@ function OnboardingContent({ project, onSave }) {
       )}
 
       {/* Arquivos */}
-      {(project.raioXFileName || project.slaFileName) && (
-        <div>
-          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📁 Documentos</p>
-          <div className="flex flex-wrap gap-3">
-            {project.raioXFileName && (
-              <div className="flex items-center gap-2 bg-rl-surface border border-rl-border rounded-xl px-4 py-2.5">
-                <FileText className="w-4 h-4 text-rl-purple" />
-                <div>
-                  <p className="text-[10px] text-rl-muted">Raio-X</p>
-                  <p className="text-xs text-rl-text">{project.raioXFileName}</p>
-                </div>
-              </div>
-            )}
-            {project.slaFileName && (
-              <div className="flex items-center gap-2 bg-rl-surface border border-rl-border rounded-xl px-4 py-2.5">
-                <FileText className="w-4 h-4 text-rl-cyan" />
-                <div>
-                  <p className="text-[10px] text-rl-muted">SLA</p>
-                  <p className="text-xs text-rl-text">{project.slaFileName}</p>
-                </div>
-              </div>
-            )}
-          </div>
+      <ProjectDocs project={project} />
+    </div>
+  )
+}
+
+// ─── Project Docs ─────────────────────────────────────────────────────────────
+function ProjectDocs({ project }) {
+  const [urls, setUrls] = useState({ raioX: null, sla: null })
+
+  useEffect(() => {
+    async function loadUrls() {
+      const [raioX, sla] = await Promise.all([
+        project.raioXFileName ? getSignedUrl('project-docs', project.raioXFileName) : null,
+        project.slaFileName   ? getSignedUrl('project-docs', project.slaFileName)   : null,
+      ])
+      setUrls({ raioX, sla })
+    }
+    if (project.raioXFileName || project.slaFileName) loadUrls()
+  }, [project.raioXFileName, project.slaFileName])
+
+  if (!project.raioXFileName && !project.slaFileName) return null
+
+  function DocChip({ label, path, url, color }) {
+    const filename = path?.split('/').pop() ?? label
+    return (
+      <div className="flex items-center gap-2 bg-rl-surface border border-rl-border rounded-xl px-4 py-2.5">
+        <FileText className={`w-4 h-4 ${color}`} />
+        <div className="mr-2">
+          <p className="text-[10px] text-rl-muted">{label}</p>
+          <p className="text-xs text-rl-text">{filename}</p>
         </div>
-      )}
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto text-[10px] font-medium text-rl-purple hover:underline whitespace-nowrap"
+          >
+            Abrir
+          </a>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📁 Documentos</p>
+      <div className="flex flex-wrap gap-3">
+        {project.raioXFileName && (
+          <DocChip label="Raio-X" path={project.raioXFileName} url={urls.raioX} color="text-rl-purple" />
+        )}
+        {project.slaFileName && (
+          <DocChip label="SLA" path={project.slaFileName} url={urls.sla} color="text-rl-cyan" />
+        )}
+      </div>
     </div>
   )
 }
@@ -902,41 +934,67 @@ export default function ClientProfile({ project: projectProp }) {
                     Contrato: {new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')}
                   </p>
                 )}
+                {/* Services chips */}
+                {project.services?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {project.services.map((s) => (
+                      <span key={s} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-rl-surface text-rl-muted border border-rl-border">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Stats chips */}
-              <div className="flex flex-wrap gap-2">
-                {hasROI && (
-                  <div className="flex items-center gap-1.5 bg-rl-purple/10 border border-rl-purple/20 px-3 py-1.5 rounded-full">
-                    <TrendingUp className="w-3.5 h-3.5 text-rl-purple" />
-                    <span className="text-xs font-semibold text-rl-purple">{fmtCurrency(project.roiResult.totalInvestimento)}/mês</span>
-                  </div>
-                )}
-                {hasPersonas && (
-                  <div className="flex items-center gap-1.5 bg-rl-blue/10 border border-rl-blue/20 px-3 py-1.5 rounded-full">
-                    <Users className="w-3.5 h-3.5 text-rl-blue" />
-                    <span className="text-xs font-semibold text-rl-blue">{project.personas.length} persona{project.personas.length > 1 ? 's' : ''}</span>
-                  </div>
-                )}
-                {hasOferta && project.ofertaData?.nome && (
-                  <div className="flex items-center gap-1.5 bg-rl-gold/10 border border-rl-gold/20 px-3 py-1.5 rounded-full">
-                    <Zap className="w-3.5 h-3.5 text-rl-gold" />
-                    <span className="text-xs font-semibold text-rl-gold">{project.ofertaData.nome}</span>
-                  </div>
-                )}
+              {/* Stats + Actions (right column) */}
+              <div className="flex flex-col items-end gap-3 shrink-0">
+                {/* Stats chips */}
+                <div className="flex flex-wrap gap-2 justify-end">
+                  {hasROI && (
+                    <div className="flex items-center gap-1.5 bg-rl-purple/10 border border-rl-purple/20 px-3 py-1.5 rounded-full">
+                      <TrendingUp className="w-3.5 h-3.5 text-rl-purple" />
+                      <span className="text-xs font-semibold text-rl-purple">{fmtCurrency(project.roiResult.totalInvestimento)}/mês</span>
+                    </div>
+                  )}
+                  {hasPersonas && (
+                    <div className="flex items-center gap-1.5 bg-rl-blue/10 border border-rl-blue/20 px-3 py-1.5 rounded-full">
+                      <Users className="w-3.5 h-3.5 text-rl-blue" />
+                      <span className="text-xs font-semibold text-rl-blue">{project.personas.length} persona{project.personas.length > 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                  {hasOferta && project.ofertaData?.nome && (
+                    <div className="flex items-center gap-1.5 bg-rl-gold/10 border border-rl-gold/20 px-3 py-1.5 rounded-full">
+                      <Zap className="w-3.5 h-3.5 text-rl-gold" />
+                      <span className="text-xs font-semibold text-rl-gold">{project.ofertaData.nome}</span>
+                    </div>
+                  )}
+                </div>
+                {/* Action buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setOpenModal('onboarding')}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rl-border bg-rl-surface text-rl-muted hover:text-rl-text hover:border-rl-purple/40 transition-all text-xs font-medium"
+                  >
+                    <ClipboardList className="w-3.5 h-3.5" />
+                    Ver Dados
+                  </button>
+                  <button
+                    onClick={() => setOpenModal('onboarding-edit')}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rl-border bg-rl-surface text-rl-muted hover:text-rl-text hover:border-rl-purple/40 transition-all text-xs font-medium"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => exportOnboardingPDF(project)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rl-purple/30 bg-rl-purple/10 text-rl-purple hover:bg-rl-purple/20 transition-all text-xs font-medium"
+                  >
+                    <FileDown className="w-3.5 h-3.5" />
+                    Exportar PDF
+                  </button>
+                </div>
               </div>
             </div>
-
-            {/* Services chips */}
-            {project.services?.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-4">
-                {project.services.map((s) => (
-                  <span key={s} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-rl-surface text-rl-muted border border-rl-border">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -944,19 +1002,7 @@ export default function ClientProfile({ project: projectProp }) {
       {/* ── Section Cards ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
 
-        {/* 1. Onboarding */}
-        <SectionCard
-          icon={ClipboardList}
-          iconColor="text-rl-cyan"
-          iconBg="bg-rl-cyan/10"
-          title="Onboarding"
-          preview={`${BUSINESS_LABELS[project.businessType] || project.businessType} · ${project.responsibleName}${project.services?.length ? ` · ${project.services.length} serviços` : ''}`}
-          badge="Coletado"
-          badgeColor="text-rl-cyan bg-rl-cyan/10 border-rl-cyan/20"
-          onClick={() => setOpenModal('onboarding')}
-        />
-
-        {/* 2. ROI */}
+        {/* 1. ROI */}
         <SectionCard
           icon={BarChart3}
           iconColor="text-rl-purple"
@@ -973,7 +1019,7 @@ export default function ClientProfile({ project: projectProp }) {
           icon={Users}
           iconColor="text-rl-blue"
           iconBg="bg-rl-blue/10"
-          title="ICP / Personas"
+          title="Personas"
           preview={icpPreview}
           badge={hasPersonas ? `${project.personas.length} persona${project.personas.length > 1 ? 's' : ''}` : null}
           badgeColor="text-rl-blue bg-rl-blue/10 border-rl-blue/20"
@@ -1151,7 +1197,7 @@ export default function ClientProfile({ project: projectProp }) {
           icon={Map}
           iconColor="text-rl-blue"
           iconBg="bg-rl-blue/10"
-          title="Estratégia V2"
+          title="Análise Competitiva"
           preview={hasEstrategiaV2 ? 'SWOT · Benchmark · Riscos · Funis' : 'Preencha problemas, SWOT, benchmark e funis'}
           badge={hasEstrategiaV2 ? 'Preenchida' : null}
           badgeColor="text-rl-blue bg-rl-blue/10 border-rl-blue/20"
@@ -1162,8 +1208,18 @@ export default function ClientProfile({ project: projectProp }) {
       {/* ── Modals ────────────────────────────────────────────────────────── */}
 
       {openModal === 'onboarding' && (
-        <Modal title="Dados do Onboarding" icon={ClipboardList} iconColor="text-rl-cyan" onClose={() => setOpenModal(null)}>
+        <Modal title="Dados do Cliente" icon={ClipboardList} iconColor="text-rl-cyan" onClose={() => setOpenModal(null)}>
           <OnboardingContent project={project} onSave={handleSaveOnboarding} />
+        </Modal>
+      )}
+
+      {openModal === 'onboarding-edit' && (
+        <Modal title="Editar Dados do Cliente" icon={Pencil} iconColor="text-rl-cyan" onClose={() => setOpenModal(null)}>
+          <OnboardingEditForm
+            project={project}
+            onSave={(data) => { handleSaveOnboarding(data); setOpenModal(null) }}
+            onCancel={() => setOpenModal(null)}
+          />
         </Modal>
       )}
 
@@ -1174,7 +1230,7 @@ export default function ClientProfile({ project: projectProp }) {
       )}
 
       {openModal === 'icp' && (
-        <Modal title="ICP / Personas" icon={Users} iconColor="text-rl-blue" onClose={() => setOpenModal(null)}>
+        <Modal title="Personas" icon={Users} iconColor="text-rl-blue" onClose={() => setOpenModal(null)}>
           <PersonaCreator project={project} onSave={handleSavePersonas} />
         </Modal>
       )}
@@ -1246,7 +1302,7 @@ export default function ClientProfile({ project: projectProp }) {
       )}
 
       {openModal === 'estrategiav2' && (
-        <Modal title="Estratégia V2" icon={Map} iconColor="text-rl-blue" onClose={() => setOpenModal(null)}>
+        <Modal title="Análise Competitiva" icon={Map} iconColor="text-rl-blue" onClose={() => setOpenModal(null)}>
           <EstrategiaV2Module project={project} onSave={handleSaveEstrategiaV2} />
         </Modal>
       )}

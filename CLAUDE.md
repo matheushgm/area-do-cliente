@@ -122,6 +122,10 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
 | `estrategia_v2` | 1:1 com projeto | `estrategiaV2` |
 | `attachments` | N por projeto | `attachments` (array — delete+insert) |
 
+#### `addProject` — ID externo
+
+`addProject(data)` aceita `data.id` se fornecido; caso contrário gera um `crypto.randomUUID()` internamente. Isso permite que `NewOnboarding` gere o UUID antes de fazer o upload dos arquivos para o Storage, garantindo que o path `{projectId}/arquivo.ext` seja consistente com o projeto criado.
+
 #### Roteamento de patches em `updateProject`
 
 `sbUpdateProjectV2(id, patch)` inspeciona as chaves do patch e roteia cada uma para a tabela correta. Campos de `projects_v2` são mapeados via `PROJECT_FIELD_MAP` (aceita tanto camelCase quanto snake_case). Campos não reconhecidos são ignorados silenciosamente (ex: `progress`, que é derivado de `completedSteps`).
@@ -130,7 +134,7 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
 
 | Bucket | Acesso | Uso |
 |---|---|---|
-| `project-docs` | privado | `raio_x` e `sla` do onboarding (pendente Phase 5) |
+| `project-docs` | privado | `raio_x` e `sla` do onboarding — path salvo em `raio_x_file_url` / `sla_file_url`; visualização via URL assinada em `ClientProfile` |
 | `brand-media` | privado | fotos e vídeos do banco de mídia (pendente Phase 5) |
 | `brand-logos` | privado | logotipo da marca |
 | `attachments` | privado | uploads avulsos do `AnexosModule` (base64 ainda; pendente Phase 5) |
@@ -173,6 +177,8 @@ Os seguintes componentes ainda usam base64 / estrutura legada e precisam ser atu
 | `AnexosModule.jsx` | Substituir FileReader base64 por `uploadFile('attachments', ...)` de `src/lib/supabase.js` |
 | `BancoMidiaModule.jsx` | Upload de fotos/vídeos para `brand-media`; logo para `brand-logos` |
 | `ResultadosModule.jsx` | Adaptar estrutura legada `b2b{month{week}}` para array de rows `{ period: DATE, ... }` na tabela `resultados` |
+
+> **Implementado:** Upload de Raio-X e SLA no `NewOnboarding` → bucket `project-docs`; visualização com URL assinada em `ClientProfile`.
 
 ### Estilo
 

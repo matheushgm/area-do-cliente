@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { supabase } from '../lib/supabase'
 import {
   ArrowLeft, ArrowRight, Check, Zap, Building2, FileText,
   Briefcase, DollarSign, Users, Calendar, Plus, X, Upload,
@@ -392,7 +393,7 @@ export default function NewOnboarding() {
     return e
   }
 
-  function next() {
+  async function next() {
     const e = validate(step)
     if (Object.keys(e).length > 0) { setErrors(e); return }
 
@@ -402,7 +403,26 @@ export default function NewOnboarding() {
       // Convert service IDs → labels for display
       const serviceLabels = form.services.map((id) => SERVICES_CONFIG.find((s) => s.id === id)?.label || id)
 
+      // Gera o ID antecipadamente para usar no path do Storage
+      const projectId = crypto.randomUUID()
+
+      // Upload dos arquivos para o Storage (bucket privado project-docs)
+      async function uploadDoc(file, prefix) {
+        if (!file || !supabase) return null
+        const ext = file.name.split('.').pop()
+        const path = `${projectId}/${prefix}.${ext}`
+        const { error } = await supabase.storage.from('project-docs').upload(path, file, { upsert: true })
+        if (error) { console.error('[Storage] upload:', error.message); return null }
+        return path
+      }
+
+      const [raioXPath, slaPath] = await Promise.all([
+        uploadDoc(form.raioXFile, 'raio-x'),
+        uploadDoc(form.slaFile, 'sla'),
+      ])
+
       const created = addProject({
+        id:                    projectId,
         business_type:         form.businessType,
         company_name:          form.companyName,
         cnpj:                  form.cnpj,
@@ -421,8 +441,8 @@ export default function NewOnboarding() {
         other_people:          form.otherPeople.filter((p) => p.name),
         upsell_potential:      form.upsellPotential,
         upsell_notes:          form.upsellNotes,
-        raio_x_file_url:       form.raioXFile?.name ?? null,
-        sla_file_url:          form.slaFile?.name ?? null,
+        raio_x_file_url:       raioXPath,
+        sla_file_url:          slaPath,
       })
       clearDraft()
       setCreatedId(created.id)
@@ -453,9 +473,9 @@ export default function NewOnboarding() {
             </div>
           </div>
 
-          <h1 className="text-3xl font-bold text-rl-text mb-2">Onboarding criado!</h1>
+          <h1 className="text-3xl font-bold text-rl-text mb-2">Cliente cadastrado!</h1>
           <p className="text-rl-muted mb-6">
-            O projeto <span className="text-rl-text font-semibold">{form.companyName}</span> foi adicionado com sucesso.
+            O cliente <span className="text-rl-text font-semibold">{form.companyName}</span> foi adicionado com sucesso.
           </p>
 
           <div className="flex gap-3 justify-center">
@@ -492,7 +512,7 @@ export default function NewOnboarding() {
             </button>
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-rl-purple" />
-              <span className="text-sm font-semibold text-rl-text">Novo Onboarding</span>
+              <span className="text-sm font-semibold text-rl-text">Novo Cliente</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-rl-muted text-sm">{step + 1}/{STEPS.length}</span>

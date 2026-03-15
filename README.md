@@ -175,14 +175,14 @@ A role é lida diretamente do token JWT (`auth.jwt() -> 'user_metadata' ->> 'rol
 
 ### Supabase Storage
 
-| Bucket | Uso |
-|---|---|
-| `attachments` | Anexos de projetos (PDFs, docs) |
-| `brand-logos` | Logotipos de marca |
-| `brand-media` | Fotos e vídeos do banco de mídia |
-| `project-docs` | Raio-X e SLA do onboarding |
+| Bucket | Uso | Status |
+|---|---|---|
+| `project-docs` | Raio-X e SLA do onboarding — URL assinada gerada na visualização | ✅ Implementado |
+| `brand-logos` | Logotipos de marca | ✅ Implementado |
+| `attachments` | Anexos avulsos de projetos | Pendente Phase 5 |
+| `brand-media` | Fotos e vídeos do banco de mídia | Pendente Phase 5 |
 
-Todos os buckets são privados. Path: `{projectId}/{filename}`.
+Todos os buckets são privados. Path: `{projectId}/{filename}`. Acesso via URL assinada (válida por 1h).
 
 ### Aplicar migrations em novo ambiente
 

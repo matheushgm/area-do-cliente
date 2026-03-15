@@ -23,6 +23,8 @@ pnpm-debug.log*
 .vscode/
 .idea/
 .claude/
+.agents/
+skills-lock.json
 *.swp
 *.swo
 .DS_Store
