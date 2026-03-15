@@ -117,7 +117,7 @@ export default function ProjectDetail() {
     return (
       <div className="min-h-screen bg-gradient-dark">
         <nav className="sticky top-0 z-50 border-b border-rl-border bg-rl-bg/80 backdrop-blur-xl">
-          <div className="max-w-4xl mx-auto px-6 h-16 flex items-center gap-4">
+          <div className="px-6 h-16 flex items-center gap-4">
             <button
               onClick={() => navigate('/')}
               aria-label="Voltar ao dashboard"
@@ -138,7 +138,7 @@ export default function ProjectDetail() {
             </div>
           </div>
         </nav>
-        <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-6 py-8">
           <ClientProfile project={project} />
         </div>
       </div>
@@ -191,7 +191,7 @@ export default function ProjectDetail() {
     <div className="min-h-screen bg-gradient-dark">
       {/* Top Nav */}
       <nav className="sticky top-0 z-50 border-b border-rl-border bg-rl-bg/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center gap-4">
+        <div className="px-6 h-16 flex items-center gap-4">
           <button
             onClick={() => navigate('/')}
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all duration-150"

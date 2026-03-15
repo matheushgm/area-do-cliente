@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
@@ -39,18 +39,18 @@ function hashId(id) {
   return String(id).split('').reduce((a, c) => a + c.charCodeAt(0), 0)
 }
 
-function CreatorBadge({ accountName, accountId }) {
+function CreatorBadge({ accountName, colorIndex = 0 }) {
   if (!accountName) return null
-  const c = CREATOR_COLORS[hashId(accountId) % CREATOR_COLORS.length]
+  const c = CREATOR_COLORS[colorIndex % CREATOR_COLORS.length]
   const parts    = accountName.trim().split(' ')
   const initials = parts.slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
   const display  = parts.length > 1 ? `${parts[0]} ${parts[1][0]}.` : parts[0]
   return (
-    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg ${c.bg}`}>
-      <div className={`w-5 h-5 rounded-full ${c.avatar} flex items-center justify-center text-[9px] font-bold text-white shrink-0`}>
+    <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${c.bg} ${c.text} border-current/20`}>
+      <div className={`w-4 h-4 rounded-full ${c.avatar} flex items-center justify-center text-[8px] font-bold text-white shrink-0`}>
         {initials}
       </div>
-      <span className={`text-xs font-semibold ${c.text} whitespace-nowrap`}>{display}</span>
+      <span className="text-[11px] font-semibold whitespace-nowrap">{display}</span>
     </div>
   )
 }
@@ -100,7 +100,7 @@ function ProjectCard({ project, onClick, onDelete }) {
 
       {/* Creator badge */}
       <div className="mb-3">
-        <CreatorBadge accountName={project.accountName} accountId={project.accountId} />
+        <CreatorBadge accountName={project.accountName} colorIndex={project.accountColorIndex} />
       </div>
 
       {/* Progress */}
@@ -180,7 +180,7 @@ function ClientProfileCard({ project, onClick, onDelete }) {
 
       {/* Creator badge */}
       <div className="mt-3 mb-3">
-        <CreatorBadge accountName={project.accountName} accountId={project.accountId} />
+        <CreatorBadge accountName={project.accountName} colorIndex={project.accountColorIndex} />
       </div>
 
       {/* Chips de resumo */}
@@ -220,14 +220,92 @@ function ClientProfileCard({ project, onClick, onDelete }) {
   )
 }
 
+// ─── Team Dropdown ────────────────────────────────────────────────────────────
+
+function TeamDropdown({ filter, setFilter, activeAccounts, counts, teamMembers }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  // Fecha ao clicar fora
+  useEffect(() => {
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const activeMember = activeAccounts.find(m => String(m.id) === String(filter))
+  const label = activeMember ? activeMember.name.split(' ')[0] : 'Equipe'
+  const isFiltered = !!activeMember
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all ${
+          isFiltered
+            ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
+            : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
+        }`}
+      >
+        <Users className="w-3.5 h-3.5 shrink-0" />
+        <span>{label}</span>
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-52 glass-card border border-rl-border shadow-xl py-1 rounded-xl overflow-hidden">
+          {/* Todos */}
+          <button
+            onClick={() => { setFilter('all'); setOpen(false) }}
+            className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
+              !isFiltered ? 'text-rl-purple font-semibold' : 'text-rl-muted'
+            }`}
+          >
+            <span>Todos os membros</span>
+            {!isFiltered && <span className="w-1.5 h-1.5 rounded-full bg-rl-purple" />}
+          </button>
+
+          {activeAccounts.length > 0 && <div className="border-t border-rl-border/60 my-1" />}
+
+          {/* Members */}
+          {activeAccounts.map((m) => {
+            const isActive = String(filter) === String(m.id)
+            const colorIdx = teamMembers.findIndex(tm => String(tm.id) === String(m.id))
+            const dot = CREATOR_COLORS[colorIdx >= 0 ? colorIdx % CREATOR_COLORS.length : 0].avatar
+            const count = counts?.members?.[String(m.id)] ?? 0
+            return (
+              <button
+                key={m.id}
+                onClick={() => { setFilter(String(m.id)); setOpen(false) }}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
+                  isActive ? 'text-rl-text font-medium' : 'text-rl-muted'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
+                  <span>{m.name.split(' ').slice(0, 2).join(' ')}</span>
+                </div>
+                <span className="text-[11px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-full">
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── List View ────────────────────────────────────────────────────────────────
 const LIST_COLS = [
-  { key: 'companyName',     label: 'Empresa'              },
+  { key: 'companyName',     label: 'Empresa'             },
+  { key: 'accountName',     label: 'Equipe'              },
   { key: 'responsibleName', label: 'Responsável / Cargo' },
-  { key: 'status',          label: 'Status'               },
-  { key: 'progress',        label: 'Progresso'            },
-  { key: 'contractValue',   label: 'Contrato'             },
-  { key: 'createdAt',       label: 'Criado em'            },
+  { key: 'status',          label: 'Status'              },
+  { key: 'progress',        label: 'Progresso'           },
+  { key: 'contractValue',   label: 'Contrato'            },
+  { key: 'createdAt',       label: 'Criado em'           },
 ]
 
 const STATUS_LABEL = { onboarding: 'Onboarding', active: 'Ativo', paused: 'Pausado' }
@@ -312,14 +390,19 @@ function ProjectListView({ projects, onNavigate, onDelete }) {
                 >
                   {/* Empresa */}
                   <td className="px-4 py-3">
-                    <div className="flex flex-col">
+                    <div className="flex flex-col gap-0.5">
                       <span className="font-medium text-rl-text group-hover:text-rl-purple transition-colors leading-tight">
                         {p.companyName}
                       </span>
                       {p.businessType && (
-                        <span className="text-[10px] text-rl-muted mt-0.5">{p.businessType}</span>
+                        <span className="text-[10px] text-rl-muted">{p.businessType}</span>
                       )}
                     </div>
+                  </td>
+
+                  {/* Equipe */}
+                  <td className="px-4 py-3">
+                    <CreatorBadge accountName={p.accountName} colorIndex={p.accountColorIndex} />
                   </td>
 
                   {/* Responsável / Cargo */}
@@ -496,17 +579,25 @@ export default function Dashboard() {
     return baseProjects.filter(p => String(p.accountId) === String(filter))
   })()
 
+  // All active (non-disabled) team members appear in the sidebar filter
+  const activeAccounts = teamMembers.filter(m => !m.disabled)
+
   // Apply search on top of the status/member filter
   const query = searchQuery.trim().toLowerCase()
-  const visibleProjects = query
+  const visibleProjects = (query
     ? filteredProjects.filter(p =>
         (p.companyName    || '').toLowerCase().includes(query) ||
         (p.responsibleName|| '').toLowerCase().includes(query)
       )
     : filteredProjects
-
-  // All active (non-disabled) team members appear in the sidebar filter
-  const activeAccounts = teamMembers.filter(m => !m.disabled)
+  ).map(p => {
+    const memberIdx = teamMembers.findIndex(m => String(m.id) === String(p.accountId))
+    return {
+      ...p,
+      accountName:       teamMembers[memberIdx]?.name ?? p.accountName,
+      accountColorIndex: memberIdx >= 0 ? memberIdx : 0,
+    }
+  })
 
   // Counts for sidebar nav
   const counts = {
@@ -584,7 +675,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <main className="flex-1 px-6 py-8 space-y-8 max-w-5xl w-full mx-auto">
+        <main className="flex-1 px-6 py-8 space-y-8">
 
           {/* Welcome */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up">
@@ -662,6 +753,17 @@ export default function Dashboard() {
                   </button>
                 )}
               </div>
+
+              {/* Team filter dropdown */}
+              {activeAccounts.length > 0 && (
+                <TeamDropdown
+                  filter={filter}
+                  setFilter={setFilter}
+                  activeAccounts={activeAccounts}
+                  counts={counts}
+                  teamMembers={teamMembers}
+                />
+              )}
 
               {/* View switcher */}
               <div className="flex items-center gap-1 bg-rl-surface border border-rl-border rounded-xl p-1 shrink-0">

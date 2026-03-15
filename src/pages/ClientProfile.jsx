@@ -641,15 +641,6 @@ function OnboardingContent({ project, onSave }) {
         </div>
       )}
 
-      {/* Métricas */}
-      <div>
-        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📊 Métricas</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <Field label="Ticket Médio"    value={project.averageTicket ? fmtCurrency(project.averageTicket) : null} />
-          <Field label="Verba em Mídia"  value={project.mediaBudget   ? fmtCurrency(project.mediaBudget)   : null} />
-        </div>
-      </div>
-
       {/* Público-alvo (backward compat) */}
       {project.targetAudience && (
         <div>
