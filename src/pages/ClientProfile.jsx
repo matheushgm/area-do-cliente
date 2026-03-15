@@ -3,10 +3,10 @@ import { useApp } from '../context/AppContext'
 import { getSignedUrl } from '../lib/supabase'
 import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
-  Users, Zap, CalendarDays, ChevronRight, Building2,
+  Users, Zap, CalendarDays, Building2,
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
-  Pencil, Plus, Link2,
+  Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -76,35 +76,6 @@ const MATURITY_LABELS = {
 
 function initials(name = '') {
   return name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('')
-}
-
-// ─── Modal wrapper ────────────────────────────────────────────────────────────
-function Modal({ title, icon: Icon, iconColor = 'text-rl-purple', onClose, children }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-black/70 overflow-y-auto"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="min-h-screen flex items-start justify-center p-4 py-8">
-        <div className="glass-card w-full max-w-4xl shadow-2xl">
-          {/* Sticky header */}
-          <div className="sticky top-0 flex items-center justify-between px-6 py-4 border-b border-rl-border bg-rl-bg/95 backdrop-blur z-10 rounded-t-2xl">
-            <div className="flex items-center gap-2">
-              {Icon && <Icon className={`w-5 h-5 ${iconColor}`} />}
-              <h2 className="text-base font-bold text-rl-text">{title}</h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="p-6">{children}</div>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // ─── Service detail labels (for display in OnboardingContent) ─────────────────
@@ -758,41 +729,15 @@ function ProjectDocs({ project }) {
   )
 }
 
-// ─── Section Card ─────────────────────────────────────────────────────────────
-function SectionCard({ icon: Icon, iconColor, iconBg, title, preview, badge, badgeColor, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="glass-card p-5 text-left w-full hover:border-rl-purple/40 hover:shadow-glow transition-all duration-200 group"
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center`}>
-          <Icon className={`w-5 h-5 ${iconColor}`} />
-        </div>
-        <ChevronRight className="w-4 h-4 text-rl-muted group-hover:text-rl-text group-hover:translate-x-0.5 transition-all" />
-      </div>
-      <h3 className="text-sm font-bold text-rl-text mb-1">{title}</h3>
-      {preview && <p className="text-xs text-rl-muted line-clamp-2 leading-relaxed">{preview}</p>}
-      {badge && (
-        <div className={`inline-flex items-center gap-1 mt-3 px-2.5 py-1 rounded-full text-[10px] font-semibold border ${badgeColor}`}>
-          <CheckCircle2 className="w-3 h-3" />
-          {badge}
-        </div>
-      )}
-    </button>
-  )
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ClientProfile({ project: projectProp }) {
   const { updateProject, projects } = useApp()
   const logoInputRef = useRef(null)
 
-  // Always use the latest project from context
   const project = projects.find((p) => p.id === projectProp.id) || projectProp
 
-  // Modal state — which panel is open
-  const [openModal, setOpenModal] = useState(null)
+  const [activeSection, setActiveSection] = useState('dados')
+  const [sidebarVisible, setSidebarVisible] = useState(true)
 
   function handleLogoUpload(e) {
     const file = e.target.files[0]
@@ -802,48 +747,17 @@ export default function ClientProfile({ project: projectProp }) {
     reader.readAsDataURL(file)
   }
 
-  function handleSaveOnboarding(data) {
-    updateProject(project.id, data)
-    // don't close modal — OnboardingContent handles the mode toggle
-  }
-
-  function handleSaveROI(calc, result) {
-    updateProject(project.id, { roiCalc: calc, roiResult: result })
-    setOpenModal(null)
-  }
-
-  function handleSavePersonas(personas) {
-    updateProject(project.id, { personas })
-    setOpenModal('produtos')
-  }
-
-  function handleSaveProdutos(produtos) {
-    updateProject(project.id, { produtos })
-    setOpenModal(null)
-  }
-
-  function handleSaveOferta(ofertaData) {
-    updateProject(project.id, { ofertaData })
-    setOpenModal(null)
-  }
-
-  function handleSaveCampaign(plan) {
-    updateProject(project.id, { campaignPlan: plan })
-    setOpenModal(null)
-  }
-
-  function handleSaveEstrategia(estrategiaData) {
-    updateProject(project.id, { estrategia: estrategiaData })
-  }
-
-  function handleSaveEstrategiaV2(data) {
-    updateProject(project.id, { estrategiaV2: data })
-    setOpenModal(null)
-  }
+  function handleSaveOnboarding(data) { updateProject(project.id, data) }
+  function handleSaveROI(calc, result) { updateProject(project.id, { roiCalc: calc, roiResult: result }) }
+  function handleSavePersonas(personas) { updateProject(project.id, { personas }); setActiveSection('produtos') }
+  function handleSaveProdutos(produtos) { updateProject(project.id, { produtos }) }
+  function handleSaveOferta(ofertaData) { updateProject(project.id, { ofertaData }) }
+  function handleSaveCampaign(plan) { updateProject(project.id, { campaignPlan: plan }) }
+  function handleSaveEstrategia(estrategiaData) { updateProject(project.id, { estrategia: estrategiaData }) }
+  function handleSaveEstrategiaV2(data) { updateProject(project.id, { estrategiaV2: data }) }
 
   function handleSaveLinks(links) {
     updateProject(project.id, { links })
-    setOpenModal(null)
   }
 
   const companyInitials = initials(project.companyName)
@@ -862,43 +776,75 @@ export default function ClientProfile({ project: projectProp }) {
   const hasLandingPages = (project.landingPages || []).length > 0
   const hasResultados   = !!project.resultados?.modelo
 
-  const campaignPreview = hasCampaignPlan
-    ? `${fmtCurrency(project.campaignPlan.totalBudget)}/mês · ${project.campaignPlan.channels.length} canal${project.campaignPlan.channels.length !== 1 ? 'is' : ''} configurado${project.campaignPlan.channels.length !== 1 ? 's' : ''}`
-    : 'Planejamento de campanhas ainda não configurado'
+  const NAV_ITEMS = [
+    { id: 'dados',        label: 'Dados do Cliente',        icon: ClipboardList,  color: 'text-rl-cyan',   filled: true },
+    { id: 'roi',          label: 'Calculadora de ROI',       icon: BarChart3,      color: 'text-rl-purple', filled: hasROI },
+    { id: 'icp',          label: 'Personas',                 icon: Users,          color: 'text-rl-blue',   filled: hasPersonas },
+    { id: 'produtos',     label: 'Produto / Serviço',        icon: Package,        color: 'text-rl-gold',   filled: hasProdutos },
+    { id: 'oferta',       label: 'Oferta Matadora',          icon: Zap,            color: 'text-rl-gold',   filled: hasOferta },
+    { id: 'campaign',     label: 'Campanhas',                icon: CalendarDays,   color: 'text-rl-green',  filled: hasCampaignPlan },
+    { id: 'anexos',       label: 'Anexos',                   icon: Paperclip,      color: 'text-rl-gold',   filled: hasAnexos },
+    { id: 'criativos',    label: 'Criativos com IA',         icon: Clapperboard,   color: 'text-rl-cyan',   filled: false },
+    { id: 'landingpage',  label: 'Landing Page com IA',      icon: LayoutTemplate, color: 'text-rl-green',  filled: hasLandingPages },
+    { id: 'resultados',   label: 'Resultados',               icon: Activity,       color: 'text-rl-purple', filled: hasResultados },
+    { id: 'metalab',      label: 'Lab. Meta Ads',            icon: FlaskConical,   color: 'text-rl-purple', filled: !!project.metaLabBudget },
+    { id: 'googleads',    label: 'Google Ads com IA',        icon: Search,         color: 'text-rl-cyan',   filled: hasGoogleAds },
+    { id: 'bancomídia',   label: 'Banco de Mídia',           icon: ImagePlay,      color: 'text-rl-blue',   filled: hasBancoMidia },
+    { id: 'estrategia',   label: 'Estratégia Digital',       icon: Layers,         color: 'text-rl-purple', filled: hasEstrategia },
+    { id: 'estrategiav2', label: 'Análise Competitiva',      icon: Map,            color: 'text-rl-blue',   filled: hasEstrategiaV2 },
+    { id: 'links',        label: 'Links Importantes',        icon: Link2,          color: 'text-rl-cyan',   filled: hasLinks },
+  ]
 
-  // Preview snippets
-  const roiPreview = hasROI
-    ? `Investimento: ${fmtCurrency(project.roiResult.totalInvestimento)} · Faturamento alvo: ${fmtCurrency(project.roiResult.faturamento)}`
-    : 'Calculadora de ROI ainda não preenchida'
-
-  const icpPreview = hasPersonas
-    ? `${project.personas.length} persona${project.personas.length > 1 ? 's' : ''} criada${project.personas.length > 1 ? 's' : ''}: ${project.personas.map((p) => p.name || 'Persona').join(', ')}`
-    : 'Personas ainda não criadas'
-
-  const ofertaPreview = hasOferta
-    ? (project.ofertaData.nome ? `"${project.ofertaData.nome}"` : project.ofertaData.resultadoSonho?.slice(0, 80))
-    : 'Oferta Matadora ainda não preenchida'
+  function renderContent() {
+    switch (activeSection) {
+      case 'dados':        return <OnboardingContent project={project} onSave={handleSaveOnboarding} />
+      case 'roi':          return <ROICalculator project={project} onSave={handleSaveROI} />
+      case 'icp':          return <PersonaCreator project={project} onSave={handleSavePersonas} />
+      case 'produtos':     return <ProdutoServicoModule project={project} onSave={handleSaveProdutos} />
+      case 'oferta':       return <OfertaMatadora project={project} onSave={handleSaveOferta} />
+      case 'campaign':     return <CampaignPlanner project={project} onSave={handleSaveCampaign} />
+      case 'anexos':       return <AnexosModule project={project} />
+      case 'criativos':    return <CriativosModule project={project} />
+      case 'landingpage':  return <LandingPageModule project={project} />
+      case 'resultados':   return <ResultadosModule project={project} />
+      case 'metalab':      return <MetaLabModule project={project} />
+      case 'googleads':    return <GoogleAdsModule project={project} />
+      case 'bancomídia':   return <BancoMidiaModule project={project} />
+      case 'estrategia':   return <EstrategiaModule project={project} onSave={handleSaveEstrategia} />
+      case 'estrategiav2': return <EstrategiaV2Module project={project} onSave={handleSaveEstrategiaV2} />
+      case 'links':        return <LinksModule project={project} onSave={handleSaveLinks} />
+      default:             return null
+    }
+  }
 
   return (
     <div className="space-y-0">
 
       {/* ── Profile Header ──────────────────────────────────────────────── */}
       <div className="glass-card overflow-hidden border border-rl-green/20">
-
-        {/* Cover banner */}
         <div className="relative h-32 bg-gradient-to-br from-rl-purple/20 via-rl-blue/10 to-rl-cyan/5">
-          {/* subtle grid pattern */}
           <div className="absolute inset-0 opacity-[0.12]"
             style={{ backgroundImage: 'radial-gradient(circle, #164496 1px, transparent 1px)', backgroundSize: '24px 24px' }}
           />
-          {/* Completed badge */}
+          <div className="absolute top-4 left-4">
+            <button
+              onClick={() => setSidebarVisible((v) => !v)}
+              title={sidebarVisible ? 'Ocultar sidebar' : 'Exibir sidebar'}
+              className={`p-2 rounded-lg border transition-all duration-150 ${
+                sidebarVisible
+                  ? 'bg-rl-purple/20 border-rl-purple/40 text-rl-purple'
+                  : 'bg-rl-surface/60 border-rl-border text-rl-muted hover:border-rl-purple/30 hover:text-rl-purple'
+              }`}
+            >
+              {sidebarVisible ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+            </button>
+          </div>
           <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-rl-green/20 border border-rl-green/30 px-3 py-1.5 rounded-full">
             <CheckCircle2 className="w-3.5 h-3.5 text-rl-green" />
             <span className="text-xs font-semibold text-rl-green">Onboarding Completo</span>
           </div>
         </div>
 
-        {/* Avatar / Logo */}
         <div className="relative px-6 pb-6">
           <div className="absolute -top-12 left-6">
             <div className="relative group">
@@ -908,7 +854,6 @@ export default function ClientProfile({ project: projectProp }) {
                   : <span className="text-2xl font-black text-rl-purple">{companyInitials}</span>
                 }
               </div>
-              {/* Camera overlay */}
               <button
                 onClick={() => logoInputRef.current?.click()}
                 className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -916,17 +861,10 @@ export default function ClientProfile({ project: projectProp }) {
               >
                 <Camera className="w-6 h-6 text-white" />
               </button>
-              <input
-                ref={logoInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleLogoUpload}
-              />
+              <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
             </div>
           </div>
 
-          {/* Info — offset for avatar */}
           <div className="pt-14">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div>
@@ -942,21 +880,16 @@ export default function ClientProfile({ project: projectProp }) {
                     Contrato: {new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')}
                   </p>
                 )}
-                {/* Services chips */}
                 {project.services?.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     {project.services.map((s) => (
-                      <span key={s} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-rl-surface text-rl-muted border border-rl-border">
-                        {s}
-                      </span>
+                      <span key={s} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-rl-surface text-rl-muted border border-rl-border">{s}</span>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Stats + Actions (right column) */}
               <div className="flex flex-col items-end gap-3 shrink-0">
-                {/* Stats chips */}
                 <div className="flex flex-wrap gap-2 justify-end">
                   {hasROI && (
                     <div className="flex items-center gap-1.5 bg-rl-purple/10 border border-rl-purple/20 px-3 py-1.5 rounded-full">
@@ -977,388 +910,49 @@ export default function ClientProfile({ project: projectProp }) {
                     </div>
                   )}
                 </div>
-                {/* Action buttons */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setOpenModal('onboarding')}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rl-border bg-rl-surface text-rl-muted hover:text-rl-text hover:border-rl-purple/40 transition-all text-xs font-medium"
-                  >
-                    <ClipboardList className="w-3.5 h-3.5" />
-                    Ver Dados
-                  </button>
-                  <button
-                    onClick={() => setOpenModal('onboarding-edit')}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rl-border bg-rl-surface text-rl-muted hover:text-rl-text hover:border-rl-purple/40 transition-all text-xs font-medium"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => exportOnboardingPDF(project)}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rl-purple/30 bg-rl-purple/10 text-rl-purple hover:bg-rl-purple/20 transition-all text-xs font-medium"
-                  >
-                    <FileDown className="w-3.5 h-3.5" />
-                    Exportar PDF
-                  </button>
-                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Section Cards ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+      {/* ── Two-panel layout ─────────────────────────────────────────────── */}
+      <div className="flex gap-4 pt-4 items-stretch">
 
-        {/* 1. Onboarding */}
-        <SectionCard
-          icon={ClipboardList}
-          iconColor="text-rl-cyan"
-          iconBg="bg-rl-cyan/10"
-          title="Onboarding"
-          preview={`${BUSINESS_LABELS[project.businessType] || project.businessType} · ${project.responsibleName}${project.services?.length ? ` · ${project.services.length} serviços` : ''}`}
-          badge="Coletado"
-          badgeColor="text-rl-cyan bg-rl-cyan/10 border-rl-cyan/20"
-          onClick={() => setOpenModal('onboarding')}
-        />
+        {/* Sidebar nav */}
+        {sidebarVisible && <div className="w-64 shrink-0">
+          <div className="glass-card p-2 sticky top-20">
+            {NAV_ITEMS.map(({ id, label, icon: Icon, color, filled }) => {
+              const isActive = activeSection === id
+              return (
+                <button
+                  key={id}
+                  onClick={() => setActiveSection(id)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                    isActive
+                      ? 'bg-rl-purple text-white shadow-sm'
+                      : 'text-rl-subtle hover:bg-rl-bg hover:text-rl-text'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : color}`} />
+                  <span className="truncate flex-1 text-left">{label}</span>
+                  {filled && !isActive && (
+                    <CheckCircle2 className="w-3 h-3 shrink-0 text-rl-green opacity-80" />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>}
 
-        {/* 2. Links Importantes */}
-        <SectionCard
-          icon={Link2}
-          iconColor="text-rl-cyan"
-          iconBg="bg-rl-cyan/10"
-          title="Links Importantes"
-          preview={
-            hasLinks
-              ? [lnk.instagram && 'Instagram', lnk.website && 'Website', lnk.googleDrive && 'Drive', ...(lnk.outros || []).map((o) => o.label || 'Link')].filter(Boolean).join(' · ')
-              : 'Instagram, website, Google Drive e links personalizados'
-          }
-          badge={hasLinks ? 'Preenchido' : null}
-          badgeColor="text-rl-cyan bg-rl-cyan/10 border-rl-cyan/20"
-          onClick={() => setOpenModal('links')}
-        />
+        {/* Content panel */}
+        <div className="flex-1 min-w-0">
+          <div className="glass-card p-6">
+            {renderContent()}
+          </div>
+        </div>
 
-        {/* 3. ROI */}
-        <SectionCard
-          icon={BarChart3}
-          iconColor="text-rl-purple"
-          iconBg="bg-rl-purple/10"
-          title="Calculadora de ROI"
-          preview={roiPreview}
-          badge={hasROI ? 'Preenchida' : null}
-          badgeColor="text-rl-purple bg-rl-purple/10 border-rl-purple/20"
-          onClick={() => setOpenModal('roi')}
-        />
-
-        {/* 3. ICP / Personas */}
-        <SectionCard
-          icon={Users}
-          iconColor="text-rl-blue"
-          iconBg="bg-rl-blue/10"
-          title="Personas"
-          preview={icpPreview}
-          badge={hasPersonas ? `${project.personas.length} persona${project.personas.length > 1 ? 's' : ''}` : null}
-          badgeColor="text-rl-blue bg-rl-blue/10 border-rl-blue/20"
-          onClick={() => setOpenModal('icp')}
-        />
-
-        {/* 4. Produto / Serviço */}
-        <SectionCard
-          icon={Package}
-          iconColor="text-rl-gold"
-          iconBg="bg-rl-gold/10"
-          title="Produto / Serviço"
-          preview={
-            hasProdutos
-              ? `${project.produtos.length} produto${project.produtos.length !== 1 ? 's' : ''}: ${project.produtos.map((p) => p.nome || 'Sem nome').join(', ')}`
-              : '17 perguntas para documentar o produto e embasar anúncios'
-          }
-          badge={hasProdutos ? `${project.produtos.length} produto${project.produtos.length !== 1 ? 's' : ''}` : null}
-          badgeColor="text-rl-gold bg-rl-gold/10 border-rl-gold/20"
-          onClick={() => setOpenModal('produtos')}
-        />
-
-        {/* 5. Oferta Matadora */}
-        <SectionCard
-          icon={Zap}
-          iconColor="text-rl-gold"
-          iconBg="bg-rl-gold/10"
-          title="Oferta Matadora"
-          preview={ofertaPreview}
-          badge={hasOferta ? 'Criada' : null}
-          badgeColor="text-rl-gold bg-rl-gold/10 border-rl-gold/20"
-          onClick={() => setOpenModal('oferta')}
-        />
-
-        {/* 5. Planejamento de Campanhas */}
-        <SectionCard
-          icon={CalendarDays}
-          iconColor="text-rl-green"
-          iconBg="bg-rl-green/10"
-          title="Planejamento de Campanhas"
-          preview={campaignPreview}
-          badge={hasCampaignPlan ? 'Configurado' : null}
-          badgeColor="text-rl-green bg-rl-green/10 border-rl-green/20"
-          onClick={() => setOpenModal('campaign')}
-        />
-
-        {/* 6. Anexos Importantes */}
-        <SectionCard
-          icon={Paperclip}
-          iconColor="text-rl-gold"
-          iconBg="bg-rl-gold/10"
-          title="Anexos Importantes"
-          preview={
-            hasAnexos
-              ? `${project.attachments.length} arquivo${project.attachments.length !== 1 ? 's' : ''} anexado${project.attachments.length !== 1 ? 's' : ''}`
-              : 'Contratos, briefings, relatórios e documentos do cliente'
-          }
-          badge={hasAnexos ? `${project.attachments.length} arquivo${project.attachments.length !== 1 ? 's' : ''}` : null}
-          badgeColor="text-rl-gold bg-rl-gold/10 border-rl-gold/20"
-          onClick={() => setOpenModal('anexos')}
-        />
-
-        {/* 7. Criativos */}
-        <SectionCard
-          icon={Clapperboard}
-          iconColor="text-rl-cyan"
-          iconBg="bg-rl-cyan/10"
-          title="Criativos com IA"
-          preview="Gere anúncios estáticos e roteiros de vídeo com IA usando os dados do cliente"
-          badge={null}
-          badgeColor=""
-          onClick={() => setOpenModal('criativos')}
-        />
-
-        {/* 8. Landing Page */}
-        <SectionCard
-          icon={LayoutTemplate}
-          iconColor="text-rl-green"
-          iconBg="bg-rl-green/10"
-          title="Landing Page com IA"
-          preview={
-            hasLandingPages
-              ? `${project.landingPages.length} copy${project.landingPages.length !== 1 ? 's' : ''} gerada${project.landingPages.length !== 1 ? 's' : ''} · 6 dobras persuasivas`
-              : 'Gere copy completa com 6 dobras persuasivas usando os dados do cliente'
-          }
-          badge={hasLandingPages ? `${project.landingPages.length} copy${project.landingPages.length !== 1 ? 's' : ''}` : null}
-          badgeColor="text-rl-green bg-rl-green/10 border-rl-green/20"
-          onClick={() => setOpenModal('landingpage')}
-        />
-
-        {/* 9. Resultados */}
-        <SectionCard
-          icon={Activity}
-          iconColor="text-rl-purple"
-          iconBg="bg-rl-purple/10"
-          title="Resultados"
-          preview={
-            hasResultados
-              ? project.resultados.modelo === 'b2b'
-                ? 'B2B · Acompanhamento semanal — Funil Leads → MQL → SQL → Vendas'
-                : 'B2C · Acompanhamento diário — Investido, Leads, Vendas e ROAS'
-              : 'Acompanhe resultados diários ou semanais e consolide o mês'
-          }
-          badge={hasResultados ? (project.resultados.modelo === 'b2b' ? '🏢 B2B' : '🛒 B2C') : null}
-          badgeColor="text-rl-purple bg-rl-purple/10 border-rl-purple/20"
-          onClick={() => setOpenModal('resultados')}
-        />
-
-        {/* 10. Laboratório Meta Ads */}
-        <SectionCard
-          icon={FlaskConical}
-          iconColor="text-rl-purple"
-          iconBg="bg-rl-purple/10"
-          title="Laboratório Meta Ads"
-          preview="Plano de 21 dias para testar criativos, públicos e ganchos com base no orçamento disponível"
-          badge={project.metaLabBudget ? 'Configurado' : null}
-          badgeColor="text-rl-purple bg-rl-purple/10 border-rl-purple/20"
-          onClick={() => setOpenModal('metalab')}
-        />
-
-        {/* 11. Google Ads */}
-        <SectionCard
-          icon={Search}
-          iconColor="text-rl-cyan"
-          iconBg="bg-rl-cyan/10"
-          title="Google Ads com IA"
-          preview={
-            hasGoogleAds
-              ? `${project.googleAds.length} estrutura${project.googleAds.length !== 1 ? 's' : ''} gerada${project.googleAds.length !== 1 ? 's' : ''} · RSA, grupos e palavras-chave`
-              : 'Gere estrutura completa de campanhas com grupos, RSAs e palavras-chave segmentadas'
-          }
-          badge={hasGoogleAds ? `${project.googleAds.length} estrutura${project.googleAds.length !== 1 ? 's' : ''}` : null}
-          badgeColor="text-rl-cyan bg-rl-cyan/10 border-rl-cyan/20"
-          onClick={() => setOpenModal('googleads')}
-        />
-
-        {/* 12. Banco de Imagens e Vídeos */}
-        <SectionCard
-          icon={ImagePlay}
-          iconColor="text-rl-blue"
-          iconBg="bg-rl-blue/10"
-          title="Banco de Imagens e Vídeos"
-          preview={
-            hasBancoMidia
-              ? [
-                  (project.brandKit?.cores || []).length > 0 && `${project.brandKit.cores.length} cor${project.brandKit.cores.length !== 1 ? 'es' : ''}`,
-                  (project.brandFotos || []).length > 0 && `${project.brandFotos.length} foto${project.brandFotos.length !== 1 ? 's' : ''}`,
-                  (project.brandVideos || []).length > 0 && `${project.brandVideos.length} vídeo${project.brandVideos.length !== 1 ? 's' : ''}`,
-                ].filter(Boolean).join(' · ')
-              : 'Logo, paleta de cores, fontes, fotos e vídeos da marca'
-          }
-          badge={hasBancoMidia ? 'Preenchido' : null}
-          badgeColor="text-rl-blue bg-rl-blue/10 border-rl-blue/20"
-          onClick={() => setOpenModal('bancomídia')}
-        />
-
-        {/* 13. Estratégia Digital */}
-        <SectionCard
-          icon={Layers}
-          iconColor="text-rl-purple"
-          iconBg="bg-rl-purple/10"
-          title="Estratégia Digital"
-          preview={
-            hasEstrategia
-              ? 'Estratégia gerada · Diagnóstico, objetivos, mídia e próximos passos'
-              : 'Síntese premium de todos os módulos para apresentar ao cliente'
-          }
-          badge={hasEstrategia ? 'Gerada' : null}
-          badgeColor="text-rl-purple bg-rl-purple/10 border-rl-purple/20"
-          onClick={() => setOpenModal('estrategia')}
-        />
-
-        {/* 14. Estratégia V2 */}
-        <SectionCard
-          icon={Map}
-          iconColor="text-rl-blue"
-          iconBg="bg-rl-blue/10"
-          title="Análise Competitiva"
-          preview={hasEstrategiaV2 ? 'SWOT · Benchmark · Riscos · Funis' : 'Preencha problemas, SWOT, benchmark e funis'}
-          badge={hasEstrategiaV2 ? 'Preenchida' : null}
-          badgeColor="text-rl-blue bg-rl-blue/10 border-rl-blue/20"
-          onClick={() => setOpenModal('estrategiav2')}
-        />
       </div>
-
-      {/* ── Modals ────────────────────────────────────────────────────────── */}
-
-      {openModal === 'onboarding' && (
-        <Modal title="Dados do Cliente" icon={ClipboardList} iconColor="text-rl-cyan" onClose={() => setOpenModal(null)}>
-          <OnboardingContent project={project} onSave={handleSaveOnboarding} />
-        </Modal>
-      )}
-
-      {openModal === 'onboarding-edit' && (
-        <Modal title="Editar Dados do Cliente" icon={Pencil} iconColor="text-rl-cyan" onClose={() => setOpenModal(null)}>
-          <OnboardingEditForm
-            project={project}
-            onSave={(data) => { handleSaveOnboarding(data); setOpenModal(null) }}
-            onCancel={() => setOpenModal(null)}
-          />
-        </Modal>
-      )}
-
-      {openModal === 'roi' && (
-        <Modal title="Calculadora de ROI" icon={BarChart3} iconColor="text-rl-purple" onClose={() => setOpenModal(null)}>
-          <ROICalculator project={project} onSave={handleSaveROI} />
-        </Modal>
-      )}
-
-      {openModal === 'icp' && (
-        <Modal title="Personas" icon={Users} iconColor="text-rl-blue" onClose={() => setOpenModal(null)}>
-          <PersonaCreator project={project} onSave={handleSavePersonas} />
-        </Modal>
-      )}
-
-      {openModal === 'produtos' && (
-        <Modal title="Produto / Serviço" icon={Package} iconColor="text-rl-gold" onClose={() => setOpenModal(null)}>
-          {(project.produtos?.length > 0) && (
-            <div className="flex justify-end mb-4">
-              <button
-                onClick={() => exportProdutoServicoPDF(project)}
-                className="btn-secondary flex items-center gap-2 text-sm"
-              >
-                <FileDown className="w-4 h-4" />
-                Exportar PDF
-              </button>
-            </div>
-          )}
-          <ProdutoServicoModule project={project} onSave={handleSaveProdutos} />
-        </Modal>
-      )}
-
-      {openModal === 'oferta' && (
-        <Modal title="Oferta Matadora" icon={Zap} iconColor="text-rl-gold" onClose={() => setOpenModal(null)}>
-          <OfertaMatadora project={project} onSave={handleSaveOferta} />
-        </Modal>
-      )}
-
-      {openModal === 'campaign' && (
-        <Modal title="Planejamento de Campanhas" icon={CalendarDays} iconColor="text-rl-green" onClose={() => setOpenModal(null)}>
-          <CampaignPlanner project={project} onSave={handleSaveCampaign} />
-        </Modal>
-      )}
-
-      {openModal === 'anexos' && (
-        <Modal title="Anexos Importantes" icon={Paperclip} iconColor="text-rl-gold" onClose={() => setOpenModal(null)}>
-          <AnexosModule project={project} />
-        </Modal>
-      )}
-
-      {openModal === 'criativos' && (
-        <Modal title="Criativos com IA" icon={Clapperboard} iconColor="text-rl-cyan" onClose={() => setOpenModal(null)}>
-          <CriativosModule project={project} />
-        </Modal>
-      )}
-
-      {openModal === 'landingpage' && (
-        <Modal title="Landing Page com IA" icon={LayoutTemplate} iconColor="text-rl-green" onClose={() => setOpenModal(null)}>
-          <LandingPageModule project={project} />
-        </Modal>
-      )}
-
-      {openModal === 'resultados' && (
-        <Modal title="Resultados" icon={Activity} iconColor="text-rl-purple" onClose={() => setOpenModal(null)}>
-          <ResultadosModule project={project} />
-        </Modal>
-      )}
-
-      {openModal === 'metalab' && (
-        <Modal title="Laboratório Meta Ads" icon={FlaskConical} iconColor="text-rl-purple" onClose={() => setOpenModal(null)}>
-          <MetaLabModule project={project} />
-        </Modal>
-      )}
-
-      {openModal === 'googleads' && (
-        <Modal title="Google Ads com IA" icon={Search} iconColor="text-rl-cyan" onClose={() => setOpenModal(null)}>
-          <GoogleAdsModule project={project} />
-        </Modal>
-      )}
-
-      {openModal === 'bancomídia' && (
-        <Modal title="Banco de Imagens e Vídeos" icon={ImagePlay} iconColor="text-rl-blue" onClose={() => setOpenModal(null)}>
-          <BancoMidiaModule project={project} />
-        </Modal>
-      )}
-
-      {openModal === 'estrategia' && (
-        <Modal title="Estratégia Digital" icon={Layers} iconColor="text-rl-purple" onClose={() => setOpenModal(null)}>
-          <EstrategiaModule project={project} onSave={handleSaveEstrategia} />
-        </Modal>
-      )}
-
-      {openModal === 'estrategiav2' && (
-        <Modal title="Análise Competitiva" icon={Map} iconColor="text-rl-blue" onClose={() => setOpenModal(null)}>
-          <EstrategiaV2Module project={project} onSave={handleSaveEstrategiaV2} />
-        </Modal>
-      )}
-
-      {openModal === 'links' && (
-        <Modal title="Links Importantes" icon={Link2} iconColor="text-rl-cyan" onClose={() => setOpenModal(null)}>
-          <LinksModule project={project} onSave={handleSaveLinks} />
-        </Modal>
-      )}
     </div>
   )
 }
