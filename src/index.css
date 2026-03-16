@@ -3,7 +3,9 @@
 @tailwind utilities;
 
 @layer base {
-  * { box-sizing: border-box; }
+  * {
+    box-sizing: border-box;
+  }
 
   /* Focus visível global — garante WCAG AA para navegação por teclado */
   :focus-visible {
@@ -11,18 +13,28 @@
     outline-offset: 2px;
   }
   body {
-    background-color: #EEF2F9;
-    color: #0F172A;
+    background-color: #eef2f9;
+    color: #0f172a;
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: #E4EAF7; }
-  ::-webkit-scrollbar-thumb { background: rgba(22,68,150,0.20); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(22,68,150,0.40); }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #e4eaf7;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(22, 68, 150, 0.2);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(22, 68, 150, 0.4);
+  }
 
-  input[type="date"]::-webkit-calendar-picker-indicator {
+  input[type='date']::-webkit-calendar-picker-indicator {
     filter: opacity(0.45);
     cursor: pointer;
   }
@@ -30,7 +42,7 @@
 
 @layer components {
   .glass-card {
-    @apply bg-rl-card border border-rl-border rounded-2xl shadow-card;
+    @apply bg-rl-card border border-rl-border rounded-xl shadow-card;
   }
 
   .input-field {
@@ -88,7 +100,15 @@
 
 /* Completion burst */
 @keyframes burst {
-  0%   { transform: scale(0); opacity: 1; }
-  100% { transform: scale(2.5); opacity: 0; }
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
 }
-.burst { animation: burst 0.5s ease-out forwards; }
+.burst {
+  animation: burst 0.5s ease-out forwards;
+}

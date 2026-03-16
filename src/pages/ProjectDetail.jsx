@@ -45,7 +45,7 @@ export default function ProjectDetail() {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-screen-2xl mx-auto px-8 py-8">
         <ClientProfile project={project} />
       </div>
     </div>
