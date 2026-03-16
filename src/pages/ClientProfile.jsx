@@ -24,7 +24,7 @@ import ProdutoServicoModule from '../components/ProdutoServicoModule'
 import BancoMidiaModule from '../components/BancoMidiaModule'
 import LinksModule from '../components/LinksModule'
 import { SERVICES_CONFIG } from './NewOnboarding'
-import { exportOnboardingPDF, exportClientProfilePDF } from '../utils/exportPDF'
+import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtCurrency(n) {
@@ -1273,6 +1273,17 @@ export default function ClientProfile({ project: projectProp }) {
 
       {openModal === 'produtos' && (
         <Modal title="Produto / Serviço" icon={Package} iconColor="text-rl-gold" onClose={() => setOpenModal(null)}>
+          {(project.produtos?.length > 0) && (
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => exportProdutoServicoPDF(project)}
+                className="btn-secondary flex items-center gap-2 text-sm"
+              >
+                <FileDown className="w-4 h-4" />
+                Exportar PDF
+              </button>
+            </div>
+          )}
           <ProdutoServicoModule project={project} onSave={handleSaveProdutos} />
         </Modal>
       )}

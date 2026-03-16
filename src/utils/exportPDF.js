@@ -1550,6 +1550,83 @@ export function exportEstrategiaV2PDF(project, data) {
   win.document.close()
 }
 
+// ─── Produto / Serviço PDF ────────────────────────────────────────────────────
+
+const PRODUTO_QUESTIONS = [
+  { id: 'q1',  emoji: '🎯', label: 'O que seu produto resolve?' },
+  { id: 'q2',  emoji: '⏰', label: 'Por que e em que momento o seu cliente precisa do seu produto/serviço?' },
+  { id: 'q3',  emoji: '✨', label: 'Como é a vida dele depois de usar seu produto/serviço?' },
+  { id: 'q4',  emoji: '🏆', label: 'Por que vou usar seu produto/serviço e não o do concorrente?' },
+  { id: 'q5',  emoji: '🔥', label: 'Por que eu preciso comprar agora?' },
+  { id: 'q6',  emoji: '😔', label: 'Como é a vida sem o seu produto/serviço?' },
+  { id: 'q7',  emoji: '🚧', label: 'Quais são as principais desculpas que os clientes dão para não comprar?' },
+  { id: 'q8',  emoji: '🔄', label: 'Já tentou resolver esse problema de outra forma antes? O que não funcionou?' },
+  { id: 'q9',  emoji: '🤔', label: 'O que faz o cliente desconfiar de produtos como o seu?' },
+  { id: 'q10', emoji: '📊', label: 'Tem cases de clientes com resultado mensurável?' },
+  { id: 'q11', emoji: '⏱️', label: 'Quanto tempo leva para o cliente sentir o primeiro resultado?' },
+  { id: 'q12', emoji: '💬', label: 'O que seus clientes mais elogiam espontaneamente?' },
+  { id: 'q13', emoji: '💡', label: 'O que você faz que nenhum concorrente faz ou consegue copiar facilmente?' },
+  { id: 'q14', emoji: '⚠️', label: 'O que acontece se o cliente esperar mais 3 meses para resolver isso?' },
+  { id: 'q15', emoji: '📅', label: 'Existe alguma sazonalidade ou janela de oportunidade no seu mercado?' },
+  { id: 'q16', emoji: '🛡️', label: 'Você oferece alguma garantia hoje? Se não, o que te impede?' },
+  { id: 'q17', emoji: '🤝', label: 'Se der errado, o que você faz pelo cliente?' },
+]
+
+export function exportProdutoServicoPDF(project) {
+  const produtos = project.produtos || []
+  if (!produtos.length) { alert('Nenhum produto/serviço cadastrado.'); return }
+
+  const produtosHTML = produtos.map((p, idx) => {
+    const tipo = p.tipo === 'servico' ? 'Serviço' : 'Produto Físico'
+    const tipoColor = p.tipo === 'servico' ? '#0284C7' : '#D97706'
+
+    const answeredQuestions = PRODUTO_QUESTIONS.filter((q) => p.answers?.[q.id]?.trim())
+
+    const questionsHTML = answeredQuestions.length === 0
+      ? '<p style="color:#94A3B8;font-style:italic;font-size:12px">Nenhuma pergunta respondida.</p>'
+      : answeredQuestions.map((q) => `
+          <div class="qa-item" style="margin-bottom:14px;padding:12px 14px;background:#F2F5FB;border:1px solid #D8E0F0;border-radius:8px;page-break-inside:avoid">
+            <div class="qa-label" style="font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px">
+              ${esc(q.emoji)} ${esc(q.label)}
+            </div>
+            <div style="font-size:13px;color:#0F172A;line-height:1.6;white-space:pre-wrap">${esc(p.answers[q.id])}</div>
+          </div>
+        `).join('')
+
+    return `
+      <div style="margin-bottom:36px;page-break-inside:avoid">
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #D8E0F0;padding-bottom:10px;margin-bottom:18px">
+          <div>
+            <div style="font-size:18px;font-weight:800;color:#0F172A">${esc(p.nome || `Produto ${idx + 1}`)}</div>
+            <div style="margin-top:4px">
+              <span style="display:inline-block;padding:3px 12px;border-radius:99px;font-size:11px;font-weight:700;background:${tipoColor}18;color:${tipoColor};border:1px solid ${tipoColor}40">
+                ${esc(tipo)}
+              </span>
+            </div>
+          </div>
+          <div style="text-align:right;font-size:11px;color:#94A3B8">
+            ${answeredQuestions.length} / ${PRODUTO_QUESTIONS.length} perguntas respondidas
+          </div>
+        </div>
+        ${questionsHTML}
+      </div>
+    `
+  }).join('<hr style="border:none;border-top:1px solid #E2E8F0;margin:32px 0">')
+
+  const bodyHTML = `
+    <section>
+      <div class="section-title">Produtos &amp; Serviços — ${esc(project.company_name || project.companyName || '')}</div>
+      ${produtosHTML}
+    </section>
+  `
+
+  printHTML(
+    'Produto / Serviço',
+    project.company_name || project.companyName || 'Cliente',
+    bodyHTML
+  )
+}
+
 // ─── Perfil Completo do Cliente PDF ──────────────────────────────────────────
 
 const CONTRACT_MODEL_LABELS_PDF = {
