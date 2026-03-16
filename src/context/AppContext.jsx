@@ -518,7 +518,7 @@ async function sbUpdateProjectV2(id, patch) {
     if (Array.isArray(patch.produtos) && patch.produtos.length > 0) {
       const { error } = await supabase.from("produtos").insert(
         patch.produtos.map((p) => ({
-          id:         p.id || crypto.randomUUID(),
+          id:         crypto.randomUUID(), // always fresh UUID — delete+insert pattern
           project_id: id,
           nome:       p.nome    || '',
           tipo:       p.tipo    || 'produto',
