@@ -196,6 +196,9 @@ function assembleProject(row, rel = {}) {
       : null,
     estrategiaV2: estrategiaV2 ?? null,
 
+    // Links
+    links: row.links || {},
+
     // Produtos / Serviços
     produtos: produtos.map((p) => ({
       id:      p.id,
@@ -313,6 +316,7 @@ const PROJECT_FIELD_MAP = {
   completed_steps:      "completed_steps",
   account_id:           "account_id",
   cnpj:                 "cnpj",
+  links:                "links",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────

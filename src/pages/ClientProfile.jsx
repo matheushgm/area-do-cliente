@@ -6,7 +6,7 @@ import {
   Users, Zap, CalendarDays, ChevronRight, Building2,
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
-  Pencil, Plus,
+  Pencil, Plus, Link2,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -22,6 +22,7 @@ import EstrategiaModule from '../components/EstrategiaModule'
 import EstrategiaV2Module from '../components/EstrategiaV2Module'
 import ProdutoServicoModule from '../components/ProdutoServicoModule'
 import BancoMidiaModule from '../components/BancoMidiaModule'
+import LinksModule from '../components/LinksModule'
 import { SERVICES_CONFIG } from './NewOnboarding'
 import { exportOnboardingPDF, exportClientProfilePDF } from '../utils/exportPDF'
 
@@ -840,6 +841,11 @@ export default function ClientProfile({ project: projectProp }) {
     setOpenModal(null)
   }
 
+  function handleSaveLinks(links) {
+    updateProject(project.id, { links })
+    setOpenModal(null)
+  }
+
   const companyInitials = initials(project.companyName)
   const hasROI          = !!project.roiResult
   const hasPersonas     = project.personas?.length > 0
@@ -847,6 +853,8 @@ export default function ClientProfile({ project: projectProp }) {
   const hasCampaignPlan = !!(project.campaignPlan?.totalBudget > 0 && project.campaignPlan?.channels?.length > 0)
   const hasProdutos     = (project.produtos || []).length > 0 && !!(project.produtos[0]?.nome || project.produtos[0]?.answers?.q1)
   const hasGoogleAds    = (project.googleAds || []).length > 0
+  const lnk             = project.links || {}
+  const hasLinks        = !!(lnk.instagram || lnk.website || lnk.googleDrive || (lnk.outros || []).length > 0)
   const hasEstrategia   = !!project.estrategia?.narrativa
   const hasEstrategiaV2 = !!(project.estrategiaV2?.problemas?.length || project.estrategiaV2?.swot?.forcas)
   const hasBancoMidia   = !!(project.brandKit?.logo || (project.brandKit?.cores || []).length > 0 || (project.brandFotos || []).length > 0 || (project.brandVideos || []).length > 0)
@@ -1002,7 +1010,35 @@ export default function ClientProfile({ project: projectProp }) {
       {/* ── Section Cards ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
 
-        {/* 1. ROI */}
+        {/* 1. Onboarding */}
+        <SectionCard
+          icon={ClipboardList}
+          iconColor="text-rl-cyan"
+          iconBg="bg-rl-cyan/10"
+          title="Onboarding"
+          preview={`${BUSINESS_LABELS[project.businessType] || project.businessType} · ${project.responsibleName}${project.services?.length ? ` · ${project.services.length} serviços` : ''}`}
+          badge="Coletado"
+          badgeColor="text-rl-cyan bg-rl-cyan/10 border-rl-cyan/20"
+          onClick={() => setOpenModal('onboarding')}
+        />
+
+        {/* 2. Links Importantes */}
+        <SectionCard
+          icon={Link2}
+          iconColor="text-rl-cyan"
+          iconBg="bg-rl-cyan/10"
+          title="Links Importantes"
+          preview={
+            hasLinks
+              ? [lnk.instagram && 'Instagram', lnk.website && 'Website', lnk.googleDrive && 'Drive', ...(lnk.outros || []).map((o) => o.label || 'Link')].filter(Boolean).join(' · ')
+              : 'Instagram, website, Google Drive e links personalizados'
+          }
+          badge={hasLinks ? 'Preenchido' : null}
+          badgeColor="text-rl-cyan bg-rl-cyan/10 border-rl-cyan/20"
+          onClick={() => setOpenModal('links')}
+        />
+
+        {/* 3. ROI */}
         <SectionCard
           icon={BarChart3}
           iconColor="text-rl-purple"
@@ -1304,6 +1340,12 @@ export default function ClientProfile({ project: projectProp }) {
       {openModal === 'estrategiav2' && (
         <Modal title="Análise Competitiva" icon={Map} iconColor="text-rl-blue" onClose={() => setOpenModal(null)}>
           <EstrategiaV2Module project={project} onSave={handleSaveEstrategiaV2} />
+        </Modal>
+      )}
+
+      {openModal === 'links' && (
+        <Modal title="Links Importantes" icon={Link2} iconColor="text-rl-cyan" onClose={() => setOpenModal(null)}>
+          <LinksModule project={project} onSave={handleSaveLinks} />
         </Modal>
       )}
     </div>
