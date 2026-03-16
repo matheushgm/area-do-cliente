@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
-import { getSignedUrl } from '../lib/supabase'
+import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
 import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays, Building2,
@@ -127,6 +127,30 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
 
   const set = (field, value) => setForm((f) => ({ ...f, [field]: value }))
 
+  // ── File state ──────────────────────────────────────────────────────────────
+  const raioXInputRef = useRef(null)
+  const slaInputRef   = useRef(null)
+  const [raioXNewFile,   setRaioXNewFile]   = useState(null)   // File para upload
+  const [slaNewFile,     setSlaNewFile]     = useState(null)
+  const [raioXRemoved,   setRaioXRemoved]   = useState(false)  // remover existente
+  const [slaRemoved,     setSlaRemoved]     = useState(false)
+  const [savingFiles,    setSavingFiles]    = useState(false)
+  const [signedUrls,     setSignedUrls]     = useState({ raioX: null, sla: null })
+
+  useEffect(() => {
+    async function loadUrls() {
+      const [raioX, sla] = await Promise.all([
+        project.raioXFileName ? getSignedUrl('project-docs', project.raioXFileName) : null,
+        project.slaFileName   ? getSignedUrl('project-docs', project.slaFileName)   : null,
+      ])
+      setSignedUrls({ raioX, sla })
+    }
+    if (project.raioXFileName || project.slaFileName) loadUrls()
+  }, [project.raioXFileName, project.slaFileName])
+
+  const currentRaioX = raioXRemoved ? null : (raioXNewFile ? raioXNewFile.name : project.raioXFileName?.split('/').pop())
+  const currentSla   = slaRemoved   ? null : (slaNewFile   ? slaNewFile.name   : project.slaFileName?.split('/').pop())
+
   function toggleService(id) {
     set('services', form.services.includes(id)
       ? form.services.filter((s) => s !== id)
@@ -134,8 +158,40 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
     )
   }
 
-  function handleSave() {
+  async function handleSave() {
+    setSavingFiles(true)
     const serviceLabels = form.services.map((id) => SERVICES_CONFIG.find((s) => s.id === id)?.label || id)
+
+    async function uploadDoc(file, prefix) {
+      if (!file || !supabase) return null
+      const ext  = file.name.split('.').pop()
+      const path = `${project.id}/${prefix}.${ext}`
+      const { error } = await supabase.storage.from('project-docs').upload(path, file, { upsert: true })
+      if (error) { console.error('[Storage] upload:', error.message); return null }
+      return path
+    }
+
+    // Raio-X
+    let raioXPath = project.raioXFileName ?? null
+    if (raioXRemoved) {
+      if (project.raioXFileName) await deleteFile('project-docs', project.raioXFileName)
+      raioXPath = null
+    } else if (raioXNewFile) {
+      if (project.raioXFileName) await deleteFile('project-docs', project.raioXFileName)
+      raioXPath = await uploadDoc(raioXNewFile, 'raio-x')
+    }
+
+    // SLA
+    let slaPath = project.slaFileName ?? null
+    if (slaRemoved) {
+      if (project.slaFileName) await deleteFile('project-docs', project.slaFileName)
+      slaPath = null
+    } else if (slaNewFile) {
+      if (project.slaFileName) await deleteFile('project-docs', project.slaFileName)
+      slaPath = await uploadDoc(slaNewFile, 'sla')
+    }
+
+    setSavingFiles(false)
     onSave({
       businessType:        form.businessType,
       companyName:         form.companyName,
@@ -155,6 +211,8 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
       otherPeople:         form.otherPeople.filter((p) => p.name),
       upsellPotential:     form.upsellPotential,
       upsellNotes:         form.upsellNotes,
+      raio_x_file_url:     raioXPath,
+      sla_file_url:        slaPath,
     })
   }
 
@@ -477,12 +535,101 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
         </div>
       </div>
 
+      {/* 📁 Documentos */}
+      <div className="space-y-3">
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">📁 Documentos</p>
+
+        {/* Raio-X */}
+        <div className="flex items-center gap-3 bg-rl-surface border border-rl-border rounded-xl px-4 py-3">
+          <FileText className="w-4 h-4 text-rl-purple shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-rl-muted">Raio-X do Cliente</p>
+            <p className={`text-xs truncate ${currentRaioX ? 'text-rl-text' : 'text-rl-muted italic'}`}>
+              {currentRaioX || 'Nenhum arquivo'}
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            {signedUrls.raioX && !raioXRemoved && !raioXNewFile && (
+              <a href={signedUrls.raioX} target="_blank" rel="noopener noreferrer"
+                className="text-[11px] font-medium text-rl-purple hover:underline">
+                Abrir
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => raioXInputRef.current?.click()}
+              className="text-[11px] font-medium text-rl-purple hover:text-rl-purple/80 transition-colors"
+            >
+              {currentRaioX ? 'Alterar' : 'Anexar'}
+            </button>
+            {currentRaioX && (
+              <button
+                type="button"
+                onClick={() => { setRaioXRemoved(true); setRaioXNewFile(null) }}
+                className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
+              >
+                Remover
+              </button>
+            )}
+          </div>
+          <input
+            ref={raioXInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files[0]; if (f) { setRaioXNewFile(f); setRaioXRemoved(false) } }}
+          />
+        </div>
+
+        {/* SLA */}
+        <div className="flex items-center gap-3 bg-rl-surface border border-rl-border rounded-xl px-4 py-3">
+          <FileText className="w-4 h-4 text-rl-cyan shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-rl-muted">SLA — Passagem de Bastão</p>
+            <p className={`text-xs truncate ${currentSla ? 'text-rl-text' : 'text-rl-muted italic'}`}>
+              {currentSla || 'Nenhum arquivo'}
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            {signedUrls.sla && !slaRemoved && !slaNewFile && (
+              <a href={signedUrls.sla} target="_blank" rel="noopener noreferrer"
+                className="text-[11px] font-medium text-rl-cyan hover:underline">
+                Abrir
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => slaInputRef.current?.click()}
+              className="text-[11px] font-medium text-rl-cyan hover:text-rl-cyan/80 transition-colors"
+            >
+              {currentSla ? 'Alterar' : 'Anexar'}
+            </button>
+            {currentSla && (
+              <button
+                type="button"
+                onClick={() => { setSlaRemoved(true); setSlaNewFile(null) }}
+                className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
+              >
+                Remover
+              </button>
+            )}
+          </div>
+          <input
+            ref={slaInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files[0]; if (f) { setSlaNewFile(f); setSlaRemoved(false) } }}
+          />
+        </div>
+      </div>
+
       {/* Bottom action bar */}
       <div className="flex justify-end gap-3 pt-4 border-t border-rl-border">
-        <button onClick={onCancel} className="btn-ghost text-sm">Cancelar</button>
-        <button onClick={handleSave} className="btn-primary flex items-center gap-2">
+        <button onClick={onCancel} className="btn-ghost text-sm" disabled={savingFiles}>Cancelar</button>
+        <button onClick={handleSave} className="btn-primary flex items-center gap-2" disabled={savingFiles}>
           <CheckCircle2 className="w-4 h-4" />
-          Salvar Alterações
+          {savingFiles ? 'Salvando...' : 'Salvar Alterações'}
         </button>
       </div>
     </div>
@@ -738,13 +885,20 @@ export default function ClientProfile({ project: projectProp }) {
 
   const [activeSection, setActiveSection] = useState('dados')
   const [sidebarVisible, setSidebarVisible] = useState(true)
+  const [logoSignedUrl, setLogoSignedUrl] = useState(null)
 
-  function handleLogoUpload(e) {
+  useEffect(() => {
+    if (!project.logoUrl) { setLogoSignedUrl(null); return }
+    getSignedUrl('brand-logos', project.logoUrl).then(setLogoSignedUrl)
+  }, [project.logoUrl])
+
+  async function handleLogoUpload(e) {
     const file = e.target.files[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => updateProject(project.id, { logoBase64: ev.target.result })
-    reader.readAsDataURL(file)
+    const path = `${project.id}/logo`
+    const { error } = await supabase.storage.from('brand-logos').upload(path, file, { upsert: true })
+    if (error) { console.error('[Logo] upload:', error.message); return }
+    updateProject(project.id, { logoUrl: path })
   }
 
   function handleSaveOnboarding(data) { updateProject(project.id, data) }
@@ -849,8 +1003,8 @@ export default function ClientProfile({ project: projectProp }) {
           <div className="absolute -top-12 left-6">
             <div className="relative group">
               <div className="w-24 h-24 rounded-2xl border-4 border-rl-bg bg-rl-surface overflow-hidden flex items-center justify-center shadow-xl">
-                {project.logoBase64
-                  ? <img src={project.logoBase64} alt="Logo" className="w-full h-full object-cover" />
+                {logoSignedUrl
+                  ? <img src={logoSignedUrl} alt="Logo" className="w-full h-full object-cover" />
                   : <span className="text-2xl font-black text-rl-purple">{companyInitials}</span>
                 }
               </div>
