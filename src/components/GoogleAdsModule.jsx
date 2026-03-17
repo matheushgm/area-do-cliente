@@ -4,7 +4,7 @@ import { streamClaude } from '../lib/claude'
 import { buildCachedPayload } from '../lib/buildContext'
 import {
   Search, Sparkles, Loader2, AlertTriangle,
-  RotateCcw, CheckCircle2,
+  RotateCcw, CheckCircle2, Plus, Trash2, ChevronDown,
 } from 'lucide-react'
 import AdsHistory, { ResultBlock } from './GoogleAds/AdsHistory'
 
@@ -15,6 +15,22 @@ const CAMPAIGN_TYPES = [
   { id: 'concorrentes', label: 'Concorrentes',      emoji: '⚔️', desc: 'Nomes de concorrentes — captura quem busca alternativas' },
   { id: 'problema',     label: 'Problema / Dor',    emoji: '💊', desc: 'Termos de dor — topo de funil, intenção de resolver' },
 ]
+
+const CONCORRENCIA_OPTIONS = ['Baixo', 'Médio', 'Alto']
+
+const CONCORRENCIA_STYLE = {
+  Baixo: 'text-rl-green  bg-rl-green/10  border-rl-green/30',
+  Médio: 'text-rl-gold   bg-rl-gold/10   border-rl-gold/30',
+  Alto:  'text-red-400   bg-red-400/10   border-red-400/30',
+}
+
+function newKeyword() {
+  return { id: crypto.randomUUID(), keyword: '', buscas: '', concorrencia: 'Médio' }
+}
+
+function newGroup(index) {
+  return { id: crypto.randomUUID(), name: `Grupo ${index + 1}`, keywords: [newKeyword()] }
+}
 
 // ─── System Prompt ─────────────────────────────────────────────────────────────
 const GOOGLE_ADS_SYSTEM = `Você é um especialista em Google Ads com amplo conhecimento em campanhas de busca de alta conversão. Sua metodologia central é o "Bolo de Cenoura Fofinho": a palavra pesquisada pelo lead DEVE aparecer no título do anúncio E espelhar a headline da landing page.
@@ -100,16 +116,132 @@ Estratégia de Lance: [CPA alvo / Maximizar conversões]
     D3: [texto] (XX car.)
   Gatilhos usados: [lista dos gatilhos aplicados]`
 
+// ─── Keyword Row ───────────────────────────────────────────────────────────────
+function KeywordRow({ kw, onUpdate, onRemove, isOnly }) {
+  return (
+    <div className="grid grid-cols-[1fr_110px_130px_32px] gap-2 items-center">
+      {/* Palavra-chave */}
+      <input
+        value={kw.keyword}
+        onChange={(e) => onUpdate('keyword', e.target.value)}
+        className="input-field text-sm h-8 px-2"
+        placeholder="Ex: gestor de tráfego"
+      />
+
+      {/* Buscas/mês */}
+      <input
+        type="text"
+        inputMode="numeric"
+        value={kw.buscas}
+        onChange={(e) => onUpdate('buscas', e.target.value.replace(/\D/g, ''))}
+        className="input-field text-sm h-8 px-2 text-right"
+        placeholder="0"
+      />
+
+      {/* Concorrência — select estilizado */}
+      <div className="relative">
+        <select
+          value={kw.concorrencia}
+          onChange={(e) => onUpdate('concorrencia', e.target.value)}
+          className={`w-full h-8 pl-2 pr-6 text-xs font-semibold rounded-lg border appearance-none cursor-pointer ${CONCORRENCIA_STYLE[kw.concorrencia]}`}
+        >
+          {CONCORRENCIA_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none opacity-60" />
+      </div>
+
+      {/* Remover */}
+      <button
+        onClick={onRemove}
+        disabled={isOnly}
+        className="w-8 h-8 flex items-center justify-center rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )
+}
+
+// ─── Keyword Group Card ────────────────────────────────────────────────────────
+function KeywordGroupCard({ group, index, onUpdateName, onAddKeyword, onRemoveKeyword, onUpdateKeyword, onRemoveGroup, canRemoveGroup }) {
+  const filledCount = group.keywords.filter((k) => k.keyword.trim()).length
+
+  return (
+    <div className="bg-rl-surface border border-rl-border rounded-xl overflow-hidden">
+      {/* Group Header */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-rl-card border-b border-rl-border">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <span className="text-xs font-bold text-rl-muted shrink-0">#{index + 1}</span>
+          <input
+            value={group.name}
+            onChange={(e) => onUpdateName(e.target.value)}
+            className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-rl-text focus:outline-none placeholder:text-rl-muted/50"
+            placeholder={`Grupo ${index + 1}`}
+          />
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {filledCount > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-cyan/10 text-rl-cyan border border-rl-cyan/20">
+              {filledCount} palavra{filledCount !== 1 ? 's' : ''}
+            </span>
+          )}
+          <button
+            onClick={onRemoveGroup}
+            disabled={!canRemoveGroup}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+            title="Remover grupo"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Table header */}
+      <div className="grid grid-cols-[1fr_110px_130px_32px] gap-2 px-4 pt-3 pb-1.5">
+        <span className="text-[10px] font-semibold text-rl-muted uppercase tracking-wide">Palavra-chave</span>
+        <span className="text-[10px] font-semibold text-rl-muted uppercase tracking-wide text-right">Buscas/mês</span>
+        <span className="text-[10px] font-semibold text-rl-muted uppercase tracking-wide">Concorrência</span>
+        <span />
+      </div>
+
+      {/* Keywords */}
+      <div className="px-4 pb-3 space-y-2">
+        {group.keywords.map((kw) => (
+          <KeywordRow
+            key={kw.id}
+            kw={kw}
+            onUpdate={(field, value) => onUpdateKeyword(kw.id, field, value)}
+            onRemove={() => onRemoveKeyword(kw.id)}
+            isOnly={group.keywords.length === 1}
+          />
+        ))}
+
+        {/* Add keyword */}
+        <button
+          onClick={onAddKeyword}
+          className="flex items-center gap-1.5 text-xs text-rl-muted hover:text-rl-cyan transition-colors mt-2"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Adicionar palavra-chave
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function GoogleAdsModule({ project }) {
   const { updateProject } = useApp()
 
   // ── Form state ───────────────────────────────────────────────────────────────
-  const [keywords,      setKeywords]      = useState('')
-  const [landingPage,   setLandingPage]   = useState('')
-  const [mainOffer,     setMainOffer]     = useState('')
-  const [city,          setCity]          = useState(() => project.city || '')
-  const [objections,    setObjections]    = useState('')
+  const [keywordGroups, setKeywordGroups] = useState(() => {
+    const last = (project.googleAds || []).at(-1)
+    if (last?.keywordGroups?.length > 0) return last.keywordGroups
+    return [newGroup(0)]
+  })
   const [campaignTypes, setCampaignTypes] = useState(new Set(['generico']))
   const [customNote,    setCustomNote]    = useState('')
 
@@ -118,6 +250,7 @@ export default function GoogleAdsModule({ project }) {
   const [error,   setError]   = useState(null)
   const [result,  setResult]  = useState(null)
 
+  // ── Campaign type toggle ──────────────────────────────────────────────────────
   const toggleType = useCallback((id) => {
     setCampaignTypes((prev) => {
       const next = new Set(prev)
@@ -126,31 +259,71 @@ export default function GoogleAdsModule({ project }) {
     })
   }, [])
 
-  const selectedTypes = CAMPAIGN_TYPES.filter((t) => campaignTypes.has(t.id))
+  // ── Keyword Group helpers ─────────────────────────────────────────────────────
+  function addGroup() {
+    setKeywordGroups((prev) => [...prev, newGroup(prev.length)])
+  }
 
+  function removeGroup(groupId) {
+    setKeywordGroups((prev) => prev.filter((g) => g.id !== groupId))
+  }
+
+  function updateGroupName(groupId, name) {
+    setKeywordGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, name } : g))
+  }
+
+  function addKeyword(groupId) {
+    setKeywordGroups((prev) => prev.map((g) =>
+      g.id === groupId ? { ...g, keywords: [...g.keywords, newKeyword()] } : g
+    ))
+  }
+
+  function removeKeyword(groupId, kwId) {
+    setKeywordGroups((prev) => prev.map((g) =>
+      g.id === groupId ? { ...g, keywords: g.keywords.filter((k) => k.id !== kwId) } : g
+    ))
+  }
+
+  function updateKeyword(groupId, kwId, field, value) {
+    setKeywordGroups((prev) => prev.map((g) =>
+      g.id === groupId
+        ? { ...g, keywords: g.keywords.map((k) => k.id === kwId ? { ...k, [field]: value } : k) }
+        : g
+    ))
+  }
+
+  // ── Derived ──────────────────────────────────────────────────────────────────
+  const selectedTypes  = CAMPAIGN_TYPES.filter((t) => campaignTypes.has(t.id))
+  const totalKeywords  = keywordGroups.reduce((acc, g) => acc + g.keywords.filter((k) => k.keyword.trim()).length, 0)
+  const canGenerate    = campaignTypes.size > 0 && totalKeywords > 0
+
+  // ── Build instruction for AI ──────────────────────────────────────────────────
   const buildInstruction = useCallback(() => {
     const typesStr = selectedTypes.map((t) => `${t.emoji} ${t.label}: ${t.desc}`).join('\n')
     const customSection = customNote.trim()
       ? `\n## INSTRUÇÕES ADICIONAIS\n${customNote.trim()}\n`
       : ''
 
-    return `${customSection}
-## DADOS ESPECÍFICOS PARA ESTA CAMPANHA
+    const groupsStr = keywordGroups
+      .filter((g) => g.keywords.some((k) => k.keyword.trim()))
+      .map((g) => {
+        const header = `### Grupo: ${g.name || 'Sem nome'}\n| PALAVRA-CHAVE | BUSCAS/MÊS | CONCORRÊNCIA |\n|---|---|---|`
+        const rows = g.keywords
+          .filter((k) => k.keyword.trim())
+          .map((k) => {
+            const buscas = k.buscas ? Number(k.buscas).toLocaleString('pt-BR') : '—'
+            return `| ${k.keyword} | ${buscas} | ${k.concorrencia} |`
+          })
+          .join('\n')
+        return `${header}\n${rows}`
+      })
+      .join('\n\n')
 
-**Palavras-chave semente:**
-${keywords || '(use os dados do produto/serviço do contexto do cliente)'}
+    return `${customSection}## PALAVRAS-CHAVE COM VOLUME DE BUSCA E CONCORRÊNCIA
 
-**Landing Page / Página de destino:**
-${landingPage || '(use os dados do produto/serviço do contexto do cliente)'}
+Use estes dados reais para criar clusters semânticos e estruturar as campanhas. Priorize palavras com maior volume e menor concorrência. Palavras com concorrência Alta exigem lances maiores — considere isso na estratégia de lance:
 
-**Diferencial / Oferta principal:**
-${mainOffer || '(use a Oferta Matadora do contexto do cliente)'}
-
-**Cidade / Região de atuação:**
-${city || '(use o contexto do cliente)'}
-
-**Objeções comuns dos clientes:**
-${objections || '(use as objeções das personas no contexto do cliente)'}
+${groupsStr}
 
 ---
 
@@ -159,10 +332,10 @@ ${objections || '(use as objeções das personas no contexto do cliente)'}
 Crie a estrutura completa para as seguintes campanhas:
 ${typesStr}
 
-Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas, oferta) em conjunto com os dados específicos acima para criar anúncios altamente personalizados e relevantes. Aplique a metodologia Bolo de Cenoura Fofinho em todos os grupos de anúncios.`
-  }, [keywords, landingPage, mainOffer, city, objections, customNote, selectedTypes])
+Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas, oferta) em conjunto com os grupos de palavras-chave acima para criar anúncios altamente personalizados e relevantes. Aplique a metodologia Bolo de Cenoura Fofinho em todos os grupos de anúncios.`
+  }, [keywordGroups, customNote, selectedTypes])
 
-  // ── Generate ─────────────────────────────────────────────────────────────────
+  // ── Generate ──────────────────────────────────────────────────────────────────
   const generate = useCallback(async () => {
     if (!campaignTypes.size) return
     setLoading(true)
@@ -182,12 +355,10 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
         onChunk:    (text) => setResult(text),
       })
 
-      // Save to project history
       const entry = {
         id:            Date.now(),
         campaignTypes: [...campaignTypes],
-        keywords:      keywords.trim(),
-        city:          city.trim(),
+        keywordGroups,
         content:       fullText,
         createdAt:     new Date().toISOString(),
       }
@@ -199,10 +370,9 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
     } finally {
       setLoading(false)
     }
-  }, [buildInstruction, campaignTypes, city, keywords, project, updateProject])
+  }, [buildInstruction, campaignTypes, keywordGroups, project, updateProject])
 
-  const canGenerate = campaignTypes.size > 0 && keywords.trim().length > 0
-
+  // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
 
@@ -210,11 +380,11 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
       <div>
         <h2 className="text-xl font-bold text-rl-text mb-1">Google Ads — Estrutura de Campanhas</h2>
         <p className="text-sm text-rl-muted">
-          Preencha os dados abaixo para gerar a estrutura completa de campanhas com grupos de anúncios, palavras-chave, RSAs e gatilhos emocionais.
+          Adicione os grupos de palavras-chave com volume e concorrência para gerar a estrutura completa de campanhas com RSAs e gatilhos emocionais.
         </p>
       </div>
 
-      {/* ── Metodologia Info ── */}
+      {/* Metodologia info */}
       <div className="bg-rl-cyan/5 border border-rl-cyan/20 rounded-xl px-4 py-3">
         <p className="text-xs font-semibold text-rl-cyan mb-1">🍰 Metodologia Bolo de Cenoura Fofinho</p>
         <p className="text-xs text-rl-muted">
@@ -222,75 +392,40 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
         </p>
       </div>
 
-      {/* ── Form ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-        {/* Keywords — full width, obrigatório */}
-        <div className="sm:col-span-2">
-          <label className="label-field">
-            Palavras-chave semente
-            <span className="ml-1 text-red-400 font-normal">*</span>
-            <span className="ml-1 text-[10px] text-rl-muted font-normal normal-case">(obrigatório — uma por linha ou separadas por vírgula)</span>
-          </label>
-          <textarea
-            value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
-            rows={3}
-            className="input-field w-full text-sm resize-none"
-            placeholder={'Ex: gestor de tráfego\ngestão de tráfego pago\ngerente de anúncios\nagência de tráfego'}
-          />
-          {keywords.trim() && (
-            <p className="text-xs text-rl-green mt-1.5 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> {keywords.trim().split(/[\n,]/).filter((k) => k.trim()).length} palavra{keywords.trim().split(/[\n,]/).filter((k) => k.trim()).length !== 1 ? 's' : ''} semente adicionada{keywords.trim().split(/[\n,]/).filter((k) => k.trim()).length !== 1 ? 's' : ''}
-            </p>
-          )}
+      {/* ── Keyword Groups ── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <label className="label-field mb-0">Grupos de Palavras-chave</label>
+            {totalKeywords > 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-green/10 text-rl-green border border-rl-green/20">
+                {totalKeywords} palavra{totalKeywords !== 1 ? 's' : ''} · {keywordGroups.length} grupo{keywordGroups.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Landing Page */}
-        <div>
-          <label className="label-field">URL ou descrição da Landing Page</label>
-          <input
-            value={landingPage}
-            onChange={(e) => setLandingPage(e.target.value)}
-            className="input-field w-full text-sm"
-            placeholder="https://seusite.com.br/lp ou descreva: título, oferta, CTA..."
+        {keywordGroups.map((group, idx) => (
+          <KeywordGroupCard
+            key={group.id}
+            group={group}
+            index={idx}
+            onUpdateName={(name) => updateGroupName(group.id, name)}
+            onAddKeyword={() => addKeyword(group.id)}
+            onRemoveKeyword={(kwId) => removeKeyword(group.id, kwId)}
+            onUpdateKeyword={(kwId, field, value) => updateKeyword(group.id, kwId, field, value)}
+            onRemoveGroup={() => removeGroup(group.id)}
+            canRemoveGroup={keywordGroups.length > 1}
           />
-        </div>
+        ))}
 
-        {/* City */}
-        <div>
-          <label className="label-field">Cidade / Região de atuação</label>
-          <input
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            className="input-field w-full text-sm"
-            placeholder="Ex: São Paulo, Belo Horizonte, Todo o Brasil..."
-          />
-        </div>
-
-        {/* Main Offer */}
-        <div>
-          <label className="label-field">Diferencial / Oferta principal</label>
-          <textarea
-            value={mainOffer}
-            onChange={(e) => setMainOffer(e.target.value)}
-            rows={2}
-            className="input-field w-full text-sm resize-none"
-            placeholder="Ex: primeira consulta grátis, resultado em 30 dias, 10 anos de experiência..."
-          />
-        </div>
-
-        {/* Objections */}
-        <div>
-          <label className="label-field">Objeções comuns dos clientes</label>
-          <textarea
-            value={objections}
-            onChange={(e) => setObjections(e.target.value)}
-            rows={2}
-            className="input-field w-full text-sm resize-none"
-            placeholder="Ex: é caro, não tenho tempo, já tentei e não funcionou..."
-          />
-        </div>
+        <button
+          onClick={addGroup}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-rl-border text-rl-muted hover:border-rl-cyan/40 hover:text-rl-cyan hover:bg-rl-cyan/5 transition-all text-sm w-full justify-center"
+        >
+          <Plus className="w-4 h-4" />
+          Adicionar Grupo
+        </button>
       </div>
 
       {/* ── Campaign Types ── */}
@@ -362,7 +497,7 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
         />
       </div>
 
-      {/* ── Error ── */}
+      {/* Error */}
       {error && (
         <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -370,7 +505,7 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
         </div>
       )}
 
-      {/* ── Generate Button ── */}
+      {/* Generate Button */}
       {!result && (
         <div className="flex items-center gap-3 flex-wrap">
           <button
@@ -383,10 +518,10 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
               : <><Sparkles className="w-4 h-4" /> Gerar Estrutura Google Ads</>
             }
           </button>
-          {!keywords.trim() && !loading && (
-            <p className="text-xs text-rl-muted">Preencha as palavras-chave semente para gerar</p>
+          {totalKeywords === 0 && !loading && (
+            <p className="text-xs text-rl-muted">Adicione pelo menos uma palavra-chave para gerar</p>
           )}
-          {!campaignTypes.size && keywords.trim() && !loading && (
+          {!campaignTypes.size && totalKeywords > 0 && !loading && (
             <p className="text-xs text-rl-muted">Selecione pelo menos um tipo de campanha</p>
           )}
           {canGenerate && !loading && (
@@ -397,7 +532,7 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
         </div>
       )}
 
-      {/* ── Results ── */}
+      {/* Results */}
       {result && (
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -428,7 +563,7 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
         </div>
       )}
 
-      {/* ── History ── */}
+      {/* History */}
       <AdsHistory project={project} updateProject={updateProject} />
     </div>
   )
