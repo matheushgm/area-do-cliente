@@ -243,7 +243,7 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-      <div className="glass-card w-full max-w-md p-6 border border-rl-border animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="glass-card w-full max-w-2xl p-6 border border-rl-border animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -301,16 +301,16 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
                       onClick={(e) => e.stopPropagation()}
                       className="w-4 h-4 accent-rl-purple shrink-0"
                     />
-                    <div className="w-7 h-7 rounded-full bg-gradient-rl flex items-center justify-center text-[11px] font-bold text-white shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-gradient-rl flex items-center justify-center text-xs font-bold text-white shrink-0">
                       {t.avatar || initials(t.name)}
                     </div>
-                    <span className="text-sm text-rl-text flex-1 leading-none">{t.name}</span>
+                    <span className="text-base text-rl-text flex-1 min-w-0 truncate leading-none">{t.name}</span>
                     {checked && (
                       <select
                         value={memberEntry.role}
                         onChange={(e) => { e.stopPropagation(); setMemberRole(t.id, e.target.value) }}
                         onClick={(e) => e.stopPropagation()}
-                        className="input-field text-xs py-1 px-2 h-auto"
+                        className="input-field text-xs py-1 px-2 h-auto w-48 shrink-0"
                       >
                         {SQUAD_MEMBER_ROLES.map((r) => (
                           <option key={r} value={r}>{r}</option>
