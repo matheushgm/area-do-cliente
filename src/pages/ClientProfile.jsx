@@ -1050,8 +1050,8 @@ export default function ClientProfile({ project: projectProp }) {
     <div className="space-y-0">
 
       {/* ── Profile Header ──────────────────────────────────────────────── */}
-      <div className="glass-card overflow-hidden border border-rl-green/20">
-        <div className="relative h-32 bg-gradient-to-br from-rl-purple/20 via-rl-blue/10 to-rl-cyan/5">
+      <div className="glass-card border border-rl-green/20">
+        <div className="relative h-32 bg-gradient-to-br from-rl-purple/20 via-rl-blue/10 to-rl-cyan/5 overflow-hidden rounded-t-xl">
           <div className="absolute inset-0 opacity-[0.12]"
             style={{ backgroundImage: 'radial-gradient(circle, #164496 1px, transparent 1px)', backgroundSize: '24px 24px' }}
           />
