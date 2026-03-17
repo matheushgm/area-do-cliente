@@ -160,6 +160,7 @@ export default function CampaignPlanner({ project, onSave }) {
 
   function handleSave() {
     const plan = {
+      id: project.campaignPlan?.id,  // preserve existing ID so upsert updates instead of inserting
       orcamentoTotal,
       valorJaUsado,
       totalBudget: budgetDisponivel, // backward compat

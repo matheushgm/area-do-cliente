@@ -932,6 +932,14 @@ export default function ClientProfile({ project: projectProp }) {
   const [logoSignedUrl, setLogoSignedUrl] = useState(null)
   const [squadOpen, setSquadOpen] = useState(false)
   const squadRef = useRef(null)
+  const [toast, setToast] = useState({ show: false, message: '' })
+  const toastTimer = useRef(null)
+
+  function showToast(message = 'Salvo com sucesso!') {
+    clearTimeout(toastTimer.current)
+    setToast({ show: true, message })
+    toastTimer.current = setTimeout(() => setToast({ show: false, message: '' }), 2800)
+  }
 
   useEffect(() => {
     if (!project.logoUrl) { setLogoSignedUrl(null); return }
@@ -956,17 +964,18 @@ export default function ClientProfile({ project: projectProp }) {
     updateProject(project.id, { logoUrl: path })
   }
 
-  function handleSaveOnboarding(data) { updateProject(project.id, data) }
-  function handleSaveROI(calc, result) { updateProject(project.id, { roiCalc: calc, roiResult: result }) }
-  function handleSavePersonas(personas) { updateProject(project.id, { personas }); setActiveSection('produtos') }
-  function handleSaveProdutos(produtos) { updateProject(project.id, { produtos }) }
-  function handleSaveOferta(ofertaData) { updateProject(project.id, { ofertaData }) }
-  function handleSaveCampaign(plan) { updateProject(project.id, { campaignPlan: plan }) }
-  function handleSaveEstrategia(estrategiaData) { updateProject(project.id, { estrategia: estrategiaData }) }
-  function handleSaveEstrategiaV2(data) { updateProject(project.id, { estrategiaV2: data }) }
+  function handleSaveOnboarding(data) { updateProject(project.id, data); showToast('Dados do cliente salvos!') }
+  function handleSaveROI(calc, result) { updateProject(project.id, { roiCalc: calc, roiResult: result }); showToast('ROI salvo!') }
+  function handleSavePersonas(personas) { updateProject(project.id, { personas }); setActiveSection('produtos'); showToast('Personas salvas!') }
+  function handleSaveProdutos(produtos) { updateProject(project.id, { produtos }); showToast('Produtos salvos!') }
+  function handleSaveOferta(ofertaData) { updateProject(project.id, { ofertaData }); showToast('Oferta salva!') }
+  function handleSaveCampaign(plan) { updateProject(project.id, { campaignPlan: plan }); showToast('Planejamento salvo!') }
+  function handleSaveEstrategia(estrategiaData) { updateProject(project.id, { estrategia: estrategiaData }); showToast('Estratégia salva!') }
+  function handleSaveEstrategiaV2(data) { updateProject(project.id, { estrategiaV2: data }); showToast('Análise salva!') }
 
   function handleSaveLinks(links) {
     updateProject(project.id, { links })
+    showToast('Links salvos!')
   }
 
   const companyInitials = initials(project.companyName)
@@ -1269,6 +1278,18 @@ export default function ClientProfile({ project: projectProp }) {
           </div>
         </div>
 
+      </div>
+
+      {/* ── Toast notification ───────────────────────────────────────────── */}
+      <div
+        className={`fixed bottom-6 right-6 z-[100] flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-2xl border transition-all duration-300 ${
+          toast.show
+            ? 'opacity-100 translate-y-0 bg-rl-card border-rl-green/30'
+            : 'opacity-0 translate-y-3 pointer-events-none bg-rl-card border-rl-green/30'
+        }`}
+      >
+        <CheckCircle2 className="w-4 h-4 text-rl-green shrink-0" />
+        <span className="text-sm font-medium text-rl-text">{toast.message}</span>
       </div>
     </div>
   )
