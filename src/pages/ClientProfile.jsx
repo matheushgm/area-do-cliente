@@ -1029,7 +1029,22 @@ export default function ClientProfile({ project: projectProp }) {
       case 'dados':        return <OnboardingContent project={project} onSave={handleSaveOnboarding} />
       case 'roi':          return <ROICalculator project={project} onSave={handleSaveROI} />
       case 'icp':          return <PersonaCreator project={project} onSave={handleSavePersonas} />
-      case 'produtos':     return <ProdutoServicoModule project={project} onSave={handleSaveProdutos} />
+      case 'produtos':     return (
+        <div className="space-y-4">
+          {hasProdutos && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => exportProdutoServicoPDF(project)}
+                className="btn-secondary flex items-center gap-2 text-sm"
+              >
+                <FileDown className="w-4 h-4" />
+                Exportar PDF
+              </button>
+            </div>
+          )}
+          <ProdutoServicoModule project={project} onSave={handleSaveProdutos} />
+        </div>
+      )
       case 'oferta':       return <OfertaMatadora project={project} onSave={handleSaveOferta} />
       case 'campaign':     return <CampaignPlanner project={project} onSave={handleSaveCampaign} />
       case 'anexos':       return <AnexosModule project={project} />
