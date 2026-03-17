@@ -79,13 +79,6 @@ function initials(name = '') {
 }
 
 // ─── Service detail labels (for display in OnboardingContent) ─────────────────
-const SERVICE_DETAIL_LABELS = {
-  imagemQty:    'Imagens',
-  videoQty:     'Vídeos',
-  estaticosQty: 'Estáticos',
-  qty:          'Qtd.',
-  nivel:        'Nível',
-}
 
 const CONTRACT_MODEL_LABELS = {
   aceleracao: '🚀 Programa de Aceleração',
@@ -663,16 +656,6 @@ function OnboardingContent({ project, onSave }) {
   const competitors = (project.competitors || []).filter(Boolean)
   const otherPeople = (project.otherPeople || []).filter((p) => p.name)
 
-  // Build service detail strings
-  const serviceDetailEntries = Object.entries(project.servicesData || {}).reduce((acc, [id, data]) => {
-    if (!data || Object.keys(data).length === 0) return acc
-    const parts = Object.entries(data)
-      .filter(([, v]) => v)
-      .map(([key, val]) => `${SERVICE_DETAIL_LABELS[key] || key}: ${val}`)
-      .join(' · ')
-    if (parts) acc.push({ id, detail: parts })
-    return acc
-  }, [])
 
   return (
     <div className="space-y-6">
@@ -741,23 +724,75 @@ function OnboardingContent({ project, onSave }) {
       {project.services?.length > 0 && (
         <div>
           <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">⚙️ Serviços Contratados</p>
-          <div className="flex flex-wrap gap-2 mb-3">
+
+          {/* Service chips */}
+          <div className="flex flex-wrap gap-2 mb-4">
             {project.services.map((s) => (
               <span key={s} className="px-3 py-1.5 rounded-full text-xs font-medium bg-rl-purple/10 text-rl-purple border border-rl-purple/20">
                 {s}
               </span>
             ))}
           </div>
-          {serviceDetailEntries.length > 0 && (
-            <div className="space-y-1.5">
-              {serviceDetailEntries.map(({ id, detail }) => (
-                <p key={id} className="text-xs text-rl-muted flex items-start gap-1.5">
-                  <span className="text-rl-purple/50 shrink-0">↳</span>
-                  <span>{detail}</span>
-                </p>
-              ))}
-            </div>
-          )}
+
+          {/* Deliverable cards — per service with sub-fields */}
+          {(() => {
+            const DELIVERABLE_META = {
+              imagemQty:    { label: 'Imagens',   icon: '📸', color: 'text-rl-gold   bg-rl-gold/10   border-rl-gold/20' },
+              videoQty:     { label: 'Vídeos',    icon: '🎬', color: 'text-rl-purple bg-rl-purple/10 border-rl-purple/20' },
+              estaticosQty: { label: 'Estáticos', icon: '🖼️', color: 'text-rl-blue  bg-rl-blue/10   border-rl-blue/20' },
+              qty:          { label: 'Páginas',   icon: '📄', color: 'text-rl-cyan  bg-rl-cyan/10   border-rl-cyan/20' },
+              nivel:        { label: 'Nível',     icon: '⭐', color: 'text-rl-gold   bg-rl-gold/10   border-rl-gold/20' },
+            }
+
+            const serviceRows = Object.entries(project.servicesData || {}).reduce((acc, [svcId, data]) => {
+              if (!data) return acc
+              const svcConfig = SERVICES_CONFIG.find((s) => s.id === svcId)
+              if (!svcConfig?.sub) return acc
+              const items = svcConfig.sub
+                .map(({ key }) => ({ key, value: data[key] }))
+                .filter(({ value }) => value !== '' && value != null && value !== '0' && value !== 0)
+              if (items.length) acc.push({ svcConfig, items })
+              return acc
+            }, [])
+
+            if (!serviceRows.length) return null
+
+            return (
+              <div className="mt-1 space-y-3">
+                <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider">📦 Entregáveis por Serviço</p>
+                {serviceRows.map(({ svcConfig, items }) => (
+                  <div key={svcConfig.id} className="rounded-xl border border-rl-border bg-rl-surface/50 px-3 py-3">
+                    <p className="text-xs font-semibold text-rl-text mb-2">
+                      {svcConfig.emoji} {svcConfig.label}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {items.map(({ key, value }) => {
+                        const meta = DELIVERABLE_META[key]
+                        if (!meta) return null
+                        const isText = isNaN(Number(value))
+                        return (
+                          <div
+                            key={key}
+                            className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${meta.color}`}
+                          >
+                            <span className="text-base leading-none">{meta.icon}</span>
+                            <div className="leading-tight">
+                              {isText ? (
+                                <p className="text-xs font-bold">{value}</p>
+                              ) : (
+                                <p className="text-xl font-extrabold leading-none">{value}</p>
+                              )}
+                              <p className="text-[10px] opacity-60">{meta.label}</p>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </div>
       )}
 
