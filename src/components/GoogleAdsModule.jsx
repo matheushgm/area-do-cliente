@@ -4,7 +4,7 @@ import { streamClaude } from '../lib/claude'
 import { buildCachedPayload } from '../lib/buildContext'
 import {
   Search, Sparkles, Loader2, AlertTriangle,
-  RotateCcw, CheckCircle2, Plus, Trash2, ChevronDown,
+  RotateCcw, CheckCircle2, Plus, Trash2, ChevronDown, Save,
 } from 'lucide-react'
 import AdsHistory, { ResultBlock } from './GoogleAds/AdsHistory'
 
@@ -236,19 +236,30 @@ function KeywordGroupCard({ group, index, onUpdateName, onAddKeyword, onRemoveKe
 export default function GoogleAdsModule({ project }) {
   const { updateProject } = useApp()
 
-  // ── Form state ───────────────────────────────────────────────────────────────
+  // ── Form state (restored from draft if it exists) ────────────────────────────
   const [keywordGroups, setKeywordGroups] = useState(() => {
-    const last = (project.googleAds || []).at(-1)
+    const draft = (project.googleAds || []).find((e) => e.isDraft)
+    if (draft?.keywordGroups?.length > 0) return draft.keywordGroups
+    const last = (project.googleAds || []).filter((e) => !e.isDraft).at(-1)
     if (last?.keywordGroups?.length > 0) return last.keywordGroups
     return [newGroup(0)]
   })
-  const [campaignTypes, setCampaignTypes] = useState(new Set(['generico']))
-  const [customNote,    setCustomNote]    = useState('')
+  const [campaignTypes, setCampaignTypes] = useState(() => {
+    const draft = (project.googleAds || []).find((e) => e.isDraft)
+    if (draft?.campaignTypes?.length > 0) return new Set(draft.campaignTypes)
+    return new Set(['generico'])
+  })
+  const [customNote, setCustomNote] = useState(() => {
+    const draft = (project.googleAds || []).find((e) => e.isDraft)
+    return draft?.customNote || ''
+  })
 
   // ── Generation state ─────────────────────────────────────────────────────────
-  const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState(null)
-  const [result,  setResult]  = useState(null)
+  const [loading,   setLoading]   = useState(false)
+  const [error,     setError]     = useState(null)
+  const [result,    setResult]    = useState(null)
+  const [saved,     setSaved]     = useState(false)
+  const savedTimer                = useState(null)
 
   // ── Campaign type toggle ──────────────────────────────────────────────────────
   const toggleType = useCallback((id) => {
@@ -290,6 +301,23 @@ export default function GoogleAdsModule({ project }) {
         ? { ...g, keywords: g.keywords.map((k) => k.id === kwId ? { ...k, [field]: value } : k) }
         : g
     ))
+  }
+
+  // ── Save draft ───────────────────────────────────────────────────────────────
+  function handleSaveDraft() {
+    clearTimeout(savedTimer.current)
+    const draft = {
+      id:            crypto.randomUUID(),
+      isDraft:       true,
+      campaignTypes: [...campaignTypes],
+      keywordGroups,
+      customNote,
+      createdAt:     new Date().toISOString(),
+    }
+    const nonDraft = (project.googleAds || []).filter((e) => !e.isDraft)
+    updateProject(project.id, { googleAds: [...nonDraft, draft] })
+    setSaved(true)
+    savedTimer.current = setTimeout(() => setSaved(false), 2500)
   }
 
   // ── Derived ──────────────────────────────────────────────────────────────────
@@ -505,30 +533,52 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
         </div>
       )}
 
-      {/* Generate Button */}
+      {/* Save + Generate Buttons */}
       {!result && (
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
-            onClick={generate}
-            disabled={!canGenerate || loading}
-            className="btn-primary flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {loading
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando estrutura...</>
-              : <><Sparkles className="w-4 h-4" /> Gerar Estrutura Google Ads</>
-            }
-          </button>
-          {totalKeywords === 0 && !loading && (
-            <p className="text-xs text-rl-muted">Adicione pelo menos uma palavra-chave para gerar</p>
-          )}
-          {!campaignTypes.size && totalKeywords > 0 && !loading && (
-            <p className="text-xs text-rl-muted">Selecione pelo menos um tipo de campanha</p>
-          )}
-          {canGenerate && !loading && (
-            <p className="text-xs text-rl-muted">
-              {selectedTypes.map((t) => t.label).join(' · ')}
-            </p>
-          )}
+        <div className="space-y-3">
+          {/* Save draft */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSaveDraft}
+              disabled={loading}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
+                saved
+                  ? 'bg-rl-green/10 border-rl-green/40 text-rl-green'
+                  : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-cyan/40 hover:text-rl-cyan'
+              }`}
+            >
+              {saved
+                ? <><CheckCircle2 className="w-4 h-4" /> Configurações salvas!</>
+                : <><Save className="w-4 h-4" /> Salvar configurações</>
+              }
+            </button>
+            <span className="text-[10px] text-rl-muted">Salva grupos e tipos sem gerar</span>
+          </div>
+
+          {/* Generate */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={generate}
+              disabled={!canGenerate || loading}
+              className="btn-primary flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {loading
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando estrutura...</>
+                : <><Sparkles className="w-4 h-4" /> Gerar Estrutura Google Ads</>
+              }
+            </button>
+            {totalKeywords === 0 && !loading && (
+              <p className="text-xs text-rl-muted">Adicione pelo menos uma palavra-chave para gerar</p>
+            )}
+            {!campaignTypes.size && totalKeywords > 0 && !loading && (
+              <p className="text-xs text-rl-muted">Selecione pelo menos um tipo de campanha</p>
+            )}
+            {canGenerate && !loading && (
+              <p className="text-xs text-rl-muted">
+                {selectedTypes.map((t) => t.label).join(' · ')}
+              </p>
+            )}
+          </div>
         </div>
       )}
 

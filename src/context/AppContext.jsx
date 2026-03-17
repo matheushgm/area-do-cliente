@@ -436,7 +436,7 @@ async function sbUpdateProjectV2(id, patch) {
         patch.googleAds.map((g) => ({
           id:               g.id || crypto.randomUUID(),
           project_id:       id,
-          answers:          { campaignTypes: g.campaignTypes, keywordGroups: g.keywordGroups ?? [] },
+          answers:          { campaignTypes: g.campaignTypes, keywordGroups: g.keywordGroups ?? [], isDraft: g.isDraft ?? false, customNote: g.customNote ?? '' },
           generated_content:g.content    ?? null,
           rating:           g.rating     ?? null,
           generated_at:     g.createdAt  ?? null,

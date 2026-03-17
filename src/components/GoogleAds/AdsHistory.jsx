@@ -31,7 +31,7 @@ export function ResultBlock({ content }) {
 }
 
 export default function AdsHistory({ project, updateProject }) {
-  const all = (project.googleAds || []).slice().reverse()
+  const all = (project.googleAds || []).filter((e) => !e.isDraft).slice().reverse()
   const [expandedId, setExpandedId] = useState(null)
   const [showAll, setShowAll] = useState(false)
 
@@ -76,8 +76,10 @@ export default function AdsHistory({ project, updateProject }) {
                     ) : null
                   })}
                 </div>
-                {entry.keywords && (
-                  <span className="text-[10px] text-rl-muted truncate hidden sm:block">· {entry.keywords.split('\n')[0].slice(0, 40)}</span>
+                {entry.keywordGroups?.length > 0 && (
+                  <span className="text-[10px] text-rl-muted truncate hidden sm:block">
+                    · {entry.keywordGroups.map((g) => g.name || 'Grupo').join(', ').slice(0, 40)}
+                  </span>
                 )}
               </div>
               <div className="flex items-center gap-1 shrink-0">
