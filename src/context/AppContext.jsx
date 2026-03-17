@@ -601,6 +601,9 @@ export function AppProvider({ children }) {
   // ── Team members ──────────────────────────────────────────────────────────
   const [teamMembers, setTeamMembers] = useState([]);
 
+  // ── Squads ────────────────────────────────────────────────────────────────
+  const [squads, setSquads] = useState([]);
+
   // ── Auth session restore + listener ───────────────────────────────────────
   useEffect(() => {
     if (!supabase) { setLoadingAuth(false); return; }
@@ -650,6 +653,15 @@ export function AppProvider({ children }) {
       .then(({ data, error }) => {
         if (error) { console.error("Erro ao carregar membros:", error); return; }
         if (data) setTeamMembers(data);
+      });
+
+    supabase
+      .from("squads")
+      .select("*")
+      .order("created_at")
+      .then(({ data, error }) => {
+        if (error) { console.error("Erro ao carregar squads:", error); return; }
+        if (data) setSquads(data);
       });
   }, []);
 
@@ -831,6 +843,40 @@ export function AppProvider({ children }) {
     sbDeleteProject(id);
   }, []);
 
+  // ── Squads CRUD ───────────────────────────────────────────────────────────
+  const addSquad = useCallback(async (data) => {
+    if (!supabase) return { error: "Supabase não configurado." };
+    const { data: row, error } = await supabase
+      .from("squads")
+      .insert({ name: data.name, emoji: data.emoji || null, members: data.members || [] })
+      .select()
+      .single();
+    if (error) return { error: error.message };
+    setSquads((prev) => [...prev, row]);
+    return { data: row };
+  }, []);
+
+  const updateSquad = useCallback(async (id, data) => {
+    if (!supabase) return { error: "Supabase não configurado." };
+    const { data: row, error } = await supabase
+      .from("squads")
+      .update({ name: data.name, emoji: data.emoji ?? null, members: data.members || [] })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) return { error: error.message };
+    setSquads((prev) => prev.map((s) => (s.id === id ? row : s)));
+    return { data: row };
+  }, []);
+
+  const deleteSquad = useCallback(async (id) => {
+    if (!supabase) return { error: "Supabase não configurado." };
+    const { error } = await supabase.from("squads").delete().eq("id", id);
+    if (error) return { error: error.message };
+    setSquads((prev) => prev.filter((s) => s.id !== id));
+    return {};
+  }, []);
+
   // ── Context value ─────────────────────────────────────────────────────────
   const value = {
     user,
@@ -846,6 +892,10 @@ export function AppProvider({ children }) {
     deleteProject,
     isSupabaseReady,
     teamMembers,
+    squads,
+    addSquad,
+    updateSquad,
+    deleteSquad,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
