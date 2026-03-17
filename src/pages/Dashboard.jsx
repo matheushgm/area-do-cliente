@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
@@ -19,6 +20,59 @@ function isProfileComplete(project) {
 function fmtCurrency(n) {
   if (!n || isNaN(n) || !isFinite(n)) return '—'
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+}
+
+// ─── Squad colors (must match UserManagement + ClientProfile) ──────────────────
+const SQUAD_COLORS = [
+  { bg: 'bg-rl-gold/15',   text: 'text-rl-gold',   border: 'border-rl-gold/30'   },
+  { bg: 'bg-rl-cyan/15',   text: 'text-rl-cyan',   border: 'border-rl-cyan/30'   },
+  { bg: 'bg-rl-purple/15', text: 'text-rl-purple',  border: 'border-rl-purple/30' },
+]
+
+function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
+  const ref = useRef(null)
+  const [tooltipPos, setTooltipPos] = useState(null)
+
+  if (!name) return <span className="text-rl-muted text-xs">—</span>
+  const c = SQUAD_COLORS[colorIndex % SQUAD_COLORS.length]
+
+  function handleMouseEnter() {
+    if (!members.length || !ref.current) return
+    const rect = ref.current.getBoundingClientRect()
+    setTooltipPos({ x: rect.left, y: rect.top })
+  }
+
+  return (
+    <>
+      <div
+        ref={ref}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setTooltipPos(null)}
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border cursor-default ${c.bg} ${c.text} ${c.border}`}
+      >
+        {emoji && <span className="text-[11px] leading-none">{emoji}</span>}
+        <span className="text-[11px] font-semibold whitespace-nowrap">{name}</span>
+      </div>
+
+      {tooltipPos && createPortal(
+        <div
+          style={{ position: 'fixed', left: tooltipPos.x, top: tooltipPos.y - 8, transform: 'translateY(-100%)' }}
+          className="z-[9999] pointer-events-none"
+        >
+          <div className="glass-card border border-rl-border shadow-xl py-2 px-3 rounded-xl min-w-[180px]">
+            <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider mb-1.5">{name}</p>
+            {members.map((m, i) => (
+              <div key={i} className="flex items-center justify-between gap-4 py-0.5">
+                <span className="text-xs text-rl-text whitespace-nowrap">{m.name}</span>
+                <span className="text-[10px] text-rl-muted whitespace-nowrap">{m.role}</span>
+              </div>
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  )
 }
 
 // ─── Creator badge ─────────────────────────────────────────────────────────────
@@ -98,9 +152,9 @@ function ProjectCard({ project, onClick, onDelete }) {
       </div>
       <p className="text-rl-muted text-xs mb-3">{project.responsibleName}{project.responsibleRole ? ` · ${project.responsibleRole}` : ''}</p>
 
-      {/* Creator badge */}
+      {/* Squad */}
       <div className="mb-3">
-        <CreatorBadge accountName={project.accountName} colorIndex={project.accountColorIndex} />
+        <SquadBadge name={project.squadName} emoji={project.squadEmoji} colorIndex={project.squadColorIndex} members={project.squadMembers ?? []} />
       </div>
 
       {/* Progress */}
@@ -178,9 +232,9 @@ function ClientProfileCard({ project, onClick, onDelete }) {
         </span>
       </div>
 
-      {/* Creator badge */}
+      {/* Squad */}
       <div className="mt-3 mb-3">
-        <CreatorBadge accountName={project.accountName} colorIndex={project.accountColorIndex} />
+        <SquadBadge name={project.squadName} emoji={project.squadEmoji} colorIndex={project.squadColorIndex} members={project.squadMembers ?? []} />
       </div>
 
       {/* Chips de resumo */}
@@ -220,22 +274,21 @@ function ClientProfileCard({ project, onClick, onDelete }) {
   )
 }
 
-// ─── Team Dropdown ────────────────────────────────────────────────────────────
+// ─── Squad Dropdown ───────────────────────────────────────────────────────────
 
-function TeamDropdown({ filter, setFilter, activeAccounts, counts, teamMembers }) {
+function SquadDropdown({ squadFilter, setSquadFilter, squads, counts }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
-  // Fecha ao clicar fora
   useEffect(() => {
     function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const activeMember = activeAccounts.find(m => String(m.id) === String(filter))
-  const label = activeMember ? activeMember.name.split(' ')[0] : 'Equipe'
-  const isFiltered = !!activeMember
+  const activeSquad = squads.find(s => String(s.id) === String(squadFilter))
+  const label = activeSquad ? (activeSquad.emoji ? `${activeSquad.emoji} ${activeSquad.name}` : activeSquad.name) : 'Squad'
+  const isFiltered = !!activeSquad
 
   return (
     <div ref={ref} className="relative shrink-0">
@@ -248,44 +301,41 @@ function TeamDropdown({ filter, setFilter, activeAccounts, counts, teamMembers }
         }`}
       >
         <Users className="w-3.5 h-3.5 shrink-0" />
-        <span>{label}</span>
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <span className="max-w-[120px] truncate">{label}</span>
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
         <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-52 glass-card border border-rl-border shadow-xl py-1 rounded-xl overflow-hidden">
-          {/* Todos */}
           <button
-            onClick={() => { setFilter('all'); setOpen(false) }}
+            onClick={() => { setSquadFilter('all'); setOpen(false) }}
             className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
               !isFiltered ? 'text-rl-purple font-semibold' : 'text-rl-muted'
             }`}
           >
-            <span>Todos os membros</span>
+            <span>Todos os squads</span>
             {!isFiltered && <span className="w-1.5 h-1.5 rounded-full bg-rl-purple" />}
           </button>
 
-          {activeAccounts.length > 0 && <div className="border-t border-rl-border/60 my-1" />}
+          {squads.length > 0 && <div className="border-t border-rl-border/60 my-1" />}
 
-          {/* Members */}
-          {activeAccounts.map((m) => {
-            const isActive = String(filter) === String(m.id)
-            const colorIdx = teamMembers.findIndex(tm => String(tm.id) === String(m.id))
-            const dot = CREATOR_COLORS[colorIdx >= 0 ? colorIdx % CREATOR_COLORS.length : 0].avatar
-            const count = counts?.members?.[String(m.id)] ?? 0
+          {squads.map((s, idx) => {
+            const isActive = String(squadFilter) === String(s.id)
+            const c = SQUAD_COLORS[idx % SQUAD_COLORS.length]
+            const count = counts?.squads?.[String(s.id)] ?? 0
             return (
               <button
-                key={m.id}
-                onClick={() => { setFilter(String(m.id)); setOpen(false) }}
+                key={s.id}
+                onClick={() => { setSquadFilter(String(s.id)); setOpen(false) }}
                 className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
                   isActive ? 'text-rl-text font-medium' : 'text-rl-muted'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
-                  <span>{m.name.split(' ').slice(0, 2).join(' ')}</span>
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${c.bg.replace('/15', '')}`} />
+                  <span className="truncate">{s.emoji ? `${s.emoji} ${s.name}` : s.name}</span>
                 </div>
-                <span className="text-[11px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-full">
+                <span className="text-[11px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-full shrink-0">
                   {count}
                 </span>
               </button>
@@ -300,7 +350,7 @@ function TeamDropdown({ filter, setFilter, activeAccounts, counts, teamMembers }
 // ─── List View ────────────────────────────────────────────────────────────────
 const LIST_COLS = [
   { key: 'companyName',     label: 'Empresa'             },
-  { key: 'accountName',     label: 'Equipe'              },
+  { key: 'squadName',       label: 'Squad'               },
   { key: 'responsibleName', label: 'Responsável / Cargo' },
   { key: 'status',          label: 'Status'              },
   { key: 'progress',        label: 'Progresso'           },
@@ -400,9 +450,9 @@ function ProjectListView({ projects, onNavigate, onDelete }) {
                     </div>
                   </td>
 
-                  {/* Equipe */}
+                  {/* Squad */}
                   <td className="px-4 py-3">
-                    <CreatorBadge accountName={p.accountName} colorIndex={p.accountColorIndex} />
+                    <SquadBadge name={p.squadName} emoji={p.squadEmoji} colorIndex={p.squadColorIndex} members={p.squadMembers ?? []} />
                   </td>
 
                   {/* Responsável / Cargo */}
@@ -554,11 +604,12 @@ function EmptyState({ onNew }) {
 export default function Dashboard() {
   const {
     user, projects, logout, deleteProject,
-    loadingProjects, isSupabaseReady, teamMembers,
+    loadingProjects, isSupabaseReady, teamMembers, squads,
   } = useApp()
   const navigate = useNavigate()
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [filter, setFilter] = useState('all') // 'all' | 'onboarding' | 'active' | accountId
+  const [squadFilter, setSquadFilter] = useState('all') // 'all' | squadId
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [view, setView] = useState(() => localStorage.getItem('rl_dashboard_view') || 'grid')
@@ -572,11 +623,12 @@ export default function Dashboard() {
 
   // Apply status/member filter
   const filteredProjects = (() => {
-    if (filter === 'all')        return baseProjects
-    if (filter === 'onboarding') return baseProjects.filter(p => p.status === 'onboarding')
-    if (filter === 'active')     return baseProjects.filter(p => p.status === 'active')
-    // Member filter
-    return baseProjects.filter(p => String(p.accountId) === String(filter))
+    let result = baseProjects
+    if (filter === 'onboarding')      result = result.filter(p => p.status === 'onboarding')
+    else if (filter === 'active')     result = result.filter(p => p.status === 'active')
+    else if (filter !== 'all')        result = result.filter(p => String(p.accountId) === String(filter))
+    if (squadFilter !== 'all')        result = result.filter(p => String(p.squad) === String(squadFilter))
+    return result
   })()
 
   // All active (non-disabled) team members appear in the sidebar filter
@@ -592,10 +644,20 @@ export default function Dashboard() {
     : filteredProjects
   ).map(p => {
     const memberIdx = teamMembers.findIndex(m => String(m.id) === String(p.accountId))
+    const squadIdx     = squads.findIndex(s => String(s.id) === String(p.squad))
+    const squad        = squadIdx >= 0 ? squads[squadIdx] : null
+    const squadMembers = (squad?.members ?? []).map(m => {
+      const profile = teamMembers.find(t => String(t.id) === String(m.profile_id))
+      return profile ? { name: profile.name, role: m.role } : null
+    }).filter(Boolean)
     return {
       ...p,
       accountName:       teamMembers[memberIdx]?.name ?? p.accountName,
       accountColorIndex: memberIdx >= 0 ? memberIdx : 0,
+      squadName:         squad?.name ?? null,
+      squadEmoji:        squad?.emoji ?? null,
+      squadColorIndex:   squadIdx >= 0 ? squadIdx : 0,
+      squadMembers,
     }
   })
 
@@ -606,6 +668,9 @@ export default function Dashboard() {
     active:     baseProjects.filter(p => p.status === 'active').length,
     members:    Object.fromEntries(
       activeAccounts.map(m => [String(m.id), baseProjects.filter(p => String(p.accountId) === String(m.id)).length])
+    ),
+    squads:     Object.fromEntries(
+      squads.map(s => [String(s.id), baseProjects.filter(p => String(p.squad) === String(s.id)).length])
     ),
   }
 
@@ -754,14 +819,13 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* Team filter dropdown */}
-              {activeAccounts.length > 0 && (
-                <TeamDropdown
-                  filter={filter}
-                  setFilter={setFilter}
-                  activeAccounts={activeAccounts}
+              {/* Squad filter dropdown */}
+              {squads.length > 0 && (
+                <SquadDropdown
+                  squadFilter={squadFilter}
+                  setSquadFilter={setSquadFilter}
+                  squads={squads}
                   counts={counts}
-                  teamMembers={teamMembers}
                 />
               )}
 

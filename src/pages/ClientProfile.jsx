@@ -80,32 +80,12 @@ function initials(name = '') {
 
 // ─── Squads ────────────────────────────────────────────────────────────────────
 
-const SQUADS = {
-  squad_01: {
-    id:      'squad_01',
-    name:    'Caça ROI',
-    emoji:   '🏹',
-    border:  'border-rl-gold/30',
-    bg:      'bg-rl-gold/10',
-    text:    'text-rl-gold',
-    members: [
-      { name: 'Victor Zampieri', role: 'Account' },
-      { name: 'André Tenório',   role: 'Gestor de Tráfego' },
-    ],
-  },
-  squad_02: {
-    id:      'squad_02',
-    name:    'Zero Churn',
-    emoji:   '🌀',
-    border:  'border-rl-cyan/30',
-    bg:      'bg-rl-cyan/10',
-    text:    'text-rl-cyan',
-    members: [
-      { name: 'Vitória Martins', role: 'Gestora de Tráfego' },
-      { name: 'Mário Marques',   role: 'Account' },
-    ],
-  },
-}
+const SQUAD_COLORS = [
+  { bg: 'bg-rl-gold/10',   border: 'border-rl-gold/30',   text: 'text-rl-gold'   },
+  { bg: 'bg-rl-cyan/10',   border: 'border-rl-cyan/30',   text: 'text-rl-cyan'   },
+  { bg: 'bg-rl-purple/10', border: 'border-rl-purple/30', text: 'text-rl-purple' },
+  { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400' },
+]
 
 // ─── Service detail labels (for display in OnboardingContent) ─────────────────
 
@@ -942,7 +922,7 @@ function ProjectDocs({ project }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ClientProfile({ project: projectProp }) {
-  const { updateProject, projects } = useApp()
+  const { updateProject, projects, squads, teamMembers } = useApp()
   const logoInputRef = useRef(null)
 
   const project = projects.find((p) => p.id === projectProp.id) || projectProp
@@ -1133,77 +1113,97 @@ export default function ClientProfile({ project: projectProp }) {
                 )}
 
                 {/* ── Squad Assignment ──────────────────────────────────── */}
-                <div className="mt-3 relative inline-block" ref={squadRef}>
-                  {project.squad && SQUADS[project.squad] ? (() => {
-                    const sq = SQUADS[project.squad]
-                    return (
-                      <div className="space-y-1.5">
-                        {/* Squad badge — click to change */}
+                {(() => {
+                  const currentSquadIdx = squads.findIndex((s) => s.id === project.squad)
+                  const currentSquad    = currentSquadIdx >= 0 ? squads[currentSquadIdx] : null
+                  const currentColors   = currentSquad ? SQUAD_COLORS[currentSquadIdx % SQUAD_COLORS.length] : null
+
+                  const resolveMembers = (sq) =>
+                    (sq.members || []).map((m) => {
+                      const profile = teamMembers.find((t) => t.id === m.profile_id)
+                      return { name: profile?.name || m.profile_id, role: m.role }
+                    })
+
+                  return (
+                    <div className="mt-3 relative inline-block" ref={squadRef}>
+                      {currentSquad ? (
+                        <div className="space-y-1.5">
+                          {/* Squad badge — click to change */}
+                          <button
+                            onClick={() => setSquadOpen((v) => !v)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-semibold text-xs transition-all ${currentColors.bg} ${currentColors.border} ${currentColors.text}`}
+                          >
+                            <Users2 className="w-3.5 h-3.5" />
+                            {currentSquad.emoji} {currentSquad.name}
+                            <ChevronDown className="w-3 h-3 opacity-60" />
+                          </button>
+                          {/* Members */}
+                          <div className="flex flex-wrap gap-2">
+                            {resolveMembers(currentSquad).map((m) => (
+                              <div key={m.name} className="flex items-center gap-1.5">
+                                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${currentColors.bg} ${currentColors.text}`}>
+                                  {initials(m.name)}
+                                </div>
+                                <span className="text-xs text-rl-muted">{m.name}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${currentColors.bg} ${currentColors.text} border ${currentColors.border}`}>{m.role}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
                         <button
                           onClick={() => setSquadOpen((v) => !v)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-semibold text-xs transition-all ${sq.bg} ${sq.border} ${sq.text}`}
+                          className="flex items-center gap-1.5 text-xs text-rl-muted border border-dashed border-rl-border px-3 py-1.5 rounded-full hover:border-rl-purple/40 hover:text-rl-purple transition-all"
                         >
                           <Users2 className="w-3.5 h-3.5" />
-                          {sq.emoji} {sq.name}
-                          <ChevronDown className="w-3 h-3 opacity-60" />
-                        </button>
-                        {/* Members */}
-                        <div className="flex flex-wrap gap-2">
-                          {sq.members.map((m) => (
-                            <div key={m.name} className="flex items-center gap-1.5">
-                              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${sq.bg} ${sq.text}`}>
-                                {initials(m.name)}
-                              </div>
-                              <span className="text-xs text-rl-muted">{m.name}</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${sq.bg} ${sq.text} border ${sq.border}`}>{m.role}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })() : (
-                    <button
-                      onClick={() => setSquadOpen((v) => !v)}
-                      className="flex items-center gap-1.5 text-xs text-rl-muted border border-dashed border-rl-border px-3 py-1.5 rounded-full hover:border-rl-purple/40 hover:text-rl-purple transition-all"
-                    >
-                      <Users2 className="w-3.5 h-3.5" />
-                      Designar Squad
-                    </button>
-                  )}
-
-                  {/* Dropdown */}
-                  {squadOpen && (
-                    <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
-                      {Object.values(SQUADS).map((sq) => (
-                        <button
-                          key={sq.id}
-                          onClick={() => { updateProject(project.id, { squad: sq.id }); setSquadOpen(false) }}
-                          className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
-                            project.squad === sq.id
-                              ? `${sq.bg} ${sq.text} border ${sq.border}`
-                              : 'hover:bg-rl-surface text-rl-text'
-                          }`}
-                        >
-                          <span className="text-base">{sq.emoji}</span>
-                          <div>
-                            <p className="font-bold leading-tight">Squad {sq.id === 'squad_01' ? '01' : '02'} — {sq.name}</p>
-                            <p className="text-[10px] opacity-60 leading-tight">{sq.members.map((m) => m.name).join(' · ')}</p>
-                          </div>
-                          {project.squad === sq.id && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
-                        </button>
-                      ))}
-                      {project.squad && (
-                        <button
-                          onClick={() => { updateProject(project.id, { squad: null }); setSquadOpen(false) }}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          Remover Squad
+                          Designar Squad
                         </button>
                       )}
+
+                      {/* Dropdown */}
+                      {squadOpen && (
+                        <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
+                          {squads.length === 0 && (
+                            <p className="px-3 py-2 text-xs text-rl-muted">Nenhum squad cadastrado.</p>
+                          )}
+                          {squads.map((sq, idx) => {
+                            const colors = SQUAD_COLORS[idx % SQUAD_COLORS.length]
+                            const members = resolveMembers(sq)
+                            return (
+                              <button
+                                key={sq.id}
+                                onClick={() => { updateProject(project.id, { squad: sq.id }); setSquadOpen(false) }}
+                                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
+                                  project.squad === sq.id
+                                    ? `${colors.bg} ${colors.text} border ${colors.border}`
+                                    : 'hover:bg-rl-surface text-rl-text'
+                                }`}
+                              >
+                                <span className="text-base">{sq.emoji || '👥'}</span>
+                                <div>
+                                  <p className="font-bold leading-tight">{sq.name}</p>
+                                  {members.length > 0 && (
+                                    <p className="text-[10px] opacity-60 leading-tight">{members.map((m) => m.name).join(' · ')}</p>
+                                  )}
+                                </div>
+                                {project.squad === sq.id && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
+                              </button>
+                            )
+                          })}
+                          {project.squad && (
+                            <button
+                              onClick={() => { updateProject(project.id, { squad: null }); setSquadOpen(false) }}
+                              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              Remover Squad
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  )
+                })()}
               </div>
 
               <div className="flex flex-col items-end gap-3 shrink-0">

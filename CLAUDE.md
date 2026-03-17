@@ -64,6 +64,7 @@ Todo o estado da aplicação vive em `src/context/AppContext.jsx`. Ele expõe:
 - `loadingAuth` — `true` até `getSession()` resolver; `RequireAuth` e `RequireAdmin` retornam `null` enquanto `true`, evitando redirect prematuro no callback OAuth (PKCE flow)
 - `authError` — string de erro de autenticação; setada quando `SIGNED_IN` ocorre para um usuário sem perfil em `profiles`
 - `projects` / `addProject` / `updateProject` / `deleteProject` — CRUD de projetos
+- `squads` / `addSquad` / `updateSquad` / `deleteSquad` — CRUD de equipes (tabela `squads`)
 - `teamMembers` — array de perfis do time com `disabled=false`, buscado da tabela `profiles`
 - `loadingProjects` / `isSupabaseReady` — estado de sincronização com a nuvem
 
@@ -104,6 +105,8 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
   - A role é lida diretamente do JWT: `auth.jwt() -> 'user_metadata' ->> 'role'`
 - **`profiles`** — espelha os metadados do Auth; usada para listar membros do time no Dashboard e pela gestão de usuários
   - RLS: leitura para qualquer autenticado; admins podem escrever qualquer perfil; cada usuário só escreve o próprio
+- **`squads`** — entidades de equipe gerenciáveis; `members` é JSONB array `[{ profile_id, role }]`; `projects_v2.squad` referencia por UUID com `ON DELETE SET NULL`
+  - RLS: leitura para qualquer autenticado; escrita apenas para admins
 
 #### Tabelas filhas (FK `project_id → projects_v2(id) ON DELETE CASCADE`)
 
@@ -160,13 +163,24 @@ Path convention: `{projectId}/{filename}`. Storage policies espelham as RLS das 
 
 `NewOnboarding` persiste rascunho em `localStorage` sob a chave `rl_new_onboarding_draft`; restaurado automaticamente na próxima visita. O payload enviado a `addProject` usa **snake_case** (mapeado direto para `projects_v2`).
 
-### Gestão de Usuários
+### Gestão de Usuários e Squads
 
+`src/pages/UserManagement.jsx` — página de gestão com duas abas; protegida pelo HOC `RequireAdmin` em `App.jsx`. Item "Usuários" na sidebar (`AppSidebar.jsx`) é renderizado apenas para admins.
+
+**Aba Usuários:**
 - `api/admin-users.js` — Vercel Edge Function que usa `SUPABASE_SERVICE_ROLE_KEY` para operações privilegiadas no Supabase Auth
   - Verifica o JWT do request e exige `role === 'admin'` antes de executar qualquer ação
   - Actions suportadas: `create_user` (cria usuário no Auth + perfil em `profiles`), `update_user` (atualiza metadados e perfil), `toggle_user` (ativa/desativa via campo `disabled` em `profiles` e `user_metadata`)
-- `src/pages/UserManagement.jsx` — página de gestão; protegida pelo HOC `RequireAdmin` em `App.jsx`, que redireciona para `/` caso o usuário não seja admin
-- Item "Usuários" na sidebar (`AppSidebar.jsx`) é renderizado apenas para admins
+
+**Aba Equipes (Squads):**
+- Squads são entidades gerenciáveis com `name`, `emoji` e `members` (JSONB array de `{ profile_id, role }`)
+- Roles disponíveis por membro: `Account Manager`, `Gestor de Tráfego`, `Designer`
+- CRUD via `addSquad` / `updateSquad` / `deleteSquad` no AppContext — escrevem direto no Supabase sem debounce (diferente de `updateProject`)
+- **Sem realtime** para a tabela `squads` — estado sincronizado manualmente via retorno das operações CRUD
+- RLS: leitura para qualquer autenticado; escrita exclusiva para admins
+- `projects_v2.squad` é UUID nullable com FK `ON DELETE SET NULL` (projeto perde o squad quando squad é excluído)
+- Atribuição de squad ao projeto feita via dropdown em `ClientProfile.jsx` → `updateProject(id, { squad: sq.id })`
+- `SQUAD_COLORS` — paleta cíclica de 3 cores (gold/cyan/purple) usada tanto em `UserManagement` quanto em `ClientProfile` para consistência visual
 
 ### Pendências (Phase 5)
 

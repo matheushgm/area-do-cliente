@@ -6,7 +6,7 @@ import AppSidebar from '../components/AppSidebar'
 import {
   Users, Plus, Pencil, UserX, UserCheck,
   X, AlertTriangle, Loader2, Menu,
-  ShieldCheck, User,
+  ShieldCheck, User, Users2, Trash2,
 } from 'lucide-react'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -201,11 +201,189 @@ function ToggleConfirmModal({ user, onConfirm, onClose, saving }) {
   )
 }
 
+// ── Squad Colors ────────────────────────────────────────────────────────────
+
+const SQUAD_COLORS = [
+  { bg: 'bg-rl-gold/10',   border: 'border-rl-gold/30',   text: 'text-rl-gold'   },
+  { bg: 'bg-rl-cyan/10',   border: 'border-rl-cyan/30',   text: 'text-rl-cyan'   },
+  { bg: 'bg-rl-purple/10', border: 'border-rl-purple/30', text: 'text-rl-purple' },
+  { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400' },
+]
+
+const SQUAD_MEMBER_ROLES = ['Account Manager', 'Gestor de Tráfego', 'Designer']
+
+// ── SquadFormModal ──────────────────────────────────────────────────────────
+
+function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
+  const isCreate = !initial
+  const [form, setForm] = useState({
+    name:    initial?.name    || '',
+    emoji:   initial?.emoji   || '',
+    members: initial?.members ? [...initial.members] : [],
+  })
+
+  const valid = form.name.trim().length > 0
+
+  function toggleMember(profileId) {
+    setForm((prev) => {
+      const exists = prev.members.find((m) => m.profile_id === profileId)
+      if (exists) {
+        return { ...prev, members: prev.members.filter((m) => m.profile_id !== profileId) }
+      }
+      return { ...prev, members: [...prev.members, { profile_id: profileId, role: SQUAD_MEMBER_ROLES[0] }] }
+    })
+  }
+
+  function setMemberRole(profileId, role) {
+    setForm((prev) => ({
+      ...prev,
+      members: prev.members.map((m) => m.profile_id === profileId ? { ...m, role } : m),
+    }))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+      <div className="glass-card w-full max-w-2xl p-6 border border-rl-border animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Users2 className="w-5 h-5 text-rl-cyan" />
+            <h2 className="text-base font-bold text-rl-text">{isCreate ? 'Nova Equipe' : 'Editar Equipe'}</h2>
+          </div>
+          <button onClick={onClose} aria-label="Fechar" className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 mb-6">
+          {/* Nome */}
+          <div>
+            <label className="block text-xs font-semibold text-rl-text mb-1.5">Nome da equipe</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="Ex: Caça ROI"
+              className="input-field w-full"
+              autoFocus
+            />
+          </div>
+
+          {/* Emoji */}
+          <div>
+            <label className="block text-xs font-semibold text-rl-text mb-1.5">Emoji <span className="text-rl-muted font-normal">(opcional)</span></label>
+            <input
+              type="text"
+              value={form.emoji}
+              onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))}
+              placeholder="Ex: 🏹"
+              className="input-field w-full"
+              maxLength={4}
+            />
+          </div>
+
+          {/* Membros */}
+          <div>
+            <label className="block text-xs font-semibold text-rl-text mb-2">Membros</label>
+            <div className="space-y-2">
+              {teamMembers.map((t) => {
+                const memberEntry = form.members.find((m) => m.profile_id === t.id)
+                const checked     = !!memberEntry
+                return (
+                  <div key={t.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${checked ? 'bg-rl-surface border-rl-purple/30' : 'border-rl-border hover:border-rl-border/60'}`}
+                    onClick={() => toggleMember(t.id)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleMember(t.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-4 h-4 accent-rl-purple shrink-0"
+                    />
+                    <div className="w-8 h-8 rounded-full bg-gradient-rl flex items-center justify-center text-xs font-bold text-white shrink-0">
+                      {t.avatar || initials(t.name)}
+                    </div>
+                    <span className="text-base text-rl-text flex-1 min-w-0 truncate leading-none">{t.name}</span>
+                    {checked && (
+                      <select
+                        value={memberEntry.role}
+                        onChange={(e) => { e.stopPropagation(); setMemberRole(t.id, e.target.value) }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="input-field text-xs py-1 px-2 h-auto w-48 shrink-0"
+                      >
+                        {SQUAD_MEMBER_ROLES.map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )
+              })}
+              {teamMembers.length === 0 && (
+                <p className="text-xs text-rl-muted py-2">Nenhum membro disponível.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>Cancelar</button>
+          <button
+            onClick={() => onSave(form)}
+            disabled={!valid || saving}
+            className="flex-1 btn-primary disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            {isCreate ? 'Criar equipe' : 'Salvar alterações'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── DeleteSquadModal ────────────────────────────────────────────────────────
+
+function DeleteSquadModal({ squad, onConfirm, onClose, saving }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+      <div className="glass-card w-full max-w-sm p-6 border border-red-500/30 animate-slide-up shadow-2xl">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-red-500/10">
+            <Trash2 className="w-5 h-5 text-red-400" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-rl-text">Excluir equipe</h2>
+            <p className="text-xs text-rl-muted mt-0.5">Projetos vinculados perderão o squad.</p>
+          </div>
+        </div>
+        <div className="rounded-xl bg-rl-surface border border-rl-border px-4 py-3 mb-5">
+          <p className="text-[11px] text-rl-muted mb-0.5">Equipe</p>
+          <p className="text-sm font-bold text-rl-text">{squad.emoji} {squad.name}</p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>Cancelar</button>
+          <button
+            onClick={onConfirm}
+            disabled={saving}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-40"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            Excluir
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Página ─────────────────────────────────────────────────────────────────
 
 export default function UserManagement() {
-  const { user: currentUser } = useApp()
+  const { user: currentUser, squads, addSquad, updateSquad, deleteSquad, teamMembers } = useApp()
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState('users')
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -219,6 +397,12 @@ export default function UserManagement() {
   const [toggleTarget, setToggleTarget] = useState(null)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
+
+  // Squad state
+  const [showCreateSquad, setShowCreateSquad] = useState(false)
+  const [editSquadTarget, setEditSquadTarget] = useState(null)
+  const [deleteSquadTarget, setDeleteSquadTarget] = useState(null)
+  const [savingSquad, setSavingSquad] = useState(false)
 
   function showToast(msg, type = 'success', duration = 4000) {
     setToast({ msg, type })
@@ -305,6 +489,30 @@ export default function UserManagement() {
   }
   const ROLE_LABEL = { admin: 'Admin', account: 'Account' }
 
+  async function handleCreateSquad(form) {
+    setSavingSquad(true)
+    const result = await addSquad(form)
+    if (result.error) showToast(result.error, 'error')
+    else { showToast('Equipe criada com sucesso.'); setShowCreateSquad(false) }
+    setSavingSquad(false)
+  }
+
+  async function handleUpdateSquad(form) {
+    setSavingSquad(true)
+    const result = await updateSquad(editSquadTarget.id, form)
+    if (result.error) showToast(result.error, 'error')
+    else { showToast('Equipe atualizada.'); setEditSquadTarget(null) }
+    setSavingSquad(false)
+  }
+
+  async function handleDeleteSquad() {
+    setSavingSquad(true)
+    const result = await deleteSquad(deleteSquadTarget.id)
+    if (result.error) showToast(result.error, 'error')
+    else { showToast('Equipe excluída.'); setDeleteSquadTarget(null) }
+    setSavingSquad(false)
+  }
+
   return (
     <div className="min-h-screen flex bg-gradient-dark">
 
@@ -338,19 +546,56 @@ export default function UserManagement() {
           {/* Header */}
           <div className="flex items-center justify-between animate-slide-up">
             <div>
-              <h1 className="text-2xl font-bold text-rl-text">Gestão de Usuários</h1>
-              <p className="text-rl-muted text-sm mt-1">Crie, edite e gerencie o acesso do time.</p>
+              <h1 className="text-2xl font-bold text-rl-text">Configurações</h1>
+              <p className="text-rl-muted text-sm mt-1">Gerencie usuários e equipes do time.</p>
             </div>
+            {activeTab === 'users' ? (
+              <button
+                onClick={() => setShowCreate(true)}
+                className="btn-primary flex items-center gap-2 whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" />
+                Novo Usuário
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowCreateSquad(true)}
+                className="btn-primary flex items-center gap-2 whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" />
+                Nova Equipe
+              </button>
+            )}
+          </div>
+
+          {/* Abas */}
+          <div className="flex gap-1 p-1 rounded-xl bg-rl-surface border border-rl-border w-fit animate-slide-up" style={{ animationDelay: '0.03s' }}>
             <button
-              onClick={() => setShowCreate(true)}
-              className="btn-primary flex items-center gap-2 whitespace-nowrap"
+              onClick={() => setActiveTab('users')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'users'
+                  ? 'bg-rl-bg text-rl-text shadow-sm border border-rl-border'
+                  : 'text-rl-muted hover:text-rl-text'
+              }`}
             >
-              <Plus className="w-4 h-4" />
-              Novo Usuário
+              <Users className="w-4 h-4" />
+              Usuários
+            </button>
+            <button
+              onClick={() => setActiveTab('squads')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'squads'
+                  ? 'bg-rl-bg text-rl-text shadow-sm border border-rl-border'
+                  : 'text-rl-muted hover:text-rl-text'
+              }`}
+            >
+              <Users2 className="w-4 h-4" />
+              Equipes
             </button>
           </div>
 
-          {/* Tabela */}
+          {/* Aba Usuários */}
+          {activeTab === 'users' && (
           <div className="glass-card overflow-hidden animate-slide-up" style={{ animationDelay: '0.05s' }}>
             {loading ? (
               <div className="flex items-center justify-center py-16 gap-3 text-rl-muted">
@@ -453,6 +698,82 @@ export default function UserManagement() {
               </table>
             )}
           </div>
+          )}
+
+          {/* Aba Equipes */}
+          {activeTab === 'squads' && (
+            <div className="space-y-4 animate-slide-up" style={{ animationDelay: '0.05s' }}>
+              {squads.length === 0 ? (
+                <div className="glass-card flex flex-col items-center justify-center py-16 text-rl-muted">
+                  <Users2 className="w-10 h-10 mb-3 opacity-30" />
+                  <p className="text-sm">Nenhuma equipe cadastrada.</p>
+                  <button onClick={() => setShowCreateSquad(true)} className="mt-4 btn-ghost text-sm">
+                    Criar primeira equipe
+                  </button>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {squads.map((sq, idx) => {
+                    const colors   = SQUAD_COLORS[idx % SQUAD_COLORS.length]
+                    const members  = (sq.members || []).map((m) => {
+                      const profile = teamMembers.find((t) => t.id === m.profile_id)
+                      return { name: profile?.name || m.profile_id, role: m.role, avatar: profile?.avatar }
+                    })
+                    return (
+                      <div key={sq.id} className={`glass-card p-5 border ${colors.border} space-y-4`}>
+                        {/* Header do card */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${colors.bg} border ${colors.border}`}>
+                              {sq.emoji || '👥'}
+                            </div>
+                            <div>
+                              <p className={`font-bold text-sm ${colors.text}`}>{sq.name}</p>
+                              <p className="text-xs text-rl-muted">{members.length} membro{members.length !== 1 ? 's' : ''}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => setEditSquadTarget(sq)}
+                              aria-label="Editar equipe"
+                              className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
+                              title="Editar"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteSquadTarget(sq)}
+                              aria-label="Excluir equipe"
+                              className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Membros */}
+                        {members.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {members.map((m) => (
+                              <div key={m.name} className="flex items-center gap-1.5">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${colors.bg} ${colors.text}`}>
+                                  {m.avatar || (m.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase())}
+                                </div>
+                                <span className="text-xs text-rl-text">{m.name}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>{m.role}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
         </main>
       </div>
 
@@ -468,7 +789,7 @@ export default function UserManagement() {
         </div>
       )}
 
-      {/* Modais */}
+      {/* Modais — Usuários */}
       {showCreate && (
         <UserFormModal
           title="Novo Usuário"
@@ -493,6 +814,34 @@ export default function UserManagement() {
           onConfirm={handleToggle}
           onClose={() => setToggleTarget(null)}
           saving={saving}
+        />
+      )}
+
+      {/* Modais — Equipes */}
+      {showCreateSquad && (
+        <SquadFormModal
+          initial={null}
+          teamMembers={teamMembers}
+          onSave={handleCreateSquad}
+          onClose={() => setShowCreateSquad(false)}
+          saving={savingSquad}
+        />
+      )}
+      {editSquadTarget && (
+        <SquadFormModal
+          initial={editSquadTarget}
+          teamMembers={teamMembers}
+          onSave={handleUpdateSquad}
+          onClose={() => setEditSquadTarget(null)}
+          saving={savingSquad}
+        />
+      )}
+      {deleteSquadTarget && (
+        <DeleteSquadModal
+          squad={deleteSquadTarget}
+          onConfirm={handleDeleteSquad}
+          onClose={() => setDeleteSquadTarget(null)}
+          saving={savingSquad}
         />
       )}
     </div>
