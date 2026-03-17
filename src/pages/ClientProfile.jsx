@@ -6,7 +6,7 @@ import {
   Users, Zap, CalendarDays, Building2,
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
-  Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen,
+  Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -76,6 +76,35 @@ const MATURITY_LABELS = {
 
 function initials(name = '') {
   return name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('')
+}
+
+// ─── Squads ────────────────────────────────────────────────────────────────────
+
+const SQUADS = {
+  squad_01: {
+    id:      'squad_01',
+    name:    'Caça ROI',
+    emoji:   '🏹',
+    border:  'border-rl-gold/30',
+    bg:      'bg-rl-gold/10',
+    text:    'text-rl-gold',
+    members: [
+      { name: 'Victor Zampieri', role: 'Account' },
+      { name: 'André Tenório',   role: 'Gestor de Tráfego' },
+    ],
+  },
+  squad_02: {
+    id:      'squad_02',
+    name:    'Zero Churn',
+    emoji:   '🌀',
+    border:  'border-rl-cyan/30',
+    bg:      'bg-rl-cyan/10',
+    text:    'text-rl-cyan',
+    members: [
+      { name: 'Vitória Martins', role: 'Gestora de Tráfego' },
+      { name: 'Mário Marques',   role: 'Account' },
+    ],
+  },
 }
 
 // ─── Service detail labels (for display in OnboardingContent) ─────────────────
@@ -921,11 +950,22 @@ export default function ClientProfile({ project: projectProp }) {
   const [activeSection, setActiveSection] = useState('dados')
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [logoSignedUrl, setLogoSignedUrl] = useState(null)
+  const [squadOpen, setSquadOpen] = useState(false)
+  const squadRef = useRef(null)
 
   useEffect(() => {
     if (!project.logoUrl) { setLogoSignedUrl(null); return }
     getSignedUrl('brand-logos', project.logoUrl).then(setLogoSignedUrl)
   }, [project.logoUrl])
+
+  useEffect(() => {
+    if (!squadOpen) return
+    function handleClickOutside(e) {
+      if (squadRef.current && !squadRef.current.contains(e.target)) setSquadOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [squadOpen])
 
   async function handleLogoUpload(e) {
     const file = e.target.files[0]
@@ -1076,6 +1116,79 @@ export default function ClientProfile({ project: projectProp }) {
                     ))}
                   </div>
                 )}
+
+                {/* ── Squad Assignment ──────────────────────────────────── */}
+                <div className="mt-3 relative inline-block" ref={squadRef}>
+                  {project.squad && SQUADS[project.squad] ? (() => {
+                    const sq = SQUADS[project.squad]
+                    return (
+                      <div className="space-y-1.5">
+                        {/* Squad badge — click to change */}
+                        <button
+                          onClick={() => setSquadOpen((v) => !v)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-semibold text-xs transition-all ${sq.bg} ${sq.border} ${sq.text}`}
+                        >
+                          <Users2 className="w-3.5 h-3.5" />
+                          {sq.emoji} {sq.name}
+                          <ChevronDown className="w-3 h-3 opacity-60" />
+                        </button>
+                        {/* Members */}
+                        <div className="flex flex-wrap gap-2">
+                          {sq.members.map((m) => (
+                            <div key={m.name} className="flex items-center gap-1.5">
+                              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${sq.bg} ${sq.text}`}>
+                                {initials(m.name)}
+                              </div>
+                              <span className="text-xs text-rl-muted">{m.name}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${sq.bg} ${sq.text} border ${sq.border}`}>{m.role}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })() : (
+                    <button
+                      onClick={() => setSquadOpen((v) => !v)}
+                      className="flex items-center gap-1.5 text-xs text-rl-muted border border-dashed border-rl-border px-3 py-1.5 rounded-full hover:border-rl-purple/40 hover:text-rl-purple transition-all"
+                    >
+                      <Users2 className="w-3.5 h-3.5" />
+                      Designar Squad
+                    </button>
+                  )}
+
+                  {/* Dropdown */}
+                  {squadOpen && (
+                    <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
+                      {Object.values(SQUADS).map((sq) => (
+                        <button
+                          key={sq.id}
+                          onClick={() => { updateProject(project.id, { squad: sq.id }); setSquadOpen(false) }}
+                          className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
+                            project.squad === sq.id
+                              ? `${sq.bg} ${sq.text} border ${sq.border}`
+                              : 'hover:bg-rl-surface text-rl-text'
+                          }`}
+                        >
+                          <span className="text-base">{sq.emoji}</span>
+                          <div>
+                            <p className="font-bold leading-tight">Squad {sq.id === 'squad_01' ? '01' : '02'} — {sq.name}</p>
+                            <p className="text-[10px] opacity-60 leading-tight">{sq.members.map((m) => m.name).join(' · ')}</p>
+                          </div>
+                          {project.squad === sq.id && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
+                        </button>
+                      ))}
+                      {project.squad && (
+                        <button
+                          onClick={() => { updateProject(project.id, { squad: null }); setSquadOpen(false) }}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          Remover Squad
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-col items-end gap-3 shrink-0">

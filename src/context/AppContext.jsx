@@ -114,6 +114,7 @@ function assembleProject(row, rel = {}) {
     raioXFileName:        row.raio_x_file_url,
     slaFileName:          row.sla_file_url,
     logoUrl:              row.logo_url,
+    squad:                row.squad || null,
     accountId:            row.account_id,
     completedSteps:       row.completed_steps || [],
     createdAt:            row.created_at,
@@ -296,6 +297,7 @@ const PROJECT_FIELD_MAP = {
   raioXFileName:       "raio_x_file_url",
   slaFileName:         "sla_file_url",
   logoUrl:             "logo_url",
+  squad:               "squad",
   status:              "status",
   completedSteps:      "completed_steps",
   // snake_case passthrough (quando NewOnboarding já envia snake_case)
