@@ -243,7 +243,7 @@ async function sbFetchAll() {
     supabase.from("roi_calculators").select("*").in("project_id", ids),
     supabase.from("personas").select("*").in("project_id", ids),
     supabase.from("ofertas").select("*").in("project_id", ids),
-    supabase.from("campaign_plans").select("*").in("project_id", ids),
+    supabase.from("campaign_plans").select("*").in("project_id", ids).order("created_at", { ascending: false }),
     supabase.from("criativos").select("*").in("project_id", ids),
     supabase.from("google_ads").select("*").in("project_id", ids),
     supabase.from("landing_pages").select("*").in("project_id", ids),
@@ -395,14 +395,19 @@ async function sbUpdateProjectV2(id, patch) {
 
   // ── 5. Campaign plan ─────────────────────────────────────────────────────
   if (patch.campaignPlan !== undefined) {
+    await supabase.from("campaign_plans").delete().eq("project_id", id);
     const plan = patch.campaignPlan || {};
-    const { error } = await supabase.from("campaign_plans").upsert({
-      id:         plan.id || crypto.randomUUID(),
-      project_id: id,
-      name:       plan.name    || "Principal",
-      answers:    plan.answers || plan,
-    }, { onConflict: "id" });
-    if (error) console.error("[Supabase] upsert campaign_plans:", error.message);
+    const hasContent = Array.isArray(plan.channels) ? plan.channels.length > 0 : (plan.orcamentoTotal > 0 || plan.totalBudget > 0);
+    if (plan && hasContent) {
+      const { id: _planId, ...answers } = plan;
+      const { error } = await supabase.from("campaign_plans").insert({
+        id:         crypto.randomUUID(),
+        project_id: id,
+        name:       plan.name || "Principal",
+        answers,
+      });
+      if (error) console.error("[Supabase] insert campaign_plans:", error.message);
+    }
   }
 
   // ── 6. Criativos ─────────────────────────────────────────────────────────
