@@ -58,7 +58,7 @@ function enrichUser(authUser) {
     email:  authUser.email,
     name:   meta.name   || authUser.email.split("@")[0],
     avatar: meta.avatar || authUser.email.slice(0, 2).toUpperCase(),
-    role:   appMeta.role || "account",
+    role:   appMeta.role || "member",
   };
 }
 
