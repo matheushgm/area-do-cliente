@@ -100,7 +100,7 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
 
 #### Tabela principal
 
-- **`projects_v2`** — projetos com schema normalizado; UUID PK gerado via `crypto.randomUUID()` no browser antes do INSERT. Contém campos da empresa, contrato, equipe e serviços.
+- **`projects_v2`** — projetos com schema normalizado; UUID PK gerado via `crypto.randomUUID()` no browser antes do INSERT. Contém campos da empresa, contrato, equipe e serviços. Inclui `dashboard_url` (TEXT nullable) para link do Looker Studio editável inline no `ClientProfile`.
   - RLS: admins acessam todos; accounts acessam apenas onde `account_id = auth.uid()`
   - A role é lida diretamente do JWT: `auth.jwt() -> 'user_metadata' ->> 'role'`
 - **`profiles`** — espelha os metadados do Auth; usada para listar membros do time no Dashboard e pela gestão de usuários
@@ -115,10 +115,10 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
 | `roi_calculators` | N por projeto | `roiCalc` + `roiResult` |
 | `personas` | N por projeto | `personas` (array — delete+insert) |
 | `ofertas` | 1 por projeto | `ofertaData` |
-| `campaign_plans` | N por projeto | `campaignPlan` |
+| `campaign_plans` | 1 por projeto (DELETE+INSERT) | `campaignPlan` |
 | `resultados` | N por projeto (UNIQUE `project_id, period`) | pendente Phase 5 |
 | `criativos` | N por projeto | `creatives` (array — delete+insert) |
-| `google_ads` | N por projeto | `googleAds` (array — delete+insert) |
+| `google_ads` | N por projeto | `googleAds` (array — delete+insert); entrada com `isDraft=true` persiste rascunho de configuração |
 | `landing_pages` | N por projeto | `landingPages` (array — delete+insert) |
 | `banco_midia` | 1:1 com projeto | `brandFotos` / `brandVideos` / `brandKit` |
 | `estrategia` | 1:1 com projeto | `estrategia` |
@@ -158,6 +158,21 @@ Path convention: `{projectId}/{filename}`. Storage policies espelham as RLS das 
   - Authentication → Providers → Google: habilitar e configurar Client ID/Secret
   - Supabase → Authentication → Redirect URLs: adicionar URL raiz **e** wildcard (ex: `http://localhost:3000` e `http://localhost:3000/**`)
   - Google Cloud Console → OAuth Client → URIs de redirecionamento: `https://<projeto>.supabase.co/auth/v1/callback`
+
+### ClientProfile — layout e funcionalidades
+
+`src/pages/ClientProfile.jsx` — renderizado quando `allDone` no onboarding. Layout com sidebar de navegação + painel principal:
+
+- **Header:** nome da empresa, squad badge com dropdown de atribuição, botão "Dashboard" que abre `dashboard_url` (Looker Studio) em nova aba; ícone de lápis para editar o URL inline (confirmar com Enter/✓, cancelar com Esc/✕); quando vazio, exibe "Adicionar Dashboard"
+- **Módulos:** navegação lateral com seções — Perfil, ROI, Personas, Oferta, Campanha, Criativos, Google Ads, Landing Pages, Links, Estratégia, Produto/Serviço, Banco de Mídia, Resultados, Anexos
+- **Toast:** notificação bottom-right com `CheckCircle2` verde e auto-dismiss em 2.8s presente em todos os handlers de save
+
+### Google Ads (`GoogleAdsModule`)
+
+- Entrada via **grupos de palavras-chave** — cada grupo tem `nome` editável e tabela com colunas: palavra-chave, buscas/mês e concorrência (Baixo/Médio/Alto com badge colorido)
+- **Salvar configurações** persiste rascunho (`isDraft: true`) em `google_ads` sem gerar campanha; rascunho é restaurado automaticamente ao reabrir o módulo
+- `AdsHistory` filtra entradas com `isDraft=true` do histórico de gerações
+- A IA recebe os grupos formatados como tabela Markdown por grupo para geração mais precisa
 
 ### Draft de onboarding
 

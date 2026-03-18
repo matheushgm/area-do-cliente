@@ -17,13 +17,17 @@ Ao completar as 3 etapas, o projeto se torna um **Perfil Completo** — um docum
 ### Funcionalidades
 
 - Autenticação via Supabase Auth (email/senha + Google OAuth)
-- Dashboard com cards de projetos, stats (em onboarding, ativos, total) e filtros por status ou membro do time
+- Dashboard com cards/lista de projetos, stats e filtros por status, membro do time e squad
+- Squad badge com tooltip mostrando membros ao hover (grid e lista)
 - Controle de acesso: admins veem todos os projetos; usuários comuns veem apenas os seus
 - IA integrada (Claude API) para geração de personas, ofertas, criativos, Google Ads, landing pages e estratégia — anexos (PDF, imagens, texto) são enviados como conteúdo real ao Claude, não apenas o nome do arquivo
 - Sincronização em nuvem via Supabase com schema normalizado
 - Upload de arquivos para Supabase Storage (PDFs, logos, anexos)
 - Exportação de perfis em PDF
+- Botão "Dashboard" no perfil do cliente abre link do Looker Studio (editável inline)
+- Google Ads: grupos de palavras-chave com volume e concorrência; rascunho persistido sem gerar campanha
 - Gestão de usuários (admin): criar, editar nome/role, desativar/reativar membros do time
+- Gestão de squads (admin): criar equipes com emoji, membros e papéis; atribuir squads a projetos
 
 ## Stack
 
@@ -146,15 +150,16 @@ O schema é normalizado. A tabela principal é `projects_v2`; cada domínio tem 
 
 | Tabela | Descrição |
 |---|---|
-| `projects_v2` | Projetos — empresa, contrato, equipe, serviços; UUID PK |
+| `projects_v2` | Projetos — empresa, contrato, equipe, serviços; inclui `squad` (FK → squads), `dashboard_url` |
 | `profiles` | Perfis do time — sincronizados do Auth |
+| `squads` | Equipes gerenciáveis com `members` JSONB `[{profile_id, role}]` |
 | `roi_calculators` | Cenários de ROI (múltiplos por projeto) |
 | `personas` | Personas geradas por IA |
 | `ofertas` | Oferta matadora (1 por projeto) |
-| `campaign_plans` | Planos de campanha |
+| `campaign_plans` | Plano de campanha (DELETE+INSERT — 1 por projeto) |
 | `resultados` | Métricas semanais/mensais (UNIQUE por projeto + período) |
 | `criativos` | Criativos gerados por IA |
-| `google_ads` | Campanhas Google Ads geradas por IA |
+| `google_ads` | Campanhas Google Ads; entrada com `isDraft=true` persiste rascunho de configuração |
 | `landing_pages` | Landing pages geradas por IA |
 | `banco_midia` | Biblioteca de marca (1:1 com projeto) |
 | `estrategia` | Narrativa estratégica gerada por IA (1:1 com projeto) |
@@ -187,7 +192,7 @@ Todos os buckets são privados. Path: `{projectId}/{filename}`. Acesso via URL a
 ### Aplicar migrations em novo ambiente
 
 ```bash
-# As migrations estão em supabase/migrations/ — aplicar em ordem numérica (001 → 016)
+# As migrations estão em supabase/migrations/ — aplicar em ordem numérica (001 → 018)
 # via Supabase Dashboard → SQL Editor, ou com a Supabase CLI:
 supabase db push
 ```
