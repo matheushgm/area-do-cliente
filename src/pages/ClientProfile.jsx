@@ -7,6 +7,7 @@ import {
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
+  LayoutDashboard, ExternalLink, Check,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -932,6 +933,8 @@ export default function ClientProfile({ project: projectProp }) {
   const [logoSignedUrl, setLogoSignedUrl] = useState(null)
   const [squadOpen, setSquadOpen] = useState(false)
   const squadRef = useRef(null)
+  const [dashboardEditing, setDashboardEditing] = useState(false)
+  const [dashboardInput,   setDashboardInput]   = useState('')
   const [toast, setToast] = useState({ show: false, message: '' })
   const toastTimer = useRef(null)
 
@@ -1234,6 +1237,71 @@ export default function ClientProfile({ project: projectProp }) {
                       <Zap className="w-3.5 h-3.5 text-rl-gold" />
                       <span className="text-xs font-semibold text-rl-gold">{project.ofertaData.nome}</span>
                     </div>
+                  )}
+                </div>
+
+                {/* ── Dashboard Button ── */}
+                <div className="flex items-center gap-2">
+                  {dashboardEditing ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        value={dashboardInput}
+                        onChange={(e) => setDashboardInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            updateProject(project.id, { dashboardUrl: dashboardInput.trim() || null })
+                            setDashboardEditing(false)
+                          }
+                          if (e.key === 'Escape') setDashboardEditing(false)
+                        }}
+                        placeholder="https://lookerstudio.google.com/..."
+                        className="input-field text-xs h-8 px-3 w-72"
+                      />
+                      <button
+                        onClick={() => {
+                          updateProject(project.id, { dashboardUrl: dashboardInput.trim() || null })
+                          setDashboardEditing(false)
+                        }}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-rl-green/10 border border-rl-green/30 text-rl-green hover:bg-rl-green/20 transition-all"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setDashboardEditing(false)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : project.dashboardUrl ? (
+                    <div className="flex items-center gap-1.5">
+                      <a
+                        href={project.dashboardUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rl-cyan/10 border border-rl-cyan/30 text-rl-cyan text-sm font-semibold hover:bg-rl-cyan/20 transition-all"
+                      >
+                        <LayoutDashboard className="w-4 h-4" />
+                        Dashboard
+                        <ExternalLink className="w-3 h-3 opacity-70" />
+                      </a>
+                      <button
+                        onClick={() => { setDashboardInput(project.dashboardUrl || ''); setDashboardEditing(true) }}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-cyan hover:border-rl-cyan/30 transition-all"
+                        title="Editar link do Dashboard"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setDashboardInput(''); setDashboardEditing(true) }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-rl-border text-rl-muted text-sm hover:border-rl-cyan/40 hover:text-rl-cyan transition-all"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      Adicionar Dashboard
+                    </button>
                   )}
                 </div>
               </div>
