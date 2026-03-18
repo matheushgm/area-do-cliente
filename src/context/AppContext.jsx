@@ -51,13 +51,14 @@ function saveToStorage(data) {
 // ─── Helpers de usuário ────────────────────────────────────────────────────────
 function enrichUser(authUser) {
   if (!authUser) return null;
-  const meta = authUser.user_metadata || {};
+  const meta    = authUser.user_metadata || {};
+  const appMeta = authUser.app_metadata  || {};
   return {
     id:     authUser.id,
     email:  authUser.email,
     name:   meta.name   || authUser.email.split("@")[0],
     avatar: meta.avatar || authUser.email.slice(0, 2).toUpperCase(),
-    role:   meta.role   || "account",
+    role:   appMeta.role || "account",
   };
 }
 

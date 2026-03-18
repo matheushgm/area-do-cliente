@@ -35,7 +35,7 @@ export default async function handler(req) {
 
   const me = await meRes.json()
 
-  if (me?.user_metadata?.role !== 'admin') {
+  if (me?.app_metadata?.role !== 'admin') {
     return json({ error: 'Forbidden: apenas admins podem executar esta ação.' }, 403)
   }
 
@@ -63,7 +63,8 @@ export default async function handler(req) {
         email,
         password,
         email_confirm: true,
-        user_metadata: { name, avatar, role },
+        user_metadata: { name, avatar },
+        app_metadata:  { role },
       }),
     })
     const text = await res.text()
@@ -77,12 +78,12 @@ export default async function handler(req) {
     const avatar = name ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : undefined
     const payload = {}
     if (email) payload.email = email
-    if (name || role) {
+    if (name) {
       payload.user_metadata = {}
       if (name)   payload.user_metadata.name   = name
       if (avatar) payload.user_metadata.avatar = avatar
-      if (role)   payload.user_metadata.role   = role
     }
+    if (role) payload.app_metadata = { role }
     const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
       method: 'PUT',
       headers: {
