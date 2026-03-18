@@ -102,9 +102,9 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
 
 - **`projects_v2`** — projetos com schema normalizado; UUID PK gerado via `crypto.randomUUID()` no browser antes do INSERT. Contém campos da empresa, contrato, equipe e serviços. Inclui `dashboard_url` (TEXT nullable) para link do Looker Studio editável inline no `ClientProfile`.
   - RLS admins: acessam todos os projetos (`role = 'admin'` no JWT)
-  - RLS accounts — **acesso via squad** (migration `019`):
-    - SELECT/UPDATE/DELETE: `squad IN (SELECT id FROM squads WHERE members @> [{profile_id: uid}])`
-    - INSERT: `account_id = auth.uid()` (registra o autor)
+  - RLS accounts — **acesso via squad** (migration `020`):
+    - SELECT/UPDATE/DELETE/INSERT: via `is_squad_member(squad)` — função já existente no banco
+    - INSERT também requer: `account_id = auth.uid()` (registra o autor)
     - Projetos sem squad atribuído (`squad IS NULL`) ficam invisíveis para accounts
   - `account_id` é apenas registro do criador — não controla mais o acesso de leitura/edição
   - A role é lida diretamente do JWT: `auth.jwt() -> 'user_metadata' ->> 'role'`
