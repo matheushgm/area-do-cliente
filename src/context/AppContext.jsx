@@ -643,9 +643,17 @@ export function AppProvider({ children }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // ── Cloud sync on mount ───────────────────────────────────────────────────
+  // ── Cloud sync — re-executa quando usuário muda (login/logout) ───────────
   useEffect(() => {
     if (!isSupabaseReady) return;
+
+    if (!user) {
+      setProjects([]);
+      saveToStorage([]);
+      setLoadingProjects(false);
+      return;
+    }
+
     setLoadingProjects(true);
     sbFetchAll()
       .then((rows) => {
@@ -674,7 +682,7 @@ export function AppProvider({ children }) {
         if (error) { console.error("Erro ao carregar squads:", error); return; }
         if (data) setSquads(data);
       });
-  }, []);
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Real-time subscription (projects_v2) ──────────────────────────────────
   useEffect(() => {
