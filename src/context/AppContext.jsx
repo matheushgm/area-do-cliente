@@ -329,7 +329,7 @@ const PROJECT_FIELD_MAP = {
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────
 async function sbUpdateProjectV2(id, patch) {
-  if (!supabase) return;
+  if (!supabase) return { blocked: false };
 
   // ── 1. Campos da tabela projects_v2 ────────────────────────────────────────
   const projectCols = {};
@@ -338,8 +338,9 @@ async function sbUpdateProjectV2(id, patch) {
   }
   // progress é derivado — não persiste
   if (Object.keys(projectCols).length > 0) {
-    const { error } = await supabase.from("projects_v2").update(projectCols).eq("id", id);
+    const { data, error } = await supabase.from("projects_v2").update(projectCols).eq("id", id).select("id");
     if (error) console.error("[Supabase] update projects_v2:", error.message);
+    if (!error && data && data.length === 0) return { blocked: true };
   }
 
   // ── 2. ROI Calculator ────────────────────────────────────────────────────
@@ -566,6 +567,8 @@ async function sbUpdateProjectV2(id, patch) {
   // ── 13. Resultados (TODO Phase 5: ResultadosModule devolverá array de rows) ──
   // Por enquanto não persiste: a estrutura legada (nested object) não mapeia
   // diretamente para a tabela normalizada. Será tratado em Phase 5.
+
+  return { blocked: false };
 }
 
 async function sbDeleteProject(id) {
@@ -746,6 +749,8 @@ export function AppProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
+    localStorage.removeItem(LS_KEY);
+    localStorage.removeItem(LS_VER_KEY);
     if (supabase) await supabase.auth.signOut();
   }, []);
 
@@ -816,6 +821,7 @@ export function AppProvider({ children }) {
 
   const updateProject = useCallback((id, patch) => {
     setProjects((prev) => {
+      const before = prev.find((p) => p.id === id);
       const updated = prev.map((p) => {
         if (p.id !== id) return p;
         const merged = { ...p, ...patch };
@@ -832,6 +838,15 @@ export function AppProvider({ children }) {
         upsertTimers.current[id] = setTimeout(() => {
           pendingWrites.current += 1;
           sbUpdateProjectV2(id, patch)
+            .then(({ blocked }) => {
+              if (blocked && before) {
+                setProjects((cur) => {
+                  const reverted = cur.map((p) => p.id === id ? before : p);
+                  saveToStorage(reverted);
+                  return reverted;
+                });
+              }
+            })
             .catch((err) => console.error("Erro ao atualizar:", err))
             .finally(() => { pendingWrites.current -= 1; });
         }, 1000);
