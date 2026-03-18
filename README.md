@@ -168,15 +168,17 @@ O schema é normalizado. A tabela principal é `projects_v2`; cada domínio tem 
 
 ### Row Level Security (RLS)
 
-Todas as tabelas têm RLS habilitado:
+Todas as tabelas têm RLS habilitado. Role lida do JWT (`auth.jwt()->'user_metadata'->>'role'`).
 
-| Escopo | Regra |
-|---|---|
-| `projects_v2` | Admins acessam todos; accounts acessam apenas onde `account_id = auth.uid()` |
-| Tabelas filhas | RLS via subquery: `project_id IN (SELECT id FROM projects_v2 WHERE account_id = auth.uid())` |
-| `profiles` | Qualquer autenticado lê; admins escrevem qualquer perfil; cada usuário escreve o próprio |
+| Escopo | Admin | Account |
+|---|---|---|
+| `projects_v2` SELECT/UPDATE/DELETE | Todos | Squad do projeto contém o usuário como membro |
+| `projects_v2` INSERT | Todos | `account_id = auth.uid()` |
+| Tabelas filhas | Todas | `project_id` pertence a projeto acessível via squad |
+| `profiles` | Lê e escreve qualquer | Lê todos; escreve apenas o próprio |
+| `squads` | Lê e escreve | Apenas leitura |
 
-A role é lida diretamente do token JWT (`auth.jwt() -> 'user_metadata' ->> 'role'`), sem depender de tabela auxiliar.
+`account_id` é apenas registro do criador — não controla acesso de leitura/edição. Projetos sem squad atribuído são invisíveis para accounts.
 
 ### Supabase Storage
 
