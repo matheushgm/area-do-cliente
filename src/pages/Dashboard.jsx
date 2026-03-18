@@ -618,7 +618,8 @@ export default function Dashboard() {
 
   const isAdmin = user?.role === 'admin'
 
-  // Everyone sees all projects
+  // RLS no Supabase já filtra: admins veem tudo; accounts veem apenas projetos
+  // cujo squad atribuído inclui o usuário como membro
   const baseProjects = projects
 
   // Apply status/member filter
