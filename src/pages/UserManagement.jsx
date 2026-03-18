@@ -45,7 +45,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
     name: initial?.name || '',
     email: initial?.email || '',
     password: '',
-    role: initial?.role || 'account',
+    role: initial?.role || 'member',
   })
   const isCreate = !initial
 
@@ -119,7 +119,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
               onChange={e => set('role', e.target.value)}
               className="input-field w-full"
             >
-              <option value="account">Account Manager</option>
+              <option value="member">Membro</option>
               <option value="admin">Admin</option>
             </select>
           </div>
@@ -484,10 +484,10 @@ export default function UserManagement() {
   }
 
   const ROLE_BADGE = {
-    admin:   'text-rl-purple bg-rl-purple/10 border-rl-purple/30',
-    account: 'text-rl-blue   bg-rl-blue/10   border-rl-blue/30',
+    admin:  'text-rl-purple bg-rl-purple/10 border-rl-purple/30',
+    member: 'text-rl-blue   bg-rl-blue/10   border-rl-blue/30',
   }
-  const ROLE_LABEL = { admin: 'Admin', account: 'Account' }
+  const ROLE_LABEL = { admin: 'Admin', member: 'Membro' }
 
   async function handleCreateSquad(form) {
     setSavingSquad(true)
@@ -650,7 +650,7 @@ export default function UserManagement() {
                       <td className="px-5 py-4 text-rl-muted hidden md:table-cell">{u.email}</td>
                       {/* Role */}
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border ${ROLE_BADGE[u.role] || ROLE_BADGE.account}`}>
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border ${ROLE_BADGE[u.role] || ROLE_BADGE.member}`}>
                           {u.role === 'admin' ? <ShieldCheck className="w-3 h-3" /> : <User className="w-3 h-3" />}
                           {ROLE_LABEL[u.role] || u.role}
                         </span>
