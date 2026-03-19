@@ -377,7 +377,7 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
       })
       const fullText = await streamClaude({
         model:      'claude-sonnet-4-5',
-        max_tokens: 8000,
+        max_tokens: 16000,
         system,
         messages,
         onChunk:    (text) => setResult(text),

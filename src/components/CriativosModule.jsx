@@ -194,7 +194,7 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
       })
       const fullText = await streamClaude({
         model:      'claude-sonnet-4-5',
-        max_tokens: Math.max(4000, quantity * (isVideo ? 2500 : 900)),
+        max_tokens: 16000,
         system,
         messages,
         onChunk:    (text) => setResult(text),

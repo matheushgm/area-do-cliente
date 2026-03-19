@@ -133,7 +133,7 @@ Seja específico, cite números reais, mencione as personas pelo nome, a oferta 
       })
       const fullText = await streamClaude({
         model:      'claude-sonnet-4-5',
-        max_tokens: 10000,
+        max_tokens: 16000,
         system,
         messages,
         onChunk:    (text) => setStreaming(text),

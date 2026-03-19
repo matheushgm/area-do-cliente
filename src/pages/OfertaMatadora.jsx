@@ -229,7 +229,7 @@ Com base nesses dados, crie a Grande Oferta Matadora completa e refinada seguind
     try {
       const fullText = await streamClaude({
         model:      'claude-sonnet-4-5',
-        max_tokens: 4000,
+        max_tokens: 16000,
         system:     [{ type: 'text', text: GOM_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
         messages:   [{ role: 'user', content: buildPrompt() }],
         onChunk: (text) => set('generatedOffer', text),

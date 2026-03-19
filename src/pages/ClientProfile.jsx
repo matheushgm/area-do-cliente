@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
 import {
@@ -7,7 +8,7 @@ import {
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
-  LayoutDashboard, ExternalLink, Check,
+  LayoutDashboard, Check, Instagram, HardDrive,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -933,8 +934,15 @@ export default function ClientProfile({ project: projectProp }) {
   const [logoSignedUrl, setLogoSignedUrl] = useState(null)
   const [squadOpen, setSquadOpen] = useState(false)
   const squadRef = useRef(null)
-  const [dashboardEditing, setDashboardEditing] = useState(false)
-  const [dashboardInput,   setDashboardInput]   = useState('')
+  const [linkStep,         setLinkStep]         = useState('idle') // 'idle' | 'dropdown' | 'input'
+  const [linkPickedType,   setLinkPickedType]   = useState(null)
+  const [linkInput,        setLinkInput]        = useState('')
+  const [linkLabel,        setLinkLabel]        = useState('')
+  const linkRef = useRef(null)
+  const [overflowOpen, setOverflowOpen] = useState(false)
+  const overflowRef = useRef(null)
+  const [squadTooltipPos, setSquadTooltipPos] = useState(null)
+  const squadBadgeRef = useRef(null)
   const [toast, setToast] = useState({ show: false, message: '' })
   const toastTimer = useRef(null)
 
@@ -958,6 +966,26 @@ export default function ClientProfile({ project: projectProp }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [squadOpen])
 
+  useEffect(() => {
+    if (linkStep === 'idle') return
+    function handleClickOutside(e) {
+      if (linkRef.current && !linkRef.current.contains(e.target)) {
+        setLinkStep('idle'); setLinkPickedType(null); setLinkInput(''); setLinkLabel('')
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [linkStep])
+
+  useEffect(() => {
+    if (!overflowOpen) return
+    function handleClickOutside(e) {
+      if (overflowRef.current && !overflowRef.current.contains(e.target)) setOverflowOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [overflowOpen])
+
   async function handleLogoUpload(e) {
     const file = e.target.files[0]
     if (!file) return
@@ -975,10 +1003,25 @@ export default function ClientProfile({ project: projectProp }) {
   function handleSaveCampaign(plan) { updateProject(project.id, { campaignPlan: plan }); showToast('Planejamento salvo!') }
   function handleSaveEstrategia(estrategiaData) { updateProject(project.id, { estrategia: estrategiaData }); showToast('Estratégia salva!') }
   function handleSaveEstrategiaV2(data) { updateProject(project.id, { estrategiaV2: data }); showToast('Análise salva!') }
+  function handleSaveLinks(links) { updateProject(project.id, { links }); showToast('Links salvos!') }
 
-  function handleSaveLinks(links) {
-    updateProject(project.id, { links })
-    showToast('Links salvos!')
+
+  function resetLinkState() {
+    setLinkStep('idle'); setLinkPickedType(null); setLinkInput(''); setLinkLabel('')
+  }
+
+  function handleSaveLink() {
+    const raw = linkInput.trim()
+    if (!raw) return
+    const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+    if (linkPickedType === 'dashboard') {
+      updateProject(project.id, { dashboardUrl: url })
+    } else if (linkPickedType === 'outro') {
+      updateProject(project.id, { links: { ...lnk, outros: [...(lnk.outros || []), { label: linkLabel || 'Link', url }] } })
+    } else {
+      updateProject(project.id, { links: { ...lnk, [linkPickedType]: url } })
+    }
+    resetLinkState()
   }
 
   const companyInitials = initials(project.companyName)
@@ -1110,20 +1153,26 @@ export default function ClientProfile({ project: projectProp }) {
                   {project.responsibleName && ` · ${project.responsibleName}`}
                   {project.responsibleRole && ` · ${project.responsibleRole}`}
                 </p>
-                {project.contractDate && (
-                  <p className="text-xs text-rl-muted mt-1 flex items-center gap-1">
-                    <CalendarDays className="w-3.5 h-3.5" />
-                    Contrato: {new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                {(project.contractDate || project.contractModel || project.contractValue) && (
+                  <p className="text-xs text-rl-muted mt-1 flex items-center gap-1.5 flex-wrap">
+                    <CalendarDays className="w-3.5 h-3.5 shrink-0" />
+                    {project.contractDate && (
+                      <span>{new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                    )}
+                    {project.contractModel && (
+                      <>
+                        {project.contractDate && <span className="opacity-40">·</span>}
+                        <span>{CONTRACT_MODEL_LABELS[project.contractModel] || project.contractModel}</span>
+                      </>
+                    )}
+                    {project.contractValue && (
+                      <>
+                        <span className="opacity-40">·</span>
+                        <span className="font-semibold text-rl-subtle">{fmtCurrency(project.contractValue)}{project.contractModel === 'assessoria' ? '/mês' : ''}</span>
+                      </>
+                    )}
                   </p>
                 )}
-                {project.services?.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {project.services.map((s) => (
-                      <span key={s} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-rl-surface text-rl-muted border border-rl-border">{s}</span>
-                    ))}
-                  </div>
-                )}
-
                 {/* ── Squad Assignment ──────────────────────────────────── */}
                 {(() => {
                   const currentSquadIdx = squads.findIndex((s) => s.id === project.squad)
@@ -1139,28 +1188,40 @@ export default function ClientProfile({ project: projectProp }) {
                   return (
                     <div className="mt-3 relative inline-block" ref={squadRef}>
                       {currentSquad ? (
-                        <div className="space-y-1.5">
-                          {/* Squad badge — click to change */}
+                        <div className="flex items-center gap-3">
+                          {/* Squad badge — click to change, hover to preview members */}
                           <button
+                            ref={squadBadgeRef}
                             onClick={() => setSquadOpen((v) => !v)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-semibold text-xs transition-all ${currentColors.bg} ${currentColors.border} ${currentColors.text}`}
+                            onMouseEnter={() => {
+                              if (!squadBadgeRef.current) return
+                              const rect = squadBadgeRef.current.getBoundingClientRect()
+                              setSquadTooltipPos({ x: rect.left, y: rect.top })
+                            }}
+                            onMouseLeave={() => setSquadTooltipPos(null)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-semibold text-xs transition-all shrink-0 ${currentColors.bg} ${currentColors.border} ${currentColors.text}`}
                           >
                             <Users2 className="w-3.5 h-3.5" />
                             {currentSquad.emoji} {currentSquad.name}
                             <ChevronDown className="w-3 h-3 opacity-60" />
                           </button>
-                          {/* Members */}
-                          <div className="flex flex-wrap gap-2">
-                            {resolveMembers(currentSquad).map((m) => (
-                              <div key={m.name} className="flex items-center gap-1.5">
-                                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${currentColors.bg} ${currentColors.text}`}>
-                                  {initials(m.name)}
-                                </div>
-                                <span className="text-xs text-rl-muted">{m.name}</span>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${currentColors.bg} ${currentColors.text} border ${currentColors.border}`}>{m.role}</span>
+                          {squadTooltipPos && resolveMembers(currentSquad).length > 0 && createPortal(
+                            <div
+                              style={{ position: 'fixed', left: squadTooltipPos.x, top: squadTooltipPos.y - 8, transform: 'translateY(-100%)' }}
+                              className="z-[9999] pointer-events-none"
+                            >
+                              <div className="glass-card border border-rl-border shadow-xl py-2 px-3 rounded-xl min-w-[180px]">
+                                <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider mb-1.5">{currentSquad.name}</p>
+                                {resolveMembers(currentSquad).map((m, i) => (
+                                  <div key={i} className="flex items-center justify-between gap-4 py-0.5">
+                                    <span className="text-xs text-rl-text whitespace-nowrap">{m.name}</span>
+                                    <span className="text-[10px] text-rl-muted whitespace-nowrap">{m.role}</span>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
+                            </div>,
+                            document.body
+                          )}
                         </div>
                       ) : (
                         <button
@@ -1219,91 +1280,144 @@ export default function ClientProfile({ project: projectProp }) {
               </div>
 
               <div className="flex flex-col items-end gap-3 shrink-0">
-                <div className="flex flex-wrap gap-2 justify-end">
-                  {hasROI && (
-                    <div className="flex items-center gap-1.5 bg-rl-purple/10 border border-rl-purple/20 px-3 py-1.5 rounded-full">
-                      <TrendingUp className="w-3.5 h-3.5 text-rl-purple" />
-                      <span className="text-xs font-semibold text-rl-purple">{fmtCurrency(project.roiResult.totalInvestimento)}/mês</span>
-                    </div>
-                  )}
-                  {hasPersonas && (
-                    <div className="flex items-center gap-1.5 bg-rl-blue/10 border border-rl-blue/20 px-3 py-1.5 rounded-full">
-                      <Users className="w-3.5 h-3.5 text-rl-blue" />
-                      <span className="text-xs font-semibold text-rl-blue">{project.personas.length} persona{project.personas.length > 1 ? 's' : ''}</span>
-                    </div>
-                  )}
-                  {hasOferta && project.ofertaData?.nome && (
-                    <div className="flex items-center gap-1.5 bg-rl-gold/10 border border-rl-gold/20 px-3 py-1.5 rounded-full">
-                      <Zap className="w-3.5 h-3.5 text-rl-gold" />
-                      <span className="text-xs font-semibold text-rl-gold">{project.ofertaData.nome}</span>
-                    </div>
-                  )}
-                </div>
 
-                {/* ── Dashboard Button ── */}
-                <div className="flex items-center gap-2">
-                  {dashboardEditing ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        autoFocus
-                        value={dashboardInput}
-                        onChange={(e) => setDashboardInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            updateProject(project.id, { dashboardUrl: dashboardInput.trim() || null })
-                            setDashboardEditing(false)
-                          }
-                          if (e.key === 'Escape') setDashboardEditing(false)
-                        }}
-                        placeholder="https://lookerstudio.google.com/..."
-                        className="input-field text-xs h-8 px-3 w-72"
-                      />
-                      <button
-                        onClick={() => {
-                          updateProject(project.id, { dashboardUrl: dashboardInput.trim() || null })
-                          setDashboardEditing(false)
-                        }}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-rl-green/10 border border-rl-green/30 text-rl-green hover:bg-rl-green/20 transition-all"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setDashboardEditing(false)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                {/* ── Links + Dashboard ── */}
+                {(() => {
+                  const MAX_VISIBLE = 3
+                  const allLinks = [
+                    project.dashboardUrl && {
+                      key: 'dashboard', label: 'Dashboard', href: project.dashboardUrl,
+                      Icon: LayoutDashboard, pill: 'bg-rl-cyan/10 border-rl-cyan/30 text-rl-cyan',
+                      onRemove: () => updateProject(project.id, { dashboardUrl: null }),
+                    },
+                    lnk.instagram && {
+                      key: 'instagram', label: 'Instagram', href: lnk.instagram.startsWith('http') ? lnk.instagram : `https://${lnk.instagram}`,
+                      Icon: Instagram, pill: 'bg-pink-500/10 border-pink-500/30 text-pink-400',
+                      onRemove: () => updateProject(project.id, { links: { ...lnk, instagram: '' } }),
+                    },
+                    lnk.website && {
+                      key: 'website', label: 'Website', href: lnk.website.startsWith('http') ? lnk.website : `https://${lnk.website}`,
+                      Icon: Globe, pill: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
+                      onRemove: () => updateProject(project.id, { links: { ...lnk, website: '' } }),
+                    },
+                    lnk.googleDrive && {
+                      key: 'googleDrive', label: 'Google Drive', href: lnk.googleDrive.startsWith('http') ? lnk.googleDrive : `https://${lnk.googleDrive}`,
+                      Icon: HardDrive, pill: 'bg-green-500/10 border-green-500/30 text-green-400',
+                      onRemove: () => updateProject(project.id, { links: { ...lnk, googleDrive: '' } }),
+                    },
+                    ...(lnk.outros || []).filter(o => o.url).map((outro, i) => ({
+                      key: `outro-${i}`, label: outro.label || 'Link', href: outro.url.startsWith('http') ? outro.url : `https://${outro.url}`,
+                      Icon: Link2, pill: 'bg-rl-purple/10 border-rl-purple/30 text-rl-purple',
+                      onRemove: () => updateProject(project.id, { links: { ...lnk, outros: (lnk.outros || []).filter((_, idx) => idx !== i) } }),
+                    })),
+                  ].filter(Boolean)
+
+                  const visible  = allLinks.slice(0, MAX_VISIBLE)
+                  const overflow = allLinks.slice(MAX_VISIBLE)
+
+                  return (
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      {visible.map(({ key, label, href, Icon, pill, onRemove }) => (
+                        <div key={key} className={`group relative flex items-center px-4 py-2 rounded-xl border text-sm font-semibold ${pill}`}>
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:opacity-80 transition-opacity pr-4">
+                            <Icon className="w-4 h-4" />{label}
+                          </a>
+                          <button onClick={onRemove} className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 bg-white text-gray-500 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all" title="Remover"><X className="w-4 h-4" /></button>
+                        </div>
+                      ))}
+
+                      {/* Botão overflow "Mais N" */}
+                      {overflow.length > 0 && (
+                        <div className="relative" ref={overflowRef}>
+                          <button
+                            onClick={() => setOverflowOpen(o => !o)}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted text-sm font-medium hover:border-rl-purple/40 hover:text-rl-purple transition-all"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />Mais {overflow.length}
+                          </button>
+                          {overflowOpen && (
+                            <div className="absolute right-0 top-full mt-1 z-50 glass-card p-1 min-w-[180px] shadow-lg border border-rl-border">
+                              {overflow.map(({ key, label, href, Icon, pill, onRemove }) => (
+                                <div key={key} className="group relative flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-rl-surface transition-all">
+                                  <a href={href} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 text-sm font-medium flex-1 min-w-0 hover:opacity-80 transition-opacity ${pill.split(' ').find(c => c.startsWith('text-'))}`}>
+                                    <Icon className="w-4 h-4 shrink-0" />
+                                    <span className="truncate">{label}</span>
+                                  </a>
+                                  <button onClick={() => { onRemove(); if (overflow.length === 1) setOverflowOpen(false) }} className="shrink-0 rounded p-0.5 text-rl-muted/50 hover:text-red-400 transition-colors" title="Remover"><X className="w-3.5 h-3.5" /></button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Botão + Link com dropdown e popover */}
+                      <div className="relative" ref={linkRef}>
+                        <button
+                          onClick={() => setLinkStep(s => s === 'idle' ? 'dropdown' : 'idle')}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-rl-border text-rl-muted text-sm hover:border-rl-purple/40 hover:text-rl-purple transition-all"
+                        >
+                          <Plus className="w-3.5 h-3.5" />Link
+                        </button>
+
+                        {/* Dropdown de tipos */}
+                        {linkStep === 'dropdown' && (
+                          <div className="absolute right-0 top-full mt-1 z-50 glass-card p-1 min-w-[180px] shadow-lg border border-rl-border">
+                            {[
+                              { id: 'instagram',   label: 'Instagram',    Icon: Instagram,       color: 'text-pink-400',  hide: !!lnk.instagram        },
+                              { id: 'website',     label: 'Website',      Icon: Globe,           color: 'text-blue-400',  hide: !!lnk.website          },
+                              { id: 'googleDrive', label: 'Google Drive', Icon: HardDrive,       color: 'text-green-400', hide: !!lnk.googleDrive      },
+                              { id: 'dashboard',   label: 'Dashboard',    Icon: LayoutDashboard, color: 'text-rl-cyan',   hide: !!project.dashboardUrl },
+                              { id: 'outro',       label: 'Personalizado', Icon: Link2,          color: 'text-rl-purple', hide: false                  },
+                            ].filter(o => !o.hide).map(({ id, label, Icon, color }) => (
+                              <button
+                                key={id}
+                                onClick={() => { setLinkPickedType(id); setLinkInput(''); setLinkLabel(''); setLinkStep('input') }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-rl-text hover:bg-rl-surface transition-all"
+                              >
+                                <Icon className={`w-4 h-4 ${color} shrink-0`} />{label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Popover de input */}
+                        {linkStep === 'input' && (() => {
+                          const opts = [
+                            { id: 'instagram',   label: 'Instagram',    Icon: Instagram,       color: 'text-pink-400',  placeholder: 'https://instagram.com/...' },
+                            { id: 'website',     label: 'Website',      Icon: Globe,           color: 'text-blue-400',  placeholder: 'https://www.empresa.com.br' },
+                            { id: 'googleDrive', label: 'Google Drive', Icon: HardDrive,       color: 'text-green-400', placeholder: 'https://drive.google.com/...' },
+                            { id: 'dashboard',   label: 'Dashboard',    Icon: LayoutDashboard, color: 'text-rl-cyan',   placeholder: 'https://lookerstudio.google.com/...' },
+                            { id: 'outro',       label: 'Personalizado', Icon: Link2,          color: 'text-rl-purple', placeholder: 'https://...' },
+                          ]
+                          const opt = opts.find(o => o.id === linkPickedType) || opts[0]
+                          return (
+                            <div className="absolute right-0 top-full mt-2 z-50 glass-card p-4 shadow-glow w-96 space-y-3 border border-rl-border">
+                              <p className={`text-sm font-semibold flex items-center gap-1.5 ${opt.color}`}>
+                                <opt.Icon className="w-4 h-4" />{opt.label}
+                              </p>
+                              {linkPickedType === 'outro' && (
+                                <input value={linkLabel} onChange={(e) => setLinkLabel(e.target.value)} placeholder="Nome da plataforma..." className="input-field w-full" />
+                              )}
+                              <div className="flex gap-2 items-center">
+                                <input
+                                  autoFocus
+                                  value={linkInput}
+                                  onChange={(e) => setLinkInput(e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveLink(); if (e.key === 'Escape') resetLinkState() }}
+                                  placeholder={opt.placeholder}
+                                  className="input-field flex-1"
+                                />
+                                <button onClick={handleSaveLink} className="w-9 h-9 flex items-center justify-center rounded-lg bg-rl-green/10 border border-rl-green/30 text-rl-green hover:bg-rl-green/20 transition-all"><Check className="w-4 h-4" /></button>
+                                <button onClick={resetLinkState} className="w-9 h-9 flex items-center justify-center rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"><X className="w-4 h-4" /></button>
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </div>
                     </div>
-                  ) : project.dashboardUrl ? (
-                    <div className="flex items-center gap-1.5">
-                      <a
-                        href={project.dashboardUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rl-cyan/10 border border-rl-cyan/30 text-rl-cyan text-sm font-semibold hover:bg-rl-cyan/20 transition-all"
-                      >
-                        <LayoutDashboard className="w-4 h-4" />
-                        Dashboard
-                        <ExternalLink className="w-3 h-3 opacity-70" />
-                      </a>
-                      <button
-                        onClick={() => { setDashboardInput(project.dashboardUrl || ''); setDashboardEditing(true) }}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-cyan hover:border-rl-cyan/30 transition-all"
-                        title="Editar link do Dashboard"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => { setDashboardInput(''); setDashboardEditing(true) }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-rl-border text-rl-muted text-sm hover:border-rl-cyan/40 hover:text-rl-cyan transition-all"
-                    >
-                      <LayoutDashboard className="w-4 h-4" />
-                      Adicionar Dashboard
-                    </button>
-                  )}
-                </div>
+                  )
+                })()}
               </div>
             </div>
           </div>

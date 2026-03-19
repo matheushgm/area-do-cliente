@@ -244,7 +244,7 @@ Com base em todas as informações do cliente acima, crie uma copy COMPLETA de l
 
       const fullText = await streamClaude({
         model:      'claude-sonnet-4-5',
-        max_tokens: 6000,
+        max_tokens: 16000,
         system,
         messages,
         onChunk:    (text) => setStreamPreview(text),

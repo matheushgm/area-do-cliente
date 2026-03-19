@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Instagram, Globe, HardDrive, Link2, Plus, X, ExternalLink, CheckCircle2 } from 'lucide-react'
 
 // ─── Link field row ────────────────────────────────────────────────────────────
@@ -45,6 +45,15 @@ export default function LinksModule({ project, onSave }) {
       ? saved.outros
       : []
   )
+
+  // Sincroniza estado local quando project.links muda externamente (ex: header)
+  useEffect(() => {
+    const s = project.links || {}
+    setInstagram(s.instagram   || '')
+    setWebsite(s.website       || '')
+    setGoogleDrive(s.googleDrive || '')
+    setOutros(Array.isArray(s.outros) && s.outros.length > 0 ? s.outros : [])
+  }, [project.links])
 
   function addOutro() {
     setOutros((prev) => [...prev, { label: '', url: '' }])
