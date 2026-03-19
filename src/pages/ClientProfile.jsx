@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl } from '../lib/supabase'
-import { SQUAD_COLORS } from '../lib/constants'
+import { SQUAD_COLORS, BUSINESS_LABELS, CONTRACT_MODEL_LABELS } from '../lib/constants'
 import { fmtCurrency, initials } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
@@ -31,18 +31,6 @@ import BancoMidiaModule from '../components/BancoMidiaModule'
 import LinksModule from '../components/LinksModule'
 import { exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
 import OnboardingContent from '../components/ClientProfile/OnboardingContent'
-
-const BUSINESS_LABELS = {
-  b2b: 'B2B',
-  local: 'Negócio Local',
-  ecommerce: 'E-commerce',
-  infoproduto: 'Infoproduto',
-}
-
-const CONTRACT_MODEL_LABELS = {
-  aceleracao: '🚀 Programa de Aceleração',
-  assessoria: '📅 Assessoria Mensal',
-}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ClientProfile({ project: projectProp }) {

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
+import { SERVICES_CONFIG, SEGMENTOS } from '../lib/constants'
 import {
   ArrowLeft, ArrowRight, Check, Zap, Building2, FileText,
   Briefcase, DollarSign, Users, Calendar, Plus, X, Upload,
@@ -14,56 +15,6 @@ const BUSINESS_TYPES = [
   { value: 'local',       label: 'Negócio Local',  desc: 'Atende clientes na região física',    icon: '📍' },
   { value: 'ecommerce',   label: 'E-commerce',     desc: 'Vendas online / loja virtual',        icon: '🛒' },
   { value: 'infoproduto', label: 'Infoproduto',    desc: 'Cursos, mentorias, conteúdo digital', icon: '🎓' },
-]
-
-// ─── Segment suggestions ──────────────────────────────────────────────────────
-const SEGMENTOS = [
-  'Beleza e Estética', 'Saúde e Bem-estar', 'Alimentação / Gastronomia',
-  'Clínica / Odontologia', 'Academia / Fitness', 'Moda e Vestuário',
-  'E-commerce / Varejo', 'Imobiliário', 'Tecnologia / SaaS',
-  'Educação / Cursos Online', 'Serviços Profissionais', 'Consultoria Empresarial',
-  'Marketing Digital', 'Social Media', 'Turismo e Viagens',
-  'Construção Civil', 'Automotivo', 'Farmácia / Drogaria', 'Pet Shop / Veterinária',
-  'Advocacia / Jurídico', 'Financeiro / Seguros', 'Ótica',
-  'Entretenimento / Eventos', 'Logística / Transporte', 'Indústria / Manufatura',
-]
-
-// ─── Services config ──────────────────────────────────────────────────────────
-export const SERVICES_CONFIG = [
-  { id: 'meta_ads',             label: 'Gestão de Meta Ads',                emoji: '📘' },
-  { id: 'google_ads',           label: 'Gestão de Google Ads',              emoji: '🔍' },
-  { id: 'tiktok_ads',           label: 'Gestão de TikTok Ads',              emoji: '🎵' },
-  {
-    id: 'criacao_roteiros',     label: 'Criação de Roteiros de Criativos',   emoji: '✏️',
-    sub: [
-      { key: 'imagemQty', label: 'Qtd. Imagens', placeholder: '0' },
-      { key: 'videoQty',  label: 'Qtd. Vídeos',  placeholder: '0' },
-    ],
-  },
-  {
-    id: 'edicao_criativos',     label: 'Edição de Criativos',               emoji: '🎬',
-    sub: [
-      { key: 'estaticosQty', label: 'Qtd. Estáticos', placeholder: '0' },
-      { key: 'videoQty',     label: 'Qtd. Vídeos',    placeholder: '0' },
-    ],
-  },
-  {
-    id: 'assessoria_comercial', label: 'Assessoria Comercial',               emoji: '💼',
-    sub: [
-      { key: 'nivel', label: 'Nível', type: 'select', options: ['Nível 1', 'Nível 2', 'Nível 3'] },
-    ],
-  },
-  { id: 'consultoria',          label: 'Consultoria',                        emoji: '📊' },
-  { id: 'mentoria',             label: 'Mentoria',                           emoji: '🎓' },
-  { id: 'social_media',         label: 'Social Media',                       emoji: '📱' },
-  { id: 'email_marketing',      label: 'E-mail Marketing',                   emoji: '📧' },
-  { id: 'ai_whatsapp',          label: 'AI no WhatsApp',                     emoji: '🤖' },
-  {
-    id: 'landing_page',         label: 'Criação de Landing Page',            emoji: '🌐',
-    sub: [
-      { key: 'qty', label: 'Quantidade de Páginas', placeholder: '1' },
-    ],
-  },
 ]
 
 // ─── Maturity options ─────────────────────────────────────────────────────────

@@ -2,34 +2,12 @@ import { useState } from 'react'
 import { Pencil, FileDown } from 'lucide-react'
 import { fmtCurrency } from '../../lib/utils'
 import { exportOnboardingPDF } from '../../utils/exportPDF'
-import { SERVICES_CONFIG } from '../../pages/NewOnboarding'
+import {
+  SERVICES_CONFIG, BUSINESS_LABELS, MATURITY_LABELS,
+  CONTRACT_MODEL_LABELS, CONTRACT_PAYMENT_LABELS,
+} from '../../lib/constants'
 import OnboardingEditForm from './OnboardingEditForm'
 import ProjectDocs from './ProjectDocs'
-
-const BUSINESS_LABELS = {
-  b2b: 'B2B',
-  local: 'Negócio Local',
-  ecommerce: 'E-commerce',
-  infoproduto: 'Infoproduto',
-}
-
-const MATURITY_LABELS = {
-  '1': 'Iniciante — nunca anunciou online',
-  '2': 'Básico — já testou anúncios',
-  '3': 'Intermediário — tem histórico de campanhas',
-  '4': 'Avançado — processos definidos',
-  '5': 'Expert — gestão data-driven',
-}
-
-const CONTRACT_MODEL_LABELS = {
-  aceleracao: '🚀 Programa de Aceleração',
-  assessoria: '📅 Assessoria Mensal',
-}
-
-const CONTRACT_PAYMENT_LABELS = {
-  unico:  'Valor Único',
-  mensal: 'Parcelado (Mensal)',
-}
 
 function Field({ label, value }) {
   if (!value) return null

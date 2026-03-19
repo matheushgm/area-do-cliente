@@ -1,33 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase, getSignedUrl, deleteFile } from '../../lib/supabase'
 import { CheckCircle2, X, Plus, FileText } from 'lucide-react'
-import { SERVICES_CONFIG } from '../../pages/NewOnboarding'
-
-const EDIT_BUSINESS_TYPES = [
-  { value: 'b2b',         label: 'B2B',          icon: '🏢' },
-  { value: 'local',       label: 'Negócio Local', icon: '📍' },
-  { value: 'ecommerce',   label: 'E-commerce',    icon: '🛒' },
-  { value: 'infoproduto', label: 'Infoproduto',   icon: '🎓' },
-]
-
-const EDIT_MATURITY_OPTIONS = [
-  { value: '1', label: 'Iniciante — nunca anunciou' },
-  { value: '2', label: 'Básico — já testou anúncios' },
-  { value: '3', label: 'Intermediário — tem histórico' },
-  { value: '4', label: 'Avançado — processos definidos' },
-  { value: '5', label: 'Expert — gestão data-driven' },
-]
-
-const EDIT_SEGMENTOS = [
-  'Beleza e Estética', 'Saúde e Bem-estar', 'Alimentação / Gastronomia',
-  'Clínica / Odontologia', 'Academia / Fitness', 'Moda e Vestuário',
-  'E-commerce / Varejo', 'Imobiliário', 'Tecnologia / SaaS',
-  'Educação / Cursos Online', 'Serviços Profissionais', 'Consultoria Empresarial',
-  'Marketing Digital', 'Social Media', 'Turismo e Viagens',
-  'Construção Civil', 'Automotivo', 'Farmácia / Drogaria', 'Pet Shop / Veterinária',
-  'Advocacia / Jurídico', 'Financeiro / Seguros', 'Ótica',
-  'Entretenimento / Eventos', 'Logística / Transporte', 'Indústria / Manufatura',
-]
+import { SERVICES_CONFIG, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, SEGMENTOS } from '../../lib/constants'
 
 export default function OnboardingEditForm({ project, onSave, onCancel }) {
   // Map stored service labels → IDs for the checkboxes
@@ -230,7 +204,7 @@ export default function OnboardingEditForm({ project, onSave, onCancel }) {
             className="input-field mb-2"
           />
           <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
-            {EDIT_SEGMENTOS.map((s) => (
+            {SEGMENTOS.map((s) => (
               <button
                 key={s}
                 onClick={() => set('segmento', s)}
