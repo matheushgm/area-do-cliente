@@ -941,6 +941,10 @@ export default function ClientProfile({ project: projectProp }) {
   const linkRef = useRef(null)
   const [overflowOpen, setOverflowOpen] = useState(false)
   const overflowRef = useRef(null)
+  const [overflowFrom, setOverflowFrom] = useState(Infinity)
+  const pillsRowRef = useRef(null)
+  const allLinksCountRef = useRef(0)
+  const prevContainerWidthRef = useRef(0)
   const [squadTooltipPos, setSquadTooltipPos] = useState(null)
   const squadBadgeRef = useRef(null)
   const [toast, setToast] = useState({ show: false, message: '' })
@@ -985,6 +989,40 @@ export default function ClientProfile({ project: projectProp }) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [overflowOpen])
+
+  // ResizeObserver: detecta overflow e re-exibe pills quando o container cresce
+  useEffect(() => {
+    const row = pillsRowRef.current
+    if (!row) return
+    function recalc() {
+      if (!pillsRowRef.current) return
+      const rowRect = pillsRowRef.current.getBoundingClientRect()
+      const containerWidth = rowRect.width
+      const children = Array.from(pillsRowRef.current.children)
+      let cutoff = children.length
+      for (let i = 0; i < children.length; i++) {
+        if (children[i].getBoundingClientRect().right > rowRect.right + 1) { cutoff = i; break }
+      }
+      const prevWidth = prevContainerWidthRef.current
+      prevContainerWidthRef.current = containerWidth
+      // Container cresceu + todas as pills atuais cabem + há pills no overflow → tenta mostrar tudo
+      if (cutoff === children.length && children.length < allLinksCountRef.current && containerWidth > prevWidth + 1) {
+        setOverflowFrom(Infinity)
+      } else {
+        setOverflowFrom(cutoff)
+      }
+    }
+    const ro = new ResizeObserver(recalc)
+    ro.observe(row)
+    requestAnimationFrame(recalc)
+    return () => ro.disconnect()
+  }, [])
+
+  // Links mudaram: reseta para re-medir com todos os pills
+  useEffect(() => {
+    prevContainerWidthRef.current = 0
+    setOverflowFrom(Infinity)
+  }, [project.links, project.dashboardUrl])
 
   async function handleLogoUpload(e) {
     const file = e.target.files[0]
@@ -1279,56 +1317,59 @@ export default function ClientProfile({ project: projectProp }) {
                 })()}
               </div>
 
-              <div className="flex flex-col items-end gap-3 shrink-0">
+              <div className="flex flex-col items-end gap-3 min-w-0 max-w-[70%]">
 
                 {/* ── Links + Dashboard ── */}
                 {(() => {
-                  const MAX_VISIBLE = 3
+                  const hiddenFromHeader = lnk.hiddenFromHeader || []
                   const allLinks = [
                     project.dashboardUrl && {
                       key: 'dashboard', label: 'Dashboard', href: project.dashboardUrl,
                       Icon: LayoutDashboard, pill: 'bg-rl-cyan/10 border-rl-cyan/30 text-rl-cyan',
                       onRemove: () => updateProject(project.id, { dashboardUrl: null }),
                     },
-                    lnk.instagram && {
+                    lnk.instagram && !hiddenFromHeader.includes('instagram') && {
                       key: 'instagram', label: 'Instagram', href: lnk.instagram.startsWith('http') ? lnk.instagram : `https://${lnk.instagram}`,
                       Icon: Instagram, pill: 'bg-pink-500/10 border-pink-500/30 text-pink-400',
                       onRemove: () => updateProject(project.id, { links: { ...lnk, instagram: '' } }),
                     },
-                    lnk.website && {
+                    lnk.website && !hiddenFromHeader.includes('website') && {
                       key: 'website', label: 'Website', href: lnk.website.startsWith('http') ? lnk.website : `https://${lnk.website}`,
                       Icon: Globe, pill: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
                       onRemove: () => updateProject(project.id, { links: { ...lnk, website: '' } }),
                     },
-                    lnk.googleDrive && {
+                    lnk.googleDrive && !hiddenFromHeader.includes('googleDrive') && {
                       key: 'googleDrive', label: 'Google Drive', href: lnk.googleDrive.startsWith('http') ? lnk.googleDrive : `https://${lnk.googleDrive}`,
                       Icon: HardDrive, pill: 'bg-green-500/10 border-green-500/30 text-green-400',
                       onRemove: () => updateProject(project.id, { links: { ...lnk, googleDrive: '' } }),
                     },
-                    ...(lnk.outros || []).filter(o => o.url).map((outro, i) => ({
+                    ...(lnk.outros || []).filter(o => o.url && !o.hidden).map((outro, i) => ({
                       key: `outro-${i}`, label: outro.label || 'Link', href: outro.url.startsWith('http') ? outro.url : `https://${outro.url}`,
                       Icon: Link2, pill: 'bg-rl-purple/10 border-rl-purple/30 text-rl-purple',
                       onRemove: () => updateProject(project.id, { links: { ...lnk, outros: (lnk.outros || []).filter((_, idx) => idx !== i) } }),
                     })),
                   ].filter(Boolean)
-
-                  const visible  = allLinks.slice(0, MAX_VISIBLE)
-                  const overflow = allLinks.slice(MAX_VISIBLE)
+                  allLinksCountRef.current = allLinks.length
+                  const visibleLinks = allLinks.slice(0, overflowFrom)
+                  const overflow = allLinks.slice(overflowFrom)
 
                   return (
-                    <div className="flex items-center gap-2 flex-wrap justify-end">
-                      {visible.map(({ key, label, href, Icon, pill, onRemove }) => (
-                        <div key={key} className={`group relative flex items-center px-4 py-2 rounded-xl border text-sm font-semibold ${pill}`}>
-                          <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:opacity-80 transition-opacity pr-4">
-                            <Icon className="w-4 h-4" />{label}
-                          </a>
-                          <button onClick={onRemove} className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 bg-white text-gray-500 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all" title="Remover"><X className="w-4 h-4" /></button>
-                        </div>
-                      ))}
+                    <div className="flex items-center gap-2 w-full">
+                      {/* Pills row — só as visíveis; ResizeObserver detecta quando mais pills cabem */}
+                      <div ref={pillsRowRef} className="flex items-center gap-2 flex-nowrap overflow-hidden flex-1 min-w-0">
+                        {visibleLinks.map(({ key, label, href, Icon, pill, onRemove }) => (
+                          <div key={key} className={`shrink-0 group relative flex items-center px-4 py-2 rounded-xl border text-sm font-semibold ${pill}`}>
+                            <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:opacity-80 transition-opacity pr-4">
+                              <Icon className="w-4 h-4" />{label}
+                            </a>
+                            <button onClick={onRemove} className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 bg-white text-gray-500 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all" title="Remover"><X className="w-4 h-4" /></button>
+                          </div>
+                        ))}
+                      </div>
 
-                      {/* Botão overflow "Mais N" */}
+                      {/* Botão overflow "Mais N" — fora do overflow-hidden, sempre visível */}
                       {overflow.length > 0 && (
-                        <div className="relative" ref={overflowRef}>
+                        <div className="shrink-0 relative" ref={overflowRef}>
                           <button
                             onClick={() => setOverflowOpen(o => !o)}
                             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted text-sm font-medium hover:border-rl-purple/40 hover:text-rl-purple transition-all"
@@ -1352,7 +1393,7 @@ export default function ClientProfile({ project: projectProp }) {
                       )}
 
                       {/* Botão + Link com dropdown e popover */}
-                      <div className="relative" ref={linkRef}>
+                      <div className="shrink-0 relative" ref={linkRef}>
                         <button
                           onClick={() => setLinkStep(s => s === 'idle' ? 'dropdown' : 'idle')}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-rl-border text-rl-muted text-sm hover:border-rl-purple/40 hover:text-rl-purple transition-all"

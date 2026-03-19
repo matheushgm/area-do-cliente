@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Instagram, Globe, HardDrive, Link2, Plus, X, ExternalLink, CheckCircle2 } from 'lucide-react'
+import { Instagram, Globe, HardDrive, Link2, Plus, X, ExternalLink, CheckCircle2, Eye, EyeOff } from 'lucide-react'
+
+const BTN = 'flex items-center justify-center w-10 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all'
 
 // ─── Link field row ────────────────────────────────────────────────────────────
-function LinkField({ icon: Icon, iconColor, label, value, onChange, placeholder }) {
+function LinkField({ icon: Icon, iconColor, label, value, onChange, placeholder, hidden, onToggleHidden }) {
   return (
     <div>
       <label className="label-field flex items-center gap-1.5">
@@ -18,15 +20,25 @@ function LinkField({ icon: Icon, iconColor, label, value, onChange, placeholder 
           className="input-field flex-1"
         />
         {value && (
-          <a
-            href={value.startsWith('http') ? value : `https://${value}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center w-10 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all"
-            title="Abrir link"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </a>
+          <>
+            <button
+              type="button"
+              onClick={onToggleHidden}
+              title={hidden ? 'Mostrar na header' : 'Ocultar da header'}
+              className={BTN}
+            >
+              {hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+            <a
+              href={value.startsWith('http') ? value : `https://${value}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={BTN}
+              title="Abrir link"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </>
         )}
       </div>
     </div>
@@ -37,26 +49,48 @@ function LinkField({ icon: Icon, iconColor, label, value, onChange, placeholder 
 export default function LinksModule({ project, onSave }) {
   const saved = project.links || {}
 
-  const [instagram,   setInstagram]   = useState(saved.instagram   || '')
-  const [website,     setWebsite]     = useState(saved.website     || '')
-  const [googleDrive, setGoogleDrive] = useState(saved.googleDrive || '')
-  const [outros,      setOutros]      = useState(
-    Array.isArray(saved.outros) && saved.outros.length > 0
-      ? saved.outros
-      : []
+  const [instagram,        setInstagram]        = useState(saved.instagram        || '')
+  const [website,          setWebsite]          = useState(saved.website          || '')
+  const [googleDrive,      setGoogleDrive]      = useState(saved.googleDrive      || '')
+  const [outros,           setOutros]           = useState(
+    Array.isArray(saved.outros) && saved.outros.length > 0 ? saved.outros : []
+  )
+  const [hiddenFromHeader, setHiddenFromHeader] = useState(
+    Array.isArray(saved.hiddenFromHeader) ? saved.hiddenFromHeader : []
   )
 
   // Sincroniza estado local quando project.links muda externamente (ex: header)
   useEffect(() => {
     const s = project.links || {}
-    setInstagram(s.instagram   || '')
-    setWebsite(s.website       || '')
-    setGoogleDrive(s.googleDrive || '')
+    setInstagram(s.instagram      || '')
+    setWebsite(s.website          || '')
+    setGoogleDrive(s.googleDrive  || '')
     setOutros(Array.isArray(s.outros) && s.outros.length > 0 ? s.outros : [])
+    setHiddenFromHeader(Array.isArray(s.hiddenFromHeader) ? s.hiddenFromHeader : [])
   }, [project.links])
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  function buildPayload({ ovHidden = hiddenFromHeader, ovOutros = outros } = {}) {
+    return {
+      instagram,
+      website,
+      googleDrive,
+      hiddenFromHeader: ovHidden,
+      outros: ovOutros.filter((o) => o.url.trim()),
+    }
+  }
+
+  function toggleHidden(key) {
+    const next = hiddenFromHeader.includes(key)
+      ? hiddenFromHeader.filter((k) => k !== key)
+      : [...hiddenFromHeader, key]
+    setHiddenFromHeader(next)
+    if (onSave) onSave(buildPayload({ ovHidden: next }))
+  }
+
   function addOutro() {
-    setOutros((prev) => [...prev, { label: '', url: '' }])
+    setOutros((prev) => [...prev, { label: '', url: '', hidden: false }])
   }
 
   function updateOutro(i, field, value) {
@@ -67,13 +101,14 @@ export default function LinksModule({ project, onSave }) {
     setOutros((prev) => prev.filter((_, idx) => idx !== i))
   }
 
+  function toggleOutroHidden(i) {
+    const next = outros.map((o, idx) => idx === i ? { ...o, hidden: !o.hidden } : o)
+    setOutros(next)
+    if (onSave) onSave(buildPayload({ ovOutros: next }))
+  }
+
   function handleSave() {
-    onSave({
-      instagram,
-      website,
-      googleDrive,
-      outros: outros.filter((o) => o.url.trim()),
-    })
+    onSave(buildPayload())
   }
 
   const totalLinks = [instagram, website, googleDrive, ...outros.map((o) => o.url)]
@@ -113,6 +148,8 @@ export default function LinksModule({ project, onSave }) {
           value={instagram}
           onChange={setInstagram}
           placeholder="https://instagram.com/empresa"
+          hidden={hiddenFromHeader.includes('instagram')}
+          onToggleHidden={() => toggleHidden('instagram')}
         />
 
         <LinkField
@@ -122,6 +159,8 @@ export default function LinksModule({ project, onSave }) {
           value={website}
           onChange={setWebsite}
           placeholder="https://www.empresa.com.br"
+          hidden={hiddenFromHeader.includes('website')}
+          onToggleHidden={() => toggleHidden('website')}
         />
 
         <LinkField
@@ -131,6 +170,8 @@ export default function LinksModule({ project, onSave }) {
           value={googleDrive}
           onChange={setGoogleDrive}
           placeholder="https://drive.google.com/drive/folders/..."
+          hidden={hiddenFromHeader.includes('googleDrive')}
+          onToggleHidden={() => toggleHidden('googleDrive')}
         />
       </div>
 
@@ -192,14 +233,25 @@ export default function LinksModule({ project, onSave }) {
                     className="input-field flex-1"
                   />
                   {outro.url && (
-                    <a
-                      href={outro.url.startsWith('http') ? outro.url : `https://${outro.url}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center w-10 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => toggleOutroHidden(i)}
+                        title={outro.hidden ? 'Mostrar na header' : 'Ocultar da header'}
+                        className={BTN}
+                      >
+                        {outro.hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                      <a
+                        href={outro.url.startsWith('http') ? outro.url : `https://${outro.url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={BTN}
+                        title="Abrir link"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </>
                   )}
                 </div>
               </div>
