@@ -13,34 +13,15 @@ const NAV_ITEMS = [
   { id: 'active',    label: 'Perfis Ativos',      Icon: CheckCircle2 },
 ]
 
-export default function AppSidebar({
-  filter,
-  setFilter,
-  counts,           // { all, onboarding, active }
-  activeAccounts,   // [{ id, name, avatar }]
-  open,             // mobile overlay open
-  onClose,
+function SidebarContent({
+  user, logout,
+  filter, counts,
+  loadingProjects, isSupabaseReady,
+  onNav, onNew, onClose,
+  navigate, location,
 }) {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const {
-    user, logout,
-    loadingProjects, isSupabaseReady,
-  } = useApp()
-
   const isAdmin = user?.role === 'admin'
-
-  const handleNav = (id) => {
-    setFilter(id)
-    onClose()
-  }
-
-  const handleNew = () => {
-    navigate('/onboarding/new')
-    onClose()
-  }
-
-  const SidebarContent = () => (
+  return (
     <div className="flex flex-col h-full py-4 px-3">
 
       {/* ── Header ───────────────────────────────────────── */}
@@ -66,7 +47,7 @@ export default function AppSidebar({
 
       {/* ── New Onboarding CTA ───────────────────────────── */}
       <button
-        onClick={handleNew}
+        onClick={onNew}
         className="btn-primary flex items-center justify-center gap-2 mx-1 mb-5 text-sm py-2.5 animate-pulse-glow"
       >
         <Plus className="w-4 h-4" />
@@ -81,7 +62,7 @@ export default function AppSidebar({
           return (
             <button
               key={id}
-              onClick={() => handleNav(id)}
+              onClick={() => onNav(id)}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group ${
                 active
                   ? 'bg-rl-purple/15 text-rl-purple border border-rl-purple/25'
@@ -161,25 +142,43 @@ export default function AppSidebar({
 
     </div>
   )
+}
+
+export default function AppSidebar({
+  filter,
+  setFilter,
+  counts,
+  activeAccounts,
+  open,
+  onClose,
+}) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { user, logout, loadingProjects, isSupabaseReady } = useApp()
+
+  const handleNav = (id) => { setFilter(id); onClose() }
+  const handleNew = () => { navigate('/onboarding/new'); onClose() }
+
+  const sharedProps = {
+    user, logout, filter, counts,
+    loadingProjects, isSupabaseReady,
+    onNav: handleNav, onNew: handleNew, onClose,
+    navigate, location,
+  }
 
   return (
     <>
       {/* ── Desktop sidebar ─────────────────────────────── */}
       <aside className="hidden lg:flex flex-col w-60 shrink-0 sticky top-0 h-screen border-r border-rl-border bg-rl-surface overflow-y-auto scroll-hide shadow-[1px_0_0_#D8E0F0]">
-        <SidebarContent />
+        <SidebarContent {...sharedProps} />
       </aside>
 
       {/* ── Mobile overlay ──────────────────────────────── */}
       {open && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={onClose}
-          />
-          {/* Drawer */}
+          <div className="absolute inset-0 bg-black/60" onClick={onClose} />
           <aside className="relative z-10 flex flex-col w-60 h-full border-r border-rl-border bg-rl-surface overflow-y-auto scroll-hide animate-slide-up">
-            <SidebarContent />
+            <SidebarContent {...sharedProps} />
           </aside>
         </div>
       )}

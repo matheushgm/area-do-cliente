@@ -633,6 +633,16 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
 }
 
 // ─── Onboarding modal content ─────────────────────────────────────────────────
+function Field({ label, value }) {
+  if (!value) return null
+  return (
+    <div className="rounded-xl bg-rl-surface p-3">
+      <p className="text-[11px] text-rl-muted mb-0.5">{label}</p>
+      <p className="text-sm text-rl-text font-medium">{value}</p>
+    </div>
+  )
+}
+
 function OnboardingContent({ project, onSave }) {
   const [isEditing, setIsEditing] = useState(false)
 
@@ -643,16 +653,6 @@ function OnboardingContent({ project, onSave }) {
         onSave={(data) => { onSave(data); setIsEditing(false) }}
         onCancel={() => setIsEditing(false)}
       />
-    )
-  }
-
-  function Field({ label, value }) {
-    if (!value) return null
-    return (
-      <div className="rounded-xl bg-rl-surface p-3">
-        <p className="text-[11px] text-rl-muted mb-0.5">{label}</p>
-        <p className="text-sm text-rl-text font-medium">{value}</p>
-      </div>
     )
   }
 
