@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
@@ -21,35 +20,18 @@ function isProfileComplete(project) {
 }
 
 function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
-  const ref = useRef(null)
-  const [tooltipPos, setTooltipPos] = useState(null)
-
   if (!name) return <span className="text-rl-muted text-xs">—</span>
   const c = SQUAD_COLORS[colorIndex % SQUAD_COLORS.length]
 
-  function handleMouseEnter() {
-    if (!members.length || !ref.current) return
-    const rect = ref.current.getBoundingClientRect()
-    setTooltipPos({ x: rect.left, y: rect.top })
-  }
-
   return (
-    <>
-      <div
-        ref={ref}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={() => setTooltipPos(null)}
-        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border cursor-default ${c.bg} ${c.text} ${c.border}`}
-      >
+    <div className="relative group inline-flex">
+      <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border cursor-default ${c.bg} ${c.text} ${c.border}`}>
         {emoji && <span className="text-[11px] leading-none">{emoji}</span>}
         <span className="text-[11px] font-semibold whitespace-nowrap">{name}</span>
       </div>
 
-      {tooltipPos && createPortal(
-        <div
-          style={{ position: 'fixed', left: tooltipPos.x, top: tooltipPos.y - 8, transform: 'translateY(-100%)' }}
-          className="z-[9999] pointer-events-none"
-        >
+      {members.length > 0 && (
+        <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50 pointer-events-none">
           <div className="glass-card border border-rl-border shadow-xl py-2 px-3 rounded-xl min-w-[180px]">
             <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider mb-1.5">{name}</p>
             {members.map((m, i) => (
@@ -59,10 +41,9 @@ function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
               </div>
             ))}
           </div>
-        </div>,
-        document.body
+        </div>
       )}
-    </>
+    </div>
   )
 }
 
