@@ -6,6 +6,7 @@ import { SQUAD_COLORS } from '../lib/constants'
 import { initials } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
+import Modal from '../components/UI/Modal'
 import AppSidebar from '../components/AppSidebar'
 import {
   Users, Plus, Pencil, UserX, UserCheck,
@@ -50,8 +51,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-      <div className="glass-card w-full max-w-md p-6 border border-rl-border animate-slide-up shadow-2xl">
+    <Modal onClose={onClose} maxWidth="md">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -133,18 +133,14 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
           </button>
         </div>
 
-      </div>
-    </div>
+    </Modal>
   )
 }
 
 function ToggleConfirmModal({ user, onConfirm, onClose, saving }) {
   const isDisabling = !user.disabled
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-      <div className={`glass-card w-full max-w-sm p-6 border animate-slide-up shadow-2xl ${
-        isDisabling ? 'border-red-500/30' : 'border-rl-green/30'
-      }`}>
+    <Modal onClose={onClose} maxWidth="sm" className={isDisabling ? 'border-red-500/30' : 'border-rl-green/30'}>
         <div className="flex items-center gap-3 mb-5">
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
             isDisabling ? 'bg-red-500/10' : 'bg-rl-green/10'
@@ -189,8 +185,7 @@ function ToggleConfirmModal({ user, onConfirm, onClose, saving }) {
             {isDisabling ? 'Desativar' : 'Reativar'}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -227,8 +222,7 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-      <div className="glass-card w-full max-w-2xl p-6 border border-rl-border animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
+    <Modal onClose={onClose} maxWidth="2xl" className="max-h-[90vh] overflow-y-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -323,8 +317,7 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
             {isCreate ? 'Criar equipe' : 'Salvar alterações'}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -332,8 +325,7 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
 
 function DeleteSquadModal({ squad, onConfirm, onClose, saving }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-      <div className="glass-card w-full max-w-sm p-6 border border-red-500/30 animate-slide-up shadow-2xl">
+    <Modal onClose={onClose} maxWidth="sm" className="border-red-500/30">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-red-500/10">
             <Trash2 className="w-5 h-5 text-red-400" />
@@ -358,8 +350,7 @@ function DeleteSquadModal({ squad, onConfirm, onClose, saving }) {
             Excluir
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 

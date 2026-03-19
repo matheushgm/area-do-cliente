@@ -13,6 +13,7 @@ import {
 import AppSidebar from '../components/AppSidebar'
 import { SQUAD_COLORS } from '../lib/constants'
 import { fmtCurrency, hashId } from '../lib/utils'
+import Modal from '../components/UI/Modal'
 
 const CORE_STEPS = ['roi', 'strategy', 'oferta']
 function isProfileComplete(project) {
@@ -509,8 +510,7 @@ function DeleteConfirmModal({ project, onConfirm, onCancel }) {
   const canDelete = typed === 'DELETE'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-      <div className="glass-card w-full max-w-md p-6 border border-red-500/30 animate-slide-up shadow-2xl">
+    <Modal onClose={onCancel} maxWidth="md" className="border-red-500/30">
         {/* Header */}
         <div className="flex items-center gap-3 mb-5">
           <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
@@ -561,8 +561,7 @@ function DeleteConfirmModal({ project, onConfirm, onCancel }) {
             Excluir cliente
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
