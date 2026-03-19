@@ -4,6 +4,8 @@ import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
 import { SQUAD_COLORS } from '../lib/constants'
 import { fmtCurrency, initials } from '../lib/utils'
+import { useToast } from '../hooks/useToast'
+import Toast from '../components/UI/Toast'
 import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays, Building2,
@@ -930,14 +932,7 @@ export default function ClientProfile({ project: projectProp }) {
   const prevContainerWidthRef = useRef(0)
   const [squadTooltipPos, setSquadTooltipPos] = useState(null)
   const squadBadgeRef = useRef(null)
-  const [toast, setToast] = useState({ show: false, message: '' })
-  const toastTimer = useRef(null)
-
-  function showToast(message = 'Salvo com sucesso!') {
-    clearTimeout(toastTimer.current)
-    setToast({ show: true, message })
-    toastTimer.current = setTimeout(() => setToast({ show: false, message: '' }), 2800)
-  }
+  const { toast, showToast } = useToast()
 
   useEffect(() => {
     if (!project.logoUrl) { setLogoSignedUrl(null); return }
@@ -1486,17 +1481,7 @@ export default function ClientProfile({ project: projectProp }) {
 
       </div>
 
-      {/* ── Toast notification ───────────────────────────────────────────── */}
-      <div
-        className={`fixed bottom-6 right-6 z-[100] flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-2xl border transition-all duration-300 ${
-          toast.show
-            ? 'opacity-100 translate-y-0 bg-rl-card border-rl-green/30'
-            : 'opacity-0 translate-y-3 pointer-events-none bg-rl-card border-rl-green/30'
-        }`}
-      >
-        <CheckCircle2 className="w-4 h-4 text-rl-green shrink-0" />
-        <span className="text-sm font-medium text-rl-text">{toast.message}</span>
-      </div>
+      <Toast toast={toast} />
     </div>
   )
 }

@@ -4,6 +4,8 @@ import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { SQUAD_COLORS } from '../lib/constants'
 import { initials } from '../lib/utils'
+import { useToast } from '../hooks/useToast'
+import Toast from '../components/UI/Toast'
 import AppSidebar from '../components/AppSidebar'
 import {
   Users, Plus, Pencil, UserX, UserCheck,
@@ -379,18 +381,13 @@ export default function UserManagement() {
   const [editTarget, setEditTarget] = useState(null)
   const [toggleTarget, setToggleTarget] = useState(null)
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState(null)
+  const { toast, showToast } = useToast()
 
   // Squad state
   const [showCreateSquad, setShowCreateSquad] = useState(false)
   const [editSquadTarget, setEditSquadTarget] = useState(null)
   const [deleteSquadTarget, setDeleteSquadTarget] = useState(null)
   const [savingSquad, setSavingSquad] = useState(false)
-
-  function showToast(msg, type = 'success', duration = 4000) {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), duration)
-  }
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
@@ -760,17 +757,7 @@ export default function UserManagement() {
         </main>
       </div>
 
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl border shadow-2xl text-sm font-medium animate-slide-up ${
-          toast.type === 'error'
-            ? 'bg-red-500/10 border-red-500/30 text-red-400'
-            : 'bg-rl-green/10 border-rl-green/30 text-rl-green'
-        }`}>
-          {toast.type === 'error' ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <UserCheck className="w-4 h-4 shrink-0" />}
-          {toast.msg}
-        </div>
-      )}
+      <Toast toast={toast} />
 
       {/* Modais — Usuários */}
       {showCreate && (
