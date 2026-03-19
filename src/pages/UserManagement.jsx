@@ -3,23 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { SQUAD_COLORS } from '../lib/constants'
+import { initials } from '../lib/utils'
 import AppSidebar from '../components/AppSidebar'
 import {
   Users, Plus, Pencil, UserX, UserCheck,
   X, AlertTriangle, Loader2, Menu,
   ShieldCheck, User, Users2, Trash2,
 } from 'lucide-react'
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function initials(name) {
-  return (name || '')
-    .split(' ')
-    .map(w => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-}
 
 async function callAdminAPI(action, payload) {
   try {

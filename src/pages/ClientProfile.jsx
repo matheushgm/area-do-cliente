@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
 import { SQUAD_COLORS } from '../lib/constants'
+import { fmtCurrency, initials } from '../lib/utils'
 import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays, Building2,
@@ -28,12 +29,6 @@ import BancoMidiaModule from '../components/BancoMidiaModule'
 import LinksModule from '../components/LinksModule'
 import { SERVICES_CONFIG } from './NewOnboarding'
 import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function fmtCurrency(n) {
-  if (n == null || isNaN(n) || !isFinite(n)) return '—'
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
-}
 
 const BUSINESS_LABELS = {
   b2b: 'B2B',
@@ -75,10 +70,6 @@ const MATURITY_LABELS = {
   '3': 'Intermediário — tem histórico de campanhas',
   '4': 'Avançado — processos definidos',
   '5': 'Expert — gestão data-driven',
-}
-
-function initials(name = '') {
-  return name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('')
 }
 
 // ─── Service detail labels (for display in OnboardingContent) ─────────────────

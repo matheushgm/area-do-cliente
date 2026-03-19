@@ -12,15 +12,11 @@ import {
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
 import { SQUAD_COLORS } from '../lib/constants'
+import { fmtCurrency, hashId } from '../lib/utils'
 
 const CORE_STEPS = ['roi', 'strategy', 'oferta']
 function isProfileComplete(project) {
   return CORE_STEPS.every(s => (project.completedSteps || []).includes(s))
-}
-
-function fmtCurrency(n) {
-  if (!n || isNaN(n) || !isFinite(n)) return '—'
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
 
 function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
@@ -79,13 +75,6 @@ const CREATOR_COLORS = [
   { bg: 'bg-red-500/15',   text: 'text-red-400',   avatar: 'bg-red-400'   },
 ]
 
-// Funciona com IDs numéricos antigos (1, 2...) e UUIDs do Supabase
-function hashId(id) {
-  if (!id) return 0
-  const n = Number(id)
-  if (!isNaN(n) && isFinite(n)) return n
-  return String(id).split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-}
 
 function CreatorBadge({ accountName, colorIndex = 0 }) {
   if (!accountName) return null
