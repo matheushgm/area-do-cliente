@@ -67,8 +67,9 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
         {/* Fields */}
         <div className="space-y-4 mb-6">
           <div>
-            <label className="block text-xs font-semibold text-rl-text mb-1.5">Nome completo</label>
+            <label htmlFor="field-name" className="block text-xs font-semibold text-rl-text mb-1.5">Nome completo</label>
             <input
+              id="field-name"
               type="text"
               value={form.name}
               onChange={e => set('name', e.target.value)}
@@ -79,8 +80,9 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-rl-text mb-1.5">E-mail</label>
+            <label htmlFor="field-email" className="block text-xs font-semibold text-rl-text mb-1.5">E-mail</label>
             <input
+              id="field-email"
               type="email"
               value={form.email}
               onChange={e => set('email', e.target.value)}
@@ -91,8 +93,9 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
 
           {isCreate && (
             <div>
-              <label className="block text-xs font-semibold text-rl-text mb-1.5">Senha inicial</label>
+              <label htmlFor="field-password" className="block text-xs font-semibold text-rl-text mb-1.5">Senha inicial</label>
               <input
+                id="field-password"
                 type="password"
                 value={form.password}
                 onChange={e => set('password', e.target.value)}
@@ -106,8 +109,9 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-rl-text mb-1.5">Permissão</label>
+            <label htmlFor="field-role" className="block text-xs font-semibold text-rl-text mb-1.5">Permissão</label>
             <select
+              id="field-role"
               value={form.role}
               onChange={e => set('role', e.target.value)}
               className="input-field w-full"
@@ -238,8 +242,9 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
         <div className="space-y-4 mb-6">
           {/* Nome */}
           <div>
-            <label className="block text-xs font-semibold text-rl-text mb-1.5">Nome da equipe</label>
+            <label htmlFor="field-squad-name" className="block text-xs font-semibold text-rl-text mb-1.5">Nome da equipe</label>
             <input
+              id="field-squad-name"
               type="text"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -251,8 +256,9 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
 
           {/* Emoji */}
           <div>
-            <label className="block text-xs font-semibold text-rl-text mb-1.5">Emoji <span className="text-rl-muted font-normal">(opcional)</span></label>
+            <label htmlFor="field-squad-emoji" className="block text-xs font-semibold text-rl-text mb-1.5">Emoji <span className="text-rl-muted font-normal">(opcional)</span></label>
             <input
+              id="field-squad-emoji"
               type="text"
               value={form.emoji}
               onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))}

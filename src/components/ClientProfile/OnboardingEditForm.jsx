@@ -177,27 +177,28 @@ export default function OnboardingEditForm({ project, onSave, onCancel }) {
         {/* Company fields */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="label-field">Nome da Empresa</label>
-            <input value={form.companyName} onChange={(e) => set('companyName', e.target.value)} className="input-field" />
+            <label htmlFor="field-company-name" className="label-field">Nome da Empresa</label>
+            <input id="field-company-name" value={form.companyName} onChange={(e) => set('companyName', e.target.value)} className="input-field" />
           </div>
           <div>
-            <label className="label-field">CNPJ</label>
-            <input value={form.cnpj} onChange={(e) => set('cnpj', e.target.value)} placeholder="00.000.000/0000-00" className="input-field" />
+            <label htmlFor="field-cnpj" className="label-field">CNPJ</label>
+            <input id="field-cnpj" value={form.cnpj} onChange={(e) => set('cnpj', e.target.value)} placeholder="00.000.000/0000-00" className="input-field" />
           </div>
           <div>
-            <label className="label-field">Responsável</label>
-            <input value={form.responsibleName} onChange={(e) => set('responsibleName', e.target.value)} className="input-field" />
+            <label htmlFor="field-responsible-name" className="label-field">Responsável</label>
+            <input id="field-responsible-name" value={form.responsibleName} onChange={(e) => set('responsibleName', e.target.value)} className="input-field" />
           </div>
           <div>
-            <label className="label-field">Cargo</label>
-            <input value={form.responsibleRole} onChange={(e) => set('responsibleRole', e.target.value)} className="input-field" />
+            <label htmlFor="field-responsible-role" className="label-field">Cargo</label>
+            <input id="field-responsible-role" value={form.responsibleRole} onChange={(e) => set('responsibleRole', e.target.value)} className="input-field" />
           </div>
         </div>
 
         {/* Segmento */}
         <div>
-          <label className="label-field">Segmento</label>
+          <label htmlFor="field-segmento" className="label-field">Segmento</label>
           <input
+            id="field-segmento"
             value={form.segmento}
             onChange={(e) => set('segmento', e.target.value)}
             placeholder="Ex: Beleza e Estética..."
@@ -297,10 +298,11 @@ export default function OnboardingEditForm({ project, onSave, onCancel }) {
         {/* Valor + Data */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="label-field">
+            <label htmlFor="field-contract-value" className="label-field">
               {form.contractModel === 'aceleracao' ? 'Valor do Contrato (R$)' : 'Valor Mensal (R$)'}
             </label>
             <input
+              id="field-contract-value"
               type="number" min="0"
               value={form.contractValue}
               onChange={(e) => set('contractValue', e.target.value)}
@@ -309,8 +311,9 @@ export default function OnboardingEditForm({ project, onSave, onCancel }) {
             />
           </div>
           <div>
-            <label className="label-field">Data de Assinatura</label>
+            <label htmlFor="field-contract-date" className="label-field">Data de Assinatura</label>
             <input
+              id="field-contract-date"
               type="date"
               value={form.contractDate}
               onChange={(e) => set('contractDate', e.target.value)}
@@ -389,8 +392,9 @@ export default function OnboardingEditForm({ project, onSave, onCancel }) {
 
         {form.upsellPotential === true && (
           <div>
-            <label className="label-field">Obs. sobre Upsell</label>
+            <label htmlFor="field-upsell-notes" className="label-field">Obs. sobre Upsell</label>
             <textarea
+              id="field-upsell-notes"
               value={form.upsellNotes}
               onChange={(e) => set('upsellNotes', e.target.value)}
               rows={2}
