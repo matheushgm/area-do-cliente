@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
+import { SQUAD_COLORS } from '../lib/constants'
 import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays, Building2,
@@ -79,15 +80,6 @@ const MATURITY_LABELS = {
 function initials(name = '') {
   return name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('')
 }
-
-// ─── Squads ────────────────────────────────────────────────────────────────────
-
-const SQUAD_COLORS = [
-  { bg: 'bg-rl-gold/10',   border: 'border-rl-gold/30',   text: 'text-rl-gold'   },
-  { bg: 'bg-rl-cyan/10',   border: 'border-rl-cyan/30',   text: 'text-rl-cyan'   },
-  { bg: 'bg-rl-purple/10', border: 'border-rl-purple/30', text: 'text-rl-purple' },
-  { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400' },
-]
 
 // ─── Service detail labels (for display in OnboardingContent) ─────────────────
 

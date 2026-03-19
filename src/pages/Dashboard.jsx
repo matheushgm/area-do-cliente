@@ -11,6 +11,7 @@ import {
   LayoutGrid, List, ChevronUp, ChevronDown, ChevronsUpDown,
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
+import { SQUAD_COLORS } from '../lib/constants'
 
 const CORE_STEPS = ['roi', 'strategy', 'oferta']
 function isProfileComplete(project) {
@@ -21,13 +22,6 @@ function fmtCurrency(n) {
   if (!n || isNaN(n) || !isFinite(n)) return '—'
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
-
-// ─── Squad colors (must match UserManagement + ClientProfile) ──────────────────
-const SQUAD_COLORS = [
-  { bg: 'bg-rl-gold/15',   text: 'text-rl-gold',   border: 'border-rl-gold/30'   },
-  { bg: 'bg-rl-cyan/15',   text: 'text-rl-cyan',   border: 'border-rl-cyan/30'   },
-  { bg: 'bg-rl-purple/15', text: 'text-rl-purple',  border: 'border-rl-purple/30' },
-]
 
 function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
   const ref = useRef(null)
