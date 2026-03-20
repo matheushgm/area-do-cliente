@@ -555,7 +555,8 @@ async function sbUpdateProjectV2(id, patch) {
           name:         a.name,
           size:         a.size,
           type:         a.type,
-          storage_path: a.storage_path ?? null, // null até migração para Storage
+          storage_path: a.storage_path ?? null,
+          uploaded_at:  a.uploadedAt ?? a.uploaded_at ?? null,
         }));
       if (rows.length > 0) {
         const { error } = await supabase.from("attachments").insert(rows);
