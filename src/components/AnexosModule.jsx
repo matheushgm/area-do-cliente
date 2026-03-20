@@ -4,7 +4,7 @@ import { getSignedUrl } from '../lib/supabase'
 import {
   Upload, Paperclip, Download, Trash2, AlertCircle,
   FileText, Image, File, FileSpreadsheet, FileVideo,
-  FileAudio, Archive,
+  FileAudio, Archive, Save, CheckCircle2,
 } from 'lucide-react'
 import EmptyState from './UI/EmptyState'
 
@@ -49,6 +49,8 @@ export default function AnexosModule({ project }) {
   const [dragging,  setDragging]  = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error,     setError]     = useState(null)
+  const [saved,     setSaved]     = useState(false)
+  const savedTimer                = useRef(null)
 
   const attachments = project.attachments || []
   const totalSize   = attachments.reduce((s, a) => s + (a.size || 0), 0)
@@ -105,6 +107,13 @@ export default function AnexosModule({ project }) {
 
   const handleDelete = useCallback((id) => {
     updateProject(project.id, { attachments: attachments.filter((a) => a.id !== id) })
+  }, [attachments, project.id, updateProject])
+
+  const handleSave = useCallback(() => {
+    clearTimeout(savedTimer.current)
+    updateProject(project.id, { attachments })
+    setSaved(true)
+    savedTimer.current = setTimeout(() => setSaved(false), 3000)
   }, [attachments, project.id, updateProject])
 
   const handleDownload = useCallback(async (a) => {
@@ -237,6 +246,33 @@ export default function AnexosModule({ project }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Save button + confirmation */}
+      {attachments.length > 0 && (
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            onClick={handleSave}
+            disabled={uploading}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
+              saved
+                ? 'bg-rl-green/10 border-rl-green/40 text-rl-green'
+                : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-purple'
+            }`}
+          >
+            {saved
+              ? <><CheckCircle2 className="w-4 h-4" /> Anexos salvos!</>
+              : <><Save className="w-4 h-4" /> Salvar anexos</>
+            }
+          </button>
+
+          {saved && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-rl-green/5 border border-rl-green/20 text-rl-green text-xs font-medium animate-fade-in">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              {attachments.length} arquivo{attachments.length !== 1 ? 's' : ''} salvo{attachments.length !== 1 ? 's' : ''} com sucesso
+            </div>
+          )}
         </div>
       )}
     </div>
