@@ -9,16 +9,60 @@ import { streamClaude } from '../lib/claude'
 
 // ─── Questions ────────────────────────────────────────────────────────────────
 const QUESTIONS = [
-  { id: 'resultado', emoji: '🎯', label: 'Qual é o resultado percebido após usar o produto ou serviço?' },
-  { id: 'acoes',     emoji: '⚡', label: 'O que ele PRECISA FAZER para alcançar o resultado?' },
-  { id: 'tempo',     emoji: '⏱️', label: 'Em quanto tempo o cliente consegue alcançar o resultado?' },
-  { id: 'objecoes',  emoji: '🚧', label: 'Quais são as objeções que eles usam como justificativa para não fazer o que é necessário?' },
-  { id: 'sonhos',    emoji: '✨', label: 'Quais são OS SONHOS do seu cliente que o seu trabalho pode realizar?' },
-  { id: 'erros',     emoji: '❌', label: 'Quais são ERROS que seu cliente comete e que afasta ele do resultado sonhado?' },
-  { id: 'medos',     emoji: '😰', label: 'Quais são OS MEDOS do seu cliente que podem se tornar realidade?' },
-  { id: 'sinais',    emoji: '🔍', label: 'Seu cliente VÊ SINAIS DO PROBLEMA. Quais sinais são esse?' },
-  { id: 'valores',   emoji: '💡', label: 'Quais são seus pensamentos, valores e ideias que vão contra o senso comum do seu mercado?' },
-  { id: 'habitos',   emoji: '🔄', label: 'Hábitos do seu cliente' },
+  {
+    id:    'resultado',
+    emoji: '🎯',
+    label: 'Qual é o resultado percebido após usar o produto ou serviço?',
+    hint:  'Conte como é a vida do seu cliente depois que ele usa de fato seu produto / serviço. Uma ideia é trazer comentários que os clientes fazem após o seu produto/serviço ser implementado.',
+  },
+  {
+    id:    'acoes',
+    emoji: '⚡',
+    label: 'O que ele PRECISA FAZER para alcançar o resultado?',
+    hint:  'Aqui você deve descrever quais são as ações, comportamentos e responsabilidades do próprio cliente durante o trabalho com você.',
+  },
+  {
+    id:    'tempo',
+    emoji: '⏱️',
+    label: 'Em quanto tempo o cliente consegue alcançar o resultado?',
+    hint:  'O ideal é trazer em quanto tempo ele tem o primeiro resultado e também quanto tempo para ter a transformação real.',
+  },
+  {
+    id:    'objecoes',
+    emoji: '🚧',
+    label: 'Quais são as objeções que eles usam como justificativa para não fazer o que é necessário?',
+    hint:  null,
+  },
+  {
+    id:    'sonhos',
+    emoji: '✨',
+    label: 'Quais são OS SONHOS do seu cliente que sua empresa consegue realizar?',
+    hint:  'Essa pergunta é sobre o resultado emocional e de vida que o cliente espera quando contrata você. Aqui vai além de métricas, pense em algo pessoal.',
+  },
+  {
+    id:    'erros',
+    emoji: '❌',
+    label: 'Quais são ERROS que seu cliente comete e que afasta ele do resultado sonhado?',
+    hint:  'Esses erros são cometidos antes de ele te contratar ou comprar o seu produto.',
+  },
+  {
+    id:    'medos',
+    emoji: '😰',
+    label: 'Quais são OS MEDOS do seu cliente que podem se tornar realidade?',
+    hint:  'Aqui são medos pessoais mesmo, mais intrínsecos ao dia-a-dia como ser humano.',
+  },
+  {
+    id:    'sinais',
+    emoji: '🔍',
+    label: 'Seu cliente VÊ SINAIS DO PROBLEMA. Quais sinais são esse?',
+    hint:  'Quais são os problemas que ele percebe que começam a fazer com que ele busque uma solução / ajuda.',
+  },
+  {
+    id:    'habitos',
+    emoji: '🔄',
+    label: 'Hábitos do seu cliente',
+    hint:  'Quais são os hábitos dentro e fora do trabalho.',
+  },
 ]
 
 // ─── AI System Prompt (based on criador-de-persona skill) ────────────────────
@@ -270,10 +314,17 @@ ${sections.join('\n\n')}`
           {/* Questions */}
           {QUESTIONS.map((q) => (
             <div key={q.id} className="glass-card p-5 space-y-3">
-              <p className="text-sm font-medium text-rl-text leading-snug">
-                <span className="mr-1.5">{q.emoji}</span>
-                {q.label}
-              </p>
+              <div>
+                <p className="text-sm font-medium text-rl-text leading-snug">
+                  <span className="mr-1.5">{q.emoji}</span>
+                  {q.label}
+                </p>
+                {q.hint && (
+                  <p className="text-xs text-rl-muted mt-2 leading-relaxed pl-5 border-l-2 border-rl-purple/20">
+                    {q.hint}
+                  </p>
+                )}
+              </div>
               <MultiAnswerInput
                 answers={persona.answers[q.id] || ['']}
                 onChange={(answers) => updateAnswers(q.id, answers)}
