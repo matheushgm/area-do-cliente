@@ -755,6 +755,12 @@ function OnboardingContent({ project, onSave }) {
               nivel:        { label: 'Nível',     icon: '⭐', color: 'text-rl-gold   bg-rl-gold/10   border-rl-gold/20' },
             }
 
+            // Serviços contratados que têm sub-campos editáveis
+            const editableServices = SERVICES_CONFIG.filter(
+              (s) => s.sub && (project.services || []).includes(s.label)
+            )
+
+            // Linhas para o modo de visualização (somente valores não-zero)
             const serviceRows = Object.entries(project.servicesData || {}).reduce((acc, [svcId, data]) => {
               if (!data) return acc
               const svcConfig = SERVICES_CONFIG.find((s) => s.id === svcId)
@@ -766,41 +772,124 @@ function OnboardingContent({ project, onSave }) {
               return acc
             }, [])
 
-            if (!serviceRows.length) return null
+            if (!editableServices.length && !serviceRows.length) return null
 
             return (
               <div className="mt-1 space-y-3">
-                <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider">📦 Entregáveis por Serviço</p>
-                {serviceRows.map(({ svcConfig, items }) => (
-                  <div key={svcConfig.id} className="rounded-xl border border-rl-border bg-rl-surface/50 px-3 py-3">
-                    <p className="text-xs font-semibold text-rl-text mb-2">
-                      {svcConfig.emoji} {svcConfig.label}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {items.map(({ key, value }) => {
-                        const meta = DELIVERABLE_META[key]
-                        if (!meta) return null
-                        const isText = isNaN(Number(value))
-                        return (
-                          <div
-                            key={key}
-                            className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${meta.color}`}
-                          >
-                            <span className="text-base leading-none">{meta.icon}</span>
-                            <div className="leading-tight">
-                              {isText ? (
-                                <p className="text-xs font-bold">{value}</p>
-                              ) : (
-                                <p className="text-xl font-extrabold leading-none">{value}</p>
-                              )}
-                              <p className="text-[10px] opacity-60">{meta.label}</p>
-                            </div>
-                          </div>
-                        )
-                      })}
+
+                {/* Header com botão Editar / Salvar */}
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider">📦 Entregáveis por Serviço</p>
+                  {!editingServices ? (
+                    <button
+                      onClick={() => {
+                        setEditServicesData(JSON.parse(JSON.stringify(project.servicesData || {})))
+                        setEditingServices(true)
+                      }}
+                      className="flex items-center gap-1 text-[11px] text-rl-muted hover:text-rl-purple transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      Editar
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => {
+                          updateProject(project.id, { servicesData: editServicesData })
+                          setEditingServices(false)
+                          showToast('Entregáveis atualizados!')
+                        }}
+                        className="flex items-center gap-1 text-[11px] text-rl-green font-semibold hover:text-rl-green/80 transition-colors"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Salvar
+                      </button>
+                      <button
+                        onClick={() => setEditingServices(false)}
+                        className="text-[11px] text-rl-muted hover:text-rl-text transition-colors"
+                      >
+                        Cancelar
+                      </button>
                     </div>
+                  )}
+                </div>
+
+                {editingServices ? (
+                  // ── Modo edição ──────────────────────────────────────────
+                  <div className="space-y-3">
+                    {editableServices.map((svcConfig) => (
+                      <div key={svcConfig.id} className="rounded-xl border border-rl-purple/20 bg-rl-purple/5 px-3 py-3">
+                        <p className="text-xs font-semibold text-rl-text mb-2.5">
+                          {svcConfig.emoji} {svcConfig.label}
+                        </p>
+                        <div className="flex flex-wrap gap-3">
+                          {svcConfig.sub.map(({ key, label, type, options, placeholder }) => (
+                            <div key={key} className="flex flex-col gap-1">
+                              <span className="text-[10px] text-rl-muted font-medium">{label}</span>
+                              {type === 'select' ? (
+                                <select
+                                  value={editServicesData[svcConfig.id]?.[key] || ''}
+                                  onChange={(e) => setEditServicesData((prev) => ({
+                                    ...prev,
+                                    [svcConfig.id]: { ...(prev[svcConfig.id] || {}), [key]: e.target.value },
+                                  }))}
+                                  className="input-field text-sm h-8 px-2 w-28"
+                                >
+                                  <option value="">—</option>
+                                  {options.map((o) => <option key={o} value={o}>{o}</option>)}
+                                </select>
+                              ) : (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={editServicesData[svcConfig.id]?.[key] || ''}
+                                  onChange={(e) => setEditServicesData((prev) => ({
+                                    ...prev,
+                                    [svcConfig.id]: { ...(prev[svcConfig.id] || {}), [key]: e.target.value },
+                                  }))}
+                                  placeholder={placeholder || '0'}
+                                  className="input-field text-sm h-8 px-2 w-20 text-center"
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  // ── Modo visualização ────────────────────────────────────
+                  serviceRows.length > 0 ? (
+                    serviceRows.map(({ svcConfig, items }) => (
+                      <div key={svcConfig.id} className="rounded-xl border border-rl-border bg-rl-surface/50 px-3 py-3">
+                        <p className="text-xs font-semibold text-rl-text mb-2">
+                          {svcConfig.emoji} {svcConfig.label}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {items.map(({ key, value }) => {
+                            const meta = DELIVERABLE_META[key]
+                            if (!meta) return null
+                            const isText = isNaN(Number(value))
+                            return (
+                              <div key={key} className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${meta.color}`}>
+                                <span className="text-base leading-none">{meta.icon}</span>
+                                <div className="leading-tight">
+                                  {isText
+                                    ? <p className="text-xs font-bold">{value}</p>
+                                    : <p className="text-xl font-extrabold leading-none">{value}</p>
+                                  }
+                                  <p className="text-[10px] opacity-60">{meta.label}</p>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-rl-muted italic">Nenhum entregável configurado. Clique em Editar para definir.</p>
+                  )
+                )}
               </div>
             )
           })()}
@@ -945,6 +1034,8 @@ export default function ClientProfile({ project: projectProp }) {
   const squadBadgeRef = useRef(null)
   const [toast, setToast] = useState({ show: false, message: '' })
   const toastTimer = useRef(null)
+  const [editingServices,  setEditingServices]  = useState(false)
+  const [editServicesData, setEditServicesData] = useState({})
 
   function showToast(message = 'Salvo com sucesso!') {
     clearTimeout(toastTimer.current)
