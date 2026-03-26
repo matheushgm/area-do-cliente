@@ -641,8 +641,11 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
 }
 
 // ─── Onboarding modal content ─────────────────────────────────────────────────
-function OnboardingContent({ project, onSave }) {
+function OnboardingContent({ project, onSave, showToast }) {
+  const { updateProject } = useApp()
   const [isEditing, setIsEditing] = useState(false)
+  const [editingServices,  setEditingServices]  = useState(false)
+  const [editServicesData, setEditServicesData] = useState({})
 
   if (isEditing) {
     return (
@@ -1034,8 +1037,6 @@ export default function ClientProfile({ project: projectProp }) {
   const squadBadgeRef = useRef(null)
   const [toast, setToast] = useState({ show: false, message: '' })
   const toastTimer = useRef(null)
-  const [editingServices,  setEditingServices]  = useState(false)
-  const [editServicesData, setEditServicesData] = useState({})
 
   function showToast(message = 'Salvo com sucesso!') {
     clearTimeout(toastTimer.current)
@@ -1152,7 +1153,7 @@ export default function ClientProfile({ project: projectProp }) {
 
   function renderContent() {
     switch (activeSection) {
-      case 'dados':        return <OnboardingContent project={project} onSave={handleSaveOnboarding} />
+      case 'dados':        return <OnboardingContent project={project} onSave={handleSaveOnboarding} showToast={showToast} />
       case 'roi':          return <ROICalculator project={project} onSave={handleSaveROI} />
       case 'icp':          return <PersonaCreator project={project} onSave={handleSavePersonas} />
       case 'produtos':     return (
