@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import {
   Plus, Trash2, Loader2, User, Sparkles,
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { exportPersonasPDF } from '../utils/exportPDF'
 import { streamClaude } from '../lib/claude'
+import { useAutoSave, AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 
 // ─── Questions ────────────────────────────────────────────────────────────────
 const QUESTIONS = [
@@ -171,6 +172,11 @@ export default function PersonaCreator({ project, onSave }) {
   const [streaming, setStreaming] = useState('')
   const [error, setError]         = useState(null)
 
+  const { trigger: autoSave, status: saveStatus } = useAutoSave(
+    useCallback((p) => { if (onSave) onSave(p) }, [onSave]),
+  )
+  const isMounted = useRef(false)
+
   const persona = personas[activeIdx]
 
   const updatePersona = useCallback((patch) => {
@@ -182,6 +188,13 @@ export default function PersonaCreator({ project, onSave }) {
       i === activeIdx ? { ...p, answers: { ...p.answers, [qId]: answers } } : p
     ))
   }, [activeIdx])
+
+  // Auto-save ao alterar personas (pula mount inicial)
+  useEffect(() => {
+    if (!isMounted.current) { isMounted.current = true; return }
+    autoSave(personas)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personas])
 
   const addPersona = () => {
     const next = newPersona(`Persona ${personas.length + 1}`)
@@ -253,6 +266,7 @@ ${sections.join('\n\n')}`
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <AutoSaveIndicator status={saveStatus} />
           <button
             onClick={() => exportPersonasPDF(personas, project)}
             className="btn-secondary flex items-center gap-2 text-sm"

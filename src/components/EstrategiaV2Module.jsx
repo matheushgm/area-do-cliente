@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   Plus, X, Trash2, AlertTriangle, Target, TrendingUp,
   Shield, Zap, Users, BarChart3, Save, FileDown,
@@ -6,6 +6,7 @@ import {
   DollarSign, ArrowRight,
 } from 'lucide-react'
 import { exportEstrategiaV2PDF } from '../utils/exportPDF'
+import { useAutoSave, AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 const MAX_PROBLEMAS = 10
@@ -104,6 +105,11 @@ export default function EstrategiaV2Module({ project, onSave }) {
   const [activeTab,      setActiveTab]      = useState(0)
   const [problemaInput,  setProblemaInput]  = useState('')
 
+  const { trigger: autoSave, status: saveStatus } = useAutoSave(
+    useCallback((data) => { if (onSave) onSave(data) }, [onSave]),
+  )
+  const isMounted = useRef(false)
+
   const personas     = project.personas     || []
   const campaignPlan = project.campaignPlan || null
   const roiCalc      = project.roiCalc      || null
@@ -160,6 +166,13 @@ export default function EstrategiaV2Module({ project, onSave }) {
   const toggleFunil = useCallback((funil) => {
     setFunis(prev => prev.includes(funil) ? prev.filter(f => f !== funil) : [...prev, funil])
   }, [])
+
+  // Auto-save ao alterar qualquer campo (pula mount inicial)
+  useEffect(() => {
+    if (!isMounted.current) { isMounted.current = true; return }
+    autoSave({ problemas, swot, concorrentes, riscos, funis, updatedAt: new Date().toISOString() })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [problemas, swot, concorrentes, riscos, funis])
 
   // ── Save / Export ──────────────────────────────────────────────────────
   function handleSave() {
@@ -726,13 +739,16 @@ export default function EstrategiaV2Module({ project, onSave }) {
           <FileDown className="w-4 h-4" />
           Exportar PDF
         </button>
-        <button
-          onClick={handleSave}
-          className="btn-primary flex items-center gap-2 text-sm"
-        >
-          <Save className="w-4 h-4" />
-          Salvar Estratégia
-        </button>
+        <div className="flex items-center gap-3">
+          <AutoSaveIndicator status={saveStatus} />
+          <button
+            onClick={handleSave}
+            className="btn-primary flex items-center gap-2 text-sm"
+          >
+            <Save className="w-4 h-4" />
+            Salvar Estratégia
+          </button>
+        </div>
       </div>
     </div>
   )

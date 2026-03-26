@@ -1,7 +1,8 @@
 import PropTypes from 'prop-types'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircle, FileDown } from 'lucide-react'
 import { exportROIPDF } from '../utils/exportPDF'
+import { useAutoSave, AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 export function fmt(n) {
@@ -75,6 +76,13 @@ export default function ROICalculator({ project, onSave }) {
     ...(project.roiCalc || {}),
   }))
 
+  const { trigger: autoSave, status: saveStatus } = useAutoSave(
+    useCallback((c, r) => { if (onSave) onSave(c, r) }, [onSave]),
+  )
+
+  // Monta flag para ignorar o auto-save no mount inicial
+  const isMounted = useRef(false)
+
   const set = useCallback((field, val) => setCalc((prev) => ({ ...prev, [field]: val })), [])
 
   const result = useMemo(() => {
@@ -114,6 +122,13 @@ export default function ROICalculator({ project, onSave }) {
     }
   }, [calc])
 
+  // Auto-save ao alterar qualquer campo (pula o mount inicial)
+  useEffect(() => {
+    if (!isMounted.current) { isMounted.current = true; return }
+    if (onSave) autoSave(calc, result)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calc])
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -127,15 +142,18 @@ export default function ROICalculator({ project, onSave }) {
             Defina seu ROI alvo e descubra quantos leads, MQLs, SQLs e vendas você precisa gerar
           </p>
         </div>
-        <button
-          onClick={() => exportROIPDF(calc, result, project)}
-          disabled={!result}
-          className="btn-secondary flex items-center gap-2 text-sm shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Exportar PDF"
-        >
-          <FileDown className="w-4 h-4" />
-          PDF
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <AutoSaveIndicator status={saveStatus} />
+          <button
+            onClick={() => exportROIPDF(calc, result, project)}
+            disabled={!result}
+            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Exportar PDF"
+          >
+            <FileDown className="w-4 h-4" />
+            PDF
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

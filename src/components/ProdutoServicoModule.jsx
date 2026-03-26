@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Plus, X, Package, ShoppingBag, Briefcase, CheckCircle2 } from 'lucide-react'
+import { useAutoSave, AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 
 // ─── Questions ────────────────────────────────────────────────────────────────
 const QUESTIONS = [
@@ -43,6 +44,11 @@ export default function ProdutoServicoModule({ project, onSave }) {
   })
   const [activeIdx, setActiveIdx] = useState(0)
 
+  const { trigger: autoSave, status: saveStatus } = useAutoSave(
+    useCallback((p) => { if (onSave) onSave(p) }, [onSave]),
+  )
+  const isMounted = useRef(false)
+
   const produto = produtos[activeIdx]
 
   const updateProduto = useCallback((patch) => {
@@ -67,6 +73,13 @@ export default function ProdutoServicoModule({ project, onSave }) {
     setActiveIdx((prev) => Math.min(prev, produtos.length - 2))
   }
 
+  // Auto-save ao alterar produtos (pula mount inicial)
+  useEffect(() => {
+    if (!isMounted.current) { isMounted.current = true; return }
+    autoSave(produtos)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [produtos])
+
   const filledCount = QUESTIONS.filter((q) => produto.answers[q.id]?.trim()).length
 
   return (
@@ -83,10 +96,13 @@ export default function ProdutoServicoModule({ project, onSave }) {
             Documente os detalhes do produto ou serviço para embasar anúncios e estratégias
           </p>
         </div>
-        <button onClick={addProduto} className="btn-secondary flex items-center gap-2 text-sm shrink-0">
-          <Plus className="w-4 h-4" />
-          Novo Produto
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <AutoSaveIndicator status={saveStatus} />
+          <button onClick={addProduto} className="btn-secondary flex items-center gap-2 text-sm">
+            <Plus className="w-4 h-4" />
+            Novo Produto
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
