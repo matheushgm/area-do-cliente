@@ -172,8 +172,9 @@ export default function PersonaCreator({ project, onSave }) {
   const [streaming, setStreaming] = useState('')
   const [error, setError]         = useState(null)
 
+  // Auto-save chama updateProject diretamente (sem navegar para outra seção)
   const { trigger: autoSave, status: saveStatus } = useAutoSave(
-    useCallback((p) => { if (onSave) onSave(p) }, [onSave]),
+    useCallback((p) => updateProject(project.id, { personas: p }), [project.id, updateProject]),
   )
   const isMounted = useRef(false)
 

@@ -1,7 +1,9 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
  * Auto-save hook com debounce.
+ * Usa ref para saveFn → sempre chama a versão mais recente da função,
+ * evitando closures obsoletas que causavam navegação inesperada.
  *
  * @param {Function} saveFn  - função de salvamento (pode ser async)
  * @param {number}   delay   - ms de debounce (padrão 1500)
@@ -9,9 +11,13 @@ import { useCallback, useRef, useState } from 'react'
  */
 export function useAutoSave(saveFn, delay = 1500) {
   const [status, setStatus] = useState('idle')
-  const timerRef   = useRef(null)
-  const latestArgs = useRef(null)
-  const resetTimer = useRef(null)
+  const timerRef    = useRef(null)
+  const latestArgs  = useRef(null)
+  const resetTimer  = useRef(null)
+  const saveFnRef   = useRef(saveFn)
+
+  // Mantém saveFnRef sempre atualizado sem recriar trigger
+  useEffect(() => { saveFnRef.current = saveFn }, [saveFn])
 
   const trigger = useCallback(
     (...args) => {
@@ -23,7 +29,7 @@ export function useAutoSave(saveFn, delay = 1500) {
 
       timerRef.current = setTimeout(async () => {
         try {
-          await saveFn(...latestArgs.current)
+          await saveFnRef.current(...latestArgs.current)
           setStatus('saved')
           resetTimer.current = setTimeout(() => setStatus('idle'), 2500)
         } catch {
@@ -31,7 +37,6 @@ export function useAutoSave(saveFn, delay = 1500) {
         }
       }, delay)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [delay],
   )
 

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Plus, X, Package, ShoppingBag, Briefcase, CheckCircle2 } from 'lucide-react'
 import { useAutoSave, AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
+import { useApp } from '../context/AppContext'
 
 // ─── Questions ────────────────────────────────────────────────────────────────
 const QUESTIONS = [
@@ -39,13 +40,15 @@ function newProduto(label = '') {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function ProdutoServicoModule({ project, onSave }) {
+  const { updateProject } = useApp()
   const [produtos, setProdutos] = useState(() => {
     return project.produtos?.length ? project.produtos : [newProduto('Produto 1')]
   })
   const [activeIdx, setActiveIdx] = useState(0)
 
+  // Auto-save via updateProject diretamente (sem depender do onSave que pode navegar)
   const { trigger: autoSave, status: saveStatus } = useAutoSave(
-    useCallback((p) => { if (onSave) onSave(p) }, [onSave]),
+    useCallback((p) => updateProject(project.id, { produtos: p }), [project.id, updateProject]),
   )
   const isMounted = useRef(false)
 
