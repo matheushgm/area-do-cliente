@@ -607,8 +607,10 @@ export function AppProvider({ children }) {
   const [projects, setProjects] = useState(loadFromStorage);
 
   const [loadingProjects, setLoadingProjects] = useState(isSupabaseReady);
-  const pendingWrites = useRef(0);
-  const upsertTimers  = useRef({});
+  const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved'
+  const pendingWrites    = useRef(0);
+  const upsertTimers     = useRef({});
+  const saveStatusTimer  = useRef(null);
 
   // ── Team members ──────────────────────────────────────────────────────────
   const [teamMembers, setTeamMembers] = useState([]);
@@ -846,6 +848,7 @@ export function AppProvider({ children }) {
         clearTimeout(upsertTimers.current[id]);
         upsertTimers.current[id] = setTimeout(() => {
           pendingWrites.current += 1;
+          setSaveStatus('saving');
           sbUpdateProjectV2(id, patch)
             .then(({ blocked }) => {
               if (blocked && before) {
@@ -857,7 +860,14 @@ export function AppProvider({ children }) {
               }
             })
             .catch((err) => console.error("Erro ao atualizar:", err))
-            .finally(() => { pendingWrites.current -= 1; });
+            .finally(() => {
+              pendingWrites.current -= 1;
+              if (pendingWrites.current === 0) {
+                setSaveStatus('saved');
+                clearTimeout(saveStatusTimer.current);
+                saveStatusTimer.current = setTimeout(() => setSaveStatus('idle'), 2500);
+              }
+            });
         }, 1000);
       }
 
@@ -916,6 +926,7 @@ export function AppProvider({ children }) {
     authError,
     projects,
     loadingProjects,
+    saveStatus,
     login,
     logout,
     loginWithGoogle,

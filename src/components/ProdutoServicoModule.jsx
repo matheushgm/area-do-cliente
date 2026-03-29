@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { Plus, X, Package, ShoppingBag, Briefcase, CheckCircle2 } from 'lucide-react'
-import { useAutoSave, AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
+import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
 
 // ─── Questions ────────────────────────────────────────────────────────────────
@@ -46,23 +46,21 @@ export default function ProdutoServicoModule({ project, onSave }) {
   })
   const [activeIdx, setActiveIdx] = useState(0)
 
-  // Auto-save via updateProject diretamente (sem depender do onSave que pode navegar)
-  const { trigger: autoSave, status: saveStatus } = useAutoSave(
-    useCallback((p) => updateProject(project.id, { produtos: p }), [project.id, updateProject]),
-  )
-  const isMounted = useRef(false)
-
   const produto = produtos[activeIdx]
 
   const updateProduto = useCallback((patch) => {
-    setProdutos((prev) => prev.map((p, i) => i === activeIdx ? { ...p, ...patch } : p))
-  }, [activeIdx])
+    const next = produtos.map((p, i) => i === activeIdx ? { ...p, ...patch } : p)
+    setProdutos(next)
+    updateProject(project.id, { produtos: next })
+  }, [activeIdx, produtos, project.id, updateProject])
 
   const updateAnswer = useCallback((qId, value) => {
-    setProdutos((prev) => prev.map((p, i) =>
+    const next = produtos.map((p, i) =>
       i === activeIdx ? { ...p, answers: { ...p.answers, [qId]: value } } : p
-    ))
-  }, [activeIdx])
+    )
+    setProdutos(next)
+    updateProject(project.id, { produtos: next })
+  }, [activeIdx, produtos, project.id, updateProject])
 
   const addProduto = () => {
     const next = newProduto(`Produto ${produtos.length + 1}`)
@@ -75,13 +73,6 @@ export default function ProdutoServicoModule({ project, onSave }) {
     setProdutos((prev) => prev.filter((_, i) => i !== idx))
     setActiveIdx((prev) => Math.min(prev, produtos.length - 2))
   }
-
-  // Auto-save ao alterar produtos (pula mount inicial)
-  useEffect(() => {
-    if (!isMounted.current) { isMounted.current = true; return }
-    autoSave(produtos)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [produtos])
 
   const filledCount = QUESTIONS.filter((q) => produto.answers[q.id]?.trim()).length
 
@@ -100,7 +91,7 @@ export default function ProdutoServicoModule({ project, onSave }) {
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <AutoSaveIndicator status={saveStatus} />
+          <AutoSaveIndicator />
           <button onClick={addProduto} className="btn-secondary flex items-center gap-2 text-sm">
             <Plus className="w-4 h-4" />
             Novo Produto

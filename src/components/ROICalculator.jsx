@@ -1,8 +1,9 @@
 import PropTypes from 'prop-types'
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircle, FileDown } from 'lucide-react'
 import { exportROIPDF } from '../utils/exportPDF'
-import { useAutoSave, AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
+import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
+import { useApp } from '../context/AppContext'
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 export function fmt(n) {
@@ -61,6 +62,7 @@ const BENCHMARKS = {
 
 // ─── ROI Calculator ───────────────────────────────────────────────────────────
 export default function ROICalculator({ project, onSave }) {
+  const { updateProject } = useApp()
   const [benchmarkType, setBenchmarkType] = useState(null)
 
   const [calc, setCalc] = useState(() => ({
@@ -76,14 +78,13 @@ export default function ROICalculator({ project, onSave }) {
     ...(project.roiCalc || {}),
   }))
 
-  const { trigger: autoSave, status: saveStatus } = useAutoSave(
-    useCallback((c, r) => { if (onSave) onSave(c, r) }, [onSave]),
-  )
-
-  // Monta flag para ignorar o auto-save no mount inicial
-  const isMounted = useRef(false)
-
-  const set = useCallback((field, val) => setCalc((prev) => ({ ...prev, [field]: val })), [])
+  const set = useCallback((field, val) => {
+    setCalc((prev) => {
+      const next = { ...prev, [field]: val }
+      updateProject(project.id, { roiCalc: next })
+      return next
+    })
+  }, [project.id, updateProject])
 
   const result = useMemo(() => {
     const {
@@ -122,13 +123,6 @@ export default function ROICalculator({ project, onSave }) {
     }
   }, [calc])
 
-  // Auto-save ao alterar qualquer campo (pula o mount inicial)
-  useEffect(() => {
-    if (!isMounted.current) { isMounted.current = true; return }
-    if (onSave) autoSave(calc, result)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [calc])
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -143,7 +137,7 @@ export default function ROICalculator({ project, onSave }) {
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <AutoSaveIndicator status={saveStatus} />
+          <AutoSaveIndicator />
           <button
             onClick={() => exportROIPDF(calc, result, project)}
             disabled={!result}

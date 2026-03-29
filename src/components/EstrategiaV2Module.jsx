@@ -6,7 +6,8 @@ import {
   DollarSign, ArrowRight,
 } from 'lucide-react'
 import { exportEstrategiaV2PDF } from '../utils/exportPDF'
-import { useAutoSave, AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
+import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
+import { useApp } from '../context/AppContext'
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 const MAX_PROBLEMAS = 10
@@ -95,6 +96,7 @@ function SectionHeader({ icon: Icon, title, subtitle, color = 'text-rl-purple' }
 
 // ─── Componente principal ──────────────────────────────────────────────────────
 export default function EstrategiaV2Module({ project, onSave }) {
+  const { updateProject } = useApp()
   const saved = project.estrategiaV2 || {}
 
   const [problemas,      setProblemas]      = useState(() => saved.problemas    || [])
@@ -105,9 +107,6 @@ export default function EstrategiaV2Module({ project, onSave }) {
   const [activeTab,      setActiveTab]      = useState(0)
   const [problemaInput,  setProblemaInput]  = useState('')
 
-  const { trigger: autoSave, status: saveStatus } = useAutoSave(
-    useCallback((data) => { if (onSave) onSave(data) }, [onSave]),
-  )
   const isMounted = useRef(false)
 
   const personas     = project.personas     || []
@@ -167,10 +166,12 @@ export default function EstrategiaV2Module({ project, onSave }) {
     setFunis(prev => prev.includes(funil) ? prev.filter(f => f !== funil) : [...prev, funil])
   }, [])
 
-  // Auto-save ao alterar qualquer campo (pula mount inicial)
+  // Auto-save: chama updateProject diretamente ao alterar qualquer campo
   useEffect(() => {
     if (!isMounted.current) { isMounted.current = true; return }
-    autoSave({ problemas, swot, concorrentes, riscos, funis, updatedAt: new Date().toISOString() })
+    updateProject(project.id, {
+      estrategiaV2: { problemas, swot, concorrentes, riscos, funis, updatedAt: new Date().toISOString() }
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [problemas, swot, concorrentes, riscos, funis])
 
@@ -740,7 +741,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
           Exportar PDF
         </button>
         <div className="flex items-center gap-3">
-          <AutoSaveIndicator status={saveStatus} />
+          <AutoSaveIndicator />
           <button
             onClick={handleSave}
             className="btn-primary flex items-center gap-2 text-sm"
