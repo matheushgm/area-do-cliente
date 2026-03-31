@@ -16,64 +16,64 @@ Suas copies são agressivas, altamente persuasivas e focadas nas dores e sonhos 
 
 Crie uma copy COMPLETA para landing page com 6 dobras seguindo EXATAMENTE esta estrutura:
 
-## 🥇 PRIMEIRA DOBRA — Oferta & Promessa Principal
+## 🥇 PRIMEIRA DOBRA: Oferta & Promessa Principal
 
 **TÍTULO PRINCIPAL:**
-(Oferta Matadora no estilo Alex Hormozi — específica, irrecusável, com resultado claro e prazo)
+(Oferta Matadora no estilo Alex Hormozi: específica, irrecusável, com resultado claro e prazo)
 
 **SUBTÍTULO:**
-(Reforça com o mecanismo único — o que diferencia a empresa de TODOS os concorrentes no mercado)
+(Reforça com o mecanismo único: o que diferencia a empresa de TODOS os concorrentes no mercado)
 
 **CTA PRIMÁRIO:**
-(Ação clara, direta e urgente — ex: "Quero Meu Diagnóstico Gratuito →")
+(Ação clara, direta e urgente. Ex: "Quero Meu Diagnóstico Gratuito →")
 
 ---
 
-## 🩹 SEGUNDA DOBRA — Identificação de Dores & Soluções
+## 🩹 SEGUNDA DOBRA: Identificação de Dores & Soluções
 
 **HEADLINE DA DOBRA:**
 (Frase que demonstra que você entende profundamente as dores do lead)
 
 [Identifique 5 problemas específicos e reais que o público vive no dia a dia]
 [Para cada problema, apresente imediatamente a solução específica da empresa]
-[Use bullets e tom empático — mostre que entende antes de oferecer a solução]
+[Use bullets e tom empático. Mostre que entende antes de oferecer a solução]
 
 ---
 
-## 🏆 TERCEIRA DOBRA — Autoridade & Prova Social
+## 🏆 TERCEIRA DOBRA: Autoridade & Prova Social
 
 **HEADLINE:**
 (Posicionamento como referência máxima no mercado)
 
 [Descreva quem são, expertise e diferenciais competitivos de forma específica]
 [Inclua 3-5 casos de sucesso com resultados reais ou estimativas concretas]
-[Números, datas, nomes de clientes (fictícios se necessário) — quanto mais específico, mais confiável]
+[Números, datas, nomes de clientes (fictícios se necessário), quanto mais específico, mais confiável]
 
 ---
 
-## ⚙️ QUARTA DOBRA — Mecanismo Único
+## ⚙️ QUARTA DOBRA: Mecanismo Único
 
 **HEADLINE:**
-(O que torna a empresa absolutamente incomparável — impossível de comparar com concorrentes)
+(O que torna a empresa absolutamente incomparável, impossível de comparar com concorrentes)
 
 [Explique o processo/metodologia exclusivo da empresa em 3-5 passos numerados]
-[Dê um nome memorável ao mecanismo único — ex: "Método ACE", "Sistema 3R", etc.]
+[Dê um nome memorável ao mecanismo único, ex: "Método ACE", "Sistema 3R", etc.]
 [Mostre como cada passo entrega a transformação: do Ponto A (dor) → Ponto B (sonho)]
 
 ---
 
-## 🛡️ QUINTA DOBRA — Quebra de Objeções, Garantia & Ancoragem de Valor
+## 🛡️ QUINTA DOBRA: Quebra de Objeções, Garantia & Ancoragem de Valor
 
 **HEADLINE:**
 (Título de segurança e confiança)
 
 [Quebre 4-5 objeções principais com respostas diretas e específicas]
 [Apresente a garantia de forma clara e irrecusável]
-[Ancoragem de valor: liste TUDO que o cliente recebe × o investimento real — mostre que é um negócio óbvio]
+[Ancoragem de valor: liste TUDO que o cliente recebe × o investimento real, mostre que é um negócio óbvio]
 
 ---
 
-## ❓ SEXTA DOBRA — FAQ Estratégico
+## ❓ SEXTA DOBRA: FAQ Estratégico
 
 **HEADLINE:** Perguntas Frequentes
 
@@ -97,7 +97,8 @@ Diretrizes obrigatórias:
 - Use todos os dados de personas, oferta matadora e onboarding para personalizar cada dobra
 - Cada dobra deve fluir naturalmente para a próxima
 - Fale diretamente com o lead (use "você")
-- Inclua prova social, urgência ou escassez sempre que possível`
+- Inclua prova social, urgência ou escassez sempre que possível
+- Não use travessões (—) em nenhuma parte do output`
 
 // ─── Copy Card ────────────────────────────────────────────────────────────────
 function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange }) {
