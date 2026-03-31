@@ -857,6 +857,7 @@ export default function Dashboard() {
     if (squadFilter   !== 'all')      result = result.filter(p => String(p.squad) === String(squadFilter))
     if (riskFilter    !== 'all')      result = result.filter(p => p.riskLevel === riskFilter)
     if (momentoFilter !== 'all')      result = result.filter(p => p.momento === momentoFilter)
+    else                              result = result.filter(p => p.momento !== 'churn')
     return result
   })()
 
