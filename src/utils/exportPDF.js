@@ -351,45 +351,43 @@ export function exportROIPDF(calc, result, project) {
 
 // ─── Personas PDF ─────────────────────────────────────────────────────────────
 
-const PERSONA_QUESTIONS = [
-  { id: 'resultado', label: 'Resultado Percebido' },
-  { id: 'acoes',     label: 'O que ele precisa fazer' },
-  { id: 'tempo',     label: 'Prazo para o resultado' },
-  { id: 'objecoes',  label: 'Objeções' },
-  { id: 'sonhos',    label: 'Sonhos' },
-  { id: 'erros',     label: 'Erros comuns' },
-  { id: 'medos',     label: 'Medos' },
-  { id: 'sinais',    label: 'Sinais do problema' },
-  { id: 'valores',   label: 'Valores / contra o senso comum' },
-  { id: 'habitos',   label: 'Hábitos' },
-]
+function isSectionHeaderPDF(line) {
+  const t = line.trim()
+  if (!t || t === '---') return false
+  return t === t.toUpperCase() && /[A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ]/.test(t)
+}
+
+function plainTextToHTML(text) {
+  if (!text) return ''
+  return text.split('\n').map((line) => {
+    const trimmed = line.trim()
+    if (trimmed === '---') return '<hr style="border:none;border-top:1px solid #e9d5ff;margin:12px 0">'
+    if (trimmed === '')    return '<br>'
+    if (isSectionHeaderPDF(trimmed))
+      return `<p style="font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 4px">${esc(trimmed)}</p>`
+    if (line.startsWith('  - '))
+      return `<p style="font-size:11px;color:#6b7280;margin:2px 0 2px 24px">– ${esc(line.slice(4))}</p>`
+    if (trimmed.startsWith('- '))
+      return `<p style="font-size:11px;color:#1f2937;margin:3px 0 3px 8px">• ${esc(trimmed.slice(2))}</p>`
+    return `<p style="font-size:11px;color:#374151;margin:3px 0 3px 8px">${esc(trimmed)}</p>`
+  }).join('\n')
+}
 
 export function exportPersonasPDF(personas, project) {
-  const blocksHTML = personas.map((persona) => {
-    const answersHTML = PERSONA_QUESTIONS.map((q) => {
-      const answers = (persona.answers?.[q.id] || []).filter((a) => a.trim())
-      if (!answers.length) return ''
-      return `<div class="qa-item">
-        <div class="qa-label">${esc(q.label)}</div>
-        <div class="qa-value">${answers.map((a, i) => `${i + 1}. ${esc(a)}`).join(' · ')}</div>
-      </div>`
-    }).filter(Boolean).join('')
+  const blocksHTML = personas
+    .filter((p) => p.generatedProfile)
+    .map((persona) => `
+      <div class="persona-block">
+        <div class="persona-name">${esc(persona.name || 'Persona')}</div>
+        <div class="prose">${plainTextToHTML(persona.generatedProfile)}</div>
+      </div>
+    `).join('')
 
-    const generatedHTML = persona.generatedProfile
-      ? `<div style="margin-top:16px;padding-top:12px;border-top:1px dashed #e9d5ff">
-          <div class="qa-label" style="margin-bottom:8px">✨ Perfil Gerado por IA</div>
-          <div class="prose">${mdToHTML(persona.generatedProfile)}</div>
-        </div>`
-      : ''
+  const empty = !blocksHTML
+    ? '<p style="color:#9ca3af;font-size:13px;text-align:center;padding:32px 0">Nenhum perfil gerado ainda.</p>'
+    : ''
 
-    return `<div class="persona-block">
-      <div class="persona-name">${esc(persona.name || 'Persona')}</div>
-      ${answersHTML}
-      ${generatedHTML}
-    </div>`
-  }).join('')
-
-  printHTML('ICP / Persona', project.companyName, blocksHTML)
+  printHTML('Perfil Ideal de Cliente', project.companyName, blocksHTML + empty)
 }
 
 // ─── Oferta Matadora PDF ──────────────────────────────────────────────────────

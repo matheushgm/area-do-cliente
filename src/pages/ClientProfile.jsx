@@ -89,6 +89,23 @@ const SQUAD_COLORS = [
   { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400' },
 ]
 
+// ─── Momento ──────────────────────────────────────────────────────────────────
+
+const MOMENTO_CONFIG = [
+  { value: 'onboarding',     label: 'Onboarding',     bg: 'bg-orange-400/10',  border: 'border-orange-400/40',  text: 'text-orange-400',  dot: 'bg-orange-400'  },
+  { value: 'aceleracao',     label: 'Aceleração',     bg: 'bg-rl-green/10',    border: 'border-rl-green/40',    text: 'text-rl-green',    dot: 'bg-rl-green'    },
+  { value: 'voo_de_cruzeiro',label: 'Voo de cruzeiro',bg: 'bg-rl-cyan/10',     border: 'border-rl-cyan/40',     text: 'text-rl-cyan',     dot: 'bg-rl-cyan'     },
+  { value: 'churn',          label: 'Churn',          bg: 'bg-red-700/10',     border: 'border-red-700/40',     text: 'text-red-600',     dot: 'bg-red-600'     },
+]
+
+// ─── Risk levels ──────────────────────────────────────────────────────────────
+
+const RISK_CONFIG = [
+  { value: 'em_risco', label: 'Em Risco',  bg: 'bg-red-400/10',    border: 'border-red-400/40',    text: 'text-red-400',    dot: 'bg-red-400'    },
+  { value: 'neutro',   label: 'Neutro',    bg: 'bg-rl-gold/10',    border: 'border-rl-gold/40',    text: 'text-rl-gold',    dot: 'bg-rl-gold'    },
+  { value: 'saudavel', label: 'Saudável',  bg: 'bg-rl-green/10',   border: 'border-rl-green/40',   text: 'text-rl-green',   dot: 'bg-rl-green'   },
+]
+
 // ─── Service detail labels (for display in OnboardingContent) ─────────────────
 
 const CONTRACT_MODEL_LABELS = {
@@ -1026,6 +1043,10 @@ export default function ClientProfile({ project: projectProp }) {
   const [logoSignedUrl, setLogoSignedUrl] = useState(null)
   const [squadOpen, setSquadOpen] = useState(false)
   const squadRef = useRef(null)
+  const [riskOpen, setRiskOpen] = useState(false)
+  const riskRef = useRef(null)
+  const [momentoOpen, setMomentoOpen] = useState(false)
+  const momentoRef = useRef(null)
   const [linkStep,         setLinkStep]         = useState('idle') // 'idle' | 'dropdown' | 'input'
   const [linkPickedType,   setLinkPickedType]   = useState(null)
   const [linkInput,        setLinkInput]        = useState('')
@@ -1057,6 +1078,24 @@ export default function ClientProfile({ project: projectProp }) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [squadOpen])
+
+  useEffect(() => {
+    if (!riskOpen) return
+    function handleClickOutside(e) {
+      if (riskRef.current && !riskRef.current.contains(e.target)) setRiskOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [riskOpen])
+
+  useEffect(() => {
+    if (!momentoOpen) return
+    function handleClickOutside(e) {
+      if (momentoRef.current && !momentoRef.current.contains(e.target)) setMomentoOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [momentoOpen])
 
   useEffect(() => {
     if (linkStep === 'idle') return
@@ -1362,6 +1401,112 @@ export default function ClientProfile({ project: projectProp }) {
                             >
                               <X className="w-3.5 h-3.5" />
                               Remover Squad
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+
+                {/* ── Risk Level ───────────────────────────────────────────── */}
+                {(() => {
+                  const current = RISK_CONFIG.find((r) => r.value === project.riskLevel) || null
+                  return (
+                    <div className="mt-2 relative inline-block" ref={riskRef}>
+                      <button
+                        onClick={() => setRiskOpen((v) => !v)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
+                          current
+                            ? `${current.bg} ${current.border} ${current.text}`
+                            : 'bg-rl-surface border-dashed border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-purple'
+                        }`}
+                      >
+                        {current ? (
+                          <><span className={`w-2 h-2 rounded-full shrink-0 ${current.dot}`} />{current.label}</>
+                        ) : (
+                          <>⚡ Definir Risco</>
+                        )}
+                        <ChevronDown className="w-3 h-3 opacity-60" />
+                      </button>
+
+                      {riskOpen && (
+                        <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[180px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
+                          {RISK_CONFIG.map((r) => (
+                            <button
+                              key={r.value}
+                              onClick={() => { updateProject(project.id, { riskLevel: r.value }); setRiskOpen(false) }}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
+                                project.riskLevel === r.value
+                                  ? `${r.bg} ${r.text} border ${r.border}`
+                                  : 'hover:bg-rl-surface text-rl-text'
+                              }`}
+                            >
+                              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${r.dot}`} />
+                              {r.label}
+                              {project.riskLevel === r.value && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
+                            </button>
+                          ))}
+                          {project.riskLevel && (
+                            <button
+                              onClick={() => { updateProject(project.id, { riskLevel: null }); setRiskOpen(false) }}
+                              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              Remover Status
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+
+                {/* ── Momento ──────────────────────────────────────────────── */}
+                {(() => {
+                  const current = MOMENTO_CONFIG.find((m) => m.value === project.momento) || null
+                  return (
+                    <div className="mt-2 relative inline-block" ref={momentoRef}>
+                      <button
+                        onClick={() => setMomentoOpen((v) => !v)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
+                          current
+                            ? `${current.bg} ${current.border} ${current.text}`
+                            : 'bg-rl-surface border-dashed border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-purple'
+                        }`}
+                      >
+                        {current ? (
+                          <><span className={`w-2 h-2 rounded-full shrink-0 ${current.dot}`} />{current.label}</>
+                        ) : (
+                          <>🎯 Definir Momento</>
+                        )}
+                        <ChevronDown className="w-3 h-3 opacity-60" />
+                      </button>
+
+                      {momentoOpen && (
+                        <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[200px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
+                          {MOMENTO_CONFIG.map((m) => (
+                            <button
+                              key={m.value}
+                              onClick={() => { updateProject(project.id, { momento: m.value }); setMomentoOpen(false) }}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
+                                project.momento === m.value
+                                  ? `${m.bg} ${m.text} border ${m.border}`
+                                  : 'hover:bg-rl-surface text-rl-text'
+                              }`}
+                            >
+                              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${m.dot}`} />
+                              {m.label}
+                              {project.momento === m.value && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
+                            </button>
+                          ))}
+                          {project.momento && (
+                            <button
+                              onClick={() => { updateProject(project.id, { momento: null }); setMomentoOpen(false) }}
+                              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              Remover Momento
                             </button>
                           )}
                         </div>

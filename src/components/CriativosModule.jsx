@@ -99,10 +99,6 @@ Crie cada roteiro seguindo a ESTRUTURA DO LABORATÓRIO DE ANÚNCIOS (4 etapas):
 
 ---
 
-Ao final de TODOS os roteiros, crie uma tabela interligando:
-| Tipo de Gancho | Tipo de Mensagem | Quebra de Objeção | CTA Sugerido |
-cobrindo os tipos de gancho selecionados × mensagens de funil.
-
 Tipos de mensagem por funil:
 - TOPO: StoryTelling, Proclamação
 - MEIO: Segredos que ninguém te conta, Problema-Solução
@@ -162,7 +158,7 @@ ${typesStr}
 
 Distribua os tipos de gancho entre os roteiros de forma equilibrada. Se houver mais roteiros do que tipos, repita os tipos com variações diferentes.
 
-Use todas as informações do cliente acima para personalizar os roteiros ao máximo. Ao final, crie a tabela do Laboratório de Anúncios interligando ganchos × mensagens.`
+Use todas as informações do cliente acima para personalizar os roteiros ao máximo. Gere APENAS os roteiros — sem tabelas, sem resumos, sem insights ao final.`
     } else {
       return `${customSection}
 ---
@@ -202,7 +198,7 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
 
       // ── Save to project history ────────────────────────────────────────────
       const newCreative = {
-        id:           Date.now(),
+        id:           crypto.randomUUID(),
         type:         isVideo ? 'video' : 'estatico',
         adTypes:      [...adTypes],
         adTypeLabels: selectedList.map((t) => t.label),

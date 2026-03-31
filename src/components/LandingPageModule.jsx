@@ -251,7 +251,7 @@ Com base em todas as informações do cliente acima, crie uma copy COMPLETA de l
       })
 
       onSave({
-        id:         Date.now(),
+        id:         crypto.randomUUID(),
         name:       name.trim() || (isRegen ? existingName : `Copy Landing Page ${copyCount + 1}`),
         content:    fullText,
         customNote: customNote.trim(),

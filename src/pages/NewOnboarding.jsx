@@ -323,7 +323,8 @@ const initialForm = {
   contractValue:       '',
   contractDate:        '',
   competitors:         [''],
-  // Step 6 — Equipe
+  // Step 5 — Equipe
+  squad:               null,
   hasSalesTeam:        null,
   digitalMaturity:     '',
   otherPeople:         [],
@@ -332,8 +333,15 @@ const initialForm = {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
+// ─── Squad colors (must match ClientProfile + UserManagement) ─────────────────
+const SQUAD_COLORS = [
+  { bg: 'bg-rl-gold/10',   border: 'border-rl-gold/30',   text: 'text-rl-gold',   activeBg: 'bg-rl-gold/20',   activeBorder: 'border-rl-gold/60'   },
+  { bg: 'bg-rl-cyan/10',   border: 'border-rl-cyan/30',   text: 'text-rl-cyan',   activeBg: 'bg-rl-cyan/20',   activeBorder: 'border-rl-cyan/60'   },
+  { bg: 'bg-rl-purple/10', border: 'border-rl-purple/30', text: 'text-rl-purple', activeBg: 'bg-rl-purple/20', activeBorder: 'border-rl-purple/60' },
+]
+
 export default function NewOnboarding() {
-  const { addProject } = useApp()
+  const { addProject, squads } = useApp()
   const navigate = useNavigate()
 
   const draft = loadDraft()
@@ -374,21 +382,36 @@ export default function NewOnboarding() {
   function validate(s) {
     const e = {}
     if (s === 0) {
-      if (!form.businessType)           e.businessType    = 'Selecione o tipo de negócio'
-      if (!form.companyName.trim())     e.companyName     = 'Nome da empresa é obrigatório'
-      if (!form.responsibleName.trim()) e.responsibleName = 'Nome do responsável é obrigatório'
+      if (!form.businessType)               e.businessType    = 'Selecione o tipo de negócio'
+      if (!form.companyName.trim())         e.companyName     = 'Nome da empresa é obrigatório'
+      if (!form.cnpj.trim())                e.cnpj            = 'CNPJ é obrigatório'
+      if (!form.responsibleName.trim())     e.responsibleName = 'Nome do responsável é obrigatório'
+      if (!form.responsibleRole.trim())     e.responsibleRole = 'Cargo do responsável é obrigatório'
+      if (!form.segmento.trim())            e.segmento        = 'Selecione ou informe o segmento'
+    }
+    if (s === 1) {
+      if (!form.raioXFile) e.raioXFile = 'Anexe o Raio-X do cliente'
+      if (!form.slaFile)   e.slaFile   = 'Anexe o SLA de passagem de bastão'
     }
     if (s === 2) {
       if (form.services.length === 0) e.services = 'Selecione ao menos um serviço'
     }
     if (s === 3) {
-      if (!form.contractModel) e.contractModel = 'Selecione o modelo de contratação'
-      if (!form.contractDate)  e.contractDate  = 'Informe a data de assinatura'
+      if (!form.contractModel)  e.contractModel = 'Selecione o modelo de contratação'
+      if (!form.contractDate)   e.contractDate  = 'Informe a data de assinatura'
+      if (!form.contractValue.trim()) e.contractValue = 'Informe o valor do contrato'
+      if (form.contractModel === 'aceleracao' && !form.contractPaymentType)
+        e.contractPaymentType = 'Selecione o tipo de pagamento'
+      if (form.competitors.filter(Boolean).length === 0 || !form.competitors[0]?.trim())
+        e.competitors = 'Informe ao menos um concorrente'
     }
     if (s === 4) {
-      if (form.hasSalesTeam === null)    e.hasSalesTeam    = 'Informe se tem equipe comercial'
-      if (!form.digitalMaturity)         e.digitalMaturity = 'Selecione a maturidade digital'
-      if (form.upsellPotential === null) e.upsellPotential = 'Informe o potencial de upsell'
+      if (squads.length > 0 && !form.squad) e.squad           = 'Selecione o squad responsável'
+      if (form.hasSalesTeam === null)        e.hasSalesTeam    = 'Informe se tem equipe comercial'
+      if (!form.digitalMaturity)             e.digitalMaturity = 'Selecione a maturidade digital'
+      if (form.upsellPotential === null)     e.upsellPotential = 'Informe o potencial de upsell'
+      if (form.upsellPotential === true && !form.upsellNotes.trim())
+        e.upsellNotes = 'Descreva as observações sobre o upsell'
     }
     return e
   }
@@ -443,6 +466,7 @@ export default function NewOnboarding() {
         upsell_notes:          form.upsellNotes,
         raio_x_file_url:       raioXPath,
         sla_file_url:          slaPath,
+        squad:                 form.squad || null,
       })
       clearDraft()
       setCreatedId(created.id)
@@ -630,13 +654,14 @@ export default function NewOnboarding() {
 
               {/* CNPJ */}
               <div>
-                <label className="label-field">CNPJ</label>
+                <label className="label-field">CNPJ <span className="text-rl-red">*</span></label>
                 <input
                   value={form.cnpj}
                   onChange={(e) => set('cnpj', formatCNPJ(e.target.value))}
                   placeholder="00.000.000/0001-00"
-                  className="input-field"
+                  className={`input-field ${errors.cnpj ? 'border-rl-red' : ''}`}
                 />
+                {errors.cnpj && <p className="text-rl-red text-xs mt-1">{errors.cnpj}</p>}
               </div>
 
               {/* Responsável + Cargo */}
@@ -652,21 +677,23 @@ export default function NewOnboarding() {
                   {errors.responsibleName && <p className="text-rl-red text-xs mt-1">{errors.responsibleName}</p>}
                 </div>
                 <div>
-                  <label className="label-field">Cargo do Responsável</label>
+                  <label className="label-field">Cargo do Responsável <span className="text-rl-red">*</span></label>
                   <input
                     value={form.responsibleRole}
                     onChange={(e) => set('responsibleRole', e.target.value)}
                     placeholder="Ex: Diretor de Marketing"
-                    className="input-field"
+                    className={`input-field ${errors.responsibleRole ? 'border-rl-red' : ''}`}
                   />
+                  {errors.responsibleRole && <p className="text-rl-red text-xs mt-1">{errors.responsibleRole}</p>}
                 </div>
               </div>
 
               {/* Segmento */}
               <div>
-                <label className="label-field">Segmento</label>
+                <label className="label-field">Segmento <span className="text-rl-red">*</span></label>
                 <p className="text-xs text-rl-muted mb-2">Digite ou clique em uma sugestão.</p>
                 <SegmentoField value={form.segmento} onChange={(v) => set('segmento', v)} />
+                {errors.segmento && <p className="text-rl-red text-xs mt-1">{errors.segmento}</p>}
               </div>
             </div>
           )}
@@ -681,18 +708,24 @@ export default function NewOnboarding() {
                   Formatos aceitos: PDF, DOC, DOCX, PNG, JPG.
                 </p>
               </div>
-              <FileUpload
-                label="Raio-X do Cliente"
-                file={form.raioXFile}
-                onChange={(f) => set('raioXFile', f)}
-                description="PDF ou DOCX · Diagnóstico inicial do cliente"
-              />
-              <FileUpload
-                label="SLA — Passagem de Bastão"
-                file={form.slaFile}
-                onChange={(f) => set('slaFile', f)}
-                description="PDF ou DOCX · Acordo de nível de serviço"
-              />
+              <div>
+                <FileUpload
+                  label={<>Raio-X do Cliente <span className="text-rl-red">*</span></>}
+                  file={form.raioXFile}
+                  onChange={(f) => set('raioXFile', f)}
+                  description="PDF ou DOCX · Diagnóstico inicial do cliente"
+                />
+                {errors.raioXFile && <p className="text-rl-red text-xs mt-1">{errors.raioXFile}</p>}
+              </div>
+              <div>
+                <FileUpload
+                  label={<>SLA — Passagem de Bastão <span className="text-rl-red">*</span></>}
+                  file={form.slaFile}
+                  onChange={(f) => set('slaFile', f)}
+                  description="PDF ou DOCX · Acordo de nível de serviço"
+                />
+                {errors.slaFile && <p className="text-rl-red text-xs mt-1">{errors.slaFile}</p>}
+              </div>
             </div>
           )}
 
@@ -760,7 +793,7 @@ export default function NewOnboarding() {
                 {form.contractModel === 'aceleracao' && (
                   <div className="mt-4 p-4 rounded-xl bg-rl-surface border border-rl-border/60 space-y-4">
                     <div>
-                      <label className="label-field mb-2">Tipo de Pagamento</label>
+                      <label className="label-field mb-2">Tipo de Pagamento <span className="text-rl-red">*</span></label>
                       <div className="flex gap-3">
                         {[
                           { label: 'Valor Único',        value: 'unico'  },
@@ -779,10 +812,11 @@ export default function NewOnboarding() {
                           </button>
                         ))}
                       </div>
+                      {errors.contractPaymentType && <p className="text-rl-red text-xs mt-1">{errors.contractPaymentType}</p>}
                     </div>
                     <div>
                       <label className="label-field">
-                        {form.contractPaymentType === 'mensal' ? 'Valor Mensal' : 'Valor do Contrato'}
+                        {form.contractPaymentType === 'mensal' ? 'Valor Mensal' : 'Valor do Contrato'} <span className="text-rl-red">*</span>
                       </label>
                       <div className="relative mt-1">
                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rl-muted" />
@@ -790,9 +824,10 @@ export default function NewOnboarding() {
                           value={form.contractValue}
                           onChange={(e) => set('contractValue', formatCurrency(e.target.value))}
                           placeholder="R$ 0,00"
-                          className="input-field pl-9"
+                          className={`input-field pl-9 ${errors.contractValue ? 'border-rl-red' : ''}`}
                         />
                       </div>
+                      {errors.contractValue && <p className="text-rl-red text-xs mt-1">{errors.contractValue}</p>}
                     </div>
                   </div>
                 )}
@@ -800,16 +835,17 @@ export default function NewOnboarding() {
                 {/* Assessoria Mensal — sub-field */}
                 {form.contractModel === 'assessoria' && (
                   <div className="mt-4 p-4 rounded-xl bg-rl-surface border border-rl-border/60">
-                    <label className="label-field">Valor Mensal</label>
+                    <label className="label-field">Valor Mensal <span className="text-rl-red">*</span></label>
                     <div className="relative mt-1">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rl-muted" />
                       <input
                         value={form.contractValue}
                         onChange={(e) => set('contractValue', formatCurrency(e.target.value))}
                         placeholder="R$ 0,00"
-                        className="input-field pl-9"
+                        className={`input-field pl-9 ${errors.contractValue ? 'border-rl-red' : ''}`}
                       />
                     </div>
+                    {errors.contractValue && <p className="text-rl-red text-xs mt-1">{errors.contractValue}</p>}
                   </div>
                 )}
               </div>
@@ -833,13 +869,14 @@ export default function NewOnboarding() {
 
               {/* Concorrentes */}
               <div>
-                <label className="label-field">Sites dos Concorrentes</label>
+                <label className="label-field">Sites dos Concorrentes <span className="text-rl-red">*</span></label>
                 <p className="text-xs text-rl-muted mb-3">Adicione as URLs dos principais concorrentes do cliente.</p>
                 <DynamicList
                   items={form.competitors}
                   onChange={(v) => set('competitors', v)}
                   placeholder="https://concorrente.com.br"
                 />
+                {errors.competitors && <p className="text-rl-red text-xs mt-1">{errors.competitors}</p>}
               </div>
             </div>
           )}
@@ -847,6 +884,39 @@ export default function NewOnboarding() {
           {/* ─── STEP 5: Equipe & Potencial ────────────────────── */}
           {step === 4 && (
             <div className="space-y-6">
+
+              {/* Squad responsável */}
+              {squads.length > 0 && (
+                <div>
+                  <label className="label-field">Squad Responsável <span className="text-rl-red">*</span></label>
+                  <p className="text-xs text-rl-muted mb-3">Selecione a equipe que irá gerenciar este cliente.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {squads.map((sq, idx) => {
+                      const c        = SQUAD_COLORS[idx % SQUAD_COLORS.length]
+                      const selected = form.squad === sq.id
+                      return (
+                        <button
+                          key={sq.id}
+                          type="button"
+                          onClick={() => set('squad', sq.id)}
+                          className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
+                            selected
+                              ? `${c.activeBg} ${c.activeBorder} ring-1 ${c.activeBorder}`
+                              : `${c.bg} ${c.border} hover:${c.activeBorder}`
+                          }`}
+                        >
+                          <span className="text-lg leading-none">{sq.emoji || '👥'}</span>
+                          <span className={`text-sm font-medium flex-1 ${selected ? c.text : 'text-rl-text'}`}>
+                            {sq.name}
+                          </span>
+                          {selected && <Check className={`w-4 h-4 shrink-0 ${c.text}`} />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {errors.squad && <p className="text-rl-red text-xs mt-1">{errors.squad}</p>}
+                </div>
+              )}
 
               {/* Equipe Comercial */}
               <div>

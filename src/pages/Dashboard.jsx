@@ -75,6 +75,45 @@ function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
   )
 }
 
+// ─── Risk badge ────────────────────────────────────────────────────────────────
+const RISK_CONFIG = {
+  em_risco: { label: 'Em Risco',  className: 'text-red-400 bg-red-400/10 border-red-400/30',     dot: 'bg-red-400'     },
+  neutro:   { label: 'Neutro',    className: 'text-rl-gold bg-rl-gold/10 border-rl-gold/30',      dot: 'bg-rl-gold'     },
+  saudavel: { label: 'Saudável',  className: 'text-rl-green bg-rl-green/10 border-rl-green/30',   dot: 'bg-rl-green'    },
+}
+
+function RiskBadge({ riskLevel }) {
+  if (!riskLevel) return null
+  const cfg = RISK_CONFIG[riskLevel]
+  if (!cfg) return null
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-semibold ${cfg.className}`}>
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+      {cfg.label}
+    </span>
+  )
+}
+
+// ─── Momento badge ─────────────────────────────────────────────────────────────
+const MOMENTO_OPTIONS = [
+  { value: 'onboarding',      label: 'Onboarding',      dot: 'bg-orange-400', text: 'text-orange-400', activeCls: 'bg-orange-400/10 border-orange-400/40 text-orange-400' },
+  { value: 'aceleracao',      label: 'Aceleração',      dot: 'bg-rl-green',   text: 'text-rl-green',   activeCls: 'bg-rl-green/10 border-rl-green/40 text-rl-green'       },
+  { value: 'voo_de_cruzeiro', label: 'Voo de cruzeiro', dot: 'bg-rl-cyan',    text: 'text-rl-cyan',    activeCls: 'bg-rl-cyan/10 border-rl-cyan/40 text-rl-cyan'          },
+  { value: 'churn',           label: 'Churn',           dot: 'bg-red-600',    text: 'text-red-600',    activeCls: 'bg-red-700/10 border-red-700/40 text-red-600'          },
+]
+
+function MomentoBadge({ momento }) {
+  if (!momento) return null
+  const cfg = MOMENTO_OPTIONS.find(m => m.value === momento)
+  if (!cfg) return null
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-semibold ${cfg.activeCls}`}>
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+      {cfg.label}
+    </span>
+  )
+}
+
 // ─── Creator badge ─────────────────────────────────────────────────────────────
 const CREATOR_COLORS = [
   { bg: 'bg-rl-purple/15', text: 'text-rl-purple', avatar: 'bg-rl-purple' },
@@ -152,9 +191,11 @@ function ProjectCard({ project, onClick, onDelete }) {
       </div>
       <p className="text-rl-muted text-xs mb-3">{project.responsibleName}{project.responsibleRole ? ` · ${project.responsibleRole}` : ''}</p>
 
-      {/* Squad */}
-      <div className="mb-3">
+      {/* Squad + Risk + Momento */}
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
         <SquadBadge name={project.squadName} emoji={project.squadEmoji} colorIndex={project.squadColorIndex} members={project.squadMembers ?? []} />
+        <RiskBadge riskLevel={project.riskLevel} />
+        <MomentoBadge momento={project.momento} />
       </div>
 
       {/* Progress */}
@@ -232,9 +273,11 @@ function ClientProfileCard({ project, onClick, onDelete }) {
         </span>
       </div>
 
-      {/* Squad */}
-      <div className="mt-3 mb-3">
+      {/* Squad + Risk + Momento */}
+      <div className="mt-3 mb-3 flex items-center gap-2 flex-wrap">
         <SquadBadge name={project.squadName} emoji={project.squadEmoji} colorIndex={project.squadColorIndex} members={project.squadMembers ?? []} />
+        <RiskBadge riskLevel={project.riskLevel} />
+        <MomentoBadge momento={project.momento} />
       </div>
 
       {/* Chips de resumo */}
@@ -302,7 +345,14 @@ function SquadDropdown({ squadFilter, setSquadFilter, squads, counts }) {
       >
         <Users className="w-3.5 h-3.5 shrink-0" />
         <span className="max-w-[120px] truncate">{label}</span>
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
+        {isFiltered
+          ? <span
+              role="button"
+              onClick={(e) => { e.stopPropagation(); setSquadFilter('all') }}
+              className="ml-0.5 rounded-full hover:bg-rl-purple/20 p-0.5 transition-colors"
+            ><X className="w-3 h-3" /></span>
+          : <ChevronDown className={`w-3.5 h-3.5 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
+        }
       </button>
 
       {open && (
@@ -347,12 +397,170 @@ function SquadDropdown({ squadFilter, setSquadFilter, squads, counts }) {
   )
 }
 
+// ─── Risk Dropdown ────────────────────────────────────────────────────────────
+
+const RISK_OPTIONS = [
+  { value: 'em_risco', label: 'Em Risco',  dot: 'bg-red-400',   text: 'text-red-400',   activeCls: 'bg-red-400/10 border-red-400/40 text-red-400'    },
+  { value: 'neutro',   label: 'Neutro',    dot: 'bg-rl-gold',   text: 'text-rl-gold',   activeCls: 'bg-rl-gold/10 border-rl-gold/40 text-rl-gold'    },
+  { value: 'saudavel', label: 'Saudável',  dot: 'bg-rl-green',  text: 'text-rl-green',  activeCls: 'bg-rl-green/10 border-rl-green/40 text-rl-green' },
+]
+
+function RiskDropdown({ riskFilter, setRiskFilter, counts }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const active = RISK_OPTIONS.find(r => r.value === riskFilter)
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all ${
+          active
+            ? active.activeCls
+            : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
+        }`}
+      >
+        {active
+          ? <><span className={`w-2 h-2 rounded-full shrink-0 ${active.dot}`} />{active.label}</>
+          : <><Eye className="w-3.5 h-3.5 shrink-0" />Risco</>
+        }
+        {active
+          ? <span
+              role="button"
+              onClick={(e) => { e.stopPropagation(); setRiskFilter('all') }}
+              className="ml-0.5 rounded-full hover:opacity-70 p-0.5 transition-opacity"
+            ><X className="w-3 h-3" /></span>
+          : <ChevronDown className={`w-3.5 h-3.5 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
+        }
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-48 glass-card border border-rl-border shadow-xl py-1 rounded-xl overflow-hidden">
+          <button
+            onClick={() => { setRiskFilter('all'); setOpen(false) }}
+            className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
+              !active ? 'text-rl-purple font-semibold' : 'text-rl-muted'
+            }`}
+          >
+            <span>Todos</span>
+            {!active && <span className="w-1.5 h-1.5 rounded-full bg-rl-purple" />}
+          </button>
+          <div className="border-t border-rl-border/60 my-1" />
+          {RISK_OPTIONS.map(r => {
+            const isActive = riskFilter === r.value
+            const count = counts?.risks?.[r.value] ?? 0
+            return (
+              <button
+                key={r.value}
+                onClick={() => { setRiskFilter(r.value); setOpen(false) }}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
+                  isActive ? `${r.text} font-medium` : 'text-rl-muted'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${r.dot}`} />
+                  {r.label}
+                </div>
+                <span className="text-[11px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-full shrink-0">{count}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Momento Dropdown ─────────────────────────────────────────────────────────
+
+function MomentoDropdown({ momentoFilter, setMomentoFilter, counts }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const active = MOMENTO_OPTIONS.find(m => m.value === momentoFilter)
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all ${
+          active
+            ? active.activeCls
+            : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
+        }`}
+      >
+        {active
+          ? <><span className={`w-2 h-2 rounded-full shrink-0 ${active.dot}`} />{active.label}</>
+          : <>🎯 Momento</>
+        }
+        {active
+          ? <span
+              role="button"
+              onClick={(e) => { e.stopPropagation(); setMomentoFilter('all') }}
+              className="ml-0.5 rounded-full hover:opacity-70 p-0.5 transition-opacity"
+            ><X className="w-3 h-3" /></span>
+          : <ChevronDown className={`w-3.5 h-3.5 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
+        }
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-52 glass-card border border-rl-border shadow-xl py-1 rounded-xl overflow-hidden">
+          <button
+            onClick={() => { setMomentoFilter('all'); setOpen(false) }}
+            className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
+              !active ? 'text-rl-purple font-semibold' : 'text-rl-muted'
+            }`}
+          >
+            <span>Todos</span>
+            {!active && <span className="w-1.5 h-1.5 rounded-full bg-rl-purple" />}
+          </button>
+          <div className="border-t border-rl-border/60 my-1" />
+          {MOMENTO_OPTIONS.map(m => {
+            const isActive = momentoFilter === m.value
+            const count = counts?.momentos?.[m.value] ?? 0
+            return (
+              <button
+                key={m.value}
+                onClick={() => { setMomentoFilter(m.value); setOpen(false) }}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
+                  isActive ? `${m.text} font-medium` : 'text-rl-muted'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${m.dot}`} />
+                  {m.label}
+                </div>
+                <span className="text-[11px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-full shrink-0">{count}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── List View ────────────────────────────────────────────────────────────────
 const LIST_COLS = [
   { key: 'companyName',     label: 'Empresa'             },
   { key: 'squadName',       label: 'Squad'               },
   { key: 'responsibleName', label: 'Responsável / Cargo' },
   { key: 'status',          label: 'Status'              },
+  { key: 'riskLevel',       label: 'Risco'               },
+  { key: 'momento',         label: 'Momento'             },
   { key: 'progress',        label: 'Progresso'           },
   { key: 'contractValue',   label: 'Contrato'            },
   { key: 'createdAt',       label: 'Criado em'           },
@@ -473,6 +681,22 @@ function ProjectListView({ projects, onNavigate, onDelete }) {
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${statusColor}`}>
                       {statusLabel}
                     </span>
+                  </td>
+
+                  {/* Risco */}
+                  <td className="px-4 py-3">
+                    {p.riskLevel
+                      ? <RiskBadge riskLevel={p.riskLevel} />
+                      : <span className="text-rl-muted">—</span>
+                    }
+                  </td>
+
+                  {/* Momento */}
+                  <td className="px-4 py-3">
+                    {p.momento
+                      ? <MomentoBadge momento={p.momento} />
+                      : <span className="text-rl-muted">—</span>
+                    }
                   </td>
 
                   {/* Progresso */}
@@ -610,6 +834,8 @@ export default function Dashboard() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [filter, setFilter] = useState('all') // 'all' | 'onboarding' | 'active' | accountId
   const [squadFilter, setSquadFilter] = useState('all') // 'all' | squadId
+  const [riskFilter, setRiskFilter] = useState('all') // 'all' | 'em_risco' | 'neutro' | 'saudavel'
+  const [momentoFilter, setMomentoFilter] = useState('all') // 'all' | momento value
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [view, setView] = useState(() => localStorage.getItem('rl_dashboard_view') || 'grid')
@@ -628,7 +854,9 @@ export default function Dashboard() {
     if (filter === 'onboarding')      result = result.filter(p => p.status === 'onboarding')
     else if (filter === 'active')     result = result.filter(p => p.status === 'active')
     else if (filter !== 'all')        result = result.filter(p => String(p.accountId) === String(filter))
-    if (squadFilter !== 'all')        result = result.filter(p => String(p.squad) === String(squadFilter))
+    if (squadFilter   !== 'all')      result = result.filter(p => String(p.squad) === String(squadFilter))
+    if (riskFilter    !== 'all')      result = result.filter(p => p.riskLevel === riskFilter)
+    if (momentoFilter !== 'all')      result = result.filter(p => p.momento === momentoFilter)
     return result
   })()
 
@@ -672,6 +900,12 @@ export default function Dashboard() {
     ),
     squads:     Object.fromEntries(
       squads.map(s => [String(s.id), baseProjects.filter(p => String(p.squad) === String(s.id)).length])
+    ),
+    risks:      Object.fromEntries(
+      RISK_OPTIONS.map(r => [r.value, baseProjects.filter(p => p.riskLevel === r.value).length])
+    ),
+    momentos:   Object.fromEntries(
+      MOMENTO_OPTIONS.map(m => [m.value, baseProjects.filter(p => p.momento === m.value).length])
     ),
   }
 
@@ -830,6 +1064,12 @@ export default function Dashboard() {
                 />
               )}
 
+              {/* Risk filter dropdown */}
+              <RiskDropdown riskFilter={riskFilter} setRiskFilter={setRiskFilter} counts={counts} />
+
+              {/* Momento filter dropdown */}
+              <MomentoDropdown momentoFilter={momentoFilter} setMomentoFilter={setMomentoFilter} counts={counts} />
+
               {/* View switcher */}
               <div className="flex items-center gap-1 bg-rl-surface border border-rl-border rounded-xl p-1 shrink-0">
                 <button
@@ -886,13 +1126,40 @@ export default function Dashboard() {
                 onNavigate={(id) => navigate(`/project/${id}`)}
                 onDelete={(p) => setDeleteTarget(p)}
               />
-            ) : (
+            ) : (momentoFilter !== 'all' || riskFilter !== 'all') ? (
+              /* Flat grid when any filter is active */
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {visibleProjects.map((p) =>
                   isProfileComplete(p)
                     ? <ClientProfileCard key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
                     : <ProjectCard       key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
                 )}
+              </div>
+            ) : (
+              /* Grouped by momento when no filter active */
+              <div className="space-y-8">
+                {[...MOMENTO_OPTIONS, { value: null, label: 'Sem Momento', dot: 'bg-rl-muted', text: 'text-rl-muted' }].map(group => {
+                  const grouped = visibleProjects.filter(p =>
+                    group.value === null ? !p.momento : p.momento === group.value
+                  )
+                  if (grouped.length === 0) return null
+                  return (
+                    <div key={group.value ?? 'none'}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className={`w-2 h-2 rounded-full ${group.dot}`} />
+                        <span className={`text-sm font-semibold ${group.text}`}>{group.label}</span>
+                        <span className="text-xs text-rl-muted bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full">{grouped.length}</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {grouped.map((p) =>
+                          isProfileComplete(p)
+                            ? <ClientProfileCard key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
+                            : <ProjectCard       key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

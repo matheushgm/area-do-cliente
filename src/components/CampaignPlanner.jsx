@@ -1,8 +1,10 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
   Plus, Save, AlertCircle, CheckCircle2, CalendarDays, DollarSign, FileDown,
 } from 'lucide-react'
 import { exportCampaignPDF } from '../utils/exportPDF'
+import { useApp } from '../context/AppContext'
+import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import {
   getDaysLeft, getMonthLabel, fmtBRL, makeChannel, makeCampaign,
   CHANNEL_OPTIONS, STAGE_KEYS,
@@ -14,6 +16,8 @@ import ChannelRow from './CampaignPlanner/ChannelRow'
 const META_TAX = 0.13 // 13% retido pela Meta como imposto
 
 export default function CampaignPlanner({ project, onSave }) {
+  const { updateProject } = useApp()
+  const isMounted = useRef(false)
   const [orcamentoTotal, setOrcamentoTotal] = useState(
     () => project.campaignPlan?.orcamentoTotal ?? project.campaignPlan?.totalBudget ?? 0
   )
@@ -156,6 +160,22 @@ export default function CampaignPlanner({ project, onSave }) {
     setChannels((prev) => prev.filter((ch) => ch.id !== id))
   }, [])
 
+  // ── Auto-save ──────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!isMounted.current) { isMounted.current = true; return }
+    const disp = Math.max(0, orcamentoTotal - valorJaUsado)
+    updateProject(project.id, {
+      campaignPlan: {
+        id: project.campaignPlan?.id,
+        orcamentoTotal,
+        valorJaUsado,
+        totalBudget: disp,
+        channels: channels.map(({ expanded, ...rest }) => rest),
+      },
+    })
+  }, [orcamentoTotal, valorJaUsado, channels])
+
   // ── Save ───────────────────────────────────────────────────────────────────
 
   function handleSave() {
@@ -194,15 +214,18 @@ export default function CampaignPlanner({ project, onSave }) {
             Distribua o orçamento por canal, etapa do funil e campanhas individuais
           </p>
         </div>
-        <button
-          onClick={() => exportCampaignPDF({ totalBudget, channels: channels.map(({ expanded, ...rest }) => rest) }, project)}
-          disabled={channels.length === 0 || totalBudget === 0}
-          className="btn-secondary flex items-center gap-2 text-sm shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Exportar PDF"
-        >
-          <FileDown className="w-4 h-4" />
-          PDF
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <AutoSaveIndicator />
+          <button
+            onClick={() => exportCampaignPDF({ totalBudget, channels: channels.map(({ expanded, ...rest }) => rest) }, project)}
+            disabled={channels.length === 0 || totalBudget === 0}
+            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Exportar PDF"
+          >
+            <FileDown className="w-4 h-4" />
+            PDF
+          </button>
+        </div>
       </div>
 
       {/* Budget + date info */}

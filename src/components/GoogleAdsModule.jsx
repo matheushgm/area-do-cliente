@@ -409,7 +409,7 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
       })
 
       const entry = {
-        id:            Date.now(),
+        id:            crypto.randomUUID(),
         campaignTypes: [...campaignTypes],
         keywordGroups,
         content:       fullText,

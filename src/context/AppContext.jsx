@@ -117,6 +117,8 @@ function assembleProject(row, rel = {}) {
     logoUrl:              row.logo_url,
     dashboardUrl:         row.dashboard_url || null,
     squad:                row.squad || null,
+    riskLevel:            row.risk_level || null,
+    momento:              row.momento || null,
     accountId:            row.account_id,
     completedSteps:       row.completed_steps || [],
     createdAt:            row.created_at,
@@ -302,6 +304,8 @@ const PROJECT_FIELD_MAP = {
   dashboardUrl:        "dashboard_url",
   squad:               "squad",
   status:              "status",
+  riskLevel:           "risk_level",
+  momento:             "momento",
   completedSteps:      "completed_steps",
   // snake_case passthrough (quando NewOnboarding já envia snake_case)
   company_name:         "company_name",
@@ -401,7 +405,7 @@ async function sbUpdateProjectV2(id, patch) {
   if (patch.campaignPlan !== undefined) {
     await supabase.from("campaign_plans").delete().eq("project_id", id);
     const plan = patch.campaignPlan || {};
-    const hasContent = Array.isArray(plan.channels) ? plan.channels.length > 0 : (plan.orcamentoTotal > 0 || plan.totalBudget > 0);
+    const hasContent = (plan.orcamentoTotal > 0) || (plan.totalBudget > 0) || (Array.isArray(plan.channels) && plan.channels.length > 0);
     if (plan && hasContent) {
       const { id: _planId, ...answers } = plan;
       const { error } = await supabase.from("campaign_plans").insert({

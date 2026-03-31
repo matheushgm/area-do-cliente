@@ -1,10 +1,10 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { supabase, deleteFile, getSignedUrl } from '../lib/supabase'
 import {
   Upload, Paperclip, Download, Trash2, AlertCircle,
   FileText, Image, File, FileSpreadsheet, FileVideo,
-  FileAudio, Archive, Save, CheckCircle2, Loader2,
+  FileAudio, Archive, Save, CheckCircle2, Loader2, Eye, X,
 } from 'lucide-react'
 import EmptyState from './UI/EmptyState'
 
@@ -47,16 +47,146 @@ function fileColor(type) {
   return 'text-rl-muted bg-rl-surface'
 }
 
+function canPreview(type) {
+  return type?.startsWith('image/') || type === 'application/pdf' || type?.startsWith('video/') || type?.startsWith('audio/')
+}
+
+// ─── Preview Modal ─────────────────────────────────────────────────────────────
+function PreviewModal({ file, onClose, onDownload }) {
+  const [url, setUrl]       = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [err, setErr]        = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setErr(null)
+      let href = file.data ?? null
+      if (!href && file.storage_path) {
+        href = await getSignedUrl('attachments', file.storage_path)
+      }
+      if (cancelled) return
+      if (!href) { setErr('Não foi possível carregar o arquivo.'); setLoading(false); return }
+      setUrl(href)
+      setLoading(false)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [file])
+
+  // Fechar com Esc
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  const isImage = file.type?.startsWith('image/')
+  const isPDF   = file.type === 'application/pdf'
+  const isVideo = file.type?.startsWith('video/')
+  const isAudio = file.type?.startsWith('audio/')
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="relative bg-rl-bg border border-rl-border rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-3.5 border-b border-rl-border shrink-0">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${fileColor(file.type)}`}>
+            <FileIcon type={file.type} className="w-4 h-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-rl-text truncate">{file.name}</p>
+            <p className="text-xs text-rl-muted">{fmtSize(file.size)} · {fmtDate(file.uploadedAt || file.uploaded_at)}</p>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => onDownload(file)}
+              className="p-2 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
+              title="Baixar arquivo"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
+              title="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto flex items-center justify-center min-h-0 bg-rl-surface/30">
+          {loading && (
+            <div className="flex flex-col items-center gap-3 py-16">
+              <Loader2 className="w-8 h-8 text-rl-purple animate-spin" />
+              <p className="text-sm text-rl-muted">Carregando prévia...</p>
+            </div>
+          )}
+
+          {err && !loading && (
+            <div className="flex flex-col items-center gap-3 py-16 text-red-400">
+              <AlertCircle className="w-8 h-8" />
+              <p className="text-sm">{err}</p>
+            </div>
+          )}
+
+          {url && !loading && (
+            <>
+              {isImage && (
+                <img
+                  src={url}
+                  alt={file.name}
+                  className="max-w-full max-h-full object-contain p-4"
+                />
+              )}
+              {isPDF && (
+                <iframe
+                  src={url}
+                  title={file.name}
+                  className="w-full h-full min-h-[60vh]"
+                  style={{ border: 'none' }}
+                />
+              )}
+              {isVideo && (
+                <video
+                  src={url}
+                  controls
+                  className="max-w-full max-h-full p-4"
+                />
+              )}
+              {isAudio && (
+                <div className="p-8 w-full flex flex-col items-center gap-4">
+                  <FileAudio className="w-16 h-16 text-rl-cyan/40" />
+                  <p className="text-sm text-rl-muted font-medium">{file.name}</p>
+                  <audio src={url} controls className="w-full max-w-md" />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AnexosModule({ project }) {
   const { updateProject } = useApp()
   const fileInputRef = useRef(null)
   const savedTimer   = useRef(null)
 
-  const [dragging,  setDragging]  = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [error,     setError]     = useState(null)
-  const [saved,     setSaved]     = useState(false)
+  const [dragging,     setDragging]     = useState(false)
+  const [uploading,    setUploading]    = useState(false)
+  const [error,        setError]        = useState(null)
+  const [saved,        setSaved]        = useState(false)
+  const [previewFile,  setPreviewFile]  = useState(null)
 
   const attachments = project.attachments || []
   const totalSize   = attachments.reduce((s, a) => s + (a.size || 0), 0)
@@ -86,8 +216,7 @@ export default function AnexosModule({ project }) {
         return
       }
 
-      // Gera ID único e faz upload para o bucket 'attachments'
-      const attachId    = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+      const attachId    = crypto.randomUUID()
       const storagePath = `${project.id}/${attachId}`
 
       if (supabase) {
@@ -117,7 +246,6 @@ export default function AnexosModule({ project }) {
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
 
-    // Feedback de salvo automático após upload
     clearTimeout(savedTimer.current)
     setSaved(true)
     savedTimer.current = setTimeout(() => setSaved(false), 3000)
@@ -128,6 +256,7 @@ export default function AnexosModule({ project }) {
     if (a.storage_path) {
       await deleteFile('attachments', a.storage_path)
     }
+    setPreviewFile((prev) => prev?.id === a.id ? null : prev)
     updateProject(project.id, {
       attachments: attachments.filter((att) => att.id !== a.id),
     })
@@ -135,7 +264,6 @@ export default function AnexosModule({ project }) {
 
   // ── Download ─────────────────────────────────────────────────────────────────
   const handleDownload = useCallback(async (a) => {
-    // Suporte a anexos legados com base64
     let href = a.data ?? null
 
     if (!href && a.storage_path) {
@@ -159,7 +287,7 @@ export default function AnexosModule({ project }) {
     document.body.removeChild(link)
   }, [])
 
-  // ── Manual save (re-sync com Supabase) ───────────────────────────────────────
+  // ── Manual save ───────────────────────────────────────────────────────────────
   const handleSave = useCallback(() => {
     clearTimeout(savedTimer.current)
     updateProject(project.id, { attachments })
@@ -170,6 +298,15 @@ export default function AnexosModule({ project }) {
   // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
+
+      {/* Preview modal */}
+      {previewFile && (
+        <PreviewModal
+          file={previewFile}
+          onClose={() => setPreviewFile(null)}
+          onDownload={handleDownload}
+        />
+      )}
 
       {/* Drop zone */}
       <div
@@ -245,19 +382,47 @@ export default function AnexosModule({ project }) {
       ) : (
         <div className="space-y-2">
           {attachments.map((a) => (
-            <div key={a.id} className="flex items-center gap-3 glass-card px-4 py-3 hover:border-rl-border/60 transition-colors">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${fileColor(a.type)}`}>
+            <div
+              key={a.id}
+              className="flex items-center gap-3 glass-card px-4 py-3 hover:border-rl-border/60 transition-colors"
+            >
+              {/* Icon — clicável para preview */}
+              <button
+                onClick={() => canPreview(a.type) && setPreviewFile(a)}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all ${fileColor(a.type)} ${
+                  canPreview(a.type) ? 'hover:scale-110 cursor-pointer' : 'cursor-default'
+                }`}
+                title={canPreview(a.type) ? 'Visualizar arquivo' : undefined}
+              >
                 <FileIcon type={a.type} />
-              </div>
+              </button>
 
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-rl-text truncate">{a.name}</p>
+              {/* Name — clicável para preview */}
+              <div
+                className={`flex-1 min-w-0 ${canPreview(a.type) ? 'cursor-pointer' : ''}`}
+                onClick={() => canPreview(a.type) && setPreviewFile(a)}
+              >
+                <p className={`text-sm font-medium truncate transition-colors ${
+                  canPreview(a.type) ? 'text-rl-text hover:text-rl-purple' : 'text-rl-text'
+                }`}>
+                  {a.name}
+                </p>
                 <p className="text-xs text-rl-muted mt-0.5">
                   {fmtSize(a.size)} · {fmtDate(a.uploadedAt || a.uploaded_at)}
+                  {canPreview(a.type) && <span className="ml-1.5 text-rl-purple/60">· clique para visualizar</span>}
                 </p>
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
+                {canPreview(a.type) && (
+                  <button
+                    onClick={() => setPreviewFile(a)}
+                    className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
+                    title="Visualizar arquivo"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   onClick={() => handleDownload(a)}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
