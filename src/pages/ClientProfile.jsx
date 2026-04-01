@@ -752,18 +752,22 @@ function OnboardingContent({ project, onSave, showToast }) {
       )}
 
       {/* Serviços contratados */}
-      {project.services?.length > 0 && (
+      {(project.services?.length > 0 || Object.keys(project.servicesData || {}).length > 0) && (
         <div>
-          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">⚙️ Serviços Contratados</p>
+          {project.services?.length > 0 && (
+            <>
+              <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">⚙️ Serviços Contratados</p>
 
-          {/* Service chips */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {project.services.map((s) => (
-              <span key={s} className="px-3 py-1.5 rounded-full text-xs font-medium bg-rl-purple/10 text-rl-purple border border-rl-purple/20">
-                {s}
-              </span>
-            ))}
-          </div>
+              {/* Service chips */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {project.services.map((s) => (
+                  <span key={s} className="px-3 py-1.5 rounded-full text-xs font-medium bg-rl-purple/10 text-rl-purple border border-rl-purple/20">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Deliverable cards — per service with sub-fields */}
           {(() => {
@@ -781,8 +785,12 @@ function OnboardingContent({ project, onSave, showToast }) {
             }
 
             // Serviços contratados que têm sub-campos editáveis
+            // inclui serviços presentes em services (labels) OU já com dados em servicesData (IDs)
             const editableServices = SERVICES_CONFIG.filter(
-              (s) => s.sub && (project.services || []).includes(s.label)
+              (s) => s.sub && (
+                (project.services || []).includes(s.label) ||
+                project.servicesData?.[s.id] !== undefined
+              )
             )
 
             // Linhas para o modo de visualização (somente valores não-zero)
