@@ -773,9 +773,11 @@ function OnboardingContent({ project, onSave, showToast }) {
               estaticosQty: { label: 'Estáticos', icon: '🖼️', color: 'text-rl-blue  bg-rl-blue/10   border-rl-blue/20' },
               qty:          { label: 'Páginas',   icon: '📄', color: 'text-rl-cyan  bg-rl-cyan/10   border-rl-cyan/20' },
               nivel:        { label: 'Nível',     icon: '⭐', color: 'text-rl-gold   bg-rl-gold/10   border-rl-gold/20' },
-              carrosselQty: { label: 'Carrossel', icon: '🎠', color: 'text-rl-cyan  bg-rl-cyan/10   border-rl-cyan/20' },
+              carrosselQty: { label: 'Carrossel', icon: '🎠', color: 'text-rl-cyan   bg-rl-cyan/10   border-rl-cyan/20' },
               reelsQty:     { label: 'Reels',     icon: '🎥', color: 'text-rl-purple bg-rl-purple/10 border-rl-purple/20' },
               estaticaQty:  { label: 'Estática',  icon: '🖼️', color: 'text-rl-blue  bg-rl-blue/10   border-rl-blue/20' },
+              storiesQty:   { label: 'Stories',   icon: '📲', color: 'text-rl-gold  bg-rl-gold/10   border-rl-gold/20' },
+              storiesFreq:  { label: 'Freq. Stories', icon: '🔁', color: 'text-rl-cyan bg-rl-cyan/10 border-rl-cyan/20' },
             }
 
             // Serviços contratados que têm sub-campos editáveis
