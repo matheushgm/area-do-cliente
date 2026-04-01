@@ -1,7 +1,79 @@
 import { useState, useCallback } from 'react'
-import { Plus, X, Package, ShoppingBag, Briefcase, CheckCircle2 } from 'lucide-react'
+import { Plus, X, Package, ShoppingBag, Briefcase, CheckCircle2, Sparkles, Loader2, AlertTriangle, Copy, CheckCheck, FileText } from 'lucide-react'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
+import { streamClaude } from '../lib/claude'
+import ReactMarkdown from 'react-markdown'
+
+// ─── System Prompt ─────────────────────────────────────────────────────────────
+const SUMMARY_SYSTEM = `Você é um especialista em marketing e estratégia de produto. Sua função é transformar respostas brutas sobre um produto ou serviço em um documento de briefing claro, completo e altamente persuasivo.
+
+O documento gerado deve educar qualquer pessoa envolvida no projeto — gestores de tráfego, designers, copywriters e estrategistas — sobre tudo o que precisam saber para trabalhar com este produto ou serviço.
+
+Gere o documento seguindo EXATAMENTE esta estrutura:
+
+## 📦 O Produto / Serviço
+
+[Descrição clara e objetiva do que é e o que resolve — 2 a 3 parágrafos]
+
+---
+
+## 🎯 Para Quem é Este Produto
+
+[Perfil detalhado do cliente ideal: quando precisa, em que momento da vida, qual dor resolve]
+
+---
+
+## ✨ Transformação: Antes e Depois
+
+**Antes:** [Como é a vida do cliente sem o produto — seja específico e emocional]
+
+**Depois:** [Como é a vida do cliente após usar — resultados concretos e mensuráveis]
+
+---
+
+## 🏆 Por Que Este e Não o do Concorrente
+
+[Diferenciais competitivos claros e específicos — o que ninguém mais faz ou consegue copiar]
+
+---
+
+## 🚧 Objeções e Como Quebrá-las
+
+[Liste as principais objeções com resposta direta para cada uma — formato: **Objeção:** → **Resposta:**]
+
+---
+
+## 📊 Provas e Resultados
+
+[Cases, números, depoimentos, tempo de resultado — tudo que gera credibilidade]
+
+---
+
+## 🔥 Urgência e Escassez
+
+[Por que agora? O que acontece se o cliente esperar? Janelas de oportunidade]
+
+---
+
+## 🛡️ Garantias e Segurança
+
+[Garantias oferecidas e como lidar se der errado]
+
+---
+
+## 💡 Pontos de Atenção para a Equipe
+
+[Insights estratégicos importantes para gestores, designers e copywriters — o que NÃO fazer, tons a evitar, palavras que convertem, etc.]
+
+---
+
+Diretrizes obrigatórias:
+- Português brasileiro claro, direto e profissional
+- Seja extremamente específico — zero generalidades
+- Use os dados fornecidos literalmente sempre que possível
+- Não use travessões (—) em nenhuma parte do output
+- O documento deve ser acionável: qualquer pessoa que ler deve saber exatamente como comunicar este produto`
 
 // ─── Questions ────────────────────────────────────────────────────────────────
 const QUESTIONS = [
@@ -45,6 +117,10 @@ export default function ProdutoServicoModule({ project, onSave }) {
     return project.produtos?.length ? project.produtos : [newProduto('Produto 1')]
   })
   const [activeIdx, setActiveIdx] = useState(0)
+  const [generating, setGenerating] = useState(false)
+  const [summary, setSummary] = useState(null)
+  const [genError, setGenError] = useState(null)
+  const [copied, setCopied] = useState(false)
 
   const produto = produtos[activeIdx]
 
@@ -76,6 +152,50 @@ export default function ProdutoServicoModule({ project, onSave }) {
 
   const filledCount = QUESTIONS.filter((q) => produto.answers[q.id]?.trim()).length
 
+  const generateSummary = useCallback(async () => {
+    const answered = QUESTIONS.filter((q) => produto.answers[q.id]?.trim())
+    if (answered.length < 5) {
+      setGenError('Preencha pelo menos 5 perguntas antes de gerar o resumo.')
+      return
+    }
+    setGenerating(true)
+    setGenError(null)
+    setSummary(null)
+
+    const answersText = QUESTIONS
+      .filter((q) => produto.answers[q.id]?.trim())
+      .map((q) => `**${q.emoji} ${q.label}**\n${produto.answers[q.id].trim()}`)
+      .join('\n\n')
+
+    const instruction = `Produto / Serviço: ${produto.nome || 'Sem nome'}
+Tipo: ${produto.tipo === 'servico' ? 'Serviço' : 'Produto Físico'}
+
+${answersText}
+
+Gere o documento de briefing completo baseado nessas informações.`
+
+    try {
+      await streamClaude({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8000,
+        system: SUMMARY_SYSTEM,
+        messages: [{ role: 'user', content: instruction }],
+        onChunk: (text) => setSummary(text),
+      })
+    } catch (err) {
+      setGenError(err.message || 'Erro ao gerar resumo. Tente novamente.')
+    } finally {
+      setGenerating(false)
+    }
+  }, [produto])
+
+  const copySummary = () => {
+    if (!summary) return
+    navigator.clipboard.writeText(summary)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <div className="space-y-6">
 
@@ -92,6 +212,16 @@ export default function ProdutoServicoModule({ project, onSave }) {
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <AutoSaveIndicator />
+          <button
+            onClick={generateSummary}
+            disabled={generating}
+            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generating
+              ? <><Loader2 className="w-4 h-4 animate-spin" />Gerando...</>
+              : <><Sparkles className="w-4 h-4 text-rl-gold" />Gerar Resumo</>
+            }
+          </button>
           <button onClick={addProduto} className="btn-secondary flex items-center gap-2 text-sm">
             <Plus className="w-4 h-4" />
             Novo Produto
@@ -202,6 +332,47 @@ export default function ProdutoServicoModule({ project, onSave }) {
           </div>
         ))}
       </div>
+
+      {/* Error */}
+      {genError && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <p className="text-sm">{genError}</p>
+        </div>
+      )}
+
+      {/* Generated Summary */}
+      {(summary || generating) && (
+        <div className="glass-card p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-rl-gold" />
+              <h3 className="text-sm font-semibold text-rl-text">Briefing do Produto / Serviço</h3>
+              {generating && <Loader2 className="w-3.5 h-3.5 animate-spin text-rl-muted" />}
+            </div>
+            {summary && !generating && (
+              <button
+                onClick={copySummary}
+                className="flex items-center gap-1.5 text-xs text-rl-muted hover:text-rl-text transition-colors"
+              >
+                {copied
+                  ? <><CheckCheck className="w-3.5 h-3.5 text-rl-green" />Copiado!</>
+                  : <><Copy className="w-3.5 h-3.5" />Copiar</>
+                }
+              </button>
+            )}
+          </div>
+
+          <div className="prose prose-sm prose-invert max-w-none text-rl-text leading-relaxed
+            [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-rl-text [&_h2]:mt-6 [&_h2]:mb-2
+            [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-rl-text
+            [&_strong]:text-rl-text [&_hr]:border-rl-border [&_hr]:my-4
+            [&_p]:text-sm [&_p]:text-rl-text/90
+            [&_ul]:space-y-1 [&_li]:text-sm [&_li]:text-rl-text/90">
+            <ReactMarkdown>{summary || ''}</ReactMarkdown>
+          </div>
+        </div>
+      )}
 
       {/* Save */}
       {onSave && (
