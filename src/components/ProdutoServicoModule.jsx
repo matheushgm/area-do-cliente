@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Plus, X, Package, ShoppingBag, Briefcase, CheckCircle2, Sparkles, Loader2, AlertTriangle, Copy, CheckCheck, FileText } from 'lucide-react'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
@@ -124,6 +124,12 @@ export default function ProdutoServicoModule({ project, onSave }) {
 
   const produto = produtos[activeIdx]
 
+  // Sync summary display when switching between products
+  useEffect(() => {
+    setSummary(produto.summary || null)
+    setGenError(null)
+  }, [activeIdx, produto.id])
+
   const updateProduto = useCallback((patch) => {
     const next = produtos.map((p, i) => i === activeIdx ? { ...p, ...patch } : p)
     setProdutos(next)
@@ -175,19 +181,21 @@ ${answersText}
 Gere o documento de briefing completo baseado nessas informações.`
 
     try {
-      await streamClaude({
+      const fullText = await streamClaude({
         model: 'claude-sonnet-4-6',
         max_tokens: 8000,
         system: SUMMARY_SYSTEM,
         messages: [{ role: 'user', content: instruction }],
         onChunk: (text) => setSummary(text),
       })
+      // Persist so the summary survives tab switches and page reloads
+      updateProduto({ summary: fullText })
     } catch (err) {
       setGenError(err.message || 'Erro ao gerar resumo. Tente novamente.')
     } finally {
       setGenerating(false)
     }
-  }, [produto])
+  }, [produto, updateProduto])
 
   const copySummary = () => {
     if (!summary) return
