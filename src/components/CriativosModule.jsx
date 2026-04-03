@@ -10,6 +10,7 @@ import CreativeCard from './Criativos/CreativeCard'
 import ResultBlock from './Criativos/ResultBlock'
 import ContextPreview from './Criativos/ContextPreview'
 import CreativeHistory from './Criativos/CreativeHistory'
+import VideoGuide from './VideoGuide'
 
 // ─── Ad Types ─────────────────────────────────────────────────────────────────
 const AD_TYPES = [
@@ -224,6 +225,8 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
   if (view === 'select') {
     return (
       <div className="space-y-6">
+        <VideoGuide videoId="ZinesF_j2xU" label="Como usar o módulo de Criativos com IA" />
+
         <div>
           <h2 className="text-xl font-bold text-rl-text mb-1">Gerador de Criativos com IA</h2>
           <p className="text-sm text-rl-muted">Selecione o formato para gerar criativos usando os dados do cliente.</p>

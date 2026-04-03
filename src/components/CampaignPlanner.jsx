@@ -10,6 +10,7 @@ import {
   CHANNEL_OPTIONS, STAGE_KEYS,
 } from './CampaignPlanner/campaignHelpers'
 import ChannelRow from './CampaignPlanner/ChannelRow'
+import VideoGuide from './VideoGuide'
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -202,6 +203,8 @@ export default function CampaignPlanner({ project, onSave }) {
 
   return (
     <div className="space-y-6">
+
+      <VideoGuide videoId="EOl-qgj4-fY" label="Como preencher o módulo de Campanhas" />
 
       {/* Header */}
       <div className="flex items-start justify-between">
