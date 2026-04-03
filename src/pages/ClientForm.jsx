@@ -346,32 +346,30 @@ export default function ClientForm() {
           <div className="space-y-4">
 
             {/* Sub-tabs de produto */}
-            {produtos.length > 1 && (
-              <div className="flex gap-2 flex-wrap">
-                {produtos.map((p, i) => (
-                  <div key={p.id} className="flex items-center gap-1">
-                    <button
-                      onClick={() => setActiveProdIdx(i)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                        activeProdIdx === i
-                          ? 'bg-rl-gold/20 text-rl-gold border border-rl-gold/40'
-                          : 'bg-rl-surface text-rl-muted border border-rl-border hover:text-rl-text'
-                      }`}
-                    >
-                      {p.nome || `Produto ${i + 1}`}
+            <div className="flex gap-2 flex-wrap">
+              {produtos.map((p, i) => (
+                <div key={p.id} className="flex items-center gap-1">
+                  <button
+                    onClick={() => setActiveProdIdx(i)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      activeProdIdx === i
+                        ? 'bg-rl-gold/20 text-rl-gold border border-rl-gold/40'
+                        : 'bg-rl-surface text-rl-muted border border-rl-border hover:text-rl-text'
+                    }`}
+                  >
+                    {p.nome || `Produto ${i + 1}`}
+                  </button>
+                  {produtos.length > 1 && (
+                    <button onClick={() => removeProduto(i)} className="p-1 text-rl-muted/50 hover:text-red-400">
+                      <X className="w-3 h-3" />
                     </button>
-                    {produtos.length > 1 && (
-                      <button onClick={() => removeProduto(i)} className="p-1 text-rl-muted/50 hover:text-red-400">
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button onClick={addProduto} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-rl-muted hover:text-rl-text border border-dashed border-rl-border hover:border-rl-purple/40 transition-all">
-                  <Plus className="w-3 h-3" /> Novo Produto
-                </button>
-              </div>
-            )}
+                  )}
+                </div>
+              ))}
+              <button onClick={addProduto} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-rl-muted hover:text-rl-text border border-dashed border-rl-border hover:border-rl-gold/40 transition-all">
+                <Plus className="w-3 h-3" /> Novo Produto
+              </button>
+            </div>
 
             {/* Nome + Tipo */}
             <div className="glass-card p-5 space-y-4">
@@ -425,15 +423,6 @@ export default function ClientForm() {
               </div>
             ))}
 
-            {/* Adicionar produto (quando só tem 1) */}
-            {produtos.length === 1 && (
-              <button
-                onClick={addProduto}
-                className="w-full py-3 rounded-xl border border-dashed border-rl-border text-sm text-rl-muted hover:text-rl-text hover:border-rl-purple/40 flex items-center justify-center gap-2 transition-all"
-              >
-                <Plus className="w-4 h-4" /> Adicionar outro Produto / Serviço
-              </button>
-            )}
           </div>
         )}
 

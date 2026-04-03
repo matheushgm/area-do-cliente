@@ -230,40 +230,40 @@ Gere o documento de briefing completo baseado nessas informações.`
               : <><Sparkles className="w-4 h-4 text-rl-gold" />Gerar Resumo</>
             }
           </button>
-          <button onClick={addProduto} className="btn-secondary flex items-center gap-2 text-sm">
-            <Plus className="w-4 h-4" />
-            Novo Produto
-          </button>
         </div>
       </div>
 
       {/* Tabs */}
-      {produtos.length > 1 && (
-        <div className="flex gap-2 flex-wrap">
-          {produtos.map((p, i) => (
-            <div key={p.id} className="flex items-center gap-1">
+      <div className="flex gap-2 flex-wrap">
+        {produtos.map((p, i) => (
+          <div key={p.id} className="flex items-center gap-1">
+            <button
+              onClick={() => setActiveIdx(i)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                activeIdx === i
+                  ? 'bg-gradient-rl text-white shadow-glow'
+                  : 'bg-rl-surface text-rl-muted hover:text-rl-text'
+              }`}
+            >
+              {p.nome || `Produto ${i + 1}`}
+            </button>
+            {produtos.length > 1 && (
               <button
-                onClick={() => setActiveIdx(i)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  activeIdx === i
-                    ? 'bg-gradient-rl text-white shadow-glow'
-                    : 'bg-rl-surface text-rl-muted hover:text-rl-text'
-                }`}
+                onClick={() => removeProduto(i)}
+                className="p-1 rounded text-rl-muted/50 hover:text-red-400 transition-colors"
               >
-                {p.nome || `Produto ${i + 1}`}
+                <X className="w-3 h-3" />
               </button>
-              {produtos.length > 1 && (
-                <button
-                  onClick={() => removeProduto(i)}
-                  className="p-1 rounded text-rl-muted/50 hover:text-red-400 transition-colors"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+            )}
+          </div>
+        ))}
+        <button
+          onClick={addProduto}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-rl-muted hover:text-rl-text border border-dashed border-rl-border hover:border-rl-gold/40 transition-all"
+        >
+          <Plus className="w-3 h-3" /> Novo Produto
+        </button>
+      </div>
 
       {/* Product form */}
       <div className="space-y-4">
