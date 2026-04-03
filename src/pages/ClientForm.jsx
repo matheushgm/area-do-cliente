@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   CheckCircle2, Loader2, AlertTriangle, Plus, X,
-  Package, Users, Zap, Save,
+  Package, Users, Zap, Save, HelpCircle, ChevronDown,
 } from 'lucide-react'
 
 // ─── Perguntas de cada módulo ─────────────────────────────────────────────────
@@ -47,6 +47,27 @@ const OFERTA_FIELDS = [
   { key: 'garantia',         emoji: '🛡️', label: 'Garantia',                   type: 'textarea', hint: 'Que garantia você oferece? Quanto mais forte, melhor.' },
   { key: 'escassez',         emoji: '🔥', label: 'Escassez / Urgência',        type: 'text',     hint: 'Por que o cliente precisa decidir agora?' },
 ]
+
+// ─── Questions Help ───────────────────────────────────────────────────────────
+const QUESTIONS_HELP = {
+  q1:  { text: 'Descreva o problema principal que o seu produto ou serviço elimina da vida do cliente. Seja objetivo: qual é a dor, a dificuldade ou o incômodo que existia antes e que o seu produto veio resolver? Evite falar sobre funcionalidades ou características técnicas aqui. Foque no problema real que a pessoa tinha.', example: '"Meu produto resolve a dificuldade de pequenos empresários em controlar o estoque sem perder tempo com planilhas manuais."' },
+  q2:  { text: 'Pense no contexto de vida ou de trabalho do seu cliente. Qual é a situação específica que faz ele perceber que precisa do que você oferece? Existe um gatilho, uma data, uma fase ou um evento que antecede a compra? Quanto mais preciso você for aqui, mais certeiros serão os anúncios.', example: '"Ele percebe que precisa quando começa a perder vendas por falta de controle ou quando vai abrir uma segunda unidade."' },
+  q3:  { text: 'Descreva a transformação. Como o dia a dia do seu cliente muda depois que ele começa a usar o que você vende? O que ele consegue fazer que antes não conseguia? Como ele se sente? Pense na vida ideal que ele conquista, não nas funções do produto.', example: '"Ele consegue ver o estoque em tempo real pelo celular, para de perder vendas e dorme mais tranquilo sabendo que tudo está sob controle."' },
+  q4:  { text: 'Quais são os diferenciais reais que separam você da concorrência? Pense em atendimento, metodologia, resultado, prazo, garantia, exclusividade, experiência ou qualquer fator que faz um cliente que pesquisou as opções escolher você. Seja honesto e específico.', example: '"Somos os únicos que oferecem implementação em 48h com suporte por WhatsApp incluso no plano básico."' },
+  q5:  { text: 'O que cria urgência real na decisão do seu cliente? Pode ser uma janela de oportunidade, um custo crescente de não resolver o problema, uma limitação de vagas ou estoque, uma promoção com prazo ou simplesmente o prejuízo acumulado de adiar. Liste o que você usa ou poderia usar para justificar a compra imediata.', example: '"Cada mês sem controle de estoque significa perda média de R$3.000 em mercadoria não rastreada."' },
+  q6:  { text: 'Descreva a realidade do cliente antes da sua solução. Quais são as frustrações do dia a dia, os riscos que ele corre, as perdas que ele tem? Seja específico sobre as consequências de não resolver esse problema. Essa resposta é muito importante para criar empatia nos anúncios.', example: '"Ele perde tempo recontando estoque manualmente, descobre rupturas tarde demais e perde vendas sem saber exatamente onde está o erro."' },
+  q7:  { text: 'Liste as objeções mais comuns que você ouve no momento da venda: preço, tempo, "vou pensar", "não é o momento certo", "já tentei algo assim antes". Cada objeção que você listar vira uma resposta nos nossos anúncios e nas páginas de vendas.', example: '"É caro", "Minha equipe não vai adotar", "Agora não é o momento".' },
+  q8:  { text: 'Antes de chegar até você, o seu cliente provavelmente tentou outras soluções: planilhas, concorrentes, soluções caseiras, consultores. O que não deu certo? Por quê? Essa informação ajuda a mostrar que você entende a jornada do cliente e que sua solução é diferente do que ele já experimentou.', example: '"Já usou planilha no Excel, mas ninguém atualizava. Já contratou um sistema mais barato, mas o suporte era ruim."' },
+  q9:  { text: 'Existe algum histórico negativo no seu mercado? Promessas que não foram cumpridas por outros players? Mitos, medos ou preconceitos que fazem o cliente hesitar? Conhecendo essa desconfiança, criamos anúncios que antecipam e quebram essas barreiras antes mesmo do primeiro contato.', example: '"Clientes desconfiam porque já viram sistemas que prometem muito e na hora de usar são complicados demais."' },
+  q10: { text: 'Relate resultados reais de clientes, com números sempre que possível. Quanto economizaram? Quanto cresceram? Em quanto tempo? Se tiver depoimentos ou prints de resultados, melhor ainda. Essa é a prova social mais poderosa que existe em anúncios.', example: '"A empresa X reduziu em 40% as perdas de estoque em 3 meses. A empresa Y cresceu 25% nas vendas no primeiro trimestre."' },
+  q11: { text: 'Qual é o "tempo até o primeiro ganho"? Pode ser em horas, dias ou semanas. Esse dado é fundamental para reduzir o medo de comprar, porque ninguém quer esperar meses para ver se valeu a pena. Se tiver marcos intermediários de resultado, descreva-os.', example: '"Em até 48h após a implementação, o gestor já consegue ver o estoque completo em tempo real pelo app."' },
+  q12: { text: 'Pense nos comentários que você mais ouve no pós-venda, nas avaliações, nas mensagens de WhatsApp. O que os clientes falam quando recomendam você para alguém? Essas palavras são ouro para os nossos anúncios porque são a voz real do seu público.', example: '"Facilidade de uso", "Suporte muito rápido", "Finalmente consegui ter controle de verdade".' },
+  q13: { text: 'Aqui buscamos seu diferencial mais profundo: pode ser uma metodologia proprietária, uma combinação única de serviços, uma tecnologia exclusiva, um processo, um time especializado ou até uma posição de mercado difícil de replicar. Seja específico e honesto.', example: '"Somos os únicos com integração nativa ao sistema fiscal do cliente, sem necessidade de customização."' },
+  q14: { text: 'Qual é o custo real da inação? Descreva as consequências concretas de postergar a decisão: prejuízos financeiros, problemas que se agravam, oportunidades perdidas, riscos que aumentam. Essa resposta ajuda a criar urgência verdadeira, sem precisar de pressão falsa.', example: '"Em 3 meses ele terá perdido em média R$9.000 em rupturas não rastreadas e processado mais uma safra com dado errado."' },
+  q15: { text: 'Há épocas do ano em que a demanda pelo seu produto aumenta ou diminui? Existe alguma data, período ou evento que cria uma janela de oportunidade para comprar? Isso influencia diretamente o calendário das campanhas e as mensagens de urgência que usamos.', example: '"O pico de procura é em março, antes do início do segundo semestre. Quem não contrata até fevereiro geralmente espera mais um ano."' },
+  q16: { text: 'Descreva qualquer garantia formal ou informal que você já pratica: devolução do dinheiro, garantia de resultado, período de teste, retrabalho sem custo. Se não oferece nenhuma, explique o que te impede, pois isso pode ser um ponto importante a trabalhar para aumentar a conversão.', example: '"Oferecemos 15 dias de teste gratuito sem cartão de crédito e reembolso total em até 30 dias sem questionamentos."' },
+  q17: { text: 'Descreva seu protocolo real quando algo não sai como esperado. O que você faz concretamente para corrigir, compensar ou resolver a situação? Essa resposta mostra responsabilidade e reduz o medo de comprar, especialmente em clientes que já tiveram experiências ruins no passado.', example: '"Se o resultado não for alcançado no prazo prometido, refazemos a implementação sem custo adicional e acompanhamos até funcionar."' },
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function uid() { return crypto.randomUUID() }
@@ -106,6 +127,7 @@ export default function ClientForm() {
   // Produto state
   const [produtos, setProdutos]   = useState([newProduto()])
   const [activeProdIdx, setActiveProdIdx] = useState(0)
+  const [openHelp, setOpenHelp] = useState(null)
 
   // Persona state
   const [personas, setPersonas]   = useState([newPersona()])
@@ -406,22 +428,50 @@ export default function ClientForm() {
             </div>
 
             {/* Perguntas */}
-            {PRODUTO_QUESTIONS.map((q, idx) => (
-              <div key={q.id} className="glass-card p-5 space-y-2">
-                <p className="text-sm font-medium text-rl-text">
-                  <span className="text-rl-muted text-xs mr-2 font-mono">{String(idx + 1).padStart(2, '0')}</span>
-                  <span className="mr-1.5">{q.emoji}</span>
-                  {q.label}
-                </p>
-                <textarea
-                  value={produto.answers[q.id] || ''}
-                  onChange={(e) => updateProdutoAnswer(q.id, e.target.value)}
-                  placeholder="Digite sua resposta..."
-                  rows={3}
-                  className="input-field resize-none text-sm leading-relaxed"
-                />
-              </div>
-            ))}
+            {PRODUTO_QUESTIONS.map((q, idx) => {
+              const help = QUESTIONS_HELP[q.id]
+              const isOpen = openHelp === q.id
+              return (
+                <div key={q.id} className="glass-card p-5 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium text-rl-text leading-snug">
+                      <span className="text-rl-muted text-xs mr-2 font-mono">{String(idx + 1).padStart(2, '0')}</span>
+                      <span className="mr-1.5">{q.emoji}</span>
+                      {q.label}
+                    </p>
+                    {help && (
+                      <button
+                        onClick={() => setOpenHelp(isOpen ? null : q.id)}
+                        className={`shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-all ${
+                          isOpen
+                            ? 'bg-rl-blue/10 border-rl-blue/30 text-rl-blue'
+                            : 'border-rl-border text-rl-muted hover:text-rl-blue hover:border-rl-blue/30'
+                        }`}
+                      >
+                        <HelpCircle className="w-3 h-3" />
+                        <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                    )}
+                  </div>
+                  {isOpen && help && (
+                    <div className="bg-rl-blue/5 border border-rl-blue/15 rounded-xl p-4 space-y-2 text-xs text-rl-text/80 leading-relaxed">
+                      <p>{help.text}</p>
+                      <p className="text-rl-muted italic border-l-2 border-rl-blue/30 pl-3">
+                        <span className="font-semibold text-rl-blue not-italic">Exemplo: </span>
+                        {help.example}
+                      </p>
+                    </div>
+                  )}
+                  <textarea
+                    value={produto.answers[q.id] || ''}
+                    onChange={(e) => updateProdutoAnswer(q.id, e.target.value)}
+                    placeholder="Digite sua resposta..."
+                    rows={3}
+                    className="input-field resize-none text-sm leading-relaxed"
+                  />
+                </div>
+              )
+            })}
 
           </div>
         )}
