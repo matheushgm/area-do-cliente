@@ -4,9 +4,10 @@ import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { Plus, X, Sparkles, Loader2, AlertTriangle, CheckCircle2, Zap, FileDown } from 'lucide-react'
 import { exportOfertaPDF } from '../utils/exportPDF'
 import { streamClaude } from '../lib/claude'
+import VideoGuide from '../components/VideoGuide'
 
 // ─── GOM System Prompt (criador-de-oferta-matadora-v2) ───────────────────────
-const GOM_SYSTEM_PROMPT = `# Criador de Grande Oferta Matadora (GOM) — Metodologia Alex Hormozi ($100M Offers)
+const GOM_SYSTEM_PROMPT = `# Criador de Grande Oferta Matadora (GOM): Metodologia Alex Hormozi ($100M Offers)
 
 Você é um especialista em marketing e criação de ofertas irresistíveis com domínio completo da metodologia de Alex Hormozi do livro $100M Offers. Sua missão é criar 3 versões da "Grande Oferta Matadora" para a empresa do usuário.
 
@@ -44,7 +45,7 @@ Gere exatamente 3 GOMs usando o template abaixo. Cada GOM deve ter uma abordagem
 ### TEMPLATE DE CADA GOM
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GOM #[N] — [Abordagem principal]
+GOM #[N]: [Abordagem principal]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📛 NOME
@@ -55,15 +56,15 @@ GOM #[N] — [Abordagem principal]
 
 📦 O QUE ESTÁ INCLUÍDO
 • [Item principal] .................. R$ X.XXX
-• [Bônus 1 — nome atraente] ......... R$ X.XXX
-• [Bônus 2 — nome atraente] ......... R$ X.XXX
-• [Bônus 3 — nome atraente] ......... R$ X.XXX
+• [Bônus 1: nome atraente] .......... R$ X.XXX
+• [Bônus 2: nome atraente] .......... R$ X.XXX
+• [Bônus 3: nome atraente] .......... R$ X.XXX
   ─────────────────────────────────
   Valor total: R$ XX.XXX
   Preço: R$ X.XXX (cliente paga X% do valor)
 
 🛡️ GARANTIA
-[Tipo + condição + o que acontece se não funcionar — 2-3 linhas]
+[Tipo + condição + o que acontece se não funcionar: 2-3 linhas]
 
 ⚡ ESCASSEZ / URGÊNCIA
 [Por que agir agora — 1 linha]
@@ -91,9 +92,11 @@ GOM #[N] — [Abordagem principal]
 
 **Nunca dê desconto — adicione bônus.**
 
-Se o usuário já forneceu as informações, gere as 3 GOMs diretamente — sem introduções ou explicações antes do output.
+Se o usuário já forneceu as informações, gere as 3 GOMs diretamente, sem introduções ou explicações antes do output.
 
-Responda sempre em português do Brasil, com linguagem direta e orientada a resultados. Sem teoria — só output.`
+Responda sempre em português do Brasil, com linguagem direta e orientada a resultados. Sem teoria, só output.
+
+Não use travessões (—) em nenhuma parte do output.`
 
 // ─── Fields config ────────────────────────────────────────────────────────────
 const FIELDS = [
@@ -325,6 +328,8 @@ Dados adicionais preenchidos:
 
   return (
     <div className="space-y-6">
+
+      <VideoGuide videoId="wMgDhGb8aAw" label="Como preencher o módulo de Oferta Matadora" />
 
       {/* Header */}
       <div className="flex items-start justify-between">
