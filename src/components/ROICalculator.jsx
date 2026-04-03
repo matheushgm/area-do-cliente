@@ -4,6 +4,7 @@ import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircl
 import { exportROIPDF } from '../utils/exportPDF'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
+import VideoGuide from './VideoGuide'
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 export function fmt(n) {
@@ -125,6 +126,9 @@ export default function ROICalculator({ project, onSave }) {
 
   return (
     <div className="space-y-6">
+
+      <VideoGuide videoId="6oF8IB03pvg" label="Como preencher a Calculadora de ROI" />
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
