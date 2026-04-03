@@ -128,6 +128,8 @@ export default function ClientForm() {
   const [produtos, setProdutos]   = useState([newProduto()])
   const [activeProdIdx, setActiveProdIdx] = useState(0)
   const [openHelp, setOpenHelp] = useState(null)
+  const [produtoError, setProdutoError] = useState(null)
+  const questionRefs = useRef([])
 
   // Persona state
   const [personas, setPersonas]   = useState([newPersona()])
@@ -350,7 +352,19 @@ export default function ClientForm() {
           {TABS.map((t) => (
             <button
               key={t.id}
-              onClick={() => setActiveTab(t.id)}
+              onClick={() => {
+                if (activeTab === 'produto' && t.id !== 'produto') {
+                  const unanswered = PRODUTO_QUESTIONS.filter(q => !produto.answers[q.id]?.trim())
+                  if (unanswered.length > 0) {
+                    setProdutoError(`Responda todas as ${PRODUTO_QUESTIONS.length} perguntas antes de avançar. Faltam ${unanswered.length}.`)
+                    const firstIdx = PRODUTO_QUESTIONS.findIndex(q => !produto.answers[q.id]?.trim())
+                    questionRefs.current[firstIdx]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    return
+                  }
+                }
+                setProdutoError(null)
+                setActiveTab(t.id)
+              }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
                 activeTab === t.id
                   ? 'bg-gradient-rl text-white border-transparent shadow-glow'
@@ -427,18 +441,47 @@ export default function ClientForm() {
               </div>
             </div>
 
+            {/* Erro de validação */}
+            {produtoError && (
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <p className="text-sm">{produtoError}</p>
+              </div>
+            )}
+
             {/* Perguntas */}
             {PRODUTO_QUESTIONS.map((q, idx) => {
-              const help = QUESTIONS_HELP[q.id]
-              const isOpen = openHelp === q.id
+              const help      = QUESTIONS_HELP[q.id]
+              const isOpen    = openHelp === q.id
+              const answered  = !!produto.answers[q.id]?.trim()
+              const isEmpty   = produtoError && !answered
+              const isLast    = idx === PRODUTO_QUESTIONS.length - 1
+
               return (
-                <div key={q.id} className="glass-card p-5 space-y-2">
+                <div
+                  key={q.id}
+                  ref={el => questionRefs.current[idx] = el}
+                  className={`glass-card p-5 space-y-3 border transition-all ${
+                    answered
+                      ? 'border-rl-green/30'
+                      : isEmpty
+                      ? 'border-red-500/40'
+                      : 'border-rl-border'
+                  }`}
+                >
+                  {/* Header da pergunta */}
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-rl-text leading-snug">
-                      <span className="text-rl-muted text-xs mr-2 font-mono">{String(idx + 1).padStart(2, '0')}</span>
-                      <span className="mr-1.5">{q.emoji}</span>
-                      {q.label}
-                    </p>
+                    <div className="flex items-start gap-2 flex-1 min-w-0">
+                      {answered
+                        ? <CheckCircle2 className="w-4 h-4 text-rl-green shrink-0 mt-0.5" />
+                        : <span className="text-rl-muted text-xs font-mono shrink-0 mt-0.5 w-4 text-center">{String(idx + 1).padStart(2, '0')}</span>
+                      }
+                      <p className="text-sm font-medium text-rl-text leading-snug">
+                        <span className="mr-1.5">{q.emoji}</span>
+                        {q.label}
+                        {isEmpty && <span className="ml-1.5 text-xs text-red-400 font-normal">* obrigatória</span>}
+                      </p>
+                    </div>
                     {help && (
                       <button
                         onClick={() => setOpenHelp(isOpen ? null : q.id)}
@@ -453,6 +496,8 @@ export default function ClientForm() {
                       </button>
                     )}
                   </div>
+
+                  {/* Ajuda expansível */}
                   {isOpen && help && (
                     <div className="bg-rl-blue/5 border border-rl-blue/15 rounded-xl p-4 space-y-2 text-xs text-rl-text/80 leading-relaxed">
                       <p>{help.text}</p>
@@ -462,13 +507,51 @@ export default function ClientForm() {
                       </p>
                     </div>
                   )}
+
+                  {/* Textarea */}
                   <textarea
                     value={produto.answers[q.id] || ''}
-                    onChange={(e) => updateProdutoAnswer(q.id, e.target.value)}
+                    onChange={(e) => {
+                      updateProdutoAnswer(q.id, e.target.value)
+                      if (produtoError) setProdutoError(null)
+                    }}
                     placeholder="Digite sua resposta..."
                     rows={3}
-                    className="input-field resize-none text-sm leading-relaxed"
+                    className={`input-field resize-none text-sm leading-relaxed ${isEmpty ? 'border-red-500/40 focus:border-red-400' : ''}`}
                   />
+
+                  {/* Botão Avançar */}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => {
+                        if (!isLast) {
+                          questionRefs.current[idx + 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        } else {
+                          // Valida tudo ao concluir
+                          const unanswered = PRODUTO_QUESTIONS.filter(q => !produto.answers[q.id]?.trim())
+                          if (unanswered.length > 0) {
+                            setProdutoError(`Faltam ${unanswered.length} pergunta(s) sem resposta.`)
+                            const firstIdx = PRODUTO_QUESTIONS.findIndex(q => !produto.answers[q.id]?.trim())
+                            questionRefs.current[firstIdx]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                          } else {
+                            setProdutoError(null)
+                          }
+                        }
+                      }}
+                      className={`flex items-center gap-2 text-sm px-4 py-2 rounded-xl font-medium transition-all ${
+                        isLast
+                          ? answered
+                            ? 'bg-rl-green/15 border border-rl-green/30 text-rl-green hover:bg-rl-green/25'
+                            : 'bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text'
+                          : 'bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
+                      }`}
+                    >
+                      {isLast
+                        ? <><CheckCircle2 className="w-4 h-4" /> Concluir Produto / Serviço</>
+                        : <>Avançar para pergunta {idx + 2} →</>
+                      }
+                    </button>
+                  </div>
                 </div>
               )
             })}
