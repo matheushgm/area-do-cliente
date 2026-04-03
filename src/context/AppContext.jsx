@@ -212,6 +212,7 @@ function assembleProject(row, rel = {}) {
       nome:    p.nome    || '',
       tipo:    p.tipo    || 'produto',
       answers: p.answers || {},
+      summary: p.summary || null,
     })),
   };
 }
@@ -543,6 +544,7 @@ async function sbUpdateProjectV2(id, patch) {
           nome:       p.nome    || '',
           tipo:       p.tipo    || 'produto',
           answers:    p.answers || {},
+          summary:    p.summary || null,
         })),
       );
       if (error) console.error("[Supabase] insert produtos:", error.message);
