@@ -3,9 +3,9 @@ export const CHANNEL_OPTIONS = ['Meta Ads', 'Google Ads', 'LinkedIn Ads', 'TikTo
 export const STAGE_KEYS = ['topo', 'meio', 'fundo']
 
 export const STAGE_META = {
-  topo:  { label: 'Topo de Funil',  colorClass: 'text-rl-cyan',   bgClass: 'bg-rl-cyan/10',   borderClass: 'border-rl-cyan/20'   },
-  meio:  { label: 'Meio de Funil',  colorClass: 'text-rl-purple', bgClass: 'bg-rl-purple/10', borderClass: 'border-rl-purple/20' },
-  fundo: { label: 'Fundo de Funil', colorClass: 'text-rl-green',  bgClass: 'bg-rl-green/10',  borderClass: 'border-rl-green/20'  },
+  topo:  { label: 'Topo de Funil — Inconsciente do Problema',          colorClass: 'text-rl-cyan',   bgClass: 'bg-rl-cyan/10',   borderClass: 'border-rl-cyan/20'   },
+  meio:  { label: 'Meio de Funil — Consciente do Problema',            colorClass: 'text-rl-purple', bgClass: 'bg-rl-purple/10', borderClass: 'border-rl-purple/20' },
+  fundo: { label: 'Fundo de Funil — Consciente do Problema e da Solução', colorClass: 'text-rl-green',  bgClass: 'bg-rl-green/10',  borderClass: 'border-rl-green/20'  },
 }
 
 export function getDaysLeft() {

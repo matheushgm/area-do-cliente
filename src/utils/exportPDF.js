@@ -431,7 +431,7 @@ export function exportOfertaPDF(oferta, project) {
 
 // ─── Campaign Planner PDF ─────────────────────────────────────────────────────
 
-const STAGE_LABELS = { topo: 'Topo de Funil', meio: 'Meio de Funil', fundo: 'Fundo de Funil' }
+const STAGE_LABELS = { topo: 'Topo de Funil — Inconsciente do Problema', meio: 'Meio de Funil — Consciente do Problema', fundo: 'Fundo de Funil — Consciente do Problema e da Solução' }
 const STAGE_KEYS   = ['topo', 'meio', 'fundo']
 
 export function exportCampaignPDF(campaignPlan, project) {
@@ -1486,7 +1486,7 @@ export function exportEstrategiaV2PDF(project, data) {
         const stage = stages[key]
         if (!stage || !stage.campaigns?.length) return ''
         const stageBudget = chBudget * (stage.percentage / 100)
-        const label = key === 'topo' ? 'Topo de Funil' : key === 'meio' ? 'Meio de Funil' : 'Fundo de Funil'
+        const label = key === 'topo' ? 'Topo de Funil — Inconsciente do Problema' : key === 'meio' ? 'Meio de Funil — Consciente do Problema' : 'Fundo de Funil — Consciente do Problema e da Solução'
         return `
           <div class="stage-row">
             <div class="stage-label">${label} — ${fmtBudget(stageBudget)}/mês</div>
