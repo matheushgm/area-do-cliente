@@ -663,6 +663,19 @@ function OnboardingContent({ project, onSave, showToast }) {
   const [isEditing, setIsEditing] = useState(false)
   const [editingServices,  setEditingServices]  = useState(false)
   const [editServicesData, setEditServicesData] = useState({})
+  const [clientLinkCopied, setClientLinkCopied] = useState(false)
+
+  function handleClientLink() {
+    let token = project.clientShareToken
+    if (!token) {
+      token = crypto.randomUUID()
+      updateProject(project.id, { clientShareToken: token })
+    }
+    const url = `${window.location.origin}/client/${token}`
+    navigator.clipboard.writeText(url)
+    setClientLinkCopied(true)
+    setTimeout(() => setClientLinkCopied(false), 2500)
+  }
 
   if (isEditing) {
     return (
@@ -698,6 +711,14 @@ function OnboardingContent({ project, onSave, showToast }) {
         >
           <Pencil className="w-4 h-4" />
           Editar Dados
+        </button>
+        <button
+          onClick={handleClientLink}
+          className="btn-ghost flex items-center gap-2 text-sm"
+          title="Copiar link do cliente"
+        >
+          {clientLinkCopied ? <Check className="w-4 h-4 text-green-400" /> : <Link2 className="w-4 h-4" />}
+          {clientLinkCopied ? 'Link copiado!' : 'Link do Cliente'}
         </button>
         <button
           onClick={() => exportOnboardingPDF(project)}

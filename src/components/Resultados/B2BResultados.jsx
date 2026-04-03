@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Edit2, Check, X, TrendingUp, ArrowDown } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Edit2, Check, X, TrendingUp, ArrowDown, FileDown } from 'lucide-react'
 import { fmtMoney, fmtPct, parseMoney, getDaysInMonth, getWeekRanges, MONTH_NAMES } from './resultadosHelpers'
+import { exportResultadosB2BPDF } from '../../utils/exportPDF'
 
 // ─── Funnel Visualization (B2B) ────────────────────────────────────────────────
 const FUNNEL_STAGES = [
@@ -69,7 +70,8 @@ function FunnelViz({ data, investido }) {
 // ─── B2B Week Form ─────────────────────────────────────────────────────────────
 function B2BWeekForm({ initial = {}, onSave, onCancel }) {
   const [form, setForm] = useState({
-    investido: initial.investido != null ? String(initial.investido).replace('.', ',') : '',
+    investido:     initial.investido     != null ? String(initial.investido).replace('.', ',')     : '',
+    receitaVendas: initial.receitaVendas != null ? String(initial.receitaVendas).replace('.', ',') : '',
     leads:  initial.leads  || '',
     mql:    initial.mql    || '',
     sql:    initial.sql    || '',
@@ -79,10 +81,17 @@ function B2BWeekForm({ initial = {}, onSave, onCancel }) {
 
   return (
     <div className="space-y-3">
-      <div>
-        <label className="label-field">Valor Investido</label>
-        <input className="input-field" placeholder="R$ 0,00" value={form.investido}
-          onChange={e => set('investido', e.target.value)} />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label-field">Valor Investido</label>
+          <input className="input-field" placeholder="R$ 0,00" value={form.investido}
+            onChange={e => set('investido', e.target.value)} />
+        </div>
+        <div>
+          <label className="label-field">Receita de Vendas</label>
+          <input className="input-field" placeholder="R$ 0,00" value={form.receitaVendas}
+            onChange={e => set('receitaVendas', e.target.value)} />
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         {[['leads','Leads'],['mql','MQL'],['sql','SQL'],['vendas','Vendas']].map(([k, lbl]) => (
@@ -146,7 +155,7 @@ export function SummaryCard({ label, value, sub, color }) {
 }
 
 // ─── B2B View ──────────────────────────────────────────────────────────────────
-export default function B2BView({ resultados, onUpdate }) {
+export default function B2BView({ resultados, onUpdate, companyName }) {
   const today = new Date()
   const [year, setYear]   = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
@@ -164,7 +173,8 @@ export default function B2BView({ resultados, onUpdate }) {
         [monthKey]: {
           ...(resultados.b2b?.[monthKey] || {}),
           [weekKey]: {
-            investido: parseMoney(data.investido),
+            investido:     parseMoney(data.investido),
+            receitaVendas: parseMoney(data.receitaVendas),
             leads:  Number(data.leads)  || 0,
             mql:    Number(data.mql)    || 0,
             sql:    Number(data.sql)    || 0,
@@ -180,19 +190,30 @@ export default function B2BView({ resultados, onUpdate }) {
   const totals = weekRanges.reduce((acc, _, i) => {
     const wk = monthData[`semana${i + 1}`] || {}
     return {
-      investido: acc.investido + (wk.investido || 0),
+      investido:     acc.investido     + (wk.investido     || 0),
+      receitaVendas: acc.receitaVendas + (wk.receitaVendas || 0),
       leads:  acc.leads  + (wk.leads  || 0),
       mql:    acc.mql    + (wk.mql    || 0),
       sql:    acc.sql    + (wk.sql    || 0),
       vendas: acc.vendas + (wk.vendas || 0),
     }
-  }, { investido: 0, leads: 0, mql: 0, sql: 0, vendas: 0 })
+  }, { investido: 0, receitaVendas: 0, leads: 0, mql: 0, sql: 0, vendas: 0 })
 
   const hasTotals = totals.leads > 0 || totals.investido > 0
 
   return (
     <div className="space-y-6">
-      <MonthNav year={year} month={month} setYear={setYear} setMonth={setMonth} />
+      <div className="flex items-center justify-between gap-3">
+        <MonthNav year={year} month={month} setYear={setYear} setMonth={setMonth} />
+        <button
+          onClick={() => exportResultadosB2BPDF({ companyName, resultados, year, month, weekRanges, MONTH_NAMES })}
+          className="btn-secondary flex items-center gap-2 text-sm whitespace-nowrap"
+          title="Gerar PDF do mês para o cliente"
+        >
+          <FileDown size={15} />
+          Gerar PDF
+        </button>
+      </div>
 
       {/* Weekly Cards */}
       <div className="grid grid-cols-2 gap-4">
@@ -234,8 +255,27 @@ export default function B2BView({ resultados, onUpdate }) {
 
                   {wkData ? (
                     <div className="space-y-2">
-                      <div className="text-sm font-bold text-rl-gold">
-                        {fmtMoney(wkData.investido)}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <div className="text-[10px] text-rl-muted">Investido</div>
+                            <div className="text-sm font-bold text-rl-gold">{fmtMoney(wkData.investido)}</div>
+                          </div>
+                          {wkData.receitaVendas > 0 && (
+                            <div>
+                              <div className="text-[10px] text-rl-muted">Receita</div>
+                              <div className="text-sm font-bold text-rl-green">{fmtMoney(wkData.receitaVendas)}</div>
+                            </div>
+                          )}
+                        </div>
+                        {wkData.receitaVendas > 0 && wkData.investido > 0 && (
+                          <div className="bg-rl-green/10 border border-rl-green/30 rounded-lg px-2.5 py-1.5 text-center">
+                            <div className="text-[9px] text-rl-green/70 uppercase tracking-wider">ROAS</div>
+                            <div className="text-sm font-bold text-rl-green">
+                              {(wkData.receitaVendas / wkData.investido).toFixed(2)}x
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                         <span className="text-rl-muted">Leads <span className="text-rl-blue font-semibold">{wkData.leads}</span></span>
@@ -243,6 +283,14 @@ export default function B2BView({ resultados, onUpdate }) {
                         <span className="text-rl-muted">SQL <span className="text-rl-purple font-semibold">{wkData.sql}</span></span>
                         <span className="text-rl-muted">Vendas <span className="text-rl-gold font-semibold">{wkData.vendas}</span></span>
                       </div>
+                      {wkData.receitaVendas > 0 && wkData.vendas > 0 && (
+                        <div className="flex items-center justify-between bg-rl-surface rounded-lg px-3 py-2 mt-1">
+                          <span className="text-[11px] text-rl-muted">Ticket Médio</span>
+                          <span className="text-xs font-bold text-rl-cyan">
+                            {fmtMoney(wkData.receitaVendas / wkData.vendas)}
+                          </span>
+                        </div>
+                      )}
                       {/* Mini conversion rates */}
                       {wkData.leads > 0 && (
                         <div className="flex gap-1 flex-wrap mt-1">
@@ -285,16 +333,23 @@ export default function B2BView({ resultados, onUpdate }) {
           </div>
 
           {/* Summary row */}
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
             {[
-              { label: 'Investido',   value: fmtMoney(totals.investido),                            color: 'rl-gold' },
-              { label: 'Leads',       value: totals.leads.toLocaleString('pt-BR'),                   color: 'rl-blue',
+              { label: 'Investido',      value: fmtMoney(totals.investido),              color: 'rl-gold' },
+              { label: 'Receita Vendas', value: fmtMoney(totals.receitaVendas),           color: 'rl-green' },
+              { label: 'ROAS',           value: totals.receitaVendas > 0 && totals.investido > 0
+                  ? (totals.receitaVendas / totals.investido).toFixed(2) + 'x' : '—',    color: 'rl-green',
+                sub: totals.receitaVendas > 0 && totals.investido > 0
+                  ? (totals.receitaVendas >= totals.investido ? '✅ Positivo' : '⚠️ Negativo') : null },
+              { label: 'Ticket Médio',   value: totals.receitaVendas > 0 && totals.vendas > 0
+                  ? fmtMoney(totals.receitaVendas / totals.vendas) : '—',                color: 'rl-cyan' },
+              { label: 'Leads',  value: totals.leads.toLocaleString('pt-BR'),             color: 'rl-blue',
                 sub: totals.leads > 0 && totals.investido > 0 ? fmtMoney(totals.investido / totals.leads) + '/lead' : null },
-              { label: 'MQL',         value: totals.mql.toLocaleString('pt-BR'),                     color: 'rl-cyan',
+              { label: 'MQL',    value: totals.mql.toLocaleString('pt-BR'),               color: 'rl-cyan',
                 sub: totals.mql > 0 && totals.investido > 0   ? fmtMoney(totals.investido / totals.mql)   + '/mql'  : null },
-              { label: 'SQL',         value: totals.sql.toLocaleString('pt-BR'),                     color: 'rl-purple',
+              { label: 'SQL',    value: totals.sql.toLocaleString('pt-BR'),               color: 'rl-purple',
                 sub: totals.sql > 0 && totals.investido > 0   ? fmtMoney(totals.investido / totals.sql)   + '/sql'  : null },
-              { label: 'Vendas',      value: totals.vendas.toLocaleString('pt-BR'),                  color: 'rl-gold',
+              { label: 'Vendas', value: totals.vendas.toLocaleString('pt-BR'),            color: 'rl-gold',
                 sub: totals.vendas > 0 && totals.investido > 0 ? fmtMoney(totals.investido / totals.vendas) + '/venda' : null },
             ].map(item => (
               <SummaryCard key={item.label} {...item} />
