@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   CheckCircle2, Loader2, AlertTriangle, Plus, X,
-  Package, Users, Zap, Save, HelpCircle, ChevronDown,
+  Package, Users, HelpCircle, ChevronDown,
 } from 'lucide-react'
 import VideoGuide from '../components/VideoGuide'
 
@@ -37,16 +37,6 @@ const PERSONA_QUESTIONS = [
   { key: 'medos',     emoji: '😰', label: 'Quais são os maiores medos do seu cliente?',                                       hint: 'Medos pessoais e profissionais que podem se tornar realidade.' },
   { key: 'sinais',    emoji: '🔍', label: 'Quais sinais o cliente percebe que indicam que ele tem um problema a resolver?',   hint: 'O que faz com que ele comece a buscar uma solução.' },
   { key: 'habitos',   emoji: '🔄', label: 'Quais são os hábitos do seu cliente ideal?',                                       hint: 'Hábitos de consumo, comportamento, rotina — dentro e fora do trabalho.' },
-]
-
-const OFERTA_FIELDS = [
-  { key: 'nome',             emoji: '🏷️', label: 'Nome da Oferta',            type: 'text',     hint: 'Crie um nome claro e atraente para a sua oferta.' },
-  { key: 'resultadoSonho',   emoji: '✨', label: 'Resultado do Sonho',         type: 'textarea', hint: 'O que o cliente conquista? Seja específico e conecte ao status que ele deseja.' },
-  { key: 'porqueVaiFuncionar',emoji: '💡',label: 'Por que vai funcionar',       type: 'textarea', hint: 'Mecanismo único, provas sociais, cases de sucesso e diferenciais.' },
-  { key: 'velocidade',       emoji: '⚡', label: 'Velocidade do Resultado',    type: 'text',     hint: 'Em quanto tempo o cliente vê o primeiro resultado?' },
-  { key: 'esforcoMinimo',    emoji: '🤝', label: 'Esforço Mínimo do Cliente',  type: 'textarea', hint: 'O que o cliente precisa fazer para alcançar o resultado?' },
-  { key: 'garantia',         emoji: '🛡️', label: 'Garantia',                   type: 'textarea', hint: 'Que garantia você oferece? Quanto mais forte, melhor.' },
-  { key: 'escassez',         emoji: '🔥', label: 'Escassez / Urgência',        type: 'text',     hint: 'Por que o cliente precisa decidir agora?' },
 ]
 
 // ─── Questions Help ───────────────────────────────────────────────────────────
@@ -90,10 +80,6 @@ function newPersona(n) {
   }
 }
 
-function emptyOferta() {
-  return Object.fromEntries([...OFERTA_FIELDS.map((f) => [f.key, '']), ['bonus', []]])
-}
-
 // Convert array ↔ textarea string
 const arrToText = (arr) => (Array.isArray(arr) ? arr.join('\n') : arr || '')
 const textToArr = (text) =>
@@ -135,12 +121,10 @@ export default function ClientForm() {
   // Persona state
   const [personas, setPersonas]   = useState([newPersona()])
   const [activePerIdx, setActivePerIdx] = useState(0)
-
-  // Oferta state
-  const [oferta, setOferta]       = useState(emptyOferta())
+  const personaRefs = useRef([])
 
   // Save status per module
-  const [saveStatus, setSaveStatus] = useState({ produto: 'idle', persona: 'idle', oferta: 'idle' })
+  const [saveStatus, setSaveStatus] = useState({ produto: 'idle', persona: 'idle' })
 
   const debounceRefs = useRef({})
 
@@ -166,10 +150,6 @@ export default function ClientForm() {
             ...p,
             answers: { ...Object.fromEntries(PERSONA_QUESTIONS.map((q) => [q.key, []])), ...p.answers },
           })))
-        }
-
-        if (data.ofertaData) {
-          setOferta({ ...emptyOferta(), ...data.ofertaData })
         }
       } catch (e) {
         setError(e.message)
@@ -264,34 +244,6 @@ export default function ClientForm() {
     scheduleSave('personas', { personas: next })
   }
 
-  // ── Oferta handlers ────────────────────────────────────────────────────────
-  const updateOfertaField = (key, value) => {
-    const next = { ...oferta, [key]: value }
-    setOferta(next)
-    scheduleSave('oferta', { ofertaData: next })
-  }
-
-  const addBonus = () => {
-    const next = { ...oferta, bonus: [...(oferta.bonus || []), ''] }
-    setOferta(next)
-    scheduleSave('oferta', { ofertaData: next })
-  }
-
-  const updateBonus = (idx, value) => {
-    const bonus = [...(oferta.bonus || [])]
-    bonus[idx] = value
-    const next = { ...oferta, bonus }
-    setOferta(next)
-    scheduleSave('oferta', { ofertaData: next })
-  }
-
-  const removeBonus = (idx) => {
-    const bonus = (oferta.bonus || []).filter((_, i) => i !== idx)
-    const next = { ...oferta, bonus }
-    setOferta(next)
-    scheduleSave('oferta', { ofertaData: next })
-  }
-
   // ── Render ─────────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -319,7 +271,6 @@ export default function ClientForm() {
   const TABS = [
     { id: 'produto', label: 'Produto / Serviço', icon: Package, color: 'text-rl-gold' },
     { id: 'persona', label: 'Personas',           icon: Users,   color: 'text-rl-blue' },
-    { id: 'oferta',  label: 'Oferta Matadora',    icon: Zap,     color: 'text-rl-purple' },
   ]
 
   const produto = produtos[activeProdIdx]
@@ -334,7 +285,7 @@ export default function ClientForm() {
             <p className="text-xs text-rl-muted font-medium uppercase tracking-wider">Formulário de Briefing</p>
             <h1 className="text-lg font-bold text-rl-text">{companyName}</h1>
           </div>
-          <SaveBadge status={saveStatus[activeTab === 'produto' ? 'produtos' : activeTab === 'persona' ? 'personas' : 'oferta']} />
+          <SaveBadge status={saveStatus[activeTab === 'produto' ? 'produtos' : 'personas']} />
         </div>
       </div>
 
@@ -616,95 +567,52 @@ export default function ClientForm() {
             </div>
 
             {/* Perguntas */}
-            {PERSONA_QUESTIONS.map((q, idx) => (
-              <div key={q.key} className="glass-card p-5 space-y-2">
-                <p className="text-sm font-medium text-rl-text">
-                  <span className="text-rl-muted text-xs mr-2 font-mono">{String(idx + 1).padStart(2, '0')}</span>
-                  <span className="mr-1.5">{q.emoji}</span>
-                  {q.label}
-                </p>
-                {q.hint && <p className="text-xs text-rl-muted">{q.hint}</p>}
-                <textarea
-                  value={arrToText(persona.answers[q.key])}
-                  onChange={(e) => updatePersonaAnswer(q.key, e.target.value)}
-                  placeholder="Digite sua resposta (uma por linha para múltiplas)..."
-                  rows={3}
-                  className="input-field resize-none text-sm leading-relaxed"
-                />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── OFERTA MATADORA ───────────────────────────────────────────────── */}
-        {activeTab === 'oferta' && (
-          <div className="space-y-4">
-
-            <div className="glass-card p-5 border-l-4 border-rl-purple/40">
-              <p className="text-sm text-rl-muted leading-relaxed">
-                A Oferta Matadora é a proposta de valor irresistível do seu produto ou serviço. Preencha cada campo com o máximo de clareza e especificidade.
-              </p>
-            </div>
-
-            {/* Campos principais */}
-            {OFERTA_FIELDS.map((f, idx) => (
-              <div key={f.key} className="glass-card p-5 space-y-2">
-                <p className="text-sm font-medium text-rl-text">
-                  <span className="text-rl-muted text-xs mr-2 font-mono">{String(idx + 1).padStart(2, '0')}</span>
-                  <span className="mr-1.5">{f.emoji}</span>
-                  {f.label}
-                </p>
-                {f.hint && <p className="text-xs text-rl-muted">{f.hint}</p>}
-                {f.type === 'textarea' ? (
+            {PERSONA_QUESTIONS.map((q, idx) => {
+              const answered = arrToText(persona.answers[q.key]).trim().length > 0
+              const isLast   = idx === PERSONA_QUESTIONS.length - 1
+              return (
+                <div
+                  key={q.key}
+                  ref={el => personaRefs.current[idx] = el}
+                  className="glass-card p-5 space-y-2"
+                >
+                  <p className="text-sm font-medium text-rl-text">
+                    <span className="text-rl-muted text-xs mr-2 font-mono">{String(idx + 1).padStart(2, '0')}</span>
+                    <span className="mr-1.5">{q.emoji}</span>
+                    {q.label}
+                  </p>
+                  {q.hint && <p className="text-xs text-rl-muted">{q.hint}</p>}
                   <textarea
-                    value={oferta[f.key] || ''}
-                    onChange={(e) => updateOfertaField(f.key, e.target.value)}
-                    placeholder="Digite sua resposta..."
+                    value={arrToText(persona.answers[q.key])}
+                    onChange={(e) => updatePersonaAnswer(q.key, e.target.value)}
+                    placeholder="Digite sua resposta (uma por linha para múltiplas)..."
                     rows={3}
                     className="input-field resize-none text-sm leading-relaxed"
                   />
-                ) : (
-                  <input
-                    value={oferta[f.key] || ''}
-                    onChange={(e) => updateOfertaField(f.key, e.target.value)}
-                    placeholder="Digite sua resposta..."
-                    className="input-field text-sm"
-                  />
-                )}
-              </div>
-            ))}
-
-            {/* Bônus */}
-            <div className="glass-card p-5 space-y-3">
-              <p className="text-sm font-medium text-rl-text">
-                <span className="text-rl-muted text-xs mr-2 font-mono">08</span>
-                <span className="mr-1.5">🎁</span>
-                O que está incluso de bônus?
-              </p>
-              <p className="text-xs text-rl-muted">Liste os bônus incluídos na oferta. Ex: "Planilha de Diagnóstico — R$ 497"</p>
-
-              <div className="space-y-2">
-                {(oferta.bonus || []).map((b, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <input
-                      value={b}
-                      onChange={(e) => updateBonus(i, e.target.value)}
-                      placeholder={`Bônus ${i + 1}...`}
-                      className="input-field text-sm flex-1"
-                    />
-                    <button onClick={() => removeBonus(i)} className="p-2 text-rl-muted hover:text-red-400 transition-colors">
-                      <X className="w-4 h-4" />
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => {
+                        if (!isLast) {
+                          personaRefs.current[idx + 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        }
+                      }}
+                      className={`flex items-center gap-2 text-sm px-4 py-2 rounded-xl font-medium transition-all ${
+                        isLast
+                          ? answered
+                            ? 'bg-rl-green/15 border border-rl-green/30 text-rl-green hover:bg-rl-green/25'
+                            : 'bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text'
+                          : 'bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-blue/30'
+                      }`}
+                    >
+                      {isLast
+                        ? <><CheckCircle2 className="w-4 h-4" /> Concluir Personas</>
+                        : <>Avançar para pergunta {idx + 2} →</>
+                      }
                     </button>
                   </div>
-                ))}
-                <button
-                  onClick={addBonus}
-                  className="flex items-center gap-2 text-sm text-rl-muted hover:text-rl-text transition-colors"
-                >
-                  <Plus className="w-4 h-4" /> Adicionar bônus
-                </button>
-              </div>
-            </div>
+                </div>
+              )
+            })}
           </div>
         )}
 
