@@ -400,8 +400,6 @@ export default function NewOnboarding() {
       if (!form.segmento.trim())            e.segmento        = 'Selecione ou informe o segmento'
     }
     if (s === 1) {
-      if (!form.raioXFile) e.raioXFile = 'Anexe o Raio-X do cliente'
-      if (!form.slaFile)   e.slaFile   = 'Anexe o SLA de passagem de bastão'
     }
     if (s === 2) {
       if (form.services.length === 0) e.services = 'Selecione ao menos um serviço'
@@ -720,21 +718,19 @@ export default function NewOnboarding() {
               </div>
               <div>
                 <FileUpload
-                  label={<>Raio-X do Cliente <span className="text-rl-red">*</span></>}
+                  label="Raio-X do Cliente"
                   file={form.raioXFile}
                   onChange={(f) => set('raioXFile', f)}
-                  description="PDF ou DOCX · Diagnóstico inicial do cliente"
+                  description="PDF ou DOCX · Diagnóstico inicial do cliente (opcional)"
                 />
-                {errors.raioXFile && <p className="text-rl-red text-xs mt-1">{errors.raioXFile}</p>}
               </div>
               <div>
                 <FileUpload
-                  label={<>SLA — Passagem de Bastão <span className="text-rl-red">*</span></>}
+                  label="SLA — Passagem de Bastão"
                   file={form.slaFile}
                   onChange={(f) => set('slaFile', f)}
-                  description="PDF ou DOCX · Acordo de nível de serviço"
+                  description="PDF ou DOCX · Acordo de nível de serviço (opcional)"
                 />
-                {errors.slaFile && <p className="text-rl-red text-xs mt-1">{errors.slaFile}</p>}
               </div>
             </div>
           )}
