@@ -7,6 +7,7 @@ import {
 import { exportPersonasPDF } from '../utils/exportPDF'
 import { streamClaude } from '../lib/claude'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
+import VideoGuide from '../components/VideoGuide'
 
 // ─── Questions ────────────────────────────────────────────────────────────────
 const QUESTIONS = [
@@ -74,6 +75,7 @@ Com base nas informações fornecidas pelo usuário sobre o produto/serviço e o
 REGRAS:
 - Responda em texto simples, usando apenas títulos em CAIXA ALTA e marcadores com "-"
 - Sem asteriscos, sem hashtags, sem negrito, sem markdown
+- Não use travessões (—) em nenhuma parte do output
 - Seja específico e concreto. Nunca seja genérico
 - Use linguagem brasileira natural
 - Dê um nome real brasileiro à persona
@@ -107,8 +109,8 @@ Liste exatamente 10 dores reais, específicas e contextualizadas. Para cada uma:
 ---
 
 MEDOS PROFUNDOS
-Liste exatamente 10 medos que ela não admitiria em voz alta — aqueles que a mantêm acordada à noite:
-- [Medo 1 — seja específico e emocional]
+Liste exatamente 10 medos que ela não admitiria em voz alta, aqueles que a mantêm acordada à noite:
+- [Medo 1: seja específico e emocional]
 - [Medo 2]
 - [Medo 3]
 - [Medo 4]
@@ -123,7 +125,7 @@ Liste exatamente 10 medos que ela não admitiria em voz alta — aqueles que a m
 
 SONHOS E DESEJOS
 Liste exatamente 10 resultados concretos que ela realmente quer alcançar:
-- [Sonho 1 — concreto, não abstrato]
+- [Sonho 1: concreto, não abstrato]
 - [Sonho 2]
 - [Sonho 3]
 - [Sonho 4]
@@ -412,6 +414,9 @@ ${sections.join('\n\n')}`
           </button>
         </div>
       </div>
+
+      {/* Vídeo guia */}
+      <VideoGuide videoId="hpMy2Th9YrA" label="Como preencher o módulo de Personas" />
 
       {/* Persona tabs */}
       {personas.length > 1 && (

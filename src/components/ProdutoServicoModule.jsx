@@ -4,6 +4,7 @@ import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
 import ReactMarkdown from 'react-markdown'
+import VideoGuide from './VideoGuide'
 
 // ─── System Prompt ─────────────────────────────────────────────────────────────
 const SUMMARY_SYSTEM = `Você é um especialista em marketing e estratégia de produto. Sua função é transformar respostas brutas sobre um produto ou serviço em um documento de briefing claro, completo e altamente persuasivo.
@@ -305,6 +306,9 @@ Gere o documento de briefing completo baseado nessas informações.`
           </button>
         </div>
       </div>
+
+      {/* Vídeo guia */}
+      <VideoGuide videoId="awwUFJhqHOE" label="Como preencher o módulo de Produto / Serviço" />
 
       {/* Tabs */}
       <div className="flex gap-2 flex-wrap">

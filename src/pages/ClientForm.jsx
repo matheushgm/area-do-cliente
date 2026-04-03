@@ -4,6 +4,7 @@ import {
   CheckCircle2, Loader2, AlertTriangle, Plus, X,
   Package, Users, Zap, Save, HelpCircle, ChevronDown,
 } from 'lucide-react'
+import VideoGuide from '../components/VideoGuide'
 
 // ─── Perguntas de cada módulo ─────────────────────────────────────────────────
 const PRODUTO_QUESTIONS = [
@@ -381,6 +382,8 @@ export default function ClientForm() {
         {activeTab === 'produto' && (
           <div className="space-y-4">
 
+            <VideoGuide videoId="awwUFJhqHOE" label="Como preencher o módulo de Produto / Serviço" />
+
             {/* Sub-tabs de produto */}
             <div className="flex gap-2 flex-wrap">
               {produtos.map((p, i) => (
@@ -562,6 +565,8 @@ export default function ClientForm() {
         {/* ── PERSONAS ──────────────────────────────────────────────────────── */}
         {activeTab === 'persona' && (
           <div className="space-y-4">
+
+            <VideoGuide videoId="hpMy2Th9YrA" label="Como preencher o módulo de Personas" />
 
             {/* Sub-tabs de persona */}
             <div className="flex gap-2 flex-wrap">
