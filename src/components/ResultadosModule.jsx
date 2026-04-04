@@ -51,7 +51,12 @@ export default function ResultadosModule({ project }) {
       )}
 
       {modelo === 'b2c' && (
-        <B2CView resultados={resultados} onUpdate={handleUpdate} />
+        <B2CView
+          resultados={resultados}
+          onUpdate={handleUpdate}
+          clientShareToken={project.clientShareToken}
+          companyName={project.companyName}
+        />
       )}
     </div>
   )
