@@ -55,6 +55,42 @@ export function buildContext(project) {
   const comps = (project.competitors || []).filter(Boolean)
   if (comps.length)               lines.push(`Concorrentes: ${comps.join(', ')}`)
 
+  const produtos = (project.produtos || []).filter((p) => p.nome || p.answers)
+  if (produtos.length) {
+    lines.push('\n## PRODUTO / SERVIÇO')
+    const PRODUTO_LABELS = {
+      q1:  'O que resolve',
+      q2:  'Quando o cliente precisa',
+      q3:  'Vida depois do produto',
+      q4:  'Diferencial vs concorrente',
+      q5:  'Por que comprar agora',
+      q6:  'Vida sem o produto',
+      q7:  'Objeções de compra',
+      q8:  'Tentativas anteriores',
+      q9:  'Por que desconfiam',
+      q10: 'Cases / resultados mensuráveis',
+      q11: 'Tempo para 1º resultado',
+      q12: 'O que mais elogiam',
+      q13: 'Diferencial único',
+      q14: 'Custo de inação (3 meses)',
+      q15: 'Sazonalidade / janela de oportunidade',
+      q16: 'Garantia',
+      q17: 'Se der errado',
+    }
+    produtos.forEach((p) => {
+      const tipoLabel = p.tipo === 'servico' ? 'Serviço' : 'Produto Físico'
+      lines.push(`\n### ${p.nome || 'Produto Principal'} (${tipoLabel})`)
+      const a = p.answers || {}
+      Object.entries(PRODUTO_LABELS).forEach(([key, label]) => {
+        if (a[key]?.trim()) lines.push(`${label}: ${a[key].trim()}`)
+      })
+      if (p.summary) {
+        const txt = p.summary.length > 800 ? p.summary.slice(0, 800) + '…' : p.summary
+        lines.push(`\nResumo estratégico:\n${txt}`)
+      }
+    })
+  }
+
   const personas = (project.personas || []).filter((p) => p.name || p.answers)
   if (personas.length) {
     lines.push('\n## PERSONAS / PÚBLICO-ALVO')
