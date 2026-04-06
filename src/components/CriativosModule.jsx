@@ -85,17 +85,14 @@ Crie cada roteiro seguindo a ESTRUTURA DO LABORATÓRIO DE ANÚNCIOS (4 etapas):
 
 ## ROTEIRO [N]: Gancho: [Tipo] | [Etapa do Funil]
 
-**⏱ GANCHO (0s – 3s):** [Tipo de gancho]
-🎬 Visual: [o que aparece na tela]
-🎙️ Fala/Texto: [frase exata: disruptiva, contra-intuitiva, que para o scroll]
+**GANCHO (0s – 3s):** [Tipo de gancho]
+Fala/Texto: [frase exata: disruptiva, contra-intuitiva, que para o scroll]
 
-**🔥 MENSAGEM (3s – 45s):** [Tipo: StoryTelling/Proclamação/Segredos/Problema-Solução/Promessa/Oferta]
-🎬 Visual: [cena]
-🎙️ Fala: [narração mostrando transformação do Ponto A → Ponto B, com quebra de objeção integrada naturalmente]
+**MENSAGEM (3s – 45s):** [Tipo: StoryTelling/Proclamação/Segredos/Problema-Solução/Promessa/Oferta]
+Fala: [narração mostrando transformação do Ponto A → Ponto B, com quebra de objeção integrada naturalmente]
 
-**📣 CTA FINAL (45s – 60s)**
-🎬 Visual: [encerramento]
-🎙️ Fala: [reforça promessa + gatilho de escassez/urgência + ação clara]
+**CTA FINAL (45s – 60s)**
+Fala: [reforça promessa + gatilho de escassez/urgência + ação clara]
 
 **📝 LEGENDA DO POST:** [legenda com emojis]
 
@@ -112,6 +109,8 @@ Regras críticas:
 - CTA com gatilho de escassez ou urgência específico
 - Português brasileiro conversacional e energético
 - Não use travessões (—) em nenhuma parte do output
+- Não inclua sugestões de cena ou visual em nenhuma parte do roteiro
+- Não use emojis no roteiro — use emojis apenas na LEGENDA DO POST
 - Separe cada roteiro com "---"`
 
 // ─── Main Component ────────────────────────────────────────────────────────────
