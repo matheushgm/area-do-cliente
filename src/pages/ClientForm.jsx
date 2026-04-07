@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   CheckCircle2, Loader2, AlertTriangle, Plus, X,
-  Package, Users, HelpCircle, ChevronDown,
+  Package, Users, HelpCircle, ChevronDown, Edit2,
 } from 'lucide-react'
 import VideoGuide from '../components/VideoGuide'
 
@@ -114,14 +114,15 @@ export default function ClientForm() {
   // Produto state
   const [produtos, setProdutos]   = useState([newProduto()])
   const [activeProdIdx, setActiveProdIdx] = useState(0)
-  const [openHelp, setOpenHelp] = useState(null)
-  const [produtoError, setProdutoError] = useState(null)
-  const questionRefs = useRef([])
+  // One-question-at-a-time state
+  const [currentProdutoQ, setCurrentProdutoQ] = useState(0)
+  const [currentPersonaQ, setCurrentPersonaQ] = useState(0)
+  const [helpOpen, setHelpOpen]     = useState(false)
+  const [questionError, setQuestionError] = useState(null)
 
   // Persona state
   const [personas, setPersonas]   = useState([newPersona()])
   const [activePerIdx, setActivePerIdx] = useState(0)
-  const personaRefs = useRef([])
 
   // Save status per module
   const [saveStatus, setSaveStatus] = useState({ produto: 'idle', persona: 'idle' })
@@ -139,17 +140,25 @@ export default function ClientForm() {
         setCompanyName(data.companyName || '')
 
         if (data.produtos?.length) {
-          setProdutos(data.produtos.map((p) => ({
+          const mapped = data.produtos.map((p) => ({
             ...p,
             answers: { ...Object.fromEntries(PRODUTO_QUESTIONS.map((q) => [q.id, ''])), ...p.answers },
-          })))
+          }))
+          setProdutos(mapped)
+          const first = mapped[0]
+          const firstUnanswered = PRODUTO_QUESTIONS.findIndex(q => !first.answers[q.id]?.trim())
+          setCurrentProdutoQ(firstUnanswered === -1 ? PRODUTO_QUESTIONS.length : firstUnanswered)
         }
 
         if (data.personas?.length) {
-          setPersonas(data.personas.map((p) => ({
+          const mapped = data.personas.map((p) => ({
             ...p,
             answers: { ...Object.fromEntries(PERSONA_QUESTIONS.map((q) => [q.key, []])), ...p.answers },
-          })))
+          }))
+          setPersonas(mapped)
+          const firstP = mapped[0]
+          const firstUnansweredP = PERSONA_QUESTIONS.findIndex(q => !arrToText(firstP.answers[q.key]).trim())
+          setCurrentPersonaQ(firstUnansweredP === -1 ? PERSONA_QUESTIONS.length : firstUnansweredP)
         }
       } catch (e) {
         setError(e.message)
@@ -305,16 +314,8 @@ export default function ClientForm() {
             <button
               key={t.id}
               onClick={() => {
-                if (activeTab === 'produto' && t.id !== 'produto') {
-                  const unanswered = PRODUTO_QUESTIONS.filter(q => !produto.answers[q.id]?.trim())
-                  if (unanswered.length > 0) {
-                    setProdutoError(`Responda todas as ${PRODUTO_QUESTIONS.length} perguntas antes de avançar. Faltam ${unanswered.length}.`)
-                    const firstIdx = PRODUTO_QUESTIONS.findIndex(q => !produto.answers[q.id]?.trim())
-                    questionRefs.current[firstIdx]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                    return
-                  }
-                }
-                setProdutoError(null)
+                setQuestionError(null)
+                setHelpOpen(false)
                 setActiveTab(t.id)
               }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
@@ -340,7 +341,14 @@ export default function ClientForm() {
               {produtos.map((p, i) => (
                 <div key={p.id} className="flex items-center gap-1">
                   <button
-                    onClick={() => setActiveProdIdx(i)}
+                    onClick={() => {
+                      setActiveProdIdx(i)
+                      const p = produtos[i]
+                      const firstUnanswered = PRODUTO_QUESTIONS.findIndex(q => !p.answers[q.id]?.trim())
+                      setCurrentProdutoQ(firstUnanswered === -1 ? PRODUTO_QUESTIONS.length : firstUnanswered)
+                      setHelpOpen(false)
+                      setQuestionError(null)
+                    }}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                       activeProdIdx === i
                         ? 'bg-rl-gold/20 text-rl-gold border border-rl-gold/40'
@@ -395,64 +403,68 @@ export default function ClientForm() {
               </div>
             </div>
 
-            {/* Erro de validação */}
-            {produtoError && (
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
-                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                <p className="text-sm">{produtoError}</p>
+            {/* Respondidas — exibidas acima */}
+            {PRODUTO_QUESTIONS.slice(0, currentProdutoQ).map((q, idx) => (
+              <div key={q.id} className="glass-card p-4 border border-rl-green/20">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-4 h-4 text-rl-green shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-rl-muted mb-0.5">
+                      <span className="mr-1">{q.emoji}</span>{q.label}
+                    </p>
+                    <p className="text-sm text-rl-text mt-0.5 whitespace-pre-wrap break-words leading-snug">
+                      {produto.answers[q.id]}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => { setCurrentProdutoQ(idx); setHelpOpen(false); setQuestionError(null) }}
+                    className="shrink-0 p-1.5 text-rl-muted hover:text-rl-text hover:bg-rl-surface/60 rounded-lg transition-all"
+                    title="Editar resposta"
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
-            )}
+            ))}
 
-            {/* Perguntas */}
-            {PRODUTO_QUESTIONS.map((q, idx) => {
-              const help      = QUESTIONS_HELP[q.id]
-              const isOpen    = openHelp === q.id
-              const answered  = !!produto.answers[q.id]?.trim()
-              const isEmpty   = produtoError && !answered
-              const isLast    = idx === PRODUTO_QUESTIONS.length - 1
-
+            {/* Pergunta ativa — surge abaixo */}
+            {currentProdutoQ < PRODUTO_QUESTIONS.length && (() => {
+              const q      = PRODUTO_QUESTIONS[currentProdutoQ]
+              const help   = QUESTIONS_HELP[q.id]
+              const ans    = produto.answers[q.id] || ''
+              const isLast = currentProdutoQ === PRODUTO_QUESTIONS.length - 1
+              const pct    = Math.round((currentProdutoQ / PRODUTO_QUESTIONS.length) * 100)
               return (
-                <div
-                  key={q.id}
-                  ref={el => questionRefs.current[idx] = el}
-                  className={`glass-card p-5 space-y-3 border transition-all ${
-                    answered
-                      ? 'border-rl-green/30'
-                      : isEmpty
-                      ? 'border-red-500/40'
-                      : 'border-rl-border'
-                  }`}
-                >
-                  {/* Header da pergunta */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2 flex-1 min-w-0">
-                      {answered
-                        ? <CheckCircle2 className="w-4 h-4 text-rl-green shrink-0 mt-0.5" />
-                        : <span className="text-rl-muted text-xs font-mono shrink-0 mt-0.5 w-4 text-center">{String(idx + 1).padStart(2, '0')}</span>
-                      }
-                      <p className="text-sm font-medium text-rl-text leading-snug">
-                        <span className="mr-1.5">{q.emoji}</span>
-                        {q.label}
-                        {isEmpty && <span className="ml-1.5 text-xs text-red-400 font-normal">* obrigatória</span>}
-                      </p>
+                <div className="glass-card p-5 space-y-3 border border-rl-purple/40">
+                  {/* Progress */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-rl-muted mb-2">
+                      <span>Pergunta {currentProdutoQ + 1} de {PRODUTO_QUESTIONS.length}</span>
+                      <span>{pct}% concluído</span>
                     </div>
+                    <div className="w-full bg-rl-border/30 rounded-full h-1">
+                      <div className="bg-gradient-rl h-1 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-rl-text leading-snug">
+                      <span className="mr-1.5">{q.emoji}</span>{q.label}
+                    </p>
                     {help && (
                       <button
-                        onClick={() => setOpenHelp(isOpen ? null : q.id)}
+                        onClick={() => setHelpOpen(v => !v)}
                         className={`shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-all ${
-                          isOpen
-                            ? 'bg-rl-blue/10 border-rl-blue/30 text-rl-blue'
-                            : 'border-rl-border text-rl-muted hover:text-rl-blue hover:border-rl-blue/30'
+                          helpOpen ? 'bg-rl-blue/10 border-rl-blue/30 text-rl-blue' : 'border-rl-border text-rl-muted hover:text-rl-blue hover:border-rl-blue/30'
                         }`}
                       >
                         <HelpCircle className="w-3 h-3" />
-                        <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-3 h-3 transition-transform ${helpOpen ? 'rotate-180' : ''}`} />
                       </button>
                     )}
                   </div>
-
-                  {/* Ajuda expansível */}
-                  {isOpen && help && (
+                  {/* Help */}
+                  {helpOpen && help && (
                     <div className="bg-rl-blue/5 border border-rl-blue/15 rounded-xl p-4 space-y-2 text-xs text-rl-text/80 leading-relaxed">
                       <p>{help.text}</p>
                       <p className="text-rl-muted italic border-l-2 border-rl-blue/30 pl-3">
@@ -461,54 +473,46 @@ export default function ClientForm() {
                       </p>
                     </div>
                   )}
-
                   {/* Textarea */}
                   <textarea
-                    value={produto.answers[q.id] || ''}
-                    onChange={(e) => {
-                      updateProdutoAnswer(q.id, e.target.value)
-                      if (produtoError) setProdutoError(null)
-                    }}
+                    autoFocus
+                    value={ans}
+                    onChange={(e) => { updateProdutoAnswer(q.id, e.target.value); setQuestionError(null) }}
                     placeholder="Digite sua resposta..."
-                    rows={3}
-                    className={`input-field resize-none text-sm leading-relaxed ${isEmpty ? 'border-red-500/40 focus:border-red-400' : ''}`}
+                    rows={4}
+                    className="input-field resize-none text-sm leading-relaxed"
                   />
-
-                  {/* Botão Avançar */}
+                  {/* Error */}
+                  {questionError && (
+                    <p className="text-xs text-red-400 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3 h-3 shrink-0" /> {questionError}
+                    </p>
+                  )}
+                  {/* Avançar */}
                   <div className="flex justify-end">
                     <button
                       onClick={() => {
-                        if (!isLast) {
-                          questionRefs.current[idx + 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                        } else {
-                          // Valida tudo ao concluir
-                          const unanswered = PRODUTO_QUESTIONS.filter(q => !produto.answers[q.id]?.trim())
-                          if (unanswered.length > 0) {
-                            setProdutoError(`Faltam ${unanswered.length} pergunta(s) sem resposta.`)
-                            const firstIdx = PRODUTO_QUESTIONS.findIndex(q => !produto.answers[q.id]?.trim())
-                            questionRefs.current[firstIdx]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                          } else {
-                            setProdutoError(null)
-                          }
-                        }
+                        if (!ans.trim()) { setQuestionError('Responda esta pergunta para avançar.'); return }
+                        setQuestionError(null); setHelpOpen(false)
+                        setCurrentProdutoQ(n => n + 1)
                       }}
-                      className={`flex items-center gap-2 text-sm px-4 py-2 rounded-xl font-medium transition-all ${
-                        isLast
-                          ? answered
-                            ? 'bg-rl-green/15 border border-rl-green/30 text-rl-green hover:bg-rl-green/25'
-                            : 'bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text'
-                          : 'bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
-                      }`}
+                      className="flex items-center gap-2 text-sm px-5 py-2.5 rounded-xl font-semibold bg-gradient-rl text-white hover:opacity-90 transition-all"
                     >
-                      {isLast
-                        ? <><CheckCircle2 className="w-4 h-4" /> Concluir Produto / Serviço</>
-                        : <>Avançar para pergunta {idx + 2} →</>
-                      }
+                      {isLast ? <><CheckCircle2 className="w-4 h-4" /> Concluir Produto / Serviço</> : <>Avançar →</>}
                     </button>
                   </div>
                 </div>
               )
-            })}
+            })()}
+
+            {/* Concluído */}
+            {currentProdutoQ >= PRODUTO_QUESTIONS.length && (
+              <div className="glass-card p-6 text-center border border-rl-green/30 bg-rl-green/5">
+                <CheckCircle2 className="w-10 h-10 text-rl-green mx-auto mb-3" />
+                <p className="text-sm font-semibold text-rl-text">Produto / Serviço concluído!</p>
+                <p className="text-xs text-rl-muted mt-1">Você pode editar qualquer resposta clicando no ícone de lápis acima.</p>
+              </div>
+            )}
 
           </div>
         )}
@@ -524,7 +528,13 @@ export default function ClientForm() {
               {personas.map((p, i) => (
                 <div key={p.id} className="flex items-center gap-1">
                   <button
-                    onClick={() => setActivePerIdx(i)}
+                    onClick={() => {
+                      setActivePerIdx(i)
+                      const p = personas[i]
+                      const firstUnanswered = PERSONA_QUESTIONS.findIndex(q => !arrToText(p.answers[q.key]).trim())
+                      setCurrentPersonaQ(firstUnanswered === -1 ? PERSONA_QUESTIONS.length : firstUnanswered)
+                      setHelpOpen(false); setQuestionError(null)
+                    }}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                       activePerIdx === i
                         ? 'bg-rl-blue/20 text-rl-blue border border-rl-blue/40'
@@ -559,60 +569,90 @@ export default function ClientForm() {
               />
             </div>
 
-            {/* Instrução */}
-            <div className="px-1">
-              <p className="text-xs text-rl-muted">
-                Pense no seu cliente ideal ao responder. Você pode escrever várias respostas, uma por linha.
-              </p>
-            </div>
-
-            {/* Perguntas */}
-            {PERSONA_QUESTIONS.map((q, idx) => {
-              const answered = arrToText(persona.answers[q.key]).trim().length > 0
-              const isLast   = idx === PERSONA_QUESTIONS.length - 1
+            {/* Respondidas — exibidas acima */}
+            {PERSONA_QUESTIONS.slice(0, currentPersonaQ).map((q, idx) => {
+              const val = arrToText(persona.answers[q.key])
               return (
-                <div
-                  key={q.key}
-                  ref={el => personaRefs.current[idx] = el}
-                  className="glass-card p-5 space-y-2"
-                >
-                  <p className="text-sm font-medium text-rl-text">
-                    <span className="text-rl-muted text-xs mr-2 font-mono">{String(idx + 1).padStart(2, '0')}</span>
-                    <span className="mr-1.5">{q.emoji}</span>
-                    {q.label}
-                  </p>
-                  {q.hint && <p className="text-xs text-rl-muted">{q.hint}</p>}
-                  <textarea
-                    value={arrToText(persona.answers[q.key])}
-                    onChange={(e) => updatePersonaAnswer(q.key, e.target.value)}
-                    placeholder="Digite sua resposta (uma por linha para múltiplas)..."
-                    rows={3}
-                    className="input-field resize-none text-sm leading-relaxed"
-                  />
-                  <div className="flex justify-end">
+                <div key={q.key} className="glass-card p-4 border border-rl-green/20">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-4 h-4 text-rl-green shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-rl-muted mb-0.5">
+                        <span className="mr-1">{q.emoji}</span>{q.label}
+                      </p>
+                      <p className="text-sm text-rl-text mt-0.5 whitespace-pre-wrap break-words leading-snug">{val}</p>
+                    </div>
                     <button
-                      onClick={() => {
-                        if (!isLast) {
-                          personaRefs.current[idx + 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                        }
-                      }}
-                      className={`flex items-center gap-2 text-sm px-4 py-2 rounded-xl font-medium transition-all ${
-                        isLast
-                          ? answered
-                            ? 'bg-rl-green/15 border border-rl-green/30 text-rl-green hover:bg-rl-green/25'
-                            : 'bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text'
-                          : 'bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-blue/30'
-                      }`}
+                      onClick={() => { setCurrentPersonaQ(idx); setHelpOpen(false); setQuestionError(null) }}
+                      className="shrink-0 p-1.5 text-rl-muted hover:text-rl-text hover:bg-rl-surface/60 rounded-lg transition-all"
+                      title="Editar resposta"
                     >
-                      {isLast
-                        ? <><CheckCircle2 className="w-4 h-4" /> Concluir Personas</>
-                        : <>Avançar para pergunta {idx + 2} →</>
-                      }
+                      <Edit2 className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
               )
             })}
+
+            {/* Pergunta ativa — surge abaixo */}
+            {currentPersonaQ < PERSONA_QUESTIONS.length && (() => {
+              const q      = PERSONA_QUESTIONS[currentPersonaQ]
+              const val    = arrToText(persona.answers[q.key])
+              const isLast = currentPersonaQ === PERSONA_QUESTIONS.length - 1
+              const pct    = Math.round((currentPersonaQ / PERSONA_QUESTIONS.length) * 100)
+              return (
+                <div className="glass-card p-5 space-y-3 border border-rl-blue/40">
+                  {/* Progress */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-rl-muted mb-2">
+                      <span>Pergunta {currentPersonaQ + 1} de {PERSONA_QUESTIONS.length}</span>
+                      <span>{pct}% concluído</span>
+                    </div>
+                    <div className="w-full bg-rl-border/30 rounded-full h-1">
+                      <div className="bg-gradient-rl h-1 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                  <p className="text-sm font-semibold text-rl-text">
+                    <span className="mr-1.5">{q.emoji}</span>{q.label}
+                  </p>
+                  {q.hint && <p className="text-xs text-rl-muted">{q.hint}</p>}
+                  <textarea
+                    autoFocus
+                    value={val}
+                    onChange={(e) => { updatePersonaAnswer(q.key, e.target.value); setQuestionError(null) }}
+                    placeholder="Digite sua resposta (uma por linha para múltiplas)..."
+                    rows={4}
+                    className="input-field resize-none text-sm leading-relaxed"
+                  />
+                  {questionError && (
+                    <p className="text-xs text-red-400 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3 h-3 shrink-0" /> {questionError}
+                    </p>
+                  )}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => {
+                        if (!val.trim()) { setQuestionError('Responda esta pergunta para avançar.'); return }
+                        setQuestionError(null); setHelpOpen(false)
+                        setCurrentPersonaQ(n => n + 1)
+                      }}
+                      className="flex items-center gap-2 text-sm px-5 py-2.5 rounded-xl font-semibold bg-gradient-rl text-white hover:opacity-90 transition-all"
+                    >
+                      {isLast ? <><CheckCircle2 className="w-4 h-4" /> Concluir Personas</> : <>Avançar →</>}
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Concluído */}
+            {currentPersonaQ >= PERSONA_QUESTIONS.length && (
+              <div className="glass-card p-6 text-center border border-rl-green/30 bg-rl-green/5">
+                <CheckCircle2 className="w-10 h-10 text-rl-green mx-auto mb-3" />
+                <p className="text-sm font-semibold text-rl-text">Personas concluídas!</p>
+                <p className="text-xs text-rl-muted mt-1">Você pode editar qualquer resposta clicando no ícone de lápis acima.</p>
+              </div>
+            )}
           </div>
         )}
 
