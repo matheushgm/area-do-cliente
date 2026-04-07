@@ -3,6 +3,7 @@ import { Plus, X, Package, ShoppingBag, Briefcase, CheckCircle2, Sparkles, Loade
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
+import { supabase } from '../lib/supabase'
 import ReactMarkdown from 'react-markdown'
 import VideoGuide from './VideoGuide'
 
@@ -262,14 +263,37 @@ Gere o documento de briefing completo baseado nessas informações.`
         messages: [{ role: 'user', content: instruction }],
         onChunk: (text) => setSummary(text),
       })
-      // Persist so the summary survives tab switches and page reloads
+
+      // 1. Update local state + queue debounced Supabase write (normal flow)
       updateProduto({ summary: fullText })
+
+      // 2. Immediate Supabase write — garante que o resumo sobrevive a um refresh
+      //    antes do debounce de 1s disparar (delete+insert, mesmo padrão do AppContext)
+      if (supabase) {
+        const nextProdutos = produtos.map((p, i) =>
+          i === activeIdx ? { ...p, summary: fullText } : p
+        )
+        await supabase.from('produtos').delete().eq('project_id', project.id)
+        if (nextProdutos.length > 0) {
+          const { error } = await supabase.from('produtos').insert(
+            nextProdutos.map((p) => ({
+              id:         crypto.randomUUID(),
+              project_id: project.id,
+              nome:       p.nome    || '',
+              tipo:       p.tipo    || 'produto',
+              answers:    p.answers || {},
+              summary:    p.summary || null,
+            }))
+          )
+          if (error) console.error('[Supabase] generateSummary save:', error.message)
+        }
+      }
     } catch (err) {
       setGenError(err.message || 'Erro ao gerar resumo. Tente novamente.')
     } finally {
       setGenerating(false)
     }
-  }, [produto, updateProduto])
+  }, [produto, updateProduto, produtos, activeIdx, project.id])
 
   const copySummary = () => {
     if (!summary) return
