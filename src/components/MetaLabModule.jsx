@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react'
 import {
   FlaskConical, DollarSign, Calendar, ChevronDown, ChevronUp,
   CheckCircle2, AlertCircle, Video, Users, Zap, Target,
-  Play, TrendingUp, Info,
+  Play, TrendingUp, Info, FileDown, Loader2,
 } from 'lucide-react'
+import { generateMetaLabPDF } from '../lib/metaLabPDF'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -324,22 +325,53 @@ function ConfigItem({ label, value, className = '' }) {
 export default function MetaLabModule({ project }) {
   const [budget, setBudget]         = useState(project.metaLabBudget || 0)
   const [audienceType, setAudience] = useState('lookalike')
+  const [exporting, setExporting]   = useState(false)
 
   const lab = useMemo(() => (budget >= DAILY * 7 ? calcLab(budget) : null), [budget])
+
+  const handleExportPDF = async () => {
+    if (!lab) return
+    setExporting(true)
+    try {
+      generateMetaLabPDF({
+        lab,
+        audienceType,
+        companyName: project.companyName || project.company_name || 'Cliente',
+        budget,
+      })
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const PRESETS = [800, 1200, 1925, 2520]
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
-          <FlaskConical className="w-5 h-5 text-rl-purple" />
-          Laboratório Meta Ads
-        </h2>
-        <p className="text-sm text-rl-muted mt-0.5">
-          Metodologia de 21 dias para testar e validar criativos, públicos e ganchos no Meta Ads
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
+            <FlaskConical className="w-5 h-5 text-rl-purple" />
+            Laboratório Meta Ads
+          </h2>
+          <p className="text-sm text-rl-muted mt-0.5">
+            Metodologia de 21 dias para testar e validar criativos, públicos e ganchos no Meta Ads
+          </p>
+        </div>
+        {lab && (
+          <button
+            onClick={handleExportPDF}
+            disabled={exporting}
+            className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all
+              bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {exporting
+              ? <><Loader2 className="w-4 h-4 animate-spin" />Gerando PDF...</>
+              : <><FileDown className="w-4 h-4" />Exportar PDF</>
+            }
+          </button>
+        )}
       </div>
 
       {/* Budget + audience */}
