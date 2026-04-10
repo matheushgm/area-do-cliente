@@ -7,6 +7,7 @@ import ProjectDetail from './pages/ProjectDetail'
 import UserManagement from './pages/UserManagement'
 import ClientForm from './pages/ClientForm'
 import B2CClientForm from './pages/B2CClientForm'
+import NPSClientForm from './pages/NPSClientForm'
 
 function RequireAuth({ children }) {
   const { user, loadingAuth } = useApp()
@@ -33,6 +34,7 @@ function AppRoutes() {
         <Route path="/users" element={<RequireAdmin><UserManagement /></RequireAdmin>} />
         <Route path="/client/:token" element={<ClientForm />} />
         <Route path="/b2c/:token" element={<B2CClientForm />} />
+        <Route path="/nps/:token" element={<NPSClientForm />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

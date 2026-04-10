@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext'
 import {
   Rocket, TrendingUp, Award, CheckCircle2, ChevronRight,
   Star, MessageSquare, BarChart2, ThumbsUp, ThumbsDown,
-  Minus, RotateCcw, Send, Clock,
+  Minus, RotateCcw, Send, Clock, Link2, Copy, Check,
 } from 'lucide-react'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -511,6 +511,7 @@ function NPSSummary({ nps }) {
 
 export default function NPSModule({ project }) {
   const { updateProject } = useApp()
+  const [copied, setCopied] = useState(false)
   const nps = project.nps || {}
 
   const handleSave = async (marcoId, formData) => {
@@ -523,18 +524,46 @@ export default function NPSModule({ project }) {
     updateProject(project.id, { nps: updated })
   }
 
+  const handleCopyLink = () => {
+    const token = project.clientShareToken || project.client_share_token
+    if (!token) return
+    const url = `${window.location.origin}/nps/${token}`
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
+
+  const hasToken = !!(project.clientShareToken || project.client_share_token)
+
   return (
     <div className="space-y-6">
 
       {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
-          <Star className="w-5 h-5 text-rl-gold" />
-          NPS — Satisfação do Cliente
-        </h2>
-        <p className="text-sm text-rl-muted mt-0.5">
-          Acompanhe a satisfação do cliente em três momentos-chave da parceria
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
+            <Star className="w-5 h-5 text-rl-gold" />
+            NPS — Satisfação do Cliente
+          </h2>
+          <p className="text-sm text-rl-muted mt-0.5">
+            Acompanhe a satisfação do cliente em três momentos-chave da parceria
+          </p>
+        </div>
+        {hasToken && (
+          <button
+            onClick={handleCopyLink}
+            className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
+              copied
+                ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
+                : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-gold/40 hover:text-rl-gold'
+            }`}
+          >
+            {copied
+              ? <><Check className="w-4 h-4" />Link copiado!</>
+              : <><Copy className="w-4 h-4" />Copiar link do cliente</>
+            }
+          </button>
+        )}
       </div>
 
       {/* Summary */}
