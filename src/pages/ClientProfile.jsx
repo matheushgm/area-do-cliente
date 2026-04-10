@@ -19,6 +19,7 @@ import CriativosModule from '../components/CriativosModule'
 import LandingPageModule from '../components/LandingPageModule'
 import ResultadosModule from '../components/ResultadosModule'
 import MetaLabModule from '../components/MetaLabModule'
+import NPSModule from '../components/NPSModule'
 import GoogleAdsModule from '../components/GoogleAdsModule'
 import EstrategiaModule from '../components/EstrategiaModule'
 import EstrategiaV2Module from '../components/EstrategiaV2Module'
@@ -1222,6 +1223,7 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'estrategia',   label: 'Estratégia Digital',       icon: Layers,         color: 'text-rl-purple', filled: hasEstrategia },
     { id: 'estrategiav2', label: 'Análise Competitiva',      icon: Map,            color: 'text-rl-blue',   filled: hasEstrategiaV2 },
     { id: 'links',        label: 'Links Importantes',        icon: Link2,          color: 'text-rl-cyan',   filled: hasLinks },
+    { id: 'nps',          label: 'NPS',                       icon: Star,           color: 'text-rl-gold',   filled: !!(project.nps && Object.values(project.nps).some(Boolean)) },
   ]
 
   function renderContent() {
@@ -1257,6 +1259,7 @@ export default function ClientProfile({ project: projectProp }) {
       case 'estrategia':   return <EstrategiaModule project={project} onSave={handleSaveEstrategia} />
       case 'estrategiav2': return <EstrategiaV2Module project={project} onSave={handleSaveEstrategiaV2} />
       case 'links':        return <LinksModule project={project} onSave={handleSaveLinks} />
+      case 'nps':          return <NPSModule project={project} />
       default:             return null
     }
   }
