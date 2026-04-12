@@ -98,18 +98,19 @@ export default function ROICalculator({ project, onSave }) {
     if (!lucroPorVenda) return null
 
     const retornoAlvo        = totalInvestimento * (1 + roiDesejado / 100)
-    const vendasNecessarias  = retornoAlvo / lucroPorVenda
+    // Sempre arredonda para cima — não existem frações de vendas/leads/pessoas
+    const vendasNecessarias  = Math.ceil(retornoAlvo / lucroPorVenda)
 
-    const sqlsNecessarios  = taxaSQL2Venda  ? vendasNecessarias / (taxaSQL2Venda  / 100) : Infinity
-    const mqlsNecessarios  = taxaMQL2SQL    ? sqlsNecessarios   / (taxaMQL2SQL    / 100) : Infinity
-    const leadsNecessarios = taxaLead2MQL   ? mqlsNecessarios   / (taxaLead2MQL   / 100) : Infinity
+    const sqlsNecessarios  = taxaSQL2Venda  ? Math.ceil(vendasNecessarias / (taxaSQL2Venda  / 100)) : Infinity
+    const mqlsNecessarios  = taxaMQL2SQL    ? Math.ceil(sqlsNecessarios   / (taxaMQL2SQL    / 100)) : Infinity
+    const leadsNecessarios = taxaLead2MQL   ? Math.ceil(mqlsNecessarios   / (taxaLead2MQL   / 100)) : Infinity
 
     const faturamento  = vendasNecessarias * ticketMedio * qtdCompras
     const lucroBruto   = faturamento * (margemBruta / 100)
     const lucroLiquido = lucroBruto - totalInvestimento
 
     const cac              = vendasNecessarias ? mediaOrcamento / vendasNecessarias : Infinity
-    const vendasBreakeven  = totalInvestimento / lucroPorVenda
+    const vendasBreakeven  = Math.ceil(totalInvestimento / lucroPorVenda)
 
     // Custo por Lead/MQL/SQL usa APENAS mídia paga (valor visível nas dashboards de anúncios)
     const custoPorLead  = leadsNecessarios  ? mediaOrcamento / leadsNecessarios  : Infinity
