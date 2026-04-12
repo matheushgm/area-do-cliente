@@ -412,7 +412,7 @@ async function sbUpdateProjectV2(id, patch) {
   if (patch.campaignPlan !== undefined) {
     await supabase.from("campaign_plans").delete().eq("project_id", id);
     const plan = patch.campaignPlan || {};
-    const hasContent = (plan.orcamentoTotal > 0) || (plan.totalBudget > 0) || (Array.isArray(plan.channels) && plan.channels.length > 0);
+    const hasContent = (plan.orcamentoTotal > 0) || (plan.totalBudget > 0) || (Array.isArray(plan.channels) && plan.channels.length > 0) || (Array.isArray(plan.accounts) && plan.accounts.length > 0);
     if (plan && hasContent) {
       const { id: _planId, ...answers } = plan;
       const { error } = await supabase.from("campaign_plans").insert({

@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
-  Plus, Save, AlertCircle, CheckCircle2, CalendarDays, DollarSign, FileDown,
+  Plus, Save, AlertCircle, CheckCircle2, CalendarDays, DollarSign, FileDown, X,
 } from 'lucide-react'
 import { exportCampaignPDF } from '../utils/exportPDF'
 import { useApp } from '../context/AppContext'
@@ -12,22 +12,80 @@ import {
 import ChannelRow from './CampaignPlanner/ChannelRow'
 import VideoGuide from './VideoGuide'
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-const META_TAX = 0.13 // 13% retido pela Meta como imposto
+const META_TAX = 0.13
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function newAccount(label = '') {
+  return {
+    id:            crypto.randomUUID(),
+    name:          label,
+    orcamentoTotal: 0,
+    valorJaUsado:  0,
+    channels:      [],
+  }
+}
+
+/**
+ * Migra o formato legado (plan com orcamentoTotal/channels na raiz)
+ * para o novo formato com array de contas.
+ */
+function initAccounts(campaignPlan) {
+  if (!campaignPlan) return [newAccount('Conta Principal')]
+
+  // Já está no novo formato
+  if (Array.isArray(campaignPlan.accounts) && campaignPlan.accounts.length > 0) {
+    return campaignPlan.accounts.map((a) => ({
+      ...a,
+      channels: (a.channels || []).map((ch) => ({ ...ch, expanded: true })),
+    }))
+  }
+
+  // Formato legado → wrap na primeira conta
+  return [{
+    id:             crypto.randomUUID(),
+    name:           'Conta Principal',
+    orcamentoTotal: campaignPlan.orcamentoTotal ?? campaignPlan.totalBudget ?? 0,
+    valorJaUsado:   campaignPlan.valorJaUsado || 0,
+    channels:       (campaignPlan.channels || []).map((ch) => ({ ...ch, expanded: true })),
+  }]
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function CampaignPlanner({ project, onSave }) {
   const { updateProject } = useApp()
   const isMounted = useRef(false)
-  const [orcamentoTotal, setOrcamentoTotal] = useState(
-    () => project.campaignPlan?.orcamentoTotal ?? project.campaignPlan?.totalBudget ?? 0
-  )
-  const [valorJaUsado, setValorJaUsado] = useState(
-    () => project.campaignPlan?.valorJaUsado || 0
-  )
-  const [channels, setChannels] = useState(
-    () => (project.campaignPlan?.channels || []).map((ch) => ({ ...ch, expanded: true }))
-  )
+
+  const [accounts,  setAccounts]  = useState(() => initAccounts(project.campaignPlan))
+  const [activeIdx, setActiveIdx] = useState(0)
+
+  // Conta ativa
+  const account = accounts[activeIdx] ?? accounts[0]
+
+  // ── Shortcuts para a conta ativa ──────────────────────────────────────────
+
+  const orcamentoTotal = account.orcamentoTotal
+  const valorJaUsado   = account.valorJaUsado
+  const channels       = account.channels
+
+  const setOrcamentoTotal = useCallback((val) => {
+    setAccounts((prev) => prev.map((a, i) => i === activeIdx ? { ...a, orcamentoTotal: val } : a))
+  }, [activeIdx])
+
+  const setValorJaUsado = useCallback((val) => {
+    setAccounts((prev) => prev.map((a, i) => i === activeIdx ? { ...a, valorJaUsado: val } : a))
+  }, [activeIdx])
+
+  const setChannels = useCallback((updater) => {
+    setAccounts((prev) => prev.map((a, i) => {
+      if (i !== activeIdx) return a
+      const next = typeof updater === 'function' ? updater(a.channels) : updater
+      return { ...a, channels: next }
+    }))
+  }, [activeIdx])
 
   const budgetDisponivel = Math.max(0, orcamentoTotal - valorJaUsado)
 
@@ -75,11 +133,11 @@ export default function CampaignPlanner({ project, onSave }) {
     }
   }, [channels])
 
-  // ── Updaters ───────────────────────────────────────────────────────────────
+  // ── Channel Updaters ───────────────────────────────────────────────────────
 
   const updateChannel = useCallback((id, patch) => {
     setChannels((prev) => prev.map((ch) => ch.id === id ? { ...ch, ...patch } : ch))
-  }, [])
+  }, [setChannels])
 
   const updateStage = useCallback((channelId, stageKey, patch) => {
     setChannels((prev) =>
@@ -88,7 +146,7 @@ export default function CampaignPlanner({ project, onSave }) {
         return { ...ch, stages: { ...ch.stages, [stageKey]: { ...ch.stages[stageKey], ...patch } } }
       })
     )
-  }, [])
+  }, [setChannels])
 
   const addCampaign = useCallback((channelId, stageKey) => {
     setChannels((prev) =>
@@ -98,15 +156,12 @@ export default function CampaignPlanner({ project, onSave }) {
           ...ch,
           stages: {
             ...ch.stages,
-            [stageKey]: {
-              ...ch.stages[stageKey],
-              campaigns: [...ch.stages[stageKey].campaigns, makeCampaign()],
-            },
+            [stageKey]: { ...ch.stages[stageKey], campaigns: [...ch.stages[stageKey].campaigns, makeCampaign()] },
           },
         }
       })
     )
-  }, [])
+  }, [setChannels])
 
   const updateCampaign = useCallback((channelId, stageKey, campaignId, patch) => {
     setChannels((prev) =>
@@ -118,15 +173,13 @@ export default function CampaignPlanner({ project, onSave }) {
             ...ch.stages,
             [stageKey]: {
               ...ch.stages[stageKey],
-              campaigns: ch.stages[stageKey].campaigns.map((c) =>
-                c.id === campaignId ? { ...c, ...patch } : c
-              ),
+              campaigns: ch.stages[stageKey].campaigns.map((c) => c.id === campaignId ? { ...c, ...patch } : c),
             },
           },
         }
       })
     )
-  }, [])
+  }, [setChannels])
 
   const deleteCampaign = useCallback((channelId, stageKey, campaignId) => {
     setChannels((prev) =>
@@ -144,60 +197,85 @@ export default function CampaignPlanner({ project, onSave }) {
         }
       })
     )
-  }, [])
+  }, [setChannels])
 
   const addChannel = useCallback(() => {
-    const usedNames = channels.map((ch) => ch.name)
-    const nextName  = CHANNEL_OPTIONS.find((n) => !usedNames.includes(n)) || CHANNEL_OPTIONS[0]
-    // Auto-suggest the remaining % so values appear immediately
+    const usedNames    = channels.map((ch) => ch.name)
+    const nextName     = CHANNEL_OPTIONS.find((n) => !usedNames.includes(n)) || CHANNEL_OPTIONS[0]
     const usedPct      = channels.reduce((s, ch) => s + (ch.percentage || 0), 0)
     const suggestedPct = Math.max(0, 100 - usedPct)
     const newCh        = makeChannel(nextName)
     newCh.percentage   = suggestedPct
     setChannels((prev) => [...prev, newCh])
-  }, [channels])
+  }, [channels, setChannels])
 
   const deleteChannel = useCallback((id) => {
     setChannels((prev) => prev.filter((ch) => ch.id !== id))
-  }, [])
+  }, [setChannels])
+
+  // ── Account Updaters ───────────────────────────────────────────────────────
+
+  const addAccount = () => {
+    const next = newAccount(`Conta ${accounts.length + 1}`)
+    setAccounts((prev) => [...prev, next])
+    setActiveIdx(accounts.length)
+  }
+
+  const removeAccount = (idx) => {
+    if (accounts.length === 1) return
+    setAccounts((prev) => prev.filter((_, i) => i !== idx))
+    setActiveIdx((prev) => Math.min(prev, accounts.length - 2))
+  }
+
+  const renameAccount = (idx, name) => {
+    setAccounts((prev) => prev.map((a, i) => i === idx ? { ...a, name } : a))
+  }
 
   // ── Auto-save ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!isMounted.current) { isMounted.current = true; return }
-    const disp = Math.max(0, orcamentoTotal - valorJaUsado)
+    const cleanAccounts = accounts.map((a) => ({
+      ...a,
+      channels: a.channels.map(({ expanded, ...rest }) => rest),
+    }))
     updateProject(project.id, {
       campaignPlan: {
-        id: project.campaignPlan?.id,
-        orcamentoTotal,
-        valorJaUsado,
-        totalBudget: disp,
-        channels: channels.map(({ expanded, ...rest }) => rest),
+        id:      project.campaignPlan?.id,
+        accounts: cleanAccounts,
+        // Backward compat: first account fields at root for older readers
+        orcamentoTotal: cleanAccounts[0]?.orcamentoTotal ?? 0,
+        valorJaUsado:   cleanAccounts[0]?.valorJaUsado   ?? 0,
+        totalBudget:    Math.max(0, (cleanAccounts[0]?.orcamentoTotal ?? 0) - (cleanAccounts[0]?.valorJaUsado ?? 0)),
+        channels:       cleanAccounts[0]?.channels ?? [],
       },
     })
-  }, [orcamentoTotal, valorJaUsado, channels])
+  }, [accounts])
 
   // ── Save ───────────────────────────────────────────────────────────────────
 
   function handleSave() {
-    const plan = {
-      id: project.campaignPlan?.id,  // preserve existing ID so upsert updates instead of inserting
-      orcamentoTotal,
-      valorJaUsado,
-      totalBudget: budgetDisponivel, // backward compat
-      // Strip UI-only 'expanded' flag before persisting
-      channels: channels.map(({ expanded, ...rest }) => rest),
-    }
-    onSave(plan)
+    const cleanAccounts = accounts.map((a) => ({
+      ...a,
+      channels: a.channels.map(({ expanded, ...rest }) => rest),
+    }))
+    onSave({
+      id:      project.campaignPlan?.id,
+      accounts: cleanAccounts,
+      orcamentoTotal: cleanAccounts[0]?.orcamentoTotal ?? 0,
+      valorJaUsado:   cleanAccounts[0]?.valorJaUsado   ?? 0,
+      totalBudget:    Math.max(0, (cleanAccounts[0]?.orcamentoTotal ?? 0) - (cleanAccounts[0]?.valorJaUsado ?? 0)),
+      channels:       cleanAccounts[0]?.channels ?? [],
+    })
   }
 
-  // ── Computed values ────────────────────────────────────────────────────────
+  // ── Computed ───────────────────────────────────────────────────────────────
 
   const channelSum       = validation.chSum
   const channelRemaining = 100 - channelSum
   const usedChannelNames = channels.map((ch) => ch.name)
   const canAddChannel    = channels.length < CHANNEL_OPTIONS.length
-  const totalBudget      = budgetDisponivel // alias para exportPDF
+  const totalBudget      = budgetDisponivel
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -229,6 +307,51 @@ export default function CampaignPlanner({ project, onSave }) {
             PDF
           </button>
         </div>
+      </div>
+
+      {/* Account Tabs */}
+      <div className="flex gap-2 flex-wrap items-center">
+        {accounts.map((a, i) => (
+          <div key={a.id} className="flex items-center gap-1">
+            <button
+              onClick={() => setActiveIdx(i)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                activeIdx === i
+                  ? 'bg-gradient-rl text-white shadow-glow'
+                  : 'bg-rl-surface text-rl-muted hover:text-rl-text'
+              }`}
+            >
+              {a.name || `Conta ${i + 1}`}
+            </button>
+            {accounts.length > 1 && (
+              <button
+                onClick={() => removeAccount(i)}
+                className="p-1 rounded text-rl-muted/50 hover:text-red-400 transition-colors"
+                title="Remover conta"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        ))}
+        <button
+          onClick={addAccount}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-rl-muted hover:text-rl-text border border-dashed border-rl-border hover:border-rl-green/40 transition-all"
+        >
+          <Plus className="w-3 h-3" /> Nova Conta
+        </button>
+      </div>
+
+      {/* Account name input */}
+      <div className="glass-card px-4 py-3 flex items-center gap-3">
+        <label className="text-xs text-rl-muted shrink-0">Nome da conta</label>
+        <input
+          type="text"
+          value={account.name}
+          onChange={(e) => renameAccount(activeIdx, e.target.value)}
+          placeholder={`Conta ${activeIdx + 1}`}
+          className="input-field py-1.5 text-sm flex-1"
+        />
       </div>
 
       {/* Budget + date info */}
@@ -294,7 +417,6 @@ export default function CampaignPlanner({ project, onSave }) {
 
       {/* Channels section */}
       <div className="space-y-3">
-        {/* Section header with channel distribution indicator */}
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-rl-text">Canais</p>
           {channels.length > 0 && (
@@ -311,7 +433,6 @@ export default function CampaignPlanner({ project, onSave }) {
           )}
         </div>
 
-        {/* Empty state */}
         {channels.length === 0 && (
           <div className="glass-card p-8 text-center">
             <DollarSign className="w-8 h-8 text-rl-muted/40 mx-auto mb-2" />
@@ -322,7 +443,6 @@ export default function CampaignPlanner({ project, onSave }) {
           </div>
         )}
 
-        {/* Channel list */}
         {derived.map((ch, idx) => (
           <ChannelRow
             key={ch.id}
@@ -340,7 +460,6 @@ export default function CampaignPlanner({ project, onSave }) {
           />
         ))}
 
-        {/* Add channel */}
         <button
           onClick={addChannel}
           disabled={!canAddChannel}
@@ -370,10 +489,7 @@ export default function CampaignPlanner({ project, onSave }) {
 
       {/* Save button */}
       <div className="flex justify-end pt-2">
-        <button
-          onClick={handleSave}
-          className="btn-primary flex items-center gap-2"
-        >
+        <button onClick={handleSave} className="btn-primary flex items-center gap-2">
           <Save className="w-4 h-4" />
           Salvar Planejamento
         </button>
