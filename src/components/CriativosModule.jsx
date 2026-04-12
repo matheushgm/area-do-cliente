@@ -208,10 +208,11 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
         max_tokens: 16000,
         system,
         messages,
-        onChunk:    (text) => setResult(text),
+        onChunk:    (text) => setResult(text.replace(/—/g, '-')),
       })
 
       // ── Save to project history ────────────────────────────────────────────
+      const cleanText = fullText.replace(/—/g, '-')
       const newCreative = {
         id:           crypto.randomUUID(),
         type:         isVideo ? 'video' : 'estatico',
@@ -219,7 +220,7 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
         adTypeLabels: selectedList.map((t) => t.label),
         quantity,
         customNote:   customNote.trim(),
-        content:      fullText,
+        content:      cleanText,
         rating:       null,
         createdAt:    new Date().toISOString(),
       }
