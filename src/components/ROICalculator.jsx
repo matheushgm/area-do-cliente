@@ -118,10 +118,10 @@ export default function ROICalculator({ project, onSave }) {
     const cac              = vendasNecessarias ? mediaOrcamento / vendasNecessarias : Infinity
     const vendasBreakeven  = Math.ceil(totalInvestimento / lucroPorVenda)
 
-    // Custo por Lead/MQL/SQL usa APENAS mídia paga (valor visível nas dashboards de anúncios)
-    const custoPorLead  = leadsNecessarios  ? mediaOrcamento / leadsNecessarios  : Infinity
-    const custoPorMQL   = mqlsNecessarios   ? mediaOrcamento / mqlsNecessarios   : Infinity
-    const custoPorSQL   = sqlsNecessarios   ? mediaOrcamento / sqlsNecessarios   : Infinity
+    // Custo por Lead/MQL/SQL usa apenas o Custo de Marketing (gestão/operação)
+    const custoPorLead  = leadsNecessarios  ? custoMarketing / leadsNecessarios  : Infinity
+    const custoPorMQL   = mqlsNecessarios   ? custoMarketing / mqlsNecessarios   : Infinity
+    const custoPorSQL   = sqlsNecessarios   ? custoMarketing / sqlsNecessarios   : Infinity
 
     return {
       totalInvestimento, lucroPorVenda,
@@ -220,14 +220,14 @@ export default function ROICalculator({ project, onSave }) {
                 ))}
               </div>
 
-              {/* Investimento/semana */}
+              {/* Custo de Marketing/semana */}
               <div className="glass-card p-4 flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-rl-muted">Investimento / semana</p>
-                  <p className="text-[10px] text-rl-muted/70">{fmtCurrency(result.totalInvestimento)} ÷ {numSemanas} semanas</p>
+                  <p className="text-xs text-rl-muted">Custo de Marketing / semana</p>
+                  <p className="text-[10px] text-rl-muted/70">{fmtCurrency(calc.custoMarketing)} ÷ {numSemanas} semanas</p>
                 </div>
                 <span className="text-lg font-bold text-rl-gold">
-                  {fmtCurrency(result.totalInvestimento / numSemanas)}
+                  {fmtCurrency(calc.custoMarketing / numSemanas)}
                 </span>
               </div>
             </>
