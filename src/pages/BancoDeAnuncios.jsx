@@ -4,6 +4,7 @@ import {
   Library, Plus, Image, X, Upload,
   Share2, Loader2, Check, Trash2,
   ChevronDown, Play, Film, Filter,
+  Download, Maximize2,
 } from 'lucide-react'
 
 const FUNILS = [
@@ -28,6 +29,22 @@ function AdCard({ ad, onDelete }) {
     await onDelete(ad.id)
   }
 
+  async function handleDownload() {
+    try {
+      const res  = await fetch(ad.url)
+      const blob = await res.blob()
+      const ext  = ad.url.split('.').pop().split('?')[0] || (ad.type === 'video' ? 'mp4' : 'jpg')
+      const name = (ad.title || `anuncio-${ad.id.slice(0, 8)}`).replace(/\s+/g, '-') + '.' + ext
+      const href = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = href; a.download = name
+      a.click()
+      URL.revokeObjectURL(href)
+    } catch {
+      window.open(ad.url, '_blank')
+    }
+  }
+
   return (
     <div className="glass-card overflow-hidden group relative flex flex-col">
       {/* Media area */}
@@ -47,14 +64,36 @@ function AdCard({ ad, onDelete }) {
           />
         )}
 
-        {/* Delete btn */}
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80"
-        >
-          {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-        </button>
+        {/* Action buttons — visible on hover */}
+        <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* View full */}
+          <a
+            href={ad.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Visualizar"
+            className="p-1.5 rounded-lg bg-black/60 text-white hover:bg-rl-purple/80 transition-colors"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </a>
+          {/* Download */}
+          <button
+            onClick={handleDownload}
+            title="Baixar arquivo"
+            className="p-1.5 rounded-lg bg-black/60 text-white hover:bg-rl-blue/80 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+          </button>
+          {/* Delete */}
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            title="Excluir"
+            className="p-1.5 rounded-lg bg-black/60 text-white hover:bg-red-500/80 transition-colors"
+          >
+            {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+          </button>
+        </div>
       </div>
 
       {/* Info */}

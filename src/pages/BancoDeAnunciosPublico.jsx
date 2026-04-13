@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Library, Loader2, Film, Image, ChevronDown, Zap } from 'lucide-react'
+import { Library, Loader2, Film, Image, ChevronDown, Zap, Download, Maximize2 } from 'lucide-react'
 
 const FUNILS = [
   'Funil de Webinar',
@@ -18,8 +18,24 @@ const FUNILS = [
 ]
 
 function AdCard({ ad }) {
+  async function handleDownload() {
+    try {
+      const res  = await fetch(ad.url)
+      const blob = await res.blob()
+      const ext  = ad.url.split('.').pop().split('?')[0] || (ad.type === 'video' ? 'mp4' : 'jpg')
+      const name = (ad.title || `anuncio-${ad.id.slice(0, 8)}`).replace(/\s+/g, '-') + '.' + ext
+      const href = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = href; a.download = name
+      a.click()
+      URL.revokeObjectURL(href)
+    } catch {
+      window.open(ad.url, '_blank')
+    }
+  }
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col group relative">
       <div className="relative bg-gray-50 aspect-video flex items-center justify-center overflow-hidden">
         {ad.type === 'video' ? (
           <video
@@ -35,6 +51,26 @@ function AdCard({ ad }) {
             className="w-full h-full object-cover"
           />
         )}
+
+        {/* Action buttons */}
+        <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <a
+            href={ad.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Visualizar"
+            className="p-1.5 rounded-lg bg-black/60 text-white hover:bg-purple-600/80 transition-colors"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </a>
+          <button
+            onClick={handleDownload}
+            title="Baixar arquivo"
+            className="p-1.5 rounded-lg bg-black/60 text-white hover:bg-blue-600/80 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       <div className="p-3 flex flex-col gap-1.5">
