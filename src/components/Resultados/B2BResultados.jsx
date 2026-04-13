@@ -229,11 +229,11 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc }) 
   const [month, setMonth] = useState(today.getMonth())
   const [editing, setEditing] = useState(null)
 
+  const weekRanges = getWeekRanges(year, month)
   const weeklyTargets = useMemo(() => computeWeeklyTargets(roiCalc, weekRanges.length), [roiCalc, weekRanges.length])
 
   const monthKey  = `${year}-${String(month + 1).padStart(2, '0')}`
   const monthData = resultados.b2b?.[monthKey] || {}
-  const weekRanges = getWeekRanges(year, month)
 
   const saveWeek = (weekKey, data) => {
     onUpdate({
