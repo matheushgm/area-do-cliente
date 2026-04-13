@@ -61,18 +61,20 @@ function computeROI(c) {
   const lucroPorVenda     = (ticketMedio || 0) * (qtdCompras || 1) * ((margemBruta || 0) / 100)
   if (!lucroPorVenda) return null
   const retornoAlvo        = totalInvestimento * (1 + (roiDesejado || 0) / 100)
-  const vendasNecessarias  = retornoAlvo / lucroPorVenda
-  const sqlsNecessarios  = taxaSQL2Venda  ? vendasNecessarias / (taxaSQL2Venda  / 100) : Infinity
-  const mqlsNecessarios  = taxaMQL2SQL    ? sqlsNecessarios   / (taxaMQL2SQL    / 100) : Infinity
-  const leadsNecessarios = taxaLead2MQL   ? mqlsNecessarios   / (taxaLead2MQL   / 100) : Infinity
+  // Sempre arredonda para cima — não existem frações de vendas/leads/pessoas
+  const vendasNecessarias  = Math.ceil(retornoAlvo / lucroPorVenda)
+  const sqlsNecessarios  = taxaSQL2Venda  ? Math.ceil(vendasNecessarias / (taxaSQL2Venda  / 100)) : Infinity
+  const mqlsNecessarios  = taxaMQL2SQL    ? Math.ceil(sqlsNecessarios   / (taxaMQL2SQL    / 100)) : Infinity
+  const leadsNecessarios = taxaLead2MQL   ? Math.ceil(mqlsNecessarios   / (taxaLead2MQL   / 100)) : Infinity
   const faturamento  = vendasNecessarias * (ticketMedio || 0) * (qtdCompras || 1)
   const lucroBruto   = faturamento * ((margemBruta || 0) / 100)
   const lucroLiquido = lucroBruto - totalInvestimento
   const cac              = vendasNecessarias ? (mediaOrcamento || 0) / vendasNecessarias : Infinity
-  const vendasBreakeven  = totalInvestimento / lucroPorVenda
-  const custoPorLead  = leadsNecessarios  ? (mediaOrcamento || 0) / leadsNecessarios  : Infinity
-  const custoPorMQL   = mqlsNecessarios   ? (mediaOrcamento || 0) / mqlsNecessarios   : Infinity
-  const custoPorSQL   = sqlsNecessarios   ? (mediaOrcamento || 0) / sqlsNecessarios   : Infinity
+  const vendasBreakeven  = Math.ceil(totalInvestimento / lucroPorVenda)
+  // Custo por Lead/MQL/SQL usa apenas o Custo de Marketing (gestão/operação)
+  const custoPorLead  = leadsNecessarios  ? (custoMarketing || 0) / leadsNecessarios  : Infinity
+  const custoPorMQL   = mqlsNecessarios   ? (custoMarketing || 0) / mqlsNecessarios   : Infinity
+  const custoPorSQL   = sqlsNecessarios   ? (custoMarketing || 0) / sqlsNecessarios   : Infinity
   return { totalInvestimento, lucroPorVenda, vendasNecessarias, sqlsNecessarios,
            mqlsNecessarios, leadsNecessarios, faturamento, lucroBruto, lucroLiquido,
            cac, vendasBreakeven, custoPorLead, custoPorMQL, custoPorSQL }
@@ -112,9 +114,9 @@ export default function EstrategiaV2Module({ project, onSave }) {
   const personas     = project.personas     || []
   const campaignPlan = project.campaignPlan || null
   const roiCalc      = project.roiCalc      || null
-  // Usa roiResult salvo ou recalcula se só tiver roiCalc
+  // Sempre recalcula a partir do roiCalc (valores atuais) — roiResult salvo pode estar desatualizado
   const roiResult    = useMemo(
-    () => project.roiResult || computeROI(roiCalc),
+    () => computeROI(roiCalc) || project.roiResult,
     [project.roiResult, roiCalc]
   )
 

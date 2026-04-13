@@ -88,7 +88,31 @@ export default function ROICalculator({ project, onSave }) {
   const set = useCallback((field, val) => {
     setCalc((prev) => {
       const next = { ...prev, [field]: val }
-      updateProject(project.id, { roiCalc: next })
+      // Recompute result synchronously so roiResult stays in sync with roiCalc
+      const { mediaOrcamento: mo, custoMarketing: cm, ticketMedio: tm, qtdCompras: qc,
+              margemBruta: mb, roiDesejado: rd, taxaLead2MQL: tl, taxaMQL2SQL: ts, taxaSQL2Venda: tv } = next
+      const totalInv   = mo + cm
+      const lucroVenda = tm * qc * (mb / 100)
+      const freshResult = lucroVenda ? (() => {
+        const retAlvo  = totalInv * (1 + rd / 100)
+        const vendas   = Math.ceil(retAlvo / lucroVenda)
+        const sqls     = tv ? Math.ceil(vendas / (tv / 100)) : Infinity
+        const mqls     = ts ? Math.ceil(sqls   / (ts / 100)) : Infinity
+        const leads    = tl ? Math.ceil(mqls   / (tl / 100)) : Infinity
+        const fat      = vendas * tm * qc
+        const lBruto   = fat * (mb / 100)
+        return {
+          totalInvestimento: totalInv, lucroPorVenda: lucroVenda,
+          vendasNecessarias: vendas, sqlsNecessarios: sqls, mqlsNecessarios: mqls, leadsNecessarios: leads,
+          faturamento: fat, lucroBruto: lBruto, lucroLiquido: lBruto - totalInv,
+          cac:             vendas ? mo / vendas : Infinity,
+          vendasBreakeven: Math.ceil(totalInv / lucroVenda),
+          custoPorLead:    leads  ? cm / leads  : Infinity,
+          custoPorMQL:     mqls   ? cm / mqls   : Infinity,
+          custoPorSQL:     sqls   ? cm / sqls   : Infinity,
+        }
+      })() : null
+      updateProject(project.id, { roiCalc: next, ...(freshResult ? { roiResult: freshResult } : {}) })
       return next
     })
   }, [project.id, updateProject])
