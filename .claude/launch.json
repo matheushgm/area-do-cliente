@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "revenue-lab",
-      "runtimeExecutable": "/Users/matheus/.nvm/versions/node/v24.14.0/bin/npm",
+      "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173
     }
