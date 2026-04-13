@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Plus, Edit2, Check, X, TrendingUp, ArrowDown, FileDown } from 'lucide-react'
 import { fmtMoney, fmtPct, parseMoney, getDaysInMonth, getWeekRanges, MONTH_NAMES } from './resultadosHelpers'
 import { exportResultadosB2BPDF } from '../../utils/exportPDF'
@@ -154,12 +154,83 @@ export function SummaryCard({ label, value, sub, color }) {
   )
 }
 
+// ─── Weekly targets helper ────────────────────────────────────────────────────
+function computeWeeklyTargets(roiCalc) {
+  if (!roiCalc) return null
+  const {
+    mediaOrcamento = 0, custoMarketing = 0, ticketMedio = 0, qtdCompras = 1,
+    margemBruta = 40, roiDesejado = 0,
+    taxaLead2MQL = 30, taxaMQL2SQL = 50, taxaSQL2Venda = 20,
+    numSemanas = 4,
+  } = roiCalc
+  const totalInvestimento = mediaOrcamento + custoMarketing
+  const lucroPorVenda     = ticketMedio * qtdCompras * (margemBruta / 100)
+  if (!lucroPorVenda) return null
+  const retornoAlvo       = totalInvestimento * (1 + roiDesejado / 100)
+  const vendas  = Math.ceil(retornoAlvo / lucroPorVenda)
+  const sqls    = taxaSQL2Venda  ? Math.ceil(vendas  / (taxaSQL2Venda  / 100)) : null
+  const mqls    = taxaMQL2SQL    ? Math.ceil(sqls    / (taxaMQL2SQL    / 100)) : null
+  const leads   = taxaLead2MQL   ? Math.ceil(mqls    / (taxaLead2MQL   / 100)) : null
+  return {
+    leads:  leads  ? Math.ceil(leads  / numSemanas) : null,
+    mql:    mqls   ? Math.ceil(mqls   / numSemanas) : null,
+    sql:    sqls   ? Math.ceil(sqls   / numSemanas) : null,
+    vendas: Math.ceil(vendas / numSemanas),
+  }
+}
+
+function MetaComparison({ wkData, targets }) {
+  if (!targets || !wkData) return null
+  const metrics = [
+    { key: 'leads',  label: 'Leads',  textColor: 'text-rl-blue' },
+    { key: 'mql',    label: 'MQL',    textColor: 'text-rl-cyan' },
+    { key: 'sql',    label: 'SQL',    textColor: 'text-rl-purple' },
+    { key: 'vendas', label: 'Vendas', textColor: 'text-rl-gold' },
+  ].filter(({ key }) => targets[key])
+
+  return (
+    <div className="mt-2 pt-2 border-t border-rl-border/60">
+      <div className="text-[10px] text-rl-muted uppercase tracking-wider mb-1.5 font-semibold">vs Meta Semanal</div>
+      <div className="grid grid-cols-2 gap-1.5">
+        {metrics.map(({ key, label, textColor }) => {
+          const actual = wkData[key] || 0
+          const target = targets[key]
+          const pct    = Math.round((actual / target) * 100)
+          const isGood = pct >= 100
+          const isClose = pct >= 80 && pct < 100
+          const statusColor = isGood ? 'text-rl-green' : isClose ? 'text-rl-gold' : 'text-red-400'
+          const bgColor     = isGood ? 'bg-rl-green/8' : isClose ? 'bg-rl-gold/8' : 'bg-red-400/8'
+          const barColor    = isGood ? 'bg-rl-green' : isClose ? 'bg-rl-gold' : 'bg-red-400'
+          const barWidth    = Math.min(pct, 100)
+          return (
+            <div key={key} className={`rounded-lg px-2 py-1.5 ${bgColor}`}>
+              <div className="flex items-center justify-between mb-1">
+                <span className={`text-[10px] font-semibold ${textColor}`}>{label}</span>
+                <span className={`text-[10px] font-bold ${statusColor}`}>{pct}%</span>
+              </div>
+              <div className="h-1 rounded-full bg-rl-border/50 overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${barWidth}%` }} />
+              </div>
+              <div className={`text-[9px] mt-1 ${statusColor}`}>
+                {actual} <span className="text-rl-muted font-normal">/ {target}</span>
+                {isGood && ' ✓'}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── B2B View ──────────────────────────────────────────────────────────────────
-export default function B2BView({ resultados, onUpdate, companyName }) {
+export default function B2BView({ resultados, onUpdate, companyName, roiCalc }) {
   const today = new Date()
   const [year, setYear]   = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
   const [editing, setEditing] = useState(null)
+
+  const weeklyTargets = useMemo(() => computeWeeklyTargets(roiCalc), [roiCalc])
 
   const monthKey  = `${year}-${String(month + 1).padStart(2, '0')}`
   const monthData = resultados.b2b?.[monthKey] || {}
@@ -311,6 +382,8 @@ export default function B2BView({ resultados, onUpdate, companyName }) {
                           )}
                         </div>
                       )}
+                      {/* Meta Semanal comparison */}
+                      <MetaComparison wkData={wkData} targets={weeklyTargets} />
                     </div>
                   ) : (
                     <div className="text-xs text-rl-muted text-center py-6 border border-dashed border-rl-border rounded-lg">

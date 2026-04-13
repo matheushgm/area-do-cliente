@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 import { useState, useMemo, useCallback } from 'react'
-import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircle, FileDown } from 'lucide-react'
+import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircle, FileDown, CalendarDays } from 'lucide-react'
 import { exportROIPDF } from '../utils/exportPDF'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
@@ -65,6 +65,7 @@ const BENCHMARKS = {
 export default function ROICalculator({ project, onSave }) {
   const { updateProject } = useApp()
   const [benchmarkType, setBenchmarkType] = useState(null)
+  const [activeTab, setActiveTab] = useState('calculadora')
 
   const [calc, setCalc] = useState(() => ({
     mediaOrcamento:  Number(project.mediaBudget)    || 5000,
@@ -76,6 +77,7 @@ export default function ROICalculator({ project, onSave }) {
     taxaLead2MQL:    30,
     taxaMQL2SQL:     50,
     taxaSQL2Venda:   20,
+    numSemanas:      4,
     ...(project.roiCalc || {}),
   }))
 
@@ -155,6 +157,97 @@ export default function ROICalculator({ project, onSave }) {
         </div>
       </div>
 
+      {/* ── Tabs ─────────────────────────────────────────── */}
+      <div className="flex gap-1 p-1 bg-rl-surface rounded-xl border border-rl-border w-fit">
+        {[
+          { id: 'calculadora', label: 'Calculadora',    Icon: Calculator },
+          { id: 'metas',       label: 'Metas Semanais', Icon: CalendarDays },
+        ].map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === id
+                ? 'bg-gradient-rl text-white shadow-glow'
+                : 'text-rl-muted hover:text-rl-text'
+            }`}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Metas Semanais Tab ────────────────────────────── */}
+      {activeTab === 'metas' && (
+        <div className="space-y-5">
+          {!result ? (
+            <div className="glass-card p-8 text-center">
+              <AlertCircle className="w-8 h-8 text-rl-muted/40 mx-auto mb-2" />
+              <p className="text-rl-muted text-sm">Preencha a calculadora primeiro para ver as metas semanais</p>
+            </div>
+          ) : (
+            <>
+              {/* Weeks selector */}
+              <div className="glass-card p-5">
+                <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <CalendarDays className="w-3.5 h-3.5" /> Semanas no mês
+                </p>
+                <div className="flex gap-2">
+                  {[3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => set('numSemanas', n)}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all ${
+                        calc.numSemanas === n
+                          ? 'bg-gradient-rl text-white border-transparent shadow-glow'
+                          : 'bg-rl-surface text-rl-muted border-rl-border hover:text-rl-text hover:border-rl-purple/30'
+                      }`}
+                    >
+                      {n} semanas
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-rl-muted mt-2">
+                  Meta mensal dividida igualmente pelas semanas do mês
+                </p>
+              </div>
+
+              {/* Weekly target cards */}
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { label: 'Leads / semana',  value: Math.ceil(result.leadsNecessarios  / calc.numSemanas), color: 'rl-purple', bg: 'bg-rl-purple/5',  border: 'border-rl-purple/20', icon: '👥' },
+                  { label: 'MQLs / semana',   value: Math.ceil(result.mqlsNecessarios   / calc.numSemanas), color: 'rl-blue',   bg: 'bg-rl-blue/5',    border: 'border-rl-blue/20',   icon: '🎯' },
+                  { label: 'SQLs / semana',   value: Math.ceil(result.sqlsNecessarios   / calc.numSemanas), color: 'rl-cyan',   bg: 'bg-rl-cyan/5',    border: 'border-rl-cyan/20',   icon: '💎' },
+                  { label: 'Vendas / semana', value: Math.ceil(result.vendasNecessarias / calc.numSemanas), color: 'rl-green',  bg: 'bg-rl-green/5',   border: 'border-rl-green/20',  icon: '🏆' },
+                ].map(({ label, value, color, bg, border, icon }) => (
+                  <div key={label} className={`glass-card p-5 ${bg} border ${border} text-center`}>
+                    <div className="text-2xl mb-1">{icon}</div>
+                    <div className={`text-4xl font-black text-${color} mb-1`}>{fmt(value)}</div>
+                    <div className="text-xs text-rl-muted font-medium">{label}</div>
+                    <div className={`text-[10px] text-${color}/70 mt-1`}>
+                      {fmt(value * calc.numSemanas)} / mês
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Investimento/semana */}
+              <div className="glass-card p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-rl-muted">Investimento / semana</p>
+                  <p className="text-[10px] text-rl-muted/70">{fmtCurrency(result.totalInvestimento)} ÷ {calc.numSemanas} semanas</p>
+                </div>
+                <span className="text-lg font-bold text-rl-gold">
+                  {fmtCurrency(result.totalInvestimento / calc.numSemanas)}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'calculadora' && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* ── Inputs ──────────────────────────────── */}
@@ -413,6 +506,7 @@ export default function ROICalculator({ project, onSave }) {
           )}
         </div>
       </div>
+      )} {/* end activeTab === 'calculadora' */}
 
       {/* Save button */}
       {onSave && (

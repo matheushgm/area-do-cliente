@@ -47,7 +47,7 @@ export default function ResultadosModule({ project }) {
       {!modelo && <ModelSelector onSelect={selectModel} />}
 
       {modelo === 'b2b' && (
-        <B2BView resultados={resultados} onUpdate={handleUpdate} companyName={project.companyName} />
+        <B2BView resultados={resultados} onUpdate={handleUpdate} companyName={project.companyName} roiCalc={project.roiCalc} />
       )}
 
       {modelo === 'b2c' && (
