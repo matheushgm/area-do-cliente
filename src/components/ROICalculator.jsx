@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import { useState, useMemo, useCallback } from 'react'
 import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircle, FileDown, CalendarDays } from 'lucide-react'
+import { getWeekRanges, MONTH_NAMES } from './Resultados/resultadosHelpers'
 import { exportROIPDF } from '../utils/exportPDF'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
@@ -67,6 +68,10 @@ export default function ROICalculator({ project, onSave }) {
   const [benchmarkType, setBenchmarkType] = useState(null)
   const [activeTab, setActiveTab] = useState('calculadora')
 
+  const now = new Date()
+  const numSemanas = getWeekRanges(now.getFullYear(), now.getMonth()).length
+  const mesAtual   = MONTH_NAMES[now.getMonth()]
+
   const [calc, setCalc] = useState(() => ({
     mediaOrcamento:  Number(project.mediaBudget)    || 5000,
     custoMarketing:  Number(project.managementFee)  || 2000,
@@ -77,7 +82,6 @@ export default function ROICalculator({ project, onSave }) {
     taxaLead2MQL:    30,
     taxaMQL2SQL:     50,
     taxaSQL2Venda:   20,
-    numSemanas:      4,
     ...(project.roiCalc || {}),
   }))
 
@@ -188,45 +192,29 @@ export default function ROICalculator({ project, onSave }) {
             </div>
           ) : (
             <>
-              {/* Weeks selector */}
-              <div className="glass-card p-5">
-                <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <CalendarDays className="w-3.5 h-3.5" /> Semanas no mês
-                </p>
-                <div className="flex gap-2">
-                  {[3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => set('numSemanas', n)}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all ${
-                        calc.numSemanas === n
-                          ? 'bg-gradient-rl text-white border-transparent shadow-glow'
-                          : 'bg-rl-surface text-rl-muted border-rl-border hover:text-rl-text hover:border-rl-purple/30'
-                      }`}
-                    >
-                      {n} semanas
-                    </button>
-                  ))}
+              {/* Weeks info */}
+              <div className="flex items-center justify-between glass-card px-5 py-3">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-rl-purple" />
+                  <span className="text-sm font-semibold text-rl-text">{mesAtual}</span>
                 </div>
-                <p className="text-[11px] text-rl-muted mt-2">
-                  Meta mensal dividida igualmente pelas semanas do mês
-                </p>
+                <span className="text-sm font-bold text-rl-purple">{numSemanas} semanas</span>
               </div>
 
               {/* Weekly target cards */}
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { label: 'Leads / semana',  value: Math.ceil(result.leadsNecessarios  / calc.numSemanas), color: 'rl-purple', bg: 'bg-rl-purple/5',  border: 'border-rl-purple/20', icon: '👥' },
-                  { label: 'MQLs / semana',   value: Math.ceil(result.mqlsNecessarios   / calc.numSemanas), color: 'rl-blue',   bg: 'bg-rl-blue/5',    border: 'border-rl-blue/20',   icon: '🎯' },
-                  { label: 'SQLs / semana',   value: Math.ceil(result.sqlsNecessarios   / calc.numSemanas), color: 'rl-cyan',   bg: 'bg-rl-cyan/5',    border: 'border-rl-cyan/20',   icon: '💎' },
-                  { label: 'Vendas / semana', value: Math.ceil(result.vendasNecessarias / calc.numSemanas), color: 'rl-green',  bg: 'bg-rl-green/5',   border: 'border-rl-green/20',  icon: '🏆' },
+                  { label: 'Leads / semana',  value: Math.ceil(result.leadsNecessarios  / numSemanas), color: 'rl-purple', bg: 'bg-rl-purple/5',  border: 'border-rl-purple/20', icon: '👥' },
+                  { label: 'MQLs / semana',   value: Math.ceil(result.mqlsNecessarios   / numSemanas), color: 'rl-blue',   bg: 'bg-rl-blue/5',    border: 'border-rl-blue/20',   icon: '🎯' },
+                  { label: 'SQLs / semana',   value: Math.ceil(result.sqlsNecessarios   / numSemanas), color: 'rl-cyan',   bg: 'bg-rl-cyan/5',    border: 'border-rl-cyan/20',   icon: '💎' },
+                  { label: 'Vendas / semana', value: Math.ceil(result.vendasNecessarias / numSemanas), color: 'rl-green',  bg: 'bg-rl-green/5',   border: 'border-rl-green/20',  icon: '🏆' },
                 ].map(({ label, value, color, bg, border, icon }) => (
                   <div key={label} className={`glass-card p-5 ${bg} border ${border} text-center`}>
                     <div className="text-2xl mb-1">{icon}</div>
                     <div className={`text-4xl font-black text-${color} mb-1`}>{fmt(value)}</div>
                     <div className="text-xs text-rl-muted font-medium">{label}</div>
                     <div className={`text-[10px] text-${color}/70 mt-1`}>
-                      {fmt(value * calc.numSemanas)} / mês
+                      {fmt(value * numSemanas)} / mês
                     </div>
                   </div>
                 ))}
@@ -236,10 +224,10 @@ export default function ROICalculator({ project, onSave }) {
               <div className="glass-card p-4 flex items-center justify-between">
                 <div>
                   <p className="text-xs text-rl-muted">Investimento / semana</p>
-                  <p className="text-[10px] text-rl-muted/70">{fmtCurrency(result.totalInvestimento)} ÷ {calc.numSemanas} semanas</p>
+                  <p className="text-[10px] text-rl-muted/70">{fmtCurrency(result.totalInvestimento)} ÷ {numSemanas} semanas</p>
                 </div>
                 <span className="text-lg font-bold text-rl-gold">
-                  {fmtCurrency(result.totalInvestimento / calc.numSemanas)}
+                  {fmtCurrency(result.totalInvestimento / numSemanas)}
                 </span>
               </div>
             </>

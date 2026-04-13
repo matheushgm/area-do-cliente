@@ -155,13 +155,12 @@ export function SummaryCard({ label, value, sub, color }) {
 }
 
 // ─── Weekly targets helper ────────────────────────────────────────────────────
-function computeWeeklyTargets(roiCalc) {
-  if (!roiCalc) return null
+function computeWeeklyTargets(roiCalc, numSemanas) {
+  if (!roiCalc || !numSemanas) return null
   const {
     mediaOrcamento = 0, custoMarketing = 0, ticketMedio = 0, qtdCompras = 1,
     margemBruta = 40, roiDesejado = 0,
     taxaLead2MQL = 30, taxaMQL2SQL = 50, taxaSQL2Venda = 20,
-    numSemanas = 4,
   } = roiCalc
   const totalInvestimento = mediaOrcamento + custoMarketing
   const lucroPorVenda     = ticketMedio * qtdCompras * (margemBruta / 100)
@@ -230,7 +229,7 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc }) 
   const [month, setMonth] = useState(today.getMonth())
   const [editing, setEditing] = useState(null)
 
-  const weeklyTargets = useMemo(() => computeWeeklyTargets(roiCalc), [roiCalc])
+  const weeklyTargets = useMemo(() => computeWeeklyTargets(roiCalc, weekRanges.length), [roiCalc, weekRanges.length])
 
   const monthKey  = `${year}-${String(month + 1).padStart(2, '0')}`
   const monthData = resultados.b2b?.[monthKey] || {}
