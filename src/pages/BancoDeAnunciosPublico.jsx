@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Library, Play, ExternalLink, Loader2, Film, Image, ChevronDown, Zap } from 'lucide-react'
+import { Library, Loader2, Film, Image, ChevronDown, Zap } from 'lucide-react'
 
 const FUNILS = [
   'Funil de Webinar',
@@ -17,36 +17,17 @@ const FUNILS = [
   'Funil Win-Your-Money-Back',
 ]
 
-function getYouTubeId(url) {
-  const m = url.match(/(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([\w-]{11})/)
-  return m ? m[1] : null
-}
-
 function AdCard({ ad }) {
-  const ytId = ad.type === 'video' ? getYouTubeId(ad.url || '') : null
-
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
       <div className="relative bg-gray-50 aspect-video flex items-center justify-center overflow-hidden">
-        {ad.type === 'video' && ytId ? (
-          <iframe
-            src={`https://www.youtube.com/embed/${ytId}`}
-            className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            title={ad.title || 'Vídeo'}
+        {ad.type === 'video' ? (
+          <video
+            src={ad.url}
+            controls
+            className="w-full h-full object-cover"
+            preload="metadata"
           />
-        ) : ad.type === 'video' ? (
-          <a
-            href={ad.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-col items-center gap-2 text-gray-400 hover:text-indigo-500 transition-colors p-4 text-center"
-          >
-            <Play className="w-10 h-10" />
-            <span className="text-xs break-all line-clamp-2">{ad.url}</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
         ) : (
           <img
             src={ad.url}

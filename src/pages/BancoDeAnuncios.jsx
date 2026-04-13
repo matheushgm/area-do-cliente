@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import {
-  Library, Plus, Video, Image, Link2, X, Upload,
-  Share2, Loader2, Copy, Check, ExternalLink, Trash2,
+  Library, Plus, Image, X, Upload,
+  Share2, Loader2, Check, Trash2,
   ChevronDown, Play, Film, Filter,
 } from 'lucide-react'
 
@@ -21,13 +20,7 @@ const FUNILS = [
   'Funil Win-Your-Money-Back',
 ]
 
-function getYouTubeId(url) {
-  const m = url.match(/(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([\w-]{11})/)
-  return m ? m[1] : null
-}
-
 function AdCard({ ad, onDelete }) {
-  const ytId = ad.type === 'video' ? getYouTubeId(ad.url || '') : null
   const [deleting, setDeleting] = useState(false)
 
   async function handleDelete() {
@@ -39,25 +32,13 @@ function AdCard({ ad, onDelete }) {
     <div className="glass-card overflow-hidden group relative flex flex-col">
       {/* Media area */}
       <div className="relative bg-rl-bg aspect-video flex items-center justify-center overflow-hidden">
-        {ad.type === 'video' && ytId ? (
-          <iframe
-            src={`https://www.youtube.com/embed/${ytId}`}
-            className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            title={ad.title || 'Vídeo'}
+        {ad.type === 'video' ? (
+          <video
+            src={ad.url}
+            controls
+            className="w-full h-full object-cover"
+            preload="metadata"
           />
-        ) : ad.type === 'video' ? (
-          <a
-            href={ad.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-col items-center gap-2 text-rl-muted hover:text-rl-purple transition-colors p-4 text-center"
-          >
-            <Play className="w-10 h-10" />
-            <span className="text-xs break-all line-clamp-2">{ad.url}</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
         ) : (
           <img
             src={ad.url}
@@ -101,18 +82,85 @@ function AdCard({ ad, onDelete }) {
   )
 }
 
+function UploadZone({ type, file, preview, onSelect, onClear }) {
+  const [dragging, setDragging] = useState(false)
+  const fileRef = useRef()
+
+  const accept   = type === 'video' ? 'video/*' : 'image/*'
+  const isVideo  = type === 'video'
+  const maxLabel = isVideo ? 'MP4, MOV, WEBM — máx. 200 MB' : 'PNG, JPG, WEBP — máx. 10 MB'
+
+  function handleFile(f) {
+    if (!f) return
+    const isValidType = isVideo ? f.type.startsWith('video/') : f.type.startsWith('image/')
+    if (!isValidType) return
+    onSelect(f)
+  }
+
+  return (
+    <div
+      onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]) }}
+      onClick={() => !preview && fileRef.current?.click()}
+      className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-all min-h-[180px] ${
+        dragging
+          ? 'border-rl-cyan bg-rl-cyan/10 cursor-copy'
+          : preview
+          ? 'border-rl-border p-0 overflow-hidden cursor-default'
+          : 'border-rl-border hover:border-rl-cyan/50 bg-rl-surface cursor-pointer'
+      }`}
+    >
+      {preview ? (
+        <>
+          {isVideo ? (
+            <video src={preview} controls className="w-full max-h-56 rounded-2xl object-cover" />
+          ) : (
+            <img src={preview} alt="Preview" className="w-full max-h-56 object-cover rounded-2xl" />
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onClear() }}
+            className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-red-500"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); fileRef.current?.click() }}
+            className="absolute bottom-2 right-2 text-[10px] px-2 py-1 rounded-lg bg-black/50 text-white hover:bg-black/70"
+          >
+            Trocar arquivo
+          </button>
+        </>
+      ) : (
+        <div className="flex flex-col items-center gap-2 text-rl-muted p-6">
+          {isVideo ? <Play className="w-8 h-8" /> : <Upload className="w-8 h-8" />}
+          <p className="text-sm font-medium text-rl-text">
+            {isVideo ? 'Arraste o vídeo ou clique para enviar' : 'Arraste a imagem ou clique para enviar'}
+          </p>
+          <p className="text-xs">{maxLabel}</p>
+        </div>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={(e) => handleFile(e.target.files[0])}
+      />
+    </div>
+  )
+}
+
 export default function BancoDeAnuncios() {
   // ── Form state
-  const [type,          setType]          = useState('video')
-  const [funil,         setFunil]         = useState('')
-  const [title,         setTitle]         = useState('')
-  const [videoUrl,      setVideoUrl]      = useState('')
-  const [staticFile,    setStaticFile]    = useState(null)
-  const [staticPreview, setStaticPreview] = useState(null)
-  const [notes,         setNotes]         = useState('')
-  const [saving,        setSaving]        = useState(false)
-  const [formError,     setFormError]     = useState(null)
-  const [dragging,      setDragging]      = useState(false)
+  const [type,    setType]    = useState('video')
+  const [funil,   setFunil]   = useState('')
+  const [title,   setTitle]   = useState('')
+  const [notes,   setNotes]   = useState('')
+  const [file,    setFile]    = useState(null)
+  const [preview, setPreview] = useState(null)
+  const [saving,  setSaving]  = useState(false)
+  const [formError, setFormError] = useState(null)
 
   // ── Library state
   const [ads,         setAds]         = useState([])
@@ -120,9 +168,6 @@ export default function BancoDeAnuncios() {
   const [filterType,  setFilterType]  = useState('todos')
   const [filterFunil, setFilterFunil] = useState('todos')
   const [copied,      setCopied]      = useState(false)
-
-  const fileRef = useRef()
-  const navigate = useNavigate()
 
   useEffect(() => { loadAds() }, [])
 
@@ -136,35 +181,47 @@ export default function BancoDeAnuncios() {
     setLoading(false)
   }
 
-  function handleFileSelect(file) {
-    if (!file || !file.type.startsWith('image/')) return
-    setStaticFile(file)
-    const reader = new FileReader()
-    reader.onload = (e) => setStaticPreview(e.target.result)
-    reader.readAsDataURL(file)
+  function handleSelect(f) {
+    setFile(f)
+    const isVideo = f.type.startsWith('video/')
+    if (isVideo) {
+      setPreview(URL.createObjectURL(f))
+    } else {
+      const reader = new FileReader()
+      reader.onload = (e) => setPreview(e.target.result)
+      reader.readAsDataURL(f)
+    }
   }
 
-  const canAdd = funil && (
-    (type === 'video' && videoUrl.trim()) ||
-    (type === 'estatico' && staticFile)
-  )
+  function handleClear() {
+    if (preview?.startsWith('blob:')) URL.revokeObjectURL(preview)
+    setFile(null)
+    setPreview(null)
+  }
+
+  function resetForm() {
+    handleClear()
+    setFunil('')
+    setTitle('')
+    setNotes('')
+    setFormError(null)
+  }
+
+  const canAdd = funil && file
 
   async function handleAdd() {
     if (!canAdd) return
     setFormError(null)
     setSaving(true)
     try {
-      let url = videoUrl.trim()
+      const ext  = file.name.split('.').pop()
+      const path = `${crypto.randomUUID()}.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('ad-bank')
+        .upload(path, file, { contentType: file.type })
+      if (uploadErr) throw uploadErr
 
-      if (type === 'estatico') {
-        const ext = staticFile.name.split('.').pop()
-        const path = `${crypto.randomUUID()}.${ext}`
-        const { error: uploadErr } = await supabase.storage
-          .from('ad-bank')
-          .upload(path, staticFile, { contentType: staticFile.type })
-        if (uploadErr) throw uploadErr
-        url = supabase.storage.from('ad-bank').getPublicUrl(path).data.publicUrl
-      }
+      const url = supabase.storage.from('ad-bank').getPublicUrl(path).data.publicUrl
 
       const { error } = await supabase.from('ad_bank').insert({
         type,
@@ -175,12 +232,7 @@ export default function BancoDeAnuncios() {
       })
       if (error) throw error
 
-      setFunil('')
-      setTitle('')
-      setVideoUrl('')
-      setStaticFile(null)
-      setStaticPreview(null)
-      setNotes('')
+      resetForm()
       await loadAds()
     } catch (e) {
       setFormError(e.message)
@@ -233,80 +285,14 @@ export default function BancoDeAnuncios() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
-            {/* LEFT — media input */}
-            <div>
-              {type === 'video' ? (
-                <div className="space-y-2">
-                  <label className="label-field">URL do vídeo</label>
-                  <input
-                    type="url"
-                    value={videoUrl}
-                    onChange={(e) => setVideoUrl(e.target.value)}
-                    placeholder="https://youtube.com/watch?v=... ou outro link"
-                    className="input-field w-full text-sm"
-                  />
-                  {videoUrl && getYouTubeId(videoUrl) && (
-                    <div className="rounded-xl overflow-hidden aspect-video mt-2">
-                      <iframe
-                        src={`https://www.youtube.com/embed/${getYouTubeId(videoUrl)}`}
-                        className="w-full h-full"
-                        allowFullScreen
-                        title="Preview"
-                      />
-                    </div>
-                  )}
-                  {videoUrl && !getYouTubeId(videoUrl) && (
-                    <div className="flex items-center gap-2 text-xs text-rl-muted bg-rl-surface rounded-xl px-3 py-2 border border-rl-border">
-                      <Link2 className="w-3.5 h-3.5 shrink-0" />
-                      Link externo será exibido como card com link
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    setDragging(false)
-                    handleFileSelect(e.dataTransfer.files[0])
-                  }}
-                  onClick={() => fileRef.current?.click()}
-                  className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed cursor-pointer transition-all min-h-[180px] ${
-                    dragging
-                      ? 'border-rl-cyan bg-rl-cyan/10'
-                      : staticPreview
-                      ? 'border-rl-border p-0 overflow-hidden'
-                      : 'border-rl-border hover:border-rl-cyan/50 bg-rl-surface'
-                  }`}
-                >
-                  {staticPreview ? (
-                    <>
-                      <img src={staticPreview} alt="Preview" className="w-full h-full object-cover max-h-64 rounded-2xl" />
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setStaticFile(null); setStaticPreview(null) }}
-                        className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-red-500"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 text-rl-muted p-6">
-                      <Upload className="w-8 h-8" />
-                      <p className="text-sm font-medium text-rl-text">Arraste ou clique para enviar</p>
-                      <p className="text-xs">PNG, JPG, WEBP — máx. 10 MB</p>
-                    </div>
-                  )}
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleFileSelect(e.target.files[0])}
-                  />
-                </div>
-              )}
-            </div>
+            {/* LEFT — upload area */}
+            <UploadZone
+              type={type}
+              file={file}
+              preview={preview}
+              onSelect={handleSelect}
+              onClear={handleClear}
+            />
 
             {/* RIGHT — metadata */}
             <div className="space-y-3">
@@ -320,7 +306,7 @@ export default function BancoDeAnuncios() {
                   ].map(({ id, Icon, label }) => (
                     <button
                       key={id}
-                      onClick={() => { setType(id); setVideoUrl(''); setStaticFile(null); setStaticPreview(null) }}
+                      onClick={() => { setType(id); handleClear() }}
                       className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold border transition-all ${
                         type === id
                           ? 'bg-rl-cyan/10 border-rl-cyan/50 text-rl-cyan'
@@ -352,7 +338,9 @@ export default function BancoDeAnuncios() {
 
               {/* Title */}
               <div>
-                <label className="label-field mb-2">Título <span className="text-rl-muted font-normal">(opcional)</span></label>
+                <label className="label-field mb-2">
+                  Título <span className="text-rl-muted font-normal">(opcional)</span>
+                </label>
                 <input
                   type="text"
                   value={title}
@@ -364,7 +352,9 @@ export default function BancoDeAnuncios() {
 
               {/* Notes */}
               <div>
-                <label className="label-field mb-2">Observações <span className="text-rl-muted font-normal">(opcional)</span></label>
+                <label className="label-field mb-2">
+                  Observações <span className="text-rl-muted font-normal">(opcional)</span>
+                </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -384,7 +374,7 @@ export default function BancoDeAnuncios() {
                 className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {saving
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Salvando...</>
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
                   : <><Plus className="w-4 h-4" /> Adicionar ao banco</>
                 }
               </button>
@@ -405,7 +395,6 @@ export default function BancoDeAnuncios() {
               )}
             </h2>
 
-            {/* Share button */}
             <button
               onClick={handleShare}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-rl-cyan/10 border border-rl-cyan/30 text-rl-cyan hover:bg-rl-cyan/20 transition-all"
@@ -417,7 +406,6 @@ export default function BancoDeAnuncios() {
 
           {/* Filters */}
           <div className="flex flex-wrap gap-2 items-center">
-            {/* Type filter */}
             <div className="flex gap-1.5 p-1 bg-rl-surface rounded-xl border border-rl-border">
               {[
                 { id: 'todos',    label: 'Todos' },
@@ -438,7 +426,6 @@ export default function BancoDeAnuncios() {
               ))}
             </div>
 
-            {/* Funil filter */}
             <div className="relative">
               <select
                 value={filterFunil}
