@@ -85,6 +85,68 @@ const arrToText = (arr) => (Array.isArray(arr) ? arr.join('\n') : arr || '')
 const textToArr = (text) =>
   text.split('\n').map((s) => s.trim()).filter(Boolean)
 
+// ─── PDF generators (client-facing) ──────────────────────────────────────────
+
+const PDF_CSS = `
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #1a1a2e; background: #fff; padding: 32px 40px; max-width: 900px; margin: 0 auto; }
+  .header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px solid #164496; padding-bottom: 16px; margin-bottom: 24px; }
+  .logo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #164496; }
+  .doc-title { font-size: 22px; font-weight: 800; color: #0F172A; margin-bottom: 2px; }
+  .doc-subtitle { font-size: 13px; color: #64748B; }
+  .doc-date { font-size: 11px; color: #94A3B8; text-align: right; margin-top: 4px; }
+  .block { border: 1px solid #D8E0F0; border-radius: 10px; padding: 16px; margin-bottom: 20px; page-break-inside: avoid; }
+  .block-title { font-size: 15px; font-weight: 700; color: #164496; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #D8E0F0; }
+  .qa-item { margin-bottom: 10px; }
+  .qa-label { font-size: 10px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+  .qa-value { font-size: 12px; color: #334155; line-height: 1.6; white-space: pre-wrap; }
+  .info-box { background: #F0F7FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 12px; color: #1e40af; }
+  .print-btn { position: fixed; bottom: 24px; right: 24px; background: #164496; color: white; border: none; border-radius: 10px; padding: 12px 24px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(22,68,150,0.35); }
+  .print-btn:hover { background: #0F3380; }
+  @media print { .print-btn { display: none !important; } body { padding: 20px 24px; } .block { page-break-inside: avoid; } }
+`
+
+function escPDF(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function openPDF(htmlBody, docTitle) {
+  const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const header = `<div class="header"><div><div class="logo">Revenue Lab</div><div class="doc-title">${escPDF(docTitle)}</div></div><div class="doc-date">Gerado em ${today}</div></div>`
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${escPDF(docTitle)}</title><style>${PDF_CSS}</style></head><body>${header}${htmlBody}<button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button></body></html>`
+  const win = window.open('', '_blank', 'width=1000,height=800')
+  if (!win) { alert('Permita pop-ups para gerar o PDF.'); return }
+  win.document.write(html)
+  win.document.close()
+}
+
+function generateProdutoPDF(companyName, produtosArr) {
+  const infoBox = `<div class="info-box">📋 Este PDF é uma cópia de segurança das suas respostas. As informações também foram salvas automaticamente no sistema.</div>`
+  const blocksHTML = produtosArr.map((p) => {
+    const tipo = p.tipo === 'servico' ? 'Serviço' : 'Produto Físico'
+    const qaHTML = PRODUTO_QUESTIONS.map((q) => {
+      const ans = (p.answers[q.id] || '').trim()
+      if (!ans) return ''
+      return `<div class="qa-item"><div class="qa-label">${escPDF(q.emoji)} ${escPDF(q.label)}</div><div class="qa-value">${escPDF(ans)}</div></div>`
+    }).join('')
+    return `<div class="block"><div class="block-title">${escPDF(p.nome || 'Produto')} <span style="font-size:11px;font-weight:400;color:#94A3B8;">(${tipo})</span></div>${qaHTML || '<div class="qa-value" style="color:#94A3B8">Nenhuma pergunta respondida.</div>'}</div>`
+  }).join('')
+  openPDF(infoBox + blocksHTML, `Produto / Serviço — ${companyName}`)
+}
+
+function generatePersonaPDF(companyName, personasArr) {
+  const infoBox = `<div class="info-box">📋 Este PDF é uma cópia de segurança das suas respostas. As informações também foram salvas automaticamente no sistema.</div>`
+  const blocksHTML = personasArr.map((p) => {
+    const qaHTML = PERSONA_QUESTIONS.map((q) => {
+      const val = arrToText(p.answers[q.key]).trim()
+      if (!val) return ''
+      return `<div class="qa-item"><div class="qa-label">${escPDF(q.emoji)} ${escPDF(q.label)}</div><div class="qa-value">${escPDF(val)}</div></div>`
+    }).join('')
+    return `<div class="block"><div class="block-title">${escPDF(p.name || 'Persona')}</div>${qaHTML || '<div class="qa-value" style="color:#94A3B8">Nenhuma pergunta respondida.</div>'}</div>`
+  }).join('')
+  openPDF(infoBox + blocksHTML, `Personas — ${companyName}`)
+}
+
 // ─── Save status indicator ────────────────────────────────────────────────────
 function SaveBadge({ status }) {
   if (status === 'saving') return (
@@ -494,7 +556,11 @@ export default function ClientForm() {
                       onClick={() => {
                         if (!ans.trim()) { setQuestionError('Responda esta pergunta para avançar.'); return }
                         setQuestionError(null); setHelpOpen(false)
+                        const nextProdutos = produtos.map((p, i) =>
+                          i === activeProdIdx ? { ...p, answers: { ...p.answers, [q.id]: ans } } : p
+                        )
                         setCurrentProdutoQ(n => n + 1)
+                        if (isLast) generateProdutoPDF(companyName, nextProdutos)
                       }}
                       className="flex items-center gap-2 text-sm px-5 py-2.5 rounded-xl font-semibold bg-gradient-rl text-white hover:opacity-90 transition-all"
                     >
@@ -634,7 +700,11 @@ export default function ClientForm() {
                       onClick={() => {
                         if (!val.trim()) { setQuestionError('Responda esta pergunta para avançar.'); return }
                         setQuestionError(null); setHelpOpen(false)
+                        const nextPersonas = personas.map((p, i) =>
+                          i === activePerIdx ? { ...p, answers: { ...p.answers, [q.key]: textToArr(val) } } : p
+                        )
                         setCurrentPersonaQ(n => n + 1)
+                        if (isLast) generatePersonaPDF(companyName, nextPersonas)
                       }}
                       className="flex items-center gap-2 text-sm px-5 py-2.5 rounded-xl font-semibold bg-gradient-rl text-white hover:opacity-90 transition-all"
                     >
