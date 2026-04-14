@@ -8,7 +8,7 @@ import {
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
-  LayoutDashboard, Check, Instagram, HardDrive,
+  LayoutDashboard, Check, Instagram, HardDrive, Kanban,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -26,6 +26,7 @@ import EstrategiaV2Module from '../components/EstrategiaV2Module'
 import ProdutoServicoModule from '../components/ProdutoServicoModule'
 import BancoMidiaModule from '../components/BancoMidiaModule'
 import LinksModule from '../components/LinksModule'
+import CRMModule from '../components/CRMModule'
 import { SERVICES_CONFIG } from './NewOnboarding'
 import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
 
@@ -1224,6 +1225,7 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'estrategiav2', label: 'Análise Competitiva',      icon: Map,            color: 'text-rl-blue',   filled: hasEstrategiaV2 },
     { id: 'links',        label: 'Links Importantes',        icon: Link2,          color: 'text-rl-cyan',   filled: hasLinks },
     { id: 'nps',          label: 'NPS',                       icon: Star,           color: 'text-rl-gold',   filled: !!(project.nps && Object.values(project.nps).some(Boolean)) },
+    { id: 'crm',          label: 'CRM',                       icon: Kanban,         color: 'text-rl-cyan',   filled: !!(project.crmData?.contacts?.length) },
   ]
 
   function renderContent() {
@@ -1260,6 +1262,7 @@ export default function ClientProfile({ project: projectProp }) {
       case 'estrategiav2': return <EstrategiaV2Module project={project} onSave={handleSaveEstrategiaV2} />
       case 'links':        return <LinksModule project={project} onSave={handleSaveLinks} />
       case 'nps':          return <NPSModule project={project} />
+      case 'crm':          return <CRMModule project={project} />
       default:             return null
     }
   }

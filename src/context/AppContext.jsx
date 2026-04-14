@@ -209,6 +209,9 @@ function assembleProject(row, rel = {}) {
     // NPS por marco
     nps: row.nps || null,
 
+    // CRM
+    crmData: row.crm_data ?? null,
+
     // Produtos / Serviços
     produtos: produtos.map((p) => ({
       id:      p.id,
@@ -336,6 +339,7 @@ const PROJECT_FIELD_MAP = {
   cnpj:                 "cnpj",
   links:                "links",
   nps:                  "nps",
+  crmData:              "crm_data",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────
