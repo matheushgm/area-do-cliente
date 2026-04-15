@@ -85,6 +85,17 @@ const arrToText = (arr) => (Array.isArray(arr) ? arr.join('\n') : arr || '')
 const textToArr = (text) =>
   text.split('\n').map((s) => s.trim()).filter(Boolean)
 
+// ─── Analytics / Form tracking ────────────────────────────────────────────────
+
+function trackFormSubmit(eventName, extra = {}) {
+  const payload = { event: eventName, ...extra }
+  // GTM dataLayer
+  window.dataLayer = window.dataLayer || []
+  window.dataLayer.push(payload)
+  // Native CustomEvent (fallback p/ setups sem GTM)
+  document.dispatchEvent(new CustomEvent('rl_form_event', { detail: payload }))
+}
+
 // ─── PDF generators (client-facing) ──────────────────────────────────────────
 
 const PDF_CSS = `
@@ -560,7 +571,13 @@ export default function ClientForm() {
                           i === activeProdIdx ? { ...p, answers: { ...p.answers, [q.id]: ans } } : p
                         )
                         setCurrentProdutoQ(n => n + 1)
-                        if (isLast) generateProdutoPDF(companyName, nextProdutos)
+                        if (isLast) {
+                          generateProdutoPDF(companyName, nextProdutos)
+                          trackFormSubmit('form_submit', { form_name: 'produto_servico', company: companyName, token })
+                          if (currentPersonaQ >= PERSONA_QUESTIONS.length) {
+                            trackFormSubmit('form_submit', { form_name: 'briefing_completo', company: companyName, token })
+                          }
+                        }
                       }}
                       className="flex items-center gap-2 text-sm px-5 py-2.5 rounded-xl font-semibold bg-gradient-rl text-white hover:opacity-90 transition-all"
                     >
@@ -704,7 +721,13 @@ export default function ClientForm() {
                           i === activePerIdx ? { ...p, answers: { ...p.answers, [q.key]: textToArr(val) } } : p
                         )
                         setCurrentPersonaQ(n => n + 1)
-                        if (isLast) generatePersonaPDF(companyName, nextPersonas)
+                        if (isLast) {
+                          generatePersonaPDF(companyName, nextPersonas)
+                          trackFormSubmit('form_submit', { form_name: 'personas', company: companyName, token })
+                          if (currentProdutoQ >= PRODUTO_QUESTIONS.length) {
+                            trackFormSubmit('form_submit', { form_name: 'briefing_completo', company: companyName, token })
+                          }
+                        }
                       }}
                       className="flex items-center gap-2 text-sm px-5 py-2.5 rounded-xl font-semibold bg-gradient-rl text-white hover:opacity-90 transition-all"
                     >
