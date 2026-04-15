@@ -87,13 +87,24 @@ const textToArr = (text) =>
 
 // ─── Analytics / Form tracking ────────────────────────────────────────────────
 
-function trackFormSubmit(eventName, extra = {}) {
-  const payload = { event: eventName, ...extra }
-  // GTM dataLayer
+function trackFormSubmit(formName, extra = {}) {
+  // 1. GTM dataLayer — funciona com trigger de Evento Personalizado
   window.dataLayer = window.dataLayer || []
-  window.dataLayer.push(payload)
-  // Native CustomEvent (fallback p/ setups sem GTM)
-  document.dispatchEvent(new CustomEvent('rl_form_event', { detail: payload }))
+  window.dataLayer.push({ event: 'form_submit', form_name: formName, ...extra })
+
+  // 2. Elemento <form> real + evento submit nativo
+  //    Necessário para o trigger built-in "Form Submission" do GTM
+  const form = document.createElement('form')
+  form.id = `rl-form-${formName}`
+  form.setAttribute('data-form-name', formName)
+  Object.entries(extra).forEach(([k, v]) => {
+    const inp = document.createElement('input')
+    inp.type = 'hidden'; inp.name = k; inp.value = v ?? ''
+    form.appendChild(inp)
+  })
+  document.body.appendChild(form)
+  form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  document.body.removeChild(form)
 }
 
 // ─── PDF generators (client-facing) ──────────────────────────────────────────
@@ -573,9 +584,9 @@ export default function ClientForm() {
                         setCurrentProdutoQ(n => n + 1)
                         if (isLast) {
                           generateProdutoPDF(companyName, nextProdutos)
-                          trackFormSubmit('form_submit', { form_name: 'produto_servico', company: companyName, token })
+                          trackFormSubmit('produto_servico', { company: companyName, token })
                           if (currentPersonaQ >= PERSONA_QUESTIONS.length) {
-                            trackFormSubmit('form_submit', { form_name: 'briefing_completo', company: companyName, token })
+                            trackFormSubmit('briefing_completo', { company: companyName, token })
                           }
                         }
                       }}
@@ -723,9 +734,9 @@ export default function ClientForm() {
                         setCurrentPersonaQ(n => n + 1)
                         if (isLast) {
                           generatePersonaPDF(companyName, nextPersonas)
-                          trackFormSubmit('form_submit', { form_name: 'personas', company: companyName, token })
+                          trackFormSubmit('personas', { company: companyName, token })
                           if (currentProdutoQ >= PRODUTO_QUESTIONS.length) {
-                            trackFormSubmit('form_submit', { form_name: 'briefing_completo', company: companyName, token })
+                            trackFormSubmit('briefing_completo', { company: companyName, token })
                           }
                         }
                       }}
