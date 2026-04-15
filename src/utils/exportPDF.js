@@ -351,45 +351,43 @@ export function exportROIPDF(calc, result, project) {
 
 // ─── Personas PDF ─────────────────────────────────────────────────────────────
 
-const PERSONA_QUESTIONS = [
-  { id: 'resultado', label: 'Resultado Percebido' },
-  { id: 'acoes',     label: 'O que ele precisa fazer' },
-  { id: 'tempo',     label: 'Prazo para o resultado' },
-  { id: 'objecoes',  label: 'Objeções' },
-  { id: 'sonhos',    label: 'Sonhos' },
-  { id: 'erros',     label: 'Erros comuns' },
-  { id: 'medos',     label: 'Medos' },
-  { id: 'sinais',    label: 'Sinais do problema' },
-  { id: 'valores',   label: 'Valores / contra o senso comum' },
-  { id: 'habitos',   label: 'Hábitos' },
-]
+function isSectionHeaderPDF(line) {
+  const t = line.trim()
+  if (!t || t === '---') return false
+  return t === t.toUpperCase() && /[A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ]/.test(t)
+}
+
+function plainTextToHTML(text) {
+  if (!text) return ''
+  return text.split('\n').map((line) => {
+    const trimmed = line.trim()
+    if (trimmed === '---') return '<hr style="border:none;border-top:1px solid #e9d5ff;margin:12px 0">'
+    if (trimmed === '')    return '<br>'
+    if (isSectionHeaderPDF(trimmed))
+      return `<p style="font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 4px">${esc(trimmed)}</p>`
+    if (line.startsWith('  - '))
+      return `<p style="font-size:11px;color:#6b7280;margin:2px 0 2px 24px">– ${esc(line.slice(4))}</p>`
+    if (trimmed.startsWith('- '))
+      return `<p style="font-size:11px;color:#1f2937;margin:3px 0 3px 8px">• ${esc(trimmed.slice(2))}</p>`
+    return `<p style="font-size:11px;color:#374151;margin:3px 0 3px 8px">${esc(trimmed)}</p>`
+  }).join('\n')
+}
 
 export function exportPersonasPDF(personas, project) {
-  const blocksHTML = personas.map((persona) => {
-    const answersHTML = PERSONA_QUESTIONS.map((q) => {
-      const answers = (persona.answers?.[q.id] || []).filter((a) => a.trim())
-      if (!answers.length) return ''
-      return `<div class="qa-item">
-        <div class="qa-label">${esc(q.label)}</div>
-        <div class="qa-value">${answers.map((a, i) => `${i + 1}. ${esc(a)}`).join(' · ')}</div>
-      </div>`
-    }).filter(Boolean).join('')
+  const blocksHTML = personas
+    .filter((p) => p.generatedProfile)
+    .map((persona) => `
+      <div class="persona-block">
+        <div class="persona-name">${esc(persona.name || 'Persona')}</div>
+        <div class="prose">${plainTextToHTML(persona.generatedProfile)}</div>
+      </div>
+    `).join('')
 
-    const generatedHTML = persona.generatedProfile
-      ? `<div style="margin-top:16px;padding-top:12px;border-top:1px dashed #e9d5ff">
-          <div class="qa-label" style="margin-bottom:8px">✨ Perfil Gerado por IA</div>
-          <div class="prose">${mdToHTML(persona.generatedProfile)}</div>
-        </div>`
-      : ''
+  const empty = !blocksHTML
+    ? '<p style="color:#9ca3af;font-size:13px;text-align:center;padding:32px 0">Nenhum perfil gerado ainda.</p>'
+    : ''
 
-    return `<div class="persona-block">
-      <div class="persona-name">${esc(persona.name || 'Persona')}</div>
-      ${answersHTML}
-      ${generatedHTML}
-    </div>`
-  }).join('')
-
-  printHTML('ICP / Persona', project.companyName, blocksHTML)
+  printHTML('Perfil Ideal de Cliente', project.companyName, blocksHTML + empty)
 }
 
 // ─── Oferta Matadora PDF ──────────────────────────────────────────────────────
@@ -433,7 +431,7 @@ export function exportOfertaPDF(oferta, project) {
 
 // ─── Campaign Planner PDF ─────────────────────────────────────────────────────
 
-const STAGE_LABELS = { topo: 'Topo de Funil', meio: 'Meio de Funil', fundo: 'Fundo de Funil' }
+const STAGE_LABELS = { topo: 'Topo de Funil — Inconsciente do Problema', meio: 'Meio de Funil — Consciente do Problema', fundo: 'Fundo de Funil — Consciente do Problema e da Solução' }
 const STAGE_KEYS   = ['topo', 'meio', 'fundo']
 
 export function exportCampaignPDF(campaignPlan, project) {
@@ -1488,7 +1486,7 @@ export function exportEstrategiaV2PDF(project, data) {
         const stage = stages[key]
         if (!stage || !stage.campaigns?.length) return ''
         const stageBudget = chBudget * (stage.percentage / 100)
-        const label = key === 'topo' ? 'Topo de Funil' : key === 'meio' ? 'Meio de Funil' : 'Fundo de Funil'
+        const label = key === 'topo' ? 'Topo de Funil — Inconsciente do Problema' : key === 'meio' ? 'Meio de Funil — Consciente do Problema' : 'Fundo de Funil — Consciente do Problema e da Solução'
         return `
           <div class="stage-row">
             <div class="stage-label">${label} — ${fmtBudget(stageBudget)}/mês</div>
@@ -1787,4 +1785,240 @@ export function exportClientProfilePDF(project) {
   ` : ''
 
   printHTML('Perfil Completo do Cliente', project.companyName, empresaHTML + roiHTML + personasHTML + ofertaHTML + campaignHTML + produtosHTML)
+}
+
+// ─── Resultados B2B PDF ────────────────────────────────────────────────────────
+
+const RESULTADOS_CSS = `
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px; color: #1a1a2e; background: #fff;
+    max-width: 960px; margin: 0 auto;
+  }
+  .cover {
+    background: linear-gradient(135deg, #0F172A 0%, #1e3a8a 60%, #0369a1 100%);
+    color: #fff; padding: 52px 48px 44px; position: relative; overflow: hidden;
+  }
+  .cover::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at top right, rgba(255,255,255,0.07) 0%, transparent 65%);
+  }
+  .cover-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: rgba(255,255,255,0.55); margin-bottom: 12px; }
+  .cover-company { font-size: 34px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 6px; }
+  .cover-period { font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.75); margin-bottom: 28px; }
+  .cover-chips { display: flex; gap: 10px; flex-wrap: wrap; }
+  .cover-chip { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 99px; padding: 5px 14px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.9); }
+  .cover-date { position: absolute; top: 44px; right: 48px; font-size: 11px; color: rgba(255,255,255,0.45); }
+  .kpi-strip { background: #F8FAFF; border-bottom: 1px solid #D8E0F0; display: grid; grid-template-columns: repeat(4, 1fr); }
+  .kpi-item { padding: 20px 22px; border-right: 1px solid #D8E0F0; text-align: center; }
+  .kpi-item:last-child { border-right: none; }
+  .kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #94A3B8; margin-bottom: 4px; }
+  .kpi-value { font-size: 20px; font-weight: 900; color: #0F172A; line-height: 1.1; }
+  .kpi-value.green { color: #059669; } .kpi-value.gold { color: #D97706; } .kpi-value.cyan { color: #0284C7; }
+  .kpi-sub { font-size: 10px; color: #94A3B8; margin-top: 3px; }
+  .content { padding: 36px 48px 48px; }
+  .section { margin-bottom: 36px; }
+  .section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #164496; border-bottom: 2px solid #D8E0F0; padding-bottom: 8px; margin-bottom: 18px; }
+  .weeks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .week-card { border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden; page-break-inside: avoid; }
+  .week-header { background: #F1F5F9; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
+  .week-name { font-size: 12px; font-weight: 700; color: #0F172A; }
+  .week-dates { font-size: 10px; color: #94A3B8; }
+  .week-body { padding: 14px; }
+  .week-no-data { padding: 20px 14px; text-align: center; color: #CBD5E1; font-size: 11px; }
+  .finance-row { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 12px; }
+  .finance-left { display: flex; gap: 18px; }
+  .fi-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94A3B8; margin-bottom: 2px; }
+  .fi-value { font-size: 15px; font-weight: 800; }
+  .fi-value.gold { color: #D97706; } .fi-value.green { color: #059669; }
+  .roas-badge { background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 6px 12px; text-align: center; }
+  .roas-badge-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #10B981; }
+  .roas-badge-value { font-size: 16px; font-weight: 900; color: #059669; }
+  .funnel-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+  .funnel-item { background: #F8FAFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 7px 8px; text-align: center; }
+  .fi2-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #94A3B8; margin-bottom: 2px; }
+  .fi2-value { font-size: 16px; font-weight: 800; color: #0F172A; }
+  .ticket-row { background: #F0F9FF; border: 1px solid #BAE6FD; border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; }
+  .ticket-label { font-size: 10px; font-weight: 600; color: #0284C7; }
+  .ticket-value { font-size: 13px; font-weight: 800; color: #0369A1; }
+  .sum-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+  .sum-card { background: #F8FAFF; border: 1px solid #D8E0F0; border-radius: 10px; padding: 12px; text-align: center; }
+  .sum-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94A3B8; margin-bottom: 4px; }
+  .sum-value { font-size: 17px; font-weight: 900; color: #0F172A; }
+  .sum-value.green { color: #059669; } .sum-value.gold { color: #D97706; } .sum-value.cyan { color: #0284C7; } .sum-value.blue { color: #3B82F6; } .sum-value.purple { color: #7C3AED; }
+  .sum-sub { font-size: 9px; color: #94A3B8; margin-top: 3px; }
+  .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #E2E8F0; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; }
+  .footer-brand { font-weight: 700; color: #164496; }
+  .print-btn { position: fixed; bottom: 24px; right: 24px; background: #164496; color: white; border: none; border-radius: 10px; padding: 12px 24px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(22,68,150,0.35); }
+  @media print { .print-btn { display: none !important; } body { max-width: 100%; } .week-card { page-break-inside: avoid; } }
+`
+
+export function exportResultadosB2BPDF({ companyName, resultados, year, month, weekRanges, MONTH_NAMES: monthNames }) {
+  const today      = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const monthLabel = `${monthNames[month]} ${year}`
+  const monthKey   = `${year}-${String(month + 1).padStart(2, '0')}`
+  const monthData  = resultados.b2b?.[monthKey] || {}
+
+  // Totals
+  const totals = weekRanges.reduce((acc, _, i) => {
+    const wk = monthData[`semana${i + 1}`] || {}
+    return {
+      investido:     acc.investido     + (wk.investido     || 0),
+      receitaVendas: acc.receitaVendas + (wk.receitaVendas || 0),
+      leads:  acc.leads  + (wk.leads  || 0),
+      mql:    acc.mql    + (wk.mql    || 0),
+      sql:    acc.sql    + (wk.sql    || 0),
+      vendas: acc.vendas + (wk.vendas || 0),
+    }
+  }, { investido: 0, receitaVendas: 0, leads: 0, mql: 0, sql: 0, vendas: 0 })
+
+  const roas        = totals.investido > 0 && totals.receitaVendas > 0 ? totals.receitaVendas / totals.investido : null
+  const ticketMedio = totals.vendas > 0 && totals.receitaVendas > 0 ? totals.receitaVendas / totals.vendas : null
+
+  // Cover
+  const cover = `
+    <div class="cover">
+      <div class="cover-date">Gerado em ${today}</div>
+      <div class="cover-tag">Revenue Lab · Relatório de Resultados</div>
+      <div class="cover-company">${esc(companyName)}</div>
+      <div class="cover-period">${monthLabel}</div>
+      <div class="cover-chips">
+        <span class="cover-chip">📊 B2B · Semanal</span>
+        ${totals.investido > 0 ? `<span class="cover-chip">💰 Investido: ${fmtBRL(totals.investido)}</span>` : ''}
+        ${totals.receitaVendas > 0 ? `<span class="cover-chip">📈 Receita: ${fmtBRL(totals.receitaVendas)}</span>` : ''}
+        ${roas != null ? `<span class="cover-chip">🎯 ROAS: ${roas.toFixed(2)}x</span>` : ''}
+      </div>
+    </div>`
+
+  // KPI Strip
+  const kpiStrip = `
+    <div class="kpi-strip">
+      <div class="kpi-item">
+        <div class="kpi-label">Total Investido</div>
+        <div class="kpi-value gold">${fmtBRL(totals.investido)}</div>
+        <div class="kpi-sub">no mês</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-label">Receita de Vendas</div>
+        <div class="kpi-value green">${totals.receitaVendas > 0 ? fmtBRL(totals.receitaVendas) : '—'}</div>
+        <div class="kpi-sub">no mês</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-label">ROAS</div>
+        <div class="kpi-value ${roas != null && roas >= 1 ? 'green' : ''}">${roas != null ? roas.toFixed(2) + 'x' : '—'}</div>
+        <div class="kpi-sub">${roas != null ? (roas >= 1 ? '✅ Positivo' : '⚠️ Negativo') : 'sem dados'}</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-label">Ticket Médio</div>
+        <div class="kpi-value cyan">${ticketMedio != null ? fmtBRL(ticketMedio) : '—'}</div>
+        <div class="kpi-sub">${totals.vendas > 0 ? totals.vendas + ' venda(s)' : 'sem vendas'}</div>
+      </div>
+    </div>`
+
+  // Weekly cards
+  const weekCards = weekRanges.map((week, i) => {
+    const wk       = monthData[`semana${i + 1}`]
+    const wkRoas   = wk && wk.investido > 0 && wk.receitaVendas > 0 ? wk.receitaVendas / wk.investido : null
+    const wkTicket = wk && wk.vendas > 0 && wk.receitaVendas > 0 ? wk.receitaVendas / wk.vendas : null
+
+    if (!wk) return `
+      <div class="week-card">
+        <div class="week-header">
+          <span class="week-name">${week.label}</span>
+          <span class="week-dates">${week.start}/${month + 1} – ${week.end}/${month + 1}</span>
+        </div>
+        <div class="week-no-data">Sem dados registrados</div>
+      </div>`
+
+    return `
+      <div class="week-card">
+        <div class="week-header">
+          <span class="week-name">${week.label}</span>
+          <span class="week-dates">${week.start}/${month + 1} – ${week.end}/${month + 1}</span>
+        </div>
+        <div class="week-body">
+          <div class="finance-row">
+            <div class="finance-left">
+              <div>
+                <div class="fi-label">Investido</div>
+                <div class="fi-value gold">${fmtBRL(wk.investido)}</div>
+              </div>
+              ${wk.receitaVendas > 0 ? `
+              <div>
+                <div class="fi-label">Receita</div>
+                <div class="fi-value green">${fmtBRL(wk.receitaVendas)}</div>
+              </div>` : ''}
+            </div>
+            ${wkRoas != null ? `
+            <div class="roas-badge">
+              <div class="roas-badge-label">ROAS</div>
+              <div class="roas-badge-value">${wkRoas.toFixed(2)}x</div>
+            </div>` : ''}
+          </div>
+          <div class="funnel-row">
+            <div class="funnel-item"><div class="fi2-label">Leads</div><div class="fi2-value" style="color:#3B82F6">${wk.leads || 0}</div></div>
+            <div class="funnel-item"><div class="fi2-label">MQL</div><div class="fi2-value" style="color:#0284C7">${wk.mql || 0}</div></div>
+            <div class="funnel-item"><div class="fi2-label">SQL</div><div class="fi2-value" style="color:#7C3AED">${wk.sql || 0}</div></div>
+            <div class="funnel-item"><div class="fi2-label">Vendas</div><div class="fi2-value" style="color:#D97706">${wk.vendas || 0}</div></div>
+          </div>
+          ${wkTicket != null ? `
+          <div class="ticket-row">
+            <span class="ticket-label">🎫 Ticket Médio</span>
+            <span class="ticket-value">${fmtBRL(wkTicket)}</span>
+          </div>` : ''}
+        </div>
+      </div>`
+  }).join('')
+
+  // Monthly consolidation
+  const consolidadoHTML = (totals.leads > 0 || totals.investido > 0) ? `
+    <div class="section">
+      <div class="section-title">📊 Consolidado do Mês — ${monthLabel}</div>
+      <div class="sum-grid">
+        <div class="sum-card"><div class="sum-label">Investido</div><div class="sum-value gold">${fmtBRL(totals.investido)}</div></div>
+        <div class="sum-card"><div class="sum-label">Receita Vendas</div><div class="sum-value green">${totals.receitaVendas > 0 ? fmtBRL(totals.receitaVendas) : '—'}</div></div>
+        <div class="sum-card"><div class="sum-label">ROAS</div><div class="sum-value ${roas != null && roas >= 1 ? 'green' : ''}">${roas != null ? roas.toFixed(2) + 'x' : '—'}</div>${roas != null ? `<div class="sum-sub">${roas >= 1 ? '✅ Positivo' : '⚠️ Negativo'}</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">Ticket Médio</div><div class="sum-value cyan">${ticketMedio != null ? fmtBRL(ticketMedio) : '—'}</div></div>
+      </div>
+      <div class="sum-grid">
+        <div class="sum-card"><div class="sum-label">Leads</div><div class="sum-value blue">${totals.leads.toLocaleString('pt-BR')}</div>${totals.leads > 0 && totals.investido > 0 ? `<div class="sum-sub">${fmtBRL(totals.investido / totals.leads)}/lead</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">MQL</div><div class="sum-value cyan">${totals.mql.toLocaleString('pt-BR')}</div>${totals.mql > 0 && totals.leads > 0 ? `<div class="sum-sub">${((totals.mql / totals.leads) * 100).toFixed(1)}% dos leads</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">SQL</div><div class="sum-value purple">${totals.sql.toLocaleString('pt-BR')}</div>${totals.sql > 0 && totals.mql > 0 ? `<div class="sum-sub">${((totals.sql / totals.mql) * 100).toFixed(1)}% dos MQL</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">Vendas</div><div class="sum-value gold">${totals.vendas.toLocaleString('pt-BR')}</div>${totals.vendas > 0 && totals.sql > 0 ? `<div class="sum-sub">${((totals.vendas / totals.sql) * 100).toFixed(1)}% dos SQL</div>` : ''}</div>
+      </div>
+    </div>` : ''
+
+  const footer = `
+    <div class="footer">
+      <div class="footer-brand">Revenue Lab</div>
+      <div>Relatório de Resultados · ${esc(companyName)} · ${today}</div>
+    </div>`
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Resultados ${monthLabel} — ${esc(companyName)}</title>
+  <style>${RESULTADOS_CSS}</style>
+</head>
+<body>
+  ${cover}
+  ${kpiStrip}
+  <div class="content">
+    <div class="section">
+      <div class="section-title">📅 Resultados por Semana</div>
+      <div class="weeks-grid">${weekCards}</div>
+    </div>
+    ${consolidadoHTML}
+    ${footer}
+  </div>
+  <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>
+</body>
+</html>`
+
+  const win = window.open('', '_blank', 'width=1100,height=900')
+  if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
+  win.document.write(html)
+  win.document.close()
 }

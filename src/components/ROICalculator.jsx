@@ -1,8 +1,12 @@
 import PropTypes from 'prop-types'
 import { useState, useMemo, useCallback } from 'react'
-import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircle, FileDown } from 'lucide-react'
+import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircle, FileDown, CalendarDays } from 'lucide-react'
+import { getWeekRanges, MONTH_NAMES } from './Resultados/resultadosHelpers'
 import { exportROIPDF } from '../utils/exportPDF'
 import { fmtCurrency } from '../lib/utils'
+import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
+import { useApp } from '../context/AppContext'
+import VideoGuide from './VideoGuide'
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 function fmt(n) {
@@ -55,7 +59,13 @@ const BENCHMARKS = {
 
 // ─── ROI Calculator ───────────────────────────────────────────────────────────
 export default function ROICalculator({ project, onSave }) {
+  const { updateProject } = useApp()
   const [benchmarkType, setBenchmarkType] = useState(null)
+  const [activeTab, setActiveTab] = useState('calculadora')
+
+  const now = new Date()
+  const numSemanas = getWeekRanges(now.getFullYear(), now.getMonth()).length
+  const mesAtual   = MONTH_NAMES[now.getMonth()]
 
   const [calc, setCalc] = useState(() => ({
     mediaOrcamento:  Number(project.mediaBudget)    || 5000,
@@ -70,7 +80,37 @@ export default function ROICalculator({ project, onSave }) {
     ...(project.roiCalc || {}),
   }))
 
-  const set = useCallback((field, val) => setCalc((prev) => ({ ...prev, [field]: val })), [])
+  const set = useCallback((field, val) => {
+    setCalc((prev) => {
+      const next = { ...prev, [field]: val }
+      // Recompute result synchronously so roiResult stays in sync with roiCalc
+      const { mediaOrcamento: mo, custoMarketing: cm, ticketMedio: tm, qtdCompras: qc,
+              margemBruta: mb, roiDesejado: rd, taxaLead2MQL: tl, taxaMQL2SQL: ts, taxaSQL2Venda: tv } = next
+      const totalInv   = mo + cm
+      const lucroVenda = tm * qc * (mb / 100)
+      const freshResult = lucroVenda ? (() => {
+        const retAlvo  = totalInv * (1 + rd / 100)
+        const vendas   = Math.ceil(retAlvo / lucroVenda)
+        const sqls     = tv ? Math.ceil(vendas / (tv / 100)) : Infinity
+        const mqls     = ts ? Math.ceil(sqls   / (ts / 100)) : Infinity
+        const leads    = tl ? Math.ceil(mqls   / (tl / 100)) : Infinity
+        const fat      = vendas * tm * qc
+        const lBruto   = fat * (mb / 100)
+        return {
+          totalInvestimento: totalInv, lucroPorVenda: lucroVenda,
+          vendasNecessarias: vendas, sqlsNecessarios: sqls, mqlsNecessarios: mqls, leadsNecessarios: leads,
+          faturamento: fat, lucroBruto: lBruto, lucroLiquido: lBruto - totalInv,
+          cac:             vendas ? mo / vendas : Infinity,
+          vendasBreakeven: Math.ceil(totalInv / lucroVenda),
+          custoPorLead:    leads  ? cm / leads  : Infinity,
+          custoPorMQL:     mqls   ? cm / mqls   : Infinity,
+          custoPorSQL:     sqls   ? cm / sqls   : Infinity,
+        }
+      })() : null
+      updateProject(project.id, { roiCalc: next, ...(freshResult ? { roiResult: freshResult } : {}) })
+      return next
+    })
+  }, [project.id, updateProject])
 
   const result = useMemo(() => {
     const {
@@ -83,23 +123,24 @@ export default function ROICalculator({ project, onSave }) {
     if (!lucroPorVenda) return null
 
     const retornoAlvo        = totalInvestimento * (1 + roiDesejado / 100)
-    const vendasNecessarias  = retornoAlvo / lucroPorVenda
+    // Sempre arredonda para cima — não existem frações de vendas/leads/pessoas
+    const vendasNecessarias  = Math.ceil(retornoAlvo / lucroPorVenda)
 
-    const sqlsNecessarios  = taxaSQL2Venda  ? vendasNecessarias / (taxaSQL2Venda  / 100) : Infinity
-    const mqlsNecessarios  = taxaMQL2SQL    ? sqlsNecessarios   / (taxaMQL2SQL    / 100) : Infinity
-    const leadsNecessarios = taxaLead2MQL   ? mqlsNecessarios   / (taxaLead2MQL   / 100) : Infinity
+    const sqlsNecessarios  = taxaSQL2Venda  ? Math.ceil(vendasNecessarias / (taxaSQL2Venda  / 100)) : Infinity
+    const mqlsNecessarios  = taxaMQL2SQL    ? Math.ceil(sqlsNecessarios   / (taxaMQL2SQL    / 100)) : Infinity
+    const leadsNecessarios = taxaLead2MQL   ? Math.ceil(mqlsNecessarios   / (taxaLead2MQL   / 100)) : Infinity
 
     const faturamento  = vendasNecessarias * ticketMedio * qtdCompras
     const lucroBruto   = faturamento * (margemBruta / 100)
     const lucroLiquido = lucroBruto - totalInvestimento
 
     const cac              = vendasNecessarias ? mediaOrcamento / vendasNecessarias : Infinity
-    const vendasBreakeven  = totalInvestimento / lucroPorVenda
+    const vendasBreakeven  = Math.ceil(totalInvestimento / lucroPorVenda)
 
-    // Custo por Lead/MQL/SQL usa APENAS mídia paga (valor visível nas dashboards de anúncios)
-    const custoPorLead  = leadsNecessarios  ? mediaOrcamento / leadsNecessarios  : Infinity
-    const custoPorMQL   = mqlsNecessarios   ? mediaOrcamento / mqlsNecessarios   : Infinity
-    const custoPorSQL   = sqlsNecessarios   ? mediaOrcamento / sqlsNecessarios   : Infinity
+    // Custo por Lead/MQL/SQL usa apenas o Custo de Marketing (gestão/operação)
+    const custoPorLead  = leadsNecessarios  ? custoMarketing / leadsNecessarios  : Infinity
+    const custoPorMQL   = mqlsNecessarios   ? custoMarketing / mqlsNecessarios   : Infinity
+    const custoPorSQL   = sqlsNecessarios   ? custoMarketing / sqlsNecessarios   : Infinity
 
     return {
       totalInvestimento, lucroPorVenda,
@@ -111,6 +152,9 @@ export default function ROICalculator({ project, onSave }) {
 
   return (
     <div className="space-y-6">
+
+      <VideoGuide videoId="6oF8IB03pvg" label="Como preencher a Calculadora de ROI" />
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -122,17 +166,95 @@ export default function ROICalculator({ project, onSave }) {
             Defina seu ROI alvo e descubra quantos leads, MQLs, SQLs e vendas você precisa gerar
           </p>
         </div>
-        <button
-          onClick={() => exportROIPDF(calc, result, project)}
-          disabled={!result}
-          className="btn-secondary flex items-center gap-2 text-sm shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Exportar PDF"
-        >
-          <FileDown className="w-4 h-4" />
-          PDF
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <AutoSaveIndicator />
+          <button
+            onClick={() => exportROIPDF(calc, result, project)}
+            disabled={!result}
+            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Exportar PDF"
+          >
+            <FileDown className="w-4 h-4" />
+            PDF
+          </button>
+        </div>
       </div>
 
+      {/* ── Tabs ─────────────────────────────────────────── */}
+      <div className="flex gap-1 p-1 bg-rl-surface rounded-xl border border-rl-border w-fit">
+        {[
+          { id: 'calculadora', label: 'Calculadora',    Icon: Calculator },
+          { id: 'metas',       label: 'Metas Semanais', Icon: CalendarDays },
+        ].map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === id
+                ? 'bg-gradient-rl text-white shadow-glow'
+                : 'text-rl-muted hover:text-rl-text'
+            }`}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Metas Semanais Tab ────────────────────────────── */}
+      {activeTab === 'metas' && (
+        <div className="space-y-5">
+          {!result ? (
+            <div className="glass-card p-8 text-center">
+              <AlertCircle className="w-8 h-8 text-rl-muted/40 mx-auto mb-2" />
+              <p className="text-rl-muted text-sm">Preencha a calculadora primeiro para ver as metas semanais</p>
+            </div>
+          ) : (
+            <>
+              {/* Weeks info */}
+              <div className="flex items-center justify-between glass-card px-5 py-3">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-rl-purple" />
+                  <span className="text-sm font-semibold text-rl-text">{mesAtual}</span>
+                </div>
+                <span className="text-sm font-bold text-rl-purple">{numSemanas} semanas</span>
+              </div>
+
+              {/* Weekly target cards */}
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { label: 'Leads / semana',  value: Math.ceil(result.leadsNecessarios  / numSemanas), color: 'rl-purple', bg: 'bg-rl-purple/5',  border: 'border-rl-purple/20', icon: '👥' },
+                  { label: 'MQLs / semana',   value: Math.ceil(result.mqlsNecessarios   / numSemanas), color: 'rl-blue',   bg: 'bg-rl-blue/5',    border: 'border-rl-blue/20',   icon: '🎯' },
+                  { label: 'SQLs / semana',   value: Math.ceil(result.sqlsNecessarios   / numSemanas), color: 'rl-cyan',   bg: 'bg-rl-cyan/5',    border: 'border-rl-cyan/20',   icon: '💎' },
+                  { label: 'Vendas / semana', value: Math.ceil(result.vendasNecessarias / numSemanas), color: 'rl-green',  bg: 'bg-rl-green/5',   border: 'border-rl-green/20',  icon: '🏆' },
+                ].map(({ label, value, color, bg, border, icon }) => (
+                  <div key={label} className={`glass-card p-5 ${bg} border ${border} text-center`}>
+                    <div className="text-2xl mb-1">{icon}</div>
+                    <div className={`text-4xl font-black text-${color} mb-1`}>{fmt(value)}</div>
+                    <div className="text-xs text-rl-muted font-medium">{label}</div>
+                    <div className={`text-[10px] text-${color}/70 mt-1`}>
+                      {fmt(value * numSemanas)} / mês
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Custo de Marketing/semana */}
+              <div className="glass-card p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-rl-muted">Custo de Marketing / semana</p>
+                  <p className="text-[10px] text-rl-muted/70">{fmtCurrency(calc.custoMarketing)} ÷ {numSemanas} semanas</p>
+                </div>
+                <span className="text-lg font-bold text-rl-gold">
+                  {fmtCurrency(calc.custoMarketing / numSemanas)}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'calculadora' && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* ── Inputs ──────────────────────────────── */}
@@ -391,6 +513,7 @@ export default function ROICalculator({ project, onSave }) {
           )}
         </div>
       </div>
+      )} {/* end activeTab === 'calculadora' */}
 
       {/* Save button */}
       {onSave && (

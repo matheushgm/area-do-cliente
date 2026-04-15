@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
 import { buildCachedPayload } from '../lib/buildContext'
@@ -260,6 +260,8 @@ export default function GoogleAdsModule({ project }) {
   const [result,    setResult]    = useState(null)
   const [saved,     setSaved]     = useState(false)
   const savedTimer                = useState(null)
+  const draftTimer                = useRef(null)
+  const isMounted                 = useRef(false)
 
   // ── Campaign type toggle ──────────────────────────────────────────────────────
   const toggleType = useCallback((id) => {
@@ -303,7 +305,30 @@ export default function GoogleAdsModule({ project }) {
     ))
   }
 
-  // ── Save draft ───────────────────────────────────────────────────────────────
+  // ── Auto-save draft ao alterar campos ────────────────────────────────────────
+  useEffect(() => {
+    if (!isMounted.current) { isMounted.current = true; return }
+    clearTimeout(draftTimer.current)
+    draftTimer.current = setTimeout(() => {
+      const draft = {
+        id:            crypto.randomUUID(),
+        isDraft:       true,
+        campaignTypes: [...campaignTypes],
+        keywordGroups,
+        customNote,
+        createdAt:     new Date().toISOString(),
+      }
+      const nonDraft = (project.googleAds || []).filter((e) => !e.isDraft)
+      updateProject(project.id, { googleAds: [...nonDraft, draft] })
+      setSaved(true)
+      clearTimeout(savedTimer.current)
+      savedTimer.current = setTimeout(() => setSaved(false), 2500)
+    }, 1500)
+    return () => clearTimeout(draftTimer.current)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keywordGroups, campaignTypes, customNote])
+
+  // ── Save draft manual ─────────────────────────────────────────────────────────
   function handleSaveDraft() {
     clearTimeout(savedTimer.current)
     const draft = {
@@ -384,7 +409,7 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
       })
 
       const entry = {
-        id:            Date.now(),
+        id:            crypto.randomUUID(),
         campaignTypes: [...campaignTypes],
         keywordGroups,
         content:       fullText,

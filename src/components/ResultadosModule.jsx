@@ -47,11 +47,16 @@ export default function ResultadosModule({ project }) {
       {!modelo && <ModelSelector onSelect={selectModel} />}
 
       {modelo === 'b2b' && (
-        <B2BView resultados={resultados} onUpdate={handleUpdate} />
+        <B2BView resultados={resultados} onUpdate={handleUpdate} companyName={project.companyName} roiCalc={project.roiCalc} />
       )}
 
       {modelo === 'b2c' && (
-        <B2CView resultados={resultados} onUpdate={handleUpdate} />
+        <B2CView
+          resultados={resultados}
+          onUpdate={handleUpdate}
+          clientShareToken={project.clientShareToken}
+          companyName={project.companyName}
+        />
       )}
     </div>
   )

@@ -1,10 +1,11 @@
 import PropTypes from 'prop-types'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { Link } from 'react-router-dom'
 import {
   Zap, Plus, Layers, Clock, CheckCircle2,
   LogOut, Cloud, CloudOff, Loader2,
-  X, UserCog,
+  X, UserCog, BookOpen, Library,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -84,6 +85,31 @@ function SidebarContent({
           )
         })}
       </nav>
+
+      {/* ── Playbook ────────────────────────────────────── */}
+      <a
+        href="https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mx-1 mt-3 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150
+          bg-rl-gold/15 border border-rl-gold/40 text-rl-gold
+          hover:bg-rl-gold/25 hover:border-rl-gold/60 hover:shadow-[0_0_12px_rgba(245,176,55,0.25)]"
+      >
+        <BookOpen className="w-4 h-4 shrink-0" />
+        Playbook
+      </a>
+
+      {/* ── Banco de Anúncios ────────────────────────────── */}
+      <Link
+        to="/banco-de-anuncios"
+        onClick={onClose}
+        className="mx-1 mt-2 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150
+          bg-rl-cyan/10 border border-rl-cyan/30 text-rl-cyan
+          hover:bg-rl-cyan/20 hover:border-rl-cyan/50 hover:shadow-[0_0_12px_rgba(0,210,210,0.2)]"
+      >
+        <Library className="w-4 h-4 shrink-0" />
+        Banco de Anúncios
+      </Link>
 
       {/* ── Spacer ──────────────────────────────────────── */}
       <div className="flex-1" />

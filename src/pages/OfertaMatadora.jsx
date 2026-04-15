@@ -1,51 +1,102 @@
 import { useState, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
+import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { Plus, X, Sparkles, Loader2, AlertTriangle, CheckCircle2, Zap, FileDown } from 'lucide-react'
 import { exportOfertaPDF } from '../utils/exportPDF'
 import { streamClaude } from '../lib/claude'
+import VideoGuide from '../components/VideoGuide'
 
-// ─── GOM System Prompt (baseado no criador-de-oferta-matadora skill) ──────────
-const GOM_SYSTEM_PROMPT = `Você é um especialista em marketing e criação de ofertas irresistíveis com domínio completo da metodologia de Alex Hormozi do livro $100M Offers.
+// ─── GOM System Prompt (criador-de-oferta-matadora-v2) ───────────────────────
+const GOM_SYSTEM_PROMPT = `# Criador de Grande Oferta Matadora (GOM): Metodologia Alex Hormozi ($100M Offers)
 
-A Equação de Valor: Valor = (Sonho Desejado × Probabilidade Percebida) / (Tempo de Espera × Esforço)
+Você é um especialista em marketing e criação de ofertas irresistíveis com domínio completo da metodologia de Alex Hormozi do livro $100M Offers. Sua missão é criar 3 versões da "Grande Oferta Matadora" para a empresa do usuário.
 
-Quando receber o rascunho de oferta do usuário, sua missão é:
-1. Analisar cada elemento preenchido
-2. Potencializar a linguagem tornando-a mais específica, emocional e orientada a STATUS
-3. Identificar lacunas e sugerir melhorias
-4. Apresentar a oferta final refinada no formato estruturado abaixo
+---
 
-Use EXATAMENTE esta estrutura em markdown:
+## RACIOCÍNIO INTERNO (nunca exiba no output)
 
-### 🎯 NOME DA OFERTA (Fórmula M-A-G-I-C)
-[Nome refinado e variações]
+Antes de gerar as GOMs, raciocine internamente sobre:
 
-### ✨ RESULTADO SONHADO (com STATUS)
-[Resultado vívido conectado a como o cliente será visto pelos outros]
+**Público-alvo:**
+- Quais são os 3 maiores problemas práticos que enfrenta?
+- Qual é a situação mais constrangedora/dolorosa que vive por causa do problema?
+- Qual o sonho profundo — conectado a STATUS (como quer ser visto pelos outros)?
+- Quais as 3 objeções mais fortes que impedem a compra?
 
-### 💡 POR QUE VAI FUNCIONAR
-[Mecanismo único, provas e argumentos de probabilidade percebida]
+**Equação de valor:**
+Valor = (Sonho x Probabilidade) / (Tempo x Esforço)
+- Como maximizar o resultado percebido?
+- Como minimizar tempo e esforço ao máximo?
+- Qual mecanismo único diferencia esta oferta?
 
-### ⚡ VELOCIDADE
-[Primeira vitória emocional — quando e o quê]
+Use esse diagnóstico para construir as GOMs. **Não exiba essa análise no output.**
 
-### 🤝 ESFORÇO MÍNIMO
-[O que o cliente faz e o que você elimina para ele — done-for-you]
+---
 
-### 🎁 STACK DE VALOR (Bônus)
-Para cada bônus, apresente: nome atraente, valor em R$ atribuído, obstáculo que resolve.
-Total do stack de valor: R$X
+## OUTPUT — FORMATO DAS 3 GOMs
 
-### 🛡️ GARANTIA
-[Tipo + condições + o que acontece se não atingir]
+Gere exatamente 3 GOMs usando o template abaixo. Cada GOM deve ter uma abordagem distinta:
+- GOM 1: foco em garantia agressiva
+- GOM 2: foco em bônus empilhados
+- GOM 3: modelo pay-per-result / performance ou exclusividade high-ticket
 
-### 🔥 ESCASSEZ / URGÊNCIA
-[Por que agir AGORA — o que se perde esperando]
+---
 
-### 🗣️ PITCH FINAL
-[Pitch completo em linguagem direta, como se estivesse vendendo ao vivo]
+### TEMPLATE DE CADA GOM
 
-Responda sempre em português do Brasil. Seja específico com números, prazos e resultados mensuráveis.`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GOM #[N]: [Abordagem principal]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📛 NOME
+[Nome usando fórmula M-A-G-I-C: Motivo agora + Avatar + Goal + Intervalo + Continente]
+
+🎯 RESULTADO PROMETIDO
+[1-2 frases. Resultado específico com número + prazo + impacto no STATUS do cliente]
+
+📦 O QUE ESTÁ INCLUÍDO
+• [Item principal] .................. R$ X.XXX
+• [Bônus 1: nome atraente] .......... R$ X.XXX
+• [Bônus 2: nome atraente] .......... R$ X.XXX
+• [Bônus 3: nome atraente] .......... R$ X.XXX
+  ─────────────────────────────────
+  Valor total: R$ XX.XXX
+  Preço: R$ X.XXX (cliente paga X% do valor)
+
+🛡️ GARANTIA
+[Tipo + condição + o que acontece se não funcionar: 2-3 linhas]
+
+⚡ ESCASSEZ / URGÊNCIA
+[Por que agir agora — 1 linha]
+
+💬 PITCH (fale assim para o cliente)
+"[Pitch direto, como se estivesse vendendo ao vivo — 3 a 5 linhas]"
+
+---
+
+## DIRETRIZES DE QUALIDADE
+
+**Especificidade vende:**
+- "Perder 8kg em 6 semanas" > "Emagrecer"
+- "R$47.000 em receita adicional em 90 dias" > "Aumentar faturamento"
+- Números e prazos sempre
+
+**Status é tudo:** como o cliente vai ser visto pelos outros após o resultado?
+
+**Bônus inteligentes:**
+- Cada bônus resolve uma objeção específica
+- Ferramentas e checklists > treinamentos
+- Valor total dos bônus > valor do produto principal
+
+**Garantia que fecha venda:** nomeie criativamente. Condicione a ações que garantam sucesso.
+
+**Nunca dê desconto — adicione bônus.**
+
+Se o usuário já forneceu as informações, gere as 3 GOMs diretamente, sem introduções ou explicações antes do output.
+
+Responda sempre em português do Brasil, com linguagem direta e orientada a resultados. Sem teoria, só output.
+
+Não use travessões (—) em nenhuma parte do output.`
 
 // ─── Fields config ────────────────────────────────────────────────────────────
 const FIELDS = [
@@ -159,18 +210,55 @@ function BonusInput({ answers, onChange }) {
 function OfertaResult({ text }) {
   const lines = text.split('\n')
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       {lines.map((line, i) => {
-        if (line.startsWith('### ')) return (
-          <p key={i} className="text-sm font-bold text-rl-text mt-4 mb-1">{line.replace('### ', '')}</p>
+        const trimmed = line.trim()
+
+        // GOM separator ━━━━
+        if (/^━+$/.test(trimmed)) return (
+          <div key={i} className="border-t-2 border-rl-gold/40 my-3" />
         )
-        if (line.startsWith('## ')) return (
-          <p key={i} className="text-base font-bold text-rl-purple mt-4 mb-1">{line.replace('## ', '')}</p>
+
+        // GOM header: "GOM #1 — Foco em Garantia"
+        if (/^GOM #\d+/.test(trimmed)) return (
+          <p key={i} className="text-base font-bold text-rl-gold mt-1 mb-0">
+            {trimmed}
+          </p>
         )
-        if (line.trim() === '') return <div key={i} className="h-1" />
+
+        // Thin value divider ─────
+        if (/^─+$/.test(trimmed)) return (
+          <div key={i} className="border-t border-rl-border/60 my-1 ml-4" />
+        )
+
+        // Emoji section headers (📛 NOME, 🎯 RESULTADO, 📦, 🛡️, ⚡, 💬)
+        if (/^[📛🎯📦🛡️⚡💬🎁🔥🗣️✨💡🤝]\s/.test(trimmed)) return (
+          <p key={i} className="text-sm font-semibold text-rl-text mt-3 mb-1">
+            {trimmed}
+          </p>
+        )
+
+        // Bullet with dots: "• Item ......... R$ X"
+        if (trimmed.startsWith('• ')) return (
+          <p key={i} className="text-xs text-rl-muted leading-relaxed ml-2 font-mono">
+            {trimmed}
+          </p>
+        )
+
+        // Valor total / Preço lines (indented)
+        if (/^\s*(Valor total:|Preço:)/.test(line)) return (
+          <p key={i} className="text-xs font-semibold text-rl-text leading-relaxed ml-6">
+            {trimmed}
+          </p>
+        )
+
+        // Empty lines
+        if (trimmed === '') return <div key={i} className="h-1" />
+
+        // Regular lines (strip markdown bold if any)
         return (
           <p key={i} className="text-xs text-rl-muted leading-relaxed">
-            {line.replace(/\*\*(.*?)\*\*/g, '$1')}
+            {trimmed.replace(/\*\*(.*?)\*\*/g, '$1')}
           </p>
         )
       })}
@@ -185,7 +273,13 @@ export default function OfertaMatadora({ project, onSave }) {
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
 
-  const set = useCallback((field, val) => setOferta((prev) => ({ ...prev, [field]: val })), [])
+  const set = useCallback((field, val) => {
+    setOferta((prev) => {
+      const next = { ...prev, [field]: val }
+      updateProject(project.id, { ofertaData: next })
+      return next
+    })
+  }, [project.id, updateProject])
 
   const buildPrompt = () => {
     const bonusValidos = oferta.bonus.filter((b) => b.trim())
@@ -193,32 +287,18 @@ export default function OfertaMatadora({ project, onSave }) {
       ? bonusValidos.map((b, i) => `${i + 1}. ${b}`).join('\n')
       : 'Não informado'
 
-    return `Refine e potencialize esta oferta para a empresa **${project.companyName}** (${project.businessType || 'empresa'}):
+    return `1. Nome da empresa: ${project.companyName}
+2. Nicho (segmento de mercado): ${project.businessType || project.segmento || 'Não informado'}
+3. Público-alvo: ${oferta.resultadoSonho ? `Pessoa que busca: ${oferta.resultadoSonho}` : 'Não informado'}
+4. Problema principal que o público enfrenta: ${oferta.porqueVaiFuncionar || 'Não informado'}
+5. Solução que a empresa oferece: ${oferta.esforcoMinimo || oferta.velocidade || 'Não informado'}
 
-**Nome da Oferta:** ${oferta.nome || 'Não informado'}
-
-**Resultado do Sonho:**
-${oferta.resultadoSonho || 'Não informado'}
-
-**Por que vai funcionar:**
-${oferta.porqueVaiFuncionar || 'Não informado'}
-
-**Velocidade:**
-${oferta.velocidade || 'Não informado'}
-
-**Esforço Mínimo do Cliente:**
-${oferta.esforcoMinimo || 'Não informado'}
-
-**Bônus inclusos:**
-${bonusText}
-
-**Garantia:**
-${oferta.garantia || 'Não informado'}
-
-**Escassez / Urgência:**
-${oferta.escassez || 'Não informado'}
-
-Com base nesses dados, crie a Grande Oferta Matadora completa e refinada seguindo sua metodologia.`
+Dados adicionais preenchidos:
+- Nome da oferta pensado: ${oferta.nome || 'Não informado'}
+- Velocidade / primeira vitória: ${oferta.velocidade || 'Não informado'}
+- Bônus já pensados: ${bonusText}
+- Garantia: ${oferta.garantia || 'Não informado'}
+- Escassez / Urgência: ${oferta.escassez || 'Não informado'}`
   }
 
   const generate = async () => {
@@ -249,6 +329,8 @@ Com base nesses dados, crie a Grande Oferta Matadora completa e refinada seguind
   return (
     <div className="space-y-6">
 
+      <VideoGuide videoId="wMgDhGb8aAw" label="Como preencher o módulo de Oferta Matadora" />
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -260,15 +342,18 @@ Com base nesses dados, crie a Grande Oferta Matadora completa e refinada seguind
             Construa uma oferta irresistível baseada na metodologia $100M Offers de Alex Hormozi
           </p>
         </div>
-        <button
-          onClick={() => exportOfertaPDF(oferta, project)}
-          disabled={!hasContent}
-          className="btn-secondary flex items-center gap-2 text-sm shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Exportar PDF"
-        >
-          <FileDown className="w-4 h-4" />
-          PDF
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <AutoSaveIndicator />
+          <button
+            onClick={() => exportOfertaPDF(oferta, project)}
+            disabled={!hasContent}
+            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Exportar PDF"
+          >
+            <FileDown className="w-4 h-4" />
+            PDF
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

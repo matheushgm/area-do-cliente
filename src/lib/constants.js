@@ -37,7 +37,17 @@ export const SERVICES_CONFIG = [
   },
   { id: 'consultoria',          label: 'Consultoria',                        emoji: '📊' },
   { id: 'mentoria',             label: 'Mentoria',                           emoji: '🎓' },
-  { id: 'social_media',         label: 'Social Media',                       emoji: '📱' },
+  {
+    id: 'social_media',         label: 'Social Media',                       emoji: '📱',
+    sub: [
+      { key: 'carrosselQty',  label: 'Qtd. Carrossel',          placeholder: '0' },
+      { key: 'reelsQty',      label: 'Qtd. Reels',              placeholder: '0' },
+      { key: 'estaticaQty',   label: 'Qtd. Estática',           placeholder: '0' },
+      { key: 'storiesQty',    label: 'Qtd. Stories',            placeholder: '0' },
+      { key: 'storiesFreq',   label: 'Frequência Stories', type: 'select',
+        options: ['Diária', '5x por semana', '3x por semana', '2x por semana', '1x por semana'] },
+    ],
+  },
   { id: 'email_marketing',      label: 'E-mail Marketing',                   emoji: '📧' },
   { id: 'ai_whatsapp',          label: 'AI no WhatsApp',                     emoji: '🤖' },
   {

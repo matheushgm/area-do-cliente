@@ -116,7 +116,10 @@ function assembleProject(row, rel = {}) {
     slaFileName:          row.sla_file_url,
     logoUrl:              row.logo_url,
     dashboardUrl:         row.dashboard_url || null,
+    clientShareToken:     row.client_share_token || null,
     squad:                row.squad || null,
+    riskLevel:            row.risk_level || null,
+    momento:              row.momento || null,
     accountId:            row.account_id,
     completedSteps:       row.completed_steps || [],
     createdAt:            row.created_at,
@@ -203,12 +206,19 @@ function assembleProject(row, rel = {}) {
     // Links
     links: row.links || {},
 
+    // NPS por marco
+    nps: row.nps || null,
+
+    // CRM
+    crmData: row.crm_data ?? null,
+
     // Produtos / Serviços
     produtos: produtos.map((p) => ({
       id:      p.id,
       nome:    p.nome    || '',
       tipo:    p.tipo    || 'produto',
       answers: p.answers || {},
+      summary: p.summary || null,
     })),
   };
 }
@@ -300,8 +310,11 @@ const PROJECT_FIELD_MAP = {
   slaFileName:         "sla_file_url",
   logoUrl:             "logo_url",
   dashboardUrl:        "dashboard_url",
+  clientShareToken:    "client_share_token",
   squad:               "squad",
   status:              "status",
+  riskLevel:           "risk_level",
+  momento:             "momento",
   completedSteps:      "completed_steps",
   // snake_case passthrough (quando NewOnboarding já envia snake_case)
   company_name:         "company_name",
@@ -325,6 +338,8 @@ const PROJECT_FIELD_MAP = {
   account_id:           "account_id",
   cnpj:                 "cnpj",
   links:                "links",
+  nps:                  "nps",
+  crmData:              "crm_data",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────
@@ -401,7 +416,7 @@ async function sbUpdateProjectV2(id, patch) {
   if (patch.campaignPlan !== undefined) {
     await supabase.from("campaign_plans").delete().eq("project_id", id);
     const plan = patch.campaignPlan || {};
-    const hasContent = Array.isArray(plan.channels) ? plan.channels.length > 0 : (plan.orcamentoTotal > 0 || plan.totalBudget > 0);
+    const hasContent = (plan.orcamentoTotal > 0) || (plan.totalBudget > 0) || (Array.isArray(plan.channels) && plan.channels.length > 0) || (Array.isArray(plan.accounts) && plan.accounts.length > 0);
     if (plan && hasContent) {
       const { id: _planId, ...answers } = plan;
       const { error } = await supabase.from("campaign_plans").insert({
@@ -537,6 +552,7 @@ async function sbUpdateProjectV2(id, patch) {
           nome:       p.nome    || '',
           tipo:       p.tipo    || 'produto',
           answers:    p.answers || {},
+          summary:    p.summary || null,
         })),
       );
       if (error) console.error("[Supabase] insert produtos:", error.message);
@@ -555,7 +571,8 @@ async function sbUpdateProjectV2(id, patch) {
           name:         a.name,
           size:         a.size,
           type:         a.type,
-          storage_path: a.storage_path ?? null, // null até migração para Storage
+          storage_path: a.storage_path ?? null,
+          uploaded_at:  a.uploadedAt ?? a.uploaded_at ?? null,
         }));
       if (rows.length > 0) {
         const { error } = await supabase.from("attachments").insert(rows);
@@ -606,8 +623,10 @@ export function AppProvider({ children }) {
   const [projects, setProjects] = useState(loadFromStorage);
 
   const [loadingProjects, setLoadingProjects] = useState(isSupabaseReady);
-  const pendingWrites = useRef(0);
-  const upsertTimers  = useRef({});
+  const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved'
+  const pendingWrites    = useRef(0);
+  const upsertTimers     = useRef({});
+  const saveStatusTimer  = useRef(null);
 
   // ── Team members ──────────────────────────────────────────────────────────
   const [teamMembers, setTeamMembers] = useState([]);
@@ -845,6 +864,7 @@ export function AppProvider({ children }) {
         clearTimeout(upsertTimers.current[id]);
         upsertTimers.current[id] = setTimeout(() => {
           pendingWrites.current += 1;
+          setSaveStatus('saving');
           sbUpdateProjectV2(id, patch)
             .then(({ blocked }) => {
               if (blocked && before) {
@@ -856,7 +876,14 @@ export function AppProvider({ children }) {
               }
             })
             .catch((err) => console.error("Erro ao atualizar:", err))
-            .finally(() => { pendingWrites.current -= 1; });
+            .finally(() => {
+              pendingWrites.current -= 1;
+              if (pendingWrites.current === 0) {
+                setSaveStatus('saved');
+                clearTimeout(saveStatusTimer.current);
+                saveStatusTimer.current = setTimeout(() => setSaveStatus('idle'), 2500);
+              }
+            });
         }, 1000);
       }
 
@@ -915,6 +942,7 @@ export function AppProvider({ children }) {
     authError,
     projects,
     loadingProjects,
+    saveStatus,
     login,
     logout,
     loginWithGoogle,

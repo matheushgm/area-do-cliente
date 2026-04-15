@@ -6,47 +6,205 @@ import {
 } from 'lucide-react'
 import { exportPersonasPDF } from '../utils/exportPDF'
 import { streamClaude } from '../lib/claude'
+import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
+import VideoGuide from '../components/VideoGuide'
 
 // ─── Questions ────────────────────────────────────────────────────────────────
 const QUESTIONS = [
-  { id: 'resultado', emoji: '🎯', label: 'Qual é o resultado percebido após usar o produto ou serviço?' },
-  { id: 'acoes',     emoji: '⚡', label: 'O que ele PRECISA FAZER para alcançar o resultado?' },
-  { id: 'tempo',     emoji: '⏱️', label: 'Em quanto tempo o cliente consegue alcançar o resultado?' },
-  { id: 'objecoes',  emoji: '🚧', label: 'Quais são as objeções que eles usam como justificativa para não fazer o que é necessário?' },
-  { id: 'sonhos',    emoji: '✨', label: 'Quais são OS SONHOS do seu cliente que o seu trabalho pode realizar?' },
-  { id: 'erros',     emoji: '❌', label: 'Quais são ERROS que seu cliente comete e que afasta ele do resultado sonhado?' },
-  { id: 'medos',     emoji: '😰', label: 'Quais são OS MEDOS do seu cliente que podem se tornar realidade?' },
-  { id: 'sinais',    emoji: '🔍', label: 'Seu cliente VÊ SINAIS DO PROBLEMA. Quais sinais são esse?' },
-  { id: 'valores',   emoji: '💡', label: 'Quais são seus pensamentos, valores e ideias que vão contra o senso comum do seu mercado?' },
-  { id: 'habitos',   emoji: '🔄', label: 'Hábitos do seu cliente' },
+  {
+    id:    'resultado',
+    emoji: '🎯',
+    label: 'Qual é o resultado percebido após usar o produto ou serviço?',
+    hint:  'Conte como é a vida do seu cliente depois que ele usa de fato seu produto / serviço. Uma ideia é trazer comentários que os clientes fazem após o seu produto/serviço ser implementado.',
+  },
+  {
+    id:    'acoes',
+    emoji: '⚡',
+    label: 'O que ele PRECISA FAZER para alcançar o resultado?',
+    hint:  'Aqui você deve descrever quais são as ações, comportamentos e responsabilidades do próprio cliente durante o trabalho com você.',
+  },
+  {
+    id:    'tempo',
+    emoji: '⏱️',
+    label: 'Em quanto tempo o cliente consegue alcançar o resultado?',
+    hint:  'O ideal é trazer em quanto tempo ele tem o primeiro resultado e também quanto tempo para ter a transformação real.',
+  },
+  {
+    id:    'objecoes',
+    emoji: '🚧',
+    label: 'Quais são as objeções que eles usam como justificativa para não fazer o que é necessário?',
+    hint:  null,
+  },
+  {
+    id:    'sonhos',
+    emoji: '✨',
+    label: 'Quais são OS SONHOS do seu cliente que sua empresa consegue realizar?',
+    hint:  'Essa pergunta é sobre o resultado emocional e de vida que o cliente espera quando contrata você. Aqui vai além de métricas, pense em algo pessoal.',
+  },
+  {
+    id:    'erros',
+    emoji: '❌',
+    label: 'Quais são ERROS que seu cliente comete e que afasta ele do resultado sonhado?',
+    hint:  'Esses erros são cometidos antes de ele te contratar ou comprar o seu produto.',
+  },
+  {
+    id:    'medos',
+    emoji: '😰',
+    label: 'Quais são OS MEDOS do seu cliente que podem se tornar realidade?',
+    hint:  'Aqui são medos pessoais mesmo, mais intrínsecos ao dia-a-dia como ser humano.',
+  },
+  {
+    id:    'sinais',
+    emoji: '🔍',
+    label: 'Seu cliente VÊ SINAIS DO PROBLEMA. Quais sinais são esse?',
+    hint:  'Quais são os problemas que ele percebe que começam a fazer com que ele busque uma solução / ajuda.',
+  },
+  {
+    id:    'habitos',
+    emoji: '🔄',
+    label: 'Hábitos do seu cliente',
+    hint:  'Quais são os hábitos dentro e fora do trabalho.',
+  },
 ]
 
-// ─── AI System Prompt (based on criador-de-persona skill) ────────────────────
-const SYSTEM_PROMPT = `Você é um analista de marketing de classe mundial com atenção meticulosa aos detalhes. Crie perfis completos e profundos de buyer personas.
+// ─── AI System Prompt (criador-de-persona-v2) ────────────────────────────────
+const SYSTEM_PROMPT = `Você é um estrategista de marketing especializado em construção de personas de comprador para o mercado brasileiro.
 
-Ao receber os dados, gere um perfil usando EXATAMENTE esta estrutura em markdown:
+Com base nas informações fornecidas pelo usuário sobre o produto/serviço e o público, crie uma persona de comprador ideal completa, direta e acionável.
 
-### 👤 PERFIL GERAL
-Nome fictício real, idade, profissão, dados demográficos e psicográficos, principais desafios, valores e motivações.
+REGRAS:
+- Responda em texto simples, usando apenas títulos em CAIXA ALTA e marcadores com "-"
+- Sem asteriscos, sem hashtags, sem negrito, sem markdown
+- Não use travessões (—) em nenhuma parte do output
+- Seja específico e concreto. Nunca seja genérico
+- Use linguagem brasileira natural
+- Dê um nome real brasileiro à persona
+- Gere tudo em uma única resposta, sem perguntar etapas
 
-### 😰 MEDOS PROFUNDOS
-Liste 5 medos profundos. Não respostas de superfície — os medos mais sombrios que a persona não admitiria em voz alta, os que a mantêm acordada à noite.
+---
 
-### 💬 FRASES QUE MACHUCAM SEM QUERER
-Frases específicas que pessoas próximas (cônjuge, filhos, colegas, amigos) diriam tentando ajudar, mas que acabam ferindo a persona. Pelo menos 3 frases de cada pessoa próxima.
+PERFIL GERAL
+- Nome: [Nome real brasileiro]
+- Idade: [Faixa etária]
+- Profissão/Cargo: [Cargo típico]
+- Renda mensal: [Estimativa]
+- Escolaridade: [Nível]
+- Estado civil: [Contexto familiar resumido]
+- Rotina: [2 frases sobre o dia a dia real dessa pessoa]
 
-### ✨ CENÁRIO DOS SONHOS
-Como seria a vida ideal após resolver seu problema? Sentimentos, atividades, relacionamentos. Liste 15 resultados emocionais específicos — inclusive desejos que ela teria vergonha de admitir.
+---
 
-### 📋 RESUMO ABRANGENTE
-Resumo completo conectando todos os aspectos da persona para uso em estratégias de marketing.
+PERFIL PSICOGRÁFICO
+- Personalidade: [3 traços marcantes]
+- Valores: [O que guia as decisões dela]
+- Postura diante de novidades: [Como ela reage a mudanças, tecnologia, etc.]
 
-Seja vívido, emocional e específico. Evite respostas genéricas. Use linguagem que conecta emocionalmente.`
+---
+
+PRINCIPAIS DORES
+Liste exatamente 10 dores reais, específicas e contextualizadas. Para cada uma:
+- Dor: [Descrição direta]
+  - Por que isso trava ela: [1 frase explicando o impacto real]
+
+---
+
+MEDOS PROFUNDOS
+Liste exatamente 10 medos que ela não admitiria em voz alta, aqueles que a mantêm acordada à noite:
+- [Medo 1: seja específico e emocional]
+- [Medo 2]
+- [Medo 3]
+- [Medo 4]
+- [Medo 5]
+- [Medo 6]
+- [Medo 7]
+- [Medo 8]
+- [Medo 9]
+- [Medo 10]
+
+---
+
+SONHOS E DESEJOS
+Liste exatamente 10 resultados concretos que ela realmente quer alcançar:
+- [Sonho 1: concreto, não abstrato]
+- [Sonho 2]
+- [Sonho 3]
+- [Sonho 4]
+- [Sonho 5]
+- [Sonho 6]
+- [Sonho 7]
+- [Sonho 8]
+- [Sonho 9]
+- [Sonho 10]
+
+---
+
+FRASES QUE ELA DIZ (crenças e senso comum)
+Liste exatamente 10 frases reais que ela diria — crenças, senso comum e frases do dia a dia que revelam como ela pensa sobre o problema, o mercado ou a solução:
+- "[Frase 1]"
+- "[Frase 2]"
+- "[Frase 3]"
+- "[Frase 4]"
+- "[Frase 5]"
+- "[Frase 6]"
+- "[Frase 7]"
+- "[Frase 8]"
+- "[Frase 9]"
+- "[Frase 10]"
+
+---
+
+O QUE ELA JÁ TENTOU (E NÃO FUNCIONOU)
+Liste exatamente 10 tentativas anteriores com o motivo do fracasso:
+- [Solução tentada 1] → Por que falhou: [1 frase direta]
+- [Solução tentada 2] → Por que falhou: [1 frase direta]
+- [Solução tentada 3] → Por que falhou: [1 frase direta]
+- [Solução tentada 4] → Por que falhou: [1 frase direta]
+- [Solução tentada 5] → Por que falhou: [1 frase direta]
+- [Solução tentada 6] → Por que falhou: [1 frase direta]
+- [Solução tentada 7] → Por que falhou: [1 frase direta]
+- [Solução tentada 8] → Por que falhou: [1 frase direta]
+- [Solução tentada 9] → Por que falhou: [1 frase direta]
+- [Solução tentada 10] → Por que falhou: [1 frase direta]
+
+---
+
+GATILHOS DE COMPRA
+Liste exatamente 10 gatilhos que fazem ela tomar a decisão de comprar:
+- [Gatilho 1]
+- [Gatilho 2]
+- [Gatilho 3]
+- [Gatilho 4]
+- [Gatilho 5]
+- [Gatilho 6]
+- [Gatilho 7]
+- [Gatilho 8]
+- [Gatilho 9]
+- [Gatilho 10]
+
+---
+
+PRINCIPAIS OBJEÇÕES
+Liste exatamente 10 objeções que travam ela antes de comprar:
+- [Objeção 1]
+- [Objeção 2]
+- [Objeção 3]
+- [Objeção 4]
+- [Objeção 5]
+- [Objeção 6]
+- [Objeção 7]
+- [Objeção 8]
+- [Objeção 9]
+- [Objeção 10]
+
+---
+
+INSIGHT ESTRATÉGICO
+[1 parágrafo direto com o que o marketing precisa entender para se comunicar bem com essa persona. O que não é óbvio sobre ela?]`
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function newPersona(label = '') {
   return {
-    id: Date.now(),
+    id: crypto.randomUUID(),
     name: label,
     answers: Object.fromEntries(QUESTIONS.map((q) => [q.id, ['']])),
     generatedProfile: null,
@@ -94,23 +252,51 @@ function MultiAnswerInput({ answers, onChange }) {
   )
 }
 
-// ─── Markdown renderer (simple) ───────────────────────────────────────────────
+// ─── Plain-text renderer (criador-de-persona-v2 format) ──────────────────────
+// Format: ALL CAPS section headers, "---" dividers, "- " bullet points
+function isSectionHeader(line) {
+  const t = line.trim()
+  if (!t || t === '---') return false
+  // A section header is a non-empty line that is fully uppercase (ignoring spaces,
+  // parentheses, accented letters and punctuation)
+  return t === t.toUpperCase() && /[A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ]/.test(t)
+}
+
 function PersonaResult({ text }) {
   const lines = text.split('\n')
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       {lines.map((line, i) => {
-        if (line.startsWith('### ')) return (
-          <p key={i} className="text-sm font-bold text-rl-text mt-4 mb-1">{line.replace('### ', '')}</p>
+        const trimmed = line.trim()
+
+        if (trimmed === '---') return (
+          <div key={i} className="border-t border-rl-border/40 my-3" />
         )
-        if (line.startsWith('## ')) return (
-          <p key={i} className="text-base font-bold text-rl-purple mt-4 mb-1">{line.replace('## ', '')}</p>
+
+        if (trimmed === '') return <div key={i} className="h-1" />
+
+        if (isSectionHeader(trimmed)) return (
+          <p key={i} className="text-xs font-bold text-rl-purple uppercase tracking-wider mt-3 mb-1">
+            {trimmed}
+          </p>
         )
-        if (line.startsWith('**') && line.endsWith('**')) return (
-          <p key={i} className="text-xs font-semibold text-rl-subtle mt-2">{line.replace(/\*\*/g, '')}</p>
+
+        if (trimmed.startsWith('- ')) return (
+          <div key={i} className="flex gap-2 ml-2">
+            <span className="text-rl-purple/60 text-xs mt-0.5 shrink-0">•</span>
+            <p className="text-xs text-rl-text leading-relaxed">{trimmed.slice(2)}</p>
+          </div>
         )
-        if (line.trim() === '') return <div key={i} className="h-1" />
-        return <p key={i} className="text-xs text-rl-muted leading-relaxed">{line.replace(/\*\*(.*?)\*\*/g, '$1')}</p>
+
+        // Indented sub-bullet (2 spaces + "- ")
+        if (line.startsWith('  - ')) return (
+          <div key={i} className="flex gap-2 ml-6">
+            <span className="text-rl-muted text-xs mt-0.5 shrink-0">–</span>
+            <p className="text-xs text-rl-muted leading-relaxed">{line.slice(4)}</p>
+          </div>
+        )
+
+        return <p key={i} className="text-xs text-rl-muted leading-relaxed ml-2">{trimmed}</p>
       })}
     </div>
   )
@@ -130,14 +316,18 @@ export default function PersonaCreator({ project, onSave }) {
   const persona = personas[activeIdx]
 
   const updatePersona = useCallback((patch) => {
-    setPersonas((prev) => prev.map((p, i) => i === activeIdx ? { ...p, ...patch } : p))
-  }, [activeIdx])
+    const next = personas.map((p, i) => i === activeIdx ? { ...p, ...patch } : p)
+    setPersonas(next)
+    updateProject(project.id, { personas: next })
+  }, [activeIdx, personas, project.id, updateProject])
 
   const updateAnswers = useCallback((qId, answers) => {
-    setPersonas((prev) => prev.map((p, i) =>
+    const next = personas.map((p, i) =>
       i === activeIdx ? { ...p, answers: { ...p.answers, [qId]: answers } } : p
-    ))
-  }, [activeIdx])
+    )
+    setPersonas(next)
+    updateProject(project.id, { personas: next })
+  }, [activeIdx, personas, project.id, updateProject])
 
   const addPersona = () => {
     const next = newPersona(`Persona ${personas.length + 1}`)
@@ -209,6 +399,7 @@ ${sections.join('\n\n')}`
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <AutoSaveIndicator />
           <button
             onClick={() => exportPersonasPDF(personas, project)}
             className="btn-secondary flex items-center gap-2 text-sm"
@@ -223,6 +414,9 @@ ${sections.join('\n\n')}`
           </button>
         </div>
       </div>
+
+      {/* Vídeo guia */}
+      <VideoGuide videoId="hpMy2Th9YrA" label="Como preencher o módulo de Personas" />
 
       {/* Persona tabs */}
       {personas.length > 1 && (
@@ -270,10 +464,17 @@ ${sections.join('\n\n')}`
           {/* Questions */}
           {QUESTIONS.map((q) => (
             <div key={q.id} className="glass-card p-5 space-y-3">
-              <p className="text-sm font-medium text-rl-text leading-snug">
-                <span className="mr-1.5">{q.emoji}</span>
-                {q.label}
-              </p>
+              <div>
+                <p className="text-sm font-medium text-rl-text leading-snug">
+                  <span className="mr-1.5">{q.emoji}</span>
+                  {q.label}
+                </p>
+                {q.hint && (
+                  <p className="text-xs text-rl-muted mt-2 leading-relaxed pl-5 border-l-2 border-rl-purple/20">
+                    {q.hint}
+                  </p>
+                )}
+              </div>
               <MultiAnswerInput
                 answers={persona.answers[q.id] || ['']}
                 onChange={(answers) => updateAnswers(q.id, answers)}

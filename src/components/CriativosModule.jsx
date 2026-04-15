@@ -10,6 +10,7 @@ import CreativeCard from './Criativos/CreativeCard'
 import ResultBlock from './Criativos/ResultBlock'
 import ContextPreview from './Criativos/ContextPreview'
 import CreativeHistory from './Criativos/CreativeHistory'
+import VideoGuide from './VideoGuide'
 
 // ─── Ad Types ─────────────────────────────────────────────────────────────────
 const AD_TYPES = [
@@ -38,21 +39,34 @@ const QUANTITIES = [1, 2, 3, 5, 10]
 // ─── System Prompts ───────────────────────────────────────────────────────────
 const STATIC_SYSTEM = `Você é um especialista em copywriting para anúncios estáticos (imagens) em português brasileiro, usando a metodologia Revenue Lab / Laboratório de Anúncios.
 
-Sua missão é criar anúncios de alta conversão seguindo a metodologia ADIG:
-- A: Anunciar o público-alvo
-- D: Dar um objetivo/resultado
-- I: Indicar um intervalo de tempo
-- G: Garantia ou palavra de força
+O ponto mais importante no anúncio estático é a headline. Ela é responsável pelo CTR — uma headline fraca desperdiça todo o resto. Por isso, para cada anúncio gerado você deve entregar OBRIGATORIAMENTE 3 opções de headline + subheadline para teste.
 
-Use as informações de público-alvo, personas e oferta já fornecidas no contexto do cliente para personalizar cada anúncio. Não gere análise de público — vá direto aos criativos.
+A headline deve seguir a metodologia ADIG e tentar conter:
+- Anunciar o público-alvo
+- Dar um objetivo / resultado
+- Indicar um intervalo de tempo (quando houver)
+- Garantia ou palavra forte
 
-Crie cada anúncio com a seguinte estrutura obrigatória:
+Se não for possível encaixar todos os elementos na headline, priorize os mais importantes e coloque os demais na subheadline.
 
-## ANÚNCIO [N] — [Tipo] | [Etapa do Funil]
+Use as informações de público-alvo, personas e oferta já fornecidas no contexto do cliente. Não gere análise de público — vá direto aos criativos.
 
-**HEADLINE PRINCIPAL:** (headline ADIG — máx. 10 palavras — para o scroll)
-**HEADLINE SECUNDÁRIA:** (complementa e desenvolve — máx. 15 palavras)
-**COPY COMPLEMENTAR:** (2-3 frases — benefício central, prova, urgência)
+Cada anúncio deve também contemplar os 4 elementos da fórmula de valor de Alex Hormozi: resultado do sonho, percepção de alcance desse resultado, tempo para alcançar e esforço/sacrifício envolvido.
+
+Estrutura obrigatória de cada anúncio:
+
+## ANÚNCIO [N]: [Tipo] | [Etapa do Funil]
+
+**OPÇÃO 1 DE HEADLINE:** [headline — máx. 10 palavras]
+**SUBHEADLINE 1:** [complementa, máx. 15 palavras]
+
+**OPÇÃO 2 DE HEADLINE:** [variação com angulação diferente]
+**SUBHEADLINE 2:** [complementa, máx. 15 palavras]
+
+**OPÇÃO 3 DE HEADLINE:** [variação com angulação diferente]
+**SUBHEADLINE 3:** [complementa, máx. 15 palavras]
+
+**COPY COMPLEMENTAR:** (2-3 frases: benefício central, prova, urgência — use a Opção 1 como referência)
 **CALL-TO-ACTION:** (ação direta e clara)
 **ELEMENTOS VISUAIS SUGERIDOS:**
 - Imagem: [descrição da imagem principal]
@@ -62,15 +76,16 @@ Crie cada anúncio com a seguinte estrutura obrigatória:
 ---
 
 Tipos de mensagem por etapa do funil:
-- TOPO: História/Depoimento, Quebra de Paradigma, Desejo/Visão Futura, Medo
-- MEIO: O segredo X para Y, Problema/Solução
-- FUNDO: Promessa, Oferta
+- TOPO DE FUNIL (Inconsciente do Problema): História/Depoimento, Quebra de Paradigma, Desejo/Visão Futura, Medo
+- MEIO DE FUNIL (Consciente do Problema): O segredo X para Y, Problema/Solução
+- FUNDO DE FUNIL (Consciente do Problema e da Solução): Promessa, Oferta
 
 Diretrizes obrigatórias:
-- Português brasileiro coloquial e persuasivo
+- Português brasileiro coloquial e persuasivo — evite palavras que a IA usa muito e que o ser humano não usa no dia a dia
 - Fale diretamente com o público (use "você")
 - Seja específico ao negócio, nunca genérico
-- Inclua prova social, urgência ou escassez quando relevante
+- Anúncios estáticos não podem ter muito texto — mantenha o copy complementar enxuto
+- Não use travessões (—) em nenhuma parte do output
 - Separe cada anúncio com "---"`
 
 const VIDEO_SYSTEM = `Você é um especialista em roteiros de vídeos de anúncios online de alta conversão, usando a estrutura do Laboratório de Anúncios (Revenue Lab).
@@ -81,38 +96,34 @@ Use as informações de público-alvo, personas e oferta já fornecidas no conte
 
 Crie cada roteiro seguindo a ESTRUTURA DO LABORATÓRIO DE ANÚNCIOS (4 etapas):
 
-## ROTEIRO [N] — Gancho: [Tipo] | [Etapa do Funil]
+## ROTEIRO [N]: Gancho: [Tipo] | [Etapa do Funil]
 
-**⏱ GANCHO (0s – 3s)** — [Tipo de gancho]
-🎬 Visual: [o que aparece na tela]
-🎙️ Fala/Texto: [frase exata — disruptiva, contra-intuitiva, que para o scroll]
+**GANCHO (0s – 3s):** [Tipo de gancho]
+Fala/Texto: [frase exata: disruptiva, contra-intuitiva, que para o scroll]
 
-**🔥 MENSAGEM (3s – 45s)** — [Tipo: StoryTelling/Proclamação/Segredos/Problema-Solução/Promessa/Oferta]
-🎬 Visual: [cena]
-🎙️ Fala: [narração mostrando transformação do Ponto A → Ponto B, com quebra de objeção integrada naturalmente]
+**MENSAGEM (3s – 45s):** [Tipo: StoryTelling/Proclamação/Segredos/Problema-Solução/Promessa/Oferta]
+Fala: [narração mostrando transformação do Ponto A → Ponto B, com quebra de objeção integrada naturalmente]
 
-**📣 CTA FINAL (45s – 60s)**
-🎬 Visual: [encerramento]
-🎙️ Fala: [reforça promessa + gatilho de escassez/urgência + ação clara]
+**CTA FINAL (45s – 60s)**
+Fala: [reforça promessa + gatilho de escassez/urgência + ação clara]
 
 **📝 LEGENDA DO POST:** [legenda com emojis]
 
 ---
 
-Ao final de TODOS os roteiros, crie uma tabela interligando:
-| Tipo de Gancho | Tipo de Mensagem | Quebra de Objeção | CTA Sugerido |
-cobrindo os tipos de gancho selecionados × mensagens de funil.
-
 Tipos de mensagem por funil:
-- TOPO: StoryTelling, Proclamação
-- MEIO: Segredos que ninguém te conta, Problema-Solução
-- FUNDO: Promessa, Oferta
+- TOPO DE FUNIL (Inconsciente do Problema): StoryTelling, Proclamação
+- MEIO DE FUNIL (Consciente do Problema): Segredos que ninguém te conta, Problema-Solução
+- FUNDO DE FUNIL (Consciente do Problema e da Solução): Promessa, Oferta
 
 Regras críticas:
-- O GANCHO deve quebrar o padrão nos PRIMEIROS 3 SEGUNDOS — seja contra-intuitivo
+- O GANCHO deve quebrar o padrão nos PRIMEIROS 3 SEGUNDOS. Seja contra-intuitivo
 - A quebra de objeções deve estar INTEGRADA à mensagem (nunca separada)
 - CTA com gatilho de escassez ou urgência específico
 - Português brasileiro conversacional e energético
+- Não use travessões (—) em nenhuma parte do output
+- Não inclua sugestões de cena ou visual em nenhuma parte do roteiro
+- Não use emojis no roteiro — use emojis apenas na LEGENDA DO POST
 - Separe cada roteiro com "---"`
 
 // ─── Main Component ────────────────────────────────────────────────────────────
@@ -162,7 +173,7 @@ ${typesStr}
 
 Distribua os tipos de gancho entre os roteiros de forma equilibrada. Se houver mais roteiros do que tipos, repita os tipos com variações diferentes.
 
-Use todas as informações do cliente acima para personalizar os roteiros ao máximo. Ao final, crie a tabela do Laboratório de Anúncios interligando ganchos × mensagens.`
+Use todas as informações do cliente acima para personalizar os roteiros ao máximo. Gere APENAS os roteiros — sem tabelas, sem resumos, sem insights ao final.`
     } else {
       return `${customSection}
 ---
@@ -197,18 +208,19 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
         max_tokens: 16000,
         system,
         messages,
-        onChunk:    (text) => setResult(text),
+        onChunk:    (text) => setResult(text.replace(/—/g, '-')),
       })
 
       // ── Save to project history ────────────────────────────────────────────
+      const cleanText = fullText.replace(/—/g, '-')
       const newCreative = {
-        id:           Date.now(),
+        id:           crypto.randomUUID(),
         type:         isVideo ? 'video' : 'estatico',
         adTypes:      [...adTypes],
         adTypeLabels: selectedList.map((t) => t.label),
         quantity,
         customNote:   customNote.trim(),
-        content:      fullText,
+        content:      cleanText,
         rating:       null,
         createdAt:    new Date().toISOString(),
       }
@@ -226,6 +238,8 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
   if (view === 'select') {
     return (
       <div className="space-y-6">
+        <VideoGuide videoId="ZinesF_j2xU" label="Como usar o módulo de Criativos com IA" />
+
         <div>
           <h2 className="text-xl font-bold text-rl-text mb-1">Gerador de Criativos com IA</h2>
           <p className="text-sm text-rl-muted">Selecione o formato para gerar criativos usando os dados do cliente.</p>

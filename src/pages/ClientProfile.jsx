@@ -1,18 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
-import { supabase, getSignedUrl } from '../lib/supabase'
-import { SQUAD_COLORS, BUSINESS_LABELS, CONTRACT_MODEL_LABELS } from '../lib/constants'
+import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
+import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, BUSINESS_LABELS, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, MATURITY_LABELS } from '../lib/constants'
 import { fmtCurrency, initials } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
 import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays, Building2,
-  Globe, Phone, TrendingUp, Star, FileDown,
+  FileText, Globe, Phone, TrendingUp, Star, FileDown,
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
-  Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
-  LayoutDashboard, Check, Instagram, HardDrive,
+  Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
+  LayoutDashboard, Check, Instagram, HardDrive, Kanban,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -23,14 +23,991 @@ import CriativosModule from '../components/CriativosModule'
 import LandingPageModule from '../components/LandingPageModule'
 import ResultadosModule from '../components/ResultadosModule'
 import MetaLabModule from '../components/MetaLabModule'
+import NPSModule from '../components/NPSModule'
 import GoogleAdsModule from '../components/GoogleAdsModule'
 import EstrategiaModule from '../components/EstrategiaModule'
 import EstrategiaV2Module from '../components/EstrategiaV2Module'
 import ProdutoServicoModule from '../components/ProdutoServicoModule'
 import BancoMidiaModule from '../components/BancoMidiaModule'
 import LinksModule from '../components/LinksModule'
-import { exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
-import OnboardingContent from '../components/ClientProfile/OnboardingContent'
+import CRMModule from '../components/CRMModule'
+import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
+
+// ─── Momento ──────────────────────────────────────────────────────────────────
+
+const MOMENTO_CONFIG = [
+  { value: 'onboarding',     label: 'Onboarding',     bg: 'bg-orange-400/10',  border: 'border-orange-400/40',  text: 'text-orange-400',  dot: 'bg-orange-400'  },
+  { value: 'aceleracao',     label: 'Aceleração',     bg: 'bg-rl-green/10',    border: 'border-rl-green/40',    text: 'text-rl-green',    dot: 'bg-rl-green'    },
+  { value: 'voo_de_cruzeiro',label: 'Voo de cruzeiro',bg: 'bg-rl-cyan/10',     border: 'border-rl-cyan/40',     text: 'text-rl-cyan',     dot: 'bg-rl-cyan'     },
+  { value: 'churn',          label: 'Churn',          bg: 'bg-red-700/10',     border: 'border-red-700/40',     text: 'text-red-600',     dot: 'bg-red-600'     },
+]
+
+// ─── Risk levels ──────────────────────────────────────────────────────────────
+
+const RISK_CONFIG = [
+  { value: 'em_risco', label: 'Em Risco',  bg: 'bg-red-400/10',    border: 'border-red-400/40',    text: 'text-red-400',    dot: 'bg-red-400'    },
+  { value: 'neutro',   label: 'Neutro',    bg: 'bg-rl-gold/10',    border: 'border-rl-gold/40',    text: 'text-rl-gold',    dot: 'bg-rl-gold'    },
+  { value: 'saudavel', label: 'Saudável',  bg: 'bg-rl-green/10',   border: 'border-rl-green/40',   text: 'text-rl-green',   dot: 'bg-rl-green'   },
+]
+
+// ─── Service detail labels (for display in OnboardingContent) ─────────────────
+
+const CONTRACT_MODEL_LABELS = {
+  aceleracao: '🚀 Programa de Aceleração',
+  assessoria: '📅 Assessoria Mensal',
+}
+
+const CONTRACT_PAYMENT_LABELS = {
+  unico:  'Valor Único',
+  mensal: 'Parcelado (Mensal)',
+}
+
+// ─── Onboarding Edit Form ─────────────────────────────────────────────────────
+function OnboardingEditForm({ project, onSave, onCancel }) {
+  // Map stored service labels → IDs for the checkboxes
+  const initialServiceIds = (project.services || [])
+    .map((label) => SERVICES_CONFIG.find((s) => s.label === label)?.id)
+    .filter(Boolean)
+
+  const [form, setForm] = useState({
+    businessType:        project.businessType        || '',
+    companyName:         project.companyName         || '',
+    segmento:            project.segmento            || '',
+    cnpj:                project.cnpj                || '',
+    responsibleName:     project.responsibleName     || '',
+    responsibleRole:     project.responsibleRole     || '',
+    services:            initialServiceIds,
+    servicesData:        project.servicesData        || {},
+    contractModel:       project.contractModel       || '',
+    contractPaymentType: project.contractPaymentType || '',
+    contractValue:       project.contractValue       ?? '',
+    contractDate:        project.contractDate        || '',
+    competitors:         project.competitors?.length ? [...project.competitors] : [''],
+    hasSalesTeam:        project.hasSalesTeam        ?? null,
+    digitalMaturity:     project.digitalMaturity     || '',
+    otherPeople:         project.otherPeople?.length ? [...project.otherPeople] : [],
+    upsellPotential:     project.upsellPotential     ?? null,
+    upsellNotes:         project.upsellNotes         || '',
+  })
+
+  const set = (field, value) => setForm((f) => ({ ...f, [field]: value }))
+
+  // ── File state ──────────────────────────────────────────────────────────────
+  const raioXInputRef = useRef(null)
+  const slaInputRef   = useRef(null)
+  const [raioXNewFile,   setRaioXNewFile]   = useState(null)   // File para upload
+  const [slaNewFile,     setSlaNewFile]     = useState(null)
+  const [raioXRemoved,   setRaioXRemoved]   = useState(false)  // remover existente
+  const [slaRemoved,     setSlaRemoved]     = useState(false)
+  const [savingFiles,    setSavingFiles]    = useState(false)
+  const [signedUrls,     setSignedUrls]     = useState({ raioX: null, sla: null })
+
+  useEffect(() => {
+    async function loadUrls() {
+      const [raioX, sla] = await Promise.all([
+        project.raioXFileName ? getSignedUrl('project-docs', project.raioXFileName) : null,
+        project.slaFileName   ? getSignedUrl('project-docs', project.slaFileName)   : null,
+      ])
+      setSignedUrls({ raioX, sla })
+    }
+    if (project.raioXFileName || project.slaFileName) loadUrls()
+  }, [project.raioXFileName, project.slaFileName])
+
+  const currentRaioX = raioXRemoved ? null : (raioXNewFile ? raioXNewFile.name : project.raioXFileName?.split('/').pop())
+  const currentSla   = slaRemoved   ? null : (slaNewFile   ? slaNewFile.name   : project.slaFileName?.split('/').pop())
+
+  function toggleService(id) {
+    set('services', form.services.includes(id)
+      ? form.services.filter((s) => s !== id)
+      : [...form.services, id]
+    )
+  }
+
+  async function handleSave() {
+    setSavingFiles(true)
+    const serviceLabels = form.services.map((id) => SERVICES_CONFIG.find((s) => s.id === id)?.label || id)
+
+    async function uploadDoc(file, prefix) {
+      if (!file || !supabase) return null
+      const ext  = file.name.split('.').pop()
+      const path = `${project.id}/${prefix}.${ext}`
+      const { error } = await supabase.storage.from('project-docs').upload(path, file, { upsert: true })
+      if (error) { console.error('[Storage] upload:', error.message); return null }
+      return path
+    }
+
+    // Raio-X
+    let raioXPath = project.raioXFileName ?? null
+    if (raioXRemoved) {
+      if (project.raioXFileName) await deleteFile('project-docs', project.raioXFileName)
+      raioXPath = null
+    } else if (raioXNewFile) {
+      if (project.raioXFileName) await deleteFile('project-docs', project.raioXFileName)
+      raioXPath = await uploadDoc(raioXNewFile, 'raio-x')
+    }
+
+    // SLA
+    let slaPath = project.slaFileName ?? null
+    if (slaRemoved) {
+      if (project.slaFileName) await deleteFile('project-docs', project.slaFileName)
+      slaPath = null
+    } else if (slaNewFile) {
+      if (project.slaFileName) await deleteFile('project-docs', project.slaFileName)
+      slaPath = await uploadDoc(slaNewFile, 'sla')
+    }
+
+    setSavingFiles(false)
+    onSave({
+      businessType:        form.businessType,
+      companyName:         form.companyName,
+      segmento:            form.segmento,
+      cnpj:                form.cnpj,
+      responsibleName:     form.responsibleName,
+      responsibleRole:     form.responsibleRole,
+      services:            serviceLabels,
+      servicesData:        form.servicesData,
+      contractModel:       form.contractModel,
+      contractPaymentType: form.contractPaymentType,
+      contractValue:       Number(form.contractValue) || null,
+      contractDate:        form.contractDate,
+      competitors:         form.competitors.filter(Boolean),
+      hasSalesTeam:        form.hasSalesTeam,
+      digitalMaturity:     form.digitalMaturity,
+      otherPeople:         form.otherPeople.filter((p) => p.name),
+      upsellPotential:     form.upsellPotential,
+      upsellNotes:         form.upsellNotes,
+      raio_x_file_url:     raioXPath,
+      sla_file_url:        slaPath,
+    })
+  }
+
+  const yesNoBtn = (field, val) => (
+    <button
+      onClick={() => set(field, val)}
+      className={`flex-1 py-2 rounded-xl border text-sm font-medium transition-all ${
+        form[field] === val
+          ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
+          : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30'
+      }`}
+    >
+      {val ? '✅ Sim' : '❌ Não'}
+    </button>
+  )
+
+  return (
+    <div className="space-y-8">
+
+      {/* Top action bar */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-rl-muted">Edite os dados do onboarding abaixo</p>
+        <div className="flex gap-2">
+          <button onClick={onCancel} className="btn-ghost text-sm">Cancelar</button>
+          <button onClick={handleSave} className="btn-primary flex items-center gap-2 text-sm">
+            <CheckCircle2 className="w-4 h-4" />
+            Salvar Alterações
+          </button>
+        </div>
+      </div>
+
+      {/* 🏢 Empresa */}
+      <div className="space-y-4">
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">🏢 Empresa</p>
+
+        {/* Business type */}
+        <div>
+          <label className="label-field">Tipo de Negócio</label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {EDIT_BUSINESS_TYPES.map((bt) => (
+              <button
+                key={bt.value}
+                onClick={() => set('businessType', bt.value)}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-center transition-all ${
+                  form.businessType === bt.value
+                    ? 'bg-gradient-rl border-transparent text-white shadow-glow'
+                    : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-text'
+                }`}
+              >
+                <span className="text-xl">{bt.icon}</span>
+                <span className="text-xs font-semibold">{bt.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Company fields */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label-field">Nome da Empresa</label>
+            <input value={form.companyName} onChange={(e) => set('companyName', e.target.value)} className="input-field" />
+          </div>
+          <div>
+            <label className="label-field">CNPJ</label>
+            <input value={form.cnpj} onChange={(e) => set('cnpj', e.target.value)} placeholder="00.000.000/0000-00" className="input-field" />
+          </div>
+          <div>
+            <label className="label-field">Responsável</label>
+            <input value={form.responsibleName} onChange={(e) => set('responsibleName', e.target.value)} className="input-field" />
+          </div>
+          <div>
+            <label className="label-field">Cargo</label>
+            <input value={form.responsibleRole} onChange={(e) => set('responsibleRole', e.target.value)} className="input-field" />
+          </div>
+        </div>
+
+        {/* Segmento */}
+        <div>
+          <label className="label-field">Segmento</label>
+          <input
+            value={form.segmento}
+            onChange={(e) => set('segmento', e.target.value)}
+            placeholder="Ex: Beleza e Estética..."
+            className="input-field mb-2"
+          />
+          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+            {SEGMENTOS.map((s) => (
+              <button
+                key={s}
+                onClick={() => set('segmento', s)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap transition-all ${
+                  form.segmento === s
+                    ? 'bg-rl-purple/20 border-rl-purple/60 text-rl-purple'
+                    : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30 hover:text-rl-text'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ⚙️ Serviços */}
+      <div className="space-y-3">
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">⚙️ Serviços Contratados</p>
+        <div className="flex flex-wrap gap-2">
+          {SERVICES_CONFIG.map((svc) => (
+            <button
+              key={svc.id}
+              onClick={() => toggleService(svc.id)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
+                form.services.includes(svc.id)
+                  ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
+                  : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30 hover:text-rl-text'
+              }`}
+            >
+              <span>{svc.emoji}</span>
+              {svc.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 📋 Contrato */}
+      <div className="space-y-4">
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">📋 Contrato</p>
+
+        {/* Modelo */}
+        <div>
+          <label className="label-field">Modelo de Contratação</label>
+          <div className="flex gap-3">
+            {[
+              { value: 'aceleracao', label: '🚀 Programa de Aceleração' },
+              { value: 'assessoria', label: '📅 Assessoria Mensal' },
+            ].map((m) => (
+              <button
+                key={m.value}
+                onClick={() => set('contractModel', m.value)}
+                className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                  form.contractModel === m.value
+                    ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
+                    : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tipo pagamento (aceleração only) */}
+        {form.contractModel === 'aceleracao' && (
+          <div>
+            <label className="label-field">Tipo de Pagamento</label>
+            <div className="flex gap-3">
+              {[
+                { value: 'unico',  label: 'Valor Único' },
+                { value: 'mensal', label: 'Parcelado (Mensal)' },
+              ].map((pt) => (
+                <button
+                  key={pt.value}
+                  onClick={() => set('contractPaymentType', pt.value)}
+                  className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                    form.contractPaymentType === pt.value
+                      ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
+                      : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30'
+                  }`}
+                >
+                  {pt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Valor + Data */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label-field">
+              {form.contractModel === 'aceleracao' ? 'Valor do Contrato (R$)' : 'Valor Mensal (R$)'}
+            </label>
+            <input
+              type="number" min="0"
+              value={form.contractValue}
+              onChange={(e) => set('contractValue', e.target.value)}
+              placeholder="0"
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="label-field">Data de Assinatura</label>
+            <input
+              type="date"
+              value={form.contractDate}
+              onChange={(e) => set('contractDate', e.target.value)}
+              className="input-field"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ⚔️ Concorrentes */}
+      <div className="space-y-3">
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">⚔️ Concorrentes</p>
+        <div className="space-y-2">
+          {form.competitors.map((c, i) => (
+            <div key={i} className="flex gap-2">
+              <input
+                value={c}
+                onChange={(e) => {
+                  const n = [...form.competitors]; n[i] = e.target.value; set('competitors', n)
+                }}
+                placeholder="Nome do concorrente"
+                className="input-field flex-1"
+              />
+              <button
+                onClick={() => set('competitors', form.competitors.filter((_, idx) => idx !== i))}
+                className="p-2.5 rounded-xl text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={() => set('competitors', [...form.competitors, ''])}
+            className="flex items-center gap-2 text-sm text-rl-purple hover:text-rl-purple/80 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Adicionar concorrente
+          </button>
+        </div>
+      </div>
+
+      {/* 👥 Equipe & Potencial */}
+      <div className="space-y-4">
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">👥 Equipe & Potencial</p>
+
+        {/* Time de vendas */}
+        <div>
+          <label className="label-field">Time de Vendas Interno</label>
+          <div className="flex gap-3">{yesNoBtn('hasSalesTeam', true)}{yesNoBtn('hasSalesTeam', false)}</div>
+        </div>
+
+        {/* Maturidade digital */}
+        <div>
+          <label className="label-field">Maturidade Digital</label>
+          <div className="flex flex-wrap gap-2">
+            {EDIT_MATURITY_OPTIONS.map((m) => (
+              <button
+                key={m.value}
+                onClick={() => set('digitalMaturity', m.value)}
+                className={`px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
+                  form.digitalMaturity === m.value
+                    ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
+                    : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Potencial de upsell */}
+        <div>
+          <label className="label-field">Potencial de Upsell</label>
+          <div className="flex gap-3">{yesNoBtn('upsellPotential', true)}{yesNoBtn('upsellPotential', false)}</div>
+        </div>
+
+        {form.upsellPotential === true && (
+          <div>
+            <label className="label-field">Obs. sobre Upsell</label>
+            <textarea
+              value={form.upsellNotes}
+              onChange={(e) => set('upsellNotes', e.target.value)}
+              rows={2}
+              className="input-field resize-none text-sm"
+              placeholder="Descreva o potencial de upsell..."
+            />
+          </div>
+        )}
+
+        {/* Outras pessoas */}
+        <div>
+          <label className="label-field">Outras Pessoas Envolvidas</label>
+          <div className="space-y-2">
+            {form.otherPeople.map((person, i) => (
+              <div key={i} className="flex gap-2">
+                <input
+                  value={person.name}
+                  onChange={(e) => {
+                    const n = [...form.otherPeople]; n[i] = { ...n[i], name: e.target.value }; set('otherPeople', n)
+                  }}
+                  placeholder="Nome"
+                  className="input-field flex-1"
+                />
+                <input
+                  value={person.role || ''}
+                  onChange={(e) => {
+                    const n = [...form.otherPeople]; n[i] = { ...n[i], role: e.target.value }; set('otherPeople', n)
+                  }}
+                  placeholder="Cargo"
+                  className="input-field flex-1"
+                />
+                <button
+                  onClick={() => set('otherPeople', form.otherPeople.filter((_, idx) => idx !== i))}
+                  className="p-2.5 rounded-xl text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => set('otherPeople', [...form.otherPeople, { name: '', role: '' }])}
+              className="flex items-center gap-2 text-sm text-rl-purple hover:text-rl-purple/80 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Adicionar pessoa
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 📁 Documentos */}
+      <div className="space-y-3">
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">📁 Documentos</p>
+
+        {/* Raio-X */}
+        <div className="flex items-center gap-3 bg-rl-surface border border-rl-border rounded-xl px-4 py-3">
+          <FileText className="w-4 h-4 text-rl-purple shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-rl-muted">Raio-X do Cliente</p>
+            <p className={`text-xs truncate ${currentRaioX ? 'text-rl-text' : 'text-rl-muted italic'}`}>
+              {currentRaioX || 'Nenhum arquivo'}
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            {signedUrls.raioX && !raioXRemoved && !raioXNewFile && (
+              <a href={signedUrls.raioX} target="_blank" rel="noopener noreferrer"
+                className="text-[11px] font-medium text-rl-purple hover:underline">
+                Abrir
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => raioXInputRef.current?.click()}
+              className="text-[11px] font-medium text-rl-purple hover:text-rl-purple/80 transition-colors"
+            >
+              {currentRaioX ? 'Alterar' : 'Anexar'}
+            </button>
+            {currentRaioX && (
+              <button
+                type="button"
+                onClick={() => { setRaioXRemoved(true); setRaioXNewFile(null) }}
+                className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
+              >
+                Remover
+              </button>
+            )}
+          </div>
+          <input
+            ref={raioXInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files[0]; if (f) { setRaioXNewFile(f); setRaioXRemoved(false) } }}
+          />
+        </div>
+
+        {/* SLA */}
+        <div className="flex items-center gap-3 bg-rl-surface border border-rl-border rounded-xl px-4 py-3">
+          <FileText className="w-4 h-4 text-rl-cyan shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-rl-muted">SLA — Passagem de Bastão</p>
+            <p className={`text-xs truncate ${currentSla ? 'text-rl-text' : 'text-rl-muted italic'}`}>
+              {currentSla || 'Nenhum arquivo'}
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            {signedUrls.sla && !slaRemoved && !slaNewFile && (
+              <a href={signedUrls.sla} target="_blank" rel="noopener noreferrer"
+                className="text-[11px] font-medium text-rl-cyan hover:underline">
+                Abrir
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => slaInputRef.current?.click()}
+              className="text-[11px] font-medium text-rl-cyan hover:text-rl-cyan/80 transition-colors"
+            >
+              {currentSla ? 'Alterar' : 'Anexar'}
+            </button>
+            {currentSla && (
+              <button
+                type="button"
+                onClick={() => { setSlaRemoved(true); setSlaNewFile(null) }}
+                className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
+              >
+                Remover
+              </button>
+            )}
+          </div>
+          <input
+            ref={slaInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files[0]; if (f) { setSlaNewFile(f); setSlaRemoved(false) } }}
+          />
+        </div>
+      </div>
+
+      {/* Bottom action bar */}
+      <div className="flex justify-end gap-3 pt-4 border-t border-rl-border">
+        <button onClick={onCancel} className="btn-ghost text-sm" disabled={savingFiles}>Cancelar</button>
+        <button onClick={handleSave} className="btn-primary flex items-center gap-2" disabled={savingFiles}>
+          <CheckCircle2 className="w-4 h-4" />
+          {savingFiles ? 'Salvando...' : 'Salvar Alterações'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Onboarding modal content ─────────────────────────────────────────────────
+function OnboardingContent({ project, onSave, showToast }) {
+  const { updateProject } = useApp()
+  const [isEditing, setIsEditing] = useState(false)
+  const [editingServices,  setEditingServices]  = useState(false)
+  const [editServicesData, setEditServicesData] = useState({})
+  const [clientLinkCopied, setClientLinkCopied] = useState(false)
+
+  function handleClientLink() {
+    let token = project.clientShareToken
+    if (!token) {
+      token = crypto.randomUUID()
+      updateProject(project.id, { clientShareToken: token })
+    }
+    const url = `${window.location.origin}/client/${token}`
+    navigator.clipboard.writeText(url)
+    setClientLinkCopied(true)
+    setTimeout(() => setClientLinkCopied(false), 2500)
+  }
+
+  if (isEditing) {
+    return (
+      <OnboardingEditForm
+        project={project}
+        onSave={(data) => { onSave(data); setIsEditing(false) }}
+        onCancel={() => setIsEditing(false)}
+      />
+    )
+  }
+
+  function Field({ label, value }) {
+    if (!value) return null
+    return (
+      <div className="rounded-xl bg-rl-surface p-3">
+        <p className="text-[11px] text-rl-muted mb-0.5">{label}</p>
+        <p className="text-sm text-rl-text font-medium">{value}</p>
+      </div>
+    )
+  }
+
+  const competitors = (project.competitors || []).filter(Boolean)
+  const otherPeople = (project.otherPeople || []).filter((p) => p.name)
+
+
+  return (
+    <div className="space-y-6">
+      {/* Actions */}
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setIsEditing(true)}
+          className="btn-ghost flex items-center gap-2 text-sm"
+        >
+          <Pencil className="w-4 h-4" />
+          Editar Dados
+        </button>
+        <button
+          onClick={handleClientLink}
+          className="btn-ghost flex items-center gap-2 text-sm"
+          title="Copiar link do cliente"
+        >
+          {clientLinkCopied ? <Check className="w-4 h-4 text-green-400" /> : <Link2 className="w-4 h-4" />}
+          {clientLinkCopied ? 'Link copiado!' : 'Link do Cliente'}
+        </button>
+        <button
+          onClick={() => exportOnboardingPDF(project)}
+          className="btn-secondary flex items-center gap-2 text-sm"
+          title="Exportar PDF"
+        >
+          <FileDown className="w-4 h-4" />
+          Exportar PDF
+        </button>
+      </div>
+
+      {/* Empresa */}
+      <div>
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">🏢 Empresa</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <Field label="Tipo de Negócio"  value={BUSINESS_LABELS[project.businessType] || project.businessType} />
+          <Field label="Segmento"         value={project.segmento} />
+          <Field label="CNPJ"             value={project.cnpj} />
+          <Field label="Responsável"      value={project.responsibleName} />
+          <Field label="Cargo"            value={project.responsibleRole} />
+          <Field label="Data do Contrato" value={project.contractDate
+            ? new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')
+            : null} />
+        </div>
+      </div>
+
+      {/* Modelo de Contrato */}
+      {(project.contractModel || project.contractValue) && (
+        <div>
+          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📋 Modelo de Contrato</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <Field label="Modelo"           value={CONTRACT_MODEL_LABELS[project.contractModel]} />
+            {project.contractModel === 'aceleracao' && (
+              <Field label="Tipo de Pagamento" value={CONTRACT_PAYMENT_LABELS[project.contractPaymentType]} />
+            )}
+            <Field
+              label={project.contractModel === 'aceleracao' ? 'Valor do Contrato' : 'Valor Mensal'}
+              value={project.contractValue ? fmtCurrency(project.contractValue) : null}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Produto (backward compat — only show if exists) */}
+      {project.productDescription && (
+        <div>
+          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">🛍️ Produto / Serviço</p>
+          <div className="rounded-xl bg-rl-surface p-4">
+            <p className="text-sm text-rl-text leading-relaxed">{project.productDescription}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Serviços contratados */}
+      {(project.services?.length > 0 || Object.keys(project.servicesData || {}).length > 0) && (
+        <div>
+          {project.services?.length > 0 && (
+            <>
+              <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">⚙️ Serviços Contratados</p>
+
+              {/* Service chips */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {project.services.map((s) => (
+                  <span key={s} className="px-3 py-1.5 rounded-full text-xs font-medium bg-rl-purple/10 text-rl-purple border border-rl-purple/20">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Deliverable cards — per service with sub-fields */}
+          {(() => {
+            const DELIVERABLE_META = {
+              imagemQty:    { label: 'Imagens',   icon: '📸', color: 'text-rl-gold   bg-rl-gold/10   border-rl-gold/20' },
+              videoQty:     { label: 'Vídeos',    icon: '🎬', color: 'text-rl-purple bg-rl-purple/10 border-rl-purple/20' },
+              estaticosQty: { label: 'Estáticos', icon: '🖼️', color: 'text-rl-blue  bg-rl-blue/10   border-rl-blue/20' },
+              qty:          { label: 'Páginas',   icon: '📄', color: 'text-rl-cyan  bg-rl-cyan/10   border-rl-cyan/20' },
+              nivel:        { label: 'Nível',     icon: '⭐', color: 'text-rl-gold   bg-rl-gold/10   border-rl-gold/20' },
+              carrosselQty: { label: 'Carrossel', icon: '🎠', color: 'text-rl-cyan   bg-rl-cyan/10   border-rl-cyan/20' },
+              reelsQty:     { label: 'Reels',     icon: '🎥', color: 'text-rl-purple bg-rl-purple/10 border-rl-purple/20' },
+              estaticaQty:  { label: 'Estática',  icon: '🖼️', color: 'text-rl-blue  bg-rl-blue/10   border-rl-blue/20' },
+              storiesQty:   { label: 'Stories',   icon: '📲', color: 'text-rl-gold  bg-rl-gold/10   border-rl-gold/20' },
+              storiesFreq:  { label: 'Freq. Stories', icon: '🔁', color: 'text-rl-cyan bg-rl-cyan/10 border-rl-cyan/20' },
+            }
+
+            // Serviços contratados que têm sub-campos editáveis
+            // inclui serviços presentes em services (labels) OU já com dados em servicesData (IDs)
+            const editableServices = SERVICES_CONFIG.filter(
+              (s) => s.sub && (
+                (project.services || []).includes(s.label) ||
+                project.servicesData?.[s.id] !== undefined
+              )
+            )
+
+            // Linhas para o modo de visualização (somente valores não-zero)
+            const serviceRows = Object.entries(project.servicesData || {}).reduce((acc, [svcId, data]) => {
+              if (!data) return acc
+              const svcConfig = SERVICES_CONFIG.find((s) => s.id === svcId)
+              if (!svcConfig?.sub) return acc
+              const items = svcConfig.sub
+                .map(({ key }) => ({ key, value: data[key] }))
+                .filter(({ value }) => value !== '' && value != null && value !== '0' && value !== 0)
+              if (items.length) acc.push({ svcConfig, items })
+              return acc
+            }, [])
+
+            if (!editableServices.length && !serviceRows.length) return null
+
+            return (
+              <div className="mt-1 space-y-3">
+
+                {/* Header com botão Editar / Salvar */}
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider">📦 Entregáveis por Serviço</p>
+                  {!editingServices ? (
+                    <button
+                      onClick={() => {
+                        setEditServicesData(JSON.parse(JSON.stringify(project.servicesData || {})))
+                        setEditingServices(true)
+                      }}
+                      className="flex items-center gap-1 text-[11px] text-rl-muted hover:text-rl-purple transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      Editar
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => {
+                          updateProject(project.id, { servicesData: editServicesData })
+                          setEditingServices(false)
+                          showToast('Entregáveis atualizados!')
+                        }}
+                        className="flex items-center gap-1 text-[11px] text-rl-green font-semibold hover:text-rl-green/80 transition-colors"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Salvar
+                      </button>
+                      <button
+                        onClick={() => setEditingServices(false)}
+                        className="text-[11px] text-rl-muted hover:text-rl-text transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {editingServices ? (
+                  // ── Modo edição ──────────────────────────────────────────
+                  <div className="space-y-3">
+                    {editableServices.map((svcConfig) => (
+                      <div key={svcConfig.id} className="rounded-xl border border-rl-purple/20 bg-rl-purple/5 px-3 py-3">
+                        <p className="text-xs font-semibold text-rl-text mb-2.5">
+                          {svcConfig.emoji} {svcConfig.label}
+                        </p>
+                        <div className="flex flex-wrap gap-3">
+                          {svcConfig.sub.map(({ key, label, type, options, placeholder }) => (
+                            <div key={key} className="flex flex-col gap-1">
+                              <span className="text-[10px] text-rl-muted font-medium">{label}</span>
+                              {type === 'select' ? (
+                                <select
+                                  value={editServicesData[svcConfig.id]?.[key] || ''}
+                                  onChange={(e) => setEditServicesData((prev) => ({
+                                    ...prev,
+                                    [svcConfig.id]: { ...(prev[svcConfig.id] || {}), [key]: e.target.value },
+                                  }))}
+                                  className="input-field text-sm h-8 px-2 w-28"
+                                >
+                                  <option value="">—</option>
+                                  {options.map((o) => <option key={o} value={o}>{o}</option>)}
+                                </select>
+                              ) : (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={editServicesData[svcConfig.id]?.[key] || ''}
+                                  onChange={(e) => setEditServicesData((prev) => ({
+                                    ...prev,
+                                    [svcConfig.id]: { ...(prev[svcConfig.id] || {}), [key]: e.target.value },
+                                  }))}
+                                  placeholder={placeholder || '0'}
+                                  className="input-field text-sm h-8 px-2 w-20 text-center"
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  // ── Modo visualização ────────────────────────────────────
+                  serviceRows.length > 0 ? (
+                    serviceRows.map(({ svcConfig, items }) => (
+                      <div key={svcConfig.id} className="rounded-xl border border-rl-border bg-rl-surface/50 px-3 py-3">
+                        <p className="text-xs font-semibold text-rl-text mb-2">
+                          {svcConfig.emoji} {svcConfig.label}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {items.map(({ key, value }) => {
+                            const meta = DELIVERABLE_META[key]
+                            if (!meta) return null
+                            const isText = isNaN(Number(value))
+                            return (
+                              <div key={key} className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${meta.color}`}>
+                                <span className="text-base leading-none">{meta.icon}</span>
+                                <div className="leading-tight">
+                                  {isText
+                                    ? <p className="text-xs font-bold">{value}</p>
+                                    : <p className="text-xl font-extrabold leading-none">{value}</p>
+                                  }
+                                  <p className="text-[10px] opacity-60">{meta.label}</p>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-rl-muted italic">Nenhum entregável configurado. Clique em Editar para definir.</p>
+                  )
+                )}
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
+      {/* Público-alvo (backward compat) */}
+      {project.targetAudience && (
+        <div>
+          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">🎯 Público-Alvo</p>
+          <div className="rounded-xl bg-rl-surface p-4">
+            <p className="text-sm text-rl-text leading-relaxed">{project.targetAudience}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Equipe */}
+      <div>
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">👥 Equipe & Maturidade</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <Field label="Time de Vendas"      value={project.hasSalesTeam === true ? 'Sim' : project.hasSalesTeam === false ? 'Não' : null} />
+          <Field label="Maturidade Digital"  value={MATURITY_LABELS[project.digitalMaturity]} />
+          <Field label="Potencial de Upsell" value={project.upsellPotential === true ? 'Sim' : project.upsellPotential === false ? 'Não' : null} />
+        </div>
+        {project.upsellNotes && (
+          <div className="mt-3 rounded-xl bg-rl-surface p-4">
+            <p className="text-[11px] text-rl-muted mb-1">Obs. Upsell</p>
+            <p className="text-sm text-rl-text">{project.upsellNotes}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Outras pessoas */}
+      {otherPeople.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">👤 Outras Pessoas Envolvidas</p>
+          <div className="flex flex-wrap gap-2">
+            {otherPeople.map((p, i) => (
+              <span key={i} className="px-3 py-1.5 rounded-full text-xs bg-rl-surface text-rl-text border border-rl-border">
+                {p.name}{p.role ? ` · ${p.role}` : ''}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Concorrentes */}
+      {competitors.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">⚔️ Concorrentes</p>
+          <div className="flex flex-wrap gap-2">
+            {competitors.map((c, i) => (
+              <span key={i} className="px-3 py-1.5 rounded-full text-xs bg-rl-surface text-rl-muted border border-rl-border font-mono">
+                {c}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Arquivos */}
+      <ProjectDocs project={project} />
+    </div>
+  )
+}
+
+// ─── Project Docs ─────────────────────────────────────────────────────────────
+function ProjectDocs({ project }) {
+  const [urls, setUrls] = useState({ raioX: null, sla: null })
+
+  useEffect(() => {
+    async function loadUrls() {
+      const [raioX, sla] = await Promise.all([
+        project.raioXFileName ? getSignedUrl('project-docs', project.raioXFileName) : null,
+        project.slaFileName   ? getSignedUrl('project-docs', project.slaFileName)   : null,
+      ])
+      setUrls({ raioX, sla })
+    }
+    if (project.raioXFileName || project.slaFileName) loadUrls()
+  }, [project.raioXFileName, project.slaFileName])
+
+  if (!project.raioXFileName && !project.slaFileName) return null
+
+  function DocChip({ label, path, url, color }) {
+    const filename = path?.split('/').pop() ?? label
+    return (
+      <div className="flex items-center gap-2 bg-rl-surface border border-rl-border rounded-xl px-4 py-2.5">
+        <FileText className={`w-4 h-4 ${color}`} />
+        <div className="mr-2">
+          <p className="text-[10px] text-rl-muted">{label}</p>
+          <p className="text-xs text-rl-text">{filename}</p>
+        </div>
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto text-[10px] font-medium text-rl-purple hover:underline whitespace-nowrap"
+          >
+            Abrir
+          </a>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📁 Documentos</p>
+      <div className="flex flex-wrap gap-3">
+        {project.raioXFileName && (
+          <DocChip label="Raio-X" path={project.raioXFileName} url={urls.raioX} color="text-rl-purple" />
+        )}
+        {project.slaFileName && (
+          <DocChip label="SLA" path={project.slaFileName} url={urls.sla} color="text-rl-cyan" />
+        )}
+      </div>
+    </div>
+  )
+}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ClientProfile({ project: projectProp }) {
@@ -44,6 +1021,10 @@ export default function ClientProfile({ project: projectProp }) {
   const [logoSignedUrl, setLogoSignedUrl] = useState(null)
   const [squadOpen, setSquadOpen] = useState(false)
   const squadRef = useRef(null)
+  const [riskOpen, setRiskOpen] = useState(false)
+  const riskRef = useRef(null)
+  const [momentoOpen, setMomentoOpen] = useState(false)
+  const momentoRef = useRef(null)
   const [linkStep,         setLinkStep]         = useState('idle') // 'idle' | 'dropdown' | 'input'
   const [linkPickedType,   setLinkPickedType]   = useState(null)
   const [linkInput,        setLinkInput]        = useState('')
@@ -51,10 +1032,6 @@ export default function ClientProfile({ project: projectProp }) {
   const linkRef = useRef(null)
   const [overflowOpen, setOverflowOpen] = useState(false)
   const overflowRef = useRef(null)
-  const [overflowFrom, setOverflowFrom] = useState(Infinity)
-  const pillsRowRef = useRef(null)
-  const allLinksCountRef = useRef(0)
-  const prevContainerWidthRef = useRef(0)
   const [squadTooltipPos, setSquadTooltipPos] = useState(null)
   const squadBadgeRef = useRef(null)
   const { toast, showToast } = useToast()
@@ -72,6 +1049,24 @@ export default function ClientProfile({ project: projectProp }) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [squadOpen])
+
+  useEffect(() => {
+    if (!riskOpen) return
+    function handleClickOutside(e) {
+      if (riskRef.current && !riskRef.current.contains(e.target)) setRiskOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [riskOpen])
+
+  useEffect(() => {
+    if (!momentoOpen) return
+    function handleClickOutside(e) {
+      if (momentoRef.current && !momentoRef.current.contains(e.target)) setMomentoOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [momentoOpen])
 
   useEffect(() => {
     if (linkStep === 'idle') return
@@ -92,40 +1087,6 @@ export default function ClientProfile({ project: projectProp }) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [overflowOpen])
-
-  // ResizeObserver: detecta overflow e re-exibe pills quando o container cresce
-  useEffect(() => {
-    const row = pillsRowRef.current
-    if (!row) return
-    function recalc() {
-      if (!pillsRowRef.current) return
-      const rowRect = pillsRowRef.current.getBoundingClientRect()
-      const containerWidth = rowRect.width
-      const children = Array.from(pillsRowRef.current.children)
-      let cutoff = children.length
-      for (let i = 0; i < children.length; i++) {
-        if (children[i].getBoundingClientRect().right > rowRect.right + 1) { cutoff = i; break }
-      }
-      const prevWidth = prevContainerWidthRef.current
-      prevContainerWidthRef.current = containerWidth
-      // Container cresceu + todas as pills atuais cabem + há pills no overflow → tenta mostrar tudo
-      if (cutoff === children.length && children.length < allLinksCountRef.current && containerWidth > prevWidth + 1) {
-        setOverflowFrom(Infinity)
-      } else {
-        setOverflowFrom(cutoff)
-      }
-    }
-    const ro = new ResizeObserver(recalc)
-    ro.observe(row)
-    requestAnimationFrame(recalc)
-    return () => ro.disconnect()
-  }, [])
-
-  // Links mudaram: reseta para re-medir com todos os pills
-  useEffect(() => {
-    prevContainerWidthRef.current = 0
-    setOverflowFrom(Infinity)
-  }, [project.links, project.dashboardUrl])
 
   async function handleLogoUpload(e) {
     const file = e.target.files[0]
@@ -183,10 +1144,10 @@ export default function ClientProfile({ project: projectProp }) {
 
   const NAV_ITEMS = [
     { id: 'dados',        label: 'Dados do Cliente',        icon: ClipboardList,  color: 'text-rl-cyan',   filled: true },
-    { id: 'roi',          label: 'Calculadora de ROI',       icon: BarChart3,      color: 'text-rl-purple', filled: hasROI },
-    { id: 'icp',          label: 'Personas',                 icon: Users,          color: 'text-rl-blue',   filled: hasPersonas },
     { id: 'produtos',     label: 'Produto / Serviço',        icon: Package,        color: 'text-rl-gold',   filled: hasProdutos },
+    { id: 'icp',          label: 'Personas',                 icon: Users,          color: 'text-rl-blue',   filled: hasPersonas },
     { id: 'oferta',       label: 'Oferta Matadora',          icon: Zap,            color: 'text-rl-gold',   filled: hasOferta },
+    { id: 'roi',          label: 'Calculadora de ROI',       icon: BarChart3,      color: 'text-rl-purple', filled: hasROI },
     { id: 'campaign',     label: 'Campanhas',                icon: CalendarDays,   color: 'text-rl-green',  filled: hasCampaignPlan },
     { id: 'anexos',       label: 'Anexos',                   icon: Paperclip,      color: 'text-rl-gold',   filled: hasAnexos },
     { id: 'criativos',    label: 'Criativos com IA',         icon: Clapperboard,   color: 'text-rl-cyan',   filled: false },
@@ -198,11 +1159,13 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'estrategia',   label: 'Estratégia Digital',       icon: Layers,         color: 'text-rl-purple', filled: hasEstrategia },
     { id: 'estrategiav2', label: 'Análise Competitiva',      icon: Map,            color: 'text-rl-blue',   filled: hasEstrategiaV2 },
     { id: 'links',        label: 'Links Importantes',        icon: Link2,          color: 'text-rl-cyan',   filled: hasLinks },
+    { id: 'nps',          label: 'NPS',                       icon: Star,           color: 'text-rl-gold',   filled: !!(project.nps && Object.values(project.nps).some(Boolean)) },
+    { id: 'crm',          label: 'CRM',                       icon: Kanban,         color: 'text-rl-cyan',   filled: !!(project.crmData?.contacts?.length) },
   ]
 
   function renderContent() {
     switch (activeSection) {
-      case 'dados':        return <OnboardingContent project={project} onSave={handleSaveOnboarding} />
+      case 'dados':        return <OnboardingContent project={project} onSave={handleSaveOnboarding} showToast={showToast} />
       case 'roi':          return <ROICalculator project={project} onSave={handleSaveROI} />
       case 'icp':          return <PersonaCreator project={project} onSave={handleSavePersonas} />
       case 'produtos':     return (
@@ -233,6 +1196,8 @@ export default function ClientProfile({ project: projectProp }) {
       case 'estrategia':   return <EstrategiaModule project={project} onSave={handleSaveEstrategia} />
       case 'estrategiav2': return <EstrategiaV2Module project={project} onSave={handleSaveEstrategiaV2} />
       case 'links':        return <LinksModule project={project} onSave={handleSaveLinks} />
+      case 'nps':          return <NPSModule project={project} />
+      case 'crm':          return <CRMModule project={project} />
       default:             return null
     }
   }
@@ -418,61 +1383,164 @@ export default function ClientProfile({ project: projectProp }) {
                     </div>
                   )
                 })()}
+
+                {/* ── Risk Level ───────────────────────────────────────────── */}
+                {(() => {
+                  const current = RISK_CONFIG.find((r) => r.value === project.riskLevel) || null
+                  return (
+                    <div className="mt-2 relative inline-block" ref={riskRef}>
+                      <button
+                        onClick={() => setRiskOpen((v) => !v)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
+                          current
+                            ? `${current.bg} ${current.border} ${current.text}`
+                            : 'bg-rl-surface border-dashed border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-purple'
+                        }`}
+                      >
+                        {current ? (
+                          <><span className={`w-2 h-2 rounded-full shrink-0 ${current.dot}`} />{current.label}</>
+                        ) : (
+                          <>⚡ Definir Risco</>
+                        )}
+                        <ChevronDown className="w-3 h-3 opacity-60" />
+                      </button>
+
+                      {riskOpen && (
+                        <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[180px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
+                          {RISK_CONFIG.map((r) => (
+                            <button
+                              key={r.value}
+                              onClick={() => { updateProject(project.id, { riskLevel: r.value }); setRiskOpen(false) }}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
+                                project.riskLevel === r.value
+                                  ? `${r.bg} ${r.text} border ${r.border}`
+                                  : 'hover:bg-rl-surface text-rl-text'
+                              }`}
+                            >
+                              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${r.dot}`} />
+                              {r.label}
+                              {project.riskLevel === r.value && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
+                            </button>
+                          ))}
+                          {project.riskLevel && (
+                            <button
+                              onClick={() => { updateProject(project.id, { riskLevel: null }); setRiskOpen(false) }}
+                              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              Remover Status
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+
+                {/* ── Momento ──────────────────────────────────────────────── */}
+                {(() => {
+                  const current = MOMENTO_CONFIG.find((m) => m.value === project.momento) || null
+                  return (
+                    <div className="mt-2 relative inline-block" ref={momentoRef}>
+                      <button
+                        onClick={() => setMomentoOpen((v) => !v)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
+                          current
+                            ? `${current.bg} ${current.border} ${current.text}`
+                            : 'bg-rl-surface border-dashed border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-purple'
+                        }`}
+                      >
+                        {current ? (
+                          <><span className={`w-2 h-2 rounded-full shrink-0 ${current.dot}`} />{current.label}</>
+                        ) : (
+                          <>🎯 Definir Momento</>
+                        )}
+                        <ChevronDown className="w-3 h-3 opacity-60" />
+                      </button>
+
+                      {momentoOpen && (
+                        <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[200px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
+                          {MOMENTO_CONFIG.map((m) => (
+                            <button
+                              key={m.value}
+                              onClick={() => { updateProject(project.id, { momento: m.value }); setMomentoOpen(false) }}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
+                                project.momento === m.value
+                                  ? `${m.bg} ${m.text} border ${m.border}`
+                                  : 'hover:bg-rl-surface text-rl-text'
+                              }`}
+                            >
+                              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${m.dot}`} />
+                              {m.label}
+                              {project.momento === m.value && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
+                            </button>
+                          ))}
+                          {project.momento && (
+                            <button
+                              onClick={() => { updateProject(project.id, { momento: null }); setMomentoOpen(false) }}
+                              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              Remover Momento
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
 
-              <div className="flex flex-col items-end gap-3 min-w-0 max-w-[70%]">
+              <div className="flex flex-col items-end gap-3 shrink-0">
 
                 {/* ── Links + Dashboard ── */}
                 {(() => {
-                  const hiddenFromHeader = lnk.hiddenFromHeader || []
+                  const MAX_VISIBLE = 3
                   const allLinks = [
                     project.dashboardUrl && {
                       key: 'dashboard', label: 'Dashboard', href: project.dashboardUrl,
                       Icon: LayoutDashboard, pill: 'bg-rl-cyan/10 border-rl-cyan/30 text-rl-cyan',
                       onRemove: () => updateProject(project.id, { dashboardUrl: null }),
                     },
-                    lnk.instagram && !hiddenFromHeader.includes('instagram') && {
+                    lnk.instagram && {
                       key: 'instagram', label: 'Instagram', href: lnk.instagram.startsWith('http') ? lnk.instagram : `https://${lnk.instagram}`,
                       Icon: Instagram, pill: 'bg-pink-500/10 border-pink-500/30 text-pink-400',
                       onRemove: () => updateProject(project.id, { links: { ...lnk, instagram: '' } }),
                     },
-                    lnk.website && !hiddenFromHeader.includes('website') && {
+                    lnk.website && {
                       key: 'website', label: 'Website', href: lnk.website.startsWith('http') ? lnk.website : `https://${lnk.website}`,
                       Icon: Globe, pill: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
                       onRemove: () => updateProject(project.id, { links: { ...lnk, website: '' } }),
                     },
-                    lnk.googleDrive && !hiddenFromHeader.includes('googleDrive') && {
+                    lnk.googleDrive && {
                       key: 'googleDrive', label: 'Google Drive', href: lnk.googleDrive.startsWith('http') ? lnk.googleDrive : `https://${lnk.googleDrive}`,
                       Icon: HardDrive, pill: 'bg-green-500/10 border-green-500/30 text-green-400',
                       onRemove: () => updateProject(project.id, { links: { ...lnk, googleDrive: '' } }),
                     },
-                    ...(lnk.outros || []).filter(o => o.url && !o.hidden).map((outro, i) => ({
+                    ...(lnk.outros || []).filter(o => o.url).map((outro, i) => ({
                       key: `outro-${i}`, label: outro.label || 'Link', href: outro.url.startsWith('http') ? outro.url : `https://${outro.url}`,
                       Icon: Link2, pill: 'bg-rl-purple/10 border-rl-purple/30 text-rl-purple',
                       onRemove: () => updateProject(project.id, { links: { ...lnk, outros: (lnk.outros || []).filter((_, idx) => idx !== i) } }),
                     })),
                   ].filter(Boolean)
-                  allLinksCountRef.current = allLinks.length
-                  const visibleLinks = allLinks.slice(0, overflowFrom)
-                  const overflow = allLinks.slice(overflowFrom)
+
+                  const visible  = allLinks.slice(0, MAX_VISIBLE)
+                  const overflow = allLinks.slice(MAX_VISIBLE)
 
                   return (
-                    <div className="flex items-center gap-2 w-full">
-                      {/* Pills row — só as visíveis; ResizeObserver detecta quando mais pills cabem */}
-                      <div ref={pillsRowRef} className="flex items-center gap-2 flex-nowrap overflow-hidden flex-1 min-w-0">
-                        {visibleLinks.map(({ key, label, href, Icon, pill, onRemove }) => (
-                          <div key={key} className={`shrink-0 group relative flex items-center px-4 py-2 rounded-xl border text-sm font-semibold ${pill}`}>
-                            <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:opacity-80 transition-opacity pr-4">
-                              <Icon className="w-4 h-4" />{label}
-                            </a>
-                            <button onClick={onRemove} className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 bg-white text-gray-500 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all" title="Remover"><X className="w-4 h-4" /></button>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      {visible.map(({ key, label, href, Icon, pill, onRemove }) => (
+                        <div key={key} className={`group relative flex items-center px-4 py-2 rounded-xl border text-sm font-semibold ${pill}`}>
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:opacity-80 transition-opacity pr-4">
+                            <Icon className="w-4 h-4" />{label}
+                          </a>
+                          <button onClick={onRemove} className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 bg-white text-gray-500 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all" title="Remover"><X className="w-4 h-4" /></button>
+                        </div>
+                      ))}
 
-                      {/* Botão overflow "Mais N" — fora do overflow-hidden, sempre visível */}
+                      {/* Botão overflow "Mais N" */}
                       {overflow.length > 0 && (
-                        <div className="shrink-0 relative" ref={overflowRef}>
+                        <div className="relative" ref={overflowRef}>
                           <button
                             onClick={() => setOverflowOpen(o => !o)}
                             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted text-sm font-medium hover:border-rl-purple/40 hover:text-rl-purple transition-all"
@@ -496,7 +1564,7 @@ export default function ClientProfile({ project: projectProp }) {
                       )}
 
                       {/* Botão + Link com dropdown e popover */}
-                      <div className="shrink-0 relative" ref={linkRef}>
+                      <div className="relative" ref={linkRef}>
                         <button
                           onClick={() => setLinkStep(s => s === 'idle' ? 'dropdown' : 'idle')}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-rl-border text-rl-muted text-sm hover:border-rl-purple/40 hover:text-rl-purple transition-all"
