@@ -24,14 +24,14 @@ function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
   const c = SQUAD_COLORS[colorIndex % SQUAD_COLORS.length]
 
   return (
-    <div className="relative group inline-flex">
+    <div className="relative group/squad inline-flex">
       <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border cursor-default ${c.bg} ${c.text} ${c.border}`}>
         {emoji && <span className="text-[11px] leading-none">{emoji}</span>}
         <span className="text-[11px] font-semibold whitespace-nowrap">{name}</span>
       </div>
 
       {members.length > 0 && (
-        <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50 pointer-events-none">
+        <div className="absolute bottom-full left-0 mb-2 hidden group-hover/squad:block z-50 pointer-events-none">
           <div className="glass-card border border-rl-border shadow-xl py-2 px-3 rounded-xl min-w-[180px]">
             <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider mb-1.5">{name}</p>
             {members.map((m, i) => (
