@@ -1,18 +1,20 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
-import { getSignedUrl } from '../lib/supabase'
+import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
 import {
   Upload, Download, Trash2, AlertCircle, Plus, X,
-  Image, Film, Palette, Type, AlertTriangle, Camera,
+  Image, Film, Palette, Type, AlertTriangle, Camera, Loader2,
 } from 'lucide-react'
 
 // ─── Limits ───────────────────────────────────────────────────────────────────
-const PHOTO_MAX_MB  = 8
-const VIDEO_MAX_MB  = 50
-const TOTAL_MAX_MB  = 100
-const PHOTO_MAX     = PHOTO_MAX_MB * 1024 * 1024
-const VIDEO_MAX     = VIDEO_MAX_MB * 1024 * 1024
-const TOTAL_MAX     = TOTAL_MAX_MB * 1024 * 1024
+const PHOTO_MAX_MB = 8
+const VIDEO_MAX_MB = 50
+const TOTAL_MAX_MB = 100
+const PHOTO_MAX    = PHOTO_MAX_MB * 1024 * 1024
+const VIDEO_MAX    = VIDEO_MAX_MB * 1024 * 1024
+const TOTAL_MAX    = TOTAL_MAX_MB * 1024 * 1024
+const MEDIA_BUCKET = 'brand-media'
+const LOGO_BUCKET  = 'brand-logos'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtSize(bytes) {
@@ -20,21 +22,32 @@ function fmtSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-function readFileAsBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload  = (e) => resolve(e.target.result)
-    reader.onerror = () => reject(new Error('Erro ao ler arquivo'))
-    reader.readAsDataURL(file)
-  })
+async function storageUpload(bucket, path, file) {
+  if (!supabase) return null
+  const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true })
+  if (error) { console.error('[Storage] upload:', error.message); return null }
+  return path
+}
+
+async function downloadFromUrl(url, name) {
+  try {
+    const res  = await fetch(url)
+    const blob = await res.blob()
+    const href = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = href; a.download = name
+    document.body.appendChild(a); a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(href)
+  } catch {
+    window.open(url, '_blank')
+  }
 }
 
 function triggerDownload(data, name) {
   const a = document.createElement('a')
-  a.href     = data
-  a.download = name
-  document.body.appendChild(a)
-  a.click()
+  a.href = data; a.download = name
+  document.body.appendChild(a); a.click()
   document.body.removeChild(a)
 }
 
@@ -42,10 +55,7 @@ function triggerDownload(data, name) {
 function ColorChip({ color, onDelete }) {
   return (
     <div className="group flex items-center gap-2 bg-rl-surface border border-rl-border rounded-xl px-3 py-2">
-      <div
-        className="w-6 h-6 rounded-lg border border-black/10 shrink-0"
-        style={{ backgroundColor: color.hex }}
-      />
+      <div className="w-6 h-6 rounded-lg border border-black/10 shrink-0" style={{ backgroundColor: color.hex }} />
       <div className="min-w-0">
         <p className="text-xs font-semibold text-rl-text">{color.hex.toUpperCase()}</p>
         {color.nome && <p className="text-[10px] text-rl-muted truncate">{color.nome}</p>}
@@ -62,110 +72,133 @@ function ColorChip({ color, onDelete }) {
 }
 
 // ─── Photo Grid ───────────────────────────────────────────────────────────────
-function PhotoGrid({ fotos, onDelete }) {
+function PhotoGrid({ fotos, urlMap, onDelete }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-      {fotos.map((f) => (
-        <div key={f.id} className="group relative aspect-square rounded-xl overflow-hidden border border-rl-border bg-rl-surface">
-          <img src={f.data} alt={f.name} className="w-full h-full object-cover" />
-          {/* Hover overlay */}
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-            <button
-              onClick={() => triggerDownload(f.data, f.name)}
-              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-all"
-              title="Baixar"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => onDelete(f.id)}
-              className="p-2 rounded-lg bg-red-500/60 hover:bg-red-500/80 text-white transition-all"
-              title="Remover"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-          {/* Filename on bottom */}
-          <div className="absolute bottom-0 inset-x-0 bg-black/40 px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <p className="text-[10px] text-white truncate">{f.name}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─── Video List ───────────────────────────────────────────────────────────────
-function VideoList({ videos, onDelete }) {
-  const [playing, setPlaying] = useState(null)
-
-  return (
-    <div className="space-y-3">
-      {videos.map((v) => (
-        <div key={v.id} className="glass-card overflow-hidden">
-          {playing === v.id && (
-            <video
-              src={v.data}
-              controls
-              autoPlay
-              className="w-full max-h-48 bg-black"
-              onEnded={() => setPlaying(null)}
-            />
-          )}
-          <div className="flex items-center gap-3 p-3">
-            <div className="w-10 h-10 rounded-xl bg-rl-purple/10 flex items-center justify-center shrink-0">
-              <Film className="w-5 h-5 text-rl-purple" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-rl-text truncate">{v.name}</p>
-              <p className="text-xs text-rl-muted">{fmtSize(v.size)}</p>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
+      {fotos.map((f) => {
+        const src = urlMap[f.id] || f.data || null
+        return (
+          <div key={f.id} className="group relative aspect-square rounded-xl overflow-hidden border border-rl-border bg-rl-surface">
+            {src ? (
+              <img src={src} alt={f.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Loader2 className="w-5 h-5 animate-spin text-rl-muted" />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
               <button
-                onClick={() => setPlaying(playing === v.id ? null : v.id)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-rl-purple/10 text-rl-purple hover:bg-rl-purple/20 transition-all"
-              >
-                {playing === v.id ? 'Fechar' : 'Preview'}
-              </button>
-              <button
-                onClick={() => triggerDownload(v.data, v.name)}
-                className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
+                onClick={() => src ? downloadFromUrl(src, f.name) : null}
+                className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-all"
                 title="Baixar"
               >
                 <Download className="w-4 h-4" />
               </button>
               <button
-                onClick={() => onDelete(v.id)}
-                className="p-1.5 rounded-lg text-rl-muted hover:text-rl-red hover:bg-rl-red/10 transition-all"
+                onClick={() => onDelete(f.id)}
+                className="p-2 rounded-lg bg-red-500/60 hover:bg-red-500/80 text-white transition-all"
                 title="Remover"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
+            <div className="absolute bottom-0 inset-x-0 bg-black/40 px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <p className="text-[10px] text-white truncate">{f.name}</p>
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Video List ───────────────────────────────────────────────────────────────
+function VideoList({ videos, urlMap, onDelete }) {
+  const [playing, setPlaying] = useState(null)
+
+  return (
+    <div className="space-y-3">
+      {videos.map((v) => {
+        const src = urlMap[v.id] || v.data || null
+        return (
+          <div key={v.id} className="glass-card overflow-hidden">
+            {playing === v.id && src && (
+              <video
+                src={src}
+                controls
+                autoPlay
+                className="w-full max-h-48 bg-black"
+                onEnded={() => setPlaying(null)}
+              />
+            )}
+            <div className="flex items-center gap-3 p-3">
+              <div className="w-10 h-10 rounded-xl bg-rl-purple/10 flex items-center justify-center shrink-0">
+                <Film className="w-5 h-5 text-rl-purple" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-rl-text truncate">{v.name}</p>
+                <p className="text-xs text-rl-muted">{fmtSize(v.size)}</p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => setPlaying(playing === v.id ? null : v.id)}
+                  disabled={!src}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-rl-purple/10 text-rl-purple hover:bg-rl-purple/20 transition-all disabled:opacity-40"
+                >
+                  {playing === v.id ? 'Fechar' : 'Preview'}
+                </button>
+                <button
+                  onClick={() => src ? downloadFromUrl(src, v.name) : null}
+                  disabled={!src}
+                  className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all disabled:opacity-40"
+                  title="Baixar"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onDelete(v.id)}
+                  className="p-1.5 rounded-lg text-rl-muted hover:text-rl-red hover:bg-rl-red/10 transition-all"
+                  title="Remover"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
 
 // ─── Upload Zone ──────────────────────────────────────────────────────────────
-function UploadZone({ accept, label, sublabel, onFiles, inputRef }) {
+function UploadZone({ accept, label, sublabel, onFiles, inputRef, uploading }) {
   const [dragging, setDragging] = useState(false)
 
   return (
     <div
-      onClick={() => inputRef.current?.click()}
+      onClick={() => !uploading && inputRef.current?.click()}
       onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
       onDragLeave={() => setDragging(false)}
-      onDrop={(e) => { e.preventDefault(); setDragging(false); onFiles(e.dataTransfer.files) }}
-      className={`rounded-xl border-2 border-dashed p-5 text-center cursor-pointer transition-all duration-200 ${
-        dragging ? 'border-rl-purple bg-rl-purple/10' : 'border-rl-border hover:border-rl-purple/50 hover:bg-rl-purple/5'
+      onDrop={(e) => { e.preventDefault(); setDragging(false); if (!uploading) onFiles(e.dataTransfer.files) }}
+      className={`rounded-xl border-2 border-dashed p-5 text-center transition-all duration-200 ${
+        uploading
+          ? 'border-rl-purple/50 bg-rl-purple/5 cursor-wait'
+          : 'cursor-pointer ' + (dragging ? 'border-rl-purple bg-rl-purple/10' : 'border-rl-border hover:border-rl-purple/50 hover:bg-rl-purple/5')
       }`}
     >
-      <Upload className={`w-5 h-5 mx-auto mb-2 ${dragging ? 'text-rl-purple' : 'text-rl-muted'}`} />
-      <p className="text-xs font-semibold text-rl-text">{label}</p>
-      <p className="text-[11px] text-rl-muted mt-0.5">{sublabel}</p>
+      {uploading ? (
+        <>
+          <Loader2 className="w-5 h-5 mx-auto mb-2 text-rl-purple animate-spin" />
+          <p className="text-xs font-semibold text-rl-purple">Enviando...</p>
+        </>
+      ) : (
+        <>
+          <Upload className={`w-5 h-5 mx-auto mb-2 ${dragging ? 'text-rl-purple' : 'text-rl-muted'}`} />
+          <p className="text-xs font-semibold text-rl-text">{label}</p>
+          <p className="text-[11px] text-rl-muted mt-0.5">{sublabel}</p>
+        </>
+      )}
       <input ref={inputRef} type="file" accept={accept} multiple className="hidden" onChange={(e) => onFiles(e.target.files)} />
     </div>
   )
@@ -179,25 +212,53 @@ export default function BancoMidiaModule({ project }) {
   const photoInputRef = useRef(null)
   const videoInputRef = useRef(null)
 
-  const [error,      setError]      = useState(null)
-  const [newColor,   setNewColor]   = useState({ hex: '#164496', nome: '' })
-  const [showAddColor, setShowAddColor] = useState(false)
-  const [logoSrc,    setLogoSrc]    = useState(null)
+  const [error,         setError]         = useState(null)
+  const [newColor,      setNewColor]      = useState({ hex: '#164496', nome: '' })
+  const [showAddColor,  setShowAddColor]  = useState(false)
+  const [logoSrc,       setLogoSrc]       = useState(null)
+  const [uploadingPhotos, setUploadingPhotos] = useState(false)
+  const [uploadingVideos, setUploadingVideos] = useState(false)
+
+  // URL maps for Storage-backed items { [id]: signedUrl }
+  const [photoUrls, setPhotoUrls] = useState({})
+  const [videoUrls, setVideoUrls] = useState({})
 
   // ── Data shortcuts ──────────────────────────────────────────────────────────
   const kit    = project.brandKit    || {}
   const fotos  = project.brandFotos  || []
   const videos = project.brandVideos || []
 
-  // ── Resolve logo: base64 direto ou signed URL do Storage ───────────────────
+  // ── Resolve logo ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!kit.logo) { setLogoSrc(null); return }
     if (kit.logo.startsWith('data:') || kit.logo.startsWith('http')) {
       setLogoSrc(kit.logo)
     } else {
-      getSignedUrl('brand-logos', kit.logo).then((url) => setLogoSrc(url))
+      getSignedUrl(LOGO_BUCKET, kit.logo).then((url) => setLogoSrc(url))
     }
   }, [kit.logo])
+
+  // ── Resolve photo URLs ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const storageItems = fotos.filter(f => f.path)
+    if (!storageItems.length) return
+    Promise.all(
+      storageItems.map(f => getSignedUrl(MEDIA_BUCKET, f.path).then(url => [f.id, url]))
+    ).then(entries => {
+      setPhotoUrls(Object.fromEntries(entries.filter(([, url]) => url)))
+    })
+  }, [fotos])
+
+  // ── Resolve video URLs ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const storageItems = videos.filter(v => v.path)
+    if (!storageItems.length) return
+    Promise.all(
+      storageItems.map(v => getSignedUrl(MEDIA_BUCKET, v.path).then(url => [v.id, url]))
+    ).then(entries => {
+      setVideoUrls(Object.fromEntries(entries.filter(([, url]) => url)))
+    })
+  }, [videos])
 
   function saveKit(patch) {
     updateProject(project.id, { brandKit: { ...kit, ...patch } })
@@ -209,8 +270,10 @@ export default function BancoMidiaModule({ project }) {
     if (!file) return
     if (!file.type.startsWith('image/')) { setError('Selecione uma imagem para o logotipo.'); return }
     if (file.size > PHOTO_MAX) { setError(`Logotipo excede ${PHOTO_MAX_MB} MB.`); return }
-    const data = await readFileAsBase64(file)
-    saveKit({ logo: data })
+    const ext  = file.name.split('.').pop()
+    const path = await storageUpload(LOGO_BUCKET, `${project.id}/logo.${ext}`, file)
+    if (!path) { setError('Erro ao enviar logotipo. Tente novamente.'); return }
+    saveKit({ logo: path })
   }
 
   // ── Colors ──────────────────────────────────────────────────────────────────
@@ -230,23 +293,33 @@ export default function BancoMidiaModule({ project }) {
   const handlePhotos = useCallback(async (files) => {
     setError(null)
     if (!files?.length) return
-    const list   = Array.from(files)
-    const result = []
+    const list    = Array.from(files)
     const current = fotos.reduce((s, f) => s + (f.size || 0), 0)
 
     for (const file of list) {
       if (!file.type.startsWith('image/')) { setError(`"${file.name}" não é uma imagem.`); return }
       if (file.size > PHOTO_MAX) { setError(`"${file.name}" excede ${PHOTO_MAX_MB} MB.`); return }
-      const allSize = current + result.reduce((s, f) => s + f.size, 0) + file.size
-      if (allSize > TOTAL_MAX) { setError(`Limite total de ${TOTAL_MAX_MB} MB atingido.`); return }
-      const data = await readFileAsBase64(file)
-      result.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: file.name, size: file.size, type: file.type, data, uploadedAt: new Date().toISOString() })
+      if (current + file.size > TOTAL_MAX) { setError(`Limite total de ${TOTAL_MAX_MB} MB atingido.`); return }
     }
+
+    setUploadingPhotos(true)
+    const result = []
+    for (const file of list) {
+      const id   = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      const ext  = file.name.split('.').pop()
+      const path = await storageUpload(MEDIA_BUCKET, `${project.id}/photos/${id}.${ext}`, file)
+      if (!path) { setError(`Erro ao enviar "${file.name}".`); setUploadingPhotos(false); return }
+      result.push({ id, name: file.name, size: file.size, type: file.type, path, uploadedAt: new Date().toISOString() })
+    }
+
     updateProject(project.id, { brandFotos: [...fotos, ...result] })
     if (photoInputRef.current) photoInputRef.current.value = ''
+    setUploadingPhotos(false)
   }, [fotos, project.id, updateProject])
 
-  function deletePhoto(id) {
+  async function deletePhoto(id) {
+    const item = fotos.find(f => f.id === id)
+    if (item?.path) await deleteFile(MEDIA_BUCKET, item.path)
     updateProject(project.id, { brandFotos: fotos.filter((f) => f.id !== id) })
   }
 
@@ -254,27 +327,37 @@ export default function BancoMidiaModule({ project }) {
   const handleVideos = useCallback(async (files) => {
     setError(null)
     if (!files?.length) return
-    const list   = Array.from(files)
-    const result = []
+    const list    = Array.from(files)
     const current = videos.reduce((s, v) => s + (v.size || 0), 0)
 
     for (const file of list) {
       if (!file.type.startsWith('video/')) { setError(`"${file.name}" não é um vídeo.`); return }
       if (file.size > VIDEO_MAX) { setError(`"${file.name}" excede ${VIDEO_MAX_MB} MB por vídeo.`); return }
-      const allSize = current + result.reduce((s, v) => s + v.size, 0) + file.size
-      if (allSize > TOTAL_MAX) { setError(`Limite total de ${TOTAL_MAX_MB} MB atingido.`); return }
-      const data = await readFileAsBase64(file)
-      result.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: file.name, size: file.size, type: file.type, data, uploadedAt: new Date().toISOString() })
+      if (current + file.size > TOTAL_MAX) { setError(`Limite total de ${TOTAL_MAX_MB} MB atingido.`); return }
     }
+
+    setUploadingVideos(true)
+    const result = []
+    for (const file of list) {
+      const id   = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      const ext  = file.name.split('.').pop()
+      const path = await storageUpload(MEDIA_BUCKET, `${project.id}/videos/${id}.${ext}`, file)
+      if (!path) { setError(`Erro ao enviar "${file.name}".`); setUploadingVideos(false); return }
+      result.push({ id, name: file.name, size: file.size, type: file.type, path, uploadedAt: new Date().toISOString() })
+    }
+
     updateProject(project.id, { brandVideos: [...videos, ...result] })
     if (videoInputRef.current) videoInputRef.current.value = ''
+    setUploadingVideos(false)
   }, [videos, project.id, updateProject])
 
-  function deleteVideo(id) {
+  async function deleteVideo(id) {
+    const item = videos.find(v => v.id === id)
+    if (item?.path) await deleteFile(MEDIA_BUCKET, item.path)
     updateProject(project.id, { brandVideos: videos.filter((v) => v.id !== id) })
   }
 
-  // ── Storage calc ────────────────────────────────────────────────────────────
+  // ── Storage bar ─────────────────────────────────────────────────────────────
   const totalUsed = fotos.reduce((s, f) => s + (f.size || 0), 0) + videos.reduce((s, v) => s + (v.size || 0), 0)
   const totalPct  = Math.min(100, (totalUsed / TOTAL_MAX) * 100)
 
@@ -443,11 +526,12 @@ export default function BancoMidiaModule({ project }) {
           sublabel={`PNG, JPG, WebP · Máx. ${PHOTO_MAX_MB} MB por foto`}
           onFiles={handlePhotos}
           inputRef={photoInputRef}
+          uploading={uploadingPhotos}
         />
 
         {fotos.length > 0 && (
           <div className="mt-4">
-            <PhotoGrid fotos={fotos} onDelete={deletePhoto} />
+            <PhotoGrid fotos={fotos} urlMap={photoUrls} onDelete={deletePhoto} />
           </div>
         )}
       </section>
@@ -472,16 +556,17 @@ export default function BancoMidiaModule({ project }) {
           sublabel={`MP4, MOV, WebM · Máx. ${VIDEO_MAX_MB} MB por vídeo`}
           onFiles={handleVideos}
           inputRef={videoInputRef}
+          uploading={uploadingVideos}
         />
 
         {videos.length > 0 && (
           <div className="mt-4">
-            <VideoList videos={videos} onDelete={deleteVideo} />
+            <VideoList videos={videos} urlMap={videoUrls} onDelete={deleteVideo} />
           </div>
         )}
       </section>
 
-      {/* ── 4. Observações / O que evitar ──────────────────────────────────── */}
+      {/* ── 4. O Que Evitar ────────────────────────────────────────────────── */}
       <section>
         <div className="flex items-center gap-2 mb-4">
           <div className="w-8 h-8 rounded-xl bg-rl-red/10 flex items-center justify-center">
