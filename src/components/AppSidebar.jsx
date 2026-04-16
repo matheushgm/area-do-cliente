@@ -1,17 +1,20 @@
 import PropTypes from 'prop-types'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Link } from 'react-router-dom'
 import {
-  Zap, Plus, Layers, Clock, CheckCircle2,
+  Zap, Plus, Layers, TrendingDown,
   LogOut, Cloud, CloudOff, Loader2,
-  X, UserCog, BookOpen, Library,
+  X, UserCog, BookOpen, Library, ExternalLink,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { id: 'all',        label: 'Todos os Clientes', Icon: Layers },
-  { id: 'onboarding', label: 'Em Onboarding',    Icon: Clock },
-  { id: 'active',    label: 'Perfis Ativos',      Icon: CheckCircle2 },
+  { id: 'all',      label: 'Clientes',          Icon: Layers,        type: 'filter'   },
+  { id: 'churn',    label: 'Churn',             Icon: TrendingDown,  type: 'filter'   },
+]
+
+const NAV_LINKS = [
+  { id: 'banco',    label: 'Banco de Anúncios', Icon: Library,       type: 'route',    to: '/banco-de-anuncios' },
+  { id: 'playbook', label: 'Playbook',          Icon: BookOpen,      type: 'external', href: 'https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173' },
 ]
 
 function SidebarContent({
@@ -59,19 +62,19 @@ function SidebarContent({
       <nav className="space-y-0.5 mb-2">
         {NAV_ITEMS.map(({ id, label, Icon }) => {
           const count = counts?.[id] ?? 0
-          const active = filter === id && location.pathname !== '/users'
+          const active = filter === id && location.pathname === '/'
           return (
             <button
               key={id}
               onClick={() => onNav(id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group border ${
                 active
-                  ? 'bg-rl-purple/15 text-rl-purple border border-rl-purple/25'
-                  : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text border border-transparent'
+                  ? 'bg-rl-purple/15 text-rl-purple border-rl-purple/25'
+                  : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text border-transparent'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-rl-purple' : 'text-rl-muted group-hover:text-rl-text'}`} />
+                <Icon className="w-4 h-4 shrink-0" />
                 {label}
               </div>
               {count > 0 && (
@@ -86,30 +89,39 @@ function SidebarContent({
         })}
       </nav>
 
-      {/* ── Playbook ────────────────────────────────────── */}
-      <a
-        href="https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mx-1 mt-3 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150
-          bg-rl-gold/15 border border-rl-gold/40 text-rl-gold
-          hover:bg-rl-gold/25 hover:border-rl-gold/60 hover:shadow-[0_0_12px_rgba(245,176,55,0.25)]"
-      >
-        <BookOpen className="w-4 h-4 shrink-0" />
-        Playbook
-      </a>
+      <div className="border-t border-rl-border/50 mx-1 my-2" />
 
-      {/* ── Banco de Anúncios ────────────────────────────── */}
-      <Link
-        to="/banco-de-anuncios"
-        onClick={onClose}
-        className="mx-1 mt-2 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150
-          bg-rl-cyan/10 border border-rl-cyan/30 text-rl-cyan
-          hover:bg-rl-cyan/20 hover:border-rl-cyan/50 hover:shadow-[0_0_12px_rgba(0,210,210,0.2)]"
-      >
-        <Library className="w-4 h-4 shrink-0" />
-        Banco de Anúncios
-      </Link>
+      <nav className="space-y-0.5">
+        {NAV_LINKS.map(({ id, label, Icon, type, to, href }) => {
+          const active = type === 'route' && location.pathname === to
+          const baseClass = `w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group border ${
+            active
+              ? 'bg-rl-purple/15 text-rl-purple border-rl-purple/25'
+              : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text border-transparent'
+          }`
+          const content = (
+            <>
+              <div className="flex items-center gap-2.5">
+                <Icon className="w-4 h-4 shrink-0" />
+                {label}
+              </div>
+              {type === 'external' && <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-50" />}
+            </>
+          )
+          if (type === 'external') {
+            return (
+              <a key={id} href={href} target="_blank" rel="noopener noreferrer" className={baseClass}>
+                {content}
+              </a>
+            )
+          }
+          return (
+            <button key={id} onClick={() => { navigate(to); onClose() }} className={baseClass}>
+              {content}
+            </button>
+          )
+        })}
+      </nav>
 
       {/* ── Spacer ──────────────────────────────────────── */}
       <div className="flex-1" />

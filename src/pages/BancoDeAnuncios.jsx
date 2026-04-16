@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useApp } from '../context/AppContext'
+import AppSidebar from '../components/AppSidebar'
 import {
   Library, Plus, Image, X, Upload,
   Share2, Loader2, Check, Trash2,
   ChevronDown, Play, Film, Filter,
-  Download, Maximize2,
+  Download, Maximize2, Menu, Zap,
 } from 'lucide-react'
 
 const FUNILS = [
@@ -191,6 +194,13 @@ function UploadZone({ type, file, preview, onSelect, onClear }) {
 }
 
 export default function BancoDeAnuncios() {
+  const navigate = useNavigate()
+  const { squads, teamMembers } = useApp()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const emptyCounts = { all: 0, churn: 0, squads: {}, risks: {}, momentos: {} }
+  const activeAccounts = teamMembers.filter(m => !m.disabled)
+
   // ── Form state
   const [type,    setType]    = useState('video')
   const [funil,   setFunil]   = useState('')
@@ -302,8 +312,39 @@ export default function BancoDeAnuncios() {
   })
 
   return (
-    <div className="min-h-screen bg-rl-bg">
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+    <div className="min-h-screen flex bg-gradient-dark">
+
+      <AppSidebar
+        filter="all"
+        setFilter={() => navigate('/')}
+        counts={emptyCounts}
+        activeAccounts={activeAccounts}
+        squads={squads}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+
+      <div className="flex-1 min-w-0 flex flex-col">
+
+        {/* Mobile top bar */}
+        <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menu de navegação"
+            className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-md bg-gradient-rl flex items-center justify-center">
+              <Zap className="w-3.5 h-3.5 text-white" />
+            </div>
+            <span className="font-bold text-rl-text text-sm">Banco de Anúncios</span>
+          </div>
+        </div>
+
+        <main className="flex-1 px-6 py-8">
+      <div className="max-w-6xl mx-auto space-y-8">
 
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -498,6 +539,8 @@ export default function BancoDeAnuncios() {
           )}
         </div>
 
+        </div>
+        </main>
       </div>
     </div>
   )
