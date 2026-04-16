@@ -98,6 +98,27 @@ function computeDRE(revenue, setup, custos, rh, funil, ticket) {
            vendasNec, sqlNec, mqlNec, leadsNec }
 }
 
+// ─── Shared field component (must be at module level — never inside a component) ─
+function NumField({ label, value, onChange, prefix, suffix, hint }) {
+  return (
+    <div>
+      <label className="label-field">{label}</label>
+      {hint && <p className="text-xs text-rl-muted mb-1">{hint}</p>}
+      <div className="relative">
+        {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm">{prefix}</span>}
+        <input
+          type="number"
+          value={value ?? ''}
+          onChange={onChange}
+          className={`input-field ${prefix ? 'pl-8' : ''} ${suffix ? 'pr-10' : ''}`}
+          placeholder="0"
+        />
+        {suffix && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm">{suffix}</span>}
+      </div>
+    </div>
+  )
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SectionNav({ active, setActive, data }) {
@@ -137,26 +158,15 @@ function ConfigSection({ data, onChange }) {
   const rate = numVal(s.faturamentoJaneiro) && numVal(s.metaAnual)
     ? findMonthlyRate(numVal(s.faturamentoJaneiro), numVal(s.metaAnual)) * 100 : null
 
-  const NumField = ({ label, k, prefix, suffix, hint }) => (
-    <div>
-      <label className="label-field">{label}</label>
-      {hint && <p className="text-xs text-rl-muted mb-1">{hint}</p>}
-      <div className="relative">
-        {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm">{prefix}</span>}
-        <input type="number" value={s[k] ?? ''} onChange={e => onChange({ ...s, [k]: e.target.value })}
-          className={`input-field ${prefix ? 'pl-8' : ''} ${suffix ? 'pr-10' : ''}`} placeholder="0" />
-        {suffix && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-rl-muted text-sm">{suffix}</span>}
-      </div>
-    </div>
-  )
-
   return (
     <div className="space-y-5">
       <div className="glass-card p-5 space-y-4">
         <h3 className="text-sm font-semibold text-rl-text">📅 Faturamento Anual</h3>
         <div className="grid sm:grid-cols-2 gap-4">
-          <NumField label="Faturamento do Ano Anterior" k="faturamentoAnterior" prefix="R$" hint="Base para calcular crescimento" />
-          <NumField label="Meta de Faturamento (Ano Atual)" k="metaAnual" prefix="R$" hint="Quanto quer faturar este ano" />
+          <NumField label="Faturamento do Ano Anterior" value={s.faturamentoAnterior}
+            onChange={e => onChange({ ...s, faturamentoAnterior: e.target.value })} prefix="R$" hint="Base para calcular crescimento" />
+          <NumField label="Meta de Faturamento (Ano Atual)" value={s.metaAnual}
+            onChange={e => onChange({ ...s, metaAnual: e.target.value })} prefix="R$" hint="Quanto quer faturar este ano" />
         </div>
         {crescimento !== null && (
           <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border ${crescimento >= 0 ? 'bg-rl-green/8 border-rl-green/25 text-rl-green' : 'bg-red-500/8 border-red-500/25 text-red-400'}`}>
@@ -171,7 +181,8 @@ function ConfigSection({ data, onChange }) {
       <div className="glass-card p-5 space-y-4">
         <h3 className="text-sm font-semibold text-rl-text">📈 Projeção de Crescimento (Juros Composto)</h3>
         <p className="text-xs text-rl-muted -mt-2">Defina quanto vai faturar em Janeiro — o sistema calcula a taxa mensal necessária para bater a meta anual com juros composto.</p>
-        <NumField label="Faturamento de Janeiro (ponto de partida)" k="faturamentoJaneiro" prefix="R$" />
+        <NumField label="Faturamento de Janeiro (ponto de partida)" value={s.faturamentoJaneiro}
+          onChange={e => onChange({ ...s, faturamentoJaneiro: e.target.value })} prefix="R$" />
         {rate !== null && (
           <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rl-purple/8 border border-rl-purple/25 text-rl-purple">
             <Calculator className="w-4 h-4 shrink-0" />
@@ -185,8 +196,10 @@ function ConfigSection({ data, onChange }) {
       <div className="glass-card p-5 space-y-4">
         <h3 className="text-sm font-semibold text-rl-text">💸 Parâmetros Financeiros</h3>
         <div className="grid sm:grid-cols-2 gap-4">
-          <NumField label="Investimento em Marketing" k="taxaMarketing" suffix="%" hint="% do faturamento bruto" />
-          <NumField label="Alíquota de Impostos" k="taxaImposto" suffix="%" hint="% do faturamento bruto" />
+          <NumField label="Investimento em Marketing" value={s.taxaMarketing}
+            onChange={e => onChange({ ...s, taxaMarketing: e.target.value })} suffix="%" hint="% do faturamento bruto" />
+          <NumField label="Alíquota de Impostos" value={s.taxaImposto}
+            onChange={e => onChange({ ...s, taxaImposto: e.target.value })} suffix="%" hint="% do faturamento bruto" />
         </div>
       </div>
     </div>
