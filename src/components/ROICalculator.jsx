@@ -3,20 +3,15 @@ import { useState, useMemo, useCallback } from 'react'
 import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircle, FileDown, CalendarDays } from 'lucide-react'
 import { getWeekRanges, MONTH_NAMES } from './Resultados/resultadosHelpers'
 import { exportROIPDF } from '../utils/exportPDF'
+import { fmtCurrency } from '../lib/utils'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
 import VideoGuide from './VideoGuide'
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
-export function fmt(n) {
-  if (n === null || n === undefined || isNaN(n)) return '—'
-  if (!isFinite(n)) return '∞'
+function fmt(n) {
+  if (n == null || isNaN(n) || !isFinite(n)) return '—'
   return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
-}
-export function fmtCurrency(n) {
-  if (n === null || n === undefined || isNaN(n)) return '—'
-  if (!isFinite(n)) return '∞'
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
 
 // ─── Number input ─────────────────────────────────────────────────────────────

@@ -2,6 +2,10 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
+import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, BUSINESS_LABELS, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, MATURITY_LABELS } from '../lib/constants'
+import { fmtCurrency, initials } from '../lib/utils'
+import { useToast } from '../hooks/useToast'
+import Toast from '../components/UI/Toast'
 import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays, Building2,
@@ -27,69 +31,7 @@ import ProdutoServicoModule from '../components/ProdutoServicoModule'
 import BancoMidiaModule from '../components/BancoMidiaModule'
 import LinksModule from '../components/LinksModule'
 import CRMModule from '../components/CRMModule'
-import { SERVICES_CONFIG } from './NewOnboarding'
 import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function fmtCurrency(n) {
-  if (n == null || isNaN(n) || !isFinite(n)) return '—'
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
-}
-
-const BUSINESS_LABELS = {
-  b2b: 'B2B',
-  local: 'Negócio Local',
-  ecommerce: 'E-commerce',
-  infoproduto: 'Infoproduto',
-}
-
-// ─── Edit-form constants ───────────────────────────────────────────────────────
-const EDIT_BUSINESS_TYPES = [
-  { value: 'b2b',         label: 'B2B',          icon: '🏢' },
-  { value: 'local',       label: 'Negócio Local', icon: '📍' },
-  { value: 'ecommerce',   label: 'E-commerce',    icon: '🛒' },
-  { value: 'infoproduto', label: 'Infoproduto',   icon: '🎓' },
-]
-
-const EDIT_MATURITY_OPTIONS = [
-  { value: '1', label: 'Iniciante — nunca anunciou' },
-  { value: '2', label: 'Básico — já testou anúncios' },
-  { value: '3', label: 'Intermediário — tem histórico' },
-  { value: '4', label: 'Avançado — processos definidos' },
-  { value: '5', label: 'Expert — gestão data-driven' },
-]
-
-const EDIT_SEGMENTOS = [
-  'Beleza e Estética', 'Saúde e Bem-estar', 'Alimentação / Gastronomia',
-  'Clínica / Odontologia', 'Academia / Fitness', 'Moda e Vestuário',
-  'E-commerce / Varejo', 'Imobiliário', 'Tecnologia / SaaS',
-  'Educação / Cursos Online', 'Serviços Profissionais', 'Consultoria Empresarial',
-  'Marketing Digital', 'Social Media', 'Turismo e Viagens',
-  'Construção Civil', 'Automotivo', 'Farmácia / Drogaria', 'Pet Shop / Veterinária',
-  'Advocacia / Jurídico', 'Financeiro / Seguros', 'Ótica',
-  'Entretenimento / Eventos', 'Logística / Transporte', 'Indústria / Manufatura',
-]
-
-const MATURITY_LABELS = {
-  '1': 'Iniciante — nunca anunciou online',
-  '2': 'Básico — já testou anúncios',
-  '3': 'Intermediário — tem histórico de campanhas',
-  '4': 'Avançado — processos definidos',
-  '5': 'Expert — gestão data-driven',
-}
-
-function initials(name = '') {
-  return name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('')
-}
-
-// ─── Squads ────────────────────────────────────────────────────────────────────
-
-const SQUAD_COLORS = [
-  { bg: 'bg-rl-gold/10',   border: 'border-rl-gold/30',   text: 'text-rl-gold'   },
-  { bg: 'bg-rl-cyan/10',   border: 'border-rl-cyan/30',   text: 'text-rl-cyan'   },
-  { bg: 'bg-rl-purple/10', border: 'border-rl-purple/30', text: 'text-rl-purple' },
-  { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400' },
-]
 
 // ─── Momento ──────────────────────────────────────────────────────────────────
 
@@ -322,7 +264,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
             className="input-field mb-2"
           />
           <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
-            {EDIT_SEGMENTOS.map((s) => (
+            {SEGMENTOS.map((s) => (
               <button
                 key={s}
                 onClick={() => set('segmento', s)}
@@ -1092,14 +1034,7 @@ export default function ClientProfile({ project: projectProp }) {
   const overflowRef = useRef(null)
   const [squadTooltipPos, setSquadTooltipPos] = useState(null)
   const squadBadgeRef = useRef(null)
-  const [toast, setToast] = useState({ show: false, message: '' })
-  const toastTimer = useRef(null)
-
-  function showToast(message = 'Salvo com sucesso!') {
-    clearTimeout(toastTimer.current)
-    setToast({ show: true, message })
-    toastTimer.current = setTimeout(() => setToast({ show: false, message: '' }), 2800)
-  }
+  const { toast, showToast } = useToast()
 
   useEffect(() => {
     if (!project.logoUrl) { setLogoSignedUrl(null); return }
@@ -1739,17 +1674,7 @@ export default function ClientProfile({ project: projectProp }) {
 
       </div>
 
-      {/* ── Toast notification ───────────────────────────────────────────── */}
-      <div
-        className={`fixed bottom-6 right-6 z-[100] flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-2xl border transition-all duration-300 ${
-          toast.show
-            ? 'opacity-100 translate-y-0 bg-rl-card border-rl-green/30'
-            : 'opacity-0 translate-y-3 pointer-events-none bg-rl-card border-rl-green/30'
-        }`}
-      >
-        <CheckCircle2 className="w-4 h-4 text-rl-green shrink-0" />
-        <span className="text-sm font-medium text-rl-text">{toast.message}</span>
-      </div>
+      <Toast toast={toast} />
     </div>
   )
 }

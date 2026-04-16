@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
 import { buildCachedPayload } from '../lib/buildContext'
 import { exportEstrategiaPDF } from '../utils/exportPDF'
+import { fmtCurrency } from '../lib/utils'
 import {
   CheckCircle2, Circle, Sparkles, Loader2, AlertTriangle,
   Copy, CheckCheck, RotateCcw, FileDown, TrendingUp, Users,
@@ -14,11 +15,6 @@ import KPICard from './Estrategia/KPICard'
 import FunnelViz from './Estrategia/FunnelViz'
 import NarrativaRenderer from './Estrategia/NarrativaRenderer'
 
-// ─── Formatters ────────────────────────────────────────────────────────────────
-function fmtCurrency(n) {
-  if (!n || isNaN(n) || !isFinite(n)) return '—'
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
-}
 function fmtNum(n) {
   if (!n || isNaN(n)) return '—'
   return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })

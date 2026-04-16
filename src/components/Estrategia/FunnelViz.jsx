@@ -1,13 +1,9 @@
 import { ArrowRight } from 'lucide-react'
+import { fmtCurrency } from '../../lib/utils'
 
 function fmtNum(n) {
   if (!n || isNaN(n)) return '—'
   return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
-}
-
-function fmtCurrency(n) {
-  if (!n || isNaN(n) || !isFinite(n)) return '—'
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
 
 export default function FunnelViz({ roi }) {

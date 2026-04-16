@@ -64,6 +64,12 @@
            focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rl-purple;
   }
 
+  .btn-ghost {
+    @apply text-rl-subtle font-medium px-4 py-2 rounded-xl transition-all duration-150
+           hover:bg-rl-surface hover:text-rl-text cursor-pointer
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rl-purple;
+  }
+
   .step-indicator {
     @apply flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold
            transition-all duration-300;

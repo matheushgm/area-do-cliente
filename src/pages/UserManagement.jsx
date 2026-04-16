@@ -2,23 +2,17 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
+import { SQUAD_COLORS } from '../lib/constants'
+import { initials } from '../lib/utils'
+import { useToast } from '../hooks/useToast'
+import Toast from '../components/UI/Toast'
+import Modal from '../components/UI/Modal'
 import AppSidebar from '../components/AppSidebar'
 import {
   Users, Plus, Pencil, UserX, UserCheck,
   X, AlertTriangle, Loader2, Menu,
   ShieldCheck, User, Users2, Trash2,
 } from 'lucide-react'
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function initials(name) {
-  return (name || '')
-    .split(' ')
-    .map(w => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-}
 
 async function callAdminAPI(action, payload) {
   try {
@@ -57,8 +51,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-      <div className="glass-card w-full max-w-md p-6 border border-rl-border animate-slide-up shadow-2xl">
+    <Modal onClose={onClose} maxWidth="md">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -74,8 +67,9 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
         {/* Fields */}
         <div className="space-y-4 mb-6">
           <div>
-            <label className="block text-xs font-semibold text-rl-text mb-1.5">Nome completo</label>
+            <label htmlFor="field-name" className="block text-xs font-semibold text-rl-text mb-1.5">Nome completo</label>
             <input
+              id="field-name"
               type="text"
               value={form.name}
               onChange={e => set('name', e.target.value)}
@@ -86,8 +80,9 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-rl-text mb-1.5">E-mail</label>
+            <label htmlFor="field-email" className="block text-xs font-semibold text-rl-text mb-1.5">E-mail</label>
             <input
+              id="field-email"
               type="email"
               value={form.email}
               onChange={e => set('email', e.target.value)}
@@ -98,8 +93,9 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
 
           {isCreate && (
             <div>
-              <label className="block text-xs font-semibold text-rl-text mb-1.5">Senha inicial</label>
+              <label htmlFor="field-password" className="block text-xs font-semibold text-rl-text mb-1.5">Senha inicial</label>
               <input
+                id="field-password"
                 type="password"
                 value={form.password}
                 onChange={e => set('password', e.target.value)}
@@ -113,8 +109,9 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-rl-text mb-1.5">Permissão</label>
+            <label htmlFor="field-role" className="block text-xs font-semibold text-rl-text mb-1.5">Permissão</label>
             <select
+              id="field-role"
               value={form.role}
               onChange={e => set('role', e.target.value)}
               className="input-field w-full"
@@ -140,18 +137,14 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
           </button>
         </div>
 
-      </div>
-    </div>
+    </Modal>
   )
 }
 
 function ToggleConfirmModal({ user, onConfirm, onClose, saving }) {
   const isDisabling = !user.disabled
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-      <div className={`glass-card w-full max-w-sm p-6 border animate-slide-up shadow-2xl ${
-        isDisabling ? 'border-red-500/30' : 'border-rl-green/30'
-      }`}>
+    <Modal onClose={onClose} maxWidth="sm" className={isDisabling ? 'border-red-500/30' : 'border-rl-green/30'}>
         <div className="flex items-center gap-3 mb-5">
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
             isDisabling ? 'bg-red-500/10' : 'bg-rl-green/10'
@@ -196,19 +189,10 @@ function ToggleConfirmModal({ user, onConfirm, onClose, saving }) {
             {isDisabling ? 'Desativar' : 'Reativar'}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
-// ── Squad Colors ────────────────────────────────────────────────────────────
-
-const SQUAD_COLORS = [
-  { bg: 'bg-rl-gold/10',   border: 'border-rl-gold/30',   text: 'text-rl-gold'   },
-  { bg: 'bg-rl-cyan/10',   border: 'border-rl-cyan/30',   text: 'text-rl-cyan'   },
-  { bg: 'bg-rl-purple/10', border: 'border-rl-purple/30', text: 'text-rl-purple' },
-  { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400' },
-]
 
 const SQUAD_MEMBER_ROLES = ['Account Manager', 'Gestor de Tráfego', 'Designer']
 
@@ -242,8 +226,7 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-      <div className="glass-card w-full max-w-2xl p-6 border border-rl-border animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
+    <Modal onClose={onClose} maxWidth="2xl" className="max-h-[90vh] overflow-y-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -259,8 +242,9 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
         <div className="space-y-4 mb-6">
           {/* Nome */}
           <div>
-            <label className="block text-xs font-semibold text-rl-text mb-1.5">Nome da equipe</label>
+            <label htmlFor="field-squad-name" className="block text-xs font-semibold text-rl-text mb-1.5">Nome da equipe</label>
             <input
+              id="field-squad-name"
               type="text"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -272,8 +256,9 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
 
           {/* Emoji */}
           <div>
-            <label className="block text-xs font-semibold text-rl-text mb-1.5">Emoji <span className="text-rl-muted font-normal">(opcional)</span></label>
+            <label htmlFor="field-squad-emoji" className="block text-xs font-semibold text-rl-text mb-1.5">Emoji <span className="text-rl-muted font-normal">(opcional)</span></label>
             <input
+              id="field-squad-emoji"
               type="text"
               value={form.emoji}
               onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))}
@@ -338,8 +323,7 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
             {isCreate ? 'Criar equipe' : 'Salvar alterações'}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -347,8 +331,7 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
 
 function DeleteSquadModal({ squad, onConfirm, onClose, saving }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-      <div className="glass-card w-full max-w-sm p-6 border border-red-500/30 animate-slide-up shadow-2xl">
+    <Modal onClose={onClose} maxWidth="sm" className="border-red-500/30">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-red-500/10">
             <Trash2 className="w-5 h-5 text-red-400" />
@@ -373,8 +356,7 @@ function DeleteSquadModal({ squad, onConfirm, onClose, saving }) {
             Excluir
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -396,18 +378,13 @@ export default function UserManagement() {
   const [editTarget, setEditTarget] = useState(null)
   const [toggleTarget, setToggleTarget] = useState(null)
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState(null)
+  const { toast, showToast } = useToast()
 
   // Squad state
   const [showCreateSquad, setShowCreateSquad] = useState(false)
   const [editSquadTarget, setEditSquadTarget] = useState(null)
   const [deleteSquadTarget, setDeleteSquadTarget] = useState(null)
   const [savingSquad, setSavingSquad] = useState(false)
-
-  function showToast(msg, type = 'success', duration = 4000) {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), duration)
-  }
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
@@ -777,17 +754,7 @@ export default function UserManagement() {
         </main>
       </div>
 
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl border shadow-2xl text-sm font-medium animate-slide-up ${
-          toast.type === 'error'
-            ? 'bg-red-500/10 border-red-500/30 text-red-400'
-            : 'bg-rl-green/10 border-rl-green/30 text-rl-green'
-        }`}>
-          {toast.type === 'error' ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <UserCheck className="w-4 h-4 shrink-0" />}
-          {toast.msg}
-        </div>
-      )}
+      <Toast toast={toast} />
 
       {/* Modais — Usuários */}
       {showCreate && (

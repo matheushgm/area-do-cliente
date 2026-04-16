@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
@@ -11,54 +10,28 @@ import {
   LayoutGrid, List, ChevronUp, ChevronDown, ChevronsUpDown,
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
+import { SQUAD_COLORS } from '../lib/constants'
+import { fmtCurrency, hashId } from '../lib/utils'
+import Modal from '../components/UI/Modal'
 
 const CORE_STEPS = ['roi', 'strategy', 'oferta']
 function isProfileComplete(project) {
   return CORE_STEPS.every(s => (project.completedSteps || []).includes(s))
 }
 
-function fmtCurrency(n) {
-  if (!n || isNaN(n) || !isFinite(n)) return '—'
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
-}
-
-// ─── Squad colors (must match UserManagement + ClientProfile) ──────────────────
-const SQUAD_COLORS = [
-  { bg: 'bg-rl-gold/15',   text: 'text-rl-gold',   border: 'border-rl-gold/30'   },
-  { bg: 'bg-rl-cyan/15',   text: 'text-rl-cyan',   border: 'border-rl-cyan/30'   },
-  { bg: 'bg-rl-purple/15', text: 'text-rl-purple',  border: 'border-rl-purple/30' },
-]
-
 function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
-  const ref = useRef(null)
-  const [tooltipPos, setTooltipPos] = useState(null)
-
   if (!name) return <span className="text-rl-muted text-xs">—</span>
   const c = SQUAD_COLORS[colorIndex % SQUAD_COLORS.length]
 
-  function handleMouseEnter() {
-    if (!members.length || !ref.current) return
-    const rect = ref.current.getBoundingClientRect()
-    setTooltipPos({ x: rect.left, y: rect.top })
-  }
-
   return (
-    <>
-      <div
-        ref={ref}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={() => setTooltipPos(null)}
-        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border cursor-default ${c.bg} ${c.text} ${c.border}`}
-      >
+    <div className="relative group/squad inline-flex">
+      <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border cursor-default ${c.bg} ${c.text} ${c.border}`}>
         {emoji && <span className="text-[11px] leading-none">{emoji}</span>}
         <span className="text-[11px] font-semibold whitespace-nowrap">{name}</span>
       </div>
 
-      {tooltipPos && createPortal(
-        <div
-          style={{ position: 'fixed', left: tooltipPos.x, top: tooltipPos.y - 8, transform: 'translateY(-100%)' }}
-          className="z-[9999] pointer-events-none"
-        >
+      {members.length > 0 && (
+        <div className="absolute bottom-full left-0 mb-2 hidden group-hover/squad:block z-50 pointer-events-none">
           <div className="glass-card border border-rl-border shadow-xl py-2 px-3 rounded-xl min-w-[180px]">
             <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider mb-1.5">{name}</p>
             {members.map((m, i) => (
@@ -68,10 +41,9 @@ function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
               </div>
             ))}
           </div>
-        </div>,
-        document.body
+        </div>
       )}
-    </>
+    </div>
   )
 }
 
@@ -124,13 +96,6 @@ const CREATOR_COLORS = [
   { bg: 'bg-red-500/15',   text: 'text-red-400',   avatar: 'bg-red-400'   },
 ]
 
-// Funciona com IDs numéricos antigos (1, 2...) e UUIDs do Supabase
-function hashId(id) {
-  if (!id) return 0
-  const n = Number(id)
-  if (!isNaN(n) && isFinite(n)) return n
-  return String(id).split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-}
 
 function CreatorBadge({ accountName, colorIndex = 0 }) {
   if (!accountName) return null
@@ -750,8 +715,7 @@ function DeleteConfirmModal({ project, onConfirm, onCancel }) {
   const canDelete = typed === 'DELETE'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-      <div className="glass-card w-full max-w-md p-6 border border-red-500/30 animate-slide-up shadow-2xl">
+    <Modal onClose={onCancel} maxWidth="md" className="border-red-500/30">
         {/* Header */}
         <div className="flex items-center gap-3 mb-5">
           <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
@@ -802,8 +766,7 @@ function DeleteConfirmModal({ project, onConfirm, onCancel }) {
             Excluir cliente
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
