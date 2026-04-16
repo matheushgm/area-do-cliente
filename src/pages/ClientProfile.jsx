@@ -31,6 +31,7 @@ import ProdutoServicoModule from '../components/ProdutoServicoModule'
 import BancoMidiaModule from '../components/BancoMidiaModule'
 import LinksModule from '../components/LinksModule'
 import CRMModule from '../components/CRMModule'
+import PlanejamentoAnualModule from '../components/PlanejamentoAnualModule'
 import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
 
 // ─── Momento ──────────────────────────────────────────────────────────────────
@@ -1161,6 +1162,7 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'links',        label: 'Links Importantes',        icon: Link2,          color: 'text-rl-cyan',   filled: hasLinks },
     { id: 'nps',          label: 'NPS',                       icon: Star,           color: 'text-rl-gold',   filled: !!(project.nps && Object.values(project.nps).some(Boolean)) },
     { id: 'crm',          label: 'CRM',                       icon: Kanban,         color: 'text-rl-cyan',   filled: !!(project.crmData?.contacts?.length) },
+    { id: 'planejamento', label: 'Planejamento Anual',        icon: TrendingUp,     color: 'text-rl-green',  filled: !!(project.planejamentoAnual?.setup?.metaAnual) },
   ]
 
   function renderContent() {
@@ -1198,6 +1200,7 @@ export default function ClientProfile({ project: projectProp }) {
       case 'links':        return <LinksModule project={project} onSave={handleSaveLinks} />
       case 'nps':          return <NPSModule project={project} />
       case 'crm':          return <CRMModule project={project} />
+      case 'planejamento': return <PlanejamentoAnualModule project={project} />
       default:             return null
     }
   }
