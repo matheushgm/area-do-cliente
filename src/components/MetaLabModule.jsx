@@ -2,9 +2,10 @@ import { useState, useMemo } from 'react'
 import {
   FlaskConical, DollarSign, Calendar, ChevronDown, ChevronUp,
   CheckCircle2, AlertCircle, Video, Users, Zap, Target,
-  Play, TrendingUp, Info, FileDown, Loader2,
+  Play, TrendingUp, Info, FileDown, Loader2, Save,
 } from 'lucide-react'
 import { generateMetaLabPDF } from '../lib/metaLabPDF'
+import { useApp } from '../context/AppContext'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -323,11 +324,28 @@ function ConfigItem({ label, value, className = '' }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function MetaLabModule({ project }) {
+  const { updateProject }           = useApp()
   const [budget, setBudget]         = useState(project.metaLabBudget || 0)
-  const [audienceType, setAudience] = useState('lookalike')
+  const [audienceType, setAudience] = useState(project.metaLabAudienceType || 'lookalike')
+  const [saving, setSaving]         = useState(false)
+  const [saved, setSaved]           = useState(false)
   const [exporting, setExporting]   = useState(false)
 
   const lab = useMemo(() => (budget >= DAILY * 7 ? calcLab(budget) : null), [budget])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await updateProject(project.id, {
+        metaLabBudget:       budget,
+        metaLabAudienceType: audienceType,
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const handleExportPDF = async () => {
     if (!lab) return
@@ -349,7 +367,7 @@ export default function MetaLabModule({ project }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
             <FlaskConical className="w-5 h-5 text-rl-purple" />
@@ -359,19 +377,38 @@ export default function MetaLabModule({ project }) {
             Metodologia de 21 dias para testar e validar criativos, públicos e ganchos no Meta Ads
           </p>
         </div>
-        {lab && (
+        <div className="flex items-center gap-2 shrink-0">
+          {saved && (
+            <span className="flex items-center gap-1.5 text-xs text-rl-green">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Salvo
+            </span>
+          )}
           <button
-            onClick={handleExportPDF}
-            disabled={exporting}
-            className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all
-              bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 disabled:opacity-60 disabled:cursor-not-allowed"
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all
+              bg-rl-surface border border-rl-border text-rl-text hover:border-rl-purple/40 hover:text-rl-purple
+              disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {exporting
-              ? <><Loader2 className="w-4 h-4 animate-spin" />Gerando PDF...</>
-              : <><FileDown className="w-4 h-4" />Exportar PDF</>
+            {saving
+              ? <><Loader2 className="w-4 h-4 animate-spin" />Salvando...</>
+              : <><Save className="w-4 h-4" />Salvar</>
             }
           </button>
-        )}
+          {lab && (
+            <button
+              onClick={handleExportPDF}
+              disabled={exporting}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all
+                bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {exporting
+                ? <><Loader2 className="w-4 h-4 animate-spin" />Gerando...</>
+                : <><FileDown className="w-4 h-4" />Exportar PDF</>
+              }
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Budget + audience */}

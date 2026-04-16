@@ -1,12 +1,24 @@
 import { useState } from 'react'
-import { Copy, CheckCheck } from 'lucide-react'
+import { Copy, CheckCheck, FileDown } from 'lucide-react'
+import { exportCreativoSinglePDF } from '../../lib/creativoPDF'
 
-export default function CreativeCard({ content, index }) {
-  const [copied, setCopied] = useState(false)
+export default function CreativeCard({ content, index, type, companyName }) {
+  const [copied,    setCopied]    = useState(false)
+  const [exporting, setExporting] = useState(false)
+
   function handleCopy() {
     navigator.clipboard.writeText(content)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  function handleExport() {
+    setExporting(true)
+    try {
+      exportCreativoSinglePDF({ content, type: type || 'estatico', index, companyName })
+    } finally {
+      setExporting(false)
+    }
   }
 
   const lines = content.split('\n')
@@ -32,13 +44,24 @@ export default function CreativeCard({ content, index }) {
     <div className="glass-card p-5 border border-rl-border/60">
       <div className="flex items-center justify-between mb-3">
         <span className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">Criativo {index + 1}</span>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-purple transition-all"
-        >
-          {copied ? <CheckCheck className="w-3 h-3 text-rl-green" /> : <Copy className="w-3 h-3" />}
-          {copied ? 'Copiado!' : 'Copiar'}
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            title="Exportar este anúncio em PDF"
+            className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-purple transition-all disabled:opacity-50"
+          >
+            <FileDown className="w-3 h-3" />
+            PDF
+          </button>
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-purple transition-all"
+          >
+            {copied ? <CheckCheck className="w-3 h-3 text-rl-green" /> : <Copy className="w-3 h-3" />}
+            {copied ? 'Copiado!' : 'Copiar'}
+          </button>
+        </div>
       </div>
       <div className="space-y-0">{rendered}</div>
     </div>

@@ -459,7 +459,7 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
             </button>
           </div>
 
-          <ResultBlock content={result} />
+          <ResultBlock content={result} type={isVideo ? 'video' : 'estatico'} companyName={project.companyName || project.company_name} />
 
           <button
             onClick={() => { setResult(null) }}

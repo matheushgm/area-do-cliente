@@ -215,6 +215,10 @@ function assembleProject(row, rel = {}) {
     // Planejamento Anual
     planejamentoAnual: row.planejamento_anual ?? null,
 
+    // Lab. Meta Ads
+    metaLabBudget:       row.meta_lab_budget       ?? null,
+    metaLabAudienceType: row.meta_lab_audience_type ?? null,
+
     // Produtos / Serviços
     produtos: produtos.map((p) => ({
       id:      p.id,
@@ -344,6 +348,8 @@ const PROJECT_FIELD_MAP = {
   nps:                  "nps",
   crmData:              "crm_data",
   planejamentoAnual:    "planejamento_anual",
+  metaLabBudget:        "meta_lab_budget",
+  metaLabAudienceType:  "meta_lab_audience_type",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────

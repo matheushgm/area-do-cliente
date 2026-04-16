@@ -1,16 +1,19 @@
 import { useState } from 'react'
-import { History, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { History, ChevronDown, ChevronUp, Trash2, FileDown } from 'lucide-react'
 import RatingSelector from '../RatingSelector'
 import ResultBlock from './ResultBlock'
+import { exportCreativoSetPDF } from '../../lib/creativoPDF'
 
 export default function CreativeHistory({ project, updateProject }) {
   const allCreatives = (project.creatives || []).slice().reverse() // newest first
-  const [expandedId, setExpandedId] = useState(null)
-  const [showAll,    setShowAll]    = useState(false)
+  const [expandedId,  setExpandedId]  = useState(null)
+  const [showAll,     setShowAll]     = useState(false)
+  const [exportingId, setExportingId] = useState(null)
 
   if (!allCreatives.length) return null
 
   const visible = showAll ? allCreatives : allCreatives.slice(0, 5)
+  const companyName = project.companyName || project.company_name || 'Cliente'
 
   function handleRating(id, rating) {
     const updated = (project.creatives || []).map((c) =>
@@ -22,6 +25,15 @@ export default function CreativeHistory({ project, updateProject }) {
   function handleDelete(id) {
     const updated = (project.creatives || []).filter((c) => c.id !== id)
     updateProject(project.id, { creatives: updated })
+  }
+
+  async function handleExport(creative) {
+    setExportingId(creative.id)
+    try {
+      exportCreativoSetPDF({ creative, companyName })
+    } finally {
+      setExportingId(null)
+    }
   }
 
   function fmtDate(iso) {
@@ -45,7 +57,7 @@ export default function CreativeHistory({ project, updateProject }) {
 
       <div className="glass-card overflow-hidden">
         {/* Table header */}
-        <div className="hidden sm:grid grid-cols-[120px_88px_1fr_36px_auto_56px] gap-3 px-4 py-2.5 bg-rl-surface/60 border-b border-rl-border text-[10px] font-bold text-rl-muted uppercase tracking-wider">
+        <div className="hidden sm:grid grid-cols-[120px_88px_1fr_36px_auto_72px] gap-3 px-4 py-2.5 bg-rl-surface/60 border-b border-rl-border text-[10px] font-bold text-rl-muted uppercase tracking-wider">
           <span>Data</span>
           <span>Tipo</span>
           <span>Tipos de Anúncio</span>
@@ -58,7 +70,7 @@ export default function CreativeHistory({ project, updateProject }) {
         {visible.map((c) => (
           <div key={c.id}>
             {/* Row */}
-            <div className="px-4 py-3 border-b border-rl-border/40 flex flex-col sm:grid sm:grid-cols-[120px_88px_1fr_36px_auto_56px] gap-2 sm:gap-3 sm:items-center">
+            <div className="px-4 py-3 border-b border-rl-border/40 flex flex-col sm:grid sm:grid-cols-[120px_88px_1fr_36px_auto_72px] gap-2 sm:gap-3 sm:items-center">
               {/* Date */}
               <span className="text-[10px] text-rl-muted">{fmtDate(c.createdAt)}</span>
 
@@ -93,6 +105,18 @@ export default function CreativeHistory({ project, updateProject }) {
 
               {/* Actions */}
               <div className="flex items-center gap-1 justify-end">
+                {/* Export PDF */}
+                <button
+                  onClick={() => handleExport(c)}
+                  disabled={exportingId === c.id}
+                  title="Exportar criativos desta geração em PDF"
+                  className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all disabled:opacity-40"
+                  aria-label="Exportar PDF"
+                >
+                  <FileDown className="w-3.5 h-3.5" />
+                </button>
+
+                {/* Expand */}
                 <button
                   onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
@@ -104,6 +128,8 @@ export default function CreativeHistory({ project, updateProject }) {
                     : <ChevronDown className="w-3.5 h-3.5" />
                   }
                 </button>
+
+                {/* Delete */}
                 <button
                   onClick={() => handleDelete(c.id)}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
@@ -124,7 +150,7 @@ export default function CreativeHistory({ project, updateProject }) {
                     <p className="text-xs text-rl-text italic">"{c.customNote}"</p>
                   </div>
                 )}
-                <ResultBlock content={c.content} />
+                <ResultBlock content={c.content} type={c.type} companyName={companyName} />
               </div>
             )}
           </div>

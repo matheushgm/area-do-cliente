@@ -48,7 +48,7 @@ function splitContent(content) {
   return { ads, analysis }
 }
 
-export default function ResultBlock({ content }) {
+export default function ResultBlock({ content, type, companyName }) {
   const [allCopied,     setAllCopied]     = useState(false)
   const [analysisOpen,  setAnalysisOpen]  = useState(false)
 
@@ -101,7 +101,7 @@ export default function ResultBlock({ content }) {
 
       {/* Anúncios reais */}
       {adChunks.map((chunk, i) => (
-        <CreativeCard key={i} content={chunk} index={i} />
+        <CreativeCard key={i} content={chunk} index={i} type={type} companyName={companyName} />
       ))}
     </div>
   )

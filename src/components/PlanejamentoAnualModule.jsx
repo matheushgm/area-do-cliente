@@ -19,7 +19,7 @@ const SECTIONS = [
 ]
 
 const DEFAULT_DATA = {
-  setup:    { faturamentoAnterior:'', metaAnual:'', faturamentoJaneiro:'', taxaMarketing:'', taxaImposto:'' },
+  setup:    { faturamentoAnterior:'', metaAnual:'', mediaUltimos3Meses:'', taxaMarketing:'', taxaImposto:'' },
   produtos: [{ id: crypto.randomUUID(), nome:'', ticketMedio:'', composicao:'' }],
   funil:    { leadToMQL:'', mqlToSQL:'', sqlToVenda:'' },
   custos:   [],
@@ -29,18 +29,11 @@ const DEFAULT_DATA = {
 
 // ─── Math helpers ─────────────────────────────────────────────────────────────
 
-// Binary search: find monthly compound rate r so that Jan × Σ(1+r)^k [k=0..11] = annual
-function findMonthlyRate(jan, annual) {
-  if (!jan || !annual || jan <= 0 || annual <= 0) return 0
-  if (Math.abs(jan * 12 - annual) < 0.01) return 0
-  const target = annual / jan  // normalized sum needed
-  let lo = -0.5, hi = 10
-  for (let i = 0; i < 200; i++) {
-    const mid = (lo + hi) / 2
-    const sum = Math.abs(mid) < 1e-10 ? 12 : (Math.pow(1 + mid, 12) - 1) / mid
-    if (sum < target) lo = mid; else hi = mid
-  }
-  return (lo + hi) / 2
+// CAGR: taxa mensal necessária para crescer de faturamentoAnterior (anual) até metaAnual em 12 meses
+// Equivalente ao =TAXA(11; -mediaBase; 0; meta; 0) do Excel quando a média mensal * crescimento ≈ CAGR
+function findMonthlyRate(faturamentoAnterior, metaAnual) {
+  if (!faturamentoAnterior || !metaAnual || faturamentoAnterior <= 0 || metaAnual <= 0) return 0
+  return Math.pow(metaAnual / faturamentoAnterior, 1 / 12) - 1
 }
 
 function buildProjections(jan, rate) {
@@ -123,7 +116,7 @@ function NumField({ label, value, onChange, prefix, suffix, hint }) {
 
 function SectionNav({ active, setActive, data }) {
   const completions = {
-    config:   !!(numVal(data.setup.metaAnual) && numVal(data.setup.faturamentoJaneiro)),
+    config:   !!(numVal(data.setup.metaAnual) && numVal(data.setup.mediaUltimos3Meses)),
     produtos: data.produtos.some(p => p.nome && numVal(p.ticketMedio) > 0),
     funil:    !!(numVal(data.funil.sqlToVenda)),
     custos:   data.custos.length > 0,
@@ -155,8 +148,8 @@ function ConfigSection({ data, onChange }) {
   const s = data
   const crescimento = numVal(s.faturamentoAnterior) && numVal(s.metaAnual)
     ? (numVal(s.metaAnual) / numVal(s.faturamentoAnterior) - 1) * 100 : null
-  const rate = numVal(s.faturamentoJaneiro) && numVal(s.metaAnual)
-    ? findMonthlyRate(numVal(s.faturamentoJaneiro), numVal(s.metaAnual)) * 100 : null
+  const rate = numVal(s.faturamentoAnterior) && numVal(s.metaAnual)
+    ? findMonthlyRate(numVal(s.faturamentoAnterior), numVal(s.metaAnual)) * 100 : null
 
   return (
     <div className="space-y-5">
@@ -180,9 +173,12 @@ function ConfigSection({ data, onChange }) {
 
       <div className="glass-card p-5 space-y-4">
         <h3 className="text-sm font-semibold text-rl-text">📈 Projeção de Crescimento (Juros Composto)</h3>
-        <p className="text-xs text-rl-muted -mt-2">Defina quanto vai faturar em Janeiro — o sistema calcula a taxa mensal necessária para bater a meta anual com juros composto.</p>
-        <NumField label="Faturamento de Janeiro (ponto de partida)" value={s.faturamentoJaneiro}
-          onChange={e => onChange({ ...s, faturamentoJaneiro: e.target.value })} prefix="R$" />
+        <p className="text-xs text-rl-muted -mt-2">
+          Informe a média dos últimos 3 meses — será o ponto de partida das projeções mensais. A taxa de crescimento mensal é calculada via CAGR a partir do faturamento anterior e da meta anual (equivalente ao =TAXA do Excel).
+        </p>
+        <NumField label="Média dos últimos 3 meses (faturamento base)" value={s.mediaUltimos3Meses}
+          onChange={e => onChange({ ...s, mediaUltimos3Meses: e.target.value })} prefix="R$"
+          hint="Ponto de partida para a curva de crescimento mensal" />
         {rate !== null && (
           <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rl-purple/8 border border-rl-purple/25 text-rl-purple">
             <Calculator className="w-4 h-4 shrink-0" />
@@ -442,11 +438,12 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
     return m < 12 ? m : 0
   })
 
-  const jan    = numVal(setup.faturamentoJaneiro)
-  const annual = numVal(setup.metaAnual)
-  const ticket = useMemo(() => weightedTicket(produtos), [produtos])
-  const rate   = useMemo(() => findMonthlyRate(jan, annual), [jan, annual])
-  const projs  = useMemo(() => buildProjections(jan, rate), [jan, rate])
+  const mediaBase = numVal(setup.mediaUltimos3Meses)
+  const anterior  = numVal(setup.faturamentoAnterior)
+  const annual    = numVal(setup.metaAnual)
+  const ticket    = useMemo(() => weightedTicket(produtos), [produtos])
+  const rate      = useMemo(() => findMonthlyRate(anterior, annual), [anterior, annual])
+  const projs     = useMemo(() => buildProjections(mediaBase, rate), [mediaBase, rate])
   const totalP = projs.reduce((s,v) => s + v, 0)
 
   const totalRH      = rh.reduce((s,r) => s + numVal(r.salario)*(1+numVal(r.encargos)/100),0)
