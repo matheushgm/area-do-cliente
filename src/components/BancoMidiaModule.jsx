@@ -44,13 +44,6 @@ async function downloadFromUrl(url, name) {
   }
 }
 
-function triggerDownload(data, name) {
-  const a = document.createElement('a')
-  a.href = data; a.download = name
-  document.body.appendChild(a); a.click()
-  document.body.removeChild(a)
-}
-
 // ─── Color Chip ───────────────────────────────────────────────────────────────
 function ColorChip({ color, onDelete }) {
   return (
@@ -76,7 +69,7 @@ function PhotoGrid({ fotos, urlMap, onDelete }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
       {fotos.map((f) => {
-        const src = urlMap[f.id] || f.data || null
+        const src = urlMap[f.id] || null
         return (
           <div key={f.id} className="group relative aspect-square rounded-xl overflow-hidden border border-rl-border bg-rl-surface">
             {src ? (
@@ -119,7 +112,7 @@ function VideoList({ videos, urlMap, onDelete }) {
   return (
     <div className="space-y-3">
       {videos.map((v) => {
-        const src = urlMap[v.id] || v.data || null
+        const src = urlMap[v.id] || null
         return (
           <div key={v.id} className="glass-card overflow-hidden">
             {playing === v.id && src && (
@@ -231,11 +224,7 @@ export default function BancoMidiaModule({ project }) {
   // ── Resolve logo ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!kit.logo) { setLogoSrc(null); return }
-    if (kit.logo.startsWith('data:') || kit.logo.startsWith('http')) {
-      setLogoSrc(kit.logo)
-    } else {
-      getSignedUrl(LOGO_BUCKET, kit.logo).then((url) => setLogoSrc(url))
-    }
+    getSignedUrl(LOGO_BUCKET, kit.logo).then((url) => setLogoSrc(url))
   }, [kit.logo])
 
   // ── Resolve photo URLs ──────────────────────────────────────────────────────
