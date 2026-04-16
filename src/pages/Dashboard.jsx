@@ -121,18 +121,6 @@ function ProjectCard({ project, onClick, onDelete }) {
     ? Math.ceil((new Date(project.contractDate).getTime() - Date.now()) / 86400000)
     : null
 
-  const statusColor = {
-    onboarding: 'text-rl-cyan bg-rl-cyan/10 border-rl-cyan/30',
-    active:     'text-rl-green bg-rl-green/10 border-rl-green/30',
-    paused:     'text-rl-gold bg-rl-gold/10 border-rl-gold/30',
-  }[project.status] || 'text-rl-muted bg-rl-muted/10 border-rl-muted/30'
-
-  const statusLabel = {
-    onboarding: 'Em Onboarding',
-    active:     'Ativo',
-    paused:     'Pausado',
-  }[project.status] || project.status
-
   return (
     <div onClick={onClick} className="glass-card p-5 hover:border-rl-purple/40 transition-all duration-200 cursor-pointer group relative">
       {/* Delete button */}
@@ -146,13 +134,10 @@ function ProjectCard({ project, onClick, onDelete }) {
       </button>
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-1">
-        <h3 className="font-semibold text-rl-text group-hover:text-rl-purple transition-colors leading-tight">
+      <div className="mb-1">
+        <h3 className="font-semibold text-rl-text group-hover:text-rl-purple transition-colors leading-tight pr-8">
           {project.companyName}
         </h3>
-        <span className={`text-xs font-medium px-2.5 py-1 rounded-full border mr-7 shrink-0 ml-2 ${statusColor}`}>
-          {statusLabel}
-        </span>
       </div>
       <p className="text-rl-muted text-xs mb-3">{project.responsibleName}{project.responsibleRole ? ` · ${project.responsibleRole}` : ''}</p>
 
@@ -218,24 +203,19 @@ function ClientProfileCard({ project, onClick, onDelete }) {
       </button>
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-1">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-rl-green/10 flex items-center justify-center shrink-0">
-            <FileText className="w-4 h-4 text-rl-green" />
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-semibold text-rl-text group-hover:text-rl-purple transition-colors truncate">
-              {project.companyName}
-            </h3>
-            <p className="text-rl-muted text-xs mt-0.5 truncate">
-              {project.businessType && <span className="mr-1">{project.businessType} ·</span>}
-              {project.responsibleName}
-            </p>
-          </div>
+      <div className="flex items-center gap-3 min-w-0 mb-1">
+        <div className="w-9 h-9 rounded-xl bg-rl-green/10 flex items-center justify-center shrink-0">
+          <FileText className="w-4 h-4 text-rl-green" />
         </div>
-        <span className="text-xs font-medium px-2.5 py-1 rounded-full border text-rl-green bg-rl-green/10 border-rl-green/30 whitespace-nowrap mr-7 shrink-0 ml-2">
-          Perfil Completo
-        </span>
+        <div className="min-w-0 pr-8">
+          <h3 className="font-semibold text-rl-text group-hover:text-rl-purple transition-colors truncate">
+            {project.companyName}
+          </h3>
+          <p className="text-rl-muted text-xs mt-0.5 truncate">
+            {project.businessType && <span className="mr-1">{project.businessType} ·</span>}
+            {project.responsibleName}
+          </p>
+        </div>
       </div>
 
       {/* Squad + Risk + Momento */}
@@ -523,7 +503,6 @@ const LIST_COLS = [
   { key: 'companyName',     label: 'Empresa'             },
   { key: 'squadName',       label: 'Squad'               },
   { key: 'responsibleName', label: 'Responsável / Cargo' },
-  { key: 'status',          label: 'Status'              },
   { key: 'riskLevel',       label: 'Risco'               },
   { key: 'momento',         label: 'Momento'             },
   { key: 'progress',        label: 'Progresso'           },
@@ -531,12 +510,6 @@ const LIST_COLS = [
   { key: 'createdAt',       label: 'Criado em'           },
 ]
 
-const STATUS_LABEL = { onboarding: 'Em Onboarding', active: 'Ativo', paused: 'Pausado' }
-const STATUS_COLOR = {
-  onboarding: 'text-rl-cyan  bg-rl-cyan/10  border-rl-cyan/30',
-  active:     'text-rl-green bg-rl-green/10 border-rl-green/30',
-  paused:     'text-rl-gold  bg-rl-gold/10  border-rl-gold/30',
-}
 
 function SortIcon({ col, sortBy, sortDir }) {
   if (sortBy !== col) return <ChevronsUpDown className="w-3 h-3 text-rl-muted/40" />
@@ -595,11 +568,6 @@ function ProjectListView({ projects, onNavigate, onDelete }) {
           {/* Body */}
           <tbody>
             {sorted.map((p, i) => {
-              const complete = isProfileComplete(p)
-              const statusLabel = complete ? 'Perfil Completo' : (STATUS_LABEL[p.status] || p.status)
-              const statusColor = complete
-                ? 'text-rl-green bg-rl-green/10 border-rl-green/30'
-                : (STATUS_COLOR[p.status] || 'text-rl-muted bg-rl-muted/10 border-rl-muted/30')
               const createdStr = p.createdAt
                 ? new Date(p.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
                 : '—'
@@ -639,13 +607,6 @@ function ProjectListView({ projects, onNavigate, onDelete }) {
                         </div>
                       : <span className="text-rl-muted">—</span>
                     }
-                  </td>
-
-                  {/* Status */}
-                  <td className="px-4 py-3">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${statusColor}`}>
-                      {statusLabel}
-                    </span>
                   </td>
 
                   {/* Risco */}
@@ -814,13 +775,14 @@ export default function Dashboard() {
   // Apply status/member filter
   const filteredProjects = (() => {
     let result = baseProjects
-    if (filter === 'onboarding')      result = result.filter(p => p.status === 'onboarding')
+    if (filter === 'churn')            result = result.filter(p => p.momento === 'churn')
+    else if (filter === 'onboarding') result = result.filter(p => p.status === 'onboarding')
     else if (filter === 'active')     result = result.filter(p => p.status === 'active')
     else if (filter !== 'all')        result = result.filter(p => String(p.accountId) === String(filter))
     if (squadFilter   !== 'all')      result = result.filter(p => String(p.squad) === String(squadFilter))
     if (riskFilter    !== 'all')      result = result.filter(p => p.riskLevel === riskFilter)
     if (momentoFilter !== 'all')      result = result.filter(p => p.momento === momentoFilter)
-    else                              result = result.filter(p => p.momento !== 'churn')
+    else if (filter !== 'churn')      result = result.filter(p => p.momento !== 'churn')
     return result
   })()
 
@@ -856,7 +818,8 @@ export default function Dashboard() {
 
   // Counts for sidebar nav
   const counts = {
-    all:        baseProjects.length,
+    all:        baseProjects.filter(p => p.momento !== 'churn').length,
+    churn:      baseProjects.filter(p => p.momento === 'churn').length,
     onboarding: baseProjects.filter(p => p.status === 'onboarding').length,
     active:     baseProjects.filter(p => p.status === 'active').length,
     members:    Object.fromEntries(
@@ -876,33 +839,43 @@ export default function Dashboard() {
   // Derive page title from filter
   const pageTitle = (() => {
     if (filter === 'all')        return 'Clientes'
+    if (filter === 'churn')      return 'Churn'
     if (filter === 'onboarding') return 'Em Onboarding'
     if (filter === 'active')     return 'Perfis Ativos'
     const member = teamMembers.find(m => String(m.id) === String(filter))
     return member ? `Clientes de ${member.name.split(' ')[0]}` : 'Clientes'
   })()
 
+  function riskCounts(list) {
+    return {
+      em_risco: list.filter(p => p.riskLevel === 'em_risco').length,
+      neutro:   list.filter(p => p.riskLevel === 'neutro').length,
+      saudavel: list.filter(p => p.riskLevel === 'saudavel').length,
+      vazio:    list.filter(p => !p.riskLevel).length,
+    }
+  }
+
+  const MOMENTO_CARDS = [
+    { value: 'onboarding',      label: 'Em Onboarding',   icon: <Clock    className="w-5 h-5" />, color: 'text-orange-400', bg: 'bg-orange-400/10' },
+    { value: 'voo_de_cruzeiro', label: 'Voo de Cruzeiro', icon: <Cloud    className="w-5 h-5" />, color: 'text-rl-cyan',    bg: 'bg-rl-cyan/10'    },
+    { value: 'aceleracao',      label: 'Aceleração',      icon: <Zap      className="w-5 h-5" />, color: 'text-rl-green',   bg: 'bg-rl-green/10'   },
+    { value: null,              label: 'Sem Momento',     icon: <Layers   className="w-5 h-5" />, color: 'text-rl-muted',   bg: 'bg-rl-muted/10'   },
+  ]
+
   const stats = [
-    {
-      label: 'Em Onboarding',
-      value: counts.onboarding,
-      icon: <Clock className="w-5 h-5" />,
-      color: 'text-rl-cyan',
-      bg: 'bg-rl-cyan/10',
-    },
-    {
-      label: 'Clientes Ativos',
-      value: counts.active,
-      icon: <CheckCircle2 className="w-5 h-5" />,
-      color: 'text-rl-green',
-      bg: 'bg-rl-green/10',
-    },
+    ...MOMENTO_CARDS.map(m => {
+      const group = baseProjects.filter(p =>
+        m.value === null ? (!p.momento || p.momento === '') : p.momento === m.value
+      )
+      return { ...m, count: group.length, risks: riskCounts(group) }
+    }),
     {
       label: 'Total de Clientes',
-      value: baseProjects.length,
-      icon: <BarChart3 className="w-5 h-5" />,
+      count: baseProjects.filter(p => p.momento !== 'churn').length,
+      icon:  <BarChart3 className="w-5 h-5" />,
       color: 'text-rl-purple',
-      bg: 'bg-rl-purple/10',
+      bg:    'bg-rl-purple/10',
+      risks: riskCounts(baseProjects.filter(p => p.momento !== 'churn')),
     },
   ]
 
@@ -944,9 +917,15 @@ export default function Dashboard() {
           {/* Welcome */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up">
             <div>
-              <h1 className="text-2xl font-bold text-rl-text">
-                Olá, {user.name.split(' ')[0]} 👋
-              </h1>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-2xl font-bold text-rl-text">
+                  Olá, {user.name.split(' ')[0]} 👋
+                </h1>
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-rl-purple/10 text-rl-purple border border-rl-purple/20">
+                  <Eye className="w-3 h-3" />
+                  {isAdmin ? 'Visão Admin' : 'Visão Geral'}
+                </span>
+              </div>
               <p className="text-rl-muted mt-1 text-sm">
                 Bem-vindo ao Revenue Lab Internal
               </p>
@@ -960,26 +939,60 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* Workspace badge */}
-          <div
-            className="flex items-center gap-2 animate-slide-up"
-            style={{ animationDelay: '0.03s' }}
-          >
-            <Eye className="w-3.5 h-3.5 text-rl-purple" />
-            <p className="text-xs text-rl-purple font-medium">
-              {isAdmin ? 'Visão Admin' : 'Visão Geral'} — {projects.length} projeto{projects.length !== 1 ? 's' : ''} no workspace
-            </p>
-          </div>
-
           {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up" style={{ animationDelay: '0.05s' }}>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 animate-slide-up" style={{ animationDelay: '0.05s' }}>
             {stats.map((s) => (
               <div key={s.label} className="glass-card p-5">
-                <div className={`w-10 h-10 rounded-xl ${s.bg} flex items-center justify-center mb-3 ${s.color}`}>
-                  {s.icon}
+                <div className="flex items-start justify-between gap-2 mb-0">
+                  <div>
+                    <p className="text-2xl font-bold text-rl-text">{s.count}</p>
+                    <p className={`text-xs mt-0.5 ${s.count === 0 ? 'text-rl-muted/50' : 'text-rl-muted'}`}>{s.label}</p>
+                  </div>
+                  <div className={`w-9 h-9 rounded-xl ${s.bg} flex items-center justify-center shrink-0 ${s.color}`}>
+                    {s.icon}
+                  </div>
                 </div>
-                <p className="text-2xl font-bold text-rl-text">{s.value}</p>
-                <p className="text-rl-muted text-xs mt-0.5">{s.label}</p>
+
+                {s.risks && (s.risks.em_risco > 0 || s.risks.neutro > 0 || s.risks.saudavel > 0 || s.risks.vazio > 0) && (
+                  <div className="mt-3 pt-3 border-t border-rl-border space-y-1.5">
+                    {s.risks.em_risco > 0 && (
+                      <div className="flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1.5 text-rl-muted">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                          Em Risco
+                        </div>
+                        <span className="font-semibold text-red-400">{s.risks.em_risco}</span>
+                      </div>
+                    )}
+                    {s.risks.neutro > 0 && (
+                      <div className="flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1.5 text-rl-muted">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rl-gold shrink-0" />
+                          Neutro
+                        </div>
+                        <span className="font-semibold text-rl-gold">{s.risks.neutro}</span>
+                      </div>
+                    )}
+                    {s.risks.saudavel > 0 && (
+                      <div className="flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1.5 text-rl-muted">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rl-green shrink-0" />
+                          Saudável
+                        </div>
+                        <span className="font-semibold text-rl-green">{s.risks.saudavel}</span>
+                      </div>
+                    )}
+                    {s.risks.vazio > 0 && (
+                      <div className="flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1.5 text-rl-muted">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rl-muted/40 shrink-0" />
+                          Sem risco
+                        </div>
+                        <span className="font-semibold text-rl-muted">{s.risks.vazio}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
