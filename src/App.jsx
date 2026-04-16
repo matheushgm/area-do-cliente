@@ -11,6 +11,7 @@ import NPSClientForm from './pages/NPSClientForm'
 import BancoDeAnuncios from './pages/BancoDeAnuncios'
 import BancoDeAnunciosPublico from './pages/BancoDeAnunciosPublico'
 import CRMPublico from './pages/CRMPublico'
+import ResetPassword from './pages/ResetPassword'
 
 function RequireAuth({ children }) {
   const { user, loadingAuth } = useApp()
@@ -41,6 +42,7 @@ function AppRoutes() {
         <Route path="/banco-de-anuncios" element={<RequireAuth><BancoDeAnuncios /></RequireAuth>} />
         <Route path="/banco-publico" element={<BancoDeAnunciosPublico />} />
         <Route path="/crm/:token" element={<CRMPublico />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

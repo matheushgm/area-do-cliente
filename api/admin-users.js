@@ -113,5 +113,25 @@ export default async function handler(req) {
     return new Response(text, { status: res.status, headers: { 'content-type': 'application/json' } })
   }
 
+  // ── Redefinir senha ───────────────────────────────────────────────────────
+  if (action === 'reset_password') {
+    if (!userId) return json({ error: 'userId obrigatório.' }, 400)
+    const { password } = data
+    if (!password || password.length < 6) {
+      return json({ error: 'Senha deve ter no mínimo 6 caracteres.' }, 400)
+    }
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        apikey: SERVICE_KEY,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ password }),
+    })
+    const text = await res.text()
+    return new Response(text, { status: res.status, headers: { 'content-type': 'application/json' } })
+  }
+
   return json({ error: `Ação desconhecida: ${action}` }, 400)
 }

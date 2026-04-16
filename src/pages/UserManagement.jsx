@@ -11,7 +11,7 @@ import AppSidebar from '../components/AppSidebar'
 import {
   Users, Plus, Pencil, UserX, UserCheck,
   X, AlertTriangle, Loader2, Menu,
-  ShieldCheck, User, Users2, Trash2,
+  ShieldCheck, User, Users2, Trash2, KeyRound, Eye, EyeOff,
 } from 'lucide-react'
 
 async function callAdminAPI(action, payload) {
@@ -33,6 +33,83 @@ async function callAdminAPI(action, payload) {
 }
 
 // ── Modais ─────────────────────────────────────────────────────────────────
+
+function PasswordModal({ user, onSave, onClose, saving }) {
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm]   = useState('')
+  const [showPass, setShowPass] = useState(false)
+
+  const mismatch = confirm.length > 0 && password !== confirm
+  const valid    = password.length >= 6 && password === confirm
+
+  return (
+    <Modal onClose={onClose} maxWidth="sm">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <KeyRound className="w-5 h-5 text-rl-purple" />
+          <h2 className="text-base font-bold text-rl-text">Redefinir senha</h2>
+        </div>
+        <button onClick={onClose} aria-label="Fechar" className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="rounded-xl bg-rl-surface border border-rl-border px-4 py-3 mb-5">
+        <p className="text-[11px] text-rl-muted mb-0.5">Usuário</p>
+        <p className="text-sm font-bold text-rl-text">{user.name}</p>
+        <p className="text-xs text-rl-muted mt-0.5">{user.email}</p>
+      </div>
+
+      <div className="space-y-4 mb-6">
+        <div>
+          <label htmlFor="pwd-new" className="block text-xs font-semibold text-rl-text mb-1.5">Nova senha</label>
+          <div className="relative">
+            <input
+              id="pwd-new"
+              type={showPass ? 'text' : 'password'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+              className="input-field w-full pr-10"
+              autoFocus
+            />
+            <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-rl-muted hover:text-rl-subtle transition-colors">
+              {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+          {password.length > 0 && password.length < 6 && (
+            <p className="text-xs text-rl-red mt-1">Mínimo 6 caracteres</p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="pwd-confirm" className="block text-xs font-semibold text-rl-text mb-1.5">Confirmar senha</label>
+          <input
+            id="pwd-confirm"
+            type={showPass ? 'text' : 'password'}
+            value={confirm}
+            onChange={e => setConfirm(e.target.value)}
+            placeholder="Repita a senha"
+            className="input-field w-full"
+          />
+          {mismatch && <p className="text-xs text-rl-red mt-1">As senhas não coincidem</p>}
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>Cancelar</button>
+        <button
+          onClick={() => onSave(password)}
+          disabled={!valid || saving}
+          className="flex-1 btn-primary disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+          Salvar senha
+        </button>
+      </div>
+    </Modal>
+  )
+}
 
 function UserFormModal({ title, initial, onSave, onClose, saving }) {
   const [form, setForm] = useState({
@@ -380,6 +457,9 @@ export default function UserManagement() {
   const [saving, setSaving] = useState(false)
   const { toast, showToast } = useToast()
 
+  // Password reset state
+  const [passwordTarget, setPasswordTarget] = useState(null)
+
   // Squad state
   const [showCreateSquad, setShowCreateSquad] = useState(false)
   const [editSquadTarget, setEditSquadTarget] = useState(null)
@@ -465,6 +545,18 @@ export default function UserManagement() {
     member: 'text-rl-blue   bg-rl-blue/10   border-rl-blue/30',
   }
   const ROLE_LABEL = { admin: 'Admin', member: 'Membro' }
+
+  async function handleResetPassword(password) {
+    setSaving(true)
+    const result = await callAdminAPI('reset_password', { userId: passwordTarget.id, password })
+    if (result.error) {
+      showToast(result.error, 'error')
+    } else {
+      showToast(`Senha de ${passwordTarget.name} redefinida.`)
+      setPasswordTarget(null)
+    }
+    setSaving(false)
+  }
 
   async function handleCreateSquad(form) {
     setSavingSquad(true)
@@ -653,6 +745,14 @@ export default function UserManagement() {
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
+                          <button
+                            onClick={() => setPasswordTarget(u)}
+                            aria-label="Redefinir senha"
+                            className="p-1.5 rounded-lg text-rl-muted hover:text-rl-cyan hover:bg-rl-cyan/10 transition-all"
+                            title="Redefinir senha"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" />
+                          </button>
                           {u.id !== currentUser?.id && (
                             <button
                               onClick={() => setToggleTarget(u)}
@@ -780,6 +880,16 @@ export default function UserManagement() {
           user={toggleTarget}
           onConfirm={handleToggle}
           onClose={() => setToggleTarget(null)}
+          saving={saving}
+        />
+      )}
+
+      {/* Modal — Redefinir senha */}
+      {passwordTarget && (
+        <PasswordModal
+          user={passwordTarget}
+          onSave={handleResetPassword}
+          onClose={() => setPasswordTarget(null)}
           saving={saving}
         />
       )}
