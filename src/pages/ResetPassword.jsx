@@ -14,8 +14,12 @@ export default function ResetPassword() {
   const [done, setDone]         = useState(false)
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    // PASSWORD_RECOVERY dispara quando o componente já está inscrito.
+    // Mas se o AppContext processou o code exchange primeiro, o novo subscriber
+    // recebe apenas INITIAL_SESSION com a sessão já criada — nunca PASSWORD_RECOVERY.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') setReady(true)
+      if (event === 'INITIAL_SESSION' && session) setReady(true)
     })
     return () => subscription.unsubscribe()
   }, [])
