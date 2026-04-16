@@ -644,6 +644,11 @@ export function AppProvider({ children }) {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        // Sessão de recovery não deve conceder acesso à plataforma.
+        // A página /reset-password gerencia essa sessão de forma independente.
+        return;
+      }
       if (event === "SIGNED_IN" && session?.user) {
         syncProfileIfExists(session.user).then((exists) => {
           if (!exists) {
