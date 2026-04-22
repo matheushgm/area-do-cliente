@@ -1247,7 +1247,7 @@ const V2_CSS = `
 export function exportEstrategiaV2PDF(project, data) {
   const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
-  const { problemas = [], swot = {}, concorrentes = [], riscos = [], funis = [],
+  const { mesesPlano = [], problemas = [], swot = {}, concorrentes = [], riscos = [], funis = [],
           roiResult = null, roiCalc = null } = data
   const personas     = project.personas     || []
   const campaignPlan = project.campaignPlan || null
@@ -1289,6 +1289,34 @@ export function exportEstrategiaV2PDF(project, data) {
         </div>` : ''}
       </div>
     </div>`
+
+  // ── Vitórias & Metas por Mês ──────────────────────────────────────────────
+  const mesesHTML = mesesPlano.some(m => m.vitorias || m.metas) ? `
+    <div class="section page-break">
+      <div class="section-title">00 · Vitórias &amp; Metas por Mês</div>
+      <table style="width:100%;border-collapse:collapse;margin-top:12px">
+        <thead>
+          <tr>
+            <th style="width:33.3%;padding:10px 14px;background:#f0f2ff;border:1px solid #d8ddf5;font-size:12px;color:#164496;text-align:left">Mês 1</th>
+            <th style="width:33.3%;padding:10px 14px;background:#f0f2ff;border:1px solid #d8ddf5;font-size:12px;color:#164496;text-align:left">Mês 2</th>
+            <th style="width:33.3%;padding:10px 14px;background:#f0f2ff;border:1px solid #d8ddf5;font-size:12px;color:#164496;text-align:left">Mês 3</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            ${[0,1,2].map(i => {
+              const m = mesesPlano[i] || { vitorias: '', metas: '' }
+              return `<td style="vertical-align:top;padding:12px 14px;border:1px solid #d8ddf5;font-size:11px;line-height:1.6">
+                ${m.vitorias ? `<div style="margin-bottom:8px"><strong style="display:block;color:#16a34a;font-size:10px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px">🏆 Vitórias</strong><div style="white-space:pre-wrap;color:#374151">${esc(m.vitorias)}</div></div>` : ''}
+                ${m.metas    ? `<div><strong style="display:block;color:#7c3aed;font-size:10px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px">🎯 Metas</strong><div style="white-space:pre-wrap;color:#374151">${esc(m.metas)}</div></div>` : ''}
+                ${!m.vitorias && !m.metas ? '<span style="color:#9ca3af;font-style:italic">Não preenchido</span>' : ''}
+              </td>`
+            }).join('')}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  ` : ''
 
   // ── Problemas ─────────────────────────────────────────────────────────────
   const problemasHTML = `
@@ -1343,6 +1371,8 @@ export function exportEstrategiaV2PDF(project, data) {
                 ${c.googleAds ? '<span class="platform-badge badge-google">Google Ads</span>' : '<span class="platform-badge badge-no">Sem Google Ads</span>'}
               </td>
             </tr>
+            ${c.linkSite ? `<tr><td>Site</td><td style="word-break:break-all"><a href="${esc(c.linkSite)}" style="color:#164496">${esc(c.linkSite)}</a></td></tr>` : ''}
+            ${c.linkInstagram ? `<tr><td>Instagram</td><td style="word-break:break-all"><a href="${esc(c.linkInstagram)}" style="color:#164496">${esc(c.linkInstagram)}</a></td></tr>` : ''}
             ${c.metaAds && c.linkBiblioteca ? `<tr><td>Biblioteca de Anúncios</td><td style="word-break:break-all">${esc(c.linkBiblioteca)}</td></tr>` : ''}
             ${c.grandePromessa ? `<tr><td>Grande Promessa</td><td>${esc(c.grandePromessa)}</td></tr>` : ''}
             ${c.comunicacao ? `<tr><td>Comunicação</td><td>${esc(c.comunicacao)}</td></tr>` : ''}
@@ -1528,6 +1558,7 @@ export function exportEstrategiaV2PDF(project, data) {
 <body>
   ${cover}
   <div class="content">
+    ${mesesHTML}
     ${problemasHTML}
     ${swotHTML}
     ${benchmarkHTML}

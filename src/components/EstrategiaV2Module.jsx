@@ -3,7 +3,7 @@ import {
   Plus, X, Trash2, AlertTriangle, Target, TrendingUp,
   Shield, Zap, Users, BarChart3, Save, FileDown,
   ChevronRight, Link, CheckSquare, Square, Calculator,
-  DollarSign, ArrowRight,
+  DollarSign, ArrowRight, Globe, Instagram, Trophy, Flag,
 } from 'lucide-react'
 import { exportEstrategiaV2PDF } from '../utils/exportPDF'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
@@ -101,6 +101,11 @@ export default function EstrategiaV2Module({ project, onSave }) {
   const { updateProject } = useApp()
   const saved = project.estrategiaV2 || {}
 
+  const [mesesPlano,     setMesesPlano]     = useState(() => {
+    const s = saved.mesesPlano
+    if (Array.isArray(s) && s.length === 3) return s
+    return [{ vitorias: '', metas: '' }, { vitorias: '', metas: '' }, { vitorias: '', metas: '' }]
+  })
   const [problemas,      setProblemas]      = useState(() => saved.problemas    || [])
   const [swot,           setSwot]           = useState(() => saved.swot         || { forcas: '', fraquezas: '', oportunidades: '', ameacas: '' })
   const [concorrentes,   setConcorrentes]   = useState(() => saved.concorrentes || [])
@@ -120,6 +125,11 @@ export default function EstrategiaV2Module({ project, onSave }) {
     [project.roiResult, roiCalc]
   )
 
+  // ── Meses do Plano ─────────────────────────────────────────────────────────
+  const updateMes = useCallback((idx, field, value) => {
+    setMesesPlano(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m))
+  }, [])
+
   // ── Problemas ──────────────────────────────────────────────────────────────
   const addProblema = useCallback(() => {
     const trimmed = problemaInput.trim()
@@ -134,7 +144,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
 
   // ── Concorrentes ──────────────────────────────────────────────────────────
   const addConcorrente = useCallback(() => {
-    const novo = { id: uid(), nome: '', metaAds: false, googleAds: false, linkBiblioteca: '', grandePromessa: '', comunicacao: '' }
+    const novo = { id: uid(), nome: '', linkSite: '', linkInstagram: '', metaAds: false, googleAds: false, linkBiblioteca: '', grandePromessa: '', comunicacao: '' }
     setConcorrentes(prev => { setActiveTab(prev.length); return [...prev, novo] })
   }, [])
 
@@ -172,25 +182,81 @@ export default function EstrategiaV2Module({ project, onSave }) {
   useEffect(() => {
     if (!isMounted.current) { isMounted.current = true; return }
     updateProject(project.id, {
-      estrategiaV2: { problemas, swot, concorrentes, riscos, funis, updatedAt: new Date().toISOString() }
+      estrategiaV2: { mesesPlano, problemas, swot, concorrentes, riscos, funis, updatedAt: new Date().toISOString() }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [problemas, swot, concorrentes, riscos, funis])
+  }, [mesesPlano, problemas, swot, concorrentes, riscos, funis])
 
   // ── Save / Export ──────────────────────────────────────────────────────
   function handleSave() {
-    onSave({ problemas, swot, concorrentes, riscos, funis, updatedAt: new Date().toISOString() })
+    onSave({ mesesPlano, problemas, swot, concorrentes, riscos, funis, updatedAt: new Date().toISOString() })
   }
 
   function handleExport() {
-    exportEstrategiaV2PDF(project, { problemas, swot, concorrentes, riscos, funis, roiResult, roiCalc })
+    exportEstrategiaV2PDF(project, { mesesPlano, problemas, swot, concorrentes, riscos, funis, roiResult, roiCalc })
   }
 
   // ── Budget helpers ─────────────────────────────────────────────────────
   const totalBudget = campaignPlan?.orcamentoTotal || campaignPlan?.totalBudget || 0
 
+  const MES_LABELS = ['Mês 1', 'Mês 2', 'Mês 3']
+
   return (
     <div className="space-y-8 pb-6">
+
+      {/* ═══ SEÇÃO 0: VITÓRIAS & METAS POR MÊS ════════════════════════════ */}
+      <div className="glass-card p-5">
+        <SectionHeader
+          icon={Trophy}
+          title="Vitórias & Metas por Mês"
+          subtitle="Registre as atividades, checkpoints e metas numéricas para cada mês do plano"
+          color="text-rl-gold"
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {mesesPlano.map((mes, idx) => (
+            <div key={idx} className="flex flex-col gap-3 p-4 rounded-xl border border-rl-border bg-rl-surface/50">
+              {/* Mês badge */}
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-7 h-7 rounded-lg bg-rl-gold/15 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-rl-gold">{idx + 1}</span>
+                </div>
+                <span className="text-sm font-semibold text-rl-text">{MES_LABELS[idx]}</span>
+              </div>
+
+              {/* Vitórias */}
+              <div>
+                <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-rl-green mb-1.5">
+                  <Trophy className="w-3 h-3" />
+                  Vitórias
+                </label>
+                <textarea
+                  value={mes.vitorias}
+                  onChange={e => updateMes(idx, 'vitorias', e.target.value)}
+                  placeholder={`Ex: Lançar campanha de tráfego, atingir 1.000 leads, testar 3 criativos...`}
+                  rows={4}
+                  className="w-full rounded-lg border border-rl-green/30 bg-rl-green/5 px-3 py-2 text-xs text-rl-text placeholder:text-rl-muted/60 resize-none focus:outline-none focus:border-rl-green/60 focus:ring-1 focus:ring-rl-green/20 transition-colors"
+                />
+              </div>
+
+              {/* Metas */}
+              <div>
+                <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-rl-purple mb-1.5">
+                  <Flag className="w-3 h-3" />
+                  Metas
+                </label>
+                <textarea
+                  value={mes.metas}
+                  onChange={e => updateMes(idx, 'metas', e.target.value)}
+                  placeholder={`Ex: 500 leads, CPL ≤ R$10, 10 vendas, faturamento R$10.000...`}
+                  rows={4}
+                  className="w-full rounded-lg border border-rl-purple/30 bg-rl-purple/5 px-3 py-2 text-xs text-rl-text placeholder:text-rl-muted/60 resize-none focus:outline-none focus:border-rl-purple/60 focus:ring-1 focus:ring-rl-purple/20 transition-colors"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* ═══ SEÇÃO 1: PROBLEMAS ════════════════════════════════════════════ */}
       <div className="glass-card p-5">
@@ -311,6 +377,34 @@ export default function EstrategiaV2Module({ project, onSave }) {
                   placeholder="Ex: Empresa XYZ"
                   className="input-field w-full text-sm"
                 />
+              </div>
+
+              {/* Links do concorrente */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-rl-muted uppercase tracking-wider block mb-1.5 flex items-center gap-1">
+                    <Globe className="w-3 h-3" /> Site
+                  </label>
+                  <input
+                    type="url"
+                    value={c.linkSite || ''}
+                    onChange={e => updateConcorrente(c.id, { linkSite: e.target.value })}
+                    placeholder="https://www.exemplo.com.br"
+                    className="input-field w-full text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-rl-muted uppercase tracking-wider block mb-1.5 flex items-center gap-1">
+                    <Instagram className="w-3 h-3" /> Instagram
+                  </label>
+                  <input
+                    type="url"
+                    value={c.linkInstagram || ''}
+                    onChange={e => updateConcorrente(c.id, { linkInstagram: e.target.value })}
+                    placeholder="https://www.instagram.com/perfil"
+                    className="input-field w-full text-sm"
+                  />
+                </div>
               </div>
 
               {/* Plataformas */}
