@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { History, ChevronDown, ChevronUp, Trash2, FileDown } from 'lucide-react'
 import RatingSelector from '../RatingSelector'
-import ResultBlock from './ResultBlock'
+import ResultBlock, { replaceAdInContent } from './ResultBlock'
 import { exportCreativoSetPDF } from '../../lib/creativoPDF'
 
 export default function CreativeHistory({ project, updateProject }) {
@@ -34,6 +34,14 @@ export default function CreativeHistory({ project, updateProject }) {
     } finally {
       setExportingId(null)
     }
+  }
+
+  function handleChunkEdit(creative, chunkIndex, newContent) {
+    const newFullContent = replaceAdInContent(creative.content, chunkIndex, newContent)
+    const updated = (project.creatives || []).map((c) =>
+      c.id === creative.id ? { ...c, content: newFullContent } : c
+    )
+    updateProject(project.id, { creatives: updated })
   }
 
   function fmtDate(iso) {
@@ -150,7 +158,12 @@ export default function CreativeHistory({ project, updateProject }) {
                     <p className="text-xs text-rl-text italic">"{c.customNote}"</p>
                   </div>
                 )}
-                <ResultBlock content={c.content} type={c.type} companyName={companyName} />
+                <ResultBlock
+                  content={c.content}
+                  type={c.type}
+                  companyName={companyName}
+                  onChunkChange={(chunkIndex, newContent) => handleChunkEdit(c, chunkIndex, newContent)}
+                />
               </div>
             )}
           </div>

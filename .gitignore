@@ -38,3 +38,4 @@ screenshot/
 
 # Migration artifacts
 scripts/id-map-*.json
+.env*.local

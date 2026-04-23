@@ -7,7 +7,7 @@ import {
   ChevronLeft, RotateCcw, Hash, CheckCircle2,
 } from 'lucide-react'
 import CreativeCard from './Criativos/CreativeCard'
-import ResultBlock from './Criativos/ResultBlock'
+import ResultBlock, { replaceAdInContent } from './Criativos/ResultBlock'
 import ContextPreview from './Criativos/ContextPreview'
 import CreativeHistory from './Criativos/CreativeHistory'
 import VideoGuide from './VideoGuide'
@@ -134,9 +134,10 @@ export default function CriativosModule({ project }) {
   const [adTypes,    setAdTypes]    = useState(new Set())
   const [quantity,   setQuantity]   = useState(3)
   const [customNote, setCustomNote] = useState('')
-  const [loading,    setLoading]    = useState(false)
-  const [error,      setError]      = useState(null)
-  const [result,     setResult]     = useState(null)
+  const [loading,        setLoading]        = useState(false)
+  const [error,          setError]          = useState(null)
+  const [result,         setResult]         = useState(null)
+  const [lastCreativeId, setLastCreativeId] = useState(null)
 
   const isVideo      = view === 'video'
   const selectedList = AD_TYPES.filter((t) => adTypes.has(t.id))
@@ -213,8 +214,9 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
 
       // ── Save to project history ────────────────────────────────────────────
       const cleanText = fullText.replace(/—/g, '-')
+      const newId     = crypto.randomUUID()
       const newCreative = {
-        id:           crypto.randomUUID(),
+        id:           newId,
         type:         isVideo ? 'video' : 'estatico',
         adTypes:      [...adTypes],
         adTypeLabels: selectedList.map((t) => t.label),
@@ -224,6 +226,7 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
         rating:       null,
         createdAt:    new Date().toISOString(),
       }
+      setLastCreativeId(newId)
       updateProject(project.id, {
         creatives: [...(project.creatives || []), newCreative],
       })
@@ -233,6 +236,21 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
       setLoading(false)
     }
   }, [adTypes, buildInstruction, customNote, isVideo, project, quantity, selectedList, updateProject])
+
+  // ── Edit a chunk inside the fresh (just-generated) result ──────────────────
+  const handleFreshChunkEdit = useCallback((chunkIndex, newContent) => {
+    if (!lastCreativeId) return
+    const creative = (project.creatives || []).find((c) => c.id === lastCreativeId)
+    if (!creative) return
+    const newFullContent = replaceAdInContent(creative.content, chunkIndex, newContent)
+    // Update the local streaming result so the card re-renders immediately
+    setResult(newFullContent)
+    // Persist to project history
+    const updated = (project.creatives || []).map((c) =>
+      c.id === lastCreativeId ? { ...c, content: newFullContent } : c
+    )
+    updateProject(project.id, { creatives: updated })
+  }, [lastCreativeId, project, updateProject])
 
   // ── View: Select format ────────────────────────────────────────────────────
   if (view === 'select') {
@@ -459,7 +477,12 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
             </button>
           </div>
 
-          <ResultBlock content={result} type={isVideo ? 'video' : 'estatico'} companyName={project.companyName || project.company_name} />
+          <ResultBlock
+            content={result}
+            type={isVideo ? 'video' : 'estatico'}
+            companyName={project.companyName || project.company_name}
+            onChunkChange={!loading ? handleFreshChunkEdit : undefined}
+          />
 
           <button
             onClick={() => { setResult(null) }}

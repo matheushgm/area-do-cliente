@@ -48,7 +48,49 @@ function splitContent(content) {
   return { ads, analysis }
 }
 
-export default function ResultBlock({ content, type, companyName }) {
+// Substitui o chunk de anúncio no índice `adIndex` dentro da string `content` completa.
+// Exportado para uso em CreativeHistory e CriativosModule ao persistir edições.
+export function replaceAdInContent(content, adIndex, newAdContent) {
+  // Tentativa primária: split por cabeçalhos ## ANÚNCIO / ## ROTEIRO
+  const parts = content.split(/(?=^##\s+(?:ROTEIRO|AN[ÚU]NCIO)\s+\d+)/im)
+  let adCount  = 0
+  let foundAny = false
+
+  const newParts = parts.map((part) => {
+    const trimmed = part.trim()
+    if (!trimmed) return part
+    if (AD_HEADER.test(trimmed) && !isNonAdTrailing(trimmed)) {
+      foundAny = true
+      const result = adCount === adIndex ? newAdContent : part
+      adCount++
+      return result
+    }
+    return part
+  })
+
+  if (foundAny) return newParts.join('')
+
+  // Fallback: split por ---
+  const chunks = content.split(/\n---\n/)
+  let fallbackCount = 0
+  const newChunks = chunks.map((c) => {
+    const trimmed = c.trim()
+    const hasAd =
+      /HEADLINE\s+PRINCIPAL/i.test(trimmed) ||
+      /CALL.TO.ACTION/i.test(trimmed)        ||
+      /⏱.*GANCHO/i.test(trimmed)            ||
+      /📣.*CTA/i.test(trimmed)
+    if (hasAd && !isNonAdTrailing(trimmed)) {
+      const result = fallbackCount === adIndex ? newAdContent : c
+      fallbackCount++
+      return result
+    }
+    return c
+  })
+  return newChunks.join('\n---\n')
+}
+
+export default function ResultBlock({ content, type, companyName, onChunkChange }) {
   const [allCopied,     setAllCopied]     = useState(false)
   const [analysisOpen,  setAnalysisOpen]  = useState(false)
 
@@ -101,7 +143,14 @@ export default function ResultBlock({ content, type, companyName }) {
 
       {/* Anúncios reais */}
       {adChunks.map((chunk, i) => (
-        <CreativeCard key={i} content={chunk} index={i} type={type} companyName={companyName} />
+        <CreativeCard
+          key={i}
+          content={chunk}
+          index={i}
+          type={type}
+          companyName={companyName}
+          onChange={onChunkChange ? (newContent) => onChunkChange(i, newContent) : undefined}
+        />
       ))}
     </div>
   )

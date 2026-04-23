@@ -56,7 +56,7 @@ function AdCard({ ad, onDelete }) {
           <video
             src={ad.url}
             controls
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             preload="metadata"
           />
         ) : (

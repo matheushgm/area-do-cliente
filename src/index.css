@@ -90,6 +90,13 @@
   }
 }
 
+/* Funnel canvas dot grid */
+.canvas-grid {
+  background-color: #f4f7fc;
+  background-image: radial-gradient(circle, #c8d5ea 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
 /* Hide scrollbar but keep scroll functionality */
 .scroll-hide {
   scrollbar-width: none;
