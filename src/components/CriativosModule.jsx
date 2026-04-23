@@ -215,11 +215,19 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
       // ── Save to project history ────────────────────────────────────────────
       const cleanText = fullText.replace(/—/g, '-')
       const newId     = crypto.randomUUID()
+      const adTypeLabels = selectedList.map((t) => t.label)
+      const autoName = [
+        isVideo ? 'Vídeo' : 'Estático',
+        '—',
+        adTypeLabels.slice(0, 2).join(', ') + (adTypeLabels.length > 2 ? '...' : ''),
+      ].join(' ')
       const newCreative = {
         id:           newId,
+        name:         autoName,
+        campaignId:   null,
         type:         isVideo ? 'video' : 'estatico',
         adTypes:      [...adTypes],
-        adTypeLabels: selectedList.map((t) => t.label),
+        adTypeLabels,
         quantity,
         customNote:   customNote.trim(),
         content:      cleanText,

@@ -447,7 +447,7 @@ async function sbUpdateProjectV2(id, patch) {
         patch.creatives.map((c) => ({
           id:               c.id || crypto.randomUUID(),
           project_id:       id,
-          answers:          { adTypeLabels: c.adTypeLabels, quantity: c.quantity, customNote: c.customNote, isVideo: c.isVideo },
+          answers:          { adTypeLabels: c.adTypeLabels, quantity: c.quantity, customNote: c.customNote, isVideo: c.isVideo, name: c.name ?? null, campaignId: c.campaignId ?? null },
           generated_content:c.content       ?? null,
           rating:           c.rating        ?? null,
           generated_at:     c.createdAt     ?? null,
