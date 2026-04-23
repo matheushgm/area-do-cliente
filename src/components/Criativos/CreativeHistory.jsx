@@ -20,8 +20,28 @@ export default function CreativeHistory({ project, updateProject }) {
   const visible = showAll ? allCreatives : allCreatives.slice(0, 5)
   const companyName = project.companyName || project.company_name || 'Cliente'
 
-  // Accounts from the campaign plan (each account = one ad account / campaign)
-  const campaignAccounts = project.campaignPlan?.accounts || []
+  // Flatten all campaigns from all accounts → channels → stages
+  const STAGE_LABELS = { topo: 'Topo', meio: 'Meio', fundo: 'Fundo' }
+  const allCampaigns = (() => {
+    const result = []
+    for (const account of (project.campaignPlan?.accounts || [])) {
+      for (const channel of (account.channels || [])) {
+        for (const stageKey of ['topo', 'meio', 'fundo']) {
+          for (const camp of (channel.stages?.[stageKey]?.campaigns || [])) {
+            if (camp.name?.trim()) {
+              result.push({
+                id:      camp.id,
+                name:    camp.name.trim(),
+                channel: channel.name,
+                stage:   STAGE_LABELS[stageKey],
+              })
+            }
+          }
+        }
+      }
+    }
+    return result
+  })()
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -104,7 +124,7 @@ export default function CreativeHistory({ project, updateProject }) {
 
         {/* Rows */}
         {visible.map((c) => {
-          const linkedAccount = campaignAccounts.find((a) => a.id === c.campaignId)
+          const linkedCampaign = allCampaigns.find((a) => a.id === c.campaignId)
 
           return (
             <div key={c.id}>
@@ -156,22 +176,24 @@ export default function CreativeHistory({ project, updateProject }) {
                   )}
 
                   {/* Campaign selector */}
-                  {campaignAccounts.length > 0 && editingNameId !== c.id && (
+                  {allCampaigns.length > 0 && editingNameId !== c.id && (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <Link2 className="w-3 h-3 text-rl-muted" />
                       <select
                         value={c.campaignId || ''}
                         onChange={(e) => handleCampaignLink(c.id, e.target.value)}
-                        className={`text-[10px] border rounded-md px-1.5 py-0.5 focus:outline-none cursor-pointer transition-colors ${
-                          linkedAccount
+                        className={`text-[10px] border rounded-md px-1.5 py-0.5 focus:outline-none cursor-pointer transition-colors max-w-[200px] ${
+                          linkedCampaign
                             ? 'bg-rl-blue/8 border-rl-blue/30 text-rl-blue font-semibold hover:border-rl-blue/50 focus:border-rl-blue/50'
                             : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-blue/30 focus:border-rl-blue/40'
                         }`}
                         title="Vincular a uma campanha"
                       >
                         <option value="">— Sem campanha —</option>
-                        {campaignAccounts.map((acc) => (
-                          <option key={acc.id} value={acc.id}>{acc.name}</option>
+                        {allCampaigns.map((camp) => (
+                          <option key={camp.id} value={camp.id}>
+                            {camp.name} · {camp.channel} · {camp.stage}
+                          </option>
                         ))}
                       </select>
                     </div>
