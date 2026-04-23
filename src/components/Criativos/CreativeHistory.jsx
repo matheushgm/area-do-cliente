@@ -283,6 +283,7 @@ export default function CreativeHistory({ project, updateProject }) {
                     content={c.content}
                     type={c.type}
                     companyName={companyName}
+                    createdAt={c.createdAt}
                     onChunkChange={(chunkIndex, newContent) => handleChunkEdit(c, chunkIndex, newContent)}
                   />
                 </div>

@@ -138,6 +138,7 @@ export default function CriativosModule({ project }) {
   const [error,          setError]          = useState(null)
   const [result,         setResult]         = useState(null)
   const [lastCreativeId, setLastCreativeId] = useState(null)
+  const [generatedAt,    setGeneratedAt]    = useState(null)
 
   const isVideo      = view === 'video'
   const selectedList = AD_TYPES.filter((t) => adTypes.has(t.id))
@@ -195,6 +196,8 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
   // ── Generate ────────────────────────────────────────────────────────────────
   const generate = useCallback(async () => {
     if (!adTypes.size) return
+    const now = new Date().toISOString()
+    setGeneratedAt(now)
     setLoading(true)
     setError(null)
     setResult(null)
@@ -232,7 +235,7 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
         customNote:   customNote.trim(),
         content:      cleanText,
         rating:       null,
-        createdAt:    new Date().toISOString(),
+        createdAt:    now,
       }
       setLastCreativeId(newId)
       updateProject(project.id, {
@@ -489,6 +492,7 @@ Use todas as informações do cliente acima para personalizar ao máximo.`
             content={result}
             type={isVideo ? 'video' : 'estatico'}
             companyName={project.companyName || project.company_name}
+            createdAt={generatedAt}
             onChunkChange={!loading ? handleFreshChunkEdit : undefined}
           />
 

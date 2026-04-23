@@ -90,7 +90,7 @@ export function replaceAdInContent(content, adIndex, newAdContent) {
   return newChunks.join('\n---\n')
 }
 
-export default function ResultBlock({ content, type, companyName, onChunkChange }) {
+export default function ResultBlock({ content, type, companyName, onChunkChange, createdAt }) {
   const [allCopied,     setAllCopied]     = useState(false)
   const [analysisOpen,  setAnalysisOpen]  = useState(false)
 
@@ -149,6 +149,7 @@ export default function ResultBlock({ content, type, companyName, onChunkChange 
           index={i}
           type={type}
           companyName={companyName}
+          createdAt={createdAt}
           onChange={onChunkChange ? (newContent) => onChunkChange(i, newContent) : undefined}
         />
       ))}
