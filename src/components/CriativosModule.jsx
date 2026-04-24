@@ -220,14 +220,14 @@ Crie cada roteiro seguindo a ESTRUTURA DO LABORATÓRIO DE ANÚNCIOS (4 etapas):
 
 ## ROTEIRO [N]: Gancho: [Tipo] | [Etapa do Funil]
 
-**GANCHO (0s – 3s):** [Tipo de gancho]
-Fala/Texto: [frase exata: disruptiva, contra-intuitiva, que para o scroll]
+**GANCHO (0s – 3s):** 
+[frase exata: disruptiva, contra-intuitiva, que para o scroll]
 
-**MENSAGEM (3s – 45s):** [Tipo: StoryTelling/Proclamação/Segredos/Problema-Solução/Promessa/Oferta]
-Fala: [narração mostrando transformação do Ponto A → Ponto B, com quebra de objeção integrada naturalmente]
+**MENSAGEM (3s – 45s):** 
+[narração mostrando transformação do Ponto A → Ponto B, com quebra de objeção integrada naturalmente]
 
 **CTA FINAL (45s – 60s)**
-Fala: [reforça promessa + gatilho de escassez/urgência + ação clara]
+[reforça promessa + gatilho de escassez/urgência + ação clara]
 
 **📝 LEGENDA DO POST:** [legenda com emojis]
 
@@ -620,7 +620,6 @@ ${sections}`
       const isVid = creativeType === 'video'
       const parts = isVid ? VIDEO_SYSTEM_PARTS : DORES_SYSTEM_PARTS
       const systemPrompt = [
-        parts.metodologia,
         parts.estrutura,
         parts.diretrizes + '\n' + parts.diretrizLocked,
       ].join('\n\n')

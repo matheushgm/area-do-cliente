@@ -49,10 +49,11 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine }) {
   const [exporting,     setExporting]     = useState(false)
   const [editing,       setEditing]       = useState(false)
   const [draft,         setDraft]         = useState('')
-  const [refineOpen,    setRefineOpen]    = useState(false)
-  const [refineNote,    setRefineNote]    = useState('')
-  const [isRefining,    setIsRefining]    = useState(false)
-  const [streamingBody, setStreamingBody] = useState('')
+  const [refineOpen,     setRefineOpen]     = useState(false)
+  const [refineNote,     setRefineNote]     = useState('')
+  const [isRefining,     setIsRefining]     = useState(false)
+  const [streamingBody,  setStreamingBody]  = useState('')
+  const [refinedContent, setRefinedContent] = useState(null)
 
   function copyAll() {
     navigator.clipboard.writeText(item.chunk)
@@ -78,17 +79,18 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine }) {
     setRefineOpen((v) => !v)
     setEditing(false)
     setRefineNote('')
+    setRefinedContent(null)
+    setStreamingBody('')
   }
 
   async function submitRefine() {
     if (!refineNote.trim() || !onRefine || isRefining) return
     setIsRefining(true)
     setStreamingBody('')
+    setRefinedContent(null)
     try {
       const refined = await onRefine(item.chunk, refineNote, (text) => setStreamingBody(text))
-      if (onChange) onChange(refined)
-      setRefineOpen(false)
-      setRefineNote('')
+      setRefinedContent(refined)
     } catch (e) {
       console.error('Refinar falhou:', e)
     } finally {
@@ -97,7 +99,16 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine }) {
     }
   }
 
-  const displayBody = streamingBody || body
+  function approveRefine() {
+    if (onChange && refinedContent) onChange(refinedContent)
+    setRefinedContent(null)
+    setRefineOpen(false)
+    setRefineNote('')
+  }
+
+  function rejectRefine() {
+    setRefinedContent(null)
+  }
 
   return (
     <div className="glass-card overflow-hidden">
@@ -179,44 +190,87 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine }) {
             autoFocus
           />
         ) : (
-          <MarkdownBlock content={displayBody} />
+          <MarkdownBlock content={body} />
         )}
       </div>
 
       {/* Painel de refinamento */}
       {refineOpen && !editing && (
         <div className="px-4 pb-4 space-y-2.5 border-t border-rl-purple/20 bg-rl-purple/5">
-          <p className="text-[10px] font-semibold text-rl-purple uppercase tracking-wide pt-3">
-            O que deseja melhorar?
-          </p>
-          <textarea
-            value={refineNote}
-            onChange={(e) => setRefineNote(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitRefine() }}
-            disabled={isRefining}
-            placeholder="Ex: deixe mais direto, use linguagem mais informal, enfatize o prazo..."
-            rows={3}
-            className="w-full bg-rl-surface/60 border border-rl-purple/30 rounded-xl p-3 text-xs text-rl-text leading-relaxed resize-none focus:outline-none focus:border-rl-purple/60 transition-colors disabled:opacity-50 placeholder:text-rl-muted/60"
-            autoFocus
-          />
-          <div className="flex items-center gap-2">
-            <button
-              onClick={submitRefine}
-              disabled={isRefining || !refineNote.trim()}
-              className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20 transition-all disabled:opacity-50"
-            >
-              {isRefining
-                ? <><Loader2 className="w-3 h-3 animate-spin" /> Refinando...</>
-                : <><Sparkles className="w-3 h-3" /> Refinar</>}
-            </button>
-            <button
-              onClick={() => { setRefineOpen(false); setRefineNote('') }}
-              disabled={isRefining}
-              className="text-[10px] px-2.5 py-1 text-rl-muted hover:text-rl-text transition-all disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-          </div>
+
+          {/* Fase 1: input — antes de refinar */}
+          {!refinedContent && !isRefining && (
+            <>
+              <p className="text-[10px] font-semibold text-rl-purple uppercase tracking-wide pt-3">
+                O que deseja melhorar?
+              </p>
+              <textarea
+                value={refineNote}
+                onChange={(e) => setRefineNote(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitRefine() }}
+                placeholder="Ex: deixe mais direto, use linguagem mais informal, enfatize o prazo..."
+                rows={3}
+                className="w-full bg-rl-surface/60 border border-rl-purple/30 rounded-xl p-3 text-xs text-rl-text leading-relaxed resize-none focus:outline-none focus:border-rl-purple/60 transition-colors placeholder:text-rl-muted/60"
+                autoFocus
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={submitRefine}
+                  disabled={!refineNote.trim()}
+                  className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20 transition-all disabled:opacity-50"
+                >
+                  <Sparkles className="w-3 h-3" /> Refinar
+                </button>
+                <button
+                  onClick={() => { setRefineOpen(false); setRefineNote('') }}
+                  className="text-[10px] px-2.5 py-1 text-rl-muted hover:text-rl-text transition-all"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Fase 2: streaming em andamento */}
+          {isRefining && (
+            <>
+              <p className="text-[10px] font-semibold text-rl-purple uppercase tracking-wide pt-3 flex items-center gap-1.5">
+                <Loader2 className="w-3 h-3 animate-spin" /> Refinando...
+              </p>
+              {streamingBody && (
+                <div className="bg-rl-surface/60 border border-rl-purple/20 rounded-xl p-3">
+                  <MarkdownBlock content={streamingBody} />
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Fase 3: versão refinada aguardando aprovação */}
+          {refinedContent && !isRefining && (
+            <>
+              <p className="text-[10px] font-semibold text-rl-purple uppercase tracking-wide pt-3">
+                Versão refinada
+              </p>
+              <div className="bg-rl-purple/5 border border-rl-purple/30 rounded-xl p-3">
+                <MarkdownBlock content={refinedContent} />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={approveRefine}
+                  className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition-all"
+                >
+                  <Check className="w-3 h-3" /> Aprovar
+                </button>
+                <button
+                  onClick={rejectRefine}
+                  className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg bg-rl-surface text-rl-muted hover:text-red-400 transition-all"
+                >
+                  <X className="w-3 h-3" /> Recusar e tentar novamente
+                </button>
+              </div>
+            </>
+          )}
+
         </div>
       )}
     </div>
