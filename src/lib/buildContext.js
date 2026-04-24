@@ -1,10 +1,9 @@
 /**
  * buildContext.js — Context builder compartilhado entre módulos de IA
  *
- * Textos gerados pela IA (generatedOffer, generatedProfile) são truncados
- * para evitar reenvio desnecessário de tokens. Os dados estruturais
- * da oferta (campos individuais) são enviados completos — eles são curtos
- * e relevantes para qualquer geração.
+ * Textos gerados por IA (generatedOffer, generatedProfile, summary) são
+ * excluídos — apenas os campos estruturais preenchidos pelo usuário são
+ * enviados. Isso reduz tokens e evita que o modelo "ecoe" output anterior.
  *
  * Anexos:
  * - Arquivos de texto (text/*, application/json): conteúdo decodificado e incluído no contexto
@@ -13,9 +12,7 @@
  * - Outros (.docx, .xlsx…): apenas o nome é listado
  */
 
-// Limites de truncamento (caracteres)
-const MAX_OFFER_TEXT   = 800   // generatedOffer pode ter 3.000-4.000 chars; só o início é necessário
-const MAX_PERSONA_BIO  = 600   // generatedProfile por persona
+// Limites de tamanho (caracteres)
 const MAX_TEXT_FILE    = 4000  // caracteres máximos por arquivo de texto
 const MAX_CONTEXT_CHARS = 50_000 // ~12.500 tokens — limite total do contexto de texto
 
@@ -84,10 +81,6 @@ export function buildContext(project) {
       Object.entries(PRODUTO_LABELS).forEach(([key, label]) => {
         if (a[key]?.trim()) lines.push(`${label}: ${a[key].trim()}`)
       })
-      if (p.summary) {
-        const txt = p.summary.length > 800 ? p.summary.slice(0, 800) + '…' : p.summary
-        lines.push(`\nResumo estratégico:\n${txt}`)
-      }
     })
   }
 
@@ -103,12 +96,6 @@ export function buildContext(project) {
       if (pick('objecoes'))   lines.push(`Objeções: ${pick('objecoes')}`)
       if (pick('medos'))      lines.push(`Medos: ${pick('medos')}`)
       if (pick('erros'))      lines.push(`Erros comuns: ${pick('erros')}`)
-      if (p.generatedProfile) {
-        const txt = p.generatedProfile.length > MAX_PERSONA_BIO
-          ? p.generatedProfile.slice(0, MAX_PERSONA_BIO) + '…'
-          : p.generatedProfile
-        lines.push(`\nPerfil:\n${txt}`)
-      }
     })
   }
 
@@ -124,13 +111,6 @@ export function buildContext(project) {
     if (o.escassez)           lines.push(`Escassez/Urgência: ${o.escassez}`)
     const bonus = (o.bonus || []).filter(Boolean)
     if (bonus.length)         lines.push(`Bônus: ${bonus.join(' | ')}`)
-    if (o.generatedOffer) {
-      // Truncado: os campos estruturais acima já contêm o essencial
-      const txt = o.generatedOffer.length > MAX_OFFER_TEXT
-        ? o.generatedOffer.slice(0, MAX_OFFER_TEXT) + '…'
-        : o.generatedOffer
-      lines.push(`\nOferta (resumo):\n${txt}`)
-    }
   }
 
   const atts = project.attachments || []

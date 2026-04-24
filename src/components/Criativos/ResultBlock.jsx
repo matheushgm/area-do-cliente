@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, CheckCheck, ChevronDown, ChevronUp, Brain } from 'lucide-react'
+import { Copy, CheckCheck } from 'lucide-react'
 import CreativeCard from './CreativeCard'
 
 // Divide o texto em blocos de anúncio pelos cabeçalhos ## ROTEIRO N / ## ANÚNCIO N.
@@ -70,29 +70,20 @@ export function replaceAdInContent(content, adIndex, newAdContent) {
 
   if (foundAny) return newParts.join('')
 
-  // Fallback: split por ---
+  // Fallback: split por --- — conta todos os chunks não-vazios por índice
   const chunks = content.split(/\n---\n/)
   let fallbackCount = 0
   const newChunks = chunks.map((c) => {
-    const trimmed = c.trim()
-    const hasAd =
-      /HEADLINE\s+PRINCIPAL/i.test(trimmed) ||
-      /CALL.TO.ACTION/i.test(trimmed)        ||
-      /⏱.*GANCHO/i.test(trimmed)            ||
-      /📣.*CTA/i.test(trimmed)
-    if (hasAd && !isNonAdTrailing(trimmed)) {
-      const result = fallbackCount === adIndex ? newAdContent : c
-      fallbackCount++
-      return result
-    }
-    return c
+    if (!c.trim()) return c
+    const result = fallbackCount === adIndex ? newAdContent : c
+    fallbackCount++
+    return result
   })
   return newChunks.join('\n---\n')
 }
 
 export default function ResultBlock({ content, type, companyName, onChunkChange, createdAt }) {
-  const [allCopied,     setAllCopied]     = useState(false)
-  const [analysisOpen,  setAnalysisOpen]  = useState(false)
+  const [allCopied, setAllCopied] = useState(false)
 
   function copyAll() {
     navigator.clipboard.writeText(content)
@@ -100,7 +91,7 @@ export default function ResultBlock({ content, type, companyName, onChunkChange,
     setTimeout(() => setAllCopied(false), 2000)
   }
 
-  const { ads: adChunks, analysis } = splitContent(content)
+  const { ads: adChunks } = splitContent(content)
 
   return (
     <div className="space-y-4">
@@ -114,32 +105,6 @@ export default function ResultBlock({ content, type, companyName, onChunkChange,
           {allCopied ? 'Tudo copiado!' : 'Copiar tudo'}
         </button>
       </div>
-
-      {/* Análise de contexto (colapsável, quando presente) */}
-      {analysis.length > 0 && (
-        <div className="rounded-xl border border-rl-border/60 overflow-hidden">
-          <button
-            onClick={() => setAnalysisOpen((v) => !v)}
-            className="w-full flex items-center gap-2.5 px-4 py-3 bg-rl-surface/60 hover:bg-rl-surface transition-colors text-left"
-          >
-            <Brain className="w-3.5 h-3.5 text-rl-purple shrink-0" />
-            <span className="text-xs font-semibold text-rl-muted flex-1">Análise de Público (contexto usado pela IA)</span>
-            {analysisOpen
-              ? <ChevronUp   className="w-3.5 h-3.5 text-rl-muted shrink-0" />
-              : <ChevronDown className="w-3.5 h-3.5 text-rl-muted shrink-0" />
-            }
-          </button>
-          {analysisOpen && (
-            <div className="px-4 py-4 bg-rl-surface/20 space-y-3">
-              {analysis.map((chunk, i) => (
-                <div key={i} className="text-xs text-rl-muted leading-relaxed whitespace-pre-wrap">
-                  {chunk}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Anúncios reais */}
       {adChunks.map((chunk, i) => (
