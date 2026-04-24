@@ -525,15 +525,17 @@ export default function NPSModule({ project }) {
   }
 
   const handleCopyLink = () => {
-    const token = project.clientShareToken || project.client_share_token
-    if (!token) return
+    // Usa o token existente ou gera um novo caso o projeto ainda não tenha
+    let token = project.clientShareToken || project.client_share_token
+    if (!token) {
+      token = crypto.randomUUID()
+      updateProject(project.id, { clientShareToken: token })
+    }
     const url = `${window.location.origin}/nps/${token}`
     navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
   }
-
-  const hasToken = !!(project.clientShareToken || project.client_share_token)
 
   return (
     <div className="space-y-6">
@@ -549,21 +551,19 @@ export default function NPSModule({ project }) {
             Acompanhe a satisfação do cliente em três momentos-chave da parceria
           </p>
         </div>
-        {hasToken && (
-          <button
-            onClick={handleCopyLink}
-            className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
-              copied
-                ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
-                : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-gold/40 hover:text-rl-gold'
-            }`}
-          >
-            {copied
-              ? <><Check className="w-4 h-4" />Link copiado!</>
-              : <><Copy className="w-4 h-4" />Copiar link do cliente</>
-            }
-          </button>
-        )}
+        <button
+          onClick={handleCopyLink}
+          className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
+            copied
+              ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
+              : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-gold/40 hover:text-rl-gold'
+          }`}
+        >
+          {copied
+            ? <><Check className="w-4 h-4" />Link copiado!</>
+            : <><Copy className="w-4 h-4" />Copiar link do cliente</>
+          }
+        </button>
       </div>
 
       {/* Summary */}
