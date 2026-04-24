@@ -31,6 +31,15 @@ async function sb(path, opts = {}) {
   return { data, status: res.status }
 }
 
+// Backward compat: old format was single object, new is array
+function getMarcoArray(nps, marcoId) {
+  const val = nps?.[marcoId]
+  if (!val) return []
+  if (Array.isArray(val)) return val
+  if (val?.submittedAt) return [val] // legacy single response
+  return []
+}
+
 export default async function handler(req) {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -65,7 +74,7 @@ export default async function handler(req) {
     })
   }
 
-  // ── PATCH — salva resposta de um marco ───────────────────────────────────
+  // ── PATCH — adiciona resposta de um respondente ao array do marco ────────
   if (req.method === 'PATCH') {
     let body
     try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
@@ -87,8 +96,9 @@ export default async function handler(req) {
     const pid     = projects[0].id
     const current = projects[0].nps || {}
 
-    // Merge: mantém os outros marcos intactos
-    const updated = { ...current, [marcoId]: data }
+    // Append ao array (mantém respostas anteriores)
+    const currentArr = getMarcoArray(current, marcoId)
+    const updated    = { ...current, [marcoId]: [...currentArr, data] }
 
     const { status, data: res } = await sb(
       `/projects_v2?id=eq.${pid}`,

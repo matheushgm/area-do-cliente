@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import {
   Star, ChevronRight, RotateCcw, Send, CheckCircle2,
   Rocket, TrendingUp, Award, Loader2, AlertCircle,
+  User, Mail, Phone,
 } from 'lucide-react'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -28,6 +29,125 @@ function getQ2Label(score) {
   if (score <= 6) return 'O que fez você dar essa nota? O que precisaria mudar para você se sentir bem atendido?'
   if (score <= 8) return 'O que está faltando para a nossa parceria ser excelente na sua visão?'
   return 'O que mais te surpreendeu positivamente na nossa parceria até agora?'
+}
+
+// ─── Identity Gate ────────────────────────────────────────────────────────────
+
+function IdentityGate({ companyName, onConfirm }) {
+  const [form, setForm] = useState({ name: '', email: '', phone: '' })
+  const [errors, setErrors] = useState({})
+
+  const validate = () => {
+    const e = {}
+    if (!form.name.trim())  e.name  = 'Nome é obrigatório'
+    if (!form.email.trim()) e.email = 'E-mail é obrigatório'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'E-mail inválido'
+    return e
+  }
+
+  const handleConfirm = () => {
+    const e = validate()
+    if (Object.keys(e).length) { setErrors(e); return }
+    onConfirm({ name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim() })
+  }
+
+  const field = (key) => ({
+    value: form[key],
+    onChange: (e) => {
+      setForm(f => ({ ...f, [key]: e.target.value }))
+      if (errors[key]) setErrors(er => ({ ...er, [key]: undefined }))
+    },
+  })
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Header strip */}
+      <div className="px-6 py-5 border-b border-gray-100" style={{ background: 'linear-gradient(135deg, #7C3AED08 0%, #2563EB08 100%)' }}>
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+            <User className="w-4 h-4 text-indigo-600" />
+          </div>
+          <p className="text-sm font-bold text-gray-900">Antes de começar</p>
+        </div>
+        <p className="text-xs text-gray-500 leading-relaxed ml-11">
+          Informe seus dados para registrar sua avaliação sobre a parceria
+          {companyName ? <> com <strong className="text-gray-700">{companyName}</strong></> : ''}.
+        </p>
+      </div>
+
+      <div className="px-6 py-6 space-y-4">
+        {/* Name */}
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+            Nome completo <span className="text-red-400">*</span>
+          </label>
+          <div className="relative">
+            <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Seu nome"
+              autoFocus
+              {...field('name')}
+              onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
+              className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm text-gray-800 placeholder-gray-400 outline-none transition-all ${
+                errors.name
+                  ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100'
+                  : 'border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100'
+              }`}
+            />
+          </div>
+          {errors.name && <p className="text-xs text-red-500 mt-1 ml-0.5">{errors.name}</p>}
+        </div>
+
+        {/* Email */}
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+            E-mail <span className="text-red-400">*</span>
+          </label>
+          <div className="relative">
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none" />
+            <input
+              type="email"
+              placeholder="seu@email.com"
+              {...field('email')}
+              onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
+              className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm text-gray-800 placeholder-gray-400 outline-none transition-all ${
+                errors.email
+                  ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100'
+                  : 'border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100'
+              }`}
+            />
+          </div>
+          {errors.email && <p className="text-xs text-red-500 mt-1 ml-0.5">{errors.email}</p>}
+        </div>
+
+        {/* Phone (optional) */}
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+            Telefone <span className="text-gray-400 font-normal normal-case">(opcional)</span>
+          </label>
+          <div className="relative">
+            <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none" />
+            <input
+              type="tel"
+              placeholder="(00) 00000-0000"
+              {...field('phone')}
+              onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 outline-none transition-all focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleConfirm}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 active:scale-[0.98] mt-2"
+          style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)' }}
+        >
+          Continuar para a avaliação <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  )
 }
 
 // ─── Score Grid ───────────────────────────────────────────────────────────────
@@ -285,12 +405,19 @@ export default function NPSClientForm() {
   const [searchParams] = useSearchParams()
   const targetMarcoId = searchParams.get('marco')
 
-  const [loading, setLoading]         = useState(true)
-  const [error, setError]             = useState(null)
-  const [companyName, setCompanyName] = useState('')
-  const [nps, setNps]                 = useState({})
-  const [activeMarco, setActiveMarco] = useState(null)
-  const [submitted, setSubmitted]     = useState(null)
+  const [loading, setLoading]           = useState(true)
+  const [error, setError]               = useState(null)
+  const [companyName, setCompanyName]   = useState('')
+  const [identity, setIdentity]         = useState(null)       // null until gate passed
+  const [activeMarco, setActiveMarco]   = useState(null)
+  const [submittedMarcos, setSubmittedMarcos] = useState(new Set()) // session-level
+  const [justSubmitted, setJustSubmitted]     = useState(null)      // marcoId flash
+
+  const visibleMarcos = targetMarcoId
+    ? MARCOS.filter(m => m.id === targetMarcoId)
+    : MARCOS
+
+  const allDone = visibleMarcos.length > 0 && visibleMarcos.every(m => submittedMarcos.has(m.id))
 
   useEffect(() => {
     async function load() {
@@ -299,14 +426,11 @@ export default function NPSClientForm() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Erro ao carregar.')
         setCompanyName(data.companyName)
-        setNps(data.nps || {})
-
+        // Auto-open first marco (or targeted one) once identity is set
         if (targetMarcoId) {
-          const thisDone = !!data.nps?.[targetMarcoId]?.submittedAt
-          if (!thisDone) setActiveMarco(targetMarcoId)
+          setActiveMarco(targetMarcoId)
         } else {
-          const first = MARCOS.find(m => !data.nps?.[m.id]?.submittedAt)
-          if (first) setActiveMarco(first.id)
+          setActiveMarco(MARCOS[0].id)
         }
       } catch (e) {
         setError(e.message)
@@ -317,38 +441,37 @@ export default function NPSClientForm() {
     load()
   }, [token, targetMarcoId])
 
+  const handleIdentityConfirm = (data) => {
+    setIdentity(data)
+  }
+
   const handleSubmit = async (marcoId, formData) => {
+    // Merge identity into submission
+    const payload = { ...identity, ...formData }
+
     const res  = await fetch('/api/nps', {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ token, marcoId, data: formData }),
+      body:    JSON.stringify({ token, marcoId, data: payload }),
     })
     const body = await res.json()
     if (!res.ok) throw new Error(body.error || 'Erro ao salvar.')
 
-    const updated = { ...nps, [marcoId]: formData }
-    setNps(updated)
-    setSubmitted(marcoId)
+    // Mark as submitted this session
+    setSubmittedMarcos(prev => new Set([...prev, marcoId]))
+    setJustSubmitted(marcoId)
     setActiveMarco(null)
 
-    if (!targetMarcoId) {
-      setTimeout(() => {
-        setSubmitted(null)
-        const next = MARCOS.find(m => !updated[m.id]?.submittedAt)
+    setTimeout(() => {
+      setJustSubmitted(null)
+
+      if (!targetMarcoId) {
+        // Auto-open next unfilled marco
+        const next = visibleMarcos.find(m => m.id !== marcoId && !submittedMarcos.has(m.id) && m.id !== marcoId)
         if (next) setActiveMarco(next.id)
-      }, 2500)
-    } else {
-      setTimeout(() => setSubmitted(null), 3000)
-    }
+      }
+    }, 2500)
   }
-
-  const visibleMarcos = targetMarcoId
-    ? MARCOS.filter(m => m.id === targetMarcoId)
-    : MARCOS
-
-  const allDone = targetMarcoId
-    ? !!nps[targetMarcoId]?.submittedAt
-    : MARCOS.every(m => nps[m.id]?.submittedAt)
 
   const targetMarco = targetMarcoId ? MARCOS.find(m => m.id === targetMarcoId) : null
 
@@ -388,141 +511,152 @@ export default function NPSClientForm() {
           {companyName && (
             <p className="text-sm text-gray-500 leading-relaxed max-w-sm mx-auto">
               {targetMarco
-                ? <>Olá! Gostaríamos da sua avaliação sobre o <strong className="text-gray-700">Marco {targetMarco.num} — {targetMarco.title}</strong> da parceria com <strong className="text-gray-700">{companyName}</strong>.</>
+                ? <>Gostaríamos da sua avaliação sobre o <strong className="text-gray-700">Marco {targetMarco.num} — {targetMarco.title}</strong> da parceria com <strong className="text-gray-700">{companyName}</strong>.</>
                 : <>Sua opinião sobre a parceria com <strong className="text-gray-700">{companyName}</strong> é muito importante para nós.</>
               }
             </p>
           )}
         </div>
 
-        {/* ── All done ── */}
-        {allDone && (
-          <div className="bg-white rounded-2xl border border-green-100 shadow-sm p-10 text-center">
-            <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="w-8 h-8 text-green-500" />
+        {/* ── Identity Gate (shown until filled) ── */}
+        {!identity && (
+          <IdentityGate companyName={companyName} onConfirm={handleIdentityConfirm} />
+        )}
+
+        {/* ── Content after identity confirmed ── */}
+        {identity && (
+          <>
+            {/* Respondent pill */}
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl">
+              <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
+                <User className="w-3.5 h-3.5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-800 truncate">{identity.name}</p>
+                <p className="text-xs text-gray-500 truncate">{identity.email}</p>
+              </div>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">
-              {targetMarcoId ? 'Resposta registrada!' : 'Muito obrigado!'}
-            </h2>
-            <p className="text-sm text-gray-500 leading-relaxed max-w-xs mx-auto">
-              {targetMarcoId
-                ? 'Seu feedback foi registrado com sucesso. Obrigado por avaliar nossa parceria!'
-                : 'Todas as suas respostas foram registradas. Seu feedback é fundamental para continuarmos evoluindo.'
-              }
-            </p>
-          </div>
-        )}
 
-        {/* ── Submitted toast ── */}
-        {submitted && (
-          <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-4 flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
-            <p className="text-sm font-medium text-green-700">
-              Resposta do <strong>{MARCOS.find(m => m.id === submitted)?.title}</strong> registrada com sucesso!
-            </p>
-          </div>
-        )}
-
-        {/* ── Marco cards ── */}
-        {!allDone && visibleMarcos.map((marco) => {
-          const Icon = marco.icon
-          const done = !!nps[marco.id]?.submittedAt
-          const open = activeMarco === marco.id && !done
-
-          return (
-            <div
-              key={marco.id}
-              className={`bg-white rounded-2xl shadow-sm overflow-hidden transition-all duration-200 ${
-                done ? 'border border-green-100'
-                : open ? 'border-2 shadow-md'
-                : 'border border-gray-100'
-              }`}
-              style={open ? { borderColor: marco.color } : {}}
-            >
-              {/* Card header */}
-              <div
-                className="px-6 py-5 flex items-center justify-between gap-4"
-                style={{
-                  background: done ? '#F0FDF4' : open ? marco.color + '08' : '#F9FAFB',
-                }}
-              >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: done ? '#DCFCE7' : marco.color + '18' }}
-                  >
-                    {done
-                      ? <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      : <Icon className="w-4.5 h-4.5" style={{ color: marco.color }} />
-                    }
-                  </div>
-                  <div className="min-w-0">
-                    <p
-                      className="text-[11px] font-bold uppercase tracking-wider mb-0.5"
-                      style={{ color: done ? '#16A34A' : marco.color }}
-                    >
-                      Marco {marco.num}
-                      {done ? ' · Concluído' : ''}
-                    </p>
-                    <p className="text-sm font-semibold text-gray-900 truncate">{marco.title}</p>
-                    <p className="text-xs text-gray-400">{marco.desc}</p>
-                  </div>
+            {/* ── All done ── */}
+            {allDone && (
+              <div className="bg-white rounded-2xl border border-green-100 shadow-sm p-10 text-center">
+                <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-green-500" />
                 </div>
-
-                {/* Right: done shows score number only (no category label) */}
-                {done && nps[marco.id]?.score !== undefined && (
-                  <div className="shrink-0 text-right">
-                    <p className="text-3xl font-black text-gray-800 leading-none">{nps[marco.id].score}</p>
-                    <p className="text-[10px] text-gray-400 font-medium mt-0.5">sua nota</p>
-                  </div>
-                )}
-                {!done && !open && (
-                  <button
-                    onClick={() => setActiveMarco(marco.id)}
-                    className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 shadow-sm"
-                    style={{ background: marco.color }}
-                  >
-                    Responder
-                  </button>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">
+                  {targetMarcoId ? 'Resposta registrada!' : 'Muito obrigado!'}
+                </h2>
+                <p className="text-sm text-gray-500 leading-relaxed max-w-xs mx-auto">
+                  {targetMarcoId
+                    ? 'Seu feedback foi registrado com sucesso. Obrigado por avaliar nossa parceria!'
+                    : 'Todas as suas respostas foram registradas. Seu feedback é fundamental para continuarmos evoluindo.'
+                  }
+                </p>
+                {identity.name && (
+                  <p className="text-xs text-gray-400 mt-3">
+                    Avaliação de <strong className="text-gray-600">{identity.name}</strong>
+                  </p>
                 )}
               </div>
+            )}
 
-              {/* Form */}
-              {open && (
-                <div className="px-6 py-6 border-t border-gray-100">
-                  <NPSForm
-                    marco={marco}
-                    onSubmit={(data) => handleSubmit(marco.id, data)}
-                  />
-                </div>
-              )}
+            {/* ── Submitted toast ── */}
+            {justSubmitted && (
+              <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-4 flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+                <p className="text-sm font-medium text-green-700">
+                  Resposta do <strong>{MARCOS.find(m => m.id === justSubmitted)?.title}</strong> registrada com sucesso!
+                </p>
+              </div>
+            )}
 
-              {/* Done answers summary */}
-              {done && (
-                <div className="px-6 py-4 border-t border-green-50 space-y-3">
-                  {nps[marco.id]?.q2 && (
-                    <div className="bg-gray-50 rounded-xl px-4 py-3">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Sua opinião</p>
-                      <p className="text-sm text-gray-700 leading-relaxed">{nps[marco.id].q2}</p>
+            {/* ── Marco cards ── */}
+            {!allDone && visibleMarcos.map((marco) => {
+              const Icon = marco.icon
+              const done = submittedMarcos.has(marco.id)
+              const open = activeMarco === marco.id && !done
+
+              return (
+                <div
+                  key={marco.id}
+                  className={`bg-white rounded-2xl shadow-sm overflow-hidden transition-all duration-200 ${
+                    done ? 'border border-green-100'
+                    : open ? 'border-2 shadow-md'
+                    : 'border border-gray-100'
+                  }`}
+                  style={open ? { borderColor: marco.color } : {}}
+                >
+                  {/* Card header */}
+                  <div
+                    className="px-6 py-5 flex items-center justify-between gap-4"
+                    style={{
+                      background: done ? '#F0FDF4' : open ? marco.color + '08' : '#F9FAFB',
+                    }}
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: done ? '#DCFCE7' : marco.color + '18' }}
+                      >
+                        {done
+                          ? <CheckCircle2 className="w-5 h-5 text-green-500" />
+                          : <Icon className="w-4.5 h-4.5" style={{ color: marco.color }} />
+                        }
+                      </div>
+                      <div className="min-w-0">
+                        <p
+                          className="text-[11px] font-bold uppercase tracking-wider mb-0.5"
+                          style={{ color: done ? '#16A34A' : marco.color }}
+                        >
+                          Marco {marco.num}
+                          {done ? ' · Concluído' : ''}
+                        </p>
+                        <p className="text-sm font-semibold text-gray-900 truncate">{marco.title}</p>
+                        <p className="text-xs text-gray-400">{marco.desc}</p>
+                      </div>
+                    </div>
+
+                    {/* Right: done indicator */}
+                    {done && (
+                      <div className="shrink-0 text-right">
+                        <CheckCircle2 className="w-6 h-6 text-green-400" />
+                      </div>
+                    )}
+                    {!done && !open && (
+                      <button
+                        onClick={() => setActiveMarco(marco.id)}
+                        className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 shadow-sm"
+                        style={{ background: marco.color }}
+                      >
+                        Responder
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Form */}
+                  {open && (
+                    <div className="px-6 py-6 border-t border-gray-100">
+                      <NPSForm
+                        marco={marco}
+                        onSubmit={(data) => handleSubmit(marco.id, data)}
+                      />
                     </div>
                   )}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {[
-                      { label: 'Comunicação', value: nps[marco.id]?.q3 },
-                      { label: 'Resultados',  value: nps[marco.id]?.q4 },
-                      { label: 'Clareza',     value: nps[marco.id]?.q5 },
-                    ].filter(({ value }) => value).map(({ label, value }) => (
-                      <div key={label} className="bg-gray-50 rounded-xl px-3 py-2.5">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
-                        <p className="text-xs text-gray-700 font-medium leading-snug">{value}</p>
-                      </div>
-                    ))}
-                  </div>
+
+                  {/* Done success banner */}
+                  {done && (
+                    <div className="px-6 py-4 border-t border-green-50">
+                      <p className="text-xs text-green-600 font-medium flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Sua avaliação deste marco foi registrada. Obrigado!
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )
-        })}
+              )
+            })}
+          </>
+        )}
 
         {/* Footer */}
         <p className="text-center text-xs text-gray-400 pb-6">
