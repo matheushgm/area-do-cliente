@@ -12,7 +12,7 @@ import {
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
-  LayoutDashboard, Check, Instagram, HardDrive, Kanban,
+  LayoutDashboard, Check, Instagram, HardDrive, Kanban, Target,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -32,6 +32,7 @@ import BancoMidiaModule from '../components/BancoMidiaModule'
 import LinksModule from '../components/LinksModule'
 import CRMModule from '../components/CRMModule'
 import PlanejamentoAnualModule from '../components/PlanejamentoAnualModule'
+import PromessaModule from '../components/PromessaModule'
 import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
 
 // ─── Momento ──────────────────────────────────────────────────────────────────
@@ -1152,6 +1153,7 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'campaign',     label: 'Campanhas',                icon: CalendarDays,   color: 'text-rl-green',  filled: hasCampaignPlan },
     { id: 'anexos',       label: 'Anexos',                   icon: Paperclip,      color: 'text-rl-gold',   filled: hasAnexos },
     { id: 'criativos',    label: 'Criativos com IA',         icon: Clapperboard,   color: 'text-rl-cyan',   filled: false },
+    { id: 'promessa',     label: 'Criação de Promessa',       icon: Target,         color: 'text-rl-purple', filled: false },
     { id: 'landingpage',  label: 'Landing Page com IA',      icon: LayoutTemplate, color: 'text-rl-green',  filled: hasLandingPages },
     { id: 'resultados',   label: 'Resultados',               icon: Activity,       color: 'text-rl-purple', filled: hasResultados },
     { id: 'metalab',      label: 'Lab. Meta Ads',            icon: FlaskConical,   color: 'text-rl-purple', filled: !!project.metaLabBudget },
@@ -1190,6 +1192,7 @@ export default function ClientProfile({ project: projectProp }) {
       case 'campaign':     return <CampaignPlanner project={project} onSave={handleSaveCampaign} />
       case 'anexos':       return <AnexosModule project={project} />
       case 'criativos':    return <CriativosModule project={project} />
+      case 'promessa':     return <PromessaModule project={project} />
       case 'landingpage':  return <LandingPageModule project={project} />
       case 'resultados':   return <ResultadosModule project={project} />
       case 'metalab':      return <MetaLabModule project={project} />
