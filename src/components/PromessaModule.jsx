@@ -279,7 +279,7 @@ export default function PromessaModule({ project }) {
   const [newSinal,            setNewSinal]           = useState('')
   const [newResultado,        setNewResultado]       = useState('')
   const [loading,             setLoading]            = useState(false)
-  const [result,              setResult]             = useState(null)
+  const [result,              setResult]             = useState(() => project.promessa?.result || null)
   const [error,               setError]              = useState(null)
 
   const activePersona    = personas.find(p => p.id === selectedPersonaId)
@@ -372,7 +372,11 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
         onChunk:    (text) => setResult(text.replace(/—/g, '-')),
       })
 
-      setResult(fullText.replace(/—/g, '-'))
+      const cleanText = fullText.replace(/—/g, '-')
+      setResult(cleanText)
+      updateProject(project.id, {
+        promessa: { result: cleanText, savedAt: new Date().toISOString() },
+      })
     } catch (e) {
       setError(e.message)
     } finally {

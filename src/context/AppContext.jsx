@@ -215,6 +215,9 @@ function assembleProject(row, rel = {}) {
     // Planejamento Anual
     planejamentoAnual: row.planejamento_anual ?? null,
 
+    // Criação de Promessa
+    promessa: row.promessa ?? null,
+
     // Lab. Meta Ads
     metaLabBudget:       row.meta_lab_budget       ?? null,
     metaLabAudienceType: row.meta_lab_audience_type ?? null,
@@ -350,6 +353,7 @@ const PROJECT_FIELD_MAP = {
   planejamentoAnual:    "planejamento_anual",
   metaLabBudget:        "meta_lab_budget",
   metaLabAudienceType:  "meta_lab_audience_type",
+  promessa:             "promessa",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────
