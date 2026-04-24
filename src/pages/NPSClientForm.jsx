@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
   Star, ChevronRight, RotateCcw, Send, CheckCircle2,
-  Rocket, TrendingUp, Award, Loader2, AlertCircle, Lock,
+  Rocket, TrendingUp, Award, Loader2, AlertCircle,
 } from 'lucide-react'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -302,17 +302,10 @@ export default function NPSClientForm() {
         setNps(data.nps || {})
 
         if (targetMarcoId) {
-          const tIdx     = MARCOS.findIndex(m => m.id === targetMarcoId)
-          const prev     = tIdx > 0 ? MARCOS[tIdx - 1] : null
-          const prevDone = !prev || !!data.nps?.[prev.id]?.submittedAt
           const thisDone = !!data.nps?.[targetMarcoId]?.submittedAt
-          if (!thisDone && prevDone) setActiveMarco(targetMarcoId)
+          if (!thisDone) setActiveMarco(targetMarcoId)
         } else {
-          const first = MARCOS.find((m, i) => {
-            if (data.nps?.[m.id]?.submittedAt) return false
-            if (i === 0) return true
-            return !!data.nps?.[MARCOS[i - 1].id]?.submittedAt
-          })
+          const first = MARCOS.find(m => !data.nps?.[m.id]?.submittedAt)
           if (first) setActiveMarco(first.id)
         }
       } catch (e) {
@@ -341,11 +334,7 @@ export default function NPSClientForm() {
     if (!targetMarcoId) {
       setTimeout(() => {
         setSubmitted(null)
-        const next = MARCOS.find((m, i) => {
-          if (updated[m.id]?.submittedAt) return false
-          if (i === 0) return true
-          return !!updated[MARCOS[i - 1].id]?.submittedAt
-        })
+        const next = MARCOS.find(m => !updated[m.id]?.submittedAt)
         if (next) setActiveMarco(next.id)
       }, 2500)
     } else {
@@ -436,54 +425,44 @@ export default function NPSClientForm() {
 
         {/* ── Marco cards ── */}
         {!allDone && visibleMarcos.map((marco) => {
-          const Icon     = marco.icon
-          const done     = !!nps[marco.id]?.submittedAt
-          const open     = activeMarco === marco.id && !done
-          const marcoIdx = MARCOS.findIndex(m => m.id === marco.id)
-          const prevMarco = marcoIdx > 0 ? MARCOS[marcoIdx - 1] : null
-          const locked   = !done && !!prevMarco && !nps[prevMarco.id]?.submittedAt
+          const Icon = marco.icon
+          const done = !!nps[marco.id]?.submittedAt
+          const open = activeMarco === marco.id && !done
 
           return (
             <div
               key={marco.id}
               className={`bg-white rounded-2xl shadow-sm overflow-hidden transition-all duration-200 ${
-                done   ? 'border border-green-100'
-                : locked ? 'border border-gray-100 opacity-70'
-                : open   ? 'border-2 shadow-md'
+                done ? 'border border-green-100'
+                : open ? 'border-2 shadow-md'
                 : 'border border-gray-100'
               }`}
-              style={open && !locked ? { borderColor: marco.color } : {}}
+              style={open ? { borderColor: marco.color } : {}}
             >
               {/* Card header */}
               <div
                 className="px-6 py-5 flex items-center justify-between gap-4"
                 style={{
-                  background: done   ? '#F0FDF4'
-                    : locked ? '#FAFAFA'
-                    : open   ? marco.color + '08'
-                    : '#F9FAFB',
+                  background: done ? '#F0FDF4' : open ? marco.color + '08' : '#F9FAFB',
                 }}
               >
                 <div className="flex items-center gap-4 min-w-0">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: done ? '#DCFCE7' : locked ? '#F3F4F6' : marco.color + '18' }}
+                    style={{ background: done ? '#DCFCE7' : marco.color + '18' }}
                   >
                     {done
                       ? <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      : locked
-                        ? <Lock className="w-4 h-4 text-gray-400" />
-                        : <Icon className="w-4.5 h-4.5" style={{ color: marco.color }} />
+                      : <Icon className="w-4.5 h-4.5" style={{ color: marco.color }} />
                     }
                   </div>
                   <div className="min-w-0">
                     <p
                       className="text-[11px] font-bold uppercase tracking-wider mb-0.5"
-                      style={{ color: done ? '#16A34A' : locked ? '#9CA3AF' : marco.color }}
+                      style={{ color: done ? '#16A34A' : marco.color }}
                     >
                       Marco {marco.num}
-                      {done   ? ' · Concluído'   : ''}
-                      {locked ? ' · Aguardando'  : ''}
+                      {done ? ' · Concluído' : ''}
                     </p>
                     <p className="text-sm font-semibold text-gray-900 truncate">{marco.title}</p>
                     <p className="text-xs text-gray-400">{marco.desc}</p>
@@ -497,7 +476,7 @@ export default function NPSClientForm() {
                     <p className="text-[10px] text-gray-400 font-medium mt-0.5">sua nota</p>
                   </div>
                 )}
-                {!done && !open && !locked && (
+                {!done && !open && (
                   <button
                     onClick={() => setActiveMarco(marco.id)}
                     className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 shadow-sm"
@@ -508,21 +487,8 @@ export default function NPSClientForm() {
                 )}
               </div>
 
-              {/* Locked explanation */}
-              {locked && (
-                <div className="px-6 py-4 border-t border-gray-100">
-                  <p className="text-sm text-gray-400 leading-relaxed">
-                    Complete o{' '}
-                    <strong className="text-gray-600">
-                      Marco {MARCOS[marcoIdx - 1].num} — {MARCOS[marcoIdx - 1].title}
-                    </strong>{' '}
-                    primeiro para liberar este.
-                  </p>
-                </div>
-              )}
-
               {/* Form */}
-              {open && !locked && (
+              {open && (
                 <div className="px-6 py-6 border-t border-gray-100">
                   <NPSForm
                     marco={marco}
