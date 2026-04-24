@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import {
   Star, ChevronRight, RotateCcw, Send, CheckCircle2,
   ThumbsUp, ThumbsDown, Minus, Rocket, TrendingUp, Award,
-  Loader2, AlertCircle,
+  Loader2, AlertCircle, Lock,
 } from 'lucide-react'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const MARCOS = [
-  { id: 'marco1', num: '01', title: 'Pós-Onboarding',    desc: 'Após a primeira campanha ir ao ar', icon: Rocket,    color: '#7C3AED' },
+  { id: 'marco1', num: '01', title: 'Pós-Onboarding',    desc: 'Após a primeira campanha ir ao ar', icon: Rocket,     color: '#7C3AED' },
   { id: 'marco2', num: '02', title: 'Primeiros 3 Meses', desc: '90 dias de parceria',               icon: TrendingUp, color: '#2563EB' },
-  { id: 'marco3', num: '03', title: '6 Meses',           desc: 'Meio ano de parceria',              icon: Award,     color: '#D97706' },
+  { id: 'marco3', num: '03', title: '6 Meses',           desc: 'Meio ano de parceria',              icon: Award,      color: '#D97706' },
 ]
 
 const Q3_OPTIONS = ['Ruim', 'Regular', 'Bom', 'Excelente']
@@ -19,9 +19,9 @@ const Q4_OPTIONS = ['Sim, dentro do esperado', 'Parcialmente', 'Não, abaixo do 
 const Q5_OPTIONS = ['Sim, tenho clareza total', 'Às vezes fico com dúvidas', 'Não, sinto falta de mais transparência']
 
 function getNPSCategory(score) {
-  if (score <= 6) return { label: 'Detrator',  color: '#EF4444', Icon: ThumbsDown }
-  if (score <= 8) return { label: 'Neutro',    color: '#D97706', Icon: Minus      }
-  return              { label: 'Promotor',  color: '#10B981', Icon: ThumbsUp   }
+  if (score <= 6) return { label: 'Detrator', color: '#EF4444', Icon: ThumbsDown }
+  if (score <= 8) return { label: 'Neutro',   color: '#D97706', Icon: Minus      }
+  return              { label: 'Promotor', color: '#10B981', Icon: ThumbsUp   }
 }
 
 function getQ2Label(score) {
@@ -69,8 +69,8 @@ function RadioOpt({ label, selected, onClick }) {
 // ─── NPS Form ─────────────────────────────────────────────────────────────────
 
 function NPSForm({ marco, onSubmit }) {
-  const [step, setStep]   = useState(0)
-  const [form, setForm]   = useState({ score: null, q2: '', q3: '', q4: '', q5: '', q6: '' })
+  const [step, setStep]     = useState(0)
+  const [form, setForm]     = useState({ score: null, q2: '', q3: '', q4: '', q5: '', q6: '' })
   const [saving, setSaving] = useState(false)
 
   const accentColor = marco.color
@@ -90,8 +90,9 @@ function NPSForm({ marco, onSubmit }) {
       <div className="flex items-center gap-1.5">
         {steps.map((s, i) => (
           <div key={i} className="flex items-center gap-1.5">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all
-              ${i < step  ? 'bg-green-500 text-white' : i === step ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+            <div
+              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all
+                ${i < step ? 'bg-green-500 text-white' : i === step ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
               style={i === step ? { background: accentColor } : {}}
             >
               {i < step ? '✓' : i + 1}
@@ -124,9 +125,12 @@ function NPSForm({ marco, onSubmit }) {
             </div>
           )}
           <div className="flex justify-end">
-            <button onClick={() => setStep(1)} disabled={form.score === null}
+            <button
+              onClick={() => setStep(1)}
+              disabled={form.score === null}
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: accentColor }}>
+              style={{ background: accentColor }}
+            >
               Próximo <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -144,17 +148,25 @@ function NPSForm({ marco, onSubmit }) {
           )}
           <div>
             <p className="font-semibold text-gray-800 mb-3">{getQ2Label(form.score)}</p>
-            <textarea value={form.q2} onChange={(e) => setForm(f => ({ ...f, q2: e.target.value }))}
-              placeholder="Escreva sua resposta aqui..." rows={4} autoFocus
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 outline-none resize-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all" />
+            <textarea
+              value={form.q2}
+              onChange={(e) => setForm(f => ({ ...f, q2: e.target.value }))}
+              placeholder="Escreva sua resposta aqui..."
+              rows={4}
+              autoFocus
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 outline-none resize-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+            />
           </div>
           <div className="flex justify-between items-center">
             <button onClick={() => setStep(0)} className="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
               <RotateCcw className="w-3.5 h-3.5" /> Voltar
             </button>
-            <button onClick={() => setStep(2)} disabled={!form.q2.trim()}
+            <button
+              onClick={() => setStep(2)}
+              disabled={!form.q2.trim()}
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40"
-              style={{ background: accentColor }}>
+              style={{ background: accentColor }}
+            >
               Próximo <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -186,9 +198,12 @@ function NPSForm({ marco, onSubmit }) {
             <button onClick={() => setStep(1)} className="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
               <RotateCcw className="w-3.5 h-3.5" /> Voltar
             </button>
-            <button onClick={() => setStep(3)} disabled={!form.q3 || !form.q4 || !form.q5}
+            <button
+              onClick={() => setStep(3)}
+              disabled={!form.q3 || !form.q4 || !form.q5}
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40"
-              style={{ background: accentColor }}>
+              style={{ background: accentColor }}
+            >
               Próximo <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -201,17 +216,25 @@ function NPSForm({ marco, onSubmit }) {
           <div>
             <p className="font-semibold text-gray-800 mb-1">Tem algo que você gostaria que a gente soubesse e que não perguntamos aqui?</p>
             <p className="text-sm text-gray-500 mb-3">Campo opcional</p>
-            <textarea value={form.q6} onChange={(e) => setForm(f => ({ ...f, q6: e.target.value }))}
-              placeholder="Fique à vontade para comentar..." rows={4} autoFocus
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 outline-none resize-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all" />
+            <textarea
+              value={form.q6}
+              onChange={(e) => setForm(f => ({ ...f, q6: e.target.value }))}
+              placeholder="Fique à vontade para comentar..."
+              rows={4}
+              autoFocus
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 outline-none resize-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+            />
           </div>
           <div className="flex justify-between items-center">
             <button onClick={() => setStep(2)} className="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
               <RotateCcw className="w-3.5 h-3.5" /> Voltar
             </button>
-            <button onClick={handleSubmit} disabled={saving}
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60"
-              style={{ background: accentColor }}>
+              style={{ background: accentColor }}
+            >
               {saving
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Salvando...</>
                 : <><Send className="w-4 h-4" /> Enviar resposta</>
@@ -228,12 +251,15 @@ function NPSForm({ marco, onSubmit }) {
 
 export default function NPSClientForm() {
   const { token } = useParams()
-  const [loading, setLoading]           = useState(true)
-  const [error, setError]               = useState(null)
-  const [companyName, setCompanyName]   = useState('')
-  const [nps, setNps]                   = useState({})
-  const [activeMarco, setActiveMarco]   = useState(null)
-  const [submitted, setSubmitted]       = useState(null) // marcoId just submitted
+  const [searchParams] = useSearchParams()
+  const targetMarcoId = searchParams.get('marco') // e.g. 'marco1', 'marco2', 'marco3'
+
+  const [loading, setLoading]         = useState(true)
+  const [error, setError]             = useState(null)
+  const [companyName, setCompanyName] = useState('')
+  const [nps, setNps]                 = useState({})
+  const [activeMarco, setActiveMarco] = useState(null)
+  const [submitted, setSubmitted]     = useState(null) // marcoId just submitted
 
   useEffect(() => {
     async function load() {
@@ -244,9 +270,23 @@ export default function NPSClientForm() {
         setCompanyName(data.companyName)
         setNps(data.nps || {})
 
-        // Auto-open first unfilled marco
-        const first = MARCOS.find((m) => !data.nps?.[m.id]?.submittedAt)
-        if (first) setActiveMarco(first.id)
+        // Auto-open logic
+        if (targetMarcoId) {
+          // Specific marco link: open only if prev done and this not done yet
+          const tIdx    = MARCOS.findIndex(m => m.id === targetMarcoId)
+          const prev    = tIdx > 0 ? MARCOS[tIdx - 1] : null
+          const prevDone = !prev || !!data.nps?.[prev.id]?.submittedAt
+          const thisDone = !!data.nps?.[targetMarcoId]?.submittedAt
+          if (!thisDone && prevDone) setActiveMarco(targetMarcoId)
+        } else {
+          // Full access: first unfilled whose predecessor is done
+          const first = MARCOS.find((m, i) => {
+            if (data.nps?.[m.id]?.submittedAt) return false
+            if (i === 0) return true
+            return !!data.nps?.[MARCOS[i - 1].id]?.submittedAt
+          })
+          if (first) setActiveMarco(first.id)
+        }
       } catch (e) {
         setError(e.message)
       } finally {
@@ -254,7 +294,7 @@ export default function NPSClientForm() {
       }
     }
     load()
-  }, [token])
+  }, [token, targetMarcoId])
 
   const handleSubmit = async (marcoId, formData) => {
     const res  = await fetch('/api/nps', {
@@ -270,15 +310,33 @@ export default function NPSClientForm() {
     setSubmitted(marcoId)
     setActiveMarco(null)
 
-    // Auto-open next unfilled after 2s
-    setTimeout(() => {
-      setSubmitted(null)
-      const next = MARCOS.find((m) => !updated[m.id]?.submittedAt && m.id !== marcoId)
-      if (next) setActiveMarco(next.id)
-    }, 2500)
+    if (!targetMarcoId) {
+      // Auto-open next sequential unfilled after 2.5s
+      setTimeout(() => {
+        setSubmitted(null)
+        const next = MARCOS.find((m, i) => {
+          if (updated[m.id]?.submittedAt) return false
+          if (i === 0) return true
+          return !!updated[MARCOS[i - 1].id]?.submittedAt
+        })
+        if (next) setActiveMarco(next.id)
+      }, 2500)
+    } else {
+      setTimeout(() => setSubmitted(null), 3000)
+    }
   }
 
-  const allDone = MARCOS.every((m) => nps[m.id]?.submittedAt)
+  // Which marcos to render
+  const visibleMarcos = targetMarcoId
+    ? MARCOS.filter(m => m.id === targetMarcoId)
+    : MARCOS
+
+  // "All done" for this context
+  const allDone = targetMarcoId
+    ? !!nps[targetMarcoId]?.submittedAt
+    : MARCOS.every((m) => nps[m.id]?.submittedAt)
+
+  const targetMarco = targetMarcoId ? MARCOS.find(m => m.id === targetMarcoId) : null
 
   // ── Loading ──
   if (loading) {
@@ -315,76 +373,125 @@ export default function NPSClientForm() {
             <p className="text-sm font-semibold text-indigo-600 uppercase tracking-wide mb-1">Revenue Lab</p>
             <h1 className="text-2xl font-bold text-gray-900">Pesquisa de Satisfação</h1>
             {companyName && (
-              <p className="text-gray-500 mt-1">Sua opinião sobre a parceria com <strong className="text-gray-700">{companyName}</strong> é muito importante para nós.</p>
+              <p className="text-gray-500 mt-1">
+                {targetMarco
+                  ? <>Avaliação do <strong className="text-gray-700">Marco {targetMarco.num} — {targetMarco.title}</strong> · <strong className="text-gray-700">{companyName}</strong></>
+                  : <>Sua opinião sobre a parceria com <strong className="text-gray-700">{companyName}</strong> é muito importante para nós.</>
+                }
+              </p>
             )}
           </div>
         </div>
 
-        {/* All done celebration */}
+        {/* All done */}
         {allDone && (
           <div className="bg-white rounded-2xl border border-green-100 shadow-sm p-8 text-center">
             <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Muito obrigado!</h2>
-            <p className="text-gray-500">Todas as suas respostas foram registradas. Seu feedback é fundamental para continuarmos evoluindo a nossa parceria.</p>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              {targetMarcoId ? 'Resposta registrada!' : 'Muito obrigado!'}
+            </h2>
+            <p className="text-gray-500">
+              {targetMarcoId
+                ? 'Seu feedback foi registrado com sucesso. Obrigado por avaliar nossa parceria!'
+                : 'Todas as suas respostas foram registradas. Seu feedback é fundamental para continuarmos evoluindo a nossa parceria.'
+              }
+            </p>
           </div>
         )}
 
-        {/* Just submitted toast */}
+        {/* Just-submitted toast */}
         {submitted && (
           <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
             <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
-            <p className="text-sm font-medium text-green-700">Resposta do {MARCOS.find(m => m.id === submitted)?.title} registrada com sucesso!</p>
+            <p className="text-sm font-medium text-green-700">
+              Resposta do {MARCOS.find(m => m.id === submitted)?.title} registrada com sucesso!
+            </p>
           </div>
         )}
 
         {/* Marco cards */}
-        {MARCOS.map((marco) => {
-          const Icon = marco.icon
-          const done = !!nps[marco.id]?.submittedAt
-          const open = activeMarco === marco.id && !done
-          const cat  = done ? getNPSCategory(nps[marco.id].score) : null
+        {!allDone && visibleMarcos.map((marco) => {
+          const Icon     = marco.icon
+          const done     = !!nps[marco.id]?.submittedAt
+          const open     = activeMarco === marco.id && !done
+          const cat      = done ? getNPSCategory(nps[marco.id].score) : null
+          const marcoIdx = MARCOS.findIndex(m => m.id === marco.id)
+          const prevMarco = marcoIdx > 0 ? MARCOS[marcoIdx - 1] : null
+          // Locked: previous marco not yet answered
+          const locked   = !done && !!prevMarco && !nps[prevMarco.id]?.submittedAt
 
           return (
-            <div key={marco.id} className={`bg-white rounded-2xl shadow-sm overflow-hidden transition-all
-              ${done ? 'border border-green-100' : open ? 'border-2' : 'border border-gray-100'}`}
-              style={open ? { borderColor: marco.color } : {}}
+            <div
+              key={marco.id}
+              className={`bg-white rounded-2xl shadow-sm overflow-hidden transition-all
+                ${done ? 'border border-green-100'
+                  : locked ? 'border border-gray-100 opacity-70'
+                  : open  ? 'border-2'
+                  : 'border border-gray-100'}`}
+              style={open && !locked ? { borderColor: marco.color } : {}}
             >
               {/* Card header */}
-              <div className="px-6 py-4 flex items-center justify-between"
-                style={{ background: done ? '#F0FDF4' : open ? marco.color + '10' : '#F9FAFB' }}>
+              <div
+                className="px-6 py-4 flex items-center justify-between"
+                style={{ background: done ? '#F0FDF4' : locked ? '#FAFAFA' : open ? marco.color + '10' : '#F9FAFB' }}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: done ? '#DCFCE7' : marco.color + '20' }}>
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: done ? '#DCFCE7' : locked ? '#F3F4F6' : marco.color + '20' }}
+                  >
                     {done
                       ? <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      : <Icon className="w-4 h-4" style={{ color: marco.color }} />
+                      : locked
+                        ? <Lock className="w-4 h-4 text-gray-400" />
+                        : <Icon className="w-4 h-4" style={{ color: marco.color }} />
                     }
                   </div>
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wide" style={{ color: done ? '#16A34A' : marco.color }}>
-                      Marco {marco.num} {done && '· Concluído'}
+                    <p className="text-xs font-bold uppercase tracking-wide"
+                      style={{ color: done ? '#16A34A' : locked ? '#9CA3AF' : marco.color }}>
+                      Marco {marco.num}
+                      {done   ? ' · Concluído' : ''}
+                      {locked ? ' · Bloqueado'  : ''}
                     </p>
                     <p className="text-sm font-semibold text-gray-800">{marco.title}</p>
                     <p className="text-xs text-gray-500">{marco.desc}</p>
                   </div>
                 </div>
+
+                {/* Right side */}
                 {done && cat && (
                   <div className="text-right shrink-0">
                     <p className="text-2xl font-black" style={{ color: cat.color }}>{nps[marco.id].score}</p>
                     <p className="text-xs font-bold" style={{ color: cat.color }}>{cat.label}</p>
                   </div>
                 )}
-                {!done && !open && (
-                  <button onClick={() => setActiveMarco(marco.id)}
+                {!done && !open && !locked && (
+                  <button
+                    onClick={() => setActiveMarco(marco.id)}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
-                    style={{ background: marco.color }}>
+                    style={{ background: marco.color }}
+                  >
                     Responder
                   </button>
                 )}
               </div>
 
+              {/* Locked explanation */}
+              {locked && (
+                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/60">
+                  <p className="text-sm text-gray-500">
+                    Complete o{' '}
+                    <strong className="text-gray-700">
+                      Marco {MARCOS[marcoIdx - 1].num} — {MARCOS[marcoIdx - 1].title}
+                    </strong>{' '}
+                    primeiro para responder este marco.
+                  </p>
+                </div>
+              )}
+
               {/* Form */}
-              {open && (
+              {open && !locked && (
                 <div className="px-6 py-5 border-t border-gray-100">
                   <NPSForm
                     marco={marco}

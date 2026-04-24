@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext'
 import {
   Rocket, TrendingUp, Award, CheckCircle2, ChevronRight,
   Star, MessageSquare, BarChart2, ThumbsUp, ThumbsDown,
-  Minus, RotateCcw, Send, Clock, Link2, Copy, Check,
+  Minus, RotateCcw, Send, Clock, Link2, Check,
 } from 'lucide-react'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -396,7 +396,7 @@ function NPSResult({ data, marco, onReset }) {
 
 // ─── Marco Card ───────────────────────────────────────────────────────────────
 
-function MarcoCard({ marco, data, onSave, onReset }) {
+function MarcoCard({ marco, data, onSave, onReset, onCopyLink, isCopied }) {
   const [open, setOpen] = useState(false)
   const Icon = marco.icon
   const tw = marco.tw
@@ -428,20 +428,34 @@ function MarcoCard({ marco, data, onSave, onReset }) {
             <p className="text-xs text-rl-muted">{marco.description}</p>
           </div>
         </div>
-        {done && data?.score !== undefined && (
-          <div className={`text-right shrink-0`}>
-            <p className={`text-2xl font-black ${getNPSCategory(data.score).color}`}>{data.score}</p>
-            <p className={`text-[10px] font-bold ${getNPSCategory(data.score).color}`}>{getNPSCategory(data.score).label}</p>
-          </div>
-        )}
-        {!done && (
+        <div className="flex items-center gap-2 shrink-0">
+          {done && data?.score !== undefined && (
+            <div className="text-right">
+              <p className={`text-2xl font-black ${getNPSCategory(data.score).color}`}>{data.score}</p>
+              <p className={`text-[10px] font-bold ${getNPSCategory(data.score).color}`}>{getNPSCategory(data.score).label}</p>
+            </div>
+          )}
           <button
-            onClick={() => setOpen((o) => !o)}
-            className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${tw.btn}`}
+            onClick={onCopyLink}
+            title="Copiar link para o cliente responder este marco"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+              isCopied
+                ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
+                : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-gold/40 hover:text-rl-gold'
+            }`}
           >
-            {open ? 'Fechar' : 'Preencher NPS'}
+            {isCopied ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
+            {isCopied ? 'Copiado!' : 'Copiar link'}
           </button>
-        )}
+          {!done && (
+            <button
+              onClick={() => setOpen((o) => !o)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${tw.btn}`}
+            >
+              {open ? 'Fechar' : 'Preencher NPS'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Body */}
@@ -511,7 +525,7 @@ function NPSSummary({ nps }) {
 
 export default function NPSModule({ project }) {
   const { updateProject } = useApp()
-  const [copied, setCopied] = useState(false)
+  const [copiedMarco, setCopiedMarco] = useState(null)
   const nps = project.nps || {}
 
   const handleSave = async (marcoId, formData) => {
@@ -524,46 +538,30 @@ export default function NPSModule({ project }) {
     updateProject(project.id, { nps: updated })
   }
 
-  const handleCopyLink = () => {
-    // Usa o token existente ou gera um novo caso o projeto ainda não tenha
+  const handleCopyLink = (marcoId) => {
     let token = project.clientShareToken || project.client_share_token
     if (!token) {
       token = crypto.randomUUID()
       updateProject(project.id, { clientShareToken: token })
     }
-    const url = `${window.location.origin}/nps/${token}`
+    const url = `${window.location.origin}/nps/${token}?marco=${marcoId}`
     navigator.clipboard.writeText(url)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2500)
+    setCopiedMarco(marcoId)
+    setTimeout(() => setCopiedMarco(null), 2500)
   }
 
   return (
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
-            <Star className="w-5 h-5 text-rl-gold" />
-            NPS — Satisfação do Cliente
-          </h2>
-          <p className="text-sm text-rl-muted mt-0.5">
-            Acompanhe a satisfação do cliente em três momentos-chave da parceria
-          </p>
-        </div>
-        <button
-          onClick={handleCopyLink}
-          className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
-            copied
-              ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
-              : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-gold/40 hover:text-rl-gold'
-          }`}
-        >
-          {copied
-            ? <><Check className="w-4 h-4" />Link copiado!</>
-            : <><Copy className="w-4 h-4" />Copiar link do cliente</>
-          }
-        </button>
+      <div>
+        <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
+          <Star className="w-5 h-5 text-rl-gold" />
+          NPS — Satisfação do Cliente
+        </h2>
+        <p className="text-sm text-rl-muted mt-0.5">
+          Copie o link de cada marco e envie ao cliente no momento certo da parceria
+        </p>
       </div>
 
       {/* Summary */}
@@ -606,6 +604,8 @@ export default function NPSModule({ project }) {
             data={nps[marco.id] ?? null}
             onSave={(formData) => handleSave(marco.id, formData)}
             onReset={() => handleReset(marco.id)}
+            onCopyLink={() => handleCopyLink(marco.id)}
+            isCopied={copiedMarco === marco.id}
           />
         ))}
       </div>
