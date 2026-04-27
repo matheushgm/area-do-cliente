@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
 import {
   Target, Sparkles, Loader2, Plus, X, Users, Package,
   CheckCircle2, Copy, CheckCheck, ChevronRight, AlertCircle,
+  FileText,
 } from 'lucide-react'
 
 // ─── Skill: Criador de Headlines e Subheadlines ───────────────────────────────
@@ -281,6 +282,8 @@ export default function PromessaModule({ project }) {
   const [loading,             setLoading]            = useState(false)
   const [result,              setResult]             = useState(() => project.promessa?.result || null)
   const [error,               setError]              = useState(null)
+  const [objetivo,            setObjetivo]           = useState(() => project.promessa?.objetivo || '')
+  const objetivoTimer = useRef(null)
 
   const activePersona    = personas.find(p => p.id === selectedPersonaId)
   const sinais           = (activePersona?.answers?.sinais    || []).filter(Boolean)
@@ -332,6 +335,16 @@ export default function PromessaModule({ project }) {
     })
   }
 
+  function handleObjetivoChange(val) {
+    setObjetivo(val)
+    clearTimeout(objetivoTimer.current)
+    objetivoTimer.current = setTimeout(() => {
+      updateProject(project.id, {
+        promessa: { ...(project.promessa || {}), objetivo: val },
+      })
+    }, 800)
+  }
+
   // ── Generate ────────────────────────────────────────────────────────────────
 
   const generate = useCallback(async () => {
@@ -356,13 +369,16 @@ Persona: ${activePersona?.name || 'Persona principal'}
 PRODUTO / SERVIÇO:
 ${produtoInfo || 'Não informado'}
 
+OBJETIVO DA PROMESSA (contexto estratégico para as headlines):
+${objetivo.trim() || 'Não informado'}
+
 SINAIS DO PROBLEMA que o cliente percebe (o que faz ele buscar solução):
 ${sinais.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'Não informado'}
 
 RESULTADO PERCEBIDO que o cliente espera alcançar:
 ${resultados.map((r, i) => `${i + 1}. ${r}`).join('\n') || 'Não informado'}
 
-Com base nessas informações, crie 10 headlines e subheadlines seguindo todas as instruções do sistema.`
+Com base nessas informações, crie 10 headlines e subheadlines seguindo todas as instruções do sistema. Use o OBJETIVO DA PROMESSA como diretriz estratégica central — as headlines devem refletir e reforçar esse objetivo.`
 
       const fullText = await streamClaude({
         model:      'claude-sonnet-4-5',
@@ -375,14 +391,14 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
       const cleanText = fullText.replace(/—/g, '-')
       setResult(cleanText)
       updateProject(project.id, {
-        promessa: { result: cleanText, savedAt: new Date().toISOString() },
+        promessa: { result: cleanText, objetivo: objetivo.trim(), savedAt: new Date().toISOString() },
       })
     } catch (e) {
       setError(e.message)
     } finally {
       setLoading(false)
     }
-  }, [canGenerate, selectedProdutos, activePersona, project, sinais, resultados])
+  }, [canGenerate, selectedProdutos, activePersona, project, sinais, resultados, objetivo])
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -487,6 +503,31 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
         </div>
       </div>
 
+      {/* ── Objetivo da Promessa ──────────────────────────────────────────── */}
+      <div className="glass-card p-5">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-7 h-7 rounded-lg bg-rl-purple/10 flex items-center justify-center shrink-0 mt-0.5">
+            <FileText className="w-3.5 h-3.5 text-rl-purple" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-rl-text">Objetivo da Promessa</p>
+            <p className="text-[10px] text-rl-muted mt-0.5">
+              Descreva o contexto estratégico e o objetivo central das headlines que serão geradas
+            </p>
+          </div>
+        </div>
+        <textarea
+          value={objetivo}
+          onChange={(e) => handleObjetivoChange(e.target.value)}
+          placeholder={`Ex: Capturar leads qualificados para uma masterclass gratuita sobre como empresas de serviços B2B geram reuniões de vendas todos os dias sem depender de indicação. Público-alvo são donos de agências e consultorias com ticket acima de R$5k.`}
+          rows={5}
+          className="w-full px-4 py-3.5 rounded-xl border border-rl-border bg-rl-surface/60 text-sm text-rl-text placeholder:text-rl-muted/50 outline-none resize-none focus:border-rl-purple/50 focus:ring-1 focus:ring-rl-purple/20 transition-colors leading-relaxed"
+        />
+        <p className="text-[10px] text-rl-muted mt-2">
+          Salvo automaticamente · Usado como diretriz central na geração das headlines
+        </p>
+      </div>
+
       {/* ── Step 2: Sinais do Problema ─────────────────────────────────────── */}
       <div className="glass-card p-5">
         <div className="flex items-start gap-3 mb-4">
@@ -586,14 +627,18 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
         <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-3">Pronto para gerar</p>
         <div className="space-y-1.5">
           {[
-            { ok: !!selectedPersonaId,           label: 'Persona selecionada' },
-            { ok: selectedProdutoIds.size > 0,   label: 'Produto / serviço selecionado' },
-            { ok: sinais.length > 0,             label: `Sinais do problema (${sinais.length} cadastrado${sinais.length !== 1 ? 's' : ''})` },
-            { ok: resultados.length > 0,         label: `Resultados percebidos (${resultados.length} cadastrado${resultados.length !== 1 ? 's' : ''})` },
-          ].map(({ ok, label }) => (
+            { ok: !!selectedPersonaId,           label: 'Persona selecionada',                                required: true },
+            { ok: selectedProdutoIds.size > 0,   label: 'Produto / serviço selecionado',                     required: true },
+            { ok: sinais.length > 0,             label: `Sinais do problema (${sinais.length} cadastrado${sinais.length !== 1 ? 's' : ''})`, required: true },
+            { ok: resultados.length > 0,         label: `Resultados percebidos (${resultados.length} cadastrado${resultados.length !== 1 ? 's' : ''})`, required: true },
+            { ok: objetivo.trim().length > 0,    label: 'Objetivo da promessa (melhora a qualidade da geração)', required: false },
+          ].map(({ ok, label, required }) => (
             <div key={label} className="flex items-center gap-2">
-              <CheckCircle2 className={`w-4 h-4 shrink-0 transition-colors ${ok ? 'text-rl-green' : 'text-rl-border'}`} />
-              <span className={`text-xs transition-colors ${ok ? 'text-rl-text' : 'text-rl-muted'}`}>{label}</span>
+              <CheckCircle2 className={`w-4 h-4 shrink-0 transition-colors ${ok ? 'text-rl-green' : required ? 'text-rl-border' : 'text-rl-border/50'}`} />
+              <span className={`text-xs transition-colors ${ok ? 'text-rl-text' : required ? 'text-rl-muted' : 'text-rl-muted/60'}`}>
+                {label}
+                {!required && <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-rl-purple/10 text-rl-purple font-semibold">opcional</span>}
+              </span>
             </div>
           ))}
         </div>
