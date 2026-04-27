@@ -4,7 +4,7 @@ import { streamClaude } from '../lib/claude'
 import {
   Target, Sparkles, Loader2, Plus, X, Users, Package,
   CheckCircle2, Copy, CheckCheck, ChevronRight, AlertCircle,
-  FileText, Pencil, Check, Trash2,
+  FileText, Pencil, Check, Trash2, RefreshCw,
 } from 'lucide-react'
 
 // ─── Skill: Criador de Headlines e Subheadlines ───────────────────────────────
@@ -137,12 +137,15 @@ function AddItemRow({ value, onChange, onAdd, placeholder }) {
 
 // ─── Result renderer ──────────────────────────────────────────────────────────
 
-function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete }) {
-  const [copied,        setCopied]        = useState(false)
-  const [isEditing,     setIsEditing]     = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [editHeadline,  setEditHeadline]  = useState('')
-  const [editSub,       setEditSub]       = useState('')
+function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegenerate }) {
+  const [copied,          setCopied]          = useState(false)
+  const [isEditing,       setIsEditing]       = useState(false)
+  const [confirmDelete,   setConfirmDelete]   = useState(false)
+  const [isRegenerating,  setIsRegenerating]  = useState(false)
+  const [streamText,      setStreamText]      = useState('')
+  const [regenError,      setRegenError]      = useState(null)
+  const [editHeadline,    setEditHeadline]    = useState('')
+  const [editSub,         setEditSub]         = useState('')
 
   // Parse original markdown
   const headlineMatch = block.match(/\*\*Headline:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/m)
@@ -192,15 +195,34 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete }) {
     }
   }
 
+  async function handleRegenerate() {
+    setIsRegenerating(true)
+    setStreamText('')
+    setRegenError(null)
+    setIsEditing(false)
+    try {
+      await onRegenerate(index, angle, (chunk) => setStreamText(chunk.replace(/—/g, '-')))
+    } catch (e) {
+      setRegenError(e.message || 'Erro ao regenerar.')
+    } finally {
+      setIsRegenerating(false)
+      setStreamText('')
+    }
+  }
+
   if (!parsedHeadline && !parsedSub) {
     return (
       <div className="glass-card p-4 text-xs text-rl-muted whitespace-pre-wrap leading-relaxed">{block}</div>
     )
   }
 
+  const busy = isEditing || isRegenerating
+
   return (
     <div className={`glass-card p-5 border transition-all ${
-      isEditing ? 'border-rl-purple/50 shadow-md' : 'border-rl-border/60'
+      isRegenerating ? 'border-rl-purple/60 shadow-lg shadow-rl-purple/10'
+      : isEditing     ? 'border-rl-purple/50 shadow-md'
+      : 'border-rl-border/60'
     }`}>
       {/* ── Header row ── */}
       <div className="flex items-start justify-between gap-3 mb-4">
@@ -213,9 +235,14 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete }) {
               {angle}
             </span>
           )}
-          {wasEdited && !isEditing && (
+          {wasEdited && !isEditing && !isRegenerating && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-rl-gold/10 border border-rl-gold/20 text-rl-gold font-semibold">
               Editada
+            </span>
+          )}
+          {isRegenerating && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-rl-purple/10 border border-rl-purple/20 text-rl-purple font-semibold flex items-center gap-1">
+              <Loader2 className="w-2.5 h-2.5 animate-spin" /> Gerando...
             </span>
           )}
         </div>
@@ -239,21 +266,33 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete }) {
           ) : (
             <>
               <button
+                onClick={handleRegenerate}
+                disabled={busy}
+                title="Gerar nova versão com IA"
+                className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-purple/10 border border-rl-purple/20 text-rl-purple hover:bg-rl-purple/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                <RefreshCw className={`w-3 h-3 ${isRegenerating ? 'animate-spin' : ''}`} />
+                {isRegenerating ? 'Gerando...' : 'Refazer com IA'}
+              </button>
+              <button
                 onClick={startEdit}
-                className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-purple hover:bg-rl-purple/5 transition-all"
+                disabled={busy}
+                className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-purple hover:bg-rl-purple/5 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 <Pencil className="w-3 h-3" /> Editar
               </button>
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-text transition-all"
+                disabled={busy}
+                className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-text disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 {copied ? <CheckCheck className="w-3 h-3 text-rl-green" /> : <Copy className="w-3 h-3" />}
                 {copied ? 'Copiado!' : 'Copiar'}
               </button>
               <button
                 onClick={handleDelete}
-                className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg transition-all ${
+                disabled={busy}
+                className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                   confirmDelete
                     ? 'bg-red-500 text-white font-semibold hover:bg-red-600'
                     : 'bg-rl-surface text-rl-muted hover:text-red-400 hover:bg-red-50/10'
@@ -267,24 +306,42 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete }) {
         </div>
       </div>
 
-      {/* ── Headline field ── */}
-      <div className="mb-3">
-        <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1.5">Headline</p>
-        {isEditing ? (
-          <textarea
-            value={editHeadline}
-            onChange={(e) => setEditHeadline(e.target.value)}
-            rows={3}
-            autoFocus
-            className="w-full px-3 py-2.5 rounded-xl border border-rl-purple/40 bg-rl-surface/60 text-sm font-semibold text-rl-text outline-none resize-none focus:border-rl-purple focus:ring-1 focus:ring-rl-purple/20 transition-colors leading-relaxed"
-          />
-        ) : (
-          <p className="text-sm font-semibold text-rl-text leading-relaxed">{displayHeadline}</p>
-        )}
-      </div>
+      {/* ── Regenerating: streaming preview ── */}
+      {isRegenerating && (
+        <div className="space-y-3 mb-2">
+          <div className="px-4 py-3.5 rounded-xl border border-rl-purple/20 bg-rl-purple/5 min-h-[80px]">
+            {streamText ? (
+              <p className="text-xs text-rl-muted whitespace-pre-wrap leading-relaxed font-mono">{streamText}</p>
+            ) : (
+              <div className="flex items-center gap-2 text-xs text-rl-muted/60 h-full">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-rl-purple" />
+                Conectando à IA...
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-      {/* ── Subheadline field ── */}
-      {(parsedSub || isEditing) && (
+      {/* ── Headline field (hidden during regen) ── */}
+      {!isRegenerating && (
+        <div className="mb-3">
+          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1.5">Headline</p>
+          {isEditing ? (
+            <textarea
+              value={editHeadline}
+              onChange={(e) => setEditHeadline(e.target.value)}
+              rows={3}
+              autoFocus
+              className="w-full px-3 py-2.5 rounded-xl border border-rl-purple/40 bg-rl-surface/60 text-sm font-semibold text-rl-text outline-none resize-none focus:border-rl-purple focus:ring-1 focus:ring-rl-purple/20 transition-colors leading-relaxed"
+            />
+          ) : (
+            <p className="text-sm font-semibold text-rl-text leading-relaxed">{displayHeadline}</p>
+          )}
+        </div>
+      )}
+
+      {/* ── Subheadline field (hidden during regen) ── */}
+      {!isRegenerating && (parsedSub || isEditing) && (
         <div className="mb-3">
           <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1.5">Subheadline</p>
           {isEditing ? (
@@ -301,7 +358,7 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete }) {
       )}
 
       {/* ── Metadata (view mode only) ── */}
-      {!isEditing && (dor || obj) && (
+      {!isEditing && !isRegenerating && (dor || obj) && (
         <div className="mt-3 pt-3 border-t border-rl-border/40 grid grid-cols-1 sm:grid-cols-2 gap-2">
           {dor && (
             <div>
@@ -317,11 +374,19 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete }) {
           )}
         </div>
       )}
+
+      {/* ── Regen error ── */}
+      {regenError && (
+        <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-400/10 border border-red-400/20">
+          <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+          <p className="text-xs text-red-400">{regenError}</p>
+        </div>
+      )}
     </div>
   )
 }
 
-function ResultBlock({ content, editedBlocks, onSaveEdit, deletedBlocks, onDelete }) {
+function ResultBlock({ content, editedBlocks, onSaveEdit, deletedBlocks, onDelete, onRegenerate }) {
   const [allCopied, setAllCopied] = useState(false)
 
   function copyAll() {
@@ -384,6 +449,7 @@ function ResultBlock({ content, editedBlocks, onSaveEdit, deletedBlocks, onDelet
             editedData={editedBlocks?.[i]}
             onSaveEdit={onSaveEdit}
             onDelete={onDelete}
+            onRegenerate={onRegenerate}
           />
         )
       })}
@@ -496,6 +562,71 @@ export default function PromessaModule({ project }) {
       promessa: { ...(project.promessa || {}), deletedBlocks: [...updated] },
     })
   }
+
+  const handleRegenerate = useCallback(async (index, angle, onChunk) => {
+    const produtoInfo = selectedProdutos.map(p => {
+      const lines = Object.entries(p.answers || {})
+        .filter(([, v]) => v?.trim())
+        .map(([k, v]) => `${k}: ${v}`)
+        .join('\n')
+      return `Produto/Serviço: ${p.nome || 'Sem nome'} (${p.tipo === 'servico' ? 'Serviço' : 'Produto'})\n${lines}`
+    }).join('\n\n')
+
+    const instruction = `Empresa: ${project.companyName || ''}
+Segmento: ${project.businessType || ''}
+Persona: ${activePersona?.name || 'Persona principal'}
+
+PRODUTO / SERVIÇO:
+${produtoInfo || 'Não informado'}
+
+OBJETIVO DA PROMESSA:
+${objetivo.trim() || 'Não informado'}
+
+SINAIS DO PROBLEMA que o cliente percebe:
+${sinais.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'Não informado'}
+
+RESULTADO PERCEBIDO que o cliente espera alcançar:
+${resultados.map((r, i) => `${i + 1}. ${r}`).join('\n') || 'Não informado'}
+
+Crie APENAS 1 nova headline para o ângulo "${angle || 'Dor Percebida'}". Gere uma versão criativa e diferente da anterior, mantendo o mesmo ângulo.
+
+Use exatamente este formato:
+
+## HEADLINE 1 — ${angle || 'Dor Percebida'}
+
+**Headline:**
+[texto]
+
+**Subheadline:**
+[texto]
+
+**Dor/Resultado trabalhado:** [resumo em uma linha]
+**Objeções removidas:** [lista em uma linha]`
+
+    const fullText = await streamClaude({
+      model:      'claude-sonnet-4-5',
+      max_tokens: 1200,
+      system:     HEADLINE_SYSTEM,
+      messages:   [{ role: 'user', content: instruction }],
+      onChunk,
+    })
+
+    const clean            = fullText.replace(/—/g, '-')
+    const newHeadlineMatch = clean.match(/\*\*Headline:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/m)
+    const newSubMatch      = clean.match(/\*\*Subheadline:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/m)
+    const newHeadline      = newHeadlineMatch?.[1]?.trim() || ''
+    const newSub           = newSubMatch?.[1]?.trim()      || ''
+
+    if (newHeadline || newSub) {
+      setEditedBlocks(prev => {
+        const updated = { ...prev, [index]: { headline: newHeadline, sub: newSub } }
+        updateProject(project.id, {
+          promessa: { ...(project.promessa || {}), editedBlocks: updated },
+        })
+        return updated
+      })
+    }
+  }, [selectedProdutos, activePersona, project, sinais, resultados, objetivo, updateProject])
 
   // ── Generate ────────────────────────────────────────────────────────────────
 
@@ -835,7 +966,7 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
                 {result}
               </div>
             )
-            : <ResultBlock content={result} editedBlocks={editedBlocks} onSaveEdit={handleSaveEdit} deletedBlocks={deletedBlocks} onDelete={handleDeleteBlock} />
+            : <ResultBlock content={result} editedBlocks={editedBlocks} onSaveEdit={handleSaveEdit} deletedBlocks={deletedBlocks} onDelete={handleDeleteBlock} onRegenerate={handleRegenerate} />
           }
         </div>
       )}
