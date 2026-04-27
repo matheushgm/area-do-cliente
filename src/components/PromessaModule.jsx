@@ -4,7 +4,7 @@ import { streamClaude } from '../lib/claude'
 import {
   Target, Sparkles, Loader2, Plus, X, Users, Package,
   CheckCircle2, Copy, CheckCheck, ChevronRight, AlertCircle,
-  FileText, Pencil, Check,
+  FileText, Pencil, Check, Trash2,
 } from 'lucide-react'
 
 // ─── Skill: Criador de Headlines e Subheadlines ───────────────────────────────
@@ -137,11 +137,12 @@ function AddItemRow({ value, onChange, onAdd, placeholder }) {
 
 // ─── Result renderer ──────────────────────────────────────────────────────────
 
-function HeadlineCard({ block, index, editedData, onSaveEdit }) {
-  const [copied,       setCopied]       = useState(false)
-  const [isEditing,    setIsEditing]    = useState(false)
-  const [editHeadline, setEditHeadline] = useState('')
-  const [editSub,      setEditSub]      = useState('')
+function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete }) {
+  const [copied,        setCopied]        = useState(false)
+  const [isEditing,     setIsEditing]     = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [editHeadline,  setEditHeadline]  = useState('')
+  const [editSub,       setEditSub]       = useState('')
 
   // Parse original markdown
   const headlineMatch = block.match(/\*\*Headline:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/m)
@@ -180,6 +181,15 @@ function HeadlineCard({ block, index, editedData, onSaveEdit }) {
 
   function cancelEdit() {
     setIsEditing(false)
+  }
+
+  function handleDelete() {
+    if (confirmDelete) {
+      onDelete(index)
+    } else {
+      setConfirmDelete(true)
+      setTimeout(() => setConfirmDelete(false), 3000)
+    }
   }
 
   if (!parsedHeadline && !parsedSub) {
@@ -241,6 +251,17 @@ function HeadlineCard({ block, index, editedData, onSaveEdit }) {
                 {copied ? <CheckCheck className="w-3 h-3 text-rl-green" /> : <Copy className="w-3 h-3" />}
                 {copied ? 'Copiado!' : 'Copiar'}
               </button>
+              <button
+                onClick={handleDelete}
+                className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg transition-all ${
+                  confirmDelete
+                    ? 'bg-red-500 text-white font-semibold hover:bg-red-600'
+                    : 'bg-rl-surface text-rl-muted hover:text-red-400 hover:bg-red-50/10'
+                }`}
+              >
+                <Trash2 className="w-3 h-3" />
+                {confirmDelete ? 'Confirmar?' : 'Excluir'}
+              </button>
             </>
           )}
         </div>
@@ -300,7 +321,7 @@ function HeadlineCard({ block, index, editedData, onSaveEdit }) {
   )
 }
 
-function ResultBlock({ content, editedBlocks, onSaveEdit }) {
+function ResultBlock({ content, editedBlocks, onSaveEdit, deletedBlocks, onDelete }) {
   const [allCopied, setAllCopied] = useState(false)
 
   function copyAll() {
@@ -314,18 +335,25 @@ function ResultBlock({ content, editedBlocks, onSaveEdit }) {
   const headlineBlocks = rawBlocks.filter(b => /^##\s+HEADLINE/im.test(b))
   const otherBlocks    = rawBlocks.filter(b => !/^##\s+HEADLINE/im.test(b))
 
-  const editedCount = Object.keys(editedBlocks || {}).length
+  const activeCount  = headlineBlocks.filter((_, i) => !deletedBlocks?.has(i)).length
+  const editedCount  = Object.keys(editedBlocks || {}).filter(i => !deletedBlocks?.has(Number(i))).length
+  const deletedCount = deletedBlocks?.size || 0
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-rl-muted">
-            {headlineBlocks.length} headline{headlineBlocks.length !== 1 ? 's' : ''} gerada{headlineBlocks.length !== 1 ? 's' : ''}
+            {activeCount} headline{activeCount !== 1 ? 's' : ''} ativa{activeCount !== 1 ? 's' : ''}
           </span>
           {editedCount > 0 && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-rl-gold/10 border border-rl-gold/20 text-rl-gold font-semibold">
               {editedCount} editada{editedCount !== 1 ? 's' : ''}
+            </span>
+          )}
+          {deletedCount > 0 && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/20 text-red-400 font-semibold">
+              {deletedCount} excluída{deletedCount !== 1 ? 's' : ''}
             </span>
           )}
         </div>
@@ -338,18 +366,30 @@ function ResultBlock({ content, editedBlocks, onSaveEdit }) {
         </button>
       </div>
 
-      {headlineBlocks.map((block, i) => (
-        <HeadlineCard
-          key={i}
-          block={block}
-          index={i}
-          editedData={editedBlocks?.[i]}
-          onSaveEdit={onSaveEdit}
-        />
-      ))}
+      {activeCount === 0 && (
+        <div className="glass-card p-8 text-center">
+          <Trash2 className="w-8 h-8 text-rl-muted/40 mx-auto mb-2" />
+          <p className="text-sm text-rl-muted">Todas as headlines foram excluídas.</p>
+          <p className="text-xs text-rl-muted/60 mt-1">Clique em "Gerar Headlines" para criar novas.</p>
+        </div>
+      )}
+
+      {headlineBlocks.map((block, i) => {
+        if (deletedBlocks?.has(i)) return null
+        return (
+          <HeadlineCard
+            key={i}
+            block={block}
+            index={i}
+            editedData={editedBlocks?.[i]}
+            onSaveEdit={onSaveEdit}
+            onDelete={onDelete}
+          />
+        )
+      })}
 
       {/* Tabela final / blocos extras */}
-      {otherBlocks.length > 0 && (
+      {otherBlocks.length > 0 && activeCount > 0 && (
         <div className="glass-card p-4">
           <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-3">Mapa de Cobertura</p>
           <div className="text-xs text-rl-muted whitespace-pre-wrap leading-relaxed">
@@ -378,6 +418,7 @@ export default function PromessaModule({ project }) {
   const [error,               setError]              = useState(null)
   const [objetivo,            setObjetivo]           = useState(() => project.promessa?.objetivo || '')
   const [editedBlocks,        setEditedBlocks]        = useState(() => project.promessa?.editedBlocks || {})
+  const [deletedBlocks,       setDeletedBlocks]       = useState(() => new Set(project.promessa?.deletedBlocks || []))
   const objetivoTimer = useRef(null)
 
   const activePersona    = personas.find(p => p.id === selectedPersonaId)
@@ -448,6 +489,14 @@ export default function PromessaModule({ project }) {
     })
   }
 
+  function handleDeleteBlock(index) {
+    const updated = new Set([...deletedBlocks, index])
+    setDeletedBlocks(updated)
+    updateProject(project.id, {
+      promessa: { ...(project.promessa || {}), deletedBlocks: [...updated] },
+    })
+  }
+
   // ── Generate ────────────────────────────────────────────────────────────────
 
   const generate = useCallback(async () => {
@@ -456,6 +505,7 @@ export default function PromessaModule({ project }) {
     setError(null)
     setResult(null)
     setEditedBlocks({})
+    setDeletedBlocks(new Set())
 
     try {
       const produtoInfo = selectedProdutos.map(p => {
@@ -495,7 +545,7 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
       const cleanText = fullText.replace(/—/g, '-')
       setResult(cleanText)
       updateProject(project.id, {
-        promessa: { result: cleanText, objetivo: objetivo.trim(), editedBlocks: {}, savedAt: new Date().toISOString() },
+        promessa: { result: cleanText, objetivo: objetivo.trim(), editedBlocks: {}, deletedBlocks: [], savedAt: new Date().toISOString() },
       })
     } catch (e) {
       setError(e.message)
@@ -785,7 +835,7 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
                 {result}
               </div>
             )
-            : <ResultBlock content={result} editedBlocks={editedBlocks} onSaveEdit={handleSaveEdit} />
+            : <ResultBlock content={result} editedBlocks={editedBlocks} onSaveEdit={handleSaveEdit} deletedBlocks={deletedBlocks} onDelete={handleDeleteBlock} />
           }
         </div>
       )}
