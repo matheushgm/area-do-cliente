@@ -4,7 +4,7 @@ import { streamClaude } from '../lib/claude'
 import {
   Target, Sparkles, Loader2, Plus, X, Users, Package,
   CheckCircle2, Copy, CheckCheck, ChevronRight, AlertCircle,
-  FileText,
+  FileText, Pencil, Check,
 } from 'lucide-react'
 
 // ─── Skill: Criador de Headlines e Subheadlines ───────────────────────────────
@@ -137,71 +137,150 @@ function AddItemRow({ value, onChange, onAdd, placeholder }) {
 
 // ─── Result renderer ──────────────────────────────────────────────────────────
 
-function HeadlineCard({ block, index }) {
-  const [copied, setCopied] = useState(false)
+function HeadlineCard({ block, index, editedData, onSaveEdit }) {
+  const [copied,       setCopied]       = useState(false)
+  const [isEditing,    setIsEditing]    = useState(false)
+  const [editHeadline, setEditHeadline] = useState('')
+  const [editSub,      setEditSub]      = useState('')
 
-  // Parse headline and subheadline from block
-  const headlineMatch  = block.match(/\*\*Headline:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/m)
-  const subMatch       = block.match(/\*\*Subheadline:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/m)
-  const dorMatch       = block.match(/\*\*Dor\/Resultado trabalhado:\*\*\s*(.*)/m)
-  const objMatch       = block.match(/\*\*Objeções removidas:\*\*\s*(.*)/m)
-  const titleMatch     = block.match(/^##\s+HEADLINE\s+\d+\s*[—-]\s*(.+)/im)
+  // Parse original markdown
+  const headlineMatch = block.match(/\*\*Headline:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/m)
+  const subMatch      = block.match(/\*\*Subheadline:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/m)
+  const dorMatch      = block.match(/\*\*Dor\/Resultado trabalhado:\*\*\s*(.*)/m)
+  const objMatch      = block.match(/\*\*Objeções removidas:\*\*\s*(.*)/m)
+  const titleMatch    = block.match(/^##\s+HEADLINE\s+\d+\s*[—-]\s*(.+)/im)
 
-  const headline  = headlineMatch?.[1]?.trim() || ''
-  const sub       = subMatch?.[1]?.trim()       || ''
-  const dor       = dorMatch?.[1]?.trim()        || ''
-  const obj       = objMatch?.[1]?.trim()        || ''
-  const angle     = titleMatch?.[1]?.trim()      || ''
+  const parsedHeadline = headlineMatch?.[1]?.trim() || ''
+  const parsedSub      = subMatch?.[1]?.trim()      || ''
+  const dor            = dorMatch?.[1]?.trim()       || ''
+  const obj            = objMatch?.[1]?.trim()       || ''
+  const angle          = titleMatch?.[1]?.trim()     || ''
+
+  // Apply saved edits on top of parsed values
+  const displayHeadline = editedData?.headline !== undefined ? editedData.headline : parsedHeadline
+  const displaySub      = editedData?.sub      !== undefined ? editedData.sub      : parsedSub
+  const wasEdited       = editedData?.headline !== undefined || editedData?.sub !== undefined
 
   function handleCopy() {
-    const text = `${headline}\n\n${sub}`
-    navigator.clipboard.writeText(text)
+    navigator.clipboard.writeText(`${displayHeadline}\n\n${displaySub}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  if (!headline && !sub) {
-    // Fallback: show raw block
+  function startEdit() {
+    setEditHeadline(displayHeadline)
+    setEditSub(displaySub)
+    setIsEditing(true)
+  }
+
+  function saveEdit() {
+    onSaveEdit(index, { headline: editHeadline, sub: editSub })
+    setIsEditing(false)
+  }
+
+  function cancelEdit() {
+    setIsEditing(false)
+  }
+
+  if (!parsedHeadline && !parsedSub) {
     return (
       <div className="glass-card p-4 text-xs text-rl-muted whitespace-pre-wrap leading-relaxed">{block}</div>
     )
   }
 
   return (
-    <div className="glass-card p-5 border border-rl-border/60">
+    <div className={`glass-card p-5 border transition-all ${
+      isEditing ? 'border-rl-purple/50 shadow-md' : 'border-rl-border/60'
+    }`}>
+      {/* ── Header row ── */}
       <div className="flex items-start justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">Headline {index + 1}</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">
+            Headline {index + 1}
+          </span>
           {angle && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-rl-purple/10 border border-rl-purple/20 text-rl-purple font-semibold">
               {angle}
             </span>
           )}
+          {wasEdited && !isEditing && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-rl-gold/10 border border-rl-gold/20 text-rl-gold font-semibold">
+              Editada
+            </span>
+          )}
         </div>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-purple transition-all shrink-0"
-        >
-          {copied ? <CheckCheck className="w-3 h-3 text-rl-green" /> : <Copy className="w-3 h-3" />}
-          {copied ? 'Copiado!' : 'Copiar'}
-        </button>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isEditing ? (
+            <>
+              <button
+                onClick={saveEdit}
+                className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-rl-purple text-white font-semibold hover:bg-rl-purple/90 transition-all"
+              >
+                <Check className="w-3 h-3" /> Salvar
+              </button>
+              <button
+                onClick={cancelEdit}
+                className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
+              >
+                <X className="w-3 h-3" /> Cancelar
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={startEdit}
+                className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-purple hover:bg-rl-purple/5 transition-all"
+              >
+                <Pencil className="w-3 h-3" /> Editar
+              </button>
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-text transition-all"
+              >
+                {copied ? <CheckCheck className="w-3 h-3 text-rl-green" /> : <Copy className="w-3 h-3" />}
+                {copied ? 'Copiado!' : 'Copiar'}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {headline && (
+      {/* ── Headline field ── */}
+      <div className="mb-3">
+        <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1.5">Headline</p>
+        {isEditing ? (
+          <textarea
+            value={editHeadline}
+            onChange={(e) => setEditHeadline(e.target.value)}
+            rows={3}
+            autoFocus
+            className="w-full px-3 py-2.5 rounded-xl border border-rl-purple/40 bg-rl-surface/60 text-sm font-semibold text-rl-text outline-none resize-none focus:border-rl-purple focus:ring-1 focus:ring-rl-purple/20 transition-colors leading-relaxed"
+          />
+        ) : (
+          <p className="text-sm font-semibold text-rl-text leading-relaxed">{displayHeadline}</p>
+        )}
+      </div>
+
+      {/* ── Subheadline field ── */}
+      {(parsedSub || isEditing) && (
         <div className="mb-3">
-          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1">Headline</p>
-          <p className="text-sm font-semibold text-rl-text leading-relaxed">{headline}</p>
+          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1.5">Subheadline</p>
+          {isEditing ? (
+            <textarea
+              value={editSub}
+              onChange={(e) => setEditSub(e.target.value)}
+              rows={4}
+              className="w-full px-3 py-2.5 rounded-xl border border-rl-purple/40 bg-rl-surface/60 text-sm text-rl-text outline-none resize-none focus:border-rl-purple focus:ring-1 focus:ring-rl-purple/20 transition-colors leading-relaxed"
+            />
+          ) : (
+            <p className="text-sm text-rl-text leading-relaxed">{displaySub}</p>
+          )}
         </div>
       )}
 
-      {sub && (
-        <div className="mb-3">
-          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1">Subheadline</p>
-          <p className="text-sm text-rl-text leading-relaxed">{sub}</p>
-        </div>
-      )}
-
-      {(dor || obj) && (
+      {/* ── Metadata (view mode only) ── */}
+      {!isEditing && (dor || obj) && (
         <div className="mt-3 pt-3 border-t border-rl-border/40 grid grid-cols-1 sm:grid-cols-2 gap-2">
           {dor && (
             <div>
@@ -221,7 +300,7 @@ function HeadlineCard({ block, index }) {
   )
 }
 
-function ResultBlock({ content }) {
+function ResultBlock({ content, editedBlocks, onSaveEdit }) {
   const [allCopied, setAllCopied] = useState(false)
 
   function copyAll() {
@@ -231,16 +310,25 @@ function ResultBlock({ content }) {
   }
 
   // Split by '---' separators, filter blocks that have ## HEADLINE
-  const rawBlocks = content.split(/\n---\n/).map(b => b.trim()).filter(Boolean)
+  const rawBlocks      = content.split(/\n---\n/).map(b => b.trim()).filter(Boolean)
   const headlineBlocks = rawBlocks.filter(b => /^##\s+HEADLINE/im.test(b))
   const otherBlocks    = rawBlocks.filter(b => !/^##\s+HEADLINE/im.test(b))
 
+  const editedCount = Object.keys(editedBlocks || {}).length
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-rl-muted">
-          {headlineBlocks.length} headline{headlineBlocks.length !== 1 ? 's' : ''} gerada{headlineBlocks.length !== 1 ? 's' : ''}
-        </span>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-rl-muted">
+            {headlineBlocks.length} headline{headlineBlocks.length !== 1 ? 's' : ''} gerada{headlineBlocks.length !== 1 ? 's' : ''}
+          </span>
+          {editedCount > 0 && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-rl-gold/10 border border-rl-gold/20 text-rl-gold font-semibold">
+              {editedCount} editada{editedCount !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
         <button
           onClick={copyAll}
           className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
@@ -251,7 +339,13 @@ function ResultBlock({ content }) {
       </div>
 
       {headlineBlocks.map((block, i) => (
-        <HeadlineCard key={i} block={block} index={i} />
+        <HeadlineCard
+          key={i}
+          block={block}
+          index={i}
+          editedData={editedBlocks?.[i]}
+          onSaveEdit={onSaveEdit}
+        />
       ))}
 
       {/* Tabela final / blocos extras */}
@@ -283,6 +377,7 @@ export default function PromessaModule({ project }) {
   const [result,              setResult]             = useState(() => project.promessa?.result || null)
   const [error,               setError]              = useState(null)
   const [objetivo,            setObjetivo]           = useState(() => project.promessa?.objetivo || '')
+  const [editedBlocks,        setEditedBlocks]        = useState(() => project.promessa?.editedBlocks || {})
   const objetivoTimer = useRef(null)
 
   const activePersona    = personas.find(p => p.id === selectedPersonaId)
@@ -345,6 +440,14 @@ export default function PromessaModule({ project }) {
     }, 800)
   }
 
+  function handleSaveEdit(index, data) {
+    const updated = { ...editedBlocks, [index]: data }
+    setEditedBlocks(updated)
+    updateProject(project.id, {
+      promessa: { ...(project.promessa || {}), editedBlocks: updated },
+    })
+  }
+
   // ── Generate ────────────────────────────────────────────────────────────────
 
   const generate = useCallback(async () => {
@@ -352,6 +455,7 @@ export default function PromessaModule({ project }) {
     setLoading(true)
     setError(null)
     setResult(null)
+    setEditedBlocks({})
 
     try {
       const produtoInfo = selectedProdutos.map(p => {
@@ -391,7 +495,7 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
       const cleanText = fullText.replace(/—/g, '-')
       setResult(cleanText)
       updateProject(project.id, {
-        promessa: { result: cleanText, objetivo: objetivo.trim(), savedAt: new Date().toISOString() },
+        promessa: { result: cleanText, objetivo: objetivo.trim(), editedBlocks: {}, savedAt: new Date().toISOString() },
       })
     } catch (e) {
       setError(e.message)
@@ -681,7 +785,7 @@ Com base nessas informações, crie 10 headlines e subheadlines seguindo todas a
                 {result}
               </div>
             )
-            : <ResultBlock content={result} />
+            : <ResultBlock content={result} editedBlocks={editedBlocks} onSaveEdit={handleSaveEdit} />
           }
         </div>
       )}
