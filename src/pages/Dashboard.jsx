@@ -518,7 +518,14 @@ function SortIcon({ col, sortBy, sortDir }) {
     : <ChevronDown className="w-3 h-3 text-rl-purple" />
 }
 
-function ProjectListView({ projects, onNavigate, onDelete }) {
+const RISK_GROUPS = [
+  { value: 'em_risco', label: 'Em Risco', dot: 'bg-red-400',  text: 'text-red-400'  },
+  { value: 'neutro',   label: 'Neutro',   dot: 'bg-rl-gold',  text: 'text-rl-gold'  },
+  { value: 'saudavel', label: 'Saudável', dot: 'bg-rl-green', text: 'text-rl-green' },
+  { value: null,       label: 'Sem Risco',dot: 'bg-rl-muted', text: 'text-rl-muted' },
+]
+
+function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }) {
   const [sortBy,  setSortBy]  = useState('createdAt')
   const [sortDir, setSortDir] = useState('desc')
 
@@ -541,6 +548,112 @@ function ProjectListView({ projects, onNavigate, onDelete }) {
     if (av > bv) return sortDir === 'asc' ?  1 : -1
     return 0
   })
+
+  const groups = groupByRisk
+    ? RISK_GROUPS.map(g => {
+        const rows = sorted.filter(p =>
+          g.value === null ? !p.riskLevel : p.riskLevel === g.value
+        )
+        return { ...g, rows, totalVal: rows.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0) }
+      }).filter(g => g.rows.length > 0)
+    : null
+
+  function renderRow(p, isLast) {
+    const createdStr = p.createdAt
+      ? new Date(p.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+      : '—'
+    return (
+      <tr
+        key={p.id}
+        onClick={() => onNavigate(p.id)}
+        className={`cursor-pointer transition-colors hover:bg-rl-surface/50 group
+          ${!isLast ? 'border-b border-rl-border/50' : ''}`}
+      >
+        {/* Empresa */}
+        <td className="px-4 py-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="font-medium text-rl-text group-hover:text-rl-purple transition-colors leading-tight">
+              {p.companyName}
+            </span>
+            {p.businessType && (
+              <span className="text-[10px] text-rl-muted">{p.businessType}</span>
+            )}
+          </div>
+        </td>
+
+        {/* Squad */}
+        <td className="px-4 py-3">
+          <SquadBadge name={p.squadName} emoji={p.squadEmoji} colorIndex={p.squadColorIndex} members={p.squadMembers ?? []} />
+        </td>
+
+        {/* Responsável / Cargo */}
+        <td className="px-4 py-3">
+          {p.responsibleName
+            ? <div className="flex flex-col">
+                <span className="text-rl-text leading-tight">{p.responsibleName}</span>
+                {p.responsibleRole && (
+                  <span className="text-xs text-rl-muted mt-0.5">{p.responsibleRole}</span>
+                )}
+              </div>
+            : <span className="text-rl-muted">—</span>
+          }
+        </td>
+
+        {/* Risco */}
+        <td className="px-4 py-3">
+          {p.riskLevel
+            ? <RiskBadge riskLevel={p.riskLevel} />
+            : <span className="text-rl-muted">—</span>
+          }
+        </td>
+
+        {/* Momento */}
+        <td className="px-4 py-3">
+          {p.momento
+            ? <MomentoBadge momento={p.momento} />
+            : <span className="text-rl-muted">—</span>
+          }
+        </td>
+
+        {/* Progresso */}
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2 min-w-[80px]">
+            <div className="flex-1 h-1.5 bg-rl-surface rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-rl rounded-full"
+                style={{ width: `${p.progress ?? 0}%` }}
+              />
+            </div>
+            <span className="text-xs text-rl-muted w-7 text-right shrink-0">
+              {p.progress ?? 0}%
+            </span>
+          </div>
+        </td>
+
+        {/* Contrato */}
+        <td className="px-4 py-3 text-rl-muted whitespace-nowrap">
+          {p.contractValue ? fmtCurrency(Number(p.contractValue)) : '—'}
+        </td>
+
+        {/* Criado em */}
+        <td className="px-4 py-3 text-rl-muted whitespace-nowrap text-xs">
+          {createdStr}
+        </td>
+
+        {/* Ações */}
+        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => onDelete(p)}
+            aria-label="Excluir projeto"
+            title="Excluir projeto"
+            className="p-1.5 rounded-lg text-rl-muted opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-400/10 transition-all"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </td>
+      </tr>
+    )
+  }
 
   return (
     <div className="glass-card overflow-hidden">
@@ -566,105 +679,31 @@ function ProjectListView({ projects, onNavigate, onDelete }) {
           </thead>
 
           {/* Body */}
-          <tbody>
-            {sorted.map((p, i) => {
-              const createdStr = p.createdAt
-                ? new Date(p.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-                : '—'
-
-              return (
-                <tr
-                  key={p.id}
-                  onClick={() => onNavigate(p.id)}
-                  className={`cursor-pointer transition-colors hover:bg-rl-surface/50 group
-                    ${i !== sorted.length - 1 ? 'border-b border-rl-border/50' : ''}`}
-                >
-                  {/* Empresa */}
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-medium text-rl-text group-hover:text-rl-purple transition-colors leading-tight">
-                        {p.companyName}
+          {groups ? (
+            groups.map(g => (
+              <tbody key={g.value ?? 'sem_risco'} className="border-b border-rl-border/30 last:border-b-0">
+                <tr className="bg-rl-surface/40">
+                  <td colSpan={LIST_COLS.length + 1} className="px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${g.dot}`} />
+                      <span className={`text-sm font-semibold ${g.text}`}>{g.label}</span>
+                      <span className="text-xs text-rl-muted bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full">
+                        {g.rows.length}
                       </span>
-                      {p.businessType && (
-                        <span className="text-[10px] text-rl-muted">{p.businessType}</span>
+                      {g.totalVal > 0 && (
+                        <span className="text-xs text-rl-muted">{fmtCurrency(g.totalVal)}</span>
                       )}
                     </div>
                   </td>
-
-                  {/* Squad */}
-                  <td className="px-4 py-3">
-                    <SquadBadge name={p.squadName} emoji={p.squadEmoji} colorIndex={p.squadColorIndex} members={p.squadMembers ?? []} />
-                  </td>
-
-                  {/* Responsável / Cargo */}
-                  <td className="px-4 py-3">
-                    {p.responsibleName
-                      ? <div className="flex flex-col">
-                          <span className="text-rl-text leading-tight">{p.responsibleName}</span>
-                          {p.responsibleRole && (
-                            <span className="text-xs text-rl-muted mt-0.5">{p.responsibleRole}</span>
-                          )}
-                        </div>
-                      : <span className="text-rl-muted">—</span>
-                    }
-                  </td>
-
-                  {/* Risco */}
-                  <td className="px-4 py-3">
-                    {p.riskLevel
-                      ? <RiskBadge riskLevel={p.riskLevel} />
-                      : <span className="text-rl-muted">—</span>
-                    }
-                  </td>
-
-                  {/* Momento */}
-                  <td className="px-4 py-3">
-                    {p.momento
-                      ? <MomentoBadge momento={p.momento} />
-                      : <span className="text-rl-muted">—</span>
-                    }
-                  </td>
-
-                  {/* Progresso */}
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2 min-w-[80px]">
-                      <div className="flex-1 h-1.5 bg-rl-surface rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-rl rounded-full"
-                          style={{ width: `${p.progress ?? 0}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-rl-muted w-7 text-right shrink-0">
-                        {p.progress ?? 0}%
-                      </span>
-                    </div>
-                  </td>
-
-                  {/* Contrato */}
-                  <td className="px-4 py-3 text-rl-muted whitespace-nowrap">
-                    {p.contractValue ? fmtCurrency(Number(p.contractValue)) : '—'}
-                  </td>
-
-                  {/* Criado em */}
-                  <td className="px-4 py-3 text-rl-muted whitespace-nowrap text-xs">
-                    {createdStr}
-                  </td>
-
-                  {/* Ações */}
-                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                    <button
-                      onClick={() => onDelete(p)}
-                      aria-label="Excluir projeto"
-                      title="Excluir projeto"
-                      className="p-1.5 rounded-lg text-rl-muted opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-400/10 transition-all"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
                 </tr>
-              )
-            })}
-          </tbody>
+                {g.rows.map((p, i) => renderRow(p, i === g.rows.length - 1))}
+              </tbody>
+            ))
+          ) : (
+            <tbody>
+              {sorted.map((p, i) => renderRow(p, i === sorted.length - 1))}
+            </tbody>
+          )}
         </table>
       </div>
     </div>
@@ -1102,6 +1141,7 @@ export default function Dashboard() {
                 projects={visibleProjects}
                 onNavigate={(id) => navigate(`/project/${id}`)}
                 onDelete={(p) => setDeleteTarget(p)}
+                groupByRisk={momentoFilter === 'all' && riskFilter === 'all'}
               />
             ) : (momentoFilter !== 'all' || riskFilter !== 'all') ? (
               /* Flat grid when any filter is active */
