@@ -525,6 +525,13 @@ const RISK_GROUPS = [
   { value: null,       label: 'Sem Risco',dot: 'bg-rl-muted', text: 'text-rl-muted', border: 'border-rl-border',   bg: 'bg-rl-surface/30' },
 ]
 
+// MRR: programas (aceleracao) são contratos fechados divididos em 3 meses;
+// assessoria mensal já é cobrança mensal e mantém o valor cheio.
+function mrrValue(p) {
+  const v = Number(p.contractValue) || 0
+  return p.contractModel === 'aceleracao' ? v / 3 : v
+}
+
 function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }) {
   const [sortBy,  setSortBy]  = useState('createdAt')
   const [sortDir, setSortDir] = useState('desc')
@@ -554,7 +561,12 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }
         const rows = sorted.filter(p =>
           g.value === null ? !p.riskLevel : p.riskLevel === g.value
         )
-        return { ...g, rows, totalVal: rows.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0) }
+        return {
+          ...g,
+          rows,
+          totalVal: rows.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0),
+          totalMRR: rows.reduce((acc, p) => acc + mrrValue(p), 0),
+        }
       }).filter(g => g.rows.length > 0)
     : null
 
@@ -699,15 +711,28 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }
           key={g.value ?? 'sem_risco'}
           className={`glass-card overflow-hidden border ${g.border}`}
         >
-          <div className={`flex items-center gap-3 px-4 py-3 border-b border-rl-border/60 ${g.bg}`}>
-            <span className={`w-2.5 h-2.5 rounded-full ${g.dot}`} />
-            <span className={`text-sm font-bold uppercase tracking-wider ${g.text}`}>{g.label}</span>
-            <span className="text-xs text-rl-muted bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full">
-              {g.rows.length} {g.rows.length === 1 ? 'cliente' : 'clientes'}
-            </span>
-            {g.totalVal > 0 && (
-              <span className={`ml-auto text-sm font-semibold ${g.text}`}>{fmtCurrency(g.totalVal)}</span>
-            )}
+          <div className={`flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4 border-b border-rl-border/60 ${g.bg}`}>
+            <div className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${g.dot}`} />
+              <span className={`text-sm font-bold uppercase tracking-wider ${g.text}`}>{g.label}</span>
+              <span className="text-xs text-rl-muted bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full">
+                {g.rows.length} {g.rows.length === 1 ? 'cliente' : 'clientes'}
+              </span>
+            </div>
+            <div className="ml-auto flex items-center gap-6">
+              {g.totalVal > 0 && (
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">Contrato Cheio</span>
+                  <span className={`text-2xl font-bold leading-tight ${g.text}`}>{fmtCurrency(g.totalVal)}</span>
+                </div>
+              )}
+              {g.totalMRR > 0 && (
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">MRR</span>
+                  <span className={`text-2xl font-bold leading-tight ${g.text}`}>{fmtCurrency(g.totalMRR)}</span>
+                </div>
+              )}
+            </div>
           </div>
           {renderTable(g.rows)}
         </div>
@@ -1161,26 +1186,37 @@ export default function Dashboard() {
             ) : (
               /* Grouped by risk when no filter active — order: Em Risco → Neutro → Saudável → Sem Risco */
               <div className="space-y-8">
-                {[
-                  { value: 'em_risco', label: 'Em Risco', dot: 'bg-red-400',  text: 'text-red-400'  },
-                  { value: 'neutro',   label: 'Neutro',   dot: 'bg-rl-gold',  text: 'text-rl-gold'  },
-                  { value: 'saudavel', label: 'Saudável', dot: 'bg-rl-green', text: 'text-rl-green' },
-                  { value: null,       label: 'Sem Risco',dot: 'bg-rl-muted', text: 'text-rl-muted' },
-                ].map(group => {
+                {RISK_GROUPS.map(group => {
                   const grouped = visibleProjects.filter(p =>
                     group.value === null ? !p.riskLevel : p.riskLevel === group.value
                   )
                   if (grouped.length === 0) return null
                   const totalVal = grouped.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
+                  const totalMRR = grouped.reduce((acc, p) => acc + mrrValue(p), 0)
                   return (
                     <div key={group.value ?? 'none'}>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className={`w-2 h-2 rounded-full ${group.dot}`} />
-                        <span className={`text-sm font-semibold ${group.text}`}>{group.label}</span>
-                        <span className="text-xs text-rl-muted bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full">{grouped.length}</span>
-                        {totalVal > 0 && (
-                          <span className="text-xs text-rl-muted">{fmtCurrency(totalVal)}</span>
-                        )}
+                      <div className={`flex flex-wrap items-center gap-x-6 gap-y-3 mb-4 px-4 py-3 rounded-xl border ${group.border} ${group.bg}`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${group.dot}`} />
+                          <span className={`text-sm font-bold uppercase tracking-wider ${group.text}`}>{group.label}</span>
+                          <span className="text-xs text-rl-muted bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full">
+                            {grouped.length} {grouped.length === 1 ? 'cliente' : 'clientes'}
+                          </span>
+                        </div>
+                        <div className="ml-auto flex items-center gap-6">
+                          {totalVal > 0 && (
+                            <div className="flex flex-col items-end">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">Contrato Cheio</span>
+                              <span className={`text-2xl font-bold leading-tight ${group.text}`}>{fmtCurrency(totalVal)}</span>
+                            </div>
+                          )}
+                          {totalMRR > 0 && (
+                            <div className="flex flex-col items-end">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">MRR</span>
+                              <span className={`text-2xl font-bold leading-tight ${group.text}`}>{fmtCurrency(totalMRR)}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {grouped.map((p) =>
