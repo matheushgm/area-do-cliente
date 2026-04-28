@@ -519,10 +519,10 @@ function SortIcon({ col, sortBy, sortDir }) {
 }
 
 const RISK_GROUPS = [
-  { value: 'em_risco', label: 'Em Risco', dot: 'bg-red-400',  text: 'text-red-400'  },
-  { value: 'neutro',   label: 'Neutro',   dot: 'bg-rl-gold',  text: 'text-rl-gold'  },
-  { value: 'saudavel', label: 'Saudável', dot: 'bg-rl-green', text: 'text-rl-green' },
-  { value: null,       label: 'Sem Risco',dot: 'bg-rl-muted', text: 'text-rl-muted' },
+  { value: 'em_risco', label: 'Em Risco', dot: 'bg-red-400',  text: 'text-red-400',  border: 'border-red-400/30',  bg: 'bg-red-400/5'  },
+  { value: 'neutro',   label: 'Neutro',   dot: 'bg-rl-gold',  text: 'text-rl-gold',  border: 'border-rl-gold/30',  bg: 'bg-rl-gold/5'  },
+  { value: 'saudavel', label: 'Saudável', dot: 'bg-rl-green', text: 'text-rl-green', border: 'border-rl-green/30', bg: 'bg-rl-green/5' },
+  { value: null,       label: 'Sem Risco',dot: 'bg-rl-muted', text: 'text-rl-muted', border: 'border-rl-border',   bg: 'bg-rl-surface/30' },
 ]
 
 function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }) {
@@ -655,11 +655,10 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }
     )
   }
 
-  return (
-    <div className="glass-card overflow-hidden">
+  function renderTable(rows) {
+    return (
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
-          {/* Header */}
           <thead>
             <tr className="border-b border-rl-border">
               {LIST_COLS.map(col => (
@@ -677,35 +676,42 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }
               <th className="px-4 py-3 w-10" />
             </tr>
           </thead>
-
-          {/* Body */}
-          {groups ? (
-            groups.map(g => (
-              <tbody key={g.value ?? 'sem_risco'} className="border-b border-rl-border/30 last:border-b-0">
-                <tr className="bg-rl-surface/40">
-                  <td colSpan={LIST_COLS.length + 1} className="px-4 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${g.dot}`} />
-                      <span className={`text-sm font-semibold ${g.text}`}>{g.label}</span>
-                      <span className="text-xs text-rl-muted bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full">
-                        {g.rows.length}
-                      </span>
-                      {g.totalVal > 0 && (
-                        <span className="text-xs text-rl-muted">{fmtCurrency(g.totalVal)}</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-                {g.rows.map((p, i) => renderRow(p, i === g.rows.length - 1))}
-              </tbody>
-            ))
-          ) : (
-            <tbody>
-              {sorted.map((p, i) => renderRow(p, i === sorted.length - 1))}
-            </tbody>
-          )}
+          <tbody>
+            {rows.map((p, i) => renderRow(p, i === rows.length - 1))}
+          </tbody>
         </table>
       </div>
+    )
+  }
+
+  if (!groups) {
+    return (
+      <div className="glass-card overflow-hidden">
+        {renderTable(sorted)}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {groups.map(g => (
+        <div
+          key={g.value ?? 'sem_risco'}
+          className={`glass-card overflow-hidden border ${g.border}`}
+        >
+          <div className={`flex items-center gap-3 px-4 py-3 border-b border-rl-border/60 ${g.bg}`}>
+            <span className={`w-2.5 h-2.5 rounded-full ${g.dot}`} />
+            <span className={`text-sm font-bold uppercase tracking-wider ${g.text}`}>{g.label}</span>
+            <span className="text-xs text-rl-muted bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full">
+              {g.rows.length} {g.rows.length === 1 ? 'cliente' : 'clientes'}
+            </span>
+            {g.totalVal > 0 && (
+              <span className={`ml-auto text-sm font-semibold ${g.text}`}>{fmtCurrency(g.totalVal)}</span>
+            )}
+          </div>
+          {renderTable(g.rows)}
+        </div>
+      ))}
     </div>
   )
 }
