@@ -1113,19 +1113,28 @@ export default function Dashboard() {
                 )}
               </div>
             ) : (
-              /* Grouped by momento when no filter active */
+              /* Grouped by risk when no filter active — order: Em Risco → Neutro → Saudável → Sem Risco */
               <div className="space-y-8">
-                {[...MOMENTO_OPTIONS, { value: null, label: 'Sem Momento', dot: 'bg-rl-muted', text: 'text-rl-muted' }].map(group => {
+                {[
+                  { value: 'em_risco', label: 'Em Risco', dot: 'bg-red-400',  text: 'text-red-400'  },
+                  { value: 'neutro',   label: 'Neutro',   dot: 'bg-rl-gold',  text: 'text-rl-gold'  },
+                  { value: 'saudavel', label: 'Saudável', dot: 'bg-rl-green', text: 'text-rl-green' },
+                  { value: null,       label: 'Sem Risco',dot: 'bg-rl-muted', text: 'text-rl-muted' },
+                ].map(group => {
                   const grouped = visibleProjects.filter(p =>
-                    group.value === null ? !p.momento : p.momento === group.value
+                    group.value === null ? !p.riskLevel : p.riskLevel === group.value
                   )
                   if (grouped.length === 0) return null
+                  const totalVal = grouped.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
                   return (
                     <div key={group.value ?? 'none'}>
                       <div className="flex items-center gap-2 mb-3">
                         <span className={`w-2 h-2 rounded-full ${group.dot}`} />
                         <span className={`text-sm font-semibold ${group.text}`}>{group.label}</span>
                         <span className="text-xs text-rl-muted bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full">{grouped.length}</span>
+                        {totalVal > 0 && (
+                          <span className="text-xs text-rl-muted">{fmtCurrency(totalVal)}</span>
+                        )}
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {grouped.map((p) =>
