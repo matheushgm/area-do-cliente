@@ -10,6 +10,14 @@ export function fmtCurrency(n) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
 
+// MRR normalizado: programas (contractModel === 'aceleracao') são contratos
+// fechados divididos em 3 meses; assessoria mensal já é cobrança recorrente
+// e mantém o contractValue cheio.
+export function mrrValue(p) {
+  const v = Number(p?.contractValue) || 0
+  return p?.contractModel === 'aceleracao' ? v / 3 : v
+}
+
 // Compatível com IDs numéricos legados e UUIDs
 export function hashId(id) {
   if (!id) return 0

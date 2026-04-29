@@ -12,6 +12,7 @@ import BancoDeAnuncios from './pages/BancoDeAnuncios'
 import BancoDeAnunciosPublico from './pages/BancoDeAnunciosPublico'
 import CRMPublico from './pages/CRMPublico'
 import FunilCanvas from './pages/FunilCanvas'
+import SquadsReport from './pages/SquadsReport'
 import ResetPassword from './pages/ResetPassword'
 
 function RequireAuth({ children }) {
@@ -44,6 +45,7 @@ function AppRoutes() {
         <Route path="/banco-publico" element={<BancoDeAnunciosPublico />} />
         <Route path="/crm/:token" element={<CRMPublico />} />
         <Route path="/funil" element={<RequireAuth><FunilCanvas /></RequireAuth>} />
+        <Route path="/squads-report" element={<RequireAuth><SquadsReport /></RequireAuth>} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

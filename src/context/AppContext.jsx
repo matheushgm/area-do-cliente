@@ -721,7 +721,7 @@ export function AppProvider({ children }) {
       .order("created_at")
       .then(({ data, error }) => {
         if (error) { console.error("Erro ao carregar squads:", error); return; }
-        if (data) setSquads(data);
+        if (data) setSquads(data.map(s => ({ ...s, monthlyCost: s.monthly_cost })));
       });
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -926,27 +926,49 @@ export function AppProvider({ children }) {
   // ── Squads CRUD ───────────────────────────────────────────────────────────
   const addSquad = useCallback(async (data) => {
     if (!supabase) return { error: "Supabase não configurado." };
+    const insertCols = {
+      name: data.name,
+      emoji: data.emoji || null,
+      members: data.members || [],
+    };
+    // monthly_cost só vai se estiver explicitamente presente
+    const hasCost = 'monthly_cost' in data || 'monthlyCost' in data;
+    if (hasCost) {
+      const v = 'monthly_cost' in data ? data.monthly_cost : data.monthlyCost;
+      insertCols.monthly_cost = v === null || v === '' || v === undefined ? null : Number(v);
+    }
     const { data: row, error } = await supabase
       .from("squads")
-      .insert({ name: data.name, emoji: data.emoji || null, members: data.members || [] })
+      .insert(insertCols)
       .select()
       .single();
     if (error) return { error: error.message };
-    setSquads((prev) => [...prev, row]);
-    return { data: row };
+    const enriched = { ...row, monthlyCost: row.monthly_cost };
+    setSquads((prev) => [...prev, enriched]);
+    return { data: enriched };
   }, []);
 
   const updateSquad = useCallback(async (id, data) => {
     if (!supabase) return { error: "Supabase não configurado." };
+    const updateCols = {
+      name: data.name,
+      emoji: data.emoji ?? null,
+      members: data.members || [],
+    };
+    if ('monthly_cost' in data || 'monthlyCost' in data) {
+      const v = 'monthly_cost' in data ? data.monthly_cost : data.monthlyCost;
+      updateCols.monthly_cost = v === null || v === '' || v === undefined ? null : Number(v);
+    }
     const { data: row, error } = await supabase
       .from("squads")
-      .update({ name: data.name, emoji: data.emoji ?? null, members: data.members || [] })
+      .update(updateCols)
       .eq("id", id)
       .select()
       .single();
     if (error) return { error: error.message };
-    setSquads((prev) => prev.map((s) => (s.id === id ? row : s)));
-    return { data: row };
+    const enriched = { ...row, monthlyCost: row.monthly_cost };
+    setSquads((prev) => prev.map((s) => (s.id === id ? enriched : s)));
+    return { data: enriched };
   }, []);
 
   const deleteSquad = useCallback(async (id) => {

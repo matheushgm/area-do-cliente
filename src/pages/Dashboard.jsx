@@ -7,11 +7,11 @@ import {
   BarChart3, FileText, DollarSign, Users,
   Eye, X, Trash2, AlertTriangle,
   Cloud, CloudOff, Loader2, Menu, Search,
-  LayoutGrid, List, ChevronUp, ChevronDown, ChevronsUpDown,
+  LayoutGrid, List, ChevronUp, ChevronDown, ChevronsUpDown, Users2,
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
 import { SQUAD_COLORS } from '../lib/constants'
-import { fmtCurrency, hashId } from '../lib/utils'
+import { fmtCurrency, hashId, mrrValue } from '../lib/utils'
 import Modal from '../components/UI/Modal'
 
 const CORE_STEPS = ['roi', 'strategy', 'oferta']
@@ -525,12 +525,6 @@ const RISK_GROUPS = [
   { value: null,       label: 'Sem Risco',dot: 'bg-rl-muted', text: 'text-rl-muted', border: 'border-rl-border',   bg: 'bg-rl-surface/30' },
 ]
 
-// MRR: programas (aceleracao) são contratos fechados divididos em 3 meses;
-// assessoria mensal já é cobrança mensal e mantém o valor cheio.
-function mrrValue(p) {
-  const v = Number(p.contractValue) || 0
-  return p.contractModel === 'aceleracao' ? v / 3 : v
-}
 
 function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }) {
   const [sortBy,  setSortBy]  = useState('createdAt')
@@ -1116,6 +1110,16 @@ export default function Dashboard() {
 
               {/* Momento filter dropdown */}
               <MomentoDropdown momentoFilter={momentoFilter} setMomentoFilter={setMomentoFilter} counts={counts} />
+
+              {/* Dashboard de Squads — relatório por squad */}
+              <button
+                onClick={() => navigate('/squads-report')}
+                className="flex items-center gap-2 h-[38px] px-3 rounded-xl border border-rl-purple/40 bg-rl-purple/10 text-rl-purple text-sm font-medium hover:bg-rl-purple/20 transition-all whitespace-nowrap shrink-0"
+                title="Abrir relatório por squad"
+              >
+                <Users2 className="w-4 h-4" />
+                <span className="hidden md:inline">Dashboard de Squads</span>
+              </button>
 
               {/* View switcher */}
               <div className="flex items-center gap-1 bg-rl-surface border border-rl-border rounded-xl p-1 shrink-0">
