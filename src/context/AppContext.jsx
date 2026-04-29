@@ -721,7 +721,7 @@ export function AppProvider({ children }) {
       .order("created_at")
       .then(({ data, error }) => {
         if (error) { console.error("Erro ao carregar squads:", error); return; }
-        if (data) setSquads(data.map(s => ({ ...s, monthlyCost: s.monthly_cost })));
+        if (data) setSquads(data.map(s => ({ ...s, monthlyCost: s.monthly_cost, isTest: !!s.is_test })));
       });
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -937,13 +937,17 @@ export function AppProvider({ children }) {
       const v = 'monthly_cost' in data ? data.monthly_cost : data.monthlyCost;
       insertCols.monthly_cost = v === null || v === '' || v === undefined ? null : Number(v);
     }
+    if ('is_test' in data || 'isTest' in data) {
+      const v = 'is_test' in data ? data.is_test : data.isTest;
+      insertCols.is_test = !!v;
+    }
     const { data: row, error } = await supabase
       .from("squads")
       .insert(insertCols)
       .select()
       .single();
     if (error) return { error: error.message };
-    const enriched = { ...row, monthlyCost: row.monthly_cost };
+    const enriched = { ...row, monthlyCost: row.monthly_cost, isTest: !!row.is_test };
     setSquads((prev) => [...prev, enriched]);
     return { data: enriched };
   }, []);
@@ -959,6 +963,10 @@ export function AppProvider({ children }) {
       const v = 'monthly_cost' in data ? data.monthly_cost : data.monthlyCost;
       updateCols.monthly_cost = v === null || v === '' || v === undefined ? null : Number(v);
     }
+    if ('is_test' in data || 'isTest' in data) {
+      const v = 'is_test' in data ? data.is_test : data.isTest;
+      updateCols.is_test = !!v;
+    }
     const { data: row, error } = await supabase
       .from("squads")
       .update(updateCols)
@@ -966,7 +974,7 @@ export function AppProvider({ children }) {
       .select()
       .single();
     if (error) return { error: error.message };
-    const enriched = { ...row, monthlyCost: row.monthly_cost };
+    const enriched = { ...row, monthlyCost: row.monthly_cost, isTest: !!row.is_test };
     setSquads((prev) => prev.map((s) => (s.id === id ? enriched : s)));
     return { data: enriched };
   }, []);

@@ -833,9 +833,15 @@ export default function Dashboard() {
 
   const isAdmin = user?.role === 'admin'
 
+  // Squads marcados como "Em teste" são excluídos de todas as agregações
+  // e da listagem da home — visualização permanece via /squads-report.
+  const testSquadIds = new Set(squads.filter(s => s.isTest).map(s => String(s.id)))
+
   // RLS no Supabase já filtra: admins veem tudo; accounts veem apenas projetos
   // cujo squad atribuído inclui o usuário como membro
-  const baseProjects = projects
+  const baseProjects = testSquadIds.size > 0
+    ? projects.filter(p => !p.squad || !testSquadIds.has(String(p.squad)))
+    : projects
 
   // Apply status/member filter
   const filteredProjects = (() => {

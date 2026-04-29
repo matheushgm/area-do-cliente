@@ -7,7 +7,7 @@ import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
 import {
   ArrowLeft, Users2, Pencil, Check, X, TrendingUp, TrendingDown,
-  DollarSign, Wallet, Activity, AlertTriangle,
+  DollarSign, Wallet, Activity, AlertTriangle, FlaskConical,
 } from 'lucide-react'
 
 const MONTHS_PT = [
@@ -38,8 +38,9 @@ function SummaryCard({ icon: Icon, label, value, valueClass = 'text-rl-text', su
   )
 }
 
-function SquadCard({ squad, colorIndex, projects, year, month, monthLabel, onSaveCost, isAdmin }) {
+function SquadCard({ squad, colorIndex, projects, year, month, monthLabel, onSaveCost, onToggleTest, isAdmin }) {
   const c = SQUAD_COLORS[colorIndex % SQUAD_COLORS.length]
+  const isTest = !!squad.isTest
 
   const activeClients = projects.filter(p =>
     String(p.squad) === String(squad.id) && p.momento !== 'churn'
@@ -91,14 +92,33 @@ function SquadCard({ squad, colorIndex, projects, year, month, monthLabel, onSav
   }, [editing])
 
   return (
-    <div className={`glass-card overflow-hidden border ${c.border}`}>
+    <div className={`glass-card overflow-hidden border ${isTest ? 'border-amber-400/40 opacity-90' : c.border}`}>
       {/* Header */}
-      <div className={`flex items-center gap-2 px-5 py-3 border-b border-rl-border/60 ${c.bg}`}>
+      <div className={`flex items-center gap-2 flex-wrap px-5 py-3 border-b border-rl-border/60 ${c.bg}`}>
         {squad.emoji && <span className="text-base leading-none">{squad.emoji}</span>}
         <span className={`text-sm font-bold uppercase tracking-wider ${c.text}`}>{squad.name}</span>
+        {isTest && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-400/10 text-amber-400 border border-amber-400/40">
+            <FlaskConical className="w-2.5 h-2.5" />
+            Em teste
+          </span>
+        )}
         <span className="text-xs text-rl-muted bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full ml-auto">
           {activeClients.length} {activeClients.length === 1 ? 'cliente' : 'clientes'}
         </span>
+        {isAdmin && (
+          <button
+            onClick={() => onToggleTest(squad, !isTest)}
+            className={`p-1.5 rounded-lg transition-all ${
+              isTest
+                ? 'text-amber-400 bg-amber-400/10 hover:bg-amber-400/20'
+                : 'text-rl-muted hover:text-amber-400 hover:bg-amber-400/10'
+            }`}
+            title={isTest ? 'Tirar do modo teste' : 'Marcar como em teste'}
+          >
+            <FlaskConical className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Body */}
@@ -227,12 +247,15 @@ export default function SquadsReport() {
   const month = now.getMonth()
   const monthLabel = `${MONTHS_PT[month]} ${year}`
 
-  // Totais consolidados (todas as squads atribuídas)
-  const projectsWithSquad = projects.filter(p => !!p.squad)
+  // Totais consolidados — squads em teste ficam fora das somas mas seguem
+  // visíveis como cards individuais com badge "Em teste".
+  const testSquadIds = new Set(squads.filter(s => s.isTest).map(s => String(s.id)))
+  const productionSquads = squads.filter(s => !s.isTest)
+  const projectsWithSquad = projects.filter(p => !!p.squad && !testSquadIds.has(String(p.squad)))
   const activeAssigned    = projectsWithSquad.filter(p => p.momento !== 'churn')
   const totalActive       = activeAssigned.length
   const totalMRRAll       = activeAssigned.reduce((acc, p) => acc + mrrValue(p), 0)
-  const totalCostAll      = squads.reduce((acc, s) => acc + (Number(s.monthlyCost) || 0), 0)
+  const totalCostAll      = productionSquads.reduce((acc, s) => acc + (Number(s.monthlyCost) || 0), 0)
   const totalMarginAll    = totalMRRAll - totalCostAll
 
   const churnedAll = projectsWithSquad.filter(p => isChurnedThisMonth(p, year, month))
@@ -249,6 +272,20 @@ export default function SquadsReport() {
       showToast('Erro ao salvar custo', 'error')
     } else {
       showToast('Custo do squad atualizado')
+    }
+  }
+
+  async function handleToggleTest(squad, newIsTest) {
+    const res = await updateSquad(squad.id, {
+      name: squad.name,
+      emoji: squad.emoji,
+      members: squad.members,
+      is_test: newIsTest,
+    })
+    if (res?.error) {
+      showToast('Erro ao atualizar squad', 'error')
+    } else {
+      showToast(newIsTest ? 'Squad marcado como em teste' : 'Squad voltou para produção')
     }
   }
 
@@ -271,7 +308,13 @@ export default function SquadsReport() {
                 <h1 className="text-2xl font-bold text-rl-text">Dashboard de Squads</h1>
               </div>
               <p className="text-rl-muted mt-1 text-sm">
-                {squads.length} {squads.length === 1 ? 'squad' : 'squads'} · Mês de referência: {monthLabel}
+                {squads.length} {squads.length === 1 ? 'squad' : 'squads'}
+                {testSquadIds.size > 0 && (
+                  <span className="text-amber-400">
+                    {' '}· {testSquadIds.size} em teste (excluído{testSquadIds.size === 1 ? '' : 's'} dos totais)
+                  </span>
+                )}
+                {' '}· Mês de referência: {monthLabel}
               </p>
             </div>
           </div>
@@ -312,6 +355,7 @@ export default function SquadsReport() {
                 month={month}
                 monthLabel={monthLabel}
                 onSaveCost={handleSaveCost}
+                onToggleTest={handleToggleTest}
                 isAdmin={isAdmin}
               />
             ))}
