@@ -8,6 +8,7 @@ import {
   Eye, X, Trash2, AlertTriangle,
   Cloud, CloudOff, Loader2, Menu, Search,
   LayoutGrid, List, ChevronUp, ChevronDown, ChevronsUpDown, Users2,
+  Wallet, TrendingDown,
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
 import { SQUAD_COLORS } from '../lib/constants'
@@ -1060,6 +1061,89 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+
+          {/* Resumo financeiro + churn do mês corrente */}
+          {(() => {
+            const now      = new Date()
+            const yyyy     = now.getFullYear()
+            const mm       = now.getMonth()
+            const monthsPT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+            const monthLabel = `${monthsPT[mm]} ${yyyy}`
+
+            const active   = baseProjects.filter(p => p.momento !== 'churn')
+            const totalContract = active.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
+            const totalMRR      = active.reduce((acc, p) => acc + mrrValue(p), 0)
+
+            const churned = baseProjects.filter(p => {
+              if (p.momento !== 'churn' || !p.churnDate) return false
+              const d = new Date(p.churnDate + 'T00:00:00')
+              return d.getFullYear() === yyyy && d.getMonth() === mm
+            })
+            const churnCount    = churned.length
+            const churnMRR      = churned.reduce((acc, p) => acc + mrrValue(p), 0)
+            const churnContract = churned.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                {/* Contrato Cheio total */}
+                <div className="glass-card p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs text-rl-muted">Contrato Cheio</p>
+                      <p className="text-2xl font-bold text-rl-text mt-1 leading-tight">{fmtCurrency(totalContract)}</p>
+                      <p className="text-[11px] text-rl-muted mt-1">
+                        {active.length} {active.length === 1 ? 'cliente ativo' : 'clientes ativos'}
+                      </p>
+                    </div>
+                    <div className="w-9 h-9 rounded-xl bg-rl-cyan/10 text-rl-cyan flex items-center justify-center shrink-0">
+                      <Wallet className="w-5 h-5" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* MRR total */}
+                <div className="glass-card p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs text-rl-muted">MRR</p>
+                      <p className="text-2xl font-bold text-rl-text mt-1 leading-tight">{fmtCurrency(totalMRR)}</p>
+                      <p className="text-[11px] text-rl-muted mt-1">Receita mensal recorrente</p>
+                    </div>
+                    <div className="w-9 h-9 rounded-xl bg-rl-green/10 text-rl-green flex items-center justify-center shrink-0">
+                      <DollarSign className="w-5 h-5" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Churn do mês */}
+                <div className={`glass-card p-5 ${churnCount > 0 ? 'border-red-400/30' : ''}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs text-rl-muted">Churn — {monthLabel}</p>
+                      <p className={`text-2xl font-bold mt-1 leading-tight ${churnCount > 0 ? 'text-red-400' : 'text-rl-text'}`}>
+                        {churnCount} {churnCount === 1 ? 'cliente' : 'clientes'}
+                      </p>
+                      {churnCount > 0 ? (
+                        <div className="mt-1.5 space-y-0.5">
+                          <p className="text-[11px] text-rl-muted">
+                            <span className="text-red-400 font-semibold">{fmtCurrency(churnMRR)}</span> em MRR perdido
+                          </p>
+                          <p className="text-[11px] text-rl-muted">
+                            <span className="text-red-400 font-semibold">{fmtCurrency(churnContract)}</span> em contrato cheio
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-rl-muted mt-1">Nenhum churn neste mês</p>
+                      )}
+                    </div>
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${churnCount > 0 ? 'bg-red-400/10 text-red-400' : 'bg-rl-muted/10 text-rl-muted'}`}>
+                      <TrendingDown className="w-5 h-5" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Projects */}
           <div className="animate-slide-up" style={{ animationDelay: '0.15s' }}>
