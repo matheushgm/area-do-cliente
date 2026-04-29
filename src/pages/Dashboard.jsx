@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
 import { SQUAD_COLORS } from '../lib/constants'
-import { fmtCurrency, hashId, mrrValue } from '../lib/utils'
+import { fmtCurrency, hashId, mrrValue, canViewSquadsReport } from '../lib/utils'
 import Modal from '../components/UI/Modal'
 
 const CORE_STEPS = ['roi', 'strategy', 'oferta']
@@ -1201,15 +1201,17 @@ export default function Dashboard() {
               {/* Momento filter dropdown */}
               <MomentoDropdown momentoFilter={momentoFilter} setMomentoFilter={setMomentoFilter} counts={counts} />
 
-              {/* Dashboard de Squads — relatório por squad */}
-              <button
-                onClick={() => navigate('/squads-report')}
-                className="flex items-center gap-2 h-[38px] px-3 rounded-xl border border-rl-purple/40 bg-rl-purple/10 text-rl-purple text-sm font-medium hover:bg-rl-purple/20 transition-all whitespace-nowrap shrink-0"
-                title="Abrir relatório por squad"
-              >
-                <Users2 className="w-4 h-4" />
-                <span className="hidden md:inline">Dashboard de Squads</span>
-              </button>
+              {/* Dashboard de Squads — relatório por squad (acesso restrito) */}
+              {canViewSquadsReport(user) && (
+                <button
+                  onClick={() => navigate('/squads-report')}
+                  className="flex items-center gap-2 h-[38px] px-3 rounded-xl border border-rl-purple/40 bg-rl-purple/10 text-rl-purple text-sm font-medium hover:bg-rl-purple/20 transition-all whitespace-nowrap shrink-0"
+                  title="Abrir relatório por squad"
+                >
+                  <Users2 className="w-4 h-4" />
+                  <span className="hidden md:inline">Dashboard de Squads</span>
+                </button>
+              )}
 
               {/* View switcher */}
               <div className="flex items-center gap-1 bg-rl-surface border border-rl-border rounded-xl p-1 shrink-0">

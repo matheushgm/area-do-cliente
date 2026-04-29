@@ -18,6 +18,18 @@ export function mrrValue(p) {
   return p?.contractModel === 'aceleracao' ? v / 3 : v
 }
 
+// Lista de e-mails autorizados a ver o relatório /squads-report.
+// Restrito a sócios — Matheus Martins e Eduardo Moura.
+const SQUADS_REPORT_EMAILS = new Set([
+  'matheus@revenuelab.com.br',
+  'eduardo@revenuelab.com.br',
+])
+
+export function canViewSquadsReport(user) {
+  if (!user?.email) return false
+  return SQUADS_REPORT_EMAILS.has(String(user.email).toLowerCase().trim())
+}
+
 // Compatível com IDs numéricos legados e UUIDs
 export function hashId(id) {
   if (!id) return 0

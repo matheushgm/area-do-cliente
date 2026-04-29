@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppProvider, useApp } from './context/AppContext'
+import { canViewSquadsReport } from './lib/utils'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import NewOnboarding from './pages/NewOnboarding'
@@ -28,6 +29,13 @@ function RequireAdmin({ children }) {
   return user.role === 'admin' ? children : <Navigate to="/" replace />
 }
 
+function RequireSquadsAccess({ children }) {
+  const { user, loadingAuth } = useApp()
+  if (loadingAuth) return null
+  if (!user) return <Navigate to="/login" replace />
+  return canViewSquadsReport(user) ? children : <Navigate to="/" replace />
+}
+
 function AppRoutes() {
   const { user, loadingAuth } = useApp()
   return (
@@ -45,7 +53,7 @@ function AppRoutes() {
         <Route path="/banco-publico" element={<BancoDeAnunciosPublico />} />
         <Route path="/crm/:token" element={<CRMPublico />} />
         <Route path="/funil" element={<RequireAuth><FunilCanvas /></RequireAuth>} />
-        <Route path="/squads-report" element={<RequireAuth><SquadsReport /></RequireAuth>} />
+        <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
