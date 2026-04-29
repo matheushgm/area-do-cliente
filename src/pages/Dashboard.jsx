@@ -828,6 +828,7 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [view, setView] = useState(() => localStorage.getItem('rl_dashboard_view') || 'grid')
+  const [churnListOpen, setChurnListOpen] = useState(false)
 
   function switchView(v) { setView(v); localStorage.setItem('rl_dashboard_view', v) }
 
@@ -950,6 +951,30 @@ export default function Dashboard() {
     },
   ]
 
+  // ── Resumo financeiro + churn do mês corrente ─────────────────────────────
+  const _now      = new Date()
+  const _yyyy     = _now.getFullYear()
+  const _mm       = _now.getMonth()
+  const _monthsPT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+  const monthLabel = `${_monthsPT[_mm]} ${_yyyy}`
+
+  const activeBase  = baseProjects.filter(p => p.momento !== 'churn')
+  const totalContract = activeBase.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
+  const totalMRR      = activeBase.reduce((acc, p) => acc + mrrValue(p), 0)
+
+  const churnedThisMonth = baseProjects.filter(p => {
+    if (p.momento !== 'churn' || !p.churnDate) return false
+    const d = new Date(p.churnDate + 'T00:00:00')
+    return d.getFullYear() === _yyyy && d.getMonth() === _mm
+  }).map(p => {
+    const squad = squads.find(s => String(s.id) === String(p.squad)) || null
+    return { ...p, _squadName: squad?.name ?? null, _squadEmoji: squad?.emoji ?? null }
+  }).sort((a, b) => (b.churnDate || '').localeCompare(a.churnDate || ''))
+
+  const churnCount    = churnedThisMonth.length
+  const churnMRR      = churnedThisMonth.reduce((acc, p) => acc + mrrValue(p), 0)
+  const churnContract = churnedThisMonth.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
+
   return (
     <div className="min-h-screen flex bg-gradient-dark">
 
@@ -1069,87 +1094,75 @@ export default function Dashboard() {
           </div>
 
           {/* Resumo financeiro + churn do mês corrente */}
-          {(() => {
-            const now      = new Date()
-            const yyyy     = now.getFullYear()
-            const mm       = now.getMonth()
-            const monthsPT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-            const monthLabel = `${monthsPT[mm]} ${yyyy}`
-
-            const active   = baseProjects.filter(p => p.momento !== 'churn')
-            const totalContract = active.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
-            const totalMRR      = active.reduce((acc, p) => acc + mrrValue(p), 0)
-
-            const churned = baseProjects.filter(p => {
-              if (p.momento !== 'churn' || !p.churnDate) return false
-              const d = new Date(p.churnDate + 'T00:00:00')
-              return d.getFullYear() === yyyy && d.getMonth() === mm
-            })
-            const churnCount    = churned.length
-            const churnMRR      = churned.reduce((acc, p) => acc + mrrValue(p), 0)
-            const churnContract = churned.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
-
-            return (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-                {/* Contrato Cheio total */}
-                <div className="glass-card p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs text-rl-muted">Contrato Cheio</p>
-                      <p className="text-2xl font-bold text-rl-text mt-1 leading-tight">{fmtCurrency(totalContract)}</p>
-                      <p className="text-[11px] text-rl-muted mt-1">
-                        {active.length} {active.length === 1 ? 'cliente ativo' : 'clientes ativos'}
-                      </p>
-                    </div>
-                    <div className="w-9 h-9 rounded-xl bg-rl-cyan/10 text-rl-cyan flex items-center justify-center shrink-0">
-                      <Wallet className="w-5 h-5" />
-                    </div>
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+            {/* Contrato Cheio total */}
+            <div className="glass-card p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-rl-muted">Contrato Cheio</p>
+                  <p className="text-2xl font-bold text-rl-text mt-1 leading-tight">{fmtCurrency(totalContract)}</p>
+                  <p className="text-[11px] text-rl-muted mt-1">
+                    {activeBase.length} {activeBase.length === 1 ? 'cliente ativo' : 'clientes ativos'}
+                  </p>
                 </div>
-
-                {/* MRR total */}
-                <div className="glass-card p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs text-rl-muted">MRR</p>
-                      <p className="text-2xl font-bold text-rl-text mt-1 leading-tight">{fmtCurrency(totalMRR)}</p>
-                      <p className="text-[11px] text-rl-muted mt-1">Receita mensal recorrente</p>
-                    </div>
-                    <div className="w-9 h-9 rounded-xl bg-rl-green/10 text-rl-green flex items-center justify-center shrink-0">
-                      <DollarSign className="w-5 h-5" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Churn do mês */}
-                <div className={`glass-card p-5 ${churnCount > 0 ? 'border-red-400/30' : ''}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs text-rl-muted">Churn — {monthLabel}</p>
-                      <p className={`text-2xl font-bold mt-1 leading-tight ${churnCount > 0 ? 'text-red-400' : 'text-rl-text'}`}>
-                        {churnCount} {churnCount === 1 ? 'cliente' : 'clientes'}
-                      </p>
-                      {churnCount > 0 ? (
-                        <div className="mt-1.5 space-y-0.5">
-                          <p className="text-[11px] text-rl-muted">
-                            <span className="text-red-400 font-semibold">{fmtCurrency(churnMRR)}</span> em MRR perdido
-                          </p>
-                          <p className="text-[11px] text-rl-muted">
-                            <span className="text-red-400 font-semibold">{fmtCurrency(churnContract)}</span> em contrato cheio
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-rl-muted mt-1">Nenhum churn neste mês</p>
-                      )}
-                    </div>
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${churnCount > 0 ? 'bg-red-400/10 text-red-400' : 'bg-rl-muted/10 text-rl-muted'}`}>
-                      <TrendingDown className="w-5 h-5" />
-                    </div>
-                  </div>
+                <div className="w-9 h-9 rounded-xl bg-rl-cyan/10 text-rl-cyan flex items-center justify-center shrink-0">
+                  <Wallet className="w-5 h-5" />
                 </div>
               </div>
-            )
-          })()}
+            </div>
+
+            {/* MRR total */}
+            <div className="glass-card p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-rl-muted">MRR</p>
+                  <p className="text-2xl font-bold text-rl-text mt-1 leading-tight">{fmtCurrency(totalMRR)}</p>
+                  <p className="text-[11px] text-rl-muted mt-1">Receita mensal recorrente</p>
+                </div>
+                <div className="w-9 h-9 rounded-xl bg-rl-green/10 text-rl-green flex items-center justify-center shrink-0">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+              </div>
+            </div>
+
+            {/* Churn do mês — clicável para abrir lista */}
+            <button
+              type="button"
+              onClick={() => churnCount > 0 && setChurnListOpen(true)}
+              disabled={churnCount === 0}
+              className={`glass-card p-5 text-left transition-all ${
+                churnCount > 0
+                  ? 'border-red-400/30 cursor-pointer hover:border-red-400/60 hover:bg-red-400/5'
+                  : 'cursor-default'
+              }`}
+              title={churnCount > 0 ? 'Ver lista de clientes que churnaram este mês' : ''}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-rl-muted">Churn — {monthLabel}</p>
+                  <p className={`text-2xl font-bold mt-1 leading-tight ${churnCount > 0 ? 'text-red-400' : 'text-rl-text'}`}>
+                    {churnCount} {churnCount === 1 ? 'cliente' : 'clientes'}
+                  </p>
+                  {churnCount > 0 ? (
+                    <div className="mt-1.5 space-y-0.5">
+                      <p className="text-[11px] text-rl-muted">
+                        <span className="text-red-400 font-semibold">{fmtCurrency(churnMRR)}</span> em MRR perdido
+                      </p>
+                      <p className="text-[11px] text-rl-muted">
+                        <span className="text-red-400 font-semibold">{fmtCurrency(churnContract)}</span> em contrato cheio
+                      </p>
+                      <p className="text-[10px] text-red-400/80 mt-1 font-medium">Clique para ver lista →</p>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-rl-muted mt-1">Nenhum churn neste mês</p>
+                  )}
+                </div>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${churnCount > 0 ? 'bg-red-400/10 text-red-400' : 'bg-rl-muted/10 text-rl-muted'}`}>
+                  <TrendingDown className="w-5 h-5" />
+                </div>
+              </div>
+            </button>
+          </div>
 
           {/* Projects */}
           <div className="animate-slide-up" style={{ animationDelay: '0.15s' }}>
@@ -1337,6 +1350,76 @@ export default function Dashboard() {
           onConfirm={() => { deleteProject(deleteTarget.id); setDeleteTarget(null) }}
           onCancel={() => setDeleteTarget(null)}
         />
+      )}
+
+      {churnListOpen && (
+        <Modal onClose={() => setChurnListOpen(false)} maxWidth="2xl" className="border-red-400/30">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-xl bg-red-400/10 border border-red-400/30 flex items-center justify-center text-red-400 shrink-0">
+              <TrendingDown className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-bold text-rl-text">Clientes em Churn — {monthLabel}</h3>
+              <p className="text-xs text-rl-muted">
+                {churnCount} {churnCount === 1 ? 'cliente saiu' : 'clientes saíram'} neste mês ·
+                <span className="text-red-400 font-semibold"> {fmtCurrency(churnMRR)}</span> em MRR ·
+                <span className="text-red-400 font-semibold"> {fmtCurrency(churnContract)}</span> em contrato cheio
+              </p>
+            </div>
+          </div>
+
+          {/* Lista */}
+          <div className="max-h-[60vh] overflow-y-auto -mx-6 px-6 -mb-6 pb-6">
+            <div className="space-y-2">
+              {churnedThisMonth.map(p => {
+                const dStr = new Date(p.churnDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                const mrr  = mrrValue(p)
+                const contract = Number(p.contractValue) || 0
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => { setChurnListOpen(false); navigate(`/project/${p.id}`) }}
+                    className="w-full flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl border border-rl-border hover:border-red-400/40 hover:bg-red-400/5 transition-all text-left group"
+                  >
+                    {/* Identidade */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-rl-text group-hover:text-red-400 transition-colors leading-tight truncate">
+                        {p.companyName || '—'}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] text-rl-muted">
+                        {p._squadName && (
+                          <span className="inline-flex items-center gap-1">
+                            {p._squadEmoji && <span>{p._squadEmoji}</span>}
+                            {p._squadName}
+                          </span>
+                        )}
+                        {p._squadName && <span>·</span>}
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          Saiu em {dStr}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Valores */}
+                    <div className="flex items-center gap-6 shrink-0">
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">MRR</p>
+                        <p className="text-sm font-bold text-red-400">{fmtCurrency(mrr)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">Contrato</p>
+                        <p className="text-sm font-bold text-red-400">{fmtCurrency(contract)}</p>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   )
