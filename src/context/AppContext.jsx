@@ -120,6 +120,7 @@ function assembleProject(row, rel = {}) {
     squad:                row.squad || null,
     riskLevel:            row.risk_level || null,
     momento:              row.momento || null,
+    churnDate:            row.churn_date || null,
     accountId:            row.account_id,
     completedSteps:       row.completed_steps || [],
     createdAt:            row.created_at,
@@ -325,6 +326,8 @@ const PROJECT_FIELD_MAP = {
   status:              "status",
   riskLevel:           "risk_level",
   momento:             "momento",
+  churnDate:           "churn_date",
+  churn_date:          "churn_date",
   completedSteps:      "completed_steps",
   // snake_case passthrough (quando NewOnboarding já envia snake_case)
   company_name:         "company_name",

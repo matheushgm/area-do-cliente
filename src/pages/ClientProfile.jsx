@@ -6,6 +6,7 @@ import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, BUSINESS_LABELS, EDIT_BUSINES
 import { fmtCurrency, initials } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
+import Modal from '../components/UI/Modal'
 import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays, Building2,
@@ -1027,6 +1028,8 @@ export default function ClientProfile({ project: projectProp }) {
   const riskRef = useRef(null)
   const [momentoOpen, setMomentoOpen] = useState(false)
   const momentoRef = useRef(null)
+  const [churnModalOpen, setChurnModalOpen] = useState(false)
+  const [churnDateInput, setChurnDateInput] = useState('')
   const [linkStep,         setLinkStep]         = useState('idle') // 'idle' | 'dropdown' | 'input'
   const [linkPickedType,   setLinkPickedType]   = useState(null)
   const [linkInput,        setLinkInput]        = useState('')
@@ -1457,7 +1460,15 @@ export default function ClientProfile({ project: projectProp }) {
                         }`}
                       >
                         {current ? (
-                          <><span className={`w-2 h-2 rounded-full shrink-0 ${current.dot}`} />{current.label}</>
+                          <>
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${current.dot}`} />
+                            {current.label}
+                            {current.value === 'churn' && project.churnDate && (
+                              <span className="opacity-70 font-normal">
+                                · {new Date(project.churnDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                              </span>
+                            )}
+                          </>
                         ) : (
                           <>🎯 Definir Momento</>
                         )}
@@ -1469,7 +1480,23 @@ export default function ClientProfile({ project: projectProp }) {
                           {MOMENTO_CONFIG.map((m) => (
                             <button
                               key={m.value}
-                              onClick={() => { updateProject(project.id, { momento: m.value }); setMomentoOpen(false) }}
+                              onClick={() => {
+                                if (m.value === 'churn') {
+                                  // Para churn, abre modal pedindo a data de saída
+                                  // Pré-preenche com a data atual em formato yyyy-mm-dd
+                                  const today = new Date().toISOString().slice(0, 10)
+                                  setChurnDateInput(project.churnDate || today)
+                                  setChurnModalOpen(true)
+                                  setMomentoOpen(false)
+                                  return
+                                }
+                                // Saindo de churn → limpa a data de saída
+                                const patch = project.momento === 'churn'
+                                  ? { momento: m.value, churnDate: null }
+                                  : { momento: m.value }
+                                updateProject(project.id, patch)
+                                setMomentoOpen(false)
+                              }}
                               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
                                 project.momento === m.value
                                   ? `${m.bg} ${m.text} border ${m.border}`
@@ -1483,7 +1510,13 @@ export default function ClientProfile({ project: projectProp }) {
                           ))}
                           {project.momento && (
                             <button
-                              onClick={() => { updateProject(project.id, { momento: null }); setMomentoOpen(false) }}
+                              onClick={() => {
+                                const patch = project.momento === 'churn'
+                                  ? { momento: null, churnDate: null }
+                                  : { momento: null }
+                                updateProject(project.id, patch)
+                                setMomentoOpen(false)
+                              }}
                               className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
                             >
                               <X className="w-3.5 h-3.5" />
@@ -1681,6 +1714,54 @@ export default function ClientProfile({ project: projectProp }) {
       </div>
 
       <Toast toast={toast} />
+
+      {churnModalOpen && (
+        <Modal onClose={() => setChurnModalOpen(false)} maxWidth="md" className="border-red-700/30">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-red-700/10 border border-red-700/30 flex items-center justify-center text-red-600 shrink-0">
+              <CalendarDays className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-rl-text">Marcar como Churn</h3>
+              <p className="text-xs text-rl-muted">Em que dia o contrato com este cliente foi finalizado?</p>
+            </div>
+          </div>
+
+          <label htmlFor="churn-date-input" className="block text-xs font-semibold text-rl-muted uppercase tracking-wider mb-2">
+            Data de saída
+          </label>
+          <input
+            id="churn-date-input"
+            type="date"
+            value={churnDateInput}
+            onChange={(e) => setChurnDateInput(e.target.value)}
+            max={new Date().toISOString().slice(0, 10)}
+            className="w-full px-3 py-2.5 rounded-xl bg-rl-surface border border-rl-border text-rl-text focus:outline-none focus:border-red-700/40 transition-colors"
+            autoFocus
+          />
+
+          <div className="flex items-center justify-end gap-2 mt-5">
+            <button
+              onClick={() => setChurnModalOpen(false)}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-rl-muted hover:bg-rl-surface transition-all"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => {
+                if (!churnDateInput) return
+                updateProject(project.id, { momento: 'churn', churnDate: churnDateInput })
+                setChurnModalOpen(false)
+                showToast('Cliente marcado como Churn')
+              }}
+              disabled={!churnDateInput}
+              className="px-4 py-2 rounded-xl text-sm font-semibold bg-red-700/10 border border-red-700/40 text-red-600 hover:bg-red-700/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Confirmar Churn
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
