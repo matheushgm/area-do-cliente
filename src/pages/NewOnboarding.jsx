@@ -351,8 +351,6 @@ export default function NewOnboarding() {
       if (!form.contractValue.trim()) e.contractValue = 'Informe o valor do contrato'
       if (form.contractModel === 'aceleracao' && !form.contractPaymentType)
         e.contractPaymentType = 'Selecione o tipo de pagamento'
-      if (form.competitors.filter(Boolean).length === 0 || !form.competitors[0]?.trim())
-        e.competitors = 'Informe ao menos um concorrente'
     }
     if (s === 4) {
       if (squads.length > 0 && !form.squad) e.squad           = 'Selecione o squad responsável'
@@ -812,18 +810,6 @@ export default function NewOnboarding() {
                   />
                 </div>
                 {errors.contractDate && <p className="text-rl-red text-xs mt-1">{errors.contractDate}</p>}
-              </div>
-
-              {/* Concorrentes */}
-              <div>
-                <label className="label-field">Sites dos Concorrentes <span className="text-rl-red">*</span></label>
-                <p className="text-xs text-rl-muted mb-3">Adicione as URLs dos principais concorrentes do cliente.</p>
-                <DynamicList
-                  items={form.competitors}
-                  onChange={(v) => set('competitors', v)}
-                  placeholder="https://concorrente.com.br"
-                />
-                {errors.competitors && <p className="text-rl-red text-xs mt-1">{errors.competitors}</p>}
               </div>
             </div>
           )}
