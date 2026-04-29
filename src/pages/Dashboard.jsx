@@ -961,6 +961,11 @@ export default function Dashboard() {
   const activeBase  = baseProjects.filter(p => p.momento !== 'churn')
   const totalContract = activeBase.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
   const totalMRR      = activeBase.reduce((acc, p) => acc + mrrValue(p), 0)
+  // Ticket médio considera apenas clientes ativos com contractValue > 0
+  // para evitar "diluição" por contas ainda em onboarding sem valor preenchido.
+  const billedClients   = activeBase.filter(p => (Number(p.contractValue) || 0) > 0)
+  const avgTicketContract = billedClients.length > 0 ? totalContract / billedClients.length : 0
+  const avgTicketMRR      = billedClients.length > 0 ? totalMRR      / billedClients.length : 0
 
   const churnedThisMonth = baseProjects.filter(p => {
     if (p.momento !== 'churn' || !p.churnDate) return false
@@ -1104,6 +1109,12 @@ export default function Dashboard() {
                   <p className="text-[11px] text-rl-muted mt-1">
                     {activeBase.length} {activeBase.length === 1 ? 'cliente ativo' : 'clientes ativos'}
                   </p>
+                  {billedClients.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-rl-border/60">
+                      <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">Ticket Médio</p>
+                      <p className="text-sm font-bold text-rl-cyan mt-0.5">{fmtCurrency(avgTicketContract)}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="w-9 h-9 rounded-xl bg-rl-cyan/10 text-rl-cyan flex items-center justify-center shrink-0">
                   <Wallet className="w-5 h-5" />
@@ -1118,6 +1129,12 @@ export default function Dashboard() {
                   <p className="text-xs text-rl-muted">MRR</p>
                   <p className="text-2xl font-bold text-rl-text mt-1 leading-tight">{fmtCurrency(totalMRR)}</p>
                   <p className="text-[11px] text-rl-muted mt-1">Receita mensal recorrente</p>
+                  {billedClients.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-rl-border/60">
+                      <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">Ticket Médio</p>
+                      <p className="text-sm font-bold text-rl-green mt-0.5">{fmtCurrency(avgTicketMRR)}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="w-9 h-9 rounded-xl bg-rl-green/10 text-rl-green flex items-center justify-center shrink-0">
                   <DollarSign className="w-5 h-5" />
