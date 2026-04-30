@@ -1298,19 +1298,11 @@ export default function Dashboard() {
                 projects={visibleProjects}
                 onNavigate={(id) => navigate(`/project/${id}`)}
                 onDelete={(p) => setDeleteTarget(p)}
-                groupByRisk={momentoFilter === 'all' && riskFilter === 'all'}
+                groupByRisk={true}
               />
-            ) : (momentoFilter !== 'all' || riskFilter !== 'all') ? (
-              /* Flat grid when any filter is active */
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {visibleProjects.map((p) =>
-                  isProfileComplete(p)
-                    ? <ClientProfileCard key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
-                    : <ProjectCard       key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
-                )}
-              </div>
             ) : (
-              /* Grouped by risk when no filter active — order: Em Risco → Neutro → Saudável → Sem Risco */
+              /* Grouped by risk — order: Em Risco → Neutro → Saudável → Sem Risco
+                 (sempre agrupado, mesmo com filtros aplicados) */
               <div className="space-y-8">
                 {RISK_GROUPS.map(group => {
                   const grouped = visibleProjects.filter(p =>
