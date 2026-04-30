@@ -6,8 +6,9 @@ import { exportCampaignPDF } from '../utils/exportPDF'
 import { useApp } from '../context/AppContext'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import {
-  getDaysLeft, getMonthLabel, fmtBRL, makeChannel, makeCampaign,
+  fmtBRL, makeChannel, makeCampaign,
   CHANNEL_OPTIONS, STAGE_KEYS,
+  defaultEndDateISO, todayISO, getDaysUntil, getEndDateLabel,
 } from './CampaignPlanner/campaignHelpers'
 import ChannelRow from './CampaignPlanner/ChannelRow'
 import VideoGuide from './VideoGuide'
@@ -61,6 +62,7 @@ export default function CampaignPlanner({ project, onSave }) {
 
   const [accounts,  setAccounts]  = useState(() => initAccounts(project.campaignPlan))
   const [activeIdx, setActiveIdx] = useState(0)
+  const [endDate,   setEndDate]   = useState(() => project.campaignPlan?.endDate || defaultEndDateISO())
 
   // Conta ativa
   const account = accounts[activeIdx] ?? accounts[0]
@@ -91,8 +93,9 @@ export default function CampaignPlanner({ project, onSave }) {
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
-  const daysLeft   = useMemo(() => getDaysLeft(), [])
-  const monthLabel = useMemo(() => getMonthLabel(), [])
+  const daysLeft   = useMemo(() => getDaysUntil(endDate),     [endDate])
+  const monthLabel = useMemo(() => getEndDateLabel(endDate),  [endDate])
+  const minEndDate = useMemo(() => todayISO(), [])
 
   const derived = useMemo(() => {
     return channels.map((ch) => {
@@ -243,6 +246,7 @@ export default function CampaignPlanner({ project, onSave }) {
       campaignPlan: {
         id:      project.campaignPlan?.id,
         accounts: cleanAccounts,
+        endDate,
         // Backward compat: first account fields at root for older readers
         orcamentoTotal: cleanAccounts[0]?.orcamentoTotal ?? 0,
         valorJaUsado:   cleanAccounts[0]?.valorJaUsado   ?? 0,
@@ -250,7 +254,7 @@ export default function CampaignPlanner({ project, onSave }) {
         channels:       cleanAccounts[0]?.channels ?? [],
       },
     })
-  }, [accounts])
+  }, [accounts, endDate])
 
   // ── Save ───────────────────────────────────────────────────────────────────
 
@@ -262,6 +266,7 @@ export default function CampaignPlanner({ project, onSave }) {
     onSave({
       id:      project.campaignPlan?.id,
       accounts: cleanAccounts,
+      endDate,
       orcamentoTotal: cleanAccounts[0]?.orcamentoTotal ?? 0,
       valorJaUsado:   cleanAccounts[0]?.valorJaUsado   ?? 0,
       totalBudget:    Math.max(0, (cleanAccounts[0]?.orcamentoTotal ?? 0) - (cleanAccounts[0]?.valorJaUsado ?? 0)),
@@ -389,15 +394,28 @@ export default function CampaignPlanner({ project, onSave }) {
             </div>
           </div>
 
-          {/* Date info */}
-          <div className="flex flex-col sm:items-end justify-center gap-1.5 pt-1 sm:pt-6">
-            <div className="flex items-center gap-1.5 bg-rl-green/10 border border-rl-green/20 px-3 py-1.5 rounded-full">
+          {/* Date info — editável */}
+          <div className="flex-1 sm:flex-none">
+            <label htmlFor="campaign-end-date" className="label-field flex items-center gap-1.5">
               <CalendarDays className="w-3.5 h-3.5 text-rl-green" />
-              <span className="text-xs font-semibold text-rl-green">{monthLabel}</span>
+              Data Final do Planejamento
+            </label>
+            <input
+              id="campaign-end-date"
+              type="date"
+              value={endDate}
+              min={minEndDate}
+              onChange={(e) => setEndDate(e.target.value || defaultEndDateISO())}
+              className="input-field w-full"
+            />
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 bg-rl-green/10 border border-rl-green/20 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-rl-green">
+                {monthLabel}
+              </span>
+              <span className="text-[11px] text-rl-muted">
+                {daysLeft} {daysLeft === 1 ? 'dia restante' : 'dias restantes'}
+              </span>
             </div>
-            <span className="text-xs text-rl-muted text-center sm:text-right">
-              {daysLeft} dias restantes no mês
-            </span>
           </div>
         </div>
 

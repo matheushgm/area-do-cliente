@@ -20,6 +20,53 @@ export function getMonthLabel() {
     .replace(/^./, (c) => c.toUpperCase())
 }
 
+// Último dia do mês corrente em formato ISO yyyy-mm-dd (default da data final).
+export function defaultEndDateISO() {
+  const today   = new Date()
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+  const yyyy = lastDay.getFullYear()
+  const mm   = String(lastDay.getMonth() + 1).padStart(2, '0')
+  const dd   = String(lastDay.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+// Hoje em ISO yyyy-mm-dd (mín. permitido para a data final).
+export function todayISO() {
+  const t = new Date()
+  const yyyy = t.getFullYear()
+  const mm   = String(t.getMonth() + 1).padStart(2, '0')
+  const dd   = String(t.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+// Dias restantes de hoje até a data final inclusive (mín. 1).
+export function getDaysUntil(endDateISO) {
+  if (!endDateISO) return getDaysLeft()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const end = new Date(endDateISO + 'T00:00:00')
+  const diff = Math.round((end.getTime() - today.getTime()) / 86400000) + 1
+  return Math.max(diff, 1)
+}
+
+// Label PT-BR para a data final (ex: "Maio 2026" ou "até 15/05/2026").
+export function getEndDateLabel(endDateISO) {
+  if (!endDateISO) return getMonthLabel()
+  const d = new Date(endDateISO + 'T00:00:00')
+  const today = new Date()
+  // Se for último dia do mês corrente, mostra só "Maio 2026" (estilo legado).
+  const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+  if (
+    d.getFullYear() === lastOfMonth.getFullYear() &&
+    d.getMonth() === lastOfMonth.getMonth() &&
+    d.getDate() === lastOfMonth.getDate()
+  ) {
+    return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      .replace(/^./, (c) => c.toUpperCase())
+  }
+  return `até ${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+}
+
 export function fmtBRL(n) {
   if (n == null || !isFinite(n) || isNaN(n)) return '—'
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
