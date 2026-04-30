@@ -49,22 +49,50 @@ export function getDaysUntil(endDateISO) {
   return Math.max(diff, 1)
 }
 
-// Label PT-BR para a data final (ex: "Maio 2026" ou "até 15/05/2026").
-export function getEndDateLabel(endDateISO) {
-  if (!endDateISO) return getMonthLabel()
-  const d = new Date(endDateISO + 'T00:00:00')
+// Dias entre data de início e data final, inclusive (mín. 1). Se startISO for
+// passado, conta a partir de hoje (não vamos espalhar orçamento em dias já
+// vencidos). Se for futuro, conta a partir do startISO.
+export function getDaysBetween(startISO, endISO) {
+  if (!endISO) return getDaysLeft()
   const today = new Date()
-  // Se for último dia do mês corrente, mostra só "Maio 2026" (estilo legado).
+  today.setHours(0, 0, 0, 0)
+  const start = startISO ? new Date(startISO + 'T00:00:00') : today
+  if (start < today) start.setTime(today.getTime())
+  const end = new Date(endISO + 'T00:00:00')
+  const diff = Math.round((end.getTime() - start.getTime()) / 86400000) + 1
+  return Math.max(diff, 1)
+}
+
+// Label PT-BR para o período do planejamento.
+// - Se start = hoje e end = último dia do mês corrente → "Maio 2026" (legado)
+// - Se start = hoje e end ≠ último dia → "até DD/MM/YYYY"
+// - Caso contrário → "DD/MM até DD/MM/YYYY"
+export function getPeriodLabel(startDateISO, endDateISO) {
+  if (!endDateISO) return getMonthLabel()
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const todayKey = todayISO()
+  const isFromToday = !startDateISO || startDateISO === todayKey
+  const end = new Date(endDateISO + 'T00:00:00')
   const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-  if (
-    d.getFullYear() === lastOfMonth.getFullYear() &&
-    d.getMonth() === lastOfMonth.getMonth() &&
-    d.getDate() === lastOfMonth.getDate()
-  ) {
-    return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const endIsLastOfMonth =
+    end.getFullYear() === lastOfMonth.getFullYear() &&
+    end.getMonth() === lastOfMonth.getMonth() &&
+    end.getDate() === lastOfMonth.getDate()
+
+  if (isFromToday && endIsLastOfMonth) {
+    return end.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
       .replace(/^./, (c) => c.toUpperCase())
   }
-  return `até ${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+  if (isFromToday) {
+    return `até ${end.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+  }
+  const start = new Date(startDateISO + 'T00:00:00')
+  return `${start.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} até ${end.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+}
+
+// Mantida para compat — agora delega para getPeriodLabel.
+export function getEndDateLabel(endDateISO) {
+  return getPeriodLabel(null, endDateISO)
 }
 
 export function fmtBRL(n) {

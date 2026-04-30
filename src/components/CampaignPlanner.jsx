@@ -8,7 +8,7 @@ import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import {
   fmtBRL, makeChannel, makeCampaign,
   CHANNEL_OPTIONS, STAGE_KEYS,
-  defaultEndDateISO, todayISO, getDaysUntil, getEndDateLabel,
+  defaultEndDateISO, todayISO, getDaysBetween, getPeriodLabel,
 } from './CampaignPlanner/campaignHelpers'
 import ChannelRow from './CampaignPlanner/ChannelRow'
 import VideoGuide from './VideoGuide'
@@ -62,7 +62,8 @@ export default function CampaignPlanner({ project, onSave }) {
 
   const [accounts,  setAccounts]  = useState(() => initAccounts(project.campaignPlan))
   const [activeIdx, setActiveIdx] = useState(0)
-  const [endDate,   setEndDate]   = useState(() => project.campaignPlan?.endDate || defaultEndDateISO())
+  const [startDate, setStartDate] = useState(() => project.campaignPlan?.startDate || todayISO())
+  const [endDate,   setEndDate]   = useState(() => project.campaignPlan?.endDate   || defaultEndDateISO())
 
   // Conta ativa
   const account = accounts[activeIdx] ?? accounts[0]
@@ -93,9 +94,12 @@ export default function CampaignPlanner({ project, onSave }) {
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
-  const daysLeft   = useMemo(() => getDaysUntil(endDate),     [endDate])
-  const monthLabel = useMemo(() => getEndDateLabel(endDate),  [endDate])
-  const minEndDate = useMemo(() => todayISO(), [])
+  const daysLeft     = useMemo(() => getDaysBetween(startDate, endDate),  [startDate, endDate])
+  const monthLabel   = useMemo(() => getPeriodLabel(startDate, endDate),  [startDate, endDate])
+  const minEndDate   = useMemo(() => {
+    const t = todayISO()
+    return startDate && startDate > t ? startDate : t
+  }, [startDate])
 
   const derived = useMemo(() => {
     return channels.map((ch) => {
@@ -246,6 +250,7 @@ export default function CampaignPlanner({ project, onSave }) {
       campaignPlan: {
         id:      project.campaignPlan?.id,
         accounts: cleanAccounts,
+        startDate,
         endDate,
         // Backward compat: first account fields at root for older readers
         orcamentoTotal: cleanAccounts[0]?.orcamentoTotal ?? 0,
@@ -254,7 +259,7 @@ export default function CampaignPlanner({ project, onSave }) {
         channels:       cleanAccounts[0]?.channels ?? [],
       },
     })
-  }, [accounts, endDate])
+  }, [accounts, startDate, endDate])
 
   // ── Save ───────────────────────────────────────────────────────────────────
 
@@ -266,6 +271,7 @@ export default function CampaignPlanner({ project, onSave }) {
     onSave({
       id:      project.campaignPlan?.id,
       accounts: cleanAccounts,
+      startDate,
       endDate,
       orcamentoTotal: cleanAccounts[0]?.orcamentoTotal ?? 0,
       valorJaUsado:   cleanAccounts[0]?.valorJaUsado   ?? 0,
@@ -394,26 +400,48 @@ export default function CampaignPlanner({ project, onSave }) {
             </div>
           </div>
 
-          {/* Date info — editável */}
-          <div className="flex-1 sm:flex-none">
-            <label htmlFor="campaign-end-date" className="label-field flex items-center gap-1.5">
+          {/* Date info — editável (início + fim) */}
+          <div className="flex-1 sm:flex-none sm:min-w-[280px]">
+            <label className="label-field flex items-center gap-1.5">
               <CalendarDays className="w-3.5 h-3.5 text-rl-green" />
-              Data Final do Planejamento
+              Período do Planejamento
             </label>
-            <input
-              id="campaign-end-date"
-              type="date"
-              value={endDate}
-              min={minEndDate}
-              onChange={(e) => setEndDate(e.target.value || defaultEndDateISO())}
-              className="input-field w-full"
-            />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <input
+                  id="campaign-start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    const v = e.target.value || todayISO()
+                    setStartDate(v)
+                    // Se a data final ficou anterior à nova de início, empurra
+                    if (endDate && v > endDate) setEndDate(v)
+                  }}
+                  className="input-field w-full"
+                  aria-label="Data de início"
+                />
+                <p className="text-[10px] text-rl-muted mt-1 pl-1">Início</p>
+              </div>
+              <div>
+                <input
+                  id="campaign-end-date"
+                  type="date"
+                  value={endDate}
+                  min={minEndDate}
+                  onChange={(e) => setEndDate(e.target.value || defaultEndDateISO())}
+                  className="input-field w-full"
+                  aria-label="Data final"
+                />
+                <p className="text-[10px] text-rl-muted mt-1 pl-1">Fim</p>
+              </div>
+            </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 bg-rl-green/10 border border-rl-green/20 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-rl-green">
                 {monthLabel}
               </span>
               <span className="text-[11px] text-rl-muted">
-                {daysLeft} {daysLeft === 1 ? 'dia restante' : 'dias restantes'}
+                {daysLeft} {daysLeft === 1 ? 'dia' : 'dias'}
               </span>
             </div>
           </div>
