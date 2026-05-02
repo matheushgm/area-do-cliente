@@ -13,7 +13,7 @@ import {
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
-  LayoutDashboard, Check, Instagram, HardDrive, Kanban, Target,
+  LayoutDashboard, Check, Instagram, HardDrive, Kanban, Target, Menu,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -1020,7 +1020,11 @@ export default function ClientProfile({ project: projectProp }) {
   const project = projects.find((p) => p.id === projectProp.id) || projectProp
 
   const [activeSection, setActiveSection] = useState('dados')
-  const [sidebarVisible, setSidebarVisible] = useState(true)
+  // Sidebar default: aberta no desktop, fechada no mobile (drawer só abre por hambúrguer)
+  const [sidebarVisible, setSidebarVisible] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return window.innerWidth >= 1024
+  })
   const [logoSignedUrl, setLogoSignedUrl] = useState(null)
   const [squadOpen, setSquadOpen] = useState(false)
   const squadRef = useRef(null)
@@ -1214,6 +1218,20 @@ export default function ClientProfile({ project: projectProp }) {
   return (
     <div className="space-y-0">
 
+      {/* ── Mobile top bar (hambúrguer + nome do cliente) ────────────────── */}
+      <div className="lg:hidden sticky top-0 z-40 -mx-4 sm:-mx-6 -mt-6 mb-4 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
+        <button
+          onClick={() => setSidebarVisible(true)}
+          aria-label="Abrir menu de módulos"
+          className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <span className="font-semibold text-rl-text text-sm truncate flex-1 min-w-0">
+          {project.companyName || 'Cliente'}
+        </span>
+      </div>
+
       {/* ── Profile Header ──────────────────────────────────────────────── */}
       <div className="glass-card border border-rl-green/20">
         <div className="relative h-32 bg-gradient-to-br from-rl-purple/20 via-rl-blue/10 to-rl-cyan/5 overflow-hidden rounded-t-xl">
@@ -1239,8 +1257,8 @@ export default function ClientProfile({ project: projectProp }) {
           </div>
         </div>
 
-        <div className="relative px-6 pb-6">
-          <div className="absolute -top-12 left-6">
+        <div className="relative px-4 sm:px-6 pb-6">
+          <div className="absolute -top-12 left-4 sm:left-6">
             <div className="relative group">
               <div className="w-24 h-24 rounded-2xl border-4 border-rl-bg bg-rl-surface overflow-hidden flex items-center justify-center shadow-xl">
                 {logoSignedUrl
@@ -1530,7 +1548,7 @@ export default function ClientProfile({ project: projectProp }) {
                 })()}
               </div>
 
-              <div className="flex flex-col items-end gap-3 shrink-0">
+              <div className="flex flex-col items-start sm:items-end gap-3 w-full sm:w-auto sm:shrink-0">
 
                 {/* ── Links + Dashboard ── */}
                 {(() => {
@@ -1643,7 +1661,7 @@ export default function ClientProfile({ project: projectProp }) {
                           ]
                           const opt = opts.find(o => o.id === linkPickedType) || opts[0]
                           return (
-                            <div className="absolute right-0 top-full mt-2 z-50 glass-card p-4 shadow-glow w-96 space-y-3 border border-rl-border">
+                            <div className="absolute right-0 top-full mt-2 z-50 glass-card p-4 shadow-glow w-[min(95vw,24rem)] space-y-3 border border-rl-border">
                               <p className={`text-sm font-semibold flex items-center gap-1.5 ${opt.color}`}>
                                 <opt.Icon className="w-4 h-4" />{opt.label}
                               </p>
@@ -1676,37 +1694,80 @@ export default function ClientProfile({ project: projectProp }) {
       </div>
 
       {/* ── Two-panel layout ─────────────────────────────────────────────── */}
-      <div className="flex gap-4 pt-4 items-stretch">
+      <div className="flex flex-col lg:flex-row gap-4 pt-4 lg:items-stretch">
 
-        {/* Sidebar nav */}
-        {sidebarVisible && <div className="w-64 shrink-0">
-          <div className="glass-card p-2 sticky top-20">
-            {NAV_ITEMS.map(({ id, label, icon: Icon, color, filled }) => {
-              const isActive = activeSection === id
-              return (
-                <button
-                  key={id}
-                  onClick={() => setActiveSection(id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                    isActive
-                      ? 'bg-rl-purple text-white shadow-sm'
-                      : 'text-rl-subtle hover:bg-rl-bg hover:text-rl-text'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : color}`} />
-                  <span className="truncate flex-1 text-left">{label}</span>
-                  {filled && !isActive && (
-                    <CheckCircle2 className="w-3 h-3 shrink-0 text-rl-green opacity-80" />
-                  )}
-                </button>
-              )
-            })}
+        {/* Sidebar nav — desktop (sticky) */}
+        {sidebarVisible && (
+          <div className="hidden lg:block w-64 shrink-0">
+            <div className="glass-card p-2 sticky top-20">
+              {NAV_ITEMS.map(({ id, label, icon: Icon, color, filled }) => {
+                const isActive = activeSection === id
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setActiveSection(id)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                      isActive
+                        ? 'bg-rl-purple text-white shadow-sm'
+                        : 'text-rl-subtle hover:bg-rl-bg hover:text-rl-text'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : color}`} />
+                    <span className="truncate flex-1 text-left">{label}</span>
+                    {filled && !isActive && (
+                      <CheckCircle2 className="w-3 h-3 shrink-0 text-rl-green opacity-80" />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-        </div>}
+        )}
+
+        {/* Sidebar nav — mobile drawer (overlay) */}
+        {sidebarVisible && (
+          <div className="lg:hidden fixed inset-0 z-50 flex">
+            <div className="absolute inset-0 bg-black/60" onClick={() => setSidebarVisible(false)} />
+            <aside className="relative z-10 flex flex-col w-72 max-w-[85vw] h-full bg-rl-card border-r border-rl-border overflow-y-auto animate-slide-up">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-rl-border sticky top-0 bg-rl-card z-10">
+                <span className="text-sm font-semibold text-rl-text">Módulos</span>
+                <button
+                  onClick={() => setSidebarVisible(false)}
+                  aria-label="Fechar menu"
+                  className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-2">
+                {NAV_ITEMS.map(({ id, label, icon: Icon, color, filled }) => {
+                  const isActive = activeSection === id
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => { setActiveSection(id); setSidebarVisible(false) }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                        isActive
+                          ? 'bg-rl-purple text-white shadow-sm'
+                          : 'text-rl-subtle hover:bg-rl-bg hover:text-rl-text'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : color}`} />
+                      <span className="truncate flex-1 text-left">{label}</span>
+                      {filled && !isActive && (
+                        <CheckCircle2 className="w-3 h-3 shrink-0 text-rl-green opacity-80" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </aside>
+          </div>
+        )}
 
         {/* Content panel */}
         <div className="flex-1 min-w-0">
-          <div className="glass-card p-6">
+          <div className="glass-card p-4 sm:p-6">
             {renderContent()}
           </div>
         </div>

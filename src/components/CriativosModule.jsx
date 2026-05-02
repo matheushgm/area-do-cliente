@@ -1042,7 +1042,7 @@ ${sections}`
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
             {AD_TYPES.map((type) => {
               const selected = (adTypeConfig[type.id] || 0) > 0
               const qty = adTypeConfig[type.id] || 1

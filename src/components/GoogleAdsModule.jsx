@@ -119,7 +119,7 @@ Estratégia de Lance: [CPA alvo / Maximizar conversões]
 // ─── Keyword Row ───────────────────────────────────────────────────────────────
 function KeywordRow({ kw, onUpdate, onRemove, isOnly }) {
   return (
-    <div className="grid grid-cols-[1fr_110px_130px_32px] gap-2 items-center">
+    <div className="grid grid-cols-[1fr_72px_32px] sm:grid-cols-[1fr_110px_130px_32px] gap-2 items-start sm:items-center">
       {/* Palavra-chave */}
       <input
         value={kw.keyword}
@@ -135,18 +135,20 @@ function KeywordRow({ kw, onUpdate, onRemove, isOnly }) {
         value={kw.buscas}
         onChange={(e) => onUpdate('buscas', e.target.value.replace(/\D/g, ''))}
         className="input-field text-sm h-8 px-2 text-right"
-        placeholder="0"
+        placeholder="Buscas"
+        aria-label="Buscas/mês"
       />
 
-      {/* Concorrência — select estilizado */}
-      <div className="relative">
+      {/* Concorrência — no mobile vai pra próxima linha (col-span 2) */}
+      <div className="relative col-span-2 sm:col-span-1 order-3 sm:order-none">
         <select
           value={kw.concorrencia}
           onChange={(e) => onUpdate('concorrencia', e.target.value)}
           className={`w-full h-8 pl-2 pr-6 text-xs font-semibold rounded-lg border appearance-none cursor-pointer ${CONCORRENCIA_STYLE[kw.concorrencia]}`}
+          aria-label="Concorrência"
         >
           {CONCORRENCIA_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
+            <option key={opt} value={opt}>Concorrência: {opt}</option>
           ))}
         </select>
         <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none opacity-60" />
@@ -199,8 +201,8 @@ function KeywordGroupCard({ group, index, onUpdateName, onAddKeyword, onRemoveKe
         </div>
       </div>
 
-      {/* Table header */}
-      <div className="grid grid-cols-[1fr_110px_130px_32px] gap-2 px-4 pt-3 pb-1.5">
+      {/* Table header — só visível em sm+ (no mobile cada row já tem placeholders/labels embutidos) */}
+      <div className="hidden sm:grid grid-cols-[1fr_110px_130px_32px] gap-2 px-4 pt-3 pb-1.5">
         <span className="text-[10px] font-semibold text-rl-muted uppercase tracking-wide">Palavra-chave</span>
         <span className="text-[10px] font-semibold text-rl-muted uppercase tracking-wide text-right">Buscas/mês</span>
         <span className="text-[10px] font-semibold text-rl-muted uppercase tracking-wide">Concorrência</span>
