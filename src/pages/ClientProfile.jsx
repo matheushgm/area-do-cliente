@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
 import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, BUSINESS_LABELS, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, MATURITY_LABELS } from '../lib/constants'
-import { fmtCurrency, initials } from '../lib/utils'
+import { fmtCurrency, initials, calcLTV, activeMonths } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
 import Modal from '../components/UI/Modal'
@@ -1306,6 +1306,27 @@ export default function ClientProfile({ project: projectProp }) {
                     )}
                   </p>
                 )}
+                {/* ── LTV do cliente (calculado a partir da data de assinatura) ─ */}
+                {(() => {
+                  if (!project.contractDate) return null
+                  const ltv    = calcLTV(project)
+                  const months = activeMonths(project)
+                  if (ltv <= 0 || months <= 0) return null
+                  const isChurned = project.momento === 'churn' && project.churnDate
+                  return (
+                    <div className="mt-3 inline-flex items-center gap-3 px-3 py-2 rounded-xl border border-rl-purple/20 bg-rl-purple/5">
+                      <div className="flex items-center gap-1.5">
+                        <TrendingUp className="w-3.5 h-3.5 text-rl-purple shrink-0" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-rl-purple">LTV</span>
+                      </div>
+                      <span className="text-base font-bold text-rl-text leading-tight tabular-nums">{fmtCurrency(ltv)}</span>
+                      <span className="text-[10px] text-rl-muted">
+                        {months >= 1 ? `${months.toFixed(1)} ${months < 2 ? 'mês' : 'meses'}` : `${Math.max(1, Math.round(months * 30))} dia${Math.round(months * 30) === 1 ? '' : 's'}`}
+                        {isChurned && <span className="ml-1 text-red-400">· encerrado</span>}
+                      </span>
+                    </div>
+                  )
+                })()}
                 {/* ── Squad Assignment ──────────────────────────────────── */}
                 {(() => {
                   const currentSquadIdx = squads.findIndex((s) => s.id === project.squad)

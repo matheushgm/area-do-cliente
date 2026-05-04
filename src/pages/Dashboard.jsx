@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
 import { SQUAD_COLORS } from '../lib/constants'
-import { fmtCurrency, hashId, mrrValue, canViewSquadsReport } from '../lib/utils'
+import { fmtCurrency, hashId, mrrValue, calcLTV, canViewSquadsReport } from '../lib/utils'
 import Modal from '../components/UI/Modal'
 
 const CORE_STEPS = ['roi', 'strategy', 'oferta']
@@ -1042,6 +1042,13 @@ export default function Dashboard() {
   const avgTicketContract = billedClients.length > 0 ? totalContract / billedClients.length : 0
   const avgTicketMRR      = billedClients.length > 0 ? totalMRR      / billedClients.length : 0
 
+  // LTV Médio — considera TODOS os clientes com contractDate (ativos +
+  // churnados), pois churnados representam ciclos completos que entram
+  // na média histórica. Test squads já estão fora via baseProjects.
+  const ltvClients = baseProjects.filter(p => !!p.contractDate && (Number(p.contractValue) || 0) > 0)
+  const totalLTV   = ltvClients.reduce((acc, p) => acc + calcLTV(p), 0)
+  const avgLTV     = ltvClients.length > 0 ? totalLTV / ltvClients.length : 0
+
   const churnedThisMonth = baseProjects.filter(p => {
     if (p.momento !== 'churn' || !p.churnDate) return false
     const d = new Date(p.churnDate + 'T00:00:00')
@@ -1233,14 +1240,26 @@ export default function Dashboard() {
             {/* MRR total */}
             <div className="glass-card p-5">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-xs text-rl-muted">MRR</p>
                   <p className="text-2xl font-bold text-rl-text mt-1 leading-tight">{fmtCurrency(totalMRR)}</p>
                   <p className="text-[11px] text-rl-muted mt-1">Receita mensal recorrente</p>
-                  {billedClients.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-rl-border/60">
-                      <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">Ticket Médio</p>
-                      <p className="text-sm font-bold text-rl-green mt-0.5">{fmtCurrency(avgTicketMRR)}</p>
+                  {(billedClients.length > 0 || ltvClients.length > 0) && (
+                    <div className="mt-2 pt-2 border-t border-rl-border/60 grid grid-cols-2 gap-3">
+                      {billedClients.length > 0 && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">Ticket Médio</p>
+                          <p className="text-sm font-bold text-rl-green mt-0.5">{fmtCurrency(avgTicketMRR)}</p>
+                        </div>
+                      )}
+                      {ltvClients.length > 0 && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold" title={`Média do LTV de ${ltvClients.length} ${ltvClients.length === 1 ? 'cliente' : 'clientes'}`}>
+                            LTV Médio
+                          </p>
+                          <p className="text-sm font-bold text-rl-purple mt-0.5">{fmtCurrency(avgLTV)}</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

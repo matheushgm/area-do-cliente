@@ -18,6 +18,41 @@ export function mrrValue(p) {
   return p?.contractModel === 'aceleracao' ? v / 3 : v
 }
 
+// Parse de date string yyyy-mm-dd ou ISO timestamp.
+function _parseDateMillis(iso) {
+  if (!iso) return NaN
+  const s = typeof iso === 'string' && iso.length === 10 ? iso + 'T00:00:00' : iso
+  const t = new Date(s).getTime()
+  return isNaN(t) ? NaN : t
+}
+
+// LTV histórico de um cliente: MRR × meses entre data de assinatura e
+// (a) churnDate, se o cliente já saiu; (b) hoje, caso contrário.
+// Retorna 0 quando não há contractDate ou os cálculos resultarem inválidos.
+export function calcLTV(project) {
+  if (!project) return 0
+  const startTime = _parseDateMillis(project.contractDate)
+  if (isNaN(startTime)) return 0
+  const isChurned = project.momento === 'churn' && project.churnDate
+  const endTime = isChurned ? _parseDateMillis(project.churnDate) : Date.now()
+  if (isNaN(endTime) || endTime < startTime) return 0
+  const months = (endTime - startTime) / 86400000 / 30.4375 // média de dias por mês
+  const mrr = mrrValue(project)
+  return mrr * months
+}
+
+// Meses ativos do contrato (mesma janela usada no calcLTV) — útil pra exibir
+// "MRR × N meses" no perfil.
+export function activeMonths(project) {
+  if (!project) return 0
+  const startTime = _parseDateMillis(project.contractDate)
+  if (isNaN(startTime)) return 0
+  const isChurned = project.momento === 'churn' && project.churnDate
+  const endTime = isChurned ? _parseDateMillis(project.churnDate) : Date.now()
+  if (isNaN(endTime) || endTime < startTime) return 0
+  return (endTime - startTime) / 86400000 / 30.4375
+}
+
 // Lista de e-mails autorizados a ver o relatório /squads-report.
 // Restrito a sócios — Matheus Martins e Eduardo Moura.
 const SQUADS_REPORT_EMAILS = new Set([
