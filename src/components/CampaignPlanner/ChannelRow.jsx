@@ -2,10 +2,13 @@ import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
 import { CHANNEL_OPTIONS, STAGE_KEYS, fmtBRL } from './campaignHelpers'
 import PctInput from './PctInput'
+import ValueInput from './ValueInput'
 import ValueCell from './ValueCell'
 import StageSection from './StageSection'
 
-export default function ChannelRow({ channel, derived, daysLeft, validation, usedNames, onUpdate, onDelete, onUpdateStage, onAddCampaign, onUpdateCampaign, onDeleteCampaign }) {
+const META_TAX = 0.13
+
+export default function ChannelRow({ channel, derived, daysLeft, validation, usedNames, budgetDisponivel, onUpdate, onDelete, onUpdateStage, onAddCampaign, onUpdateCampaign, onDeleteCampaign }) {
   const stageSum = STAGE_KEYS.reduce((s, k) => s + (channel.stages[k].percentage || 0), 0)
   const stageRemaining = 100 - stageSum
   const stageValid = stageSum === 100
@@ -18,12 +21,12 @@ export default function ChannelRow({ channel, derived, daysLeft, validation, use
   return (
     <div className="glass-card overflow-hidden">
       {/* Channel header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-rl-surface/50">
+      <div className="flex items-center gap-2 flex-wrap px-4 py-3 bg-rl-surface/50">
         {/* Name select */}
         <select
           value={channel.name}
           onChange={(e) => onUpdate({ name: e.target.value })}
-          className="input-field flex-1 text-sm font-semibold"
+          className="input-field flex-1 min-w-[140px] text-sm font-semibold"
         >
           {availableOptions.map((opt) => (
             <option key={opt} value={opt}>{opt}</option>
@@ -35,16 +38,25 @@ export default function ChannelRow({ channel, derived, daysLeft, validation, use
           <PctInput value={channel.percentage} onChange={(v) => onUpdate({ percentage: v })} />
         </div>
 
-        {/* Derived values */}
+        {/* Valor mensal — editável (back-calcula percentage do canal).
+            Para Meta, edita-se o valor BRUTO (antes dos impostos), pois é
+            esse que mapeia direto para a porcentagem do orçamento. */}
+        <div className="w-28 shrink-0">
+          <ValueInput
+            value={derived.monthlyBruto}
+            parentBudget={budgetDisponivel}
+            onChange={(newPct) => onUpdate({ percentage: newPct })}
+          />
+        </div>
+
+        {/* Derived values — só Meta (líquido) e Diário ficam read-only */}
         <div className="hidden sm:flex items-center gap-4">
-          {derived.isMeta ? (
+          {derived.isMeta && (
             <div className="text-right">
-              <p className="text-xs text-rl-muted leading-tight line-through opacity-50">{fmtBRL(derived.monthlyBruto)}</p>
+              <p className="text-[10px] text-rl-muted leading-tight">Líquido</p>
               <p className="text-sm font-bold text-rl-text">{fmtBRL(derived.monthly)}</p>
               <p className="text-[10px] text-rl-gold">−13% impostos</p>
             </div>
-          ) : (
-            <ValueCell label="Mensal" value={derived.monthly} />
           )}
           <ValueCell label="Diário" value={derived.daily} />
         </div>
@@ -96,6 +108,7 @@ export default function ChannelRow({ channel, derived, daysLeft, validation, use
                 stageKey={key}
                 stage={channel.stages[key]}
                 derived={derived.stages[key]}
+                channelMonthly={derived.monthly}
                 daysLeft={daysLeft}
                 onUpdateStage={(patch) => onUpdateStage(key, patch)}
                 onAddCampaign={() => onAddCampaign(key)}

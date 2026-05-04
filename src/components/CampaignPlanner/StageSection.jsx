@@ -2,10 +2,11 @@ import { Plus } from 'lucide-react'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
 import { STAGE_META } from './campaignHelpers'
 import PctInput from './PctInput'
+import ValueInput from './ValueInput'
 import ValueCell from './ValueCell'
 import CampaignRow from './CampaignRow'
 
-export default function StageSection({ stageKey, stage, derived, daysLeft, onUpdateStage, onAddCampaign, onUpdateCampaign, onDeleteCampaign }) {
+export default function StageSection({ stageKey, stage, derived, channelMonthly, daysLeft, onUpdateStage, onAddCampaign, onUpdateCampaign, onDeleteCampaign }) {
   const meta = STAGE_META[stageKey]
   const campSum = stage.campaigns.reduce((s, c) => s + (c.percentage || 0), 0)
   const campRemaining = 100 - campSum
@@ -13,17 +14,23 @@ export default function StageSection({ stageKey, stage, derived, daysLeft, onUpd
   return (
     <div className={`rounded-xl border ${meta.borderClass} ${meta.bgClass} overflow-hidden`}>
       {/* Stage header */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap px-4 py-3">
         <div className="flex items-center gap-2">
           <span className={`text-xs font-bold ${meta.colorClass}`}>{meta.label}</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="w-20">
             <PctInput value={stage.percentage} onChange={(v) => onUpdateStage({ percentage: v })} />
           </div>
+          <div className="w-28">
+            <ValueInput
+              value={derived.monthly}
+              parentBudget={channelMonthly}
+              onChange={(newPct) => onUpdateStage({ percentage: newPct })}
+            />
+          </div>
           <div className="hidden sm:flex items-center gap-4">
-            <ValueCell label="Mensal" value={derived.monthly} />
-            <ValueCell label="Diário"  value={derived.daily}   />
+            <ValueCell label="Diário" value={derived.daily} />
           </div>
         </div>
       </div>

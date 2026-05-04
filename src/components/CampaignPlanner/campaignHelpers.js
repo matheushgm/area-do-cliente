@@ -119,5 +119,15 @@ export function makeChannel(name = '') {
 }
 
 export function makeCampaign() {
-  return { id: uid(), name: '', percentage: 0 }
+  return { id: uid(), name: '', percentage: 0, startDate: null, endDate: null }
+}
+
+// Label compacto de período da campanha (ex: "26/05 → 28/05").
+export function formatCampaignPeriod(startISO, endISO) {
+  if (!startISO || !endISO) return null
+  const fmt = (iso) => {
+    const d = new Date(iso + 'T00:00:00')
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+  }
+  return `${fmt(startISO)} → ${fmt(endISO)}`
 }

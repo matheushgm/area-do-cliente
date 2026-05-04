@@ -118,7 +118,11 @@ export default function CampaignPlanner({ project, onSave }) {
           daily: stDay,
           campaigns: st.campaigns.map((c) => {
             const cMon = stMon * (c.percentage / 100)
-            return { ...c, monthly: cMon, daily: cMon / daysLeft }
+            // Daily da campanha usa período próprio quando ambas as datas estão preenchidas
+            const hasOwnPeriod = !!(c.startDate && c.endDate)
+            const ownDays      = hasOwnPeriod ? getDaysBetween(c.startDate, c.endDate) : null
+            const cDay         = hasOwnPeriod ? cMon / ownDays : cMon / daysLeft
+            return { ...c, monthly: cMon, daily: cDay }
           }),
         }
       })
@@ -497,6 +501,7 @@ export default function CampaignPlanner({ project, onSave }) {
             daysLeft={daysLeft}
             validation={validation}
             usedNames={usedChannelNames.filter((n) => n !== ch.name)}
+            budgetDisponivel={budgetDisponivel}
             onUpdate={(patch) => updateChannel(ch.id, patch)}
             onDelete={() => deleteChannel(ch.id)}
             onUpdateStage={(stageKey, patch) => updateStage(ch.id, stageKey, patch)}
