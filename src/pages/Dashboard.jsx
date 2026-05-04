@@ -835,6 +835,8 @@ export default function Dashboard() {
     const t = new Date()
     return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`
   })
+  // Qual lista mostrar no modal de histórico: 'selected' | 'previous'
+  const [historyTab, setHistoryTab] = useState('selected')
 
   function switchView(v) { setView(v); localStorage.setItem('rl_dashboard_view', v) }
 
@@ -1560,7 +1562,7 @@ export default function Dashboard() {
               <select
                 id="history-month"
                 value={historyMonth}
-                onChange={(e) => setHistoryMonth(e.target.value)}
+                onChange={(e) => { setHistoryMonth(e.target.value); setHistoryTab('selected') }}
                 className="input-field w-full sm:w-64"
               >
                 {HISTORY_OPTIONS.map((opt) => (
@@ -1661,47 +1663,90 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Lista de clientes do período selecionado */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted mb-2">
-                Clientes — {selOpt.label}
-              </p>
-              {selStats.list.length === 0 ? (
-                <p className="text-sm text-rl-muted py-4 text-center">Nenhum churn neste mês.</p>
-              ) : (
-                <div className="space-y-1.5 max-h-[40vh] overflow-y-auto -mx-6 px-6">
-                  {[...selStats.list].sort((a, b) => (b.churnDate || '').localeCompare(a.churnDate || '')).map(p => {
-                    const dStr = new Date(p.churnDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                    const squad = squads.find(s => String(s.id) === String(p.squad)) || null
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => { setChurnHistoryOpen(false); navigate(`/project/${p.id}`) }}
-                        className="w-full flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 rounded-lg border border-rl-border hover:border-red-400/40 hover:bg-red-400/5 transition-all text-left"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-rl-text truncate">{p.companyName || '—'}</p>
-                          <p className="text-[10px] text-rl-muted">
-                            {squad?.emoji && <span>{squad.emoji} </span>}{squad?.name || 'sem squad'} · Saiu em {dStr}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-4 shrink-0">
-                          <div className="text-right">
-                            <p className="text-[9px] uppercase text-rl-muted">MRR</p>
-                            <p className="text-xs font-bold text-red-400">{fmtCurrency(mrrValue(p))}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[9px] uppercase text-rl-muted">Contrato</p>
-                            <p className="text-xs font-bold text-red-400">{fmtCurrency(Number(p.contractValue) || 0)}</p>
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
+            {/* Lista de clientes — com tabs para alternar entre mês selecionado e anterior */}
+            {(() => {
+              const activeStats = historyTab === 'previous' ? prevStats : selStats
+              const activeLabel = historyTab === 'previous' ? prevLabel : selOpt.label
+              return (
+                <div>
+                  {/* Tabs */}
+                  <div className="flex items-center gap-1 p-1 rounded-xl bg-rl-surface border border-rl-border mb-3 w-full sm:w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setHistoryTab('selected')}
+                      className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        historyTab === 'selected'
+                          ? 'bg-red-400 text-white shadow-sm'
+                          : 'text-rl-muted hover:text-rl-text'
+                      }`}
+                    >
+                      {selOpt.label}
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] tabular-nums ${
+                        historyTab === 'selected' ? 'bg-white/20' : 'bg-rl-bg border border-rl-border'
+                      }`}>
+                        {selStats.count}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryTab('previous')}
+                      className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        historyTab === 'previous'
+                          ? 'bg-red-400 text-white shadow-sm'
+                          : 'text-rl-muted hover:text-rl-text'
+                      }`}
+                    >
+                      {prevLabel}
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] tabular-nums ${
+                        historyTab === 'previous' ? 'bg-white/20' : 'bg-rl-bg border border-rl-border'
+                      }`}>
+                        {prevStats.count}
+                      </span>
+                    </button>
+                  </div>
+
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted mb-2">
+                    Clientes — {activeLabel}
+                  </p>
+
+                  {activeStats.list.length === 0 ? (
+                    <p className="text-sm text-rl-muted py-4 text-center">Nenhum churn neste mês.</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-[40vh] overflow-y-auto -mx-6 px-6">
+                      {[...activeStats.list].sort((a, b) => (b.churnDate || '').localeCompare(a.churnDate || '')).map(p => {
+                        const dStr = new Date(p.churnDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                        const squad = squads.find(s => String(s.id) === String(p.squad)) || null
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => { setChurnHistoryOpen(false); navigate(`/project/${p.id}`) }}
+                            className="w-full flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 rounded-lg border border-rl-border hover:border-red-400/40 hover:bg-red-400/5 transition-all text-left"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-rl-text truncate">{p.companyName || '—'}</p>
+                              <p className="text-[10px] text-rl-muted">
+                                {squad?.emoji && <span>{squad.emoji} </span>}{squad?.name || 'sem squad'} · Saiu em {dStr}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-4 shrink-0">
+                              <div className="text-right">
+                                <p className="text-[9px] uppercase text-rl-muted">MRR</p>
+                                <p className="text-xs font-bold text-red-400">{fmtCurrency(mrrValue(p))}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[9px] uppercase text-rl-muted">Contrato</p>
+                                <p className="text-xs font-bold text-red-400">{fmtCurrency(Number(p.contractValue) || 0)}</p>
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              )
+            })()}
           </Modal>
         )
       })()}
