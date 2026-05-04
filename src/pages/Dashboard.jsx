@@ -114,6 +114,43 @@ function CreatorBadge({ accountName, colorIndex = 0 }) {
   )
 }
 
+// ─── Onboarding 90-day progress bar ──────────────────────────────────────────
+// Mostra quanto da janela de 90 dias de onboarding já passou. Quando o cliente
+// já passou dos 90 dias, retorna null (não exibe nada).
+function OnboardingProgressBar({ project, compact = false }) {
+  if (!project.createdAt) return null
+  const daysSince = Math.floor(
+    (Date.now() - new Date(project.createdAt).getTime()) / 86400000
+  )
+  if (daysSince >= 90) return null
+  const safeDays  = Math.max(0, daysSince)
+  const remaining = 90 - safeDays
+  const pct       = Math.min(Math.max((safeDays / 90) * 100, 0), 100)
+
+  return (
+    <div className={compact ? '' : 'mb-3'}>
+      {!compact && (
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-orange-400 flex items-center gap-1.5">
+            <Clock className="w-3 h-3" />
+            Onboarding · {remaining}d restantes
+          </span>
+          <span className="text-[10px] font-semibold text-orange-400 tabular-nums">
+            {safeDays}/90
+          </span>
+        </div>
+      )}
+      <div className={`bg-rl-surface rounded-full overflow-hidden ${compact ? 'h-1' : 'h-1.5'}`}>
+        <div
+          className="h-full bg-orange-400 rounded-full transition-all"
+          style={{ width: `${pct}%` }}
+          title={`${safeDays} de 90 dias · ${remaining}d restantes`}
+        />
+      </div>
+    </div>
+  )
+}
+
 function ProjectCard({ project, onClick, onDelete }) {
   const daysSince = Math.floor(
     (Date.now() - new Date(project.createdAt).getTime()) / 86400000
@@ -148,6 +185,9 @@ function ProjectCard({ project, onClick, onDelete }) {
         <RiskBadge riskLevel={project.riskLevel} />
         <MomentoBadge momento={project.momento} />
       </div>
+
+      {/* Onboarding 90-day progress (oculta após 90 dias) */}
+      <OnboardingProgressBar project={project} />
 
       {/* Progress */}
       <div className="mb-3">
@@ -247,6 +287,9 @@ function ClientProfileCard({ project, onClick, onDelete }) {
           </div>
         )}
       </div>
+
+      {/* Onboarding 90-day progress (oculta após 90 dias) */}
+      <OnboardingProgressBar project={project} />
 
       {/* Footer */}
       <div className="flex items-center justify-between text-xs text-rl-muted">
@@ -624,16 +667,19 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }
 
         {/* Progresso */}
         <td className="px-4 py-3">
-          <div className="flex items-center gap-2 min-w-[80px]">
-            <div className="flex-1 h-1.5 bg-rl-surface rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-rl rounded-full"
-                style={{ width: `${p.progress ?? 0}%` }}
-              />
+          <div className="flex flex-col gap-1 min-w-[80px]">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-1.5 bg-rl-surface rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-rl rounded-full"
+                  style={{ width: `${p.progress ?? 0}%` }}
+                />
+              </div>
+              <span className="text-xs text-rl-muted w-7 text-right shrink-0">
+                {p.progress ?? 0}%
+              </span>
             </div>
-            <span className="text-xs text-rl-muted w-7 text-right shrink-0">
-              {p.progress ?? 0}%
-            </span>
+            <OnboardingProgressBar project={p} compact />
           </div>
         </td>
 
