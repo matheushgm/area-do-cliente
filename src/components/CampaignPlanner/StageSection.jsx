@@ -19,10 +19,10 @@ export default function StageSection({ stageKey, stage, derived, channelMonthly,
           <span className={`text-xs font-bold ${meta.colorClass}`}>{meta.label}</span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="w-20">
+          <div className="w-[88px]">
             <PctInput value={stage.percentage} onChange={(v) => onUpdateStage({ percentage: v })} />
           </div>
-          <div className="w-28">
+          <div className="w-[140px]">
             <ValueInput
               value={derived.monthly}
               parentBudget={channelMonthly}

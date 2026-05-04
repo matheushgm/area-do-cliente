@@ -34,14 +34,14 @@ export default function ChannelRow({ channel, derived, daysLeft, validation, use
         </select>
 
         {/* Percentage */}
-        <div className="w-20 shrink-0">
+        <div className="w-[88px] shrink-0">
           <PctInput value={channel.percentage} onChange={(v) => onUpdate({ percentage: v })} />
         </div>
 
         {/* Valor mensal — editável (back-calcula percentage do canal).
             Para Meta, edita-se o valor BRUTO (antes dos impostos), pois é
             esse que mapeia direto para a porcentagem do orçamento. */}
-        <div className="w-28 shrink-0">
+        <div className="w-[140px] shrink-0">
           <ValueInput
             value={derived.monthlyBruto}
             parentBudget={budgetDisponivel}

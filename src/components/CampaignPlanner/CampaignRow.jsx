@@ -48,12 +48,12 @@ export default function CampaignRow({ campaign, stageMonthly, daysLeft, onUpdate
         </button>
 
         {/* Percentage */}
-        <div className="w-20 shrink-0">
+        <div className="w-[88px] shrink-0">
           <PctInput value={campaign.percentage} onChange={(v) => onUpdate({ percentage: v })} />
         </div>
 
         {/* Valor mensal — editável (back-calcula percentage) */}
-        <div className="w-28 shrink-0">
+        <div className="w-[140px] shrink-0">
           <ValueInput
             value={monthly}
             parentBudget={stageMonthly}
