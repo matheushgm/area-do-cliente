@@ -115,13 +115,20 @@ function CreatorBadge({ accountName, colorIndex = 0 }) {
 }
 
 // ─── Onboarding 90-day progress bar ──────────────────────────────────────────
-// Mostra quanto da janela de 90 dias de onboarding já passou. Quando o cliente
-// já passou dos 90 dias, retorna null (não exibe nada).
+// Mostra quanto da janela de 90 dias de onboarding já passou, contando a partir
+// da data de assinatura do contrato (contractDate). Cai pra createdAt quando
+// contractDate não foi preenchido. Quando o cliente já passou dos 90 dias,
+// retorna null (não exibe nada).
 function OnboardingProgressBar({ project, compact = false }) {
-  if (!project.createdAt) return null
-  const daysSince = Math.floor(
-    (Date.now() - new Date(project.createdAt).getTime()) / 86400000
-  )
+  const startISO = project.contractDate || project.createdAt
+  if (!startISO) return null
+  // contractDate vem como yyyy-mm-dd (date), createdAt como ISO timestamp
+  const startTime = new Date(
+    typeof startISO === 'string' && startISO.length === 10 ? startISO + 'T00:00:00' : startISO
+  ).getTime()
+  if (isNaN(startTime)) return null
+
+  const daysSince = Math.floor((Date.now() - startTime) / 86400000)
   if (daysSince >= 90) return null
   const safeDays  = Math.max(0, daysSince)
   const remaining = 90 - safeDays
@@ -913,8 +920,14 @@ export default function Dashboard() {
     if (phase90Filter) {
       const cutoff = Date.now() - 90 * 86400000
       result = result.filter(p => {
-        const created = p.createdAt ? new Date(p.createdAt).getTime() : 0
-        return created >= cutoff
+        // Mesma lógica da barra de progresso: usa contractDate (assinatura)
+        // com fallback pra createdAt quando não preenchido.
+        const startISO = p.contractDate || p.createdAt
+        if (!startISO) return false
+        const t = new Date(
+          typeof startISO === 'string' && startISO.length === 10 ? startISO + 'T00:00:00' : startISO
+        ).getTime()
+        return !isNaN(t) && t >= cutoff
       })
     }
     return result
