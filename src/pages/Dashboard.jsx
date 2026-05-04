@@ -8,7 +8,7 @@ import {
   Eye, X, Trash2, AlertTriangle,
   Cloud, CloudOff, Loader2, Menu, Search,
   LayoutGrid, List, ChevronUp, ChevronDown, ChevronsUpDown, Users2,
-  Wallet, TrendingDown,
+  Wallet, TrendingDown, History, TrendingUp,
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
 import { SQUAD_COLORS } from '../lib/constants'
@@ -829,6 +829,12 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('')
   const [view, setView] = useState(() => localStorage.getItem('rl_dashboard_view') || 'grid')
   const [churnListOpen, setChurnListOpen] = useState(false)
+  const [churnHistoryOpen, setChurnHistoryOpen] = useState(false)
+  // Mês selecionado no modal de histórico (yyyy-mm). Default: mês corrente
+  const [historyMonth, setHistoryMonth] = useState(() => {
+    const t = new Date()
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`
+  })
 
   function switchView(v) { setView(v); localStorage.setItem('rl_dashboard_view', v) }
 
@@ -979,6 +985,39 @@ export default function Dashboard() {
   const churnCount    = churnedThisMonth.length
   const churnMRR      = churnedThisMonth.reduce((acc, p) => acc + mrrValue(p), 0)
   const churnContract = churnedThisMonth.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
+
+  // Helpers para histórico de churn por mês
+  function churnsForMonth(yyyy, mm) {
+    return baseProjects.filter(p => {
+      if (p.momento !== 'churn' || !p.churnDate) return false
+      const d = new Date(p.churnDate + 'T00:00:00')
+      return d.getFullYear() === yyyy && d.getMonth() === mm
+    })
+  }
+  function statsForMonth(yyyy, mm) {
+    const list = churnsForMonth(yyyy, mm)
+    return {
+      count:    list.length,
+      mrr:      list.reduce((acc, p) => acc + mrrValue(p), 0),
+      contract: list.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0),
+      list,
+    }
+  }
+  // Constroi os últimos 12 meses (yyyy-mm) começando do mês atual e voltando
+  const HISTORY_OPTIONS = (() => {
+    const out = []
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(_yyyy, _mm - i, 1)
+      const yyyy = d.getFullYear()
+      const m = d.getMonth()
+      out.push({
+        key: `${yyyy}-${String(m + 1).padStart(2, '0')}`,
+        yyyy, mm: m,
+        label: `${_monthsPT[m]} ${yyyy}`,
+      })
+    }
+    return out
+  })()
 
   return (
     <div className="min-h-screen flex bg-gradient-dark">
@@ -1142,19 +1181,38 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Churn do mês — clicável para abrir lista */}
-            <button
-              type="button"
-              onClick={() => churnCount > 0 && setChurnListOpen(true)}
-              disabled={churnCount === 0}
-              className={`glass-card p-5 text-left transition-all ${
-                churnCount > 0
-                  ? 'border-red-400/30 cursor-pointer hover:border-red-400/60 hover:bg-red-400/5'
-                  : 'cursor-default'
+            {/* Churn do mês — área principal clicável + botão de histórico discreto */}
+            <div
+              className={`glass-card p-5 relative transition-all ${
+                churnCount > 0 ? 'border-red-400/30' : ''
               }`}
-              title={churnCount > 0 ? 'Ver lista de clientes que churnaram este mês' : ''}
             >
-              <div className="flex items-start justify-between gap-3">
+              {/* Botão pequeno para histórico */}
+              <button
+                type="button"
+                onClick={() => setChurnHistoryOpen(true)}
+                title="Ver histórico de churn (períodos anteriores)"
+                aria-label="Histórico de churn"
+                className="absolute top-2 right-2 p-1.5 rounded-lg text-rl-muted/60 hover:text-red-400 hover:bg-red-400/10 transition-all"
+              >
+                <History className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Área clicável (mês corrente) */}
+              <div
+                onClick={() => churnCount > 0 && setChurnListOpen(true)}
+                role={churnCount > 0 ? 'button' : undefined}
+                tabIndex={churnCount > 0 ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if (churnCount > 0 && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault()
+                    setChurnListOpen(true)
+                  }
+                }}
+                className={`flex items-start justify-between gap-3 ${
+                  churnCount > 0 ? 'cursor-pointer hover:opacity-90 -m-5 p-5 rounded-xl hover:bg-red-400/5 transition-all' : ''
+                }`}
+              >
                 <div className="min-w-0">
                   <p className="text-xs text-rl-muted">Churn — {monthLabel}</p>
                   <p className={`text-2xl font-bold mt-1 leading-tight ${churnCount > 0 ? 'text-red-400' : 'text-rl-text'}`}>
@@ -1178,7 +1236,7 @@ export default function Dashboard() {
                   <TrendingDown className="w-5 h-5" />
                 </div>
               </div>
-            </button>
+            </div>
           </div>
 
           {/* Projects */}
@@ -1430,6 +1488,223 @@ export default function Dashboard() {
           </div>
         </Modal>
       )}
+
+      {/* Modal: Histórico de Churn — comparativo mês selecionado vs mês anterior */}
+      {churnHistoryOpen && (() => {
+        // Quebra historyMonth em year/month
+        const [hYStr, hMStr] = historyMonth.split('-')
+        const selYear  = Number(hYStr)
+        const selMonth = Number(hMStr) - 1
+        const selOpt   = HISTORY_OPTIONS.find(o => o.key === historyMonth) || HISTORY_OPTIONS[0]
+        const selStats = statsForMonth(selYear, selMonth)
+
+        // Mês anterior (independentemente de mudar de ano)
+        const prevDate  = new Date(selYear, selMonth - 1, 1)
+        const prevYear  = prevDate.getFullYear()
+        const prevMonth = prevDate.getMonth()
+        const prevLabel = `${_monthsPT[prevMonth]} ${prevYear}`
+        const prevStats = statsForMonth(prevYear, prevMonth)
+
+        // Delta (positivo = aumento de churn, ruim)
+        const deltaCount    = selStats.count - prevStats.count
+        const deltaMRR      = selStats.mrr - prevStats.mrr
+        const deltaContract = selStats.contract - prevStats.contract
+
+        // Bar chart: últimos 6 meses (do mês selecionado para trás)
+        const chartMonths = []
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(selYear, selMonth - i, 1)
+          chartMonths.push({
+            yyyy: d.getFullYear(),
+            mm: d.getMonth(),
+            label: `${_monthsPT[d.getMonth()].slice(0, 3)}/${String(d.getFullYear()).slice(2)}`,
+            stats: statsForMonth(d.getFullYear(), d.getMonth()),
+            isSelected: d.getFullYear() === selYear && d.getMonth() === selMonth,
+            isPrev:     d.getFullYear() === prevYear && d.getMonth() === prevMonth,
+          })
+        }
+        const chartMax = Math.max(...chartMonths.map(c => c.stats.mrr), 1)
+
+        function DeltaBadge({ value, suffix = '' }) {
+          if (value === 0) return <span className="text-[11px] text-rl-muted">sem mudança</span>
+          const positive = value > 0 // aumento de churn = ruim (vermelho)
+          const Icon = positive ? TrendingUp : TrendingDown
+          const color = positive ? 'text-red-400' : 'text-rl-green'
+          const sign = positive ? '+' : '−'
+          return (
+            <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${color}`}>
+              <Icon className="w-3 h-3" />
+              {sign}{suffix === '%' ? Math.abs(value).toFixed(0) : fmtCurrency(Math.abs(value))}{suffix === '%' ? '%' : ''}
+            </span>
+          )
+        }
+
+        return (
+          <Modal onClose={() => setChurnHistoryOpen(false)} maxWidth="2xl" className="border-red-400/30">
+            {/* Header */}
+            <div className="flex items-start gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-red-400/10 border border-red-400/30 flex items-center justify-center text-red-400 shrink-0">
+                <History className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold text-rl-text">Histórico de Churn</h3>
+                <p className="text-xs text-rl-muted">Compare qualquer mês com o anterior e veja tendências.</p>
+              </div>
+            </div>
+
+            {/* Seletor de mês */}
+            <div className="mb-5">
+              <label htmlFor="history-month" className="block text-[10px] font-semibold uppercase tracking-wider text-rl-muted mb-1.5">
+                Período de referência
+              </label>
+              <select
+                id="history-month"
+                value={historyMonth}
+                onChange={(e) => setHistoryMonth(e.target.value)}
+                className="input-field w-full sm:w-64"
+              >
+                {HISTORY_OPTIONS.map((opt) => (
+                  <option key={opt.key} value={opt.key}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Comparativo: Selecionado vs Mês Anterior */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+              {/* Card mês selecionado */}
+              <div className="rounded-xl border border-red-400/30 bg-red-400/5 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-red-400">Selecionado</p>
+                <p className="text-sm font-semibold text-rl-text mt-0.5">{selOpt.label}</p>
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-rl-muted">Clientes</span>
+                    <span className="text-lg font-bold text-red-400">{selStats.count}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-rl-muted">MRR perdido</span>
+                    <span className="text-sm font-bold text-red-400">{fmtCurrency(selStats.mrr)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-rl-muted">Contrato cheio</span>
+                    <span className="text-sm font-bold text-red-400">{fmtCurrency(selStats.contract)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card mês anterior */}
+              <div className="rounded-xl border border-rl-border bg-rl-surface/30 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">Mês anterior</p>
+                <p className="text-sm font-semibold text-rl-text mt-0.5">{prevLabel}</p>
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-rl-muted">Clientes</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-rl-text">{prevStats.count}</span>
+                      <DeltaBadge value={deltaCount} />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-rl-muted">MRR perdido</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-rl-text">{fmtCurrency(prevStats.mrr)}</span>
+                      <DeltaBadge value={deltaMRR} />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-rl-muted">Contrato</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-rl-text">{fmtCurrency(prevStats.contract)}</span>
+                      <DeltaBadge value={deltaContract} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bar chart — últimos 6 meses */}
+            <div className="rounded-xl border border-rl-border bg-rl-surface/30 p-4 mb-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">MRR perdido por mês (últimos 6)</p>
+                <p className="text-[10px] text-rl-muted">Pico: {fmtCurrency(chartMax)}</p>
+              </div>
+              <div className="flex items-end justify-between gap-2 h-32">
+                {chartMonths.map((m) => {
+                  const heightPct = (m.stats.mrr / chartMax) * 100
+                  const barColor = m.isSelected
+                    ? 'bg-red-400'
+                    : m.isPrev
+                    ? 'bg-red-400/40'
+                    : 'bg-rl-muted/30'
+                  return (
+                    <div key={`${m.yyyy}-${m.mm}`} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                      <span className={`text-[10px] font-semibold tabular-nums ${m.isSelected ? 'text-red-400' : 'text-rl-muted'}`}>
+                        {m.stats.count > 0 ? m.stats.count : '—'}
+                      </span>
+                      <div className="w-full flex items-end justify-center h-20">
+                        <div
+                          className={`w-full rounded-t transition-all ${barColor}`}
+                          style={{ height: m.stats.mrr > 0 ? `${Math.max(heightPct, 4)}%` : '2px' }}
+                          title={`${m.label}: ${m.stats.count} cliente${m.stats.count === 1 ? '' : 's'} · ${fmtCurrency(m.stats.mrr)}`}
+                        />
+                      </div>
+                      <span className={`text-[10px] truncate ${m.isSelected ? 'text-red-400 font-semibold' : 'text-rl-muted'}`}>
+                        {m.label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="flex items-center gap-3 mt-3 text-[10px] text-rl-muted">
+                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-400" />Selecionado</span>
+                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-400/40" />Anterior</span>
+                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-rl-muted/30" />Outros meses</span>
+              </div>
+            </div>
+
+            {/* Lista de clientes do período selecionado */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted mb-2">
+                Clientes — {selOpt.label}
+              </p>
+              {selStats.list.length === 0 ? (
+                <p className="text-sm text-rl-muted py-4 text-center">Nenhum churn neste mês.</p>
+              ) : (
+                <div className="space-y-1.5 max-h-[40vh] overflow-y-auto -mx-6 px-6">
+                  {[...selStats.list].sort((a, b) => (b.churnDate || '').localeCompare(a.churnDate || '')).map(p => {
+                    const dStr = new Date(p.churnDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                    const squad = squads.find(s => String(s.id) === String(p.squad)) || null
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => { setChurnHistoryOpen(false); navigate(`/project/${p.id}`) }}
+                        className="w-full flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 rounded-lg border border-rl-border hover:border-red-400/40 hover:bg-red-400/5 transition-all text-left"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-rl-text truncate">{p.companyName || '—'}</p>
+                          <p className="text-[10px] text-rl-muted">
+                            {squad?.emoji && <span>{squad.emoji} </span>}{squad?.name || 'sem squad'} · Saiu em {dStr}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4 shrink-0">
+                          <div className="text-right">
+                            <p className="text-[9px] uppercase text-rl-muted">MRR</p>
+                            <p className="text-xs font-bold text-red-400">{fmtCurrency(mrrValue(p))}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[9px] uppercase text-rl-muted">Contrato</p>
+                            <p className="text-xs font-bold text-red-400">{fmtCurrency(Number(p.contractValue) || 0)}</p>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </Modal>
+        )
+      })()}
     </div>
   )
 }
