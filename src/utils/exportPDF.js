@@ -11,6 +11,13 @@ function fmtNum(n) {
   return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
 }
 
+// Formata percentuais no padrão BR (vírgula decimal). Ex: 10 → "10%", 10.5 → "10,5%".
+function fmtPct(n) {
+  if (n == null || isNaN(n) || !isFinite(n)) return '—'
+  const formatted = Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+  return `${formatted}%`
+}
+
 function esc(s) {
   if (!s) return ''
   return String(s)
@@ -433,24 +440,70 @@ export function exportOfertaPDF(oferta, project) {
 
 const STAGE_LABELS = { topo: 'Topo de Funil — Inconsciente do Problema', meio: 'Meio de Funil — Consciente do Problema', fundo: 'Fundo de Funil — Consciente do Problema e da Solução' }
 const STAGE_KEYS   = ['topo', 'meio', 'fundo']
+const META_TAX     = 0.13
+
+// Calcula dias entre duas datas ISO inclusive, com mínimo 1.
+function daysBetweenISO(startISO, endISO) {
+  if (!endISO) return null
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const start = startISO ? new Date(startISO + 'T00:00:00') : today
+  if (start < today) start.setTime(today.getTime())
+  const end = new Date(endISO + 'T00:00:00')
+  const diff = Math.round((end.getTime() - start.getTime()) / 86400000) + 1
+  return Math.max(diff, 1)
+}
+
+// Default: primeiro até o último dia do mês corrente.
+function defaultDaysOfCurrentMonth() {
+  const today   = new Date()
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+  return Math.max(lastDay.getDate() - today.getDate() + 1, 1)
+}
+
+function fmtCampaignPeriod(startISO, endISO) {
+  if (!startISO || !endISO) return null
+  const fmt = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+  return `${fmt(startISO)} → ${fmt(endISO)}`
+}
 
 export function exportCampaignPDF(campaignPlan, project) {
   if (!campaignPlan?.totalBudget) return
 
-  const today   = new Date()
-  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-  const daysLeft = Math.max(lastDay.getDate() - today.getDate() + 1, 1)
-  const monthLabel = today.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  // Período do plano — usa as datas salvas se houver, senão cai pro mês corrente.
+  const planStartISO = campaignPlan.startDate || null
+  const planEndISO   = campaignPlan.endDate   || null
+  const daysLeft     = planEndISO ? daysBetweenISO(planStartISO, planEndISO) : defaultDaysOfCurrentMonth()
+
+  const periodLabel = (() => {
+    if (!planEndISO) {
+      const today = new Date()
+      const monthOnly = today.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      return `${monthOnly.charAt(0).toUpperCase()}${monthOnly.slice(1)}`
+    }
+    const fmt = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    if (planStartISO) return `${fmt(planStartISO)} até ${fmt(planEndISO)}`
+    return `até ${fmt(planEndISO)}`
+  })()
 
   const { totalBudget, channels = [] } = campaignPlan
 
+  // Soma do investimento líquido (com -13% nos canais Meta) — usado no card de resumo.
+  let netTotal = 0
+
   const rows = channels.map((ch) => {
-    const chMon = totalBudget * (ch.percentage / 100)
-    const chDay = chMon / daysLeft
+    const isMeta       = ch.name === 'Meta Ads'
+    const chMonBruto   = totalBudget * (ch.percentage / 100)
+    const chMon        = isMeta ? chMonBruto * (1 - META_TAX) : chMonBruto
+    const chDay        = chMon / daysLeft
+    netTotal += chMon
+
+    const metaInfo = isMeta
+      ? `<span style="display:block;font-size:9px;color:#94A3B8;font-weight:500">Bruto: ${fmtBRL(chMonBruto)} · −13% impostos</span>`
+      : ''
 
     const channelRow = `<tr class="channel-header">
-      <td><strong>${esc(ch.name)}</strong></td>
-      <td>${ch.percentage}%</td>
+      <td><strong>${esc(ch.name)}</strong>${metaInfo}</td>
+      <td>${fmtPct(ch.percentage)}</td>
       <td>${fmtBRL(chMon)}</td>
       <td>${fmtBRL(chDay)}</td>
     </tr>`
@@ -464,17 +517,24 @@ export function exportCampaignPDF(campaignPlan, project) {
       const campRows = (st.campaigns || []).map((c) => {
         if (!c.name && !c.percentage) return ''
         const cMon = stMon * (c.percentage / 100)
+        const hasOwnPeriod = !!(c.startDate && c.endDate)
+        const ownDays      = hasOwnPeriod ? daysBetweenISO(c.startDate, c.endDate) : null
+        const cDay         = hasOwnPeriod ? cMon / ownDays : cMon / daysLeft
+        const periodInfo   = hasOwnPeriod
+          ? `<span style="display:block;font-size:9px;color:#7C3AED;font-weight:600">📅 ${fmtCampaignPeriod(c.startDate, c.endDate)} · ${ownDays} ${ownDays === 1 ? 'dia' : 'dias'}</span>`
+          : ''
+        const dailyLabel = hasOwnPeriod ? `${fmtBRL(cDay)} <span style="font-size:9px;color:#94A3B8">(${ownDays}d)</span>` : fmtBRL(cDay)
         return `<tr class="campaign-row">
-          <td>${esc(c.name || '(sem nome)')}</td>
-          <td>${c.percentage}%</td>
+          <td>${esc(c.name || '(sem nome)')}${periodInfo}</td>
+          <td>${fmtPct(c.percentage)}</td>
           <td>${fmtBRL(cMon)}</td>
-          <td>${fmtBRL(cMon / daysLeft)}</td>
+          <td>${dailyLabel}</td>
         </tr>`
       }).join('')
 
       return `<tr class="stage-row">
         <td>${esc(STAGE_LABELS[key])}</td>
-        <td>${st.percentage}%</td>
+        <td>${fmtPct(st.percentage)}</td>
         <td>${fmtBRL(stMon)}</td>
         <td>${fmtBRL(stDay)}</td>
       </tr>${campRows}`
@@ -483,14 +543,23 @@ export function exportCampaignPDF(campaignPlan, project) {
     return channelRow + stageRows
   }).join('')
 
+  const hasMetaChannel = channels.some((ch) => ch.name === 'Meta Ads')
+  const grossLine = hasMetaChannel
+    ? `<div class="field"><div class="field-label">Investimento Bruto</div><div class="field-value">${fmtBRL(totalBudget)}</div></div>`
+    : ''
+  const netLine = hasMetaChannel
+    ? `<div class="field"><div class="field-label">Investimento Líquido (após −13% Meta)</div><div class="field-value purple" style="font-size:20px">${fmtBRL(netTotal)}</div></div>`
+    : `<div class="field"><div class="field-label">Orçamento Total</div><div class="field-value purple" style="font-size:20px">${fmtBRL(totalBudget)}</div></div>`
+
   const body = `
     <section>
       <div class="section-title">📅 Resumo do Orçamento</div>
       <div class="grid grid-3">
-        <div class="field"><div class="field-label">Orçamento Total Mensal</div><div class="field-value purple" style="font-size:20px">${fmtBRL(totalBudget)}</div></div>
-        <div class="field"><div class="field-label">Orçamento Diário Médio</div><div class="field-value">${fmtBRL(totalBudget / daysLeft)}</div></div>
-        <div class="field"><div class="field-label">Referência</div><div class="field-value" style="font-size:12px;text-transform:capitalize">${monthLabel} · ${daysLeft} dias restantes</div></div>
+        ${netLine}
+        <div class="field"><div class="field-label">Orçamento Diário Médio</div><div class="field-value">${fmtBRL(netTotal / daysLeft)}</div></div>
+        <div class="field"><div class="field-label">Período</div><div class="field-value" style="font-size:12px">${periodLabel} · ${daysLeft} ${daysLeft === 1 ? 'dia' : 'dias'}</div></div>
       </div>
+      ${hasMetaChannel ? `<div style="margin-top:8px">${grossLine}</div>` : ''}
     </section>
     <section>
       <div class="section-title">📊 Distribuição por Canal, Funil e Campanhas</div>
