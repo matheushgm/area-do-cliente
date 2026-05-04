@@ -825,6 +825,7 @@ export default function Dashboard() {
   const [squadFilter, setSquadFilter] = useState('all') // 'all' | squadId
   const [riskFilter, setRiskFilter] = useState('all') // 'all' | 'em_risco' | 'neutro' | 'saudavel'
   const [momentoFilter, setMomentoFilter] = useState('all') // 'all' | momento value
+  const [phase90Filter, setPhase90Filter] = useState(false) // toggle: clientes com createdAt < 90d
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [view, setView] = useState(() => localStorage.getItem('rl_dashboard_view') || 'grid')
@@ -863,6 +864,13 @@ export default function Dashboard() {
     if (riskFilter    !== 'all')      result = result.filter(p => p.riskLevel === riskFilter)
     if (momentoFilter !== 'all')      result = result.filter(p => p.momento === momentoFilter)
     else if (filter !== 'churn')      result = result.filter(p => p.momento !== 'churn')
+    if (phase90Filter) {
+      const cutoff = Date.now() - 90 * 86400000
+      result = result.filter(p => {
+        const created = p.createdAt ? new Date(p.createdAt).getTime() : 0
+        return created >= cutoff
+      })
+    }
     return result
   })()
 
@@ -1290,6 +1298,27 @@ export default function Dashboard() {
 
               {/* Momento filter dropdown */}
               <MomentoDropdown momentoFilter={momentoFilter} setMomentoFilter={setMomentoFilter} counts={counts} />
+
+              {/* Filtro: Onboarding (90 dias) — toggle */}
+              <button
+                onClick={() => setPhase90Filter((v) => !v)}
+                title="Mostrar apenas clientes criados há menos de 90 dias"
+                className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
+                  phase90Filter
+                    ? 'bg-orange-400/10 border-orange-400/40 text-orange-400'
+                    : 'bg-rl-surface border-rl-border text-rl-muted hover:border-orange-400/30 hover:text-orange-400'
+                }`}
+              >
+                <Clock className="w-4 h-4" />
+                <span className="hidden md:inline">Onboarding (90d)</span>
+                <span className="md:hidden">90d</span>
+                {phase90Filter && (
+                  <X
+                    className="w-3.5 h-3.5 opacity-70 hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); setPhase90Filter(false) }}
+                  />
+                )}
+              </button>
 
               {/* Dashboard de Squads — relatório por squad (acesso restrito) */}
               {canViewSquadsReport(user) && (
