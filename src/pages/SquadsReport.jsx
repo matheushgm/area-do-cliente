@@ -42,9 +42,10 @@ function SummaryCard({ icon: Icon, label, value, valueClass = 'text-rl-text', su
 function SquadCard({ squad, colorIndex, projects, year, month, monthLabel, onSaveCost, isAdmin }) {
   const c = SQUAD_COLORS[colorIndex % SQUAD_COLORS.length]
 
-  const activeClients = projects.filter(p =>
-    String(p.squad) === String(squad.id) && p.momento !== 'churn'
-  )
+  // Projetos deste squad (qualquer status — usado pelos gráficos históricos)
+  const squadProjects = projects.filter(p => String(p.squad) === String(squad.id))
+
+  const activeClients = squadProjects.filter(p => p.momento !== 'churn')
   const totalContract = activeClients.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
   const totalMRR      = activeClients.reduce((acc, p) => acc + mrrValue(p), 0)
   const cost          = Number(squad.monthlyCost) || 0
@@ -52,12 +53,43 @@ function SquadCard({ squad, colorIndex, projects, year, month, monthLabel, onSav
   const marginPct     = totalMRR > 0 ? (margin / totalMRR) * 100 : 0
   const marginPositive = margin >= 0
 
-  const churned = projects.filter(p =>
-    String(p.squad) === String(squad.id) && isChurnedThisMonth(p, year, month)
-  )
+  const churned = squadProjects.filter(p => isChurnedThisMonth(p, year, month))
   const churnCount     = churned.length
   const churnMRR       = churned.reduce((acc, p) => acc + mrrValue(p), 0)
   const churnContract  = churned.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
+
+  // ── Dados dos 12 meses para os gráficos do squad ───────────────────────────
+  const monthsBuckets = buildLast12Months(year, month)
+
+  // Churn do squad por mês (MRR perdido + contagem)
+  const churnYearData = monthsBuckets.map((m) => {
+    const list = squadProjects.filter(p => isChurnedThisMonth(p, m.yyyy, m.mm))
+    return {
+      key: m.key,
+      label: m.label,
+      value: list.reduce((acc, p) => acc + mrrValue(p), 0),
+      count: list.length,
+      highlight: m.yyyy === year && m.mm === month,
+    }
+  })
+  const churnYearMax = Math.max(...churnYearData.map(d => d.value), 0)
+
+  // MRR gerenciado pelo squad por mês (clientes ativos no fim de cada mês)
+  const mrrYearData = monthsBuckets.map((m) => {
+    const activeAtEnd = squadProjects.filter(p => wasActiveAtEndOfMonth(p, m.yyyy, m.mm))
+    return {
+      key: m.key,
+      label: m.label,
+      value: activeAtEnd.reduce((acc, p) => acc + mrrValue(p), 0),
+      count: activeAtEnd.length,
+      highlight: m.yyyy === year && m.mm === month,
+    }
+  })
+  const mrrYearMax = Math.max(...mrrYearData.map(d => d.value), 0)
+  const lastMRR    = mrrYearData[mrrYearData.length - 1]?.value ?? 0
+  const prevMRR    = mrrYearData[mrrYearData.length - 2]?.value ?? 0
+  const mrrDelta   = lastMRR - prevMRR
+  const mrrDeltaPct = prevMRR > 0 ? (mrrDelta / prevMRR) * 100 : 0
 
   // Inline cost editor
   const [editing, setEditing] = useState(false)
@@ -212,6 +244,56 @@ function SquadCard({ squad, colorIndex, projects, year, month, monthLabel, onSav
             </div>
           </div>
         </div>
+
+        {/* Gráficos históricos do squad — 12 meses */}
+        <div className="border-t border-rl-border/60 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Churn ao longo do ano */}
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-1.5">
+                <TrendingDown className="w-3 h-3 text-red-400" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-red-400">Churn 12m</span>
+              </div>
+              <span className="text-[10px] text-rl-muted tabular-nums">
+                Total: {fmtCurrency(churnYearData.reduce((acc, d) => acc + d.value, 0))}
+              </span>
+            </div>
+            <BarChart
+              items={churnYearData}
+              maxValue={churnYearMax}
+              formatValue={fmtCurrency}
+              barColorClass="bg-red-400/30"
+              highlightColorClass="bg-red-400"
+              compact
+            />
+          </div>
+
+          {/* MRR gerenciado ao longo do ano */}
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-1.5">
+                <Activity className="w-3 h-3 text-rl-purple" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-purple">MRR 12m</span>
+              </div>
+              {prevMRR > 0 ? (
+                <span className={`text-[10px] tabular-nums font-semibold inline-flex items-center gap-0.5 ${mrrDelta >= 0 ? 'text-rl-green' : 'text-red-400'}`}>
+                  {mrrDelta >= 0 ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                  {mrrDelta >= 0 ? '+' : ''}{mrrDeltaPct.toFixed(1)}%
+                </span>
+              ) : (
+                <span className="text-[10px] text-rl-muted">—</span>
+              )}
+            </div>
+            <BarChart
+              items={mrrYearData}
+              maxValue={mrrYearMax}
+              formatValue={fmtCurrency}
+              barColorClass="bg-rl-purple/30"
+              highlightColorClass="bg-rl-purple"
+              compact
+            />
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -259,26 +341,28 @@ function wasActiveAtEndOfMonth(project, year, month) {
 
 // Gráfico de barras vertical simples (sem lib externa).
 // items: [{ key, label, value, count?, highlight? }], maxValue: número
-function BarChart({ items, maxValue, formatValue, barColorClass = 'bg-rl-purple', highlightColorClass = 'bg-red-400' }) {
+function BarChart({ items, maxValue, formatValue, barColorClass = 'bg-rl-purple', highlightColorClass = 'bg-red-400', compact = false }) {
   const safeMax = Math.max(maxValue, 1)
+  const barAreaH = compact ? 'h-16' : 'h-28'
+  const wrapperH = compact ? 'h-24' : 'h-40'
   return (
-    <div className="flex items-end justify-between gap-1.5 h-40">
+    <div className={`flex items-end justify-between gap-1 ${wrapperH}`}>
       {items.map((it) => {
         const heightPct = (it.value / safeMax) * 100
         const cls = it.highlight ? highlightColorClass : barColorClass
         return (
-          <div key={it.key} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-            <span className={`text-[10px] font-semibold tabular-nums ${it.value > 0 ? 'text-rl-text' : 'text-rl-muted'}`}>
+          <div key={it.key} className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
+            <span className={`text-[9px] font-semibold tabular-nums leading-tight ${it.value > 0 ? 'text-rl-text' : 'text-rl-muted'}`}>
               {it.count != null ? (it.count > 0 ? it.count : '—') : (it.value > 0 ? formatValue(it.value) : '—')}
             </span>
-            <div className="w-full flex items-end justify-center h-28">
+            <div className={`w-full flex items-end justify-center ${barAreaH}`}>
               <div
                 className={`w-full rounded-t transition-all ${cls}`}
                 style={{ height: it.value > 0 ? `${Math.max(heightPct, 4)}%` : '2px' }}
                 title={`${it.label}: ${formatValue(it.value)}${it.count != null ? ` · ${it.count} cliente${it.count === 1 ? '' : 's'}` : ''}`}
               />
             </div>
-            <span className="text-[10px] text-rl-muted truncate">{it.label}</span>
+            <span className="text-[9px] text-rl-muted truncate leading-tight">{it.label}</span>
           </div>
         )
       })}
@@ -307,44 +391,6 @@ export default function SquadsReport() {
 
   const churnedAll = projectsWithSquad.filter(p => isChurnedThisMonth(p, year, month))
   const totalChurnMRR = churnedAll.reduce((acc, p) => acc + mrrValue(p), 0)
-
-  // ── Dados dos gráficos: últimos 12 meses ────────────────────────────────────
-  const monthsBuckets = buildLast12Months(year, month)
-
-  // Gráfico 1: Churn ao longo do ano — agregado entre TODOS os squads.
-  const churnYearData = monthsBuckets.map((m) => {
-    const list = projectsWithSquad.filter(p => isChurnedThisMonth(p, m.yyyy, m.mm))
-    const value = list.reduce((acc, p) => acc + mrrValue(p), 0)
-    return {
-      key: m.key,
-      label: m.label,
-      value,
-      count: list.length,
-      highlight: m.yyyy === year && m.mm === month,
-    }
-  })
-  const churnYearMax = Math.max(...churnYearData.map(d => d.value), 0)
-
-  // Gráfico 2: Variação do MRR gerenciado pelos squads — soma do MRR dos
-  // clientes ativos no fim de cada mês (todos os squads consolidados).
-  const mrrYearData = monthsBuckets.map((m) => {
-    const activeAtEnd = projectsWithSquad.filter(p => wasActiveAtEndOfMonth(p, m.yyyy, m.mm))
-    const value = activeAtEnd.reduce((acc, p) => acc + mrrValue(p), 0)
-    return {
-      key: m.key,
-      label: m.label,
-      value,
-      count: activeAtEnd.length,
-      highlight: m.yyyy === year && m.mm === month,
-    }
-  })
-  const mrrYearMax = Math.max(...mrrYearData.map(d => d.value), 0)
-
-  // Variação MRR mês-a-mês (delta entre último e penúltimo mês)
-  const lastMRR  = mrrYearData[mrrYearData.length - 1]?.value ?? 0
-  const prevMRR  = mrrYearData[mrrYearData.length - 2]?.value ?? 0
-  const mrrDelta = lastMRR - prevMRR
-  const mrrDeltaPct = prevMRR > 0 ? (mrrDelta / prevMRR) * 100 : 0
 
   async function handleSaveCost(squad, newCost) {
     const res = await updateSquad(squad.id, {
@@ -426,79 +472,6 @@ export default function SquadsReport() {
           </div>
         )}
 
-        {/* ── Gráficos históricos (últimos 12 meses) ──────────────────────────── */}
-        {squads.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-slide-up" style={{ animationDelay: '0.15s' }}>
-            {/* Churn ao longo do ano */}
-            <div className="glass-card p-5">
-              <div className="flex items-start justify-between gap-3 mb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <TrendingDown className="w-4 h-4 text-red-400" />
-                    <h3 className="text-sm font-bold text-rl-text">Churn ao longo do ano</h3>
-                  </div>
-                  <p className="text-[11px] text-rl-muted mt-0.5">
-                    MRR perdido por mês · contagem de clientes acima de cada barra
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">Total 12m</p>
-                  <p className="text-sm font-bold text-red-400 tabular-nums">
-                    {fmtCurrency(churnYearData.reduce((acc, d) => acc + d.value, 0))}
-                  </p>
-                </div>
-              </div>
-              <BarChart
-                items={churnYearData}
-                maxValue={churnYearMax}
-                formatValue={fmtCurrency}
-                barColorClass="bg-red-400/30"
-                highlightColorClass="bg-red-400"
-              />
-              <div className="flex items-center gap-3 mt-3 text-[10px] text-rl-muted">
-                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-400" />Mês corrente</span>
-                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-400/30" />Outros meses</span>
-              </div>
-            </div>
-
-            {/* Variação do MRR gerenciado */}
-            <div className="glass-card p-5">
-              <div className="flex items-start justify-between gap-3 mb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-rl-purple" />
-                    <h3 className="text-sm font-bold text-rl-text">MRR gerenciado pelos squads</h3>
-                  </div>
-                  <p className="text-[11px] text-rl-muted mt-0.5">
-                    Total ativo no fim de cada mês · contagem de clientes acima
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">Var. mês a mês</p>
-                  {prevMRR > 0 ? (
-                    <p className={`text-sm font-bold tabular-nums inline-flex items-center gap-1 ${mrrDelta >= 0 ? 'text-rl-green' : 'text-red-400'}`}>
-                      {mrrDelta >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                      {mrrDelta >= 0 ? '+' : ''}{fmtCurrency(mrrDelta)} ({mrrDeltaPct >= 0 ? '+' : ''}{mrrDeltaPct.toFixed(1)}%)
-                    </p>
-                  ) : (
-                    <p className="text-sm font-bold text-rl-muted">—</p>
-                  )}
-                </div>
-              </div>
-              <BarChart
-                items={mrrYearData}
-                maxValue={mrrYearMax}
-                formatValue={fmtCurrency}
-                barColorClass="bg-rl-purple/30"
-                highlightColorClass="bg-rl-purple"
-              />
-              <div className="flex items-center gap-3 mt-3 text-[10px] text-rl-muted">
-                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-rl-purple" />Mês corrente</span>
-                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-rl-purple/30" />Outros meses</span>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
 
       <Toast toast={toast} />
