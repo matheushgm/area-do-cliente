@@ -26,14 +26,26 @@ function _parseDateMillis(iso) {
   return isNaN(t) ? NaN : t
 }
 
-// LTV histórico de um cliente: MRR × meses entre data de assinatura e
+// Resolve a data de início do ciclo: contractDate se preenchida,
+// senão createdAt como fallback. Retorna { startTime, source } onde
+// source é 'contract' | 'created' | null.
+function _resolveStart(project) {
+  if (!project) return { startTime: NaN, source: null }
+  const fromContract = _parseDateMillis(project.contractDate)
+  if (!isNaN(fromContract)) return { startTime: fromContract, source: 'contract' }
+  const fromCreated = _parseDateMillis(project.createdAt)
+  if (!isNaN(fromCreated)) return { startTime: fromCreated, source: 'created' }
+  return { startTime: NaN, source: null }
+}
+
+// LTV histórico de um cliente: MRR × meses entre o início do ciclo e
 // (a) churnDate, se o cliente já saiu; (b) hoje, caso contrário.
-// Retorna 0 quando não há contractDate ou os cálculos resultarem inválidos.
+// Início do ciclo: contractDate (preferencial) → createdAt (fallback).
+// Retorna 0 quando não há nenhuma data válida.
 export function calcLTV(project) {
-  if (!project) return 0
-  const startTime = _parseDateMillis(project.contractDate)
+  const { startTime } = _resolveStart(project)
   if (isNaN(startTime)) return 0
-  const isChurned = project.momento === 'churn' && project.churnDate
+  const isChurned = project?.momento === 'churn' && project?.churnDate
   const endTime = isChurned ? _parseDateMillis(project.churnDate) : Date.now()
   if (isNaN(endTime) || endTime < startTime) return 0
   const months = (endTime - startTime) / 86400000 / 30.4375 // média de dias por mês
@@ -44,13 +56,19 @@ export function calcLTV(project) {
 // Meses ativos do contrato (mesma janela usada no calcLTV) — útil pra exibir
 // "MRR × N meses" no perfil.
 export function activeMonths(project) {
-  if (!project) return 0
-  const startTime = _parseDateMillis(project.contractDate)
+  const { startTime } = _resolveStart(project)
   if (isNaN(startTime)) return 0
-  const isChurned = project.momento === 'churn' && project.churnDate
+  const isChurned = project?.momento === 'churn' && project?.churnDate
   const endTime = isChurned ? _parseDateMillis(project.churnDate) : Date.now()
   if (isNaN(endTime) || endTime < startTime) return 0
   return (endTime - startTime) / 86400000 / 30.4375
+}
+
+// Indica se o LTV foi calculado a partir de contractDate ou createdAt.
+// Usado para mostrar aviso na UI quando o time ainda não preencheu a
+// data de assinatura.
+export function ltvStartSource(project) {
+  return _resolveStart(project).source
 }
 
 // Lista de e-mails autorizados a ver o relatório /squads-report.

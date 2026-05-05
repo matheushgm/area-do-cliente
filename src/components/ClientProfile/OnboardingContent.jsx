@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Pencil, FileDown, TrendingUp, Activity } from 'lucide-react'
-import { fmtCurrency, calcLTV, activeMonths, mrrValue } from '../../lib/utils'
+import { fmtCurrency, calcLTV, activeMonths, mrrValue, ltvStartSource } from '../../lib/utils'
 import { exportOnboardingPDF } from '../../utils/exportPDF'
 import {
   SERVICES_CONFIG, BUSINESS_LABELS, MATURITY_LABELS,
@@ -88,29 +88,46 @@ export default function OnboardingContent({ project, onSave }) {
         </div>
       )}
 
-      {/* LTV — só renderiza com contractDate + contractValue válidos */}
+      {/* LTV — usa contractDate quando disponível, senão createdAt como fallback */}
       {(() => {
-        if (!project.contractDate || !(Number(project.contractValue) || 0)) return null
+        if (!(Number(project.contractValue) || 0)) return null
         const ltv    = calcLTV(project)
         const months = activeMonths(project)
         const mrr    = mrrValue(project)
         if (ltv <= 0) return null
-        const isChurned   = project.momento === 'churn' && project.churnDate
-        const fmtMonths   = months >= 1 ? `${months.toFixed(1)} ${months < 2 ? 'mês' : 'meses'}` : `${Math.max(1, Math.round(months * 30))} dia${Math.round(months * 30) === 1 ? '' : 's'}`
-        const startStr    = new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')
-        const endStr      = isChurned
+        const isChurned = project.momento === 'churn' && project.churnDate
+        const source    = ltvStartSource(project)
+        const isEstimated = source === 'created'
+        const fmtMonths = months >= 1 ? `${months.toFixed(1)} ${months < 2 ? 'mês' : 'meses'}` : `${Math.max(1, Math.round(months * 30))} dia${Math.round(months * 30) === 1 ? '' : 's'}`
+        const startISO  = source === 'contract' ? project.contractDate : project.createdAt
+        const startStr  = source === 'contract'
+          ? new Date(startISO + 'T00:00:00').toLocaleDateString('pt-BR')
+          : new Date(startISO).toLocaleDateString('pt-BR')
+        const endStr    = isChurned
           ? new Date(project.churnDate + 'T00:00:00').toLocaleDateString('pt-BR')
           : 'hoje'
 
         return (
           <div>
             <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">💎 LTV (Lifetime Value)</p>
+
+            {isEstimated && (
+              <div className="mb-3 px-3 py-2 rounded-xl border border-rl-gold/30 bg-rl-gold/5 flex items-start gap-2">
+                <span className="text-rl-gold text-sm leading-none mt-0.5">⚠️</span>
+                <p className="text-[11px] text-rl-gold leading-snug">
+                  <span className="font-bold">Valor estimado.</span> A Data de Assinatura ainda não foi preenchida — o cálculo está usando a data de cadastro do cliente como início do ciclo. Edite os dados do cliente pra obter um LTV preciso.
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Card principal — LTV em destaque */}
-              <div className="rounded-xl border border-rl-purple/30 bg-rl-purple/5 p-4 sm:col-span-1">
+              <div className={`rounded-xl border p-4 sm:col-span-1 ${isEstimated ? 'border-rl-gold/30 bg-rl-gold/5' : 'border-rl-purple/30 bg-rl-purple/5'}`}>
                 <div className="flex items-center gap-1.5 mb-1">
-                  <TrendingUp className="w-3.5 h-3.5 text-rl-purple" />
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-rl-purple">LTV Acumulado</p>
+                  <TrendingUp className={`w-3.5 h-3.5 ${isEstimated ? 'text-rl-gold' : 'text-rl-purple'}`} />
+                  <p className={`text-[10px] font-bold uppercase tracking-wider ${isEstimated ? 'text-rl-gold' : 'text-rl-purple'}`}>
+                    LTV Acumulado{isEstimated ? ' (estimado)' : ''}
+                  </p>
                 </div>
                 <p className="text-2xl font-bold text-rl-text leading-tight tabular-nums">{fmtCurrency(ltv)}</p>
                 {isChurned && (
@@ -125,7 +142,9 @@ export default function OnboardingContent({ project, onSave }) {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">Tempo Ativo</p>
                 </div>
                 <p className="text-lg font-bold text-rl-text leading-tight">{fmtMonths}</p>
-                <p className="text-[10px] text-rl-muted mt-0.5">{startStr} → {endStr}</p>
+                <p className="text-[10px] text-rl-muted mt-0.5">
+                  {isEstimated ? 'cadastrado' : 'assinado'} {startStr} → {endStr}
+                </p>
               </div>
 
               {/* MRR usado no cálculo */}
