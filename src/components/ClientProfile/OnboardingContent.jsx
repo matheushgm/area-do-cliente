@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Pencil, FileDown } from 'lucide-react'
-import { fmtCurrency } from '../../lib/utils'
+import { Pencil, FileDown, TrendingUp, Activity } from 'lucide-react'
+import { fmtCurrency, calcLTV, activeMonths, mrrValue } from '../../lib/utils'
 import { exportOnboardingPDF } from '../../utils/exportPDF'
 import {
   SERVICES_CONFIG, BUSINESS_LABELS, MATURITY_LABELS,
@@ -87,6 +87,59 @@ export default function OnboardingContent({ project, onSave }) {
           </div>
         </div>
       )}
+
+      {/* LTV — só renderiza com contractDate + contractValue válidos */}
+      {(() => {
+        if (!project.contractDate || !(Number(project.contractValue) || 0)) return null
+        const ltv    = calcLTV(project)
+        const months = activeMonths(project)
+        const mrr    = mrrValue(project)
+        if (ltv <= 0) return null
+        const isChurned   = project.momento === 'churn' && project.churnDate
+        const fmtMonths   = months >= 1 ? `${months.toFixed(1)} ${months < 2 ? 'mês' : 'meses'}` : `${Math.max(1, Math.round(months * 30))} dia${Math.round(months * 30) === 1 ? '' : 's'}`
+        const startStr    = new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')
+        const endStr      = isChurned
+          ? new Date(project.churnDate + 'T00:00:00').toLocaleDateString('pt-BR')
+          : 'hoje'
+
+        return (
+          <div>
+            <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">💎 LTV (Lifetime Value)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Card principal — LTV em destaque */}
+              <div className="rounded-xl border border-rl-purple/30 bg-rl-purple/5 p-4 sm:col-span-1">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <TrendingUp className="w-3.5 h-3.5 text-rl-purple" />
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-rl-purple">LTV Acumulado</p>
+                </div>
+                <p className="text-2xl font-bold text-rl-text leading-tight tabular-nums">{fmtCurrency(ltv)}</p>
+                {isChurned && (
+                  <p className="text-[10px] text-red-400 font-semibold mt-1">· valor final (cliente em churn)</p>
+                )}
+              </div>
+
+              {/* Tempo ativo */}
+              <div className="rounded-xl bg-rl-surface p-4">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Activity className="w-3.5 h-3.5 text-rl-cyan" />
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">Tempo Ativo</p>
+                </div>
+                <p className="text-lg font-bold text-rl-text leading-tight">{fmtMonths}</p>
+                <p className="text-[10px] text-rl-muted mt-0.5">{startStr} → {endStr}</p>
+              </div>
+
+              {/* MRR usado no cálculo */}
+              <div className="rounded-xl bg-rl-surface p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted mb-1">MRR (base do cálculo)</p>
+                <p className="text-lg font-bold text-rl-text leading-tight">{fmtCurrency(mrr)}</p>
+                <p className="text-[10px] text-rl-muted mt-0.5">
+                  {fmtCurrency(mrr)} × {months.toFixed(1)} {months < 2 ? 'mês' : 'meses'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Produto (backward compat — only show if exists) */}
       {project.productDescription && (
