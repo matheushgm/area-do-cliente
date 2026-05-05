@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Pencil, FileDown, TrendingUp, Activity } from 'lucide-react'
-import { fmtCurrency, calcLTV, activeMonths, mrrValue, ltvStartSource } from '../../lib/utils'
+import { fmtCurrency, ltvBreakdown, activeMonths } from '../../lib/utils'
 import { exportOnboardingPDF } from '../../utils/exportPDF'
 import {
   SERVICES_CONFIG, BUSINESS_LABELS, MATURITY_LABELS,
@@ -90,22 +90,35 @@ export default function OnboardingContent({ project, onSave }) {
 
       {/* LTV — usa contractDate quando disponível, senão createdAt como fallback */}
       {(() => {
-        if (!(Number(project.contractValue) || 0)) return null
-        const ltv    = calcLTV(project)
-        const months = activeMonths(project)
-        const mrr    = mrrValue(project)
-        if (ltv <= 0) return null
-        const isChurned = project.momento === 'churn' && project.churnDate
-        const source    = ltvStartSource(project)
-        const isEstimated = source === 'created'
-        const fmtMonths = months >= 1 ? `${months.toFixed(1)} ${months < 2 ? 'mês' : 'meses'}` : `${Math.max(1, Math.round(months * 30))} dia${Math.round(months * 30) === 1 ? '' : 's'}`
-        const startISO  = source === 'contract' ? project.contractDate : project.createdAt
-        const startStr  = source === 'contract'
+        const breakdown = ltvBreakdown(project)
+        if (!breakdown || breakdown.ltv <= 0) return null
+
+        const months      = activeMonths(project)
+        const isEstimated = breakdown.source === 'created'
+        const fmtMonths   = months >= 1
+          ? `${months.toFixed(1)} ${months < 2 ? 'mês' : 'meses'}`
+          : `${Math.max(1, Math.round(months * 30))} dia${Math.round(months * 30) === 1 ? '' : 's'}`
+        const startISO    = breakdown.source === 'contract' ? project.contractDate : project.createdAt
+        const startStr    = breakdown.source === 'contract'
           ? new Date(startISO + 'T00:00:00').toLocaleDateString('pt-BR')
           : new Date(startISO).toLocaleDateString('pt-BR')
-        const endStr    = isChurned
+        const endStr      = breakdown.isChurned
           ? new Date(project.churnDate + 'T00:00:00').toLocaleDateString('pt-BR')
           : 'hoje'
+
+        // Texto pra explicar a fórmula no card "Como é calculado"
+        let formulaTitle  = ''
+        let formulaDetail = ''
+        if (breakdown.kind === 'unico') {
+          formulaTitle  = 'Pagamento único'
+          formulaDetail = `${fmtCurrency(breakdown.installmentValue)} pago integral no início do contrato`
+        } else if (breakdown.kind === 'aceleracao_parcelado') {
+          formulaTitle  = `Parcela ${breakdown.cobrancas} de ${breakdown.installments}`
+          formulaDetail = `${breakdown.cobrancas} × ${fmtCurrency(breakdown.installmentValue)}`
+        } else {
+          formulaTitle  = `${breakdown.cobrancas} ${breakdown.cobrancas === 1 ? 'cobrança' : 'cobranças'}`
+          formulaDetail = `${breakdown.cobrancas} × ${fmtCurrency(breakdown.installmentValue)} (mensal)`
+        }
 
         return (
           <div>
@@ -129,8 +142,8 @@ export default function OnboardingContent({ project, onSave }) {
                     LTV Acumulado{isEstimated ? ' (estimado)' : ''}
                   </p>
                 </div>
-                <p className="text-2xl font-bold text-rl-text leading-tight tabular-nums">{fmtCurrency(ltv)}</p>
-                {isChurned && (
+                <p className="text-2xl font-bold text-rl-text leading-tight tabular-nums">{fmtCurrency(breakdown.ltv)}</p>
+                {breakdown.isChurned && (
                   <p className="text-[10px] text-red-400 font-semibold mt-1">· valor final (cliente em churn)</p>
                 )}
               </div>
@@ -147,13 +160,11 @@ export default function OnboardingContent({ project, onSave }) {
                 </p>
               </div>
 
-              {/* MRR usado no cálculo */}
+              {/* Fórmula do cálculo */}
               <div className="rounded-xl bg-rl-surface p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted mb-1">MRR (base do cálculo)</p>
-                <p className="text-lg font-bold text-rl-text leading-tight">{fmtCurrency(mrr)}</p>
-                <p className="text-[10px] text-rl-muted mt-0.5">
-                  {fmtCurrency(mrr)} × {months.toFixed(1)} {months < 2 ? 'mês' : 'meses'}
-                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted mb-1">Como é calculado</p>
+                <p className="text-lg font-bold text-rl-text leading-tight">{formulaTitle}</p>
+                <p className="text-[10px] text-rl-muted mt-0.5 tabular-nums">{formulaDetail}</p>
               </div>
             </div>
           </div>

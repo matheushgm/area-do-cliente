@@ -38,29 +38,97 @@ function _resolveStart(project) {
   return { startTime: NaN, source: null }
 }
 
-// LTV histórico de um cliente: MRR × meses entre o início do ciclo e
-// (a) churnDate, se o cliente já saiu; (b) hoje, caso contrário.
-// Início do ciclo: contractDate (preferencial) → createdAt (fallback).
-// Retorna 0 quando não há nenhuma data válida.
-export function calcLTV(project) {
-  const { startTime } = _resolveStart(project)
-  if (isNaN(startTime)) return 0
-  const isChurned = project?.momento === 'churn' && project?.churnDate
+// Resolve as duas pontas da janela do contrato (startTime + endTime).
+function _resolveWindow(project) {
+  const { startTime, source } = _resolveStart(project)
+  if (isNaN(startTime)) return { startTime: NaN, endTime: NaN, source: null, isChurned: false }
+  const isChurned = project?.momento === 'churn' && !!project?.churnDate
   const endTime = isChurned ? _parseDateMillis(project.churnDate) : Date.now()
-  if (isNaN(endTime) || endTime < startTime) return 0
-  const months = (endTime - startTime) / 86400000 / 30.4375 // média de dias por mês
-  const mrr = mrrValue(project)
-  return mrr * months
+  if (isNaN(endTime) || endTime < startTime) return { startTime: NaN, endTime: NaN, source, isChurned }
+  return { startTime, endTime, source, isChurned }
 }
 
-// Meses ativos do contrato (mesma janela usada no calcLTV) — útil pra exibir
-// "MRR × N meses" no perfil.
+// Detalhamento do LTV — informa o tipo de cobrança, número de parcelas
+// pagas, valor de cada parcela e o LTV total. Usado pela UI para mostrar
+// a fórmula correta ("2 cobranças × R$ X" / "Pagamento à vista" / etc).
+export function ltvBreakdown(project) {
+  if (!project) return null
+  const totalContract = Number(project.contractValue) || 0
+  if (totalContract <= 0) return null
+
+  const { startTime, endTime, source, isChurned } = _resolveWindow(project)
+  if (isNaN(startTime)) return null
+
+  const isAceleracao   = project.contractModel === 'aceleracao'
+  const isUnico        = project.contractPaymentType === 'unico'
+  const days           = (endTime - startTime) / 86400000
+
+  // ── Programa de Aceleração + Valor Único: cliente paga integral no início.
+  if (isAceleracao && isUnico) {
+    return {
+      kind: 'unico',
+      source,
+      isChurned,
+      ltv: totalContract,
+      installmentValue: totalContract,
+      cobrancas: 1,
+      installments: 1,
+      label: 'Pagamento integral à vista',
+      explainFormula: '1 pagamento único',
+    }
+  }
+
+  // Modelo mensal de cobrança: cada 30 dias = nova cobrança.
+  // Mês 1 cobrado no dia 0 (assinatura).
+  const cobrancasNominais = Math.max(1, Math.floor(days / 30) + 1)
+
+  // ── Programa de Aceleração + Parcelado (3x).
+  if (isAceleracao) {
+    const cap              = 3
+    const cobrancas        = Math.min(cobrancasNominais, cap)
+    const installmentValue = totalContract / cap
+    return {
+      kind: 'aceleracao_parcelado',
+      source,
+      isChurned,
+      ltv: cobrancas * installmentValue,
+      installmentValue,
+      cobrancas,
+      installments: cap,
+      label: `Parcela ${cobrancas} de ${cap}`,
+      explainFormula: `${cobrancas} de ${cap} parcelas`,
+    }
+  }
+
+  // ── Assessoria Mensal: cobrança recorrente sem cap.
+  return {
+    kind: 'assessoria',
+    source,
+    isChurned,
+    ltv: cobrancasNominais * totalContract,
+    installmentValue: totalContract,
+    cobrancas: cobrancasNominais,
+    installments: null, // sem cap
+    label: `${cobrancasNominais} ${cobrancasNominais === 1 ? 'cobrança mensal' : 'cobranças mensais'}`,
+    explainFormula: `${cobrancasNominais} ${cobrancasNominais === 1 ? 'cobrança' : 'cobranças'}`,
+  }
+}
+
+// LTV total do cliente: soma de tudo que ele pagou desde o início do contrato
+// até hoje (ou até a churnDate, se já saiu). Considera o modelo de contrato:
+// - aceleracao + unico:    contractValue (pago integral no início)
+// - aceleracao + mensal:   min(meses, 3) × (contractValue / 3)
+// - assessoria:            meses × contractValue (sem cap)
+// Início do ciclo: contractDate → createdAt como fallback.
+export function calcLTV(project) {
+  return ltvBreakdown(project)?.ltv ?? 0
+}
+
+// Meses ativos do contrato — duração contínua, usada apenas para o label
+// descritivo "X meses ativos" no UI (não impacta o LTV).
 export function activeMonths(project) {
-  const { startTime } = _resolveStart(project)
+  const { startTime, endTime } = _resolveWindow(project)
   if (isNaN(startTime)) return 0
-  const isChurned = project?.momento === 'churn' && project?.churnDate
-  const endTime = isChurned ? _parseDateMillis(project.churnDate) : Date.now()
-  if (isNaN(endTime) || endTime < startTime) return 0
   return (endTime - startTime) / 86400000 / 30.4375
 }
 
