@@ -181,11 +181,13 @@ export default async function handler(req) {
       return jsonErr('ClickUp não retornou folder válido.', 502, { folder })
     }
 
-    // 2) Criar lista a partir do template (cria a lista vazia primeiro;
-    //    o ClickUp Templates API aceita esse padrão de criação).
+    // 2) Criar lista a partir do template. return_immediately:false força o
+    //    ClickUp a aguardar a popularização completa antes de responder, o
+    //    que reduz a latência percebida nos retries seguintes (alguns
+    //    templates demoram >10s para popular tarefas).
     const list = await clickup('POST', `/folder/${folder.id}/list_template/${templateId}`, token, {
       name: 'ONBOARDING (LISTA GERAL)',
-      return_immediately: true,
+      return_immediately: false,
     })
     // O endpoint pode retornar a lista direto OU um objeto com list dentro;
     // tentamos ambos os formatos.
@@ -194,15 +196,16 @@ export default async function handler(req) {
       return jsonErr('ClickUp não retornou list válido.', 502, { list })
     }
 
-    // 3) Buscar tasks da lista recém-criada para deslocar as datas.
-    //    O template pode levar alguns segundos pra popular; tentamos até 3x.
+    // 3) Buscar tasks da lista recém-criada. Mesmo com return_immediately:false,
+    //    em alguns casos as tarefas ainda demoram a aparecer — fazemos retries
+    //    até 30s no total para cobrir templates grandes.
     let tasks = []
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 15; i++) {
       const r = await clickup('GET', `/list/${listId}/task?subtasks=true&include_closed=true`, token)
       tasks = r?.tasks || []
       if (tasks.length > 0) break
-      // espera 1s antes do próximo retry
-      await new Promise((res) => setTimeout(res, 1000))
+      // espera 2s antes do próximo retry (15 × 2s = 30s no pior caso)
+      await new Promise((res) => setTimeout(res, 2000))
     }
 
     // 4) Calcular offset: encontrar menor due_date entre as tarefas
