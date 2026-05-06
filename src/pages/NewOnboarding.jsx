@@ -874,8 +874,8 @@ export default function NewOnboarding() {
                                 : `${c.bg} ${c.border} hover:${c.activeBorder}`
                             }`}
                           >
-                            {/* Badge de recomendação no canto */}
-                            {recommended && !selected && (
+                            {/* Badge de recomendação no canto — fica visível mesmo selecionado */}
+                            {recommended && (
                               <span className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rl-green text-white shadow-sm">
                                 ★ Recomendado
                               </span>
