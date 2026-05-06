@@ -221,9 +221,23 @@ export default async function handler(req) {
     const minDue   = dueMillisList.length > 0 ? Math.min(...dueMillisList) : null
     const offsetMs = minDue !== null ? refMillis - minDue : 0
 
-    // 5) Atualizar cada tarefa: deslocar datas + substituir assignees.
-    //    Atribui responsáveis com base no campo "Departamento" da tarefa
-    //    (override) ou usa assigneeIds genérico como fallback.
+    // 5) Atualizar cada tarefa: deslocar datas. A atribuição automática
+    //    de responsáveis foi DESATIVADA porque a maioria dos membros do
+    //    workspace está como 'guest' no ClickUp e tokens pessoais (pk_)
+    //    não conseguem atribuir guests (retorna OAUTH_023).
+    //    O campo 'Departamento' continua preservado em cada tarefa,
+    //    permitindo que o time atribua manualmente ao abrir cada uma.
+    //
+    //    Para reativar a atribuição automática:
+    //    a) promover os guests para 'member' no ClickUp, OU
+    //    b) migrar a integração pra OAuth app (token completo).
+    //
+    //    O parâmetro `departmentToClickupId` ainda é aceito pelo endpoint
+    //    e a lógica de resolveAssigneesForTask continua disponível para
+    //    quando uma das soluções acima for adotada (basta reativar abaixo).
+    const _suppressUnusedWarning = { departmentToClickupId, assigneeIds, CLIENTE_USER_ID, resolveAssigneesForTask } // eslint-disable-line no-unused-vars
+    void _suppressUnusedWarning
+
     const updates = await Promise.allSettled(
       tasks.map(async (t) => {
         const patch = {}
@@ -234,19 +248,6 @@ export default async function handler(req) {
         if (Number.isFinite(Number(t.start_date)) && Number(t.start_date) > 0) {
           patch.start_date = Number(t.start_date) + offsetMs
           patch.start_date_time = false
-        }
-
-        // Resolve quem assumir essa tarefa: prioriza departamento se houver.
-        const targetAssignees = resolveAssigneesForTask(t, departmentToClickupId, assigneeIds)
-        if (targetAssignees.length > 0) {
-          const currentIds = (t.assignees || [])
-            .map((a) => Number(a?.id))
-            .filter((n) => Number.isFinite(n) && n > 0)
-          const toRemove = currentIds.filter((id) => id !== CLIENTE_USER_ID && !targetAssignees.includes(id))
-          const toAdd    = targetAssignees.filter((id) => !currentIds.includes(id))
-          if (toRemove.length > 0 || toAdd.length > 0) {
-            patch.assignees = { add: toAdd, rem: toRemove }
-          }
         }
 
         if (Object.keys(patch).length === 0) return null
