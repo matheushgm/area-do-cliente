@@ -857,6 +857,7 @@ export function AppProvider({ children }) {
         services_data:         data.services_data         ?? data.servicesData         ?? null,
         raio_x_file_url:       data.raio_x_file_url       ?? data.raioXFileName        ?? null,
         sla_file_url:          data.sla_file_url          ?? data.slaFileName          ?? null,
+        squad:                 data.squad                 ?? null,
         account_id:            user?.id,
         status:                "onboarding",
         completed_steps:       [],
