@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { SQUAD_COLORS } from '../lib/constants'
 import { initials } from '../lib/utils'
+import { listClickUpMembers } from '../lib/clickup'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
 import Modal from '../components/UI/Modal'
@@ -517,17 +518,32 @@ export default function UserManagement() {
   // Carrega lista de membros do ClickUp sob demanda na primeira vez que
   // um modal de edição for aberto (cache no estado do componente).
   useEffect(() => {
-    if (!editTarget || clickupMembersLoaded || loadingClickupMembers) return
+    if (!editTarget || clickupMembersLoaded) return
     let cancelled = false
     setLoadingClickupMembers(true)
-    import('../lib/clickup').then(({ listClickUpMembers }) => listClickUpMembers()).then((res) => {
-      if (cancelled) return
-      if (res.ok) setClickupMembers(res.members)
-      setClickupMembersLoaded(true)
-      setLoadingClickupMembers(false)
-    })
+    listClickUpMembers()
+      .then((res) => {
+        if (cancelled) return
+        if (res.ok) {
+          setClickupMembers(res.members)
+        } else {
+          console.error('[ClickUp] erro ao listar membros:', res.error)
+          showToast('Não foi possível carregar membros do ClickUp', 'error')
+        }
+        setClickupMembersLoaded(true)
+      })
+      .catch((e) => {
+        if (cancelled) return
+        console.error('[ClickUp] erro inesperado:', e)
+        setClickupMembersLoaded(true)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingClickupMembers(false)
+      })
     return () => { cancelled = true }
-  }, [editTarget, clickupMembersLoaded, loadingClickupMembers])
+    // showToast é estável (vem de useToast); não precisa do loadingClickupMembers nas deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editTarget, clickupMembersLoaded])
 
   async function handleCreate(form) {
     setSaving(true)
