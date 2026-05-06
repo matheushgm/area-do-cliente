@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { SERVICES_CONFIG, SEGMENTOS } from '../lib/constants'
 import { fmtCurrency, mrrValue } from '../lib/utils'
 import { createClickUpClientFolder } from '../lib/clickup'
+import { notifyNewClient } from '../lib/slack'
 import {
   ArrowLeft, ArrowRight, Check, Zap, Building2, FileText,
   Briefcase, DollarSign, Users, Calendar, Plus, X, Upload,
@@ -294,7 +295,7 @@ const SQUAD_COLORS = [
 ]
 
 export default function NewOnboarding() {
-  const { addProject, updateProject, squads, projects, teamMembers } = useApp()
+  const { user, addProject, updateProject, squads, projects, teamMembers } = useApp()
   const navigate = useNavigate()
 
   const draft = loadDraft()
@@ -469,7 +470,7 @@ export default function NewOnboarding() {
         }
       }
 
-      createClickUpClientFolder({
+      const clickupPromise = createClickUpClientFolder({
         companyName: form.companyName,
         startDateISO: form.contractDate || null,
         assigneeIds,
@@ -482,11 +483,33 @@ export default function NewOnboarding() {
               clickup_list_id:   res.listId,
               clickup_list_url:  res.listUrl,
             })
+            return res
           } else {
             console.warn('[ClickUp] integração falhou:', res.error)
+            return null
           }
         })
-        .catch((e) => console.warn('[ClickUp] erro inesperado:', e))
+        .catch((e) => { console.warn('[ClickUp] erro inesperado:', e); return null })
+
+      // Notificação Slack — fail-soft. Espera o ClickUp pra incluir o link
+      // direto da lista na mensagem (quando der certo).
+      clickupPromise.then((clickupRes) => {
+        const projectUrl = `${window.location.origin}/project/${created.id}`
+        notifyNewClient({
+          companyName:     form.companyName,
+          responsibleName: form.responsibleName,
+          responsibleRole: form.responsibleRole,
+          contractValue:   parseCurrencyToNumber(form.contractValue),
+          contractModel:   form.contractModel,
+          contractDate:    form.contractDate,
+          squadName:       chosenSquad?.name || null,
+          createdByName:   user?.name || null,
+          projectUrl,
+          clickupUrl:      clickupRes?.listUrl || null,
+        }).then((res) => {
+          if (!res.ok) console.warn('[Slack] notificação falhou:', res.error)
+        }).catch((e) => console.warn('[Slack] erro inesperado:', e))
+      })
     } else {
       setStep(step + 1)
       setErrors({})
