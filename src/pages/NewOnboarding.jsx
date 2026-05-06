@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
@@ -316,6 +316,32 @@ export default function NewOnboarding() {
     setForm((f) => ({ ...f, [field]: value }))
     setErrors((e) => { const n = { ...e }; delete n[field]; return n })
   }, [])
+
+  // ── Recomendação de squad ─────────────────────────────────────────────────
+  // Calcula o squad com menor MRR sob gestão (em produção, ignora is_test).
+  // Auto-preenche form.squad ao chegar no step 4 se ainda não houver seleção,
+  // garantindo que mesmo um usuário que apenas avança o formulário tenha
+  // um squad atribuído (resolve casos onde o cadastro era salvo com squad=null).
+  const recommendedSquadId = useMemo(() => {
+    const productionSquads = squads.filter((sq) => !sq.isTest)
+    if (productionSquads.length === 0) return null
+    const stats = productionSquads.map((sq) => {
+      const sqProjects = projects.filter(
+        (p) => String(p.squad) === String(sq.id) && p.momento !== 'churn'
+      )
+      const totalMRR = sqProjects.reduce((acc, p) => acc + mrrValue(p), 0)
+      return { id: sq.id, totalMRR, count: sqProjects.length }
+    })
+    stats.sort((a, b) => (a.totalMRR !== b.totalMRR ? a.totalMRR - b.totalMRR : a.count - b.count))
+    return stats[0]?.id ?? null
+  }, [squads, projects])
+
+  useEffect(() => {
+    if (step !== 4) return
+    if (form.squad) return
+    if (!recommendedSquadId) return
+    setForm((f) => ({ ...f, squad: recommendedSquadId }))
+  }, [step, form.squad, recommendedSquadId])
 
   function toggleService(id) {
     set('services', form.services.includes(id)
