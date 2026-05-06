@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { SERVICES_CONFIG, SEGMENTOS } from '../lib/constants'
+import { fmtCurrency, mrrValue } from '../lib/utils'
 import {
   ArrowLeft, ArrowRight, Check, Zap, Building2, FileText,
   Briefcase, DollarSign, Users, Calendar, Plus, X, Upload,
@@ -292,7 +293,7 @@ const SQUAD_COLORS = [
 ]
 
 export default function NewOnboarding() {
-  const { addProject, squads } = useApp()
+  const { addProject, squads, projects, teamMembers } = useApp()
   const navigate = useNavigate()
 
   const draft = loadDraft()
@@ -819,37 +820,115 @@ export default function NewOnboarding() {
             <div className="space-y-6">
 
               {/* Squad responsável */}
-              {squads.length > 0 && (
-                <div>
-                  <label className="label-field">Squad Responsável <span className="text-rl-red">*</span></label>
-                  <p className="text-xs text-rl-muted mb-3">Selecione a equipe que irá gerenciar este cliente.</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {squads.map((sq, idx) => {
-                      const c        = SQUAD_COLORS[idx % SQUAD_COLORS.length]
-                      const selected = form.squad === sq.id
-                      return (
-                        <button
-                          key={sq.id}
-                          type="button"
-                          onClick={() => set('squad', sq.id)}
-                          className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
-                            selected
-                              ? `${c.activeBg} ${c.activeBorder} ring-1 ${c.activeBorder}`
-                              : `${c.bg} ${c.border} hover:${c.activeBorder}`
-                          }`}
-                        >
-                          <span className="text-lg leading-none">{sq.emoji || '👥'}</span>
-                          <span className={`text-sm font-medium flex-1 ${selected ? c.text : 'text-rl-text'}`}>
-                            {sq.name}
-                          </span>
-                          {selected && <Check className={`w-4 h-4 shrink-0 ${c.text}`} />}
-                        </button>
-                      )
-                    })}
+              {squads.length > 0 && (() => {
+                // Métricas por squad: clientes ativos + MRR sob gestão
+                // Ignora squads em teste (is_test) — não fazem parte da operação real
+                const productionSquads = squads.filter((sq) => !sq.isTest)
+                const squadMetrics = productionSquads.map((sq) => {
+                  const sqProjects = projects.filter(
+                    (p) => String(p.squad) === String(sq.id) && p.momento !== 'churn'
+                  )
+                  const totalMRR = sqProjects.reduce((acc, p) => acc + mrrValue(p), 0)
+                  const memberNames = (sq.members || [])
+                    .map((m) => teamMembers.find((t) => t.id === m.profile_id)?.name)
+                    .filter(Boolean)
+                  return {
+                    squad: sq,
+                    clientsCount: sqProjects.length,
+                    totalMRR,
+                    memberNames,
+                  }
+                })
+
+                // Recomendação: squad com MENOR MRR sob gestão (mais espaço pra absorver
+                // novo cliente). Empate vai para quem tem menos clientes.
+                let recommendedId = null
+                if (squadMetrics.length > 0) {
+                  const sorted = [...squadMetrics].sort((a, b) => {
+                    if (a.totalMRR !== b.totalMRR) return a.totalMRR - b.totalMRR
+                    return a.clientsCount - b.clientsCount
+                  })
+                  recommendedId = sorted[0].squad.id
+                }
+
+                return (
+                  <div>
+                    <label className="label-field">Squad Responsável <span className="text-rl-red">*</span></label>
+                    <p className="text-xs text-rl-muted mb-3">
+                      Selecione a equipe que irá gerenciar este cliente. A equipe com menor carteira em gestão é recomendada.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {squadMetrics.map(({ squad: sq, clientsCount, totalMRR, memberNames }) => {
+                        const idx        = squads.findIndex((s) => s.id === sq.id)
+                        const c          = SQUAD_COLORS[idx % SQUAD_COLORS.length]
+                        const selected   = form.squad === sq.id
+                        const recommended = sq.id === recommendedId
+                        return (
+                          <button
+                            key={sq.id}
+                            type="button"
+                            onClick={() => set('squad', sq.id)}
+                            className={`relative flex flex-col gap-3 px-4 py-3.5 rounded-xl border text-left transition-all ${
+                              selected
+                                ? `${c.activeBg} ${c.activeBorder} ring-1 ${c.activeBorder}`
+                                : `${c.bg} ${c.border} hover:${c.activeBorder}`
+                            }`}
+                          >
+                            {/* Badge de recomendação no canto */}
+                            {recommended && !selected && (
+                              <span className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rl-green text-white shadow-sm">
+                                ★ Recomendado
+                              </span>
+                            )}
+
+                            {/* Linha 1: emoji + nome + check */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg leading-none">{sq.emoji || '👥'}</span>
+                              <span className={`text-sm font-bold flex-1 ${selected ? c.text : 'text-rl-text'}`}>
+                                {sq.name}
+                              </span>
+                              {selected && <Check className={`w-4 h-4 shrink-0 ${c.text}`} />}
+                            </div>
+
+                            {/* Linha 2: membros */}
+                            {memberNames.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {memberNames.map((name, i) => (
+                                  <span
+                                    key={i}
+                                    className="text-[10px] px-2 py-0.5 rounded-full bg-rl-bg/60 border border-rl-border text-rl-muted"
+                                  >
+                                    {name}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-rl-muted italic">sem membros cadastrados</span>
+                            )}
+
+                            {/* Linha 3: métricas em duas colunas */}
+                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-rl-border/60">
+                              <div>
+                                <p className="text-[9px] uppercase tracking-wider text-rl-muted font-semibold">Clientes</p>
+                                <p className={`text-base font-bold tabular-nums ${selected ? c.text : 'text-rl-text'}`}>
+                                  {clientsCount}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] uppercase tracking-wider text-rl-muted font-semibold">MRR gerenciado</p>
+                                <p className={`text-base font-bold tabular-nums ${selected ? c.text : 'text-rl-text'}`}>
+                                  {fmtCurrency(totalMRR)}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {errors.squad && <p className="text-rl-red text-xs mt-1">{errors.squad}</p>}
                   </div>
-                  {errors.squad && <p className="text-rl-red text-xs mt-1">{errors.squad}</p>}
-                </div>
-              )}
+                )
+              })()}
 
               {/* Equipe Comercial */}
               <div>
