@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { SERVICES_CONFIG, SEGMENTOS } from '../lib/constants'
 import { fmtCurrency, mrrValue } from '../lib/utils'
+import { createClickUpClientFolder } from '../lib/clickup'
 import {
   ArrowLeft, ArrowRight, Check, Zap, Building2, FileText,
   Briefcase, DollarSign, Users, Calendar, Plus, X, Upload,
@@ -293,7 +294,7 @@ const SQUAD_COLORS = [
 ]
 
 export default function NewOnboarding() {
-  const { addProject, squads, projects, teamMembers } = useApp()
+  const { addProject, updateProject, squads, projects, teamMembers } = useApp()
   const navigate = useNavigate()
 
   const draft = loadDraft()
@@ -419,6 +420,25 @@ export default function NewOnboarding() {
       clearDraft()
       setCreatedId(created.id)
       setDone(true)
+
+      // Integração ClickUp — fail-soft: erro não bloqueia conclusão.
+      // Inicia em background; quando termina, atualiza projects_v2 com os IDs.
+      createClickUpClientFolder({
+        companyName: form.companyName,
+        startDateISO: form.contractDate || null,
+      })
+        .then((res) => {
+          if (res.ok) {
+            updateProject(created.id, {
+              clickup_folder_id: res.folderId,
+              clickup_list_id:   res.listId,
+              clickup_list_url:  res.listUrl,
+            })
+          } else {
+            console.warn('[ClickUp] integração falhou:', res.error)
+          }
+        })
+        .catch((e) => console.warn('[ClickUp] erro inesperado:', e))
     } else {
       setStep(step + 1)
       setErrors({})

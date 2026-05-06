@@ -6,6 +6,9 @@
     },
     "api/admin-users.js": {
       "maxDuration": 30
+    },
+    "api/clickup.js": {
+      "maxDuration": 60
     }
   }
 }
