@@ -111,12 +111,13 @@ function PasswordModal({ user, onSave, onClose, saving }) {
   )
 }
 
-function UserFormModal({ title, initial, onSave, onClose, saving }) {
+function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers, loadingMembers }) {
   const [form, setForm] = useState({
     name: initial?.name || '',
     email: initial?.email || '',
     password: '',
     role: initial?.role || 'member',
+    clickup_user_id: initial?.clickup_user_id ?? initial?.clickupUserId ?? '',
   })
   const isCreate = !initial
 
@@ -197,6 +198,34 @@ function UserFormModal({ title, initial, onSave, onClose, saving }) {
               <option value="admin">Admin</option>
             </select>
           </div>
+
+          {/* Mapeamento ClickUp — só aparece em edição (precisa do user já criado) */}
+          {!isCreate && (
+            <div>
+              <label htmlFor="field-clickup" className="block text-xs font-semibold text-rl-text mb-1.5">
+                Usuário no ClickUp
+              </label>
+              <select
+                id="field-clickup"
+                value={form.clickup_user_id || ''}
+                onChange={e => set('clickup_user_id', e.target.value)}
+                className="input-field w-full"
+                disabled={loadingMembers}
+              >
+                <option value="">— Não vinculado —</option>
+                {(clickupMembers || []).map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}{m.email ? ` (${m.email})` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-rl-muted mt-1">
+                {loadingMembers
+                  ? 'Carregando membros do ClickUp...'
+                  : 'Vincular ao ClickUp permite que tarefas criadas automaticamente recebam este usuário como responsável.'}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -466,6 +495,11 @@ export default function UserManagement() {
   const [deleteSquadTarget, setDeleteSquadTarget] = useState(null)
   const [savingSquad, setSavingSquad] = useState(false)
 
+  // ClickUp members — carregados sob demanda quando abrir um modal de edição
+  const [clickupMembers, setClickupMembers] = useState([])
+  const [loadingClickupMembers, setLoadingClickupMembers] = useState(false)
+  const [clickupMembersLoaded, setClickupMembersLoaded] = useState(false)
+
   const loadUsers = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -479,6 +513,21 @@ export default function UserManagement() {
   }, [])
 
   useEffect(() => { loadUsers() }, [loadUsers])
+
+  // Carrega lista de membros do ClickUp sob demanda na primeira vez que
+  // um modal de edição for aberto (cache no estado do componente).
+  useEffect(() => {
+    if (!editTarget || clickupMembersLoaded || loadingClickupMembers) return
+    let cancelled = false
+    setLoadingClickupMembers(true)
+    import('../lib/clickup').then(({ listClickUpMembers }) => listClickUpMembers()).then((res) => {
+      if (cancelled) return
+      if (res.ok) setClickupMembers(res.members)
+      setClickupMembersLoaded(true)
+      setLoadingClickupMembers(false)
+    })
+    return () => { cancelled = true }
+  }, [editTarget, clickupMembersLoaded, loadingClickupMembers])
 
   async function handleCreate(form) {
     setSaving(true)
@@ -506,7 +555,15 @@ export default function UserManagement() {
   async function handleUpdate(form) {
     setSaving(true)
     const avatar = initials(form.name)
-    const result = await callAdminAPI('update_user', { userId: editTarget.id, ...form })
+    // Normaliza clickup_user_id: '' vira null, número vira number
+    const clickupId = form.clickup_user_id === '' || form.clickup_user_id == null
+      ? null
+      : Number(form.clickup_user_id)
+    const result = await callAdminAPI('update_user', {
+      userId: editTarget.id,
+      ...form,
+      clickup_user_id: clickupId,
+    })
     if (result.error) {
       showToast(result.error, 'error')
     } else {
@@ -515,6 +572,7 @@ export default function UserManagement() {
         email: form.email,
         avatar,
         role: form.role,
+        clickup_user_id: clickupId,
       }).eq('id', editTarget.id)
       showToast('Usuário atualizado com sucesso.')
       setEditTarget(null)
@@ -873,6 +931,8 @@ export default function UserManagement() {
           onSave={handleUpdate}
           onClose={() => setEditTarget(null)}
           saving={saving}
+          clickupMembers={clickupMembers}
+          loadingMembers={loadingClickupMembers}
         />
       )}
       {toggleTarget && (

@@ -423,9 +423,20 @@ export default function NewOnboarding() {
 
       // Integração ClickUp — fail-soft: erro não bloqueia conclusão.
       // Inicia em background; quando termina, atualiza projects_v2 com os IDs.
+      // Coleta os ClickUp user IDs dos membros do squad escolhido para
+      // substituir os assignees default do template.
+      const chosenSquad   = squads.find((s) => s.id === form.squad)
+      const squadProfiles = (chosenSquad?.members || [])
+        .map((m) => teamMembers.find((t) => t.id === m.profile_id))
+        .filter(Boolean)
+      const assigneeIds   = squadProfiles
+        .map((p) => Number(p.clickupUserId ?? p.clickup_user_id))
+        .filter((n) => Number.isFinite(n) && n > 0)
+
       createClickUpClientFolder({
         companyName: form.companyName,
         startDateISO: form.contractDate || null,
+        assigneeIds,
       })
         .then((res) => {
           if (res.ok) {

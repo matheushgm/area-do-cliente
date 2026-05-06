@@ -721,7 +721,7 @@ export function AppProvider({ children }) {
       .eq("disabled", false)
       .then(({ data, error }) => {
         if (error) { console.error("Erro ao carregar membros:", error); return; }
-        if (data) setTeamMembers(data);
+        if (data) setTeamMembers(data.map((p) => ({ ...p, clickupUserId: p.clickup_user_id })));
       });
 
     supabase

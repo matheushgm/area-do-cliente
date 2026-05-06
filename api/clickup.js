@@ -92,12 +92,36 @@ export default async function handler(req) {
   catch { return jsonErr('Body inválido.', 400) }
 
   const action = body?.action
+
+  // ── Action: list_workspace_members ─────────────────────────────────────────
+  // Retorna lista de usuários do ClickUp (id + name + email) para popular o
+  // dropdown de mapeamento na página de gestão de usuários.
+  if (action === 'list_workspace_members') {
+    const teamId = process.env.CLICKUP_TEAM_ID || DEFAULT_TEAM
+    try {
+      const res = await clickup('GET', `/team/${teamId}`, token)
+      const members = (res?.team?.members || []).map((m) => ({
+        id: Number(m?.user?.id),
+        name: m?.user?.username || m?.user?.email || `User ${m?.user?.id}`,
+        email: m?.user?.email || null,
+      })).filter((m) => Number.isFinite(m.id))
+      return jsonOk({ members })
+    } catch (e) {
+      return jsonErr(e?.message || 'Erro ao listar membros', e?.status >= 400 ? e.status : 502, { detail: e?.body })
+    }
+  }
+
   if (action !== 'create_client_folder') {
     return jsonErr('Ação não suportada.', 400)
   }
 
   const companyName  = (body?.companyName || '').trim()
   const startDateISO = body?.startDateISO || null
+  // assigneeIds: array de ClickUp user IDs (numéricos) — substituem os
+  // assignees do template, exceto "Cliente" (84048101) que é preservado.
+  const assigneeIds  = Array.isArray(body?.assigneeIds)
+    ? body.assigneeIds.map(Number).filter((n) => Number.isFinite(n) && n > 0)
+    : []
   if (!companyName) return jsonErr('companyName é obrigatório.', 400)
 
   // Data de referência: usa a data fornecida ou hoje.
@@ -141,29 +165,46 @@ export default async function handler(req) {
     const dueMillisList = tasks
       .map((t) => Number(t.due_date))
       .filter((n) => Number.isFinite(n) && n > 0)
+
+    // ID especial preservado em qualquer caso (assignee "Cliente" do template)
+    const CLIENTE_USER_ID = 84048101
+
     let updatedCount = 0
-    if (dueMillisList.length > 0) {
-      const minDue   = Math.min(...dueMillisList)
-      const offsetMs = refMillis - minDue
-      // 5) Atualizar cada tarefa: due_date e start_date deslocados pelo offset
-      const updates = await Promise.allSettled(
-        tasks.map(async (t) => {
-          const patch = {}
-          if (Number.isFinite(Number(t.due_date)) && Number(t.due_date) > 0) {
-            patch.due_date = Number(t.due_date) + offsetMs
-            patch.due_date_time = false
+    const minDue   = dueMillisList.length > 0 ? Math.min(...dueMillisList) : null
+    const offsetMs = minDue !== null ? refMillis - minDue : 0
+
+    // 5) Atualizar cada tarefa: deslocar datas + substituir assignees
+    const updates = await Promise.allSettled(
+      tasks.map(async (t) => {
+        const patch = {}
+        if (Number.isFinite(Number(t.due_date)) && Number(t.due_date) > 0) {
+          patch.due_date = Number(t.due_date) + offsetMs
+          patch.due_date_time = false
+        }
+        if (Number.isFinite(Number(t.start_date)) && Number(t.start_date) > 0) {
+          patch.start_date = Number(t.start_date) + offsetMs
+          patch.start_date_time = false
+        }
+
+        // Substituir assignees: se o front-end mandou IDs do squad,
+        // remove todos os atuais (exceto "Cliente") e adiciona os novos.
+        if (assigneeIds.length > 0) {
+          const currentIds = (t.assignees || [])
+            .map((a) => Number(a?.id))
+            .filter((n) => Number.isFinite(n) && n > 0)
+          const toRemove = currentIds.filter((id) => id !== CLIENTE_USER_ID && !assigneeIds.includes(id))
+          const toAdd    = assigneeIds.filter((id) => !currentIds.includes(id))
+          if (toRemove.length > 0 || toAdd.length > 0) {
+            patch.assignees = { add: toAdd, rem: toRemove }
           }
-          if (Number.isFinite(Number(t.start_date)) && Number(t.start_date) > 0) {
-            patch.start_date = Number(t.start_date) + offsetMs
-            patch.start_date_time = false
-          }
-          if (Object.keys(patch).length === 0) return null
-          await clickup('PUT', `/task/${t.id}`, token, patch)
-          return t.id
-        })
-      )
-      updatedCount = updates.filter((u) => u.status === 'fulfilled' && u.value).length
-    }
+        }
+
+        if (Object.keys(patch).length === 0) return null
+        await clickup('PUT', `/task/${t.id}`, token, patch)
+        return t.id
+      })
+    )
+    updatedCount = updates.filter((u) => u.status === 'fulfilled' && u.value).length
 
     // 6) URL pública da lista pra deep-link no ClientProfile.
     const teamId  = process.env.CLICKUP_TEAM_ID || DEFAULT_TEAM

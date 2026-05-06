@@ -74,7 +74,7 @@ export default async function handler(req) {
   // ── Atualizar usuário (email, nome, role) ──────────────────────────────────
   if (action === 'update_user') {
     if (!userId) return json({ error: 'userId obrigatório.' }, 400)
-    const { name, email, role } = data
+    const { name, email, role, clickup_user_id } = data
     const avatar = name ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : undefined
     const payload = {}
     if (email) payload.email = email
@@ -84,17 +84,41 @@ export default async function handler(req) {
       if (avatar) payload.user_metadata.avatar = avatar
     }
     if (role) payload.app_metadata = { role }
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${SERVICE_KEY}`,
-        apikey: SERVICE_KEY,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
-    const text = await res.text()
-    return new Response(text, { status: res.status, headers: { 'content-type': 'application/json' } })
+    const updates = []
+    if (Object.keys(payload).length > 0) {
+      updates.push(fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          apikey: SERVICE_KEY,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }))
+    }
+    // clickup_user_id vai apenas em profiles (não tem espelho no Auth)
+    if ('clickup_user_id' in data) {
+      const profilePatch = { clickup_user_id: clickup_user_id == null || clickup_user_id === '' ? null : Number(clickup_user_id) }
+      // Atualiza espelho name/email/role na tabela profiles também (se mudaram)
+      if (name)  profilePatch.name = name
+      if (email) profilePatch.email = email
+      if (role)  profilePatch.role = role
+      updates.push(fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          apikey: SERVICE_KEY,
+          'content-type': 'application/json',
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify(profilePatch),
+      }))
+    }
+    const results = await Promise.all(updates)
+    const lastRes = results[results.length - 1] || null
+    if (!lastRes) return json({ ok: true })
+    const text = await lastRes.text()
+    return new Response(text, { status: lastRes.status, headers: { 'content-type': 'application/json' } })
   }
 
   // ── Desativar / reativar usuário ───────────────────────────────────────────
