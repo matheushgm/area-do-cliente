@@ -730,7 +730,12 @@ export function AppProvider({ children }) {
       .order("created_at")
       .then(({ data, error }) => {
         if (error) { console.error("Erro ao carregar squads:", error); return; }
-        if (data) setSquads(data.map(s => ({ ...s, monthlyCost: s.monthly_cost, isTest: !!s.is_test })));
+        if (data) setSquads(data.map(s => ({
+          ...s,
+          monthlyCost:           s.monthly_cost,
+          isTest:                !!s.is_test,
+          departmentAssignments: s.department_assignments || {},
+        })));
       });
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -950,13 +955,22 @@ export function AppProvider({ children }) {
       const v = 'is_test' in data ? data.is_test : data.isTest;
       insertCols.is_test = !!v;
     }
+    if ('department_assignments' in data || 'departmentAssignments' in data) {
+      const v = 'department_assignments' in data ? data.department_assignments : data.departmentAssignments;
+      insertCols.department_assignments = v && typeof v === 'object' ? v : {};
+    }
     const { data: row, error } = await supabase
       .from("squads")
       .insert(insertCols)
       .select()
       .single();
     if (error) return { error: error.message };
-    const enriched = { ...row, monthlyCost: row.monthly_cost, isTest: !!row.is_test };
+    const enriched = {
+      ...row,
+      monthlyCost:           row.monthly_cost,
+      isTest:                !!row.is_test,
+      departmentAssignments: row.department_assignments || {},
+    };
     setSquads((prev) => [...prev, enriched]);
     return { data: enriched };
   }, []);
@@ -976,6 +990,10 @@ export function AppProvider({ children }) {
       const v = 'is_test' in data ? data.is_test : data.isTest;
       updateCols.is_test = !!v;
     }
+    if ('department_assignments' in data || 'departmentAssignments' in data) {
+      const v = 'department_assignments' in data ? data.department_assignments : data.departmentAssignments;
+      updateCols.department_assignments = v && typeof v === 'object' ? v : {};
+    }
     const { data: row, error } = await supabase
       .from("squads")
       .update(updateCols)
@@ -983,7 +1001,12 @@ export function AppProvider({ children }) {
       .select()
       .single();
     if (error) return { error: error.message };
-    const enriched = { ...row, monthlyCost: row.monthly_cost, isTest: !!row.is_test };
+    const enriched = {
+      ...row,
+      monthlyCost:           row.monthly_cost,
+      isTest:                !!row.is_test,
+      departmentAssignments: row.department_assignments || {},
+    };
     setSquads((prev) => prev.map((s) => (s.id === id ? enriched : s)));
     return { data: enriched };
   }, []);

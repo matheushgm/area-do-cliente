@@ -17,6 +17,45 @@ const DEFAULT_TEAM       = '9009170774'
 const DEFAULT_SPACE      = '90090377342' // "Clientes"
 const DEFAULT_TEMPLATE   = 't-901312370990' // ONBOARDING (LISTA GERAL)
 
+// Custom field 'Departamento' — option IDs do ClickUp para resolver o
+// nome do departamento atrelado a cada tarefa. Espelha CLICKUP_DEPARTMENTS
+// em src/lib/constants.js (servidor não pode importar src/).
+const CLICKUP_DEPARTMENT_FIELD_ID = 'e60bebff-b035-49c2-879b-972777ed041e'
+const DEPARTMENT_OPTION_TO_NAME = {
+  'a44f7b38-1972-41a6-857a-feacc52ce689': 'Gestor de tráfego',
+  'a04634c3-be4e-4d30-987c-02f485ceaaf8': 'Estrategista',
+  'f29de476-0d11-45e1-afc0-0a3bd9e3aa47': 'Comercial',
+  '15d2487a-cbac-4ebf-873e-35154dc1c4b0': 'Cliente',
+  '70447c34-6b7e-457b-842d-b41bc0a7bb07': 'Copywriter',
+  'c5afae7f-be83-4d99-bfec-fa9edc93ef6f': 'Web Designer',
+  '6592c59b-3fab-4c91-a0d9-2448e4d5e81d': 'Designer',
+  '1f8ec57f-cbf4-413c-b8e7-a067ee991f18': 'Account Manager',
+  '5bee1f1a-4595-4dc1-bf9a-1e69e6fc4f36': 'Automação / Integração',
+}
+
+// Resolve os ClickUp user IDs que devem ser atribuídos a uma tarefa.
+// Prioridade: Departamento custom field → fallback assigneeIds genérico.
+function resolveAssigneesForTask(task, departmentToClickupId, fallbackIds) {
+  const cf = (task?.custom_fields || []).find((f) => f?.id === CLICKUP_DEPARTMENT_FIELD_ID)
+  if (!cf || !cf.value || (Array.isArray(cf.value) && cf.value.length === 0)) {
+    return fallbackIds
+  }
+  // 'labels' field: cf.value pode ser array de option IDs ou array de option objects
+  const optionIds = (Array.isArray(cf.value) ? cf.value : [cf.value]).map((v) => {
+    if (typeof v === 'string') return v
+    return v?.id || v?.option_id || null
+  }).filter(Boolean)
+
+  const ids = []
+  for (const oid of optionIds) {
+    const name = DEPARTMENT_OPTION_TO_NAME[oid]
+    if (!name) continue
+    const cuId = departmentToClickupId?.[name]
+    if (Number.isFinite(Number(cuId))) ids.push(Number(cuId))
+  }
+  return ids.length > 0 ? ids : fallbackIds
+}
+
 function jsonErr(message, status, extra) {
   return new Response(
     JSON.stringify({ error: { message, ...(extra || {}) } }),
@@ -117,11 +156,17 @@ export default async function handler(req) {
 
   const companyName  = (body?.companyName || '').trim()
   const startDateISO = body?.startDateISO || null
-  // assigneeIds: array de ClickUp user IDs (numéricos) — substituem os
-  // assignees do template, exceto "Cliente" (84048101) que é preservado.
+  // assigneeIds: array de ClickUp user IDs (numéricos) — fallback usado para
+  // tarefas SEM mapeamento de departamento.
   const assigneeIds  = Array.isArray(body?.assigneeIds)
     ? body.assigneeIds.map(Number).filter((n) => Number.isFinite(n) && n > 0)
     : []
+  // departmentToClickupId: { 'Gestor de tráfego': 106160859, 'Designer': 106097500, ... }
+  // Se a tarefa tem o custom field 'Departamento' preenchido, usa esse mapa
+  // pra resolver o responsável. Override do assigneeIds genérico.
+  const departmentToClickupId = (body?.departmentToClickupId && typeof body.departmentToClickupId === 'object')
+    ? body.departmentToClickupId
+    : {}
   if (!companyName) return jsonErr('companyName é obrigatório.', 400)
 
   // Data de referência: usa a data fornecida ou hoje.
@@ -173,7 +218,9 @@ export default async function handler(req) {
     const minDue   = dueMillisList.length > 0 ? Math.min(...dueMillisList) : null
     const offsetMs = minDue !== null ? refMillis - minDue : 0
 
-    // 5) Atualizar cada tarefa: deslocar datas + substituir assignees
+    // 5) Atualizar cada tarefa: deslocar datas + substituir assignees.
+    //    Atribui responsáveis com base no campo "Departamento" da tarefa
+    //    (override) ou usa assigneeIds genérico como fallback.
     const updates = await Promise.allSettled(
       tasks.map(async (t) => {
         const patch = {}
@@ -186,14 +233,14 @@ export default async function handler(req) {
           patch.start_date_time = false
         }
 
-        // Substituir assignees: se o front-end mandou IDs do squad,
-        // remove todos os atuais (exceto "Cliente") e adiciona os novos.
-        if (assigneeIds.length > 0) {
+        // Resolve quem assumir essa tarefa: prioriza departamento se houver.
+        const targetAssignees = resolveAssigneesForTask(t, departmentToClickupId, assigneeIds)
+        if (targetAssignees.length > 0) {
           const currentIds = (t.assignees || [])
             .map((a) => Number(a?.id))
             .filter((n) => Number.isFinite(n) && n > 0)
-          const toRemove = currentIds.filter((id) => id !== CLIENTE_USER_ID && !assigneeIds.includes(id))
-          const toAdd    = assigneeIds.filter((id) => !currentIds.includes(id))
+          const toRemove = currentIds.filter((id) => id !== CLIENTE_USER_ID && !targetAssignees.includes(id))
+          const toAdd    = targetAssignees.filter((id) => !currentIds.includes(id))
           if (toRemove.length > 0 || toAdd.length > 0) {
             patch.assignees = { add: toAdd, rem: toRemove }
           }

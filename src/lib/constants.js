@@ -9,6 +9,24 @@ export const SQUAD_COLORS = [
   { bg: 'bg-green-500/10',  border: 'border-green-500/30',  text: 'text-green-400' },
 ]
 
+// ─── ClickUp — campo "Departamento" ──────────────────────────────────────────
+// Cada departamento tem id (matches ClickUp option id), nome (com trim — alguns
+// têm espaço extra no final no ClickUp) e cor para exibição.
+// Importar em: UserManagement (modal de departamentos), api/clickup (resolver
+//             option_id → nome → profile via squad.departmentAssignments).
+export const CLICKUP_DEPARTMENT_FIELD_ID = 'e60bebff-b035-49c2-879b-972777ed041e'
+export const CLICKUP_DEPARTMENTS = [
+  { id: 'a44f7b38-1972-41a6-857a-feacc52ce689', name: 'Gestor de tráfego',     color: '#0231E8' },
+  { id: 'a04634c3-be4e-4d30-987c-02f485ceaaf8', name: 'Estrategista',          color: '#ff7800' },
+  { id: 'f29de476-0d11-45e1-afc0-0a3bd9e3aa47', name: 'Comercial',             color: '#2ecd6f' },
+  { id: '15d2487a-cbac-4ebf-873e-35154dc1c4b0', name: 'Cliente',               color: '#AF7E2E' },
+  { id: '70447c34-6b7e-457b-842d-b41bc0a7bb07', name: 'Copywriter',            color: '#667684' },
+  { id: 'c5afae7f-be83-4d99-bfec-fa9edc93ef6f', name: 'Web Designer',          color: '#81B1FF' },
+  { id: '6592c59b-3fab-4c91-a0d9-2448e4d5e81d', name: 'Designer',              color: '#bf55ec' },
+  { id: '1f8ec57f-cbf4-413c-b8e7-a067ee991f18', name: 'Account Manager',       color: '#E65100' },
+  { id: '5bee1f1a-4595-4dc1-bf9a-1e69e6fc4f36', name: 'Automação / Integração',color: '#f9d900' },
+]
+
 // ─── Serviços ─────────────────────────────────────────────────────────────────
 
 export const SERVICES_CONFIG = [

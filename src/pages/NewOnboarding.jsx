@@ -423,8 +423,7 @@ export default function NewOnboarding() {
 
       // Integração ClickUp — fail-soft: erro não bloqueia conclusão.
       // Inicia em background; quando termina, atualiza projects_v2 com os IDs.
-      // Coleta os ClickUp user IDs dos membros do squad escolhido para
-      // substituir os assignees default do template.
+      // 1) Coleta ClickUp user IDs dos membros do squad → fallback genérico
       const chosenSquad   = squads.find((s) => s.id === form.squad)
       const squadProfiles = (chosenSquad?.members || [])
         .map((m) => teamMembers.find((t) => t.id === m.profile_id))
@@ -432,11 +431,23 @@ export default function NewOnboarding() {
       const assigneeIds   = squadProfiles
         .map((p) => Number(p.clickupUserId ?? p.clickup_user_id))
         .filter((n) => Number.isFinite(n) && n > 0)
+      // 2) Monta o mapa Departamento → ClickUp user ID a partir do
+      //    departmentAssignments do squad (profile_id) + clickupUserId do profile
+      const depAssignments = chosenSquad?.departmentAssignments || chosenSquad?.department_assignments || {}
+      const departmentToClickupId = {}
+      for (const [depName, profileId] of Object.entries(depAssignments)) {
+        const profile = teamMembers.find((t) => t.id === profileId)
+        const cuId    = Number(profile?.clickupUserId ?? profile?.clickup_user_id)
+        if (Number.isFinite(cuId) && cuId > 0) {
+          departmentToClickupId[depName] = cuId
+        }
+      }
 
       createClickUpClientFolder({
         companyName: form.companyName,
         startDateISO: form.contractDate || null,
         assigneeIds,
+        departmentToClickupId,
       })
         .then((res) => {
           if (res.ok) {

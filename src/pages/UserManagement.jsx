@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
-import { SQUAD_COLORS } from '../lib/constants'
+import { SQUAD_COLORS, CLICKUP_DEPARTMENTS } from '../lib/constants'
 import { initials } from '../lib/utils'
 import { listClickUpMembers } from '../lib/clickup'
 import { useToast } from '../hooks/useToast'
@@ -13,6 +13,7 @@ import {
   Users, Plus, Pencil, UserX, UserCheck,
   X, AlertTriangle, Loader2, Menu,
   ShieldCheck, User, Users2, Trash2, KeyRound, Eye, EyeOff,
+  Layers, Check,
 } from 'lucide-react'
 
 async function callAdminAPI(action, payload) {
@@ -467,6 +468,104 @@ function DeleteSquadModal({ squad, onConfirm, onClose, saving }) {
   )
 }
 
+// ── SquadDepartmentsModal ──────────────────────────────────────────────────
+// Configuração de "departamento → responsável" para o squad. Usado pela
+// integração com ClickUp: quando uma tarefa tem o custom field 'Departamento'
+// preenchido, o sistema atribui o responsável conforme essa matriz.
+
+function SquadDepartmentsModal({ squad, teamMembers, onSave, onClose, saving }) {
+  // assignments: { [departmentName]: profile_uuid | '' }
+  const [assignments, setAssignments] = useState(() => {
+    const initial = squad.departmentAssignments || squad.department_assignments || {}
+    const filled = {}
+    CLICKUP_DEPARTMENTS.forEach((d) => { filled[d.name] = initial[d.name] || '' })
+    return filled
+  })
+
+  function set(department, profileId) {
+    setAssignments((prev) => ({ ...prev, [department]: profileId }))
+  }
+
+  // Lista todos os profiles ativos com clickupUserId preenchido (mostra também os
+  // sem ClickUp mas marcados — usuário pode escolher e depois cadastrar o ID).
+  const sortedMembers = [...teamMembers].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+
+  function handleSave() {
+    // Persiste limpando as chaves vazias pra economizar espaço no JSONB.
+    const cleaned = {}
+    Object.entries(assignments).forEach(([k, v]) => {
+      if (v && v.trim()) cleaned[k] = v
+    })
+    onSave({ department_assignments: cleaned })
+  }
+
+  return (
+    <Modal onClose={onClose} maxWidth="lg">
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-rl-cyan/10 border border-rl-cyan/30 flex items-center justify-center shrink-0">
+            <Layers className="w-5 h-5 text-rl-cyan" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-bold text-rl-text truncate">
+              Departamentos · {squad.emoji} {squad.name}
+            </h2>
+            <p className="text-xs text-rl-muted mt-0.5">
+              Defina o responsável padrão de cada departamento. Ao criar um cliente neste squad,
+              tarefas no ClickUp com o campo &quot;Departamento&quot; preenchido serão atribuídas
+              ao usuário escolhido aqui.
+            </p>
+          </div>
+        </div>
+        <button onClick={onClose} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all" aria-label="Fechar">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="space-y-2 max-h-[55vh] overflow-y-auto -mx-2 px-2">
+        {CLICKUP_DEPARTMENTS.map((dep) => {
+          const value = assignments[dep.name] || ''
+          const selected = value ? sortedMembers.find((m) => m.id === value) : null
+          const noClickup = selected && !(selected.clickupUserId ?? selected.clickup_user_id)
+          return (
+            <div key={dep.id} className="flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2.5 rounded-xl border border-rl-border bg-rl-surface/40">
+              <div className="flex items-center gap-2 sm:w-44 shrink-0">
+                <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: dep.color }} />
+                <span className="text-sm font-semibold text-rl-text truncate">{dep.name}</span>
+              </div>
+              <div className="flex-1 min-w-0 flex items-center gap-2">
+                <select
+                  value={value}
+                  onChange={(e) => set(dep.name, e.target.value)}
+                  className="input-field flex-1 text-sm"
+                >
+                  <option value="">— Não atribuído —</option>
+                  {sortedMembers.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+                {noClickup && (
+                  <span title="Esse usuário ainda não tem ClickUp ID vinculado" className="text-[10px] text-rl-gold font-semibold whitespace-nowrap">
+                    ⚠ sem ClickUp
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="flex gap-3 mt-5">
+        <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>Cancelar</button>
+        <button onClick={handleSave} disabled={saving} className="flex-1 btn-primary flex items-center justify-center gap-2">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+          Salvar departamentos
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 // ── Página ─────────────────────────────────────────────────────────────────
 
 export default function UserManagement() {
@@ -494,6 +593,7 @@ export default function UserManagement() {
   const [showCreateSquad, setShowCreateSquad] = useState(false)
   const [editSquadTarget, setEditSquadTarget] = useState(null)
   const [deleteSquadTarget, setDeleteSquadTarget] = useState(null)
+  const [departmentSquadTarget, setDepartmentSquadTarget] = useState(null)
   const [savingSquad, setSavingSquad] = useState(false)
 
   // ClickUp members — carregados sob demanda quando abrir um modal de edição
@@ -645,6 +745,21 @@ export default function UserManagement() {
     const result = await updateSquad(editSquadTarget.id, form)
     if (result.error) showToast(result.error, 'error')
     else { showToast('Equipe atualizada.'); setEditSquadTarget(null) }
+    setSavingSquad(false)
+  }
+
+  async function handleUpdateSquadDepartments(patch) {
+    setSavingSquad(true)
+    const sq = departmentSquadTarget
+    // Mantém todos os outros campos do squad e atualiza apenas department_assignments
+    const result = await updateSquad(sq.id, {
+      name: sq.name,
+      emoji: sq.emoji,
+      members: sq.members,
+      department_assignments: patch.department_assignments,
+    })
+    if (result.error) showToast(result.error, 'error')
+    else { showToast('Departamentos atualizados.'); setDepartmentSquadTarget(null) }
     setSavingSquad(false)
   }
 
@@ -885,6 +1000,14 @@ export default function UserManagement() {
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <button
+                              onClick={() => setDepartmentSquadTarget(sq)}
+                              aria-label="Configurar departamentos"
+                              className="p-1.5 rounded-lg text-rl-muted hover:text-rl-cyan hover:bg-rl-cyan/10 transition-all"
+                              title="Configurar departamentos (responsáveis no ClickUp)"
+                            >
+                              <Layers className="w-3.5 h-3.5" />
+                            </button>
+                            <button
                               onClick={() => setEditSquadTarget(sq)}
                               aria-label="Editar equipe"
                               className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
@@ -994,6 +1117,15 @@ export default function UserManagement() {
           squad={deleteSquadTarget}
           onConfirm={handleDeleteSquad}
           onClose={() => setDeleteSquadTarget(null)}
+          saving={savingSquad}
+        />
+      )}
+      {departmentSquadTarget && (
+        <SquadDepartmentsModal
+          squad={departmentSquadTarget}
+          teamMembers={teamMembers}
+          onSave={handleUpdateSquadDepartments}
+          onClose={() => setDepartmentSquadTarget(null)}
           saving={savingSquad}
         />
       )}
