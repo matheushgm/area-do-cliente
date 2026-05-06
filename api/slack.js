@@ -2,13 +2,9 @@
 // POST /api/slack com body { action: 'notify_new_client', payload: {...} }
 //
 // Variáveis de ambiente esperadas (servidor):
-//   SLACK_BOT_TOKEN          — Bot User OAuth Token (xoxb-...)
-//   SLACK_NOTIFY_USER_ID     — Slack user_id do destinatário (default: U094B4EFGG0)
+//   SLACK_WEBHOOK_URL        — URL do Incoming Webhook do Slack
 //   SUPABASE_URL + SUPABASE_ANON_KEY — para validar JWT do caller
 export const config = { runtime: 'edge' }
-
-const SLACK_API = 'https://slack.com/api'
-const DEFAULT_NOTIFY_USER = 'U094B4EFGG0' // Matheus Martins
 
 function jsonErr(message, status, extra) {
   return new Response(
@@ -21,25 +17,6 @@ function jsonOk(data) {
     status: 200,
     headers: { 'content-type': 'application/json' },
   })
-}
-
-async function slack(method, path, token, body) {
-  const res = await fetch(`${SLACK_API}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json; charset=utf-8',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  })
-  const data = await res.json().catch(() => null)
-  if (!res.ok || data?.ok === false) {
-    const err = new Error(`Slack ${method} ${path} falhou: ${data?.error || res.status}`)
-    err.status = res.status
-    err.body = data
-    throw err
-  }
-  return data
 }
 
 function fmtCurrencyBR(n) {
@@ -71,10 +48,8 @@ export default async function handler(req) {
   })
   if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
 
-  // Configuração de ambiente
-  const token   = process.env.SLACK_BOT_TOKEN
-  const userId  = process.env.SLACK_NOTIFY_USER_ID || DEFAULT_NOTIFY_USER
-  if (!token) return jsonErr('SLACK_BOT_TOKEN não configurado.', 500)
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL
+  if (!webhookUrl) return jsonErr('SLACK_WEBHOOK_URL não configurado.', 500)
 
   let body
   try { body = await req.json() }
@@ -86,25 +61,21 @@ export default async function handler(req) {
   }
 
   const p = body?.payload || {}
-  const companyName    = p.companyName || 'Cliente sem nome'
-  const responsible    = p.responsibleName || null
+  const companyName     = p.companyName || 'Cliente sem nome'
+  const responsible     = p.responsibleName || null
   const responsibleRole = p.responsibleRole || null
-  const contractValue  = Number(p.contractValue) || 0
-  const contractModel  = p.contractModel || null
-  const contractDate   = p.contractDate || null
-  const squadName      = p.squadName || null
-  const createdByName  = p.createdByName || null
-  const projectUrl     = p.projectUrl || null
-  const clickupUrl     = p.clickupUrl || null
+  const contractValue   = Number(p.contractValue) || 0
+  const contractModel   = p.contractModel || null
+  const contractDate    = p.contractDate || null
+  const squadName       = p.squadName || null
+  const createdByName   = p.createdByName || null
+  const projectUrl      = p.projectUrl || null
+  const clickupUrl      = p.clickupUrl || null
 
-  // Bonita formatação rica usando blocks. Markdown também funciona como
-  // fallback, mas blocks renderiza mais limpo no Slack.
   const valueLabel = contractModel === 'aceleracao' ? 'Programa' : 'Mensalidade'
   const valueStr   = `${fmtCurrencyBR(contractValue)} · ${valueLabel}`
 
-  const fields = [
-    { type: 'mrkdwn', text: `*Cliente*\n${companyName}` },
-  ]
+  const fields = [{ type: 'mrkdwn', text: `*Cliente*\n${companyName}` }]
   if (responsible) {
     fields.push({ type: 'mrkdwn', text: `*Responsável*\n${responsible}${responsibleRole ? ` · ${responsibleRole}` : ''}` })
   }
@@ -122,14 +93,10 @@ export default async function handler(req) {
   }
 
   const blocks = [
-    {
-      type: 'header',
-      text: { type: 'plain_text', text: '🎉 Novo cliente cadastrado', emoji: true },
-    },
-    { type: 'section', fields: fields.slice(0, 10) }, // Slack aceita até 10 fields
+    { type: 'header', text: { type: 'plain_text', text: '🎉 Novo cliente cadastrado', emoji: true } },
+    { type: 'section', fields: fields.slice(0, 10) },
   ]
 
-  // Botões de link (se houver URLs)
   const actionElements = []
   if (projectUrl) {
     actionElements.push({
@@ -150,19 +117,20 @@ export default async function handler(req) {
   }
 
   try {
-    // Slack precisa do channel ser o user_id do destinatário pra mandar DM.
-    // chat.postMessage com `channel: U…` envia direto pro DM de Matheus.
-    const data = await slack('POST', '/chat.postMessage', token, {
-      channel: userId,
-      text: `Novo cliente cadastrado: ${companyName}`, // fallback
-      blocks,
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: `Novo cliente cadastrado: ${companyName}`, // fallback p/ notificação
+        blocks,
+      }),
     })
-    return jsonOk({ ok: true, ts: data?.ts, channel: data?.channel })
+    const text = await res.text()
+    if (!res.ok || text !== 'ok') {
+      return jsonErr(`Slack webhook retornou: ${text || res.status}`, 502)
+    }
+    return jsonOk({ ok: true })
   } catch (e) {
-    return jsonErr(
-      e?.message || 'Erro ao enviar notificação Slack',
-      e?.status >= 400 ? e.status : 502,
-      { detail: e?.body }
-    )
+    return jsonErr(e?.message || 'Erro ao enviar notificação Slack', 502)
   }
 }
