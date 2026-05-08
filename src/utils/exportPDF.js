@@ -2122,3 +2122,109 @@ export function exportResultadosB2BPDF({ companyName, resultados, year, month, w
   win.document.write(html)
   win.document.close()
 }
+
+// ─── Google Ads (Estrutura de Campanhas) PDF ─────────────────────────────────
+
+const GOOGLE_ADS_COMPETITION_BADGE = {
+  Baixo: 'background:#dcfce7;color:#15803d',
+  Médio: 'background:#fef3c7;color:#92400e',
+  Alto:  'background:#fee2e2;color:#b91c1c',
+}
+
+/**
+ * Exporta a estrutura de Google Ads (grupos de palavras-chave + último
+ * conteúdo gerado pela IA, se houver) em PDF.
+ * @param {object} project — projeto carregado em ClientProfile
+ * @param {object|null} entry — entrada específica do googleAds. Se null,
+ *                              usa o draft (rascunho atual) ou a última entry
+ *                              não-draft.
+ */
+export function exportGoogleAdsPDF(project, entry = null) {
+  const list = project?.googleAds || []
+  const draft   = list.find((e) => e.isDraft)
+  const lastGen = list.filter((e) => !e.isDraft).at(-1)
+  const src     = entry || draft || lastGen
+  if (!src) {
+    alert('Nada a exportar — adicione grupos de palavras-chave primeiro.')
+    return
+  }
+
+  const groups = Array.isArray(src.keywordGroups) ? src.keywordGroups : []
+  const filledGroups = groups.filter((g) => (g.keywords || []).some((k) => (k.keyword || '').trim()))
+
+  const totalKeywords = filledGroups.reduce(
+    (acc, g) => acc + (g.keywords || []).filter((k) => (k.keyword || '').trim()).length,
+    0
+  )
+
+  const generated = src.content || src.generated_content || src.generatedContent || null
+  const generatedHTML = generated ? `
+    <section>
+      <div class="section-title">🤖 Estrutura de Campanhas Gerada por IA</div>
+      <div class="prose">${mdToHTML(generated)}</div>
+    </section>
+  ` : ''
+
+  const groupsHTML = filledGroups.length === 0
+    ? `<p style="color:#64748b;font-size:13px;font-style:italic">Nenhum grupo com palavras-chave preenchidas.</p>`
+    : filledGroups.map((g, i) => {
+        const keywordsRows = (g.keywords || [])
+          .filter((k) => (k.keyword || '').trim())
+          .map((k) => {
+            const compStyle = GOOGLE_ADS_COMPETITION_BADGE[k.competition] || 'background:#f1f5f9;color:#64748b'
+            return `<tr>
+              <td>${esc(k.keyword)}</td>
+              <td style="text-align:right">${fmtNum(Number(k.searches) || 0)}</td>
+              <td style="text-align:center">
+                <span style="display:inline-block;padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600;${compStyle}">
+                  ${esc(k.competition || '—')}
+                </span>
+              </td>
+            </tr>`
+          }).join('')
+        return `<section>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 12px;background:#f8fafe;border:1px solid #d8e0f0;border-radius:10px">
+            <span style="font-size:11px;font-weight:700;color:#94a3b8">#${i + 1}</span>
+            <strong style="font-size:14px;color:#0f172a">${esc((g.name || '').toUpperCase())}</strong>
+            <span style="margin-left:auto;font-size:10px;font-weight:600;color:#94a3b8">${(g.keywords || []).filter((k) => (k.keyword || '').trim()).length} palavras</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Palavra-chave</th>
+                <th style="text-align:right">Buscas/mês</th>
+                <th style="text-align:center">Concorrência</th>
+              </tr>
+            </thead>
+            <tbody>${keywordsRows}</tbody>
+          </table>
+        </section>`
+      }).join('')
+
+  const types = Array.isArray(src.campaignTypes) ? src.campaignTypes : []
+  const typesHTML = types.length > 0 ? `
+    <section>
+      <div class="section-title">🎯 Campanhas selecionadas</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${types.map((t) => `<span style="display:inline-block;padding:4px 12px;border-radius:9999px;background:#ede9fe;color:#6d28d9;font-size:11px;font-weight:600">${esc(t)}</span>`).join('')}
+      </div>
+    </section>
+  ` : ''
+
+  const summaryHTML = `
+    <section>
+      <div class="section-title">📊 Resumo</div>
+      <div class="grid grid-3">
+        <div class="field"><div class="field-label">Grupos</div><div class="field-value purple">${filledGroups.length}</div></div>
+        <div class="field"><div class="field-label">Total de Palavras</div><div class="field-value">${fmtNum(totalKeywords)}</div></div>
+        <div class="field"><div class="field-label">Metodologia</div><div class="field-value" style="font-size:11px">🍰 Bolo de Cenoura Fofinho</div></div>
+      </div>
+      <p style="font-size:11px;color:#64748b;margin-top:10px;line-height:1.5">
+        A palavra pesquisada pelo lead aparece no título do anúncio e espelha a headline da landing page —
+        garantindo máxima relevância e Quality Score.
+      </p>
+    </section>
+  `
+
+  printHTML('Google Ads — Estrutura de Campanhas', project.companyName, summaryHTML + typesHTML + groupsHTML + generatedHTML)
+}

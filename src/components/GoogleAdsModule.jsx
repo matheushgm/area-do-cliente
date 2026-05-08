@@ -4,9 +4,10 @@ import { streamClaude } from '../lib/claude'
 import { buildCachedPayload } from '../lib/buildContext'
 import {
   Search, Sparkles, Loader2, AlertTriangle,
-  RotateCcw, CheckCircle2, Plus, Trash2, ChevronDown, Save,
+  RotateCcw, CheckCircle2, Plus, Trash2, ChevronDown, Save, FileDown,
 } from 'lucide-react'
 import AdsHistory, { ResultBlock } from './GoogleAds/AdsHistory'
+import { exportGoogleAdsPDF } from '../utils/exportPDF'
 
 // ─── Campaign Types ────────────────────────────────────────────────────────────
 const CAMPAIGN_TYPES = [
@@ -432,11 +433,22 @@ Use as informações do CONTEXTO COMPLETO DO CLIENTE (empresa, produto, personas
     <div className="space-y-6">
 
       {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold text-rl-text mb-1">Google Ads — Estrutura de Campanhas</h2>
-        <p className="text-sm text-rl-muted">
-          Adicione os grupos de palavras-chave com volume e concorrência para gerar a estrutura completa de campanhas com RSAs e gatilhos emocionais.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl font-bold text-rl-text mb-1">Google Ads — Estrutura de Campanhas</h2>
+          <p className="text-sm text-rl-muted">
+            Adicione os grupos de palavras-chave com volume e concorrência para gerar a estrutura completa de campanhas com RSAs e gatilhos emocionais.
+          </p>
+        </div>
+        <button
+          onClick={() => exportGoogleAdsPDF(project)}
+          disabled={totalKeywords === 0}
+          title={totalKeywords === 0 ? 'Adicione palavras-chave para exportar' : 'Exportar PDF da estrutura'}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl border border-rl-border text-sm text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 hover:bg-rl-purple/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+        >
+          <FileDown className="w-4 h-4" />
+          Exportar PDF
+        </button>
       </div>
 
       {/* Metodologia info */}
