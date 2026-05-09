@@ -21,9 +21,11 @@ const URGENCY_OPTIONS = [
 ]
 
 const STATUS_OPTIONS = [
-  { value: 'pending',     label: 'A fazer',     dot: 'bg-rl-muted'  },
-  { value: 'in_progress', label: 'Em progresso', dot: 'bg-rl-cyan'   },
-  { value: 'done',        label: 'Concluída',    dot: 'bg-rl-green'  },
+  { value: 'backlog',      label: 'Backlog',      dot: 'bg-rl-muted/60' },
+  { value: 'a_fazer',      label: 'A fazer',      dot: 'bg-rl-muted'    },
+  { value: 'em_andamento', label: 'Em andamento', dot: 'bg-rl-cyan'     },
+  { value: 'em_revisao',   label: 'Em revisão',   dot: 'bg-rl-gold'     },
+  { value: 'concluido',    label: 'Finalizado',   dot: 'bg-rl-green'    },
 ]
 
 function urgencyConfig(value) {
@@ -42,7 +44,7 @@ function fmtDate(iso) {
 }
 
 function isOverdue(due, status) {
-  if (!due || status === 'done') return false
+  if (!due || status === 'concluido') return false
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const d = new Date(due + 'T00:00:00')
@@ -79,7 +81,7 @@ function bucketize(tasks, currentUserId) {
   for (const t of tasks) {
     if (currentUserId && !(t.assignee_ids || []).includes(currentUserId)) continue
 
-    if (t.status === 'done') {
+    if (t.status === 'concluido') {
       const ms = t.completed_at ? new Date(t.completed_at).getTime() : null
       if (ms == null) continue
       if (ms >= today && ms < tomorrow) doneToday.push(t)
@@ -129,7 +131,7 @@ function TaskForm({ initial, projects, teamMembers, onClose, onSubmit }) {
   const [clientResponsible, setClientResponsible] = useState(!!initial?.client_responsible)
   const [dueDate,     setDueDate]     = useState(initial?.due_date    || '')
   const [urgency,     setUrgency]     = useState(initial?.urgency     || 'media')
-  const [status,      setStatus]      = useState(initial?.status      || 'pending')
+  const [status,      setStatus]      = useState(initial?.status      || 'backlog')
   const [submitting,  setSubmitting]  = useState(false)
   const [assigneeOpen, setAssigneeOpen] = useState(false)
 
@@ -388,18 +390,18 @@ function TaskRow({ task, project, persona, assignees, onEdit, onDelete, onToggle
         <button
           onClick={() => onToggleStatus(task)}
           className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition ${
-            task.status === 'done'
+            task.status === 'concluido'
               ? 'bg-rl-green border-rl-green'
               : 'border-rl-border hover:border-rl-purple'
           }`}
           aria-label="Concluir tarefa"
         >
-          {task.status === 'done' && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+          {task.status === 'concluido' && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
         </button>
       </td>
       <td className="py-3 px-3">
         <div className="flex flex-col">
-          <span className={`text-sm font-medium ${task.status === 'done' ? 'text-rl-muted line-through' : 'text-rl-text'}`}>
+          <span className={`text-sm font-medium ${task.status === 'concluido' ? 'text-rl-muted line-through' : 'text-rl-text'}`}>
             {task.title}
           </span>
           {task.description && (
@@ -513,20 +515,20 @@ function BucketCard({ title, Icon, tone, tasks, projectMap, onEdit, onToggleStat
                     <button
                       onClick={() => onToggleStatus(task)}
                       className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center transition shrink-0 ${
-                        task.status === 'done'
+                        task.status === 'concluido'
                           ? 'bg-rl-green border-rl-green'
                           : 'border-rl-border hover:border-rl-purple'
                       }`}
                       aria-label="Concluir tarefa"
                     >
-                      {task.status === 'done' && <CheckCircle2 className="w-3 h-3 text-white" />}
+                      {task.status === 'concluido' && <CheckCircle2 className="w-3 h-3 text-white" />}
                     </button>
                     <div className="flex-1 min-w-0">
                       <button
                         onClick={() => onEdit(task)}
                         className="text-left w-full"
                       >
-                        <p className={`text-sm font-medium leading-snug ${task.status === 'done' ? 'text-rl-muted line-through' : 'text-rl-text'}`}>
+                        <p className={`text-sm font-medium leading-snug ${task.status === 'concluido' ? 'text-rl-muted line-through' : 'text-rl-text'}`}>
                           {task.title}
                         </p>
                       </button>
@@ -544,12 +546,12 @@ function BucketCard({ title, Icon, tone, tasks, projectMap, onEdit, onToggleStat
                             <Building2 className="w-2.5 h-2.5" /> Cliente
                           </span>
                         )}
-                        {task.status !== 'done' && dueLabel && (
+                        {task.status !== 'concluido' && dueLabel && (
                           <span className={`text-[10px] inline-flex items-center gap-0.5 ${tone === 'red' ? 'text-red-400 font-semibold' : 'text-rl-muted'}`}>
                             <Calendar className="w-2.5 h-2.5" /> {dueLabel}
                           </span>
                         )}
-                        {task.status === 'done' && completedLabel && (
+                        {task.status === 'concluido' && completedLabel && (
                           <span className="text-[10px] text-rl-green inline-flex items-center gap-0.5">
                             <CheckCircle2 className="w-2.5 h-2.5" /> {completedLabel}
                           </span>
@@ -630,12 +632,14 @@ export default function Tasks() {
   // ── KPIs ────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     const total      = filtered.length
-    const pending    = filtered.filter((t) => t.status === 'pending').length
-    const inProgress = filtered.filter((t) => t.status === 'in_progress').length
-    const done       = filtered.filter((t) => t.status === 'done').length
+    const backlog    = filtered.filter((t) => t.status === 'backlog').length
+    const aFazer     = filtered.filter((t) => t.status === 'a_fazer').length
+    const emAndamento= filtered.filter((t) => t.status === 'em_andamento').length
+    const emRevisao  = filtered.filter((t) => t.status === 'em_revisao').length
+    const concluido  = filtered.filter((t) => t.status === 'concluido').length
     const overdue    = filtered.filter((t) => isOverdue(t.due_date, t.status)).length
-    const critical   = filtered.filter((t) => t.urgency === 'critica' && t.status !== 'done').length
-    return { total, pending, inProgress, done, overdue, critical }
+    const critical   = filtered.filter((t) => t.urgency === 'critica' && t.status !== 'concluido').length
+    return { total, backlog, aFazer, emAndamento, emRevisao, concluido, overdue, critical }
   }, [filtered])
 
   // ── Buckets do painel pessoal ───────────────────────────────────────────
@@ -659,7 +663,7 @@ export default function Tasks() {
   }
 
   async function handleToggleStatus(task) {
-    const newStatus = task.status === 'done' ? 'pending' : 'done'
+    const newStatus = task.status === 'concluido' ? 'a_fazer' : 'concluido'
     const { error } = await updateTask(task.id, { status: newStatus })
     if (error) showToast(error, 'error')
   }
@@ -938,13 +942,14 @@ function ListView({
   return (
     <div className="space-y-6">
       {/* ── KPIs ───────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
         <KpiCard label="Total" value={kpis.total} color="text-rl-text" />
-        <KpiCard label="A fazer" value={kpis.pending} color="text-rl-muted" />
-        <KpiCard label="Em progresso" value={kpis.inProgress} color="text-rl-cyan" />
-        <KpiCard label="Concluídas" value={kpis.done} color="text-rl-green" />
+        <KpiCard label="Backlog" value={kpis.backlog} color="text-rl-muted" />
+        <KpiCard label="A fazer" value={kpis.aFazer} color="text-rl-muted" />
+        <KpiCard label="Em andamento" value={kpis.emAndamento} color="text-rl-cyan" />
+        <KpiCard label="Em revisão" value={kpis.emRevisao} color="text-rl-gold" />
+        <KpiCard label="Finalizadas" value={kpis.concluido} color="text-rl-green" />
         <KpiCard label="Atrasadas" value={kpis.overdue} color="text-red-400" />
-        <KpiCard label="Críticas" value={kpis.critical} color="text-red-400" />
       </div>
 
       {/* ── Filters ────────────────────────────────────── */}
