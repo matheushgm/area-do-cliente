@@ -1038,7 +1038,7 @@ export function AppProvider({ children }) {
   // ── Tasks CRUD ────────────────────────────────────────────────────────────
   const addTask = useCallback(async (data) => {
     if (!supabase) return { error: "Supabase não configurado." };
-    const status = data.status ?? 'pending';
+    const status = data.status ?? 'backlog';
     const assigneeIds = Array.isArray(data.assignee_ids ?? data.assigneeIds)
       ? (data.assignee_ids ?? data.assigneeIds)
       : [];
@@ -1052,7 +1052,7 @@ export function AppProvider({ children }) {
       due_date:           data.due_date    ?? data.dueDate    ?? null,
       urgency:            data.urgency     ?? 'media',
       status,
-      completed_at:       status === 'done' ? new Date().toISOString() : null,
+      completed_at:       status === 'concluido' ? new Date().toISOString() : null,
       created_by:         user?.id ?? null,
     };
     const { data: row, error } = await supabase
@@ -1083,7 +1083,7 @@ export function AppProvider({ children }) {
     if ('urgency'     in patch) cols.urgency     = patch.urgency;
     if ('status'      in patch) {
       cols.status       = patch.status;
-      cols.completed_at = patch.status === 'done' ? new Date().toISOString() : null;
+      cols.completed_at = patch.status === 'concluido' ? new Date().toISOString() : null;
     }
     cols.updated_at = new Date().toISOString();
     const { data: row, error } = await supabase
