@@ -660,6 +660,10 @@ export function AppProvider({ children }) {
   // ── Squads ────────────────────────────────────────────────────────────────
   const [squads, setSquads] = useState([]);
 
+  // ── Tasks ─────────────────────────────────────────────────────────────────
+  const [tasks, setTasks] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+
   // ── Auth session restore + listener ───────────────────────────────────────
   useEffect(() => {
     if (!supabase) { setLoadingAuth(false); return; }
@@ -736,6 +740,17 @@ export function AppProvider({ children }) {
           isTest:                !!s.is_test,
           departmentAssignments: s.department_assignments || {},
         })));
+      });
+
+    setLoadingTasks(true);
+    supabase
+      .from("tasks")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (error) { console.error("Erro ao carregar tasks:", error); setLoadingTasks(false); return; }
+        if (data) setTasks(data);
+        setLoadingTasks(false);
       });
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1020,6 +1035,61 @@ export function AppProvider({ children }) {
     return {};
   }, []);
 
+  // ── Tasks CRUD ────────────────────────────────────────────────────────────
+  const addTask = useCallback(async (data) => {
+    if (!supabase) return { error: "Supabase não configurado." };
+    const insertCols = {
+      project_id:  data.project_id  ?? data.projectId,
+      persona_id:  data.persona_id  ?? data.personaId  ?? null,
+      title:       data.title,
+      description: data.description ?? null,
+      assignee_id: data.assignee_id ?? data.assigneeId ?? null,
+      due_date:    data.due_date    ?? data.dueDate    ?? null,
+      urgency:     data.urgency     ?? 'media',
+      status:      data.status      ?? 'pending',
+      created_by:  user?.id ?? null,
+    };
+    const { data: row, error } = await supabase
+      .from("tasks")
+      .insert(insertCols)
+      .select()
+      .single();
+    if (error) return { error: error.message };
+    setTasks((prev) => [row, ...prev]);
+    return { data: row };
+  }, [user]);
+
+  const updateTask = useCallback(async (id, patch) => {
+    if (!supabase) return { error: "Supabase não configurado." };
+    const cols = {};
+    if ('project_id'  in patch || 'projectId'  in patch) cols.project_id  = patch.project_id  ?? patch.projectId;
+    if ('persona_id'  in patch || 'personaId'  in patch) cols.persona_id  = patch.persona_id  ?? patch.personaId;
+    if ('title'       in patch) cols.title       = patch.title;
+    if ('description' in patch) cols.description = patch.description;
+    if ('assignee_id' in patch || 'assigneeId' in patch) cols.assignee_id = patch.assignee_id ?? patch.assigneeId;
+    if ('due_date'    in patch || 'dueDate'    in patch) cols.due_date    = patch.due_date    ?? patch.dueDate;
+    if ('urgency'     in patch) cols.urgency     = patch.urgency;
+    if ('status'      in patch) cols.status      = patch.status;
+    cols.updated_at = new Date().toISOString();
+    const { data: row, error } = await supabase
+      .from("tasks")
+      .update(cols)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) return { error: error.message };
+    setTasks((prev) => prev.map((t) => (t.id === id ? row : t)));
+    return { data: row };
+  }, []);
+
+  const deleteTask = useCallback(async (id) => {
+    if (!supabase) return { error: "Supabase não configurado." };
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    if (error) return { error: error.message };
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    return {};
+  }, []);
+
   // ── Context value ─────────────────────────────────────────────────────────
   const value = {
     user,
@@ -1040,6 +1110,11 @@ export function AppProvider({ children }) {
     addSquad,
     updateSquad,
     deleteSquad,
+    tasks,
+    loadingTasks,
+    addTask,
+    updateTask,
+    deleteTask,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
