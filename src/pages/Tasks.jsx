@@ -5,13 +5,23 @@ import AppSidebar from '../components/AppSidebar'
 import Modal from '../components/UI/Modal'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
+import { uploadFile, deleteFile, getSignedUrl } from '../lib/supabase'
 import {
   CheckSquare, Plus, Menu, Zap, Calendar, Trash2, Edit2,
   AlertTriangle, Flame, Circle, X, Filter, Search,
   Clock, CheckCircle2, Loader2, LayoutDashboard, List,
   CalendarDays, CalendarClock, CalendarOff, History,
-  ChevronDown, Building2,
+  ChevronDown, Building2, Paperclip, FileText,
 } from 'lucide-react'
+
+const TASK_BUCKET = 'task-attachments'
+
+function fmtBytes(n) {
+  if (!n) return ''
+  if (n < 1024) return `${n} B`
+  if (n < 1048576) return `${Math.round(n / 1024)} KB`
+  return `${(n / 1048576).toFixed(1)} MB`
+}
 
 const URGENCY_OPTIONS = [
   { value: 'baixa',    label: 'Baixa',    Icon: Circle,         color: 'text-rl-muted',  bg: 'bg-rl-muted/10',  border: 'border-rl-muted/30'  },
@@ -122,7 +132,8 @@ function StatusBadge({ value }) {
 }
 
 // ─── Task form (modal de criação/edição) ─────────────────────────────────────
-function TaskForm({ initial, projects, teamMembers, onClose, onSubmit }) {
+function TaskForm({ initial, projects, teamMembers, onClose, onSubmit, onError }) {
+  const [taskId]    = useState(() => initial?.id || crypto.randomUUID())
   const [projectId,   setProjectId]   = useState(initial?.project_id  || projects[0]?.id || '')
   const [personaId,   setPersonaId]   = useState(initial?.persona_id  || '')
   const [title,       setTitle]       = useState(initial?.title       || '')
@@ -132,8 +143,39 @@ function TaskForm({ initial, projects, teamMembers, onClose, onSubmit }) {
   const [dueDate,     setDueDate]     = useState(initial?.due_date    || '')
   const [urgency,     setUrgency]     = useState(initial?.urgency     || 'media')
   const [status,      setStatus]      = useState(initial?.status      || 'backlog')
+  const [attachments, setAttachments] = useState(initial?.attachments || [])
+  const [uploading,   setUploading]   = useState(false)
   const [submitting,  setSubmitting]  = useState(false)
   const [assigneeOpen, setAssigneeOpen] = useState(false)
+
+  async function handleUpload(e) {
+    const files = Array.from(e.target.files || [])
+    e.target.value = '' // permite selecionar o mesmo arquivo novamente
+    if (files.length === 0) return
+    setUploading(true)
+    const uploaded = []
+    for (const file of files) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `${taskId}/${Date.now()}-${safeName}`
+      const url = await uploadFile(TASK_BUCKET, path, file)
+      if (url) uploaded.push({ path, name: file.name, type: file.type, size: file.size })
+      else if (onError) onError(`Falha ao enviar ${file.name}`)
+    }
+    setAttachments((prev) => [...prev, ...uploaded])
+    setUploading(false)
+  }
+
+  async function handleRemoveAttachment(idx) {
+    const att = attachments[idx]
+    setAttachments((prev) => prev.filter((_, i) => i !== idx))
+    if (att?.path) await deleteFile(TASK_BUCKET, att.path)
+  }
+
+  async function handleOpenAttachment(att) {
+    if (!att?.path) return
+    const url = await getSignedUrl(TASK_BUCKET, att.path)
+    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+  }
 
   const project  = projects.find((p) => p.id === projectId)
   const personas = project?.personas || []
@@ -155,6 +197,7 @@ function TaskForm({ initial, projects, teamMembers, onClose, onSubmit }) {
     if (!title.trim() || !projectId) return
     setSubmitting(true)
     await onSubmit({
+      id:                 initial ? undefined : taskId,
       project_id:         projectId,
       persona_id:         personaId || null,
       title:              title.trim(),
@@ -164,6 +207,7 @@ function TaskForm({ initial, projects, teamMembers, onClose, onSubmit }) {
       due_date:           dueDate || null,
       urgency,
       status,
+      attachments,
     })
     setSubmitting(false)
   }
@@ -248,6 +292,51 @@ function TaskForm({ initial, projects, teamMembers, onClose, onSubmit }) {
             placeholder="Detalhes da atividade..."
             className="w-full bg-rl-surface border border-rl-border rounded-lg px-3 py-2 text-sm text-rl-text placeholder:text-rl-muted focus:outline-none focus:border-rl-purple resize-none"
           />
+
+          {/* Anexos */}
+          <div className="mt-2">
+            <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-xs text-rl-muted hover:text-rl-text hover:border-rl-purple/50 cursor-pointer transition">
+              {uploading
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Enviando...</>
+                : <><Paperclip className="w-3.5 h-3.5" /> Adicionar anexo</>
+              }
+              <input
+                type="file"
+                multiple
+                onChange={handleUpload}
+                disabled={uploading}
+                className="hidden"
+              />
+            </label>
+            {attachments.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {attachments.map((att, idx) => (
+                  <li key={att.path || idx} className="flex items-center gap-2 px-2.5 py-1.5 bg-rl-surface/60 border border-rl-border rounded-lg">
+                    <FileText className="w-3.5 h-3.5 text-rl-purple shrink-0" />
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAttachment(att)}
+                      className="flex-1 min-w-0 text-left text-xs text-rl-text hover:text-rl-purple truncate"
+                      title={att.name}
+                    >
+                      {att.name}
+                    </button>
+                    {att.size > 0 && (
+                      <span className="text-[10px] text-rl-muted shrink-0">{fmtBytes(att.size)}</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAttachment(idx)}
+                      className="p-0.5 rounded text-rl-muted hover:text-red-400 transition"
+                      aria-label="Remover anexo"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         {/* Responsáveis (multi-select com cliente) */}
@@ -401,8 +490,14 @@ function TaskRow({ task, project, persona, assignees, onEdit, onDelete, onToggle
       </td>
       <td className="py-3 px-3">
         <div className="flex flex-col">
-          <span className={`text-sm font-medium ${task.status === 'concluido' ? 'text-rl-muted line-through' : 'text-rl-text'}`}>
+          <span className={`text-sm font-medium inline-flex items-center gap-1.5 ${task.status === 'concluido' ? 'text-rl-muted line-through' : 'text-rl-text'}`}>
             {task.title}
+            {Array.isArray(task.attachments) && task.attachments.length > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-rl-muted" title={`${task.attachments.length} anexo(s)`}>
+                <Paperclip className="w-3 h-3" />
+                {task.attachments.length}
+              </span>
+            )}
           </span>
           {task.description && (
             <span className="text-xs text-rl-muted line-clamp-1 mt-0.5">{task.description}</span>
@@ -528,8 +623,14 @@ function BucketCard({ title, Icon, tone, tasks, projectMap, onEdit, onToggleStat
                         onClick={() => onEdit(task)}
                         className="text-left w-full"
                       >
-                        <p className={`text-sm font-medium leading-snug ${task.status === 'concluido' ? 'text-rl-muted line-through' : 'text-rl-text'}`}>
+                        <p className={`text-sm font-medium leading-snug inline-flex items-center gap-1.5 ${task.status === 'concluido' ? 'text-rl-muted line-through' : 'text-rl-text'}`}>
                           {task.title}
+                          {Array.isArray(task.attachments) && task.attachments.length > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] text-rl-muted" title={`${task.attachments.length} anexo(s)`}>
+                              <Paperclip className="w-3 h-3" />
+                              {task.attachments.length}
+                            </span>
+                          )}
                         </p>
                       </button>
                       <div className="flex items-center gap-1.5 flex-wrap mt-1">
@@ -793,6 +894,7 @@ export default function Tasks() {
           teamMembers={teamMembers}
           onClose={() => { setShowForm(false); setEditing(null) }}
           onSubmit={handleSave}
+          onError={(msg) => showToast(msg, 'error')}
         />
       )}
 
