@@ -1038,16 +1038,18 @@ export function AppProvider({ children }) {
   // ── Tasks CRUD ────────────────────────────────────────────────────────────
   const addTask = useCallback(async (data) => {
     if (!supabase) return { error: "Supabase não configurado." };
+    const status = data.status ?? 'pending';
     const insertCols = {
-      project_id:  data.project_id  ?? data.projectId,
-      persona_id:  data.persona_id  ?? data.personaId  ?? null,
-      title:       data.title,
-      description: data.description ?? null,
-      assignee_id: data.assignee_id ?? data.assigneeId ?? null,
-      due_date:    data.due_date    ?? data.dueDate    ?? null,
-      urgency:     data.urgency     ?? 'media',
-      status:      data.status      ?? 'pending',
-      created_by:  user?.id ?? null,
+      project_id:   data.project_id  ?? data.projectId,
+      persona_id:   data.persona_id  ?? data.personaId  ?? null,
+      title:        data.title,
+      description:  data.description ?? null,
+      assignee_id:  data.assignee_id ?? data.assigneeId ?? null,
+      due_date:     data.due_date    ?? data.dueDate    ?? null,
+      urgency:      data.urgency     ?? 'media',
+      status,
+      completed_at: status === 'done' ? new Date().toISOString() : null,
+      created_by:   user?.id ?? null,
     };
     const { data: row, error } = await supabase
       .from("tasks")
@@ -1069,7 +1071,10 @@ export function AppProvider({ children }) {
     if ('assignee_id' in patch || 'assigneeId' in patch) cols.assignee_id = patch.assignee_id ?? patch.assigneeId;
     if ('due_date'    in patch || 'dueDate'    in patch) cols.due_date    = patch.due_date    ?? patch.dueDate;
     if ('urgency'     in patch) cols.urgency     = patch.urgency;
-    if ('status'      in patch) cols.status      = patch.status;
+    if ('status'      in patch) {
+      cols.status       = patch.status;
+      cols.completed_at = patch.status === 'done' ? new Date().toISOString() : null;
+    }
     cols.updated_at = new Date().toISOString();
     const { data: row, error } = await supabase
       .from("tasks")

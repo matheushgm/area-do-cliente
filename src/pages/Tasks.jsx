@@ -6,9 +6,10 @@ import Modal from '../components/UI/Modal'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
 import {
-  CheckSquare, Plus, Menu, Zap, Calendar, User, Trash2, Edit2,
-  AlertTriangle, Flame, Circle, X, Filter, ChevronDown, Search,
-  Clock, CheckCircle2, Loader2,
+  CheckSquare, Plus, Menu, Zap, Calendar, Trash2, Edit2,
+  AlertTriangle, Flame, Circle, X, Filter, Search,
+  Clock, CheckCircle2, Loader2, LayoutDashboard, List,
+  CalendarDays, CalendarClock, CalendarOff, History,
 } from 'lucide-react'
 
 const URGENCY_OPTIONS = [
@@ -45,6 +46,55 @@ function isOverdue(due, status) {
   today.setHours(0, 0, 0, 0)
   const d = new Date(due + 'T00:00:00')
   return d.getTime() < today.getTime()
+}
+
+// ─── Helpers de data para o painel pessoal ───────────────────────────────────
+function startOfToday() {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function dueDateMs(iso) {
+  if (!iso) return null
+  const d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso)
+  if (isNaN(d.getTime())) return null
+  return d.getTime()
+}
+
+function bucketize(tasks, currentUserId) {
+  const today      = startOfToday().getTime()
+  const tomorrow   = today + 86400000
+  const sevenDays  = today + 7 * 86400000
+  const yesterday  = today - 86400000
+
+  const overdue   = []
+  const todayList = []
+  const next7Days = []
+  const noDate    = []
+  const doneToday     = []
+  const doneYesterday = []
+
+  for (const t of tasks) {
+    if (currentUserId && t.assignee_id !== currentUserId) continue
+
+    if (t.status === 'done') {
+      const ms = t.completed_at ? new Date(t.completed_at).getTime() : null
+      if (ms == null) continue
+      if (ms >= today && ms < tomorrow) doneToday.push(t)
+      else if (ms >= yesterday && ms < today) doneYesterday.push(t)
+      continue
+    }
+
+    const dueMs = dueDateMs(t.due_date)
+    if (dueMs == null) { noDate.push(t); continue }
+    if (dueMs < today)                             overdue.push(t)
+    else if (dueMs >= today && dueMs < tomorrow)   todayList.push(t)
+    else if (dueMs >= tomorrow && dueMs <= sevenDays) next7Days.push(t)
+    // tarefas com vencimento >7 dias não entram em nenhum bucket
+  }
+
+  return { overdue, today: todayList, next7Days, noDate, doneToday, doneYesterday }
 }
 
 function UrgencyBadge({ value }) {
@@ -336,13 +386,106 @@ function TaskRow({ task, project, persona, assignee, onEdit, onDelete, onToggleS
   )
 }
 
+// ─── Bucket card (painel pessoal) ────────────────────────────────────────────
+function BucketCard({ title, Icon, tone, tasks, projectMap, onEdit, onToggleStatus, emptyLabel }) {
+  const TONE = {
+    red:    { ring: 'border-red-400/30',   bg: 'bg-red-400/5',   text: 'text-red-400',   icon: 'text-red-400'   },
+    orange: { ring: 'border-orange-400/30', bg: 'bg-orange-400/5', text: 'text-orange-400', icon: 'text-orange-400' },
+    cyan:   { ring: 'border-rl-cyan/30',   bg: 'bg-rl-cyan/5',   text: 'text-rl-cyan',   icon: 'text-rl-cyan'   },
+    muted:  { ring: 'border-rl-border',    bg: 'bg-rl-surface/40', text: 'text-rl-muted', icon: 'text-rl-muted'  },
+    green:  { ring: 'border-rl-green/30',  bg: 'bg-rl-green/5',  text: 'text-rl-green',  icon: 'text-rl-green'  },
+    purple: { ring: 'border-rl-purple/30', bg: 'bg-rl-purple/5', text: 'text-rl-purple', icon: 'text-rl-purple' },
+  }
+  const t = TONE[tone] || TONE.muted
+
+  return (
+    <div className={`glass-card border ${t.ring} flex flex-col overflow-hidden`}>
+      <div className={`flex items-center justify-between px-4 py-3 ${t.bg} border-b ${t.ring}`}>
+        <div className="flex items-center gap-2">
+          <Icon className={`w-4 h-4 ${t.icon}`} />
+          <h3 className="text-sm font-bold text-rl-text">{title}</h3>
+        </div>
+        <span className={`text-xs font-bold tabular-nums ${t.text}`}>{tasks.length}</span>
+      </div>
+      <div className="flex-1 max-h-[340px] overflow-y-auto scroll-hide">
+        {tasks.length === 0 ? (
+          <div className="px-4 py-8 text-center text-xs text-rl-muted">
+            {emptyLabel || 'Nada por aqui'}
+          </div>
+        ) : (
+          <ul className="divide-y divide-rl-border/40">
+            {tasks.map((task) => {
+              const project = projectMap.get(task.project_id)
+              const persona = (project?.personas || []).find((p) => p.id === task.persona_id)
+              const dueLabel = fmtDate(task.due_date)
+              const completedLabel = task.completed_at
+                ? new Date(task.completed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                : null
+              return (
+                <li key={task.id} className="px-3 py-2.5 hover:bg-rl-surface/40 transition-colors">
+                  <div className="flex items-start gap-2">
+                    <button
+                      onClick={() => onToggleStatus(task)}
+                      className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center transition shrink-0 ${
+                        task.status === 'done'
+                          ? 'bg-rl-green border-rl-green'
+                          : 'border-rl-border hover:border-rl-purple'
+                      }`}
+                      aria-label="Concluir tarefa"
+                    >
+                      {task.status === 'done' && <CheckCircle2 className="w-3 h-3 text-white" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <button
+                        onClick={() => onEdit(task)}
+                        className="text-left w-full"
+                      >
+                        <p className={`text-sm font-medium leading-snug ${task.status === 'done' ? 'text-rl-muted line-through' : 'text-rl-text'}`}>
+                          {task.title}
+                        </p>
+                      </button>
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                        <span className="text-[11px] text-rl-muted truncate max-w-[160px]">
+                          {project?.companyName || project?.company_name || '—'}
+                        </span>
+                        {persona && (
+                          <span className="text-[10px] text-rl-purple bg-rl-purple/10 px-1.5 py-0.5 rounded-full">
+                            {persona.name}
+                          </span>
+                        )}
+                        {task.status !== 'done' && dueLabel && (
+                          <span className={`text-[10px] inline-flex items-center gap-0.5 ${tone === 'red' ? 'text-red-400 font-semibold' : 'text-rl-muted'}`}>
+                            <Calendar className="w-2.5 h-2.5" /> {dueLabel}
+                          </span>
+                        )}
+                        {task.status === 'done' && completedLabel && (
+                          <span className="text-[10px] text-rl-green inline-flex items-center gap-0.5">
+                            <CheckCircle2 className="w-2.5 h-2.5" /> {completedLabel}
+                          </span>
+                        )}
+                        <UrgencyBadge value={task.urgency} />
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Página principal ────────────────────────────────────────────────────────
 export default function Tasks() {
   const navigate = useNavigate()
-  const { tasks, loadingTasks, projects, teamMembers, addTask, updateTask, deleteTask } = useApp()
+  const { user, tasks, loadingTasks, projects, teamMembers, addTask, updateTask, deleteTask } = useApp()
   const { toast, showToast } = useToast()
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [view,          setView]          = useState('panel') // 'panel' | 'list'
+  const [panelScope,    setPanelScope]    = useState('mine')  // 'mine' | 'all'
   const [filterClient,  setFilterClient]  = useState('all')
   const [filterPersona, setFilterPersona] = useState('all')
   const [filterUrgency, setFilterUrgency] = useState('all')
@@ -403,6 +546,12 @@ export default function Tasks() {
     const critical   = filtered.filter((t) => t.urgency === 'critica' && t.status !== 'done').length
     return { total, pending, inProgress, done, overdue, critical }
   }, [filtered])
+
+  // ── Buckets do painel pessoal ───────────────────────────────────────────
+  const buckets = useMemo(
+    () => bucketize(tasks, panelScope === 'mine' ? user?.id : null),
+    [tasks, panelScope, user?.id],
+  )
 
   async function handleSave(payload) {
     if (editing) {
@@ -481,141 +630,63 @@ export default function Tasks() {
               </button>
             </div>
 
-            {/* ── KPIs ───────────────────────────────────────── */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <KpiCard label="Total" value={kpis.total} color="text-rl-text" />
-              <KpiCard label="A fazer" value={kpis.pending} color="text-rl-muted" />
-              <KpiCard label="Em progresso" value={kpis.inProgress} color="text-rl-cyan" />
-              <KpiCard label="Concluídas" value={kpis.done} color="text-rl-green" />
-              <KpiCard label="Atrasadas" value={kpis.overdue} color="text-red-400" />
-              <KpiCard label="Críticas" value={kpis.critical} color="text-red-400" />
+            {/* ── Tabs ───────────────────────────────────────── */}
+            <div className="flex items-center gap-1 border-b border-rl-border">
+              <button
+                onClick={() => setView('panel')}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition ${
+                  view === 'panel'
+                    ? 'border-rl-purple text-rl-purple'
+                    : 'border-transparent text-rl-muted hover:text-rl-text'
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                Meu painel
+              </button>
+              <button
+                onClick={() => setView('list')}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition ${
+                  view === 'list'
+                    ? 'border-rl-purple text-rl-purple'
+                    : 'border-transparent text-rl-muted hover:text-rl-text'
+                }`}
+              >
+                <List className="w-4 h-4" />
+                Todas as tarefas
+              </button>
             </div>
 
-            {/* ── Filters ────────────────────────────────────── */}
-            <div className="glass-card p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="w-4 h-4 text-rl-muted" />
-                <h2 className="text-xs font-semibold text-rl-muted uppercase tracking-wider">Filtros</h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                {/* Search */}
-                <div className="relative lg:col-span-2">
-                  <Search className="w-4 h-4 text-rl-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Buscar título, descrição ou cliente..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full bg-rl-surface border border-rl-border rounded-lg pl-9 pr-3 py-2 text-sm text-rl-text placeholder:text-rl-muted focus:outline-none focus:border-rl-purple"
-                  />
-                </div>
-
-                {/* Cliente */}
-                <select
-                  value={filterClient}
-                  onChange={(e) => { setFilterClient(e.target.value); setFilterPersona('all') }}
-                  className="bg-rl-surface border border-rl-border rounded-lg px-3 py-2 text-sm text-rl-text focus:outline-none focus:border-rl-purple"
-                >
-                  <option value="all">Todos os clientes</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.companyName || p.company_name}</option>
-                  ))}
-                </select>
-
-                {/* Perfil de cliente */}
-                <select
-                  value={filterPersona}
-                  onChange={(e) => setFilterPersona(e.target.value)}
-                  disabled={filterClient === 'all'}
-                  className="bg-rl-surface border border-rl-border rounded-lg px-3 py-2 text-sm text-rl-text focus:outline-none focus:border-rl-purple disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={filterClient === 'all' ? 'Selecione um cliente para filtrar por perfil' : ''}
-                >
-                  <option value="all">Todos os perfis</option>
-                  <option value="none">Sem perfil</option>
-                  {personasOfFilteredClient.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name || 'Persona'}</option>
-                  ))}
-                </select>
-
-                {/* Status + urgência em linha */}
-                <div className="grid grid-cols-2 gap-2">
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="bg-rl-surface border border-rl-border rounded-lg px-3 py-2 text-sm text-rl-text focus:outline-none focus:border-rl-purple"
-                  >
-                    <option value="all">Status</option>
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={filterUrgency}
-                    onChange={(e) => setFilterUrgency(e.target.value)}
-                    className="bg-rl-surface border border-rl-border rounded-lg px-3 py-2 text-sm text-rl-text focus:outline-none focus:border-rl-purple"
-                  >
-                    <option value="all">Urgência</option>
-                    {URGENCY_OPTIONS.map((u) => (
-                      <option key={u.value} value={u.value}>{u.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Table ──────────────────────────────────────── */}
-            <div className="glass-card overflow-hidden">
-              {loadingTasks ? (
-                <div className="flex items-center justify-center py-16 text-rl-muted">
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando tarefas...
-                </div>
-              ) : filtered.length === 0 ? (
-                <div className="text-center py-16">
-                  <CheckSquare className="w-10 h-10 text-rl-muted mx-auto mb-3 opacity-50" />
-                  <p className="text-sm text-rl-muted">
-                    {tasks.length === 0
-                      ? 'Nenhuma tarefa criada ainda.'
-                      : 'Nenhuma tarefa corresponde aos filtros aplicados.'}
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-rl-surface/40 border-b border-rl-border">
-                      <tr>
-                        <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3"></th>
-                        <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Tarefa</th>
-                        <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Cliente / Perfil</th>
-                        <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Responsável</th>
-                        <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Criada</th>
-                        <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Vencimento</th>
-                        <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Urgência</th>
-                        <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((t) => {
-                        const project = projectMap.get(t.project_id)
-                        const persona = (project?.personas || []).find((p) => p.id === t.persona_id)
-                        const assignee = memberMap.get(t.assignee_id)
-                        return (
-                          <TaskRow
-                            key={t.id}
-                            task={t}
-                            project={project}
-                            persona={persona}
-                            assignee={assignee}
-                            onEdit={(task) => { setEditing(task); setShowForm(true) }}
-                            onDelete={handleDelete}
-                            onToggleStatus={handleToggleStatus}
-                          />
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+            {view === 'panel' ? (
+              <PersonalPanel
+                buckets={buckets}
+                scope={panelScope}
+                onScopeChange={setPanelScope}
+                projectMap={projectMap}
+                memberMap={memberMap}
+                onEdit={(task) => { setEditing(task); setShowForm(true) }}
+                onToggleStatus={handleToggleStatus}
+                loadingTasks={loadingTasks}
+              />
+            ) : (
+              <ListView
+                kpis={kpis}
+                tasks={filtered}
+                allTasks={tasks}
+                loadingTasks={loadingTasks}
+                projects={projects}
+                projectMap={projectMap}
+                memberMap={memberMap}
+                personasOfFilteredClient={personasOfFilteredClient}
+                search={search} setSearch={setSearch}
+                filterClient={filterClient} setFilterClient={setFilterClient}
+                filterPersona={filterPersona} setFilterPersona={setFilterPersona}
+                filterUrgency={filterUrgency} setFilterUrgency={setFilterUrgency}
+                filterStatus={filterStatus} setFilterStatus={setFilterStatus}
+                onEdit={(task) => { setEditing(task); setShowForm(true) }}
+                onDelete={handleDelete}
+                onToggleStatus={handleToggleStatus}
+              />
+            )}
           </div>
         </main>
       </div>
@@ -640,6 +711,269 @@ function KpiCard({ label, value, color }) {
     <div className="glass-card p-3">
       <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider">{label}</p>
       <p className={`text-2xl font-bold mt-0.5 tabular-nums ${color}`}>{value}</p>
+    </div>
+  )
+}
+
+// ─── Painel pessoal ──────────────────────────────────────────────────────────
+function PersonalPanel({ buckets, scope, onScopeChange, projectMap, memberMap, onEdit, onToggleStatus, loadingTasks }) {
+  if (loadingTasks) {
+    return (
+      <div className="flex items-center justify-center py-16 text-rl-muted">
+        <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando painel...
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Toggle de escopo */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold text-rl-muted uppercase tracking-wider">Mostrar:</span>
+        <div className="inline-flex bg-rl-surface border border-rl-border rounded-lg p-0.5">
+          <button
+            onClick={() => onScopeChange('mine')}
+            className={`px-3 py-1 text-xs font-medium rounded-md transition ${
+              scope === 'mine' ? 'bg-rl-purple text-white' : 'text-rl-muted hover:text-rl-text'
+            }`}
+          >
+            Minhas tarefas
+          </button>
+          <button
+            onClick={() => onScopeChange('all')}
+            className={`px-3 py-1 text-xs font-medium rounded-md transition ${
+              scope === 'all' ? 'bg-rl-purple text-white' : 'text-rl-muted hover:text-rl-text'
+            }`}
+          >
+            Time inteiro
+          </button>
+        </div>
+      </div>
+
+      {/* Linha 1: pendentes por janela temporal */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <BucketCard
+          title="Em atraso"
+          Icon={AlertTriangle}
+          tone="red"
+          tasks={buckets.overdue}
+          projectMap={projectMap}
+          memberMap={memberMap}
+          onEdit={onEdit}
+          onToggleStatus={onToggleStatus}
+          emptyLabel="Sem atrasos"
+        />
+        <BucketCard
+          title="Para hoje"
+          Icon={CalendarClock}
+          tone="orange"
+          tasks={buckets.today}
+          projectMap={projectMap}
+          memberMap={memberMap}
+          onEdit={onEdit}
+          onToggleStatus={onToggleStatus}
+          emptyLabel="Nada para hoje"
+        />
+        <BucketCard
+          title="Próximos 7 dias"
+          Icon={CalendarDays}
+          tone="cyan"
+          tasks={buckets.next7Days}
+          projectMap={projectMap}
+          memberMap={memberMap}
+          onEdit={onEdit}
+          onToggleStatus={onToggleStatus}
+          emptyLabel="Nenhuma tarefa nos próximos 7 dias"
+        />
+        <BucketCard
+          title="Sem data"
+          Icon={CalendarOff}
+          tone="muted"
+          tasks={buckets.noDate}
+          projectMap={projectMap}
+          memberMap={memberMap}
+          onEdit={onEdit}
+          onToggleStatus={onToggleStatus}
+          emptyLabel="Tudo com data definida"
+        />
+      </div>
+
+      {/* Linha 2: concluídas */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <History className="w-4 h-4 text-rl-green" />
+          <h3 className="text-xs font-semibold text-rl-muted uppercase tracking-wider">Histórico recente</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <BucketCard
+            title="Concluídas hoje"
+            Icon={CheckCircle2}
+            tone="green"
+            tasks={buckets.doneToday}
+            projectMap={projectMap}
+            memberMap={memberMap}
+            onEdit={onEdit}
+            onToggleStatus={onToggleStatus}
+            emptyLabel="Ainda nada concluído hoje"
+          />
+          <BucketCard
+            title="Concluídas ontem"
+            Icon={CheckCircle2}
+            tone="purple"
+            tasks={buckets.doneYesterday}
+            projectMap={projectMap}
+            memberMap={memberMap}
+            onEdit={onEdit}
+            onToggleStatus={onToggleStatus}
+            emptyLabel="Nenhuma conclusão ontem"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── List view (visão completa com filtros e tabela) ─────────────────────────
+function ListView({
+  kpis, tasks, allTasks, loadingTasks, projects, projectMap, memberMap,
+  personasOfFilteredClient,
+  search, setSearch,
+  filterClient, setFilterClient,
+  filterPersona, setFilterPersona,
+  filterUrgency, setFilterUrgency,
+  filterStatus, setFilterStatus,
+  onEdit, onDelete, onToggleStatus,
+}) {
+  return (
+    <div className="space-y-6">
+      {/* ── KPIs ───────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KpiCard label="Total" value={kpis.total} color="text-rl-text" />
+        <KpiCard label="A fazer" value={kpis.pending} color="text-rl-muted" />
+        <KpiCard label="Em progresso" value={kpis.inProgress} color="text-rl-cyan" />
+        <KpiCard label="Concluídas" value={kpis.done} color="text-rl-green" />
+        <KpiCard label="Atrasadas" value={kpis.overdue} color="text-red-400" />
+        <KpiCard label="Críticas" value={kpis.critical} color="text-red-400" />
+      </div>
+
+      {/* ── Filters ────────────────────────────────────── */}
+      <div className="glass-card p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Filter className="w-4 h-4 text-rl-muted" />
+          <h2 className="text-xs font-semibold text-rl-muted uppercase tracking-wider">Filtros</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="relative lg:col-span-2">
+            <Search className="w-4 h-4 text-rl-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Buscar título, descrição ou cliente..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-rl-surface border border-rl-border rounded-lg pl-9 pr-3 py-2 text-sm text-rl-text placeholder:text-rl-muted focus:outline-none focus:border-rl-purple"
+            />
+          </div>
+          <select
+            value={filterClient}
+            onChange={(e) => { setFilterClient(e.target.value); setFilterPersona('all') }}
+            className="bg-rl-surface border border-rl-border rounded-lg px-3 py-2 text-sm text-rl-text focus:outline-none focus:border-rl-purple"
+          >
+            <option value="all">Todos os clientes</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.companyName || p.company_name}</option>
+            ))}
+          </select>
+          <select
+            value={filterPersona}
+            onChange={(e) => setFilterPersona(e.target.value)}
+            disabled={filterClient === 'all'}
+            className="bg-rl-surface border border-rl-border rounded-lg px-3 py-2 text-sm text-rl-text focus:outline-none focus:border-rl-purple disabled:opacity-50 disabled:cursor-not-allowed"
+            title={filterClient === 'all' ? 'Selecione um cliente para filtrar por perfil' : ''}
+          >
+            <option value="all">Todos os perfis</option>
+            <option value="none">Sem perfil</option>
+            {personasOfFilteredClient.map((p) => (
+              <option key={p.id} value={p.id}>{p.name || 'Persona'}</option>
+            ))}
+          </select>
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="bg-rl-surface border border-rl-border rounded-lg px-3 py-2 text-sm text-rl-text focus:outline-none focus:border-rl-purple"
+            >
+              <option value="all">Status</option>
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+            <select
+              value={filterUrgency}
+              onChange={(e) => setFilterUrgency(e.target.value)}
+              className="bg-rl-surface border border-rl-border rounded-lg px-3 py-2 text-sm text-rl-text focus:outline-none focus:border-rl-purple"
+            >
+              <option value="all">Urgência</option>
+              {URGENCY_OPTIONS.map((u) => (
+                <option key={u.value} value={u.value}>{u.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Table ──────────────────────────────────────── */}
+      <div className="glass-card overflow-hidden">
+        {loadingTasks ? (
+          <div className="flex items-center justify-center py-16 text-rl-muted">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando tarefas...
+          </div>
+        ) : tasks.length === 0 ? (
+          <div className="text-center py-16">
+            <CheckSquare className="w-10 h-10 text-rl-muted mx-auto mb-3 opacity-50" />
+            <p className="text-sm text-rl-muted">
+              {allTasks.length === 0
+                ? 'Nenhuma tarefa criada ainda.'
+                : 'Nenhuma tarefa corresponde aos filtros aplicados.'}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-rl-surface/40 border-b border-rl-border">
+                <tr>
+                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3"></th>
+                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Tarefa</th>
+                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Cliente / Perfil</th>
+                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Responsável</th>
+                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Criada</th>
+                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Vencimento</th>
+                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Urgência</th>
+                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {tasks.map((t) => {
+                  const project = projectMap.get(t.project_id)
+                  const persona = (project?.personas || []).find((p) => p.id === t.persona_id)
+                  const assignee = memberMap.get(t.assignee_id)
+                  return (
+                    <TaskRow
+                      key={t.id}
+                      task={t}
+                      project={project}
+                      persona={persona}
+                      assignee={assignee}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      onToggleStatus={onToggleStatus}
+                    />
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
