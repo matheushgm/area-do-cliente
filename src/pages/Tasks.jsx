@@ -230,7 +230,7 @@ function TaskForm({ initial, projects, teamMembers, onClose, onSubmit }) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Responsável */}
           <div>
             <label className="block text-xs font-semibold text-rl-muted mb-1.5 uppercase tracking-wider">Responsável</label>
