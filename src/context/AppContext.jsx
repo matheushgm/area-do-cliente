@@ -1052,9 +1052,11 @@ export function AppProvider({ children }) {
       due_date:           data.due_date    ?? data.dueDate    ?? null,
       urgency:            data.urgency     ?? 'media',
       status,
+      attachments:        Array.isArray(data.attachments) ? data.attachments : [],
       completed_at:       status === 'concluido' ? new Date().toISOString() : null,
       created_by:         user?.id ?? null,
     };
+    if (data.id) insertCols.id = data.id;
     const { data: row, error } = await supabase
       .from("tasks")
       .insert(insertCols)
@@ -1084,6 +1086,9 @@ export function AppProvider({ children }) {
     if ('status'      in patch) {
       cols.status       = patch.status;
       cols.completed_at = patch.status === 'concluido' ? new Date().toISOString() : null;
+    }
+    if ('attachments' in patch) {
+      cols.attachments = Array.isArray(patch.attachments) ? patch.attachments : [];
     }
     cols.updated_at = new Date().toISOString();
     const { data: row, error } = await supabase
