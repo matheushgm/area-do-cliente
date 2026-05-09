@@ -16,6 +16,7 @@ import FunilCanvas from './pages/FunilCanvas'
 import SquadsReport from './pages/SquadsReport'
 import ResetPassword from './pages/ResetPassword'
 import Tasks from './pages/Tasks'
+import Chat from './pages/Chat'
 
 function RequireAuth({ children }) {
   const { user, loadingAuth } = useApp()
@@ -56,6 +57,7 @@ function AppRoutes() {
         <Route path="/funil" element={<RequireAuth><FunilCanvas /></RequireAuth>} />
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
         <Route path="/tarefas" element={<RequireAuth><Tasks /></RequireAuth>} />
+        <Route path="/chat" element={<RequireAuth><Chat /></RequireAuth>} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
