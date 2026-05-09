@@ -10,6 +10,7 @@ import {
   AlertTriangle, Flame, Circle, X, Filter, Search,
   Clock, CheckCircle2, Loader2, LayoutDashboard, List,
   CalendarDays, CalendarClock, CalendarOff, History,
+  ChevronDown, Building2,
 } from 'lucide-react'
 
 const URGENCY_OPTIONS = [
@@ -76,7 +77,7 @@ function bucketize(tasks, currentUserId) {
   const doneYesterday = []
 
   for (const t of tasks) {
-    if (currentUserId && t.assignee_id !== currentUserId) continue
+    if (currentUserId && !(t.assignee_ids || []).includes(currentUserId)) continue
 
     if (t.status === 'done') {
       const ms = t.completed_at ? new Date(t.completed_at).getTime() : null
@@ -124,11 +125,13 @@ function TaskForm({ initial, projects, teamMembers, onClose, onSubmit }) {
   const [personaId,   setPersonaId]   = useState(initial?.persona_id  || '')
   const [title,       setTitle]       = useState(initial?.title       || '')
   const [description, setDescription] = useState(initial?.description || '')
-  const [assigneeId,  setAssigneeId]  = useState(initial?.assignee_id || '')
+  const [assigneeIds, setAssigneeIds] = useState(initial?.assignee_ids || [])
+  const [clientResponsible, setClientResponsible] = useState(!!initial?.client_responsible)
   const [dueDate,     setDueDate]     = useState(initial?.due_date    || '')
   const [urgency,     setUrgency]     = useState(initial?.urgency     || 'media')
   const [status,      setStatus]      = useState(initial?.status      || 'pending')
   const [submitting,  setSubmitting]  = useState(false)
+  const [assigneeOpen, setAssigneeOpen] = useState(false)
 
   const project  = projects.find((p) => p.id === projectId)
   const personas = project?.personas || []
@@ -141,22 +144,37 @@ function TaskForm({ initial, projects, teamMembers, onClose, onSubmit }) {
     if (!exists) setPersonaId('')
   }
 
+  function toggleAssignee(id) {
+    setAssigneeIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!title.trim() || !projectId) return
     setSubmitting(true)
     await onSubmit({
-      project_id:  projectId,
-      persona_id:  personaId || null,
-      title:       title.trim(),
-      description: description.trim() || null,
-      assignee_id: assigneeId || null,
-      due_date:    dueDate || null,
+      project_id:         projectId,
+      persona_id:         personaId || null,
+      title:              title.trim(),
+      description:        description.trim() || null,
+      assignee_ids:       assigneeIds,
+      client_responsible: clientResponsible,
+      due_date:           dueDate || null,
       urgency,
       status,
     })
     setSubmitting(false)
   }
+
+  const clientLabel = project?.responsibleName || project?.responsible_name || project?.companyName || project?.company_name || 'Cliente'
+  const selectedMembers = teamMembers.filter((m) => assigneeIds.includes(m.id))
+  const assigneeButtonLabel = (() => {
+    const parts = []
+    if (clientResponsible) parts.push(`Cliente · ${clientLabel}`)
+    if (selectedMembers.length === 1) parts.push(selectedMembers[0].name)
+    else if (selectedMembers.length > 1) parts.push(`${selectedMembers.length} membros`)
+    return parts.length ? parts.join(' + ') : 'Sem responsável'
+  })()
 
   return (
     <Modal onClose={onClose} maxWidth="lg">
@@ -230,22 +248,77 @@ function TaskForm({ initial, projects, teamMembers, onClose, onSubmit }) {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* Responsável */}
-          <div>
-            <label className="block text-xs font-semibold text-rl-muted mb-1.5 uppercase tracking-wider">Responsável</label>
-            <select
-              value={assigneeId}
-              onChange={(e) => setAssigneeId(e.target.value)}
-              className="w-full bg-rl-surface border border-rl-border rounded-lg px-3 py-2 text-sm text-rl-text focus:outline-none focus:border-rl-purple"
-            >
-              <option value="">Sem responsável</option>
-              {teamMembers.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
+        {/* Responsáveis (multi-select com cliente) */}
+        <div className="relative">
+          <label className="block text-xs font-semibold text-rl-muted mb-1.5 uppercase tracking-wider">
+            Responsáveis <span className="text-rl-muted/60 normal-case font-normal">(time + cliente)</span>
+          </label>
+          <button
+            type="button"
+            onClick={() => setAssigneeOpen((v) => !v)}
+            className="w-full bg-rl-surface border border-rl-border rounded-lg px-3 py-2 text-sm text-rl-text hover:border-rl-purple/50 focus:outline-none focus:border-rl-purple flex items-center justify-between gap-2"
+          >
+            <span className={`truncate text-left ${assigneeButtonLabel === 'Sem responsável' ? 'text-rl-muted' : ''}`}>
+              {assigneeButtonLabel}
+            </span>
+            <ChevronDown className={`w-4 h-4 shrink-0 text-rl-muted transition-transform ${assigneeOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {(clientResponsible || selectedMembers.length > 0) && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {clientResponsible && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-rl-gold/10 text-rl-gold border border-rl-gold/30">
+                  <Building2 className="w-3 h-3" /> {clientLabel}
+                  <button type="button" onClick={() => setClientResponsible(false)} className="hover:text-rl-text">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {selectedMembers.map((m) => (
+                <span key={m.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-rl-purple/10 text-rl-purple border border-rl-purple/30">
+                  {m.name.split(' ')[0]}
+                  <button type="button" onClick={() => toggleAssignee(m.id)} className="hover:text-rl-text">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
               ))}
-            </select>
-          </div>
+            </div>
+          )}
+          {assigneeOpen && (
+            <div className="absolute z-10 mt-1 left-0 right-0 max-h-60 overflow-y-auto glass-card border border-rl-border rounded-lg shadow-2xl py-1">
+              {/* Cliente como responsável */}
+              <label className="flex items-center gap-2 px-3 py-2 hover:bg-rl-surface cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={clientResponsible}
+                  onChange={(e) => setClientResponsible(e.target.checked)}
+                  className="w-4 h-4 accent-rl-gold"
+                />
+                <Building2 className="w-3.5 h-3.5 text-rl-gold" />
+                <span className="text-sm text-rl-text">Cliente</span>
+                <span className="text-xs text-rl-muted truncate">· {clientLabel}</span>
+              </label>
+              <div className="border-t border-rl-border/50 my-1" />
+              {teamMembers.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-rl-muted">Nenhum membro disponível</p>
+              ) : teamMembers.map((m) => (
+                <label key={m.id} className="flex items-center gap-2 px-3 py-2 hover:bg-rl-surface cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={assigneeIds.includes(m.id)}
+                    onChange={() => toggleAssignee(m.id)}
+                    className="w-4 h-4 accent-rl-purple"
+                  />
+                  <div className="w-5 h-5 rounded-full bg-gradient-rl flex items-center justify-center text-[9px] font-bold text-white shrink-0">
+                    {(m.avatar || m.name?.slice(0, 2) || '??').toUpperCase()}
+                  </div>
+                  <span className="text-sm text-rl-text">{m.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Vencimento */}
           <div>
             <label className="block text-xs font-semibold text-rl-muted mb-1.5 uppercase tracking-wider">Vencimento</label>
@@ -304,7 +377,7 @@ function TaskForm({ initial, projects, teamMembers, onClose, onSubmit }) {
 }
 
 // ─── Task row (linha da tabela) ──────────────────────────────────────────────
-function TaskRow({ task, project, persona, assignee, onEdit, onDelete, onToggleStatus }) {
+function TaskRow({ task, project, persona, assignees, onEdit, onDelete, onToggleStatus }) {
   const overdue  = isOverdue(task.due_date, task.status)
   const dueLabel = fmtDate(task.due_date)
   const created  = fmtDate(task.created_at)
@@ -348,12 +421,25 @@ function TaskRow({ task, project, persona, assignee, onEdit, onDelete, onToggleS
         </div>
       </td>
       <td className="py-3 px-3">
-        {assignee ? (
-          <div className="flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded-full bg-gradient-rl flex items-center justify-center text-[9px] font-bold text-white">
-              {(assignee.avatar || assignee.name?.slice(0, 2) || '??').toUpperCase()}
-            </div>
-            <span className="text-xs text-rl-text whitespace-nowrap">{assignee.name?.split(' ')[0]}</span>
+        {(task.client_responsible || (assignees && assignees.length > 0)) ? (
+          <div className="flex items-center gap-1 flex-wrap">
+            {task.client_responsible && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] bg-rl-gold/10 text-rl-gold border border-rl-gold/30">
+                <Building2 className="w-2.5 h-2.5" /> Cliente
+              </span>
+            )}
+            {(assignees || []).slice(0, 3).map((a) => (
+              <div
+                key={a.id}
+                title={a.name}
+                className="w-5 h-5 rounded-full bg-gradient-rl flex items-center justify-center text-[9px] font-bold text-white border border-rl-bg"
+              >
+                {(a.avatar || a.name?.slice(0, 2) || '??').toUpperCase()}
+              </div>
+            ))}
+            {assignees && assignees.length > 3 && (
+              <span className="text-[10px] text-rl-muted">+{assignees.length - 3}</span>
+            )}
           </div>
         ) : (
           <span className="text-xs text-rl-muted">—</span>
@@ -451,6 +537,11 @@ function BucketCard({ title, Icon, tone, tasks, projectMap, onEdit, onToggleStat
                         {persona && (
                           <span className="text-[10px] text-rl-purple bg-rl-purple/10 px-1.5 py-0.5 rounded-full">
                             {persona.name}
+                          </span>
+                        )}
+                        {task.client_responsible && (
+                          <span className="text-[10px] inline-flex items-center gap-0.5 text-rl-gold bg-rl-gold/10 border border-rl-gold/30 px-1.5 py-0.5 rounded-full">
+                            <Building2 className="w-2.5 h-2.5" /> Cliente
                           </span>
                         )}
                         {task.status !== 'done' && dueLabel && (
@@ -955,14 +1046,14 @@ function ListView({
                 {tasks.map((t) => {
                   const project = projectMap.get(t.project_id)
                   const persona = (project?.personas || []).find((p) => p.id === t.persona_id)
-                  const assignee = memberMap.get(t.assignee_id)
+                  const assignees = (t.assignee_ids || []).map((id) => memberMap.get(id)).filter(Boolean)
                   return (
                     <TaskRow
                       key={t.id}
                       task={t}
                       project={project}
                       persona={persona}
-                      assignee={assignee}
+                      assignees={assignees}
                       onEdit={onEdit}
                       onDelete={onDelete}
                       onToggleStatus={onToggleStatus}

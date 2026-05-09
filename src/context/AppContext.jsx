@@ -1039,17 +1039,21 @@ export function AppProvider({ children }) {
   const addTask = useCallback(async (data) => {
     if (!supabase) return { error: "Supabase não configurado." };
     const status = data.status ?? 'pending';
+    const assigneeIds = Array.isArray(data.assignee_ids ?? data.assigneeIds)
+      ? (data.assignee_ids ?? data.assigneeIds)
+      : [];
     const insertCols = {
-      project_id:   data.project_id  ?? data.projectId,
-      persona_id:   data.persona_id  ?? data.personaId  ?? null,
-      title:        data.title,
-      description:  data.description ?? null,
-      assignee_id:  data.assignee_id ?? data.assigneeId ?? null,
-      due_date:     data.due_date    ?? data.dueDate    ?? null,
-      urgency:      data.urgency     ?? 'media',
+      project_id:         data.project_id  ?? data.projectId,
+      persona_id:         data.persona_id  ?? data.personaId  ?? null,
+      title:              data.title,
+      description:        data.description ?? null,
+      assignee_ids:       assigneeIds,
+      client_responsible: !!(data.client_responsible ?? data.clientResponsible),
+      due_date:           data.due_date    ?? data.dueDate    ?? null,
+      urgency:            data.urgency     ?? 'media',
       status,
-      completed_at: status === 'done' ? new Date().toISOString() : null,
-      created_by:   user?.id ?? null,
+      completed_at:       status === 'done' ? new Date().toISOString() : null,
+      created_by:         user?.id ?? null,
     };
     const { data: row, error } = await supabase
       .from("tasks")
@@ -1068,7 +1072,13 @@ export function AppProvider({ children }) {
     if ('persona_id'  in patch || 'personaId'  in patch) cols.persona_id  = patch.persona_id  ?? patch.personaId;
     if ('title'       in patch) cols.title       = patch.title;
     if ('description' in patch) cols.description = patch.description;
-    if ('assignee_id' in patch || 'assigneeId' in patch) cols.assignee_id = patch.assignee_id ?? patch.assigneeId;
+    if ('assignee_ids' in patch || 'assigneeIds' in patch) {
+      const v = patch.assignee_ids ?? patch.assigneeIds;
+      cols.assignee_ids = Array.isArray(v) ? v : [];
+    }
+    if ('client_responsible' in patch || 'clientResponsible' in patch) {
+      cols.client_responsible = !!(patch.client_responsible ?? patch.clientResponsible);
+    }
     if ('due_date'    in patch || 'dueDate'    in patch) cols.due_date    = patch.due_date    ?? patch.dueDate;
     if ('urgency'     in patch) cols.urgency     = patch.urgency;
     if ('status'      in patch) {
