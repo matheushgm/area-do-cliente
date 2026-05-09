@@ -569,6 +569,112 @@ function TaskRow({ task, project, persona, assignees, onEdit, onDelete, onToggle
   )
 }
 
+// ─── Task card (mobile) ──────────────────────────────────────────────────────
+function TaskCard({ task, project, persona, assignees, onEdit, onDelete, onToggleStatus }) {
+  const overdue  = isOverdue(task.due_date, task.status)
+  const dueLabel = fmtDate(task.due_date)
+  const created  = fmtDate(task.created_at)
+  const isDone   = task.status === 'concluido'
+
+  return (
+    <li className="px-4 py-3">
+      <div className="flex items-start gap-3">
+        <button
+          onClick={() => onToggleStatus(task)}
+          className={`mt-0.5 w-5 h-5 shrink-0 rounded-md border-2 flex items-center justify-center transition ${
+            isDone ? 'bg-rl-green border-rl-green' : 'border-rl-border hover:border-rl-purple'
+          }`}
+          aria-label="Concluir tarefa"
+        >
+          {isDone && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+        </button>
+
+        <div className="flex-1 min-w-0">
+          {/* Title + actions */}
+          <div className="flex items-start justify-between gap-2">
+            <button onClick={() => onEdit(task)} className="text-left flex-1 min-w-0">
+              <p className={`text-sm font-semibold leading-snug break-words ${isDone ? 'text-rl-muted line-through' : 'text-rl-text'}`}>
+                {task.title}
+              </p>
+              {task.description && (
+                <p className="text-xs text-rl-muted mt-0.5 line-clamp-2">{task.description}</p>
+              )}
+            </button>
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button onClick={() => onEdit(task)} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-cyan hover:bg-rl-cyan/10 transition" aria-label="Editar">
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => onDelete(task)} className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition" aria-label="Excluir">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Status + urgência + anexos */}
+          <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+            <StatusBadge value={task.status} />
+            <UrgencyBadge value={task.urgency} />
+            {Array.isArray(task.attachments) && task.attachments.length > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-rl-muted">
+                <Paperclip className="w-3 h-3" />
+                {task.attachments.length}
+              </span>
+            )}
+          </div>
+
+          {/* Cliente + persona */}
+          <div className="flex items-center gap-1.5 flex-wrap mt-2">
+            <span className="text-xs text-rl-text font-medium truncate max-w-full">
+              {project?.companyName || project?.company_name || '—'}
+            </span>
+            {persona && (
+              <span className="text-[10px] text-rl-purple bg-rl-purple/10 px-1.5 py-0.5 rounded-full">
+                {persona.name}
+              </span>
+            )}
+          </div>
+
+          {/* Responsáveis + datas */}
+          <div className="flex items-center justify-between gap-2 mt-2">
+            <div className="flex items-center gap-1 flex-wrap min-w-0">
+              {task.client_responsible && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] bg-rl-gold/10 text-rl-gold border border-rl-gold/30">
+                  <Building2 className="w-2.5 h-2.5" /> Cliente
+                </span>
+              )}
+              {assignees.slice(0, 3).map((a) => (
+                <div
+                  key={a.id}
+                  title={a.name}
+                  className="w-5 h-5 rounded-full bg-gradient-rl flex items-center justify-center text-[9px] font-bold text-white border border-rl-bg"
+                >
+                  {(a.avatar || a.name?.slice(0, 2) || '??').toUpperCase()}
+                </div>
+              ))}
+              {assignees.length > 3 && (
+                <span className="text-[10px] text-rl-muted">+{assignees.length - 3}</span>
+              )}
+              {!task.client_responsible && assignees.length === 0 && (
+                <span className="text-[10px] text-rl-muted">Sem responsável</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-rl-muted shrink-0">
+              {dueLabel ? (
+                <span className={`inline-flex items-center gap-0.5 ${overdue ? 'text-red-400 font-semibold' : ''}`}>
+                  <Calendar className="w-2.5 h-2.5" />
+                  {dueLabel}
+                </span>
+              ) : created ? (
+                <span>Criada {created}</span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    </li>
+  )
+}
+
 // ─── Bucket card (painel pessoal) ────────────────────────────────────────────
 function BucketCard({ title, Icon, tone, tasks, projectMap, onEdit, onToggleStatus, emptyLabel }) {
   const TONE = {
@@ -1135,41 +1241,65 @@ function ListView({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-rl-surface/40 border-b border-rl-border">
-                <tr>
-                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3"></th>
-                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Tarefa</th>
-                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Cliente / Perfil</th>
-                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Responsável</th>
-                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Criada</th>
-                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Vencimento</th>
-                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Urgência</th>
-                  <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((t) => {
-                  const project = projectMap.get(t.project_id)
-                  const persona = (project?.personas || []).find((p) => p.id === t.persona_id)
-                  const assignees = (t.assignee_ids || []).map((id) => memberMap.get(id)).filter(Boolean)
-                  return (
-                    <TaskRow
-                      key={t.id}
-                      task={t}
-                      project={project}
-                      persona={persona}
-                      assignees={assignees}
-                      onEdit={onEdit}
-                      onDelete={onDelete}
-                      onToggleStatus={onToggleStatus}
-                    />
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Tabela — desktop */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-rl-surface/40 border-b border-rl-border">
+                  <tr>
+                    <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3"></th>
+                    <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Tarefa</th>
+                    <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Cliente / Perfil</th>
+                    <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Responsável</th>
+                    <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Criada</th>
+                    <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Vencimento</th>
+                    <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3">Urgência</th>
+                    <th className="text-left text-[10px] font-semibold text-rl-muted uppercase tracking-wider py-2.5 px-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tasks.map((t) => {
+                    const project = projectMap.get(t.project_id)
+                    const persona = (project?.personas || []).find((p) => p.id === t.persona_id)
+                    const assignees = (t.assignee_ids || []).map((id) => memberMap.get(id)).filter(Boolean)
+                    return (
+                      <TaskRow
+                        key={t.id}
+                        task={t}
+                        project={project}
+                        persona={persona}
+                        assignees={assignees}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onToggleStatus={onToggleStatus}
+                      />
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Cards — mobile */}
+            <ul className="md:hidden divide-y divide-rl-border/50">
+              {tasks.map((t) => {
+                const project = projectMap.get(t.project_id)
+                const persona = (project?.personas || []).find((p) => p.id === t.persona_id)
+                const assignees = (t.assignee_ids || []).map((id) => memberMap.get(id)).filter(Boolean)
+                return (
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    project={project}
+                    persona={persona}
+                    assignees={assignees}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onToggleStatus={onToggleStatus}
+                  />
+                )
+              })}
+            </ul>
+          </>
         )}
       </div>
     </div>
