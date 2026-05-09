@@ -10,10 +10,10 @@ import {
 const NAV_ITEMS = [
   { id: 'all',      label: 'Clientes',          Icon: Layers,        type: 'filter'   },
   { id: 'churn',    label: 'Churn',             Icon: TrendingDown,  type: 'filter'   },
-  { id: 'tarefas',  label: 'Tarefas',           Icon: CheckSquare,   type: 'action'   },
 ]
 
 const NAV_LINKS = [
+  { id: 'tarefas',   label: 'Tarefas',           Icon: CheckSquare,  type: 'route',    to: '/tarefas' },
   { id: 'banco',     label: 'Banco de Anúncios', Icon: Library,      type: 'route',    to: '/banco-de-anuncios' },
   { id: 'funil',     label: 'Funil de Vendas',   Icon: GitFork,      type: 'route',    to: '/funil' },
   { id: 'playbook',  label: 'Playbook',          Icon: BookOpen,     type: 'external', href: 'https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173' },
@@ -63,14 +63,13 @@ function SidebarContent({
 
       {/* ── Navigation ──────────────────────────────────── */}
       <nav className="space-y-0.5 mb-2">
-        {NAV_ITEMS.map(({ id, label, Icon, type }) => {
-          const isFilter = type === 'filter'
-          const count = isFilter ? (counts?.[id] ?? 0) : 0
-          const active = isFilter && filter === id && location.pathname === '/'
+        {NAV_ITEMS.map(({ id, label, Icon }) => {
+          const count = counts?.[id] ?? 0
+          const active = filter === id && location.pathname === '/'
           return (
             <button
               key={id}
-              onClick={isFilter ? () => onNav(id) : undefined}
+              onClick={() => onNav(id)}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group border ${
                 active
                   ? 'bg-rl-purple/15 text-rl-purple border-rl-purple/25'
