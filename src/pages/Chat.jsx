@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import AppSidebar from '../components/AppSidebar'
@@ -31,6 +31,40 @@ function fmtDate(iso) {
 
 function initialsOf(name = '') {
   return name.trim().split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase()).join('') || '??'
+}
+
+// ─── Render mensagem com @mentions destacadas ───────────────────────────────
+function renderMessageContent(content, mentionedIds, memberMap, currentUserId) {
+  if (!content) return null
+  // Se nao houver mencionados, render direto
+  if (!Array.isArray(mentionedIds) || mentionedIds.length === 0) return content
+  // Constroi mapa nome → membro pra pessoas mencionadas
+  const tokens = mentionedIds
+    .map((id) => memberMap.get(id))
+    .filter(Boolean)
+    .map((m) => ({ id: m.id, name: m.name, slug: m.name.replace(/\s+/g, '_') }))
+  if (tokens.length === 0) return content
+  // Regex que captura @nome ou @nome_sobrenome (palavras separadas por _ ou .)
+  const pattern = new RegExp('@(' + tokens.map((t) => t.slug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b', 'g')
+  const parts = []
+  let lastIndex = 0
+  let match
+  while ((match = pattern.exec(content)) !== null) {
+    if (match.index > lastIndex) parts.push(content.slice(lastIndex, match.index))
+    const token = tokens.find((t) => t.slug === match[1])
+    const isMe = token?.id === currentUserId
+    parts.push(
+      <span
+        key={match.index}
+        className={`px-1 rounded font-semibold ${isMe ? 'bg-rl-gold/20 text-rl-gold' : 'bg-rl-purple/20 text-rl-purple'}`}
+      >
+        @{token?.name || match[1]}
+      </span>
+    )
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < content.length) parts.push(content.slice(lastIndex))
+  return parts
 }
 
 // ─── Avatar ─────────────────────────────────────────────────────────────────
@@ -298,7 +332,9 @@ function MessageList({ messages, memberMap, currentUserId }) {
                 <span className="text-[10px] text-rl-muted">{fmtTime(m.created_at)}</span>
                 {m.edited_at && <span className="text-[10px] text-rl-muted">(editada)</span>}
               </div>
-              <p className="text-sm text-rl-text whitespace-pre-wrap break-words">{m.content}</p>
+              <p className="text-sm text-rl-text whitespace-pre-wrap break-words">
+                {renderMessageContent(m.content, m.mentioned_user_ids, memberMap, currentUserId)}
+              </p>
             </div>
           </div>
         )
@@ -311,6 +347,7 @@ function MessageList({ messages, memberMap, currentUserId }) {
 // ─── Página principal ──────────────────────────────────────────────────────
 export default function Chat() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user, teamMembers } = useApp()
   const { toast, showToast } = useToast()
 
@@ -321,6 +358,8 @@ export default function Chat() {
   const [messages,    setMessages]      = useState([])
   const [loadingMsgs, setLoadingMsgs]   = useState(false)
   const [draft,       setDraft]         = useState('')
+  const [mentionState, setMentionState] = useState(null) // { query, start, end } | null
+  const draftRef = useRef(null)
   const [showNewCh,   setShowNewCh]     = useState(false)
   const [showNewDM,   setShowNewDM]     = useState(false)
   const [refreshTick, setRefreshTick]   = useState(0)
@@ -371,13 +410,19 @@ export default function Chat() {
     return () => { cancelled = true }
   }, [user?.id, refreshTick])
 
-  // Selecionar primeiro canal ao carregar
+  // Selecionar canal: ?channel=<id> tem prioridade, depois #geral, depois primeiro
   useEffect(() => {
-    if (!activeId && channels.length > 0) {
+    if (channels.length === 0) return
+    const wanted = searchParams.get('channel')
+    if (wanted && channels.some((c) => c.id === wanted)) {
+      setActiveId(wanted)
+      return
+    }
+    if (!activeId) {
       const geral = channels.find((c) => c.type === 'channel' && c.name === 'geral')
       setActiveId((geral || channels[0]).id)
     }
-  }, [channels, activeId])
+  }, [channels, activeId, searchParams])
 
   // Carrega mensagens do canal ativo
   useEffect(() => {
@@ -426,23 +471,39 @@ export default function Chat() {
     return () => { supabase.removeChannel(channel) }
   }, [user?.id])
 
+  // Extrai IDs de membros mencionados a partir do texto (@nome_sobrenome)
+  function extractMentions(text, candidates) {
+    const ids = []
+    const matches = text.matchAll(/@([\w.]+)/g)
+    for (const m of matches) {
+      const slug = m[1]
+      const found = candidates.find((c) => c.name.replace(/\s+/g, '_') === slug)
+      if (found && !ids.includes(found.id)) ids.push(found.id)
+    }
+    return ids
+  }
+
   async function handleSend(e) {
     e?.preventDefault()
     const text = draft.trim()
     if (!text || !activeId || !supabase) return
+    const channelMembers = teamMembers.filter((m) => activeChannel?.member_ids?.includes(m.id))
+    const mentioned = extractMentions(text, channelMembers)
     const optimistic = {
       id: crypto.randomUUID(),
       channel_id: activeId,
       user_id: user.id,
       content: text,
+      mentioned_user_ids: mentioned,
       created_at: new Date().toISOString(),
       _optimistic: true,
     }
     setMessages((prev) => [...prev, optimistic])
     setDraft('')
+    setMentionState(null)
     const { data, error } = await supabase
       .from('chat_messages')
-      .insert({ channel_id: activeId, user_id: user.id, content: text })
+      .insert({ channel_id: activeId, user_id: user.id, content: text, mentioned_user_ids: mentioned })
       .select()
       .single()
     if (error) {
@@ -606,30 +667,98 @@ export default function Chat() {
                 )}
 
                 {/* Input */}
-                <form onSubmit={handleSend} className="px-3 py-3 border-t border-rl-border bg-rl-bg/95">
-                  <div className="flex items-end gap-2">
-                    <textarea
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleSend()
+                <form onSubmit={handleSend} className="px-3 py-3 border-t border-rl-border bg-rl-bg/95 relative">
+                  {(() => {
+                    const channelMembers = teamMembers.filter((m) => activeChannel?.member_ids?.includes(m.id))
+                    const matches = mentionState
+                      ? channelMembers.filter((m) => m.id !== user.id && m.name.toLowerCase().includes(mentionState.query.toLowerCase()))
+                      : []
+                    function applyMention(member) {
+                      const before = draft.slice(0, mentionState.start)
+                      const after  = draft.slice(mentionState.end)
+                      const slug   = member.name.replace(/\s+/g, '_')
+                      const inserted = `@${slug} `
+                      const newText = before + inserted + after
+                      setDraft(newText)
+                      setMentionState(null)
+                      requestAnimationFrame(() => {
+                        const el = draftRef.current
+                        if (el) {
+                          const pos = (before + inserted).length
+                          el.focus()
+                          el.setSelectionRange(pos, pos)
                         }
-                      }}
-                      placeholder={activeChannel.type === 'channel' ? `Mensagem em #${activeChannel.name}` : `Mensagem para ${dmOther?.name || ''}`}
-                      rows={1}
-                      className="flex-1 bg-rl-surface border border-rl-border rounded-xl px-3 py-2 text-sm text-rl-text placeholder:text-rl-muted focus:outline-none focus:border-rl-purple resize-none max-h-32"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!draft.trim()}
-                      className="btn-primary p-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                      aria-label="Enviar"
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </div>
+                      })
+                    }
+                    return (
+                      <>
+                        {mentionState && matches.length > 0 && (
+                          <div className="absolute bottom-full left-3 right-14 mb-1 max-h-48 overflow-y-auto glass-card border border-rl-border rounded-lg shadow-2xl z-20">
+                            {matches.map((m) => (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => applyMention(m)}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-rl-surface transition"
+                              >
+                                <Avatar name={m.name} size="sm" />
+                                <span className="text-sm text-rl-text">{m.name}</span>
+                                <span className="ml-auto text-[10px] text-rl-muted">@{m.name.split(' ')[0].toLowerCase()}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex items-end gap-2">
+                          <textarea
+                            ref={draftRef}
+                            value={draft}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              const cursor = e.target.selectionStart
+                              setDraft(value)
+                              // Detecta @parcial ANTES do cursor
+                              const before = value.slice(0, cursor)
+                              const m = before.match(/(?:^|\s)@([\w.]*)$/)
+                              if (m) {
+                                const start = cursor - m[1].length - 1 // posição do '@'
+                                setMentionState({ query: m[1], start, end: cursor })
+                              } else {
+                                setMentionState(null)
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (mentionState) {
+                                if (e.key === 'Escape') { e.preventDefault(); setMentionState(null); return }
+                                if (e.key === 'Enter' && !e.shiftKey && matches.length > 0) {
+                                  e.preventDefault()
+                                  applyMention(matches[0])
+                                  return
+                                }
+                              }
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                handleSend()
+                              }
+                            }}
+                            placeholder={activeChannel.type === 'channel'
+                              ? `Mensagem em #${activeChannel.name} — use @ para mencionar`
+                              : `Mensagem para ${dmOther?.name || ''}`
+                            }
+                            rows={1}
+                            className="flex-1 bg-rl-surface border border-rl-border rounded-xl px-3 py-2 text-sm text-rl-text placeholder:text-rl-muted focus:outline-none focus:border-rl-purple resize-none max-h-32"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!draft.trim()}
+                            className="btn-primary p-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                            aria-label="Enviar"
+                          >
+                            <Send className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </>
+                    )
+                  })()}
                 </form>
               </>
             )}
