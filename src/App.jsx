@@ -17,6 +17,7 @@ import SquadsReport from './pages/SquadsReport'
 import ResetPassword from './pages/ResetPassword'
 import Tasks from './pages/Tasks'
 import Chat from './pages/Chat'
+import NotificationCenter from './components/NotificationCenter'
 
 function RequireAuth({ children }) {
   const { user, loadingAuth } = useApp()
@@ -61,6 +62,7 @@ function AppRoutes() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      {user && <NotificationCenter />}
     </>
   )
 }
