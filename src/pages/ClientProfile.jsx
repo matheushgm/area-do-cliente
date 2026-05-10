@@ -14,6 +14,7 @@ import {
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Target, Menu,
+  NotebookPen,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -34,6 +35,7 @@ import LinksModule from '../components/LinksModule'
 import CRMModule from '../components/CRMModule'
 import PlanejamentoAnualModule from '../components/PlanejamentoAnualModule'
 import PromessaModule from '../components/PromessaModule'
+import MeetingMinutesModule from '../components/MeetingMinutesModule'
 import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
 
 // ─── Momento ──────────────────────────────────────────────────────────────────
@@ -1172,6 +1174,7 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'nps',          label: 'NPS',                       icon: Star,           color: 'text-rl-gold',   filled: !!(project.nps && Object.values(project.nps).some(Boolean)) },
     { id: 'crm',          label: 'CRM',                       icon: Kanban,         color: 'text-rl-cyan',   filled: !!(project.crmData?.contacts?.length) },
     { id: 'planejamento', label: 'Planejamento Anual',        icon: TrendingUp,     color: 'text-rl-green',  filled: !!(project.planejamentoAnual?.setup?.metaAnual) },
+    { id: 'atas',         label: 'Ata de Reunião',            icon: NotebookPen,    color: 'text-rl-purple', filled: false },
   ]
 
   function renderContent() {
@@ -1211,6 +1214,7 @@ export default function ClientProfile({ project: projectProp }) {
       case 'nps':          return <NPSModule project={project} />
       case 'crm':          return <CRMModule project={project} />
       case 'planejamento': return <PlanejamentoAnualModule project={project} />
+      case 'atas':         return <MeetingMinutesModule project={project} />
       default:             return null
     }
   }
