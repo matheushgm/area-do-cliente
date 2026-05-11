@@ -26,6 +26,7 @@ import CreativeResultBlock from './Criativos/CreativeResultBlock'
 import ContextPreview from './Criativos/ContextPreview'
 import CreativeHistory from './Criativos/CreativeHistory'
 import VideoGuide from './VideoGuide'
+import CriativoVisualPanel from './Criativos/CriativoVisualPanel'
 import RatingSelector from './RatingSelector'
 import { exportCreativoSetPDF } from '../lib/creativoPDF'
 
@@ -338,6 +339,10 @@ Use as informações de público-alvo, personas e oferta fornecidas no contexto 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function CriativosModule({ project }) {
   const { updateProject } = useApp()
+
+  // Sub-tab no topo: 'copy' (fluxo atual de geração de copy) | 'visual'
+  // (gerador de criativos visuais com IA + html2canvas → JPG)
+  const [topTab, setTopTab] = useState('copy')
 
   const [view, setView] = useState('select') // 'select' | 'estaticos' | 'video'
   const [historyCreativeId, setHistoryCreativeId] = useState(null)
@@ -979,6 +984,35 @@ ${sections}`
   // ── View: Generator ─────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
+      {/* Sub-tabs: Copy (fluxo atual) | Visual com IA (novo) */}
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-rl-surface border border-rl-border w-fit">
+        <button
+          type="button"
+          onClick={() => setTopTab('copy')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            topTab === 'copy'
+              ? 'bg-rl-purple text-white shadow-sm'
+              : 'text-rl-muted hover:text-rl-text'
+          }`}
+        >
+          Copy
+        </button>
+        <button
+          type="button"
+          onClick={() => setTopTab('visual')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-1.5 ${
+            topTab === 'visual'
+              ? 'bg-rl-purple text-white shadow-sm'
+              : 'text-rl-muted hover:text-rl-text'
+          }`}
+        >
+          ✨ Visual com IA
+        </button>
+      </div>
+
+      {topTab === 'visual' && <CriativoVisualPanel project={project} />}
+
+      {topTab === 'copy' && (<>
       {/* Header */}
       <div className="flex items-start gap-3">
         <button
@@ -1526,6 +1560,7 @@ ${sections}`
           )}
         </div>
       )}
+      </>)}
     </div>
   )
 }
