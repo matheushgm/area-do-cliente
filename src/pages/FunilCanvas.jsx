@@ -11,6 +11,7 @@ import {
   AlertCircle, ChevronDown, ChevronUp,
   BarChart3, TrendingUp, DollarSign, Users,
   ArrowRight, Settings, X, Check, ChevronLeft, Pencil, Layers,
+  ZoomIn, ZoomOut, Maximize2,
 } from 'lucide-react'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -1466,6 +1467,15 @@ export default function FunilCanvas() {
   const [selectedConnId, setSelectedConnId] = useState(null)
   const [selectedNodeId, setSelectedNodeId] = useState(null)
   const [editNode,       setEditNode]       = useState(null)
+  // Zoom do canvas: 0.4x até 2x. Default 1x. Influencia o transform do
+  // .canvas-inner e a divisão dos cursores nos handlers de mouse.
+  const [zoom,           setZoom]           = useState(1)
+  const ZOOM_MIN = 0.4
+  const ZOOM_MAX = 2
+  const ZOOM_STEP = 0.1
+  function zoomIn()    { setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2))) }
+  function zoomOut()   { setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2))) }
+  function zoomReset() { setZoom(1) }
 
   const canvasRef = useRef(null)
   const saveTimer = useRef(null)
@@ -1640,16 +1650,27 @@ export default function FunilCanvas() {
   }
 
   // ── Canvas mouse events ──────────────────────────────────────────────────────
+  // Converte coordenadas de tela em coordenadas lógicas do canvas
+  // (canvas-inner). Como o canvas-inner usa transform:scale(zoom) com
+  // origem em 0,0, o offset vindo de scrollLeft/Top já está em pixels
+  // de tela e precisa ser dividido pelo zoom para virar coord lógica.
+  function screenToCanvas(e) {
+    const canvas = canvasRef.current
+    const rect   = canvas.getBoundingClientRect()
+    const x = (e.clientX - rect.left + canvas.scrollLeft) / zoom
+    const y = (e.clientY - rect.top  + canvas.scrollTop)  / zoom
+    return { x, y }
+  }
+
   function onNodeMouseDown(e, node) {
     e.preventDefault()
     e.stopPropagation()
     if (connectingFrom) { addConnection(connectingFrom.nodeId, connectingFrom.port, node.id); return }
-    const canvas = canvasRef.current
-    const rect   = canvas.getBoundingClientRect()
+    const { x, y } = screenToCanvas(e)
     setDragState({
       nodeId: node.id,
-      startMouseX: e.clientX - rect.left + canvas.scrollLeft,
-      startMouseY: e.clientY - rect.top  + canvas.scrollTop,
+      startMouseX: x,
+      startMouseY: y,
       origNodeX: node.x,
       origNodeY: node.y,
     })
@@ -1659,10 +1680,7 @@ export default function FunilCanvas() {
 
   function onCanvasMouseMove(e) {
     if (!dragState) return
-    const canvas = canvasRef.current
-    const rect   = canvas.getBoundingClientRect()
-    const mx = e.clientX - rect.left + canvas.scrollLeft
-    const my = e.clientY - rect.top  + canvas.scrollTop
+    const { x: mx, y: my } = screenToCanvas(e)
     const dx = mx - dragState.startMouseX
     const dy = my - dragState.startMouseY
     updateNode(dragState.nodeId, {
@@ -1677,12 +1695,9 @@ export default function FunilCanvas() {
 
   function onCanvasDrop(e) {
     e.preventDefault()
-    const type   = e.dataTransfer.getData('nodeType')
+    const type = e.dataTransfer.getData('nodeType')
     if (!type) return
-    const canvas = canvasRef.current
-    const rect   = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left + canvas.scrollLeft
-    const y = e.clientY - rect.top  + canvas.scrollTop
+    const { x, y } = screenToCanvas(e)
     addNode(type, x, y)
   }
 
@@ -1906,7 +1921,72 @@ export default function FunilCanvas() {
                   onDrop={onCanvasDrop}
                   onClick={onCanvasClick}
                 >
-                  <div className="canvas-inner" style={{ width: CANVAS_W, height: CANVAS_H, position: 'relative' }}>
+                  {/* Controles de zoom — sticky no canto superior direito do canvas */}
+                  <div
+                    className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-white border border-rl-border rounded-xl shadow-md p-1"
+                    style={{ pointerEvents: 'auto' }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={zoomOut}
+                      disabled={zoom <= ZOOM_MIN + 0.001}
+                      title="Diminuir zoom (−)"
+                      aria-label="Diminuir zoom"
+                      className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={zoomReset}
+                      title="Resetar zoom (100%)"
+                      className="px-2 py-1 rounded-lg text-xs font-semibold tabular-nums text-rl-text hover:bg-rl-surface transition-all min-w-[44px]"
+                    >
+                      {Math.round(zoom * 100)}%
+                    </button>
+                    <button
+                      onClick={zoomIn}
+                      disabled={zoom >= ZOOM_MAX - 0.001}
+                      title="Aumentar zoom (+)"
+                      aria-label="Aumentar zoom"
+                      className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </button>
+                    <div className="w-px h-5 bg-rl-border mx-0.5" />
+                    <button
+                      onClick={zoomReset}
+                      title="Ajustar à tela (100%)"
+                      aria-label="Resetar zoom"
+                      className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  {/* Spacer: define a área de scroll igual ao tamanho visual
+                      após o zoom. O canvas-inner é o que de fato é escalado
+                      via transform — mantém suas coords originais 0..CANVAS_*
+                      para que os nós sejam posicionados sem precisar
+                      recalcular tudo. */}
+                  <div
+                    style={{
+                      width:  CANVAS_W * zoom,
+                      height: CANVAS_H * zoom,
+                      position: 'relative',
+                    }}
+                  >
+                  <div
+                    className="canvas-inner"
+                    style={{
+                      width: CANVAS_W,
+                      height: CANVAS_H,
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      transform: `scale(${zoom})`,
+                      transformOrigin: '0 0',
+                    }}
+                  >
                     <SVGConnections
                       connections={activeScenario.connections}
                       nodes={activeScenario.nodes}
@@ -1960,6 +2040,7 @@ export default function FunilCanvas() {
                         </div>
                       </div>
                     )}
+                  </div>
                   </div>
                 </div>
               )}
