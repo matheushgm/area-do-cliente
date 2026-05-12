@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { fmtCurrency, mrrValue } from '../lib/utils'
 import { SQUAD_COLORS } from '../lib/constants'
+import { supabase } from '../lib/supabase'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
 import {
   ArrowLeft, Users2, Pencil, Check, X, TrendingUp, TrendingDown,
-  DollarSign, Wallet, Activity,
+  DollarSign, Wallet, Activity, ArrowUpDown,
 } from 'lucide-react'
 
 const MONTHS_PT = [
@@ -39,7 +40,7 @@ function SummaryCard({ icon: Icon, label, value, valueClass = 'text-rl-text', su
   )
 }
 
-function SquadCard({ squad, colorIndex, projects, year, month, monthLabel, onSaveCost, isAdmin }) {
+function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, monthLabel, onSaveCost, isAdmin }) {
   const c = SQUAD_COLORS[colorIndex % SQUAD_COLORS.length]
 
   // Projetos deste squad (qualquer status — usado pelos gráficos históricos)
@@ -90,6 +91,29 @@ function SquadCard({ squad, colorIndex, projects, year, month, monthLabel, onSav
   const prevMRR    = mrrYearData[mrrYearData.length - 2]?.value ?? 0
   const mrrDelta   = lastMRR - prevMRR
   const mrrDeltaPct = prevMRR > 0 ? (mrrDelta / prevMRR) * 100 : 0
+
+  // ── Upsell/Downsell por mês ────────────────────────────────────────────────
+  // Filtra eventos de contract_value_history para os projetos deste squad,
+  // dentro dos últimos 12 meses, e agrupa por mês somando upsells/downsells.
+  const projectIdsInSquad = new Set(squadProjects.map(p => String(p.id)))
+  const squadEvents = (valueHistory || []).filter(ev => projectIdsInSquad.has(String(ev.project_id)))
+  const upDownData = monthsBuckets.map((m) => {
+    const evs = squadEvents.filter((ev) => {
+      const d = new Date(ev.changed_at)
+      return d.getFullYear() === m.yyyy && d.getMonth() === m.mm
+    })
+    let up = 0, down = 0, upCount = 0, downCount = 0
+    evs.forEach((ev) => {
+      const delta = Number(ev.delta) || 0
+      if (delta > 0)      { up   += delta;          upCount++   }
+      else if (delta < 0) { down += Math.abs(delta); downCount++ }
+    })
+    return { key: m.key, label: m.label, up, down, upCount, downCount }
+  })
+  const upDownMaxAbs = Math.max(...upDownData.map(d => Math.max(d.up, d.down)), 0)
+  const totalUp    = upDownData.reduce((acc, d) => acc + d.up,   0)
+  const totalDown  = upDownData.reduce((acc, d) => acc + d.down, 0)
+  const totalNet   = totalUp - totalDown
 
   // Inline cost editor
   const [editing, setEditing] = useState(false)
@@ -293,6 +317,44 @@ function SquadCard({ squad, colorIndex, projects, year, month, monthLabel, onSav
               compact
             />
           </div>
+
+          {/* Upsell / Downsell 12 meses — span 2 colunas */}
+          <div className="sm:col-span-2">
+            <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <ArrowUpDown className="w-3 h-3 text-rl-text" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-text">Upsell / Downsell 12m</span>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] tabular-nums font-semibold">
+                <span className="inline-flex items-center gap-1 text-rl-green">
+                  <TrendingUp className="w-2.5 h-2.5" />+{fmtCurrency(totalUp)}
+                </span>
+                <span className="inline-flex items-center gap-1 text-red-400">
+                  <TrendingDown className="w-2.5 h-2.5" />−{fmtCurrency(totalDown)}
+                </span>
+                <span className={`inline-flex items-center gap-1 ${totalNet >= 0 ? 'text-rl-green' : 'text-red-400'}`}>
+                  Net: {totalNet >= 0 ? '+' : '−'}{fmtCurrency(Math.abs(totalNet))}
+                </span>
+              </div>
+            </div>
+            {totalUp === 0 && totalDown === 0 ? (
+              <div className="rounded-lg border border-dashed border-rl-border bg-rl-surface/40 py-6 text-center">
+                <p className="text-[10px] text-rl-muted">
+                  Nenhuma mudança de valor de contrato registrada nos últimos 12 meses.
+                </p>
+                <p className="text-[9px] text-rl-muted/70 mt-1">
+                  Edite o valor de um contrato em qualquer cliente deste squad pra começar a registrar.
+                </p>
+              </div>
+            ) : (
+              <BarChartSigned
+                items={upDownData}
+                maxAbs={upDownMaxAbs}
+                formatValue={fmtCurrency}
+                compact
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -370,6 +432,57 @@ function BarChart({ items, maxValue, formatValue, barColorClass = 'bg-rl-purple'
   )
 }
 
+// Gráfico de barras com valores positivos e negativos (upsell verde acima
+// da linha zero, downsell vermelho abaixo). Items: [{ key, label, up, down }].
+function BarChartSigned({ items, maxAbs, formatValue, compact = false }) {
+  const safeMax = Math.max(maxAbs, 1)
+  const halfH   = compact ? 'h-10' : 'h-14'
+  const wrapperH = compact ? 'h-28' : 'h-44'
+  return (
+    <div className={`flex items-stretch justify-between gap-1 ${wrapperH}`}>
+      {items.map((it) => {
+        const upPct   = (it.up   / safeMax) * 100
+        const downPct = (it.down / safeMax) * 100
+        const hasAny  = it.up > 0 || it.down > 0
+        return (
+          <div key={it.key} className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
+            <span className="text-[9px] font-semibold tabular-nums leading-tight text-rl-green">
+              {it.up > 0 ? `+${it.upCount || 0}` : ''}
+            </span>
+            <div className={`w-full flex items-end justify-center ${halfH}`}>
+              {it.up > 0 ? (
+                <div
+                  className="w-full rounded-t bg-rl-green transition-all"
+                  style={{ height: `${Math.max(upPct, 4)}%` }}
+                  title={`${it.label}: +${formatValue(it.up)} em upsell${it.upCount ? ` (${it.upCount} ${it.upCount === 1 ? 'mudança' : 'mudanças'})` : ''}`}
+                />
+              ) : (
+                <div className="w-full" />
+              )}
+            </div>
+            <div className="w-full h-px bg-rl-border" />
+            <div className={`w-full flex items-start justify-center ${halfH}`}>
+              {it.down > 0 ? (
+                <div
+                  className="w-full rounded-b bg-red-400 transition-all"
+                  style={{ height: `${Math.max(downPct, 4)}%` }}
+                  title={`${it.label}: -${formatValue(it.down)} em downsell${it.downCount ? ` (${it.downCount} ${it.downCount === 1 ? 'mudança' : 'mudanças'})` : ''}`}
+                />
+              ) : (
+                <div className="w-full" />
+              )}
+            </div>
+            <span className="text-[9px] font-semibold tabular-nums leading-tight text-red-400">
+              {it.down > 0 ? `−${it.downCount || 0}` : ''}
+            </span>
+            <span className={`text-[9px] truncate leading-tight ${hasAny ? 'text-rl-text font-semibold' : 'text-rl-muted'}`}>{it.label}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function SquadsReport() {
   const { user, projects, squads, updateSquad } = useApp()
   const navigate = useNavigate()
@@ -380,6 +493,28 @@ export default function SquadsReport() {
   const year  = now.getFullYear()
   const month = now.getMonth()
   const monthLabel = `${MONTHS_PT[month]} ${year}`
+
+  // ── Histórico de upsell/downsell ────────────────────────────────────────────
+  // Busca apenas eventos do tipo upsell/downsell (ignora 'initial' e 'no_change')
+  // dos últimos 13 meses pra cobrir folga no gráfico de 12 meses.
+  const [valueHistory, setValueHistory] = useState([])
+  useEffect(() => {
+    if (!supabase) return
+    const since = new Date(year, month - 13, 1).toISOString()
+    let active = true
+    supabase
+      .from('contract_value_history')
+      .select('project_id, old_value, new_value, delta, change_type, changed_at')
+      .in('change_type', ['upsell', 'downsell'])
+      .gte('changed_at', since)
+      .order('changed_at', { ascending: true })
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) { console.error('[SquadsReport] history:', error); return }
+        setValueHistory(data || [])
+      })
+    return () => { active = false }
+  }, [year, month])
 
   // Totais consolidados — todos os squads entram (sem distinção de teste).
   const projectsWithSquad = projects.filter(p => !!p.squad)
@@ -462,6 +597,7 @@ export default function SquadsReport() {
                 squad={s}
                 colorIndex={idx}
                 projects={projects}
+                valueHistory={valueHistory}
                 year={year}
                 month={month}
                 monthLabel={monthLabel}
