@@ -3,8 +3,26 @@ import { createClient } from '@supabase/supabase-js'
 const SUPABASE_URL  = import.meta.env.SUPABASE_URL      || ''
 const SUPABASE_ANON = import.meta.env.SUPABASE_ANON_KEY || ''
 
+// Lock no-op em vez do default da lib (que usa Web Locks API).
+// O default coordena refresh do token entre múltiplas abas, mas em casos
+// reais quebra com 'AbortError: Lock broken by another request with the
+// 'steal' option' (React Strict Mode + várias abas abertas), travando a
+// sessão e impedindo a leitura de dados. Para uso interno (1-2 abas),
+// fazer cada aba refrescar independentemente é aceitável e elimina o bug.
+async function noopLock(_name, _timeout, fn) {
+  return await fn()
+}
+
 export const supabase = (SUPABASE_URL && SUPABASE_ANON)
-  ? createClient(SUPABASE_URL, SUPABASE_ANON)
+  ? createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce',
+        lock: noopLock,
+      },
+    })
   : null
 
 export const isSupabaseReady = !!(SUPABASE_URL && SUPABASE_ANON)
