@@ -7,7 +7,14 @@ import RatingSelector from '../RatingSelector'
 import { exportCreativoSetPDF } from '../../lib/creativoPDF'
 
 export default function CreativeHistory({ project, updateProject, onOpen }) {
-  const allCreatives = (project.creatives || []).slice().reverse()
+  // Ordena do mais recente pro mais antigo. Antes era só `.reverse()` sobre a
+  // ordem que o Supabase devolvia — como o SELECT não tem ORDER BY explícito,
+  // criativos novos podiam vir no meio da lista. Sort por createdAt resolve.
+  const allCreatives = (project.creatives || []).slice().sort((a, b) => {
+    const da = a.createdAt || ''
+    const db = b.createdAt || ''
+    return db.localeCompare(da)
+  })
   const [showAll,       setShowAll]       = useState(false)
   const [exportingId,   setExportingId]   = useState(null)
   const [editingNameId, setEditingNameId] = useState(null)
