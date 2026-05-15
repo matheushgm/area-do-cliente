@@ -13,7 +13,7 @@ import {
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
-  LayoutDashboard, Check, Instagram, HardDrive, Kanban, Target, Menu,
+  LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
   NotebookPen, Wrench,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
@@ -33,8 +33,6 @@ import ProdutoServicoModule from '../components/ProdutoServicoModule'
 import BancoMidiaModule from '../components/BancoMidiaModule'
 import LinksModule from '../components/LinksModule'
 import CRMModule from '../components/CRMModule'
-import PlanejamentoAnualModule from '../components/PlanejamentoAnualModule'
-import PromessaModule from '../components/PromessaModule'
 import MeetingMinutesModule from '../components/MeetingMinutesModule'
 import FerramentasModule from '../components/FerramentasModule'
 import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
@@ -1163,7 +1161,6 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'campaign',     label: 'Campanhas',                icon: CalendarDays,   color: 'text-rl-green',  filled: hasCampaignPlan },
     { id: 'anexos',       label: 'Anexos',                   icon: Paperclip,      color: 'text-rl-gold',   filled: hasAnexos },
     { id: 'criativos',    label: 'Criativos com IA',         icon: Clapperboard,   color: 'text-rl-cyan',   filled: false },
-    { id: 'promessa',     label: 'Criação de Promessa',       icon: Target,         color: 'text-rl-purple', filled: false },
     { id: 'landingpage',  label: 'Landing Page com IA',      icon: LayoutTemplate, color: 'text-rl-green',  filled: hasLandingPages },
     { id: 'resultados',   label: 'Resultados',               icon: Activity,       color: 'text-rl-purple', filled: hasResultados },
     { id: 'metalab',      label: 'Lab. Meta Ads',            icon: FlaskConical,   color: 'text-rl-purple', filled: !!project.metaLabBudget },
@@ -1174,7 +1171,6 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'links',        label: 'Links Importantes',        icon: Link2,          color: 'text-rl-cyan',   filled: hasLinks },
     { id: 'nps',          label: 'NPS',                       icon: Star,           color: 'text-rl-gold',   filled: !!(project.nps && Object.values(project.nps).some(Boolean)) },
     { id: 'crm',          label: 'CRM',                       icon: Kanban,         color: 'text-rl-cyan',   filled: !!(project.crmData?.contacts?.length) },
-    { id: 'planejamento', label: 'Planejamento Anual',        icon: TrendingUp,     color: 'text-rl-green',  filled: !!(project.planejamentoAnual?.setup?.metaAnual) },
     { id: 'atas',         label: 'Ata de Reunião',            icon: NotebookPen,    color: 'text-rl-purple', filled: false },
     { id: 'ferramentas',  label: 'Ferramentas',               icon: Wrench,         color: 'text-rl-gold',   filled: false },
   ]
@@ -1204,7 +1200,6 @@ export default function ClientProfile({ project: projectProp }) {
       case 'campaign':     return <CampaignPlanner project={project} onSave={handleSaveCampaign} />
       case 'anexos':       return <AnexosModule project={project} />
       case 'criativos':    return <CriativosModule project={project} />
-      case 'promessa':     return <PromessaModule project={project} />
       case 'landingpage':  return <LandingPageModule project={project} />
       case 'resultados':   return <ResultadosModule project={project} />
       case 'metalab':      return <MetaLabModule project={project} />
@@ -1215,7 +1210,6 @@ export default function ClientProfile({ project: projectProp }) {
       case 'links':        return <LinksModule project={project} onSave={handleSaveLinks} />
       case 'nps':          return <NPSModule project={project} />
       case 'crm':          return <CRMModule project={project} />
-      case 'planejamento': return <PlanejamentoAnualModule project={project} />
       case 'atas':         return <MeetingMinutesModule project={project} />
       case 'ferramentas':  return <FerramentasModule project={project} />
       default:             return null
