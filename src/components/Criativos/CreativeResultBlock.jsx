@@ -70,7 +70,19 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine }) {
   function startEdit() { setDraft(body); setEditing(true); setRefineOpen(false) }
   function cancelEdit() { setEditing(false); setDraft('') }
   function saveEdit() {
-    if (onChange && draft.trim()) onChange(draft.trim())
+    if (onChange && draft.trim()) {
+      // Preserva o cabeçalho original do chunk (`## ROTEIRO N:` / `## ANÚNCIO N:`).
+      // O textarea de edição só expõe o body — se a gente devolvesse só `draft`,
+      // o splitter perde a referência de início de chunk e o anúncio "some"
+      // (na verdade fica colado ao anterior na próxima render).
+      const firstLine = item.chunk.split('\n')[0]
+      const hadHeading = /^#{1,3}\s+/.test(firstLine)
+      const draftHasHeading = /^#{1,3}\s+/.test(draft.trim())
+      const newChunk = (hadHeading && !draftHasHeading)
+        ? `${firstLine}\n\n${draft.trim()}`
+        : draft.trim()
+      onChange(newChunk)
+    }
     setEditing(false)
     setDraft('')
   }
@@ -100,7 +112,17 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine }) {
   }
 
   function approveRefine() {
-    if (onChange && refinedContent) onChange(refinedContent)
+    if (onChange && refinedContent) {
+      // Mesma proteção do saveEdit: se o output da IA veio sem cabeçalho,
+      // recoloca o original pra não quebrar o splitter na próxima render.
+      const firstLine = item.chunk.split('\n')[0]
+      const hadHeading = /^#{1,3}\s+/.test(firstLine)
+      const refinedHasHeading = /^#{1,3}\s+/.test(refinedContent.trim())
+      const safe = (hadHeading && !refinedHasHeading)
+        ? `${firstLine}\n\n${refinedContent.trim()}`
+        : refinedContent
+      onChange(safe)
+    }
     setRefinedContent(null)
     setRefineOpen(false)
     setRefineNote('')
