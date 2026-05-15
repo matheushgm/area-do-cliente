@@ -14,7 +14,7 @@ import {
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Target, Menu,
-  NotebookPen,
+  NotebookPen, Wrench,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -36,6 +36,7 @@ import CRMModule from '../components/CRMModule'
 import PlanejamentoAnualModule from '../components/PlanejamentoAnualModule'
 import PromessaModule from '../components/PromessaModule'
 import MeetingMinutesModule from '../components/MeetingMinutesModule'
+import FerramentasModule from '../components/FerramentasModule'
 import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
 
 // ─── Momento ──────────────────────────────────────────────────────────────────
@@ -1175,6 +1176,7 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'crm',          label: 'CRM',                       icon: Kanban,         color: 'text-rl-cyan',   filled: !!(project.crmData?.contacts?.length) },
     { id: 'planejamento', label: 'Planejamento Anual',        icon: TrendingUp,     color: 'text-rl-green',  filled: !!(project.planejamentoAnual?.setup?.metaAnual) },
     { id: 'atas',         label: 'Ata de Reunião',            icon: NotebookPen,    color: 'text-rl-purple', filled: false },
+    { id: 'ferramentas',  label: 'Ferramentas',               icon: Wrench,         color: 'text-rl-gold',   filled: false },
   ]
 
   function renderContent() {
@@ -1215,6 +1217,7 @@ export default function ClientProfile({ project: projectProp }) {
       case 'crm':          return <CRMModule project={project} />
       case 'planejamento': return <PlanejamentoAnualModule project={project} />
       case 'atas':         return <MeetingMinutesModule project={project} />
+      case 'ferramentas':  return <FerramentasModule project={project} />
       default:             return null
     }
   }
