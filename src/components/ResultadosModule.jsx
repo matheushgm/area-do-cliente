@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useApp } from '../context/AppContext'
 import ModelSelector from './Resultados/ModelSelector'
 import B2BView from './Resultados/B2BResultados'
@@ -17,6 +18,18 @@ export default function ResultadosModule({ project }) {
   const selectModel = (m) => {
     handleUpdate({ ...resultados, modelo: m })
   }
+
+  // ── Token de compartilhamento ──────────────────────────────────────────────
+  // Mesmo token usado pelo CRM público e pelo formulário B2C. Quando não
+  // existe, geramos um UUID e persistimos no campo `clientShareToken` do
+  // project; assim qualquer lugar do app pode chamar `getOrCreateShareToken()`
+  // e receber um token válido na hora.
+  const getOrCreateShareToken = useCallback(() => {
+    if (project.clientShareToken) return project.clientShareToken
+    const token = crypto.randomUUID()
+    updateProject(project.id, { clientShareToken: token })
+    return token
+  }, [project.id, project.clientShareToken, updateProject])
 
   return (
     <div className="p-6 space-y-6">
@@ -47,7 +60,13 @@ export default function ResultadosModule({ project }) {
       {!modelo && <ModelSelector onSelect={selectModel} />}
 
       {modelo === 'b2b' && (
-        <B2BView resultados={resultados} onUpdate={handleUpdate} companyName={project.companyName} roiCalc={project.roiCalc} />
+        <B2BView
+          resultados={resultados}
+          onUpdate={handleUpdate}
+          companyName={project.companyName}
+          roiCalc={project.roiCalc}
+          getOrCreateShareToken={getOrCreateShareToken}
+        />
       )}
 
       {modelo === 'b2c' && (
@@ -55,6 +74,7 @@ export default function ResultadosModule({ project }) {
           resultados={resultados}
           onUpdate={handleUpdate}
           clientShareToken={project.clientShareToken}
+          getOrCreateShareToken={getOrCreateShareToken}
           companyName={project.companyName}
         />
       )}

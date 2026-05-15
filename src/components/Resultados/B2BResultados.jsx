@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Edit2, Check, X, TrendingUp, ArrowDown, FileDown } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Edit2, Check, X, TrendingUp, ArrowDown, FileDown, Link2, CheckCircle2 } from 'lucide-react'
 import { fmtMoney, fmtPct, parseMoney, getDaysInMonth, getWeekRanges, MONTH_NAMES } from './resultadosHelpers'
 import { exportResultadosB2BPDF } from '../../utils/exportPDF'
 
@@ -223,11 +223,24 @@ function MetaComparison({ wkData, targets }) {
 }
 
 // ─── B2B View ──────────────────────────────────────────────────────────────────
-export default function B2BView({ resultados, onUpdate, companyName, roiCalc }) {
+export default function B2BView({ resultados, onUpdate, companyName, roiCalc, getOrCreateShareToken }) {
   const today = new Date()
   const [year, setYear]   = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
   const [editing, setEditing] = useState(null)
+  const [copied, setCopied]   = useState(false)
+
+  // ── Copy share link ─────────────────────────────────────────────────────────
+  const copyLink = () => {
+    if (!getOrCreateShareToken) return
+    const token = getOrCreateShareToken()
+    if (!token) return
+    const url = `${window.location.origin}/b2b/${token}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   const weekRanges = getWeekRanges(year, month)
   const weeklyTargets = useMemo(() => computeWeeklyTargets(roiCalc, weekRanges.length), [roiCalc, weekRanges.length])
@@ -273,16 +286,32 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc }) 
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <MonthNav year={year} month={month} setYear={setYear} setMonth={setMonth} />
-        <button
-          onClick={() => exportResultadosB2BPDF({ companyName, resultados, year, month, weekRanges, MONTH_NAMES })}
-          className="btn-secondary flex items-center gap-2 text-sm whitespace-nowrap"
-          title="Gerar PDF do mês para o cliente"
-        >
-          <FileDown size={15} />
-          Gerar PDF
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {getOrCreateShareToken && (
+            <button
+              onClick={copyLink}
+              className={`flex items-center gap-2 text-sm px-4 py-2 rounded-xl border font-medium transition-all ${
+                copied
+                  ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
+                  : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
+              }`}
+              title="Copia um link para o cliente preencher os resultados B2B"
+            >
+              {copied ? <CheckCircle2 size={14} /> : <Link2 size={14} />}
+              {copied ? 'Link copiado!' : 'Copiar link do cliente'}
+            </button>
+          )}
+          <button
+            onClick={() => exportResultadosB2BPDF({ companyName, resultados, year, month, weekRanges, MONTH_NAMES })}
+            className="btn-secondary flex items-center gap-2 text-sm whitespace-nowrap"
+            title="Gerar PDF do mês para o cliente"
+          >
+            <FileDown size={15} />
+            Gerar PDF
+          </button>
+        </div>
       </div>
 
       {/* Weekly Cards */}

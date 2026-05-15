@@ -134,7 +134,7 @@ function B2CWeekForm({ initial = {}, onSave, onCancel }) {
 }
 
 // ─── B2C View ─────────────────────────────────────────────────────────────────
-export default function B2CView({ resultados, onUpdate, clientShareToken, companyName }) {
+export default function B2CView({ resultados, onUpdate, clientShareToken, getOrCreateShareToken, companyName }) {
   const today = new Date()
   const [year, setYear]     = useState(today.getFullYear())
   const [month, setMonth]   = useState(today.getMonth())
@@ -215,9 +215,12 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, compan
   const days = Array.from({ length: daysInMon }, (_, i) => i + 1)
 
   // ── Copy share link ─────────────────────────────────────────────────────────
+  // Usa getOrCreateShareToken quando disponível (gera token se ainda não
+  // existir), com fallback para o clientShareToken já existente.
   const copyLink = () => {
-    if (!clientShareToken) return
-    const url = `${window.location.origin}/b2c/${clientShareToken}`
+    const token = (getOrCreateShareToken && getOrCreateShareToken()) || clientShareToken
+    if (!token) return
+    const url = `${window.location.origin}/b2c/${token}`
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
@@ -248,7 +251,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, compan
           ))}
         </div>
 
-        {clientShareToken && (
+        {(clientShareToken || getOrCreateShareToken) && (
           <button
             onClick={copyLink}
             className={`flex items-center gap-2 text-sm px-4 py-2 rounded-xl border font-medium transition-all ${
@@ -256,6 +259,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, compan
                 ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
                 : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
             }`}
+            title="Copia um link para o cliente preencher os resultados B2C"
           >
             {copied ? <CheckCircle2 size={14} /> : <Link2 size={14} />}
             {copied ? 'Link copiado!' : 'Copiar link do cliente'}
