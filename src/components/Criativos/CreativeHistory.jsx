@@ -154,6 +154,9 @@ export default function CreativeHistory({ project, updateProject, onOpen }) {
                     <span className="text-xs font-semibold text-rl-text truncate">
                       {c.name || getDefaultName(c)}
                     </span>
+                    <span className="text-[10px] text-rl-muted shrink-0 whitespace-nowrap">
+                      · {fmtDate(c.createdAt)}
+                    </span>
                     <Pencil className="w-3 h-3 text-rl-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                   </button>
                 )}
@@ -186,8 +189,6 @@ export default function CreativeHistory({ project, updateProject, onOpen }) {
 
               {/* ── Meta row ── */}
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <span className="text-[10px] text-rl-muted">{fmtDate(c.createdAt)}</span>
-
                 <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border w-fit ${
                   c.type === 'video'
                     ? 'text-rl-purple bg-rl-purple/10 border-rl-purple/30'
