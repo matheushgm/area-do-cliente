@@ -2,6 +2,7 @@
 // (HTML + window.print()). Duas páginas: diagnóstico visual + análise IA (opcional).
 
 import { PILLARS, PILLARS_BY_ID } from '../components/Kickoff/KickoffQuestions'
+import { OM_PILLARS, pillarJustification } from '../components/Kickoff/KickoffOfertaMatadora'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -230,6 +231,38 @@ const KICKOFF_CSS = `
   .step-meta { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #94A3B8; font-weight: 700; margin-bottom: 2px; }
   .step-text { font-size: 12px; color: #1F2937; line-height: 1.5; }
 
+  .om-section { page-break-before: always; padding-top: 8px; }
+  .om-section h1 { font-size: 18px; font-weight: 800; color: #0F172A; margin-bottom: 14px; }
+  .om-verdict-card {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 22px; border-radius: 12px;
+    border-left: 6px solid var(--verdict-color, #7C3AED);
+    background: #F8FAFC;
+    margin-bottom: 20px;
+  }
+  .om-verdict-emoji { font-size: 26px; margin-bottom: 6px; }
+  .om-verdict-label { font-size: 18px; font-weight: 900; color: #0F172A; margin-bottom: 4px; }
+  .om-verdict-desc  { font-size: 12px; color: #475569; max-width: 480px; line-height: 1.55; }
+  .om-verdict-score-wrap { text-align: right; }
+  .om-verdict-score { font-size: 40px; font-weight: 900; color: var(--verdict-color, #7C3AED); line-height: 1; }
+  .om-verdict-score-suffix { font-size: 11px; color: #64748B; font-weight: 700; }
+  .om-pillar-card {
+    padding: 12px 14px; border-radius: 10px;
+    background: #F8FAFC; border: 1px solid #E2E8F0;
+    margin-bottom: 8px;
+  }
+  .om-pillar-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    margin-bottom: 4px;
+  }
+  .om-pillar-label { font-size: 13px; font-weight: 700; color: #0F172A; }
+  .om-pillar-tag {
+    font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 99px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .om-pillar-score { font-size: 16px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .om-pillar-text { font-size: 11px; color: #475569; line-height: 1.5; }
+
   .ai-section { page-break-before: always; padding-top: 8px; }
   .ai-section h1 { font-size: 18px; font-weight: 800; color: #0F172A; margin-bottom: 12px; }
   .ai-prose h1 { font-size: 16px; font-weight: 700; color: #0F172A; margin: 16px 0 6px; }
@@ -298,6 +331,45 @@ export function exportKickoffPDF({ project, kickoff }) {
 
   const radarHtml = radarSvg(kickoff.scores || {}, 460)
 
+  // ── Veredito de Oferta Matadora (opcional) ───────────────────────────────
+  const om = kickoff.ofertaMatadora
+  const omHtml = om && om.completedAt
+    ? `
+      <section class="om-section" style="--verdict-color:${om.verdictColor || '#7C3AED'}">
+        <h1>Cabe uma Oferta Matadora?</h1>
+
+        <div class="om-verdict-card" style="--verdict-color:${om.verdictColor || '#7C3AED'}">
+          <div>
+            <div class="om-verdict-emoji">${esc(om.verdictEmoji || '')}</div>
+            <div class="om-verdict-label" style="color:${om.verdictColor || '#7C3AED'}">${esc(om.verdictLabel || '')}</div>
+            <div class="om-verdict-desc">${esc(om.verdictDesc || '')}</div>
+          </div>
+          <div class="om-verdict-score-wrap">
+            <div class="om-verdict-score">${om.totalScore || 0}</div>
+            <div class="om-verdict-score-suffix">/ 100</div>
+          </div>
+        </div>
+
+        <div class="section-title">Diagnóstico pilar a pilar</div>
+        ${OM_PILLARS.map((p) => {
+          const score = om.scores?.[p.id] ?? 0
+          const just  = pillarJustification(p.id, score)
+          return `
+            <div class="om-pillar-card">
+              <div class="om-pillar-head">
+                <span class="om-pillar-label">${esc(p.label)}
+                  <span class="om-pillar-tag" style="background:${just.color}15; color:${just.color}">${esc(just.tag)}</span>
+                </span>
+                <span class="om-pillar-score" style="color:${just.color}">${score}</span>
+              </div>
+              <div class="om-pillar-text">${esc(just.text)}</div>
+            </div>
+          `
+        }).join('')}
+      </section>
+    `
+    : ''
+
   const aiHtml = kickoff.aiAnalysis
     ? `
       <section class="ai-section">
@@ -357,6 +429,7 @@ export function exportKickoffPDF({ project, kickoff }) {
     <div class="steps-list">${stepsHtml}</div>
   </div>
 
+  ${omHtml}
   ${aiHtml}
 
   <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>

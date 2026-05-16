@@ -151,6 +151,12 @@ export default function KickoffModule({ project }) {
     showToast('Análise IA salva!')
   }
 
+  function saveOfertaMatadora(diagnosis) {
+    // diagnosis === null = reset; objeto = diagnóstico computado
+    persist({ ofertaMatadora: diagnosis })
+    if (diagnosis) showToast('Análise de Oferta Matadora salva!')
+  }
+
   function exportPdf() {
     // Usa o diagnosis fresco (caso o user tenha editado uma resposta sem refinalizar)
     const merged = {
@@ -166,6 +172,7 @@ export default function KickoffModule({ project }) {
       weaknesses: diagnosis?.weaknesses ?? [],
       nextSteps:  diagnosis?.nextSteps ?? [],
       aiAnalysis: persisted?.aiAnalysis || null,
+      ofertaMatadora: persisted?.ofertaMatadora || null,
     }
     exportKickoffPDF({ project, kickoff: merged })
   }
@@ -334,11 +341,13 @@ export default function KickoffModule({ project }) {
           weaknesses: diagnosis?.weaknesses ?? [],
           nextSteps:  diagnosis?.nextSteps ?? [],
           aiAnalysis: persisted?.aiAnalysis || null,
+          ofertaMatadora: persisted?.ofertaMatadora || null,
         }}
         questions={allQuestions}
         onRestart={restart}
         onEdit={editAnswers}
         onSaveAi={saveAi}
+        onSaveOfertaMatadora={saveOfertaMatadora}
         onExportPdf={exportPdf}
       />
       <Toast toast={toast} />

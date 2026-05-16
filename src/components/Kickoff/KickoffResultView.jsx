@@ -4,6 +4,7 @@ import {
 import KickoffRadar from './KickoffRadar'
 import KickoffPillarBars from './KickoffPillarBars'
 import KickoffAIAnalysisPanel from './KickoffAIAnalysisPanel'
+import KickoffOfertaMatadoraPanel from './KickoffOfertaMatadoraPanel'
 import { PILLARS_BY_ID } from './KickoffQuestions'
 
 export default function KickoffResultView({
@@ -13,6 +14,7 @@ export default function KickoffResultView({
   onRestart,
   onEdit,
   onSaveAi,
+  onSaveOfertaMatadora,
   onExportPdf,
 }) {
   const stageColor = kickoff.stageColor || '#7C3AED'
@@ -131,6 +133,12 @@ export default function KickoffResultView({
           })}
         </ol>
       </div>
+
+      {/* ── Veredito de Oferta Matadora (botão opcional) ─────────────── */}
+      <KickoffOfertaMatadoraPanel
+        value={kickoff.ofertaMatadora}
+        onSave={onSaveOfertaMatadora}
+      />
 
       {/* ── Análise IA (botão opcional) ──────────────────────────────── */}
       <KickoffAIAnalysisPanel
