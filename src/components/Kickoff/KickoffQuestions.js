@@ -69,6 +69,42 @@ function competitorsScore(text) {
   return 0
 }
 
+// Score do ICP + critérios de lead qualificado.
+// Recompensa esforço (comprimento), especificidade (presença de marcadores
+// como cargo, faturamento, dor, etc.) e múltiplos critérios listados.
+function qualifiedLeadScore(text) {
+  const t = String(text || '').trim()
+  if (t.length < 10) return 0
+  let s = 25  // base de "tentou responder"
+
+  // Bônus por comprimento
+  if (t.length >= 60)  s += 15
+  if (t.length >= 150) s += 10
+
+  // Marcadores de especificidade — quanto mais aspectos diferentes, melhor.
+  // 8 pontos por categoria de marcador encontrada, cap em 40.
+  const markers = [
+    /\b(cargo|gerente|diretor|founder|ceo|cto|head|coordenador|s[óo]cio)/i,
+    /\b(faturamento|receita|R\$|milh[ãa]o|mil reais?)/i,
+    /\b(funcion[áa]rios?|colaboradores?|equipe|tamanho|porte|empresa pequena|m[ée]dia empresa)/i,
+    /\b(segmento|setor|ind[úu]stria|nicho|mercado|vertical)/i,
+    /\b(dor|problema|desafio|necessidade|pain)/i,
+    /\b(idade|anos?|gera[çc][ãa]o|demograf|p[úu]blico)/i,
+    /\b(localiza[çc][ãa]o|cidade|regi[ãa]o|estado|capital|interior)/i,
+    /\b(or[çc]amento|investimento|budget|disposto a pagar|ticket)/i,
+    /\b(tempo|prazo|urg[êe]ncia|maturidade|preparado|consciente)/i,
+  ]
+  let hits = 0
+  for (const re of markers) if (re.test(t)) hits++
+  s += Math.min(40, hits * 8)
+
+  // Bônus por múltiplos critérios listados (vírgula, ponto-e-vírgula, "e", "ou")
+  const separators = (t.match(/[,;]|\bou\b|\be\b/gi) || []).length
+  if (separators >= 2) s += 10
+
+  return Math.min(100, s)
+}
+
 // Score binário por presença de valor (>=1)
 function presenceScore(val) {
   const n = Number(val) || 0
@@ -105,6 +141,14 @@ const SHARED = [
     label: 'Quem são seus 3 principais concorrentes?',
     hint: 'Um por linha. Quanto mais específico, melhor.',
     scoreFn: competitorsScore,
+  },
+  {
+    id: 'cliente_ideal_qualificado',
+    pillarIds: ['posicionamento', 'processo_comercial'],
+    type: 'text',
+    label: 'Quem é o cliente ideal e o que valida claramente que geramos um lead qualificado?',
+    hint: 'Descreva o perfil (cargo, segmento, tamanho/faturamento, dor principal) + os critérios objetivos que tornam um lead pronto pra venda. Ex.: "Gestor de tráfego de e-commerce com R$50k+/mês de faturamento, que já investe em Meta Ads e quer escalar — qualificado se tem cargo decisor e budget mínimo de R$10k/mês".',
+    scoreFn: qualifiedLeadScore,
   },
   {
     id: 'margem_bruta',
