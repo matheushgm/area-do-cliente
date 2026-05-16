@@ -100,11 +100,14 @@ export default function ROICalculator({ project, onSave }) {
           totalInvestimento: totalInv, lucroPorVenda: lucroVenda,
           vendasNecessarias: vendas, sqlsNecessarios: sqls, mqlsNecessarios: mqls, leadsNecessarios: leads,
           faturamento: fat, lucroBruto: lBruto, lucroLiquido: lBruto - totalInv,
-          cac:             vendas ? mo / vendas : Infinity,
+          // CAC = (mídia + marketing) / vendas — custo total de aquisição por cliente
+          cac:             vendas ? totalInv / vendas : Infinity,
           vendasBreakeven: Math.ceil(totalInv / lucroVenda),
-          custoPorLead:    leads  ? cm / leads  : Infinity,
-          custoPorMQL:     mqls   ? cm / mqls   : Infinity,
-          custoPorSQL:     sqls   ? cm / sqls   : Infinity,
+          // CPL/CPMQL/CPSQL usam APENAS o orçamento de mídia (não inclui marketing)
+          // porque são métricas de performance dos canais pagos.
+          custoPorLead:    leads  ? mo / leads  : Infinity,
+          custoPorMQL:     mqls   ? mo / mqls   : Infinity,
+          custoPorSQL:     sqls   ? mo / sqls   : Infinity,
         }
       })() : null
       updateProject(project.id, { roiCalc: next, ...(freshResult ? { roiResult: freshResult } : {}) })
@@ -134,13 +137,17 @@ export default function ROICalculator({ project, onSave }) {
     const lucroBruto   = faturamento * (margemBruta / 100)
     const lucroLiquido = lucroBruto - totalInvestimento
 
-    const cac              = vendasNecessarias ? mediaOrcamento / vendasNecessarias : Infinity
+    // CAC = (mídia + marketing) / vendas — quanto custa fechar 1 cliente no
+    // total, incluindo fee de gestão.
+    const cac              = vendasNecessarias ? totalInvestimento / vendasNecessarias : Infinity
     const vendasBreakeven  = Math.ceil(totalInvestimento / lucroPorVenda)
 
-    // Custo por Lead/MQL/SQL usa apenas o Custo de Marketing (gestão/operação)
-    const custoPorLead  = leadsNecessarios  ? custoMarketing / leadsNecessarios  : Infinity
-    const custoPorMQL   = mqlsNecessarios   ? custoMarketing / mqlsNecessarios   : Infinity
-    const custoPorSQL   = sqlsNecessarios   ? custoMarketing / sqlsNecessarios   : Infinity
+    // CPL/CPMQL/CPSQL usam APENAS o orçamento de mídia (não inclui marketing).
+    // São métricas de performance dos canais pagos — o que cada lead/MQL/SQL
+    // está custando no anúncio, sem diluir com fee de gestão.
+    const custoPorLead  = leadsNecessarios  ? mediaOrcamento / leadsNecessarios  : Infinity
+    const custoPorMQL   = mqlsNecessarios   ? mediaOrcamento / mqlsNecessarios   : Infinity
+    const custoPorSQL   = sqlsNecessarios   ? mediaOrcamento / sqlsNecessarios   : Infinity
 
     return {
       totalInvestimento, lucroPorVenda,
