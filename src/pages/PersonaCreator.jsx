@@ -21,7 +21,7 @@ const QUESTIONS = [
     id:    'acoes',
     emoji: '⚡',
     label: 'O que ele PRECISA FAZER para alcançar o resultado?',
-    hint:  'Aqui você deve descrever quais são as ações, comportamentos e responsabilidades do próprio cliente durante o trabalho com você.',
+    hint:  'O que o seu cliente precisa ter/fazer para que o resultado que ele queira seja alcançado.',
   },
   {
     id:    'tempo',
