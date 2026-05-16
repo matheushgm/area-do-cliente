@@ -222,6 +222,9 @@ function assembleProject(row, rel = {}) {
     // Criação de Promessa
     promessa: row.promessa ?? null,
 
+    // Kickoff (diagnóstico inicial)
+    kickoff: row.kickoff ?? null,
+
     // Lab. Meta Ads
     metaLabBudget:       row.meta_lab_budget       ?? null,
     metaLabAudienceType: row.meta_lab_audience_type ?? null,
@@ -366,6 +369,7 @@ const PROJECT_FIELD_MAP = {
   metaLabBudget:        "meta_lab_budget",
   metaLabAudienceType:  "meta_lab_audience_type",
   promessa:             "promessa",
+  kickoff:              "kickoff",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────
