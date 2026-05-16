@@ -24,15 +24,31 @@ export function formatAnswer(question, answer) {
   const { type, options } = question
 
   switch (type) {
-    // single, scale e yesno podem vir como objeto { value, description }
-    // quando a pergunta tem `askDescription`. Tratamento unificado.
+    // single, scale e yesno podem vir como objeto { value, description } ou
+    // { value, subAnswers } quando a pergunta tem `askDescription`. Tratamento
+    // unificado.
     case 'single':
     case 'scale':
     case 'yesno': {
       const v   = isYesNoObj ? answer.value : answer
       const dsc = isYesNoObj ? (answer.description || '').trim() : ''
+      const sub = isYesNoObj && answer.subAnswers && typeof answer.subAnswers === 'object'
+        ? answer.subAnswers
+        : null
       const opt = (options || []).find((o) => o.value === v)
       const label = opt ? opt.label : String(v)
+
+      if (sub && question.subQuestions) {
+        const parts = question.subQuestions
+          .map((sq) => {
+            const val = sub[sq.id]
+            if (val == null || val === '') return null
+            const display = val === 'unknown' ? 'Não sei' : `${val}%`
+            return `${sq.label}: ${display}`
+          })
+          .filter(Boolean)
+        return parts.length ? `${label} — ${parts.join(' · ')}` : label
+      }
       return dsc ? `${label} — ${dsc}` : label
     }
     case 'multi': {

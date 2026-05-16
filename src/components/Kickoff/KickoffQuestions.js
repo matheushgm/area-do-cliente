@@ -412,8 +412,15 @@ const B2B = [
     type: 'yesno',
     label: 'Você conhece as taxas de conversão do seu funil (lead→MQL→SQL→venda)?',
     askDescription: true,
-    descriptionLabel: 'Quais são as taxas atuais?',
-    descriptionPlaceholder: 'Ex: Lead→MQL 30%, MQL→SQL 50%, SQL→Venda 25%...',
+    descriptionLabel: 'Informe as taxas atuais (em %)',
+    // Em vez de uma textarea livre, mostra 3 inputs de % estruturados,
+    // cada um com botão "Não sei". As respostas viram um objeto:
+    //   subAnswers: { lead_mql: 30, mql_sql: 'unknown', sql_venda: 25 }
+    subQuestions: [
+      { id: 'lead_mql',  label: 'Lead → MQL',   placeholder: 'Ex: 30' },
+      { id: 'mql_sql',   label: 'MQL → SQL',    placeholder: 'Ex: 50' },
+      { id: 'sql_venda', label: 'SQL → Venda',  placeholder: 'Ex: 25' },
+    ],
     options: [
       { value: 'sim', label: 'Sim', score: 100 },
       { value: 'nao', label: 'Não', score: 20  },
