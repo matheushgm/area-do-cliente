@@ -3,7 +3,7 @@ import { Eye, X } from 'lucide-react'
 import { PILLARS, PILLARS_BY_ID } from './KickoffQuestions'
 import { extractScore } from './KickoffScorer'
 import Modal from '../UI/Modal'
-import { fmtMoney } from '../Resultados/resultadosHelpers'
+import { formatAnswer, severityColor, severityLabel } from './kickoffViewHelpers'
 
 // Barras horizontais 0-100 por pilar, coloridas por severidade.
 // O app inteiro é light theme (rl-bg = #EEF2F9). Mantemos o param `theme`
@@ -183,60 +183,3 @@ function PillarDetailModal({ pillarId, questions, answers, score, onClose }) {
   )
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-// Converte uma resposta crua em texto formatado pra exibição no modal.
-function formatAnswer(question, answer) {
-  if (answer == null || answer === '' || (Array.isArray(answer) && !answer.length)) {
-    return '— sem resposta —'
-  }
-  const { type, options } = question
-
-  switch (type) {
-    case 'single':
-    case 'yesno':
-    case 'scale': {
-      const opt = (options || []).find((o) => o.value === answer)
-      return opt ? opt.label : String(answer)
-    }
-    case 'multi': {
-      const arr = Array.isArray(answer) ? answer : [answer]
-      const labels = arr.map((v) => {
-        const opt = (options || []).find((o) => o.value === v)
-        return opt ? opt.label : String(v)
-      })
-      return labels.join(', ')
-    }
-    case 'money': {
-      const n = Number(answer) || 0
-      return n > 0 ? fmtMoney(n) : '— sem valor —'
-    }
-    case 'percent': {
-      if (answer === 'unknown') return 'Não sei calcular'
-      const n = Number(answer)
-      return isNaN(n) ? String(answer) : `${n}%`
-    }
-    case 'number':
-      return String(answer)
-    case 'text':
-      return String(answer)
-    default:
-      return String(answer)
-  }
-}
-
-function severityColor(score) {
-  if (score < 31) return '#EF4444'
-  if (score < 51) return '#F59E0B'
-  if (score < 71) return '#EAB308'
-  if (score < 86) return '#22C55E'
-  return '#15803D'
-}
-
-function severityLabel(score) {
-  if (score < 31) return 'Crítico — precisa de atenção imediata'
-  if (score < 51) return 'Frágil — risco no curto prazo'
-  if (score < 71) return 'Em estruturação — base existente, falta padronizar'
-  if (score < 86) return 'Saudável — pronto pra acelerar'
-  return 'Excelente — vantagem competitiva clara'
-}

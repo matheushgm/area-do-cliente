@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import {
-  Sparkles, FileDown, RotateCcw, Pencil, Compass, Target,
+  Sparkles, FileDown, RotateCcw, Pencil, Compass, Target, ListChecks,
 } from 'lucide-react'
 import KickoffRadar from './KickoffRadar'
 import KickoffPillarBars from './KickoffPillarBars'
 import KickoffAIAnalysisPanel from './KickoffAIAnalysisPanel'
 import KickoffOfertaMatadoraPanel from './KickoffOfertaMatadoraPanel'
+import KickoffAnswersModal from './KickoffAnswersModal'
 import { PILLARS_BY_ID } from './KickoffQuestions'
 
 export default function KickoffResultView({
@@ -17,6 +19,7 @@ export default function KickoffResultView({
   onSaveOfertaMatadora,
   onExportPdf,
 }) {
+  const [answersModalOpen, setAnswersModalOpen] = useState(false)
   const stageColor = kickoff.stageColor || '#7C3AED'
   const businessLabel = {
     b2b: 'B2B',
@@ -57,6 +60,12 @@ export default function KickoffResultView({
 
         {/* Toolbar */}
         <div className="pl-3 mt-4 pt-4 border-t border-rl-border/60 flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setAnswersModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/15 transition-all font-semibold"
+          >
+            <ListChecks className="w-3.5 h-3.5" /> Ver respostas
+          </button>
           <button
             onClick={onEdit}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
@@ -152,6 +161,15 @@ export default function KickoffResultView({
         existing={kickoff.aiAnalysis}
         onSave={onSaveAi}
       />
+
+      {/* ── Modal: todas as respostas ─────────────────────────────────── */}
+      {answersModalOpen && (
+        <KickoffAnswersModal
+          questions={questions}
+          answers={kickoff.answers || {}}
+          onClose={() => setAnswersModalOpen(false)}
+        />
+      )}
     </div>
   )
 }
