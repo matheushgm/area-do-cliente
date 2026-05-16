@@ -11,7 +11,7 @@ import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays, Building2,
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
-  Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, Layers, ImagePlay, Map, Package,
+  Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
   NotebookPen, Wrench, Compass,
@@ -27,7 +27,6 @@ import ResultadosModule from '../components/ResultadosModule'
 import MetaLabModule from '../components/MetaLabModule'
 import NPSModule from '../components/NPSModule'
 import GoogleAdsModule from '../components/GoogleAdsModule'
-import EstrategiaModule from '../components/EstrategiaModule'
 import EstrategiaV2Module from '../components/EstrategiaV2Module'
 import ProdutoServicoModule from '../components/ProdutoServicoModule'
 import BancoMidiaModule from '../components/BancoMidiaModule'
@@ -1114,7 +1113,6 @@ export default function ClientProfile({ project: projectProp }) {
   function handleSaveProdutos(produtos) { updateProject(project.id, { produtos }); showToast('Produtos salvos!') }
   function handleSaveOferta(ofertaData) { updateProject(project.id, { ofertaData }); showToast('Oferta salva!') }
   function handleSaveCampaign(plan) { updateProject(project.id, { campaignPlan: plan }); showToast('Planejamento salvo!') }
-  function handleSaveEstrategia(estrategiaData) { updateProject(project.id, { estrategia: estrategiaData }); showToast('Estratégia salva!') }
   function handleSaveEstrategiaV2(data) { updateProject(project.id, { estrategiaV2: data }); showToast('Análise salva!') }
   function handleSaveLinks(links) { updateProject(project.id, { links }); showToast('Links salvos!') }
 
@@ -1146,7 +1144,6 @@ export default function ClientProfile({ project: projectProp }) {
   const hasGoogleAds    = (project.googleAds || []).length > 0
   const lnk             = project.links || {}
   const hasLinks        = !!(lnk.instagram || lnk.website || lnk.googleDrive || (lnk.outros || []).length > 0)
-  const hasEstrategia   = !!project.estrategia?.narrativa
   const hasEstrategiaV2 = !!(project.estrategiaV2?.problemas?.length || project.estrategiaV2?.swot?.forcas)
   const hasBancoMidia   = !!(project.brandKit?.logo || (project.brandKit?.cores || []).length > 0 || (project.brandFotos || []).length > 0 || (project.brandVideos || []).length > 0)
   const hasAnexos       = (project.attachments || []).length > 0
@@ -1168,7 +1165,6 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'metalab',      label: 'Lab. Meta Ads',            icon: FlaskConical,   color: 'text-rl-purple', filled: !!project.metaLabBudget },
     { id: 'googleads',    label: 'Google Ads com IA',        icon: Search,         color: 'text-rl-cyan',   filled: hasGoogleAds },
     { id: 'bancomídia',   label: 'Banco de Mídia',           icon: ImagePlay,      color: 'text-rl-blue',   filled: hasBancoMidia },
-    { id: 'estrategia',   label: 'Estratégia Digital',       icon: Layers,         color: 'text-rl-purple', filled: hasEstrategia },
     { id: 'estrategiav2', label: 'Análise Competitiva',      icon: Map,            color: 'text-rl-blue',   filled: hasEstrategiaV2 },
     { id: 'links',        label: 'Links Importantes',        icon: Link2,          color: 'text-rl-cyan',   filled: hasLinks },
     { id: 'nps',          label: 'NPS',                       icon: Star,           color: 'text-rl-gold',   filled: !!(project.nps && Object.values(project.nps).some(Boolean)) },
@@ -1208,7 +1204,6 @@ export default function ClientProfile({ project: projectProp }) {
       case 'metalab':      return <MetaLabModule project={project} />
       case 'googleads':    return <GoogleAdsModule project={project} />
       case 'bancomídia':   return <BancoMidiaModule project={project} />
-      case 'estrategia':   return <EstrategiaModule project={project} onSave={handleSaveEstrategia} />
       case 'estrategiav2': return <EstrategiaV2Module project={project} onSave={handleSaveEstrategiaV2} />
       case 'links':        return <LinksModule project={project} onSave={handleSaveLinks} />
       case 'nps':          return <NPSModule project={project} />
