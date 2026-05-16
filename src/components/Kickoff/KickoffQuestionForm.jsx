@@ -16,7 +16,7 @@ export default function KickoffQuestionForm({ question, value, onChange }) {
         {hint && <p className="text-xs text-rl-muted mt-1">{hint}</p>}
       </div>
 
-      {type === 'single'  && <SingleSelect options={options} value={value} onChange={onChange} />}
+      {type === 'single'  && <SingleSelect question={question} options={options} value={value} onChange={onChange} />}
       {type === 'yesno'   && <YesNo        question={question} options={options} value={value} onChange={onChange} />}
       {type === 'scale'   && <Scale        options={options} value={value} onChange={onChange} />}
       {type === 'multi'   && <MultiSelect  options={options} value={value} onChange={onChange} />}
@@ -30,31 +30,72 @@ export default function KickoffQuestionForm({ question, value, onChange }) {
 
 // ─── Inputs ──────────────────────────────────────────────────────────────────
 
-function SingleSelect({ options = [], value, onChange }) {
+// SingleSelect: botões empilhados. Suporta `askDescription` + `descriptionWhen`
+// (lista de valores que disparam a caixa de descrição inline). Quando ativo,
+// armazena o valor como objeto { value, description }.
+function SingleSelect({ question = {}, options = [], value, onChange }) {
+  const askDesc = !!question.askDescription
+  const triggers = Array.isArray(question.descriptionWhen) ? question.descriptionWhen : []
+  const isObj   = value && typeof value === 'object' && !Array.isArray(value)
+  const current = isObj ? value.value : value
+  const desc    = isObj ? (value.description || '') : ''
+  const shouldShowDesc = askDesc && triggers.includes(current)
+
+  function setValue(v) {
+    if (askDesc) {
+      // Mantém descrição se o novo valor também dispara; zera caso contrário
+      const keep = triggers.includes(v)
+      onChange({ value: v, description: keep ? desc : '' })
+    } else {
+      onChange(v)
+    }
+  }
+
+  function setDesc(d) {
+    onChange({ value: current, description: d })
+  }
+
   return (
-    <div className="space-y-2">
-      {options.map((opt) => {
-        const selected = value === opt.value
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center gap-3 ${
-              selected
-                ? 'bg-rl-purple/10 border-rl-purple/50 text-rl-purple shadow-glow'
-                : 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-purple/30 hover:bg-rl-surface/80'
-            }`}
-          >
-            <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
-              selected ? 'border-rl-purple bg-rl-purple' : 'border-rl-border'
-            }`}>
-              {selected && <Check className="w-2.5 h-2.5 text-white" />}
-            </div>
-            <span className="text-sm">{opt.label}</span>
-          </button>
-        )
-      })}
+    <div className="space-y-3">
+      <div className="space-y-2">
+        {options.map((opt) => {
+          const selected = current === opt.value
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setValue(opt.value)}
+              className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center gap-3 ${
+                selected
+                  ? 'bg-rl-purple/10 border-rl-purple/50 text-rl-purple shadow-glow'
+                  : 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-purple/30 hover:bg-rl-surface/80'
+              }`}
+            >
+              <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                selected ? 'border-rl-purple bg-rl-purple' : 'border-rl-border'
+              }`}>
+                {selected && <Check className="w-2.5 h-2.5 text-white" />}
+              </div>
+              <span className="text-sm">{opt.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {shouldShowDesc && (
+        <div className="pt-1">
+          <label className="text-xs font-semibold text-rl-subtle mb-1.5 block">
+            {question.descriptionLabel || 'Descreva (opcional)'}
+          </label>
+          <textarea
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            rows={3}
+            placeholder={question.descriptionPlaceholder || 'Detalhe a resposta...'}
+            className="input-field w-full resize-none"
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -24,11 +24,10 @@ export function formatAnswer(question, answer) {
   const { type, options } = question
 
   switch (type) {
+    // single, scale e yesno podem vir como objeto { value, description }
+    // quando a pergunta tem `askDescription`. Tratamento unificado.
     case 'single':
-    case 'scale': {
-      const opt = (options || []).find((o) => o.value === answer)
-      return opt ? opt.label : String(answer)
-    }
+    case 'scale':
     case 'yesno': {
       const v   = isYesNoObj ? answer.value : answer
       const dsc = isYesNoObj ? (answer.description || '').trim() : ''

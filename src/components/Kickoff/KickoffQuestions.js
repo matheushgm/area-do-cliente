@@ -304,6 +304,10 @@ const SHARED = [
     type: 'single',
     label: 'Você tem alguma oferta de entrada, garantia ou bônus diferenciado pra captar a primeira venda?',
     hint: 'Conta como oferta de entrada: preço promocional, kit/combo, trial/demo, garantia incondicional, bônus exclusivo na primeira compra, frete grátis, etc.',
+    askDescription: true,
+    descriptionWhen: ['sim_testada', 'sim'],
+    descriptionLabel: 'Descreva a oferta de entrada',
+    descriptionPlaceholder: 'Ex: 30% off na primeira compra + frete grátis + garantia de 7 dias...',
     options: [
       { value: 'sim_testada', label: 'Sim, estruturada e testada',    score: 100 },
       { value: 'sim',         label: 'Sim, mas não testada',          score: 60  },
