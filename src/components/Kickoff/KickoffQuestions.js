@@ -267,7 +267,8 @@ const SHARED = [
     id: 'investimento_futuro',
     pillarIds: ['funil_previsivel'],
     type: 'money',
-    label: 'Quanto pretende investir nos próximos 3 meses?',
+    label: 'Quanto pretende investir por mês a partir de agora conosco?',
+    hint: 'Budget mensal estimado de mídia paga / aquisição.',
     scoreFn: rangeScore([
       [0, 0, 0],
       [1, 4999, 30],
