@@ -27,11 +27,12 @@ export default function KickoffRadar({
     }
   }
 
-  const gridColor   = theme === 'light' ? '#E2E8F0' : 'rgba(255,255,255,0.12)'
-  const axisColor   = theme === 'light' ? '#CBD5E1' : 'rgba(255,255,255,0.18)'
-  const labelColor  = theme === 'light' ? '#475569' : 'rgba(255,255,255,0.7)'
-  const scoreColor  = theme === 'light' ? '#0F172A' : '#F1F5F9'
-  const ringTextCol = theme === 'light' ? '#94A3B8' : 'rgba(255,255,255,0.35)'
+  const gridColor   = theme === 'light' ? '#E2E8F0' : 'rgba(255,255,255,0.18)'
+  const axisColor   = theme === 'light' ? '#CBD5E1' : 'rgba(255,255,255,0.28)'
+  // Labels e scores: contraste forte em ambos os temas.
+  const labelColor  = theme === 'light' ? '#0F172A' : '#F1F5F9'
+  const scoreColor  = theme === 'light' ? '#000000' : '#FFFFFF'
+  const ringTextCol = theme === 'light' ? '#94A3B8' : 'rgba(255,255,255,0.45)'
 
   // Polígono de scores
   const points = PILLARS.map((p, i) => {
@@ -110,7 +111,7 @@ export default function KickoffRadar({
 
       {/* Labels nos vértices */}
       {PILLARS.map((p, i) => {
-        const labelRatio = 1.18
+        const labelRatio = 1.20
         const { x, y } = pointAt(i, labelRatio)
         // Alinhamento de texto: depende do quadrante
         const a = angleFor(i)
@@ -123,18 +124,18 @@ export default function KickoffRadar({
               x={x} y={y}
               textAnchor={anchor}
               dominantBaseline="middle"
-              fontSize="11"
-              fontWeight="600"
+              fontSize="13"
+              fontWeight="700"
               fill={labelColor}
             >
               {p.short}
             </text>
             <text
-              x={x} y={y + 14}
+              x={x} y={y + 16}
               textAnchor={anchor}
               dominantBaseline="middle"
-              fontSize="11"
-              fontWeight="700"
+              fontSize="13"
+              fontWeight="800"
               fill={scoreColor}
             >
               {score}
@@ -143,11 +144,12 @@ export default function KickoffRadar({
         )
       })}
 
-      {/* Marcador do ring 100 */}
+      {/* Marcador dos rings 50 e 100 */}
       <text
         x={cx + 4}
         y={cy - radius + 4}
-        fontSize="9"
+        fontSize="10"
+        fontWeight="600"
         fill={ringTextCol}
         textAnchor="start"
       >
@@ -156,7 +158,8 @@ export default function KickoffRadar({
       <text
         x={cx + 4}
         y={cy - radius * 0.5 + 4}
-        fontSize="9"
+        fontSize="10"
+        fontWeight="600"
         fill={ringTextCol}
         textAnchor="start"
       >

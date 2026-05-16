@@ -6,9 +6,10 @@ export default function KickoffPillarBars({
   pillarScores = {},
   theme = 'dark',
 }) {
-  const trackColor = theme === 'light' ? '#E2E8F0' : 'rgba(255,255,255,0.08)'
-  const labelColor = theme === 'light' ? '#0F172A' : '#F1F5F9'
-  const subColor   = theme === 'light' ? '#64748B' : 'rgba(255,255,255,0.55)'
+  const trackColor = theme === 'light' ? '#E2E8F0' : 'rgba(255,255,255,0.12)'
+  // Forte contraste em ambos os temas — labels precisam pular fora do card.
+  const labelColor = theme === 'light' ? '#0F172A' : '#FFFFFF'
+  const subColor   = theme === 'light' ? '#64748B' : 'rgba(255,255,255,0.75)'
 
   // Ordena por score crescente — fraquezas no topo da lista
   const rows = PILLARS
@@ -23,12 +24,12 @@ export default function KickoffPillarBars({
       {rows.map((p) => {
         const color = severityColor(p.score)
         return (
-          <div key={p.id} className="space-y-1">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold" style={{ color: labelColor }}>{p.label}</span>
-              <span className="font-bold tabular-nums" style={{ color }}>{p.score}</span>
+          <div key={p.id} className="space-y-1.5">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-bold" style={{ color: labelColor }}>{p.label}</span>
+              <span className="font-black tabular-nums text-base" style={{ color }}>{p.score}</span>
             </div>
-            <div className="h-2 rounded-full overflow-hidden" style={{ background: trackColor }}>
+            <div className="h-2.5 rounded-full overflow-hidden" style={{ background: trackColor }}>
               <div
                 className="h-full rounded-full transition-all"
                 style={{
@@ -37,7 +38,7 @@ export default function KickoffPillarBars({
                 }}
               />
             </div>
-            <div className="text-[10px]" style={{ color: subColor }}>
+            <div className="text-xs font-medium" style={{ color: subColor }}>
               {severityLabel(p.score)}
             </div>
           </div>
