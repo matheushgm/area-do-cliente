@@ -100,7 +100,11 @@ export default function KickoffResultView({
             <h3 className="text-sm font-bold text-rl-text">Mapa de fraquezas</h3>
             <span className="text-[10px] text-rl-muted ml-auto">ordenado do pior pro melhor</span>
           </div>
-          <KickoffPillarBars pillarScores={kickoff.scores} />
+          <KickoffPillarBars
+            pillarScores={kickoff.scores}
+            questions={questions}
+            answers={kickoff.answers}
+          />
         </div>
       </div>
 
