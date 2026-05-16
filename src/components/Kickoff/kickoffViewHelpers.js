@@ -9,17 +9,32 @@ import { fmtMoney } from '../Resultados/resultadosHelpers'
  * Retorna 'Sem resposta' como string padrão quando a resposta está vazia.
  */
 export function formatAnswer(question, answer) {
-  if (answer == null || answer === '' || (Array.isArray(answer) && !answer.length)) {
+  // Detecta objeto yesno-com-descrição: { value, description }
+  const isYesNoObj =
+    answer && typeof answer === 'object' && !Array.isArray(answer) && 'value' in answer
+
+  if (
+    answer == null ||
+    answer === '' ||
+    (Array.isArray(answer) && !answer.length) ||
+    (isYesNoObj && !answer.value)
+  ) {
     return '— sem resposta —'
   }
   const { type, options } = question
 
   switch (type) {
     case 'single':
-    case 'yesno':
     case 'scale': {
       const opt = (options || []).find((o) => o.value === answer)
       return opt ? opt.label : String(answer)
+    }
+    case 'yesno': {
+      const v   = isYesNoObj ? answer.value : answer
+      const dsc = isYesNoObj ? (answer.description || '').trim() : ''
+      const opt = (options || []).find((o) => o.value === v)
+      const label = opt ? opt.label : String(v)
+      return dsc ? `${label} — ${dsc}` : label
     }
     case 'multi': {
       const arr = Array.isArray(answer) ? answer : [answer]

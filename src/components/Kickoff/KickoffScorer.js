@@ -16,13 +16,26 @@ export function extractScore(question, answer) {
     (Array.isArray(answer) && answer.length === 0)
   if (isEmpty) return null
 
+  // Caso especial: yesno com descrição armazena { value, description }.
+  // Pra score, só o `value` importa.
+  let primary = answer
+  if (
+    typeof answer === 'object' &&
+    answer != null &&
+    !Array.isArray(answer) &&
+    'value' in answer
+  ) {
+    primary = answer.value
+    if (!primary) return null
+  }
+
   const { type, options, scoreFn } = question
 
   switch (type) {
     case 'single':
     case 'yesno':
     case 'scale': {
-      const opt = (options || []).find((o) => o.value === answer)
+      const opt = (options || []).find((o) => o.value === primary)
       return opt ? Number(opt.score) || 0 : 0
     }
 
