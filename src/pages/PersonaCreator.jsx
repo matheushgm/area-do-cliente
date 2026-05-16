@@ -12,6 +12,12 @@ import VideoGuide from '../components/VideoGuide'
 // ─── Questions ────────────────────────────────────────────────────────────────
 const QUESTIONS = [
   {
+    id:    'sonhos',
+    emoji: '✨',
+    label: 'Quais são OS SONHOS do seu cliente que sua empresa consegue realizar?',
+    hint:  'Essa pergunta é sobre o resultado emocional e de vida que o cliente espera quando contrata você. Aqui vai além de métricas, pense em algo pessoal.',
+  },
+  {
     id:    'resultado',
     emoji: '🎯',
     label: 'Qual é o resultado percebido após usar o produto ou serviço?',
@@ -34,12 +40,6 @@ const QUESTIONS = [
     emoji: '🚧',
     label: 'Quais são as objeções que eles usam como justificativa para não fazer o que é necessário?',
     hint:  null,
-  },
-  {
-    id:    'sonhos',
-    emoji: '✨',
-    label: 'Quais são OS SONHOS do seu cliente que sua empresa consegue realizar?',
-    hint:  'Essa pergunta é sobre o resultado emocional e de vida que o cliente espera quando contrata você. Aqui vai além de métricas, pense em algo pessoal.',
   },
   {
     id:    'erros',
