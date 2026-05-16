@@ -116,14 +116,14 @@ function radarSvg(scores, width = 460) {
   }).join(' ')
 
   const labels = PILLARS.map((p, i) => {
-    const { x, y } = pointAt(i, 1.18)
+    const { x, y } = pointAt(i, 1.20)
     const a = angleFor(i)
     const cos = Math.cos(a)
     const anchor = Math.abs(cos) < 0.2 ? 'middle' : cos > 0 ? 'start' : 'end'
     const s = scores[p.id] ?? 0
     return `
-      <text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="11" font-weight="600" fill="#475569">${esc(p.short)}</text>
-      <text x="${x}" y="${y + 14}" text-anchor="${anchor}" dominant-baseline="middle" font-size="11" font-weight="700" fill="#0F172A">${s}</text>
+      <text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="13" font-weight="700" fill="#0F172A">${esc(p.short)}</text>
+      <text x="${x}" y="${y + 16}" text-anchor="${anchor}" dominant-baseline="middle" font-size="13" font-weight="800" fill="#000000">${s}</text>
     `
   }).join('')
 

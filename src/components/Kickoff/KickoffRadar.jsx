@@ -27,12 +27,13 @@ export default function KickoffRadar({
     }
   }
 
-  const gridColor   = theme === 'light' ? '#E2E8F0' : 'rgba(255,255,255,0.18)'
-  const axisColor   = theme === 'light' ? '#CBD5E1' : 'rgba(255,255,255,0.28)'
-  // Labels e scores: contraste forte em ambos os temas.
-  const labelColor  = theme === 'light' ? '#0F172A' : '#F1F5F9'
-  const scoreColor  = theme === 'light' ? '#000000' : '#FFFFFF'
-  const ringTextCol = theme === 'light' ? '#94A3B8' : 'rgba(255,255,255,0.45)'
+  // App é light theme (rl-bg = #EEF2F9). Forçamos preto sólido nos labels
+  // independente do theme passado pra garantir leitura nos cards translúcidos.
+  const gridColor   = '#D8E0F0'   // rl-border
+  const axisColor   = '#CBD5E1'
+  const labelColor  = '#0F172A'   // rl-text — quase preto
+  const scoreColor  = '#000000'   // preto absoluto pros números
+  const ringTextCol = '#94A3B8'   // rl-muted
 
   // Polígono de scores
   const points = PILLARS.map((p, i) => {
@@ -103,7 +104,7 @@ export default function KickoffRadar({
             key={`pt-${p.id}`}
             cx={x} cy={y} r={4}
             fill={fillColor}
-            stroke={theme === 'light' ? '#fff' : '#0B1220'}
+            stroke="#FFFFFF"
             strokeWidth={1.5}
           />
         )

@@ -1,15 +1,12 @@
 import { PILLARS } from './KickoffQuestions'
 
 // Barras horizontais 0-100 por pilar, coloridas por severidade.
-// Usado tanto na UI quanto no HTML do PDF (passar `theme="light"`).
-export default function KickoffPillarBars({
-  pillarScores = {},
-  theme = 'dark',
-}) {
-  const trackColor = theme === 'light' ? '#E2E8F0' : 'rgba(255,255,255,0.12)'
-  // Forte contraste em ambos os temas — labels precisam pular fora do card.
-  const labelColor = theme === 'light' ? '#0F172A' : '#FFFFFF'
-  const subColor   = theme === 'light' ? '#64748B' : 'rgba(255,255,255,0.75)'
+// O app inteiro é light theme (rl-bg = #EEF2F9). Mantemos o param `theme`
+// apenas pra eventual reuso, mas o default sempre força contraste alto.
+export default function KickoffPillarBars({ pillarScores = {} }) {
+  const trackColor = '#E2E8F0'
+  const labelColor = '#0F172A'  // rl-text — quase preto, alto contraste
+  const subColor   = '#334155'  // rl-subtle — cinza médio escuro
 
   // Ordena por score crescente — fraquezas no topo da lista
   const rows = PILLARS
@@ -26,7 +23,9 @@ export default function KickoffPillarBars({
         return (
           <div key={p.id} className="space-y-1.5">
             <div className="flex items-center justify-between text-sm">
-              <span className="font-bold" style={{ color: labelColor }}>{p.label}</span>
+              <span className="font-extrabold tracking-tight" style={{ color: labelColor }}>
+                {p.label}
+              </span>
               <span className="font-black tabular-nums text-base" style={{ color }}>{p.score}</span>
             </div>
             <div className="h-2.5 rounded-full overflow-hidden" style={{ background: trackColor }}>
@@ -38,7 +37,7 @@ export default function KickoffPillarBars({
                 }}
               />
             </div>
-            <div className="text-xs font-medium" style={{ color: subColor }}>
+            <div className="text-xs font-semibold" style={{ color: subColor }}>
               {severityLabel(p.score)}
             </div>
           </div>
