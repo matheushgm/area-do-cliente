@@ -123,6 +123,7 @@ export default function KickoffOfertaMatadoraPanel({ value, onSave }) {
 
         <div className="pt-2">
           <KickoffQuestionForm
+            key={q.id}
             question={q}
             value={answers[q.id]}
             onChange={(v) => setAnswer(q.id, v)}

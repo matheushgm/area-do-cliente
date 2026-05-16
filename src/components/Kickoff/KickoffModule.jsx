@@ -279,6 +279,9 @@ export default function KickoffModule({ project }) {
         <div className="glass-card p-6">
           {q ? (
             <KickoffQuestionForm
+              // `key` força remount em cada pergunta — sem isso, inputs com
+              // estado local (MoneyInput) carregam o valor anterior pra próxima.
+              key={q.id}
               question={q}
               value={answers[q.id]}
               onChange={(v) => setAnswer(q.id, v)}
