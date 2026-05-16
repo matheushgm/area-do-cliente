@@ -42,6 +42,7 @@ export function extractScore(question, answer) {
     case 'number':
     case 'money':
     case 'text':
+    case 'percent':
       return typeof scoreFn === 'function' ? clamp(scoreFn(answer)) : 0
 
     default:

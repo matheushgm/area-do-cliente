@@ -69,6 +69,51 @@ function competitorsScore(text) {
   return 0
 }
 
+// Score genérico pra respostas abertas que pedem diferenciação/posicionamento.
+// Recompensa esforço (comprimento), presença de marcadores concretos de
+// diferencial e múltiplos motivos listados.
+function differentiatorScore(text) {
+  const t = String(text || '').trim()
+  if (t.length < 15) return 0
+  let s = 25
+
+  if (t.length >= 80)  s += 15
+  if (t.length >= 200) s += 10
+
+  const markers = [
+    /\b(experi[êe]ncia|anos|tempo de mercado|hist[óo]rico)/i,
+    /\b(metodologia|m[ée]todo|processo|framework|sistema)/i,
+    /\b(resultados?|cases?|portf[óo]lio|comprovad)/i,
+    /\b(especialista?|especializ|nicho|foco)/i,
+    /\b(equipe|time|profissionais?|certificad)/i,
+    /\b(tecnologia|ferramenta|exclusiv|propriet[áa]rio)/i,
+    /\b(garantia|seguro|comprovado|sem risco)/i,
+    /\b(personaliz|customiz|adapt|sob medida)/i,
+    /\b(velocidade|agilidade|r[áa]pido|prazo)/i,
+    /\b(suporte|atendimento|acompanhamento|consultor)/i,
+  ]
+  let hits = 0
+  for (const re of markers) if (re.test(t)) hits++
+  s += Math.min(40, hits * 8)
+
+  const separators = (t.match(/[,;]|\bou\b|\be\b/gi) || []).length
+  if (separators >= 2) s += 10
+
+  return Math.min(100, s)
+}
+
+// Score por margem bruta em %. Aceita número (0-100) ou 'unknown'.
+function grossMarginScore(value) {
+  if (value === 'unknown' || value == null || value === '') return 0
+  const n = Number(value)
+  if (isNaN(n)) return 0
+  if (n >= 60) return 95
+  if (n >= 40) return 75
+  if (n >= 20) return 50
+  if (n > 0)   return 25
+  return 0
+}
+
 // Score do ICP + critérios de lead qualificado.
 // Recompensa esforço (comprimento), especificidade (presença de marcadores
 // como cargo, faturamento, dor, etc.) e múltiplos critérios listados.
@@ -105,12 +150,6 @@ function qualifiedLeadScore(text) {
   return Math.min(100, s)
 }
 
-// Score binário por presença de valor (>=1)
-function presenceScore(val) {
-  const n = Number(val) || 0
-  return n >= 1 ? 100 : 0
-}
-
 // ─── Perguntas compartilhadas (sempre fazem) ──────────────────────────────────
 const SHARED = [
   {
@@ -124,15 +163,10 @@ const SHARED = [
   {
     id: 'porque_voce',
     pillarIds: ['posicionamento'],
-    type: 'scale',
-    label: 'Quão claro está pra você o "Por que escolher você e não o concorrente"?',
-    options: [
-      { value: 1, label: '1 · Não sei', score: 0 },
-      { value: 2, label: '2', score: 25 },
-      { value: 3, label: '3', score: 50 },
-      { value: 4, label: '4', score: 75 },
-      { value: 5, label: '5 · Cristalino', score: 100 },
-    ],
+    type: 'text',
+    label: 'Por que o cliente deve escolher a sua empresa e não a do concorrente?',
+    hint: 'Liste os diferenciais concretos — experiência, metodologia, resultados, especialização, garantia, tecnologia, etc. Quanto mais específico e múltiplos motivos, melhor.',
+    scoreFn: differentiatorScore,
   },
   {
     id: 'concorrentes',
@@ -153,15 +187,35 @@ const SHARED = [
   {
     id: 'margem_bruta',
     pillarIds: ['margem_lucro'],
-    type: 'single',
+    type: 'percent',
     label: 'Qual a margem bruta média por venda/contrato?',
-    options: [
-      { value: 'lt20', label: 'Menor que 20%',  score: 20  },
-      { value: '20_40', label: '20% a 40%',     score: 50  },
-      { value: '40_60', label: '40% a 60%',     score: 75  },
-      { value: 'gt60', label: 'Maior que 60%',  score: 95  },
-      { value: 'unknown', label: 'Não sei calcular', score: 0 },
-    ],
+    hint: 'Margem BRUTA = (Receita - Custo direto do produto/serviço) / Receita. Considera só o que é diretamente atribuível à entrega (ex: matéria-prima, mão de obra de execução, taxa de plataforma). NÃO subtrai custos administrativos, salários fixos, aluguel ou marketing — isso é margem LÍQUIDA. Queremos a BRUTA porque é ela que define quanto sobra pra investir em aquisição (marketing/tráfego).',
+    unknownLabel: 'Não sei calcular',
+    scoreFn: grossMarginScore,
+  },
+  {
+    id: 'ticket_medio',
+    pillarIds: ['margem_lucro'],
+    type: 'money',
+    label: 'Qual o ticket médio das suas vendas?',
+    hint: 'Valor médio por venda/contrato fechado.',
+    scoreFn: (val) => (Number(val) > 0 ? 100 : 0),
+  },
+  {
+    id: 'faturamento_mensal',
+    pillarIds: ['margem_lucro'],
+    type: 'money',
+    label: 'Qual foi o faturamento do último mês?',
+    hint: 'Receita total no mês anterior — soma de todas as vendas/contratos.',
+    scoreFn: (val) => {
+      const n = Number(val) || 0
+      if (n === 0) return 0
+      if (n < 10000)    return 25  // <R$10k/mês
+      if (n < 50000)    return 50  // R$10-50k
+      if (n < 200000)   return 75  // R$50-200k
+      if (n < 1000000)  return 90  // R$200k-1M
+      return 100                    // R$1M+
+    },
   },
   {
     id: 'cac_ltv',
@@ -321,13 +375,6 @@ const B2B = [
     ],
   },
   {
-    id: 'b2b_ticket_medio',
-    pillarIds: ['margem_lucro'],
-    type: 'money',
-    label: 'Qual seu ticket médio por contrato?',
-    scoreFn: presenceScore,
-  },
-  {
     id: 'b2b_ciclo_venda',
     pillarIds: ['processo_comercial'],
     type: 'number',
@@ -445,13 +492,6 @@ const B2C = [
       if (n <= 180) return 50
       return 30
     },
-  },
-  {
-    id: 'b2c_ticket_medio',
-    pillarIds: ['margem_lucro'],
-    type: 'money',
-    label: 'Qual o ticket médio das suas vendas?',
-    scoreFn: presenceScore,
   },
 ]
 

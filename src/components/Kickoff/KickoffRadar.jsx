@@ -8,7 +8,6 @@ export default function KickoffRadar({
   width = 420,
   height = 420,
   fillColor = '#7C3AED',
-  theme = 'dark', // 'dark' | 'light'
 }) {
   const cx = width / 2
   const cy = height / 2
