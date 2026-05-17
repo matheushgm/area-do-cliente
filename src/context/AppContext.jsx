@@ -231,6 +231,9 @@ function assembleProject(row, rel = {}) {
     // Mecanismo Único (playbook de diferenciação de negócio)
     mecanismoUnico: row.mecanismo_unico ?? null,
 
+    // Debriefing (análise/rastreamento de criativos rodando)
+    debriefing: row.debriefing ?? null,
+
     // Lab. Meta Ads
     metaLabBudget:       row.meta_lab_budget       ?? null,
     metaLabAudienceType: row.meta_lab_audience_type ?? null,
@@ -378,6 +381,7 @@ const PROJECT_FIELD_MAP = {
   kickoff:              "kickoff",
   precificacao:         "precificacao",
   mecanismoUnico:       "mecanismo_unico",
+  debriefing:           "debriefing",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────

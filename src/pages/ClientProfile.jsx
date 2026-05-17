@@ -14,7 +14,7 @@ import {
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
-  NotebookPen, Wrench, Compass,
+  NotebookPen, Wrench, Compass, Megaphone,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -35,6 +35,7 @@ import CRMModule from '../components/CRMModule'
 import MeetingMinutesModule from '../components/MeetingMinutesModule'
 import FerramentasModule from '../components/FerramentasModule'
 import KickoffModule from '../components/Kickoff/KickoffModule'
+import DebriefingModule from '../components/Debriefing/DebriefingModule'
 import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
 
 // ─── Momento ──────────────────────────────────────────────────────────────────
@@ -1153,6 +1154,7 @@ export default function ClientProfile({ project: projectProp }) {
   const NAV_ITEMS = [
     { id: 'dados',        label: 'Dados do Cliente',        icon: ClipboardList,  color: 'text-rl-cyan',   filled: true },
     { id: 'kickoff',      label: 'Kickoff',                  icon: Compass,        color: 'text-rl-cyan',   filled: !!project.kickoff?.completedAt },
+    { id: 'debriefing',   label: 'Debriefing',               icon: Megaphone,      color: 'text-rl-purple', filled: !!(project.debriefing?.ads?.length) },
     { id: 'produtos',     label: 'Produto / Serviço',        icon: Package,        color: 'text-rl-gold',   filled: hasProdutos },
     { id: 'icp',          label: 'Personas',                 icon: Users,          color: 'text-rl-blue',   filled: hasPersonas },
     { id: 'oferta',       label: 'Oferta Matadora',          icon: Zap,            color: 'text-rl-gold',   filled: hasOferta },
@@ -1177,6 +1179,7 @@ export default function ClientProfile({ project: projectProp }) {
     switch (activeSection) {
       case 'dados':        return <OnboardingContent project={project} onSave={handleSaveOnboarding} showToast={showToast} />
       case 'kickoff':      return <KickoffModule project={project} />
+      case 'debriefing':   return <DebriefingModule project={project} />
       case 'roi':          return <ROICalculator project={project} onSave={handleSaveROI} />
       case 'icp':          return <PersonaCreator project={project} onSave={handleSavePersonas} />
       case 'produtos':     return (
