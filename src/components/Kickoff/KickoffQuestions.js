@@ -254,7 +254,7 @@ const SHARED = [
   },
   {
     id: 'lead_magnet',
-    pillarIds: ['autoridade', 'oferta_entrada'],
+    pillarIds: ['autoridade'],
     type: 'yesno',
     label: 'Você tem isca digital / lead magnet (eBook, webinar, kit, amostra)?',
     askDescription: true,
