@@ -7,12 +7,11 @@ import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
 import Toast from '../UI/Toast'
 import DebriefingAdModal, { TIPOS_ANUNCIO, flattenCampaigns } from './DebriefingAdModal'
-import { FUNNELS, FUNNELS_BY_ID } from '../Kickoff/KickoffFunnelRecommendations'
-import { STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, fmtDateBR } from './debriefingData'
+import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
+import { STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, fmtDateBR, todayISO } from './debriefingData'
 
 const EMPTY = { ads: [] }
 const TIPO_ICON = { video: Video, imagem: ImageIcon, carrossel: Layers }
-const TIPO_LABEL = Object.fromEntries(TIPOS_ANUNCIO.map((t) => [t.id, t.label]))
 const STATUS_ICON = { para_subir: Clock, em_andamento: Play, finalizado: CheckCircle2 }
 
 export default function DebriefingModule({ project }) {
@@ -27,10 +26,6 @@ export default function DebriefingModule({ project }) {
 
   const ads = useMemo(() => persisted.ads || [], [persisted.ads])
   const campaigns = useMemo(() => flattenCampaigns(project.campaignPlan), [project.campaignPlan])
-  const campaignById = useMemo(
-    () => Object.fromEntries(campaigns.map((c) => [c.id, c])),
-    [campaigns]
-  )
 
   // Ordena por data de criação (do mais recente pro mais antigo)
   // e aplica filtros
@@ -66,6 +61,27 @@ export default function DebriefingModule({ project }) {
     const next = (persisted.ads || []).filter((x) => x.id !== id)
     persist({ ...persisted, ads: next })
     showToast('Anúncio removido.')
+  }
+
+  // Atualiza um campo único de um anúncio (edição inline na tabela).
+  // Quando muda status, aplica a mesma lógica de auto-data do modal.
+  function updateAd(id, patch) {
+    const list = persisted.ads || []
+    const next = list.map((x) => {
+      if (x.id !== id) return x
+      const merged = { ...x, ...patch, updatedAt: new Date().toISOString() }
+      // Auto-data ao mudar status
+      if ('status' in patch) {
+        const today = todayISO()
+        if (patch.status === 'em_andamento' && !merged.startedAt) merged.startedAt = today
+        if (patch.status === 'finalizado') {
+          if (!merged.startedAt)  merged.startedAt  = today
+          if (!merged.finishedAt) merged.finishedAt = today
+        }
+      }
+      return merged
+    })
+    persist({ ...persisted, ads: next })
   }
 
   const hasFilters = filterTipo || filterFunil || filterStatus
@@ -170,8 +186,6 @@ export default function DebriefingModule({ project }) {
               <tbody>
                 {visibleAds.map((ad) => {
                   const TipoIcon = TIPO_ICON[ad.tipo] || Layers
-                  const camp = ad.campanhaId ? campaignById[ad.campanhaId] : null
-                  const funnel = ad.funilId ? FUNNELS_BY_ID[ad.funilId] : null
                   const status = STATUS_BY_ID[ad.status || 'para_subir']
                   const StatusIcon = STATUS_ICON[ad.status || 'para_subir'] || Clock
                   const resultado = ad.resultado ? RESULTADO_BY_ID[ad.resultado] : null
@@ -189,24 +203,27 @@ export default function DebriefingModule({ project }) {
                       <Td className="whitespace-nowrap text-rl-subtle">{dtStr}</Td>
                       <Td className="font-mono text-xs font-semibold text-rl-text">{ad.nome || '—'}</Td>
                       <Td>
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-rl-purple/10 text-rl-purple border border-rl-purple/30">
-                          <TipoIcon className="w-3 h-3" />
-                          {TIPO_LABEL[ad.tipo] || ad.tipo}
-                        </span>
+                        <InlineSelect
+                          value={ad.tipo || ''}
+                          onChange={(v) => updateAd(ad.id, { tipo: v })}
+                          options={TIPOS_ANUNCIO.map((t) => ({ value: t.id, label: t.label }))}
+                          color="#7C3AED"
+                          bgColor="rgba(124,58,237,0.10)"
+                          borderColor="rgba(124,58,237,0.30)"
+                          LeftIcon={TipoIcon}
+                        />
                       </Td>
                       <Td>
                         <div className="flex flex-col items-start gap-1">
-                          <span
-                            className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap"
-                            style={{
-                              color: status.color,
-                              background: status.bgColor,
-                              borderColor: status.borderColor,
-                            }}
-                          >
-                            <StatusIcon className="w-3 h-3" />
-                            {status.label}
-                          </span>
+                          <InlineSelect
+                            value={ad.status || 'para_subir'}
+                            onChange={(v) => updateAd(ad.id, { status: v })}
+                            options={STATUS_OPTIONS.map((s) => ({ value: s.id, label: s.label }))}
+                            color={status.color}
+                            bgColor={status.bgColor}
+                            borderColor={status.borderColor}
+                            LeftIcon={StatusIcon}
+                          />
                           {resultado && (
                             <span
                               className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border whitespace-nowrap"
@@ -233,23 +250,35 @@ export default function DebriefingModule({ project }) {
                         </div>
                       </Td>
                       <Td className="text-xs">
-                        {camp ? (
-                          <span className="text-rl-text">
-                            <span className="text-[9px] font-bold text-rl-muted uppercase tracking-wider mr-1">{camp.stageLabel}</span>
-                            {camp.name}
-                          </span>
-                        ) : (
-                          <span className="text-rl-muted italic">— sem campanha —</span>
-                        )}
+                        <InlineSelect
+                          value={ad.campanhaId || ''}
+                          onChange={(v) => updateAd(ad.id, { campanhaId: v })}
+                          options={[
+                            { value: '', label: '— sem campanha —' },
+                            ...campaigns.map((c) => ({
+                              value: c.id,
+                              label: `[${c.stageLabel}] ${c.name}${c.channel ? ' · ' + c.channel : ''}`,
+                            })),
+                          ]}
+                          color="#0F172A"
+                          bgColor="#F8FAFC"
+                          borderColor="#E2E8F0"
+                          textPlaceholder="— sem campanha —"
+                        />
                       </Td>
                       <Td>
-                        {funnel ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rl-blue">
-                            {funnel.icon} {funnel.label}
-                          </span>
-                        ) : (
-                          <span className="text-rl-muted italic text-xs">—</span>
-                        )}
+                        <InlineSelect
+                          value={ad.funilId || ''}
+                          onChange={(v) => updateAd(ad.id, { funilId: v })}
+                          options={[
+                            { value: '', label: '— sem funil —' },
+                            ...FUNNELS.map((f) => ({ value: f.id, label: `${f.icon} ${f.label}` })),
+                          ]}
+                          color="#2563EB"
+                          bgColor="rgba(37,99,235,0.08)"
+                          borderColor="rgba(37,99,235,0.25)"
+                          textPlaceholder="— sem funil —"
+                        />
                       </Td>
                       <Td>
                         {ad.url ? (
@@ -328,6 +357,62 @@ function Th({ children, className = '' }) {
 }
 function Td({ children, className = '' }) {
   return <td className={`px-3 py-2.5 align-middle ${className}`}>{children}</td>
+}
+
+// InlineSelect: dropdown estilizado como chip pra edição inline na tabela.
+// Stop-propagation no click pra não disparar o onClick da linha (que abre o modal).
+function InlineSelect({
+  value, onChange, options = [],
+  color = '#0F172A', bgColor = '#F8FAFC', borderColor = '#E2E8F0',
+  LeftIcon = null,
+  textPlaceholder = null,
+}) {
+  const isEmpty = !value
+  const displayColor = isEmpty && textPlaceholder ? '#94A3B8' : color
+  const displayBg    = isEmpty && textPlaceholder ? 'transparent' : bgColor
+  const displayBorder= isEmpty && textPlaceholder ? '#E2E8F0' : borderColor
+
+  return (
+    <div
+      className="relative inline-block"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {LeftIcon && !isEmpty && (
+        <LeftIcon
+          className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
+          style={{ color: displayColor }}
+        />
+      )}
+      <select
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        className={`appearance-none cursor-pointer text-[11px] font-bold rounded-full border focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-white focus:ring-rl-purple/30 transition-all ${
+          LeftIcon && !isEmpty ? 'pl-7' : 'pl-2.5'
+        } pr-6 py-0.5`}
+        style={{
+          color: displayColor,
+          background: displayBg,
+          borderColor: displayBorder,
+          fontStyle: isEmpty && textPlaceholder ? 'italic' : 'normal',
+        }}
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+      <svg
+        className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
+        viewBox="0 0 12 12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        style={{ color: displayColor }}
+        aria-hidden
+      >
+        <path d="M3 5l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  )
 }
 
 function EmptyState({ onCreate }) {
