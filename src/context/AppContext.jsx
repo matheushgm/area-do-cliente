@@ -228,6 +228,9 @@ function assembleProject(row, rel = {}) {
     // Precificação (calculadora de preço de venda por item)
     precificacao: row.precificacao ?? null,
 
+    // Mecanismo Único (playbook de diferenciação de negócio)
+    mecanismoUnico: row.mecanismo_unico ?? null,
+
     // Lab. Meta Ads
     metaLabBudget:       row.meta_lab_budget       ?? null,
     metaLabAudienceType: row.meta_lab_audience_type ?? null,
@@ -374,6 +377,7 @@ const PROJECT_FIELD_MAP = {
   promessa:             "promessa",
   kickoff:              "kickoff",
   precificacao:         "precificacao",
+  mecanismoUnico:       "mecanismo_unico",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────

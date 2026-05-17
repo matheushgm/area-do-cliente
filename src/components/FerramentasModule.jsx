@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import {
-  Presentation, FileSignature, Clock, Target, TrendingUp, ChevronLeft, Calculator,
+  Presentation, FileSignature, Clock, Target, TrendingUp, ChevronLeft, Calculator, Sparkles,
 } from 'lucide-react'
 import PromessaModule from './PromessaModule'
 import PlanejamentoAnualModule from './PlanejamentoAnualModule'
 import PrecificacaoModule from './Precificacao/PrecificacaoModule'
+import MecanismoUnicoModule from './MecanismoUnico/MecanismoUnicoModule'
 
 // ─── Catálogo de Ferramentas ──────────────────────────────────────────────────
 // `Component` é o módulo real renderizado quando a card é clicada. Tools com
@@ -36,6 +37,15 @@ const TOOLS = [
     Icon: Calculator,
     color: 'rl-gold',
     Component: PrecificacaoModule,
+  },
+  {
+    id: 'mecanismo_unico',
+    title: 'Mecanismo Único',
+    description:
+      'Playbook guiado pra construir o "por que ISSO vai funcionar pra mim" que diferencia o cliente dos concorrentes. 6 seções viram um pitch pronto.',
+    Icon: Sparkles,
+    color: 'rl-purple',
+    Component: MecanismoUnicoModule,
   },
   {
     id: 'webinar',

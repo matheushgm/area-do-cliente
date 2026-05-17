@@ -1,0 +1,11 @@
+-- Migration 047: add mecanismo_unico JSONB column to projects_v2
+--
+-- Armazena o playbook de Mecanismo Único do cliente — diferenciação de
+-- negócio em 6 seções:
+--   1. Pesquisa de mercado (concorrentes, padrões, promessas comuns)
+--   2. Mapeamento do cliente (tentativas, justificativas, "quase")
+--   3. Mecanismo do problema (vilão, conexão lógica, prova)
+--   4. Mecanismo da solução (diferencial, nome, técnicas)
+--   5. Montagem final (pitch estruturado)
+--   6. Validação (7 critérios + teste do amigo)
+ALTER TABLE projects_v2 ADD COLUMN IF NOT EXISTS mecanismo_unico JSONB;
