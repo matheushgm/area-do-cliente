@@ -115,6 +115,7 @@ export function recommendFunnels({ answers = {}, ofertaMatadora = null } = {}) {
   if (baixaConsciencia) add('webinar', 3, 'Lead com baixa consciência do problema/solução')
   if (baixaAutoridade)  add('webinar', 3, 'Marca ainda construindo autoridade')
   if (modelo === 'consultoria') add('webinar', 2, 'Consultoria/assessoria educa o lead enquanto vende')
+  if (modelo === 'whatsapp')    add('webinar', 1, 'Aquecimento antes da conversa no WhatsApp')
   if (modelo === 'ecommerce') add('webinar', -2)
 
   // ── Funil de Diagnóstico ──────────────────────────────────────────────────
@@ -149,11 +150,13 @@ export function recommendFunnels({ answers = {}, ofertaMatadora = null } = {}) {
 
   // ── Funil de E-commerce ───────────────────────────────────────────────────
   if (modelo === 'ecommerce') add('ecommerce', 3, 'Venda direta de produto físico online')
+  if (modelo === 'whatsapp')  add('ecommerce', 2, 'Estrutura de e-commerce pode redirecionar leads pro atendimento WhatsApp')
 
   // ── Funil de Isca Digital ─────────────────────────────────────────────────
   if (jaInvesteEmTrafego) add('isca_digital', 3, 'Já investe em tráfego — paralelo a um funil ativo')
   if (modelo === 'saas' || modelo === 'servicos') add('isca_digital', 1, 'Bom canal de leads pro comercial')
   if (modelo === 'consultoria') add('isca_digital', 2, 'Material gratuito (whitepaper/diagnóstico) capta leads B2B qualificados')
+  if (modelo === 'whatsapp')    add('isca_digital', 3, 'Isca digital + click-to-WhatsApp é o combo natural pra venda conversacional')
 
   // ── Funil de Quiz ─────────────────────────────────────────────────────────
   // Quiz é mais B2B — checamos se o businessType passou via answers
@@ -161,12 +164,18 @@ export function recommendFunnels({ answers = {}, ofertaMatadora = null } = {}) {
   // Como recommendFunnels não recebe businessType direto, vamos confiar no modelo.
   if (modelo === 'saas' || modelo === 'servicos') add('quiz', 2, 'Quiz qualifica e coleta dados antes do comercial')
   if (modelo === 'consultoria') add('quiz', 2, 'Quiz funciona como mini-diagnóstico antes da call comercial')
+  if (modelo === 'whatsapp')    add('quiz', 2, 'Quiz qualifica e segmenta o lead antes de entrar no WhatsApp')
   if (altaConsciencia) add('quiz', 1, 'Lead já maduro responde quiz com profundidade')
 
   // ── Funil de Desafio ──────────────────────────────────────────────────────
   if (modelo === 'servicos')    add('desafio', 2, 'Prestadores de serviço conseguem entregar desafio')
   if (modelo === 'coach')       add('desafio', 3, 'Coaches/mentores brilham em desafios ao vivo')
   if (modelo === 'consultoria') add('desafio', 1, 'Desafio funciona pra consultoria com formato advisory de curta duração')
+
+  // ── Funil de Lançamento ───────────────────────────────────────────────────
+  // (Continua principalmente pra infoprodutos/coaches — já mapeado acima,
+  //  mas reforçamos pra WhatsApp que aproveita lista de transmissão.)
+  if (modelo === 'whatsapp')    add('lancamento', 2, 'Lista de transmissão WhatsApp é tração natural pra lançamento')
 
   // Constrói lista final ordenada
   return FUNNELS

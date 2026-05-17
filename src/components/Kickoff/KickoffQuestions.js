@@ -160,6 +160,7 @@ const SHARED = [
     hint: 'Vai ajudar a definir quais tipos de funil fazem mais sentido pra esse cliente.',
     options: [
       { value: 'ecommerce',   label: 'E-commerce / produto físico online',   score: 100 },
+      { value: 'whatsapp',    label: 'Venda via WhatsApp',                    score: 100 },
       { value: 'saas',        label: 'SaaS / Software como serviço',          score: 100 },
       { value: 'servicos',    label: 'Prestador de serviços',                 score: 100 },
       { value: 'consultoria', label: 'Consultoria / Assessoria',              score: 100 },
