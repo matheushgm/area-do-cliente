@@ -3,6 +3,7 @@
 
 import { PILLARS, PILLARS_BY_ID } from '../components/Kickoff/KickoffQuestions'
 import { OM_PILLARS, pillarJustification } from '../components/Kickoff/KickoffOfertaMatadora'
+import { recommendFunnelsWithBusiness } from '../components/Kickoff/KickoffFunnelRecommendations'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -263,6 +264,34 @@ const KICKOFF_CSS = `
   .om-pillar-score { font-size: 16px; font-weight: 900; font-variant-numeric: tabular-nums; }
   .om-pillar-text { font-size: 11px; color: #475569; line-height: 1.5; }
 
+  .funnels-section { page-break-before: always; padding-top: 8px; }
+  .funnels-section h1 { font-size: 18px; font-weight: 800; color: #0F172A; margin-bottom: 14px; }
+  .funnel-tier-label {
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #64748B; margin: 14px 0 8px;
+  }
+  .funnel-card {
+    padding: 12px 14px; border-radius: 10px;
+    background: #F8FAFC; border: 1px solid #E2E8F0;
+    margin-bottom: 8px;
+  }
+  .funnel-card.top { background: #F0FDF4; border-color: #BBF7D0; }
+  .funnel-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    margin-bottom: 4px;
+  }
+  .funnel-title { font-size: 13px; font-weight: 800; color: #0F172A; }
+  .funnel-emoji { font-size: 16px; margin-right: 6px; }
+  .funnel-match {
+    font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 99px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    background: #E2E8F0; color: #475569;
+  }
+  .funnel-card.top .funnel-match { background: #BBF7D0; color: #15803D; }
+  .funnel-desc { font-size: 11px; color: #475569; line-height: 1.5; margin-bottom: 6px; }
+  .funnel-reasons { padding-left: 16px; margin: 0; }
+  .funnel-reasons li { font-size: 11px; color: #1F2937; line-height: 1.5; margin-bottom: 2px; }
+
   .ai-section { page-break-before: always; padding-top: 8px; }
   .ai-section h1 { font-size: 18px; font-weight: 800; color: #0F172A; margin-bottom: 12px; }
   .ai-prose h1 { font-size: 16px; font-weight: 700; color: #0F172A; margin: 16px 0 6px; }
@@ -370,6 +399,50 @@ export function exportKickoffPDF({ project, kickoff }) {
     `
     : ''
 
+  // ── Funis recomendados ───────────────────────────────────────────────────
+  const funnels = recommendFunnelsWithBusiness({
+    answers:        kickoff.answers || {},
+    ofertaMatadora: kickoff.ofertaMatadora || null,
+    businessType:   kickoff.businessType,
+  })
+  const topFunnels    = funnels.filter((f) => f.tier === 'top')
+  const otherFunnels  = funnels.filter((f) => f.tier === 'consider')
+
+  function renderFunnelCard(f, isTop) {
+    return `
+      <div class="funnel-card${isTop ? ' top' : ''}">
+        <div class="funnel-head">
+          <span class="funnel-title">
+            <span class="funnel-emoji">${esc(f.icon)}</span>${esc(f.label)}
+          </span>
+          <span class="funnel-match">match ${f.score}</span>
+        </div>
+        <p class="funnel-desc">${esc(f.desc)}</p>
+        ${f.reasons.length ? `
+          <ul class="funnel-reasons">
+            ${f.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}
+          </ul>
+        ` : ''}
+      </div>
+    `
+  }
+
+  const funnelsHtml = funnels.length === 0
+    ? ''
+    : `
+      <section class="funnels-section">
+        <h1>Funis recomendados pra esse cliente</h1>
+        ${topFunnels.length ? `
+          <div class="funnel-tier-label">⭐ Recomendados pra começar</div>
+          ${topFunnels.map((f) => renderFunnelCard(f, true)).join('')}
+        ` : ''}
+        ${otherFunnels.length ? `
+          <div class="funnel-tier-label">Também vale considerar</div>
+          ${otherFunnels.map((f) => renderFunnelCard(f, false)).join('')}
+        ` : ''}
+      </section>
+    `
+
   const aiHtml = kickoff.aiAnalysis
     ? `
       <section class="ai-section">
@@ -430,6 +503,7 @@ export function exportKickoffPDF({ project, kickoff }) {
   </div>
 
   ${omHtml}
+  ${funnelsHtml}
   ${aiHtml}
 
   <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>

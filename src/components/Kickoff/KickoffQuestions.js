@@ -153,6 +153,21 @@ function qualifiedLeadScore(text) {
 // ─── Perguntas compartilhadas (sempre fazem) ──────────────────────────────────
 const SHARED = [
   {
+    id: 'modelo_produto',
+    pillarIds: ['posicionamento'],
+    type: 'single',
+    label: 'Qual é o modelo do produto/serviço?',
+    hint: 'Vai ajudar a definir quais tipos de funil fazem mais sentido pra esse cliente.',
+    options: [
+      { value: 'ecommerce',   label: 'E-commerce / produto físico online',   score: 100 },
+      { value: 'saas',        label: 'SaaS / Software como serviço',          score: 100 },
+      { value: 'servicos',    label: 'Prestador de serviços',                 score: 100 },
+      { value: 'infoproduto', label: 'Infoproduto / curso online',            score: 100 },
+      { value: 'coach',       label: 'Coach / Mentor',                        score: 100 },
+      { value: 'outro',       label: 'Outro',                                 score: 50  },
+    ],
+  },
+  {
     id: 'grande_promessa',
     pillarIds: ['grande_promessa'],
     type: 'text',

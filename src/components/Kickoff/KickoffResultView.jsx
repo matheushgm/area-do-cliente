@@ -7,6 +7,7 @@ import KickoffPillarBars from './KickoffPillarBars'
 import KickoffAIAnalysisPanel from './KickoffAIAnalysisPanel'
 import KickoffOfertaMatadoraPanel from './KickoffOfertaMatadoraPanel'
 import KickoffAnswersModal from './KickoffAnswersModal'
+import KickoffFunnelRecommendationsPanel from './KickoffFunnelRecommendationsPanel'
 import { PILLARS_BY_ID } from './KickoffQuestions'
 
 export default function KickoffResultView({
@@ -152,6 +153,9 @@ export default function KickoffResultView({
         value={kickoff.ofertaMatadora}
         onSave={onSaveOfertaMatadora}
       />
+
+      {/* ── Funis recomendados ───────────────────────────────────────── */}
+      <KickoffFunnelRecommendationsPanel kickoff={kickoff} />
 
       {/* ── Análise IA (botão opcional) ──────────────────────────────── */}
       <KickoffAIAnalysisPanel
