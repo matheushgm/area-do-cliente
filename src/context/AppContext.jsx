@@ -225,6 +225,9 @@ function assembleProject(row, rel = {}) {
     // Kickoff (diagnóstico inicial)
     kickoff: row.kickoff ?? null,
 
+    // Precificação (calculadora de preço de venda por item)
+    precificacao: row.precificacao ?? null,
+
     // Lab. Meta Ads
     metaLabBudget:       row.meta_lab_budget       ?? null,
     metaLabAudienceType: row.meta_lab_audience_type ?? null,
@@ -370,6 +373,7 @@ const PROJECT_FIELD_MAP = {
   metaLabAudienceType:  "meta_lab_audience_type",
   promessa:             "promessa",
   kickoff:              "kickoff",
+  precificacao:         "precificacao",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────

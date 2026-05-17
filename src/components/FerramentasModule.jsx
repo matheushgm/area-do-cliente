@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import {
-  Presentation, FileSignature, Clock, Target, TrendingUp, ChevronLeft,
+  Presentation, FileSignature, Clock, Target, TrendingUp, ChevronLeft, Calculator,
 } from 'lucide-react'
 import PromessaModule from './PromessaModule'
 import PlanejamentoAnualModule from './PlanejamentoAnualModule'
+import PrecificacaoModule from './Precificacao/PrecificacaoModule'
 
 // ─── Catálogo de Ferramentas ──────────────────────────────────────────────────
 // `Component` é o módulo real renderizado quando a card é clicada. Tools com
@@ -26,6 +27,15 @@ const TOOLS = [
     Icon: TrendingUp,
     color: 'rl-green',
     Component: PlanejamentoAnualModule,
+  },
+  {
+    id: 'precificacao',
+    title: 'Precificação',
+    description:
+      'Calcule o preço de venda correto de serviços e produtos considerando custo, imposto e a margem de lucro que o cliente quer ganhar.',
+    Icon: Calculator,
+    color: 'rl-gold',
+    Component: PrecificacaoModule,
   },
   {
     id: 'webinar',

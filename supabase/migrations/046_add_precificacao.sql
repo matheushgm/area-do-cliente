@@ -1,0 +1,15 @@
+-- Migration 046: add precificacao JSONB column to projects_v2
+--
+-- Armazena a lista de itens precificados (serviços + produtos) por cliente.
+-- Shape:
+-- {
+--   servicos: [
+--     { id, nome, salarioMensal, encargosPct, cargaHorariaMensal,
+--       horasDedicadas, custosFixos, impostoPct, margemPct, createdAt, updatedAt }
+--   ],
+--   produtos: [
+--     { id, nome, custoProduto, custosAdicionais, impostoPct, margemPct,
+--       createdAt, updatedAt }
+--   ]
+-- }
+ALTER TABLE projects_v2 ADD COLUMN IF NOT EXISTS precificacao JSONB;
