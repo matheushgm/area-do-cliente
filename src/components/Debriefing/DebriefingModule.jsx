@@ -1,17 +1,19 @@
 import { useMemo, useState } from 'react'
 import {
   Megaphone, Plus, Pencil, Trash2, ExternalLink, Video, Image as ImageIcon, Layers,
-  Filter, X,
+  Filter, X, Clock, Play, CheckCircle2,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
 import Toast from '../UI/Toast'
 import DebriefingAdModal, { TIPOS_ANUNCIO, flattenCampaigns } from './DebriefingAdModal'
 import { FUNNELS, FUNNELS_BY_ID } from '../Kickoff/KickoffFunnelRecommendations'
+import { STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, fmtDateBR } from './debriefingData'
 
 const EMPTY = { ads: [] }
 const TIPO_ICON = { video: Video, imagem: ImageIcon, carrossel: Layers }
 const TIPO_LABEL = Object.fromEntries(TIPOS_ANUNCIO.map((t) => [t.id, t.label]))
+const STATUS_ICON = { para_subir: Clock, em_andamento: Play, finalizado: CheckCircle2 }
 
 export default function DebriefingModule({ project }) {
   const { updateProject } = useApp()
@@ -21,6 +23,7 @@ export default function DebriefingModule({ project }) {
   const [editingAd, setEditingAd] = useState(null) // ad obj | {} | null
   const [filterTipo,    setFilterTipo]    = useState('')
   const [filterFunil,   setFilterFunil]   = useState('')
+  const [filterStatus,  setFilterStatus]  = useState('')
 
   const ads = useMemo(() => persisted.ads || [], [persisted.ads])
   const campaigns = useMemo(() => flattenCampaigns(project.campaignPlan), [project.campaignPlan])
@@ -38,9 +41,10 @@ export default function DebriefingModule({ project }) {
       .filter((ad) => {
         if (filterTipo && ad.tipo !== filterTipo) return false
         if (filterFunil && ad.funilId !== filterFunil) return false
+        if (filterStatus && (ad.status || 'para_subir') !== filterStatus) return false
         return true
       })
-  }, [ads, filterTipo, filterFunil])
+  }, [ads, filterTipo, filterFunil, filterStatus])
 
   function persist(next) {
     updateProject(project.id, { debriefing: next })
@@ -64,7 +68,7 @@ export default function DebriefingModule({ project }) {
     showToast('Anúncio removido.')
   }
 
-  const hasFilters = filterTipo || filterFunil
+  const hasFilters = filterTipo || filterFunil || filterStatus
 
   return (
     <div className="space-y-6">
@@ -88,6 +92,16 @@ export default function DebriefingModule({ project }) {
             <Filter className="w-3.5 h-3.5" /> Filtros:
           </div>
           <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="input-field text-xs py-1.5 pl-3 pr-8 w-auto"
+          >
+            <option value="">Todos os status</option>
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s.id} value={s.id}>{s.label}</option>
+            ))}
+          </select>
+          <select
             value={filterTipo}
             onChange={(e) => setFilterTipo(e.target.value)}
             className="input-field text-xs py-1.5 pl-3 pr-8 w-auto"
@@ -109,7 +123,7 @@ export default function DebriefingModule({ project }) {
           </select>
           {hasFilters && (
             <button
-              onClick={() => { setFilterTipo(''); setFilterFunil('') }}
+              onClick={() => { setFilterTipo(''); setFilterFunil(''); setFilterStatus('') }}
               className="text-[10px] text-rl-muted hover:text-rl-red transition-colors flex items-center gap-1"
             >
               <X className="w-3 h-3" /> Limpar
@@ -145,6 +159,7 @@ export default function DebriefingModule({ project }) {
                   <Th>Data</Th>
                   <Th>Nome</Th>
                   <Th>Tipo</Th>
+                  <Th>Status</Th>
                   <Th>Campanha</Th>
                   <Th>Funil</Th>
                   <Th>Link</Th>
@@ -157,6 +172,9 @@ export default function DebriefingModule({ project }) {
                   const TipoIcon = TIPO_ICON[ad.tipo] || Layers
                   const camp = ad.campanhaId ? campaignById[ad.campanhaId] : null
                   const funnel = ad.funilId ? FUNNELS_BY_ID[ad.funilId] : null
+                  const status = STATUS_BY_ID[ad.status || 'para_subir']
+                  const StatusIcon = STATUS_ICON[ad.status || 'para_subir'] || Clock
+                  const resultado = ad.resultado ? RESULTADO_BY_ID[ad.resultado] : null
                   const dt = ad.createdAt ? new Date(ad.createdAt) : null
                   const dtStr = dt
                     ? `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`
@@ -175,6 +193,44 @@ export default function DebriefingModule({ project }) {
                           <TipoIcon className="w-3 h-3" />
                           {TIPO_LABEL[ad.tipo] || ad.tipo}
                         </span>
+                      </Td>
+                      <Td>
+                        <div className="flex flex-col items-start gap-1">
+                          <span
+                            className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap"
+                            style={{
+                              color: status.color,
+                              background: status.bgColor,
+                              borderColor: status.borderColor,
+                            }}
+                          >
+                            <StatusIcon className="w-3 h-3" />
+                            {status.label}
+                          </span>
+                          {resultado && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border whitespace-nowrap"
+                              style={{
+                                color: resultado.color,
+                                background: resultado.bgColor,
+                                borderColor: resultado.borderColor,
+                              }}
+                              title={ad.justificativa || ''}
+                            >
+                              <span>{resultado.emoji}</span> {resultado.label}
+                            </span>
+                          )}
+                          {ad.status === 'em_andamento' && ad.startedAt && (
+                            <span className="text-[9px] text-rl-muted whitespace-nowrap">
+                              desde {fmtDateBR(ad.startedAt)}
+                            </span>
+                          )}
+                          {ad.status === 'finalizado' && ad.finishedAt && (
+                            <span className="text-[9px] text-rl-muted whitespace-nowrap">
+                              fim {fmtDateBR(ad.finishedAt)}
+                            </span>
+                          )}
+                        </div>
                       </Td>
                       <Td className="text-xs">
                         {camp ? (

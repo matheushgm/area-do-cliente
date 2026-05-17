@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
-import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle } from 'lucide-react'
+import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle, Play, CheckCircle2, Clock } from 'lucide-react'
 import Modal from '../UI/Modal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
+import { STATUS_OPTIONS, RESULTADO_OPTIONS, DEFAULT_STATUS, todayISO } from './debriefingData'
+
+const STATUS_ICON = { para_subir: Clock, em_andamento: Play, finalizado: CheckCircle2 }
 
 // Tipos de anúncio com ícone + código curto (pro auto-suggest de nomenclatura)
 export const TIPOS_ANUNCIO = [
@@ -60,18 +63,41 @@ export default function DebriefingAdModal({
   const campaigns = useMemo(() => flattenCampaigns(campaignPlan), [campaignPlan])
 
   const [values, setValues] = useState(() => ({
-    createdAt:  TODAY(),
-    url:        '',
-    tipo:       'video',
-    campanhaId: '',
-    nome:       '',
-    funilId:    '',
-    observacao: '',
+    createdAt:     TODAY(),
+    url:           '',
+    tipo:          'video',
+    campanhaId:    '',
+    nome:          '',
+    funilId:       '',
+    observacao:    '',
+    status:        DEFAULT_STATUS,
+    startedAt:     null,
+    finishedAt:    null,
+    resultado:     null,
+    justificativa: '',
     ...(initial || {}),
   }))
 
   function set(field, val) {
     setValues((prev) => ({ ...prev, [field]: val }))
+  }
+
+  // Auto-preenche datas ao trocar de status — só seta se ainda não tinha valor.
+  // Não limpa datas quando "regredimos" o status: o histórico fica preservado
+  // e o usuário pode editar manualmente os campos de data se quiser.
+  function setStatus(newStatus) {
+    setValues((prev) => {
+      const next = { ...prev, status: newStatus }
+      const today = todayISO()
+      if (newStatus === 'em_andamento' && !prev.startedAt) {
+        next.startedAt = today
+      }
+      if (newStatus === 'finalizado') {
+        if (!prev.startedAt)  next.startedAt = today
+        if (!prev.finishedAt) next.finishedAt = today
+      }
+      return next
+    })
   }
 
   const selectedCampaign = campaigns.find((c) => c.id === values.campanhaId) || null
@@ -87,7 +113,11 @@ export default function DebriefingAdModal({
     set('nome', nome)
   }
 
-  const canSave = !!(values.url || '').trim() && !!(values.nome || '').trim() && !!values.tipo
+  // Validação extra pra status "Finalizado": precisa de resultado + justificativa.
+  const baseValid = !!(values.url || '').trim() && !!(values.nome || '').trim() && !!values.tipo
+  const finalizadoValid = values.status !== 'finalizado'
+    || (!!values.resultado && !!(values.justificativa || '').trim())
+  const canSave = baseValid && finalizadoValid
 
   function handleSave() {
     if (!canSave) return
@@ -259,6 +289,100 @@ export default function DebriefingAdModal({
             className="input-field w-full resize-none"
           />
         </Field>
+
+        {/* ── Status + datas + resultado ─────────────────────────────────── */}
+        <div className="pt-3 border-t border-rl-border">
+          <Field label="Status do anúncio" required>
+            <div className="grid grid-cols-3 gap-2">
+              {STATUS_OPTIONS.map((s) => {
+                const Icon = STATUS_ICON[s.id] || Clock
+                const active = values.status === s.id
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setStatus(s.id)}
+                    className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl border text-xs font-semibold transition-all"
+                    style={{
+                      background: active ? s.bgColor : undefined,
+                      borderColor: active ? s.borderColor : undefined,
+                      color: active ? s.color : undefined,
+                    }}
+                  >
+                    <Icon className="w-3.5 h-3.5" /> {s.label}
+                  </button>
+                )
+              })}
+            </div>
+          </Field>
+
+          {/* Datas de início/fim — visíveis conforme o status */}
+          {(values.status === 'em_andamento' || values.status === 'finalizado') && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+              <Field label="Início do teste" hint="Setada automaticamente ao mudar pra Em Andamento.">
+                <input
+                  type="date"
+                  value={values.startedAt || ''}
+                  onChange={(e) => set('startedAt', e.target.value)}
+                  className="input-field w-full"
+                />
+              </Field>
+              {values.status === 'finalizado' && (
+                <Field label="Finalizado em" hint="Setada automaticamente ao mudar pra Finalizado.">
+                  <input
+                    type="date"
+                    value={values.finishedAt || ''}
+                    onChange={(e) => set('finishedAt', e.target.value)}
+                    className="input-field w-full"
+                  />
+                </Field>
+              )}
+            </div>
+          )}
+
+          {/* Resultado + justificativa — só pra finalizado */}
+          {values.status === 'finalizado' && (
+            <div className="mt-4 space-y-3">
+              <Field label="Como esse anúncio performou?" required>
+                <div className="grid grid-cols-3 gap-2">
+                  {RESULTADO_OPTIONS.map((r) => {
+                    const active = values.resultado === r.id
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => set('resultado', r.id)}
+                        className="flex flex-col items-center gap-1 px-3 py-3 rounded-xl border-2 text-xs font-bold transition-all"
+                        style={{
+                          background: active ? r.bgColor : undefined,
+                          borderColor: active ? r.borderColor : '#E2E8F0',
+                          color: active ? r.color : '#64748B',
+                        }}
+                      >
+                        <span className="text-2xl">{r.emoji}</span>
+                        <span>{r.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </Field>
+
+              <Field
+                label="Justificativa"
+                required
+                hint="Por que esse anúncio teve esse desempenho? O que aprendemos pra próxima rodada?"
+              >
+                <textarea
+                  value={values.justificativa || ''}
+                  onChange={(e) => set('justificativa', e.target.value)}
+                  rows={3}
+                  placeholder="Ex: headline genérica + público amplo. CPL ficou em R$22 (meta era R$12). Próxima rodada testar dor específica + público lookalike de compradores..."
+                  className="input-field w-full resize-none"
+                />
+              </Field>
+            </div>
+          )}
+        </div>
 
         {/* Aviso URL inválida */}
         {values.url && !isValidUrl && (
