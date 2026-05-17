@@ -162,6 +162,7 @@ const SHARED = [
       { value: 'ecommerce',   label: 'E-commerce / produto físico online',   score: 100 },
       { value: 'saas',        label: 'SaaS / Software como serviço',          score: 100 },
       { value: 'servicos',    label: 'Prestador de serviços',                 score: 100 },
+      { value: 'consultoria', label: 'Consultoria / Assessoria',              score: 100 },
       { value: 'infoproduto', label: 'Infoproduto / curso online',            score: 100 },
       { value: 'coach',       label: 'Coach / Mentor',                        score: 100 },
       { value: 'outro',       label: 'Outro',                                 score: 50  },

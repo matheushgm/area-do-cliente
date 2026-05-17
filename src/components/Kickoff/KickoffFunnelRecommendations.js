@@ -114,31 +114,37 @@ export function recommendFunnels({ answers = {}, ofertaMatadora = null } = {}) {
   // ── Funil de Webinar ──────────────────────────────────────────────────────
   if (baixaConsciencia) add('webinar', 3, 'Lead com baixa consciência do problema/solução')
   if (baixaAutoridade)  add('webinar', 3, 'Marca ainda construindo autoridade')
+  if (modelo === 'consultoria') add('webinar', 2, 'Consultoria/assessoria educa o lead enquanto vende')
   if (modelo === 'ecommerce') add('webinar', -2)
 
   // ── Funil de Diagnóstico ──────────────────────────────────────────────────
-  if (modelo === 'saas')     add('diagnostico', 3, 'Modelo SaaS — diagnóstico ajuda a marcar demo')
-  if (modelo === 'servicos') add('diagnostico', 2, 'Serviços B2B podem entregar diagnóstico inicial')
+  if (modelo === 'saas')        add('diagnostico', 3, 'Modelo SaaS — diagnóstico ajuda a marcar demo')
+  if (modelo === 'servicos')    add('diagnostico', 2, 'Serviços B2B podem entregar diagnóstico inicial')
+  if (modelo === 'consultoria') add('diagnostico', 3, 'Consultoria/assessoria vive de diagnosticar — entrega de valor antecipada')
   if (modelo === 'ecommerce') add('diagnostico', -2)
 
   // ── Funil de Webinar Pago ─────────────────────────────────────────────────
   if (modelo === 'infoproduto') add('webinar_pago', 3, 'Infoprodutos respondem bem ao filtro de webinar pago')
-  if (modelo === 'coach')        add('webinar_pago', 3, 'Coaches/mentores filtram bem com webinar pago')
+  if (modelo === 'coach')       add('webinar_pago', 3, 'Coaches/mentores filtram bem com webinar pago')
+  if (modelo === 'consultoria') add('webinar_pago', 1, 'Filtro premium pode pré-qualificar audiência de consultoria')
 
   // ── Funil de VSL ──────────────────────────────────────────────────────────
   if (dorForte && consciencia === 'problema') add('vsl', 3, 'Lead com dor latente sem conhecer solução específica')
   if (modelo === 'infoproduto' || modelo === 'coach') add('vsl', 1, 'Modelo combina com VSL pra qualificar')
+  if (modelo === 'consultoria') add('vsl', 1, 'VSL educativo apresenta o método de consultoria')
 
   // ── Funil de Lançamento ───────────────────────────────────────────────────
   if (modelo === 'infoproduto') add('lancamento', 3, 'Estratégia clássica de infoprodutos')
   if (modelo === 'coach')       add('lancamento', 2, 'Mentorias respondem bem a lançamentos')
 
   // ── Funil Win-Your-Money-Back ─────────────────────────────────────────────
-  if (modelo === 'servicos') add('wymb', 3, 'Prestadores de serviços conseguem entregar garantia total')
+  if (modelo === 'servicos')    add('wymb', 3, 'Prestadores de serviços conseguem entregar garantia total')
+  if (modelo === 'consultoria') add('wymb', 2, 'Garantia de resultado funciona pra quebrar objeção em consultoria')
 
   // ── Funil de Aplicação ────────────────────────────────────────────────────
   if (altaAutoridade) add('aplicacao', 3, 'Marca consolidada — pode filtrar leads via aplicação')
   if (modelo === 'saas' || modelo === 'servicos') add('aplicacao', 2, 'Modelo aceita filtro pré-comercial')
+  if (modelo === 'consultoria') add('aplicacao', 3, 'Consultoria de ticket alto — aplicação filtra leads sérios pro comercial')
   if (modelo === 'ecommerce') add('aplicacao', -2)
 
   // ── Funil de E-commerce ───────────────────────────────────────────────────
@@ -147,17 +153,20 @@ export function recommendFunnels({ answers = {}, ofertaMatadora = null } = {}) {
   // ── Funil de Isca Digital ─────────────────────────────────────────────────
   if (jaInvesteEmTrafego) add('isca_digital', 3, 'Já investe em tráfego — paralelo a um funil ativo')
   if (modelo === 'saas' || modelo === 'servicos') add('isca_digital', 1, 'Bom canal de leads pro comercial')
+  if (modelo === 'consultoria') add('isca_digital', 2, 'Material gratuito (whitepaper/diagnóstico) capta leads B2B qualificados')
 
   // ── Funil de Quiz ─────────────────────────────────────────────────────────
   // Quiz é mais B2B — checamos se o businessType passou via answers
   // ou via flag explícita. (O businessType vem do orquestrador.)
   // Como recommendFunnels não recebe businessType direto, vamos confiar no modelo.
   if (modelo === 'saas' || modelo === 'servicos') add('quiz', 2, 'Quiz qualifica e coleta dados antes do comercial')
+  if (modelo === 'consultoria') add('quiz', 2, 'Quiz funciona como mini-diagnóstico antes da call comercial')
   if (altaConsciencia) add('quiz', 1, 'Lead já maduro responde quiz com profundidade')
 
   // ── Funil de Desafio ──────────────────────────────────────────────────────
-  if (modelo === 'servicos') add('desafio', 2, 'Prestadores de serviço conseguem entregar desafio')
-  if (modelo === 'coach')    add('desafio', 3, 'Coaches/mentores brilham em desafios ao vivo')
+  if (modelo === 'servicos')    add('desafio', 2, 'Prestadores de serviço conseguem entregar desafio')
+  if (modelo === 'coach')       add('desafio', 3, 'Coaches/mentores brilham em desafios ao vivo')
+  if (modelo === 'consultoria') add('desafio', 1, 'Desafio funciona pra consultoria com formato advisory de curta duração')
 
   // Constrói lista final ordenada
   return FUNNELS
