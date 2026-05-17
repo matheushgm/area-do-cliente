@@ -1154,7 +1154,7 @@ export default function ClientProfile({ project: projectProp }) {
   const NAV_ITEMS = [
     { id: 'dados',        label: 'Dados do Cliente',        icon: ClipboardList,  color: 'text-rl-cyan',   filled: true },
     { id: 'kickoff',      label: 'Kickoff',                  icon: Compass,        color: 'text-rl-cyan',   filled: !!project.kickoff?.completedAt },
-    { id: 'debriefing',   label: 'Debriefing',               icon: Megaphone,      color: 'text-rl-purple', filled: !!(project.debriefing?.ads?.length) },
+    { id: 'debriefing',   label: 'Central de anúncios',      icon: Megaphone,      color: 'text-rl-purple', filled: !!(project.debriefing?.ads?.length) },
     { id: 'produtos',     label: 'Produto / Serviço',        icon: Package,        color: 'text-rl-gold',   filled: hasProdutos },
     { id: 'icp',          label: 'Personas',                 icon: Users,          color: 'text-rl-blue',   filled: hasPersonas },
     { id: 'oferta',       label: 'Oferta Matadora',          icon: Zap,            color: 'text-rl-gold',   filled: hasOferta },

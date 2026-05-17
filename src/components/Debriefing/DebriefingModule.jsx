@@ -57,7 +57,7 @@ export default function DebriefingModule({ project }) {
   }
 
   function handleDelete(id) {
-    if (!window.confirm('Excluir esse anúncio do debriefing?')) return
+    if (!window.confirm('Excluir esse anúncio da central?')) return
     const next = (persisted.ads || []).filter((x) => x.id !== id)
     persist({ ...persisted, ads: next })
     showToast('Anúncio removido.')
@@ -94,7 +94,7 @@ export default function DebriefingModule({ project }) {
           <Megaphone className="w-5 h-5 text-rl-purple" />
         </div>
         <div className="flex-1">
-          <h2 className="text-xl font-black text-rl-text leading-tight">Debriefing</h2>
+          <h2 className="text-xl font-black text-rl-text leading-tight">Central de anúncios</h2>
           <p className="text-sm text-rl-subtle mt-0.5 max-w-2xl">
             Lista de criativos rodando — com link, tipo, campanha, funil e observações. Use pra análise pós-veiculação e pra organizar o pipeline de produção.
           </p>
@@ -421,7 +421,7 @@ function EmptyState({ onCreate }) {
       <Megaphone className="w-8 h-8 text-rl-muted/40 mx-auto" />
       <div>
         <p className="text-sm font-semibold text-rl-text">
-          Nenhum anúncio cadastrado no debriefing ainda.
+          Nenhum anúncio cadastrado na central ainda.
         </p>
         <p className="text-xs text-rl-muted mt-1 max-w-md mx-auto">
           Adicione o primeiro anúncio com link, tipo, campanha e funil pra organizar o que está rodando.
