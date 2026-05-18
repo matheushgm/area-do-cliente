@@ -36,6 +36,7 @@ import MeetingMinutesModule from '../components/MeetingMinutesModule'
 import FerramentasModule from '../components/FerramentasModule'
 import KickoffModule from '../components/Kickoff/KickoffModule'
 import DebriefingModule from '../components/Debriefing/DebriefingModule'
+import PendingAdsBanner from '../components/Debriefing/PendingAdsBanner'
 import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
 
 // ─── Momento ──────────────────────────────────────────────────────────────────
@@ -1811,6 +1812,10 @@ export default function ClientProfile({ project: projectProp }) {
       </div>
 
       <Toast toast={toast} />
+
+      {/* Banner flutuante: lembra do AM mover anúncios "Para Subir" pra
+          "Em Andamento" ou "Finalizado". Reaparece quando há novos pendentes. */}
+      <PendingAdsBanner project={project} onNavigate={setActiveSection} />
 
       {churnModalOpen && (
         <Modal onClose={() => setChurnModalOpen(false)} maxWidth="md" className="border-red-700/30">

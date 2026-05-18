@@ -1,8 +1,11 @@
-import { useMemo, useState } from 'react'
-import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle, Play, CheckCircle2, Clock } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle, Play, CheckCircle2, Clock, Upload, Paperclip, Loader2, Trash2 } from 'lucide-react'
 import Modal from '../UI/Modal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
 import { STATUS_OPTIONS, RESULTADO_OPTIONS, DEFAULT_STATUS, todayISO } from './debriefingData'
+import { uploadFile, deleteFile } from '../../lib/supabase'
+
+const ATTACHMENT_BUCKET = 'attachments'
 
 const STATUS_ICON = { para_subir: Clock, em_andamento: Play, finalizado: CheckCircle2 }
 
@@ -56,27 +59,38 @@ const TODAY = () => new Date().toISOString().slice(0, 10) // yyyy-mm-dd
 export default function DebriefingAdModal({
   initial,
   campaignPlan,
+  projectId,
   existingAdsCount = 0,
   onSave,
   onClose,
 }) {
   const campaigns = useMemo(() => flattenCampaigns(campaignPlan), [campaignPlan])
+  const fileInputRef = useRef(null)
+
+  // ID estável pro caminho do anexo no Storage. Pra novos itens, geramos já
+  // aqui pra que o upload tenha um caminho determinístico.
+  const stableId = useMemo(() => initial?.id || crypto.randomUUID(), [initial?.id])
 
   const [values, setValues] = useState(() => ({
-    createdAt:     TODAY(),
-    url:           '',
-    tipo:          'video',
-    campanhaId:    '',
-    nome:          '',
-    funilId:       '',
-    observacao:    '',
-    status:        DEFAULT_STATUS,
-    startedAt:     null,
-    finishedAt:    null,
-    resultado:     null,
-    justificativa: '',
+    createdAt:       TODAY(),
+    url:             '',
+    tipo:            'video',
+    campanhaId:      '',
+    nome:            '',
+    funilId:         '',
+    observacao:      '',
+    status:          DEFAULT_STATUS,
+    startedAt:       null,
+    finishedAt:      null,
+    resultado:       null,
+    justificativa:   '',
+    attachmentPath:  null,
+    attachmentName:  null,
+    attachmentUrl:   null,
     ...(initial || {}),
   }))
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
 
   function set(field, val) {
     setValues((prev) => ({ ...prev, [field]: val }))
@@ -113,6 +127,57 @@ export default function DebriefingAdModal({
     set('nome', nome)
   }
 
+  // ── Upload de anexo ──────────────────────────────────────────────────────
+  async function handleFileSelect(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!projectId) {
+      setUploadError('Projeto sem ID — recarregue a página antes de anexar.')
+      return
+    }
+    setUploadError('')
+    setUploading(true)
+    try {
+      // Sanitiza filename pra evitar problemas no path
+      const safeName = file.name.replace(/[^A-Za-z0-9._-]+/g, '_')
+      const path = `${projectId}/debriefing/${stableId}-${safeName}`
+      const url = await uploadFile(ATTACHMENT_BUCKET, path, file)
+      if (!url) {
+        setUploadError('Falha ao subir o arquivo. Tente de novo.')
+        return
+      }
+      // Remove o anexo anterior (se houver) pra não deixar lixo
+      if (values.attachmentPath && values.attachmentPath !== path) {
+        deleteFile(ATTACHMENT_BUCKET, values.attachmentPath).catch(() => {})
+      }
+      setValues((prev) => ({
+        ...prev,
+        attachmentPath: path,
+        attachmentName: file.name,
+        attachmentUrl:  url,
+      }))
+    } catch (err) {
+      console.error('[Debriefing upload]', err)
+      setUploadError(err?.message || 'Erro inesperado ao subir o arquivo.')
+    } finally {
+      setUploading(false)
+      // Limpa o input pra permitir re-upload do mesmo arquivo
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  function handleRemoveAttachment() {
+    if (values.attachmentPath) {
+      deleteFile(ATTACHMENT_BUCKET, values.attachmentPath).catch(() => {})
+    }
+    setValues((prev) => ({
+      ...prev,
+      attachmentPath: null,
+      attachmentName: null,
+      attachmentUrl:  null,
+    }))
+  }
+
   // Validação extra pra status "Finalizado": precisa de resultado + justificativa.
   const baseValid = !!(values.url || '').trim() && !!(values.nome || '').trim() && !!values.tipo
   const finalizadoValid = values.status !== 'finalizado'
@@ -124,7 +189,7 @@ export default function DebriefingAdModal({
     const now = new Date().toISOString()
     onSave({
       ...values,
-      id: initial?.id || crypto.randomUUID(),
+      id: stableId,
       addedAt: initial?.addedAt || now,
       updatedAt: now,
     })
@@ -207,6 +272,70 @@ export default function DebriefingAdModal({
               </a>
             )}
           </div>
+        </Field>
+
+        {/* Anexo do criativo */}
+        <Field
+          label="Anexar criativo (opcional)"
+          hint="Faça upload do arquivo do anúncio (imagem, vídeo ou PDF). Fica salvo junto do projeto."
+        >
+          {values.attachmentPath ? (
+            <div className="flex items-center gap-2 p-3 rounded-xl border border-rl-purple/30 bg-rl-purple/5">
+              <Paperclip className="w-4 h-4 text-rl-purple shrink-0" />
+              <span className="text-sm text-rl-text font-medium truncate flex-1">
+                {values.attachmentName || 'arquivo anexado'}
+              </span>
+              {values.attachmentUrl && (
+                <a
+                  href={values.attachmentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
+                  title="Baixar/visualizar"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
+                title="Substituir"
+              >
+                <Upload className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleRemoveAttachment}
+                className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
+                title="Remover anexo"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-purple transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {uploading
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Subindo...</>
+                : <><Upload className="w-4 h-4" /> Selecionar arquivo</>
+              }
+            </button>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*,application/pdf"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          {uploadError && (
+            <p className="text-[11px] text-red-400 mt-1.5">{uploadError}</p>
+          )}
         </Field>
 
         {/* Campanha */}

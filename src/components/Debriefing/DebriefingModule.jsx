@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react'
 import {
   Megaphone, Plus, Pencil, Trash2, ExternalLink, Video, Image as ImageIcon, Layers,
-  Filter, X, Clock, Play, CheckCircle2,
+  Filter, X, Clock, Play, CheckCircle2, Paperclip,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
+import { deleteFile } from '../../lib/supabase'
 import Toast from '../UI/Toast'
 import DebriefingAdModal, { TIPOS_ANUNCIO, flattenCampaigns } from './DebriefingAdModal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
 import { STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, fmtDateBR, todayISO } from './debriefingData'
+
+const ATTACHMENT_BUCKET = 'attachments'
 
 const EMPTY = { ads: [] }
 const TIPO_ICON = { video: Video, imagem: ImageIcon, carrossel: Layers }
@@ -58,6 +61,11 @@ export default function DebriefingModule({ project }) {
 
   function handleDelete(id) {
     if (!window.confirm('Excluir esse anúncio da central?')) return
+    const target = (persisted.ads || []).find((x) => x.id === id)
+    // Remove o anexo do Storage (best-effort) pra não deixar lixo
+    if (target?.attachmentPath) {
+      deleteFile(ATTACHMENT_BUCKET, target.attachmentPath).catch(() => {})
+    }
     const next = (persisted.ads || []).filter((x) => x.id !== id)
     persist({ ...persisted, ads: next })
     showToast('Anúncio removido.')
@@ -281,19 +289,33 @@ export default function DebriefingModule({ project }) {
                         />
                       </Td>
                       <Td>
-                        {ad.url ? (
-                          <a
-                            href={ad.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
-                          >
-                            <ExternalLink className="w-3 h-3" /> Abrir
-                          </a>
-                        ) : (
-                          <span className="text-rl-muted italic text-xs">—</span>
-                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {ad.url ? (
+                            <a
+                              href={ad.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
+                            >
+                              <ExternalLink className="w-3 h-3" /> Link
+                            </a>
+                          ) : (
+                            !ad.attachmentUrl && <span className="text-rl-muted italic text-xs">—</span>
+                          )}
+                          {ad.attachmentUrl && (
+                            <a
+                              href={ad.attachmentUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-xs text-rl-blue font-semibold hover:underline"
+                              title={ad.attachmentName || 'Anexo'}
+                            >
+                              <Paperclip className="w-3 h-3" /> Anexo
+                            </a>
+                          )}
+                        </div>
                       </Td>
                       <Td className="max-w-[200px]">
                         {ad.observacao ? (
@@ -336,6 +358,7 @@ export default function DebriefingModule({ project }) {
         <DebriefingAdModal
           initial={editingAd.id ? editingAd : null}
           campaignPlan={project.campaignPlan}
+          projectId={project.id}
           existingAdsCount={ads.length}
           onSave={handleSaveAd}
           onClose={() => setEditingAd(null)}
