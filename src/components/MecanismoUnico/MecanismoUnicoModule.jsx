@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import {
   Sparkles, Search, Users, Skull, Lightbulb, FileText, CheckSquare,
   Plus, X, ChevronDown, ChevronUp, AlertTriangle, Check, Loader2, RotateCcw,
-  Trophy, FileDown,
+  Trophy, FileDown, Target,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
@@ -10,6 +10,7 @@ import Toast from '../UI/Toast'
 import MarkdownBlock from '../Criativos/MarkdownBlock'
 import { streamClaude } from '../../lib/claude'
 import { buildCachedPayload } from '../../lib/buildContext'
+import { exportMecanismoUnicoPDF } from '../../lib/mecanismoUnicoPDF'
 import {
   VILOES, TIPOS_PROVA, FORMATOS_NOME, TECNICAS,
   CRITERIOS_VALIDACAO, TESTE_AMIGO,
@@ -50,7 +51,8 @@ const EMPTY = {
   validacao: {},          // { [criterioId]: 'sim' | 'nao' }
   testeAmigo: '',
   // IA
-  aiAnalysis: null,
+  aiAnalysis: null,        // pitch refinado
+  positioningAI: null,      // posicionamento + ângulos alternativos
   updatedAt: null,
 }
 
@@ -72,6 +74,8 @@ export default function MecanismoUnicoModule({ project }) {
   const [open, setOpen]   = useState({ pesquisa: true })
   const [aiLoading, setAiLoading] = useState(false)
   const [aiStreaming, setAiStreaming] = useState('')
+  const [posLoading, setPosLoading] = useState(false)
+  const [posStreaming, setPosStreaming] = useState('')
 
   // Persiste cada mudança via updateProject (já tem debounce 1s)
   const persist = useCallback((next) => {
@@ -168,22 +172,116 @@ Regras:
     }
   }
 
+  // ── IA: constrói posicionamento + ângulos alternativos ────────────────────
+  async function handleGeneratePositioning() {
+    setPosLoading(true)
+    setPosStreaming('')
+    try {
+      const SYSTEM = `Você é um estrategista sênior de posicionamento de marca. Receberá todas as informações que o time da Revenue Lab levantou sobre um cliente — pesquisa de mercado, mapeamento do cliente, mecanismo do problema, mecanismo da solução e a montagem inicial do pitch.
+
+Sua tarefa: construir UM posicionamento principal recomendado, bem fundamentado e diferenciado, e em seguida sugerir 2-3 ângulos alternativos de posicionamento que o time pode considerar.
+
+Formato OBRIGATÓRIO (markdown):
+
+## Posicionamento principal recomendado
+Uma sentença de posicionamento (10-20 palavras), seguida de 2-3 parágrafos justificando POR QUE esse é o ângulo mais forte com base nos dados.
+
+## Por que esse posicionamento funciona
+3-4 bullets ligando o posicionamento aos dados (vilão, diferenciais, público, mercado).
+
+## Ângulos alternativos a considerar
+2-3 alternativas, cada uma com:
+- **Nome do ângulo** — sentença de posicionamento (10-15 palavras)
+- Quando faz sentido: 1 frase
+- Risco/limitação: 1 frase
+
+## Próximos passos pra validar
+3 ações concretas pra testar o posicionamento principal nos próximos 30 dias.
+
+Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use travessões (—); use vírgula, dois-pontos ou ponto-final. Cada bloco com substância (não pode ser vazio nem genérico). Se algum dado estiver faltando, assuma o melhor cenário e diga "supondo X".`
+
+      const instruction = [
+        '## Pesquisa de mercado',
+        `Concorrentes: ${(data.concorrentes || []).map(c => `${c.nome}: ${c.oferta}`).join(' · ') || '(vazio)'}`,
+        `Padrões do mercado: ${(data.padroesMercado || []).join(', ') || '(vazio)'}`,
+        `Promessas comuns: ${(data.promessasComuns || []).join(', ') || '(vazio)'}`,
+        '',
+        '## Mapeamento do cliente',
+        `Tentou antes: ${(data.tentativas || []).map(t => `${t.tentou} → ${t.resultado}`).join(' · ') || '(vazio)'}`,
+        `Justificativas do cliente: ${(data.justificativas || []).join(' · ') || '(vazio)'}`,
+        `Quase: "${data.quase?.conseguiu || '?'} — só faltou ${data.quase?.faltou || '?'}"`,
+        '',
+        '## Mecanismo do problema',
+        `Vilão principal: ${data.vilaoPrincipal || '(vazio)'}`,
+        `Por que é vilão: ${data.vilaoJustificativa || '(vazio)'}`,
+        `Conexão lógica: ${data.conexao?.vilao || '?'} → ${data.conexao?.problema || '?'} → ${data.conexao?.fracasso || '?'}`,
+        `Prova: ${data.provaTexto || '(vazio)'}`,
+        '',
+        '## Mecanismo da solução',
+        `Diferenciais: ${(data.diferentes || []).map(d2 => `diferente de ${d2.deles}, eu ${d2.voce}`).join(' · ') || '(vazio)'}`,
+        `Nome do mecanismo: ${data.nomeMecanismo || '(vazio)'}`,
+        ...Object.entries(data.tecnicas || {}).filter(([, v]) => v).map(([k, v]) => `Técnica ${k}: ${v}`),
+        '',
+        '## Pitch montado',
+        `Eu ajudo: ${data.euAjudo || '(vazio)'}`,
+        `A conseguir: ${data.aConseguir || '(vazio)'}`,
+        `Através do: ${data.atravesDo || data.nomeMecanismo || '(vazio)'}`,
+        `Promessa: em ${data.promessaPrazo || '?'}, ${data.promessaResultado || '?'}`,
+        '',
+        'Construa o posicionamento principal + 2-3 ângulos alternativos seguindo o formato pedido no system.',
+      ].join('\n')
+
+      const { system, messages } = buildCachedPayload({
+        systemPrompt: SYSTEM,
+        project,
+        instruction,
+      })
+      const fullText = await streamClaude({
+        model:      'claude-sonnet-4-5',
+        max_tokens: 4000,
+        system,
+        messages,
+        onChunk:    (text) => setPosStreaming(text),
+      })
+      persist({ ...data, positioningAI: fullText })
+      showToast('Posicionamento gerado!')
+    } catch (e) {
+      console.error('[MecanismoUnico positioning]', e)
+      showToast('Erro ao gerar posicionamento. Tente novamente.', 'error')
+    } finally {
+      setPosLoading(false)
+      setPosStreaming('')
+    }
+  }
+
+  // ── PDF export ────────────────────────────────────────────────────────────
+  function handleExportPDF() {
+    exportMecanismoUnicoPDF({ project, mecanismoUnico: data })
+  }
+
   const validacaoCount = countValidacao(data.validacao)
   const veredito = vereditoValidacao(data.validacao)
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 flex-wrap">
         <div className="w-11 h-11 rounded-xl bg-rl-purple/10 flex items-center justify-center shrink-0">
           <Sparkles className="w-5 h-5 text-rl-purple" />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h2 className="text-xl font-black text-rl-text leading-tight">Mecanismo Único</h2>
           <p className="text-sm text-rl-subtle mt-0.5 max-w-2xl">
             Construa o &ldquo;por que ISSO vai funcionar pra mim&rdquo; que diferencia o cliente de todos os concorrentes. 6 seções guiadas que viram um pitch pronto.
           </p>
         </div>
+        <button
+          onClick={handleExportPDF}
+          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/30 transition-all shrink-0"
+          title="Abre uma janela de impressão com tudo o que foi preenchido"
+        >
+          <FileDown className="w-3.5 h-3.5" /> Exportar PDF
+        </button>
       </div>
 
       {/* Quote-blocks de introdução */}
@@ -278,7 +376,7 @@ Regras:
         </div>
       </div>
 
-      {/* IA result (se já tiver) */}
+      {/* IA result (pitch refinado) */}
       {(data.aiAnalysis || aiStreaming) && (
         <div className="glass-card p-5 space-y-3">
           <div className="flex items-center gap-2">
@@ -295,6 +393,59 @@ Regras:
           </div>
         </div>
       )}
+
+      {/* ── Construção de posicionamento com IA ─────────────────────────── */}
+      <div className="glass-card p-5 space-y-4 border-2 border-rl-blue/30">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Target className="w-4 h-4 text-rl-blue" />
+          <h3 className="text-sm font-bold text-rl-text">
+            Construir posicionamento com IA
+          </h3>
+          <span className="text-[10px] text-rl-muted ml-auto">
+            usa todas as respostas das 6 seções
+          </span>
+        </div>
+        <p className="text-xs text-rl-subtle leading-relaxed">
+          A IA analisa tudo que você preencheu e devolve <strong>um posicionamento principal recomendado</strong>, com justificativa, mais 2-3 <strong>ângulos alternativos</strong> pra você testar e os próximos passos pra validar.
+        </p>
+
+        {!data.positioningAI && !posLoading && (
+          <button
+            onClick={handleGeneratePositioning}
+            disabled={posLoading}
+            className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-xl bg-rl-blue text-white shadow-glow hover:bg-rl-blue/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Target className="w-4 h-4" /> Construir posicionamento
+          </button>
+        )}
+
+        {(posLoading || posStreaming) && (
+          <div className="rounded-xl bg-rl-surface/50 border border-rl-blue/20 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Loader2 className="w-4 h-4 text-rl-blue animate-spin" />
+              <span className="text-xs font-semibold text-rl-blue">Construindo posicionamento...</span>
+            </div>
+            {posStreaming && <MarkdownBlock content={posStreaming} />}
+          </div>
+        )}
+
+        {data.positioningAI && !posLoading && (
+          <>
+            <div className="rounded-xl bg-rl-blue/5 border border-rl-blue/20 p-4">
+              <MarkdownBlock content={data.positioningAI} />
+            </div>
+            <div className="flex items-center justify-end">
+              <button
+                onClick={handleGeneratePositioning}
+                disabled={posLoading}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Regerar
+              </button>
+            </div>
+          </>
+        )}
+      </div>
 
       <Toast toast={toast} />
     </div>
