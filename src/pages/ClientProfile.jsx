@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
 import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, BUSINESS_LABELS, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, MATURITY_LABELS } from '../lib/constants'
-import { fmtCurrency, initials, calcLTV, activeMonths, ltvStartSource } from '../lib/utils'
+import { fmtCurrency, calcLTV, activeMonths, ltvStartSource } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
 import Modal from '../components/UI/Modal'
@@ -1157,7 +1157,6 @@ export default function ClientProfile({ project: projectProp }) {
     resetLinkState()
   }
 
-  const companyInitials = initials(project.companyName)
   const hasROI          = !!project.roiResult
   const hasPersonas     = project.personas?.length > 0
   const hasOferta       = !!(project.ofertaData?.nome || project.ofertaData?.resultadoSonho)
@@ -1285,11 +1284,12 @@ export default function ClientProfile({ project: projectProp }) {
         <div className="relative px-4 sm:px-6 pb-6">
           <div className="absolute -top-12 left-4 sm:left-6">
             <div className="relative group">
-              <div className="w-24 h-24 rounded-2xl border-4 border-rl-bg bg-rl-surface overflow-hidden flex items-center justify-center shadow-xl">
-                {logoSignedUrl
-                  ? <img src={logoSignedUrl} alt="Logo" className="w-full h-full object-cover" />
-                  : <span className="text-2xl font-black text-rl-purple">{companyInitials}</span>
-                }
+              <div className="w-24 h-24 rounded-2xl border-4 border-rl-bg bg-white overflow-hidden flex items-center justify-center shadow-xl">
+                <img
+                  src={logoSignedUrl || '/logo-C6Vfo5bf.png'}
+                  alt={logoSignedUrl ? 'Logo' : 'Logo padrão'}
+                  className="w-full h-full object-contain"
+                />
               </div>
               <button
                 onClick={() => logoInputRef.current?.click()}
