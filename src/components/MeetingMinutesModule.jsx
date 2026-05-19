@@ -10,7 +10,29 @@ import {
   X, Loader2, ExternalLink, ChevronRight, Save, ArrowLeft,
   Megaphone, ShoppingCart, Target, Lightbulb, AlertTriangle,
   TrendingUp, CheckSquare, Link2, Check, CheckCircle2, Lock,
+  PenLine, UserCircle2,
 } from 'lucide-react'
+
+// ─── Configuração das 3 assinaturas ──────────────────────────────────────────
+const SIGNATURE_ROLES = [
+  { id: 'account_manager', label: 'Account Manager',  shortLabel: 'AM',  source: 'internal', color: '#7C3AED' },
+  { id: 'trafego',         label: 'Gestor de Tráfego', shortLabel: 'GT',  source: 'internal', color: '#2563EB' },
+  { id: 'client',          label: 'Cliente',           shortLabel: 'CL',  source: 'client',   color: '#059669' },
+]
+
+// Resumo do status de assinaturas dado um minute (read-only chips). Usado
+// no MinuteCard pra mostrar 3 pontinhos coloridos com tooltip.
+function signatureStatus(minute) {
+  const internal = minute?.internal_signatures || {}
+  const client   = minute?.client_signature || null
+  return {
+    account_manager: !!internal.account_manager,
+    trafego:         !!internal.trafego,
+    client:          !!client,
+    allSigned:       !!internal.account_manager && !!internal.trafego && !!client,
+    anySigned:       !!internal.account_manager || !!internal.trafego || !!client,
+  }
+}
 
 // ─── Template estruturado da ata ────────────────────────────────────────────
 const TEMPLATE_SECTIONS = [
@@ -375,15 +397,12 @@ function MinuteCard({ minute, onOpen, onDelete }) {
                 {open}/{actions.length} ações abertas
               </span>
             )}
-            {minute.client_signature ? (
-              <span className="inline-flex items-center gap-1 text-rl-green font-bold">
-                <CheckCircle2 className="w-3 h-3" /> Assinada por {minute.client_signature.name}
-              </span>
-            ) : minute.share_token ? (
+            <SignatureMiniIndicator minute={minute} />
+            {!minute.client_signature && minute.share_token && (
               <span className="inline-flex items-center gap-1 text-rl-purple font-semibold">
-                <Link2 className="w-3 h-3" /> Link gerado · aguardando assinatura
+                <Link2 className="w-3 h-3" /> Link gerado
               </span>
-            ) : null}
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
@@ -407,11 +426,169 @@ MinuteCard.propTypes = {
   onDelete: PropTypes.func.isRequired,
 }
 
+// 3 mini-pílulas mostrando status de assinatura (AM/GT/CL)
+function SignatureMiniIndicator({ minute }) {
+  const status = signatureStatus(minute)
+  return (
+    <span className="inline-flex items-center gap-1" title="Status das assinaturas">
+      {SIGNATURE_ROLES.map((r) => {
+        const ok = status[r.id]
+        return (
+          <span
+            key={r.id}
+            className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[8px] font-bold ${
+              ok ? 'text-white' : 'text-rl-muted bg-rl-surface border border-rl-border'
+            }`}
+            style={ok ? { background: r.color } : undefined}
+            title={`${r.label}: ${ok ? 'assinado' : 'pendente'}`}
+          >
+            {r.shortLabel}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+SignatureMiniIndicator.propTypes = {
+  minute: PropTypes.object.isRequired,
+}
+
+// ─── Painel de assinaturas (AM / GT / Cliente) ───────────────────────────────
+function SignaturesPanel({ minute, currentUser, onUpdate }) {
+  const [busyRole, setBusyRole] = useState(null)
+  const status = signatureStatus(minute)
+
+  async function signAs(roleId) {
+    if (!currentUser?.id) return
+    setBusyRole(roleId)
+    const internal = { ...(minute.internal_signatures || {}) }
+    internal[roleId] = {
+      name:     currentUser.name || currentUser.email || 'Usuário',
+      userId:   currentUser.id,
+      signedAt: new Date().toISOString(),
+    }
+    const { data, error } = await supabase
+      .from('meeting_minutes')
+      .update({ internal_signatures: internal })
+      .eq('id', minute.id)
+      .select()
+      .single()
+    setBusyRole(null)
+    if (error) return alert('Erro ao assinar: ' + error.message)
+    onUpdate(data)
+  }
+
+  function renderRole(role) {
+    if (role.source === 'client') {
+      const sig = minute.client_signature
+      return (
+        <div
+          key={role.id}
+          className={`rounded-xl border p-3 ${
+            sig ? 'bg-rl-green/5 border-rl-green/30' : 'bg-rl-surface/40 border-rl-border'
+          }`}
+        >
+          <div className="flex items-center gap-2 mb-1.5">
+            <UserCircle2 className="w-4 h-4" style={{ color: role.color }} />
+            <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">
+              {role.label}
+            </p>
+            {sig
+              ? <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold text-rl-green"><CheckCircle2 className="w-3 h-3" /> Assinado</span>
+              : <span className="ml-auto text-[10px] font-bold text-rl-muted">Pendente</span>
+            }
+          </div>
+          {sig ? (
+            <>
+              <p className="text-sm font-black text-rl-text leading-tight">{sig.name}</p>
+              <p className="text-[11px] text-rl-muted mt-0.5">
+                {new Date(sig.signedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </>
+          ) : (
+            <p className="text-[11px] text-rl-muted italic">
+              Cliente assina via link público de compartilhamento.
+            </p>
+          )}
+        </div>
+      )
+    }
+
+    const sig = minute.internal_signatures?.[role.id]
+    const isSigned = !!sig
+    return (
+      <div
+        key={role.id}
+        className={`rounded-xl border p-3 ${
+          isSigned ? 'bg-rl-green/5 border-rl-green/30' : 'bg-rl-surface/40 border-rl-border'
+        }`}
+      >
+        <div className="flex items-center gap-2 mb-1.5">
+          <UserCircle2 className="w-4 h-4" style={{ color: role.color }} />
+          <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">
+            {role.label}
+          </p>
+          {isSigned
+            ? <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold text-rl-green"><CheckCircle2 className="w-3 h-3" /> Assinado</span>
+            : <span className="ml-auto text-[10px] font-bold text-rl-muted">Pendente</span>
+          }
+        </div>
+        {isSigned ? (
+          <>
+            <p className="text-sm font-black text-rl-text leading-tight">{sig.name}</p>
+            <p className="text-[11px] text-rl-muted mt-0.5">
+              {new Date(sig.signedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </>
+        ) : (
+          <button
+            onClick={() => signAs(role.id)}
+            disabled={busyRole === role.id || !currentUser?.id}
+            className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-rl-purple text-white hover:bg-rl-purple/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {busyRole === role.id
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Assinando...</>
+              : <><PenLine className="w-3.5 h-3.5" /> Assinar como {role.shortLabel}</>
+            }
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="glass-card p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <PenLine className="w-4 h-4 text-rl-purple" />
+        <h3 className="text-sm font-black text-rl-text">Assinaturas</h3>
+        {status.allSigned && (
+          <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-green/10 text-rl-green border border-rl-green/30">
+            <CheckCircle2 className="w-3 h-3" /> Ata completa
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-rl-muted leading-relaxed">
+        A ata só é considerada válida quando as 3 partes assinam: Account Manager, Gestor de Tráfego e o Cliente. Internas são assinadas aqui dentro; a do cliente vem pelo link público.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {SIGNATURE_ROLES.map(renderRole)}
+      </div>
+    </div>
+  )
+}
+
+SignaturesPanel.propTypes = {
+  minute: PropTypes.object.isRequired,
+  currentUser: PropTypes.object,
+  onUpdate: PropTypes.func.isRequired,
+}
+
 // ─── Visualização (modo leitura) ────────────────────────────────────────────
-function MinuteView({ minute, onEdit, onClose, onShare, copiedShareId }) {
+function MinuteView({ minute, currentUser, onEdit, onClose, onShare, onUpdate, copiedShareId }) {
   const actions = Array.isArray(minute.next_actions) ? minute.next_actions : []
   const sectionsWithContent = TEMPLATE_SECTIONS.filter((s) => (minute.template?.[s.id] || '').trim())
-  const signed = !!minute.client_signature
+  const sigStatus = signatureStatus(minute)
+  const signed = sigStatus.anySigned // qualquer assinatura existe → trava edição
   const justCopied = copiedShareId === minute.id
   return (
     <div className="space-y-5">
@@ -434,28 +611,32 @@ function MinuteView({ minute, onEdit, onClose, onShare, copiedShareId }) {
               : <><Link2 className="w-4 h-4" /> Compartilhar com cliente</>
             }
           </button>
-          <button onClick={onEdit} disabled={signed} className="btn-secondary inline-flex items-center gap-2 text-sm px-4 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed" title={signed ? 'Ata já assinada — não pode ser editada' : 'Editar ata'}>
+          <button onClick={onEdit} disabled={signed} className="btn-secondary inline-flex items-center gap-2 text-sm px-4 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed" title={signed ? 'Ata já tem assinatura(s) — não pode ser editada' : 'Editar ata'}>
             <Edit2 className="w-4 h-4" /> Editar
           </button>
         </div>
       </div>
 
-      {signed && (
+      {sigStatus.allSigned && (
         <div className="rounded-xl bg-rl-green/5 border border-rl-green/30 p-4 flex items-start gap-3">
           <Lock className="w-4 h-4 text-rl-green mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-rl-text">
-              Ata assinada por {minute.client_signature.name}
+              Ata completa — todas as 3 assinaturas registradas
             </p>
             <p className="text-xs text-rl-muted mt-0.5">
-              {new Date(minute.client_signature.signedAt).toLocaleString('pt-BR', {
-                day: '2-digit', month: '2-digit', year: 'numeric',
-                hour: '2-digit', minute: '2-digit',
-              })}
+              AM: {minute.internal_signatures.account_manager.name} · GT: {minute.internal_signatures.trafego.name} · Cliente: {minute.client_signature.name}
             </p>
           </div>
         </div>
       )}
+
+      {/* Painel de assinaturas — sempre visível, atualiza ao assinar */}
+      <SignaturesPanel
+        minute={minute}
+        currentUser={currentUser}
+        onUpdate={onUpdate}
+      />
 
       <div className="glass-card p-5 space-y-3">
         <div className="flex items-center gap-2 text-[11px] text-rl-muted uppercase font-semibold tracking-wider">
@@ -529,9 +710,11 @@ function MinuteView({ minute, onEdit, onClose, onShare, copiedShareId }) {
 
 MinuteView.propTypes = {
   minute: PropTypes.object.isRequired,
+  currentUser: PropTypes.object,
   onEdit: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
   onShare: PropTypes.func.isRequired,
+  onUpdate: PropTypes.func.isRequired,
   copiedShareId: PropTypes.string,
 }
 
@@ -564,13 +747,56 @@ export default function MeetingMinutesModule({ project }) {
   }, [project?.id, showToast])
 
   function handleSaved(saved) {
+    const exists = minutes.some((m) => m.id === saved.id)
     setMinutes((prev) => {
-      const exists = prev.some((m) => m.id === saved.id)
       if (exists) return prev.map((m) => m.id === saved.id ? saved : m)
       return [saved, ...prev].sort((a, b) => (b.meeting_date || '').localeCompare(a.meeting_date || ''))
     })
     setView({ mode: 'view', minute: saved })
     showToast('Ata salva')
+
+    // Notifica o squad SÓ na criação (não em edição)
+    if (!exists) notifySquadAboutNewMinute(saved)
+  }
+
+  // Quando o usuário assina (AM/GT) atualiza o state com a linha completa
+  function handleMinuteUpdated(updated) {
+    setMinutes((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
+    if (view.mode === 'view' && view.minute?.id === updated.id) {
+      setView({ mode: 'view', minute: updated })
+    }
+  }
+
+  // Cria uma notificação por membro do squad — o realtime do NotificationCenter
+  // exibe um popup quando o usuário está logado. Quem está offline vê quando
+  // entrar (a Dashboard tem widget de atas recentes).
+  async function notifySquadAboutNewMinute(saved) {
+    if (!supabase || !project?.squad) return
+    try {
+      const { data: squad } = await supabase
+        .from('squads')
+        .select('members')
+        .eq('id', project.squad)
+        .single()
+      const memberIds = ((squad?.members) || [])
+        .map((m) => m.profile_id)
+        .filter(Boolean)
+        .filter((id) => id !== user?.id) // não notifica o criador
+      if (!memberIds.length) return
+      const senderName = user?.name || user?.email || 'Alguém'
+      const companyName = project.companyName || project.company_name || 'Cliente'
+      const rows = memberIds.map((uid) => ({
+        user_id: uid,
+        type:    'meeting_minute_created',
+        title:   'Nova ata de reunião',
+        body:    `${senderName} criou "${saved.title}" em ${companyName}`,
+        link:    `/project/${project.id}`,
+        data:    { project_id: project.id, meeting_minute_id: saved.id },
+      }))
+      await supabase.from('notifications').insert(rows)
+    } catch (e) {
+      console.warn('[MeetingMinutes] erro ao notificar squad:', e?.message)
+    }
   }
 
   async function handleDelete(minute) {
@@ -638,9 +864,11 @@ export default function MeetingMinutesModule({ project }) {
       <>
         <MinuteView
           minute={view.minute}
+          currentUser={user}
           onEdit={() => setView({ mode: 'edit', minute: view.minute })}
           onClose={() => setView({ mode: 'list' })}
           onShare={handleShare}
+          onUpdate={handleMinuteUpdated}
           copiedShareId={copiedShareId}
         />
         <Toast toast={toast} />

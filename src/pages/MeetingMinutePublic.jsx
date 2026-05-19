@@ -69,6 +69,7 @@ export default function MeetingMinutePublic() {
   const template = minute?.template || {}
   const actions  = Array.isArray(minute?.next_actions) ? minute.next_actions : []
   const attendees = Array.isArray(minute?.attendees) ? minute.attendees : []
+  const internalSigs = minute?.internal_signatures || {}
 
   // Quais seções existem no template (preenchidas)
   const filledSections = useMemo(
@@ -304,6 +305,43 @@ export default function MeetingMinutePublic() {
           </div>
         )}
 
+        {/* Assinaturas internas (read-only pro cliente) */}
+        {(internalSigs.account_manager || internalSigs.trafego) && (
+          <div className="glass-card p-5 space-y-3">
+            <h3 className="text-[10px] uppercase tracking-wider font-bold text-rl-muted">
+              Assinaturas da agência
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { id: 'account_manager', label: 'Account Manager', color: '#7C3AED' },
+                { id: 'trafego',         label: 'Gestor de Tráfego', color: '#2563EB' },
+              ].map((r) => {
+                const sig = internalSigs[r.id]
+                return (
+                  <div
+                    key={r.id}
+                    className={`rounded-xl border p-3 ${
+                      sig ? 'bg-rl-green/5 border-rl-green/30' : 'bg-rl-surface/40 border-rl-border'
+                    }`}
+                  >
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: r.color }}>
+                      {r.label}
+                    </p>
+                    {sig ? (
+                      <>
+                        <p className="text-sm font-black text-rl-text leading-tight">{sig.name}</p>
+                        <p className="text-[11px] text-rl-muted mt-0.5">{fmtDateTimeBR(sig.signedAt)}</p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-rl-muted italic">Pendente</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Assinatura */}
         <div className="glass-card p-6 space-y-4 border-2 border-rl-purple/30">
           <div className="flex items-center gap-2">
@@ -312,7 +350,7 @@ export default function MeetingMinutePublic() {
               : <PenLine className="w-4 h-4 text-rl-purple" />
             }
             <h3 className="text-base font-black text-rl-text">
-              {isSigned ? 'Ata assinada' : 'Assinatura'}
+              {isSigned ? 'Ata assinada' : 'Sua assinatura'}
             </h3>
           </div>
 
