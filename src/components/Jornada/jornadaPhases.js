@@ -19,9 +19,9 @@ export const PHASES = [
     badge: 'Base universal',
     modules: [
       { id: 'dados',        label: 'Dados do Cliente',        emoji: '🗂',  desc: 'Informações cadastrais, contratuais e do negócio.' },
-      { id: 'kickoff',      label: 'Kickoff',                  emoji: '🧭',  desc: 'Diagnóstico inicial em 9 pilares e veredito de oferta matadora.' },
       { id: 'produtos',     label: 'Produto / Serviço',        emoji: '📦',  desc: 'O que o cliente vende, ICP por linha de receita.' },
       { id: 'icp',          label: 'Personas',                 emoji: '🎯',  desc: 'Sonhos, dores, objeções e hábitos do cliente ideal.' },
+      { id: 'kickoff',      label: 'Kickoff',                  emoji: '🧭',  desc: 'Diagnóstico inicial em 9 pilares e veredito de oferta matadora.' },
       { id: 'roi',          label: 'Calculadora de ROI',       emoji: '📊',  desc: 'Leads, MQLs, SQLs e vendas necessários pra atingir o ROI alvo.' },
       { id: 'estrategiav2', label: 'Análise Competitiva',      emoji: '🗺',  desc: 'Mapa de concorrência e oportunidades de diferenciação.' },
       { id: 'links',        label: 'Links Importantes',        emoji: '🔗',  desc: 'Centralize os links do projeto pra acesso rápido.' },
