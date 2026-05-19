@@ -9,7 +9,7 @@ import {
   FileText, Plus, Calendar, Video, Users, Edit2, Trash2,
   X, Loader2, ExternalLink, ChevronRight, Save, ArrowLeft,
   Megaphone, ShoppingCart, Target, Lightbulb, AlertTriangle,
-  TrendingUp, CheckSquare,
+  TrendingUp, CheckSquare, Link2, Check, CheckCircle2, Lock,
 } from 'lucide-react'
 
 // ─── Template estruturado da ata ────────────────────────────────────────────
@@ -356,7 +356,7 @@ function MinuteCard({ minute, onOpen, onDelete }) {
               <Users className="w-3 h-3 inline mr-1" /> {minute.attendees.join(', ')}
             </p>
           )}
-          <div className="flex items-center gap-3 mt-2 text-[10px]">
+          <div className="flex items-center gap-3 mt-2 text-[10px] flex-wrap">
             {minute.recording_url && (
               <a
                 href={minute.recording_url}
@@ -375,6 +375,15 @@ function MinuteCard({ minute, onOpen, onDelete }) {
                 {open}/{actions.length} ações abertas
               </span>
             )}
+            {minute.client_signature ? (
+              <span className="inline-flex items-center gap-1 text-rl-green font-bold">
+                <CheckCircle2 className="w-3 h-3" /> Assinada por {minute.client_signature.name}
+              </span>
+            ) : minute.share_token ? (
+              <span className="inline-flex items-center gap-1 text-rl-purple font-semibold">
+                <Link2 className="w-3 h-3" /> Link gerado · aguardando assinatura
+              </span>
+            ) : null}
           </div>
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
@@ -399,19 +408,54 @@ MinuteCard.propTypes = {
 }
 
 // ─── Visualização (modo leitura) ────────────────────────────────────────────
-function MinuteView({ minute, onEdit, onClose }) {
+function MinuteView({ minute, onEdit, onClose, onShare, copiedShareId }) {
   const actions = Array.isArray(minute.next_actions) ? minute.next_actions : []
   const sectionsWithContent = TEMPLATE_SECTIONS.filter((s) => (minute.template?.[s.id] || '').trim())
+  const signed = !!minute.client_signature
+  const justCopied = copiedShareId === minute.id
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-2 sticky top-0 bg-rl-bg/95 backdrop-blur z-10 -mx-2 px-2 py-2 border-b border-rl-border">
         <button onClick={onClose} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-rl-muted hover:text-rl-text hover:bg-rl-surface transition">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </button>
-        <button onClick={onEdit} className="btn-secondary inline-flex items-center gap-2 text-sm px-4 py-1.5">
-          <Edit2 className="w-4 h-4" /> Editar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onShare(minute)}
+            className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border font-medium transition ${
+              justCopied
+                ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
+                : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
+            }`}
+            title="Cria/copia o link pra ata que o cliente vai assinar"
+          >
+            {justCopied
+              ? <><Check className="w-4 h-4" /> Link copiado!</>
+              : <><Link2 className="w-4 h-4" /> Compartilhar com cliente</>
+            }
+          </button>
+          <button onClick={onEdit} disabled={signed} className="btn-secondary inline-flex items-center gap-2 text-sm px-4 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed" title={signed ? 'Ata já assinada — não pode ser editada' : 'Editar ata'}>
+            <Edit2 className="w-4 h-4" /> Editar
+          </button>
+        </div>
       </div>
+
+      {signed && (
+        <div className="rounded-xl bg-rl-green/5 border border-rl-green/30 p-4 flex items-start gap-3">
+          <Lock className="w-4 h-4 text-rl-green mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-rl-text">
+              Ata assinada por {minute.client_signature.name}
+            </p>
+            <p className="text-xs text-rl-muted mt-0.5">
+              {new Date(minute.client_signature.signedAt).toLocaleString('pt-BR', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit',
+              })}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="glass-card p-5 space-y-3">
         <div className="flex items-center gap-2 text-[11px] text-rl-muted uppercase font-semibold tracking-wider">
@@ -487,6 +531,8 @@ MinuteView.propTypes = {
   minute: PropTypes.object.isRequired,
   onEdit: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
+  onShare: PropTypes.func.isRequired,
+  copiedShareId: PropTypes.string,
 }
 
 // ─── Módulo principal ──────────────────────────────────────────────────────
@@ -497,6 +543,7 @@ export default function MeetingMinutesModule({ project }) {
   const [loading,    setLoading]    = useState(true)
   const [view,       setView]       = useState({ mode: 'list' }) // { mode: 'list' } | { mode: 'view', minute } | { mode: 'edit', minute? }
   const [confirmDel, setConfirmDel] = useState(null)
+  const [copiedShareId, setCopiedShareId] = useState(null)
 
   useEffect(() => {
     if (!supabase || !project?.id) return
@@ -535,6 +582,39 @@ export default function MeetingMinutesModule({ project }) {
     showToast('Ata excluída')
   }
 
+  // Gera (ou recupera) o share_token e copia o link pra área de transferência.
+  async function handleShare(minute) {
+    let token = minute.share_token
+    if (!token) {
+      token = crypto.randomUUID()
+      const { data, error } = await supabase
+        .from('meeting_minutes')
+        .update({ share_token: token })
+        .eq('id', minute.id)
+        .select()
+        .single()
+      if (error) {
+        showToast('Erro ao gerar link: ' + error.message, 'error')
+        return
+      }
+      // Atualiza o state local com a row completa (inclui share_token)
+      setMinutes((prev) => prev.map((m) => (m.id === minute.id ? data : m)))
+      if (view.mode === 'view' && view.minute?.id === minute.id) {
+        setView({ mode: 'view', minute: data })
+      }
+    }
+    const url = `${window.location.origin}/ata/${token}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedShareId(minute.id)
+      setTimeout(() => setCopiedShareId(null), 2500)
+      showToast('Link copiado pro clipboard!')
+    } catch {
+      // Fallback: mostra a URL no toast
+      showToast('Link: ' + url)
+    }
+  }
+
   // ── Edit mode ────────────────────────────────────────────────────────────
   if (view.mode === 'edit') {
     return (
@@ -560,6 +640,8 @@ export default function MeetingMinutesModule({ project }) {
           minute={view.minute}
           onEdit={() => setView({ mode: 'edit', minute: view.minute })}
           onClose={() => setView({ mode: 'list' })}
+          onShare={handleShare}
+          copiedShareId={copiedShareId}
         />
         <Toast toast={toast} />
       </>
