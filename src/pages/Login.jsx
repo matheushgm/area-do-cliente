@@ -77,10 +77,11 @@ export default function Login() {
       >
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-rl mb-4 shadow-glow animate-float">
-            <Zap className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-rl-text">Revenue Lab</h1>
+          <img
+            src="/logo-revenue-azul-2024.png"
+            alt="Revenue Lab"
+            className="h-14 w-auto mx-auto mb-4 animate-float object-contain"
+          />
           <p className="text-rl-muted text-sm mt-1">Internal — Área Restrita</p>
         </div>
 

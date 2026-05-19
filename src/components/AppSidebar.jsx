@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
-  Zap, Plus, Layers, TrendingDown,
+  Plus, Layers, TrendingDown,
   LogOut, Cloud, CloudOff, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare,
 } from 'lucide-react'
@@ -35,11 +35,12 @@ function SidebarContent({
       {/* ── Header ───────────────────────────────────────── */}
       <div className="flex items-center justify-between px-2 mb-5">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-rl flex items-center justify-center shadow-glow shrink-0">
-            <Zap className="w-4 h-4 text-white" />
-          </div>
+          <img
+            src="/logo-revenue-azul-2024.png"
+            alt="Revenue Lab"
+            className="h-8 w-auto shrink-0 object-contain"
+          />
           <div>
-            <p className="font-bold text-rl-text text-sm leading-none">Revenue Lab</p>
             <p className="text-[10px] text-rl-muted mt-0.5">Internal Tool</p>
           </div>
         </div>
