@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
@@ -14,7 +14,7 @@ import {
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
-  NotebookPen, Wrench, Compass, Megaphone,
+  NotebookPen, Wrench, Compass, Megaphone, Map as MapIcon,
 } from 'lucide-react'
 import ROICalculator from '../components/ROICalculator'
 import PersonaCreator from './PersonaCreator'
@@ -37,6 +37,7 @@ import FerramentasModule from '../components/FerramentasModule'
 import KickoffModule from '../components/Kickoff/KickoffModule'
 import DebriefingModule from '../components/Debriefing/DebriefingModule'
 import PendingAdsBanner from '../components/Debriefing/PendingAdsBanner'
+import JornadaModule from '../components/Jornada/JornadaModule'
 import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
 
 // ─── Momento ──────────────────────────────────────────────────────────────────
@@ -1022,7 +1023,26 @@ export default function ClientProfile({ project: projectProp }) {
 
   const project = projects.find((p) => p.id === projectProp.id) || projectProp
 
-  const [activeSection, setActiveSection] = useState('dados')
+  const [activeSection, setActiveSection] = useState('jornada')
+  // Quando navegamos da Jornada pra uma tool dentro de Ferramentas
+  // (ex: Mecanismo Único), guardamos o id da tool aqui. FerramentasModule
+  // lê esse valor como initialToolId pra abrir direto na tool certa.
+  const [pendingTool, setPendingTool] = useState(null)
+
+  // Handler único usado pela Jornada pra navegar entre seções (e
+  // opcionalmente pra dentro de uma tool específica de Ferramentas).
+  const navigateTo = useCallback((section, toolId = null) => {
+    setActiveSection(section)
+    setPendingTool(toolId)
+  }, [])
+
+  // Quando o usuário clica direto num item da sidebar, sempre reseta o
+  // pendingTool — senão clicar em "Ferramentas" depois de ter aberto via
+  // Jornada reabriria a mesma tool indevidamente.
+  const handleSidebarClick = useCallback((id) => {
+    setActiveSection(id)
+    setPendingTool(null)
+  }, [])
   // Sidebar default: aberta no desktop, fechada no mobile (drawer só abre por hambúrguer)
   const [sidebarVisible, setSidebarVisible] = useState(() => {
     if (typeof window === 'undefined') return true
@@ -1153,6 +1173,7 @@ export default function ClientProfile({ project: projectProp }) {
   const hasResultados   = !!project.resultados?.modelo
 
   const NAV_ITEMS = [
+    { id: 'jornada',      label: 'Jornada',                  icon: MapIcon,        color: 'text-rl-cyan',   filled: true },
     { id: 'dados',        label: 'Dados do Cliente',        icon: ClipboardList,  color: 'text-rl-cyan',   filled: true },
     { id: 'kickoff',      label: 'Kickoff',                  icon: Compass,        color: 'text-rl-cyan',   filled: !!project.kickoff?.completedAt },
     { id: 'debriefing',   label: 'Central de anúncios',      icon: Megaphone,      color: 'text-rl-purple', filled: !!(project.debriefing?.ads?.length) },
@@ -1178,6 +1199,7 @@ export default function ClientProfile({ project: projectProp }) {
 
   function renderContent() {
     switch (activeSection) {
+      case 'jornada':      return <JornadaModule project={project} onNavigate={navigateTo} />
       case 'dados':        return <OnboardingContent project={project} onSave={handleSaveOnboarding} showToast={showToast} />
       case 'kickoff':      return <KickoffModule project={project} />
       case 'debriefing':   return <DebriefingModule project={project} />
@@ -1213,7 +1235,7 @@ export default function ClientProfile({ project: projectProp }) {
       case 'nps':          return <NPSModule project={project} />
       case 'crm':          return <CRMModule project={project} />
       case 'atas':         return <MeetingMinutesModule project={project} />
-      case 'ferramentas':  return <FerramentasModule project={project} />
+      case 'ferramentas':  return <FerramentasModule key={pendingTool || 'main'} project={project} initialToolId={pendingTool} />
       default:             return null
     }
   }
@@ -1742,7 +1764,7 @@ export default function ClientProfile({ project: projectProp }) {
                 return (
                   <button
                     key={id}
-                    onClick={() => setActiveSection(id)}
+                    onClick={() => handleSidebarClick(id)}
                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                       isActive
                         ? 'bg-rl-purple text-white shadow-sm'
@@ -1782,7 +1804,7 @@ export default function ClientProfile({ project: projectProp }) {
                   return (
                     <button
                       key={id}
-                      onClick={() => { setActiveSection(id); setSidebarVisible(false) }}
+                      onClick={() => { handleSidebarClick(id); setSidebarVisible(false) }}
                       className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                         isActive
                           ? 'bg-rl-purple text-white shadow-sm'

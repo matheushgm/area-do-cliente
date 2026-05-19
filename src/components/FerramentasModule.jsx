@@ -104,9 +104,13 @@ function ToolCard({ tool, onOpen }) {
 }
 
 // ─── Módulo principal ─────────────────────────────────────────────────────────
-export default function FerramentasModule({ project }) {
+//
+// `initialToolId` permite deep-link de outras partes do app (ex: Jornada)
+// pra abrir Ferramentas já no card de uma tool específica. Quando passado,
+// inicia direto na tool em vez do grid.
+export default function FerramentasModule({ project, initialToolId = null }) {
   // null = grid de ferramentas; string = id da tool aberta
-  const [activeToolId, setActiveToolId] = useState(null)
+  const [activeToolId, setActiveToolId] = useState(initialToolId)
 
   const active = activeToolId ? TOOLS.find((t) => t.id === activeToolId) : null
   const Active = active?.Component
