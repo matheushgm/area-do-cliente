@@ -14,7 +14,7 @@ import AppSidebar from '../components/AppSidebar'
 import { SQUAD_COLORS } from '../lib/constants'
 import { fmtCurrency, hashId, mrrValue, calcLTV, canViewSquadsReport } from '../lib/utils'
 import Modal from '../components/UI/Modal'
-import RecentMinutesWidget from '../components/Dashboard/RecentMinutesWidget'
+import UnsignedAtaPopups from '../components/Dashboard/UnsignedAtaPopups'
 
 const CORE_STEPS = ['roi', 'strategy', 'oferta']
 function isProfileComplete(project) {
@@ -1156,9 +1156,6 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* Atas recentes — feed de atividade */}
-          <RecentMinutesWidget projects={projects} />
-
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 animate-slide-up" style={{ animationDelay: '0.05s' }}>
             {stats.map((s) => (
@@ -1861,6 +1858,9 @@ export default function Dashboard() {
           </Modal>
         )
       })()}
+
+      {/* Popup amarelo de atas pendentes (canto inferior direito, a cada 1h) */}
+      <UnsignedAtaPopups projects={projects} />
     </div>
   )
 }
