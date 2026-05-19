@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { ArrowLeft, Zap } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import ClientProfile from './ClientProfile'
 
 export default function ProjectDetail() {
@@ -35,9 +35,11 @@ export default function ProjectDetail() {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-rl flex items-center justify-center shadow-glow">
-              <Zap className="w-4 h-4 text-white" />
-            </div>
+            <img
+              src="/logo-C6Vfo5bf.png"
+              alt="Revenue Lab"
+              className="w-8 h-8 rounded-lg object-contain shadow-glow"
+            />
             <span className="font-semibold text-rl-text">{project.companyName}</span>
             <span className="text-rl-border text-lg leading-none">|</span>
             <span className="text-rl-muted text-sm">{project.responsibleName}</span>
