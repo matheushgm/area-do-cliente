@@ -361,8 +361,33 @@ export default function CriativosModule({ project }) {
   const [result, setResult] = useState(null)
   const [lastCreativeId, setLastCreativeId] = useState(null)
   const [generatedAt, setGeneratedAt] = useState(null)
+  // Escopo de produto: '' = todos os produtos (geral); id = só aquele produto
+  const [selectedProductId, setSelectedProductId] = useState('')
 
   const isVideo = view === 'video'
+
+  // Lista de produtos do projeto (com nome preenchido) pra montar o select
+  const productList = useMemo(
+    () => (project.produtos || []).filter((p) => (p.nome || '').trim()),
+    [project.produtos]
+  )
+
+  // Produto selecionado (objeto) ou null se "Todos"
+  const selectedProduct = useMemo(
+    () => selectedProductId
+      ? (productList.find((p) => p.id === selectedProductId) || null)
+      : null,
+    [selectedProductId, productList]
+  )
+
+  // Project escopado: se um produto foi escolhido, mantém só ele no array
+  // produtos. O resto do contexto (personas, oferta, dores, ROI) fica intacto.
+  // buildContext.js itera sobre project.produtos pra montar o markdown — então
+  // limitar essa lista já restringe naturalmente o que a IA vê.
+  const scopedProject = useMemo(() => {
+    if (!selectedProduct) return project
+    return { ...project, produtos: [selectedProduct] }
+  }, [project, selectedProduct])
 
   // ── Video: ad type config ──────────────────────────────────────────────────
   const selectedList = AD_TYPES.filter((t) => (adTypeConfig[t.id] || 0) > 0)
@@ -559,7 +584,7 @@ ${sections}`
       ].join('\n\n')
       const { system, messages } = buildCachedPayload({
         systemPrompt,
-        project,
+        project: scopedProject,
         instruction: instructionOverride ?? autoInstruction,
       })
       const fullText = await streamClaude({
@@ -593,6 +618,9 @@ ${sections}`
         quantity: isVideo ? totalQuantity : staticTotalQty,
         content: cleanText,
         rating: null,
+        // Escopo de produto usado nessa geração (null = geral)
+        productId: selectedProductId || null,
+        productName: selectedProduct?.nome || null,
         createdAt: now,
       }
       setLastCreativeId(newId)
@@ -611,8 +639,11 @@ ${sections}`
     instructionOverride,
     isVideo,
     project,
+    scopedProject,
     selectedDores,
     selectedList,
+    selectedProduct,
+    selectedProductId,
     staticTotalQty,
     metodologiaOverride,
     totalQuantity,
@@ -630,7 +661,7 @@ ${sections}`
       ].join('\n\n')
       const { system, messages } = buildCachedPayload({
         systemPrompt,
-        project,
+        project: scopedProject,
         instruction: `---\n\n## COPY ORIGINAL\n\n${chunkContent}\n\n---\n\n## SOLICITAÇÃO DE REFINAMENTO\n\n${userNote}`,
       })
       return streamClaude({
@@ -641,7 +672,7 @@ ${sections}`
         onChunk,
       })
     },
-    [project]
+    [scopedProject]
   )
 
   // ── Edit a chunk inside the fresh (just-generated) result ──────────────────
@@ -820,6 +851,7 @@ ${sections}`
                 setMetodologiaOverride(null)
                 setDiretrizesOverride(null)
                 setInstructionOverride(null)
+                setSelectedProductId('')
                 setError(null)
               }}
               className={`glass-card p-6 text-left hover:border-${color}/50 hover:shadow-glow transition-all duration-200 group`}
@@ -845,7 +877,7 @@ ${sections}`
           ))}
         </div>
 
-        <ContextPreview project={project} />
+        <ContextPreview project={scopedProject} />
 
         {/* History visible in home view */}
         <CreativeHistory
@@ -1052,6 +1084,39 @@ ${sections}`
           </p>
         </div>
       </div>
+
+      {/* ── Escopo de produto (opcional) ───────────────────────────────────── */}
+      {productList.length > 0 && (
+        <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">📦</span>
+            <label className="label-field !mb-0">
+              Produto/serviço deste anúncio
+            </label>
+            {selectedProduct && (
+              <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-purple/15 text-rl-purple border border-rl-purple/30">
+                escopo ativo
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-rl-muted leading-snug">
+            Escolha um produto específico pra IA focar só nas informações dele.
+            Se deixar em &ldquo;Todos&rdquo;, ela considera o catálogo inteiro do cliente.
+          </p>
+          <select
+            value={selectedProductId}
+            onChange={(e) => setSelectedProductId(e.target.value)}
+            className="input-field w-full text-sm"
+          >
+            <option value="">Todos os produtos (visão geral)</option>
+            {productList.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nome}{p.tipo === 'servico' ? ' · Serviço' : p.tipo === 'produto' ? ' · Produto' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* ── Video: ad type + per-type quantity ─────────────────────────────── */}
       {isVideo && (
@@ -1494,7 +1559,7 @@ ${sections}`
       </div>
 
       {/* Context preview */}
-      <ContextPreview project={project} collapsed />
+      <ContextPreview project={scopedProject} collapsed />
 
       {/* Error */}
       {error && (
