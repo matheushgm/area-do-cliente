@@ -234,6 +234,9 @@ function assembleProject(row, rel = {}) {
     // Debriefing (análise/rastreamento de criativos rodando)
     debriefing: row.debriefing ?? null,
 
+    // Matriz de objeção (tabela colaborativa de objeções de venda)
+    matrizObjecao: row.matriz_objecao ?? null,
+
     // Lab. Meta Ads
     metaLabBudget:       row.meta_lab_budget       ?? null,
     metaLabAudienceType: row.meta_lab_audience_type ?? null,
@@ -382,6 +385,7 @@ const PROJECT_FIELD_MAP = {
   precificacao:         "precificacao",
   mecanismoUnico:       "mecanismo_unico",
   debriefing:           "debriefing",
+  matrizObjecao:        "matriz_objecao",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────

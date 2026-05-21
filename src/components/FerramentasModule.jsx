@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import {
   Presentation, FileSignature, Clock, Target, TrendingUp, ChevronLeft, Calculator, Sparkles,
+  ShieldQuestion,
 } from 'lucide-react'
 import PromessaModule from './PromessaModule'
 import PlanejamentoAnualModule from './PlanejamentoAnualModule'
 import PrecificacaoModule from './Precificacao/PrecificacaoModule'
 import MecanismoUnicoModule from './MecanismoUnico/MecanismoUnicoModule'
+import MatrizObjecaoModule from './MatrizObjecao/MatrizObjecaoModule'
 
 // ─── Catálogo de Ferramentas ──────────────────────────────────────────────────
 // `Component` é o módulo real renderizado quando a card é clicada. Tools com
@@ -46,6 +48,15 @@ const TOOLS = [
     Icon: Sparkles,
     color: 'rl-purple',
     Component: MecanismoUnicoModule,
+  },
+  {
+    id: 'matriz_objecao',
+    title: 'Matriz de Objeção',
+    description:
+      'Mapeie as objeções de venda: tipo, como antecipar, causa provável e a melhor resposta. Com link pro cliente preencher junto.',
+    Icon: ShieldQuestion,
+    color: 'rl-cyan',
+    Component: MatrizObjecaoModule,
   },
   {
     id: 'webinar',
