@@ -126,7 +126,6 @@ Regras:
         '',
         `Já tentou antes: ${(data.tentativas || []).map(t => `${t.tentou} → ${t.resultado}`).join(' · ') || '(vazio)'}`,
         `Justificativas do cliente: ${(data.justificativas || []).join(' · ') || '(vazio)'}`,
-        `Quase: "${data.quase?.conseguiu || '(vazio)'} | faltou: ${data.quase?.faltou || '(vazio)'}"`,
         '',
         `Vilão principal: ${data.vilaoPrincipal || '(vazio)'}`,
         `Por que é vilão: ${data.vilaoJustificativa || '(vazio)'}`,
@@ -209,7 +208,6 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
         '## Mapeamento do cliente',
         `Tentou antes: ${(data.tentativas || []).map(t => `${t.tentou} → ${t.resultado}`).join(' · ') || '(vazio)'}`,
         `Justificativas do cliente: ${(data.justificativas || []).join(' · ') || '(vazio)'}`,
-        `Quase: "${data.quase?.conseguiu || '?'} — só faltou ${data.quase?.faltou || '?'}"`,
         '',
         '## Mecanismo do problema',
         `Vilão principal: ${data.vilaoPrincipal || '(vazio)'}`,
@@ -324,7 +322,7 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
             {isOpen && (
               <div className="px-5 pb-5 border-t border-rl-border/60">
                 {s.id === 'pesquisa'  && <SecaoPesquisa  data={data} set={set} />}
-                {s.id === 'cliente'   && <SecaoCliente   data={data} set={set} setNested={setNested} />}
+                {s.id === 'cliente'   && <SecaoCliente   data={data} set={set} />}
                 {s.id === 'problema'  && <SecaoProblema  data={data} set={set} setNested={setNested} />}
                 {s.id === 'solucao'   && <SecaoSolucao   data={data} set={set} setNested={setNested} />}
                 {s.id === 'montagem'  && <SecaoMontagem  data={data} set={set} setNested={setNested} pitch={pitch} />}
@@ -498,7 +496,7 @@ function SecaoPesquisa({ data, set }) {
 }
 
 // ─── Seção 2: Mapeamento do cliente ───────────────────────────────────────────
-function SecaoCliente({ data, set, setNested }) {
+function SecaoCliente({ data, set }) {
   return (
     <div className="space-y-5 pt-4">
       <p className="text-xs text-rl-subtle italic">
@@ -523,29 +521,6 @@ function SecaoCliente({ data, set, setNested }) {
         items={data.justificativas}
         onChange={(items) => set('justificativas', items)}
       />
-
-      <div>
-        <Label>O &ldquo;quase&rdquo; do seu cliente</Label>
-        <p className="text-[11px] text-rl-muted mb-2">
-          Complete: &ldquo;Eu quase consegui ____, só faltou ____.&rdquo;
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <textarea
-            value={data.quase?.conseguiu || ''}
-            onChange={(e) => setNested('quase', 'conseguiu', e.target.value)}
-            rows={2}
-            placeholder="Eu quase consegui..."
-            className="input-field w-full resize-none"
-          />
-          <textarea
-            value={data.quase?.faltou || ''}
-            onChange={(e) => setNested('quase', 'faltou', e.target.value)}
-            rows={2}
-            placeholder="Só faltou..."
-            className="input-field w-full resize-none"
-          />
-        </div>
-      </div>
     </div>
   )
 }

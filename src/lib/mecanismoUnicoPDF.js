@@ -290,13 +290,6 @@ export function exportMecanismoUnicoPDF({ project, mecanismoUnico }) {
         { id: 'resultado', label: 'Resultado' },
       ])}
       ${renderList('Justificativas do próprio cliente', d.justificativas)}
-      <div class="qa-block">
-        <div class="qa-label">O "quase" do cliente</div>
-        <div class="qa-value">
-          <strong>Eu quase consegui:</strong> ${esc(d.quase?.conseguiu || '—')}<br>
-          <strong>Só faltou:</strong> ${esc(d.quase?.faltou || '—')}
-        </div>
-      </div>
     </section>
   `
 
