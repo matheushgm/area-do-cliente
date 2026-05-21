@@ -237,6 +237,9 @@ function assembleProject(row, rel = {}) {
     // Matriz de objeção (tabela colaborativa de objeções de venda)
     matrizObjecao: row.matriz_objecao ?? null,
 
+    // Webinars (ferramenta de construção de webinar por etapas)
+    webinars: row.webinars ?? null,
+
     // Lab. Meta Ads
     metaLabBudget:       row.meta_lab_budget       ?? null,
     metaLabAudienceType: row.meta_lab_audience_type ?? null,
@@ -386,6 +389,7 @@ const PROJECT_FIELD_MAP = {
   mecanismoUnico:       "mecanismo_unico",
   debriefing:           "debriefing",
   matrizObjecao:        "matriz_objecao",
+  webinars:             "webinars",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────

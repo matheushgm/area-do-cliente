@@ -8,6 +8,7 @@ import PlanejamentoAnualModule from './PlanejamentoAnualModule'
 import PrecificacaoModule from './Precificacao/PrecificacaoModule'
 import MecanismoUnicoModule from './MecanismoUnico/MecanismoUnicoModule'
 import MatrizObjecaoModule from './MatrizObjecao/MatrizObjecaoModule'
+import WebinarModule from './Webinar/WebinarModule'
 
 // ─── Catálogo de Ferramentas ──────────────────────────────────────────────────
 // `Component` é o módulo real renderizado quando a card é clicada. Tools com
@@ -62,10 +63,10 @@ const TOOLS = [
     id: 'webinar',
     title: 'Criação de webinar',
     description:
-      'Monte a estrutura de um webinar de conversão do zero: roteiro, slides-chave, CTAs e fluxo de captação.',
+      'Monte webinars de conversão etapa por etapa: promessa, método, apresentação, conteúdo e ofertas. Crie quantos quiser.',
     Icon: Presentation,
     color: 'rl-purple',
-    comingSoon: true,
+    Component: WebinarModule,
   },
   {
     id: 'proposta',
