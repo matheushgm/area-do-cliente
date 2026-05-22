@@ -10,6 +10,9 @@
     "api/clickup.js": {
       "maxDuration": 60
     },
+    "api/clickup-proxy.js": {
+      "maxDuration": 30
+    },
     "api/slack.js": {
       "maxDuration": 15
     }

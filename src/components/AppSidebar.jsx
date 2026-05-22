@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext'
 import {
   Plus, Layers, TrendingDown,
   LogOut, Cloud, CloudOff, Loader2,
-  X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare,
+  X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare, BarChart3,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -18,7 +18,7 @@ const NAV_LINKS = [
   { id: 'banco',     label: 'Banco de Anúncios', Icon: Library,      type: 'route',    to: '/banco-de-anuncios' },
   { id: 'funil',     label: 'Funil de Vendas',   Icon: GitFork,      type: 'route',    to: '/funil' },
   { id: 'playbook',  label: 'Playbook',          Icon: BookOpen,     type: 'external', href: 'https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173' },
-  { id: 'dashboard', label: 'Dashboard',         Icon: ExternalLink, type: 'external', href: 'https://dashboard-trafego-blush.vercel.app/' },
+  { id: 'dashboard', label: 'Dashboard',         Icon: BarChart3,    type: 'route',    to: '/dashboard' },
 ]
 
 function SidebarContent({
