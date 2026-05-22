@@ -14,6 +14,7 @@ import {
   CONTEUDO_VALIDACAO, CONTEUDO_ETAPA4, CONTEUDO_ETAPA5, CONTEUDO_ETAPA6,
   CONTEUDO_ROTEIRO_ABERTURA, CONTEUDO_ROTEIRO_PILARES, CONTEUDO_ROTEIRO_PONTOS,
   CONTEUDO_SLIDES, CONTEUDO_ETAPA9, CONTEUDO_TRANSICOES, CONTEUDO_CHECKLIST,
+  OA_ETAPAS_LISTA, OA_BLOCOS, OA_OBJECOES_FIXAS, OA_FECHAMENTO,
 } from './webinarData'
 import { Check, X } from 'lucide-react'
 
@@ -126,6 +127,9 @@ export default function WebinarModule({ project }) {
         )}
         {activeEtapa === 'conteudo' && (
           <ConteudoForm data={etapaData} onChange={(field, val) => updateField('conteudo', field, val)} />
+        )}
+        {activeEtapa === 'oferta_agendamento' && (
+          <OfertaAgendamentoForm data={etapaData} onChange={(field, val) => updateField('oferta_agendamento', field, val)} />
         )}
         {!etapaMeta.built && (
           <div className="glass-card p-10 text-center">
@@ -613,6 +617,76 @@ function ConteudoForm({ data, onChange }) {
           ))}
         </ul>
       </div>
+    </div>
+  )
+}
+
+// ─── Form da Oferta de Agendamento ────────────────────────────────────────────
+function OfertaAgendamentoForm({ data, onChange }) {
+  return (
+    <div className="space-y-4">
+      {/* Lista das 10 etapas */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-1">As 10 etapas da oferta de agendamento</h3>
+        <p className="text-xs text-rl-muted mb-3">Objetivo: converter o webinar em aplicações para reunião de demonstração.</p>
+        <ol className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+          {OA_ETAPAS_LISTA.map((e, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs text-rl-subtle">
+              <span className="text-rl-purple font-bold shrink-0">{i + 1}.</span> {e}
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      {/* Etapas 1-8 */}
+      <BlocoList blocos={OA_BLOCOS} data={data} onChange={onChange} />
+
+      {/* Etapa 9 — objeções */}
+      <SectionDivider label="ETAPA 9: Responder objeções + CTA" />
+      <p className="text-xs text-rl-muted -mt-2">Estrutura de cada resposta: Pergunta → Resposta → CTA para agendar.</p>
+      <div className="space-y-3">
+        {OA_OBJECOES_FIXAS.map((obj) => (
+          <div key={obj.n} className="glass-card p-4 space-y-2">
+            <p className="text-sm font-bold text-rl-text">
+              <span className="text-rl-purple">Objeção {obj.n}:</span> &ldquo;{obj.pergunta}&rdquo;
+            </p>
+            <FieldRenderer
+              field={{ id: `oa_obj${obj.n}_resp`, type: 'area', label: 'Sua resposta' }}
+              data={data}
+              onChange={onChange}
+            />
+            <div className="rounded-lg bg-rl-cyan/5 border border-rl-cyan/30 p-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-rl-cyan mb-0.5">CTA</p>
+              <p className="text-xs text-rl-text">{obj.cta}</p>
+            </div>
+          </div>
+        ))}
+
+        {/* 3 objeções personalizadas */}
+        {[8, 9, 10].map((n) => (
+          <div key={n} className="glass-card p-4 space-y-2">
+            <p className="text-sm font-bold text-rl-purple">Objeção {n} (específica do seu nicho)</p>
+            <FieldRenderer
+              field={{ id: `oa_obj${n}_pergunta`, type: 'text', label: 'A objeção' }}
+              data={data}
+              onChange={onChange}
+            />
+            <FieldRenderer
+              field={{ id: `oa_obj${n}_resp`, type: 'area', label: 'Sua resposta' }}
+              data={data}
+              onChange={onChange}
+            />
+            <FieldRenderer
+              field={{ id: `oa_obj${n}_cta`, type: 'text', label: 'CTA para agendar' }}
+              data={data}
+              onChange={onChange}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Etapa 10 — fechamento */}
+      <BlocoList blocos={OA_FECHAMENTO} data={data} onChange={onChange} />
     </div>
   )
 }

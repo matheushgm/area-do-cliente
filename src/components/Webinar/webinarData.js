@@ -6,7 +6,7 @@ export const ETAPAS = [
   { id: 'abertura',           num: 1, label: 'Abertura',                 emoji: '🎬', built: true },
   { id: 'historia',           num: 2, label: 'História',                 emoji: '📖', built: true },
   { id: 'conteudo',           num: 3, label: 'Conteúdo',                 emoji: '🎓', built: true },
-  { id: 'oferta_agendamento', num: 4, label: 'Oferta para Agendamento',  emoji: '📅', built: false },
+  { id: 'oferta_agendamento', num: 4, label: 'Oferta para Agendamento',  emoji: '📅', built: true },
   { id: 'oferta_direta',      num: 4, label: 'Oferta direta ao produto', emoji: '🛒', built: false },
 ]
 
@@ -522,6 +522,114 @@ export const CONTEUDO_CHECKLIST = [
   'Tenho transição clara para a oferta',
   'Conteúdo dura 15-25 minutos (não mais)',
   'O cara vai sair pensando: "Preciso de mais!"',
+]
+
+// ─── ETAPA 4: Oferta de Agendamento ───────────────────────────────────────────
+export const OA_ETAPAS_LISTA = [
+  'Transição (conteúdo → oportunidade)',
+  'O que vou fazer na reunião',
+  'Como funciona o agendamento',
+  'Chamada para ação + formulário',
+  'Incentivo para quem agendar AGORA',
+  'Recapitulação',
+  'Urgência de vagas',
+  'Abrir para perguntas/objeções',
+  'Responder objeções enquanto reforça CTA',
+  'Fechamento',
+]
+
+// Etapas 1-8 como blocos data-driven
+export const OA_BLOCOS = [
+  {
+    id: 'oa1', title: 'ETAPA 1: Transição', subtitle: 'Conteúdo → oportunidade',
+    fields: [
+      { id: 'oa1_info', type: 'info', label: 'Modelo recomendado', text: '"Sei que você deve estar pensando: Ok, entendi o conceito. Mas como implemento isso NO MEU negócio? É impossível responder isso aqui para todo mundo porque cada negócio é diferente. Por isso vou fazer o seguinte..."' },
+      { id: 'oa_transicao', type: 'area', label: 'Sua versão da transição' },
+    ],
+  },
+  {
+    id: 'oa2', title: 'ETAPA 2: O Que Vou Fazer na Reunião',
+    fields: [
+      { id: 'oa_nome_reuniao', type: 'text', label: '2.1 Nome da reunião', example: 'Reunião de Implementação Individual' },
+      { id: 'oa_duracao',      type: 'text', label: '2.2 Duração', example: '45 minutos' },
+      { id: 'oa_acao1', type: 'area', label: '2.3 Ação 1 (o que você vai fazer)', example: 'Analisar seu funil e identificar onde você perde oportunidades' },
+      { id: 'oa_acao2', type: 'area', label: 'Ação 2', example: 'Calcular quantas reuniões você precisa por mês' },
+      { id: 'oa_acao3', type: 'area', label: 'Ação 3', example: 'Montar um plano de 30 dias personalizado' },
+      { id: 'oa2_script', type: 'info', label: 'Script', text: '"Vou abrir vagas para [nome] de [duração] onde vou: → Ação 1 → Ação 2 → Ação 3. Você sai com um plano claro do que fazer."' },
+    ],
+  },
+  {
+    id: 'oa3', title: 'ETAPA 3: Como Funciona o Agendamento',
+    fields: [
+      { id: 'oa3_proc', type: 'info', label: 'Processo simples', text: 'Passo 1: clica no botão/link · Passo 2: preenche formulário rápido · Passo 3: escolhe melhor horário · Passo 4: recebe confirmação' },
+      { id: 'oa_vagas', type: 'text', label: '3.2 Vagas disponíveis', example: 'Tenho 8 vagas esta semana' },
+      { id: 'oa3_script', type: 'info', label: 'Script', text: '"Simples: [processo]. [vagas disponíveis]."' },
+    ],
+  },
+  {
+    id: 'oa4', title: 'ETAPA 4: Chamada para Ação + Formulário',
+    fields: [
+      { id: 'oa_cta_onde', type: 'checks', label: '4.1 Onde aparece o link?', options: ['Botão na tela', 'Link no chat', 'Slide com QR code'] },
+      { id: 'oa_cta_texto', type: 'text', label: '4.2 Texto do botão', example: 'QUERO AGENDAR MINHA REUNIÃO' },
+      { id: 'oa_cta_url',   type: 'text', label: '4.3 URL do agendamento' },
+      { id: 'oa4_script', type: 'info', label: 'Script', text: '"[Onde aparece] está o link. Clica AGORA para garantir sua vaga."' },
+    ],
+  },
+  {
+    id: 'oa5', title: 'ETAPA 5: Incentivo para quem agendar AGORA', subtitle: 'É incentivo, NÃO é o produto',
+    fields: [
+      { id: 'oa_inc_limite', type: 'checks', label: '5.1 Limite', options: ['Primeiros X que agendarem', 'Apenas durante esta aula', 'Primeiras 24h'] },
+      { id: 'oa_inc_nome',   type: 'text', label: '5.2 Nome do incentivo', example: 'Kit de Implementação Rápida' },
+      { id: 'oa_inc_oque',   type: 'area', label: 'O que é', example: 'Planilha + checklist para usar antes da reunião' },
+      { id: 'oa_inc_porque', type: 'area', label: 'Por que é útil', example: 'Você já chega preparado e aproveitamos melhor o tempo' },
+      { id: 'oa5_script', type: 'info', label: 'Script', text: '"[Limite]: quem agendar AGORA recebe [incentivo] para já ir preparado."' },
+    ],
+  },
+  {
+    id: 'oa6', title: 'ETAPA 6: Recapitulação',
+    fields: [
+      { id: 'oa6_script', type: 'info', label: 'Script', text: '"Recapitulando: ✓ Reunião de [duração] individual comigo ✓ [3 ações principais] ✓ [Incentivo] se agendar agora ✓ 100% gratuito, sem compromisso. Clica no link e agenda."' },
+    ],
+  },
+  {
+    id: 'oa7', title: 'ETAPA 7: Urgência de Vagas', subtitle: 'Escassez real',
+    fields: [
+      { id: 'oa_escassez_tipo', type: 'radio', label: '7.1 Tipo de escassez', options: [
+        { value: 'vagas', label: 'Apenas X vagas esta semana' },
+        { value: 'tempo', label: 'Fecha em X horas' },
+      ] },
+      { id: 'oa_escassez_porque', type: 'area', label: 'Por quê? (justifique a escassez de forma real)' },
+      { id: 'oa7_script', type: 'info', label: 'Script', text: '"[Escassez]. Se não agendar agora, [consequência]."' },
+    ],
+  },
+  {
+    id: 'oa8', title: 'ETAPA 8: Abrir para Perguntas/Objeções',
+    fields: [
+      { id: 'oa8_script', type: 'info', label: 'Script', text: '"Sei que você pode ter dúvidas. Vou responder as principais perguntas que sempre me fazem. E enquanto respondo, se você quiser agendar, [indicar onde está o link]."' },
+    ],
+  },
+]
+
+// Etapa 9 — objeções: 7 fixas + 3 personalizadas
+export const OA_OBJECOES_FIXAS = [
+  { n: 1, pergunta: 'Isso funciona para meu negócio/nicho?',          cta: 'Se você quer descobrir como aplicar no SEU caso, agenda agora: [link]' },
+  { n: 2, pergunta: 'Não tenho tempo para implementar isso agora',     cta: 'Na reunião eu te mostro como fazer isso em [tempo]. Agenda: [link]' },
+  { n: 3, pergunta: 'Preciso de grana para investir em tráfego',       cta: 'Vou te mostrar como começar com o que você tem. Agenda: [link]' },
+  { n: 4, pergunta: 'Meu negócio é muito baseado em indicação',        cta: 'Perfeito. Vou mostrar como criar demanda paralela. Agenda: [link]' },
+  { n: 5, pergunta: 'Não sei se meu time está preparado',              cta: 'Na reunião montamos o plano considerando seu time atual. Agenda: [link]' },
+  { n: 6, pergunta: 'Preciso organizar a casa primeiro',               cta: 'Essa reunião VAI te ajudar a organizar. Agenda: [link]' },
+  { n: 7, pergunta: 'Já tentei de tudo e não funcionou',               cta: 'Vou te mostrar O QUE você testou errado. Agenda: [link]' },
+]
+
+// Etapa 10 — fechamento
+export const OA_FECHAMENTO = [
+  {
+    id: 'oa10', title: 'ETAPA 10: Fechamento',
+    fields: [
+      { id: 'oa10_ultima', type: 'info', label: '10.1 Última chamada', text: '"Se você ficou até aqui, é porque você QUER [resultado principal]. A única diferença entre quem consegue e quem não consegue é AÇÃO. [Vagas/tempo restante]. Clica AGORA: [link]"' },
+      { id: 'oa10_enc',    type: 'info', label: '10.2 Encerramento', text: 'Pra quem agendou: "Quem já agendou, parabéns. Vou me preparar para te ajudar ao máximo." · Pra quem não agendou: "Se não agendou, sem problema. Mas saiba que essa chance não volta tão cedo." · Despedida: "Nos vemos em breve!"' },
+    ],
+  },
 ]
 
 export function blankWebinar(nome = 'Novo webinar') {
