@@ -6,7 +6,12 @@ import {
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
 import Toast from '../UI/Toast'
-import { ETAPAS, ABERTURA_BLOCOS, blankWebinar, aberturaProgress } from './webinarData'
+import {
+  ETAPAS, ABERTURA_BLOCOS, blankWebinar, aberturaProgress,
+  HISTORIA_REGRAS, HISTORIA_TIPOS, HISTORIA_TRANSICOES,
+  HISTORIA_3A_BLOCOS, HISTORIA_3B_BLOCOS,
+} from './webinarData'
+import { Check, X } from 'lucide-react'
 
 export default function WebinarModule({ project }) {
   const { updateProject } = useApp()
@@ -109,9 +114,13 @@ export default function WebinarModule({ project }) {
         </div>
 
         {/* Conteúdo da etapa */}
-        {etapaMeta.built ? (
+        {activeEtapa === 'abertura' && (
           <AberturaForm data={etapaData} onChange={(field, val) => updateField('abertura', field, val)} />
-        ) : (
+        )}
+        {activeEtapa === 'historia' && (
+          <HistoriaForm data={etapaData} onChange={(field, val) => updateField('historia', field, val)} />
+        )}
+        {!etapaMeta.built && (
           <div className="glass-card p-10 text-center">
             <div className="text-4xl mb-3">{etapaMeta.emoji}</div>
             <h3 className="text-base font-bold text-rl-text">Etapa &ldquo;{etapaMeta.label}&rdquo;</h3>
@@ -234,9 +243,14 @@ export default function WebinarModule({ project }) {
 
 // ─── Form da Abertura (render genérico a partir de ABERTURA_BLOCOS) ───────────
 function AberturaForm({ data, onChange }) {
+  return <BlocoList blocos={ABERTURA_BLOCOS} data={data} onChange={onChange} />
+}
+
+// ─── Lista de blocos genérica (reusada por Abertura e História) ───────────────
+function BlocoList({ blocos, data, onChange }) {
   return (
     <div className="space-y-4">
-      {ABERTURA_BLOCOS.map((bloco) => (
+      {blocos.map((bloco) => (
         <div key={bloco.id} className="glass-card p-5 space-y-4">
           <div>
             <h3 className="text-sm font-black text-rl-text uppercase tracking-wide">{bloco.title}</h3>
@@ -261,6 +275,133 @@ function AberturaForm({ data, onChange }) {
   )
 }
 
+// ─── Form da História ─────────────────────────────────────────────────────────
+function HistoriaForm({ data, onChange }) {
+  const tipo = data.tipo || ''
+  return (
+    <div className="space-y-4">
+      {/* Regras de ouro */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-3">Regras de ouro da história</h3>
+        <p className="text-xs text-rl-muted mb-3">
+          História de 5-10 min que gera CONEXÃO e CONFIANÇA pra aumentar a conversão.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="rounded-xl bg-rl-green/5 border border-rl-green/30 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-rl-green mb-2">✓ O que fazer</p>
+            <ul className="space-y-1">
+              {HISTORIA_REGRAS.fazer.map((r, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-[11px] text-rl-subtle">
+                  <Check className="w-3 h-3 text-rl-green mt-0.5 shrink-0" /> {r}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-xl bg-red-400/5 border border-red-400/30 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-2">✗ O que NÃO fazer</p>
+            <ul className="space-y-1">
+              {HISTORIA_REGRAS.naoFazer.map((r, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-[11px] text-rl-subtle">
+                  <X className="w-3 h-3 text-red-400 mt-0.5 shrink-0" /> {r}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Etapa 1: tipo de história */}
+      <div className="glass-card p-5 space-y-3">
+        <div>
+          <h3 className="text-sm font-black text-rl-text uppercase tracking-wide">Defina seu tipo de história</h3>
+          <p className="text-xs text-rl-muted mt-0.5">Escolha o que se aplica a você — isso libera a estrutura certa abaixo.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {HISTORIA_TIPOS.map((t) => {
+            const active = tipo === t.id
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => onChange('tipo', t.id)}
+                className={`text-left rounded-xl border-2 p-4 transition-all ${
+                  active
+                    ? 'bg-rl-purple/10 border-rl-purple/60 shadow-glow'
+                    : 'bg-rl-surface border-rl-border hover:border-rl-purple/30'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    active ? 'border-rl-purple bg-rl-purple' : 'border-rl-border'
+                  }`}>
+                    {active && <Check className="w-2.5 h-2.5 text-white" />}
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-rl-purple">Opção {t.id}</span>
+                </div>
+                <p className={`text-sm font-bold ${active ? 'text-rl-purple' : 'text-rl-text'}`}>{t.label}</p>
+                <p className="text-[11px] text-rl-subtle mt-1 leading-snug">{t.desc}</p>
+                <p className="text-[10px] text-rl-muted mt-2 italic">Ex: {t.example}</p>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Etapa 2: transições */}
+      <div className="glass-card p-5 space-y-4">
+        <div>
+          <h3 className="text-sm font-black text-rl-text uppercase tracking-wide">Escolha sua transição</h3>
+          <p className="text-xs text-rl-muted mt-0.5">Como você vai ENTRAR na história. Preencha a que vai usar.</p>
+        </div>
+        {HISTORIA_TRANSICOES.map((tr) => (
+          <div key={tr.id} className="rounded-xl border border-rl-border p-3 space-y-2">
+            <div>
+              <p className="text-xs font-bold text-rl-text">{tr.title}</p>
+              <p className="text-[10px] text-rl-muted">{tr.hint}</p>
+            </div>
+            <FieldRenderer field={tr.field} data={data} onChange={onChange} />
+            <div className="rounded-lg bg-rl-purple/5 border border-rl-purple/20 p-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-rl-purple mb-0.5">💡 Sua transição fica</p>
+              <p className="text-xs text-rl-text leading-snug">{tr.compute(data || {})}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Etapa 3: estrutura condicional */}
+      {tipo === 'A' && (
+        <>
+          <SectionDivider label="Estrutura — Avatar Transformado" />
+          <BlocoList blocos={HISTORIA_3A_BLOCOS} data={data} onChange={onChange} />
+        </>
+      )}
+      {tipo === 'B' && (
+        <>
+          <SectionDivider label="Estrutura — Socorrista" />
+          <BlocoList blocos={HISTORIA_3B_BLOCOS} data={data} onChange={onChange} />
+        </>
+      )}
+      {!tipo && (
+        <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 p-6 text-center">
+          <p className="text-sm text-rl-muted">
+            Escolha o <strong>tipo de história</strong> acima pra liberar a estrutura de blocos (3A ou 3B).
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SectionDivider({ label }) {
+  return (
+    <div className="flex items-center gap-3 pt-1">
+      <div className="h-px flex-1 bg-rl-border" />
+      <span className="text-[11px] font-black uppercase tracking-wider text-rl-purple">{label}</span>
+      <div className="h-px flex-1 bg-rl-border" />
+    </div>
+  )
+}
+
 function FieldRenderer({ field, data, onChange }) {
   const f = field
 
@@ -279,6 +420,47 @@ function FieldRenderer({ field, data, onChange }) {
       <div className="rounded-xl bg-rl-purple/5 border-2 border-rl-purple/30 p-4">
         <p className="text-[10px] font-bold uppercase tracking-wider text-rl-purple mb-1">{f.label}</p>
         <p className="text-base font-bold text-rl-text leading-snug">{val}</p>
+      </div>
+    )
+  }
+
+  if (f.type === 'info') {
+    return (
+      <div className="rounded-xl bg-rl-cyan/5 border border-rl-cyan/30 p-4">
+        {f.label && <p className="text-[10px] font-bold uppercase tracking-wider text-rl-cyan mb-1">{f.label}</p>}
+        <p className="text-sm font-semibold text-rl-text leading-snug">{f.text}</p>
+      </div>
+    )
+  }
+
+  if (f.type === 'radio') {
+    return (
+      <div>
+        <label className="text-xs font-bold text-rl-text block mb-2">{f.label}</label>
+        <div className="space-y-2">
+          {f.options.map((opt) => {
+            const active = data?.[f.id] === opt.value
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onChange(f.id, active ? '' : opt.value)}
+                className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all flex items-center gap-2 ${
+                  active
+                    ? 'bg-rl-purple/10 border-rl-purple/50 text-rl-purple'
+                    : 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-purple/30'
+                }`}
+              >
+                <span className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                  active ? 'border-rl-purple bg-rl-purple' : 'border-rl-border'
+                }`}>
+                  {active && <Check className="w-2.5 h-2.5 text-white" />}
+                </span>
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
     )
   }
