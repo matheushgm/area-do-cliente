@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Menu, BarChart3 } from 'lucide-react'
 import { useDashboardData } from '../hooks/useDashboardData'
+import AppSidebar from '../components/AppSidebar'
 import {
   CFG, buildPeriod, periodFromDays, maxDate, addDays, buildStats,
-  getCplTarget, buildWeeklyMessage, localDateStr,
+  buildWeeklyMessage, localDateStr,
 } from '../lib/dashboardData'
 import ChannelSection from '../components/DashboardTrafego/ChannelSection'
 import ClientPage from '../components/DashboardTrafego/ClientPage'
@@ -27,9 +30,11 @@ function mainPeriod(channelRows, channel, days, from, to) {
 }
 
 export default function DashboardTrafego() {
+  const navigate = useNavigate()
   const dash = useDashboardData()
-  const { raw, squads, cplTargets, acCompanyList, clientMapping, loading, error, lastUpdate } = dash
+  const { raw, accounts, squadByAccount, projectsList, cplTargets, loading, error, lastUpdate } = dash
 
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [channel, setChannel] = useState('meta')
   const [days, setDays] = useState(7)
   const [customFrom, setCustomFrom] = useState('')
@@ -63,10 +68,7 @@ export default function DashboardTrafego() {
     }
   }, [loading, raw, openClient])
 
-  const getTarget = useCallback(
-    (name) => getCplTarget(name, { clientMapping, cplTargets, acCompanyList }),
-    [clientMapping, cplTargets, acCompanyList],
-  )
+  const getTarget = useCallback((name) => accounts[name]?.cplTarget ?? null, [accounts])
 
   // Período + estatísticas por canal (computado uma vez; reusado p/ contagem e render).
   const periods = useMemo(() => ({
@@ -80,11 +82,11 @@ export default function DashboardTrafego() {
       if (!p) return []
       let st = buildStats(raw[ch], CFG[ch], p)
       if (search) st = st.filter(s => s.name.toLowerCase().includes(search))
-      if (squadFilter) st = st.filter(s => squads[s.name] === squadFilter)
+      if (squadFilter) st = st.filter(s => squadByAccount[s.name] === squadFilter)
       return st
     }
     return { meta: build('meta'), google: build('google') }
-  }, [raw, periods, search, squadFilter, squads])
+  }, [raw, periods, search, squadFilter, squadByAccount])
 
   const filterInfo = useMemo(() => {
     const p = periods[channel] || periods.meta || periods.google
@@ -114,20 +116,51 @@ export default function DashboardTrafego() {
     else window.prompt('Copie o link:', url)
   }
 
+  // Modais compartilhados pelas duas visões (lista e página de cliente).
+  const modals = (
+    <>
+      {preview && <PreviewModal url={preview.url} name={preview.name} onClose={() => setPreview(null)} />}
+      {mapModal && <MappingModal dashName={mapModal} projectsList={projectsList} cplTargets={cplTargets} currentProjectId={accounts[mapModal]?.projectId} onSave={dash.linkProject} onClose={() => setMapModal(null)} />}
+      {cuMapModal && <ClickupMapModal dashName={cuMapModal} currentFolderId={accounts[cuMapModal]?.clickupOverride} onSave={dash.setClickupFolder} onClose={() => setCuMapModal(null)} />}
+      {weekly && <WeeklyMessageModal client={weekly.client} periodLabel={weekly.periodLabel} initialText={weekly.text} onClose={() => setWeekly(null)} onToast={showToast} />}
+      {toast && <div className="share-toast">{toast}</div>}
+    </>
+  )
+
+  // Envolve o conteúdo na moldura padrão da AC (sidebar + top bar mobile).
+  // No modo compartilhado, renderiza uma visão limpa, sem a moldura.
+  const withShell = (inner) => {
+    if (shared) return <div className="dt-root" style={{ minHeight: '100vh' }}>{inner}{modals}</div>
+    return (
+      <div className="min-h-screen flex bg-gradient-dark">
+        <AppSidebar filter="dashboard" setFilter={() => navigate('/')} counts={{}} activeAccounts={[]} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
+            <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu de navegação" className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-md bg-gradient-rl flex items-center justify-center"><BarChart3 className="w-3.5 h-3.5 text-white" /></div>
+              <span className="font-bold text-rl-text text-sm">Dashboard</span>
+            </div>
+          </div>
+          <div className="dt-root flex-1 min-w-0" style={{ position: 'relative' }}>{inner}{modals}</div>
+        </div>
+      </div>
+    )
+  }
+
   // ── Render: página de cliente substitui a lista quando aberta ────────────────
   if (openClient) {
-    return (
-      <div className="dt-root" style={{ minHeight: '100vh' }}>
-        <ClientPage
+    return withShell(
+      <ClientPage
           key={openClient.client + openClient.channel}
           client={openClient.client}
           channel={openClient.channel}
           raw={raw}
           initialDays={[3, 7, 14, 30].includes(days) || days === 'today' || days === 'yesterday' || days === 0 ? days : 7}
           initialPeriod={periods[openClient.channel]}
-          squads={squads}
-          getTarget={getTarget}
-          clientMapping={clientMapping}
+          account={accounts[openClient.client]}
           shared={shared}
           onClose={() => setOpenClient(null)}
           onPreview={(url, name) => setPreview({ url, name })}
@@ -136,17 +169,11 @@ export default function DashboardTrafego() {
           onOpenMap={(n) => setMapModal(n)}
           onOpenCuMap={(n) => setCuMapModal(n)}
         />
-        {preview && <PreviewModal url={preview.url} name={preview.name} onClose={() => setPreview(null)} />}
-        {mapModal && <MappingModal dashName={mapModal} acCompanyList={acCompanyList} cplTargets={cplTargets} currentAcName={clientMapping[mapModal]?.acName} onSave={dash.saveMapping} onRemove={dash.removeMapping} onClose={() => setMapModal(null)} />}
-        {cuMapModal && <ClickupMapModal dashName={cuMapModal} currentFolderId={clientMapping[cuMapModal]?.clickupFolderId} onSave={dash.saveClickupFolder} onClose={() => setCuMapModal(null)} />}
-        {weekly && <WeeklyMessageModal client={weekly.client} periodLabel={weekly.periodLabel} initialText={weekly.text} onClose={() => setWeekly(null)} onToast={showToast} />}
-        {toast && <div className="share-toast">{toast}</div>}
-      </div>
     )
   }
 
-  return (
-    <div className="dt-root" style={{ minHeight: '100vh', position: 'relative' }}>
+  return withShell(
+    <>
       {loading && <div className="dt-loader"><div className="spinner" /><p>Carregando dados das planilhas…</p></div>}
 
       <div className="header">
@@ -208,7 +235,7 @@ export default function DashboardTrafego() {
             period={periods[channel]}
             prefix={channel}
             stats={statsByChannel[channel]}
-            squads={squads}
+            accounts={accounts}
             setSquad={dash.setSquad}
             getTarget={getTarget}
             onOpenClient={(client, ch) => setOpenClient({ client, channel: ch })}
@@ -216,12 +243,6 @@ export default function DashboardTrafego() {
           />
         )}
       </div>
-
-      {/* Modals (acessíveis também da lista, ex: vincular CPL) */}
-      {preview && <PreviewModal url={preview.url} name={preview.name} onClose={() => setPreview(null)} />}
-      {mapModal && <MappingModal dashName={mapModal} acCompanyList={acCompanyList} cplTargets={cplTargets} currentAcName={clientMapping[mapModal]?.acName} onSave={dash.saveMapping} onRemove={dash.removeMapping} onClose={() => setMapModal(null)} />}
-      {weekly && <WeeklyMessageModal client={weekly.client} periodLabel={weekly.periodLabel} initialText={weekly.text} onClose={() => setWeekly(null)} onToast={showToast} />}
-      {toast && <div className="share-toast">{toast}</div>}
-    </div>
+    </>
   )
 }

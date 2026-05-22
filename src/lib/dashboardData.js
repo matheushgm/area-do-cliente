@@ -213,47 +213,6 @@ export function statusTagInfo(s) {
   return { cls: 'st-other', label: s }
 }
 
-// ─── Resolução de CPL alvo (Área do Cliente) ──────────────────────────────────
-// clientMapping: { [dashName]: { acName, clickupFolderId } }
-// cplTargets:    { [acCompanyName]: number }
-// acCompanyList: string[]
-export function getCplTarget(dashName, { clientMapping, cplTargets, acCompanyList }) {
-  const mappedAc = clientMapping[dashName]?.acName
-  if (mappedAc && cplTargets[mappedAc] != null) return { value: cplTargets[mappedAc], acName: mappedAc }
-  const norm = dashName.toLowerCase().trim()
-  const ac = acCompanyList.find(n => n.toLowerCase().trim() === norm)
-  if (ac && cplTargets[ac] != null) return { value: cplTargets[ac], acName: ac }
-  return null
-}
-
-// ─── Mapa de pastas do ClickUp ────────────────────────────────────────────────
-export const CU_SPACE_ID = '90090377342'
-export const CU_FOLDERS = [
-  { id: '90133132396', name: 'Revenue Lab' }, { id: '90091004681', name: 'Óticas Brasil' },
-  { id: '90131020369', name: 'Go vendas' }, { id: '90131734949', name: 'Grupo Aj' },
-  { id: '90133288147', name: 'Tetralite' }, { id: '90132148962', name: 'Rede Pop' },
-  { id: '90091004658', name: 'Boa noite Colchões' }, { id: '90134244751', name: 'Dr Ulyscélio' },
-  { id: '90138731003', name: 'Festa de Luxo' }, { id: '901314571929', name: 'PetKlinic' },
-  { id: '90136881468', name: 'Imobitech' }, { id: '90091004673', name: 'RGM' },
-  { id: '90134144657', name: 'Nectar Crm' }, { id: '90133157058', name: 'Cical Honda' },
-  { id: '90091004669', name: 'FLASH CAR AUTO CENTER' }, { id: '90134190733', name: 'Nacional Kart' },
-  { id: '90137543120', name: 'NeuroExperts' }, { id: '90133101447', name: 'AZFIT' },
-  { id: '901313902635', name: 'Empório Kids' }, { id: '901314276598', name: 'Dr Jorge Pinho' },
-  { id: '901313651040', name: 'Nexus' }, { id: '901314981180', name: 'CondoID' },
-  { id: '901315145921', name: 'Bio Cosméticos' }, { id: '901315294826', name: 'Inove Agropeças' },
-  { id: '901315484069', name: 'Vital Centro de Saúde' }, { id: '901315637343', name: 'Mercado Pet Store' },
-  { id: '901315920301', name: 'Distribuidora Oeste' }, { id: '901315924476', name: 'Mitra LAB' },
-  { id: '901315924488', name: 'Hypado' }, { id: '901315965985', name: 'RHEIMS' },
-  { id: '901316124376', name: 'Africa PET STORE' }, { id: '901316612751', name: 'Klooks' },
-  { id: '901316612967', name: 'Escribo' }, { id: '901317238620', name: 'Dr. Eduardo Moura' },
-  { id: '901317350680', name: 'Aliare /myFarm' }, { id: '901317397837', name: 'Funsales' },
-  { id: '901317488127', name: '2com' }, { id: '901317558451', name: 'Niko Kids' },
-  { id: '901317673213', name: 'Nomus ERP' }, { id: '901317801444', name: 'Dra. Laura' },
-  { id: '901317821050', name: 'Container Software' }, { id: '901317959954', name: 'revo360' },
-  { id: '901317965377', name: 'Colégio Cordeiro' }, { id: '901318063989', name: 'Única Distribuidora' },
-  { id: '901318084124', name: 'Riachuelo Seguros' },
-]
-
 // ─── Mensagem semanal (texto pronto para enviar ao cliente) ───────────────────
 // Recomendações por campanha: CTR baixo → testar criativos; conversão baixa →
 // testar landing page. Prioriza fundo > meio > topo (Meta) e gasto desc.
@@ -361,17 +320,4 @@ Próximos passos:
 ${proximos}`
 
   return { msg, periodLabel: `${fmtBR(p1s)} – ${fmtBR(p1e)}` }
-}
-
-export function getClickupFolder(dashName, clientMapping) {
-  const m = clientMapping[dashName]
-  if (m?.clickupFolderId) return m.clickupFolderId
-  const norm = normStr(dashName)
-  const exact = CU_FOLDERS.find(f => normStr(f.name) === norm)
-  if (exact) return exact.id
-  const partial = CU_FOLDERS.find(f => {
-    const fn = normStr(f.name)
-    return fn.includes(norm) || norm.includes(fn)
-  })
-  return partial?.id || null
 }

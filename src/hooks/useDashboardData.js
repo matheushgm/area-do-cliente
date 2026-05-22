@@ -1,17 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { SHEETS, parseCSV } from '../lib/dashboardData'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Hook de dados do Dashboard de Tráfego.
+// Hook de dados do Dashboard de Tráfego (modelo consolidado).
 //
-// Centraliza o carregamento das 4 fontes (planilhas Meta/Google em CSV +
-// client_squads + cpl_targets_public + client_mapping no Supabase da AC) e expõe
-// os mutadores (setSquad, saveMapping, removeMapping, saveClickupFolder).
+// Fonte de verdade = o PROJETO (projects_v2). Cada conta (dashboard_accounts)
+// aponta para um projeto via project_id; squad, pasta ClickUp e CPL DERIVAM do
+// projeto. squad_id e clickup_folder_id na conta são apenas OVERRIDE (nullable),
+// usados sobretudo em contas sem projeto na AC.
 //
-// Tudo passa pelo client Supabase único da AC — que já está autenticado pela
-// sessão do usuário logado (RequireAuth), satisfazendo a RLS `authenticated`
-// das tabelas migradas.
+// Fontes carregadas:
+//   - planilhas Meta/Google (CSV público)
+//   - dashboard_accounts          (base: account_name, project_id, squad_id, clickup_folder_id)
+//   - dashboard_projects_public   (view: id, company_name, squad_name, clickup_folder_id)
+//   - cpl_targets_public          (company_name → cpl_target)
+//   - squads                      (id → name)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function loadSheets() {
@@ -22,49 +26,13 @@ async function loadSheets() {
   return { meta: parseCSV(metaText), google: parseCSV(googleText) }
 }
 
-async function loadSquads() {
-  const { data, error } = await supabase.from('client_squads').select('client_name,squad')
-  if (error || !data) return {}
-  const map = {}
-  data.forEach(r => { map[r.client_name] = r.squad })
-  return map
-}
-
-// cplTargets (por company_name da AC) + lista de empresas para o dropdown de vínculo.
-async function loadCplTargets() {
-  const cplTargets = {}
-  const acCompanyList = []
-  const { data } = await supabase.from('cpl_targets_public').select('company_name,cpl_target')
-  if (data) {
-    data.forEach(r => {
-      const name = r.company_name?.trim()
-      if (!name) return
-      acCompanyList.push(name)
-      if (r.cpl_target != null) cplTargets[name] = parseFloat(r.cpl_target)
-    })
-    acCompanyList.sort((a, b) => a.localeCompare(b, 'pt-BR'))
-  }
-  return { cplTargets, acCompanyList }
-}
-
-// clientMapping: { [dashboardName]: { acName, clickupFolderId } }
-async function loadClientMapping() {
-  const map = {}
-  const { data } = await supabase.from('client_mapping').select('dashboard_name,ac_company_name,clickup_folder_id')
-  if (data) {
-    data.forEach(r => {
-      map[r.dashboard_name] = { acName: r.ac_company_name || null, clickupFolderId: r.clickup_folder_id || null }
-    })
-  }
-  return map
-}
-
 export function useDashboardData() {
   const [raw, setRaw] = useState({ meta: [], google: [] })
-  const [squads, setSquads] = useState({})
-  const [cplTargets, setCplTargets] = useState({})
-  const [acCompanyList, setAcCompanyList] = useState([])
-  const [clientMapping, setClientMapping] = useState({})
+  // Linhas-base de dashboard_accounts: { [account_name]: { project_id, squad_id, clickup_folder_id } }
+  const [accountRows, setAccountRows] = useState({})
+  const [projectsList, setProjectsList] = useState([])   // [{ id, company_name, squad_name, clickup_folder_id }]
+  const [squadsList, setSquadsList] = useState([])        // [{ id, name }]
+  const [cplTargets, setCplTargets] = useState({})        // { company_name: number }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastUpdate, setLastUpdate] = useState(null)
@@ -74,18 +42,24 @@ export function useDashboardData() {
     setLoading(true)
     setError(null)
     try {
-      const [sheets, sq, cpl, mapping] = await Promise.all([
+      const [sheets, accRes, projRes, cplRes, sqRes] = await Promise.all([
         loadSheets(),
-        loadSquads(),
-        loadCplTargets(),
-        loadClientMapping(),
+        supabase.from('dashboard_accounts').select('account_name,project_id,squad_id,clickup_folder_id'),
+        supabase.from('dashboard_projects_public').select('id,company_name,squad_name,clickup_folder_id'),
+        supabase.from('cpl_targets_public').select('company_name,cpl_target'),
+        supabase.from('squads').select('id,name'),
       ])
       if (!mounted.current) return
+      const accMap = {}
+      ;(accRes.data || []).forEach(r => { accMap[r.account_name] = { project_id: r.project_id, squad_id: r.squad_id, clickup_folder_id: r.clickup_folder_id } })
+      const cpl = {}
+      ;(cplRes.data || []).forEach(r => { const n = r.company_name?.trim(); if (n && r.cpl_target != null) cpl[n] = parseFloat(r.cpl_target) })
+
       setRaw(sheets)
-      setSquads(sq)
-      setCplTargets(cpl.cplTargets)
-      setAcCompanyList(cpl.acCompanyList)
-      setClientMapping(mapping)
+      setAccountRows(accMap)
+      setProjectsList((projRes.data || []).slice().sort((a, b) => (a.company_name || '').localeCompare(b.company_name || '', 'pt-BR')))
+      setCplTargets(cpl)
+      setSquadsList(sqRes.data || [])
       setLastUpdate(new Date())
     } catch (e) {
       if (mounted.current) setError(e.message)
@@ -100,64 +74,60 @@ export function useDashboardData() {
     return () => { mounted.current = false }
   }, [load])
 
-  // ── Mutadores ────────────────────────────────────────────────────────────
-  const setSquad = useCallback(async (clientName, squad) => {
-    setSquads(prev => {
-      const next = { ...prev }
-      if (squad) next[clientName] = squad
-      else delete next[clientName]
-      return next
+  // ── Resolução por conta (deriva do projeto; override quando presente) ────────
+  const projectsById = useMemo(() => {
+    const m = {}; projectsList.forEach(p => { m[p.id] = p }); return m
+  }, [projectsList])
+  const squadById = useMemo(() => {
+    const m = {}; squadsList.forEach(s => { m[s.id] = s.name }); return m
+  }, [squadsList])
+
+  const accounts = useMemo(() => {
+    const out = {}
+    Object.entries(accountRows).forEach(([name, row]) => {
+      const project = row.project_id ? projectsById[row.project_id] : null
+      const acCompanyName = project?.company_name ?? null
+      const squad = (row.squad_id ? squadById[row.squad_id] : null) ?? project?.squad_name ?? null
+      const clickupFolderId = row.clickup_folder_id ?? project?.clickup_folder_id ?? null
+      const cplVal = acCompanyName != null ? cplTargets[acCompanyName] : null
+      out[name] = {
+        projectId: row.project_id ?? null,
+        squadOverrideId: row.squad_id ?? null,
+        clickupOverride: row.clickup_folder_id ?? null,
+        acCompanyName,
+        squad,
+        clickupFolderId,
+        cplTarget: cplVal != null ? { value: cplVal, acName: acCompanyName } : null,
+      }
     })
-    if (squad) {
-      await supabase.from('client_squads').upsert(
-        { client_name: clientName, squad, updated_at: new Date().toISOString() },
-        { onConflict: 'client_name' },
-      )
-    } else {
-      await supabase.from('client_squads').delete().eq('client_name', clientName)
-    }
-  }, [])
+    return out
+  }, [accountRows, projectsById, squadById, cplTargets])
 
-  // Salva o vínculo dashboard → empresa da AC, preservando o clickup_folder_id atual.
-  const saveMapping = useCallback(async (dashName, acName) => {
-    const prev = clientMapping[dashName] || {}
-    if (acName) {
-      await supabase.from('client_mapping').upsert(
-        { dashboard_name: dashName, ac_company_name: acName, clickup_folder_id: prev.clickupFolderId || null, updated_at: new Date().toISOString() },
-        { onConflict: 'dashboard_name' },
-      )
-      setClientMapping(p => ({ ...p, [dashName]: { acName, clickupFolderId: prev.clickupFolderId || null } }))
-    } else if (prev.clickupFolderId) {
-      // Mantém o vínculo de pasta ClickUp, limpa só o nome da AC.
-      await supabase.from('client_mapping').upsert(
-        { dashboard_name: dashName, ac_company_name: null, clickup_folder_id: prev.clickupFolderId, updated_at: new Date().toISOString() },
-        { onConflict: 'dashboard_name' },
-      )
-      setClientMapping(p => ({ ...p, [dashName]: { acName: null, clickupFolderId: prev.clickupFolderId } }))
-    } else {
-      await supabase.from('client_mapping').delete().eq('dashboard_name', dashName)
-      setClientMapping(p => { const n = { ...p }; delete n[dashName]; return n })
-    }
-  }, [clientMapping])
+  // Mapa simples nome → squad (usado pela lista e pelo filtro de squad).
+  const squadByAccount = useMemo(() => {
+    const m = {}; Object.entries(accounts).forEach(([n, a]) => { if (a.squad) m[n] = a.squad }); return m
+  }, [accounts])
 
-  const removeMapping = useCallback(async (dashName) => {
-    await supabase.from('client_mapping').delete().eq('dashboard_name', dashName)
-    setClientMapping(p => { const n = { ...p }; delete n[dashName]; return n })
-  }, [])
-
-  // Salva/atualiza apenas a pasta do ClickUp vinculada (preserva o ac_company_name).
-  const saveClickupFolder = useCallback(async (dashName, folderId) => {
-    const prev = clientMapping[dashName] || {}
-    await supabase.from('client_mapping').upsert(
-      { dashboard_name: dashName, ac_company_name: prev.acName || null, clickup_folder_id: folderId || null, updated_at: new Date().toISOString() },
-      { onConflict: 'dashboard_name' },
+  // ── Mutadores (upsert parcial em dashboard_accounts; só toca a coluna passada) ─
+  const upsertAccount = useCallback(async (accountName, patch) => {
+    setAccountRows(prev => ({ ...prev, [accountName]: { ...prev[accountName], ...patch } }))
+    await supabase.from('dashboard_accounts').upsert(
+      { account_name: accountName, ...patch, updated_at: new Date().toISOString() },
+      { onConflict: 'account_name' },
     )
-    setClientMapping(p => ({ ...p, [dashName]: { acName: prev.acName || null, clickupFolderId: folderId || null } }))
-  }, [clientMapping])
+  }, [])
+
+  const setSquad = useCallback((accountName, squadName) => {
+    const squadId = squadName ? (squadsList.find(s => s.name === squadName)?.id ?? null) : null
+    return upsertAccount(accountName, { squad_id: squadId })
+  }, [squadsList, upsertAccount])
+
+  const linkProject = useCallback((accountName, projectId) => upsertAccount(accountName, { project_id: projectId || null }), [upsertAccount])
+  const setClickupFolder = useCallback((accountName, folderId) => upsertAccount(accountName, { clickup_folder_id: folderId || null }), [upsertAccount])
 
   return {
-    raw, squads, cplTargets, acCompanyList, clientMapping,
+    raw, accounts, squadByAccount, projectsList, squadsList, cplTargets,
     loading, error, lastUpdate,
-    reload: load, setSquad, saveMapping, removeMapping, saveClickupFolder,
+    reload: load, setSquad, linkProject, setClickupFolder,
   }
 }

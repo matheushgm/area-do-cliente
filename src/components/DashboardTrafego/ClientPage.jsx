@@ -3,7 +3,6 @@ import { supabase } from '../../lib/supabase'
 import {
   CFG, num, fmtMoney, fmtNum, fmtPct, fmtBR, inRange, fmtDate, addDays,
   buildPeriod, periodFromDays, maxDate, buildStats, groupBy, varCls,
-  getClickupFolder,
 } from '../../lib/dashboardData'
 import { cplActualCls, LineChart } from './helpers'
 import { MetaCampaigns, MetaAdsets, MetaAds, GoogleCampaigns, GoogleGroups } from './DrillTables'
@@ -194,10 +193,10 @@ function MetricGroups({ allRows, prevRows, isMeta }) {
 // ─── Charts (investimento + conversões: atual vs anterior) ────────────────────
 const chartBaseOptions = (yFmt) => ({
   responsive: true, maintainAspectRatio: false,
-  plugins: { legend: { labels: { color: '#8b949e', font: { size: 10 } } }, tooltip: { mode: 'index', intersect: false } },
+  plugins: { legend: { labels: { color: '#334155', font: { size: 10 } } }, tooltip: { mode: 'index', intersect: false } },
   scales: {
-    x: { ticks: { color: '#484f58', font: { size: 9 }, maxRotation: 45 }, grid: { color: '#21262d' } },
-    y: { ticks: { color: '#484f58', font: { size: 9 }, callback: yFmt }, grid: { color: '#21262d' }, beginAtZero: true },
+    x: { ticks: { color: '#64748B', font: { size: 9 }, maxRotation: 45 }, grid: { color: '#E4EAF7' } },
+    y: { ticks: { color: '#64748B', font: { size: 9 }, callback: yFmt }, grid: { color: '#E4EAF7' }, beginAtZero: true },
   },
 })
 
@@ -219,12 +218,12 @@ function ResultadosTab({ stats, period, allRows, prevRows, channel }) {
     }
     return {
       line: { labels: days, datasets: [
-        { label: 'Atual (R$)', data: spends, borderColor: '#e3b341', backgroundColor: '#e3b34122', tension: 0.35, fill: true, pointRadius: 2, pointHoverRadius: 5, order: 1 },
-        { label: 'Anterior (R$)', data: spendsPrev, borderColor: '#8b949e', backgroundColor: 'transparent', borderDash: [5, 4], tension: 0.35, fill: false, pointRadius: 0, pointHoverRadius: 4, borderWidth: 1.5, order: 2 },
+        { label: 'Atual (R$)', data: spends, borderColor: '#D97706', backgroundColor: 'rgba(217,119,6,0.12)', tension: 0.35, fill: true, pointRadius: 2, pointHoverRadius: 5, order: 1 },
+        { label: 'Anterior (R$)', data: spendsPrev, borderColor: '#94A3B8', backgroundColor: 'transparent', borderDash: [5, 4], tension: 0.35, fill: false, pointRadius: 0, pointHoverRadius: 4, borderWidth: 1.5, order: 2 },
       ] },
       bar: { labels: days, datasets: [
-        { label: 'Atual', data: convs, borderColor: '#58a6ff', backgroundColor: '#58a6ff22', tension: 0.35, fill: true, pointRadius: 2, pointHoverRadius: 5, order: 1 },
-        { label: 'Anterior', data: convsPrev, borderColor: '#8b949e', backgroundColor: 'transparent', borderDash: [5, 4], tension: 0.35, fill: false, pointRadius: 0, pointHoverRadius: 4, borderWidth: 1.5, order: 2 },
+        { label: 'Atual', data: convs, borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,0.12)', tension: 0.35, fill: true, pointRadius: 2, pointHoverRadius: 5, order: 1 },
+        { label: 'Anterior', data: convsPrev, borderColor: '#94A3B8', backgroundColor: 'transparent', borderDash: [5, 4], tension: 0.35, fill: false, pointRadius: 0, pointHoverRadius: 4, borderWidth: 1.5, order: 2 },
       ] },
     }
   }, [period, allRows, prevRows, channel, isMeta])
@@ -296,7 +295,7 @@ function CampaignsTab({ allRows, channel, stats, target, periodLabel, onPreview,
   return (
     <div className="cp-panel">
       {!shared && <InsightsCard ins={ins} periodLabel={periodLabel} cpl1={stats?.cpl1} />}
-      <div style={{ display: 'flex', borderBottom: '1px solid #21262d', margin: '0 -22px 18px', padding: '0 22px', background: '#161b22' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #D8E0F0', margin: '0 -22px 18px', padding: '0 22px', background: '#FFFFFF' }}>
         {tabs.map(([label, idx]) => <div key={idx} className={`dtab${sub === idx ? ' active' : ''}`} onClick={() => setSub(idx)}>{label}</div>)}
       </div>
       {panel}
@@ -304,9 +303,24 @@ function CampaignsTab({ allRows, channel, stats, target, periodLabel, onPreview,
   )
 }
 
-function AtividadesTab({ client, clientMapping, onOpenCuMap }) {
+// Fetch do proxy ClickUp que detecta quando /api NÃO está sendo servido — caso
+// típico de rodar `npm run dev` (Vite puro) em vez de `vercel dev`: o Vite
+// responde o HTML do SPA (fallback) em vez de JSON, e um JSON.parse falharia com
+// um erro críptico ("Unexpected token '<'"). Aqui trocamos por algo acionável.
+async function fetchClickupJson(url) {
+  const res = await fetch(url)
+  const text = await res.text()
+  let data
+  try { data = JSON.parse(text) } catch {
+    throw new Error('A API de atividades não está disponível neste ambiente. Rode o app com `vercel dev` (porta 3000) — `npm run dev` não serve as rotas /api.')
+  }
+  if (!res.ok) throw new Error(data?.error || `Erro HTTP ${res.status}`)
+  if (data.err) throw new Error(data.err)
+  return data
+}
+
+function AtividadesTab({ client, folderId, onOpenCuMap }) {
   const [state, setState] = useState({ loading: true, error: null, data: null })
-  const folderId = getClickupFolder(client, clientMapping)
 
   useEffect(() => {
     if (!folderId) { setState({ loading: false, error: null, data: null }); return }
@@ -314,17 +328,11 @@ function AtividadesTab({ client, clientMapping, onOpenCuMap }) {
     setState({ loading: true, error: null, data: null })
     ;(async () => {
       try {
-        const listsRes = await fetch(`/api/clickup-proxy?path=folder/${folderId}/list`)
-        if (!listsRes.ok) throw new Error('Erro ao buscar listas (' + listsRes.status + ')')
-        const listsData = await listsRes.json()
-        if (listsData.err) throw new Error(listsData.err)
+        const listsData = await fetchClickupJson(`/api/clickup-proxy?path=folder/${folderId}/list`)
         const lists = listsData.lists || []
         const geral = lists.find(l => l.name?.toLowerCase() === 'geral') || lists[0]
         if (!geral) { if (alive) setState({ loading: false, error: null, data: { noGeral: true, lists } }); return }
-        const tasksRes = await fetch(`/api/clickup-proxy?path=list/${geral.id}/task&subtasks=true&include_closed=true&page=0`)
-        if (!tasksRes.ok) throw new Error('Erro ao buscar tarefas (' + tasksRes.status + ')')
-        const tasksData = await tasksRes.json()
-        if (tasksData.err) throw new Error(tasksData.err)
+        const tasksData = await fetchClickupJson(`/api/clickup-proxy?path=list/${geral.id}/task&subtasks=true&include_closed=true&page=0`)
         if (alive) setState({ loading: false, error: null, data: { tasks: tasksData.tasks || [], geral } })
       } catch (err) {
         if (alive) setState({ loading: false, error: err.message, data: null })
@@ -337,7 +345,7 @@ function AtividadesTab({ client, clientMapping, onOpenCuMap }) {
     return (
       <div className="cp-panel"><div className="empty" style={{ padding: '32px 20px' }}>
         <div style={{ marginBottom: 14, fontSize: 14 }}>Nenhuma pasta ClickUp vinculada a este cliente.</div>
-        <div style={{ fontSize: 12, color: '#484f58', marginBottom: 16 }}>Tente vincular manualmente ou verifique se o nome está correto.</div>
+        <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 16 }}>Tente vincular manualmente ou verifique se o nome está correto.</div>
         <button className="cu-link-btn" onClick={() => onOpenCuMap(client)}>🔗 Vincular pasta ClickUp</button>
       </div></div>
     )
@@ -370,7 +378,7 @@ function AtividadesTab({ client, clientMapping, onOpenCuMap }) {
 
   const Task = ({ t }) => {
     const done = isClosed(t), due = t.due_date ? fmtDue(t.due_date) : null
-    const sc = t.status?.color || '#8b949e', sn = t.status?.status || ''
+    const sc = t.status?.color || '#94A3B8', sn = t.status?.status || ''
     return (
       <div className={`cu-task${done ? ' cu-task-done' : ''}`}>
         <span className="cu-check">{done ? '✅' : '⬜'}</span>
@@ -439,19 +447,19 @@ function ParametrosTab({ client, acName, onOpenMap }) {
 
   return (
     <div className="cp-panel">
-      <div style={{ marginBottom: 16, fontSize: 12, color: '#8b949e' }}>
-        Projeto vinculado: <b style={{ color: '#58a6ff' }}>{acName}</b>
+      <div style={{ marginBottom: 16, fontSize: 12, color: '#64748B' }}>
+        Projeto vinculado: <b style={{ color: '#2563EB' }}>{acName}</b>
         <button className="map-btn" style={{ marginLeft: 10 }} onClick={() => onOpenMap(client)}>✎ alterar</button>
       </div>
       <div className="param-grid">
         <div className="param-card"><div className="param-card-title">💰 Investimento</div>
-          <Row k="Verba de Mídia" v={fmtM(r.media_orcamento)} /><Row k="Custo de Gestão" v={fmtM(r.custo_marketing)} /><Row k="Total" v={fmtM(r.total_investimento)} color="#58a6ff" />
+          <Row k="Verba de Mídia" v={fmtM(r.media_orcamento)} /><Row k="Custo de Gestão" v={fmtM(r.custo_marketing)} /><Row k="Total" v={fmtM(r.total_investimento)} color="#2563EB" />
         </div>
         <div className="param-card"><div className="param-card-title">🎯 Funil Necessário</div>
           <Row k="Leads necessários" v={fmtN(r.leads_necessarios)} /><Row k="MQLs" v={fmtN(r.mqls_necessarios)} /><Row k="SQLs" v={fmtN(r.sqls_necessarios)} /><Row k="Vendas" v={fmtN(r.vendas_necessarias)} />
         </div>
         <div className="param-card"><div className="param-card-title">📊 Targets</div>
-          <Row k="CPL Alvo" v={fmtM(r.cpl_target)} color="#3fb950" /><Row k="CAC" v={fmtM(r.cac)} /><Row k="ROI Desejado" v={fmtP(r.roi_desejado)} /><Row k="Margem Bruta" v={fmtP(r.margem_bruta)} /><Row k="Ticket Médio" v={fmtM(r.ticket_medio)} />
+          <Row k="CPL Alvo" v={fmtM(r.cpl_target)} color="#059669" /><Row k="CAC" v={fmtM(r.cac)} /><Row k="ROI Desejado" v={fmtP(r.roi_desejado)} /><Row k="Margem Bruta" v={fmtP(r.margem_bruta)} /><Row k="Ticket Médio" v={fmtM(r.ticket_medio)} />
         </div>
         <div className="param-card"><div className="param-card-title">🔄 Taxas de Conversão</div>
           <Row k="Lead → MQL" v={fmtP(r.taxa_lead_mql)} /><Row k="MQL → SQL" v={fmtP(r.taxa_mql_sql)} /><Row k="SQL → Venda" v={fmtP(r.taxa_sql_venda)} /><Row k="Qtd. Compras/Cli." v={r.qtd_compras != null ? r.qtd_compras : '—'} />
@@ -463,7 +471,7 @@ function ParametrosTab({ client, acName, onOpenMap }) {
 
 export default function ClientPage({
   client, channel, raw, initialDays, initialPeriod,
-  squads, getTarget, clientMapping,
+  account,
   onClose, onPreview, onOpenWeekly, onShare, onOpenMap, onOpenCuMap, shared,
 }) {
   const [days, setDays] = useState(initialDays)
@@ -477,8 +485,9 @@ export default function ClientPage({
   const campRef = useRef(null)
 
   const channelRows = useMemo(() => raw[channel] || [], [raw, channel])
-  const target = getTarget(client)
-  const acName = target?.acName || clientMapping[client]?.acName || null
+  const target = account?.cplTarget ?? null
+  const acName = account?.acCompanyName ?? null
+  const folderId = account?.clickupFolderId ?? null
 
   // Recomputa o período quando preset/custom muda.
   const applyDays = (d) => {
@@ -535,7 +544,7 @@ export default function ClientPage({
   }
   const filteredCampList = campSearch ? availableCampaigns.filter(c => c.name.toLowerCase().includes(campSearch.toLowerCase())) : availableCampaigns
 
-  const sq = squads[client]
+  const sq = account?.squad
   const delta = (target && stats?.cpl1 != null) ? ((stats.cpl1 - target.value) / target.value * 100) : null
   const dCls = delta == null ? 'fl' : delta <= 0 ? 'up' : delta <= 30 ? 'warn' : 'dn'
 
@@ -546,7 +555,7 @@ export default function ClientPage({
         <div className="cp-client-name">{client}</div>
         <div className="cp-badges">
           <span className="cp-channel-badge">{channel === 'meta' ? '📱 Meta Ads' : '🔍 Google Ads'}</span>
-          {sq && <span className="cp-channel-badge" style={{ background: sq === 'Caça ROI' ? '#1f3858' : '#0d2118', borderColor: sq === 'Caça ROI' ? '#388bfd44' : '#3fb95044', color: sq === 'Caça ROI' ? '#58a6ff' : '#3fb950' }}>{sq === 'Caça ROI' ? '🎯' : '🔒'} {sq}</span>}
+          {sq && <span className="cp-channel-badge" style={{ background: sq === 'Caça ROI' ? 'rgba(22,68,150,0.10)' : 'rgba(5,150,105,0.10)', borderColor: sq === 'Caça ROI' ? 'rgba(22,68,150,0.30)' : 'rgba(5,150,105,0.30)', color: sq === 'Caça ROI' ? '#164496' : '#059669' }}>{sq === 'Caça ROI' ? '🎯' : '🔒'} {sq}</span>}
         </div>
         {!shared && <button className="cp-weekly-btn" onClick={() => onOpenWeekly(client, channel)} title="Gerar mensagem semanal">📋 Mensagem Semanal</button>}
         {!shared && <button className="cp-share-btn" onClick={() => onShare(client, channel)} title="Copiar link compartilhável">🔗 Link</button>}
@@ -616,7 +625,7 @@ export default function ClientPage({
         <>
           {tab === 'resultados' && <ResultadosTab stats={stats} period={period} allRows={allRows} prevRows={prevRows} channel={channel} />}
           {tab === 'campanhas' && <CampaignsTab allRows={allRows} channel={channel} stats={stats} target={target} periodLabel={period.label1} onPreview={onPreview} shared={shared} />}
-          {tab === 'atividades' && !shared && <AtividadesTab client={client} clientMapping={clientMapping} onOpenCuMap={onOpenCuMap} />}
+          {tab === 'atividades' && !shared && <AtividadesTab client={client} folderId={folderId} onOpenCuMap={onOpenCuMap} />}
           {tab === 'parametros' && !shared && <ParametrosTab client={client} acName={acName} onOpenMap={onOpenMap} />}
         </>
       )}

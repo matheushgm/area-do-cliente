@@ -18,12 +18,25 @@ const STATUS_GROUPS = [
   { key: 'MELHORA', icon: '🟢', hcls: 'gh-green', label: 'Melhora' },
 ]
 
-function SquadSelect({ name, value, setSquad, small }) {
-  const cls = value === 'Caça ROI' ? 'sq-caca' : value === 'Zero Churn' ? 'sq-zero' : ''
+// Squad da conta. Conta mapeada (com projeto) → badge read-only (herda do
+// projeto). Conta sem projeto → seletor editável (override em dashboard_accounts).
+function SquadCell({ name, squad, mapped, setSquad, small }) {
+  const cls = squad === 'Caça ROI' ? 'sq-caca' : squad === 'Zero Churn' ? 'sq-zero' : ''
+  if (mapped) {
+    return (
+      <span
+        className={`squad-derived${small ? ' squad-derived-sm' : ''}${cls ? ' ' + cls : ''}`}
+        title="Squad herdado do projeto vinculado — altere no perfil do cliente (Área do Cliente)"
+        onClick={e => e.stopPropagation()}
+      >
+        {squad === 'Caça ROI' ? '🎯 ' : squad === 'Zero Churn' ? '🔒 ' : ''}{squad || '—'}
+      </span>
+    )
+  }
   return (
     <select
       className={`${small ? 'squad-sel-sm' : 'squad-sel'}${cls ? ' ' + cls : ''}`}
-      value={value || ''}
+      value={squad || ''}
       onClick={e => e.stopPropagation()}
       onChange={e => setSquad(name, e.target.value)}
     >
@@ -34,7 +47,7 @@ function SquadSelect({ name, value, setSquad, small }) {
   )
 }
 
-export default function ChannelSection({ rows, cfg, period, prefix, stats, squads, setSquad, getTarget, onOpenClient, onOpenMap }) {
+export default function ChannelSection({ rows, cfg, period, prefix, stats, accounts, setSquad, getTarget, onOpenClient, onOpenMap }) {
   const isMeta = prefix === 'meta'
 
   // Linhas cruas dentro do período atual (para resumo + flags).
@@ -148,7 +161,7 @@ export default function ChannelSection({ rows, cfg, period, prefix, stats, squad
                   <tr key={s.name}>
                     <td><span className="client-link" onClick={() => onOpenClient(s.name, prefix)}>{s.name}</span><LowBadge name={s.name} /></td>
                     <td><span className={`pill ${pillCls(s.status)}`}>{pillIco(s.status)} {s.status}</span></td>
-                    <td><SquadSelect name={s.name} value={squads[s.name]} setSquad={setSquad} /></td>
+                    <td><SquadCell name={s.name} squad={accounts[s.name]?.squad} mapped={!!accounts[s.name]?.projectId} setSquad={setSquad} /></td>
                     <td>{fmtNum(s.conv1)}</td><td>{fmtNum(s.conv2)}</td>
                     <td className={varCls(s.varConv, false)}>{fmtPct(s.varConv)}</td>
                     <td className={cplActualCls(s.cpl1, target)}>{fmtMoney(s.cpl1)}</td>
@@ -176,7 +189,7 @@ export default function ChannelSection({ rows, cfg, period, prefix, stats, squad
                     <span className={`pill ${pillCls(s.status)}`} style={{ flexShrink: 0 }}>{pillIco(s.status)}</span>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div className="mcl-name">{s.name}<LowBadge name={s.name} /></div>
-                      <SquadSelect name={s.name} value={squads[s.name]} setSquad={setSquad} small />
+                      <SquadCell name={s.name} squad={accounts[s.name]?.squad} mapped={!!accounts[s.name]?.projectId} setSquad={setSquad} small />
                     </div>
                   </div>
                   <div className="mcl-right">

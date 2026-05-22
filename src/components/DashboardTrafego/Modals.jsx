@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { fmtMoney, CU_FOLDERS, getClickupFolder } from '../../lib/dashboardData'
+import { fmtMoney } from '../../lib/dashboardData'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Modais do dashboard: preview de anúncio, vínculo com a Área do Cliente,
-// vínculo de pasta ClickUp e mensagem semanal. Todos usam os estilos escopados
-// em dashboard.css. Fecham ao clicar no overlay ou no ✕.
+// Modais do dashboard: preview de anúncio, vínculo com PROJETO da Área do
+// Cliente, override de pasta ClickUp e mensagem semanal. Todos usam os estilos
+// escopados em dashboard.css. Fecham ao clicar no overlay ou no ✕.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── Preview de anúncio (imagem / vídeo / link) ──────────────────────────────
@@ -20,7 +20,7 @@ export function PreviewModal({ url, name, onClose }) {
         </div>
         <div className="preview-body">
           {isImage && <img className="preview-img" src={url} alt={name} onError={e => { e.currentTarget.style.display = 'none' }} />}
-          {isVideo && <video src={url} controls style={{ width: '100%', borderRadius: 8, border: '1px solid #30363d', maxHeight: 400 }} />}
+          {isVideo && <video src={url} controls style={{ width: '100%', borderRadius: 8, border: '1px solid #D8E0F0', maxHeight: 400 }} />}
           {!isImage && !isVideo && <div className="preview-info">💡 Prévia não disponível para este tipo de link — clique abaixo para abrir.</div>}
           <div className="preview-url">{url}</div>
           <a href={url} target="_blank" rel="noopener noreferrer" className="preview-open-btn">🔗 Abrir Anúncio</a>
@@ -30,10 +30,12 @@ export function PreviewModal({ url, name, onClose }) {
   )
 }
 
-// ─── Vínculo Dashboard → empresa da Área do Cliente ───────────────────────────
-export function MappingModal({ dashName, acCompanyList, cplTargets, currentAcName, onSave, onRemove, onClose }) {
-  const [selected, setSelected] = useState(currentAcName || '')
-  const cpl = selected ? cplTargets[selected] : null
+// ─── Vínculo Conta → Projeto da Área do Cliente ───────────────────────────────
+// Ao vincular um projeto, squad/ClickUp/CPL passam a derivar dele.
+export function MappingModal({ dashName, projectsList, cplTargets, currentProjectId, onSave, onClose }) {
+  const [selected, setSelected] = useState(currentProjectId || '')
+  const project = projectsList.find(p => p.id === selected)
+  const cpl = project ? cplTargets[project.company_name] : null
 
   return (
     <div className="map-overlay" onClick={onClose}>
@@ -44,32 +46,35 @@ export function MappingModal({ dashName, acCompanyList, cplTargets, currentAcNam
         </div>
         <div className="map-body">
           <div className="map-field">
-            <label>Cliente no Dashboard</label>
+            <label>Conta no Dashboard</label>
             <div className="map-val">{dashName}</div>
           </div>
           <div className="map-field">
-            <label>Empresa na Área do Cliente</label>
+            <label>Projeto na Área do Cliente</label>
             <select className="map-select" value={selected} onChange={e => setSelected(e.target.value)}>
               <option value="">— sem vínculo —</option>
-              {acCompanyList.map(n => (
-                <option key={n} value={n}>{n}{cplTargets[n] != null ? ` (CPL: ${fmtMoney(cplTargets[n])})` : ''}</option>
+              {projectsList.map(p => (
+                <option key={p.id} value={p.id}>{p.company_name}{p.squad_name ? ` · ${p.squad_name}` : ''}</option>
               ))}
             </select>
             <div className="map-cpl-preview">
-              {selected && (cpl != null
-                ? <>CPL alvo vinculado: <b>{fmtMoney(cpl)}</b></>
-                : <span style={{ color: '#e3b341' }}>⚠️ Esse projeto não tem CPL calculado na Área do Cliente.</span>)}
+              {project && (
+                <>
+                  Squad: <b>{project.squad_name || '—'}</b>
+                  {cpl != null ? <> · CPL alvo: <b>{fmtMoney(cpl)}</b></> : <span style={{ color: '#B45309' }}> · sem CPL calculado</span>}
+                </>
+              )}
             </div>
           </div>
         </div>
         <div className="map-footer">
-          {currentAcName && (
-            <button className="btn" style={{ background: '#2d1515', borderColor: '#f8514444', color: '#f85149' }} onClick={() => { onRemove(dashName); onClose() }}>
+          {currentProjectId && (
+            <button className="btn" style={{ background: 'rgba(220,38,38,0.08)', borderColor: 'rgba(220,38,38,0.30)', color: '#DC2626' }} onClick={() => { onSave(dashName, null); onClose() }}>
               Remover vínculo
             </button>
           )}
           <button className="btn" onClick={onClose}>Cancelar</button>
-          <button className="btn" style={{ background: '#1f3858', borderColor: '#388bfd55', color: '#58a6ff' }} onClick={() => { onSave(dashName, selected); onClose() }}>
+          <button className="btn" style={{ background: '#164496', borderColor: '#164496', color: '#fff' }} onClick={() => { onSave(dashName, selected || null); onClose() }}>
             Salvar
           </button>
         </div>
@@ -78,34 +83,40 @@ export function MappingModal({ dashName, acCompanyList, cplTargets, currentAcNam
   )
 }
 
-// ─── Vínculo de pasta ClickUp ─────────────────────────────────────────────────
+// ─── Override de pasta ClickUp (ID manual) ────────────────────────────────────
+// Normalmente a pasta vem do projeto vinculado; este override cobre contas sem
+// projeto ou casos em que a pasta do projeto está incorreta.
 export function ClickupMapModal({ dashName, currentFolderId, onSave, onClose }) {
-  const initial = currentFolderId || getClickupFolder(dashName, {}) || ''
-  const [folderId, setFolderId] = useState(initial)
+  const [folderId, setFolderId] = useState(currentFolderId || '')
 
   return (
     <div className="cu-map-overlay" onClick={onClose}>
       <div className="cu-map-modal" onClick={e => e.stopPropagation()}>
         <div className="map-head">
-          <h3>🔗 Vincular Pasta ClickUp</h3>
+          <h3>🔗 Pasta ClickUp (override)</h3>
           <button className="drawer-close" onClick={onClose}>✕</button>
         </div>
         <div className="map-body">
           <div className="map-field">
-            <label>Cliente no Dashboard</label>
+            <label>Conta no Dashboard</label>
             <div className="map-val">{dashName}</div>
           </div>
           <div className="map-field">
-            <label>Pasta no ClickUp (espaço Clientes)</label>
-            <select className="map-select" value={folderId} onChange={e => setFolderId(e.target.value)}>
-              <option value="">— sem vínculo —</option>
-              {CU_FOLDERS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </select>
+            <label>ID da pasta no ClickUp</label>
+            <input
+              className="map-select"
+              value={folderId}
+              onChange={e => setFolderId(e.target.value.trim())}
+              placeholder="ex: 901318063989"
+            />
+            <div className="map-cpl-preview">
+              Deixe vazio para usar a pasta do projeto vinculado. O ID fica no fim da URL da pasta no ClickUp.
+            </div>
           </div>
         </div>
         <div className="map-footer">
           <button className="btn" onClick={onClose}>Cancelar</button>
-          <button className="btn" style={{ background: '#1f3858', borderColor: '#388bfd55', color: '#58a6ff' }} onClick={() => { onSave(dashName, folderId || null); onClose() }}>
+          <button className="btn" style={{ background: '#164496', borderColor: '#164496', color: '#fff' }} onClick={() => { onSave(dashName, folderId || null); onClose() }}>
             Salvar
           </button>
         </div>
@@ -136,14 +147,14 @@ export function WeeklyMessageModal({ client, periodLabel, initialText, onClose, 
           <button className="drawer-close" onClick={onClose}>✕</button>
         </div>
         <div className="map-body">
-          <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: '#64748B', marginBottom: 10 }}>
             Edite à vontade antes de copiar. Período usado: <b>{periodLabel}</b>
           </div>
           <textarea className="weekly-msg-text" spellCheck={false} value={text} onChange={e => setText(e.target.value)} />
         </div>
         <div className="map-footer">
           <button className="btn" onClick={onClose}>Fechar</button>
-          <button className="btn" style={{ background: '#0d2118', borderColor: '#3fb95066', color: '#3fb950' }} onClick={copy}>
+          <button className="btn" style={{ background: '#059669', borderColor: '#059669', color: '#fff' }} onClick={copy}>
             📋 Copiar
           </button>
         </div>
