@@ -5,7 +5,7 @@
 export const ETAPAS = [
   { id: 'abertura',           num: 1, label: 'Abertura',                 emoji: '🎬', built: true },
   { id: 'historia',           num: 2, label: 'História',                 emoji: '📖', built: true },
-  { id: 'conteudo',           num: 3, label: 'Conteúdo',                 emoji: '🎓', built: false },
+  { id: 'conteudo',           num: 3, label: 'Conteúdo',                 emoji: '🎓', built: true },
   { id: 'oferta_agendamento', num: 4, label: 'Oferta para Agendamento',  emoji: '📅', built: false },
   { id: 'oferta_direta',      num: 4, label: 'Oferta direta ao produto', emoji: '🛒', built: false },
 ]
@@ -301,6 +301,227 @@ export const HISTORIA_3B_BLOCOS = [
       { id: 'b7_info', type: 'info', label: 'Sua frase final', text: '"E é isso que eu vou mostrar para você agora. Estou muito feliz de ter você aqui porque vou te ajudar a alcançar esse resultado também!"' },
     ],
   },
+]
+
+// ─── ETAPA 3: Conteúdo ────────────────────────────────────────────────────────
+export const CONTEUDO_NIVEIS = [
+  { nivel: 1, label: 'Fraco',     tone: 'red',   text: '"Confie em mim, eu posso te ajudar" — apenas sua palavra dizendo que é bom.' },
+  { nivel: 2, label: 'Médio',     tone: 'gold',  text: 'Depoimentos e recomendações — outras pessoas dizendo que você ajuda.' },
+  { nivel: 3, label: 'Forte ⭐',  tone: 'green', text: 'Demonstrar ajudando DE FATO — você PROVA que pode ajudar AJUDANDO agora. Seu conteúdo precisa estar AQUI!' },
+]
+
+export const CONTEUDO_REGRAS = {
+  fazer: [
+    'Conteúdo PRÁTICO que dá resultado',
+    'A pessoa precisa se VER fazendo isso',
+    'Criar NECESSIDADE que o produto vai suprir',
+    'Ensinar O QUÊ fazer (estratégia)',
+    'Deixar LOOPS ABERTOS para o produto',
+    'Mostrar POTENCIAL de transformação',
+  ],
+  naoFazer: [
+    'Detalhes técnicos que cansam',
+    'Teorias abstratas sem aplicação',
+    'Ensinar COMO fazer em detalhes',
+    'Conteúdo muito avançado/básico',
+    'Fechar todos os loops',
+  ],
+}
+
+// Etapa 1 — extrai do Avatar Blueprint
+export const CONTEUDO_ETAPA1 = [
+  {
+    id: 'c1a', title: 'ETAPA 1: Problemas do avatar', subtitle: 'Volte ao Avatar Blueprint — os 3-5 maiores problemas',
+    fields: [
+      { id: 'c_prob1', type: 'area', label: 'Problema 1' },
+      { id: 'c_prob2', type: 'area', label: 'Problema 2' },
+      { id: 'c_prob3', type: 'area', label: 'Problema 3' },
+      { id: 'c_prob4', type: 'area', label: 'Problema 4 (opcional)' },
+      { id: 'c_prob5', type: 'area', label: 'Problema 5 (opcional)' },
+    ],
+  },
+  {
+    id: 'c1b', title: 'ETAPA 1: Soluções/técnicas', subtitle: 'O que você tem pra cada problema (coluna direita do Blueprint)',
+    fields: [
+      { id: 'c_sol1', type: 'area', label: 'Solução para Problema 1' },
+      { id: 'c_sol2', type: 'area', label: 'Solução para Problema 2' },
+      { id: 'c_sol3', type: 'area', label: 'Solução para Problema 3' },
+      { id: 'c_sol4', type: 'area', label: 'Solução para Problema 4' },
+      { id: 'c_sol5', type: 'area', label: 'Solução para Problema 5' },
+    ],
+  },
+]
+
+// Etapa 2 — tema da aula (A/B/C)
+export const CONTEUDO_TEMAS = [
+  {
+    id: 'A', label: 'Os X Pilares/Princípios', desc: 'Divide o método em partes fundamentais.',
+    fields: [
+      { id: 'tA_qtd',    type: 'text', label: '2A.1 Quantos pilares/princípios principais tem seu método?', example: 'Os 3 pilares da fluência em inglês' },
+      { id: 'tA_pilar1', type: 'text', label: 'Pilar 1' },
+      { id: 'tA_pilar2', type: 'text', label: 'Pilar 2' },
+      { id: 'tA_pilar3', type: 'text', label: 'Pilar 3' },
+      { id: 'tA_pilar4', type: 'text', label: 'Pilar 4 (opcional)' },
+      { id: 'tA_pilar5', type: 'text', label: 'Pilar 5 (opcional)' },
+    ],
+  },
+  {
+    id: 'B', label: 'Como Alcançar [Resultado] Fazendo [Método Único]', desc: 'Foca num método diferenciado.',
+    fields: [
+      { id: 'tB_resultado', type: 'area', label: '2B.1 Qual resultado específico você vai ensinar a alcançar?', example: 'Como aumentar seu vocabulário em inglês' },
+      { id: 'tB_metodo',    type: 'area', label: '2B.2 Qual é o método/forma DIFERENTE de fazer isso?', example: '...assistindo séries da Netflix' },
+    ],
+  },
+  {
+    id: 'C', label: 'Os X Segredos/Estratégias Para [Resultado]', desc: 'Revela "segredos" práticos.',
+    fields: [
+      { id: 'tC_qtd',  type: 'text', label: '2C.1 Quantos segredos/estratégias você vai revelar? (3-5 ideal)' },
+      { id: 'tC_seg1', type: 'text', label: 'Segredo 1' },
+      { id: 'tC_seg2', type: 'text', label: 'Segredo 2' },
+      { id: 'tC_seg3', type: 'text', label: 'Segredo 3' },
+      { id: 'tC_seg4', type: 'text', label: 'Segredo 4 (opcional)' },
+      { id: 'tC_seg5', type: 'text', label: 'Segredo 5 (opcional)' },
+    ],
+  },
+]
+
+// Etapa 3 — validação (guia)
+export const CONTEUDO_VALIDACAO = [
+  'É PRÁTICO? A pessoa consegue aplicar isso? (se não, reformule)',
+  'Faz SENTIDO para o nível do avatar? Ele consegue acompanhar? (se não, simplifique)',
+  'Ele consegue se VER fazendo isso? (se não, torne mais tangível)',
+  'É conteúdo técnico demais que vai CANSAR? (se sim, remova detalhes)',
+]
+
+// Etapa 4 — O QUÊ vs COMO
+export const CONTEUDO_ETAPA4 = [
+  {
+    id: 'c4a', title: 'ETAPA 4: No webinar → ensine O QUÊ fazer', subtitle: 'A técnica mais poderosa pra criar necessidade do produto',
+    fields: [
+      { id: 'c_oque',        type: 'area', label: '4.1 O QUE seu avatar precisa fazer para resolver o problema?', example: 'Você precisa construir um funil de webinar perpétuo' },
+      { id: 'c_componentes', type: 'area', label: '4.2 QUAIS são os componentes/etapas principais? (conceito, não execução)', example: 'O funil tem 3 partes: captura, webinar automatizado, sequência de vendas' },
+      { id: 'c_porque',      type: 'area', label: '4.3 POR QUE isso funciona? (lógica/estratégia)', example: 'Funciona porque combina escassez do lançamento com automação do evergreen' },
+    ],
+  },
+  {
+    id: 'c4b', title: 'No produto → ensine COMO fazer', subtitle: 'Detalhes técnicos que NÃO entram no webinar (ficam pro produto)',
+    fields: [
+      { id: 'c_tec1', type: 'text', label: 'Detalhe técnico 1', example: 'Como configurar a ferramenta de email marketing' },
+      { id: 'c_tec2', type: 'text', label: 'Detalhe técnico 2', example: 'Como criar a landing page código por código' },
+      { id: 'c_tec3', type: 'text', label: 'Detalhe técnico 3', example: 'Configurações do gateway de pagamento' },
+      { id: 'c_tec4', type: 'text', label: 'Detalhe técnico 4 (opcional)' },
+    ],
+  },
+]
+
+// Etapa 5 — loops abertos
+export const CONTEUDO_ETAPA5 = [
+  {
+    id: 'c5', title: 'ETAPA 5: Criando Loops Abertos', subtitle: 'Coisas que você menciona mas não resolve totalmente',
+    fields: [
+      { id: 'c_loop1', type: 'area', label: 'Loop Aberto 1', example: 'Tem muito mais detalhes sobre estruturar o copy perfeito, mas não dá pra ver agora...' },
+      { id: 'c_loop2', type: 'area', label: 'Loop Aberto 2' },
+      { id: 'c_loop3', type: 'area', label: 'Loop Aberto 3' },
+      { id: 'c_loop4', type: 'area', label: 'Loop Aberto 4 (opcional)' },
+      {
+        id: 'c_loop_frases', type: 'checks',
+        label: '5.2 Como você vai EVIDENCIAR que tem mais conteúdo? (marque as frases que vai usar)',
+        options: [
+          'Tem muito mais para falar sobre isso, mas vamos passar pro próximo...',
+          'Isso aqui é só uma pincelada, o método completo tem mais X passos...',
+          'Daqui a pouco eu explico melhor isso no [seu produto]...',
+          'Esse é só o conceito básico, a execução completa envolve mais detalhes...',
+        ],
+      },
+    ],
+  },
+]
+
+// Etapa 6 — potencial de transformação
+export const CONTEUDO_ETAPA6 = [
+  {
+    id: 'c6', title: 'ETAPA 6: Potencial de Transformação', subtitle: 'Em cada ponto, mostre o impacto na vida dele',
+    fields: [
+      { id: 'c_topico6',  type: 'text', label: 'Tópico principal' },
+      { id: 'c_muda',     type: 'area', label: '6.1 O que isso VAI MUDAR na vida dele?', example: 'Quando você fizer isso, vai conseguir subir na carreira...' },
+      { id: 'c_resolve6', type: 'area', label: '6.2 Que PROBLEMA isso resolve especificamente?', example: 'Isso vai acabar com aquela vergonha de falar errado em reuniões...' },
+      { id: 'c_beneficio', type: 'area', label: '6.3 Que BENEFÍCIO EXTRA isso traz?', example: 'Além disso, você vai impressionar os colegas...' },
+    ],
+  },
+]
+
+// Etapa 7 — roteiro (condicional ao tema)
+export const CONTEUDO_ROTEIRO_ABERTURA = {
+  id: 'c_rot_abertura', type: 'area',
+  label: 'Abertura do conteúdo', example: 'Agora vou te mostrar [O QUE você prometeu na abertura]...',
+}
+export const CONTEUDO_ROTEIRO_PILARES = [1, 2, 3].map((n) => ({
+  id: `cpA${n}`, title: `Pilar ${n}`,
+  fields: [
+    { id: `cpA${n}_nome`,   type: 'text', label: 'Nome do pilar' },
+    { id: `cpA${n}_oque`,   type: 'area', label: 'O que é' },
+    { id: `cpA${n}_func`,   type: 'area', label: 'Como funciona (conceito)' },
+    { id: `cpA${n}_imp`,    type: 'area', label: 'Por que é importante' },
+    { id: `cpA${n}_transf`, type: 'area', label: 'Transformação que gera' },
+  ],
+}))
+export const CONTEUDO_ROTEIRO_PONTOS = [1, 2, 3].map((n) => ({
+  id: `cpt${n}`, title: `Ponto ${n}`,
+  fields: [
+    { id: `cpt${n}_nome`,   type: 'text', label: 'Nome do ponto' },
+    { id: `cpt${n}_concep`, type: 'area', label: 'Explicação do conceito' },
+    { id: `cpt${n}_func`,   type: 'area', label: 'Por que funciona' },
+    { id: `cpt${n}_muda`,   type: 'area', label: 'O que muda na vida dele' },
+    { id: `cpt${n}_loop`,   type: 'area', label: 'Loop aberto' },
+  ],
+}))
+
+// Etapa 8 — tipos de slides (guia)
+export const CONTEUDO_SLIDES = [
+  { tipo: 'Tipo 1: Conceito/Estratégia', bom: '"O funil tem 3 etapas: captura → webinar → vendas"', ruim: '"Agora vou abrir a ferramenta e criar o formulário..."' },
+  { tipo: 'Tipo 2: Lista de Passos/Elementos', bom: '"Os 3 pilares da conversão: copywriting, design, escassez"', ruim: '"Agora vou escrever cada palavra do copy com vocês..."' },
+  { tipo: 'Tipo 3: Comparação/Diferenciação', bom: '"Método tradicional: gramática. Meu método: conversação prática"', ruim: '"Vamos fazer 50 exercícios de gramática agora..."' },
+]
+
+// Etapa 9 — criando necessidade
+export const CONTEUDO_ETAPA9 = [
+  {
+    id: 'c9', title: 'ETAPA 9: Criando a Necessidade do Produto', subtitle: 'Resolve um problema e cria um novo — que o produto resolve',
+    fields: [
+      { id: 'c_resolve_prob', type: 'area', label: '9.1 Qual problema você RESOLVE no conteúdo?', example: 'Agora você sabe O QUÊ fazer: construir esse funil' },
+      { id: 'c_cria_prob',    type: 'area', label: '9.1 Qual novo problema você CRIA? (que o produto resolve)', example: 'Mas COMO configurar tudo isso tecnicamente? Como criar os emails perfeitos?' },
+      {
+        id: 'c_need_frases', type: 'checks',
+        label: '9.3 Frases para criar necessidade (marque as que vai usar)',
+        options: [
+          'Você viu o método. Agora precisa da execução completa...',
+          'Isso funciona, mas tem detalhes técnicos que precisam estar perfeitos...',
+          'O conceito você entendeu. Mas e na prática, como fazer exatamente?',
+          'Mostrei o mapa. Quem quiser o GPS completo passo a passo...',
+        ],
+      },
+    ],
+  },
+]
+
+// Etapa 10 — transição para oferta
+export const CONTEUDO_TRANSICOES = [
+  { id: '1', titulo: 'Opção 1: Problema → Solução', texto: '"Você viu o método completo. Mas sei que você deve estar se perguntando: Como eu faço isso tudo na prática? É exatamente isso que eu vou te mostrar agora..."' },
+  { id: '2', titulo: 'Opção 2: Valor → Mais Valor', texto: '"Isso que você viu já é muito poderoso. Mas imagine se você tivesse acesso ao método COMPLETO, com todos os detalhes técnicos. É isso que eu preparei..."' },
+  { id: '3', titulo: 'Opção 3: Recapitulação → Oportunidade', texto: '"Então recapitulando: você viu [X, Y, Z]. Agora quero te fazer um convite especial para quem está aqui ao vivo..."' },
+]
+
+export const CONTEUDO_CHECKLIST = [
+  'Conteúdo é PRÁTICO (não teórico)',
+  'Avatar consegue se VER fazendo',
+  'Ensina O QUÊ fazer (não COMO em detalhes)',
+  'NÃO entrei em detalhes técnicos demais',
+  'Criei NECESSIDADE que o produto resolve',
+  'Deixei LOOPS ABERTOS evidentes',
+  'Mostrei POTENCIAL de transformação em cada ponto',
+  'Tenho transição clara para a oferta',
+  'Conteúdo dura 15-25 minutos (não mais)',
+  'O cara vai sair pensando: "Preciso de mais!"',
 ]
 
 export function blankWebinar(nome = 'Novo webinar') {

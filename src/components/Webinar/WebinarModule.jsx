@@ -10,6 +10,10 @@ import {
   ETAPAS, ABERTURA_BLOCOS, blankWebinar, aberturaProgress,
   HISTORIA_REGRAS, HISTORIA_TIPOS, HISTORIA_TRANSICOES,
   HISTORIA_3A_BLOCOS, HISTORIA_3B_BLOCOS,
+  CONTEUDO_NIVEIS, CONTEUDO_REGRAS, CONTEUDO_ETAPA1, CONTEUDO_TEMAS,
+  CONTEUDO_VALIDACAO, CONTEUDO_ETAPA4, CONTEUDO_ETAPA5, CONTEUDO_ETAPA6,
+  CONTEUDO_ROTEIRO_ABERTURA, CONTEUDO_ROTEIRO_PILARES, CONTEUDO_ROTEIRO_PONTOS,
+  CONTEUDO_SLIDES, CONTEUDO_ETAPA9, CONTEUDO_TRANSICOES, CONTEUDO_CHECKLIST,
 } from './webinarData'
 import { Check, X } from 'lucide-react'
 
@@ -119,6 +123,9 @@ export default function WebinarModule({ project }) {
         )}
         {activeEtapa === 'historia' && (
           <HistoriaForm data={etapaData} onChange={(field, val) => updateField('historia', field, val)} />
+        )}
+        {activeEtapa === 'conteudo' && (
+          <ConteudoForm data={etapaData} onChange={(field, val) => updateField('conteudo', field, val)} />
         )}
         {!etapaMeta.built && (
           <div className="glass-card p-10 text-center">
@@ -402,6 +409,214 @@ function SectionDivider({ label }) {
   )
 }
 
+// Card de regras "✓ fazer / ✗ não fazer" — compartilhado
+function RulesCard({ titulo, descricao, fazer, naoFazer }) {
+  return (
+    <div className="glass-card p-5">
+      <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-1">{titulo}</h3>
+      {descricao && <p className="text-xs text-rl-muted mb-3">{descricao}</p>}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="rounded-xl bg-rl-green/5 border border-rl-green/30 p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-rl-green mb-2">✓ O que fazer</p>
+          <ul className="space-y-1">
+            {fazer.map((r, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-[11px] text-rl-subtle">
+                <Check className="w-3 h-3 text-rl-green mt-0.5 shrink-0" /> {r}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="rounded-xl bg-red-400/5 border border-red-400/30 p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-2">✗ O que NÃO fazer</p>
+          <ul className="space-y-1">
+            {naoFazer.map((r, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-[11px] text-rl-subtle">
+                <X className="w-3 h-3 text-red-400 mt-0.5 shrink-0" /> {r}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Form do Conteúdo ─────────────────────────────────────────────────────────
+function ConteudoForm({ data, onChange }) {
+  const tema = data.tema || ''
+  const temaMeta = CONTEUDO_TEMAS.find((t) => t.id === tema) || null
+  const transAtiva = data.transicao_oferta || ''
+
+  return (
+    <div className="space-y-4">
+      {/* 3 níveis de convencimento */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-1">Os 3 níveis de convencimento</h3>
+        <p className="text-xs text-rl-muted mb-3">Seu conteúdo precisa estar no NÍVEL 3.</p>
+        <div className="space-y-2">
+          {CONTEUDO_NIVEIS.map((n) => {
+            const cls = n.tone === 'green'
+              ? { box: 'bg-rl-green/5 border-rl-green/30', txt: 'text-rl-green' }
+              : n.tone === 'gold'
+                ? { box: 'bg-rl-gold/5 border-rl-gold/30', txt: 'text-rl-gold' }
+                : { box: 'bg-red-400/5 border-red-400/30', txt: 'text-red-400' }
+            return (
+              <div key={n.nivel} className={`rounded-xl border p-3 ${cls.box}`}>
+                <p className={`text-xs font-bold ${cls.txt}`}>Nível {n.nivel} — {n.label}</p>
+                <p className="text-[11px] text-rl-subtle mt-0.5">{n.text}</p>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Regras de ouro */}
+      <RulesCard
+        titulo="Regras de ouro do conteúdo"
+        fazer={CONTEUDO_REGRAS.fazer}
+        naoFazer={CONTEUDO_REGRAS.naoFazer}
+      />
+
+      {/* Etapa 1 */}
+      <BlocoList blocos={CONTEUDO_ETAPA1} data={data} onChange={onChange} />
+
+      {/* Etapa 2: tema */}
+      <div className="glass-card p-5 space-y-3">
+        <div>
+          <h3 className="text-sm font-black text-rl-text uppercase tracking-wide">ETAPA 2: Tema da aula</h3>
+          <p className="text-xs text-rl-muted mt-0.5">Escolha a estrutura — libera os campos certos abaixo.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {CONTEUDO_TEMAS.map((t) => {
+            const active = tema === t.id
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => onChange('tema', t.id)}
+                className={`text-left rounded-xl border-2 p-3 transition-all ${
+                  active ? 'bg-rl-purple/10 border-rl-purple/60 shadow-glow' : 'bg-rl-surface border-rl-border hover:border-rl-purple/30'
+                }`}
+              >
+                <span className="text-[10px] font-black uppercase tracking-wider text-rl-purple">Opção {t.id}</span>
+                <p className={`text-xs font-bold mt-0.5 ${active ? 'text-rl-purple' : 'text-rl-text'}`}>{t.label}</p>
+                <p className="text-[10px] text-rl-muted mt-1">{t.desc}</p>
+              </button>
+            )
+          })}
+        </div>
+        {temaMeta && (
+          <div className="space-y-3 pt-1">
+            {temaMeta.fields.map((f) => (
+              <FieldRenderer key={f.id} field={f} data={data} onChange={onChange} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Etapa 3: validação (guia) */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-2">ETAPA 3: Validando o conteúdo</h3>
+        <p className="text-xs text-rl-muted mb-3">Pra cada tópico que você vai ensinar, confira:</p>
+        <ul className="space-y-1.5">
+          {CONTEUDO_VALIDACAO.map((v, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs text-rl-subtle">
+              <span className="text-rl-purple font-bold shrink-0">{i + 1}.</span> {v}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Etapa 4 */}
+      <BlocoList blocos={CONTEUDO_ETAPA4} data={data} onChange={onChange} />
+
+      {/* Etapa 5 */}
+      <BlocoList blocos={CONTEUDO_ETAPA5} data={data} onChange={onChange} />
+
+      {/* Etapa 6 */}
+      <BlocoList blocos={CONTEUDO_ETAPA6} data={data} onChange={onChange} />
+
+      {/* Etapa 7: roteiro condicional */}
+      <SectionDivider label="ETAPA 7: Roteiro do conteúdo" />
+      <div className="glass-card p-5 space-y-3">
+        <FieldRenderer field={CONTEUDO_ROTEIRO_ABERTURA} data={data} onChange={onChange} />
+      </div>
+      {tema === 'A' && <BlocoList blocos={CONTEUDO_ROTEIRO_PILARES} data={data} onChange={onChange} />}
+      {(tema === 'B' || tema === 'C') && <BlocoList blocos={CONTEUDO_ROTEIRO_PONTOS} data={data} onChange={onChange} />}
+      {!tema && (
+        <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 p-4 text-center">
+          <p className="text-xs text-rl-muted">Escolha o <strong>tema da aula</strong> (Etapa 2) pra liberar a estrutura do roteiro.</p>
+        </div>
+      )}
+
+      {/* Etapa 8: tipos de slides (guia) */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-3">ETAPA 8: Tipos de slides</h3>
+        <div className="space-y-2">
+          {CONTEUDO_SLIDES.map((s, i) => (
+            <div key={i} className="rounded-xl border border-rl-border p-3">
+              <p className="text-xs font-bold text-rl-text mb-1.5">{s.tipo}</p>
+              <p className="text-[11px] text-rl-green">✅ {s.bom}</p>
+              <p className="text-[11px] text-red-400 mt-0.5">❌ {s.ruim}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Etapa 9 */}
+      <BlocoList blocos={CONTEUDO_ETAPA9} data={data} onChange={onChange} />
+
+      {/* Etapa 10: transição para oferta */}
+      <div className="glass-card p-5 space-y-3">
+        <div>
+          <h3 className="text-sm font-black text-rl-text uppercase tracking-wide">ETAPA 10: Transição para oferta</h3>
+          <p className="text-xs text-rl-muted mt-0.5">Escolha um modelo e adapte abaixo.</p>
+        </div>
+        <div className="space-y-2">
+          {CONTEUDO_TRANSICOES.map((t) => {
+            const active = transAtiva === t.id
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => onChange('transicao_oferta', active ? '' : t.id)}
+                className={`w-full text-left rounded-xl border p-3 transition-all ${
+                  active ? 'bg-rl-purple/10 border-rl-purple/50' : 'bg-rl-surface border-rl-border hover:border-rl-purple/30'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${active ? 'border-rl-purple bg-rl-purple' : 'border-rl-border'}`}>
+                    {active && <Check className="w-2.5 h-2.5 text-white" />}
+                  </span>
+                  <span className="text-xs font-bold text-rl-text">{t.titulo}</span>
+                </div>
+                <p className="text-[11px] text-rl-subtle italic pl-6">{t.texto}</p>
+              </button>
+            )
+          })}
+        </div>
+        <FieldRenderer
+          field={{ id: 'c_transicao_final', type: 'area', label: 'Sua transição (adapte o modelo escolhido)' }}
+          data={data}
+          onChange={onChange}
+        />
+      </div>
+
+      {/* Checklist final */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-black text-rl-text uppercase tracking-wide mb-3">Checklist final do conteúdo</h3>
+        <ul className="space-y-1.5">
+          {CONTEUDO_CHECKLIST.map((c, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs text-rl-subtle">
+              <Check className="w-3.5 h-3.5 text-rl-green mt-0.5 shrink-0" /> {c}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
 function FieldRenderer({ field, data, onChange }) {
   const f = field
 
@@ -457,6 +672,43 @@ function FieldRenderer({ field, data, onChange }) {
                   {active && <Check className="w-2.5 h-2.5 text-white" />}
                 </span>
                 {opt.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  if (f.type === 'checks') {
+    const selected = Array.isArray(data?.[f.id]) ? data[f.id] : []
+    const toggle = (opt) => {
+      const next = selected.includes(opt) ? selected.filter((o) => o !== opt) : [...selected, opt]
+      onChange(f.id, next)
+    }
+    return (
+      <div>
+        <label className="text-xs font-bold text-rl-text block mb-2">{f.label}</label>
+        <div className="space-y-2">
+          {f.options.map((opt, i) => {
+            const active = selected.includes(opt)
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => toggle(opt)}
+                className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all flex items-start gap-2 ${
+                  active
+                    ? 'bg-rl-purple/10 border-rl-purple/50 text-rl-purple'
+                    : 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-purple/30'
+                }`}
+              >
+                <span className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center mt-0.5 ${
+                  active ? 'border-rl-purple bg-rl-purple' : 'border-rl-border'
+                }`}>
+                  {active && <Check className="w-2.5 h-2.5 text-white" />}
+                </span>
+                <span className="italic">&ldquo;{opt}&rdquo;</span>
               </button>
             )
           })}
