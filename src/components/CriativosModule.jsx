@@ -361,8 +361,9 @@ export default function CriativosModule({ project }) {
   const [result, setResult] = useState(null)
   const [lastCreativeId, setLastCreativeId] = useState(null)
   const [generatedAt, setGeneratedAt] = useState(null)
-  // Escopo de produto: '' = todos os produtos (geral); id = só aquele produto
+  // Escopo de produto e persona: '' = todos (geral); id = só aquele
   const [selectedProductId, setSelectedProductId] = useState('')
+  const [selectedPersonaId, setSelectedPersonaId] = useState('')
 
   const isVideo = view === 'video'
 
@@ -370,6 +371,12 @@ export default function CriativosModule({ project }) {
   const productList = useMemo(
     () => (project.produtos || []).filter((p) => (p.nome || '').trim()),
     [project.produtos]
+  )
+
+  // Lista de personas do projeto (com nome preenchido) pra montar o select
+  const personaList = useMemo(
+    () => (project.personas || []).filter((p) => (p.name || '').trim()),
+    [project.personas]
   )
 
   // Produto selecionado (objeto) ou null se "Todos"
@@ -380,14 +387,24 @@ export default function CriativosModule({ project }) {
     [selectedProductId, productList]
   )
 
-  // Project escopado: se um produto foi escolhido, mantém só ele no array
-  // produtos. O resto do contexto (personas, oferta, dores, ROI) fica intacto.
-  // buildContext.js itera sobre project.produtos pra montar o markdown — então
-  // limitar essa lista já restringe naturalmente o que a IA vê.
+  // Persona selecionada (objeto) ou null se "Todas"
+  const selectedPersona = useMemo(
+    () => selectedPersonaId
+      ? (personaList.find((p) => p.id === selectedPersonaId) || null)
+      : null,
+    [selectedPersonaId, personaList]
+  )
+
+  // Project escopado: se um produto e/ou persona foi escolhido, mantém só ele(s)
+  // nos respectivos arrays. O resto do contexto (oferta, ROI) fica intacto.
+  // buildContext.js itera sobre project.produtos e project.personas pra montar o
+  // markdown — então limitar essas listas já restringe o que a IA vê.
   const scopedProject = useMemo(() => {
-    if (!selectedProduct) return project
-    return { ...project, produtos: [selectedProduct] }
-  }, [project, selectedProduct])
+    let p = project
+    if (selectedProduct) p = { ...p, produtos: [selectedProduct] }
+    if (selectedPersona) p = { ...p, personas: [selectedPersona] }
+    return p
+  }, [project, selectedProduct, selectedPersona])
 
   // ── Video: ad type config ──────────────────────────────────────────────────
   const selectedList = AD_TYPES.filter((t) => (adTypeConfig[t.id] || 0) > 0)
@@ -422,12 +439,14 @@ export default function CriativosModule({ project }) {
   const [openTypeSelectorDorId, setOpenTypeSelectorDorId] = useState(null)
 
   const allDores = useMemo(() => {
-    const parsed = parseDores(project.personas || []).map((d) => ({
+    // Respeita o escopo de persona: se uma persona foi escolhida, só as dores
+    // dela aparecem; senão, dores de todas as personas.
+    const parsed = parseDores(scopedProject.personas || []).map((d) => ({
       ...d,
       text: dorTextOverrides[d.id] ?? d.text,
     }))
     return [...parsed, ...customDores]
-  }, [project.personas, dorTextOverrides, customDores])
+  }, [scopedProject.personas, dorTextOverrides, customDores])
   const selectedDores = allDores.filter((d) => !!dorConfig[d.id])
   const staticTotalQty = selectedDores.reduce((s, d) => {
     const typeQtys = dorConfig[d.id]?.typeQtys || {}
@@ -618,9 +637,11 @@ ${sections}`
         quantity: isVideo ? totalQuantity : staticTotalQty,
         content: cleanText,
         rating: null,
-        // Escopo de produto usado nessa geração (null = geral)
+        // Escopo usado nessa geração (null = geral)
         productId: selectedProductId || null,
         productName: selectedProduct?.nome || null,
+        personaId: selectedPersonaId || null,
+        personaName: selectedPersona?.name || null,
         createdAt: now,
       }
       setLastCreativeId(newId)
@@ -644,6 +665,8 @@ ${sections}`
     selectedList,
     selectedProduct,
     selectedProductId,
+    selectedPersona,
+    selectedPersonaId,
     staticTotalQty,
     metodologiaOverride,
     totalQuantity,
@@ -852,6 +875,7 @@ ${sections}`
                 setDiretrizesOverride(null)
                 setInstructionOverride(null)
                 setSelectedProductId('')
+                setSelectedPersonaId('')
                 setError(null)
               }}
               className={`glass-card p-6 text-left hover:border-${color}/50 hover:shadow-glow transition-all duration-200 group`}
@@ -1085,36 +1109,63 @@ ${sections}`
         </div>
       </div>
 
-      {/* ── Escopo de produto (opcional) ───────────────────────────────────── */}
-      {productList.length > 0 && (
-        <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-2">
+      {/* ── Escopo de produto + persona (opcional) ─────────────────────────── */}
+      {(productList.length > 0 || personaList.length > 0) && (
+        <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm">📦</span>
+            <span className="text-sm">🎯</span>
             <label className="label-field !mb-0">
-              Produto/serviço deste anúncio
+              Foco deste anúncio
             </label>
-            {selectedProduct && (
+            {(selectedProduct || selectedPersona) && (
               <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-purple/15 text-rl-purple border border-rl-purple/30">
                 escopo ativo
               </span>
             )}
           </div>
           <p className="text-[11px] text-rl-muted leading-snug">
-            Escolha um produto específico pra IA focar só nas informações dele.
-            Se deixar em &ldquo;Todos&rdquo;, ela considera o catálogo inteiro do cliente.
+            Escolha um produto e/ou uma persona específicos pra IA focar só neles.
+            Deixe em &ldquo;Todos&rdquo;/&ldquo;Todas&rdquo; pra considerar o cliente inteiro.
           </p>
-          <select
-            value={selectedProductId}
-            onChange={(e) => setSelectedProductId(e.target.value)}
-            className="input-field w-full text-sm"
-          >
-            <option value="">Todos os produtos (visão geral)</option>
-            {productList.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}{p.tipo === 'servico' ? ' · Serviço' : p.tipo === 'produto' ? ' · Produto' : ''}
-              </option>
-            ))}
-          </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {productList.length > 0 && (
+              <div>
+                <label className="text-[11px] font-bold text-rl-text block mb-1">📦 Produto/serviço</label>
+                <select
+                  value={selectedProductId}
+                  onChange={(e) => setSelectedProductId(e.target.value)}
+                  className="input-field w-full text-sm"
+                >
+                  <option value="">Todos os produtos</option>
+                  {productList.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome}{p.tipo === 'servico' ? ' · Serviço' : p.tipo === 'produto' ? ' · Produto' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {personaList.length > 0 && (
+              <div>
+                <label className="text-[11px] font-bold text-rl-text block mb-1">👤 Persona / público</label>
+                <select
+                  value={selectedPersonaId}
+                  onChange={(e) => setSelectedPersonaId(e.target.value)}
+                  className="input-field w-full text-sm"
+                >
+                  <option value="">Todas as personas</option>
+                  {personaList.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          {!isVideo && selectedPersona && (
+            <p className="text-[11px] text-rl-blue leading-snug">
+              As dores abaixo são só da persona <strong>{selectedPersona.name}</strong>.
+            </p>
+          )}
         </div>
       )}
 
