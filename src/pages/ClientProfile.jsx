@@ -16,7 +16,7 @@ import {
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
   NotebookPen, Wrench, Compass, Megaphone, Map as MapIcon,
 } from 'lucide-react'
-import ROICalculator from '../components/ROICalculator'
+import ROIScenariosModule from '../components/ROIScenariosModule'
 import PersonaCreator from './PersonaCreator'
 import OfertaMatadora from './OfertaMatadora'
 import CampaignPlanner from '../components/CampaignPlanner'
@@ -1203,7 +1203,7 @@ export default function ClientProfile({ project: projectProp }) {
       case 'dados':        return <OnboardingContent project={project} onSave={handleSaveOnboarding} showToast={showToast} />
       case 'kickoff':      return <KickoffModule project={project} />
       case 'debriefing':   return <DebriefingModule project={project} />
-      case 'roi':          return <ROICalculator project={project} onSave={handleSaveROI} />
+      case 'roi':          return <ROIScenariosModule project={project} onSave={handleSaveROI} />
       case 'icp':          return <PersonaCreator project={project} onSave={handleSavePersonas} />
       case 'produtos':     return (
         <div className="space-y-4">

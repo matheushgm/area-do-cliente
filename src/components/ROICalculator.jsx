@@ -58,7 +58,11 @@ const BENCHMARKS = {
 }
 
 // ─── ROI Calculator ───────────────────────────────────────────────────────────
-export default function ROICalculator({ project, onSave }) {
+// `overrideCalc` + `onPersist` (opcionais) permitem usar este componente
+// dentro de um orquestrador de múltiplos cenários (ROIScenariosModule). Quando
+// passados, o componente lê o calc do cenário e persiste via onPersist em vez
+// de escrever direto em project.roiCalc. Sem eles, comportamento original.
+export default function ROICalculator({ project, onSave, overrideCalc = undefined, onPersist = undefined }) {
   const { updateProject } = useApp()
   const [benchmarkType, setBenchmarkType] = useState(null)
   const [activeTab, setActiveTab] = useState('calculadora')
@@ -77,7 +81,7 @@ export default function ROICalculator({ project, onSave }) {
     taxaLead2MQL:    30,
     taxaMQL2SQL:     50,
     taxaSQL2Venda:   20,
-    ...(project.roiCalc || {}),
+    ...((overrideCalc ?? project.roiCalc) || {}),
   }))
 
   const set = useCallback((field, val) => {
@@ -110,10 +114,14 @@ export default function ROICalculator({ project, onSave }) {
           custoPorSQL:     sqls   ? mo / sqls   : Infinity,
         }
       })() : null
-      updateProject(project.id, { roiCalc: next, ...(freshResult ? { roiResult: freshResult } : {}) })
+      if (onPersist) {
+        onPersist(next, freshResult)
+      } else {
+        updateProject(project.id, { roiCalc: next, ...(freshResult ? { roiResult: freshResult } : {}) })
+      }
       return next
     })
-  }, [project.id, updateProject])
+  }, [project.id, updateProject, onPersist])
 
   const result = useMemo(() => {
     const {
@@ -548,6 +556,8 @@ ROICalculator.propTypes = {
     completedSteps:  PropTypes.arrayOf(PropTypes.string),
   }).isRequired,
   onSave: PropTypes.func,
+  overrideCalc: PropTypes.object,
+  onPersist: PropTypes.func,
 }
 
 NumInput.propTypes = {

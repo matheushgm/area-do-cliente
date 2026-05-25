@@ -151,6 +151,8 @@ function assembleProject(row, rel = {}) {
       benchmarkType:  rois[0].benchmark_type,
     } : null,
     roiResult:    rois[0]?.result ?? null,
+    // Cenários extras de ROI (múltiplas calculadoras) — JSONB em projects_v2
+    roiCenarios:  row.roi_cenarios ?? null,
     ofertaData: ofertas[0] ? {
       id:           ofertas[0].id,
       // Suporta tanto a row bruta do DB (com answers + generated_content)
@@ -390,6 +392,7 @@ const PROJECT_FIELD_MAP = {
   debriefing:           "debriefing",
   matrizObjecao:        "matriz_objecao",
   webinars:             "webinars",
+  roiCenarios:          "roi_cenarios",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────
