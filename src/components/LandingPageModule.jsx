@@ -94,8 +94,8 @@ Formato: **Pergunta?** → Resposta persuasiva e objetiva (2-4 linhas)
 Diretrizes obrigatórias:
 - Português brasileiro persuasivo, direto e profissional
 - Seja EXTREMAMENTE específico ao negócio — nunca use frases genéricas
-- Use APENAS os dados fornecidos no contexto (a oferta matadora selecionada e, quando informados, o produto/serviço e a persona). NÃO invente dados de empresa, produtos, personas ou números que não estejam no contexto
-- A oferta matadora fornecida é a BASE da copy: a 1ª dobra e a ancoragem de valor devem refletir diretamente essa oferta
+- Use APENAS os dados fornecidos no contexto (quando informados: a oferta matadora, o produto/serviço, a persona) e a direção criativa. NÃO invente dados de empresa, produtos, personas ou números que não estejam no contexto
+- Quando uma oferta matadora for fornecida, ela é a BASE da copy: a 1ª dobra e a ancoragem de valor devem refletir diretamente essa oferta. Quando não houver oferta, conduza a copy pela direção criativa e pelos demais dados disponíveis
 - Cada dobra deve fluir naturalmente para a próxima
 - Fale diretamente com o lead (use "você")
 - Inclua prova social, urgência ou escassez sempre que possível
@@ -497,12 +497,21 @@ function CopyForm({
         ? `\n## DIREÇÃO CRIATIVA\n${customNote.trim()}\n(Esta direção deve orientar e influenciar toda a copy.)\n`
         : ''
 
+      const baseItens = [
+        selectedGom && 'a oferta matadora',
+        selectedProduct && 'o produto/serviço',
+        selectedPersona && 'a persona',
+      ].filter(Boolean)
+      const baseClause = baseItens.length
+        ? ` Use como base ${baseItens.join(', ')} fornecido(s) acima.`
+        : ' Não há oferta, produto ou persona definidos — baseie-se exclusivamente na direção criativa.'
+
       const instruction = `${customSection}
 ---
 
 ## SOLICITAÇÃO
 
-Crie uma copy COMPLETA de landing page com as 6 dobras, baseada na OFERTA MATADORA fornecida acima${selectedProduct ? ', no produto/serviço informado' : ''}${selectedPersona ? ' e na persona informada' : ''}. Use APENAS as informações deste contexto — não invente dados de empresa, produtos, personas ou números que não estejam aqui. Seja extremamente específico; nunca use frases genéricas ou templates vazios.`
+Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS as informações deste contexto e a direção criativa — não invente dados de empresa, produtos, personas ou números que não estejam aqui. Seja extremamente específico; nunca use frases genéricas ou templates vazios.`
 
       const contextText = buildLandingContext({
         produtos:   selectedProduct ? [selectedProduct] : [],
@@ -580,22 +589,26 @@ Crie uma copy COMPLETA de landing page com as 6 dobras, baseada na OFERTA MATADO
         <div className="flex items-center gap-2">
           <Zap className="w-4 h-4 text-rl-gold" />
           <label className="label-field !mb-0">Oferta matadora (base da copy)</label>
-          {selectedGom && (
-            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-gold/15 text-rl-gold border border-rl-gold/30">
-              GOM #{selectedGom.num}
-            </span>
-          )}
+          <span className={`ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${
+            selectedGom
+              ? 'bg-rl-gold/15 text-rl-gold border-rl-gold/30'
+              : 'bg-rl-surface text-rl-muted border-rl-border/50'
+          }`}>
+            {selectedGom ? `GOM #${selectedGom.num}` : 'sem oferta'}
+          </span>
         </div>
         {goms.length > 0 ? (
           <>
             <p className="text-[11px] text-rl-muted leading-snug">
-              Escolha qual das ofertas matadoras geradas vai servir de base para a landing page.
+              Escolha qual das ofertas matadoras geradas vai servir de base — ou
+              &ldquo;Nenhuma&rdquo; para gerar a copy sem se basear em oferta.
             </p>
             <select
               value={selectedGomNum}
               onChange={(e) => setSelectedGomNum(e.target.value)}
               className="input-field w-full text-sm"
             >
+              <option value="">Nenhuma — não usar oferta matadora</option>
               {goms.map((g) => (
                 <option key={g.num} value={g.num}>
                   GOM #{g.num}{g.label ? ` — ${g.label}` : ''}
@@ -610,8 +623,8 @@ Crie uma copy COMPLETA de landing page com as 6 dobras, baseada na OFERTA MATADO
           </>
         ) : (
           <p className="text-[11px] text-rl-muted leading-snug">
-            Nenhuma oferta matadora gerada ainda. Gere as ofertas no módulo &ldquo;Oferta Matadora&rdquo;
-            para escolher uma como base — ou siga apenas com a direção criativa abaixo.
+            Nenhuma oferta matadora gerada. Você pode gerar a copy apenas com a direção criativa abaixo,
+            ou gerar as ofertas no módulo &ldquo;Oferta Matadora&rdquo; para escolher uma como base.
           </p>
         )}
       </div>
