@@ -20,6 +20,7 @@ import SquadsReport from './pages/SquadsReport'
 import ResetPassword from './pages/ResetPassword'
 import Tasks from './pages/Tasks'
 import Chat from './pages/Chat'
+import DashboardTrafego from './pages/DashboardTrafego'
 import NotificationCenter from './components/NotificationCenter'
 
 function RequireAuth({ children }) {
@@ -65,6 +66,7 @@ function AppRoutes() {
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
         <Route path="/tarefas" element={<RequireAuth><Tasks /></RequireAuth>} />
         <Route path="/chat" element={<RequireAuth><Chat /></RequireAuth>} />
+        <Route path="/dashboard" element={<RequireAuth><DashboardTrafego /></RequireAuth>} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
