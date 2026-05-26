@@ -4,7 +4,7 @@ import { Menu, BarChart3 } from 'lucide-react'
 import { useDashboardData } from '../hooks/useDashboardData'
 import AppSidebar from '../components/AppSidebar'
 import {
-  CFG, buildPeriod, periodFromDays, maxDate, addDays, buildStats,
+  CFG, buildStats, computeMainPeriod,
   buildWeeklyMessage, localDateStr,
 } from '../lib/dashboardData'
 import ChannelSection from '../components/DashboardTrafego/ChannelSection'
@@ -19,15 +19,6 @@ import '../components/DashboardTrafego/dashboard.css'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PRESETS = [['Hoje', 'today'], ['Ontem', 'yesterday'], ['3 dias', 3], ['7 dias', 7], ['14 dias', 14], ['30 dias', 30], ['Custom', 0]]
-
-// Período do filtro principal (suporta today/yesterday/N dias/custom).
-function mainPeriod(channelRows, channel, days, from, to) {
-  const dateKey = CFG[channel].dateKey
-  if (days === 'today') { const m = maxDate(channelRows, dateKey); return m ? buildPeriod(m, m) : null }
-  if (days === 'yesterday') { const m = maxDate(channelRows, dateKey); if (!m) return null; const y = addDays(m, -1); return buildPeriod(y, y) }
-  if (days === 0) return (from && to) ? buildPeriod(from, to) : null
-  return periodFromDays(channelRows, dateKey, days)
-}
 
 export default function DashboardTrafego() {
   const navigate = useNavigate()
@@ -72,8 +63,8 @@ export default function DashboardTrafego() {
 
   // Período + estatísticas por canal (computado uma vez; reusado p/ contagem e render).
   const periods = useMemo(() => ({
-    meta: mainPeriod(raw.meta, 'meta', days, customFrom, customTo),
-    google: mainPeriod(raw.google, 'google', days, customFrom, customTo),
+    meta: computeMainPeriod(raw.meta, 'meta', days, customFrom, customTo),
+    google: computeMainPeriod(raw.google, 'google', days, customFrom, customTo),
   }), [raw, days, customFrom, customTo])
 
   const statsByChannel = useMemo(() => {

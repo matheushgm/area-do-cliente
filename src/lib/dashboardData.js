@@ -118,6 +118,16 @@ export function periodFromDays(rows, dateKey, days) {
   return buildPeriod(addDays(max, -(days - 1)), max)
 }
 
+// Período do filtro principal (presets today/yesterday/N dias/custom).
+// Compartilhado entre a página do dashboard e o board scoped da seção Resultados.
+export function computeMainPeriod(channelRows, channel, days, from, to) {
+  const dateKey = CFG[channel].dateKey
+  if (days === 'today') { const m = maxDate(channelRows, dateKey); return m ? buildPeriod(m, m) : null }
+  if (days === 'yesterday') { const m = maxDate(channelRows, dateKey); if (!m) return null; const y = addDays(m, -1); return buildPeriod(y, y) }
+  if (days === 0) return (from && to) ? buildPeriod(from, to) : null
+  return periodFromDays(channelRows, dateKey, days)
+}
+
 // ─── Status / classificação ───────────────────────────────────────────────────
 export function getStatus(varConv, varCpl, conv1) {
   if (conv1 === 0) return 'CRÍTICO'
