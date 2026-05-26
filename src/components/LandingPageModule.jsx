@@ -1,13 +1,12 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
-import { buildCachedPayload } from '../lib/buildContext'
+import { buildLandingContext, buildLandingCachedPayload } from '../lib/buildContext'
 import RatingSelector from './RatingSelector'
-import ContextPreview from './Criativos/ContextPreview'
 import {
   Globe, Sparkles, Loader2, AlertTriangle, Copy, CheckCheck,
   ChevronDown, ChevronUp, RotateCcw, Trash2, Plus, CheckCircle2,
-  Check, X,
+  Check, X, Zap,
 } from 'lucide-react'
 
 // ─── System Prompt (baseado na skill criador-de-landing-page) ─────────────────
@@ -95,11 +94,49 @@ Formato: **Pergunta?** → Resposta persuasiva e objetiva (2-4 linhas)
 Diretrizes obrigatórias:
 - Português brasileiro persuasivo, direto e profissional
 - Seja EXTREMAMENTE específico ao negócio — nunca use frases genéricas
-- Use todos os dados de personas, oferta matadora e onboarding para personalizar cada dobra
+- Use APENAS os dados fornecidos no contexto (a oferta matadora selecionada e, quando informados, o produto/serviço e a persona). NÃO invente dados de empresa, produtos, personas ou números que não estejam no contexto
+- A oferta matadora fornecida é a BASE da copy: a 1ª dobra e a ancoragem de valor devem refletir diretamente essa oferta
 - Cada dobra deve fluir naturalmente para a próxima
 - Fale diretamente com o lead (use "você")
 - Inclua prova social, urgência ou escassez sempre que possível
 - Não use travessões (—) em nenhuma parte do output`
+
+// ─── Parser das GOMs (Ofertas Matadoras) ──────────────────────────────────────
+// O módulo "Oferta Matadora" gera 3 GOMs num único texto (ofertaData.generatedOffer),
+// cada uma iniciada por um cabeçalho "GOM #N: ...". Esta função separa esse texto
+// em blocos individuais para o usuário escolher qual será a base da landing page.
+function parseGOMs(generatedOffer) {
+  const text = String(generatedOffer || '')
+  if (!text.trim()) return []
+
+  const re = /\**\s*GOM\s*#?\s*(\d+)\s*:?\s*([^\n]*)/gi
+  const heads = []
+  let m
+  while ((m = re.exec(text)) !== null) {
+    const label = (m[2] || '').replace(/[*━─\s]+$/, '').replace(/^[*\s]+/, '').trim()
+    heads.push({ index: m.index, num: m[1], label })
+  }
+  if (!heads.length) return []
+
+  return heads.map((h, i) => {
+    const end = i + 1 < heads.length ? heads[i + 1].index : text.length
+    // Recorta o bloco e remove marcadores markdown/separadores (** ━ ─) das pontas
+    const content = text.slice(h.index, end).replace(/[\s━─]+$/g, '').replace(/^\**\s*/, '').trim()
+    return { num: h.num, label: h.label, content }
+  })
+}
+
+// Monta o contexto escopado de uma copy salva (regen/refino), reconstruindo o
+// produto/persona escolhidos e a GOM usada a partir do próprio registro da LP.
+function scopedContextForLp(project, lp) {
+  const prod = lp.productId ? (project.produtos || []).find((p) => p.id === lp.productId) : null
+  const pers = lp.personaId ? (project.personas || []).find((p) => p.id === lp.personaId) : null
+  return buildLandingContext({
+    produtos:   prod ? [prod] : [],
+    personas:   pers ? [pers] : [],
+    ofertaText: lp.ofertaText || '',
+  })
+}
 
 // ─── Markdown render + dobra helpers ──────────────────────────────────────────
 
@@ -414,15 +451,29 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
 }
 
 // ─── New / Regenerate Copy Form ───────────────────────────────────────────────
-function CopyForm({ project, copyCount, onSave, onCancel, isRegen, existingName, defaultCustomNote }) {
+function CopyForm({
+  project, copyCount, onSave, onCancel, isRegen, existingName,
+  defaultCustomNote, defaultProductId, defaultPersonaId, defaultGomNum,
+}) {
+  // GOMs disponíveis (separadas do texto gerado no módulo Oferta Matadora)
+  const goms = useMemo(
+    () => parseGOMs(project.ofertaData?.generatedOffer),
+    [project.ofertaData]
+  )
+
   const [name,            setName]            = useState(isRegen ? existingName : `Copy Landing Page ${copyCount + 1}`)
   const [customNote,      setCustomNote]      = useState(defaultCustomNote || '')
   const [loading,         setLoading]         = useState(false)
   const [error,           setError]           = useState(null)
   const [streamPreview,   setStreamPreview]   = useState('')
   // Escopo de produto + persona: '' = todos/todas (geral)
-  const [selectedProductId, setSelectedProductId] = useState('')
-  const [selectedPersonaId, setSelectedPersonaId] = useState('')
+  const [selectedProductId, setSelectedProductId] = useState(isRegen ? (defaultProductId || '') : '')
+  const [selectedPersonaId, setSelectedPersonaId] = useState(isRegen ? (defaultPersonaId || '') : '')
+  // Oferta matadora (GOM) que serve de base — default: a primeira disponível
+  const [selectedGomNum, setSelectedGomNum] = useState(() => {
+    if (isRegen && defaultGomNum && goms.some((g) => g.num === defaultGomNum)) return defaultGomNum
+    return goms[0]?.num ?? ''
+  })
 
   const productList = useMemo(
     () => (project.produtos || []).filter((p) => (p.nome || '').trim()),
@@ -433,16 +484,9 @@ function CopyForm({ project, copyCount, onSave, onCancel, isRegen, existingName,
     [project.personas]
   )
 
-  // Project escopado: limita produtos/personas ao que foi escolhido. O
-  // buildContext.js itera sobre essas listas, então restringir já foca a IA.
-  const scopedProject = useMemo(() => {
-    let p = project
-    const prod = selectedProductId ? productList.find((x) => x.id === selectedProductId) : null
-    const pers = selectedPersonaId ? personaList.find((x) => x.id === selectedPersonaId) : null
-    if (prod) p = { ...p, produtos: [prod] }
-    if (pers) p = { ...p, personas: [pers] }
-    return p
-  }, [project, selectedProductId, selectedPersonaId, productList, personaList])
+  const selectedGom     = useMemo(() => goms.find((g) => g.num === selectedGomNum) || null, [goms, selectedGomNum])
+  const selectedProduct = useMemo(() => (selectedProductId ? productList.find((x) => x.id === selectedProductId) : null), [selectedProductId, productList])
+  const selectedPersona = useMemo(() => (selectedPersonaId ? personaList.find((x) => x.id === selectedPersonaId) : null), [selectedPersonaId, personaList])
 
   const generate = useCallback(async () => {
     setLoading(true)
@@ -450,7 +494,7 @@ function CopyForm({ project, copyCount, onSave, onCancel, isRegen, existingName,
     setStreamPreview('')
     try {
       const customSection = customNote.trim()
-        ? `\n## PERSONALIZAÇÃO / DIREÇÃO CRIATIVA\n${customNote.trim()}\n(Esta direção deve orientar e influenciar toda a copy.)\n`
+        ? `\n## DIREÇÃO CRIATIVA\n${customNote.trim()}\n(Esta direção deve orientar e influenciar toda a copy.)\n`
         : ''
 
       const instruction = `${customSection}
@@ -458,11 +502,17 @@ function CopyForm({ project, copyCount, onSave, onCancel, isRegen, existingName,
 
 ## SOLICITAÇÃO
 
-Com base em todas as informações do cliente acima, crie uma copy COMPLETA de landing page com as 6 dobras. Use os dados de persona, oferta matadora e onboarding para personalizar ao máximo cada dobra. Seja extremamente específico — nunca use frases genéricas ou templates vazios.`
+Crie uma copy COMPLETA de landing page com as 6 dobras, baseada na OFERTA MATADORA fornecida acima${selectedProduct ? ', no produto/serviço informado' : ''}${selectedPersona ? ' e na persona informada' : ''}. Use APENAS as informações deste contexto — não invente dados de empresa, produtos, personas ou números que não estejam aqui. Seja extremamente específico; nunca use frases genéricas ou templates vazios.`
 
-      const { system, messages } = buildCachedPayload({
+      const contextText = buildLandingContext({
+        produtos:   selectedProduct ? [selectedProduct] : [],
+        personas:   selectedPersona ? [selectedPersona] : [],
+        ofertaText: selectedGom?.content || '',
+      })
+
+      const { system, messages } = buildLandingCachedPayload({
         systemPrompt: LANDING_SYSTEM,
-        project: scopedProject,
+        contextText,
         instruction,
       })
 
@@ -474,17 +524,17 @@ Com base em todas as informações do cliente acima, crie uma copy COMPLETA de l
         onChunk:    (text) => setStreamPreview(text),
       })
 
-      const prod = selectedProductId ? productList.find((x) => x.id === selectedProductId) : null
-      const pers = selectedPersonaId ? personaList.find((x) => x.id === selectedPersonaId) : null
       onSave({
         id:          crypto.randomUUID(),
         name:        name.trim() || (isRegen ? existingName : `Copy Landing Page ${copyCount + 1}`),
         content:     fullText,
         customNote:  customNote.trim(),
         productId:   selectedProductId || null,
-        productName: prod?.nome || null,
+        productName: selectedProduct?.nome || null,
         personaId:   selectedPersonaId || null,
-        personaName: pers?.name || null,
+        personaName: selectedPersona?.name || null,
+        ofertaGomNum: selectedGom?.num || null,
+        ofertaText:   selectedGom?.content || null,
         rating:      null,
         createdAt:   new Date().toISOString(),
       })
@@ -493,7 +543,7 @@ Com base em todas as informações do cliente acima, crie uma copy COMPLETA de l
     } finally {
       setLoading(false)
     }
-  }, [copyCount, customNote, existingName, isRegen, name, onSave, scopedProject, selectedProductId, selectedPersonaId, productList, personaList])
+  }, [copyCount, customNote, existingName, isRegen, name, onSave, selectedProduct, selectedPersona, selectedGom, selectedProductId, selectedPersonaId])
 
 
   return (
@@ -524,6 +574,47 @@ Com base em todas as informações do cliente acima, crie uma copy COMPLETA de l
           />
         </div>
       )}
+
+      {/* Oferta matadora (base da copy) */}
+      <div className="rounded-xl border border-rl-gold/30 bg-rl-gold/5 p-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-rl-gold" />
+          <label className="label-field !mb-0">Oferta matadora (base da copy)</label>
+          {selectedGom && (
+            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-gold/15 text-rl-gold border border-rl-gold/30">
+              GOM #{selectedGom.num}
+            </span>
+          )}
+        </div>
+        {goms.length > 0 ? (
+          <>
+            <p className="text-[11px] text-rl-muted leading-snug">
+              Escolha qual das ofertas matadoras geradas vai servir de base para a landing page.
+            </p>
+            <select
+              value={selectedGomNum}
+              onChange={(e) => setSelectedGomNum(e.target.value)}
+              className="input-field w-full text-sm"
+            >
+              {goms.map((g) => (
+                <option key={g.num} value={g.num}>
+                  GOM #{g.num}{g.label ? ` — ${g.label}` : ''}
+                </option>
+              ))}
+            </select>
+            {selectedGom && (
+              <div className="max-h-44 overflow-y-auto rounded-lg bg-rl-surface/60 border border-rl-border/40 p-3">
+                <pre className="text-[11px] text-rl-text/80 whitespace-pre-wrap font-sans leading-relaxed">{selectedGom.content}</pre>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-[11px] text-rl-muted leading-snug">
+            Nenhuma oferta matadora gerada ainda. Gere as ofertas no módulo &ldquo;Oferta Matadora&rdquo;
+            para escolher uma como base — ou siga apenas com a direção criativa abaixo.
+          </p>
+        )}
+      </div>
 
       {/* Escopo de produto + persona (opcional) */}
       {(productList.length > 0 || personaList.length > 0) && (
@@ -598,8 +689,31 @@ Com base em todas as informações do cliente acima, crie uma copy COMPLETA de l
         )}
       </div>
 
-      {/* Context preview */}
-      <ContextPreview project={scopedProject} />
+      {/* Resumo do que será enviado à IA — sem contexto automático */}
+      <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3">
+        <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-2">
+          A IA vai usar apenas
+        </p>
+        <ul className="space-y-1 text-xs">
+          <li className={selectedGom ? 'text-rl-text' : 'text-rl-muted'}>
+            {selectedGom
+              ? `✓ Oferta: GOM #${selectedGom.num}${selectedGom.label ? ` — ${selectedGom.label}` : ''}`
+              : '— Nenhuma oferta matadora selecionada'}
+          </li>
+          <li className={selectedProduct ? 'text-rl-text' : 'text-rl-muted'}>
+            {selectedProduct ? `✓ Produto: ${selectedProduct.nome}` : '— Produto: nenhum (não enviado)'}
+          </li>
+          <li className={selectedPersona ? 'text-rl-text' : 'text-rl-muted'}>
+            {selectedPersona ? `✓ Persona: ${selectedPersona.name}` : '— Persona: nenhuma (não enviada)'}
+          </li>
+          <li className={customNote.trim() ? 'text-rl-text' : 'text-rl-muted'}>
+            {customNote.trim() ? '✓ Direção criativa preenchida' : '— Sem direção criativa'}
+          </li>
+        </ul>
+        <p className="text-[10px] text-rl-muted mt-2 leading-snug">
+          Dados de empresa, anexos e demais módulos não são enviados automaticamente.
+        </p>
+      </div>
 
       {/* Error */}
       {error && (
@@ -644,7 +758,7 @@ export default function LandingPageModule({ project }) {
   const { updateProject } = useApp()
 
   const [showForm,    setShowForm]    = useState(false)
-  const [regenTarget, setRegenTarget] = useState(null) // { id, name, customNote } | null
+  const [regenTarget, setRegenTarget] = useState(null) // { id, name, customNote, productId, personaId, ofertaGomNum } | null
 
   const landingPages = project.landingPages || []
 
@@ -668,7 +782,14 @@ export default function LandingPageModule({ project }) {
   }
 
   function handleRegenerate(lp) {
-    setRegenTarget({ id: lp.id, name: lp.name, customNote: lp.customNote || '' })
+    setRegenTarget({
+      id:           lp.id,
+      name:         lp.name,
+      customNote:   lp.customNote || '',
+      productId:    lp.productId || '',
+      personaId:    lp.personaId || '',
+      ofertaGomNum: lp.ofertaGomNum || '',
+    })
     setShowForm(true)
   }
 
@@ -697,10 +818,10 @@ export default function LandingPageModule({ project }) {
     updateProject(project.id, { landingPages: updated })
   }
 
-  // Refina uma dobra isolada via IA. Recebe o conteúdo da dobra + a descrição
-  // do que melhorar, e retorna a dobra reescrita (mantendo o cabeçalho `## `).
+  // Refina uma dobra isolada via IA. Recebe a copy salva (lp) para reconstruir o
+  // mesmo contexto escopado (oferta + produto/persona escolhidos) usado na geração.
   const makeRefineHandler = useCallback(
-    () => async (_dobraIndex, dobraContent, userNote, onChunk) => {
+    (lp) => async (_dobraIndex, dobraContent, userNote, onChunk) => {
       const instruction = `---
 
 ## DOBRA ORIGINAL
@@ -713,11 +834,11 @@ ${dobraContent}
 
 ${userNote}
 
-Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo cabeçalho \`## \` e a mesma estrutura de campos (HEADLINE DA DOBRA, etc). Use os dados de persona, oferta e onboarding do cliente para manter a consistência. Retorne SOMENTE o markdown da dobra refinada, sem comentários, sem outras dobras, sem blocos de código.`
+Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo cabeçalho \`## \` e a mesma estrutura de campos (HEADLINE DA DOBRA, etc). Use APENAS a oferta matadora e os dados fornecidos no contexto — não invente informações. Retorne SOMENTE o markdown da dobra refinada, sem comentários, sem outras dobras, sem blocos de código.`
 
-      const { system, messages } = buildCachedPayload({
+      const { system, messages } = buildLandingCachedPayload({
         systemPrompt: LANDING_SYSTEM,
-        project,
+        contextText:  scopedContextForLp(project, lp),
         instruction,
       })
       return streamClaude({
@@ -731,8 +852,6 @@ Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo ca
     [project]
   )
 
-  const refineDobra = makeRefineHandler()
-
   return (
     <div className="space-y-5">
 
@@ -741,7 +860,8 @@ Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo ca
         <div>
           <h2 className="text-xl font-bold text-rl-text">Copy de Landing Page com IA</h2>
           <p className="text-sm text-rl-muted mt-1">
-            Gere copies persuasivas com 6 dobras usando os dados do cliente. Salve e compare múltiplas versões.
+            Gere copies persuasivas com 6 dobras a partir da oferta matadora que você escolher e da
+            direção que você fornecer. Salve e compare múltiplas versões.
           </p>
         </div>
         {!showForm && (
@@ -791,6 +911,9 @@ Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo ca
           isRegen={!!regenTarget}
           existingName={regenTarget?.name || ''}
           defaultCustomNote={regenTarget?.customNote || ''}
+          defaultProductId={regenTarget?.productId || ''}
+          defaultPersonaId={regenTarget?.personaId || ''}
+          defaultGomNum={regenTarget?.ofertaGomNum || ''}
         />
       )}
 
@@ -811,7 +934,7 @@ Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo ca
               onDelete={() => handleDelete(lp.id)}
               onRegenerate={() => handleRegenerate(lp)}
               onRatingChange={(rating) => handleRatingChange(lp.id, rating)}
-              onRefineDobra={refineDobra}
+              onRefineDobra={makeRefineHandler(lp)}
               onContentChange={(newContent) => handleContentChange(lp.id, newContent)}
             />
           ))}

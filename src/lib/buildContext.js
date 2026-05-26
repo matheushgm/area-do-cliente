@@ -32,6 +32,66 @@ const BTYPE = {
   infoproduto: 'Infoproduto',
 }
 
+const PRODUTO_LABELS = {
+  q1:  'O que resolve',
+  q2:  'Quando o cliente precisa',
+  q3:  'Vida depois do produto',
+  q4:  'Diferencial vs concorrente',
+  q5:  'Por que comprar agora',
+  q6:  'Vida sem o produto',
+  q7:  'Objeções de compra',
+  q8:  'Tentativas anteriores',
+  q9:  'Por que desconfiam',
+  q10: 'Cases / resultados mensuráveis',
+  q11: 'Tempo para 1º resultado',
+  q12: 'O que mais elogiam',
+  q13: 'Diferencial único',
+  q14: 'Custo de inação (3 meses)',
+  q15: 'Sazonalidade / janela de oportunidade',
+  q16: 'Garantia',
+  q17: 'Se der errado',
+}
+
+/**
+ * Bloco Markdown de produtos/serviços. Reutilizado por buildContext (contexto
+ * completo) e por buildLandingContext (contexto escopado). Retorna '' se vazio.
+ */
+export function productBlock(produtos = []) {
+  const list = (produtos || []).filter((p) => p.nome || p.answers)
+  if (!list.length) return ''
+  const lines = ['## PRODUTO / SERVIÇO']
+  list.forEach((p) => {
+    const tipoLabel = p.tipo === 'servico' ? 'Serviço' : 'Produto Físico'
+    lines.push(`\n### ${p.nome || 'Produto Principal'} (${tipoLabel})`)
+    const a = p.answers || {}
+    Object.entries(PRODUTO_LABELS).forEach(([key, label]) => {
+      if (a[key]?.trim()) lines.push(`${label}: ${a[key].trim()}`)
+    })
+  })
+  return lines.join('\n')
+}
+
+/**
+ * Bloco Markdown de personas/público-alvo. Reutilizado por buildContext e
+ * buildLandingContext. Retorna '' se vazio.
+ */
+export function personaBlock(personas = []) {
+  const list = (personas || []).filter((p) => p.name || p.answers)
+  if (!list.length) return ''
+  const lines = ['## PERSONAS / PÚBLICO-ALVO']
+  list.forEach((p) => {
+    lines.push(`\n### ${p.name || 'Persona Principal'}`)
+    const a    = p.answers || {}
+    const pick = (k) => (a[k] || []).filter((s) => s?.trim()).slice(0, 4).join('; ')
+    if (pick('resultado'))  lines.push(`Resultado desejado: ${pick('resultado')}`)
+    if (pick('sonhos'))     lines.push(`Sonhos: ${pick('sonhos')}`)
+    if (pick('objecoes'))   lines.push(`Objeções: ${pick('objecoes')}`)
+    if (pick('medos'))      lines.push(`Medos: ${pick('medos')}`)
+    if (pick('erros'))      lines.push(`Erros comuns: ${pick('erros')}`)
+  })
+  return lines.join('\n')
+}
+
 /**
  * Monta o bloco de contexto do cliente em Markdown.
  * Campos gerados por IA são truncados automaticamente.
@@ -52,52 +112,11 @@ export function buildContext(project) {
   const comps = (project.competitors || []).filter(Boolean)
   if (comps.length)               lines.push(`Concorrentes: ${comps.join(', ')}`)
 
-  const produtos = (project.produtos || []).filter((p) => p.nome || p.answers)
-  if (produtos.length) {
-    lines.push('\n## PRODUTO / SERVIÇO')
-    const PRODUTO_LABELS = {
-      q1:  'O que resolve',
-      q2:  'Quando o cliente precisa',
-      q3:  'Vida depois do produto',
-      q4:  'Diferencial vs concorrente',
-      q5:  'Por que comprar agora',
-      q6:  'Vida sem o produto',
-      q7:  'Objeções de compra',
-      q8:  'Tentativas anteriores',
-      q9:  'Por que desconfiam',
-      q10: 'Cases / resultados mensuráveis',
-      q11: 'Tempo para 1º resultado',
-      q12: 'O que mais elogiam',
-      q13: 'Diferencial único',
-      q14: 'Custo de inação (3 meses)',
-      q15: 'Sazonalidade / janela de oportunidade',
-      q16: 'Garantia',
-      q17: 'Se der errado',
-    }
-    produtos.forEach((p) => {
-      const tipoLabel = p.tipo === 'servico' ? 'Serviço' : 'Produto Físico'
-      lines.push(`\n### ${p.nome || 'Produto Principal'} (${tipoLabel})`)
-      const a = p.answers || {}
-      Object.entries(PRODUTO_LABELS).forEach(([key, label]) => {
-        if (a[key]?.trim()) lines.push(`${label}: ${a[key].trim()}`)
-      })
-    })
-  }
+  const pb = productBlock(project.produtos)
+  if (pb) lines.push('\n' + pb)
 
-  const personas = (project.personas || []).filter((p) => p.name || p.answers)
-  if (personas.length) {
-    lines.push('\n## PERSONAS / PÚBLICO-ALVO')
-    personas.forEach((p) => {
-      lines.push(`\n### ${p.name || 'Persona Principal'}`)
-      const a    = p.answers || {}
-      const pick = (k) => (a[k] || []).filter((s) => s?.trim()).slice(0, 4).join('; ')
-      if (pick('resultado'))  lines.push(`Resultado desejado: ${pick('resultado')}`)
-      if (pick('sonhos'))     lines.push(`Sonhos: ${pick('sonhos')}`)
-      if (pick('objecoes'))   lines.push(`Objeções: ${pick('objecoes')}`)
-      if (pick('medos'))      lines.push(`Medos: ${pick('medos')}`)
-      if (pick('erros'))      lines.push(`Erros comuns: ${pick('erros')}`)
-    })
-  }
+  const pe = personaBlock(project.personas)
+  if (pe) lines.push('\n' + pe)
 
   const o = project.ofertaData
   if (o && (o.nome || o.resultadoSonho)) {
@@ -222,6 +241,77 @@ export function buildCachedPayload({ systemPrompt, project, instruction }) {
             cache_control: { type: 'ephemeral' },
           },
           ...attBlocks,          // PDFs e imagens como blocos nativos (lidos pelo Claude)
+          {
+            type: 'text',
+            text: instruction,
+          },
+        ],
+      },
+    ],
+  }
+}
+
+/**
+ * Contexto ESCOPADO para o módulo de Landing Page.
+ *
+ * Diferente de buildContext(project), NÃO injeta nada automaticamente: monta o
+ * contexto apenas com a oferta matadora escolhida + os produtos/personas que o
+ * usuário selecionou explicitamente. Empresa, anexos e demais dados do projeto
+ * ficam de fora — a copy se baseia só no que foi fornecido na hora.
+ *
+ * @param {object} opts
+ * @param {Array}  opts.produtos    — lista (já filtrada) dos produtos a incluir
+ * @param {Array}  opts.personas    — lista (já filtrada) das personas a incluir
+ * @param {string} opts.ofertaText  — texto da oferta matadora (GOM) selecionada
+ * @returns {string} contexto em Markdown
+ */
+export function buildLandingContext({ produtos = [], personas = [], ofertaText = '' } = {}) {
+  const sections = []
+
+  const oferta = String(ofertaText || '').trim()
+  if (oferta) sections.push(`# OFERTA MATADORA (BASE DA LANDING PAGE)\n\n${oferta}`)
+
+  const pb = productBlock(produtos)
+  if (pb) sections.push(pb)
+
+  const pe = personaBlock(personas)
+  if (pe) sections.push(pe)
+
+  if (!sections.length) {
+    return '# CONTEXTO\n\n(Nenhuma oferta, produto ou persona selecionado — use apenas a direção criativa da solicitação.)'
+  }
+  return sections.join('\n\n')
+}
+
+/**
+ * Monta { system, messages } com cache_control para o módulo de Landing Page.
+ * Recebe o contexto JÁ pronto (string) — sem leitura automática do projeto e
+ * sem blocos de anexo. O system e o contexto são cacheáveis; a instrução não.
+ *
+ * @param {object} opts
+ * @param {string} opts.systemPrompt — system prompt do módulo (cacheado)
+ * @param {string} opts.contextText  — contexto escopado (cacheado)
+ * @param {string} opts.instruction  — instrução específica da geração (não cacheada)
+ * @returns {{ system: Array, messages: Array }}
+ */
+export function buildLandingCachedPayload({ systemPrompt, contextText, instruction }) {
+  return {
+    system: [
+      {
+        type: 'text',
+        text: systemPrompt,
+        cache_control: { type: 'ephemeral' },
+      },
+    ],
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: contextText,
+            cache_control: { type: 'ephemeral' },
+          },
           {
             type: 'text',
             text: instruction,
