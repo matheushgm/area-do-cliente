@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
 import { buildCachedPayload } from '../lib/buildContext'
@@ -420,6 +420,29 @@ function CopyForm({ project, copyCount, onSave, onCancel, isRegen, existingName,
   const [loading,         setLoading]         = useState(false)
   const [error,           setError]           = useState(null)
   const [streamPreview,   setStreamPreview]   = useState('')
+  // Escopo de produto + persona: '' = todos/todas (geral)
+  const [selectedProductId, setSelectedProductId] = useState('')
+  const [selectedPersonaId, setSelectedPersonaId] = useState('')
+
+  const productList = useMemo(
+    () => (project.produtos || []).filter((p) => (p.nome || '').trim()),
+    [project.produtos]
+  )
+  const personaList = useMemo(
+    () => (project.personas || []).filter((p) => (p.name || '').trim()),
+    [project.personas]
+  )
+
+  // Project escopado: limita produtos/personas ao que foi escolhido. O
+  // buildContext.js itera sobre essas listas, então restringir já foca a IA.
+  const scopedProject = useMemo(() => {
+    let p = project
+    const prod = selectedProductId ? productList.find((x) => x.id === selectedProductId) : null
+    const pers = selectedPersonaId ? personaList.find((x) => x.id === selectedPersonaId) : null
+    if (prod) p = { ...p, produtos: [prod] }
+    if (pers) p = { ...p, personas: [pers] }
+    return p
+  }, [project, selectedProductId, selectedPersonaId, productList, personaList])
 
   const generate = useCallback(async () => {
     setLoading(true)
@@ -439,7 +462,7 @@ Com base em todas as informações do cliente acima, crie uma copy COMPLETA de l
 
       const { system, messages } = buildCachedPayload({
         systemPrompt: LANDING_SYSTEM,
-        project,
+        project: scopedProject,
         instruction,
       })
 
@@ -451,20 +474,26 @@ Com base em todas as informações do cliente acima, crie uma copy COMPLETA de l
         onChunk:    (text) => setStreamPreview(text),
       })
 
+      const prod = selectedProductId ? productList.find((x) => x.id === selectedProductId) : null
+      const pers = selectedPersonaId ? personaList.find((x) => x.id === selectedPersonaId) : null
       onSave({
-        id:         crypto.randomUUID(),
-        name:       name.trim() || (isRegen ? existingName : `Copy Landing Page ${copyCount + 1}`),
-        content:    fullText,
-        customNote: customNote.trim(),
-        rating:     null,
-        createdAt:  new Date().toISOString(),
+        id:          crypto.randomUUID(),
+        name:        name.trim() || (isRegen ? existingName : `Copy Landing Page ${copyCount + 1}`),
+        content:     fullText,
+        customNote:  customNote.trim(),
+        productId:   selectedProductId || null,
+        productName: prod?.nome || null,
+        personaId:   selectedPersonaId || null,
+        personaName: pers?.name || null,
+        rating:      null,
+        createdAt:   new Date().toISOString(),
       })
     } catch (e) {
       setError(e.message)
     } finally {
       setLoading(false)
     }
-  }, [copyCount, customNote, existingName, isRegen, name, onSave, project])
+  }, [copyCount, customNote, existingName, isRegen, name, onSave, scopedProject, selectedProductId, selectedPersonaId, productList, personaList])
 
 
   return (
@@ -496,6 +525,59 @@ Com base em todas as informações do cliente acima, crie uma copy COMPLETA de l
         </div>
       )}
 
+      {/* Escopo de produto + persona (opcional) */}
+      {(productList.length > 0 || personaList.length > 0) && (
+        <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">🎯</span>
+            <label className="label-field !mb-0">Foco desta copy</label>
+            {(selectedProductId || selectedPersonaId) && (
+              <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-green/15 text-rl-green border border-rl-green/30">
+                escopo ativo
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-rl-muted leading-snug">
+            Escolha um produto e/ou persona específicos pra IA focar só neles. Deixe em
+            &ldquo;Todos&rdquo;/&ldquo;Todas&rdquo; pra considerar o cliente inteiro.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {productList.length > 0 && (
+              <div>
+                <label className="text-[11px] font-bold text-rl-text block mb-1">📦 Produto/serviço</label>
+                <select
+                  value={selectedProductId}
+                  onChange={(e) => setSelectedProductId(e.target.value)}
+                  className="input-field w-full text-sm"
+                >
+                  <option value="">Todos os produtos</option>
+                  {productList.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome}{p.tipo === 'servico' ? ' · Serviço' : p.tipo === 'produto' ? ' · Produto' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {personaList.length > 0 && (
+              <div>
+                <label className="text-[11px] font-bold text-rl-text block mb-1">👤 Persona / público</label>
+                <select
+                  value={selectedPersonaId}
+                  onChange={(e) => setSelectedPersonaId(e.target.value)}
+                  className="input-field w-full text-sm"
+                >
+                  <option value="">Todas as personas</option>
+                  {personaList.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Custom note */}
       <div>
         <label className="label-field mb-2">
@@ -517,7 +599,7 @@ Com base em todas as informações do cliente acima, crie uma copy COMPLETA de l
       </div>
 
       {/* Context preview */}
-      <ContextPreview project={project} />
+      <ContextPreview project={scopedProject} />
 
       {/* Error */}
       {error && (
