@@ -41,7 +41,7 @@ export const PHASES = [
       { id: 'oferta',          label: 'Oferta Matadora',          emoji: '⚡', desc: 'Estrutura de oferta com bônus, garantia e gatilhos.' },
       { id: 'promessa',        label: 'Criação de Promessa',      emoji: '🎯', desc: 'Estrutura a grande promessa do produto/serviço.', viaFerramentas: true },
       { id: 'campaign',        label: 'Campanha',                 emoji: '📅', desc: 'Planejamento de campanhas por canal e estágio do funil.' },
-      { id: 'estrategiav2',    label: 'Análise Competitiva',      emoji: '🗺', desc: 'Mapa de concorrência e oportunidades de diferenciação.' },
+      { id: 'estrategiav2',    label: 'Estratégia',               emoji: '🗺', desc: 'Mapa de concorrência e oportunidades de diferenciação.' },
       { id: 'criativos',       label: 'Criativos com IA',         emoji: '🎬', desc: 'Geração de criativos estáticos e roteiros de vídeo.' },
       { id: 'landingpage',     label: 'Landing Page com IA',      emoji: '📄', desc: 'Estrutura de landing page dobra a dobra com IA.' },
       { id: 'metalab',         label: 'Laboratório de Meta Ads',  emoji: '🧪', desc: 'Protocolo de testes em 3 fases (criativos, públicos, ganchos).' },
