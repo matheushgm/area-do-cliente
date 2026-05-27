@@ -1,0 +1,12 @@
+-- Migration 059: add proposta_comercial JSONB column to projects_v2
+--
+-- Roteiro da ferramenta "Proposta Comercial" (módulo Ferramentas). Objeto único
+-- por projeto, com os campos do roteiro (recepção, quebra de gelo, pacto inicial,
+-- SPIN, pacto/transição, método, produto, dúvidas e os 3 slides de preço). Shape:
+-- { recepcao, quebraGeloPerguntas, problemaMapeado, pontosEmComum,
+--   pactoInicialFalas, tresIntencoes, spinSituacao, spinProblema, spinImplicacao,
+--   spinNecessidade, objetivoCliente, pactoTransicao, metodoNome, metodoPassos,
+--   produtoIncluido, produtoDiferenciais, slideDuvidas, valorTabela,
+--   ancoragemJustificativa, valorReal, valorRealCondicoes, valorCall,
+--   valorCallGatilho, updatedAt }
+ALTER TABLE projects_v2 ADD COLUMN IF NOT EXISTS proposta_comercial JSONB;

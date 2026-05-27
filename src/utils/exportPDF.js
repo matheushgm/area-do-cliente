@@ -1,3 +1,5 @@
+import { PROPOSTA_SECTIONS } from '../lib/propostaComercial'
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtBRL(n) {
@@ -152,10 +154,30 @@ const PRINT_CSS = `
     display: flex; align-items: center; gap: 8px;
   }
   .print-btn:hover { background: #0F3380; }
+  /* Proposta Comercial — 1 bloco por página (momento vs slide) */
+  .pc-block { page-break-after: always; padding-top: 6px; }
+  .pc-block:last-child { page-break-after: auto; }
+  .pc-block-head {
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 2px solid #164496; padding-bottom: 10px; margin-bottom: 14px;
+  }
+  .pc-num { font-size: 20px; font-weight: 800; color: #164496; }
+  .pc-title { font-size: 18px; font-weight: 800; color: #0F172A; flex: 1; }
+  .pc-badge {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 3px 10px; border-radius: 99px;
+  }
+  .pc-badge.slide { background: #E4EBF7; color: #164496; }
+  .pc-badge.momento { background: #F1F5F9; color: #64748B; }
+  .pc-desc { font-size: 12px; color: #64748B; margin-bottom: 12px; }
+  .pc-field { margin-bottom: 14px; }
+  .pc-field .field-label { font-size: 11px; font-weight: 700; color: #164496; margin-bottom: 4px; }
   @media print {
     .print-btn { display: none !important; }
     body { padding: 20px 24px; }
     .persona-block { page-break-inside: avoid; }
+    .pc-block { page-break-after: always; }
+    .pc-block:last-child { page-break-after: auto; }
   }
 `
 
@@ -192,6 +214,46 @@ function printHTML(title, subtitle, bodyHTML) {
   if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
   win.document.write(html)
   win.document.close()
+}
+
+// ─── Proposta Comercial PDF ─────────────────────────────────────────────────────
+//
+// Gera 1 bloco por página, cada um marcado como MOMENTO (fala/condução) ou SLIDE
+// (conteúdo de slide). Blocos totalmente vazios são omitidos. A estrutura vem de
+// PROPOSTA_SECTIONS (lib/propostaComercial.js), a mesma usada pelo formulário.
+export function exportPropostaComercialPDF(project, data = {}) {
+  const blocks = PROPOSTA_SECTIONS.map((sec) => {
+    const filled = sec.campos.filter((f) => (data[f.id] || '').trim())
+    if (!filled.length) return ''
+
+    const badge = sec.tipo === 'SLIDE'
+      ? '<span class="pc-badge slide">Slide</span>'
+      : '<span class="pc-badge momento">Momento</span>'
+
+    const fieldsHTML = filled
+      .map((f) => `
+        <div class="pc-field">
+          <div class="field-label">${esc(f.label)}</div>
+          <div class="prose">${mdToHTML(data[f.id])}</div>
+        </div>`)
+      .join('')
+
+    return `
+      <section class="pc-block">
+        <div class="pc-block-head">
+          <span class="pc-num">${String(sec.n).padStart(2, '0')}</span>
+          <span class="pc-title">${esc(sec.titulo)}</span>
+          ${badge}
+        </div>
+        ${sec.descricao ? `<p class="pc-desc">${esc(sec.descricao)}</p>` : ''}
+        ${fieldsHTML}
+      </section>`
+  }).filter(Boolean).join('\n')
+
+  const body = blocks
+    || '<section><p class="prose">Nenhum campo preenchido ainda. Volte e preencha o roteiro.</p></section>'
+  const subtitle = project.companyName || project.nome || 'Proposta'
+  printHTML('Proposta Comercial', subtitle, body)
 }
 
 // ─── Onboarding PDF ───────────────────────────────────────────────────────────

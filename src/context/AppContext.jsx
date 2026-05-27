@@ -242,6 +242,9 @@ function assembleProject(row, rel = {}) {
     // Webinars (ferramenta de construção de webinar por etapas)
     webinars: row.webinars ?? null,
 
+    // Proposta Comercial (roteiro da ferramenta de Proposta Comercial)
+    propostaComercial: row.proposta_comercial ?? null,
+
     // Lab. Meta Ads
     metaLabBudget:       row.meta_lab_budget       ?? null,
     metaLabAudienceType: row.meta_lab_audience_type ?? null,
@@ -393,6 +396,7 @@ const PROJECT_FIELD_MAP = {
   matrizObjecao:        "matriz_objecao",
   webinars:             "webinars",
   roiCenarios:          "roi_cenarios",
+  propostaComercial:    "proposta_comercial",
 };
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────

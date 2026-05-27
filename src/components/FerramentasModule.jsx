@@ -9,6 +9,7 @@ import PrecificacaoModule from './Precificacao/PrecificacaoModule'
 import MecanismoUnicoModule from './MecanismoUnico/MecanismoUnicoModule'
 import MatrizObjecaoModule from './MatrizObjecao/MatrizObjecaoModule'
 import WebinarModule from './Webinar/WebinarModule'
+import PropostaComercialModule from './PropostaComercialModule'
 
 // ─── Catálogo de Ferramentas ──────────────────────────────────────────────────
 // `Component` é o módulo real renderizado quando a card é clicada. Tools com
@@ -72,10 +73,10 @@ const TOOLS = [
     id: 'proposta',
     title: 'Proposta comercial',
     description:
-      'Gere uma proposta comercial completa com diagnóstico, escopo, investimento e gatilhos de fechamento.',
+      'Monte o roteiro da proposta (recepção, quebra de gelo, pacto, SPIN, método, produto e preços) e exporte em PDF pra montar sua apresentação.',
     Icon: FileSignature,
     color: 'rl-cyan',
-    comingSoon: true,
+    Component: PropostaComercialModule,
   },
 ]
 
