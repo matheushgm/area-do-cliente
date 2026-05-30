@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext'
 import {
   Plus, Layers, TrendingDown,
   LogOut, Cloud, CloudOff, Loader2,
-  X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare, BarChart3,
+  X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare, BarChart3, DollarSign,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -19,6 +19,7 @@ const NAV_LINKS = [
   { id: 'funil',     label: 'Funil de Vendas',   Icon: GitFork,      type: 'route',    to: '/funil' },
   { id: 'playbook',  label: 'Playbook',          Icon: BookOpen,     type: 'external', href: 'https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173' },
   { id: 'dashboard', label: 'Dashboard',         Icon: BarChart3,    type: 'route',    to: '/dashboard' },
+  { id: 'precificacao', label: 'Precificação',   Icon: DollarSign,   type: 'external', href: 'https://vvmkxurb.manus.space/' },
 ]
 
 function SidebarContent({
