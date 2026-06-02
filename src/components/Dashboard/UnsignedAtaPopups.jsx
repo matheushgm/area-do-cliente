@@ -31,12 +31,18 @@ export default function UnsignedAtaPopups({ projects = [] }) {
     if (!supabase || !user?.id) return
     const { data, error } = await supabase
       .from('meeting_minutes')
-      .select('id,project_id,title,internal_signatures,client_signature,created_at')
+      .select('id,project_id,title,internal_signatures,client_signature,participant_ids,created_at')
       .order('created_at', { ascending: false })
       .limit(SCAN_LIMIT)
     if (error || !Array.isArray(data)) return
 
-    const unsigned = data.filter((m) => !isFullySigned(m))
+    // Só notifica quem foi marcado como participante na ata.
+    const unsigned = data.filter(
+      (m) =>
+        !isFullySigned(m) &&
+        Array.isArray(m.participant_ids) &&
+        m.participant_ids.includes(user?.id)
+    )
     if (!unsigned.length) return
 
     const now = Date.now()
@@ -44,7 +50,7 @@ export default function UnsignedAtaPopups({ projects = [] }) {
 
     const toShow = unsigned
       .filter((m) => {
-        const last = localStorage.getItem(lsKey(user.id, m.id))
+        const last = localStorage.getItem(lsKey(user?.id, m.id))
         if (!last) return true
         const lastN = parseInt(last, 10) || 0
         return now - lastN >= POPUP_INTERVAL_MS
@@ -61,7 +67,7 @@ export default function UnsignedAtaPopups({ projects = [] }) {
     if (!toShow.length) return
 
     // Marca como vistas AGORA pra não duplicar no próximo evaluate
-    toShow.forEach((p) => localStorage.setItem(lsKey(user.id, p.id), String(now)))
+    toShow.forEach((p) => localStorage.setItem(lsKey(user?.id, p.id), String(now)))
 
     setPopups((prev) => {
       const existing = new Set(prev.map((p) => p.id))

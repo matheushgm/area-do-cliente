@@ -10,8 +10,92 @@ import {
   X, Loader2, ExternalLink, ChevronRight, Save, ArrowLeft,
   Megaphone, ShoppingCart, Target, Lightbulb, AlertTriangle,
   TrendingUp, CheckSquare, Link2, Check, CheckCircle2, Lock,
-  PenLine, UserCircle2,
+  PenLine, UserCircle2, ChevronDown,
 } from 'lucide-react'
+
+// Iniciais de um nome pra fallback de avatar (ex.: "João Silva" → "JS")
+function nameInitials(name = '') {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase()
+}
+
+// ─── Multi-seleção de participantes (usuários da plataforma) ─────────────────
+function ParticipantsSelect({ members, selectedIds, onChange }) {
+  const [open, setOpen] = useState(false)
+  const selected = members.filter((m) => selectedIds.includes(m.id))
+
+  function toggle(id) {
+    onChange(
+      selectedIds.includes(id)
+        ? selectedIds.filter((x) => x !== id)
+        : [...selectedIds, id]
+    )
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="input-field w-full flex items-center justify-between gap-2 text-left"
+      >
+        <span className="flex-1 min-w-0 truncate">
+          {selected.length
+            ? selected.map((m) => m.name).join(', ')
+            : <span className="text-rl-muted">Selecione os participantes...</span>}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-rl-muted shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-xl border border-rl-border bg-rl-surface shadow-2xl p-1">
+            {members.length === 0 ? (
+              <p className="px-3 py-3 text-xs text-rl-muted text-center">Nenhum usuário disponível.</p>
+            ) : (
+              members.map((m) => {
+                const checked = selectedIds.includes(m.id)
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => toggle(m.id)}
+                    className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-rl-bg text-left transition"
+                  >
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                      checked ? 'bg-rl-purple border-rl-purple text-white' : 'border-rl-border'
+                    }`}>
+                      {checked && <Check className="w-3 h-3" />}
+                    </span>
+                    <span className="w-6 h-6 rounded-full bg-gradient-rl flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                      {m.avatar || nameInitials(m.name)}
+                    </span>
+                    <span className="flex-1 min-w-0 text-sm text-rl-text truncate">{m.name}</span>
+                    {m.role && (
+                      <span className="text-[10px] text-rl-muted capitalize shrink-0">{m.role}</span>
+                    )}
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+ParticipantsSelect.propTypes = {
+  members: PropTypes.array.isRequired,
+  selectedIds: PropTypes.array.isRequired,
+  onChange: PropTypes.func.isRequired,
+}
 
 // ─── Configuração das 3 assinaturas ──────────────────────────────────────────
 const SIGNATURE_ROLES = [
@@ -118,11 +202,13 @@ function todayISO() {
 }
 
 // ─── Editor de uma ata ──────────────────────────────────────────────────────
-function MinuteEditor({ initial, projectId, currentUserId, onSaved, onCancel, showToast }) {
+function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onCancel, showToast }) {
   const [title,        setTitle]        = useState(initial?.title || '')
   const [meetingDate,  setMeetingDate]  = useState(initial?.meeting_date || todayISO())
   const [recordingUrl, setRecordingUrl] = useState(initial?.recording_url || '')
-  const [attendees,    setAttendees]    = useState(Array.isArray(initial?.attendees) ? initial.attendees.join(', ') : '')
+  const [participantIds, setParticipantIds] = useState(
+    Array.isArray(initial?.participant_ids) ? initial.participant_ids : []
+  )
   const [template,     setTemplate]     = useState(initial?.template || {})
   const [actions,      setActions]      = useState(Array.isArray(initial?.next_actions) ? initial.next_actions : [])
   const [saving,       setSaving]       = useState(false)
@@ -156,16 +242,20 @@ function MinuteEditor({ initial, projectId, currentUserId, onSaved, onCancel, sh
       return
     }
     setSaving(true)
-    const attendeesArr = attendees.split(',').map((s) => s.trim()).filter(Boolean)
+    // Deriva os nomes dos participantes selecionados (mantém compatibilidade
+    // com a exibição existente que usa `attendees`).
+    const selectedMembers = members.filter((m) => participantIds.includes(m.id))
+    const attendeesArr = selectedMembers.map((m) => m.name).filter(Boolean)
     const payload = {
-      project_id:    projectId,
-      title:         title.trim(),
-      meeting_date:  meetingDate,
-      recording_url: recordingUrl.trim() || null,
-      attendees:     attendeesArr,
+      project_id:      projectId,
+      title:           title.trim(),
+      meeting_date:    meetingDate,
+      recording_url:   recordingUrl.trim() || null,
+      attendees:       attendeesArr,
+      participant_ids: participantIds,
       template,
-      next_actions:  actions,
-      updated_at:    new Date().toISOString(),
+      next_actions:    actions,
+      updated_at:      new Date().toISOString(),
     }
     let result
     if (initial?.id) {
@@ -234,13 +324,14 @@ function MinuteEditor({ initial, projectId, currentUserId, onSaved, onCancel, sh
           <label className="block text-xs font-semibold text-rl-muted mb-1.5 uppercase tracking-wider">
             <Users className="w-3.5 h-3.5 inline mr-1" /> Participantes
           </label>
-          <input
-            value={attendees}
-            onChange={(e) => setAttendees(e.target.value)}
-            placeholder="João, Maria, Pedro..."
-            className="input-field w-full"
+          <ParticipantsSelect
+            members={members}
+            selectedIds={participantIds}
+            onChange={setParticipantIds}
           />
-          <p className="text-[10px] text-rl-muted mt-1">Separe os nomes por vírgula.</p>
+          <p className="text-[10px] text-rl-muted mt-1">
+            Selecione os usuários da plataforma. Os marcados recebem a notificação de assinatura da ata.
+          </p>
         </div>
       </div>
 
@@ -355,6 +446,7 @@ MinuteEditor.propTypes = {
   initial: PropTypes.object,
   projectId: PropTypes.string.isRequired,
   currentUserId: PropTypes.string,
+  members: PropTypes.array,
   onSaved: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
   showToast: PropTypes.func.isRequired,
@@ -720,7 +812,7 @@ MinuteView.propTypes = {
 
 // ─── Módulo principal ──────────────────────────────────────────────────────
 export default function MeetingMinutesModule({ project }) {
-  const { user } = useApp()
+  const { user, teamMembers } = useApp()
   const { toast, showToast } = useToast()
   const [minutes,    setMinutes]    = useState([])
   const [loading,    setLoading]    = useState(true)
@@ -755,8 +847,8 @@ export default function MeetingMinutesModule({ project }) {
     setView({ mode: 'view', minute: saved })
     showToast('Ata salva')
 
-    // Notifica o squad SÓ na criação (não em edição)
-    if (!exists) notifySquadAboutNewMinute(saved)
+    // Notifica os participantes marcados SÓ na criação (não em edição)
+    if (!exists) notifyParticipantsAboutNewMinute(saved)
   }
 
   // Quando o usuário assina (AM/GT) atualiza o state com a linha completa
@@ -767,19 +859,13 @@ export default function MeetingMinutesModule({ project }) {
     }
   }
 
-  // Cria uma notificação por membro do squad — o realtime do NotificationCenter
-  // exibe um popup quando o usuário está logado. Quem está offline vê quando
-  // entrar (a Dashboard tem widget de atas recentes).
-  async function notifySquadAboutNewMinute(saved) {
-    if (!supabase || !project?.squad) return
+  // Cria uma notificação por participante marcado na ata — o realtime do
+  // NotificationCenter exibe um popup quando o usuário está logado. Quem está
+  // offline vê quando entrar. Apenas os usuários marcados são notificados.
+  async function notifyParticipantsAboutNewMinute(saved) {
+    if (!supabase) return
     try {
-      const { data: squad } = await supabase
-        .from('squads')
-        .select('members')
-        .eq('id', project.squad)
-        .single()
-      const memberIds = ((squad?.members) || [])
-        .map((m) => m.profile_id)
+      const memberIds = (Array.isArray(saved.participant_ids) ? saved.participant_ids : [])
         .filter(Boolean)
         .filter((id) => id !== user?.id) // não notifica o criador
       if (!memberIds.length) return
@@ -795,7 +881,7 @@ export default function MeetingMinutesModule({ project }) {
       }))
       await supabase.from('notifications').insert(rows)
     } catch (e) {
-      console.warn('[MeetingMinutes] erro ao notificar squad:', e?.message)
+      console.warn('[MeetingMinutes] erro ao notificar participantes:', e?.message)
     }
   }
 
@@ -849,6 +935,7 @@ export default function MeetingMinutesModule({ project }) {
           initial={view.minute}
           projectId={project.id}
           currentUserId={user?.id}
+          members={teamMembers || []}
           onSaved={handleSaved}
           onCancel={() => setView(view.minute ? { mode: 'view', minute: view.minute } : { mode: 'list' })}
           showToast={showToast}
