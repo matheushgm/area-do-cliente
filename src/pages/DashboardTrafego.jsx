@@ -34,7 +34,10 @@ export default function DashboardTrafego() {
   const [squadFilter, setSquadFilter] = useState('')
 
   const [openClient, setOpenClient] = useState(null) // { client, channel }
-  const [shared, setShared] = useState(false)
+  // Detecta o modo compartilhado já no primeiro render (a partir da URL), antes
+  // do efeito abaixo: assim a moldura interna (AppSidebar, que depende de um
+  // usuário logado) nunca é montada para um visitante anônimo do link público.
+  const [shared, setShared] = useState(() => new URLSearchParams(window.location.search).get('shared') === '1')
   const [preview, setPreview] = useState(null)        // { url, name }
   const [mapModal, setMapModal] = useState(null)      // dashName
   const [cuMapModal, setCuMapModal] = useState(null)  // dashName

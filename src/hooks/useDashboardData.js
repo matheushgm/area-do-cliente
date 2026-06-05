@@ -42,12 +42,16 @@ export function useDashboardData() {
     setLoading(true)
     setError(null)
     try {
+      // Lê das views *_public (security definer) para que o modo compartilhado
+      // (/dashboard?shared=1) funcione também sem login — anon não enxerga as
+      // tabelas-base dashboard_accounts/squads por RLS. As escritas (setSquad,
+      // linkProject…) continuam indo para a tabela-base e exigem authenticated.
       const [sheets, accRes, projRes, cplRes, sqRes] = await Promise.all([
         loadSheets(),
-        supabase.from('dashboard_accounts').select('account_name,project_id,squad_id,clickup_folder_id'),
+        supabase.from('dashboard_accounts_public').select('account_name,project_id,squad_id,clickup_folder_id'),
         supabase.from('dashboard_projects_public').select('id,company_name,squad_name,clickup_folder_id'),
         supabase.from('cpl_targets_public').select('company_name,cpl_target'),
-        supabase.from('squads').select('id,name'),
+        supabase.from('dashboard_squads_public').select('id,name'),
       ])
       if (!mounted.current) return
       const accMap = {}

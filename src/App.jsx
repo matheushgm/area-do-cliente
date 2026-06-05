@@ -43,6 +43,15 @@ function RequireSquadsAccess({ children }) {
   return canViewSquadsReport(user) ? children : <Navigate to="/" replace />
 }
 
+// Dashboard de Tráfego: público quando aberto via link compartilhável
+// (?shared=1) — o cliente vê o próprio dashboard sem login; caso contrário,
+// exige autenticação como as demais rotas internas.
+function DashboardRoute() {
+  const isShared = new URLSearchParams(window.location.search).get('shared') === '1'
+  if (isShared) return <DashboardTrafego />
+  return <RequireAuth><DashboardTrafego /></RequireAuth>
+}
+
 function AppRoutes() {
   const { user, loadingAuth } = useApp()
   return (
@@ -66,7 +75,7 @@ function AppRoutes() {
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
         <Route path="/tarefas" element={<RequireAuth><Tasks /></RequireAuth>} />
         <Route path="/chat" element={<RequireAuth><Chat /></RequireAuth>} />
-        <Route path="/dashboard" element={<RequireAuth><DashboardTrafego /></RequireAuth>} />
+        <Route path="/dashboard" element={<DashboardRoute />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
