@@ -6,16 +6,18 @@
 <title>Dashboard API — Tráfego (replica)</title>
 <link rel="stylesheet" href="./vendor/dashboard.css">
 <style>
-  /* fundo igual ao app real (.dt-root já estiliza o miolo) */
-  body { margin:0; background:#0a1024; }
-  .api-banner { background:linear-gradient(90deg,#1b2a55,#10203f); color:#9fb4e6; font-size:12px;
-    padding:7px 20px; border-bottom:1px solid #22335f; display:flex; gap:10px; align-items:center; }
-  .api-banner b { color:#cfe0ff; }
-  .api-dot { width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 8px #22c55e; }
+  /* Fundo CLARO (igual ao dashboard oficial). .dt-root é transparente e herda
+     daqui — os elementos com fundo semi-transparente (barras de status) só ficam
+     legíveis sobre fundo claro. */
+  body { margin:0; background:#EEF2F9; }
+  .api-banner { background:#FFFFFF; color:#64748B; font-size:12px;
+    padding:7px 20px; border-bottom:1px solid #D8E0F0; display:flex; gap:10px; align-items:center; }
+  .api-banner b { color:#164496; }
+  .api-dot { width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px #22c55e; }
 </style>
 </head>
 <body>
-<div class="api-banner"><span class="api-dot"></span> Fonte: <b>API Meta + Google</b> (CSV local gerado por <b>sync.py</b>) — réplica do dashboard real, sem login/Supabase. <span id="src-info"></span></div>
+<div class="api-banner"><span class="api-dot"></span> Fonte: <b>API Meta + Google</b> via Supabase (autenticado) · atualiza a cada 30 min. <span id="src-info"></span></div>
 <div class="dt-root" id="app"><div class="dt-loader"><div class="spinner"></div><p>Carregando dados da API…</p></div></div>
 
 <script type="module">
@@ -131,7 +133,7 @@ function render() {
   const st = ch==='meta'?stMeta:stGoogle
   const s = summaryFor(ch, p)
   const fmtSumPct = v => v!=null ? v.toFixed(2)+'%' : '—'
-  const leadsLabel = ch==='meta'?'Resultados':'Conversões'
+  const leadsLabel = 'Conversões'
   const cplLabel = ch==='meta'?'CPL Médio':'CPA Médio'
 
   app.innerHTML = `
@@ -315,7 +317,7 @@ function renderClient() {
     </div>
     <div class="summary-bar">
       <div class="sum-kpi"><div class="sum-label">Investido</div><div class="sum-value sum-accent">${fmtMoney(sp)}</div></div>
-      <div class="sum-kpi"><div class="sum-label">${isMeta?'Resultados':'Conversões'}</div><div class="sum-value">${fmtNum(cv)}</div></div>
+      <div class="sum-kpi"><div class="sum-label">Conversões</div><div class="sum-value">${fmtNum(cv)}</div></div>
       <div class="sum-kpi"><div class="sum-label">${isMeta?'CPL':'CPA'}</div><div class="sum-value">${cv>0?fmtMoney(sp/cv):'—'}</div></div>
       <div class="sum-kpi"><div class="sum-label">Campanhas</div><div class="sum-value">${nCamp}</div></div>
     </div>
