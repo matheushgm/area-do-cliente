@@ -88,9 +88,10 @@ function periods() {
     google: computeMainPeriod(state.raw.google, 'google', state.days, state.from, state.to),
   }
 }
-// Para Meta, conversões = coluna "Resultados" (evento de otimização da campanha,
-// = coluna Resultados do gerenciador). Para Google, segue o CFG padrão.
-const cfgFor = ch => ch === 'meta' ? { ...CFG.meta, convKeys: ['Resultados'] } : CFG.google
+// Meta: total da conta conta só CONVERSÕES reais (coluna "Conversões");
+// awareness/tráfego (impressões, cliques, thruplay...) aparece por campanha no
+// drill-down via "Resultados", mas não soma no total. Google segue o CFG padrão.
+const cfgFor = ch => ch === 'meta' ? { ...CFG.meta, convKeys: ['Conversões'] } : CFG.google
 
 function statsFor(ch, p) {
   if (!p) return []
@@ -107,7 +108,7 @@ function summaryFor(ch, p) {
   let sumSpend=0, sumLeads=0, sumClicks=0, sumImpr=0, sumConv=0
   if (isMeta) rows.forEach(r => {
     sumSpend += num(r['Valor investido'])
-    sumLeads += num(r['Resultados'])   // resultado da otimização (= gerenciador)
+    sumLeads += num(r['Conversões'])   // total da conta = só conversões reais
     sumClicks += num(r['Número de cliques no link']); sumImpr += num(r['Impressões'])
   })
   else rows.forEach(r => {
@@ -208,20 +209,22 @@ const txCell = (conv,clicks) => { if(!clicks) return '—'; const r=conv/clicks*
 const hookCell = (h3,vv) => { if(!vv) return `<span class="fl">—</span>`; const r=h3/vv*100; return `<span class="${r>=30?'good':r>=20?'warn':'crit'}">${r.toFixed(1)}%</span>` }
 const pctVid = (p,vv) => vv>0 ? (p/vv*100).toFixed(0)+'%' : '—'
 const M = (r,k)=>num(r[k])
-const metaConv = r => num(r['Resultados'])
+const metaConv = r => num(r['Conversões'])     // só conversões reais (total da conta)
+const metaResult = r => num(r['Resultados'])   // resultado verdadeiro do objetivo (por campanha)
 const flagRow = (items,kind) => items.length ? `<div class="flag-row">${items.map(f=>`<span class="flag flag-${kind}">${f}</span>`).join('')}</div>` : ''
 
 function tblMetaCampaigns(rows){
   const g = groupBy(rows, r=>r['Nome da campanha'], {
-    spend:r=>M(r,'Valor investido'), conv:metaConv, leads:metaConv,
+    spend:r=>M(r,'Valor investido'), conv:metaConv, leads:metaConv, result:metaResult,
     impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link') })
   if(!g.length) return `<div class="empty">Sem campanhas no período.</div>`
-  const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(x.key)} — gasto sem resultado`)
+  const flags = g.filter(x=>x.spend>0&&x.result===0).map(x=>`🚨 ${esc(x.key)} — gasto sem resultado`)
   const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null
     const st=x._rows[0]?.['Status da Campanha']||''
     const rl=(x._rows.find(r=>r['Tipo de resultado'])||{})['Tipo de resultado']||'—'
-    return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span></td>
-      <td style="color:#8aa0d6;font-size:11px">${esc(rl)}</td><td>${stTag(st)}</td>
+    // Resultado = nº verdadeiro do objetivo + tipo (= coluna do gerenciador).
+    return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${i===0&&x.result>0?'🏆 ':''}${esc(x.key)}</span></td>
+      <td><b>${fmtNum(x.result)}</b> <span style="color:#8aa0d6;font-size:11px">${esc(rl)}</span></td><td>${stTag(st)}</td>
       <td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Campanha</th><th>Resultado</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th><th>Cliques</th></tr></thead><tbody>${body}</tbody></table></div>`
