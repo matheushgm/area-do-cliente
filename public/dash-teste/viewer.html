@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard API — Tráfego (replica)</title>
+<link rel="stylesheet" href="./vendor/dashboard.css">
+<style>
+  /* fundo igual ao app real (.dt-root já estiliza o miolo) */
+  body { margin:0; background:#0a1024; }
+  .api-banner { background:linear-gradient(90deg,#1b2a55,#10203f); color:#9fb4e6; font-size:12px;
+    padding:7px 20px; border-bottom:1px solid #22335f; display:flex; gap:10px; align-items:center; }
+  .api-banner b { color:#cfe0ff; }
+  .api-dot { width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 8px #22c55e; }
+</style>
+</head>
+<body>
+<div class="api-banner"><span class="api-dot"></span> Fonte: <b>API Meta + Google</b> (CSV local gerado por <b>sync.py</b>) — réplica do dashboard real, sem login/Supabase. <span id="src-info"></span></div>
+<div class="dt-root" id="app"><div class="dt-loader"><div class="spinner"></div><p>Carregando dados da API…</p></div></div>
+
+<script type="module">
+import {
+  CFG, parseCSV, num, fmtMoney, fmtNum, fmtPct, fmtBR, inRange, fmtDate,
+  classifyFunnel, pillCls, pillIco, varCls, buildStats, computeMainPeriod,
+  groupBy, statusTagInfo,
+} from './vendor/dashboardData.js'
+
+// ─── Fonte de dados ──────────────────────────────────────────────────────────
+// Em produção (dentro da Área do Cliente): busca pelo endpoint AUTENTICADO
+// /api/dash-data, enviando o token da sessão Supabase (mesma origem → mesmo
+// localStorage). Em dev standalone (sem sessão): cai nos CSVs locais ./output/.
+const LOCAL = { meta: './output/meta.csv', google: './output/google.csv' }
+
+function supabaseToken() {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (/^sb-.*-auth-token$/.test(k)) {
+        const v = JSON.parse(localStorage.getItem(k))
+        const t = v?.access_token || v?.currentSession?.access_token || v?.session?.access_token
+        if (t) return t
+      }
+    }
+  } catch (e) { /* ignore */ }
+  return null
+}
+
+async function fetchChannel(ch) {
+  const token = supabaseToken()
+  if (token) {
+    const r = await fetch(`/api/dash-data?channel=${ch}`, { headers: { Authorization: `Bearer ${token}` } })
+    if (!r.ok) throw new Error(`${ch}: HTTP ${r.status}`)
+    return r.text()
+  }
+  // dev local (standalone, sem sessão)
+  const r = await fetch(LOCAL[ch])
+  return r.ok ? r.text() : ''
+}
+
+const STATUS_GROUPS = [
+  { key: 'CRÍTICO', icon: '🔴', hcls: 'gh-red', label: 'Crítico' },
+  { key: 'QUEDA',   icon: '🔴', hcls: 'gh-red', label: 'Queda' },
+  { key: 'ESTÁVEL', icon: '🟡', hcls: 'gh-yellow', label: 'Estável' },
+  { key: 'MELHORA', icon: '🟢', hcls: 'gh-green', label: 'Melhora' },
+]
+const PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3 dias',3],['7 dias',7],['14 dias',14],['30 dias',30],['Custom',0]]
+
+const state = { raw:{meta:[],google:[]}, channel:'meta', days:7, from:'', to:'', search:'', openClient:null,
+                sub:0, drillCampaign:null, drillAdset:null }
+const app = document.getElementById('app')
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+
+async function load() {
+  try {
+    const [m, g] = await Promise.all([fetchChannel('meta'), fetchChannel('google')])
+    state.raw = { meta: parseCSV(m), google: parseCSV(g) }
+    document.getElementById('src-info').textContent =
+      `· ${state.raw.meta.length} linhas Meta · ${state.raw.google.length} linhas Google`
+    render()
+  } catch (e) {
+    app.innerHTML = `<div class="dt-loader"><p>Erro ao carregar dados: ${esc(e.message)}.<br>Faça login na Área do Cliente e recarregue.</p></div>`
+  }
+}
+
+function periods() {
+  return {
+    meta:   computeMainPeriod(state.raw.meta,   'meta',   state.days, state.from, state.to),
+    google: computeMainPeriod(state.raw.google, 'google', state.days, state.from, state.to),
+  }
+}
+// Para Meta, conversões = coluna "Resultados" (evento de otimização da campanha,
+// = coluna Resultados do gerenciador). Para Google, segue o CFG padrão.
+const cfgFor = ch => ch === 'meta' ? { ...CFG.meta, convKeys: ['Resultados'] } : CFG.google
+
+function statsFor(ch, p) {
+  if (!p) return []
+  let st = buildStats(state.raw[ch], cfgFor(ch), p)
+  if (state.search) st = st.filter(s => s.name.toLowerCase().includes(state.search))
+  return st
+}
+
+// ─── Barra de resumo (espelha ChannelSection.useMemo) ────────────────────────
+function summaryFor(ch, p) {
+  if (!p) return null
+  const isMeta = ch === 'meta'
+  const rows = state.raw[ch].filter(r => inRange(fmtDate(r[CFG[ch].dateKey]), p.p1s, p.p1e))
+  let sumSpend=0, sumLeads=0, sumClicks=0, sumImpr=0, sumConv=0
+  if (isMeta) rows.forEach(r => {
+    sumSpend += num(r['Valor investido'])
+    sumLeads += num(r['Resultados'])   // resultado da otimização (= gerenciador)
+    sumClicks += num(r['Número de cliques no link']); sumImpr += num(r['Impressões'])
+  })
+  else rows.forEach(r => {
+    sumSpend += num(r['Gasto']); sumConv += num(r['Conversões'])
+    sumClicks += (num(r['CLiques'])||num(r['Cliques']))
+    sumImpr += (num(r['Impressões na parte superior'])||num(r['Impressões']))
+  })
+  if (!isMeta) sumLeads = sumConv
+  return { sumSpend, sumLeads, sumImpr, sumClicks,
+    cpl: sumLeads>0?sumSpend/sumLeads:null,
+    ctr: sumImpr>0?(sumClicks/sumImpr)*100:null,
+    txConv: sumClicks>0?(sumLeads/sumClicks)*100:null }
+}
+
+// ─── Render principal ────────────────────────────────────────────────────────
+function render() {
+  if (state.openClient) return renderClient()
+  const P = periods(), ch = state.channel, p = P[ch]
+  const stMeta = statsFor('meta', P.meta), stGoogle = statsFor('google', P.google)
+  const st = ch==='meta'?stMeta:stGoogle
+  const s = summaryFor(ch, p)
+  const fmtSumPct = v => v!=null ? v.toFixed(2)+'%' : '—'
+  const leadsLabel = ch==='meta'?'Resultados':'Conversões'
+  const cplLabel = ch==='meta'?'CPL Médio':'CPA Médio'
+
+  app.innerHTML = `
+    <div class="header">
+      <div class="header-left"><h1>Dashboard Tráfego</h1><p>Revenue Lab — Meta Ads &amp; Google Ads · via API</p></div>
+      <div class="header-right"><button class="btn" id="reload">⟳ Atualizar</button></div>
+    </div>
+    <div class="tabs">
+      <div class="tab ${ch==='meta'?'active':''}" data-ch="meta">📱 Meta Ads <span class="badge">${stMeta.length}</span></div>
+      <div class="tab ${ch==='google'?'active':''}" data-ch="google">🔍 Google Ads <span class="badge">${stGoogle.length}</span></div>
+    </div>
+    <div class="filter-bar">
+      <span class="filter-label">Período:</span>
+      <div class="presets">${PRESETS.map(([l,d])=>`<button class="preset ${state.days===d?'active':''}" data-d="${d}">${l}</button>`).join('')}</div>
+      ${state.days===0?`<div class="custom-inputs">
+        <label>De: <input type="date" id="cfrom" value="${state.from}"></label>
+        <label>Até: <input type="date" id="cto" value="${state.to}"></label>
+        <button class="btn" id="capply">Aplicar</button></div>`:''}
+      <div class="search-wrap"><span class="search-icon">🔍</span>
+        <input type="text" id="search" placeholder="Buscar cliente…" value="${esc(state.search)}">
+        ${state.search?`<span class="clear-btn" id="clear" style="display:block">✕</span>`:''}</div>
+      <span class="filter-info">${p?`Exibindo: ${p.label1} · Comparando com: ${p.label2}`:''}</span>
+    </div>
+    <div class="tab-panel">${!p||!st.length?`<div class="empty">Nenhum dado disponível para o período selecionado.</div>`:channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct)}</div>
+  `
+  wire()
+}
+
+function channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct) {
+  const dateLabels = p.t1.filter(Boolean).map(d=>{const[,m,day]=d.split('-');return `${day}/${m}`}).join(', ')
+  const summary = `
+    <div class="summary-bar">
+      <div class="sum-kpi"><div class="sum-label">Total Investido</div><div class="sum-value sum-accent">${fmtMoney(s.sumSpend)}</div><div class="sum-sub">${p.label1}</div></div>
+      <div class="sum-kpi"><div class="sum-label">${leadsLabel}</div><div class="sum-value">${fmtNum(s.sumLeads)}</div><div class="sum-sub">no período</div></div>
+      <div class="sum-kpi"><div class="sum-label">${cplLabel}</div><div class="sum-value">${s.cpl!=null?fmtMoney(s.cpl):'—'}</div><div class="sum-sub">gasto ÷ leads</div></div>
+      <div class="sum-kpi"><div class="sum-label">CTR Médio</div><div class="sum-value">${fmtSumPct(s.ctr)}</div><div class="sum-sub">cliques ÷ impressões</div></div>
+      <div class="sum-kpi"><div class="sum-label">Tx. Conv. Média</div><div class="sum-value">${fmtSumPct(s.txConv)}</div><div class="sum-sub">leads ÷ cliques</div></div>
+    </div>
+    <div class="period-row">
+      <div class="period-badge">Selecionado: <b>${p.label1}</b></div>
+      <div class="period-badge">Comparativo: <b>${p.label2}</b></div>
+      <div class="period-badge">Tendência 3d: <b>${dateLabels}</b></div>
+      <div class="period-badge">Duração: <b>${p.span+1} dias</b></div>
+    </div>`
+  const groups = STATUS_GROUPS.map(g => {
+    const grp = st.filter(x=>x.status===g.key); if (!grp.length) return ''
+    const rows = grp.map(x=>{
+      const trend = x.declining3d?`<span class="trend-dn">📉 Queda</span>`:x.trendDir==='up'?`<span class="trend-up">📈 Alta</span>`:`<span class="trend-fl">➡️ Estável</span>`
+      return `<tr data-client="${esc(x.name)}">
+        <td><span class="client-link">${esc(x.name)}</span></td>
+        <td><span class="pill ${pillCls(x.status)}">${pillIco(x.status)} ${x.status}</span></td>
+        <td>${fmtNum(x.conv1)}</td><td>${fmtNum(x.conv2)}</td>
+        <td class="${varCls(x.varConv,false)}">${fmtPct(x.varConv)}</td>
+        <td>${fmtMoney(x.cpl1)}</td><td>${fmtMoney(x.cpl2)}</td>
+        <td class="${varCls(x.varCpl,true)}">${fmtPct(x.varCpl)}</td>
+        <td>${fmtMoney(x.spend1)}</td><td>${fmtMoney(x.spend2)}</td>
+        <td class="${varCls(x.varSpend,false)}">${fmtPct(x.varSpend)}</td>
+        <td>${trend}</td></tr>`
+    }).join('')
+    return `<div class="group-section">
+      <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Conta</th><th>Status</th><th>Conv.</th><th>Conv. Ant.</th><th>Var. Conv.</th><th>CPL</th><th>CPL Ant.</th><th>Var. CPL</th><th>Investimento</th><th>Invest. Ant.</th><th>Var. Invest.</th><th>Tend. 3d</th></tr></thead>
+        <tbody>${rows}</tbody></table></div></div>`
+  }).join('')
+  return summary + groups
+}
+
+// ─── Drill-down de cliente: Campanhas → Conjuntos → Anúncios ─────────────────
+// Réplica do ClientPage/DrillTables do dashboard real (sub-abas + breadcrumb).
+const stTag = s => { const i = statusTagInfo(s); return i ? `<span class="status-tag ${i.cls}">${esc(i.label)}</span>` : '—' }
+const convCell = (conv,spend) => (spend>0 && conv===0) ? `<span class="crit">0 🚨</span>` : fmtNum(conv)
+const ctrCell = v => v==null ? '—' : `<span class="${v<1?'warn':'good'}">${v.toFixed(2)}%</span>`
+const txCell = (conv,clicks) => { if(!clicks) return '—'; const r=conv/clicks*100; return `<span class="${r>=5?'good':r>=1?'warn':'crit'}">${r.toFixed(1)}%</span>` }
+const hookCell = (h3,vv) => { if(!vv) return `<span class="fl">—</span>`; const r=h3/vv*100; return `<span class="${r>=30?'good':r>=20?'warn':'crit'}">${r.toFixed(1)}%</span>` }
+const pctVid = (p,vv) => vv>0 ? (p/vv*100).toFixed(0)+'%' : '—'
+const M = (r,k)=>num(r[k])
+const metaConv = r => num(r['Resultados'])
+const flagRow = (items,kind) => items.length ? `<div class="flag-row">${items.map(f=>`<span class="flag flag-${kind}">${f}</span>`).join('')}</div>` : ''
+
+function tblMetaCampaigns(rows){
+  const g = groupBy(rows, r=>r['Nome da campanha'], {
+    spend:r=>M(r,'Valor investido'), conv:metaConv, leads:metaConv,
+    impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link') })
+  if(!g.length) return `<div class="empty">Sem campanhas no período.</div>`
+  const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(x.key)} — gasto sem resultado`)
+  const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null
+    const st=x._rows[0]?.['Status da Campanha']||''
+    const rl=(x._rows.find(r=>r['Tipo de resultado'])||{})['Tipo de resultado']||'—'
+    return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span></td>
+      <td style="color:#8aa0d6;font-size:11px">${esc(rl)}</td><td>${stTag(st)}</td>
+      <td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
+      <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Campanha</th><th>Resultado</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th><th>Cliques</th></tr></thead><tbody>${body}</tbody></table></div>`
+}
+function tblMetaAdsets(rows){
+  const g = groupBy(rows, r=>r['Conjunto de Anúncio'], {
+    spend:r=>M(r,'Valor investido'), conv:metaConv, impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link') })
+  if(!g.length) return `<div class="empty">Sem conjuntos no período.</div>`
+  const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(x.key)} — gasto sem resultado`)
+  const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const st=x._rows[0]?.['Status do Conjunto de Anúncio']||''
+    return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-adset="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span></td>
+      <td>${stTag(st)}</td><td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
+      <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td></tr>` }).join('')
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Conjunto</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th></tr></thead><tbody>${body}</tbody></table></div>`
+}
+function tblMetaAds(rows){
+  const g = groupBy(rows, r=>r['Nome do Anúncio'], {
+    spend:r=>M(r,'Valor investido'), conv:metaConv, impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link'),
+    h3:r=>M(r,'Número de vezes que assistiram os 3 primeiros segundos'), vv:r=>M(r,'Número de vezes que o vídeo foi exibido'),
+    p25:r=>M(r,'Número de vezes que assistiram 25% do vídeo'), p50:r=>M(r,'Número de vezes que assistiram 50% do vídeo'),
+    p75:r=>M(r,'Número de vezes que assistiram 75% do vídeo'), p100:r=>M(r,'Número de vezes que assistiram 100% do vídeo') })
+  if(!g.length) return `<div class="empty">Sem anúncios no período.</div>`
+  const noConv = g.filter(x=>x.spend>0&&x.conv===0)
+  const flags = noConv.length?[`🚨 ${noConv.length} anúncio(s) com gasto e 0 resultados — R$ ${noConv.reduce((a,x)=>a+x.spend,0).toFixed(2)} desperdiçados`]:[]
+  const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const ctr=x.impr>0?x.clicks/x.impr*100:null
+    const st=x._rows[0]?.['Status do Aúncio']||''; const paused=st.toLowerCase().includes('paus')
+    return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</td>
+      <td>${stTag(st)}</td><td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
+      <td>${txCell(x.conv,x.clicks)}</td><td>${hookCell(x.h3,x.vv)}</td><td>${ctrCell(ctr)}</td>
+      <td>${pctVid(x.p25,x.vv)}</td><td>${pctVid(x.p50,x.vv)}</td><td>${pctVid(x.p75,x.vv)}</td><td>${pctVid(x.p100,x.vv)}</td></tr>` }).join('')
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Anúncio</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Hook 3s</th><th>CTR Link</th><th>V25%</th><th>V50%</th><th>V75%</th><th>V100%</th></tr></thead><tbody>${body}</tbody></table></div>`
+}
+function tblGoogleCampaigns(rows){
+  const g = groupBy(rows, r=>r['Campanha'], {
+    spend:r=>M(r,'Gasto'), conv:r=>M(r,'Conversões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')), loss:r=>M(r,'% de perda por orçamento') })
+  if(!g.length) return `<div class="empty">Sem campanhas no período.</div>`
+  const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(x.key)} — sem conversões`)
+  const body = g.map((x,i)=>{ const cpa=x.conv>0?x.spend/x.conv:null; const avg=x._rows.length?x.loss/x._rows.length:0
+    return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span></td>
+      <td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td>
+      <td>${avg>10?`<span class="crit">${avg.toFixed(1)}% 🚨</span>`:avg>0?`<span class="warn">${avg.toFixed(1)}%</span>`:'—'}</td></tr>` }).join('')
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Campanha</th><th>Conv.</th><th>Gasto</th><th>CPA</th><th>Cliques</th><th>% Perda Orçamento</th></tr></thead><tbody>${body}</tbody></table></div>`
+}
+function tblGoogleGroups(rows){
+  const g = groupBy(rows, r=>r['Grupo de palavras'], { spend:r=>M(r,'Gasto'), conv:r=>M(r,'Conversões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')) })
+  if(!g.length) return `<div class="empty">Sem grupos no período.</div>`
+  const body = g.map((x,i)=>{ const cpa=x.conv>0?x.spend/x.conv:null
+    return `<tr><td class="ad-name" title="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key||'(sem grupo)')}</td>
+      <td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
+  return `<div class="dt-wrap"><table><thead><tr><th>Grupo</th><th>Conv.</th><th>Gasto</th><th>CPA</th><th>Cliques</th></tr></thead><tbody>${body}</tbody></table></div>`
+}
+
+function renderClient() {
+  const { client, channel:ch } = state.openClient
+  const P = periods(), p = P[ch], isMeta = ch==='meta'
+  const accKey = CFG[ch].accountKey
+  const all = state.raw[ch].filter(r => r[accKey]?.trim()===client && inRange(fmtDate(r[CFG[ch].dateKey]), p.p1s, p.p1e))
+
+  // KPIs do topo
+  const sp = all.reduce((a,r)=>a+(isMeta?M(r,'Valor investido'):M(r,'Gasto')),0)
+  const cv = all.reduce((a,r)=>a+(isMeta?metaConv(r):M(r,'Conversões')),0)
+  const nCamp = new Set(all.map(r=>r[isMeta?'Nome da campanha':'Campanha'])).size
+
+  // Corpo: drill (conjunto→anúncios / campanha→conjuntos|grupos) ou sub-abas
+  let bc='', panel=''
+  if (isMeta && state.drillAdset){
+    panel = tblMetaAds(all.filter(r=>r['Conjunto de Anúncio']===state.drillAdset))
+    bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack">← Voltar</button>
+      <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span>
+      <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdset)}</span></div>`
+  } else if (state.drillCampaign){
+    panel = isMeta ? tblMetaAdsets(all.filter(r=>r['Nome da campanha']===state.drillCampaign))
+                   : tblGoogleGroups(all.filter(r=>r['Campanha']===state.drillCampaign))
+    bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack">← Voltar</button>
+      <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span></div>`
+  } else {
+    const tabs = isMeta ? [['📊 Campanhas',0],['🎯 Conjuntos',1],['🎨 Anúncios',2]] : [['📊 Campanhas',0],['🔑 Grupos',1]]
+    if (isMeta) panel = state.sub===1?tblMetaAdsets(all):state.sub===2?tblMetaAds(all):tblMetaCampaigns(all)
+    else        panel = state.sub===1?tblGoogleGroups(all):tblGoogleCampaigns(all)
+    bc = `<div class="dt-subtabs" style="display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:14px">
+      ${tabs.map(([l,i])=>`<div class="dtab${state.sub===i?' active':''}" data-sub="${i}">${l}</div>`).join('')}</div>`
+  }
+
+  app.innerHTML = `
+    <div class="header">
+      <div class="header-left"><h1>${esc(client)}</h1><p>${isMeta?'Meta Ads':'Google Ads'} · ${p.label1}</p></div>
+      <div class="header-right"><button class="btn" id="back">← Contas</button></div>
+    </div>
+    <div class="summary-bar">
+      <div class="sum-kpi"><div class="sum-label">Investido</div><div class="sum-value sum-accent">${fmtMoney(sp)}</div></div>
+      <div class="sum-kpi"><div class="sum-label">${isMeta?'Resultados':'Conversões'}</div><div class="sum-value">${fmtNum(cv)}</div></div>
+      <div class="sum-kpi"><div class="sum-label">${isMeta?'CPL':'CPA'}</div><div class="sum-value">${cv>0?fmtMoney(sp/cv):'—'}</div></div>
+      <div class="sum-kpi"><div class="sum-label">Campanhas</div><div class="sum-value">${nCamp}</div></div>
+    </div>
+    <div class="tab-panel">${bc}${panel}</div>`
+
+  // Eventos
+  document.getElementById('back').onclick = ()=>{ state.openClient=null; state.sub=0; state.drillCampaign=null; state.drillAdset=null; render() }
+  const back = document.getElementById('bcBack')
+  if (back) back.onclick = ()=>{ if(state.drillAdset) state.drillAdset=null; else state.drillCampaign=null; renderClient() }
+  app.querySelectorAll('[data-bc="root"]').forEach(e=>e.onclick=()=>{ state.drillCampaign=null; state.drillAdset=null; renderClient() })
+  app.querySelectorAll('[data-bc="camp"]').forEach(e=>e.onclick=()=>{ state.drillAdset=null; renderClient() })
+  app.querySelectorAll('.dtab[data-sub]').forEach(e=>e.onclick=()=>{ state.sub=Number(e.dataset.sub); renderClient() })
+  app.querySelectorAll('.drill-link[data-camp]').forEach(e=>e.onclick=()=>{ state.drillCampaign=e.dataset.camp; state.drillAdset=null; renderClient() })
+  app.querySelectorAll('.drill-link[data-adset]').forEach(e=>e.onclick=()=>{ state.drillAdset=e.dataset.adset; renderClient() })
+}
+
+// ─── Eventos ─────────────────────────────────────────────────────────────────
+function wire() {
+  document.getElementById('reload').onclick = load
+  app.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ state.channel=t.dataset.ch; render() })
+  app.querySelectorAll('.preset').forEach(b=>b.onclick=()=>{
+    const d=b.dataset.d; state.days = (d==='today'||d==='yesterday')?d:Number(d); render()
+  })
+  const cf=document.getElementById('cfrom'), ct=document.getElementById('cto'), ca=document.getElementById('capply')
+  if (ca) ca.onclick=()=>{ if(cf.value&&ct.value){state.from=cf.value;state.to=ct.value;render()} }
+  const se=document.getElementById('search')
+  if (se) se.oninput=e=>{ state.search=e.target.value.toLowerCase().trim(); render(); const n=document.getElementById('search'); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length)} }
+  const cl=document.getElementById('clear'); if (cl) cl.onclick=()=>{ state.search=''; render() }
+  app.querySelectorAll('tr[data-client]').forEach(tr=>tr.querySelector('.client-link').onclick=()=>{
+    state.openClient={ client: tr.dataset.client, channel: state.channel }
+    state.sub=0; state.drillCampaign=null; state.drillAdset=null
+    render()
+  })
+}
+
+load()
+</script>
+</body>
+</html>

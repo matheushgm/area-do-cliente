@@ -19,6 +19,7 @@ const NAV_LINKS = [
   { id: 'funil',     label: 'Funil de Vendas',   Icon: GitFork,      type: 'route',    to: '/funil' },
   { id: 'playbook',  label: 'Playbook',          Icon: BookOpen,     type: 'external', href: 'https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173' },
   { id: 'dashboard', label: 'Dashboard',         Icon: BarChart3,    type: 'route',    to: '/dashboard' },
+  { id: 'dashboard-teste', label: 'Dashboard',   Icon: BarChart3,    type: 'route',    to: '/dashboard-teste', badge: 'em teste' },
   { id: 'precificacao', label: 'Precificação',   Icon: DollarSign,   type: 'external', href: 'https://vvmkxurb.manus.space/' },
 ]
 
@@ -98,7 +99,7 @@ function SidebarContent({
       <div className="border-t border-rl-border/50 mx-1 my-2" />
 
       <nav className="space-y-0.5">
-        {NAV_LINKS.map(({ id, label, Icon, type, to, href }) => {
+        {NAV_LINKS.map(({ id, label, Icon, type, to, href, badge }) => {
           const active = type === 'route' && location.pathname === to
           const baseClass = `w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group border ${
             active
@@ -111,6 +112,11 @@ function SidebarContent({
                 <Icon className="w-4 h-4 shrink-0" />
                 {label}
               </div>
+              {badge && (
+                <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rl-gold/15 text-rl-gold border border-rl-gold/30">
+                  {badge}
+                </span>
+              )}
               {type === 'external' && <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-50" />}
             </>
           )

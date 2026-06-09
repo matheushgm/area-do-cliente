@@ -21,6 +21,7 @@ import ResetPassword from './pages/ResetPassword'
 import Tasks from './pages/Tasks'
 import Chat from './pages/Chat'
 import DashboardTrafego from './pages/DashboardTrafego'
+import DashboardApiTeste from './pages/DashboardApiTeste'
 import NotificationCenter from './components/NotificationCenter'
 
 function RequireAuth({ children }) {
@@ -76,6 +77,7 @@ function AppRoutes() {
         <Route path="/tarefas" element={<RequireAuth><Tasks /></RequireAuth>} />
         <Route path="/chat" element={<RequireAuth><Chat /></RequireAuth>} />
         <Route path="/dashboard" element={<DashboardRoute />} />
+        <Route path="/dashboard-teste" element={<RequireAuth><DashboardApiTeste /></RequireAuth>} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

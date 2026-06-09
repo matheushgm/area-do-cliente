@@ -39,3 +39,7 @@ screenshot/
 # Migration artifacts
 scripts/id-map-*.json
 .env*.local
+
+# Dados de clientes — NUNCA commitar (repo público)
+api/_data/
+public/dash-teste/output/
