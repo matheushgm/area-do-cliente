@@ -17,7 +17,7 @@
 </style>
 </head>
 <body>
-<div class="api-banner"><span class="api-dot"></span> Fonte: <b>API Meta + Google</b> via Supabase (autenticado) · atualiza a cada 30 min. <span id="src-info"></span></div>
+<div class="api-banner"><span class="api-dot"></span> Fonte: <b>API Meta + Google</b> via Supabase (autenticado) · atualiza a cada 30 min. <span id="src-info"></span><span id="sync-status" style="margin-left:auto;font-weight:700"></span></div>
 <div class="dt-root" id="app"><div class="dt-loader"><div class="spinner"></div><p>Carregando dados da API…</p></div></div>
 
 <script type="module">
@@ -82,6 +82,32 @@ async function load() {
   } catch (e) {
     app.innerHTML = `<div class="dt-loader"><p>Erro ao carregar dados: ${esc(e.message)}.<br>Faça login na Área do Cliente e recarregue.</p></div>`
   }
+}
+
+function setStatus(msg, isErr) {
+  const el = document.getElementById('sync-status')
+  if (el) { el.textContent = msg || ''; el.style.color = isErr ? '#ef4444' : '#0a7d2e' }
+}
+
+// Botão "Atualizar": dispara o GitHub Action (coleta na nuvem) e recarrega os
+// dados algumas vezes até o resultado chegar (~1-2 min).
+async function triggerSync() {
+  const token = supabaseToken()
+  if (!token) { setStatus('Faça login para atualizar.', true); return }
+  setStatus('⏳ Disparando atualização…')
+  try {
+    const r = await fetch('/api/trigger-sync', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+    if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error?.message || ('HTTP ' + r.status)) }
+  } catch (e) { setStatus('❌ ' + e.message, true); return }
+  setStatus('⏳ Coletando na nuvem (~1-2 min)… os números atualizam sozinhos aqui.')
+  let n = 0
+  const tick = async () => {
+    n++
+    await load()
+    if (n < 8) { setStatus(`⏳ Atualizando… (${n}/8)`); setTimeout(tick, 18000) }
+    else { setStatus('✅ Atualização concluída.'); setTimeout(() => setStatus(''), 6000) }
+  }
+  setTimeout(tick, 25000)
 }
 
 function periods() {
@@ -336,7 +362,7 @@ function renderClient() {
 
 // ─── Eventos ─────────────────────────────────────────────────────────────────
 function wire() {
-  document.getElementById('reload').onclick = load
+  document.getElementById('reload').onclick = triggerSync
   app.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ state.channel=t.dataset.ch; render() })
   app.querySelectorAll('.preset').forEach(b=>b.onclick=()=>{
     const d=b.dataset.d; state.days = (d==='today'||d==='yesterday')?d:Number(d); render()

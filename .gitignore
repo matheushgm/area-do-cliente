@@ -43,3 +43,6 @@ scripts/id-map-*.json
 # Dados de clientes — NUNCA commitar (repo público)
 api/_data/
 public/dash-teste/output/
+
+sync/__pycache__/
+sync/output/
