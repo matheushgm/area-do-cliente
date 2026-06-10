@@ -384,7 +384,12 @@ function aggMetrics(rows, isMeta) {
     const fRows = rows.filter(r=>num(r['Frequência'])>0 && num(r['Impressões'])>0)
     const fImps = fRows.reduce((a,r)=>a+num(r['Impressões']),0)
     const frequency = fImps>0 ? fRows.reduce((a,r)=>a+num(r['Frequência'])*num(r['Impressões']),0)/fImps : null
-    return { spend, impressions, clicks, conv, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null, frequency }
+    // Compras / Custo por compra / ROAS (Meta). "Número de vendas" é somável;
+    // "ROAS de vendas" é razão por linha → agrega como receita (ROAS×gasto) ÷ gasto.
+    const purchases = rows.reduce((a,r)=>a+num(r['Número de vendas']),0)
+    const revenue = rows.reduce((a,r)=>a+num(r['ROAS de vendas'])*num(r['Valor investido']),0)
+    return { spend, impressions, clicks, conv, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null, frequency,
+      purchases, cpp:purchases>0?spend/purchases:null, roas:spend>0?revenue/spend:null }
   }
   const spend = rows.reduce((a,r)=>a+num(r['Gasto']),0)
   const clicks = rows.reduce((a,r)=>a+(num(r['CLiques'])||num(r['Cliques'])),0)
@@ -422,6 +427,10 @@ function metricGroupsHTML(allRows, prevRows, isMeta) {
       ${tileHTML('Conversões', fmtInt(cur.conv), pctVar(cur.conv, prv.conv), false)}
       ${tileHTML(isMeta?'CPL':'CPA', fmtMoney(cur.cpl), pctVar(cur.cpl, prv.cpl), true)}
       ${tileHTML('Taxa de conv.', fmtPctVal(cur.convRate), pctVar(cur.convRate, prv.convRate), false)}
+      ${isMeta ? `
+      ${tileHTML('Compras', fmtInt(cur.purchases), pctVar(cur.purchases, prv.purchases), false)}
+      ${tileHTML('Custo/compra', fmtMoney(cur.cpp), pctVar(cur.cpp, prv.cpp), true)}
+      ${tileHTML('ROAS', cur.roas!=null?cur.roas.toFixed(2).replace('.',',')+'x':'—', pctVar(cur.roas, prv.roas), false)}` : ''}
     </div></div>
   </div>`
 }
