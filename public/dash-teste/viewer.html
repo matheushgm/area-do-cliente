@@ -136,6 +136,14 @@ const destroyCharts = () => { state._charts.forEach(c=>{ try{ c.destroy() }catch
 const fmtInt = n => n!=null ? Math.round(n).toLocaleString('pt-BR') : '—'
 const fmtPctVal = n => n!=null ? n.toFixed(1).replace('.',',')+'%' : '—'
 const fmtFreq = n => n!=null ? n.toFixed(2).replace('.',',') : '—'
+// Moeda compacta p/ valores altos (faturamento) que não cabem no tile.
+const fmtMoneyShort = n => {
+  if (n==null) return '—'
+  const a = Math.abs(n)
+  if (a>=1e6) return 'R$ ' + (n/1e6).toFixed(a>=1e7?0:1).replace('.',',') + ' mi'
+  if (a>=1e3) return 'R$ ' + (n/1e3).toFixed(a>=1e5?0:1).replace('.',',') + ' mil'
+  return 'R$ ' + Math.round(n).toLocaleString('pt-BR')
+}
 
 async function load() {
   try {
@@ -389,7 +397,7 @@ function aggMetrics(rows, isMeta) {
     const purchases = rows.reduce((a,r)=>a+num(r['Número de vendas']),0)
     const revenue = rows.reduce((a,r)=>a+num(r['ROAS de vendas'])*num(r['Valor investido']),0)
     return { spend, impressions, clicks, conv, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null, frequency,
-      purchases, cpp:purchases>0?spend/purchases:null, roas:spend>0?revenue/spend:null }
+      purchases, cpp:purchases>0?spend/purchases:null, revenue, roas:spend>0?revenue/spend:null }
   }
   const spend = rows.reduce((a,r)=>a+num(r['Gasto']),0)
   const clicks = rows.reduce((a,r)=>a+(num(r['CLiques'])||num(r['Cliques'])),0)
@@ -430,6 +438,7 @@ function metricGroupsHTML(allRows, prevRows, isMeta) {
       ${isMeta ? `
       ${tileHTML('Compras', fmtInt(cur.purchases), pctVar(cur.purchases, prv.purchases), false)}
       ${tileHTML('Custo/compra', fmtMoney(cur.cpp), pctVar(cur.cpp, prv.cpp), true)}
+      ${tileHTML('Valor compras', fmtMoneyShort(cur.revenue), pctVar(cur.revenue, prv.revenue), false)}
       ${tileHTML('ROAS', cur.roas!=null?cur.roas.toFixed(2).replace('.',',')+'x':'—', pctVar(cur.roas, prv.roas), false)}` : ''}
     </div></div>
   </div>`
