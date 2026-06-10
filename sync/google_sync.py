@@ -35,6 +35,15 @@ GOOGLE_HEADERS = [
     "Perda de impressão na parte superior ", "cpc",
 ]
 
+# Termos de pesquisa (search_term_view) — granularidade TERMO/dia. Nomes de coluna
+# reusam os de GOOGLE_HEADERS quando possível (CLiques, Conversões, Gasto, cpc, CTR…)
+# para casar com CFG.google/num()/fmtDate() no viewer sem código novo.
+GOOGLE_TERMS_HEADERS = [
+    "Termo de pesquisa", "Campanha", "Grupo de palavras", "Fonte de dados", "Data",
+    "Nome da conta", "Impressões", "CLiques", "Conversões",
+    "Custo por conversão", "cpc", "CTR", "Gasto",
+]
+
 
 def _client():
     from google.ads.googleads.client import GoogleAdsClient
@@ -143,6 +152,76 @@ def fetch_customer(client, cust, since, until):
                 "cpc": fmt.money(m.average_cpc / 1e6),
             })
     return rows
+
+
+def fetch_terms_customer(client, cust, since, until):
+    """Coleta TERMOS DE PESQUISA (search_term_view) — só os que tiveram CLIQUES
+    (clicks > 0), focando em 'para onde o dinheiro foi' e cortando a cauda longa
+    de termos sem clique. Granularidade: termo × grupo × dia."""
+    ga = client.get_service("GoogleAdsService")
+    cid, name = cust["id"], cust["name"]
+    print(f"  • Google (termos): {name} ({cid})", file=sys.stderr)
+
+    q = f"""
+        SELECT customer.descriptive_name, campaign.name, ad_group.name,
+               search_term_view.search_term, segments.date,
+               metrics.impressions, metrics.clicks, metrics.cost_micros,
+               metrics.conversions, metrics.cost_per_conversion,
+               metrics.average_cpc, metrics.ctr
+        FROM search_term_view
+        WHERE segments.date BETWEEN '{since}' AND '{until}'
+          AND metrics.clicks > 0
+    """
+    rows = []
+    try:
+        stream = ga.search_stream(customer_id=cid, query=q)
+    except Exception as e:
+        print(f"    ⚠️  termos {name}: {e}", file=sys.stderr)
+        return rows
+
+    for batch in stream:
+        for row in batch.results:
+            m = row.metrics
+            conv = m.conversions
+            rows.append({
+                "Termo de pesquisa": row.search_term_view.search_term,
+                "Campanha": row.campaign.name,
+                "Grupo de palavras": row.ad_group.name,
+                "Fonte de dados": "google_ads",
+                "Data": row.segments.date,
+                "Nome da conta": row.customer.descriptive_name or name,
+                "Impressões": fmt.integer(m.impressions),
+                "CLiques": fmt.integer(m.clicks),
+                "Conversões": fmt.dec(conv, 0) if conv == int(conv) else fmt.dec(conv),
+                "Custo por conversão": fmt.money(m.cost_per_conversion / 1e6) if conv else "",
+                "cpc": fmt.money(m.average_cpc / 1e6),
+                "CTR": fmt.pct_from_ratio(m.ctr),
+                "Gasto": fmt.money(m.cost_micros / 1e6),
+            })
+    return rows
+
+
+def fetch_terms_all(since, until, only_accounts=None):
+    """Igual a fetch_all, mas coletando termos de pesquisa (fetch_terms_customer)."""
+    customers = list_active_customers(_thread_client())
+    if only_accounts:
+        wanted = set(str(a) for a in only_accounts)
+        customers = [c for c in customers if c["id"] in wanted or c["name"] in wanted]
+    print(f"  Google (termos): {len(customers)} contas ativas (paralelo: {config.MAX_WORKERS} workers)", file=sys.stderr)
+
+    def _job(cust):
+        return fetch_terms_customer(_thread_client(), cust, since, until)
+
+    all_rows = []
+    with ThreadPoolExecutor(max_workers=config.MAX_WORKERS) as ex:
+        futures = {ex.submit(_job, c): c for c in customers}
+        for fut in as_completed(futures):
+            cust = futures[fut]
+            try:
+                all_rows.extend(fut.result())
+            except Exception as e:
+                print(f"    ⚠️  termos falha em {cust['name']}: {e}", file=sys.stderr)
+    return all_rows, [c["name"] for c in customers]
 
 
 def fetch_all(since, until, only_accounts=None):

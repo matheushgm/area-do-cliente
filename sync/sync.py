@@ -28,7 +28,10 @@ import sys
 import config
 from store import CsvSink, SupabaseSink
 from meta_sync import META_HEADERS, fetch_all as meta_fetch
-from google_sync import GOOGLE_HEADERS, fetch_all as google_fetch
+from google_sync import (
+    GOOGLE_HEADERS, GOOGLE_TERMS_HEADERS,
+    fetch_all as google_fetch, fetch_terms_all as google_terms_fetch,
+)
 
 
 def daterange(args):
@@ -89,6 +92,12 @@ def main():
         rows, accts = google_fetch(since, until, only_accounts=scope("google"))
         path, total, n = sink.upsert("google", GOOGLE_HEADERS, rows, since, until, accts)
         results["google"] = (path, n, total)
+        print(f"  ✅ {n} linhas novas · {total} no CSV -> {path}\n", file=sys.stderr)
+
+        print("▶ Coletando Termos de pesquisa (Google)...", file=sys.stderr)
+        trows, taccts = google_terms_fetch(since, until, only_accounts=scope("google_terms"))
+        path, total, n = sink.upsert("google_terms", GOOGLE_TERMS_HEADERS, trows, since, until, taccts)
+        results["google_terms"] = (path, n, total)
         print(f"  ✅ {n} linhas novas · {total} no CSV -> {path}\n", file=sys.stderr)
 
     print("─" * 56, file=sys.stderr)

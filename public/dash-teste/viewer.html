@@ -46,7 +46,7 @@ import {
 // Em produção (dentro da Área do Cliente): busca pelo endpoint AUTENTICADO
 // /api/dash-data, enviando o token da sessão Supabase (mesma origem → mesmo
 // localStorage). Em dev standalone (sem sessão): cai nos CSVs locais ./output/.
-const LOCAL = { meta: './output/meta.csv', google: './output/google.csv' }
+const LOCAL = { meta: './output/meta.csv', google: './output/google.csv', google_terms: './output/google_terms.csv' }
 
 // Supabase (chaves publishable — públicas por design, mesmas expostas ao browser
 // pelo app React). Usadas para puxar os metadados de conta das views *_public:
@@ -77,6 +77,21 @@ async function fetchChannel(ch) {
   }
   // dev local (standalone, sem sessão)
   const r = await fetch(LOCAL[ch])
+  return r.ok ? r.text() : ''
+}
+
+// Termos de pesquisa do Google: lazy e FILTRADO por conta (payload pequeno).
+// Em produção usa /api/dash-data?channel=google_terms&account=<conta>; em dev
+// (sem sessão) cai no CSV local completo e o chamador filtra a conta.
+async function fetchGoogleTerms(account) {
+  const token = supabaseToken()
+  if (token) {
+    const r = await fetch(`/api/dash-data?channel=google_terms&account=${encodeURIComponent(account)}`,
+      { headers: { Authorization: `Bearer ${token}` } })
+    if (!r.ok) throw new Error(`termos: HTTP ${r.status}`)
+    return r.text()
+  }
+  const r = await fetch(LOCAL.google_terms)
   return r.ok ? r.text() : ''
 }
 
@@ -127,7 +142,7 @@ const state = { raw:{meta:[],google:[]}, accounts:{}, channel:'meta', days:7, fr
                 cDays:7, cFrom:'', cTo:'', cPeriod:null,
                 campFilter:[], campPanelOpen:false, campSearch:'',
                 tab:'resultados', sub:0, drillCampaign:null, drillAdset:null,
-                weekly:null, _charts:[] }
+                weekly:null, _charts:[], termsCache:{} }
 const app = document.getElementById('app')
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
 const destroyCharts = () => { state._charts.forEach(c=>{ try{ c.destroy() }catch(e){} }); state._charts=[] }
@@ -378,6 +393,21 @@ function tblGoogleGroups(rows){
     return `<tr><td class="ad-name" title="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key||'(sem grupo)')}</td>
       <td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
   return `<div class="dt-wrap"><table><thead><tr><th>Grupo</th><th>Conv.</th><th>Gasto</th><th>CPA</th><th>Cliques</th></tr></thead><tbody>${body}</tbody></table></div>`
+}
+// Termos de pesquisa (search_term_view) — só termos com clique. Agrega somáveis
+// (impr/clicks/conv/gasto) e RECALCULA razões (CPA/CPC/CTR). Ordena por gasto desc
+// ("para onde o dinheiro foi").
+function tblGoogleTerms(rows){
+  const g = groupBy(rows, r=>r['Termo de pesquisa'], {
+    impr:r=>(M(r,'Impressões')||M(r,'Impressões na parte superior')), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')),
+    conv:r=>M(r,'Conversões'), spend:r=>M(r,'Gasto') })
+  if(!g.length) return `<div class="empty">Sem termos de pesquisa com cliques no período.</div>`
+  g.sort((a,b)=>b.spend-a.spend)
+  const body = g.map((x,i)=>{ const cpa=x.conv>0?x.spend/x.conv:null; const cpc=x.clicks>0?x.spend/x.clicks:null; const ctr=x.impr>0?x.clicks/x.impr*100:null
+    return `<tr><td class="ad-name" title="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</td>
+      <td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td><td>${convCell(x.conv,x.spend)}</td>
+      <td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${cpc!=null?fmtMoney(cpc):'—'}</td><td>${ctrCell(ctr)}</td></tr>` }).join('')
+  return `<div class="dt-wrap"><table><thead><tr><th>Termo</th><th>Impressões</th><th>Cliques</th><th>Conv.</th><th>Custo/conv.</th><th>CPC médio</th><th>CTR</th></tr></thead><tbody>${body}</tbody></table></div>`
 }
 
 // ─── Métricas agregadas (Custos / Engajamento / Performance) ──────────────────
@@ -638,10 +668,11 @@ function campanhasHTML(allRows, channel, stats, target, periodLabel) {
     return `<div class="cp-panel">${bc}${body}</div>`
   }
   const ins = buildInsights(stats, channel, allRows, target)
-  const tabs = isMeta ? [['📊 Campanhas',0],['🎯 Conjuntos',1],['🎨 Anúncios',2]] : [['📊 Campanhas',0],['🔑 Grupos',1]]
+  const tabs = isMeta ? [['📊 Campanhas',0],['🎯 Conjuntos',1],['🎨 Anúncios',2]] : [['📊 Campanhas',0],['🔑 Grupos',1],['🔎 Termos',2]]
   let panel
+  // Termos (Google, sub===2) é preenchido async por renderGoogleTerms (lazy/por conta).
   if (isMeta) panel = state.sub===1?tblMetaAdsets(allRows):state.sub===2?tblMetaAds(allRows):tblMetaCampaigns(allRows)
-  else        panel = state.sub===1?tblGoogleGroups(allRows):tblGoogleCampaigns(allRows)
+  else        panel = state.sub===2?`<div id="termsPanel"></div>`:state.sub===1?tblGoogleGroups(allRows):tblGoogleCampaigns(allRows)
   return `<div class="cp-panel">
     ${insightsCardHTML(ins, periodLabel, stats?.cpl1)}
     <div class="dt-subtabs" style="display:flex;border-bottom:1px solid #D8E0F0;margin:0 -22px 18px;padding:0 22px;background:#FFFFFF">
@@ -649,6 +680,27 @@ function campanhasHTML(allRows, channel, stats, target, periodLabel) {
     </div>
     ${panel}
   </div>`
+}
+
+// Preenche o painel de Termos (lazy/por conta, cacheado por cliente). Espelha o
+// padrão das abas async (renderAtividades/renderParametros).
+async function renderGoogleTerms(container, client, period) {
+  if (!container) return
+  if (!state.termsCache[client]) {
+    container.innerHTML = `<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><p>Carregando termos de pesquisa…</p></div>`
+    try {
+      const csv = await fetchGoogleTerms(client)
+      state.termsCache[client] = parseCSV(csv)
+    } catch (e) {
+      container.innerHTML = `<div class="empty">Erro ao carregar termos: ${esc(e.message)}</div>`
+      return
+    }
+  }
+  // Filtra a conta (no dev o CSV traz todas) + período selecionado no viewer.
+  const rows = state.termsCache[client].filter(r =>
+    (r['Nome da conta']||'').trim()===client &&
+    inRange(fmtDate(r['Data']), period.p1s, period.p1e))
+  container.innerHTML = tblGoogleTerms(rows)
 }
 
 // ─── Aba ATIVIDADES (ClickUp via /api/clickup-proxy) ──────────────────────────
@@ -906,6 +958,8 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   // Abas async
   if (state.tab==='atividades') renderAtividades(document.getElementById('asyncTab'), client, folderId)
   if (state.tab==='parametros') renderParametros(document.getElementById('asyncTab'), client, acName)
+  // Termos de pesquisa (Google, sub-aba 2) — lazy/por conta, filtrado pelo período.
+  if (state.tab==='campanhas' && ch!=='meta' && state.sub===2) renderGoogleTerms(document.getElementById('termsPanel'), client, period)
 
   // Header
   document.getElementById('cpBack').onclick = () => {

@@ -21,8 +21,8 @@ import requests
 import config
 
 # Coluna de data e de conta por canal (espelha os cabeçalhos das planilhas).
-_DATE_KEY = {"meta": "Dia", "google": "Data"}
-_ACCT_KEY = {"meta": "Nome da conta", "google": "Nome da conta"}
+_DATE_KEY = {"meta": "Dia", "google": "Data", "google_terms": "Data"}
+_ACCT_KEY = {"meta": "Nome da conta", "google": "Nome da conta", "google_terms": "Nome da conta"}
 
 # Chave de identidade de cada linha (upsert no Supabase). Inclui ad_id no Meta
 # porque anúncios distintos podem ter o MESMO nome no mesmo conjunto — sem o id,
@@ -30,6 +30,7 @@ _ACCT_KEY = {"meta": "Nome da conta", "google": "Nome da conta"}
 _KEY_COLS = {
     "meta": ["Nome da conta", "Dia", "Nome da campanha", "Conjunto de Anúncio", "Nome do Anúncio", "ad_id"],
     "google": ["Nome da conta", "Data", "Campanha", "Grupo de palavras"],
+    "google_terms": ["Nome da conta", "Data", "Campanha", "Grupo de palavras", "Termo de pesquisa"],
 }
 
 

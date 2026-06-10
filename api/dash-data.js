@@ -39,9 +39,14 @@ export default async function handler(req) {
   // ── Parâmetro ──────────────────────────────────────────────────────────────
   const url = new URL(req.url)
   const channel = url.searchParams.get('channel')
-  if (channel !== 'meta' && channel !== 'google') {
-    return jsonErr('channel inválido (use meta|google).', 400)
+  const ALLOWED = ['meta', 'google', 'google_terms']
+  if (!ALLOWED.includes(channel)) {
+    return jsonErr('channel inválido (use meta|google|google_terms).', 400)
   }
+  // Filtro opcional por conta — usado pelos termos de pesquisa (google_terms),
+  // que são lazy/por-cliente para não baixar todas as contas de uma vez.
+  const account = url.searchParams.get('account')
+  const acctFilter = account ? `&account=eq.${encodeURIComponent(account)}` : ''
 
   // ── Lê dash_insights paginado (PostgREST limita ~1000/req) ──────────────────
   const PAGE = 1000
@@ -50,7 +55,7 @@ export default async function handler(req) {
   try {
     for (;;) {
       const r = await fetch(
-        `${SUPABASE_URL}/rest/v1/dash_insights?channel=eq.${channel}&select=data&order=account.asc,day.asc`,
+        `${SUPABASE_URL}/rest/v1/dash_insights?channel=eq.${channel}${acctFilter}&select=data&order=account.asc,day.asc`,
         {
           headers: {
             apikey: SUPABASE_ANON,
