@@ -47,6 +47,6 @@ SUPABASE_SERVICE_ROLE_KEY = _env("SUPABASE_SECRET_KEY") or _env("SUPABASE_SERVIC
 
 # ─── Janela / paralelismo / saída ────────────────────────────────────────────
 DEFAULT_DAYS = int(_env("SYNC_DAYS", "30"))
-INCREMENTAL_DAYS = int(_env("INCREMENTAL_DAYS", "3"))
+INCREMENTAL_DAYS = int(_env("INCREMENTAL_DAYS", "8"))  # 8 = cobre a janela de atribuição (7d) p/ recontar conversas/leads atribuídos retroativamente
 MAX_WORKERS = int(_env("MAX_WORKERS", "16"))
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "output"))

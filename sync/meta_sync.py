@@ -417,6 +417,10 @@ def fetch_account(act, since, until):
             # "Conversões" = Resultados só quando o objetivo é de conversão (senão 0).
             # forced_conv = override por conta (ex.: Grupo AJ conta a custom mql_aj).
             "Conversões": fmt.integer(resval if (forced_conv or is_conversion(rtype)) else 0),
+            # ad_id (único) — entra na chave de upsert p/ NÃO colapsar anúncios
+            # distintos com o mesmo nome (senão perde conversões). Não vai pro CSV
+            # (não está em META_HEADERS); fica só no jsonb do Supabase.
+            "ad_id": r.get("ad_id", ""),
         })
     return rows
 
