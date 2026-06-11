@@ -142,7 +142,8 @@ const state = { raw:{meta:[],google:[]}, accounts:{}, channel:'meta', days:7, fr
                 cDays:7, cFrom:'', cTo:'', cPeriod:null,
                 campFilter:[], campPanelOpen:false, campSearch:'',
                 tab:'resultados', sub:0, drillCampaign:null, drillAdset:null,
-                weekly:null, _charts:[], termsCache:{} }
+                weekly:null, _charts:[], termsCache:{},
+                termsSort:{key:'clicks',dir:'desc'}, termsPage:0 }
 const app = document.getElementById('app')
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
 const destroyCharts = () => { state._charts.forEach(c=>{ try{ c.destroy() }catch(e){} }); state._charts=[] }
@@ -397,17 +398,43 @@ function tblGoogleGroups(rows){
 // Termos de pesquisa (search_term_view) — só termos com clique. Agrega somáveis
 // (impr/clicks/conv/gasto) e RECALCULA razões (CPA/CPC/CTR). Ordena por gasto desc
 // ("para onde o dinheiro foi").
+const TERMS_PER_PAGE = 50
+const TERMS_COLS = [['Termo','termo'],['Impressões','impr'],['Cliques','clicks'],['Conv.','conv'],['Custo/conv.','cpa'],['CPC médio','cpc'],['CTR','ctr']]
 function tblGoogleTerms(rows){
   const g = groupBy(rows, r=>r['Termo de pesquisa'], {
     impr:r=>(M(r,'Impressões')||M(r,'Impressões na parte superior')), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')),
     conv:r=>M(r,'Conversões'), spend:r=>M(r,'Gasto') })
   if(!g.length) return `<div class="empty">Sem termos de pesquisa com cliques no período.</div>`
-  g.sort((a,b)=>b.spend-a.spend)
-  const body = g.map((x,i)=>{ const cpa=x.conv>0?x.spend/x.conv:null; const cpc=x.clicks>0?x.spend/x.clicks:null; const ctr=x.impr>0?x.clicks/x.impr*100:null
-    return `<tr><td class="ad-name" title="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</td>
-      <td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td><td>${convCell(x.conv,x.spend)}</td>
-      <td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${cpc!=null?fmtMoney(cpc):'—'}</td><td>${ctrCell(ctr)}</td></tr>` }).join('')
-  return `<div class="dt-wrap"><table><thead><tr><th>Termo</th><th>Impressões</th><th>Cliques</th><th>Conv.</th><th>Custo/conv.</th><th>CPC médio</th><th>CTR</th></tr></thead><tbody>${body}</tbody></table></div>`
+  // Métricas derivadas por termo (razões recalculadas, nunca somadas por linha).
+  const items = g.map(x=>({ termo:x.key, impr:x.impr, clicks:x.clicks, conv:x.conv, spend:x.spend,
+    cpa: x.conv>0?x.spend/x.conv:null, cpc: x.clicks>0?x.spend/x.clicks:null, ctr: x.impr>0?x.clicks/x.impr*100:null }))
+  // Ordenação pela coluna ativa (nulos sempre por último).
+  const { key, dir } = state.termsSort, s = dir==='asc'?1:-1
+  items.sort((a,b)=>{
+    if (key==='termo') return s*String(a.termo).localeCompare(String(b.termo),'pt-BR')
+    const av=a[key], bv=b[key]
+    if (av==null && bv==null) return 0
+    if (av==null) return 1
+    if (bv==null) return -1
+    return s*(av-bv)
+  })
+  // Paginação (clampa a página atual ao total).
+  const total = items.length, pages = Math.max(1, Math.ceil(total/TERMS_PER_PAGE))
+  const page = Math.min(Math.max(0, state.termsPage), pages-1); state.termsPage = page
+  const slice = items.slice(page*TERMS_PER_PAGE, page*TERMS_PER_PAGE+TERMS_PER_PAGE)
+
+  const th = TERMS_COLS.map(([label,k])=>{ const a=key===k
+    return `<th class="th-sort" data-sortkey="${k}" style="cursor:pointer;user-select:none;white-space:nowrap">${label}${a?(dir==='asc'?' ▲':' ▼'):''}</th>` }).join('')
+  const body = slice.map(x=>`<tr><td class="ad-name" title="${esc(x.termo)}">${esc(x.termo)}</td>
+    <td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td><td>${convCell(x.conv,x.spend)}</td>
+    <td>${x.cpa!=null?fmtMoney(x.cpa):'—'}</td><td>${x.cpc!=null?fmtMoney(x.cpc):'—'}</td><td>${ctrCell(x.ctr)}</td></tr>`).join('')
+
+  const from = total?page*TERMS_PER_PAGE+1:0, to = Math.min(total, (page+1)*TERMS_PER_PAGE)
+  const pgBtn = (d,lbl,dis)=>`<button data-pg="${d}" ${dis?'disabled':''} style="border:1px solid #D8E0F0;background:#fff;color:#334155;border-radius:6px;min-width:28px;height:28px;font-size:15px;line-height:1;cursor:${dis?'default':'pointer'};${dis?'opacity:.4':''}">${lbl}</button>`
+  const pager = `<div class="terms-pager" style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px 2px 2px;font-size:12px;color:#64748B">
+    <span>${from}–${to} de ${total} termo${total!==1?'s':''}</span>
+    ${pgBtn('prev','‹',page<=0)}<span>${page+1}/${pages}</span>${pgBtn('next','›',page>=pages-1)}</div>`
+  return `<div class="dt-wrap"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>${pager}`
 }
 
 // ─── Métricas agregadas (Custos / Engajamento / Performance) ──────────────────
@@ -700,7 +727,20 @@ async function renderGoogleTerms(container, client, period) {
   const rows = state.termsCache[client].filter(r =>
     (r['Nome da conta']||'').trim()===client &&
     inRange(fmtDate(r['Data']), period.p1s, period.p1e))
-  container.innerHTML = tblGoogleTerms(rows)
+  // Re-renderiza do mesmo conjunto filtrado (sem refetch) ao ordenar/paginar.
+  const draw = () => {
+    container.innerHTML = tblGoogleTerms(rows)
+    container.querySelectorAll('th.th-sort').forEach(th => th.onclick = () => {
+      const k = th.dataset.sortkey
+      if (state.termsSort.key === k) state.termsSort = { key:k, dir: state.termsSort.dir==='asc'?'desc':'asc' }
+      else state.termsSort = { key:k, dir: k==='termo'?'asc':'desc' }
+      state.termsPage = 0; draw()
+    })
+    const prev = container.querySelector('[data-pg="prev"]'), next = container.querySelector('[data-pg="next"]')
+    if (prev) prev.onclick = () => { state.termsPage = Math.max(0, state.termsPage-1); draw() }
+    if (next) next.onclick = () => { state.termsPage = state.termsPage+1; draw() }
+  }
+  draw()
 }
 
 // ─── Aba ATIVIDADES (ClickUp via /api/clickup-proxy) ──────────────────────────
@@ -1061,6 +1101,7 @@ function wire() {
     // inicializa o estado local da página de cliente a partir do período global
     state.tab='resultados'; state.sub=0; state.drillCampaign=null; state.drillAdset=null
     state.campFilter=[]; state.campPanelOpen=false; state.campSearch=''
+    state.termsPage=0; state.termsSort={key:'clicks',dir:'desc'}
     state.cDays = [3,7,14,30].includes(state.days) || state.days==='today' || state.days==='yesterday' || state.days===0 ? state.days : 7
     state.cFrom = state.from; state.cTo = state.to
     state.cPeriod = computeClientPeriod(state.raw[state.channel]||[], state.channel, state.cDays, state.from, state.to)
