@@ -399,9 +399,21 @@ const PROJECT_FIELD_MAP = {
   propostaComercial:    "proposta_comercial",
 };
 
-// Colunas do tipo DATE em projects_v2 — string vazia ('') é inválida e precisa
-// virar null antes de ir pro banco (ver sbUpdateProjectV2 / addProject).
-const DATE_COLS = new Set(["contract_date", "churn_date"]);
+// Colunas não-textuais de projects_v2 (date / numeric / smallint). O formulário
+// envia string vazia ('') quando o campo fica em branco, o que o Postgres
+// rejeita ("invalid input syntax for type ..."), abortando o UPDATE inteiro
+// — inclusive o contract_value. Para essas colunas, '' precisa virar null.
+const EMPTY_TO_NULL_COLS = new Set([
+  "contract_date",   // date
+  "churn_date",      // date
+  "contract_value",  // numeric
+  "meta_lab_budget", // numeric
+  "digital_maturity",// smallint
+]);
+
+// Normaliza '' → null para colunas não-textuais; demais valores passam direto.
+const normalizeCol = (col, val) =>
+  EMPTY_TO_NULL_COLS.has(col) && val === "" ? null : val;
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────
 async function sbUpdateProjectV2(id, patch) {
@@ -412,11 +424,7 @@ async function sbUpdateProjectV2(id, patch) {
   for (const [key, val] of Object.entries(patch)) {
     const col = PROJECT_FIELD_MAP[key];
     if (!col) continue;
-    // Colunas DATE não aceitam string vazia: o formulário envia '' quando o
-    // campo de data está em branco, o que fazia o Postgres rejeitar o UPDATE
-    // inteiro ("invalid input syntax for type date") — incluindo contract_value.
-    // Normaliza '' → null para essas colunas.
-    projectCols[col] = (DATE_COLS.has(col) && val === "") ? null : val;
+    projectCols[col] = normalizeCol(col, val);
   }
   // progress é derivado — não persiste
   if (Object.keys(projectCols).length > 0) {
@@ -906,11 +914,11 @@ export function AppProvider({ children }) {
         responsible_role:      data.responsible_role      ?? data.responsibleRole      ?? null,
         contract_model:        data.contract_model        ?? data.contractModel        ?? "",
         contract_payment_type: data.contract_payment_type ?? data.contractPaymentType  ?? null,
-        contract_value:        data.contract_value        ?? data.contractValue        ?? null,
-        contract_date:         (data.contract_date ?? data.contractDate) || null,
+        contract_value:        normalizeCol("contract_value",   data.contract_value   ?? data.contractValue   ?? null),
+        contract_date:         normalizeCol("contract_date",    data.contract_date    ?? data.contractDate    ?? null),
         competitors:           data.competitors           ?? [],
         has_sales_team:        data.has_sales_team        ?? data.hasSalesTeam         ?? null,
-        digital_maturity:      data.digital_maturity      ?? data.digitalMaturity      ?? null,
+        digital_maturity:      normalizeCol("digital_maturity", data.digital_maturity ?? data.digitalMaturity ?? null),
         upsell_potential:      data.upsell_potential      ?? data.upsellPotential      ?? null,
         upsell_notes:          data.upsell_notes          ?? data.upsellNotes          ?? null,
         other_people:          data.other_people          ?? data.otherPeople          ?? [],
