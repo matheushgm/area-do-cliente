@@ -399,6 +399,10 @@ const PROJECT_FIELD_MAP = {
   propostaComercial:    "proposta_comercial",
 };
 
+// Colunas do tipo DATE em projects_v2 — string vazia ('') é inválida e precisa
+// virar null antes de ir pro banco (ver sbUpdateProjectV2 / addProject).
+const DATE_COLS = new Set(["contract_date", "churn_date"]);
+
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────
 async function sbUpdateProjectV2(id, patch) {
   if (!supabase) return { blocked: false };
@@ -406,13 +410,24 @@ async function sbUpdateProjectV2(id, patch) {
   // ── 1. Campos da tabela projects_v2 ────────────────────────────────────────
   const projectCols = {};
   for (const [key, val] of Object.entries(patch)) {
-    if (PROJECT_FIELD_MAP[key]) projectCols[PROJECT_FIELD_MAP[key]] = val;
+    const col = PROJECT_FIELD_MAP[key];
+    if (!col) continue;
+    // Colunas DATE não aceitam string vazia: o formulário envia '' quando o
+    // campo de data está em branco, o que fazia o Postgres rejeitar o UPDATE
+    // inteiro ("invalid input syntax for type date") — incluindo contract_value.
+    // Normaliza '' → null para essas colunas.
+    projectCols[col] = (DATE_COLS.has(col) && val === "") ? null : val;
   }
   // progress é derivado — não persiste
   if (Object.keys(projectCols).length > 0) {
     const { data, error } = await supabase.from("projects_v2").update(projectCols).eq("id", id).select("id");
-    if (error) console.error("[Supabase] update projects_v2:", error.message);
-    if (!error && data && data.length === 0) return { blocked: true };
+    if (error) {
+      // Erro no banco (ex.: dado inválido) — reverte o estado local em vez de
+      // manter uma alteração que não foi persistida (o "save fantasma").
+      console.error("[Supabase] update projects_v2:", error.message);
+      return { blocked: true };
+    }
+    if (data && data.length === 0) return { blocked: true };
   }
 
   // ── 2. ROI Calculator ────────────────────────────────────────────────────
@@ -892,7 +907,7 @@ export function AppProvider({ children }) {
         contract_model:        data.contract_model        ?? data.contractModel        ?? "",
         contract_payment_type: data.contract_payment_type ?? data.contractPaymentType  ?? null,
         contract_value:        data.contract_value        ?? data.contractValue        ?? null,
-        contract_date:         data.contract_date         ?? data.contractDate         ?? null,
+        contract_date:         (data.contract_date ?? data.contractDate) || null,
         competitors:           data.competitors           ?? [],
         has_sales_team:        data.has_sales_team        ?? data.hasSalesTeam         ?? null,
         digital_maturity:      data.digital_maturity      ?? data.digitalMaturity      ?? null,
