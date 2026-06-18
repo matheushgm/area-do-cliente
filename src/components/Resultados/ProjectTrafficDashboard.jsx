@@ -52,7 +52,7 @@ function channelSummary(rows, channel, period, names) {
 const STATUS_ORDER = { 'CRÍTICO': 0, 'QUEDA': 1, 'ESTÁVEL': 2, 'MELHORA': 3 }
 
 export default function ProjectTrafficDashboard({ project }) {
-  const dash = useDashboardData()
+  const dash = useDashboardData({ source: 'api' })   // fonte NOVA: dash_insights (API), não as planilhas
   const { raw, accounts, projectsList, cplTargets, loading, error } = dash
 
   const [days, setDays] = useState(7)
@@ -78,6 +78,28 @@ export default function ProjectTrafficDashboard({ project }) {
     Object.entries(accounts).forEach(([name, a]) => { if (a.projectId === project.id) s.add(name) })
     return s
   }, [accounts, project.id])
+
+  // ── Vincular conta de anúncio a este cliente (reutilizável) ──────────────────
+  // Todos os nomes de conta presentes nos dados (Meta + Google).
+  const allAccountNames = useMemo(() => {
+    const s = new Set()
+    CHANNELS.forEach(ch => (raw[ch] || []).forEach(r => {
+      const n = r[CFG[ch].accountKey]?.trim()
+      if (n) s.add(n)
+    }))
+    return [...s].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [raw])
+  const [linkName, setLinkName] = useState('')
+  const linkAccount = useCallback(async (name) => {
+    if (!name) return
+    await dash.linkProject(name, project.id)
+    setLinkName('')
+    showToast('✅ Conta vinculada a este cliente')
+  }, [dash, project.id, showToast])
+  const unlinkAccount = useCallback(async (name) => {
+    await dash.linkProject(name, null)
+    showToast('Conta desvinculada')
+  }, [dash, showToast])
 
   // Período por canal (cada planilha tem seu próprio maxDate).
   const periods = useMemo(() => ({
@@ -138,6 +160,29 @@ export default function ProjectTrafficDashboard({ project }) {
     else window.prompt('Copie o link:', url)
   }
 
+  // Barra de vínculo de contas — chips das contas do cliente + seletor p/ vincular.
+  const linker = (
+    <div className="acct-linker" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', margin: '0 0 16px', padding: '10px 12px', border: '1px solid #D8E0F0', borderRadius: 12, background: '#fff' }}>
+      <span className="filter-label">Contas deste cliente:</span>
+      {[...projectAccountNames].length === 0 && <span style={{ fontSize: 12, color: '#94A3B8' }}>nenhuma vinculada</span>}
+      {[...projectAccountNames].map(n => (
+        <span key={n} className="pill" style={{ background: '#EEF4FF', color: '#1D4ED8', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
+          {n}
+          <button onClick={() => unlinkAccount(n)} title="Desvincular" style={{ border: 0, background: 'transparent', color: '#1D4ED8', cursor: 'pointer', fontWeight: 700, lineHeight: 1 }}>×</button>
+        </span>
+      ))}
+      <span style={{ flex: 1 }} />
+      <select value={linkName} onChange={e => setLinkName(e.target.value)} style={{ fontSize: 13, padding: '6px 8px', border: '1px solid #D8E0F0', borderRadius: 8 }}>
+        <option value="">+ vincular conta…</option>
+        {allAccountNames.filter(n => !projectAccountNames.has(n)).map(n => {
+          const other = accounts[n]?.projectId
+          return <option key={n} value={n}>{n}{other ? ' (em outro cliente)' : ''}</option>
+        })}
+      </select>
+      <button className="btn" onClick={() => linkAccount(linkName)} disabled={!linkName}>Vincular</button>
+    </div>
+  )
+
   const modals = (
     <>
       {preview && <PreviewModal url={preview.url} name={preview.name} onClose={() => setPreview(null)} />}
@@ -186,10 +231,12 @@ export default function ProjectTrafficDashboard({ project }) {
   if (!projectAccountNames.size) {
     return (
       <div className="dt-root">
+        {linker}
         <div className="empty" style={{ padding: '32px 20px' }}>
-          <div style={{ marginBottom: 8, fontSize: 14 }}>Nenhuma conta de anúncio vinculada a este projeto.</div>
-          <div style={{ fontSize: 12, color: '#94A3B8' }}>Vincule a conta no <b style={{ color: '#64748B' }}>Dashboard de Tráfego</b> para ver os números reais aqui.</div>
+          <div style={{ marginBottom: 8, fontSize: 14 }}>Nenhuma conta de anúncio vinculada a este cliente.</div>
+          <div style={{ fontSize: 12, color: '#94A3B8' }}>Use o seletor acima (<b style={{ color: '#64748B' }}>+ vincular conta</b>) para associar uma conta e ver os números reais aqui.</div>
         </div>
+        {modals}
       </div>
     )
   }
@@ -201,6 +248,8 @@ export default function ProjectTrafficDashboard({ project }) {
 
   return (
     <div className="dt-root">
+      {linker}
+
       {/* Filtro de período */}
       <div className="filter-bar" style={{ border: '1px solid #D8E0F0', borderRadius: 12, marginBottom: 18 }}>
         <span className="filter-label">Período:</span>

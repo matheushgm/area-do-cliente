@@ -18,7 +18,19 @@ import { SHEETS, parseCSV } from '../lib/dashboardData'
 //   - squads                      (id → name)
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function loadSheets() {
+async function loadSheets(source = 'sheets') {
+  // Fonte NOVA (API): lê do dash_insights via /api/dash-data (mesmas colunas),
+  // autenticado com o JWT da sessão. Usado pelo módulo Resultados do cliente.
+  if (source === 'api') {
+    const { data: { session } } = await supabase.auth.getSession()
+    const headers = { Authorization: `Bearer ${session?.access_token || ''}` }
+    const [metaText, googleText] = await Promise.all([
+      fetch('/api/dash-data?channel=meta', { headers }).then(r => { if (!r.ok) throw new Error('Meta (API): HTTP ' + r.status); return r.text() }),
+      fetch('/api/dash-data?channel=google', { headers }).then(r => { if (!r.ok) throw new Error('Google (API): HTTP ' + r.status); return r.text() }),
+    ])
+    return { meta: parseCSV(metaText), google: parseCSV(googleText) }
+  }
+  // Fonte ANTIGA (planilhas Google CSV) — usada pelo /dashboard.
   const [metaText, googleText] = await Promise.all([
     fetch(SHEETS.meta).then(r => { if (!r.ok) throw new Error('Meta Ads: HTTP ' + r.status); return r.text() }),
     fetch(SHEETS.google).then(r => { if (!r.ok) throw new Error('Google Ads: HTTP ' + r.status); return r.text() }),
@@ -26,7 +38,7 @@ async function loadSheets() {
   return { meta: parseCSV(metaText), google: parseCSV(googleText) }
 }
 
-export function useDashboardData() {
+export function useDashboardData({ source = 'sheets' } = {}) {
   const [raw, setRaw] = useState({ meta: [], google: [] })
   // Linhas-base de dashboard_accounts: { [account_name]: { project_id, squad_id, clickup_folder_id } }
   const [accountRows, setAccountRows] = useState({})
@@ -47,7 +59,7 @@ export function useDashboardData() {
       // tabelas-base dashboard_accounts/squads por RLS. As escritas (setSquad,
       // linkProject…) continuam indo para a tabela-base e exigem authenticated.
       const [sheets, accRes, projRes, cplRes, sqRes] = await Promise.all([
-        loadSheets(),
+        loadSheets(source),
         supabase.from('dashboard_accounts_public').select('account_name,project_id,squad_id,clickup_folder_id'),
         supabase.from('dashboard_projects_public').select('id,company_name,squad_name,clickup_folder_id'),
         supabase.from('cpl_targets_public').select('company_name,cpl_target'),
@@ -70,7 +82,7 @@ export function useDashboardData() {
     } finally {
       if (mounted.current) setLoading(false)
     }
-  }, [])
+  }, [source])
 
   useEffect(() => {
     mounted.current = true
