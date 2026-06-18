@@ -616,11 +616,17 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }
       meta: computeMainPeriod(raw.meta, 'meta', 7),
       google: computeMainPeriod(raw.google, 'google', 7),
     }
+    // Campanhas com "vaga" no nome são recrutamento, não resultado de cliente —
+    // não contam como conversão na tela inicial.
+    const CAMP_KEY = { meta: 'Nome da campanha', google: 'Campanha' }
+    const semVaga = (rows, ch) => (rows || []).filter(
+      r => !((r[CAMP_KEY[ch]] || '').toLowerCase().includes('vaga'))
+    )
     const map = {}
     ;['meta', 'google'].forEach(ch => {
       const p = periods[ch]
       if (!p) return
-      buildStats(raw[ch], CFG[ch], p).forEach(s => {
+      buildStats(semVaga(raw[ch], ch), CFG[ch], p).forEach(s => {
         const pid = accounts[s.name]?.projectId
         if (!pid) return
         if (!map[pid]) map[pid] = { conv: 0, prev: 0 }
