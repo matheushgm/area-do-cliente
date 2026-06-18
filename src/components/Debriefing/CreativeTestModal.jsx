@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { FlaskConical, X, Loader2, CheckCircle2, AlertTriangle, Clock } from 'lucide-react'
+import { FlaskConical, X, Loader2, CheckCircle2, AlertTriangle, Clock, Play } from 'lucide-react'
 import Modal from '../UI/Modal'
 import { supabase } from '../../lib/supabase'
 
@@ -40,6 +40,7 @@ export default function CreativeTestModal({ project, onClose, onToast }) {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const [tests, setTests] = useState([])
+  const [activating, setActivating] = useState(null)
 
   const loadTests = useCallback(async () => {
     const { data } = await supabase
@@ -89,6 +90,28 @@ export default function CreativeTestModal({ project, onClose, onToast }) {
       setErr(e.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const activate = async (testId) => {
+    setActivating(testId)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const r = await fetch('/api/activate-ad', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token || ''}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ test_id: testId }),
+      })
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}))
+        throw new Error(e.error?.message || ('HTTP ' + r.status))
+      }
+      onToast?.('Anúncio ativado! Veredito automático em 7 dias.')
+      await loadTests()
+    } catch (e) {
+      onToast?.(e.message, 'error')
+    } finally {
+      setActivating(null)
     }
   }
 
@@ -182,6 +205,16 @@ export default function CreativeTestModal({ project, onClose, onToast }) {
                   <span className={s.c}>{s.t}</span>
                   {t.verdict && <span className={t.verdict === 'good' ? 'text-rl-green' : 'text-rl-red'}>{t.verdict === 'good' ? '👍 bom' : '👎 ruim'}</span>}
                   {t.error_msg && <span className="text-rl-red truncate max-w-[120px]" title={t.error_msg}>{t.error_msg}</span>}
+                  {t.status === 'paused_ready' && (
+                    <button
+                      onClick={() => activate(t.id)}
+                      disabled={activating === t.id}
+                      className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-md bg-rl-green/15 text-rl-green font-semibold hover:bg-rl-green/25 disabled:opacity-50"
+                    >
+                      {activating === t.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                      Ativar
+                    </button>
+                  )}
                 </div>
               )
             })}
