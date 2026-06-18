@@ -3,8 +3,8 @@
 // e então chama a API do GitHub (workflow_dispatch) com um token de serviço.
 export const config = { runtime: 'edge' }
 
-const REPO = 'matheushgm/area-do-cliente'
-const WORKFLOW = 'dashboard-sync.yml'
+const REPO = 'matheushgm/dashboard-api'
+const WORKFLOW = 'sync.yml'
 
 function jsonErr(message, status) {
   return new Response(JSON.stringify({ error: { message } }), {

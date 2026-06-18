@@ -1,2 +1,0 @@
-requests>=2.31
-google-ads>=24.0
