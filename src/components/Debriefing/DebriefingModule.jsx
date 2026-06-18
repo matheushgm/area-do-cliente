@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import {
   Megaphone, Plus, Pencil, Trash2, ExternalLink, Video, Image as ImageIcon, Layers,
-  Filter, X, Clock, Play, CheckCircle2, Paperclip,
+  Filter, X, Clock, Play, CheckCircle2, Paperclip, FlaskConical,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
 import { deleteFile } from '../../lib/supabase'
 import Toast from '../UI/Toast'
 import DebriefingAdModal, { TIPOS_ANUNCIO, flattenCampaigns } from './DebriefingAdModal'
+import CreativeTestModal from './CreativeTestModal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
 import { STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, fmtDateBR, todayISO } from './debriefingData'
 
@@ -23,6 +24,7 @@ export default function DebriefingModule({ project }) {
 
   const persisted = project.debriefing || EMPTY
   const [editingAd, setEditingAd] = useState(null) // ad obj | {} | null
+  const [showTest, setShowTest] = useState(false)  // modal "Subir teste no Meta"
   const [filterTipo,    setFilterTipo]    = useState('')
   const [filterFunil,   setFilterFunil]   = useState('')
   const [filterStatus,  setFilterStatus]  = useState('')
@@ -157,12 +159,20 @@ export default function DebriefingModule({ project }) {
             {visibleAds.length} {visibleAds.length === 1 ? 'anúncio' : 'anúncios'}
           </span>
         </div>
-        <button
-          onClick={() => setEditingAd({})}
-          className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
-        >
-          <Plus className="w-4 h-4" /> Novo anúncio
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowTest(true)}
+            className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border border-rl-purple/40 text-rl-purple hover:bg-rl-purple/10 transition-all"
+          >
+            <FlaskConical className="w-4 h-4" /> Subir teste no Meta
+          </button>
+          <button
+            onClick={() => setEditingAd({})}
+            className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
+          >
+            <Plus className="w-4 h-4" /> Novo anúncio
+          </button>
+        </div>
       </div>
 
       {/* Tabela */}
@@ -362,6 +372,14 @@ export default function DebriefingModule({ project }) {
           existingAdsCount={ads.length}
           onSave={handleSaveAd}
           onClose={() => setEditingAd(null)}
+        />
+      )}
+
+      {showTest && (
+        <CreativeTestModal
+          project={project}
+          onClose={() => setShowTest(false)}
+          onToast={showToast}
         />
       )}
 
