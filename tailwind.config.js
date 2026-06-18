@@ -1,28 +1,33 @@
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
       colors: {
+        // Os tokens 'rl-*' são dirigidos por CSS custom properties (canais RGB)
+        // definidos em src/index.css → :root (claro) e .dark (escuro). O formato
+        // "rgb(var(--x) / <alpha-value>)" preserva os modificadores de opacidade
+        // do Tailwind (ex.: rl-purple/15, border-rl-border/50).
         'rl': {
-          'bg':       '#EEF2F9',      // branco gelo — fundo geral da página
-          'surface':  '#FFFFFF',      // branco puro — sidebar, inputs, elementos
-          'card':     '#FFFFFF',      // branco — cards elevados
-          'border':   '#D8E0F0',      // borda azul-acinzentada sutil
-          'purple':   '#164496',      // azul da marca (mantém chave 'purple' por compatibilidade)
-          'blue':     '#2563EB',      // azul secundário / brilhante
-          'cyan':     '#0284C7',      // ciano para destaques informativos
-          'gold':     '#D97706',      // âmbar / alertas
-          'green':    '#059669',      // verde / sucesso
-          'red':      '#DC2626',      // vermelho / erro
-          'text':     '#0F172A',      // texto principal (quase preto)
-          'subtle':   '#334155',      // texto secundário (labels, subtítulos)
-          'muted':    '#94A3B8',      // texto terciário (placeholders, hints)
+          'bg':       'rgb(var(--rl-bg) / <alpha-value>)',       // fundo geral da página
+          'surface':  'rgb(var(--rl-surface) / <alpha-value>)',  // sidebar, inputs, elementos
+          'card':     'rgb(var(--rl-card) / <alpha-value>)',     // cards elevados
+          'border':   'rgb(var(--rl-border) / <alpha-value>)',   // borda sutil
+          'purple':   'rgb(var(--rl-purple) / <alpha-value>)',   // azul da marca
+          'blue':     'rgb(var(--rl-blue) / <alpha-value>)',     // azul secundário
+          'cyan':     'rgb(var(--rl-cyan) / <alpha-value>)',     // ciano informativo
+          'gold':     'rgb(var(--rl-gold) / <alpha-value>)',     // âmbar / alertas
+          'green':    'rgb(var(--rl-green) / <alpha-value>)',    // sucesso
+          'red':      'rgb(var(--rl-red) / <alpha-value>)',      // erro
+          'text':     'rgb(var(--rl-text) / <alpha-value>)',     // texto principal
+          'subtle':   'rgb(var(--rl-subtle) / <alpha-value>)',   // texto secundário
+          'muted':    'rgb(var(--rl-muted) / <alpha-value>)',    // texto terciário
         }
       },
       backgroundImage: {
         'gradient-rl':   'linear-gradient(135deg, #164496 0%, #1B5DD6 100%)',
         'gradient-gold': 'linear-gradient(135deg, #D97706 0%, #F59E0B 100%)',
-        'gradient-dark': 'linear-gradient(180deg, #EEF2F9 0%, #E4EAF7 100%)',
+        'gradient-dark': 'linear-gradient(180deg, rgb(var(--rl-grad-from)) 0%, rgb(var(--rl-grad-to)) 100%)',
       },
       animation: {
         'slide-up':   'slideUp 0.4s cubic-bezier(0.16,1,0.3,1)',

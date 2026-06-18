@@ -3,20 +3,76 @@
 @tailwind utilities;
 
 @layer base {
+  /* ── Design tokens (canais RGB) — tema CLARO ──────────────────────
+     Consumidos pelos tokens rl-* do Tailwind via rgb(var(--x) / alpha). */
+  :root {
+    --rl-bg:       238 242 249;   /* #EEF2F9 branco gelo */
+    --rl-surface:  255 255 255;   /* #FFFFFF */
+    --rl-card:     255 255 255;   /* #FFFFFF */
+    --rl-border:   216 224 240;   /* #D8E0F0 */
+    --rl-purple:    22  68 150;   /* #164496 azul da marca */
+    --rl-blue:      37  99 235;   /* #2563EB */
+    --rl-cyan:       2 132 199;   /* #0284C7 */
+    --rl-gold:     217 119   6;   /* #D97706 */
+    --rl-green:      5 150 105;   /* #059669 */
+    --rl-red:      220  38  38;   /* #DC2626 */
+    --rl-text:      15  23  42;   /* #0F172A */
+    --rl-subtle:    51  65  85;   /* #334155 */
+    --rl-muted:    148 163 184;   /* #94A3B8 */
+
+    /* fundo gradiente da página (bg-gradient-dark) */
+    --rl-grad-from: 238 242 249;  /* #EEF2F9 */
+    --rl-grad-to:   228 234 247;  /* #E4EAF7 */
+
+    /* superfícies auxiliares (scrollbar, dot grid) */
+    --rl-scroll-track: 228 234 247; /* #E4EAF7 */
+    --rl-canvas:       244 247 252; /* #F4F7FC */
+    --rl-canvas-dot:   200 213 234; /* #C8D5EA */
+
+    color-scheme: light;
+  }
+
+  /* ── Design tokens — tema ESCURO ───────────────────────────────── */
+  .dark {
+    --rl-bg:        11  17  32;   /* #0B1120 navy profundo */
+    --rl-surface:   19  29  49;   /* #131D31 */
+    --rl-card:      24  35  59;   /* #18233B */
+    --rl-border:    42  56  80;   /* #2A3850 */
+    --rl-purple:    79 134 232;   /* #4F86E8 azul mais claro p/ contraste */
+    --rl-blue:      91 141 239;   /* #5B8DEF */
+    --rl-cyan:      56 169 228;   /* #38A9E4 */
+    --rl-gold:     240 166  65;   /* #F0A641 */
+    --rl-green:     43 185 138;   /* #2BB98A */
+    --rl-red:      242  88  95;   /* #F2585F */
+    --rl-text:     232 237 247;   /* #E8EDF7 */
+    --rl-subtle:   174 187 212;   /* #AEBBD4 */
+    --rl-muted:    110 126 158;   /* #6E7E9E */
+
+    --rl-grad-from: 11  17  32;   /* #0B1120 */
+    --rl-grad-to:    8  13  25;   /* #080D19 */
+
+    --rl-scroll-track: 19  29  49;
+    --rl-canvas:       16  24  40;
+    --rl-canvas-dot:   42  56  80;
+
+    color-scheme: dark;
+  }
+
   * {
     box-sizing: border-box;
   }
 
   /* Focus visível global — garante WCAG AA para navegação por teclado */
   :focus-visible {
-    outline: 2px solid #164496;
+    outline: 2px solid rgb(var(--rl-purple));
     outline-offset: 2px;
   }
   body {
-    background-color: #eef2f9;
-    color: #0f172a;
+    background-color: rgb(var(--rl-bg));
+    color: rgb(var(--rl-text));
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   ::-webkit-scrollbar {
@@ -24,19 +80,22 @@
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #e4eaf7;
+    background: rgb(var(--rl-scroll-track));
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(22, 68, 150, 0.2);
+    background: rgb(var(--rl-purple) / 0.2);
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(22, 68, 150, 0.4);
+    background: rgb(var(--rl-purple) / 0.4);
   }
 
   input[type='date']::-webkit-calendar-picker-indicator {
     filter: opacity(0.45);
     cursor: pointer;
+  }
+  .dark input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(1) opacity(0.55);
   }
 }
 
@@ -92,8 +151,8 @@
 
 /* Funnel canvas dot grid */
 .canvas-grid {
-  background-color: #f4f7fc;
-  background-image: radial-gradient(circle, #c8d5ea 1px, transparent 1px);
+  background-color: rgb(var(--rl-canvas));
+  background-image: radial-gradient(circle, rgb(var(--rl-canvas-dot)) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 

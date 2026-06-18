@@ -1,10 +1,12 @@
 import PropTypes from 'prop-types'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { useTheme } from '../hooks/useTheme'
 import {
   Plus, Layers, TrendingDown,
   LogOut, Cloud, CloudOff, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare, BarChart3, DollarSign,
+  Sun, Moon,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -31,6 +33,7 @@ function SidebarContent({
   navigate, location,
 }) {
   const isAdmin = user?.role === 'admin'
+  const { theme, toggleTheme } = useTheme()
   return (
     <div className="flex flex-col h-full py-4 px-3">
 
@@ -166,6 +169,16 @@ function SidebarContent({
           <p className="text-xs font-semibold text-rl-text leading-none truncate">{user.name.split(' ')[0]}</p>
           <p className="text-[10px] text-rl-muted capitalize mt-0.5">{user.role}</p>
         </div>
+        <button
+          onClick={toggleTheme}
+          aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
+          title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+          className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
+        >
+          {theme === 'dark'
+            ? <Sun className="w-3.5 h-3.5" />
+            : <Moon className="w-3.5 h-3.5" />}
+        </button>
         {isAdmin && (
           <button
             onClick={() => { navigate('/users'); onClose() }}
@@ -219,7 +232,7 @@ export default function AppSidebar({
   return (
     <>
       {/* ── Desktop sidebar ─────────────────────────────── */}
-      <aside className="hidden lg:flex flex-col w-60 shrink-0 sticky top-0 h-screen border-r border-rl-border bg-rl-surface overflow-y-auto scroll-hide shadow-[1px_0_0_#D8E0F0]">
+      <aside className="hidden lg:flex flex-col w-60 shrink-0 sticky top-0 h-screen border-r border-rl-border bg-rl-surface overflow-y-auto scroll-hide shadow-[1px_0_0_rgb(var(--rl-border))]">
         <SidebarContent {...sharedProps} />
       </aside>
 
