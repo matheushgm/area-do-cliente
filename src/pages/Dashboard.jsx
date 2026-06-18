@@ -1,6 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { useDashboardData } from '../hooks/useDashboardData'
+import { CFG, buildStats, computeMainPeriod, fmtNum } from '../lib/dashboardData'
 import {
   Zap, Plus, LogOut, Clock, CheckCircle2, Layers,
   Calendar, User,
@@ -554,7 +556,7 @@ function MomentoDropdown({ momentoFilter, setMomentoFilter, counts }) {
 const LIST_COLS = [
   { key: 'companyName',     label: 'Empresa'             },
   { key: 'squadName',       label: 'Squad'               },
-  { key: 'responsibleName', label: 'Responsável / Cargo' },
+  { key: 'conv7d',          label: 'Conversões 7d'       },
   { key: 'riskLevel',       label: 'Risco'               },
   { key: 'momento',         label: 'Momento'             },
   { key: 'progress',        label: 'Progresso'           },
@@ -578,6 +580,24 @@ const RISK_GROUPS = [
 ]
 
 
+// Célula de Conversões 7d: número + seta de tendência (vs 7 dias anteriores).
+function ConvCell({ t, loading }) {
+  if (!t) return <span className="text-rl-muted">{loading ? '·' : '—'}</span>
+  const { conv, prev } = t
+  if (conv === 0 && prev === 0) return <span className="text-rl-muted">—</span>
+  const dir = conv > prev ? 'up' : conv < prev ? 'down' : 'flat'
+  const pct = prev > 0 ? Math.round(((conv - prev) / prev) * 100) : null
+  const color = dir === 'up' ? 'text-rl-green' : dir === 'down' ? 'text-red-400' : 'text-rl-muted'
+  const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '▬'
+  const label = pct == null ? 'novo' : `${pct > 0 ? '+' : ''}${pct}%`
+  return (
+    <div className="flex items-center gap-2 whitespace-nowrap">
+      <span className="text-rl-text font-medium">{fmtNum(conv)}</span>
+      <span className={`text-xs flex items-center gap-0.5 ${color}`}>{arrow} {label}</span>
+    </div>
+  )
+}
+
 function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }) {
   const [sortBy,  setSortBy]  = useState('createdAt')
   const [sortDir, setSortDir] = useState('desc')
@@ -587,11 +607,37 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }
     else { setSortBy(key); setSortDir('asc') }
   }
 
+  // Conversões 7d (Meta + Google) por projeto — fonte NOVA (dash_insights/API),
+  // somando as contas vinculadas. conv = últimos 7d, prev = 7d anteriores (trend).
+  const dash = useDashboardData({ source: 'api' })
+  const trafficByProject = useMemo(() => {
+    const { raw, accounts } = dash
+    const periods = {
+      meta: computeMainPeriod(raw.meta, 'meta', 7),
+      google: computeMainPeriod(raw.google, 'google', 7),
+    }
+    const map = {}
+    ;['meta', 'google'].forEach(ch => {
+      const p = periods[ch]
+      if (!p) return
+      buildStats(raw[ch], CFG[ch], p).forEach(s => {
+        const pid = accounts[s.name]?.projectId
+        if (!pid) return
+        if (!map[pid]) map[pid] = { conv: 0, prev: 0 }
+        map[pid].conv += s.conv1 || 0
+        map[pid].prev += s.conv2 || 0
+      })
+    })
+    return map
+  }, [dash.raw, dash.accounts])
+
   const sorted = [...projects].sort((a, b) => {
     let av = a[sortBy] ?? ''
     let bv = b[sortBy] ?? ''
     if (sortBy === 'progress' || sortBy === 'contractValue') {
       av = Number(av) || 0; bv = Number(bv) || 0
+    } else if (sortBy === 'conv7d') {
+      av = trafficByProject[a.id]?.conv || 0; bv = trafficByProject[b.id]?.conv || 0
     } else if (sortBy === 'createdAt') {
       av = new Date(av).getTime() || 0; bv = new Date(bv).getTime() || 0
     } else {
@@ -644,17 +690,9 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }
           <SquadBadge name={p.squadName} emoji={p.squadEmoji} colorIndex={p.squadColorIndex} members={p.squadMembers ?? []} />
         </td>
 
-        {/* Responsável / Cargo */}
+        {/* Conversões 7d (Meta + Google) */}
         <td className="px-4 py-3">
-          {p.responsibleName
-            ? <div className="flex flex-col">
-                <span className="text-rl-text leading-tight">{p.responsibleName}</span>
-                {p.responsibleRole && (
-                  <span className="text-xs text-rl-muted mt-0.5">{p.responsibleRole}</span>
-                )}
-              </div>
-            : <span className="text-rl-muted">—</span>
-          }
+          <ConvCell t={trafficByProject[p.id]} loading={dash.loading} />
         </td>
 
         {/* Risco */}
