@@ -441,7 +441,19 @@ async function sbUpdateProjectV2(id, patch) {
   // ── 2. ROI Calculator ────────────────────────────────────────────────────
   if (patch.roiCalc !== undefined) {
     const roi = patch.roiCalc || {};
-    const roiId = roi.id || crypto.randomUUID();
+    // Reaproveita a linha existente do projeto em vez de criar uma nova a cada
+    // save — antes, roiCalc não carregava id e o upsert gerava um UUID novo
+    // sempre, acumulando dezenas de linhas por projeto.
+    let roiId = roi.id;
+    if (!roiId) {
+      const { data: existing } = await supabase
+        .from("roi_calculators")
+        .select("id")
+        .eq("project_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      roiId = existing?.[0]?.id || crypto.randomUUID();
+    }
     const { error } = await supabase.from("roi_calculators").upsert({
       id:             roiId,
       project_id:     id,
