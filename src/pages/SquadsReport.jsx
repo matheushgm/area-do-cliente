@@ -49,6 +49,7 @@ function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, mon
   const activeClients = squadProjects.filter(p => p.momento !== 'churn')
   const totalContract = activeClients.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
   const totalMRR      = activeClients.reduce((acc, p) => acc + mrrValue(p), 0)
+  const ticketMedio   = activeClients.length > 0 ? totalMRR / activeClients.length : 0
   const cost          = Number(squad.monthlyCost) || 0
   const margin        = totalMRR - cost
   const marginPct     = totalMRR > 0 ? (margin / totalMRR) * 100 : 0
@@ -169,6 +170,9 @@ function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, mon
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">MRR</p>
             <p className="text-xl font-bold text-rl-text mt-0.5">{fmtCurrency(totalMRR)}</p>
+            <p className="text-[11px] text-rl-muted mt-0.5">
+              Ticket médio: <span className="font-semibold text-rl-text">{fmtCurrency(ticketMedio)}</span>
+            </p>
           </div>
         </div>
 
@@ -521,6 +525,7 @@ export default function SquadsReport() {
   const activeAssigned    = projectsWithSquad.filter(p => p.momento !== 'churn')
   const totalActive       = activeAssigned.length
   const totalMRRAll       = activeAssigned.reduce((acc, p) => acc + mrrValue(p), 0)
+  const ticketMedioAll    = totalActive > 0 ? totalMRRAll / totalActive : 0
   const totalCostAll      = squads.reduce((acc, s) => acc + (Number(s.monthlyCost) || 0), 0)
   const totalMarginAll    = totalMRRAll - totalCostAll
 
@@ -570,7 +575,12 @@ export default function SquadsReport() {
         {squads.length > 0 && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up" style={{ animationDelay: '0.05s' }}>
             <SummaryCard icon={Users2}     label="Clientes ativos (com squad)" value={totalActive} />
-            <SummaryCard icon={DollarSign} label="MRR total"                  value={fmtCurrency(totalMRRAll)} />
+            <SummaryCard
+              icon={DollarSign}
+              label="MRR total"
+              value={fmtCurrency(totalMRRAll)}
+              sublabel={`Ticket médio: ${fmtCurrency(ticketMedioAll)}`}
+            />
             <SummaryCard icon={Wallet}     label="Custo total"                value={fmtCurrency(totalCostAll)} />
             <SummaryCard
               icon={totalMarginAll >= 0 ? TrendingUp : TrendingDown}
