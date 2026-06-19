@@ -105,7 +105,9 @@ export function useDashboardData({ source = 'sheets' } = {}) {
       const acCompanyName = project?.company_name ?? null
       const squad = (row.squad_id ? squadById[row.squad_id] : null) ?? project?.squad_name ?? null
       const clickupFolderId = row.clickup_folder_id ?? project?.clickup_folder_id ?? null
-      const cplVal = acCompanyName != null ? cplTargets[acCompanyName] : null
+      // cplTargets é indexado por company_name aparado (.trim) — apara aqui também
+      // para casar nomes com espaço sobrando.
+      const cplVal = acCompanyName != null ? cplTargets[acCompanyName.trim()] : null
       out[name] = {
         projectId: row.project_id ?? null,
         squadOverrideId: row.squad_id ?? null,

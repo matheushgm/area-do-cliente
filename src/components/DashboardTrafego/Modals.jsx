@@ -35,7 +35,9 @@ export function PreviewModal({ url, name, onClose }) {
 export function MappingModal({ dashName, projectsList, cplTargets, currentProjectId, onSave, onClose }) {
   const [selected, setSelected] = useState(currentProjectId || '')
   const project = projectsList.find(p => p.id === selected)
-  const cpl = project ? cplTargets[project.company_name] : null
+  // cplTargets é indexado por company_name aparado — apara aqui também para não
+  // quebrar quando o nome do projeto tiver espaço sobrando.
+  const cpl = project ? cplTargets[project.company_name?.trim()] : null
 
   return (
     <div className="map-overlay" onClick={onClose}>
