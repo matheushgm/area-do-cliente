@@ -21,6 +21,7 @@ import ResetPassword from './pages/ResetPassword'
 import Tasks from './pages/Tasks'
 import Chat from './pages/Chat'
 import RoteirosExpress from './pages/RoteirosExpress'
+import RoteirosExpressPublico from './pages/RoteirosExpressPublico'
 import DashboardTrafego from './pages/DashboardTrafego'
 import DashboardApiTeste from './pages/DashboardApiTeste'
 import NotificationCenter from './components/NotificationCenter'
@@ -77,6 +78,7 @@ function AppRoutes() {
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
         <Route path="/tarefas" element={<RequireAuth><Tasks /></RequireAuth>} />
         <Route path="/roteiros-express" element={<RequireAuth><RoteirosExpress /></RequireAuth>} />
+        <Route path="/roteiros/:token" element={<RoteirosExpressPublico />} />
         <Route path="/chat" element={<RequireAuth><Chat /></RequireAuth>} />
         <Route path="/dashboard" element={<DashboardRoute />} />
         <Route path="/dashboard-teste" element={<RequireAuth><DashboardApiTeste /></RequireAuth>} />
