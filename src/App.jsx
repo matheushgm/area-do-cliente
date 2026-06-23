@@ -20,6 +20,7 @@ import SquadsReport from './pages/SquadsReport'
 import ResetPassword from './pages/ResetPassword'
 import Tasks from './pages/Tasks'
 import Chat from './pages/Chat'
+import RoteirosExpress from './pages/RoteirosExpress'
 import DashboardTrafego from './pages/DashboardTrafego'
 import DashboardApiTeste from './pages/DashboardApiTeste'
 import NotificationCenter from './components/NotificationCenter'
@@ -75,6 +76,7 @@ function AppRoutes() {
         <Route path="/funil" element={<RequireAuth><FunilCanvas /></RequireAuth>} />
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
         <Route path="/tarefas" element={<RequireAuth><Tasks /></RequireAuth>} />
+        <Route path="/roteiros-express" element={<RequireAuth><RoteirosExpress /></RequireAuth>} />
         <Route path="/chat" element={<RequireAuth><Chat /></RequireAuth>} />
         <Route path="/dashboard" element={<DashboardRoute />} />
         <Route path="/dashboard-teste" element={<RequireAuth><DashboardApiTeste /></RequireAuth>} />
