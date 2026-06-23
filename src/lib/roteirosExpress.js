@@ -89,3 +89,65 @@ ${linhas(CLIENTE_QS)}
 
 Com base nisso, gere os 2 roteiros de vídeo seguindo a estrutura do Laboratório de Anúncios.`
 }
+
+// Divide o texto completo da IA nos 2 roteiros (limpa travessões e delimitador).
+export function splitScripts(fullText) {
+  const clean = (fullText || '').replace(/—/g, '-')
+  const parts = clean.split(SPLIT).map((s) => s.trim()).filter(Boolean).slice(0, 2)
+  return (parts.length ? parts : [clean.trim()]).map((content) => ({ content, refineUsed: false }))
+}
+
+// ─── Cliente público (sem login) → /api/roteiros-express ──────────────────────
+
+// POST JSON simples (submit / save-scripts).
+export async function postRoteiro(action, payload = {}) {
+  const res = await fetch('/api/roteiros-express', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token: PUBLIC_TOKEN, action, ...payload }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data?.error || `Erro ${res.status}`)
+  return data
+}
+
+// POST com resposta em streaming SSE (generate / refine). onChunk(textoAcumulado).
+export async function streamRoteiro(action, payload, onChunk) {
+  const res = await fetch('/api/roteiros-express', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token: PUBLIC_TOKEN, action, ...payload }),
+  })
+  const ct = res.headers.get('content-type') || ''
+  if (!ct.includes('event-stream')) {
+    let data
+    try { data = await res.json() } catch { throw new Error(`Erro ${res.status}`) }
+    throw new Error(data?.error || `Erro ${res.status}`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let fullText = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop()
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      const raw = line.slice(6).trim()
+      if (!raw || raw === '[DONE]') continue
+      let event
+      try { event = JSON.parse(raw) } catch { continue }
+      if (event.type === 'error') throw new Error(event.error?.message || 'Erro no streaming da IA.')
+      if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta' && event.delta?.text) {
+        fullText += event.delta.text
+        onChunk(fullText.replace(/—/g, '-'))
+      }
+    }
+  }
+  if (!fullText) throw new Error('A IA retornou uma resposta vazia. Tente novamente.')
+  return fullText
+}

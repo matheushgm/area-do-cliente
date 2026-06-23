@@ -269,7 +269,7 @@ export default function RoteirosExpress() {
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold text-rl-text">Link para o cliente responder</p>
                 <p className="text-[11px] text-rl-muted mb-2">
-                  Envie para o cliente preencher as 10 perguntas. As respostas caem na aba de respostas recebidas.
+                  O cliente preenche as 10 perguntas e recebe 2 roteiros na hora. As respostas e os roteiros ficam na aba de respostas recebidas.
                 </p>
                 <div className="flex items-center gap-2">
                   <input
@@ -462,6 +462,23 @@ export default function RoteirosExpress() {
                         <div className="border-t border-rl-border px-4 py-4 space-y-3 bg-rl-surface/30">
                           <AnswerList Icon={Package} title="Produto / serviço" qs={PRODUTO_QS} answers={r.answers} />
                           <AnswerList Icon={Users} title="Cliente" qs={CLIENTE_QS} answers={r.answers} />
+
+                          {Array.isArray(r.scripts) && r.scripts.length > 0 && (
+                            <div className="space-y-2 pt-1">
+                              <div className="flex items-center gap-1.5">
+                                <Clapperboard className="w-3.5 h-3.5 text-rl-purple" />
+                                <h4 className="text-[10px] font-bold text-rl-purple uppercase tracking-wider">
+                                  Roteiros que o cliente recebeu
+                                </h4>
+                              </div>
+                              {r.scripts.map((s, i) => (
+                                <div key={i} className="rounded-lg border border-rl-border bg-rl-bg/40 p-3">
+                                  <MarkdownBlock content={s.content} />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-2 pt-1">
                             <button onClick={() => runFromResponse(r)} disabled={loading}
                               className="btn-primary flex items-center gap-1.5 text-xs px-3 py-1.5 disabled:opacity-50">
