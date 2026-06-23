@@ -14,6 +14,7 @@ import {
   Clapperboard, Menu, Sparkles, Loader2, Wand2, Lock,
   Package, Users, RotateCcw, AlertTriangle, CheckCircle2, PenLine, Send,
   Inbox, PenSquare, Link2, Copy, Check, Trash2, ChevronDown, RefreshCw, Clock,
+  Building2, Mail, Phone,
 } from 'lucide-react'
 
 // Persistência local do rascunho de criação manual.
@@ -433,13 +434,19 @@ export default function RoteirosExpress() {
                             <span className="text-sm font-bold text-rl-text truncate">
                               {r.nome || 'Sem identificação'}
                             </span>
+                            {r.empresa && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-rl-blue bg-rl-blue/10 border border-rl-blue/30 px-1.5 py-0.5 rounded-full">
+                                <Building2 className="w-2.5 h-2.5" /> {r.empresa}
+                              </span>
+                            )}
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${badge.cls}`}>
                               {badge.label}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 mt-1 flex-wrap text-[11px] text-rl-muted">
                             <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> {fmtDate(r.created_at)}</span>
-                            {r.contato && <span className="truncate">· {r.contato}</span>}
+                            {r.email && <span className="inline-flex items-center gap-1"><Mail className="w-3 h-3" /> {r.email}</span>}
+                            {r.telefone && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" /> {r.telefone}</span>}
                           </div>
                           <p className="text-xs text-rl-muted mt-1.5 line-clamp-1">
                             <span className="text-rl-text/70 font-medium">Vende:</span> {r.answers?.p1 || '—'}

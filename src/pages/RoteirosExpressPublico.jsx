@@ -18,7 +18,9 @@ export default function RoteirosExpressPublico() {
 
   const [answers, setAnswers] = useState(EMPTY_ANSWERS)
   const [nome, setNome] = useState('')
-  const [contato, setContato] = useState('')
+  const [email, setEmail] = useState('')
+  const [telefone, setTelefone] = useState('')
+  const [empresa, setEmpresa] = useState('')
   const [website, setWebsite] = useState('') // honeypot (oculto)
   const [current, setCurrent] = useState(0)
 
@@ -62,15 +64,23 @@ export default function RoteirosExpressPublico() {
     if (current > 0) setCurrent((c) => c - 1)
   }
 
+  const contactValid =
+    !!nome.trim() && !!empresa.trim() && !!telefone.trim() &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+
   // ── Finalizar → salva + gera os 2 roteiros ──────────────────────────────────
   async function finish() {
+    if (!contactValid) {
+      setError('Preencha nome, e-mail válido, telefone e empresa.')
+      return
+    }
     setStatus('generating')
     setError(null)
     setStreamingText('')
     try {
       let id = respId
       if (!id) {
-        const r = await postRoteiro('submit', { answers, nome, contato, website })
+        const r = await postRoteiro('submit', { answers, nome, email, telefone, empresa, website })
         id = r.id
         setRespId(id)
       }
@@ -288,13 +298,17 @@ export default function RoteirosExpressPublico() {
             </>
           ) : (
             <>
-              <label className="block text-xl sm:text-2xl font-bold text-rl-text leading-snug">Como podemos te identificar?</label>
-              <p className="text-sm text-rl-muted mt-2">Opcional, mas ajuda a gente a falar com você.</p>
+              <label className="block text-xl sm:text-2xl font-bold text-rl-text leading-snug">Para onde enviamos seus roteiros?</label>
+              <p className="text-sm text-rl-muted mt-2">Preencha para receber os 2 roteiros na próxima tela.</p>
               <div className="space-y-3 mt-5">
                 <input ref={inputRef} value={nome} onChange={(e) => setNome(e.target.value)} onKeyDown={handleKeyDown}
-                  placeholder="Seu nome ou nome do negócio" className="input-field w-full text-base" />
-                <input value={contato} onChange={(e) => setContato(e.target.value)} onKeyDown={handleKeyDown}
-                  placeholder="WhatsApp ou e-mail (opcional)" className="input-field w-full text-base" />
+                  placeholder="Seu nome completo" className="input-field w-full text-base" />
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={handleKeyDown}
+                  placeholder="Seu melhor e-mail" className="input-field w-full text-base" />
+                <input type="tel" value={telefone} onChange={(e) => setTelefone(e.target.value)} onKeyDown={handleKeyDown}
+                  placeholder="Telefone / WhatsApp" className="input-field w-full text-base" />
+                <input value={empresa} onChange={(e) => setEmpresa(e.target.value)} onKeyDown={handleKeyDown}
+                  placeholder="Nome da empresa" className="input-field w-full text-base" />
               </div>
               <input type="text" tabIndex={-1} autoComplete="off" value={website}
                 onChange={(e) => setWebsite(e.target.value)} className="hidden" aria-hidden="true" />
@@ -320,8 +334,8 @@ export default function RoteirosExpressPublico() {
                 Continuar <ArrowRight className="w-4 h-4" />
               </button>
             ) : (
-              <button onClick={finish}
-                className="btn-primary flex items-center gap-2 text-sm px-6 py-2.5">
+              <button onClick={finish} disabled={!contactValid}
+                className="btn-primary flex items-center gap-2 text-sm px-6 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed">
                 <Sparkles className="w-4 h-4" /> Gerar meus roteiros
               </button>
             )}

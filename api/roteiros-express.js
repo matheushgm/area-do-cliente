@@ -159,9 +159,22 @@ export default async function handler(req) {
       clean[k] = v
     }
 
+    const nome     = clip(body.nome, 160)
+    const email    = clip(body.email, 160)
+    const telefone = clip(body.telefone, 60)
+    const empresa  = clip(body.empresa, 160)
+    if (!nome || !email || !telefone || !empresa) {
+      return json({ error: 'Preencha nome, e-mail, telefone e empresa.' }, 400)
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return json({ error: 'E-mail inválido.' }, 400)
+    }
+
     const row = {
-      nome:    clip(body.nome, 160) || null,
-      contato: clip(body.contato, 160) || null,
+      nome,
+      email,
+      telefone,
+      empresa,
       answers: clean,
       status:  'novo',
       origem:  'link-publico',
