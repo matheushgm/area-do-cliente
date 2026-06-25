@@ -10,7 +10,7 @@ import {
   Eye, X, Trash2, AlertTriangle,
   Cloud, CloudOff, Loader2, Menu, Search,
   LayoutGrid, List, ChevronUp, ChevronDown, ChevronsUpDown, Users2,
-  Wallet, TrendingDown, History, TrendingUp,
+  Wallet, TrendingDown, History, TrendingUp, Building2,
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
 import { SQUAD_COLORS } from '../lib/constants'
@@ -552,6 +552,86 @@ function MomentoDropdown({ momentoFilter, setMomentoFilter, counts }) {
   )
 }
 
+// ─── Business Model Dropdown (B2B / B2C) ─────────────────────────────────────
+
+const BIZ_MODEL_OPTIONS = [
+  { value: 'b2b', label: 'B2B', dot: 'bg-rl-blue',  text: 'text-rl-blue',  activeCls: 'bg-rl-blue/10 border-rl-blue/40 text-rl-blue'   },
+  { value: 'b2c', label: 'B2C', dot: 'bg-rl-green', text: 'text-rl-green', activeCls: 'bg-rl-green/10 border-rl-green/40 text-rl-green' },
+]
+
+function BusinessModelDropdown({ bizFilter, setBizFilter, counts }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const active = BIZ_MODEL_OPTIONS.find(o => o.value === bizFilter)
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all ${
+          active
+            ? active.activeCls
+            : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
+        }`}
+      >
+        {active
+          ? <><span className={`w-2 h-2 rounded-full shrink-0 ${active.dot}`} />{active.label}</>
+          : <><Building2 className="w-3.5 h-3.5 shrink-0" />B2B / B2C</>
+        }
+        {active
+          ? <span
+              role="button"
+              onClick={(e) => { e.stopPropagation(); setBizFilter('all') }}
+              className="ml-0.5 rounded-full hover:opacity-70 p-0.5 transition-opacity"
+            ><X className="w-3 h-3" /></span>
+          : <ChevronDown className={`w-3.5 h-3.5 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
+        }
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-44 glass-card border border-rl-border shadow-xl py-1 rounded-xl overflow-hidden">
+          <button
+            onClick={() => { setBizFilter('all'); setOpen(false) }}
+            className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
+              !active ? 'text-rl-purple font-semibold' : 'text-rl-muted'
+            }`}
+          >
+            <span>Todos</span>
+            {!active && <span className="w-1.5 h-1.5 rounded-full bg-rl-purple" />}
+          </button>
+          <div className="border-t border-rl-border/60 my-1" />
+          {BIZ_MODEL_OPTIONS.map(o => {
+            const isActive = bizFilter === o.value
+            const count = counts?.businessModels?.[o.value] ?? 0
+            return (
+              <button
+                key={o.value}
+                onClick={() => { setBizFilter(o.value); setOpen(false) }}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
+                  isActive ? `${o.text} font-medium` : 'text-rl-muted'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${o.dot}`} />
+                  {o.label}
+                </div>
+                <span className="text-[11px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-full shrink-0">{count}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── List View ────────────────────────────────────────────────────────────────
 const LIST_COLS = [
   { key: 'companyName',     label: 'Empresa'             },
@@ -924,6 +1004,7 @@ export default function Dashboard() {
   const [riskFilter, setRiskFilter] = useState('all') // 'all' | 'em_risco' | 'neutro' | 'saudavel'
   const [momentoFilter, setMomentoFilter] = useState('all') // 'all' | momento value
   const [phase90Filter, setPhase90Filter] = useState(false) // toggle: clientes com createdAt < 90d
+  const [bizFilter, setBizFilter] = useState('all') // 'all' | 'b2b' | 'b2c'
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [view, setView] = useState(() => localStorage.getItem('rl_dashboard_view') || 'grid')
@@ -962,6 +1043,8 @@ export default function Dashboard() {
     if (riskFilter    !== 'all')      result = result.filter(p => p.riskLevel === riskFilter)
     if (momentoFilter !== 'all')      result = result.filter(p => p.momento === momentoFilter)
     else if (filter !== 'churn')      result = result.filter(p => p.momento !== 'churn')
+    if (bizFilter === 'b2b')      result = result.filter(p => p.businessType === 'b2b')
+    else if (bizFilter === 'b2c') result = result.filter(p => p.businessType !== 'b2b')
     if (phase90Filter) {
       const cutoff = Date.now() - 90 * 86400000
       result = result.filter(p => {
@@ -1026,6 +1109,10 @@ export default function Dashboard() {
     momentos:   Object.fromEntries(
       MOMENTO_OPTIONS.map(m => [m.value, baseProjects.filter(p => p.momento === m.value).length])
     ),
+    businessModels: {
+      b2b: baseProjects.filter(p => p.momento !== 'churn' && p.businessType === 'b2b').length,
+      b2c: baseProjects.filter(p => p.momento !== 'churn' && p.businessType !== 'b2b').length,
+    },
   }
 
   // Derive page title from filter
@@ -1415,6 +1502,9 @@ export default function Dashboard() {
                   counts={counts}
                 />
               )}
+
+              {/* Business Model filter (B2B / B2C) */}
+              <BusinessModelDropdown bizFilter={bizFilter} setBizFilter={setBizFilter} counts={counts} />
 
               {/* Risk filter dropdown */}
               <RiskDropdown riskFilter={riskFilter} setRiskFilter={setRiskFilter} counts={counts} />
