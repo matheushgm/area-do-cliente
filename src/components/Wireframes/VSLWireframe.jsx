@@ -21,12 +21,13 @@ function Slot({ value, placeholder, className = '', as: Tag = 'span' }) {
   )
 }
 
-// Converte **trecho** em <span> destacado.
+// Converte **trecho** em destaque. Em P&B o realce é por sublinhado (mantém a
+// intenção de "palavra-chave" sem usar cor).
 function renderEmphasis(text) {
   const parts = String(text).split(/(\*\*[^*]+\*\*)/g)
   return parts.map((p, i) =>
     /^\*\*[^*]+\*\*$/.test(p)
-      ? <span key={i} className="text-orange-500">{p.replace(/\*\*/g, '')}</span>
+      ? <span key={i} className="underline decoration-2 underline-offset-4 decoration-slate-400">{p.replace(/\*\*/g, '')}</span>
       : <span key={i}>{p}</span>
   )
 }
@@ -50,13 +51,14 @@ function SectionTag({ children }) {
   )
 }
 
-// Botão (CTA) em estilo wireframe.
-function CtaButton({ value, placeholder, accent = false }) {
+// Botão (CTA) em estilo wireframe. `onDark` inverte o botão para fundos escuros
+// (claro sobre escuro), garantindo contraste em P&B.
+function CtaButton({ value, placeholder, onDark = false }) {
   const has = value && value.trim()
   return (
     <span
       className={`inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-bold ${
-        accent ? 'bg-orange-500 text-white' : 'bg-slate-800 text-white'
+        onDark ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'
       } ${has ? '' : 'opacity-60'}`}
     >
       {has ? value : placeholder}
@@ -74,7 +76,7 @@ export default function VSLWireframe({ content = {}, className = '' }) {
     <div className={`bg-white rounded-2xl overflow-hidden shadow-xl ring-1 ring-slate-200 text-slate-800 ${className}`}>
 
       {/* ── Barra de anúncio ─────────────────────────────────────────────── */}
-      <div className="bg-orange-500 text-white text-center text-[10px] py-1.5 px-4">
+      <div className="bg-slate-900 text-white text-center text-[10px] py-1.5 px-4">
         <Slot value={c.announcement} placeholder={P.announcement} className="text-white/90" />
       </div>
 
@@ -105,7 +107,7 @@ export default function VSLWireframe({ content = {}, className = '' }) {
         />
         <MediaBox icon={Play} label="Vídeo VSL" className="!bg-slate-800 !border-slate-700 !text-slate-500 rounded-xl aspect-video max-w-xl mx-auto mt-6" />
         <div className="mt-6">
-          <CtaButton value={c.heroCta} placeholder={P.heroCta} accent />
+          <CtaButton value={c.heroCta} placeholder={P.heroCta} onDark />
         </div>
       </section>
 
@@ -159,12 +161,12 @@ export default function VSLWireframe({ content = {}, className = '' }) {
               className="block text-xs text-slate-500 mt-2 leading-relaxed"
             />
           </div>
-          <div className="rounded-xl border-2 border-orange-200 bg-orange-50 p-6 text-center">
+          <div className="rounded-xl border-2 border-slate-200 bg-slate-50 p-6 text-center">
             <Slot
               as="p"
               value={c.discountValue}
               placeholder={P.discountValue}
-              className="block text-4xl font-extrabold text-orange-500 leading-none"
+              className="block text-4xl font-extrabold text-slate-900 leading-none"
             />
             <Slot
               as="p"
@@ -217,33 +219,33 @@ export default function VSLWireframe({ content = {}, className = '' }) {
             <ul className="space-y-2">
               {bullets.map((b, i) => (
                 <li key={i} className="flex items-start gap-2">
-                  <Check className="w-3.5 h-3.5 text-orange-400 shrink-0 mt-0.5" />
+                  <Check className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                   <Slot value={b} placeholder={P.bullet} className="text-xs text-slate-300" />
                 </li>
               ))}
             </ul>
           </div>
-          <div className="rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 p-6 text-center text-white">
+          <div className="rounded-xl bg-white p-6 text-center text-slate-900">
             <Slot
               as="p"
               value={c.priceLabel}
               placeholder={P.priceLabel}
-              className="block text-[11px] text-white/80"
+              className="block text-[11px] text-slate-500"
             />
             <Slot
               as="p"
               value={c.price}
               placeholder={P.price}
-              className="block text-3xl font-extrabold leading-none mt-1"
+              className="block text-3xl font-extrabold leading-none mt-1 text-slate-900"
             />
             <Slot
               as="p"
               value={c.priceSecondary}
               placeholder={P.priceSecondary}
-              className="block text-[11px] text-white/80 mt-1"
+              className="block text-[11px] text-slate-500 mt-1"
             />
             <div className="mt-4">
-              <span className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-bold bg-white text-orange-600">
+              <span className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-bold bg-slate-900 text-white">
                 {c.priceCta?.trim() || P.priceCta}
               </span>
             </div>
