@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Menu, FlaskConical } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,18 +34,7 @@ export default function DashboardApiTeste() {
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-bold text-rl-text text-sm">Dashboard (em teste)</span>
-        </div>
-
-        {/* Faixa "em teste" */}
-        <div className="flex items-center gap-2 px-4 py-2 text-[13px] font-semibold"
-             style={{ background: '#FEF3C7', color: '#92400E', borderBottom: '1px solid #FDE68A' }}>
-          <FlaskConical className="w-4 h-4 shrink-0" />
-          <span>
-            Dashboard <b>em teste</b> — nova versão alimentada por API (Meta&nbsp;+&nbsp;Google), com
-            drill-down de campanhas/conjuntos/anúncios e conversões pela coluna “Resultados”.
-            Estamos validando os dados; o dashboard oficial continua em <b>“Dashboard”</b>.
-          </span>
+          <span className="font-bold text-rl-text text-sm">Dashboard</span>
         </div>
 
         {/* Viewer embutido */}

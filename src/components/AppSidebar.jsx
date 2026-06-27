@@ -21,8 +21,7 @@ const NAV_LINKS = [
   { id: 'banco',     label: 'Banco de Anúncios', Icon: Library,      type: 'route',    to: '/banco-de-anuncios' },
   { id: 'funil',     label: 'Funil de Vendas',   Icon: GitFork,      type: 'route',    to: '/funil' },
   { id: 'playbook',  label: 'Playbook',          Icon: BookOpen,     type: 'external', href: 'https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173' },
-  { id: 'dashboard', label: 'Dashboard',         Icon: BarChart3,    type: 'route',    to: '/dashboard' },
-  { id: 'dashboard-teste', label: 'Dashboard',   Icon: BarChart3,    type: 'route',    to: '/dashboard-teste', badge: 'em teste' },
+  { id: 'dashboard-teste', label: 'Dashboard',   Icon: BarChart3,    type: 'route',    to: '/dashboard-teste', badge: 'API' },
   { id: 'precificacao', label: 'Precificação',   Icon: DollarSign,   type: 'external', href: 'https://vvmkxurb.manus.space/' },
 ]
 
@@ -117,7 +116,7 @@ function SidebarContent({
                 {label}
               </div>
               {badge && (
-                <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rl-gold/15 text-rl-gold border border-rl-gold/30">
+                <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rl-green/15 text-rl-green border border-rl-green/30">
                   {badge}
                 </span>
               )}
