@@ -6,8 +6,9 @@ import RatingSelector from './RatingSelector'
 import {
   Globe, Sparkles, Loader2, AlertTriangle, Copy, CheckCheck,
   ChevronDown, ChevronUp, RotateCcw, Trash2, Plus, CheckCircle2,
-  Check, X, Zap,
+  Check, X, Zap, LayoutTemplate, FileText, Lock,
 } from 'lucide-react'
+import { WIREFRAME_TYPES, getWireframe } from './Wireframes'
 
 // ─── System Prompt (baseado na skill criador-de-landing-page) ─────────────────
 const LANDING_SYSTEM = `Você é um especialista em planejamento e criação de copy de alta taxa de conversão para landing pages, usando a metodologia Revenue Lab.
@@ -340,6 +341,10 @@ function DobraBlock({ dobra, index, onRefine, onApprove }) {
 function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineDobra, onContentChange }) {
   const [expanded, setExpanded] = useState(index === 0)
   const [copied, setCopied]     = useState(false)
+  const [view, setView]         = useState('wireframe') // 'wireframe' | 'texto'
+
+  const wf = lp.wireframeType ? getWireframe(lp.wireframeType) : null
+  const isWireframe = !!(wf && lp.wireframeContent)
 
   function handleCopy() {
     navigator.clipboard.writeText(lp.content)
@@ -372,7 +377,14 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
             <Globe className="w-4 h-4 text-rl-green" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-rl-text truncate">{lp.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-bold text-rl-text truncate">{lp.name}</p>
+              {wf && (
+                <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-green/15 text-rl-green border border-rl-green/30">
+                  <LayoutTemplate className="w-2.5 h-2.5" /> {wf.name}
+                </span>
+              )}
+            </div>
             {dateStr && <p className="text-[10px] text-rl-muted mt-0.5">{dateStr}</p>}
           </div>
         </div>
@@ -428,7 +440,41 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
               <p className="text-xs text-rl-text italic">"{lp.customNote}"</p>
             </div>
           )}
-          {dobras.length > 1 ? (
+
+          {isWireframe ? (
+            <>
+              {/* Toggle Wireframe / Texto */}
+              <div className="flex items-center gap-1 mb-4 p-0.5 rounded-xl bg-rl-surface/60 border border-rl-border/40 w-fit">
+                <button
+                  onClick={() => setView('wireframe')}
+                  className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all ${
+                    view === 'wireframe' ? 'bg-rl-green/15 text-rl-green' : 'text-rl-muted hover:text-rl-text'
+                  }`}
+                >
+                  <LayoutTemplate className="w-3.5 h-3.5" /> Wireframe
+                </button>
+                <button
+                  onClick={() => setView('texto')}
+                  className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all ${
+                    view === 'texto' ? 'bg-rl-green/15 text-rl-green' : 'text-rl-muted hover:text-rl-text'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" /> Texto
+                </button>
+              </div>
+
+              {view === 'wireframe' ? (
+                <div>
+                  <p className="text-[10px] text-rl-muted mb-2 leading-snug">
+                    Prévia da copy aplicada no layout. Imagens e vídeo são placeholders — referência para o designer montar a página.
+                  </p>
+                  <wf.Component content={lp.wireframeContent} />
+                </div>
+              ) : (
+                <div className="space-y-0">{renderMarkdownLines(lp.content)}</div>
+              )}
+            </>
+          ) : dobras.length > 1 ? (
             <div className="space-y-3">
               {dobras.map((dobra, di) => (
                 <DobraBlock
@@ -453,7 +499,7 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
 // ─── New / Regenerate Copy Form ───────────────────────────────────────────────
 function CopyForm({
   project, copyCount, onSave, onCancel, isRegen, existingName,
-  defaultCustomNote, defaultProductId, defaultPersonaId, defaultGomNum,
+  defaultCustomNote, defaultProductId, defaultPersonaId, defaultGomNum, defaultWireframeType,
 }) {
   // GOMs disponíveis (separadas do texto gerado no módulo Oferta Matadora)
   const goms = useMemo(
@@ -462,6 +508,7 @@ function CopyForm({
   )
 
   const [name,            setName]            = useState(isRegen ? existingName : `Copy Landing Page ${copyCount + 1}`)
+  const [wireframeType,   setWireframeType]   = useState(isRegen ? (defaultWireframeType || 'vsl') : 'vsl')
   const [customNote,      setCustomNote]      = useState(defaultCustomNote || '')
   const [loading,         setLoading]         = useState(false)
   const [error,           setError]           = useState(null)
@@ -493,10 +540,6 @@ function CopyForm({
     setError(null)
     setStreamPreview('')
     try {
-      const customSection = customNote.trim()
-        ? `\n## DIREÇÃO CRIATIVA\n${customNote.trim()}\n(Esta direção deve orientar e influenciar toda a copy.)\n`
-        : ''
-
       const baseItens = [
         selectedGom && 'a oferta matadora',
         selectedProduct && 'o produto/serviço',
@@ -506,25 +549,71 @@ function CopyForm({
         ? ` Use como base ${baseItens.join(', ')} fornecido(s) acima.`
         : ' Não há oferta, produto ou persona definidos — baseie-se exclusivamente na direção criativa.'
 
-      const instruction = `${customSection}
----
-
-## SOLICITAÇÃO
-
-Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS as informações deste contexto e a direção criativa — não invente dados de empresa, produtos, personas ou números que não estejam aqui. Seja extremamente específico; nunca use frases genéricas ou templates vazios.`
-
       const contextText = buildLandingContext({
         produtos:   selectedProduct ? [selectedProduct] : [],
         personas:   selectedPersona ? [selectedPersona] : [],
         ofertaText: selectedGom?.content || '',
       })
 
+      const baseFields = {
+        name:         name.trim() || (isRegen ? existingName : `Copy Landing Page ${copyCount + 1}`),
+        customNote:   customNote.trim(),
+        productId:    selectedProductId || null,
+        productName:  selectedProduct?.nome || null,
+        personaId:    selectedPersonaId || null,
+        personaName:  selectedPersona?.name || null,
+        ofertaGomNum: selectedGom?.num || null,
+        ofertaText:   selectedGom?.content || null,
+        rating:       null,
+        createdAt:    new Date().toISOString(),
+      }
+
+      const wf = getWireframe(wireframeType)
+
+      if (wf?.system && wf?.parse) {
+        // ── Geração ESTRUTURADA (copy direto nos slots do wireframe) ──────────
+        const instruction = wf.buildInstruction({ customNote, baseClause })
+        const { system, messages } = buildLandingCachedPayload({
+          systemPrompt: wf.system,
+          contextText,
+          instruction,
+        })
+        const fullText = await streamClaude({
+          model:      'claude-sonnet-4-5',
+          max_tokens: 8000,
+          system,
+          messages,
+          onChunk:    (text) => setStreamPreview(text),
+        })
+        const structured = wf.parse(fullText)
+        if (!structured) {
+          throw new Error('A IA retornou um formato inesperado. Tente gerar novamente.')
+        }
+        onSave({
+          id:               crypto.randomUUID(),
+          ...baseFields,
+          wireframeType:    wf.id,
+          wireframeContent: structured,
+          content:          wf.toText(structured),
+        })
+        return
+      }
+
+      // ── Fallback: geração em 6 dobras (markdown) ───────────────────────────
+      const customSection = customNote.trim()
+        ? `\n## DIREÇÃO CRIATIVA\n${customNote.trim()}\n(Esta direção deve orientar e influenciar toda a copy.)\n`
+        : ''
+      const instruction = `${customSection}
+---
+
+## SOLICITAÇÃO
+
+Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS as informações deste contexto e a direção criativa — não invente dados de empresa, produtos, personas ou números que não estejam aqui. Seja extremamente específico; nunca use frases genéricas ou templates vazios.`
       const { system, messages } = buildLandingCachedPayload({
         systemPrompt: LANDING_SYSTEM,
         contextText,
         instruction,
       })
-
       const fullText = await streamClaude({
         model:      'claude-sonnet-4-5',
         max_tokens: 16000,
@@ -532,27 +621,13 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
         messages,
         onChunk:    (text) => setStreamPreview(text),
       })
-
-      onSave({
-        id:          crypto.randomUUID(),
-        name:        name.trim() || (isRegen ? existingName : `Copy Landing Page ${copyCount + 1}`),
-        content:     fullText,
-        customNote:  customNote.trim(),
-        productId:   selectedProductId || null,
-        productName: selectedProduct?.nome || null,
-        personaId:   selectedPersonaId || null,
-        personaName: selectedPersona?.name || null,
-        ofertaGomNum: selectedGom?.num || null,
-        ofertaText:   selectedGom?.content || null,
-        rating:      null,
-        createdAt:   new Date().toISOString(),
-      })
+      onSave({ id: crypto.randomUUID(), ...baseFields, content: fullText })
     } catch (e) {
       setError(e.message)
     } finally {
       setLoading(false)
     }
-  }, [copyCount, customNote, existingName, isRegen, name, onSave, selectedProduct, selectedPersona, selectedGom, selectedProductId, selectedPersonaId])
+  }, [copyCount, customNote, existingName, isRegen, name, onSave, selectedProduct, selectedPersona, selectedGom, selectedProductId, selectedPersonaId, wireframeType])
 
 
   return (
@@ -583,6 +658,45 @@ Crie uma copy COMPLETA de landing page com as 6 dobras.${baseClause} Use APENAS 
           />
         </div>
       )}
+
+      {/* Tipo de wireframe (formato da página) */}
+      <div className="rounded-xl border border-rl-green/30 bg-rl-green/5 p-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <LayoutTemplate className="w-4 h-4 text-rl-green" />
+          <label className="label-field !mb-0">Tipo de página (wireframe)</label>
+        </div>
+        <p className="text-[11px] text-rl-muted leading-snug">
+          A copy é gerada já no formato da página escolhida — você vê o texto encaixado no wireframe.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {WIREFRAME_TYPES.map((t) => {
+            const active = wireframeType === t.id
+            return (
+              <button
+                key={t.id}
+                type="button"
+                disabled={!t.ready}
+                onClick={() => t.ready && setWireframeType(t.id)}
+                className={`relative flex items-center justify-center gap-1 text-[11px] font-semibold px-2 py-2 rounded-lg border transition-all ${
+                  active
+                    ? 'bg-rl-green/15 border-rl-green/50 text-rl-green'
+                    : t.ready
+                      ? 'bg-rl-surface/60 border-rl-border/40 text-rl-text hover:border-rl-green/30'
+                      : 'bg-rl-surface/30 border-rl-border/30 text-rl-muted/60 cursor-not-allowed'
+                }`}
+              >
+                {!t.ready && <Lock className="w-2.5 h-2.5" />}
+                {t.label}
+                {!t.ready && (
+                  <span className="absolute -top-1.5 -right-1.5 text-[7px] font-bold uppercase tracking-wider px-1 py-0.5 rounded-full bg-rl-surface border border-rl-border/50 text-rl-muted">
+                    em breve
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Oferta matadora (base da copy) */}
       <div className="rounded-xl border border-rl-gold/30 bg-rl-gold/5 p-3 space-y-3">
@@ -796,12 +910,13 @@ export default function LandingPageModule({ project }) {
 
   function handleRegenerate(lp) {
     setRegenTarget({
-      id:           lp.id,
-      name:         lp.name,
-      customNote:   lp.customNote || '',
-      productId:    lp.productId || '',
-      personaId:    lp.personaId || '',
-      ofertaGomNum: lp.ofertaGomNum || '',
+      id:            lp.id,
+      name:          lp.name,
+      customNote:    lp.customNote || '',
+      productId:     lp.productId || '',
+      personaId:     lp.personaId || '',
+      ofertaGomNum:  lp.ofertaGomNum || '',
+      wireframeType: lp.wireframeType || 'vsl',
     })
     setShowForm(true)
   }
@@ -873,8 +988,8 @@ Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo ca
         <div>
           <h2 className="text-xl font-bold text-rl-text">Copy de Landing Page com IA</h2>
           <p className="text-sm text-rl-muted mt-1">
-            Gere copies persuasivas com 6 dobras a partir da oferta matadora que você escolher e da
-            direção que você fornecer. Salve e compare múltiplas versões.
+            Escolha o formato da página e a IA gera a copy já encaixada no wireframe — você vê o texto
+            aplicado no layout, não um blocão de texto. Salve e compare múltiplas versões.
           </p>
         </div>
         {!showForm && (
@@ -890,22 +1005,27 @@ Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo ca
       {/* ── Empty state (no copies yet) ─────────────────────────────────────── */}
       {!showForm && landingPages.length === 0 && (
         <div className="glass-card border border-rl-border/60 p-6">
-          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-4">🏗️ Estrutura da copy gerada</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-6">
-            {[
-              { emoji: '🥇', title: '1ª Dobra', desc: 'Título Oferta Matadora + CTA Principal' },
-              { emoji: '🩹', title: '2ª Dobra', desc: 'Dores identificadas + Soluções específicas' },
-              { emoji: '🏆', title: '3ª Dobra', desc: 'Autoridade, casos de sucesso e provas' },
-              { emoji: '⚙️', title: '4ª Dobra', desc: 'Mecanismo único e metodologia exclusiva' },
-              { emoji: '🛡️', title: '5ª Dobra', desc: 'Quebra de objeções, garantia e ancoragem de valor' },
-              { emoji: '❓', title: '6ª Dobra', desc: 'FAQ estratégico que converte' },
-            ].map(({ emoji, title, desc }) => (
-              <div key={title} className="rounded-xl bg-rl-surface/50 border border-rl-border/40 p-3">
-                <p className="text-sm mb-1">{emoji} <span className="font-bold text-rl-text text-xs">{title}</span></p>
-                <p className="text-[10px] text-rl-muted leading-snug">{desc}</p>
+          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-4">🧩 Escolha o formato da página</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
+            {WIREFRAME_TYPES.map((t) => (
+              <div
+                key={t.id}
+                className={`rounded-xl border p-3 flex items-center gap-2 ${
+                  t.ready
+                    ? 'bg-rl-green/5 border-rl-green/30 text-rl-text'
+                    : 'bg-rl-surface/40 border-rl-border/40 text-rl-muted'
+                }`}
+              >
+                {t.ready ? <LayoutTemplate className="w-3.5 h-3.5 text-rl-green shrink-0" /> : <Lock className="w-3 h-3 shrink-0" />}
+                <span className="text-[11px] font-semibold leading-tight">{t.label}</span>
+                {!t.ready && <span className="ml-auto text-[8px] uppercase tracking-wider text-rl-muted/70">em breve</span>}
               </div>
             ))}
           </div>
+          <p className="text-[11px] text-rl-muted mb-4 leading-snug">
+            A IA escreve a copy já no formato escolhido e mostra o texto encaixado no wireframe — pronto para o
+            designer montar a página. Começando pelo <span className="text-rl-green font-semibold">VSL</span>.
+          </p>
           <div className="text-center">
             <button onClick={handleNewCopy} className="btn-primary flex items-center gap-2 mx-auto">
               <Sparkles className="w-4 h-4" /> Gerar primeira copy
@@ -927,6 +1047,7 @@ Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo ca
           defaultProductId={regenTarget?.productId || ''}
           defaultPersonaId={regenTarget?.personaId || ''}
           defaultGomNum={regenTarget?.ofertaGomNum || ''}
+          defaultWireframeType={regenTarget?.wireframeType || 'vsl'}
         />
       )}
 
