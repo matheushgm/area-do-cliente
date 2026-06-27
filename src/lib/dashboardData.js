@@ -131,8 +131,9 @@ export function computeMainPeriod(channelRows, channel, days, from, to) {
 // ─── Status / classificação ───────────────────────────────────────────────────
 export function getStatus(varConv, varCpl, conv1) {
   if (conv1 === 0) return 'CRÍTICO'
-  if (varConv <= -20 || (varCpl != null && varCpl >= 30)) return 'QUEDA'
-  if (varConv >= 20 || (varCpl != null && varCpl <= -20)) return 'MELHORA'
+  // Classificação só pelo número de conversões (CPL ignorado de propósito).
+  if (varConv <= -20) return 'QUEDA'
+  if (varConv >= 20) return 'MELHORA'
   return 'ESTÁVEL'
 }
 export function pillCls(s) { return s === 'MELHORA' ? 'pill-green' : s === 'ESTÁVEL' ? 'pill-yellow' : 'pill-red' }
