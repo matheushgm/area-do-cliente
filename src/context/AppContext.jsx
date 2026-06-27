@@ -182,9 +182,11 @@ function assembleProject(row, rel = {}) {
       content: g.generated_content ?? g.content ?? null,
     })),
     landingPages: landingPages.map((lp) => ({
-      id:      lp.id,
-      rating:  lp.rating ?? null,
-      content: lp.generated_content ?? lp.content ?? null,
+      id:        lp.id,
+      rating:    lp.rating ?? null,
+      ...(typeof lp.answers === 'object' && lp.answers !== null ? lp.answers : {}),
+      content:   lp.generated_content ?? lp.content ?? null,
+      createdAt: lp.generated_at ?? lp.createdAt ?? null,
     })),
     // resultados: usa o campo JSONB `data` que preserva o objeto aninhado do componente
     resultados: resultados[0]?.data ?? {},
@@ -565,6 +567,18 @@ async function sbUpdateProjectV2(id, patch) {
         patch.landingPages.map((lp) => ({
           id:               lp.id || crypto.randomUUID(),
           project_id:       id,
+          answers:          {
+            name:             lp.name             ?? null,
+            customNote:       lp.customNote       ?? '',
+            productId:        lp.productId        ?? null,
+            productName:      lp.productName      ?? null,
+            personaId:        lp.personaId        ?? null,
+            personaName:      lp.personaName      ?? null,
+            ofertaGomNum:     lp.ofertaGomNum     ?? null,
+            ofertaText:       lp.ofertaText       ?? null,
+            wireframeType:    lp.wireframeType    ?? null,
+            wireframeContent: lp.wireframeContent ?? null,
+          },
           generated_content:lp.content     ?? lp.generatedContent ?? null,
           rating:           lp.rating      ?? null,
           generated_at:     lp.createdAt   ?? lp.generated_at     ?? null,
