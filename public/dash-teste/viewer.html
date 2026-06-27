@@ -29,6 +29,11 @@
   .wk-body textarea { width:100%; min-height:300px; border:1px solid #D8E0F0; border-radius:10px;
     padding:12px; font:13px/1.5 ui-monospace,Menlo,monospace; color:#334155; resize:vertical; box-sizing:border-box; }
   .wk-foot { display:flex; gap:10px; justify-content:flex-end; padding:14px 20px; border-top:1px solid #E4EAF7; }
+  /* Ícone de info ao lado do status (explica a regra da classificação) */
+  .status-info { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px;
+    margin-left:5px; border-radius:50%; border:1px solid #94A3B8; color:#64748B; background:#fff;
+    font:700 9px/1 ui-sans-serif,system-ui; cursor:help; vertical-align:middle; user-select:none; }
+  .status-info:hover { border-color:#164496; color:#164496; }
 </style>
 </head>
 <body>
@@ -146,6 +151,20 @@ const state = { raw:{meta:[],google:[]}, accounts:{}, channel:'meta', days:7, fr
                 termsSort:{key:'clicks',dir:'desc'}, termsPage:0 }
 const app = document.getElementById('app')
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+
+// Explica, por conta, o que motivou o status atual (regra + números reais).
+// Usado no title do ícone de info ao lado do pill de status.
+const statusExplain = x => {
+  const v = (x.varConv >= 0 ? '+' : '') + x.varConv.toFixed(0) + '%'
+  const flow = `${fmtNum(x.conv2)} → ${fmtNum(x.conv1)} conversões (${v})`
+  if (x.status === 'CRÍTICO')
+    return `CRÍTICO — 0 conversões no período atual. Toda conta sem conversão entra como Crítico, independente da variação. Atual: ${fmtNum(x.conv1)} · anterior: ${fmtNum(x.conv2)}.`
+  if (x.status === 'QUEDA')
+    return `QUEDA — conversões caíram ${Math.abs(x.varConv).toFixed(0)}% vs o período anterior (${flow}). Regra: queda de 20% ou mais no número de conversões. O CPL não entra na classificação.`
+  if (x.status === 'MELHORA')
+    return `MELHORA — conversões subiram ${x.varConv.toFixed(0)}% vs o período anterior (${flow}). Regra: alta de 20% ou mais no número de conversões. O CPL não entra na classificação.`
+  return `ESTÁVEL — conversões variaram ${v} vs o período anterior (${flow}), dentro da faixa neutra (entre -20% e +20%).`
+}
 const destroyCharts = () => { state._charts.forEach(c=>{ try{ c.destroy() }catch(e){} }); state._charts=[] }
 
 // Formatadores auxiliares (espelham ClientPage)
@@ -301,7 +320,7 @@ function channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct) {
       const trend = x.declining3d?`<span class="trend-dn">📉 Queda</span>`:x.trendDir==='up'?`<span class="trend-up">📈 Alta</span>`:`<span class="trend-fl">➡️ Estável</span>`
       return `<tr data-client="${esc(x.name)}">
         <td><span class="client-link">${esc(x.name)}</span></td>
-        <td><span class="pill ${pillCls(x.status)}">${pillIco(x.status)} ${x.status}</span></td>
+        <td><span class="pill ${pillCls(x.status)}">${pillIco(x.status)} ${x.status}</span><span class="status-info" title="${esc(statusExplain(x))}">i</span></td>
         <td>${fmtNum(x.conv1)}</td><td>${fmtNum(x.conv2)}</td>
         <td class="${varCls(x.varConv,false)}">${fmtPct(x.varConv)}</td>
         <td>${fmtMoney(x.cpl1)}</td><td>${fmtMoney(x.cpl2)}</td>
