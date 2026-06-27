@@ -133,10 +133,10 @@ async function fetchAccounts() {
 }
 
 const STATUS_GROUPS = [
-  { key: 'CRÍTICO', icon: '🔴', hcls: 'gh-red', label: 'Crítico' },
-  { key: 'QUEDA',   icon: '🔴', hcls: 'gh-red', label: 'Queda' },
-  { key: 'ESTÁVEL', icon: '🟡', hcls: 'gh-yellow', label: 'Estável' },
-  { key: 'MELHORA', icon: '🟢', hcls: 'gh-green', label: 'Melhora' },
+  { key: 'CRÍTICO', icon: '🔴', hcls: 'gh-red', label: 'Crítico', tip: 'Contas sem nenhuma conversão no período atual.' },
+  { key: 'QUEDA',   icon: '🔴', hcls: 'gh-red', label: 'Queda', tip: 'Contas cujo número de conversões caiu 20% ou mais vs o período anterior. O CPL não entra na classificação.' },
+  { key: 'ESTÁVEL', icon: '🟡', hcls: 'gh-yellow', label: 'Estável', tip: 'Contas com variação de conversões entre -20% e +20% vs o período anterior.' },
+  { key: 'MELHORA', icon: '🟢', hcls: 'gh-green', label: 'Melhora', tip: 'Contas cujo número de conversões subiu 20% ou mais vs o período anterior. O CPL não entra na classificação.' },
 ]
 const PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3 dias',3],['7 dias',7],['14 dias',14],['30 dias',30],['Custom',0]]
 // Presets da página de cliente (rótulos curtos, espelham PERIOD_PRESETS do ClientPage)
@@ -152,19 +152,6 @@ const state = { raw:{meta:[],google:[]}, accounts:{}, channel:'meta', days:7, fr
 const app = document.getElementById('app')
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
 
-// Explica, por conta, o que motivou o status atual (regra + números reais).
-// Usado no title do ícone de info ao lado do pill de status.
-const statusExplain = x => {
-  const v = (x.varConv >= 0 ? '+' : '') + x.varConv.toFixed(0) + '%'
-  const flow = `${fmtNum(x.conv2)} → ${fmtNum(x.conv1)} conversões (${v})`
-  if (x.status === 'CRÍTICO')
-    return `CRÍTICO — 0 conversões no período atual. Toda conta sem conversão entra como Crítico, independente da variação. Atual: ${fmtNum(x.conv1)} · anterior: ${fmtNum(x.conv2)}.`
-  if (x.status === 'QUEDA')
-    return `QUEDA — conversões caíram ${Math.abs(x.varConv).toFixed(0)}% vs o período anterior (${flow}). Regra: queda de 20% ou mais no número de conversões. O CPL não entra na classificação.`
-  if (x.status === 'MELHORA')
-    return `MELHORA — conversões subiram ${x.varConv.toFixed(0)}% vs o período anterior (${flow}). Regra: alta de 20% ou mais no número de conversões. O CPL não entra na classificação.`
-  return `ESTÁVEL — conversões variaram ${v} vs o período anterior (${flow}), dentro da faixa neutra (entre -20% e +20%).`
-}
 const destroyCharts = () => { state._charts.forEach(c=>{ try{ c.destroy() }catch(e){} }); state._charts=[] }
 
 // Formatadores auxiliares (espelham ClientPage)
@@ -320,7 +307,7 @@ function channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct) {
       const trend = x.declining3d?`<span class="trend-dn">📉 Queda</span>`:x.trendDir==='up'?`<span class="trend-up">📈 Alta</span>`:`<span class="trend-fl">➡️ Estável</span>`
       return `<tr data-client="${esc(x.name)}">
         <td><span class="client-link">${esc(x.name)}</span></td>
-        <td><span class="pill ${pillCls(x.status)}">${pillIco(x.status)} ${x.status}</span><span class="status-info" title="${esc(statusExplain(x))}">i</span></td>
+        <td><span class="pill ${pillCls(x.status)}">${pillIco(x.status)} ${x.status}</span></td>
         <td>${fmtNum(x.conv1)}</td><td>${fmtNum(x.conv2)}</td>
         <td class="${varCls(x.varConv,false)}">${fmtPct(x.varConv)}</td>
         <td>${fmtMoney(x.cpl1)}</td><td>${fmtMoney(x.cpl2)}</td>
@@ -330,7 +317,7 @@ function channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct) {
         <td>${trend}</td></tr>`
     }).join('')
     return `<div class="group-section">
-      <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
+      <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
       <div class="table-wrap"><table>
         <thead><tr><th>Conta</th><th>Status</th><th>Conv.</th><th>Conv. Ant.</th><th>Var. Conv.</th><th>CPL</th><th>CPL Ant.</th><th>Var. CPL</th><th>Investimento</th><th>Invest. Ant.</th><th>Var. Invest.</th><th>Tend. 3d</th></tr></thead>
         <tbody>${rows}</tbody></table></div></div>`
