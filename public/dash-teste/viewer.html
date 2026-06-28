@@ -1134,6 +1134,10 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   // Campaign filter
   const cfBtn = document.getElementById('campFilterBtn')
   if (cfBtn) cfBtn.onclick = (e) => { e.stopPropagation(); state.campPanelOpen=!state.campPanelOpen; renderClient() }
+  // Remove o listener de "clicar fora" de renders anteriores — sem isso eles
+  // acumulam e, com a referência velha do painel, fecham o dropdown ao marcar a
+  // 2ª campanha (impedindo seleção múltipla).
+  if (state._campDocHandler) { document.removeEventListener('click', state._campDocHandler); state._campDocHandler = null }
   if (state.campPanelOpen) {
     const cs=document.getElementById('campSearch')
     if (cs) cs.oninput=(e)=>{ state.campSearch=e.target.value; renderClient(); const n=document.getElementById('campSearch'); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length)} }
@@ -1143,9 +1147,11 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
       const name=cb.dataset.campCb; const set=new Set(state.campFilter)
       if (cb.checked) set.add(name); else set.delete(name); state.campFilter=[...set]; renderClient()
     })
-    // fecha ao clicar fora
-    const wrap=document.getElementById('campFilterWrap')
-    const onDoc=(ev)=>{ if(wrap && !wrap.contains(ev.target)){ state.campPanelOpen=false; document.removeEventListener('click',onDoc); renderClient() } }
+    // fecha ao clicar fora — usa closest() na árvore VIVA do elemento clicado
+    // (em vez de uma referência capturada do wrap, que ficava obsoleta após o
+    // re-render e disparava o fechamento ao marcar campanhas).
+    const onDoc=(ev)=>{ if(!(ev.target.closest && ev.target.closest('#campFilterWrap'))){ state.campPanelOpen=false; document.removeEventListener('click',onDoc); state._campDocHandler=null; renderClient() } }
+    state._campDocHandler = onDoc
     setTimeout(()=>document.addEventListener('click',onDoc),0)
   }
 
