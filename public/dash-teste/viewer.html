@@ -34,6 +34,10 @@
     margin-left:5px; border-radius:50%; border:1px solid #94A3B8; color:#64748B; background:#fff;
     font:700 9px/1 ui-sans-serif,system-ui; cursor:help; vertical-align:middle; user-select:none; }
   .status-info:hover { border-color:#164496; color:#164496; }
+  /* Rótulo de escopo dos quadrantes na aba Campanhas */
+  .cp-quad-scope { font-size:12px; font-weight:700; color:#475569; margin:0 0 10px;
+    display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:8px;
+    background:#EEF2F9; border:1px solid #D8E0F0; }
 </style>
 </head>
 <body>
@@ -681,9 +685,24 @@ function initResultadosCharts(period, allRows, prevRows, channel) {
 }
 
 // ─── Aba CAMPANHAS (insights + sub-abas/drill) ────────────────────────────────
-function campanhasHTML(allRows, channel, stats, target, periodLabel) {
+function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel) {
   const isMeta = channel === 'meta'
   if (!allRows.length) return `<div class="cp-panel"><div class="empty">Sem dados no período.</div></div>`
+  // Quadrantes (Custos / Engajamento / Performance) escopados ao nível atual do
+  // drill: conta inteira no topo, campanha ao entrar numa campanha, conjunto ao
+  // entrar num conjunto. Reaproveita metricGroupsHTML da aba Resultados.
+  let qCur = allRows, qPrev = prevRows, scopeLabel = 'Conta — todas as campanhas'
+  if (isMeta && state.drillAdset) {
+    qCur = allRows.filter(r=>r['Conjunto de Anúncio']===state.drillAdset)
+    qPrev = prevRows.filter(r=>r['Conjunto de Anúncio']===state.drillAdset)
+    scopeLabel = `Conjunto: ${state.drillAdset}`
+  } else if (state.drillCampaign) {
+    const ck = isMeta ? 'Nome da campanha' : 'Campanha'
+    qCur = allRows.filter(r=>r[ck]===state.drillCampaign)
+    qPrev = prevRows.filter(r=>r[ck]===state.drillCampaign)
+    scopeLabel = `Campanha: ${state.drillCampaign}`
+  }
+  const quad = `<div class="cp-quad-scope">📐 ${esc(scopeLabel)}</div>${metricGroupsHTML(qCur, qPrev, isMeta)}`
   // Drill dentro da aba
   if (state.drillCampaign || state.drillAdset) {
     let body, bc
@@ -698,7 +717,7 @@ function campanhasHTML(allRows, channel, stats, target, periodLabel) {
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">← Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span></div>`
     }
-    return `<div class="cp-panel">${bc}${body}</div>`
+    return `<div class="cp-panel">${bc}${quad}${body}</div>`
   }
   const ins = buildInsights(stats, channel, allRows, target)
   const tabs = isMeta ? [['📊 Campanhas',0],['🎯 Conjuntos',1],['🎨 Anúncios',2]] : [['📊 Campanhas',0],['🔑 Grupos',1],['🔎 Termos',2]]
@@ -707,6 +726,7 @@ function campanhasHTML(allRows, channel, stats, target, periodLabel) {
   if (isMeta) panel = state.sub===1?tblMetaAdsets(allRows):state.sub===2?tblMetaAds(allRows):tblMetaCampaigns(allRows)
   else        panel = state.sub===2?`<div id="termsPanel"></div>`:state.sub===1?tblGoogleGroups(allRows):tblGoogleCampaigns(allRows)
   return `<div class="cp-panel">
+    ${quad}
     ${insightsCardHTML(ins, periodLabel, stats?.cpl1)}
     <div class="dt-subtabs" style="display:flex;border-bottom:1px solid #D8E0F0;margin:0 -22px 18px;padding:0 22px;background:#FFFFFF">
       ${tabs.map(([l,i])=>`<div class="dtab${state.sub===i?' active':''}" data-sub="${i}">${l}</div>`).join('')}
@@ -967,7 +987,7 @@ function renderClient() {
   let content
   if (!period) content = `<div class="cp-panel"><div class="empty">Sem dados no período.</div></div>`
   else if (state.tab==='resultados') content = resultadosHTML(stats, period, allRows, prevRows, ch)
-  else if (state.tab==='campanhas') content = campanhasHTML(allRows, ch, stats, target, period.label1)
+  else if (state.tab==='campanhas') content = campanhasHTML(allRows, prevRows, ch, stats, target, period.label1)
   else content = `<div id="asyncTab"></div>` // atividades/parametros preenchidos async
 
   // weekly modal
