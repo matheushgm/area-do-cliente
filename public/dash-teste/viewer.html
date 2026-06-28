@@ -263,7 +263,7 @@ const cfgFor = ch => ch === 'meta' ? { ...CFG.meta, convKeys: ['Conversões'] } 
 function statsFor(ch, p) {
   if (!p) return []
   let st = buildStats(state.raw[ch], cfgFor(ch), p)
-  if (state.search) st = st.filter(s => s.name.toLowerCase().includes(state.search))
+  const _q = state.search.trim(); if (_q) st = st.filter(s => s.name.toLowerCase().includes(_q))
   return st
 }
 
@@ -1342,7 +1342,7 @@ function wire() {
   const cf=document.getElementById('cfrom'), ct=document.getElementById('cto'), ca=document.getElementById('capply')
   if (ca) ca.onclick=()=>{ if(cf.value&&ct.value){state.from=cf.value;state.to=ct.value;render()} }
   const se=document.getElementById('search')
-  if (se) se.oninput=e=>{ state.search=e.target.value.toLowerCase().trim(); render(); const n=document.getElementById('search'); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length)} }
+  if (se) se.oninput=e=>{ state.search=e.target.value.toLowerCase(); render(); const n=document.getElementById('search'); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length)} }
   const cl=document.getElementById('clear'); if (cl) cl.onclick=()=>{ state.search=''; render() }
   app.querySelectorAll('tr[data-client]').forEach(tr=>tr.querySelector('.client-link').onclick=()=>{
     state.openClient={ client: tr.dataset.client, channel: state.channel }
