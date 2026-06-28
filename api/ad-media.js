@@ -45,6 +45,10 @@ export default async function handler(req) {
   const funil = String(body.funil || '').trim()
   const account = String(body.account || '').trim()
   const passedTitle = String(body.title || '').trim()
+  const refFrom = String(body.ref_from || '').trim() || null
+  const refTo = String(body.ref_to || '').trim() || null
+  const numOrNull = v => (v === null || v === undefined || v === '' || !Number.isFinite(+v)) ? null : +v
+  const ctrLink = numOrNull(body.ctr_link), convRate = numOrNull(body.conv_rate), hookRate = numOrNull(body.hook_rate)
   if (!/^\d+$/.test(adId)) return jsonErr('ad_id inválido.', 400)
   if (!funil) return jsonErr('Selecione o funil.', 400)
 
@@ -59,6 +63,9 @@ export default async function handler(req) {
   const cr = ad.creative || {}, oss = cr.object_story_spec || {}, afs = cr.asset_feed_spec || {}
   const copy = oss.video_data?.message || oss.link_data?.message || (afs.bodies && afs.bodies[0]?.text) || cr.body || ''
   const videoId = cr.video_id || oss.video_data?.video_id || (afs.videos && afs.videos[0]?.video_id)
+  // Link de destino (LP) do criativo — mesmo resolvedor do api/ad-link.
+  const _ld = oss.link_data || {}, _vd = oss.video_data || {}, _cta = _ld.call_to_action || _vd.call_to_action || {}
+  const destLink = _ld.link || _cta.value?.link || (afs.link_urls && afs.link_urls[0]?.website_url) || null
 
   let mediaUrl = null, type = 'estatico'
   if (videoId) {
@@ -104,7 +111,8 @@ export default async function handler(req) {
     const ins = await fetch(`${SUPABASE_URL}/rest/v1/ad_bank`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON, 'content-type': 'application/json', Prefer: 'return=representation' },
-      body: JSON.stringify({ type, funil, title, url: publicUrl, notes }),
+      body: JSON.stringify({ type, funil, title, url: publicUrl, notes,
+        dest_link: destLink, ref_from: refFrom, ref_to: refTo, ctr_link: ctrLink, conv_rate: convRate, hook_rate: hookRate }),
     })
     if (!ins.ok) return jsonErr('Falha ao registrar no Banco de Anúncios: ' + (await ins.text()).slice(0, 200), 502)
     item = (await ins.json())[0]

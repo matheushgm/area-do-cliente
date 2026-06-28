@@ -24,6 +24,9 @@ const FUNILS = [
   'Funil Win-Your-Money-Back',
 ]
 
+const fmtPctBR  = (n) => (n == null ? '—' : `${Number(n).toFixed(1).replace('.', ',')}%`)
+const fmtDateBR = (d) => { if (!d) return ''; const [y, m, day] = String(d).slice(0, 10).split('-'); return `${day}/${m}/${y}` }
+
 function AdCard({ ad, onDelete }) {
   const [deleting, setDeleting] = useState(false)
 
@@ -118,6 +121,25 @@ function AdCard({ ad, onDelete }) {
         )}
         {ad.notes && (
           <p className="text-[11px] text-rl-muted line-clamp-2">{ad.notes}</p>
+        )}
+        {(ad.ctr_link != null || ad.conv_rate != null || ad.hook_rate != null) && (
+          <div className="flex items-center gap-1 flex-wrap pt-0.5">
+            {ad.ctr_link != null && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">CTR link <b className="text-rl-text">{fmtPctBR(ad.ctr_link)}</b></span>
+            )}
+            {ad.conv_rate != null && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">Tx. conv. <b className="text-rl-text">{fmtPctBR(ad.conv_rate)}</b></span>
+            )}
+            {ad.hook_rate != null && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">Hook <b className="text-rl-text">{fmtPctBR(ad.hook_rate)}</b></span>
+            )}
+          </div>
+        )}
+        {(ad.ref_from || ad.ref_to) && (
+          <p className="text-[10px] text-rl-muted">📅 {fmtDateBR(ad.ref_from)}{ad.ref_to && ad.ref_to !== ad.ref_from ? ` – ${fmtDateBR(ad.ref_to)}` : ''}</p>
+        )}
+        {ad.dest_link && (
+          <a href={ad.dest_link} target="_blank" rel="noopener noreferrer" title={ad.dest_link} className="text-[10px] text-rl-blue truncate hover:underline">🔗 {ad.dest_link}</a>
         )}
       </div>
     </div>

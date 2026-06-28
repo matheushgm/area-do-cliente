@@ -79,6 +79,8 @@
   .adp-save button { padding:6px 12px; border:0; border-radius:8px; background:#164496; color:#fff;
     font:700 12px/1 ui-sans-serif,system-ui; cursor:pointer; white-space:nowrap; }
   .adp-save button:disabled { opacity:.6; cursor:default; }
+  .adp-save-dates { flex-basis:100%; font-size:12px; font-weight:600; color:#475569; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .adp-save-dates input { padding:4px 8px; border:1px solid #D8E0F0; border-radius:7px; font:600 12px/1 ui-sans-serif,system-ui; color:#334155; }
   .adp-save-msg { flex-basis:100%; font-size:12px; color:#64748B; }
   .adp-save-msg.ok { color:#059669; font-weight:600; }
   .adp-save-msg.err { color:#DC2626; font-weight:600; }
@@ -441,8 +443,24 @@ const AD_PREVIEW_FORMATS = [
 ]
 // Funis do Banco de Anúncios (espelha FUNILS de src/pages/BancoDeAnuncios.jsx).
 const BANCO_FUNIS = ['Funil de Webinar','Funil de Aplicação','Funil de Diagnóstico','Funil de E-commerce (Venda Direta)','Funil de Webinar Pago','Funil de Isca Digital','Funil de VSL','Funil de Quiz','Lançamento','Funil de Desafio','Funil Win-Your-Money-Back']
+// Métricas do criativo (por ad_id) num período: CTR no link, taxa de conversão
+// e hook rate (3s ÷ exibições). Usadas ao salvar no Banco de Anúncios.
+function adMetricsForRange(adId, from, to){
+  const rows = (state.raw['meta'] || []).filter(r => (r['ad_id'] || '') === adId && inRange(fmtDate(r['Dia']), from, to))
+  const imp = rows.reduce((a,r)=>a+num(r['Impressões']),0)
+  const clk = rows.reduce((a,r)=>a+num(r['Número de cliques no link']),0)
+  const conv = rows.reduce((a,r)=>a+num(r['Conversões']),0)
+  const h3 = rows.reduce((a,r)=>a+num(r['Número de vezes que assistiram os 3 primeiros segundos']),0)
+  const vv = rows.reduce((a,r)=>a+num(r['Número de vezes que o vídeo foi exibido']),0)
+  return {
+    ctr_link: imp>0 ? +(clk/imp*100).toFixed(2) : null,
+    conv_rate: clk>0 ? +(conv/clk*100).toFixed(2) : null,
+    hook_rate: vv>0 ? +(h3/vv*100).toFixed(2) : null,
+  }
+}
 function openAdPreview(adId, adName){
   document.getElementById('adpOverlay')?.remove()
+  const pf = state.cPeriod?.p1s || '', pt = state.cPeriod?.p1e || ''
   const ov = document.createElement('div')
   ov.className = 'adp-overlay'; ov.id = 'adpOverlay'
   ov.innerHTML = `<div class="adp-modal">
@@ -450,6 +468,7 @@ function openAdPreview(adId, adName){
     <div class="adp-tabs">${AD_PREVIEW_FORMATS.map(([l,f],i)=>`<button class="adp-fmt${i===0?' active':''}" data-fmt="${f}">${l}</button>`).join('')}</div>
     <div class="adp-body" id="adpBody"></div>
     <div class="adp-save">
+      <div class="adp-save-dates">📅 Dados de <input type="date" id="adpFrom" value="${pf}"> até <input type="date" id="adpTo" value="${pt}"></div>
       <select id="adpFunil"><option value="">Salvar no Banco — selecione o funil…</option>${BANCO_FUNIS.map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join('')}</select>
       <button id="adpSaveBtn">💾 Salvar no Banco</button>
       <span id="adpSaveMsg" class="adp-save-msg"></span>
@@ -480,16 +499,20 @@ function openAdPreview(adId, adName){
   const saveBtn = ov.querySelector('#adpSaveBtn'), saveMsg = ov.querySelector('#adpSaveMsg')
   saveBtn.onclick = async ()=>{
     const funil = ov.querySelector('#adpFunil').value
+    const from = ov.querySelector('#adpFrom').value, to = ov.querySelector('#adpTo').value
     if(!funil){ saveMsg.textContent='Selecione o funil.'; saveMsg.className='adp-save-msg err'; return }
+    if(!from||!to){ saveMsg.textContent='Selecione o período (de/até) dos dados.'; saveMsg.className='adp-save-msg err'; return }
     const token = supabaseToken()
     if(!token){ saveMsg.textContent='Disponível só no app autenticado.'; saveMsg.className='adp-save-msg err'; return }
     saveBtn.disabled=true; saveMsg.textContent='Salvando… (pode levar alguns segundos)'; saveMsg.className='adp-save-msg'
     try{
+      const m = adMetricsForRange(adId, from, to)
       const r = await fetch('/api/ad-media', { method:'POST', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json' },
-        body: JSON.stringify({ ad_id:adId, funil, title:adName, account: state.openClient?.client || '' }) })
+        body: JSON.stringify({ ad_id:adId, funil, title:adName, account: state.openClient?.client || '',
+          ref_from:from, ref_to:to, ctr_link:m.ctr_link, conv_rate:m.conv_rate, hook_rate:m.hook_rate }) })
       const data = await r.json().catch(()=>({}))
       if(!r.ok) throw new Error(data?.error?.message || ('Erro '+r.status))
-      saveMsg.textContent = `✅ Salvo no Banco (${data.type==='video'?'vídeo':'imagem'})!`; saveMsg.className='adp-save-msg ok'
+      saveMsg.textContent = `✅ Salvo no Banco (${data.type==='video'?'vídeo':'imagem'}) com CTR/Conv/Hook do período!`; saveMsg.className='adp-save-msg ok'
     }catch(e){ saveMsg.textContent='❌ '+e.message; saveMsg.className='adp-save-msg err' }
     finally{ saveBtn.disabled=false }
   }
