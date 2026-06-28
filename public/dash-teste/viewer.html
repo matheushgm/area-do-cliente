@@ -794,11 +794,11 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel) {
   else        panel = state.sub===2?`<div id="termsPanel"></div>`:state.sub===1?tblGoogleGroups(allRows):tblGoogleCampaigns(allRows)
   return `<div class="cp-panel">
     ${quad}
-    ${insightsCardHTML(ins, periodLabel, stats?.cpl1)}
     <div class="dt-subtabs" style="display:flex;border-bottom:1px solid #D8E0F0;margin:0 -22px 18px;padding:0 22px;background:#FFFFFF">
       ${tabs.map(([l,i])=>`<div class="dtab${state.sub===i?' active':''}" data-sub="${i}">${l}</div>`).join('')}
     </div>
     ${panel}
+    ${insightsCardHTML(ins, periodLabel, stats?.cpl1)}
   </div>`
 }
 
