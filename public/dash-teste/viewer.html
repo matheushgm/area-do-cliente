@@ -67,6 +67,15 @@
     align-items:center; justify-content:center; background:#F1F5FB; }
   .adp-frame { width:100%; height:540px; border:0; background:#fff; border-radius:10px; }
   .adp-loading, .adp-msg { text-align:center; color:#64748B; font-size:13px; padding:24px; }
+  .adp-save { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:12px 18px; border-top:1px solid #E4EAF7; }
+  .adp-save select { flex:1; min-width:160px; padding:6px 10px; border:1px solid #D8E0F0; border-radius:8px;
+    font:600 12px/1.2 ui-sans-serif,system-ui; color:#334155; background:#fff; }
+  .adp-save button { padding:6px 12px; border:0; border-radius:8px; background:#164496; color:#fff;
+    font:700 12px/1 ui-sans-serif,system-ui; cursor:pointer; white-space:nowrap; }
+  .adp-save button:disabled { opacity:.6; cursor:default; }
+  .adp-save-msg { flex-basis:100%; font-size:12px; color:#64748B; }
+  .adp-save-msg.ok { color:#059669; font-weight:600; }
+  .adp-save-msg.err { color:#DC2626; font-weight:600; }
 </style>
 </head>
 <body>
@@ -424,6 +433,8 @@ const AD_PREVIEW_FORMATS = [
   ['Feed mobile','MOBILE_FEED_STANDARD'], ['Feed desktop','DESKTOP_FEED_STANDARD'],
   ['Instagram','INSTAGRAM_STANDARD'], ['Stories FB','FACEBOOK_STORY_MOBILE'], ['Stories IG','INSTAGRAM_STORY'],
 ]
+// Funis do Banco de Anúncios (espelha FUNILS de src/pages/BancoDeAnuncios.jsx).
+const BANCO_FUNIS = ['Funil de Webinar','Funil de Aplicação','Funil de Diagnóstico','Funil de E-commerce (Venda Direta)','Funil de Webinar Pago','Funil de Isca Digital','Funil de VSL','Funil de Quiz','Lançamento','Funil de Desafio','Funil Win-Your-Money-Back']
 function openAdPreview(adId, adName){
   document.getElementById('adpOverlay')?.remove()
   const ov = document.createElement('div')
@@ -432,6 +443,11 @@ function openAdPreview(adId, adName){
     <div class="adp-head"><h3 title="${esc(adName||'')}">👁 ${esc(adName||'Anúncio')}</h3><button class="adp-x" id="adpClose">✕</button></div>
     <div class="adp-tabs">${AD_PREVIEW_FORMATS.map(([l,f],i)=>`<button class="adp-fmt${i===0?' active':''}" data-fmt="${f}">${l}</button>`).join('')}</div>
     <div class="adp-body" id="adpBody"></div>
+    <div class="adp-save">
+      <select id="adpFunil"><option value="">Salvar no Banco — selecione o funil…</option>${BANCO_FUNIS.map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join('')}</select>
+      <button id="adpSaveBtn">💾 Salvar no Banco</button>
+      <span id="adpSaveMsg" class="adp-save-msg"></span>
+    </div>
   </div>`
   document.body.appendChild(ov)
   ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove() })
@@ -454,6 +470,23 @@ function openAdPreview(adId, adName){
   ov.querySelectorAll('.adp-fmt').forEach(b=>b.onclick=()=>{
     ov.querySelectorAll('.adp-fmt').forEach(x=>x.classList.remove('active')); b.classList.add('active'); load(b.dataset.fmt)
   })
+  // Salvar a mídia do anúncio no Banco de Anúncios (vídeo ou imagem)
+  const saveBtn = ov.querySelector('#adpSaveBtn'), saveMsg = ov.querySelector('#adpSaveMsg')
+  saveBtn.onclick = async ()=>{
+    const funil = ov.querySelector('#adpFunil').value
+    if(!funil){ saveMsg.textContent='Selecione o funil.'; saveMsg.className='adp-save-msg err'; return }
+    const token = supabaseToken()
+    if(!token){ saveMsg.textContent='Disponível só no app autenticado.'; saveMsg.className='adp-save-msg err'; return }
+    saveBtn.disabled=true; saveMsg.textContent='Salvando… (pode levar alguns segundos)'; saveMsg.className='adp-save-msg'
+    try{
+      const r = await fetch('/api/ad-media', { method:'POST', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json' },
+        body: JSON.stringify({ ad_id:adId, funil, title:adName, account: state.openClient?.client || '' }) })
+      const data = await r.json().catch(()=>({}))
+      if(!r.ok) throw new Error(data?.error?.message || ('Erro '+r.status))
+      saveMsg.textContent = `✅ Salvo no Banco (${data.type==='video'?'vídeo':'imagem'})!`; saveMsg.className='adp-save-msg ok'
+    }catch(e){ saveMsg.textContent='❌ '+e.message; saveMsg.className='adp-save-msg err' }
+    finally{ saveBtn.disabled=false }
+  }
   load(AD_PREVIEW_FORMATS[0][1])
 }
 
