@@ -22,9 +22,10 @@ const ALLOWED_FMT = [
 export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY // publishable (sb_...)
-  const META_TOKEN = process.env.META_ACCESS_TOKEN
+  // Reusa o token que já existe na Vercel (META_TOKEN); aceita META_ACCESS_TOKEN como fallback.
+  const META_TOKEN = process.env.META_TOKEN || process.env.META_ACCESS_TOKEN
   if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr('Servidor não configurado.', 500)
-  if (!META_TOKEN) return jsonErr('Preview indisponível: a variável META_ACCESS_TOKEN ainda não foi configurada na Vercel.', 503)
+  if (!META_TOKEN) return jsonErr('Preview indisponível: a variável META_TOKEN não está configurada na Vercel.', 503)
 
   // ── Autenticação (mesmo padrão de dash-data) ───────────────────────────────
   const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
