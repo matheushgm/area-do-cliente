@@ -34,6 +34,9 @@
     margin-left:5px; border-radius:50%; border:1px solid #94A3B8; color:#64748B; background:#fff;
     font:700 9px/1 ui-sans-serif,system-ui; cursor:help; vertical-align:middle; user-select:none; }
   .status-info:hover { border-color:#164496; color:#164496; }
+  /* Mini-gráfico dentro de cada quadrante (aba Resultados) */
+  .dt-root .mg-chart { position:relative; height:96px; margin-top:12px; padding-top:12px; border-top:1px solid #EEF2F9; }
+  .dt-root .mg-chart canvas { width:100% !important; }
   /* Rótulo de escopo dos quadrantes na aba Campanhas */
   .cp-quad-scope { font-size:12px; font-weight:700; color:#475569; margin:0 0 10px;
     display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:8px;
@@ -569,21 +572,23 @@ function tileHTML(label, value, variance, inverted) {
   const cls = variance==null?'fl' : varCls(variance, inverted)
   return `<div class="mg-tile"><div class="mg-tile-label">${label}</div><div class="mg-tile-value">${value}</div><div class="mg-tile-var ${cls}"><span class="mg-arrow">${arrow}</span>${variance==null?'—':fmtPct(variance)}</div></div>`
 }
-function metricGroupsHTML(allRows, prevRows, isMeta) {
+function metricGroupsHTML(allRows, prevRows, isMeta, period) {
   if (!allRows.length) return ''
   const cur = aggMetrics(allRows, isMeta), prv = aggMetrics(prevRows, isMeta)
+  // Mini-gráfico por quadrante (só quando period é passado — aba Resultados).
+  const chart = id => period ? `<div class="mg-chart"><canvas id="${id}"></canvas></div>` : ''
   return `<div class="mg-grid">
     <div class="mg-card mg-cost"><h4 class="mg-title">Custos</h4><div class="mg-tiles">
       ${tileHTML('Gasto', fmtMoney(cur.spend), pctVar(cur.spend, prv.spend), false)}
       ${isMeta ? tileHTML('Frequência', fmtFreq(cur.frequency), pctVar(cur.frequency, prv.frequency), true)
                : tileHTML('CPC', fmtMoney(cur.cpc), pctVar(cur.cpc, prv.cpc), true)}
       ${tileHTML('CPM', fmtMoney(cur.cpm), pctVar(cur.cpm, prv.cpm), true)}
-    </div></div>
+    </div>${chart('mgChartCost')}</div>
     <div class="mg-card mg-eng"><h4 class="mg-title">Engajamento</h4><div class="mg-tiles">
       ${tileHTML('CTR', fmtPctVal(cur.ctr), pctVar(cur.ctr, prv.ctr), false)}
       ${tileHTML('Cliques', fmtInt(cur.clicks), pctVar(cur.clicks, prv.clicks), false)}
       ${tileHTML('Impressões', fmtInt(cur.impressions), pctVar(cur.impressions, prv.impressions), false)}
-    </div></div>
+    </div>${chart('mgChartEng')}</div>
     <div class="mg-card mg-perf"><h4 class="mg-title">Performance</h4><div class="mg-tiles">
       ${tileHTML('Conversões', fmtInt(cur.conv), pctVar(cur.conv, prv.conv), false)}
       ${tileHTML(isMeta?'CPL':'CPA', fmtMoney(cur.cpl), pctVar(cur.cpl, prv.cpl), true)}
@@ -596,7 +601,7 @@ function metricGroupsHTML(allRows, prevRows, isMeta) {
       ${tileHTML('Custo/compra', fmtMoney(cur.cpp), pctVar(cur.cpp, prv.cpp), true)}
       ${tileHTML('Valor compras', fmtMoneyShort(cur.revenue), pctVar(cur.revenue, prv.revenue), false)}
       ${tileHTML('ROAS', cur.roas!=null?cur.roas.toFixed(2).replace('.',',')+'x':'—', pctVar(cur.roas, prv.roas), false)}`) : ''}
-    </div></div>
+    </div>${chart('mgChartPerf')}</div>
   </div>`
 }
 
@@ -739,7 +744,7 @@ function resultadosHTML(stats, period, allRows, prevRows, channel) {
   const isMeta = channel === 'meta'
   const s = stats, target = s.__target
   return `<div class="cp-panel">
-    ${metricGroupsHTML(allRows, prevRows, isMeta)}
+    ${metricGroupsHTML(allRows, prevRows, isMeta, period)}
     <div class="cp-charts">
       <div class="cp-chart-card"><h4>Investimento ao longo do período</h4><div class="cp-chart-canvas"><canvas id="cpChartInvest"></canvas></div></div>
       <div class="cp-chart-card"><h4>Conversões ao longo do período</h4><div class="cp-chart-canvas"><canvas id="cpChartConv"></canvas></div></div>
@@ -771,6 +776,41 @@ function initResultadosCharts(period, allRows, prevRows, channel) {
   const cc = document.getElementById('cpChartConv')
   if (ci) state._charts.push(new Chart(ci.getContext('2d'), { type: 'line', data: data.line, options: chartBaseOptions(v => 'R$' + v.toFixed(0)) }))
   if (cc) state._charts.push(new Chart(cc.getContext('2d'), { type: 'line', data: data.bar, options: chartBaseOptions(v => v) }))
+}
+
+// Mini-gráficos dos quadrantes (aba Resultados): Custos=gasto, Engajamento=CTR
+// no link, Performance=resultado principal (Conversões) + secundário (MQL, quando
+// houver). Séries diárias ao longo do período selecionado.
+function initQuadrantCharts(period, rows, channel, isMeta) {
+  if (typeof Chart === 'undefined' || !period || !rows.length) return
+  const dateKey = CFG[channel].dateKey
+  const spendKey = isMeta ? 'Valor investido' : 'Gasto'
+  const days=[], spend=[], ctr=[], conv=[], mql=[]
+  for (let i=period.span; i>=0; i--) {
+    const d = addDays(period.p1e, -i)
+    const dr = rows.filter(r => fmtDate(r[dateKey]) === d)
+    days.push(fmtBR(d))
+    const imp = dr.reduce((a,r)=>a+(isMeta?num(r['Impressões']):(num(r['Impressões na parte superior'])||num(r['Impressões']))),0)
+    const clk = dr.reduce((a,r)=>a+(isMeta?num(r['Número de cliques no link']):(num(r['CLiques'])||num(r['Cliques']))),0)
+    spend.push(parseFloat(dr.reduce((a,r)=>a+num(r[spendKey]),0).toFixed(2)))
+    ctr.push(imp>0?parseFloat((clk/imp*100).toFixed(2)):0)
+    conv.push(dr.reduce((a,r)=>a+num(r['Conversões']),0))
+    mql.push(dr.filter(r=>/mql/i.test(r['Tipo de resultado']||'')).reduce((a,r)=>a+num(r['Conversões']),0))
+  }
+  const hasMql = mql.some(v=>v>0)
+  const opts = (yFmt, showLegend) => ({
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ display:!!showLegend, labels:{ color:'#64748B', font:{size:9}, boxWidth:10, padding:6 } }, tooltip:{ mode:'index', intersect:false } },
+    scales:{ x:{ ticks:{ color:'#94A3B8', font:{size:8}, maxRotation:0, autoSkip:true, maxTicksLimit:6 }, grid:{ display:false } },
+             y:{ ticks:{ color:'#94A3B8', font:{size:8}, callback:yFmt, maxTicksLimit:4 }, grid:{ color:'#EEF2F9' }, beginAtZero:true } },
+  })
+  const mk = (id, datasets, yFmt) => { const el=document.getElementById(id); if(!el) return
+    state._charts.push(new Chart(el.getContext('2d'), { type:'line', data:{ labels:days, datasets }, options: opts(yFmt, datasets.length>1) })) }
+  mk('mgChartCost', [{ label:'Gasto', data:spend, borderColor:'#D97706', backgroundColor:'rgba(217,119,6,0.12)', fill:true, tension:0.35, pointRadius:0, borderWidth:2 }], v=>'R$'+v)
+  mk('mgChartEng', [{ label:'CTR link', data:ctr, borderColor:'#059669', backgroundColor:'rgba(5,150,105,0.12)', fill:true, tension:0.35, pointRadius:0, borderWidth:2 }], v=>v+'%')
+  const perf = [{ label:'Conversões', data:conv, borderColor:'#2563EB', backgroundColor:'rgba(37,99,235,0.12)', fill:true, tension:0.35, pointRadius:0, borderWidth:2 }]
+  if (hasMql) perf.push({ label:'MQL', data:mql, borderColor:'#7C3AED', backgroundColor:'transparent', borderDash:[5,4], fill:false, tension:0.35, pointRadius:0, borderWidth:2 })
+  mk('mgChartPerf', perf, v=>v)
 }
 
 // ─── Aba CAMPANHAS (insights + sub-abas/drill) ────────────────────────────────
@@ -1111,6 +1151,7 @@ function renderClient() {
 function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   // Charts (aba resultados)
   if (state.tab==='resultados' && period) initResultadosCharts(period, allRows, prevRows, ch)
+  if (state.tab==='resultados' && period) initQuadrantCharts(period, allRows, ch, ch==='meta')
   // Abas async
   if (state.tab==='atividades') renderAtividades(document.getElementById('asyncTab'), client, folderId)
   if (state.tab==='parametros') renderParametros(document.getElementById('asyncTab'), client, acName)
