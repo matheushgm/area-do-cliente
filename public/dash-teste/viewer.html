@@ -744,7 +744,7 @@ function resultadosHTML(stats, period, allRows, prevRows, channel) {
   const isMeta = channel === 'meta'
   const s = stats, target = s.__target
   return `<div class="cp-panel">
-    ${metricGroupsHTML(allRows, prevRows, isMeta, period)}
+    ${metricGroupsHTML(allRows, prevRows, isMeta)}
     <div class="cp-charts">
       <div class="cp-chart-card"><h4>Investimento ao longo do período</h4><div class="cp-chart-canvas"><canvas id="cpChartInvest"></canvas></div></div>
       <div class="cp-chart-card"><h4>Conversões ao longo do período</h4><div class="cp-chart-canvas"><canvas id="cpChartConv"></canvas></div></div>
@@ -814,7 +814,7 @@ function initQuadrantCharts(period, rows, channel, isMeta) {
 }
 
 // ─── Aba CAMPANHAS (insights + sub-abas/drill) ────────────────────────────────
-function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel) {
+function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, period) {
   const isMeta = channel === 'meta'
   if (!allRows.length) return `<div class="cp-panel"><div class="empty">Sem dados no período.</div></div>`
   // Quadrantes (Custos / Engajamento / Performance) escopados ao nível atual do
@@ -832,7 +832,7 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel) {
     qPrev = prevRows.filter(r=>r[ck]===state.drillCampaign)
     scopeLabel = `Campanha: ${state.drillCampaign}`
   }
-  const quad = `<div class="cp-quad-scope">📐 ${esc(scopeLabel)}</div>${metricGroupsHTML(qCur, qPrev, isMeta)}`
+  const quad = `<div class="cp-quad-scope">📐 ${esc(scopeLabel)}</div>${metricGroupsHTML(qCur, qPrev, isMeta, period)}`
   // Drill dentro da aba
   if (state.drillCampaign || state.drillAdset) {
     let body, bc
@@ -1117,7 +1117,7 @@ function renderClient() {
   let content
   if (!period) content = `<div class="cp-panel"><div class="empty">Sem dados no período.</div></div>`
   else if (state.tab==='resultados') content = resultadosHTML(stats, period, allRows, prevRows, ch)
-  else if (state.tab==='campanhas') content = campanhasHTML(allRows, prevRows, ch, stats, target, period.label1)
+  else if (state.tab==='campanhas') content = campanhasHTML(allRows, prevRows, ch, stats, target, period.label1, period)
   else content = `<div id="asyncTab"></div>` // atividades/parametros preenchidos async
 
   // weekly modal
@@ -1151,7 +1151,15 @@ function renderClient() {
 function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   // Charts (aba resultados)
   if (state.tab==='resultados' && period) initResultadosCharts(period, allRows, prevRows, ch)
-  if (state.tab==='resultados' && period) initQuadrantCharts(period, allRows, ch, ch==='meta')
+  // Mini-gráficos dos quadrantes na aba Campanhas — escopados ao nível do drill
+  // (conta → campanha → conjunto), igual aos números dos quadrantes.
+  if (state.tab==='campanhas' && period) {
+    const isMeta = ch==='meta'
+    let qRows = allRows
+    if (isMeta && state.drillAdset) qRows = allRows.filter(r=>r['Conjunto de Anúncio']===state.drillAdset)
+    else if (state.drillCampaign) qRows = allRows.filter(r=>r[isMeta?'Nome da campanha':'Campanha']===state.drillCampaign)
+    initQuadrantCharts(period, qRows, ch, isMeta)
+  }
   // Abas async
   if (state.tab==='atividades') renderAtividades(document.getElementById('asyncTab'), client, folderId)
   if (state.tab==='parametros') renderParametros(document.getElementById('asyncTab'), client, acName)
