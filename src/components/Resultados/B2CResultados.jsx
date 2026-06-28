@@ -271,7 +271,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
 
       {/* Monthly Summary */}
       {totals.investido > 0 && (
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           <SummaryCard label="Investido"  value={fmtMoney(totals.investido)}          color="rl-gold" />
           <SummaryCard label="Leads"      value={totals.leads.toLocaleString('pt-BR')} color="rl-blue" />
           <SummaryCard label="Vendas"     value={fmtMoney(totals.valorVendas)}         color="rl-green" />
@@ -288,7 +288,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
       {mode === 'diario' && (
         <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-rl-border">
                   <th className="text-left px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide">Dia</th>

@@ -43,7 +43,7 @@ function FunnelViz({ data, investido }) {
             {/* Stage bar */}
             <div
               className={`${stage.bg} ${stage.border} border rounded-xl px-5 py-3.5 flex items-center justify-between transition-all`}
-              style={{ width: `${widthPct}%`, minWidth: '260px', maxWidth: '100%' }}
+              style={{ width: `${widthPct}%`, minWidth: 'min(240px, 100%)', maxWidth: '100%' }}
             >
               <div className="flex items-center gap-3">
                 <span className="text-xl">{stage.icon}</span>
@@ -315,7 +315,7 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
       </div>
 
       {/* Weekly Cards */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {weekRanges.map((week, i) => {
           const weekKey = `semana${i + 1}`
           const wkData  = monthData[weekKey]
@@ -434,7 +434,7 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
           </div>
 
           {/* Summary row */}
-          <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
             {[
               { label: 'Investido',      value: fmtMoney(totals.investido),              color: 'rl-gold' },
               { label: 'Receita Vendas', value: fmtMoney(totals.receitaVendas),           color: 'rl-green' },

@@ -38,6 +38,29 @@
   .cp-quad-scope { font-size:12px; font-weight:700; color:#475569; margin:0 0 10px;
     display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:8px;
     background:#EEF2F9; border:1px solid #D8E0F0; }
+  /* Botão "Ver anúncio" na tabela de anúncios */
+  .ad-prev-btn { margin-left:8px; padding:2px 8px; border:1px solid #C7D2E8; border-radius:7px;
+    background:#fff; color:#164496; font:700 11px/1 ui-sans-serif,system-ui; cursor:pointer;
+    white-space:nowrap; vertical-align:middle; }
+  .ad-prev-btn:hover { background:#164496; color:#fff; border-color:#164496; }
+  /* Modal de preview do anúncio */
+  .adp-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); display:flex;
+    align-items:center; justify-content:center; z-index:1100; padding:20px; }
+  .adp-modal { background:#fff; border-radius:14px; width:min(440px,100%); max-height:90vh;
+    display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.3); overflow:hidden; }
+  .adp-head { display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:14px 18px; border-bottom:1px solid #E4EAF7; }
+  .adp-head h3 { margin:0; font-size:14px; color:#0f2a5e; white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; }
+  .adp-head .adp-x { cursor:pointer; border:0; background:none; font-size:18px; color:#94A3B8; }
+  .adp-tabs { display:flex; gap:6px; flex-wrap:wrap; padding:10px 18px; border-bottom:1px solid #E4EAF7; }
+  .adp-fmt { padding:4px 10px; border:1px solid #D8E0F0; border-radius:8px; background:#fff;
+    color:#475569; font:600 11px/1 ui-sans-serif,system-ui; cursor:pointer; }
+  .adp-fmt.active { background:#164496; color:#fff; border-color:#164496; }
+  .adp-body { padding:14px 18px; overflow:auto; min-height:360px; display:flex;
+    align-items:center; justify-content:center; background:#F1F5FB; }
+  .adp-frame { width:100%; height:540px; border:0; background:#fff; border-radius:10px; }
+  .adp-loading, .adp-msg { text-align:center; color:#64748B; font-size:13px; padding:24px; }
 </style>
 </head>
 <body>
@@ -342,6 +365,48 @@ const metaConv = r => num(r['Conversões'])     // só conversões reais (total 
 const metaResult = r => num(r['Resultados'])   // resultado verdadeiro do objetivo (por campanha)
 const flagRow = (items,kind) => items.length ? `<div class="flag-row">${items.map(f=>`<span class="flag flag-${kind}">${f}</span>`).join('')}</div>` : ''
 
+// ─── Modal de preview do anúncio (Meta) ───────────────────────────────────────
+// Busca o preview real do anúncio via /api/ad-preview (proxy seguro: o token do
+// Meta fica no servidor). Renderiza o HTML retornado num <iframe srcdoc> em
+// sandbox sem same-origin (scripts do FB rodam isolados, sem acesso ao nosso
+// localStorage/token de sessão). Permite trocar o formato (feed/stories/IG).
+const AD_PREVIEW_FORMATS = [
+  ['Feed mobile','MOBILE_FEED_STANDARD'], ['Feed desktop','DESKTOP_FEED_STANDARD'],
+  ['Instagram','INSTAGRAM_STANDARD'], ['Stories FB','FACEBOOK_STORY_MOBILE'], ['Stories IG','INSTAGRAM_STORY'],
+]
+function openAdPreview(adId, adName){
+  document.getElementById('adpOverlay')?.remove()
+  const ov = document.createElement('div')
+  ov.className = 'adp-overlay'; ov.id = 'adpOverlay'
+  ov.innerHTML = `<div class="adp-modal">
+    <div class="adp-head"><h3 title="${esc(adName||'')}">👁 ${esc(adName||'Anúncio')}</h3><button class="adp-x" id="adpClose">✕</button></div>
+    <div class="adp-tabs">${AD_PREVIEW_FORMATS.map(([l,f],i)=>`<button class="adp-fmt${i===0?' active':''}" data-fmt="${f}">${l}</button>`).join('')}</div>
+    <div class="adp-body" id="adpBody"></div>
+  </div>`
+  document.body.appendChild(ov)
+  ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove() })
+  ov.querySelector('#adpClose').onclick = ()=>ov.remove()
+  const bodyEl = ov.querySelector('#adpBody')
+  const load = async (fmt)=>{
+    bodyEl.innerHTML = `<div class="adp-loading"><div class="spinner"></div><p>Carregando preview…</p></div>`
+    const token = supabaseToken()
+    if(!token){ bodyEl.innerHTML = `<div class="adp-msg">Preview disponível apenas no app autenticado (app.revenuelab.com.br).</div>`; return }
+    try{
+      const r = await fetch(`/api/ad-preview?ad_id=${encodeURIComponent(adId)}&format=${fmt}`, { headers:{ Authorization:`Bearer ${token}` } })
+      const data = await r.json().catch(()=>({}))
+      if(!r.ok){ bodyEl.innerHTML = `<div class="adp-msg">${esc(data?.error?.message||('Erro HTTP '+r.status))}</div>`; return }
+      const ifr = document.createElement('iframe')
+      ifr.className = 'adp-frame'; ifr.setAttribute('sandbox','allow-scripts allow-popups')
+      ifr.srcdoc = data.html || ''
+      bodyEl.innerHTML = ''; bodyEl.appendChild(ifr)
+    }catch(e){ bodyEl.innerHTML = `<div class="adp-msg">Falha ao carregar o preview.</div>` }
+  }
+  ov.querySelectorAll('.adp-fmt').forEach(b=>b.onclick=()=>{
+    ov.querySelectorAll('.adp-fmt').forEach(x=>x.classList.remove('active')); b.classList.add('active'); load(b.dataset.fmt)
+  })
+  load(AD_PREVIEW_FORMATS[0][1])
+}
+
 function tblMetaCampaigns(rows){
   const g = groupBy(rows, r=>r['Nome da campanha'], {
     spend:r=>M(r,'Valor investido'), conv:metaConv, leads:metaConv, result:metaResult,
@@ -380,7 +445,9 @@ function tblMetaAds(rows){
   const flags = noConv.length?[`🚨 ${noConv.length} anúncio(s) com gasto e 0 resultados — R$ ${noConv.reduce((a,x)=>a+x.spend,0).toFixed(2)} desperdiçados`]:[]
   const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const ctr=x.impr>0?x.clicks/x.impr*100:null
     const st=x._rows[0]?.['Status do Aúncio']||''; const paused=st.toLowerCase().includes('paus')
-    return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</td>
+    const adId=(x._rows.find(r=>r['ad_id'])||{})['ad_id']||''
+    const prevBtn=adId?` <button class="ad-prev-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" title="Ver anúncio rodando">👁 Ver</button>`:''
+    return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}${prevBtn}</td>
       <td>${stTag(st)}</td><td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${hookCell(x.h3,x.vv)}</td><td>${ctrCell(ctr)}</td>
       <td>${pctVid(x.p25,x.vv)}</td><td>${pctVid(x.p50,x.vv)}</td><td>${pctVid(x.p75,x.vv)}</td><td>${pctVid(x.p100,x.vv)}</td></tr>` }).join('')
@@ -1090,6 +1157,8 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   app.querySelectorAll('.dtab[data-sub]').forEach(e=>e.onclick=()=>{ state.sub=Number(e.dataset.sub); renderClient() })
   app.querySelectorAll('.drill-link[data-camp]').forEach(e=>e.onclick=()=>{ state.drillCampaign=e.dataset.camp; state.drillAdset=null; renderClient() })
   app.querySelectorAll('.drill-link[data-adset]').forEach(e=>e.onclick=()=>{ state.drillAdset=e.dataset.adset; renderClient() })
+  // Preview do anúncio (botão "👁 Ver" na tabela de anúncios)
+  app.querySelectorAll('.ad-prev-btn').forEach(e=>e.onclick=(ev)=>{ ev.stopPropagation(); openAdPreview(e.dataset.adid, e.dataset.adname) })
 
   // Weekly modal
   const wkOv=document.getElementById('wkOverlay')
