@@ -207,6 +207,7 @@ async function load() {
     state.accounts = accounts
     document.getElementById('src-info').textContent =
       `· ${state.raw.meta.length} linhas Meta · ${state.raw.google.length} linhas Google`
+    if (!state._navRestored) { restoreNav(); state._navRestored = true }
     render()
   } catch (e) {
     app.innerHTML = `<div class="dt-loader"><p>Erro ao carregar dados: ${esc(e.message)}.<br>Faça login na Área do Cliente e recarregue.</p></div>`
@@ -281,9 +282,46 @@ function summaryFor(ch, p) {
 }
 
 // ─── Render principal (lista de contas) ──────────────────────────────────────
+// ─── Persistência da navegação (volta ao mesmo lugar após refresh) ───────────
+// Salva o "lugar" atual (canal/cliente/aba/sub-aba/drill/período/filtro) no
+// localStorage a cada render e restaura uma vez no boot, depois dos dados.
+const NAV_KEY = 'rl_dashteste_nav'
+function saveNav() {
+  try {
+    localStorage.setItem(NAV_KEY, JSON.stringify({
+      channel: state.channel, days: state.days, from: state.from, to: state.to, search: state.search,
+      openClient: state.openClient, tab: state.tab, sub: state.sub,
+      drillCampaign: state.drillCampaign, drillAdset: state.drillAdset,
+      cDays: state.cDays, cFrom: state.cFrom, cTo: state.cTo, campFilter: state.campFilter,
+    }))
+  } catch (e) { /* ignore (modo privado etc.) */ }
+}
+function restoreNav() {
+  try {
+    const s = JSON.parse(localStorage.getItem(NAV_KEY) || 'null'); if (!s) return
+    if (s.channel) state.channel = s.channel
+    if (s.days != null) state.days = s.days
+    state.from = s.from || ''; state.to = s.to || ''; state.search = s.search || ''
+    if (s.openClient && s.openClient.client) {
+      // Só restaura o cliente se a conta ainda existir nos dados carregados.
+      const ch = s.openClient.channel || state.channel
+      const exists = (state.raw[ch] || []).some(r => (r[CFG[ch].accountKey] || '').trim() === s.openClient.client)
+      if (exists) {
+        state.openClient = s.openClient
+        state.tab = s.tab || 'resultados'; state.sub = s.sub || 0
+        state.drillCampaign = s.drillCampaign || null; state.drillAdset = s.drillAdset || null
+        state.cDays = s.cDays != null ? s.cDays : 7; state.cFrom = s.cFrom || ''; state.cTo = s.cTo || ''
+        state.campFilter = Array.isArray(s.campFilter) ? s.campFilter : []
+        state.cPeriod = null
+      }
+    }
+  } catch (e) { /* ignore */ }
+}
+
 function render() {
   destroyCharts()
   if (state.openClient) return renderClient()
+  saveNav()
   const P = periods(), ch = state.channel, p = P[ch]
   const stMeta = statsFor('meta', P.meta), stGoogle = statsFor('google', P.google)
   const st = ch==='meta'?stMeta:stGoogle
@@ -1037,6 +1075,7 @@ function computeClientPeriod(rows, ch, days, from, to) {
 
 function renderClient() {
   destroyCharts()
+  saveNav()
   const { client, channel:ch } = state.openClient
   const isMeta = ch === 'meta'
   const acc = state.accounts[client] || {}
