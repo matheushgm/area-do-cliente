@@ -38,8 +38,11 @@
   .cp-quad-scope { font-size:12px; font-weight:700; color:#475569; margin:0 0 10px;
     display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:8px;
     background:#EEF2F9; border:1px solid #D8E0F0; }
+  /* Célula de nome do anúncio: nome trunca, botão "Ver" fica sempre visível */
+  .dt-root .ad-name .ad-name-flex { display:flex; align-items:center; gap:8px; }
+  .dt-root .ad-name .ad-name-txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
   /* Botão "Ver anúncio" na tabela de anúncios */
-  .ad-prev-btn { margin-left:8px; padding:2px 8px; border:1px solid #C7D2E8; border-radius:7px;
+  .ad-prev-btn { flex-shrink:0; padding:2px 8px; border:1px solid #C7D2E8; border-radius:7px;
     background:#fff; color:#164496; font:700 11px/1 ui-sans-serif,system-ui; cursor:pointer;
     white-space:nowrap; vertical-align:middle; }
   .ad-prev-btn:hover { background:#164496; color:#fff; border-color:#164496; }
@@ -454,7 +457,7 @@ function tblMetaAds(rows){
     const st=x._rows[0]?.['Status do Aúncio']||''; const paused=st.toLowerCase().includes('paus')
     const adId=(x._rows.find(r=>r['ad_id'])||{})['ad_id']||''
     const prevBtn=adId?` <button class="ad-prev-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" title="Ver anúncio rodando">👁 Ver</button>`:''
-    return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}${prevBtn}</td>
+    return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(x.key)}"><span class="ad-name-flex"><span class="ad-name-txt">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span>${prevBtn}</span></td>
       <td>${stTag(st)}</td><td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${hookCell(x.h3,x.vv)}</td><td>${ctrCell(ctr)}</td>
       <td>${pctVid(x.p25,x.vv)}</td><td>${pctVid(x.p50,x.vv)}</td><td>${pctVid(x.p75,x.vv)}</td><td>${pctVid(x.p100,x.vv)}</td></tr>` }).join('')
