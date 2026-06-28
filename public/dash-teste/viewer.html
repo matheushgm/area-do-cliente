@@ -537,8 +537,17 @@ function aggMetrics(rows, isMeta) {
     // "ROAS de vendas" é razão por linha → agrega como receita (ROAS×gasto) ÷ gasto.
     const purchases = rows.reduce((a,r)=>a+num(r['Número de vendas']),0)
     const revenue = rows.reduce((a,r)=>a+num(r['ROAS de vendas'])*num(r['Valor investido']),0)
+    // Conversão custom MQL (ex.: Grupo AJ = mql_aj, GoVendas = mql_go): conta o
+    // resultado das linhas cujo "Tipo de resultado" é MQL e a taxa de avanço
+    // Lead→MQL (MQL ÷ Leads do escopo). Substitui o bloco de Compras quando há MQL.
+    const mqlRows = rows.filter(r => /mql/i.test(r['Tipo de resultado'] || ''))
+    const leads = rows.reduce((a,r)=>a+num(r['Leads']),0)
+    const mql = mqlRows.reduce((a,r)=>a+num(r['Conversões']),0)
+    const mqlSpend = mqlRows.reduce((a,r)=>a+num(r['Valor investido']),0)
+    const mqlLabel = mqlRows.length ? (mqlRows[0]['Tipo de resultado'] || 'MQL') : 'MQL'
     return { spend, impressions, clicks, conv, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null, frequency,
-      purchases, cpp:purchases>0?spend/purchases:null, revenue, roas:spend>0?revenue/spend:null }
+      purchases, cpp:purchases>0?spend/purchases:null, revenue, roas:spend>0?revenue/spend:null,
+      hasMql:mqlRows.length>0, mql, leads, mqlLabel, cpMql:mql>0?mqlSpend/mql:null, leadToMql:leads>0?mql/leads*100:null }
   }
   const spend = rows.reduce((a,r)=>a+num(r['Gasto']),0)
   const clicks = rows.reduce((a,r)=>a+(num(r['CLiques'])||num(r['Cliques'])),0)
@@ -576,11 +585,14 @@ function metricGroupsHTML(allRows, prevRows, isMeta) {
       ${tileHTML('Conversões', fmtInt(cur.conv), pctVar(cur.conv, prv.conv), false)}
       ${tileHTML(isMeta?'CPL':'CPA', fmtMoney(cur.cpl), pctVar(cur.cpl, prv.cpl), true)}
       ${tileHTML('Taxa de conv.', fmtPctVal(cur.convRate), pctVar(cur.convRate, prv.convRate), false)}
-      ${isMeta ? `
+      ${isMeta ? (cur.hasMql ? `
+      ${tileHTML(esc(cur.mqlLabel), fmtInt(cur.mql), pctVar(cur.mql, prv.mql), false)}
+      ${tileHTML('Custo por MQL', fmtMoney(cur.cpMql), pctVar(cur.cpMql, prv.cpMql), true)}
+      ${tileHTML('Avanço Lead→MQL', fmtPctVal(cur.leadToMql), pctVar(cur.leadToMql, prv.leadToMql), false)}` : `
       ${tileHTML('Compras', fmtInt(cur.purchases), pctVar(cur.purchases, prv.purchases), false)}
       ${tileHTML('Custo/compra', fmtMoney(cur.cpp), pctVar(cur.cpp, prv.cpp), true)}
       ${tileHTML('Valor compras', fmtMoneyShort(cur.revenue), pctVar(cur.revenue, prv.revenue), false)}
-      ${tileHTML('ROAS', cur.roas!=null?cur.roas.toFixed(2).replace('.',',')+'x':'—', pctVar(cur.roas, prv.roas), false)}` : ''}
+      ${tileHTML('ROAS', cur.roas!=null?cur.roas.toFixed(2).replace('.',',')+'x':'—', pctVar(cur.roas, prv.roas), false)}`) : ''}
     </div></div>
   </div>`
 }
