@@ -35,7 +35,7 @@
     font:700 9px/1 ui-sans-serif,system-ui; cursor:help; vertical-align:middle; user-select:none; }
   .status-info:hover { border-color:#164496; color:#164496; }
   /* Mini-gráfico dentro de cada quadrante (aba Resultados) */
-  .dt-root .mg-chart { position:relative; height:96px; margin-top:12px; padding-top:12px; border-top:1px solid #EEF2F9; }
+  .dt-root .mg-chart { position:relative; height:170px; margin-top:14px; padding-top:14px; border-top:1px solid #E4EAF7; }
   .dt-root .mg-chart canvas { width:100% !important; }
   /* Rótulo de escopo dos quadrantes na aba Campanhas */
   .cp-quad-scope { font-size:12px; font-weight:700; color:#475569; margin:0 0 10px;
@@ -798,18 +798,21 @@ function initQuadrantCharts(period, rows, channel, isMeta) {
     mql.push(dr.filter(r=>/mql/i.test(r['Tipo de resultado']||'')).reduce((a,r)=>a+num(r['Conversões']),0))
   }
   const hasMql = mql.some(v=>v>0)
-  const opts = (yFmt, showLegend) => ({
+  const opts = (yFmt) => ({
     responsive:true, maintainAspectRatio:false,
-    plugins:{ legend:{ display:!!showLegend, labels:{ color:'#64748B', font:{size:9}, boxWidth:10, padding:6 } }, tooltip:{ mode:'index', intersect:false } },
-    scales:{ x:{ ticks:{ color:'#94A3B8', font:{size:8}, maxRotation:0, autoSkip:true, maxTicksLimit:6 }, grid:{ display:false } },
-             y:{ ticks:{ color:'#94A3B8', font:{size:8}, callback:yFmt, maxTicksLimit:4 }, grid:{ color:'#EEF2F9' }, beginAtZero:true } },
+    layout:{ padding:{ top:2, right:6 } },
+    interaction:{ mode:'index', intersect:false },
+    plugins:{ legend:{ display:true, position:'top', align:'start', labels:{ color:'#334155', font:{size:11, weight:'600'}, boxWidth:18, boxHeight:2, padding:8 } }, tooltip:{ mode:'index', intersect:false } },
+    scales:{ x:{ ticks:{ color:'#64748B', font:{size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:8 }, grid:{ display:false } },
+             y:{ ticks:{ color:'#64748B', font:{size:10}, callback:yFmt, maxTicksLimit:5 }, grid:{ color:'#E4EAF7' }, beginAtZero:true } },
   })
   const mk = (id, datasets, yFmt) => { const el=document.getElementById(id); if(!el) return
-    state._charts.push(new Chart(el.getContext('2d'), { type:'line', data:{ labels:days, datasets }, options: opts(yFmt, datasets.length>1) })) }
-  mk('mgChartCost', [{ label:'Gasto', data:spend, borderColor:'#D97706', backgroundColor:'rgba(217,119,6,0.12)', fill:true, tension:0.35, pointRadius:0, borderWidth:2 }], v=>'R$'+v)
-  mk('mgChartEng', [{ label:'CTR link', data:ctr, borderColor:'#059669', backgroundColor:'rgba(5,150,105,0.12)', fill:true, tension:0.35, pointRadius:0, borderWidth:2 }], v=>v+'%')
-  const perf = [{ label:'Conversões', data:conv, borderColor:'#2563EB', backgroundColor:'rgba(37,99,235,0.12)', fill:true, tension:0.35, pointRadius:0, borderWidth:2 }]
-  if (hasMql) perf.push({ label:'MQL', data:mql, borderColor:'#7C3AED', backgroundColor:'transparent', borderDash:[5,4], fill:false, tension:0.35, pointRadius:0, borderWidth:2 })
+    state._charts.push(new Chart(el.getContext('2d'), { type:'line', data:{ labels:days, datasets }, options: opts(yFmt) })) }
+  const ds = (label, data, color) => ({ label, data, borderColor:color, backgroundColor:'transparent', fill:false, tension:0.3, pointRadius:0, pointHoverRadius:4, borderWidth:2.5 })
+  mk('mgChartCost', [ds('Gasto', spend, '#D97706')], v=>'R$'+v)
+  mk('mgChartEng', [ds('CTR no link', ctr, '#0891B2')], v=>v+'%')
+  const perf = [ds('Conversões', conv, '#2563EB')]
+  if (hasMql) perf.push({ ...ds('MQL', mql, '#7C3AED'), borderDash:[5,4] })
   mk('mgChartPerf', perf, v=>v)
 }
 
