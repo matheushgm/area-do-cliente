@@ -49,6 +49,8 @@ export default async function handler(req) {
   const refTo = String(body.ref_to || '').trim() || null
   const numOrNull = v => (v === null || v === undefined || v === '' || !Number.isFinite(+v)) ? null : +v
   const ctrLink = numOrNull(body.ctr_link), convRate = numOrNull(body.conv_rate), hookRate = numOrNull(body.hook_rate)
+  const conversions = numOrNull(body.conversions), leads = numOrNull(body.leads), purchases = numOrNull(body.purchases)
+  const spendVal = numOrNull(body.spend), costPerConv = numOrNull(body.cost_per_conv)
   if (!/^\d+$/.test(adId)) return jsonErr('ad_id inválido.', 400)
   if (!funil) return jsonErr('Selecione o funil.', 400)
 
@@ -112,7 +114,8 @@ export default async function handler(req) {
       method: 'POST',
       headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON, 'content-type': 'application/json', Prefer: 'return=representation' },
       body: JSON.stringify({ type, funil, title, url: publicUrl, notes,
-        dest_link: destLink, ref_from: refFrom, ref_to: refTo, ctr_link: ctrLink, conv_rate: convRate, hook_rate: hookRate }),
+        dest_link: destLink, ref_from: refFrom, ref_to: refTo, ctr_link: ctrLink, conv_rate: convRate, hook_rate: hookRate,
+        conversions, leads, purchases, spend: spendVal, cost_per_conv: costPerConv }),
     })
     if (!ins.ok) return jsonErr('Falha ao registrar no Banco de Anúncios: ' + (await ins.text()).slice(0, 200), 502)
     item = (await ins.json())[0]

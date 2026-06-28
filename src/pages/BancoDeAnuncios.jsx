@@ -24,8 +24,9 @@ const FUNILS = [
   'Funil Win-Your-Money-Back',
 ]
 
-const fmtPctBR  = (n) => (n == null ? '—' : `${Number(n).toFixed(1).replace('.', ',')}%`)
-const fmtDateBR = (d) => { if (!d) return ''; const [y, m, day] = String(d).slice(0, 10).split('-'); return `${day}/${m}/${y}` }
+const fmtPctBR   = (n) => (n == null ? '—' : `${Number(n).toFixed(1).replace('.', ',')}%`)
+const fmtMoneyBR = (n) => (n == null ? '—' : `R$ ${Number(n).toFixed(2).replace('.', ',')}`)
+const fmtDateBR  = (d) => { if (!d) return ''; const [y, m, day] = String(d).slice(0, 10).split('-'); return `${day}/${m}/${y}` }
 
 function AdCard({ ad, onDelete }) {
   const [deleting, setDeleting] = useState(false)
@@ -132,6 +133,25 @@ function AdCard({ ad, onDelete }) {
             )}
             {ad.hook_rate != null && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">Hook <b className="text-rl-text">{fmtPctBR(ad.hook_rate)}</b></span>
+            )}
+          </div>
+        )}
+        {(ad.conversions != null || ad.leads != null || ad.purchases != null || ad.cost_per_conv != null || ad.spend != null) && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {ad.conversions != null && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-green/10 text-rl-green border border-rl-green/25">Conv. <b>{ad.conversions}</b></span>
+            )}
+            {ad.cost_per_conv != null && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">Custo/conv. <b className="text-rl-text">{fmtMoneyBR(ad.cost_per_conv)}</b></span>
+            )}
+            {ad.leads != null && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">Leads <b className="text-rl-text">{ad.leads}</b></span>
+            )}
+            {ad.purchases != null && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">Compras <b className="text-rl-text">{ad.purchases}</b></span>
+            )}
+            {ad.spend != null && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">Gasto <b className="text-rl-text">{fmtMoneyBR(ad.spend)}</b></span>
             )}
           </div>
         )}
