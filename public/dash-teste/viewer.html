@@ -363,6 +363,12 @@ const pctVid = (p,vv) => vv>0 ? (p/vv*100).toFixed(0)+'%' : '—'
 const M = (r,k)=>num(r[k])
 const metaConv = r => num(r['Conversões'])     // só conversões reais (total da conta)
 const metaResult = r => num(r['Resultados'])   // resultado verdadeiro do objetivo (por campanha)
+// Conta anúncios ATIVOS num conjunto de linhas: agrupa por nome do anúncio e
+// considera ativo quem tem status "ativ/active/enabled" (mesma regra do stTag).
+function activeAdsCount(rows){
+  const g = groupBy(rows, r=>r['Nome do Anúncio'], { n:()=>1 })
+  return g.filter(x=>{ const st=(x._rows[0]?.['Status do Aúncio']||'').toLowerCase(); return st.includes('ativ')||st==='active'||st==='enabled' }).length
+}
 const flagRow = (items,kind) => items.length ? `<div class="flag-row">${items.map(f=>`<span class="flag flag-${kind}">${f}</span>`).join('')}</div>` : ''
 
 // ─── Modal de preview do anúncio (Meta) ───────────────────────────────────────
@@ -429,10 +435,11 @@ function tblMetaAdsets(rows){
   if(!g.length) return `<div class="empty">Sem conjuntos no período.</div>`
   const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(x.key)} — gasto sem resultado`)
   const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const st=x._rows[0]?.['Status do Conjunto de Anúncio']||''
+    const ativos=activeAdsCount(x._rows)
     return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-adset="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span></td>
-      <td>${stTag(st)}</td><td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
+      <td>${stTag(st)}</td><td><span class="${ativos>0?'good':'fl'}">${ativos}</span></td><td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td></tr>` }).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Conjunto</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th></tr></thead><tbody>${body}</tbody></table></div>`
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Conjunto</th><th>Status</th><th>Anúncios ativos</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th></tr></thead><tbody>${body}</tbody></table></div>`
 }
 function tblMetaAds(rows){
   const g = groupBy(rows, r=>r['Nome do Anúncio'], {
@@ -762,7 +769,8 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel) {
   if (isMeta && state.drillAdset) {
     qCur = allRows.filter(r=>r['Conjunto de Anúncio']===state.drillAdset)
     qPrev = prevRows.filter(r=>r['Conjunto de Anúncio']===state.drillAdset)
-    scopeLabel = `Conjunto: ${state.drillAdset}`
+    const ativos = activeAdsCount(qCur)
+    scopeLabel = `Conjunto: ${state.drillAdset} · ${ativos} anúncio${ativos!==1?'s':''} ativo${ativos!==1?'s':''}`
   } else if (state.drillCampaign) {
     const ck = isMeta ? 'Nome da campanha' : 'Campanha'
     qCur = allRows.filter(r=>r[ck]===state.drillCampaign)
