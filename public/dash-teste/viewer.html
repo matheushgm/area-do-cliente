@@ -684,14 +684,18 @@ function aggMetrics(rows, isMeta) {
     // Conversão custom MQL (ex.: Grupo AJ = mql_aj, GoVendas = mql_go): conta o
     // resultado das linhas cujo "Tipo de resultado" é MQL e a taxa de avanço
     // Lead→MQL (MQL ÷ Leads do escopo). Substitui o bloco de Compras quando há MQL.
-    const mqlRows = rows.filter(r => /mql/i.test(r['Tipo de resultado'] || ''))
+    // MQL: usa a coluna "MQL" (conversão secundária, ex.: Matheus Business=mql) e,
+    // em fallback, as linhas cujo Tipo de resultado é MQL (override, ex.: Grupo AJ).
     const leads = rows.reduce((a,r)=>a+num(r['Leads']),0)
-    const mql = mqlRows.reduce((a,r)=>a+num(r['Conversões']),0)
-    const mqlSpend = mqlRows.reduce((a,r)=>a+num(r['Valor investido']),0)
-    const mqlLabel = mqlRows.length ? (mqlRows[0]['Tipo de resultado'] || 'MQL') : 'MQL'
+    const colMql = rows.reduce((a,r)=>a+num(r['MQL']),0)
+    const typeRows = rows.filter(r => /mql/i.test(r['Tipo de resultado'] || ''))
+    const mql = colMql > 0 ? colMql : typeRows.reduce((a,r)=>a+num(r['Conversões']),0)
+    const mqlSpend = colMql > 0 ? spend : typeRows.reduce((a,r)=>a+num(r['Valor investido']),0)
+    const mqlLabel = colMql > 0 ? 'MQL' : (typeRows.length ? (typeRows[0]['Tipo de resultado'] || 'MQL') : 'MQL')
+    const hasMql = colMql > 0 || typeRows.length > 0
     return { spend, impressions, clicks, conv, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null, frequency,
       purchases, cpp:purchases>0?spend/purchases:null, revenue, roas:spend>0?revenue/spend:null,
-      hasMql:mqlRows.length>0, mql, leads, mqlLabel, cpMql:mql>0?mqlSpend/mql:null, leadToMql:leads>0?mql/leads*100:null }
+      hasMql, mql, leads, mqlLabel, cpMql:mql>0?mqlSpend/mql:null, leadToMql:leads>0?mql/leads*100:null }
   }
   const spend = rows.reduce((a,r)=>a+num(r['Gasto']),0)
   const clicks = rows.reduce((a,r)=>a+(num(r['CLiques'])||num(r['Cliques'])),0)
@@ -933,7 +937,8 @@ function initQuadrantCharts(period, rows, channel, isMeta) {
     spend.push(parseFloat(dr.reduce((a,r)=>a+num(r[spendKey]),0).toFixed(2)))
     ctr.push(imp>0?parseFloat((clk/imp*100).toFixed(2)):0)
     conv.push(dr.reduce((a,r)=>a+num(r['Conversões']),0))
-    mql.push(dr.filter(r=>/mql/i.test(r['Tipo de resultado']||'')).reduce((a,r)=>a+num(r['Conversões']),0))
+    const dColMql = dr.reduce((a,r)=>a+num(r['MQL']),0)
+    mql.push(dColMql>0 ? dColMql : dr.filter(r=>/mql/i.test(r['Tipo de resultado']||'')).reduce((a,r)=>a+num(r['Conversões']),0))
   }
   const hasMql = mql.some(v=>v>0)
   const opts = (yFmt) => ({

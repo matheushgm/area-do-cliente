@@ -14,7 +14,11 @@ function jsonErr(message, status) {
 // Monta CSV (todos os campos entre aspas) a partir de uma lista de objetos.
 function toCSV(rows) {
   if (!rows.length) return ''
-  const headers = Object.keys(rows[0])
+  // União de todas as chaves (não só rows[0]) — linhas heterogêneas (ex.: coluna
+  // MQL nova só em registros recém-sincronizados) não perdem colunas.
+  const headerSet = new Set()
+  for (const r of rows) for (const k of Object.keys(r)) headerSet.add(k)
+  const headers = [...headerSet]
   const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'
   const lines = [headers.map(esc).join(',')]
   for (const r of rows) lines.push(headers.map(h => esc(r[h])).join(','))
