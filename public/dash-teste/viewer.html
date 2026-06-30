@@ -199,7 +199,7 @@ const PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3 dias',3],['7 dias',7
 // Presets da página de cliente (rótulos curtos, espelham PERIOD_PRESETS do ClientPage)
 const CP_PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3d',3],['7d',7],['14d',14],['30d',30],['Custom',0]]
 
-const state = { raw:{meta:[],google:[]}, accounts:{}, channel:'meta', days:7, from:'', to:'', search:'', openClient:null,
+const state = { raw:{meta:[],google:[]}, accounts:{}, channel:'meta', days:7, from:'', to:'', search:'', squad:'', openClient:null,
                 // estado local da página de cliente
                 cDays:7, cFrom:'', cTo:'', cPeriod:null,
                 campFilter:[], campPanelOpen:false, campSearch:'',
@@ -293,7 +293,19 @@ function statsFor(ch, p) {
   if (!p) return []
   let st = buildStats(state.raw[ch], cfgFor(ch), p)
   const _q = state.search.trim(); if (_q) st = st.filter(s => s.name.toLowerCase().includes(_q))
+  if (state.squad) st = st.filter(s => (state.accounts[s.name]?.squad || '') === state.squad)
   return st
+}
+
+// Squads distintos com pelo menos uma conta com dados no canal/período (alimenta o dropdown).
+function squadsInChannel(ch, p) {
+  if (!p) return []
+  const set = new Set()
+  buildStats(state.raw[ch], cfgFor(ch), p).forEach(s => {
+    const sq = state.accounts[s.name]?.squad
+    if (sq) set.add(sq)
+  })
+  return Array.from(set).sort((a,b) => a.localeCompare(b,'pt-BR'))
 }
 
 // ─── Barra de resumo (espelha ChannelSection.useMemo) ────────────────────────
@@ -328,7 +340,7 @@ function saveNav() {
   if (SHARED) return
   try {
     localStorage.setItem(NAV_KEY, JSON.stringify({
-      channel: state.channel, days: state.days, from: state.from, to: state.to, search: state.search,
+      channel: state.channel, days: state.days, from: state.from, to: state.to, search: state.search, squad: state.squad,
       openClient: state.openClient, tab: state.tab, sub: state.sub,
       drillCampaign: state.drillCampaign, drillAdset: state.drillAdset,
       cDays: state.cDays, cFrom: state.cFrom, cTo: state.cTo, campFilter: state.campFilter,
@@ -340,7 +352,7 @@ function restoreNav() {
     const s = JSON.parse(localStorage.getItem(NAV_KEY) || 'null'); if (!s) return
     if (s.channel) state.channel = s.channel
     if (s.days != null) state.days = s.days
-    state.from = s.from || ''; state.to = s.to || ''; state.search = s.search || ''
+    state.from = s.from || ''; state.to = s.to || ''; state.search = s.search || ''; state.squad = s.squad || ''
     if (s.openClient && s.openClient.client) {
       // Só restaura o cliente se a conta ainda existir nos dados carregados.
       const ch = s.openClient.channel || state.channel
@@ -388,6 +400,11 @@ function render() {
       <div class="search-wrap"><span class="search-icon">🔍</span>
         <input type="text" id="search" placeholder="Buscar cliente…" value="${esc(state.search)}">
         ${state.search?`<span class="clear-btn" id="clear" style="display:block">✕</span>`:''}</div>
+      ${(() => { const sqs = squadsInChannel(ch, p); if (state.squad && !sqs.includes(state.squad)) sqs.unshift(state.squad); return sqs.length ? `
+      <select id="squad" title="Filtrar por squad" style="background:#FFFFFF;border:1px solid ${state.squad?'#164496':'#D8E0F0'};color:${state.squad?'#164496':'#0F172A'};padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;outline:none;cursor:pointer;">
+        <option value="">Todos os squads</option>
+        ${sqs.map(sq=>`<option value="${esc(sq)}" ${state.squad===sq?'selected':''}>${esc(sq)}</option>`).join('')}
+      </select>` : '' })()}
       <span class="filter-info">${p?`Exibindo: ${p.label1} · Comparando com: ${p.label2}`:''}</span>
     </div>
     <div class="tab-panel">${!p||!st.length?`<div class="empty">Nenhum dado disponível para o período selecionado.</div>`:channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct)}</div>
@@ -1480,6 +1497,7 @@ function wire() {
   const se=document.getElementById('search')
   if (se) se.oninput=e=>{ state.search=e.target.value.toLowerCase(); render(); const n=document.getElementById('search'); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length)} }
   const cl=document.getElementById('clear'); if (cl) cl.onclick=()=>{ state.search=''; render() }
+  const sq=document.getElementById('squad'); if (sq) sq.onchange=e=>{ state.squad=e.target.value; render() }
   app.querySelectorAll('tr[data-client]').forEach(tr=>tr.querySelector('.client-link').onclick=()=>{
     state.openClient={ client: tr.dataset.client, channel: state.channel }
     // inicializa o estado local da página de cliente a partir do período global
