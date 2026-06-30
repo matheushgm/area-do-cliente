@@ -1,14 +1,16 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
 import { buildLandingContext, buildLandingCachedPayload } from '../lib/buildContext'
+import { elementToPngBlob, downloadBlob, slugify } from '../lib/htmlToJpg'
 import RatingSelector from './RatingSelector'
 import {
   Globe, Sparkles, Loader2, AlertTriangle, Copy, CheckCheck,
   ChevronDown, ChevronUp, RotateCcw, Trash2, Plus, CheckCircle2,
-  Check, X, Zap, LayoutTemplate, FileText, Lock,
+  Check, X, Zap, LayoutTemplate, FileText, Lock, Pencil, Download,
 } from 'lucide-react'
 import { WIREFRAME_TYPES, getWireframe } from './Wireframes'
+import { setByPath } from './Wireframes/wireframePrimitives'
 
 // ─── System Prompt (baseado na skill criador-de-landing-page) ─────────────────
 const LANDING_SYSTEM = `Você é um especialista em planejamento e criação de copy de alta taxa de conversão para landing pages, usando a metodologia Revenue Lab.
@@ -338,13 +340,36 @@ function DobraBlock({ dobra, index, onRefine, onApprove }) {
 }
 
 // ─── Copy Card ────────────────────────────────────────────────────────────────
-function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineDobra, onContentChange }) {
+function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineDobra, onContentChange, onWireframeEdit }) {
   const [expanded, setExpanded] = useState(index === 0)
   const [copied, setCopied]     = useState(false)
   const [view, setView]         = useState('wireframe') // 'wireframe' | 'texto'
+  const [editing, setEditing]   = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const wireframeRef = useRef(null)
 
   const wf = lp.wireframeType ? getWireframe(lp.wireframeType) : null
   const isWireframe = !!(wf && lp.wireframeContent)
+
+  // Baixa o wireframe renderizado como PNG (tamanho natural, alta resolução).
+  async function handleDownloadWireframe() {
+    if (!wireframeRef.current || downloading) return
+    setDownloading(true)
+    const wasEditing = editing
+    try {
+      // Sai do modo edição para não capturar contornos de campo editável.
+      if (wasEditing) setEditing(false)
+      await new Promise((r) => requestAnimationFrame(() => r()))
+      const blob = await elementToPngBlob(wireframeRef.current, { scale: 2 })
+      if (blob) {
+        downloadBlob(blob, `wireframe-${slugify(lp.name) || 'landing-page'}.png`)
+      }
+    } catch (e) {
+      console.error('Baixar wireframe falhou:', e)
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   function handleCopy() {
     navigator.clipboard.writeText(lp.content)
@@ -443,32 +468,68 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
 
           {isWireframe ? (
             <>
-              {/* Toggle Wireframe / Texto */}
-              <div className="flex items-center gap-1 mb-4 p-0.5 rounded-xl bg-rl-surface/60 border border-rl-border/40 w-fit">
-                <button
-                  onClick={() => setView('wireframe')}
-                  className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all ${
-                    view === 'wireframe' ? 'bg-rl-green/15 text-rl-green' : 'text-rl-muted hover:text-rl-text'
-                  }`}
-                >
-                  <LayoutTemplate className="w-3.5 h-3.5" /> Wireframe
-                </button>
-                <button
-                  onClick={() => setView('texto')}
-                  className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all ${
-                    view === 'texto' ? 'bg-rl-green/15 text-rl-green' : 'text-rl-muted hover:text-rl-text'
-                  }`}
-                >
-                  <FileText className="w-3.5 h-3.5" /> Texto
-                </button>
+              {/* Toggle Wireframe / Texto + Editar */}
+              <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+                <div className="flex items-center gap-1 p-0.5 rounded-xl bg-rl-surface/60 border border-rl-border/40 w-fit">
+                  <button
+                    onClick={() => { setView('wireframe') }}
+                    className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all ${
+                      view === 'wireframe' ? 'bg-rl-green/15 text-rl-green' : 'text-rl-muted hover:text-rl-text'
+                    }`}
+                  >
+                    <LayoutTemplate className="w-3.5 h-3.5" /> Wireframe
+                  </button>
+                  <button
+                    onClick={() => { setView('texto'); setEditing(false) }}
+                    className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all ${
+                      view === 'texto' ? 'bg-rl-green/15 text-rl-green' : 'text-rl-muted hover:text-rl-text'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" /> Texto
+                  </button>
+                </div>
+                {view === 'wireframe' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleDownloadWireframe}
+                      disabled={downloading}
+                      title="Baixar o wireframe como imagem PNG"
+                      className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg border bg-rl-surface border-rl-border/40 text-rl-muted hover:text-rl-blue transition-all disabled:opacity-50"
+                    >
+                      {downloading
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
+                        : <><Download className="w-3.5 h-3.5" /> Baixar PNG</>}
+                    </button>
+                    {onWireframeEdit && (
+                      <button
+                        onClick={() => setEditing((v) => !v)}
+                        className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-all ${
+                          editing
+                            ? 'bg-rl-green/15 border-rl-green/40 text-rl-green'
+                            : 'bg-rl-surface border-rl-border/40 text-rl-muted hover:text-rl-text'
+                        }`}
+                      >
+                        {editing ? <><Check className="w-3.5 h-3.5" /> Concluir edição</> : <><Pencil className="w-3.5 h-3.5" /> Editar texto</>}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {view === 'wireframe' ? (
                 <div>
                   <p className="text-[10px] text-rl-muted mb-2 leading-snug">
-                    Prévia da copy aplicada no layout. Imagens e vídeo são placeholders — referência para o designer montar a página.
+                    {editing
+                      ? 'Modo edição: clique em qualquer texto do wireframe para editar. As mudanças salvam ao sair do campo.'
+                      : 'Prévia da copy aplicada no layout. Imagens e vídeo são placeholders — referência para o designer montar a página.'}
                   </p>
-                  <wf.Component content={lp.wireframeContent} />
+                  <div ref={wireframeRef}>
+                    <wf.Component
+                      content={lp.wireframeContent}
+                      editable={editing}
+                      onEdit={(path, value) => onWireframeEdit(setByPath(lp.wireframeContent, path, value))}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-0">{renderMarkdownLines(lp.content)}</div>
@@ -946,6 +1007,18 @@ export default function LandingPageModule({ project }) {
     updateProject(project.id, { landingPages: updated })
   }
 
+  // Persiste a edição inline do wireframe: salva o wireframeContent novo e
+  // regenera o texto legível (content) a partir dele.
+  function handleWireframeEdit(id, newWireframeContent) {
+    const lp = landingPages.find((x) => x.id === id)
+    const wf = lp?.wireframeType ? getWireframe(lp.wireframeType) : null
+    const content = wf?.toText ? wf.toText(newWireframeContent) : lp?.content
+    const updated = landingPages.map((x) =>
+      x.id === id ? { ...x, wireframeContent: newWireframeContent, content } : x
+    )
+    updateProject(project.id, { landingPages: updated })
+  }
+
   // Refina uma dobra isolada via IA. Recebe a copy salva (lp) para reconstruir o
   // mesmo contexto escopado (oferta + produto/persona escolhidos) usado na geração.
   const makeRefineHandler = useCallback(
@@ -1070,6 +1143,7 @@ Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo ca
               onRatingChange={(rating) => handleRatingChange(lp.id, rating)}
               onRefineDobra={makeRefineHandler(lp)}
               onContentChange={(newContent) => handleContentChange(lp.id, newContent)}
+              onWireframeEdit={(newWireframeContent) => handleWireframeEdit(lp.id, newWireframeContent)}
             />
           ))}
         </div>

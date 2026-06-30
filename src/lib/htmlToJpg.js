@@ -33,6 +33,29 @@ export async function elementToJpgBlob(el, opts = {}) {
   })
 }
 
+/**
+ * Renderiza o elemento em canvas no TAMANHO NATURAL (largura/altura próprias) e
+ * retorna Blob PNG. Usado para baixar wireframes de landing page — elementos
+ * altos cuja dimensão não é fixa. `scale` aumenta a nitidez (retina).
+ * @param {HTMLElement} el
+ * @param {object} opts
+ * @param {number} [opts.scale=2]
+ * @param {string} [opts.backgroundColor='#FFFFFF']
+ */
+export async function elementToPngBlob(el, opts = {}) {
+  const { scale = 2, backgroundColor = '#FFFFFF' } = opts
+  const canvas = await html2canvas(el, {
+    scale,
+    useCORS: true,
+    allowTaint: true,
+    backgroundColor,
+    logging: false,
+  })
+  return new Promise((resolve) => {
+    canvas.toBlob((b) => resolve(b), 'image/png')
+  })
+}
+
 /** Helper de download: dispara o save-as no navegador. */
 export function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob)

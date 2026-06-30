@@ -8,6 +8,9 @@
 import VSLWireframe from './VSLWireframe'
 import { VSL_WIREFRAME } from './vslSchema'
 import { VSL_SYSTEM, buildVslInstruction, parseVslContent, vslToText } from './vslGenerate'
+import WebinarWireframe from './WebinarWireframe'
+import { WEBINAR_WIREFRAME } from './webinarSchema'
+import { WEBINAR_SYSTEM, buildWebinarInstruction, parseWebinarContent, webinarToText } from './webinarGenerate'
 
 export const WIREFRAMES = {
   vsl: {
@@ -23,14 +26,27 @@ export const WIREFRAMES = {
     parse: parseVslContent,
     toText: vslToText,
   },
+  webinar: {
+    id: 'webinar',
+    name: 'Webinar',
+    label: 'Webinar — Captação de reunião',
+    description: 'Página de captação para reunião/webinar. Hero, dores, comparação, autoridade, método e formulário.',
+    ready: true,
+    Component: WebinarWireframe,
+    emptyContent: WEBINAR_WIREFRAME.emptyContent,
+    system: WEBINAR_SYSTEM,
+    buildInstruction: buildWebinarInstruction,
+    parse: parseWebinarContent,
+    toText: webinarToText,
+  },
 }
 
 // Ordem e rótulos de TODOS os tipos previstos (inclui os que ainda não estão prontos,
 // mostrados como "em breve" no seletor).
 export const WIREFRAME_TYPES = [
   { id: 'vsl', label: 'VSL', ready: true },
+  { id: 'webinar', label: 'Webinar', ready: true },
   { id: 'aplicacao', label: 'Aplicação direta', ready: false },
-  { id: 'webinar', label: 'Webinar', ready: false },
   { id: 'quiz', label: 'Quiz', ready: false },
   { id: 'vendas', label: 'Página de Vendas', ready: false },
   { id: 'material', label: 'Material Rico', ready: false },
