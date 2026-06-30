@@ -124,6 +124,13 @@ function supabaseToken() {
 }
 
 async function fetchChannel(ch) {
+  // Modo compartilhado: só o canal do link, via endpoint público (sem login).
+  if (SHARED) {
+    if (ch !== SHARED.channel) return ''
+    const r = await fetch(`/api/dash-public?cliente=${encodeURIComponent(SHARED.client)}&canal=${SHARED.channel}&t=${encodeURIComponent(SHARED.token)}`)
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    return r.text()
+  }
   const token = supabaseToken()
   if (token) {
     const r = await fetch(`/api/dash-data?channel=${ch}`, { headers: { Authorization: `Bearer ${token}` } })
@@ -202,6 +209,15 @@ const state = { raw:{meta:[],google:[]}, accounts:{}, channel:'meta', days:7, fr
 const app = document.getElementById('app')
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
 
+// ─── Modo COMPARTILHADO (link público read-only de UM cliente) ────────────────
+// Ativado por ?shared=1&cliente=<conta>&canal=meta|google&t=<token>. Nesse modo o
+// viewer trava no cliente, esconde os controles internos e puxa os dados de
+// /api/dash-public (sem login) em vez de /api/dash-data (autenticado).
+const _q = new URLSearchParams(location.search)
+const SHARED = _q.get('shared') === '1'
+  ? { client: (_q.get('cliente')||'').trim(), channel: _q.get('canal')==='google'?'google':'meta', token: (_q.get('t')||'').trim() }
+  : null
+
 const destroyCharts = () => { state._charts.forEach(c=>{ try{ c.destroy() }catch(e){} }); state._charts=[] }
 
 // Formatadores auxiliares (espelham ClientPage)
@@ -224,10 +240,15 @@ async function load() {
     state.accounts = accounts
     document.getElementById('src-info').textContent =
       `· ${state.raw.meta.length} linhas Meta · ${state.raw.google.length} linhas Google`
-    if (!state._navRestored) { restoreNav(); state._navRestored = true }
+    if (SHARED) {
+      state.channel = SHARED.channel
+      state.openClient = { client: SHARED.client, channel: SHARED.channel }
+    } else if (!state._navRestored) { restoreNav(); state._navRestored = true }
     render()
   } catch (e) {
-    app.innerHTML = `<div class="dt-loader"><p>Erro ao carregar dados: ${esc(e.message)}.<br>Faça login na Área do Cliente e recarregue.</p></div>`
+    app.innerHTML = SHARED
+      ? `<div class="dt-loader"><p>Não foi possível abrir este dashboard.<br>O link pode estar incorreto ou ter expirado.</p></div>`
+      : `<div class="dt-loader"><p>Erro ao carregar dados: ${esc(e.message)}.<br>Faça login na Área do Cliente e recarregue.</p></div>`
   }
 }
 
@@ -304,6 +325,7 @@ function summaryFor(ch, p) {
 // localStorage a cada render e restaura uma vez no boot, depois dos dados.
 const NAV_KEY = 'rl_dashteste_nav'
 function saveNav() {
+  if (SHARED) return
   try {
     localStorage.setItem(NAV_KEY, JSON.stringify({
       channel: state.channel, days: state.days, from: state.from, to: state.to, search: state.search,
@@ -1169,6 +1191,35 @@ async function renderParametros(container, client, acName) {
   }
 }
 
+// Modal do link compartilhável (mostra o link público + copiar/abrir). Reutiliza
+// as classes .wk-* do modal de mensagem semanal — sem CSS novo.
+function openShareModal(client, ch, url) {
+  const old = document.getElementById('shOverlay'); if (old) old.remove()
+  const ov = document.createElement('div')
+  ov.id = 'shOverlay'; ov.className = 'wk-overlay'
+  ov.innerHTML = `<div class="wk-modal" style="max-width:560px">
+      <div class="wk-head"><h3>🔗 Link compartilhável — ${esc(client)}</h3><button class="wk-x" id="shClose">✕</button></div>
+      <div class="wk-body">
+        <div style="font-size:12px;color:#64748B;margin-bottom:10px">Link público (somente leitura) do dashboard de <b>${ch==='meta'?'Meta Ads':'Google Ads'}</b> deste cliente. Quem abrir vê só esta conta, sem precisar de login.</div>
+        <input id="shUrl" readonly value="${esc(url)}" style="width:100%;padding:10px 12px;font-size:12px;color:#1E293B;background:#F1F5F9;border:1px solid #D8E0F0;border-radius:8px;font-family:monospace;box-sizing:border-box">
+      </div>
+      <div class="wk-foot" style="display:flex;gap:8px;justify-content:flex-end">
+        <a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">🔎 Abrir</a>
+        <button class="btn" id="shCopy" style="background:#059669;border-color:#059669;color:#fff">📋 Copiar link</button>
+      </div>
+    </div>`
+  document.body.appendChild(ov)
+  const close = () => ov.remove()
+  ov.onclick = e => { if (e.target === ov) close() }
+  ov.querySelector('#shClose').onclick = close
+  const inp = ov.querySelector('#shUrl')
+  inp.onfocus = e => e.target.select()
+  ov.querySelector('#shCopy').onclick = () => {
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(inp.value).then(()=>{ setStatus('🔗 Link copiado'); setTimeout(()=>setStatus(''),2400) })
+    else { inp.focus(); inp.select() }
+  }
+}
+
 // ─── Página de detalhe do cliente (réplica do ClientPage) ─────────────────────
 function computeClientPeriod(rows, ch, days, from, to) {
   const dateKey = CFG[ch].dateKey
@@ -1257,7 +1308,9 @@ function renderClient() {
   </div>`
 
   // tabs
-  const TABS = [['📊 Resultados','resultados'],['📋 Campanhas','campanhas'],['✅ Atividades','atividades'],['⚙️ Parâmetros','parametros']]
+  const TABS = SHARED
+    ? [['📊 Resultados','resultados'],['📋 Campanhas','campanhas']]
+    : [['📊 Resultados','resultados'],['📋 Campanhas','campanhas'],['✅ Atividades','atividades'],['⚙️ Parâmetros','parametros']]
   const tabsBar = `<div class="cp-tabs">${TABS.map(([l,k])=>`<div class="cptab${state.tab===k?' active':''}" data-tab="${k}">${l}</div>`).join('')}</div>`
 
   // tab content
@@ -1277,14 +1330,16 @@ function renderClient() {
 
   app.innerHTML = `
     <div class="cp-header">
-      <button class="cp-back" id="cpBack">← Voltar</button>
+      ${SHARED ? '' : `<button class="cp-back" id="cpBack">← Voltar</button>`}
       <div class="cp-client-name">${esc(client)}</div>
       <div class="cp-badges">
         <span class="cp-channel-badge">${isMeta?'📱 Meta Ads':'🔍 Google Ads'}</span>
         ${squadBadge}
       </div>
-      <button class="cp-weekly-btn" id="cpWeekly" title="Gerar mensagem semanal">📋 Mensagem Semanal</button>
-      <button class="cp-share-btn" id="cpShare" title="Copiar link do dashboard">🔗 Link</button>
+      ${SHARED
+        ? `<span style="margin-left:auto;font-size:12px;color:#64748B;font-weight:600">Revenue Lab · somente leitura</span>`
+        : `<button class="cp-weekly-btn" id="cpWeekly" title="Gerar mensagem semanal">📋 Mensagem Semanal</button>
+      <button class="cp-share-btn" id="cpShare" title="Gerar link compartilhável">🔗 Link</button>`}
     </div>
     ${kpiBar}
     ${periodBar}
@@ -1314,7 +1369,8 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   if (state.tab==='campanhas' && ch!=='meta' && state.sub===2) renderGoogleTerms(document.getElementById('termsPanel'), client, period)
 
   // Header
-  document.getElementById('cpBack').onclick = () => {
+  const back = document.getElementById('cpBack')
+  if (back) back.onclick = () => {
     state.openClient=null; state.tab='resultados'; state.sub=0; state.drillCampaign=null; state.drillAdset=null
     state.cPeriod=null; state.campFilter=[]; state.campPanelOpen=false; state.campSearch=''
     render()
@@ -1327,10 +1383,17 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
     renderClient()
   }
   const sh = document.getElementById('cpShare')
-  if (sh) sh.onclick = () => {
-    let url = '/dashboard-teste'
-    try { url = window.top.location.href } catch(e) {}
-    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(()=>{ setStatus('🔗 Link copiado'); setTimeout(()=>setStatus(''),2400) })
+  if (sh) sh.onclick = async () => {
+    const token = supabaseToken()
+    if (!token) { setStatus('Faça login para gerar o link.', true); setTimeout(()=>setStatus(''),3000); return }
+    setStatus('🔗 Gerando link…')
+    try {
+      const r = await fetch(`/api/dash-share-token?cliente=${encodeURIComponent(client)}&canal=${ch}`, { headers: { Authorization: `Bearer ${token}` } })
+      const j = await r.json().catch(()=>({}))
+      if (!r.ok) throw new Error(j.error?.message || ('HTTP '+r.status))
+      setStatus('')
+      openShareModal(client, ch, j.url)
+    } catch (e) { setStatus('❌ '+e.message, true); setTimeout(()=>setStatus(''),4000) }
   }
 
   // Tabs

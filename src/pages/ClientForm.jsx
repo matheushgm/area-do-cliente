@@ -307,8 +307,12 @@ export default function ClientForm() {
 
   // ── Persona handlers ───────────────────────────────────────────────────────
   const updatePersonaAnswer = (key, value) => {
+    // Armazena a string crua enquanto o usuário digita — NÃO converter para array aqui,
+    // pois textToArr() faz .trim() por linha e apagaria os espaços a cada tecla
+    // (impedindo digitar espaço entre palavras). A conversão para array acontece
+    // só no "Avançar"/"Concluir" (textToArr(val) no onClick do botão).
     const next = personas.map((p, i) =>
-      i === activePerIdx ? { ...p, answers: { ...p.answers, [key]: textToArr(value) } } : p
+      i === activePerIdx ? { ...p, answers: { ...p.answers, [key]: value } } : p
     )
     setPersonas(next)
     scheduleSave('personas', { personas: next })
