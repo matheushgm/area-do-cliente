@@ -128,6 +128,51 @@ export function ClickupMapModal({ dashName, currentFolderId, onSave, onClose }) 
 }
 
 // ─── Mensagem semanal (texto editável + copiar) ───────────────────────────────
+// ─── Link compartilhável do cliente ──────────────────────────────────────────
+// Mostra o link público (somente leitura) do dashboard daquele cliente para
+// copiar ou abrir. Substitui o copy-silencioso que parecia "não gerar" o link.
+export function ShareLinkModal({ client, channel, url, onClose, onToast }) {
+  const copy = () => {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => onToast('🔗 Link copiado'))
+        .catch(() => onToast('⚠️ Selecione o link e Ctrl+C'))
+    } else {
+      onToast('⚠️ Selecione o link e Ctrl+C')
+    }
+  }
+
+  return (
+    <div className="weekly-msg-overlay" onClick={onClose}>
+      <div className="weekly-msg-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+        <div className="map-head">
+          <h3>🔗 Link compartilhável — <span>{client}</span></h3>
+          <button className="drawer-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="map-body">
+          <div style={{ fontSize: 11, color: '#64748B', marginBottom: 10 }}>
+            Link público (somente leitura) do dashboard de <b>{channel === 'meta' ? 'Meta Ads' : 'Google Ads'}</b> deste
+            cliente. Quem abrir vê só esta conta, sem precisar de login.
+          </div>
+          <input
+            readOnly
+            value={url}
+            onFocus={e => e.target.select()}
+            spellCheck={false}
+            style={{ width: '100%', padding: '10px 12px', fontSize: 12, color: '#1E293B', background: '#F1F5F9', border: '1px solid #D8E0F0', borderRadius: 8, fontFamily: 'monospace', boxSizing: 'border-box' }}
+          />
+        </div>
+        <div className="map-footer">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="btn" style={{ textDecoration: 'none' }}>🔎 Abrir</a>
+          <button className="btn" style={{ background: '#059669', borderColor: '#059669', color: '#fff' }} onClick={copy}>
+            📋 Copiar link
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function WeeklyMessageModal({ client, periodLabel, initialText, onClose, onToast }) {
   const [text, setText] = useState(initialText)
 

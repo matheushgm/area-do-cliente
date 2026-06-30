@@ -7,7 +7,7 @@ import {
 } from '../../lib/dashboardData'
 import { CplTargetCell, cplActualCls } from '../DashboardTrafego/helpers'
 import ClientPage from '../DashboardTrafego/ClientPage'
-import { PreviewModal, MappingModal, ClickupMapModal, WeeklyMessageModal } from '../DashboardTrafego/Modals'
+import { PreviewModal, MappingModal, ClickupMapModal, WeeklyMessageModal, ShareLinkModal } from '../DashboardTrafego/Modals'
 import '../DashboardTrafego/dashboard.css'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -65,6 +65,7 @@ export default function ProjectTrafficDashboard({ project }) {
   const [mapModal, setMapModal] = useState(null)
   const [cuMapModal, setCuMapModal] = useState(null)
   const [weekly, setWeekly] = useState(null)
+  const [share, setShare] = useState(null)            // { client, channel, url }
   const [toast, setToast] = useState('')
 
   const showToast = useCallback((msg) => {
@@ -156,8 +157,7 @@ export default function ProjectTrafficDashboard({ project }) {
   }
   const shareLink = (client, ch) => {
     const url = `${window.location.origin}/dashboard?cliente=${encodeURIComponent(client)}&canal=${ch}&shared=1`
-    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(() => showToast('🔗 Link copiado')).catch(() => window.prompt('Copie o link:', url))
-    else window.prompt('Copie o link:', url)
+    setShare({ client, channel: ch, url })
   }
 
   // Barra de vínculo de contas — chips das contas do cliente + seletor p/ vincular.
@@ -189,6 +189,7 @@ export default function ProjectTrafficDashboard({ project }) {
       {mapModal && <MappingModal dashName={mapModal} projectsList={projectsList} cplTargets={cplTargets} currentProjectId={accounts[mapModal]?.projectId} onSave={dash.linkProject} onClose={() => setMapModal(null)} />}
       {cuMapModal && <ClickupMapModal dashName={cuMapModal} currentFolderId={accounts[cuMapModal]?.clickupOverride} onSave={dash.setClickupFolder} onClose={() => setCuMapModal(null)} />}
       {weekly && <WeeklyMessageModal client={weekly.client} periodLabel={weekly.periodLabel} initialText={weekly.text} onClose={() => setWeekly(null)} onToast={showToast} />}
+      {share && <ShareLinkModal client={share.client} channel={share.channel} url={share.url} onClose={() => setShare(null)} onToast={showToast} />}
       {toast && <div className="share-toast">{toast}</div>}
     </>
   )

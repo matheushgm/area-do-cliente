@@ -9,7 +9,7 @@ import {
 } from '../lib/dashboardData'
 import ChannelSection from '../components/DashboardTrafego/ChannelSection'
 import ClientPage from '../components/DashboardTrafego/ClientPage'
-import { PreviewModal, MappingModal, ClickupMapModal, WeeklyMessageModal } from '../components/DashboardTrafego/Modals'
+import { PreviewModal, MappingModal, ClickupMapModal, WeeklyMessageModal, ShareLinkModal } from '../components/DashboardTrafego/Modals'
 import '../components/DashboardTrafego/dashboard.css'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -42,6 +42,7 @@ export default function DashboardTrafego() {
   const [mapModal, setMapModal] = useState(null)      // dashName
   const [cuMapModal, setCuMapModal] = useState(null)  // dashName
   const [weekly, setWeekly] = useState(null)          // { client, periodLabel, text }
+  const [share, setShare] = useState(null)            // { client, channel, url }
   const [toast, setToast] = useState('')
 
   const showToast = useCallback((msg) => {
@@ -106,8 +107,9 @@ export default function DashboardTrafego() {
   }
   const shareLink = (client, ch) => {
     const url = `${window.location.origin}/dashboard?cliente=${encodeURIComponent(client)}&canal=${ch}&shared=1`
-    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(() => showToast('🔗 Link copiado')).catch(() => window.prompt('Copie o link:', url))
-    else window.prompt('Copie o link:', url)
+    // Abre um modal com o link visível (copiar / abrir) — antes o copy silencioso
+    // pro clipboard dava a impressão de que nada era gerado.
+    setShare({ client, channel: ch, url })
   }
 
   // Modais compartilhados pelas duas visões (lista e página de cliente).
@@ -117,6 +119,7 @@ export default function DashboardTrafego() {
       {mapModal && <MappingModal dashName={mapModal} projectsList={projectsList} cplTargets={cplTargets} currentProjectId={accounts[mapModal]?.projectId} onSave={dash.linkProject} onClose={() => setMapModal(null)} />}
       {cuMapModal && <ClickupMapModal dashName={cuMapModal} currentFolderId={accounts[cuMapModal]?.clickupOverride} onSave={dash.setClickupFolder} onClose={() => setCuMapModal(null)} />}
       {weekly && <WeeklyMessageModal client={weekly.client} periodLabel={weekly.periodLabel} initialText={weekly.text} onClose={() => setWeekly(null)} onToast={showToast} />}
+      {share && <ShareLinkModal client={share.client} channel={share.channel} url={share.url} onClose={() => setShare(null)} onToast={showToast} />}
       {toast && <div className="share-toast">{toast}</div>}
     </>
   )
