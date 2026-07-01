@@ -118,21 +118,24 @@ function computePlan(d) {
   // Distribuição do crescimento nos meses restantes:
   //   'composto' → mesma % todo mês (curva exponencial, concentra no fim do ano)
   //   'linear'   → mesmo incremento em R$ todo mês (a % cai suavemente, curva mais reta)
-  const distribuicao = d.distribuicao === 'linear' ? 'linear' : 'composto'
+  //   'igual'    → mesma meta em R$ todo mês (restante da meta ÷ meses restantes)
+  const distribuicao = ['linear', 'igual'].includes(d.distribuicao) ? d.distribuicao : 'composto'
   // Passo fixo (R$) do modo linear: soma dos k meses restantes = gap.
-  const stepLinear = (mesesRestantes > 0 && baseFuturo > 0)
+  const stepLinear = mesesRestantes > 0
     ? (gap - mesesRestantes * baseFuturo) / (mesesRestantes * (mesesRestantes + 1) / 2)
     : 0
+  // Meta única (igual) por mês restante.
+  const metaIgual = mesesRestantes > 0 ? gap / mesesRestantes : 0
 
   // Meta de faturamento por mês (12 posições).
   const meta = MONTHS.map((_, i) => {
     if (i < mesesDecorridos) return effReal(i)            // passado → realizado (ou média)
     if (metaBatidaNoRitmo)   return baseFuturo            // já bate a meta → mantém o último mês
-    if (g == null)           return null                  // faltam inputs
+    if (mesesRestantes <= 0 || gap <= 0) return null      // sem meses/gap a planejar
     const n = i - mesesDecorridos + 1                     // posição no futuro (1..k)
-    return distribuicao === 'linear'
-      ? Math.max(0, baseFuturo + n * stepLinear)
-      : baseFuturo * Math.pow(1 + g, n)
+    if (distribuicao === 'igual')  return metaIgual
+    if (distribuicao === 'linear') return Math.max(0, baseFuturo + n * stepLinear)
+    return g == null ? null : baseFuturo * Math.pow(1 + g, n) // composto
   })
 
   const metaFirstFuture = meta[mesesDecorridos] ?? null   // 1º mês de plano (base da verba)
@@ -216,10 +219,11 @@ function buildCSV(data, plan, empresa) {
     ['Taxa SQL → Venda (%)', raw(data.taxaSQLVenda)],
     [],
     ['Indicadores'],
-    ['Distribuição do crescimento', plan.distribuicao === 'linear' ? 'Linear (suavizado)' : 'Composto (fixo)'],
+    ['Distribuição do crescimento', plan.distribuicao === 'linear' ? 'Linear (suavizado)' : plan.distribuicao === 'igual' ? 'Meta única (igual por mês)' : 'Composto (fixo)'],
     ['Média mensal (R$)', round(plan.mediaMensal)],
     ['Projeção mantendo a média (R$)', round(plan.projetadoMedia)],
-    [plan.distribuicao === 'linear' ? 'Crescimento médio/mês (%)' : 'Crescimento necessário/mês (%)', pct(plan.crescimentoRef)],
+    [plan.distribuicao === 'composto' ? 'Crescimento necessário/mês (%)' : 'Crescimento médio/mês (%)', pct(plan.crescimentoRef)],
+    ...(plan.distribuicao === 'igual' ? [['Meta por mês — igual (R$)', round(plan.mesesRestantes > 0 ? plan.gap / plan.mesesRestantes : 0)]] : []),
     ['Gap para a meta (R$)', round(plan.gap)],
     ['Investimento total no plano (R$)', round(plan.totals.investimento)],
     [],
@@ -366,7 +370,9 @@ export default function PlanejamentoMarketingModule({ project }) {
     { label: `Média mensal (${plan.mesesDecorridos} ${plan.mesesDecorridos === 1 ? 'mês' : 'meses'})`, value: fmtBRL(plan.mediaMensal), Icon: Calculator, color: 'text-rl-cyan' },
     { label: 'Meta anual', value: fmtBRL(plan.metaAnual), Icon: Target, color: 'text-rl-green' },
     { label: 'Projeção mantendo a média', value: fmtBRL(plan.projetadoMedia), Icon: LineChart, color: plan.projetadoMedia >= plan.metaAnual && plan.metaAnual > 0 ? 'text-rl-green' : 'text-rl-gold' },
-    { label: plan.distribuicao === 'linear' ? 'Crescimento médio/mês' : 'Crescimento necessário/mês', value: plan.crescimentoRef != null ? fmtPct(plan.crescimentoRef) : '—', Icon: TrendingUp, color: 'text-rl-purple' },
+    plan.distribuicao === 'igual'
+      ? { label: 'Meta por mês (igual)', value: (plan.mesesRestantes > 0 && plan.gap > 0) ? fmtBRL(plan.gap / plan.mesesRestantes) : '—', Icon: TrendingUp, color: 'text-rl-purple' }
+      : { label: plan.distribuicao === 'linear' ? 'Crescimento médio/mês' : 'Crescimento necessário/mês', value: plan.crescimentoRef != null ? fmtPct(plan.crescimentoRef) : '—', Icon: TrendingUp, color: 'text-rl-purple' },
     { label: 'Gap para a meta', value: fmtBRL(plan.gap), Icon: AlertTriangle, color: plan.gap > 0 ? 'text-rl-gold' : 'text-rl-green' },
   ]
 
@@ -455,6 +461,7 @@ export default function PlanejamentoMarketingModule({ project }) {
               {[
                 { k: 'composto', l: 'Composto', t: 'Mesma % todo mês (curva exponencial, concentra no fim do ano)' },
                 { k: 'linear',   l: 'Linear',   t: 'Mesmo incremento em R$ todo mês — a % cai suavemente, curva mais reta' },
+                { k: 'igual',    l: 'Igual',    t: 'Mesma meta em R$ para todos os meses restantes (restante da meta ÷ meses restantes)' },
               ].map(o => (
                 <button key={o.k} type="button" title={o.t} onClick={() => set('distribuicao', o.k)}
                   className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
@@ -467,7 +474,7 @@ export default function PlanejamentoMarketingModule({ project }) {
           </div>
         </div>
         <p className="text-xs text-rl-muted mb-3">
-          Edite o faturamento realizado dos meses passados (campos). No modo <b>Linear</b> a taxa de crescimento varia — sobe menos no fim do ano, distribuindo melhor a meta.
+          Edite o faturamento realizado dos meses passados (campos). <b>Composto</b>: mesma % todo mês · <b>Linear</b>: % cai suave (curva mais reta) · <b>Igual</b>: mesma meta em R$ todo mês.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
