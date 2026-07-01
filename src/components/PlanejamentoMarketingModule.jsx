@@ -19,6 +19,7 @@ const DEFAULT_DATA = {
   taxaMQLSQL:       '',
   taxaSQLVenda:     '',
   realizado:        {},
+  distribuicao:     'composto',
 }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -114,17 +115,27 @@ function computePlan(d) {
   const g = solveMonthlyGrowth(baseFuturo, mesesRestantes, gap)
   const metaBatidaNoRitmo = baseFuturo > 0 && gap <= 0
 
+  // Distribuição do crescimento nos meses restantes:
+  //   'composto' → mesma % todo mês (curva exponencial, concentra no fim do ano)
+  //   'linear'   → mesmo incremento em R$ todo mês (a % cai suavemente, curva mais reta)
+  const distribuicao = d.distribuicao === 'linear' ? 'linear' : 'composto'
+  // Passo fixo (R$) do modo linear: soma dos k meses restantes = gap.
+  const stepLinear = (mesesRestantes > 0 && baseFuturo > 0)
+    ? (gap - mesesRestantes * baseFuturo) / (mesesRestantes * (mesesRestantes + 1) / 2)
+    : 0
+
   // Meta de faturamento por mês (12 posições).
   const meta = MONTHS.map((_, i) => {
     if (i < mesesDecorridos) return effReal(i)            // passado → realizado (ou média)
     if (metaBatidaNoRitmo)   return baseFuturo            // já bate a meta → mantém o último mês
     if (g == null)           return null                  // faltam inputs
     const n = i - mesesDecorridos + 1                     // posição no futuro (1..k)
-    return baseFuturo * Math.pow(1 + g, n)
+    return distribuicao === 'linear'
+      ? Math.max(0, baseFuturo + n * stepLinear)
+      : baseFuturo * Math.pow(1 + g, n)
   })
 
-  // Fator de crescimento efetivo aplicado à verba (espelha o da meta).
-  const fInv = metaBatidaNoRitmo ? 0 : (g ?? 0)
+  const metaFirstFuture = meta[mesesDecorridos] ?? null   // 1º mês de plano (base da verba)
 
   // Funil reverso + investimento e custos por mês (só nos meses de plano).
   const rows = meta.map((m, i) => {
@@ -140,8 +151,9 @@ function computePlan(d) {
     const sqls   = (vendas != null && rSQL  > 0) ? vendas / rSQL : null
     const mqls   = (sqls   != null && rMQL  > 0) ? sqls   / rMQL : null
     const leads  = (mqls   != null && rLead > 0) ? mqls   / rLead : null
-    // Verba do mês vigente (1º mês de plano) crescendo pelo mesmo fator da meta.
-    const investimento = verba > 0 ? verba * Math.pow(1 + fInv, i - mesesDecorridos) : null
+    // Verba acompanha a meta do mês (proporcional ao 1º mês de plano) — mantém o
+    // custo por lead/venda estável em qualquer modo de distribuição.
+    const investimento = (verba > 0 && metaFirstFuture > 0) ? verba * (m / metaFirstFuture) : null
     const cost = (den) => (investimento != null && den != null && den > 0) ? investimento / den : null
     return {
       meta: m, crescimento, vendas, sqls, mqls, leads,
@@ -165,9 +177,18 @@ function computePlan(d) {
   totals.cpsql = blended(totals.sqls)
   totals.cac   = blended(totals.vendas)
 
+  // Crescimento de referência p/ o KPI: no linear é a média (CAGR) do caminho, já que
+  // a taxa varia mês a mês; no composto coincide com `g`.
+  const metaFinal = mesesRestantes > 0 ? meta[11] : null
+  const crescimentoRef = metaBatidaNoRitmo ? 0
+    : (baseFuturo > 0 && mesesRestantes > 0 && metaFinal > 0)
+      ? Math.pow(metaFinal / baseFuturo, 1 / mesesRestantes) - 1
+      : null
+
   return {
     mesesDecorridos, mesesRestantes, mediaMensal, metaAnual, gap,
-    realizadoTotal, baseFuturo, projetadoMedia, g, metaBatidaNoRitmo, rows, totals,
+    realizadoTotal, baseFuturo, projetadoMedia, g, distribuicao, crescimentoRef,
+    metaBatidaNoRitmo, rows, totals,
   }
 }
 
@@ -195,9 +216,10 @@ function buildCSV(data, plan, empresa) {
     ['Taxa SQL → Venda (%)', raw(data.taxaSQLVenda)],
     [],
     ['Indicadores'],
+    ['Distribuição do crescimento', plan.distribuicao === 'linear' ? 'Linear (suavizado)' : 'Composto (fixo)'],
     ['Média mensal (R$)', round(plan.mediaMensal)],
     ['Projeção mantendo a média (R$)', round(plan.projetadoMedia)],
-    ['Crescimento necessário/mês (%)', plan.metaBatidaNoRitmo ? '0' : pct(plan.g)],
+    [plan.distribuicao === 'linear' ? 'Crescimento médio/mês (%)' : 'Crescimento necessário/mês (%)', pct(plan.crescimentoRef)],
     ['Gap para a meta (R$)', round(plan.gap)],
     ['Investimento total no plano (R$)', round(plan.totals.investimento)],
     [],
@@ -344,7 +366,7 @@ export default function PlanejamentoMarketingModule({ project }) {
     { label: `Média mensal (${plan.mesesDecorridos} ${plan.mesesDecorridos === 1 ? 'mês' : 'meses'})`, value: fmtBRL(plan.mediaMensal), Icon: Calculator, color: 'text-rl-cyan' },
     { label: 'Meta anual', value: fmtBRL(plan.metaAnual), Icon: Target, color: 'text-rl-green' },
     { label: 'Projeção mantendo a média', value: fmtBRL(plan.projetadoMedia), Icon: LineChart, color: plan.projetadoMedia >= plan.metaAnual && plan.metaAnual > 0 ? 'text-rl-green' : 'text-rl-gold' },
-    { label: 'Crescimento necessário/mês', value: plan.metaBatidaNoRitmo ? '0%' : (plan.g != null ? fmtPct(plan.g) : '—'), Icon: TrendingUp, color: 'text-rl-purple' },
+    { label: plan.distribuicao === 'linear' ? 'Crescimento médio/mês' : 'Crescimento necessário/mês', value: plan.crescimentoRef != null ? fmtPct(plan.crescimentoRef) : '—', Icon: TrendingUp, color: 'text-rl-purple' },
     { label: 'Gap para a meta', value: fmtBRL(plan.gap), Icon: AlertTriangle, color: plan.gap > 0 ? 'text-rl-gold' : 'text-rl-green' },
   ]
 
@@ -425,12 +447,28 @@ export default function PlanejamentoMarketingModule({ project }) {
 
       {/* Planilha mês a mês */}
       <div className="glass-card p-5">
-        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
           <h3 className="text-sm font-semibold text-rl-text">📅 Plano mês a mês</h3>
-          <p className="text-xs text-rl-muted">
-            Edite o faturamento realizado dos meses passados (campos) — a média, a taxa de crescimento e as metas dos próximos meses se ajustam sozinhas.
-          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-rl-muted">Distribuição:</span>
+            <div className="flex items-center gap-0.5 bg-rl-surface rounded-lg p-0.5 border border-rl-border">
+              {[
+                { k: 'composto', l: 'Composto', t: 'Mesma % todo mês (curva exponencial, concentra no fim do ano)' },
+                { k: 'linear',   l: 'Linear',   t: 'Mesmo incremento em R$ todo mês — a % cai suavemente, curva mais reta' },
+              ].map(o => (
+                <button key={o.k} type="button" title={o.t} onClick={() => set('distribuicao', o.k)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                    (data.distribuicao || 'composto') === o.k ? 'bg-rl-cyan text-white shadow-glow' : 'text-rl-muted hover:text-rl-text'
+                  }`}>
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
+        <p className="text-xs text-rl-muted mb-3">
+          Edite o faturamento realizado dos meses passados (campos). No modo <b>Linear</b> a taxa de crescimento varia — sobe menos no fim do ano, distribuindo melhor a meta.
+        </p>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
