@@ -2,7 +2,9 @@ import { useState, useCallback, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import {
   LineChart, TrendingUp, Calculator, CheckCircle2, DollarSign, Target, Users2, AlertTriangle,
+  Download,
 } from 'lucide-react'
+import { downloadBlob, slugify } from '../lib/htmlToJpg'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
@@ -130,6 +132,46 @@ function computePlan(d) {
   }
 }
 
+// ─── Exportação CSV ─────────────────────────────────────────────────────────────
+// Separador `;` + decimal com vírgula + BOM → abre certinho no Excel pt-BR e no Sheets.
+function buildCSV(data, plan, empresa) {
+  const esc  = (s) => { const v = String(s ?? ''); return /[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v }
+  const round= (n) => (n == null || isNaN(n) || !isFinite(n)) ? '' : String(Math.round(n))
+  const ceil = (n) => (n == null || isNaN(n) || !isFinite(n)) ? '' : String(Math.ceil(n))
+  const pct  = (n) => (n == null || isNaN(n) || !isFinite(n)) ? '' : (n * 100).toFixed(1).replace('.', ',')
+  const raw  = (v) => (v === '' || v == null) ? '' : String(v).replace('.', ',')
+
+  const rows = [
+    ['Planejamento de Marketing', empresa || ''],
+    ['Gerado em', new Date().toLocaleDateString('pt-BR')],
+    [],
+    ['Números-chave'],
+    ['Faturamento até o momento (R$)', round(numVal(data.faturamentoAtual))],
+    ['Meses decorridos', round(numVal(data.mesesDecorridos))],
+    ['Meta anual (R$)', round(numVal(data.metaAnual))],
+    ['Ticket médio (R$)', round(numVal(data.ticketMedio))],
+    ['Taxa Lead → MQL (%)', raw(data.taxaLeadMQL)],
+    ['Taxa MQL → SQL (%)', raw(data.taxaMQLSQL)],
+    ['Taxa SQL → Venda (%)', raw(data.taxaSQLVenda)],
+    [],
+    ['Indicadores'],
+    ['Média mensal (R$)', round(plan.mediaMensal)],
+    ['Projeção mantendo a média (R$)', round(plan.projetadoMedia)],
+    ['Crescimento necessário/mês (%)', plan.metaBatidaNoRitmo ? '0' : pct(plan.g)],
+    ['Gap para a meta (R$)', round(plan.gap)],
+    [],
+    ['Indicador', ...MONTHS, 'Total'],
+    ['Meta de faturamento (R$)', ...plan.rows.map(r => round(r.meta)), round(plan.totals.meta)],
+    ['Crescimento (%)', ...plan.rows.map(r => r.crescimento == null ? '' : pct(r.crescimento)), ''],
+    ['Novas vendas', ...plan.rows.map(r => ceil(r.vendas)), ceil(plan.totals.vendas)],
+    ['SQLs', ...plan.rows.map(r => ceil(r.sqls)), ceil(plan.totals.sqls)],
+    ['MQLs', ...plan.rows.map(r => ceil(r.mqls)), ceil(plan.totals.mqls)],
+    ['Leads', ...plan.rows.map(r => ceil(r.leads)), ceil(plan.totals.leads)],
+  ]
+
+  return '\uFEFF' + rows.map(r => r.map(esc).join(';')).join('\r\n')
+}
+
 // ─── Linha da planilha ──────────────────────────────────────────────────────────
 function SheetRow({ label, cells, total, format, bold, accent, mesesDecorridos }) {
   return (
@@ -197,6 +239,13 @@ export default function PlanejamentoMarketingModule({ project }) {
 
   const plan = useMemo(() => computePlan(data), [data])
 
+  const empresa = project.companyName || project.company_name || ''
+  const handleExportCSV = useCallback(() => {
+    const csv = buildCSV(data, computePlan(data), empresa)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    downloadBlob(blob, `planejamento-marketing-${slugify(empresa) || 'cliente'}.csv`)
+  }, [data, empresa])
+
   const kpis = [
     { label: 'Faturamento até o momento', value: fmtBRL(numVal(data.faturamentoAtual)), Icon: DollarSign, color: 'text-rl-text' },
     { label: `Média mensal (${plan.mesesDecorridos} ${plan.mesesDecorridos === 1 ? 'mês' : 'meses'})`, value: fmtBRL(plan.mediaMensal), Icon: Calculator, color: 'text-rl-cyan' },
@@ -219,11 +268,20 @@ export default function PlanejamentoMarketingModule({ project }) {
             A partir da meta anual, calcula o crescimento necessário e o funil (leads → vendas) mês a mês.
           </p>
         </div>
-        {saved && (
-          <span className="flex items-center gap-1.5 text-xs text-rl-green">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Salvo
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {saved && (
+            <span className="flex items-center gap-1.5 text-xs text-rl-green">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Salvo
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="btn-secondary inline-flex items-center gap-1.5 text-xs px-3 py-2"
+          >
+            <Download className="w-3.5 h-3.5" /> Exportar CSV
+          </button>
+        </div>
       </div>
 
       {/* Configuração */}
