@@ -249,6 +249,9 @@ function assembleProject(row, rel = {}) {
     // Planejamento Anual
     planejamentoAnual: row.planejamento_anual ?? null,
 
+    // Planejamento de Marketing
+    planejamentoMarketing: row.planejamento_marketing ?? null,
+
     // Criação de Promessa
     promessa: row.promessa ?? null,
 
@@ -414,6 +417,7 @@ const PROJECT_FIELD_MAP = {
   nps:                  "nps",
   crmData:              "crm_data",
   planejamentoAnual:    "planejamento_anual",
+  planejamentoMarketing:"planejamento_marketing",
   metaLabBudget:        "meta_lab_budget",
   metaLabAudienceType:  "meta_lab_audience_type",
   promessa:             "promessa",

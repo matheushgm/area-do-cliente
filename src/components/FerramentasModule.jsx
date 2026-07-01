@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import {
   Presentation, FileSignature, Clock, Target, TrendingUp, ChevronLeft, Calculator, Sparkles,
-  ShieldQuestion,
+  ShieldQuestion, LineChart,
 } from 'lucide-react'
 import PromessaModule from './PromessaModule'
 import PlanejamentoAnualModule from './PlanejamentoAnualModule'
+import PlanejamentoMarketingModule from './PlanejamentoMarketingModule'
 import PrecificacaoModule from './Precificacao/PrecificacaoModule'
 import MecanismoUnicoModule from './MecanismoUnico/MecanismoUnicoModule'
 import MatrizObjecaoModule from './MatrizObjecao/MatrizObjecaoModule'
@@ -32,6 +33,15 @@ const TOOLS = [
     Icon: TrendingUp,
     color: 'rl-green',
     Component: PlanejamentoAnualModule,
+  },
+  {
+    id: 'planejamento_marketing',
+    title: 'Planejamento de Marketing',
+    description:
+      'A partir da meta anual, calcula o crescimento necessário mês a mês e o funil reverso (leads → MQLs → SQLs → vendas) para bater a meta.',
+    Icon: LineChart,
+    color: 'rl-cyan',
+    Component: PlanejamentoMarketingModule,
   },
   {
     id: 'precificacao',
