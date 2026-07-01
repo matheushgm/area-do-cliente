@@ -642,6 +642,155 @@ export function exportCampaignPDF(campaignPlan, project) {
   printHTML('Planejamento de Campanhas', project.companyName, body)
 }
 
+// ─── Planejamento de Marketing PDF (paisagem) ───────────────────────────────────
+//
+// Recebe `data` (inputs do formulário) e `plan` (saída de computePlan no módulo) já
+// prontos — não recalcula nada. Gera uma página A4 horizontal com faixa de KPIs e a
+// planilha mês a mês (Meta, Crescimento, funil, investimento e custos).
+const PLANEJAMENTO_MKT_CSS = `
+  @page { size: A4 landscape; margin: 10mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #0F172A; background: #fff; padding: 24px 28px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px solid #164496; padding-bottom: 14px; margin-bottom: 18px; }
+  .logo { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #164496; }
+  .doc-title { font-size: 22px; font-weight: 800; color: #0F172A; margin-top: 2px; }
+  .doc-subtitle { font-size: 13px; color: #64748B; margin-top: 1px; }
+  .doc-meta { text-align: right; font-size: 11px; color: #94A3B8; }
+  .badge { display: inline-block; margin-top: 6px; padding: 3px 10px; border-radius: 99px; background: #E4EBF7; color: #164496; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 18px; }
+  .kpi { background: #F5F8FD; border: 1px solid #D8E0F0; border-radius: 8px; padding: 9px 11px; }
+  .kpi-label { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94A3B8; margin-bottom: 3px; }
+  .kpi-value { font-size: 14px; font-weight: 800; color: #0F172A; line-height: 1.1; }
+  .kpi-value.green { color: #059669; } .kpi-value.purple { color: #164496; } .kpi-value.gold { color: #D97706; } .kpi-value.cyan { color: #0284C7; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+  thead th { background: #EEF2F9; color: #164496; font-size: 10px; font-weight: 700; padding: 7px 6px; text-align: right; border-bottom: 2px solid #D8E0F0; }
+  thead th.rowlabel { text-align: left; width: 128px; }
+  thead th.total { border-left: 1.5px solid #C7D3EA; }
+  tbody th.rowlabel { text-align: left; font-size: 10.5px; font-weight: 600; color: #475569; padding: 6px 8px 6px 2px; }
+  tbody td { padding: 6px 6px; text-align: right; font-variant-numeric: tabular-nums; border-bottom: 1px solid #F1F5F9; color: #0F172A; }
+  tr.strong th.rowlabel, tr.strong td { font-weight: 800; }
+  td.past { color: #94A3B8; background: #FAFBFE; }
+  td.total { border-left: 1.5px solid #C7D3EA; font-weight: 800; }
+  td.green, th.green { color: #059669; } td.purple { color: #164496; } td.gold { color: #D97706; } td.cyan { color: #0284C7; } td.blue { color: #2563EB; }
+  tr.strong { background: #FBFCFE; }
+  .foot { margin-top: 14px; font-size: 10px; color: #94A3B8; line-height: 1.5; }
+  .print-btn { position: fixed; bottom: 20px; right: 20px; background: #164496; color: #fff; border: none; border-radius: 10px; padding: 12px 22px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(22,68,150,0.35); }
+  .print-btn:hover { background: #0F3380; }
+  @media print { .print-btn { display: none !important; } body { padding: 0; } thead th, td.past, tr.strong { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+`
+
+export function exportPlanejamentoMarketingPDF(data, plan, project) {
+  const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  const empresa = project?.companyName || project?.company_name || project?.nome || 'Cliente'
+  const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+
+  const money = (n) => (n == null || !isFinite(n) || isNaN(n)) ? '—'
+    : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  const pctv = (n) => (n == null || !isFinite(n) || isNaN(n)) ? '—' : `${(n * 100).toFixed(1).replace('.', ',')}%`
+  const numv = (n) => (n == null || !isFinite(n) || isNaN(n)) ? '—' : Math.ceil(n).toLocaleString('pt-BR')
+
+  const distLabel = plan.distribuicao === 'linear' ? 'Distribuição: Linear'
+    : plan.distribuicao === 'igual' ? 'Distribuição: Igual' : 'Distribuição: Composto'
+
+  const crescIgual = plan.distribuicao === 'igual'
+  const crescLabel = crescIgual ? 'Meta por mês (igual)'
+    : plan.distribuicao === 'linear' ? 'Crescimento médio/mês' : 'Crescimento necessário/mês'
+  const crescValue = crescIgual
+    ? ((plan.mesesRestantes > 0 && plan.gap > 0) ? money(plan.gap / plan.mesesRestantes) : '—')
+    : (plan.crescimentoRef != null ? pctv(plan.crescimentoRef) : '—')
+
+  const kpis = [
+    { label: 'Faturamento até agora', value: money(plan.realizadoTotal), cls: '' },
+    { label: `Média mensal (${plan.mesesDecorridos})`, value: money(plan.mediaMensal), cls: 'cyan' },
+    { label: 'Meta anual', value: money(plan.metaAnual), cls: 'green' },
+    { label: 'Projeção mantendo média', value: money(plan.projetadoMedia), cls: 'gold' },
+    { label: crescLabel, value: crescValue, cls: 'purple' },
+    { label: 'Gap para a meta', value: money(plan.gap), cls: 'gold' },
+  ]
+
+  const rowsCfg = [
+    { label: 'Meta de faturamento', get: (r) => r.meta,         fmt: money, tk: 'meta',         strong: true, cls: 'green' },
+    { label: 'Crescimento',         get: (r) => r.crescimento,  fmt: pctv,  tk: null,           cls: 'purple' },
+    { label: 'Novas vendas',        get: (r) => r.vendas,       fmt: numv,  tk: 'vendas',       cls: '' },
+    { label: 'SQLs',                get: (r) => r.sqls,         fmt: numv,  tk: 'sqls',         cls: 'cyan' },
+    { label: 'MQLs',                get: (r) => r.mqls,         fmt: numv,  tk: 'mqls',         cls: 'purple' },
+    { label: 'Leads',               get: (r) => r.leads,        fmt: numv,  tk: 'leads',        cls: 'blue' },
+    { label: 'Investimento em mídia', get: (r) => r.investimento, fmt: money, tk: 'investimento', strong: true, cls: 'gold' },
+    { label: 'CPL',                 get: (r) => r.cpl,          fmt: money, tk: 'cpl',          cls: '' },
+    { label: 'CPMql',               get: (r) => r.cpmql,        fmt: money, tk: 'cpmql',        cls: 'purple' },
+    { label: 'CPSql',               get: (r) => r.cpsql,        fmt: money, tk: 'cpsql',        cls: 'cyan' },
+    { label: 'CAC',                 get: (r) => r.cac,          fmt: money, tk: 'cac',          cls: 'green' },
+  ]
+
+  const headCols = MESES.map((m, i) => `<th class="${i < plan.mesesDecorridos ? 'past' : ''}">${m}</th>`).join('')
+  const bodyRows = rowsCfg.map((rc) => {
+    const tds = plan.rows.map((r, i) => {
+      const past = i < plan.mesesDecorridos
+      return `<td class="${past ? 'past' : ''} ${rc.cls}">${rc.fmt(rc.get(r))}</td>`
+    }).join('')
+    const totalVal = rc.tk ? rc.fmt(plan.totals[rc.tk]) : ''
+    return `<tr class="${rc.strong ? 'strong' : ''}">
+      <th scope="row" class="rowlabel">${esc(rc.label)}</th>
+      ${tds}
+      <td class="total ${rc.cls}">${totalVal}</td>
+    </tr>`
+  }).join('')
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Planejamento de Marketing — ${esc(empresa)}</title>
+  <style>${PLANEJAMENTO_MKT_CSS}</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="logo">Revenue Lab · Internal</div>
+      <div class="doc-title">Planejamento de Marketing</div>
+      <div class="doc-subtitle">${esc(empresa)}</div>
+    </div>
+    <div class="doc-meta">
+      Gerado em ${today}
+      <div class="badge">${esc(distLabel)}</div>
+    </div>
+  </div>
+
+  <div class="kpis">
+    ${kpis.map((k) => `<div class="kpi"><div class="kpi-label">${esc(k.label)}</div><div class="kpi-value ${k.cls}">${k.value}</div></div>`).join('')}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="rowlabel">Indicador</th>
+        ${headCols}
+        <th class="total">Total</th>
+      </tr>
+    </thead>
+    <tbody>${bodyRows}</tbody>
+  </table>
+
+  <p class="foot">
+    Meses já decorridos exibem o faturamento realizado (fundo cinza); os demais, o plano necessário para bater a meta anual.
+    Funil reverso: Meta ÷ ticket = vendas · ÷ taxa SQL→venda = SQLs · ÷ taxa MQL→SQL = MQLs · ÷ taxa Lead→MQL = Leads.
+    CPL/CPMql/CPSql/CAC = investimento do mês ÷ leads/MQLs/SQLs/vendas (coluna Total = custo médio ponderado).
+  </p>
+
+  <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>
+</body>
+</html>`
+
+  const win = window.open('', '_blank', 'width=1200,height=800')
+  if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
+  win.document.write(html)
+  win.document.close()
+}
+
 // ─── Estratégia Digital PDF ────────────────────────────────────────────────────
 
 const STRATEGY_CSS = `

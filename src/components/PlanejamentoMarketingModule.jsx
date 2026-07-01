@@ -2,9 +2,10 @@ import { useState, useCallback, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import {
   LineChart, TrendingUp, Calculator, CheckCircle2, DollarSign, Target, Users2, AlertTriangle,
-  Download,
+  Download, FileDown,
 } from 'lucide-react'
 import { downloadBlob, slugify } from '../lib/htmlToJpg'
+import { exportPlanejamentoMarketingPDF } from '../utils/exportPDF'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
@@ -365,6 +366,10 @@ export default function PlanejamentoMarketingModule({ project }) {
     downloadBlob(blob, `planejamento-marketing-${slugify(empresa) || 'cliente'}.csv`)
   }, [data, empresa])
 
+  const handleExportPDF = useCallback(() => {
+    exportPlanejamentoMarketingPDF(data, computePlan(data), project)
+  }, [data, project])
+
   const kpis = [
     { label: 'Faturamento até o momento', value: fmtBRL(plan.realizadoTotal), Icon: DollarSign, color: 'text-rl-text' },
     { label: `Média mensal (${plan.mesesDecorridos} ${plan.mesesDecorridos === 1 ? 'mês' : 'meses'})`, value: fmtBRL(plan.mediaMensal), Icon: Calculator, color: 'text-rl-cyan' },
@@ -401,6 +406,13 @@ export default function PlanejamentoMarketingModule({ project }) {
             className="btn-secondary inline-flex items-center gap-1.5 text-xs px-3 py-2"
           >
             <Download className="w-3.5 h-3.5" /> Exportar CSV
+          </button>
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            className="btn-secondary inline-flex items-center gap-1.5 text-xs px-3 py-2"
+          >
+            <FileDown className="w-3.5 h-3.5" /> Baixar PDF
           </button>
         </div>
       </div>
