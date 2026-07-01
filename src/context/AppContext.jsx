@@ -62,6 +62,28 @@ function enrichUser(authUser) {
   };
 }
 
+// ─── Normaliza `answers` de persona para { [id]: string[] } ────────────────────
+// O PersonaCreator assume que cada resposta é um array de strings. Dados colados/
+// importados podem chegar como string (texto com \n) — coagimos para array pra não
+// quebrar o render (`.map`/`.some` de string derruba o módulo inteiro).
+function normalizePersonaAnswers(answers) {
+  if (!answers || typeof answers !== "object") return {};
+  const out = {};
+  for (const [key, value] of Object.entries(answers)) {
+    if (Array.isArray(value)) {
+      out[key] = value;
+    } else if (typeof value === "string") {
+      const parts = value.split("\n").map((s) => s.trim()).filter(Boolean);
+      out[key] = parts.length ? parts : [""];
+    } else if (value == null) {
+      out[key] = [""];
+    } else {
+      out[key] = [String(value)];
+    }
+  }
+  return out;
+}
+
 // ─── Monta objeto de projeto em memória a partir da row + relações ─────────────
 // Expõe TANTO snake_case (DB) quanto camelCase (compat com componentes existentes)
 function assembleProject(row, rel = {}) {
@@ -130,9 +152,13 @@ function assembleProject(row, rel = {}) {
     progress,
 
     // ── Relações ────────────────────────────────────────────────────────────
-    // Personas: mapear generated_content (DB) → generatedProfile (componente)
+    // Personas: mapear generated_content (DB) → generatedProfile (componente).
+    // Normalizar `answers`: o PersonaCreator espera { [id]: string[] }, mas dados
+    // importados/colados podem vir com valores string (texto com \n). Sem isso o
+    // render quebra (`.map`/`.some` de string) e o módulo não carrega.
     personas: personas.map((p) => ({
       ...p,
+      answers: normalizePersonaAnswers(p.answers),
       generatedProfile: p.generated_content ?? null,
     })),
 
