@@ -14,6 +14,7 @@ const DEFAULT_DATA = {
   mesesDecorridos:  '',
   metaAnual:        '',
   ticketMedio:      '',
+  verbaMidia:       '',
   taxaLeadMQL:      '',
   taxaMQLSQL:       '',
   taxaSQLVenda:     '',
@@ -81,6 +82,7 @@ function computePlan(d) {
   const mesesDecorridos  = Math.min(12, Math.max(0, Math.round(numVal(d.mesesDecorridos))))
   const metaAnual        = numVal(d.metaAnual)
   const ticket           = numVal(d.ticketMedio)
+  const verba            = numVal(d.verbaMidia)
   const rLead            = numVal(d.taxaLeadMQL)  / 100
   const rMQL             = numVal(d.taxaMQLSQL)   / 100
   const rSQL             = numVal(d.taxaSQLVenda) / 100
@@ -103,28 +105,45 @@ function computePlan(d) {
     return mediaMensal * Math.pow(1 + g, n)
   })
 
-  // Funil reverso por mês (só nos meses de plano).
+  // Fator de crescimento efetivo aplicado à verba (espelha o da meta).
+  const fInv = metaBatidaNoRitmo ? 0 : (g ?? 0)
+
+  // Funil reverso + investimento e custos por mês (só nos meses de plano).
   const rows = meta.map((m, i) => {
     const isFuture = i >= mesesDecorridos
     if (!isFuture || m == null) {
-      return { meta: m, crescimento: null, vendas: null, sqls: null, mqls: null, leads: null }
+      return { meta: m, crescimento: null, vendas: null, sqls: null, mqls: null, leads: null,
+               investimento: null, cpl: null, cpmql: null, cpsql: null, cac: null }
     }
     const vendas = ticket > 0 ? m / ticket : null
     const sqls   = (vendas != null && rSQL  > 0) ? vendas / rSQL : null
     const mqls   = (sqls   != null && rMQL  > 0) ? sqls   / rMQL : null
     const leads  = (mqls   != null && rLead > 0) ? mqls   / rLead : null
     const crescimento = metaBatidaNoRitmo ? 0 : g
-    return { meta: m, crescimento, vendas, sqls, mqls, leads }
+    // Verba do mês vigente (1º mês de plano) crescendo pelo mesmo fator da meta.
+    const investimento = verba > 0 ? verba * Math.pow(1 + fInv, i - mesesDecorridos) : null
+    const cost = (den) => (investimento != null && den != null && den > 0) ? investimento / den : null
+    return {
+      meta: m, crescimento, vendas, sqls, mqls, leads,
+      investimento, cpl: cost(leads), cpmql: cost(mqls), cpsql: cost(sqls), cac: cost(vendas),
+    }
   })
 
   const sum = (sel) => rows.reduce((s, r) => s + (sel(r) || 0), 0)
   const totals = {
-    meta:   sum(r => r.meta),
-    vendas: sum(r => r.vendas),
-    sqls:   sum(r => r.sqls),
-    mqls:   sum(r => r.mqls),
-    leads:  sum(r => r.leads),
+    meta:         sum(r => r.meta),
+    vendas:       sum(r => r.vendas),
+    sqls:         sum(r => r.sqls),
+    mqls:         sum(r => r.mqls),
+    leads:        sum(r => r.leads),
+    investimento: sum(r => r.investimento),
   }
+  // Custos totais = investimento total ÷ volume total (blended, não soma de custos).
+  const blended = (den) => den > 0 ? totals.investimento / den : null
+  totals.cpl   = blended(totals.leads)
+  totals.cpmql = blended(totals.mqls)
+  totals.cpsql = blended(totals.sqls)
+  totals.cac   = blended(totals.vendas)
 
   return {
     mesesDecorridos, mesesRestantes, mediaMensal, metaAnual, gap,
@@ -150,6 +169,7 @@ function buildCSV(data, plan, empresa) {
     ['Meses decorridos', round(numVal(data.mesesDecorridos))],
     ['Meta anual (R$)', round(numVal(data.metaAnual))],
     ['Ticket médio (R$)', round(numVal(data.ticketMedio))],
+    ['Verba de mídia — mês vigente (R$)', round(numVal(data.verbaMidia))],
     ['Taxa Lead → MQL (%)', raw(data.taxaLeadMQL)],
     ['Taxa MQL → SQL (%)', raw(data.taxaMQLSQL)],
     ['Taxa SQL → Venda (%)', raw(data.taxaSQLVenda)],
@@ -159,6 +179,7 @@ function buildCSV(data, plan, empresa) {
     ['Projeção mantendo a média (R$)', round(plan.projetadoMedia)],
     ['Crescimento necessário/mês (%)', plan.metaBatidaNoRitmo ? '0' : pct(plan.g)],
     ['Gap para a meta (R$)', round(plan.gap)],
+    ['Investimento total no plano (R$)', round(plan.totals.investimento)],
     [],
     ['Indicador', ...MONTHS, 'Total'],
     ['Meta de faturamento (R$)', ...plan.rows.map(r => round(r.meta)), round(plan.totals.meta)],
@@ -167,6 +188,11 @@ function buildCSV(data, plan, empresa) {
     ['SQLs', ...plan.rows.map(r => ceil(r.sqls)), ceil(plan.totals.sqls)],
     ['MQLs', ...plan.rows.map(r => ceil(r.mqls)), ceil(plan.totals.mqls)],
     ['Leads', ...plan.rows.map(r => ceil(r.leads)), ceil(plan.totals.leads)],
+    ['Investimento em mídia (R$)', ...plan.rows.map(r => round(r.investimento)), round(plan.totals.investimento)],
+    ['CPL (R$)', ...plan.rows.map(r => round(r.cpl)), round(plan.totals.cpl)],
+    ['CPMql (R$)', ...plan.rows.map(r => round(r.cpmql)), round(plan.totals.cpmql)],
+    ['CPSql (R$)', ...plan.rows.map(r => round(r.cpsql)), round(plan.totals.cpsql)],
+    ['CAC (R$)', ...plan.rows.map(r => round(r.cac)), round(plan.totals.cac)],
   ]
 
   return '\uFEFF' + rows.map(r => r.map(esc).join(';')).join('\r\n')
@@ -296,6 +322,9 @@ export default function PlanejamentoMarketingModule({ project }) {
             hint="Quanto quer faturar no ano todo" onChange={e => set('metaAnual', e.target.value)} />
           <NumField label="Ticket médio" value={data.ticketMedio} prefix="R$"
             hint="Valor médio por venda" onChange={e => set('ticketMedio', e.target.value)} />
+          <NumField label="Verba de mídia (mês vigente)" value={data.verbaMidia} prefix="R$"
+            hint={`Investimento em ${MONTHS[plan.mesesDecorridos] || 'no mês atual'} — cresce junto com a meta`}
+            onChange={e => set('verbaMidia', e.target.value)} />
           <NumField label="Taxa Lead → MQL" value={data.taxaLeadMQL} suffix="%"
             onChange={e => set('taxaLeadMQL', e.target.value)} />
           <NumField label="Taxa MQL → SQL" value={data.taxaMQLSQL} suffix="%"
@@ -361,12 +390,24 @@ export default function PlanejamentoMarketingModule({ project }) {
                 cells={plan.rows.map(r => r.mqls)} total={plan.totals.mqls} format={fmtNum} accent="text-rl-purple" />
               <SheetRow label="Leads" mesesDecorridos={plan.mesesDecorridos}
                 cells={plan.rows.map(r => r.leads)} total={plan.totals.leads} format={fmtNum} accent="text-rl-blue" />
+              <SheetRow label="Investimento em mídia" mesesDecorridos={plan.mesesDecorridos}
+                cells={plan.rows.map(r => r.investimento)} total={plan.totals.investimento}
+                format={fmtBRL} bold accent="text-rl-gold" />
+              <SheetRow label="CPL" mesesDecorridos={plan.mesesDecorridos}
+                cells={plan.rows.map(r => r.cpl)} total={plan.totals.cpl} format={fmtBRL} accent="text-rl-blue" />
+              <SheetRow label="CPMql" mesesDecorridos={plan.mesesDecorridos}
+                cells={plan.rows.map(r => r.cpmql)} total={plan.totals.cpmql} format={fmtBRL} accent="text-rl-purple" />
+              <SheetRow label="CPSql" mesesDecorridos={plan.mesesDecorridos}
+                cells={plan.rows.map(r => r.cpsql)} total={plan.totals.cpsql} format={fmtBRL} accent="text-rl-cyan" />
+              <SheetRow label="CAC" mesesDecorridos={plan.mesesDecorridos}
+                cells={plan.rows.map(r => r.cac)} total={plan.totals.cac} format={fmtBRL} accent="text-rl-green" />
             </tbody>
           </table>
         </div>
         <p className="text-[11px] text-rl-muted mt-3 flex items-center gap-1.5">
           <Users2 className="w-3 h-3 shrink-0" />
           Funil reverso: Meta ÷ ticket = vendas · vendas ÷ taxa SQL→venda = SQLs · SQLs ÷ taxa MQL→SQL = MQLs · MQLs ÷ taxa Lead→MQL = Leads.
+          A verba cresce no mesmo ritmo da meta; CPL/CPMql/CPSql/CAC = investimento do mês ÷ leads/MQLs/SQLs/vendas (a coluna Total usa o custo médio ponderado).
         </p>
       </div>
     </div>
