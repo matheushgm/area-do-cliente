@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Calculator, Plus, Briefcase, Package } from 'lucide-react'
+import { Calculator, Plus, Briefcase, Package, Link2, Check } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
 import Toast from '../UI/Toast'
@@ -15,11 +15,31 @@ export default function PrecificacaoModule({ project }) {
   const persisted = project.precificacao || EMPTY
   const [tab, setTab] = useState('servicos')          // 'servicos' | 'produtos'
   const [editingItem, setEditingItem] = useState(null) // item ou {} (novo) ou null (fechado)
+  const [copied, setCopied] = useState(false)
 
   const items = persisted[tab] || []
 
   function persist(next) {
     updateProject(project.id, { precificacao: next })
+  }
+
+  // Token de compartilhamento — mesmo client_share_token usado por CRM/B2C/B2B/Matriz
+  function getOrCreateShareToken() {
+    if (project.clientShareToken) return project.clientShareToken
+    const token = crypto.randomUUID()
+    updateProject(project.id, { clientShareToken: token })
+    return token
+  }
+
+  function handleShare() {
+    const token = getOrCreateShareToken()
+    if (!token) return
+    const url = `${window.location.origin}/precificacao/${token}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+      showToast('Link copiado pro clipboard!')
+    }).catch(() => showToast('Link: ' + url))
   }
 
   function handleSaveItem(item) {
@@ -43,16 +63,30 @@ export default function PrecificacaoModule({ project }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 flex-wrap">
         <div className="w-11 h-11 rounded-xl bg-rl-gold/10 flex items-center justify-center shrink-0">
           <Calculator className="w-5 h-5 text-rl-gold" />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h2 className="text-xl font-black text-rl-text leading-tight">Precificação</h2>
           <p className="text-sm text-rl-subtle mt-0.5">
-            Calcule o preço de venda correto de cada produto/serviço considerando custos, impostos e a margem que o cliente quer ganhar de fato.
+            Calcule o preço de venda correto de cada produto/serviço considerando custos, impostos e a margem que o cliente quer ganhar de fato. Você pode compartilhar um link pro próprio cliente preencher.
           </p>
         </div>
+        <button
+          onClick={handleShare}
+          className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border transition-all shrink-0 ${
+            copied
+              ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
+              : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-gold hover:border-rl-gold/30'
+          }`}
+          title="Cria/copia o link pro cliente preencher a precificação"
+        >
+          {copied
+            ? <><Check className="w-4 h-4" /> Link copiado!</>
+            : <><Link2 className="w-4 h-4" /> Compartilhar com cliente</>
+          }
+        </button>
       </div>
 
       {/* Tabs */}
