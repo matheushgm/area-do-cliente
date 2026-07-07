@@ -6,7 +6,7 @@ import {
   Plus, Layers, TrendingDown,
   LogOut, Cloud, CloudOff, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare, BarChart3, DollarSign,
-  Sun, Moon, Clapperboard,
+  Sun, Moon, Clapperboard, Timer,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -16,6 +16,7 @@ const NAV_ITEMS = [
 
 const NAV_LINKS = [
   { id: 'tarefas',   label: 'Tarefas',           Icon: CheckSquare,  type: 'route',    to: '/tarefas' },
+  { id: 'atividades',label: 'Atividades 15min',  Icon: Timer,        type: 'route',    to: '/atividades-15min' },
   { id: 'roteiros',  label: 'Roteiros Express',  Icon: Clapperboard, type: 'route',    to: '/roteiros-express' },
   { id: 'chat',      label: 'Chat',              Icon: MessageSquare,type: 'route',    to: '/chat' },
   { id: 'banco',     label: 'Banco de Anúncios', Icon: Library,      type: 'route',    to: '/banco-de-anuncios' },

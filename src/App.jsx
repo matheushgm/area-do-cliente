@@ -25,6 +25,7 @@ import RoteirosExpress from './pages/RoteirosExpress'
 import RoteirosExpressPublico from './pages/RoteirosExpressPublico'
 import DashboardTrafego from './pages/DashboardTrafego'
 import DashboardApiTeste from './pages/DashboardApiTeste'
+import Atividades15min from './pages/Atividades15min'
 import NotificationCenter from './components/NotificationCenter'
 
 function RequireAuth({ children }) {
@@ -79,6 +80,7 @@ function AppRoutes() {
         <Route path="/funil" element={<RequireAuth><FunilCanvas /></RequireAuth>} />
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
         <Route path="/tarefas" element={<RequireAuth><Tasks /></RequireAuth>} />
+        <Route path="/atividades-15min" element={<RequireAuth><Atividades15min /></RequireAuth>} />
         <Route path="/roteiros-express" element={<RequireAuth><RoteirosExpress /></RequireAuth>} />
         <Route path="/roteiros/:token" element={<RoteirosExpressPublico />} />
         <Route path="/chat" element={<RequireAuth><Chat /></RequireAuth>} />
