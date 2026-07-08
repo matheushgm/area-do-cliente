@@ -16,6 +16,37 @@ const MAX_BLOCOS = 8
 const NIVEIS_LABEL =
   'Cada tipo gera 5 peças, uma por nível de consciência: inconsciente do problema, consciente do problema, da solução, do produto e totalmente consciente.'
 
+// Divide o output da IA em peças individuais (um roteiro / um bloco de dor por
+// card). Usa o separador "---" (que as prompts pedem); se não houver, cai nos
+// cabeçalhos ## ROTEIRO / ## ANÚNCIO / # DOR.
+function splitAds(content) {
+  const text = (content || '').replace(/\r/g, '').trim()
+  if (!text) return []
+  let parts = text.split(/\n\s*---\s*\n/).map((s) => s.trim()).filter(Boolean)
+  if (parts.length <= 1) {
+    parts = text.split(/(?=^#{1,3}\s+(?:ROTEIRO|AN[ÚU]NCIO|DOR)\b)/im).map((s) => s.trim()).filter(Boolean)
+  }
+  return parts
+}
+
+// Renderiza cada peça em seu próprio card, bem separada das outras.
+function ResultCards({ content }) {
+  const ads = splitAds(content)
+  if (!ads.length) return null
+  return (
+    <div className="space-y-3">
+      {ads.map((ad, i) => (
+        <div key={i} className="glass-card p-5 sm:p-6 relative">
+          <span className="absolute -top-2 left-4 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-purple text-white shadow-sm">
+            {i + 1}
+          </span>
+          <MarkdownBlock content={ad} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function CriativosPublico() {
   const { projectId, token } = useParams()
 
@@ -311,7 +342,7 @@ export default function CriativosPublico() {
                   <Copy className="w-3.5 h-3.5" /> Copiar
                 </button>
               </div>
-              <div className="glass-card p-5 sm:p-6"><MarkdownBlock content={viewing.content || ''} /></div>
+              <ResultCards content={viewing.content || ''} />
             </div>
           ) : history.length === 0 ? (
             <div className="glass-card p-8 text-center">
@@ -348,10 +379,9 @@ export default function CriativosPublico() {
               <Loader2 className="w-5 h-5 animate-spin" />
               <span className="text-sm font-bold">Criando seus anúncios...</span>
             </div>
-            {result
-              ? <MarkdownBlock content={result} />
-              : <p className="text-sm text-rl-muted">Analisando os dados da sua marca e escrevendo um criativo para cada nível de consciência. Isso leva alguns segundos.</p>}
+            {!result && <p className="text-sm text-rl-muted">Analisando os dados da sua marca e escrevendo um criativo para cada nível de consciência. Isso leva alguns segundos.</p>}
           </div>
+          {result && <div className="mt-3"><ResultCards content={result} /></div>}
         </div>
       </Shell>
     )
@@ -399,9 +429,7 @@ export default function CriativosPublico() {
             </button>
           </div>
 
-          <div className="glass-card p-5 sm:p-6">
-            <MarkdownBlock content={result} />
-          </div>
+          <ResultCards content={result} />
         </div>
       </Shell>
     )
