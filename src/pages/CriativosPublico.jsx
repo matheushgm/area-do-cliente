@@ -4,8 +4,8 @@ import MarkdownBlock from '../components/Criativos/MarkdownBlock'
 import { AD_TYPES, postCriativo, streamCriativo } from '../lib/criativosPublic'
 import { FUNIS } from '../lib/funis'
 import {
-  Sparkles, Loader2, AlertTriangle, Lock, ArrowLeft, Image as ImageIcon, Video,
-  CheckCircle2, RotateCcw, Copy, Check, Plus, X, ChevronLeft, Wand2, Layers, Filter,
+  Sparkles, Loader2, AlertTriangle, Lock, ArrowLeft, ArrowRight, Image as ImageIcon, Video,
+  CheckCircle2, RotateCcw, Copy, Check, Plus, X, ChevronLeft, Wand2, Layers,
 } from 'lucide-react'
 
 // Cada tipo de criativo gera 1 peça por nível de consciência (Eugene Schwartz).
@@ -29,6 +29,7 @@ export default function CriativosPublico() {
   const [busy, setBusy] = useState(false)
 
   const [mode, setMode] = useState(null) // 'estatico' | 'video'
+  const [stepIdx, setStepIdx] = useState(0) // passo do wizard de config
   const [selectedProduct, setSelectedProduct] = useState('') // id do produto (opcional)
   const [selectedPersona, setSelectedPersona] = useState('') // id da persona (opcional)
   const [funil, setFunil] = useState('') // id do funil escolhido
@@ -62,6 +63,14 @@ export default function CriativosPublico() {
     if (personaName) parsed = parsed.filter((d) => d.personaName === personaName)
     return [...parsed, ...customDores.map((d) => ({ ...d, isCustom: true }))]
   }, [ctx, customDores, personaName])
+
+  // Passos do wizard de configuração. O passo "foco" (produto/persona) só existe
+  // se o cliente tiver produtos ou personas cadastrados.
+  const steps = useMemo(() => {
+    const hasFoco = (ctx?.produtos?.length || 0) > 0 || (ctx?.personas?.length || 0) > 0
+    return [...(hasFoco ? ['foco'] : []), 'funil', 'tipo', 'obs']
+  }, [ctx])
+  const step = steps[Math.min(stepIdx, steps.length - 1)]
 
   // ── Login (email + senha) ───────────────────────────────────────────────────
   async function login() {
@@ -169,7 +178,24 @@ export default function CriativosPublico() {
   }
 
   function resetConfig() {
-    setAdTypeConfig({}); setDorConfig({}); setCustomDores([]); setAddingDor(false); setNewDorText(''); setFunil(''); setDetalhes(''); setSelectedProduct(''); setSelectedPersona('')
+    setAdTypeConfig({}); setDorConfig({}); setCustomDores([]); setAddingDor(false); setNewDorText(''); setFunil(''); setDetalhes(''); setSelectedProduct(''); setSelectedPersona(''); setStepIdx(0)
+  }
+
+  // Pode avançar do passo atual?
+  function canAdvance(s) {
+    if (s === 'funil') return !!funil
+    if (s === 'tipo') return blocos > 0 && !excedeu
+    return true // 'foco' e 'obs' são livres
+  }
+  function nextStep() {
+    if (!canAdvance(step)) return
+    setError(null)
+    setStepIdx((i) => Math.min(i + 1, steps.length - 1))
+  }
+  function prevStep() {
+    setError(null)
+    if (stepIdx === 0) { setMode(null); setStatus('select'); return }
+    setStepIdx((i) => Math.max(i - 1, 0))
   }
 
   // ══ RENDER ════════════════════════════════════════════════════════════════
@@ -381,33 +407,37 @@ export default function CriativosPublico() {
     )
   }
 
-  // ── Config ────────────────────────────────────────────────────────────────
+  // ── Config (wizard passo a passo) ───────────────────────────────────────────
+  const stepTitle = {
+    foco: 'Para quem é este anúncio?',
+    funil: 'Em que funil vai rodar?',
+    tipo: isVideo ? 'Escolha o tipo de mensagem' : 'Escolha as dores e o ângulo',
+    obs: 'Alguma observação?',
+  }[step]
+  const isLast = step === 'obs'
+
   return (
     <Shell subtitle={ctx?.companyName}>
       <div className="w-full max-w-2xl space-y-5">
-        <div className="flex items-start gap-3">
-          <button onClick={() => { setMode(null); setError(null); setStatus('select') }}
-            className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all mt-0.5 shrink-0">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              {isVideo ? <Video className="w-5 h-5 text-rl-purple" /> : <ImageIcon className="w-5 h-5 text-rl-blue" />}
-              <h1 className="text-xl font-bold text-rl-text">{isVideo ? 'Roteiro de Vídeo' : 'Anúncio Estático'}</h1>
-            </div>
-            <p className="text-sm text-rl-muted mt-0.5 ml-7">
-              {isVideo ? 'Escolha os tipos de gancho.' : 'Escolha as dores do seu cliente e o ângulo de cada anúncio.'}
-            </p>
+        {/* Cabeçalho + progresso */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            {isVideo ? <Video className="w-4 h-4 text-rl-purple" /> : <ImageIcon className="w-4 h-4 text-rl-blue" />}
+            <span className="text-[11px] font-bold uppercase tracking-wider text-rl-muted">{isVideo ? 'Roteiro de Vídeo' : 'Anúncio Estático'}</span>
+            <span className="ml-auto text-[11px] font-semibold text-rl-muted tabular-nums">Passo {stepIdx + 1} de {steps.length}</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-rl-surface overflow-hidden">
+            <div className="h-full bg-gradient-rl rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${((stepIdx + 1) / steps.length) * 100}%` }} />
           </div>
         </div>
 
-        {/* Foco: produto e/ou persona (opcional) */}
-        {((ctx?.produtos?.length || 0) > 0 || (ctx?.personas?.length || 0) > 0) && (
-          <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-sm">🎯</span>
-              <label className="text-sm font-bold text-rl-text">Foco deste anúncio <span className="text-rl-muted font-normal">(opcional)</span></label>
-            </div>
+        <h1 className="text-2xl font-bold text-rl-text">{stepTitle}</h1>
+
+        {/* ── Passo: foco (produto/persona) ────────────────────────────────── */}
+        {step === 'foco' && (
+          <div className="space-y-3">
+            <p className="text-sm text-rl-muted">Escolha um produto e/ou uma persona pra IA focar. Deixe em “Todos” pra considerar o cliente inteiro.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {(ctx?.produtos?.length || 0) > 0 && (
                 <div>
@@ -432,163 +462,169 @@ export default function CriativosPublico() {
               )}
             </div>
             {!isVideo && personaName && (
-              <p className="text-[11px] text-rl-blue leading-snug">As dores abaixo são só da persona <strong>{personaName}</strong>.</p>
+              <p className="text-[11px] text-rl-blue leading-snug">As dores no próximo passo serão só da persona <strong>{personaName}</strong>.</p>
             )}
           </div>
         )}
 
-        {/* Explicação dos 5 níveis */}
-        <div className="flex items-start gap-2 rounded-xl border border-rl-purple/30 bg-rl-purple/5 px-3 py-2.5">
-          <Layers className="w-4 h-4 text-rl-purple shrink-0 mt-0.5" />
-          <p className="text-[11px] text-rl-muted leading-snug">{NIVEIS_LABEL}</p>
-        </div>
-
-        {/* Seletor de funil (obrigatório) */}
-        <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-2.5">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-rl-blue" />
-            <label className="text-sm font-bold text-rl-text">Em que funil este anúncio vai rodar?</label>
-          </div>
-          <p className="text-[11px] text-rl-muted leading-snug">
-            O funil define o objetivo e o CTA do anúncio (assistir aula, agendar reunião, baixar material, comprar...).
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {FUNIS.map((f) => {
-              const on = funil === f.id
-              return (
-                <button key={f.id} onClick={() => setFunil(on ? '' : f.id)}
-                  className={`flex items-start gap-2 rounded-lg p-2.5 text-left border transition-all ${on ? 'bg-rl-blue/10 border-rl-blue/50' : 'bg-rl-surface border-rl-border hover:border-rl-blue/30'}`}>
-                  <span className="text-base leading-none mt-0.5">{f.icon}</span>
-                  <span className="min-w-0">
-                    <span className={`block text-xs font-bold leading-tight ${on ? 'text-rl-blue' : 'text-rl-text'}`}>{f.label}</span>
-                    <span className="block text-[10px] text-rl-muted leading-tight mt-0.5">{f.meta}</span>
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Contador */}
-        {blocos > 0 && (
-          <p className={`text-[11px] font-bold ${excedeu ? 'text-red-400' : 'text-rl-purple'}`}>
-            {blocos} {isVideo ? (blocos === 1 ? 'tipo' : 'tipos') : (blocos === 1 ? 'combinação' : 'combinações')} · {totalPecas} {isVideo ? (totalPecas === 1 ? 'roteiro' : 'roteiros') : 'headlines'}
-            {excedeu && ` — máximo ${MAX_BLOCOS}`}
-          </p>
-        )}
-
-        {/* ── Vídeo: tipos de gancho ─────────────────────────────────────── */}
-        {isVideo && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {AD_TYPES.map((type) => {
-              const selected = !!adTypeConfig[type.id]
-              return (
-                <div key={type.id}
-                  onClick={() => toggleVideoType(type.id)}
-                  className={`rounded-xl p-3 text-left cursor-pointer transition-all border ${selected ? 'bg-rl-purple/10 border-rl-purple/50' : 'bg-rl-surface border-rl-border hover:border-rl-purple/30'}`}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">{type.emoji}</span>
-                    <span className={`text-xs font-bold flex-1 ${selected ? 'text-rl-purple' : 'text-rl-text'}`}>{type.label}</span>
-                    {selected && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/20 text-rl-purple border border-rl-purple/30 shrink-0">
-                        5 roteiros
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-rl-muted leading-snug mt-1 line-clamp-2">{type.desc}</p>
-                </div>
-              )
-            })}
+        {/* ── Passo: funil ─────────────────────────────────────────────────── */}
+        {step === 'funil' && (
+          <div className="space-y-3">
+            <p className="text-sm text-rl-muted">O funil define o objetivo e o CTA do anúncio (assistir aula, agendar reunião, baixar material, comprar...).</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {FUNIS.map((f) => {
+                const on = funil === f.id
+                return (
+                  <button key={f.id} onClick={() => setFunil(on ? '' : f.id)}
+                    className={`flex items-start gap-2 rounded-lg p-2.5 text-left border transition-all ${on ? 'bg-rl-blue/10 border-rl-blue/50' : 'bg-rl-surface border-rl-border hover:border-rl-blue/30'}`}>
+                    <span className="text-base leading-none mt-0.5">{f.icon}</span>
+                    <span className="min-w-0">
+                      <span className={`block text-xs font-bold leading-tight ${on ? 'text-rl-blue' : 'text-rl-text'}`}>{f.label}</span>
+                      <span className="block text-[10px] text-rl-muted leading-tight mt-0.5">{f.meta}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
 
-        {/* ── Estático: dores + tipos por dor ────────────────────────────── */}
-        {!isVideo && (
-          <div className="space-y-2">
-            {allDores.length === 0 && !addingDor && (
-              <div className="rounded-xl border border-dashed border-rl-border py-6 text-center">
-                <p className="text-sm text-rl-muted">Nenhuma dor cadastrada ainda.</p>
-                <p className="text-xs text-rl-muted">Adicione a dor principal do seu cliente abaixo.</p>
-              </div>
+        {/* ── Passo: tipo de mensagem (ganchos / dores + ângulo) ───────────── */}
+        {step === 'tipo' && (
+          <div className="space-y-3">
+            <div className="flex items-start gap-2 rounded-xl border border-rl-purple/30 bg-rl-purple/5 px-3 py-2.5">
+              <Layers className="w-4 h-4 text-rl-purple shrink-0 mt-0.5" />
+              <p className="text-[11px] text-rl-muted leading-snug">{NIVEIS_LABEL}</p>
+            </div>
+
+            {blocos > 0 && (
+              <p className={`text-[11px] font-bold ${excedeu ? 'text-red-400' : 'text-rl-purple'}`}>
+                {blocos} {isVideo ? (blocos === 1 ? 'tipo' : 'tipos') : (blocos === 1 ? 'combinação' : 'combinações')} · {totalPecas} {isVideo ? (totalPecas === 1 ? 'roteiro' : 'roteiros') : 'headlines'}
+                {excedeu && ` — máximo ${MAX_BLOCOS}`}
+              </p>
             )}
 
-            {allDores.map((dor) => {
-              const selected = !!dorConfig[dor.id]
-              const types = dorConfig[dor.id]?.types || {}
-              return (
-                <div key={dor.id} className={`rounded-xl p-3 border transition-all ${selected ? 'bg-rl-purple/10 border-rl-purple/50' : 'bg-rl-surface border-rl-border hover:border-rl-purple/30'}`}>
-                  <div className="flex items-start gap-2.5 cursor-pointer" onClick={() => toggleDor(dor.id)}>
-                    <div className={`w-4 h-4 rounded-full border shrink-0 mt-0.5 flex items-center justify-center ${selected ? 'bg-rl-purple border-rl-purple' : 'border-rl-border'}`}>
-                      {selected && <CheckCircle2 className="w-3 h-3 text-white" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm leading-snug ${selected ? 'text-rl-purple font-medium' : 'text-rl-text'}`}>{dor.text}</p>
-                      {dor.personaName && <p className="text-[10px] text-rl-muted mt-0.5">{dor.personaName}</p>}
-                    </div>
-                    {dor.isCustom && (
-                      <button onClick={(e) => { e.stopPropagation(); setCustomDores((p) => p.filter((d) => d.id !== dor.id)); setDorConfig((p) => { const n = { ...p }; delete n[dor.id]; return n }) }}
-                        className="p-1 rounded hover:bg-red-400/10 text-rl-muted hover:text-red-400 shrink-0">
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-
-                  {selected && (
-                    <div className="mt-3 pl-6 space-y-2">
-                      <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">
-                        Ângulo do anúncio {Object.keys(types).length > 0 && `· ${Object.keys(types).length * NIVEIS} headlines`}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {AD_TYPES.map((t) => {
-                          const on = !!types[t.id]
-                          return (
-                            <button key={t.id} onClick={() => toggleDorType(dor.id, t.id)}
-                              className={`text-[11px] px-2 py-1 rounded-lg border transition-all ${on ? 'bg-rl-purple/20 border-rl-purple/40 text-rl-purple font-semibold' : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text'}`}>
-                              {t.emoji} {t.label}
-                            </button>
-                          )
-                        })}
+            {/* Vídeo: tipos de gancho */}
+            {isVideo && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {AD_TYPES.map((type) => {
+                  const selected = !!adTypeConfig[type.id]
+                  return (
+                    <div key={type.id}
+                      onClick={() => toggleVideoType(type.id)}
+                      className={`rounded-xl p-3 text-left cursor-pointer transition-all border ${selected ? 'bg-rl-purple/10 border-rl-purple/50' : 'bg-rl-surface border-rl-border hover:border-rl-purple/30'}`}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{type.emoji}</span>
+                        <span className={`text-xs font-bold flex-1 ${selected ? 'text-rl-purple' : 'text-rl-text'}`}>{type.label}</span>
+                        {selected && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/20 text-rl-purple border border-rl-purple/30 shrink-0">
+                            5 roteiros
+                          </span>
+                        )}
                       </div>
+                      <p className="text-[10px] text-rl-muted leading-snug mt-1 line-clamp-2">{type.desc}</p>
                     </div>
-                  )}
-                </div>
-              )
-            })}
-
-            {addingDor ? (
-              <div className="rounded-xl p-3 border bg-rl-surface border-rl-purple/40">
-                <textarea autoFocus value={newDorText} onChange={(e) => setNewDorText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirmAddDor() } if (e.key === 'Escape') { setAddingDor(false); setNewDorText('') } }}
-                  rows={2} placeholder="Ex.: não consegue emagrecer mesmo fazendo dieta" className="input-field w-full text-sm resize-none" />
-                <div className="flex items-center gap-2 mt-2">
-                  <button onClick={confirmAddDor} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-rl-green/10 border border-rl-green/30 text-rl-green hover:bg-rl-green/20 transition-all">
-                    <Check className="w-3 h-3" /> Adicionar
-                  </button>
-                  <button onClick={() => { setAddingDor(false); setNewDorText('') }} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all">
-                    <X className="w-3 h-3" /> Cancelar
-                  </button>
-                </div>
+                  )
+                })}
               </div>
-            ) : (
-              <button onClick={() => setAddingDor(true)}
-                className="w-full flex items-center justify-center gap-1.5 text-xs py-2.5 rounded-xl border border-dashed border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all">
-                <Plus className="w-3.5 h-3.5" /> Adicionar outra dor
-              </button>
+            )}
+
+            {/* Estático: dores + ângulo por dor */}
+            {!isVideo && (
+              <div className="space-y-2">
+                {personaName && (
+                  <p className="text-[11px] text-rl-blue leading-snug">Dores da persona <strong>{personaName}</strong>.</p>
+                )}
+                {allDores.length === 0 && !addingDor && (
+                  <div className="rounded-xl border border-dashed border-rl-border py-6 text-center">
+                    <p className="text-sm text-rl-muted">Nenhuma dor cadastrada ainda.</p>
+                    <p className="text-xs text-rl-muted">Adicione a dor principal do seu cliente abaixo.</p>
+                  </div>
+                )}
+
+                {allDores.map((dor) => {
+                  const selected = !!dorConfig[dor.id]
+                  const types = dorConfig[dor.id]?.types || {}
+                  return (
+                    <div key={dor.id} className={`rounded-xl p-3 border transition-all ${selected ? 'bg-rl-purple/10 border-rl-purple/50' : 'bg-rl-surface border-rl-border hover:border-rl-purple/30'}`}>
+                      <div className="flex items-start gap-2.5 cursor-pointer" onClick={() => toggleDor(dor.id)}>
+                        <div className={`w-4 h-4 rounded-full border shrink-0 mt-0.5 flex items-center justify-center ${selected ? 'bg-rl-purple border-rl-purple' : 'border-rl-border'}`}>
+                          {selected && <CheckCircle2 className="w-3 h-3 text-white" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm leading-snug ${selected ? 'text-rl-purple font-medium' : 'text-rl-text'}`}>{dor.text}</p>
+                          {dor.personaName && <p className="text-[10px] text-rl-muted mt-0.5">{dor.personaName}</p>}
+                        </div>
+                        {dor.isCustom && (
+                          <button onClick={(e) => { e.stopPropagation(); setCustomDores((p) => p.filter((d) => d.id !== dor.id)); setDorConfig((p) => { const n = { ...p }; delete n[dor.id]; return n }) }}
+                            className="p-1 rounded hover:bg-red-400/10 text-rl-muted hover:text-red-400 shrink-0">
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+
+                      {selected && (
+                        <div className="mt-3 pl-6 space-y-2">
+                          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">
+                            Ângulo do anúncio {Object.keys(types).length > 0 && `· ${Object.keys(types).length * NIVEIS} headlines`}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {AD_TYPES.map((t) => {
+                              const on = !!types[t.id]
+                              return (
+                                <button key={t.id} onClick={() => toggleDorType(dor.id, t.id)}
+                                  className={`text-[11px] px-2 py-1 rounded-lg border transition-all ${on ? 'bg-rl-purple/20 border-rl-purple/40 text-rl-purple font-semibold' : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text'}`}>
+                                  {t.emoji} {t.label}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {addingDor ? (
+                  <div className="rounded-xl p-3 border bg-rl-surface border-rl-purple/40">
+                    <textarea autoFocus value={newDorText} onChange={(e) => setNewDorText(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirmAddDor() } if (e.key === 'Escape') { setAddingDor(false); setNewDorText('') } }}
+                      rows={2} placeholder="Ex.: não consegue emagrecer mesmo fazendo dieta" className="input-field w-full text-sm resize-none" />
+                    <div className="flex items-center gap-2 mt-2">
+                      <button onClick={confirmAddDor} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-rl-green/10 border border-rl-green/30 text-rl-green hover:bg-rl-green/20 transition-all">
+                        <Check className="w-3 h-3" /> Adicionar
+                      </button>
+                      <button onClick={() => { setAddingDor(false); setNewDorText('') }} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all">
+                        <X className="w-3 h-3" /> Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setAddingDor(true)}
+                    className="w-full flex items-center justify-center gap-1.5 text-xs py-2.5 rounded-xl border border-dashed border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all">
+                    <Plus className="w-3.5 h-3.5" /> Adicionar outra dor
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}
 
-        {/* Detalhes específicos deste anúncio (opcional) */}
-        <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-1.5">
-          <label className="text-sm font-bold text-rl-text">Detalhes deste anúncio <span className="text-rl-muted font-normal">(opcional)</span></label>
-          <p className="text-[11px] text-rl-muted leading-snug">
-            Promoção, condição, prazo, produto específico, ângulo que você quer... A IA vai incorporar isso em todas as peças.
-          </p>
-          <textarea value={detalhes} onChange={(e) => setDetalhes(e.target.value)}
-            rows={3} maxLength={1200}
-            placeholder="Ex.: promoção de dia das mães, 30% off até domingo, brinde de frete grátis acima de R$199."
-            className="input-field w-full text-sm resize-none" />
-        </div>
+        {/* ── Passo: observação (opcional) ─────────────────────────────────── */}
+        {step === 'obs' && (
+          <div className="space-y-3">
+            <p className="text-sm text-rl-muted">Promoção, condição, prazo, produto específico, ângulo que você quer... A IA incorpora em todas as peças. Pode deixar em branco.</p>
+            <textarea value={detalhes} onChange={(e) => setDetalhes(e.target.value)}
+              rows={4} maxLength={1200} autoFocus
+              placeholder="Ex.: promoção de dia das mães, 30% off até domingo, brinde de frete grátis acima de R$199."
+              className="input-field w-full text-sm resize-none" />
+            {/* Resumo das escolhas */}
+            <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 text-[11px] text-rl-muted space-y-0.5">
+              <p><span className="text-rl-text font-semibold">Funil:</span> {FUNIS.find((f) => f.id === funil)?.label || '—'}</p>
+              <p><span className="text-rl-text font-semibold">Total:</span> {totalPecas} {isVideo ? 'roteiros' : 'headlines'} ({blocos} {isVideo ? 'tipo(s)' : 'combinação(ões)'})</p>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2">
@@ -597,15 +633,25 @@ export default function CriativosPublico() {
           </div>
         )}
 
-        <button onClick={generate} disabled={!canGenerate}
-          className="btn-primary w-full flex items-center justify-center gap-2 text-sm py-3 disabled:opacity-50 disabled:cursor-not-allowed">
-          <Wand2 className="w-4 h-4" />
-          {excedeu
-            ? `Reduza para no máximo ${MAX_BLOCOS}`
-            : blocos > 0 && !funil
-              ? 'Escolha o funil acima'
-              : totalPecas > 0 ? `Gerar ${totalPecas} ${isVideo ? 'roteiros' : 'headlines'}` : 'Gerar meus anúncios'}
-        </button>
+        {/* Navegação do wizard */}
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <button onClick={prevStep}
+            className="flex items-center gap-1.5 text-sm px-3 py-2.5 rounded-xl text-rl-muted hover:text-rl-text transition-all">
+            <ArrowLeft className="w-4 h-4" /> Voltar
+          </button>
+          {isLast ? (
+            <button onClick={generate} disabled={!canGenerate}
+              className="btn-primary flex items-center gap-2 text-sm px-6 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed">
+              <Wand2 className="w-4 h-4" /> {totalPecas > 0 ? `Gerar ${totalPecas} ${isVideo ? 'roteiros' : 'headlines'}` : 'Gerar anúncios'}
+            </button>
+          ) : (
+            <button onClick={nextStep} disabled={!canAdvance(step)}
+              className="btn-primary flex items-center gap-2 text-sm px-6 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed">
+              {step === 'funil' && !funil ? 'Escolha um funil' : step === 'tipo' && !blocos ? 'Selecione ao menos um' : 'Continuar'}
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
     </Shell>
   )
