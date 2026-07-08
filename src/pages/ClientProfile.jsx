@@ -631,6 +631,19 @@ function OnboardingContent({ project, onSave, showToast }) {
   const [editServicesData, setEditServicesData] = useState({})
   const [clientLinkCopied, setClientLinkCopied] = useState(false)
 
+  // Observações — edição inline com autosave. Estado local seedado por cliente
+  // (reseta ao trocar de projeto), evitando clobber enquanto o usuário digita.
+  const [observacoes, setObservacoes] = useState(project.observacoes || '')
+  // Reseedar SÓ ao trocar de cliente (project.id) — depender de project.observacoes
+  // clobbaria o texto enquanto o usuário digita. Intencional.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setObservacoes(project.observacoes || '') }, [project.id])
+  function handleObservacoesChange(e) {
+    const value = e.target.value
+    setObservacoes(value)
+    updateProject(project.id, { observacoes: value }) // grava local na hora, Supabase com debounce
+  }
+
   function handleClientLink() {
     let token = project.clientShareToken
     if (!token) {
@@ -970,16 +983,17 @@ function OnboardingContent({ project, onSave, showToast }) {
         </div>
       )}
 
-      {/* Observações */}
+      {/* Observações — edição inline com autosave */}
       <div>
         <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📝 Observações</p>
-        <div className="rounded-xl bg-rl-surface p-4">
-          {project.observacoes ? (
-            <p className="text-sm text-rl-text leading-relaxed whitespace-pre-wrap">{project.observacoes}</p>
-          ) : (
-            <p className="text-sm text-rl-muted italic">Nenhuma observação. Clique em Editar Dados para adicionar.</p>
-          )}
-        </div>
+        <textarea
+          value={observacoes}
+          onChange={handleObservacoesChange}
+          rows={4}
+          className="input-field resize-y text-sm w-full"
+          placeholder="Comece a digitar informações adicionais sobre o cliente..."
+        />
+        <p className="text-[11px] text-rl-muted mt-1">As alterações são salvas automaticamente.</p>
       </div>
 
       {/* Arquivos */}
