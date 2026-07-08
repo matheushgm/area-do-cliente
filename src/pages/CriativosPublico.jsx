@@ -2,9 +2,10 @@ import { useState, useMemo, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import MarkdownBlock from '../components/Criativos/MarkdownBlock'
 import { AD_TYPES, postCriativo, streamCriativo } from '../lib/criativosPublic'
+import { FUNIS } from '../lib/funis'
 import {
   Sparkles, Loader2, AlertTriangle, Lock, ArrowLeft, Image as ImageIcon, Video,
-  CheckCircle2, RotateCcw, Copy, Check, Plus, X, ChevronLeft, Wand2, Layers,
+  CheckCircle2, RotateCcw, Copy, Check, Plus, X, ChevronLeft, Wand2, Layers, Filter,
 } from 'lucide-react'
 
 // Cada tipo de criativo gera 1 peça por nível de consciência (Eugene Schwartz).
@@ -26,6 +27,7 @@ export default function CriativosPublico() {
   const [busy, setBusy] = useState(false)
 
   const [mode, setMode] = useState(null) // 'estatico' | 'video'
+  const [funil, setFunil] = useState('') // id do funil escolhido
   const [result, setResult] = useState('')
   const [copied, setCopied] = useState(false)
   const abortRef = useRef(null)
@@ -102,14 +104,14 @@ export default function CriativosPublico() {
   const blocos = isVideo ? videoTypes.length : staticBlocos
   const totalPecas = blocos * NIVEIS
   const excedeu = blocos > MAX_BLOCOS
-  const canGenerate = blocos > 0 && !excedeu
+  const canGenerate = blocos > 0 && !excedeu && !!funil
 
   async function generate() {
     if (!canGenerate) return
     setStatus('generating'); setError(null); setResult(''); setCopied(false)
     abortRef.current = new AbortController()
     try {
-      const payload = { projectId, token, password: password.trim(), mode }
+      const payload = { projectId, token, password: password.trim(), mode, funil }
       if (isVideo) {
         payload.adTypes = videoTypes
       } else {
@@ -135,7 +137,7 @@ export default function CriativosPublico() {
   }
 
   function resetConfig() {
-    setAdTypeConfig({}); setDorConfig({}); setCustomDores([]); setAddingDor(false); setNewDorText('')
+    setAdTypeConfig({}); setDorConfig({}); setCustomDores([]); setAddingDor(false); setNewDorText(''); setFunil('')
   }
 
   // ══ RENDER ════════════════════════════════════════════════════════════════
@@ -299,6 +301,32 @@ export default function CriativosPublico() {
           <p className="text-[11px] text-rl-muted leading-snug">{NIVEIS_LABEL}</p>
         </div>
 
+        {/* Seletor de funil (obrigatório) */}
+        <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-rl-blue" />
+            <label className="text-sm font-bold text-rl-text">Em que funil este anúncio vai rodar?</label>
+          </div>
+          <p className="text-[11px] text-rl-muted leading-snug">
+            O funil define o objetivo e o CTA do anúncio (assistir aula, agendar reunião, baixar material, comprar...).
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {FUNIS.map((f) => {
+              const on = funil === f.id
+              return (
+                <button key={f.id} onClick={() => setFunil(on ? '' : f.id)}
+                  className={`flex items-start gap-2 rounded-lg p-2.5 text-left border transition-all ${on ? 'bg-rl-blue/10 border-rl-blue/50' : 'bg-rl-surface border-rl-border hover:border-rl-blue/30'}`}>
+                  <span className="text-base leading-none mt-0.5">{f.icon}</span>
+                  <span className="min-w-0">
+                    <span className={`block text-xs font-bold leading-tight ${on ? 'text-rl-blue' : 'text-rl-text'}`}>{f.label}</span>
+                    <span className="block text-[10px] text-rl-muted leading-tight mt-0.5">{f.meta}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         {/* Contador */}
         {blocos > 0 && (
           <p className={`text-[11px] font-bold ${excedeu ? 'text-red-400' : 'text-rl-purple'}`}>
@@ -420,7 +448,9 @@ export default function CriativosPublico() {
           <Wand2 className="w-4 h-4" />
           {excedeu
             ? `Reduza para no máximo ${MAX_BLOCOS}`
-            : totalPecas > 0 ? `Gerar ${totalPecas} ${isVideo ? 'roteiros' : 'headlines'}` : 'Gerar meus anúncios'}
+            : blocos > 0 && !funil
+              ? 'Escolha o funil acima'
+              : totalPecas > 0 ? `Gerar ${totalPecas} ${isVideo ? 'roteiros' : 'headlines'}` : 'Gerar meus anúncios'}
         </button>
       </div>
     </Shell>

@@ -25,6 +25,7 @@ import {
   Link2,
 } from 'lucide-react'
 import Modal from './UI/Modal'
+import { FUNIS, FUNIS_BY_ID } from '../lib/funis'
 import { replaceAdInContent } from './Criativos/ResultBlock'
 import CreativeResultBlock from './Criativos/CreativeResultBlock'
 import ContextPreview from './Criativos/ContextPreview'
@@ -475,6 +476,8 @@ export default function CriativosModule({ project }) {
   // Escopo de produto e persona: '' = todos (geral); id = só aquele
   const [selectedProductId, setSelectedProductId] = useState('')
   const [selectedPersonaId, setSelectedPersonaId] = useState('')
+  // Funil em que o anúncio vai rodar — define o objetivo/CTA (entra no prompt).
+  const [selectedFunil, setSelectedFunil] = useState('')
 
   const isVideo = view === 'video'
 
@@ -637,6 +640,16 @@ export default function CriativosModule({ project }) {
   }
 
   const autoInstruction = useMemo(() => {
+    const funil = FUNIS_BY_ID[selectedFunil]
+    const funilStr = funil
+      ? `## FUNIL DESTE ANÚNCIO: ${funil.label}
+
+Objetivo e CTA obrigatórios: ${funil.objetivo}
+Todo o criativo (gancho, mensagem e principalmente o CTA) deve levar a essa ação — não a nenhuma outra.
+
+`
+      : ''
+
     if (isVideo) {
       const typesStr = selectedList
         .map((t) => `${t.emoji} ${t.label}: ${t.desc}`)
@@ -645,7 +658,7 @@ export default function CriativosModule({ project }) {
 
 ## SOLICITAÇÃO
 
-Tipos de gancho a gerar (5 roteiros cada, um por nível de consciência):
+${funilStr}Tipos de gancho a gerar (5 roteiros cada, um por nível de consciência):
 ${typesStr}
 
 Total: ${totalQuantity} roteiros.`
@@ -670,12 +683,12 @@ ${typeLines}`
 
 ## SOLICITAÇÃO
 
-Para cada dor abaixo, gere um bloco por tipo de criativo, com os 5 níveis de consciência dentro de cada bloco.
+${funilStr}Para cada dor abaixo, gere um bloco por tipo de criativo, com os 5 níveis de consciência dentro de cada bloco.
 
 ${sections}
 
 Total: ${blocos} blocos (${staticTotalQty} headlines).`
-  }, [dorConfig, isVideo, selectedDores, selectedList, staticTotalQty, totalQuantity])
+  }, [dorConfig, isVideo, selectedDores, selectedList, selectedFunil, staticTotalQty, totalQuantity])
 
   // ── Generate ────────────────────────────────────────────────────────────────
   const generate = useCallback(async () => {
@@ -734,6 +747,8 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
         productName: selectedProduct?.nome || null,
         personaId: selectedPersonaId || null,
         personaName: selectedPersona?.name || null,
+        funil: selectedFunil || null,
+        funilLabel: FUNIS_BY_ID[selectedFunil]?.label || null,
         createdAt: now,
       }
       setLastCreativeId(newId)
@@ -759,6 +774,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
     selectedProductId,
     selectedPersona,
     selectedPersonaId,
+    selectedFunil,
     staticTotalQty,
     metodologiaOverride,
     totalQuantity,
@@ -1034,6 +1050,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
                 setInstructionOverride(null)
                 setSelectedProductId('')
                 setSelectedPersonaId('')
+                setSelectedFunil('')
                 setError(null)
               }}
               className={`glass-card p-6 text-left hover:border-${color}/50 hover:shadow-glow transition-all duration-200 group`}
@@ -1241,6 +1258,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
             setMetodologiaOverride(null)
             setDiretrizesOverride(null)
             setInstructionOverride(null)
+            setSelectedFunil('')
             setError(null)
           }}
           aria-label="Voltar à seleção de formato"
@@ -1326,6 +1344,37 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
           )}
         </div>
       )}
+
+      {/* ── Funil (obrigatório) — define objetivo e CTA do anúncio ──────────── */}
+      <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🎯</span>
+          <label className="label-field !mb-0">Funil deste anúncio</label>
+          {selectedFunil && (
+            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-blue/15 text-rl-blue border border-rl-blue/30">
+              {FUNIS_BY_ID[selectedFunil]?.meta}
+            </span>
+          )}
+        </div>
+        <p className="text-[11px] text-rl-muted leading-snug">
+          Define o objetivo e o CTA (assistir aula, agendar reunião, baixar material, comprar...). Obrigatório.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+          {FUNIS.map((f) => {
+            const on = selectedFunil === f.id
+            return (
+              <button key={f.id} onClick={() => setSelectedFunil(on ? '' : f.id)}
+                className={`flex items-start gap-2 rounded-lg p-2.5 text-left border transition-all ${on ? 'bg-rl-blue/10 border-rl-blue/50' : 'bg-rl-surface border-rl-border hover:border-rl-blue/30'}`}>
+                <span className="text-base leading-none mt-0.5">{f.icon}</span>
+                <span className="min-w-0">
+                  <span className={`block text-xs font-bold leading-tight ${on ? 'text-rl-blue' : 'text-rl-text'}`}>{f.label}</span>
+                  <span className="block text-[10px] text-rl-muted leading-tight mt-0.5">{f.meta}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {/* ── Video: ad type + per-type quantity ─────────────────────────────── */}
       {isVideo && (
@@ -1752,6 +1801,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
           <button
             onClick={generate}
             disabled={
+              !selectedFunil ||
               (isVideo
                 ? selectedList.length === 0
                 : selectedDores.length === 0 || dorsPendingType.length > 0) || loading
@@ -1774,6 +1824,9 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
               </>
             )}
           </button>
+          {!selectedFunil && (
+            <p className="text-xs text-rl-blue">Escolha o funil deste anúncio acima</p>
+          )}
           {isVideo && selectedList.length === 0 && (
             <p className="text-xs text-rl-muted">Selecione pelo menos um tipo de gancho</p>
           )}

@@ -35,6 +35,29 @@ const AD_TYPES = [
 ]
 const AD_TYPE_MAP = Object.fromEntries(AD_TYPES.map((t) => [t.id, t]))
 
+// Objetivo/CTA por funil — o anúncio precisa levar à ação DESTE funil, não à
+// compra direta (salvo e-commerce). Em sincronia com src/lib/funis.js.
+const FUNIS_OBJETIVO = {
+  webinar: { label: 'Funil de Webinar', objetivo: 'Convidar a pessoa para se INSCREVER e ASSISTIR a um webinar/aula ao vivo gratuita. O CTA leva ao cadastro e à presença na live — NUNCA à compra direta. Venda a transformação que ela terá ao participar da aula.' },
+  webinar_pago: { label: 'Funil de Webinar Pago', objetivo: 'Convidar para um webinar/aula ao vivo com uma entrada simbólica paga. O CTA é GARANTIR A VAGA pagando o valor de entrada. Trate o preço baixo como filtro de qualificação, não como objeção. Não venda o produto final.' },
+  diagnostico: { label: 'Funil de Diagnóstico', objetivo: 'Levar a pessoa a AGENDAR uma reunião/sessão de diagnóstico 1x1 (gratuita). O CTA é agendar a conversa. A promessa é o diagnóstico específico que ela recebe na reunião — não o produto final.' },
+  aplicacao: { label: 'Funil de Aplicação', objetivo: 'Levar a pessoa a PREENCHER UMA APLICAÇÃO/formulário para ser aprovada e então falar com o time numa reunião 1x1. O CTA é "aplicar" / "candidatar-se". Posicione como vaga seletiva, de ticket alto.' },
+  vsl: { label: 'Funil de VSL', objetivo: 'Levar a pessoa a ASSISTIR a um vídeo de vendas (VSL) que revela o método/solução. O CTA é "assista ao vídeo". A ação de compra ou agendamento acontece ao final do vídeo, não no anúncio.' },
+  isca_digital: { label: 'Funil de Isca Digital', objetivo: 'Levar a pessoa a BAIXAR um material gratuito (eBook, kit, planilha, checklist). O CTA é baixar/receber o material. A promessa é o valor do material em si — não venda o produto principal.' },
+  quiz: { label: 'Funil de Quiz', objetivo: 'Levar a pessoa a RESPONDER um quiz/diagnóstico rápido que revela algo sobre ela. O CTA é "faça o quiz" / "descubra seu resultado". A curiosidade sobre o resultado é o motor.' },
+  lancamento: { label: 'Lançamento', objetivo: 'Aquecer a pessoa para um LANÇAMENTO com data marcada. O CTA é entrar na lista/grupo de espera para participar da abertura. Construa antecipação e escassez de janela.' },
+  desafio: { label: 'Funil de Desafio', objetivo: 'Convidar a pessoa para um DESAFIO de poucos dias. O CTA é inscrever-se no desafio. Venda a pequena transformação prática que ela alcança ao final — não o produto principal.' },
+  ecommerce: { label: 'Funil de E-commerce (Venda Direta)', objetivo: 'Levar a pessoa DIRETO À COMPRA do produto no site. O CTA é comprar / aproveitar a oferta agora. Pode falar preço, desconto, frete e urgência de estoque. É o único funil de venda direta.' },
+  wymb: { label: 'Funil Win-Your-Money-Back', objetivo: 'Vender um serviço com GARANTIA de devolução total do dinheiro se não houver o resultado prometido. O CTA é contratar/agendar. Use a garantia como a quebra de objeção central: risco zero.' },
+}
+
+// Bloco de objetivo do funil, inserido no topo da solicitação enviada à IA.
+function funilBlock(funilId) {
+  const f = FUNIS_OBJETIVO[funilId]
+  if (!f) return ''
+  return `## FUNIL DESTE ANÚNCIO: ${f.label}\n\nObjetivo e CTA obrigatórios: ${f.objetivo}\nTodo o criativo (gancho, mensagem e principalmente o CTA) deve levar a essa ação — não a nenhuma outra.\n\n`
+}
+
 // ─── System prompts (metodologia Revenue Lab / Laboratório de Anúncios) ───────
 // Os 5 níveis de consciência de Eugene Schwartz — substituem as antigas etapas
 // de funil (topo/meio/fundo). Cada tipo de criativo gera 1 peça por nível.
@@ -80,6 +103,8 @@ O tipo de criativo define o ÂNGULO das headlines:
 (use o ângulo do tipo indicado para orientar cada bloco)
 
 Use as informações de público-alvo, personas e oferta fornecidas no contexto do cliente para personalizar ao máximo. Não gere análise de público — vá direto às headlines.
+
+A headline e a subheadline devem levar à ação do funil informado na solicitação (ex.: aula ao vivo, reunião, download, compra) — nunca a uma ação diferente da do funil.
 
 ${NIVEIS_ESTATICO}
 
@@ -156,7 +181,7 @@ O gancho é sempre uma promessa, uma oferta, uma mudança de vida ou um benefíc
 
 **C) Quebra de objeções.** Implícita e INTEGRADA à mensagem. Nunca um bloco separado, senão o roteiro fica engessado.
 
-**D) Chamada para ação.** Reforça a promessa do início, deixa claro o que fazer e dá um motivo específico para agir agora (escassez ou urgência).
+**D) Chamada para ação.** Reforça a promessa do início, deixa claro o que fazer e dá um motivo específico para agir agora (escassez ou urgência). O CTA deve levar EXATAMENTE à ação do funil informado na solicitação (ex.: se inscrever na aula, agendar reunião, baixar material, comprar) — nunca a uma ação diferente da do funil.
 
 ${NIVEIS_VIDEO}
 
@@ -379,17 +404,17 @@ function fallbackDores(personas) {
 }
 
 // ─── Instruções de geração (espelham autoInstruction do CriativosModule) ──────
-function buildVideoInstruction(adTypes) {
+function buildVideoInstruction(adTypes, funilId) {
   const typesStr = adTypes
     .map((id) => {
       const t = AD_TYPE_MAP[id]
       return `${t.emoji} ${t.label}: ${t.desc}`
     })
     .join('\n')
-  return `---\n\n## SOLICITAÇÃO\n\nTipos de gancho a gerar (5 roteiros cada, um por nível de consciência):\n${typesStr}\n\nTotal: ${adTypes.length * 5} roteiros.`
+  return `---\n\n## SOLICITAÇÃO\n\n${funilBlock(funilId)}Tipos de gancho a gerar (5 roteiros cada, um por nível de consciência):\n${typesStr}\n\nTotal: ${adTypes.length * 5} roteiros.`
 }
 
-function buildStaticInstruction(dores) {
+function buildStaticInstruction(dores, funilId) {
   const sections = dores
     .map(({ text, types }) => {
       const typeLines = types
@@ -402,7 +427,7 @@ function buildStaticInstruction(dores) {
     })
     .join('\n\n')
   const total = dores.reduce((s, d) => s + d.types.length, 0)
-  return `---\n\n## SOLICITAÇÃO\n\nPara cada dor abaixo, gere um bloco por tipo de criativo, com os 5 níveis de consciência dentro de cada bloco.\n\n${sections}\n\nTotal: ${total} blocos (${total * 5} headlines).`
+  return `---\n\n## SOLICITAÇÃO\n\n${funilBlock(funilId)}Para cada dor abaixo, gere um bloco por tipo de criativo, com os 5 níveis de consciência dentro de cada bloco.\n\n${sections}\n\nTotal: ${total} blocos (${total * 5} headlines).`
 }
 
 // Normaliza/valida a seleção de tipos vinda do cliente: devolve uma lista de ids
@@ -499,13 +524,17 @@ export default async function handler(req) {
     // mantém o output dentro do max_tokens (8 x 5 = 40 peças).
     const MAX_BLOCOS = 8
 
+    // Funil é obrigatório: define o objetivo/CTA do anúncio.
+    const funilId = String(body?.funil || '').trim()
+    if (!FUNIS_OBJETIVO[funilId]) return json({ error: 'Selecione o funil em que o anúncio vai rodar.' }, 400)
+
     if (mode === 'video') {
       const adTypes = sanitizeTypes(body?.adTypes)
       if (!adTypes.length) return json({ error: 'Selecione ao menos um tipo de gancho.' }, 400)
       if (adTypes.length > MAX_BLOCOS) {
         return json({ error: `Muitos tipos de uma vez. Selecione no máximo ${MAX_BLOCOS} (${MAX_BLOCOS * 5} roteiros).` }, 400)
       }
-      return anthropicSSE(VIDEO_SYSTEM, buildVideoInstruction(adTypes), context, 32000)
+      return anthropicSSE(VIDEO_SYSTEM, buildVideoInstruction(adTypes, funilId), context, 32000)
     }
 
     // estático
@@ -521,7 +550,7 @@ export default async function handler(req) {
     if (blocos > MAX_BLOCOS) {
       return json({ error: `Muitas combinações de uma vez. Selecione no máximo ${MAX_BLOCOS} (dor x tipo).` }, 400)
     }
-    return anthropicSSE(DORES_SYSTEM, buildStaticInstruction(dores), context, 32000)
+    return anthropicSSE(DORES_SYSTEM, buildStaticInstruction(dores, funilId), context, 32000)
   }
 
   return json({ error: 'Ação desconhecida.' }, 400)
