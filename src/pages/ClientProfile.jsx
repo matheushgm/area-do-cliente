@@ -14,7 +14,7 @@ import {
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
-  NotebookPen, Wrench, Compass, Megaphone, Map as MapIcon,
+  NotebookPen, Wrench, Compass, Megaphone, Map as MapIcon, Database,
 } from 'lucide-react'
 import ROIScenariosModule from '../components/ROIScenariosModule'
 import PersonaCreator from './PersonaCreator'
@@ -32,6 +32,7 @@ import ProdutoServicoModule from '../components/ProdutoServicoModule'
 import BancoMidiaModule from '../components/BancoMidiaModule'
 import LinksModule from '../components/LinksModule'
 import CRMModule from '../components/CRMModule'
+import BancoDeDadosModule from '../components/BancoDeDadosModule'
 import MeetingMinutesModule from '../components/MeetingMinutesModule'
 import FerramentasModule from '../components/FerramentasModule'
 import KickoffModule from '../components/Kickoff/KickoffModule'
@@ -1193,6 +1194,7 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'links',        label: 'Links Importantes',        icon: Link2,          color: 'text-rl-cyan',   filled: hasLinks },
     { id: 'nps',          label: 'NPS',                       icon: Star,           color: 'text-rl-gold',   filled: !!(project.nps && Object.values(project.nps).some(Boolean)) },
     { id: 'crm',          label: 'CRM',                       icon: Kanban,         color: 'text-rl-cyan',   filled: !!(project.crmData?.contacts?.length) },
+    { id: 'bancodados',   label: 'Banco de Dados',            icon: Database,       color: 'text-rl-purple', filled: false },
     { id: 'atas',         label: 'Ata de Reunião',            icon: NotebookPen,    color: 'text-rl-purple', filled: false },
     { id: 'ferramentas',  label: 'Ferramentas',               icon: Wrench,         color: 'text-rl-gold',   filled: false },
   ]
@@ -1234,6 +1236,7 @@ export default function ClientProfile({ project: projectProp }) {
       case 'links':        return <LinksModule project={project} onSave={handleSaveLinks} />
       case 'nps':          return <NPSModule project={project} />
       case 'crm':          return <CRMModule project={project} />
+      case 'bancodados':   return <BancoDeDadosModule project={project} />
       case 'atas':         return <MeetingMinutesModule project={project} />
       case 'ferramentas':  return <FerramentasModule key={pendingTool || 'main'} project={project} initialToolId={pendingTool} />
       default:             return null

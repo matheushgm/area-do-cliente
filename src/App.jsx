@@ -28,7 +28,6 @@ import DashboardTrafego from './pages/DashboardTrafego'
 import DashboardApiTeste from './pages/DashboardApiTeste'
 import WireframePreview from './pages/WireframePreview'
 import Atividades15min from './pages/Atividades15min'
-import BancoDeDados from './pages/BancoDeDados'
 import NotificationCenter from './components/NotificationCenter'
 
 function RequireAuth({ children }) {
@@ -84,7 +83,6 @@ function AppRoutes() {
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
         <Route path="/tarefas" element={<RequireAuth><Tasks /></RequireAuth>} />
         <Route path="/atividades-15min" element={<RequireAuth><Atividades15min /></RequireAuth>} />
-        <Route path="/banco-de-dados" element={<RequireAuth><BancoDeDados /></RequireAuth>} />
         <Route path="/roteiros-express" element={<RequireAuth><RoteirosExpress /></RequireAuth>} />
         <Route path="/roteiros/:token" element={<RoteirosExpressPublico />} />
         <Route path="/criativos/:projectId/:token" element={<CriativosPublico />} />

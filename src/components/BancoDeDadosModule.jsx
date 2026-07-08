@@ -1,13 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import AppSidebar from '../components/AppSidebar'
-import Modal from '../components/UI/Modal'
-import Toast from '../components/UI/Toast'
+import PropTypes from 'prop-types'
+import Modal from './UI/Modal'
+import Toast from './UI/Toast'
 import { useToast } from '../hooks/useToast'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import {
-  Menu, Database, Plus, Trash2, Copy, Check, Loader2, Search, Download,
+  Database, Plus, Trash2, Copy, Check, Loader2, Search, Download,
   Table2, Columns3, Webhook, ChevronDown, Code2,
 } from 'lucide-react'
 
@@ -22,7 +21,6 @@ const FIELD_TYPES = [
   { id: 'select', label: 'Seleção (dropdown)' },
 ]
 
-// Templates de criação
 const TEMPLATES = {
   leads: {
     label: 'Captação de leads (com UTMs)',
@@ -49,11 +47,9 @@ const slugify = (s) =>
 const fmtDateTime = (iso) =>
   iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
 
-export default function BancoDeDados() {
-  const navigate = useNavigate()
+export default function BancoDeDadosModule({ project }) {
   const { user } = useApp()
   const { toast, showToast } = useToast()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const [bancos, setBancos] = useState([])
   const [selectedId, setSelectedId] = useState(null)
@@ -75,15 +71,16 @@ export default function BancoDeDados() {
   const selected = useMemo(() => bancos.find((b) => b.id === selectedId) || null, [bancos, selectedId])
   const campos = useMemo(() => selected?.campos || [], [selected])
 
-  // ── Carregar bancos ────────────────────────────────────────────────────────
+  // ── Carregar bancos DESTE cliente ──────────────────────────────────────────
   useEffect(() => {
     let cancelled = false
     async function load() {
-      if (!supabase) { setLoading(false); return }
+      if (!supabase || !project?.id) { setLoading(false); return }
       setLoading(true)
       const { data, error } = await supabase
         .from('bancos_dados')
         .select('*')
+        .eq('project_id', project.id)
         .order('created_at', { ascending: true })
       if (cancelled) return
       if (error) { console.error('[BancoDeDados]', error.message); showToast('Erro ao carregar', 'error') }
@@ -94,9 +91,9 @@ export default function BancoDeDados() {
     }
     load()
     return () => { cancelled = true }
-  }, [showToast])
+  }, [project?.id, showToast])
 
-  // ── Carregar registros do banco selecionado + realtime ─────────────────────
+  // ── Registros do banco selecionado + realtime ──────────────────────────────
   useEffect(() => {
     if (!selectedId || !supabase) { setRegistros([]); return }
     let cancelled = false
@@ -123,13 +120,12 @@ export default function BancoDeDados() {
     return () => { cancelled = true; supabase.removeChannel(ch) }
   }, [selectedId])
 
-  // ── Criar banco ────────────────────────────────────────────────────────────
   const criarBanco = async () => {
     const nome = novoNome.trim()
     if (!nome) return
     const { data, error } = await supabase
       .from('bancos_dados')
-      .insert({ nome, campos: TEMPLATES[novoTemplate].campos, created_by: user?.id || null })
+      .insert({ nome, campos: TEMPLATES[novoTemplate].campos, project_id: project.id, created_by: user?.id || null })
       .select('*')
       .single()
     if (error) { showToast('Erro ao criar banco', 'error'); return }
@@ -148,7 +144,6 @@ export default function BancoDeDados() {
     setSelectedId((prev) => (prev === b.id ? null : prev))
   }
 
-  // ── Persistir campos do banco ──────────────────────────────────────────────
   const salvarCampos = async (novosCampos) => {
     setBancos((prev) => prev.map((b) => (b.id === selectedId ? { ...b, campos: novosCampos } : b)))
     const { error } = await supabase
@@ -158,7 +153,6 @@ export default function BancoDeDados() {
     if (error) showToast('Erro ao salvar campos', 'error')
   }
 
-  // ── Registros: adicionar / editar / excluir ────────────────────────────────
   const addLinha = async () => {
     const { data, error } = await supabase
       .from('bancos_dados_registros')
@@ -192,14 +186,11 @@ export default function BancoDeDados() {
     return () => Object.values(timers).forEach(clearTimeout)
   }, [])
 
-  // ── Campos detectados via webhook mas ainda sem coluna ─────────────────────
   const camposDetectados = useMemo(() => {
     const known = new Set(campos.map((c) => c.key))
     const found = new Set()
     for (const r of registros) {
-      for (const k of Object.keys(r.dados || {})) {
-        if (!known.has(k)) found.add(k)
-      }
+      for (const k of Object.keys(r.dados || {})) if (!known.has(k)) found.add(k)
     }
     return [...found]
   }, [registros, campos])
@@ -234,129 +225,98 @@ export default function BancoDeDados() {
   }
 
   return (
-    <div className="min-h-screen flex bg-gradient-dark">
-      <AppSidebar
-        filter="banco-dados"
-        setFilter={() => navigate('/')}
-        counts={{}}
-        activeAccounts={[]}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-
-      <div className="flex-1 min-w-0 flex flex-col">
-        {/* Mobile top bar */}
-        <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
-          <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu"
-            className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
-            <Menu className="w-5 h-5" />
-          </button>
-          <span className="font-bold text-rl-text text-sm flex items-center gap-2">
-            <Database className="w-4 h-4 text-rl-purple" /> Banco de dados
-          </span>
+    <div className="space-y-5">
+      {/* Header do módulo */}
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-rl-text flex items-center gap-2.5">
+            <Database className="w-5 h-5 text-rl-purple" /> Banco de dados
+          </h2>
+          <p className="text-sm text-rl-muted mt-1">
+            Planilhas de captação com campos personalizados e webhook para as landing pages deste cliente.
+          </p>
         </div>
-
-        <main className="flex-1 px-4 sm:px-6 py-6 sm:py-8">
-          <div className="max-w-6xl mx-auto space-y-5">
-
-            {/* Header */}
-            <div className="flex items-start justify-between flex-wrap gap-3">
-              <div>
-                <h1 className="text-2xl font-bold text-rl-text flex items-center gap-2.5">
-                  <Database className="w-6 h-6 text-rl-purple" /> Banco de dados
-                </h1>
-                <p className="text-sm text-rl-muted mt-1">
-                  Planilhas de captação com campos personalizados e webhook para suas landing pages.
-                </p>
-              </div>
-              <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
-                <Plus className="w-4 h-4" /> Novo banco
-              </button>
-            </div>
-
-            {loading ? (
-              <div className="glass-card p-10 flex items-center justify-center text-rl-muted">
-                <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando…
-              </div>
-            ) : bancos.length === 0 ? (
-              <div className="glass-card p-10 text-center">
-                <Database className="w-10 h-10 text-rl-muted mx-auto mb-3 opacity-50" />
-                <p className="text-rl-text font-medium">Nenhum banco ainda</p>
-                <p className="text-sm text-rl-muted mt-1 mb-4">Crie seu primeiro banco de captação de leads.</p>
-                <button onClick={() => setShowCreate(true)} className="btn-primary inline-flex items-center gap-2 text-sm py-2 px-4">
-                  <Plus className="w-4 h-4" /> Criar banco
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-5">
-                {/* Lista de bancos */}
-                <div className="glass-card p-2 h-fit">
-                  {bancos.map((b) => (
-                    <button key={b.id} onClick={() => { setSelectedId(b.id); setTab('planilha') }}
-                      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm text-left transition-all ${
-                        b.id === selectedId ? 'bg-rl-purple/15 text-rl-purple' : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text'
-                      }`}>
-                      <span className="truncate flex items-center gap-2"><Table2 className="w-3.5 h-3.5 shrink-0" />{b.nome}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Painel do banco */}
-                {selected && (
-                  <div className="space-y-4 min-w-0">
-                    {/* Tabs */}
-                    <div className="flex items-center gap-1 border-b border-rl-border">
-                      {[
-                        { id: 'planilha', label: 'Planilha', Icon: Table2 },
-                        { id: 'campos', label: 'Campos', Icon: Columns3 },
-                        { id: 'webhook', label: 'Webhook', Icon: Webhook },
-                      ].map(({ id, label, Icon }) => (
-                        <button key={id} onClick={() => setTab(id)}
-                          className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-all ${
-                            tab === id ? 'border-rl-purple text-rl-purple' : 'border-transparent text-rl-muted hover:text-rl-text'
-                          }`}>
-                          <Icon className="w-4 h-4" />{label}
-                          {id === 'webhook' && camposDetectados.length > 0 && (
-                            <span className="ml-1 text-[9px] font-bold bg-rl-gold/20 text-rl-gold rounded-full px-1.5">
-                              {camposDetectados.length}
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                      <div className="flex-1" />
-                      <button onClick={() => excluirBanco(selected)} title="Excluir banco"
-                        className="p-2 text-rl-muted hover:text-red-400 transition-all">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {tab === 'planilha' && (
-                      <PlanilhaTab
-                        campos={campos} registros={registrosFiltrados} loadingReg={loadingReg}
-                        busca={busca} setBusca={setBusca} onAddLinha={addLinha}
-                        onEdit={editarCelula} onDelete={excluirLinha} onExport={exportCSV}
-                        onGoCampos={() => setTab('campos')}
-                      />
-                    )}
-                    {tab === 'campos' && (
-                      <CamposTab campos={campos} onSave={salvarCampos} />
-                    )}
-                    {tab === 'webhook' && (
-                      <WebhookTab
-                        url={webhookUrl} campos={campos} copied={copied} onCopy={copy}
-                        detectados={camposDetectados}
-                        onAddDetectado={(k) => salvarCampos([...campos, { key: k, label: k, type: 'text' }])}
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </main>
+        <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
+          <Plus className="w-4 h-4" /> Novo banco
+        </button>
       </div>
 
-      {/* Modal criar */}
+      {loading ? (
+        <div className="glass-card p-10 flex items-center justify-center text-rl-muted">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando…
+        </div>
+      ) : bancos.length === 0 ? (
+        <div className="glass-card p-10 text-center">
+          <Database className="w-10 h-10 text-rl-muted mx-auto mb-3 opacity-50" />
+          <p className="text-rl-text font-medium">Nenhum banco ainda</p>
+          <p className="text-sm text-rl-muted mt-1 mb-4">Crie o primeiro banco de captação de leads deste cliente.</p>
+          <button onClick={() => setShowCreate(true)} className="btn-primary inline-flex items-center gap-2 text-sm py-2 px-4">
+            <Plus className="w-4 h-4" /> Criar banco
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-5">
+          {/* Lista de bancos */}
+          <div className="glass-card p-2 h-fit">
+            {bancos.map((b) => (
+              <button key={b.id} onClick={() => { setSelectedId(b.id); setTab('planilha') }}
+                className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm text-left transition-all ${
+                  b.id === selectedId ? 'bg-rl-purple/15 text-rl-purple' : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text'
+                }`}>
+                <span className="truncate flex items-center gap-2"><Table2 className="w-3.5 h-3.5 shrink-0" />{b.nome}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Painel do banco */}
+          {selected && (
+            <div className="space-y-4 min-w-0">
+              <div className="flex items-center gap-1 border-b border-rl-border">
+                {[
+                  { id: 'planilha', label: 'Planilha', Icon: Table2 },
+                  { id: 'campos', label: 'Campos', Icon: Columns3 },
+                  { id: 'webhook', label: 'Webhook', Icon: Webhook },
+                ].map(({ id, label, Icon }) => (
+                  <button key={id} onClick={() => setTab(id)}
+                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-all ${
+                      tab === id ? 'border-rl-purple text-rl-purple' : 'border-transparent text-rl-muted hover:text-rl-text'
+                    }`}>
+                    <Icon className="w-4 h-4" />{label}
+                    {id === 'webhook' && camposDetectados.length > 0 && (
+                      <span className="ml-1 text-[9px] font-bold bg-rl-gold/20 text-rl-gold rounded-full px-1.5">
+                        {camposDetectados.length}
+                      </span>
+                    )}
+                  </button>
+                ))}
+                <div className="flex-1" />
+                <button onClick={() => excluirBanco(selected)} title="Excluir banco"
+                  className="p-2 text-rl-muted hover:text-red-400 transition-all">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              {tab === 'planilha' && (
+                <PlanilhaTab
+                  campos={campos} registros={registrosFiltrados} loadingReg={loadingReg}
+                  busca={busca} setBusca={setBusca} onAddLinha={addLinha}
+                  onEdit={editarCelula} onDelete={excluirLinha} onExport={exportCSV}
+                  onGoCampos={() => setTab('campos')}
+                />
+              )}
+              {tab === 'campos' && <CamposTab campos={campos} onSave={salvarCampos} />}
+              {tab === 'webhook' && (
+                <WebhookTab
+                  url={webhookUrl} campos={campos} copied={copied} onCopy={copy}
+                  detectados={camposDetectados}
+                  onAddDetectado={(k) => salvarCampos([...campos, { key: k, label: k, type: 'text' }])}
+                />
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {showCreate && (
         <Modal onClose={() => setShowCreate(false)} maxWidth="md">
           <div className="p-5 space-y-4">
@@ -393,6 +353,8 @@ export default function BancoDeDados() {
     </div>
   )
 }
+
+BancoDeDadosModule.propTypes = { project: PropTypes.object.isRequired }
 
 // ── Aba Planilha ──────────────────────────────────────────────────────────────
 function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinha, onEdit, onDelete, onExport, onGoCampos }) {
@@ -445,7 +407,7 @@ function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinh
               </td></tr>
             ) : registros.length === 0 ? (
               <tr><td colSpan={campos.length + 3} className="px-3 py-8 text-center text-rl-muted text-sm">
-                Nenhum registro. Os leads das suas LPs aparecem aqui automaticamente.
+                Nenhum registro. Os leads das LPs aparecem aqui automaticamente.
               </td></tr>
             ) : registros.map((r) => (
               <tr key={r.id} className="border-b border-rl-border/50 hover:bg-rl-surface/40 group">
@@ -513,9 +475,7 @@ function CamposTab({ campos, onSave }) {
 
   return (
     <div className="glass-card p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-rl-muted">A <strong className="text-rl-text">chave</strong> é o nome que o webhook espera no JSON. O <strong className="text-rl-text">rótulo</strong> é o que aparece na planilha.</p>
-      </div>
+      <p className="text-sm text-rl-muted">A <strong className="text-rl-text">chave</strong> é o nome que o webhook espera no JSON. O <strong className="text-rl-text">rótulo</strong> é o que aparece na planilha.</p>
 
       <div className="space-y-2">
         {local.map((c, i) => (
