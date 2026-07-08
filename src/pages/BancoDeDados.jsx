@@ -1,0 +1,644 @@
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import AppSidebar from '../components/AppSidebar'
+import Modal from '../components/UI/Modal'
+import Toast from '../components/UI/Toast'
+import { useToast } from '../hooks/useToast'
+import { useApp } from '../context/AppContext'
+import { supabase } from '../lib/supabase'
+import {
+  Menu, Database, Plus, Trash2, Copy, Check, Loader2, Search, Download,
+  Table2, Columns3, Webhook, ChevronDown, Code2,
+} from 'lucide-react'
+
+// ── Tipos de campo ────────────────────────────────────────────────────────────
+const FIELD_TYPES = [
+  { id: 'text',   label: 'Texto' },
+  { id: 'email',  label: 'E-mail' },
+  { id: 'phone',  label: 'Telefone' },
+  { id: 'url',    label: 'URL' },
+  { id: 'number', label: 'Número' },
+  { id: 'date',   label: 'Data' },
+  { id: 'select', label: 'Seleção (dropdown)' },
+]
+
+// Templates de criação
+const TEMPLATES = {
+  leads: {
+    label: 'Captação de leads (com UTMs)',
+    campos: [
+      { key: 'nome',         label: 'Nome',     type: 'text' },
+      { key: 'email',        label: 'E-mail',   type: 'email' },
+      { key: 'whatsapp',     label: 'Whatsapp', type: 'phone' },
+      { key: 'url',          label: 'URL',      type: 'url' },
+      { key: 'utm_source',   label: 'Utm Source',   type: 'text' },
+      { key: 'utm_medium',   label: 'Utm Medium',   type: 'text' },
+      { key: 'utm_campaign', label: 'Utm Campaign', type: 'text' },
+      { key: 'utm_content',  label: 'Utm Content',  type: 'text' },
+      { key: 'utm_term',     label: 'Utm Term',     type: 'text' },
+      { key: 'ip',           label: 'IP',       type: 'text' },
+    ],
+  },
+  blank: { label: 'Em branco', campos: [] },
+}
+
+const slugify = (s) =>
+  (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'campo'
+
+const fmtDateTime = (iso) =>
+  iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
+
+export default function BancoDeDados() {
+  const navigate = useNavigate()
+  const { user } = useApp()
+  const { toast, showToast } = useToast()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const [bancos, setBancos] = useState([])
+  const [selectedId, setSelectedId] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  const [registros, setRegistros] = useState([])
+  const [loadingReg, setLoadingReg] = useState(false)
+
+  const [tab, setTab] = useState('planilha') // planilha | campos | webhook
+  const [busca, setBusca] = useState('')
+  const [copied, setCopied] = useState('')
+
+  const [showCreate, setShowCreate] = useState(false)
+  const [novoNome, setNovoNome] = useState('')
+  const [novoTemplate, setNovoTemplate] = useState('leads')
+
+  const saveTimers = useRef({})
+
+  const selected = useMemo(() => bancos.find((b) => b.id === selectedId) || null, [bancos, selectedId])
+  const campos = useMemo(() => selected?.campos || [], [selected])
+
+  // ── Carregar bancos ────────────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      if (!supabase) { setLoading(false); return }
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('bancos_dados')
+        .select('*')
+        .order('created_at', { ascending: true })
+      if (cancelled) return
+      if (error) { console.error('[BancoDeDados]', error.message); showToast('Erro ao carregar', 'error') }
+      const list = data || []
+      setBancos(list)
+      setSelectedId((prev) => prev || list[0]?.id || null)
+      setLoading(false)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [showToast])
+
+  // ── Carregar registros do banco selecionado + realtime ─────────────────────
+  useEffect(() => {
+    if (!selectedId || !supabase) { setRegistros([]); return }
+    let cancelled = false
+    setLoadingReg(true)
+    supabase
+      .from('bancos_dados_registros')
+      .select('*')
+      .eq('banco_id', selectedId)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) console.error('[BancoDeDados] reg', error.message)
+        setRegistros(data || [])
+        setLoadingReg(false)
+      })
+
+    const ch = supabase
+      .channel(`bd-${selectedId}`)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'bancos_dados_registros', filter: `banco_id=eq.${selectedId}` },
+        (payload) => setRegistros((prev) => (prev.some((r) => r.id === payload.new.id) ? prev : [payload.new, ...prev])))
+      .subscribe()
+
+    return () => { cancelled = true; supabase.removeChannel(ch) }
+  }, [selectedId])
+
+  // ── Criar banco ────────────────────────────────────────────────────────────
+  const criarBanco = async () => {
+    const nome = novoNome.trim()
+    if (!nome) return
+    const { data, error } = await supabase
+      .from('bancos_dados')
+      .insert({ nome, campos: TEMPLATES[novoTemplate].campos, created_by: user?.id || null })
+      .select('*')
+      .single()
+    if (error) { showToast('Erro ao criar banco', 'error'); return }
+    setBancos((prev) => [...prev, data])
+    setSelectedId(data.id)
+    setShowCreate(false); setNovoNome(''); setNovoTemplate('leads')
+    setTab('webhook')
+    showToast('Banco criado!')
+  }
+
+  const excluirBanco = async (b) => {
+    if (!window.confirm(`Excluir "${b.nome}" e todos os registros?`)) return
+    const { error } = await supabase.from('bancos_dados').delete().eq('id', b.id)
+    if (error) { showToast('Erro ao excluir', 'error'); return }
+    setBancos((prev) => prev.filter((x) => x.id !== b.id))
+    setSelectedId((prev) => (prev === b.id ? null : prev))
+  }
+
+  // ── Persistir campos do banco ──────────────────────────────────────────────
+  const salvarCampos = async (novosCampos) => {
+    setBancos((prev) => prev.map((b) => (b.id === selectedId ? { ...b, campos: novosCampos } : b)))
+    const { error } = await supabase
+      .from('bancos_dados')
+      .update({ campos: novosCampos, updated_at: new Date().toISOString() })
+      .eq('id', selectedId)
+    if (error) showToast('Erro ao salvar campos', 'error')
+  }
+
+  // ── Registros: adicionar / editar / excluir ────────────────────────────────
+  const addLinha = async () => {
+    const { data, error } = await supabase
+      .from('bancos_dados_registros')
+      .insert({ banco_id: selectedId, dados: {}, origem: 'manual' })
+      .select('*')
+      .single()
+    if (error) { showToast('Erro ao adicionar linha', 'error'); return }
+    setRegistros((prev) => [data, ...prev])
+  }
+
+  const editarCelula = (regId, key, value) => {
+    setRegistros((prev) => prev.map((r) => {
+      if (r.id !== regId) return r
+      const dados = { ...r.dados, [key]: value }
+      clearTimeout(saveTimers.current[regId])
+      saveTimers.current[regId] = setTimeout(async () => {
+        const { error } = await supabase.from('bancos_dados_registros').update({ dados }).eq('id', regId)
+        if (error) showToast('Erro ao salvar', 'error')
+      }, 550)
+      return { ...r, dados }
+    }))
+  }
+
+  const excluirLinha = async (regId) => {
+    setRegistros((prev) => prev.filter((r) => r.id !== regId))
+    await supabase.from('bancos_dados_registros').delete().eq('id', regId)
+  }
+
+  useEffect(() => {
+    const timers = saveTimers.current
+    return () => Object.values(timers).forEach(clearTimeout)
+  }, [])
+
+  // ── Campos detectados via webhook mas ainda sem coluna ─────────────────────
+  const camposDetectados = useMemo(() => {
+    const known = new Set(campos.map((c) => c.key))
+    const found = new Set()
+    for (const r of registros) {
+      for (const k of Object.keys(r.dados || {})) {
+        if (!known.has(k)) found.add(k)
+      }
+    }
+    return [...found]
+  }, [registros, campos])
+
+  const registrosFiltrados = useMemo(() => {
+    const q = busca.trim().toLowerCase()
+    if (!q) return registros
+    return registros.filter((r) =>
+      Object.values(r.dados || {}).some((v) => String(v ?? '').toLowerCase().includes(q)))
+  }, [registros, busca])
+
+  const webhookUrl = selected
+    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://app.revenuelab.com.br'}/api/lead-capture?t=${selected.ingest_token}`
+    : ''
+
+  const copy = (txt, tag) => {
+    navigator.clipboard?.writeText(txt)
+    setCopied(tag); setTimeout(() => setCopied(''), 1500)
+  }
+
+  const exportCSV = () => {
+    const cols = campos.length ? campos : [{ key: '_', label: 'dados' }]
+    const head = [...cols.map((c) => c.label), 'origem', 'data'].join(',')
+    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const lines = registrosFiltrados.map((r) =>
+      [...cols.map((c) => esc(r.dados?.[c.key])), esc(r.origem), esc(fmtDateTime(r.created_at))].join(','))
+    const blob = new Blob([[head, ...lines].join('\n')], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${selected?.nome || 'banco'}.csv`
+    a.click()
+  }
+
+  return (
+    <div className="min-h-screen flex bg-gradient-dark">
+      <AppSidebar
+        filter="banco-dados"
+        setFilter={() => navigate('/')}
+        counts={{}}
+        activeAccounts={[]}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Mobile top bar */}
+        <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
+          <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu"
+            className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+            <Menu className="w-5 h-5" />
+          </button>
+          <span className="font-bold text-rl-text text-sm flex items-center gap-2">
+            <Database className="w-4 h-4 text-rl-purple" /> Banco de dados
+          </span>
+        </div>
+
+        <main className="flex-1 px-4 sm:px-6 py-6 sm:py-8">
+          <div className="max-w-6xl mx-auto space-y-5">
+
+            {/* Header */}
+            <div className="flex items-start justify-between flex-wrap gap-3">
+              <div>
+                <h1 className="text-2xl font-bold text-rl-text flex items-center gap-2.5">
+                  <Database className="w-6 h-6 text-rl-purple" /> Banco de dados
+                </h1>
+                <p className="text-sm text-rl-muted mt-1">
+                  Planilhas de captação com campos personalizados e webhook para suas landing pages.
+                </p>
+              </div>
+              <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
+                <Plus className="w-4 h-4" /> Novo banco
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="glass-card p-10 flex items-center justify-center text-rl-muted">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando…
+              </div>
+            ) : bancos.length === 0 ? (
+              <div className="glass-card p-10 text-center">
+                <Database className="w-10 h-10 text-rl-muted mx-auto mb-3 opacity-50" />
+                <p className="text-rl-text font-medium">Nenhum banco ainda</p>
+                <p className="text-sm text-rl-muted mt-1 mb-4">Crie seu primeiro banco de captação de leads.</p>
+                <button onClick={() => setShowCreate(true)} className="btn-primary inline-flex items-center gap-2 text-sm py-2 px-4">
+                  <Plus className="w-4 h-4" /> Criar banco
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-5">
+                {/* Lista de bancos */}
+                <div className="glass-card p-2 h-fit">
+                  {bancos.map((b) => (
+                    <button key={b.id} onClick={() => { setSelectedId(b.id); setTab('planilha') }}
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm text-left transition-all ${
+                        b.id === selectedId ? 'bg-rl-purple/15 text-rl-purple' : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text'
+                      }`}>
+                      <span className="truncate flex items-center gap-2"><Table2 className="w-3.5 h-3.5 shrink-0" />{b.nome}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Painel do banco */}
+                {selected && (
+                  <div className="space-y-4 min-w-0">
+                    {/* Tabs */}
+                    <div className="flex items-center gap-1 border-b border-rl-border">
+                      {[
+                        { id: 'planilha', label: 'Planilha', Icon: Table2 },
+                        { id: 'campos', label: 'Campos', Icon: Columns3 },
+                        { id: 'webhook', label: 'Webhook', Icon: Webhook },
+                      ].map(({ id, label, Icon }) => (
+                        <button key={id} onClick={() => setTab(id)}
+                          className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-all ${
+                            tab === id ? 'border-rl-purple text-rl-purple' : 'border-transparent text-rl-muted hover:text-rl-text'
+                          }`}>
+                          <Icon className="w-4 h-4" />{label}
+                          {id === 'webhook' && camposDetectados.length > 0 && (
+                            <span className="ml-1 text-[9px] font-bold bg-rl-gold/20 text-rl-gold rounded-full px-1.5">
+                              {camposDetectados.length}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                      <div className="flex-1" />
+                      <button onClick={() => excluirBanco(selected)} title="Excluir banco"
+                        className="p-2 text-rl-muted hover:text-red-400 transition-all">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {tab === 'planilha' && (
+                      <PlanilhaTab
+                        campos={campos} registros={registrosFiltrados} loadingReg={loadingReg}
+                        busca={busca} setBusca={setBusca} onAddLinha={addLinha}
+                        onEdit={editarCelula} onDelete={excluirLinha} onExport={exportCSV}
+                        onGoCampos={() => setTab('campos')}
+                      />
+                    )}
+                    {tab === 'campos' && (
+                      <CamposTab campos={campos} onSave={salvarCampos} />
+                    )}
+                    {tab === 'webhook' && (
+                      <WebhookTab
+                        url={webhookUrl} campos={campos} copied={copied} onCopy={copy}
+                        detectados={camposDetectados}
+                        onAddDetectado={(k) => salvarCampos([...campos, { key: k, label: k, type: 'text' }])}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+
+      {/* Modal criar */}
+      {showCreate && (
+        <Modal onClose={() => setShowCreate(false)} maxWidth="md">
+          <div className="p-5 space-y-4">
+            <h3 className="text-lg font-bold text-rl-text">Novo banco</h3>
+            <div>
+              <label className="text-xs text-rl-muted">Nome</label>
+              <input autoFocus value={novoNome} onChange={(e) => setNovoNome(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && criarBanco()}
+                placeholder="Ex: Leads LP Aplicação Grátis"
+                className="w-full mt-1 bg-rl-surface border border-rl-border rounded-lg px-3 py-2 text-sm text-rl-text outline-none focus:border-rl-purple" />
+            </div>
+            <div>
+              <label className="text-xs text-rl-muted">Começar com</label>
+              <div className="mt-1 space-y-2">
+                {Object.entries(TEMPLATES).map(([id, t]) => (
+                  <button key={id} onClick={() => setNovoTemplate(id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-all ${
+                      novoTemplate === id ? 'border-rl-purple bg-rl-purple/10 text-rl-text' : 'border-rl-border text-rl-muted hover:text-rl-text'
+                    }`}>
+                    {t.label} {t.campos.length > 0 && <span className="text-rl-muted">· {t.campos.length} campos</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-rl-muted hover:text-rl-text">Cancelar</button>
+              <button onClick={criarBanco} disabled={!novoNome.trim()} className="btn-primary text-sm py-2 px-4 disabled:opacity-40">Criar</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      <Toast toast={toast} />
+    </div>
+  )
+}
+
+// ── Aba Planilha ──────────────────────────────────────────────────────────────
+function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinha, onEdit, onDelete, onExport, onGoCampos }) {
+  if (!campos.length) {
+    return (
+      <div className="glass-card p-8 text-center">
+        <Columns3 className="w-8 h-8 text-rl-muted mx-auto mb-2 opacity-50" />
+        <p className="text-rl-text font-medium">Sem colunas ainda</p>
+        <p className="text-sm text-rl-muted mt-1 mb-3">Defina os campos que sua planilha vai ter.</p>
+        <button onClick={onGoCampos} className="btn-primary inline-flex items-center gap-2 text-sm py-2 px-4">
+          <Columns3 className="w-4 h-4" /> Configurar campos
+        </button>
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="w-4 h-4 text-rl-muted absolute left-3 top-1/2 -translate-y-1/2" />
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar…"
+            className="w-full bg-rl-surface border border-rl-border rounded-lg pl-9 pr-3 py-2 text-sm text-rl-text outline-none focus:border-rl-purple" />
+        </div>
+        <button onClick={onExport} className="flex items-center gap-1.5 text-sm text-rl-muted hover:text-rl-text border border-rl-border rounded-lg px-3 py-2">
+          <Download className="w-4 h-4" /> CSV
+        </button>
+        <button onClick={onAddLinha} className="btn-primary flex items-center gap-1.5 text-sm py-2 px-3">
+          <Plus className="w-4 h-4" /> Linha
+        </button>
+      </div>
+
+      <div className="glass-card overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="border-b border-rl-border">
+              {campos.map((c) => (
+                <th key={c.key} className="text-left font-semibold text-rl-muted px-3 py-2 whitespace-nowrap text-xs uppercase tracking-wide">
+                  {c.label}
+                </th>
+              ))}
+              <th className="text-left font-semibold text-rl-muted px-3 py-2 text-xs uppercase whitespace-nowrap">Origem</th>
+              <th className="text-left font-semibold text-rl-muted px-3 py-2 text-xs uppercase whitespace-nowrap">Data</th>
+              <th className="w-8" />
+            </tr>
+          </thead>
+          <tbody>
+            {loadingReg ? (
+              <tr><td colSpan={campos.length + 3} className="px-3 py-8 text-center text-rl-muted">
+                <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> Carregando…
+              </td></tr>
+            ) : registros.length === 0 ? (
+              <tr><td colSpan={campos.length + 3} className="px-3 py-8 text-center text-rl-muted text-sm">
+                Nenhum registro. Os leads das suas LPs aparecem aqui automaticamente.
+              </td></tr>
+            ) : registros.map((r) => (
+              <tr key={r.id} className="border-b border-rl-border/50 hover:bg-rl-surface/40 group">
+                {campos.map((c) => (
+                  <td key={c.key} className="px-1.5 py-0.5 align-middle">
+                    <CellEditor field={c} value={r.dados?.[c.key]} onChange={(v) => onEdit(r.id, c.key, v)} />
+                  </td>
+                ))}
+                <td className="px-3 py-1.5 whitespace-nowrap">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                    r.origem === 'webhook' ? 'text-rl-green border-rl-green/30 bg-rl-green/10' : 'text-rl-muted border-rl-border'
+                  }`}>{r.origem}</span>
+                </td>
+                <td className="px-3 py-1.5 text-rl-muted text-xs whitespace-nowrap">{fmtDateTime(r.created_at)}</td>
+                <td className="px-1">
+                  <button onClick={() => onDelete(r.id)} className="p-1 text-rl-muted/40 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-rl-muted text-center">{registros.length} registro(s)</p>
+    </div>
+  )
+}
+
+function CellEditor({ field, value, onChange }) {
+  if (field.type === 'select') {
+    return (
+      <div className="relative">
+        <select value={value ?? ''} onChange={(e) => onChange(e.target.value)}
+          className="appearance-none bg-transparent text-rl-text text-sm pr-6 pl-2 py-1.5 rounded-md hover:bg-rl-surface outline-none focus:bg-rl-surface w-full min-w-[110px]">
+          <option value="">—</option>
+          {(field.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <ChevronDown className="w-3.5 h-3.5 text-rl-muted absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+      </div>
+    )
+  }
+  const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'email' ? 'email' : 'text'
+  return (
+    <input type={type} value={value ?? ''} onChange={(e) => onChange(e.target.value)}
+      className="bg-transparent text-rl-text text-sm px-2 py-1.5 rounded-md hover:bg-rl-surface outline-none focus:bg-rl-surface w-full min-w-[120px] placeholder:text-rl-muted/30" placeholder="—" />
+  )
+}
+
+// ── Aba Campos ────────────────────────────────────────────────────────────────
+function CamposTab({ campos, onSave }) {
+  const [local, setLocal] = useState(campos)
+  useEffect(() => { setLocal(campos) }, [campos])
+
+  const dirty = JSON.stringify(local) !== JSON.stringify(campos)
+
+  const update = (i, patch) => setLocal((prev) => prev.map((c, idx) => (idx === i ? { ...c, ...patch } : c)))
+  const remove = (i) => setLocal((prev) => prev.filter((_, idx) => idx !== i))
+  const add = () => setLocal((prev) => [...prev, { key: `campo_${prev.length + 1}`, label: '', type: 'text', options: [] }])
+  const move = (i, dir) => setLocal((prev) => {
+    const j = i + dir
+    if (j < 0 || j >= prev.length) return prev
+    const cp = [...prev];[cp[i], cp[j]] = [cp[j], cp[i]]; return cp
+  })
+
+  return (
+    <div className="glass-card p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-rl-muted">A <strong className="text-rl-text">chave</strong> é o nome que o webhook espera no JSON. O <strong className="text-rl-text">rótulo</strong> é o que aparece na planilha.</p>
+      </div>
+
+      <div className="space-y-2">
+        {local.map((c, i) => (
+          <div key={i} className="flex items-start gap-2 flex-wrap sm:flex-nowrap bg-rl-surface/50 rounded-lg p-2 border border-rl-border">
+            <div className="flex flex-col pt-1.5">
+              <button onClick={() => move(i, -1)} className="text-rl-muted hover:text-rl-text text-[10px] leading-none">▲</button>
+              <button onClick={() => move(i, 1)} className="text-rl-muted hover:text-rl-text text-[10px] leading-none">▼</button>
+            </div>
+            <div className="flex-1 min-w-[120px]">
+              <label className="text-[10px] text-rl-muted">Rótulo</label>
+              <input value={c.label} onChange={(e) => {
+                const label = e.target.value
+                const auto = !c.key || c.key === slugify(c.label)
+                update(i, auto ? { label, key: slugify(label) } : { label })
+              }} placeholder="Nome do campo"
+                className="w-full bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text outline-none focus:border-rl-purple" />
+            </div>
+            <div className="flex-1 min-w-[120px]">
+              <label className="text-[10px] text-rl-muted">Chave (webhook)</label>
+              <input value={c.key} onChange={(e) => update(i, { key: slugify(e.target.value) })} placeholder="chave_json"
+                className="w-full bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text font-mono outline-none focus:border-rl-purple" />
+            </div>
+            <div className="min-w-[130px]">
+              <label className="text-[10px] text-rl-muted">Tipo</label>
+              <select value={c.type} onChange={(e) => update(i, { type: e.target.value })}
+                className="w-full bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text outline-none focus:border-rl-purple">
+                {FIELD_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+            </div>
+            <button onClick={() => remove(i)} className="p-1.5 mt-4 text-rl-muted hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+            {c.type === 'select' && (
+              <div className="w-full">
+                <label className="text-[10px] text-rl-muted">Opções do dropdown (uma por linha)</label>
+                <textarea rows={3} value={(c.options || []).join('\n')}
+                  onChange={(e) => update(i, { options: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })}
+                  placeholder={'Novo\nEm contato\nGanho\nPerdido'}
+                  className="w-full bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text outline-none focus:border-rl-purple resize-y" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between pt-1">
+        <button onClick={add} className="flex items-center gap-1.5 text-sm text-rl-purple hover:underline">
+          <Plus className="w-4 h-4" /> Adicionar campo
+        </button>
+        <button onClick={() => onSave(local)} disabled={!dirty}
+          className="btn-primary text-sm py-2 px-4 disabled:opacity-40">Salvar campos</button>
+      </div>
+    </div>
+  )
+}
+
+// ── Aba Webhook ───────────────────────────────────────────────────────────────
+function WebhookTab({ url, campos, copied, onCopy, detectados, onAddDetectado }) {
+  const snippet = `<form id="rl-form">
+${campos.map((c) => `  <input name="${c.key}" placeholder="${c.label}">`).join('\n')}
+  <button type="submit">Enviar</button>
+</form>
+
+<script>
+document.getElementById('rl-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const dados = Object.fromEntries(new FormData(e.target));
+  // captura UTMs da URL automaticamente
+  new URLSearchParams(location.search).forEach((v, k) => { if (!dados[k]) dados[k] = v; });
+  await fetch(${JSON.stringify(url)}, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados),
+  });
+  window.location = '/obrigado'; // ajuste seu redirect / pixel aqui
+});
+</script>`
+
+  return (
+    <div className="space-y-4">
+      <div className="glass-card p-4 space-y-2">
+        <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">URL do webhook</label>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 min-w-0 truncate bg-rl-bg border border-rl-border rounded-lg px-3 py-2 text-xs text-rl-green font-mono">{url}</code>
+          <button onClick={() => onCopy(url, 'url')} className="shrink-0 flex items-center gap-1.5 text-sm border border-rl-border rounded-lg px-3 py-2 text-rl-muted hover:text-rl-text">
+            {copied === 'url' ? <Check className="w-4 h-4 text-rl-green" /> : <Copy className="w-4 h-4" />}
+          </button>
+        </div>
+        <p className="text-xs text-rl-muted">Faça um <strong className="text-rl-text">POST</strong> (JSON ou form) para essa URL. As chaves do JSON que baterem com os campos abaixo viram colunas.</p>
+      </div>
+
+      <div className="glass-card p-4">
+        <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">Campos esperados</label>
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {campos.length === 0 && <span className="text-sm text-rl-muted">Nenhum campo definido ainda.</span>}
+          {campos.map((c) => (
+            <span key={c.key} className="text-xs font-mono bg-rl-surface border border-rl-border rounded-md px-2 py-1 text-rl-text">{c.key}</span>
+          ))}
+        </div>
+      </div>
+
+      {detectados.length > 0 && (
+        <div className="glass-card p-4 border border-rl-gold/30">
+          <label className="text-xs font-semibold text-rl-gold uppercase tracking-wide">Campos recebidos sem coluna</label>
+          <p className="text-xs text-rl-muted mt-1 mb-2">Chegaram via webhook mas não têm coluna. Clique para adicionar.</p>
+          <div className="flex flex-wrap gap-1.5">
+            {detectados.map((k) => (
+              <button key={k} onClick={() => onAddDetectado(k)}
+                className="text-xs font-mono bg-rl-gold/10 border border-rl-gold/40 rounded-md px-2 py-1 text-rl-gold hover:bg-rl-gold/20 flex items-center gap-1">
+                <Plus className="w-3 h-3" /> {k}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="glass-card p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide flex items-center gap-1.5"><Code2 className="w-3.5 h-3.5" /> Snippet para a LP</label>
+          <button onClick={() => onCopy(snippet, 'snippet')} className="flex items-center gap-1.5 text-sm border border-rl-border rounded-lg px-3 py-1.5 text-rl-muted hover:text-rl-text">
+            {copied === 'snippet' ? <Check className="w-4 h-4 text-rl-green" /> : <Copy className="w-4 h-4" />} Copiar
+          </button>
+        </div>
+        <pre className="bg-rl-bg border border-rl-border rounded-lg p-3 text-[11px] text-rl-text/90 font-mono overflow-x-auto">{snippet}</pre>
+      </div>
+    </div>
+  )
+}
