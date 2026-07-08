@@ -7,7 +7,7 @@ import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import {
   Database, Plus, Trash2, Copy, Check, Loader2, Search, Download,
-  Table2, Columns3, Webhook, ChevronDown, Code2,
+  Table2, Columns3, Webhook, ChevronDown, Code2, X,
 } from 'lucide-react'
 
 // ── Tipos de campo ────────────────────────────────────────────────────────────
@@ -310,6 +310,12 @@ export default function BancoDeDadosModule({ project }) {
                   url={webhookUrl} campos={campos} copied={copied} onCopy={copy}
                   detectados={camposDetectados}
                   onAddDetectado={(k) => salvarCampos([...campos, { key: k, label: k, type: 'text' }])}
+                  onAddCampo={(key) => {
+                    const k = slugify(key)
+                    if (!k || campos.some((c) => c.key === k)) { showToast('Chave inválida ou já existe', 'error'); return }
+                    salvarCampos([...campos, { key: k, label: k, type: 'text' }])
+                  }}
+                  onRemoveCampo={(key) => salvarCampos(campos.filter((c) => c.key !== key))}
                 />
               )}
             </div>
@@ -531,7 +537,8 @@ function CamposTab({ campos, onSave }) {
 }
 
 // ── Aba Webhook ───────────────────────────────────────────────────────────────
-function WebhookTab({ url, campos, copied, onCopy, detectados, onAddDetectado }) {
+function WebhookTab({ url, campos, copied, onCopy, detectados, onAddDetectado, onAddCampo, onRemoveCampo }) {
+  const [novoCampo, setNovoCampo] = useState('')
   const snippet = `<form id="rl-form">
 ${campos.map((c) => `  <input name="${c.key}" placeholder="${c.label}">`).join('\n')}
   <button type="submit">Enviar</button>
@@ -570,9 +577,30 @@ document.getElementById('rl-form').addEventListener('submit', async (e) => {
         <div className="flex flex-wrap gap-1.5 mt-2">
           {campos.length === 0 && <span className="text-sm text-rl-muted">Nenhum campo definido ainda.</span>}
           {campos.map((c) => (
-            <span key={c.key} className="text-xs font-mono bg-rl-surface border border-rl-border rounded-md px-2 py-1 text-rl-text">{c.key}</span>
+            <span key={c.key} className="text-xs font-mono bg-rl-surface border border-rl-border rounded-md pl-2 pr-1 py-1 text-rl-text flex items-center gap-1">
+              {c.key}
+              <button onClick={() => onRemoveCampo(c.key)} title="Remover campo"
+                className="text-rl-muted/50 hover:text-red-400 transition-colors">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
           ))}
         </div>
+        <form
+          onSubmit={(e) => { e.preventDefault(); if (novoCampo.trim()) { onAddCampo(novoCampo); setNovoCampo('') } }}
+          className="flex items-center gap-2 mt-3"
+        >
+          <input value={novoCampo} onChange={(e) => setNovoCampo(e.target.value)}
+            placeholder="nova_chave (ex: cargo, cidade)"
+            className="flex-1 min-w-0 bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text font-mono outline-none focus:border-rl-purple" />
+          <button type="submit" disabled={!novoCampo.trim()}
+            className="btn-primary text-sm py-1.5 px-3 flex items-center gap-1 disabled:opacity-40">
+            <Plus className="w-3.5 h-3.5" /> Adicionar
+          </button>
+        </form>
+        <p className="text-[11px] text-rl-muted mt-1.5">
+          Novo campo entra como texto e vira coluna na planilha. Para mudar o tipo (dropdown etc.), use a aba <strong className="text-rl-text">Campos</strong>. A <strong className="text-rl-text">chave</strong> precisa ser igual ao <code className="text-rl-text">name</code> que o formulário envia.
+        </p>
       </div>
 
       {detectados.length > 0 && (
