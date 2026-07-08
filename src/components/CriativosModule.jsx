@@ -23,8 +23,10 @@ import {
   Share2,
   Copy,
   Link2,
+  Users,
 } from 'lucide-react'
 import Modal from './UI/Modal'
+import MarkdownBlock from './Criativos/MarkdownBlock'
 import { FUNIS, FUNIS_BY_ID } from '../lib/funis'
 import { replaceAdInContent } from './Criativos/ResultBlock'
 import CreativeResultBlock from './Criativos/CreativeResultBlock'
@@ -404,46 +406,106 @@ ${NIVEIS_ESTATICO}`,
 export default function CriativosModule({ project }) {
   const { updateProject } = useApp()
 
-  // ── Compartilhar com o cliente (link público + senha) ──────────────────────
+  // ── Compartilhar + usuários + histórico do cliente ─────────────────────────
   const [shareOpen, setShareOpen] = useState(false)
-  const [sharePassword, setSharePassword] = useState('')
   const [shareUrl, setShareUrl] = useState('')
   const [shareBusy, setShareBusy] = useState(false)
   const [shareError, setShareError] = useState(null)
   const [shareCopied, setShareCopied] = useState(false)
+  // Usuários da ferramenta (email + senha)
+  const [users, setUsers] = useState([])
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '' })
+  const [userBusy, setUserBusy] = useState(false)
+  // Histórico dos clientes (gerações via link)
+  const [clientHistory, setClientHistory] = useState(null) // null = não carregado
+  const [historyBusy, setHistoryBusy] = useState(false)
+  const [openHistoryItem, setOpenHistoryItem] = useState(null)
 
-  const generateShareLink = useCallback(async () => {
-    if (sharePassword.trim().length < 4) {
-      setShareError('A senha precisa ter ao menos 4 caracteres.')
-      return
-    }
-    setShareBusy(true)
-    setShareError(null)
-    setShareUrl('')
+  // Chamada autenticada (JWT da sessão do time) aos endpoints /api/criativos-*.
+  const authFetch = useCallback(async (url, payload) => {
+    let sessionToken = null
     try {
-      let sessionToken = null
-      try {
-        const { supabase } = await import('../lib/supabase.js')
-        const { data } = (await supabase?.auth.getSession()) ?? {}
-        sessionToken = data?.session?.access_token ?? null
-      } catch { /* sem token → 401 */ }
-      const res = await fetch('/api/criativos-share-token', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
-        },
-        body: JSON.stringify({ projectId: project.id, password: sharePassword.trim() }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data?.error?.message || `Erro ${res.status}`)
+      const { supabase } = await import('../lib/supabase.js')
+      const { data } = (await supabase?.auth.getSession()) ?? {}
+      sessionToken = data?.session?.access_token ?? null
+    } catch { /* sem token → 401 */ }
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data?.error?.message || data?.error || `Erro ${res.status}`)
+    return data
+  }, [])
+
+  const loadUsers = useCallback(async () => {
+    try {
+      const data = await authFetch('/api/criativos-users', { action: 'list-users', projectId: project.id })
+      setUsers(data.users || [])
+    } catch (e) {
+      setShareError(e.message)
+    }
+  }, [authFetch, project.id])
+
+  const openShare = useCallback(async () => {
+    setShareOpen(true); setShareError(null); setShareUrl(''); setNewUser({ name: '', email: '', password: '' })
+    setShareBusy(true)
+    try {
+      const data = await authFetch('/api/criativos-share-token', { projectId: project.id })
       setShareUrl(data.url)
     } catch (e) {
       setShareError(e.message || 'Não foi possível gerar o link.')
     } finally {
       setShareBusy(false)
     }
-  }, [project.id, sharePassword])
+    loadUsers()
+  }, [authFetch, loadUsers, project.id])
+
+  async function addUser() {
+    const { name, email, password } = newUser
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setShareError('E-mail inválido.'); return }
+    if (password.trim().length < 4) { setShareError('A senha precisa ter ao menos 4 caracteres.'); return }
+    setUserBusy(true); setShareError(null)
+    try {
+      await authFetch('/api/criativos-users', { action: 'create-user', projectId: project.id, name: name.trim(), email: email.trim(), password: password.trim() })
+      setNewUser({ name: '', email: '', password: '' })
+      await loadUsers()
+    } catch (e) {
+      setShareError(e.message)
+    } finally {
+      setUserBusy(false)
+    }
+  }
+
+  async function toggleUser(u) {
+    try {
+      await authFetch('/api/criativos-users', { action: 'update-user', projectId: project.id, id: u.id, active: !u.active })
+      await loadUsers()
+    } catch (e) { setShareError(e.message) }
+  }
+
+  async function deleteUser(u) {
+    try {
+      await authFetch('/api/criativos-users', { action: 'delete-user', projectId: project.id, id: u.id })
+      await loadUsers()
+    } catch (e) { setShareError(e.message) }
+  }
+
+  const loadClientHistory = useCallback(async () => {
+    setHistoryBusy(true)
+    try {
+      const data = await authFetch('/api/criativos-users', { action: 'history', projectId: project.id })
+      setClientHistory(data.history || [])
+    } catch {
+      setClientHistory([])
+    } finally {
+      setHistoryBusy(false)
+    }
+  }, [authFetch, project.id])
 
   function copyShareLink() {
     navigator.clipboard?.writeText(shareUrl || '').then(() => {
@@ -962,65 +1024,88 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
             </p>
           </div>
           <button
-            onClick={() => { setShareOpen(true); setShareUrl(''); setShareError(null); setSharePassword('') }}
+            onClick={openShare}
             className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20 transition-all"
           >
-            <Share2 className="w-3.5 h-3.5" /> Compartilhar com cliente
+            <Share2 className="w-3.5 h-3.5" /> Compartilhar & usuários
           </button>
         </div>
 
         {shareOpen && (
-          <Modal onClose={() => setShareOpen(false)} maxWidth="md">
-            <div className="space-y-4">
+          <Modal onClose={() => setShareOpen(false)} maxWidth="lg">
+            <div className="space-y-5">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 rounded-xl bg-rl-purple/15 flex items-center justify-center">
                   <Link2 className="w-4.5 h-4.5 text-rl-purple" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-rl-text">Link de criação de anúncios</h3>
-                  <p className="text-xs text-rl-muted">O cliente gera os próprios anúncios com os dados desta conta.</p>
+                  <p className="text-xs text-rl-muted">O cliente entra com e-mail e senha e gera os próprios anúncios.</p>
                 </div>
               </div>
 
+              {/* Link compartilhável */}
+              <div className="flex items-center gap-2 rounded-lg border border-rl-border bg-rl-surface px-3 py-2">
+                {shareBusy && !shareUrl ? (
+                  <span className="text-xs text-rl-muted flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Gerando link...</span>
+                ) : (
+                  <>
+                    <input readOnly value={shareUrl} className="flex-1 bg-transparent text-xs text-rl-text outline-none truncate" />
+                    <button onClick={copyShareLink} className="shrink-0 flex items-center gap-1 text-xs font-semibold text-rl-purple hover:text-rl-text transition-all">
+                      {shareCopied ? <><Check className="w-3.5 h-3.5 text-rl-green" /> Copiado</> : <><Copy className="w-3.5 h-3.5" /> Copiar</>}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Usuários */}
               <div>
-                <label className="text-[11px] font-bold text-rl-text block mb-1">Senha de acesso</label>
-                <input
-                  type="text"
-                  value={sharePassword}
-                  onChange={(e) => setSharePassword(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && generateShareLink()}
-                  placeholder="Defina uma senha (mín. 4 caracteres)"
-                  className="input-field w-full text-sm"
-                />
-                <p className="text-[10px] text-rl-muted mt-1">
-                  Envie essa senha ao cliente junto com o link. Trocar a senha invalida o link antigo.
-                </p>
+                <label className="text-[11px] font-bold text-rl-text block mb-2 uppercase tracking-wide">Usuários com acesso</label>
+                <div className="space-y-1.5 mb-3">
+                  {users.length === 0 && (
+                    <p className="text-xs text-rl-muted">Nenhum usuário ainda. Cadastre abaixo pra liberar o acesso.</p>
+                  )}
+                  {users.map((u) => (
+                    <div key={u.id} className="flex items-center gap-2 rounded-lg border border-rl-border bg-rl-surface px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-rl-text truncate">{u.name || u.email}</p>
+                        <p className="text-[10px] text-rl-muted truncate">{u.email} · {u.generations || 0} anúncio{u.generations !== 1 ? 's' : ''}</p>
+                      </div>
+                      <button onClick={() => toggleUser(u)}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${u.active ? 'text-rl-green bg-rl-green/10 border-rl-green/30' : 'text-rl-muted bg-rl-surface border-rl-border'}`}>
+                        {u.active ? 'Ativo' : 'Inativo'}
+                      </button>
+                      <button onClick={() => deleteUser(u)} title="Remover"
+                        className="p-1 rounded text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-lg border border-rl-border bg-rl-surface/50 p-3 space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input value={newUser.name} onChange={(e) => setNewUser((s) => ({ ...s, name: e.target.value }))}
+                      placeholder="Nome (opcional)" className="input-field w-full text-sm" />
+                    <input type="email" value={newUser.email} onChange={(e) => setNewUser((s) => ({ ...s, email: e.target.value }))}
+                      placeholder="E-mail do cliente" className="input-field w-full text-sm" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input value={newUser.password} onChange={(e) => setNewUser((s) => ({ ...s, password: e.target.value }))}
+                      onKeyDown={(e) => e.key === 'Enter' && addUser()}
+                      placeholder="Senha (mín. 4)" className="input-field flex-1 text-sm" />
+                    <button onClick={addUser} disabled={userBusy}
+                      className="btn-primary flex items-center gap-1.5 text-xs px-3 py-2 disabled:opacity-50 shrink-0">
+                      {userBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} Adicionar
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {shareError && (
                 <div className="flex items-start gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2">
                   <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                   <p className="text-sm text-red-400">{shareError}</p>
-                </div>
-              )}
-
-              {!shareUrl ? (
-                <button
-                  onClick={generateShareLink}
-                  disabled={shareBusy || sharePassword.trim().length < 4}
-                  className="btn-primary w-full flex items-center justify-center gap-2 text-sm py-2.5 disabled:opacity-50"
-                >
-                  {shareBusy ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</> : <><Link2 className="w-4 h-4" /> Gerar link</>}
-                </button>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 rounded-lg border border-rl-border bg-rl-surface px-3 py-2">
-                    <input readOnly value={shareUrl} className="flex-1 bg-transparent text-xs text-rl-text outline-none truncate" />
-                    <button onClick={copyShareLink} className="shrink-0 flex items-center gap-1 text-xs font-semibold text-rl-purple hover:text-rl-text transition-all">
-                      {shareCopied ? <><Check className="w-3.5 h-3.5 text-rl-green" /> Copiado</> : <><Copy className="w-3.5 h-3.5" /> Copiar</>}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-rl-muted">Senha: <strong className="text-rl-text">{sharePassword}</strong> — guarde-a, ela não aparece no link.</p>
                 </div>
               )}
             </div>
@@ -1095,6 +1180,15 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
           project={project}
           updateProject={updateProject}
           onOpen={(c) => setHistoryCreativeId(c.id)}
+        />
+
+        {/* Histórico dos clientes (gerado via link compartilhável) */}
+        <ClientHistoryPanel
+          history={clientHistory}
+          busy={historyBusy}
+          onLoad={loadClientHistory}
+          openItem={openHistoryItem}
+          setOpenItem={setOpenHistoryItem}
         />
       </div>
     )
@@ -1886,6 +1980,82 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
         </div>
       )}
       </>)}
+    </div>
+  )
+}
+
+// ─── Painel: histórico dos anúncios criados pelos clientes (via link) ──────────
+function ClientHistoryPanel({ history, busy, onLoad, openItem, setOpenItem }) {
+  function fmt(iso) {
+    try {
+      return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    } catch { return '' }
+  }
+
+  // Agrupa por usuário (email).
+  const groups = {}
+  for (const h of history || []) {
+    const key = h.user_email || 'sem-usuario'
+    if (!groups[key]) groups[key] = { name: h.user_name, email: h.user_email, items: [] }
+    groups[key].items.push(h)
+  }
+  const groupList = Object.values(groups)
+
+  return (
+    <div className="glass-card p-5">
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-rl-purple" />
+          <h3 className="text-sm font-bold text-rl-text">Anúncios dos clientes</h3>
+        </div>
+        <button onClick={onLoad} disabled={busy}
+          className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all disabled:opacity-50">
+          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+          {history === null ? 'Carregar' : 'Atualizar'}
+        </button>
+      </div>
+      <p className="text-xs text-rl-muted mb-3">Gerados pelos usuários no link compartilhável, separados por usuário.</p>
+
+      {history === null ? (
+        <p className="text-xs text-rl-muted">Clique em “Carregar” para ver os anúncios criados pelos clientes.</p>
+      ) : groupList.length === 0 ? (
+        <p className="text-xs text-rl-muted">Nenhum anúncio criado pelos clientes ainda.</p>
+      ) : (
+        <div className="space-y-4">
+          {groupList.map((g) => (
+            <div key={g.email}>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-xs font-bold text-rl-text">{g.name || g.email}</span>
+                <span className="text-[10px] text-rl-muted">{g.email} · {g.items.length} anúncio{g.items.length !== 1 ? 's' : ''}</span>
+              </div>
+              <div className="space-y-1.5">
+                {g.items.map((h) => {
+                  const open = openItem === h.id
+                  return (
+                    <div key={h.id} className="rounded-lg border border-rl-border bg-rl-surface overflow-hidden">
+                      <button onClick={() => setOpenItem(open ? null : h.id)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-rl-surface/70 transition-all">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${h.mode === 'video' ? 'text-rl-purple bg-rl-purple/10 border-rl-purple/30' : 'text-rl-blue bg-rl-blue/10 border-rl-blue/30'}`}>
+                          {h.mode === 'video' ? '🎬' : '🖼️'}
+                        </span>
+                        {h.funil_label && <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface border border-rl-border text-rl-muted truncate max-w-[40%]">{h.funil_label}</span>}
+                        <span className="text-[10px] text-rl-muted ml-auto shrink-0">{fmt(h.created_at)}</span>
+                        {open ? <ChevronUp className="w-3.5 h-3.5 text-rl-muted shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-rl-muted shrink-0" />}
+                      </button>
+                      {open && (
+                        <div className="px-3 pb-3 pt-1 border-t border-rl-border">
+                          {h.detalhes && <p className="text-[11px] text-rl-muted italic mb-2">Detalhes: {h.detalhes}</p>}
+                          <MarkdownBlock content={h.content || ''} />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -19,9 +19,11 @@ const NIVEIS_LABEL =
 export default function CriativosPublico() {
   const { projectId, token } = useParams()
 
-  // 'gate' | 'select' | 'config' | 'generating' | 'result' | 'error'
+  // 'gate' | 'select' | 'config' | 'generating' | 'result' | 'error' | 'history'
   const [status, setStatus] = useState('gate')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [user, setUser] = useState(null) // { id, email, name }
   const [ctx, setCtx] = useState(null) // { companyName, dores, produtos, personas }
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -32,6 +34,12 @@ export default function CriativosPublico() {
   const [result, setResult] = useState('')
   const [copied, setCopied] = useState(false)
   const abortRef = useRef(null)
+
+  const [history, setHistory] = useState([]) // gerações do próprio usuário
+  const [viewing, setViewing] = useState(null) // item do histórico aberto
+
+  // Credenciais reenviadas em cada chamada (o servidor revalida no banco).
+  const creds = () => ({ projectId, token, email: email.trim().toLowerCase(), password })
 
   // Config: vídeo → { [typeId]: true }
   const [adTypeConfig, setAdTypeConfig] = useState({})
@@ -46,16 +54,31 @@ export default function CriativosPublico() {
     return [...parsed, ...customDores.map((d) => ({ ...d, isCustom: true }))]
   }, [ctx, customDores])
 
-  // ── Auth (senha) ──────────────────────────────────────────────────────────
-  async function unlock() {
-    if (!password.trim() || busy) return
+  // ── Login (email + senha) ───────────────────────────────────────────────────
+  async function login() {
+    if (!email.trim() || !password || busy) return
     setBusy(true); setError(null)
     try {
-      const data = await postCriativo('auth', { projectId, token, password: password.trim() })
+      const data = await postCriativo('login', creds())
       setCtx(data)
+      setUser(data.user)
       setStatus('select')
     } catch (e) {
-      setError(e.message || 'Não foi possível acessar.')
+      setError(e.message || 'Não foi possível entrar.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // ── Histórico do próprio usuário ────────────────────────────────────────────
+  async function openHistory() {
+    setBusy(true); setError(null); setViewing(null)
+    try {
+      const data = await postCriativo('history', creds())
+      setHistory(data.history || [])
+      setStatus('history')
+    } catch (e) {
+      setError(e.message || 'Não foi possível carregar o histórico.')
     } finally {
       setBusy(false)
     }
@@ -111,19 +134,18 @@ export default function CriativosPublico() {
     if (!canGenerate) return
     setStatus('generating'); setError(null); setResult(''); setCopied(false)
     abortRef.current = new AbortController()
+    const detalhesTrim = detalhes.trim()
+    const selection = isVideo
+      ? { adTypes: videoTypes }
+      : { dores: selectedDores.map((d) => ({ text: d.text, types: Object.keys(dorConfig[d.id].types) })) }
     try {
-      const payload = { projectId, token, password: password.trim(), mode, funil, detalhes: detalhes.trim() }
-      if (isVideo) {
-        payload.adTypes = videoTypes
-      } else {
-        payload.dores = selectedDores.map((d) => ({
-          text: d.text,
-          types: Object.keys(dorConfig[d.id].types),
-        }))
-      }
+      const payload = { ...creds(), mode, funil, detalhes: detalhesTrim, ...selection }
       const full = await streamCriativo('generate', payload, setResult, abortRef.current.signal)
       setResult(full)
       setStatus('result')
+      // Salva no histórico do usuário (não bloqueia a tela).
+      postCriativo('save', { ...creds(), mode, funil, detalhes: detalhesTrim, selection, content: full })
+        .catch(() => {})
     } catch (e) {
       if (e.name === 'AbortError') return
       setError(e.message || 'Não foi possível gerar agora.')
@@ -151,23 +173,32 @@ export default function CriativosPublico() {
             <Lock className="w-6 h-6 text-rl-purple" />
           </div>
           <h1 className="text-xl font-bold text-rl-text text-center mb-1">Área de Criação de Anúncios</h1>
-          <p className="text-sm text-rl-muted text-center mb-6">Digite a senha de acesso que a Revenue Lab enviou pra você.</p>
-          <input
-            type="password" autoFocus value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && unlock()}
-            placeholder="Senha de acesso"
-            className="input-field w-full text-base text-center"
-          />
+          <p className="text-sm text-rl-muted text-center mb-6">Entre com o e-mail e a senha que a Revenue Lab enviou pra você.</p>
+          <div className="space-y-3">
+            <input
+              type="email" autoFocus value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && login()}
+              placeholder="Seu e-mail"
+              className="input-field w-full text-base"
+            />
+            <input
+              type="password" value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && login()}
+              placeholder="Sua senha"
+              className="input-field w-full text-base"
+            />
+          </div>
           {error && (
             <div className="flex items-start gap-2 mt-3 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2">
               <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
               <p className="text-sm text-red-400">{error}</p>
             </div>
           )}
-          <button onClick={unlock} disabled={!password.trim() || busy}
+          <button onClick={login} disabled={!email.trim() || !password || busy}
             className="btn-primary w-full mt-4 flex items-center justify-center gap-2 text-sm py-2.5 disabled:opacity-50">
-            {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> Verificando...</> : <>Acessar <Sparkles className="w-4 h-4" /></>}
+            {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> Entrando...</> : <>Entrar <Sparkles className="w-4 h-4" /></>}
           </button>
         </div>
       </Shell>
@@ -178,6 +209,15 @@ export default function CriativosPublico() {
     return (
       <Shell subtitle={ctx?.companyName}>
         <div className="w-full max-w-2xl space-y-6">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-rl-muted">
+              {user?.name ? <>Olá, <span className="text-rl-text font-semibold">{user.name}</span> 👋</> : 'Bem-vindo 👋'}
+            </p>
+            <button onClick={openHistory} disabled={busy}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all disabled:opacity-50">
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Layers className="w-3.5 h-3.5" />} Meus anúncios
+            </button>
+          </div>
           <div className="text-center">
             <h1 className="text-2xl font-bold text-rl-text">Que tipo de anúncio você quer criar?</h1>
             <p className="text-sm text-rl-muted mt-1">A IA usa os dados da sua marca pra montar criativos sob medida.</p>
@@ -203,6 +243,62 @@ export default function CriativosPublico() {
               </button>
             ))}
           </div>
+        </div>
+      </Shell>
+    )
+  }
+
+  // ── Histórico do usuário ────────────────────────────────────────────────────
+  if (status === 'history') {
+    const fmt = (iso) => {
+      try { return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) }
+      catch { return '' }
+    }
+    return (
+      <Shell subtitle={ctx?.companyName}>
+        <div className="w-full max-w-2xl space-y-4">
+          <div className="flex items-center gap-3">
+            <button onClick={() => { setViewing(null); setStatus('select') }}
+              className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all shrink-0">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <h1 className="text-xl font-bold text-rl-text">Meus anúncios</h1>
+          </div>
+
+          {viewing ? (
+            <div className="space-y-4">
+              <button onClick={() => setViewing(null)} className="flex items-center gap-1.5 text-xs text-rl-muted hover:text-rl-text">
+                <ArrowLeft className="w-3.5 h-3.5" /> Voltar à lista
+              </button>
+              <div className="flex items-center justify-end">
+                <button onClick={() => navigator.clipboard?.writeText(viewing.content || '')}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all">
+                  <Copy className="w-3.5 h-3.5" /> Copiar
+                </button>
+              </div>
+              <div className="glass-card p-5 sm:p-6"><MarkdownBlock content={viewing.content || ''} /></div>
+            </div>
+          ) : history.length === 0 ? (
+            <div className="glass-card p-8 text-center">
+              <p className="text-sm text-rl-muted">Você ainda não gerou nenhum anúncio.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {history.map((h) => (
+                <button key={h.id} onClick={() => setViewing(h)}
+                  className="w-full text-left glass-card p-4 hover:border-rl-purple/40 transition-all">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${h.mode === 'video' ? 'text-rl-purple bg-rl-purple/10 border-rl-purple/30' : 'text-rl-blue bg-rl-blue/10 border-rl-blue/30'}`}>
+                      {h.mode === 'video' ? '🎬 Vídeo' : '🖼️ Estático'}
+                    </span>
+                    {h.funil_label && <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface border border-rl-border text-rl-muted">{h.funil_label}</span>}
+                    <span className="text-[11px] text-rl-muted ml-auto">{fmt(h.created_at)}</span>
+                  </div>
+                  {h.detalhes && <p className="text-xs text-rl-muted mt-1.5 line-clamp-1">{h.detalhes}</p>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </Shell>
     )

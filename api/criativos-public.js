@@ -260,6 +260,34 @@ async function sb(path) {
   return { data: Array.isArray(data) ? data : [], status: res.status }
 }
 
+// POST/PATCH no PostgREST (service role).
+async function sbWrite(path, method, row, prefer = 'return=representation') {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+    method,
+    headers: {
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: prefer,
+    },
+    body: JSON.stringify(row),
+  })
+  const text = await res.text()
+  let data = null
+  try { data = JSON.parse(text) } catch { data = null }
+  return { data, status: res.status }
+}
+
+// Autentica o usuário-cliente por email + senha (hash keyed com o segredo).
+async function findUser(projectId, email, password) {
+  const { data } = await sb(`/criativos_users?project_id=eq.${encodeURIComponent(projectId)}&email=eq.${encodeURIComponent(email)}&active=is.true&select=id,email,name,password_hash&limit=1`)
+  const u = data[0]
+  if (!u) return null
+  const expected = await hmacHex(SERVICE_KEY, `criativos-user|${projectId}|${email}|${password}`)
+  if (!safeEq(String(u.password_hash || ''), expected)) return null
+  return { id: u.id, email: u.email, name: u.name }
+}
+
 // ─── Carrega o projeto + relações necessárias para o contexto ─────────────────
 async function loadProject(projectId) {
   const id = encodeURIComponent(projectId)
@@ -496,31 +524,63 @@ export default async function handler(req) {
   let body
   try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
 
-  const action = body?.action || 'auth'
+  const action = body?.action || 'login'
   const projectId = String(body?.projectId || '').trim()
   const token = String(body?.token || '').trim().toLowerCase()
-  const password = String(body?.password || '').trim()
   if (!projectId || !token) return json({ error: 'Link incompleto.' }, 400)
-  if (!password) return json({ error: 'Informe a senha de acesso.' }, 401)
 
-  // Valida token = HMAC(projectId|senha). Sem a senha certa, o HMAC não bate.
-  const expected = await hmacHex(SERVICE_KEY, `${projectId}|${password}`)
-  if (!safeEq(token, expected)) return json({ error: 'Senha incorreta ou link inválido.' }, 403)
+  // token = HMAC(projectId) — prova que o link é legítimo para este projeto.
+  const expectedToken = await hmacHex(SERVICE_KEY, projectId)
+  if (!safeEq(token, expectedToken)) return json({ error: 'Link inválido.' }, 403)
+
+  // Autentica o usuário-cliente (email + senha) a cada chamada.
+  const email = String(body?.email || '').trim().toLowerCase()
+  const password = String(body?.password || '')
+  if (!email || !password) return json({ error: 'Informe email e senha.' }, 401)
+  const user = await findUser(projectId, email, password)
+  if (!user) return json({ error: 'Email ou senha incorretos.' }, 403)
 
   const project = await loadProject(projectId)
   if (!project) return json({ error: 'Cliente não encontrado.' }, 404)
 
-  // ── auth: devolve o contexto mínimo para a UI ───────────────────────────────
-  if (action === 'auth') {
+  // ── login: devolve o contexto mínimo + dados do usuário ─────────────────────
+  if (action === 'login') {
     let dores = parseDores(project.personas)
     if (!dores.length) dores = fallbackDores(project.personas)
     return json({
       success: true,
+      user: { id: user.id, email: user.email, name: user.name },
       companyName: project.companyName || 'Cliente',
       dores,
       produtos: project.produtos.map((p) => ({ id: p.id, nome: p.nome })).filter((p) => p.nome),
       personas: project.personas.map((p) => ({ id: p.id, name: p.name })).filter((p) => p.name),
     })
+  }
+
+  // ── save: grava a geração no histórico do usuário ───────────────────────────
+  if (action === 'save') {
+    const row = {
+      project_id: projectId,
+      user_id: user.id,
+      user_email: user.email,
+      user_name: user.name,
+      mode: body?.mode === 'video' ? 'video' : 'estatico',
+      funil: clip(body?.funil, 40) || null,
+      funil_label: FUNIS_OBJETIVO[String(body?.funil || '').trim()]?.label || null,
+      detalhes: clip(body?.detalhes, 1200) || null,
+      selection: body?.selection && typeof body.selection === 'object' ? body.selection : null,
+      content: clip(body?.content, 60000) || null,
+    }
+    if (!row.content) return json({ error: 'Nada para salvar.' }, 400)
+    const { status } = await sbWrite('/criativos_history', 'POST', row, 'return=minimal')
+    if (status >= 400) return json({ error: 'Erro ao salvar no histórico.' }, 500)
+    return json({ success: true })
+  }
+
+  // ── history: gerações do próprio usuário ────────────────────────────────────
+  if (action === 'history') {
+    const { data } = await sb(`/criativos_history?project_id=eq.${encodeURIComponent(projectId)}&user_id=eq.${encodeURIComponent(user.id)}&select=id,mode,funil,funil_label,detalhes,content,created_at&order=created_at.desc&limit=200`)
+    return json({ history: data })
   }
 
   // ── generate: monta a instrução e faz o streaming da IA ─────────────────────

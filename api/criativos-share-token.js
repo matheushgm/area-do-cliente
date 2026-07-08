@@ -1,11 +1,11 @@
 // Edge function — gera o LINK PÚBLICO da ferramenta "Criativos com IA" de UM
-// projeto/cliente. Apenas o time logado gera o link. O token é um HMAC do par
-// `projectId|senha` com um segredo de servidor (SUPABASE_SERVICE_ROLE_KEY).
+// projeto/cliente. Apenas o time logado gera o link. O token é um HMAC do
+// projectId com um segredo de servidor (SUPABASE_SERVICE_ROLE_KEY) — prova que
+// o link é legítimo para aquele projeto.
 //
-// A senha NÃO vai no link — só o projectId + token. O cliente digita a senha na
-// página pública e o servidor (api/criativos-public.js) recalcula o HMAC e
-// compara. Assim: sem senha, ninguém gera; e trocar a senha invalida o link
-// antigo automaticamente (gera um token novo). Nada é armazenado no banco.
+// O acesso à ferramenta é por LOGIN (email + senha) dos usuários cadastrados
+// (tabela criativos_users), gerenciados no módulo interno. O link em si não
+// carrega senha.
 export const config = { runtime: 'edge' }
 
 function jsonErr(message, status) {
@@ -41,11 +41,9 @@ export default async function handler(req) {
   let body
   try { body = await req.json() } catch { return jsonErr('JSON inválido.', 400) }
   const projectId = String(body?.projectId || '').trim()
-  const password = String(body?.password || '').trim()
   if (!projectId) return jsonErr('projectId obrigatório.', 400)
-  if (password.length < 4) return jsonErr('A senha precisa ter ao menos 4 caracteres.', 400)
 
-  const token = await hmacHex(SECRET, `${projectId}|${password}`)
+  const token = await hmacHex(SECRET, projectId)
   // Usa a origem da requisição do browser (app.revenuelab.com.br), não a URL
   // interna do deploy.
   const origin = req.headers.get('origin') || `https://${req.headers.get('host')}`
