@@ -602,9 +602,9 @@ export default async function handler(req) {
     }
     const context = buildContext(scoped)
 
-    // Cada tipo gera 5 peças (uma por nível de consciência). O teto de 8 blocos
-    // mantém o output dentro do max_tokens (8 x 5 = 40 peças).
-    const MAX_BLOCOS = 8
+    // Cada tipo gera 5 peças (uma por nível de consciência). Limite de 3 tipos
+    // por geração no link do cliente: 3 x 5 = 15 peças no máximo.
+    const MAX_BLOCOS = 3
 
     // Funil é obrigatório: define o objetivo/CTA do anúncio.
     const funilId = String(body?.funil || '').trim()

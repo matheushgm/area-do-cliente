@@ -10,8 +10,9 @@ import {
 
 // Cada tipo de criativo gera 1 peça por nível de consciência (Eugene Schwartz).
 const NIVEIS = 5
-// Teto de blocos (tipo, no vídeo; dor x tipo, no estático) — espelha o servidor.
-const MAX_BLOCOS = 8
+// Máximo de tipos por geração no link do cliente: 3 tipos x 5 níveis = 15 peças.
+// Espelha o servidor (api/criativos-public.js).
+const MAX_BLOCOS = 3
 
 const NIVEIS_LABEL =
   'Cada tipo gera 5 peças, uma por nível de consciência: inconsciente do problema, consciente do problema, da solução, do produto e totalmente consciente.'
@@ -139,6 +140,7 @@ export default function CriativosPublico() {
   function toggleVideoType(id) {
     setAdTypeConfig((prev) => {
       if (prev[id]) { const n = { ...prev }; delete n[id]; return n }
+      if (Object.keys(prev).length >= MAX_BLOCOS) return prev // trava no máximo
       return { ...prev, [id]: true }
     })
   }
@@ -159,7 +161,14 @@ export default function CriativosPublico() {
     setDorConfig((prev) => {
       const dor = prev[dorId] || { types: {} }
       const types = { ...dor.types }
-      if (types[typeId]) delete types[typeId]; else types[typeId] = true
+      if (types[typeId]) {
+        delete types[typeId]
+      } else {
+        // total de combinações já escolhidas em todas as dores
+        const total = Object.values(prev).reduce((s, d) => s + Object.keys(d?.types || {}).length, 0)
+        if (total >= MAX_BLOCOS) return prev // trava no máximo
+        types[typeId] = true
+      }
       return { ...prev, [dorId]: { ...dor, types } }
     })
   }
@@ -525,12 +534,16 @@ export default function CriativosPublico() {
               <p className="text-[11px] text-rl-muted leading-snug">{NIVEIS_LABEL}</p>
             </div>
 
-            {blocos > 0 && (
-              <p className={`text-[11px] font-bold ${excedeu ? 'text-red-400' : 'text-rl-purple'}`}>
-                {blocos} {isVideo ? (blocos === 1 ? 'tipo' : 'tipos') : (blocos === 1 ? 'combinação' : 'combinações')} · {totalPecas} {isVideo ? (totalPecas === 1 ? 'roteiro' : 'roteiros') : 'headlines'}
-                {excedeu && ` — máximo ${MAX_BLOCOS}`}
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] text-rl-muted">
+                Escolha até <strong className="text-rl-text">{MAX_BLOCOS}</strong> {isVideo ? 'tipos' : 'combinações'} ({MAX_BLOCOS * NIVEIS} criativos no máximo).
               </p>
-            )}
+              {blocos > 0 && (
+                <p className="text-[11px] font-bold text-rl-purple whitespace-nowrap">
+                  {blocos}/{MAX_BLOCOS} · {totalPecas} {isVideo ? 'roteiros' : 'headlines'}
+                </p>
+              )}
+            </div>
 
             {/* Vídeo: tipos de gancho */}
             {isVideo && (
