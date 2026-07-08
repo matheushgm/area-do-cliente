@@ -4,8 +4,16 @@ import MarkdownBlock from '../components/Criativos/MarkdownBlock'
 import { AD_TYPES, postCriativo, streamCriativo } from '../lib/criativosPublic'
 import {
   Sparkles, Loader2, AlertTriangle, Lock, ArrowLeft, Image as ImageIcon, Video,
-  CheckCircle2, RotateCcw, Copy, Check, Plus, X, ChevronLeft, Wand2,
+  CheckCircle2, RotateCcw, Copy, Check, Plus, X, ChevronLeft, Wand2, Layers,
 } from 'lucide-react'
+
+// Cada tipo de criativo gera 1 peça por nível de consciência (Eugene Schwartz).
+const NIVEIS = 5
+// Teto de blocos (tipo, no vídeo; dor x tipo, no estático) — espelha o servidor.
+const MAX_BLOCOS = 8
+
+const NIVEIS_LABEL =
+  'Cada tipo gera 5 peças, uma por nível de consciência: inconsciente do problema, consciente do problema, da solução, do produto e totalmente consciente.'
 
 export default function CriativosPublico() {
   const { projectId, token } = useParams()
@@ -22,12 +30,11 @@ export default function CriativosPublico() {
   const [copied, setCopied] = useState(false)
   const abortRef = useRef(null)
 
-  // ── Config: vídeo ─────────────────────────────────────────────────────────
-  const [adTypeConfig, setAdTypeConfig] = useState({}) // { [typeId]: qty }
-
-  // ── Config: estático (dores) ──────────────────────────────────────────────
-  const [customDores, setCustomDores] = useState([]) // [{ id, text }]
-  const [dorConfig, setDorConfig] = useState({}) // { [dorId]: { types: { [typeId]: qty } } }
+  // Config: vídeo → { [typeId]: true }
+  const [adTypeConfig, setAdTypeConfig] = useState({})
+  // Config: estático → { [dorId]: { types: { [typeId]: true } } }
+  const [dorConfig, setDorConfig] = useState({})
+  const [customDores, setCustomDores] = useState([])
   const [addingDor, setAddingDor] = useState(false)
   const [newDorText, setNewDorText] = useState('')
 
@@ -51,24 +58,20 @@ export default function CriativosPublico() {
     }
   }
 
-  // ── Seleção de tipos (vídeo) ──────────────────────────────────────────────
-  const videoTypes = Object.entries(adTypeConfig).map(([id, qty]) => ({ id, qty }))
-  const videoTotal = videoTypes.reduce((s, t) => s + t.qty, 0)
+  // ── Vídeo: seleção de tipos ───────────────────────────────────────────────
+  const videoTypes = Object.keys(adTypeConfig)
 
   function toggleVideoType(id) {
     setAdTypeConfig((prev) => {
       if (prev[id]) { const n = { ...prev }; delete n[id]; return n }
-      return { ...prev, [id]: 1 }
+      return { ...prev, [id]: true }
     })
   }
-  function bumpVideoQty(id, delta) {
-    setAdTypeConfig((prev) => ({ ...prev, [id]: Math.max(1, Math.min(10, (prev[id] || 1) + delta)) }))
-  }
 
-  // ── Seleção de dores + tipos (estático) ───────────────────────────────────
+  // ── Estático: dores + tipos por dor ───────────────────────────────────────
   const selectedDores = allDores.filter((d) => dorConfig[d.id])
-  const staticTotal = selectedDores.reduce(
-    (s, d) => s + Object.values(dorConfig[d.id]?.types || {}).reduce((a, q) => a + q, 0), 0
+  const staticBlocos = selectedDores.reduce(
+    (s, d) => s + Object.keys(dorConfig[d.id]?.types || {}).length, 0
   )
 
   function toggleDor(id) {
@@ -81,14 +84,8 @@ export default function CriativosPublico() {
     setDorConfig((prev) => {
       const dor = prev[dorId] || { types: {} }
       const types = { ...dor.types }
-      if (types[typeId]) delete types[typeId]; else types[typeId] = 1
+      if (types[typeId]) delete types[typeId]; else types[typeId] = true
       return { ...prev, [dorId]: { ...dor, types } }
-    })
-  }
-  function bumpDorTypeQty(dorId, typeId, delta) {
-    setDorConfig((prev) => {
-      const dor = prev[dorId]
-      return { ...prev, [dorId]: { ...dor, types: { ...dor.types, [typeId]: Math.max(1, Math.min(10, (dor.types[typeId] || 1) + delta)) } } }
     })
   }
   function confirmAddDor() {
@@ -101,23 +98,24 @@ export default function CriativosPublico() {
   }
 
   // ── Gerar ─────────────────────────────────────────────────────────────────
-  function canGenerate() {
-    if (mode === 'video') return videoTypes.length > 0
-    return selectedDores.some((d) => Object.keys(dorConfig[d.id]?.types || {}).length > 0)
-  }
+  const isVideo = mode === 'video'
+  const blocos = isVideo ? videoTypes.length : staticBlocos
+  const totalPecas = blocos * NIVEIS
+  const excedeu = blocos > MAX_BLOCOS
+  const canGenerate = blocos > 0 && !excedeu
 
   async function generate() {
-    if (!canGenerate()) return
+    if (!canGenerate) return
     setStatus('generating'); setError(null); setResult(''); setCopied(false)
     abortRef.current = new AbortController()
     try {
       const payload = { projectId, token, password: password.trim(), mode }
-      if (mode === 'video') {
+      if (isVideo) {
         payload.adTypes = videoTypes
       } else {
         payload.dores = selectedDores.map((d) => ({
           text: d.text,
-          types: Object.entries(dorConfig[d.id].types).map(([id, qty]) => ({ id, qty })),
+          types: Object.keys(dorConfig[d.id].types),
         }))
       }
       const full = await streamCriativo('generate', payload, setResult, abortRef.current.signal)
@@ -142,7 +140,6 @@ export default function CriativosPublico() {
 
   // ══ RENDER ════════════════════════════════════════════════════════════════
 
-  // ── Gate (senha) ──────────────────────────────────────────────────────────
   if (status === 'gate') {
     return (
       <Shell>
@@ -174,7 +171,6 @@ export default function CriativosPublico() {
     )
   }
 
-  // ── Seleção de formato ────────────────────────────────────────────────────
   if (status === 'select') {
     return (
       <Shell subtitle={ctx?.companyName}>
@@ -185,8 +181,8 @@ export default function CriativosPublico() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
-              { key: 'estatico', Icon: ImageIcon, color: 'rl-blue', title: 'Anúncio Estático', desc: 'Headlines, subheadlines e copy para anúncios de imagem (Meta e Google). Metodologia ADIG.', tags: ['Headlines', 'Copy', 'ADIG'] },
-              { key: 'video', Icon: Video, color: 'rl-purple', title: 'Roteiro de Vídeo', desc: 'Roteiros de 30–60s com Gancho, Mensagem e CTA para Reels e YouTube.', tags: ['Reels', 'Gancho', 'CTA'] },
+              { key: 'estatico', Icon: ImageIcon, color: 'rl-blue', title: 'Anúncio Estático', desc: 'Headlines e subheadlines para anúncios de imagem (Meta e Google). Metodologia ADIG.', tags: ['Headlines', 'ADIG', '5 níveis'] },
+              { key: 'video', Icon: Video, color: 'rl-purple', title: 'Roteiro de Vídeo', desc: 'Roteiros de 30–60s com Gancho, Mensagem e CTA para Reels e YouTube.', tags: ['Reels', 'Gancho', '5 níveis'] },
             ].map(({ key, Icon, color, title, desc, tags }) => (
               <button key={key}
                 onClick={() => { setMode(key); resetConfig(); setError(null); setStatus('config') }}
@@ -209,7 +205,6 @@ export default function CriativosPublico() {
     )
   }
 
-  // ── Gerando ───────────────────────────────────────────────────────────────
   if (status === 'generating') {
     return (
       <Shell subtitle={ctx?.companyName}>
@@ -221,14 +216,13 @@ export default function CriativosPublico() {
             </div>
             {result
               ? <MarkdownBlock content={result} />
-              : <p className="text-sm text-rl-muted">Analisando os dados da sua marca e montando os criativos. Isso leva alguns segundos.</p>}
+              : <p className="text-sm text-rl-muted">Analisando os dados da sua marca e escrevendo um criativo para cada nível de consciência. Isso leva alguns segundos.</p>}
           </div>
         </div>
       </Shell>
     )
   }
 
-  // ── Erro ──────────────────────────────────────────────────────────────────
   if (status === 'error') {
     return (
       <Shell subtitle={ctx?.companyName}>
@@ -244,7 +238,6 @@ export default function CriativosPublico() {
     )
   }
 
-  // ── Resultado ─────────────────────────────────────────────────────────────
   if (status === 'result') {
     return (
       <Shell subtitle={ctx?.companyName}>
@@ -254,7 +247,7 @@ export default function CriativosPublico() {
               <CheckCircle2 className="w-8 h-8 text-rl-green" />
             </div>
             <h1 className="text-2xl font-bold text-rl-text">Seus anúncios estão prontos! 🎉</h1>
-            <p className="text-sm text-rl-muted mt-1">Copie, teste e escale. Você pode gerar quantos quiser.</p>
+            <p className="text-sm text-rl-muted mt-1">Um criativo para cada nível de consciência. Copie, teste e escale.</p>
           </div>
 
           <div className="flex items-center justify-end gap-2">
@@ -281,7 +274,6 @@ export default function CriativosPublico() {
   }
 
   // ── Config ────────────────────────────────────────────────────────────────
-  const isVideo = mode === 'video'
   return (
     <Shell subtitle={ctx?.companyName}>
       <div className="w-full max-w-2xl space-y-5">
@@ -296,50 +288,53 @@ export default function CriativosPublico() {
               <h1 className="text-xl font-bold text-rl-text">{isVideo ? 'Roteiro de Vídeo' : 'Anúncio Estático'}</h1>
             </div>
             <p className="text-sm text-rl-muted mt-0.5 ml-7">
-              {isVideo ? 'Escolha os tipos de gancho e a quantidade.' : 'Escolha as dores do seu cliente e o ângulo de cada anúncio.'}
+              {isVideo ? 'Escolha os tipos de gancho.' : 'Escolha as dores do seu cliente e o ângulo de cada anúncio.'}
             </p>
           </div>
         </div>
 
+        {/* Explicação dos 5 níveis */}
+        <div className="flex items-start gap-2 rounded-xl border border-rl-purple/30 bg-rl-purple/5 px-3 py-2.5">
+          <Layers className="w-4 h-4 text-rl-purple shrink-0 mt-0.5" />
+          <p className="text-[11px] text-rl-muted leading-snug">{NIVEIS_LABEL}</p>
+        </div>
+
+        {/* Contador */}
+        {blocos > 0 && (
+          <p className={`text-[11px] font-bold ${excedeu ? 'text-red-400' : 'text-rl-purple'}`}>
+            {blocos} {isVideo ? (blocos === 1 ? 'tipo' : 'tipos') : (blocos === 1 ? 'combinação' : 'combinações')} · {totalPecas} {isVideo ? (totalPecas === 1 ? 'roteiro' : 'roteiros') : 'headlines'}
+            {excedeu && ` — máximo ${MAX_BLOCOS}`}
+          </p>
+        )}
+
         {/* ── Vídeo: tipos de gancho ─────────────────────────────────────── */}
         {isVideo && (
-          <div>
-            {videoTypes.length > 0 && (
-              <p className="text-[11px] font-bold text-rl-purple mb-2">
-                {videoTypes.length} tipo{videoTypes.length !== 1 ? 's' : ''} · {videoTotal} roteiro{videoTotal !== 1 ? 's' : ''}
-              </p>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {AD_TYPES.map((type) => {
-                const selected = (adTypeConfig[type.id] || 0) > 0
-                const qty = adTypeConfig[type.id] || 1
-                return (
-                  <div key={type.id}
-                    onClick={() => toggleVideoType(type.id)}
-                    className={`rounded-xl p-3 text-left cursor-pointer transition-all border ${selected ? 'bg-rl-purple/10 border-rl-purple/50' : 'bg-rl-surface border-rl-border hover:border-rl-purple/30'}`}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">{type.emoji}</span>
-                      <span className={`text-xs font-bold flex-1 ${selected ? 'text-rl-purple' : 'text-rl-text'}`}>{type.label}</span>
-                      {selected && (
-                        <Stepper qty={qty} onDec={(e) => { e.stopPropagation(); bumpVideoQty(type.id, -1) }} onInc={(e) => { e.stopPropagation(); bumpVideoQty(type.id, 1) }} />
-                      )}
-                    </div>
-                    <p className="text-[10px] text-rl-muted leading-snug mt-1 line-clamp-2">{type.desc}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {AD_TYPES.map((type) => {
+              const selected = !!adTypeConfig[type.id]
+              return (
+                <div key={type.id}
+                  onClick={() => toggleVideoType(type.id)}
+                  className={`rounded-xl p-3 text-left cursor-pointer transition-all border ${selected ? 'bg-rl-purple/10 border-rl-purple/50' : 'bg-rl-surface border-rl-border hover:border-rl-purple/30'}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{type.emoji}</span>
+                    <span className={`text-xs font-bold flex-1 ${selected ? 'text-rl-purple' : 'text-rl-text'}`}>{type.label}</span>
+                    {selected && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/20 text-rl-purple border border-rl-purple/30 shrink-0">
+                        5 roteiros
+                      </span>
+                    )}
                   </div>
-                )
-              })}
-            </div>
+                  <p className="text-[10px] text-rl-muted leading-snug mt-1 line-clamp-2">{type.desc}</p>
+                </div>
+              )
+            })}
           </div>
         )}
 
         {/* ── Estático: dores + tipos por dor ────────────────────────────── */}
         {!isVideo && (
           <div className="space-y-2">
-            {staticTotal > 0 && (
-              <p className="text-[11px] font-bold text-rl-purple">
-                {selectedDores.length} dor{selectedDores.length !== 1 ? 'es' : ''} · {staticTotal} variaç{staticTotal !== 1 ? 'ões' : 'ão'}
-              </p>
-            )}
             {allDores.length === 0 && !addingDor && (
               <div className="rounded-xl border border-dashed border-rl-border py-6 text-center">
                 <p className="text-sm text-rl-muted">Nenhuma dor cadastrada ainda.</p>
@@ -370,7 +365,9 @@ export default function CriativosPublico() {
 
                   {selected && (
                     <div className="mt-3 pl-6 space-y-2">
-                      <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">Ângulo do anúncio</p>
+                      <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">
+                        Ângulo do anúncio {Object.keys(types).length > 0 && `· ${Object.keys(types).length * NIVEIS} headlines`}
+                      </p>
                       <div className="flex flex-wrap gap-1.5">
                         {AD_TYPES.map((t) => {
                           const on = !!types[t.id]
@@ -382,20 +379,6 @@ export default function CriativosPublico() {
                           )
                         })}
                       </div>
-                      {Object.keys(types).length > 0 && (
-                        <div className="space-y-1.5 pt-1">
-                          {Object.entries(types).map(([tid, qty]) => {
-                            const t = AD_TYPES.find((x) => x.id === tid)
-                            return (
-                              <div key={tid} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 bg-rl-purple/10 border border-rl-purple/30">
-                                <span className="text-sm shrink-0">{t.emoji}</span>
-                                <span className="text-xs font-medium text-rl-purple flex-1">{t.label}</span>
-                                <Stepper qty={qty} onDec={() => bumpDorTypeQty(dor.id, tid, -1)} onInc={() => bumpDorTypeQty(dor.id, tid, 1)} />
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -432,23 +415,15 @@ export default function CriativosPublico() {
           </div>
         )}
 
-        <button onClick={generate} disabled={!canGenerate()}
+        <button onClick={generate} disabled={!canGenerate}
           className="btn-primary w-full flex items-center justify-center gap-2 text-sm py-3 disabled:opacity-50 disabled:cursor-not-allowed">
-          <Wand2 className="w-4 h-4" /> Gerar meus anúncios
+          <Wand2 className="w-4 h-4" />
+          {excedeu
+            ? `Reduza para no máximo ${MAX_BLOCOS}`
+            : totalPecas > 0 ? `Gerar ${totalPecas} ${isVideo ? 'roteiros' : 'headlines'}` : 'Gerar meus anúncios'}
         </button>
       </div>
     </Shell>
-  )
-}
-
-// ─── Stepper de quantidade ────────────────────────────────────────────────────
-function Stepper({ qty, onInc, onDec }) {
-  return (
-    <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-      <button onClick={onDec} className="w-5 h-5 rounded flex items-center justify-center text-rl-purple hover:bg-rl-purple/20 text-sm font-bold leading-none">−</button>
-      <span className="text-xs font-bold text-rl-purple min-w-[1.25rem] text-center">{qty}</span>
-      <button onClick={onInc} className="w-5 h-5 rounded flex items-center justify-center text-rl-purple hover:bg-rl-purple/20 text-sm font-bold leading-none">+</button>
-    </div>
   )
 }
 

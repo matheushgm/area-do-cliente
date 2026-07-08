@@ -36,6 +36,32 @@ const AD_TYPES = [
 const AD_TYPE_MAP = Object.fromEntries(AD_TYPES.map((t) => [t.id, t]))
 
 // ─── System prompts (metodologia Revenue Lab / Laboratório de Anúncios) ───────
+// Os 5 níveis de consciência de Eugene Schwartz — substituem as antigas etapas
+// de funil (topo/meio/fundo). Cada tipo de criativo gera 1 peça por nível.
+const NIVEIS_VIDEO = `## OS 5 NÍVEIS DE CONSCIÊNCIA (Eugene Schwartz)
+
+Para CADA tipo de gancho solicitado, gere EXATAMENTE 5 roteiros — um para cada nível, sempre nesta ordem:
+
+1. INCONSCIENTE DO PROBLEMA — ela não sabe que tem o problema. Entre pelo cotidiano dela, nomeie o problema que ela ainda não enxerga e só então conecte à solução. Tipo de mensagem: StoryTelling, Proclamação.
+2. CONSCIENTE DO PROBLEMA — ela sente a dor, mas não procura solução. Amplifique o custo de não resolver e revele que existe saída. Tipo de mensagem: Segredos que ninguém te conta, Problema e Solução.
+3. CONSCIENTE DA SOLUÇÃO — ela sabe que existe um tipo de solução, mas não conhece a sua. Mostre por que o seu mecanismo é o caminho certo e diferente do que ela já tentou. Tipo de mensagem: Problema e Solução, Segredos que ninguém te conta.
+4. CONSCIENTE DO PRODUTO — ela já conhece o seu produto, mas não se convenceu. Ataque a objeção específica com prova, diferencial e comparação com as alternativas. Tipo de mensagem: Promessa, Prova.
+5. TOTALMENTE CONSCIENTE — ela conhece, quer e só falta o empurrão. Vá direto à oferta: condições, bônus, garantia e urgência. Tipo de mensagem: Oferta, Promessa.
+
+O tipo de gancho define a FORMA de abrir o vídeo; o nível de consciência define O QUE dizer e o quanto precisa explicar. Um mesmo tipo de gancho soa muito diferente no nível 1 e no nível 5.`
+
+const NIVEIS_ESTATICO = `## OS 5 NÍVEIS DE CONSCIÊNCIA (Eugene Schwartz)
+
+Para CADA combinação de dor + tipo de criativo, gere EXATAMENTE 5 pares de headline + subheadline — um para cada nível, sempre nesta ordem:
+
+1. INCONSCIENTE DO PROBLEMA — nomeia o problema que ela ainda não percebeu, partindo do cotidiano. Não cite o produto.
+2. CONSCIENTE DO PROBLEMA — fala da dor que ela já sente e do custo de não resolver.
+3. CONSCIENTE DA SOLUÇÃO — apresenta o mecanismo/caminho da solução, sem depender do nome do produto.
+4. CONSCIENTE DO PRODUTO — nomeia o produto e ataca a objeção principal com prova ou diferencial.
+5. TOTALMENTE CONSCIENTE — vai direto à oferta: condição, garantia e urgência.
+
+O tipo de criativo define o ÂNGULO da headline; o nível de consciência define O QUE a headline precisa dizer.`
+
 const DORES_SYSTEM = `Você é um especialista em copywriting para anúncios estáticos em português brasileiro, usando a metodologia Revenue Lab / Laboratório de Anúncios.
 
 Para cada combinação de dor + tipo de criativo, gere headlines e subheadlines com a metodologia ADIG:
@@ -55,28 +81,42 @@ O tipo de criativo define o ÂNGULO das headlines:
 
 Use as informações de público-alvo, personas e oferta fornecidas no contexto do cliente para personalizar ao máximo. Não gere análise de público — vá direto às headlines.
 
-ESTRUTURA OBRIGATÓRIA — um bloco por combinação dor + tipo:
+${NIVEIS_ESTATICO}
+
+ESTRUTURA OBRIGATÓRIA — um bloco por combinação dor + tipo, com os 5 níveis dentro dele:
 
 # DOR: [texto exato da dor] | [Emoji] [Nome do Tipo]
 
-## Headlines:
-- [Headline 1 — ideal 7 máx. 12 palavras]
-- [Headline 2 — ideal 7 máx. 12 palavras]
-(tantas quantas solicitadas para este bloco)
+### 1. Inconsciente do problema
+- Headline: [ideal 7, máx. 12 palavras]
+- Subheadline: [complementa a headline, máx. 20 palavras]
 
-## Subheadlines:
-- [Subheadline 1 — complementa a headline 1, máx. 20 palavras]
-- [Subheadline 2 — complementa a headline 2, máx. 20 palavras]
-(uma subheadline por headline)
+### 2. Consciente do problema
+- Headline: [...]
+- Subheadline: [...]
+
+### 3. Consciente da solução
+- Headline: [...]
+- Subheadline: [...]
+
+### 4. Consciente do produto
+- Headline: [...]
+- Subheadline: [...]
+
+### 5. Totalmente consciente
+- Headline: [...]
+- Subheadline: [...]
 
 ---
 
 Diretrizes:
 - Gere EXATAMENTE um bloco separado por combinação dor + tipo — nunca agrupe tipos dentro de um mesmo bloco
+- Dentro de cada bloco, gere os 5 níveis, na ordem, sem pular nenhum
 - Português brasileiro coloquial e persuasivo — evite palavras que a IA usa mas que humanos não usam
 - Use "você" diretamente
 - Seja específico ao negócio, nunca genérico
 - Não use travessões (—)
+- Gere APENAS os blocos: sem introdução, sem tabelas, sem resumos ao final
 - Separe cada bloco com "---"`
 
 // Metodologia da skill `criador-de-roteiro-de-video`, adaptada para uma chamada
@@ -118,17 +158,11 @@ O gancho é sempre uma promessa, uma oferta, uma mudança de vida ou um benefíc
 
 **D) Chamada para ação.** Reforça a promessa do início, deixa claro o que fazer e dá um motivo específico para agir agora (escassez ou urgência).
 
-## ETAPAS DO FUNIL E TIPOS DE MENSAGEM
-
-- TOPO (inconscientes do problema): conscientize, mostre que você conhece o dia a dia dela e chame para a oferta. Tipos de mensagem: StoryTelling, Proclamação.
-- MEIO (conscientes do problema, mas não buscam solução): mostre o que acontece se ela não resolver esse problema. Tipos de mensagem: Segredos que ninguém te conta, Problema e Solução.
-- FUNDO (buscando e avaliando soluções): mostre por que vocês são a melhor escolha do mercado. Tipos de mensagem: Promessa, Oferta.
-
-Distribua os roteiros entre as etapas do funil sempre que a quantidade solicitada permitir.
+${NIVEIS_VIDEO}
 
 ## FORMATO OBRIGATÓRIO DE CADA ROTEIRO
 
-## ROTEIRO [N]: Gancho: [Tipo] | [Etapa do Funil]
+## ROTEIRO [N]: Gancho: [Tipo] | Nível: [Nível de consciência]
 
 **GANCHO (0s – 3s):**
 [frase exata: disruptiva, contra-intuitiva, que para o scroll]
@@ -145,7 +179,8 @@ Distribua os roteiros entre as etapas do funil sempre que a quantidade solicitad
 
 ## REGRAS CRÍTICAS
 
-- Gere EXATAMENTE a quantidade indicada por tipo de gancho, na ordem listada na solicitação
+- Para CADA tipo de gancho solicitado, gere EXATAMENTE 5 roteiros: um por nível de consciência, na ordem de 1 a 5
+- Numere os roteiros sequencialmente (ROTEIRO 1, ROTEIRO 2, ...) percorrendo os tipos na ordem da solicitação
 - Não exiba a análise de público-alvo — vá direto aos roteiros
 - Português brasileiro conversacional e energético; fale com "você"
 - Seja específico ao negócio do contexto, nunca genérico
@@ -346,37 +381,39 @@ function fallbackDores(personas) {
 // ─── Instruções de geração (espelham autoInstruction do CriativosModule) ──────
 function buildVideoInstruction(adTypes) {
   const typesStr = adTypes
-    .map(({ id, qty }) => {
+    .map((id) => {
       const t = AD_TYPE_MAP[id]
-      return `${t.emoji} ${t.label} (${qty} ${qty === 1 ? 'variação' : 'variações'}): ${t.desc}`
+      return `${t.emoji} ${t.label}: ${t.desc}`
     })
     .join('\n')
-  return `---\n\n## SOLICITAÇÃO\n\nTipos de gancho a gerar:\n${typesStr}`
+  return `---\n\n## SOLICITAÇÃO\n\nTipos de gancho a gerar (5 roteiros cada, um por nível de consciência):\n${typesStr}\n\nTotal: ${adTypes.length * 5} roteiros.`
 }
 
 function buildStaticInstruction(dores) {
   const sections = dores
     .map(({ text, types }) => {
       const typeLines = types
-        .map(({ id, qty }) => {
+        .map((id) => {
           const t = AD_TYPE_MAP[id]
-          return `- ${t.emoji} ${t.label}: ${qty} headline${qty !== 1 ? 's' : ''} + ${qty} subheadline${qty !== 1 ? 's' : ''} — ângulo: ${t.desc}`
+          return `- ${t.emoji} ${t.label} — ângulo: ${t.desc}`
         })
         .join('\n')
       return `### DOR: "${text}"\n${typeLines}`
     })
     .join('\n\n')
-  return `---\n\n## SOLICITAÇÃO\n\n${sections}`
+  const total = dores.reduce((s, d) => s + d.types.length, 0)
+  return `---\n\n## SOLICITAÇÃO\n\nPara cada dor abaixo, gere um bloco por tipo de criativo, com os 5 níveis de consciência dentro de cada bloco.\n\n${sections}\n\nTotal: ${total} blocos (${total * 5} headlines).`
 }
 
-// Normaliza/valida a seleção de tipos vinda do cliente. Descarta ids inválidos,
-// limita a quantidade por tipo (1..10) e o número de tipos.
+// Normaliza/valida a seleção de tipos vinda do cliente: devolve uma lista de ids
+// válidos, sem repetição. A quantidade não é mais escolhida — são sempre 5 peças
+// por tipo (uma por nível de consciência). Aceita ids soltos ou objetos {id}.
 function sanitizeTypes(raw) {
   const out = []
   for (const t of Array.isArray(raw) ? raw.slice(0, 18) : []) {
-    if (!AD_TYPE_MAP[t?.id]) continue
-    const qty = Math.max(1, Math.min(10, parseInt(t?.qty, 10) || 1))
-    out.push({ id: t.id, qty })
+    const id = typeof t === 'string' ? t : t?.id
+    if (!AD_TYPE_MAP[id] || out.includes(id)) continue
+    out.push(id)
   }
   return out
 }
@@ -458,12 +495,17 @@ export default async function handler(req) {
     const mode = body?.mode === 'video' ? 'video' : 'estatico'
     const context = buildContext(project)
 
+    // Cada tipo gera 5 peças (uma por nível de consciência). O teto de 8 blocos
+    // mantém o output dentro do max_tokens (8 x 5 = 40 peças).
+    const MAX_BLOCOS = 8
+
     if (mode === 'video') {
       const adTypes = sanitizeTypes(body?.adTypes)
       if (!adTypes.length) return json({ error: 'Selecione ao menos um tipo de gancho.' }, 400)
-      const total = adTypes.reduce((s, t) => s + t.qty, 0)
-      if (total > 40) return json({ error: 'Muitos roteiros de uma vez. Gere no máximo 40.' }, 400)
-      return anthropicSSE(VIDEO_SYSTEM, buildVideoInstruction(adTypes), context, 16000)
+      if (adTypes.length > MAX_BLOCOS) {
+        return json({ error: `Muitos tipos de uma vez. Selecione no máximo ${MAX_BLOCOS} (${MAX_BLOCOS * 5} roteiros).` }, 400)
+      }
+      return anthropicSSE(VIDEO_SYSTEM, buildVideoInstruction(adTypes), context, 32000)
     }
 
     // estático
@@ -475,9 +517,11 @@ export default async function handler(req) {
       if (text && types.length) dores.push({ text, types })
     }
     if (!dores.length) return json({ error: 'Selecione ao menos uma dor com um tipo de criativo.' }, 400)
-    const total = dores.reduce((s, d) => s + d.types.reduce((a, t) => a + t.qty, 0), 0)
-    if (total > 40) return json({ error: 'Muitas variações de uma vez. Gere no máximo 40.' }, 400)
-    return anthropicSSE(DORES_SYSTEM, buildStaticInstruction(dores), context, 16000)
+    const blocos = dores.reduce((s, d) => s + d.types.length, 0)
+    if (blocos > MAX_BLOCOS) {
+      return json({ error: `Muitas combinações de uma vez. Selecione no máximo ${MAX_BLOCOS} (dor x tipo).` }, 400)
+    }
+    return anthropicSSE(DORES_SYSTEM, buildStaticInstruction(dores), context, 32000)
   }
 
   return json({ error: 'Ação desconhecida.' }, 400)

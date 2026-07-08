@@ -213,23 +213,70 @@ Diretrizes obrigatórias:
 - Não use travessões (—) em nenhuma parte do output
 - Separe cada anúncio com "---"`
 
+// Cada tipo de criativo gera 1 peça por nível de consciência (Eugene Schwartz).
+const NIVEIS = 5
+
+// Os 5 níveis de consciência de Eugene Schwartz — substituem as antigas etapas de
+// funil (topo/meio/fundo). Mantido em sincronia com api/criativos-public.js.
+const NIVEIS_VIDEO = `## OS 5 NÍVEIS DE CONSCIÊNCIA (Eugene Schwartz)
+
+Para CADA tipo de gancho solicitado, gere EXATAMENTE 5 roteiros — um para cada nível, sempre nesta ordem:
+
+1. INCONSCIENTE DO PROBLEMA — ela não sabe que tem o problema. Entre pelo cotidiano dela, nomeie o problema que ela ainda não enxerga e só então conecte à solução. Tipo de mensagem: StoryTelling, Proclamação.
+2. CONSCIENTE DO PROBLEMA — ela sente a dor, mas não procura solução. Amplifique o custo de não resolver e revele que existe saída. Tipo de mensagem: Segredos que ninguém te conta, Problema e Solução.
+3. CONSCIENTE DA SOLUÇÃO — ela sabe que existe um tipo de solução, mas não conhece a sua. Mostre por que o seu mecanismo é o caminho certo e diferente do que ela já tentou. Tipo de mensagem: Problema e Solução, Segredos que ninguém te conta.
+4. CONSCIENTE DO PRODUTO — ela já conhece o seu produto, mas não se convenceu. Ataque a objeção específica com prova, diferencial e comparação com as alternativas. Tipo de mensagem: Promessa, Prova.
+5. TOTALMENTE CONSCIENTE — ela conhece, quer e só falta o empurrão. Vá direto à oferta: condições, bônus, garantia e urgência. Tipo de mensagem: Oferta, Promessa.
+
+O tipo de gancho define a FORMA de abrir o vídeo; o nível de consciência define O QUE dizer e o quanto precisa explicar.`
+
+const NIVEIS_ESTATICO = `## OS 5 NÍVEIS DE CONSCIÊNCIA (Eugene Schwartz)
+
+Para CADA combinação de dor + tipo de criativo, gere EXATAMENTE 5 pares de headline + subheadline — um para cada nível, sempre nesta ordem:
+
+1. INCONSCIENTE DO PROBLEMA — nomeia o problema que ela ainda não percebeu, partindo do cotidiano. Não cite o produto.
+2. CONSCIENTE DO PROBLEMA — fala da dor que ela já sente e do custo de não resolver.
+3. CONSCIENTE DA SOLUÇÃO — apresenta o mecanismo/caminho da solução, sem depender do nome do produto.
+4. CONSCIENTE DO PRODUTO — nomeia o produto e ataca a objeção principal com prova ou diferencial.
+5. TOTALMENTE CONSCIENTE — vai direto à oferta: condição, garantia e urgência.
+
+O tipo de criativo define o ÂNGULO da headline; o nível de consciência define O QUE a headline precisa dizer.`
+
 const VIDEO_SYSTEM_PARTS = {
   metodologia: `Você é um especialista em roteiros de vídeos de anúncios online de alta conversão, usando a estrutura do Laboratório de Anúncios (Revenue Lab).
 
-Os vídeos têm duração entre 30 e 60 segundos e são criados para Meta Ads e YouTube Ads.
+Os vídeos têm duração entre 30 e 60 segundos e são criados para Meta Ads (Reels/Feed) e YouTube Ads.
 
-Use as informações de público-alvo, personas e oferta já fornecidas no contexto do cliente para personalizar cada roteiro. Não gere análise de público — vá direto aos roteiros.`,
+## ANTES DE ESCREVER (raciocínio interno — NÃO exiba)
+
+A partir do contexto do cliente, levante mentalmente: 8 problemas comuns, 8 sonhos, 8 objeções, 8 situações constrangedoras e 8 perguntas que esse público-alvo se faz. Use isso para escrever, mas NUNCA exiba essas listas.
+
+## A ESTRUTURA DO LABORATÓRIO DE ANÚNCIOS (4 etapas)
+
+**A) Gancho.** Momento mais importante: chama atenção, quebra o padrão, é contra-intuitivo e gera curiosidade. Nos 3 PRIMEIROS SEGUNDOS a pessoa precisa se conectar. O gancho é sempre uma promessa, oferta, mudança de vida ou benefício; o tipo pedido define a FORMA de comunicá-lo.
+
+**Estrutura invisível** — a mensagem sustenta o que o gancho prometeu:
+- Gancho de promessa: dê garantia, sustente com prova e elimine o "funciona pra ele, não pra mim".
+- Gancho de oferta: mostre benefícios e diferenciais, prove que outros conseguiram e derrube a barreira com garantia.
+
+**B) Mensagem.** Transformação do Ponto A ao Ponto B relacionando 4 variáveis: sonhos e desejos; percepção de dificuldade de alcançar; tempo para alcançar; e o mínimo de sacrifício.
+
+**C) Quebra de objeções.** Implícita e INTEGRADA à mensagem, nunca um bloco separado.
+
+**D) Chamada para ação.** Reforça a promessa e dá um motivo específico para agir agora (escassez ou urgência).`,
 
   estrutura: `
-Crie cada roteiro seguindo a ESTRUTURA DO LABORATÓRIO DE ANÚNCIOS (4 etapas):
+${NIVEIS_VIDEO}
 
-## ROTEIRO [N]: Gancho: [Tipo] | [Etapa do Funil]
+## FORMATO OBRIGATÓRIO DE CADA ROTEIRO
 
-**GANCHO (0s – 3s):** 
+## ROTEIRO [N]: Gancho: [Tipo] | Nível: [Nível de consciência]
+
+**GANCHO (0s – 3s):**
 [frase exata: disruptiva, contra-intuitiva, que para o scroll]
 
-**MENSAGEM (3s – 45s):** 
-[narração mostrando transformação do Ponto A → Ponto B, com quebra de objeção integrada naturalmente]
+**MENSAGEM (3s – 45s):**
+[narração levando do Ponto A ao Ponto B, com a quebra de objeção integrada naturalmente]
 
 **CTA FINAL (45s – 60s)**
 [reforça promessa + gatilho de escassez/urgência + ação clara]
@@ -239,14 +286,13 @@ Crie cada roteiro seguindo a ESTRUTURA DO LABORATÓRIO DE ANÚNCIOS (4 etapas):
 ---`,
 
   diretrizes: `Regras críticas:
-- O GANCHO deve quebrar o padrão nos PRIMEIROS 3 SEGUNDOS. Seja contra-intuitivo
-- A quebra de objeções deve estar INTEGRADA à mensagem (nunca separada)
-- CTA com gatilho de escassez ou urgência específico
+- Para CADA tipo de gancho solicitado, gere EXATAMENTE 5 roteiros: um por nível de consciência, na ordem de 1 a 5
+- Numere os roteiros sequencialmente (ROTEIRO 1, ROTEIRO 2, ...) percorrendo os tipos na ordem da solicitação
+- Não exiba a análise de público-alvo — vá direto aos roteiros
 - Português brasileiro conversacional e energético
 - Não use travessões (—) em nenhuma parte do output
 - Não inclua sugestões de cena ou visual em nenhuma parte do roteiro
 - Não use emojis no roteiro — use emojis apenas na LEGENDA DO POST
-- Gere EXATAMENTE a quantidade indicada por tipo, na ordem listada
 - Gere APENAS os roteiros — sem tabelas, sem resumos, sem insights ao final`,
 
   diretrizLocked: `- Separe cada roteiro com "---"`,
@@ -312,26 +358,39 @@ O tipo de criativo define o ÂNGULO das headlines:
 - Clickbait: cria curiosidade irresistível
 (use o ângulo do tipo indicado para orientar cada bloco)
 
-Use as informações de público-alvo, personas e oferta fornecidas no contexto do cliente para personalizar ao máximo. Não gere análise de público — vá direto às headlines.`,
+Use as informações de público-alvo, personas e oferta fornecidas no contexto do cliente para personalizar ao máximo. Não gere análise de público — vá direto às headlines.
 
-  estrutura: `ESTRUTURA OBRIGATÓRIA — um bloco por combinação dor + tipo:
+${NIVEIS_ESTATICO}`,
+
+  estrutura: `ESTRUTURA OBRIGATÓRIA — um bloco por combinação dor + tipo, com os 5 níveis dentro dele:
 
 # DOR: [texto exato da dor] | [Emoji] [Nome do Tipo]
 
-## Headlines:
-- [Headline 1 — ideal 7 máx. 12 palavras]
-- [Headline 2 — ideal 7 máx. 12 palavras]
-(tantas quantas solicitadas para este bloco)
+### 1. Inconsciente do problema
+- Headline: [ideal 7, máx. 12 palavras]
+- Subheadline: [complementa a headline, máx. 20 palavras]
 
-## Subheadlines:
-- [Subheadline 1 — complementa a headline 1, máx. 20 palavras]
-- [Subheadline 2 — complementa a headline 2, máx. 20 palavras]
-(uma subheadline por headline)
+### 2. Consciente do problema
+- Headline: [...]
+- Subheadline: [...]
+
+### 3. Consciente da solução
+- Headline: [...]
+- Subheadline: [...]
+
+### 4. Consciente do produto
+- Headline: [...]
+- Subheadline: [...]
+
+### 5. Totalmente consciente
+- Headline: [...]
+- Subheadline: [...]
 
 ---`,
 
   diretrizes: `Diretrizes:
 - Gere EXATAMENTE um bloco separado por combinação dor + tipo — nunca agrupe tipos dentro de um mesmo bloco
+- Dentro de cada bloco, gere os 5 níveis, na ordem, sem pular nenhum
 - Português brasileiro coloquial e persuasivo — evite palavras que a IA usa mas que humanos não usam
 - Use "você" diretamente
 - Seja específico ao negócio, nunca genérico
@@ -459,8 +518,10 @@ export default function CriativosModule({ project }) {
   }, [project, selectedProduct, selectedPersona])
 
   // ── Video: ad type config ──────────────────────────────────────────────────
+  // Cada tipo selecionado gera NIVEIS roteiros (um por nível de consciência);
+  // não há mais quantidade por tipo — o valor guardado é só um marcador.
   const selectedList = AD_TYPES.filter((t) => (adTypeConfig[t.id] || 0) > 0)
-  const totalQuantity = selectedList.reduce((s, t) => s + adTypeConfig[t.id], 0)
+  const totalQuantity = selectedList.length * NIVEIS
 
   const toggleType = useCallback((id) => {
     setAdTypeConfig((prev) => {
@@ -471,13 +532,6 @@ export default function CriativosModule({ project }) {
       }
       return { ...prev, [id]: 1 }
     })
-  }, [])
-
-  const updateQty = useCallback((id, delta) => {
-    setAdTypeConfig((prev) => ({
-      ...prev,
-      [id]: Math.max(1, Math.min(10, (prev[id] || 1) + delta)),
-    }))
   }, [])
 
   const selectAll = () => setAdTypeConfig(Object.fromEntries(AD_TYPES.map((t) => [t.id, 1])))
@@ -500,10 +554,11 @@ export default function CriativosModule({ project }) {
     return [...parsed, ...customDores]
   }, [scopedProject.personas, dorTextOverrides, customDores])
   const selectedDores = allDores.filter((d) => !!dorConfig[d.id])
-  const staticTotalQty = selectedDores.reduce((s, d) => {
-    const typeQtys = dorConfig[d.id]?.typeQtys || {}
-    return s + Object.values(typeQtys).reduce((sum, qty) => sum + qty, 0)
-  }, 0)
+  // Cada combinação dor + tipo gera NIVEIS headlines (uma por nível de consciência).
+  const staticTotalQty = selectedDores.reduce(
+    (s, d) => s + Object.keys(dorConfig[d.id]?.typeQtys || {}).length * NIVEIS,
+    0
+  )
   const dorsPendingType = selectedDores.filter(
     (d) => Object.keys(dorConfig[d.id]?.typeQtys || {}).length === 0
   )
@@ -530,22 +585,6 @@ export default function CriativosModule({ project }) {
         typeQtys[typeId] = 1
       }
       return { ...prev, [dorId]: { ...dor, typeQtys } }
-    })
-  }, [])
-
-  const updateDorTypeQty = useCallback((dorId, typeId, delta) => {
-    setDorConfig((prev) => {
-      const dor = prev[dorId]
-      return {
-        ...prev,
-        [dorId]: {
-          ...dor,
-          typeQtys: {
-            ...dor.typeQtys,
-            [typeId]: Math.max(1, Math.min(10, (dor.typeQtys[typeId] || 1) + delta)),
-          },
-        },
-      }
     })
   }, [])
 
@@ -600,29 +639,25 @@ export default function CriativosModule({ project }) {
   const autoInstruction = useMemo(() => {
     if (isVideo) {
       const typesStr = selectedList
-        .map((t) => {
-          const q = adTypeConfig[t.id]
-          return `${t.emoji} ${t.label} (${q} ${q === 1 ? 'variação' : 'variações'}): ${t.desc}`
-        })
+        .map((t) => `${t.emoji} ${t.label}: ${t.desc}`)
         .join('\n')
       return `---
 
 ## SOLICITAÇÃO
 
-Tipos de gancho a gerar:
-${typesStr}`
+Tipos de gancho a gerar (5 roteiros cada, um por nível de consciência):
+${typesStr}
+
+Total: ${totalQuantity} roteiros.`
     }
 
     const sections = selectedDores
       .map((d) => {
-        const cfg = dorConfig[d.id]
-        const typeQtys = cfg?.typeQtys || {}
-        const typeKeys = Object.keys(typeQtys)
+        const typeKeys = Object.keys(dorConfig[d.id]?.typeQtys || {})
         const typeLines = typeKeys
           .map((tid) => {
             const type = AD_TYPES.find((t) => t.id === tid)
-            const qty = typeQtys[tid]
-            return `- ${type.emoji} ${type.label}: ${qty} headline${qty !== 1 ? 's' : ''} + ${qty} subheadline${qty !== 1 ? 's' : ''} — ângulo: ${type.desc}`
+            return `- ${type.emoji} ${type.label} — ângulo: ${type.desc}`
           })
           .join('\n')
         return `### DOR: "${d.text}"
@@ -630,12 +665,17 @@ ${typeLines}`
       })
       .join('\n\n')
 
+    const blocos = staticTotalQty / NIVEIS
     return `---
 
 ## SOLICITAÇÃO
 
-${sections}`
-  }, [adTypeConfig, dorConfig, isVideo, selectedDores, selectedList, totalQuantity])
+Para cada dor abaixo, gere um bloco por tipo de criativo, com os 5 níveis de consciência dentro de cada bloco.
+
+${sections}
+
+Total: ${blocos} blocos (${staticTotalQty} headlines).`
+  }, [dorConfig, isVideo, selectedDores, selectedList, staticTotalQty, totalQuantity])
 
   // ── Generate ────────────────────────────────────────────────────────────────
   const generate = useCallback(async () => {
@@ -660,7 +700,7 @@ ${sections}`
       })
       const fullText = await streamClaude({
         model: 'claude-sonnet-4-5',
-        max_tokens: 16000,
+        max_tokens: 32000,
         system,
         messages,
         onChunk: (text) => setResult(text.replace(/—/g, '-')),
@@ -669,7 +709,7 @@ ${sections}`
       const cleanText = fullText.replace(/—/g, '-')
       const newId = crypto.randomUUID()
       const adTypeLabels = isVideo
-        ? selectedList.map((t) => `${t.label} ×${adTypeConfig[t.id]}`)
+        ? selectedList.map((t) => `${t.label} ×${NIVEIS}`)
         : selectedDores.map((d) => d.text.substring(0, 50))
       const autoName = [
         isVideo ? 'Vídeo' : 'Estático',
@@ -1039,7 +1079,7 @@ ${sections}`
       : null
     const qty = isVideo ? totalQuantity : staticTotalQty
     const adTypeLabels = isVideo
-      ? selectedList.map((t) => `${t.label} ×${adTypeConfig[t.id]}`)
+      ? selectedList.map((t) => `${t.label} ×${NIVEIS}`)
       : selectedDores.map((d) => d.text.substring(0, 50))
 
     function fmtDate(iso) {
@@ -1313,7 +1353,6 @@ ${sections}`
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
             {AD_TYPES.map((type) => {
               const selected = (adTypeConfig[type.id] || 0) > 0
-              const qty = adTypeConfig[type.id] || 1
               return (
                 <button
                   key={type.id}
@@ -1332,26 +1371,9 @@ ${sections}`
                       {type.label}
                     </span>
                     {selected && (
-                      <div
-                        className="flex items-center gap-0.5"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          onClick={() => updateQty(type.id, -1)}
-                          className="w-5 h-5 rounded flex items-center justify-center text-rl-purple hover:bg-rl-purple/20 text-sm font-bold leading-none"
-                        >
-                          −
-                        </button>
-                        <span className="text-xs font-bold text-rl-purple min-w-[1.25rem] text-center">
-                          {qty}
-                        </span>
-                        <button
-                          onClick={() => updateQty(type.id, +1)}
-                          className="w-5 h-5 rounded flex items-center justify-center text-rl-purple hover:bg-rl-purple/20 text-sm font-bold leading-none"
-                        >
-                          +
-                        </button>
-                      </div>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/20 text-rl-purple border border-rl-purple/30 shrink-0">
+                        {NIVEIS} roteiros
+                      </span>
                     )}
                   </div>
                   <p className="text-[10px] text-rl-muted leading-snug line-clamp-2">{type.desc}</p>
@@ -1371,7 +1393,7 @@ ${sections}`
               {selectedDores.length > 0 && (
                 <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-purple/20 text-rl-purple border border-rl-purple/30">
                   {selectedDores.length} selecionada{selectedDores.length !== 1 ? 's' : ''} ·{' '}
-                  {staticTotalQty} variação{staticTotalQty !== 1 ? 'ões' : ''}
+                  {staticTotalQty} headline{staticTotalQty !== 1 ? 's' : ''}
                 </span>
               )}
             </label>
@@ -1502,7 +1524,7 @@ ${sections}`
                   {/* Tipos — fora do header clicável */}
                   {selected && (
                     <div className="mt-3 space-y-2">
-                      {Object.entries(cfg.typeQtys || {}).map(([typeId, qty]) => {
+                      {Object.keys(cfg.typeQtys || {}).map((typeId) => {
                         const type = AD_TYPES.find((t) => t.id === typeId)
                         if (!type) return null
                         return (
@@ -1514,23 +1536,9 @@ ${sections}`
                             <span className="text-xs font-medium text-rl-purple flex-1 leading-tight">
                               {type.label}
                             </span>
-                            <div className="flex items-center gap-0.5 shrink-0">
-                              <button
-                                onClick={() => updateDorTypeQty(dor.id, typeId, -1)}
-                                className="w-5 h-5 rounded flex items-center justify-center text-rl-purple hover:bg-rl-purple/20 text-sm font-bold leading-none"
-                              >
-                                −
-                              </button>
-                              <span className="text-xs font-bold text-rl-purple min-w-[1.25rem] text-center">
-                                {qty}
-                              </span>
-                              <button
-                                onClick={() => updateDorTypeQty(dor.id, typeId, +1)}
-                                className="w-5 h-5 rounded flex items-center justify-center text-rl-purple hover:bg-rl-purple/20 text-sm font-bold leading-none"
-                              >
-                                +
-                              </button>
-                            </div>
+                            <span className="text-[10px] font-bold text-rl-purple/80 shrink-0">
+                              {NIVEIS} headlines
+                            </span>
                             <button
                               onClick={() => toggleDorType(dor.id, typeId)}
                               className="p-0.5 rounded text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0"
@@ -1788,7 +1796,7 @@ ${sections}`
           {!isVideo && selectedDores.length > 0 && !loading && (
             <p className="text-xs text-rl-muted">
               {selectedDores.length} dor{selectedDores.length > 1 ? 'es' : ''} · {staticTotalQty}{' '}
-              variação{staticTotalQty !== 1 ? 'ões' : ''}
+              headline{staticTotalQty !== 1 ? 's' : ''}
               {instructionOverride ? ' · com direção personalizada' : ''}
             </p>
           )}
