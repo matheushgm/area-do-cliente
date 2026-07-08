@@ -8,7 +8,39 @@ import { supabase } from '../lib/supabase'
 import {
   Database, Plus, Trash2, Copy, Check, Loader2, Search, Download,
   Table2, Columns3, Webhook, ChevronDown, Code2, X, Sparkles,
+  Plug, Wand2, Send, AlertTriangle,
 } from 'lucide-react'
+
+const DEFAULT_CRM = {
+  enabled: false, endpoint: '', method: 'POST', headers: [],
+  bodyTemplate: '', docsUrl: '', docsText: '', notas: '',
+}
+
+/** POST autenticado (envia o JWT do Supabase) para os endpoints /api/crm-*. */
+async function authFetch(url, body) {
+  const { data } = (await supabase?.auth.getSession()) ?? {}
+  const token = data?.session?.access_token
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(body),
+  })
+  const payload = await res.json().catch(() => ({}))
+  return { ok: res.ok, status: res.status, payload }
+}
+
+/** Valor de exemplo por tipo, para o "Testar envio" quando não há lead real. */
+function exemploPorCampo(c) {
+  switch (c.type) {
+    case 'email':  return 'lead@exemplo.com'
+    case 'phone':  return '(62) 99999-9999'
+    case 'url':    return 'https://exemplo.com/lp'
+    case 'number': return '100'
+    case 'date':   return '2026-01-01'
+    case 'select': return (c.options || [])[0] || 'Opção'
+    default:       return `Exemplo ${c.label || c.key}`
+  }
+}
 
 // ── Tipos de campo ────────────────────────────────────────────────────────────
 const FIELD_TYPES = [
@@ -153,6 +185,25 @@ export default function BancoDeDadosModule({ project }) {
     if (error) showToast('Erro ao salvar campos', 'error')
   }
 
+  const salvarCrmConfig = async (cfg) => {
+    setBancos((prev) => prev.map((b) => (b.id === selectedId ? { ...b, crm_config: cfg } : b)))
+    const { error } = await supabase
+      .from('bancos_dados')
+      .update({ crm_config: cfg, updated_at: new Date().toISOString() })
+      .eq('id', selectedId)
+    if (error) showToast('Erro ao salvar integração', 'error')
+    else showToast('Integração salva!')
+  }
+
+  // Lead de exemplo para o "Testar envio": usa o último lead real se houver.
+  const amostra = useMemo(() => {
+    const ultimo = registros[0]?.dados
+    if (ultimo && Object.keys(ultimo).length) return ultimo
+    const o = {}
+    for (const c of campos) o[c.key] = exemploPorCampo(c)
+    return o
+  }, [registros, campos])
+
   const addLinha = async () => {
     const { data, error } = await supabase
       .from('bancos_dados_registros')
@@ -276,6 +327,7 @@ export default function BancoDeDadosModule({ project }) {
                   { id: 'planilha', label: 'Planilha', Icon: Table2 },
                   { id: 'campos', label: 'Campos', Icon: Columns3 },
                   { id: 'webhook', label: 'Webhook', Icon: Webhook },
+                  { id: 'crm', label: 'CRM', Icon: Plug },
                 ].map(({ id, label, Icon }) => (
                   <button key={id} onClick={() => setTab(id)}
                     className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-all ${
@@ -286,6 +338,9 @@ export default function BancoDeDadosModule({ project }) {
                       <span className="ml-1 text-[9px] font-bold bg-rl-gold/20 text-rl-gold rounded-full px-1.5">
                         {camposDetectados.length}
                       </span>
+                    )}
+                    {id === 'crm' && selected?.crm_config?.enabled && (
+                      <span title="Encaminhamento ativo" className="ml-1 w-1.5 h-1.5 rounded-full bg-rl-green" />
                     )}
                   </button>
                 ))}
@@ -316,6 +371,15 @@ export default function BancoDeDadosModule({ project }) {
                     salvarCampos([...campos, { key: k, label: k, type: 'text' }])
                   }}
                   onRemoveCampo={(key) => salvarCampos(campos.filter((c) => c.key !== key))}
+                />
+              )}
+              {tab === 'crm' && (
+                <CrmTab
+                  key={selected.id}
+                  cfgInicial={selected.crm_config}
+                  campos={campos}
+                  amostra={amostra}
+                  onSave={salvarCrmConfig}
                 />
               )}
             </div>
@@ -426,6 +490,11 @@ function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinh
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
                     r.origem === 'webhook' ? 'text-rl-green border-rl-green/30 bg-rl-green/10' : 'text-rl-muted border-rl-border'
                   }`}>{r.origem}</span>
+                  {r.crm_status && (
+                    <span title={r.crm_response || ''} className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full border ${
+                      r.crm_status === 'ok' ? 'text-rl-green border-rl-green/30 bg-rl-green/10' : 'text-red-400 border-red-400/30 bg-red-400/10'
+                    }`}>CRM {r.crm_status}</span>
+                  )}
                 </td>
                 <td className="px-3 py-1.5 text-rl-muted text-xs whitespace-nowrap">{fmtDateTime(r.created_at)}</td>
                 <td className="px-1">
@@ -672,6 +741,215 @@ Regra final: não altere nada visual — apenas a lógica de envio (submit) do f
           </button>
         </div>
         <pre className="bg-rl-bg border border-rl-border rounded-lg p-3 text-[11px] text-rl-text/90 font-mono overflow-x-auto">{snippet}</pre>
+      </div>
+    </div>
+  )
+}
+
+// ── Aba CRM ───────────────────────────────────────────────────────────────────
+// Configura o encaminhamento automático dos leads deste banco para o CRM do
+// cliente. A IA lê a doc da API (texto e/ou link) e propõe endpoint + headers +
+// mapeamento; o "Testar envio" bate no CRM de verdade antes de você ativar.
+function CrmTab({ cfgInicial, campos, amostra, onSave }) {
+  const [cfg, setCfg] = useState({ ...DEFAULT_CRM, ...(cfgInicial || {}) })
+  const [loadingIa, setLoadingIa] = useState(false)
+  const [iaAviso, setIaAviso] = useState(null)
+  const [loadingTest, setLoadingTest] = useState(false)
+  const [teste, setTeste] = useState(null)
+  const [copiado, setCopiado] = useState('')
+
+  const set = (patch) => setCfg((p) => ({ ...p, ...patch }))
+  const setHeader = (i, patch) => setCfg((p) => ({ ...p, headers: p.headers.map((h, idx) => (idx === i ? { ...h, ...patch } : h)) }))
+  const addHeader = () => setCfg((p) => ({ ...p, headers: [...(p.headers || []), { key: '', value: '' }] }))
+  const rmHeader = (i) => setCfg((p) => ({ ...p, headers: p.headers.filter((_, idx) => idx !== i) }))
+
+  const podeAtivar = !!cfg.endpoint?.trim() && !!cfg.bodyTemplate?.trim()
+
+  const gerarComIa = async () => {
+    setIaAviso(null); setLoadingIa(true); setTeste(null)
+    const { ok, payload } = await authFetch('/api/crm-assist', {
+      campos, endpoint: cfg.endpoint, docsText: cfg.docsText, docsUrl: cfg.docsUrl,
+    })
+    setLoadingIa(false)
+    if (!ok) { setIaAviso(payload?.error || 'Falha ao gerar a configuração.'); return }
+    const c = payload.config || {}
+    set({
+      endpoint: c.endpoint || cfg.endpoint,
+      method: c.method || 'POST',
+      headers: Array.isArray(c.headers) ? c.headers : [],
+      bodyTemplate: c.bodyTemplate || '',
+      notas: c.notas || '',
+    })
+    if (payload.docsAviso) setIaAviso(`Não consegui ler o link (${payload.docsAviso}). Usei apenas o texto colado.`)
+  }
+
+  const testar = async () => {
+    setLoadingTest(true); setTeste(null)
+    const { payload } = await authFetch('/api/crm-test', { config: cfg, dados: amostra })
+    setLoadingTest(false)
+    setTeste(payload)
+  }
+
+  const copiar = (txt, tag) => {
+    navigator.clipboard?.writeText(txt)
+    setCopiado(tag); setTimeout(() => setCopiado(''), 1200)
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Ativação */}
+      <div className="glass-card p-4 flex items-start justify-between gap-4 flex-wrap">
+        <div className="min-w-[220px]">
+          <h3 className="text-sm font-semibold text-rl-text flex items-center gap-2">
+            <Plug className="w-4 h-4 text-rl-purple" /> Encaminhar leads para o CRM
+          </h3>
+          <p className="text-xs text-rl-muted mt-1">
+            Todo lead que cair neste banco é enviado automaticamente para o CRM do cliente.
+            Se o CRM falhar, o lead <strong className="text-rl-text">continua salvo aqui</strong> e o erro fica registrado na planilha.
+          </p>
+        </div>
+        <label className={`flex items-center gap-2 text-sm shrink-0 ${podeAtivar ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
+          <input type="checkbox" disabled={!podeAtivar} checked={!!cfg.enabled}
+            onChange={(e) => set({ enabled: e.target.checked })}
+            className="w-4 h-4 accent-current text-rl-purple" />
+          <span className={cfg.enabled ? 'text-rl-green font-medium' : 'text-rl-muted'}>
+            {cfg.enabled ? 'Ativo' : 'Desativado'}
+          </span>
+        </label>
+        {!podeAtivar && (
+          <p className="w-full text-[11px] text-rl-gold flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" /> Configure o endpoint e o mapeamento abaixo para poder ativar.
+          </p>
+        )}
+      </div>
+
+      {/* Configurar com IA */}
+      <div className="glass-card p-4 space-y-3 border border-rl-purple/30">
+        <label className="text-xs font-semibold text-rl-purple uppercase tracking-wide flex items-center gap-1.5">
+          <Wand2 className="w-3.5 h-3.5" /> Configurar com IA
+        </label>
+        <p className="text-xs text-rl-muted">
+          Cole o link e/ou o trecho da documentação da API do CRM. A IA lê, entende os campos e monta a integração pra você.
+        </p>
+        <input value={cfg.docsUrl} onChange={(e) => set({ docsUrl: e.target.value })}
+          placeholder="https://docs.seucrm.com/api/criar-lead (opcional)"
+          className="w-full bg-rl-bg border border-rl-border rounded-md px-3 py-2 text-sm text-rl-text outline-none focus:border-rl-purple" />
+        <textarea rows={5} value={cfg.docsText} onChange={(e) => set({ docsText: e.target.value })}
+          placeholder="Cole aqui o trecho da documentação (endpoint, campos do corpo, autenticação). Mais confiável que o link."
+          className="w-full bg-rl-bg border border-rl-border rounded-md px-3 py-2 text-sm text-rl-text outline-none focus:border-rl-purple resize-y" />
+        <div className="flex items-center gap-3 flex-wrap">
+          <button onClick={gerarComIa} disabled={loadingIa || (!cfg.docsText.trim() && !cfg.docsUrl.trim())}
+            className="btn-primary flex items-center gap-2 text-sm py-2 px-4 disabled:opacity-40">
+            {loadingIa ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+            {loadingIa ? 'Lendo a documentação…' : 'Gerar configuração com IA'}
+          </button>
+          {iaAviso && <span className="text-xs text-rl-gold flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{iaAviso}</span>}
+        </div>
+        {cfg.notas && (
+          <div className="text-xs text-rl-text bg-rl-surface border border-rl-border rounded-md p-2.5">
+            <strong className="text-rl-purple">Notas da IA:</strong> {cfg.notas}
+          </div>
+        )}
+      </div>
+
+      {/* Requisição */}
+      <div className="glass-card p-4 space-y-3">
+        <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">Requisição</label>
+        <div className="flex gap-2">
+          <select value={cfg.method} onChange={(e) => set({ method: e.target.value })}
+            className="bg-rl-bg border border-rl-border rounded-md px-2 py-2 text-sm text-rl-text outline-none focus:border-rl-purple">
+            <option>POST</option><option>PUT</option><option>PATCH</option>
+          </select>
+          <input value={cfg.endpoint} onChange={(e) => set({ endpoint: e.target.value })}
+            placeholder="https://api.seucrm.com/v1/leads"
+            className="flex-1 min-w-0 bg-rl-bg border border-rl-border rounded-md px-3 py-2 text-sm text-rl-text font-mono outline-none focus:border-rl-purple" />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-rl-muted">Headers (autenticação)</span>
+            <button onClick={addHeader} className="text-xs text-rl-purple hover:underline flex items-center gap-1">
+              <Plus className="w-3.5 h-3.5" /> Header
+            </button>
+          </div>
+          {(cfg.headers || []).length === 0 && <p className="text-xs text-rl-muted/70">Nenhum header. A maioria dos CRMs pede um <code className="text-rl-text">Authorization</code>.</p>}
+          {(cfg.headers || []).map((h, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input value={h.key} onChange={(e) => setHeader(i, { key: e.target.value })} placeholder="Authorization"
+                className="flex-1 min-w-0 bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text font-mono outline-none focus:border-rl-purple" />
+              <input value={h.value} onChange={(e) => setHeader(i, { value: e.target.value })} placeholder="Bearer sua_chave"
+                className="flex-1 min-w-0 bg-rl-bg border border-rl-border rounded-md px-2 py-1.5 text-sm text-rl-text font-mono outline-none focus:border-rl-purple" />
+              <button onClick={() => rmHeader(i)} className="p-1.5 text-rl-muted hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          ))}
+          <p className="text-[11px] text-rl-muted flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 text-rl-gold shrink-0" />
+            A chave fica salva no banco e é visível para o time logado. Substitua os marcadores <code className="text-rl-text">&lt;SUA_API_KEY&gt;</code> pela chave real.
+          </p>
+        </div>
+      </div>
+
+      {/* Mapeamento */}
+      <div className="glass-card p-4 space-y-2">
+        <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">Mapeamento — corpo do POST</label>
+        <p className="text-xs text-rl-muted">
+          JSON que será enviado ao CRM. Use <code className="text-rl-text">{'{{chave}}'}</code> para injetar os dados do lead.
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {campos.map((c) => (
+            <button key={c.key} onClick={() => copiar(`{{${c.key}}}`, c.key)} title="Copiar placeholder"
+              className="text-[11px] font-mono bg-rl-surface border border-rl-border rounded-md px-2 py-1 text-rl-text hover:border-rl-purple">
+              {copiado === c.key ? <Check className="w-3 h-3 inline text-rl-green" /> : `{{${c.key}}}`}
+            </button>
+          ))}
+        </div>
+        <textarea rows={8} value={cfg.bodyTemplate} onChange={(e) => set({ bodyTemplate: e.target.value })}
+          placeholder={'{\n  "name": "{{nome}}",\n  "email": "{{email}}",\n  "phone": "{{whatsapp}}"\n}'}
+          className="w-full bg-rl-bg border border-rl-border rounded-md px-3 py-2 text-[12px] text-rl-text font-mono outline-none focus:border-rl-purple resize-y" />
+      </div>
+
+      {/* Testar */}
+      <div className="glass-card p-4 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">Testar envio</label>
+            <p className="text-xs text-rl-muted mt-0.5">Manda um lead de exemplo para o CRM agora. Não grava nada.</p>
+          </div>
+          <button onClick={testar} disabled={loadingTest || !cfg.endpoint?.trim()}
+            className="flex items-center gap-2 text-sm border border-rl-border rounded-lg px-3 py-2 text-rl-text hover:border-rl-purple disabled:opacity-40">
+            {loadingTest ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Testar envio
+          </button>
+        </div>
+
+        {teste && (
+          <div className="space-y-2">
+            {teste.error ? (
+              <p className="text-sm text-red-400 flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" />{teste.error}</p>
+            ) : (
+              <span className={`inline-block text-xs px-2 py-1 rounded-full border ${
+                teste.ok ? 'text-rl-green border-rl-green/30 bg-rl-green/10' : 'text-red-400 border-red-400/30 bg-red-400/10'
+              }`}>
+                {teste.ok ? 'Sucesso' : 'Falhou'} — HTTP {teste.status}
+              </span>
+            )}
+            {teste.sent && (
+              <div>
+                <p className="text-[11px] text-rl-muted mb-1">Corpo enviado:</p>
+                <pre className="bg-rl-bg border border-rl-border rounded-md p-2 text-[11px] text-rl-text/90 font-mono overflow-x-auto">{teste.sent}</pre>
+              </div>
+            )}
+            {teste.response && (
+              <div>
+                <p className="text-[11px] text-rl-muted mb-1">Resposta do CRM:</p>
+                <pre className="bg-rl-bg border border-rl-border rounded-md p-2 text-[11px] text-rl-text/90 font-mono overflow-x-auto whitespace-pre-wrap">{teste.response}</pre>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-end">
+        <button onClick={() => onSave(cfg)} className="btn-primary text-sm py-2 px-5">Salvar integração</button>
       </div>
     </div>
   )
