@@ -23,8 +23,10 @@ import Tasks from './pages/Tasks'
 import Chat from './pages/Chat'
 import RoteirosExpress from './pages/RoteirosExpress'
 import RoteirosExpressPublico from './pages/RoteirosExpressPublico'
+import CriativosPublico from './pages/CriativosPublico'
 import DashboardTrafego from './pages/DashboardTrafego'
 import DashboardApiTeste from './pages/DashboardApiTeste'
+import WireframePreview from './pages/WireframePreview'
 import Atividades15min from './pages/Atividades15min'
 import BancoDeDados from './pages/BancoDeDados'
 import NotificationCenter from './components/NotificationCenter'
@@ -85,10 +87,12 @@ function AppRoutes() {
         <Route path="/banco-de-dados" element={<RequireAuth><BancoDeDados /></RequireAuth>} />
         <Route path="/roteiros-express" element={<RequireAuth><RoteirosExpress /></RequireAuth>} />
         <Route path="/roteiros/:token" element={<RoteirosExpressPublico />} />
+        <Route path="/criativos/:projectId/:token" element={<CriativosPublico />} />
         <Route path="/chat" element={<RequireAuth><Chat /></RequireAuth>} />
         <Route path="/dashboard" element={<DashboardRoute />} />
         <Route path="/dashboard-teste" element={<RequireAuth><DashboardApiTeste /></RequireAuth>} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/wireframe-preview" element={<WireframePreview />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {user && <NotificationCenter />}

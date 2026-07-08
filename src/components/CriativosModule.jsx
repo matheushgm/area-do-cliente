@@ -20,7 +20,11 @@ import {
   X,
   Check,
   Lock,
+  Share2,
+  Copy,
+  Link2,
 } from 'lucide-react'
+import Modal from './UI/Modal'
 import { replaceAdInContent } from './Criativos/ResultBlock'
 import CreativeResultBlock from './Criativos/CreativeResultBlock'
 import ContextPreview from './Criativos/ContextPreview'
@@ -339,6 +343,54 @@ Use as informações de público-alvo, personas e oferta fornecidas no contexto 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function CriativosModule({ project }) {
   const { updateProject } = useApp()
+
+  // ── Compartilhar com o cliente (link público + senha) ──────────────────────
+  const [shareOpen, setShareOpen] = useState(false)
+  const [sharePassword, setSharePassword] = useState('')
+  const [shareUrl, setShareUrl] = useState('')
+  const [shareBusy, setShareBusy] = useState(false)
+  const [shareError, setShareError] = useState(null)
+  const [shareCopied, setShareCopied] = useState(false)
+
+  const generateShareLink = useCallback(async () => {
+    if (sharePassword.trim().length < 4) {
+      setShareError('A senha precisa ter ao menos 4 caracteres.')
+      return
+    }
+    setShareBusy(true)
+    setShareError(null)
+    setShareUrl('')
+    try {
+      let sessionToken = null
+      try {
+        const { supabase } = await import('../lib/supabase.js')
+        const { data } = (await supabase?.auth.getSession()) ?? {}
+        sessionToken = data?.session?.access_token ?? null
+      } catch { /* sem token → 401 */ }
+      const res = await fetch('/api/criativos-share-token', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+        },
+        body: JSON.stringify({ projectId: project.id, password: sharePassword.trim() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error?.message || `Erro ${res.status}`)
+      setShareUrl(data.url)
+    } catch (e) {
+      setShareError(e.message || 'Não foi possível gerar o link.')
+    } finally {
+      setShareBusy(false)
+    }
+  }, [project.id, sharePassword])
+
+  function copyShareLink() {
+    navigator.clipboard?.writeText(shareUrl || '').then(() => {
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+    })
+  }
 
   // Sub-tab no topo: 'copy' (fluxo atual de geração de copy) | 'visual'
   // (gerador de criativos visuais com IA + html2canvas → JPG)
@@ -835,12 +887,78 @@ ${sections}`
       <div className="space-y-6">
         <VideoGuide videoId="ZinesF_j2xU" label="Como usar o módulo de Criativos com IA" />
 
-        <div>
-          <h2 className="text-xl font-bold text-rl-text mb-1">Gerador de Criativos com IA</h2>
-          <p className="text-sm text-rl-muted">
-            Selecione o formato para gerar criativos usando os dados do cliente.
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-rl-text mb-1">Gerador de Criativos com IA</h2>
+            <p className="text-sm text-rl-muted">
+              Selecione o formato para gerar criativos usando os dados do cliente.
+            </p>
+          </div>
+          <button
+            onClick={() => { setShareOpen(true); setShareUrl(''); setShareError(null); setSharePassword('') }}
+            className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20 transition-all"
+          >
+            <Share2 className="w-3.5 h-3.5" /> Compartilhar com cliente
+          </button>
         </div>
+
+        {shareOpen && (
+          <Modal onClose={() => setShareOpen(false)} maxWidth="md">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-rl-purple/15 flex items-center justify-center">
+                  <Link2 className="w-4.5 h-4.5 text-rl-purple" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-rl-text">Link de criação de anúncios</h3>
+                  <p className="text-xs text-rl-muted">O cliente gera os próprios anúncios com os dados desta conta.</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-rl-text block mb-1">Senha de acesso</label>
+                <input
+                  type="text"
+                  value={sharePassword}
+                  onChange={(e) => setSharePassword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && generateShareLink()}
+                  placeholder="Defina uma senha (mín. 4 caracteres)"
+                  className="input-field w-full text-sm"
+                />
+                <p className="text-[10px] text-rl-muted mt-1">
+                  Envie essa senha ao cliente junto com o link. Trocar a senha invalida o link antigo.
+                </p>
+              </div>
+
+              {shareError && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-400">{shareError}</p>
+                </div>
+              )}
+
+              {!shareUrl ? (
+                <button
+                  onClick={generateShareLink}
+                  disabled={shareBusy || sharePassword.trim().length < 4}
+                  className="btn-primary w-full flex items-center justify-center gap-2 text-sm py-2.5 disabled:opacity-50"
+                >
+                  {shareBusy ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</> : <><Link2 className="w-4 h-4" /> Gerar link</>}
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 rounded-lg border border-rl-border bg-rl-surface px-3 py-2">
+                    <input readOnly value={shareUrl} className="flex-1 bg-transparent text-xs text-rl-text outline-none truncate" />
+                    <button onClick={copyShareLink} className="shrink-0 flex items-center gap-1 text-xs font-semibold text-rl-purple hover:text-rl-text transition-all">
+                      {shareCopied ? <><Check className="w-3.5 h-3.5 text-rl-green" /> Copiado</> : <><Copy className="w-3.5 h-3.5" /> Copiar</>}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-rl-muted">Senha: <strong className="text-rl-text">{sharePassword}</strong> — guarde-a, ela não aparece no link.</p>
+                </div>
+              )}
+            </div>
+          </Modal>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
