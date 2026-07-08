@@ -7,7 +7,7 @@ import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import {
   Database, Plus, Trash2, Copy, Check, Loader2, Search, Download,
-  Table2, Columns3, Webhook, ChevronDown, Code2, X,
+  Table2, Columns3, Webhook, ChevronDown, Code2, X, Sparkles,
 } from 'lucide-react'
 
 // ── Tipos de campo ────────────────────────────────────────────────────────────
@@ -559,6 +559,41 @@ document.getElementById('rl-form').addEventListener('submit', async (e) => {
 });
 </script>`
 
+  // Prompt para IA (Lovable/v0/Bolt) que se reconstrói a partir dos campos atuais.
+  const isAuto = (k) => k === 'url' || k === 'ip' || k.startsWith('utm_')
+  const userFields = campos.filter((c) => !isAuto(c.key))
+  const utmKeys = campos.filter((c) => c.key.startsWith('utm_')).map((c) => c.key)
+  const hasUrl = campos.some((c) => c.key === 'url')
+  const hasIp = campos.some((c) => c.key === 'ip')
+
+  const userLines = userFields.length
+    ? userFields.map((c) => `   - "${c.key}" -> campo "${c.label || c.key}"`).join('\n')
+    : '   - (nenhum campo de preenchimento definido ainda)'
+  const autoLines = []
+  if (hasUrl) autoLines.push('   - "url": window.location.href (URL completa da página)')
+  if (utmKeys.length) autoLines.push(`   - Parâmetros UTM da URL (window.location.search): ${utmKeys.map((k) => `"${k}"`).join(', ')} — se não existirem na URL, envie string vazia`)
+  if (hasIp) autoLines.push('   - "ip": obtenha via fetch em "https://api.ipify.org?format=json" (campo .ip); se falhar, envie "" e siga o envio normalmente')
+
+  const promptText = `Conecte o formulário desta landing page a um banco de dados externo via webhook, SEM alterar o design, layout, cores, espaçamentos ou textos. Adicione apenas a lógica de envio.
+
+Ao enviar o formulário (onSubmit):
+1. Faça e.preventDefault() e mantenha as validações de campos obrigatórios que já existem.
+2. Enquanto envia, desabilite o botão de envio e mostre um estado de "enviando".
+3. Monte um objeto JSON chamado "dados". O atributo name de cada input DEVE ser exatamente a chave indicada:
+${userLines}${autoLines.length ? `
+4. Adicione automaticamente ao objeto "dados":
+${autoLines.join('\n')}` : ''}
+${autoLines.length ? '5' : '4'}. Envie os dados com:
+   fetch("${url}", {
+     method: "POST",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify(dados)
+   });
+${autoLines.length ? '6' : '5'}. Se a resposta for ok: mostre uma mensagem de sucesso e limpe o formulário. Se der erro: mostre "Ocorreu um erro, tente novamente." e reabilite o botão.${hasIp ? `
+${autoLines.length ? '7' : '6'}. Não deixe o fetch de IP travar o envio (use um timeout curto ou trate o erro).` : ''}
+
+Regra final: não altere nada visual — apenas a lógica de envio (submit) do formulário.`
+
   return (
     <div className="space-y-4">
       <div className="glass-card p-4 space-y-2">
@@ -618,9 +653,20 @@ document.getElementById('rl-form').addEventListener('submit', async (e) => {
         </div>
       )}
 
+      <div className="glass-card p-4 space-y-2 border border-rl-purple/30">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-semibold text-rl-purple uppercase tracking-wide flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Prompt para IA (Lovable, v0, Bolt…)</label>
+          <button onClick={() => onCopy(promptText, 'prompt')} className="flex items-center gap-1.5 text-sm border border-rl-border rounded-lg px-3 py-1.5 text-rl-muted hover:text-rl-text">
+            {copied === 'prompt' ? <Check className="w-4 h-4 text-rl-green" /> : <Copy className="w-4 h-4" />} Copiar
+          </button>
+        </div>
+        <p className="text-xs text-rl-muted">Cole na página feita por IA para conectar o formulário a este banco. O prompt <strong className="text-rl-text">se atualiza sozinho</strong> conforme você adiciona ou remove campos acima.</p>
+        <pre className="bg-rl-bg border border-rl-border rounded-lg p-3 text-[11px] text-rl-text/90 whitespace-pre-wrap overflow-x-auto">{promptText}</pre>
+      </div>
+
       <div className="glass-card p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide flex items-center gap-1.5"><Code2 className="w-3.5 h-3.5" /> Snippet para a LP</label>
+          <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide flex items-center gap-1.5"><Code2 className="w-3.5 h-3.5" /> Snippet HTML (alternativa sem IA)</label>
           <button onClick={() => onCopy(snippet, 'snippet')} className="flex items-center gap-1.5 text-sm border border-rl-border rounded-lg px-3 py-1.5 text-rl-muted hover:text-rl-text">
             {copied === 'snippet' ? <Check className="w-4 h-4 text-rl-green" /> : <Copy className="w-4 h-4" />} Copiar
           </button>
