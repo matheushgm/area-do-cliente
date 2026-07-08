@@ -29,6 +29,8 @@ export default function CriativosPublico() {
   const [busy, setBusy] = useState(false)
 
   const [mode, setMode] = useState(null) // 'estatico' | 'video'
+  const [selectedProduct, setSelectedProduct] = useState('') // id do produto (opcional)
+  const [selectedPersona, setSelectedPersona] = useState('') // id da persona (opcional)
   const [funil, setFunil] = useState('') // id do funil escolhido
   const [detalhes, setDetalhes] = useState('') // particularidades deste anúncio
   const [result, setResult] = useState('')
@@ -49,10 +51,17 @@ export default function CriativosPublico() {
   const [addingDor, setAddingDor] = useState(false)
   const [newDorText, setNewDorText] = useState('')
 
+  const personaName = useMemo(
+    () => (ctx?.personas || []).find((p) => p.id === selectedPersona)?.name || '',
+    [ctx, selectedPersona]
+  )
+
   const allDores = useMemo(() => {
-    const parsed = (ctx?.dores || []).map((d) => ({ id: d.id, text: d.text, personaName: d.personaName }))
+    let parsed = (ctx?.dores || []).map((d) => ({ id: d.id, text: d.text, personaName: d.personaName }))
+    // Se uma persona foi escolhida, mostra só as dores dela.
+    if (personaName) parsed = parsed.filter((d) => d.personaName === personaName)
     return [...parsed, ...customDores.map((d) => ({ ...d, isCustom: true }))]
-  }, [ctx, customDores])
+  }, [ctx, customDores, personaName])
 
   // ── Login (email + senha) ───────────────────────────────────────────────────
   async function login() {
@@ -139,7 +148,7 @@ export default function CriativosPublico() {
       ? { adTypes: videoTypes }
       : { dores: selectedDores.map((d) => ({ text: d.text, types: Object.keys(dorConfig[d.id].types) })) }
     try {
-      const payload = { ...creds(), mode, funil, detalhes: detalhesTrim, ...selection }
+      const payload = { ...creds(), mode, funil, detalhes: detalhesTrim, productId: selectedProduct, personaId: selectedPersona, ...selection }
       const full = await streamCriativo('generate', payload, setResult, abortRef.current.signal)
       setResult(full)
       setStatus('result')
@@ -160,7 +169,7 @@ export default function CriativosPublico() {
   }
 
   function resetConfig() {
-    setAdTypeConfig({}); setDorConfig({}); setCustomDores([]); setAddingDor(false); setNewDorText(''); setFunil(''); setDetalhes('')
+    setAdTypeConfig({}); setDorConfig({}); setCustomDores([]); setAddingDor(false); setNewDorText(''); setFunil(''); setDetalhes(''); setSelectedProduct(''); setSelectedPersona('')
   }
 
   // ══ RENDER ════════════════════════════════════════════════════════════════
@@ -391,6 +400,42 @@ export default function CriativosPublico() {
             </p>
           </div>
         </div>
+
+        {/* Foco: produto e/ou persona (opcional) */}
+        {((ctx?.produtos?.length || 0) > 0 || (ctx?.personas?.length || 0) > 0) && (
+          <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">🎯</span>
+              <label className="text-sm font-bold text-rl-text">Foco deste anúncio <span className="text-rl-muted font-normal">(opcional)</span></label>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(ctx?.produtos?.length || 0) > 0 && (
+                <div>
+                  <label className="text-[11px] font-bold text-rl-text block mb-1">📦 Produto/serviço</label>
+                  <select value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}
+                    className="input-field w-full text-sm">
+                    <option value="">Todos os produtos</option>
+                    {ctx.produtos.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                  </select>
+                </div>
+              )}
+              {(ctx?.personas?.length || 0) > 0 && (
+                <div>
+                  <label className="text-[11px] font-bold text-rl-text block mb-1">👤 Persona / público</label>
+                  <select value={selectedPersona}
+                    onChange={(e) => { setSelectedPersona(e.target.value); setDorConfig({}) }}
+                    className="input-field w-full text-sm">
+                    <option value="">Todas as personas</option>
+                    {ctx.personas.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+            {!isVideo && personaName && (
+              <p className="text-[11px] text-rl-blue leading-snug">As dores abaixo são só da persona <strong>{personaName}</strong>.</p>
+            )}
+          </div>
+        )}
 
         {/* Explicação dos 5 níveis */}
         <div className="flex items-start gap-2 rounded-xl border border-rl-purple/30 bg-rl-purple/5 px-3 py-2.5">

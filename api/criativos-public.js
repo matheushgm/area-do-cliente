@@ -586,7 +586,21 @@ export default async function handler(req) {
   // ── generate: monta a instrução e faz o streaming da IA ─────────────────────
   if (action === 'generate') {
     const mode = body?.mode === 'video' ? 'video' : 'estatico'
-    const context = buildContext(project)
+
+    // Escopo opcional: produto e/ou persona específicos. Limita os arrays antes
+    // de montar o contexto — igual ao scopedProject do módulo interno.
+    const productId = String(body?.productId || '').trim()
+    const personaId = String(body?.personaId || '').trim()
+    let scoped = project
+    if (productId) {
+      const p = project.produtos.find((x) => x.id === productId)
+      if (p) scoped = { ...scoped, produtos: [p] }
+    }
+    if (personaId) {
+      const p = project.personas.find((x) => x.id === personaId)
+      if (p) scoped = { ...scoped, personas: [p] }
+    }
+    const context = buildContext(scoped)
 
     // Cada tipo gera 5 peças (uma por nível de consciência). O teto de 8 blocos
     // mantém o output dentro do max_tokens (8 x 5 = 40 peças).
