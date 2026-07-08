@@ -28,6 +28,7 @@ export default function CriativosPublico() {
 
   const [mode, setMode] = useState(null) // 'estatico' | 'video'
   const [funil, setFunil] = useState('') // id do funil escolhido
+  const [detalhes, setDetalhes] = useState('') // particularidades deste anúncio
   const [result, setResult] = useState('')
   const [copied, setCopied] = useState(false)
   const abortRef = useRef(null)
@@ -111,7 +112,7 @@ export default function CriativosPublico() {
     setStatus('generating'); setError(null); setResult(''); setCopied(false)
     abortRef.current = new AbortController()
     try {
-      const payload = { projectId, token, password: password.trim(), mode, funil }
+      const payload = { projectId, token, password: password.trim(), mode, funil, detalhes: detalhes.trim() }
       if (isVideo) {
         payload.adTypes = videoTypes
       } else {
@@ -137,7 +138,7 @@ export default function CriativosPublico() {
   }
 
   function resetConfig() {
-    setAdTypeConfig({}); setDorConfig({}); setCustomDores([]); setAddingDor(false); setNewDorText(''); setFunil('')
+    setAdTypeConfig({}); setDorConfig({}); setCustomDores([]); setAddingDor(false); setNewDorText(''); setFunil(''); setDetalhes('')
   }
 
   // ══ RENDER ════════════════════════════════════════════════════════════════
@@ -435,6 +436,18 @@ export default function CriativosPublico() {
             )}
           </div>
         )}
+
+        {/* Detalhes específicos deste anúncio (opcional) */}
+        <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-1.5">
+          <label className="text-sm font-bold text-rl-text">Detalhes deste anúncio <span className="text-rl-muted font-normal">(opcional)</span></label>
+          <p className="text-[11px] text-rl-muted leading-snug">
+            Promoção, condição, prazo, produto específico, ângulo que você quer... A IA vai incorporar isso em todas as peças.
+          </p>
+          <textarea value={detalhes} onChange={(e) => setDetalhes(e.target.value)}
+            rows={3} maxLength={1200}
+            placeholder="Ex.: promoção de dia das mães, 30% off até domingo, brinde de frete grátis acima de R$199."
+            className="input-field w-full text-sm resize-none" />
+        </div>
 
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2">

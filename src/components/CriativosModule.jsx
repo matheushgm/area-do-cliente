@@ -478,6 +478,8 @@ export default function CriativosModule({ project }) {
   const [selectedPersonaId, setSelectedPersonaId] = useState('')
   // Funil em que o anúncio vai rodar — define o objetivo/CTA (entra no prompt).
   const [selectedFunil, setSelectedFunil] = useState('')
+  // Particularidades deste anúncio (promoção, condição...) — texto livre no prompt.
+  const [extraDetails, setExtraDetails] = useState('')
 
   const isVideo = view === 'video'
 
@@ -649,6 +651,14 @@ Todo o criativo (gancho, mensagem e principalmente o CTA) deve levar a essa aç�
 
 `
       : ''
+    const det = extraDetails.trim()
+    const detStr = det
+      ? `## PARTICULARIDADES DESTE ANÚNCIO (prioridade máxima)
+
+Incorpore obrigatoriamente em cada peça: ${det}
+
+`
+      : ''
 
     if (isVideo) {
       const typesStr = selectedList
@@ -658,7 +668,7 @@ Todo o criativo (gancho, mensagem e principalmente o CTA) deve levar a essa aç�
 
 ## SOLICITAÇÃO
 
-${funilStr}Tipos de gancho a gerar (5 roteiros cada, um por nível de consciência):
+${funilStr}${detStr}Tipos de gancho a gerar (5 roteiros cada, um por nível de consciência):
 ${typesStr}
 
 Total: ${totalQuantity} roteiros.`
@@ -683,12 +693,12 @@ ${typeLines}`
 
 ## SOLICITAÇÃO
 
-${funilStr}Para cada dor abaixo, gere um bloco por tipo de criativo, com os 5 níveis de consciência dentro de cada bloco.
+${funilStr}${detStr}Para cada dor abaixo, gere um bloco por tipo de criativo, com os 5 níveis de consciência dentro de cada bloco.
 
 ${sections}
 
 Total: ${blocos} blocos (${staticTotalQty} headlines).`
-  }, [dorConfig, isVideo, selectedDores, selectedList, selectedFunil, staticTotalQty, totalQuantity])
+  }, [dorConfig, isVideo, selectedDores, selectedList, selectedFunil, extraDetails, staticTotalQty, totalQuantity])
 
   // ── Generate ────────────────────────────────────────────────────────────────
   const generate = useCallback(async () => {
@@ -775,6 +785,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
     selectedPersona,
     selectedPersonaId,
     selectedFunil,
+    extraDetails,
     staticTotalQty,
     metodologiaOverride,
     totalQuantity,
@@ -1051,6 +1062,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
                 setSelectedProductId('')
                 setSelectedPersonaId('')
                 setSelectedFunil('')
+                setExtraDetails('')
                 setError(null)
               }}
               className={`glass-card p-6 text-left hover:border-${color}/50 hover:shadow-glow transition-all duration-200 group`}
@@ -1259,6 +1271,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
             setDiretrizesOverride(null)
             setInstructionOverride(null)
             setSelectedFunil('')
+            setExtraDetails('')
             setError(null)
           }}
           aria-label="Voltar à seleção de formato"
@@ -1792,6 +1805,23 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
         <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {/* Detalhes específicos deste anúncio (opcional) */}
+      {!result && (
+        <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-1.5">
+          <label className="label-field !mb-0">
+            Detalhes deste anúncio <span className="text-rl-muted font-normal">(opcional)</span>
+          </label>
+          <p className="text-[11px] text-rl-muted leading-snug">
+            Promoção, condição, prazo, produto específico, ângulo desejado... A IA incorpora em cada peça.
+          </p>
+          <AutoResizeTextarea
+            value={extraDetails}
+            onChange={(e) => setExtraDetails(e.target.value.slice(0, 1200))}
+            className="input-field w-full text-sm min-h-[64px]"
+          />
         </div>
       )}
 

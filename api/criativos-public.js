@@ -58,6 +58,14 @@ function funilBlock(funilId) {
   return `## FUNIL DESTE ANÚNCIO: ${f.label}\n\nObjetivo e CTA obrigatórios: ${f.objetivo}\nTodo o criativo (gancho, mensagem e principalmente o CTA) deve levar a essa ação — não a nenhuma outra.\n\n`
 }
 
+// Detalhes específicos deste anúncio (promoção, condição, contexto) — texto livre
+// do usuário. Tem prioridade: se conflitar com o contexto geral, vale isto.
+function detalhesBlock(detalhes) {
+  const t = (detalhes || '').trim()
+  if (!t) return ''
+  return `## PARTICULARIDADES DESTE ANÚNCIO (prioridade máxima)\n\nIncorpore obrigatoriamente em cada peça: ${t}\n\n`
+}
+
 // ─── System prompts (metodologia Revenue Lab / Laboratório de Anúncios) ───────
 // Os 5 níveis de consciência de Eugene Schwartz — substituem as antigas etapas
 // de funil (topo/meio/fundo). Cada tipo de criativo gera 1 peça por nível.
@@ -404,17 +412,17 @@ function fallbackDores(personas) {
 }
 
 // ─── Instruções de geração (espelham autoInstruction do CriativosModule) ──────
-function buildVideoInstruction(adTypes, funilId) {
+function buildVideoInstruction(adTypes, funilId, detalhes) {
   const typesStr = adTypes
     .map((id) => {
       const t = AD_TYPE_MAP[id]
       return `${t.emoji} ${t.label}: ${t.desc}`
     })
     .join('\n')
-  return `---\n\n## SOLICITAÇÃO\n\n${funilBlock(funilId)}Tipos de gancho a gerar (5 roteiros cada, um por nível de consciência):\n${typesStr}\n\nTotal: ${adTypes.length * 5} roteiros.`
+  return `---\n\n## SOLICITAÇÃO\n\n${funilBlock(funilId)}${detalhesBlock(detalhes)}Tipos de gancho a gerar (5 roteiros cada, um por nível de consciência):\n${typesStr}\n\nTotal: ${adTypes.length * 5} roteiros.`
 }
 
-function buildStaticInstruction(dores, funilId) {
+function buildStaticInstruction(dores, funilId, detalhes) {
   const sections = dores
     .map(({ text, types }) => {
       const typeLines = types
@@ -427,7 +435,7 @@ function buildStaticInstruction(dores, funilId) {
     })
     .join('\n\n')
   const total = dores.reduce((s, d) => s + d.types.length, 0)
-  return `---\n\n## SOLICITAÇÃO\n\n${funilBlock(funilId)}Para cada dor abaixo, gere um bloco por tipo de criativo, com os 5 níveis de consciência dentro de cada bloco.\n\n${sections}\n\nTotal: ${total} blocos (${total * 5} headlines).`
+  return `---\n\n## SOLICITAÇÃO\n\n${funilBlock(funilId)}${detalhesBlock(detalhes)}Para cada dor abaixo, gere um bloco por tipo de criativo, com os 5 níveis de consciência dentro de cada bloco.\n\n${sections}\n\nTotal: ${total} blocos (${total * 5} headlines).`
 }
 
 // Normaliza/valida a seleção de tipos vinda do cliente: devolve uma lista de ids
@@ -528,13 +536,16 @@ export default async function handler(req) {
     const funilId = String(body?.funil || '').trim()
     if (!FUNIS_OBJETIVO[funilId]) return json({ error: 'Selecione o funil em que o anúncio vai rodar.' }, 400)
 
+    // Detalhes/particularidades deste anúncio (opcional, texto livre).
+    const detalhes = clip(body?.detalhes, 1200)
+
     if (mode === 'video') {
       const adTypes = sanitizeTypes(body?.adTypes)
       if (!adTypes.length) return json({ error: 'Selecione ao menos um tipo de gancho.' }, 400)
       if (adTypes.length > MAX_BLOCOS) {
         return json({ error: `Muitos tipos de uma vez. Selecione no máximo ${MAX_BLOCOS} (${MAX_BLOCOS * 5} roteiros).` }, 400)
       }
-      return anthropicSSE(VIDEO_SYSTEM, buildVideoInstruction(adTypes, funilId), context, 32000)
+      return anthropicSSE(VIDEO_SYSTEM, buildVideoInstruction(adTypes, funilId, detalhes), context, 32000)
     }
 
     // estático
@@ -550,7 +561,7 @@ export default async function handler(req) {
     if (blocos > MAX_BLOCOS) {
       return json({ error: `Muitas combinações de uma vez. Selecione no máximo ${MAX_BLOCOS} (dor x tipo).` }, 400)
     }
-    return anthropicSSE(DORES_SYSTEM, buildStaticInstruction(dores, funilId), context, 32000)
+    return anthropicSSE(DORES_SYSTEM, buildStaticInstruction(dores, funilId, detalhes), context, 32000)
   }
 
   return json({ error: 'Ação desconhecida.' }, 400)
