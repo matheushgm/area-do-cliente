@@ -971,14 +971,16 @@ function OnboardingContent({ project, onSave, showToast }) {
       )}
 
       {/* Observações */}
-      {project.observacoes && (
-        <div>
-          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📝 Observações</p>
-          <div className="rounded-xl bg-rl-surface p-4">
+      <div>
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📝 Observações</p>
+        <div className="rounded-xl bg-rl-surface p-4">
+          {project.observacoes ? (
             <p className="text-sm text-rl-text leading-relaxed whitespace-pre-wrap">{project.observacoes}</p>
-          </div>
+          ) : (
+            <p className="text-sm text-rl-muted italic">Nenhuma observação. Clique em Editar Dados para adicionar.</p>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Arquivos */}
       <ProjectDocs project={project} />
