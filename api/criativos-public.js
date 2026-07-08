@@ -155,7 +155,7 @@ async function sb(path) {
 async function loadProject(projectId) {
   const id = encodeURIComponent(projectId)
   const [proj, personas, produtos, ofertas] = await Promise.all([
-    sb(`/projects_v2?id=eq.${id}&select=company_name,business_type,product_description,main_goal,target_audience,average_ticket,media_budget,competitors&limit=1`),
+    sb(`/projects_v2?id=eq.${id}&select=company_name,business_type,segmento,competitors&limit=1`),
     sb(`/personas?project_id=eq.${id}&select=id,name,answers,generated_content`),
     sb(`/produtos?project_id=eq.${id}&select=id,nome,tipo,answers`),
     sb(`/ofertas?project_id=eq.${id}&select=answers,generated_content&limit=1`),
@@ -165,11 +165,7 @@ async function loadProject(projectId) {
   return {
     companyName: row.company_name,
     businessType: row.business_type,
-    productDescription: row.product_description,
-    mainGoal: row.main_goal,
-    targetAudience: row.target_audience,
-    averageTicket: row.average_ticket,
-    mediaBudget: row.media_budget,
+    segmento: row.segmento,
     competitors: row.competitors || [],
     produtos: (produtos.data || []).map((p) => ({ id: p.id, nome: p.nome, tipo: p.tipo, answers: p.answers || {} })),
     personas: (personas.data || []).map((p) => ({
@@ -228,6 +224,7 @@ function buildContext(project) {
   const lines = ['# CONTEXTO COMPLETO DO CLIENTE\n']
   lines.push(`## EMPRESA: ${project.companyName || 'Cliente'}`)
   if (project.businessType) lines.push(`Nicho/Tipo: ${BTYPE[project.businessType] || project.businessType}`)
+  if (project.segmento) lines.push(`Segmento: ${project.segmento}`)
   if (project.productDescription) lines.push(`Produto/Serviço: ${project.productDescription}`)
   if (project.mainGoal) lines.push(`Objetivo: ${project.mainGoal}`)
   if (project.targetAudience) lines.push(`Público-Alvo: ${project.targetAudience}`)
@@ -287,6 +284,22 @@ function parseDores(personas) {
     }
   }
   return result
+}
+
+// Fallback: quando a persona não tem perfil gerado (sem "PRINCIPAIS DORES"),
+// usa os medos/objeções/erros das respostas como dores candidatas.
+function fallbackDores(personas) {
+  const out = []
+  for (const p of personas || []) {
+    const a = p.answers || {}
+    for (const key of ['medos', 'objecoes', 'erros']) {
+      for (const item of Array.isArray(a[key]) ? a[key] : []) {
+        const text = (typeof item === 'string' ? item : '').trim()
+        if (text) out.push({ id: `${p.id}_${key}_${out.length}`, text, personaName: p.name || 'Persona' })
+      }
+    }
+  }
+  return out.slice(0, 30)
 }
 
 // ─── Instruções de geração (espelham autoInstruction do CriativosModule) ──────
@@ -388,10 +401,12 @@ export default async function handler(req) {
 
   // ── auth: devolve o contexto mínimo para a UI ───────────────────────────────
   if (action === 'auth') {
+    let dores = parseDores(project.personas)
+    if (!dores.length) dores = fallbackDores(project.personas)
     return json({
       success: true,
       companyName: project.companyName || 'Cliente',
-      dores: parseDores(project.personas),
+      dores,
       produtos: project.produtos.map((p) => ({ id: p.id, nome: p.nome })).filter((p) => p.nome),
       personas: project.personas.map((p) => ({ id: p.id, name: p.name })).filter((p) => p.name),
     })
