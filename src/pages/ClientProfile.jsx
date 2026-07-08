@@ -96,6 +96,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
     otherPeople:         project.otherPeople?.length ? [...project.otherPeople] : [],
     upsellPotential:     project.upsellPotential     ?? null,
     upsellNotes:         project.upsellNotes         || '',
+    observacoes:         project.observacoes         || '',
   })
 
   const set = (field, value) => setForm((f) => ({ ...f, [field]: value }))
@@ -184,6 +185,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
       otherPeople:         form.otherPeople.filter((p) => p.name),
       upsellPotential:     form.upsellPotential,
       upsellNotes:         form.upsellNotes,
+      observacoes:         form.observacoes,
       raio_x_file_url:     raioXPath,
       sla_file_url:        slaPath,
     })
@@ -505,6 +507,18 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
               <Plus className="w-4 h-4" /> Adicionar pessoa
             </button>
           </div>
+        </div>
+
+        {/* Observações */}
+        <div>
+          <label className="label-field">Observações</label>
+          <textarea
+            value={form.observacoes}
+            onChange={(e) => set('observacoes', e.target.value)}
+            rows={4}
+            className="input-field resize-none text-sm"
+            placeholder="Informações adicionais sobre o cliente..."
+          />
         </div>
       </div>
 
@@ -952,6 +966,16 @@ function OnboardingContent({ project, onSave, showToast }) {
                 {c}
               </span>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Observações */}
+      {project.observacoes && (
+        <div>
+          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📝 Observações</p>
+          <div className="rounded-xl bg-rl-surface p-4">
+            <p className="text-sm text-rl-text leading-relaxed whitespace-pre-wrap">{project.observacoes}</p>
           </div>
         </div>
       )}

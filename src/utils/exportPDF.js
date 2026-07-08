@@ -352,6 +352,11 @@ export function exportOnboardingPDF(project) {
       <div class="section-title">🎯 Público-Alvo</div>
       <div class="field"><div class="field-value" style="font-weight:400;line-height:1.6">${esc(project.targetAudience)}</div></div>
     </section>` : ''}
+    ${project.observacoes ? `
+    <section>
+      <div class="section-title">📝 Observações</div>
+      <div class="field"><div class="field-value" style="font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(project.observacoes)}</div></div>
+    </section>` : ''}
   `
 
   printHTML('Dados do Cliente', project.companyName, body)
