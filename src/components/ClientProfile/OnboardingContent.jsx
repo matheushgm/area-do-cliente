@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Pencil, FileDown, TrendingUp, Activity } from 'lucide-react'
+import { Pencil, FileDown, TrendingUp, Activity, Target, Check, X } from 'lucide-react'
+import { useApp } from '../../context/AppContext'
 import { fmtCurrency, ltvBreakdown, activeMonths } from '../../lib/utils'
 import { exportOnboardingPDF } from '../../utils/exportPDF'
 import {
@@ -15,6 +16,69 @@ function Field({ label, value }) {
     <div className="rounded-xl bg-rl-surface p-3">
       <p className="text-[11px] text-rl-muted mb-0.5">{label}</p>
       <p className="text-sm text-rl-text font-medium">{value}</p>
+    </div>
+  )
+}
+
+// Perfil de MQL — vem da pergunta 5 do Kickoff (cliente_ideal_qualificado).
+// Espelhado aqui nos dados do cliente e editável; fica em aberto quando não há
+// nada preenchido. Fonte única: project.kickoff.answers.cliente_ideal_qualificado.
+function MqlField({ project }) {
+  const { updateProject } = useApp()
+  const value = project.kickoff?.answers?.cliente_ideal_qualificado || ''
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+
+  function save() {
+    const kickoff = project.kickoff || {}
+    updateProject(project.id, {
+      kickoff: { ...kickoff, answers: { ...(kickoff.answers || {}), cliente_ideal_qualificado: draft.trim() } },
+    })
+    setEditing(false)
+  }
+
+  const open = editing || !value
+
+  return (
+    <div className="rounded-xl border border-rl-purple/30 bg-rl-purple/5 p-4">
+      <div className="flex items-center gap-2 mb-1">
+        <Target className="w-4 h-4 text-rl-purple" />
+        <h3 className="text-sm font-bold text-rl-text">Perfil de MQL (lead qualificado)</h3>
+        {!open && (
+          <button onClick={() => { setDraft(value); setEditing(true) }}
+            className="ml-auto p-1 rounded text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all" title="Editar">
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      <p className="text-[11px] text-rl-muted mb-2">
+        Quem é o cliente ideal e o que valida que geramos um lead qualificado. Vem da pergunta 5 do Kickoff — edite à vontade.
+      </p>
+
+      {open ? (
+        <div className="space-y-2">
+          <textarea
+            value={draft} onChange={(e) => setDraft(e.target.value)}
+            rows={3}
+            placeholder="Ex.: Gestor de e-commerce com R$50k+/mês faturando, que já investe em Meta Ads — qualificado se é decisor e tem budget mínimo de R$10k/mês."
+            className="input-field w-full text-sm resize-none"
+          />
+          <div className="flex items-center gap-2">
+            <button onClick={save} disabled={draft.trim() === value}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-green/10 border border-rl-green/30 text-rl-green hover:bg-rl-green/20 transition-all disabled:opacity-40">
+              <Check className="w-3.5 h-3.5" /> Salvar
+            </button>
+            {value && (
+              <button onClick={() => { setDraft(value); setEditing(false) }}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all">
+                <X className="w-3.5 h-3.5" /> Cancelar
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-rl-text whitespace-pre-wrap leading-relaxed">{value}</p>
+      )}
     </div>
   )
 }
@@ -55,6 +119,9 @@ export default function OnboardingContent({ project, onSave }) {
           Exportar PDF
         </button>
       </div>
+
+      {/* Perfil de MQL (pergunta 5 do Kickoff) */}
+      <MqlField project={project} />
 
       {/* Empresa */}
       <div>
