@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
-  Calculator, Plus, Briefcase, Package, Loader2, AlertTriangle, CheckCircle2,
+  Calculator, Plus, Briefcase, Package, Cloud, Loader2, AlertTriangle, CheckCircle2,
 } from 'lucide-react'
 import PrecificacaoCard from '../components/Precificacao/PrecificacaoCard'
 import PrecificacaoItemModal from '../components/Precificacao/PrecificacaoItemModal'
 
-const EMPTY = { servicos: [], produtos: [] }
+const EMPTY = { servicos: [], produtos: [], saas: [] }
+
+// Rótulo no singular por aba — usado nos botões, contadores e estados vazios.
+const SINGULAR = { servicos: 'serviço', produtos: 'produto', saas: 'SaaS' }
+const singular = (tab) => SINGULAR[tab] || 'item'
 
 function SaveBadge({ status }) {
   if (status === 'saving') return (
@@ -46,6 +50,7 @@ export default function PrecificacaoPublic() {
         setData({
           servicos: Array.isArray(body.precificacao?.servicos) ? body.precificacao.servicos : [],
           produtos: Array.isArray(body.precificacao?.produtos) ? body.precificacao.produtos : [],
+          saas:     Array.isArray(body.precificacao?.saas)     ? body.precificacao.saas     : [],
         })
       } catch (e) {
         setError(e.message)
@@ -164,18 +169,25 @@ export default function PrecificacaoPublic() {
             label="Produtos"
             count={data.produtos?.length || 0}
           />
+          <TabButton
+            active={tab === 'saas'}
+            onClick={() => setTab('saas')}
+            icon={Cloud}
+            label="SaaS"
+            count={data.saas?.length || 0}
+          />
         </div>
 
         {/* Botão novo item */}
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-rl-muted">
-            {items.length} {tab === 'servicos' ? 'serviço' : 'produto'}{items.length !== 1 ? 's' : ''} precificado{items.length !== 1 ? 's' : ''}
+            {items.length} {singular(tab)}{items.length !== 1 ? 's' : ''} precificado{items.length !== 1 ? 's' : ''}
           </p>
           <button
             onClick={() => setEditingItem({})}
             className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
           >
-            <Plus className="w-4 h-4" /> Novo {tab === 'servicos' ? 'serviço' : 'produto'}
+            <Plus className="w-4 h-4" /> Novo {singular(tab)}
           </button>
         </div>
 
@@ -242,23 +254,26 @@ function TabButton({ active, onClick, icon: Icon, label, count }) {
 }
 
 function EmptyState({ mode, onCreate }) {
-  const Icon = mode === 'servicos' ? Briefcase : Package
+  const Icon = mode === 'servicos' ? Briefcase : mode === 'saas' ? Cloud : Package
+  const label = singular(mode)
   return (
     <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-10 px-6 text-center space-y-3">
       <Icon className="w-8 h-8 text-rl-muted/40 mx-auto" />
       <div>
         <p className="text-sm font-semibold text-rl-text">
-          Nenhum {mode === 'servicos' ? 'serviço' : 'produto'} precificado ainda.
+          Nenhum {label} precificado ainda.
         </p>
         <p className="text-xs text-rl-muted mt-1 max-w-md mx-auto">
-          Adicione o primeiro item pra ver o preço de venda recomendado considerando custos, impostos e a margem desejada.
+          {mode === 'saas'
+            ? 'Cadastre o primeiro plano pra calcular mensalidade, implantação e LTV considerando custos, impostos e a margem desejada.'
+            : 'Adicione o primeiro item pra ver o preço de venda recomendado considerando custos, impostos e a margem desejada.'}
         </p>
       </div>
       <button
         onClick={onCreate}
         className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
       >
-        <Plus className="w-4 h-4" /> Adicionar primeiro {mode === 'servicos' ? 'serviço' : 'produto'}
+        <Plus className="w-4 h-4" /> Adicionar primeiro {label}
       </button>
     </div>
   )

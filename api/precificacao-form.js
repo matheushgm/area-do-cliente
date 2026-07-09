@@ -47,26 +47,76 @@ function str(v, max = 200) {
   return String(v == null ? '' : v).slice(0, max)
 }
 
-const SERVICO_FIELDS = ['salarioMensal', 'encargosPct', 'cargaHorariaMensal', 'horasDedicadas', 'custosFixos', 'impostoPct', 'margemPct']
+const COLAB_FIELDS   = ['salarioMensal', 'encargosPct', 'cargaHorariaMensal', 'horasDedicadas']
 const PRODUTO_FIELDS = ['custoProduto', 'custosAdicionais', 'impostoPct', 'margemPct']
 
-function sanitizeItem(raw, fields) {
-  const item = {
+function baseItem(raw) {
+  return {
     id:        str(raw?.id || crypto.randomUUID(), 60),
     nome:      str(raw?.nome, 200),
     createdAt: str(raw?.createdAt, 40) || null,
     updatedAt: str(raw?.updatedAt, 40) || null,
   }
-  for (const f of fields) item[f] = num(raw?.[f])
+}
+
+function sanitizeColaborador(raw) {
+  const c = {
+    id:   str(raw?.id || crypto.randomUUID(), 60),
+    nome: str(raw?.nome, 200),
+  }
+  for (const f of COLAB_FIELDS) c[f] = num(raw?.[f])
+  return c
+}
+
+// Serviço = N colaboradores (custeados à parte) + custos fixos/imposto/margem.
+// Migra o formato antigo (campos flat de 1 colaborador) pra lista de 1.
+function sanitizeServico(raw) {
+  const item = baseItem(raw)
+  let lista = Array.isArray(raw?.colaboradores) ? raw.colaboradores : null
+  if (!lista || !lista.length) {
+    lista = [{
+      nome:               '',
+      salarioMensal:      raw?.salarioMensal,
+      encargosPct:        raw?.encargosPct,
+      cargaHorariaMensal: raw?.cargaHorariaMensal,
+      horasDedicadas:     raw?.horasDedicadas,
+    }]
+  }
+  item.colaboradores = lista.slice(0, 50).map(sanitizeColaborador)
+  item.custosFixos   = num(raw?.custosFixos)
+  item.impostoPct    = num(raw?.impostoPct)
+  item.margemPct     = num(raw?.margemPct)
+  return item
+}
+
+function sanitizeProduto(raw) {
+  const item = baseItem(raw)
+  for (const f of PRODUTO_FIELDS) item[f] = num(raw?.[f])
+  return item
+}
+
+// SaaS = implantação (opcional) + recorrência (por usuário/ilimitado) + ciclo de vida.
+const SAAS_NUM_FIELDS = [
+  'custoHoraHomem', 'horasImplantacao', 'margemImplantacaoPct',
+  'numUsuarios', 'custoMensalConta', 'custoMensalUsuario',
+  'tempoMedioAtivoMeses', 'impostoPct', 'margemPct',
+]
+function sanitizeSaas(raw) {
+  const item = baseItem(raw)
+  item.temImplantacao = !!raw?.temImplantacao
+  item.modeloCobranca = raw?.modeloCobranca === 'ilimitado' ? 'ilimitado' : 'por_usuario'
+  for (const f of SAAS_NUM_FIELDS) item[f] = num(raw?.[f])
   return item
 }
 
 function sanitizePrecificacao(raw) {
   const servicos = Array.isArray(raw?.servicos) ? raw.servicos.slice(0, 200) : []
   const produtos = Array.isArray(raw?.produtos) ? raw.produtos.slice(0, 200) : []
+  const saas     = Array.isArray(raw?.saas)     ? raw.saas.slice(0, 200)     : []
   return {
-    servicos: servicos.map((s) => sanitizeItem(s, SERVICO_FIELDS)),
-    produtos: produtos.map((p) => sanitizeItem(p, PRODUTO_FIELDS)),
+    servicos: servicos.map(sanitizeServico),
+    produtos: produtos.map(sanitizeProduto),
+    saas:     saas.map(sanitizeSaas),
   }
 }
 

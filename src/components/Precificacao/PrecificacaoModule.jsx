@@ -1,12 +1,16 @@
 import { useState } from 'react'
-import { Calculator, Plus, Briefcase, Package, Link2, Check } from 'lucide-react'
+import { Calculator, Plus, Briefcase, Package, Cloud, Link2, Check } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
 import Toast from '../UI/Toast'
 import PrecificacaoCard from './PrecificacaoCard'
 import PrecificacaoItemModal from './PrecificacaoItemModal'
 
-const EMPTY = { servicos: [], produtos: [] }
+const EMPTY = { servicos: [], produtos: [], saas: [] }
+
+// Rótulo no singular por aba — usado nos botões, contadores e estados vazios.
+const SINGULAR = { servicos: 'serviço', produtos: 'produto', saas: 'SaaS' }
+const singular = (tab) => SINGULAR[tab] || 'item'
 
 export default function PrecificacaoModule({ project }) {
   const { updateProject } = useApp()
@@ -70,7 +74,7 @@ export default function PrecificacaoModule({ project }) {
         <div className="flex-1 min-w-0">
           <h2 className="text-xl font-black text-rl-text leading-tight">Precificação</h2>
           <p className="text-sm text-rl-subtle mt-0.5">
-            Calcule o preço de venda correto de cada produto/serviço considerando custos, impostos e a margem que o cliente quer ganhar de fato. Você pode compartilhar um link pro próprio cliente preencher.
+            Calcule o preço de venda correto de cada produto, serviço ou plano de SaaS considerando custos, impostos e a margem que o cliente quer ganhar de fato. Você pode compartilhar um link pro próprio cliente preencher.
           </p>
         </div>
         <button
@@ -105,18 +109,25 @@ export default function PrecificacaoModule({ project }) {
           label="Produtos"
           count={persisted.produtos?.length || 0}
         />
+        <TabButton
+          active={tab === 'saas'}
+          onClick={() => setTab('saas')}
+          icon={Cloud}
+          label="SaaS"
+          count={persisted.saas?.length || 0}
+        />
       </div>
 
       {/* Botão novo item */}
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-rl-muted">
-          {items.length} {tab === 'servicos' ? 'serviço' : 'produto'}{items.length !== 1 ? 's' : ''} precificado{items.length !== 1 ? 's' : ''}
+          {items.length} {singular(tab)}{items.length !== 1 ? 's' : ''} precificado{items.length !== 1 ? 's' : ''}
         </p>
         <button
           onClick={() => setEditingItem({})}
           className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
         >
-          <Plus className="w-4 h-4" /> Novo {tab === 'servicos' ? 'serviço' : 'produto'}
+          <Plus className="w-4 h-4" /> Novo {singular(tab)}
         </button>
       </div>
 
@@ -178,23 +189,26 @@ function TabButton({ active, onClick, icon: Icon, label, count }) {
 }
 
 function EmptyState({ mode, onCreate }) {
-  const Icon = mode === 'servicos' ? Briefcase : Package
+  const Icon = mode === 'servicos' ? Briefcase : mode === 'saas' ? Cloud : Package
+  const label = singular(mode)
   return (
     <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-10 px-6 text-center space-y-3">
       <Icon className="w-8 h-8 text-rl-muted/40 mx-auto" />
       <div>
         <p className="text-sm font-semibold text-rl-text">
-          Nenhum {mode === 'servicos' ? 'serviço' : 'produto'} precificado ainda.
+          Nenhum {label} precificado ainda.
         </p>
         <p className="text-xs text-rl-muted mt-1 max-w-md mx-auto">
-          Adicione o primeiro item pra ver o preço de venda recomendado considerando custos, impostos e a margem desejada.
+          {mode === 'saas'
+            ? 'Cadastre o primeiro plano pra calcular mensalidade, implantação e LTV considerando custos, impostos e a margem desejada.'
+            : 'Adicione o primeiro item pra ver o preço de venda recomendado considerando custos, impostos e a margem desejada.'}
         </p>
       </div>
       <button
         onClick={onCreate}
         className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
       >
-        <Plus className="w-4 h-4" /> Adicionar primeiro {mode === 'servicos' ? 'serviço' : 'produto'}
+        <Plus className="w-4 h-4" /> Adicionar primeiro {label}
       </button>
     </div>
   )

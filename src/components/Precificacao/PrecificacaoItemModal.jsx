@@ -1,21 +1,43 @@
 import { useMemo, useState } from 'react'
-import { X, Check, AlertTriangle, TrendingUp } from 'lucide-react'
+import { X, Check, AlertTriangle, TrendingUp, Wrench, Repeat } from 'lucide-react'
 import Modal from '../UI/Modal'
 import PrecificacaoServicoForm from './PrecificacaoServicoForm'
 import PrecificacaoProdutoForm from './PrecificacaoProdutoForm'
-import { calcularServico, calcularProduto } from './precificacaoMath'
+import PrecificacaoSaasForm from './PrecificacaoSaasForm'
+import { calcularServico, calcularProduto, calcularSaas } from './precificacaoMath'
 import { fmtMoney } from '../Resultados/resultadosHelpers'
 
 // Defaults razoáveis pra novos itens (acelera o preenchimento)
 const SERVICO_DEFAULTS = {
   nome: '',
-  salarioMensal:      '',
-  encargosPct:        75,
-  cargaHorariaMensal: 160,
-  horasDedicadas:     '',
+  colaboradores:      [],   // preenchido no init (1 colaborador em branco)
   custosFixos:        '',
   impostoPct:         6,
   margemPct:          30,
+}
+
+// Garante que o item de serviço tenha `colaboradores` — migra itens antigos
+// (campos flat de um único colaborador) pro novo formato de lista.
+function normalizarServico(base) {
+  let colabs = Array.isArray(base.colaboradores) ? base.colaboradores : []
+  if (!colabs.length) {
+    const temLegado = base.salarioMensal || base.horasDedicadas || base.cargaHorariaMensal
+    colabs = [{
+      id:                 crypto.randomUUID(),
+      nome:               '',
+      salarioMensal:      temLegado ? (base.salarioMensal ?? '') : '',
+      encargosPct:        base.encargosPct ?? 75,
+      cargaHorariaMensal: base.cargaHorariaMensal ?? 160,
+      horasDedicadas:     temLegado ? (base.horasDedicadas ?? '') : '',
+    }]
+  }
+  const next = { ...base, colaboradores: colabs }
+  // Remove campos flat legados pra não persistir duplicado.
+  delete next.salarioMensal
+  delete next.encargosPct
+  delete next.cargaHorariaMensal
+  delete next.horasDedicadas
+  return next
 }
 
 const PRODUTO_DEFAULTS = {
@@ -26,24 +48,64 @@ const PRODUTO_DEFAULTS = {
   margemPct:        40,
 }
 
+const SAAS_DEFAULTS = {
+  nome: '',
+  // Implantação (cobrança única)
+  temImplantacao:       true,
+  custoHoraHomem:       '',
+  horasImplantacao:     '',
+  margemImplantacaoPct: 40,
+  // Recorrência
+  modeloCobranca:       'por_usuario',   // 'por_usuario' | 'ilimitado'
+  numUsuarios:          5,
+  custoMensalConta:     '',
+  custoMensalUsuario:   '',
+  // Ciclo de vida + fiscais
+  tempoMedioAtivoMeses: 24,
+  impostoPct:           6,
+  margemPct:            30,
+}
+
+const DEFAULTS_BY_MODE = {
+  servicos: SERVICO_DEFAULTS,
+  produtos: PRODUTO_DEFAULTS,
+  saas:     SAAS_DEFAULTS,
+}
+
+const CALC_BY_MODE = {
+  servicos: calcularServico,
+  produtos: calcularProduto,
+  saas:     calcularSaas,
+}
+
+const LABEL_BY_MODE = {
+  servicos: { singular: 'Serviço', title: 'Precificar serviço' },
+  produtos: { singular: 'Produto', title: 'Precificar produto' },
+  saas:     { singular: 'SaaS',    title: 'Precificar plano de SaaS' },
+}
+
 export default function PrecificacaoItemModal({
-  mode,        // 'servicos' | 'produtos'
+  mode,        // 'servicos' | 'produtos' | 'saas'
   initial,     // item existente (edição) ou null (criação)
   onSave,
   onClose,
 }) {
   const isServico = mode === 'servicos'
-  const defaults  = isServico ? SERVICO_DEFAULTS : PRODUTO_DEFAULTS
-  const [values, setValues] = useState(() => ({ ...defaults, ...(initial || {}) }))
+  const isSaas    = mode === 'saas'
+  const defaults  = DEFAULTS_BY_MODE[mode] || PRODUTO_DEFAULTS
+  const labels    = LABEL_BY_MODE[mode] || LABEL_BY_MODE.produtos
+  const [values, setValues] = useState(() => {
+    const base = { ...defaults, ...(initial || {}) }
+    return isServico ? normalizarServico(base) : base
+  })
 
   function set(field, val) {
     setValues((prev) => ({ ...prev, [field]: val }))
   }
 
   // Cálculo derivado — recalcula a cada mudança de input
-  const result = useMemo(() => {
-    return isServico ? calcularServico(values) : calcularProduto(values)
-  }, [values, isServico])
+  const calcFn = CALC_BY_MODE[mode] || calcularProduto
+  const result = useMemo(() => calcFn(values), [values, calcFn])
 
   const canSave =
     !!(values.nome || '').trim() &&
@@ -68,10 +130,10 @@ export default function PrecificacaoItemModal({
       <div className="flex items-start justify-between gap-4 mb-4 pb-4 border-b border-rl-border">
         <div className="flex-1 min-w-0">
           <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold mb-1">
-            {isServico ? 'Serviço' : 'Produto'} · {initial ? 'editando' : 'novo item'}
+            {labels.singular} · {initial ? 'editando' : 'novo item'}
           </p>
           <h3 className="text-lg font-black text-rl-text leading-tight">
-            {isServico ? 'Precificar serviço' : 'Precificar produto'}
+            {labels.title}
           </h3>
         </div>
         <button
@@ -85,9 +147,11 @@ export default function PrecificacaoItemModal({
 
       {/* Form */}
       <div className="max-h-[55vh] overflow-y-auto pr-1">
-        {isServico
-          ? <PrecificacaoServicoForm values={values} onChange={set} />
-          : <PrecificacaoProdutoForm values={values} onChange={set} />}
+        {isSaas
+          ? <PrecificacaoSaasForm values={values} onChange={set} />
+          : isServico
+            ? <PrecificacaoServicoForm values={values} onChange={set} />
+            : <PrecificacaoProdutoForm values={values} onChange={set} />}
       </div>
 
       {/* Preview ao vivo */}
@@ -97,6 +161,8 @@ export default function PrecificacaoItemModal({
             <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
             <p className="text-xs text-red-400 font-medium">{result.erro}</p>
           </div>
+        ) : isSaas ? (
+          <SaasPreviewBlock result={result} />
         ) : (
           <PreviewBlock result={result} isServico={isServico} />
         )}
@@ -151,9 +217,6 @@ function PreviewBlock({ result, isServico }) {
       {/* Breakdown em grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {isServico && (
-          <MiniCard label="Custo da hora" value={fmtMoney(result.custoHora)} />
-        )}
-        {isServico && (
           <MiniCard label="Custo mão de obra" value={fmtMoney(result.custoMaoObra)} />
         )}
         <MiniCard label="Custo total" value={fmtMoney(result.custoTotal)} />
@@ -161,6 +224,79 @@ function PreviewBlock({ result, isServico }) {
         <MiniCard label="Margem (lucro)" value={fmtMoney(result.margemReais)} colorClass="text-rl-green" />
         <MiniCard label="Markup" value={`${result.markupPct.toFixed(0)}%`} colorClass="text-rl-purple" />
         <MiniCard label="Lucro líquido" value={fmtMoney(result.lucroLiquido)} colorClass="text-rl-green" />
+      </div>
+    </div>
+  )
+}
+
+// ─── Preview SaaS ─────────────────────────────────────────────────────────────
+function SaasPreviewBlock({ result }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <TrendingUp className="w-3.5 h-3.5 text-rl-green" />
+        <p className="text-[10px] uppercase tracking-wider text-rl-subtle font-bold">
+          Cálculo ao vivo
+        </p>
+      </div>
+
+      {/* Headlines — mensalidade + implantação */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="p-4 rounded-xl bg-rl-green/8 border border-rl-green/30">
+          <p className="text-[10px] uppercase tracking-wider text-rl-green font-bold mb-0.5 flex items-center gap-1">
+            <Repeat className="w-3 h-3" /> Mensalidade recomendada
+          </p>
+          <p className="text-2xl font-black text-rl-green tabular-nums">
+            {fmtMoney(result.mensalidade)}<span className="text-xs font-semibold text-rl-green/70">/mês</span>
+          </p>
+          {result.porUsuario && (
+            <p className="text-[10px] text-rl-subtle mt-0.5">
+              {fmtMoney(result.precoPorUsuario)}/usuário · {result.numUsuarios} seats
+            </p>
+          )}
+          {!result.porUsuario && (
+            <p className="text-[10px] text-rl-subtle mt-0.5">usuários ilimitados</p>
+          )}
+        </div>
+
+        <div className={`p-4 rounded-xl border ${result.temImplantacao ? 'bg-rl-gold/8 border-rl-gold/30' : 'bg-rl-surface/40 border-rl-border'}`}>
+          <p className="text-[10px] uppercase tracking-wider text-rl-gold font-bold mb-0.5 flex items-center gap-1">
+            <Wrench className="w-3 h-3" /> Implantação (única)
+          </p>
+          {result.temImplantacao ? (
+            <>
+              <p className="text-2xl font-black text-rl-gold tabular-nums">
+                {fmtMoney(result.precoImplantacao)}
+              </p>
+              <p className="text-[10px] text-rl-subtle mt-0.5">
+                custo {fmtMoney(result.custoImplantacao)}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm font-semibold text-rl-muted mt-1">Sem implantação</p>
+          )}
+        </div>
+      </div>
+
+      {/* Ciclo de vida — LTV */}
+      <div className="p-3 rounded-xl bg-rl-purple/8 border border-rl-purple/25">
+        <p className="text-[10px] uppercase tracking-wider text-rl-purple font-bold mb-2">
+          Projeção no ciclo de vida ({result.mesesAtivo} {result.mesesAtivo === 1 ? 'mês' : 'meses'} ativo)
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <MiniCard label="Receita no ciclo (LTV)" value={fmtMoney(result.receitaCiclo)} colorClass="text-rl-purple" />
+          <MiniCard label="Lucro no ciclo" value={fmtMoney(result.lucroCiclo)} colorClass="text-rl-green" />
+          <MiniCard label="MRR" value={fmtMoney(result.mrr)} />
+          <MiniCard label="ARR" value={fmtMoney(result.arr)} />
+        </div>
+      </div>
+
+      {/* Breakdown mensal */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <MiniCard label="Custo mensal" value={fmtMoney(result.custoRecorrente)} />
+        <MiniCard label="Imposto/mês" value={fmtMoney(result.impostoReais)} colorClass="text-rl-red" />
+        <MiniCard label="Margem/mês" value={fmtMoney(result.margemReais)} colorClass="text-rl-green" />
+        <MiniCard label="Markup" value={`${result.markupPct.toFixed(0)}%`} colorClass="text-rl-purple" />
       </div>
     </div>
   )
