@@ -6,7 +6,7 @@ import {
   Plus, Layers, TrendingDown,
   LogOut, Cloud, CloudOff, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare, BarChart3, DollarSign,
-  Sun, Moon, Clapperboard, Timer,
+  Sun, Moon, Clapperboard, Timer, Layout,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -20,6 +20,7 @@ const NAV_LINKS = [
   { id: 'roteiros',  label: 'Roteiros Express',  Icon: Clapperboard, type: 'route',    to: '/roteiros-express' },
   { id: 'chat',      label: 'Chat',              Icon: MessageSquare,type: 'route',    to: '/chat' },
   { id: 'banco',     label: 'Banco de Anúncios', Icon: Library,      type: 'route',    to: '/banco-de-anuncios' },
+  { id: 'banco-lps', label: 'Banco de LP',       Icon: Layout,       type: 'route',    to: '/banco-de-lps' },
   { id: 'funil',     label: 'Funil de Vendas',   Icon: GitFork,      type: 'route',    to: '/funil' },
   { id: 'playbook',  label: 'Playbook',          Icon: BookOpen,     type: 'external', href: 'https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173' },
   { id: 'dashboard-teste', label: 'Dashboard',   Icon: BarChart3,    type: 'route',    to: '/dashboard-teste', badge: 'API' },

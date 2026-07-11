@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
+import { BANCO_FUNIS as FUNILS } from '../lib/constants'
 import AppSidebar from '../components/AppSidebar'
 import {
   Library, Plus, Image, X, Upload,
@@ -9,20 +10,6 @@ import {
   ChevronDown, Play, Film, Filter,
   Download, Maximize2, Menu, Zap,
 } from 'lucide-react'
-
-const FUNILS = [
-  'Funil de Webinar',
-  'Funil de Aplicação',
-  'Funil de Diagnóstico',
-  'Funil de E-commerce (Venda Direta)',
-  'Funil de Webinar Pago',
-  'Funil de Isca Digital',
-  'Funil de VSL',
-  'Funil de Quiz',
-  'Lançamento',
-  'Funil de Desafio',
-  'Funil Win-Your-Money-Back',
-]
 
 const fmtPctBR   = (n) => (n == null ? '—' : `${Number(n).toFixed(1).replace('.', ',')}%`)
 const fmtMoneyBR = (n) => (n == null ? '—' : `R$ ${Number(n).toFixed(2).replace('.', ',')}`)

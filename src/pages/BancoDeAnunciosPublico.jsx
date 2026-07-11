@@ -1,21 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { BANCO_FUNIS as FUNILS } from '../lib/constants'
 import { Library, Loader2, Film, Image, ChevronDown, Zap, Download, Maximize2 } from 'lucide-react'
-
-const FUNILS = [
-  'Funil de Webinar',
-  'Funil de Aplicação',
-  'Funil de Diagnóstico',
-  'Funil de E-commerce (Venda Direta)',
-  'Funil de Webinar Pago',
-  'Funil de Isca Digital',
-  'Funil de VSL',
-  'Funil de Quiz',
-  'Lançamento',
-  'Funil de Desafio',
-  'Funil Win-Your-Money-Back',
-]
 
 function AdCard({ ad }) {
   async function handleDownload() {

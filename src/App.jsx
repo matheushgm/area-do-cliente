@@ -15,6 +15,8 @@ import PrecificacaoPublic from './pages/PrecificacaoPublic'
 import NPSClientForm from './pages/NPSClientForm'
 import BancoDeAnuncios from './pages/BancoDeAnuncios'
 import BancoDeAnunciosPublico from './pages/BancoDeAnunciosPublico'
+import BancoDeLPs from './pages/BancoDeLPs'
+import BancoDeLPsPublico from './pages/BancoDeLPsPublico'
 import CRMPublico from './pages/CRMPublico'
 import FunilCanvas from './pages/FunilCanvas'
 import SquadsReport from './pages/SquadsReport'
@@ -78,6 +80,8 @@ function AppRoutes() {
         <Route path="/nps/:token" element={<NPSClientForm />} />
         <Route path="/banco-de-anuncios" element={<RequireAuth><BancoDeAnuncios /></RequireAuth>} />
         <Route path="/banco-publico" element={<BancoDeAnunciosPublico />} />
+        <Route path="/banco-de-lps" element={<RequireAuth><BancoDeLPs /></RequireAuth>} />
+        <Route path="/banco-lps-publico" element={<BancoDeLPsPublico />} />
         <Route path="/crm/:token" element={<CRMPublico />} />
         <Route path="/funil" element={<RequireAuth><FunilCanvas /></RequireAuth>} />
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />

@@ -1,3 +1,21 @@
+// ─── Banco de Anúncios / Banco de LP — classificação por funil ───────────────
+// Fonte única de verdade da lista de funis. Reusada pelo Banco de Anúncios
+// (estáticos/vídeos) e pelo Banco de LP (landing pages).
+// Importar em: BancoDeAnuncios, BancoDeAnunciosPublico, BancoDeLPs, BancoDeLPsPublico
+export const BANCO_FUNIS = [
+  'Funil de Webinar',
+  'Funil de Aplicação',
+  'Funil de Diagnóstico',
+  'Funil de E-commerce (Venda Direta)',
+  'Funil de Webinar Pago',
+  'Funil de Isca Digital',
+  'Funil de VSL',
+  'Funil de Quiz',
+  'Lançamento',
+  'Funil de Desafio',
+  'Funil Win-Your-Money-Back',
+]
+
 // ─── Squad ────────────────────────────────────────────────────────────────────
 
 // Paleta cíclica de 4 cores usada nos badges de squad
