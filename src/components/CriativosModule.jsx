@@ -2076,12 +2076,69 @@ function ClientHistoryPanel({ history, busy, onLoad, openItem, setOpenItem }) {
 // ─── Painel: Roteiros Validados (transcrições de anúncios em vídeo) ────────────
 // Material de aprendizado por cliente — as transcrições salvas pelo viewer do
 // dashboard (botão "Transcrever vídeo"). Lê/edita/exclui via api/roteiros-validados.
+// "Gerar variações": cria roteiros novos a partir da mensagem campeã (mesmo
+// contexto/promessa, ganchos e estruturas diferentes) e salva no histórico Copy.
+const VARIACOES_SYSTEM_PARTS = {
+  tarefa: `## SUA TAREFA: VARIAÇÕES DE UM ANÚNCIO CAMPEÃO
+
+Você vai receber a transcrição de um anúncio em vídeo que JÁ ESTÁ PERFORMANDO BEM para este cliente. Ela é a sua matéria-prima: o tipo de mensagem que comprovadamente funciona com este público.
+
+Gere EXATAMENTE 3 variações novas desse anúncio. O objetivo é escalar a mensagem vencedora sem saturá-la:
+
+**O que MANTER (o DNA do campeão):**
+- A promessa/benefício central que a mensagem entrega
+- O contexto e o assunto sobre o qual o anúncio fala
+- O nível de consciência do público que ele atinge
+- A oferta/CTA implícita (mesmo destino, mesma ação)
+
+**O que VARIAR (obrigatório em cada variação):**
+- O gancho: cada variação abre com um TIPO de gancho diferente entre si e diferente do original
+- O ângulo de entrada: se o original entra por preço, entre por experiência; se entra por curiosidade, entre por prova, etc.
+- A estrutura da narração e o vocabulário
+
+**PROIBIDO:** copiar frases inteiras da transcrição original. Nenhuma frase da variação pode ser igual a uma frase do campeão. Parafrasear trocando uma palavra também não vale — reescreva de verdade.`,
+
+  formato: `## FORMATO OBRIGATÓRIO DE CADA VARIAÇÃO
+
+## VARIAÇÃO [N]: Gancho: [Tipo de gancho usado] | Ângulo: [ângulo de entrada]
+
+**GANCHO (0s – 3s):**
+[frase exata: disruptiva, contra-intuitiva, que para o scroll]
+
+**MENSAGEM (3s – 45s):**
+[narração levando do Ponto A ao Ponto B, com a quebra de objeção integrada naturalmente]
+
+**CTA FINAL (45s – 60s)**
+[reforça promessa + gatilho de escassez/urgência + ação clara]
+
+**📝 LEGENDA DO POST:** [legenda com emojis]
+
+---`,
+
+  diretrizes: `Regras críticas:
+- Gere EXATAMENTE 3 variações, numeradas (VARIAÇÃO 1, VARIAÇÃO 2, VARIAÇÃO 3)
+- Antes das variações, abra com UMA linha: "**DNA do campeão:** [resuma em 1 frase a promessa/contexto que você vai preservar]" — e nada mais de análise
+- Duração-alvo igual à do original (vídeos de 30 a 60 segundos)
+- Português brasileiro conversacional e energético
+- Não use travessões (—) em nenhuma parte do output
+- Não inclua sugestões de cena ou visual
+- Não use emojis no roteiro — use emojis apenas na LEGENDA DO POST
+- Separe cada variação com "---"`,
+}
+
 function RoteirosValidadosPanel({ project }) {
+  const { updateProject } = useApp()
   const [items, setItems] = useState(null) // null = não carregado
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [openId, setOpenId] = useState(null)
   const [copiedId, setCopiedId] = useState(null)
+  // Geração de variações (por item)
+  const [varForId, setVarForId] = useState(null) // item com painel de variações aberto
+  const [varLoading, setVarLoading] = useState(false)
+  const [varResult, setVarResult] = useState(null)
+  const [varError, setVarError] = useState(null)
+  const [varSaved, setVarSaved] = useState(false)
 
   const authFetch = useCallback(async (payload) => {
     let token = null
@@ -2124,6 +2181,62 @@ function RoteirosValidadosPanel({ project }) {
       await navigator.clipboard.writeText(item.transcription || '')
       setCopiedId(item.id); setTimeout(() => setCopiedId((c) => (c === item.id ? null : c)), 1800)
     } catch { /* clipboard bloqueado */ }
+  }
+
+  // Gera 3 variações da mensagem campeã e salva no histórico Copy do cliente.
+  const gerarVariacoes = async (item) => {
+    setVarForId(item.id); setVarLoading(true); setVarResult(null); setVarError(null); setVarSaved(false)
+    try {
+      const systemPrompt = [
+        VIDEO_SYSTEM_PARTS.metodologia,
+        VARIACOES_SYSTEM_PARTS.tarefa,
+        VARIACOES_SYSTEM_PARTS.formato,
+        VARIACOES_SYSTEM_PARTS.diretrizes,
+      ].join('\n\n')
+      const instruction = `TRANSCRIÇÃO DO ANÚNCIO CAMPEÃO ("${item.ad_name || 'sem nome'}"):
+
+"""
+${item.transcription}
+"""
+
+Gere as 3 variações seguindo exatamente o formato e as regras.`
+      const { system, messages } = buildCachedPayload({ systemPrompt, project, instruction })
+      const fullText = await streamClaude({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 16000,
+        system,
+        messages,
+        onChunk: (text) => setVarResult(text.replace(/—/g, '-')),
+      })
+      const cleanText = fullText.replace(/—/g, '-')
+      setVarResult(cleanText)
+      // Salva no histórico de criativos (aba Copy) — mesmo formato do generate()
+      const now = new Date().toISOString()
+      const newCreative = {
+        id: crypto.randomUUID(),
+        name: `Variações - ${(item.ad_name || 'Roteiro validado').slice(0, 80)}`,
+        campaignId: null,
+        type: 'video',
+        mode: 'variacao-roteiro',
+        adTypes: [],
+        adTypeLabels: ['Variações do anúncio campeão'],
+        adTypeConfig: {},
+        dorConfig: {},
+        quantity: 3,
+        content: cleanText,
+        rating: null,
+        productId: null,
+        productName: null,
+        personaId: null,
+        personaName: null,
+        funil: null,
+        funilLabel: null,
+        createdAt: now,
+      }
+      updateProject(project.id, { creatives: [...(project.creatives || []), newCreative] })
+      setVarSaved(true)
+    } catch (e) { setVarError(e.message) }
+    finally { setVarLoading(false) }
   }
 
   const fmt = (iso) => {
@@ -2185,7 +2298,12 @@ function RoteirosValidadosPanel({ project }) {
                       </p>
                     )}
                     <p className="text-[13px] leading-relaxed text-rl-text whitespace-pre-wrap">{it.transcription}</p>
-                    <div className="flex items-center gap-2 mt-3">
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                      <button type="button" onClick={() => gerarVariacoes(it)} disabled={varLoading}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-rl-purple hover:bg-rl-purple/90 disabled:opacity-60">
+                        {varLoading && varForId === it.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                        {varLoading && varForId === it.id ? 'Gerando variações…' : 'Gerar variações'}
+                      </button>
                       <button type="button" onClick={() => copy(it)}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-rl-muted hover:text-rl-text border border-rl-border">
                         {copiedId === it.id ? <Check className="w-3.5 h-3.5 text-rl-green" /> : <Copy className="w-3.5 h-3.5" />} {copiedId === it.id ? 'Copiado' : 'Copiar'}
@@ -2195,6 +2313,27 @@ function RoteirosValidadosPanel({ project }) {
                         <Trash2 className="w-3.5 h-3.5" /> Excluir
                       </button>
                     </div>
+
+                    {varForId === it.id && (varResult || varError) && (
+                      <div className="mt-3 rounded-lg border border-rl-purple/30 bg-rl-purple/5 p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Sparkles className="w-4 h-4 text-rl-purple" />
+                          <span className="text-xs font-bold text-rl-text">Variações da mensagem campeã</span>
+                          {varSaved && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rl-green ml-auto">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Salvo no histórico (aba Copy)
+                            </span>
+                          )}
+                        </div>
+                        {varError && (
+                          <div className="flex items-start gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2">
+                            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                            <p className="text-xs text-red-400">{varError}</p>
+                          </div>
+                        )}
+                        {varResult && <MarkdownBlock content={varResult} />}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
