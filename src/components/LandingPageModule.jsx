@@ -3,11 +3,13 @@ import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
 import { buildLandingContext, buildLandingCachedPayload } from '../lib/buildContext'
 import { elementToPngBlob, downloadBlob, slugify } from '../lib/htmlToJpg'
+import { elementToHtmlBlob } from '../lib/wireframeHtml'
 import RatingSelector from './RatingSelector'
 import {
   Globe, Sparkles, Loader2, AlertTriangle, Copy, CheckCheck,
   ChevronDown, ChevronUp, RotateCcw, Trash2, Plus, CheckCircle2,
   Check, X, Zap, LayoutTemplate, FileText, Lock, Pencil, Download,
+  FileCode2,
 } from 'lucide-react'
 import { WIREFRAME_TYPES, getWireframe } from './Wireframes'
 import { setByPath } from './Wireframes/wireframePrimitives'
@@ -371,6 +373,24 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
     }
   }
 
+  // Baixa o wireframe como HTML standalone (estilos computados inline).
+  async function handleDownloadHtml() {
+    if (!wireframeRef.current || downloading) return
+    setDownloading(true)
+    const wasEditing = editing
+    try {
+      // Sai do modo edição para não capturar contornos de campo editável.
+      if (wasEditing) setEditing(false)
+      await new Promise((r) => requestAnimationFrame(() => r()))
+      const blob = elementToHtmlBlob(wireframeRef.current, { title: lp.name })
+      downloadBlob(blob, `wireframe-${slugify(lp.name) || 'landing-page'}.html`)
+    } catch (e) {
+      console.error('Baixar wireframe HTML falhou:', e)
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   function handleCopy() {
     navigator.clipboard.writeText(lp.content)
     setCopied(true)
@@ -499,6 +519,14 @@ function CopyCard({ lp, index, onDelete, onRegenerate, onRatingChange, onRefineD
                       {downloading
                         ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
                         : <><Download className="w-3.5 h-3.5" /> Baixar PNG</>}
+                    </button>
+                    <button
+                      onClick={handleDownloadHtml}
+                      disabled={downloading}
+                      title="Baixar o wireframe como página HTML (abre em qualquer navegador)"
+                      className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg border bg-rl-surface border-rl-border/40 text-rl-muted hover:text-rl-blue transition-all disabled:opacity-50"
+                    >
+                      <FileCode2 className="w-3.5 h-3.5" /> Baixar HTML
                     </button>
                     {onWireframeEdit && (
                       <button
