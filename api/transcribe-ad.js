@@ -52,8 +52,35 @@ export default async function handler(req) {
     const vr = await fetch(`https://graph.facebook.com/v19.0/${videoId}?fields=source&access_token=${encodeURIComponent(META_TOKEN)}`)
     const vj = await vr.json()
     source = vj.source || null
-  } catch (e) { /* trata abaixo */ }
-  if (!source) return jsonErr('Não consegui obter o arquivo do vídeo na Meta.', 502)
+  } catch (e) { /* cai pro fallback */ }
+
+  // Fallback: vídeos de página (post impulsionado) dão erro #10 no `source` sem
+  // permissão de conteúdo na página. O HTML do preview do anúncio embute as URLs
+  // .mp4 do CDN — extraímos de lá (menor bitrate = arquivo menor, áudio igual).
+  if (!source) {
+    try {
+      const pr = await fetch(`https://graph.facebook.com/v19.0/${adId}/previews?ad_format=MOBILE_FEED_STANDARD&access_token=${encodeURIComponent(META_TOKEN)}`)
+      const pj = await pr.json()
+      const pbody = pj.data?.[0]?.body || ''
+      const iframeSrc = (pbody.match(/src="([^"]+)"/) || [])[1]
+      if (iframeSrc) {
+        const iframeUrl = iframeSrc.replace(/&amp;/g, '&')
+        const hr = await fetch(iframeUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' } })
+        const html = await hr.text()
+        const raw = html.match(/https:(?:\\\/|\/)(?:\\\/|\/)video[^"'\s]*?\.mp4[^"'\s]*/g) || []
+        const urls = raw.map(u => u.replace(/\\\//g, '/').replace(/\\u0025/gi, '%'))
+        if (urls.length) {
+          // menor bitrate primeiro — basta o áudio, e fica bem abaixo dos 25MB
+          urls.sort((a, b) => {
+            const bit = (u) => { const m = u.match(/[?&]bitrate=(\d+)/); return m ? +m[1] : Infinity }
+            return bit(a) - bit(b)
+          })
+          source = urls[0]
+        }
+      }
+    } catch (e) { /* trata abaixo */ }
+  }
+  if (!source) return jsonErr('Não consegui obter o arquivo do vídeo na Meta (nem via preview).', 502)
 
   // ── 2) Baixa os bytes do vídeo (URL da Meta expira/tem CORS; por isso é no servidor) ──
   let buf, ct
