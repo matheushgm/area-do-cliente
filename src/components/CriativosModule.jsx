@@ -1345,9 +1345,22 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
         >
           ✨ Visual com IA
         </button>
+        <button
+          type="button"
+          onClick={() => setTopTab('roteiros')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-1.5 ${
+            topTab === 'roteiros'
+              ? 'bg-rl-purple text-white shadow-sm'
+              : 'text-rl-muted hover:text-rl-text'
+          }`}
+        >
+          🎬 Roteiros Validados
+        </button>
       </div>
 
       {topTab === 'visual' && <CriativoVisualPanel project={project} />}
+
+      {topTab === 'roteiros' && <RoteirosValidadosPanel project={project} />}
 
       {topTab === 'copy' && (<>
       {/* Header */}
@@ -2054,6 +2067,139 @@ function ClientHistoryPanel({ history, busy, onLoad, openItem, setOpenItem }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Painel: Roteiros Validados (transcrições de anúncios em vídeo) ────────────
+// Material de aprendizado por cliente — as transcrições salvas pelo viewer do
+// dashboard (botão "Transcrever vídeo"). Lê/edita/exclui via api/roteiros-validados.
+function RoteirosValidadosPanel({ project }) {
+  const [items, setItems] = useState(null) // null = não carregado
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const [openId, setOpenId] = useState(null)
+  const [copiedId, setCopiedId] = useState(null)
+
+  const authFetch = useCallback(async (payload) => {
+    let token = null
+    try {
+      const { supabase } = await import('../lib/supabase.js')
+      const { data } = (await supabase?.auth.getSession()) ?? {}
+      token = data?.session?.access_token ?? null
+    } catch { /* sem token → 401 */ }
+    const res = await fetch('/api/roteiros-validados', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ ...payload, projectId: project.id }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data?.error?.message || data?.error || `Erro ${res.status}`)
+    return data
+  }, [project.id])
+
+  const load = useCallback(async () => {
+    setBusy(true); setError(null)
+    try {
+      const data = await authFetch({ action: 'list' })
+      setItems(Array.isArray(data.items) ? data.items : [])
+    } catch (e) { setError(e.message); setItems([]) }
+    finally { setBusy(false) }
+  }, [authFetch])
+
+  useEffect(() => { load() }, [load])
+
+  const remove = async (id) => {
+    if (!window.confirm('Excluir este roteiro validado?')) return
+    try {
+      await authFetch({ action: 'delete', id })
+      setItems((prev) => (prev || []).filter((x) => x.id !== id))
+    } catch (e) { setError(e.message) }
+  }
+
+  const copy = async (item) => {
+    try {
+      await navigator.clipboard.writeText(item.transcription || '')
+      setCopiedId(item.id); setTimeout(() => setCopiedId((c) => (c === item.id ? null : c)), 1800)
+    } catch { /* clipboard bloqueado */ }
+  }
+
+  const fmt = (iso) => {
+    try { return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) }
+    catch { return '' }
+  }
+
+  return (
+    <div className="glass-card p-5">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl bg-rl-purple/15 flex items-center justify-center">
+            <Video className="w-4.5 h-4.5 text-rl-purple" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-rl-text">Roteiros Validados</h3>
+            <p className="text-xs text-rl-muted">Transcrições dos anúncios em vídeo que performaram — vire aprendizado para novas copies.</p>
+          </div>
+        </div>
+        <button type="button" onClick={load} disabled={busy}
+          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rl-muted hover:text-rl-text border border-rl-border">
+          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Atualizar
+        </button>
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 mb-3">
+          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-red-400">{error}</p>
+        </div>
+      )}
+
+      {items && items.length === 0 && !busy && (
+        <div className="text-center py-10 px-4">
+          <Video className="w-8 h-8 text-rl-muted/50 mx-auto mb-3" />
+          <p className="text-sm text-rl-text font-semibold mb-1">Nenhum roteiro validado ainda</p>
+          <p className="text-xs text-rl-muted max-w-sm mx-auto">No dashboard, abra a prévia de um anúncio em vídeo e clique em <span className="font-semibold">“📝 Transcrever vídeo”</span> → <span className="font-semibold">“Salvar em Roteiros Validados”</span>.</p>
+        </div>
+      )}
+
+      {items && items.length > 0 && (
+        <div className="space-y-2">
+          {items.map((it) => {
+            const open = openId === it.id
+            return (
+              <div key={it.id} className="rounded-lg border border-rl-border bg-rl-surface/50 overflow-hidden">
+                <button type="button" onClick={() => setOpenId(open ? null : it.id)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-rl-surface">
+                  <Video className="w-4 h-4 text-rl-purple shrink-0" />
+                  <span className="text-xs font-semibold text-rl-text truncate flex-1">{it.ad_name || 'Anúncio sem nome'}</span>
+                  <span className="text-[10px] text-rl-muted shrink-0">{fmt(it.created_at)}</span>
+                  {open ? <ChevronUp className="w-3.5 h-3.5 text-rl-muted shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-rl-muted shrink-0" />}
+                </button>
+                {open && (
+                  <div className="px-3 pb-3 pt-1 border-t border-rl-border">
+                    {(it.account || it.user_name) && (
+                      <p className="text-[11px] text-rl-muted italic mb-2">
+                        {it.account ? `Conta: ${it.account}` : ''}{it.account && it.user_name ? ' · ' : ''}{it.user_name ? `Salvo por ${it.user_name}` : ''}
+                      </p>
+                    )}
+                    <p className="text-[13px] leading-relaxed text-rl-text whitespace-pre-wrap">{it.transcription}</p>
+                    <div className="flex items-center gap-2 mt-3">
+                      <button type="button" onClick={() => copy(it)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-rl-muted hover:text-rl-text border border-rl-border">
+                        {copiedId === it.id ? <Check className="w-3.5 h-3.5 text-rl-green" /> : <Copy className="w-3.5 h-3.5" />} {copiedId === it.id ? 'Copiado' : 'Copiar'}
+                      </button>
+                      <button type="button" onClick={() => remove(it.id)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-red-400 hover:text-red-300 border border-red-400/30">
+                        <Trash2 className="w-3.5 h-3.5" /> Excluir
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

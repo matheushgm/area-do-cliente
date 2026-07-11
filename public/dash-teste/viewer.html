@@ -84,6 +84,12 @@
   .adp-save-msg { flex-basis:100%; font-size:12px; color:#64748B; }
   .adp-save-msg.ok { color:#059669; font-weight:600; }
   .adp-save-msg.err { color:#DC2626; font-weight:600; }
+  .adp-trans { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:12px 18px; border-top:1px solid #E4EAF7; }
+  .adp-trans button { padding:6px 12px; border:0; border-radius:8px; background:#7C3AED; color:#fff; font:600 13px/1 ui-sans-serif,system-ui; cursor:pointer; }
+  .adp-trans button:disabled { opacity:.6; cursor:default; }
+  .adp-trans button.save { background:#164496; }
+  .adp-trans-text { flex-basis:100%; min-height:120px; resize:vertical; padding:10px 12px; border:1px solid #D8E0F0; border-radius:8px;
+    font:400 13px/1.5 ui-sans-serif,system-ui; color:#1E293B; background:#F8FAFF; }
 </style>
 </head>
 <body>
@@ -183,6 +189,7 @@ async function fetchAccounts() {
     const cplVal = acCompanyName != null ? cplBy[acCompanyName] : null
     out[row.account_name] = {
       acCompanyName, squad, clickupFolderId,
+      projectId: row.project_id || null,
       cplTarget: cplVal != null ? { value: cplVal, acName: acCompanyName } : null,
     }
   })
@@ -518,6 +525,12 @@ function openAdPreview(adId, adName){
       <button id="adpSaveBtn">💾 Salvar no Banco</button>
       <span id="adpSaveMsg" class="adp-save-msg"></span>
     </div>
+    <div class="adp-trans">
+      <button id="adpTransBtn">📝 Transcrever vídeo</button>
+      <span id="adpTransMsg" class="adp-save-msg"></span>
+      <textarea id="adpTransText" class="adp-trans-text" style="display:none" placeholder="Transcrição do vídeo…"></textarea>
+      <button id="adpTransSave" class="save" style="display:none">💾 Salvar em Roteiros Validados</button>
+    </div>
   </div>`
   document.body.appendChild(ov)
   ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove() })
@@ -560,6 +573,42 @@ function openAdPreview(adId, adName){
       saveMsg.textContent = `✅ Salvo no Banco (${data.type==='video'?'vídeo':'imagem'}) com CTR/Conv/Hook do período!`; saveMsg.className='adp-save-msg ok'
     }catch(e){ saveMsg.textContent='❌ '+e.message; saveMsg.className='adp-save-msg err' }
     finally{ saveBtn.disabled=false }
+  }
+  // Transcrever o vídeo (Groq) → editar → salvar em "Roteiros Validados" do cliente
+  const transBtn = ov.querySelector('#adpTransBtn'), transMsg = ov.querySelector('#adpTransMsg')
+  const transText = ov.querySelector('#adpTransText'), transSave = ov.querySelector('#adpTransSave')
+  transBtn.onclick = async ()=>{
+    const token = supabaseToken()
+    if(!token){ transMsg.textContent='Disponível só no app autenticado.'; transMsg.className='adp-save-msg err'; return }
+    transBtn.disabled=true; transMsg.textContent='Transcrevendo… (alguns segundos)'; transMsg.className='adp-save-msg'
+    try{
+      const r = await fetch('/api/transcribe-ad', { method:'POST', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json' },
+        body: JSON.stringify({ ad_id:adId }) })
+      const data = await r.json().catch(()=>({}))
+      if(!r.ok) throw new Error(data?.error?.message || ('Erro '+r.status))
+      transText.value = data.transcription || ''
+      transText.style.display=''; transSave.style.display=''
+      transMsg.textContent='✅ Transcrito! Revise o texto e salve nos Roteiros Validados do cliente.'; transMsg.className='adp-save-msg ok'
+    }catch(e){ transMsg.textContent='❌ '+e.message; transMsg.className='adp-save-msg err' }
+    finally{ transBtn.disabled=false }
+  }
+  transSave.onclick = async ()=>{
+    const token = supabaseToken()
+    if(!token){ transMsg.textContent='Disponível só no app autenticado.'; transMsg.className='adp-save-msg err'; return }
+    const txt = (transText.value||'').trim()
+    if(!txt){ transMsg.textContent='A transcrição está vazia.'; transMsg.className='adp-save-msg err'; return }
+    const client = state.openClient?.client || ''
+    const projectId = state.accounts[client]?.projectId || null
+    if(!projectId){ transMsg.textContent='Este cliente não está vinculado a um projeto na Área do Cliente — não dá pra salvar.'; transMsg.className='adp-save-msg err'; return }
+    transSave.disabled=true; transMsg.textContent='Salvando…'; transMsg.className='adp-save-msg'
+    try{
+      const r = await fetch('/api/roteiros-validados', { method:'POST', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json' },
+        body: JSON.stringify({ action:'create', projectId, ad_id:adId, ad_name:adName, account:client, transcription:txt }) })
+      const data = await r.json().catch(()=>({}))
+      if(!r.ok) throw new Error(data?.error?.message || ('Erro '+r.status))
+      transMsg.textContent='✅ Salvo em Roteiros Validados (Perfil do cliente → Criativos com IA).'; transMsg.className='adp-save-msg ok'
+    }catch(e){ transMsg.textContent='❌ '+e.message; transMsg.className='adp-save-msg err' }
+    finally{ transSave.disabled=false }
   }
   load(AD_PREVIEW_FORMATS[0][1])
 }
