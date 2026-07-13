@@ -219,6 +219,10 @@ Diretrizes obrigatórias:
 // Cada tipo de criativo gera 1 peça por nível de consciência (Eugene Schwartz).
 const NIVEIS = 5
 
+// Valor sentinela nos selects de escopo: "não enviar esse contexto à IA".
+// Diferente de '' (todos) — zera o array de produtos/personas no scopedProject.
+const NO_CONTEXT = '__none__'
+
 // Os 5 níveis de consciência de Eugene Schwartz — substituem as antigas etapas de
 // funil (topo/meio/fundo). Mantido em sincronia com api/criativos-public.js.
 const NIVEIS_VIDEO = `## OS 5 NÍVEIS DE CONSCIÊNCIA (Eugene Schwartz)
@@ -538,7 +542,10 @@ export default function CriativosModule({ project }) {
   const [result, setResult] = useState(null)
   const [lastCreativeId, setLastCreativeId] = useState(null)
   const [generatedAt, setGeneratedAt] = useState(null)
-  // Escopo de produto e persona: '' = todos (geral); id = só aquele
+  // Escopo de produto e persona:
+  //   '' = todos (geral) · id = só aquele · NO_CONTEXT = não enviar esse contexto
+  // NO_CONTEXT zera o array no scopedProject, removendo o bloco do prompt — útil
+  // quando o criativo vai rodar em outros funis e o produto/persona atrapalha.
   const [selectedProductId, setSelectedProductId] = useState('')
   const [selectedPersonaId, setSelectedPersonaId] = useState('')
   // Funil em que o anúncio vai rodar — define o objetivo/CTA (entra no prompt).
@@ -577,15 +584,18 @@ export default function CriativosModule({ project }) {
   )
 
   // Project escopado: se um produto e/ou persona foi escolhido, mantém só ele(s)
-  // nos respectivos arrays. O resto do contexto (oferta, ROI) fica intacto.
+  // nos respectivos arrays. Se NO_CONTEXT, zera o array — a IA não recebe esse
+  // bloco. O resto do contexto (oferta, ROI) fica intacto.
   // buildContext.js itera sobre project.produtos e project.personas pra montar o
-  // markdown — então limitar essas listas já restringe o que a IA vê.
+  // markdown — então limitar/esvaziar essas listas já restringe o que a IA vê.
   const scopedProject = useMemo(() => {
     let p = project
-    if (selectedProduct) p = { ...p, produtos: [selectedProduct] }
-    if (selectedPersona) p = { ...p, personas: [selectedPersona] }
+    if (selectedProductId === NO_CONTEXT) p = { ...p, produtos: [] }
+    else if (selectedProduct) p = { ...p, produtos: [selectedProduct] }
+    if (selectedPersonaId === NO_CONTEXT) p = { ...p, personas: [] }
+    else if (selectedPersona) p = { ...p, personas: [selectedPersona] }
     return p
-  }, [project, selectedProduct, selectedPersona])
+  }, [project, selectedProductId, selectedProduct, selectedPersonaId, selectedPersona])
 
   // ── Video: ad type config ──────────────────────────────────────────────────
   // Cada tipo selecionado gera NIVEIS roteiros (um por nível de consciência);
@@ -833,11 +843,11 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
         quantity: isVideo ? totalQuantity : staticTotalQty,
         content: cleanText,
         rating: null,
-        // Escopo usado nessa geração (null = geral)
-        productId: selectedProductId || null,
-        productName: selectedProduct?.nome || null,
-        personaId: selectedPersonaId || null,
-        personaName: selectedPersona?.name || null,
+        // Escopo usado nessa geração (null = geral; NO_CONTEXT = sem esse contexto)
+        productId: selectedProductId === NO_CONTEXT ? NO_CONTEXT : selectedProductId || null,
+        productName: selectedProductId === NO_CONTEXT ? 'Sem contexto de produto' : selectedProduct?.nome || null,
+        personaId: selectedPersonaId === NO_CONTEXT ? NO_CONTEXT : selectedPersonaId || null,
+        personaName: selectedPersonaId === NO_CONTEXT ? 'Sem contexto de persona' : selectedPersona?.name || null,
         funil: selectedFunil || null,
         funilLabel: FUNIS_BY_ID[selectedFunil]?.label || null,
         createdAt: now,
@@ -1470,7 +1480,8 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
             <label className="label-field !mb-0">
               Foco deste anúncio
             </label>
-            {(selectedProduct || selectedPersona) && (
+            {(selectedProduct || selectedPersona ||
+              selectedProductId === NO_CONTEXT || selectedPersonaId === NO_CONTEXT) && (
               <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-purple/15 text-rl-purple border border-rl-purple/30">
                 escopo ativo
               </span>
@@ -1478,7 +1489,9 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
           </div>
           <p className="text-[11px] text-rl-muted leading-snug">
             Escolha um produto e/ou uma persona específicos pra IA focar só neles.
-            Deixe em &ldquo;Todos&rdquo;/&ldquo;Todas&rdquo; pra considerar o cliente inteiro.
+            Deixe em &ldquo;Todos&rdquo;/&ldquo;Todas&rdquo; pra considerar o cliente inteiro,
+            ou &ldquo;Não usar…&rdquo; pra a IA ignorar esse contexto (bom quando o criativo
+            vai rodar em outros funis).
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {productList.length > 0 && (
@@ -1490,6 +1503,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
                   className="input-field w-full text-sm"
                 >
                   <option value="">Todos os produtos</option>
+                  <option value={NO_CONTEXT}>🚫 Não usar contexto de produto</option>
                   {productList.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.nome}{p.tipo === 'servico' ? ' · Serviço' : p.tipo === 'produto' ? ' · Produto' : ''}
@@ -1507,6 +1521,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
                   className="input-field w-full text-sm"
                 >
                   <option value="">Todas as personas</option>
+                  <option value={NO_CONTEXT}>🚫 Não usar contexto de persona</option>
                   {personaList.map((p) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
