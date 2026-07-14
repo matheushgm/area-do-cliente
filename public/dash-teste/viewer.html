@@ -34,6 +34,14 @@
     margin-left:5px; border-radius:50%; border:1px solid #94A3B8; color:#64748B; background:#fff;
     font:700 9px/1 ui-sans-serif,system-ui; cursor:help; vertical-align:middle; user-select:none; }
   .status-info:hover { border-color:#164496; color:#164496; }
+  /* Botão de olho: ocultar/reexibir conta do dashboard (clientes que saíram) */
+  .dt-root .hide-btn { display:inline-flex; align-items:center; justify-content:center; margin-left:6px;
+    padding:2px; border:0; background:transparent; color:#94A3B8; cursor:pointer; border-radius:6px;
+    vertical-align:middle; transition:color .15s, background .15s; }
+  .dt-root .hide-btn:hover { color:#2563EB; background:#EEF4FF; }
+  .dt-root .hide-btn.is-hidden { color:#2563EB; }
+  /* Dica de leitura dos grupos das visualizações analíticas */
+  .dt-root .diag-hint { font-size:12px; color:#64748B; padding:8px 12px 2px; line-height:1.4; }
   /* Mini-gráfico dentro de cada quadrante (aba Resultados) */
   .dt-root .mg-chart { position:relative; height:170px; margin-top:14px; padding-top:14px; border-top:1px solid #E4EAF7; }
   .dt-root .mg-chart canvas { width:100% !important; }
@@ -101,6 +109,7 @@ import {
   CFG, parseCSV, num, fmtMoney, fmtNum, fmtPct, fmtBR, inRange, fmtDate, addDays,
   buildPeriod, periodFromDays, maxDate, pillCls, pillIco, varCls, buildStats,
   computeMainPeriod, groupBy, statusTagInfo, buildWeeklyMessage,
+  buildDeclineDiagnosis, buildScaleCandidates,
 } from './vendor/dashboardData.js'
 
 // ─── Fonte de dados ──────────────────────────────────────────────────────────
@@ -172,7 +181,7 @@ async function fetchAccounts() {
     catch { return [] }
   }
   const [acc, proj, cpl, sq] = await Promise.all([
-    get('dashboard_accounts_public?select=account_name,project_id,squad_id,clickup_folder_id'),
+    get('dashboard_accounts_public?select=account_name,project_id,squad_id,clickup_folder_id,hidden'),
     get('dashboard_projects_public?select=id,company_name,squad_name,clickup_folder_id'),
     get('cpl_targets_public?select=company_name,cpl_target'),
     get('dashboard_squads_public?select=id,name'),
@@ -190,6 +199,7 @@ async function fetchAccounts() {
     out[row.account_name] = {
       acCompanyName, squad, clickupFolderId,
       projectId: row.project_id || null,
+      hidden: !!row.hidden,
       cplTarget: cplVal != null ? { value: cplVal, acName: acCompanyName } : null,
     }
   })
@@ -207,6 +217,8 @@ const PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3 dias',3],['7 dias',7
 const CP_PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3d',3],['7d',7],['14d',14],['30d',30],['Custom',0]]
 
 const state = { raw:{meta:[],google:[]}, accounts:{}, channel:'meta', days:7, from:'', to:'', search:'', squad:'', openClient:null,
+                // visualização da lista: 'padrao' (status) | 'diagnostico' (causa da queda) | 'escala' (candidatas a mais verba)
+                view:'padrao', showHidden:false,
                 // estado local da página de cliente
                 cDays:7, cFrom:'', cTo:'', cPeriod:null,
                 campFilter:[], campPanelOpen:false, campSearch:'',
@@ -301,7 +313,49 @@ function statsFor(ch, p) {
   let st = buildStats(state.raw[ch], cfgFor(ch), p)
   const _q = state.search.trim(); if (_q) st = st.filter(s => s.name.toLowerCase().includes(_q))
   if (state.squad) st = st.filter(s => (state.accounts[s.name]?.squad || '') === state.squad)
-  return st
+  // Contas ocultas (clientes que saíram): fora da visão normal; a visão "Ocultas"
+  // (state.showHidden) mostra APENAS elas, para poder reexibir.
+  return st.filter(s => (state.showHidden ? isHidden(s.name) : !isHidden(s.name)))
+}
+
+// ─── Contas ocultas + visualizações analíticas (diagnóstico / escala) ─────────
+function isHidden(name) { return !!state.accounts[name]?.hidden }
+
+// Grava o oculto/reexibido em dashboard_accounts (mesma tabela que o app React
+// usa p/ squad override). Otimista: atualiza o estado local e re-renderiza já.
+async function setHidden(name, hidden) {
+  state.accounts[name] = { ...(state.accounts[name] || {}), hidden }
+  render()
+  const token = supabaseToken()
+  if (!token) { setStatus('Faça login para ocultar contas.', true); return }
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/dashboard_accounts?on_conflict=account_name`, {
+      method: 'POST',
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json',
+                 Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ account_name: name, hidden, updated_at: new Date().toISOString() }),
+    })
+    if (!r.ok) throw new Error('HTTP ' + r.status)
+  } catch (e) { setStatus('❌ Não foi possível salvar a conta oculta: ' + e.message, true) }
+}
+
+// Filtros comuns das visões analíticas (busca + squad; ocultas nunca aparecem).
+function applyListFilters(list) {
+  let out = list
+  const _q = state.search.trim(); if (_q) out = out.filter(x => x.name.toLowerCase().includes(_q))
+  if (state.squad) out = out.filter(x => (state.accounts[x.name]?.squad || '') === state.squad)
+  return out.filter(x => !isHidden(x.name))
+}
+function diagFor(ch, p)  { return p ? applyListFilters(buildDeclineDiagnosis(state.raw[ch], cfgFor(ch), p, ch === 'meta')) : [] }
+function scaleFor(ch, p) { return p ? applyListFilters(buildScaleCandidates(state.raw[ch], cfgFor(ch), p)) : [] }
+
+// Ícones de olho (lucide inline) do botão ocultar/reexibir.
+const EYE_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>'
+const EYEOFF_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>'
+function hideBtnHTML(name) {
+  if (SHARED) return ''
+  const hidden = isHidden(name)
+  return `<button class="hide-btn${hidden ? ' is-hidden' : ''}" data-hide="${esc(name)}" title="${hidden ? 'Reexibir esta conta no dashboard' : 'Ocultar esta conta do dashboard'}">${hidden ? EYEOFF_SVG : EYE_SVG}</button>`
 }
 
 // Squads distintos com pelo menos uma conta com dados no canal/período (alimenta o dropdown).
@@ -348,6 +402,7 @@ function saveNav() {
   try {
     localStorage.setItem(NAV_KEY, JSON.stringify({
       channel: state.channel, days: state.days, from: state.from, to: state.to, search: state.search, squad: state.squad,
+      view: state.view, showHidden: state.showHidden,
       openClient: state.openClient, tab: state.tab, sub: state.sub,
       drillCampaign: state.drillCampaign, drillAdset: state.drillAdset,
       cDays: state.cDays, cFrom: state.cFrom, cTo: state.cTo, campFilter: state.campFilter,
@@ -360,6 +415,8 @@ function restoreNav() {
     if (s.channel) state.channel = s.channel
     if (s.days != null) state.days = s.days
     state.from = s.from || ''; state.to = s.to || ''; state.search = s.search || ''; state.squad = s.squad || ''
+    state.view = ['padrao','diagnostico','escala'].includes(s.view) ? s.view : 'padrao'
+    state.showHidden = !!s.showHidden
     if (s.openClient && s.openClient.client) {
       // Só restaura o cliente se a conta ainda existir nos dados carregados.
       const ch = s.openClient.channel || state.channel
@@ -414,7 +471,26 @@ function render() {
       </select>` : '' })()}
       <span class="filter-info">${p?`Exibindo: ${p.label1} · Comparando com: ${p.label2}`:''}</span>
     </div>
-    <div class="tab-panel">${!p||!st.length?`<div class="empty">Nenhum dado disponível para o período selecionado.</div>`:channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct)}</div>
+    ${SHARED ? '' : (() => {
+      const nDiag = diagFor(ch, p).length
+      const nScale = scaleFor(ch, p).length
+      const nHidden = p ? buildStats(state.raw[ch], cfgFor(ch), p).filter(x => isHidden(x.name)).length : 0
+      return `<div class="squad-bar">
+        <span class="filter-label">Visualização:</span>
+        <button class="squad-btn ${state.view==='padrao'?'active':''}" data-view="padrao">📊 Padrão (status)</button>
+        <button class="squad-btn ${state.view==='diagnostico'?'active':''}" data-view="diagnostico" title="Contas em queda de conversão, separadas pela causa: corte de verba ou performance (CTR / taxa de conversão)">📉 Diagnóstico de Queda${nDiag?` (${nDiag})`:''}</button>
+        <button class="squad-btn ${state.view==='escala'?'active':''}" data-view="escala" title="Contas com conversões subindo e CPL caindo — candidatas a receber mais investimento">🚀 Contas que podem escalar${nScale?` (${nScale})`:''}</button>
+        ${state.view==='padrao' ? `<span style="flex:1"></span>
+        <button class="squad-btn ${state.showHidden?'active':''}" id="toggle-hidden" title="${state.showHidden?'Voltar para a visão normal':'Ver as contas ocultas (clientes que saíram)'}">${state.showHidden?'👁 Vendo ocultas':'🚫 Ocultas'}${nHidden?` (${nHidden})`:''}</button>` : ''}
+      </div>`
+    })()}
+    <div class="tab-panel">${
+      !p ? `<div class="empty">Nenhum dado disponível para o período selecionado.</div>`
+      : state.view==='diagnostico' && !SHARED ? diagnosticoHTML(ch, p)
+      : state.view==='escala' && !SHARED ? escalaHTML(ch, p)
+      : !st.length ? `<div class="empty">Nenhum dado disponível para o período selecionado.</div>`
+      : channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct)
+    }</div>
   `
   wire()
 }
@@ -440,7 +516,7 @@ function channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct) {
     const rows = grp.map(x=>{
       const trend = x.declining3d?`<span class="trend-dn">📉 Queda</span>`:x.trendDir==='up'?`<span class="trend-up">📈 Alta</span>`:`<span class="trend-fl">➡️ Estável</span>`
       return `<tr data-client="${esc(x.name)}">
-        <td><span class="client-link">${esc(x.name)}</span></td>
+        <td><span class="client-link">${esc(x.name)}</span>${hideBtnHTML(x.name)}</td>
         <td><span class="pill ${pillCls(x.status)}">${pillIco(x.status)} ${x.status}</span></td>
         <td>${fmtNum(x.conv1)}</td><td>${fmtNum(x.conv2)}</td>
         <td class="${varCls(x.varConv,false)}">${fmtPct(x.varConv)}</td>
@@ -457,6 +533,103 @@ function channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct) {
         <tbody>${rows}</tbody></table></div></div>`
   }).join('')
   return summary + groups
+}
+
+// ─── Visualização "Diagnóstico de Queda" (por que o resultado caiu?) ──────────
+const DIAG_GROUPS = [
+  { key:'verba', hcls:'gh-yellow', icon:'💸', label:'Queda por Verba',
+    tip:'A conversão caiu MENOS que o investimento — a queda de resultado é reflexo do corte de verba, não de performance (eficiência manteve/melhorou).',
+    match: d => d.bucket === 'verba' },
+  { key:'ctr', hcls:'gh-red', icon:'📉', label:'Queda por Performance → CTR',
+    tip:'A conversão caiu MAIS que a verba justifica, e o CTR foi a alavanca que mais caiu — sinal de criativo/segmentação. Testar criativos.',
+    match: d => d.bucket === 'performance' && d.culprit === 'CTR' },
+  { key:'taxa', hcls:'gh-red', icon:'📉', label:'Queda por Performance → Taxa de conversão',
+    tip:'A conversão caiu MAIS que a verba justifica, e a taxa de conversão foi a que mais caiu — sinal de LP/oferta/fundo de funil. Testar landing page.',
+    match: d => d.bucket === 'performance' && d.culprit === 'Taxa de conversão' },
+]
+const fmtRatioPct = v => v != null ? (v * 100).toFixed(2).replace('.', ',') + '%' : '—'
+
+function diagnosticoHTML(ch, p) {
+  const list = diagFor(ch, p)
+  const head = `<div class="period-row">
+    <div class="period-badge">Selecionado: <b>${p.label1}</b></div>
+    <div class="period-badge">Comparativo: <b>${p.label2}</b></div>
+    <div class="period-badge">Contas em queda: <b>${list.length}</b></div>
+  </div>`
+  if (!list.length) return head + `<div class="empty">Nenhuma conta em queda de conversão no período selecionado. 🎉</div>`
+  const groups = DIAG_GROUPS.map(g => {
+    const grp = list.filter(g.match); if (!grp.length) return ''
+    const rows = grp.map(d => `<tr data-client="${esc(d.name)}">
+      <td><span class="client-link">${esc(d.name)}</span></td>
+      <td>${fmtNum(d.conv1)}</td>
+      <td class="${varCls(d.varConv,false)}">${fmtPct(d.varConv)}</td>
+      <td>${fmtMoney(d.spend1)}</td>
+      <td class="${varCls(d.varSpend,false)}">${fmtPct(d.varSpend)}</td>
+      <td>${fmtRatioPct(d.ctr1)}</td>
+      <td class="${varCls(d.varCtr,false)}">${fmtPct(d.varCtr)}</td>
+      <td>${fmtRatioPct(d.cr1)}</td>
+      <td class="${varCls(d.varCr,false)}">${fmtPct(d.varCr)}</td>
+      <td>${fmtMoney(d.cpl1)}</td>
+      <td class="${varCls(d.varCpl,true)}">${fmtPct(d.varCpl)}</td></tr>`).join('')
+    return `<div class="group-section">
+      <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
+      <div class="diag-hint">${esc(g.tip)}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Conta</th><th>Conv.</th><th>Var. Conv.</th><th>Investimento</th><th>Var. Invest.</th><th>CTR</th><th>Var. CTR</th><th>Tx. Conv.</th><th>Var. Tx. Conv.</th><th>CPL</th><th>Var. CPL</th></tr></thead>
+        <tbody>${rows}</tbody></table></div></div>`
+  }).join('')
+  return head + groups
+}
+
+// ─── Visualização "Contas que podem escalar" (candidatas a mais verba) ────────
+const SCALE_GROUPS = [
+  { key:'agora', hcls:'gh-green', icon:'🚀', label:'Prontas para escalar',
+    tip:'Conversões subindo forte (≥ +20%), CPL caindo (≤ −10%) e tendência dos últimos 3 dias saudável. Ação: aumentar orçamento gradualmente (~20% a cada 2–3 dias, para não resetar o aprendizado).',
+    match: d => d.tier === 'agora' },
+  { key:'potencial', hcls:'gh-yellow', icon:'🟢', label:'Potencial de escala',
+    tip:'Conversões subindo e CPL caindo, mas com sinal mais fraco ou tendência 3d instável. Ação: escalar com cautela ou observar mais 2–3 dias antes de aumentar a verba.',
+    match: d => d.tier === 'potencial' },
+]
+function targetMarginHTML(name, cpl) {
+  const target = state.accounts[name]?.cplTarget
+  if (!target || cpl == null) return '<span style="color:#94A3B8">—</span>'
+  const margin = ((target.value - cpl) / target.value) * 100
+  return margin >= 0
+    ? `<span class="up" title="CPL Alvo: ${fmtMoney(target.value)}">${margin.toFixed(0)}% abaixo do alvo</span>`
+    : `<span class="dn" title="CPL Alvo: ${fmtMoney(target.value)}">${Math.abs(margin).toFixed(0)}% acima do alvo</span>`
+}
+
+function escalaHTML(ch, p) {
+  const list = scaleFor(ch, p)
+  const head = `<div class="period-row">
+    <div class="period-badge">Selecionado: <b>${p.label1}</b></div>
+    <div class="period-badge">Comparativo: <b>${p.label2}</b></div>
+    <div class="period-badge">Candidatas: <b>${list.length}</b></div>
+  </div>`
+  if (!list.length) return head + `<div class="empty">Nenhuma conta com sinal de escala no período selecionado (conversões subindo + CPL caindo).</div>`
+  const groups = SCALE_GROUPS.map(g => {
+    const grp = list.filter(g.match); if (!grp.length) return ''
+    const rows = grp.map(d => {
+      const trend = d.declining3d?`<span class="trend-dn">📉 Queda</span>`:d.trendDir==='up'?`<span class="trend-up">📈 Alta</span>`:`<span class="trend-fl">➡️ Estável</span>`
+      return `<tr data-client="${esc(d.name)}">
+      <td><span class="client-link">${esc(d.name)}</span></td>
+      <td>${fmtNum(d.conv1)}</td><td>${fmtNum(d.conv2)}</td>
+      <td class="${varCls(d.varConv,false)}">${fmtPct(d.varConv)}</td>
+      <td>${fmtMoney(d.cpl1)}</td><td>${fmtMoney(d.cpl2)}</td>
+      <td class="${varCls(d.varCpl,true)}">${fmtPct(d.varCpl)}</td>
+      <td>${targetMarginHTML(d.name, d.cpl1)}</td>
+      <td>${fmtMoney(d.spend1)}</td>
+      <td class="${varCls(d.varSpend,false)}">${fmtPct(d.varSpend)}</td>
+      <td>${trend}</td></tr>`
+    }).join('')
+    return `<div class="group-section">
+      <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
+      <div class="diag-hint">${esc(g.tip)}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Conta</th><th>Conv.</th><th>Conv. Ant.</th><th>Var. Conv.</th><th>CPL</th><th>CPL Ant.</th><th>Var. CPL</th><th>Margem vs. Alvo</th><th>Investimento</th><th>Var. Invest.</th><th>Tend. 3d</th></tr></thead>
+        <tbody>${rows}</tbody></table></div></div>`
+  }).join('')
+  return head + groups
 }
 
 // ─── Drill-down de cliente: Campanhas → Conjuntos → Anúncios ─────────────────
@@ -1547,6 +1720,11 @@ function wire() {
   if (se) se.oninput=e=>{ state.search=e.target.value.toLowerCase(); render(); const n=document.getElementById('search'); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length)} }
   const cl=document.getElementById('clear'); if (cl) cl.onclick=()=>{ state.search=''; render() }
   const sq=document.getElementById('squad'); if (sq) sq.onchange=e=>{ state.squad=e.target.value; render() }
+  // Visualizações (Padrão / Diagnóstico de Queda / Contas que podem escalar)
+  app.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ state.view=b.dataset.view; state.showHidden=false; render() })
+  const th=document.getElementById('toggle-hidden'); if (th) th.onclick=()=>{ state.showHidden=!state.showHidden; render() }
+  // Olho de ocultar/reexibir conta (grava em dashboard_accounts.hidden)
+  app.querySelectorAll('.hide-btn').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); const n=b.dataset.hide; setHidden(n, !isHidden(n)) })
   app.querySelectorAll('tr[data-client]').forEach(tr=>tr.querySelector('.client-link').onclick=()=>{
     state.openClient={ client: tr.dataset.client, channel: state.channel }
     // inicializa o estado local da página de cliente a partir do período global

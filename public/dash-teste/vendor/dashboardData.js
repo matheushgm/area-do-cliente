@@ -332,3 +332,138 @@ ${proximos}`
 
   return { msg, periodLabel: `${fmtBR(p1s)} – ${fmtBR(p1e)}` }
 }
+
+// ─── Diagnóstico de queda (por que o resultado caiu?) ─────────────────────────
+// Para cada conta em QUEDA de conversão (período atual < anterior), decide se a
+// queda veio da VERBA (investimento caiu mais, em %, que a conversão → eficiência
+// manteve/melhorou) ou da PERFORMANCE (conversão caiu mais que a verba justifica).
+// No caso de performance, aponta o culpado principal entre CTR e Taxa de conversão,
+// já que conversões ≈ (investimento ÷ CPM) × CTR × taxa de conversão.
+// `cfg` = mesma config de buildStats (o viewer passa a versão com convKeys próprios).
+//
+// Retorna [{ name, conv1/2, spend1/2, ctr1/2, cr1/2, cpl1/2,
+//            varConv, varSpend, varCtr, varCr, varCpl, bucket, culprit }],
+// ordenado da maior para a menor queda de conversão.
+//   bucket: 'verba' | 'performance'
+//   culprit (só em performance): 'CTR' | 'Taxa de conversão'
+export function buildDeclineDiagnosis(rows, cfg, p, isMeta) {
+  if (!p) return []
+  const { accountKey, dateKey, spendKey, convKeys } = cfg
+  const metricsOf = (r) => ({
+    spend: num(r[spendKey]),
+    conv: convKeys.reduce((a, k) => a + num(r[k]), 0),
+    clicks: isMeta ? num(r['Número de cliques no link']) : (num(r['CLiques']) || num(r['Cliques'])),
+    impr: isMeta ? num(r['Impressões']) : (num(r['Impressões na parte superior']) || num(r['Impressões'])),
+  })
+
+  const byClient = {}
+  rows.forEach(r => {
+    const name = r[accountKey]?.trim(); const date = fmtDate(r[dateKey])
+    if (!name || !date) return
+    const inP1 = inRange(date, p.p1s, p.p1e)
+    const inP2 = inRange(date, p.p2s, p.p2e)
+    if (!inP1 && !inP2) return
+    if (!byClient[name]) byClient[name] = { p1: { spend: 0, conv: 0, clicks: 0, impr: 0 }, p2: { spend: 0, conv: 0, clicks: 0, impr: 0 } }
+    const m = metricsOf(r)
+    const t = inP1 ? byClient[name].p1 : byClient[name].p2
+    t.spend += m.spend; t.conv += m.conv; t.clicks += m.clicks; t.impr += m.impr
+  })
+
+  const pctChange = (a, b) => (b > 0 ? ((a - b) / b) * 100 : (a > 0 ? 100 : 0))
+  const out = []
+  Object.entries(byClient).forEach(([name, { p1, p2 }]) => {
+    // Só contas com baseline de conversão E queda real de conversão.
+    if (!(p2.conv > 0) || !(p1.conv < p2.conv)) return
+    const ctr1 = p1.impr > 0 ? p1.clicks / p1.impr : 0
+    const ctr2 = p2.impr > 0 ? p2.clicks / p2.impr : 0
+    const cr1 = p1.clicks > 0 ? p1.conv / p1.clicks : 0
+    const cr2 = p2.clicks > 0 ? p2.conv / p2.clicks : 0
+    const cpl1 = p1.conv > 0 ? p1.spend / p1.conv : null
+    const cpl2 = p2.conv > 0 ? p2.spend / p2.conv : null
+    const varConv = pctChange(p1.conv, p2.conv)
+    const varSpend = pctChange(p1.spend, p2.spend)
+    const varCtr = pctChange(ctr1, ctr2)
+    const varCr = pctChange(cr1, cr2)
+    const varCpl = (cpl1 != null && cpl2 != null && cpl2 > 0) ? ((cpl1 - cpl2) / cpl2) * 100 : null
+
+    // Queda por VERBA: investimento caiu e a conversão caiu MENOS (em módulo) que ele.
+    let bucket, culprit = null
+    if (varSpend < 0 && Math.abs(varConv) < Math.abs(varSpend)) {
+      bucket = 'verba'
+    } else {
+      bucket = 'performance'
+      // Culpado = a alavanca que mais caiu entre CTR e taxa de conversão.
+      culprit = varCr < varCtr ? 'Taxa de conversão' : 'CTR'
+    }
+    out.push({
+      name, conv1: p1.conv, conv2: p2.conv, spend1: p1.spend, spend2: p2.spend,
+      ctr1, ctr2, cr1, cr2, cpl1, cpl2,
+      varConv, varSpend, varCtr, varCr, varCpl, bucket, culprit,
+    })
+  })
+  return out.sort((a, b) => a.varConv - b.varConv)
+}
+
+// ─── Candidatas a escala (contas que podem receber mais investimento) ─────────
+// Espelho do diagnóstico de queda: seleciona contas onde as CONVERSÕES estão
+// SUBINDO e o CPL está CAINDO (mais eficiente enquanto cresce = espaço p/ escalar).
+// Exige ≥3 conversões no período atual (filtra ruído de contas minúsculas).
+//
+// Retorna [{ name, conv1/2, spend1/2, cpl1/2, varConv, varSpend, varCpl,
+//            trendPct, declining3d, trendDir, tier }], ordenado pelo "score"
+// de escala (crescimento de conversão + queda de CPL) desc.
+//   tier: 'agora'     — sinal forte (conv ≥ +20%, CPL ≤ −10%, tendência 3d ok)
+//         'potencial' — melhorando, mas sinal mais fraco ou tendência instável
+export function buildScaleCandidates(rows, cfg, p) {
+  if (!p) return []
+  const { accountKey, dateKey, spendKey, convKeys } = cfg
+  const metricsOf = (r) => ({
+    spend: num(r[spendKey]),
+    conv: convKeys.reduce((a, k) => a + num(r[k]), 0),
+  })
+
+  const byClient = {}
+  rows.forEach(r => {
+    const name = r[accountKey]?.trim(); const date = fmtDate(r[dateKey])
+    if (!name || !date) return
+    const inP1 = inRange(date, p.p1s, p.p1e)
+    const inP2 = inRange(date, p.p2s, p.p2e)
+    if (!inP1 && !inP2) return
+    if (!byClient[name]) byClient[name] = { p1: { spend: 0, conv: 0 }, p2: { spend: 0, conv: 0 }, convByDay: {} }
+    const m = metricsOf(r)
+    const t = inP1 ? byClient[name].p1 : byClient[name].p2
+    t.spend += m.spend; t.conv += m.conv
+    if (inP1) byClient[name].convByDay[date] = (byClient[name].convByDay[date] || 0) + m.conv
+  })
+
+  const out = []
+  Object.entries(byClient).forEach(([name, { p1, p2, convByDay }]) => {
+    // Conversões subindo (com baseline) + CPL caindo (com gasto nos 2 períodos).
+    if (!(p2.conv > 0) || !(p1.conv > p2.conv)) return
+    if (p1.conv < 3) return // ruído: menos de 3 conversões no período atual
+    if (!(p1.spend > 0) || !(p2.spend > 0)) return
+    const cpl1 = p1.spend / p1.conv
+    const cpl2 = p2.spend / p2.conv
+    if (!(cpl1 < cpl2)) return
+    const varConv = ((p1.conv - p2.conv) / p2.conv) * 100
+    const varSpend = p2.spend > 0 ? ((p1.spend - p2.spend) / p2.spend) * 100 : 0
+    const varCpl = ((cpl1 - cpl2) / cpl2) * 100
+
+    // Tendência 3d (mesma régua do buildStats): últimos 3 dias vs. 3 anteriores.
+    const day = d => convByDay[d] || 0
+    const t1vals = p.t1.map(day)
+    const t0sum = p.t0.reduce((a, d) => a + day(d), 0)
+    const t1sum = t1vals.reduce((a, v) => a + v, 0)
+    const trendPct = t0sum > 0 ? ((t1sum - t0sum) / t0sum) * 100 : (t1sum > 0 ? 100 : 0)
+    const declining3d = (t1vals[2] < t1vals[1] && t1vals[1] < t1vals[0]) || trendPct <= -25
+    const trendDir = trendPct > 20 ? 'up' : trendPct < -20 ? 'dn' : 'fl'
+
+    const tier = (varConv >= 20 && varCpl <= -10 && !declining3d) ? 'agora' : 'potencial'
+    out.push({
+      name, conv1: p1.conv, conv2: p2.conv, spend1: p1.spend, spend2: p2.spend,
+      cpl1, cpl2, varConv, varSpend, varCpl, trendPct, declining3d, trendDir, tier,
+    })
+  })
+  // Score de escala: crescimento de conversão somado à queda de CPL (ambos ajudam).
+  return out.sort((a, b) => (b.varConv - b.varCpl) - (a.varConv - a.varCpl))
+}

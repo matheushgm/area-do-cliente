@@ -26,7 +26,6 @@ import Chat from './pages/Chat'
 import RoteirosExpress from './pages/RoteirosExpress'
 import RoteirosExpressPublico from './pages/RoteirosExpressPublico'
 import CriativosPublico from './pages/CriativosPublico'
-import DashboardTrafego from './pages/DashboardTrafego'
 import DashboardApiTeste from './pages/DashboardApiTeste'
 import WireframePreview from './pages/WireframePreview'
 import Atividades15min from './pages/Atividades15min'
@@ -50,15 +49,6 @@ function RequireSquadsAccess({ children }) {
   if (loadingAuth) return null
   if (!user) return <Navigate to="/login" replace />
   return canViewSquadsReport(user) ? children : <Navigate to="/" replace />
-}
-
-// Dashboard de Tráfego: público quando aberto via link compartilhável
-// (?shared=1) — o cliente vê o próprio dashboard sem login; caso contrário,
-// exige autenticação como as demais rotas internas.
-function DashboardRoute() {
-  const isShared = new URLSearchParams(window.location.search).get('shared') === '1'
-  if (isShared) return <DashboardTrafego />
-  return <RequireAuth><DashboardTrafego /></RequireAuth>
 }
 
 function AppRoutes() {
@@ -91,7 +81,8 @@ function AppRoutes() {
         <Route path="/roteiros/:token" element={<RoteirosExpressPublico />} />
         <Route path="/criativos/:projectId/:token" element={<CriativosPublico />} />
         <Route path="/chat" element={<RequireAuth><Chat /></RequireAuth>} />
-        <Route path="/dashboard" element={<DashboardRoute />} />
+        {/* Dashboard antigo (planilhas) foi removido — /dashboard redireciona para o atual (API). */}
+        <Route path="/dashboard" element={<Navigate to="/dashboard-teste" replace />} />
         <Route path="/dashboard-teste" element={<RequireAuth><DashboardApiTeste /></RequireAuth>} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/wireframe-preview" element={<WireframePreview />} />
