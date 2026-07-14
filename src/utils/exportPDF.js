@@ -1,4 +1,12 @@
 import { PROPOSTA_SECTIONS } from '../lib/propostaComercial'
+import {
+  ABERTURA_BLOCOS, HISTORIA_TIPOS, HISTORIA_TRANSICOES,
+  HISTORIA_3A_BLOCOS, HISTORIA_3B_BLOCOS,
+  CONTEUDO_ETAPA1, CONTEUDO_TEMAS, CONTEUDO_ETAPA4, CONTEUDO_ETAPA5, CONTEUDO_ETAPA6,
+  CONTEUDO_ROTEIRO_ABERTURA, CONTEUDO_ROTEIRO_PILARES, CONTEUDO_ROTEIRO_PONTOS,
+  CONTEUDO_ETAPA9, CONTEUDO_TRANSICOES,
+  OA_BLOCOS, OA_OBJECOES_FIXAS, OA_FECHAMENTO,
+} from '../components/Webinar/webinarData'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -421,6 +429,56 @@ export function exportROIPDF(calc, result, project) {
   `
 
   printHTML('Calculadora de ROI', project.companyName, body)
+}
+
+// ─── Metas Semanais PDF ───────────────────────────────────────────────────────
+//
+// Espelha a aba "Metas Semanais" da Calculadora de ROI: distribui as metas
+// mensais (leads/MQLs/SQLs/vendas) pelo número de semanas do mês corrente e
+// mostra o custo de marketing por semana. `numSemanas` e `mesAtual` são
+// calculados no componente e passados prontos.
+export function exportMetasSemanaisPDF(calc, result, project, numSemanas, mesAtual) {
+  if (!result) return
+
+  const semanas = Math.max(Number(numSemanas) || 1, 1)
+
+  const metas = [
+    { label: 'Leads / semana',  total: result.leadsNecessarios,  color: 'purple' },
+    { label: 'MQLs / semana',   total: result.mqlsNecessarios,   color: 'cyan'   },
+    { label: 'SQLs / semana',   total: result.sqlsNecessarios,   color: 'cyan'   },
+    { label: 'Vendas / semana', total: result.vendasNecessarias, color: 'green'  },
+  ].map((m) => ({ ...m, semanal: Math.ceil(m.total / semanas) }))
+
+  const cardsHTML = metas.map((m) => `
+    <div class="field" style="text-align:center">
+      <div class="field-value ${m.color}" style="font-size:28px">${fmtNum(m.semanal)}</div>
+      <div class="field-label" style="margin-top:4px">${esc(m.label)}</div>
+      <div class="field-label" style="margin-top:2px;color:#94A3B8">${fmtNum(m.semanal * semanas)} / mês</div>
+    </div>`).join('')
+
+  const body = `
+    <section>
+      <div class="section-title">🗓️ Período</div>
+      <div class="grid grid-3">
+        <div class="field"><div class="field-label">Mês</div><div class="field-value">${esc(mesAtual || '—')}</div></div>
+        <div class="field"><div class="field-label">Semanas no mês</div><div class="field-value purple">${fmtNum(semanas)} semanas</div></div>
+        <div class="field"><div class="field-label">ROI Alvo</div><div class="field-value">${calc.roiDesejado}%</div></div>
+      </div>
+    </section>
+    <section>
+      <div class="section-title">🎯 Metas Semanais</div>
+      <div class="grid grid-4">${cardsHTML}</div>
+    </section>
+    <section>
+      <div class="section-title">💸 Custo de Marketing</div>
+      <div class="grid grid-2">
+        <div class="field"><div class="field-label">Por semana</div><div class="field-value gold" style="font-size:18px">${fmtBRL(calc.custoMarketing / semanas)}</div></div>
+        <div class="field"><div class="field-label">Total no mês</div><div class="field-value">${fmtBRL(calc.custoMarketing)}</div></div>
+      </div>
+    </section>
+  `
+
+  printHTML('Metas Semanais', project.companyName, body)
 }
 
 // ─── Personas PDF ─────────────────────────────────────────────────────────────
@@ -2443,4 +2501,212 @@ export function exportGoogleAdsPDF(project, entry = null) {
   `
 
   printHTML('Google Ads — Estrutura de Campanhas', project.companyName, summaryHTML + typesHTML + groupsHTML + generatedHTML)
+}
+
+// ─── Webinar PDF ──────────────────────────────────────────────────────────────
+//
+// Exporta o webinar COMPLETO (Abertura, História, Conteúdo e Oferta de
+// Agendamento) num único documento. A estrutura (blocos/labels) vem de
+// webinarData.js — a mesma usada pelo formulário — então o PDF fica em sinc
+// com a ferramenta automaticamente. Campos vazios são omitidos; scripts-modelo
+// (type 'info') entram como caixas de roteiro.
+
+const WB_SCRIPT_BOX = 'background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;padding:10px 12px;margin-bottom:10px'
+const WB_SCRIPT_LABEL = 'font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#7C3AED;margin-bottom:3px'
+
+function wbVal(data, id) {
+  const v = data?.[id]
+  if (Array.isArray(v)) return v
+  return (v == null ? '' : String(v)).trim()
+}
+
+function wbFieldHTML(f, data) {
+  if (f.type === 'alert') return ''
+
+  if (f.type === 'info') {
+    return `<div style="${WB_SCRIPT_BOX}">
+      <div style="${WB_SCRIPT_LABEL}">🎙️ ${esc(f.label || 'Script')}</div>
+      <div style="font-size:12px;color:#4C1D95;line-height:1.6">${esc(f.text)}</div>
+    </div>`
+  }
+
+  if (f.type === 'preview') {
+    const computed = typeof f.compute === 'function' ? f.compute(data || {}) : ''
+    if (!computed) return ''
+    return `<div style="${WB_SCRIPT_BOX}">
+      <div style="${WB_SCRIPT_LABEL}">${esc(f.label)}</div>
+      <div style="font-size:13px;font-weight:600;color:#4C1D95;line-height:1.6">${esc(computed)}</div>
+    </div>`
+  }
+
+  if (f.type === 'choice') {
+    const filled = (f.options || []).filter((o) => wbVal(data, o.id))
+    if (!filled.length) return ''
+    return `<div class="qa-item">
+      <div class="qa-label">${esc(f.label)}</div>
+      ${filled.map((o) => `<div class="qa-value"><strong>${esc(o.label)}:</strong> ${esc(wbVal(data, o.id))}</div>`).join('')}
+    </div>`
+  }
+
+  if (f.type === 'radio') {
+    const v = wbVal(data, f.id)
+    if (!v) return ''
+    const opt = (f.options || []).find((o) => o.value === v)
+    return `<div class="qa-item">
+      <div class="qa-label">${esc(f.label)}</div>
+      <div class="qa-value">${esc(opt ? opt.label : v)}</div>
+    </div>`
+  }
+
+  if (f.type === 'checks') {
+    const arr = wbVal(data, f.id)
+    if (!Array.isArray(arr) || !arr.length) return ''
+    return `<div class="qa-item">
+      <div class="qa-label">${esc(f.label)}</div>
+      ${arr.map((o) => `<div class="qa-value">✓ ${esc(o)}</div>`).join('')}
+    </div>`
+  }
+
+  // text / area
+  const v = wbVal(data, f.id)
+  if (!v) return ''
+  const prefix = f.prefix ? `<strong>${esc(f.prefix)}</strong> ` : ''
+  return `<div class="qa-item">
+    <div class="qa-label">${esc(f.label)}</div>
+    <div class="qa-value" style="white-space:pre-wrap">${prefix}${esc(v)}</div>
+  </div>`
+}
+
+function wbBlocksHTML(blocos, data) {
+  return (blocos || []).map((bloco) => {
+    const fieldsHTML = (bloco.fields || []).map((f) => wbFieldHTML(f, data)).join('')
+    // Bloco só entra se algum campo produziu conteúdo (info-only, ex.: fechamento,
+    // entra sempre que a etapa tiver dados — decidido pelo caller).
+    const hasRealField = (bloco.fields || []).some((f) => {
+      if (f.type === 'info' || f.type === 'alert' || f.type === 'preview') return false
+      if (f.type === 'choice') return (f.options || []).some((o) => wbVal(data, o.id))
+      const v = wbVal(data, f.id)
+      return Array.isArray(v) ? v.length > 0 : !!v
+    })
+    const infoOnly = (bloco.fields || []).every((f) => f.type === 'info' || f.type === 'alert')
+    if (!hasRealField && !infoOnly) return ''
+    return `<div class="persona-block">
+      <div class="persona-name">${esc(bloco.title)}${bloco.subtitle ? ` <span style="font-weight:400;font-size:11px;color:#94A3B8">— ${esc(bloco.subtitle)}</span>` : ''}</div>
+      ${fieldsHTML}
+    </div>`
+  }).join('')
+}
+
+function wbEtapaHeader(emoji, num, label) {
+  return `<div class="section-title" style="font-size:14px;margin-top:8px">${emoji} Etapa ${num} — ${esc(label)}</div>`
+}
+
+export function exportWebinarPDF(webinar, project) {
+  const et = webinar?.etapas || {}
+  const sections = []
+
+  // ── Etapa 1: Abertura ──
+  const ab = et.abertura || {}
+  if (Object.keys(ab).length) {
+    sections.push(`<section>${wbEtapaHeader('🎬', 1, 'Abertura')}${wbBlocksHTML(ABERTURA_BLOCOS, ab)}</section>`)
+  }
+
+  // ── Etapa 2: História ──
+  const hi = et.historia || {}
+  if (Object.keys(hi).length) {
+    const tipoMeta = HISTORIA_TIPOS.find((t) => t.id === hi.tipo)
+    const tipoHTML = tipoMeta
+      ? `<div class="field" style="margin-bottom:12px"><div class="field-label">Tipo de história</div><div class="field-value purple">Opção ${esc(tipoMeta.id)} — ${esc(tipoMeta.label)}</div><div style="font-size:11px;color:#64748B;margin-top:3px">${esc(tipoMeta.desc)}</div></div>`
+      : ''
+    const transHTML = HISTORIA_TRANSICOES.map((tr) => {
+      if (!wbVal(hi, tr.field.id)) return ''
+      return `<div class="persona-block">
+        <div class="persona-name">${esc(tr.title)}</div>
+        ${wbFieldHTML(tr.field, hi)}
+        <div style="${WB_SCRIPT_BOX}">
+          <div style="${WB_SCRIPT_LABEL}">💡 Sua transição fica</div>
+          <div style="font-size:12px;color:#4C1D95;line-height:1.6">${esc(tr.compute(hi))}</div>
+        </div>
+      </div>`
+    }).join('')
+    const blocos = hi.tipo === 'A' ? HISTORIA_3A_BLOCOS : hi.tipo === 'B' ? HISTORIA_3B_BLOCOS : []
+    sections.push(`<section>${wbEtapaHeader('📖', 2, 'História')}${tipoHTML}${transHTML}${wbBlocksHTML(blocos, hi)}</section>`)
+  }
+
+  // ── Etapa 3: Conteúdo ──
+  const co = et.conteudo || {}
+  if (Object.keys(co).length) {
+    const parts = [wbBlocksHTML(CONTEUDO_ETAPA1, co)]
+
+    const temaMeta = CONTEUDO_TEMAS.find((t) => t.id === co.tema)
+    if (temaMeta) {
+      parts.push(`<div class="persona-block">
+        <div class="persona-name">Tema da aula — Opção ${esc(temaMeta.id)}: ${esc(temaMeta.label)}</div>
+        ${(temaMeta.fields || []).map((f) => wbFieldHTML(f, co)).join('')}
+      </div>`)
+    }
+
+    const rotAbertura = wbFieldHTML(CONTEUDO_ROTEIRO_ABERTURA, co)
+    if (rotAbertura) parts.push(`<div class="persona-block"><div class="persona-name">Roteiro — Abertura do conteúdo</div>${rotAbertura}</div>`)
+
+    const roteiro = co.tema === 'A' ? CONTEUDO_ROTEIRO_PILARES : (co.tema === 'B' || co.tema === 'C') ? CONTEUDO_ROTEIRO_PONTOS : []
+    parts.push(wbBlocksHTML(roteiro, co))
+    parts.push(wbBlocksHTML(CONTEUDO_ETAPA4, co))
+    parts.push(wbBlocksHTML(CONTEUDO_ETAPA5, co))
+    parts.push(wbBlocksHTML(CONTEUDO_ETAPA6, co))
+    parts.push(wbBlocksHTML(CONTEUDO_ETAPA9, co))
+
+    const transMeta = CONTEUDO_TRANSICOES.find((t) => t.id === co.transicao_oferta)
+    const transFinal = wbVal(co, 'c_transicao_final')
+    if (transMeta || transFinal) {
+      parts.push(`<div class="persona-block">
+        <div class="persona-name">Transição para a oferta${transMeta ? ` — ${esc(transMeta.titulo)}` : ''}</div>
+        ${transMeta ? `<div style="${WB_SCRIPT_BOX}"><div style="${WB_SCRIPT_LABEL}">Modelo</div><div style="font-size:12px;color:#4C1D95;line-height:1.6">${esc(transMeta.texto)}</div></div>` : ''}
+        ${transFinal ? `<div class="qa-item"><div class="qa-label">Sua transição</div><div class="qa-value" style="white-space:pre-wrap">${esc(transFinal)}</div></div>` : ''}
+      </div>`)
+    }
+
+    sections.push(`<section>${wbEtapaHeader('🎓', 3, 'Conteúdo')}${parts.join('')}</section>`)
+  }
+
+  // ── Etapa 4: Oferta de Agendamento ──
+  const oa = et.oferta_agendamento || {}
+  if (Object.keys(oa).length) {
+    const parts = [wbBlocksHTML(OA_BLOCOS, oa)]
+
+    const fixasHTML = OA_OBJECOES_FIXAS.map((obj) => {
+      const resp = wbVal(oa, `oa_obj${obj.n}_resp`)
+      if (!resp) return ''
+      return `<div class="persona-block">
+        <div class="persona-name">Objeção ${obj.n}: “${esc(obj.pergunta)}”</div>
+        <div class="qa-item"><div class="qa-label">Resposta</div><div class="qa-value" style="white-space:pre-wrap">${esc(resp)}</div></div>
+        <div class="qa-item"><div class="qa-label">CTA</div><div class="qa-value">${esc(obj.cta)}</div></div>
+      </div>`
+    }).join('')
+
+    const customHTML = [8, 9, 10].map((n) => {
+      const perg = wbVal(oa, `oa_obj${n}_pergunta`)
+      const resp = wbVal(oa, `oa_obj${n}_resp`)
+      if (!perg && !resp) return ''
+      return `<div class="persona-block">
+        <div class="persona-name">Objeção ${n} (do nicho): “${esc(perg || '—')}”</div>
+        ${resp ? `<div class="qa-item"><div class="qa-label">Resposta</div><div class="qa-value" style="white-space:pre-wrap">${esc(resp)}</div></div>` : ''}
+        ${wbVal(oa, `oa_obj${n}_cta`) ? `<div class="qa-item"><div class="qa-label">CTA</div><div class="qa-value">${esc(wbVal(oa, `oa_obj${n}_cta`))}</div></div>` : ''}
+      </div>`
+    }).join('')
+
+    if (fixasHTML || customHTML) {
+      parts.push(`<div class="persona-name" style="border:none;margin-top:4px">Objeções + respostas</div>${fixasHTML}${customHTML}`)
+    }
+    parts.push(wbBlocksHTML(OA_FECHAMENTO, oa))
+
+    sections.push(`<section>${wbEtapaHeader('📅', 4, 'Oferta para Agendamento')}${parts.join('')}</section>`)
+  }
+
+  const body = sections.length
+    ? sections.join('\n')
+    : '<section><p class="prose">Nenhuma etapa preenchida ainda. Volte e preencha o webinar.</p></section>'
+
+  const empresa = project?.companyName || project?.company_name || ''
+  printHTML(webinar?.nome || 'Webinar', empresa ? `Webinar · ${empresa}` : 'Webinar', body)
 }

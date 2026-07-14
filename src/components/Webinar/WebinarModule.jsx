@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import {
   Presentation, Plus, Trash2, Pencil, ChevronLeft, ChevronRight,
-  AlertTriangle,
+  AlertTriangle, Download,
 } from 'lucide-react'
+import { exportWebinarPDF } from '../../utils/exportPDF'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
 import Toast from '../UI/Toast'
@@ -91,6 +92,13 @@ export default function WebinarModule({ project }) {
             <Presentation className="w-4 h-4 text-rl-purple" />
             <h2 className="text-base font-black text-rl-text">{editing.nome}</h2>
           </div>
+          <button
+            onClick={() => exportWebinarPDF(editing, project)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/30 transition-all shrink-0"
+            title="Baixar o webinar completo em PDF"
+          >
+            <Download className="w-3.5 h-3.5" /> Baixar PDF
+          </button>
         </div>
 
         {/* Navegação de etapas */}
@@ -208,6 +216,13 @@ export default function WebinarModule({ project }) {
                     </button>
                   )}
                   <div className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      onClick={() => exportWebinarPDF(w, project)}
+                      className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
+                      title="Baixar PDF"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
                     <button
                       onClick={() => { setRenamingId(w.id); setRenameValue(w.nome) }}
                       className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
