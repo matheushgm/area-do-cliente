@@ -42,6 +42,10 @@
   .dt-root .hide-btn.is-hidden { color:#2563EB; }
   /* Dica de leitura dos grupos das visualizações analíticas */
   .dt-root .diag-hint { font-size:12px; color:#64748B; padding:8px 12px 2px; line-height:1.4; }
+  /* Nas visualizações analíticas (diagnóstico/escala) a tabela é a única visão —
+     no mobile o dashboard.css esconde .table-wrap (usa lista .mcl, que não existe
+     aqui); reexibe com scroll horizontal. */
+  @media(max-width:768px){ .dt-root .group-section.diag-section .table-wrap{ display:block; } }
   /* Mini-gráfico dentro de cada quadrante (aba Resultados) */
   .dt-root .mg-chart { position:relative; height:170px; margin-top:14px; padding-top:14px; border-top:1px solid #E4EAF7; }
   .dt-root .mg-chart canvas { width:100% !important; }
@@ -415,7 +419,7 @@ function restoreNav() {
     if (s.channel) state.channel = s.channel
     if (s.days != null) state.days = s.days
     state.from = s.from || ''; state.to = s.to || ''; state.search = s.search || ''; state.squad = s.squad || ''
-    state.view = ['padrao','diagnostico','escala'].includes(s.view) ? s.view : 'padrao'
+    state.view = ['padrao','diagnostico','escala','queda-ctr','queda-taxa'].includes(s.view) ? s.view : 'padrao'
     state.showHidden = !!s.showHidden
     if (s.openClient && s.openClient.client) {
       // Só restaura o cliente se a conta ainda existir nos dados carregados.
@@ -472,13 +476,18 @@ function render() {
       <span class="filter-info">${p?`Exibindo: ${p.label1} · Comparando com: ${p.label2}`:''}</span>
     </div>
     ${SHARED ? '' : (() => {
-      const nDiag = diagFor(ch, p).length
+      const diag = diagFor(ch, p)
+      const nDiag = diag.length
+      const nCtr = diag.filter(d => d.bucket === 'performance' && d.culprit === 'CTR').length
+      const nTaxa = diag.filter(d => d.bucket === 'performance' && d.culprit === 'Taxa de conversão').length
       const nScale = scaleFor(ch, p).length
       const nHidden = p ? buildStats(state.raw[ch], cfgFor(ch), p).filter(x => isHidden(x.name)).length : 0
       return `<div class="squad-bar">
         <span class="filter-label">Visualização:</span>
         <button class="squad-btn ${state.view==='padrao'?'active':''}" data-view="padrao">📊 Padrão (status)</button>
         <button class="squad-btn ${state.view==='diagnostico'?'active':''}" data-view="diagnostico" title="Contas em queda de conversão, separadas pela causa: corte de verba ou performance (CTR / taxa de conversão)">📉 Diagnóstico de Queda${nDiag?` (${nDiag})`:''}</button>
+        <button class="squad-btn ${state.view==='queda-ctr'?'active':''}" data-view="queda-ctr" title="Só as contas cuja queda de conversão foi causada pelo CTR (criativo/segmentação)">🎯 Queda por CTR${nCtr?` (${nCtr})`:''}</button>
+        <button class="squad-btn ${state.view==='queda-taxa'?'active':''}" data-view="queda-taxa" title="Só as contas cuja queda de conversão foi causada pela taxa de conversão (LP/oferta)">🧲 Queda por Tx. Conversão${nTaxa?` (${nTaxa})`:''}</button>
         <button class="squad-btn ${state.view==='escala'?'active':''}" data-view="escala" title="Contas com conversões subindo e CPL caindo — candidatas a receber mais investimento">🚀 Contas que podem escalar${nScale?` (${nScale})`:''}</button>
         ${state.view==='padrao' ? `<span style="flex:1"></span>
         <button class="squad-btn ${state.showHidden?'active':''}" id="toggle-hidden" title="${state.showHidden?'Voltar para a visão normal':'Ver as contas ocultas (clientes que saíram)'}">${state.showHidden?'👁 Vendo ocultas':'🚫 Ocultas'}${nHidden?` (${nHidden})`:''}</button>` : ''}
@@ -487,6 +496,8 @@ function render() {
     <div class="tab-panel">${
       !p ? `<div class="empty">Nenhum dado disponível para o período selecionado.</div>`
       : state.view==='diagnostico' && !SHARED ? diagnosticoHTML(ch, p)
+      : state.view==='queda-ctr' && !SHARED ? diagnosticoHTML(ch, p, 'ctr')
+      : state.view==='queda-taxa' && !SHARED ? diagnosticoHTML(ch, p, 'taxa')
       : state.view==='escala' && !SHARED ? escalaHTML(ch, p)
       : !st.length ? `<div class="empty">Nenhum dado disponível para o período selecionado.</div>`
       : channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct)
@@ -549,15 +560,25 @@ const DIAG_GROUPS = [
 ]
 const fmtRatioPct = v => v != null ? (v * 100).toFixed(2).replace('.', ',') + '%' : '—'
 
-function diagnosticoHTML(ch, p) {
-  const list = diagFor(ch, p)
+// `only` (opcional): 'ctr' | 'taxa' — renderiza SÓ aquele grupo do diagnóstico
+// (visualizações dedicadas "Queda por CTR" / "Queda por Tx. Conversão").
+function diagnosticoHTML(ch, p, only) {
+  const groupsDef = only ? DIAG_GROUPS.filter(g => g.key === only) : DIAG_GROUPS
+  const all = diagFor(ch, p)
+  const list = only ? all.filter(d => groupsDef[0].match(d)) : all
+  const countLabel = only === 'ctr' ? 'Quedas por CTR' : only === 'taxa' ? 'Quedas por taxa de conversão' : 'Contas em queda'
   const head = `<div class="period-row">
     <div class="period-badge">Selecionado: <b>${p.label1}</b></div>
     <div class="period-badge">Comparativo: <b>${p.label2}</b></div>
-    <div class="period-badge">Contas em queda: <b>${list.length}</b></div>
+    <div class="period-badge">${countLabel}: <b>${list.length}</b></div>
   </div>`
-  if (!list.length) return head + `<div class="empty">Nenhuma conta em queda de conversão no período selecionado. 🎉</div>`
-  const groups = DIAG_GROUPS.map(g => {
+  if (!list.length) {
+    const emptyMsg = only === 'ctr' ? 'Nenhuma conta com queda causada por CTR no período selecionado. 🎉'
+      : only === 'taxa' ? 'Nenhuma conta com queda causada por taxa de conversão no período selecionado. 🎉'
+      : 'Nenhuma conta em queda de conversão no período selecionado. 🎉'
+    return head + `<div class="empty">${emptyMsg}</div>`
+  }
+  const groups = groupsDef.map(g => {
     const grp = list.filter(g.match); if (!grp.length) return ''
     const rows = grp.map(d => `<tr data-client="${esc(d.name)}">
       <td><span class="client-link">${esc(d.name)}</span></td>
@@ -571,7 +592,7 @@ function diagnosticoHTML(ch, p) {
       <td class="${varCls(d.varCr,false)}">${fmtPct(d.varCr)}</td>
       <td>${fmtMoney(d.cpl1)}</td>
       <td class="${varCls(d.varCpl,true)}">${fmtPct(d.varCpl)}</td></tr>`).join('')
-    return `<div class="group-section">
+    return `<div class="group-section diag-section">
       <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
       <div class="diag-hint">${esc(g.tip)}</div>
       <div class="table-wrap"><table>
@@ -622,7 +643,7 @@ function escalaHTML(ch, p) {
       <td class="${varCls(d.varSpend,false)}">${fmtPct(d.varSpend)}</td>
       <td>${trend}</td></tr>`
     }).join('')
-    return `<div class="group-section">
+    return `<div class="group-section diag-section">
       <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
       <div class="diag-hint">${esc(g.tip)}</div>
       <div class="table-wrap"><table>
