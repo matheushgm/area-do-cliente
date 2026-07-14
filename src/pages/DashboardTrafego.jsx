@@ -4,10 +4,11 @@ import { Menu, BarChart3 } from 'lucide-react'
 import { useDashboardData } from '../hooks/useDashboardData'
 import AppSidebar from '../components/AppSidebar'
 import {
-  CFG, buildStats, computeMainPeriod,
+  CFG, buildStats, buildDeclineDiagnosis, computeMainPeriod,
   buildWeeklyMessage, localDateStr,
 } from '../lib/dashboardData'
 import ChannelSection from '../components/DashboardTrafego/ChannelSection'
+import DiagnosisSection from '../components/DashboardTrafego/DiagnosisSection'
 import ClientPage from '../components/DashboardTrafego/ClientPage'
 import { PreviewModal, MappingModal, ClickupMapModal, WeeklyMessageModal, ShareLinkModal } from '../components/DashboardTrafego/Modals'
 import '../components/DashboardTrafego/dashboard.css'
@@ -33,6 +34,7 @@ export default function DashboardTrafego() {
   const [search, setSearch] = useState('')
   const [squadFilter, setSquadFilter] = useState('')
   const [showHidden, setShowHidden] = useState(false) // false = página inicial (oculta escondidas); true = só as ocultas
+  const [viewMode, setViewMode] = useState('padrao')  // 'padrao' = status | 'diagnostico' = causa da queda
 
   const [openClient, setOpenClient] = useState(null) // { client, channel }
   // Detecta o modo compartilhado já no primeiro render (a partir da URL), antes
@@ -98,6 +100,14 @@ export default function DashboardTrafego() {
     () => statsByChannel[channel].filter(s => isHidden(s.name)).length,
     [statsByChannel, channel, isHidden],
   )
+
+  // Diagnóstico de queda do canal ativo (respeita busca/squad e sempre esconde ocultas).
+  const diagnosis = useMemo(() => {
+    let d = buildDeclineDiagnosis(raw[channel], channel, periods[channel])
+    if (search) d = d.filter(x => x.name.toLowerCase().includes(search))
+    if (squadFilter) d = d.filter(x => squadByAccount[x.name] === squadFilter)
+    return d.filter(x => !isHidden(x.name))
+  }, [raw, channel, periods, search, squadFilter, squadByAccount, isHidden])
 
   const filterInfo = useMemo(() => {
     const p = periods[channel] || periods.meta || periods.google
@@ -206,6 +216,13 @@ export default function DashboardTrafego() {
         <div className={`tab${channel === 'google' ? ' active' : ''}`} onClick={() => setChannel('google')}>🔍 Google Ads <span className="badge">{visibleStats.google.length}</span></div>
       </div>
 
+      {/* Seletor de visualização */}
+      <div className="squad-bar">
+        <span className="filter-label">Visualização:</span>
+        <button className={`squad-btn${viewMode === 'padrao' ? ' active' : ''}`} onClick={() => setViewMode('padrao')}>📊 Padrão (status)</button>
+        <button className={`squad-btn${viewMode === 'diagnostico' ? ' active' : ''}`} onClick={() => setViewMode('diagnostico')}>📉 Diagnóstico de Queda{diagnosis.length > 0 ? ` (${diagnosis.length})` : ''}</button>
+      </div>
+
       {/* Filter bar */}
       <div className="filter-bar">
         <span className="filter-label">Período:</span>
@@ -235,7 +252,7 @@ export default function DashboardTrafego() {
         <button className={`squad-btn${squadFilter === '' ? ' active' : ''}`} onClick={() => setSquadFilter('')}>Todos</button>
         <button className={`squad-btn${squadFilter === 'Caça ROI' ? ' active' : ''}`} data-squad="Caça ROI" onClick={() => setSquadFilter('Caça ROI')}>🎯 Caça ROI</button>
         <button className={`squad-btn${squadFilter === 'Zero Churn' ? ' active' : ''}`} data-squad="Zero Churn" onClick={() => setSquadFilter('Zero Churn')}>🔒 Zero Churn</button>
-        {!shared && (
+        {!shared && viewMode === 'padrao' && (
           <>
             <span style={{ flex: 1 }} />
             <button
@@ -253,6 +270,13 @@ export default function DashboardTrafego() {
       <div className="tab-panel">
         {error ? (
           <div className="error-box">⚠️ Erro ao carregar: {error}<br /><small>Verifique se as planilhas estão com acesso público.</small></div>
+        ) : viewMode === 'diagnostico' ? (
+          <DiagnosisSection
+            diag={diagnosis}
+            period={periods[channel]}
+            prefix={channel}
+            onOpenClient={(client, ch) => setOpenClient({ client, channel: ch })}
+          />
         ) : (
           <ChannelSection
             rows={raw[channel]}

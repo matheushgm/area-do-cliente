@@ -201,6 +201,79 @@ export function buildStats(rows, cfg, p) {
   }).sort((a, b) => ORDER[a.status] - ORDER[b.status])
 }
 
+// ─── Diagnóstico de queda (por que o resultado caiu?) ─────────────────────────
+// Para cada conta em QUEDA de conversão (período atual < anterior), decide se a
+// queda veio da VERBA (investimento caiu mais, em %, que a conversão → eficiência
+// manteve/melhorou) ou da PERFORMANCE (conversão caiu mais que a verba justifica).
+// No caso de performance, aponta o culpado principal entre CTR e Taxa de conversão,
+// já que conversões ≈ (investimento ÷ CPM) × CTR × taxa de conversão.
+//
+// Retorna [{ name, conv1/2, spend1/2, ctr1/2, cr1/2, cpl1/2,
+//            varConv, varSpend, varCtr, varCr, varCpl, bucket, culprit }],
+// ordenado da maior para a menor queda de conversão.
+//   bucket: 'verba' | 'performance'
+//   culprit (só em performance): 'CTR' | 'Taxa de conversão'
+export function buildDeclineDiagnosis(rows, channel, p) {
+  if (!p) return []
+  const { accountKey, dateKey } = CFG[channel]
+  const isMeta = channel === 'meta'
+  const metricsOf = (r) => ({
+    spend: isMeta ? num(r['Valor investido']) : num(r['Gasto']),
+    conv: isMeta
+      ? num(r['Número de conversas iniciadas no Whatsapp']) + num(r['Leads']) + num(r['Número de vendas'])
+      : num(r['Conversões']),
+    clicks: isMeta ? num(r['Número de cliques no link']) : (num(r['CLiques']) || num(r['Cliques'])),
+    impr: isMeta ? num(r['Impressões']) : (num(r['Impressões na parte superior']) || num(r['Impressões'])),
+  })
+
+  const byClient = {}
+  rows.forEach(r => {
+    const name = r[accountKey]?.trim(); const date = fmtDate(r[dateKey])
+    if (!name || !date) return
+    const inP1 = inRange(date, p.p1s, p.p1e)
+    const inP2 = inRange(date, p.p2s, p.p2e)
+    if (!inP1 && !inP2) return
+    if (!byClient[name]) byClient[name] = { p1: { spend: 0, conv: 0, clicks: 0, impr: 0 }, p2: { spend: 0, conv: 0, clicks: 0, impr: 0 } }
+    const m = metricsOf(r)
+    const t = inP1 ? byClient[name].p1 : byClient[name].p2
+    t.spend += m.spend; t.conv += m.conv; t.clicks += m.clicks; t.impr += m.impr
+  })
+
+  const pctChange = (a, b) => (b > 0 ? ((a - b) / b) * 100 : (a > 0 ? 100 : 0))
+  const out = []
+  Object.entries(byClient).forEach(([name, { p1, p2 }]) => {
+    // Só contas com baseline de conversão E queda real de conversão.
+    if (!(p2.conv > 0) || !(p1.conv < p2.conv)) return
+    const ctr1 = p1.impr > 0 ? p1.clicks / p1.impr : 0
+    const ctr2 = p2.impr > 0 ? p2.clicks / p2.impr : 0
+    const cr1 = p1.clicks > 0 ? p1.conv / p1.clicks : 0
+    const cr2 = p2.clicks > 0 ? p2.conv / p2.clicks : 0
+    const cpl1 = p1.conv > 0 ? p1.spend / p1.conv : null
+    const cpl2 = p2.conv > 0 ? p2.spend / p2.conv : null
+    const varConv = pctChange(p1.conv, p2.conv)
+    const varSpend = pctChange(p1.spend, p2.spend)
+    const varCtr = pctChange(ctr1, ctr2)
+    const varCr = pctChange(cr1, cr2)
+    const varCpl = (cpl1 != null && cpl2 != null && cpl2 > 0) ? ((cpl1 - cpl2) / cpl2) * 100 : null
+
+    // Queda por VERBA: investimento caiu e a conversão caiu MENOS (em módulo) que ele.
+    let bucket, culprit = null
+    if (varSpend < 0 && Math.abs(varConv) < Math.abs(varSpend)) {
+      bucket = 'verba'
+    } else {
+      bucket = 'performance'
+      // Culpado = a alavanca que mais caiu entre CTR e taxa de conversão.
+      culprit = varCr < varCtr ? 'Taxa de conversão' : 'CTR'
+    }
+    out.push({
+      name, conv1: p1.conv, conv2: p2.conv, spend1: p1.spend, spend2: p2.spend,
+      ctr1, ctr2, cr1, cr2, cpl1, cpl2,
+      varConv, varSpend, varCtr, varCr, varCpl, bucket, culprit,
+    })
+  })
+  return out.sort((a, b) => a.varConv - b.varConv)
+}
+
 // ─── Agrupamento genérico (drill-down de campanhas/conjuntos/anúncios) ────────
 // keyFn extrai a chave de agrupamento; metrics é um mapa { nome: fn(row)→number }.
 // Retorna array de grupos { key, ...somas, _rows } ordenado por conv desc.
