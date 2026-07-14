@@ -60,14 +60,14 @@ export function useDashboardData({ source = 'sheets' } = {}) {
       // linkProject…) continuam indo para a tabela-base e exigem authenticated.
       const [sheets, accRes, projRes, cplRes, sqRes] = await Promise.all([
         loadSheets(source),
-        supabase.from('dashboard_accounts_public').select('account_name,project_id,squad_id,clickup_folder_id'),
+        supabase.from('dashboard_accounts_public').select('account_name,project_id,squad_id,clickup_folder_id,hidden'),
         supabase.from('dashboard_projects_public').select('id,company_name,squad_name,clickup_folder_id'),
         supabase.from('cpl_targets_public').select('company_name,cpl_target'),
         supabase.from('dashboard_squads_public').select('id,name'),
       ])
       if (!mounted.current) return
       const accMap = {}
-      ;(accRes.data || []).forEach(r => { accMap[r.account_name] = { project_id: r.project_id, squad_id: r.squad_id, clickup_folder_id: r.clickup_folder_id } })
+      ;(accRes.data || []).forEach(r => { accMap[r.account_name] = { project_id: r.project_id, squad_id: r.squad_id, clickup_folder_id: r.clickup_folder_id, hidden: !!r.hidden } })
       const cpl = {}
       ;(cplRes.data || []).forEach(r => { const n = r.company_name?.trim(); if (n && r.cpl_target != null) cpl[n] = parseFloat(r.cpl_target) })
 
@@ -115,6 +115,7 @@ export function useDashboardData({ source = 'sheets' } = {}) {
         acCompanyName,
         squad,
         clickupFolderId,
+        hidden: !!row.hidden,
         cplTarget: cplVal != null ? { value: cplVal, acName: acCompanyName } : null,
       }
     })
@@ -142,10 +143,11 @@ export function useDashboardData({ source = 'sheets' } = {}) {
 
   const linkProject = useCallback((accountName, projectId) => upsertAccount(accountName, { project_id: projectId || null }), [upsertAccount])
   const setClickupFolder = useCallback((accountName, folderId) => upsertAccount(accountName, { clickup_folder_id: folderId || null }), [upsertAccount])
+  const setHidden = useCallback((accountName, hidden) => upsertAccount(accountName, { hidden: !!hidden }), [upsertAccount])
 
   return {
     raw, accounts, squadByAccount, projectsList, squadsList, cplTargets,
     loading, error, lastUpdate,
-    reload: load, setSquad, linkProject, setClickupFolder,
+    reload: load, setSquad, linkProject, setClickupFolder, setHidden,
   }
 }

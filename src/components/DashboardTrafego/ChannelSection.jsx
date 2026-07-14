@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import {
   num, fmtMoney, fmtNum, fmtPct, inRange, fmtDate, classifyFunnel,
   pillCls, pillIco, varCls,
@@ -47,8 +48,27 @@ function SquadCell({ name, squad, mapped, setSquad, small }) {
   )
 }
 
-export default function ChannelSection({ rows, cfg, period, prefix, stats, accounts, setSquad, getTarget, onOpenClient, onOpenMap }) {
+export default function ChannelSection({ rows, cfg, period, prefix, stats, accounts, setSquad, getTarget, onOpenClient, onOpenMap, canHide, onToggleHidden }) {
   const isMeta = prefix === 'meta'
+
+  // Botão de "olho" para ocultar/reexibir a conta do dashboard. O ícone reflete
+  // o estado atual (Eye = visível → clicar oculta; EyeOff = oculta → clicar reexibe).
+  const HideBtn = ({ name }) => {
+    if (!canHide) return null
+    const hidden = !!accounts[name]?.hidden
+    const Icon = hidden ? EyeOff : Eye
+    return (
+      <button
+        type="button"
+        className={`hide-btn${hidden ? ' is-hidden' : ''}`}
+        title={hidden ? 'Reexibir esta conta no dashboard' : 'Ocultar esta conta do dashboard'}
+        aria-label={hidden ? 'Reexibir conta' : 'Ocultar conta'}
+        onClick={(e) => { e.stopPropagation(); onToggleHidden(name, !hidden) }}
+      >
+        <Icon size={15} />
+      </button>
+    )
+  }
 
   // Linhas cruas dentro do período atual (para resumo + flags).
   const { summary, lowCreatives } = useMemo(() => {
@@ -159,7 +179,7 @@ export default function ChannelSection({ rows, cfg, period, prefix, stats, accou
                 const target = getTarget(s.name)
                 return (
                   <tr key={s.name}>
-                    <td><span className="client-link" onClick={() => onOpenClient(s.name, prefix)}>{s.name}</span><LowBadge name={s.name} /></td>
+                    <td><span className="client-link" onClick={() => onOpenClient(s.name, prefix)}>{s.name}</span><LowBadge name={s.name} /><HideBtn name={s.name} /></td>
                     <td><span className={`pill ${pillCls(s.status)}`}>{pillIco(s.status)} {s.status}</span></td>
                     <td><SquadCell name={s.name} squad={accounts[s.name]?.squad} mapped={!!accounts[s.name]?.projectId} setSquad={setSquad} /></td>
                     <td>{fmtNum(s.conv1)}</td><td>{fmtNum(s.conv2)}</td>
@@ -202,6 +222,7 @@ export default function ChannelSection({ rows, cfg, period, prefix, stats, accou
                       {cplIco ? <span title={`CPL Alvo: ${fmtMoney(target.value)}`}>{cplIco}</span> : <span className={trendCls}>{trendIco}</span>}
                     </div>
                   </div>
+                  <HideBtn name={s.name} />
                   <span className="mcl-chevron">›</span>
                 </div>
               )

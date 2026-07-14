@@ -32,6 +32,7 @@ export default function DashboardTrafego() {
   const [customTo, setCustomTo] = useState('')
   const [search, setSearch] = useState('')
   const [squadFilter, setSquadFilter] = useState('')
+  const [showHidden, setShowHidden] = useState(false) // false = página inicial (oculta escondidas); true = só as ocultas
 
   const [openClient, setOpenClient] = useState(null) // { client, channel }
   // Detecta o modo compartilhado já no primeiro render (a partir da URL), antes
@@ -82,6 +83,21 @@ export default function DashboardTrafego() {
     }
     return { meta: build('meta'), google: build('google') }
   }, [raw, periods, search, squadFilter, squadByAccount])
+
+  const isHidden = useCallback((name) => !!accounts[name]?.hidden, [accounts])
+
+  // Visão exibida: página inicial esconde as contas ocultadas; a visão "Ocultas"
+  // mostra APENAS elas. Contas ocultas = clientes que saíram, para tirar do dia a dia.
+  const visibleStats = useMemo(() => {
+    const pick = (list) => list.filter(s => (showHidden ? isHidden(s.name) : !isHidden(s.name)))
+    return { meta: pick(statsByChannel.meta), google: pick(statsByChannel.google) }
+  }, [statsByChannel, showHidden, isHidden])
+
+  // Quantidade de contas ocultas no canal ativo (para o badge do botão de filtro).
+  const hiddenCount = useMemo(
+    () => statsByChannel[channel].filter(s => isHidden(s.name)).length,
+    [statsByChannel, channel, isHidden],
+  )
 
   const filterInfo = useMemo(() => {
     const p = periods[channel] || periods.meta || periods.google
@@ -186,8 +202,8 @@ export default function DashboardTrafego() {
 
       {/* Channel tabs */}
       <div className="tabs">
-        <div className={`tab${channel === 'meta' ? ' active' : ''}`} onClick={() => setChannel('meta')}>📱 Meta Ads <span className="badge">{statsByChannel.meta.length}</span></div>
-        <div className={`tab${channel === 'google' ? ' active' : ''}`} onClick={() => setChannel('google')}>🔍 Google Ads <span className="badge">{statsByChannel.google.length}</span></div>
+        <div className={`tab${channel === 'meta' ? ' active' : ''}`} onClick={() => setChannel('meta')}>📱 Meta Ads <span className="badge">{visibleStats.meta.length}</span></div>
+        <div className={`tab${channel === 'google' ? ' active' : ''}`} onClick={() => setChannel('google')}>🔍 Google Ads <span className="badge">{visibleStats.google.length}</span></div>
       </div>
 
       {/* Filter bar */}
@@ -219,6 +235,18 @@ export default function DashboardTrafego() {
         <button className={`squad-btn${squadFilter === '' ? ' active' : ''}`} onClick={() => setSquadFilter('')}>Todos</button>
         <button className={`squad-btn${squadFilter === 'Caça ROI' ? ' active' : ''}`} data-squad="Caça ROI" onClick={() => setSquadFilter('Caça ROI')}>🎯 Caça ROI</button>
         <button className={`squad-btn${squadFilter === 'Zero Churn' ? ' active' : ''}`} data-squad="Zero Churn" onClick={() => setSquadFilter('Zero Churn')}>🔒 Zero Churn</button>
+        {!shared && (
+          <>
+            <span style={{ flex: 1 }} />
+            <button
+              className={`squad-btn${showHidden ? ' active' : ''}`}
+              onClick={() => setShowHidden(v => !v)}
+              title={showHidden ? 'Voltar para a visão normal' : 'Ver as contas ocultas (clientes que saíram)'}
+            >
+              {showHidden ? '👁 Vendo ocultas' : '🚫 Ocultas'}{hiddenCount > 0 ? ` (${hiddenCount})` : ''}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Active channel content */}
@@ -231,12 +259,14 @@ export default function DashboardTrafego() {
             cfg={CFG[channel]}
             period={periods[channel]}
             prefix={channel}
-            stats={statsByChannel[channel]}
+            stats={visibleStats[channel]}
             accounts={accounts}
             setSquad={dash.setSquad}
             getTarget={getTarget}
             onOpenClient={(client, ch) => setOpenClient({ client, channel: ch })}
             onOpenMap={(n) => setMapModal(n)}
+            canHide={!shared}
+            onToggleHidden={dash.setHidden}
           />
         )}
       </div>
