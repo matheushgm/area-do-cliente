@@ -34,6 +34,7 @@ import ContextPreview from './Criativos/ContextPreview'
 import CreativeHistory from './Criativos/CreativeHistory'
 import VideoGuide from './VideoGuide'
 import CriativoVisualPanel from './Criativos/CriativoVisualPanel'
+import AdWireframePanel from './Criativos/AdWireframePanel'
 import RatingSelector from './RatingSelector'
 import { exportCreativoSetPDF } from '../lib/creativoPDF'
 
@@ -1377,6 +1378,17 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
         </button>
         <button
           type="button"
+          onClick={() => setTopTab('wireframes')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-1.5 ${
+            topTab === 'wireframes'
+              ? 'bg-rl-purple text-white shadow-sm'
+              : 'text-rl-muted hover:text-rl-text'
+          }`}
+        >
+          📐 Wireframes
+        </button>
+        <button
+          type="button"
           onClick={() => setTopTab('roteiros')}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-1.5 ${
             topTab === 'roteiros'
@@ -1389,6 +1401,8 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
       </div>
 
       {topTab === 'visual' && <CriativoVisualPanel project={project} />}
+
+      {topTab === 'wireframes' && <AdWireframePanel project={project} />}
 
       {topTab === 'roteiros' && (
         <RoteirosValidadosPanel
