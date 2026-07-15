@@ -7,10 +7,11 @@
 // thumbnail, fields, mediaFields, brandFields, buildHtml } e registrar aqui.
 
 import destaqueDuasFotos from './destaqueDuasFotos'
+import textoLateral from './textoLateral'
 
 export { AD_FORMATS } from './shared'
 
-export const AD_WIREFRAMES = [destaqueDuasFotos]
+export const AD_WIREFRAMES = [destaqueDuasFotos, textoLateral]
 
 export const AD_WIREFRAMES_BY_ID = Object.fromEntries(
   AD_WIREFRAMES.map((w) => [w.id, w])
