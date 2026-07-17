@@ -189,7 +189,7 @@ export function buildFinalPrompt(project, o) {
       return `  - ${prob ? prob.texto + ' → ' : ''}${s.comoResolve}`
     }).join('\n') || '  - (não informado)'
   const stack = (o.itensStack || [])
-    .map((i) => `  - [${i.tipo}] ${i.nome} — R$ ${i.valor || '?'}`)
+    .map((i, idx) => `  - Entrega ${idx + 1}: ${i.nome} (R$ ${i.valor || '?'})`)
     .join('\n') || '  - (não informado)'
   const bonus = (o.bonus || []).filter((b) => b.trim()).map((b, i) => `  ${i + 1}. ${b}`).join('\n') || '  - (não informado)'
   const valorTotal = (o.itensStack || []).reduce((s, i) => s + (Number(i.valor) || 0), 0)
@@ -255,7 +255,7 @@ const ctx = (project, o) =>
   `Empresa: ${project.companyName}. Nicho: ${project.businessType || project.segmento || '?'}. ` +
   `Cliente: ${o.tipoCliente || '?'}. Dor de hoje: ${o.dorAtual || '?'}. Sonho: ${o.resultadoSonho || '?'}.`
 
-// kind ∈ 'sonho' | 'problemas' | 'solucoes' | 'stack' | 'garantia' | 'nomes'
+// kind ∈ 'sonho' | 'problemas' | 'solucoes' | 'stack' | 'bonus' | 'garantia' | 'nomes'
 export async function aiAssist({ kind, project, oferta: o }) {
   let system = 'Você é especialista em ofertas ($100M Offers, Hormozi). Responda SOMENTE com JSON válido, sem texto fora do JSON, sem travessões.'
   let user = ''
@@ -275,8 +275,15 @@ Problemas: ${JSON.stringify(probs)}`
   } else if (kind === 'stack') {
     const sol = (o.solucoes || []).map((s) => s.comoResolve).filter(Boolean)
     user = `${ctx(project, o)}
-Monte um stack de oferta a partir destas soluções: ${JSON.stringify(sol)}.
-Retorne JSON array [{"nome","tipo","valor"}]. tipo ∈ "nucleo" (1 item) ou "bonus". nome=nome sedutor com benefício. valor=número em reais (só o número). O primeiro item deve ser o núcleo.`
+Monte a lista de ENTREGAS (componentes) da oferta a partir destas soluções: ${JSON.stringify(sol)}.
+Retorne JSON array [{"nome","valor"}]. nome=nome sedutor da entrega com benefício. valor=número em reais (só o número). Não inclua bônus (são um passo à parte).`
+  } else if (kind === 'bonus') {
+    const sol = (o.solucoes || []).map((s) => s.comoResolve).filter(Boolean)
+    const entregas = (o.itensStack || []).map((i) => i.nome).filter(Boolean)
+    user = `${ctx(project, o)}
+Sugira de 3 a 6 BÔNUS que ataquem objeções não cobertas pelas entregas atuais.
+Entregas já na oferta: ${JSON.stringify(entregas)}. Soluções mapeadas: ${JSON.stringify(sol)}.
+Prefira ferramentas, checklists e templates (baixo esforço, alto valor). Retorne JSON array [{"nome","valor"}]. valor=número em reais.`
   } else if (kind === 'garantia') {
     const tipo = o.garantiaTipo || 'condicional'
     user = `${ctx(project, o)}

@@ -317,7 +317,7 @@ export function StepEntrega({ oferta, set }) {
 export function StepNucleo({ oferta, set, project, publicMode }) {
   const { run, loading, err } = useAssist(project, oferta)
   const stack = oferta.itensStack || []
-  const addItem = (tipo = 'bonus') => set('itensStack', [...stack, { id: uid(), nome: '', tipo, valor: '' }])
+  const addItem = () => set('itensStack', [...stack, { id: uid(), nome: '', tipo: 'entrega', valor: '' }])
   const updItem = (id, patch) => set('itensStack', stack.map((i) => (i.id === id ? { ...i, ...patch } : i)))
   const rmItem = (id) => set('itensStack', stack.filter((i) => i.id !== id))
   const total = stack.reduce((s, i) => s + (Number(i.valor) || 0), 0)
@@ -326,10 +326,8 @@ export function StepNucleo({ oferta, set, project, publicMode }) {
   const suggest = async () => {
     const r = await run('stack')
     if (Array.isArray(r)) {
-      const mapped = r.filter((x) => x?.nome).map((x) => ({ id: uid(), nome: x.nome, tipo: x.tipo === 'nucleo' ? 'nucleo' : 'bonus', valor: x.valor || '' }))
+      const mapped = r.filter((x) => x?.nome).map((x) => ({ id: uid(), nome: x.nome, tipo: 'entrega', valor: x.valor || '' }))
       set('itensStack', [...stack, ...mapped])
-      const nuc = mapped.find((m) => m.tipo === 'nucleo')
-      if (nuc && !oferta.nucleo) set('nucleo', nuc.nome)
     }
   }
   return (
@@ -340,18 +338,16 @@ export function StepNucleo({ oferta, set, project, publicMode }) {
       </Field>
 
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-rl-text">📦 Itens da oferta (com valor)</p>
+        <p className="text-sm font-medium text-rl-text">📦 Entregas da oferta (com valor)</p>
         {!publicMode && <AIButton onClick={suggest} loading={loading} label="Montar o stack" />}
       </div>
+      <p className="text-xs text-rl-muted">Liste as entregas que compõem a oferta. Os bônus são um passo à parte, mais pra frente.</p>
       {err && <ErrLine msg={err} />}
       <div className="space-y-2">
-        {stack.map((i) => (
+        {stack.map((i, idx) => (
           <div key={i.id} className="flex items-center gap-1.5">
-            <select value={i.tipo} onChange={(ev) => updItem(i.id, { tipo: ev.target.value })} className="input-field py-1.5 text-xs w-24 shrink-0">
-              <option value="nucleo">Núcleo</option>
-              <option value="bonus">Bônus</option>
-            </select>
-            <input value={i.nome} onChange={(ev) => updItem(i.id, { nome: ev.target.value })} placeholder="Nome sedutor da peça" className="input-field flex-1 py-1.5 text-xs" />
+            <span className="text-xs font-medium text-rl-muted w-20 shrink-0">Entrega {idx + 1}</span>
+            <input value={i.nome} onChange={(ev) => updItem(i.id, { nome: ev.target.value })} placeholder="Nome sedutor da entrega" className="input-field flex-1 py-1.5 text-xs" />
             <div className="flex items-center gap-0.5 shrink-0">
               <span className="text-[11px] text-rl-muted">R$</span>
               <input type="number" value={i.valor} onChange={(ev) => updItem(i.id, { valor: ev.target.value })} placeholder="0" className="input-field py-1.5 text-xs w-20" />
@@ -359,7 +355,7 @@ export function StepNucleo({ oferta, set, project, publicMode }) {
             <button onClick={() => rmItem(i.id)} className="p-1 text-rl-muted hover:text-rl-red shrink-0"><X className="w-3.5 h-3.5" /></button>
           </div>
         ))}
-        <button onClick={() => addItem()} className="flex items-center gap-1 text-xs text-rl-purple hover:text-rl-purple/80"><Plus className="w-3.5 h-3.5" /> Adicionar item</button>
+        <button onClick={() => addItem()} className="flex items-center gap-1 text-xs text-rl-purple hover:text-rl-purple/80"><Plus className="w-3.5 h-3.5" /> Adicionar entrega</button>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-3">
@@ -429,9 +425,9 @@ export function StepBonus({ oferta, set, project, publicMode }) {
   const upd = (i, v) => { const n = [...bonus]; n[i] = v; set('bonus', n) }
   const rm = (i) => set('bonus', bonus.filter((_, idx) => idx !== i))
   const suggest = async () => {
-    const r = await run('stack')
+    const r = await run('bonus')
     if (Array.isArray(r)) {
-      const novos = r.filter((x) => x?.tipo === 'bonus' && x?.nome).map((x) => `${x.nome}${x.valor ? ` — R$ ${x.valor}` : ''}`)
+      const novos = r.filter((x) => x?.nome).map((x) => `${x.nome}${x.valor ? ` — R$ ${x.valor}` : ''}`)
       const base = bonus.filter((b) => b.trim())
       set('bonus', [...base, ...novos].slice(0, 10))
     }
@@ -497,6 +493,70 @@ const MAGIC = [
   { k: 'interval', l: 'I · Interval (prazo)', ph: '30 Dias / 6 Semanas' },
   { k: 'container', l: 'C · Container', ph: 'Sistema / Método / Desafio / Blueprint' },
 ]
+
+// Exemplos estáticos de nomes por tipo de negócio (hover no passo de nome)
+const NOMES_EXEMPLO = {
+  b2b: {
+    icon: '🏢', label: 'B2B',
+    nomes: [
+      '5 Clientes em 5 Dias Blueprint',
+      'Máquina de Reuniões Qualificadas em 30 Dias',
+      'Agência 7 Dígitos Intensivo de 12 Semanas',
+      'Preencha Seu Pipeline em 45 Dias Sem Prospecção Fria',
+      'Sistema Caixa Blindado: Financeiro Organizado em 30 Dias',
+    ],
+  },
+  b2c: {
+    icon: '🙋', label: 'B2C',
+    nomes: [
+      'Desafio Seque Até o Verão em 6 Semanas',
+      'Programa Sono dos Sonhos: Sem Dor nas Costas em 30 Noites',
+      'Blueprint Corpo de Praia 12 Semanas 88% OFF',
+      'Transformação Sorriso de Celebridade em 90 Dias',
+      'Mãe Fitness 21 Dias: Volte a Caber na Sua Roupa Favorita',
+    ],
+  },
+}
+
+function NomeExemplos({ onPick }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-rl-muted">Inspiração:</span>
+      {['b2b', 'b2c'].map((tipo) => {
+        const ex = NOMES_EXEMPLO[tipo]
+        return (
+          <div key={tipo} className="relative group">
+            <button
+              type="button"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg border border-rl-border text-xs text-rl-muted hover:border-rl-gold/40 hover:text-rl-text transition-all"
+            >
+              <span>{ex.icon}</span> {ex.label}
+            </button>
+            {/* pt-1 = ponte de hover (sem dead zone entre botão e popover) */}
+            <div className="absolute left-0 top-full pt-1 w-72 z-20 hidden group-hover:block">
+              <div className="glass-card p-2 space-y-0.5 border border-rl-gold/20 shadow-glow">
+                <p className="text-[10px] uppercase tracking-wide text-rl-gold font-semibold px-1 pb-0.5">
+                  5 exemplos {ex.label}
+                </p>
+                {ex.nomes.map((n, i) => (
+                  <button
+                    key={i}
+                    onClick={() => onPick(n)}
+                    className="w-full text-left px-2 py-1.5 rounded-md text-xs text-rl-text hover:bg-rl-gold/10 transition-all"
+                    title="Usar este nome"
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function StepNome({ oferta, set, project, publicMode }) {
   const { run, loading, err } = useAssist(project, oferta)
   const [sugs, setSugs] = useState([])
@@ -510,6 +570,7 @@ export function StepNome({ oferta, set, project, publicMode }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-rl-muted">Use 3 a 5 blocos. Curto e punchy vence. <span className="text-rl-gold">⚠️ meta + prazo juntos podem ser barrados por plataforma.</span></p>
+      <NomeExemplos onPick={(n) => set('nome', n)} />
       <div className="grid sm:grid-cols-2 gap-3">
         {MAGIC.map((m) => (
           <Field key={m.k} label={m.l}>

@@ -615,8 +615,8 @@ export function exportOfertaPDF(oferta, project) {
         ${oferta.nucleo ? `<div class="field"><div class="field-label">🎯 Entrega principal (núcleo)</div><div class="field-value" style="font-weight:400">${esc(oferta.nucleo)}</div></div>` : ''}
         ${stack.length ? `
           <div class="field">
-            <div class="field-label">Itens da oferta</div>
-            ${stack.map((i) => `<div style="font-size:11px;color:#374151;margin:3px 0 3px 8px;display:flex;justify-content:space-between"><span>${i.tipo === 'nucleo' ? '🎯' : '🎁'} ${esc(i.nome)}</span><span style="font-weight:600;white-space:nowrap;margin-left:12px">${fmtR$(i.valor)}</span></div>`).join('')}
+            <div class="field-label">Entregas da oferta</div>
+            ${stack.map((i, idx) => `<div style="font-size:11px;color:#374151;margin:3px 0 3px 8px;display:flex;justify-content:space-between"><span>📦 Entrega ${idx + 1}: ${esc(i.nome)}</span><span style="font-weight:600;white-space:nowrap;margin-left:12px">${fmtR$(i.valor)}</span></div>`).join('')}
           </div>` : ''}
         ${(valorTotal || preco) ? `
           <div class="field">
