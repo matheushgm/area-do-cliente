@@ -27,6 +27,17 @@ Você vai escrever a copy de UMA página de aplicação direta com a estrutura a
   "without": ["ponto negativo 1", "ponto negativo 2", "ponto negativo 3", "ponto negativo 4", "ponto negativo 5"],
   "withTitle": "título da coluna positiva (ex: Com a metodologia)",
   "with": ["ponto positivo 1", "ponto positivo 2", "ponto positivo 3", "ponto positivo 4", "ponto positivo 5"],
+  "systemTitle": "título da seção do sistema: a operação inteira num lugar só. Use **negrito** num trecho",
+  "systemSubtitle": "subtítulo do sistema (o todo integrado, não ferramentas soltas)",
+  "systemPillars": [
+    { "tag": "etiqueta curta em MAIÚSCULAS (ex: ESCALA)", "title": "nome do pilar/recurso 1", "desc": "o que faz e por que importa 1" },
+    { "tag": "etiqueta curta em MAIÚSCULAS", "title": "nome do pilar/recurso 2", "desc": "o que faz e por que importa 2" },
+    { "tag": "etiqueta curta em MAIÚSCULAS", "title": "nome do pilar/recurso 3", "desc": "o que faz e por que importa 3" },
+    { "tag": "etiqueta curta em MAIÚSCULAS", "title": "nome do pilar/recurso 4", "desc": "o que faz e por que importa 4" }
+  ],
+  "systemCoreBadge": "selo curto do núcleo (ex: O coração do sistema)",
+  "systemCoreTitle": "título do mecanismo central que sustenta os pilares",
+  "systemCoreText": "explicação do mecanismo central e por que ele é o coração de tudo. Use **negrito** num trecho de impacto",
   "authorityTitle": "título de autoridade (use **negrito** num trecho)",
   "authorityText": "parágrafo de autoridade e posicionamento",
   "authorityCaption": "legenda curta da imagem de prova",
@@ -95,6 +106,7 @@ export function parseAplicacaoContent(text) {
     heroTags: strArr(parsed.heroTags, base.heroTags),
     without: strArr(parsed.without, base.without),
     with: strArr(parsed.with, base.with),
+    systemPillars: objArr(parsed.systemPillars, base.systemPillars, ['tag', 'title', 'desc']),
     pains: objArr(parsed.pains, base.pains, ['pain', 'solution']),
     results: objArr(parsed.results, base.results, ['value', 'desc']),
     steps: objArr(parsed.steps, base.steps, ['tag', 'title', 'desc']),
@@ -129,6 +141,16 @@ export function aplicacaoToText(content) {
   ;(c.without || []).forEach((x) => { if (x?.trim()) L.push(`- (sem) ${x.trim()}`) })
   push('Coluna positiva', c.withTitle)
   ;(c.with || []).forEach((x) => { if (x?.trim()) L.push(`- (com) ${x.trim()}`) })
+
+  L.push('\n## O SISTEMA')
+  push('Título', c.systemTitle)
+  push('Subtítulo', c.systemSubtitle)
+  ;(c.systemPillars || []).forEach((p) => {
+    if (p.tag?.trim() || p.title?.trim() || p.desc?.trim()) L.push(`- ${p.tag || ''}: ${p.title || ''} — ${p.desc || ''}`.trim())
+  })
+  push('Núcleo (selo)', c.systemCoreBadge)
+  push('Núcleo (título)', c.systemCoreTitle)
+  push('Núcleo (texto)', c.systemCoreText)
 
   L.push('\n## AUTORIDADE & PROVA')
   push('Título', c.authorityTitle)

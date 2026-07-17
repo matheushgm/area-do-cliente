@@ -146,6 +146,38 @@ export default function AplicacaoWireframe({ content = {}, className = '', edita
         </div>
       </section>
 
+      {/* ── O SISTEMA (pilares + núcleo) ─────────────────────────────────── */}
+      <section className="px-6 sm:px-10 py-10 bg-slate-900">
+        <SectionTag onDark>O sistema</SectionTag>
+        <Slot as="h2" value={c.systemTitle} placeholder={P.systemTitle} path="systemTitle"
+          className="block text-lg font-bold text-white max-w-2xl" />
+        <Slot as="p" value={c.systemSubtitle} placeholder={P.systemSubtitle} path="systemSubtitle" multiline
+          className="block text-xs text-slate-400 mt-2 max-w-2xl leading-relaxed" />
+        <div className="grid sm:grid-cols-2 gap-3 mt-6">
+          {arr(c.systemPillars, E.systemPillars).map((p, i) => (
+            <div key={i} className="rounded-2xl border border-slate-700 bg-slate-800/60 p-5">
+              <Slot value={p.tag} placeholder={P.pillarTag} path={`systemPillars.${i}.tag`}
+                className="text-[8px] font-bold uppercase tracking-widest text-slate-400" />
+              <Slot as="p" value={p.title} placeholder={P.pillarTitle} path={`systemPillars.${i}.title`}
+                className="block text-sm font-bold text-white mt-1" />
+              <Slot as="p" value={p.desc} placeholder={P.pillarDesc} path={`systemPillars.${i}.desc`} multiline
+                className="block text-[11px] text-slate-400 mt-1.5 leading-snug" />
+            </div>
+          ))}
+        </div>
+        <div className="rounded-2xl border-2 border-slate-600 bg-slate-800 p-5 mt-3">
+          <span className="inline-flex items-center gap-1 rounded-full border border-slate-600 px-3 py-1 mb-3">
+            <ShieldCheck className="w-3 h-3 text-slate-300" />
+            <Slot value={c.systemCoreBadge} placeholder={P.systemCoreBadge} path="systemCoreBadge"
+              className="text-[8px] font-bold uppercase tracking-widest text-slate-300" />
+          </span>
+          <Slot as="h3" value={c.systemCoreTitle} placeholder={P.systemCoreTitle} path="systemCoreTitle"
+            className="block text-base font-extrabold text-white" />
+          <Slot as="p" value={c.systemCoreText} placeholder={P.systemCoreText} path="systemCoreText" multiline
+            className="block text-xs text-slate-300 mt-2 leading-relaxed max-w-3xl" />
+        </div>
+      </section>
+
       {/* ── AUTORIDADE & PROVA ───────────────────────────────────────────── */}
       <section className="px-6 sm:px-10 py-10">
         <SectionTag>Autoridade & prova</SectionTag>
