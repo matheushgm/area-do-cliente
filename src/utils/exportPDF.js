@@ -524,24 +524,122 @@ export function exportPersonasPDF(personas, project) {
 
 // ─── Oferta Matadora PDF ──────────────────────────────────────────────────────
 
+// Labels dos campos guiados do wizard (espelham ofertaShared.js — manter em sync)
+const OFERTA_DRIVER_LABELS = {
+  valor:         'Não vale a pena (valor)',
+  probabilidade: 'Não vai funcionar (probabilidade)',
+  esforco:       'É difícil demais (esforço)',
+  tempo:         'Vai demorar (tempo)',
+}
+const OFERTA_ATENCAO_LABELS  = { '1a1': '1 a 1', grupo: 'Pequeno grupo', muitos: 'Um-para-muitos' }
+const OFERTA_ESFORCO_LABELS  = { dfy: 'Feito por nós (DFY)', dwy: 'Feito com você (DWY)', diy: 'Você faz sozinho (DIY)' }
+const OFERTA_GARANTIA_LABELS = { incondicional: 'Incondicional', condicional: 'Condicional', anti: 'Anti-garantia', implicita: 'Performance' }
+
 export function exportOfertaPDF(oferta, project) {
   const bonusValidos = (oferta.bonus || []).filter((b) => b.trim())
+  const fmtR$ = (n) => `R$ ${(Number(n) || 0).toLocaleString('pt-BR')}`
 
+  // ── Diagnóstico (Passo 0) ──
+  const diag = oferta.diagnostico
+  const tipoLabel = oferta.tipoCliente === 'b2b' ? '🏢 B2B (empresa)' : oferta.tipoCliente === 'b2c' ? '🙋 B2C (consumidor)' : ''
+  const diagHTML = (diag?.verdict || tipoLabel) ? `
+    <section>
+      <div class="section-title">🩺 Diagnóstico de Viabilidade</div>
+      <div class="grid grid-2">
+        ${tipoLabel ? `<div class="field"><div class="field-label">Tipo de cliente</div><div class="field-value">${esc(tipoLabel)}</div></div>` : ''}
+        ${diag?.verdict ? `<div class="field"><div class="field-label">Veredito</div><div class="field-value" style="color:${esc(diag.verdict.color || '#374151')}">${esc(diag.verdict.emoji || '')} ${esc(diag.verdict.label || '')} · ${esc(String(diag.totalScore ?? ''))}/100</div></div>` : ''}
+      </div>
+    </section>` : ''
+
+  // ── Sonho (Passo 1) ──
   const fieldsHTML = `
     <section>
       <div class="section-title">📋 Dados da Oferta</div>
       <div class="grid" style="grid-template-columns:1fr;">
         ${oferta.nome ? `<div class="field"><div class="field-label">🏷️ Nome da Oferta</div><div class="field-value purple">${esc(oferta.nome)}</div></div>` : ''}
+        ${oferta.dorAtual ? `<div class="field"><div class="field-label">😣 Dor Atual (onde está hoje)</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.dorAtual)}</div></div>` : ''}
         ${oferta.resultadoSonho ? `<div class="field"><div class="field-label">✨ Resultado do Sonho</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.resultadoSonho)}</div></div>` : ''}
+        ${oferta.statusGanho ? `<div class="field"><div class="field-label">👑 Status Ganho (como será visto)</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.statusGanho)}</div></div>` : ''}
         ${oferta.porqueVaiFuncionar ? `<div class="field"><div class="field-label">💡 Por que vai funcionar</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.porqueVaiFuncionar)}</div></div>` : ''}
-        ${oferta.velocidade ? `<div class="field"><div class="field-label">⚡ Velocidade</div><div class="field-value" style="font-weight:400">${esc(oferta.velocidade)}</div></div>` : ''}
+        ${oferta.velocidade ? `<div class="field"><div class="field-label">⚡ Velocidade (1ª vitória)</div><div class="field-value" style="font-weight:400">${esc(oferta.velocidade)}</div></div>` : ''}
         ${oferta.esforcoMinimo ? `<div class="field"><div class="field-label">🤝 Esforço Mínimo do Cliente</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.esforcoMinimo)}</div></div>` : ''}
-        ${oferta.garantia ? `<div class="field"><div class="field-label">🛡️ Garantia</div><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.garantia)}</div></div>` : ''}
-        ${oferta.escassez ? `<div class="field"><div class="field-label">🔥 Escassez / Urgência</div><div class="field-value" style="font-weight:400">${esc(oferta.escassez)}</div></div>` : ''}
       </div>
     </section>
   `
 
+  // ── Problemas + Soluções (Passos 2-3) ──
+  const problemas = (oferta.problemas || []).filter((p) => p.texto?.trim())
+  const solucoes  = oferta.solucoes || []
+  const solByProb = (pid) => solucoes.find((s) => s.problemaId === pid)?.comoResolve?.trim()
+  const problemasHTML = problemas.length ? `
+    <section>
+      <div class="section-title">🧱 Problemas &amp; Soluções (Equação de Valor)</div>
+      <div class="grid" style="grid-template-columns:1fr;">
+        ${['valor', 'probabilidade', 'esforco', 'tempo'].map((driver) => {
+          const doDriver = problemas.filter((p) => p.driver === driver)
+          if (!doDriver.length) return ''
+          return `
+            <div class="field">
+              <div class="field-label">${esc(OFERTA_DRIVER_LABELS[driver] || driver)}</div>
+              ${doDriver.map((p) => {
+                const sol = solByProb(p.id)
+                return `<div style="font-size:11px;color:#374151;margin:3px 0 3px 8px">• ${esc(p.texto)}${sol ? `<br><span style="color:#7c3aed;margin-left:12px">→ ${esc(sol)}</span>` : ''}</div>`
+              }).join('')}
+            </div>`
+        }).join('')}
+      </div>
+    </section>` : ''
+
+  // ── Entrega (Passo 4) ──
+  const ent = oferta.entrega || {}
+  const entregaParts = [
+    ent.atencao ? OFERTA_ATENCAO_LABELS[ent.atencao] || ent.atencao : null,
+    ent.esforcoModelo ? OFERTA_ESFORCO_LABELS[ent.esforcoModelo] || ent.esforcoModelo : null,
+    (ent.meio || []).length ? (ent.meio || []).join(', ') : null,
+  ].filter(Boolean)
+  const entregaHTML = entregaParts.length ? `
+    <section>
+      <div class="section-title">📡 Modelo de Entrega</div>
+      <div class="field"><div class="field-value" style="font-weight:400">${esc(entregaParts.join(' · '))}</div></div>
+    </section>` : ''
+
+  // ── Núcleo + Stack + Preço (Passo 5) ──
+  const stack = (oferta.itensStack || []).filter((i) => i.nome?.trim())
+  const valorTotal = stack.reduce((s, i) => s + (Number(i.valor) || 0), 0)
+  const preco = Number(oferta.preco) || 0
+  const ratio = preco > 0 && valorTotal > 0 ? (valorTotal / preco) : 0
+  const stackHTML = (oferta.nucleo || stack.length || preco) ? `
+    <section>
+      <div class="section-title">📦 Núcleo, Stack &amp; Preço</div>
+      <div class="grid" style="grid-template-columns:1fr;">
+        ${oferta.nucleo ? `<div class="field"><div class="field-label">🎯 Entrega principal (núcleo)</div><div class="field-value" style="font-weight:400">${esc(oferta.nucleo)}</div></div>` : ''}
+        ${stack.length ? `
+          <div class="field">
+            <div class="field-label">Itens da oferta</div>
+            ${stack.map((i) => `<div style="font-size:11px;color:#374151;margin:3px 0 3px 8px;display:flex;justify-content:space-between"><span>${i.tipo === 'nucleo' ? '🎯' : '🎁'} ${esc(i.nome)}</span><span style="font-weight:600;white-space:nowrap;margin-left:12px">${fmtR$(i.valor)}</span></div>`).join('')}
+          </div>` : ''}
+        ${(valorTotal || preco) ? `
+          <div class="field">
+            <div class="field-value" style="font-size:13px">
+              ${valorTotal ? `Valor total: <b>${fmtR$(valorTotal)}</b>` : ''}
+              ${preco ? ` · Preço: <b class="gold">${fmtR$(preco)}</b>` : ''}
+              ${ratio ? ` · <b>${ratio.toFixed(1)}x</b> de valor sobre o preço` : ''}
+            </div>
+          </div>` : ''}
+      </div>
+    </section>` : ''
+
+  // ── Escassez + Urgência (Passo 6) ──
+  const escUrgHTML = (oferta.escassez || oferta.urgencia) ? `
+    <section>
+      <div class="section-title">🔥 Escassez &amp; Urgência</div>
+      <div class="grid" style="grid-template-columns:1fr;">
+        ${oferta.escassez ? `<div class="field"><div class="field-label">🔒 Escassez</div><div class="field-value" style="font-weight:400">${esc(oferta.escassez)}</div></div>` : ''}
+        ${oferta.urgencia ? `<div class="field"><div class="field-label">⏳ Urgência</div><div class="field-value" style="font-weight:400">${esc(oferta.urgencia)}</div></div>` : ''}
+      </div>
+    </section>` : ''
+
+  // ── Bônus (Passo 7) ──
   const bonusHTML = bonusValidos.length ? `
     <section>
       <div class="section-title">🎁 Stack de Bônus</div>
@@ -552,13 +650,24 @@ export function exportOfertaPDF(oferta, project) {
       </div>
     </section>` : ''
 
+  // ── Garantia (Passo 8) ──
+  const garantiaHTML = oferta.garantia ? `
+    <section>
+      <div class="section-title">🛡️ Garantia${oferta.garantiaTipo ? ` — ${esc(OFERTA_GARANTIA_LABELS[oferta.garantiaTipo] || oferta.garantiaTipo)}` : ''}</div>
+      <div class="field"><div class="field-value" style="font-weight:400;line-height:1.6">${esc(oferta.garantia)}</div></div>
+    </section>` : ''
+
   const generatedHTML = oferta.generatedOffer ? `
     <section>
       <div class="section-title">🤖 Oferta Matadora Gerada por IA</div>
       <div class="prose">${mdToHTML(oferta.generatedOffer)}</div>
     </section>` : ''
 
-  printHTML('Oferta Matadora', project.companyName, fieldsHTML + bonusHTML + generatedHTML)
+  printHTML(
+    'Oferta Matadora',
+    project.companyName,
+    diagHTML + fieldsHTML + problemasHTML + entregaHTML + stackHTML + escUrgHTML + bonusHTML + garantiaHTML + generatedHTML
+  )
 }
 
 // ─── Campaign Planner PDF ─────────────────────────────────────────────────────
