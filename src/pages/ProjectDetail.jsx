@@ -1,14 +1,27 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import ClientProfile from './ClientProfile'
 
 export default function ProjectDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { projects } = useApp()
+  const { projects, loadingProjects, loadingAuth } = useApp()
 
   const project = projects.find((p) => String(p.id) === String(id))
+
+  // Ao dar refresh, os projetos ainda estão carregando da nuvem — mostramos
+  // loading em vez de "não encontrado" (que aparecia num flash de race condition).
+  if (!project && (loadingProjects || loadingAuth)) {
+    return (
+      <div className="min-h-screen bg-gradient-dark flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-rl-muted">
+          <Loader2 className="w-8 h-8 animate-spin text-rl-purple" />
+          <p className="text-sm">Carregando projeto...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!project) {
     return (
