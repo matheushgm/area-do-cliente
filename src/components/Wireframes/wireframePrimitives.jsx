@@ -19,7 +19,7 @@ export const useEdit = () => useContext(EditContext)
 if (typeof document !== 'undefined' && !document.getElementById('wf-edit-style')) {
   const s = document.createElement('style')
   s.id = 'wf-edit-style'
-  s.textContent = `[data-wf-edit]:empty:before{content:attr(data-ph);color:#94a3b8;font-style:italic;pointer-events:none}[data-wf-edit]:focus{outline:2px solid #3b82f6;outline-offset:2px;border-radius:3px;background:#eff6ff}[data-wf-edit]:hover:not(:focus){background:#f1f5f9;border-radius:3px}`
+  s.textContent = `[data-wf-edit]:empty:before{content:attr(data-ph);color:#94a3b8;font-style:italic;pointer-events:none}[data-wf-edit]:focus{outline:2px solid #3b82f6;outline-offset:2px;border-radius:3px;background:rgba(59,130,246,.18)}[data-wf-edit]:hover:not(:focus){background:rgba(59,130,246,.14);box-shadow:0 0 0 1px rgba(59,130,246,.45);border-radius:3px}`
   document.head.appendChild(s)
 }
 
