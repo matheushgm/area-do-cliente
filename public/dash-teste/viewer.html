@@ -1277,7 +1277,9 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
     }
     return `<div class="cp-panel">${bc}${quad}${body}</div>`
   }
-  const ins = buildInsights(stats, channel, allRows, target)
+  // O card de Análise IA (diagnóstico + plano de ação) é uso interno: no link
+  // compartilhado o cliente não vê nem o card nem o cálculo por trás dele.
+  const ins = SHARED ? null : buildInsights(stats, channel, allRows, target)
   const tabs = isMeta ? [['📊 Campanhas',0],['🎯 Conjuntos',1],['🎨 Anúncios',2]] : [['📊 Campanhas',0],['🔑 Grupos',1],['🔎 Termos',2]]
   let panel
   // Termos (Google, sub===2) é preenchido async por renderGoogleTerms (lazy/por conta).
