@@ -713,7 +713,7 @@ function openAdPreview(adId, adName){
     <div class="adp-head"><h3 title="${esc(adName||'')}">👁 ${esc(adName||'Anúncio')}</h3><button class="adp-x" id="adpClose">✕</button></div>
     <div class="adp-tabs">${AD_PREVIEW_FORMATS.map(([l,f],i)=>`<button class="adp-fmt${i===0?' active':''}" data-fmt="${f}">${l}</button>`).join('')}</div>
     <div class="adp-body" id="adpBody"></div>
-    <div class="adp-save">
+    ${SHARED ? '' : `<div class="adp-save">
       <div class="adp-save-dates">📅 Dados de <input type="date" id="adpFrom" value="${pf}"> até <input type="date" id="adpTo" value="${pt}"></div>
       <select id="adpFunil"><option value="">Salvar no Banco — selecione o funil…</option>${BANCO_FUNIS.map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join('')}</select>
       <button id="adpSaveBtn">💾 Salvar no Banco</button>
@@ -724,7 +724,7 @@ function openAdPreview(adId, adName){
       <span id="adpTransMsg" class="adp-save-msg"></span>
       <textarea id="adpTransText" class="adp-trans-text" style="display:none" placeholder="Transcrição do vídeo…"></textarea>
       <button id="adpTransSave" class="save" style="display:none">💾 Salvar em Roteiros Validados</button>
-    </div>
+    </div>`}
   </div>`
   document.body.appendChild(ov)
   ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove() })
@@ -732,10 +732,20 @@ function openAdPreview(adId, adName){
   const bodyEl = ov.querySelector('#adpBody')
   const load = async (fmt)=>{
     bodyEl.innerHTML = `<div class="adp-loading"><div class="spinner"></div><p>Carregando preview…</p></div>`
-    const token = supabaseToken()
-    if(!token){ bodyEl.innerHTML = `<div class="adp-msg">Preview disponível apenas no app autenticado (app.revenuelab.com.br).</div>`; return }
+    // No link compartilhado não há sessão: usa /api/ad-preview-public, que valida
+    // o token HMAC do link e confere que o ad_id é mesmo da conta antes de gerar.
+    let url, opts = {}
+    if(SHARED){
+      url = `/api/ad-preview-public?cliente=${encodeURIComponent(SHARED.client)}&canal=${SHARED.channel}`
+          + `&t=${encodeURIComponent(SHARED.token)}&ad_id=${encodeURIComponent(adId)}&format=${fmt}`
+    } else {
+      const token = supabaseToken()
+      if(!token){ bodyEl.innerHTML = `<div class="adp-msg">Preview disponível apenas no app autenticado (app.revenuelab.com.br).</div>`; return }
+      url = `/api/ad-preview?ad_id=${encodeURIComponent(adId)}&format=${fmt}`
+      opts = { headers:{ Authorization:`Bearer ${token}` } }
+    }
     try{
-      const r = await fetch(`/api/ad-preview?ad_id=${encodeURIComponent(adId)}&format=${fmt}`, { headers:{ Authorization:`Bearer ${token}` } })
+      const r = await fetch(url, opts)
       const data = await r.json().catch(()=>({}))
       if(!r.ok){ bodyEl.innerHTML = `<div class="adp-msg">${esc(data?.error?.message||('Erro HTTP '+r.status))}</div>`; return }
       const ifr = document.createElement('iframe')
@@ -748,8 +758,10 @@ function openAdPreview(adId, adName){
     ov.querySelectorAll('.adp-fmt').forEach(x=>x.classList.remove('active')); b.classList.add('active'); load(b.dataset.fmt)
   })
   // Salvar a mídia do anúncio no Banco de Anúncios (vídeo ou imagem)
+  // Os blocos abaixo (Banco/transcrição) não são renderizados no modo SHARED —
+  // daí o guard: sem ele o null quebraria openAdPreview antes do load() do preview.
   const saveBtn = ov.querySelector('#adpSaveBtn'), saveMsg = ov.querySelector('#adpSaveMsg')
-  saveBtn.onclick = async ()=>{
+  if (saveBtn) saveBtn.onclick = async ()=>{
     const funil = ov.querySelector('#adpFunil').value
     const from = ov.querySelector('#adpFrom').value, to = ov.querySelector('#adpTo').value
     if(!funil){ saveMsg.textContent='Selecione o funil.'; saveMsg.className='adp-save-msg err'; return }
@@ -771,7 +783,7 @@ function openAdPreview(adId, adName){
   // Transcrever o vídeo (Groq) → editar → salvar em "Roteiros Validados" do cliente
   const transBtn = ov.querySelector('#adpTransBtn'), transMsg = ov.querySelector('#adpTransMsg')
   const transText = ov.querySelector('#adpTransText'), transSave = ov.querySelector('#adpTransSave')
-  transBtn.onclick = async ()=>{
+  if (transBtn) transBtn.onclick = async ()=>{
     const token = supabaseToken()
     if(!token){ transMsg.textContent='Disponível só no app autenticado.'; transMsg.className='adp-save-msg err'; return }
     transBtn.disabled=true; transMsg.textContent='Transcrevendo… (alguns segundos)'; transMsg.className='adp-save-msg'
@@ -786,7 +798,7 @@ function openAdPreview(adId, adName){
     }catch(e){ transMsg.textContent='❌ '+e.message; transMsg.className='adp-save-msg err' }
     finally{ transBtn.disabled=false }
   }
-  transSave.onclick = async ()=>{
+  if (transSave) transSave.onclick = async ()=>{
     const token = supabaseToken()
     if(!token){ transMsg.textContent='Disponível só no app autenticado.'; transMsg.className='adp-save-msg err'; return }
     const txt = (transText.value||'').trim()
@@ -879,7 +891,9 @@ function tblMetaAds(rows){
     const adId=(x._rows.find(r=>r['ad_id'])||{})['ad_id']||''
     const destino=(x._rows[0]||{})['Destino do conjunto de anúncio']||''
     const prevBtn=adId?` <button class="ad-prev-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" title="Ver anúncio rodando">👁 Ver</button>`:''
-    const destBtn=adId?` <button class="ad-dest-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" data-destino="${esc(destino)}" title="Mostrar destino do anúncio">🔗 Destino</button>`:''
+    // "Destino" depende de /api/ad-link (autenticado) — no link compartilhado
+    // seria um botão morto, então só o "Ver" (preview) vai para o cliente.
+    const destBtn=(adId && !SHARED)?` <button class="ad-dest-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" data-destino="${esc(destino)}" title="Mostrar destino do anúncio">🔗 Destino</button>`:''
     return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(x.key)}"><span class="ad-name-flex"><span class="ad-name-txt">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span>${prevBtn}${destBtn}</span></td>
       <td>${stTag(st)}</td><td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${hookCell(x.h3,x.vv)}</td><td>${ctrCell(ctr)}</td>
