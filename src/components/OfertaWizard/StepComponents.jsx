@@ -161,7 +161,7 @@ export function StepDiagnostico({ oferta, set }) {
 }
 
 // ─── Passo 1: Sonho ─────────────────────────────────────────────────────────
-export function StepSonho({ oferta, set, project }) {
+export function StepSonho({ oferta, set, project, publicMode }) {
   const { run, loading, err } = useAssist(project, oferta)
   const suggest = async () => {
     const r = await run('sonho')
@@ -174,7 +174,7 @@ export function StepSonho({ oferta, set, project }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-rl-muted">Venda a <b>transformação</b>, não o produto. E lembre: as pessoas compram <b>status</b> — como serão vistas pelos outros.</p>
-      <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label="Refinar meu sonho" /></div>
+      {!publicMode && <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label="Refinar meu sonho" /></div>}
       {err && <ErrLine msg={err} />}
       <Field label="Onde seu cliente está HOJE (a dor)?" emoji="😣">
         <textarea rows={2} value={oferta.dorAtual} onChange={(e) => set('dorAtual', e.target.value)} className="input-field resize-none text-sm" placeholder="Ex: perde negócios por não saber o próprio custo de aquisição" />
@@ -191,7 +191,7 @@ export function StepSonho({ oferta, set, project }) {
 }
 
 // ─── Passo 2: Problemas (4 drivers) ─────────────────────────────────────────
-export function StepProblemas({ oferta, set, project }) {
+export function StepProblemas({ oferta, set, project, publicMode }) {
   const { run, loading, err } = useAssist(project, oferta)
   const problemas = oferta.problemas || []
   const add = (driver) => set('problemas', [...problemas, { id: uid(), texto: '', driver }])
@@ -209,7 +209,7 @@ export function StepProblemas({ oferta, set, project }) {
       <p className="text-sm text-rl-muted">Liste tudo que passa na cabeça do cliente <b>antes, durante e depois</b> da compra. Cada objeção vira um bônus ou uma garantia depois. Mire 8+.</p>
       <div className="flex items-center justify-between">
         <span className="text-xs text-rl-muted">{problemas.length} objeções</span>
-        <AIButton onClick={suggest} loading={loading} label="Sugerir objeções do meu público" />
+        {!publicMode && <AIButton onClick={suggest} loading={loading} label="Sugerir objeções do meu público" />}
       </div>
       {err && <ErrLine msg={err} />}
       <div className="grid md:grid-cols-2 gap-3">
@@ -237,7 +237,7 @@ export function StepProblemas({ oferta, set, project }) {
 }
 
 // ─── Passo 3: Soluções ──────────────────────────────────────────────────────
-export function StepSolucoes({ oferta, set, project }) {
+export function StepSolucoes({ oferta, set, project, publicMode }) {
   const { run, loading, err } = useAssist(project, oferta)
   const problemas = oferta.problemas || []
   const solucoes = oferta.solucoes || []
@@ -267,7 +267,7 @@ export function StepSolucoes({ oferta, set, project }) {
       <p className="text-sm text-rl-muted">Para cada travamento, responda: o que eu preciso <b>mostrar/entregar</b> pra resolver? Comece com "Como...".</p>
       <div className="flex items-center justify-between">
         <span className="text-xs text-rl-muted">{done} de {problemas.length} resolvidos</span>
-        <AIButton onClick={suggest} loading={loading} label="Sugerir soluções" />
+        {!publicMode && <AIButton onClick={suggest} loading={loading} label="Sugerir soluções" />}
       </div>
       {err && <ErrLine msg={err} />}
       <div className="space-y-2">
@@ -314,7 +314,7 @@ export function StepEntrega({ oferta, set }) {
 }
 
 // ─── Passo 5: Núcleo + Stack + Preço ────────────────────────────────────────
-export function StepNucleo({ oferta, set, project }) {
+export function StepNucleo({ oferta, set, project, publicMode }) {
   const { run, loading, err } = useAssist(project, oferta)
   const stack = oferta.itensStack || []
   const addItem = (tipo = 'bonus') => set('itensStack', [...stack, { id: uid(), nome: '', tipo, valor: '' }])
@@ -341,7 +341,7 @@ export function StepNucleo({ oferta, set, project }) {
 
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-rl-text">📦 Itens da oferta (com valor)</p>
-        <AIButton onClick={suggest} loading={loading} label="Montar o stack" />
+        {!publicMode && <AIButton onClick={suggest} loading={loading} label="Montar o stack" />}
       </div>
       {err && <ErrLine msg={err} />}
       <div className="space-y-2">
@@ -422,7 +422,7 @@ export function StepEscassez({ oferta, set }) {
 }
 
 // ─── Passo 7: Bônus ─────────────────────────────────────────────────────────
-export function StepBonus({ oferta, set, project }) {
+export function StepBonus({ oferta, set, project, publicMode }) {
   const { run, loading, err } = useAssist(project, oferta)
   const bonus = oferta.bonus?.length ? oferta.bonus : ['']
   const add = () => bonus.length < 10 && set('bonus', [...bonus, ''])
@@ -439,7 +439,7 @@ export function StepBonus({ oferta, set, project }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-rl-muted">Cada bônus resolve <b>UMA objeção</b>. Ferramentas e checklists valem mais que treinamentos. A soma dos bônus deve valer mais que o produto principal. Nunca desconto — bônus.</p>
-      <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label="Sugerir bônus" /></div>
+      {!publicMode && <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label="Sugerir bônus" /></div>}
       {err && <ErrLine msg={err} />}
       <div className="space-y-2">
         {bonus.map((b, i) => (
@@ -456,7 +456,7 @@ export function StepBonus({ oferta, set, project }) {
 }
 
 // ─── Passo 8: Garantia ──────────────────────────────────────────────────────
-export function StepGarantia({ oferta, set, project }) {
+export function StepGarantia({ oferta, set, project, publicMode }) {
   const { run, loading, err } = useAssist(project, oferta)
   const b2b = oferta.tipoCliente === 'b2b'
   const pick = (t) => {
@@ -482,7 +482,7 @@ export function StepGarantia({ oferta, set, project }) {
           )
         })}
       </div>
-      <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label="Escrever minha garantia" /></div>
+      {!publicMode && <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label="Escrever minha garantia" /></div>}
       {err && <ErrLine msg={err} />}
       <textarea rows={3} value={oferta.garantia} onChange={(e) => set('garantia', e.target.value)} className="input-field resize-none text-sm" placeholder="Ex: 20 clientes em 30 dias, ou devolvo seu dinheiro + o que você gastou em anúncios." />
     </div>
@@ -497,7 +497,7 @@ const MAGIC = [
   { k: 'interval', l: 'I · Interval (prazo)', ph: '30 Dias / 6 Semanas' },
   { k: 'container', l: 'C · Container', ph: 'Sistema / Método / Desafio / Blueprint' },
 ]
-export function StepNome({ oferta, set, project }) {
+export function StepNome({ oferta, set, project, publicMode }) {
   const { run, loading, err } = useAssist(project, oferta)
   const [sugs, setSugs] = useState([])
   const nb = oferta.nomeBlocks || {}
@@ -524,7 +524,7 @@ export function StepNome({ oferta, set, project }) {
           <button onClick={() => set('nome', preview)} className="text-xs text-rl-gold hover:text-rl-gold/80 mt-1">Usar como nome →</button>
         </div>
       )}
-      <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label="Sugerir 5 nomes" /></div>
+      {!publicMode && <div className="flex justify-end"><AIButton onClick={suggest} loading={loading} label="Sugerir 5 nomes" /></div>}
       {err && <ErrLine msg={err} />}
       {sugs.length > 0 && (
         <div className="space-y-1.5">

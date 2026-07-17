@@ -7,6 +7,7 @@ import NewOnboarding from './pages/NewOnboarding'
 import ProjectDetail from './pages/ProjectDetail'
 import UserManagement from './pages/UserManagement'
 import ClientForm from './pages/ClientForm'
+import OfertaMatadoraPublico from './pages/OfertaMatadoraPublico'
 import B2CClientForm from './pages/B2CClientForm'
 import B2BClientForm from './pages/B2BClientForm'
 import MeetingMinutePublic from './pages/MeetingMinutePublic'
@@ -62,6 +63,7 @@ function AppRoutes() {
         <Route path="/project/:id" element={<RequireAuth><ProjectDetail /></RequireAuth>} />
         <Route path="/users" element={<RequireAdmin><UserManagement /></RequireAdmin>} />
         <Route path="/client/:token" element={<ClientForm />} />
+        <Route path="/oferta/:token" element={<OfertaMatadoraPublico />} />
         <Route path="/b2c/:token" element={<B2CClientForm />} />
         <Route path="/b2b/:token" element={<B2BClientForm />} />
         <Route path="/ata/:token" element={<MeetingMinutePublic />} />
