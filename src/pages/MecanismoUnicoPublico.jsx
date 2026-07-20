@@ -13,6 +13,7 @@ import { hydrateMecanismo, computeFilledMap, STEP_META } from '../components/Mec
 import MecanismoWizardShell from '../components/MecanismoUnico/MecanismoWizardShell'
 import { StepPitchPreview } from '../components/MecanismoUnico/WizardSteps'
 import { exportMecanismoUnicoPDF } from '../lib/mecanismoUnicoPDF'
+import VideoGuide from '../components/VideoGuide'
 
 // ─── Badge de autosave (mesmo espírito do OfertaMatadoraPublico) ────────────
 function SaveBadge({ status }) {
@@ -177,6 +178,13 @@ export default function MecanismoUnicoPublico() {
           </div>
         ) : (
           <>
+            {/* Vídeo guia — aberto por padrão: é pré-requisito pra preencher bem */}
+            <VideoGuide
+              videoId="DIftYYJlf_g"
+              label="Assista antes de começar: como construir seu Mecanismo Único"
+              defaultOpen
+            />
+
             {/* Instrução */}
             <div className="glass-card p-5 border-l-4 border-rl-purple">
               <p className="text-sm text-rl-text font-medium mb-1">Como funciona</p>

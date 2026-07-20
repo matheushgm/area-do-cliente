@@ -11,6 +11,7 @@ import MarkdownBlock from '../Criativos/MarkdownBlock'
 import { streamClaude } from '../../lib/claude'
 import { buildCachedPayload } from '../../lib/buildContext'
 import { exportMecanismoUnicoPDF } from '../../lib/mecanismoUnicoPDF'
+import VideoGuide from '../VideoGuide'
 import {
   VILOES, TIPOS_PROVA, FORMATOS_NOME, TECNICAS,
   CRITERIOS_VALIDACAO, TESTE_AMIGO,
@@ -240,6 +241,12 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
 
   return (
     <div className="space-y-6">
+      <VideoGuide
+        videoId="DIftYYJlf_g"
+        label="Como preencher o módulo de Mecanismo Único"
+        defaultOpen
+      />
+
       {/* Header */}
       <div className="flex items-start gap-3 flex-wrap">
         <div className="w-11 h-11 rounded-xl bg-rl-purple/10 flex items-center justify-center shrink-0">
