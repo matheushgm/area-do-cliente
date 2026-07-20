@@ -13,6 +13,7 @@ import {
 import { hydrateOferta } from '../components/OfertaWizard/ofertaShared'
 import OfertaWizardShell, { computeFilledMap } from '../components/OfertaWizard/OfertaWizardShell'
 import { exportOfertaPDF } from '../utils/exportPDF'
+import VideoGuide from '../components/VideoGuide'
 
 // ─── Badge de autosave (mesmo espírito do ClientForm) ───────────────────────
 function SaveBadge({ status }) {
@@ -161,6 +162,13 @@ export default function OfertaMatadoraPublico() {
           </div>
         ) : (
           <>
+            {/* Vídeo guia — aberto por padrão: é pré-requisito pra preencher bem */}
+            <VideoGuide
+              videoId="tLOx9Wjq7wo"
+              label="Assista antes de começar: como construir sua Oferta Matadora"
+              defaultOpen
+            />
+
             {/* Instrução */}
             <div className="glass-card p-5 border-l-4 border-rl-gold">
               <p className="text-sm text-rl-text font-medium mb-1">Como funciona</p>

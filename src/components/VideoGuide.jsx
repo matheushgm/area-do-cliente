@@ -1,8 +1,14 @@
 import { useState } from 'react'
 import { PlayCircle, ChevronDown, X } from 'lucide-react'
 
-export default function VideoGuide({ videoId, label = 'Ver como preencher este módulo' }) {
-  const [open, setOpen] = useState(false)
+// `defaultOpen` deixa o vídeo já expandido ao montar — usado onde o conteúdo é
+// pré-requisito pra preencher direito e não pode depender de o usuário clicar.
+export default function VideoGuide({
+  videoId,
+  label = 'Ver como preencher este módulo',
+  defaultOpen = false,
+}) {
+  const [open, setOpen] = useState(defaultOpen)
 
   return (
     <div className={`rounded-2xl border transition-all overflow-hidden ${

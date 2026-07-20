@@ -63,7 +63,11 @@ export default function OfertaMatadora({ project, onSave }) {
 
   return (
     <div className="space-y-6">
-      <VideoGuide videoId="wMgDhGb8aAw" label="Como preencher o módulo de Oferta Matadora" />
+      <VideoGuide
+        videoId="tLOx9Wjq7wo"
+        label="Como preencher o módulo de Oferta Matadora"
+        defaultOpen
+      />
 
       {/* Header */}
       <div className="flex items-start justify-between">
