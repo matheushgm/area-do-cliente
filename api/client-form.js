@@ -54,7 +54,7 @@ export default async function handler(req) {
     if (!token) return json({ error: 'Token inválido.' }, 400)
 
     const { data: projects, status } = await sb(
-      `/projects_v2?client_share_token=eq.${encodeURIComponent(token)}&select=id,company_name`
+      `/projects_v2?client_share_token=eq.${encodeURIComponent(token)}&select=id,company_name,mecanismo_unico`
     )
     if (status !== 200 || !Array.isArray(projects) || !projects.length) {
       return json({ error: 'Link inválido ou expirado.' }, 404)
@@ -79,6 +79,7 @@ export default async function handler(req) {
       ofertaId:    Array.isArray(ofertasRes.data) && ofertasRes.data[0]
         ? ofertasRes.data[0].id
         : null,
+      mecanismoUnico: projects[0].mecanismo_unico ?? null,
     })
   }
 
@@ -157,6 +158,17 @@ export default async function handler(req) {
         }),
       })
       if (status >= 400) return json({ error: 'Erro ao salvar oferta.', detail: res }, 500)
+      return json({ success: true })
+    }
+
+    // ── Mecanismo Único ────────────────────────────────────────────────────
+    // Coluna JSONB `mecanismo_unico` direto em projects_v2 (não tem tabela filha).
+    if (mod === 'mecanismo') {
+      const { status, data: res } = await sb(`/projects_v2?id=eq.${pid}`, {
+        method: 'PATCH',
+        body:   JSON.stringify({ mecanismo_unico: data.mecanismoUnico || {} }),
+      })
+      if (status >= 400) return json({ error: 'Erro ao salvar mecanismo.', detail: res }, 500)
       return json({ success: true })
     }
 
