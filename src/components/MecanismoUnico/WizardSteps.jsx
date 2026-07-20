@@ -4,7 +4,9 @@
 // do wizard de Oferta Matadora. Usados pela shell interna e pela página pública.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState } from 'react'
-import { AlertTriangle, Check, Lightbulb, Trophy, Building2, User } from 'lucide-react'
+import {
+  AlertTriangle, Check, Lightbulb, Trophy, Building2, User, ChevronDown, ChevronUp,
+} from 'lucide-react'
 import MarkdownBlock from '../Criativos/MarkdownBlock'
 import { Label, Field, DynamicStringList, DynamicTable } from './Fields'
 import {
@@ -36,6 +38,7 @@ function Exemplo({ children }) {
 // Galeria de exemplos com abas B2B / B2C — mostra a cadeia lógica completa
 // (vilão → problema → fracasso) e a prova que a sustenta.
 function ExemplosConexao() {
+  const [aberto, setAberto] = useState(false)
   const [tipo, setTipo] = useState('b2b')
   const exemplos = EXEMPLOS_CONEXAO[tipo] || []
 
@@ -43,6 +46,21 @@ function ExemplosConexao() {
     { id: 'b2b', label: 'B2B', hint: 'Vendo para empresas', Icon: Building2 },
     { id: 'b2c', label: 'B2C', hint: 'Vendo para pessoas',  Icon: User },
   ]
+
+  // Fechado por padrão: o passo já é longo (conexão + prova) e os 10 exemplos
+  // empurrariam os campos pra fora da tela.
+  if (!aberto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAberto(true)}
+        className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-dashed border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all"
+      >
+        <ChevronDown className="w-3.5 h-3.5" />
+        Ver exemplos preenchidos (B2B e B2C)
+      </button>
+    )
+  }
 
   return (
     <div className="space-y-3">
@@ -69,6 +87,13 @@ function ExemplosConexao() {
         <span className="text-[10px] text-rl-muted">
           {tipo === 'b2b' ? 'Vendendo para empresas' : 'Vendendo para o consumidor final'}
         </span>
+        <button
+          type="button"
+          onClick={() => setAberto(false)}
+          className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-rl-muted hover:text-rl-text transition-colors"
+        >
+          <ChevronUp className="w-3 h-3" /> Ocultar
+        </button>
       </div>
 
       <div className="space-y-2">
