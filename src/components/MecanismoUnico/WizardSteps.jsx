@@ -3,12 +3,13 @@
 // Cada passo = uma decisão por tela + micro-ensino + exemplo, no mesmo espírito
 // do wizard de Oferta Matadora. Usados pela shell interna e pela página pública.
 // ─────────────────────────────────────────────────────────────────────────────
-import { AlertTriangle, Check, Lightbulb, Trophy } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, Check, Lightbulb, Trophy, Building2, User } from 'lucide-react'
 import MarkdownBlock from '../Criativos/MarkdownBlock'
 import { Label, Field, DynamicStringList, DynamicTable } from './Fields'
 import {
   VILOES, TIPOS_PROVA, FORMATOS_NOME, TECNICAS,
-  CRITERIOS_VALIDACAO, TESTE_AMIGO,
+  CRITERIOS_VALIDACAO, TESTE_AMIGO, EXEMPLOS_CONEXAO,
   countValidacao, vereditoValidacao,
 } from './mecanismoUnicoData'
 import { buildPitch } from './mecanismoShared'
@@ -28,6 +29,71 @@ function Exemplo({ children }) {
     <div className="rounded-xl bg-rl-surface/50 border border-rl-border/60 p-3">
       <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted mb-1">Exemplo</p>
       <p className="text-xs text-rl-subtle leading-relaxed italic">{children}</p>
+    </div>
+  )
+}
+
+// Galeria de exemplos com abas B2B / B2C — mostra a cadeia lógica completa
+// (vilão → problema → fracasso) e a prova que a sustenta.
+function ExemplosConexao() {
+  const [tipo, setTipo] = useState('b2b')
+  const exemplos = EXEMPLOS_CONEXAO[tipo] || []
+
+  const TAGS = [
+    { id: 'b2b', label: 'B2B', hint: 'Vendo para empresas', Icon: Building2 },
+    { id: 'b2c', label: 'B2C', hint: 'Vendo para pessoas',  Icon: User },
+  ]
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">Exemplos</p>
+        <div className="flex items-center gap-1 p-1 rounded-lg bg-rl-surface border border-rl-border">
+          {TAGS.map((t) => {
+            const active = tipo === t.id
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTipo(t.id)}
+                title={t.hint}
+                className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-md transition-all ${
+                  active ? 'bg-rl-purple text-white' : 'text-rl-muted hover:text-rl-text'
+                }`}
+              >
+                <t.Icon className="w-3 h-3" /> {t.label}
+              </button>
+            )
+          })}
+        </div>
+        <span className="text-[10px] text-rl-muted">
+          {tipo === 'b2b' ? 'Vendendo para empresas' : 'Vendendo para o consumidor final'}
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {exemplos.map((ex) => (
+          <div key={ex.id} className="rounded-xl bg-rl-surface/50 border border-rl-border/60 p-3 space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-rl-purple">{ex.segmento}</p>
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] leading-snug">
+              <span className="px-2 py-1 rounded-md bg-rl-red/10 border border-rl-red/25 text-rl-text">{ex.vilao}</span>
+              <span className="text-rl-muted font-bold">→</span>
+              <span className="px-2 py-1 rounded-md bg-rl-gold/10 border border-rl-gold/25 text-rl-text">{ex.problema}</span>
+              <span className="text-rl-muted font-bold">→</span>
+              <span className="px-2 py-1 rounded-md bg-rl-border/40 border border-rl-border text-rl-text">{ex.fracasso}</span>
+            </div>
+            <p className="text-[11px] text-rl-subtle italic leading-relaxed">
+              <span className="not-italic font-bold text-rl-muted">Prova: </span>{ex.prova}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[10px] text-rl-muted leading-relaxed">
+        Repare que toda prova acima é evidência que o próprio negócio colheu atendendo.
+        Use os seus números reais: prova inventada é o jeito mais rápido de perder a confiança
+        que o mecanismo acabou de construir.
+      </p>
     </div>
   )
 }
@@ -278,6 +344,10 @@ export function StepProva({ data, set, setNested }) {
           placeholder='Ex: "9 em cada 10 scripts da internet foram escritos por quem nunca vendeu acima de R$5.000"'
           className="input-field w-full resize-none"
         />
+      </div>
+
+      <div className="border-t border-rl-border/60 pt-4">
+        <ExemplosConexao />
       </div>
     </div>
   )
