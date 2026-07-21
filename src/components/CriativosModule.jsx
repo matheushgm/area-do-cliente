@@ -1640,6 +1640,59 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
         </div>
       </div>
 
+      {/* ── Quantidade de criativos ─────────────────────────────────────────── */}
+      <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🔢</span>
+          <label className="label-field !mb-0">
+            Quantos {isVideo ? 'roteiros' : 'headlines'} gerar
+          </label>
+          {blocosAtuais > 0 && (
+            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-blue/15 text-rl-blue border border-rl-blue/30">
+              {quantidade} em {blocosAtuais} bloco{blocosAtuais !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        <p className="text-[11px] text-rl-muted leading-snug">
+          Total desta geração, distribuído entre{' '}
+          {isVideo ? 'os tipos de gancho selecionados abaixo' : 'as combinações de dor x tipo abaixo'}.
+        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          {QTD_PRESETS.map((q) => (
+            <button
+              key={q}
+              onClick={() => setQuantidade(q)}
+              className={`w-10 h-8 rounded-lg text-xs font-bold border transition-all ${
+                quantidade === q
+                  ? 'bg-rl-blue/10 border-rl-blue/50 text-rl-blue'
+                  : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-blue/30 hover:text-rl-text'
+              }`}
+            >
+              {q}
+            </button>
+          ))}
+          <span className="text-[10px] text-rl-muted px-1">ou</span>
+          <input
+            type="number"
+            min={1}
+            max={QTD_MAX}
+            value={quantidade}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10)
+              setQuantidade(Number.isNaN(v) ? 1 : Math.min(Math.max(v, 1), QTD_MAX))
+            }}
+            className="input-field w-20 text-sm"
+          />
+        </div>
+        {qtdInsuficiente && (
+          <p className="text-[11px] text-red-400 leading-snug">
+            {quantidade} {isVideo ? 'roteiros' : 'headlines'} para {blocosAtuais} blocos deixaria
+            bloco sem peça. Aumente para pelo menos {blocosAtuais} ou selecione menos{' '}
+            {isVideo ? 'tipos' : 'combinações'}.
+          </p>
+        )}
+      </div>
+
       {/* ── Video: ad type + per-type quantity ─────────────────────────────── */}
       {isVideo && (
         <div>
@@ -1917,59 +1970,6 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
           </div>
         </div>
       )}
-
-      {/* ── Quantidade de criativos ─────────────────────────────────────────── */}
-      <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-2.5">
-        <div className="flex items-center gap-2">
-          <span className="text-sm">🔢</span>
-          <label className="label-field !mb-0">
-            Quantos {isVideo ? 'roteiros' : 'headlines'} gerar
-          </label>
-          {blocosAtuais > 0 && (
-            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-blue/15 text-rl-blue border border-rl-blue/30">
-              {quantidade} em {blocosAtuais} bloco{blocosAtuais !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-        <p className="text-[11px] text-rl-muted leading-snug">
-          Total desta geração, distribuído entre{' '}
-          {isVideo ? 'os tipos de gancho selecionados' : 'as combinações de dor x tipo'}.
-        </p>
-        <div className="flex items-center gap-2 flex-wrap">
-          {QTD_PRESETS.map((q) => (
-            <button
-              key={q}
-              onClick={() => setQuantidade(q)}
-              className={`w-10 h-8 rounded-lg text-xs font-bold border transition-all ${
-                quantidade === q
-                  ? 'bg-rl-blue/10 border-rl-blue/50 text-rl-blue'
-                  : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-blue/30 hover:text-rl-text'
-              }`}
-            >
-              {q}
-            </button>
-          ))}
-          <span className="text-[10px] text-rl-muted px-1">ou</span>
-          <input
-            type="number"
-            min={1}
-            max={QTD_MAX}
-            value={quantidade}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              setQuantidade(Number.isNaN(v) ? 1 : Math.min(Math.max(v, 1), QTD_MAX))
-            }}
-            className="input-field w-20 text-sm"
-          />
-        </div>
-        {qtdInsuficiente && (
-          <p className="text-[11px] text-red-400 leading-snug">
-            {quantidade} {isVideo ? 'roteiros' : 'headlines'} para {blocosAtuais} blocos deixaria
-            bloco sem peça. Aumente para pelo menos {blocosAtuais} ou selecione menos{' '}
-            {isVideo ? 'tipos' : 'combinações'}.
-          </p>
-        )}
-      </div>
 
       {/* Solicitação — accordion */}
       <div className="rounded-xl border border-rl-border overflow-hidden">
