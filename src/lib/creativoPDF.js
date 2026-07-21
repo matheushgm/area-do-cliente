@@ -320,18 +320,24 @@ function renderAdOnPage(doc, chunk, adIndex, totalAds, isVideo) {
 /**
  * Decide se um criativo é roteiro de vídeo.
  *
- * O campo `type` NÃO é persistido em `criativos.answers` — some no reload —, então
- * confiar só nele faria todo criativo salvo cair no layout estático. Caímos para
- * `isVideo` e, por último, para a forma do conteúdo: roteiro de vídeo traz rótulo
- * GANCHO; anúncio estático traz HEADLINE. Nos 120 criativos já salvos os dois
- * marcadores nunca coexistem, então a distinção é segura.
+ * O conteúdo vem primeiro, e por um motivo concreto: `type` NÃO é persistido em
+ * `criativos.answers`, e os componentes de card chamam o export com
+ * `type: type || 'estatico'`. Ou seja, todo criativo salvo chega aqui marcado como
+ * "estatico" por causa de um default — não porque alguém o classificou assim.
+ * Confiar nesse rótulo mandava os roteiros antigos para o layout errado.
+ *
+ * A forma do conteúdo é a evidência real: roteiro de vídeo traz o rótulo GANCHO,
+ * anúncio estático traz HEADLINE. Nos 120 criativos já salvos os dois marcadores
+ * nunca coexistem. Os flags só decidem quando o conteúdo é ambíguo.
  */
 function ehRoteiroDeVideo({ type, isVideo, content }) {
+  const temGancho = /\*\*[^*\n]*GANCHO/i.test(content || '')
+  const temHeadline = /HEADLINE/i.test(content || '')
+  if (temGancho !== temHeadline) return temGancho
+
   if (type === 'video') return true
   if (type === 'estatico') return false
-  if (isVideo === true) return true
-  if (isVideo === false) return false
-  return /\*\*[^*]*GANCHO/i.test(content || '') && !/HEADLINE/i.test(content || '')
+  return isVideo === true
 }
 
 function splitIntoAds(content) {
