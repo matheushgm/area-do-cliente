@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf'
+import { exportRoteirosVideoPDF } from './roteiroVideoPDF'
 
 // ─── Verta design tokens ──────────────────────────────────────────────────────
 // Sistema monocromático azul + neutros frios (Design system verta). Azul-marca
@@ -335,6 +336,10 @@ function splitIntoAds(content) {
  * Exporta UM anúncio individual (de um CreativeCard).
  */
 export function exportCreativoSinglePDF({ content, type, index, companyName }) {
+  const isVideoTpl = type === 'video'
+  // Vídeo sai no template Verta (HTML → impressão). Se o parse falhar, cai no jsPDF.
+  if (isVideoTpl && exportRoteirosVideoPDF(content, { companyName, index })) return
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const today   = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
   const isVideo = type === 'video'
@@ -359,6 +364,9 @@ export function exportCreativoSetPDF({ creative, companyName }) {
     customNote = '',
     createdAt,
   } = creative
+
+  // Vídeo sai no template Verta (HTML → impressão). Se o parse falhar, cai no jsPDF.
+  if (type === 'video' && exportRoteirosVideoPDF(content, { companyName })) return
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const today   = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
