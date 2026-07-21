@@ -317,6 +317,23 @@ function renderAdOnPage(doc, chunk, adIndex, totalAds, isVideo) {
 
 // ─── Split content into individual ads ───────────────────────────────────────
 
+/**
+ * Decide se um criativo é roteiro de vídeo.
+ *
+ * O campo `type` NÃO é persistido em `criativos.answers` — some no reload —, então
+ * confiar só nele faria todo criativo salvo cair no layout estático. Caímos para
+ * `isVideo` e, por último, para a forma do conteúdo: roteiro de vídeo traz rótulo
+ * GANCHO; anúncio estático traz HEADLINE. Nos 120 criativos já salvos os dois
+ * marcadores nunca coexistem, então a distinção é segura.
+ */
+function ehRoteiroDeVideo({ type, isVideo, content }) {
+  if (type === 'video') return true
+  if (type === 'estatico') return false
+  if (isVideo === true) return true
+  if (isVideo === false) return false
+  return /\*\*[^*]*GANCHO/i.test(content || '') && !/HEADLINE/i.test(content || '')
+}
+
 function splitIntoAds(content) {
   const parts = content.split(/(?=^##\s+(?:ROTEIRO|AN[ÚU]NCIO)\s+\d+)/im)
   const ads = parts.filter((p) => /^##\s+(?:ROTEIRO|AN[ÚU]NCIO)\s+\d+/im.test(p.trim()))
@@ -336,7 +353,7 @@ function splitIntoAds(content) {
  * Exporta UM anúncio individual (de um CreativeCard).
  */
 export function exportCreativoSinglePDF({ content, type, index, companyName }) {
-  const isVideoTpl = type === 'video'
+  const isVideoTpl = ehRoteiroDeVideo({ type, content })
   // Vídeo sai no template Verta (HTML → impressão). Se o parse falhar, cai no jsPDF.
   if (isVideoTpl && exportRoteirosVideoPDF(content, { companyName, index })) return
 
@@ -366,7 +383,13 @@ export function exportCreativoSetPDF({ creative, companyName }) {
   } = creative
 
   // Vídeo sai no template Verta (HTML → impressão). Se o parse falhar, cai no jsPDF.
-  if (type === 'video' && exportRoteirosVideoPDF(content, { companyName })) return
+  // Lê `creative.type` cru (e não o `type` acima) porque o default 'estatico'
+  // esconderia o undefined dos criativos salvos, que não persistem esse campo.
+  if (
+    ehRoteiroDeVideo({ type: creative.type, isVideo: creative.isVideo, content }) &&
+    exportRoteirosVideoPDF(content, { companyName })
+  )
+    return
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const today   = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
