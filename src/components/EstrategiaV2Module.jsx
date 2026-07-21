@@ -4,6 +4,7 @@ import {
   Shield, Zap, Users, BarChart3, Save, FileDown,
   ChevronRight, Link, CheckSquare, Square, Calculator,
   DollarSign, ArrowRight, Globe, Instagram, Trophy, Flag,
+  Eye, EyeOff,
 } from 'lucide-react'
 import { exportEstrategiaV2PDF } from '../utils/exportPDF'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
@@ -107,12 +108,14 @@ export default function EstrategiaV2Module({ project, onSave }) {
     return [{ vitorias: '', metas: '' }, { vitorias: '', metas: '' }, { vitorias: '', metas: '' }]
   })
   const [problemas,      setProblemas]      = useState(() => saved.problemas    || [])
-  const [swot,           setSwot]           = useState(() => saved.swot         || { forcas: '', fraquezas: '', oportunidades: '', ameacas: '' })
+  const [swot,           setSwot]           = useState(() => saved.swot         || { forcas: '', fraquezas: '', oportunidades: '', ameacas: '', oculto: false })
   const [concorrentes,   setConcorrentes]   = useState(() => saved.concorrentes || [])
   const [riscos,         setRiscos]         = useState(() => saved.riscos       || [])
   const [funis,          setFunis]          = useState(() => saved.funis        || [])
   const [activeTab,      setActiveTab]      = useState(0)
   const [problemaInput,  setProblemaInput]  = useState('')
+
+  const swotOculto = !!swot.oculto
 
   const isMounted = useRef(false)
 
@@ -307,31 +310,54 @@ export default function EstrategiaV2Module({ project, onSave }) {
       </div>
 
       {/* ═══ SEÇÃO 2: SWOT ════════════════════════════════════════════════ */}
-      <div className="glass-card p-5">
-        <SectionHeader
-          icon={BarChart3}
-          title="Análise SWOT"
-          subtitle="Avalie forças, fraquezas, oportunidades e ameaças do negócio"
-          color="text-rl-blue"
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {SWOT_CONFIG.map(({ key, label, icon: Icon, border, bg, text, placeholder }) => (
-            <div key={key} className={`rounded-xl border ${border} ${bg} p-4`}>
-              <div className={`flex items-center gap-2 mb-2 ${text}`}>
-                <Icon className="w-4 h-4" />
-                <span className="text-sm font-semibold">{label}</span>
-              </div>
-              <textarea
-                value={swot[key]}
-                onChange={e => setSwot(prev => ({ ...prev, [key]: e.target.value }))}
-                placeholder={placeholder}
-                rows={5}
-                className="w-full bg-transparent text-sm text-rl-text placeholder-rl-muted/50 resize-none outline-none leading-relaxed"
-              />
-            </div>
-          ))}
+      <div className={`glass-card p-5 transition-opacity ${swotOculto ? 'opacity-60' : ''}`}>
+        <div className="flex items-start justify-between gap-3">
+          <SectionHeader
+            icon={BarChart3}
+            title="Análise SWOT"
+            subtitle={swotOculto
+              ? 'Oculta — não será incluída no PDF deste cliente'
+              : 'Avalie forças, fraquezas, oportunidades e ameaças do negócio'}
+            color="text-rl-blue"
+          />
+          <button
+            onClick={() => setSwot(prev => ({ ...prev, oculto: !prev.oculto }))}
+            title={swotOculto ? 'Exibir a análise SWOT e incluí-la no PDF' : 'Ocultar a análise SWOT e removê-la do PDF'}
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+              swotOculto
+                ? 'border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-blue/40'
+                : 'border-rl-blue/30 bg-rl-blue/10 text-rl-blue hover:bg-rl-blue/15'
+            }`}
+          >
+            {swotOculto ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            {swotOculto ? 'Oculta' : 'Incluir no PDF'}
+          </button>
         </div>
+
+        {swotOculto ? (
+          <p className="text-sm text-rl-muted italic">
+            Análise SWOT desativada para este cliente. O conteúdo preenchido continua salvo — clique em
+            &ldquo;Oculta&rdquo; para reativar.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {SWOT_CONFIG.map(({ key, label, icon: Icon, border, bg, text, placeholder }) => (
+              <div key={key} className={`rounded-xl border ${border} ${bg} p-4`}>
+                <div className={`flex items-center gap-2 mb-2 ${text}`}>
+                  <Icon className="w-4 h-4" />
+                  <span className="text-sm font-semibold">{label}</span>
+                </div>
+                <textarea
+                  value={swot[key]}
+                  onChange={e => setSwot(prev => ({ ...prev, [key]: e.target.value }))}
+                  placeholder={placeholder}
+                  rows={5}
+                  className="w-full bg-transparent text-sm text-rl-text placeholder-rl-muted/50 resize-none outline-none leading-relaxed"
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ═══ SEÇÃO 3: BENCHMARK ═══════════════════════════════════════════ */}

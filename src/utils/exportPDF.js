@@ -1770,10 +1770,14 @@ export function exportEstrategiaV2PDF(project, data) {
     </div>
   ` : ''
 
+  // Numeração sequencial — seções ocultas não consomem número
+  let secCount = 0
+  const secN = () => String(++secCount).padStart(2, '0')
+
   // ── Problemas ─────────────────────────────────────────────────────────────
   const problemasHTML = `
     <div class="section">
-      <div class="section-title">01 · Problemas Identificados no Kickoff</div>
+      <div class="section-title">${secN()} · Problemas Identificados no Kickoff</div>
       ${problemas.length ? `
         <ul class="problema-list">
           ${problemas.map((p, i) => `
@@ -1785,9 +1789,10 @@ export function exportEstrategiaV2PDF(project, data) {
       ` : '<div class="empty-state">Nenhum problema registrado.</div>'}`
 
   // ── SWOT ──────────────────────────────────────────────────────────────────
-  const swotHTML = `
+  // Ocultável por projeto — quando swot.oculto === true, some do PDF por completo
+  const swotHTML = swot.oculto ? '' : `
     <div class="section page-break">
-      <div class="section-title">02 · Análise SWOT</div>
+      <div class="section-title">${secN()} · Análise SWOT</div>
       <div class="swot-grid">
         <div class="swot-cell forcas">
           <div class="swot-label">Forças</div>
@@ -1811,7 +1816,7 @@ export function exportEstrategiaV2PDF(project, data) {
   // ── Benchmark ─────────────────────────────────────────────────────────────
   const benchmarkHTML = `
     <div class="section page-break">
-      <div class="section-title">03 · Benchmark de Concorrentes</div>
+      <div class="section-title">${secN()} · Benchmark de Concorrentes</div>
       ${concorrentes.length ? concorrentes.map(c => `
         <div class="competitor-block">
           <div class="competitor-name">${esc(c.nome || 'Concorrente')}</div>
@@ -1835,7 +1840,7 @@ export function exportEstrategiaV2PDF(project, data) {
   const nivelLabel = { baixo: 'Baixo', medio: 'Médio', alto: 'Alto' }
   const riscosHTML = `
     <div class="section">
-      <div class="section-title">04 · Riscos do Projeto</div>
+      <div class="section-title">${secN()} · Riscos do Projeto</div>
       ${riscos.length ? `
         <table class="risk-table">
           <thead>
@@ -1861,7 +1866,7 @@ export function exportEstrategiaV2PDF(project, data) {
   // ── ICPs ──────────────────────────────────────────────────────────────────
   const icpsHTML = `
     <div class="section page-break">
-      <div class="section-title">05 · Resumo dos ICPs</div>
+      <div class="section-title">${secN()} · Resumo dos ICPs</div>
       ${personas.length ? `
         <div class="icp-grid">
           ${personas.map(p => {
@@ -1883,7 +1888,7 @@ export function exportEstrategiaV2PDF(project, data) {
   // ── Funis ─────────────────────────────────────────────────────────────────
   const funisHTML = `
     <div class="section">
-      <div class="section-title">06 · Tipos de Funis Selecionados</div>
+      <div class="section-title">${secN()} · Tipos de Funis Selecionados</div>
       ${funis.length ? `
         <div class="funil-grid">
           ${funis.map(f => `<div class="funil-item"><span class="funil-dot"></span>${esc(f)}</div>`).join('')}
@@ -1891,7 +1896,7 @@ export function exportEstrategiaV2PDF(project, data) {
       ` : '<div class="empty-state">Nenhum funil selecionado.</div>'}`
 
   // ── Metas do Funil (ROI) ─────────────────────────────────────────────────
-  let metasHTML = `<div class="section page-break"><div class="section-title">07 · Metas do Funil (ROI)</div>`
+  let metasHTML = `<div class="section page-break"><div class="section-title">${secN()} · Metas do Funil (ROI)</div>`
 
   if (!roiResult) {
     metasHTML += '<div class="empty-state">Calculadora de ROI não preenchida.</div>'
@@ -1956,7 +1961,7 @@ export function exportEstrategiaV2PDF(project, data) {
   // ── Campanhas ─────────────────────────────────────────────────────────────
   let campanhasHTML = `
     <div class="section page-break">
-      <div class="section-title">08 · Planejamento de Campanhas por Canais</div>`
+      <div class="section-title">${secN()} · Planejamento de Campanhas por Canais</div>`
 
   if (!campaignPlan || !campaignPlan.channels?.length) {
     campanhasHTML += '<div class="empty-state">Planejamento de campanhas não preenchido.</div>'
