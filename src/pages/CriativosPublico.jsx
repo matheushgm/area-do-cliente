@@ -3,19 +3,16 @@ import { useParams } from 'react-router-dom'
 import MarkdownBlock from '../components/Criativos/MarkdownBlock'
 import { AD_TYPES, postCriativo, streamCriativo } from '../lib/criativosPublic'
 import { FUNIS } from '../lib/funis'
+import { NIVEIS_CONSCIENCIA, NIVEIS_BY_ID, distribute, QTD_PRESETS } from '../lib/niveisConsciencia'
 import {
   Sparkles, Loader2, AlertTriangle, Lock, ArrowLeft, ArrowRight, Image as ImageIcon, Video,
   CheckCircle2, RotateCcw, Copy, Check, Plus, X, ChevronLeft, Wand2, Layers,
 } from 'lucide-react'
 
-// Cada tipo de criativo gera 1 peça por nível de consciência (Eugene Schwartz).
-const NIVEIS = 5
-// Máximo de tipos por geração no link do cliente: 3 tipos x 5 níveis = 15 peças.
-// Espelha o servidor (api/criativos-public.js).
+// Máximo de blocos (tipos no vídeo, dor x tipo no estático) e teto de peças por
+// geração no link do cliente. Espelha o servidor (api/criativos-public.js).
 const MAX_BLOCOS = 3
-
-const NIVEIS_LABEL =
-  'Cada tipo gera 5 peças, uma por nível de consciência: inconsciente do problema, consciente do problema, da solução, do produto e totalmente consciente.'
+const MAX_PECAS = 15
 
 // Divide o output da IA em peças individuais (um roteiro / um bloco de dor por
 // card). Usa o separador "---" (que as prompts pedem); se não houver, cai nos
@@ -65,6 +62,8 @@ export default function CriativosPublico() {
   const [selectedProduct, setSelectedProduct] = useState('') // id do produto (opcional)
   const [selectedPersona, setSelectedPersona] = useState('') // id da persona (opcional)
   const [funil, setFunil] = useState('') // id do funil escolhido
+  const [nivel, setNivel] = useState('') // nível de consciência do público
+  const [quantidade, setQuantidade] = useState(5) // total de peças da geração
   const [detalhes, setDetalhes] = useState('') // particularidades deste anúncio
   const [result, setResult] = useState('')
   const [copied, setCopied] = useState(false)
@@ -100,7 +99,7 @@ export default function CriativosPublico() {
   // se o cliente tiver produtos ou personas cadastrados.
   const steps = useMemo(() => {
     const hasFoco = (ctx?.produtos?.length || 0) > 0 || (ctx?.personas?.length || 0) > 0
-    return [...(hasFoco ? ['foco'] : []), 'funil', 'tipo', 'obs']
+    return [...(hasFoco ? ['foco'] : []), 'funil', 'nivel', 'tipo', 'obs']
   }, [ctx])
   const step = steps[Math.min(stepIdx, steps.length - 1)]
 
@@ -184,9 +183,13 @@ export default function CriativosPublico() {
   // ── Gerar ─────────────────────────────────────────────────────────────────
   const isVideo = mode === 'video'
   const blocos = isVideo ? videoTypes.length : staticBlocos
-  const totalPecas = blocos * NIVEIS
+  const totalPecas = quantidade
   const excedeu = blocos > MAX_BLOCOS
-  const canGenerate = blocos > 0 && !excedeu && !!funil
+  // Cada bloco precisa de pelo menos 1 peça — senão a distribuição zeraria algum.
+  const qtdInsuficiente = blocos > 0 && quantidade < blocos
+  // Quantas peças cada bloco recebe: distribute(8, 3) → [3, 3, 2]
+  const split = distribute(quantidade, blocos)
+  const canGenerate = blocos > 0 && !excedeu && !qtdInsuficiente && !!funil && !!nivel
 
   async function generate() {
     if (!canGenerate) return
@@ -197,7 +200,7 @@ export default function CriativosPublico() {
       ? { adTypes: videoTypes }
       : { dores: selectedDores.map((d) => ({ text: d.text, types: Object.keys(dorConfig[d.id].types) })) }
     try {
-      const payload = { ...creds(), mode, funil, detalhes: detalhesTrim, productId: selectedProduct, personaId: selectedPersona, ...selection }
+      const payload = { ...creds(), mode, funil, nivel, quantidade, detalhes: detalhesTrim, productId: selectedProduct, personaId: selectedPersona, ...selection }
       const full = await streamCriativo('generate', payload, setResult, abortRef.current.signal)
       setResult(full)
       setStatus('result')
@@ -224,7 +227,8 @@ export default function CriativosPublico() {
   // Pode avançar do passo atual?
   function canAdvance(s) {
     if (s === 'funil') return !!funil
-    if (s === 'tipo') return blocos > 0 && !excedeu
+    if (s === 'nivel') return !!nivel
+    if (s === 'tipo') return blocos > 0 && !excedeu && !qtdInsuficiente
     return true // 'foco' e 'obs' são livres
   }
   function nextStep() {
@@ -526,17 +530,82 @@ export default function CriativosPublico() {
           </div>
         )}
 
+        {/* ── Passo: nível de consciência do público ───────────────────────── */}
+        {step === 'nivel' && (
+          <div className="space-y-3">
+            <p className="text-sm text-rl-muted">
+              Em que ponto está quem vai ver este anúncio, em relação a esta oferta? Todos os
+              criativos são escritos nesse nível — é o que define a dor a atacar e o quanto
+              precisa explicar.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {NIVEIS_CONSCIENCIA.map((n) => {
+                const on = nivel === n.id
+                return (
+                  <button key={n.id} onClick={() => setNivel(on ? '' : n.id)}
+                    className={`flex items-start gap-2 rounded-lg p-2.5 text-left border transition-all ${on ? 'bg-rl-purple/10 border-rl-purple/50' : 'bg-rl-surface border-rl-border hover:border-rl-purple/30'}`}>
+                    <span className={`text-[10px] font-bold leading-none mt-0.5 w-4 h-4 shrink-0 rounded-full flex items-center justify-center ${on ? 'bg-rl-purple text-white' : 'bg-rl-border/60 text-rl-muted'}`}>
+                      {n.num}
+                    </span>
+                    <span className="min-w-0">
+                      <span className={`block text-xs font-bold leading-tight ${on ? 'text-rl-purple' : 'text-rl-text'}`}>{n.label}</span>
+                      <span className="block text-[10px] text-rl-muted leading-tight mt-0.5">{n.hint}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── Passo: tipo de mensagem (ganchos / dores + ângulo) ───────────── */}
         {step === 'tipo' && (
           <div className="space-y-3">
-            <div className="flex items-start gap-2 rounded-xl border border-rl-purple/30 bg-rl-purple/5 px-3 py-2.5">
-              <Layers className="w-4 h-4 text-rl-purple shrink-0 mt-0.5" />
-              <p className="text-[11px] text-rl-muted leading-snug">{NIVEIS_LABEL}</p>
+            {nivel && (
+              <div className="flex items-start gap-2 rounded-xl border border-rl-purple/30 bg-rl-purple/5 px-3 py-2.5">
+                <Layers className="w-4 h-4 text-rl-purple shrink-0 mt-0.5" />
+                <p className="text-[11px] text-rl-muted leading-snug">
+                  Todas as peças falam com um público{' '}
+                  <strong className="text-rl-text">{NIVEIS_BY_ID[nivel].label.toLowerCase()}</strong>{' '}
+                  ({NIVEIS_BY_ID[nivel].hint.toLowerCase()}).
+                </p>
+              </div>
+            )}
+
+            {/* Quantidade total desta geração */}
+            <div className="rounded-xl border border-rl-border bg-rl-surface/40 px-3 py-2.5 space-y-2">
+              <p className="text-[11px] text-rl-muted leading-snug">
+                Quantos {isVideo ? 'roteiros' : 'headlines'} você quer? O total é distribuído entre{' '}
+                {isVideo ? 'os tipos escolhidos' : 'as combinações escolhidas'}.
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                {QTD_PRESETS.map((q) => (
+                  <button key={q} onClick={() => setQuantidade(q)}
+                    className={`w-10 h-8 rounded-lg text-xs font-bold border transition-all ${quantidade === q ? 'bg-rl-blue/10 border-rl-blue/50 text-rl-blue' : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-blue/30 hover:text-rl-text'}`}>
+                    {q}
+                  </button>
+                ))}
+                <span className="text-[10px] text-rl-muted px-1">ou</span>
+                <input
+                  type="number" min={1} max={MAX_PECAS} value={quantidade}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10)
+                    setQuantidade(Number.isNaN(v) ? 1 : Math.min(Math.max(v, 1), MAX_PECAS))
+                  }}
+                  className="input-field w-20 text-sm"
+                />
+              </div>
+              {qtdInsuficiente && (
+                <p className="text-[11px] text-red-400 leading-snug">
+                  {quantidade} peças para {blocos} {isVideo ? 'tipos' : 'combinações'} deixaria
+                  alguma sem criativo. Aumente para pelo menos {blocos}.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-between gap-2">
               <p className="text-[11px] text-rl-muted">
-                Escolha até <strong className="text-rl-text">{MAX_BLOCOS}</strong> {isVideo ? 'tipos' : 'combinações'} ({MAX_BLOCOS * NIVEIS} criativos no máximo).
+                Escolha até <strong className="text-rl-text">{MAX_BLOCOS}</strong> {isVideo ? 'tipos' : 'combinações'} (máx. {MAX_PECAS} criativos).
               </p>
               {blocos > 0 && (
                 <p className="text-[11px] font-bold text-rl-purple whitespace-nowrap">
@@ -559,7 +628,7 @@ export default function CriativosPublico() {
                         <span className={`text-xs font-bold flex-1 ${selected ? 'text-rl-purple' : 'text-rl-text'}`}>{type.label}</span>
                         {selected && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/20 text-rl-purple border border-rl-purple/30 shrink-0">
-                            5 roteiros
+                            {split[videoTypes.indexOf(type.id)] ?? 0} roteiros
                           </span>
                         )}
                       </div>
@@ -607,7 +676,7 @@ export default function CriativosPublico() {
                       {selected && (
                         <div className="mt-3 pl-6 space-y-2">
                           <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">
-                            Ângulo do anúncio {Object.keys(types).length > 0 && `· ${Object.keys(types).length * NIVEIS} headlines`}
+                            Ângulo do anúncio {Object.keys(types).length > 0 && `· ${Object.keys(types).length} combinação(ões)`}
                           </p>
                           <div className="flex flex-wrap gap-1.5">
                             {AD_TYPES.map((t) => {
@@ -662,6 +731,7 @@ export default function CriativosPublico() {
             {/* Resumo das escolhas */}
             <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 text-[11px] text-rl-muted space-y-0.5">
               <p><span className="text-rl-text font-semibold">Funil:</span> {FUNIS.find((f) => f.id === funil)?.label || '—'}</p>
+              <p><span className="text-rl-text font-semibold">Consciência:</span> {nivel ? `Nível ${NIVEIS_BY_ID[nivel].num} — ${NIVEIS_BY_ID[nivel].label}` : '—'}</p>
               <p><span className="text-rl-text font-semibold">Total:</span> {totalPecas} {isVideo ? 'roteiros' : 'headlines'} ({blocos} {isVideo ? 'tipo(s)' : 'combinação(ões)'})</p>
             </div>
           </div>
@@ -688,7 +758,13 @@ export default function CriativosPublico() {
           ) : (
             <button onClick={nextStep} disabled={!canAdvance(step)}
               className="btn-primary flex items-center gap-2 text-sm px-6 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed">
-              {step === 'funil' && !funil ? 'Escolha um funil' : step === 'tipo' && !blocos ? 'Selecione ao menos um' : 'Continuar'}
+              {step === 'funil' && !funil
+                ? 'Escolha um funil'
+                : step === 'nivel' && !nivel
+                  ? 'Escolha o nível'
+                  : step === 'tipo' && !blocos
+                    ? 'Selecione ao menos um'
+                    : 'Continuar'}
               <ArrowRight className="w-4 h-4" />
             </button>
           )}

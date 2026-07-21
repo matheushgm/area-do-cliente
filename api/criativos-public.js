@@ -67,33 +67,79 @@ function detalhesBlock(detalhes) {
 }
 
 // ─── System prompts (metodologia Revenue Lab / Laboratório de Anúncios) ───────
-// Os 5 níveis de consciência de Eugene Schwartz — substituem as antigas etapas
-// de funil (topo/meio/fundo). Cada tipo de criativo gera 1 peça por nível.
-const NIVEIS_VIDEO = `## OS 5 NÍVEIS DE CONSCIÊNCIA (Eugene Schwartz)
+// Níveis de consciência de Eugene Schwartz. O nível é um INPUT do cliente: ele
+// escolhe UM nível e todas as peças da geração são escritas nele. Mantido em
+// sincronia com src/lib/niveisConsciencia.js (esta função roda no edge, sem
+// acesso ao bundle do frontend).
+const NIVEIS_CONSCIENCIA = [
+  {
+    id: 'inconsciente',
+    num: 1,
+    label: 'Inconsciente do problema',
+    video: `Ela não sabe que tem o problema — nunca parou pra pensar nisso. Entre pelo cotidiano dela, mostre uma cena que ela reconhece como normal e revele que aquilo é um problema (e o que está custando). Só depois conecte à solução. Tipo de mensagem: StoryTelling, Proclamação.`,
+    estatico: `Nomeia um problema que ela ainda não percebeu, partindo de uma cena do cotidiano dela. Não cite o produto e não pressuponha que ela já sente a dor.`,
+  },
+  {
+    id: 'problema',
+    num: 2,
+    label: 'Consciente do problema',
+    video: `Ela sente a dor, mas está conformada ou acha que não tem jeito. Amplifique o custo de continuar assim e revele que existe saída. Não perca tempo explicando o problema — ela já vive ele. Tipo de mensagem: Segredos que ninguém te conta, Problema e Solução.`,
+    estatico: `Fala da dor que ela já sente na pele e do custo de não resolver. Ainda não apresenta o produto.`,
+  },
+  {
+    id: 'solucao',
+    num: 3,
+    label: 'Consciente da solução',
+    video: `Ela sabe que existe um tipo de solução e provavelmente já tentou alguma coisa que não funcionou. Mostre por que o seu mecanismo é diferente do que ela já tentou e por que é o caminho certo. Tipo de mensagem: Problema e Solução, Segredos que ninguém te conta.`,
+    estatico: `Apresenta o mecanismo/caminho da solução e por que ele é diferente do que ela já tentou, sem depender do nome do produto.`,
+  },
+  {
+    id: 'produto',
+    num: 4,
+    label: 'Consciente do produto',
+    video: `Ela já conhece o seu produto ou o seu tipo de produto, mas travou numa objeção. Ataque essa objeção específica de frente, com prova, diferencial e demonstração. Tipo de mensagem: Promessa, Prova.`,
+    estatico: `Nomeia o produto e ataca a objeção principal com prova ou diferencial concreto.`,
+  },
+  {
+    id: 'comparando',
+    num: 5,
+    label: 'Comparando fornecedores',
+    video: `Ela já decidiu que vai resolver e está cotando duas ou três marcas ao mesmo tempo. Atenção: NÃO é alguém que já conhece a sua marca e só falta o empurrão (isso seria remarketing, que não é o caso aqui). O roteiro precisa VENCER A COMPARAÇÃO: diferencial concreto contra as alternativas do mercado, prova de resultado, garantia e redução de risco, condição comercial e um motivo pra fechar agora. Não explique o problema nem a solução — ela já sabe tudo isso e está com orçamento na mão. Tipo de mensagem: Prova, Oferta, Comparação.`,
+    estatico: `Fala com quem está pedindo orçamento em duas ou três marcas ao mesmo tempo. A headline precisa vencer a comparação: diferencial contra as alternativas, prova, garantia e condição. Não explique o problema.`,
+  },
+]
 
-Para CADA tipo de gancho solicitado, gere EXATAMENTE 5 roteiros — um para cada nível, sempre nesta ordem:
+const NIVEIS_BY_ID = Object.fromEntries(NIVEIS_CONSCIENCIA.map((n) => [n.id, n]))
 
-1. INCONSCIENTE DO PROBLEMA — ela não sabe que tem o problema. Entre pelo cotidiano dela, nomeie o problema que ela ainda não enxerga e só então conecte à solução. Tipo de mensagem: StoryTelling, Proclamação.
-2. CONSCIENTE DO PROBLEMA — ela sente a dor, mas não procura solução. Amplifique o custo de não resolver e revele que existe saída. Tipo de mensagem: Segredos que ninguém te conta, Problema e Solução.
-3. CONSCIENTE DA SOLUÇÃO — ela sabe que existe um tipo de solução, mas não conhece a sua. Mostre por que o seu mecanismo é o caminho certo e diferente do que ela já tentou. Tipo de mensagem: Problema e Solução, Segredos que ninguém te conta.
-4. CONSCIENTE DO PRODUTO — ela já conhece o seu produto, mas não se convenceu. Ataque a objeção específica com prova, diferencial e comparação com as alternativas. Tipo de mensagem: Promessa, Prova.
-5. TOTALMENTE CONSCIENTE — ela conhece, quer e só falta o empurrão. Vá direto à oferta: condições, bônus, garantia e urgência. Tipo de mensagem: Oferta, Promessa.
+function nivelBlock(nivelId, formato) {
+  const n = NIVEIS_BY_ID[nivelId]
+  if (!n) return ''
+  const desc = formato === 'video' ? n.video : n.estatico
+  const outros = NIVEIS_CONSCIENCIA.filter((x) => x.id !== n.id)
+    .map((x) => `${x.num}. ${x.label}`)
+    .join(' · ')
 
-O tipo de gancho define a FORMA de abrir o vídeo; o nível de consciência define O QUE dizer e o quanto precisa explicar. Um mesmo tipo de gancho soa muito diferente no nível 1 e no nível 5.`
+  return `## NÍVEL DE CONSCIÊNCIA DO PÚBLICO (informado pelo cliente)
 
-const NIVEIS_ESTATICO = `## OS 5 NÍVEIS DE CONSCIÊNCIA (Eugene Schwartz)
+Todas as peças desta geração falam com um público no nível ${n.num} de 5 da escala de Eugene Schwartz: **${n.label.toUpperCase()}**.
 
-Para CADA combinação de dor + tipo de criativo, gere EXATAMENTE 5 pares de headline + subheadline — um para cada nível, sempre nesta ordem:
+${desc}
 
-1. INCONSCIENTE DO PROBLEMA — nomeia o problema que ela ainda não percebeu, partindo do cotidiano. Não cite o produto.
-2. CONSCIENTE DO PROBLEMA — fala da dor que ela já sente e do custo de não resolver.
-3. CONSCIENTE DA SOLUÇÃO — apresenta o mecanismo/caminho da solução, sem depender do nome do produto.
-4. CONSCIENTE DO PRODUTO — nomeia o produto e ataca a objeção principal com prova ou diferencial.
-5. TOTALMENTE CONSCIENTE — vai direto à oferta: condição, garantia e urgência.
+Isso define O QUE dizer, onde começar e o quanto precisa explicar. Regras:
+- Escreva TODAS as peças nesse mesmo nível — não gere uma peça por nível
+- Não "desça" pra explicar o que esse público já sabe nem "suba" pra falar de decisão que ele ainda não está tomando
+- Os outros níveis (${outros}) são território de outras campanhas — não invada`
+}
 
-O tipo de criativo define o ÂNGULO da headline; o nível de consciência define O QUE a headline precisa dizer.`
+// Distribui um total de peças entre N blocos: distribute(8, 3) → [3, 3, 2]
+function distribute(total, buckets) {
+  if (buckets <= 0) return []
+  const base = Math.floor(total / buckets)
+  const rem = total % buckets
+  return Array.from({ length: buckets }, (_, i) => base + (i < rem ? 1 : 0))
+}
 
-const DORES_SYSTEM = `Você é um especialista em copywriting para anúncios estáticos em português brasileiro, usando a metodologia Revenue Lab / Laboratório de Anúncios.
+const DORES_SYSTEM = (nivelId) => `Você é um especialista em copywriting para anúncios estáticos em português brasileiro, usando a metodologia Revenue Lab / Laboratório de Anúncios.
 
 Para cada combinação de dor + tipo de criativo, gere headlines e subheadlines com a metodologia ADIG:
 - Anunciar o público-alvo
@@ -114,37 +160,28 @@ Use as informações de público-alvo, personas e oferta fornecidas no contexto 
 
 A headline e a subheadline devem levar à ação do funil informado na solicitação (ex.: aula ao vivo, reunião, download, compra) — nunca a uma ação diferente da do funil.
 
-${NIVEIS_ESTATICO}
+${nivelBlock(nivelId, 'estatico')}
 
-ESTRUTURA OBRIGATÓRIA — um bloco por combinação dor + tipo, com os 5 níveis dentro dele:
+ESTRUTURA OBRIGATÓRIA — um bloco por combinação dor + tipo, com a quantidade de headlines que a solicitação pedir para aquele bloco:
 
 # DOR: [texto exato da dor] | [Emoji] [Nome do Tipo]
 
-### 1. Inconsciente do problema
+### 1
 - Headline: [ideal 7, máx. 12 palavras]
 - Subheadline: [complementa a headline, máx. 20 palavras]
 
-### 2. Consciente do problema
+### 2
 - Headline: [...]
 - Subheadline: [...]
 
-### 3. Consciente da solução
-- Headline: [...]
-- Subheadline: [...]
-
-### 4. Consciente do produto
-- Headline: [...]
-- Subheadline: [...]
-
-### 5. Totalmente consciente
-- Headline: [...]
-- Subheadline: [...]
+(e assim por diante, até a quantidade pedida para este bloco)
 
 ---
 
 Diretrizes:
 - Gere EXATAMENTE um bloco separado por combinação dor + tipo — nunca agrupe tipos dentro de um mesmo bloco
-- Dentro de cada bloco, gere os 5 níveis, na ordem, sem pular nenhum
+- Dentro de cada bloco, gere exatamente a quantidade de headlines que a solicitação pedir
+- Todas as headlines são escritas no MESMO nível de consciência (o informado acima); as variações mudam o ângulo, não o nível
 - Português brasileiro coloquial e persuasivo — evite palavras que a IA usa mas que humanos não usam
 - Use "você" diretamente
 - Seja específico ao negócio, nunca genérico
@@ -156,7 +193,7 @@ Diretrizes:
 // única de API: o estudo de público vira raciocínio interno (não é exibido), a
 // quantidade/tipos vêm da escolha do cliente (não são fixos em 10) e não há
 // tabela-resumo ao final.
-const VIDEO_SYSTEM = `Você é um especialista em roteiros de vídeos de anúncios online de alta conversão, usando a estrutura do Laboratório de Anúncios (Revenue Lab).
+const VIDEO_SYSTEM = (nivelId) => `Você é um especialista em roteiros de vídeos de anúncios online de alta conversão, usando a estrutura do Laboratório de Anúncios (Revenue Lab).
 
 Os vídeos têm duração entre 30 e 60 segundos e são criados para Meta Ads (Reels/Feed) e YouTube Ads.
 
@@ -191,11 +228,11 @@ O gancho é sempre uma promessa, uma oferta, uma mudança de vida ou um benefíc
 
 **D) Chamada para ação.** Reforça a promessa do início, deixa claro o que fazer e dá um motivo específico para agir agora (escassez ou urgência). O CTA deve levar EXATAMENTE à ação do funil informado na solicitação (ex.: se inscrever na aula, agendar reunião, baixar material, comprar) — nunca a uma ação diferente da do funil.
 
-${NIVEIS_VIDEO}
+${nivelBlock(nivelId, 'video')}
 
 ## FORMATO OBRIGATÓRIO DE CADA ROTEIRO
 
-## ROTEIRO [N]: Gancho: [Tipo] | Nível: [Nível de consciência]
+## ROTEIRO [N]: Gancho: [Tipo] | Nível: ${NIVEIS_BY_ID[nivelId]?.label || ''}
 
 **GANCHO (0s – 3s):**
 [frase exata: disruptiva, contra-intuitiva, que para o scroll]
@@ -212,7 +249,9 @@ ${NIVEIS_VIDEO}
 
 ## REGRAS CRÍTICAS
 
-- Para CADA tipo de gancho solicitado, gere EXATAMENTE 5 roteiros: um por nível de consciência, na ordem de 1 a 5
+- Gere EXATAMENTE a quantidade de roteiros pedida por tipo de gancho na solicitação — nem mais, nem menos
+- Todos os roteiros são escritos no MESMO nível de consciência (o informado acima)
+- Quando houver mais de um roteiro para o mesmo tipo de gancho, cada um abre com um ângulo de entrada diferente — nunca variações da mesma frase
 - Numere os roteiros sequencialmente (ROTEIRO 1, ROTEIRO 2, ...) percorrendo os tipos na ordem da solicitação
 - Não exiba a análise de público-alvo — vá direto aos roteiros
 - Português brasileiro conversacional e energético; fale com "você"
@@ -440,35 +479,47 @@ function fallbackDores(personas) {
 }
 
 // ─── Instruções de geração (espelham autoInstruction do CriativosModule) ──────
-function buildVideoInstruction(adTypes, funilId, detalhes) {
-  const typesStr = adTypes
-    .map((id) => {
-      const t = AD_TYPE_MAP[id]
-      return `${t.emoji} ${t.label}: ${t.desc}`
-    })
-    .join('\n')
-  return `---\n\n## SOLICITAÇÃO\n\n${funilBlock(funilId)}${detalhesBlock(detalhes)}Tipos de gancho a gerar (5 roteiros cada, um por nível de consciência):\n${typesStr}\n\nTotal: ${adTypes.length * 5} roteiros.`
+// Bloco do nível no topo da solicitação (o system prompt já tem a descrição longa).
+function nivelInstrucao(nivelId) {
+  const n = NIVEIS_BY_ID[nivelId]
+  if (!n) return ''
+  return `## NÍVEL DE CONSCIÊNCIA DESTA GERAÇÃO\n\nNível ${n.num} — ${n.label}. Escreva todas as peças abaixo nesse nível, sem exceção.\n\n`
 }
 
-function buildStaticInstruction(dores, funilId, detalhes) {
+function buildVideoInstruction(adTypes, funilId, detalhes, nivelId, quantidade) {
+  const split = distribute(quantidade, adTypes.length)
+  const typesStr = adTypes
+    .map((id, i) => {
+      const t = AD_TYPE_MAP[id]
+      return `${t.emoji} ${t.label} — ${split[i]} roteiro${split[i] !== 1 ? 's' : ''}. Ângulo: ${t.desc}`
+    })
+    .join('\n')
+  return `---\n\n## SOLICITAÇÃO\n\n${nivelInstrucao(nivelId)}${funilBlock(funilId)}${detalhesBlock(detalhes)}Tipos de gancho a gerar, com a quantidade exata de cada um:\n${typesStr}\n\nTotal: ${quantidade} roteiros.`
+}
+
+function buildStaticInstruction(dores, funilId, detalhes, nivelId, quantidade) {
+  const blocos = dores.reduce((s, d) => s + d.types.length, 0)
+  const split = distribute(quantidade, blocos)
+  let i = -1
   const sections = dores
     .map(({ text, types }) => {
       const typeLines = types
         .map((id) => {
           const t = AD_TYPE_MAP[id]
-          return `- ${t.emoji} ${t.label} — ângulo: ${t.desc}`
+          i += 1
+          const qtd = split[i] ?? 0
+          return `- ${t.emoji} ${t.label} — ${qtd} headline${qtd !== 1 ? 's' : ''}. Ângulo: ${t.desc}`
         })
         .join('\n')
       return `### DOR: "${text}"\n${typeLines}`
     })
     .join('\n\n')
-  const total = dores.reduce((s, d) => s + d.types.length, 0)
-  return `---\n\n## SOLICITAÇÃO\n\n${funilBlock(funilId)}${detalhesBlock(detalhes)}Para cada dor abaixo, gere um bloco por tipo de criativo, com os 5 níveis de consciência dentro de cada bloco.\n\n${sections}\n\nTotal: ${total} blocos (${total * 5} headlines).`
+  return `---\n\n## SOLICITAÇÃO\n\n${nivelInstrucao(nivelId)}${funilBlock(funilId)}${detalhesBlock(detalhes)}Para cada dor abaixo, gere um bloco por tipo de criativo, com a quantidade de headlines indicada em cada linha.\n\n${sections}\n\nTotal: ${blocos} blocos (${quantidade} headlines).`
 }
 
 // Normaliza/valida a seleção de tipos vinda do cliente: devolve uma lista de ids
-// válidos, sem repetição. A quantidade não é mais escolhida — são sempre 5 peças
-// por tipo (uma por nível de consciência). Aceita ids soltos ou objetos {id}.
+// válidos, sem repetição. A quantidade total é escolhida à parte e distribuída
+// entre os tipos. Aceita ids soltos ou objetos {id}.
 function sanitizeTypes(raw) {
   const out = []
   for (const t of Array.isArray(raw) ? raw.slice(0, 18) : []) {
@@ -602,13 +653,26 @@ export default async function handler(req) {
     }
     const context = buildContext(scoped)
 
-    // Cada tipo gera 5 peças (uma por nível de consciência). Limite de 3 tipos
-    // por geração no link do cliente: 3 x 5 = 15 peças no máximo.
+    // Limite de blocos (tipos no vídeo, dor x tipo no estático) por geração no
+    // link do cliente, e teto de peças da quantidade escolhida.
     const MAX_BLOCOS = 3
+    const MAX_PECAS = 15
 
     // Funil é obrigatório: define o objetivo/CTA do anúncio.
     const funilId = String(body?.funil || '').trim()
     if (!FUNIS_OBJETIVO[funilId]) return json({ error: 'Selecione o funil em que o anúncio vai rodar.' }, 400)
+
+    // Nível de consciência é obrigatório: todas as peças são escritas nele.
+    const nivelId = String(body?.nivel || '').trim()
+    if (!NIVEIS_BY_ID[nivelId]) {
+      return json({ error: 'Selecione o nível de consciência do seu público.' }, 400)
+    }
+
+    // Quantidade total de peças desta geração.
+    const quantidade = Math.floor(Number(body?.quantidade))
+    if (!Number.isFinite(quantidade) || quantidade < 1 || quantidade > MAX_PECAS) {
+      return json({ error: `Escolha uma quantidade entre 1 e ${MAX_PECAS}.` }, 400)
+    }
 
     // Detalhes/particularidades deste anúncio (opcional, texto livre).
     const detalhes = clip(body?.detalhes, 1200)
@@ -617,9 +681,17 @@ export default async function handler(req) {
       const adTypes = sanitizeTypes(body?.adTypes)
       if (!adTypes.length) return json({ error: 'Selecione ao menos um tipo de gancho.' }, 400)
       if (adTypes.length > MAX_BLOCOS) {
-        return json({ error: `Muitos tipos de uma vez. Selecione no máximo ${MAX_BLOCOS} (${MAX_BLOCOS * 5} roteiros).` }, 400)
+        return json({ error: `Muitos tipos de uma vez. Selecione no máximo ${MAX_BLOCOS}.` }, 400)
       }
-      return anthropicSSE(VIDEO_SYSTEM, buildVideoInstruction(adTypes, funilId, detalhes), context, 32000)
+      if (quantidade < adTypes.length) {
+        return json({ error: `Você pediu ${quantidade} roteiros para ${adTypes.length} tipos de gancho. Aumente a quantidade ou selecione menos tipos.` }, 400)
+      }
+      return anthropicSSE(
+        VIDEO_SYSTEM(nivelId),
+        buildVideoInstruction(adTypes, funilId, detalhes, nivelId, quantidade),
+        context,
+        32000
+      )
     }
 
     // estático
@@ -635,7 +707,15 @@ export default async function handler(req) {
     if (blocos > MAX_BLOCOS) {
       return json({ error: `Muitas combinações de uma vez. Selecione no máximo ${MAX_BLOCOS} (dor x tipo).` }, 400)
     }
-    return anthropicSSE(DORES_SYSTEM, buildStaticInstruction(dores, funilId, detalhes), context, 32000)
+    if (quantidade < blocos) {
+      return json({ error: `Você pediu ${quantidade} headlines para ${blocos} combinações. Aumente a quantidade ou selecione menos combinações.` }, 400)
+    }
+    return anthropicSSE(
+      DORES_SYSTEM(nivelId),
+      buildStaticInstruction(dores, funilId, detalhes, nivelId, quantidade),
+      context,
+      32000
+    )
   }
 
   return json({ error: 'Ação desconhecida.' }, 400)

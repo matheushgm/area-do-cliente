@@ -3,6 +3,14 @@ import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
 import { buildCachedPayload } from '../lib/buildContext'
 import {
+  NIVEIS_CONSCIENCIA,
+  NIVEIS_BY_ID,
+  nivelBlock,
+  distribute,
+  QTD_PRESETS,
+  QTD_MAX,
+} from '../lib/niveisConsciencia'
+import {
   Image,
   Video,
   Sparkles,
@@ -217,38 +225,9 @@ Diretrizes obrigatórias:
 - Não use travessões (—) em nenhuma parte do output
 - Separe cada anúncio com "---"`
 
-// Cada tipo de criativo gera 1 peça por nível de consciência (Eugene Schwartz).
-const NIVEIS = 5
-
 // Valor sentinela nos selects de escopo: "não enviar esse contexto à IA".
 // Diferente de '' (todos) — zera o array de produtos/personas no scopedProject.
 const NO_CONTEXT = '__none__'
-
-// Os 5 níveis de consciência de Eugene Schwartz — substituem as antigas etapas de
-// funil (topo/meio/fundo). Mantido em sincronia com api/criativos-public.js.
-const NIVEIS_VIDEO = `## OS 5 NÍVEIS DE CONSCIÊNCIA (Eugene Schwartz)
-
-Para CADA tipo de gancho solicitado, gere EXATAMENTE 5 roteiros — um para cada nível, sempre nesta ordem:
-
-1. INCONSCIENTE DO PROBLEMA — ela não sabe que tem o problema. Entre pelo cotidiano dela, nomeie o problema que ela ainda não enxerga e só então conecte à solução. Tipo de mensagem: StoryTelling, Proclamação.
-2. CONSCIENTE DO PROBLEMA — ela sente a dor, mas não procura solução. Amplifique o custo de não resolver e revele que existe saída. Tipo de mensagem: Segredos que ninguém te conta, Problema e Solução.
-3. CONSCIENTE DA SOLUÇÃO — ela sabe que existe um tipo de solução, mas não conhece a sua. Mostre por que o seu mecanismo é o caminho certo e diferente do que ela já tentou. Tipo de mensagem: Problema e Solução, Segredos que ninguém te conta.
-4. CONSCIENTE DO PRODUTO — ela já conhece o seu produto, mas não se convenceu. Ataque a objeção específica com prova, diferencial e comparação com as alternativas. Tipo de mensagem: Promessa, Prova.
-5. TOTALMENTE CONSCIENTE — ela conhece, quer e só falta o empurrão. Vá direto à oferta: condições, bônus, garantia e urgência. Tipo de mensagem: Oferta, Promessa.
-
-O tipo de gancho define a FORMA de abrir o vídeo; o nível de consciência define O QUE dizer e o quanto precisa explicar.`
-
-const NIVEIS_ESTATICO = `## OS 5 NÍVEIS DE CONSCIÊNCIA (Eugene Schwartz)
-
-Para CADA combinação de dor + tipo de criativo, gere EXATAMENTE 5 pares de headline + subheadline — um para cada nível, sempre nesta ordem:
-
-1. INCONSCIENTE DO PROBLEMA — nomeia o problema que ela ainda não percebeu, partindo do cotidiano. Não cite o produto.
-2. CONSCIENTE DO PROBLEMA — fala da dor que ela já sente e do custo de não resolver.
-3. CONSCIENTE DA SOLUÇÃO — apresenta o mecanismo/caminho da solução, sem depender do nome do produto.
-4. CONSCIENTE DO PRODUTO — nomeia o produto e ataca a objeção principal com prova ou diferencial.
-5. TOTALMENTE CONSCIENTE — vai direto à oferta: condição, garantia e urgência.
-
-O tipo de criativo define o ÂNGULO da headline; o nível de consciência define O QUE a headline precisa dizer.`
 
 const VIDEO_SYSTEM_PARTS = {
   metodologia: `Você é um especialista em roteiros de vídeos de anúncios online de alta conversão, usando a estrutura do Laboratório de Anúncios (Revenue Lab).
@@ -273,12 +252,12 @@ A partir do contexto do cliente, levante mentalmente: 8 problemas comuns, 8 sonh
 
 **D) Chamada para ação.** Reforça a promessa e dá um motivo específico para agir agora (escassez ou urgência).`,
 
-  estrutura: `
-${NIVEIS_VIDEO}
+  estrutura: (nivelId) => `
+${nivelBlock(nivelId, 'video')}
 
 ## FORMATO OBRIGATÓRIO DE CADA ROTEIRO
 
-## ROTEIRO [N]: Gancho: [Tipo] | Nível: [Nível de consciência]
+## ROTEIRO [N]: Gancho: [Tipo] | Nível: ${NIVEIS_BY_ID[nivelId]?.label || ''}
 
 **GANCHO (0s – 3s):**
 [frase exata: disruptiva, contra-intuitiva, que para o scroll]
@@ -294,7 +273,9 @@ ${NIVEIS_VIDEO}
 ---`,
 
   diretrizes: `Regras críticas:
-- Para CADA tipo de gancho solicitado, gere EXATAMENTE 5 roteiros: um por nível de consciência, na ordem de 1 a 5
+- Gere EXATAMENTE a quantidade de roteiros pedida por tipo de gancho na solicitação — nem mais, nem menos
+- Todos os roteiros são escritos no MESMO nível de consciência (o informado no system prompt)
+- Quando houver mais de um roteiro para o mesmo tipo de gancho, cada um abre com um ângulo de entrada diferente — nunca variações da mesma frase
 - Numere os roteiros sequencialmente (ROTEIRO 1, ROTEIRO 2, ...) percorrendo os tipos na ordem da solicitação
 - Não exiba a análise de público-alvo — vá direto aos roteiros
 - Português brasileiro conversacional e energético
@@ -366,39 +347,30 @@ O tipo de criativo define o ÂNGULO das headlines:
 - Clickbait: cria curiosidade irresistível
 (use o ângulo do tipo indicado para orientar cada bloco)
 
-Use as informações de público-alvo, personas e oferta fornecidas no contexto do cliente para personalizar ao máximo. Não gere análise de público — vá direto às headlines.
+Use as informações de público-alvo, personas e oferta fornecidas no contexto do cliente para personalizar ao máximo. Não gere análise de público — vá direto às headlines.`,
 
-${NIVEIS_ESTATICO}`,
+  estrutura: (nivelId) => `${nivelBlock(nivelId, 'estatico')}
 
-  estrutura: `ESTRUTURA OBRIGATÓRIA — um bloco por combinação dor + tipo, com os 5 níveis dentro dele:
+ESTRUTURA OBRIGATÓRIA — um bloco por combinação dor + tipo, com a quantidade de headlines que a solicitação pedir para aquele bloco:
 
 # DOR: [texto exato da dor] | [Emoji] [Nome do Tipo]
 
-### 1. Inconsciente do problema
+### 1
 - Headline: [ideal 7, máx. 12 palavras]
 - Subheadline: [complementa a headline, máx. 20 palavras]
 
-### 2. Consciente do problema
+### 2
 - Headline: [...]
 - Subheadline: [...]
 
-### 3. Consciente da solução
-- Headline: [...]
-- Subheadline: [...]
-
-### 4. Consciente do produto
-- Headline: [...]
-- Subheadline: [...]
-
-### 5. Totalmente consciente
-- Headline: [...]
-- Subheadline: [...]
+(e assim por diante, até a quantidade pedida para este bloco)
 
 ---`,
 
   diretrizes: `Diretrizes:
 - Gere EXATAMENTE um bloco separado por combinação dor + tipo — nunca agrupe tipos dentro de um mesmo bloco
-- Dentro de cada bloco, gere os 5 níveis, na ordem, sem pular nenhum
+- Dentro de cada bloco, gere exatamente a quantidade de headlines que a solicitação pedir
+- Todas as headlines são escritas no MESMO nível de consciência (o informado acima); as variações mudam o ângulo, não o nível
 - Português brasileiro coloquial e persuasivo — evite palavras que a IA usa mas que humanos não usam
 - Use "você" diretamente
 - Seja específico ao negócio, nunca genérico
@@ -551,6 +523,11 @@ export default function CriativosModule({ project }) {
   const [selectedPersonaId, setSelectedPersonaId] = useState('')
   // Funil em que o anúncio vai rodar — define o objetivo/CTA (entra no prompt).
   const [selectedFunil, setSelectedFunil] = useState('')
+  // Nível de consciência do público para esta oferta (obrigatório). TODAS as
+  // peças da geração são escritas nesse nível — não é uma peça por nível.
+  const [nivel, setNivel] = useState('')
+  // Quantidade total de peças desta geração, distribuída entre os blocos.
+  const [quantidade, setQuantidade] = useState(5)
   // Particularidades deste anúncio (promoção, condição...) — texto livre no prompt.
   const [extraDetails, setExtraDetails] = useState('')
 
@@ -599,10 +576,15 @@ export default function CriativosModule({ project }) {
   }, [project, selectedProductId, selectedProduct, selectedPersonaId, selectedPersona])
 
   // ── Video: ad type config ──────────────────────────────────────────────────
-  // Cada tipo selecionado gera NIVEIS roteiros (um por nível de consciência);
-  // não há mais quantidade por tipo — o valor guardado é só um marcador.
+  // A quantidade é escolhida pelo usuário e distribuída entre os tipos
+  // selecionados; o valor guardado em adTypeConfig é só um marcador de seleção.
   const selectedList = AD_TYPES.filter((t) => (adTypeConfig[t.id] || 0) > 0)
-  const totalQuantity = selectedList.length * NIVEIS
+  const totalQuantity = quantidade
+  // Quantas peças cada tipo recebe: distribute(8, 3) → [3, 3, 2]
+  const videoSplit = useMemo(
+    () => distribute(quantidade, selectedList.length),
+    [quantidade, selectedList.length]
+  )
 
   const toggleType = useCallback((id) => {
     setAdTypeConfig((prev) => {
@@ -635,11 +617,36 @@ export default function CriativosModule({ project }) {
     return [...parsed, ...customDores]
   }, [scopedProject.personas, dorTextOverrides, customDores])
   const selectedDores = allDores.filter((d) => !!dorConfig[d.id])
-  // Cada combinação dor + tipo gera NIVEIS headlines (uma por nível de consciência).
-  const staticTotalQty = selectedDores.reduce(
-    (s, d) => s + Object.keys(dorConfig[d.id]?.typeQtys || {}).length * NIVEIS,
+  // Blocos = combinações dor x tipo. A quantidade escolhida é distribuída entre eles.
+  const staticBlocos = selectedDores.reduce(
+    (s, d) => s + Object.keys(dorConfig[d.id]?.typeQtys || {}).length,
     0
   )
+  const staticTotalQty = quantidade
+  // Quantas headlines cada bloco (dor x tipo) recebe, na ordem em que aparecem.
+  const staticSplit = useMemo(
+    () => distribute(quantidade, staticBlocos),
+    [quantidade, staticBlocos]
+  )
+  // "dorId::typeId" → quantas headlines aquele bloco recebe. Percorre na mesma
+  // ordem do staticSplit, para UI e prompt mostrarem sempre o mesmo número.
+  const staticQtyByBlock = (() => {
+    const map = {}
+    let i = 0
+    for (const d of selectedDores) {
+      for (const tid of Object.keys(dorConfig[d.id]?.typeQtys || {})) {
+        map[`${d.id}::${tid}`] = staticSplit[i] ?? 0
+        i += 1
+      }
+    }
+    return map
+  })()
+
+  // Blocos desta geração: tipos de gancho (vídeo) ou dor x tipo (estático).
+  const blocosAtuais = isVideo ? selectedList.length : staticBlocos
+  // Cada bloco precisa de pelo menos 1 peça — senão a distribuição zeraria algum.
+  const qtdInsuficiente = blocosAtuais > 0 && quantidade < blocosAtuais
+
   const dorsPendingType = selectedDores.filter(
     (d) => Object.keys(dorConfig[d.id]?.typeQtys || {}).length === 0
   )
@@ -736,9 +743,18 @@ Incorpore obrigatoriamente em cada peça: ${det}
 `
       : ''
 
+    const n = NIVEIS_BY_ID[nivel]
+    const nivelStr = n
+      ? `## NÍVEL DE CONSCIÊNCIA DESTA GERAÇÃO
+
+Nível ${n.num} — ${n.label}. Escreva todas as peças abaixo nesse nível, sem exceção.
+
+`
+      : ''
+
     if (isVideo) {
       const typesStr = selectedList
-        .map((t) => `${t.emoji} ${t.label}: ${t.desc}`)
+        .map((t, i) => `${t.emoji} ${t.label} — ${videoSplit[i]} roteiro${videoSplit[i] !== 1 ? 's' : ''}. Ângulo: ${t.desc}`)
         .join('\n')
       const campeaoStr = variacaoRef
         ? `## ANÚNCIO CAMPEÃO (REFERÊNCIA DE MENSAGEM — prioridade máxima)
@@ -760,7 +776,7 @@ Os roteiros desta geração são VARIAÇÕES dessa mensagem campeã:
 
 ## SOLICITAÇÃO
 
-${funilStr}${detStr}${campeaoStr}Tipos de gancho a gerar (5 roteiros cada, um por nível de consciência):
+${nivelStr}${funilStr}${detStr}${campeaoStr}Tipos de gancho a gerar, com a quantidade exata de cada um:
 ${typesStr}
 
 Total: ${totalQuantity} roteiros.`
@@ -772,7 +788,8 @@ Total: ${totalQuantity} roteiros.`
         const typeLines = typeKeys
           .map((tid) => {
             const type = AD_TYPES.find((t) => t.id === tid)
-            return `- ${type.emoji} ${type.label} — ângulo: ${type.desc}`
+            const qtd = staticQtyByBlock[`${d.id}::${tid}`] ?? 0
+            return `- ${type.emoji} ${type.label} — ${qtd} headline${qtd !== 1 ? 's' : ''}. Ângulo: ${type.desc}`
           })
           .join('\n')
         return `### DOR: "${d.text}"
@@ -780,22 +797,22 @@ ${typeLines}`
       })
       .join('\n\n')
 
-    const blocos = staticTotalQty / NIVEIS
     return `---
 
 ## SOLICITAÇÃO
 
-${funilStr}${detStr}Para cada dor abaixo, gere um bloco por tipo de criativo, com os 5 níveis de consciência dentro de cada bloco.
+${nivelStr}${funilStr}${detStr}Para cada dor abaixo, gere um bloco por tipo de criativo, com a quantidade de headlines indicada em cada linha.
 
 ${sections}
 
-Total: ${blocos} blocos (${staticTotalQty} headlines).`
-  }, [dorConfig, isVideo, selectedDores, selectedList, selectedFunil, extraDetails, staticTotalQty, totalQuantity, variacaoRef])
+Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
+  }, [dorConfig, isVideo, nivel, selectedDores, selectedList, selectedFunil, extraDetails, staticBlocos, staticQtyByBlock, staticTotalQty, totalQuantity, videoSplit, variacaoRef])
 
   // ── Generate ────────────────────────────────────────────────────────────────
   const generate = useCallback(async () => {
     if (isVideo && !selectedList.length) return
     if (!isVideo && !selectedDores.length) return
+    if (!nivel || qtdInsuficiente) return
     const now = new Date().toISOString()
     setGeneratedAt(now)
     setLoading(true)
@@ -805,7 +822,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
       const parts = isVideo ? VIDEO_SYSTEM_PARTS : DORES_SYSTEM_PARTS
       const systemPrompt = [
         metodologiaOverride ?? parts.metodologia,
-        parts.estrutura,
+        parts.estrutura(nivel),
         (diretrizesOverride ?? parts.diretrizes) + '\n' + parts.diretrizLocked,
       ].join('\n\n')
       const { system, messages } = buildCachedPayload({
@@ -824,7 +841,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
       const cleanText = fullText.replace(/—/g, '-')
       const newId = crypto.randomUUID()
       const adTypeLabels = isVideo
-        ? selectedList.map((t) => `${t.label} ×${NIVEIS}`)
+        ? selectedList.map((t, i) => `${t.label} ×${videoSplit[i]}`)
         : selectedDores.map((d) => d.text.substring(0, 50))
       const autoName = [
         isVideo && variacaoRef ? `Variações (${(variacaoRef.adName || 'campeão').slice(0, 60)})` : isVideo ? 'Vídeo' : 'Estático',
@@ -842,6 +859,9 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
         adTypeConfig: isVideo ? { ...adTypeConfig } : {},
         dorConfig: isVideo ? {} : { ...dorConfig },
         quantity: isVideo ? totalQuantity : staticTotalQty,
+        // Nível de consciência em que esta geração foi escrita (id + label).
+        nivel,
+        nivelLabel: NIVEIS_BY_ID[nivel]?.label || '',
         content: cleanText,
         rating: null,
         // Escopo usado nessa geração (null = geral; NO_CONTEXT = sem esse contexto)
@@ -880,7 +900,10 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
     extraDetails,
     staticTotalQty,
     metodologiaOverride,
+    nivel,
+    qtdInsuficiente,
     totalQuantity,
+    videoSplit,
     updateProject,
     variacaoRef,
   ])
@@ -891,7 +914,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
       const isVid = creativeType === 'video'
       const parts = isVid ? VIDEO_SYSTEM_PARTS : DORES_SYSTEM_PARTS
       const systemPrompt = [
-        parts.estrutura,
+        parts.estrutura(nivel),
         parts.diretrizes + '\n' + parts.diretrizLocked,
       ].join('\n\n')
       const { system, messages } = buildCachedPayload({
@@ -907,7 +930,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
         onChunk,
       })
     },
-    [scopedProject]
+    [scopedProject, nivel]
   )
 
   // ── Edit a chunk inside the fresh (just-generated) result ──────────────────
@@ -1233,7 +1256,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
       : null
     const qty = isVideo ? totalQuantity : staticTotalQty
     const adTypeLabels = isVideo
-      ? selectedList.map((t) => `${t.label} ×${NIVEIS}`)
+      ? selectedList.map((t, i) => `${t.label} ×${videoSplit[i]}`)
       : selectedDores.map((d) => d.text.substring(0, 50))
 
     function fmtDate(iso) {
@@ -1582,6 +1605,41 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
         </div>
       </div>
 
+      {/* ── Nível de consciência (obrigatório) ──────────────────────────────── */}
+      <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🧠</span>
+          <label className="label-field !mb-0">Nível de consciência do público</label>
+          {nivel && (
+            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-purple/15 text-rl-purple border border-rl-purple/30">
+              Nível {NIVEIS_BY_ID[nivel]?.num}
+            </span>
+          )}
+        </div>
+        <p className="text-[11px] text-rl-muted leading-snug">
+          Em que ponto está quem vai ver este anúncio, em relação a esta oferta? Todas as peças
+          desta geração são escritas nesse nível — é o que define a dor a atacar e o quanto
+          precisa explicar. Obrigatório.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+          {NIVEIS_CONSCIENCIA.map((n) => {
+            const on = nivel === n.id
+            return (
+              <button key={n.id} onClick={() => setNivel(on ? '' : n.id)}
+                className={`flex items-start gap-2 rounded-lg p-2.5 text-left border transition-all ${on ? 'bg-rl-purple/10 border-rl-purple/50' : 'bg-rl-surface border-rl-border hover:border-rl-purple/30'}`}>
+                <span className={`text-[10px] font-bold leading-none mt-0.5 w-4 h-4 shrink-0 rounded-full flex items-center justify-center ${on ? 'bg-rl-purple text-white' : 'bg-rl-border/60 text-rl-muted'}`}>
+                  {n.num}
+                </span>
+                <span className="min-w-0">
+                  <span className={`block text-xs font-bold leading-tight ${on ? 'text-rl-purple' : 'text-rl-text'}`}>{n.label}</span>
+                  <span className="block text-[10px] text-rl-muted leading-tight mt-0.5">{n.hint}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       {/* ── Video: ad type + per-type quantity ─────────────────────────────── */}
       {isVideo && (
         <div>
@@ -1608,6 +1666,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
             {AD_TYPES.map((type) => {
               const selected = (adTypeConfig[type.id] || 0) > 0
+              const qtdTipo = selected ? videoSplit[selectedList.findIndex((t) => t.id === type.id)] : 0
               return (
                 <button
                   key={type.id}
@@ -1627,7 +1686,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
                     </span>
                     {selected && (
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/20 text-rl-purple border border-rl-purple/30 shrink-0">
-                        {NIVEIS} roteiros
+                        {qtdTipo} roteiro{qtdTipo !== 1 ? 's' : ''}
                       </span>
                     )}
                   </div>
@@ -1792,7 +1851,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
                               {type.label}
                             </span>
                             <span className="text-[10px] font-bold text-rl-purple/80 shrink-0">
-                              {NIVEIS} headlines
+                              {staticQtyByBlock[`${dor.id}::${typeId}`] ?? 0} headlines
                             </span>
                             <button
                               onClick={() => toggleDorType(dor.id, typeId)}
@@ -1858,6 +1917,59 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
           </div>
         </div>
       )}
+
+      {/* ── Quantidade de criativos ─────────────────────────────────────────── */}
+      <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🔢</span>
+          <label className="label-field !mb-0">
+            Quantos {isVideo ? 'roteiros' : 'headlines'} gerar
+          </label>
+          {blocosAtuais > 0 && (
+            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-blue/15 text-rl-blue border border-rl-blue/30">
+              {quantidade} em {blocosAtuais} bloco{blocosAtuais !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        <p className="text-[11px] text-rl-muted leading-snug">
+          Total desta geração, distribuído entre{' '}
+          {isVideo ? 'os tipos de gancho selecionados' : 'as combinações de dor x tipo'}.
+        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          {QTD_PRESETS.map((q) => (
+            <button
+              key={q}
+              onClick={() => setQuantidade(q)}
+              className={`w-10 h-8 rounded-lg text-xs font-bold border transition-all ${
+                quantidade === q
+                  ? 'bg-rl-blue/10 border-rl-blue/50 text-rl-blue'
+                  : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-blue/30 hover:text-rl-text'
+              }`}
+            >
+              {q}
+            </button>
+          ))}
+          <span className="text-[10px] text-rl-muted px-1">ou</span>
+          <input
+            type="number"
+            min={1}
+            max={QTD_MAX}
+            value={quantidade}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10)
+              setQuantidade(Number.isNaN(v) ? 1 : Math.min(Math.max(v, 1), QTD_MAX))
+            }}
+            className="input-field w-20 text-sm"
+          />
+        </div>
+        {qtdInsuficiente && (
+          <p className="text-[11px] text-red-400 leading-snug">
+            {quantidade} {isVideo ? 'roteiros' : 'headlines'} para {blocosAtuais} blocos deixaria
+            bloco sem peça. Aumente para pelo menos {blocosAtuais} ou selecione menos{' '}
+            {isVideo ? 'tipos' : 'combinações'}.
+          </p>
+        )}
+      </div>
 
       {/* Solicitação — accordion */}
       <div className="rounded-xl border border-rl-border overflow-hidden">
@@ -1982,7 +2094,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
                     Estrutura
                   </p>
                   <pre className="text-xs text-rl-muted font-mono leading-relaxed whitespace-pre-wrap bg-rl-surface/60 rounded-lg px-3 py-2.5 border border-rl-border/40">
-                    {parts.estrutura}
+                    {parts.estrutura(nivel)}
                   </pre>
                 </div>
               </div>
@@ -2025,6 +2137,8 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
             onClick={generate}
             disabled={
               !selectedFunil ||
+              !nivel ||
+              qtdInsuficiente ||
               (isVideo
                 ? selectedList.length === 0
                 : selectedDores.length === 0 || dorsPendingType.length > 0) || loading
@@ -2042,13 +2156,18 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4" /> Gerar Headlines para {selectedDores.length} Dor
-                {selectedDores.length !== 1 ? 'es' : ''}
+                <Sparkles className="w-4 h-4" /> Gerar {staticTotalQty} Headline
+                {staticTotalQty !== 1 ? 's' : ''}
               </>
             )}
           </button>
           {!selectedFunil && (
             <p className="text-xs text-rl-blue">Escolha o funil deste anúncio acima</p>
+          )}
+          {selectedFunil && !nivel && (
+            <p className="text-xs text-rl-purple">
+              Escolha o nível de consciência do público acima
+            </p>
           )}
           {isVideo && selectedList.length === 0 && (
             <p className="text-xs text-rl-muted">Selecione pelo menos um tipo de gancho</p>
@@ -2066,6 +2185,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
             <p className="text-xs text-rl-muted">
               {selectedList.length} tipo{selectedList.length > 1 ? 's' : ''} · {totalQuantity}{' '}
               roteiro{totalQuantity !== 1 ? 's' : ''}
+              {nivel ? ` · nível ${NIVEIS_BY_ID[nivel].num} (${NIVEIS_BY_ID[nivel].label})` : ''}
               {instructionOverride ? ' · com direção personalizada' : ''}
             </p>
           )}
@@ -2073,6 +2193,7 @@ Total: ${blocos} blocos (${staticTotalQty} headlines).`
             <p className="text-xs text-rl-muted">
               {selectedDores.length} dor{selectedDores.length > 1 ? 'es' : ''} · {staticTotalQty}{' '}
               headline{staticTotalQty !== 1 ? 's' : ''}
+              {nivel ? ` · nível ${NIVEIS_BY_ID[nivel].num} (${NIVEIS_BY_ID[nivel].label})` : ''}
               {instructionOverride ? ' · com direção personalizada' : ''}
             </p>
           )}
