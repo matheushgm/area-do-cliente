@@ -52,13 +52,26 @@ function limpo(t) {
 //   [texto]
 //   **📝 LEGENDA DO POST:** [texto]
 
+// Início de roteiro. Cobre os formatos que aparecem de verdade:
+//   "## ROTEIRO 1: ..."  "# ROTEIRO 1 — ..."   (canônico e variante h1)
+//   "### 1. A mensagem que saiu tarde"          (título numerado, sem a palavra ROTEIRO)
+// Um heading só de seção ("## TOPO — inconsciente do problema") não casa, porque
+// exige ROTEIRO ou um número logo no começo do texto do heading.
+const INICIO_ROTEIRO = /^#{1,4}[ \t]+(?:ROTEIRO[ \t]+\d+|\d+[.):\-—])/im
+
 export function splitRoteiros(content) {
-  const partes = String(content || '').split(/(?=^##\s+ROTEIRO\s+\d+)/im)
-  const achados = partes.filter((p) => /^##\s+ROTEIRO\s+\d+/im.test(p.trim()))
-  if (achados.length) return achados.map((p) => p.trim())
+  const texto = String(content || '')
+
+  const partes = texto.split(
+    /(?=^#{1,4}[ \t]+(?:ROTEIRO[ \t]+\d+|\d+[.):\-—]))/im,
+  )
+  const achados = partes
+    .map((p) => p.trim())
+    .filter((p) => INICIO_ROTEIRO.test(p) && /GANCHO/i.test(p))
+  if (achados.length) return achados
 
   // Fallback: conteúdo separado por "---" (gerações antigas ou coladas à mão)
-  return String(content || '')
+  return texto
     .split(/\n---+\n/)
     .map((c) => c.trim())
     .filter((c) => c && /GANCHO/i.test(c))
@@ -95,7 +108,11 @@ function falaDaTabela(texto) {
 export function parseRoteiro(chunk) {
   const texto = String(chunk || '')
 
-  const cabecalho = texto.match(/^##\s+ROTEIRO\s+(\d+)\s*:?\s*(.*)$/im)
+  // "## ROTEIRO 1: Gancho: X | Nível: Y"  →  numero 1, meta "Gancho: X | Nível: Y"
+  // "### 1. A mensagem que saiu tarde"    →  numero 1, meta "A mensagem que saiu tarde"
+  const cabecalho =
+    texto.match(/^#{1,4}[ \t]+ROTEIRO[ \t]+(\d+)[ \t]*[:—–-]?[ \t]*(.*)$/im) ||
+    texto.match(/^#{1,4}[ \t]+(\d+)[.):\-—][ \t]*(.*)$/im)
   const metaLinha = cabecalho ? cabecalho[2].trim() : ''
 
   // Variações reais do cabeçalho:
@@ -127,17 +144,31 @@ export function parseRoteiro(chunk) {
   }
 
   // Cada bloco vai até o próximo rótulo em negrito ou o fim do chunk.
-  // O "[^*]*" antes do nome cobre rótulos com emoji: "**⏱ GANCHO ...**".
+  // O "[^*\n]*" antes do nome cobre rótulos com emoji ("**⏱ GANCHO ...**") sem
+  // deixar o rótulo atravessar linhas — senão a mesma palavra solta no meio do
+  // corpo casaria o "**" de um rótulo com o "**" do rótulo seguinte.
   const ate = String.raw`([\s\S]*?)(?=\n\s*\*\*|$)`
-  const gancho = campo(new RegExp(String.raw`\*\*[^*]*GANCHO[^*]*\*\*:?\s*${ate}`, 'i'))
-  let mensagem = campo(new RegExp(String.raw`\*\*[^*]*MENSAGEM[^*]*\*\*:?\s*${ate}`, 'i'))
-  const cta = campo(new RegExp(String.raw`\*\*[^*]*CTA[^*]*\*\*:?\s*${ate}`, 'i'))
-  const legenda = campo(new RegExp(String.raw`\*\*[^*]*LEGENDA[^*]*\*\*:?\s*${ate}`, 'i'))
+  const rotulo = (nome) => String.raw`\*\*[^*\n]*${nome}[^*\n]*\*\*:?[ \t]*${ate}`
+  let gancho = campo(new RegExp(rotulo('GANCHO'), 'i'))
+  let mensagem = campo(new RegExp(rotulo('MENSAGEM'), 'i'))
+  const cta = campo(new RegExp(rotulo('CTA'), 'i'))
+  const legenda = campo(new RegExp(rotulo('LEGENDA'), 'i'))
 
   // Gerações antigas trazem o desenvolvimento numa tabela "| Tempo | Fala | Imagem |"
   // sob o rótulo "**ROTEIRO**", sem um bloco MENSAGEM. Aproveitamos a coluna de
   // fala para o bloco 02 não sair vazio.
   if (!mensagem) mensagem = falaDaTabela(texto)
+
+  // Roteiros escritos sem o rótulo "**MENSAGEM**" deixam o corpo como prosa solta
+  // logo abaixo do gancho — e a captura do gancho acaba engolindo tudo. Nesse caso
+  // o primeiro parágrafo é o gancho e o restante é a mensagem.
+  if (!mensagem && gancho) {
+    const blocos = gancho.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)
+    if (blocos.length > 1) {
+      gancho = blocos[0]
+      mensagem = blocos.slice(1).join('\n\n')
+    }
+  }
 
   // Duração total = maior marca de tempo citada (ex.: "CTA FINAL (45s – 60s)" → 60 s).
   // Um "Duração alvo: 45s" explícito, quando existe, tem precedência.
