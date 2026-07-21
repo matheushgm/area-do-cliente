@@ -196,12 +196,20 @@ function assembleProject(row, rel = {}) {
         ? campaigns[0].answers
         : campaigns[0]),
     } : null,
-    creatives: criativos.map((c) => ({
-      id:      c.id,
-      rating:  c.rating  ?? null,
-      ...(typeof c.answers === 'object' && c.answers !== null ? c.answers : c),
-      content: c.generated_content ?? c.content ?? null,
-    })),
+    creatives: criativos.map((c) => {
+      const a = (typeof c.answers === 'object' && c.answers !== null) ? c.answers : c
+      return {
+        ...a,
+        id:      c.id,
+        rating:  c.rating  ?? null,
+        content: c.generated_content ?? c.content ?? null,
+        // A data vinha sendo gravada em generated_at mas nunca lida de volta, então
+        // createdAt voltava undefined (histórico mostrava "—" e a ordenação por data
+        // não funcionava). generated_at cobre também os criativos antigos, gerados
+        // antes de createdAt entrar no answers.
+        createdAt: a.createdAt ?? c.generated_at ?? c.created_at ?? null,
+      }
+    }),
     googleAds: googleAds.map((g) => ({
       id:      g.id,
       rating:  g.rating  ?? null,
@@ -560,14 +568,24 @@ async function sbUpdateProjectV2(id, patch) {
     await supabase.from("criativos").delete().eq("project_id", id);
     if (Array.isArray(patch.creatives) && patch.creatives.length > 0) {
       const { error } = await supabase.from("criativos").insert(
-        patch.creatives.map((c) => ({
-          id:               c.id || crypto.randomUUID(),
-          project_id:       id,
-          answers:          { adTypeLabels: c.adTypeLabels, quantity: c.quantity, customNote: c.customNote, isVideo: c.isVideo, name: c.name ?? null, campaignId: c.campaignId ?? null },
-          generated_content:c.content       ?? null,
-          rating:           c.rating        ?? null,
-          generated_at:     c.createdAt     ?? null,
-        })),
+        patch.creatives.map((c) => {
+          // answers é JSONB: guarda tudo que descreve a geração menos o conteúdo
+          // (que vai em generated_content) e os campos que têm coluna própria.
+          // Antes só 6 campos eram gravados — type, mode, createdAt, nível e
+          // escopo se perdiam no reload, o que fazia todo criativo voltar como
+          // "Estático" e sem data.
+          // id/content/rating têm coluna própria — fora do answers, senão o
+          // spread da leitura sobrescreveria o id da linha.
+          const { id: _id, content: _content, rating: _rating, ...answers } = c
+          return {
+            id:               c.id || crypto.randomUUID(),
+            project_id:       id,
+            answers,
+            generated_content:c.content       ?? null,
+            rating:           c.rating        ?? null,
+            generated_at:     c.createdAt     ?? null,
+          }
+        }),
       );
       if (error) console.error("[Supabase] insert criativos:", error.message);
     }
