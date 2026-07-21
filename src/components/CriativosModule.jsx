@@ -36,7 +36,7 @@ import {
 import Modal from './UI/Modal'
 import MarkdownBlock from './Criativos/MarkdownBlock'
 import { FUNIS, FUNIS_BY_ID } from '../lib/funis'
-import { replaceAdInContent } from './Criativos/ResultBlock'
+import { replaceAdInContent, removeAdFromContent } from './Criativos/ResultBlock'
 import CreativeResultBlock from './Criativos/CreativeResultBlock'
 import ContextPreview from './Criativos/ContextPreview'
 import CreativeHistory from './Criativos/CreativeHistory'
@@ -951,6 +951,22 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
     [lastCreativeId, project, updateProject]
   )
 
+  // ── Delete a chunk inside the fresh (just-generated) result ────────────────
+  const handleFreshChunkDelete = useCallback(
+    (chunkIndex) => {
+      if (!lastCreativeId) return
+      const creative = (project.creatives || []).find((c) => c.id === lastCreativeId)
+      if (!creative) return
+      const newFullContent = removeAdFromContent(creative.content, chunkIndex)
+      setResult(newFullContent)
+      const updated = (project.creatives || []).map((c) =>
+        c.id === lastCreativeId ? { ...c, content: newFullContent } : c
+      )
+      updateProject(project.id, { creatives: updated })
+    },
+    [lastCreativeId, project, updateProject]
+  )
+
   // ── View: History detail ───────────────────────────────────────────────────
   if (historyCreative) {
     const c = historyCreative
@@ -984,6 +1000,14 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
 
     function handleChunkEdit(chunkIndex, newContent) {
       const newFullContent = replaceAdInContent(c.content, chunkIndex, newContent)
+      const updated = (project.creatives || []).map((x) =>
+        x.id === c.id ? { ...x, content: newFullContent } : x
+      )
+      updateProject(project.id, { creatives: updated })
+    }
+
+    function handleChunkDelete(chunkIndex) {
+      const newFullContent = removeAdFromContent(c.content, chunkIndex)
       const updated = (project.creatives || []).map((x) =>
         x.id === c.id ? { ...x, content: newFullContent } : x
       )
@@ -1058,6 +1082,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
           type={c.type}
           companyName={companyName}
           onChunkChange={handleChunkEdit}
+          onChunkDelete={handleChunkDelete}
           onRefine={makeRefineHandler(c.type)}
         />
       </div>
@@ -1366,6 +1391,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
           type={isVideo ? 'video' : 'estatico'}
           companyName={companyName}
           onChunkChange={!loading ? handleFreshChunkEdit : undefined}
+          onChunkDelete={!loading ? handleFreshChunkDelete : undefined}
           onRefine={!loading ? makeRefineHandler(isVideo ? 'video' : 'estatico') : undefined}
         />
       </div>

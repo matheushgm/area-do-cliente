@@ -82,6 +82,41 @@ export function replaceAdInContent(content, adIndex, newAdContent) {
   return newChunks.join('\n---\n')
 }
 
+// Remove o chunk de anúncio no índice `adIndex` da string `content` completa.
+// Espelha a contagem de índice do replaceAdInContent — os dois precisam enxergar
+// os mesmos chunks na mesma ordem que o splitChunks do CreativeResultBlock,
+// senão o card excluído não é o que o usuário clicou.
+export function removeAdFromContent(content, adIndex) {
+  const parts = content.split(/(?=^##\s+(?:ROTEIRO|AN[ÚU]NCIO)\s+\d+)/im)
+  let adCount = 0
+  let foundAny = false
+
+  const kept = parts.filter((part) => {
+    const trimmed = part.trim()
+    if (!trimmed) return true
+    if (AD_HEADER.test(trimmed) && !isNonAdTrailing(trimmed)) {
+      foundAny = true
+      const keep = adCount !== adIndex
+      adCount++
+      return keep
+    }
+    return true
+  })
+
+  if (foundAny) return kept.join('').trim()
+
+  // Fallback: split por --- — conta todos os chunks não-vazios por índice
+  const chunks = content.split(/\n---\n/)
+  let fallbackCount = 0
+  const keptChunks = chunks.filter((c) => {
+    if (!c.trim()) return false
+    const keep = fallbackCount !== adIndex
+    fallbackCount++
+    return keep
+  })
+  return keptChunks.join('\n---\n').trim()
+}
+
 export default function ResultBlock({ content, type, companyName, onChunkChange, createdAt }) {
   const [allCopied, setAllCopied] = useState(false)
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, CheckCheck, FileDown, Pencil, Check, X, Sparkles, Loader2 } from 'lucide-react'
+import { Copy, CheckCheck, FileDown, Pencil, Check, X, Sparkles, Loader2, Trash2 } from 'lucide-react'
 import MarkdownBlock from './MarkdownBlock'
 import { exportCreativoSinglePDF } from '../../lib/creativoPDF'
 
@@ -42,12 +42,13 @@ function parseChunk(chunk) {
 
 // ── ChunkCard ─────────────────────────────────────────────────────────────────
 
-function ChunkCard({ item, index, type, companyName, onChange, onRefine }) {
+function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelete }) {
   const { title, body } = parseChunk(item.chunk)
 
   const [copied,        setCopied]        = useState(false)
   const [exporting,     setExporting]     = useState(false)
   const [editing,       setEditing]       = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [draft,         setDraft]         = useState('')
   const [refineOpen,     setRefineOpen]     = useState(false)
   const [refineNote,     setRefineNote]     = useState('')
@@ -197,6 +198,33 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine }) {
                 {copied ? <CheckCheck className="w-3 h-3 text-rl-green" /> : <Copy className="w-3 h-3" />}
                 {copied ? 'Copiado!' : 'Copiar'}
               </button>
+              {/* Excluir — dois cliques, pra não apagar criativo sem querer */}
+              {onDelete && (
+                confirmDelete ? (
+                  <span className="flex items-center gap-1">
+                    <button
+                      onClick={() => { setConfirmDelete(false); onDelete() }}
+                      className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg bg-red-400/10 border border-red-400/30 text-red-400 hover:bg-red-400/20 transition-all"
+                    >
+                      <Check className="w-3 h-3" /> Excluir
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-rl-text transition-all"
+                    >
+                      Cancelar
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    title="Excluir este criativo"
+                    className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg bg-rl-surface text-rl-muted hover:text-red-400 transition-all"
+                  >
+                    <Trash2 className="w-3 h-3" /> Excluir
+                  </button>
+                )
+              )}
             </>
           )}
         </div>
@@ -301,7 +329,7 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine }) {
 
 // ── CreativeResultBlock ───────────────────────────────────────────────────────
 
-export default function CreativeResultBlock({ content, type, companyName, onChunkChange, onRefine }) {
+export default function CreativeResultBlock({ content, type, companyName, onChunkChange, onRefine, onChunkDelete }) {
   const [allCopied, setAllCopied] = useState(false)
   const items = splitChunks(content)
 
@@ -335,6 +363,9 @@ export default function CreativeResultBlock({ content, type, companyName, onChun
           companyName={companyName}
           onChange={onChunkChange ? (newContent) => onChunkChange(i, newContent) : undefined}
           onRefine={onRefine ? (chunkContent, note, onChunk) => onRefine(i, chunkContent, note, onChunk) : undefined}
+          // Só oferece excluir quando sobra mais de um: apagar o último deixaria
+          // o conteúdo vazio e derrubaria a tela de resultado.
+          onDelete={onChunkDelete && items.length > 1 ? () => onChunkDelete(i) : undefined}
         />
       ))}
     </div>
