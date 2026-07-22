@@ -27,18 +27,21 @@ function DayForm({ initial = {}, onSave, onCancel }) {
     investido:   initial.investido   != null ? String(initial.investido).replace('.', ',')   : '',
     leads:       initial.leads       || '',
     valorVendas: initial.valorVendas != null ? String(initial.valorVendas).replace('.', ',') : '',
+    vendas:      initial.vendas      || '',
   })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const inv  = parseMoney(form.investido)
   const lds  = Number(form.leads) || 0
+  const qtd  = Number(form.vendas) || 0
   const vend = parseMoney(form.valorVendas)
   const cpl  = lds > 0 && inv > 0 ? inv / lds : null
+  const cac  = qtd > 0 && inv > 0 ? inv / qtd : null
   const roas = inv > 0             ? vend / inv : null
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
           <label className="label-field">Investido</label>
           <input className="input-field" placeholder="R$ 0,00" value={form.investido}
@@ -50,16 +53,26 @@ function DayForm({ initial = {}, onSave, onCancel }) {
             onChange={e => set('leads', e.target.value)} />
         </div>
         <div>
+          <label className="label-field">Vendas (qtd)</label>
+          <input className="input-field" type="number" min="0" placeholder="0" value={form.vendas}
+            onChange={e => set('vendas', e.target.value)} />
+        </div>
+        <div>
           <label className="label-field">Vendas (R$)</label>
           <input className="input-field" placeholder="R$ 0,00" value={form.valorVendas}
             onChange={e => set('valorVendas', e.target.value)} />
         </div>
       </div>
-      {(cpl !== null || roas !== null) && (
-        <div className="flex gap-3 text-xs">
+      {(cpl !== null || roas !== null || cac !== null) && (
+        <div className="flex gap-3 text-xs flex-wrap">
           {cpl !== null && (
             <span className="bg-rl-cyan/10 border border-rl-cyan/20 text-rl-cyan px-2 py-1 rounded-lg">
               CPL: {fmtMoney(cpl)}
+            </span>
+          )}
+          {cac !== null && (
+            <span className="bg-rl-gold/10 border border-rl-gold/20 text-rl-gold px-2 py-1 rounded-lg">
+              CAC: {fmtMoney(cac)}
             </span>
           )}
           {roas !== null && (
@@ -92,18 +105,21 @@ function WeekForm({ initial = {}, onSave, onCancel }) {
     investido:   initial.investido   != null ? String(initial.investido).replace('.', ',')   : '',
     leads:       initial.leads       || '',
     valorVendas: initial.valorVendas != null ? String(initial.valorVendas).replace('.', ',') : '',
+    vendas:      initial.vendas      || '',
   })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const inv  = parseMoney(form.investido)
   const lds  = Number(form.leads) || 0
+  const qtd  = Number(form.vendas) || 0
   const vend = parseMoney(form.valorVendas)
   const cpl  = lds > 0 && inv > 0 ? inv / lds : null
+  const cac  = qtd > 0 && inv > 0 ? inv / qtd : null
   const roas = inv > 0             ? vend / inv : null
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
           <label className="label-field">Investido</label>
           <input className="input-field" placeholder="R$ 0,00" value={form.investido}
@@ -115,16 +131,26 @@ function WeekForm({ initial = {}, onSave, onCancel }) {
             onChange={e => set('leads', e.target.value)} />
         </div>
         <div>
+          <label className="label-field">Vendas (qtd)</label>
+          <input className="input-field" type="number" min="0" placeholder="0" value={form.vendas}
+            onChange={e => set('vendas', e.target.value)} />
+        </div>
+        <div>
           <label className="label-field">Vendas (R$)</label>
           <input className="input-field" placeholder="R$ 0,00" value={form.valorVendas}
             onChange={e => set('valorVendas', e.target.value)} />
         </div>
       </div>
-      {(cpl !== null || roas !== null) && (
-        <div className="flex gap-3 text-xs">
+      {(cpl !== null || roas !== null || cac !== null) && (
+        <div className="flex gap-3 text-xs flex-wrap">
           {cpl !== null && (
             <span className="bg-rl-cyan/10 border border-rl-cyan/20 text-rl-cyan px-2 py-1 rounded-lg">
               CPL: {fmtMoney(cpl)}
+            </span>
+          )}
+          {cac !== null && (
+            <span className="bg-rl-gold/10 border border-rl-gold/20 text-rl-gold px-2 py-1 rounded-lg">
+              CAC: {fmtMoney(cac)}
             </span>
           )}
           {roas !== null && (
@@ -256,6 +282,7 @@ export default function B2CClientForm() {
           [dayKey]: {
             investido:   parseMoney(data.investido),
             leads:       Number(data.leads) || 0,
+            vendas:      Number(data.vendas) || 0,
             valorVendas: parseMoney(data.valorVendas),
           },
         },
@@ -277,6 +304,7 @@ export default function B2CClientForm() {
           [String(weekIdx)]: {
             investido:   parseMoney(data.investido),
             leads:       Number(data.leads) || 0,
+            vendas:      Number(data.vendas) || 0,
             valorVendas: parseMoney(data.valorVendas),
           },
         },

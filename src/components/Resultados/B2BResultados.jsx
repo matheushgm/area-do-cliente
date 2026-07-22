@@ -1,6 +1,10 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Edit2, Check, X, TrendingUp, ArrowDown, FileDown, Link2, CheckCircle2 } from 'lucide-react'
-import { fmtMoney, fmtPct, parseMoney, getDaysInMonth, getWeekRanges, MONTH_NAMES } from './resultadosHelpers'
+import {
+  ChevronLeft, ChevronRight, Plus, Edit2, Check, X, TrendingUp, ArrowDown,
+  FileDown, Link2, CheckCircle2, Wallet, Users, Target, Trophy,
+} from 'lucide-react'
+import { fmtMoney, fmtPct, parseMoney, getWeekRanges, MONTH_NAMES } from './resultadosHelpers'
+import { KpiHero, DonutGauge, AreaChart, CostBars, CostGrid, C } from './ResultadosCharts'
 import { exportResultadosB2BPDF } from '../../utils/exportPDF'
 
 // ─── Funnel Visualization (B2B) ────────────────────────────────────────────────
@@ -79,6 +83,15 @@ function B2BWeekForm({ initial = {}, onSave, onCancel }) {
   })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
+  // Prévia dos custos unitários enquanto o usuário digita.
+  const preview = {
+    investido: parseMoney(form.investido),
+    leads:  Number(form.leads)  || 0,
+    mql:    Number(form.mql)    || 0,
+    sql:    Number(form.sql)    || 0,
+    vendas: Number(form.vendas) || 0,
+  }
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -102,6 +115,7 @@ function B2BWeekForm({ initial = {}, onSave, onCancel }) {
           </div>
         ))}
       </div>
+      {preview.investido > 0 && <CostGrid {...preview} />}
       <div className="flex gap-2 pt-1">
         <button
           onClick={() => onSave(form)}
@@ -128,9 +142,9 @@ export function MonthNav({ year, month, setYear, setMonth }) {
     else setMonth(m => m + 1)
   }
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center gap-3">
       <button onClick={prev} className="btn-secondary p-2"><ChevronLeft size={16} /></button>
-      <h3 className="text-base font-semibold text-rl-text">{MONTH_NAMES[month]} {year}</h3>
+      <h3 className="text-base font-semibold text-rl-text min-w-[140px] text-center">{MONTH_NAMES[month]} {year}</h3>
       <button onClick={next} className="btn-secondary p-2"><ChevronRight size={16} /></button>
     </div>
   )
@@ -284,6 +298,27 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
 
   const hasTotals = totals.leads > 0 || totals.investido > 0
 
+  // ── Métricas derivadas do mês ───────────────────────────────────────────────
+  const perUnit = qty => (totals.investido > 0 && qty > 0 ? totals.investido / qty : 0)
+  const cpl  = perUnit(totals.leads)
+  const cpMql = perUnit(totals.mql)
+  const cpSql = perUnit(totals.sql)
+  const cac  = perUnit(totals.vendas)
+  const roas = totals.investido > 0 ? totals.receitaVendas / totals.investido : 0
+  const convLeadVenda = totals.leads > 0 ? (totals.vendas / totals.leads) * 100 : 0
+
+  // Séries dos gráficos: uma entrada por semana do mês (cálculo barato).
+  const chart = (() => {
+    const labels = weekRanges.map((_, i) => `S${i + 1}`)
+    const pick = key => weekRanges.map((_, i) => monthData[`semana${i + 1}`]?.[key] || 0)
+    return {
+      labels,
+      investido: pick('investido'),
+      leads:     pick('leads'),
+      vendas:    pick('vendas'),
+    }
+  })()
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -313,6 +348,88 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
           </button>
         </div>
       </div>
+
+      {/* ── Faixa de KPIs do mês ─────────────────────────────────────────────── */}
+      {hasTotals && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiHero
+            label="Investimento"
+            value={fmtMoney(totals.investido)}
+            sub={`${weekRanges.length} semanas · ${MONTH_NAMES[month]}`}
+            color="gold"
+            icon={<Wallet size={18} />}
+          />
+          <KpiHero
+            label="Custo por Lead"
+            value={cpl > 0 ? fmtMoney(cpl) : '—'}
+            sub={`${totals.leads.toLocaleString('pt-BR')} leads no mês`}
+            color="blue"
+            icon={<Users size={18} />}
+          />
+          <KpiHero
+            label="CAC"
+            value={cac > 0 ? fmtMoney(cac) : '—'}
+            sub={`${totals.vendas.toLocaleString('pt-BR')} vendas no mês`}
+            color="purple"
+            icon={<Target size={18} />}
+          />
+          <KpiHero
+            label="ROAS"
+            value={roas > 0 ? `${roas.toFixed(2)}x` : '—'}
+            sub={totals.receitaVendas > 0 ? `${fmtMoney(totals.receitaVendas)} de receita` : 'Sem receita lançada'}
+            color={roas >= 3 ? 'green' : roas >= 1.5 ? 'gold' : 'red'}
+            icon={<Trophy size={18} />}
+          />
+        </div>
+      )}
+
+      {/* ── Gráficos ─────────────────────────────────────────────────────────── */}
+      {hasTotals && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="glass-card p-5 lg:col-span-2">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-bold text-rl-text">Evolução semanal</h4>
+              <span className="text-[11px] text-rl-muted">pico de cada série</span>
+            </div>
+            <AreaChart
+              labels={chart.labels}
+              height={200}
+              series={[
+                { key: 'inv',    label: 'Investido', values: chart.investido, color: C.gold },
+                { key: 'leads',  label: 'Leads',     values: chart.leads,     color: C.blue },
+                { key: 'vendas', label: 'Vendas',    values: chart.vendas,    color: C.green, area: false },
+              ]}
+              formatValue={(key, max) => (key === 'inv' ? fmtMoney(max) : max.toLocaleString('pt-BR'))}
+            />
+          </div>
+
+          <div className="glass-card p-5 flex flex-col justify-between gap-4">
+            <div className="flex flex-col items-center">
+              <h4 className="text-sm font-bold text-rl-text self-start mb-3">Lead → Venda</h4>
+              <DonutGauge
+                pct={convLeadVenda}
+                label={`${convLeadVenda.toFixed(1)}%`}
+                caption={`${totals.vendas} vendas em ${totals.leads} leads`}
+                color={convLeadVenda >= 5 ? 'green' : convLeadVenda >= 2 ? 'gold' : 'purple'}
+                size={126}
+              />
+            </div>
+            <div className="pt-4 border-t border-rl-border/60">
+              <div className="text-[10px] text-rl-muted uppercase tracking-wider mb-2.5 font-semibold">
+                Custo por etapa · mês
+              </div>
+              <CostBars
+                items={[
+                  { label: 'Custo / Lead', value: cpl,   display: cpl   > 0 ? fmtMoney(cpl)   : '—', color: 'blue' },
+                  { label: 'Custo / MQL',  value: cpMql, display: cpMql > 0 ? fmtMoney(cpMql) : '—', color: 'cyan' },
+                  { label: 'Custo / SQL',  value: cpSql, display: cpSql > 0 ? fmtMoney(cpSql) : '—', color: 'purple' },
+                  { label: 'CAC',          value: cac,   display: cac   > 0 ? fmtMoney(cac)   : '—', color: 'gold' },
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Weekly Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -353,7 +470,7 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
                   </div>
 
                   {wkData ? (
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div>
@@ -376,14 +493,25 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
                           </div>
                         )}
                       </div>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+
+                      {/* Custo por etapa da semana: CPL, custo/MQL, custo/SQL e CAC */}
+                      <CostGrid
+                        investido={wkData.investido}
+                        leads={wkData.leads}
+                        mql={wkData.mql}
+                        sql={wkData.sql}
+                        vendas={wkData.vendas}
+                      />
+
+                      <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-[11px] pt-0.5">
                         <span className="text-rl-muted">Leads <span className="text-rl-blue font-semibold">{wkData.leads}</span></span>
                         <span className="text-rl-muted">MQL <span className="text-rl-cyan font-semibold">{wkData.mql}</span></span>
                         <span className="text-rl-muted">SQL <span className="text-rl-purple font-semibold">{wkData.sql}</span></span>
                         <span className="text-rl-muted">Vendas <span className="text-rl-gold font-semibold">{wkData.vendas}</span></span>
                       </div>
+
                       {wkData.receitaVendas > 0 && wkData.vendas > 0 && (
-                        <div className="flex items-center justify-between bg-rl-surface rounded-lg px-3 py-2 mt-1">
+                        <div className="flex items-center justify-between bg-rl-surface rounded-lg px-3 py-2">
                           <span className="text-[11px] text-rl-muted">Ticket Médio</span>
                           <span className="text-xs font-bold text-rl-cyan">
                             {fmtMoney(wkData.receitaVendas / wkData.vendas)}
@@ -392,7 +520,7 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
                       )}
                       {/* Mini conversion rates */}
                       {wkData.leads > 0 && (
-                        <div className="flex gap-1 flex-wrap mt-1">
+                        <div className="flex gap-1 flex-wrap">
                           {wkData.mql > 0 && (
                             <span className="text-[10px] bg-rl-cyan/10 text-rl-cyan border border-rl-cyan/20 px-1.5 py-0.5 rounded-full">
                               {fmtPct(wkData.mql, wkData.leads)} → MQL
@@ -438,20 +566,18 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
             {[
               { label: 'Investido',      value: fmtMoney(totals.investido),              color: 'rl-gold' },
               { label: 'Receita Vendas', value: fmtMoney(totals.receitaVendas),           color: 'rl-green' },
-              { label: 'ROAS',           value: totals.receitaVendas > 0 && totals.investido > 0
-                  ? (totals.receitaVendas / totals.investido).toFixed(2) + 'x' : '—',    color: 'rl-green',
-                sub: totals.receitaVendas > 0 && totals.investido > 0
-                  ? (totals.receitaVendas >= totals.investido ? '✅ Positivo' : '⚠️ Negativo') : null },
+              { label: 'ROAS',           value: roas > 0 ? roas.toFixed(2) + 'x' : '—',   color: 'rl-green',
+                sub: roas > 0 ? (roas >= 1 ? '✅ Positivo' : '⚠️ Negativo') : null },
               { label: 'Ticket Médio',   value: totals.receitaVendas > 0 && totals.vendas > 0
                   ? fmtMoney(totals.receitaVendas / totals.vendas) : '—',                color: 'rl-cyan' },
               { label: 'Leads',  value: totals.leads.toLocaleString('pt-BR'),             color: 'rl-blue',
-                sub: totals.leads > 0 && totals.investido > 0 ? fmtMoney(totals.investido / totals.leads) + '/lead' : null },
+                sub: cpl   > 0 ? fmtMoney(cpl)   + '/lead'  : null },
               { label: 'MQL',    value: totals.mql.toLocaleString('pt-BR'),               color: 'rl-cyan',
-                sub: totals.mql > 0 && totals.investido > 0   ? fmtMoney(totals.investido / totals.mql)   + '/mql'  : null },
+                sub: cpMql > 0 ? fmtMoney(cpMql) + '/mql'   : null },
               { label: 'SQL',    value: totals.sql.toLocaleString('pt-BR'),               color: 'rl-purple',
-                sub: totals.sql > 0 && totals.investido > 0   ? fmtMoney(totals.investido / totals.sql)   + '/sql'  : null },
+                sub: cpSql > 0 ? fmtMoney(cpSql) + '/sql'   : null },
               { label: 'Vendas', value: totals.vendas.toLocaleString('pt-BR'),            color: 'rl-gold',
-                sub: totals.vendas > 0 && totals.investido > 0 ? fmtMoney(totals.investido / totals.vendas) + '/venda' : null },
+                sub: cac   > 0 ? fmtMoney(cac)   + '/venda' : null },
             ].map(item => (
               <SummaryCard key={item.label} {...item} />
             ))}
