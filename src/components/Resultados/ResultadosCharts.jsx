@@ -53,43 +53,6 @@ export function KpiHero({ label, value, sub, color = 'blue', icon, footer }) {
   )
 }
 
-// ─── Donut / gauge ─────────────────────────────────────────────────────────────
-// `pct` é 0–100 e satura visualmente em 100 (o rótulo mostra o valor real).
-export function DonutGauge({ pct, label, caption, color = 'purple', size = 132 }) {
-  const value    = Number.isFinite(pct) ? pct : 0
-  const stroke   = Math.max(9, Math.round(size * 0.09))
-  const r        = (size - stroke) / 2
-  const circ     = 2 * Math.PI * r
-  const filled   = Math.min(Math.max(value, 0), 100) / 100
-  const dash     = circ * filled
-
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="-rotate-90">
-          <circle
-            cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke}
-            style={{ stroke: C.border }} opacity={0.55}
-          />
-          <circle
-            cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke}
-            strokeLinecap="round"
-            strokeDasharray={`${dash} ${circ - dash}`}
-            style={{ stroke: C[color] || C.purple, transition: 'stroke-dasharray .5s cubic-bezier(.16,1,.3,1)' }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={`font-bold leading-none ${TEXT_CLASS[color] || 'text-rl-text'}`}
-                style={{ fontSize: size * 0.2 }}>
-            {label}
-          </span>
-        </div>
-      </div>
-      {caption && <span className="text-[11px] text-rl-muted text-center leading-tight">{caption}</span>}
-    </div>
-  )
-}
-
 // ─── Área / linha ──────────────────────────────────────────────────────────────
 // `series`: [{ key, label, values: number[], color, area?: bool, axis?: 'left'|'right' }]
 // Cada série é normalizada pelo próprio máximo quando `axis` difere, de modo que
@@ -188,32 +151,6 @@ export function AreaChart({ labels, series, height = 190, formatValue }) {
           </span>
         ))}
       </div>
-    </div>
-  )
-}
-
-// ─── Barras horizontais ────────────────────────────────────────────────────────
-// `items`: [{ label, value, display, color }]
-export function CostBars({ items }) {
-  const max = Math.max(...items.map(i => i.value || 0), 1)
-  return (
-    <div className="space-y-3">
-      {items.map(it => (
-        <div key={it.label}>
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] text-rl-muted">{it.label}</span>
-            <span className={`text-xs font-bold ${TEXT_CLASS[it.color] || 'text-rl-text'}`}>
-              {it.display}
-            </span>
-          </div>
-          <div className="h-1.5 rounded-full bg-rl-border/50 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${Math.max((it.value / max) * 100, it.value > 0 ? 4 : 0)}%`, background: C[it.color] || C.blue }}
-            />
-          </div>
-        </div>
-      ))}
     </div>
   )
 }

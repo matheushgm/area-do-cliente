@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Plus, Edit2, Check, X, Link2, CheckCircle2, Wallet, Users, Target, Trophy } from 'lucide-react'
-import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, MONTH_NAMES } from './resultadosHelpers'
+import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, computeRoiPlan, MONTH_NAMES } from './resultadosHelpers'
 import { MonthNav, SummaryCard } from './B2BResultados'
-import { KpiHero, DonutGauge, AreaChart, CostBars, CostTile, C } from './ResultadosCharts'
+import { KpiHero, AreaChart, CostTile, C } from './ResultadosCharts'
+import ComparativoCanais from './ComparativoCanais'
+import PlanoVsRealizado from './PlanoVsRealizado'
 
 // ─── Form compartilhado (dia e semana) ────────────────────────────────────────
 // B2C não tem MQL/SQL — o funil é Lead → Venda. O campo "Vendas (qtd)" é
@@ -86,7 +88,7 @@ const normalize = data => ({
 })
 
 // ─── B2C View ─────────────────────────────────────────────────────────────────
-export default function B2CView({ resultados, onUpdate, clientShareToken, getOrCreateShareToken }) {
+export default function B2CView({ resultados, onUpdate, clientShareToken, getOrCreateShareToken, roiCalc, dash, projectId }) {
   const today = new Date()
   const [year, setYear]     = useState(today.getFullYear())
   const [month, setMonth]   = useState(today.getMonth())
@@ -144,8 +146,10 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
   const cpl  = perUnit(totals.leads)
   const cac  = perUnit(totals.vendas)
   const roas = totals.investido > 0 ? totals.valorVendas / totals.investido : 0
-  const convLeadVenda = totals.leads > 0 ? (totals.vendas / totals.leads) * 100 : 0
   const ticket = totals.vendas > 0 ? totals.valorVendas / totals.vendas : 0
+
+  // Meta mensal vinda da Calculadora de ROI do projeto.
+  const plan = computeRoiPlan(roiCalc)
 
   const days = Array.from({ length: daysInMon }, (_, i) => i + 1)
   const hasData = totals.investido > 0 || totals.leads > 0
@@ -256,54 +260,49 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
         </div>
       )}
 
-      {/* ── Gráficos ─────────────────────────────────────────────────────────── */}
-      {hasData && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="glass-card p-5 lg:col-span-2">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-bold text-rl-text">
-                Evolução {mode === 'diario' ? 'diária' : 'semanal'}
-              </h4>
-              <span className="text-[11px] text-rl-muted">pico de cada série</span>
-            </div>
-            <AreaChart
-              labels={chart.labels}
-              height={200}
-              series={[
-                { key: 'inv',   label: 'Investido', values: chart.investido, color: C.gold },
-                { key: 'leads', label: 'Leads',     values: chart.leads,     color: C.blue },
-                { key: 'rec',   label: 'Receita',   values: chart.receita,   color: C.green, area: false },
-              ]}
-              formatValue={(key, max) => (key === 'leads' ? max.toLocaleString('pt-BR') : fmtMoney(max))}
-            />
-          </div>
+      {/* ── Canais (dados reais) × Plano de ROI ──────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <ComparativoCanais
+            dash={dash}
+            projectId={projectId}
+            year={year}
+            month={month}
+            monthLabel={`${MONTH_NAMES[month]} ${year}`}
+          />
+        </div>
+        <PlanoVsRealizado
+          plan={plan}
+          showMqlSql={false}
+          real={{
+            investido: totals.investido,
+            leads:  totals.leads,
+            mql: 0, sql: 0,
+            vendas: totals.vendas,
+            receita: totals.valorVendas,
+          }}
+        />
+      </div>
 
-          <div className="glass-card p-5 flex flex-col justify-between gap-4">
-            <div className="flex flex-col items-center">
-              <h4 className="text-sm font-bold text-rl-text self-start mb-3">Lead → Venda</h4>
-              <DonutGauge
-                pct={convLeadVenda}
-                label={`${convLeadVenda.toFixed(1)}%`}
-                caption={totals.vendas > 0
-                  ? `${totals.vendas} vendas em ${totals.leads} leads`
-                  : 'Preencha a qtd. de vendas'}
-                color={convLeadVenda >= 10 ? 'green' : convLeadVenda >= 4 ? 'gold' : 'purple'}
-                size={126}
-              />
-            </div>
-            <div className="pt-4 border-t border-rl-border/60">
-              <div className="text-[10px] text-rl-muted uppercase tracking-wider mb-2.5 font-semibold">
-                Custo por etapa · período
-              </div>
-              <CostBars
-                items={[
-                  { label: 'Custo / Lead', value: cpl,    display: cpl    > 0 ? fmtMoney(cpl)    : '—', color: 'blue' },
-                  { label: 'CAC',          value: cac,    display: cac    > 0 ? fmtMoney(cac)    : '—', color: 'gold' },
-                  { label: 'Ticket médio', value: ticket, display: ticket > 0 ? fmtMoney(ticket) : '—', color: 'cyan' },
-                ]}
-              />
-            </div>
+      {/* ── Evolução do funil ────────────────────────────────────────────────── */}
+      {hasData && (
+        <div className="glass-card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-bold text-rl-text">
+              Evolução {mode === 'diario' ? 'diária' : 'semanal'} do funil
+            </h4>
+            <span className="text-[11px] text-rl-muted">pico de cada série</span>
           </div>
+          <AreaChart
+            labels={chart.labels}
+            height={200}
+            series={[
+              { key: 'inv',   label: 'Investido', values: chart.investido, color: C.gold },
+              { key: 'leads', label: 'Leads',     values: chart.leads,     color: C.blue },
+              { key: 'rec',   label: 'Receita',   values: chart.receita,   color: C.green, area: false },
+            ]}
+            formatValue={(key, max) => (key === 'leads' ? max.toLocaleString('pt-BR') : fmtMoney(max))}
+          />
         </div>
       )}
 

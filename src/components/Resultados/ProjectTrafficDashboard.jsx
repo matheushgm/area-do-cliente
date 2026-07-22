@@ -1,5 +1,4 @@
 import { useMemo, useState, useCallback } from 'react'
-import { useDashboardData } from '../../hooks/useDashboardData'
 import {
   CFG, num, fmtMoney, fmtNum, fmtDate, inRange,
   computeMainPeriod, buildStats, buildWeeklyMessage, localDateStr,
@@ -51,8 +50,9 @@ function channelSummary(rows, channel, period, names) {
 
 const STATUS_ORDER = { 'CRÍTICO': 0, 'QUEDA': 1, 'ESTÁVEL': 2, 'MELHORA': 3 }
 
-export default function ProjectTrafficDashboard({ project }) {
-  const dash = useDashboardData({ source: 'api' })   // fonte NOVA: dash_insights (API), não as planilhas
+// `dash` vem do ResultadosModule (uma única instância de useDashboardData é
+// compartilhada com o painel de canais do funil, para não buscar 2x).
+export default function ProjectTrafficDashboard({ project, dash }) {
   const { raw, accounts, projectsList, cplTargets, loading, error } = dash
 
   const [days, setDays] = useState(7)

@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { BarChart3, Filter } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { useDashboardData } from '../hooks/useDashboardData'
 import ModelSelector from './Resultados/ModelSelector'
 import B2BView from './Resultados/B2BResultados'
 import B2CView from './Resultados/B2CResultados'
@@ -9,6 +10,10 @@ import ProjectTrafficDashboard from './Resultados/ProjectTrafficDashboard'
 // ─── Main Export ───────────────────────────────────────────────────────────────
 export default function ResultadosModule({ project }) {
   const { updateProject } = useApp()
+
+  // Fonte NOVA (dash_insights via /api). Carregada UMA vez aqui e compartilhada
+  // entre o dashboard de tráfego e o comparativo de canais do funil.
+  const dash = useDashboardData({ source: 'api' })
 
   const resultados = project.resultados || {}
   const modelo = resultados.modelo
@@ -46,7 +51,7 @@ export default function ResultadosModule({ project }) {
             <p className="text-xs text-rl-muted">Dados reais das contas de anúncio vinculadas a este projeto</p>
           </div>
         </div>
-        <ProjectTrafficDashboard project={project} />
+        <ProjectTrafficDashboard project={project} dash={dash} />
       </section>
 
       {/* ─── Divisória entre Tráfego e Funil ─── */}
@@ -96,6 +101,8 @@ export default function ResultadosModule({ project }) {
             companyName={project.companyName}
             roiCalc={project.roiCalc}
             getOrCreateShareToken={getOrCreateShareToken}
+            dash={dash}
+            projectId={project.id}
           />
         )}
 
@@ -106,6 +113,9 @@ export default function ResultadosModule({ project }) {
             clientShareToken={project.clientShareToken}
             getOrCreateShareToken={getOrCreateShareToken}
             companyName={project.companyName}
+            roiCalc={project.roiCalc}
+            dash={dash}
+            projectId={project.id}
           />
         )}
       </section>

@@ -3,8 +3,10 @@ import {
   ChevronLeft, ChevronRight, Plus, Edit2, Check, X, TrendingUp, ArrowDown,
   FileDown, Link2, CheckCircle2, Wallet, Users, Target, Trophy,
 } from 'lucide-react'
-import { fmtMoney, fmtPct, parseMoney, getWeekRanges, MONTH_NAMES } from './resultadosHelpers'
-import { KpiHero, DonutGauge, AreaChart, CostBars, CostGrid, C } from './ResultadosCharts'
+import { fmtMoney, fmtPct, parseMoney, getWeekRanges, computeRoiPlan, MONTH_NAMES } from './resultadosHelpers'
+import { KpiHero, AreaChart, CostGrid, C } from './ResultadosCharts'
+import ComparativoCanais from './ComparativoCanais'
+import PlanoVsRealizado from './PlanoVsRealizado'
 import { exportResultadosB2BPDF } from '../../utils/exportPDF'
 
 // ─── Funnel Visualization (B2B) ────────────────────────────────────────────────
@@ -169,26 +171,16 @@ export function SummaryCard({ label, value, sub, color }) {
 }
 
 // ─── Weekly targets helper ────────────────────────────────────────────────────
+// Meta semanal = plano mensal do ROI dividido pelas semanas do mês.
 function computeWeeklyTargets(roiCalc, numSemanas) {
-  if (!roiCalc || !numSemanas) return null
-  const {
-    mediaOrcamento = 0, custoMarketing = 0, ticketMedio = 0, qtdCompras = 1,
-    margemBruta = 40, roiDesejado = 0,
-    taxaLead2MQL = 30, taxaMQL2SQL = 50, taxaSQL2Venda = 20,
-  } = roiCalc
-  const totalInvestimento = mediaOrcamento + custoMarketing
-  const lucroPorVenda     = ticketMedio * qtdCompras * (margemBruta / 100)
-  if (!lucroPorVenda) return null
-  const retornoAlvo       = totalInvestimento * (1 + roiDesejado / 100)
-  const vendas  = Math.ceil(retornoAlvo / lucroPorVenda)
-  const sqls    = taxaSQL2Venda  ? Math.ceil(vendas  / (taxaSQL2Venda  / 100)) : null
-  const mqls    = taxaMQL2SQL    ? Math.ceil(sqls    / (taxaMQL2SQL    / 100)) : null
-  const leads   = taxaLead2MQL   ? Math.ceil(mqls    / (taxaLead2MQL   / 100)) : null
+  const plan = numSemanas ? computeRoiPlan(roiCalc) : null
+  if (!plan) return null
+  const perWeek = v => (v ? Math.ceil(v / numSemanas) : null)
   return {
-    leads:  leads  ? Math.ceil(leads  / numSemanas) : null,
-    mql:    mqls   ? Math.ceil(mqls   / numSemanas) : null,
-    sql:    sqls   ? Math.ceil(sqls   / numSemanas) : null,
-    vendas: Math.ceil(vendas / numSemanas),
+    leads:  perWeek(plan.leads),
+    mql:    perWeek(plan.mql),
+    sql:    perWeek(plan.sql),
+    vendas: perWeek(plan.vendas),
   }
 }
 
@@ -237,7 +229,7 @@ function MetaComparison({ wkData, targets }) {
 }
 
 // ─── B2B View ──────────────────────────────────────────────────────────────────
-export default function B2BView({ resultados, onUpdate, companyName, roiCalc, getOrCreateShareToken }) {
+export default function B2BView({ resultados, onUpdate, companyName, roiCalc, getOrCreateShareToken, dash, projectId }) {
   const today = new Date()
   const [year, setYear]   = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
@@ -305,7 +297,9 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
   const cpSql = perUnit(totals.sql)
   const cac  = perUnit(totals.vendas)
   const roas = totals.investido > 0 ? totals.receitaVendas / totals.investido : 0
-  const convLeadVenda = totals.leads > 0 ? (totals.vendas / totals.leads) * 100 : 0
+
+  // Meta mensal vinda da Calculadora de ROI do projeto.
+  const plan = computeRoiPlan(roiCalc)
 
   // Séries dos gráficos: uma entrada por semana do mês (cálculo barato).
   const chart = (() => {
@@ -383,51 +377,47 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
         </div>
       )}
 
-      {/* ── Gráficos ─────────────────────────────────────────────────────────── */}
-      {hasTotals && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="glass-card p-5 lg:col-span-2">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-bold text-rl-text">Evolução semanal</h4>
-              <span className="text-[11px] text-rl-muted">pico de cada série</span>
-            </div>
-            <AreaChart
-              labels={chart.labels}
-              height={200}
-              series={[
-                { key: 'inv',    label: 'Investido', values: chart.investido, color: C.gold },
-                { key: 'leads',  label: 'Leads',     values: chart.leads,     color: C.blue },
-                { key: 'vendas', label: 'Vendas',    values: chart.vendas,    color: C.green, area: false },
-              ]}
-              formatValue={(key, max) => (key === 'inv' ? fmtMoney(max) : max.toLocaleString('pt-BR'))}
-            />
-          </div>
+      {/* ── Canais (dados reais) × Plano de ROI ──────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <ComparativoCanais
+            dash={dash}
+            projectId={projectId}
+            year={year}
+            month={month}
+            monthLabel={`${MONTH_NAMES[month]} ${year}`}
+          />
+        </div>
+        <PlanoVsRealizado
+          plan={plan}
+          real={{
+            investido: totals.investido,
+            leads:  totals.leads,
+            mql:    totals.mql,
+            sql:    totals.sql,
+            vendas: totals.vendas,
+            receita: totals.receitaVendas,
+          }}
+        />
+      </div>
 
-          <div className="glass-card p-5 flex flex-col justify-between gap-4">
-            <div className="flex flex-col items-center">
-              <h4 className="text-sm font-bold text-rl-text self-start mb-3">Lead → Venda</h4>
-              <DonutGauge
-                pct={convLeadVenda}
-                label={`${convLeadVenda.toFixed(1)}%`}
-                caption={`${totals.vendas} vendas em ${totals.leads} leads`}
-                color={convLeadVenda >= 5 ? 'green' : convLeadVenda >= 2 ? 'gold' : 'purple'}
-                size={126}
-              />
-            </div>
-            <div className="pt-4 border-t border-rl-border/60">
-              <div className="text-[10px] text-rl-muted uppercase tracking-wider mb-2.5 font-semibold">
-                Custo por etapa · mês
-              </div>
-              <CostBars
-                items={[
-                  { label: 'Custo / Lead', value: cpl,   display: cpl   > 0 ? fmtMoney(cpl)   : '—', color: 'blue' },
-                  { label: 'Custo / MQL',  value: cpMql, display: cpMql > 0 ? fmtMoney(cpMql) : '—', color: 'cyan' },
-                  { label: 'Custo / SQL',  value: cpSql, display: cpSql > 0 ? fmtMoney(cpSql) : '—', color: 'purple' },
-                  { label: 'CAC',          value: cac,   display: cac   > 0 ? fmtMoney(cac)   : '—', color: 'gold' },
-                ]}
-              />
-            </div>
+      {/* ── Evolução semanal do funil ────────────────────────────────────────── */}
+      {hasTotals && (
+        <div className="glass-card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-bold text-rl-text">Evolução semanal do funil</h4>
+            <span className="text-[11px] text-rl-muted">pico de cada série</span>
           </div>
+          <AreaChart
+            labels={chart.labels}
+            height={200}
+            series={[
+              { key: 'inv',    label: 'Investido', values: chart.investido, color: C.gold },
+              { key: 'leads',  label: 'Leads',     values: chart.leads,     color: C.blue },
+              { key: 'vendas', label: 'Vendas',    values: chart.vendas,    color: C.green, area: false },
+            ]}
+            formatValue={(key, max) => (key === 'inv' ? fmtMoney(max) : max.toLocaleString('pt-BR'))}
+          />
         </div>
       )}
 
