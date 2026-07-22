@@ -1,17 +1,22 @@
 // Painel "Meta Ads × Google Ads" — gasto, conversões e custo por conversão de
 // cada canal no MÊS selecionado, usando as contas de anúncio vinculadas ao
 // projeto (mesma fonte do dashboard de tráfego: dash_insights via /api).
+//
+// Um card por canal + uma barra de participação no investimento + uma frase
+// de leitura (qual canal converte mais barato). Sem tabelas de comparação
+// redundantes com o que os cards já mostram.
 
+import { Lightbulb } from 'lucide-react'
 import { CFG, num, fmtDate, inRange } from '../../lib/dashboardData'
 import { fmtMoney, getDaysInMonth } from './resultadosHelpers'
 
 const fmtInt = n => Number(n || 0).toLocaleString('pt-BR')
 
 const CHANNELS = [
-  { id: 'meta',   label: 'Meta Ads',   icon: '📱', color: 'blue',   textCls: 'text-rl-blue',   barCls: 'bg-rl-blue' },
+  { id: 'meta',   label: 'Meta Ads',   icon: '📱', textCls: 'text-rl-blue',   barCls: 'bg-rl-blue' },
   // rl-purple e rl-blue são quase a mesma cor no tema — o Google usa cyan para
   // que as duas séries fiquem distinguíveis lado a lado.
-  { id: 'google', label: 'Google Ads', icon: '🔍', color: 'cyan', textCls: 'text-rl-cyan', barCls: 'bg-rl-cyan' },
+  { id: 'google', label: 'Google Ads', icon: '🔍', textCls: 'text-rl-cyan',   barCls: 'bg-rl-cyan' },
 ]
 
 // Gasto e conversões de um canal, restrito às contas do projeto e ao intervalo.
@@ -33,9 +38,8 @@ function channelTotals(rows, channel, names, from, to) {
   }, { spend: 0, conv: 0 })
 }
 
-function ChannelBlock({ ch, data, totalSpend, bestCpa }) {
-  const cpa   = data.conv > 0 && data.spend > 0 ? data.spend / data.conv : 0
-  const share = totalSpend > 0 ? (data.spend / totalSpend) * 100 : 0
+function ChannelCard({ ch, data, bestCpa }) {
+  const cpa = data.conv > 0 && data.spend > 0 ? data.spend / data.conv : 0
   const isBest = cpa > 0 && bestCpa > 0 && cpa === bestCpa
 
   return (
@@ -45,74 +49,84 @@ function ChannelBlock({ ch, data, totalSpend, bestCpa }) {
           <span>{ch.icon}</span> {ch.label}
         </span>
         {isBest && (
-          <span className="text-[10px] font-bold text-rl-green bg-rl-green/10 px-2 py-0.5 rounded-full">
+          <span className="text-[10px] font-bold text-rl-green bg-rl-green/10 px-2 py-0.5 rounded-full shrink-0">
             melhor custo/conv
           </span>
         )}
       </div>
 
       {data.spend > 0 || data.conv > 0 ? (
-        <>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <div className="text-[10px] text-rl-muted uppercase tracking-wider">Gasto</div>
-              <div className="text-base font-bold text-rl-text leading-tight mt-0.5">{fmtMoney(data.spend)}</div>
-              <div className="text-[10px] text-rl-muted mt-0.5">{share.toFixed(0)}% do total</div>
-            </div>
-            <div>
-              <div className="text-[10px] text-rl-muted uppercase tracking-wider">Conversões</div>
-              <div className={`text-base font-bold leading-tight mt-0.5 ${ch.textCls}`}>{fmtInt(data.conv)}</div>
-            </div>
-            <div>
-              <div className="text-[10px] text-rl-muted uppercase tracking-wider">Custo / conv.</div>
-              <div className="text-base font-bold text-rl-gold leading-tight mt-0.5">
-                {cpa > 0 ? fmtMoney(cpa) : '—'}
-              </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <div className="text-[10px] text-rl-muted uppercase tracking-wider">Gasto</div>
+            <div className="text-base font-bold text-rl-text leading-tight mt-0.5">{fmtMoney(data.spend)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-rl-muted uppercase tracking-wider">Conversões</div>
+            <div className={`text-base font-bold leading-tight mt-0.5 ${ch.textCls}`}>{fmtInt(data.conv)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-rl-muted uppercase tracking-wider">Custo / conv.</div>
+            <div className="text-base font-bold text-rl-gold leading-tight mt-0.5">
+              {cpa > 0 ? fmtMoney(cpa) : '—'}
             </div>
           </div>
-          <div className="h-1.5 rounded-full bg-rl-border/50 overflow-hidden mt-3">
-            <div className={`h-full rounded-full transition-all duration-500 ${ch.barCls}`}
-                 style={{ width: `${share}%` }} />
-          </div>
-        </>
+        </div>
       ) : (
-        <p className="text-xs text-rl-muted py-2">Sem investimento neste canal no mês.</p>
+        <p className="text-xs text-rl-muted py-1">Sem investimento neste canal no mês.</p>
       )}
     </div>
   )
 }
 
-// Confronto lado a lado dos dois canais numa métrica. As barras são
-// normalizadas pelo maior valor da linha — a leitura é relativa, não absoluta.
-function MetricCompare({ label, hint, values, format, lowerIsBetter = false }) {
-  const max = Math.max(...CHANNELS.map(c => values[c.id] || 0), 1)
-  const valid = CHANNELS.map(c => values[c.id]).filter(v => v > 0)
-  const best = valid.length > 1 ? (lowerIsBetter ? Math.min(...valid) : Math.max(...valid)) : null
+// Uma barra só, dividida por canal — participação de cada um na verba total.
+// Substitui os dois cards falando a mesma coisa (%) em textos separados.
+function SplitBar({ data, totalSpend }) {
+  const metaPct   = totalSpend > 0 ? (data.meta.spend / totalSpend) * 100 : 0
+  const googlePct = 100 - metaPct
 
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-2 mb-2">
-        <span className="text-[11px] font-semibold text-rl-text">{label}</span>
-        <span className="text-[10px] text-rl-muted">{hint}</span>
+    <div className="mt-4 mb-4">
+      <div className="text-[10px] text-rl-muted uppercase tracking-wider mb-1.5">Participação no investimento</div>
+      <div className="h-2 rounded-full overflow-hidden flex bg-rl-border/40">
+        {metaPct   > 0 && <div style={{ width: `${metaPct}%` }}   className="bg-rl-blue" />}
+        {googlePct > 0 && <div style={{ width: `${googlePct}%` }} className="bg-rl-cyan" />}
       </div>
-      <div className="space-y-1.5">
-        {CHANNELS.map(ch => {
-          const v = values[ch.id] || 0
-          const isBest = best != null && v === best
-          return (
-            <div key={ch.id} className="flex items-center gap-2">
-              <span className={`text-[10px] w-14 shrink-0 ${ch.textCls}`}>{ch.label.split(' ')[0]}</span>
-              <div className="flex-1 h-2 rounded-full bg-rl-border/50 overflow-hidden">
-                <div className={`h-full rounded-full transition-all duration-500 ${ch.barCls}`}
-                     style={{ width: `${(v / max) * 100}%` }} />
-              </div>
-              <span className={`text-[11px] font-semibold w-24 text-right shrink-0 ${isBest ? 'text-rl-green' : 'text-rl-text'}`}>
-                {v > 0 ? format(v) : '—'}
-              </span>
-            </div>
-          )
-        })}
+      <div className="flex justify-between mt-1.5 text-[11px] font-semibold">
+        <span className="text-rl-blue">Meta {metaPct.toFixed(0)}%</span>
+        <span className="text-rl-cyan">Google {googlePct.toFixed(0)}%</span>
       </div>
+    </div>
+  )
+}
+
+// Uma frase só com a leitura que importa pra decisão: pra onde a verba rende
+// mais. Substitui a comparação lado a lado em barras.
+function Insight({ data }) {
+  const mCpa = data.meta.conv   > 0 ? data.meta.spend   / data.meta.conv   : 0
+  const gCpa = data.google.conv > 0 ? data.google.spend / data.google.conv : 0
+
+  let text
+  if (mCpa > 0 && gCpa > 0) {
+    const cheaperIsMeta = mCpa <= gCpa
+    const cheaper   = cheaperIsMeta ? 'Meta Ads' : 'Google Ads'
+    const expensive = cheaperIsMeta ? 'Google Ads' : 'Meta Ads'
+    const diff = Math.round((Math.max(mCpa, gCpa) / Math.min(mCpa, gCpa) - 1) * 100)
+    text = diff < 5
+      ? 'Os dois canais convertem a um custo parecido neste mês.'
+      : `${cheaper} converte ${diff}% mais barato que ${expensive} neste mês — considere realocar verba.`
+  } else if (mCpa > 0 || gCpa > 0) {
+    text = `Só ${mCpa > 0 ? 'Meta Ads' : 'Google Ads'} teve conversões neste mês.`
+  } else {
+    return null
+  }
+
+  // mt-auto ancora o insight no rodapé quando o card estica para igualar a
+  // altura do painel vizinho (Plano vs Realizado).
+  return (
+    <div className="flex items-start gap-2 mt-auto pt-4 border-t border-rl-border/60">
+      <Lightbulb size={14} className="text-rl-gold shrink-0 mt-0.5" />
+      <p className="text-xs text-rl-text leading-relaxed">{text}</p>
     </div>
   )
 }
@@ -133,7 +147,7 @@ export default function ComparativoCanais({ dash, projectId, year, month, monthL
   const header = (
     <div className="flex items-center justify-between gap-2 mb-3">
       <h4 className="text-sm font-bold text-rl-text">Meta Ads × Google Ads</h4>
-      <span className="text-[11px] text-rl-muted">{monthLabel} · contas vinculadas</span>
+      <span className="text-[11px] text-rl-muted">{monthLabel}</span>
     </div>
   )
 
@@ -161,8 +175,6 @@ export default function ComparativoCanais({ dash, projectId, year, month, monthL
     google: channelTotals(raw.google, 'google', names, from, to),
   }
   const totalSpend = data.meta.spend + data.google.spend
-  const totalConv  = data.meta.conv  + data.google.conv
-  const totalCpa   = totalConv > 0 && totalSpend > 0 ? totalSpend / totalConv : 0
 
   // Menor custo por conversão entre os canais que de fato rodaram.
   const cpas = CHANNELS
@@ -171,7 +183,7 @@ export default function ComparativoCanais({ dash, projectId, year, month, monthL
   const bestCpa = cpas.length > 1 ? Math.min(...cpas) : 0
 
   return (
-    <div className="glass-card p-5 h-full">
+    <div className="glass-card p-5 h-full flex flex-col">
       {header}
 
       {totalSpend === 0 ? (
@@ -182,53 +194,12 @@ export default function ComparativoCanais({ dash, projectId, year, month, monthL
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {CHANNELS.map(ch => (
-              <ChannelBlock key={ch.id} ch={ch} data={data[ch.id]} totalSpend={totalSpend} bestCpa={bestCpa} />
+              <ChannelCard key={ch.id} ch={ch} data={data[ch.id]} bestCpa={bestCpa} />
             ))}
           </div>
 
-          <div className="space-y-4 mt-4 pt-4 border-t border-rl-border/60">
-            <MetricCompare
-              label="Gasto" hint="quem consome mais verba"
-              values={{ meta: data.meta.spend, google: data.google.spend }}
-              format={fmtMoney}
-            />
-            <MetricCompare
-              label="Conversões" hint="quem entrega mais volume"
-              values={{ meta: data.meta.conv, google: data.google.conv }}
-              format={fmtInt}
-            />
-            <MetricCompare
-              label="Custo por conversão" hint="menor é melhor"
-              values={{
-                meta:   data.meta.conv   > 0 ? data.meta.spend   / data.meta.conv   : 0,
-                google: data.google.conv > 0 ? data.google.spend / data.google.conv : 0,
-              }}
-              format={fmtMoney}
-              lowerIsBetter
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-rl-border/60">
-            <div>
-              <div className="text-[10px] text-rl-muted uppercase tracking-wider">Gasto total</div>
-              <div className="text-lg font-bold text-rl-gold leading-tight mt-0.5">{fmtMoney(totalSpend)}</div>
-            </div>
-            <div>
-              <div className="text-[10px] text-rl-muted uppercase tracking-wider">Conversões</div>
-              <div className="text-lg font-bold text-rl-text leading-tight mt-0.5">{fmtInt(totalConv)}</div>
-            </div>
-            <div>
-              <div className="text-[10px] text-rl-muted uppercase tracking-wider">Custo / conv. médio</div>
-              <div className="text-lg font-bold text-rl-cyan leading-tight mt-0.5">
-                {totalCpa > 0 ? fmtMoney(totalCpa) : '—'}
-              </div>
-            </div>
-          </div>
-
-          <p className="text-[10px] text-rl-muted mt-3 leading-relaxed">
-            Conversões do Meta somam conversas no WhatsApp, leads e vendas; do Google, a coluna
-            Conversões. Números vindos direto das contas — podem divergir do funil preenchido à mão.
-          </p>
+          <SplitBar data={data} totalSpend={totalSpend} />
+          <Insight data={data} />
         </>
       )}
     </div>

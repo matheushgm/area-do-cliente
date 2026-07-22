@@ -10,6 +10,15 @@ export function fmtMoney(n) {
   return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+// Sem centavos — usado em painéis densos (scorecards) onde precisão de
+// centavos só atrapalha a leitura rápida.
+export function fmtMoneyShort(n) {
+  if (!n && n !== 0) return '—'
+  const num = Number(n)
+  if (!isFinite(num)) return '—'
+  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+}
+
 export function fmtPct(a, b) {
   if (!b || b === 0) return '—'
   return ((a / b) * 100).toFixed(1) + '%'
