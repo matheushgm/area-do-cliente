@@ -42,10 +42,119 @@
   .dt-root .hide-btn.is-hidden { color:#2563EB; }
   /* Dica de leitura dos grupos das visualizações analíticas */
   .dt-root .diag-hint { font-size:12px; color:#64748B; padding:8px 12px 2px; line-height:1.4; }
-  /* Nas visualizações analíticas (diagnóstico/escala) a tabela é a única visão —
-     no mobile o dashboard.css esconde .table-wrap (usa lista .mcl, que não existe
-     aqui); reexibe com scroll horizontal. */
-  @media(max-width:768px){ .dt-root .group-section.diag-section .table-wrap{ display:block; } }
+
+  /* Subgrupos de causa dentro do grupo "Queda" (visão Padrão) — subclassifica
+     as contas em queda pela causa (verba / CTR / taxa de conversão), reusando
+     a lógica do Diagnóstico de Queda já na primeira parte da lista. */
+  .dt-root .queda-sub { margin:0 0 4px; }
+  .dt-root .queda-sub:last-child { margin-bottom:0; }
+  .dt-root .subgroup-header { display:flex; align-items:center; gap:8px; padding:6px 12px; margin:2px 0 11px;
+    border-radius:8px; border:1px solid #E4EAF7; border-left:3px solid #CBD5E1; background:#F8FAFF; }
+  .dt-root .subgroup-header .gh-icon { font-size:13px; }
+  .dt-root .sg-title { font-size:12px; font-weight:700; color:#334155; }
+  .dt-root .subgroup-header.causa-verba { border-left-color:#D97706; background:rgba(217,119,6,0.06); }
+  .dt-root .subgroup-header.causa-ctr   { border-left-color:#DC2626; background:rgba(220,38,38,0.05); }
+  .dt-root .subgroup-header.causa-taxa  { border-left-color:#DB2777; background:rgba(219,39,119,0.05); }
+
+  /* ── MOBILE: cards no lugar das tabelas ────────────────────────────────────
+     No retrato o dashboard.css esconde `.group-section .table-wrap` e espera a
+     lista `.mcl`, que nunca foi portada para o viewer — o resultado era um grupo
+     de status sem NENHUM dado, e só girar o celular (>768px) trazia a tabela de
+     volta. Aqui entram os cards `.m-card`: uma conta por card, com as 3 métricas
+     que importam (conversões, CPL, investimento) já com a variação vs. período
+     anterior. Desktop nunca vê isso (a tabela completa continua sendo a visão). */
+  .dt-root .m-cards { display:none; }
+  /* No desktop a busca e o select seguem sendo filhos diretos da .filter-bar
+     (display:contents dissolve o wrapper); só no mobile ele vira uma linha. */
+  .dt-root .filter-row { display:contents; }
+  /* Subtabs sangram até a borda do painel: o recuo negativo precisa acompanhar
+     o padding do .cp-panel (era inline com -22px fixo e estourava a tela quando
+     o painel encolheu no mobile). */
+  .dt-root .dt-subtabs { display:flex; border-bottom:1px solid #D8E0F0; background:#FFFFFF;
+    margin:0 -22px 18px; padding:0 22px; }
+  .dt-root .m-card { background:#FFFFFF; border:1px solid #D8E0F0; border-radius:12px; padding:12px 13px;
+    box-shadow:0 1px 3px rgba(15,23,42,.06), 0 4px 14px rgba(15,23,42,.05); cursor:pointer;
+    -webkit-tap-highlight-color:transparent; }
+  .dt-root .m-card:active { background:#F4F7FC; }
+  .dt-root .m-card-top { display:flex; align-items:center; gap:7px; }
+  .dt-root .m-card-name { font-size:14px; font-weight:700; color:#0F172A; flex:1; min-width:0;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dt-root .m-card-chev { color:#94A3B8; font-size:16px; flex-shrink:0; line-height:1; }
+  .dt-root .m-card-sub { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:11px;
+    color:#64748B; margin-top:7px; }
+  .dt-root .m-card-sub .squad-derived-sm { margin-top:0; }
+  /* Grade de métricas: 3 colunas fixas — cabem em 375px sem estourar */
+  .dt-root .m-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1px;
+    background:#E4EAF7; border:1px solid #E4EAF7; border-radius:9px; overflow:hidden; margin-top:10px; }
+  .dt-root .m-cell { background:#F8FAFF; padding:8px 9px; min-width:0; }
+  .dt-root .m-cell-l { font-size:9px; font-weight:700; letter-spacing:.4px; text-transform:uppercase;
+    color:#64748B; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dt-root .m-cell-v { font-size:15px; font-weight:800; color:#0F172A; line-height:1.15;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dt-root .m-cell-d { font-size:10px; font-weight:700; margin-top:3px; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  @media(max-width:768px){
+    .dt-root .m-cards { display:flex; flex-direction:column; gap:10px; margin-bottom:24px; }
+    /* Diagnóstico/escala também viram cards — nada de scroll horizontal. */
+    .dt-root .group-section.diag-section .table-wrap { display:none; }
+    /* 5 KPIs em 2 colunas deixavam uma célula vazia; a última ocupa a linha. */
+    .dt-root .summary-bar .sum-kpi:last-child { grid-column:1 / -1; border-right:none; }
+
+    /* ── Enxugar o topo ──────────────────────────────────────────────────────
+       Somados, banner + header + filtros + KPIs + badges ocupavam 766px numa
+       tela de 812px: a primeira tela não mostrava nenhuma conta. Aqui o topo
+       cabe em ~450px e o primeiro card já aparece sem rolar. */
+    /* Banner: fica só o essencial (fonte dos dados + status de sync); a frase
+       explicativa longa empurrava o #sync-status para fora da tela. */
+    .api-banner { padding:5px 14px; font-size:10px; gap:6px; white-space:nowrap; }
+    .api-banner .banner-desc { display:none; }
+    /* A faixa de presets rola sozinha; sem min-width:0 ela força 504px de
+       largura e passa a rolar a PÁGINA inteira na horizontal. */
+    .dt-root .presets { width:100%; min-width:0; max-width:100%; }
+    .dt-root .summary-bar { margin-bottom:12px; }
+    .dt-root .sum-kpi { padding:9px 12px; }
+    .dt-root .sum-label { font-size:9px; margin-bottom:4px; }
+    .dt-root .sum-value { font-size:17px; }
+    .dt-root .sum-sub { font-size:10px; margin-top:2px; }
+    /* Busca e squad lado a lado em vez de empilhados. */
+    .dt-root .filter-bar { gap:8px; padding:8px 16px; }
+    .dt-root .filter-row { display:flex; gap:8px; align-items:center; width:100%; }
+    .dt-root .filter-row .search-wrap { flex:1; min-width:0; }
+    .dt-root .filter-row select { flex-shrink:0; max-width:42%; }
+    .dt-root .period-row { gap:6px; margin-bottom:12px; }
+    .dt-root .period-badge { font-size:10px; padding:3px 8px; }
+    .dt-root .tab-panel { padding:12px 16px; }
+    /* Barra de visualizações: faixa rolável em vez de 4 linhas empilhadas. */
+    .dt-root .squad-bar { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
+      scrollbar-width:none; }
+    .dt-root .squad-bar::-webkit-scrollbar { display:none; }
+    .dt-root .squad-bar .squad-btn { flex-shrink:0; }
+    /* ── Página do cliente ───────────────────────────────────────────────── */
+    /* O nome ficava espremido entre o "Voltar" e os badges e truncava já no
+       3º caractere ("Grup…"); no mobile ele ganha a linha inteira. */
+    .dt-root .cp-client-name { flex:1 0 100%; order:-1; font-size:16px; }
+    .dt-root .cp-header { padding:12px 16px; gap:9px; }
+    /* KPIs em grade de 2 colunas: a faixa rolável escondia metade dos números
+       (o CPL Alvo e o Δ vs Alvo só apareciam arrastando de lado). */
+    .dt-root .cp-kpi-bar { display:grid; grid-template-columns:1fr 1fr; overflow-x:visible; }
+    .dt-root .cp-kpi-item { min-width:0; padding:10px 14px; border-bottom:1px solid #E4EAF7; }
+    .dt-root .cp-kpi-item:nth-child(odd) { border-right:1px solid #E4EAF7; }
+    .dt-root .cp-kpi-item:last-child { border-right:none; }
+    .dt-root .cp-kpi-value { font-size:16px; }
+    .dt-root .cp-kpi-label, .dt-root .cp-kpi-sub { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .dt-root .cp-panel { padding:14px 16px; }
+    .dt-root .dt-subtabs { margin:0 -16px 14px; padding:0 16px; overflow-x:auto;
+      -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    .dt-root .dt-subtabs::-webkit-scrollbar { display:none; }
+    .dt-root .dt-subtabs .dtab { flex-shrink:0; }
+    /* Tabelas profundas da página do cliente (campanhas/anúncios): a 1ª coluna
+       fica fixa, então dá pra rolar as métricas sem perder de vista o nome. */
+    .dt-root .dt-wrap th:first-child, .dt-root .dt-wrap td:first-child { position:sticky; left:0; z-index:2;
+      background:#FFFFFF; box-shadow:1px 0 0 #E4EAF7; }
+    .dt-root .dt-wrap thead th:first-child { background:#F4F7FC; z-index:3; }
+    .dt-root .dt-wrap tr:hover td:first-child { background:#F4F7FC; }
+    .dt-root .ad-name { max-width:150px; }
+  }
   /* Mini-gráfico dentro de cada quadrante (aba Resultados) */
   .dt-root .mg-chart { position:relative; height:170px; margin-top:14px; padding-top:14px; border-top:1px solid #E4EAF7; }
   .dt-root .mg-chart canvas { width:100% !important; }
@@ -105,7 +214,7 @@
 </style>
 </head>
 <body>
-<div class="api-banner"><span class="api-dot"></span> Fonte: <b>API Meta + Google</b> via Supabase (autenticado) · atualiza a cada 30 min. <span id="src-info"></span><span id="sync-status" style="margin-left:auto;font-weight:700"></span></div>
+<div class="api-banner"><span class="api-dot"></span> <span class="banner-desc">Fonte: <b>API Meta + Google</b> via Supabase (autenticado) · atualiza a cada 30 min.</span> <span id="src-info"></span><span id="sync-status" style="margin-left:auto;font-weight:700"></span></div>
 <div class="dt-root" id="app"><div class="dt-loader"><div class="spinner"></div><p>Carregando dados da API…</p></div></div>
 
 <script type="module">
@@ -228,7 +337,9 @@ const state = { raw:{meta:[],google:[]}, accounts:{}, channel:'meta', days:7, fr
                 campFilter:[], campPanelOpen:false, campSearch:'',
                 tab:'resultados', sub:0, drillCampaign:null, drillAdset:null,
                 weekly:null, _charts:[], termsCache:{},
-                termsSort:{key:'clicks',dir:'desc'}, termsPage:0 }
+                termsSort:{key:'clicks',dir:'desc'}, termsPage:0,
+                // ordenação das tabelas de conta (key=null → ordem natural do grupo)
+                acctSort:{key:null,dir:'desc'} }
 const app = document.getElementById('app')
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
 
@@ -465,14 +576,16 @@ function render() {
         <label>De: <input type="date" id="cfrom" value="${state.from}"></label>
         <label>Até: <input type="date" id="cto" value="${state.to}"></label>
         <button class="btn" id="capply">Aplicar</button></div>`:''}
-      <div class="search-wrap"><span class="search-icon">🔍</span>
-        <input type="text" id="search" placeholder="Buscar cliente…" value="${esc(state.search)}">
-        ${state.search?`<span class="clear-btn" id="clear" style="display:block">✕</span>`:''}</div>
-      ${(() => { const sqs = squadsInChannel(ch, p); if (state.squad && !sqs.includes(state.squad)) sqs.unshift(state.squad); return sqs.length ? `
-      <select id="squad" title="Filtrar por squad" style="background:#FFFFFF;border:1px solid ${state.squad?'#164496':'#D8E0F0'};color:${state.squad?'#164496':'#0F172A'};padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;outline:none;cursor:pointer;">
-        <option value="">Todos os squads</option>
-        ${sqs.map(sq=>`<option value="${esc(sq)}" ${state.squad===sq?'selected':''}>${esc(sq)}</option>`).join('')}
-      </select>` : '' })()}
+      <div class="filter-row">
+        <div class="search-wrap"><span class="search-icon">🔍</span>
+          <input type="text" id="search" placeholder="Buscar cliente…" value="${esc(state.search)}">
+          ${state.search?`<span class="clear-btn" id="clear" style="display:block">✕</span>`:''}</div>
+        ${(() => { const sqs = squadsInChannel(ch, p); if (state.squad && !sqs.includes(state.squad)) sqs.unshift(state.squad); return sqs.length ? `
+        <select id="squad" title="Filtrar por squad" style="background:#FFFFFF;border:1px solid ${state.squad?'#164496':'#D8E0F0'};color:${state.squad?'#164496':'#0F172A'};padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;outline:none;cursor:pointer;">
+          <option value="">Todos os squads</option>
+          ${sqs.map(sq=>`<option value="${esc(sq)}" ${state.squad===sq?'selected':''}>${esc(sq)}</option>`).join('')}
+        </select>` : '' })()}
+      </div>
       <span class="filter-info">${p?`Exibindo: ${p.label1} · Comparando com: ${p.label2}`:''}</span>
     </div>
     ${SHARED ? '' : (() => {
@@ -506,6 +619,78 @@ function render() {
   wire()
 }
 
+// ─── Cards de conta (visão mobile das tabelas) ───────────────────────────────
+// Só aparecem em ≤768px, onde a tabela de 11–12 colunas não cabe no retrato.
+// `cells` = [[rótulo, valor, delta?], …]; a grade é de 3 colunas, então use 3 ou
+// 6 células para não deixar buraco na última linha.
+function mCardHTML(name, badge, sub, cells) {
+  const grid = cells.map(([l, v, d]) => `<div class="m-cell">
+    <div class="m-cell-l">${l}</div><div class="m-cell-v">${v}</div>
+    ${d ? `<div class="m-cell-d">${d}</div>` : ''}</div>`).join('')
+  return `<div class="m-card" data-client="${esc(name)}">
+    <div class="m-card-top">${badge || ''}<span class="m-card-name">${esc(name)}</span>${hideBtnHTML(name)}<span class="m-card-chev">›</span></div>
+    ${sub ? `<div class="m-card-sub">${sub}</div>` : ''}
+    <div class="m-grid">${grid}</div>
+  </div>`
+}
+const mDelta = (v, lowerIsBetter) => `<span class="${varCls(v, lowerIsBetter)}">${fmtPct(v)}</span>`
+// Dinheiro nos cards: a célula tem ~105px, onde "R$ 2629,63" já trunca. CPL fica
+// com centavos (a precisão importa na leitura); a partir de R$ 1.000 (típico do
+// investimento) arredonda e usa separador de milhar — "R$ 2.630".
+const fmtMoneyCard = n => n == null ? '—'
+  : Math.abs(n) >= 1000 ? 'R$ ' + Math.round(n).toLocaleString('pt-BR') : fmtMoney(n)
+const trendHTML = x => x.declining3d ? `<span class="trend-dn">📉 Queda 3d</span>`
+  : x.trendDir === 'up' ? `<span class="trend-up">📈 Alta 3d</span>` : `<span class="trend-fl">➡️ Estável 3d</span>`
+
+// ─── Ordenação das tabelas de conta ──────────────────────────────────────────
+// Cada coluna com `key` vira cabeçalho clicável (1º clique ordena, o seguinte
+// inverte). `null` = coluna não ordenável (Status é constante dentro do grupo).
+// A ordenação vale para os 4 grupos de status e também para os cards mobile.
+const ACCT_COLS = [
+  ['Conta','name'], ['Status',null],
+  ['Conv.','conv1'], ['Conv. Ant.','conv2'], ['Var. Conv.','varConv'],
+  ['CPL','cpl1'], ['CPL Ant.','cpl2'], ['Var. CPL','varCpl'],
+  ['Investimento','spend1'], ['Invest. Ant.','spend2'], ['Var. Invest.','varSpend'],
+  ['Tend. 3d','trend'],
+]
+// Tendência não é um número na linha — vira rank (queda < estável < alta).
+const acctVal = (x, key) => key==='trend' ? (x.declining3d?-1:x.trendDir==='up'?1:0) : x[key]
+function sortAccounts(list) {
+  const { key, dir } = state.acctSort
+  if (!key) return list
+  const s = dir==='asc'?1:-1
+  return list.slice().sort((a,b)=>{
+    if (key==='name') return s*String(a.name).localeCompare(String(b.name),'pt-BR')
+    const av = acctVal(a,key), bv = acctVal(b,key)
+    if (av==null && bv==null) return 0
+    if (av==null) return 1      // nulos sempre por último, em qualquer direção
+    if (bv==null) return -1
+    return s*(av-bv)
+  })
+}
+const acctTheadHTML = () => ACCT_COLS.map(([label,k])=>{
+  if (!k) return `<th>${label}</th>`
+  const a = state.acctSort.key===k
+  return `<th data-acctsort="${k}" title="Ordenar por ${label}" style="cursor:pointer;user-select:none;white-space:nowrap">${label}${a?(state.acctSort.dir==='asc'?' ▲':' ▼'):''}</th>`
+}).join('')
+
+// Subclassificação do grupo "Queda" por causa — mesma lógica do Diagnóstico de
+// Queda (buildDeclineDiagnosis), aplicada já na visão Padrão. A ordem aqui é a
+// ordem dos subgrupos: verba primeiro, depois as duas causas de performance.
+const QUEDA_CAUSAS = [
+  { key:'verba', cls:'causa-verba', icon:'💸', label:'Corte de verba',
+    tip:'A conversão caiu MENOS que o investimento — a queda é reflexo do corte de verba, não de performance (eficiência manteve/melhorou).',
+    match: d => d.bucket === 'verba' },
+  { key:'ctr', cls:'causa-ctr', icon:'🎯', label:'Performance → CTR',
+    tip:'A conversão caiu MAIS que a verba justifica, e o CTR foi a alavanca que mais caiu — sinal de criativo/segmentação. Testar criativos.',
+    match: d => d.bucket === 'performance' && d.culprit === 'CTR' },
+  { key:'taxa', cls:'causa-taxa', icon:'🧲', label:'Performance → Tx. conversão',
+    tip:'A conversão caiu MAIS que a verba justifica, e a taxa de conversão foi a que mais caiu — sinal de LP/oferta/fundo de funil. Testar landing page.',
+    match: d => d.bucket === 'performance' && d.culprit === 'Taxa de conversão' },
+]
+// Retorna o descritor de causa de um item do diagnóstico (ou null se não houver).
+const causaOf = d => !d ? null : QUEDA_CAUSAS.find(c => c.match(d)) || null
+
 function channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct) {
   const dateLabels = p.t1.filter(Boolean).map(d=>{const[,m,day]=d.split('-');return `${day}/${m}`}).join(', ')
   const summary = `
@@ -522,26 +707,56 @@ function channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <div class="period-badge">Tendência 3d: <b>${dateLabels}</b></div>
       <div class="period-badge">Duração: <b>${p.span+1} dias</b></div>
     </div>`
+  // Diagnóstico de queda por conta (mesma fonte da visão "Diagnóstico de Queda"),
+  // usado para subclassificar o grupo "Queda" já aqui na visão Padrão.
+  const diagMap = {}; diagFor(ch, p).forEach(d => { diagMap[d.name] = d })
+
+  // Linha de tabela + card mobile de uma conta (reusados por grupo e subgrupo).
+  const acctRow = x => {
+    const trend = x.declining3d?`<span class="trend-dn">📉 Queda</span>`:x.trendDir==='up'?`<span class="trend-up">📈 Alta</span>`:`<span class="trend-fl">➡️ Estável</span>`
+    return `<tr data-client="${esc(x.name)}">
+      <td><span class="client-link">${esc(x.name)}</span>${hideBtnHTML(x.name)}</td>
+      <td><span class="pill ${pillCls(x.status)}">${pillIco(x.status)} ${x.status}</span></td>
+      <td>${fmtNum(x.conv1)}</td><td>${fmtNum(x.conv2)}</td>
+      <td class="${varCls(x.varConv,false)}">${fmtPct(x.varConv)}</td>
+      <td>${fmtMoney(x.cpl1)}</td><td>${fmtMoney(x.cpl2)}</td>
+      <td class="${varCls(x.varCpl,true)}">${fmtPct(x.varCpl)}</td>
+      <td>${fmtMoney(x.spend1)}</td><td>${fmtMoney(x.spend2)}</td>
+      <td class="${varCls(x.varSpend,false)}">${fmtPct(x.varSpend)}</td>
+      <td>${trend}</td></tr>`
+  }
+  const acctCard = x => mCardHTML(x.name,
+    `<span class="pill ${pillCls(x.status)}">${pillIco(x.status)}</span>`,
+    trendHTML(x),
+    [['Conversões', fmtNum(x.conv1), mDelta(x.varConv, false)],
+     [cplLabel.replace(' Médio',''), fmtMoneyCard(x.cpl1), mDelta(x.varCpl, true)],
+     ['Investido', fmtMoneyCard(x.spend1), mDelta(x.varSpend, false)]])
+  // Tabela + cards de um conjunto de contas.
+  const acctTable = list => `<div class="table-wrap"><table>
+        <thead><tr>${acctTheadHTML()}</tr></thead>
+        <tbody>${list.map(acctRow).join('')}</tbody></table></div>
+      <div class="m-cards">${list.map(acctCard).join('')}</div>`
+
   const groups = STATUS_GROUPS.map(g => {
-    const grp = st.filter(x=>x.status===g.key); if (!grp.length) return ''
-    const rows = grp.map(x=>{
-      const trend = x.declining3d?`<span class="trend-dn">📉 Queda</span>`:x.trendDir==='up'?`<span class="trend-up">📈 Alta</span>`:`<span class="trend-fl">➡️ Estável</span>`
-      return `<tr data-client="${esc(x.name)}">
-        <td><span class="client-link">${esc(x.name)}</span>${hideBtnHTML(x.name)}</td>
-        <td><span class="pill ${pillCls(x.status)}">${pillIco(x.status)} ${x.status}</span></td>
-        <td>${fmtNum(x.conv1)}</td><td>${fmtNum(x.conv2)}</td>
-        <td class="${varCls(x.varConv,false)}">${fmtPct(x.varConv)}</td>
-        <td>${fmtMoney(x.cpl1)}</td><td>${fmtMoney(x.cpl2)}</td>
-        <td class="${varCls(x.varCpl,true)}">${fmtPct(x.varCpl)}</td>
-        <td>${fmtMoney(x.spend1)}</td><td>${fmtMoney(x.spend2)}</td>
-        <td class="${varCls(x.varSpend,false)}">${fmtPct(x.varSpend)}</td>
-        <td>${trend}</td></tr>`
-    }).join('')
-    return `<div class="group-section">
-      <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Conta</th><th>Status</th><th>Conv.</th><th>Conv. Ant.</th><th>Var. Conv.</th><th>CPL</th><th>CPL Ant.</th><th>Var. CPL</th><th>Investimento</th><th>Invest. Ant.</th><th>Var. Invest.</th><th>Tend. 3d</th></tr></thead>
-        <tbody>${rows}</tbody></table></div></div>`
+    const grp = sortAccounts(st.filter(x=>x.status===g.key)); if (!grp.length) return ''
+    const header = `<div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>`
+    // Grupo "Queda": subclassifica pelas causas do diagnóstico (verba / CTR /
+    // taxa). Cada subgrupo com contas vira um bloco com subcabeçalho próprio.
+    if (g.key === 'QUEDA') {
+      const subBlock = (cls, icon, label, tip, list) => `<div class="queda-sub">
+        <div class="subgroup-header ${cls}"><span class="gh-icon">${icon}</span><span class="sg-title">${label}</span><span class="status-info" title="${esc(tip)}">i</span><span class="gh-count">${list.length} conta${list.length!==1?'s':''}</span></div>
+        ${acctTable(list)}</div>`
+      const subs = QUEDA_CAUSAS.map(c => {
+        const list = grp.filter(x => (causaOf(diagMap[x.name])||{}).key === c.key)
+        return list.length ? subBlock(c.cls, c.icon, c.label, c.tip, list) : ''
+      }).join('')
+      // Contas em queda sem diagnóstico disponível (raro — falta de cliques/impressões).
+      const semDiag = grp.filter(x => !diagMap[x.name])
+      const outros = semDiag.length ? subBlock('', '📊', 'Sem diagnóstico',
+        'Sem dados de cliques/impressões suficientes para apontar a causa da queda.', semDiag) : ''
+      return `<div class="group-section">${header}${subs}${outros}</div>`
+    }
+    return `<div class="group-section">${header}${acctTable(grp)}</div>`
   }).join('')
   return summary + groups
 }
@@ -592,12 +807,21 @@ function diagnosticoHTML(ch, p, only) {
       <td class="${varCls(d.varCr,false)}">${fmtPct(d.varCr)}</td>
       <td>${fmtMoney(d.cpl1)}</td>
       <td class="${varCls(d.varCpl,true)}">${fmtPct(d.varCpl)}</td></tr>`).join('')
+    const causa = g.key === 'verba' ? '💸 Verba' : g.key === 'ctr' ? '🎯 CTR' : '🧲 Taxa'
+    const cards = grp.map(d => mCardHTML(d.name, '', '',
+      [['Conversões', fmtNum(d.conv1), mDelta(d.varConv, false)],
+       ['Investido', fmtMoneyCard(d.spend1), mDelta(d.varSpend, false)],
+       ['CPL', fmtMoneyCard(d.cpl1), mDelta(d.varCpl, true)],
+       ['CTR', fmtRatioPct(d.ctr1), mDelta(d.varCtr, false)],
+       ['Tx. Conv.', fmtRatioPct(d.cr1), mDelta(d.varCr, false)],
+       ['Causa', causa, '']])).join('')
     return `<div class="group-section diag-section">
       <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
       <div class="diag-hint">${esc(g.tip)}</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Conta</th><th>Conv.</th><th>Var. Conv.</th><th>Investimento</th><th>Var. Invest.</th><th>CTR</th><th>Var. CTR</th><th>Tx. Conv.</th><th>Var. Tx. Conv.</th><th>CPL</th><th>Var. CPL</th></tr></thead>
-        <tbody>${rows}</tbody></table></div></div>`
+        <tbody>${rows}</tbody></table></div>
+      <div class="m-cards">${cards}</div></div>`
   }).join('')
   return head + groups
 }
@@ -643,12 +867,18 @@ function escalaHTML(ch, p) {
       <td class="${varCls(d.varSpend,false)}">${fmtPct(d.varSpend)}</td>
       <td>${trend}</td></tr>`
     }).join('')
+    const cards = grp.map(d => mCardHTML(d.name, '',
+      `${trendHTML(d)} <span style="color:#CBD5E1">·</span> ${targetMarginHTML(d.name, d.cpl1)}`,
+      [['Conversões', fmtNum(d.conv1), mDelta(d.varConv, false)],
+       ['CPL', fmtMoneyCard(d.cpl1), mDelta(d.varCpl, true)],
+       ['Investido', fmtMoneyCard(d.spend1), mDelta(d.varSpend, false)]])).join('')
     return `<div class="group-section diag-section">
       <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
       <div class="diag-hint">${esc(g.tip)}</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Conta</th><th>Conv.</th><th>Conv. Ant.</th><th>Var. Conv.</th><th>CPL</th><th>CPL Ant.</th><th>Var. CPL</th><th>Margem vs. Alvo</th><th>Investimento</th><th>Var. Invest.</th><th>Tend. 3d</th></tr></thead>
-        <tbody>${rows}</tbody></table></div></div>`
+        <tbody>${rows}</tbody></table></div>
+      <div class="m-cards">${cards}</div></div>`
   }).join('')
   return head + groups
 }
@@ -1301,7 +1531,7 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
   else        panel = state.sub===2?`<div id="termsPanel"></div>`:state.sub===1?tblGoogleGroups(allRows):tblGoogleCampaigns(allRows)
   return `<div class="cp-panel">
     ${quad}
-    <div class="dt-subtabs" style="display:flex;border-bottom:1px solid #D8E0F0;margin:0 -22px 18px;padding:0 22px;background:#FFFFFF">
+    <div class="dt-subtabs">
       ${tabs.map(([l,i])=>`<div class="dtab${state.sub===i?' active':''}" data-sub="${i}">${l}</div>`).join('')}
     </div>
     ${panel}
@@ -1760,10 +1990,17 @@ function wire() {
   // Visualizações (Padrão / Diagnóstico de Queda / Contas que podem escalar)
   app.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ state.view=b.dataset.view; state.showHidden=false; render() })
   const th=document.getElementById('toggle-hidden'); if (th) th.onclick=()=>{ state.showHidden=!state.showHidden; render() }
+  // Ordenar as tabelas de conta pelo cabeçalho (mesma coluna → inverte a direção)
+  app.querySelectorAll('th[data-acctsort]').forEach(th=>th.onclick=()=>{
+    const k = th.dataset.acctsort
+    if (state.acctSort.key === k) state.acctSort = { key:k, dir: state.acctSort.dir==='asc'?'desc':'asc' }
+    else state.acctSort = { key:k, dir: k==='name'?'asc':'desc' }   // texto começa A→Z, número maior→menor
+    render()
+  })
   // Olho de ocultar/reexibir conta (grava em dashboard_accounts.hidden)
   app.querySelectorAll('.hide-btn').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); const n=b.dataset.hide; setHidden(n, !isHidden(n)) })
-  app.querySelectorAll('tr[data-client]').forEach(tr=>tr.querySelector('.client-link').onclick=()=>{
-    state.openClient={ client: tr.dataset.client, channel: state.channel }
+  const openClient = (name) => {
+    state.openClient={ client: name, channel: state.channel }
     // inicializa o estado local da página de cliente a partir do período global
     state.tab='resultados'; state.sub=0; state.drillCampaign=null; state.drillAdset=null
     state.campFilter=[]; state.campPanelOpen=false; state.campSearch=''
@@ -1772,7 +2009,10 @@ function wire() {
     state.cFrom = state.from; state.cTo = state.to
     state.cPeriod = computeClientPeriod(state.raw[state.channel]||[], state.channel, state.cDays, state.from, state.to)
     render()
-  })
+  }
+  app.querySelectorAll('tr[data-client]').forEach(tr=>tr.querySelector('.client-link').onclick=()=>openClient(tr.dataset.client))
+  // Mobile: o card inteiro é a área de toque (o olho de ocultar já faz stopPropagation).
+  app.querySelectorAll('.m-card[data-client]').forEach(c=>c.onclick=()=>openClient(c.dataset.client))
 }
 
 load()
