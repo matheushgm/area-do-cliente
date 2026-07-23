@@ -1233,9 +1233,8 @@ function aggMetrics(rows, isMeta) {
     const impressions = rows.reduce((a,r)=>a+num(r['Impressões']),0)
     const clicks = rows.reduce((a,r)=>a+num(r['Número de cliques no link']),0)
     const conv = rows.reduce((a,r)=>a+num(r['Conversões']),0)
-    // Engajamento social: compartilhamentos do post + seguidores/curtidas ganhos.
+    // Engajamento social: compartilhamentos do post (action_type "post").
     const shares = rows.reduce((a,r)=>a+num(r['Compartilhamentos']),0)
-    const follows = rows.reduce((a,r)=>a+num(r['Seguidores ganhos']),0)
     const fRows = rows.filter(r=>num(r['Frequência'])>0 && num(r['Impressões'])>0)
     const fImps = fRows.reduce((a,r)=>a+num(r['Impressões']),0)
     const frequency = fImps>0 ? fRows.reduce((a,r)=>a+num(r['Frequência'])*num(r['Impressões']),0)/fImps : null
@@ -1255,7 +1254,7 @@ function aggMetrics(rows, isMeta) {
     const mqlSpend = colMql > 0 ? spend : typeRows.reduce((a,r)=>a+num(r['Valor investido']),0)
     const mqlLabel = colMql > 0 ? 'MQL' : (typeRows.length ? (typeRows[0]['Tipo de resultado'] || 'MQL') : 'MQL')
     const hasMql = colMql > 0 || typeRows.length > 0
-    return { spend, impressions, clicks, conv, shares, follows, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null, frequency,
+    return { spend, impressions, clicks, conv, shares, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null, frequency,
       purchases, cpp:purchases>0?spend/purchases:null, revenue, roas:spend>0?revenue/spend:null,
       hasMql, mql, leads, mqlLabel, cpMql:mql>0?mqlSpend/mql:null, leadToMql:leads>0?mql/leads*100:null }
   }
@@ -1293,7 +1292,6 @@ function metricGroupsHTML(allRows, prevRows, isMeta, period) {
       ${tileHTML('Cliques', fmtInt(cur.clicks), pctVar(cur.clicks, prv.clicks), false)}
       ${tileHTML('Impressões', fmtInt(cur.impressions), pctVar(cur.impressions, prv.impressions), false)}
       ${isMeta ? `
-      ${tileHTML('Seguidores ganhos', fmtInt(cur.follows), pctVar(cur.follows, prv.follows), false)}
       ${tileHTML('Compartilhamentos', fmtInt(cur.shares), pctVar(cur.shares, prv.shares), false)}` : ''}
     </div>${chart('mgChartEng')}</div>
     <div class="mg-card mg-perf"><h4 class="mg-title">Performance</h4><div class="mg-tiles">
