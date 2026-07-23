@@ -56,6 +56,14 @@
   .dt-root .subgroup-header.causa-ctr   { border-left-color:#DC2626; background:rgba(220,38,38,0.05); }
   .dt-root .subgroup-header.causa-taxa  { border-left-color:#DB2777; background:rgba(219,39,119,0.05); }
 
+  /* Variação discreta vs período anterior nas tabelas de drill (campanha/conjunto/anúncio) */
+  .dt-root .var-mini { font-size:10px; font-weight:700; margin-left:5px; white-space:nowrap;
+    vertical-align:middle; letter-spacing:.2px; opacity:.9; }
+  .dt-root .var-mini.up  { color:#059669; }
+  .dt-root .var-mini.dn  { color:#DC2626; }
+  .dt-root .var-mini.fl  { color:#94A3B8; font-weight:600; }
+  .dt-root .var-mini.new { color:#2563EB; font-weight:600; }
+
   /* ── MOBILE: cards no lugar das tabelas ────────────────────────────────────
      No retrato o dashboard.css esconde `.group-section .table-wrap` e espera a
      lista `.mcl`, que nunca foi portada para o viewer — o resultado era um grupo
@@ -894,6 +902,24 @@ const pctVid = (p,vv) => vv>0 ? (p/vv*100).toFixed(0)+'%' : '—'
 const M = (r,k)=>num(r[k])
 const metaConv = r => num(r['Conversões'])     // só conversões reais (total da conta)
 const metaResult = r => num(r['Resultados'])   // resultado verdadeiro do objetivo (por campanha)
+// Soma uma métrica do período anterior agrupada por chave → { chave: total }.
+// Usado pelas tabelas de drill para comparar campanha/conjunto/anúncio 1:1.
+const prevMapOf = (prevRows, keyFn, valFn) => {
+  const m = {}
+  ;(prevRows || []).forEach(r => { const k = keyFn(r); if (k == null || k === '') return; m[k] = (m[k] || 0) + valFn(r) })
+  return m
+}
+// Badge discreto de variação vs período anterior (para conversões/resultados —
+// maior é melhor). Sem barulho: ±0% quando estável, "novo" quando não existia
+// no período anterior, nada quando era 0 e continua 0.
+function varMini(cur, prev) {
+  const c = cur || 0, p = prev || 0
+  if (p === 0) return c > 0 ? `<span class="var-mini new" title="Sem resultado no período anterior">novo</span>` : ''
+  const pct = ((c - p) / p) * 100
+  if (Math.abs(pct) < 0.5) return `<span class="var-mini fl" title="Anterior: ${fmtNum(p)}">±0%</span>`
+  const cls = pct > 0 ? 'up' : 'dn', arrow = pct > 0 ? '▲' : '▼'
+  return `<span class="var-mini ${cls}" title="Anterior: ${fmtNum(p)} · atual: ${fmtNum(c)}">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`
+}
 // Conta anúncios ATIVOS num conjunto de linhas: agrupa por nome do anúncio e
 // considera ativo quem tem status "ativ/active/enabled" (mesma regra do stTag).
 function activeAdsCount(rows){
@@ -1079,35 +1105,39 @@ function openAdDestination(adId, adName, destino){
   })()
 }
 
-function tblMetaCampaigns(rows){
+function tblMetaCampaigns(rows, prevRows){
   const g = groupBy(rows, r=>r['Nome da campanha'], {
     spend:r=>M(r,'Valor investido'), conv:metaConv, leads:metaConv, result:metaResult,
     impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link') })
   if(!g.length) return `<div class="empty">Sem campanhas no período.</div>`
+  const pv = prevMapOf(prevRows, r=>r['Nome da campanha'], metaResult)
   const flags = g.filter(x=>x.spend>0&&x.result===0).map(x=>`🚨 ${esc(x.key)} — gasto sem resultado`)
   const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null
     const st=x._rows[0]?.['Status da Campanha']||''
     const rl=(x._rows.find(r=>r['Tipo de resultado'])||{})['Tipo de resultado']||'—'
-    // Resultado = nº verdadeiro do objetivo + tipo (= coluna do gerenciador).
+    // Resultado = nº verdadeiro do objetivo + tipo (= coluna do gerenciador) +
+    // variação discreta vs período anterior (compara a mesma campanha 1:1).
     return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${i===0&&x.result>0?'🏆 ':''}${esc(x.key)}</span></td>
-      <td><b>${fmtNum(x.result)}</b> <span style="color:#8aa0d6;font-size:11px">${esc(rl)}</span></td><td>${stTag(st)}</td>
+      <td><b>${fmtNum(x.result)}</b>${varMini(x.result, pv[x.key])} <span style="color:#8aa0d6;font-size:11px">${esc(rl)}</span></td><td>${stTag(st)}</td>
       <td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Campanha</th><th>Resultado</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th><th>Cliques</th></tr></thead><tbody>${body}</tbody></table></div>`
 }
-function tblMetaAdsets(rows){
+function tblMetaAdsets(rows, prevRows){
   const g = groupBy(rows, r=>r['Conjunto de Anúncio'], {
     spend:r=>M(r,'Valor investido'), conv:metaConv, impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link') })
   if(!g.length) return `<div class="empty">Sem conjuntos no período.</div>`
+  const pv = prevMapOf(prevRows, r=>r['Conjunto de Anúncio'], metaConv)
   const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(x.key)} — gasto sem resultado`)
   const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const st=x._rows[0]?.['Status do Conjunto de Anúncio']||''
     const ativos=activeAdsCount(x._rows)
     return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-adset="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span></td>
-      <td>${stTag(st)}</td><td><span class="${ativos>0?'good':'fl'}">${ativos}</span></td><td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
+      <td>${stTag(st)}</td><td><span class="${ativos>0?'good':'fl'}">${ativos}</span></td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td></tr>` }).join('')
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Conjunto</th><th>Status</th><th>Anúncios ativos</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th></tr></thead><tbody>${body}</tbody></table></div>`
 }
-function tblMetaAds(rows){
+function tblMetaAds(rows, prevRows){
+  const pv = prevMapOf(prevRows, r=>r['Nome do Anúncio'], metaConv)
   const g = groupBy(rows, r=>r['Nome do Anúncio'], {
     spend:r=>M(r,'Valor investido'), conv:metaConv, impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link'),
     h3:r=>M(r,'Número de vezes que assistiram os 3 primeiros segundos'), vv:r=>M(r,'Número de vezes que o vídeo foi exibido'),
@@ -1125,28 +1155,31 @@ function tblMetaAds(rows){
     // seria um botão morto, então só o "Ver" (preview) vai para o cliente.
     const destBtn=(adId && !SHARED)?` <button class="ad-dest-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" data-destino="${esc(destino)}" title="Mostrar destino do anúncio">🔗 Destino</button>`:''
     return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(x.key)}"><span class="ad-name-flex"><span class="ad-name-txt">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span>${prevBtn}${destBtn}</span></td>
-      <td>${stTag(st)}</td><td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
+      <td>${stTag(st)}</td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${hookCell(x.h3,x.vv)}</td><td>${ctrCell(ctr)}</td>
       <td>${pctVid(x.p25,x.vv)}</td><td>${pctVid(x.p50,x.vv)}</td><td>${pctVid(x.p75,x.vv)}</td><td>${pctVid(x.p100,x.vv)}</td></tr>` }).join('')
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Anúncio</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Hook 3s</th><th>CTR Link</th><th>V25%</th><th>V50%</th><th>V75%</th><th>V100%</th></tr></thead><tbody>${body}</tbody></table></div>`
 }
-function tblGoogleCampaigns(rows){
+function tblGoogleCampaigns(rows, prevRows){
   const g = groupBy(rows, r=>r['Campanha'], {
     spend:r=>M(r,'Gasto'), conv:r=>M(r,'Conversões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')), loss:r=>M(r,'% de perda por orçamento') })
   if(!g.length) return `<div class="empty">Sem campanhas no período.</div>`
+  const pv = prevMapOf(prevRows, r=>r['Campanha'], r=>M(r,'Conversões'))
   const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(x.key)} — sem conversões`)
   const body = g.map((x,i)=>{ const cpa=x.conv>0?x.spend/x.conv:null; const avg=x._rows.length?x.loss/x._rows.length:0
     return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span></td>
-      <td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td>
+      <td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td>
       <td>${avg>10?`<span class="crit">${avg.toFixed(1)}% 🚨</span>`:avg>0?`<span class="warn">${avg.toFixed(1)}%</span>`:'—'}</td></tr>` }).join('')
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Campanha</th><th>Conv.</th><th>Gasto</th><th>CPA</th><th>Cliques</th><th>% Perda Orçamento</th></tr></thead><tbody>${body}</tbody></table></div>`
 }
-function tblGoogleGroups(rows){
-  const g = groupBy(rows, r=>r['Grupo de palavras']||r['Grupo de palavras-chave'], { spend:r=>M(r,'Gasto'), conv:r=>M(r,'Conversões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')) })
+function tblGoogleGroups(rows, prevRows){
+  const gk = r=>r['Grupo de palavras']||r['Grupo de palavras-chave']
+  const g = groupBy(rows, gk, { spend:r=>M(r,'Gasto'), conv:r=>M(r,'Conversões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')) })
   if(!g.length) return `<div class="empty">Sem grupos no período.</div>`
+  const pv = prevMapOf(prevRows, gk, r=>M(r,'Conversões'))
   const body = g.map((x,i)=>{ const cpa=x.conv>0?x.spend/x.conv:null
     return `<tr><td class="ad-name" title="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key||'(sem grupo)')}</td>
-      <td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
+      <td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
   return `<div class="dt-wrap"><table><thead><tr><th>Grupo</th><th>Conv.</th><th>Gasto</th><th>CPA</th><th>Cliques</th></tr></thead><tbody>${body}</tbody></table></div>`
 }
 // Termos de pesquisa (search_term_view) — só termos com clique. Agrega somáveis
@@ -1200,6 +1233,9 @@ function aggMetrics(rows, isMeta) {
     const impressions = rows.reduce((a,r)=>a+num(r['Impressões']),0)
     const clicks = rows.reduce((a,r)=>a+num(r['Número de cliques no link']),0)
     const conv = rows.reduce((a,r)=>a+num(r['Conversões']),0)
+    // Engajamento social: compartilhamentos do post + seguidores/curtidas ganhos.
+    const shares = rows.reduce((a,r)=>a+num(r['Compartilhamentos']),0)
+    const follows = rows.reduce((a,r)=>a+num(r['Seguidores ganhos']),0)
     const fRows = rows.filter(r=>num(r['Frequência'])>0 && num(r['Impressões'])>0)
     const fImps = fRows.reduce((a,r)=>a+num(r['Impressões']),0)
     const frequency = fImps>0 ? fRows.reduce((a,r)=>a+num(r['Frequência'])*num(r['Impressões']),0)/fImps : null
@@ -1219,7 +1255,7 @@ function aggMetrics(rows, isMeta) {
     const mqlSpend = colMql > 0 ? spend : typeRows.reduce((a,r)=>a+num(r['Valor investido']),0)
     const mqlLabel = colMql > 0 ? 'MQL' : (typeRows.length ? (typeRows[0]['Tipo de resultado'] || 'MQL') : 'MQL')
     const hasMql = colMql > 0 || typeRows.length > 0
-    return { spend, impressions, clicks, conv, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null, frequency,
+    return { spend, impressions, clicks, conv, shares, follows, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null, frequency,
       purchases, cpp:purchases>0?spend/purchases:null, revenue, roas:spend>0?revenue/spend:null,
       hasMql, mql, leads, mqlLabel, cpMql:mql>0?mqlSpend/mql:null, leadToMql:leads>0?mql/leads*100:null }
   }
@@ -1256,6 +1292,9 @@ function metricGroupsHTML(allRows, prevRows, isMeta, period) {
       ${tileHTML('CTR', fmtPctVal(cur.ctr), pctVar(cur.ctr, prv.ctr), false)}
       ${tileHTML('Cliques', fmtInt(cur.clicks), pctVar(cur.clicks, prv.clicks), false)}
       ${tileHTML('Impressões', fmtInt(cur.impressions), pctVar(cur.impressions, prv.impressions), false)}
+      ${isMeta ? `
+      ${tileHTML('Seguidores ganhos', fmtInt(cur.follows), pctVar(cur.follows, prv.follows), false)}
+      ${tileHTML('Compartilhamentos', fmtInt(cur.shares), pctVar(cur.shares, prv.shares), false)}` : ''}
     </div>${chart('mgChartEng')}</div>
     <div class="mg-card mg-perf"><h4 class="mg-title">Performance</h4><div class="mg-tiles">
       ${tileHTML('Conversões', fmtInt(cur.conv), pctVar(cur.conv, prv.conv), false)}
@@ -1509,13 +1548,16 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
   if (state.drillCampaign || state.drillAdset) {
     let body, bc
     if (isMeta && state.drillAdset) {
-      body = tblMetaAds(allRows.filter(r=>r['Conjunto de Anúncio']===state.drillAdset))
+      body = tblMetaAds(allRows.filter(r=>r['Conjunto de Anúncio']===state.drillAdset),
+                        prevRows.filter(r=>r['Conjunto de Anúncio']===state.drillAdset))
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">← Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span>
         <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdset)}</span></div>`
     } else {
-      body = isMeta ? tblMetaAdsets(allRows.filter(r=>r['Nome da campanha']===state.drillCampaign))
-                    : tblGoogleGroups(allRows.filter(r=>r['Campanha']===state.drillCampaign))
+      body = isMeta ? tblMetaAdsets(allRows.filter(r=>r['Nome da campanha']===state.drillCampaign),
+                                    prevRows.filter(r=>r['Nome da campanha']===state.drillCampaign))
+                    : tblGoogleGroups(allRows.filter(r=>r['Campanha']===state.drillCampaign),
+                                      prevRows.filter(r=>r['Campanha']===state.drillCampaign))
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">← Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span></div>`
     }
@@ -1527,8 +1569,8 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
   const tabs = isMeta ? [['📊 Campanhas',0],['🎯 Conjuntos',1],['🎨 Anúncios',2]] : [['📊 Campanhas',0],['🔑 Grupos',1],['🔎 Termos',2]]
   let panel
   // Termos (Google, sub===2) é preenchido async por renderGoogleTerms (lazy/por conta).
-  if (isMeta) panel = state.sub===1?tblMetaAdsets(allRows):state.sub===2?tblMetaAds(allRows):tblMetaCampaigns(allRows)
-  else        panel = state.sub===2?`<div id="termsPanel"></div>`:state.sub===1?tblGoogleGroups(allRows):tblGoogleCampaigns(allRows)
+  if (isMeta) panel = state.sub===1?tblMetaAdsets(allRows,prevRows):state.sub===2?tblMetaAds(allRows,prevRows):tblMetaCampaigns(allRows,prevRows)
+  else        panel = state.sub===2?`<div id="termsPanel"></div>`:state.sub===1?tblGoogleGroups(allRows,prevRows):tblGoogleCampaigns(allRows,prevRows)
   return `<div class="cp-panel">
     ${quad}
     <div class="dt-subtabs">
