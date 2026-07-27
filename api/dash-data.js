@@ -53,65 +53,47 @@ export default async function handler(req) {
   const acctFilter = account ? `&account=eq.${encodeURIComponent(account)}` : ''
 
   // ── Lê dash_insights paginado (PostgREST limita ~1000/req) ──────────────────
-  // O canal Meta tem dezenas de milhares de linhas (>33k) → paginar em SÉRIE
-  // fazia 30+ idas-e-voltas ao Supabase e estourava o timeout do gateway (504).
-  // Agora: 1 request descobre o total (header content-range) e as páginas
-  // restantes são buscadas em PARALELO com concorrência limitada.
+  // O canal Meta tem dezenas de milhares de linhas (>33k). Cada página de 1000
+  // linhas leva ~1,5s no Supabase → paginar em SÉRIE (34 páginas) dá ~50s e
+  // estoura o limite de 25s da função Edge da Vercel (FUNCTION_INVOCATION_TIMEOUT
+  // → 504). Solução: buscar as páginas em LOTES PARALELOS. Cada lote dispara
+  // CONCURRENCY páginas ao mesmo tempo; para quando um lote traz uma página
+  // incompleta (chegou ao fim). NÃO depende de count=exact nem do header
+  // content-range (que pode não vir no runtime Edge) — só do tamanho das páginas.
   const PAGE = 1000
-  const CONCURRENCY = 6
+  const CONCURRENCY = 12 // ~3 lotes p/ 34 páginas → ~10s (validado contra o Supabase real)
   const MAX_ROWS = 200000 // trava de segurança
   // Ordena por row_key (PK, ÚNICO). Ordem não-única (ex.: account,day — várias
-  // linhas por conta+dia, uma por anúncio) torna a paginação por offset instável:
-  // linhas empatadas podem duplicar/pular na borda das páginas buscadas em paralelo.
+  // linhas por conta+dia, uma por anúncio) tornaria a paginação por offset
+  // instável: linhas empatadas poderiam duplicar/pular na borda das páginas.
   const base = `${SUPABASE_URL}/rest/v1/dash_insights?channel=eq.${channel}${acctFilter}&select=data&order=row_key.asc`
-  const headersFor = (offset, withCount) => {
-    const h = {
-      apikey: SUPABASE_ANON,
-      Authorization: `Bearer ${jwt}`,        // RLS aplicada como o usuário
-      Range: `${offset}-${offset + PAGE - 1}`,
-      'Range-Unit': 'items',
-    }
-    // count=exact só na 1ª página (recontar em toda página sobrecarrega o Postgres).
-    if (withCount) h.Prefer = 'count=exact'
-    return h
-  }
+  const fetchPage = offset =>
+    fetch(base, {
+      headers: {
+        apikey: SUPABASE_ANON,
+        Authorization: `Bearer ${jwt}`, // RLS aplicada como o usuário
+        Range: `${offset}-${offset + PAGE - 1}`,
+        'Range-Unit': 'items',
+      },
+    }).then(async r => {
+      if (!r.ok) throw new Error(`page ${offset}: HTTP ${r.status}`)
+      return r.json()
+    })
 
   const rows = []
   try {
-    // 1ª página + total de linhas (content-range: "0-999/33206")
-    const first = await fetch(base, { headers: headersFor(0, true) })
-    if (!first.ok) return jsonErr('Falha ao ler dados.', 502)
-    const firstBatch = await first.json()
-    for (const row of firstBatch) rows.push(row.data)
-
-    const total = parseInt((first.headers.get('content-range') || '').split('/')[1], 10)
-    if (Number.isFinite(total)) {
-      // Caminho rápido: sabemos o total → buscamos as páginas restantes em paralelo.
+    let start = 0
+    let done = false
+    while (!done) {
+      // Lote de CONCURRENCY páginas consecutivas, buscadas em paralelo.
       const offsets = []
-      for (let o = PAGE; o < Math.min(total, MAX_ROWS); o += PAGE) offsets.push(o)
-      for (let i = 0; i < offsets.length; i += CONCURRENCY) {
-        const wave = offsets.slice(i, i + CONCURRENCY)
-        const results = await Promise.all(
-          wave.map(o => fetch(base, { headers: headersFor(o) }).then(async r => {
-            if (!r.ok) throw new Error(`page ${o}: HTTP ${r.status}`)
-            return r.json()
-          }))
-        )
-        for (const batch of results) for (const row of batch) rows.push(row.data)
-      }
-    } else if (firstBatch.length === PAGE) {
-      // Fallback: sem total no header → pagina em série até vir uma página curta
-      // (evita truncar silenciosamente os dados se o content-range faltar).
-      let offset = PAGE
-      for (;;) {
-        const r = await fetch(base, { headers: headersFor(offset) })
-        if (!r.ok) return jsonErr('Falha ao ler dados.', 502)
-        const batch = await r.json()
-        for (const row of batch) rows.push(row.data)
-        if (batch.length < PAGE) break
-        offset += PAGE
-        if (offset > MAX_ROWS) break
-      }
+      for (let j = 0; j < CONCURRENCY; j++) offsets.push(start + j * PAGE)
+      const results = await Promise.all(offsets.map(fetchPage))
+      for (const batch of results) for (const row of batch) rows.push(row.data)
+      // Qualquer página incompleta no lote = chegamos ao fim dos dados.
+      if (results.some(batch => batch.length < PAGE)) done = true
+      else start += CONCURRENCY * PAGE
+      if (start > MAX_ROWS) done = true
     }
   } catch (e) {
     return jsonErr('Erro ao consultar os dados.', 500)
