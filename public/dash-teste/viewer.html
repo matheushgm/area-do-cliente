@@ -90,6 +90,11 @@
   .dt-root .stage-fundo { color:#059669; background:rgba(5,150,105,0.09); }
   .dt-root .camp-nomatch { font-size:11px; color:#B45309; }
   .dt-root .camp-match { font-size:11px; color:#64748B; cursor:help; text-decoration:underline dotted; }
+  /* Coluna "CPL Alvo" destacada em roxo: é o valor que QUEREMOS pagar por
+     conversão (Calculadora de ROI), diferente das métricas realizadas ao redor. */
+  .dt-root th.col-target { background:rgba(109,40,217,0.10); color:#6D28D9 !important; }
+  .dt-root td.col-target { background:rgba(109,40,217,0.05); }
+  .dt-root .target-val { color:#6D28D9; font-weight:800; white-space:nowrap; }
 
   /* Variação discreta vs período anterior nas tabelas de drill (campanha/conjunto/anúncio) */
   .dt-root .var-mini { font-size:10px; font-weight:700; margin-left:5px; white-space:nowrap;
@@ -726,7 +731,8 @@ function sortAccounts(list) {
 const acctTheadHTML = () => ACCT_COLS.map(([label,k])=>{
   if (!k) return `<th>${label}</th>`
   const a = state.acctSort.key===k
-  return `<th data-acctsort="${k}" title="Ordenar por ${label}" style="cursor:pointer;user-select:none;white-space:nowrap">${label}${a?(state.acctSort.dir==='asc'?' ▲':' ▼'):''}</th>`
+  const cls = k==='cplTarget' ? ' class="col-target"' : ''
+  return `<th${cls} data-acctsort="${k}" title="Ordenar por ${label}" style="cursor:pointer;user-select:none;white-space:nowrap">${label}${a?(state.acctSort.dir==='asc'?' ▲':' ▼'):''}</th>`
 }).join('')
 
 // Subclassificação do grupo "Queda" por causa — mesma lógica do Diagnóstico de
@@ -774,7 +780,7 @@ function channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <td><span class="pill ${pillCls(x.status)}">${pillIco(x.status)} ${x.status}</span></td>
       <td>${fmtNum(x.conv1)}</td><td>${fmtNum(x.conv2)}</td>
       <td class="${varCls(x.varConv,false)}">${fmtPct(x.varConv)}</td>
-      <td>${fmtMoney(x.cpl1)}</td><td>${targetCellHTML(x.name, x.cpl1)}</td><td>${fmtMoney(x.cpl2)}</td>
+      <td>${fmtMoney(x.cpl1)}</td><td class="col-target">${targetCellHTML(x.name, x.cpl1)}</td><td>${fmtMoney(x.cpl2)}</td>
       <td class="${varCls(x.varCpl,true)}">${fmtPct(x.varCpl)}</td>
       <td>${fmtMoney(x.spend1)}</td><td>${fmtMoney(x.spend2)}</td>
       <td class="${varCls(x.varSpend,false)}">${fmtPct(x.varSpend)}</td>
@@ -1096,11 +1102,11 @@ function paceCampaignsHTML(ch, account, pace, campaigns) {
 function targetCellHTML(name, cpl) {
   const target = state.accounts[name]?.cplTarget?.value ?? null
   if (target == null) return '<span style="color:#94A3B8" title="Sem Calculadora de ROI preenchida no projeto da Área do Cliente">—</span>'
-  if (cpl == null) return `<span style="color:#64748B" title="Sem conversões no período para comparar com o alvo">${fmtMoney(target)}</span>`
+  if (cpl == null) return `<span class="target-val" title="Sem conversões no período para comparar com o alvo">${fmtMoney(target)}</span>`
   const margin = ((target - cpl) / target) * 100
   return margin >= 0
-    ? `<span class="up" title="CPL do período ${margin.toFixed(0)}% abaixo do máximo da Calculadora de ROI (${fmtMoney(target)})">${fmtMoney(target)} ✅</span>`
-    : `<span class="dn" title="CPL do período ${Math.abs(margin).toFixed(0)}% ACIMA do máximo da Calculadora de ROI (${fmtMoney(target)})">${fmtMoney(target)} 🚨</span>`
+    ? `<span class="target-val" title="CPL do período ${margin.toFixed(0)}% abaixo do máximo da Calculadora de ROI (${fmtMoney(target)})">${fmtMoney(target)} <span class="target-ok">✅</span></span>`
+    : `<span class="target-val" title="CPL do período ${Math.abs(margin).toFixed(0)}% ACIMA do máximo da Calculadora de ROI (${fmtMoney(target)})">${fmtMoney(target)} <span class="target-over">🚨</span></span>`
 }
 
 // Itens da visualização "Pace de Verba": contas do canal (com busca/squad/ocultas
