@@ -17,6 +17,10 @@ const TIPO_META = {
 
 function fmtDate(iso) {
   if (!iso) return ''
+  // Datas yyyy-mm-dd são "de calendário" — reordenar direto evita o recuo de
+  // um dia que new Date() causa ao interpretar como meia-noite UTC (BRT = -3).
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
