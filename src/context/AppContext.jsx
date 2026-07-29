@@ -276,6 +276,9 @@ function assembleProject(row, rel = {}) {
     // Debriefing (análise/rastreamento de criativos rodando)
     debriefing: row.debriefing ?? null,
 
+    // Central de Landing Pages (banco de LPs do cliente)
+    lpCentral: row.lp_central ?? null,
+
     // Matriz de objeção (tabela colaborativa de objeções de venda)
     matrizObjecao: row.matriz_objecao ?? null,
 
@@ -435,6 +438,7 @@ const PROJECT_FIELD_MAP = {
   precificacao:         "precificacao",
   mecanismoUnico:       "mecanismo_unico",
   debriefing:           "debriefing",
+  lpCentral:            "lp_central",
   matrizObjecao:        "matriz_objecao",
   webinars:             "webinars",
   roiCenarios:          "roi_cenarios",

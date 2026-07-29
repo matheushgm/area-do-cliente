@@ -1,14 +1,15 @@
-// Edge Function pública — APROVAÇÃO DE ANÚNCIOS pelo cliente.
+// Edge Function pública — APROVAÇÃO DE ANÚNCIOS E LANDING PAGES pelo cliente.
 // Validação só pelo client_share_token do projeto (mesmo token de
 // /campanhas, /precificacao, /crm...). Sem login.
 //
-//   GET  ?token=UUID                                → lista anúncios enviados pra aprovação
-//   POST { token, adId, decision, motivo, sugestao } → registra aprovado/reprovado
+//   GET  ?token=UUID → lista anúncios (debriefing) e LPs (lp_central) enviados pra aprovação
+//   POST { token, adId, kind: 'ad'|'lp', decision, motivo, sugestao } → registra a decisão
 //
-// Os anúncios vivem no JSONB projects_v2.debriefing (Central de anúncios).
-// Só saem pro cliente os que têm ad.aprovacao (foram explicitamente enviados),
-// e o POST só aceita decisão quando o status atual é 'pendente' — decidir de
-// novo exige o time reenviar pra aprovação no módulo interno.
+// Os itens vivem nos JSONB projects_v2.debriefing (Central de anúncios) e
+// projects_v2.lp_central (Central de Landing Pages). Só sai pro cliente o que
+// tem .aprovacao (foi explicitamente enviado), e o POST só aceita decisão
+// quando o status atual é 'pendente' — decidir de novo exige o time reenviar
+// pra aprovação no módulo interno.
 export const config = { runtime: 'edge' }
 
 const SUPABASE_URL = process.env.SUPABASE_URL
@@ -77,10 +78,31 @@ async function findProject(token) {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token || '')
   if (!isUuid) return null
   const { data, status } = await sb(
-    `/projects_v2?client_share_token=eq.${encodeURIComponent(token)}&select=id,company_name,debriefing`
+    `/projects_v2?client_share_token=eq.${encodeURIComponent(token)}&select=id,company_name,debriefing,lp_central`
   )
   if (status !== 200 || !Array.isArray(data) || !data.length) return null
   return data[0]
+}
+
+function sanitizeAprovacao(aprovacao) {
+  return {
+    status:     str(aprovacao?.status, 20) || 'pendente',
+    motivo:     str(aprovacao?.motivo, 2000) || null,
+    sugestao:   str(aprovacao?.sugestao, 2000) || null,
+    enviadoEm:  str(aprovacao?.enviadoEm, 40) || null,
+    decididoEm: str(aprovacao?.decididoEm, 40) || null,
+  }
+}
+
+function sanitizeLp(lp) {
+  return {
+    id:         str(lp.id, 60),
+    nome:       str(lp.nome, 160),
+    createdAt:  str(lp.createdAt, 30),
+    url:        /^https?:\/\//i.test(lp.url || '') ? str(lp.url, 800) : null,
+    observacao: str(lp.observacao, 1200) || null,
+    aprovacao:  sanitizeAprovacao(lp.aprovacao),
+  }
 }
 
 async function sanitizeAd(ad) {
@@ -94,13 +116,7 @@ async function sanitizeAd(ad) {
     attachmentUrl:  await signAttachment(ad.attachmentPath),
     mediaKind:      ad.attachmentPath ? mediaKind(ad.attachmentName || ad.attachmentPath) : null,
     observacao:     str(ad.observacao, 1200) || null,
-    aprovacao: {
-      status:     str(ad.aprovacao?.status, 20) || 'pendente',
-      motivo:     str(ad.aprovacao?.motivo, 2000) || null,
-      sugestao:   str(ad.aprovacao?.sugestao, 2000) || null,
-      enviadoEm:  str(ad.aprovacao?.enviadoEm, 40) || null,
-      decididoEm: str(ad.aprovacao?.decididoEm, 40) || null,
-    },
+    aprovacao:      sanitizeAprovacao(ad.aprovacao),
   }
 }
 
@@ -127,9 +143,15 @@ export default async function handler(req) {
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
       .slice(0, 100)
 
+    const lps = (project.lp_central?.lps || [])
+      .filter((lp) => lp && lp.aprovacao)
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+      .slice(0, 100)
+
     return json({
       companyName: project.company_name || '',
       ads: await Promise.all(ads.map(sanitizeAd)),
+      lps: lps.map(sanitizeLp),
     })
   }
 
@@ -142,36 +164,40 @@ export default async function handler(req) {
     if (!project) return json({ error: 'Link inválido ou expirado.' }, 404)
 
     const adId     = str(body?.adId, 60)
+    const kind     = str(body?.kind, 10) || 'ad' // 'ad' (criativo) | 'lp' (landing page)
     const decision = str(body?.decision, 20)
     const motivo   = str(body?.motivo, 2000)
     const sugestao = str(body?.sugestao, 2000)
 
-    if (!adId || !['aprovado', 'reprovado'].includes(decision)) {
+    if (!adId || !['aprovado', 'reprovado'].includes(decision) || !['ad', 'lp'].includes(kind)) {
       return json({ error: 'Decisão inválida.' }, 400)
     }
     if (decision === 'reprovado' && (!motivo || !sugestao)) {
-      return json({ error: 'Pra reprovar, preencha o motivo e como o anúncio deveria estar.' }, 400)
+      return json({ error: 'Pra reprovar, preencha o motivo e como deveria estar.' }, 400)
     }
 
-    const debriefing = project.debriefing || {}
-    const list = Array.isArray(debriefing.ads) ? debriefing.ads : []
-    const target = list.find((ad) => ad?.id === adId && ad?.aprovacao)
-    if (!target) return json({ error: 'Anúncio não encontrado.' }, 404)
+    // Mesmo ciclo pros dois tipos — muda só a coluna e a chave da lista.
+    const column  = kind === 'lp' ? 'lp_central' : 'debriefing'
+    const listKey = kind === 'lp' ? 'lps' : 'ads'
+    const store = project[column] || {}
+    const list = Array.isArray(store[listKey]) ? store[listKey] : []
+    const target = list.find((it) => it?.id === adId && it?.aprovacao)
+    if (!target) return json({ error: 'Item não encontrado.' }, 404)
     if (target.aprovacao.status !== 'pendente') {
-      return json({ error: 'Esse anúncio já foi avaliado.' }, 409)
+      return json({ error: 'Esse item já foi avaliado.' }, 409)
     }
 
     const now = new Date().toISOString()
     const next = {
-      ...debriefing,
-      ads: list.map((ad) => (ad?.id !== adId ? ad : {
-        ...ad,
+      ...store,
+      [listKey]: list.map((it) => (it?.id !== adId ? it : {
+        ...it,
         updatedAt: now,
         aprovacao: {
           status:     decision,
           motivo:     decision === 'reprovado' ? motivo   : null,
           sugestao:   decision === 'reprovado' ? sugestao : null,
-          enviadoEm:  ad.aprovacao.enviadoEm || null,
+          enviadoEm:  it.aprovacao.enviadoEm || null,
           decididoEm: now,
         },
       })),
@@ -179,7 +205,7 @@ export default async function handler(req) {
 
     const { status } = await sb(
       `/projects_v2?id=eq.${encodeURIComponent(project.id)}`,
-      { method: 'PATCH', body: JSON.stringify({ debriefing: next }), headers: { Prefer: 'return=minimal' } }
+      { method: 'PATCH', body: JSON.stringify({ [column]: next }), headers: { Prefer: 'return=minimal' } }
     )
     if (status >= 400) return json({ error: 'Erro ao salvar a decisão.' }, 500)
 

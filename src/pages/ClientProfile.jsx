@@ -37,6 +37,7 @@ import MeetingMinutesModule from '../components/MeetingMinutesModule'
 import FerramentasModule from '../components/FerramentasModule'
 import KickoffModule from '../components/Kickoff/KickoffModule'
 import DebriefingModule from '../components/Debriefing/DebriefingModule'
+import LPCentralModule from '../components/LPCentral/LPCentralModule'
 import PendingAdsBanner from '../components/Debriefing/PendingAdsBanner'
 import JornadaModule from '../components/Jornada/JornadaModule'
 import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
@@ -1218,6 +1219,7 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'dados',        label: 'Dados do Cliente',        icon: ClipboardList,  color: 'text-rl-cyan',   filled: true },
     { id: 'kickoff',      label: 'Kickoff',                  icon: Compass,        color: 'text-rl-cyan',   filled: !!project.kickoff?.completedAt },
     { id: 'debriefing',   label: 'Central de anúncios',      icon: Megaphone,      color: 'text-rl-purple', filled: !!(project.debriefing?.ads?.length) },
+    { id: 'lpcentral',    label: 'Central de Landing Pages', icon: LayoutTemplate, color: 'text-rl-green',  filled: !!(project.lpCentral?.lps?.length) },
     { id: 'produtos',     label: 'Produto / Serviço',        icon: Package,        color: 'text-rl-gold',   filled: hasProdutos },
     { id: 'icp',          label: 'Personas',                 icon: Users,          color: 'text-rl-blue',   filled: hasPersonas },
     { id: 'oferta',       label: 'Oferta Matadora',          icon: Zap,            color: 'text-rl-gold',   filled: hasOferta },
@@ -1245,6 +1247,7 @@ export default function ClientProfile({ project: projectProp }) {
       case 'dados':        return <OnboardingContent project={project} onSave={handleSaveOnboarding} showToast={showToast} />
       case 'kickoff':      return <KickoffModule project={project} />
       case 'debriefing':   return <DebriefingModule project={project} />
+      case 'lpcentral':    return <LPCentralModule project={project} />
       case 'roi':          return <ROIScenariosModule project={project} onSave={handleSaveROI} />
       case 'icp':          return <PersonaCreator project={project} onSave={handleSavePersonas} />
       case 'produtos':     return (

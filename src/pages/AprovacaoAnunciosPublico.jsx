@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   Megaphone, Loader2, AlertTriangle, CheckCircle2, XCircle, ExternalLink,
-  Video, Image as ImageIcon, Layers, Clock, Paperclip, Send,
+  Video, Image as ImageIcon, Layers, Clock, Paperclip, Send, LayoutTemplate,
 } from 'lucide-react'
 
 const TIPO_META = {
@@ -44,6 +44,7 @@ export default function AprovacaoAnunciosPublico() {
   const [error,   setError]   = useState(null)
   const [company, setCompany] = useState('')
   const [ads,     setAds]     = useState([])
+  const [lps,     setLps]     = useState([])
 
   const load = useCallback(async () => {
     try {
@@ -52,6 +53,7 @@ export default function AprovacaoAnunciosPublico() {
       if (!res.ok) throw new Error(body.error || 'Erro ao carregar.')
       setCompany(body.companyName || '')
       setAds(body.ads || [])
+      setLps(body.lps || [])
       setError(null)
     } catch (e) {
       setError(e.message)
@@ -62,8 +64,13 @@ export default function AprovacaoAnunciosPublico() {
 
   useEffect(() => { load() }, [load])
 
-  const pendentes = ads.filter((a) => a.aprovacao.status === 'pendente')
-  const decididos = ads.filter((a) => a.aprovacao.status !== 'pendente')
+  // Criativos e landing pages compartilham as mesmas seções — cada card indica o tipo.
+  const itens = [
+    ...ads.map((a) => ({ ...a, kind: 'ad' })),
+    ...lps.map((l) => ({ ...l, kind: 'lp' })),
+  ]
+  const pendentes = itens.filter((a) => a.aprovacao.status === 'pendente')
+  const decididos = itens.filter((a) => a.aprovacao.status !== 'pendente')
 
   if (loading) {
     return (
@@ -96,7 +103,7 @@ export default function AprovacaoAnunciosPublico() {
             </div>
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold">
-                Aprovação de Anúncios
+                Aprovação de Anúncios e Landing Pages
               </p>
               <h1 className="text-base font-black text-rl-text leading-tight truncate">{company}</h1>
             </div>
@@ -111,11 +118,11 @@ export default function AprovacaoAnunciosPublico() {
       </div>
 
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
-        {ads.length === 0 && (
+        {itens.length === 0 && (
           <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-12 px-6 text-center space-y-2">
             <Megaphone className="w-8 h-8 text-rl-muted/40 mx-auto" />
-            <p className="text-sm font-semibold text-rl-text">Nenhum anúncio pra aprovar no momento.</p>
-            <p className="text-xs text-rl-muted">Quando o time enviar um criativo novo, ele aparece aqui.</p>
+            <p className="text-sm font-semibold text-rl-text">Nada pra aprovar no momento.</p>
+            <p className="text-xs text-rl-muted">Quando o time enviar um criativo ou landing page, aparece aqui.</p>
           </div>
         )}
 
@@ -125,7 +132,7 @@ export default function AprovacaoAnunciosPublico() {
               Aguardando sua aprovação
             </h2>
             {pendentes.map((ad) => (
-              <AdCard key={ad.id} ad={ad} token={token} onDecided={load} />
+              <AdCard key={`${ad.kind}-${ad.id}`} ad={ad} token={token} onDecided={load} />
             ))}
           </section>
         )}
@@ -136,7 +143,7 @@ export default function AprovacaoAnunciosPublico() {
               Já avaliados
             </h2>
             {decididos.map((ad) => (
-              <AdCard key={ad.id} ad={ad} token={token} decided />
+              <AdCard key={`${ad.kind}-${ad.id}`} ad={ad} token={token} decided />
             ))}
           </section>
         )}
@@ -153,7 +160,10 @@ function AdCard({ ad, token, onDecided, decided = false }) {
   const [submitting, setSubmitting] = useState(false)
   const [error,      setError]      = useState('')
 
-  const tipo = TIPO_META[ad.tipo] || { label: ad.tipo || 'Criativo', Icon: Layers }
+  const isLp = ad.kind === 'lp'
+  const tipo = isLp
+    ? { label: 'Landing page', Icon: LayoutTemplate }
+    : TIPO_META[ad.tipo] || { label: ad.tipo || 'Criativo', Icon: Layers }
   const TipoIcon = tipo.Icon
   const st = ad.aprovacao.status
 
@@ -164,7 +174,7 @@ function AdCard({ ad, token, onDecided, decided = false }) {
       const res = await fetch('/api/anuncios-aprovacao', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, adId: ad.id, decision, motivo, sugestao }),
+        body: JSON.stringify({ token, adId: ad.id, kind: ad.kind || 'ad', decision, motivo, sugestao }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'Erro ao enviar.')
@@ -228,7 +238,16 @@ function AdCard({ ad, token, onDecided, decided = false }) {
             <Paperclip className="w-4 h-4" /> Abrir arquivo ({ad.attachmentName || 'anexo'})
           </a>
         )}
-        {ad.url && (
+        {ad.url && (isLp ? (
+          <a
+            href={ad.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-rl-green/40 text-rl-green text-sm font-bold hover:bg-rl-green/10 transition-all"
+          >
+            <ExternalLink className="w-4 h-4" /> Abrir landing page
+          </a>
+        ) : (
           <a
             href={ad.url}
             target="_blank"
@@ -237,9 +256,11 @@ function AdCard({ ad, token, onDecided, decided = false }) {
           >
             <ExternalLink className="w-4 h-4" /> Ver criativo no link
           </a>
-        )}
+        ))}
         {!ad.attachmentUrl && !ad.url && (
-          <p className="text-xs text-rl-muted italic">Criativo sem prévia disponível.</p>
+          <p className="text-xs text-rl-muted italic">
+            {isLp ? 'Landing page sem link disponível.' : 'Criativo sem prévia disponível.'}
+          </p>
         )}
         {ad.observacao && (
           <p className="text-xs text-rl-subtle bg-rl-surface/50 border border-rl-border rounded-xl px-3 py-2">
@@ -305,7 +326,7 @@ function AdCard({ ad, token, onDecided, decided = false }) {
               </div>
               <div>
                 <label className="text-xs font-bold text-rl-text uppercase tracking-wide mb-1 block">
-                  Como o anúncio deveria estar pra ser aprovado? <span className="text-red-500">*</span>
+                  Como {isLp ? 'a landing page deveria estar pra ser aprovada' : 'o anúncio deveria estar pra ser aprovado'}? <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={sugestao}
