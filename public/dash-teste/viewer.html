@@ -56,6 +56,41 @@
   .dt-root .subgroup-header.causa-ctr   { border-left-color:#DC2626; background:rgba(220,38,38,0.05); }
   .dt-root .subgroup-header.causa-taxa  { border-left-color:#DB2777; background:rgba(219,39,119,0.05); }
 
+  /* ── Seção "CPL Máximo (ROI) & Pace de Verba" (home) ──────────────────────
+     Correlação com a Área do Cliente: CPL alvo da Calculadora de ROI e pace de
+     gasto vs o planejamento de verba do módulo Campanha. */
+  .dt-root .group-header.gh-blue { border-left:3px solid #2563EB; background:rgba(37,99,235,0.05); }
+  .dt-root .metas-chips { display:flex; gap:8px; flex-wrap:wrap; padding:2px 12px 10px; }
+  .dt-root .metas-chip { font-size:12px; color:#334155; background:#F8FAFF; border:1px solid #E4EAF7;
+    border-radius:999px; padding:4px 12px; }
+  .dt-root .metas-chip b { color:#164496; }
+  .dt-root .goal-pill, .dt-root .pace-pill { display:inline-block; font-size:11px; font-weight:700;
+    padding:2px 8px; border-radius:999px; white-space:nowrap; }
+  .dt-root .goal-ok   { color:#059669; background:rgba(5,150,105,0.08); }
+  .dt-root .goal-over { color:#DC2626; background:rgba(220,38,38,0.08); }
+  .dt-root .goal-warn { color:#B45309; background:rgba(217,119,6,0.08); }
+  .dt-root .pace-ok   { color:#059669; background:rgba(5,150,105,0.08); }
+  .dt-root .pace-slow { color:#B45309; background:rgba(217,119,6,0.08); }
+  .dt-root .pace-hot  { color:#DC2626; background:rgba(220,38,38,0.08); }
+  .dt-root .pace-wait { color:#64748B; background:#F1F5F9; }
+  .dt-root .pace-period { font-size:10px; color:#94A3B8; font-weight:600; white-space:nowrap; }
+  .dt-root .pace-period.dn { color:#DC2626; }
+  .dt-root .pace-exp { border:1px solid #D8E0F0; background:#FFFFFF; color:#164496; border-radius:7px;
+    font:700 11px/1 ui-sans-serif,system-ui; padding:4px 8px; cursor:pointer; white-space:nowrap; }
+  .dt-root .pace-exp:hover { background:#EEF4FF; }
+  .dt-root .pace-camp-row > td { background:#F8FAFF !important; padding:0 !important; }
+  .dt-root .pace-camps { padding:8px 14px 12px; }
+  .dt-root .pace-camps table { width:100%; }
+  .dt-root .pace-camps th { font-size:10px; }
+  .dt-root .pace-camps td { font-size:12px; }
+  .dt-root .stage-chip { display:inline-block; font-size:9px; font-weight:800; letter-spacing:.4px;
+    text-transform:uppercase; border-radius:5px; padding:2px 6px; margin-right:5px; vertical-align:middle; }
+  .dt-root .stage-topo  { color:#0E7490; background:rgba(14,116,144,0.09); }
+  .dt-root .stage-meio  { color:#7C3AED; background:rgba(124,58,237,0.09); }
+  .dt-root .stage-fundo { color:#059669; background:rgba(5,150,105,0.09); }
+  .dt-root .camp-nomatch { font-size:11px; color:#B45309; }
+  .dt-root .camp-match { font-size:11px; color:#64748B; cursor:help; text-decoration:underline dotted; }
+
   /* Variação discreta vs período anterior nas tabelas de drill (campanha/conjunto/anúncio) */
   .dt-root .var-mini { font-size:10px; font-weight:700; margin-left:5px; white-space:nowrap;
     vertical-align:middle; letter-spacing:.2px; opacity:.9; }
@@ -230,7 +265,7 @@ import {
   CFG, parseCSV, num, fmtMoney, fmtNum, fmtPct, fmtBR, inRange, fmtDate, addDays,
   buildPeriod, periodFromDays, maxDate, pillCls, pillIco, varCls, buildStats,
   computeMainPeriod, groupBy, statusTagInfo, buildWeeklyMessage,
-  buildDeclineDiagnosis, buildScaleCandidates,
+  buildDeclineDiagnosis, buildScaleCandidates, normStr, localDateStr, diffDays,
 } from './vendor/dashboardData.js'
 
 // ─── Fonte de dados ──────────────────────────────────────────────────────────
@@ -301,15 +336,19 @@ async function fetchAccounts() {
     try { const r = await fetch(`${SB_URL}/rest/v1/${path}`, { headers }); return r.ok ? r.json() : [] }
     catch { return [] }
   }
-  const [acc, proj, cpl, sq] = await Promise.all([
+  const [acc, proj, cpl, sq, plans] = await Promise.all([
     get('dashboard_accounts_public?select=account_name,project_id,squad_id,clickup_folder_id,hidden'),
     get('dashboard_projects_public?select=id,company_name,squad_name,clickup_folder_id'),
     get('cpl_targets_public?select=company_name,cpl_target'),
     get('dashboard_squads_public?select=id,name'),
+    // Último plano de campanha por projeto (verba planejada do período, por
+    // canal/campanha) — view só para authenticated: sem login volta [].
+    get('campaign_plans_public?select=project_id,answers'),
   ])
   const projById = {}; proj.forEach(p => { projById[p.id] = p })
   const sqById = {}; sq.forEach(s => { sqById[s.id] = s.name })
   const cplBy = {}; cpl.forEach(r => { const n = r.company_name?.trim(); if (n && r.cpl_target != null) cplBy[n] = parseFloat(r.cpl_target) })
+  const planBy = {}; plans.forEach(r => { if (r.project_id && r.answers) planBy[r.project_id] = r.answers })
   const out = {}
   acc.forEach(row => {
     const project = row.project_id ? projById[row.project_id] : null
@@ -322,6 +361,7 @@ async function fetchAccounts() {
       projectId: row.project_id || null,
       hidden: !!row.hidden,
       cplTarget: cplVal != null ? { value: cplVal, acName: acCompanyName } : null,
+      plan: (row.project_id && planBy[row.project_id]) || null,
     }
   })
   return out
@@ -340,6 +380,8 @@ const CP_PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3d',3],['7d',7],['1
 const state = { raw:{meta:[],google:[]}, accounts:{}, channel:'meta', days:7, from:'', to:'', search:'', squad:'', openClient:null,
                 // visualização da lista: 'padrao' (status) | 'diagnostico' (causa da queda) | 'escala' (candidatas a mais verba)
                 view:'padrao', showHidden:false,
+                // seção "CPL Máximo (ROI) & Pace de Verba": contas com o drill de campanhas aberto
+                paceOpen:{},
                 // estado local da página de cliente
                 cDays:7, cFrom:'', cTo:'', cPeriod:null,
                 campFilter:[], campPanelOpen:false, campSearch:'',
@@ -525,7 +567,7 @@ function saveNav() {
   try {
     localStorage.setItem(NAV_KEY, JSON.stringify({
       channel: state.channel, days: state.days, from: state.from, to: state.to, search: state.search, squad: state.squad,
-      view: state.view, showHidden: state.showHidden,
+      view: state.view, showHidden: state.showHidden, metasCollapsed: state.metasCollapsed,
       openClient: state.openClient, tab: state.tab, sub: state.sub,
       drillCampaign: state.drillCampaign, drillAdset: state.drillAdset,
       cDays: state.cDays, cFrom: state.cFrom, cTo: state.cTo, campFilter: state.campFilter,
@@ -540,6 +582,7 @@ function restoreNav() {
     state.from = s.from || ''; state.to = s.to || ''; state.search = s.search || ''; state.squad = s.squad || ''
     state.view = ['padrao','diagnostico','escala','queda-ctr','queda-taxa'].includes(s.view) ? s.view : 'padrao'
     state.showHidden = !!s.showHidden
+    state.metasCollapsed = !!s.metasCollapsed
     if (s.openClient && s.openClient.client) {
       // Só restaura o cliente se a conta ainda existir nos dados carregados.
       const ch = s.openClient.channel || state.channel
@@ -766,7 +809,7 @@ function channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct) {
     }
     return `<div class="group-section">${header}${acctTable(grp)}</div>`
   }).join('')
-  return summary + groups
+  return summary + metasPaceHTML(ch, p, st) + groups
 }
 
 // ─── Visualização "Diagnóstico de Queda" (por que o resultado caiu?) ──────────
@@ -889,6 +932,237 @@ function escalaHTML(ch, p) {
       <div class="m-cards">${cards}</div></div>`
   }).join('')
   return head + groups
+}
+
+// ─── 🎯 CPL Alvo (ROI) & Pace de Verba (home) ────────────────────────────────
+// Correlaciona o dashboard com a Área do Cliente: (1) o CPL/CPA MÁXIMO que a
+// Calculadora de ROI do projeto permite — independente de a conta estar em
+// queda ou melhora, mostra se o custo por conversão atual cabe no limite; e
+// (2) o PACE de gasto do canal vs a verba planejada no módulo Campanha
+// (campaign_plans), com drill por campanha do plano (match por nome).
+const PLAN_CHANNEL = { meta: 'Meta Ads', google: 'Google Ads' }
+const META_PLAN_TAX = 0.13   // mesmo desconto de imposto aplicado no CampaignPlanner
+const STAGE_LABEL = { topo: 'Topo', meio: 'Meio', fundo: 'Fundo' }
+
+// Normaliza o plano p/ o formato novo (array de contas) — igual initAccounts().
+function planAccountsOf(plan) {
+  if (!plan) return []
+  if (Array.isArray(plan.accounts) && plan.accounts.length) return plan.accounts
+  if (Array.isArray(plan.channels) && plan.channels.length) {
+    return [{ name: 'Conta Principal',
+      orcamentoTotal: plan.orcamentoTotal ?? plan.totalBudget ?? 0,
+      valorJaUsado: plan.valorJaUsado || 0, channels: plan.channels }]
+  }
+  return []
+}
+
+// Verba planejada do canal (efetiva, já com imposto Meta descontado) + lista de
+// campanhas planejadas com a fatia de cada uma. Devolve null se o plano não
+// aloca nada nesse canal.
+function planChannelBudget(plan, ch) {
+  const chName = PLAN_CHANNEL[ch]
+  let total = 0
+  const campaigns = []
+  planAccountsOf(plan).forEach(pa => {
+    const disponivel = Math.max(0, (Number(pa.orcamentoTotal) || 0) - (Number(pa.valorJaUsado) || 0))
+    ;(pa.channels || []).filter(c => c.name === chName).forEach(c => {
+      const bruto = disponivel * ((Number(c.percentage) || 0) / 100)
+      const efetivo = ch === 'meta' ? bruto * (1 - META_PLAN_TAX) : bruto
+      total += efetivo
+      Object.keys(STAGE_LABEL).forEach(stKey => {
+        const st = c.stages?.[stKey]; if (!st) return
+        const stMon = efetivo * ((Number(st.percentage) || 0) / 100)
+        ;(st.campaigns || []).forEach(cp => {
+          const cMon = stMon * ((Number(cp.percentage) || 0) / 100)
+          if ((cp.name || '').trim() || cMon > 0)
+            campaigns.push({ name: (cp.name || '').trim() || '(sem nome)', stage: stKey,
+              planned: cMon, startDate: cp.startDate || null, endDate: cp.endDate || null })
+        })
+      })
+    })
+  })
+  return (total > 0 || campaigns.length) ? { total, campaigns } : null
+}
+
+// Pace de um orçamento num intervalo [ps..pe]: gasto real vs o previsto
+// proporcional aos dias corridos. spendFn(s, e) soma o gasto real no intervalo.
+function paceOf(planned, ps, pe, spendFn) {
+  if (!ps || !pe || pe < ps || !(planned > 0)) return null
+  const today = localDateStr(new Date())
+  const totalDays = diffDays(ps, pe) + 1
+  if (today < ps) return { planned, ps, pe, totalDays, notStarted: true }
+  const ended = today > pe
+  const cutoff = ended ? pe : today
+  const elapsed = diffDays(ps, cutoff) + 1
+  const actual = spendFn(ps, cutoff)
+  const expected = planned * (elapsed / totalDays)
+  return { planned, ps, pe, totalDays, elapsed, ended, actual, expected,
+    pct: expected > 0 ? (actual / expected) * 100 : null,
+    proj: ended ? actual : (elapsed > 0 ? (actual / elapsed) * totalDays : null) }
+}
+
+// Soma de gasto por conta num intervalo (canal atual).
+function spendFnFor(ch, account) {
+  const key = ch === 'meta' ? 'Valor investido' : 'Gasto'
+  const rows = state.raw[ch].filter(r => (r[CFG[ch].accountKey] || '').trim() === account)
+  return (s, e) => rows.reduce((a, r) => inRange(fmtDate(r[CFG[ch].dateKey]), s, e) ? a + num(r[key]) : a, 0)
+}
+
+// Gasto real de UMA campanha planejada: casa o nome do plano com os nomes reais
+// do canal (normalizado; igualdade ou contém nos dois sentidos). Devolve
+// { spend, matched: [nomes reais] } — sem match, spend = null (não é 0 gasto,
+// é "não encontrei a campanha com esse nome").
+function planCampaignSpend(ch, account, planName, s, e) {
+  const nameKey = ch === 'meta' ? 'Nome da campanha' : 'Campanha'
+  const key = ch === 'meta' ? 'Valor investido' : 'Gasto'
+  const n = normStr(planName)
+  if (!n) return { spend: null, matched: [] }
+  const byName = {}
+  state.raw[ch].forEach(r => {
+    if ((r[CFG[ch].accountKey] || '').trim() !== account) return
+    if (!inRange(fmtDate(r[CFG[ch].dateKey]), s, e)) return
+    const rn = (r[nameKey] || '').trim(); if (!rn) return
+    byName[rn] = (byName[rn] || 0) + num(r[key])
+  })
+  const matched = Object.keys(byName).filter(rn => {
+    const m = normStr(rn)
+    if (m === n) return true
+    if (n.length >= 5 && m.includes(n)) return true
+    if (m.length >= 5 && n.includes(m)) return true
+    return false
+  })
+  if (!matched.length) return { spend: null, matched: [] }
+  return { spend: matched.reduce((a, rn) => a + byName[rn], 0), matched }
+}
+
+const paceBadge = pace => {
+  if (!pace) return '<span style="color:#94A3B8">—</span>'
+  if (pace.notStarted) return `<span class="pace-pill pace-wait" title="O plano começa em ${fmtBR(pace.ps)}">⏳ começa ${fmtBR(pace.ps)}</span>`
+  if (pace.pct == null) return '<span style="color:#94A3B8">—</span>'
+  const cls = pace.pct > 110 ? 'pace-hot' : pace.pct < 90 ? 'pace-slow' : 'pace-ok'
+  const ico = pace.pct > 110 ? '🔥' : pace.pct < 90 ? '🐢' : '✅'
+  const tip = pace.ended
+    ? `Período encerrado em ${fmtBR(pace.pe)} — gastou ${fmtMoney(pace.actual)} de ${fmtMoney(pace.planned)} planejados`
+    : `Dia ${pace.elapsed} de ${pace.totalDays} — gastou ${fmtMoney(pace.actual)}; o previsto até hoje era ${fmtMoney(pace.expected)}`
+  return `<span class="pace-pill ${cls}" title="${esc(tip)}">${ico} ${pace.pct.toFixed(0)}%${pace.ended ? ' · encerrado' : ''}</span>`
+}
+
+const goalBadge = (target, cpl, ch) => {
+  const label = ch === 'meta' ? 'CPL' : 'CPA'
+  if (target == null) return `<span style="color:#94A3B8" title="Preencha a Calculadora de ROI do projeto na Área do Cliente para ter o ${label} máximo.">—</span>`
+  if (cpl == null) return `<span class="goal-pill goal-warn" title="Sem conversões no período — impossível medir o ${label}.">sem conv.</span>`
+  const margin = ((target - cpl) / target) * 100
+  return margin >= 0
+    ? `<span class="goal-pill goal-ok" title="${label} do período ${fmtMoney(cpl)} vs máximo ${fmtMoney(target)} da Calculadora de ROI">✅ ${margin.toFixed(0)}% abaixo</span>`
+    : `<span class="goal-pill goal-over" title="${label} do período ${fmtMoney(cpl)} vs máximo ${fmtMoney(target)} da Calculadora de ROI">🚨 ${Math.abs(margin).toFixed(0)}% acima</span>`
+}
+
+// Linhas de campanha do plano (drill do expand) — pace individual por campanha.
+function paceCampaignsHTML(ch, account, pace, campaigns) {
+  const rows = campaigns.map(cp => {
+    const ps = (cp.startDate && cp.endDate) ? cp.startDate : pace.ps
+    const pe = (cp.startDate && cp.endDate) ? cp.endDate : pace.pe
+    const today = localDateStr(new Date())
+    const cutoff = today > pe ? pe : today
+    const { spend, matched } = planCampaignSpend(ch, account, cp.name, ps, cutoff)
+    const cPace = spend == null ? null : paceOf(cp.planned, ps, pe, () => spend)
+    const matchInfo = spend == null
+      ? '<span class="camp-nomatch" title="Nenhuma campanha ativa no canal com nome parecido ao do plano — confira o nome no módulo Campanha.">não encontrada no canal</span>'
+      : `<span class="camp-match" title="${esc(matched.join('\n'))}">${matched.length} campanha${matched.length !== 1 ? 's' : ''} do canal</span>`
+    return `<tr>
+      <td class="ad-name" title="${esc(cp.name)}"><span class="stage-chip stage-${cp.stage}">${STAGE_LABEL[cp.stage]}</span> ${esc(cp.name)}</td>
+      <td>${fmtBR(ps)} → ${fmtBR(pe)}</td>
+      <td>${fmtMoney(cp.planned)}</td>
+      <td>${spend == null ? '—' : fmtMoney(spend)}</td>
+      <td>${cPace ? fmtMoney(cPace.expected) : '—'}</td>
+      <td>${paceBadge(cPace)}</td>
+      <td>${matchInfo}</td></tr>`
+  }).join('')
+  return `<div class="pace-camps"><table>
+    <thead><tr><th>Campanha do plano</th><th>Período</th><th>Verba</th><th>Gasto</th><th>Previsto até hoje</th><th>Pace</th><th>Correspondência</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`
+}
+
+function metasPaceHTML(ch, p, st) {
+  if (SHARED) return ''
+  const items = st.map(x => {
+    const meta = state.accounts[x.name] || {}
+    const target = meta.cplTarget?.value ?? null
+    const budget = meta.plan ? planChannelBudget(meta.plan, ch) : null
+    const pace = budget ? paceOf(budget.total, meta.plan.startDate || null,
+      meta.plan.endDate || null, spendFnFor(ch, x.name)) : null
+    if (target == null && !pace) return null
+    return { x, target, budget, pace }
+  }).filter(Boolean)
+  if (!items.length) return ''
+
+  // Piores primeiro: estourou o CPL alvo > pace fora do ritmo > resto.
+  const sev = it => {
+    const overGoal = it.target != null && it.x.cpl1 != null && it.x.cpl1 > it.target ? 2 : 0
+    const offPace = it.pace && it.pace.pct != null && !it.pace.ended && (it.pace.pct > 110 || it.pace.pct < 90) ? 1 : 0
+    return overGoal + offPace
+  }
+  items.sort((a, b) => sev(b) - sev(a) || String(a.x.name).localeCompare(String(b.x.name), 'pt-BR'))
+
+  const withGoal = items.filter(it => it.target != null && it.x.cpl1 != null)
+  const okGoal = withGoal.filter(it => it.x.cpl1 <= it.target).length
+  const withPace = items.filter(it => it.pace && it.pace.pct != null && !it.pace.ended && !it.pace.notStarted)
+  const avgPace = withPace.length
+    ? withPace.reduce((a, it) => a + it.pace.actual, 0) / withPace.reduce((a, it) => a + it.pace.expected, 0) * 100
+    : null
+  const cplLbl = ch === 'meta' ? 'CPL' : 'CPA'
+  const chips = `<div class="metas-chips">
+    <span class="metas-chip">🎯 <b>${okGoal}/${withGoal.length}</b>&nbsp;contas dentro do ${cplLbl} máximo</span>
+    ${avgPace != null ? `<span class="metas-chip">💸 pace geral de verba: <b>${avgPace.toFixed(0)}%</b></span>` : ''}
+  </div>`
+
+  const rows = items.map(it => {
+    const { x, target, budget, pace } = it
+    const open = !!state.paceOpen[x.name]
+    const expBtn = budget && budget.campaigns.length && pace
+      ? `<button class="pace-exp" data-paceexp="${esc(x.name)}" title="Ver o pace por campanha do plano">${open ? '▾' : '▸'} ${budget.campaigns.length}</button>`
+      : ''
+    const main = `<tr data-client="${esc(x.name)}">
+      <td><span class="client-link">${esc(x.name)}</span></td>
+      <td>${target != null ? `<b>${fmtMoney(target)}</b>` : '—'}</td>
+      <td>${fmtMoney(x.cpl1)}</td>
+      <td>${goalBadge(target, x.cpl1, ch)}</td>
+      <td>${pace ? `${fmtMoney(pace.planned)} <span class="pace-period">${fmtBR(pace.ps)}→${fmtBR(pace.pe)}</span>` : '—'}</td>
+      <td>${pace && !pace.notStarted ? fmtMoney(pace.actual) : '—'}</td>
+      <td>${pace && !pace.notStarted ? fmtMoney(pace.expected) : '—'}</td>
+      <td>${paceBadge(pace)}</td>
+      <td>${pace && !pace.notStarted && pace.proj != null
+        ? `${fmtMoneyCard(pace.proj)} <span class="pace-period ${pace.proj > pace.planned * 1.05 ? 'dn' : ''}">${pace.planned > 0 ? (pace.proj / pace.planned * 100).toFixed(0) + '% do plano' : ''}</span>` : '—'}</td>
+      <td>${expBtn}</td></tr>`
+    const drill = open && budget && pace
+      ? `<tr class="pace-camp-row"><td colspan="10">${paceCampaignsHTML(ch, x.name, pace, budget.campaigns)}</td></tr>`
+      : ''
+    return main + drill
+  }).join('')
+
+  const cards = items.map(it => {
+    const { x, target, pace } = it
+    return mCardHTML(x.name, '', goalBadge(target, x.cpl1, ch), [
+      [`${cplLbl} Alvo`, target != null ? fmtMoneyCard(target) : '—', ''],
+      [cplLbl, fmtMoneyCard(x.cpl1), ''],
+      ['Pace', pace && pace.pct != null && !pace.notStarted ? pace.pct.toFixed(0) + '%' : '—', ''],
+      ['Verba plano', pace ? fmtMoneyCard(pace.planned) : '—', ''],
+      ['Gasto', pace && !pace.notStarted ? fmtMoneyCard(pace.actual) : '—', ''],
+      ['Previsto', pace && !pace.notStarted ? fmtMoneyCard(pace.expected) : '—', ''],
+    ])
+  }).join('')
+
+  const tip = `${cplLbl} Alvo = custo por conversão MÁXIMO da Calculadora de ROI do projeto (Área do Cliente); o badge compara com o ${cplLbl} do período selecionado. Verba/Pace vêm do módulo Campanha: pace 100% = gastando exatamente no ritmo planejado para o período do plano (90–110% ok; 🐢 abaixo; 🔥 acima).`
+  const collapsed = !!state.metasCollapsed
+  const body = collapsed ? '' : `${chips}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Conta</th><th>${cplLbl} Alvo (ROI)</th><th>${cplLbl} período</th><th>vs Alvo</th><th>Verba do plano</th><th>Gasto</th><th>Previsto até hoje</th><th>Pace</th><th>Projeção</th><th>Camp.</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="m-cards">${cards}</div>`
+  return `<div class="group-section metas-section">
+    <div class="group-header gh-blue"><span class="gh-icon">🎯</span><span class="gh-title">${cplLbl} Máximo (ROI) &amp; Pace de Verba</span><span class="status-info" title="${esc(tip)}">i</span><span class="gh-count">${items.length} conta${items.length !== 1 ? 's' : ''}</span><button class="pace-exp" id="metas-toggle" title="${collapsed ? 'Expandir a seção' : 'Recolher a seção'}">${collapsed ? '▸ mostrar' : '▾ recolher'}</button></div>
+    ${body}
+  </div>`
 }
 
 // ─── Drill-down de cliente: Campanhas → Conjuntos → Anúncios ─────────────────
@@ -2039,6 +2313,15 @@ function wire() {
   })
   // Olho de ocultar/reexibir conta (grava em dashboard_accounts.hidden)
   app.querySelectorAll('.hide-btn').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); const n=b.dataset.hide; setHidden(n, !isHidden(n)) })
+  // Seção CPL Máximo & Pace: expande/recolhe o pace por campanha do plano
+  app.querySelectorAll('[data-paceexp]').forEach(b=>b.onclick=(e)=>{
+    e.stopPropagation()
+    const n=b.dataset.paceexp
+    state.paceOpen[n]=!state.paceOpen[n]
+    render()
+  })
+  const mt=document.getElementById('metas-toggle')
+  if (mt) mt.onclick=()=>{ state.metasCollapsed=!state.metasCollapsed; render() }
   const openClient = (name) => {
     state.openClient={ client: name, channel: state.channel }
     // inicializa o estado local da página de cliente a partir do período global
