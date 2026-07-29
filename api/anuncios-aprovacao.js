@@ -98,7 +98,8 @@ async function sanitizeAd(ad) {
       status:     str(ad.aprovacao?.status, 20) || 'pendente',
       motivo:     str(ad.aprovacao?.motivo, 2000) || null,
       sugestao:   str(ad.aprovacao?.sugestao, 2000) || null,
-      decididoEm: str(ad.aprovacao?.decididoEm, 30) || null,
+      enviadoEm:  str(ad.aprovacao?.enviadoEm, 40) || null,
+      decididoEm: str(ad.aprovacao?.decididoEm, 40) || null,
     },
   }
 }
@@ -170,6 +171,7 @@ export default async function handler(req) {
           status:     decision,
           motivo:     decision === 'reprovado' ? motivo   : null,
           sugestao:   decision === 'reprovado' ? sugestao : null,
+          enviadoEm:  ad.aprovacao.enviadoEm || null,
           decididoEm: now,
         },
       })),

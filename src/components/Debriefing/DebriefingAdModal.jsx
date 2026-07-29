@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle, Play, CheckCircle2, Clock, Upload, Paperclip, Loader2, Trash2, XCircle, Send } from 'lucide-react'
 import Modal from '../UI/Modal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
-import { STATUS_OPTIONS, RESULTADO_OPTIONS, DEFAULT_STATUS, APROVACAO_BY_ID, todayISO, fmtDateBR } from './debriefingData'
+import { STATUS_OPTIONS, RESULTADO_OPTIONS, DEFAULT_STATUS, APROVACAO_BY_ID, todayISO, fmtDateTimeBR } from './debriefingData'
 import { uploadFile, deleteFile } from '../../lib/supabase'
 
 const ATTACHMENT_BUCKET = 'attachments'
@@ -192,7 +192,7 @@ export default function DebriefingAdModal({
     if (!canSave) return
     const now = new Date().toISOString()
     const aprovacao = !initial && enviarAprovacao && !values.aprovacao
-      ? { status: 'pendente' }
+      ? { status: 'pendente', enviadoEm: now }
       : values.aprovacao
     onSave({
       ...values,
@@ -449,7 +449,7 @@ export default function DebriefingAdModal({
           ) : (
             <AprovacaoStatus
               aprovacao={values.aprovacao}
-              onEnviar={() => set('aprovacao', { status: 'pendente' })}
+              onEnviar={() => set('aprovacao', { status: 'pendente', enviadoEm: new Date().toISOString() })}
             />
           )}
         </div>
@@ -620,11 +620,21 @@ function AprovacaoStatus({ aprovacao, onEnviar }) {
             {aprovacao.status === 'pendente' && <Clock className="w-3 h-3" />}
             {info.label}
           </span>
-          {aprovacao.decididoEm && (
-            <span className="text-[10px] text-rl-muted">em {fmtDateBR(aprovacao.decididoEm)}</span>
-          )}
         </div>
         {aprovacao.status === 'reprovado' && enviarBtn('Reenviar pra aprovação')}
+      </div>
+
+      {/* Registro dos marcos: quando foi pra aprovação e quando o cliente decidiu */}
+      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] text-rl-muted">
+        {aprovacao.enviadoEm && (
+          <span>Enviado pra aprovação em <span className="font-semibold text-rl-subtle">{fmtDateTimeBR(aprovacao.enviadoEm)}</span></span>
+        )}
+        {aprovacao.decididoEm && (
+          <span>
+            {aprovacao.status === 'aprovado' ? 'Aprovado' : 'Reprovado'} pelo cliente em{' '}
+            <span className="font-semibold text-rl-subtle">{fmtDateTimeBR(aprovacao.decididoEm)}</span>
+          </span>
+        )}
       </div>
 
       {aprovacao.status === 'reprovado' && (

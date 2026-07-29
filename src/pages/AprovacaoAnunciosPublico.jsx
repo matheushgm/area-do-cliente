@@ -26,6 +26,18 @@ function fmtDate(iso) {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
 }
 
+// Timestamp ISO completo → "dd/mm/yyyy às HH:MM" no fuso de quem está vendo.
+function fmtDateTime(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return `${dd}/${mm}/${d.getFullYear()} às ${hh}:${mi}`
+}
+
 export default function AprovacaoAnunciosPublico() {
   const { token } = useParams()
   const [loading, setLoading] = useState(true)
@@ -251,7 +263,8 @@ function AdCard({ ad, token, onDecided, decided = false }) {
       )}
       {decided && ad.aprovacao.decididoEm && (
         <p className="px-5 pb-4 text-[10px] text-rl-muted">
-          Avaliado em {fmtDate(ad.aprovacao.decididoEm)}
+          {st === 'aprovado' ? 'Aprovado' : 'Reprovado'} em {fmtDateTime(ad.aprovacao.decididoEm)}
+          {ad.aprovacao.enviadoEm && <> · enviado pra aprovação em {fmtDateTime(ad.aprovacao.enviadoEm)}</>}
         </p>
       )}
 

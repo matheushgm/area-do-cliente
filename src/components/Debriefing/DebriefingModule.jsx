@@ -10,7 +10,7 @@ import Toast from '../UI/Toast'
 import DebriefingAdModal, { TIPOS_ANUNCIO, flattenCampaigns } from './DebriefingAdModal'
 import CreativeTestModal from './CreativeTestModal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
-import { STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, APROVACAO_BY_ID, fmtDateBR, todayISO } from './debriefingData'
+import { STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, APROVACAO_BY_ID, fmtDateBR, fmtDateTimeBR, todayISO } from './debriefingData'
 
 const ATTACHMENT_BUCKET = 'attachments'
 
@@ -260,7 +260,7 @@ export default function DebriefingModule({ project }) {
                         <AprovacaoCell
                           ad={ad}
                           onEnviar={() => {
-                            updateAd(ad.id, { aprovacao: { status: 'pendente' } })
+                            updateAd(ad.id, { aprovacao: { status: 'pendente', enviadoEm: new Date().toISOString() } })
                             showToast('Anúncio enviado pra aprovação do cliente!')
                           }}
                         />
@@ -445,14 +445,24 @@ function AprovacaoCell({ ad, onEnviar }) {
     ? `Motivo: ${ad.aprovacao.motivo || '—'}\nComo deveria estar: ${ad.aprovacao.sugestao || '—'}`
     : undefined
 
+  // Data/hora relevante pro status: pendente → quando enviamos; decidido → quando o cliente decidiu.
+  const marco = ad.aprovacao.status === 'pendente' ? ad.aprovacao.enviadoEm : ad.aprovacao.decididoEm
+
   return (
-    <span
-      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap"
-      style={{ color: info.color, background: info.bgColor, borderColor: info.borderColor }}
-      title={tooltip}
-    >
-      {info.label}
-    </span>
+    <div className="flex flex-col items-start gap-0.5">
+      <span
+        className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap"
+        style={{ color: info.color, background: info.bgColor, borderColor: info.borderColor }}
+        title={tooltip}
+      >
+        {info.label}
+      </span>
+      {marco && (
+        <span className="text-[9px] text-rl-muted whitespace-nowrap">
+          {fmtDateTimeBR(marco)}
+        </span>
+      )}
+    </div>
   )
 }
 

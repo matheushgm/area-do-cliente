@@ -62,3 +62,16 @@ export function fmtDateBR(iso) {
 export function todayISO() {
   return new Date().toISOString().slice(0, 10)
 }
+
+// Helper: timestamp ISO completo → "dd/mm/yyyy às HH:MM" no fuso local.
+// Usado nos registros de aprovação (enviadoEm / decididoEm).
+export function fmtDateTimeBR(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return `${dd}/${mm}/${d.getFullYear()} às ${hh}:${mi}`
+}
