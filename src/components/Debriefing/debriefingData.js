@@ -39,6 +39,17 @@ export const RESULTADO_BY_ID = Object.fromEntries(RESULTADO_OPTIONS.map((r) => [
 // ─── Default status pra novos anúncios ───────────────────────────────────────
 export const DEFAULT_STATUS = 'para_subir'
 
+// ─── Aprovação do cliente (link público /aprovacao/:token) ───────────────────
+// Guardada em ad.aprovacao = { status, motivo, sugestao, decididoEm }.
+// Anúncio sem ad.aprovacao = nunca foi enviado pro cliente.
+export const APROVACAO_OPTIONS = [
+  { id: 'pendente',  label: 'Aguardando', color: '#B45309', bgColor: '#FEF3C7', borderColor: '#FCD34D' },
+  { id: 'aprovado',  label: 'Aprovado',   color: '#15803D', bgColor: '#D1FAE5', borderColor: '#6EE7B7' },
+  { id: 'reprovado', label: 'Reprovado',  color: '#B91C1C', bgColor: '#FEE2E2', borderColor: '#FCA5A5' },
+]
+
+export const APROVACAO_BY_ID = Object.fromEntries(APROVACAO_OPTIONS.map((a) => [a.id, a]))
+
 // Helper: formata date string yyyy-mm-dd pra dd/mm/yyyy
 export function fmtDateBR(iso) {
   if (!iso) return '—'

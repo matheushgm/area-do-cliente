@@ -14,6 +14,8 @@ import B2BClientForm from './pages/B2BClientForm'
 import MeetingMinutePublic from './pages/MeetingMinutePublic'
 import MatrizObjecaoPublic from './pages/MatrizObjecaoPublic'
 import PrecificacaoPublic from './pages/PrecificacaoPublic'
+import CampanhasPublico from './pages/CampanhasPublico'
+import AprovacaoAnunciosPublico from './pages/AprovacaoAnunciosPublico'
 import NPSClientForm from './pages/NPSClientForm'
 import BancoDeAnuncios from './pages/BancoDeAnuncios'
 import BancoDeAnunciosPublico from './pages/BancoDeAnunciosPublico'
@@ -71,6 +73,8 @@ function AppRoutes() {
         <Route path="/ata/:token" element={<MeetingMinutePublic />} />
         <Route path="/objecoes/:token" element={<MatrizObjecaoPublic />} />
         <Route path="/precificacao/:token" element={<PrecificacaoPublic />} />
+        <Route path="/campanhas/:token" element={<CampanhasPublico />} />
+        <Route path="/aprovacao/:token" element={<AprovacaoAnunciosPublico />} />
         <Route path="/nps/:token" element={<NPSClientForm />} />
         <Route path="/banco-de-anuncios" element={<RequireAuth><BancoDeAnuncios /></RequireAuth>} />
         <Route path="/banco-publico" element={<BancoDeAnunciosPublico />} />

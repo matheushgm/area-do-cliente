@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   Megaphone, Plus, Pencil, Trash2, ExternalLink, Video, Image as ImageIcon, Layers,
-  Filter, X, Clock, Play, CheckCircle2, Paperclip, FlaskConical,
+  Filter, X, Clock, Play, CheckCircle2, Paperclip, FlaskConical, Link2, Send,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
@@ -10,7 +10,7 @@ import Toast from '../UI/Toast'
 import DebriefingAdModal, { TIPOS_ANUNCIO, flattenCampaigns } from './DebriefingAdModal'
 import CreativeTestModal from './CreativeTestModal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
-import { STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, fmtDateBR, todayISO } from './debriefingData'
+import { STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, APROVACAO_BY_ID, fmtDateBR, todayISO } from './debriefingData'
 
 const ATTACHMENT_BUCKET = 'attachments'
 
@@ -94,6 +94,23 @@ export default function DebriefingModule({ project }) {
     persist({ ...persisted, ads: next })
   }
 
+  // ── Link público de aprovação (mesmo client_share_token de /campanhas etc.) ─
+  function getOrCreateShareToken() {
+    if (project.clientShareToken) return project.clientShareToken
+    const token = crypto.randomUUID()
+    updateProject(project.id, { clientShareToken: token })
+    return token
+  }
+
+  function handleShareAprovacao() {
+    const token = getOrCreateShareToken()
+    if (!token) return
+    const url = `${window.location.origin}/aprovacao/${token}`
+    navigator.clipboard.writeText(url)
+      .then(() => showToast('Link de aprovação copiado!'))
+      .catch(() => showToast('Link: ' + url))
+  }
+
   const hasFilters = filterTipo || filterFunil || filterStatus
 
   return (
@@ -161,6 +178,13 @@ export default function DebriefingModule({ project }) {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={handleShareAprovacao}
+            className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border border-rl-border text-rl-subtle hover:text-rl-purple hover:border-rl-purple/40 transition-all"
+            title="Copiar o link em que o cliente aprova ou reprova os criativos"
+          >
+            <Link2 className="w-4 h-4" /> Link de aprovação
+          </button>
+          <button
             onClick={() => setShowTest(true)}
             className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border border-rl-purple/40 text-rl-purple hover:bg-rl-purple/10 transition-all"
           >
@@ -193,6 +217,7 @@ export default function DebriefingModule({ project }) {
                   <Th>Data</Th>
                   <Th>Nome</Th>
                   <Th>Tipo</Th>
+                  <Th>Aprovação</Th>
                   <Th>Status</Th>
                   <Th>Campanha</Th>
                   <Th>Funil</Th>
@@ -229,6 +254,15 @@ export default function DebriefingModule({ project }) {
                           bgColor="rgba(124,58,237,0.10)"
                           borderColor="rgba(124,58,237,0.30)"
                           LeftIcon={TipoIcon}
+                        />
+                      </Td>
+                      <Td>
+                        <AprovacaoCell
+                          ad={ad}
+                          onEnviar={() => {
+                            updateAd(ad.id, { aprovacao: { status: 'pendente' } })
+                            showToast('Anúncio enviado pra aprovação do cliente!')
+                          }}
                         />
                       </Td>
                       <Td>
@@ -389,6 +423,39 @@ export default function DebriefingModule({ project }) {
 }
 
 // ─── Pequenos subcomponentes ──────────────────────────────────────────────────
+
+// Célula de aprovação do cliente: badge do status ou botão "Enviar" quando o
+// anúncio ainda não foi mandado pro link público de aprovação.
+function AprovacaoCell({ ad, onEnviar }) {
+  const info = ad.aprovacao ? APROVACAO_BY_ID[ad.aprovacao.status] : null
+
+  if (!info) {
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); onEnviar() }}
+        className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all whitespace-nowrap"
+        title="Enviar esse criativo pro cliente aprovar"
+      >
+        <Send className="w-3 h-3" /> Enviar
+      </button>
+    )
+  }
+
+  const tooltip = ad.aprovacao.status === 'reprovado'
+    ? `Motivo: ${ad.aprovacao.motivo || '—'}\nComo deveria estar: ${ad.aprovacao.sugestao || '—'}`
+    : undefined
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap"
+      style={{ color: info.color, background: info.bgColor, borderColor: info.borderColor }}
+      title={tooltip}
+    >
+      {info.label}
+    </span>
+  )
+}
+
 function Th({ children, className = '' }) {
   return (
     <th className={`text-left text-[10px] font-bold uppercase tracking-wider text-rl-muted px-3 py-2.5 ${className}`}>

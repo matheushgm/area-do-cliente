@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
-import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle, Play, CheckCircle2, Clock, Upload, Paperclip, Loader2, Trash2 } from 'lucide-react'
+import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle, Play, CheckCircle2, Clock, Upload, Paperclip, Loader2, Trash2, XCircle, Send } from 'lucide-react'
 import Modal from '../UI/Modal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
-import { STATUS_OPTIONS, RESULTADO_OPTIONS, DEFAULT_STATUS, todayISO } from './debriefingData'
+import { STATUS_OPTIONS, RESULTADO_OPTIONS, DEFAULT_STATUS, APROVACAO_BY_ID, todayISO, fmtDateBR } from './debriefingData'
 import { uploadFile, deleteFile } from '../../lib/supabase'
 
 const ATTACHMENT_BUCKET = 'attachments'
@@ -87,10 +87,14 @@ export default function DebriefingAdModal({
     attachmentPath:  null,
     attachmentName:  null,
     attachmentUrl:   null,
+    aprovacao:       null,
     ...(initial || {}),
   }))
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
+  // Novos anúncios vão pra aprovação do cliente por padrão — o fluxo é: subir
+  // o criativo → cliente aprova/reprova no link público → aí decide campanha.
+  const [enviarAprovacao, setEnviarAprovacao] = useState(!initial)
 
   function set(field, val) {
     setValues((prev) => ({ ...prev, [field]: val }))
@@ -187,8 +191,12 @@ export default function DebriefingAdModal({
   function handleSave() {
     if (!canSave) return
     const now = new Date().toISOString()
+    const aprovacao = !initial && enviarAprovacao && !values.aprovacao
+      ? { status: 'pendente' }
+      : values.aprovacao
     onSave({
       ...values,
+      aprovacao,
       id: stableId,
       addedAt: initial?.addedAt || now,
       updatedAt: now,
@@ -419,6 +427,33 @@ export default function DebriefingAdModal({
           />
         </Field>
 
+        {/* ── Aprovação do cliente ───────────────────────────────────────── */}
+        <div className="pt-3 border-t border-rl-border">
+          {!initial ? (
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={enviarAprovacao}
+                onChange={(e) => setEnviarAprovacao(e.target.checked)}
+                className="mt-0.5 accent-[#7C3AED]"
+              />
+              <span>
+                <span className="text-xs font-bold text-rl-text uppercase tracking-wide block">
+                  Enviar pra aprovação do cliente
+                </span>
+                <span className="text-[11px] text-rl-muted">
+                  O criativo aparece no link de aprovação e o cliente aprova ou reprova antes de ir pro ar.
+                </span>
+              </span>
+            </label>
+          ) : (
+            <AprovacaoStatus
+              aprovacao={values.aprovacao}
+              onEnviar={() => set('aprovacao', { status: 'pendente' })}
+            />
+          )}
+        </div>
+
         {/* ── Status + datas + resultado ─────────────────────────────────── */}
         <div className="pt-3 border-t border-rl-border">
           <Field label="Status do anúncio" required>
@@ -541,6 +576,70 @@ export default function DebriefingAdModal({
         </button>
       </div>
     </Modal>
+  )
+}
+
+// Status da aprovação do cliente ao EDITAR um anúncio: mostra a decisão (com o
+// feedback do cliente quando reprovado) e permite (re)enviar pra aprovação.
+function AprovacaoStatus({ aprovacao, onEnviar }) {
+  const info = aprovacao ? APROVACAO_BY_ID[aprovacao.status] : null
+
+  const enviarBtn = (label) => (
+    <button
+      type="button"
+      onClick={onEnviar}
+      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border border-rl-purple/40 text-rl-purple hover:bg-rl-purple/10 transition-all"
+    >
+      <Send className="w-3.5 h-3.5" /> {label}
+    </button>
+  )
+
+  if (!info) {
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold text-rl-text uppercase tracking-wide">Aprovação do cliente</p>
+          <p className="text-[11px] text-rl-muted">Esse criativo ainda não foi enviado pro cliente avaliar.</p>
+        </div>
+        {enviarBtn('Enviar pra aprovação')}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-bold text-rl-text uppercase tracking-wide">Aprovação do cliente</p>
+          <span
+            className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border"
+            style={{ color: info.color, background: info.bgColor, borderColor: info.borderColor }}
+          >
+            {aprovacao.status === 'aprovado' && <CheckCircle2 className="w-3 h-3" />}
+            {aprovacao.status === 'reprovado' && <XCircle className="w-3 h-3" />}
+            {aprovacao.status === 'pendente' && <Clock className="w-3 h-3" />}
+            {info.label}
+          </span>
+          {aprovacao.decididoEm && (
+            <span className="text-[10px] text-rl-muted">em {fmtDateBR(aprovacao.decididoEm)}</span>
+          )}
+        </div>
+        {aprovacao.status === 'reprovado' && enviarBtn('Reenviar pra aprovação')}
+      </div>
+
+      {aprovacao.status === 'reprovado' && (
+        <>
+          <div className="rounded-xl bg-red-500/10 border border-red-500/30 px-3 py-2.5">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-red-500">Motivo da reprovação</p>
+            <p className="text-sm text-rl-text mt-1 whitespace-pre-wrap">{aprovacao.motivo || '—'}</p>
+          </div>
+          <div className="rounded-xl bg-rl-surface/60 border border-rl-border px-3 py-2.5">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-rl-muted">Como o cliente quer o anúncio</p>
+            <p className="text-sm text-rl-text mt-1 whitespace-pre-wrap">{aprovacao.sugestao || '—'}</p>
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 
