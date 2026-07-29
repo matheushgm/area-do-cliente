@@ -3,10 +3,12 @@
 // criativos enviados pela Central de anúncios, antes de irem pro ar.
 // Ao reprovar, ele preenche o motivo + como o anúncio deveria estar.
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import {
   Megaphone, Loader2, AlertTriangle, CheckCircle2, XCircle, ExternalLink,
   Video, Image as ImageIcon, Layers, Clock, Paperclip, Send, LayoutTemplate,
+  Maximize2, X, ZoomIn, ZoomOut,
 } from 'lucide-react'
 
 const TIPO_META = {
@@ -152,6 +154,89 @@ export default function AprovacaoAnunciosPublico() {
   )
 }
 
+// ─── Lightbox de imagem (desktop + mobile) ────────────────────────────────────
+// Portal no <body> (o glass-card usa backdrop-filter, que quebraria position:
+// fixed de um filho). Fecha por X, clique no fundo ou Esc. O botão de zoom
+// alterna entre "caber na tela" e tamanho natural com navegação por
+// arrasto/scroll (funciona com dedo no mobile e trackpad/roda no desktop).
+function Lightbox({ src, alt, onClose }) {
+  const [zoomed, setZoomed] = useState(false)
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    // Trava o scroll da página enquanto o lightbox está aberto
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [onClose])
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] bg-black/95 flex flex-col"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={alt}
+    >
+      {/* Barra de controles — sempre visível e clicável acima da imagem */}
+      <div
+        className="absolute top-0 inset-x-0 z-10 flex items-center justify-end gap-2 p-3 bg-gradient-to-b from-black/70 to-transparent"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => setZoomed((z) => !z)}
+          className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-white/25 transition-all"
+          title={zoomed ? 'Ajustar à tela' : 'Zoom no tamanho real'}
+          aria-label={zoomed ? 'Ajustar à tela' : 'Zoom no tamanho real'}
+        >
+          {zoomed ? <ZoomOut className="w-5 h-5" /> : <ZoomIn className="w-5 h-5" />}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-white/25 transition-all"
+          title="Fechar"
+          aria-label="Fechar"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {zoomed ? (
+        // Tamanho natural + pan por scroll (touch no mobile, roda/trackpad no desktop)
+        <div className="flex-1 min-h-0 overflow-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
+          <img
+            src={src}
+            alt={alt}
+            onClick={() => setZoomed(false)}
+            className="max-w-none m-auto cursor-zoom-out select-none"
+            draggable={false}
+          />
+        </div>
+      ) : (
+        // Ajustada à tela
+        <div className="flex-1 min-h-0 flex items-center justify-center p-4 sm:p-8">
+          <img
+            src={src}
+            alt={alt}
+            onClick={(e) => { e.stopPropagation(); setZoomed(true) }}
+            className="max-h-full max-w-full object-contain cursor-zoom-in select-none"
+            draggable={false}
+          />
+        </div>
+      )}
+    </div>,
+    document.body
+  )
+}
+
 // ─── Card de um anúncio ───────────────────────────────────────────────────────
 function AdCard({ ad, token, onDecided, decided = false }) {
   const [mode,       setMode]       = useState(null) // null | 'reprovando'
@@ -159,6 +244,7 @@ function AdCard({ ad, token, onDecided, decided = false }) {
   const [sugestao,   setSugestao]   = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error,      setError]      = useState('')
+  const [expanded,   setExpanded]   = useState(false) // lightbox da imagem
 
   const isLp = ad.kind === 'lp'
   const tipo = isLp
@@ -214,11 +300,26 @@ function AdCard({ ad, token, onDecided, decided = false }) {
       {/* Prévia do criativo */}
       <div className="px-5 py-4 space-y-3">
         {ad.attachmentUrl && ad.mediaKind === 'image' && (
-          <img
-            src={ad.attachmentUrl}
-            alt={ad.nome || 'Criativo'}
-            className="max-h-[420px] w-auto max-w-full rounded-xl border border-rl-border mx-auto"
-          />
+          <div className="relative w-fit mx-auto max-w-full group">
+            <img
+              src={ad.attachmentUrl}
+              alt={ad.nome || 'Criativo'}
+              onClick={() => setExpanded(true)}
+              className="max-h-[420px] w-auto max-w-full rounded-xl border border-rl-border cursor-zoom-in"
+            />
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="absolute top-2 right-2 p-2 rounded-lg bg-black/55 text-white hover:bg-black/75 transition-all"
+              title="Expandir imagem"
+              aria-label="Expandir imagem"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+        {expanded && ad.attachmentUrl && ad.mediaKind === 'image' && (
+          <Lightbox src={ad.attachmentUrl} alt={ad.nome || 'Criativo'} onClose={() => setExpanded(false)} />
         )}
         {ad.attachmentUrl && ad.mediaKind === 'video' && (
           <video
