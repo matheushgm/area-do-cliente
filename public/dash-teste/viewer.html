@@ -567,7 +567,7 @@ function saveNav() {
   try {
     localStorage.setItem(NAV_KEY, JSON.stringify({
       channel: state.channel, days: state.days, from: state.from, to: state.to, search: state.search, squad: state.squad,
-      view: state.view, showHidden: state.showHidden, metasCollapsed: state.metasCollapsed,
+      view: state.view, showHidden: state.showHidden,
       openClient: state.openClient, tab: state.tab, sub: state.sub,
       drillCampaign: state.drillCampaign, drillAdset: state.drillAdset,
       cDays: state.cDays, cFrom: state.cFrom, cTo: state.cTo, campFilter: state.campFilter,
@@ -580,9 +580,8 @@ function restoreNav() {
     if (s.channel) state.channel = s.channel
     if (s.days != null) state.days = s.days
     state.from = s.from || ''; state.to = s.to || ''; state.search = s.search || ''; state.squad = s.squad || ''
-    state.view = ['padrao','diagnostico','escala','queda-ctr','queda-taxa'].includes(s.view) ? s.view : 'padrao'
+    state.view = ['padrao','diagnostico','escala','queda-ctr','queda-taxa','pace'].includes(s.view) ? s.view : 'padrao'
     state.showHidden = !!s.showHidden
-    state.metasCollapsed = !!s.metasCollapsed
     if (s.openClient && s.openClient.client) {
       // Só restaura o cliente se a conta ainda existir nos dados carregados.
       const ch = s.openClient.channel || state.channel
@@ -645,10 +644,12 @@ function render() {
       const nCtr = diag.filter(d => d.bucket === 'performance' && d.culprit === 'CTR').length
       const nTaxa = diag.filter(d => d.bucket === 'performance' && d.culprit === 'Taxa de conversão').length
       const nScale = scaleFor(ch, p).length
+      const nPace = paceItemsFor(ch, p).length
       const nHidden = p ? buildStats(state.raw[ch], cfgFor(ch), p).filter(x => isHidden(x.name)).length : 0
       return `<div class="squad-bar">
         <span class="filter-label">Visualização:</span>
         <button class="squad-btn ${state.view==='padrao'?'active':''}" data-view="padrao">📊 Padrão (status)</button>
+        <button class="squad-btn ${state.view==='pace'?'active':''}" data-view="pace" title="Pace de gasto vs a verba planejada no módulo Campanha da Área do Cliente, por conta e por campanha do plano">💸 Pace de Verba${nPace?` (${nPace})`:''}</button>
         <button class="squad-btn ${state.view==='diagnostico'?'active':''}" data-view="diagnostico" title="Contas em queda de conversão, separadas pela causa: corte de verba ou performance (CTR / taxa de conversão)">📉 Diagnóstico de Queda${nDiag?` (${nDiag})`:''}</button>
         <button class="squad-btn ${state.view==='queda-ctr'?'active':''}" data-view="queda-ctr" title="Só as contas cuja queda de conversão foi causada pelo CTR (criativo/segmentação)">🎯 Queda por CTR${nCtr?` (${nCtr})`:''}</button>
         <button class="squad-btn ${state.view==='queda-taxa'?'active':''}" data-view="queda-taxa" title="Só as contas cuja queda de conversão foi causada pela taxa de conversão (LP/oferta)">🧲 Queda por Tx. Conversão${nTaxa?` (${nTaxa})`:''}</button>
@@ -663,6 +664,7 @@ function render() {
       : state.view==='queda-ctr' && !SHARED ? diagnosticoHTML(ch, p, 'ctr')
       : state.view==='queda-taxa' && !SHARED ? diagnosticoHTML(ch, p, 'taxa')
       : state.view==='escala' && !SHARED ? escalaHTML(ch, p)
+      : state.view==='pace' && !SHARED ? paceViewHTML(ch, p)
       : !st.length ? `<div class="empty">Nenhum dado disponível para o período selecionado.</div>`
       : channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct)
     }</div>
@@ -700,12 +702,14 @@ const trendHTML = x => x.declining3d ? `<span class="trend-dn">📉 Queda 3d</sp
 const ACCT_COLS = [
   ['Conta','name'], ['Status',null],
   ['Conv.','conv1'], ['Conv. Ant.','conv2'], ['Var. Conv.','varConv'],
-  ['CPL','cpl1'], ['CPL Ant.','cpl2'], ['Var. CPL','varCpl'],
+  ['CPL','cpl1'], ['CPL Alvo','cplTarget'], ['CPL Ant.','cpl2'], ['Var. CPL','varCpl'],
   ['Investimento','spend1'], ['Invest. Ant.','spend2'], ['Var. Invest.','varSpend'],
   ['Tend. 3d','trend'],
 ]
 // Tendência não é um número na linha — vira rank (queda < estável < alta).
-const acctVal = (x, key) => key==='trend' ? (x.declining3d?-1:x.trendDir==='up'?1:0) : x[key]
+// CPL Alvo vem dos metadados da conta (Calculadora de ROI), não do stats.
+const acctVal = (x, key) => key==='trend' ? (x.declining3d?-1:x.trendDir==='up'?1:0)
+  : key==='cplTarget' ? (state.accounts[x.name]?.cplTarget?.value ?? null) : x[key]
 function sortAccounts(list) {
   const { key, dir } = state.acctSort
   if (!key) return list
@@ -770,18 +774,21 @@ function channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <td><span class="pill ${pillCls(x.status)}">${pillIco(x.status)} ${x.status}</span></td>
       <td>${fmtNum(x.conv1)}</td><td>${fmtNum(x.conv2)}</td>
       <td class="${varCls(x.varConv,false)}">${fmtPct(x.varConv)}</td>
-      <td>${fmtMoney(x.cpl1)}</td><td>${fmtMoney(x.cpl2)}</td>
+      <td>${fmtMoney(x.cpl1)}</td><td>${targetCellHTML(x.name, x.cpl1)}</td><td>${fmtMoney(x.cpl2)}</td>
       <td class="${varCls(x.varCpl,true)}">${fmtPct(x.varCpl)}</td>
       <td>${fmtMoney(x.spend1)}</td><td>${fmtMoney(x.spend2)}</td>
       <td class="${varCls(x.varSpend,false)}">${fmtPct(x.varSpend)}</td>
       <td>${trend}</td></tr>`
   }
-  const acctCard = x => mCardHTML(x.name,
+  const acctCard = x => {
+    const target = state.accounts[x.name]?.cplTarget?.value ?? null
+    return mCardHTML(x.name,
     `<span class="pill ${pillCls(x.status)}">${pillIco(x.status)}</span>`,
-    trendHTML(x),
+    `${trendHTML(x)}${target != null ? ` <span style="color:#CBD5E1">·</span> ${goalBadge(target, x.cpl1, ch)}` : ''}`,
     [['Conversões', fmtNum(x.conv1), mDelta(x.varConv, false)],
      [cplLabel.replace(' Médio',''), fmtMoneyCard(x.cpl1), mDelta(x.varCpl, true)],
      ['Investido', fmtMoneyCard(x.spend1), mDelta(x.varSpend, false)]])
+  }
   // Tabela + cards de um conjunto de contas.
   const acctTable = list => `<div class="table-wrap"><table>
         <thead><tr>${acctTheadHTML()}</tr></thead>
@@ -809,7 +816,7 @@ function channelHTML(ch, p, st, s, leadsLabel, cplLabel, fmtSumPct) {
     }
     return `<div class="group-section">${header}${acctTable(grp)}</div>`
   }).join('')
-  return summary + metasPaceHTML(ch, p, st) + groups
+  return summary + groups
 }
 
 // ─── Visualização "Diagnóstico de Queda" (por que o resultado caiu?) ──────────
@@ -1083,86 +1090,102 @@ function paceCampaignsHTML(ch, account, pace, campaigns) {
     <tbody>${rows}</tbody></table></div>`
 }
 
-function metasPaceHTML(ch, p, st) {
-  if (SHARED) return ''
-  const items = st.map(x => {
+// Célula "CPL Alvo" das tabelas de conta da visão Padrão: o custo por conversão
+// MÁXIMO da Calculadora de ROI, colorido conforme o CPL do período cabe (verde)
+// ou estoura (vermelho) o limite — visível independente do status da conta.
+function targetCellHTML(name, cpl) {
+  const target = state.accounts[name]?.cplTarget?.value ?? null
+  if (target == null) return '<span style="color:#94A3B8" title="Sem Calculadora de ROI preenchida no projeto da Área do Cliente">—</span>'
+  if (cpl == null) return `<span style="color:#64748B" title="Sem conversões no período para comparar com o alvo">${fmtMoney(target)}</span>`
+  const margin = ((target - cpl) / target) * 100
+  return margin >= 0
+    ? `<span class="up" title="CPL do período ${margin.toFixed(0)}% abaixo do máximo da Calculadora de ROI (${fmtMoney(target)})">${fmtMoney(target)} ✅</span>`
+    : `<span class="dn" title="CPL do período ${Math.abs(margin).toFixed(0)}% ACIMA do máximo da Calculadora de ROI (${fmtMoney(target)})">${fmtMoney(target)} 🚨</span>`
+}
+
+// Itens da visualização "Pace de Verba": contas do canal (com busca/squad/ocultas
+// aplicados) cujo projeto tem plano de Campanha alocando verba neste canal.
+function paceItemsFor(ch, p) {
+  if (!p || SHARED) return []
+  return applyListFilters(buildStats(state.raw[ch], cfgFor(ch), p)).map(x => {
     const meta = state.accounts[x.name] || {}
-    const target = meta.cplTarget?.value ?? null
     const budget = meta.plan ? planChannelBudget(meta.plan, ch) : null
     const pace = budget ? paceOf(budget.total, meta.plan.startDate || null,
       meta.plan.endDate || null, spendFnFor(ch, x.name)) : null
-    if (target == null && !pace) return null
-    return { x, target, budget, pace }
+    return pace ? { name: x.name, budget, pace } : null
   }).filter(Boolean)
-  if (!items.length) return ''
+}
 
-  // Piores primeiro: estourou o CPL alvo > pace fora do ritmo > resto.
-  const sev = it => {
-    const overGoal = it.target != null && it.x.cpl1 != null && it.x.cpl1 > it.target ? 2 : 0
-    const offPace = it.pace && it.pace.pct != null && !it.pace.ended && (it.pace.pct > 110 || it.pace.pct < 90) ? 1 : 0
-    return overGoal + offPace
-  }
-  items.sort((a, b) => sev(b) - sev(a) || String(a.x.name).localeCompare(String(b.x.name), 'pt-BR'))
+const PACE_GROUPS = [
+  { key:'hot', hcls:'gh-red', icon:'🔥', label:'Gastando acima do ritmo',
+    tip:'Pace acima de 110%: no ritmo atual a verba planejada no módulo Campanha acaba antes do fim do período. Reduzir orçamentos diários ou renegociar a verba.',
+    match: it => !it.pace.notStarted && !it.pace.ended && it.pace.pct != null && it.pace.pct > 110 },
+  { key:'slow', hcls:'gh-yellow', icon:'🐢', label:'Gastando abaixo do ritmo',
+    tip:'Pace abaixo de 90%: a conta vai entregar menos verba que o planejado no período — sobra orçamento no fim. Escalar campanhas ou revisar limites diários.',
+    match: it => !it.pace.notStarted && !it.pace.ended && it.pace.pct != null && it.pace.pct < 90 },
+  { key:'ok', hcls:'gh-green', icon:'✅', label:'No ritmo',
+    tip:'Pace entre 90% e 110%: o gasto está acompanhando o planejado para o período do plano.',
+    match: it => !it.pace.notStarted && !it.pace.ended && it.pace.pct != null && it.pace.pct >= 90 && it.pace.pct <= 110 },
+  { key:'fora', hcls:'gh-blue', icon:'📅', label:'Fora do período do plano',
+    tip:'O plano de Campanha ainda não começou ou o período já encerrou — atualizar o planejamento na Área do Cliente para voltar a acompanhar o pace.',
+    match: it => it.pace.notStarted || it.pace.ended || it.pace.pct == null },
+]
 
-  const withGoal = items.filter(it => it.target != null && it.x.cpl1 != null)
-  const okGoal = withGoal.filter(it => it.x.cpl1 <= it.target).length
-  const withPace = items.filter(it => it.pace && it.pace.pct != null && !it.pace.ended && !it.pace.notStarted)
+function paceViewHTML(ch, p) {
+  const items = paceItemsFor(ch, p)
+  const nNoPlan = applyListFilters(buildStats(state.raw[ch], cfgFor(ch), p)).length - items.length
+  const withPace = items.filter(it => !it.pace.notStarted && !it.pace.ended && it.pace.pct != null)
   const avgPace = withPace.length
     ? withPace.reduce((a, it) => a + it.pace.actual, 0) / withPace.reduce((a, it) => a + it.pace.expected, 0) * 100
     : null
-  const cplLbl = ch === 'meta' ? 'CPL' : 'CPA'
-  const chips = `<div class="metas-chips">
-    <span class="metas-chip">🎯 <b>${okGoal}/${withGoal.length}</b>&nbsp;contas dentro do ${cplLbl} máximo</span>
-    ${avgPace != null ? `<span class="metas-chip">💸 pace geral de verba: <b>${avgPace.toFixed(0)}%</b></span>` : ''}
+  const head = `<div class="period-row">
+    <div class="period-badge">Contas com plano: <b>${items.length}</b></div>
+    ${avgPace != null ? `<div class="period-badge">Pace geral: <b>${avgPace.toFixed(0)}%</b></div>` : ''}
+    ${nNoPlan > 0 ? `<div class="period-badge" title="Contas do canal sem plano de Campanha preenchido no projeto da Área do Cliente (ou sem verba alocada neste canal)">Sem plano: <b>${nNoPlan}</b></div>` : ''}
   </div>`
+  if (!items.length) return head + `<div class="empty">Nenhuma conta deste canal tem plano de Campanha preenchido na Área do Cliente.<br>Preencha o módulo Campanha do projeto (verba do período + % por canal) para acompanhar o pace aqui.</div>`
 
-  const rows = items.map(it => {
-    const { x, target, budget, pace } = it
-    const open = !!state.paceOpen[x.name]
-    const expBtn = budget && budget.campaigns.length && pace
-      ? `<button class="pace-exp" data-paceexp="${esc(x.name)}" title="Ver o pace por campanha do plano">${open ? '▾' : '▸'} ${budget.campaigns.length}</button>`
+  const row = it => {
+    const { name, budget, pace } = it
+    const open = !!state.paceOpen[name]
+    const expBtn = budget.campaigns.length
+      ? `<button class="pace-exp" data-paceexp="${esc(name)}" title="Ver o pace por campanha do plano">${open ? '▾' : '▸'} ${budget.campaigns.length}</button>`
       : ''
-    const main = `<tr data-client="${esc(x.name)}">
-      <td><span class="client-link">${esc(x.name)}</span></td>
-      <td>${target != null ? `<b>${fmtMoney(target)}</b>` : '—'}</td>
-      <td>${fmtMoney(x.cpl1)}</td>
-      <td>${goalBadge(target, x.cpl1, ch)}</td>
-      <td>${pace ? `${fmtMoney(pace.planned)} <span class="pace-period">${fmtBR(pace.ps)}→${fmtBR(pace.pe)}</span>` : '—'}</td>
-      <td>${pace && !pace.notStarted ? fmtMoney(pace.actual) : '—'}</td>
-      <td>${pace && !pace.notStarted ? fmtMoney(pace.expected) : '—'}</td>
+    const main = `<tr data-client="${esc(name)}">
+      <td><span class="client-link">${esc(name)}</span></td>
+      <td>${fmtBR(pace.ps)} → ${fmtBR(pace.pe)}</td>
+      <td>${fmtMoney(pace.planned)}</td>
+      <td>${pace.notStarted ? '—' : fmtMoney(pace.actual)}</td>
+      <td>${pace.notStarted ? '—' : fmtMoney(pace.expected)}</td>
       <td>${paceBadge(pace)}</td>
-      <td>${pace && !pace.notStarted && pace.proj != null
+      <td>${!pace.notStarted && pace.proj != null
         ? `${fmtMoneyCard(pace.proj)} <span class="pace-period ${pace.proj > pace.planned * 1.05 ? 'dn' : ''}">${pace.planned > 0 ? (pace.proj / pace.planned * 100).toFixed(0) + '% do plano' : ''}</span>` : '—'}</td>
       <td>${expBtn}</td></tr>`
-    const drill = open && budget && pace
-      ? `<tr class="pace-camp-row"><td colspan="10">${paceCampaignsHTML(ch, x.name, pace, budget.campaigns)}</td></tr>`
+    const drill = open
+      ? `<tr class="pace-camp-row"><td colspan="8">${paceCampaignsHTML(ch, name, pace, budget.campaigns)}</td></tr>`
       : ''
     return main + drill
-  }).join('')
-
-  const cards = items.map(it => {
-    const { x, target, pace } = it
-    return mCardHTML(x.name, '', goalBadge(target, x.cpl1, ch), [
-      [`${cplLbl} Alvo`, target != null ? fmtMoneyCard(target) : '—', ''],
-      [cplLbl, fmtMoneyCard(x.cpl1), ''],
-      ['Pace', pace && pace.pct != null && !pace.notStarted ? pace.pct.toFixed(0) + '%' : '—', ''],
-      ['Verba plano', pace ? fmtMoneyCard(pace.planned) : '—', ''],
-      ['Gasto', pace && !pace.notStarted ? fmtMoneyCard(pace.actual) : '—', ''],
-      ['Previsto', pace && !pace.notStarted ? fmtMoneyCard(pace.expected) : '—', ''],
+  }
+  const card = it => {
+    const { name, pace } = it
+    return mCardHTML(name, '', paceBadge(pace), [
+      ['Verba plano', fmtMoneyCard(pace.planned), ''],
+      ['Gasto', pace.notStarted ? '—' : fmtMoneyCard(pace.actual), ''],
+      ['Previsto', pace.notStarted ? '—' : fmtMoneyCard(pace.expected), ''],
     ])
+  }
+  const groups = PACE_GROUPS.map(g => {
+    const grp = items.filter(g.match); if (!grp.length) return ''
+    grp.sort((a, b) => (b.pace.pct ?? -1) - (a.pace.pct ?? -1))
+    return `<div class="group-section diag-section">
+      <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length !== 1 ? 's' : ''}</span></div>
+      <div class="diag-hint">${esc(g.tip)}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Conta</th><th>Período do plano</th><th>Verba do plano</th><th>Gasto</th><th>Previsto até hoje</th><th>Pace</th><th>Projeção</th><th>Camp.</th></tr></thead>
+        <tbody>${grp.map(row).join('')}</tbody></table></div>
+      <div class="m-cards">${grp.map(card).join('')}</div></div>`
   }).join('')
-
-  const tip = `${cplLbl} Alvo = custo por conversão MÁXIMO da Calculadora de ROI do projeto (Área do Cliente); o badge compara com o ${cplLbl} do período selecionado. Verba/Pace vêm do módulo Campanha: pace 100% = gastando exatamente no ritmo planejado para o período do plano (90–110% ok; 🐢 abaixo; 🔥 acima).`
-  const collapsed = !!state.metasCollapsed
-  const body = collapsed ? '' : `${chips}
-    <div class="table-wrap"><table>
-      <thead><tr><th>Conta</th><th>${cplLbl} Alvo (ROI)</th><th>${cplLbl} período</th><th>vs Alvo</th><th>Verba do plano</th><th>Gasto</th><th>Previsto até hoje</th><th>Pace</th><th>Projeção</th><th>Camp.</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>
-    <div class="m-cards">${cards}</div>`
-  return `<div class="group-section metas-section">
-    <div class="group-header gh-blue"><span class="gh-icon">🎯</span><span class="gh-title">${cplLbl} Máximo (ROI) &amp; Pace de Verba</span><span class="status-info" title="${esc(tip)}">i</span><span class="gh-count">${items.length} conta${items.length !== 1 ? 's' : ''}</span><button class="pace-exp" id="metas-toggle" title="${collapsed ? 'Expandir a seção' : 'Recolher a seção'}">${collapsed ? '▸ mostrar' : '▾ recolher'}</button></div>
-    ${body}
-  </div>`
+  return head + groups
 }
 
 // ─── Drill-down de cliente: Campanhas → Conjuntos → Anúncios ─────────────────
@@ -2313,15 +2336,13 @@ function wire() {
   })
   // Olho de ocultar/reexibir conta (grava em dashboard_accounts.hidden)
   app.querySelectorAll('.hide-btn').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); const n=b.dataset.hide; setHidden(n, !isHidden(n)) })
-  // Seção CPL Máximo & Pace: expande/recolhe o pace por campanha do plano
+  // Visualização Pace de Verba: expande/recolhe o pace por campanha do plano
   app.querySelectorAll('[data-paceexp]').forEach(b=>b.onclick=(e)=>{
     e.stopPropagation()
     const n=b.dataset.paceexp
     state.paceOpen[n]=!state.paceOpen[n]
     render()
   })
-  const mt=document.getElementById('metas-toggle')
-  if (mt) mt.onclick=()=>{ state.metasCollapsed=!state.metasCollapsed; render() }
   const openClient = (name) => {
     state.openClient={ client: name, channel: state.channel }
     // inicializa o estado local da página de cliente a partir do período global
