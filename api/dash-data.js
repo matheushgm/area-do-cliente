@@ -67,18 +67,31 @@ export default async function handler(req) {
   // linhas por conta+dia, uma por anúncio) tornaria a paginação por offset
   // instável: linhas empatadas poderiam duplicar/pular na borda das páginas.
   const base = `${SUPABASE_URL}/rest/v1/dash_insights?channel=eq.${channel}${acctFilter}&select=data&order=row_key.asc`
-  const fetchPage = offset =>
-    fetch(base, {
-      headers: {
-        apikey: SUPABASE_ANON,
-        Authorization: `Bearer ${jwt}`, // RLS aplicada como o usuário
-        Range: `${offset}-${offset + PAGE - 1}`,
-        'Range-Unit': 'items',
-      },
-    }).then(async r => {
-      if (!r.ok) throw new Error(`page ${offset}: HTTP ${r.status}`)
-      return r.json()
-    })
+  // Uma página que falhe derruba a resposta INTEIRA (o dashboard mostra
+  // "meta: HTTP 500") — e falhas transitórias acontecem sob 12 requisições
+  // paralelas (hiccup de rede/Supabase). Retry curto por página (3 tentativas,
+  // backoff 250/500ms) absorve isso sem estourar o limite de 25s da Edge.
+  const fetchPage = async offset => {
+    let lastErr
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const r = await fetch(base, {
+          headers: {
+            apikey: SUPABASE_ANON,
+            Authorization: `Bearer ${jwt}`, // RLS aplicada como o usuário
+            Range: `${offset}-${offset + PAGE - 1}`,
+            'Range-Unit': 'items',
+          },
+        })
+        if (r.ok) return r.json()
+        lastErr = new Error(`page ${offset}: HTTP ${r.status}`)
+      } catch (e) {
+        lastErr = new Error(`page ${offset}: ${e?.message || e}`)
+      }
+      await new Promise(res => setTimeout(res, 250 * (attempt + 1)))
+    }
+    throw lastErr
+  }
 
   const rows = []
   try {
@@ -96,7 +109,9 @@ export default async function handler(req) {
       if (start > MAX_ROWS) done = true
     }
   } catch (e) {
-    return jsonErr('Erro ao consultar os dados.', 500)
+    // Mensagem com a causa (página/status) para diagnóstico — endpoint é
+    // autenticado, não vaza nada sensível.
+    return jsonErr(`Erro ao consultar os dados (${e?.message || e}).`, 500)
   }
 
   return new Response(toCSV(rows), {
