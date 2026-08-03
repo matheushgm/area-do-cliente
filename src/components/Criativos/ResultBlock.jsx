@@ -48,6 +48,26 @@ function splitContent(content) {
   return { ads, analysis }
 }
 
+// Junta as partes garantindo uma linha em branco entre cada uma (exceto a
+// última). O conteúdo gerado pela IA intercala "## ROTEIRO N" com um
+// separador "---" que fica colado ao FINAL do chunk anterior (o split por
+// lookahead não o remove). Se a parte for substituída por um texto editado
+// (que passa por .trim() e perde as quebras de linha finais, mas não o "---"
+// em si, já que trim() não mexe em caracteres não-whitespace), o "---" acaba
+// grudado sem quebra de linha no "## ROTEIRO N+1" seguinte. Como o regex de
+// split exige "##" no início de uma linha (^ com flag m), esse cabeçalho
+// deixa de ser reconhecido na próxima renderização e os dois cards colam
+// visualmente em um só. Forçar "\n\n" aqui, no ponto de junção, corrige o
+// problema não importa o que cada parte contenha.
+function joinAdParts(parts) {
+  return parts
+    .map((part, i) => {
+      if (i === parts.length - 1) return part
+      return /\n[ \t]*\n[ \t]*$/.test(part) ? part : part.replace(/\s+$/, '') + '\n\n'
+    })
+    .join('')
+}
+
 // Substitui o chunk de anúncio no índice `adIndex` dentro da string `content` completa.
 // Exportado para uso em CreativeHistory e CriativosModule ao persistir edições.
 export function replaceAdInContent(content, adIndex, newAdContent) {
@@ -68,7 +88,7 @@ export function replaceAdInContent(content, adIndex, newAdContent) {
     return part
   })
 
-  if (foundAny) return newParts.join('')
+  if (foundAny) return joinAdParts(newParts)
 
   // Fallback: split por --- — conta todos os chunks não-vazios por índice
   const chunks = content.split(/\n---\n/)
@@ -103,7 +123,7 @@ export function removeAdFromContent(content, adIndex) {
     return true
   })
 
-  if (foundAny) return kept.join('').trim()
+  if (foundAny) return joinAdParts(kept).trim()
 
   // Fallback: split por --- — conta todos os chunks não-vazios por índice
   const chunks = content.split(/\n---\n/)

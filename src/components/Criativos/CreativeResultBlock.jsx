@@ -31,12 +31,19 @@ function splitChunks(content) {
   return [{ chunk: content }]
 }
 
+// Remove o separador "---" que o split por lookahead deixa grudado no final
+// de cada chunk (menos o último) — decorativo, não deve aparecer nem na
+// textarea de edição nem no card renderizado.
+function stripTrailingSeparator(text) {
+  return text.replace(/\n[ \t]*-{3,}\s*$/, '').trimEnd()
+}
+
 function parseChunk(chunk) {
   const firstLine = chunk.split('\n')[0].trim()
   const headingMatch = firstLine.match(/^#{1,3}\s+(.+)/)
-  if (!headingMatch) return { title: '', body: chunk }
+  if (!headingMatch) return { title: '', body: stripTrailingSeparator(chunk) }
   const title = headingMatch[1].trim()
-  const body  = chunk.slice(firstLine.length).trimStart()
+  const body  = stripTrailingSeparator(chunk.slice(firstLine.length).trimStart())
   return { title, body: body || chunk }
 }
 
