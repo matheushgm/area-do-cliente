@@ -378,7 +378,8 @@ const STATUS_GROUPS = [
   { key: 'ESTÁVEL', icon: '🟡', hcls: 'gh-yellow', label: 'Estável', tip: 'Contas com variação de conversões entre -20% e +20% vs o período anterior.' },
   { key: 'MELHORA', icon: '🟢', hcls: 'gh-green', label: 'Melhora', tip: 'Contas cujo número de conversões subiu 20% ou mais vs o período anterior. O CPL não entra na classificação.' },
 ]
-const PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3 dias',3],['7 dias',7],['14 dias',14],['30 dias',30],['Custom',0]]
+const PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3 dias',3],['7 dias',7],['14 dias',14],['30 dias',30],['Este mês','this_month'],['Mês passado','last_month'],['Custom',0]]
+const PRESET_STRINGS = new Set(['today','yesterday','this_month','last_month'])
 // Presets da página de cliente (rótulos curtos, espelham PERIOD_PRESETS do ClientPage)
 const CP_PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3d',3],['7d',7],['14d',14],['30d',30],['Custom',0]]
 
@@ -2322,7 +2323,7 @@ function wire() {
   document.getElementById('reload').onclick = triggerSync
   app.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ state.channel=t.dataset.ch; render() })
   app.querySelectorAll('.preset').forEach(b=>b.onclick=()=>{
-    const d=b.dataset.d; state.days = (d==='today'||d==='yesterday')?d:Number(d); render()
+    const d=b.dataset.d; state.days = PRESET_STRINGS.has(d)?d:Number(d); render()
   })
   const cf=document.getElementById('cfrom'), ct=document.getElementById('cto'), ca=document.getElementById('capply')
   if (ca) ca.onclick=()=>{ if(cf.value&&ct.value){state.from=cf.value;state.to=ct.value;render()} }

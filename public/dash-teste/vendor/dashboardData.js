@@ -115,15 +115,40 @@ export function buildPeriod(p1s, p1e) {
 
 export function periodFromDays(rows, dateKey, days) {
   const max = maxDate(rows, dateKey); if (!max) return null
-  return buildPeriod(addDays(max, -(days - 1)), max)
+  // Ancora no último dia FECHADO: "hoje" fica de fora da janela (os dados do
+  // dia corrente ainda estão incompletos). Ex.: preset "7 dias" = ontem e os 6
+  // dias anteriores. Se o dado mais recente já for anterior a hoje, usa-o direto.
+  const today = localDateStr(new Date())
+  const end = max >= today ? addDays(max, -1) : max
+  if (!end) return null
+  return buildPeriod(addDays(end, -(days - 1)), end)
 }
 
-// Período do filtro principal (presets today/yesterday/N dias/custom).
+// Primeiro/último dia do mês de `iso`, com deslocamento de `offset` meses
+// (offset=-1 → mês anterior). Usado pelos presets "Este mês"/"Mês passado".
+function monthBounds(iso, offset) {
+  const d = new Date(iso + 'T12:00:00Z')
+  const y = d.getUTCFullYear(), m = d.getUTCMonth() + offset
+  const f = dt => dt.toISOString().split('T')[0]
+  return { start: f(new Date(Date.UTC(y, m, 1))), end: f(new Date(Date.UTC(y, m + 1, 0))) }
+}
+
+// Período do filtro principal (presets today/yesterday/N dias/mês/custom).
 // Compartilhado entre a página do dashboard e o board scoped da seção Resultados.
 export function computeMainPeriod(channelRows, channel, days, from, to) {
   const dateKey = CFG[channel].dateKey
   if (days === 'today') { const m = maxDate(channelRows, dateKey); return m ? buildPeriod(m, m) : null }
   if (days === 'yesterday') { const m = maxDate(channelRows, dateKey); if (!m) return null; const y = addDays(m, -1); return buildPeriod(y, y) }
+  if (days === 'this_month' || days === 'last_month') {
+    // Ancora no último dia FECHADO (mesma regra do periodFromDays): "hoje" não
+    // entra porque os dados do dia corrente ainda estão incompletos.
+    const max = maxDate(channelRows, dateKey); if (!max) return null
+    const today = localDateStr(new Date())
+    const anchor = max >= today ? addDays(max, -1) : max
+    if (!anchor) return null
+    const { start, end } = monthBounds(anchor, days === 'this_month' ? 0 : -1)
+    return buildPeriod(start, days === 'this_month' ? anchor : end)
+  }
   if (days === 0) return (from && to) ? buildPeriod(from, to) : null
   return periodFromDays(channelRows, dateKey, days)
 }
