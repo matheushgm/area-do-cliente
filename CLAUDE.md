@@ -263,6 +263,37 @@ showToast('Erro ao salvar', 'error')
 
 **`src/lib/constants.js`** — constantes de domínio centralizadas: `SQUAD_COLORS`, `SERVICES_CONFIG`, `BUSINESS_LABELS`, `EDIT_BUSINESS_TYPES`, `SEGMENTOS`, `MATURITY_LABELS`, `EDIT_MATURITY_OPTIONS`, `CONTRACT_MODEL_LABELS`, `CONTRACT_PAYMENT_LABELS`. Importar sempre daqui — não redefinir localmente.
 
+### Resultados do Funil — preenchimento automático (Meta + Google)
+
+`api/resultados-autofill.js` (Edge) preenche **investimento** e **conversões** das semanas
+do módulo Resultados com os dados reais das contas vinculadas ao projeto, sem tocar nos
+campos de funil preenchidos à mão (MQL, SQL, vendas, receita são preservados).
+
+- **Fonte:** `dash_insights` (sincronizada de hora em hora pelo repo `dashboard-api`), agregada
+  no Postgres pela função `dash_totals_by_project(p_from, p_to)` — migration `075`. A função
+  devolve **JSONB** (`{ project_id: { 'YYYY-MM-DD': [gasto, conversões] } }`) de propósito:
+  resposta tabular do PostgREST é cortada em 1000 linhas e um mês inteiro passa disso.
+  `dash_num()` replica o parser BR do `num()` de `src/lib/dashboardData.js` — mudou um, mude o outro.
+- **Definição de conversão:** idêntica ao Dashboard de Tráfego (`CFG`) — Meta = conversas no
+  WhatsApp + leads + vendas; Google = conversões.
+- **Agenda:** Vercel Cron (`crons` no `vercel.json`) nos dias **1, 8, 15 e 22** às 03:05 UTC
+  (00:05 BRT): dia 8 fecha a Semana 1, dia 15 a Semana 2, dia 22 a Semana 3 e dia 1 fecha o mês
+  anterior inteiro. Cada execução repreenche **todas** as semanas já fechadas do mês de
+  referência, então uma execução perdida se conserta sozinha na seguinte.
+- **Escrita:** `resultados.data` → `b2b[YYYY-MM].semanaN` (modelo B2B) ou
+  `b2c_semanas[YYYY-MM].N` + `b2c[YYYY-MM].DD` (modelo B2C, que abre em modo Diário).
+  Projetos sem `modelo` escolhido e semanas sem veiculação são pulados.
+- **Marcação:** cada entrada preenchida ganha `fonte: 'api'`, `atualizadoEm` e, na semana em
+  curso, `parcial: true` — renderizados pelo selo `AutoBadge`
+  (`src/components/Resultados/AutofillResultados.jsx`).
+- **Modo manual:** botão "Puxar da API" no cabeçalho de B2B/B2C chama o mesmo endpoint com o JWT
+  do usuário (`src/lib/autofillResultados.js`), preenche o mês exibido — incluindo a semana em
+  curso até ontem — e devolve o JSONB mesclado, que o componente aplica via `onUpdate` para não
+  depender de reload.
+- **Env:** `CRON_SECRET` na Vercel autentica o cron (sem ela, o fallback aceita o header
+  `x-vercel-cron`). A chave de serviço é lida de `SUPABASE_SECRET_KEY` com fallback para
+  `SUPABASE_SERVICE_ROLE_KEY`.
+
 ### LinksModule — visibilidade na header
 
 `src/components/LinksModule.jsx` — cada link (fixo ou avulso) tem toggle Eye/EyeOff que persiste no campo `hiddenFromHeader[]` dentro do JSONB `links` em `projects_v2`. A header do `ClientProfile` usa um **ResizeObserver** para calcular dinamicamente quantos links cabem no container (substituiu o limite estático `MAX_VISIBLE=5`); quando o container cresce, re-mede e traz links de volta do overflow.

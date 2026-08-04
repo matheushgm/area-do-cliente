@@ -5,6 +5,7 @@ import { MonthNav, SummaryCard } from './B2BResultados'
 import { KpiHero, AreaChart, CostTile, C } from './ResultadosCharts'
 import ComparativoCanais from './ComparativoCanais'
 import PlanoVsRealizado from './PlanoVsRealizado'
+import { AutofillButton, AutoBadge } from './AutofillResultados'
 
 // ─── Form compartilhado (dia e semana) ────────────────────────────────────────
 // B2C não tem MQL/SQL — o funil é Lead → Venda. O campo "Vendas (qtd)" é
@@ -188,6 +189,12 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
         <MonthNav year={year} month={month} setYear={setYear} setMonth={setMonth} />
 
         <div className="flex items-center gap-2 flex-wrap">
+          <AutofillButton
+            projectId={projectId}
+            year={year}
+            month={month}
+            onFilled={onUpdate}
+          />
           <div className="flex items-center gap-2 bg-rl-surface border border-rl-border rounded-xl p-1">
             {[
               { id: 'diario',   label: 'Diário' },
@@ -441,7 +448,10 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
               <div key={idx} className="glass-card p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-rl-text">{week.label}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-rl-text">{week.label}</p>
+                      <AutoBadge entry={w} />
+                    </div>
                     <p className="text-xs text-rl-muted">
                       {MONTH_NAMES[month].slice(0,3)} {week.start}–{week.end}
                     </p>

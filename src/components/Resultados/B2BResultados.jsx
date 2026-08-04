@@ -8,6 +8,7 @@ import { KpiHero, AreaChart, CostGrid, C } from './ResultadosCharts'
 import ComparativoCanais from './ComparativoCanais'
 import PlanoVsRealizado from './PlanoVsRealizado'
 import { exportResultadosB2BPDF } from '../../utils/exportPDF'
+import { AutofillButton, AutoBadge } from './AutofillResultados'
 
 // ─── Funnel Visualization (B2B) ────────────────────────────────────────────────
 const FUNNEL_STAGES = [
@@ -318,6 +319,12 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <MonthNav year={year} month={month} setYear={setYear} setMonth={setMonth} />
         <div className="flex items-center gap-2 flex-wrap">
+          <AutofillButton
+            projectId={projectId}
+            year={year}
+            month={month}
+            onFilled={onUpdate}
+          />
           {getOrCreateShareToken && (
             <button
               onClick={copyLink}
@@ -445,7 +452,10 @@ export default function B2BView({ resultados, onUpdate, companyName, roiCalc, ge
                 <div className="glass-card p-4 h-full">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <div className="font-semibold text-rl-text text-sm">{week.label}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-rl-text text-sm">{week.label}</span>
+                        <AutoBadge entry={wkData} />
+                      </div>
                       <div className="text-[11px] text-rl-muted">
                         {week.start}/{month + 1} – {week.end}/{month + 1}
                       </div>
