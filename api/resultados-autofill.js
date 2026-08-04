@@ -118,9 +118,10 @@ async function authorize(req) {
   const token = auth.replace(/^Bearer\s+/i, '').trim()
 
   // Vercel Cron: manda `Authorization: Bearer $CRON_SECRET` quando a env existe.
-  if (CRON_SECRET && token === CRON_SECRET) return { ok: true, via: 'cron' }
-  // Fallback quando CRON_SECRET não está configurado no projeto.
-  if (!CRON_SECRET && req.headers.get('x-vercel-cron')) return { ok: true, via: 'cron' }
+  // Não existe fallback pelo header `x-vercel-cron`: ele NÃO é removido das
+  // requisições externas (testado em produção), então qualquer um poderia
+  // disparar a escrita. Sem CRON_SECRET, só JWT de usuário passa.
+  if (CRON_SECRET && token && token === CRON_SECRET) return { ok: true, via: 'cron' }
 
   if (!token) return { ok: false }
   const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
