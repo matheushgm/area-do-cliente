@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   Presentation, Plus, Trash2, Pencil, ChevronLeft, ChevronRight,
-  AlertTriangle, Download,
+  AlertTriangle, Download, Link2,
 } from 'lucide-react'
 import { exportWebinarPDF } from '../../utils/exportPDF'
 import { useApp } from '../../context/AppContext'
@@ -19,23 +19,47 @@ import {
 } from './webinarData'
 import { Check, X } from 'lucide-react'
 
-export default function WebinarModule({ project }) {
+// `webinars` + `onPersist` permitem usar o mesmo editor fora do app logado
+// (link público pro cliente preencher) — ver src/pages/WebinarPublico.jsx.
+// Sem eles, o módulo lê/grava direto no projeto via AppContext.
+export default function WebinarModule({ project, webinars: webinarsProp, onPersist, publicMode = false }) {
   const { updateProject } = useApp()
   const { toast, showToast } = useToast()
 
-  const webinars = useMemo(
-    () => (Array.isArray(project.webinars) ? project.webinars : []),
-    [project.webinars]
-  )
+  const webinars = useMemo(() => {
+    const list = webinarsProp ?? project.webinars
+    return Array.isArray(list) ? list : []
+  }, [webinarsProp, project.webinars])
   const [editingId, setEditingId] = useState(null)
   const [activeEtapa, setActiveEtapa] = useState('abertura')
   const [renamingId, setRenamingId] = useState(null)
   const [renameValue, setRenameValue] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const editing = webinars.find((w) => w.id === editingId) || null
 
   function persist(next) {
-    updateProject(project.id, { webinars: next })
+    if (onPersist) onPersist(next)
+    else updateProject(project.id, { webinars: next })
+  }
+
+  // Token de compartilhamento — mesmo client_share_token usado por CRM/Matriz/Precificação
+  function getOrCreateShareToken() {
+    if (project.clientShareToken) return project.clientShareToken
+    const token = crypto.randomUUID()
+    updateProject(project.id, { clientShareToken: token })
+    return token
+  }
+
+  function handleShare() {
+    const token = getOrCreateShareToken()
+    if (!token) return
+    const url = `${window.location.origin}/webinar/${token}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+      showToast('Link copiado pro clipboard!')
+    }).catch(() => showToast('Link: ' + url))
   }
 
   function createWebinar() {
@@ -168,6 +192,22 @@ export default function WebinarModule({ project }) {
             Conteúdo e Ofertas. Você pode criar quantos webinars quiser.
           </p>
         </div>
+        {!publicMode && (
+          <button
+            onClick={handleShare}
+            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border transition-all shrink-0 ${
+              copied
+                ? 'bg-rl-green/10 border-rl-green/30 text-rl-green'
+                : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/30'
+            }`}
+            title="Cria/copia o link pro cliente montar o webinar"
+          >
+            {copied
+              ? <><Check className="w-4 h-4" /> Link copiado!</>
+              : <><Link2 className="w-4 h-4" /> Compartilhar com cliente</>
+            }
+          </button>
+        )}
         <button
           onClick={createWebinar}
           className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all shrink-0"
