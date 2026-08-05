@@ -101,7 +101,9 @@ export default async function handler(req) {
       b2b: b2bData.b2b !== undefined ? b2bData.b2b : current.b2b,
     }
 
-    const { status, data: res } = await sb('/resultados', {
+    // `on_conflict` é obrigatório: sem ele o PostgREST resolve o upsert pela PK
+    // (id), que não vem no payload, e o INSERT bate na unique (project_id, period).
+    const { status, data: res } = await sb('/resultados?on_conflict=project_id,period', {
       method: 'POST',
       prefer: 'resolution=merge-duplicates,return=representation',
       body:   JSON.stringify({ project_id: pid, period: '1900-01-01', data: merged }),

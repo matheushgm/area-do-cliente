@@ -6,6 +6,8 @@ import { KpiHero, AreaChart, CostTile, C } from './ResultadosCharts'
 import ComparativoCanais from './ComparativoCanais'
 import PlanoVsRealizado from './PlanoVsRealizado'
 import { AutofillButton, AutoBadge } from './AutofillResultados'
+import VendasPorUnidade from './VendasPorUnidade'
+import { getUnidades } from '../../lib/constants'
 
 // ─── Form compartilhado (dia e semana) ────────────────────────────────────────
 // B2C não tem MQL/SQL — o funil é Lead → Venda. O campo "Vendas (qtd)" é
@@ -101,8 +103,12 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
   const monthKey  = `${year}-${String(month + 1).padStart(2, '0')}`
   const monthData = resultados.b2c?.[monthKey] || {}
   const weekData  = resultados.b2c_semanas?.[monthKey] || {}
+  const unitData  = resultados.b2c_unidades?.[monthKey] || {}
   const daysInMon = getDaysInMonth(year, month)
   const weeks     = getWeekRanges(year, month)
+
+  // Quebra por unidade: recurso pontual, habilitado por projeto (ver constants).
+  const unidades = getUnidades(projectId)
 
   // ── Save day ────────────────────────────────────────────────────────────────
   const saveDay = (day, data) => {
@@ -129,6 +135,41 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
     setEditingWeek(null)
   }
 
+  // ── Save dia por unidade ────────────────────────────────────────────────────
+  // Grava a quebra em `b2c_unidades` e repassa a soma do dia para `b2c`, que
+  // continua sendo a única fonte de vendas/receita para KPIs, ROAS e gráficos.
+  const saveUnidadesDay = (dayKey, perUnit) => {
+    const total = Object.values(perUnit).reduce(
+      (acc, u) => ({
+        vendas:      acc.vendas      + (Number(u.vendas)      || 0),
+        valorVendas: acc.valorVendas + (Number(u.valorVendas) || 0),
+      }),
+      { vendas: 0, valorVendas: 0 },
+    )
+    const diaAtual = resultados.b2c?.[monthKey]?.[dayKey] || {}
+
+    onUpdate({
+      ...resultados,
+      b2c_unidades: {
+        ...(resultados.b2c_unidades || {}),
+        [monthKey]: { ...(resultados.b2c_unidades?.[monthKey] || {}), [dayKey]: perUnit },
+      },
+      b2c: {
+        ...(resultados.b2c || {}),
+        [monthKey]: {
+          ...(resultados.b2c?.[monthKey] || {}),
+          [dayKey]: {
+            investido: diaAtual.investido || 0,
+            leads:     diaAtual.leads     || 0,
+            ...diaAtual,
+            vendas:      total.vendas,
+            valorVendas: total.valorVendas,
+          },
+        },
+      },
+    })
+  }
+
   const sum = rows => rows.reduce(
     (acc, d) => ({
       investido:   acc.investido   + (d.investido   || 0),
@@ -141,7 +182,8 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
 
   const dailyTotals  = sum(Object.values(monthData))
   const weeklyTotals = sum(Object.values(weekData))
-  const totals = mode === 'diario' ? dailyTotals : weeklyTotals
+  // A visão por unidade alimenta os dias, então lê os mesmos totais do Diário.
+  const totals = mode === 'semanal' ? weeklyTotals : dailyTotals
 
   const perUnit = qty => (totals.investido > 0 && qty > 0 ? totals.investido / qty : 0)
   const cpl  = perUnit(totals.leads)
@@ -199,6 +241,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
             {[
               { id: 'diario',   label: 'Diário' },
               { id: 'semanal',  label: 'Semanal' },
+              ...(unidades ? [{ id: 'unidades', label: 'Por unidade' }] : []),
             ].map(opt => (
               <button
                 key={opt.id}
@@ -430,6 +473,17 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
             </table>
           </div>
         </div>
+      )}
+
+      {/* ── POR UNIDADE ───────────────────────────────────────────────────── */}
+      {mode === 'unidades' && unidades && (
+        <VendasPorUnidade
+          unidades={unidades}
+          year={year}
+          month={month}
+          data={unitData}
+          onSaveDay={saveUnidadesDay}
+        />
       )}
 
       {/* ── SEMANAL ───────────────────────────────────────────────────────── */}

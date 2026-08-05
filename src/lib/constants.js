@@ -156,3 +156,21 @@ export const CONTRACT_PAYMENT_LABELS = {
   unico:  'Valor Único',
   mensal: 'Parcelado (Mensal)',
 }
+
+// ─── Resultados por unidade (recorte por cliente) ─────────────────────────────
+// Clientes com mais de uma operação física precisam ver as vendas quebradas por
+// unidade, no formato da planilha que o próprio cliente mantém. É um recurso
+// pontual: só aparece para os project_id listados aqui.
+// Importar em: B2CResultados (visão interna) e B2CClientForm (link do cliente).
+export const UNIDADES_POR_PROJETO = {
+  // Nacional Kart
+  'dcffbed5-5018-4408-90d8-ecb706c77c7c': [
+    { id: 'penha',   label: 'Penha'   },
+    { id: 'goiania', label: 'Goiânia' },
+    { id: 'osasco',  label: 'Osasco'  },
+  ],
+}
+
+export function getUnidades(projectId) {
+  return UNIDADES_POR_PROJETO[projectId] || null
+}

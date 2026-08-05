@@ -5,6 +5,8 @@ import {
   CheckCircle2, CalendarDays,
 } from 'lucide-react'
 import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, MONTH_NAMES } from '../components/Resultados/resultadosHelpers'
+import VendasPorUnidade from '../components/Resultados/VendasPorUnidade'
+import { getUnidades } from '../lib/constants'
 
 // ─── Save badge ────────────────────────────────────────────────────────────────
 function SaveBadge({ status }) {
@@ -210,6 +212,7 @@ export default function B2CClientForm() {
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
   const [companyName, setCompanyName] = useState('')
+  const [projectId, setProjectId]     = useState(null)
   const [resultados, setResultados]   = useState({})
   const [saveStatus, setSaveStatus]   = useState('idle')
   const [mode, setMode]         = useState('diario')
@@ -227,6 +230,7 @@ export default function B2CClientForm() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Erro ao carregar.')
         setCompanyName(data.companyName || '')
+        setProjectId(data.projectId    || null)
         setResultados(data.resultados  || {})
       } catch (e) {
         setError(e.message)
@@ -249,8 +253,9 @@ export default function B2CClientForm() {
           body:    JSON.stringify({
             token,
             b2cData: {
-              b2c:         updated.b2c,
-              b2c_semanas: updated.b2c_semanas,
+              b2c:          updated.b2c,
+              b2c_semanas:  updated.b2c_semanas,
+              b2c_unidades: updated.b2c_unidades,
             },
           }),
         })
@@ -266,9 +271,13 @@ export default function B2CClientForm() {
   const monthKey  = `${year}-${String(month + 1).padStart(2, '0')}`
   const monthData = resultados.b2c?.[monthKey] || {}
   const weekData  = resultados.b2c_semanas?.[monthKey] || {}
+  const unitData  = resultados.b2c_unidades?.[monthKey] || {}
   const daysInMon = getDaysInMonth(year, month)
   const weeks     = getWeekRanges(year, month)
   const days      = Array.from({ length: daysInMon }, (_, i) => i + 1)
+
+  // Quebra por unidade: habilitada por projeto (ver constants).
+  const unidades = getUnidades(projectId)
 
   // ── Save day ────────────────────────────────────────────────────────────────
   const saveDay = (day, data) => {
@@ -315,6 +324,43 @@ export default function B2CClientForm() {
     setEditingWeek(null)
   }
 
+  // ── Save dia por unidade ────────────────────────────────────────────────────
+  // Grava a quebra e repassa a soma do dia para `b2c`, mantendo uma fonte só de
+  // vendas e receita.
+  const saveUnidadesDay = (dayKey, perUnit) => {
+    const total = Object.values(perUnit).reduce(
+      (acc, u) => ({
+        vendas:      acc.vendas      + (Number(u.vendas)      || 0),
+        valorVendas: acc.valorVendas + (Number(u.valorVendas) || 0),
+      }),
+      { vendas: 0, valorVendas: 0 },
+    )
+    const diaAtual = resultados.b2c?.[monthKey]?.[dayKey] || {}
+
+    const next = {
+      ...resultados,
+      b2c_unidades: {
+        ...(resultados.b2c_unidades || {}),
+        [monthKey]: { ...(resultados.b2c_unidades?.[monthKey] || {}), [dayKey]: perUnit },
+      },
+      b2c: {
+        ...(resultados.b2c || {}),
+        [monthKey]: {
+          ...(resultados.b2c?.[monthKey] || {}),
+          [dayKey]: {
+            investido: diaAtual.investido || 0,
+            leads:     diaAtual.leads     || 0,
+            ...diaAtual,
+            vendas:      total.vendas,
+            valorVendas: total.valorVendas,
+          },
+        },
+      },
+    }
+    setResultados(next)
+    scheduleSave(next)
+  }
+
   // ── Totals ──────────────────────────────────────────────────────────────────
   const dailyTotals = Object.values(monthData).reduce(
     (acc, d) => ({ investido: acc.investido + (d.investido || 0), leads: acc.leads + (d.leads || 0), valorVendas: acc.valorVendas + (d.valorVendas || 0) }),
@@ -324,7 +370,8 @@ export default function B2CClientForm() {
     (acc, d) => ({ investido: acc.investido + (d.investido || 0), leads: acc.leads + (d.leads || 0), valorVendas: acc.valorVendas + (d.valorVendas || 0) }),
     { investido: 0, leads: 0, valorVendas: 0 }
   )
-  const totals = mode === 'diario' ? dailyTotals : weeklyTotals
+  // A visão por unidade alimenta os dias, então lê os mesmos totais do Diário.
+  const totals = mode === 'semanal' ? weeklyTotals : dailyTotals
   const cpl    = totals.leads > 0 && totals.investido > 0 ? totals.investido / totals.leads : 0
   const roas   = totals.investido > 0 ? totals.valorVendas / totals.investido : 0
 
@@ -356,7 +403,7 @@ export default function B2CClientForm() {
     <div className="min-h-screen bg-rl-dark">
       {/* Header */}
       <div className="border-b border-rl-border bg-rl-surface/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className={`${unidades ? 'max-w-6xl' : 'max-w-3xl'} mx-auto px-6 py-4 flex items-center justify-between`}>
           <div>
             <p className="text-xs text-rl-muted font-medium uppercase tracking-wider">Resultados B2C</p>
             <h1 className="text-lg font-bold text-rl-text">{companyName}</h1>
@@ -365,7 +412,7 @@ export default function B2CClientForm() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+      <div className={`${unidades ? 'max-w-6xl' : 'max-w-3xl'} mx-auto px-6 py-8 space-y-6`}>
 
         {/* Instrução */}
         <div className="glass-card p-5 border-l-4 border-rl-green/50">
@@ -382,6 +429,7 @@ export default function B2CClientForm() {
           {[
             { id: 'diario',  label: 'Diário' },
             { id: 'semanal', label: 'Semanal' },
+            ...(unidades ? [{ id: 'unidades', label: 'Por unidade' }] : []),
           ].map(opt => (
             <button
               key={opt.id}
@@ -488,6 +536,17 @@ export default function B2CClientForm() {
               </table>
             </div>
           </div>
+        )}
+
+        {/* ── POR UNIDADE ───────────────────────────────────────────────────── */}
+        {mode === 'unidades' && unidades && (
+          <VendasPorUnidade
+            unidades={unidades}
+            year={year}
+            month={month}
+            data={unitData}
+            onSaveDay={saveUnidadesDay}
+          />
         )}
 
         {/* ── SEMANAL ───────────────────────────────────────────────────────── */}
