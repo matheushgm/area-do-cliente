@@ -244,7 +244,19 @@ export default function DebriefingModule({ project }) {
                       className="border-b border-rl-border/40 hover:bg-rl-surface/40 cursor-pointer transition-colors"
                     >
                       <Td className="whitespace-nowrap text-rl-subtle">{dtStr}</Td>
-                      <Td className="font-mono text-xs font-semibold text-rl-text">{ad.nome || '—'}</Td>
+                      <Td className="font-mono text-xs font-semibold text-rl-text">
+                        <span className="inline-flex items-center gap-1.5">
+                          {ad.nome || '—'}
+                          {(ad.version || 1) > 1 && (
+                            <span
+                              className="font-sans text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/10 text-rl-purple border border-rl-purple/30"
+                              title={`${ad.versionHistory?.length || 0} versão(ões) anterior(es) no histórico`}
+                            >
+                              v{ad.version}
+                            </span>
+                          )}
+                        </span>
+                      </Td>
                       <Td>
                         <InlineSelect
                           value={ad.tipo || ''}

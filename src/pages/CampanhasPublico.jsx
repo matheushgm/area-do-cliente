@@ -114,7 +114,8 @@ export default function CampanhasPublico() {
   return (
     <div className="min-h-screen bg-rl-bg">
       {/* Header */}
-      <div className="border-b border-rl-border bg-white/85 backdrop-blur-sm sticky top-0 z-10">
+      {/* Tokens rl-* (não bg-white) — o tema tem modo claro e escuro. */}
+      <div className="border-b border-rl-border bg-rl-card/85 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-rl-green/10 flex items-center justify-center shrink-0">
@@ -308,7 +309,7 @@ function StageBlock({ stage }) {
       </div>
 
       {stage.campaigns.length > 0 && (
-        <div className="bg-white/60 border-t border-rl-border/60 divide-y divide-rl-border/40">
+        <div className="bg-rl-card/60 border-t border-rl-border/60 divide-y divide-rl-border/40">
           {stage.campaigns.map((c) => (
             <div key={c.id} className="flex items-center justify-between gap-3 px-3 py-2">
               <div className="min-w-0">

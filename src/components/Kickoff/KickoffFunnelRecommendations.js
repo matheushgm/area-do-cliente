@@ -64,6 +64,12 @@ export const FUNNELS = [
     desc: 'Indicado pra empresas B2B que querem diagnosticar o lead enquanto coletam mais informações pra qualificação posterior.',
   },
   {
+    id: 'whatsapp',
+    label: 'Funil de Mensagem no WhatsApp',
+    icon: '💬',
+    desc: 'O funil do negócio local: o anúncio abre a conversa direto (click-to-WhatsApp) ou a página só tem botões que levam ao WhatsApp, sem formulário. A venda acontece no atendimento.',
+  },
+  {
     id: 'desafio',
     label: 'Funil de Desafio',
     icon: '🏆',
@@ -166,6 +172,14 @@ export function recommendFunnels({ answers = {}, ofertaMatadora = null } = {}) {
   if (modelo === 'consultoria') add('quiz', 2, 'Quiz funciona como mini-diagnóstico antes da call comercial')
   if (modelo === 'whatsapp')    add('quiz', 2, 'Quiz qualifica e segmenta o lead antes de entrar no WhatsApp')
   if (altaConsciencia) add('quiz', 1, 'Lead já maduro responde quiz com profundidade')
+
+  // ── Funil de Mensagem no WhatsApp ─────────────────────────────────────────
+  if (modelo === 'whatsapp')    add('whatsapp', 3, 'Venda via WhatsApp: o funil natural é levar direto pra conversa')
+  if (modelo === 'servicos')    add('whatsapp', 3, 'Prestador de serviço/negócio local fecha por atendimento, não por formulário')
+  if (modelo === 'ecommerce')   add('whatsapp', 1, 'Atendimento por mensagem ajuda no ticket maior e na dúvida antes da compra')
+  if (altaConsciencia)          add('whatsapp', 2, 'Lead maduro já quer preço/disponibilidade: mandar mensagem é o caminho mais curto')
+  if (dorForte)                 add('whatsapp', 1, 'Dor aguda pede resposta rápida, e o WhatsApp entrega isso na hora')
+  if (modelo === 'infoproduto' || modelo === 'coach') add('whatsapp', -2)
 
   // ── Funil de Desafio ──────────────────────────────────────────────────────
   if (modelo === 'servicos')    add('desafio', 2, 'Prestadores de serviço conseguem entregar desafio')

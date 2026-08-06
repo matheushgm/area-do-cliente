@@ -115,7 +115,13 @@ export function buildPeriod(p1s, p1e) {
 
 export function periodFromDays(rows, dateKey, days) {
   const max = maxDate(rows, dateKey); if (!max) return null
-  return buildPeriod(addDays(max, -(days - 1)), max)
+  // Ancora no último dia FECHADO: "hoje" fica de fora da janela (os dados do
+  // dia corrente ainda estão incompletos). Ex.: preset "7 dias" = ontem e os 6
+  // dias anteriores. Se o dado mais recente já for anterior a hoje, usa-o direto.
+  const today = localDateStr(new Date())
+  const end = max >= today ? addDays(max, -1) : max
+  if (!end) return null
+  return buildPeriod(addDays(end, -(days - 1)), end)
 }
 
 // Período do filtro principal (presets today/yesterday/N dias/custom).

@@ -1,9 +1,12 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
   Plus, Save, AlertCircle, CheckCircle2, CalendarDays, DollarSign, FileDown, X,
+  Link2, Check,
 } from 'lucide-react'
 import { exportCampaignPDF } from '../utils/exportPDF'
 import { useApp } from '../context/AppContext'
+import { useToast } from '../hooks/useToast'
+import Toast from './UI/Toast'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import {
   fmtBRL, makeChannel, makeCampaign,
@@ -58,7 +61,9 @@ function initAccounts(campaignPlan) {
 
 export default function CampaignPlanner({ project, onSave }) {
   const { updateProject } = useApp()
+  const { toast, showToast } = useToast()
   const isMounted = useRef(false)
+  const [copied, setCopied] = useState(false)
 
   const [accounts,  setAccounts]  = useState(() => initAccounts(project.campaignPlan))
   const [activeIdx, setActiveIdx] = useState(0)
@@ -284,6 +289,26 @@ export default function CampaignPlanner({ project, onSave }) {
     })
   }
 
+  // ── Link público (somente leitura) ─────────────────────────────────────────
+  // Mesmo client_share_token usado por Precificação/CRM/Matriz de Objeções.
+  function getOrCreateShareToken() {
+    if (project.clientShareToken) return project.clientShareToken
+    const token = crypto.randomUUID()
+    updateProject(project.id, { clientShareToken: token })
+    return token
+  }
+
+  function handleShare() {
+    const token = getOrCreateShareToken()
+    if (!token) return
+    const url = `${window.location.origin}/campanhas/${token}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+      showToast('Link copiado pro clipboard!')
+    }).catch(() => showToast('Link: ' + url))
+  }
+
   // ── Computed ───────────────────────────────────────────────────────────────
 
   const channelSum       = validation.chSum
@@ -312,6 +337,16 @@ export default function CampaignPlanner({ project, onSave }) {
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <AutoSaveIndicator />
+          <button
+            onClick={handleShare}
+            className={`btn-secondary flex items-center gap-2 text-sm ${
+              copied ? 'text-rl-green border-rl-green/30' : ''
+            }`}
+            title="Cria/copia o link somente leitura do planejamento pro cliente"
+          >
+            {copied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+            {copied ? 'Copiado!' : 'Link'}
+          </button>
           <button
             onClick={() => exportCampaignPDF({ totalBudget, channels: channels.map(({ expanded, ...rest }) => rest) }, project)}
             disabled={channels.length === 0 || totalBudget === 0}
@@ -545,6 +580,8 @@ export default function CampaignPlanner({ project, onSave }) {
           Salvar Planejamento
         </button>
       </div>
+
+      <Toast toast={toast} />
     </div>
   )
 }

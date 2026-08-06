@@ -1,9 +1,9 @@
 // PDF do Kickoff — segue o mesmo padrão de src/utils/exportPDF.js
-// (HTML + window.print()). Duas páginas: diagnóstico visual + análise IA (opcional).
+// (HTML + window.print()). Duas páginas: diagnóstico visual + perguntas/respostas.
 
 import { PILLARS, PILLARS_BY_ID } from '../components/Kickoff/KickoffQuestions'
-import { OM_PILLARS, pillarJustification } from '../components/Kickoff/KickoffOfertaMatadora'
-import { recommendFunnelsWithBusiness } from '../components/Kickoff/KickoffFunnelRecommendations'
+import { extractScore } from '../components/Kickoff/KickoffScorer'
+import { formatAnswer } from '../components/Kickoff/kickoffViewHelpers'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -14,53 +14,6 @@ function esc(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-}
-
-// Conversor markdown → HTML simples. Suficiente para o output do Claude
-// (## headers, **bold**, *italic*, listas, parágrafos).
-function mdToHtml(md) {
-  if (!md) return ''
-  const lines = String(md).split('\n')
-  const out = []
-  let inList = false
-  for (const line of lines) {
-    const trimmed = line.trim()
-
-    if (/^### /.test(trimmed)) {
-      if (inList) { out.push('</ul>'); inList = false }
-      out.push(`<h3>${esc(trimmed.slice(4))}</h3>`)
-      continue
-    }
-    if (/^## /.test(trimmed)) {
-      if (inList) { out.push('</ul>'); inList = false }
-      out.push(`<h2>${esc(trimmed.slice(3))}</h2>`)
-      continue
-    }
-    if (/^# /.test(trimmed)) {
-      if (inList) { out.push('</ul>'); inList = false }
-      out.push(`<h1>${esc(trimmed.slice(2))}</h1>`)
-      continue
-    }
-    if (/^[-*]\s+/.test(trimmed)) {
-      if (!inList) { out.push('<ul>'); inList = true }
-      out.push(`<li>${inline(trimmed.replace(/^[-*]\s+/, ''))}</li>`)
-      continue
-    }
-    if (!trimmed) {
-      if (inList) { out.push('</ul>'); inList = false }
-      continue
-    }
-    if (inList) { out.push('</ul>'); inList = false }
-    out.push(`<p>${inline(trimmed)}</p>`)
-  }
-  if (inList) out.push('</ul>')
-  return out.join('\n')
-}
-
-function inline(text) {
-  return esc(text)
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/(^|[^*])\*(.+?)\*(?!\*)/g, '$1<em>$2</em>')
 }
 
 function severityColor(score) {
@@ -224,83 +177,28 @@ const KICKOFF_CSS = `
   .bar-fill  { height: 100%; border-radius: 99px; }
   .bar-tag   { font-size: 10px; color: #64748B; }
 
-  .steps-card { margin-top: 28px; padding: 18px 22px; border-radius: 12px; background: #F8FAFC; border: 1px solid #E2E8F0; }
-  .steps-card h3 { font-size: 13px; font-weight: 800; color: #164496; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
-  .steps-list { display: flex; flex-direction: column; gap: 10px; }
-  .step-item { display: flex; gap: 10px; align-items: flex-start; }
-  .step-num { width: 22px; height: 22px; border-radius: 99px; background: #7C3AED; color: #fff; font-weight: 800; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .step-meta { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #94A3B8; font-weight: 700; margin-bottom: 2px; }
-  .step-text { font-size: 12px; color: #1F2937; line-height: 1.5; }
-
-  .om-section { page-break-before: always; padding-top: 8px; }
-  .om-section h1 { font-size: 18px; font-weight: 800; color: #0F172A; margin-bottom: 14px; }
-  .om-verdict-card {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 22px; border-radius: 12px;
-    border-left: 6px solid var(--verdict-color, #7C3AED);
-    background: #F8FAFC;
-    margin-bottom: 20px;
-  }
-  .om-verdict-emoji { font-size: 26px; margin-bottom: 6px; }
-  .om-verdict-label { font-size: 18px; font-weight: 900; color: #0F172A; margin-bottom: 4px; }
-  .om-verdict-desc  { font-size: 12px; color: #475569; max-width: 480px; line-height: 1.55; }
-  .om-verdict-score-wrap { text-align: right; }
-  .om-verdict-score { font-size: 40px; font-weight: 900; color: var(--verdict-color, #7C3AED); line-height: 1; }
-  .om-verdict-score-suffix { font-size: 11px; color: #64748B; font-weight: 700; }
-  .om-pillar-card {
+  .qa-section { page-break-before: always; padding-top: 8px; }
+  .qa-section h1 { font-size: 18px; font-weight: 800; color: #0F172A; margin-bottom: 14px; }
+  .qa-card {
     padding: 12px 14px; border-radius: 10px;
     background: #F8FAFC; border: 1px solid #E2E8F0;
     margin-bottom: 8px;
+    page-break-inside: avoid;
   }
-  .om-pillar-head {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-    margin-bottom: 4px;
-  }
-  .om-pillar-label { font-size: 13px; font-weight: 700; color: #0F172A; }
-  .om-pillar-tag {
-    font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 99px;
+  .qa-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 2px; }
+  .qa-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px; }
+  .qa-index { font-size: 9px; font-weight: 700; color: #94A3B8; }
+  .qa-pillars {
+    font-size: 8px; font-weight: 800; padding: 1px 7px; border-radius: 99px;
     text-transform: uppercase; letter-spacing: 0.05em;
+    background: #EDE9FE; color: #7C3AED;
   }
-  .om-pillar-score { font-size: 16px; font-weight: 900; font-variant-numeric: tabular-nums; }
-  .om-pillar-text { font-size: 11px; color: #475569; line-height: 1.5; }
-
-  .funnels-section { page-break-before: always; padding-top: 8px; }
-  .funnels-section h1 { font-size: 18px; font-weight: 800; color: #0F172A; margin-bottom: 14px; }
-  .funnel-tier-label {
-    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
-    color: #64748B; margin: 14px 0 8px;
-  }
-  .funnel-card {
-    padding: 12px 14px; border-radius: 10px;
-    background: #F8FAFC; border: 1px solid #E2E8F0;
-    margin-bottom: 8px;
-  }
-  .funnel-card.top { background: #F0FDF4; border-color: #BBF7D0; }
-  .funnel-head {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-    margin-bottom: 4px;
-  }
-  .funnel-title { font-size: 13px; font-weight: 800; color: #0F172A; }
-  .funnel-emoji { font-size: 16px; margin-right: 6px; }
-  .funnel-match {
-    font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 99px;
-    text-transform: uppercase; letter-spacing: 0.05em;
-    background: #E2E8F0; color: #475569;
-  }
-  .funnel-card.top .funnel-match { background: #BBF7D0; color: #15803D; }
-  .funnel-desc { font-size: 11px; color: #475569; line-height: 1.5; margin-bottom: 6px; }
-  .funnel-reasons { padding-left: 16px; margin: 0; }
-  .funnel-reasons li { font-size: 11px; color: #1F2937; line-height: 1.5; margin-bottom: 2px; }
-
-  .ai-section { page-break-before: always; padding-top: 8px; }
-  .ai-section h1 { font-size: 18px; font-weight: 800; color: #0F172A; margin-bottom: 12px; }
-  .ai-prose h1 { font-size: 16px; font-weight: 700; color: #0F172A; margin: 16px 0 6px; }
-  .ai-prose h2 { font-size: 14px; font-weight: 700; color: #164496; margin: 14px 0 5px; }
-  .ai-prose h3 { font-size: 13px; font-weight: 700; color: #0F172A; margin: 12px 0 4px; }
-  .ai-prose p  { font-size: 12px; line-height: 1.65; color: #1F2937; margin-bottom: 6px; }
-  .ai-prose ul { padding-left: 20px; margin-bottom: 8px; }
-  .ai-prose li { font-size: 12px; line-height: 1.65; color: #1F2937; margin-bottom: 3px; }
-  .ai-prose strong { color: #0F172A; }
+  .qa-question { font-size: 12px; font-weight: 700; color: #0F172A; line-height: 1.4; }
+  .qa-score { font-size: 13px; font-weight: 900; font-variant-numeric: tabular-nums; text-align: right; flex-shrink: 0; }
+  .qa-score-suffix { font-size: 8px; color: #94A3B8; font-weight: 700; }
+  .qa-answer-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #94A3B8; font-weight: 700; margin: 6px 0 2px; }
+  .qa-answer { font-size: 11.5px; color: #1F2937; line-height: 1.5; white-space: pre-wrap; }
+  .qa-answer.empty { font-style: italic; color: #94A3B8; }
 
   .print-btn {
     position: fixed; bottom: 24px; right: 24px;
@@ -314,13 +212,13 @@ const KICKOFF_CSS = `
   @media print {
     .print-btn { display: none !important; }
     body { padding: 20px 24px; }
-    .stage-card, .steps-card { page-break-inside: avoid; }
+    .stage-card { page-break-inside: avoid; }
   }
 `
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function exportKickoffPDF({ project, kickoff }) {
+export function exportKickoffPDF({ project, kickoff, questions = [] }) {
   const companyName = project.companyName || project.company_name || 'Cliente'
   const businessLabel = BUSINESS_LABELS[kickoff.businessType] || kickoff.businessType
   const stageColor = kickoff.stageColor || '#7C3AED'
@@ -343,116 +241,39 @@ export function exportKickoffPDF({ project, kickoff }) {
     `
   }).join('')
 
-  const stepsHtml = (kickoff.nextSteps || []).map((step, i) => {
-    const pid = kickoff.weaknesses?.[i]
-    const pillar = pid ? PILLARS_BY_ID[pid] : null
-    const score = pid ? (kickoff.scores?.[pid] ?? 0) : null
+  const radarHtml = radarSvg(kickoff.scores || {}, 460)
+
+  // ── Perguntas e respostas ─────────────────────────────────────────────────
+  const answers = kickoff.answers || {}
+  const qaHtml = questions.map((q, i) => {
+    const raw = answers[q.id]
+    const formatted = formatAnswer(q, raw)
+    const partial = extractScore(q, raw)
+    const isAnswered = partial != null
+    const scoreColor = isAnswered ? severityColor(partial) : '#94A3B8'
+    const pillarLabels = (q.pillarIds || [])
+      .map((pid) => PILLARS_BY_ID[pid]?.short || pid)
+      .join(' · ')
+
     return `
-      <div class="step-item">
-        <div class="step-num">${i + 1}</div>
-        <div>
-          ${pillar ? `<div class="step-meta">Pilar: ${esc(pillar.label)} · score ${score}</div>` : ''}
-          <div class="step-text">${esc(step)}</div>
+      <div class="qa-card">
+        <div class="qa-head">
+          <div>
+            <div class="qa-meta">
+              <span class="qa-index">#${i + 1}</span>
+              ${pillarLabels ? `<span class="qa-pillars">${esc(pillarLabels)}</span>` : ''}
+            </div>
+            <div class="qa-question">${esc(q.label)}</div>
+          </div>
+          <div class="qa-score" style="color:${scoreColor}">
+            ${isAnswered ? partial : '—'}<span class="qa-score-suffix"> /100</span>
+          </div>
         </div>
+        <div class="qa-answer-label">Resposta</div>
+        <div class="qa-answer${isAnswered ? '' : ' empty'}">${esc(formatted)}</div>
       </div>
     `
   }).join('')
-
-  const radarHtml = radarSvg(kickoff.scores || {}, 460)
-
-  // ── Veredito de Oferta Matadora (opcional) ───────────────────────────────
-  const om = kickoff.ofertaMatadora
-  const omHtml = om && om.completedAt
-    ? `
-      <section class="om-section" style="--verdict-color:${om.verdictColor || '#7C3AED'}">
-        <h1>Cabe uma Oferta Matadora?</h1>
-
-        <div class="om-verdict-card" style="--verdict-color:${om.verdictColor || '#7C3AED'}">
-          <div>
-            <div class="om-verdict-emoji">${esc(om.verdictEmoji || '')}</div>
-            <div class="om-verdict-label" style="color:${om.verdictColor || '#7C3AED'}">${esc(om.verdictLabel || '')}</div>
-            <div class="om-verdict-desc">${esc(om.verdictDesc || '')}</div>
-          </div>
-          <div class="om-verdict-score-wrap">
-            <div class="om-verdict-score">${om.totalScore || 0}</div>
-            <div class="om-verdict-score-suffix">/ 100</div>
-          </div>
-        </div>
-
-        <div class="section-title">Diagnóstico pilar a pilar</div>
-        ${OM_PILLARS.map((p) => {
-          const score = om.scores?.[p.id] ?? 0
-          const just  = pillarJustification(p.id, score)
-          return `
-            <div class="om-pillar-card">
-              <div class="om-pillar-head">
-                <span class="om-pillar-label">${esc(p.label)}
-                  <span class="om-pillar-tag" style="background:${just.color}15; color:${just.color}">${esc(just.tag)}</span>
-                </span>
-                <span class="om-pillar-score" style="color:${just.color}">${score}</span>
-              </div>
-              <div class="om-pillar-text">${esc(just.text)}</div>
-            </div>
-          `
-        }).join('')}
-      </section>
-    `
-    : ''
-
-  // ── Funis recomendados ───────────────────────────────────────────────────
-  const funnels = recommendFunnelsWithBusiness({
-    answers:        kickoff.answers || {},
-    ofertaMatadora: kickoff.ofertaMatadora || null,
-    businessType:   kickoff.businessType,
-  })
-  const topFunnels    = funnels.filter((f) => f.tier === 'top')
-  const otherFunnels  = funnels.filter((f) => f.tier === 'consider')
-
-  function renderFunnelCard(f, isTop) {
-    return `
-      <div class="funnel-card${isTop ? ' top' : ''}">
-        <div class="funnel-head">
-          <span class="funnel-title">
-            <span class="funnel-emoji">${esc(f.icon)}</span>${esc(f.label)}
-          </span>
-          <span class="funnel-match">match ${f.score}</span>
-        </div>
-        <p class="funnel-desc">${esc(f.desc)}</p>
-        ${f.reasons.length ? `
-          <ul class="funnel-reasons">
-            ${f.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}
-          </ul>
-        ` : ''}
-      </div>
-    `
-  }
-
-  const funnelsHtml = funnels.length === 0
-    ? ''
-    : `
-      <section class="funnels-section">
-        <h1>Funis recomendados pra esse cliente</h1>
-        ${topFunnels.length ? `
-          <div class="funnel-tier-label">⭐ Recomendados pra começar</div>
-          ${topFunnels.map((f) => renderFunnelCard(f, true)).join('')}
-        ` : ''}
-        ${otherFunnels.length ? `
-          <div class="funnel-tier-label">Também vale considerar</div>
-          ${otherFunnels.map((f) => renderFunnelCard(f, false)).join('')}
-        ` : ''}
-      </section>
-    `
-
-  const aiHtml = kickoff.aiAnalysis
-    ? `
-      <section class="ai-section">
-        <h1>Análise aprofundada — Revenue Lab</h1>
-        <div class="ai-prose">
-          ${mdToHtml(kickoff.aiAnalysis)}
-        </div>
-      </section>
-    `
-    : ''
 
   const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
@@ -497,14 +318,10 @@ export function exportKickoffPDF({ project, kickoff }) {
     </div>
   </div>
 
-  <div class="steps-card">
-    <h3>Próximos passos prioritários</h3>
-    <div class="steps-list">${stepsHtml}</div>
-  </div>
-
-  ${omHtml}
-  ${funnelsHtml}
-  ${aiHtml}
+  <section class="qa-section">
+    <h1>Perguntas e respostas</h1>
+    ${qaHtml}
+  </section>
 
   <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>
 </body>

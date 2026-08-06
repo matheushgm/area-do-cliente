@@ -85,6 +85,14 @@ export const FUNIS = [
       'Levar a pessoa DIRETO À COMPRA do produto no site. O CTA é comprar / aproveitar a oferta agora. Pode falar preço, desconto, condições, frete e urgência de estoque. É o único funil de venda direta.',
   },
   {
+    id: 'whatsapp',
+    label: 'Funil de Mensagem no WhatsApp',
+    icon: '💬',
+    meta: 'chamar no WhatsApp',
+    objetivo:
+      'Levar a pessoa a INICIAR UMA CONVERSA no WhatsApp com o negócio. O clique no anúncio abre direto a conversa (click-to-WhatsApp) ou cai numa página cheia de botões que levam ao WhatsApp; nunca formulário, nunca pedido de e-mail. O CTA é "chamar no WhatsApp", "mandar mensagem", "falar com a gente agora". A venda acontece na conversa, não no anúncio: a peça só precisa dar o motivo imediato pra mandar a mensagem (tirar dúvida, pedir orçamento, consultar preço ou disponibilidade, agendar horário) e deixar claro que do outro lado tem gente respondendo rápido. Sugira a primeira mensagem que a pessoa vai enviar. Perfeito pra negócio local: cite bairro, cidade ou região e a facilidade de resolver tudo por mensagem, sem precisar ir até o local antes.',
+  },
+  {
     id: 'wymb',
     label: 'Funil Win-Your-Money-Back',
     icon: '🛡️',

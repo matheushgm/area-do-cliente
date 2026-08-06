@@ -8,7 +8,7 @@ import { useParams } from 'react-router-dom'
 import {
   Megaphone, Loader2, AlertTriangle, CheckCircle2, XCircle, ExternalLink,
   Video, Image as ImageIcon, Layers, Clock, Paperclip, Send, LayoutTemplate,
-  Maximize2, X, ZoomIn, ZoomOut,
+  Maximize2, X, ZoomIn, ZoomOut, History,
 } from 'lucide-react'
 
 const TIPO_META = {
@@ -278,7 +278,14 @@ function AdCard({ ad, token, onDecided, decided = false }) {
       {/* Cabeçalho do card */}
       <div className="px-5 py-4 flex items-center justify-between gap-3 border-b border-rl-border/60">
         <div className="min-w-0">
-          <p className="font-mono text-sm font-bold text-rl-text truncate">{ad.nome || 'Criativo'}</p>
+          <p className="font-mono text-sm font-bold text-rl-text truncate flex items-center gap-2">
+            {ad.nome || 'Criativo'}
+            {!isLp && (ad.version || 1) > 1 && (
+              <span className="font-sans shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/10 text-rl-purple border border-rl-purple/30">
+                Versão {ad.version}
+              </span>
+            )}
+          </p>
           <p className="text-[11px] text-rl-muted mt-0.5 flex items-center gap-2">
             <span className="inline-flex items-center gap-1"><TipoIcon className="w-3 h-3" /> {tipo.label}</span>
             {ad.createdAt && <span>· {fmtDate(ad.createdAt)}</span>}
@@ -370,6 +377,11 @@ function AdCard({ ad, token, onDecided, decided = false }) {
         )}
       </div>
 
+      {/* Versões anteriores — pra comparar o que mudou desde a última reprovação */}
+      {!isLp && Array.isArray(ad.versionHistory) && ad.versionHistory.length > 0 && (
+        <VersionCompare versions={ad.versionHistory} />
+      )}
+
       {/* Decisão já tomada — mostra o registro */}
       {decided && st === 'reprovado' && (
         <div className="px-5 pb-4 space-y-2">
@@ -458,6 +470,69 @@ function AdCard({ ad, token, onDecided, decided = false }) {
             </div>
           )}
           {error && mode !== 'reprovando' && <p className="text-xs text-red-500 mt-2">{error}</p>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Comparação com versões anteriores ────────────────────────────────────────
+// Quando o time reprova... corrige e sobe uma mídia nova, a versão antiga fica
+// guardada aqui pra o cliente ver lado a lado o que mudou desde a última rodada.
+function VersionCompare({ versions }) {
+  const [open, setOpen] = useState(false)
+  const sorted = versions.slice().sort((a, b) => (b.version || 0) - (a.version || 0))
+
+  return (
+    <div className="px-5 pb-4">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-rl-border bg-rl-surface/40 text-xs font-bold text-rl-subtle hover:text-rl-text transition-all"
+      >
+        <span className="flex items-center gap-1.5">
+          <History className="w-3.5 h-3.5" /> Comparar com {sorted.length === 1 ? 'a versão anterior' : `as ${sorted.length} versões anteriores`}
+        </span>
+        <span className="text-[10px] text-rl-muted">{open ? 'ocultar' : 'ver'}</span>
+      </button>
+
+      {open && (
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {sorted.map((v) => (
+            <div key={v.version} className="rounded-xl border border-rl-border bg-rl-surface/30 overflow-hidden">
+              <div className="px-3 py-2 flex items-center justify-between gap-2 border-b border-rl-border/60">
+                <span className="text-[11px] font-bold text-rl-text">Versão {v.version}</span>
+                {v.aprovacao?.status === 'reprovado' && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300">
+                    <XCircle className="w-3 h-3" /> Reprovado
+                  </span>
+                )}
+              </div>
+              <div className="p-3 space-y-2">
+                {v.attachmentUrl && v.mediaKind === 'image' && (
+                  <img src={v.attachmentUrl} alt={`Versão ${v.version}`} className="max-h-[220px] w-auto max-w-full mx-auto rounded-lg border border-rl-border" />
+                )}
+                {v.attachmentUrl && v.mediaKind === 'video' && (
+                  <video src={v.attachmentUrl} controls playsInline className="max-h-[220px] w-auto max-w-full mx-auto rounded-lg border border-rl-border" />
+                )}
+                {v.attachmentUrl && (v.mediaKind === 'pdf' || v.mediaKind === 'other') && (
+                  <a href={v.attachmentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-rl-purple font-semibold hover:underline">
+                    <Paperclip className="w-3.5 h-3.5" /> Abrir arquivo
+                  </a>
+                )}
+                {!v.attachmentUrl && v.url && (
+                  <a href={v.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-rl-purple font-semibold hover:underline">
+                    <ExternalLink className="w-3.5 h-3.5" /> Ver criativo no link
+                  </a>
+                )}
+                {v.aprovacao?.status === 'reprovado' && v.aprovacao?.motivo && (
+                  <p className="text-[11px] text-rl-muted whitespace-pre-wrap">
+                    <span className="font-semibold text-rl-subtle">Motivo da reprovação:</span> {v.aprovacao.motivo}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -267,7 +267,7 @@
 | `swot` | textarea por quadrante | `JSONB NOT NULL` | `{forcas: TEXT, fraquezas: TEXT, oportunidades: TEXT, ameacas: TEXT}` |
 | `concorrentes` | formulário dinâmico | `JSONB` | Array de `{nome: TEXT, metaAds: BOOLEAN, googleAds: BOOLEAN, linkBiblioteca: TEXT, grandePromessa: TEXT, comunicacao: TEXT}` — `linkBiblioteca` só preenchido quando `metaAds = true` |
 | `riscos` | tabela dinâmica | `JSONB` | Array de `{problema: TEXT, riscoGerado: TEXT, impacto: TEXT, nivel: TEXT}` — `nivel`: `'baixo'`, `'medio'`, `'alto'` |
-| `funis` | checkbox múltiplo | `TEXT[]` | Funis selecionados; opções: `'Funil de Webinar'`, `'Funil de Aplicação'`, `'Funil de Diagnóstico'`, `'Funil de E-commerce (Venda Direta)'`, `'Funil de Webinar Pago'`, `'Funil de Isca Digital'`, `'Funil de VSL'`, `'Funil de Quiz'`, `'Lançamento'`, `'Funil de Desafio'`, `'Funil Win-Your-Money-Back'` |
+| `funis` | checkbox múltiplo | `TEXT[]` | Funis selecionados; opções: `'Funil de Webinar'`, `'Funil de Aplicação'`, `'Funil de Diagnóstico'`, `'Funil de E-commerce (Venda Direta)'`, `'Funil de Webinar Pago'`, `'Funil de Isca Digital'`, `'Funil de VSL'`, `'Funil de Quiz'`, `'Lançamento'`, `'Funil de Desafio'`, `'Funil de Mensagem no WhatsApp'`, `'Funil Win-Your-Money-Back'` |
 | `updated_at` | sistema | `TIMESTAMPTZ NOT NULL DEFAULT now()` | Atualizado a cada salvamento |
 
 ---

@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { useState, useMemo, useCallback } from 'react'
 import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircle, FileDown, CalendarDays } from 'lucide-react'
 import { getWeekRanges, MONTH_NAMES } from './Resultados/resultadosHelpers'
-import { exportROIPDF } from '../utils/exportPDF'
+import { exportROIPDF, exportMetasSemanaisPDF } from '../utils/exportPDF'
 import { fmtCurrency } from '../lib/utils'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
@@ -184,10 +184,12 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
         <div className="flex items-center gap-3 shrink-0">
           <AutoSaveIndicator />
           <button
-            onClick={() => exportROIPDF(calc, result, project)}
+            onClick={() => activeTab === 'metas'
+              ? exportMetasSemanaisPDF(calc, result, project, numSemanas, mesAtual)
+              : exportROIPDF(calc, result, project)}
             disabled={!result}
             className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Exportar PDF"
+            title={activeTab === 'metas' ? 'Exportar PDF das Metas Semanais' : 'Exportar PDF'}
           >
             <FileDown className="w-4 h-4" />
             PDF

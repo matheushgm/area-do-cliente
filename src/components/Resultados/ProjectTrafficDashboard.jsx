@@ -16,11 +16,30 @@ import '../DashboardTrafego/dashboard.css'
 // Reaproveita useDashboardData (carrega planilhas + contas) e apenas FILTRA o
 // universo pelo projeto. Entrega: (1) totalizadores combinados Meta+Google,
 // (2) tabela única unindo todas as contas do cliente (coluna Canal no lugar de
-// squad), (3) filtros de data (Hoje/Ontem/3/7/14/30/Custom), (4) clique na conta
-// → mesma ClientPage do dashboard (inline, com "← Voltar"), incluindo modais.
+// squad), (3) filtros de data (Hoje/Ontem/3/7/14/30/Este mês/Mês passado/Custom),
+// (4) clique na conta → mesma ClientPage do dashboard (inline, com "← Voltar"),
+// incluindo modais.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PRESETS = [['Hoje', 'today'], ['Ontem', 'yesterday'], ['3 dias', 3], ['7 dias', 7], ['14 dias', 14], ['30 dias', 30], ['Custom', 0]]
+const PRESETS = [
+  ['Hoje', 'today'], ['Ontem', 'yesterday'],
+  ['3 dias', 3], ['7 dias', 7], ['14 dias', 14], ['30 dias', 30],
+  ['Este mês', 'month'], ['Mês passado', 'lastmonth'],
+  ['Custom', 0],
+]
+// Presets de mês calendário: resolvidos para um intervalo fixo (from/to) e
+// tratados como período customizado no computeMainPeriod.
+const MONTH_PRESETS = new Set(['month', 'lastmonth'])
+function monthRange(kind) {
+  const now = new Date()
+  if (kind === 'month') {
+    return [localDateStr(new Date(now.getFullYear(), now.getMonth(), 1)), localDateStr(now)]
+  }
+  return [
+    localDateStr(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+    localDateStr(new Date(now.getFullYear(), now.getMonth(), 0)), // dia 0 = último do mês anterior
+  ]
+}
 const CHANNELS = ['meta', 'google']
 const fmtSumPct = v => (v != null ? v.toFixed(2) + '%' : '—')
 
@@ -103,10 +122,14 @@ export default function ProjectTrafficDashboard({ project, dash }) {
   }, [dash, showToast])
 
   // Período por canal (cada planilha tem seu próprio maxDate).
-  const periods = useMemo(() => ({
-    meta: computeMainPeriod(raw.meta, 'meta', days, customFrom, customTo),
-    google: computeMainPeriod(raw.google, 'google', days, customFrom, customTo),
-  }), [raw, days, customFrom, customTo])
+  // "Este mês"/"Mês passado" já gravam customFrom/customTo, então viram intervalo fixo.
+  const periods = useMemo(() => {
+    const d = MONTH_PRESETS.has(days) ? 0 : days
+    return {
+      meta: computeMainPeriod(raw.meta, 'meta', d, customFrom, customTo),
+      google: computeMainPeriod(raw.google, 'google', d, customFrom, customTo),
+    }
+  }, [raw, days, customFrom, customTo])
 
   // Totalizadores combinados Meta + Google (apenas contas do projeto).
   const totals = useMemo(() => {
@@ -143,6 +166,7 @@ export default function ProjectTrafficDashboard({ project, dash }) {
     setDays(d)
     if (d === 'today') { const s = localDateStr(new Date()); setCustomFrom(s); setCustomTo(s) }
     else if (d === 'yesterday') { const dt = new Date(); dt.setDate(dt.getDate() - 1); const s = localDateStr(dt); setCustomFrom(s); setCustomTo(s) }
+    else if (MONTH_PRESETS.has(d)) { const [f, t] = monthRange(d); setCustomFrom(f); setCustomTo(t) }
   }
   const applyCustom = () => {
     if (!customFrom || !customTo) { showToast('⚠️ Selecione as duas datas'); return }
@@ -203,7 +227,7 @@ export default function ProjectTrafficDashboard({ project, dash }) {
           client={openClient.client}
           channel={openClient.channel}
           raw={raw}
-          initialDays={[3, 7, 14, 30].includes(days) || days === 'today' || days === 'yesterday' || days === 0 ? days : 7}
+          initialDays={MONTH_PRESETS.has(days) ? 0 : ([3, 7, 14, 30].includes(days) || days === 'today' || days === 'yesterday' || days === 0 ? days : 7)}
           initialPeriod={periods[openClient.channel]}
           account={accounts[openClient.client]}
           onClose={() => setOpenClient(null)}

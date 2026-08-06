@@ -24,6 +24,7 @@ const FUNIL_OPTIONS = [
   'Funil de Quiz',
   'Lançamento',
   'Funil de Desafio',
+  'Funil de Mensagem no WhatsApp',
   'Funil Win-Your-Money-Back',
 ]
 

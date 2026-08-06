@@ -105,7 +105,22 @@ function sanitizeLp(lp) {
   }
 }
 
+// Versão arquivada quando o time cria v2/v3... após uma reprovação — guarda a
+// mídia antiga + a decisão do cliente na época, pra comparação lado a lado.
+async function sanitizeVersionEntry(v) {
+  return {
+    version:        Number(v?.version) || 1,
+    url:            /^https?:\/\//i.test(v?.url || '') ? str(v.url, 800) : null,
+    attachmentName: str(v?.attachmentName, 200) || null,
+    attachmentUrl:  await signAttachment(v?.attachmentPath),
+    mediaKind:      v?.attachmentPath ? mediaKind(v.attachmentName || v.attachmentPath) : null,
+    aprovacao:      v?.aprovacao ? sanitizeAprovacao(v.aprovacao) : null,
+    archivedAt:     str(v?.archivedAt, 40) || null,
+  }
+}
+
 async function sanitizeAd(ad) {
+  const versionHistory = Array.isArray(ad.versionHistory) ? ad.versionHistory : []
   return {
     id:        str(ad.id, 60),
     nome:      str(ad.nome, 120),
@@ -117,6 +132,8 @@ async function sanitizeAd(ad) {
     mediaKind:      ad.attachmentPath ? mediaKind(ad.attachmentName || ad.attachmentPath) : null,
     observacao:     str(ad.observacao, 1200) || null,
     aprovacao:      sanitizeAprovacao(ad.aprovacao),
+    version:        Number(ad.version) || 1,
+    versionHistory: await Promise.all(versionHistory.slice(0, 20).map(sanitizeVersionEntry)),
   }
 }
 

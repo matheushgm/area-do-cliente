@@ -174,7 +174,7 @@ export default function KickoffModule({ project }) {
       aiAnalysis: persisted?.aiAnalysis || null,
       ofertaMatadora: persisted?.ofertaMatadora || null,
     }
-    exportKickoffPDF({ project, kickoff: merged })
+    exportKickoffPDF({ project, kickoff: merged, questions: allQuestions })
   }
 
   // ── Views ─────────────────────────────────────────────────────────────────
