@@ -14,6 +14,9 @@ import { WEBINAR_SYSTEM, buildWebinarInstruction, parseWebinarContent, webinarTo
 import AplicacaoWireframe from './AplicacaoWireframe'
 import { APLICACAO_WIREFRAME } from './aplicacaoSchema'
 import { APLICACAO_SYSTEM, buildAplicacaoInstruction, parseAplicacaoContent, aplicacaoToText } from './aplicacaoGenerate'
+import SaasWireframe from './SaasWireframe'
+import { SAAS_WIREFRAME } from './saasSchema'
+import { SAAS_SYSTEM, buildSaasInstruction, parseSaasContent, saasToText } from './saasGenerate'
 
 export const WIREFRAMES = {
   vsl: {
@@ -55,6 +58,19 @@ export const WIREFRAMES = {
     parse: parseAplicacaoContent,
     toText: aplicacaoToText,
   },
+  saas: {
+    id: 'saas',
+    name: 'SaaS / Produto',
+    label: 'SaaS / Produto — Teste grátis',
+    description: 'Página de produto SaaS com captura de e-mail no hero e screenshot da ferramenta. Diferenciais, recursos, prova com métrica, FAQ e CTA final.',
+    ready: true,
+    Component: SaasWireframe,
+    emptyContent: SAAS_WIREFRAME.emptyContent,
+    system: SAAS_SYSTEM,
+    buildInstruction: buildSaasInstruction,
+    parse: parseSaasContent,
+    toText: saasToText,
+  },
 }
 
 // Ordem e rótulos de TODOS os tipos previstos (inclui os que ainda não estão prontos,
@@ -63,6 +79,7 @@ export const WIREFRAME_TYPES = [
   { id: 'vsl', label: 'VSL', ready: true },
   { id: 'webinar', label: 'Webinar', ready: true },
   { id: 'aplicacao', label: 'Aplicação direta', ready: true },
+  { id: 'saas', label: 'SaaS / Produto', ready: true },
   { id: 'quiz', label: 'Quiz', ready: false },
   { id: 'vendas', label: 'Página de Vendas', ready: false },
   { id: 'material', label: 'Material Rico', ready: false },
