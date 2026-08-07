@@ -2339,7 +2339,23 @@ const RESULTADOS_CSS = `
   .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #E2E8F0; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; }
   .footer-brand { font-weight: 700; color: #164496; }
   .print-btn { position: fixed; bottom: 24px; right: 24px; background: #164496; color: white; border: none; border-radius: 10px; padding: 12px 24px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(22,68,150,0.35); }
-  @media print { .print-btn { display: none !important; } body { max-width: 100%; } .week-card { page-break-inside: avoid; } }
+  .rtable { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .rtable th { background: #F1F5F9; color: #64748B; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 10px; text-align: right; border-bottom: 1px solid #D8E0F0; }
+  .rtable th:first-child { text-align: left; }
+  .rtable td { padding: 6px 10px; text-align: right; border-bottom: 1px solid #EEF2F7; color: #334155; }
+  .rtable td:first-child { text-align: left; font-weight: 600; color: #0F172A; white-space: nowrap; }
+  .rtable tfoot td { background: #F8FAFF; font-weight: 800; color: #0F172A; border-top: 2px solid #D8E0F0; border-bottom: none; }
+  .rtable tr { page-break-inside: avoid; }
+  .goal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .goal-group-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94A3B8; margin-bottom: 6px; }
+  .goal-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #EEF2F7; font-size: 11px; }
+  .goal-label { flex: 1; color: #64748B; }
+  .goal-real { font-weight: 700; color: #0F172A; }
+  .goal-meta { font-size: 10px; color: #94A3B8; width: 74px; text-align: right; }
+  .goal-badge { width: 48px; text-align: right; font-weight: 800; }
+  .goal-badge.ok { color: #059669; } .goal-badge.warn { color: #D97706; } .goal-badge.bad { color: #DC2626; } .goal-badge.none { color: #CBD5E1; }
+  .note { font-size: 10px; color: #94A3B8; margin-top: 8px; }
+  @media print { .print-btn { display: none !important; } body { max-width: 100%; } .week-card { page-break-inside: avoid; } .section { page-break-inside: auto; } }
 `
 
 export function exportResultadosB2BPDF({ companyName, resultados, year, month, weekRanges, MONTH_NAMES: monthNames }) {
@@ -2499,6 +2515,389 @@ export function exportResultadosB2BPDF({ companyName, resultados, year, month, w
       <div class="weeks-grid">${weekCards}</div>
     </div>
     ${consolidadoHTML}
+    ${footer}
+  </div>
+  <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>
+</body>
+</html>`
+
+  const win = window.open('', '_blank', 'width=1100,height=900')
+  if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
+  win.document.write(html)
+  win.document.close()
+}
+
+// ─── Resultados B2C PDF ───────────────────────────────────────────────────────
+//
+// Espelha o que a tela do B2C mostra: KPIs do mês, consolidado, Plano vs
+// Realizado (quando há Calculadora de ROI) e o detalhamento do modo em que o
+// gestor está — Diário (tabela dia a dia), Semanal (cards de semana) ou Por
+// unidade (tabela por unidade). No modo Diário/Por unidade também entra um
+// resumo por semana agregado a partir dos dias, que é como o cliente lê.
+
+// Uma linha do Plano vs Realizado. `better: 'low'` inverte a lógica (custo).
+function b2cGoalRow({ label, real, meta, money = false, better = 'high' }) {
+  const fmt = money ? fmtBRL : (n) => Number(n || 0).toLocaleString('pt-BR')
+  const hasMeta = meta != null && meta > 0
+  const hasReal = real > 0
+
+  if (!hasMeta) {
+    return `<div class="goal-row">
+      <span class="goal-label">${esc(label)}</span>
+      <span class="goal-badge none">sem meta</span>
+    </div>`
+  }
+
+  const ratio = better === 'high' ? real / meta : (hasReal ? meta / real : 0)
+  const cls   = !hasReal ? 'none' : ratio >= 1 ? 'ok' : ratio >= 0.8 ? 'warn' : 'bad'
+  const badge = !hasReal
+    ? '—'
+    : better === 'high'
+      ? `${Math.round((real / meta) * 100)}%`
+      : `${real <= meta ? '−' : '+'}${Math.abs(Math.round((real / meta - 1) * 100))}%`
+
+  return `<div class="goal-row">
+    <span class="goal-label">${esc(label)}</span>
+    <span class="goal-real">${hasReal ? fmt(real) : '—'}</span>
+    <span class="goal-meta">/${fmt(meta)}</span>
+    <span class="goal-badge ${cls}">${badge}</span>
+  </div>`
+}
+
+export function exportResultadosB2CPDF({
+  companyName, resultados, year, month, mode = 'diario',
+  weekRanges, unidades = null, plan = null, MONTH_NAMES: monthNames,
+}) {
+  const today      = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const monthLabel = `${monthNames[month]} ${year}`
+  const monthKey   = `${year}-${String(month + 1).padStart(2, '0')}`
+
+  const monthData = resultados.b2c?.[monthKey] || {}
+  const weekData  = resultados.b2c_semanas?.[monthKey] || {}
+  const unitData  = resultados.b2c_unidades?.[monthKey] || {}
+
+  const sum = (rows) => rows.reduce(
+    (acc, d) => ({
+      investido:   acc.investido   + (d?.investido   || 0),
+      leads:       acc.leads       + (d?.leads       || 0),
+      vendas:      acc.vendas      + (d?.vendas      || 0),
+      valorVendas: acc.valorVendas + (d?.valorVendas || 0),
+    }),
+    { investido: 0, leads: 0, vendas: 0, valorVendas: 0 },
+  )
+
+  // A visão "Por unidade" alimenta os dias, então lê os mesmos totais do Diário.
+  const isWeekly = mode === 'semanal'
+  const totals   = isWeekly ? sum(Object.values(weekData)) : sum(Object.values(monthData))
+
+  const per    = (qty) => (totals.investido > 0 && qty > 0 ? totals.investido / qty : 0)
+  const cpl    = per(totals.leads)
+  const cac    = per(totals.vendas)
+  const roas   = totals.investido > 0 ? totals.valorVendas / totals.investido : 0
+  const ticket = totals.vendas > 0 ? totals.valorVendas / totals.vendas : 0
+
+  const modeLabel = isWeekly ? 'Semanal' : mode === 'unidades' ? 'Por unidade' : 'Diário'
+
+  // ── Capa ────────────────────────────────────────────────────────────────────
+  const cover = `
+    <div class="cover">
+      <div class="cover-date">Gerado em ${today}</div>
+      <div class="cover-tag">Revenue Lab · Relatório de Resultados</div>
+      <div class="cover-company">${esc(companyName || '')}</div>
+      <div class="cover-period">${monthLabel}</div>
+      <div class="cover-chips">
+        <span class="cover-chip">🛒 B2C · ${modeLabel}</span>
+        ${totals.investido > 0 ? `<span class="cover-chip">💰 Investido: ${fmtBRL(totals.investido)}</span>` : ''}
+        ${totals.leads > 0 ? `<span class="cover-chip">👥 ${totals.leads.toLocaleString('pt-BR')} leads</span>` : ''}
+        ${roas > 0 ? `<span class="cover-chip">🎯 ROAS: ${roas.toFixed(2)}x</span>` : ''}
+      </div>
+    </div>`
+
+  // ── Faixa de KPIs (mesmos 4 da tela) ────────────────────────────────────────
+  const kpiStrip = `
+    <div class="kpi-strip">
+      <div class="kpi-item">
+        <div class="kpi-label">Investimento</div>
+        <div class="kpi-value gold">${fmtBRL(totals.investido)}</div>
+        <div class="kpi-sub">${monthLabel}</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-label">Custo por Lead</div>
+        <div class="kpi-value cyan">${cpl > 0 ? fmtBRL(cpl) : '—'}</div>
+        <div class="kpi-sub">${totals.leads.toLocaleString('pt-BR')} leads no período</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-label">CAC</div>
+        <div class="kpi-value">${cac > 0 ? fmtBRL(cac) : '—'}</div>
+        <div class="kpi-sub">${totals.vendas > 0
+          ? `${totals.vendas.toLocaleString('pt-BR')} vendas · ticket ${fmtBRL(ticket)}`
+          : 'sem vendas lançadas'}</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-label">ROAS</div>
+        <div class="kpi-value ${roas >= 1 ? 'green' : ''}">${roas > 0 ? roas.toFixed(2) + 'x' : '—'}</div>
+        <div class="kpi-sub">${totals.valorVendas > 0 ? `${fmtBRL(totals.valorVendas)} de receita` : 'sem receita lançada'}</div>
+      </div>
+    </div>`
+
+  // ── Consolidado do mês ──────────────────────────────────────────────────────
+  const hasData = totals.investido > 0 || totals.leads > 0
+  const consolidadoHTML = hasData ? `
+    <div class="section">
+      <div class="section-title">📊 Consolidado do Mês — ${monthLabel}</div>
+      <div class="sum-grid">
+        <div class="sum-card"><div class="sum-label">Investido</div><div class="sum-value gold">${fmtBRL(totals.investido)}</div></div>
+        <div class="sum-card"><div class="sum-label">Leads</div><div class="sum-value blue">${totals.leads.toLocaleString('pt-BR')}</div>${cpl > 0 ? `<div class="sum-sub">${fmtBRL(cpl)}/lead</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">Vendas</div><div class="sum-value purple">${totals.vendas.toLocaleString('pt-BR')}</div>${cac > 0 ? `<div class="sum-sub">${fmtBRL(cac)}/venda</div>` : ''}</div>
+        <div class="sum-card"><div class="sum-label">Receita</div><div class="sum-value green">${totals.valorVendas > 0 ? fmtBRL(totals.valorVendas) : '—'}</div></div>
+      </div>
+      <div class="sum-grid" style="grid-template-columns:repeat(2,1fr)">
+        <div class="sum-card"><div class="sum-label">Ticket Médio</div><div class="sum-value cyan">${ticket > 0 ? fmtBRL(ticket) : '—'}</div></div>
+        <div class="sum-card"><div class="sum-label">ROAS</div><div class="sum-value ${roas >= 1 ? 'green' : ''}">${roas > 0 ? roas.toFixed(2) + 'x' : '—'}</div>${roas > 0 ? `<div class="sum-sub">${roas >= 1 ? '✅ Positivo' : '⚠️ Negativo'}</div>` : ''}</div>
+      </div>
+    </div>` : ''
+
+  // ── Plano vs Realizado (meta da Calculadora de ROI) ─────────────────────────
+  const planoHTML = plan ? `
+    <div class="section">
+      <div class="section-title">🎯 Plano vs Realizado — meta da Calculadora de ROI</div>
+      <div class="goal-grid">
+        <div>
+          <div class="goal-group-title">Volume</div>
+          ${b2cGoalRow({ label: 'Leads',   real: totals.leads,       meta: plan.leads })}
+          ${b2cGoalRow({ label: 'Vendas',  real: totals.vendas,      meta: plan.vendas })}
+          ${b2cGoalRow({ label: 'Receita', real: totals.valorVendas, meta: plan.faturamento, money: true })}
+        </div>
+        <div>
+          <div class="goal-group-title">Custo · quanto menor, melhor</div>
+          ${b2cGoalRow({ label: 'Custo / Lead', real: cpl, meta: plan.cpl, money: true, better: 'low' })}
+          ${b2cGoalRow({ label: 'CAC',          real: cac, meta: plan.cac, money: true, better: 'low' })}
+        </div>
+      </div>
+      <div class="note">
+        Verba planejada <strong>${fmtBRL(plan.mediaOrcamento)}</strong> · investido <strong>${fmtBRL(totals.investido)}</strong>
+      </div>
+    </div>` : ''
+
+  // ── Semanal: cards de semana ────────────────────────────────────────────────
+  const weekCardsHTML = weekRanges.map((week, i) => {
+    const w = weekData[String(i + 1)]
+    const header = `
+      <div class="week-header">
+        <span class="week-name">${week.label}</span>
+        <span class="week-dates">${week.start}/${month + 1} – ${week.end}/${month + 1}</span>
+      </div>`
+
+    if (!w) return `<div class="week-card">${header}<div class="week-no-data">Sem dados registrados</div></div>`
+
+    const wCpl    = w.leads  > 0 && w.investido > 0 ? w.investido / w.leads  : 0
+    const wCac    = w.vendas > 0 && w.investido > 0 ? w.investido / w.vendas : 0
+    const wRoas   = w.investido > 0 ? (w.valorVendas || 0) / w.investido : 0
+    const wTicket = w.vendas > 0 && w.valorVendas > 0 ? w.valorVendas / w.vendas : 0
+
+    return `
+      <div class="week-card">
+        ${header}
+        <div class="week-body">
+          <div class="finance-row">
+            <div class="finance-left">
+              <div><div class="fi-label">Investido</div><div class="fi-value gold">${fmtBRL(w.investido)}</div></div>
+              ${w.valorVendas > 0 ? `<div><div class="fi-label">Receita</div><div class="fi-value green">${fmtBRL(w.valorVendas)}</div></div>` : ''}
+            </div>
+            ${wRoas > 0 ? `<div class="roas-badge"><div class="roas-badge-label">ROAS</div><div class="roas-badge-value">${wRoas.toFixed(2)}x</div></div>` : ''}
+          </div>
+          <div class="funnel-row">
+            <div class="funnel-item"><div class="fi2-label">Leads</div><div class="fi2-value" style="color:#3B82F6">${w.leads || 0}</div></div>
+            <div class="funnel-item"><div class="fi2-label">Vendas</div><div class="fi2-value" style="color:#7C3AED">${w.vendas || 0}</div></div>
+            <div class="funnel-item"><div class="fi2-label">Custo / Lead</div><div class="fi2-value" style="color:#0284C7">${wCpl > 0 ? fmtBRL(wCpl) : '—'}</div></div>
+            <div class="funnel-item"><div class="fi2-label">CAC</div><div class="fi2-value" style="color:#D97706">${wCac > 0 ? fmtBRL(wCac) : '—'}</div></div>
+          </div>
+          ${wTicket > 0 ? `
+          <div class="ticket-row">
+            <span class="ticket-label">🎫 Ticket Médio · ${w.vendas} venda(s)</span>
+            <span class="ticket-value">${fmtBRL(wTicket)}</span>
+          </div>` : ''}
+        </div>
+      </div>`
+  }).join('')
+
+  // ── Diário: tabela dia a dia (só os dias lançados) ──────────────────────────
+  const dayKeys = Object.keys(monthData).filter((k) => {
+    const d = monthData[k]
+    return d && (d.investido > 0 || d.leads > 0 || d.vendas > 0 || d.valorVendas > 0)
+  }).sort()
+
+  const dailyRows = dayKeys.map((k) => {
+    const d       = monthData[k]
+    const dCpl    = d.leads  > 0 && d.investido > 0 ? d.investido / d.leads  : 0
+    const dCac    = d.vendas > 0 && d.investido > 0 ? d.investido / d.vendas : 0
+    const dRoas   = d.investido > 0 ? (d.valorVendas || 0) / d.investido : 0
+    return `<tr>
+      <td>${Number(k)}/${month + 1}</td>
+      <td>${d.investido ? fmtBRL(d.investido) : '—'}</td>
+      <td>${d.leads || '—'}</td>
+      <td>${d.vendas || '—'}</td>
+      <td>${d.valorVendas ? fmtBRL(d.valorVendas) : '—'}</td>
+      <td>${dCpl > 0 ? fmtBRL(dCpl) : '—'}</td>
+      <td>${dCac > 0 ? fmtBRL(dCac) : '—'}</td>
+      <td>${dRoas > 0 ? dRoas.toFixed(2) + 'x' : '—'}</td>
+    </tr>`
+  }).join('')
+
+  const dailyTableHTML = dayKeys.length ? `
+    <div class="section">
+      <div class="section-title">📅 Resultados por Dia</div>
+      <table class="rtable">
+        <thead>
+          <tr>
+            <th>Dia</th><th>Investido</th><th>Leads</th><th>Vendas</th>
+            <th>Receita</th><th>CPL</th><th>CAC</th><th>ROAS</th>
+          </tr>
+        </thead>
+        <tbody>${dailyRows}</tbody>
+        <tfoot>
+          <tr>
+            <td>Total</td>
+            <td>${fmtBRL(totals.investido)}</td>
+            <td>${totals.leads.toLocaleString('pt-BR')}</td>
+            <td>${totals.vendas.toLocaleString('pt-BR')}</td>
+            <td>${fmtBRL(totals.valorVendas)}</td>
+            <td>${cpl > 0 ? fmtBRL(cpl) : '—'}</td>
+            <td>${cac > 0 ? fmtBRL(cac) : '—'}</td>
+            <td>${roas > 0 ? roas.toFixed(2) + 'x' : '—'}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>` : ''
+
+  // Resumo por semana agregado a partir dos dias — só faz sentido no Diário.
+  const weeklyFromDays = weekRanges.map((week) => {
+    const rows = []
+    for (let d = week.start; d <= week.end; d++) {
+      const row = monthData[String(d).padStart(2, '0')]
+      if (row) rows.push(row)
+    }
+    return { week, t: sum(rows) }
+  })
+
+  const weeklyRollupHTML = dayKeys.length ? `
+    <div class="section">
+      <div class="section-title">🗓️ Resumo por Semana</div>
+      <table class="rtable">
+        <thead>
+          <tr>
+            <th>Semana</th><th>Investido</th><th>Leads</th><th>Vendas</th>
+            <th>Receita</th><th>CPL</th><th>CAC</th><th>ROAS</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${weeklyFromDays.map(({ week, t }) => {
+            const wCpl  = t.leads  > 0 && t.investido > 0 ? t.investido / t.leads  : 0
+            const wCac  = t.vendas > 0 && t.investido > 0 ? t.investido / t.vendas : 0
+            const wRoas = t.investido > 0 ? t.valorVendas / t.investido : 0
+            return `<tr>
+              <td>${week.label} <span style="color:#94A3B8;font-weight:400">(${week.start}–${week.end})</span></td>
+              <td>${t.investido ? fmtBRL(t.investido) : '—'}</td>
+              <td>${t.leads || '—'}</td>
+              <td>${t.vendas || '—'}</td>
+              <td>${t.valorVendas ? fmtBRL(t.valorVendas) : '—'}</td>
+              <td>${wCpl > 0 ? fmtBRL(wCpl) : '—'}</td>
+              <td>${wCac > 0 ? fmtBRL(wCac) : '—'}</td>
+              <td>${wRoas > 0 ? wRoas.toFixed(2) + 'x' : '—'}</td>
+            </tr>`
+          }).join('')}
+        </tbody>
+      </table>
+    </div>` : ''
+
+  // ── Por unidade: vendas e receita consolidadas por unidade ──────────────────
+  let unidadesHTML = ''
+  if (mode === 'unidades' && Array.isArray(unidades) && unidades.length) {
+    const porUnidade = unidades.map((u) => {
+      const t = Object.values(unitData).reduce(
+        (acc, dia) => ({
+          vendas:      acc.vendas      + (Number(dia?.[u.id]?.vendas)      || 0),
+          valorVendas: acc.valorVendas + (Number(dia?.[u.id]?.valorVendas) || 0),
+        }),
+        { vendas: 0, valorVendas: 0 },
+      )
+      return { ...u, ...t }
+    })
+    const totUnid = porUnidade.reduce(
+      (acc, u) => ({ vendas: acc.vendas + u.vendas, valorVendas: acc.valorVendas + u.valorVendas }),
+      { vendas: 0, valorVendas: 0 },
+    )
+
+    if (totUnid.vendas > 0 || totUnid.valorVendas > 0) {
+      unidadesHTML = `
+        <div class="section">
+          <div class="section-title">🏬 Vendas por Unidade</div>
+          <table class="rtable">
+            <thead>
+              <tr><th>Unidade</th><th>Vendas</th><th>Receita</th><th>Ticket Médio</th><th>% da Receita</th></tr>
+            </thead>
+            <tbody>
+              ${porUnidade.map((u) => {
+                const tk  = u.vendas > 0 ? u.valorVendas / u.vendas : 0
+                const shr = totUnid.valorVendas > 0 ? (u.valorVendas / totUnid.valorVendas) * 100 : 0
+                return `<tr>
+                  <td>${esc(u.label)}</td>
+                  <td>${u.vendas || '—'}</td>
+                  <td>${u.valorVendas ? fmtBRL(u.valorVendas) : '—'}</td>
+                  <td>${tk > 0 ? fmtBRL(tk) : '—'}</td>
+                  <td>${shr > 0 ? fmtPct(shr) : '—'}</td>
+                </tr>`
+              }).join('')}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td>${totUnid.vendas.toLocaleString('pt-BR')}</td>
+                <td>${fmtBRL(totUnid.valorVendas)}</td>
+                <td>${totUnid.vendas > 0 ? fmtBRL(totUnid.valorVendas / totUnid.vendas) : '—'}</td>
+                <td>100%</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>`
+    }
+  }
+
+  const detalheHTML = isWeekly
+    ? `<div class="section">
+         <div class="section-title">📅 Resultados por Semana</div>
+         <div class="weeks-grid">${weekCardsHTML}</div>
+       </div>`
+    : `${unidadesHTML}${weeklyRollupHTML}${dailyTableHTML}`
+
+  const vazioHTML = hasData ? '' : `
+    <div class="section">
+      <div class="week-no-data" style="border:1px dashed #E2E8F0;border-radius:12px">
+        Nenhum resultado lançado em ${monthLabel}.
+      </div>
+    </div>`
+
+  const footer = `
+    <div class="footer">
+      <div class="footer-brand">Revenue Lab</div>
+      <div>Relatório de Resultados · ${esc(companyName || '')} · ${today}</div>
+    </div>`
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Resultados ${monthLabel} — ${esc(companyName || '')}</title>
+  <style>${RESULTADOS_CSS}</style>
+</head>
+<body>
+  ${cover}
+  ${kpiStrip}
+  <div class="content">
+    ${consolidadoHTML}
+    ${planoHTML}
+    ${detalheHTML}
+    ${vazioHTML}
     ${footer}
   </div>
   <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>

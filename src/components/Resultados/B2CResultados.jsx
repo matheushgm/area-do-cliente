@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Edit2, Check, X, Link2, CheckCircle2, Wallet, Users, Target, Trophy } from 'lucide-react'
+import { Plus, Edit2, Check, X, Link2, CheckCircle2, Wallet, Users, Target, Trophy, FileDown } from 'lucide-react'
 import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, computeRoiPlan, MONTH_NAMES } from './resultadosHelpers'
 import { MonthNav, SummaryCard } from './B2BResultados'
 import { KpiHero, AreaChart, CostTile, C } from './ResultadosCharts'
@@ -8,6 +8,7 @@ import PlanoVsRealizado from './PlanoVsRealizado'
 import { AutofillButton, AutoBadge } from './AutofillResultados'
 import VendasPorUnidade from './VendasPorUnidade'
 import { getUnidades } from '../../lib/constants'
+import { exportResultadosB2CPDF } from '../../utils/exportPDF'
 
 // ─── Form compartilhado (dia e semana) ────────────────────────────────────────
 // B2C não tem MQL/SQL — o funil é Lead → Venda. O campo "Vendas (qtd)" é
@@ -91,7 +92,7 @@ const normalize = data => ({
 })
 
 // ─── B2C View ─────────────────────────────────────────────────────────────────
-export default function B2CView({ resultados, onUpdate, clientShareToken, getOrCreateShareToken, roiCalc, dash, projectId }) {
+export default function B2CView({ resultados, onUpdate, clientShareToken, getOrCreateShareToken, companyName, roiCalc, dash, projectId }) {
   const today = new Date()
   const [year, setYear]     = useState(today.getFullYear())
   const [month, setMonth]   = useState(today.getMonth())
@@ -271,6 +272,18 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
               {copied ? 'Link copiado!' : 'Copiar link do cliente'}
             </button>
           )}
+
+          <button
+            onClick={() => exportResultadosB2CPDF({
+              companyName, resultados, year, month, mode,
+              weekRanges: weeks, unidades, plan, MONTH_NAMES,
+            })}
+            className="btn-secondary flex items-center gap-2 text-sm whitespace-nowrap"
+            title="Gerar PDF do mês para o cliente"
+          >
+            <FileDown size={15} />
+            Gerar PDF
+          </button>
         </div>
       </div>
 
