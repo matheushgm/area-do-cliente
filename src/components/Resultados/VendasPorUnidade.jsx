@@ -19,6 +19,12 @@ const UNIT_STYLE = [
 ]
 const styleOf = i => UNIT_STYLE[i % UNIT_STYLE.length]
 
+const COLS_CLASS = {
+  3: 'lg:grid-cols-3',
+  4: 'lg:grid-cols-4',
+  5: 'lg:grid-cols-5',
+}
+
 // Soma { vendas, valorVendas } de várias entradas de unidade.
 function sumUnits(entry, unidades) {
   return unidades.reduce(
@@ -134,14 +140,16 @@ export default function VendasPorUnidade({
   )
   const hasData = totalMes.vendas > 0 || totalMes.valorVendas > 0
 
+  // Uma coluna por unidade + o card de total, até o limite de 5.
+  // Classes escritas por extenso porque o Tailwind não lê nome montado em runtime.
+  const resumoCols = COLS_CLASS[Math.min(unidades.length + 1, 5)] || 'lg:grid-cols-3'
+
   return (
     <div className="space-y-4">
 
       {/* Resumo do mês por unidade */}
       {hasData && (
-        <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 ${
-          unidades.length >= 3 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'
-        }`}>
+        <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 ${resumoCols}`}>
           {unidades.map((u, i) => (
             <UnitCard
               key={u.id}

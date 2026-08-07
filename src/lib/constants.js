@@ -170,6 +170,13 @@ export const UNIDADES_POR_PROJETO = {
     { id: 'goiania', label: 'Goiânia' },
     { id: 'osasco',  label: 'Osasco'  },
   ],
+  // Boa Noite Colchões — 3 lojas da bandeira + a loja Concept (dentro da Urias)
+  'baae1d12-5bd6-42a0-925b-9dd8ee706cd4': [
+    { id: 'urias',      label: 'Urias'      },
+    { id: 'fama',       label: 'Fama'       },
+    { id: 'rio_branco', label: 'Rio Branco' },
+    { id: 'concept',    label: 'Concept'    },
+  ],
 }
 
 export function getUnidades(projectId) {
