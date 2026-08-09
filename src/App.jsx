@@ -32,6 +32,7 @@ import RoteirosExpress from './pages/RoteirosExpress'
 import RoteirosExpressPublico from './pages/RoteirosExpressPublico'
 import CriativosPublico from './pages/CriativosPublico'
 import DashboardApiTeste from './pages/DashboardApiTeste'
+import WorkloadDashboard from './pages/WorkloadDashboard'
 import WireframePreview from './pages/WireframePreview'
 import Atividades15min from './pages/Atividades15min'
 import NotificationCenter from './components/NotificationCenter'
@@ -94,6 +95,7 @@ function AppRoutes() {
         {/* Dashboard antigo (planilhas) foi removido — /dashboard redireciona para o atual (API). */}
         <Route path="/dashboard" element={<Navigate to="/dashboard-teste" replace />} />
         <Route path="/dashboard-teste" element={<RequireAuth><DashboardApiTeste /></RequireAuth>} />
+        <Route path="/workload" element={<RequireAuth><WorkloadDashboard /></RequireAuth>} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/wireframe-preview" element={<WireframePreview />} />
         <Route path="*" element={<Navigate to="/" replace />} />

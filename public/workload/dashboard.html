@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capacidade do Time — Revenue Lab</title>
+<style>
+  :root {
+    --bg: #F6F4EF;
+    --surface: #FFFFFF;
+    --ink: #1B1F27;
+    --ink-soft: #5B6270;
+    --line: #E3DFD4;
+    --accent: #2B5F73;
+    --accent-soft: #E4EEF0;
+    --backlog: #C7C2B3;
+    --a-fazer: #7C93A6;
+    --progresso: #2B5F73;
+    --revisao: #8A5FB0;
+    --good: #3C8B5B;
+    --warn: #C98A2B;
+    --crit: #C1503C;
+    --crit-soft: #FBE9E4;
+    --warn-soft: #FBF1E1;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --bg: #14181F;
+    --surface: #1B2029;
+    --ink: #E8E6DF;
+    --ink-soft: #9BA1AC;
+    --line: #2A2F3A;
+    --accent: #6FA9BE;
+    --accent-soft: #223038;
+    --backlog: #4A4A44;
+    --a-fazer: #5C7488;
+    --progresso: #6FA9BE;
+    --revisao: #A382C9;
+    --good: #5FAE7C;
+    --warn: #D9A54D;
+    --crit: #E0705B;
+    --crit-soft: #33201C;
+    --warn-soft: #322A18;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14181F;
+      --surface: #1B2029;
+      --ink: #E8E6DF;
+      --ink-soft: #9BA1AC;
+      --line: #2A2F3A;
+      --accent: #6FA9BE;
+      --accent-soft: #223038;
+      --backlog: #4A4A44;
+      --a-fazer: #5C7488;
+      --progresso: #6FA9BE;
+      --revisao: #A382C9;
+      --good: #5FAE7C;
+      --warn: #D9A54D;
+      --crit: #E0705B;
+      --crit-soft: #33201C;
+      --warn-soft: #322A18;
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    padding: 40px 24px 80px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+
+  header.page {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 24px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+  h1 {
+    font-family: ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
+    font-size: 30px;
+    font-weight: 500;
+    margin: 0;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  .meta {
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-align: right;
+    line-height: 1.5;
+  }
+
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .stat .n {
+    font-size: 26px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .stat .n.crit { color: var(--crit); }
+  .stat .label {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+  .board { display: flex; flex-direction: column; }
+  .person {
+    display: grid;
+    grid-template-columns: 180px 1fr 56px;
+    align-items: center;
+    gap: 16px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .person:last-child { border-bottom: none; }
+
+  .who { min-width: 0; }
+  .who .name {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .who .sub {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 20px;
+    line-height: 1.5;
+  }
+  .chip.crit { background: var(--crit-soft); color: var(--crit); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+
+  .bar-track {
+    height: 20px;
+    background: var(--line);
+    border-radius: 5px;
+    overflow: hidden;
+    display: flex;
+    min-width: 0;
+  }
+  .seg { height: 100%; }
+  .seg.backlog { background: var(--backlog); }
+  .seg.a_fazer { background: var(--a-fazer); }
+  .seg.em_progresso { background: var(--progresso); }
+  .seg.em_revisao { background: var(--revisao); }
+
+  .total {
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .empty-row .bar-track { opacity: 0.35; }
+  .empty-row .total { color: var(--ink-soft); }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 44px 0 6px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .section-head h2 {
+    font-family: ui-serif, Georgia, "Iowan Old Style", serif;
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0;
+  }
+  .section-head .range {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+
+  .callout {
+    display: flex;
+    gap: 10px;
+    background: var(--warn-soft);
+    border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin: 14px 0 20px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ink);
+  }
+  .callout .mark {
+    flex-shrink: 0;
+    font-weight: 700;
+    color: var(--warn);
+  }
+  .callout b { font-weight: 600; }
+
+  .week-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  .week-table th {
+    text-align: center;
+    font-weight: 600;
+    color: var(--ink-soft);
+    font-size: 11px;
+    padding: 0 4px 8px;
+  }
+  .week-table th:first-child { text-align: left; }
+  .week-table td {
+    text-align: center;
+    padding: 4px;
+  }
+  .week-table td:first-child {
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    padding-right: 10px;
+    white-space: nowrap;
+  }
+  .week-table .rowtotal {
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft);
+  }
+  .cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 26px;
+    border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .cell.l0 { background: transparent; color: var(--line); }
+  .cell.l1 { background: var(--accent-soft); color: var(--ink); }
+  .cell.l2 { background: color-mix(in srgb, var(--accent) 45%, var(--accent-soft)); color: white; }
+  .cell.l3 { background: var(--accent); color: white; }
+  .cell.spike { background: var(--crit); color: white; }
+  .week-table .today-col { background: color-mix(in srgb, var(--accent) 6%, transparent); border-radius: 6px; }
+
+  .hrboard { display: flex; flex-direction: column; margin-top: 4px; }
+  .hr-row {
+    display: grid;
+    grid-template-columns: 176px 84px 1fr;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .hr-row:last-child { border-bottom: none; }
+  .hr-name { font-size: 13.5px; font-weight: 600; }
+  .hr-cap {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 3px 0;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .hr-cap b { color: var(--ink); }
+  .hr-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+  .hr-pill {
+    position: relative;
+    height: 38px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    background: transparent;
+    color: var(--line);
+    border: 1px dashed var(--line);
+  }
+  .hr-pill.busy {
+    border: 1px solid color-mix(in srgb, var(--good) 40%, transparent);
+    background: color-mix(in srgb, var(--good) 14%, var(--surface));
+    color: var(--ink);
+  }
+  .hr-badge {
+    position: absolute;
+    top: -7px;
+    right: -6px;
+    background: var(--warn);
+    color: #2a1c00;
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+    border: 2px solid var(--surface);
+  }
+  .hr-pill.partial .hr-badge { background: var(--crit); color: white; }
+  .hr-pill.partial::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--crit) 14%, transparent) 6px 7px);
+  }
+
+  .hr-legend {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    margin: 4px 0 16px;
+  }
+  .hr-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .hr-legend .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+
+  .notes {
+    margin-top: 36px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px 22px;
+  }
+  .notes h2 {
+    font-family: ui-serif, Georgia, "Iowan Old Style", serif;
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0 0 10px;
+  }
+  .notes ul { margin: 0; padding-left: 18px; }
+  .notes li {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  .notes li b { color: var(--ink); font-weight: 600; }
+  .notes li:last-child { margin-bottom: 0; }
+
+  @media (max-width: 640px) {
+    .summary-row { grid-template-columns: repeat(2, 1fr); }
+    .person { grid-template-columns: 120px 1fr 44px; gap: 10px; }
+    .who .name { font-size: 13px; }
+  }
+
+  .person.clickable { cursor: pointer; border-radius: 8px; transition: background .12s; }
+  .person.clickable:hover { background: var(--accent-soft); }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 12, 16, 0.55);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 5vh 20px;
+    z-index: 100;
+    overflow-y: auto;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal-panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    max-width: 760px;
+    width: 100%;
+    padding: 26px 28px 30px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+  }
+  .modal-header h2 {
+    font-family: ui-serif, Georgia, "Iowan Old Style", serif;
+    font-size: 21px;
+    font-weight: 500;
+    margin: 0 0 3px;
+  }
+  .modal-header .sub { font-size: 12px; color: var(--ink-soft); }
+  .modal-close {
+    cursor: pointer;
+    border: none;
+    background: var(--bg);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 15px;
+    color: var(--ink-soft);
+    flex-shrink: 0;
+  }
+  .modal-close:hover { color: var(--ink); }
+
+  .stat-grid-modal {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+  .stat-card-click {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 13px 14px;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition: border-color .12s;
+  }
+  .stat-card-click:hover:not(.disabled) { border-color: var(--accent); }
+  .stat-card-click.disabled { cursor: default; opacity: .5; }
+  .stat-card-click .sc-label {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+    display: block;
+  }
+  .stat-card-click .sc-n {
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .stat-card-click.crit-n .sc-n { color: var(--crit); }
+  .stat-card-click .sc-n.dash { font-size: 12.5px; font-weight: 500; color: var(--ink-soft); }
+
+  .modal-chart-title {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin: 0 0 10px;
+  }
+  .modal-bars {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    align-items: end;
+    height: 110px;
+    margin-bottom: 8px;
+  }
+  .modal-bar-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+    cursor: pointer;
+  }
+  .modal-bar-n { font-size: 12px; font-weight: 700; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+  .modal-bar {
+    width: 100%;
+    border-radius: 6px 6px 0 0;
+    min-height: 3px;
+    transition: opacity .12s;
+  }
+  .modal-bar-col:hover .modal-bar { opacity: .8; }
+  .modal-bar-label { font-size: 10.5px; color: var(--ink-soft); margin-top: 6px; text-align: center; }
+
+  .task-list-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    color: var(--accent);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0 0 14px;
+    font-family: inherit;
+  }
+  .task-list-title { font-size: 13px; color: var(--ink-soft); margin-bottom: 12px; }
+  .task-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+  .task-row-link {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    text-decoration: none;
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  .task-row-link:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .task-row-link .tid { font-family: ui-monospace, "SF Mono", monospace; font-size: 11.5px; color: var(--ink-soft); }
+  .task-row-link .ext { color: var(--accent); font-size: 15px; }
+  .task-list-empty { font-size: 13px; color: var(--ink-soft); padding: 20px 0; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="page">
+    <div>
+      <p class="eyebrow">ClickUp · workspace Revenue Lab</p>
+      <h1>Capacidade do time</h1>
+    </div>
+    <div class="meta">Tasks abertas por responsável<br>Puxado agora via API · 08 ago 2026</div>
+  </header>
+
+  <div class="summary-row">
+    <div class="stat">
+      <div class="n">567</div>
+      <div class="label">tasks abertas no total</div>
+    </div>
+    <div class="stat">
+      <div class="n crit">187</div>
+      <div class="label">com prazo vencido</div>
+    </div>
+    <div class="stat">
+      <div class="n">11</div>
+      <div class="label">pessoas com tasks atribuíveis</div>
+    </div>
+    <div class="stat">
+      <div class="n">125</div>
+      <div class="label">maior carga individual (Mário)</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--backlog)"></i>Backlog</span>
+    <span><i class="swatch" style="background:var(--a-fazer)"></i>A fazer</span>
+    <span><i class="swatch" style="background:var(--progresso)"></i>Em progresso</span>
+    <span><i class="swatch" style="background:var(--revisao)"></i>Em revisão</span>
+    <span style="margin-left:auto">chip vermelho = % de tasks vencidas</span>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="section-head">
+    <h2>Radar de prazos — próximos 7 dias</h2>
+    <span class="range">sáb 08/08 a sex 14/08 · tasks abertas por dia de vencimento</span>
+  </div>
+
+  <div class="callout">
+    <span class="mark">!</span>
+    <div>
+      <b>Isso ainda não é uma carga em horas.</b> Testamos o campo de horas estimadas do ClickUp em duas amostras (15 tasks aleatórias + as 12 que vencem hoje): só <b>1 em cada 8 a 15 tasks tem horas preenchidas</b>, e quase todas são as tasks recorrentes de otimização do Andre. Os campos "Dificuldade" e "Pontuação Taskscore" (que dariam um peso sem precisar de horas) também estão sem valor em 100% da amostra. Por enquanto o radar abaixo conta <b>tasks por dia</b>, não horas — o "8h · 30%" só fica real quando o time começar a preencher isso em cada task.<br><br>
+      Outro ponto: <b>60% de todas as tasks da semana (100 de 166) vencem na mesma segunda-feira, 10/08</b>. É um sinal forte de que esse campo tá sendo usado como data padrão/em lote, não como prazo real task a task — então a coluna de segunda abaixo não significa "avalanche real nesse dia", significa "prazo não foi customizado".
+    </div>
+  </div>
+
+  <div style="overflow-x:auto">
+    <table class="week-table" id="weekTable"></table>
+  </div>
+
+  <div class="section-head">
+    <h2>Carga em horas — mesmo período</h2>
+    <span class="range">Σ horas estimadas por dia · capacidade assumida 8h/dia útil (40h/semana)</span>
+  </div>
+
+  <div class="callout">
+    <span class="mark">!</span>
+    <div>
+      Puxei horas reais task por task pra essas 166 tarefas e bati no <b>rate limit da API do ClickUp</b> a 38 tarefas do fim (23% da semana). As células abaixo mostram <b>apenas horas confirmadas</b> — nunca inventei valor pra task não verificada. Onde o dia tem tarefa não confirmada, a célula fica com <b>textura vermelha + badge vermelho</b>: o "Xh" ali é um piso, não o total real. Mário Marques e Matheus Martins são as linhas menos confiáveis (14 e 15 tarefas sem verificar) — nos outros a cobertura já é boa o suficiente pra usar.
+    </div>
+  </div>
+
+  <div class="hr-legend">
+    <span><i class="dot" style="background:transparent;border:1px dashed var(--line)"></i>sem task no dia</span>
+    <span><i class="dot" style="background:color-mix(in srgb, var(--good) 30%, var(--surface))"></i>horas confirmadas</span>
+    <span><i class="dot" style="background:color-mix(in srgb, var(--crit) 20%, var(--surface))"></i>tem task não verificada (rate limit)</span>
+    <span><i class="dot" style="background:var(--warn);border-radius:50%;width:8px;height:8px"></i>badge = qtde de tarefas no dia</span>
+  </div>
+
+  <div class="hrboard" id="hrBoard"></div>
+
+  <div class="notes">
+    <h2>Leitura dos números</h2>
+    <ul>
+      <li><b>Mário, Andre e Matheus Martins</b> têm os maiores totais, mas boa parte é <b>backlog de onboarding replicado</b> — o mesmo checklist de ~15 subtasks se repete a cada cliente novo em fase de implantação. Não é carga imediata igual a uma task "a fazer".</li>
+      <li><b>Vencidas por pessoa</b> é o sinal mais confiável de sobrecarga real aqui: Mário (76), Andre (38) e Matheus Martins (29) concentram a maior parte do atraso do workspace.</li>
+      <li><b>Rhuan Rodrigues e Vinícius Bertti</b> aparecem com 0 tasks abertas — vale confirmar se são operacionais ou apenas convidados/acessos sem função ativa.</li>
+      <li>O campo nativo <b>de horas estimadas do ClickUp está vazio</b> na quase totalidade das tasks, então esta primeira versão pesa por volume, não por horas. Dá pra evoluir usando os campos "Dificuldade" e "Pontuação Taskscore" já existentes no board.</li>
+      <li><b>Clique em qualquer pessoa</b> na lista acima pra abrir o detalhe (Em Atraso, Vence Hoje, Vence 7D, Sem data, Carga por status) — e clique em qualquer número pra ver as tasks reais por trás dele, com link direto pro ClickUp.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal-panel" id="modalPanel"></div>
+</div>
+
+<script>
+const data = [
+  {name:"Mário Marques", total:125, backlog:87, a_fazer:22, em_progresso:11, em_revisao:5, overdue:76},
+  {name:"Andre Tenorio", total:137, backlog:54, a_fazer:64, em_progresso:16, em_revisao:3, overdue:38},
+  {name:"Matheus Martins", total:110, backlog:71, a_fazer:24, em_progresso:10, em_revisao:5, overdue:29},
+  {name:"Victor Hugo Zampieri", total:91, backlog:53, a_fazer:34, em_progresso:2, em_revisao:2, overdue:22},
+  {name:"Matheus de Assis", total:46, backlog:43, a_fazer:3, em_progresso:0, em_revisao:0, overdue:13},
+  {name:"Bárbara Luiza", total:35, backlog:15, a_fazer:7, em_progresso:12, em_revisao:1, overdue:5},
+  {name:"Eduardo Moura", total:16, backlog:7, a_fazer:6, em_progresso:3, em_revisao:0, overdue:1},
+  {name:"Marcela Costa", total:4, backlog:0, a_fazer:0, em_progresso:3, em_revisao:1, overdue:0},
+  {name:"Luiz Felipe Dhein", total:3, backlog:3, a_fazer:0, em_progresso:0, em_revisao:0, overdue:3},
+  {name:"Rhuan Rodrigues", total:0, backlog:0, a_fazer:0, em_progresso:0, em_revisao:0, overdue:0},
+  {name:"Vinícius Bertti", total:0, backlog:0, a_fazer:0, em_progresso:0, em_revisao:0, overdue:0},
+];
+
+// re-sort defensively by total desc, matching the source aggregation
+data.sort((a,b) => b.total - a.total);
+
+const maxTotal = Math.max(...data.map(d => d.total));
+const board = document.getElementById('board');
+
+data.forEach(d => {
+  const row = document.createElement('div');
+  row.className = 'person clickable' + (d.total === 0 ? ' empty-row' : '');
+  row.addEventListener('click', () => openPersonModal(d.name));
+
+  const pct = d.total ? Math.round((d.overdue / d.total) * 100) : 0;
+  let chip = '';
+  if (d.overdue > 0) {
+    const cls = pct >= 40 ? 'crit' : 'warn';
+    chip = `<span class="chip ${cls}">${d.overdue} vencidas</span>`;
+  }
+
+  const width = d.total === 0 ? 0 : Math.max((d.total / maxTotal) * 100, 4);
+  const segHtml = d.total === 0 ? '' : ['backlog','a_fazer','em_progresso','em_revisao'].map(k => {
+    const w = (d[k] / d.total) * 100;
+    return w > 0 ? `<div class="seg ${k}" style="width:${w}%" title="${k}: ${d[k]}"></div>` : '';
+  }).join('');
+
+  row.innerHTML = `
+    <div class="who">
+      <div class="name">${d.name}</div>
+      <div class="sub">${chip || (d.total === 0 ? 'sem tasks abertas' : '&nbsp;')}</div>
+    </div>
+    <div class="bar-track" style="width:100%">
+      <div style="width:${width}%; display:flex; height:100%;">${segHtml}</div>
+    </div>
+    <div class="total">${d.total}</div>
+  `;
+  board.appendChild(row);
+});
+
+const week = {
+  days: ["Sáb 08","Dom 09","Seg 10","Ter 11","Qua 12","Qui 13","Sex 14"],
+  people: [
+    {name:"Matheus Martins", byDay:[9,2,32,5,1,2,3], total:54},
+    {name:"Andre Tenorio", byDay:[0,0,22,7,4,4,3], total:40},
+    {name:"Mário Marques", byDay:[2,0,11,4,1,2,11], total:31},
+    {name:"Victor Hugo Zampieri", byDay:[2,0,5,4,7,4,4], total:26},
+    {name:"Bárbara Luiza", byDay:[0,0,20,0,1,1,3], total:25},
+    {name:"Eduardo Moura", byDay:[1,0,8,0,1,0,0], total:10},
+    {name:"Marcela Costa", byDay:[0,0,1,0,0,1,1], total:3},
+    {name:"Matheus de Assis", byDay:[0,0,1,0,2,0,0], total:3},
+  ],
+};
+
+function levelClass(n, dayIsMonday) {
+  if (n === 0) return "l0";
+  if (dayIsMonday && n >= 10) return "spike";
+  if (n <= 2) return "l1";
+  if (n <= 5) return "l2";
+  return "l3";
+}
+
+const weekTable = document.getElementById('weekTable');
+let thead = "<tr><th>Pessoa</th>" + week.days.map((d,i) => `<th${i===2 ? ' style="color:var(--crit)"' : ''}>${d}</th>`).join("") + "<th>Semana</th></tr>";
+let rowsHtml = week.people.map(p => {
+  const cells = p.byDay.map((n, i) => `<td class="${i===2 ? 'today-col' : ''}"><span class="cell ${levelClass(n, i===2)}">${n || ''}</span></td>`).join("");
+  return `<tr><td>${p.name}</td>${cells}<td class="rowtotal">${p.total}</td></tr>`;
+}).join("");
+weekTable.innerHTML = thead + rowsHtml;
+
+const hoursData = {
+  "days": ["Sáb 08","Dom 09","Seg 10","Ter 11","Qua 12","Qui 13","Sex 14"],
+  "people": [
+    {"name":"Matheus Martins","hours":[0.0,0.0,1.2,0.5,0.0,0.0,0.0],"count":[9,2,32,5,1,2,3],"unverified":[0,0,9,1,1,1,3],"totalHours":1.8,"totalCount":54,"totalUnverified":15},
+    {"name":"Andre Tenorio","hours":[0,0,5.0,1.8,1.5,1.5,2.3],"count":[0,0,22,7,4,4,3],"unverified":[0,0,2,0,0,2,1],"totalHours":12.2,"totalCount":40,"totalUnverified":5},
+    {"name":"Mário Marques","hours":[0.0,0,0.0,0.0,0.0,0.0,0.0],"count":[2,0,11,4,1,2,11],"unverified":[0,0,5,2,1,0,6],"totalHours":0.0,"totalCount":31,"totalUnverified":14},
+    {"name":"Victor Hugo Zampieri","hours":[0.5,0,2.0,0.5,2.0,2.0,2.0],"count":[2,0,5,4,7,4,4],"unverified":[0,0,1,0,0,1,0],"totalHours":9.0,"totalCount":26,"totalUnverified":2},
+    {"name":"Bárbara Luiza","hours":[0,0,3.4,0,0.0,0.0,0.0],"count":[0,0,20,0,1,1,3],"unverified":[0,0,6,0,1,0,2],"totalHours":3.4,"totalCount":25,"totalUnverified":9},
+    {"name":"Eduardo Moura","hours":[0.0,0,0.0,0,1.0,0,0],"count":[1,0,8,0,1,0,0],"unverified":[0,0,5,0,0,0,0],"totalHours":1.0,"totalCount":10,"totalUnverified":5},
+    {"name":"Marcela Costa","hours":[0,0,0.0,0,0,0.0,0.0],"count":[0,0,1,0,0,1,1],"unverified":[0,0,1,0,0,0,0],"totalHours":0.0,"totalCount":3,"totalUnverified":1},
+    {"name":"Matheus de Assis","hours":[0,0,0.0,0,0.0,0,0],"count":[0,0,1,0,2,0,0],"unverified":[0,0,0,0,0,0,0],"totalHours":0.0,"totalCount":3,"totalUnverified":0}
+  ]
+};
+
+const hrBoard = document.getElementById('hrBoard');
+const WEEKLY_CAP = 40;
+
+hoursData.people.forEach(p => {
+  const row = document.createElement('div');
+  row.className = 'hr-row';
+
+  const days = hoursData.days.map((d, i) => {
+    const n = p.count[i];
+    const h = p.hours[i];
+    const unv = p.unverified[i];
+    if (n === 0) return `<div class="hr-pill"></div>`;
+    const partial = unv > 0;
+    const label = partial ? `${h.toFixed(1)}h+` : `${h.toFixed(1)}h`;
+    return `<div class="hr-pill busy ${partial ? 'partial' : ''}" title="${d}: ${n} task(s)${partial ? ', ' + unv + ' não verificada(s)' : ''}">${label}<span class="hr-badge">${n}</span></div>`;
+  }).join("");
+
+  row.innerHTML = `
+    <div class="hr-name">${p.name}</div>
+    <div class="hr-cap"><b>${p.totalHours.toFixed(1)}h</b>/${WEEKLY_CAP}h</div>
+    <div class="hr-days">${days}</div>
+  `;
+  hrBoard.appendChild(row);
+});
+
+
+const personDetail = {"Victor Hugo Zampieri": {"total": 91, "buckets": {"backlog": ["86ajxvkqa", "86aju0zmn", "86aju0zm6", "86aju0zkm", "86aju0zkk", "86aju0zkj", "86aju0zkb", "86aju0zka", "86aju0zk7", "86aju0zk6", "86aju0zjr", "86aju0zjh", "86aju0zht", "86aju0zhp", "86aju0zhf", "86aju0zhd", "86aju0zgv", "86aju0zgf", "86aju0zge", "86aju0wwn", "86aju0ww0", "86aju0wvf", "86aju0wvd", "86aju0wvb", "86aju0wv5", "86aju0wv3", "86aju0wux", "86aju0wuv", "86aju0wua", "86aju0wtt", "86aju0wrf", "86aju0wr3", "86aju0wqa", "86aju0qd5", "86aju0qc0", "86aju0qb7", "86aju0qb4", "86aju0qb0", "86aju0qan", "86aju0qak", "86aju0qae", "86aju0qad", "86aju0q9b", "86aju0q61", "86ajrazp2", "86ajancw1", "86ajancvt", "86aj7p50p", "86aj7p50n", "86aj7p50d", "86aj2zwa5", "86ahek2mz", "86ah9unax"], "a_fazer": ["86ajxr388", "86ajx8mkw", "86ajx8fhw", "86ajx4npg", "86ajx4ct6", "86ajx4bdx", "86ajx3axa", "86ajx3a0y", "86ajwz2ta", "86ajwx0pp", "86ajpvdvw", "86ajpv0wv", "86ajpuu9t", "86ajn3acg", "86ajkfxwe", "86ajkfxvy", "86ajkfv3a", "86ajjp9ah", "86ajhq55a", "86ajfm5hk", "86ajeg07j", "86aj7p4zf", "86aj2t2jf", "86aj14wz7", "86ahyvq86", "86ahx7h5e", "86ahrtkue", "86ahnd18v", "86ahe0vme", "86ahbfkj4", "86ahabqp3", "86agu6e7d", "86agdtn10", "86ag9ynt5"], "em_progresso": ["86ajraz24", "86ajkfv2n"], "em_revisao": ["86aj323c4", "86ah619pd"]}, "overdue": ["86ajx4ct6", "86aju0zhp", "86aju0zhf", "86aju0zhd", "86aju0zgv", "86aju0zgf", "86aju0zge", "86aju0wrf", "86aju0wr3", "86aju0wqa", "86aju0q61", "86ajrazp2", "86ajraz24", "86ajkfxwe", "86ajkfv3a", "86ajhq55a", "86ajeg07j", "86aj7p4zf", "86aj323c4", "86aj2t2jf", "86ahx7h5e", "86ah619pd"], "due_today": ["86aju0zht", "86ajjp9ah"], "due_7d": ["86ajxvkqa", "86ajxr388", "86ajx8mkw", "86ajx8fhw", "86ajx4bdx", "86ajx3axa", "86ajx3a0y", "86ajwz2ta", "86ajwx0pp", "86aju0zjr", "86aju0zjh", "86aju0zht", "86aju0wua", "86aju0wtt", "86aju0q9b", "86ajpvdvw", "86ajpv0wv", "86ajn3acg", "86ajkfxvy", "86ajkfv2n", "86ajjp9ah", "86ajfm5hk", "86ajancw1", "86ajancvt", "86aj2zwa5", "86ahrtkue"], "no_date": ["86aju0zmn", "86aju0zm6", "86aju0zkm", "86aju0zkk", "86aju0zkj", "86aju0zkb", "86aju0zka", "86aju0zk7", "86aju0zk6", "86aju0wwn", "86aju0ww0", "86aju0wvf", "86aju0wvd", "86aju0wvb", "86aju0wv5", "86aju0wv3", "86aju0wux", "86aju0wuv", "86aju0qd5", "86aju0qc0", "86aju0qb7", "86aju0qb4", "86aju0qb0", "86aju0qan", "86aju0qak", "86aju0qae", "86aju0qad", "86aj14wz7"]}, "Matheus Martins": {"total": 110, "buckets": {"backlog": ["86ajx3t2k", "86ajx3ppf", "86ajvbrkk", "86ajv2p3v", "86ajuk0tn", "86aju0zmh", "86aju0zm7", "86aju0zjj", "86aju0zjc", "86aju0zj5", "86aju0zj1", "86aju0zj0", "86aju0zhk", "86aju0zfy", "86aju0wwd", "86aju0ww2", "86aju0wtp", "86aju0wth", "86aju0wte", "86aju0wt8", "86aju0wt3", "86aju0wra", "86aju0wp8", "86aju0qcr", "86aju0qc5", "86aju0q8w", "86aju0q8j", "86aju0q85", "86aju0q82", "86aju0q7u", "86aju0q7b", "86ajtmkx7", "86ajtmhh4", "86ajtkzpa", "86ajtkmdh", "86ajtke8y", "86ajtjz80", "86ajpf3g1", "86ajpf3fu", "86ajpf3fq", "86ajpf3fp", "86ajpf3fm", "86ajpf3fj", "86ajpf3fg", "86ajpf3ff", "86ajpf3fd", "86ajpf3fb", "86ajpf3f8", "86ajpf3bf", "86ajpf3bd", "86ajpf3ba", "86ajpf3b9", "86ajpf3b7", "86ajpf3ay", "86ajpf3aw", "86ajpf3au", "86ajnb3z4", "86ajm2mbq", "86ajm2mbj", "86ajancvu", "86aj9b10q", "86aj9b10h", "86aj9b0zn", "86aj7p50g", "86aj448zx", "86aj448mb", "86aj3h402", "86aj200mx", "86ahxtbf6", "86agjxmmg", "86a8czjh2"], "a_fazer": ["86ajy0wh5", "86ajxuugn", "86ajxrzft", "86ajx3cx2", "86ajx37nt", "86ajx0vzf", "86ajx00w7", "86ajwzww1", "86ajwzr4k", "86ajpuu9t", "86ajpf3b3", "86ajpf3b1", "86ajpf3a9", "86ajdcrh2", "86ajbt868", "86aj9zwcw", "86aj8mqbd", "86aj265h5", "86aj1wmt3", "86aj14wz7", "86ahzx67b", "86ahrtkue", "86ahrk5cq", "86agqwhm8"], "em_progresso": ["86ajx77e0", "86ajtk3bf", "86ajqbtkg", "86ajm2mac", "86ajjyfn3", "86aj3715f", "86aj0ahpj", "86ahrfd5r", "86ahkqj8u", "86ahcpfky"], "em_revisao": ["86aj8mq9n", "86aj371q5", "86aj1yyc9", "86ahzvr1y", "86ahg4hyh"]}, "overdue": ["86ajx77e0", "86ajx3t2k", "86ajx3ppf", "86ajwzr4k", "86ajv2p3v", "86aju0zhk", "86aju0zfy", "86aju0wra", "86aju0wp8", "86aju0q8j", "86ajtmhh4", "86ajpf3fp", "86ajpf3fm", "86ajpf3fj", "86ajpf3fg", "86ajpf3ff", "86ajpf3fd", "86ajpf3fb", "86ajpf3f8", "86ajpf3bd", "86ajm2mac", "86ajm2mbj", "86aj9zwcw", "86aj9b10q", "86aj9b10h", "86aj9b0zn", "86aj3715f", "86aj0ahpj", "86agqwhm8"], "due_today": ["86ajy0wh5", "86ajx3cx2", "86aju0zj5", "86aju0zj1", "86aju0zj0", "86aju0wte", "86aju0wt8", "86aju0wt3", "86ahrfd5r"], "due_7d": ["86ajy0wh5", "86ajxuugn", "86ajxrzft", "86ajx3cx2", "86ajx37nt", "86ajx0vzf", "86ajx00w7", "86ajuk0tn", "86aju0zjj", "86aju0zjc", "86aju0zj5", "86aju0zj1", "86aju0zj0", "86aju0wtp", "86aju0wth", "86aju0wte", "86aju0wt8", "86aju0wt3", "86aju0q8w", "86aju0q85", "86aju0q82", "86aju0q7u", "86aju0q7b", "86ajtkmdh", "86ajtk3bf", "86ajtjz80", "86ajqbtkg", "86ajpf3fu", "86ajpf3fq", "86ajpf3ba", "86ajpf3b9", "86ajpf3b3", "86ajpf3b1", "86ajpf3a9", "86ajnb3z4", "86ajm2mbq", "86ajjyfn3", "86ajdcrh2", "86aj8mqbd", "86aj8mq9n", "86aj448zx", "86aj448mb", "86aj371q5", "86aj265h5", "86aj200mx", "86aj1yyc9", "86aj1wmt3", "86ahzx67b", "86ahzvr1y", "86ahrtkue", "86ahrk5cq", "86ahrfd5r", "86ahg4hyh", "86agjxmmg"], "no_date": ["86ajvbrkk", "86aju0zmh", "86aju0zm7", "86aju0wwd", "86aju0ww2", "86aju0qcr", "86aju0qc5", "86ajtmkx7", "86ajtkzpa", "86ajtke8y", "86ajpf3b7", "86ajpf3ay", "86ajpf3aw", "86ajpf3au", "86ajbt868", "86aj3h402", "86aj14wz7", "86ahxtbf6", "86ahkqj8u", "86ahcpfky", "86a8czjh2"]}, "Barbara Luiza": {"total": 35, "buckets": {"backlog": ["86ajraznj", "86ajrazn7", "86ajrazmu", "86ajm2x99", "86ajm2x95", "86ajm2x94", "86ajm2tpu", "86ajm2k2n", "86ahqtaz3", "86acqfazq", "86acqfajk", "86acqexek", "86acqexd8", "86acqexa1", "86acqex2t"], "a_fazer": ["86ajx38vp", "86ajm2x86", "86ajkfxwv", "86ajkfxwq", "86ajkfxwm", "86ajkfxwk", "86ajkfxvy"], "em_progresso": ["86ajx07nq", "86ajwje45", "86ajwj3vu", "86ajwhxmf", "86ajtk3bf", "86ajrazkx", "86ajraz24", "86ahw68yq", "86ahumzfn", "86ahumzeg", "86ahumzcj", "86acq9vhh"], "em_revisao": ["86agd8btu"]}, "overdue": ["86ajraznj", "86ajrazn7", "86ajrazmu", "86ajrazkx", "86ajraz24"], "due_today": [], "due_7d": ["86ajx38vp", "86ajx07nq", "86ajwj3vu", "86ajwhxmf", "86ajtk3bf", "86ajm2x86", "86ajm2x99", "86ajm2x95", "86ajm2x94", "86ajm2tpu", "86ajm2k2n", "86ajkfxwv", "86ajkfxwq", "86ajkfxwm", "86ajkfxwk", "86ajkfxvy", "86ahw68yq", "86ahqtaz3", "86agd8btu", "86acqfazq", "86acqfajk", "86acqexd8", "86acqexa1", "86acqex2t", "86acq9vhh"], "no_date": ["86acqexek"]}, "Rhuan Rodrigues": {"total": 0, "buckets": {"backlog": [], "a_fazer": [], "em_progresso": [], "em_revisao": []}, "overdue": [], "due_today": [], "due_7d": [], "no_date": []}, "Luiz Felipe": {"total": 3, "buckets": {"backlog": ["86ahkwh1x", "86ahkv7u6", "86ahkv6ev"], "a_fazer": [], "em_progresso": [], "em_revisao": []}, "overdue": ["86ahkwh1x", "86ahkv7u6", "86ahkv6ev"], "due_today": [], "due_7d": [], "no_date": []}, "Marcela Costa": {"total": 4, "buckets": {"backlog": [], "a_fazer": [], "em_progresso": ["86ajwje45", "86ajwj3vu", "86ajwhxmf"], "em_revisao": ["86aj1yyc9"]}, "overdue": [], "due_today": [], "due_7d": ["86ajwj3vu", "86ajwhxmf", "86aj1yyc9"], "no_date": []}, "Vinicius Bertti": {"total": 0, "buckets": {"backlog": [], "a_fazer": [], "em_progresso": [], "em_revisao": []}, "overdue": [], "due_today": [], "due_7d": [], "no_date": []}, "Eduardo Moura": {"total": 16, "buckets": {"backlog": ["86ajxp8zb", "86ajtmkx7", "86ajpzvqg", "86ajpztg6", "86ahw68yt", "86afute7b", "86ae84b1e"], "a_fazer": ["86ajy0wh5", "86ajwx0pp", "86ajv9814", "86ajnyw6k", "86aj14wz7", "86ahwm0c5"], "em_progresso": ["86ajtk3bf", "86ahwcxer", "86ahw68xu"], "em_revisao": []}, "overdue": ["86ajxp8zb"], "due_today": ["86ajy0wh5"], "due_7d": ["86ajy0wh5", "86ajwx0pp", "86ajv9814", "86ajtk3bf", "86ajpzvqg", "86ahwm0c5", "86ahwcxer", "86ahw68yt", "86ahw68xu", "86ae84b1e"], "no_date": ["86ajtmkx7", "86ajpztg6", "86aj14wz7", "86afute7b"]}, "Mario Marques": {"total": 125, "buckets": {"backlog": ["86ajv4jjy", "86ajv3dyq", "86ajv3db8", "86ajv3c28", "86ajv3bh4", "86ajv3ad6", "86ajv39y7", "86ajv36vp", "86ajv31ah", "86ajv2z9z", "86ajv2yq3", "86ajv2ryf", "86ajv2rm7", "86ajv2qgk", "86ajv2m40", "86ajv2h95", "86ajv2geu", "86ajv2fjx", "86ajuymct", "86ajuxmaq", "86ajuk0ha", "86ajqu07j", "86ajqu079", "86ajqu06n", "86ajqtzwh", "86ajpf3g4", "86ajpf3g3", "86ajpf3g2", "86ajpf3g0", "86ajpf3fv", "86ajpf3ft", "86ajpf3fr", "86ajpf3fh", "86ajpf3f5", "86ajpf3f1", "86ajpf3ey", "86ajpf3eq", "86ajpf3e9", "86ajpf3bj", "86ajpf3bh", "86ajpf3bg", "86ajpf3be", "86ajpf3bc", "86ajpf3bb", "86ajpf3at", "86ajpf3ar", "86ajpf3an", "86ajpf3ad", "86ajpf3a0", "86ajm2x91", "86ajm2k2n", "86ajkcpx3", "86ajd81zd", "86aj9zwd7", "86aj9zwd6", "86aj9zwd5", "86aj9zwd4", "86aj9zwcv", "86aj9b117", "86aj9b115", "86aj9b114", "86aj9b110", "86aj9b10x", "86aj9b10r", "86aj9b10p", "86aj8mqcc", "86aj1zeyy", "86ahux249", "86ahux21h", "86ahux1wr", "86ahux1eh", "86ahux18f", "86ahux136", "86ahux0y1", "86ahux0a7", "86ahux07k", "86ahux06k", "86ahqtaz3", "86ahkwgx2", "86ahkwgp2", "86acqfazq", "86acqfajk", "86acqexek", "86acqexd8", "86acqexa1", "86acqex2t", "86ab8cwc2"], "a_fazer": ["86ajy0wh5", "86ajx0e55", "86ajq5cnv", "86ajpf3b2", "86ajmc6pp", "86ajm2x86", "86ajkcn9r", "86ajk86vb", "86ajha8wc", "86ajevvb0", "86ajb6jt4", "86aj1wmt3", "86ahux0rm", "86ahux0pk", "86ahrpy16", "86ahrpwnp", "86ahrk5cq", "86agxm8jn", "86agw6x1q", "86agvww3e", "86acft8xf", "86acft8n6"], "em_progresso": ["86ajx07nq", "86ajwje45", "86ajwj3vu", "86ajwhxmf", "86ajm2mac", "86ahumzfn", "86ahumzeg", "86ahumzcj", "86ahh7wbq", "86ah2524a", "86ac5dqqt"], "em_revisao": ["86ajpf3b5", "86ajd8qq3", "86ajd8prv", "86aj8mq9n", "86ahzvr1y"]}, "overdue": ["86ajx0e55", "86ajv4jjy", "86ajv3dyq", "86ajv3db8", "86ajv3c28", "86ajv3bh4", "86ajv3ad6", "86ajv39y7", "86ajv36vp", "86ajv2z9z", "86ajv2yq3", "86ajv2ryf", "86ajv2rm7", "86ajv2qgk", "86ajv2m40", "86ajv2h95", "86ajv2geu", "86ajv2fjx", "86ajuymct", "86ajuxmaq", "86ajuk0ha", "86ajq5cnv", "86ajpf3ft", "86ajpf3fr", "86ajpf3fh", "86ajpf3f5", "86ajpf3f1", "86ajpf3ey", "86ajpf3eq", "86ajpf3e9", "86ajpf3b5", "86ajpf3b2", "86ajpf3at", "86ajpf3ar", "86ajpf3an", "86ajpf3ad", "86ajpf3a0", "86ajmc6pp", "86ajm2x91", "86ajm2mac", "86ajkcpx3", "86ajkcn9r", "86ajk86vb", "86ajha8wc", "86ajevvb0", "86ajd8qq3", "86ajd8prv", "86ajd81zd", "86ajb6jt4", "86aj9zwd5", "86aj9zwcv", "86aj9b10x", "86aj9b10r", "86aj9b10p", "86aj1zeyy", "86ahux249", "86ahux21h", "86ahux1wr", "86ahux1eh", "86ahux18f", "86ahux136", "86ahux0y1", "86ahux0rm", "86ahux0pk", "86ahux0a7", "86ahux07k", "86ahux06k", "86ahrpy16", "86ahrpwnp", "86ahh7wbq", "86ah2524a", "86agxm8jn", "86acft8xf", "86acft8n6", "86ac5dqqt", "86ab8cwc2"], "due_today": ["86ajy0wh5", "86ahkwgp2"], "due_7d": ["86ajy0wh5", "86ajx07nq", "86ajwj3vu", "86ajwhxmf", "86ajv31ah", "86ajqu06n", "86ajpf3g0", "86ajpf3fv", "86ajpf3be", "86ajm2x86", "86ajm2k2n", "86aj9zwd7", "86aj9zwd6", "86aj9zwd4", "86aj9b117", "86aj9b115", "86aj9b114", "86aj9b110", "86aj8mqcc", "86aj8mq9n", "86aj1wmt3", "86ahzvr1y", "86ahrk5cq", "86ahqtaz3", "86ahkwgp2", "86agvww3e", "86acqfazq", "86acqfajk", "86acqexd8", "86acqexa1", "86acqex2t"], "no_date": ["86acqexek"]}, "Matheus de Assis": {"total": 46, "buckets": {"backlog": ["86ajwmyfv", "86aju0zkr", "86aju0zjx", "86aju0zju", "86aju0wvn", "86aju0wuk", "86aju0wud", "86aju0qb9", "86aju0q9r", "86aju0q9m", "86ajtz5mr", "86ajqu070", "86ajqu06t", "86ajqu06d", "86ajqu06a", "86ajqu061", "86ajqu05x", "86ajqu05t", "86ajqu04z", "86ajqu04r", "86ajqtzwh", "86ajpf3fn", "86ajpf3fc", "86ajpf3fa", "86ajpf3b6", "86ajpf3ax", "86ajpf3av", "86ahxbtu1", "86ahewac0", "86ahe270x", "86ah6rb20", "86agx4vhy", "86agvy23b", "86agvy1y4", "86agvy11d", "86agvxy3d", "86agk0j6c", "86agb6v9q", "86ag24c8q", "86afz5591", "86afz483c", "86ad3kbrx", "86aakj6ju"], "a_fazer": ["86ajvyfcb", "86ajvyagq", "86ajbu4n3"], "em_progresso": [], "em_revisao": []}, "overdue": ["86ajwmyfv", "86ajvyfcb", "86ajvyagq", "86ajtz5mr", "86ajqu061", "86ajqu05x", "86ajqu05t", "86ajqu04z", "86ajqu04r", "86ajpf3fn", "86ajpf3fc", "86ajpf3fa", "86ajbu4n3"], "due_today": [], "due_7d": ["86ajqu06d", "86ajqu06a", "86ajpf3ax"], "no_date": ["86aju0zkr", "86aju0zjx", "86aju0zju", "86aju0wvn", "86aju0wuk", "86aju0wud", "86aju0qb9", "86aju0q9r", "86aju0q9m", "86ajpf3b6", "86ajpf3av", "86ahxbtu1", "86ahewac0", "86ahe270x", "86ah6rb20", "86agx4vhy", "86agvy23b", "86agvy1y4", "86agvy11d", "86agvxy3d", "86agk0j6c", "86agb6v9q", "86ag24c8q", "86afz5591", "86afz483c", "86ad3kbrx", "86aakj6ju"]}, "Andre Tenorio": {"total": 137, "buckets": {"backlog": ["86aju0zmk", "86aju0zmj", "86aju0zmg", "86aju0zm8", "86aju0zm5", "86aju0zm4", "86aju0zky", "86aju0zk3", "86aju0zjv", "86aju0zjq", "86aju0zjd", "86aju0zj6", "86aju0zj3", "86aju0zhv", "86aju0zhn", "86aju0zhe", "86aju0wwk", "86aju0wwf", "86aju0wwb", "86aju0ww5", "86aju0wvy", "86aju0wvx", "86aju0wvp", "86aju0wuu", "86aju0wuj", "86aju0wuc", "86aju0wtu", "86aju0wtj", "86aju0wtd", "86aju0wt7", "86aju0wrq", "86aju0wrg", "86aju0wr0", "86aju0qd3", "86aju0qcu", "86aju0qcn", "86aju0qc6", "86aju0qbx", "86aju0qbr", "86aju0qbb", "86aju0qa9", "86aju0q9p", "86aju0q9k", "86aju0q89", "86ajrpnah", "86ajrpmxr", "86ajrpmqu", "86ajrpmnj", "86ajrazq3", "86ajrazpk", "86aja6quh", "86aj7p50q", "86aj7p50m", "86aj7p50b"], "a_fazer": ["86ajxr388", "86ajxr1jf", "86ajxqgex", "86ajx4vxr", "86ajx4gq3", "86ajx4g8u", "86ajx4f6r", "86ajwqp08", "86ajwqnbx", "86ajwqhb9", "86ajwqh0h", "86ajwq2t8", "86ajwq2bd", "86ajwpz6r", "86ajwpxwy", "86ajwpxw0", "86ajwpxue", "86ajwpxtv", "86ajwpxtb", "86ajwpxra", "86ajwpxqt", "86ajwpxpm", "86ajwpxnp", "86ajwpxmf", "86ajwpxkw", "86ajwpxkb", "86ajwpxj9", "86ajwpxhe", "86ajwpxg4", "86ajwpxey", "86ajwpxec", "86ajwpxdb", "86ajwpxbc", "86ajwpx9u", "86ajwpx05", "86ajwpwxj", "86ajwpwvt", "86ajwpwup", "86ajwpwnq", "86ajwpwmw", "86ajwn7fg", "86ajwcn5q", "86ajwce84", "86ajrpnkw", "86ajrpngc", "86ajrpn7q", "86ajrpn68", "86ajrpmzk", "86ajrpmun", "86ajr8wd2", "86ajqqef6", "86ajkfxwz", "86ajkfxwy", "86ajkfv3g", "86ajkfv3b", "86ajenqz3", "86aj5uzfj", "86aj5uzcg", "86aj336xk", "86aj14wz7", "86aj14u6m", "86ahycmtf", "86ahv9yzv", "86ahrtkue"], "em_progresso": ["86ajx4d93", "86aju0zhb", "86aju0zh7", "86aju0zh1", "86aju0zh0", "86aju0zgz", "86aju0zgy", "86aju0wqw", "86aju0wqt", "86aju0wqg", "86aju0wqe", "86aju0wqd", "86aju0wqc", "86ajraz24", "86ajkfv2n", "86aj1z0wf"], "em_revisao": ["86aju0q7k", "86ahzh041", "86agty2re"]}, "overdue": ["86ajx4d93", "86aju0zhn", "86aju0zhe", "86aju0zhb", "86aju0zh7", "86aju0zh1", "86aju0zh0", "86aju0zgz", "86aju0zgy", "86aju0wrg", "86aju0wr0", "86aju0wqw", "86aju0wqt", "86aju0wqg", "86aju0wqe", "86aju0wqd", "86aju0wqc", "86aju0q89", "86aju0q7k", "86ajrpnkw", "86ajrpngc", "86ajrpnah", "86ajrpn7q", "86ajrpn68", "86ajrpmzk", "86ajrpmxr", "86ajrpmun", "86ajrpmqu", "86ajrpmnj", "86ajrazq3", "86ajrazpk", "86ajraz24", "86aja6quh", "86aj5uzcg", "86aj336xk", "86aj1z0wf", "86ahzh041", "86ahv9yzv"], "due_today": [], "due_7d": ["86ajxr388", "86ajxqgex", "86ajx4vxr", "86ajx4gq3", "86ajx4g8u", "86ajx4f6r", "86ajwqp08", "86ajwqnbx", "86ajwqhb9", "86ajwqh0h", "86ajwq2bd", "86ajwpz6r", "86ajwpxw0", "86ajwpxg4", "86ajwpxey", "86ajwpxec", "86ajwpxdb", "86ajwpwmw", "86ajwn7fg", "86aju0zjd", "86aju0zj6", "86aju0zj3", "86aju0zhv", "86aju0wtu", "86aju0wtj", "86aju0wtd", "86aju0wt7", "86aju0wrq", "86ajr8wd2", "86ajqqef6", "86ajkfxwz", "86ajkfxwy", "86ajkfv3g", "86ajkfv3b", "86ajkfv2n", "86aj7p50m", "86aj7p50b", "86ahycmtf", "86ahrtkue", "86agty2re"], "no_date": ["86aju0zmk", "86aju0zmj", "86aju0zmg", "86aju0zm8", "86aju0zm5", "86aju0zm4", "86aju0zky", "86aju0zk3", "86aju0zjv", "86aju0zjq", "86aju0wwk", "86aju0wwf", "86aju0wwb", "86aju0ww5", "86aju0wvy", "86aju0wvx", "86aju0wvp", "86aju0wuu", "86aju0wuj", "86aju0wuc", "86aju0qd3", "86aju0qcu", "86aju0qcn", "86aju0qc6", "86aju0qbx", "86aju0qbr", "86aju0qbb", "86aju0qa9", "86aju0q9p", "86aju0q9k", "86aj14wz7", "86aj14u6m"]}};
+
+const nameMap = {
+  "Mário Marques": "Mario Marques",
+  "Andre Tenorio": "Andre Tenorio",
+  "Matheus Martins": "Matheus Martins",
+  "Victor Hugo Zampieri": "Victor Hugo Zampieri",
+  "Bárbara Luiza": "Barbara Luiza",
+  "Eduardo Moura": "Eduardo Moura",
+  "Marcela Costa": "Marcela Costa",
+  "Luiz Felipe Dhein": "Luiz Felipe",
+  "Rhuan Rodrigues": "Rhuan Rodrigues",
+  "Vinícius Bertti": "Vinicius Bertti",
+  "Matheus de Assis": "Matheus de Assis",
+};
+
+let currentPerson = null;
+
+function openPersonModal(displayName) {
+  currentPerson = displayName;
+  renderStatGrid();
+  document.getElementById('modalBackdrop').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalBackdrop').classList.remove('open');
+}
+
+function renderStatGrid() {
+  const key = nameMap[currentPerson] || currentPerson;
+  const r = personDetail[key];
+  const panel = document.getElementById('modalPanel');
+  if (!r) {
+    panel.innerHTML = `<div class="modal-header"><div><h2>${currentPerson}</h2></div><button class="modal-close" onclick="closeModal()">&times;</button></div><p style="font-size:13px;color:var(--ink-soft)">Sem dados coletados pra essa pessoa.</p>`;
+    return;
+  }
+
+  const cards = [
+    {label:'🔴 Em Atraso', n:r.overdue.length, key:'overdue', crit:true},
+    {label:'⚠️ Vence Hoje', n:r.due_today.length, key:'due_today'},
+    {label:'Vence nos próximos 7D', n:r.due_7d.length, key:'due_7d'},
+    {label:'✅ Finalizados Ontem', n:null, key:null},
+    {label:'Tarefas sem data', n:r.no_date.length, key:'no_date'},
+    {label:'✅ Finalizados Hoje', n:null, key:null},
+  ];
+
+  const cardsHtml = cards.map(c => {
+    if (c.n === null) {
+      return `<button class="stat-card-click disabled" disabled><span class="sc-label">${c.label}</span><span class="sc-n dash">não sincronizado</span></button>`;
+    }
+    return `<button class="stat-card-click ${c.crit ? 'crit-n' : ''}" onclick="renderTaskList('${c.key}', '${c.label}')"><span class="sc-label">${c.label}</span><span class="sc-n">${c.n}</span></button>`;
+  }).join('');
+
+  const bucketDefs = [
+    {key:'backlog', label:'Backlog', color:'var(--backlog)'},
+    {key:'a_fazer', label:'A Fazer', color:'var(--a-fazer)'},
+    {key:'em_progresso', label:'Em Progresso', color:'var(--progresso)'},
+    {key:'em_revisao', label:'Em Revisão', color:'var(--revisao)'},
+  ];
+  const maxB = Math.max(1, ...bucketDefs.map(b => r.buckets[b.key].length));
+  const barsHtml = bucketDefs.map(b => {
+    const n = r.buckets[b.key].length;
+    const h = n > 0 ? Math.max((n / maxB) * 100, 4) : 0;
+    return `<div class="modal-bar-col" onclick="renderTaskList('bucket:${b.key}','${b.label}')">
+      <div class="modal-bar-n">${n}</div>
+      <div class="modal-bar" style="height:${h}%; background:${b.color}"></div>
+      <div class="modal-bar-label">${b.label}</div>
+    </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="modal-header">
+      <div><h2>${currentPerson}</h2><div class="sub">${r.total} tasks abertas no total</div></div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="stat-grid-modal">${cardsHtml}</div>
+    <p class="modal-chart-title">Carga de trabalho por status &middot; clique numa barra pra ver as tasks</p>
+    <div class="modal-bars">${barsHtml}</div>
+  `;
+}
+
+function renderTaskList(key, label) {
+  const rKey = nameMap[currentPerson] || currentPerson;
+  const r = personDetail[rKey];
+  let ids;
+  if (key.indexOf('bucket:') === 0) {
+    ids = r.buckets[key.split(':')[1]];
+  } else {
+    ids = r[key];
+  }
+  const panel = document.getElementById('modalPanel');
+  const rows = ids.length
+    ? ids.map(id => `<a class="task-row-link" href="https://app.clickup.com/t/${id}" target="_blank" rel="noopener"><span class="tid">${id}</span><span class="ext">abrir no ClickUp &#8599;</span></a>`).join('')
+    : `<div class="task-list-empty">Nenhuma task nessa categoria.</div>`;
+  panel.innerHTML = `
+    <div class="modal-header">
+      <div><h2>${currentPerson}</h2><div class="sub">${label}</div></div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <button class="task-list-back" onclick="renderStatGrid()">&larr; voltar ao resumo</button>
+    <div class="task-list-title">${ids.length} task(s) &mdash; sem título salvo localmente aqui, o link abre a task real no ClickUp</div>
+    <div class="task-list">${rows}</div>
+  `;
+}
+
+document.getElementById('modalBackdrop').addEventListener('click', (e) => {
+  if (e.target.id === 'modalBackdrop') closeModal();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+</script>
+</body>
+</html>
