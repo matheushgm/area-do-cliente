@@ -317,55 +317,70 @@ Diretrizes obrigatórias:
 const NO_CONTEXT = '__none__'
 
 const VIDEO_SYSTEM_PARTS = {
-  metodologia: `Você é um especialista em roteiros de vídeos de anúncios online de alta conversão, usando a estrutura do Laboratório de Anúncios (Revenue Lab).
+  metodologia: `Você é um especialista em roteiros de vídeos de anúncios online de alta conversão, combinando o Laboratório de Anúncios (Revenue Lab) com o modelo de anúncio-ensaio: um raciocínio que termina em convite, não uma sequência de blocos de venda.
 
 Os vídeos têm duração entre 30 e 60 segundos e são criados para Meta Ads (Reels/Feed) e YouTube Ads.
 
 ## ANTES DE ESCREVER (raciocínio interno — NÃO exiba)
 
-A partir do contexto do cliente, levante mentalmente: 8 problemas comuns, 8 sonhos, 8 objeções, 8 situações constrangedoras e 8 perguntas que esse público-alvo se faz. Use isso para escrever, mas NUNCA exiba essas listas.
+A partir do contexto do cliente, levante mentalmente: 8 problemas comuns, 8 sonhos, 8 objeções, 8 situações constrangedoras e 8 perguntas que esse público-alvo se faz. Identifique também uma verdade ou observação sobre o mundo desse público que ainda não foi dita para ele, o tipo de abertura que não soa a anúncio. Use tudo isso para escrever, mas NUNCA exiba essas listas.
 
-## A ESTRUTURA DO LABORATÓRIO DE ANÚNCIOS (4 etapas)
+## A ESTRUTURA DO ANÚNCIO-ENSAIO (5 movimentos)
 
-**A) Gancho.** Momento mais importante: chama atenção, quebra o padrão, é contra-intuitivo e gera curiosidade. Nos 3 PRIMEIROS SEGUNDOS a pessoa precisa se conectar. O gancho é sempre uma promessa, oferta, mudança de vida ou benefício; o tipo pedido define a FORMA de comunicá-lo.
+**1) Gancho.** Gera emoção através de um problema, uma promessa ou um fato, sempre usando o recurso literário do ÂNGULO pedido (ver abaixo). Nos 3 PRIMEIROS SEGUNDOS a pessoa precisa se conectar. O gancho fala do mundo do público, nunca do produto.
 
-**Estrutura invisível** — a mensagem sustenta o que o gancho prometeu:
-- Gancho de promessa: dê garantia, sustente com prova e elimine o "funciona pra ele, não pra mim".
-- Gancho de oferta: mostre benefícios e diferenciais, prove que outros conseguiram e derrube a barreira com garantia.
+**2) Desenvolvimento.** Depois de prender a atenção, prove que o gancho é verdadeiro: dado, exemplo concreto, cena que o público reconhece. É aqui que a quebra de objeção acontece, implícita, nunca como bloco isolado — tira do ar o "funciona pra ele, não pra mim".
 
-**B) Mensagem.** Transformação do Ponto A ao Ponto B relacionando 4 variáveis: sonhos e desejos; percepção de dificuldade de alcançar; tempo para alcançar; e o mínimo de sacrifício.
+**3) Tese — a parte mais importante do roteiro.** É o que defendemos, o pilar do anúncio. Eleve o gancho e o desenvolvimento a um princípio, uma posição clara sobre como resolver aquele problema ou alcançar aquele resultado. Sem uma tese forte, o resto do roteiro vira só uma sequência de frases bonitas.
 
-**C) Quebra de objeções.** Implícita e INTEGRADA à mensagem, nunca um bloco separado.
+**4) Ponte.** Conecta a tese ao que a empresa oferece: o método, o produto ou serviço, o diferencial. É a única parte onde o produto pode aparecer nomeado — a transição da ideia defendida para a oferta, nunca um corte abrupto.
 
-**D) Chamada para ação.** Reforça a promessa e dá um motivo específico para agir agora (escassez ou urgência).`,
+**5) CTA.** Chamada para a transformação: reforça o que foi prometido no gancho e dá a ação exata que a pessoa deve tomar. Convite, não empurrão — o pedido vem depois de o raciocínio já ter convencido.
+
+## O ÂNGULO
+
+O ângulo é a segunda coisa mais importante do roteiro, depois da tese. Cada roteiro tem um ângulo definido pelo tipo pedido na solicitação, seja um gancho clássico (Prova, Contraste, História...) ou uma figura de linguagem (Antítese, Paradoxo, Aforismo...). O ângulo comanda a FORMA do gancho, como a emoção é despertada; a tese, a ponte e o CTA seguem o funil e a oferta informados na solicitação.`,
 
   estrutura: (nivelId) => `
 ${nivelBlock(nivelId, 'video')}
 
 ## FORMATO OBRIGATÓRIO DE CADA ROTEIRO
 
-## ROTEIRO [N]: Gancho: [Tipo] | Nível: ${NIVEIS_BY_ID[nivelId]?.label || ''}
+## ROTEIRO [N]: Tese: [nome curto da tese] | Ângulo: [Tipo] | Nível: ${NIVEIS_BY_ID[nivelId]?.label || ''}
 
-**GANCHO (0s – 3s):**
-[frase exata: disruptiva, contra-intuitiva, que para o scroll]
+**GANCHO (0s – 5s):**
+[frase exata que gera emoção via problema, promessa ou fato, usando o recurso literário do ângulo. Fala do mundo do público, não do produto]
 
-**MENSAGEM (3s – 45s):**
-[narração levando do Ponto A ao Ponto B, com a quebra de objeção integrada naturalmente]
+**DESENVOLVIMENTO (5s – 20s):**
+[dado ou exemplo concreto que comprova o gancho; quebra de objeção integrada]
 
-**CTA FINAL (45s – 60s)**
-[reforça promessa + gatilho de escassez/urgência + ação clara]
+**TESE (20s – 35s):**
+[a posição que defendemos, o princípio elevado a partir do gancho e do desenvolvimento — o pilar do roteiro]
+
+**PONTE (35s – 50s):**
+[conecta a tese ao que a empresa oferece: método, produto ou diferencial]
+
+**CTA (50s – 60s):**
+[reforça a promessa do gancho + a ação exata que a pessoa deve tomar]
 
 **📝 LEGENDA DO POST:** [legenda com emojis]
 
 ---`,
 
   diretrizes: `Regras críticas:
-- Gere EXATAMENTE a quantidade de roteiros pedida por tipo de gancho na solicitação — nem mais, nem menos
+- A TESE é o pilar do roteiro — não pule do gancho direto pra oferta sem defender uma posição clara
+- No cabeçalho do roteiro, o campo Tese é um nome curto (até 8 palavras) que resume a posição defendida no bloco TESE — não repita a frase inteira, é uma etiqueta pra identificar o que aquele criativo defende. Ex.: "Quem decide antes da crise decide melhor"
+- O GANCHO usa sempre o recurso literário do ângulo pedido e fala do mundo do público, nunca do produto
+- A quebra de objeções acontece dentro do DESENVOLVIMENTO, nunca como bloco separado
+- A PONTE é a única parte onde o produto ou serviço pode aparecer nomeado
+- O CTA é um convite que reforça a promessa do gancho, não um empurrão — evite gatilho de escassez ou urgência artificial quando não fizer parte real da oferta
+- Fale a língua do negócio, nunca jargão técnico que esse público não usa no dia a dia
+- Gere EXATAMENTE a quantidade de roteiros pedida por ângulo na solicitação — nem mais, nem menos
 - Todos os roteiros são escritos no MESMO nível de consciência (o informado no system prompt)
-- Quando houver mais de um roteiro para o mesmo tipo de gancho, cada um abre com um ângulo de entrada diferente — nunca variações da mesma frase
-- Numere os roteiros sequencialmente (ROTEIRO 1, ROTEIRO 2, ...) percorrendo os tipos na ordem da solicitação
+- Quando houver mais de um roteiro para o mesmo ângulo, cada um abre com uma cena ou observação diferente — nunca variações da mesma frase
+- Numere os roteiros sequencialmente (ROTEIRO 1, ROTEIRO 2, ...) percorrendo os ângulos na ordem da solicitação
 - Não exiba a análise de público-alvo — vá direto aos roteiros
-- Português brasileiro conversacional e energético
+- Português brasileiro conversacional e específico ao negócio — evite palavras que a IA usa mas humanos não usam
 - Não use travessões (—) em nenhuma parte do output
 - Não inclua sugestões de cena ou visual em nenhuma parte do roteiro
 - Não use emojis no roteiro — use emojis apenas na LEGENDA DO POST
@@ -879,7 +894,7 @@ Nível ${n.num} — ${n.label}. Escreva todas as peças abaixo nesse nível, sem
 
     if (isVideo) {
       const typesStr = selectedList
-        .map((t, i) => `${t.emoji} ${t.label} — ${videoSplit[i]} roteiro${videoSplit[i] !== 1 ? 's' : ''}. Ângulo: ${t.desc}`)
+        .map((t, i) => `${t.emoji} ${t.label} — ${videoSplit[i]} roteiro${videoSplit[i] !== 1 ? 's' : ''}. Como usar: ${t.desc}`)
         .join('\n')
       const campeaoStr = variacaoRef
         ? `## ANÚNCIO CAMPEÃO (REFERÊNCIA DE MENSAGEM — prioridade máxima)
@@ -901,7 +916,7 @@ Os roteiros desta geração são VARIAÇÕES dessa mensagem campeã:
 
 ## SOLICITAÇÃO
 
-${nivelStr}${funilStr}${detStr}${campeaoStr}Tipos de gancho a gerar, com a quantidade exata de cada um:
+${nivelStr}${funilStr}${detStr}${campeaoStr}Ângulos a gerar, com a quantidade exata de cada um:
 ${typesStr}
 
 Total: ${totalQuantity} roteiros.`
@@ -1788,7 +1803,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
             </div>
           )}
 
-          {/* ── Tipos de gancho / dores + quantidade ─────────────────────────── */}
+          {/* ── Ângulos (gancho/figuras) / dores + quantidade ────────────────── */}
           {wizardStep === 'tipo' && (
             <div className="space-y-4">
               {/* Quantidade de criativos */}
@@ -1849,10 +1864,10 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <label className="label-field">
-                      Tipos de gancho
+                      Ângulo (gancho / figura de linguagem)
                       {selectedList.length > 0 && (
                         <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-purple/20 text-rl-purple border border-rl-purple/30">
-                          {selectedList.length} tipo{selectedList.length !== 1 ? 's' : ''} · {totalQuantity}{' '}
+                          {selectedList.length} ângulo{selectedList.length !== 1 ? 's' : ''} · {totalQuantity}{' '}
                           roteiro{totalQuantity !== 1 ? 's' : ''}
                         </span>
                       )}
@@ -2131,7 +2146,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 text-[11px] text-rl-muted space-y-0.5">
                 <p><span className="text-rl-text font-semibold">Funil:</span> {FUNIS_BY_ID[selectedFunil]?.label || '—'}</p>
                 <p><span className="text-rl-text font-semibold">Nível de consciência:</span> {nivel ? `Nível ${NIVEIS_BY_ID[nivel].num} — ${NIVEIS_BY_ID[nivel].label}` : '—'}</p>
-                <p><span className="text-rl-text font-semibold">Total:</span> {isVideo ? totalQuantity : staticTotalQty} {isVideo ? 'roteiros' : 'headlines'} em {blocosAtuais} {isVideo ? 'tipo(s)' : 'combinação(ões)'}</p>
+                <p><span className="text-rl-text font-semibold">Total:</span> {isVideo ? totalQuantity : staticTotalQty} {isVideo ? 'roteiros' : 'headlines'} em {blocosAtuais} {isVideo ? 'ângulo(s)' : 'combinação(ões)'}</p>
               </div>
 
               {/* Solicitação — accordion */}
@@ -2343,7 +2358,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                 : wizardStep === 'nivel' && !nivel
                   ? 'Escolha o nível'
                   : wizardStep === 'tipo' && blocosAtuais === 0
-                    ? `Selecione ao menos ${isVideo ? 'um tipo' : 'uma dor'}`
+                    ? `Selecione ao menos ${isVideo ? 'um ângulo' : 'uma dor'}`
                     : 'Continuar'}
               <ArrowRight className="w-4 h-4" />
             </button>
