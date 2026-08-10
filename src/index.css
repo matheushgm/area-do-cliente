@@ -184,3 +184,18 @@
 .burst {
   animation: burst 0.5s ease-out forwards;
 }
+
+/* Wizard: fade da próxima pergunta ao avançar/voltar passo */
+@keyframes fade-in-question {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-in-question {
+  animation: fade-in-question 0.35s ease-out;
+}
