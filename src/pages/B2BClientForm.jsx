@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
   Loader2, AlertTriangle, Check, X, Edit2, Plus,
   CheckCircle2, CalendarDays, ChevronLeft, ChevronRight,
@@ -97,6 +97,7 @@ function MonthNav({ year, month, setYear, setMonth }) {
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function B2BClientForm() {
   const { token } = useParams()
+  const navigate  = useNavigate()
   const today     = new Date()
 
   const [loading, setLoading]         = useState(true)
@@ -116,6 +117,13 @@ export default function B2BClientForm() {
         const res  = await fetch(`/api/b2b-results?token=${encodeURIComponent(token)}`)
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Erro ao carregar.')
+        // Mesma proteção do form B2C: se o modelo do funil mudou para B2C
+        // depois que o link foi compartilhado, redireciona para o form certo
+        // em vez de salvar num lugar que a Área do Cliente não exibe.
+        if (data.resultados?.modelo === 'b2c') {
+          navigate(`/b2c/${token}`, { replace: true })
+          return
+        }
         setCompanyName(data.companyName || '')
         setResultados(data.resultados  || {})
       } catch (e) {

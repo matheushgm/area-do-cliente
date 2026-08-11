@@ -1,6 +1,7 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { BarChart3, Filter } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { supabase } from '../lib/supabase'
 import { useDashboardData } from '../hooks/useDashboardData'
 import ModelSelector from './Resultados/ModelSelector'
 import B2BView from './Resultados/B2BResultados'
@@ -17,6 +18,30 @@ export default function ResultadosModule({ project }) {
 
   const resultados = project.resultados || {}
   const modelo = resultados.modelo
+
+  // `resultados` é tabela filha: não tem realtime e só é buscada uma vez no
+  // login (ver CLAUDE.md). Se o cliente preenche pelo link público /b2b ou
+  // /b2c depois disso, esta sessão fica com o dado velho até um F5. Busca a
+  // versão mais recente direto do Supabase sempre que o módulo é aberto, para
+  // não parecer que o preenchimento do cliente "sumiu".
+  const syncedProjectRef = useRef(null)
+  useEffect(() => {
+    if (!supabase || syncedProjectRef.current === project.id) return
+    syncedProjectRef.current = project.id
+    supabase
+      .from('resultados')
+      .select('data')
+      .eq('project_id', project.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error || !data) return
+        const fresh = data.data || {}
+        if (JSON.stringify(fresh) !== JSON.stringify(resultados)) {
+          updateProject(project.id, { resultados: fresh })
+        }
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id])
 
   const handleUpdate = (updated) => {
     updateProject(project.id, { resultados: updated })

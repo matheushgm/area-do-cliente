@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
   Loader2, AlertTriangle, Check, X, Edit2, Plus,
   CheckCircle2, CalendarDays,
@@ -207,6 +207,7 @@ function MonthNav({ year, month, setYear, setMonth }) {
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function B2CClientForm() {
   const { token } = useParams()
+  const navigate  = useNavigate()
   const today     = new Date()
 
   const [loading, setLoading]   = useState(true)
@@ -229,6 +230,15 @@ export default function B2CClientForm() {
         const res  = await fetch(`/api/b2c-results?token=${encodeURIComponent(token)}`)
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Erro ao carregar.')
+        // O link pode ter sido gerado antes de o gestor trocar o modelo do
+        // funil (Trocar Modelo). Se o projeto hoje é B2B, o preenchimento
+        // aqui ficaria salvo na chave `b2c`, invisível na Área do Cliente —
+        // redireciona para o form certo em vez de deixar o cliente preencher
+        // no lugar errado.
+        if (data.resultados?.modelo === 'b2b') {
+          navigate(`/b2b/${token}`, { replace: true })
+          return
+        }
         setCompanyName(data.companyName || '')
         setProjectId(data.projectId    || null)
         setResultados(data.resultados  || {})
