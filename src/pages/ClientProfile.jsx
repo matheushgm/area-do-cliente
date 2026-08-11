@@ -1662,7 +1662,7 @@ export default function ClientProfile({ project: projectProp }) {
                     project.clickupListUrl && {
                       key: 'clickup', label: 'ClickUp', href: project.clickupListUrl,
                       Icon: Kanban, pill: 'bg-purple-500/10 border-purple-500/30 text-purple-400',
-                      onRemove: () => updateProject(project.id, { clickup_folder_id: null, clickup_list_id: null, clickup_list_url: null }),
+                      onRemove: () => updateProject(project.id, { clickup_folder_id: null, clickup_list_id: null, clickup_list_url: null, clickup_chat_channel_id: null }),
                     },
                     lnk.instagram && {
                       key: 'instagram', label: 'Instagram', href: lnk.instagram.startsWith('http') ? lnk.instagram : `https://${lnk.instagram}`,

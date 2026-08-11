@@ -13,6 +13,7 @@
 export const config = { runtime: 'edge' }
 
 const CLICKUP_BASE       = 'https://api.clickup.com/api/v2'
+const CLICKUP_BASE_V3    = 'https://api.clickup.com/api/v3'
 const DEFAULT_TEAM       = '9009170774'
 const DEFAULT_SPACE      = '90090377342' // "Clientes"
 const DEFAULT_TEMPLATE   = 't-901312370990' // ONBOARDING (LISTA GERAL)
@@ -73,6 +74,28 @@ function jsonOk(data) {
 // Helper para chamar ClickUp API com tratamento de erro padronizado.
 async function clickup(method, path, token, body) {
   const res = await fetch(`${CLICKUP_BASE}${path}`, {
+    method,
+    headers: {
+      Authorization: token,
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  const text = await res.text()
+  let json
+  try { json = text ? JSON.parse(text) : null } catch { json = null }
+  if (!res.ok) {
+    const err = new Error(`ClickUp ${method} ${path} falhou: ${res.status}`)
+    err.status = res.status
+    err.body   = json || text
+    throw err
+  }
+  return json
+}
+
+// Mesmo helper, mas para a API v3 (Chat) — base URL diferente, mesmo token pessoal.
+async function clickupV3(method, path, token, body) {
+  const res = await fetch(`${CLICKUP_BASE_V3}${path}`, {
     method,
     headers: {
       Authorization: token,
@@ -172,6 +195,8 @@ export default async function handler(req) {
   // Data de referência: usa a data fornecida ou hoje.
   const refMillis = parseStartMillis(startDateISO) ?? Date.now()
 
+  const teamId = process.env.CLICKUP_TEAM_ID || DEFAULT_TEAM
+
   try {
     // 1) Criar pasta no espaço "Clientes" com o nome da empresa
     const folder = await clickup('POST', `/space/${spaceId}/folder`, token, {
@@ -180,6 +205,20 @@ export default async function handler(req) {
     if (!folder?.id) {
       return jsonErr('ClickUp não retornou folder válido.', 502, { folder })
     }
+
+    // 1.5) Criar (ou reaproveitar) o canal de chat do cliente, com o mesmo
+    //      nome da pasta — é o canal de comunicação do cliente no ClickUp.
+    //      Roda em paralelo com a criação da lista (não bloqueia). Fail-soft:
+    //      se falhar, o resto do fluxo segue normalmente (folder/list já
+    //      criados são o que importa). O endpoint da Chat API é idempotente
+    //      por nome: se já existir um canal com esse nome, ele é reaproveitado.
+    const chatChannelPromise = clickupV3('POST', `/workspaces/${teamId}/chat/channels`, token, {
+      name: companyName,
+      visibility: 'PUBLIC',
+    }).catch((e) => {
+      console.warn('[ClickUp] falha ao criar canal de chat:', e?.message, e?.body)
+      return null
+    })
 
     // 2) Criar lista a partir do template. return_immediately:false força o
     //    ClickUp a aguardar a popularização completa antes de responder, o
@@ -258,13 +297,17 @@ export default async function handler(req) {
     updatedCount = updates.filter((u) => u.status === 'fulfilled' && u.value).length
 
     // 6) URL pública da lista pra deep-link no ClientProfile.
-    const teamId  = process.env.CLICKUP_TEAM_ID || DEFAULT_TEAM
     const listUrl = `https://app.clickup.com/${teamId}/v/li/${listId}`
+
+    // 7) Aguarda o canal de chat (já rodando em paralelo desde o passo 1.5).
+    const chatChannel = await chatChannelPromise
+    const chatChannelId = chatChannel?.data?.id || chatChannel?.id || null
 
     return jsonOk({
       folderId: String(folder.id),
       listId:   String(listId),
       listUrl,
+      chatChannelId: chatChannelId ? String(chatChannelId) : null,
       tasksUpdated: updatedCount,
       tasksFound:   tasks.length,
     })

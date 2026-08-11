@@ -10,7 +10,7 @@ import { supabase } from './supabase'
  * @param {string|null} [params.startDateISO] - yyyy-mm-dd; default = hoje
  * @param {number[]} [params.assigneeIds]    - IDs ClickUp dos membros do squad (fallback)
  * @param {Object<string, number>} [params.departmentToClickupId] - { 'Departamento': clickup_user_id }
- * @returns {Promise<{ ok: boolean, folderId?: string, listId?: string, listUrl?: string, error?: string }>}
+ * @returns {Promise<{ ok: boolean, folderId?: string, listId?: string, listUrl?: string, chatChannelId?: string, error?: string }>}
  */
 export async function createClickUpClientFolder({ companyName, startDateISO, assigneeIds, departmentToClickupId }) {
   if (!supabase) return { ok: false, error: 'Supabase não configurado.' }
@@ -48,6 +48,7 @@ export async function createClickUpClientFolder({ companyName, startDateISO, ass
       folderId: data.folderId,
       listId:   data.listId,
       listUrl:  data.listUrl,
+      chatChannelId: data.chatChannelId || null,
       tasksUpdated: data.tasksUpdated,
       tasksFound:   data.tasksFound,
     }

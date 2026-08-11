@@ -482,6 +482,7 @@ export default function NewOnboarding() {
               clickup_folder_id: res.folderId,
               clickup_list_id:   res.listId,
               clickup_list_url:  res.listUrl,
+              clickup_chat_channel_id: res.chatChannelId,
             })
             return res
           } else {
