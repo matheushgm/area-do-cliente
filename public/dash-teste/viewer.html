@@ -271,6 +271,7 @@ import {
   buildPeriod, periodFromDays, maxDate, pillCls, pillIco, varCls, buildStats,
   computeMainPeriod, groupBy, statusTagInfo, buildWeeklyMessage,
   buildDeclineDiagnosis, buildScaleCandidates, normStr, localDateStr, diffDays,
+  monthBounds,
 } from './vendor/dashboardData.js'
 
 // ─── Fonte de dados ──────────────────────────────────────────────────────────
@@ -381,7 +382,8 @@ const STATUS_GROUPS = [
 const PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3 dias',3],['7 dias',7],['14 dias',14],['30 dias',30],['Este mês','this_month'],['Mês passado','last_month'],['Custom',0]]
 const PRESET_STRINGS = new Set(['today','yesterday','this_month','last_month'])
 // Presets da página de cliente (rótulos curtos, espelham PERIOD_PRESETS do ClientPage)
-const CP_PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3d',3],['7d',7],['14d',14],['30d',30],['Custom',0]]
+const CP_PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3d',3],['7d',7],['14d',14],['30d',30],['Este mês','this_month'],['Mês passado','last_month'],['Custom',0]]
+const CP_PRESET_STRINGS = new Set(['today','yesterday','this_month','last_month'])
 
 // channel: '' = Todos (padrão — agrupa Meta+Google numa lista só, pra ninguém
 // passar batido só olhando a 1ª aba) | 'meta' | 'google' = filtro de um canal só.
@@ -2147,6 +2149,16 @@ function computeClientPeriod(rows, ch, days, from, to) {
   if (days===0 && from && to) return buildPeriod(from, to)
   if (days==='today') { const m=maxDate(rows,dateKey); return m?buildPeriod(m,m):null }
   if (days==='yesterday') { const m=maxDate(rows,dateKey); if(!m) return null; const y=addDays(m,-1); return buildPeriod(y,y) }
+  if (days==='this_month' || days==='last_month') {
+    // Mesma regra do computeMainPeriod: ancora no último dia FECHADO (hoje fica
+    // de fora porque os dados do dia corrente ainda estão incompletos).
+    const max = maxDate(rows, dateKey); if (!max) return null
+    const today = localDateStr(new Date())
+    const anchor = max >= today ? addDays(max, -1) : max
+    if (!anchor) return null
+    const { start, end } = monthBounds(anchor, days === 'this_month' ? 0 : -1)
+    return buildPeriod(start, days === 'this_month' ? anchor : end)
+  }
   return periodFromDays(rows, dateKey, days)
 }
 
@@ -2328,7 +2340,7 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
 
   // Period presets
   app.querySelectorAll('.cp-period-btn[data-cd]').forEach(b=>b.onclick=()=>{
-    const d=b.dataset.cd; state.cDays=(d==='today'||d==='yesterday')?d:Number(d)
+    const d=b.dataset.cd; state.cDays=CP_PRESET_STRINGS.has(d)?d:Number(d)
     if (state.cDays!==0) { state.cPeriod=computeClientPeriod(state.raw[ch]||[], ch, state.cDays); }
     renderClient()
   })
@@ -2434,7 +2446,7 @@ function wire() {
     state.tab='resultados'; state.sub=0; state.drillCampaign=null; state.drillAdset=null
     state.campFilter=[]; state.campPanelOpen=false; state.campSearch=''
     state.termsPage=0; state.termsSort={key:'clicks',dir:'desc'}
-    state.cDays = [3,7,14,30].includes(state.days) || state.days==='today' || state.days==='yesterday' || state.days===0 ? state.days : 7
+    state.cDays = [3,7,14,30].includes(state.days) || CP_PRESET_STRINGS.has(state.days) || state.days===0 ? state.days : 7
     state.cFrom = state.from; state.cTo = state.to
     state.cPeriod = computeClientPeriod(state.raw[channel]||[], channel, state.cDays, state.from, state.to)
     render()

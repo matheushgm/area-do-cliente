@@ -126,7 +126,7 @@ export function periodFromDays(rows, dateKey, days) {
 
 // Primeiro/último dia do mês de `iso`, com deslocamento de `offset` meses
 // (offset=-1 → mês anterior). Usado pelos presets "Este mês"/"Mês passado".
-function monthBounds(iso, offset) {
+export function monthBounds(iso, offset) {
   const d = new Date(iso + 'T12:00:00Z')
   const y = d.getUTCFullYear(), m = d.getUTCMonth() + offset
   const f = dt => dt.toISOString().split('T')[0]
