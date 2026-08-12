@@ -106,6 +106,11 @@
   .dt-root .client-quad-count { font-size:10px; font-weight:700; color:#64748B;
     background:#EEF2F9; padding:2px 8px; border-radius:999px; }
 
+  /* Logo do canal (Meta/Google Ads) — substitui os emojis 📱/🔍 nas tabelas,
+     cards, abas e badges. SVG local (sem CDN), com o mesmo tamanho/posição
+     de um emoji inline. */
+  .dt-root .ch-logo { width:14px; height:14px; vertical-align:-2px; display:inline-block; }
+
   /* Variação discreta vs período anterior nas tabelas de drill (campanha/conjunto/anúncio) */
   .dt-root .var-mini { font-size:10px; font-weight:700; margin-left:5px; white-space:nowrap;
     vertical-align:middle; letter-spacing:.2px; opacity:.9; }
@@ -665,8 +670,8 @@ function render() {
     </div>
     <div class="tabs">
       <div class="tab ${!state.channel?'active':''}" data-ch="">🗂️ Todos <span class="badge">${stMeta.length + stGoogle.length}</span></div>
-      <div class="tab ${state.channel==='meta'?'active':''}" data-ch="meta">📱 Meta Ads <span class="badge">${stMeta.length}</span></div>
-      <div class="tab ${state.channel==='google'?'active':''}" data-ch="google">🔍 Google Ads <span class="badge">${stGoogle.length}</span></div>
+      <div class="tab ${state.channel==='meta'?'active':''}" data-ch="meta">${chIco('meta')} Meta Ads <span class="badge">${stMeta.length}</span></div>
+      <div class="tab ${state.channel==='google'?'active':''}" data-ch="google">${chIco('google')} Google Ads <span class="badge">${stGoogle.length}</span></div>
     </div>
     <div class="filter-bar">
       <span class="filter-label">Período:</span>
@@ -686,7 +691,7 @@ function render() {
         </select>` : '' })()}
       </div>
       ${(() => {
-        const parts = channels.filter(ch => P[ch]).map(ch => `${ch==='meta'?'📱 Meta':'🔍 Google'}: ${P[ch].label1} · vs ${P[ch].label2}`)
+        const parts = channels.filter(ch => P[ch]).map(ch => `${chIco(ch)} ${ch==='meta'?'Meta':'Google'}: ${P[ch].label1} · vs ${P[ch].label2}`)
         return parts.length ? `<span class="filter-info">Exibindo — ${parts.join('&nbsp;&nbsp;|&nbsp;&nbsp;')}</span>` : ''
       })()}
     </div>
@@ -758,8 +763,11 @@ const ACCT_COLS = [
   ['Investimento','spend1'], ['Invest. Ant.','spend2'], ['Var. Invest.','varSpend'],
   ['Tend. 3d','trend'],
 ]
-// Ícone do canal — usado em toda tabela/card que mistura Meta+Google (visão "Todos").
-const chIco = ch => ch === 'meta' ? '📱' : '🔍'
+// Ícone do canal — logo oficial (SVG local, sem CDN), usado em toda tabela/card
+// que mistura Meta+Google (visão "Todos").
+const chIco = ch => ch === 'meta'
+  ? '<img class="ch-logo" src="./vendor/logos/meta.svg" alt="Meta Ads" title="Meta Ads">'
+  : '<img class="ch-logo" src="./vendor/logos/google-ads.svg" alt="Google Ads" title="Google Ads">'
 // Tendência não é um número na linha — vira rank (queda < estável < alta).
 // CPL Alvo vem dos metadados da conta (Calculadora de ROI), não do stats.
 const acctVal = (x, key) => key==='trend' ? (x.declining3d?-1:x.trendDir==='up'?1:0)
@@ -2340,7 +2348,7 @@ function renderClient() {
       ${SHARED ? '' : `<button class="cp-back" id="cpBack">← Voltar</button>`}
       <div class="cp-client-name">${esc(client)}</div>
       <div class="cp-badges">
-        <span class="cp-channel-badge">${isMeta?'📱 Meta Ads':'🔍 Google Ads'}</span>
+        <span class="cp-channel-badge">${chIco(isMeta?'meta':'google')} ${isMeta?'Meta Ads':'Google Ads'}</span>
         ${squadBadge}
       </div>
       ${SHARED
