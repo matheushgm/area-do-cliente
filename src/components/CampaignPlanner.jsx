@@ -1,13 +1,15 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
   Plus, Save, AlertCircle, CheckCircle2, CalendarDays, DollarSign, FileDown, X,
-  Link2, Check,
+  Link2, Check, BarChart3,
 } from 'lucide-react'
 import { exportCampaignPDF } from '../utils/exportPDF'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../hooks/useToast'
 import Toast from './UI/Toast'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
+import { useDashboardData } from '../hooks/useDashboardData'
+import ProjectTrafficDashboard from './Resultados/ProjectTrafficDashboard'
 import {
   fmtBRL, makeChannel, makeCampaign,
   CHANNEL_OPTIONS, STAGE_KEYS,
@@ -64,6 +66,10 @@ export default function CampaignPlanner({ project, onSave }) {
   const { toast, showToast } = useToast()
   const isMounted = useRef(false)
   const [copied, setCopied] = useState(false)
+
+  // Mesma fonte usada pelo módulo Resultados (dash_insights via /api) — dá pra
+  // ver o gasto real das contas vinculadas antes de preencher o orçamento à mão.
+  const dash = useDashboardData({ source: 'api' })
 
   const [accounts,  setAccounts]  = useState(() => initAccounts(project.campaignPlan))
   const [activeIdx, setActiveIdx] = useState(0)
@@ -403,6 +409,20 @@ export default function CampaignPlanner({ project, onSave }) {
           className="input-field py-1.5 text-sm flex-1"
         />
       </div>
+
+      {/* Contas de anúncio vinculadas + resultados reais — mesmo componente do módulo Resultados */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-rl-purple/10 flex items-center justify-center shrink-0">
+            <BarChart3 size={18} className="text-rl-purple" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-rl-text leading-tight">Resultados de Tráfego</h2>
+            <p className="text-xs text-rl-muted">Dados reais das contas de anúncio vinculadas a este projeto</p>
+          </div>
+        </div>
+        <ProjectTrafficDashboard project={project} dash={dash} />
+      </section>
 
       {/* Budget + date info */}
       <div className="glass-card p-5 space-y-4">
