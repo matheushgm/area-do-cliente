@@ -96,6 +96,16 @@
   .dt-root td.col-target { background:rgba(109,40,217,0.05); }
   .dt-root .target-val { color:#6D28D9; font-weight:800; white-space:nowrap; }
 
+  /* Quadrante do cliente (visão Padrão): título com o nome vindo da Área do
+     Cliente, acima da(s) conta(s) Meta/Google empilhadas — a mesma tabela
+     de sempre, só que escopada a um cliente por vez. */
+  .dt-root .client-quad { margin-bottom:22px; }
+  .dt-root .client-quad .table-wrap { margin-bottom:0; }
+  .dt-root .client-quad-title { display:flex; align-items:center; gap:8px;
+    font-size:13px; font-weight:800; color:#0F172A; padding:0 2px 8px; }
+  .dt-root .client-quad-count { font-size:10px; font-weight:700; color:#64748B;
+    background:#EEF2F9; padding:2px 8px; border-radius:999px; }
+
   /* Variação discreta vs período anterior nas tabelas de drill (campanha/conjunto/anúncio) */
   .dt-root .var-mini { font-size:10px; font-weight:700; margin-left:5px; white-space:nowrap;
     vertical-align:middle; letter-spacing:.2px; opacity:.9; }
@@ -379,6 +389,10 @@ const STATUS_GROUPS = [
   { key: 'ESTÁVEL', icon: '🟡', hcls: 'gh-yellow', label: 'Estável', tip: 'Contas com variação de conversões entre -20% e +20% vs o período anterior.' },
   { key: 'MELHORA', icon: '🟢', hcls: 'gh-green', label: 'Melhora', tip: 'Contas cujo número de conversões subiu 20% ou mais vs o período anterior. O CPL não entra na classificação.' },
 ]
+// Ordem de gravidade — usada pra decidir em que seção cai o quadrante de um
+// cliente com contas em status diferentes (ex.: Google crítico + Meta estável
+// → o quadrante inteiro aparece em "Crítico", a pior das duas).
+const STATUS_RANK = { 'CRÍTICO': 0, 'QUEDA': 1, 'ESTÁVEL': 2, 'MELHORA': 3 }
 const PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3 dias',3],['7 dias',7],['14 dias',14],['30 dias',30],['Este mês','this_month'],['Mês passado','last_month'],['Custom',0]]
 const PRESET_STRINGS = new Set(['today','yesterday','this_month','last_month'])
 // Presets da página de cliente (rótulos curtos, espelham PERIOD_PRESETS do ClientPage)
@@ -763,6 +777,44 @@ function sortAccounts(list) {
     return s*(av-bv)
   })
 }
+// ─── Agrupamento por cliente (quadrante Meta+Google) ─────────────────────────
+// Contas vinculadas ao mesmo projeto da Área do Cliente (dashboard_accounts.
+// project_id) viram UM quadrante só, com o nome do projeto (acCompanyName) e
+// as contas empilhadas dentro. Conta sem vínculo vira um quadrante dela mesma.
+function clientKeyOf(name) { return state.accounts[name]?.projectId || ('acct:' + name) }
+function clientNameOf(name) { return state.accounts[name]?.acCompanyName || name }
+function groupByClient(rows) {
+  const map = new Map()
+  rows.forEach(x => {
+    const key = clientKeyOf(x.name)
+    if (!map.has(key)) map.set(key, { key, name: clientNameOf(x.name), accounts: [] })
+    map.get(key).accounts.push(x)
+  })
+  return [...map.values()]
+}
+// Pior status entre as contas do cliente — decide em que seção (Crítico/Queda/
+// Estável/Melhora) o quadrante inteiro aparece.
+function worstStatus(client) {
+  return client.accounts.reduce((w, a) => STATUS_RANK[a.status] < STATUS_RANK[w] ? a.status : w, client.accounts[0].status)
+}
+// Ordena os quadrantes de uma seção pela coluna clicada (state.acctSort),
+// usando como referência a conta "representante" — a que tem o status desta
+// seção (é ela que fez o cliente cair aqui).
+function sortClients(list, statusKey) {
+  const { key, dir } = state.acctSort
+  if (!key) return list
+  const s = dir==='asc'?1:-1
+  const repOf = c => c.accounts.find(a => a.status === statusKey) || c.accounts[0]
+  return list.slice().sort((a,b) => {
+    if (key==='name') return s*String(a.name).localeCompare(String(b.name),'pt-BR')
+    const ra = repOf(a), rb = repOf(b)
+    const av = acctVal(ra,key), bv = acctVal(rb,key)
+    if (av==null && bv==null) return 0
+    if (av==null) return 1
+    if (bv==null) return -1
+    return s*(av-bv)
+  })
+}
 const acctTheadHTML = () => ACCT_COLS.map(([label,k])=>{
   if (!k) return `<th>${label}</th>`
   const a = state.acctSort.key===k
@@ -843,26 +895,44 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
         <tbody>${list.map(acctRow).join('')}</tbody></table></div>
       <div class="m-cards">${list.map(acctCard).join('')}</div>`
 
+  // Quadrante do cliente: título com o nome vindo do perfil da Área do Cliente
+  // (ou o nome da própria conta, se não estiver vinculada) + as contas
+  // (Meta/Google) empilhadas dentro da mesma tabela.
+  const clientCard = c => {
+    const rows = c.accounts.slice().sort((a,b) => (STATUS_RANK[a.status]-STATUS_RANK[b.status]) || a.channel.localeCompare(b.channel))
+    return `<div class="client-quad">
+      <div class="client-quad-title">${esc(c.name)}${rows.length>1?`<span class="client-quad-count">${rows.length} contas</span>`:''}</div>
+      ${acctTable(rows)}
+    </div>`
+  }
+
+  const clients = groupByClient(st)
   const groups = STATUS_GROUPS.map(g => {
-    const grp = sortAccounts(st.filter(x=>x.status===g.key)); if (!grp.length) return ''
-    const header = `<div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>`
+    let grp = clients.filter(c => worstStatus(c) === g.key); if (!grp.length) return ''
+    grp = sortClients(grp, g.key)
+    const header = `<div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} cliente${grp.length!==1?'s':''}</span></div>`
     // Grupo "Queda": subclassifica pelas causas do diagnóstico (verba / CTR /
-    // taxa). Cada subgrupo com contas vira um bloco com subcabeçalho próprio.
+    // taxa), usando a conta do cliente que está em queda como representante.
+    // Cada subgrupo com clientes vira um bloco com subcabeçalho próprio.
     if (g.key === 'QUEDA') {
       const subBlock = (cls, icon, label, tip, list) => `<div class="queda-sub">
-        <div class="subgroup-header ${cls}"><span class="gh-icon">${icon}</span><span class="sg-title">${label}</span><span class="status-info" title="${esc(tip)}">i</span><span class="gh-count">${list.length} conta${list.length!==1?'s':''}</span></div>
-        ${acctTable(list)}</div>`
+        <div class="subgroup-header ${cls}"><span class="gh-icon">${icon}</span><span class="sg-title">${label}</span><span class="status-info" title="${esc(tip)}">i</span><span class="gh-count">${list.length} cliente${list.length!==1?'s':''}</span></div>
+        ${list.map(clientCard).join('')}</div>`
+      const causaOfClient = c => {
+        const rep = c.accounts.find(a => a.status === 'QUEDA')
+        return rep ? causaOf(diagMap[rep.channel+'|'+rep.name]) : null
+      }
       const subs = QUEDA_CAUSAS.map(c => {
-        const list = grp.filter(x => (causaOf(diagMap[x.channel+'|'+x.name])||{}).key === c.key)
+        const list = grp.filter(cl => (causaOfClient(cl)||{}).key === c.key)
         return list.length ? subBlock(c.cls, c.icon, c.label, c.tip, list) : ''
       }).join('')
-      // Contas em queda sem diagnóstico disponível (raro — falta de cliques/impressões).
-      const semDiag = grp.filter(x => !diagMap[x.channel+'|'+x.name])
+      // Clientes em queda sem diagnóstico disponível (raro — falta de cliques/impressões).
+      const semDiag = grp.filter(c => !causaOfClient(c))
       const outros = semDiag.length ? subBlock('', '📊', 'Sem diagnóstico',
         'Sem dados de cliques/impressões suficientes para apontar a causa da queda.', semDiag) : ''
       return `<div class="group-section">${header}${subs}${outros}</div>`
     }
-    return `<div class="group-section">${header}${acctTable(grp)}</div>`
+    return `<div class="group-section">${header}${grp.map(clientCard).join('')}</div>`
   }).join('')
   return summary + groups
 }
