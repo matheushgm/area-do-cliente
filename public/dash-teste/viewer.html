@@ -414,7 +414,7 @@ const state = { raw:{meta:[],google:[]}, accounts:{}, channel:'', days:7, from:'
                 // estado local da página de cliente
                 cDays:7, cFrom:'', cTo:'', cPeriod:null,
                 campFilter:[], campPanelOpen:false, campSearch:'',
-                tab:'resultados', sub:0, drillCampaign:null, drillAdset:null,
+                tab:'resultados', sub:0, drillCampaign:null, drillAdset:null, drillAdsetName:null,
                 weekly:null, _charts:[], termsCache:{},
                 termsSort:{key:'clicks',dir:'desc'}, termsPage:0,
                 // ordenação das tabelas de conta (key=null → ordem natural do grupo)
@@ -618,7 +618,7 @@ function saveNav() {
       channel: state.channel, days: state.days, from: state.from, to: state.to, search: state.search, squad: state.squad,
       view: state.view, showHidden: state.showHidden,
       openClient: state.openClient, tab: state.tab, sub: state.sub,
-      drillCampaign: state.drillCampaign, drillAdset: state.drillAdset,
+      drillCampaign: state.drillCampaign, drillAdset: state.drillAdset, drillAdsetName: state.drillAdsetName,
       cDays: state.cDays, cFrom: state.cFrom, cTo: state.cTo, campFilter: state.campFilter,
     }))
   } catch (e) { /* ignore (modo privado etc.) */ }
@@ -638,7 +638,7 @@ function restoreNav() {
       if (exists) {
         state.openClient = s.openClient
         state.tab = s.tab || 'resultados'; state.sub = s.sub || 0
-        state.drillCampaign = s.drillCampaign || null; state.drillAdset = s.drillAdset || null
+        state.drillCampaign = s.drillCampaign || null; state.drillAdset = s.drillAdset || null; state.drillAdsetName = s.drillAdsetName || null
         state.cDays = s.cDays != null ? s.cDays : 7; state.cFrom = s.cFrom || ''; state.cTo = s.cTo || ''
         state.campFilter = Array.isArray(s.campFilter) ? s.campFilter : []
         state.cPeriod = null
@@ -1354,6 +1354,12 @@ const pctVid = (p,vv) => vv>0 ? (p/vv*100).toFixed(0)+'%' : '—'
 const M = (r,k)=>num(r[k])
 const metaConv = r => num(r['Conversões'])     // só conversões reais (total da conta)
 const metaResult = r => num(r['Resultados'])   // resultado verdadeiro do objetivo (por campanha)
+// Chave de agrupamento/drill dos CONJUNTOS: o Ads Manager permite vários
+// conjuntos com o MESMO nome dentro da campanha (ex.: várias cópias de
+// "00-auto-f-mix_lal") — agrupar só pelo nome misturava a performance de
+// conjuntos distintos. adset_id é único; cai pro nome só em linhas antigas
+// (sincronizadas antes do adset_id existir no dado).
+const metaAdsetKey = r => r['adset_id'] || r['Conjunto de Anúncio']
 // Soma uma métrica do período anterior agrupada por chave → { chave: total }.
 // Usado pelas tabelas de drill para comparar campanha/conjunto/anúncio 1:1.
 const prevMapOf = (prevRows, keyFn, valFn) => {
@@ -1576,14 +1582,16 @@ function tblMetaCampaigns(rows, prevRows){
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Campanha</th><th>Resultado</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th><th>Cliques</th></tr></thead><tbody>${body}</tbody></table></div>`
 }
 function tblMetaAdsets(rows, prevRows){
-  const g = groupBy(rows, r=>r['Conjunto de Anúncio'], {
+  const g = groupBy(rows, metaAdsetKey, {
     spend:r=>M(r,'Valor investido'), conv:metaConv, impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link') })
   if(!g.length) return `<div class="empty">Sem conjuntos no período.</div>`
-  const pv = prevMapOf(prevRows, r=>r['Conjunto de Anúncio'], metaConv)
-  const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(x.key)} — gasto sem resultado`)
+  const pv = prevMapOf(prevRows, metaAdsetKey, metaConv)
+  // Nome pra exibir (vários conjuntos podem ter o MESMO nome — key é o adset_id).
+  const nameOf = x => x._rows[0]?.['Conjunto de Anúncio'] || x.key
+  const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(nameOf(x))} — gasto sem resultado`)
   const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const st=x._rows[0]?.['Status do Conjunto de Anúncio']||''
-    const ativos=activeAdsCount(x._rows)
-    return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-adset="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span></td>
+    const ativos=activeAdsCount(x._rows); const nm=nameOf(x)
+    return `<tr><td class="ad-name" title="${esc(nm)}"><span class="drill-link" data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}">${i===0&&x.conv>0?'🏆 ':''}${esc(nm)}</span></td>
       <td>${stTag(st)}</td><td><span class="${ativos>0?'good':'fl'}">${ativos}</span></td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td></tr>` }).join('')
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Conjunto</th><th>Status</th><th>Anúncios ativos</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th></tr></thead><tbody>${body}</tbody></table></div>`
@@ -1984,10 +1992,10 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
   // entrar num conjunto. Reaproveita metricGroupsHTML da aba Resultados.
   let qCur = allRows, qPrev = prevRows, scopeLabel = 'Conta — todas as campanhas', qPace = pace
   if (isMeta && state.drillAdset) {
-    qCur = allRows.filter(r=>r['Conjunto de Anúncio']===state.drillAdset)
-    qPrev = prevRows.filter(r=>r['Conjunto de Anúncio']===state.drillAdset)
+    qCur = allRows.filter(r=>metaAdsetKey(r)===state.drillAdset)
+    qPrev = prevRows.filter(r=>metaAdsetKey(r)===state.drillAdset)
     const ativos = activeAdsCount(qCur)
-    scopeLabel = `Conjunto: ${state.drillAdset} · ${ativos} anúncio${ativos!==1?'s':''} ativo${ativos!==1?'s':''}`
+    scopeLabel = `Conjunto: ${state.drillAdsetName || state.drillAdset} · ${ativos} anúncio${ativos!==1?'s':''} ativo${ativos!==1?'s':''}`
     qPace = null // pace é da verba do canal inteiro — não faz sentido escopado a 1 conjunto
   } else if (state.drillCampaign) {
     const ck = isMeta ? 'Nome da campanha' : 'Campanha'
@@ -2001,11 +2009,11 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
   if (state.drillCampaign || state.drillAdset) {
     let body, bc
     if (isMeta && state.drillAdset) {
-      body = tblMetaAds(allRows.filter(r=>r['Conjunto de Anúncio']===state.drillAdset),
-                        prevRows.filter(r=>r['Conjunto de Anúncio']===state.drillAdset))
+      body = tblMetaAds(allRows.filter(r=>metaAdsetKey(r)===state.drillAdset),
+                        prevRows.filter(r=>metaAdsetKey(r)===state.drillAdset))
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">← Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span>
-        <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdset)}</span></div>`
+        <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdsetName || state.drillAdset)}</span></div>`
     } else {
       body = isMeta ? tblMetaAdsets(allRows.filter(r=>r['Nome da campanha']===state.drillCampaign),
                                     prevRows.filter(r=>r['Nome da campanha']===state.drillCampaign))
@@ -2373,7 +2381,7 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   if (state.tab==='campanhas' && period) {
     const isMeta = ch==='meta'
     let qRows = allRows
-    if (isMeta && state.drillAdset) qRows = allRows.filter(r=>r['Conjunto de Anúncio']===state.drillAdset)
+    if (isMeta && state.drillAdset) qRows = allRows.filter(r=>metaAdsetKey(r)===state.drillAdset)
     else if (state.drillCampaign) qRows = allRows.filter(r=>r[isMeta?'Nome da campanha':'Campanha']===state.drillCampaign)
     initQuadrantCharts(period, qRows, ch, isMeta)
   }
@@ -2386,7 +2394,7 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   // Header
   const back = document.getElementById('cpBack')
   if (back) back.onclick = () => {
-    state.openClient=null; state.tab='resultados'; state.sub=0; state.drillCampaign=null; state.drillAdset=null
+    state.openClient=null; state.tab='resultados'; state.sub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null
     state.cPeriod=null; state.campFilter=[]; state.campPanelOpen=false; state.campSearch=''
     render()
   }
@@ -2413,7 +2421,7 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
 
   // Tabs
   app.querySelectorAll('.cptab[data-tab]').forEach(e=>e.onclick=()=>{
-    state.tab=e.dataset.tab; state.sub=0; state.drillCampaign=null; state.drillAdset=null; renderClient()
+    state.tab=e.dataset.tab; state.sub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null; renderClient()
   })
 
   // Period presets
@@ -2454,12 +2462,12 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
 
   // Drill (aba campanhas)
   const bcBack=document.getElementById('bcBack')
-  if (bcBack) bcBack.onclick=()=>{ if(state.drillAdset) state.drillAdset=null; else state.drillCampaign=null; renderClient() }
-  app.querySelectorAll('[data-bc="root"]').forEach(e=>e.onclick=()=>{ state.drillCampaign=null; state.drillAdset=null; renderClient() })
-  app.querySelectorAll('[data-bc="camp"]').forEach(e=>e.onclick=()=>{ state.drillAdset=null; renderClient() })
+  if (bcBack) bcBack.onclick=()=>{ if(state.drillAdset){ state.drillAdset=null; state.drillAdsetName=null } else state.drillCampaign=null; renderClient() }
+  app.querySelectorAll('[data-bc="root"]').forEach(e=>e.onclick=()=>{ state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null; renderClient() })
+  app.querySelectorAll('[data-bc="camp"]').forEach(e=>e.onclick=()=>{ state.drillAdset=null; state.drillAdsetName=null; renderClient() })
   app.querySelectorAll('.dtab[data-sub]').forEach(e=>e.onclick=()=>{ state.sub=Number(e.dataset.sub); renderClient() })
-  app.querySelectorAll('.drill-link[data-camp]').forEach(e=>e.onclick=()=>{ state.drillCampaign=e.dataset.camp; state.drillAdset=null; renderClient() })
-  app.querySelectorAll('.drill-link[data-adset]').forEach(e=>e.onclick=()=>{ state.drillAdset=e.dataset.adset; renderClient() })
+  app.querySelectorAll('.drill-link[data-camp]').forEach(e=>e.onclick=()=>{ state.drillCampaign=e.dataset.camp; state.drillAdset=null; state.drillAdsetName=null; renderClient() })
+  app.querySelectorAll('.drill-link[data-adset]').forEach(e=>e.onclick=()=>{ state.drillAdset=e.dataset.adset; state.drillAdsetName=e.dataset.adsetName; renderClient() })
   // Preview do anúncio (botão "👁 Ver" na tabela de anúncios)
   app.querySelectorAll('.ad-prev-btn').forEach(e=>e.onclick=(ev)=>{ ev.stopPropagation(); openAdPreview(e.dataset.adid, e.dataset.adname) })
   app.querySelectorAll('.ad-dest-btn').forEach(e=>e.onclick=(ev)=>{ ev.stopPropagation(); openAdDestination(e.dataset.adid, e.dataset.adname, e.dataset.destino) })
@@ -2521,7 +2529,7 @@ function wire() {
     const channel = ch || state.channel || 'meta'
     state.openClient={ client: name, channel }
     // inicializa o estado local da página de cliente a partir do período global
-    state.tab='resultados'; state.sub=0; state.drillCampaign=null; state.drillAdset=null
+    state.tab='resultados'; state.sub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null
     state.campFilter=[]; state.campPanelOpen=false; state.campSearch=''
     state.termsPage=0; state.termsSort={key:'clicks',dir:'desc'}
     state.cDays = [3,7,14,30].includes(state.days) || CP_PRESET_STRINGS.has(state.days) || state.days===0 ? state.days : 7
