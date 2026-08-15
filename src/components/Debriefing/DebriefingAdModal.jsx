@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle, Play, CheckCircle2, Clock, Upload, Paperclip, Loader2, Trash2, XCircle, Send, History, PlusCircle, Palette } from 'lucide-react'
+import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle, Play, CheckCircle2, Clock, Upload, Paperclip, Loader2, Trash2, XCircle, Send, History, PlusCircle, Palette, FileText } from 'lucide-react'
 import Modal from '../UI/Modal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
 import { STATUS_OPTIONS, RESULTADO_OPTIONS, DEFAULT_STATUS, APROVACAO_BY_ID, todayISO, fmtDateTimeBR } from './debriefingData'
@@ -8,16 +8,27 @@ import { uploadFile, deleteFile, getSignedUrl } from '../../lib/supabase'
 const ATTACHMENT_BUCKET = 'attachments'
 
 const STATUS_ICON = {
+  rascunho: FileText,
   aprovado_edicao: Palette,
   para_subir: Clock,
   em_andamento: Play,
   finalizado: CheckCircle2,
 }
 
-// Bloco somente-leitura com a copy que o cliente aprovou na leva de Criativos
-// com IA — é o briefe do designer pra produzir a peça.
-function CopyAprovadaBlock({ copy, origem }) {
+// Bloco somente-leitura com a copy do anúncio (veio de Criativos com IA). É o
+// briefe do designer, e quando o cliente já respondeu mostra também a decisão
+// dele — inclusive o que ele pediu pra mudar, quando reprovou.
+const COPY_TITULO = {
+  aprovado:  'Copy aprovada pelo cliente',
+  reprovado: 'Copy reprovada pelo cliente',
+  pendente:  'Copy aguardando o cliente',
+}
+
+function CopyAprovadaBlock({ copy, origem, aprovacao }) {
   const [copied, setCopied] = useState(false)
+  const st = aprovacao?.status || null
+  const leva = aprovacao?.levaNome || origem?.levaNome
+  const quando = aprovacao?.decididoEm || aprovacao?.enviadoEm || origem?.aprovadoEm
 
   function copiar() {
     navigator.clipboard?.writeText(copy || '')
@@ -30,12 +41,12 @@ function CopyAprovadaBlock({ copy, origem }) {
       <div className="px-4 py-2.5 flex items-center justify-between gap-2 border-b border-rl-blue/20">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-wider text-rl-blue">
-            Copy aprovada pelo cliente
+            {COPY_TITULO[st] || 'Copy do anúncio'}
           </p>
-          {origem?.levaNome && (
+          {leva && (
             <p className="text-[11px] text-rl-muted truncate">
-              Leva: {origem.levaNome}
-              {origem.aprovadoEm ? ` · ${fmtDateTimeBR(origem.aprovadoEm)}` : ''}
+              Leva: {leva}
+              {quando ? ` · ${fmtDateTimeBR(quando)}` : ''}
             </p>
           )}
         </div>
@@ -51,6 +62,22 @@ function CopyAprovadaBlock({ copy, origem }) {
       <pre className="px-4 py-3 text-[12px] leading-relaxed text-rl-text whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">
         {copy}
       </pre>
+      {st === 'reprovado' && (
+        <div className="px-4 pb-4 space-y-2">
+          <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-red-500">
+              Motivo da reprovação
+            </p>
+            <p className="text-xs text-rl-text mt-1 whitespace-pre-wrap">{aprovacao.motivo || '—'}</p>
+          </div>
+          <div className="rounded-lg bg-rl-surface/60 border border-rl-border px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-rl-muted">
+              Como deveria estar
+            </p>
+            <p className="text-xs text-rl-text mt-1 whitespace-pre-wrap">{aprovacao.sugestao || '—'}</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -273,10 +300,10 @@ export default function DebriefingAdModal({
   }
 
   // Validação extra pra status "Finalizado": precisa de resultado + justificativa.
-  // Anúncio na fila do designer ("Aprovado para Edição") ainda não tem peça
-  // pronta — só a copy aprovada. O link vira obrigatório quando ele avança de
+  // Rascunho e fila do designer ("Aprovado para Edição") ainda não têm peça
+  // pronta — só a copy. O link vira obrigatório quando o anúncio avança de
   // status, que é justamente quando a peça já existe.
-  const emEdicao = values.status === 'aprovado_edicao'
+  const emEdicao = values.status === 'rascunho' || values.status === 'aprovado_edicao'
   const baseValid =
     (emEdicao || !!(values.url || '').trim()) && !!(values.nome || '').trim() && !!values.tipo
   const finalizadoValid = values.status !== 'finalizado'
@@ -521,7 +548,13 @@ export default function DebriefingAdModal({
         </Field>
 
         {/* Copy aprovada pelo cliente (veio de uma leva de Criativos com IA) */}
-        {values.copy && <CopyAprovadaBlock copy={values.copy} origem={values.copyOrigem} />}
+        {values.copy && (
+          <CopyAprovadaBlock
+            copy={values.copy}
+            origem={values.copyOrigem}
+            aprovacao={values.copyAprovacao}
+          />
+        )}
 
         {/* Observação */}
         <Field label="Observação (opcional)">

@@ -3,6 +3,15 @@
 // ─── Status do anúncio ────────────────────────────────────────────────────────
 export const STATUS_OPTIONS = [
   {
+    // Copy recém-gerada em Criativos com IA: existe na central, mas nunca foi
+    // pro cliente nem pro ar. É o estoque de onde saem as levas de aprovação.
+    id: 'rascunho',
+    label: 'Rascunho',
+    color: '#475569',
+    bgColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+  },
+  {
     // Copy aprovada pelo cliente no link da leva (Criativos com IA) — o anúncio
     // entra na central já nessa fila, esperando o designer produzir a peça.
     id: 'aprovado_edicao',
@@ -47,6 +56,36 @@ export const RESULTADO_BY_ID = Object.fromEntries(RESULTADO_OPTIONS.map((r) => [
 
 // ─── Default status pra novos anúncios ───────────────────────────────────────
 export const DEFAULT_STATUS = 'para_subir'
+
+// Status de quem nasce de uma copy gerada em Criativos com IA.
+export const DRAFT_STATUS = 'rascunho'
+
+// ─── Etapas da central (as três abas) ────────────────────────────────────────
+// A etapa é DERIVADA do anúncio, não um campo — assim nada fica fora de lugar
+// quando o designer anexa a peça ou o cliente responde. Cada anúncio aparece em
+// exatamente uma aba, nesta ordem de precedência:
+//   1. tem algo pendente com o cliente (copy ou peça) → Ads para aprovação
+//   2. tem mídia (link ou anexo)                      → Design pronto
+//   3. resto                                          → Ads em rascunho
+export const ETAPAS = [
+  { id: 'design',    label: 'Design pronto',     desc: 'Peças que o designer já subiu, prontas pra rodar.' },
+  { id: 'aprovacao', label: 'Ads para aprovação', desc: 'Esperando o cliente responder, seja a copy ou a peça.' },
+  { id: 'rascunho',  label: 'Ads em rascunho',    desc: 'Copies que ainda não foram pro cliente nem pro ar.' },
+]
+
+export function etapaDoAd(ad) {
+  const copyPendente = (ad?.copyAprovacao?.status || '') === 'pendente'
+  const midiaPendente = (ad?.aprovacao?.status || '') === 'pendente'
+  if (copyPendente || midiaPendente) return 'aprovacao'
+  if ((ad?.url || '').trim() || ad?.attachmentPath) return 'design'
+  return 'rascunho'
+}
+
+// Anúncio que pode entrar numa leva de aprovação de copy: tem texto e não está
+// com o cliente agora.
+export function podeEnviarCopy(ad) {
+  return !!(ad?.copy || '').trim() && (ad?.copyAprovacao?.status || '') !== 'pendente'
+}
 
 // ─── Aprovação do cliente (link público /aprovacao/:token) ───────────────────
 // Guardada em ad.aprovacao = { status, motivo, sugestao, decididoEm }.

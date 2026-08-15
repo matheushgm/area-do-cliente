@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   Megaphone, Plus, Pencil, Trash2, ExternalLink, Video, Image as ImageIcon, Layers,
   Filter, X, Clock, Play, CheckCircle2, Paperclip, FlaskConical, Link2, Send, Palette,
+  FileText, XCircle, Copy as CopyIcon, Check,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
@@ -10,7 +11,11 @@ import Toast from '../UI/Toast'
 import DebriefingAdModal, { TIPOS_ANUNCIO, flattenCampaigns } from './DebriefingAdModal'
 import CreativeTestModal from './CreativeTestModal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
-import { STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, APROVACAO_BY_ID, fmtDateBR, fmtDateTimeBR, todayISO } from './debriefingData'
+import {
+  STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, APROVACAO_BY_ID,
+  ETAPAS, etapaDoAd, podeEnviarCopy, fmtDateBR, fmtDateTimeBR, todayISO,
+} from './debriefingData'
+import { montarEnvioDeLeva, linkDaLeva } from '../../lib/copyLevas'
 
 const ATTACHMENT_BUCKET = 'attachments'
 
@@ -33,23 +38,80 @@ export default function DebriefingModule({ project }) {
   const [filterTipo,    setFilterTipo]    = useState('')
   const [filterFunil,   setFilterFunil]   = useState('')
   const [filterStatus,  setFilterStatus]  = useState('')
+  // Aba atual: design pronto | ads para aprovação | ads em rascunho
+  const [etapa, setEtapa] = useState('design')
+  // Seleção de rascunhos pra montar uma leva de aprovação de copy
+  const [sel, setSel] = useState(() => new Set())
+  const [levaNome, setLevaNome] = useState('')
+  const [levaLink, setLevaLink] = useState(null)
+  const [linkCopiado, setLinkCopiado] = useState(false)
 
   const ads = useMemo(() => persisted.ads || [], [persisted.ads])
   const campaigns = useMemo(() => flattenCampaigns(project.campaignPlan), [project.campaignPlan])
 
-  // Ordena por data de criação (do mais recente pro mais antigo)
-  // e aplica filtros
+  // Quantos anúncios em cada aba (contagem sempre do total, ignora os filtros).
+  const contagemPorEtapa = useMemo(() => {
+    const acc = { design: 0, aprovacao: 0, rascunho: 0 }
+    for (const ad of ads) acc[etapaDoAd(ad)] += 1
+    return acc
+  }, [ads])
+
+  // Ordena por data de criação (do mais recente pro mais antigo),
+  // aplica a aba e depois os filtros
   const visibleAds = useMemo(() => {
     return ads
       .slice()
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
       .filter((ad) => {
+        if (etapaDoAd(ad) !== etapa) return false
         if (filterTipo && ad.tipo !== filterTipo) return false
         if (filterFunil && ad.funilId !== filterFunil) return false
         if (filterStatus && (ad.status || 'para_subir') !== filterStatus) return false
         return true
       })
-  }, [ads, filterTipo, filterFunil, filterStatus])
+  }, [ads, etapa, filterTipo, filterFunil, filterStatus])
+
+  const isRascunho  = etapa === 'rascunho'
+  const isAprovacao = etapa === 'aprovacao'
+
+  // Rascunhos marcados que realmente podem ir pro cliente (têm copy).
+  const selecionados = useMemo(
+    () => ads.filter((ad) => sel.has(ad.id) && podeEnviarCopy(ad)),
+    [ads, sel]
+  )
+
+  function toggleSel(id) {
+    setSel((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // Manda os rascunhos marcados pro cliente numa leva só, com link próprio.
+  function enviarLeva() {
+    if (!selecionados.length) return
+    const { leva, patch } = montarEnvioDeLeva({
+      project,
+      ads: selecionados,
+      nome: levaNome || `Copies pra aprovação · ${fmtDateBR(todayISO())}`,
+    })
+    updateProject(project.id, patch)
+    const url = linkDaLeva(leva.token)
+    setLevaLink(url)
+    setSel(new Set())
+    setLevaNome('')
+    navigator.clipboard?.writeText(url)
+      .then(() => showToast('Leva enviada e link copiado!'))
+      .catch(() => showToast('Leva enviada. Link: ' + url))
+  }
+
+  function copiarLink(url) {
+    navigator.clipboard?.writeText(url)
+      .then(() => { setLinkCopiado(true); setTimeout(() => setLinkCopiado(false), 2000) })
+      .catch(() => {})
+  }
 
   function persist(next) {
     updateProject(project.id, { debriefing: next })
@@ -139,10 +201,38 @@ export default function DebriefingModule({ project }) {
         </div>
       </div>
 
+      {/* Abas: as três visualizações da central */}
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-rl-surface border border-rl-border w-fit max-w-full overflow-x-auto">
+        {ETAPAS.map((e) => (
+          <button
+            key={e.id}
+            onClick={() => { setEtapa(e.id); setSel(new Set()); setLevaLink(null) }}
+            title={e.desc}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              etapa === e.id
+                ? 'bg-rl-purple text-white shadow-sm'
+                : 'text-rl-muted hover:text-rl-text'
+            }`}
+          >
+            {e.label}
+            <span className={`ml-1.5 text-[10px] font-bold ${etapa === e.id ? 'text-white/70' : 'text-rl-muted'}`}>
+              {contagemPorEtapa[e.id]}
+            </span>
+          </button>
+        ))}
+      </div>
+      <p className="-mt-3 text-xs text-rl-muted">
+        {ETAPAS.find((e) => e.id === etapa)?.desc}
+      </p>
+
       {/* Fila do designer: copies que o cliente aprovou e ainda não viraram peça */}
       {paraEditar.length > 0 && (
         <button
-          onClick={() => setFilterStatus(filterStatus === 'aprovado_edicao' ? '' : 'aprovado_edicao')}
+          onClick={() => {
+            const ativo = etapa === 'rascunho' && filterStatus === 'aprovado_edicao'
+            setEtapa('rascunho')
+            setFilterStatus(ativo ? '' : 'aprovado_edicao')
+          }}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
             filterStatus === 'aprovado_edicao'
               ? 'border-rl-purple/50 bg-rl-purple/10'
@@ -232,13 +322,70 @@ export default function DebriefingModule({ project }) {
         </div>
       </div>
 
+      {/* Barra de envio: monta uma leva com os rascunhos marcados */}
+      {isRascunho && selecionados.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap px-4 py-3 rounded-xl border border-rl-purple/40 bg-rl-purple/5">
+          <span className="text-sm font-bold text-rl-text whitespace-nowrap">
+            {selecionados.length} selecionad{selecionados.length === 1 ? 'o' : 'os'}
+          </span>
+          <input
+            value={levaNome}
+            onChange={(e) => setLevaNome(e.target.value)}
+            placeholder="Nome da leva (o cliente vê)"
+            className="input-field text-xs py-1.5 flex-1 min-w-[220px]"
+          />
+          <button
+            onClick={enviarLeva}
+            className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
+          >
+            <Send className="w-4 h-4" /> Enviar pra aprovação
+          </button>
+          <button
+            onClick={() => setSel(new Set())}
+            className="text-xs text-rl-muted hover:text-rl-text transition-colors"
+          >
+            Limpar seleção
+          </button>
+        </div>
+      )}
+
+      {/* Link da última leva criada aqui */}
+      {isRascunho && levaLink && (
+        <div className="flex items-center gap-2 flex-wrap px-4 py-2.5 rounded-xl border border-rl-border bg-rl-surface/40">
+          <span className="text-xs text-rl-subtle">Link da leva enviada:</span>
+          <code className="text-[10px] text-rl-muted bg-rl-bg/60 border border-rl-border rounded-lg px-2 py-1 truncate max-w-full">
+            {levaLink}
+          </code>
+          <button
+            onClick={() => copiarLink(levaLink)}
+            className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20 transition-all"
+          >
+            {linkCopiado ? <Check className="w-3 h-3" /> : <CopyIcon className="w-3 h-3" />}
+            {linkCopiado ? 'Copiado!' : 'Copiar'}
+          </button>
+          <button
+            onClick={() => setLevaLink(null)}
+            className="ml-auto text-rl-muted hover:text-rl-text transition-colors"
+            aria-label="Fechar"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Tabela */}
       {ads.length === 0 ? (
         <EmptyState onCreate={() => setEditingAd({})} />
       ) : visibleAds.length === 0 ? (
         <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-10 text-center">
           <p className="text-sm text-rl-muted">
-            Nenhum anúncio bate com os filtros atuais.
+            {hasFilters
+              ? 'Nenhum anúncio bate com os filtros atuais.'
+              : isRascunho
+                ? 'Nenhum rascunho aqui. Gere copies em Criativos com IA que elas caem nesta aba.'
+                : isAprovacao
+                  ? 'Nada com o cliente agora. Mande rascunhos pra aprovação e eles aparecem aqui.'
+                  : 'Nenhuma peça pronta ainda. Assim que o designer anexar o criativo, ele aparece aqui.'}
           </p>
         </div>
       ) : (
@@ -247,14 +394,32 @@ export default function DebriefingModule({ project }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-rl-surface/60 border-b border-rl-border">
+                  {isRascunho && (
+                    <Th className="w-8">
+                      <input
+                        type="checkbox"
+                        aria-label="Selecionar todos os rascunhos com copy"
+                        className="accent-rl-purple"
+                        checked={
+                          visibleAds.filter(podeEnviarCopy).length > 0 &&
+                          visibleAds.filter(podeEnviarCopy).every((ad) => sel.has(ad.id))
+                        }
+                        onChange={(e) =>
+                          setSel(e.target.checked
+                            ? new Set(visibleAds.filter(podeEnviarCopy).map((ad) => ad.id))
+                            : new Set())
+                        }
+                      />
+                    </Th>
+                  )}
                   <Th>Data</Th>
                   <Th>Nome</Th>
                   <Th>Tipo</Th>
-                  <Th>Aprovação</Th>
+                  <Th>{isRascunho ? 'Copy' : 'Aprovação'}</Th>
                   <Th>Status</Th>
-                  <Th>Campanha</Th>
+                  {!isRascunho && <Th>Campanha</Th>}
                   <Th>Funil</Th>
-                  <Th>Link</Th>
+                  <Th>{isAprovacao ? 'Link do cliente' : 'Link'}</Th>
                   <Th>Obs.</Th>
                   <Th className="w-20"></Th>
                 </tr>
@@ -276,6 +441,19 @@ export default function DebriefingModule({ project }) {
                       onClick={() => setEditingAd(ad)}
                       className="border-b border-rl-border/40 hover:bg-rl-surface/40 cursor-pointer transition-colors"
                     >
+                      {isRascunho && (
+                        <Td onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            className="accent-rl-purple"
+                            aria-label={`Selecionar ${ad.nome || 'anúncio'}`}
+                            checked={sel.has(ad.id)}
+                            disabled={!podeEnviarCopy(ad)}
+                            title={podeEnviarCopy(ad) ? '' : 'Sem copy pra enviar'}
+                            onChange={() => toggleSel(ad.id)}
+                          />
+                        </Td>
+                      )}
                       <Td className="whitespace-nowrap text-rl-subtle">{dtStr}</Td>
                       <Td className="font-mono text-xs font-semibold text-rl-text">
                         <span className="inline-flex items-center gap-1.5">
@@ -291,7 +469,7 @@ export default function DebriefingModule({ project }) {
                           {ad.copy && (
                             <span
                               className="font-sans text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-blue/10 text-rl-blue border border-rl-blue/30"
-                              title="Copy aprovada pelo cliente na leva de Criativos com IA — abra o anúncio pra ver o texto"
+                              title="Tem copy escrita (veio de Criativos com IA). Abra o anúncio pra ler o texto."
                             >
                               copy
                             </span>
@@ -310,13 +488,18 @@ export default function DebriefingModule({ project }) {
                         />
                       </Td>
                       <Td>
-                        <AprovacaoCell
-                          ad={ad}
-                          onEnviar={() => {
-                            updateAd(ad.id, { aprovacao: { status: 'pendente', enviadoEm: new Date().toISOString() } })
-                            showToast('Anúncio enviado pra aprovação do cliente!')
-                          }}
-                        />
+                        {isRascunho ? (
+                          <CopyCell ad={ad} />
+                        ) : (
+                          <AprovacaoCell
+                            ad={ad}
+                            mostrarCopy={isAprovacao}
+                            onEnviar={() => {
+                              updateAd(ad.id, { aprovacao: { status: 'pendente', enviadoEm: new Date().toISOString() } })
+                              showToast('Anúncio enviado pra aprovação do cliente!')
+                            }}
+                          />
+                        )}
                       </Td>
                       <Td>
                         <div className="flex flex-col items-start gap-1">
@@ -354,23 +537,25 @@ export default function DebriefingModule({ project }) {
                           )}
                         </div>
                       </Td>
-                      <Td className="text-xs">
-                        <InlineSelect
-                          value={ad.campanhaId || ''}
-                          onChange={(v) => updateAd(ad.id, { campanhaId: v })}
-                          options={[
-                            { value: '', label: '— sem campanha —' },
-                            ...campaigns.map((c) => ({
-                              value: c.id,
-                              label: `[${c.stageLabel}] ${c.name}${c.channel ? ' · ' + c.channel : ''}`,
-                            })),
-                          ]}
-                          color="#0F172A"
-                          bgColor="#F8FAFC"
-                          borderColor="#E2E8F0"
-                          textPlaceholder="— sem campanha —"
-                        />
-                      </Td>
+                      {!isRascunho && (
+                        <Td className="text-xs">
+                          <InlineSelect
+                            value={ad.campanhaId || ''}
+                            onChange={(v) => updateAd(ad.id, { campanhaId: v })}
+                            options={[
+                              { value: '', label: '— sem campanha —' },
+                              ...campaigns.map((c) => ({
+                                value: c.id,
+                                label: `[${c.stageLabel}] ${c.name}${c.channel ? ' · ' + c.channel : ''}`,
+                              })),
+                            ]}
+                            color="#0F172A"
+                            bgColor="#F8FAFC"
+                            borderColor="#E2E8F0"
+                            textPlaceholder="— sem campanha —"
+                          />
+                        </Td>
+                      )}
                       <Td>
                         <InlineSelect
                           value={ad.funilId || ''}
@@ -387,6 +572,17 @@ export default function DebriefingModule({ project }) {
                       </Td>
                       <Td>
                         <div className="flex items-center gap-2 flex-wrap">
+                          {/* Na aba de aprovação, o link útil é o que o cliente
+                              recebeu: a leva da copy ou a página da peça. */}
+                          {isAprovacao && ad.copyAprovacao?.status === 'pendente' && ad.copyAprovacao?.token && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); copiarLink(linkDaLeva(ad.copyAprovacao.token)) }}
+                              className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
+                              title={`Copiar o link da leva "${ad.copyAprovacao.levaNome || ''}"`}
+                            >
+                              <Link2 className="w-3 h-3" /> Link da leva
+                            </button>
+                          )}
                           {ad.url ? (
                             <a
                               href={ad.url}
@@ -477,10 +673,76 @@ export default function DebriefingModule({ project }) {
 
 // ─── Pequenos subcomponentes ──────────────────────────────────────────────────
 
+// Célula da aba "Ads em rascunho": em que pé está a COPY daquele anúncio.
+function CopyCell({ ad }) {
+  if (!(ad.copy || '').trim()) {
+    return <span className="text-rl-muted italic text-xs">sem copy</span>
+  }
+
+  const st = ad.copyAprovacao?.status || null
+  const trecho = ad.copy.replace(/[#*]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120)
+
+  if (st === 'aprovado') {
+    return (
+      <div className="flex flex-col items-start gap-0.5">
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-500 whitespace-nowrap">
+          <CheckCircle2 className="w-3 h-3" /> Copy aprovada
+        </span>
+        {ad.copyAprovacao?.decididoEm && (
+          <span className="text-[9px] text-rl-muted whitespace-nowrap">
+            {fmtDateTimeBR(ad.copyAprovacao.decididoEm)}
+          </span>
+        )}
+      </div>
+    )
+  }
+
+  if (st === 'reprovado') {
+    return (
+      <div className="flex flex-col items-start gap-0.5">
+        <span
+          className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-500/30 bg-red-500/10 text-red-500 whitespace-nowrap"
+          title={`Motivo: ${ad.copyAprovacao?.motivo || '—'}\nComo deveria estar: ${ad.copyAprovacao?.sugestao || '—'}`}
+        >
+          <XCircle className="w-3 h-3" /> Copy reprovada
+        </span>
+        <span className="text-[9px] text-rl-muted line-clamp-1 max-w-[180px]" title={ad.copyAprovacao?.motivo || ''}>
+          {ad.copyAprovacao?.motivo || ''}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] text-rl-subtle line-clamp-2 max-w-[220px]"
+      title={trecho}
+    >
+      <FileText className="w-3 h-3 shrink-0 text-rl-muted" /> {trecho}
+    </span>
+  )
+}
+
 // Célula de aprovação do cliente: badge do status ou botão "Enviar" quando o
-// anúncio ainda não foi mandado pro link público de aprovação.
-function AprovacaoCell({ ad, onEnviar }) {
+// anúncio ainda não foi mandado pro link público de aprovação. Na aba de
+// aprovação também mostra quando quem está com o cliente é a COPY, não a peça.
+function AprovacaoCell({ ad, onEnviar, mostrarCopy = false }) {
   const info = ad.aprovacao ? APROVACAO_BY_ID[ad.aprovacao.status] : null
+
+  if (mostrarCopy && ad.copyAprovacao?.status === 'pendente') {
+    return (
+      <div className="flex flex-col items-start gap-0.5">
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-rl-gold/30 bg-rl-gold/10 text-rl-gold whitespace-nowrap">
+          <FileText className="w-3 h-3" /> Copy com o cliente
+        </span>
+        {ad.copyAprovacao.enviadoEm && (
+          <span className="text-[9px] text-rl-muted whitespace-nowrap">
+            desde {fmtDateTimeBR(ad.copyAprovacao.enviadoEm)}
+          </span>
+        )}
+      </div>
+    )
+  }
 
   if (!info) {
     return (
@@ -526,8 +788,12 @@ function Th({ children, className = '' }) {
     </th>
   )
 }
-function Td({ children, className = '' }) {
-  return <td className={`px-3 py-2.5 align-middle ${className}`}>{children}</td>
+function Td({ children, className = '', onClick }) {
+  return (
+    <td className={`px-3 py-2.5 align-middle ${className}`} onClick={onClick}>
+      {children}
+    </td>
+  )
 }
 
 // InlineSelect: dropdown estilizado como chip pra edição inline na tabela.

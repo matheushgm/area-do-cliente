@@ -96,7 +96,29 @@ function sanitizeLeva(leva, companyName) {
   }
 }
 
-// Anúncio criado na Central quando o cliente aprova uma copy. Nasce em
+// Decisão do cliente gravada no anúncio que já existe na Central (o rascunho
+// que nasceu junto com a copy). Aprovado vai pra fila do designer; reprovado
+// volta a rascunho, com o motivo à vista pra refazer.
+function aplicarDecisaoNoAd(ad, { decision, motivo, sugestao, now, leva }) {
+  return {
+    ...ad,
+    status: decision === 'aprovado' ? 'aprovado_edicao' : 'rascunho',
+    updatedAt: now,
+    copyAprovacao: {
+      status:     decision,
+      motivo:     decision === 'reprovado' ? motivo   : null,
+      sugestao:   decision === 'reprovado' ? sugestao : null,
+      enviadoEm:  ad?.copyAprovacao?.enviadoEm || null,
+      decididoEm: now,
+      levaId:     str(leva.id, 60),
+      levaNome:   str(leva.nome, 160),
+      token:      str(leva.token, 60),
+    },
+  }
+}
+
+// Anúncio criado na Central quando o cliente aprova uma copy de uma leva ANTIGA,
+// enviada antes de a geração passar a criar o rascunho automaticamente. Nasce em
 // 'aprovado_edicao' (fila do designer) e sem mídia — a peça ainda vai ser feita.
 function novoAnuncio(leva, item) {
   const hoje = new Date().toISOString().slice(0, 10)
@@ -120,6 +142,16 @@ function novoAnuncio(leva, item) {
     // Aprovação da MÍDIA (link público /aprovacao) começa zerada: o que o
     // cliente aprovou aqui foi o texto, a peça pronta vai pra aprovação depois.
     aprovacao:       null,
+    copyAprovacao: {
+      status:     'aprovado',
+      motivo:     null,
+      sugestao:   null,
+      enviadoEm:  str(leva.enviadoEm || leva.criadoEm, 40) || null,
+      decididoEm: new Date().toISOString(),
+      levaId:     str(leva.id, 60),
+      levaNome:   str(leva.nome, 160),
+      token:      str(leva.token, 60),
+    },
     version:         1,
     versionHistory:  [],
     // Copy aprovada + rastro da leva de origem
@@ -184,7 +216,14 @@ export default async function handler(req) {
     }
 
     const now = new Date().toISOString()
-    const ad  = decision === 'aprovado' ? novoAnuncio(leva, item) : null
+
+    // O normal é o anúncio já existir na Central (rascunho criado junto com a
+    // copy) e só receber a decisão. Sem ele, a leva é antiga: cria na hora, e
+    // só quando aprovado — reprovado antigo não vira card.
+    const debriefing = project.debriefing || {}
+    const adsAtuais  = Array.isArray(debriefing.ads) ? debriefing.ads : []
+    const adExistente = item.adId ? adsAtuais.find((a) => a?.id === item.adId) : null
+    const adNovo = !adExistente && decision === 'aprovado' ? novoAnuncio(leva, item) : null
 
     const store = project.copy_aprovacoes || {}
     const nextCopy = {
@@ -194,7 +233,7 @@ export default async function handler(req) {
         atualizadoEm: now,
         itens: (l.itens || []).map((it) => (it?.id !== itemId ? it : {
           ...it,
-          adId: ad ? ad.id : it.adId ?? null,
+          adId: adNovo ? adNovo.id : it.adId ?? null,
           aprovacao: {
             status:     decision,
             motivo:     decision === 'reprovado' ? motivo   : null,
@@ -207,10 +246,16 @@ export default async function handler(req) {
 
     const patch = { copy_aprovacoes: nextCopy }
 
-    // Aprovou → entra na Central de anúncios como "Aprovado para Edição".
-    if (ad) {
-      const debriefing = project.debriefing || {}
-      patch.debriefing = { ...debriefing, ads: [...(debriefing.ads || []), ad] }
+    if (adExistente) {
+      patch.debriefing = {
+        ...debriefing,
+        ads: adsAtuais.map((a) => (a?.id !== adExistente.id
+          ? a
+          : aplicarDecisaoNoAd(a, { decision, motivo, sugestao, now, leva }))),
+      }
+    } else if (adNovo) {
+      // Leva antiga: aprovou → entra na Central como "Aprovado para Edição".
+      patch.debriefing = { ...debriefing, ads: [...adsAtuais, adNovo] }
     }
 
     const { status } = await sb(

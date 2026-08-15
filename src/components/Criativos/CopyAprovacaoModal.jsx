@@ -11,25 +11,10 @@ import {
 } from 'lucide-react'
 import Modal from '../UI/Modal'
 import MarkdownBlock from './MarkdownBlock'
-import { splitChunks, parseChunk } from './CreativeResultBlock'
+import { garantirAdsDaGeracao, montarEnvioDeLeva, linkDaLeva } from '../../lib/copyLevas'
 import { useApp } from '../../context/AppContext'
 
 const EMPTY = { levas: [] }
-
-// Título limpo pro card: "## ROTEIRO 3: Tese: X | Ângulo: Y" → "ROTEIRO 3: Tese: X | Ângulo: Y"
-function tituloDoChunk(chunk, i) {
-  const { title } = parseChunk(chunk)
-  return (title || `Criativo ${i + 1}`).replace(/\s+/g, ' ').trim().slice(0, 160)
-}
-
-// Itens (criativos individuais) de uma geração, na mesma ordem dos cards da tela.
-export function itensDaGeracao(creative) {
-  return splitChunks(creative?.content || '').map((it, i) => ({
-    index: i,
-    titulo: tituloDoChunk(it.chunk, i),
-    conteudo: it.chunk.trim(),
-  }))
-}
 
 const STATUS_META = {
   pendente: { label: 'Aguardando', Icon: Clock, cls: 'text-rl-gold bg-rl-gold/10 border-rl-gold/30' },
@@ -60,9 +45,13 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
     [store.levas, creative.id]
   )
 
-  const itens = useMemo(() => itensDaGeracao(creative), [creative])
+  // Os itens da leva são os RASCUNHOS que essa geração criou na Central de
+  // anúncios. Gerações antigas (anteriores ao rascunho automático) ganham os
+  // seus na hora do envio — `novos` entra junto no mesmo patch.
+  const { ads, novos } = useMemo(() => garantirAdsDaGeracao(project, creative), [project, creative])
+  const disponiveis = ads.filter((ad) => (ad.copyAprovacao?.status || '') !== 'pendente')
 
-  const [selected, setSelected] = useState(() => new Set(itens.map((it) => it.index)))
+  const [selected, setSelected] = useState(() => new Set(disponiveis.map((ad) => ad.id)))
   const [nome, setNome] = useState(
     () => `${creative.type === 'video' ? 'Roteiros' : 'Copies'} — ${(creative.name || 'geração').slice(0, 60)}`
   )
@@ -70,21 +59,17 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
   const [novaLeva, setNovaLeva] = useState(levas.length === 0)
   const [copiedToken, setCopiedToken] = useState(null)
 
-  function toggle(index) {
+  function toggle(id) {
     setSelected((prev) => {
       const next = new Set(prev)
-      if (next.has(index)) next.delete(index)
-      else next.add(index)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
 
-  function linkDaLeva(leva) {
-    return `${window.location.origin}/aprovacao-copy/${leva.token}`
-  }
-
   function copiarLink(leva) {
-    const url = linkDaLeva(leva)
+    const url = linkDaLeva(leva.token)
     navigator.clipboard?.writeText(url)
       .then(() => {
         setCopiedToken(leva.token)
@@ -95,32 +80,17 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
   }
 
   function criarLeva() {
-    const escolhidos = itens.filter((it) => selected.has(it.index))
+    const escolhidos = disponiveis.filter((ad) => selected.has(ad.id))
     if (!escolhidos.length || busy) return
     setBusy(true)
-    const now = new Date().toISOString()
-    const leva = {
-      id: crypto.randomUUID(),
-      token: crypto.randomUUID(),
-      creativeId: creative.id,
-      nome: nome.trim() || 'Leva de criativos',
-      tipo: creative.type === 'video' ? 'video' : 'estatico',
-      funilId: creative.funil || null,
-      funilLabel: creative.funilLabel || null,
-      nivelLabel: creative.nivelLabel || null,
-      criadoEm: now,
-      enviadoEm: now,
-      itens: escolhidos.map((it) => ({
-        id: crypto.randomUUID(),
-        titulo: it.titulo,
-        conteudo: it.conteudo,
-        adId: null,
-        aprovacao: { status: 'pendente', motivo: null, sugestao: null, decididoEm: null },
-      })),
-    }
-    updateProject(project.id, {
-      copyAprovacoes: { ...store, levas: [...(store.levas || []), leva] },
+    const { leva, patch } = montarEnvioDeLeva({
+      project,
+      ads: escolhidos,
+      nome,
+      creative,
+      adsExtras: novos,
     })
+    updateProject(project.id, patch)
     setBusy(false)
     setNovaLeva(false)
     copiarLink(leva)
@@ -128,8 +98,19 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
 
   function excluirLeva(leva) {
     if (!window.confirm('Excluir essa leva? O link para de funcionar para o cliente.')) return
+    // Quem ainda estava aguardando resposta volta a ser rascunho na Central —
+    // sem isso o anúncio ficaria preso na aba de aprovação com um link morto.
+    const debriefing = project.debriefing || {}
     updateProject(project.id, {
       copyAprovacoes: { ...store, levas: (store.levas || []).filter((l) => l.id !== leva.id) },
+      debriefing: {
+        ...debriefing,
+        ads: (debriefing.ads || []).map((ad) =>
+          ad?.copyAprovacao?.levaId === leva.id && ad.copyAprovacao.status === 'pendente'
+            ? { ...ad, copyAprovacao: null, updatedAt: new Date().toISOString() }
+            : ad
+        ),
+      },
     })
     onToast?.('Leva removida.')
   }
@@ -164,7 +145,7 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
                 key={leva.id}
                 leva={leva}
                 copied={copiedToken === leva.token}
-                url={linkDaLeva(leva)}
+                url={linkDaLeva(leva.token)}
                 onCopy={() => copiarLink(leva)}
                 onDelete={() => excluirLeva(leva)}
               />
@@ -197,11 +178,11 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">
-                  Criativos desta leva ({selected.size}/{itens.length})
+                  Criativos desta leva ({selected.size}/{disponiveis.length})
                 </label>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setSelected(new Set(itens.map((it) => it.index)))}
+                    onClick={() => setSelected(new Set(disponiveis.map((ad) => ad.id)))}
                     className="text-[10px] text-rl-muted hover:text-rl-purple transition-colors"
                   >
                     Selecionar todos
@@ -215,24 +196,35 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
                 </div>
               </div>
               <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
-                {itens.map((it) => (
-                  <label
-                    key={it.index}
-                    className={`flex items-start gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${
-                      selected.has(it.index)
-                        ? 'border-rl-purple/40 bg-rl-purple/5'
-                        : 'border-rl-border bg-rl-surface/30 hover:border-rl-border'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected.has(it.index)}
-                      onChange={() => toggle(it.index)}
-                      className="mt-0.5 accent-rl-purple"
-                    />
-                    <span className="text-xs text-rl-text leading-snug">{it.titulo}</span>
-                  </label>
-                ))}
+                {ads.map((ad) => {
+                  const pendente = (ad.copyAprovacao?.status || '') === 'pendente'
+                  return (
+                    <label
+                      key={ad.id}
+                      className={`flex items-start gap-2.5 px-3 py-2.5 rounded-xl border transition-all ${
+                        pendente
+                          ? 'border-rl-border bg-rl-surface/20 opacity-60 cursor-not-allowed'
+                          : selected.has(ad.id)
+                            ? 'border-rl-purple/40 bg-rl-purple/5 cursor-pointer'
+                            : 'border-rl-border bg-rl-surface/30 hover:border-rl-border cursor-pointer'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected.has(ad.id)}
+                        disabled={pendente}
+                        onChange={() => toggle(ad.id)}
+                        className="mt-0.5 accent-rl-purple"
+                      />
+                      <span className="text-xs text-rl-text leading-snug flex-1">{ad.nome}</span>
+                      {pendente && (
+                        <span className="text-[9px] font-bold text-rl-gold shrink-0 whitespace-nowrap">
+                          já com o cliente
+                        </span>
+                      )}
+                    </label>
+                  )
+                })}
               </div>
             </div>
 

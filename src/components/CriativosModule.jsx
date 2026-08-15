@@ -46,6 +46,7 @@ import CreativeHistory from './Criativos/CreativeHistory'
 import VideoGuide from './VideoGuide'
 import CriativoVisualPanel from './Criativos/CriativoVisualPanel'
 import CopyAprovacaoModal from './Criativos/CopyAprovacaoModal'
+import { itensDaGeracao, novoAdRascunho, tituloDoChunk } from '../lib/copyLevas'
 import AdWireframePanel from './Criativos/AdWireframePanel'
 import RatingSelector from './RatingSelector'
 import { exportCreativoSetPDF } from '../lib/creativoPDF'
@@ -1021,8 +1022,15 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
         createdAt: now,
       }
       setLastCreativeId(newId)
+      // Cada criativo da geração já nasce como anúncio em RASCUNHO na Central
+      // de anúncios (aba "Ads em rascunho"), de onde sai a leva de aprovação.
+      const debriefing = project.debriefing || {}
+      const rascunhos = itensDaGeracao(newCreative).map((item) =>
+        novoAdRascunho(newCreative, item)
+      )
       updateProject(project.id, {
         creatives: [...(project.creatives || []), newCreative],
+        debriefing: { ...debriefing, ads: [...(debriefing.ads || []), ...rascunhos] },
       })
     } catch (e) {
       setError(e.message)
@@ -1080,6 +1088,58 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
     [scopedProject, nivel]
   )
 
+  // ── Sincroniza os rascunhos da Central com a edição da copy ────────────────
+  // O rascunho é um espelho do criativo enquanto ninguém mexeu nele. Depois que
+  // a copy foi pro cliente (copyAprovacao preenchida), congela: o que ele viu
+  // não muda mais por edição aqui.
+  const patchRascunhoEditado = useCallback(
+    (creativeId, chunkIndex, newChunk) => {
+      const debriefing = project.debriefing || {}
+      const ads = debriefing.ads || []
+      let mexeu = false
+      const next = ads.map((ad) => {
+        const o = ad?.copyOrigem
+        if (o?.creativeId !== creativeId || o?.itemIndex !== chunkIndex) return ad
+        if (ad.copyAprovacao) return ad
+        mexeu = true
+        return {
+          ...ad,
+          nome: tituloDoChunk(newChunk, chunkIndex),
+          copy: newChunk.trim(),
+          updatedAt: new Date().toISOString(),
+        }
+      })
+      return mexeu ? { debriefing: { ...debriefing, ads: next } } : {}
+    },
+    [project.debriefing]
+  )
+
+  // Excluir o criativo apaga o rascunho correspondente e reencaixa os índices
+  // dos seguintes (o chunk sumiu do conteúdo, então todos andam uma casa).
+  const patchRascunhoExcluido = useCallback(
+    (creativeId, chunkIndex) => {
+      const debriefing = project.debriefing || {}
+      const ads = debriefing.ads || []
+      const next = []
+      for (const ad of ads) {
+        const o = ad?.copyOrigem
+        if (o?.creativeId !== creativeId) { next.push(ad); continue }
+        if (o.itemIndex === chunkIndex) {
+          // Já enviado pro cliente: fica na central, com o histórico dele.
+          if (ad.copyAprovacao) next.push(ad)
+          continue
+        }
+        next.push(
+          o.itemIndex > chunkIndex
+            ? { ...ad, copyOrigem: { ...o, itemIndex: o.itemIndex - 1 } }
+            : ad
+        )
+      }
+      return { debriefing: { ...debriefing, ads: next } }
+    },
+    [project.debriefing]
+  )
+
   // ── Edit a chunk inside the fresh (just-generated) result ──────────────────
   const handleFreshChunkEdit = useCallback(
     (chunkIndex, newContent) => {
@@ -1093,9 +1153,12 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
       const updated = (project.creatives || []).map((c) =>
         c.id === lastCreativeId ? { ...c, content: newFullContent } : c
       )
-      updateProject(project.id, { creatives: updated })
+      updateProject(project.id, {
+        creatives: updated,
+        ...patchRascunhoEditado(lastCreativeId, chunkIndex, newContent),
+      })
     },
-    [lastCreativeId, project, updateProject]
+    [lastCreativeId, patchRascunhoEditado, project, updateProject]
   )
 
   // ── Delete a chunk inside the fresh (just-generated) result ────────────────
@@ -1109,9 +1172,12 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
       const updated = (project.creatives || []).map((c) =>
         c.id === lastCreativeId ? { ...c, content: newFullContent } : c
       )
-      updateProject(project.id, { creatives: updated })
+      updateProject(project.id, {
+        creatives: updated,
+        ...patchRascunhoExcluido(lastCreativeId, chunkIndex),
+      })
     },
-    [lastCreativeId, project, updateProject]
+    [lastCreativeId, patchRascunhoExcluido, project, updateProject]
   )
 
   // ── View: History detail ───────────────────────────────────────────────────
@@ -1150,7 +1216,10 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
       const updated = (project.creatives || []).map((x) =>
         x.id === c.id ? { ...x, content: newFullContent } : x
       )
-      updateProject(project.id, { creatives: updated })
+      updateProject(project.id, {
+        creatives: updated,
+        ...patchRascunhoEditado(c.id, chunkIndex, newContent),
+      })
     }
 
     function handleChunkDelete(chunkIndex) {
@@ -1158,7 +1227,10 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
       const updated = (project.creatives || []).map((x) =>
         x.id === c.id ? { ...x, content: newFullContent } : x
       )
-      updateProject(project.id, { creatives: updated })
+      updateProject(project.id, {
+        creatives: updated,
+        ...patchRascunhoExcluido(c.id, chunkIndex),
+      })
     }
 
     return (
