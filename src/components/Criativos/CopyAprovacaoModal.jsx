@@ -83,12 +83,15 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
     const escolhidos = disponiveis.filter((ad) => selected.has(ad.id))
     if (!escolhidos.length || busy) return
     setBusy(true)
+    // Só o que foi escolhido entra na Central: quem não vai pro cliente não
+    // vira anúncio. `novos` são os que ainda não existiam lá.
+    const idsNovos = new Set(novos.map((ad) => ad.id))
     const { leva, patch } = montarEnvioDeLeva({
       project,
       ads: escolhidos,
       nome,
       creative,
-      adsExtras: novos,
+      adsExtras: escolhidos.filter((ad) => idsNovos.has(ad.id)),
     })
     updateProject(project.id, patch)
     setBusy(false)

@@ -2,11 +2,14 @@
 // "Central de anúncios".
 //
 // Regra do fluxo:
-//   1. Toda geração de copy vira anúncio em RASCUNHO na central (um por criativo).
-//   2. O rascunho pode ser mandado pro cliente numa LEVA, que é um link só dela
+//   1. A geração de copy fica só em Criativos com IA. Nada entra na central por
+//      geração — o gestor decide o que vai pro cliente.
+//   2. Ao enviar pra aprovação, cada criativo escolhido vira anúncio na central
+//      (aba "Ads para aprovação") e ganha uma LEVA com link só dela
 //      (/aprovacao-copy/<token>).
-//   3. O cliente aprovando, o mesmo anúncio passa a "Aprovado para Edição" e cai
-//      na fila do designer (api/copy-aprovacao.js faz esse update).
+//   3. O cliente aprovando, o mesmo anúncio passa a "Aprovado para Edição" e
+//      espera o designer; reprovando, volta com o motivo à vista.
+//   4. Quando o designer anexa a peça, o anúncio migra pra aba "Design pronto".
 //
 // Este módulo é a única fonte da verdade do formato desses objetos — o modal de
 // Criativos com IA e a Central usam as mesmas funções.
@@ -28,13 +31,25 @@ export function itensDaGeracao(creative) {
   }))
 }
 
-// Anúncio em rascunho a partir de um criativo da geração. Nasce sem mídia: a
-// peça ainda vai ser produzida pelo designer depois da aprovação da copy.
-export function novoAdRascunho(creative, item) {
+// Nome curto pro card da central. O título do criativo é comprido demais
+// ("ROTEIRO 1: Tese: ... | Ângulo: ... | Nível: ...") e estourava a coluna.
+export function nomeCurtoDoAd(titulo, index) {
+  const semPrefixo = String(titulo || '')
+    .replace(/^(ROTEIRO|AN[ÚU]NCIO)\s*\d+\s*[:.-]?\s*/i, '')
+  const primeiro = (semPrefixo.split('|')[0] || '')
+    .replace(/^(Tese|Tipo|Dor)\s*:\s*/i, '')
+    .trim()
+  const base = primeiro || semPrefixo.trim() || `Criativo ${index + 1}`
+  return `${index + 1}. ${base}`.slice(0, 70)
+}
+
+// Anúncio criado quando a copy vai pro cliente. Nasce sem mídia: a peça ainda
+// vai ser produzida pelo designer depois da aprovação.
+export function novoAdDeCopy(creative, item) {
   return {
     id:             crypto.randomUUID(),
     createdAt:      new Date().toISOString().slice(0, 10),
-    nome:           item.titulo,
+    nome:           nomeCurtoDoAd(item.titulo, item.index),
     tipo:           creative.type === 'video' ? 'video' : 'imagem',
     campanhaId:     '',
     funilId:        creative.funil || '',
@@ -73,18 +88,28 @@ export function adsDaGeracao(project, creativeId) {
     .sort((a, b) => (a.copyOrigem?.itemIndex ?? 0) - (b.copyOrigem?.itemIndex ?? 0))
 }
 
-// Anúncios de uma geração, criando os que ainda não existem (gerações antigas,
-// anteriores ao rascunho automático). Devolve a lista e o que falta persistir.
+// Lista de candidatos ao envio: os criativos da geração, reaproveitando o
+// anúncio de quem já foi enviado antes e montando um novo (ainda não salvo) pro
+// resto. `novos` só entra na central quando o gestor confirma o envio.
 export function garantirAdsDaGeracao(project, creative) {
   const existentes = adsDaGeracao(project, creative.id)
   const porIndice = new Map(existentes.map((ad) => [ad.copyOrigem?.itemIndex, ad]))
   const novos = []
   const ads = itensDaGeracao(creative).map((item) => {
     const achado = porIndice.get(item.index)
-    if (achado) return achado
-    const ad = novoAdRascunho(creative, item)
-    novos.push(ad)
-    return ad
+    if (!achado) {
+      const ad = novoAdDeCopy(creative, item)
+      novos.push(ad)
+      return ad
+    }
+    // Reenvio (o cliente reprovou e a copy foi corrigida): leva o texto atual.
+    // Copy já aprovada não é reescrita — o que ele aprovou é o que vale.
+    if (achado.copyAprovacao?.status === 'aprovado') return achado
+    return {
+      ...achado,
+      nome: nomeCurtoDoAd(item.titulo, item.index),
+      copy: item.conteudo,
+    }
   })
   return { ads, novos }
 }
@@ -114,11 +139,13 @@ export function montarEnvioDeLeva({ project, ads, nome, creative = null, adsExtr
     })),
   }
 
-  const enviados = new Map(leva.itens.map((it) => [it.adId, it]))
+  // Mapa por id com a versão ATUAL do anúncio (pode ter copy corrigida), pra
+  // que o reenvio grave o texto novo na central, não o que estava lá antes.
+  const enviados = new Map(ads.map((ad) => [ad.id, ad]))
   const store = project.copyAprovacoes || {}
   const debriefing = project.debriefing || {}
-  // adsExtras = rascunhos criados agora (geração antiga) que ainda não estavam
-  // na central; entram junto com o envio.
+  // adsExtras = anúncios que estão nascendo agora com este envio; é o momento em
+  // que a copy passa a existir na central.
   const listaAtual = [...(debriefing.ads || []), ...adsExtras]
 
   return {
@@ -128,10 +155,13 @@ export function montarEnvioDeLeva({ project, ads, nome, creative = null, adsExtr
       debriefing: {
         ...debriefing,
         ads: listaAtual.map((ad) => {
-          const item = enviados.get(ad.id)
-          if (!item) return ad
+          const atual = enviados.get(ad.id)
+          if (!atual) return ad
           return {
-            ...ad,
+            ...atual,
+            // Reenviar uma copy que já tinha sido aprovada volta o anúncio pra
+            // espera; quem já tem peça pronta mantém o status de veiculação.
+            status: (atual.url || atual.attachmentPath) ? atual.status : DRAFT_STATUS,
             updatedAt: now,
             copyAprovacao: {
               status:     'pendente',

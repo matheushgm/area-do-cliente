@@ -3,10 +3,10 @@
 // ─── Status do anúncio ────────────────────────────────────────────────────────
 export const STATUS_OPTIONS = [
   {
-    // Copy recém-gerada em Criativos com IA: existe na central, mas nunca foi
-    // pro cliente nem pro ar. É o estoque de onde saem as levas de aprovação.
+    // Copy enviada pro cliente na leva de Criativos com IA: o anúncio existe,
+    // mas a peça ainda não foi produzida.
     id: 'rascunho',
-    label: 'Rascunho',
+    label: 'Aguardando peça',
     color: '#475569',
     bgColor: '#F1F5F9',
     borderColor: '#CBD5E1',
@@ -57,34 +57,21 @@ export const RESULTADO_BY_ID = Object.fromEntries(RESULTADO_OPTIONS.map((r) => [
 // ─── Default status pra novos anúncios ───────────────────────────────────────
 export const DEFAULT_STATUS = 'para_subir'
 
-// Status de quem nasce de uma copy gerada em Criativos com IA.
+// Status de quem nasce de uma copy enviada pra aprovação em Criativos com IA.
 export const DRAFT_STATUS = 'rascunho'
 
-// ─── Etapas da central (as três abas) ────────────────────────────────────────
+// ─── Etapas da central (as duas abas) ────────────────────────────────────────
 // A etapa é DERIVADA do anúncio, não um campo — assim nada fica fora de lugar
-// quando o designer anexa a peça ou o cliente responde. Cada anúncio aparece em
-// exatamente uma aba, nesta ordem de precedência:
-//   1. tem algo pendente com o cliente (copy ou peça) → Ads para aprovação
-//   2. tem mídia (link ou anexo)                      → Design pronto
-//   3. resto                                          → Ads em rascunho
+// quando o designer anexa a peça. Tem mídia (link ou anexo) = design pronto;
+// sem mídia, é copy que foi pro cliente e ainda espera virar peça.
 export const ETAPAS = [
   { id: 'design',    label: 'Design pronto',     desc: 'Peças que o designer já subiu, prontas pra rodar.' },
-  { id: 'aprovacao', label: 'Ads para aprovação', desc: 'Esperando o cliente responder, seja a copy ou a peça.' },
-  { id: 'rascunho',  label: 'Ads em rascunho',    desc: 'Copies que ainda não foram pro cliente nem pro ar.' },
+  { id: 'aprovacao', label: 'Ads para aprovação', desc: 'Copies enviadas pro cliente: aguardando resposta, aprovadas na fila do designer ou reprovadas pra refazer.' },
 ]
 
 export function etapaDoAd(ad) {
-  const copyPendente = (ad?.copyAprovacao?.status || '') === 'pendente'
-  const midiaPendente = (ad?.aprovacao?.status || '') === 'pendente'
-  if (copyPendente || midiaPendente) return 'aprovacao'
   if ((ad?.url || '').trim() || ad?.attachmentPath) return 'design'
-  return 'rascunho'
-}
-
-// Anúncio que pode entrar numa leva de aprovação de copy: tem texto e não está
-// com o cliente agora.
-export function podeEnviarCopy(ad) {
-  return !!(ad?.copy || '').trim() && (ad?.copyAprovacao?.status || '') !== 'pendente'
+  return 'aprovacao'
 }
 
 // ─── Aprovação do cliente (link público /aprovacao/:token) ───────────────────
