@@ -34,6 +34,7 @@ import {
   Copy,
   Link2,
   Users,
+  Send,
 } from 'lucide-react'
 import Modal from './UI/Modal'
 import MarkdownBlock from './Criativos/MarkdownBlock'
@@ -44,6 +45,7 @@ import ContextPreview from './Criativos/ContextPreview'
 import CreativeHistory from './Criativos/CreativeHistory'
 import VideoGuide from './VideoGuide'
 import CriativoVisualPanel from './Criativos/CriativoVisualPanel'
+import CopyAprovacaoModal from './Criativos/CopyAprovacaoModal'
 import AdWireframePanel from './Criativos/AdWireframePanel'
 import RatingSelector from './RatingSelector'
 import { exportCreativoSetPDF } from '../lib/creativoPDF'
@@ -611,6 +613,11 @@ export default function CriativosModule({ project }) {
   // Setado pelo botão "Gerar variações" em Roteiros Validados; entra na SOLICITAÇÃO.
   const [variacaoRef, setVariacaoRef] = useState(null)
   const [historyCreativeId, setHistoryCreativeId] = useState(null)
+  // Geração aberta no modal "Enviar pra aprovação do cliente" (link da leva).
+  const [aprovacaoCreativeId, setAprovacaoCreativeId] = useState(null)
+  const aprovacaoCreative = aprovacaoCreativeId
+    ? ((project.creatives || []).find((c) => c.id === aprovacaoCreativeId) ?? null)
+    : null
   const historyCreative = historyCreativeId
     ? ((project.creatives || []).find((c) => c.id === historyCreativeId) ?? null)
     : null
@@ -1199,6 +1206,11 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
           {/* Actions */}
           <div className="flex items-center gap-2 shrink-0">
             <RatingSelector value={c.rating} onChange={handleRating} />
+            <AprovacaoButton
+              creative={c}
+              project={project}
+              onClick={() => setAprovacaoCreativeId(c.id)}
+            />
             <button
               onClick={handleExport}
               title="Exportar PDF"
@@ -1225,6 +1237,14 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
           onChunkDelete={handleChunkDelete}
           onRefine={makeRefineHandler(c.type)}
         />
+
+        {aprovacaoCreative && (
+          <CopyAprovacaoModal
+            project={project}
+            creative={aprovacaoCreative}
+            onClose={() => setAprovacaoCreativeId(null)}
+          />
+        )}
       </div>
     )
   }
@@ -1491,6 +1511,11 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                     updateProject(project.id, { creatives: updated })
                   }}
                 />
+                <AprovacaoButton
+                  creative={freshCreative}
+                  project={project}
+                  onClick={() => setAprovacaoCreativeId(freshCreative.id)}
+                />
                 <button
                   onClick={() => exportCreativoSetPDF({ creative: freshCreative, companyName })}
                   title="Exportar PDF"
@@ -1535,6 +1560,14 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
           onChunkDelete={!loading ? handleFreshChunkDelete : undefined}
           onRefine={!loading ? makeRefineHandler(isVideo ? 'video' : 'estatico') : undefined}
         />
+
+        {aprovacaoCreative && (
+          <CopyAprovacaoModal
+            project={project}
+            creative={aprovacaoCreative}
+            onClose={() => setAprovacaoCreativeId(null)}
+          />
+        )}
       </div>
     )
   }
@@ -2582,5 +2615,32 @@ function RoteirosValidadosPanel({ project, onGerarVariacoes }) {
         </div>
       )}
     </div>
+  )
+}
+
+// ─── Botão "Enviar pra aprovação do cliente" ──────────────────────────────────
+// Abre o modal da leva. Quando a geração já tem leva enviada, o botão mostra
+// quantos criativos ainda esperam resposta (ou que o cliente já respondeu tudo).
+function AprovacaoButton({ creative, project, onClick }) {
+  const levas = (project.copyAprovacoes?.levas || []).filter((l) => l.creativeId === creative.id)
+  const itens = levas.flatMap((l) => l.itens || [])
+  const pendentes = itens.filter((it) => (it.aprovacao?.status || 'pendente') === 'pendente').length
+  const aprovados = itens.filter((it) => it.aprovacao?.status === 'aprovado').length
+  const reprovados = itens.filter((it) => it.aprovacao?.status === 'reprovado').length
+
+  const label = itens.length === 0
+    ? 'Enviar pra aprovação'
+    : pendentes > 0
+      ? `${pendentes} aguardando cliente`
+      : `${aprovados} aprovado${aprovados !== 1 ? 's' : ''}${reprovados ? ` · ${reprovados} reprovado${reprovados !== 1 ? 's' : ''}` : ''}`
+
+  return (
+    <button
+      onClick={onClick}
+      title="Gerar o link em que o cliente aprova as copies desta leva"
+      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20 transition-all"
+    >
+      <Send className="w-3.5 h-3.5" /> {label}
+    </button>
   )
 }

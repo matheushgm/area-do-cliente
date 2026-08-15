@@ -17,7 +17,10 @@ function isNonAd(chunk) {
   )
 }
 
-function splitChunks(content) {
+// Exportado: a leva de aprovação de copy precisa enxergar exatamente os mesmos
+// chunks que os cards da tela, senão o índice do item enviado ao cliente não
+// bate com o criativo que o gestor está vendo.
+export function splitChunks(content) {
   const parts = content.split(/(?=^##\s+(?:ROTEIRO|AN[ÚU]NCIO)\s+\d+)/im)
   const adChunks = parts.filter((p) => {
     const t = p.trim()
@@ -38,7 +41,7 @@ function stripTrailingSeparator(text) {
   return text.replace(/\n[ \t]*-{3,}\s*$/, '').trimEnd()
 }
 
-function parseChunk(chunk) {
+export function parseChunk(chunk) {
   const firstLine = chunk.split('\n')[0].trim()
   const headingMatch = firstLine.match(/^#{1,3}\s+(.+)/)
   if (!headingMatch) return { title: '', body: stripTrailingSeparator(chunk) }

@@ -16,6 +16,7 @@ import MatrizObjecaoPublic from './pages/MatrizObjecaoPublic'
 import PrecificacaoPublic from './pages/PrecificacaoPublic'
 import CampanhasPublico from './pages/CampanhasPublico'
 import AprovacaoAnunciosPublico from './pages/AprovacaoAnunciosPublico'
+import AprovacaoCopyPublico from './pages/AprovacaoCopyPublico'
 import NPSClientForm from './pages/NPSClientForm'
 import BancoDeAnuncios from './pages/BancoDeAnuncios'
 import BancoDeAnunciosPublico from './pages/BancoDeAnunciosPublico'
@@ -77,6 +78,7 @@ function AppRoutes() {
         <Route path="/precificacao/:token" element={<PrecificacaoPublic />} />
         <Route path="/campanhas/:token" element={<CampanhasPublico />} />
         <Route path="/aprovacao/:token" element={<AprovacaoAnunciosPublico />} />
+        <Route path="/aprovacao-copy/:token" element={<AprovacaoCopyPublico />} />
         <Route path="/nps/:token" element={<NPSClientForm />} />
         <Route path="/banco-de-anuncios" element={<RequireAuth><BancoDeAnuncios /></RequireAuth>} />
         <Route path="/banco-publico" element={<BancoDeAnunciosPublico />} />

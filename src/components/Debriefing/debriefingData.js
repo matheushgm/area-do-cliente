@@ -3,6 +3,15 @@
 // ─── Status do anúncio ────────────────────────────────────────────────────────
 export const STATUS_OPTIONS = [
   {
+    // Copy aprovada pelo cliente no link da leva (Criativos com IA) — o anúncio
+    // entra na central já nessa fila, esperando o designer produzir a peça.
+    id: 'aprovado_edicao',
+    label: 'Aprovado para Edição',
+    color: '#7C3AED',
+    bgColor: '#EDE9FE',
+    borderColor: '#C4B5FD',
+  },
+  {
     id: 'para_subir',
     label: 'Para Subir',
     color: '#64748B',

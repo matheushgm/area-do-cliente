@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle, Play, CheckCircle2, Clock, Upload, Paperclip, Loader2, Trash2, XCircle, Send, History, PlusCircle } from 'lucide-react'
+import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle, Play, CheckCircle2, Clock, Upload, Paperclip, Loader2, Trash2, XCircle, Send, History, PlusCircle, Palette } from 'lucide-react'
 import Modal from '../UI/Modal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
 import { STATUS_OPTIONS, RESULTADO_OPTIONS, DEFAULT_STATUS, APROVACAO_BY_ID, todayISO, fmtDateTimeBR } from './debriefingData'
@@ -7,7 +7,53 @@ import { uploadFile, deleteFile, getSignedUrl } from '../../lib/supabase'
 
 const ATTACHMENT_BUCKET = 'attachments'
 
-const STATUS_ICON = { para_subir: Clock, em_andamento: Play, finalizado: CheckCircle2 }
+const STATUS_ICON = {
+  aprovado_edicao: Palette,
+  para_subir: Clock,
+  em_andamento: Play,
+  finalizado: CheckCircle2,
+}
+
+// Bloco somente-leitura com a copy que o cliente aprovou na leva de Criativos
+// com IA — é o briefe do designer pra produzir a peça.
+function CopyAprovadaBlock({ copy, origem }) {
+  const [copied, setCopied] = useState(false)
+
+  function copiar() {
+    navigator.clipboard?.writeText(copy || '')
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1800)
+  }
+
+  return (
+    <div className="rounded-xl border border-rl-blue/30 bg-rl-blue/5 overflow-hidden">
+      <div className="px-4 py-2.5 flex items-center justify-between gap-2 border-b border-rl-blue/20">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-rl-blue">
+            Copy aprovada pelo cliente
+          </p>
+          {origem?.levaNome && (
+            <p className="text-[11px] text-rl-muted truncate">
+              Leva: {origem.levaNome}
+              {origem.aprovadoEm ? ` · ${fmtDateTimeBR(origem.aprovadoEm)}` : ''}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={copiar}
+          className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-rl-blue/10 border border-rl-blue/30 text-rl-blue hover:bg-rl-blue/20 transition-all"
+        >
+          {copied ? <Check className="w-3 h-3" /> : <Paperclip className="w-3 h-3" />}
+          {copied ? 'Copiada!' : 'Copiar texto'}
+        </button>
+      </div>
+      <pre className="px-4 py-3 text-[12px] leading-relaxed text-rl-text whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">
+        {copy}
+      </pre>
+    </div>
+  )
+}
 
 // Tipos de anúncio com ícone + código curto (pro auto-suggest de nomenclatura)
 export const TIPOS_ANUNCIO = [
@@ -227,7 +273,12 @@ export default function DebriefingAdModal({
   }
 
   // Validação extra pra status "Finalizado": precisa de resultado + justificativa.
-  const baseValid = !!(values.url || '').trim() && !!(values.nome || '').trim() && !!values.tipo
+  // Anúncio na fila do designer ("Aprovado para Edição") ainda não tem peça
+  // pronta — só a copy aprovada. O link vira obrigatório quando ele avança de
+  // status, que é justamente quando a peça já existe.
+  const emEdicao = values.status === 'aprovado_edicao'
+  const baseValid =
+    (emEdicao || !!(values.url || '').trim()) && !!(values.nome || '').trim() && !!values.tipo
   const finalizadoValid = values.status !== 'finalizado'
     || (!!values.resultado && !!(values.justificativa || '').trim())
   const canSave = baseValid && finalizadoValid
@@ -308,7 +359,11 @@ export default function DebriefingAdModal({
         </div>
 
         {/* URL */}
-        <Field label="Link do anúncio (Google Drive ou plataforma)" required>
+        <Field
+          label="Link do anúncio (Google Drive ou plataforma)"
+          required={!emEdicao}
+          hint={emEdicao ? 'Preencha quando a peça estiver pronta e o anúncio sair da fila do designer.' : undefined}
+        >
           <div className="relative">
             <input
               type="text"
@@ -464,6 +519,9 @@ export default function DebriefingAdModal({
             <p className="text-[11px] text-rl-muted mt-1.5 leading-snug">{selectedFunil.desc}</p>
           )}
         </Field>
+
+        {/* Copy aprovada pelo cliente (veio de uma leva de Criativos com IA) */}
+        {values.copy && <CopyAprovadaBlock copy={values.copy} origem={values.copyOrigem} />}
 
         {/* Observação */}
         <Field label="Observação (opcional)">

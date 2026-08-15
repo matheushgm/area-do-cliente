@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   Megaphone, Plus, Pencil, Trash2, ExternalLink, Video, Image as ImageIcon, Layers,
-  Filter, X, Clock, Play, CheckCircle2, Paperclip, FlaskConical, Link2, Send,
+  Filter, X, Clock, Play, CheckCircle2, Paperclip, FlaskConical, Link2, Send, Palette,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
@@ -16,7 +16,12 @@ const ATTACHMENT_BUCKET = 'attachments'
 
 const EMPTY = { ads: [] }
 const TIPO_ICON = { video: Video, imagem: ImageIcon, carrossel: Layers }
-const STATUS_ICON = { para_subir: Clock, em_andamento: Play, finalizado: CheckCircle2 }
+const STATUS_ICON = {
+  aprovado_edicao: Palette,
+  para_subir: Clock,
+  em_andamento: Play,
+  finalizado: CheckCircle2,
+}
 
 export default function DebriefingModule({ project }) {
   const { updateProject } = useApp()
@@ -111,6 +116,12 @@ export default function DebriefingModule({ project }) {
       .catch(() => showToast('Link: ' + url))
   }
 
+  // Fila do designer: copy aprovada pelo cliente, peça ainda não produzida.
+  const paraEditar = useMemo(
+    () => ads.filter((ad) => ad.status === 'aprovado_edicao'),
+    [ads]
+  )
+
   const hasFilters = filterTipo || filterFunil || filterStatus
 
   return (
@@ -127,6 +138,28 @@ export default function DebriefingModule({ project }) {
           </p>
         </div>
       </div>
+
+      {/* Fila do designer: copies que o cliente aprovou e ainda não viraram peça */}
+      {paraEditar.length > 0 && (
+        <button
+          onClick={() => setFilterStatus(filterStatus === 'aprovado_edicao' ? '' : 'aprovado_edicao')}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
+            filterStatus === 'aprovado_edicao'
+              ? 'border-rl-purple/50 bg-rl-purple/10'
+              : 'border-rl-purple/30 bg-rl-purple/5 hover:bg-rl-purple/10'
+          }`}
+        >
+          <Palette className="w-4 h-4 text-rl-purple shrink-0" />
+          <span className="text-sm text-rl-text">
+            <strong className="font-bold">{paraEditar.length}</strong>{' '}
+            {paraEditar.length === 1 ? 'criativo aprovado' : 'criativos aprovados'} pelo cliente
+            {' '}esperando o designer produzir a peça.
+          </span>
+          <span className="ml-auto text-[11px] font-semibold text-rl-purple shrink-0">
+            {filterStatus === 'aprovado_edicao' ? 'mostrar todos' : 'ver a fila'}
+          </span>
+        </button>
+      )}
 
       {/* Toolbar: filtros + novo */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -253,6 +286,14 @@ export default function DebriefingModule({ project }) {
                               title={`${ad.versionHistory?.length || 0} versão(ões) anterior(es) no histórico`}
                             >
                               v{ad.version}
+                            </span>
+                          )}
+                          {ad.copy && (
+                            <span
+                              className="font-sans text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-blue/10 text-rl-blue border border-rl-blue/30"
+                              title="Copy aprovada pelo cliente na leva de Criativos com IA — abra o anúncio pra ver o texto"
+                            >
+                              copy
                             </span>
                           )}
                         </span>

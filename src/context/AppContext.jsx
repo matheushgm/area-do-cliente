@@ -280,6 +280,9 @@ function assembleProject(row, rel = {}) {
     // Central de Landing Pages (banco de LPs do cliente)
     lpCentral: row.lp_central ?? null,
 
+    // Levas de copy (Criativos com IA) enviadas pro cliente aprovar
+    copyAprovacoes: row.copy_aprovacoes ?? null,
+
     // Matriz de objeção (tabela colaborativa de objeções de venda)
     matrizObjecao: row.matriz_objecao ?? null,
 
@@ -442,6 +445,7 @@ const PROJECT_FIELD_MAP = {
   mecanismoUnico:       "mecanismo_unico",
   debriefing:           "debriefing",
   lpCentral:            "lp_central",
+  copyAprovacoes:       "copy_aprovacoes",
   matrizObjecao:        "matriz_objecao",
   webinars:             "webinars",
   roiCenarios:          "roi_cenarios",

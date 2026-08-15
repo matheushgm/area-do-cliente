@@ -1,0 +1,15 @@
+-- Migration 077: add copy_aprovacoes JSONB column to projects_v2
+--
+-- Levas de copy geradas em "Criativos com IA" e enviadas pro cliente aprovar
+-- num link exclusivo daquela leva (/aprovacao-copy/:token):
+-- { levas: [{
+--     id, token, creativeId, nome, tipo: 'video'|'estatico', funilId,
+--     nivelLabel, criadoEm, enviadoEm,
+--     itens: [{ id, titulo, conteudo, adId,
+--               aprovacao: { status: pendente|aprovado|reprovado,
+--                            motivo, sugestao, decididoEm } }]
+--   }] }
+--
+-- Ao aprovar um item, a API cria o anúncio correspondente em
+-- projects_v2.debriefing.ads[] com status 'aprovado_edicao' (fila do designer).
+ALTER TABLE projects_v2 ADD COLUMN IF NOT EXISTS copy_aprovacoes JSONB;
