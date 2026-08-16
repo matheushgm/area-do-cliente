@@ -294,6 +294,64 @@ campos de funil preenchidos à mão (MQL, SQL, vendas, receita são preservados)
   `x-vercel-cron`). A chave de serviço é lida de `SUPABASE_SECRET_KEY` com fallback para
   `SUPABASE_SERVICE_ROLE_KEY`.
 
+### Capacidade do Time — sync do ClickUp
+
+`/workload` (`src/pages/WorkloadDashboard.jsx`) mostra a carga do time a partir das tarefas do
+ClickUp. **A UI nunca chama a API do ClickUp** — lê o cache `clickup_tasks` no Supabase. É isso
+que desacopla o custo de requisição do número de usuários: 1 ou 20 pessoas na página custam zero
+chamadas ao ClickUp.
+
+> Até 08/2026 esta página era um `public/workload/dashboard.html` **estático**, com os números
+> escritos à mão e servido sem autenticação (num repo público). Foi substituído — não recriar.
+
+- **Rate limit:** o limite é por token/workspace — 100 req/min nos planos Free/Unlimited/Business,
+  1.000 no Business Plus, 10.000 no Enterprise. `clickupGet()` lê `X-RateLimit-Remaining` de cada
+  resposta em vez de presumir o plano, e o sync para sozinho abaixo de `RATE_FLOOR` (15).
+- **O erro a não repetir:** `GET /team/{id}/task` já devolve `assignees`, `status`, datas **e
+  `time_estimate`**, 100 tarefas por página. Buscar `GET /task/{id}` por tarefa para ler horas
+  custa ~570 requisições e estoura o limite — foi o que matou o snapshot antigo.
+
+| Peça | Arquivo | Papel |
+|---|---|---|
+| Biblioteca comum | `api/_clickup.js` | mapeamento, `normalizeBucket`, fetch com rate limit, helpers Supabase. Prefixo `_` faz o Vercel não tratar como função |
+| Webhook (tempo real) | `api/clickup-webhook.js` | ClickUp empurra o evento; 1 `GET /task/{id}` e upsert |
+| Sync (reconciliação) | `api/clickup-sync.js` | `?mode=incremental` (default) ou `?mode=full` |
+| Agregação pura | `src/lib/workload.js` | `buildWorkload()` — contagens, radar de 7 dias, cobertura de estimativa |
+| Estado + realtime | `src/hooks/useWorkloadData.js` | lê `clickup_tasks`, assina Realtime, expõe `syncNow()` |
+
+- **Modos do sync:** `incremental` usa `date_updated_gt` a partir de `clickup_sync_state.last_synced_at`
+  (com 2 min de sobreposição) e `include_closed=true` — é assim que descobrimos que uma tarefa saiu
+  da carga; 1–2 requisições. `full` puxa só as abertas (~6–8 requisições) e **reconcilia**: o que
+  está aberto no cache e não voltou do ClickUp vira concluído.
+- **Duas guardas na reconciliação, ambas obrigatórias:** só roda quando a paginação foi completa
+  (`complete`), senão uma parada por cota apagaria a carga real; e lê a lista de abertas com
+  `sbSelectAll()`, porque o corte silencioso de 1.000 linhas do PostgREST marcaria como concluída
+  toda tarefa além da milésima.
+- **Lock:** `clickup_sync_state.running` impede dois syncs simultâneos queimarem cota em paralelo;
+  considerado órfão após 5 min.
+- **Segurança do webhook:** todo payload vem com HMAC-SHA256 hex do corpo cru no header
+  `X-Signature`, validado contra `CLICKUP_WEBHOOK_SECRET` em tempo constante. O corpo é lido como
+  texto antes do parse — re-serializar o JSON mudaria o digest. Em erro de processamento o endpoint
+  responde **200 de propósito**: o ClickUp suspende webhooks após falhas consecutivas, e perder o
+  canal é pior que perder um evento (o incremental repara).
+- **Spaces excluídos:** `CLICKUP_EXCLUDED_SPACE_IDS` (default `90090379335`, o space "Templates" —
+  tarefas modelo inflariam a carga de todo mundo).
+- **Status:** os nomes reais trazem emoji e acento (`💡 backlog`, `em revisão`), então
+  `normalizeBucket()` reduz a um slug sem diacríticos. O `type` nativo (`closed`/`done`) manda
+  sobre o nome para decidir se a tarefa sai da carga.
+- **Contagem:** tarefa com 2 responsáveis conta para os dois, então a soma das linhas pode passar
+  do total de tarefas distintas — a UI diz isso na tela. Tarefas sem responsável viram a linha
+  "Sem responsável".
+- **Horas:** `time_estimate_ms` é nullable de propósito. A cobertura é medida a cada render
+  (`estimateCoverage`) e, abaixo de 50%, a página avisa que a linha de horas é um piso.
+- **Registro do webhook** (uma vez, após o deploy):
+  `POST https://api.clickup.com/api/v2/team/9009170774/webhook` com
+  `{ "endpoint": "https://<dominio>/api/clickup-webhook", "events": ["taskCreated","taskUpdated","taskStatusUpdated","taskAssigneeUpdated","taskDueDateUpdated","taskTimeEstimateUpdated","taskMoved","taskPriorityUpdated","taskTagUpdated","taskDeleted"] }`.
+  A resposta traz o `secret` → `CLICKUP_WEBHOOK_SECRET` na Vercel.
+- **Cron:** `/api/clickup-sync?mode=full` diário às 06:00 UTC (03:00 BRT) no `vercel.json` — cabe no
+  limite de 1x/dia do plano Hobby. No Pro dá para apertar para horário; o webhook é que dá o tempo
+  real, o cron é só a rede de segurança.
+
 ### LinksModule — visibilidade na header
 
 `src/components/LinksModule.jsx` — cada link (fixo ou avulso) tem toggle Eye/EyeOff que persiste no campo `hiddenFromHeader[]` dentro do JSONB `links` em `projects_v2`. A header do `ClientProfile` usa um **ResizeObserver** para calcular dinamicamente quantos links cabem no container (substituiu o limite estático `MAX_VISIBLE=5`); quando o container cresce, re-mede e traz links de volta do overflow.

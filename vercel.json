@@ -15,12 +15,22 @@
     },
     "api/slack.js": {
       "maxDuration": 15
+    },
+    "api/clickup-sync.js": {
+      "maxDuration": 60
+    },
+    "api/clickup-webhook.js": {
+      "maxDuration": 15
     }
   },
   "crons": [
     {
       "path": "/api/resultados-autofill",
       "schedule": "5 3 1,8,15,22 * *"
+    },
+    {
+      "path": "/api/clickup-sync?mode=full",
+      "schedule": "0 6 * * *"
     }
   ]
 }
