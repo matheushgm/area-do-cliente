@@ -241,8 +241,28 @@ export function groupBy(rows, keyFn, metrics) {
 }
 
 // Classifica o status textual de uma campanha/anúncio em { cls, label }.
+// Os valores vêm em inglês da API (effective_status). Traduzidos para o mesmo
+// vocabulário do Gerenciador de Anúncios, incluindo quem herdou a pausa do pai.
+const STATUS_PT = {
+  ACTIVE: ['st-active', 'ATIVO'],
+  ENABLED: ['st-active', 'ATIVO'],
+  PAUSED: ['st-paused', 'PAUSADO'],
+  ADSET_PAUSED: ['st-paused', 'PAUSADO (conjunto)'],
+  CAMPAIGN_PAUSED: ['st-paused', 'PAUSADO (campanha)'],
+  ARCHIVED: ['st-paused', 'ARQUIVADO'],
+  DELETED: ['st-paused', 'EXCLUÍDO'],
+  REMOVED: ['st-paused', 'REMOVIDO'],
+  WITH_ISSUES: ['st-other', 'COM PROBLEMA'],
+  DISAPPROVED: ['st-other', 'REPROVADO'],
+  PENDING_REVIEW: ['st-other', 'EM ANÁLISE'],
+  PREAPPROVED: ['st-other', 'PRÉ-APROVADO'],
+  PENDING_BILLING_INFO: ['st-other', 'SEM FORMA DE PAGAMENTO'],
+  IN_PROCESS: ['st-other', 'EM PROCESSAMENTO'],
+}
 export function statusTagInfo(s) {
   if (!s) return null
+  const hit = STATUS_PT[s.trim().toUpperCase()]
+  if (hit) return { cls: hit[0], label: hit[1] }
   const lower = s.toLowerCase()
   if (lower.includes('ativ') || lower === 'active' || lower === 'enabled') return { cls: 'st-active', label: 'ATIVO' }
   if (lower.includes('paus') || lower === 'paused') return { cls: 'st-paused', label: 'PAUSADO' }
