@@ -50,6 +50,31 @@ export function parseChunk(chunk) {
   return { title, body: body || chunk }
 }
 
+// Nível do cabeçalho markdown de uma linha: "# " → 1, "## " → 2, "### " → 3.
+// 0 quando a linha não é cabeçalho.
+function headingLevel(line = '') {
+  const match = line.trim().match(/^(#{1,3})\s+\S/)
+  return match ? match[1].length : 0
+}
+
+// Devolve o texto editado com o cabeçalho original do chunk de volta no topo.
+// A textarea de edição só expõe o body — sem o cabeçalho, o splitter perde a
+// referência de início de chunk e o anúncio "some" (fica colado ao anterior).
+//
+// A comparação é por NÍVEL, não por "tem ou não tem #": o body do criativo
+// estático começa em "### 1" (numeração da headline dentro do bloco), que é um
+// subcabeçalho, não o título do chunk. Tratar isso como cabeçalho fazia o
+// "# DOR: ... | Tipo" ser descartado no save, e o card perdia a dor e o ângulo.
+function withOriginalHeading(chunk, edited) {
+  const text = (edited || '').trim()
+  const firstLine = chunk.split('\n')[0]
+  const originalLevel = headingLevel(firstLine)
+  if (!originalLevel) return text
+  const editedLevel = headingLevel(text.split('\n')[0])
+  const editedHasChunkHeading = editedLevel > 0 && editedLevel <= originalLevel
+  return editedHasChunkHeading ? text : `${firstLine}\n\n${text}`
+}
+
 // ── ChunkCard ─────────────────────────────────────────────────────────────────
 
 function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelete }) {
@@ -82,17 +107,9 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
   function cancelEdit() { setEditing(false); setDraft('') }
   function saveEdit() {
     if (onChange && draft.trim()) {
-      // Preserva o cabeçalho original do chunk (`## ROTEIRO N:` / `## ANÚNCIO N:`).
-      // O textarea de edição só expõe o body — se a gente devolvesse só `draft`,
-      // o splitter perde a referência de início de chunk e o anúncio "some"
-      // (na verdade fica colado ao anterior na próxima render).
-      const firstLine = item.chunk.split('\n')[0]
-      const hadHeading = /^#{1,3}\s+/.test(firstLine)
-      const draftHasHeading = /^#{1,3}\s+/.test(draft.trim())
-      const newChunk = (hadHeading && !draftHasHeading)
-        ? `${firstLine}\n\n${draft.trim()}`
-        : draft.trim()
-      onChange(newChunk)
+      // Preserva o cabeçalho original do chunk (`# DOR: ... | Tipo`,
+      // `## ROTEIRO N:` / `## ANÚNCIO N:`).
+      onChange(withOriginalHeading(item.chunk, draft))
     }
     setEditing(false)
     setDraft('')
@@ -126,13 +143,7 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
     if (onChange && refinedContent) {
       // Mesma proteção do saveEdit: se o output da IA veio sem cabeçalho,
       // recoloca o original pra não quebrar o splitter na próxima render.
-      const firstLine = item.chunk.split('\n')[0]
-      const hadHeading = /^#{1,3}\s+/.test(firstLine)
-      const refinedHasHeading = /^#{1,3}\s+/.test(refinedContent.trim())
-      const safe = (hadHeading && !refinedHasHeading)
-        ? `${firstLine}\n\n${refinedContent.trim()}`
-        : refinedContent
-      onChange(safe)
+      onChange(withOriginalHeading(item.chunk, refinedContent))
     }
     setRefinedContent(null)
     setRefineOpen(false)
