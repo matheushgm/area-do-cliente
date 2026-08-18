@@ -12,9 +12,9 @@
 // já carregou.
 // ─────────────────────────────────────────────────────────────────────────────
 import {
-  CFG, num, fmtDate, inRange, addDays, localDateStr, maxDate, classifyFunnel,
+  CFG, num, fmtDate, inRange, addDays, localDateStr, maxDate, classifyFunnel, normStr,
 } from '../../lib/dashboardData'
-import { uid } from './campaignHelpers'
+import { uid, emptyStages } from './campaignHelpers'
 
 // Mesmo imposto aplicado ao canal Meta em CampaignPlanner.jsx / ChannelRow.jsx.
 const META_TAX = 0.13
@@ -30,6 +30,10 @@ const STATUS_KEYS = { meta: ['Status da Campanha', ' Status da Campanha'], googl
 
 // Campanhas sem marcador de funil no nome (TOPO/MOF/BOFU…) caem aqui.
 const FALLBACK_STAGE = 'topo'
+
+// Linha sintética que o sync grava para conta que não veiculou no período —
+// não é campanha e não pode entrar no planejamento.
+const PLACEHOLDER = 'sem veiculacao no periodo'
 
 function spendOf(row, channel) {
   return num(row[CFG[channel].spendKey])
@@ -53,7 +57,11 @@ function rowsFor(raw, channel, names, from, to) {
 // Distribui 100% entre `values` proporcionalmente, em INTEIROS que somam
 // exatamente 100 (maior resto). O planner valida `soma === 100`, então float
 // aqui quebraria a validação (33,33 + 33,33 + 33,34 ≠ 100 em ponto flutuante).
-export function pctSplit(values) {
+//
+// `minForPositive` garante um piso para quem teve gasto: uma conta que gastou
+// R$ 2,46 numa semana de R$ 1.090 arredonda para 0% e desapareceria do plano.
+// O piso sai de quem tem a maior fatia, mantendo a soma em 100.
+export function pctSplit(values, { minForPositive = 0 } = {}) {
   const n = values.length
   if (!n) return []
   const total = values.reduce((a, v) => a + v, 0)
@@ -64,6 +72,21 @@ export function pctSplit(values) {
     .sort((a, b) => b[1] - a[1])
   let rest = 100 - out.reduce((a, v) => a + v, 0)
   for (let k = 0; rest > 0; k++, rest--) out[order[k % n][0]]++
+
+  if (minForPositive > 0 && n * minForPositive <= 100) {
+    for (let i = 0; i < n; i++) {
+      if (!(values[i] > 0)) continue
+      while (out[i] < minForPositive) {
+        let big = -1
+        for (let j = 0; j < n; j++) {
+          if (out[j] > minForPositive && (big === -1 || out[j] > out[big])) big = j
+        }
+        if (big === -1) break
+        out[big]--
+        out[i]++
+      }
+    }
+  }
   return out
 }
 
@@ -125,57 +148,66 @@ export function pullChannelShare(raw, names, plannerChannelNames, channelName, d
   if (!parts.length) return null
   const idx = parts.findIndex((p) => p.name === channelName)
   if (idx === -1) return null
-  const pcts = pctSplit(parts.map((p) => p.gross))
+  const pcts = pctSplit(parts.map((p) => p.gross), { minForPositive: 1 })
   return pcts[idx]
 }
 
 /**
- * Campanhas ativas do canal nas contas informadas, com a proporção de verba
- * que cada uma representa hoje, já encaixada em topo/meio/fundo.
+ * Campanhas ativas do canal, agrupadas POR CONTA DE ANÚNCIO.
  *
- * Retorna null quando não há nenhum dado do canal para essas contas.
+ * Devolve uma entrada por conta que tenha campanha ativa, com o gasto da conta
+ * na janela e as campanhas já encaixadas em topo/meio/fundo.
  */
-export function pullChannelPlan(raw, channelName, names, days = 7) {
-  const channel = CHANNEL_KEY[channelName]
-  if (!channel) return null
-  const range = recentRange(raw, channel, names, days)
-  if (!range) return null
-  const [from, to] = range
+function campaignsByAccount(raw, channel, names, from, to) {
   const rows = rowsFor(raw, channel, names, from, to)
-  if (!rows.length) return null
+  const campKey  = CAMP_KEY[channel]
+  const dateKey  = CFG[channel].dateKey
+  const acctKey  = CFG[channel].accountKey
 
-  const campKey = CAMP_KEY[channel]
-  const dateKey = CFG[channel].dateKey
-
-  // Agrega por nome de campanha; o status vale o da linha mais recente (o sync
+  // Agrega por conta + campanha; o status vale o da linha mais recente (o sync
   // grava o status ATUAL, mas linhas antigas podem trazer o de outro dia).
-  const byCamp = new Map()
+  const byAcct = new Map()
   rows.forEach((r) => {
-    const key = (r[campKey] || '').trim()
-    if (!key) return
-    let g = byCamp.get(key)
-    if (!g) { g = { name: key, spend: 0, status: '', statusDate: '' }; byCamp.set(key, g) }
+    const acct = r[acctKey]?.trim()
+    const name = (r[campKey] || '').trim()
+    if (!acct || !name) return
+    if (normStr(name).includes(PLACEHOLDER)) return
+    if (!byAcct.has(acct)) byAcct.set(acct, new Map())
+    const camps = byAcct.get(acct)
+    let g = camps.get(name)
+    if (!g) { g = { name, spend: 0, status: '', statusDate: '' }; camps.set(name, g) }
     g.spend += spendOf(r, channel)
     const st = STATUS_KEYS[channel].map((k) => r[k]).find((v) => v && String(v).trim())
     const d = fmtDate(r[dateKey]) || ''
     if (st && d >= g.statusDate) { g.status = String(st).trim(); g.statusDate = d }
   })
 
-  const all = [...byCamp.values()]
-  if (!all.length) return null
+  const out = []
+  let totalCount = 0
+  let byStatus = false
+  byAcct.forEach((camps, acct) => {
+    const all = [...camps.values()]
+    totalCount += all.length
+    // Meta traz status → filtra pelas realmente ativas. Google não traz status →
+    // "ativa" = teve gasto na janela.
+    const hasStatus = all.some((c) => c.status)
+    if (hasStatus) byStatus = true
+    const active = hasStatus
+      ? all.filter((c) => isActiveStatus(c.status))
+      : all.filter((c) => c.spend > 0)
+    if (!active.length) return
+    out.push({ name: acct, campaigns: active, spend: active.reduce((a, c) => a + c.spend, 0) })
+  })
+  // Conta com mais verba primeiro — é a ordem que o gestor espera ler.
+  out.sort((a, b) => b.spend - a.spend)
+  return { accounts: out, totalCount, byStatus }
+}
 
-  // Meta traz status → filtra pelas realmente ativas. Google não traz status →
-  // "ativa" = teve gasto na janela.
-  const hasStatus = all.some((c) => c.status)
-  const active = hasStatus
-    ? all.filter((c) => isActiveStatus(c.status))
-    : all.filter((c) => c.spend > 0)
-  if (!active.length) return null
-
-  // Encaixa cada campanha na etapa do funil pela convenção de nomenclatura.
+// Monta { stages, unmatched } a partir de uma lista de campanhas com gasto.
+function stagesFromCampaigns(campaigns) {
   const buckets = { topo: [], meio: [], fundo: [] }
   let unmatched = 0
-  active.forEach((c) => {
+  campaigns.forEach((c) => {
     const stage = classifyFunnel(c.name)
     if (stage === 'outro') unmatched++
     buckets[stage === 'outro' ? FALLBACK_STAGE : stage].push(c)
@@ -183,13 +215,13 @@ export function pullChannelPlan(raw, channelName, names, days = 7) {
 
   // % das etapas: proporcional ao gasto de cada etapa (etapa sem campanha = 0).
   const filled = Object.keys(buckets).filter((k) => buckets[k].length > 0)
-  const stagePcts = pctSplit(filled.map((k) => buckets[k].reduce((a, c) => a + c.spend, 0)))
+  const stagePcts = pctSplit(filled.map((k) => buckets[k].reduce((a, c) => a + c.spend, 0)), { minForPositive: 1 })
 
-  const stages = {}
+  const stages = emptyStages()
   Object.keys(buckets).forEach((k) => {
     const i = filled.indexOf(k)
     const camps = buckets[k]
-    const campPcts = pctSplit(camps.map((c) => c.spend))
+    const campPcts = pctSplit(camps.map((c) => c.spend), { minForPositive: 1 })
     stages[k] = {
       percentage: i === -1 ? 0 : stagePcts[i],
       campaigns: camps.map((c, j) => ({
@@ -201,16 +233,46 @@ export function pullChannelPlan(raw, channelName, names, days = 7) {
       })),
     }
   })
+  return { stages, unmatched }
+}
 
-  return {
-    channel,
-    from,
-    to,
-    stages,
-    totalSpend: active.reduce((a, c) => a + c.spend, 0),
-    activeCount: active.length,
-    totalCount: all.length,
-    unmatched,
-    byStatus: hasStatus,
+/**
+ * Estrutura do canal como está hoje nas contas do cliente.
+ *
+ * - Uma conta com campanha ativa  → mode 'flat': o funil vai direto no canal.
+ * - Mais de uma conta             → mode 'accounts': o canal é subdividido por
+ *   conta de anúncio, cada uma com sua fatia % do canal e seu próprio funil.
+ *
+ * Retorna null quando nenhuma conta do cliente tem campanha ativa no canal.
+ */
+export function pullChannelPlan(raw, channelName, names, days = 7) {
+  const channel = CHANNEL_KEY[channelName]
+  if (!channel) return null
+  const range = recentRange(raw, channel, names, days)
+  if (!range) return null
+  const [from, to] = range
+
+  const { accounts, totalCount, byStatus } = campaignsByAccount(raw, channel, names, from, to)
+  if (!accounts.length) return null
+
+  const activeCount = accounts.reduce((a, ac) => a + ac.campaigns.length, 0)
+  const totalSpend  = accounts.reduce((a, ac) => a + ac.spend, 0)
+  const base = {
+    channel, from, to, totalSpend, activeCount, totalCount, byStatus,
+    accountNames: accounts.map((a) => a.name),
   }
+
+  if (accounts.length === 1) {
+    const { stages, unmatched } = stagesFromCampaigns(accounts[0].campaigns)
+    return { ...base, mode: 'flat', stages, unmatched }
+  }
+
+  const acctPcts = pctSplit(accounts.map((a) => a.spend), { minForPositive: 1 })
+  let unmatched = 0
+  const adAccounts = accounts.map((ac, i) => {
+    const built = stagesFromCampaigns(ac.campaigns)
+    unmatched += built.unmatched
+    return { id: uid(), name: ac.name, percentage: acctPcts[i], expanded: true, stages: built.stages }
+  })
+  return { ...base, mode: 'accounts', adAccounts, unmatched }
 }

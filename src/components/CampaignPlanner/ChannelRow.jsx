@@ -1,6 +1,7 @@
-import { ChevronDown, ChevronUp, Trash2, DownloadCloud } from 'lucide-react'
+import { ChevronDown, ChevronUp, Trash2, DownloadCloud, Plus, Building2 } from 'lucide-react'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
-import { CHANNEL_OPTIONS, STAGE_KEYS, fmtBRL } from './campaignHelpers'
+import { CHANNEL_OPTIONS, STAGE_KEYS, fmtBRL, stageSum } from './campaignHelpers'
+import AdAccountSection from './AdAccountSection'
 import PctInput from './PctInput'
 import ValueInput from './ValueInput'
 import ValueCell from './ValueCell'
@@ -8,10 +9,19 @@ import StageSection from './StageSection'
 
 const META_TAX = 0.13
 
-export default function ChannelRow({ channel, derived, daysLeft, validation, usedNames, budgetDisponivel, canPull, onPull, onUpdate, onDelete, onUpdateStage, onAddCampaign, onUpdateCampaign, onDeleteCampaign }) {
-  const stageSum = STAGE_KEYS.reduce((s, k) => s + (channel.stages[k].percentage || 0), 0)
-  const stageRemaining = 100 - stageSum
-  const stageValid = stageSum === 100
+export default function ChannelRow({
+  channel, derived, daysLeft, validation, usedNames, budgetDisponivel, canPull, onPull,
+  onUpdate, onDelete, onUpdateStage, onAddCampaign, onUpdateCampaign, onDeleteCampaign,
+  onUpdateAdAccount, onAddAdAccount, onDeleteAdAccount,
+}) {
+  // Canal subdividido por conta de anúncio: o funil fica dentro de cada conta e
+  // o que precisa fechar 100% aqui é a divisão entre as contas.
+  const adAccounts   = channel.adAccounts || []
+  const subdivided   = adAccounts.length > 0
+  const acctSum      = adAccounts.reduce((s, a) => s + (a.percentage || 0), 0)
+  const stageTotal   = subdivided ? acctSum : stageSum(channel.stages)
+  const stageRemaining = 100 - stageTotal
+  const stageValid   = stageTotal === 100
 
   // Available channel options (not used by other channels, but include current)
   const availableOptions = CHANNEL_OPTIONS.filter(
@@ -98,10 +108,10 @@ export default function ChannelRow({ channel, derived, daysLeft, validation, use
       {/* Expanded body */}
       {channel.expanded && (
         <div className="p-4 space-y-3">
-          {/* Funnel distribution header */}
+          {/* Cabeçalho da distribuição — por conta de anúncio ou pelo funil */}
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold text-rl-muted uppercase tracking-wider">
-              Distribuição do Funil
+              {subdivided ? 'Contas de Anúncio' : 'Distribuição do Funil'}
             </p>
             <div className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
               stageValid
@@ -115,23 +125,54 @@ export default function ChannelRow({ channel, derived, daysLeft, validation, use
             </div>
           </div>
 
-          {/* Stage rows */}
-          <div className="space-y-2">
-            {STAGE_KEYS.map((key) => (
-              <StageSection
-                key={key}
-                stageKey={key}
-                stage={channel.stages[key]}
-                derived={derived.stages[key]}
-                channelMonthly={derived.monthly}
-                daysLeft={daysLeft}
-                onUpdateStage={(patch) => onUpdateStage(key, patch)}
-                onAddCampaign={() => onAddCampaign(key)}
-                onUpdateCampaign={(campId, patch) => onUpdateCampaign(key, campId, patch)}
-                onDeleteCampaign={(campId) => onDeleteCampaign(key, campId)}
-              />
-            ))}
-          </div>
+          {subdivided ? (
+            <div className="space-y-2">
+              {adAccounts.map((ac, i) => (
+                <AdAccountSection
+                  key={ac.id}
+                  account={ac}
+                  derived={derived.adAccounts[i]}
+                  channelMonthly={derived.monthly}
+                  daysLeft={daysLeft}
+                  onUpdate={(patch) => onUpdateAdAccount(ac.id, patch)}
+                  onDelete={() => onDeleteAdAccount(ac.id)}
+                  onUpdateStage={(stageKey, patch) => onUpdateStage(stageKey, patch, ac.id)}
+                  onAddCampaign={(stageKey) => onAddCampaign(stageKey, ac.id)}
+                  onUpdateCampaign={(stageKey, campId, patch) => onUpdateCampaign(stageKey, campId, patch, ac.id)}
+                  onDeleteCampaign={(stageKey, campId) => onDeleteCampaign(stageKey, campId, ac.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {STAGE_KEYS.map((key) => (
+                <StageSection
+                  key={key}
+                  stageKey={key}
+                  stage={channel.stages[key]}
+                  derived={derived.stages[key]}
+                  channelMonthly={derived.monthly}
+                  daysLeft={daysLeft}
+                  onUpdateStage={(patch) => onUpdateStage(key, patch)}
+                  onAddCampaign={() => onAddCampaign(key)}
+                  onUpdateCampaign={(campId, patch) => onUpdateCampaign(key, campId, patch)}
+                  onDeleteCampaign={(campId) => onDeleteCampaign(key, campId)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Subdividir / adicionar conta de anúncio */}
+          <button
+            onClick={onAddAdAccount}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-rl-border text-[11px] font-semibold text-rl-muted hover:text-rl-text hover:border-rl-purple/40 transition-all"
+            title={subdivided
+              ? 'Adicionar outra conta de anúncio a este canal'
+              : 'Repartir a verba deste canal entre contas de anúncio (o funil atual vai para a primeira conta)'}
+          >
+            {subdivided ? <Plus className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
+            {subdivided ? 'Adicionar conta de anúncio' : 'Dividir por conta de anúncio'}
+          </button>
         </div>
       )}
     </div>

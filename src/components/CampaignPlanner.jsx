@@ -11,8 +11,8 @@ import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useDashboardData } from '../hooks/useDashboardData'
 import ProjectTrafficDashboard from './Resultados/ProjectTrafficDashboard'
 import {
-  fmtBRL, makeChannel, makeCampaign,
-  CHANNEL_OPTIONS, STAGE_KEYS,
+  fmtBRL, makeChannel, makeCampaign, makeAdAccount, deriveStages, stageSum, emptyStages,
+  CHANNEL_OPTIONS,
   defaultEndDateISO, todayISO, getDaysBetween, getPeriodLabel,
 } from './CampaignPlanner/campaignHelpers'
 import ChannelRow from './CampaignPlanner/ChannelRow'
@@ -122,34 +122,56 @@ export default function CampaignPlanner({ project, onSave }) {
       const chMonBruto    = budgetDisponivel * (ch.percentage / 100)
       const chMonEfetivo  = isMeta ? chMonBruto * (1 - META_TAX) : chMonBruto
       const chDay         = chMonEfetivo / daysLeft
-      const stages = {}
-      STAGE_KEYS.forEach((key) => {
-        const st     = ch.stages[key]
-        const stMon  = chMonEfetivo * (st.percentage / 100)
-        const stDay  = stMon / daysLeft
-        stages[key]  = {
-          ...st,
-          monthly: stMon,
-          daily: stDay,
-          campaigns: st.campaigns.map((c) => {
-            const cMon = stMon * (c.percentage / 100)
-            // Daily da campanha usa período próprio quando ambas as datas estão preenchidas
-            const hasOwnPeriod = !!(c.startDate && c.endDate)
-            const ownDays      = hasOwnPeriod ? getDaysBetween(c.startDate, c.endDate) : null
-            const cDay         = hasOwnPeriod ? cMon / ownDays : cMon / daysLeft
-            return { ...c, monthly: cMon, daily: cDay }
-          }),
+      // Canal subdividido por conta de anúncio: a verba do canal passa pela
+      // conta antes de chegar no funil. Sem subdivisão, vai direto pro funil.
+      const adAccounts = (ch.adAccounts || []).map((ac) => {
+        const acMon = chMonEfetivo * ((ac.percentage || 0) / 100)
+        return {
+          ...ac,
+          monthly: acMon,
+          daily:   acMon / daysLeft,
+          stages:  deriveStages(ac.stages, acMon, daysLeft),
         }
       })
-      return { ...ch, monthly: chMonEfetivo, monthlyBruto: chMonBruto, isMeta, daily: chDay, stages }
+      return {
+        ...ch,
+        monthly: chMonEfetivo,
+        monthlyBruto: chMonBruto,
+        isMeta,
+        daily: chDay,
+        stages: deriveStages(ch.stages, chMonEfetivo, daysLeft),
+        adAccounts,
+      }
     })
   }, [channels, budgetDisponivel, daysLeft])
 
   const validation = useMemo(() => {
-    const chSum   = channels.reduce((s, ch) => s + (ch.percentage || 0), 0)
-    const stageErrors = channels.map((ch) => {
-      const sum = STAGE_KEYS.reduce((s, k) => s + (ch.stages[k].percentage || 0), 0)
-      return { id: ch.id, name: ch.name, sum, valid: sum === 100 }
+    const chSum = channels.reduce((s, ch) => s + (ch.percentage || 0), 0)
+    // Um erro por bloco que precisa fechar 100%: a divisão entre contas do canal
+    // e o funil de cada conta (ou o funil do canal, quando não é subdividido).
+    const stageErrors = []
+    channels.forEach((ch) => {
+      const subs = ch.adAccounts || []
+      if (subs.length) {
+        const accSum = subs.reduce((s, a) => s + (a.percentage || 0), 0)
+        stageErrors.push({
+          id: `${ch.id}:contas`, channelId: ch.id, kind: 'accounts',
+          name: `${ch.name} · divisão entre contas`, sum: accSum, valid: accSum === 100,
+        })
+        subs.forEach((a) => {
+          const sum = stageSum(a.stages)
+          stageErrors.push({
+            id: `${ch.id}:${a.id}`, channelId: ch.id, kind: 'stages',
+            name: `${ch.name} · ${a.name || 'conta sem nome'}`, sum, valid: sum === 100,
+          })
+        })
+      } else {
+        const sum = stageSum(ch.stages)
+        stageErrors.push({
+          id: ch.id, channelId: ch.id, kind: 'stages',
+          name: ch.name, sum, valid: sum === 100,
+        })
+      }
     })
     return {
       chSum,
@@ -165,65 +187,48 @@ export default function CampaignPlanner({ project, onSave }) {
     setChannels((prev) => prev.map((ch) => ch.id === id ? { ...ch, ...patch } : ch))
   }, [setChannels])
 
-  const updateStage = useCallback((channelId, stageKey, patch) => {
-    setChannels((prev) =>
-      prev.map((ch) => {
-        if (ch.id !== channelId) return ch
-        return { ...ch, stages: { ...ch.stages, [stageKey]: { ...ch.stages[stageKey], ...patch } } }
-      })
-    )
+  // Todas as edições de etapa/campanha passam por aqui: quando `accountId` vem
+  // preenchido, mexe no funil daquela conta de anúncio; senão, no funil do canal.
+  const patchStages = useCallback((channelId, accountId, updater) => {
+    setChannels((prev) => prev.map((ch) => {
+      if (ch.id !== channelId) return ch
+      if (!accountId) return { ...ch, stages: updater(ch.stages) }
+      return {
+        ...ch,
+        adAccounts: (ch.adAccounts || []).map((a) => (
+          a.id === accountId ? { ...a, stages: updater(a.stages) } : a
+        )),
+      }
+    }))
   }, [setChannels])
 
-  const addCampaign = useCallback((channelId, stageKey) => {
-    setChannels((prev) =>
-      prev.map((ch) => {
-        if (ch.id !== channelId) return ch
-        return {
-          ...ch,
-          stages: {
-            ...ch.stages,
-            [stageKey]: { ...ch.stages[stageKey], campaigns: [...ch.stages[stageKey].campaigns, makeCampaign()] },
-          },
-        }
-      })
-    )
-  }, [setChannels])
+  const updateStage = useCallback((channelId, stageKey, patch, accountId) => {
+    patchStages(channelId, accountId, (stages) => ({
+      ...stages,
+      [stageKey]: { ...stages[stageKey], ...patch },
+    }))
+  }, [patchStages])
 
-  const updateCampaign = useCallback((channelId, stageKey, campaignId, patch) => {
-    setChannels((prev) =>
-      prev.map((ch) => {
-        if (ch.id !== channelId) return ch
-        return {
-          ...ch,
-          stages: {
-            ...ch.stages,
-            [stageKey]: {
-              ...ch.stages[stageKey],
-              campaigns: ch.stages[stageKey].campaigns.map((c) => c.id === campaignId ? { ...c, ...patch } : c),
-            },
-          },
-        }
-      })
-    )
-  }, [setChannels])
+  const patchCampaigns = useCallback((channelId, stageKey, accountId, updater) => {
+    patchStages(channelId, accountId, (stages) => ({
+      ...stages,
+      [stageKey]: { ...stages[stageKey], campaigns: updater(stages[stageKey].campaigns) },
+    }))
+  }, [patchStages])
 
-  const deleteCampaign = useCallback((channelId, stageKey, campaignId) => {
-    setChannels((prev) =>
-      prev.map((ch) => {
-        if (ch.id !== channelId) return ch
-        return {
-          ...ch,
-          stages: {
-            ...ch.stages,
-            [stageKey]: {
-              ...ch.stages[stageKey],
-              campaigns: ch.stages[stageKey].campaigns.filter((c) => c.id !== campaignId),
-            },
-          },
-        }
-      })
-    )
-  }, [setChannels])
+  const addCampaign = useCallback((channelId, stageKey, accountId) => {
+    patchCampaigns(channelId, stageKey, accountId, (camps) => [...camps, makeCampaign()])
+  }, [patchCampaigns])
+
+  const updateCampaign = useCallback((channelId, stageKey, campaignId, patch, accountId) => {
+    patchCampaigns(channelId, stageKey, accountId, (camps) => (
+      camps.map((c) => c.id === campaignId ? { ...c, ...patch } : c)
+    ))
+  }, [patchCampaigns])
+
+  const deleteCampaign = useCallback((channelId, stageKey, campaignId, accountId) => {
+    patchCampaigns(channelId, stageKey, accountId, (camps) => camps.filter((c) => c.id !== campaignId))
+  }, [patchCampaigns])
 
   const addChannel = useCallback(() => {
     const usedNames    = channels.map((ch) => ch.name)
@@ -237,6 +242,46 @@ export default function CampaignPlanner({ project, onSave }) {
 
   const deleteChannel = useCallback((id) => {
     setChannels((prev) => prev.filter((ch) => ch.id !== id))
+  }, [setChannels])
+
+  // ── Contas de anúncio dentro do canal ──────────────────────────────────────
+
+  const updateAdAccount = useCallback((channelId, accountId, patch) => {
+    setChannels((prev) => prev.map((ch) => (
+      ch.id === channelId
+        ? { ...ch, adAccounts: (ch.adAccounts || []).map((a) => a.id === accountId ? { ...a, ...patch } : a) }
+        : ch
+    )))
+  }, [setChannels])
+
+  // Primeira conta adicionada num canal ainda não subdividido herda o funil que
+  // estava na raiz, para não jogar fora o que já tinha sido preenchido.
+  const addAdAccount = useCallback((channelId) => {
+    setChannels((prev) => prev.map((ch) => {
+      if (ch.id !== channelId) return ch
+      const subs  = ch.adAccounts || []
+      const nova  = makeAdAccount('')
+      if (subs.length === 0) {
+        nova.percentage = 100
+        nova.stages     = ch.stages
+        return { ...ch, adAccounts: [nova], stages: emptyStages() }
+      }
+      const usado = subs.reduce((s, a) => s + (a.percentage || 0), 0)
+      nova.percentage = Math.max(0, 100 - usado)
+      return { ...ch, adAccounts: [...subs, nova] }
+    }))
+  }, [setChannels])
+
+  // Remover a última conta desfaz a subdivisão e devolve o funil dela para a
+  // raiz do canal, senão o planejamento do canal ficaria vazio.
+  const deleteAdAccount = useCallback((channelId, accountId) => {
+    setChannels((prev) => prev.map((ch) => {
+      if (ch.id !== channelId) return ch
+      const subs = (ch.adAccounts || []).filter((a) => a.id !== accountId)
+      if (subs.length > 0) return { ...ch, adAccounts: subs }
+      const removida = (ch.adAccounts || []).find((a) => a.id === accountId)
+      return { ...ch, adAccounts: [], stages: removida?.stages ?? ch.stages }
+    }))
   }, [setChannels])
 
   // ── Puxar dados reais das contas vinculadas ────────────────────────────────
@@ -306,16 +351,17 @@ export default function CampaignPlanner({ project, onSave }) {
       return
     }
     const share = pullChannelShare(dash.raw, pullNames, channels.map((c) => c.name), ch.name)
-    updateChannel(channelId, {
-      percentage: share ?? ch.percentage,
-      stages: plan.stages,
-      expanded: true,
-    })
-    const parts = [`${plan.activeCount} campanha${plan.activeCount === 1 ? '' : 's'} ativa${plan.activeCount === 1 ? '' : 's'}`]
+    // Uma conta com campanha ativa → funil direto no canal. Mais de uma → o
+    // canal é subdividido por conta de anúncio, cada uma com sua fatia.
+    updateChannel(channelId, plan.mode === 'accounts'
+      ? { percentage: share ?? ch.percentage, adAccounts: plan.adAccounts, stages: emptyStages(), expanded: true }
+      : { percentage: share ?? ch.percentage, adAccounts: [], stages: plan.stages, expanded: true }
+    )
+    const n = plan.activeCount
+    const parts = [`${n} campanha${n === 1 ? '' : 's'} ativa${n === 1 ? '' : 's'}`]
+    if (plan.mode === 'accounts') parts.push(`${plan.adAccounts.length} contas`)
     if (share != null) parts.push(`${share}% da verba`)
-    if (plan.unmatched > 0) {
-      parts.push(`${plan.unmatched} sem marcador de funil no nome → topo`)
-    }
+    if (plan.unmatched > 0) parts.push(`${plan.unmatched} sem marcador de funil no nome → topo`)
     showToast(`${ch.name}: ${parts.join(' · ')}`)
   }
 
@@ -665,10 +711,13 @@ export default function CampaignPlanner({ project, onSave }) {
             onPull={() => handlePullChannel(ch.id)}
             onUpdate={(patch) => updateChannel(ch.id, patch)}
             onDelete={() => deleteChannel(ch.id)}
-            onUpdateStage={(stageKey, patch) => updateStage(ch.id, stageKey, patch)}
-            onAddCampaign={(stageKey) => addCampaign(ch.id, stageKey)}
-            onUpdateCampaign={(stageKey, campId, patch) => updateCampaign(ch.id, stageKey, campId, patch)}
-            onDeleteCampaign={(stageKey, campId) => deleteCampaign(ch.id, stageKey, campId)}
+            onUpdateStage={(stageKey, patch, accountId) => updateStage(ch.id, stageKey, patch, accountId)}
+            onAddCampaign={(stageKey, accountId) => addCampaign(ch.id, stageKey, accountId)}
+            onUpdateCampaign={(stageKey, campId, patch, accountId) => updateCampaign(ch.id, stageKey, campId, patch, accountId)}
+            onDeleteCampaign={(stageKey, campId, accountId) => deleteCampaign(ch.id, stageKey, campId, accountId)}
+            onUpdateAdAccount={(accountId, patch) => updateAdAccount(ch.id, accountId, patch)}
+            onAddAdAccount={() => addAdAccount(ch.id)}
+            onDeleteAdAccount={(accountId) => deleteAdAccount(ch.id, accountId)}
           />
         ))}
 
@@ -692,9 +741,13 @@ export default function CampaignPlanner({ project, onSave }) {
             {!validation.chValid && (
               <p>A distribuição total dos canais deve somar 100% (atual: {channelSum}%).</p>
             )}
-            {validation.stageErrors.filter((e) => !e.valid && channels.find(ch => ch.id === e.id)?.percentage > 0).map((e) => (
-              <p key={e.id}>{e.name}: distribuição do funil soma {e.sum}% (deve ser 100%).</p>
-            ))}
+            {validation.stageErrors
+              .filter((e) => !e.valid && channels.find((ch) => ch.id === e.channelId)?.percentage > 0)
+              .map((e) => (
+                <p key={e.id}>
+                  {e.name}: {e.kind === 'accounts' ? 'divisão entre as contas' : 'distribuição do funil'} soma {e.sum}% (deve ser 100%).
+                </p>
+              ))}
           </div>
         </div>
       )}

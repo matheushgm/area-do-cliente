@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
-  CalendarDays, Loader2, AlertTriangle, TrendingUp, Megaphone,
+  CalendarDays, Loader2, AlertTriangle, TrendingUp, Megaphone, Building2,
 } from 'lucide-react'
 import {
   fmtBRL, STAGE_KEYS, STAGE_META,
@@ -16,30 +16,43 @@ const META_TAX = 0.13
 // Reproduz o cálculo do módulo interno (CampaignPlanner.jsx → `derived`):
 // canal = disponível × %canal (menos 13% se for Meta) → etapa × %etapa →
 // campanha × %campanha.
+function deriveStageList(stages, parentMonthly, daysLeft) {
+  return STAGE_KEYS.map((key) => {
+    const st    = stages?.[key] || { percentage: 0, campaigns: [] }
+    const stMon = parentMonthly * (st.percentage / 100)
+    return {
+      key,
+      percentage: st.percentage || 0,
+      monthly:    stMon,
+      daily:      stMon / daysLeft,
+      campaigns: (st.campaigns || []).map((c) => {
+        const cMon         = stMon * (c.percentage / 100)
+        const hasOwnPeriod = !!(c.startDate && c.endDate)
+        const ownDays      = hasOwnPeriod ? getDaysBetween(c.startDate, c.endDate) : null
+        return {
+          ...c,
+          monthly: cMon,
+          daily:   hasOwnPeriod ? cMon / ownDays : cMon / daysLeft,
+          period:  formatCampaignPeriod(c.startDate, c.endDate),
+        }
+      }),
+    }
+  })
+}
+
 function deriveChannels(channels, budgetDisponivel, daysLeft) {
   return channels.map((ch) => {
     const isMeta       = ch.name === 'Meta Ads'
     const chBruto      = budgetDisponivel * (ch.percentage / 100)
     const chEfetivo    = isMeta ? chBruto * (1 - META_TAX) : chBruto
-    const stages = STAGE_KEYS.map((key) => {
-      const st    = ch.stages?.[key] || { percentage: 0, campaigns: [] }
-      const stMon = chEfetivo * (st.percentage / 100)
+    // Canal repartido por conta de anúncio: o funil fica dentro de cada conta.
+    const adAccounts = (ch.adAccounts || []).map((ac) => {
+      const acMon = chEfetivo * ((ac.percentage || 0) / 100)
       return {
-        key,
-        percentage: st.percentage || 0,
-        monthly:    stMon,
-        daily:      stMon / daysLeft,
-        campaigns: (st.campaigns || []).map((c) => {
-          const cMon         = stMon * (c.percentage / 100)
-          const hasOwnPeriod = !!(c.startDate && c.endDate)
-          const ownDays      = hasOwnPeriod ? getDaysBetween(c.startDate, c.endDate) : null
-          return {
-            ...c,
-            monthly: cMon,
-            daily:   hasOwnPeriod ? cMon / ownDays : cMon / daysLeft,
-            period:  formatCampaignPeriod(c.startDate, c.endDate),
-          }
-        }),
+        ...ac,
+        monthly: acMon,
+        daily:   acMon / daysLeft,
+        stages:  deriveStageList(ac.stages, acMon, daysLeft),
       }
     })
     return {
@@ -48,7 +61,8 @@ function deriveChannels(channels, budgetDisponivel, daysLeft) {
       monthlyBruto: chBruto,
       monthly:      chEfetivo,
       daily:        chEfetivo / daysLeft,
-      stages,
+      stages:       deriveStageList(ch.stages, chEfetivo, daysLeft),
+      adAccounts,
     }
   })
 }
@@ -231,11 +245,12 @@ function BudgetCell({ label, value, highlight, hint }) {
 }
 
 // ─── Canal ───────────────────────────────────────────────────────────────────
+// Etapas zeradas e sem campanha não interessam ao cliente — só poluem.
+const visibleStages = (stages) => stages.filter((st) => st.percentage > 0 || st.campaigns.length > 0)
+
 function ChannelCard({ channel }) {
-  // Etapas zeradas e sem campanha não interessam ao cliente — só poluem.
-  const stages = channel.stages.filter(
-    (st) => st.percentage > 0 || st.campaigns.length > 0
-  )
+  const adAccounts = channel.adAccounts || []
+  const stages     = visibleStages(channel.stages)
 
   return (
     <div className="glass-card overflow-hidden">
@@ -269,11 +284,54 @@ function ChannelCard({ channel }) {
         </div>
       </div>
 
-      {/* Etapas do funil */}
+      {/* Contas de anúncio (quando o canal é repartido) ou o funil direto */}
       <div className="p-4 space-y-2">
-        {stages.length === 0 ? (
+        {adAccounts.length > 0 ? (
+          adAccounts.map((ac) => <AdAccountBlock key={ac.id} account={ac} />)
+        ) : stages.length === 0 ? (
           <p className="text-xs text-rl-muted text-center py-2">
             Distribuição do funil ainda não definida para este canal.
+          </p>
+        ) : (
+          stages.map((st) => <StageBlock key={st.key} stage={st} />)
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Conta de anúncio dentro do canal ────────────────────────────────────────
+function AdAccountBlock({ account }) {
+  const stages = visibleStages(account.stages)
+
+  return (
+    <div className="rounded-xl border border-rl-border bg-rl-surface/40 overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-3 py-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Building2 className="w-3.5 h-3.5 text-rl-muted shrink-0" />
+          <p className="text-xs font-bold text-rl-text truncate">
+            {account.name || 'Conta de anúncio'}
+          </p>
+          <span className="text-[10px] font-semibold text-rl-muted shrink-0">
+            {account.percentage}% do canal
+          </span>
+        </div>
+        <div className="flex items-center gap-4 shrink-0 text-right">
+          <div>
+            <p className="text-[10px] text-rl-muted leading-tight">No período</p>
+            <p className="text-xs font-bold text-rl-text">{fmtBRL(account.monthly)}</p>
+          </div>
+          <div className="hidden sm:block">
+            <p className="text-[10px] text-rl-muted leading-tight">Diário</p>
+            <p className="text-xs font-bold text-rl-text">{fmtBRL(account.daily)}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-3 pb-3 pt-1 space-y-2 border-t border-rl-border/60">
+        {stages.length === 0 ? (
+          <p className="text-xs text-rl-muted text-center py-2">
+            Distribuição do funil ainda não definida para esta conta.
           </p>
         ) : (
           stages.map((st) => <StageBlock key={st.key} stage={st} />)

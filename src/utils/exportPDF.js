@@ -151,6 +151,7 @@ const PRINT_CSS = `
   td { padding: 8px 10px; border-bottom: 1px solid #F1F5F9; vertical-align: top; }
   tr:last-child td { border-bottom: none; }
   .channel-header { background: #EEF2F9; font-weight: 700; }
+  .account-row td { padding-left: 12px; background: #F8FAFF; font-weight: 600; }
   .stage-row td { padding-left: 20px; background: #F5F8FD; }
   .campaign-row td { padding-left: 36px; font-size: 11px; color: #64748B; }
   .print-btn {
@@ -742,10 +743,11 @@ export function exportCampaignPDF(campaignPlan, project) {
       <td>${fmtBRL(chDay)}</td>
     </tr>`
 
-    const stageRows = STAGE_KEYS.map((key) => {
-      const st = ch.stages?.[key]
+    // Etapas + campanhas de um "pai" (o canal, ou uma conta de anúncio dele).
+    const stageRowsFor = (stages, parentMon) => STAGE_KEYS.map((key) => {
+      const st = stages?.[key]
       if (!st || st.percentage === 0) return ''
-      const stMon = chMon * (st.percentage / 100)
+      const stMon = parentMon * (st.percentage / 100)
       const stDay = stMon / daysLeft
 
       const campRows = (st.campaigns || []).map((c) => {
@@ -773,6 +775,20 @@ export function exportCampaignPDF(campaignPlan, project) {
         <td>${fmtBRL(stDay)}</td>
       </tr>${campRows}`
     }).join('')
+
+    // Canal repartido por conta de anúncio ganha uma linha por conta.
+    const subAccounts = ch.adAccounts || []
+    const stageRows = subAccounts.length
+      ? subAccounts.map((ac) => {
+        const acMon = chMon * ((ac.percentage || 0) / 100)
+        return `<tr class="account-row">
+          <td>${esc(ac.name || '(conta sem nome)')}</td>
+          <td>${fmtPct(ac.percentage)}</td>
+          <td>${fmtBRL(acMon)}</td>
+          <td>${fmtBRL(acMon / daysLeft)}</td>
+        </tr>${stageRowsFor(ac.stages, acMon)}`
+      }).join('')
+      : stageRowsFor(ch.stages, chMon)
 
     return channelRow + stageRows
   }).join('')
@@ -1673,6 +1689,7 @@ const V2_CSS = `
   .channel-name { font-size: 13px; font-weight: 800; color: #1E40AF; }
   .channel-budget { font-size: 13px; font-weight: 700; color: #1D4ED8; }
   .channel-pct { font-size: 11px; color: #64748B; margin-left: 8px; }
+  .account-row td { padding-left: 12px; background: #F8FAFF; font-weight: 600; }
   .stage-row { padding: 6px 14px; border-bottom: 1px solid #F1F5F9; }
   .stage-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: #94A3B8; margin-bottom: 4px; }
   .campaign-row { display: flex; justify-content: space-between; font-size: 11px; color: #64748B; padding: 2px 0 2px 12px; }
@@ -2227,17 +2244,24 @@ export function exportClientProfilePDF(project) {
     const today    = new Date()
     const daysLeft = Math.max(new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1, 1)
     const { totalBudget, channels } = campaignPlan
+    const stageRowsFor = (stages, parentMon) => STAGE_KEYS.map((key) => {
+      const st = stages?.[key]
+      if (!st || st.percentage === 0) return ''
+      const stMon = parentMon * (st.percentage / 100)
+      const campRows = (st.campaigns || []).filter((c) => c.name || c.percentage).map((c) =>
+        `<tr class="campaign-row"><td>${esc(c.name || '(sem nome)')}</td><td>${c.percentage}%</td><td>${fmtBRL(stMon * (c.percentage / 100))}</td><td>${fmtBRL(stMon * (c.percentage / 100) / daysLeft)}</td></tr>`
+      ).join('')
+      return `<tr class="stage-row"><td>${esc(STAGE_LABELS[key])}</td><td>${st.percentage}%</td><td>${fmtBRL(stMon)}</td><td>${fmtBRL(stMon / daysLeft)}</td></tr>${campRows}`
+    }).join('')
     const rows = channels.map((ch) => {
       const chMon = totalBudget * (ch.percentage / 100)
-      const stageRows = STAGE_KEYS.map((key) => {
-        const st = ch.stages?.[key]
-        if (!st || st.percentage === 0) return ''
-        const stMon = chMon * (st.percentage / 100)
-        const campRows = (st.campaigns || []).filter((c) => c.name || c.percentage).map((c) =>
-          `<tr class="campaign-row"><td>${esc(c.name || '(sem nome)')}</td><td>${c.percentage}%</td><td>${fmtBRL(stMon * (c.percentage / 100))}</td><td>${fmtBRL(stMon * (c.percentage / 100) / daysLeft)}</td></tr>`
-        ).join('')
-        return `<tr class="stage-row"><td>${esc(STAGE_LABELS[key])}</td><td>${st.percentage}%</td><td>${fmtBRL(stMon)}</td><td>${fmtBRL(stMon / daysLeft)}</td></tr>${campRows}`
-      }).join('')
+      const subAccounts = ch.adAccounts || []
+      const stageRows = subAccounts.length
+        ? subAccounts.map((ac) => {
+          const acMon = chMon * ((ac.percentage || 0) / 100)
+          return `<tr class="account-row"><td>${esc(ac.name || '(conta sem nome)')}</td><td>${ac.percentage}%</td><td>${fmtBRL(acMon)}</td><td>${fmtBRL(acMon / daysLeft)}</td></tr>${stageRowsFor(ac.stages, acMon)}`
+        }).join('')
+        : stageRowsFor(ch.stages, chMon)
       return `<tr class="channel-header"><td><strong>${esc(ch.name)}</strong></td><td>${ch.percentage}%</td><td>${fmtBRL(chMon)}</td><td>${fmtBRL(chMon / daysLeft)}</td></tr>${stageRows}`
     }).join('')
     campaignHTML = `

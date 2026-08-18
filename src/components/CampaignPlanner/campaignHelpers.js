@@ -118,6 +118,51 @@ export function makeChannel(name = '') {
   }
 }
 
+export function emptyStages() {
+  return {
+    topo:  { percentage: 0, campaigns: [] },
+    meio:  { percentage: 0, campaigns: [] },
+    fundo: { percentage: 0, campaigns: [] },
+  }
+}
+
+// Subdivisão do canal por conta de anúncio. Só existe em cliente com mais de
+// uma conta no mesmo canal (ex.: Nacional Kart tem 3 contas no Google Ads);
+// nesse caso a verba do canal é repartida entre as contas e cada uma tem o
+// funil e as campanhas dela. Canal com uma conta só continua usando
+// `channel.stages` direto, sem esse nível.
+export function makeAdAccount(name = '') {
+  return { id: uid(), name, percentage: 0, expanded: true, stages: emptyStages() }
+}
+
+export function stageSum(stages) {
+  return STAGE_KEYS.reduce((s, k) => s + (stages?.[k]?.percentage || 0), 0)
+}
+
+// Aplica o encadeamento etapa → campanha sobre um valor mensal do "pai" (canal
+// ou conta de anúncio). Usado pelo módulo interno e pela página pública.
+export function deriveStages(stages, parentMonthly, daysLeft) {
+  const out = {}
+  STAGE_KEYS.forEach((key) => {
+    const st    = stages?.[key] || { percentage: 0, campaigns: [] }
+    const stMon = parentMonthly * ((st.percentage || 0) / 100)
+    out[key] = {
+      ...st,
+      campaigns: st.campaigns || [],
+      monthly: stMon,
+      daily:   stMon / daysLeft,
+    }
+    out[key].campaigns = (st.campaigns || []).map((c) => {
+      const cMon = stMon * ((c.percentage || 0) / 100)
+      // Daily da campanha usa período próprio quando ambas as datas estão preenchidas
+      const hasOwnPeriod = !!(c.startDate && c.endDate)
+      const ownDays      = hasOwnPeriod ? getDaysBetween(c.startDate, c.endDate) : null
+      return { ...c, monthly: cMon, daily: hasOwnPeriod ? cMon / ownDays : cMon / daysLeft }
+    })
+  })
+  return out
+}
+
 export function makeCampaign() {
   return { id: uid(), name: '', percentage: 0, startDate: null, endDate: null }
 }
