@@ -1369,7 +1369,12 @@ function buildStatusSnap(rows) {
     const acct = r['Nome da conta'], lvl = r['Nível'], id = r['ID']
     if (!acct || !id || !['campanha','conjunto','anuncio'].includes(lvl)) return
     const a = snap[acct] || (snap[acct] = { campanha:{}, conjunto:{}, anuncio:{}, _byName:{ campanha:{}, conjunto:{}, anuncio:{} } })
-    const e = { status: r['Status'] || '', nome: r['Nome'] || '', ts: r['Atualizado em'] || '', pai: r['ID pai'] || '' }
+    // `status` = o que vale para o dashboard: a VEICULAÇÃO (o que o Gerenciador
+    // mostra na coluna Veiculação). O botão da entidade vai à parte, porque
+    // "ligada mas com agendamento terminado" é o caso que mais confundia.
+    const e = { status: r['Veiculação'] || r['Status'] || '', botao: r['Status'] || '',
+                sched: r['Agendamento'] || '', nome: r['Nome'] || '',
+                ts: r['Atualizado em'] || '', pai: r['ID pai'] || '' }
     a[lvl][id] = e
     // Índice por nome só vale quando o nome é ÚNICO na conta: o Ads Manager
     // permite duas campanhas/conjuntos com o mesmo nome e status diferentes.
@@ -1424,11 +1429,25 @@ function lastKnownStatus(rows, key) {
 // no snapshot (não veiculou na janela de status), mostra o último status
 // conhecido marcado com "?" e a data, em vez de afirmar algo que não dá pra
 // confirmar.
+// Explica a tag: quando a veiculação difere do botão, diz o porquê (agendamento
+// terminado, ainda não começou, nada ativo embaixo).
+function snapTitle(e) {
+  const quando = `Conferido em ${snapWhen(e.ts)}.`
+  if (e.botao && e.status !== e.botao) {
+    const motivo = e.status === 'ENCERRADO'
+        ? `Ligada na conta, mas o agendamento terminou${e.sched ? ' (' + e.sched + ')' : ''}. Não está veiculando.`
+      : e.status === 'PROGRAMADO'
+        ? `Ligada, mas ainda não começou${e.sched ? ' (' + e.sched + ')' : ''}.`
+      : `Ligada, mas sem conjunto ou anúncio ativo embaixo. Não está veiculando.`
+    return `${motivo} ${quando}`
+  }
+  return `Status atual na conta. ${quando}`
+}
 function stCell(acct, lvl, id, nome, rows, rowKey) {
   const e = snapEntry(acct, lvl, id, nome, rows)
   if (e) {
     const i = statusTagInfo(e.status)
-    if (i) return `<span class="status-tag ${i.cls}" title="Status atual na conta (conferido em ${esc(snapWhen(e.ts))})">${esc(i.label)}</span>`
+    if (i) return `<span class="status-tag ${i.cls}" title="${esc(snapTitle(e))}">${esc(i.label)}</span>`
   }
   const { st, day } = lastKnownStatus(rows, rowKey)
   const i = statusTagInfo(st)
@@ -1448,7 +1467,7 @@ function adGroupCell(acct, rows) {
   const { entry, live } = adGroupStatus(acct, rows)
   if (live) {
     const i = statusTagInfo(entry.status)
-    if (i) return `<span class="status-tag ${i.cls}" title="Status atual na conta (conferido em ${esc(snapWhen(entry.ts))})">${esc(i.label)}</span>`
+    if (i) return `<span class="status-tag ${i.cls}" title="${esc(snapTitle(entry))}">${esc(i.label)}</span>`
   }
   return stCell(acct, 'anuncio', null, null, rows, 'Status do Aúncio')
 }

@@ -258,6 +258,11 @@ const STATUS_PT = {
   PREAPPROVED: ['st-other', 'PRÉ-APROVADO'],
   PENDING_BILLING_INFO: ['st-other', 'SEM FORMA DE PAGAMENTO'],
   IN_PROCESS: ['st-other', 'EM PROCESSAMENTO'],
+  // Derivados do agendamento (o botão está ligado, mas nada roda) — é o que a
+  // coluna Veiculação do Gerenciador mostra como "Concluída"/"Não veiculando".
+  ENCERRADO: ['st-paused', 'ENCERRADO'],
+  PROGRAMADO: ['st-other', 'PROGRAMADO'],
+  'SEM ENTREGA': ['st-other', 'SEM ENTREGA'],
 }
 export function statusTagInfo(s) {
   if (!s) return null
