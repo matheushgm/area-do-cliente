@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
   Plus, Save, AlertCircle, CheckCircle2, CalendarDays, DollarSign, FileDown, X,
-  Link2, Check, BarChart3,
+  Link2, Check, BarChart3, DownloadCloud,
 } from 'lucide-react'
 import { exportCampaignPDF } from '../utils/exportPDF'
 import { useApp } from '../context/AppContext'
@@ -16,6 +16,10 @@ import {
   defaultEndDateISO, todayISO, getDaysBetween, getPeriodLabel,
 } from './CampaignPlanner/campaignHelpers'
 import ChannelRow from './CampaignPlanner/ChannelRow'
+import {
+  CHANNEL_KEY, pullMonthSpend, pullChannelPlan, pullChannelShare,
+} from './CampaignPlanner/pullFromDashboard'
+import { normStr } from '../lib/dashboardData'
 import VideoGuide from './VideoGuide'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -234,6 +238,86 @@ export default function CampaignPlanner({ project, onSave }) {
   const deleteChannel = useCallback((id) => {
     setChannels((prev) => prev.filter((ch) => ch.id !== id))
   }, [setChannels])
+
+  // ── Puxar dados reais das contas vinculadas ────────────────────────────────
+  // Contas de anúncio (dashboard_accounts) apontadas para este projeto.
+  const projectAccountNames = useMemo(() => {
+    const s = new Set()
+    Object.entries(dash.accounts).forEach(([name, a]) => {
+      if (a.projectId === project.id) s.add(name)
+    })
+    return s
+  }, [dash.accounts, project.id])
+
+  // Se a aba de conta do planner tiver o mesmo nome de uma conta de anúncio
+  // vinculada, o "Puxar dados" fica escopado só nela; senão usa todas as contas
+  // do cliente (é o mesmo total que o card "Total Investido" mostra acima).
+  const pullNames = useMemo(() => {
+    const match = [...projectAccountNames].find((n) => normStr(n) === normStr(account.name))
+    return match ? new Set([match]) : projectAccountNames
+  }, [projectAccountNames, account.name])
+
+  const pullScopeLabel = useMemo(() => {
+    if (pullNames.size === 0) return 'nenhuma conta vinculada'
+    if (pullNames.size === 1) return [...pullNames][0]
+    return `${pullNames.size} contas do cliente`
+  }, [pullNames])
+
+  const canPull = !dash.loading && !dash.error && pullNames.size > 0
+
+  function pullGuard() {
+    if (dash.loading) { showToast('Ainda carregando os dados de tráfego…', 'error'); return false }
+    if (dash.error)   { showToast('Erro ao carregar tráfego: ' + dash.error, 'error'); return false }
+    if (!pullNames.size) {
+      showToast('Vincule uma conta de anúncio a este cliente na seção acima', 'error')
+      return false
+    }
+    return true
+  }
+
+  // Orçamento: gasto do mês → "Já Utilizado"; período → hoje até o fim do mês.
+  function handlePullBudget() {
+    if (!pullGuard()) return
+    const { total, per } = pullMonthSpend(dash.raw, pullNames)
+    setValorJaUsado(total)
+    setStartDate(todayISO())
+    setEndDate(defaultEndDateISO())
+    if (total === 0) {
+      showToast(`Sem gasto no mês para ${pullScopeLabel}. Datas atualizadas.`, 'error')
+      return
+    }
+    showToast(
+      `Já utilizado: ${fmtBRL(total)} (Meta ${fmtBRL(per.meta)} + Google ${fmtBRL(per.google)})`
+    )
+  }
+
+  // Canal: campanhas ativas + proporção de verba como está hoje.
+  function handlePullChannel(channelId) {
+    if (!pullGuard()) return
+    const ch = channels.find((c) => c.id === channelId)
+    if (!ch) return
+    if (!CHANNEL_KEY[ch.name]) {
+      showToast(`${ch.name} não tem dados no dashboard (só Meta e Google Ads)`, 'error')
+      return
+    }
+    const plan = pullChannelPlan(dash.raw, ch.name, pullNames)
+    if (!plan) {
+      showToast(`Nenhuma campanha ativa de ${ch.name} em ${pullScopeLabel}`, 'error')
+      return
+    }
+    const share = pullChannelShare(dash.raw, pullNames, channels.map((c) => c.name), ch.name)
+    updateChannel(channelId, {
+      percentage: share ?? ch.percentage,
+      stages: plan.stages,
+      expanded: true,
+    })
+    const parts = [`${plan.activeCount} campanha${plan.activeCount === 1 ? '' : 's'} ativa${plan.activeCount === 1 ? '' : 's'}`]
+    if (share != null) parts.push(`${share}% da verba`)
+    if (plan.unmatched > 0) {
+      parts.push(`${plan.unmatched} sem marcador de funil no nome → topo`)
+    }
+    showToast(`${ch.name}: ${parts.join(' · ')}`)
+  }
 
   // ── Account Updaters ───────────────────────────────────────────────────────
 
@@ -506,6 +590,26 @@ export default function CampaignPlanner({ project, onSave }) {
           </div>
         </div>
 
+        {/* Puxar dados reais (gasto do mês + período) */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handlePullBudget}
+            disabled={!canPull}
+            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Preenche 'Já Utilizado' com o gasto do mês (Meta + Google) e ajusta o período de hoje até o fim do mês"
+          >
+            <DownloadCloud className="w-4 h-4" />
+            Puxar dados
+          </button>
+          <p className="text-[11px] text-rl-muted">
+            {dash.loading
+              ? 'Carregando dados de tráfego…'
+              : pullNames.size === 0
+                ? 'Vincule uma conta de anúncio na seção acima para puxar o gasto real'
+                : `Gasto do mês de ${pullScopeLabel} → Já Utilizado · período de hoje até o fim do mês`}
+          </p>
+        </div>
+
         {/* Disponível para investir */}
         <div className="flex items-center justify-between rounded-xl bg-rl-surface border border-rl-border px-4 py-3">
           <div>
@@ -557,6 +661,8 @@ export default function CampaignPlanner({ project, onSave }) {
             validation={validation}
             usedNames={usedChannelNames.filter((n) => n !== ch.name)}
             budgetDisponivel={budgetDisponivel}
+            canPull={canPull && !!CHANNEL_KEY[ch.name]}
+            onPull={() => handlePullChannel(ch.id)}
             onUpdate={(patch) => updateChannel(ch.id, patch)}
             onDelete={() => deleteChannel(ch.id)}
             onUpdateStage={(stageKey, patch) => updateStage(ch.id, stageKey, patch)}

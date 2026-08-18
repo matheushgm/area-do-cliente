@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Trash2, DownloadCloud } from 'lucide-react'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
 import { CHANNEL_OPTIONS, STAGE_KEYS, fmtBRL } from './campaignHelpers'
 import PctInput from './PctInput'
@@ -8,7 +8,7 @@ import StageSection from './StageSection'
 
 const META_TAX = 0.13
 
-export default function ChannelRow({ channel, derived, daysLeft, validation, usedNames, budgetDisponivel, onUpdate, onDelete, onUpdateStage, onAddCampaign, onUpdateCampaign, onDeleteCampaign }) {
+export default function ChannelRow({ channel, derived, daysLeft, validation, usedNames, budgetDisponivel, canPull, onPull, onUpdate, onDelete, onUpdateStage, onAddCampaign, onUpdateCampaign, onDeleteCampaign }) {
   const stageSum = STAGE_KEYS.reduce((s, k) => s + (channel.stages[k].percentage || 0), 0)
   const stageRemaining = 100 - stageSum
   const stageValid = stageSum === 100
@@ -60,6 +60,21 @@ export default function ChannelRow({ channel, derived, daysLeft, validation, use
           )}
           <ValueCell label="Diário" value={derived.daily} />
         </div>
+
+        {/* Puxar dados — campanhas ativas + proporção de verba atual do canal */}
+        {onPull && (
+          <button
+            onClick={onPull}
+            disabled={!canPull}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-rl-border text-[11px] font-semibold text-rl-muted hover:text-rl-text hover:border-rl-green/40 transition-all shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+            title={canPull
+              ? `Puxa as campanhas ativas de ${channel.name} e distribui a verba na proporção atual`
+              : `Sem dados de ${channel.name} para as contas vinculadas a este cliente`}
+          >
+            <DownloadCloud className="w-3.5 h-3.5" />
+            Puxar dados
+          </button>
+        )}
 
         {/* Collapse toggle */}
         <button
