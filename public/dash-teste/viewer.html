@@ -29,6 +29,9 @@
   .wk-body textarea { width:100%; min-height:300px; border:1px solid #D8E0F0; border-radius:10px;
     padding:12px; font:13px/1.5 ui-monospace,Menlo,monospace; color:#334155; resize:vertical; box-sizing:border-box; }
   .wk-foot { display:flex; gap:10px; justify-content:flex-end; padding:14px 20px; border-top:1px solid #E4EAF7; }
+  /* Status não confirmado: entidade fora da janela do snapshot — mostra o
+     último status conhecido, com borda tracejada e "?" para não dar como certo. */
+  .dt-root .status-tag.st-stale { border:1px dashed currentColor; opacity:.8; }
   /* Ícone de info ao lado do status (explica a regra da classificação) */
   .status-info { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px;
     margin-left:5px; border-radius:50%; border:1px solid #94A3B8; color:#64748B; background:#fff;
@@ -293,7 +296,7 @@ import {
 // Em produção (dentro da Área do Cliente): busca pelo endpoint AUTENTICADO
 // /api/dash-data, enviando o token da sessão Supabase (mesma origem → mesmo
 // localStorage). Em dev standalone (sem sessão): cai nos CSVs locais ./output/.
-const LOCAL = { meta: './output/meta.csv', google: './output/google.csv', google_terms: './output/google_terms.csv' }
+const LOCAL = { meta: './output/meta.csv', google: './output/google.csv', google_terms: './output/google_terms.csv', meta_status: './output/meta_status.csv' }
 
 // Supabase (chaves publishable — públicas por design, mesmas expostas ao browser
 // pelo app React). Usadas para puxar os metadados de conta das views *_public:
@@ -318,8 +321,11 @@ function supabaseToken() {
 async function fetchChannel(ch) {
   // Modo compartilhado: só o canal do link, via endpoint público (sem login).
   if (SHARED) {
-    if (ch !== SHARED.channel) return ''
-    const r = await fetch(`/api/dash-public?cliente=${encodeURIComponent(SHARED.client)}&canal=${SHARED.channel}&t=${encodeURIComponent(SHARED.token)}`)
+    // O snapshot de status (meta_status) acompanha o canal Meta — mesmo token,
+    // parâmetro `dados=status` no endpoint público.
+    const isStatus = ch === 'meta_status'
+    if (isStatus ? SHARED.channel !== 'meta' : ch !== SHARED.channel) return ''
+    const r = await fetch(`/api/dash-public?cliente=${encodeURIComponent(SHARED.client)}&canal=${SHARED.channel}&t=${encodeURIComponent(SHARED.token)}${isStatus ? '&dados=status' : ''}`)
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     return r.text()
   }
@@ -448,8 +454,13 @@ const fmtMoneyShort = n => {
 
 async function load() {
   try {
-    const [m, g, accounts] = await Promise.all([fetchChannel('meta'), fetchChannel('google'), fetchAccounts()])
+    // O snapshot de status é acessório: se falhar, o dashboard abre igual e cai
+    // no último status conhecido de cada linha (com aviso na tag).
+    const [m, g, st, accounts] = await Promise.all([
+      fetchChannel('meta'), fetchChannel('google'),
+      fetchChannel('meta_status').catch(() => ''), fetchAccounts()])
     state.raw = { meta: parseCSV(m), google: parseCSV(g) }
+    state.statusSnap = buildStatusSnap(parseCSV(st))
     state.accounts = accounts
     document.getElementById('src-info').textContent =
       `· ${state.raw.meta.length} linhas Meta · ${state.raw.google.length} linhas Google`
@@ -1345,7 +1356,102 @@ function paceViewHTML(channels, P) {
 
 // ─── Drill-down de cliente: Campanhas → Conjuntos → Anúncios ─────────────────
 // Réplica do ClientPage/DrillTables do dashboard real (sub-abas + breadcrumb).
-const stTag = s => { const i = statusTagInfo(s); return i ? `<span class="status-tag ${i.cls}">${esc(i.label)}</span>` : '—' }
+// ─── Status ATUAL (snapshot) × status congelado na linha ─────────────────────
+// A linha de insights guarda o status que a entidade tinha no dia em que aquela
+// linha foi sincronizada. Como o coletor só reprocessa os últimos dias, uma
+// campanha pausada depois disso ficava "ATIVO" para sempre nas linhas antigas —
+// e o drill de 30 dias mostrava como ativo o que já estava desligado.
+// O canal `meta_status` traz o status de AGORA (1 registro por entidade,
+// atualizado a cada rodada do sync); a linha só é usada como último recurso.
+function buildStatusSnap(rows) {
+  const snap = {}
+  ;(rows || []).forEach(r => {
+    const acct = r['Nome da conta'], lvl = r['Nível'], id = r['ID']
+    if (!acct || !id || !['campanha','conjunto','anuncio'].includes(lvl)) return
+    const a = snap[acct] || (snap[acct] = { campanha:{}, conjunto:{}, anuncio:{}, _byName:{ campanha:{}, conjunto:{}, anuncio:{} } })
+    const e = { status: r['Status'] || '', nome: r['Nome'] || '', ts: r['Atualizado em'] || '', pai: r['ID pai'] || '' }
+    a[lvl][id] = e
+    // Índice por nome só vale quando o nome é ÚNICO na conta: o Ads Manager
+    // permite duas campanhas/conjuntos com o mesmo nome e status diferentes.
+    if (e.nome) { const bag = a._byName[lvl]; bag[e.nome] = (e.nome in bag) ? null : e }
+  })
+  return snap
+}
+// Entrada do snapshot: por ID (confiável) e, na falta dele (linhas antigas,
+// sincronizadas antes de o ID ser gravado), por nome único.
+function snapEntry(acct, lvl, id, nome, rows) {
+  const a = state.statusSnap && state.statusSnap[acct]
+  if (!a) return null
+  if (id && a[lvl][id]) return a[lvl][id]
+  if (rows && lvl !== 'anuncio') { const up = snapUp(acct, rows, lvl); if (up) return up }
+  if (nome && a._byName[lvl][nome]) return a._byName[lvl][nome]
+  return null
+}
+// Sobe a hierarquia pelo ad_id: todo registro de insight tem ad_id, mas só os
+// mais recentes têm adset_id/campaign_id. Do anúncio no snapshot chega-se ao
+// conjunto ("ID pai") e do conjunto à campanha — assim o status atual vale
+// também para as linhas antigas.
+function snapUp(acct, rows, lvl) {
+  const a = state.statusSnap && state.statusSnap[acct]
+  if (!a) return null
+  // A tabela agrupa por NOME, e o Ads Manager permite nomes repetidos: o grupo
+  // pode conter duas campanhas/conjuntos distintos. Se qualquer um deles ainda
+  // estiver ativo, o grupo é ativo (mesma regra da coluna de anúncios).
+  let first = null
+  for (const r of (rows || [])) {
+    const ad = r['ad_id'] && a.anuncio[r['ad_id']]
+    if (!ad) continue
+    const adset = ad.pai && a.conjunto[ad.pai]
+    const hit = lvl === 'conjunto' ? adset : (adset && adset.pai && a.campanha[adset.pai])
+    if (!hit) continue
+    if (isActiveStatus(hit.status)) return hit
+    first = first || hit
+  }
+  return first
+}
+const isActiveStatus = s => { const l = (s || '').toLowerCase(); return l.includes('ativ') || l === 'active' || l === 'enabled' }
+const snapWhen = ts => { const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(ts || ''); return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]}` : 'agora há pouco' }
+// Último status conhecido nas linhas do período — a do dia MAIS RECENTE (o
+// código antigo pegava _rows[0], a mais ANTIGA: origem do "ativo" falso).
+function lastKnownStatus(rows, key) {
+  let day = '', st = ''
+  ;(rows || []).forEach(r => { const v = r[key]; if (!v) return; const d = r['Dia'] || ''; if (d >= day) { day = d; st = v } })
+  return { st, day }
+}
+// Célula de status: verde/cinza pelo status de AGORA; quando a entidade não está
+// no snapshot (não veiculou na janela de status), mostra o último status
+// conhecido marcado com "?" e a data, em vez de afirmar algo que não dá pra
+// confirmar.
+function stCell(acct, lvl, id, nome, rows, rowKey) {
+  const e = snapEntry(acct, lvl, id, nome, rows)
+  if (e) {
+    const i = statusTagInfo(e.status)
+    if (i) return `<span class="status-tag ${i.cls}" title="Status atual na conta (conferido em ${esc(snapWhen(e.ts))})">${esc(i.label)}</span>`
+  }
+  const { st, day } = lastKnownStatus(rows, rowKey)
+  const i = statusTagInfo(st)
+  if (!i) return '—'
+  return `<span class="status-tag ${i.cls} st-stale" title="Último status conhecido${day ? ' (' + esc(fmtBR(day)) + ')' : ''} — não foi possível confirmar o status de hoje.">${esc(i.label)} ?</span>`
+}
+// Status de um GRUPO de anúncios (a tabela agrupa por nome e vários anúncios
+// podem repetir o nome): ativo se qualquer um dos ad_ids estiver ativo.
+function adGroupStatus(acct, rows) {
+  const ids = [...new Set((rows || []).map(r => r['ad_id']).filter(Boolean))]
+  const ents = ids.map(id => snapEntry(acct, 'anuncio', id, null)).filter(Boolean)
+  if (ents.length) return { entry: ents.find(e => isActiveStatus(e.status)) || ents[0], live: true }
+  const { st } = lastKnownStatus(rows, 'Status do Aúncio')
+  return { entry: { status: st, ts: '' }, live: false }
+}
+function adGroupCell(acct, rows) {
+  const { entry, live } = adGroupStatus(acct, rows)
+  if (live) {
+    const i = statusTagInfo(entry.status)
+    if (i) return `<span class="status-tag ${i.cls}" title="Status atual na conta (conferido em ${esc(snapWhen(entry.ts))})">${esc(i.label)}</span>`
+  }
+  return stCell(acct, 'anuncio', null, null, rows, 'Status do Aúncio')
+}
+// Conta de qual conta são estas linhas (as tabelas de drill recebem só as linhas).
+const acctOf = rows => (rows && rows.length && rows[0]['Nome da conta']) || ''
 const convCell = (conv,spend) => (spend>0 && conv===0) ? `<span class="crit">0 🚨</span>` : fmtNum(conv)
 const ctrCell = v => v==null ? '—' : `<span class="${v<1?'warn':'good'}">${v.toFixed(2)}%</span>`
 const txCell = (conv,clicks) => { if(!clicks) return '—'; const r=conv/clicks*100; return `<span class="${r>=5?'good':r>=1?'warn':'crit'}">${r.toFixed(1)}%</span>` }
@@ -1381,8 +1487,9 @@ function varMini(cur, prev) {
 // Conta anúncios ATIVOS num conjunto de linhas: agrupa por nome do anúncio e
 // considera ativo quem tem status "ativ/active/enabled" (mesma regra do stTag).
 function activeAdsCount(rows){
+  const acct = acctOf(rows)
   const g = groupBy(rows, r=>r['Nome do Anúncio'], { n:()=>1 })
-  return g.filter(x=>{ const st=(x._rows[0]?.['Status do Aúncio']||'').toLowerCase(); return st.includes('ativ')||st==='active'||st==='enabled' }).length
+  return g.filter(x => isActiveStatus(adGroupStatus(acct, x._rows).entry.status)).length
 }
 const flagRow = (items,kind) => items.length ? `<div class="flag-row">${items.map(f=>`<span class="flag flag-${kind}">${f}</span>`).join('')}</div>` : ''
 
@@ -1569,14 +1676,16 @@ function tblMetaCampaigns(rows, prevRows){
     impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link') })
   if(!g.length) return `<div class="empty">Sem campanhas no período.</div>`
   const pv = prevMapOf(prevRows, r=>r['Nome da campanha'], metaResult)
+  const acct = acctOf(rows)
   const flags = g.filter(x=>x.spend>0&&x.result===0).map(x=>`🚨 ${esc(x.key)} — gasto sem resultado`)
   const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null
-    const st=x._rows[0]?.['Status da Campanha']||''
+    // Status de AGORA (snapshot por campaign_id); a linha é só o último recurso.
+    const stHtml=stCell(acct,'campanha',(x._rows.find(r=>r['campaign_id'])||{})['campaign_id'],x.key,x._rows,'Status da Campanha')
     const rl=(x._rows.find(r=>r['Tipo de resultado'])||{})['Tipo de resultado']||'—'
     // Resultado = nº verdadeiro do objetivo + tipo (= coluna do gerenciador) +
     // variação discreta vs período anterior (compara a mesma campanha 1:1).
     return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${i===0&&x.result>0?'🏆 ':''}${esc(x.key)}</span></td>
-      <td><b>${fmtNum(x.result)}</b>${varMini(x.result, pv[x.key])} <span style="color:#8aa0d6;font-size:11px">${esc(rl)}</span></td><td>${stTag(st)}</td>
+      <td><b>${fmtNum(x.result)}</b>${varMini(x.result, pv[x.key])} <span style="color:#8aa0d6;font-size:11px">${esc(rl)}</span></td><td>${stHtml}</td>
       <td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Campanha</th><th>Resultado</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th><th>Cliques</th></tr></thead><tbody>${body}</tbody></table></div>`
@@ -1589,10 +1698,12 @@ function tblMetaAdsets(rows, prevRows){
   // Nome pra exibir (vários conjuntos podem ter o MESMO nome — key é o adset_id).
   const nameOf = x => x._rows[0]?.['Conjunto de Anúncio'] || x.key
   const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(nameOf(x))} — gasto sem resultado`)
-  const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const st=x._rows[0]?.['Status do Conjunto de Anúncio']||''
-    const ativos=activeAdsCount(x._rows); const nm=nameOf(x)
+  const acct = acctOf(rows)
+  const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const nm=nameOf(x)
+    const stHtml=stCell(acct,'conjunto',(x._rows.find(r=>r['adset_id'])||{})['adset_id'],nm,x._rows,'Status do Conjunto de Anúncio')
+    const ativos=activeAdsCount(x._rows)
     return `<tr><td class="ad-name" title="${esc(nm)}"><span class="drill-link" data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}">${i===0&&x.conv>0?'🏆 ':''}${esc(nm)}</span></td>
-      <td>${stTag(st)}</td><td><span class="${ativos>0?'good':'fl'}">${ativos}</span></td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
+      <td>${stHtml}</td><td><span class="${ativos>0?'good':'fl'}">${ativos}</span></td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td></tr>` }).join('')
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Conjunto</th><th>Status</th><th>Anúncios ativos</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th></tr></thead><tbody>${body}</tbody></table></div>`
 }
@@ -1604,10 +1715,11 @@ function tblMetaAds(rows, prevRows){
     p25:r=>M(r,'Número de vezes que assistiram 25% do vídeo'), p50:r=>M(r,'Número de vezes que assistiram 50% do vídeo'),
     p75:r=>M(r,'Número de vezes que assistiram 75% do vídeo'), p100:r=>M(r,'Número de vezes que assistiram 100% do vídeo') })
   if(!g.length) return `<div class="empty">Sem anúncios no período.</div>`
+  const acct = acctOf(rows)
   const noConv = g.filter(x=>x.spend>0&&x.conv===0)
   const flags = noConv.length?[`🚨 ${noConv.length} anúncio(s) com gasto e 0 resultados — R$ ${noConv.reduce((a,x)=>a+x.spend,0).toFixed(2)} desperdiçados`]:[]
   const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const ctr=x.impr>0?x.clicks/x.impr*100:null
-    const st=x._rows[0]?.['Status do Aúncio']||''; const paused=st.toLowerCase().includes('paus')
+    const stHtml=adGroupCell(acct,x._rows); const paused=!isActiveStatus(adGroupStatus(acct,x._rows).entry.status)
     const adId=(x._rows.find(r=>r['ad_id'])||{})['ad_id']||''
     const destino=(x._rows[0]||{})['Destino do conjunto de anúncio']||''
     const prevBtn=adId?` <button class="ad-prev-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" title="Ver anúncio rodando">👁 Ver</button>`:''
@@ -1615,7 +1727,7 @@ function tblMetaAds(rows, prevRows){
     // seria um botão morto, então só o "Ver" (preview) vai para o cliente.
     const destBtn=(adId && !SHARED)?` <button class="ad-dest-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" data-destino="${esc(destino)}" title="Mostrar destino do anúncio">🔗 Destino</button>`:''
     return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(x.key)}"><span class="ad-name-flex"><span class="ad-name-txt">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span>${prevBtn}${destBtn}</span></td>
-      <td>${stTag(st)}</td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
+      <td>${stHtml}</td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${hookCell(x.h3,x.vv)}</td><td>${ctrCell(ctr)}</td>
       <td>${pctVid(x.p25,x.vv)}</td><td>${pctVid(x.p50,x.vv)}</td><td>${pctVid(x.p75,x.vv)}</td><td>${pctVid(x.p100,x.vv)}</td></tr>` }).join('')
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Anúncio</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Hook 3s</th><th>CTR Link</th><th>V25%</th><th>V50%</th><th>V75%</th><th>V100%</th></tr></thead><tbody>${body}</tbody></table></div>`
@@ -1776,17 +1888,19 @@ function buildInsights(stats, channel, allRows, target) {
   if (!stats || !allRows.length) return null
   const s = stats, isMeta = channel === 'meta'
   const adNameKey = isMeta ? 'Nome do Anúncio' : 'Campanha'
-  const adStatusKey = isMeta ? 'Status do Aúncio' : null
   const groups = groupBy(allRows, r => r[adNameKey], {
     spend: r => isMeta ? num(r['Valor investido']) : num(r['Gasto']),
     conv: r => num(r['Conversões']),
     clicks: r => isMeta ? num(r['Número de cliques no link']) : (num(r['CLiques']) || num(r['Cliques'])),
     impressions: r => isMeta ? num(r['Impressões']) : (num(r['Impressões na parte superior']) || num(r['Impressões'])),
   })
+  // Só entra na lista de desperdício o anúncio que AINDA está ativo hoje —
+  // cobrar a pausa de algo já pausado era o efeito colateral do status congelado.
+  const wasterAcct = acctOf(allRows)
   const wasters = groups.filter(g => {
     if (g.conv > 0 || g.spend < 35) return false
     if (!isMeta) return true
-    return !(g._rows[0]?.[adStatusKey] || '').toLowerCase().includes('paus')
+    return isActiveStatus(adGroupStatus(wasterAcct, g._rows).entry.status)
   }).sort((a, b) => b.spend - a.spend).slice(0, 3)
   const totalWaste = wasters.reduce((a, g) => a + g.spend, 0)
   const performers = groups.filter(g => g.conv > 0).map(g => ({ ...g, cpl: g.spend / g.conv }))

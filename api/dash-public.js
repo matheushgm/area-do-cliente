@@ -55,6 +55,14 @@ export default async function handler(req) {
   const expected = await hmacHex(SERVICE_KEY, `${cliente}|${canal}`)
   if (!safeEq(token, expected)) return jsonErr('Link inválido ou expirado.', 403)
 
+  // `dados=status` devolve o snapshot de status ATUAL das entidades (canal
+  // meta_status) em vez das linhas de insights. Mesmo token, mesmo cliente —
+  // só existe para o canal Meta.
+  const wantStatus = url.searchParams.get('dados') === 'status'
+  if (wantStatus && canal !== 'meta') return jsonErr('status só existe no canal meta.', 400)
+  const channel = wantStatus ? 'meta_status' : canal
+  const order = wantStatus ? 'row_key.asc' : 'day.asc'
+
   // ── Lê dash_insights só desta conta, paginado (PostgREST limita ~1000/req) ───
   const PAGE = 1000
   let offset = 0
@@ -62,7 +70,7 @@ export default async function handler(req) {
   try {
     for (;;) {
       const r = await fetch(
-        `${SUPABASE_URL}/rest/v1/dash_insights?channel=eq.${encodeURIComponent(canal)}&account=eq.${encodeURIComponent(cliente)}&select=data&order=day.asc`,
+        `${SUPABASE_URL}/rest/v1/dash_insights?channel=eq.${encodeURIComponent(channel)}&account=eq.${encodeURIComponent(cliente)}&select=data&order=${order}`,
         {
           headers: {
             apikey: SERVICE_KEY,

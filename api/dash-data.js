@@ -43,9 +43,12 @@ export default async function handler(req) {
   // ── Parâmetro ──────────────────────────────────────────────────────────────
   const url = new URL(req.url)
   const channel = url.searchParams.get('channel')
-  const ALLOWED = ['meta', 'google', 'google_terms']
+  // meta_status = snapshot do status ATUAL de cada campanha/conjunto/anúncio
+  // (1 linha por entidade, sem dia) — evita o dashboard mostrar como ativo o
+  // que já foi pausado.
+  const ALLOWED = ['meta', 'google', 'google_terms', 'meta_status']
   if (!ALLOWED.includes(channel)) {
-    return jsonErr('channel inválido (use meta|google|google_terms).', 400)
+    return jsonErr('channel inválido (use meta|google|google_terms|meta_status).', 400)
   }
   // Filtro opcional por conta — usado pelos termos de pesquisa (google_terms),
   // que são lazy/por-cliente para não baixar todas as contas de uma vez.
