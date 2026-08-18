@@ -102,6 +102,15 @@ export default async function handler(req) {
 
     // ── Produtos ───────────────────────────────────────────────────────────
     if (mod === 'produtos') {
+      // Mesmo cuidado das personas: o `summary` gerado pela IA não passa pelo
+      // formulário do cliente, então é lido antes do delete e recolocado por id.
+      const { data: antigos } = await sb(
+        `/produtos?project_id=eq.${pid}&select=id,summary`
+      )
+      const resumoPorId = Object.fromEntries(
+        (Array.isArray(antigos) ? antigos : []).map((p) => [p.id, p.summary])
+      )
+
       await sb(`/produtos?project_id=eq.${pid}`, { method: 'DELETE' })
       if (Array.isArray(data.produtos) && data.produtos.length > 0) {
         const { status, data: res } = await sb('/produtos', {
@@ -113,6 +122,7 @@ export default async function handler(req) {
               nome:       p.nome || '',
               tipo:       p.tipo || 'produto',
               answers:    p.answers || {},
+              summary:    resumoPorId[p.id] ?? null,
             }))
           ),
         })
@@ -123,6 +133,18 @@ export default async function handler(req) {
 
     // ── Personas ───────────────────────────────────────────────────────────
     if (mod === 'personas') {
+      // O save é delete+insert. O perfil gerado pela IA (generated_content) não
+      // passa pelo formulário do cliente, então precisa ser lido ANTES do delete
+      // e recolocado por id — senão cada digitada do cliente apagava o perfil de
+      // todas as personas do projeto, e com ele as dores que o gerador de
+      // criativos estáticos lê da seção "PRINCIPAIS DORES".
+      const { data: antigas } = await sb(
+        `/personas?project_id=eq.${pid}&select=id,generated_content,generated_at`
+      )
+      const perfilPorId = Object.fromEntries(
+        (Array.isArray(antigas) ? antigas : []).map((p) => [p.id, p])
+      )
+
       await sb(`/personas?project_id=eq.${pid}`, { method: 'DELETE' })
       if (Array.isArray(data.personas) && data.personas.length > 0) {
         const { status, data: res } = await sb('/personas', {
@@ -133,8 +155,8 @@ export default async function handler(req) {
               project_id:       pid,
               name:             p.name || 'Persona',
               answers:          p.answers || {},
-              generated_content: null,
-              generated_at:     null,
+              generated_content: perfilPorId[p.id]?.generated_content ?? null,
+              generated_at:      perfilPorId[p.id]?.generated_at ?? null,
             }))
           ),
         })
