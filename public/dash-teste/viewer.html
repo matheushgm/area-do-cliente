@@ -1410,7 +1410,9 @@ function snapUp(acct, rows, lvl) {
   return first
 }
 const isActiveStatus = s => { const l = (s || '').toLowerCase(); return l.includes('ativ') || l === 'active' || l === 'enabled' }
-const snapWhen = ts => { const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(ts || ''); return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]}` : 'agora há pouco' }
+// O sync roda em UTC (GitHub Actions) e carimba o fuso — aqui vira horário local.
+const snapWhen = ts => { const d = ts ? new Date(ts) : null
+  return d && !isNaN(d) ? d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : 'agora há pouco' }
 // Último status conhecido nas linhas do período — a do dia MAIS RECENTE (o
 // código antigo pegava _rows[0], a mais ANTIGA: origem do "ativo" falso).
 function lastKnownStatus(rows, key) {
