@@ -277,6 +277,9 @@
   .adp-trans button.save { background:#164496; }
   .adp-trans-text { flex-basis:100%; min-height:120px; resize:vertical; padding:10px 12px; border:1px solid #D8E0F0; border-radius:8px;
     font:400 13px/1.5 ui-sans-serif,system-ui; color:#1E293B; background:#F8FAFF; }
+/* Rótulo de tile longo (ex.: "Perda por orçamento", "Pace da campanha") quebra
+   em duas linhas em vez de ser cortado com reticências pelo nowrap do vendor. */
+.dt-root .mg-tile-label.wrap{ white-space:normal; overflow:visible; line-height:1.25; }
 </style>
 </head>
 <body>
@@ -442,6 +445,11 @@ const destroyCharts = () => { state._charts.forEach(c=>{ try{ c.destroy() }catch
 // Formatadores auxiliares (espelham ClientPage)
 const fmtInt = n => n!=null ? Math.round(n).toLocaleString('pt-BR') : '—'
 const fmtPctVal = n => n!=null ? n.toFixed(1).replace('.',',')+'%' : '—'
+// Valor de parcela perdida. `crit` = limite acima do qual vale o alerta (null =
+// sem alerta; perda por qualidade é alta na maioria das contas de genérico e um
+// 🚨 fixo viraria ruído). Sem campanha de Search/Shopping na janela → '—'.
+const lostVal = (n, crit) => n==null ? '<span class="fl">—</span>'
+  : (crit!=null && n>crit) ? `<span class="crit">${fmtPctVal(n)} 🚨</span>` : fmtPctVal(n)
 const fmtFreq = n => n!=null ? n.toFixed(2).replace('.',',') : '—'
 // Moeda compacta p/ valores altos (faturamento) que não cabem no tile.
 const fmtMoneyShort = n => {
@@ -1212,7 +1220,7 @@ function paceTileHTML(pace) {
   const sub = pace.notStarted ? `plano começa ${fmtBR(pace.ps)}`
     : pace.pct == null ? '—'
     : `${fmtMoney(pace.actual)} de ${fmtMoney(pace.expected)} previstos`
-  return `<div class="mg-tile"><div class="mg-tile-label">Pace da campanha</div><div class="mg-tile-value" style="font-size:14px">${paceBadge(pace)}</div><div class="mg-tile-var fl">${esc(sub)}</div></div>`
+  return `<div class="mg-tile"><div class="mg-tile-label wrap">Pace da campanha</div><div class="mg-tile-value" style="font-size:14px">${paceBadge(pace)}</div><div class="mg-tile-var fl">${esc(sub)}</div></div>`
 }
 
 const goalBadge = (target, cpl, ch) => {
@@ -1854,8 +1862,38 @@ function aggMetrics(rows, isMeta) {
   const spend = rows.reduce((a,r)=>a+num(r['Gasto']),0)
   const clicks = rows.reduce((a,r)=>a+(num(r['CLiques'])||num(r['Cliques'])),0)
   const conv = rows.reduce((a,r)=>a+num(r['Conversões']),0)
-  const impressions = rows.reduce((a,r)=>a+(num(r['Impressões na parte superior'])||num(r['Impressões'])),0)
-  return { spend, impressions, clicks, conv, cpc:clicks>0?spend/clicks:null, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null }
+  // "Impressões" (contagem real) só existe nas linhas coletadas a partir de
+  // 20/08/2026. Antes disso a única coluna era "Impressões na parte superior",
+  // que é PERCENTUAL — fallback só para não zerar o histórico.
+  const impressions = rows.reduce((a,r)=>a+(num(r['Impressões'])||num(r['Impressões na parte superior'])),0)
+  const lost = googleLostShare(rows)
+  return { spend, impressions, clicks, conv, cpc:clicks>0?spend/clicks:null, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null,
+    lostBudget:lost.budget, lostRank:lost.rank, lostEligible:lost.eligible }
+}
+
+// Parcela de impressões PERDIDA no Google (só Search/Shopping), separada por
+// motivo: orçamento (a verba acabou antes do leilão) e classificação (Ad Rank /
+// qualidade insuficiente). As duas são métricas de CAMPANHA, repetidas em cada
+// linha de grupo de palavras — por isso a deduplicação por campanha+dia antes de
+// somar. Média simples entre campanhas mentiria: uma campanha de marca com 4
+// impressões pesaria igual a uma de genérico com 7 mil. O peso certo é a
+// impressão ELEGÍVEL (o leilão inteiro que a campanha disputou naquele dia):
+//   perda% da conta = Σ(elegíveis × perda%) ÷ Σ(elegíveis)
+function googleLostShare(rows){
+  const seen = new Set()
+  let elig = 0, lostB = 0, lostR = 0
+  for (const r of rows){
+    const e = num(r['Impressões elegíveis'])
+    if (!e) continue                       // linha antiga (sem a coluna) ou campanha sem parcela de impressões
+    const k = (r['Campanha']||'') + '|' + (r['Data']||'')
+    if (seen.has(k)) continue              // mesma campanha/dia repetida nos grupos
+    seen.add(k)
+    elig += e
+    lostB += e * num(r['% de perda por orçamento']) / 100
+    lostR += e * num(r['% de perda por classificação']) / 100
+  }
+  if (!elig) return { budget:null, rank:null, eligible:0 }
+  return { budget: lostB/elig*100, rank: lostR/elig*100, eligible: elig }
 }
 function pctVar(cur, prev) {
   if (cur==null && prev==null) return null
@@ -1863,10 +1901,12 @@ function pctVar(cur, prev) {
   if (cur==null) return -100
   return ((cur-prev)/prev)*100
 }
-function tileHTML(label, value, variance, inverted) {
+function tileHTML(label, value, variance, inverted, hint) {
   const arrow = variance==null?'' : variance>0.05?'▲' : variance<-0.05?'▼' : '•'
   const cls = variance==null?'fl' : varCls(variance, inverted)
-  return `<div class="mg-tile"><div class="mg-tile-label">${label}</div><div class="mg-tile-value">${value}</div><div class="mg-tile-var ${cls}"><span class="mg-arrow">${arrow}</span>${variance==null?'—':fmtPct(variance)}</div></div>`
+  const t = hint ? ` title="${esc(hint)}"` : ''
+  const lw = String(label).length > 13 ? ' wrap' : ''
+  return `<div class="mg-tile"${t}><div class="mg-tile-label${lw}">${label}</div><div class="mg-tile-value">${value}</div><div class="mg-tile-var ${cls}"><span class="mg-arrow">${arrow}</span>${variance==null?'—':fmtPct(variance)}</div></div>`
 }
 function metricGroupsHTML(allRows, prevRows, isMeta, period, pace) {
   if (!allRows.length) return ''
@@ -1879,6 +1919,11 @@ function metricGroupsHTML(allRows, prevRows, isMeta, period, pace) {
       ${isMeta ? tileHTML('Frequência', fmtFreq(cur.frequency), pctVar(cur.frequency, prv.frequency), true)
                : tileHTML('CPC', fmtMoney(cur.cpc), pctVar(cur.cpc, prv.cpc), true)}
       ${tileHTML('CPM', fmtMoney(cur.cpm), pctVar(cur.cpm, prv.cpm), true)}
+      ${isMeta ? '' : `
+      ${tileHTML('Perda por orçamento', lostVal(cur.lostBudget, 10), pctVar(cur.lostBudget, prv.lostBudget), true,
+        'Parcela de impressões perdida na Pesquisa por falta de verba: a campanha era elegível ao leilão e não apareceu porque o orçamento acabou. Média das campanhas de Search/Shopping ponderada pelas impressões elegíveis.')}
+      ${tileHTML('Perda por qualidade', lostVal(cur.lostRank, null), pctVar(cur.lostRank, prv.lostRank), true,
+        'Parcela de impressões perdida na Pesquisa por classificação do anúncio (Ad Rank): índice de qualidade, relevância ou lance abaixo do necessário. Média das campanhas de Search/Shopping ponderada pelas impressões elegíveis.')}`}
       ${paceTileHTML(pace)}
     </div>${chart('mgChartCost')}</div>
     <div class="mg-card mg-eng"><h4 class="mg-title">Engajamento</h4><div class="mg-tiles">
