@@ -1087,7 +1087,7 @@ Reescreva APENAS esta dobra aplicando a melhoria solicitada. Mantenha o mesmo ca
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-rl-text">Copy de Landing Page com IA</h2>
+          <h2 className="text-xl font-bold text-rl-text">Criação de landing page</h2>
           <p className="text-sm text-rl-muted mt-1">
             Escolha o formato da página e a IA gera a copy já encaixada no wireframe — você vê o texto
             aplicado no layout, não um blocão de texto. Salve e compare múltiplas versões.

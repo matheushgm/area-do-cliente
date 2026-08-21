@@ -294,7 +294,7 @@ export default function DebriefingModule({ project }) {
             {hasFilters
               ? 'Nenhum anúncio bate com os filtros atuais.'
               : isAprovacao
-                ? 'Nada aqui ainda. Em Criativos com IA, clique em "Enviar pra aprovação" que as copies aparecem nesta aba.'
+                ? 'Nada aqui ainda. Em Criação de anúncios, clique em "Enviar pra aprovação" que as copies aparecem nesta aba.'
                 : 'Nenhuma peça pronta ainda. Assim que o designer anexar o criativo, ele aparece aqui.'}
           </p>
         </div>
@@ -352,7 +352,7 @@ export default function DebriefingModule({ project }) {
                           {ad.copy && (
                             <span
                               className="font-sans shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-blue/10 text-rl-blue border border-rl-blue/30"
-                              title="Tem copy escrita (veio de Criativos com IA). Abra o anúncio pra ler o texto."
+                              title="Tem copy escrita (veio de Criação de anúncios). Abra o anúncio pra ler o texto."
                             >
                               copy
                             </span>

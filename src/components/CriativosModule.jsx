@@ -1253,11 +1253,11 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
   if (view === 'select') {
     return (
       <div className="space-y-6">
-        <VideoGuide videoId="ZinesF_j2xU" label="Como usar o módulo de Criativos com IA" />
+        <VideoGuide videoId="ZinesF_j2xU" label="Como usar o módulo de Criação de anúncios" />
 
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold text-rl-text mb-1">Gerador de Criativos com IA</h2>
+            <h2 className="text-xl font-bold text-rl-text mb-1">Criação de anúncios</h2>
             <p className="text-sm text-rl-muted">
               Selecione o formato para gerar criativos usando os dados do cliente.
             </p>

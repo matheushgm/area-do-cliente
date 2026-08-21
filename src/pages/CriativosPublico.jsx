@@ -782,7 +782,7 @@ function Shell({ children, subtitle }) {
         <img src="/logo-revenue-azul-2024.png" alt="Revenue Lab" className="h-8 w-auto object-contain" />
         <div className="flex items-center gap-1.5 text-rl-muted">
           <Sparkles className="w-4 h-4 text-rl-purple" />
-          <span className="text-sm font-semibold text-rl-text">Criativos com IA{subtitle ? ` · ${subtitle}` : ''}</span>
+          <span className="text-sm font-semibold text-rl-text">Criação de anúncios{subtitle ? ` · ${subtitle}` : ''}</span>
         </div>
       </div>
       {children}

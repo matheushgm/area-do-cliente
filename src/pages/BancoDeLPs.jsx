@@ -367,7 +367,7 @@ export default function BancoDeLPs() {
             <LayoutTemplate className="w-4 h-4 text-rl-purple" />
             <h2 className="text-sm font-bold text-rl-text">Modelos padrão</h2>
             <span className="text-xs font-normal text-rl-muted">
-              wireframes prontos da criação de LP com IA
+              wireframes prontos da Criação de landing page
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

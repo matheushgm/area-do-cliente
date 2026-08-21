@@ -1662,7 +1662,7 @@ function openAdPreview(adId, adName){
         body: JSON.stringify({ action:'create', projectId, ad_id:adId, ad_name:adName, account:client, transcription:txt }) })
       const data = await r.json().catch(()=>({}))
       if(!r.ok) throw new Error(data?.error?.message || ('Erro '+r.status))
-      transMsg.textContent='✅ Salvo em Roteiros Validados (Perfil do cliente → Criativos com IA).'; transMsg.className='adp-save-msg ok'
+      transMsg.textContent='✅ Salvo em Roteiros Validados (Perfil do cliente → Criação de anúncios).'; transMsg.className='adp-save-msg ok'
     }catch(e){ transMsg.textContent='❌ '+e.message; transMsg.className='adp-save-msg err' }
     finally{ transSave.disabled=false }
   }
