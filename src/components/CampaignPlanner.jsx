@@ -16,6 +16,7 @@ import {
   defaultEndDateISO, todayISO, getDaysBetween, getPeriodLabel,
 } from './CampaignPlanner/campaignHelpers'
 import ChannelRow from './CampaignPlanner/ChannelRow'
+import PaceCard from './CampaignPlanner/PaceCard'
 import {
   CHANNEL_KEY, pullMonthSpend, pullChannelPlan, pullChannelShare,
 } from './CampaignPlanner/pullFromDashboard'
@@ -110,6 +111,7 @@ export default function CampaignPlanner({ project, onSave }) {
   // ── Derived ────────────────────────────────────────────────────────────────
 
   const daysLeft     = useMemo(() => getDaysBetween(startDate, endDate),  [startDate, endDate])
+  const idealDaily   = daysLeft > 0 ? budgetDisponivel / daysLeft : 0
   const monthLabel   = useMemo(() => getPeriodLabel(startDate, endDate),  [startDate, endDate])
   const minEndDate   = useMemo(() => {
     const t = todayISO()
@@ -656,18 +658,42 @@ export default function CampaignPlanner({ project, onSave }) {
           </p>
         </div>
 
-        {/* Disponível para investir */}
-        <div className="flex items-center justify-between rounded-xl bg-rl-surface border border-rl-border px-4 py-3">
+        {/* Disponível para investir + quanto isso dá por dia */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-rl-surface border border-rl-border px-4 py-3">
           <div>
             <p className="text-xs text-rl-muted">Disponível para investir</p>
             <p className="text-[10px] text-rl-muted/60 mt-0.5">
               {fmtBRL(orcamentoTotal)} − {fmtBRL(valorJaUsado)}
             </p>
           </div>
-          <p className={`text-lg font-bold ${budgetDisponivel > 0 ? 'text-rl-green' : 'text-red-400'}`}>
-            {fmtBRL(budgetDisponivel)}
-          </p>
+          <div className="flex items-center gap-5">
+            <div className="text-right">
+              <p className="text-xs text-rl-muted">Por dia</p>
+              <p className={`text-lg font-bold ${budgetDisponivel > 0 ? 'text-rl-cyan' : 'text-red-400'}`}>
+                {fmtBRL(idealDaily)}
+              </p>
+              <p className="text-[10px] text-rl-muted/60">
+                {daysLeft} {daysLeft === 1 ? 'dia restante' : 'dias restantes'}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-rl-muted">Total</p>
+              <p className={`text-lg font-bold ${budgetDisponivel > 0 ? 'text-rl-green' : 'text-red-400'}`}>
+                {fmtBRL(budgetDisponivel)}
+              </p>
+            </div>
+          </div>
         </div>
+
+        {/* Pace: orçamento diário configurado nas campanhas do Meta vs. ideal */}
+        <PaceCard
+          accountNames={[...pullNames]}
+          idealDaily={idealDaily}
+          daysLeft={daysLeft}
+          orcamentoTotal={orcamentoTotal}
+          valorJaUsado={valorJaUsado}
+          showToast={showToast}
+        />
       </div>
 
       {/* Channels section */}
