@@ -11,7 +11,7 @@ import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays, Building2,
   FileText, Globe, Phone, TrendingUp, Star, FileDown,
-  Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, ImagePlay, Map, Package,
+  Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
   NotebookPen, Wrench, Compass, Megaphone, Map as MapIcon, Database,
@@ -20,7 +20,6 @@ import ROIScenariosModule from '../components/ROIScenariosModule'
 import PersonaCreator from './PersonaCreator'
 import OfertaMatadora from './OfertaMatadora'
 import CampaignPlanner from '../components/CampaignPlanner'
-import AnexosModule from '../components/AnexosModule'
 import CriativosModule from '../components/CriativosModule'
 import LandingPageModule from '../components/LandingPageModule'
 import ResultadosModule from '../components/ResultadosModule'
@@ -1210,7 +1209,6 @@ export default function ClientProfile({ project: projectProp }) {
   const hasLinks        = !!(lnk.instagram || lnk.website || lnk.googleDrive || (lnk.outros || []).length > 0)
   const hasEstrategiaV2 = !!(project.estrategiaV2?.problemas?.length || project.estrategiaV2?.swot?.forcas)
   const hasBancoMidia   = !!(project.brandKit?.logo || (project.brandKit?.cores || []).length > 0 || (project.brandFotos || []).length > 0 || (project.brandVideos || []).length > 0)
-  const hasAnexos       = (project.attachments || []).length > 0
   const hasLandingPages = (project.landingPages || []).length > 0
   const hasResultados   = !!project.resultados?.modelo
 
@@ -1225,7 +1223,6 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'oferta',       label: 'Oferta Matadora',          icon: Zap,            color: 'text-rl-gold',   filled: hasOferta },
     { id: 'roi',          label: 'Calculadora de ROI',       icon: BarChart3,      color: 'text-rl-purple', filled: hasROI },
     { id: 'campaign',     label: 'Campanhas',                icon: CalendarDays,   color: 'text-rl-green',  filled: hasCampaignPlan },
-    { id: 'anexos',       label: 'Anexos',                   icon: Paperclip,      color: 'text-rl-gold',   filled: hasAnexos },
     { id: 'criativos',    label: 'Criação de anúncios',      icon: Clapperboard,   color: 'text-rl-cyan',   filled: false },
     { id: 'landingpage',  label: 'Criação de landing page',  icon: LayoutTemplate, color: 'text-rl-green',  filled: hasLandingPages },
     { id: 'resultados',   label: 'Resultados',               icon: Activity,       color: 'text-rl-purple', filled: hasResultados },
@@ -1268,7 +1265,6 @@ export default function ClientProfile({ project: projectProp }) {
       )
       case 'oferta':       return <OfertaMatadora project={project} onSave={handleSaveOferta} />
       case 'campaign':     return <CampaignPlanner project={project} onSave={handleSaveCampaign} />
-      case 'anexos':       return <AnexosModule project={project} />
       case 'criativos':    return <CriativosModule project={project} />
       case 'landingpage':  return <LandingPageModule project={project} />
       case 'resultados':   return <ResultadosModule project={project} />
