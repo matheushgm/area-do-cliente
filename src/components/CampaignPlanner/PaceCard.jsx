@@ -32,9 +32,8 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body?.error?.message || `HTTP ${res.status}`)
       setData(body)
-      if (body.unresolved?.length) {
-        showToast(`Sem acesso em Meta/Google: ${body.unresolved.join(', ')}`, 'error')
-      }
+      // Conta não encontrada e canal sem credencial viram nota dentro do card;
+      // toast vermelho fica só para erro de verdade da API.
       if (body.warnings?.length) {
         showToast(body.warnings.join(' · '), 'error')
       }
@@ -163,6 +162,19 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
             <div className="flex items-center gap-2 text-[11px] text-rl-muted">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               Google Ads fora do pace: faltam as envs GOOGLE_ADS_* na Vercel (só Meta foi considerado).
+            </div>
+          )}
+
+          {data.unchecked?.length > 0 && (
+            <p className="text-[11px] text-rl-muted pl-[22px]">
+              Não verificadas: {data.unchecked.join(', ')}.
+            </p>
+          )}
+
+          {data.unresolved?.length > 0 && (
+            <div className="flex items-center gap-2 text-[11px] text-rl-gold">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              Sem acesso no Meta nem no Google: {data.unresolved.join(', ')}.
             </div>
           )}
 

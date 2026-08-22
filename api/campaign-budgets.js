@@ -312,7 +312,15 @@ export default async function handler(req) {
 
   const accounts = [...metaAccounts, ...googleAccounts]
   const found = new Set(accounts.map((a) => normStr(a.name)))
-  const unresolved = names.filter((n) => !found.has(normStr(n)))
+  const missing = names.filter((n) => !found.has(normStr(n)))
+
+  // Conta não encontrada só é "sem acesso" quando os DOIS canais foram
+  // consultados com sucesso. Se o Google está sem credencial (ou algum canal
+  // falhou), uma conta que só existe lá cai aqui sem que ninguém tenha perdido
+  // acesso a nada — reportar como erro seria alarme falso.
+  const fullySearched = metaTokens.length > 0 && googleConfigured && warnings.length === 0
+  const unresolved = fullySearched ? missing : []
+  const unchecked  = fullySearched ? [] : missing
 
   const metaDaily   = metaAccounts.reduce((a, ac) => a + ac.daily, 0)
   const googleDaily = googleAccounts.reduce((a, ac) => a + ac.daily, 0)
@@ -320,6 +328,7 @@ export default async function handler(req) {
   return new Response(JSON.stringify({
     accounts,
     unresolved,
+    unchecked,
     warnings,
     googleConfigured,
     daily: metaDaily + googleDaily,
