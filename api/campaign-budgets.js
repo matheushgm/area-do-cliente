@@ -207,11 +207,15 @@ async function pullGoogle(names, env) {
     const cid = resolved.get(normStr(name))
     if (!cid) continue
 
+    // `status = ENABLED` é só o botão da campanha: campanha com data final no
+    // passado continua ENABLED e some do "ativas" real. Quem manda é o
+    // primary_status — só ELIGIBLE/LIMITED/LEARNING estão veiculando hoje.
     const camps = await gadsSearch(cid,
-      'SELECT campaign.id, campaign.name, campaign.end_date_time, campaign_budget.id, '
-      + 'campaign_budget.amount_micros, campaign_budget.total_amount_micros, '
+      'SELECT campaign.id, campaign.name, campaign.primary_status, campaign.end_date_time, '
+      + 'campaign_budget.id, campaign_budget.amount_micros, campaign_budget.total_amount_micros, '
       + 'campaign_budget.period, campaign_budget.explicitly_shared '
-      + "FROM campaign WHERE campaign.status = 'ENABLED'",
+      + "FROM campaign WHERE campaign.status = 'ENABLED' "
+      + "AND campaign.primary_status IN ('ELIGIBLE','LIMITED','LEARNING')",
       env, accessToken)
 
     // Orçamento compartilhado aparece uma vez por campanha que o usa — conta o
@@ -237,6 +241,8 @@ async function pullGoogle(names, env) {
       return {
         id: c.id, name: c.name,
         budgetMode: shared ? 'Compartilhado' : (b.period === 'DAILY' ? 'Diário' : 'Período'),
+        // LIMITED = entregando, mas travada pelo orçamento (gasta o teto todo dia).
+        limited: c.primaryStatus === 'LIMITED',
         daily: dup ? null : daily,
         estimated, shared, sharedDuplicate: dup,
       }

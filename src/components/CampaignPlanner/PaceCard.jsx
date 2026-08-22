@@ -181,7 +181,14 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
                   {campaigns.map((c) => (
                     <div key={c.id} className="flex items-center justify-between gap-3 text-xs rounded-lg bg-rl-bg/40 px-3 py-1.5">
                       <div className="min-w-0">
-                        <p className="text-rl-text truncate">{c.name}</p>
+                        <p className="text-rl-text truncate">
+                          {c.name}
+                          {c.limited && (
+                            <span className="ml-1.5 text-[10px] text-rl-gold" title="Entregando limitada pelo orçamento: gasta o teto todo dia">
+                              limitada
+                            </span>
+                          )}
+                        </p>
                         {multiAccount && <p className="text-[10px] text-rl-muted/60 truncate">{c.account}</p>}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
