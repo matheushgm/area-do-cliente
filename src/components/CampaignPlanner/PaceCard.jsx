@@ -33,7 +33,10 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
       if (!res.ok) throw new Error(body?.error?.message || `HTTP ${res.status}`)
       setData(body)
       if (body.unresolved?.length) {
-        showToast(`Sem acesso no Meta: ${body.unresolved.join(', ')}`, 'error')
+        showToast(`Sem acesso em Meta/Google: ${body.unresolved.join(', ')}`, 'error')
+      }
+      if (body.warnings?.length) {
+        showToast(body.warnings.join(' · '), 'error')
       }
     } catch (e) {
       showToast('Pace: ' + e.message, 'error')
@@ -78,9 +81,11 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
   }
 
   const campaigns = (data?.accounts || []).flatMap((a) =>
-    a.campaigns.map((c) => ({ ...c, account: a.name }))
+    a.campaigns.map((c) => ({ ...c, account: a.name, channel: a.channel }))
   )
-  const multiAccount = (data?.accounts || []).length > 1
+  const multiAccount = new Set((data?.accounts || []).map((a) => a.name)).size > 1
+  const hasGoogle = !!data?.perChannel?.google
+  const hasMeta   = !!data?.perChannel?.meta
 
   return (
     <div className="rounded-xl bg-rl-surface border border-rl-border px-4 py-3 space-y-3">
@@ -121,11 +126,14 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
               <p className="text-[10px] text-rl-muted/60">disponível ÷ {daysLeft} {daysLeft === 1 ? 'dia' : 'dias'}</p>
             </div>
             <div className="rounded-lg bg-rl-bg/60 border border-rl-border px-3 py-2">
-              <p className="text-[10px] text-rl-muted">Configurado hoje (Meta)</p>
+              <p className="text-[10px] text-rl-muted">Configurado hoje (Meta + Google)</p>
               <p className="text-base font-bold text-rl-text">{fmtBRL(configured)}</p>
               <p className="text-[10px] text-rl-muted/60">
+                {hasMeta || hasGoogle
+                  ? `Meta ${fmtBRL(data.perChannel.meta)} · Google ${fmtBRL(data.perChannel.google)} · `
+                  : ''}
                 {campaigns.length} campanha{campaigns.length === 1 ? '' : 's'} ativa{campaigns.length === 1 ? '' : 's'}
-                {hasEstimate ? ' · inclui estimativa de lifetime' : ''}
+                {hasEstimate ? ' · inclui estimativa' : ''}
               </p>
             </div>
           </div>
@@ -151,6 +159,13 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
             </div>
           )}
 
+          {data.googleConfigured === false && (
+            <div className="flex items-center gap-2 text-[11px] text-rl-muted">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              Google Ads fora do pace: faltam as envs GOOGLE_ADS_* na Vercel (só Meta foi considerado).
+            </div>
+          )}
+
           {/* Detalhe por campanha */}
           {campaigns.length > 0 && (
             <div>
@@ -171,14 +186,23 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
-                          c.budgetMode === 'CBO'
+                          c.channel === 'google'
+                            ? 'bg-rl-green/10 border-rl-green/20 text-rl-green'
+                            : 'bg-rl-blue/10 border-rl-blue/20 text-rl-blue'
+                        }`}>
+                          {c.channel === 'google' ? 'Google' : 'Meta'}
+                        </span>
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                          c.budgetMode === 'CBO' || c.budgetMode === 'Diário'
                             ? 'bg-rl-purple/10 border-rl-purple/20 text-rl-purple'
                             : 'bg-rl-cyan/10 border-rl-cyan/20 text-rl-cyan'
                         }`}>
                           {c.budgetMode}
                         </span>
                         <span className="font-semibold text-rl-text tabular-nums">
-                          {c.daily == null ? 'sem estimativa' : `${fmtBRL(c.daily)}/dia`}
+                          {c.sharedDuplicate
+                            ? 'já contado'
+                            : c.daily == null ? 'sem estimativa' : `${fmtBRL(c.daily)}/dia`}
                           {c.daily != null && c.estimated ? '*' : ''}
                         </span>
                       </div>
@@ -186,7 +210,7 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
                   ))}
                   {hasEstimate && (
                     <p className="text-[10px] text-rl-muted/60 pl-1">
-                      * lifetime budget: diário estimado pelo saldo restante ÷ dias até a data final da campanha.
+                      * orçamento por período (lifetime): diário estimado pelo valor ÷ dias até a data final da campanha.
                     </p>
                   )}
                 </div>
