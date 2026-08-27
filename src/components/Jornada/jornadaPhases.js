@@ -23,7 +23,6 @@ export const PHASES = [
       { id: 'icp',          label: 'Personas',                 emoji: '🎯',  desc: 'Sonhos, dores, objeções e hábitos do cliente ideal.' },
       { id: 'kickoff',      label: 'Kickoff',                  emoji: '🧭',  desc: 'Diagnóstico inicial em 9 pilares e veredito de oferta matadora.' },
       { id: 'roi',          label: 'Calculadora de ROI',       emoji: '📊',  desc: 'Leads, MQLs, SQLs e vendas necessários pra atingir o ROI alvo.' },
-      { id: 'links',        label: 'Links Importantes',        emoji: '🔗',  desc: 'Centralize os links do projeto pra acesso rápido.' },
     ],
   },
   {
@@ -108,9 +107,6 @@ export function getModuleStatus(project, moduleId) {
       if (e && typeof e === 'object' && Object.keys(e).length > 0) return 'concluido'
       return 'pendente'
     }
-
-    case 'links':
-      return project.links?.length ? 'concluido' : 'pendente'
 
     case 'mecanismo_unico': {
       const m = project.mecanismoUnico
