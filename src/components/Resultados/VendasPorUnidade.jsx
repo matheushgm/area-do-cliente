@@ -7,8 +7,8 @@
 // valorVendas), para que KPIs, ROAS e gráficos continuem lendo de um lugar só.
 
 import { useState } from 'react'
-import { Edit2, Plus, Check, X, Store } from 'lucide-react'
-import { fmtMoney, parseMoney, getDaysInMonth, MONTH_NAMES } from './resultadosHelpers'
+import { Edit2, Plus, Check, X, Store, TrendingUp, TrendingDown } from 'lucide-react'
+import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, MONTH_NAMES } from './resultadosHelpers'
 
 const UNIT_STYLE = [
   { text: 'text-rl-blue',   bg: 'bg-rl-blue/5',   border: 'border-rl-blue/20',   bar: 'rgb(var(--rl-blue))'   },
@@ -47,6 +47,164 @@ function monthTotalOf(data, unidadeId) {
       valorVendas: acc.valorVendas + (Number(dia?.[unidadeId]?.valorVendas) || 0),
     }),
     { vendas: 0, valorVendas: 0 },
+  )
+}
+
+// Soma { vendas, valorVendas } de uma unidade dentro de um intervalo de dias.
+function rangeTotalOf(data, unidadeId, start, end) {
+  let vendas = 0, valorVendas = 0
+  for (let d = start; d <= end; d++) {
+    const dia = data?.[String(d).padStart(2, '0')]?.[unidadeId]
+    vendas      += Number(dia?.vendas)      || 0
+    valorVendas += Number(dia?.valorVendas) || 0
+  }
+  return { vendas, valorVendas }
+}
+
+// ─── Resumo semanal ───────────────────────────────────────────────────────────
+// Não é um lançamento novo: agrupa os dias já preenchidos em semanas (1-7, 8-14,
+// 15-21, 22-fim) para mostrar o ritmo de cada unidade ao longo do mês.
+function ResumoSemanal({ unidades, month, data, semanas }) {
+  const mm = String(month + 1).padStart(2, '0')
+
+  // Último dia com lançamento — semanas que passam disso ainda estão em curso e
+  // a variação delas não deve ser lida como queda.
+  const ultimoDia = Object.keys(data || {}).reduce((max, k) => {
+    const dia = data[k]
+    const temAlgo = unidades.some(u => (dia?.[u.id]?.vendas || dia?.[u.id]?.valorVendas))
+    return temAlgo ? Math.max(max, Number(k)) : max
+  }, 0)
+
+  const linhas = semanas.map(week => {
+    const porUnidade = unidades.map(u => rangeTotalOf(data, u.id, week.start, week.end))
+    const total = porUnidade.reduce(
+      (acc, t) => ({ vendas: acc.vendas + t.vendas, valorVendas: acc.valorVendas + t.valorVendas }),
+      { vendas: 0, valorVendas: 0 },
+    )
+    const parcial = week.start <= ultimoDia && week.end > ultimoDia
+    return { week, porUnidade, total, parcial }
+  })
+
+  // Melhor semana de cada unidade, para destacar o pico na tabela.
+  const melhorPorUnidade = unidades.map((_, i) => {
+    let melhor = -1, valor = 0
+    linhas.forEach((l, li) => {
+      if (l.porUnidade[i].valorVendas > valor) { valor = l.porUnidade[i].valorVendas; melhor = li }
+    })
+    return valor > 0 ? melhor : -1
+  })
+
+  return (
+    <div className="glass-card overflow-hidden">
+      <div className="px-4 py-3 border-b border-rl-border flex items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-rl-text">
+          Resumo semanal por unidade
+        </span>
+        <span className="text-[10px] text-rl-muted">
+          somado dos lançamentos diários
+        </span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm" style={{ minWidth: 180 + unidades.length * 190 + 260 }}>
+          <thead>
+            <tr className="border-b border-rl-border">
+              <th rowSpan={2} className="text-left px-4 py-2 text-rl-muted font-medium text-xs uppercase tracking-wide align-bottom">
+                Semana
+              </th>
+              {unidades.map((u, i) => (
+                <th
+                  key={u.id}
+                  colSpan={2}
+                  className={`px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider border-l border-rl-border/50 ${styleOf(i).text}`}
+                >
+                  Unidade {u.label}
+                </th>
+              ))}
+              <th colSpan={2} className="px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-rl-green border-l border-rl-border/50">
+                Total da semana
+              </th>
+              <th rowSpan={2} className="px-3 py-2 text-right text-[10px] uppercase tracking-wide text-rl-muted font-medium align-bottom border-l border-rl-border/50 whitespace-nowrap">
+                vs. semana anterior
+              </th>
+            </tr>
+            <tr className="border-b border-rl-border">
+              {[...unidades, { id: '__total' }].map(u => [
+                <th key={`${u.id}-q`} className="px-3 py-1.5 text-right text-[10px] uppercase tracking-wide text-rl-muted font-medium border-l border-rl-border/50">
+                  Qtd.
+                </th>,
+                <th key={`${u.id}-v`} className="px-3 py-1.5 text-right text-[10px] uppercase tracking-wide text-rl-muted font-medium">
+                  Valor
+                </th>,
+              ])}
+            </tr>
+          </thead>
+
+          <tbody>
+            {linhas.map(({ week, porUnidade, total, parcial }, li) => {
+              const vazio = total.vendas === 0 && total.valorVendas === 0
+              const anterior = li > 0 ? linhas[li - 1].total.valorVendas : 0
+              const varPct = anterior > 0 && total.valorVendas > 0
+                ? ((total.valorVendas - anterior) / anterior) * 100
+                : null
+
+              return (
+                <tr
+                  key={week.label}
+                  className={`border-b border-rl-border/30 hover:bg-rl-surface/20 transition-colors ${vazio ? 'opacity-50' : ''}`}
+                >
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-rl-text">{week.label}</span>
+                      {parcial && (
+                        <span className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-rl-gold/10 text-rl-gold font-semibold">
+                          parcial
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-rl-muted">
+                      {String(week.start).padStart(2, '0')}/{mm} a {String(week.end).padStart(2, '0')}/{mm}
+                    </div>
+                  </td>
+
+                  {porUnidade.map((t, i) => [
+                    <td key={`${unidades[i].id}-q`} className="px-3 py-2.5 text-right text-xs text-rl-text border-l border-rl-border/50">
+                      {t.vendas ? t.vendas.toLocaleString('pt-BR') : '—'}
+                    </td>,
+                    <td
+                      key={`${unidades[i].id}-v`}
+                      className={`px-3 py-2.5 text-right text-xs font-medium ${styleOf(i).text} ${melhorPorUnidade[i] === li ? 'font-bold' : ''}`}
+                    >
+                      {t.valorVendas ? fmtMoney(t.valorVendas) : '—'}
+                    </td>,
+                  ])}
+
+                  <td className="px-3 py-2.5 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
+                    {total.vendas ? total.vendas.toLocaleString('pt-BR') : '—'}
+                  </td>
+                  <td className="px-3 py-2.5 text-right text-xs font-bold text-rl-green">
+                    {total.valorVendas ? fmtMoney(total.valorVendas) : '—'}
+                  </td>
+
+                  <td className="px-3 py-2.5 text-right text-xs border-l border-rl-border/50">
+                    {varPct == null ? (
+                      <span className="text-rl-muted">—</span>
+                    ) : (
+                      <span className={`inline-flex items-center gap-1 font-semibold ${
+                        parcial ? 'text-rl-muted' : varPct >= 0 ? 'text-rl-green' : 'text-rl-purple'
+                      }`}>
+                        {varPct >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                        {varPct >= 0 ? '+' : ''}{varPct.toFixed(1)}%
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }
 
@@ -102,6 +260,7 @@ export default function VendasPorUnidade({
   const [form, setForm]       = useState({})     // { unidadeId: { vendas, valorVendas } }
 
   const days = Array.from({ length: getDaysInMonth(year, month) }, (_, i) => i + 1)
+  const semanas = getWeekRanges(year, month)
 
   const startEdit = (day) => {
     const dayKey = String(day).padStart(2, '0')
@@ -172,6 +331,16 @@ export default function VendasPorUnidade({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Resumo semanal — agrupa os dias já lançados */}
+      {hasData && (
+        <ResumoSemanal
+          unidades={unidades}
+          month={month}
+          data={data}
+          semanas={semanas}
+        />
       )}
 
       {/* Tabela diária, no formato da planilha */}
