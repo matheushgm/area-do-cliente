@@ -335,7 +335,8 @@ async function loadProject(projectId) {
     sb(`/projects_v2?id=eq.${id}&select=company_name,business_type,segmento,competitors&limit=1`),
     sb(`/personas?project_id=eq.${id}&select=id,name,answers,generated_content`),
     sb(`/produtos?project_id=eq.${id}&select=id,nome,tipo,answers`),
-    sb(`/ofertas?project_id=eq.${id}&select=answers,generated_content&limit=1`),
+    // Várias ofertas por projeto: o contexto usa a principal (senão a mais antiga).
+    sb(`/ofertas?project_id=eq.${id}&select=answers,generated_content,created_at&order=created_at.asc`),
   ])
   const row = proj.data[0]
   if (!row) return null
@@ -348,9 +349,11 @@ async function loadProject(projectId) {
     personas: (personas.data || []).map((p) => ({
       id: p.id, name: p.name, answers: p.answers || {}, generatedProfile: p.generated_content ?? null,
     })),
-    ofertaData: ofertas.data[0]
-      ? { ...(typeof ofertas.data[0].answers === 'object' && ofertas.data[0].answers ? ofertas.data[0].answers : {}) }
-      : null,
+    ofertaData: (() => {
+      const rows = Array.isArray(ofertas.data) ? ofertas.data : []
+      const o = rows.find((r) => r.answers?.principal) || rows[0]
+      return o && typeof o.answers === 'object' && o.answers ? { ...o.answers } : null
+    })(),
   }
 }
 

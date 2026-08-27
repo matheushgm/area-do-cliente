@@ -1175,7 +1175,7 @@ export default function ClientProfile({ project: projectProp }) {
   function handleSaveROI(calc, result) { updateProject(project.id, { roiCalc: calc, roiResult: result }); showToast('ROI salvo!') }
   function handleSavePersonas(personas) { updateProject(project.id, { personas }); setActiveSection('produtos'); showToast('Personas salvas!') }
   function handleSaveProdutos(produtos) { updateProject(project.id, { produtos }); showToast('Produtos salvos!') }
-  function handleSaveOferta(ofertaData) { updateProject(project.id, { ofertaData }); showToast('Oferta salva!') }
+  function handleSaveOferta(ofertas) { updateProject(project.id, { ofertas }); showToast('Oferta salva!') }
   function handleSaveCampaign(plan) { updateProject(project.id, { campaignPlan: plan }); showToast('Planejamento salvo!') }
   function handleSaveEstrategiaV2(data) { updateProject(project.id, { estrategiaV2: data }); showToast('Análise salva!') }
   function handleSaveLinks(links) { updateProject(project.id, { links }); showToast('Links salvos!') }

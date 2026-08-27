@@ -126,7 +126,7 @@ async function migrateOferta(projectId, d) {
     answers:          oferta.answers ?? oferta,
     generated_content:oferta.generatedOffer ?? oferta.generatedContent ?? oferta.generated_content ?? null,
     generated_at:     oferta.generatedAt    ?? oferta.generated_at     ?? null,
-  }], { onConflict: "project_id" });
+  }], { onConflict: "id" });
 }
 
 // ─── Migra campaign_plans ─────────────────────────────────────────────────────

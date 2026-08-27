@@ -31,6 +31,12 @@ async function sb(path, opts = {}) {
   return { data, status: res.status }
 }
 
+// Oferta que representa o projeto: a marcada como principal, senão a mais antiga.
+function ofertaPrincipal(rows) {
+  if (!Array.isArray(rows) || !rows.length) return null
+  return rows.find((o) => o.answers?.principal) || rows[0]
+}
+
 export default async function handler(req) {
   // CORS preflight
   if (req.method === 'OPTIONS') {
@@ -65,7 +71,9 @@ export default async function handler(req) {
     const [produtosRes, personasRes, ofertasRes] = await Promise.all([
       sb(`/produtos?project_id=eq.${pid}&select=id,nome,tipo,answers&order=created_at.asc`),
       sb(`/personas?project_id=eq.${pid}&select=id,name,answers&order=created_at.asc`),
-      sb(`/ofertas?project_id=eq.${pid}&select=id,answers`),
+      // Um projeto pode ter várias ofertas — o link público sempre abre a
+      // principal (ou a mais antiga, quando nenhuma está marcada).
+      sb(`/ofertas?project_id=eq.${pid}&select=id,answers,created_at&order=created_at.asc`),
     ])
 
     return json({
@@ -73,12 +81,8 @@ export default async function handler(req) {
       companyName: projects[0].company_name,
       produtos:    Array.isArray(produtosRes.data) ? produtosRes.data : [],
       personas:    Array.isArray(personasRes.data) ? personasRes.data : [],
-      ofertaData:  Array.isArray(ofertasRes.data) && ofertasRes.data[0]
-        ? ofertasRes.data[0].answers
-        : null,
-      ofertaId:    Array.isArray(ofertasRes.data) && ofertasRes.data[0]
-        ? ofertasRes.data[0].id
-        : null,
+      ofertaData:  ofertaPrincipal(ofertasRes.data)?.answers ?? null,
+      ofertaId:    ofertaPrincipal(ofertasRes.data)?.id      ?? null,
       mecanismoUnico: projects[0].mecanismo_unico ?? null,
     })
   }
@@ -167,8 +171,15 @@ export default async function handler(req) {
 
     // ── Oferta ─────────────────────────────────────────────────────────────
     if (mod === 'oferta') {
-      const { data: existing } = await sb(`/ofertas?project_id=eq.${pid}&select=id`)
-      const ofertaId = (Array.isArray(existing) && existing[0]?.id) || crypto.randomUUID()
+      // O cliente edita UMA oferta — a que o GET devolveu (data.ofertaId). Sem
+      // id, resolve pela principal para não criar linha nova a cada digitada.
+      let ofertaId = data.ofertaId
+      if (!ofertaId) {
+        const { data: existing } = await sb(
+          `/ofertas?project_id=eq.${pid}&select=id,answers,created_at&order=created_at.asc`
+        )
+        ofertaId = ofertaPrincipal(existing)?.id || crypto.randomUUID()
+      }
 
       const { status, data: res } = await sb('/ofertas', {
         method:       'POST',

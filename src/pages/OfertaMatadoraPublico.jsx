@@ -39,6 +39,9 @@ export default function OfertaMatadoraPublico() {
   const [submitted, setSubmitted] = useState(false)
   const timer = useRef(null)
   const latest = useRef(null)
+  // Projeto pode ter várias ofertas: guardamos o id da que o link abriu para
+  // salvar sempre nela, sem criar uma oferta nova a cada envio.
+  const ofertaId = useRef(null)
 
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -54,6 +57,7 @@ export default function OfertaMatadoraPublico() {
           return
         }
         setCompanyName(data.companyName || '')
+        ofertaId.current = data.ofertaId || null
         const hydrated = hydrateOferta(data.ofertaData)
         setOferta(hydrated)
         latest.current = hydrated
@@ -74,7 +78,11 @@ export default function OfertaMatadoraPublico() {
       const res = await fetch('/api/client-form', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, module: 'oferta', data: { ofertaData: data } }),
+        body: JSON.stringify({
+          token,
+          module: 'oferta',
+          data: { ofertaData: data, ofertaId: ofertaId.current },
+        }),
       })
       setSaveStatus(res.ok ? 'saved' : 'error')
     } catch {

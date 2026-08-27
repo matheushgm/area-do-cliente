@@ -110,6 +110,18 @@ function assembleProject(row, rel = {}) {
     ),
   );
 
+  // Ofertas Matadoras (várias por projeto). Aceita tanto a row bruta do DB
+  // (answers + generated_content) quanto o objeto já montado (flat, vindo do
+  // handler de realtime / localStorage).
+  const ofertasList = [...ofertas]
+    .sort((a, b) => new Date(a.created_at || a.createdAt || 0) - new Date(b.created_at || b.createdAt || 0))
+    .map((o) => ({
+      ...(typeof o.answers === "object" && o.answers !== null ? o.answers : o),
+      id:             o.id,
+      generatedOffer: o.generated_content ?? o.generatedOffer ?? null,
+      createdAt:      o.created_at ?? o.createdAt ?? null,
+    }));
+
   return {
     // ── Campos DB snake_case ────────────────────────────────────────────────
     ...row,
@@ -181,15 +193,11 @@ function assembleProject(row, rel = {}) {
     roiResult:    rois[0]?.result ?? null,
     // Cenários extras de ROI (múltiplas calculadoras) — JSONB em projects_v2
     roiCenarios:  row.roi_cenarios ?? null,
-    ofertaData: ofertas[0] ? {
-      id:           ofertas[0].id,
-      // Suporta tanto a row bruta do DB (com answers + generated_content)
-      // quanto o objeto já montado (flat, passado pelo handler de realtime)
-      ...(typeof ofertas[0].answers === 'object' && ofertas[0].answers !== null
-        ? ofertas[0].answers
-        : ofertas[0]),
-      generatedOffer: ofertas[0].generated_content ?? ofertas[0].generatedOffer ?? null,
-    } : null,
+    // Ofertas Matadoras: um projeto pode ter várias. `ofertas` é a lista completa
+    // (ordenada da mais antiga p/ a mais nova) e `ofertaData` é a PRINCIPAL — a que
+    // alimenta LP, criativos, estratégia e PDFs, que trabalham com uma oferta só.
+    ofertas: ofertasList,
+    ofertaData: ofertasList.find((o) => o.principal) || ofertasList[0] || null,
     campaignPlan: campaigns[0] ? {
       id:   campaigns[0].id,
       name: campaigns[0].name,
@@ -544,16 +552,61 @@ async function sbUpdateProjectV2(id, patch) {
     }
   }
 
-  // ── 4. Oferta ────────────────────────────────────────────────────────────
+  // ── 4. Ofertas ───────────────────────────────────────────────────────────
+  // Um projeto pode ter várias Ofertas Matadoras. O patch traz a lista inteira:
+  // dá upsert por `id` e apaga as que saíram da lista (nunca delete+insert, que
+  // perderia o created_at usado para ordenar as abas do módulo).
+  if (patch.ofertas !== undefined) {
+    const list = Array.isArray(patch.ofertas) ? patch.ofertas : [];
+    const rows = list.map((o, i) => {
+      const {
+        id: _id, generatedOffer, generatedContent, generated_content,
+        generatedAt, generated_at, createdAt, created_at, answers: _a,
+        ...campos
+      } = o;
+      return {
+        id:               o.id || crypto.randomUUID(),
+        project_id:       id,
+        answers:          (typeof _a === "object" && _a !== null) ? _a : campos,
+        generated_content:generatedOffer ?? generatedContent ?? generated_content ?? null,
+        generated_at:     generatedAt    ?? generated_at    ?? null,
+        created_at:       createdAt      ?? created_at      ?? new Date(Date.now() + i).toISOString(),
+      };
+    });
+
+    const keep = rows.map((r) => r.id);
+    let del = supabase.from("ofertas").delete().eq("project_id", id);
+    if (keep.length) del = del.not("id", "in", `(${keep.join(",")})`);
+    const { error: delErr } = await del;
+    if (delErr) console.error("[Supabase] delete ofertas:", delErr.message);
+
+    if (rows.length) {
+      const { error } = await supabase.from("ofertas").upsert(rows, { onConflict: "id" });
+      if (error) console.error("[Supabase] upsert ofertas:", error.message);
+    }
+  }
+
+  // Compat: patch com uma oferta só (ofertaData). Atualiza a linha pelo id —
+  // sem id, cai na oferta mais antiga do projeto para não duplicar registro.
   if (patch.ofertaData !== undefined) {
     const oferta = patch.ofertaData || {};
+    let ofertaId = oferta.id;
+    if (!ofertaId) {
+      const { data: existing } = await supabase
+        .from("ofertas")
+        .select("id")
+        .eq("project_id", id)
+        .order("created_at", { ascending: true })
+        .limit(1);
+      ofertaId = existing?.[0]?.id || crypto.randomUUID();
+    }
     const { error } = await supabase.from("ofertas").upsert({
-      id:               oferta.id || crypto.randomUUID(),
+      id:               ofertaId,
       project_id:       id,
       answers:          oferta.answers || oferta,
       generated_content:oferta.generatedOffer ?? oferta.generatedContent ?? oferta.generated_content ?? null,
       generated_at:     oferta.generatedAt    ?? oferta.generated_at    ?? null,
-    }, { onConflict: "project_id" });
+    }, { onConflict: "id" });
     if (error) console.error("[Supabase] upsert ofertas:", error.message);
   }
 
@@ -925,7 +978,7 @@ export function AppProvider({ children }) {
               return assembleProject(row, {
                 rois:        p.roiCalc ? [{ ...p.roiCalc, result: p.roiResult }] : [],
                 personas:    p.personas    || [],
-                ofertas:     p.ofertaData  ? [p.ofertaData] : [],
+                ofertas:     p.ofertas?.length ? p.ofertas : (p.ofertaData ? [p.ofertaData] : []),
                 campaigns:   p.campaignPlan? [p.campaignPlan] : [],
                 criativos:   p.creatives   || [],
                 googleAds:   p.googleAds   || [],
