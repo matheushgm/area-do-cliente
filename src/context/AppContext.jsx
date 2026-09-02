@@ -101,6 +101,7 @@ function assembleProject(row, rel = {}) {
     attachments = [],
     resultados  = [],
     produtos    = [],
+    npsMarcos   = [],
   } = rel;
 
   const progress = Math.min(
@@ -258,8 +259,31 @@ function assembleProject(row, rel = {}) {
     // Links
     links: row.links || {},
 
-    // NPS por marco
+    // NPS — marcos dinâmicos por cliente (tabelas nps_marcos/nps_respostas).
+    // `nps` (JSONB) segue exposto só para leitura de dados antigos; a migration
+    // 080 já copiou tudo para as tabelas e a coluna sai numa migration futura.
     nps: row.nps || null,
+    npsMarcos: [...npsMarcos]
+      .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+      .map((m) => ({
+        id:        m.id,
+        label:     m.label,
+        descricao: m.descricao,
+        ordem:     m.ordem,
+        dueAt:     m.due_at,
+        origem:    m.origem,
+        respostas: (m.nps_respostas || [])
+          .map((r) => ({
+            id:          r.id,
+            score:       r.score,
+            name:        r.nome,
+            email:       r.email,
+            phone:       r.telefone,
+            q2: r.q2, q3: r.q3, q4: r.q4, q5: r.q5, q6: r.q6,
+            submittedAt: r.submitted_at,
+          }))
+          .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)),
+      })),
 
     // CRM
     crmData: row.crm_data ?? null,
@@ -343,6 +367,7 @@ async function sbFetchAll() {
     { data: attachmentsData },
     { data: resultadosData },
     { data: produtosData },
+    { data: npsMarcosData },
   ] = await Promise.all([
     supabase.from("roi_calculators").select("*").in("project_id", ids),
     supabase.from("personas").select("*").in("project_id", ids),
@@ -357,6 +382,8 @@ async function sbFetchAll() {
     supabase.from("attachments").select("*").in("project_id", ids),
     supabase.from("resultados").select("*").in("project_id", ids),
     supabase.from("produtos").select("*").in("project_id", ids),
+    // As respostas vêm aninhadas no marco — uma query em vez de duas
+    supabase.from("nps_marcos").select("*, nps_respostas(*)").in("project_id", ids).order("ordem", { ascending: true }),
   ]);
 
   return projects.map((p) =>
@@ -374,6 +401,7 @@ async function sbFetchAll() {
       attachments:  (attachmentsData || []).filter((r) => r.project_id === p.id),
       resultados:   (resultadosData  || []).filter((r) => r.project_id === p.id),
       produtos:     (produtosData || []).filter((r) => r.project_id === p.id),
+      npsMarcos:    (npsMarcosData || []).filter((r) => r.project_id === p.id),
     }),
   );
 }
@@ -1304,6 +1332,123 @@ export function AppProvider({ children }) {
     return {};
   }, []);
 
+  // ── NPS — marcos e respostas ──────────────────────────────────────────────
+  // Escrita direta no Supabase, como squads, e não via updateProject: o padrão
+  // de tabela filha do projeto é delete-all + insert, o que aqui apagaria
+  // respostas de clientes a cada save.
+
+  const patchNpsMarcos = useCallback((projectId, fn) => {
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId ? { ...p, npsMarcos: fn(p.npsMarcos || []) } : p,
+      ),
+    );
+  }, []);
+
+  const addNpsMarco = useCallback(async (projectId, data) => {
+    if (!supabase) return { error: "Supabase não configurado." };
+    const { data: row, error } = await supabase
+      .from("nps_marcos")
+      .insert({
+        project_id: projectId,
+        label:      data.label,
+        descricao:  data.descricao || null,
+        ordem:      data.ordem ?? 0,
+        due_at:     data.dueAt || null,
+        origem:     "custom",
+      })
+      .select("*, nps_respostas(*)")
+      .single();
+    if (error) return { error: error.message };
+    patchNpsMarcos(projectId, (cur) =>
+      [...cur, { id: row.id, label: row.label, descricao: row.descricao, ordem: row.ordem,
+                 dueAt: row.due_at, origem: row.origem, respostas: [] }]
+        .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)),
+    );
+    return { data: row };
+  }, [patchNpsMarcos]);
+
+  const updateNpsMarco = useCallback(async (projectId, marcoId, patch) => {
+    if (!supabase) return { error: "Supabase não configurado." };
+    const cols = {};
+    if ("label"     in patch) cols.label     = patch.label;
+    if ("descricao" in patch) cols.descricao = patch.descricao || null;
+    if ("ordem"     in patch) cols.ordem     = patch.ordem ?? 0;
+    if ("dueAt"     in patch) cols.due_at    = patch.dueAt || null;
+    const { error } = await supabase.from("nps_marcos").update(cols).eq("id", marcoId);
+    if (error) return { error: error.message };
+    patchNpsMarcos(projectId, (cur) =>
+      cur
+        .map((m) => (m.id === marcoId ? { ...m, ...patch } : m))
+        .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)),
+    );
+    return {};
+  }, [patchNpsMarcos]);
+
+  // Só marcos 'custom' são removíveis — os três padrão fazem parte da jornada
+  const deleteNpsMarco = useCallback(async (projectId, marcoId) => {
+    if (!supabase) return { error: "Supabase não configurado." };
+    const { error } = await supabase
+      .from("nps_marcos").delete().eq("id", marcoId).eq("origem", "custom");
+    if (error) return { error: error.message };
+    patchNpsMarcos(projectId, (cur) => cur.filter((m) => m.id !== marcoId));
+    return {};
+  }, [patchNpsMarcos]);
+
+  const addNpsResposta = useCallback(async (projectId, marcoId, data) => {
+    if (!supabase) return { error: "Supabase não configurado." };
+    const { data: row, error } = await supabase
+      .from("nps_respostas")
+      .insert({
+        marco_id: marcoId,
+        score:    data.score,
+        nome:     data.name  || null,
+        email:    data.email || null,
+        telefone: data.phone || null,
+        q2: data.q2 || null, q3: data.q3 || null, q4: data.q4 || null,
+        q5: data.q5 || null, q6: data.q6 || null,
+        submitted_at: data.submittedAt || new Date().toISOString(),
+      })
+      .select()
+      .single();
+    if (error) return { error: error.message };
+    patchNpsMarcos(projectId, (cur) =>
+      cur.map((m) =>
+        m.id === marcoId
+          ? { ...m, respostas: [{ id: row.id, score: row.score, name: row.nome,
+                                  email: row.email, phone: row.telefone,
+                                  q2: row.q2, q3: row.q3, q4: row.q4, q5: row.q5, q6: row.q6,
+                                  submittedAt: row.submitted_at }, ...m.respostas] }
+          : m,
+      ),
+    );
+    return { data: row };
+  }, [patchNpsMarcos]);
+
+  const deleteNpsResposta = useCallback(async (projectId, marcoId, respostaId) => {
+    if (!supabase) return { error: "Supabase não configurado." };
+    const { error } = await supabase.from("nps_respostas").delete().eq("id", respostaId);
+    if (error) return { error: error.message };
+    patchNpsMarcos(projectId, (cur) =>
+      cur.map((m) =>
+        m.id === marcoId
+          ? { ...m, respostas: m.respostas.filter((r) => r.id !== respostaId) }
+          : m,
+      ),
+    );
+    return {};
+  }, [patchNpsMarcos]);
+
+  const clearNpsMarco = useCallback(async (projectId, marcoId) => {
+    if (!supabase) return { error: "Supabase não configurado." };
+    const { error } = await supabase.from("nps_respostas").delete().eq("marco_id", marcoId);
+    if (error) return { error: error.message };
+    patchNpsMarcos(projectId, (cur) =>
+      cur.map((m) => (m.id === marcoId ? { ...m, respostas: [] } : m)),
+    );
+    return {};
+  }, [patchNpsMarcos]);
+
   // ── Context value ─────────────────────────────────────────────────────────
   const value = {
     user,
@@ -1324,6 +1469,12 @@ export function AppProvider({ children }) {
     addSquad,
     updateSquad,
     deleteSquad,
+    addNpsMarco,
+    updateNpsMarco,
+    deleteNpsMarco,
+    addNpsResposta,
+    deleteNpsResposta,
+    clearNpsMarco,
     tasks,
     loadingTasks,
     addTask,

@@ -1234,7 +1234,7 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'bancomídia',   label: 'Banco de Mídia',           icon: ImagePlay,      color: 'text-rl-blue',   filled: hasBancoMidia },
     { id: 'estrategiav2', label: 'Estratégia',               icon: Map,            color: 'text-rl-blue',   filled: hasEstrategiaV2 },
     { id: 'links',        label: 'Links Importantes',        icon: Link2,          color: 'text-rl-cyan',   filled: hasLinks },
-    { id: 'nps',          label: 'NPS',                       icon: Star,           color: 'text-rl-gold',   filled: !!(project.nps && Object.values(project.nps).some(Boolean)) },
+    { id: 'nps',          label: 'NPS',                       icon: Star,           color: 'text-rl-gold',   filled: (project.npsMarcos || []).some((m) => (m.respostas || []).length > 0) },
     { id: 'crm',          label: 'CRM',                       icon: Kanban,         color: 'text-rl-cyan',   filled: !!(project.crmData?.contacts?.length) },
     { id: 'bancodados',   label: 'Banco de Dados',            icon: Database,       color: 'text-rl-purple', filled: false },
     { id: 'atas',         label: 'Ata de Reunião',            icon: NotebookPen,    color: 'text-rl-purple', filled: false },

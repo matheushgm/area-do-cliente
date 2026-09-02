@@ -156,7 +156,10 @@ export function getModuleStatus(project, moduleId) {
       return project.resultados?.modelo ? 'concluido' : 'pendente'
 
     case 'nps':
-      return (project.nps && Object.values(project.nps).some(Boolean)) ? 'concluido' : 'pendente'
+      // Conta respostas de verdade: um marco sem respostas é um array vazio, e
+      // array vazio é truthy — o teste antigo dava 'concluido' para marco limpo.
+      return (project.npsMarcos || []).some((m) => (m.respostas || []).length > 0)
+        ? 'concluido' : 'pendente'
 
     default:
       return 'pendente'

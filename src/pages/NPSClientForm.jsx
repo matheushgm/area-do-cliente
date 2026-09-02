@@ -8,11 +8,13 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MARCOS = [
-  { id: 'marco1', num: '01', title: 'Pós-Onboarding',    desc: 'Após a primeira campanha ir ao ar', icon: Rocket,     color: '#7C3AED' },
-  { id: 'marco2', num: '02', title: 'Primeiros 3 Meses', desc: '90 dias de parceria',               icon: TrendingUp, color: '#2563EB' },
-  { id: 'marco3', num: '03', title: '6 Meses',           desc: 'Meio ano de parceria',              icon: Award,      color: '#D97706' },
-]
+// Os marcos vêm do servidor (nps_marcos, migration 080) — cada cliente tem a
+// sua lista, de tamanho indeterminado. Cor e ícone são cíclicos por posição.
+const MARCO_COLORS = ['#7C3AED', '#2563EB', '#D97706', '#059669']
+const MARCO_ICONS  = [Rocket, TrendingUp, Award, Star]
+
+const colorFor = (i) => MARCO_COLORS[i % MARCO_COLORS.length]
+const iconFor  = (i) => MARCO_ICONS[i % MARCO_ICONS.length]
 
 const Q3_OPTIONS = ['Ruim', 'Regular', 'Bom', 'Excelente']
 const Q4_OPTIONS = ['Sim, dentro do esperado', 'Parcialmente', 'Não, abaixo do esperado']
@@ -89,7 +91,7 @@ function IdentityGate({ companyName, onConfirm }) {
               autoFocus
               {...field('name')}
               onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
-              className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm text-gray-800 placeholder-gray-400 outline-none transition-all ${
+              className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-sm text-gray-800 placeholder-gray-400 outline-none transition-all ${
                 errors.name
                   ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100'
                   : 'border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100'
@@ -111,7 +113,7 @@ function IdentityGate({ companyName, onConfirm }) {
               placeholder="seu@email.com"
               {...field('email')}
               onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
-              className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm text-gray-800 placeholder-gray-400 outline-none transition-all ${
+              className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-sm text-gray-800 placeholder-gray-400 outline-none transition-all ${
                 errors.email
                   ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100'
                   : 'border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100'
@@ -133,7 +135,7 @@ function IdentityGate({ companyName, onConfirm }) {
               placeholder="(00) 00000-0000"
               {...field('phone')}
               onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 outline-none transition-all focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder-gray-400 outline-none transition-all focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
             />
           </div>
         </div>
@@ -216,12 +218,11 @@ function RadioOpt({ label, selected, onClick }) {
 
 // ─── NPS Form ─────────────────────────────────────────────────────────────────
 
-function NPSForm({ marco, onSubmit }) {
+function NPSForm({ accent, onSubmit }) {
   const [step, setStep]     = useState(0)
   const [form, setForm]     = useState({ score: null, q2: '', q3: '', q4: '', q5: '', q6: '' })
   const [saving, setSaving] = useState(false)
 
-  const accent      = marco.color
   const STEP_LABELS = ['Sua nota', 'Sua opinião', 'Avaliações', 'Comentários']
   const TOTAL       = STEP_LABELS.length
 
@@ -290,7 +291,7 @@ function NPSForm({ marco, onSubmit }) {
               placeholder="Escreva sua resposta aqui..."
               rows={5}
               autoFocus
-              className="w-full px-4 py-3.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 outline-none resize-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all leading-relaxed"
+              className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder-gray-400 outline-none resize-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all leading-relaxed"
             />
           </div>
           <div className="flex justify-between items-center pt-1">
@@ -372,7 +373,7 @@ function NPSForm({ marco, onSubmit }) {
               placeholder="Seus comentários são muito bem-vindos..."
               rows={5}
               autoFocus
-              className="w-full px-4 py-3.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 outline-none resize-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all leading-relaxed"
+              className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder-gray-400 outline-none resize-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all leading-relaxed"
             />
           </div>
           <div className="flex justify-between items-center pt-1">
@@ -410,12 +411,16 @@ export default function NPSClientForm() {
   const [companyName, setCompanyName]   = useState('')
   const [identity, setIdentity]         = useState(null)       // null until gate passed
   const [activeMarco, setActiveMarco]   = useState(null)
+  const [marcos, setMarcos]             = useState([])
   const [submittedMarcos, setSubmittedMarcos] = useState(new Set()) // session-level
   const [justSubmitted, setJustSubmitted]     = useState(null)      // marcoId flash
 
+  // Link direto abre exatamente o marco pedido. Sem ele, só os elegíveis — a
+  // data prevista já passou. Sem esse filtro, um cliente de 3 meses veria o
+  // formulário de 12.
   const visibleMarcos = targetMarcoId
-    ? MARCOS.filter(m => m.id === targetMarcoId)
-    : MARCOS
+    ? marcos.filter(m => m.id === targetMarcoId)
+    : marcos.filter(m => m.elegivel)
 
   const allDone = visibleMarcos.length > 0 && visibleMarcos.every(m => submittedMarcos.has(m.id))
 
@@ -426,12 +431,13 @@ export default function NPSClientForm() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Erro ao carregar.')
         setCompanyName(data.companyName)
-        // Auto-open first marco (or targeted one) once identity is set
-        if (targetMarcoId) {
-          setActiveMarco(targetMarcoId)
-        } else {
-          setActiveMarco(MARCOS[0].id)
-        }
+        const lista = data.marcos || []
+        setMarcos(lista)
+
+        const abrir = targetMarcoId
+          ? lista.find(m => m.id === targetMarcoId)
+          : lista.find(m => m.elegivel)
+        if (abrir) setActiveMarco(abrir.id)
       } catch (e) {
         setError(e.message)
       } finally {
@@ -473,12 +479,12 @@ export default function NPSClientForm() {
     }, 2500)
   }
 
-  const targetMarco = targetMarcoId ? MARCOS.find(m => m.id === targetMarcoId) : null
+  const targetMarco = targetMarcoId ? marcos.find(m => m.id === targetMarcoId) : null
 
   // ── Loading ──
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center [color-scheme:light]">
         <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
       </div>
     )
@@ -487,7 +493,7 @@ export default function NPSClientForm() {
   // ── Error ──
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 [color-scheme:light]">
         <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-8 max-w-sm w-full text-center">
           <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
           <p className="text-gray-700 font-semibold mb-1">Link inválido</p>
@@ -498,7 +504,7 @@ export default function NPSClientForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 py-12 px-4 [color-scheme:light]">
       <div className="max-w-xl mx-auto space-y-6">
 
         {/* ── Header ── */}
@@ -511,7 +517,7 @@ export default function NPSClientForm() {
           {companyName && (
             <p className="text-sm text-gray-500 leading-relaxed max-w-sm mx-auto">
               {targetMarco
-                ? <>Gostaríamos da sua avaliação sobre o <strong className="text-gray-700">Marco {targetMarco.num} — {targetMarco.title}</strong> da parceria com <strong className="text-gray-700">{companyName}</strong>.</>
+                ? <>Gostaríamos da sua avaliação sobre o marco <strong className="text-gray-700">{targetMarco.label}</strong> da parceria com <strong className="text-gray-700">{companyName}</strong>.</>
                 : <>Sua opinião sobre a parceria com <strong className="text-gray-700">{companyName}</strong> é muito importante para nós.</>
               }
             </p>
@@ -565,16 +571,31 @@ export default function NPSClientForm() {
               <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-4 flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
                 <p className="text-sm font-medium text-green-700">
-                  Resposta do <strong>{MARCOS.find(m => m.id === justSubmitted)?.title}</strong> registrada com sucesso!
+                  Resposta do <strong>{marcos.find(m => m.id === justSubmitted)?.label}</strong> registrada com sucesso!
+                </p>
+              </div>
+            )}
+
+            {/* ── Nenhum marco disponível agora ── */}
+            {visibleMarcos.length === 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
+                <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                  <Star className="w-8 h-8 text-gray-300" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Nada por aqui no momento</h2>
+                <p className="text-sm text-gray-500 leading-relaxed max-w-xs mx-auto">
+                  Não há nenhuma pesquisa aberta para você responder agora. Assim que houver, a
+                  gente avisa.
                 </p>
               </div>
             )}
 
             {/* ── Marco cards ── */}
-            {!allDone && visibleMarcos.map((marco) => {
-              const Icon = marco.icon
-              const done = submittedMarcos.has(marco.id)
-              const open = activeMarco === marco.id && !done
+            {!allDone && visibleMarcos.map((marco, i) => {
+              const Icon  = iconFor(i)
+              const color = colorFor(i)
+              const done  = submittedMarcos.has(marco.id)
+              const open  = activeMarco === marco.id && !done
 
               return (
                 <div
@@ -584,35 +605,35 @@ export default function NPSClientForm() {
                     : open ? 'border-2 shadow-md'
                     : 'border border-gray-100'
                   }`}
-                  style={open ? { borderColor: marco.color } : {}}
+                  style={open ? { borderColor: color } : {}}
                 >
                   {/* Card header */}
                   <div
                     className="px-6 py-5 flex items-center justify-between gap-4"
                     style={{
-                      background: done ? '#F0FDF4' : open ? marco.color + '08' : '#F9FAFB',
+                      background: done ? '#F0FDF4' : open ? color + '08' : '#F9FAFB',
                     }}
                   >
                     <div className="flex items-center gap-4 min-w-0">
                       <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: done ? '#DCFCE7' : marco.color + '18' }}
+                        style={{ background: done ? '#DCFCE7' : color + '18' }}
                       >
                         {done
                           ? <CheckCircle2 className="w-5 h-5 text-green-500" />
-                          : <Icon className="w-4.5 h-4.5" style={{ color: marco.color }} />
+                          : <Icon className="w-4.5 h-4.5" style={{ color }} />
                         }
                       </div>
                       <div className="min-w-0">
                         <p
                           className="text-[11px] font-bold uppercase tracking-wider mb-0.5"
-                          style={{ color: done ? '#16A34A' : marco.color }}
+                          style={{ color: done ? '#16A34A' : color }}
                         >
-                          Marco {marco.num}
+                          Marco {String(i + 1).padStart(2, '0')}
                           {done ? ' · Concluído' : ''}
                         </p>
-                        <p className="text-sm font-semibold text-gray-900 truncate">{marco.title}</p>
-                        <p className="text-xs text-gray-400">{marco.desc}</p>
+                        <p className="text-sm font-semibold text-gray-900 truncate">{marco.label}</p>
+                        {marco.descricao && <p className="text-xs text-gray-400">{marco.descricao}</p>}
                       </div>
                     </div>
 
@@ -626,7 +647,7 @@ export default function NPSClientForm() {
                       <button
                         onClick={() => setActiveMarco(marco.id)}
                         className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 shadow-sm"
-                        style={{ background: marco.color }}
+                        style={{ background: color }}
                       >
                         Responder
                       </button>
@@ -637,7 +658,7 @@ export default function NPSClientForm() {
                   {open && (
                     <div className="px-6 py-6 border-t border-gray-100">
                       <NPSForm
-                        marco={marco}
+                        accent={color}
                         onSubmit={(data) => handleSubmit(marco.id, data)}
                       />
                     </div>

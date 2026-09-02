@@ -1,31 +1,30 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
+import Modal from './UI/Modal'
 import {
   Rocket, TrendingUp, Award, CheckCircle2, ChevronRight,
   Star, MessageSquare, BarChart2, ThumbsUp, ThumbsDown,
   Minus, RotateCcw, Send, Clock, Link2, Check,
-  Plus, Users, Phone, Mail, User,
+  Plus, Users, Phone, Mail, User, Calendar, Pencil, Trash2, X,
 } from 'lucide-react'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MARCOS = [
-  {
-    id: 'marco1', num: '01', title: 'Pós-Onboarding', description: 'Após a primeira campanha ir ao ar',
-    icon: Rocket, color: 'purple',
-    tw: { text: 'text-rl-purple', bg: 'bg-rl-purple/10', border: 'border-rl-purple/25', badge: 'bg-rl-purple text-white', btn: 'bg-rl-purple hover:bg-rl-purple/90 text-white' },
-  },
-  {
-    id: 'marco2', num: '02', title: 'Primeiros 3 Meses', description: '90 dias de parceria',
-    icon: TrendingUp, color: 'blue',
-    tw: { text: 'text-rl-blue', bg: 'bg-rl-blue/10', border: 'border-rl-blue/25', badge: 'bg-rl-blue text-white', btn: 'bg-rl-blue hover:bg-rl-blue/90 text-white' },
-  },
-  {
-    id: 'marco3', num: '03', title: '6 Meses', description: 'Meio ano de parceria',
-    icon: Award, color: 'gold',
-    tw: { text: 'text-rl-gold', bg: 'bg-rl-gold/10', border: 'border-rl-gold/25', badge: 'bg-rl-gold text-rl-bg', btn: 'bg-rl-gold hover:bg-rl-gold/90 text-rl-bg' },
-  },
+// Os marcos deixaram de ser uma lista fixa: cada cliente tem a sua, guardada em
+// nps_marcos (migration 080), e o time cria marcos novos conforme o contrato
+// avança. Como o número é indeterminado, tema e ícone são cíclicos por posição
+// — mesmo princípio do SQUAD_COLORS.
+const MARCO_THEMES = [
+  { text: 'text-rl-purple', bg: 'bg-rl-purple/10', border: 'border-rl-purple/25', badge: 'bg-rl-purple text-white', btn: 'bg-rl-purple hover:bg-rl-purple/90 text-white' },
+  { text: 'text-rl-blue',   bg: 'bg-rl-blue/10',   border: 'border-rl-blue/25',   badge: 'bg-rl-blue text-white',   btn: 'bg-rl-blue hover:bg-rl-blue/90 text-white' },
+  { text: 'text-rl-gold',   bg: 'bg-rl-gold/10',   border: 'border-rl-gold/25',   badge: 'bg-rl-gold text-rl-bg',   btn: 'bg-rl-gold hover:bg-rl-gold/90 text-rl-bg' },
+  { text: 'text-rl-green',  bg: 'bg-rl-green/10',  border: 'border-rl-green/25',  badge: 'bg-rl-green text-white',  btn: 'bg-rl-green hover:bg-rl-green/90 text-white' },
 ]
+
+const MARCO_ICONS = [Rocket, TrendingUp, Award, Star]
+
+const themeFor = (i) => MARCO_THEMES[i % MARCO_THEMES.length]
+const iconFor  = (i) => MARCO_ICONS[i % MARCO_ICONS.length]
 
 const Q3_OPTIONS = ['Ruim', 'Regular', 'Bom', 'Excelente']
 const Q4_OPTIONS = ['Sim, dentro do esperado', 'Parcialmente', 'Não, abaixo do esperado']
@@ -56,14 +55,14 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-// Backward compat: old format was a single object, new format is an array
-function getResponses(nps, marcoId) {
-  const val = nps?.[marcoId]
-  if (!val) return []
-  if (Array.isArray(val)) return val.filter(r => r?.submittedAt)
-  if (val?.submittedAt) return [val]
-  return []
+function fmtDue(iso) {
+  if (!iso) return null
+  // Data pura (YYYY-MM-DD): montar local, senão o fuso joga para o dia anterior
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
+
+const hojeISO = () => new Date().toISOString().slice(0, 10)
 
 // ─── Radio Option ─────────────────────────────────────────────────────────────
 
@@ -89,14 +88,13 @@ function RadioOption({ label, selected, onClick }) {
 
 // ─── NPS Form (admin — inclui campo de respondente) ──────────────────────────
 
-function NPSForm({ marco, onSubmit, onCancel }) {
+function NPSForm({ tw, onSubmit, onCancel }) {
   const [respondentName, setRespondentName] = useState('')
   const [step, setStep]     = useState(0)
   const [form, setForm]     = useState({ score: null, q2: '', q3: '', q4: '', q5: '', q6: '' })
   const [saving, setSaving] = useState(false)
 
   const category = form.score !== null ? getNPSCategory(form.score) : null
-  const tw = marco.tw
 
   const handleSubmit = async () => {
     setSaving(true)
@@ -350,11 +348,12 @@ function ResponseRow({ response }) {
 
 // ─── Marco Card ───────────────────────────────────────────────────────────────
 
-function MarcoCard({ marco, responses, onAddResponse, onClearAll, onCopyLink, isCopied }) {
-  const [open, setOpen]         = useState(false)
+function MarcoCard({ marco, index, onAddResponse, onClearAll, onCopyLink, isCopied, onEdit, onDelete }) {
+  const [open, setOpen]           = useState(false)
   const [addingNew, setAddingNew] = useState(false)
-  const Icon  = marco.icon
-  const tw    = marco.tw
+  const Icon  = iconFor(index)
+  const tw    = themeFor(index)
+  const responses = marco.respostas || []
   const count = responses.length
   const hasResponses = count > 0
   const avgScore = hasResponses
@@ -375,9 +374,9 @@ function MarcoCard({ marco, responses, onAddResponse, onClearAll, onCopyLink, is
             <Icon className={`w-4 h-4 ${hasResponses ? 'text-rl-green' : tw.text}`} />
           </div>
           <div>
-            <div className="flex items-center gap-2 mb-0.5">
+            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
               <span className={`text-[10px] font-bold uppercase tracking-wider ${hasResponses ? 'text-rl-green' : tw.text}`}>
-                Marco {marco.num}
+                Marco {String(index + 1).padStart(2, '0')}
               </span>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                 hasResponses
@@ -386,9 +385,19 @@ function MarcoCard({ marco, responses, onAddResponse, onClearAll, onCopyLink, is
               }`}>
                 {count} resposta{count !== 1 ? 's' : ''}
               </span>
+              {marco.dueAt && (
+                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                  !hasResponses && marco.dueAt <= hojeISO()
+                    ? 'bg-rl-gold/10 border-rl-gold/25 text-rl-gold'
+                    : 'bg-rl-surface border-rl-border text-rl-muted'
+                }`}>
+                  <Calendar className="w-2.5 h-2.5" />
+                  {!hasResponses && marco.dueAt <= hojeISO() ? 'Previsto para ' : ''}{fmtDue(marco.dueAt)}
+                </span>
+              )}
             </div>
-            <p className="text-sm font-semibold text-rl-text">{marco.title}</p>
-            <p className="text-xs text-rl-muted">{marco.description}</p>
+            <p className="text-sm font-semibold text-rl-text">{marco.label}</p>
+            {marco.descricao && <p className="text-xs text-rl-muted">{marco.descricao}</p>}
           </div>
         </div>
 
@@ -419,6 +428,23 @@ function MarcoCard({ marco, responses, onAddResponse, onClearAll, onCopyLink, is
             <Plus className="w-3.5 h-3.5" />
             Adicionar
           </button>
+          <button
+            onClick={onEdit}
+            title="Editar marco"
+            className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-colors"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          {/* Os três marcos padrão fazem parte da jornada e não são removíveis */}
+          {marco.origem === 'custom' && (
+            <button
+              onClick={onDelete}
+              title="Excluir marco"
+              className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -440,8 +466,8 @@ function MarcoCard({ marco, responses, onAddResponse, onClearAll, onCopyLink, is
                   Limpar tudo
                 </button>
               </div>
-              {responses.map((r, i) => (
-                <ResponseRow key={i} response={r} />
+              {responses.map((r) => (
+                <ResponseRow key={r.id} response={r} />
               ))}
             </div>
           )}
@@ -453,7 +479,7 @@ function MarcoCard({ marco, responses, onAddResponse, onClearAll, onCopyLink, is
                 <p className="text-xs font-bold text-rl-muted uppercase tracking-wide mb-4">Nova resposta</p>
               )}
               <NPSForm
-                marco={marco}
+                tw={tw}
                 onSubmit={async (formData) => {
                   await onAddResponse(formData)
                   setAddingNew(false)
@@ -481,8 +507,8 @@ function MarcoCard({ marco, responses, onAddResponse, onClearAll, onCopyLink, is
 
 // ─── NPS Summary Banner ───────────────────────────────────────────────────────
 
-function NPSSummary({ nps }) {
-  const allResponses = MARCOS.flatMap(m => getResponses(nps, m.id))
+function NPSSummary({ marcos }) {
+  const allResponses = marcos.flatMap(m => m.respostas || [])
   if (allResponses.length === 0) return null
 
   const scores     = allResponses.map(r => r.score)
@@ -491,7 +517,7 @@ function NPSSummary({ nps }) {
   const promotores = scores.filter(s => s >= 9).length
   const detratores = scores.filter(s => s <= 6).length
   const npsScore   = Math.round(((promotores - detratores) / n) * 100)
-  const marcosAtivos = MARCOS.filter(m => getResponses(nps, m.id).length > 0).length
+  const marcosAtivos = marcos.filter(m => (m.respostas || []).length > 0).length
 
   return (
     <div className="glass-card p-5">
@@ -499,7 +525,7 @@ function NPSSummary({ nps }) {
         <BarChart2 className="w-4 h-4 text-rl-purple" />
         <p className="text-sm font-semibold text-rl-text">Visão Geral do NPS</p>
         <span className="text-xs text-rl-muted ml-auto">
-          {n} resposta{n !== 1 ? 's' : ''} · {marcosAtivos} de {MARCOS.length} marcos
+          {n} resposta{n !== 1 ? 's' : ''} · {marcosAtivos} de {marcos.length} marcos
         </span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -526,22 +552,135 @@ function NPSSummary({ nps }) {
   )
 }
 
+// ─── Marco Form (criar / editar) ──────────────────────────────────────────────
+
+function MarcoFormModal({ marco, onSave, onClose }) {
+  const [label, setLabel]         = useState(marco?.label     || '')
+  const [descricao, setDescricao] = useState(marco?.descricao || '')
+  const [dueAt, setDueAt]         = useState(marco?.dueAt     || '')
+  const [saving, setSaving]       = useState(false)
+
+  const editando = !!marco
+  const podeSalvar = label.trim().length > 0 && !saving
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!podeSalvar) return
+    setSaving(true)
+    await onSave({ label: label.trim(), descricao: descricao.trim(), dueAt: dueAt || null })
+    setSaving(false)
+  }
+
+  return (
+    <Modal onClose={onClose} maxWidth="md">
+      <form onSubmit={submit} className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-rl-text">
+              {editando ? 'Editar marco' : 'Novo marco de NPS'}
+            </h3>
+            <p className="text-xs text-rl-muted mt-0.5">
+              {editando
+                ? 'A alteração vale só para este cliente.'
+                : 'Vale só para este cliente — use para acompanhar o ciclo de vida além dos marcos padrão.'}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="p-1 text-rl-muted hover:text-rl-text transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-bold text-rl-muted uppercase tracking-wide block mb-1.5">
+            Nome do marco
+          </label>
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Ex: 9 Meses, Pós-renovação"
+            autoFocus
+            className="input-field text-sm w-full"
+          />
+        </div>
+
+        <div>
+          <label className="text-[10px] font-bold text-rl-muted uppercase tracking-wide block mb-1.5">
+            Descrição <span className="font-medium normal-case">(opcional)</span>
+          </label>
+          <input
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            placeholder="Ex: Três trimestres de parceria"
+            className="input-field text-sm w-full"
+          />
+        </div>
+
+        <div>
+          <label className="text-[10px] font-bold text-rl-muted uppercase tracking-wide block mb-1.5">
+            Data prevista <span className="font-medium normal-case">(opcional)</span>
+          </label>
+          <input
+            type="date"
+            value={dueAt || ''}
+            onChange={(e) => setDueAt(e.target.value)}
+            className="input-field text-sm w-full"
+          />
+          <p className="text-[11px] text-rl-muted mt-1.5 leading-relaxed">
+            O marco só aparece sozinho para o cliente depois desta data. Sem data, ele fica
+            disponível apenas por link direto.
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-rl-muted hover:text-rl-text transition-colors">
+            Cancelar
+          </button>
+          <button type="submit" disabled={!podeSalvar} className="btn-primary text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+            {saving ? 'Salvando...' : editando ? 'Salvar' : 'Criar marco'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function NPSModule({ project }) {
-  const { updateProject } = useApp()
+  const {
+    updateProject, addNpsMarco, updateNpsMarco, deleteNpsMarco,
+    addNpsResposta, clearNpsMarco,
+  } = useApp()
   const [copiedMarco, setCopiedMarco] = useState(null)
-  const nps = project.nps || {}
+  const [editing, setEditing] = useState(null) // { marco } para editar, {} para criar
+
+  const marcos = project.npsMarcos || []
 
   const handleAddResponse = async (marcoId, formData) => {
-    const current = getResponses(nps, marcoId)
-    const updated = { ...nps, [marcoId]: [...current, formData] }
-    updateProject(project.id, { nps: updated })
+    await addNpsResposta(project.id, marcoId, formData)
   }
 
-  const handleClearAll = (marcoId) => {
-    const updated = { ...nps, [marcoId]: [] }
-    updateProject(project.id, { nps: updated })
+  const handleClearAll = async (marcoId) => {
+    await clearNpsMarco(project.id, marcoId)
+  }
+
+  const handleDeleteMarco = async (marco) => {
+    const n = (marco.respostas || []).length
+    const aviso = n
+      ? `Excluir "${marco.label}"? As ${n} resposta${n !== 1 ? 's' : ''} deste marco também serão apagadas.`
+      : `Excluir o marco "${marco.label}"?`
+    if (!window.confirm(aviso)) return
+    await deleteNpsMarco(project.id, marco.id)
+  }
+
+  const handleSaveMarco = async ({ label, descricao, dueAt }) => {
+    if (editing?.marco) {
+      await updateNpsMarco(project.id, editing.marco.id, { label, descricao, dueAt })
+    } else {
+      const ordem = marcos.length ? Math.max(...marcos.map(m => m.ordem ?? 0)) + 1 : 1
+      await addNpsMarco(project.id, { label, descricao, dueAt, ordem })
+    }
+    setEditing(null)
   }
 
   const handleCopyLink = (marcoId) => {
@@ -560,18 +699,26 @@ export default function NPSModule({ project }) {
     <div className="space-y-6">
 
       {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
-          <Star className="w-5 h-5 text-rl-gold" />
-          NPS — Satisfação do Cliente
-        </h2>
-        <p className="text-sm text-rl-muted mt-0.5">
-          Copie o link de cada marco e envie aos participantes — cada pessoa preenche de forma independente
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
+            <Star className="w-5 h-5 text-rl-gold" />
+            NPS — Satisfação do Cliente
+          </h2>
+          <p className="text-sm text-rl-muted mt-0.5">
+            Copie o link de cada marco e envie aos participantes — cada pessoa preenche de forma independente
+          </p>
+        </div>
+        <button
+          onClick={() => setEditing({})}
+          className="btn-primary flex items-center gap-2 text-sm shrink-0"
+        >
+          <Plus className="w-4 h-4" /> Novo marco
+        </button>
       </div>
 
       {/* Summary */}
-      <NPSSummary nps={nps} />
+      <NPSSummary marcos={marcos} />
 
       {/* How it works */}
       <div className="glass-card p-4 space-y-3">
@@ -603,18 +750,38 @@ export default function NPSModule({ project }) {
 
       {/* Marcos */}
       <div className="space-y-4">
-        {MARCOS.map((marco) => (
+        {marcos.map((marco, i) => (
           <MarcoCard
             key={marco.id}
             marco={marco}
-            responses={getResponses(nps, marco.id)}
+            index={i}
             onAddResponse={(formData) => handleAddResponse(marco.id, formData)}
             onClearAll={() => handleClearAll(marco.id)}
             onCopyLink={() => handleCopyLink(marco.id)}
             isCopied={copiedMarco === marco.id}
+            onEdit={() => setEditing({ marco })}
+            onDelete={() => handleDeleteMarco(marco)}
           />
         ))}
+
+        {marcos.length === 0 && (
+          <div className="glass-card p-8 text-center">
+            <Star className="w-8 h-8 text-rl-muted/40 mx-auto mb-3" />
+            <p className="text-sm text-rl-muted mb-3">Nenhum marco de NPS neste cliente ainda.</p>
+            <button onClick={() => setEditing({})} className="btn-primary inline-flex items-center gap-2 text-sm">
+              <Plus className="w-4 h-4" /> Criar o primeiro marco
+            </button>
+          </div>
+        )}
       </div>
+
+      {editing && (
+        <MarcoFormModal
+          marco={editing.marco}
+          onSave={handleSaveMarco}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   )
 }
