@@ -109,6 +109,19 @@
   .dt-root .client-quad-count { font-size:10px; font-weight:700; color:#64748B;
     background:#EEF2F9; padding:2px 8px; border-radius:999px; }
 
+  /* Linha de totais do cliente: só aparece quando o quadrante tem mais de uma
+     conta (ex.: Meta + Google do mesmo projeto). Soma investimento e conversões
+     e recalcula o CPL misto (gasto total ÷ conversões totais) — não é média das
+     linhas. Ganha fundo e borda superior para não ser lida como mais uma conta. */
+  .dt-root tr.total-row td { background:#F8FAFC; border-top:2px solid #CBD5E1;
+    font-weight:800; color:#0F172A; }
+  .dt-root tr.total-row .total-label { display:inline-flex; align-items:center; gap:6px;
+    font-weight:800; color:#334155; }
+  .dt-root tr.total-row .total-badge { font-size:9px; font-weight:700; color:#64748B;
+    background:#EEF2F9; padding:2px 6px; border-radius:999px; }
+  .dt-root .m-card.total-card { background:#F8FAFC; border:1px solid #CBD5E1; cursor:default; }
+  .dt-root .m-card.total-card .m-card-name { color:#334155; }
+
   /* Logo do canal (Meta/Google Ads) — substitui os emojis 📱/🔍 nas tabelas,
      cards, abas e badges. SVG local (sem CDN), com o mesmo tamanho/posição
      de um emoji inline. */
@@ -916,11 +929,64 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
      ['Investido', fmtMoneyCard(x.spend1), mDelta(x.varSpend, false)]],
     x.channel)
   }
-  // Tabela + cards de um conjunto de contas.
+  // Totais do cliente quando o quadrante tem mais de uma conta. Conversões e
+  // investimento somam; o CPL é recalculado sobre os totais (gasto ÷ conversões),
+  // nunca a média dos CPLs das linhas. As variações usam as mesmas fórmulas do
+  // buildStats, só que sobre o agregado.
+  const totalsOf = list => {
+    const sum = k => list.reduce((a, x) => a + (x[k] || 0), 0)
+    const conv1 = sum('conv1'), conv2 = sum('conv2')
+    const spend1 = sum('spend1'), spend2 = sum('spend2')
+    const cpl1 = conv1 > 0 ? spend1 / conv1 : null
+    const cpl2 = conv2 > 0 ? spend2 / conv2 : null
+    return { conv1, conv2, spend1, spend2, cpl1, cpl2,
+      varConv: conv2 > 0 ? ((conv1 - conv2) / conv2) * 100 : (conv1 > 0 ? 100 : 0),
+      varCpl: (cpl1 && cpl2) ? ((cpl1 - cpl2) / cpl2) * 100 : null,
+      varSpend: spend2 > 0 ? ((spend1 - spend2) / spend2) * 100 : 0 }
+  }
+  // CPL Alvo do total: o alvo vem do projeto, então as contas do mesmo cliente
+  // costumam compartilhar o mesmo valor. Se houver override e os alvos
+  // divergirem, não existe alvo único para comparar com o CPL misto.
+  const totalTargetHTML = (list, cpl) => {
+    const withTarget = list.filter(x => state.accounts[x.name]?.cplTarget?.value != null)
+    const vals = [...new Set(withTarget.map(x => state.accounts[x.name].cplTarget.value))]
+    if (vals.length === 1) return targetCellHTML(withTarget[0].name, cpl)
+    return vals.length > 1
+      ? '<span style="color:#94A3B8" title="As contas deste cliente têm CPL máximo diferente na Calculadora de ROI — sem alvo único para o total.">—</span>'
+      : '<span style="color:#94A3B8" title="Sem Calculadora de ROI preenchida no projeto da Área do Cliente">—</span>'
+  }
+  const totalRow = list => {
+    const t = totalsOf(list)
+    return `<tr class="total-row">
+      <td><span class="total-label">Σ Total<span class="total-badge">${list.length} contas</span></span></td>
+      <td></td><td></td>
+      <td>${fmtNum(t.conv1)}</td><td>${fmtNum(t.conv2)}</td>
+      <td class="${varCls(t.varConv,false)}">${fmtPct(t.varConv)}</td>
+      <td>${fmtMoney(t.cpl1)}</td><td class="col-target">${totalTargetHTML(list, t.cpl1)}</td><td>${fmtMoney(t.cpl2)}</td>
+      <td class="${varCls(t.varCpl,true)}">${fmtPct(t.varCpl)}</td>
+      <td>${fmtMoney(t.spend1)}</td><td>${fmtMoney(t.spend2)}</td>
+      <td class="${varCls(t.varSpend,false)}">${fmtPct(t.varSpend)}</td>
+      <td></td></tr>`
+  }
+  // Equivalente mobile da linha de totais (mesmas 3 métricas dos cards de conta).
+  const totalCard = list => {
+    const t = totalsOf(list)
+    const cells = [['Conversões', fmtNum(t.conv1), mDelta(t.varConv, false)],
+      ['CPL', fmtMoneyCard(t.cpl1), mDelta(t.varCpl, true)],
+      ['Investido', fmtMoneyCard(t.spend1), mDelta(t.varSpend, false)]]
+    const grid = cells.map(([l, v, d]) => `<div class="m-cell">
+      <div class="m-cell-l">${l}</div><div class="m-cell-v">${v}</div>
+      <div class="m-cell-d">${d}</div></div>`).join('')
+    return `<div class="m-card total-card">
+      <div class="m-card-top"><span class="m-card-name">Σ Total (${list.length} contas)</span></div>
+      <div class="m-grid">${grid}</div></div>`
+  }
+  // Tabela + cards de um conjunto de contas. Com mais de uma conta, fecha com a
+  // linha (e o card) de totais do cliente.
   const acctTable = list => `<div class="table-wrap"><table>
         <thead><tr>${acctTheadHTML()}</tr></thead>
-        <tbody>${list.map(acctRow).join('')}</tbody></table></div>
-      <div class="m-cards">${list.map(acctCard).join('')}</div>`
+        <tbody>${list.map(acctRow).join('')}${list.length > 1 ? totalRow(list) : ''}</tbody></table></div>
+      <div class="m-cards">${list.map(acctCard).join('')}${list.length > 1 ? totalCard(list) : ''}</div>`
 
   // Quadrante do cliente: título com o nome vindo do perfil da Área do Cliente
   // (ou o nome da própria conta, se não estiver vinculada) + as contas
