@@ -263,9 +263,10 @@ export default function B2CClientForm() {
           body:    JSON.stringify({
             token,
             b2cData: {
-              b2c:          updated.b2c,
-              b2c_semanas:  updated.b2c_semanas,
-              b2c_unidades: updated.b2c_unidades,
+              b2c:                  updated.b2c,
+              b2c_semanas:          updated.b2c_semanas,
+              b2c_unidades:         updated.b2c_unidades,
+              b2c_unidades_semanas: updated.b2c_unidades_semanas,
             },
           }),
         })
@@ -282,6 +283,7 @@ export default function B2CClientForm() {
   const monthData = resultados.b2c?.[monthKey] || {}
   const weekData  = resultados.b2c_semanas?.[monthKey] || {}
   const unitData  = resultados.b2c_unidades?.[monthKey] || {}
+  const unitWeekData = resultados.b2c_unidades_semanas?.[monthKey] || {}
   const daysInMon = getDaysInMonth(year, month)
   const weeks     = getWeekRanges(year, month)
   const days      = Array.from({ length: daysInMon }, (_, i) => i + 1)
@@ -361,6 +363,41 @@ export default function B2CClientForm() {
             investido: diaAtual.investido || 0,
             leads:     diaAtual.leads     || 0,
             ...diaAtual,
+            vendas:      total.vendas,
+            valorVendas: total.valorVendas,
+          },
+        },
+      },
+    }
+    setResultados(next)
+    scheduleSave(next)
+  }
+
+  // ── Save semana por unidade ─────────────────────────────────────────────────
+  const saveUnidadesWeek = (weekKey, perUnit) => {
+    const total = Object.values(perUnit).reduce(
+      (acc, u) => ({
+        vendas:      acc.vendas      + (Number(u.vendas)      || 0),
+        valorVendas: acc.valorVendas + (Number(u.valorVendas) || 0),
+      }),
+      { vendas: 0, valorVendas: 0 },
+    )
+    const semanaAtual = resultados.b2c_semanas?.[monthKey]?.[weekKey] || {}
+
+    const next = {
+      ...resultados,
+      b2c_unidades_semanas: {
+        ...(resultados.b2c_unidades_semanas || {}),
+        [monthKey]: { ...(resultados.b2c_unidades_semanas?.[monthKey] || {}), [weekKey]: perUnit },
+      },
+      b2c_semanas: {
+        ...(resultados.b2c_semanas || {}),
+        [monthKey]: {
+          ...(resultados.b2c_semanas?.[monthKey] || {}),
+          [weekKey]: {
+            investido: semanaAtual.investido || 0,
+            leads:     semanaAtual.leads     || 0,
+            ...semanaAtual,
             vendas:      total.vendas,
             valorVendas: total.valorVendas,
           },
@@ -556,6 +593,8 @@ export default function B2CClientForm() {
             month={month}
             data={unitData}
             onSaveDay={saveUnidadesDay}
+            weekData={unitWeekData}
+            onSaveWeek={saveUnidadesWeek}
           />
         )}
 

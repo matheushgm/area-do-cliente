@@ -1,10 +1,14 @@
 // Vendas quebradas por unidade — espelha a planilha que o cliente já mantém:
-// uma linha por dia do mês e, para cada unidade, quantidade de vendas e valor,
-// fechando com o total do dia e o total do mês.
+// uma linha por dia (ou por semana) do mês e, para cada unidade, quantidade de
+// vendas e valor, fechando com o total do período e o total do mês.
 //
-// A fonte de verdade é `resultados.b2c_unidades[YYYY-MM][DD][unidadeId]`. Quem
-// chama é responsável por somar o dia de volta em `b2c[YYYY-MM][DD]` (vendas /
-// valorVendas), para que KPIs, ROAS e gráficos continuem lendo de um lugar só.
+// Diário: fonte de verdade é `resultados.b2c_unidades[YYYY-MM][DD][unidadeId]`.
+// Semanal: fonte de verdade é `resultados.b2c_unidades_semanas[YYYY-MM][N][unidadeId]`
+// (lançamento direto por semana, não derivado dos dias — cliente que fecha a
+// planilha semanalmente não precisa preencher dia a dia).
+// Quem chama é responsável por somar o período de volta em `b2c[YYYY-MM][DD]`
+// ou `b2c_semanas[YYYY-MM][N]` (vendas / valorVendas), para que KPIs, ROAS e
+// gráficos continuem lendo de um lugar só.
 
 import { useState } from 'react'
 import { Edit2, Plus, Check, X, Store, TrendingUp, TrendingDown } from 'lucide-react'
@@ -18,6 +22,12 @@ const UNIT_STYLE = [
   { text: 'text-rl-green',  bg: 'bg-rl-green/5',  border: 'border-rl-green/20',  bar: 'rgb(var(--rl-green))'  },
 ]
 const styleOf = i => UNIT_STYLE[i % UNIT_STYLE.length]
+
+// Colunas fixas nas tabelas por unidade: a lista cresce com o número de lojas e
+// passa a rolar na horizontal, então a data/semana (orientação) e o botão de
+// editar (ação) ficam grudados nas bordas em vez de somem no scroll.
+const STICKY_LEFT  = 'sticky left-0 z-10 bg-rl-card'
+const STICKY_RIGHT = 'sticky right-0 z-10 bg-rl-card border-l border-rl-border'
 
 const COLS_CLASS = {
   3: 'lg:grid-cols-3',
@@ -39,12 +49,23 @@ function sumUnits(entry, unidades) {
   )
 }
 
-// Total do mês de uma unidade específica.
+// Total do mês de uma unidade específica — lançamentos diários.
 function monthTotalOf(data, unidadeId) {
   return Object.values(data || {}).reduce(
     (acc, dia) => ({
       vendas:      acc.vendas      + (Number(dia?.[unidadeId]?.vendas)      || 0),
       valorVendas: acc.valorVendas + (Number(dia?.[unidadeId]?.valorVendas) || 0),
+    }),
+    { vendas: 0, valorVendas: 0 },
+  )
+}
+
+// Total do mês de uma unidade específica — lançamentos semanais diretos.
+function weekMonthTotalOf(weekData, unidadeId) {
+  return Object.values(weekData || {}).reduce(
+    (acc, semana) => ({
+      vendas:      acc.vendas      + (Number(semana?.[unidadeId]?.vendas)      || 0),
+      valorVendas: acc.valorVendas + (Number(semana?.[unidadeId]?.valorVendas) || 0),
     }),
     { vendas: 0, valorVendas: 0 },
   )
@@ -61,7 +82,7 @@ function rangeTotalOf(data, unidadeId, start, end) {
   return { vendas, valorVendas }
 }
 
-// ─── Resumo semanal ───────────────────────────────────────────────────────────
+// ─── Resumo semanal (modo Diário) ──────────────────────────────────────────────
 // Não é um lançamento novo: agrupa os dias já preenchidos em semanas (1-7, 8-14,
 // 15-21, 22-fim) para mostrar o ritmo de cada unidade ao longo do mês.
 function ResumoSemanal({ unidades, month, data, semanas }) {
@@ -109,7 +130,7 @@ function ResumoSemanal({ unidades, month, data, semanas }) {
         <table className="w-full text-sm" style={{ minWidth: 180 + unidades.length * 190 + 260 }}>
           <thead>
             <tr className="border-b border-rl-border">
-              <th rowSpan={2} className="text-left px-4 py-2 text-rl-muted font-medium text-xs uppercase tracking-wide align-bottom">
+              <th rowSpan={2} className={`text-left px-4 py-2 text-rl-muted font-medium text-xs uppercase tracking-wide align-bottom ${STICKY_LEFT}`}>
                 Semana
               </th>
               {unidades.map((u, i) => (
@@ -153,7 +174,7 @@ function ResumoSemanal({ unidades, month, data, semanas }) {
                   key={week.label}
                   className={`border-b border-rl-border/30 hover:bg-rl-surface/20 transition-colors ${vazio ? 'opacity-50' : ''}`}
                 >
-                  <td className="px-4 py-2.5 whitespace-nowrap">
+                  <td className={`px-4 py-2.5 whitespace-nowrap ${STICKY_LEFT}`}>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-semibold text-rl-text">{week.label}</span>
                       {parcial && (
@@ -254,13 +275,22 @@ export default function VendasPorUnidade({
   month,
   data = {},
   onSaveDay,
+  weekData = {},
+  onSaveWeek,
   readOnly = false,
 }) {
-  const [editing, setEditing] = useState(null)   // número do dia em edição
-  const [form, setForm]       = useState({})     // { unidadeId: { vendas, valorVendas } }
+  const [granularity, setGranularity] = useState('diario') // 'diario' | 'semanal'
+  const [editing, setEditing]         = useState(null)      // número do dia em edição
+  const [form, setForm]               = useState({})        // { unidadeId: { vendas, valorVendas } }
+  const [editingWeek, setEditingWeek] = useState(null)       // índice (0-based) da semana em edição
+  const [weekForm, setWeekForm]       = useState({})         // { unidadeId: { vendas, valorVendas } }
 
-  const days = Array.from({ length: getDaysInMonth(year, month) }, (_, i) => i + 1)
+  const days    = Array.from({ length: getDaysInMonth(year, month) }, (_, i) => i + 1)
   const semanas = getWeekRanges(year, month)
+
+  // Permite lançamento direto por semana só quando quem chama fornece o handler —
+  // fallback seguro para eventuais usos futuros que só passem onSaveDay.
+  const canWeekly = typeof onSaveWeek === 'function'
 
   const startEdit = (day) => {
     const dayKey = String(day).padStart(2, '0')
@@ -291,8 +321,40 @@ export default function VendasPorUnidade({
     setEditing(null)
   }
 
-  // Totais do mês, por unidade e geral.
-  const totaisPorUnidade = unidades.map(u => monthTotalOf(data, u.id))
+  // ── Edição por semana ───────────────────────────────────────────────────────
+  const startEditWeek = (weekIdx) => {
+    const weekKey = String(weekIdx + 1)
+    const entry   = weekData[weekKey] || {}
+    setWeekForm(Object.fromEntries(unidades.map(u => ([
+      u.id,
+      {
+        vendas:      entry[u.id]?.vendas != null ? String(entry[u.id].vendas) : '',
+        valorVendas: entry[u.id]?.valorVendas != null
+          ? String(entry[u.id].valorVendas).replace('.', ',')
+          : '',
+      },
+    ]))))
+    setEditingWeek(weekIdx)
+  }
+
+  const setWeekField = (unitId, key, value) =>
+    setWeekForm(f => ({ ...f, [unitId]: { ...f[unitId], [key]: value } }))
+
+  const commitWeek = (weekIdx) => {
+    const perUnit = {}
+    unidades.forEach(u => {
+      const vendas      = Number(weekForm[u.id]?.vendas) || 0
+      const valorVendas = parseMoney(weekForm[u.id]?.valorVendas)
+      if (vendas > 0 || valorVendas > 0) perUnit[u.id] = { vendas, valorVendas }
+    })
+    onSaveWeek(String(weekIdx + 1), perUnit)
+    setEditingWeek(null)
+  }
+
+  // Totais do mês, por unidade e geral — refletem a granularidade ativa.
+  const totaisPorUnidade = unidades.map(u =>
+    granularity === 'semanal' ? weekMonthTotalOf(weekData, u.id) : monthTotalOf(data, u.id)
+  )
   const totalMes = totaisPorUnidade.reduce(
     (acc, t) => ({ vendas: acc.vendas + t.vendas, valorVendas: acc.valorVendas + t.valorVendas }),
     { vendas: 0, valorVendas: 0 },
@@ -305,6 +367,29 @@ export default function VendasPorUnidade({
 
   return (
     <div className="space-y-4">
+
+      {/* Toggle Diário / Semanal — lançamento direto por semana evita ter que
+          abrir cada um dos ~7 dias quando o cliente só fecha a planilha semanal. */}
+      {canWeekly && (
+        <div className="flex items-center gap-2 bg-rl-surface border border-rl-border rounded-xl p-1 w-fit">
+          {[
+            { id: 'diario',  label: 'Diário' },
+            { id: 'semanal', label: 'Semanal' },
+          ].map(opt => (
+            <button
+              key={opt.id}
+              onClick={() => { setGranularity(opt.id); setEditing(null); setEditingWeek(null) }}
+              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                granularity === opt.id
+                  ? 'bg-gradient-rl text-white shadow-glow'
+                  : 'text-rl-muted hover:text-rl-text'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Resumo do mês por unidade */}
       {hasData && (
@@ -333,196 +418,391 @@ export default function VendasPorUnidade({
         </div>
       )}
 
-      {/* Resumo semanal — agrupa os dias já lançados */}
-      {hasData && (
-        <ResumoSemanal
-          unidades={unidades}
-          month={month}
-          data={data}
-          semanas={semanas}
-        />
-      )}
+      {granularity === 'diario' ? (
+        <>
+          {/* Resumo semanal — agrupa os dias já lançados */}
+          {hasData && (
+            <ResumoSemanal
+              unidades={unidades}
+              month={month}
+              data={data}
+              semanas={semanas}
+            />
+          )}
 
-      {/* Tabela diária, no formato da planilha */}
-      <div className="glass-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ minWidth: 160 + unidades.length * 190 + 190 }}>
-            <thead>
-              <tr className="border-b border-rl-border">
-                <th rowSpan={2} className="text-left px-4 py-2 text-rl-muted font-medium text-xs uppercase tracking-wide align-bottom">
-                  Data
-                </th>
-                {unidades.map((u, i) => (
-                  <th
-                    key={u.id}
-                    colSpan={2}
-                    className={`px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider border-l border-rl-border/50 ${styleOf(i).text}`}
-                  >
-                    Unidade {u.label}
-                  </th>
-                ))}
-                <th colSpan={2} className="px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-rl-green border-l border-rl-border/50">
-                  Total de vendas
-                </th>
-                {!readOnly && <th rowSpan={2} className="w-10 px-2 py-2" />}
-              </tr>
-              <tr className="border-b border-rl-border">
-                {[...unidades, { id: '__total' }].map(u => [
-                  <th key={`${u.id}-q`} className="px-3 py-1.5 text-right text-[10px] uppercase tracking-wide text-rl-muted font-medium border-l border-rl-border/50">
-                    Qtd.
-                  </th>,
-                  <th key={`${u.id}-v`} className="px-3 py-1.5 text-right text-[10px] uppercase tracking-wide text-rl-muted font-medium">
-                    Valor
-                  </th>,
-                ])}
-              </tr>
-            </thead>
+          {/* Tabela diária, no formato da planilha */}
+          <div className="glass-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" style={{ minWidth: 160 + unidades.length * 190 + 190 }}>
+                <thead>
+                  <tr className="border-b border-rl-border">
+                    <th rowSpan={2} className={`text-left px-4 py-2 text-rl-muted font-medium text-xs uppercase tracking-wide align-bottom ${STICKY_LEFT}`}>
+                      Data
+                    </th>
+                    {unidades.map((u, i) => (
+                      <th
+                        key={u.id}
+                        colSpan={2}
+                        className={`px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider border-l border-rl-border/50 ${styleOf(i).text}`}
+                      >
+                        Unidade {u.label}
+                      </th>
+                    ))}
+                    <th colSpan={2} className="px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-rl-green border-l border-rl-border/50">
+                      Total de vendas
+                    </th>
+                    {!readOnly && <th rowSpan={2} className={`w-10 px-2 py-2 ${STICKY_RIGHT}`} />}
+                  </tr>
+                  <tr className="border-b border-rl-border">
+                    {[...unidades, { id: '__total' }].map(u => [
+                      <th key={`${u.id}-q`} className="px-3 py-1.5 text-right text-[10px] uppercase tracking-wide text-rl-muted font-medium border-l border-rl-border/50">
+                        Qtd.
+                      </th>,
+                      <th key={`${u.id}-v`} className="px-3 py-1.5 text-right text-[10px] uppercase tracking-wide text-rl-muted font-medium">
+                        Valor
+                      </th>,
+                    ])}
+                  </tr>
+                </thead>
 
-            <tbody>
-              {days.map(day => {
-                const dayKey = String(day).padStart(2, '0')
-                const entry  = data[dayKey]
-                const total  = sumUnits(entry, unidades)
-                const isEdit = editing === day
-                const vazio  = total.vendas === 0 && total.valorVendas === 0
+                <tbody>
+                  {days.map(day => {
+                    const dayKey = String(day).padStart(2, '0')
+                    const entry  = data[dayKey]
+                    const total  = sumUnits(entry, unidades)
+                    const isEdit = editing === day
+                    const vazio  = total.vendas === 0 && total.valorVendas === 0
 
-                if (isEdit) {
-                  return (
-                    <tr key={day} className="border-b border-rl-border bg-rl-surface/40">
-                      <td className="px-4 py-2 text-xs font-medium text-rl-text whitespace-nowrap">
-                        {dayKey}/{String(month + 1).padStart(2, '0')}
+                    if (isEdit) {
+                      return (
+                        <tr key={day} className="border-b border-rl-border bg-rl-surface/40">
+                          <td className={`px-4 py-2 text-xs font-medium text-rl-text whitespace-nowrap ${STICKY_LEFT}`}>
+                            {dayKey}/{String(month + 1).padStart(2, '0')}
+                          </td>
+                          {unidades.map((u, i) => [
+                            <td key={`${u.id}-q`} className="px-2 py-2 border-l border-rl-border/50">
+                              <input
+                                className="input-field w-full text-right text-xs px-2 py-1"
+                                type="number" min="0" placeholder="0"
+                                value={form[u.id]?.vendas ?? ''}
+                                onChange={e => setField(u.id, 'vendas', e.target.value)}
+                              />
+                            </td>,
+                            <td key={`${u.id}-v`} className="px-2 py-2">
+                              <input
+                                className={`input-field w-full text-right text-xs px-2 py-1 ${styleOf(i).text}`}
+                                placeholder="R$ 0,00"
+                                value={form[u.id]?.valorVendas ?? ''}
+                                onChange={e => setField(u.id, 'valorVendas', e.target.value)}
+                              />
+                            </td>,
+                          ])}
+                          {(() => {
+                            const prev = unidades.reduce(
+                              (acc, u) => ({
+                                vendas:      acc.vendas      + (Number(form[u.id]?.vendas) || 0),
+                                valorVendas: acc.valorVendas + parseMoney(form[u.id]?.valorVendas),
+                              }),
+                              { vendas: 0, valorVendas: 0 },
+                            )
+                            return [
+                              <td key="tq" className="px-3 py-2 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
+                                {prev.vendas || '—'}
+                              </td>,
+                              <td key="tv" className="px-3 py-2 text-right text-xs font-bold text-rl-green">
+                                {prev.valorVendas > 0 ? fmtMoney(prev.valorVendas) : '—'}
+                              </td>,
+                            ]
+                          })()}
+                          <td className={`px-2 py-2 ${STICKY_RIGHT}`}>
+                            <div className="flex flex-col gap-1">
+                              <button
+                                onClick={() => commit(day)}
+                                className="text-rl-green hover:text-rl-green p-1 rounded hover:bg-rl-green/10"
+                                title="Salvar"
+                              >
+                                <Check size={13} />
+                              </button>
+                              <button
+                                onClick={() => setEditing(null)}
+                                className="text-rl-muted hover:text-rl-text p-1 rounded"
+                                title="Cancelar"
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    }
+
+                    return (
+                      <tr
+                        key={day}
+                        className={`border-b border-rl-border/30 hover:bg-rl-surface/20 transition-colors ${vazio ? 'opacity-50' : ''}`}
+                      >
+                        <td className={`px-4 py-2 text-xs font-medium text-rl-text whitespace-nowrap ${STICKY_LEFT}`}>
+                          {dayKey}/{String(month + 1).padStart(2, '0')}
+                        </td>
+                        {unidades.map((u, i) => {
+                          const v = entry?.[u.id]
+                          return [
+                            <td key={`${u.id}-q`} className="px-3 py-2 text-right text-xs text-rl-text border-l border-rl-border/50">
+                              {v?.vendas ? v.vendas.toLocaleString('pt-BR') : '—'}
+                            </td>,
+                            <td key={`${u.id}-v`} className={`px-3 py-2 text-right text-xs font-medium ${styleOf(i).text}`}>
+                              {v?.valorVendas ? fmtMoney(v.valorVendas) : '—'}
+                            </td>,
+                          ]
+                        })}
+                        <td className="px-3 py-2 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
+                          {total.vendas ? total.vendas.toLocaleString('pt-BR') : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs font-bold text-rl-green">
+                          {total.valorVendas ? fmtMoney(total.valorVendas) : '—'}
+                        </td>
+                        {!readOnly && (
+                          <td className={`px-2 py-2 ${STICKY_RIGHT}`}>
+                            <button
+                              onClick={() => startEdit(day)}
+                              className="text-rl-muted hover:text-rl-text transition-colors p-1 rounded"
+                              title="Lançar vendas do dia"
+                            >
+                              {vazio ? <Plus size={12} /> : <Edit2 size={12} />}
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+
+                {hasData && (
+                  <tfoot>
+                    <tr className="border-t-2 border-rl-border bg-rl-surface/60">
+                      <td className={`px-4 py-3 text-xs font-bold text-rl-text uppercase tracking-wide whitespace-nowrap ${STICKY_LEFT}`}>
+                        Total do mês
                       </td>
                       {unidades.map((u, i) => [
-                        <td key={`${u.id}-q`} className="px-2 py-2 border-l border-rl-border/50">
-                          <input
-                            className="input-field w-full text-right text-xs px-2 py-1"
-                            type="number" min="0" placeholder="0"
-                            value={form[u.id]?.vendas ?? ''}
-                            onChange={e => setField(u.id, 'vendas', e.target.value)}
-                          />
+                        <td key={`${u.id}-q`} className="px-3 py-3 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
+                          {totaisPorUnidade[i].vendas.toLocaleString('pt-BR')}
                         </td>,
-                        <td key={`${u.id}-v`} className="px-2 py-2">
-                          <input
-                            className={`input-field w-full text-right text-xs px-2 py-1 ${styleOf(i).text}`}
-                            placeholder="R$ 0,00"
-                            value={form[u.id]?.valorVendas ?? ''}
-                            onChange={e => setField(u.id, 'valorVendas', e.target.value)}
-                          />
+                        <td key={`${u.id}-v`} className={`px-3 py-3 text-right text-xs font-bold ${styleOf(i).text}`}>
+                          {fmtMoney(totaisPorUnidade[i].valorVendas)}
                         </td>,
                       ])}
-                      {(() => {
-                        const prev = unidades.reduce(
-                          (acc, u) => ({
-                            vendas:      acc.vendas      + (Number(form[u.id]?.vendas) || 0),
-                            valorVendas: acc.valorVendas + parseMoney(form[u.id]?.valorVendas),
-                          }),
-                          { vendas: 0, valorVendas: 0 },
-                        )
-                        return [
-                          <td key="tq" className="px-3 py-2 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
-                            {prev.vendas || '—'}
-                          </td>,
-                          <td key="tv" className="px-3 py-2 text-right text-xs font-bold text-rl-green">
-                            {prev.valorVendas > 0 ? fmtMoney(prev.valorVendas) : '—'}
-                          </td>,
-                        ]
-                      })()}
-                      <td className="px-2 py-2">
-                        <div className="flex flex-col gap-1">
-                          <button
-                            onClick={() => commit(day)}
-                            className="text-rl-green hover:text-rl-green p-1 rounded hover:bg-rl-green/10"
-                            title="Salvar"
-                          >
-                            <Check size={13} />
-                          </button>
-                          <button
-                            onClick={() => setEditing(null)}
-                            className="text-rl-muted hover:text-rl-text p-1 rounded"
-                            title="Cancelar"
-                          >
-                            <X size={13} />
-                          </button>
-                        </div>
+                      <td className="px-3 py-3 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
+                        {totalMes.vendas.toLocaleString('pt-BR')}
                       </td>
+                      <td className="px-3 py-3 text-right text-xs font-bold text-rl-green">
+                        {fmtMoney(totalMes.valorVendas)}
+                      </td>
+                      {!readOnly && <td className={STICKY_RIGHT} />}
                     </tr>
-                  )
-                }
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </div>
 
-                return (
-                  <tr
-                    key={day}
-                    className={`border-b border-rl-border/30 hover:bg-rl-surface/20 transition-colors ${vazio ? 'opacity-50' : ''}`}
-                  >
-                    <td className="px-4 py-2 text-xs font-medium text-rl-text whitespace-nowrap">
-                      {dayKey}/{String(month + 1).padStart(2, '0')}
-                    </td>
-                    {unidades.map((u, i) => {
-                      const v = entry?.[u.id]
-                      return [
-                        <td key={`${u.id}-q`} className="px-3 py-2 text-right text-xs text-rl-text border-l border-rl-border/50">
-                          {v?.vendas ? v.vendas.toLocaleString('pt-BR') : '—'}
-                        </td>,
-                        <td key={`${u.id}-v`} className={`px-3 py-2 text-right text-xs font-medium ${styleOf(i).text}`}>
-                          {v?.valorVendas ? fmtMoney(v.valorVendas) : '—'}
-                        </td>,
-                      ]
-                    })}
-                    <td className="px-3 py-2 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
-                      {total.vendas ? total.vendas.toLocaleString('pt-BR') : '—'}
-                    </td>
-                    <td className="px-3 py-2 text-right text-xs font-bold text-rl-green">
-                      {total.valorVendas ? fmtMoney(total.valorVendas) : '—'}
-                    </td>
-                    {!readOnly && (
-                      <td className="px-2 py-2">
-                        <button
-                          onClick={() => startEdit(day)}
-                          className="text-rl-muted hover:text-rl-text transition-colors p-1 rounded"
-                          title="Lançar vendas do dia"
-                        >
-                          {vazio ? <Plus size={12} /> : <Edit2 size={12} />}
-                        </button>
-                      </td>
-                    )}
+          {!readOnly && (
+            <p className="text-[11px] text-rl-muted">
+              O total de cada dia alimenta automaticamente as vendas e a receita da visão Diário,
+              então CAC, ticket e ROAS do mês continuam batendo.
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Tabela semanal — lançamento direto por semana, sem precisar abrir os dias */}
+          <div className="glass-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" style={{ minWidth: 180 + unidades.length * 190 + 260 }}>
+                <thead>
+                  <tr className="border-b border-rl-border">
+                    <th rowSpan={2} className={`text-left px-4 py-2 text-rl-muted font-medium text-xs uppercase tracking-wide align-bottom ${STICKY_LEFT}`}>
+                      Semana
+                    </th>
+                    {unidades.map((u, i) => (
+                      <th
+                        key={u.id}
+                        colSpan={2}
+                        className={`px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider border-l border-rl-border/50 ${styleOf(i).text}`}
+                      >
+                        Unidade {u.label}
+                      </th>
+                    ))}
+                    <th colSpan={2} className="px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-rl-green border-l border-rl-border/50">
+                      Total da semana
+                    </th>
+                    {!readOnly && <th rowSpan={2} className={`w-10 px-2 py-2 ${STICKY_RIGHT}`} />}
                   </tr>
-                )
-              })}
-            </tbody>
+                  <tr className="border-b border-rl-border">
+                    {[...unidades, { id: '__total' }].map(u => [
+                      <th key={`${u.id}-q`} className="px-3 py-1.5 text-right text-[10px] uppercase tracking-wide text-rl-muted font-medium border-l border-rl-border/50">
+                        Qtd.
+                      </th>,
+                      <th key={`${u.id}-v`} className="px-3 py-1.5 text-right text-[10px] uppercase tracking-wide text-rl-muted font-medium">
+                        Valor
+                      </th>,
+                    ])}
+                  </tr>
+                </thead>
 
-            {hasData && (
-              <tfoot>
-                <tr className="border-t-2 border-rl-border bg-rl-surface/60">
-                  <td className="px-4 py-3 text-xs font-bold text-rl-text uppercase tracking-wide whitespace-nowrap">
-                    Total do mês
-                  </td>
-                  {unidades.map((u, i) => [
-                    <td key={`${u.id}-q`} className="px-3 py-3 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
-                      {totaisPorUnidade[i].vendas.toLocaleString('pt-BR')}
-                    </td>,
-                    <td key={`${u.id}-v`} className={`px-3 py-3 text-right text-xs font-bold ${styleOf(i).text}`}>
-                      {fmtMoney(totaisPorUnidade[i].valorVendas)}
-                    </td>,
-                  ])}
-                  <td className="px-3 py-3 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
-                    {totalMes.vendas.toLocaleString('pt-BR')}
-                  </td>
-                  <td className="px-3 py-3 text-right text-xs font-bold text-rl-green">
-                    {fmtMoney(totalMes.valorVendas)}
-                  </td>
-                  {!readOnly && <td />}
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      </div>
+                <tbody>
+                  {semanas.map((week, idx) => {
+                    const weekKey = String(idx + 1)
+                    const entry   = weekData[weekKey]
+                    const total   = sumUnits(entry, unidades)
+                    const isEdit  = editingWeek === idx
+                    const vazio   = total.vendas === 0 && total.valorVendas === 0
+                    const mm      = String(month + 1).padStart(2, '0')
 
-      {!readOnly && (
-        <p className="text-[11px] text-rl-muted">
-          O total de cada dia alimenta automaticamente as vendas e a receita da visão Diário,
-          então CAC, ticket e ROAS do mês continuam batendo.
-        </p>
+                    if (isEdit) {
+                      return (
+                        <tr key={idx} className="border-b border-rl-border bg-rl-surface/40">
+                          <td className={`px-4 py-2 whitespace-nowrap align-top ${STICKY_LEFT}`}>
+                            <div className="text-xs font-semibold text-rl-text">{week.label}</div>
+                            <div className="text-[10px] text-rl-muted">
+                              {String(week.start).padStart(2, '0')}/{mm} a {String(week.end).padStart(2, '0')}/{mm}
+                            </div>
+                          </td>
+                          {unidades.map((u, i) => [
+                            <td key={`${u.id}-q`} className="px-2 py-2 border-l border-rl-border/50">
+                              <input
+                                className="input-field w-full text-right text-xs px-2 py-1"
+                                type="number" min="0" placeholder="0"
+                                value={weekForm[u.id]?.vendas ?? ''}
+                                onChange={e => setWeekField(u.id, 'vendas', e.target.value)}
+                              />
+                            </td>,
+                            <td key={`${u.id}-v`} className="px-2 py-2">
+                              <input
+                                className={`input-field w-full text-right text-xs px-2 py-1 ${styleOf(i).text}`}
+                                placeholder="R$ 0,00"
+                                value={weekForm[u.id]?.valorVendas ?? ''}
+                                onChange={e => setWeekField(u.id, 'valorVendas', e.target.value)}
+                              />
+                            </td>,
+                          ])}
+                          {(() => {
+                            const prev = unidades.reduce(
+                              (acc, u) => ({
+                                vendas:      acc.vendas      + (Number(weekForm[u.id]?.vendas) || 0),
+                                valorVendas: acc.valorVendas + parseMoney(weekForm[u.id]?.valorVendas),
+                              }),
+                              { vendas: 0, valorVendas: 0 },
+                            )
+                            return [
+                              <td key="tq" className="px-3 py-2 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
+                                {prev.vendas || '—'}
+                              </td>,
+                              <td key="tv" className="px-3 py-2 text-right text-xs font-bold text-rl-green">
+                                {prev.valorVendas > 0 ? fmtMoney(prev.valorVendas) : '—'}
+                              </td>,
+                            ]
+                          })()}
+                          <td className={`px-2 py-2 align-top ${STICKY_RIGHT}`}>
+                            <div className="flex flex-col gap-1">
+                              <button
+                                onClick={() => commitWeek(idx)}
+                                className="text-rl-green hover:text-rl-green p-1 rounded hover:bg-rl-green/10"
+                                title="Salvar"
+                              >
+                                <Check size={13} />
+                              </button>
+                              <button
+                                onClick={() => setEditingWeek(null)}
+                                className="text-rl-muted hover:text-rl-text p-1 rounded"
+                                title="Cancelar"
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    }
+
+                    return (
+                      <tr
+                        key={idx}
+                        className={`border-b border-rl-border/30 hover:bg-rl-surface/20 transition-colors ${vazio ? 'opacity-50' : ''}`}
+                      >
+                        <td className={`px-4 py-2.5 whitespace-nowrap ${STICKY_LEFT}`}>
+                          <div className="text-xs font-semibold text-rl-text">{week.label}</div>
+                          <div className="text-[10px] text-rl-muted">
+                            {String(week.start).padStart(2, '0')}/{mm} a {String(week.end).padStart(2, '0')}/{mm}
+                          </div>
+                        </td>
+                        {unidades.map((u, i) => {
+                          const v = entry?.[u.id]
+                          return [
+                            <td key={`${u.id}-q`} className="px-3 py-2.5 text-right text-xs text-rl-text border-l border-rl-border/50">
+                              {v?.vendas ? v.vendas.toLocaleString('pt-BR') : '—'}
+                            </td>,
+                            <td key={`${u.id}-v`} className={`px-3 py-2.5 text-right text-xs font-medium ${styleOf(i).text}`}>
+                              {v?.valorVendas ? fmtMoney(v.valorVendas) : '—'}
+                            </td>,
+                          ]
+                        })}
+                        <td className="px-3 py-2.5 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
+                          {total.vendas ? total.vendas.toLocaleString('pt-BR') : '—'}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-xs font-bold text-rl-green">
+                          {total.valorVendas ? fmtMoney(total.valorVendas) : '—'}
+                        </td>
+                        {!readOnly && (
+                          <td className={`px-2 py-2 ${STICKY_RIGHT}`}>
+                            <button
+                              onClick={() => startEditWeek(idx)}
+                              className="text-rl-muted hover:text-rl-text transition-colors p-1 rounded"
+                              title="Lançar vendas da semana"
+                            >
+                              {vazio ? <Plus size={12} /> : <Edit2 size={12} />}
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+
+                {hasData && (
+                  <tfoot>
+                    <tr className="border-t-2 border-rl-border bg-rl-surface/60">
+                      <td className={`px-4 py-3 text-xs font-bold text-rl-text uppercase tracking-wide whitespace-nowrap ${STICKY_LEFT}`}>
+                        Total do mês
+                      </td>
+                      {unidades.map((u, i) => [
+                        <td key={`${u.id}-q`} className="px-3 py-3 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
+                          {totaisPorUnidade[i].vendas.toLocaleString('pt-BR')}
+                        </td>,
+                        <td key={`${u.id}-v`} className={`px-3 py-3 text-right text-xs font-bold ${styleOf(i).text}`}>
+                          {fmtMoney(totaisPorUnidade[i].valorVendas)}
+                        </td>,
+                      ])}
+                      <td className="px-3 py-3 text-right text-xs font-bold text-rl-text border-l border-rl-border/50">
+                        {totalMes.vendas.toLocaleString('pt-BR')}
+                      </td>
+                      <td className="px-3 py-3 text-right text-xs font-bold text-rl-green">
+                        {fmtMoney(totalMes.valorVendas)}
+                      </td>
+                      {!readOnly && <td className={STICKY_RIGHT} />}
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </div>
+
+          {!readOnly && (
+            <p className="text-[11px] text-rl-muted">
+              O total de cada semana alimenta automaticamente as vendas e a receita da visão Semanal,
+              então CAC, ticket e ROAS do mês continuam batendo.
+            </p>
+          )}
+        </>
       )}
     </div>
   )
