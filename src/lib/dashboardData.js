@@ -173,7 +173,17 @@ export function buildStats(rows, cfg, p) {
   return Object.entries(byClient).map(([name, clientRows]) => {
     const p1r = clientRows.filter(r => inRange(r.date, p.p1s, p.p1e))
     const p2r = clientRows.filter(r => inRange(r.date, p.p2s, p.p2e))
-    const day = d => clientRows.find(r => r.date === d) || { spend: 0, conv: 0 }
+    // Soma do DIA inteiro. Havia um `.find()` aqui, que devolvia a primeira
+    // linha daquela data: como existe uma linha por anúncio (ou por campanha,
+    // no rollup) por dia, a tendência de 3 dias e o mini gráfico mostravam o
+    // número de UM anúncio no lugar do total da conta. O buildScaleCandidates
+    // logo abaixo sempre somou, então as duas visões se contradiziam.
+    const byDay = {}
+    clientRows.forEach(r => {
+      const b = byDay[r.date] || (byDay[r.date] = { spend: 0, conv: 0 })
+      b.spend += r.spend; b.conv += r.conv
+    })
+    const day = d => byDay[d] || { spend: 0, conv: 0 }
 
     const conv1 = p1r.reduce((a, r) => a + r.conv, 0)
     const conv2 = p2r.reduce((a, r) => a + r.conv, 0)
