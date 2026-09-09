@@ -430,18 +430,25 @@ async function ensureRawRows(ch, client) {
   return state.rows[k]
 }
 
-// Termos de pesquisa do Google: lazy e FILTRADO por conta (payload pequeno).
-// Em produção usa /api/dash-data?channel=google_terms&account=<conta>; em dev
-// (sem sessão) cai no CSV local completo e o chamador filtra a conta.
-async function fetchGoogleTerms(account) {
+// Canais do Google lidos SOB DEMANDA e FILTRADOS por conta (payload pequeno):
+// termos de pesquisa, nível de anúncio e páginas de destino. Nenhum deles entra
+// no carregamento inicial. Em produção usa
+// /api/dash-data?channel=<canal>&account=<conta>; em dev (sem sessão) cai no CSV
+// local completo e o chamador filtra a conta.
+const LOCAL_LAZY = {
+  google_terms: './output/google_terms.csv',
+  google_ads:   './output/google_ads.csv',
+  google_pages: './output/google_pages.csv',
+}
+async function fetchLazyChannel(canal, account) {
   const token = supabaseToken()
   if (token) {
-    const r = await fetch(`/api/dash-data?channel=google_terms&account=${encodeURIComponent(account)}`,
+    const r = await fetch(`/api/dash-data?channel=${canal}&account=${encodeURIComponent(account)}`,
       { headers: { Authorization: `Bearer ${token}` } })
-    if (!r.ok) throw new Error(`termos: HTTP ${r.status}`)
+    if (!r.ok) throw new Error(`${canal}: HTTP ${r.status}`)
     return r.text()
   }
-  const r = await fetch(LOCAL.google_terms)
+  const r = await fetch(LOCAL_LAZY[canal])
   return r.ok ? r.text() : ''
 }
 
@@ -511,8 +518,9 @@ const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:
                 cDays:7, cFrom:'', cTo:'', cPeriod:null,
                 campFilter:[], campPanelOpen:false, campSearch:'',
                 tab:'resultados', sub:0, drillCampaign:null, drillAdset:null, drillAdsetName:null,
-                weekly:null, _charts:[], termsCache:{},
+                weekly:null, _charts:[], termsCache:{}, adsCache:{}, pagesCache:{},
                 termsSort:{key:'clicks',dir:'desc'}, termsPage:0,
+                pagesSort:{key:'spend',dir:'desc'}, pagesPage:0,
                 // ordenação das tabelas de conta (key=null → ordem natural do grupo)
                 acctSort:{key:null,dir:'desc'} }
 const app = document.getElementById('app')
@@ -1748,6 +1756,9 @@ const metaResult = r => num(r['Resultados'])   // resultado verdadeiro do objeti
 // conjuntos distintos. adset_id é único; cai pro nome só em linhas antigas
 // (sincronizadas antes do adset_id existir no dado).
 const metaAdsetKey = r => r['adset_id'] || r['Conjunto de Anúncio']
+// Segundo nível do drill no Google. O Meta usa adset_id; aqui a identidade é o
+// próprio nome do grupo, que é o que a API devolve.
+const googleGroupKey = r => (r['Grupo de palavras'] || r['Grupo de palavras-chave'] || '').trim()
 // Soma uma métrica do período anterior agrupada por chave → { chave: total }.
 // Usado pelas tabelas de drill para comparar campanha/conjunto/anúncio 1:1.
 const prevMapOf = (prevRows, keyFn, valFn) => {
@@ -2032,9 +2043,105 @@ function tblGoogleGroups(rows, prevRows){
   if(!g.length) return `<div class="empty">Sem grupos no período.</div>`
   const pv = prevMapOf(prevRows, gk, r=>M(r,'Conversões'))
   const body = g.map((x,i)=>{ const cpa=x.conv>0?x.spend/x.conv:null
-    return `<tr><td class="ad-name" title="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key||'(sem grupo)')}</td>
+    const nm = x.key || '(sem grupo)'
+    // Campanha sem grupo (PMax, Smart, Demand Gen) não tem anúncio em grupo para
+    // abrir — o rótulo fica sem link em vez de virar um clique que não faz nada.
+    const rotulo = x.key
+      ? `<span class="drill-link" data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}">${i===0&&x.conv>0?'🏆 ':''}${esc(nm)}</span>`
+      : `${esc(nm)}`
+    return `<tr><td class="ad-name" title="${esc(nm)}">${rotulo}</td>
       <td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
   return `<div class="dt-wrap"><table><thead><tr><th>Grupo</th><th>Conv.</th><th>Gasto</th><th>CPA</th><th>Cliques</th></tr></thead><tbody>${body}</tbody></table></div>`
+}
+
+// URL de destino como link. Só vira <a> quando é http(s) — nada de href com
+// esquema vindo do dado. Encurta para caber na coluna, com a URL inteira no title.
+const urlCell = u => {
+  if (!u) return `<span class="fl">—</span>`
+  const curto = u.replace(/^https?:\/\//, '').replace(/^www\./, '')
+  const txt = esc(curto.length > 56 ? curto.slice(0, 56) + '…' : curto)
+  return /^https?:\/\//i.test(u)
+    ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" title="${esc(u)}">${txt}</a>`
+    : `<span title="${esc(u)}">${txt}</span>`
+}
+
+// ─── Nível de ANÚNCIO do Google (canal google_ads) ───────────────────────────
+// Agrupa por ID do anúncio, que é a identidade estável: o texto muda quando
+// alguém edita um título, o ID não. Ordena por gasto desc ("para onde o dinheiro
+// foi"), mesma régua da tabela de termos.
+function tblGoogleAds(rows, comGrupo){
+  const g = groupBy(rows, r=>r['ID do anúncio'], {
+    impr:r=>M(r,'Impressões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')),
+    conv:r=>M(r,'Conversões'), spend:r=>M(r,'Gasto') })
+  if(!g.length) return `<div class="empty">Sem anúncios com veiculação no período.</div>`
+  const items = g.map(x=>{ const f = x._rows[0] || {}
+    return { nome: f['Anúncio'] || x.key, tipo: f['Tipo de anúncio'] || '',
+             status: f['Status do anúncio'] || '', grupo: f['Grupo de palavras'] || '',
+             pagina: f['Página de destino'] || '',
+             impr:x.impr, clicks:x.clicks, conv:x.conv, spend:x.spend,
+             cpa: x.conv>0 ? x.spend/x.conv : null,
+             ctr: x.impr>0 ? x.clicks/x.impr*100 : null } })
+  items.sort((a,b)=>b.spend-a.spend)
+  const flags = items.filter(x=>x.spend>0 && x.conv===0).slice(0,4)
+    .map(x=>`🚨 ${esc(x.nome.slice(0,40))} — ${fmtMoney(x.spend)} sem conversão`)
+  // Mesmo tradutor de status do Meta: ENABLED/PAUSED/REMOVED já estão no mapa,
+  // com as classes que o CSS conhece.
+  const stTag = st => { const i = statusTagInfo(st)
+    return i ? `<span class="status-tag ${i.cls}">${esc(i.label)}</span>` : '—' }
+  const body = items.map(x=>`<tr>
+    <td class="ad-name" title="${esc(x.tipo ? x.tipo + ' — ' + x.nome : x.nome)}">${esc(x.nome.length>60?x.nome.slice(0,60)+'…':x.nome)}</td>
+    <td>${stTag(x.status)}</td>
+    ${comGrupo?`<td class="ad-name" title="${esc(x.grupo)}">${esc(x.grupo||'—')}</td>`:''}
+    <td class="ad-name">${urlCell(x.pagina)}</td>
+    <td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td><td>${convCell(x.conv,x.spend)}</td>
+    <td>${x.cpa!=null?fmtMoney(x.cpa):'—'}</td><td>${ctrCell(x.ctr)}</td><td>${fmtMoney(x.spend)}</td></tr>`).join('')
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>
+    <th>Anúncio</th><th>Status</th>${comGrupo?'<th>Grupo</th>':''}<th>Página de destino</th>
+    <th>Impressões</th><th>Cliques</th><th>Conv.</th><th>Custo/conv.</th><th>CTR</th><th>Gasto</th>
+    </tr></thead><tbody>${body}</tbody></table></div>`
+}
+
+// ─── PÁGINAS DE DESTINO do Google (canal google_pages) ───────────────────────
+// Vem de landing_page_view, então cobre também campanha sem anúncio em grupo
+// (PMax, Smart). Ordenável e paginada, igual aos termos: uma PMax com expansão
+// de URL ligada gera centenas de páginas distintas.
+const PAGES_PER_PAGE = 50
+const PAGES_COLS = [['Página','pagina'],['Impressões','impr'],['Cliques','clicks'],['Conv.','conv'],['Custo/conv.','cpa'],['CPC médio','cpc'],['CTR','ctr'],['Gasto','spend']]
+function tblGooglePages(rows){
+  const g = groupBy(rows, r=>r['Página'], {
+    impr:r=>M(r,'Impressões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')),
+    conv:r=>M(r,'Conversões'), spend:r=>M(r,'Gasto') })
+  if(!g.length) return `<div class="empty">Sem páginas com clique no período.</div>`
+  const items = g.map(x=>({ pagina:x.key, impr:x.impr, clicks:x.clicks, conv:x.conv, spend:x.spend,
+    cpa: x.conv>0?x.spend/x.conv:null, cpc: x.clicks>0?x.spend/x.clicks:null,
+    ctr: x.impr>0?x.clicks/x.impr*100:null }))
+  const { key, dir } = state.pagesSort, sg = dir==='asc'?1:-1
+  items.sort((a,b)=>{
+    if (key==='pagina') return sg*String(a.pagina).localeCompare(String(b.pagina),'pt-BR')
+    const av=a[key], bv=b[key]
+    if (av==null && bv==null) return 0
+    if (av==null) return 1
+    if (bv==null) return -1
+    return sg*(av-bv)
+  })
+  // Páginas que consumiram verba sem nenhuma conversão são o achado típico aqui
+  // (PMax mandando clique para central de ajuda, blog, página institucional).
+  const flags = items.filter(x=>x.spend>0 && x.conv===0).slice(0,4)
+    .map(x=>`🚨 ${esc(x.pagina.replace(/^https?:\/\//,'').slice(0,44))} — ${fmtMoney(x.spend)} sem conversão`)
+  const total = items.length, pages = Math.max(1, Math.ceil(total/PAGES_PER_PAGE))
+  const page = Math.min(Math.max(0, state.pagesPage), pages-1); state.pagesPage = page
+  const slice = items.slice(page*PAGES_PER_PAGE, page*PAGES_PER_PAGE+PAGES_PER_PAGE)
+  const th = PAGES_COLS.map(([label,k])=>{ const a=key===k
+    return `<th class="th-sort" data-sortkey="${k}" style="cursor:pointer;user-select:none;white-space:nowrap">${label}${a?(dir==='asc'?' ▲':' ▼'):''}</th>` }).join('')
+  const body = slice.map(x=>`<tr><td class="ad-name">${urlCell(x.pagina)}</td>
+    <td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td><td>${convCell(x.conv,x.spend)}</td>
+    <td>${x.cpa!=null?fmtMoney(x.cpa):'—'}</td><td>${x.cpc!=null?fmtMoney(x.cpc):'—'}</td>
+    <td>${ctrCell(x.ctr)}</td><td>${fmtMoney(x.spend)}</td></tr>`).join('')
+  const from = total?page*PAGES_PER_PAGE+1:0, to = Math.min(total, (page+1)*PAGES_PER_PAGE)
+  const pgBtn = (d,lbl,dis)=>`<button data-pg="${d}" ${dis?'disabled':''} style="border:1px solid #D8E0F0;background:#fff;color:#334155;border-radius:6px;min-width:28px;height:28px;font-size:15px;line-height:1;cursor:${dis?'default':'pointer'};${dis?'opacity:.4':''}">${lbl}</button>`
+  const pager = `<div class="terms-pager" style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px 2px 2px;font-size:12px;color:#64748B">
+    <span>${from}–${to} de ${total}</span>${pgBtn('prev','‹',page===0)}${pgBtn('next','›',page>=pages-1)}</div>`
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>${total>PAGES_PER_PAGE?pager:''}`
 }
 // Termos de pesquisa (search_term_view) — só termos com clique. Agrega somáveis
 // (impr/clicks/conv/gasto) e RECALCULA razões (CPA/CPC/CTR). Ordena por gasto desc
@@ -2430,6 +2537,11 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
     const ativos = activeAdsCount(qCur)
     scopeLabel = `Conjunto: ${state.drillAdsetName || state.drillAdset} · ${ativos} anúncio${ativos!==1?'s':''} ativo${ativos!==1?'s':''}`
     qPace = null // pace é da verba do canal inteiro — não faz sentido escopado a 1 conjunto
+  } else if (!isMeta && state.drillAdset) {
+    qCur = allRows.filter(r=>r['Campanha']===state.drillCampaign && googleGroupKey(r)===state.drillAdset)
+    qPrev = prevRows.filter(r=>r['Campanha']===state.drillCampaign && googleGroupKey(r)===state.drillAdset)
+    scopeLabel = `Grupo: ${state.drillAdsetName || state.drillAdset}`
+    qPace = null
   } else if (state.drillCampaign) {
     const ck = isMeta ? 'Nome da campanha' : 'Campanha'
     qCur = allRows.filter(r=>r[ck]===state.drillCampaign)
@@ -2447,6 +2559,13 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">← Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span>
         <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdsetName || state.drillAdset)}</span></div>`
+    } else if (!isMeta && state.drillAdset) {
+      // Os anúncios vêm do canal google_ads (lazy, por conta) — preenchido por
+      // renderGoogleAds depois que o HTML entra no DOM.
+      body = `<div id="gadsPanel"></div>`
+      bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">← Voltar</button>
+        <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span>
+        <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdsetName || state.drillAdset)}</span></div>`
     } else {
       body = isMeta ? tblMetaAdsets(allRows.filter(r=>r['Nome da campanha']===state.drillCampaign),
                                     prevRows.filter(r=>r['Nome da campanha']===state.drillCampaign))
@@ -2460,11 +2579,16 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
   // O card de Análise IA (diagnóstico + plano de ação) é uso interno: no link
   // compartilhado o cliente não vê nem o card nem o cálculo por trás dele.
   const ins = SHARED ? null : buildInsights(stats, channel, allRows, target)
-  const tabs = isMeta ? [['📊 Campanhas',0],['🎯 Conjuntos',1],['🎨 Anúncios',2]] : [['📊 Campanhas',0],['🔑 Grupos',1],['🔎 Termos',2]]
+  const tabs = isMeta ? [['📊 Campanhas',0],['🎯 Conjuntos',1],['🎨 Anúncios',2]]
+                      : [['📊 Campanhas',0],['🔑 Grupos',1],['🎨 Anúncios',2],['🔎 Termos',3],['🔗 Páginas',4]]
   let panel
-  // Termos (Google, sub===2) é preenchido async por renderGoogleTerms (lazy/por conta).
+  // No Google, Anúncios/Termos/Páginas são canais lazy por conta: entram como
+  // container vazio e são preenchidos por render*(…) depois do HTML no DOM.
   if (isMeta) panel = state.sub===1?tblMetaAdsets(allRows,prevRows):state.sub===2?tblMetaAds(allRows,prevRows):tblMetaCampaigns(allRows,prevRows)
-  else        panel = state.sub===2?`<div id="termsPanel"></div>`:state.sub===1?tblGoogleGroups(allRows,prevRows):tblGoogleCampaigns(allRows,prevRows)
+  else        panel = state.sub===2?`<div id="gadsPanel"></div>`
+                    : state.sub===3?`<div id="termsPanel"></div>`
+                    : state.sub===4?`<div id="gpagesPanel"></div>`
+                    : state.sub===1?tblGoogleGroups(allRows,prevRows):tblGoogleCampaigns(allRows,prevRows)
   return `<div class="cp-panel">
     ${quad}
     <div class="dt-subtabs">
@@ -2477,22 +2601,63 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
 
 // Preenche o painel de Termos (lazy/por conta, cacheado por cliente). Espelha o
 // padrão das abas async (renderAtividades/renderParametros).
-async function renderGoogleTerms(container, client, period) {
-  if (!container) return
-  if (!state.termsCache[client]) {
-    container.innerHTML = `<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><p>Carregando termos de pesquisa…</p></div>`
+// Busca (uma vez por conta) um canal lazy do Google e devolve as linhas dessa
+// conta dentro do período. Compartilhado pelos três painéis async — termos,
+// anúncios e páginas — que só diferem na tabela que desenham. Devolve null se a
+// busca falhou (o erro já foi escrito no container).
+async function lazyRows(container, client, period, canal, cache, rotulo) {
+  if (!cache[client]) {
+    container.innerHTML = `<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><p>Carregando ${esc(rotulo)}…</p></div>`
     try {
-      const csv = await fetchGoogleTerms(client)
-      state.termsCache[client] = parseCSV(csv)
+      cache[client] = parseCSV(await fetchLazyChannel(canal, client))
     } catch (e) {
-      container.innerHTML = `<div class="empty">Erro ao carregar termos: ${esc(e.message)}</div>`
-      return
+      container.innerHTML = `<div class="empty">Erro ao carregar ${esc(rotulo)}: ${esc(e.message)}</div>`
+      return null
     }
   }
   // Filtra a conta (no dev o CSV traz todas) + período selecionado no viewer.
-  const rows = state.termsCache[client].filter(r =>
+  return cache[client].filter(r =>
     (r['Nome da conta']||'').trim()===client &&
     inRange(fmtDate(r['Data']), period.p1s, period.p1e))
+}
+
+// Painel de ANÚNCIOS do Google. `campanha`/`grupo` vêm preenchidos quando é o
+// drill (Campanhas › campanha › grupo); vazios na sub-aba, que mostra a conta toda.
+async function renderGoogleAds(container, client, period, campanha, grupo) {
+  if (!container) return
+  const todas = await lazyRows(container, client, period, 'google_ads', state.adsCache, 'anúncios')
+  if (!todas) return
+  const rows = todas.filter(r =>
+    (!campanha || r['Campanha'] === campanha) &&
+    (!grupo || (r['Grupo de palavras']||'').trim() === grupo))
+  container.innerHTML = tblGoogleAds(rows, !grupo)
+}
+
+// Painel de PÁGINAS DE DESTINO. Ordenação e paginação re-desenham do mesmo
+// conjunto já filtrado, sem refetch.
+async function renderGooglePages(container, client, period) {
+  if (!container) return
+  const rows = await lazyRows(container, client, period, 'google_pages', state.pagesCache, 'páginas de destino')
+  if (!rows) return
+  const draw = () => {
+    container.innerHTML = tblGooglePages(rows)
+    container.querySelectorAll('th.th-sort').forEach(th => th.onclick = () => {
+      const k = th.dataset.sortkey
+      if (state.pagesSort.key === k) state.pagesSort = { key:k, dir: state.pagesSort.dir==='asc'?'desc':'asc' }
+      else state.pagesSort = { key:k, dir: k==='pagina'?'asc':'desc' }
+      state.pagesPage = 0; draw()
+    })
+    const prev = container.querySelector('[data-pg="prev"]'), next = container.querySelector('[data-pg="next"]')
+    if (prev) prev.onclick = () => { state.pagesPage = Math.max(0, state.pagesPage-1); draw() }
+    if (next) next.onclick = () => { state.pagesPage = state.pagesPage+1; draw() }
+  }
+  draw()
+}
+
+async function renderGoogleTerms(container, client, period) {
+  if (!container) return
+  const rows = await lazyRows(container, client, period, 'google_terms', state.termsCache, 'termos de pesquisa')
+  if (!rows) return
   // Re-renderiza do mesmo conjunto filtrado (sem refetch) ao ordenar/paginar.
   const draw = () => {
     container.innerHTML = tblGoogleTerms(rows)
@@ -2822,7 +2987,14 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   if (state.tab==='atividades') renderAtividades(document.getElementById('asyncTab'), client, folderId)
   if (state.tab==='parametros') renderParametros(document.getElementById('asyncTab'), client, acName)
   // Termos de pesquisa (Google, sub-aba 2) — lazy/por conta, filtrado pelo período.
-  if (state.tab==='campanhas' && ch!=='meta' && state.sub===2) renderGoogleTerms(document.getElementById('termsPanel'), client, period)
+  if (state.tab==='campanhas' && ch!=='meta') {
+    // O drill (campanha › grupo) tem prioridade sobre a sub-aba: os dois usam o
+    // mesmo container #gadsPanel, mudando só o filtro.
+    if (state.drillAdset) renderGoogleAds(document.getElementById('gadsPanel'), client, period, state.drillCampaign, state.drillAdset)
+    else if (state.sub===2) renderGoogleAds(document.getElementById('gadsPanel'), client, period)
+    else if (state.sub===3) renderGoogleTerms(document.getElementById('termsPanel'), client, period)
+    else if (state.sub===4) renderGooglePages(document.getElementById('gpagesPanel'), client, period)
+  }
 
   // Header
   const back = document.getElementById('cpBack')
