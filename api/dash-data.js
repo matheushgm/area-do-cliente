@@ -25,6 +25,14 @@ function toCSV(rows) {
   return lines.join('\n')
 }
 
+const PAGE = 1000        // linhas por requisição ao PostgREST
+const CONCURRENCY = 8    // fatias lidas ao mesmo tempo
+const SLICE_TARGET = 5   // dias por fatia (~2 mil linhas no canal Meta)
+const MAX_ROWS = 200000  // trava de segurança
+
+const iso = d => d.toISOString().slice(0, 10)
+const addDays = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return iso(d) }
+
 export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY // chave publishable (sb_...)
@@ -40,7 +48,7 @@ export default async function handler(req) {
   })
   if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
 
-  // ── Parâmetro ──────────────────────────────────────────────────────────────
+  // ── Parâmetros ─────────────────────────────────────────────────────────────
   const url = new URL(req.url)
   const channel = url.searchParams.get('channel')
   // meta_status = snapshot do status ATUAL de cada campanha/conjunto/anúncio
@@ -54,65 +62,102 @@ export default async function handler(req) {
   // que são lazy/por-cliente para não baixar todas as contas de uma vez.
   const account = url.searchParams.get('account')
   const acctFilter = account ? `&account=eq.${encodeURIComponent(account)}` : ''
+  // Janela opcional de dias (ex.: dias=16 para o preset de 7 dias + comparação).
+  // Sem o parâmetro, devolve o histórico inteiro do canal.
+  const diasRaw = parseInt(url.searchParams.get('dias') || '', 10)
+  const dias = Number.isFinite(diasRaw) && diasRaw > 0 ? Math.min(diasRaw, 3650) : null
 
-  // ── Lê dash_insights paginado (PostgREST limita ~1000/req) ──────────────────
-  // O canal Meta tem dezenas de milhares de linhas (>33k). Cada página de 1000
-  // linhas leva ~1,5s no Supabase → paginar em SÉRIE (34 páginas) dá ~50s e
-  // estoura o limite de 25s da função Edge da Vercel (FUNCTION_INVOCATION_TIMEOUT
-  // → 504). Solução: buscar as páginas em LOTES PARALELOS. Cada lote dispara
-  // CONCURRENCY páginas ao mesmo tempo; para quando um lote traz uma página
-  // incompleta (chegou ao fim). NÃO depende de count=exact nem do header
-  // content-range (que pode não vir no runtime Edge) — só do tamanho das páginas.
-  const PAGE = 1000
-  const CONCURRENCY = 12 // ~3 lotes p/ 34 páginas → ~10s (validado contra o Supabase real)
-  const MAX_ROWS = 200000 // trava de segurança
-  // Ordena por row_key (PK, ÚNICO). Ordem não-única (ex.: account,day — várias
-  // linhas por conta+dia, uma por anúncio) tornaria a paginação por offset
-  // instável: linhas empatadas poderiam duplicar/pular na borda das páginas.
-  const base = `${SUPABASE_URL}/rest/v1/dash_insights?channel=eq.${channel}${acctFilter}&select=data&order=row_key.asc`
+  const headers = {
+    apikey: SUPABASE_ANON,
+    Authorization: `Bearer ${jwt}`, // RLS aplicada como o usuário
+  }
+  const base = `${SUPABASE_URL}/rest/v1/dash_insights?channel=eq.${channel}${acctFilter}`
+
   // Uma página que falhe derruba a resposta INTEIRA (o dashboard mostra
-  // "meta: HTTP 500") — e falhas transitórias acontecem sob 12 requisições
+  // "meta: HTTP 500") — e falhas transitórias acontecem sob requisições
   // paralelas (hiccup de rede/Supabase). Retry curto por página (3 tentativas,
   // backoff 250/500ms) absorve isso sem estourar o limite de 25s da Edge.
-  const fetchPage = async offset => {
+  const getPage = async (qs, offset, label) => {
     let lastErr
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const r = await fetch(base, {
-          headers: {
-            apikey: SUPABASE_ANON,
-            Authorization: `Bearer ${jwt}`, // RLS aplicada como o usuário
-            Range: `${offset}-${offset + PAGE - 1}`,
-            'Range-Unit': 'items',
-          },
+        const r = await fetch(`${base}${qs}&select=data&order=row_key.asc`, {
+          headers: { ...headers, Range: `${offset}-${offset + PAGE - 1}`, 'Range-Unit': 'items' },
         })
         if (r.ok) return r.json()
-        lastErr = new Error(`page ${offset}: HTTP ${r.status}`)
+        lastErr = new Error(`${label}+${offset}: HTTP ${r.status}`)
       } catch (e) {
-        lastErr = new Error(`page ${offset}: ${e?.message || e}`)
+        lastErr = new Error(`${label}+${offset}: ${e?.message || e}`)
       }
       await new Promise(res => setTimeout(res, 250 * (attempt + 1)))
     }
     throw lastErr
   }
 
-  const rows = []
+  // Lê TUDO que casa com `qs`, paginando por Range. Usado só em recortes
+  // pequenos (uma fatia de dias, uma conta, o snapshot de status), onde o
+  // offset nunca passa de alguns milhares.
+  //
+  // Por que não paginar o canal inteiro assim: OFFSET faz o Postgres reler
+  // todas as linhas anteriores, então o custo cresce ao QUADRADO do tamanho da
+  // tabela. Com 55 mil linhas, a página do fim já leva ~3,6s sozinha, contra um
+  // statement_timeout de 8s no papel `authenticated` — e cada falha dessas
+  // derruba a resposta inteira em 504. Daí o fatiamento por dia abaixo.
+  const readAll = async (qs, label) => {
+    const out = []
+    for (let offset = 0; ; offset += PAGE) {
+      const batch = await getPage(qs, offset, label)
+      for (const row of batch) out.push(row.data)
+      if (batch.length < PAGE || out.length > MAX_ROWS) return out
+    }
+  }
+
+  // Menor e maior dia do canal, para saber onde começa e termina o fatiamento.
+  // Duas consultas baratas: ambas resolvem no índice (channel, day).
+  const edgeDay = async dir => {
+    const r = await fetch(`${base}&select=day&order=day.${dir}&limit=1`, { headers })
+    if (!r.ok) throw new Error(`limites de data: HTTP ${r.status}`)
+    const j = await r.json()
+    return j[0]?.day || null
+  }
+
+  let rows
   try {
-    let start = 0
-    let done = false
-    while (!done) {
-      // Lote de CONCURRENCY páginas consecutivas, buscadas em paralelo.
-      const offsets = []
-      for (let j = 0; j < CONCURRENCY; j++) offsets.push(start + j * PAGE)
-      const results = await Promise.all(offsets.map(fetchPage))
-      for (const batch of results) for (const row of batch) rows.push(row.data)
-      // Qualquer página incompleta no lote = chegamos ao fim dos dados.
-      if (results.some(batch => batch.length < PAGE)) done = true
-      else start += CONCURRENCY * PAGE
-      if (start > MAX_ROWS) done = true
+    // meta_status não tem coluna `day` (1 linha por entidade, sem histórico), e
+    // a busca por conta já devolve um recorte pequeno: nos dois casos vale ler
+    // direto, sem fatiar.
+    if (channel === 'meta_status' || account) {
+      const since = dias ? `&day=gte.${addDays(iso(new Date()), -dias)}` : ''
+      rows = await readAll(channel === 'meta_status' ? '' : since, channel)
+    } else {
+      const hoje = iso(new Date())
+      const janela = dias ? addDays(hoje, -dias) : null
+      const [minDia, ultimo] = await Promise.all([edgeDay('asc'), edgeDay('desc')])
+      // Começa no mais recente entre o início da janela pedida e o primeiro dia
+      // que existe no canal: fatiar antes disso só geraria consultas vazias.
+      const inicio = janela && minDia && janela > minDia ? janela : minDia
+      if (!inicio || !ultimo) {
+        rows = []
+      } else {
+        // Fatias de dias, lidas em PARALELO. Cada fatia é uma consulta rasa e
+        // indexada por (channel, day): nenhuma chega perto do statement_timeout
+        // de 8s, e o custo total passa a crescer de forma linear com a tabela.
+        const fatias = []
+        for (let d = inicio; d <= ultimo; d = addDays(d, SLICE_TARGET)) {
+          const fim = addDays(d, SLICE_TARGET)
+          fatias.push(`&day=gte.${d}&day=lt.${fim}`)
+        }
+        rows = []
+        for (let i = 0; i < fatias.length; i += CONCURRENCY) {
+          const lote = fatias.slice(i, i + CONCURRENCY)
+          const res = await Promise.all(lote.map((qs, j) => readAll(qs, `${channel} fatia ${i + j}`)))
+          for (const parte of res) for (const row of parte) rows.push(row)
+          if (rows.length > MAX_ROWS) break
+        }
+      }
     }
   } catch (e) {
-    // Mensagem com a causa (página/status) para diagnóstico — endpoint é
+    // Mensagem com a causa (fatia/status) para diagnóstico — endpoint é
     // autenticado, não vaza nada sensível.
     return jsonErr(`Erro ao consultar os dados (${e?.message || e}).`, 500)
   }
