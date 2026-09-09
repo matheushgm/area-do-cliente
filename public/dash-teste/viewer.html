@@ -313,6 +313,9 @@ import {
 // /api/dash-data, enviando o token da sessão Supabase (mesma origem → mesmo
 // localStorage). Em dev standalone (sem sessão): cai nos CSVs locais ./output/.
 const LOCAL = { meta: './output/meta.csv', google: './output/google.csv', google_terms: './output/google_terms.csv', meta_status: './output/meta_status.csv' }
+// Em dev standalone o rollup mora em ./output/<canal>.rollup.csv quando existe;
+// sem ele, cai no CSV cru (a lista funciona igual, só carregando muito mais).
+const LOCAL_ROLLUP = { meta: './output/meta.rollup.csv', google: './output/google.rollup.csv' }
 
 // Supabase (chaves publishable — públicas por design, mesmas expostas ao browser
 // pelo app React). Usadas para puxar os metadados de conta das views *_public:
@@ -334,7 +337,7 @@ function supabaseToken() {
   return null
 }
 
-async function fetchChannel(ch) {
+async function fetchChannel(ch, fresh) {
   // Modo compartilhado: só o canal do link, via endpoint público (sem login).
   if (SHARED) {
     // O snapshot de status (meta_status) acompanha o canal Meta — mesmo token,
@@ -346,14 +349,85 @@ async function fetchChannel(ch) {
     return r.text()
   }
   const token = supabaseToken()
+  // A LISTA de contas roda sobre o ROLLUP diário (~24 mil linhas estreitas, uma
+  // por conta/dia/campanha) em vez das ~55 mil linhas cruas de dash_insights
+  // (74 MB, ~37s de CPU no Postgres, que derrubavam a Edge Function em 504).
+  // O rollup sai com os mesmos nomes de coluna, então buildStats e companhia
+  // não mudam. As linhas cruas viraram lazy: ver ensureRawRows().
+  const rollup = LOCAL_ROLLUP[ch] != null
   if (token) {
-    const r = await fetch(`/api/dash-data?channel=${ch}`, { headers: { Authorization: `Bearer ${token}` } })
+    const api = rollup ? `/api/dash-rollup?channel=${ch}` : `/api/dash-data?channel=${ch}`
+    // `fresh` fura o cache do navegador. Sem isso, o botão Atualizar relia a
+    // resposta guardada por max-age=300 e os números só mudavam 5 min depois.
+    const r = await fetch(api, { headers: { Authorization: `Bearer ${token}` }, cache: fresh ? 'reload' : 'default' })
     if (!r.ok) throw new Error(`${ch}: HTTP ${r.status}`)
     return r.text()
   }
   // dev local (standalone, sem sessão)
+  if (rollup) {
+    const rr = await fetch(LOCAL_ROLLUP[ch])
+    if (rr.ok) return rr.text()
+  }
   const r = await fetch(LOCAL[ch])
   return r.ok ? r.text() : ''
+}
+
+// ─── Linhas CRUAS de um cliente (nível anúncio) ──────────────────────────────
+// Só a página de cliente precisa desse detalhe, então ele é baixado sob demanda,
+// filtrado pela conta, e fica em cache por conta+canal. É o único ponto que
+// ainda lê dash_insights.
+function rawRows(ch, client) {
+  // No link compartilhado não existe rollup: state.raw já são as linhas cruas
+  // do único cliente do link.
+  if (SHARED) {
+    const accKey = CFG[ch].accountKey
+    return (state.raw[ch] || []).filter(r => (r[accKey] || '').trim() === client)
+  }
+  return state.rows[`${ch}|${client}`] || []
+}
+
+// Prepara a página de um cliente: baixa as linhas cruas da conta (se ainda não
+// estiverem em cache) e calcula o período local. Devolve false quando a busca
+// falha, e nesse caso volta para a lista com o erro na barra de status, em vez
+// de deixar a página de cliente vazia sem explicação.
+// `silencioso` evita piscar o "carregando" quando a recarga vem do botão
+// Atualizar e a página do cliente já está na tela.
+async function loadClientRows(ch, client, silencioso) {
+  if (!SHARED && !state.rows[`${ch}|${client}`]) {
+    if (!silencioso) app.innerHTML = `<div class="dt-loader"><div class="spinner"></div><p>Carregando ${esc(client)}…</p></div>`
+    try {
+      await ensureRawRows(ch, client)
+    } catch (e) {
+      state.openClient = null
+      render()
+      setStatus(`❌ Não foi possível carregar ${client}: ${e.message}`, true)
+      return false
+    }
+  }
+  state.cPeriod = computeClientPeriod(rawRows(ch, client), ch, state.cDays, state.cFrom, state.cTo)
+  return true
+}
+
+async function ensureRawRows(ch, client) {
+  if (SHARED) return rawRows(ch, client)
+  const k = `${ch}|${client}`
+  if (state.rows[k]) return state.rows[k]
+  const token = supabaseToken()
+  let csv = ''
+  if (token) {
+    const r = await fetch(`/api/dash-data?channel=${ch}&account=${encodeURIComponent(client)}`,
+      { headers: { Authorization: `Bearer ${token}` } })
+    if (!r.ok) throw new Error(`${ch}: HTTP ${r.status}`)
+    csv = await r.text()
+    state.rows[k] = parseCSV(csv)
+  } else {
+    // dev local: o CSV completo do canal, filtrado aqui mesmo.
+    const r = await fetch(LOCAL[ch])
+    const todas = r.ok ? parseCSV(await r.text()) : []
+    const accKey = CFG[ch].accountKey
+    state.rows[k] = todas.filter(x => (x[accKey] || '').trim() === client)
+  }
+  return state.rows[k]
 }
 
 // Termos de pesquisa do Google: lazy e FILTRADO por conta (payload pequeno).
@@ -428,7 +502,7 @@ const CP_PRESET_STRINGS = new Set(['today','yesterday','this_month','last_month'
 
 // channel: '' = Todos (padrão — agrupa Meta+Google numa lista só, pra ninguém
 // passar batido só olhando a 1ª aba) | 'meta' | 'google' = filtro de um canal só.
-const state = { raw:{meta:[],google:[]}, accounts:{}, channel:'', days:7, from:'', to:'', search:'', squad:'', openClient:null,
+const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:7, from:'', to:'', search:'', squad:'', openClient:null,
                 // visualização da lista: 'padrao' (status) | 'diagnostico' (causa da queda) | 'escala' (candidatas a mais verba)
                 view:'padrao', showHidden:false,
                 // seção "CPL Máximo (ROI) & Pace de Verba": contas com o drill de campanhas aberto
@@ -473,14 +547,18 @@ const fmtMoneyShort = n => {
   return 'R$ ' + Math.round(n).toLocaleString('pt-BR')
 }
 
-async function load() {
+async function load(fresh) {
   try {
     // O snapshot de status é acessório: se falhar, o dashboard abre igual e cai
     // no último status conhecido de cada linha (com aviso na tag).
     const [m, g, st, accounts] = await Promise.all([
-      fetchChannel('meta'), fetchChannel('google'),
-      fetchChannel('meta_status').catch(() => ''), fetchAccounts()])
+      fetchChannel('meta', fresh), fetchChannel('google', fresh),
+      fetchChannel('meta_status', fresh).catch(() => ''), fetchAccounts()])
     state.raw = { meta: parseCSV(m), google: parseCSV(g) }
+    // Dados novos: o cache de linhas cruas por conta também precisa cair, senão
+    // a página de cliente continuaria mostrando o que veio antes do sync.
+    if (fresh) state.rows = {}
+    invalidateMemo()
     state.statusSnap = buildStatusSnap(parseCSV(st))
     state.accounts = accounts
     document.getElementById('src-info').textContent =
@@ -489,6 +567,12 @@ async function load() {
       state.channel = SHARED.channel
       state.openClient = { client: SHARED.client, channel: SHARED.channel }
     } else if (!state._navRestored) { restoreNav(); state._navRestored = true }
+    // Navegação restaurada (ou mantida) num cliente: as linhas cruas dele são
+    // baixadas antes de desenhar, já que não vêm mais no boot.
+    if (state.openClient && !SHARED) {
+      state.cPeriod = null
+      if (!await loadClientRows(state.openClient.channel, state.openClient.client, true)) return
+    }
     render()
   } catch (e) {
     app.innerHTML = SHARED
@@ -516,18 +600,64 @@ async function triggerSync() {
   let n = 0
   const tick = async () => {
     n++
-    await load()
+    await load(true)
     if (n < 8) { setStatus(`⏳ Atualizando… (${n}/8)`); setTimeout(tick, 18000) }
     else { setStatus('✅ Atualização concluída.'); setTimeout(() => setStatus(''), 6000) }
   }
   setTimeout(tick, 25000)
 }
 
+// ─── Cache das agregações pesadas ──────────────────────────────────────────
+// buildStats, buildDeclineDiagnosis, buildScaleCandidates e summaryFor varrem
+// TODAS as linhas cruas do canal (dezenas de milhares) e dependem só de
+// (canal, período): a busca e o filtro de squad peneiram o resultado pronto,
+// depois. Sem cache, cada tecla digitada na busca refazia ~16 dessas varreduras.
+// `_dataVer` sobe em load() e invalida tudo quando os dados trocam.
+let _dataVer = 0
+const _memo = new Map()
+function memo(kind, ch, p, fn) {
+  if (!p) return fn()
+  const key = `${_dataVer}|${kind}|${ch}|${p.p1s}|${p.p1e}|${p.p2s}|${p.p2e}`
+  if (_memo.has(key)) return _memo.get(key)
+  // Poda simples: numa sessão o usuário alterna entre poucos períodos.
+  if (_memo.size > 60) _memo.clear()
+  const v = fn()
+  _memo.set(key, v)
+  return v
+}
+function invalidateMemo() { _dataVer++; _memo.clear(); _periodsCache = { k: null, v: null } }
+
+// Índice conta → linhas do canal, reconstruído só quando os dados trocam. Sem
+// ele, spendFnFor varria o canal inteiro UMA VEZ POR CONTA (e a barra de
+// visualizações faz isso para toda conta, em todo render).
+const _rowsByAccount = { v: -1, meta: null, google: null }
+function rowsOfAccount(ch, account) {
+  if (_rowsByAccount.v !== _dataVer) {
+    _rowsByAccount.v = _dataVer; _rowsByAccount.meta = null; _rowsByAccount.google = null
+  }
+  if (!_rowsByAccount[ch]) {
+    const accKey = CFG[ch].accountKey
+    const idx = new Map()
+    for (const r of (state.raw[ch] || [])) {
+      const n = (r[accKey] || '').trim(); if (!n) continue
+      let arr = idx.get(n); if (!arr) { arr = []; idx.set(n, arr) }
+      arr.push(r)
+    }
+    _rowsByAccount[ch] = idx
+  }
+  return _rowsByAccount[ch].get(account) || []
+}
+
+let _periodsCache = { k: null, v: null }
 function periods() {
-  return {
+  const k = `${_dataVer}|${state.days}|${state.from}|${state.to}`
+  if (_periodsCache.k === k) return _periodsCache.v
+  const v = {
     meta:   computeMainPeriod(state.raw.meta,   'meta',   state.days, state.from, state.to),
     google: computeMainPeriod(state.raw.google, 'google', state.days, state.from, state.to),
   }
+  _periodsCache = { k, v }
+  return v
 }
 // Meta: total da conta conta só CONVERSÕES reais (coluna "Conversões");
 // awareness/tráfego (impressões, cliques, thruplay...) aparece por campanha no
@@ -536,7 +666,7 @@ const cfgFor = ch => ch === 'meta' ? { ...CFG.meta, convKeys: ['Conversões'] } 
 
 function statsFor(ch, p) {
   if (!p) return []
-  let st = buildStats(state.raw[ch], cfgFor(ch), p)
+  let st = memo('stats', ch, p, () => buildStats(state.raw[ch], cfgFor(ch), p))
   const _q = state.search.trim(); if (_q) st = st.filter(s => s.name.toLowerCase().includes(_q))
   if (state.squad) st = st.filter(s => (state.accounts[s.name]?.squad || '') === state.squad)
   // Contas ocultas (clientes que saíram): fora da visão normal; a visão "Ocultas"
@@ -572,8 +702,8 @@ function applyListFilters(list) {
   if (state.squad) out = out.filter(x => (state.accounts[x.name]?.squad || '') === state.squad)
   return out.filter(x => !isHidden(x.name))
 }
-function diagFor(ch, p)  { return p ? applyListFilters(buildDeclineDiagnosis(state.raw[ch], cfgFor(ch), p, ch === 'meta')) : [] }
-function scaleFor(ch, p) { return p ? applyListFilters(buildScaleCandidates(state.raw[ch], cfgFor(ch), p)) : [] }
+function diagFor(ch, p)  { return p ? applyListFilters(memo('diag',  ch, p, () => buildDeclineDiagnosis(state.raw[ch], cfgFor(ch), p, ch === 'meta'))) : [] }
+function scaleFor(ch, p) { return p ? applyListFilters(memo('scale', ch, p, () => buildScaleCandidates(state.raw[ch], cfgFor(ch), p))) : [] }
 
 // Ícones de olho (lucide inline) do botão ocultar/reexibir.
 const EYE_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>'
@@ -588,7 +718,7 @@ function hideBtnHTML(name) {
 function squadsInChannel(ch, p) {
   if (!p) return []
   const set = new Set()
-  buildStats(state.raw[ch], cfgFor(ch), p).forEach(s => {
+  memo('stats', ch, p, () => buildStats(state.raw[ch], cfgFor(ch), p)).forEach(s => {
     const sq = state.accounts[s.name]?.squad
     if (sq) set.add(sq)
   })
@@ -598,6 +728,9 @@ function squadsInChannel(ch, p) {
 // ─── Barra de resumo (espelha ChannelSection.useMemo) ────────────────────────
 function summaryFor(ch, p) {
   if (!p) return null
+  return memo('summary', ch, p, () => summaryOf(ch, p))
+}
+function summaryOf(ch, p) {
   const isMeta = ch === 'meta'
   const rows = state.raw[ch].filter(r => inRange(fmtDate(r[CFG[ch].dateKey]), p.p1s, p.p1e))
   let sumSpend=0, sumLeads=0, sumClicks=0, sumImpr=0, sumConv=0
@@ -679,10 +812,9 @@ function restoreNav() {
   } catch (e) { /* ignore */ }
 }
 
-function render() {
-  destroyCharts()
-  if (state.openClient) return renderClient()
-  saveNav()
+// Tudo o que a lista precisa, já com busca/squad/ocultas aplicados. Sai de
+// dentro do render() porque o re-render parcial da busca usa exatamente isto.
+function listData() {
   const P = periods()
   // '' (Todos) = os dois canais juntos, numa lista só — evita que uma conta só
   // de Google (ou só de Meta) fique escondida atrás da aba que ninguém clicou.
@@ -691,9 +823,48 @@ function render() {
   const stByCh = { meta: stMeta, google: stGoogle }
   const st = channels.flatMap(ch => stByCh[ch].map(x => ({ ...x, channel: ch })))
   const s = mergeSummaries(channels.map(ch => summaryFor(ch, P[ch])).filter(Boolean))
+  return { P, channels, stMeta, stGoogle, st, s }
+}
+
+// Contadores da barra de visualizações. Todos dependem da busca, por isso o
+// re-render parcial precisa recalculá-los (mas não reconstruir os botões).
+function viewCounts(channels, P) {
+  const diagAll = channels.flatMap(ch => diagFor(ch, P[ch]))
+  return {
+    diag: diagAll.length,
+    ctr: diagAll.filter(d => d.bucket === 'performance' && d.culprit === 'CTR').length,
+    taxa: diagAll.filter(d => d.bucket === 'performance' && d.culprit === 'Taxa de conversão').length,
+    escala: channels.reduce((a,ch) => a + scaleFor(ch, P[ch]).length, 0),
+    // Pace e Ocultas só existem como contador; calcular fora da visão aberta é
+    // desperdício, mas o número aparece no botão, então não dá para pular.
+    pace: channels.reduce((a,ch) => a + paceItemsFor(ch, P[ch]).length, 0),
+    hidden: channels.reduce((a,ch) => a + (P[ch] ? memo('stats', ch, P[ch], () => buildStats(state.raw[ch], cfgFor(ch), P[ch])).filter(x => isHidden(x.name)).length : 0), 0),
+  }
+}
+const vbn = n => n ? ` (${n})` : ''
+
+// Conteúdo do .tab-panel para a visão ativa.
+function panelHTML(d) {
+  const { P, channels, st, s } = d
   const fmtSumPct = v => v!=null ? v.toFixed(2)+'%' : '—'
   const leadsLabel = 'Conversões'
   const cplLabel = channels.length===1 ? (channels[0]==='meta'?'CPL Médio':'CPA Médio') : 'CPL/CPA Médio'
+  return !channels.some(ch => P[ch]) ? `<div class="empty">Nenhum dado disponível para o período selecionado.</div>`
+    : state.view==='diagnostico' && !SHARED ? diagnosticoHTML(channels, P)
+    : state.view==='queda-ctr' && !SHARED ? diagnosticoHTML(channels, P, 'ctr')
+    : state.view==='queda-taxa' && !SHARED ? diagnosticoHTML(channels, P, 'taxa')
+    : state.view==='escala' && !SHARED ? escalaHTML(channels, P)
+    : state.view==='pace' && !SHARED ? paceViewHTML(channels, P)
+    : !st.length ? `<div class="empty">Nenhum dado disponível para o período selecionado.</div>`
+    : padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct)
+}
+
+function render() {
+  destroyCharts()
+  if (state.openClient) return renderClient()
+  saveNav()
+  const d = listData()
+  const { P, channels, stMeta, stGoogle } = d
 
   app.innerHTML = `
     <div class="header">
@@ -701,9 +872,9 @@ function render() {
       <div class="header-right"><button class="btn" id="reload">⟳ Atualizar</button></div>
     </div>
     <div class="tabs">
-      <div class="tab ${!state.channel?'active':''}" data-ch="">🗂️ Todos <span class="badge">${stMeta.length + stGoogle.length}</span></div>
-      <div class="tab ${state.channel==='meta'?'active':''}" data-ch="meta">${chIco('meta')} Meta Ads <span class="badge">${stMeta.length}</span></div>
-      <div class="tab ${state.channel==='google'?'active':''}" data-ch="google">${chIco('google')} Google Ads <span class="badge">${stGoogle.length}</span></div>
+      <div class="tab ${!state.channel?'active':''}" data-ch="">🗂️ Todos <span class="badge" data-badge="all">${stMeta.length + stGoogle.length}</span></div>
+      <div class="tab ${state.channel==='meta'?'active':''}" data-ch="meta">${chIco('meta')} Meta Ads <span class="badge" data-badge="meta">${stMeta.length}</span></div>
+      <div class="tab ${state.channel==='google'?'active':''}" data-ch="google">${chIco('google')} Google Ads <span class="badge" data-badge="google">${stGoogle.length}</span></div>
     </div>
     <div class="filter-bar">
       <span class="filter-label">Período:</span>
@@ -715,7 +886,7 @@ function render() {
       <div class="filter-row">
         <div class="search-wrap"><span class="search-icon">🔍</span>
           <input type="text" id="search" placeholder="Buscar cliente…" value="${esc(state.search)}">
-          ${state.search?`<span class="clear-btn" id="clear" style="display:block">✕</span>`:''}</div>
+          <span class="clear-btn" id="clear" style="display:${state.search?'block':'none'}">✕</span></div>
         ${(() => { const sqs = squadsForChannels(channels, P); if (state.squad && !sqs.includes(state.squad)) sqs.unshift(state.squad); return sqs.length ? `
         <select id="squad" title="Filtrar por squad" style="background:#FFFFFF;border:1px solid ${state.squad?'#164496':'#D8E0F0'};color:${state.squad?'#164496':'#0F172A'};padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;outline:none;cursor:pointer;">
           <option value="">Todos os squads</option>
@@ -728,37 +899,53 @@ function render() {
       })()}
     </div>
     ${SHARED ? '' : (() => {
-      const diagAll = channels.flatMap(ch => diagFor(ch, P[ch]).map(d => ({ ...d, channel: ch })))
-      const nDiag = diagAll.length
-      const nCtr = diagAll.filter(d => d.bucket === 'performance' && d.culprit === 'CTR').length
-      const nTaxa = diagAll.filter(d => d.bucket === 'performance' && d.culprit === 'Taxa de conversão').length
-      const nScale = channels.reduce((a,ch) => a + scaleFor(ch, P[ch]).length, 0)
-      const nPace = channels.reduce((a,ch) => a + paceItemsFor(ch, P[ch]).length, 0)
-      const nHidden = channels.reduce((a,ch) => a + (P[ch] ? buildStats(state.raw[ch], cfgFor(ch), P[ch]).filter(x => isHidden(x.name)).length : 0), 0)
+      const c = viewCounts(channels, P)
       return `<div class="squad-bar">
         <span class="filter-label">Visualização:</span>
         <button class="squad-btn ${state.view==='padrao'?'active':''}" data-view="padrao">📊 Padrão (status)</button>
-        <button class="squad-btn ${state.view==='pace'?'active':''}" data-view="pace" title="Pace de gasto vs a verba planejada no módulo Campanha da Área do Cliente, por conta e por campanha do plano">💸 Pace de Verba${nPace?` (${nPace})`:''}</button>
-        <button class="squad-btn ${state.view==='diagnostico'?'active':''}" data-view="diagnostico" title="Contas em queda de conversão, separadas pela causa: corte de verba ou performance (CTR / taxa de conversão)">📉 Diagnóstico de Queda${nDiag?` (${nDiag})`:''}</button>
-        <button class="squad-btn ${state.view==='queda-ctr'?'active':''}" data-view="queda-ctr" title="Só as contas cuja queda de conversão foi causada pelo CTR (criativo/segmentação)">🎯 Queda por CTR${nCtr?` (${nCtr})`:''}</button>
-        <button class="squad-btn ${state.view==='queda-taxa'?'active':''}" data-view="queda-taxa" title="Só as contas cuja queda de conversão foi causada pela taxa de conversão (LP/oferta)">🧲 Queda por Tx. Conversão${nTaxa?` (${nTaxa})`:''}</button>
-        <button class="squad-btn ${state.view==='escala'?'active':''}" data-view="escala" title="Contas com conversões subindo e CPL caindo — candidatas a receber mais investimento">🚀 Contas que podem escalar${nScale?` (${nScale})`:''}</button>
+        <button class="squad-btn ${state.view==='pace'?'active':''}" data-view="pace" title="Pace de gasto vs a verba planejada no módulo Campanha da Área do Cliente, por conta e por campanha do plano">💸 Pace de Verba<span data-vbn="pace">${vbn(c.pace)}</span></button>
+        <button class="squad-btn ${state.view==='diagnostico'?'active':''}" data-view="diagnostico" title="Contas em queda de conversão, separadas pela causa: corte de verba ou performance (CTR / taxa de conversão)">📉 Diagnóstico de Queda<span data-vbn="diag">${vbn(c.diag)}</span></button>
+        <button class="squad-btn ${state.view==='queda-ctr'?'active':''}" data-view="queda-ctr" title="Só as contas cuja queda de conversão foi causada pelo CTR (criativo/segmentação)">🎯 Queda por CTR<span data-vbn="ctr">${vbn(c.ctr)}</span></button>
+        <button class="squad-btn ${state.view==='queda-taxa'?'active':''}" data-view="queda-taxa" title="Só as contas cuja queda de conversão foi causada pela taxa de conversão (LP/oferta)">🧲 Queda por Tx. Conversão<span data-vbn="taxa">${vbn(c.taxa)}</span></button>
+        <button class="squad-btn ${state.view==='escala'?'active':''}" data-view="escala" title="Contas com conversões subindo e CPL caindo — candidatas a receber mais investimento">🚀 Contas que podem escalar<span data-vbn="escala">${vbn(c.escala)}</span></button>
         ${state.view==='padrao' ? `<span style="flex:1"></span>
-        <button class="squad-btn ${state.showHidden?'active':''}" id="toggle-hidden" title="${state.showHidden?'Voltar para a visão normal':'Ver as contas ocultas (clientes que saíram)'}">${state.showHidden?'👁 Vendo ocultas':'🚫 Ocultas'}${nHidden?` (${nHidden})`:''}</button>` : ''}
+        <button class="squad-btn ${state.showHidden?'active':''}" id="toggle-hidden" title="${state.showHidden?'Voltar para a visão normal':'Ver as contas ocultas (clientes que saíram)'}">${state.showHidden?'👁 Vendo ocultas':'🚫 Ocultas'}<span data-vbn="hidden">${vbn(c.hidden)}</span></button>` : ''}
       </div>`
     })()}
-    <div class="tab-panel">${
-      !channels.some(ch => P[ch]) ? `<div class="empty">Nenhum dado disponível para o período selecionado.</div>`
-      : state.view==='diagnostico' && !SHARED ? diagnosticoHTML(channels, P)
-      : state.view==='queda-ctr' && !SHARED ? diagnosticoHTML(channels, P, 'ctr')
-      : state.view==='queda-taxa' && !SHARED ? diagnosticoHTML(channels, P, 'taxa')
-      : state.view==='escala' && !SHARED ? escalaHTML(channels, P)
-      : state.view==='pace' && !SHARED ? paceViewHTML(channels, P)
-      : !st.length ? `<div class="empty">Nenhum dado disponível para o período selecionado.</div>`
-      : padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct)
-    }</div>
+    <div class="tab-panel">${panelHTML(d)}</div>
   `
   wire()
+}
+
+// Re-render PARCIAL, usado pela busca: recalcula os contadores e troca só o
+// conteúdo do painel. O campo de busca não é recriado, então foco, cursor no
+// meio do texto e acentuação (IME) continuam funcionando. Coalescido por
+// 50ms para que uma rajada de teclas não renderize uma vez por tecla (50ms é
+// curto demais para se notar e ainda junta a digitação rápida). setTimeout e não
+// requestAnimationFrame: rAF é congelado com a aba em segundo plano, e o painel
+// ficaria parado esperando a aba voltar.
+let _panelTimer = null
+function renderPanelSoon() {
+  clearTimeout(_panelTimer)
+  _panelTimer = setTimeout(renderPanel, 50)
+}
+function renderPanel() {
+  const panel = app.querySelector('.tab-panel')
+  if (!panel || state.openClient) return render()   // estrutura trocou: volta ao render cheio
+  destroyCharts()
+  saveNav()
+  const d = listData()
+  const setTxt = (sel, txt) => { const e = app.querySelector(sel); if (e) e.textContent = txt }
+  setTxt('[data-badge="all"]', d.stMeta.length + d.stGoogle.length)
+  setTxt('[data-badge="meta"]', d.stMeta.length)
+  setTxt('[data-badge="google"]', d.stGoogle.length)
+  const cl = document.getElementById('clear'); if (cl) cl.style.display = state.search ? 'block' : 'none'
+  if (!SHARED) {
+    const c = viewCounts(d.channels, d.P)
+    Object.entries(c).forEach(([k, n]) => setTxt(`[data-vbn="${k}"]`, vbn(n)))
+  }
+  panel.innerHTML = panelHTML(d)
+  wirePanel()
 }
 
 // ─── Cards de conta (visão mobile das tabelas) ───────────────────────────────
@@ -1224,7 +1411,7 @@ function paceOf(planned, ps, pe, spendFn) {
 // Soma de gasto por conta num intervalo (canal atual).
 function spendFnFor(ch, account) {
   const key = ch === 'meta' ? 'Valor investido' : 'Gasto'
-  const rows = state.raw[ch].filter(r => (r[CFG[ch].accountKey] || '').trim() === account)
+  const rows = rowsOfAccount(ch, account)
   return (s, e) => rows.reduce((a, r) => inRange(fmtDate(r[CFG[ch].dateKey]), s, e) ? a + num(r[key]) : a, 0)
 }
 
@@ -1342,7 +1529,7 @@ function targetCellHTML(name, cpl) {
 // aplicados) cujo projeto tem plano de Campanha alocando verba neste canal.
 function paceItemsFor(ch, p) {
   if (!p || SHARED) return []
-  return applyListFilters(buildStats(state.raw[ch], cfgFor(ch), p)).map(x => {
+  return applyListFilters(memo('stats', ch, p, () => buildStats(state.raw[ch], cfgFor(ch), p))).map(x => {
     const meta = state.accounts[x.name] || {}
     const budget = meta.plan ? planChannelBudget(meta.plan, ch) : null
     const pace = budget ? paceOf(budget.total, meta.plan.startDate || null,
@@ -1369,7 +1556,7 @@ const PACE_GROUPS = [
 function paceViewHTML(channels, P) {
   const items = channels.flatMap(ch => paceItemsFor(ch, P[ch]).map(it => ({ ...it, channel: ch })))
   const nNoPlan = channels.reduce((a, ch) =>
-    a + (P[ch] ? applyListFilters(buildStats(state.raw[ch], cfgFor(ch), P[ch])).length : 0), 0) - items.length
+    a + (P[ch] ? applyListFilters(memo('stats', ch, P[ch], () => buildStats(state.raw[ch], cfgFor(ch), P[ch]))).length : 0), 0) - items.length
   const withPace = items.filter(it => !it.pace.notStarted && !it.pace.ended && it.pace.pct != null)
   const avgPace = withPace.length
     ? withPace.reduce((a, it) => a + it.pace.actual, 0) / withPace.reduce((a, it) => a + it.pace.expected, 0) * 100
@@ -1602,7 +1789,7 @@ const BANCO_FUNIS = ['Funil de Webinar','Funil de Aplicação','Funil de Diagnó
 // Métricas do criativo (por ad_id) num período: CTR no link, taxa de conversão
 // e hook rate (3s ÷ exibições). Usadas ao salvar no Banco de Anúncios.
 function adMetricsForRange(adId, from, to){
-  const rows = (state.raw['meta'] || []).filter(r => (r['ad_id'] || '') === adId && inRange(fmtDate(r['Dia']), from, to))
+  const rows = rawRows('meta', state.openClient?.client || '').filter(r => (r['ad_id'] || '') === adId && inRange(fmtDate(r['Dia']), from, to))
   const imp = rows.reduce((a,r)=>a+num(r['Impressões']),0)
   const clk = rows.reduce((a,r)=>a+num(r['Número de cliques no link']),0)
   const conv = rows.reduce((a,r)=>a+num(r['Conversões']),0)
@@ -2505,7 +2692,7 @@ function renderClient() {
   const acName = acc.acCompanyName || null
   const folderId = acc.clickupFolderId || null
 
-  const channelRows = state.raw[ch] || []
+  const channelRows = rawRows(ch, client)
   if (!state.cPeriod) state.cPeriod = computeClientPeriod(channelRows, ch, state.cDays, state.cFrom, state.cTo)
   const period = state.cPeriod
   const accKey = CFG[ch].accountKey, dateKey = CFG[ch].dateKey
@@ -2646,7 +2833,7 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   }
   const wk = document.getElementById('cpWeekly')
   if (wk) wk.onclick = () => {
-    const result = buildWeeklyMessage(state.raw[ch], ch, client)
+    const result = buildWeeklyMessage(rawRows(ch, client), ch, client)
     if (!result) { setStatus('Sem dados suficientes para gerar a mensagem.', true); setTimeout(()=>setStatus(''),3000); return }
     state.weekly = { client, periodLabel: result.periodLabel, text: result.msg }
     renderClient()
@@ -2673,13 +2860,13 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   // Period presets
   app.querySelectorAll('.cp-period-btn[data-cd]').forEach(b=>b.onclick=()=>{
     const d=b.dataset.cd; state.cDays=CP_PRESET_STRINGS.has(d)?d:Number(d)
-    if (state.cDays!==0) { state.cPeriod=computeClientPeriod(state.raw[ch]||[], ch, state.cDays); }
+    if (state.cDays!==0) { state.cPeriod=computeClientPeriod(rawRows(ch, client), ch, state.cDays); }
     renderClient()
   })
   const cpA = document.getElementById('cpApply')
   if (cpA) cpA.onclick = () => {
     const f=document.getElementById('cpFrom').value, t=document.getElementById('cpTo').value
-    if (f && t && f<=t) { state.cFrom=f; state.cTo=t; state.cPeriod=computeClientPeriod(state.raw[ch]||[], ch, 0, f, t); renderClient() }
+    if (f && t && f<=t) { state.cFrom=f; state.cTo=t; state.cPeriod=computeClientPeriod(rawRows(ch, client), ch, 0, f, t); renderClient() }
   }
 
   // Campaign filter
@@ -2729,7 +2916,7 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
 
 // Recalcula nomes de campanhas do cliente no período atual (para "Selecionar todas").
 function availCampNames(client, ch) {
-  const channelRows = state.raw[ch] || [], period = state.cPeriod
+  const channelRows = rawRows(ch, client), period = state.cPeriod
   if (!period) return []
   const accKey=CFG[ch].accountKey, dateKey=CFG[ch].dateKey, campKey=ch==='meta'?'Nome da campanha':'Campanha'
   const set=new Set()
@@ -2747,12 +2934,21 @@ function wire() {
   const cf=document.getElementById('cfrom'), ct=document.getElementById('cto'), ca=document.getElementById('capply')
   if (ca) ca.onclick=()=>{ if(cf.value&&ct.value){state.from=cf.value;state.to=ct.value;render()} }
   const se=document.getElementById('search')
-  if (se) se.oninput=e=>{ state.search=e.target.value.toLowerCase(); render(); const n=document.getElementById('search'); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length)} }
+  // Só o painel e os contadores mudam com a busca: renderPanelSoon() preserva o
+  // input (foco, cursor e acentuação) e dispensa o antigo remendo de refocar e
+  // jogar o cursor para o fim a cada tecla.
+  if (se) se.oninput=e=>{ state.search=e.target.value.toLowerCase(); renderPanelSoon() }
   const cl=document.getElementById('clear'); if (cl) cl.onclick=()=>{ state.search=''; render() }
   const sq=document.getElementById('squad'); if (sq) sq.onchange=e=>{ state.squad=e.target.value; render() }
   // Visualizações (Padrão / Diagnóstico de Queda / Contas que podem escalar)
   app.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ state.view=b.dataset.view; state.showHidden=false; render() })
   const th=document.getElementById('toggle-hidden'); if (th) th.onclick=()=>{ state.showHidden=!state.showHidden; render() }
+  wirePanel()
+}
+
+// Eventos que vivem DENTRO do .tab-panel: religados sozinhos quando só o painel
+// é trocado (busca), e junto com wire() no render cheio.
+function wirePanel() {
   // Ordenar as tabelas de conta pelo cabeçalho (mesma coluna → inverte a direção)
   app.querySelectorAll('th[data-acctsort]').forEach(th=>th.onclick=()=>{
     const k = th.dataset.acctsort
@@ -2771,7 +2967,7 @@ function wire() {
   })
   // ch vem da linha/card clicado (data-ch) — necessário porque na visão "Todos"
   // cada conta pode ser de um canal diferente do filtro ativo em state.channel.
-  const openClient = (name, ch) => {
+  const openClient = async (name, ch) => {
     const channel = ch || state.channel || 'meta'
     state.openClient={ client: name, channel }
     // inicializa o estado local da página de cliente a partir do período global
@@ -2780,7 +2976,10 @@ function wire() {
     state.termsPage=0; state.termsSort={key:'clicks',dir:'desc'}
     state.cDays = [3,7,14,30].includes(state.days) || CP_PRESET_STRINGS.has(state.days) || state.days===0 ? state.days : 7
     state.cFrom = state.from; state.cTo = state.to
-    state.cPeriod = computeClientPeriod(state.raw[channel]||[], channel, state.cDays, state.from, state.to)
+    state.cPeriod = null
+    // As linhas cruas (nível anúncio) desta conta são baixadas agora, não no
+    // boot: é o que tirou as ~55 mil linhas do caminho de abertura da dashboard.
+    if (!await loadClientRows(channel, name)) return
     render()
   }
   app.querySelectorAll('tr[data-client]').forEach(tr=>tr.querySelector('.client-link').onclick=()=>openClient(tr.dataset.client, tr.dataset.ch))
