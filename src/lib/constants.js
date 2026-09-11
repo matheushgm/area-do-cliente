@@ -166,9 +166,10 @@ export const CONTRACT_PAYMENT_LABELS = {
 export const UNIDADES_POR_PROJETO = {
   // Nacional Kart
   'dcffbed5-5018-4408-90d8-ecb706c77c7c': [
-    { id: 'penha',   label: 'Penha'   },
-    { id: 'goiania', label: 'Goiânia' },
-    { id: 'osasco',  label: 'Osasco'  },
+    { id: 'penha',    label: 'Penha'    },
+    { id: 'goiania',  label: 'Goiânia'  },
+    { id: 'osasco',   label: 'Osasco'   },
+    { id: 'morumbi',  label: 'Morumbi'  },
   ],
   // Boa Noite Colchões — lojas da bandeira + a loja Concept (dentro da Urias)
   'baae1d12-5bd6-42a0-925b-9dd8ee706cd4': [
