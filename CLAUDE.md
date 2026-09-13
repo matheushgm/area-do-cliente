@@ -294,6 +294,49 @@ campos de funil preenchidos à mão (MQL, SQL, vendas, receita são preservados)
   `x-vercel-cron`). A chave de serviço é lida de `SUPABASE_SECRET_KEY` com fallback para
   `SUPABASE_SERVICE_ROLE_KEY`.
 
+### Planejador de Atividades (`/atividades`)
+
+O account preenche uma atividade nova de cliente e o sistema responde **em que dia ela
+cabe na agenda de quem vai executar**, lendo a carga real no ClickUp. Ao aprovar, a tarefa
+é criada no ClickUp na pasta do cliente. Resolve o "tudo pra amanhã" que sobrecarrega o time.
+
+- **Página:** `src/pages/Atividades.jsx` (item "Atividades" na sidebar). Formulário
+  (cliente → lista da pasta, título, tipo de tarefa, departamento, responsável, horas,
+  prioridade, "não começar antes de", prazo pedido) + painel da sugestão (data, gráfico de
+  carga por dia útil, fila do responsável, comparação com o time, data forçada com
+  justificativa obrigatória) + histórico.
+- **Motor:** `api/_atividades_engine.js` (puro, testável com Node). Cada task aberta vira
+  horas (estimativa nativa > campo "Tipo de tarefa" > "Dificuldade" > padrão), cai no dia
+  do vencimento (atrasadas caem em hoje), o excesso de um dia rola pro seguinte, e a nova
+  tarefa é encaixada na primeira capacidade livre. Atrasadas há mais de
+  `dias_atraso_maximo` (14) e tarefas sem data ficam **fora** do cálculo, mas aparecem no
+  resumo. Datas sempre no fuso `America/Sao_Paulo` como `yyyy-mm-dd`.
+- **API:** `api/atividades.js` (Node, `maxDuration` 60) — actions `config`, `sugerir`,
+  `listas`, `criar`. Lê as tasks por `GET /team/{id}/task?assignees[]=` com cache de 2 min
+  em memória (rate limit de 100 req/min do token pessoal). `criar` preenche assignee,
+  `due_date`, `start_date`, `time_estimate`, prioridade e os campos Cliente / Tipo de tarefa /
+  Departamento / Dificuldade (opções resolvidas ao vivo por `GET /list/{id}/field`); se o
+  token não puder atribuir um guest (`OAUTH_023`), cria sem responsável e devolve `aviso`.
+- **Tabelas (migration 083):** `atividades_planejadas` (histórico + `snapshot_carga` do
+  cálculo; escrita pela API com a service key) e `atividades_config` (linha `global`, JSON
+  com `capacidade_padrao_horas_dia`, `capacidade_por_pessoa` por clickup_user_id,
+  `horas_por_tipo`, `dias_atraso_maximo`, etc.; editável por admin no modal da página).
+- **Mapeamentos usados:** `profiles.clickup_user_id` (quem pode receber tarefa),
+  `projects_v2.clickup_folder_id` (pasta do cliente), `squads.department_assignments`
+  (responsável sugerido pelo departamento do tipo de tarefa).
+- **Env:** `CLICKUP_API_TOKEN` (o mesmo do onboarding; renovado em 2026-09-13). As variáveis
+  `CLICKUP_TEAM_ID`, `CLICKUP_CLIENTES_SPACE_ID` e `CLICKUP_TEMPLATE_LIST_ID` foram salvas na
+  Vercel com uma quebra de linha colada no valor — `envClean()` em `api/atividades.js` e
+  `api/clickup.js` limpa isso antes de montar a URL (sem a limpeza dava 404 em `/team/{id}`).
+- **Local:** o `vercel dev` entrega às funções `/api/*` as variáveis do ambiente
+  *Development* da Vercel (onde as `CLICKUP_*` não existem) mais o arquivo **`.env`** da raiz;
+  o `.env.local` NÃO chega nas funções. Por isso as `CLICKUP_*` ficam num `.env` (ignorado
+  pelo git) com os valores sem a quebra de linha.
+- **Teste local sem login:** harness que chama o handler real com a validação do JWT
+  mockada — ver a memória do projeto (`project_planejador_atividades`). Validado em
+  2026-09-13: leitura da carga de 9 pessoas em ~9s, criação de task com responsável,
+  estimativa, datas e campos personalizados.
+
 ### LinksModule — visibilidade na header
 
 `src/components/LinksModule.jsx` — cada link (fixo ou avulso) tem toggle Eye/EyeOff que persiste no campo `hiddenFromHeader[]` dentro do JSONB `links` em `projects_v2`. A header do `ClientProfile` usa um **ResizeObserver** para calcular dinamicamente quantos links cabem no container (substituiu o limite estático `MAX_VISIBLE=5`); quando o container cresce, re-mede e traz links de volta do overflow.

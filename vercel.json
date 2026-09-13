@@ -1,5 +1,10 @@
 {
-  "rewrites": [{ "source": "/((?!api/|@vite|@react-refresh|src/|node_modules/).*)", "destination": "/index.html" }],
+  "rewrites": [
+    {
+      "source": "/((?!api/|@vite|@react-refresh|src/|node_modules/).*)",
+      "destination": "/index.html"
+    }
+  ],
   "functions": {
     "api/anthropic.js": {
       "maxDuration": 60
@@ -15,6 +20,9 @@
     },
     "api/slack.js": {
       "maxDuration": 15
+    },
+    "api/atividades.js": {
+      "maxDuration": 60
     }
   },
   "crons": [

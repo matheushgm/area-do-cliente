@@ -57,6 +57,12 @@ function resolveAssigneesForTask(task, departmentToClickupId, fallbackIds) {
   return ids.length > 0 ? ids : fallbackIds
 }
 
+// As variáveis CLICKUP_* na Vercel foram salvas com uma quebra de linha colada
+// no valor ("9009170774\n"): sem limpar, a URL vira /team/9009170774\n → 404.
+function envClean(name) {
+  return String(process.env[name] || '').replace(/\\n/g, '').trim()
+}
+
 function jsonErr(message, status, extra) {
   return new Response(
     JSON.stringify({ error: { message, ...(extra || {}) } }),
@@ -143,9 +149,9 @@ export default async function handler(req) {
   if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
 
   // ── Configuração de ambiente ───────────────────────────────────────────────
-  const token       = process.env.CLICKUP_API_TOKEN
-  const spaceId     = process.env.CLICKUP_CLIENTES_SPACE_ID || DEFAULT_SPACE
-  const templateId  = process.env.CLICKUP_TEMPLATE_LIST_ID  || DEFAULT_TEMPLATE
+  const token       = envClean('CLICKUP_API_TOKEN')
+  const spaceId     = envClean('CLICKUP_CLIENTES_SPACE_ID') || DEFAULT_SPACE
+  const templateId  = envClean('CLICKUP_TEMPLATE_LIST_ID')  || DEFAULT_TEMPLATE
   if (!token) return jsonErr('CLICKUP_API_TOKEN não configurado.', 500)
 
   // ── Parse do body ──────────────────────────────────────────────────────────
@@ -159,7 +165,7 @@ export default async function handler(req) {
   // Retorna lista de usuários do ClickUp (id + name + email) para popular o
   // dropdown de mapeamento na página de gestão de usuários.
   if (action === 'list_workspace_members') {
-    const teamId = process.env.CLICKUP_TEAM_ID || DEFAULT_TEAM
+    const teamId = envClean('CLICKUP_TEAM_ID') || DEFAULT_TEAM
     try {
       const res = await clickup('GET', `/team/${teamId}`, token)
       const members = (res?.team?.members || []).map((m) => ({
@@ -195,7 +201,7 @@ export default async function handler(req) {
   // Data de referência: usa a data fornecida ou hoje.
   const refMillis = parseStartMillis(startDateISO) ?? Date.now()
 
-  const teamId = process.env.CLICKUP_TEAM_ID || DEFAULT_TEAM
+  const teamId = envClean('CLICKUP_TEAM_ID') || DEFAULT_TEAM
 
   try {
     // 1) Criar pasta no espaço "Clientes" com o nome da empresa

@@ -36,6 +36,7 @@ import DashboardApiTeste from './pages/DashboardApiTeste'
 import WorkloadDashboard from './pages/WorkloadDashboard'
 import WireframePreview from './pages/WireframePreview'
 import Atividades15min from './pages/Atividades15min'
+import Atividades from './pages/Atividades'
 import NotificationCenter from './components/NotificationCenter'
 
 function RequireAuth({ children }) {
@@ -89,6 +90,7 @@ function AppRoutes() {
         <Route path="/funil" element={<RequireAuth><FunilCanvas /></RequireAuth>} />
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
         <Route path="/tarefas" element={<RequireAuth><Tasks /></RequireAuth>} />
+        <Route path="/atividades" element={<RequireAuth><Atividades /></RequireAuth>} />
         <Route path="/atividades-15min" element={<RequireAuth><Atividades15min /></RequireAuth>} />
         <Route path="/roteiros-express" element={<RequireAuth><RoteirosExpress /></RequireAuth>} />
         <Route path="/roteiros/:token" element={<RoteirosExpressPublico />} />
