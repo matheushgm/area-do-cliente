@@ -121,13 +121,15 @@ export function SparkBars10d({ spark = [], resumo = [], hoje = null, diaSelecion
     const title = d
       ? `${fmtDiaCurto(d.data)} · ${fmtHoras(d.carga)} de ${fmtHoras(d.capacidade)} · ${plural(d.tarefas || 0, 'tarefa', 'tarefas')}`
       : `Dia ${i + 1} · ${fmtPct(v * 100)}`
-    barras.push({ i, x: i * 9, h, tipo, apagada, title, hoje: !!hoje && d?.data === hoje })
+    // inicial do dia da semana embaixo da barra (S T Q Q S)
+    const letra = d?.data ? DIAS[weekday(d.data)][0] : ''
+    barras.push({ i, x: i * 9, h, tipo, apagada, title, letra, hoje: !!hoje && d?.data === hoje, selecionado: !!diaSelecionado && d?.data === diaSelecionado })
   }
   return (
     <svg
-      viewBox="0 0 96 20"
+      viewBox="0 0 96 28"
       width="96"
-      height="20"
+      height="28"
       role="img"
       aria-label={n ? `Carga dos próximos ${plural(n, 'dia útil', 'dias úteis')}` : 'Sem leitura da agenda'}
       className={`overflow-visible shrink-0 ${className}`}
@@ -138,7 +140,19 @@ export function SparkBars10d({ spark = [], resumo = [], hoje = null, diaSelecion
           <rect x={b.x} y={20 - b.h} width="6" height={b.h} rx="1" className={FILL_BARRA[b.tipo]}>
             <title>{b.title}</title>
           </rect>
-          {b.hoje && <circle cx={b.x + 3} cy="22" r="1.5" className="fill-ln-t2" />}
+          {b.letra && (
+            <text
+              x={b.x + 3}
+              y="27.5"
+              textAnchor="middle"
+              fontSize="6.5"
+              fontWeight={b.hoje || b.selecionado ? 700 : 500}
+              className={b.hoje ? 'fill-ln-accent' : b.selecionado ? 'fill-ln-t1' : 'fill-ln-t4'}
+              aria-hidden="true"
+            >
+              {b.letra}
+            </text>
+          )}
         </g>
       ))}
     </svg>
