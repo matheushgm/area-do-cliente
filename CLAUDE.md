@@ -294,48 +294,66 @@ campos de funil preenchidos à mão (MQL, SQL, vendas, receita são preservados)
   `x-vercel-cron`). A chave de serviço é lida de `SUPABASE_SECRET_KEY` com fallback para
   `SUPABASE_SERVICE_ROLE_KEY`.
 
-### Planejador de Atividades (`/atividades`)
+### Atividades (`/atividades`): capacidade do time + planejador, visual do Linear
 
-O account preenche uma atividade nova de cliente e o sistema responde **em que dia ela
-cabe na agenda de quem vai executar**, lendo a carga real no ClickUp. Ao aprovar, a tarefa
-é criada no ClickUp na pasta do cliente. Resolve o "tudo pra amanhã" que sobrecarrega o time.
+Módulo único que absorveu o antigo "Capacidade do Time" (`/workload` agora redireciona para
+cá; `WorkloadDashboard.jsx` e `public/workload/` foram removidos). A área de conteúdo replica
+o app Linear (frame com raio 8, barra superior de 44px com breadcrumb e contador, barra de
+views com filter tabs, listas densas de 13px, painel lateral de 480px e painel flutuante do
+"agente"); o `AppSidebar` global não muda.
 
-- **Página:** `src/pages/Atividades.jsx` (item "Atividades" na sidebar). Formulário
-  (cliente → lista da pasta, título, tipo de tarefa, departamento, responsável, horas,
-  prioridade, "não começar antes de", prazo pedido) + painel da sugestão (data, gráfico de
-  carga por dia útil, fila do responsável, comparação com o time, data forçada com
-  justificativa obrigatória) + histórico.
+- **Tokens:** `.ln` em `src/index.css` define as CSS vars `--ln-*` (claro por padrão, `.dark .ln`
+  escuro) com os valores medidos no Linear; o Tailwind expõe como `ln-*` (`bg-ln-panel`,
+  `text-ln-t3`, `bg-ln-ink/5` para hovers translúcidos, `ln-accent`, `ln-brand`, status
+  `ln-green/yellow/red/orange/teal`). Classes prontas: `.ln-card`, `.ln-iconbtn`, `.ln-pill`,
+  `.ln-tab`/`.ln-tab-active`, `.ln-primary`, `.ln-input`, `.ln-label`, `.ln-row-hover`,
+  `.ln-kbd`, `.ln-hatch`, `.ln-shimmer`, `.tabular`. Atenção: `.ln-card` e companhia ficam
+  fora de `@layer`, então para sobrescrever borda/fundo delas use `!border-...`.
+- **Página:** `src/pages/Atividades.jsx` orquestra: `useCargaTime` (carga do time em lotes de
+  3 pessoas, progressivo, cache de 10 min em sessionStorage), `usePlanejador` (todo o fluxo
+  formulário → cálculo → comparação → aprovação, extraído sem mudar regra), estado de UI
+  (painel lateral com 3 modos: pessoa / atividade / nova; dia selecionado na linha de calor;
+  filtro por saúde; agrupamento; densidade), atalhos (`C` nova atividade, `Esc` fecha) e o
+  contador "n / N" com setas.
+- **Componentes** (`src/components/Atividades/`): `KpiStrip` (6 tiles do time), `TeamHeatLine`
+  (ocupação do time por dia útil, 10 células), `TeamTable` (pessoas agrupadas por saúde:
+  ponto, barra de ocupação com atrasadas e estouro, sparkline de 10 dias, hoje, fila,
+  atrasadas, sem data, zumbis, próximo dia livre, além do horizonte, menu de ações),
+  `PersonPanel` (KPIs, `CargaDiaria`, alertas, distribuição por cliente, abas fila /
+  atrasadas / sem data / zumbis), `IssueList` (atividades planejadas como issues, agrupadas
+  por semana / status / responsável), `AtividadePanel` (propriedades + carga no momento da
+  aprovação), `NovaAtividadePanel` (composer), `PlannerFloat` ("Planejador · ClickUp":
+  sugestão, data forçada com justificativa, comparação com o time, aprovar), `ConfigModal`.
+- **Saúde por pessoa** (`src/lib/atividadesCarga.js` → `saudeDe`): sobrecarregado (ocupação
+  10d ≥ 100, ou ≥ 3 dias estourados nos 10 dias, ou atrasadas ≥ 2 dias de capacidade, ou horas
+  além do horizonte / que não cabem em 60 dias), no limite (≥ 75, 1 a 2 dias estourados ou
+  atrasadas > 1 dia), ok (40 a 74), livre (< 40; com 0 tarefas abertas vira "livre suspeito":
+  provável `clickup_user_id` errado), sem leitura (erro ou perfil sem ClickUp). Score ordena.
 - **Motor:** `api/_atividades_engine.js` (puro, testável com Node). Cada task aberta vira
-  horas (estimativa nativa > campo "Tipo de tarefa" > "Dificuldade" > padrão), cai no dia
-  do vencimento (atrasadas caem em hoje), o excesso de um dia rola pro seguinte, e a nova
-  tarefa é encaixada na primeira capacidade livre. Atrasadas há mais de
-  `dias_atraso_maximo` (14) e tarefas sem data ficam **fora** do cálculo, mas aparecem no
-  resumo. Datas sempre no fuso `America/Sao_Paulo` como `yyyy-mm-dd`.
-- **API:** `api/atividades.js` (Node, `maxDuration` 60) — actions `config`, `sugerir`,
-  `listas`, `criar`. Lê as tasks por `GET /team/{id}/task?assignees[]=` com cache de 2 min
-  em memória (rate limit de 100 req/min do token pessoal). `criar` preenche assignee,
-  `due_date`, `start_date`, `time_estimate`, prioridade e os campos Cliente / Tipo de tarefa /
-  Departamento / Dificuldade (opções resolvidas ao vivo por `GET /list/{id}/field`); se o
-  token não puder atribuir um guest (`OAUTH_023`), cria sem responsável e devolve `aviso`.
-- **Tabelas (migration 083):** `atividades_planejadas` (histórico + `snapshot_carga` do
-  cálculo; escrita pela API com a service key) e `atividades_config` (linha `global`, JSON
-  com `capacidade_padrao_horas_dia`, `capacidade_por_pessoa` por clickup_user_id,
-  `horas_por_tipo`, `dias_atraso_maximo`, etc.; editável por admin no modal da página).
-- **Mapeamentos usados:** `profiles.clickup_user_id` (quem pode receber tarefa),
-  `projects_v2.clickup_folder_id` (pasta do cliente), `squads.department_assignments`
-  (responsável sugerido pelo departamento do tipo de tarefa).
-- **Env:** `CLICKUP_API_TOKEN` (o mesmo do onboarding; renovado em 2026-09-13). As variáveis
-  `CLICKUP_TEAM_ID`, `CLICKUP_CLIENTES_SPACE_ID` e `CLICKUP_TEMPLATE_LIST_ID` foram salvas na
-  Vercel com uma quebra de linha colada no valor — `envClean()` em `api/atividades.js` e
-  `api/clickup.js` limpa isso antes de montar a URL (sem a limpeza dava 404 em `/team/{id}`).
-- **Local:** o `vercel dev` entrega às funções `/api/*` as variáveis do ambiente
-  *Development* da Vercel (onde as `CLICKUP_*` não existem) mais o arquivo **`.env`** da raiz;
-  o `.env.local` NÃO chega nas funções. Por isso as `CLICKUP_*` ficam num `.env` (ignorado
-  pelo git) com os valores sem a quebra de linha.
-- **Teste local sem login:** harness que chama o handler real com a validação do JWT
-  mockada — ver a memória do projeto (`project_planejador_atividades`). Validado em
-  2026-09-13: leitura da carga de 9 pessoas em ~9s, criação de task com responsável,
-  estimativa, datas e campos personalizados.
+  horas (estimativa nativa > campo "Tipo de tarefa" > "Dificuldade" > padrão), cai no dia do
+  vencimento (atrasadas caem em hoje, fim de semana vai para o próximo dia útil), o excesso de
+  um dia rola para o seguinte e a tarefa nova entra na primeira capacidade livre. Atrasadas há
+  mais de `dias_atraso_maximo` (14) e tarefas sem data ficam fora do cálculo, mas aparecem.
+  Devolve também semEstimativa, porStatus, porPasta, sobraFinal, diasEstourados,
+  proximoDiaLivre. Datas sempre `yyyy-mm-dd` em `America/Sao_Paulo`.
+- **API:** `api/atividades.js` (Node, `maxDuration` 60): actions `config`, `carga` (time, sem
+  tarefa nova, até 12 ids por chamada, `refresh` ignora o cache de 5 min), `sugerir`, `listas`,
+  `criar` (assignee, `due_date`, `start_date`, `time_estimate`, prioridade, campos Cliente /
+  Tipo / Departamento / Dificuldade resolvidos ao vivo; `OAUTH_023` cria sem responsável e
+  devolve `aviso`). `envClean()` limpa a quebra de linha colada nas `CLICKUP_*` da Vercel.
+- **Tabelas (migration 083):** `atividades_planejadas` (histórico + `snapshot_carga`) e
+  `atividades_config` (linha `global`, editável por admin no `ConfigModal`).
+- **Preview sem login (DEV):** `/dev/atividades` (`src/dev/AtividadesPreview.jsx`, rota só em
+  `import.meta.env.DEV`) injeta um `AppContext` fake e responde a `/api/atividades` no browser
+  rodando o motor (módulo virtual `virtual:atividades-engine`, plugin em `vite.config.js`)
+  sobre `src/dev/fixtures/atividades.json` (dados reais, gitignored; gere com o script
+  `gen_fixtures.mjs` do scratchpad da sessão ou adapte). `src/lib/atividades.js` desvia para
+  `window.__atividadesMock` só em DEV.
+- **Local:** o `vercel dev` entrega às funções `/api/*` as variáveis do ambiente *Development*
+  da Vercel mais o arquivo **`.env`** da raiz; o `.env.local` NÃO chega nas funções. As
+  `CLICKUP_*` ficam num `.env` (ignorado pelo git) com os valores sem a quebra de linha.
+- **Mapeamentos usados:** `profiles.clickup_user_id`, `projects_v2.clickup_folder_id`,
+  `squads.department_assignments` (responsável sugerido pelo departamento do tipo de tarefa).
 
 ### LinksModule — visibilidade na header
 

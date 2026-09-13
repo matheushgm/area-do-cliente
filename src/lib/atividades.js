@@ -3,6 +3,10 @@
 import { supabase } from './supabase'
 
 async function call(action, payload = {}) {
+  // Preview de desenvolvimento (/dev/atividades) responde localmente; código morto em produção.
+  if (import.meta.env.DEV && typeof window !== 'undefined' && window.__atividadesMock) {
+    return window.__atividadesMock(action, payload)
+  }
   if (!supabase) throw new Error('Supabase não configurado.')
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData?.session?.access_token
@@ -41,6 +45,16 @@ export function carregarConfigAtividades() {
  */
 export function sugerirAtividade({ assignees, horas, naoAntesDe = null, dataDesejada = null }) {
   return call('sugerir', { assignees, horas, naoAntesDe, dataDesejada })
+}
+
+/**
+ * Carga do time para o painel de capacidade (sem tarefa nova).
+ * @param {object} p
+ * @param {number[]} p.assignees  até 12 clickup_user_id por chamada
+ * @param {boolean} [p.refresh]   ignora o cache do servidor
+ */
+export function cargaTime({ assignees, refresh = false }) {
+  return call('carga', { assignees, refresh })
 }
 
 /** Listas (com status) da pasta ClickUp do cliente. */

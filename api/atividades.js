@@ -2,6 +2,8 @@
 // POST /api/atividades  { action, ...payload }   (JWT do Supabase no Authorization)
 //
 //   action=config    → configuração mesclada (padrão do motor + atividades_config)
+//   action=carga     → carga do time (sem tarefa nova): agenda projetada por
+//                      pessoa para o painel de capacidade; refresh:true ignora o cache
 //   action=sugerir   → lê as tarefas abertas dos responsáveis no ClickUp e
 //                      devolve a agenda projetada + data de entrega sugerida
 //   action=listas    → listas (com status) da pasta ClickUp do cliente
@@ -50,7 +52,7 @@ function envClean(name) {
 // Cache em memória (a função fica quente entre requests próximos): a lista de
 // tarefas abertas de uma pessoa muda pouco em 2 minutos e o ClickUp limita a
 // 100 requests/min no token pessoal.
-const CACHE_TTL_MS = 2 * 60 * 1000
+const CACHE_TTL_MS = 5 * 60 * 1000
 const cache = globalThis.__atividadesCache || (globalThis.__atividadesCache = new Map())
 
 function norm(s) {
@@ -81,10 +83,10 @@ async function clickup(method, path, token, body) {
 }
 
 /** Todas as tarefas ABERTAS atribuídas a uma pessoa, no workspace inteiro. */
-async function openTasksOf(clickupUserId, token, teamId) {
+async function openTasksOf(clickupUserId, token, teamId, { refresh = false } = {}) {
   const key = `tasks:${clickupUserId}`
   const hit = cache.get(key)
-  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.tasks
+  if (!refresh && hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.tasks
   const tasks = []
   for (let page = 0; page < 10; page++) {
     const qs = new URLSearchParams({
@@ -179,6 +181,28 @@ async function actionSugerir(body, ctx) {
     }
   }
   return { data: { hoje, geradoEm: new Date().toISOString(), resultados, erros, config: { capacidade_padrao_horas_dia: cfg.capacidade_padrao_horas_dia, dias_atraso_maximo: cfg.dias_atraso_maximo } } }
+}
+
+/** Carga do time para o painel de capacidade: mesma leitura, sem tarefa nova. */
+async function actionCarga(body, ctx) {
+  const ids = (Array.isArray(body.assignees) ? body.assignees : [])
+    .map(Number).filter((n) => Number.isFinite(n) && n > 0)
+  if (ids.length === 0) return { status: 400, error: 'Informe os clickup_user_id do time.' }
+  if (ids.length > 12) return { status: 400, error: 'No máximo 12 pessoas por chamada (o front pede em lotes).' }
+  const refresh = !!body.refresh
+  const cfg = await carregarConfig()
+  const hoje = hojeISO()
+  const pessoas = []
+  const erros = []
+  for (const id of ids) {
+    try {
+      const tasks = await openTasksOf(id, ctx.token, ctx.teamId, { refresh })
+      pessoas.push(planejarParaPessoa({ clickupUserId: id, tasks, horas: null, config: cfg, hoje, diasResumo: 10 }))
+    } catch (e) {
+      erros.push({ clickupUserId: id, error: e?.message || 'Falha ao ler o ClickUp', code: e?.code || null })
+    }
+  }
+  return { data: { hoje, geradoEm: new Date().toISOString(), pessoas, erros, config: { capacidade_padrao_horas_dia: cfg.capacidade_padrao_horas_dia, dias_atraso_maximo: cfg.dias_atraso_maximo, horizonte_dias_uteis: cfg.horizonte_dias_uteis } } }
 }
 
 async function actionListas(body, ctx) {
@@ -370,6 +394,7 @@ export default async function handler(req, res) {
   try {
     let out
     if (action === 'sugerir') out = await actionSugerir(body, ctx)
+    else if (action === 'carga') out = await actionCarga(body, ctx)
     else if (action === 'listas') out = await actionListas(body, ctx)
     else if (action === 'criar') out = await actionCriar(body, ctx)
     else return res.status(400).json({ error: { message: 'Ação não suportada.' } })

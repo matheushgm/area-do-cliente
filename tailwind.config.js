@@ -22,6 +22,32 @@ export default {
           'text':     'rgb(var(--rl-text) / <alpha-value>)',     // texto principal
           'subtle':   'rgb(var(--rl-subtle) / <alpha-value>)',   // texto secundário
           'muted':    'rgb(var(--rl-muted) / <alpha-value>)',    // texto terciário
+        },
+        // Tokens do módulo Atividades (visual do Linear), escopados em `.ln` no
+        // src/index.css. Valores medidos no app do Linear (dark) e no CSS
+        // oficial ([data-theme=light]). `ln-ink` é branco no escuro e preto no
+        // claro: serve para os hovers translúcidos (bg-ln-ink/5).
+        'ln': {
+          'bg':      'rgb(var(--ln-bg) / <alpha-value>)',
+          'panel':   'rgb(var(--ln-panel) / <alpha-value>)',
+          'card':    'rgb(var(--ln-card) / <alpha-value>)',
+          'level2':  'rgb(var(--ln-level2) / <alpha-value>)',
+          'level3':  'rgb(var(--ln-level3) / <alpha-value>)',
+          'ink':     'rgb(var(--ln-ink) / <alpha-value>)',
+          'line':    'rgb(var(--ln-line) / <alpha-value>)',
+          'border':  'rgb(var(--ln-border) / <alpha-value>)',
+          't1':      'rgb(var(--ln-t1) / <alpha-value>)',
+          't2':      'rgb(var(--ln-t2) / <alpha-value>)',
+          't3':      'rgb(var(--ln-t3) / <alpha-value>)',
+          't4':      'rgb(var(--ln-t4) / <alpha-value>)',
+          'accent':  'rgb(var(--ln-accent) / <alpha-value>)',
+          'brand':   'rgb(var(--ln-brand) / <alpha-value>)',
+          'green':   'rgb(var(--ln-green) / <alpha-value>)',
+          'yellow':  'rgb(var(--ln-yellow) / <alpha-value>)',
+          'red':     'rgb(var(--ln-red) / <alpha-value>)',
+          'orange':  'rgb(var(--ln-orange) / <alpha-value>)',
+          'blue':    'rgb(var(--ln-blue) / <alpha-value>)',
+          'teal':    'rgb(var(--ln-teal) / <alpha-value>)',
         }
       },
       backgroundImage: {

@@ -6,7 +6,7 @@ import {
   Plus, Layers, TrendingDown,
   LogOut, Cloud, CloudOff, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare, BarChart3, DollarSign,
-  Sun, Moon, Clapperboard, Timer, Layout, Gauge, CalendarCheck,
+  Sun, Moon, Clapperboard, Timer, Layout, CalendarCheck,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -16,7 +16,7 @@ const NAV_ITEMS = [
 
 const NAV_LINKS = [
   { id: 'tarefas',   label: 'Tarefas',           Icon: CheckSquare,  type: 'route',    to: '/tarefas' },
-  { id: 'planejador',label: 'Atividades',        Icon: CalendarCheck,type: 'route',    to: '/atividades', badge: 'NOVO' },
+  { id: 'planejador',label: 'Atividades',        Icon: CalendarCheck,type: 'route',    to: '/atividades' },
   { id: 'atividades',label: 'Atividades 15min',  Icon: Timer,        type: 'route',    to: '/atividades-15min' },
   { id: 'roteiros',  label: 'Roteiros Express',  Icon: Clapperboard, type: 'route',    to: '/roteiros-express' },
   { id: 'chat',      label: 'Chat',              Icon: MessageSquare,type: 'route',    to: '/chat' },
@@ -25,7 +25,6 @@ const NAV_LINKS = [
   { id: 'funil',     label: 'Funil de Vendas',   Icon: GitFork,      type: 'route',    to: '/funil' },
   { id: 'playbook',  label: 'Playbook',          Icon: BookOpen,     type: 'external', href: 'https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173' },
   { id: 'dashboard-teste', label: 'Dashboard',   Icon: BarChart3,    type: 'route',    to: '/dashboard-teste', badge: 'API' },
-  { id: 'workload',  label: 'Capacidade do Time',Icon: Gauge,        type: 'route',    to: '/workload', badge: 'BETA' },
   { id: 'precificacao', label: 'Precificação',   Icon: DollarSign,   type: 'external', href: 'https://vvmkxurb.manus.space/' },
 ]
 

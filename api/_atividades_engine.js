@@ -250,13 +250,31 @@ export function classificarTarefas(tasks, config = DEFAULT_CONFIG, hoje = hojeIS
   }
 
   const soma = (arr) => round2(arr.reduce((s, x) => s + (x.horas || 0), 0))
+  const todas = [...consideradas, ...zumbis, ...semData, ...backlogIgnorado]
+  const semEstimativa = consideradas.filter((x) => x.origem !== 'estimativa')
+  // distribuição por status e por pasta (cliente) para o painel do gestor
+  const porStatus = {}
+  for (const t of todas) {
+    const k = t.status || 'sem status'
+    porStatus[k] = porStatus[k] || { tarefas: 0, horas: 0 }
+    porStatus[k].tarefas += 1
+    porStatus[k].horas = round2(porStatus[k].horas + t.horas)
+  }
+  const pastaMap = {}
+  for (const t of consideradas) {
+    const k = t.pasta || t.lista || 'sem pasta'
+    pastaMap[k] = pastaMap[k] || { pasta: k, tarefas: 0, horas: 0 }
+    pastaMap[k].tarefas += 1
+    pastaMap[k].horas = round2(pastaMap[k].horas + t.horas)
+  }
+  const porPasta = Object.values(pastaMap).sort((a, b) => b.horas - a.horas).slice(0, 5)
   return {
     consideradas,
     zumbis,
     semData,
     backlogIgnorado,
     totais: {
-      abertas: consideradas.length + zumbis.length + semData.length + backlogIgnorado.length,
+      abertas: todas.length,
       consideradas: consideradas.length,
       horasConsideradas: soma(consideradas),
       atrasadas: consideradas.filter((x) => x.atrasada).length,
@@ -266,7 +284,11 @@ export function classificarTarefas(tasks, config = DEFAULT_CONFIG, hoje = hojeIS
       semData: semData.length,
       horasSemData: soma(semData),
       backlogIgnorado: backlogIgnorado.length,
+      // confiabilidade do número: quantas horas vieram de tipo/dificuldade/padrão
+      semEstimativa: { tarefas: semEstimativa.length, horas: soma(semEstimativa) },
     },
+    porStatus,
+    porPasta,
   }
 }
 
@@ -407,7 +429,14 @@ export function planejarParaPessoa({
   const cfg = { ...DEFAULT_CONFIG, ...(config || {}) }
   const capacidade = capacidadeDe(clickupUserId, cfg)
   const cls = classificarTarefas(tasks, cfg, hoje)
-  const { agenda, alemDoHorizonte } = montarAgenda({ tarefas: cls.consideradas, capacidade, hoje, config: cfg })
+  const { agenda, alemDoHorizonte, sobraFinal } = montarAgenda({ tarefas: cls.consideradas, capacidade, hoje, config: cfg })
+
+  // Sinais sobre a agenda INTEIRA (60 dias úteis), não só os 10 do resumo
+  const diasEstourados = agenda.filter((d) => d.excedente > 0).length
+  const maiorExcedente = round2(agenda.reduce((m, d) => Math.max(m, d.excedente || 0), 0))
+  // primeiro dia em que cabe uma tarefa "de verdade": ao menos 1h e metade da capacidade
+  const minimoLivre = Math.max(1, capacidade * 0.5)
+  const proximoDiaLivre = agenda.find((d) => d.livre >= minimoLivre)?.data || null
 
   const sugestao = horas ? sugerirData({ agenda, horas, naoAntesDe, hoje }) : null
   const forcada = horas && dataDesejada
@@ -446,7 +475,13 @@ export function planejarParaPessoa({
       capacidadeProximosDias: capProximos,
       ocupacaoProximosDias: capProximos > 0 ? Math.round((horasProximos / capProximos) * 100) : 0,
       alemDoHorizonte,
+      sobraFinal: round2(sobraFinal || 0),
+      diasEstourados,
+      maiorExcedente,
     },
+    proximoDiaLivre,
+    porStatus: cls.porStatus,
+    porPasta: cls.porPasta,
     sugestao,
     forcada,
     resumo,

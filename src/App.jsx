@@ -33,10 +33,12 @@ import RoteirosExpress from './pages/RoteirosExpress'
 import RoteirosExpressPublico from './pages/RoteirosExpressPublico'
 import CriativosPublico from './pages/CriativosPublico'
 import DashboardApiTeste from './pages/DashboardApiTeste'
-import WorkloadDashboard from './pages/WorkloadDashboard'
 import WireframePreview from './pages/WireframePreview'
 import Atividades15min from './pages/Atividades15min'
 import Atividades from './pages/Atividades'
+import { lazy, Suspense } from 'react'
+// Preview sem login do módulo Atividades; só existe em desenvolvimento.
+const AtividadesPreview = import.meta.env.DEV ? lazy(() => import('./dev/AtividadesPreview')) : null
 import NotificationCenter from './components/NotificationCenter'
 
 function RequireAuth({ children }) {
@@ -91,6 +93,9 @@ function AppRoutes() {
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
         <Route path="/tarefas" element={<RequireAuth><Tasks /></RequireAuth>} />
         <Route path="/atividades" element={<RequireAuth><Atividades /></RequireAuth>} />
+        {import.meta.env.DEV && AtividadesPreview && (
+          <Route path="/dev/atividades" element={<Suspense fallback={null}><AtividadesPreview /></Suspense>} />
+        )}
         <Route path="/atividades-15min" element={<RequireAuth><Atividades15min /></RequireAuth>} />
         <Route path="/roteiros-express" element={<RequireAuth><RoteirosExpress /></RequireAuth>} />
         <Route path="/roteiros/:token" element={<RoteirosExpressPublico />} />
@@ -99,7 +104,8 @@ function AppRoutes() {
         {/* Dashboard antigo (planilhas) foi removido — /dashboard redireciona para o atual (API). */}
         <Route path="/dashboard" element={<Navigate to="/dashboard-teste" replace />} />
         <Route path="/dashboard-teste" element={<RequireAuth><DashboardApiTeste /></RequireAuth>} />
-        <Route path="/workload" element={<RequireAuth><WorkloadDashboard /></RequireAuth>} />
+        {/* "Capacidade do Time" foi fundido no módulo Atividades. */}
+        <Route path="/workload" element={<Navigate to="/atividades" replace />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/wireframe-preview" element={<WireframePreview />} />
         <Route path="*" element={<Navigate to="/" replace />} />

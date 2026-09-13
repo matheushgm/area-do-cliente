@@ -199,3 +199,75 @@
 .fade-in-question {
   animation: fade-in-question 0.35s ease-out;
 }
+
+/* ─── Módulo Atividades: tokens do Linear (escopo .ln) ───────────────────────
+   Claro = bloco [data-theme=light] do CSS oficial do Linear; escuro = valores
+   medidos na demo da home (getComputedStyle). Consumidos pelo Tailwind como
+   ln-* (ver tailwind.config.js). */
+.ln {
+  --ln-bg:      255 255 255;
+  --ln-panel:   249 248 249;
+  --ln-card:    255 255 255;
+  --ln-level2:  244 244 244;
+  --ln-level3:  240 240 240;
+  --ln-ink:     0 0 0;
+  --ln-line:    228 226 228;
+  --ln-border:  233 232 234;
+  --ln-t1:      40 42 48;
+  --ln-t2:      60 65 73;
+  --ln-t3:      111 110 119;
+  --ln-t4:      134 132 141;
+  --ln-accent:  113 112 255;
+  --ln-brand:   112 112 255;
+  --ln-green:   39 166 68;
+  --ln-yellow:  212 160 0;
+  --ln-red:     235 87 87;
+  --ln-orange:  252 120 64;
+  --ln-blue:    78 167 252;
+  --ln-teal:    0 184 204;
+  --ln-shadow-panel: 0 2px 32px rgba(0, 0, 0, 0.12);
+  --ln-ring-card: 0 0 0 1px rgba(0, 0, 0, 0.04);
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  font-feature-settings: "cv01", "ss03";
+  color: rgb(var(--ln-t2));
+}
+.dark .ln {
+  --ln-bg:      8 9 10;
+  --ln-panel:   16 17 18;
+  --ln-card:    15 16 17;
+  --ln-level2:  20 21 22;
+  --ln-level3:  25 26 27;
+  --ln-ink:     255 255 255;
+  --ln-line:    46 46 50;
+  --ln-border:  35 37 42;
+  --ln-t1:      247 248 248;
+  --ln-t2:      208 214 224;
+  --ln-t3:      138 143 152;
+  --ln-t4:      98 102 109;
+  --ln-accent:  113 112 255;
+  --ln-brand:   94 106 210;
+  --ln-green:   39 166 68;
+  --ln-yellow:  240 191 0;
+  --ln-red:     235 87 87;
+  --ln-orange:  252 120 64;
+  --ln-blue:    78 167 252;
+  --ln-teal:    0 184 204;
+  --ln-shadow-panel: 0 2px 32px rgba(0, 0, 0, 0.25);
+  --ln-ring-card: 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+.ln .tabular { font-variant-numeric: tabular-nums; }
+/* superfícies e controles recorrentes do módulo */
+.ln-card { @apply bg-ln-card border border-ln-ink/[0.08] rounded-[9px]; box-shadow: var(--ln-ring-card); }
+.ln-iconbtn { @apply inline-flex items-center justify-center w-7 h-7 rounded-full text-ln-t3 transition-colors duration-150 hover:bg-ln-ink/5 hover:text-ln-t2 disabled:opacity-40 disabled:cursor-not-allowed; }
+.ln-pill { @apply inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-ln-ink/[0.02] text-ln-t3 text-xs font-medium transition-colors duration-150 hover:bg-ln-ink/5 hover:text-ln-t2 ring-1 ring-inset ring-ln-ink/5; }
+.ln-tab { @apply inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium text-ln-t3 bg-ln-ink/[0.02] ring-1 ring-inset ring-ln-ink/5 transition-colors duration-150 hover:bg-ln-ink/5; }
+.ln-tab-active { @apply bg-ln-ink/[0.08] text-ln-t1 ring-0; }
+.ln-primary { @apply inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-ln-brand text-white text-xs font-medium transition duration-150 hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed; }
+.ln-input { @apply w-full h-8 px-2.5 rounded-md bg-ln-ink/[0.03] border border-ln-ink/[0.08] text-[13px] text-ln-t1 placeholder:text-ln-t4 outline-none transition-colors duration-150 focus:border-ln-accent/60 focus:bg-ln-ink/[0.04]; }
+.ln-label { @apply block text-[11px] font-medium text-ln-t4 mb-1; }
+.ln-row-hover { @apply rounded-lg transition-colors duration-150 hover:bg-ln-ink/[0.03]; }
+.ln-kbd { @apply inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded text-[10px] font-medium text-ln-t4 bg-ln-ink/5 border border-ln-ink/[0.08]; }
+.ln-hatch { background-image: repeating-linear-gradient(135deg, rgb(var(--ln-red) / 0.9) 0 3px, rgb(var(--ln-red) / 0.35) 3px 6px); }
+.ln-shimmer { background: linear-gradient(90deg, rgb(var(--ln-ink) / 0.04) 25%, rgb(var(--ln-ink) / 0.1) 50%, rgb(var(--ln-ink) / 0.04) 75%); background-size: 200% 100%; animation: lnShimmer 1.4s linear infinite; }
+@keyframes lnShimmer { from { background-position: 200% 0 } to { background-position: -200% 0 } }

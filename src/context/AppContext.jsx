@@ -8,7 +8,9 @@ import {
 } from "react";
 import { supabase, isSupabaseReady } from "../lib/supabase";
 
-const AppContext = createContext();
+// Exportado só para o preview de desenvolvimento (src/dev/*), que injeta um
+// contexto fake sem passar pelo Supabase Auth.
+export const AppContext = createContext();
 
 // ─── localStorage schema versioning ───────────────────────────────────────────
 const LS_KEY      = "rl_projects_v2";
