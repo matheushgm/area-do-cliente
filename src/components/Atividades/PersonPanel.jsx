@@ -2,8 +2,8 @@
 // O container e o cabeçalho do painel ficam fora; aqui vai o conteúdo rolável
 // (cabeçalho da pessoa, KPIs, gráfico, alertas, clientes, abas de tarefas) e
 // o rodapé fixo com as ações.
-import { useId, useState } from 'react'
-import { AlertTriangle, Plus, RefreshCw } from 'lucide-react'
+import { useId, useState, useEffect, useRef } from 'react'
+import { AlertTriangle, Plus, RefreshCw, Loader2, Pencil } from 'lucide-react'
 import CargaDiaria from './CargaDiaria'
 import {
   NIVEIS, diaDe, tomOcupacao,
@@ -257,7 +257,83 @@ function Abas({ aba, onAba, contagens, prefixo }) {
   )
 }
 
-function TarefaRow({ tarefa, aba, diaSelecionado }) {
+// Horas da tarefa com edição inline: clique vira um campo; Enter ou sair do
+// campo grava a estimativa no ClickUp (via onEstimar) e a agenda recalcula.
+function HorasEditaveis({ tarefa, estimada, onEstimar }) {
+  const [editando, setEditando] = useState(false)
+  const [valor, setValor] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState(null)
+  const [local, setLocal] = useState(null) // valor recém-salvo, até a agenda recarregar
+  const inputRef = useRef(null)
+
+  useEffect(() => { setLocal(null) }, [tarefa.horas, tarefa.origem])
+  useEffect(() => { if (editando) inputRef.current?.select() }, [editando])
+
+  const horasMostradas = local ?? tarefa.horas
+  const veioDoClickUp = local != null || !estimada
+  const podeEditar = typeof onEstimar === 'function' && !!tarefa.id
+
+  function abrir(e) {
+    e.preventDefault(); e.stopPropagation()
+    if (!podeEditar || salvando) return
+    setValor(String(horasMostradas ?? '').replace('.', ','))
+    setErro(null)
+    setEditando(true)
+  }
+  async function salvar() {
+    const n = Number(String(valor).replace(',', '.'))
+    setEditando(false)
+    if (!(n > 0) || n === Number(horasMostradas) && veioDoClickUp) return
+    setSalvando(true)
+    setErro(null)
+    try {
+      await onEstimar(tarefa, n)
+      setLocal(n)
+    } catch (e) {
+      setErro(e?.message || 'Não salvou')
+    } finally {
+      setSalvando(false)
+    }
+  }
+  function tecla(e) {
+    if (e.key === 'Enter') { e.preventDefault(); salvar() }
+    if (e.key === 'Escape') { e.preventDefault(); setEditando(false) }
+  }
+
+  if (editando) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="decimal"
+        value={valor}
+        onChange={(e) => setValor(e.target.value)}
+        onBlur={salvar}
+        onKeyDown={tecla}
+        onClick={(e) => e.stopPropagation()}
+        aria-label={`Horas de ${tarefa.nome || 'tarefa'}`}
+        className="w-14 shrink-0 h-6 px-1.5 rounded-md bg-ln-ink/[0.05] border border-ln-accent/60 text-right text-xs text-ln-t1 tabular outline-none"
+      />
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={abrir}
+      disabled={!podeEditar || salvando}
+      className={`group/h w-14 shrink-0 h-6 px-1 rounded-md inline-flex items-center justify-end gap-1 text-xs tabular transition-colors duration-150 ${podeEditar ? 'hover:bg-ln-ink/5 cursor-text' : 'cursor-default'} ${erro ? 'text-ln-red' : 'text-ln-t2'} ${FOCO}`}
+      title={erro ? `Erro ao salvar: ${erro}. Clique para tentar de novo` : podeEditar ? (veioDoClickUp ? 'Estimativa preenchida no ClickUp. Clique para alterar' : `Horas estimadas pelo tipo ou dificuldade (${tarefa.origem}). Clique para preencher a estimativa no ClickUp`) : (veioDoClickUp ? 'Estimativa preenchida no ClickUp' : `Horas estimadas (${tarefa.origem})`)}
+    >
+      {salvando
+        ? <Loader2 className="w-3 h-3 animate-spin text-ln-t3" />
+        : <Pencil className="w-2.5 h-2.5 text-ln-t4 opacity-0 group-hover/h:opacity-100 transition-opacity" aria-hidden="true" />}
+      <span>{fmtHoras(horasMostradas)}{!veioDoClickUp && <span className="text-ln-t4">*</span>}</span>
+    </button>
+  )
+}
+
+function TarefaRow({ tarefa, aba, diaSelecionado, onEstimar }) {
   const zumbi = aba === 'zumbis'
   const atrasada = zumbi || !!tarefa.atrasada
   let dia = ''
@@ -290,12 +366,7 @@ function TarefaRow({ tarefa, aba, diaSelecionado }) {
       >
         {tarefa.nome || 'Sem título'}
       </a>
-      <span
-        className="w-12 shrink-0 text-right text-xs text-ln-t2 tabular"
-        title={estimada ? `Horas estimadas pelo tipo ou dificuldade (${tarefa.origem})` : 'Estimativa preenchida no ClickUp'}
-      >
-        {fmtHoras(tarefa.horas)}{estimada && <span className="text-ln-t4">*</span>}
-      </span>
+      <HorasEditaveis tarefa={tarefa} estimada={estimada} onEstimar={onEstimar} />
       {tarefa.status && (
         <span className="shrink-0 max-w-[96px] truncate h-5 px-1.5 rounded-full ring-1 ring-ln-line text-[11px] leading-5 text-ln-t3" title={tarefa.status}>
           {tarefa.status}
@@ -305,7 +376,7 @@ function TarefaRow({ tarefa, aba, diaSelecionado }) {
   )
 }
 
-function ListaTarefas({ pessoa, aba, onAba, diaSelecionado, prefixo }) {
+function ListaTarefas({ pessoa, aba, onAba, diaSelecionado, prefixo, onEstimar }) {
   const contagens = {
     fila: (pessoa.filaProxima || []).length,
     atrasadas: (pessoa.filaProxima || []).filter((t) => t.atrasada).length,
@@ -322,12 +393,12 @@ function ListaTarefas({ pessoa, aba, onAba, diaSelecionado, prefixo }) {
         {itens.length === 0 ? (
           <li className="h-8 flex items-center text-xs text-ln-t4">{def.vazio}</li>
         ) : (
-          itens.map((t, i) => <TarefaRow key={t.id || i} tarefa={t} aba={aba} diaSelecionado={diaSelecionado} />)
+          itens.map((t, i) => <TarefaRow key={t.id || i} tarefa={t} aba={aba} diaSelecionado={diaSelecionado} onEstimar={onEstimar} />)
         )}
       </ul>
       {temEstimadas && (
         <p className="mt-1.5 text-[11px] text-ln-t4">
-          * horas estimadas pelo tipo ou pela dificuldade: a tarefa não tem estimativa preenchida no ClickUp
+          * horas estimadas pelo tipo ou pela dificuldade: a tarefa não tem estimativa no ClickUp.{onEstimar ? ' Clique nas horas para preencher.' : ''}
         </p>
       )}
     </section>
@@ -401,8 +472,9 @@ function SemClickup({ pessoa }) {
  * @param {string}   [p.abaInicial]      'fila' | 'atrasadas' | 'semdata' | 'zumbis'
  * @param {Function} [p.onNovaAtividade] (pessoa) => void
  * @param {Function} [p.onRecarregar]    (pessoa) => void
+ * @param {Function} [p.onEstimar]       (pessoa, tarefa, horas) => Promise  grava a estimativa no ClickUp
  */
-export default function PersonPanel({ pessoa, hoje, diaSelecionado = null, abaInicial = ABA_PADRAO, onNovaAtividade, onRecarregar }) {
+export default function PersonPanel({ pessoa, hoje, diaSelecionado = null, abaInicial = ABA_PADRAO, onNovaAtividade, onRecarregar, onEstimar }) {
   const prefixo = useId()
   // A aba segue a prop quando o painel troca de pessoa ou a tabela pede outra
   // aba; entre trocas, quem manda é o clique do usuário.
@@ -457,7 +529,7 @@ export default function PersonPanel({ pessoa, hoje, diaSelecionado = null, abaIn
 
                 <Distribuicao porPasta={pessoa.porPasta || []} />
 
-                <ListaTarefas pessoa={pessoa} aba={aba} onAba={setAba} diaSelecionado={diaSelecionado} prefixo={prefixo} />
+                <ListaTarefas pessoa={pessoa} aba={aba} onAba={setAba} diaSelecionado={diaSelecionado} prefixo={prefixo} onEstimar={onEstimar ? (tarefa, horas) => onEstimar(pessoa, tarefa, horas) : null} />
               </>
             )}
           </>

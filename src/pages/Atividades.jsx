@@ -17,7 +17,7 @@ import AppSidebar from '../components/AppSidebar'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
 import { supabase } from '../lib/supabase'
-import { carregarConfigAtividades } from '../lib/atividades'
+import { carregarConfigAtividades, estimarTarefa } from '../lib/atividades'
 import { useCargaTime } from '../hooks/useCargaTime'
 import { usePlanejador } from '../hooks/usePlanejador'
 import { fmtHora, chaveAtividade } from '../lib/atividadesCarga'
@@ -191,6 +191,12 @@ export default function Atividades() {
   const fecharPainel = useCallback(() => setPainel(null), [])
   const onCalculado = useCallback(() => { setPlannerAberto(true); setPlannerMin(false) }, [])
   const recarregarPessoa = useCallback((pessoa) => { if (pessoa?.clickupId) refreshCarga([pessoa.clickupId]) }, [refreshCarga])
+  // Edição inline das horas no painel da pessoa: grava no ClickUp e relê a agenda dela
+  const estimar = useCallback(async (pessoa, tarefa, horas) => {
+    await estimarTarefa({ taskId: tarefa.id, horas, assigneeClickupId: pessoa?.clickupId || null })
+    showToast(`Estimativa de ${tarefa.nome?.slice(0, 40) || 'tarefa'} salva no ClickUp`)
+    if (pessoa?.clickupId) refreshCarga([pessoa.clickupId])
+  }, [refreshCarga, showToast])
 
   // atalhos: C nova atividade, Esc fecha painel, setas no contador
   useEffect(() => {
@@ -390,6 +396,7 @@ export default function Atividades() {
                         abaInicial={painel.aba}
                         onNovaAtividade={(p) => novaAtividade(p)}
                         onRecarregar={recarregarPessoa}
+                        onEstimar={estimar}
                       />
                     )}
                     {painel.tipo === 'atividade' && atividadeAberta && (

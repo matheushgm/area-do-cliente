@@ -7,6 +7,8 @@
 //   action=sugerir   → lê as tarefas abertas dos responsáveis no ClickUp e
 //                      devolve a agenda projetada + data de entrega sugerida
 //   action=listas    → listas (com status) da pasta ClickUp do cliente
+//   action=estimar   → grava a estimativa (horas) numa tarefa do ClickUp e
+//                      invalida o cache da pessoa
 //   action=criar     → cria a tarefa aprovada no ClickUp (pasta do cliente,
 //                      responsável, datas, estimativa, campos Cliente / Tipo /
 //                      Departamento / Dificuldade) e registra em
@@ -205,6 +207,20 @@ async function actionCarga(body, ctx) {
   return { data: { hoje, geradoEm: new Date().toISOString(), pessoas, erros, config: { capacidade_padrao_horas_dia: cfg.capacidade_padrao_horas_dia, dias_atraso_maximo: cfg.dias_atraso_maximo, horizonte_dias_uteis: cfg.horizonte_dias_uteis } } }
 }
 
+/** Grava time_estimate numa tarefa do ClickUp (edição inline das horas no painel). */
+async function actionEstimar(body, ctx) {
+  const taskId = String(body.taskId || '').trim()
+  const horas = Number(body.horas)
+  if (!/^[a-z0-9]+$/i.test(taskId)) return { status: 400, error: 'taskId inválido.' }
+  if (!(horas > 0) || horas > 200) return { status: 400, error: 'Horas inválidas (entre 0,25 e 200).' }
+  const task = await clickup('PUT', `/task/${taskId}`, ctx.token, { time_estimate: Math.round(horas * 3600000) })
+  const assignees = (task?.assignees || []).map((a) => Number(a.id)).filter(Boolean)
+  for (const id of assignees) cache.delete(`tasks:${id}`)
+  const extra = Number(body.assigneeClickupId)
+  if (extra > 0) cache.delete(`tasks:${extra}`)
+  return { data: { ok: true, taskId, horas, time_estimate: task?.time_estimate ?? null } }
+}
+
 async function actionListas(body, ctx) {
   const folderId = String(body.folderId || '').trim()
   if (!folderId) return { status: 400, error: 'folderId é obrigatório.' }
@@ -396,6 +412,7 @@ export default async function handler(req, res) {
     if (action === 'sugerir') out = await actionSugerir(body, ctx)
     else if (action === 'carga') out = await actionCarga(body, ctx)
     else if (action === 'listas') out = await actionListas(body, ctx)
+    else if (action === 'estimar') out = await actionEstimar(body, ctx)
     else if (action === 'criar') out = await actionCriar(body, ctx)
     else return res.status(400).json({ error: { message: 'Ação não suportada.' } })
 

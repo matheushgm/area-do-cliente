@@ -57,6 +57,13 @@ function makeMock(fx) {
       if (action === 'carga') return { hoje, geradoEm: new Date().toISOString(), pessoas, erros, config: resumoCfg }
       return { hoje, geradoEm: new Date().toISOString(), resultados: pessoas, erros, config: resumoCfg }
     }
+    if (action === 'estimar') {
+      for (const lista of Object.values(fx.tasksByAssignee || {})) {
+        const t = lista.find((x) => x.id === payload.taskId)
+        if (t) t.time_estimate = Math.round(Number(payload.horas) * 3600000)
+      }
+      return { ok: true, taskId: payload.taskId, horas: Number(payload.horas) }
+    }
     if (action === 'criar') {
       const id = 'dev' + Math.random().toString(36).slice(2, 8)
       const registro = {

@@ -62,6 +62,11 @@ export function listarListasClickUp(folderId) {
   return call('listas', { folderId })
 }
 
+/** Grava a estimativa (horas) numa tarefa do ClickUp. */
+export function estimarTarefa({ taskId, horas, assigneeClickupId = null }) {
+  return call('estimar', { taskId, horas, assigneeClickupId })
+}
+
 /** Cria a tarefa aprovada no ClickUp e registra no histórico. */
 export function criarAtividade(payload) {
   return call('criar', payload)
