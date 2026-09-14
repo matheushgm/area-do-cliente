@@ -19,6 +19,22 @@ export default function CargaDiaria({ resumo = [], capacidade, hoje, sugestao = 
   const forcando = !!(forcada && dataEscolhida)
   const maxBar = Math.max(cap * 1.5, ...resumo.map((d) => d.carga + (d.alocadoNovaTarefa || 0) + (d.excedente || 0)))
   const temNova = !!(sugestao || forcada)
+  const colunas = resumo.map((d) => {
+    const forcadoAqui = forcando ? forcada?.alocacao?.find((a) => a.data === d.data)?.horas || 0 : 0
+    const novo = forcando ? forcadoAqui : (d.alocadoNovaTarefa || 0)
+    const excForcado = forcando && d.data === dataEscolhida && forcada && !forcada.cabe ? forcada.horasExcedentes : 0
+    const excedente = (d.excedente || 0) + excForcado
+    const total = d.carga + novo + excedente
+    const hTotal = Math.min(100, (total / maxBar) * 100)
+    const part = (v) => (total > 0 ? `${(v / total) * 100}%` : '0%')
+    return {
+      data: d.data, diaSemana: d.diaSemana, carga: d.carga, novo, excedente, hTotal, part,
+      hojeCol: d.data === hoje,
+      entregaCol: d.data === (forcando ? dataEscolhida : sugestao?.entrega),
+      selCol: d.data === diaSelecionado,
+      title: `${DIAS[d.diaSemana]} ${fmtCurta(d.data)}: ${fmtHoras(d.carga)} na agenda${novo ? ` + ${fmtHoras(novo)} desta atividade` : ''}${excedente ? ` + ${fmtHoras(excedente)} de estouro` : ''} · ${d.tarefas} tarefa(s)`,
+    }
+  })
   return (
     <div>
       {legenda && (
@@ -31,35 +47,29 @@ export default function CargaDiaria({ resumo = [], capacidade, hoje, sugestao = 
           </div>
         </div>
       )}
+      {/* Área das barras: a linha da capacidade e as barras compartilham a mesma
+          base, sem os rótulos no meio (senão a barra sobe a altura do texto). */}
       <div className="relative flex items-end gap-1.5" style={{ height: altura }}>
         <div className="absolute left-0 right-0 border-t border-dashed border-ln-t4/50 pointer-events-none" style={{ bottom: `${(cap / maxBar) * 100}%` }}>
           <span className="absolute right-0 -top-4 text-[10px] text-ln-t4 tabular">{fmtHoras(cap)}</span>
         </div>
-        {resumo.map((d) => {
-          const forcadoAqui = forcando ? forcada?.alocacao?.find((a) => a.data === d.data)?.horas || 0 : 0
-          const novo = forcando ? forcadoAqui : (d.alocadoNovaTarefa || 0)
-          const excForcado = forcando && d.data === dataEscolhida && forcada && !forcada.cabe ? forcada.horasExcedentes : 0
-          const excedente = (d.excedente || 0) + excForcado
-          const total = d.carga + novo + excedente
-          const hTotal = Math.min(100, (total / maxBar) * 100)
-          const part = (v) => (total > 0 ? `${(v / total) * 100}%` : '0%')
-          const hojeCol = d.data === hoje
-          const entregaCol = d.data === (forcando ? dataEscolhida : sugestao?.entrega)
-          const selCol = d.data === diaSelecionado
-          const title = `${DIAS[d.diaSemana]} ${fmtCurta(d.data)}: ${fmtHoras(d.carga)} na agenda${novo ? ` + ${fmtHoras(novo)} desta atividade` : ''}${excedente ? ` + ${fmtHoras(excedente)} de estouro` : ''} · ${d.tarefas} tarefa(s)`
-          return (
-            <div key={d.data} className="flex-1 flex flex-col items-center justify-end h-full min-w-0" title={title}>
-              <div className={`w-full flex flex-col-reverse rounded-t overflow-hidden ${selCol ? 'ring-1 ring-ln-t2' : ''}`} style={{ height: `${hTotal}%` }}>
-                {d.carga > 0 && <div className="w-full bg-ln-brand/70" style={{ flexBasis: part(d.carga) }} />}
-                {novo > 0 && <div className="w-full bg-ln-accent" style={{ flexBasis: part(novo) }} />}
-                {excedente > 0 && <div className="w-full bg-ln-red/80" style={{ flexBasis: part(excedente) }} />}
-              </div>
-              <p className={`text-[10px] mt-1.5 leading-tight text-center tabular ${entregaCol ? 'text-ln-accent font-semibold' : hojeCol ? 'text-ln-t1 font-medium' : 'text-ln-t4'}`}>
-                {DIAS[d.diaSemana]}<br />{fmtCurta(d.data)}
-              </p>
+        {colunas.map((c) => (
+          <div key={c.data} className="flex-1 flex flex-col justify-end h-full min-w-0" title={c.title}>
+            <div className={`w-full flex flex-col-reverse rounded-t overflow-hidden ${c.selCol ? 'ring-1 ring-ln-t2' : ''}`} style={{ height: `${c.hTotal}%` }}>
+              {c.carga > 0 && <div className="w-full bg-ln-brand/70" style={{ flexBasis: c.part(c.carga) }} />}
+              {c.novo > 0 && <div className="w-full bg-ln-accent" style={{ flexBasis: c.part(c.novo) }} />}
+              {c.excedente > 0 && <div className="w-full bg-ln-red/80" style={{ flexBasis: c.part(c.excedente) }} />}
             </div>
-          )
-        })}
+          </div>
+        ))}
+      </div>
+      {/* Rótulos dos dias, em linha própria, alinhados às colunas */}
+      <div className="flex gap-1.5 mt-1.5">
+        {colunas.map((c) => (
+          <p key={c.data} className={`flex-1 min-w-0 text-[10px] leading-tight text-center tabular ${c.entregaCol ? 'text-ln-accent font-semibold' : c.hojeCol ? 'text-ln-t1 font-medium' : 'text-ln-t4'}`}>
+            {DIAS[c.diaSemana]}<br />{fmtCurta(c.data)}
+          </p>
+        ))}
       </div>
     </div>
   )
