@@ -205,6 +205,91 @@ function Kpis({ pessoa }) {
   )
 }
 
+// Relógio de São Paulo em horas decimais (ex.: 14:30 → 14.5), atualizado a cada minuto
+function horaAgoraSP() {
+  const partes = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date())
+  const h = Number(partes.find((x) => x.type === 'hour')?.value) || 0
+  const m = Number(partes.find((x) => x.type === 'minute')?.value) || 0
+  return h + m / 60
+}
+function fmtHM(h) {
+  const total = Math.round(Math.max(0, h) * 60)
+  const hh = Math.floor(total / 60), mm = total % 60
+  if (hh === 0) return `${mm} min`
+  return mm ? `${hh}h${String(mm).padStart(2, '0')}` : `${hh}h`
+}
+
+/**
+ * Tarefas de hoje contra o que falta de relógio até o fim do expediente.
+ * Responde: essa pessoa termina o dia ou vai empurrar coisa para amanhã?
+ */
+function HojeAteFim({ pessoa, fimExpediente = 18 }) {
+  const [agora, setAgora] = useState(() => horaAgoraSP())
+  useEffect(() => {
+    const t = setInterval(() => setAgora(horaAgoraSP()), 60 * 1000)
+    return () => clearInterval(t)
+  }, [])
+  const d = pessoa.diaHoje
+  if (!d) {
+    return (
+      <div className="ln-card px-3 py-2.5 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] text-ln-t4">Hoje até as {fimExpediente}h</p>
+          <p className="text-[13px] text-ln-t2">Fim de semana: nada previsto para hoje</p>
+        </div>
+        {pessoa.proximoDia && <p className="text-xs text-ln-t3 tabular">próximo dia útil {fmtDiaCurto(pessoa.proximoDia.data)}: {fmtHoras(pessoa.proximoDia.cargaOriginal)}</p>}
+      </div>
+    )
+  }
+  // cargaOriginal = tarefas que vencem hoje + atrasadas (caem em hoje), sem o teto da capacidade
+  const horasHoje = Number(d.cargaOriginal) || 0
+  const restante = Math.max(0, fimExpediente - agora)
+  const acabou = agora >= fimExpediente
+  const sobra = Math.max(0, horasHoje - restante)
+  const cabe = sobra <= 0
+  const escala = Math.max(horasHoje, restante, 0.01)
+  const pctHoje = Math.min(100, (horasHoje / escala) * 100)
+  const pctRestante = Math.min(100, (restante / escala) * 100)
+  const tom = acabou && horasHoje > 0 ? 'text-ln-red' : cabe ? 'text-ln-green' : 'text-ln-red'
+  const veredito = horasHoje === 0
+    ? 'Nada vencendo hoje'
+    : acabou
+      ? `Expediente encerrado: ${fmtHoras(horasHoje)} ficam para amanhã`
+      : cabe
+        ? `Fecha o dia: sobram ${fmtHM(restante - horasHoje)} de folga`
+        : `Não fecha: ${fmtHM(sobra)} passam das ${fimExpediente}h e ficam para amanhã`
+  return (
+    <div className={`ln-card px-3 py-2.5 ${!cabe && horasHoje > 0 ? '!border-ln-red/40' : ''}`}>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[11px] text-ln-t4">Hoje até as {fimExpediente}h</p>
+        <p className="text-[11px] text-ln-t4 tabular">agora {fmtHM(agora).replace(' min', 'min')} · faltam {fmtHM(restante)}</p>
+      </div>
+      <div className="mt-1 flex items-baseline gap-2">
+        <span className={`text-lg font-semibold tabular ${tom}`}>{fmtHoras(horasHoje)}</span>
+        <span className="text-xs text-ln-t3">de tarefas para hoje ({d.tarefas} tarefa{d.tarefas === 1 ? '' : 's'})</span>
+        <span className="text-xs text-ln-t4">·</span>
+        <span className="text-xs text-ln-t3 tabular">{fmtHM(restante)} de relógio até as {fimExpediente}h</span>
+      </div>
+      {/* duas réguas na mesma escala: tarefas de hoje x tempo que falta */}
+      <div className="mt-2 space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="w-16 text-[10px] text-ln-t4">tarefas</span>
+          <div className="flex-1 h-1.5 rounded-full bg-ln-ink/[0.06] overflow-hidden">
+            <div className={`h-full ${cabe ? 'bg-ln-brand/70' : 'bg-ln-red/80'}`} style={{ width: `${pctHoje}%` }} />
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-16 text-[10px] text-ln-t4">até as {fimExpediente}h</span>
+          <div className="flex-1 h-1.5 rounded-full bg-ln-ink/[0.06] overflow-hidden">
+            <div className="h-full bg-ln-green/70" style={{ width: `${pctRestante}%` }} />
+          </div>
+        </div>
+      </div>
+      <p className={`mt-2 text-xs font-medium ${tom}`}>{veredito}</p>
+    </div>
+  )
+}
+
 function LinhaDia({ pessoa, diaSelecionado }) {
   if (!pessoa.resumo?.length) return null
   const d = diaDe(pessoa, diaSelecionado)
@@ -566,7 +651,7 @@ function SemClickup({ pessoa }) {
  * @param {Function} [p.onRecarregar]    (pessoa) => void
  * @param {Function} [p.onEstimar]       (pessoa, tarefa, horas) => Promise  grava a estimativa no ClickUp
  */
-export default function PersonPanel({ pessoa, hoje, diaSelecionado = null, abaInicial = ABA_PADRAO, onNovaAtividade, onRecarregar, onEstimar }) {
+export default function PersonPanel({ pessoa, hoje, diaSelecionado = null, abaInicial = ABA_PADRAO, onNovaAtividade, onRecarregar, onEstimar, fimExpediente = 18 }) {
   const prefixo = useId()
   // A aba segue a prop quando o painel troca de pessoa ou a tabela pede outra
   // aba; entre trocas, quem manda é o clique do usuário.
@@ -601,6 +686,7 @@ export default function PersonPanel({ pessoa, hoje, diaSelecionado = null, abaIn
             {pessoa.api && (
               <>
                 <Kpis pessoa={pessoa} />
+                <HojeAteFim pessoa={pessoa} fimExpediente={fimExpediente} />
 
                 <section>
                   {pessoa.resumo?.length ? (

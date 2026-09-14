@@ -36,7 +36,7 @@ import ConfigModal from '../components/Atividades/ConfigModal'
 const CONFIG_FALLBACK = {
   capacidade_padrao_horas_dia: 6, capacidade_por_pessoa: {}, horas_padrao_sem_estimativa: 1,
   horas_por_tipo: {}, horas_por_dificuldade: {}, dias_atraso_maximo: 14,
-  considerar_backlog: true, considerar_sem_data: false, horizonte_dias_uteis: 60,
+  considerar_backlog: true, considerar_sem_data: false, horizonte_dias_uteis: 60, fim_expediente_hora: 18,
 }
 
 const PAINEL_LARGURA = 480
@@ -407,6 +407,7 @@ export default function Atividades() {
                         onNovaAtividade={(p) => novaAtividade(p)}
                         onRecarregar={recarregarPessoa}
                         onEstimar={estimar}
+                        fimExpediente={Number(config.fim_expediente_hora) || 18}
                       />
                     )}
                     {painel.tipo === 'atividade' && atividadeAberta && (

@@ -59,6 +59,9 @@ export const DEFAULT_CONFIG = {
   considerar_sem_data: false,
   // Quantos dias úteis à frente a agenda enxerga
   horizonte_dias_uteis: 60,
+  // Hora em que o expediente termina (o painel compara as tarefas de hoje com o
+  // que falta de relógio até essa hora)
+  fim_expediente_hora: 18,
   // 0=dom … 6=sáb
   dias_uteis: [1, 2, 3, 4, 5],
   // 'yyyy-mm-dd'
