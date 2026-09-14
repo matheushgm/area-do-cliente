@@ -6,7 +6,8 @@ import { cargaTime } from '../lib/atividades'
 import { enriquecerPessoa, departamentosDe } from '../lib/atividadesCarga'
 
 const LOTE = 3
-const TTL_MS = 10 * 60 * 1000
+const TTL_MS = 5 * 60 * 1000           // cache da sessão
+const AUTO_REFRESH_MS = 5 * 60 * 1000  // relê o ClickUp sozinho enquanto a aba está visível
 const KEY = 'atividades_carga_v1'
 
 function lerCache() {
@@ -86,6 +87,22 @@ export function useCargaTime(membros, squads) {
     // só na montagem / quando o conjunto de ids muda
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ids.join(',')])
+
+  // Integração nos dois sentidos: o que é editado aqui vai na hora para o
+  // ClickUp; o que muda lá chega em até 5 minutos enquanto a página está aberta
+  // (e imediatamente ao voltar para a aba, se a leitura estiver velha).
+  const geradoEmRef = useRef(geradoEm)
+  geradoEmRef.current = geradoEm
+  const carregarRef = useRef(carregar)
+  carregarRef.current = carregar
+  useEffect(() => {
+    if (ids.length === 0) return
+    const velho = () => !geradoEmRef.current || Date.now() - new Date(geradoEmRef.current).getTime() >= AUTO_REFRESH_MS
+    const tick = () => { if (document.visibilityState === 'visible' && velho()) carregarRef.current({ refresh: true }) }
+    const timer = setInterval(tick, 60 * 1000)
+    document.addEventListener('visibilitychange', tick)
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', tick) }
+  }, [ids])
 
   const pessoas = useMemo(() => {
     return membros.map((m) => {

@@ -32,11 +32,27 @@ export function fmtLonga(iso) {
   const [y, m, d] = String(iso).split('-')
   return `${DIAS_LONGO[weekday(iso)]}, ${d}/${m}/${y}`
 }
-/** 5.5 → '5,5h'; 6 → '6h' */
+/** 5.5 → '5,5h'; 6 → '6h'; 0.5 → '30 min' */
 export function fmtHoras(h) {
   const n = Number(h) || 0
+  if (n > 0 && n < 1) return `${Math.round(n * 60)} min`
   if (Number.isInteger(n)) return `${n}h`
   return `${n.toFixed(1).replace('.', ',')}h`
+}
+
+/**
+ * Lê uma duração digitada e devolve horas: "45m", "45 min", "1h30", "1:30",
+ * "1,5" ou "2". `unidade` ('h' | 'min') vale para número sem sufixo.
+ */
+export function parseDuracao(texto, unidade = 'h') {
+  const t = String(texto || '').trim().toLowerCase().replace(',', '.')
+  if (!t) return null
+  let m
+  if ((m = t.match(/^(\d+(?:\.\d+)?)\s*h(?:\s*(\d{1,2})\s*(?:m|min)?)?$/))) return Number(m[1]) + (m[2] ? Number(m[2]) / 60 : 0)
+  if ((m = t.match(/^(\d+):(\d{1,2})$/))) return Number(m[1]) + Number(m[2]) / 60
+  if ((m = t.match(/^(\d+(?:\.\d+)?)\s*(m|min|minutos?)$/))) return Number(m[1]) / 60
+  if ((m = t.match(/^(\d+(?:\.\d+)?)$/))) return unidade === 'min' ? Number(m[1]) / 60 : Number(m[1])
+  return null
 }
 export function fmtPct(n) {
   return `${Math.round(Number(n) || 0)}%`

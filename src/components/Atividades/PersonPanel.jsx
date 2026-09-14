@@ -8,7 +8,7 @@ import CargaDiaria from './CargaDiaria'
 import { PrioridadeIcon, PRIORIDADE_LABEL } from './IssueList'
 import {
   NIVEIS, diaDe, tomOcupacao,
-  fmtHoras, fmtCurta, fmtDiaCurto, fmtPct, fmtHora, iniciais, primeiroNome,
+  fmtHoras, fmtCurta, fmtDiaCurto, fmtPct, fmtHora, iniciais, primeiroNome, parseDuracao,
 } from '../../lib/atividadesCarga'
 
 const FOCO = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ln-t2'
@@ -300,6 +300,7 @@ function HorasEditaveis({ tarefa, estimada, onEstimar }) {
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState(null)
   const [local, setLocal] = useState(null) // valor recém-salvo, até a agenda recarregar
+  const [unidade, setUnidade] = useState('h') // número sem sufixo é lido nesta unidade
   const inputRef = useRef(null)
 
   useEffect(() => { setLocal(null) }, [tarefa.horas, tarefa.origem])
@@ -312,12 +313,15 @@ function HorasEditaveis({ tarefa, estimada, onEstimar }) {
   function abrir(e) {
     e.preventDefault(); e.stopPropagation()
     if (!podeEditar || salvando) return
-    setValor(String(horasMostradas ?? '').replace('.', ','))
+    const h = Number(horasMostradas) || 0
+    // abaixo de 1h edita em minutos; a partir de 1h, em horas
+    if (h > 0 && h < 1) { setUnidade('min'); setValor(String(Math.round(h * 60))) }
+    else { setUnidade('h'); setValor(String(h).replace('.', ',')) }
     setErro(null)
     setEditando(true)
   }
   async function salvar() {
-    const n = Number(String(valor).replace(',', '.'))
+    const n = parseDuracao(valor, unidade)
     setEditando(false)
     if (!(n > 0) || n === Number(horasMostradas) && veioDoClickUp) return
     setSalvando(true)
@@ -337,19 +341,38 @@ function HorasEditaveis({ tarefa, estimada, onEstimar }) {
   }
 
   if (editando) {
+    const btn = (u, rotulo) => (
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()} // não tira o foco do input
+        onClick={(e) => { e.stopPropagation(); setUnidade(u); inputRef.current?.focus() }}
+        className={`h-5 px-1.5 rounded text-[10px] font-semibold transition-colors ${unidade === u ? 'bg-ln-accent text-white' : 'text-ln-t4 hover:bg-ln-ink/5'}`}
+        aria-pressed={unidade === u}
+        title={u === 'h' ? 'Valor em horas' : 'Valor em minutos'}
+      >
+        {rotulo}
+      </button>
+    )
     return (
-      <input
-        ref={inputRef}
-        type="text"
-        inputMode="decimal"
-        value={valor}
-        onChange={(e) => setValor(e.target.value)}
-        onBlur={salvar}
-        onKeyDown={tecla}
-        onClick={(e) => e.stopPropagation()}
-        aria-label={`Horas de ${tarefa.nome || 'tarefa'}`}
-        className="w-14 shrink-0 h-6 px-1.5 rounded-md bg-ln-ink/[0.05] border border-ln-accent/60 text-right text-xs text-ln-t1 tabular outline-none"
-      />
+      <span className="shrink-0 inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="decimal"
+          value={valor}
+          onChange={(e) => setValor(e.target.value)}
+          onBlur={salvar}
+          onKeyDown={tecla}
+          aria-label={`Duração de ${tarefa.nome || 'tarefa'} (${unidade === 'min' ? 'minutos' : 'horas'})`}
+          placeholder={unidade === 'min' ? '45' : '1,5'}
+          title="Aceita 2, 1,5, 1h30, 1:30 ou 45m"
+          className="w-14 h-6 px-1.5 rounded-md bg-ln-ink/[0.05] border border-ln-accent/60 text-right text-xs text-ln-t1 tabular outline-none"
+        />
+        <span className="inline-flex items-center rounded-md bg-ln-ink/[0.04] p-0.5">
+          {btn('h', 'h')}
+          {btn('min', 'min')}
+        </span>
+      </span>
     )
   }
   return (
