@@ -10,7 +10,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Menu, CalendarCheck, ChevronUp, ChevronDown, ChevronRight, Star, RefreshCw, Loader2, Settings, Plus, X,
-  Users, ListChecks, Rows3, Layers,
+  Users, ListChecks, Rows3, Layers, Maximize2, Minimize2,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import AppSidebar from '../components/AppSidebar'
@@ -121,6 +121,7 @@ export default function Atividades() {
 
   // ── Planejador (fluxo de nova atividade) ───────────────────────────────────
   const [painel, setPainel] = useState(null) // { tipo: 'pessoa', profileId, aba } | { tipo: 'atividade', id } | { tipo: 'nova' }
+  const [painelExpandido, setPainelExpandido] = useState(false) // painel em tela cheia (ocupa o frame inteiro)
   const [plannerAberto, setPlannerAberto] = useState(false)
   const [plannerMin, setPlannerMin] = useState(false)
   const { refresh: refreshCarga } = carga
@@ -188,7 +189,7 @@ export default function Atividades() {
     setPlannerAberto(false)
     setPlannerMin(false)
   }, [resetPlanejador])
-  const fecharPainel = useCallback(() => setPainel(null), [])
+  const fecharPainel = useCallback(() => { setPainel(null); setPainelExpandido(false) }, [])
   const onCalculado = useCallback(() => { setPlannerAberto(true); setPlannerMin(false) }, [])
   const recarregarPessoa = useCallback((pessoa) => { if (pessoa?.clickupId) refreshCarga([pessoa.clickupId]) }, [refreshCarga])
   // Edição inline das horas no painel da pessoa: grava no ClickUp e relê a agenda dela
@@ -202,7 +203,8 @@ export default function Atividades() {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
-        if (painel) setPainel(null)
+        if (painel && painelExpandido) setPainelExpandido(false)
+        else if (painel) setPainel(null)
         else if (plannerAberto) setPlannerMin(true)
         return
       }
@@ -211,7 +213,7 @@ export default function Atividades() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [painel, plannerAberto, novaAtividade])
+  }, [painel, painelExpandido, plannerAberto, novaAtividade])
 
   // ── Contador "n / N" do painel ─────────────────────────────────────────────
   const pessoaAberta = painel?.tipo === 'pessoa' ? carga.pessoas.find((p) => p.profileId === painel.profileId) || null : null
@@ -232,7 +234,7 @@ export default function Atividades() {
     : painel?.tipo === 'atividade' ? (atividadeAberta ? chaveAtividade(atividadeAberta.id) : 'Atividade')
     : painel?.tipo === 'nova' ? 'Nova atividade' : ''
 
-  const plannerOffset = painel && painelEmpurra ? PAINEL_LARGURA + 16 : 16
+  const plannerOffset = painel && painelEmpurra && !painelExpandido ? PAINEL_LARGURA + 16 : 16
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -364,10 +366,10 @@ export default function Atividades() {
             {/* ── Painel lateral ──────────────────────────────────────── */}
             {painel && (
               <>
-                {!painelEmpurra && <div className="absolute inset-0 z-30 bg-black/30" onClick={fecharPainel} aria-hidden="true" />}
+                {!painelEmpurra && !painelExpandido && <div className="absolute inset-0 z-30 bg-black/30" onClick={fecharPainel} aria-hidden="true" />}
                 <aside
-                  className={`${painelEmpurra ? 'relative shrink-0' : 'absolute inset-y-0 right-0 z-40 shadow-2xl'} flex flex-col bg-ln-panel border-l border-ln-ink/[0.08]`}
-                  style={{ width: painelEmpurra ? PAINEL_LARGURA : `min(${PAINEL_LARGURA}px, 100%)` }}
+                  className={`${painelExpandido ? 'absolute inset-0 z-40' : painelEmpurra ? 'relative shrink-0 border-l border-ln-ink/[0.08]' : 'absolute inset-y-0 right-0 z-40 shadow-2xl border-l border-ln-ink/[0.08]'} flex flex-col bg-ln-panel`}
+                  style={painelExpandido ? undefined : { width: painelEmpurra ? PAINEL_LARGURA : `min(${PAINEL_LARGURA}px, 100%)` }}
                   aria-label={tituloPainel}
                 >
                   <div className="h-11 shrink-0 flex items-center justify-between gap-2 px-3 border-b border-ln-ink/5">
@@ -384,10 +386,18 @@ export default function Atividades() {
                           <button onClick={() => contador.ir(contador.i + 1)} disabled={contador.i >= contador.n - 1} className="ln-iconbtn" aria-label="Próximo"><ChevronDown className="w-3.5 h-3.5" /></button>
                         </>
                       )}
+                      <button
+                        onClick={() => setPainelExpandido((v) => !v)}
+                        className="ln-iconbtn"
+                        aria-label={painelExpandido ? 'Voltar ao painel lateral' : 'Expandir em tela cheia'}
+                        title={painelExpandido ? 'Voltar ao painel lateral (Esc)' : 'Expandir em tela cheia'}
+                      >
+                        {painelExpandido ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                      </button>
                       <button onClick={fecharPainel} className="ln-iconbtn" aria-label="Fechar painel" title="Fechar (Esc)"><X className="w-4 h-4" /></button>
                     </div>
                   </div>
-                  <div className="flex-1 min-h-0 overflow-y-auto">
+                  <div className={`flex-1 min-h-0 overflow-y-auto ${painelExpandido ? '[&>*]:max-w-6xl [&>*]:mx-auto [&>*]:w-full' : ''}`}>
                     {painel.tipo === 'pessoa' && pessoaAberta && (
                       <PersonPanel
                         pessoa={{ ...pessoaAberta, atualizadoEm: carga.geradoEm }}
