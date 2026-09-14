@@ -13,8 +13,9 @@ import { DIAS, fmtCurta, fmtHoras } from '../../lib/atividadesCarga'
  * @param {string} [p.diaSelecionado]  dia destacado (linha de calor do time)
  * @param {number} [p.altura]      px do gráfico (default 120)
  * @param {boolean} [p.legenda]    mostra a legenda (default true)
+ * @param {Function} [p.onSelecionarDia]  (iso|null) => void; quando existe, as barras viram botões (clique de novo limpa)
  */
-export default function CargaDiaria({ resumo = [], capacidade, hoje, sugestao = null, forcada = null, dataEscolhida = null, diaSelecionado = null, altura = 120, legenda = true }) {
+export default function CargaDiaria({ resumo = [], capacidade, hoje, sugestao = null, forcada = null, dataEscolhida = null, diaSelecionado = null, altura = 120, legenda = true, onSelecionarDia = null }) {
   const cap = Number(capacidade) || 6
   const forcando = !!(forcada && dataEscolhida)
   const maxBar = Math.max(cap * 1.5, ...resumo.map((d) => d.carga + (d.alocadoNovaTarefa || 0) + (d.excedente || 0)))
@@ -53,20 +54,31 @@ export default function CargaDiaria({ resumo = [], capacidade, hoje, sugestao = 
         <div className="absolute left-0 right-0 border-t border-dashed border-ln-t4/50 pointer-events-none" style={{ bottom: `${(cap / maxBar) * 100}%` }}>
           <span className="absolute right-0 -top-4 text-[10px] text-ln-t4 tabular">{fmtHoras(cap)}</span>
         </div>
-        {colunas.map((c) => (
-          <div key={c.data} className="flex-1 flex flex-col justify-end h-full min-w-0" title={c.title}>
-            <div className={`w-full flex flex-col-reverse rounded-t overflow-hidden ${c.selCol ? 'ring-1 ring-ln-t2' : ''}`} style={{ height: `${c.hTotal}%` }}>
-              {c.carga > 0 && <div className="w-full bg-ln-brand/70" style={{ flexBasis: c.part(c.carga) }} />}
-              {c.novo > 0 && <div className="w-full bg-ln-accent" style={{ flexBasis: c.part(c.novo) }} />}
-              {c.excedente > 0 && <div className="w-full bg-ln-red/80" style={{ flexBasis: c.part(c.excedente) }} />}
-            </div>
-          </div>
-        ))}
+        {colunas.map((c) => {
+          const Col = onSelecionarDia ? 'button' : 'div'
+          const apagada = !!diaSelecionado && !c.selCol
+          return (
+            <Col
+              key={c.data}
+              type={onSelecionarDia ? 'button' : undefined}
+              onClick={onSelecionarDia ? () => onSelecionarDia(c.selCol ? null : c.data) : undefined}
+              aria-pressed={onSelecionarDia ? c.selCol : undefined}
+              className={`flex-1 flex flex-col justify-end h-full min-w-0 rounded-t transition-opacity duration-150 ${onSelecionarDia ? 'cursor-pointer hover:bg-ln-ink/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-ln-t2' : ''} ${apagada ? 'opacity-45' : ''}`}
+              title={onSelecionarDia ? `${c.title}. ${c.selCol ? 'Clique para limpar o filtro' : 'Clique para ver as tarefas deste dia'}` : c.title}
+            >
+              <div className={`w-full flex flex-col-reverse rounded-t overflow-hidden ${c.selCol ? 'ring-2 ring-ln-t1' : ''}`} style={{ height: `${c.hTotal}%` }}>
+                {c.carga > 0 && <div className="w-full bg-ln-brand/70" style={{ flexBasis: c.part(c.carga) }} />}
+                {c.novo > 0 && <div className="w-full bg-ln-accent" style={{ flexBasis: c.part(c.novo) }} />}
+                {c.excedente > 0 && <div className="w-full bg-ln-red/80" style={{ flexBasis: c.part(c.excedente) }} />}
+              </div>
+            </Col>
+          )
+        })}
       </div>
       {/* Rótulos dos dias, em linha própria, alinhados às colunas */}
       <div className="flex gap-1.5 mt-1.5">
         {colunas.map((c) => (
-          <p key={c.data} className={`flex-1 min-w-0 text-[10px] leading-tight text-center tabular ${c.entregaCol ? 'text-ln-accent font-semibold' : c.hojeCol ? 'text-ln-t1 font-medium' : 'text-ln-t4'}`}>
+          <p key={c.data} className={`flex-1 min-w-0 text-[10px] leading-tight text-center tabular ${c.selCol ? 'text-ln-t1 font-semibold' : c.entregaCol ? 'text-ln-accent font-semibold' : c.hojeCol ? 'text-ln-t1 font-medium' : 'text-ln-t4'}`}>
             {DIAS[c.diaSemana]}<br />{fmtCurta(c.data)}
           </p>
         ))}

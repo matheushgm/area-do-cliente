@@ -3,7 +3,7 @@
 // (cabeçalho da pessoa, KPIs, gráfico, alertas, clientes, abas de tarefas) e
 // o rodapé fixo com as ações.
 import { useId, useState, useEffect, useRef } from 'react'
-import { AlertTriangle, Plus, RefreshCw, Loader2, Pencil, ChevronDown, ChevronRight } from 'lucide-react'
+import { AlertTriangle, Plus, RefreshCw, Loader2, Pencil, ChevronDown, ChevronRight, X } from 'lucide-react'
 import CargaDiaria from './CargaDiaria'
 import { PrioridadeIcon, PRIORIDADE_LABEL } from './IssueList'
 import {
@@ -66,12 +66,14 @@ function agruparPorPrioridade(itens) {
     .filter((g) => g.itens.length > 0)
 }
 
-function itensDaAba(pessoa, aba) {
+function itensDaAba(pessoa, aba, diaFiltro = null) {
   const fila = pessoa.filaProxima || []
-  if (aba === 'atrasadas') return ordenarPorPrioridade(fila.filter((t) => t.atrasada))
+  // o filtro de dia (clique no gráfico) vale para o que tem dia na agenda
+  const porDia = (arr) => (diaFiltro ? arr.filter((t) => t.dia === diaFiltro) : arr)
+  if (aba === 'atrasadas') return ordenarPorPrioridade(porDia(fila.filter((t) => t.atrasada)))
   if (aba === 'semdata') return ordenarPorPrioridade(pessoa.semData || [])
   if (aba === 'zumbis') return ordenarPorPrioridade(pessoa.zumbis || [])
-  return ordenarPorPrioridade(fila)
+  return ordenarPorPrioridade(porDia(fila))
 }
 
 function alertasDe(pessoa) {
@@ -548,23 +550,36 @@ function GrupoPrioridade({ grupo, recolhido, onToggle, children }) {
   )
 }
 
-function ListaTarefas({ pessoa, aba, onAba, diaSelecionado, prefixo, onEstimar }) {
+function ListaTarefas({ pessoa, aba, onAba, diaSelecionado, prefixo, onEstimar, diaFiltro = null, onLimparDia }) {
   const [recolhidos, setRecolhidos] = useState({})
+  const filtraDia = !!diaFiltro && (aba === 'fila' || aba === 'atrasadas')
   const contagens = {
-    fila: (pessoa.filaProxima || []).length,
-    atrasadas: (pessoa.filaProxima || []).filter((t) => t.atrasada).length,
+    fila: itensDaAba(pessoa, 'fila', diaFiltro).length,
+    atrasadas: itensDaAba(pessoa, 'atrasadas', diaFiltro).length,
     semdata: (pessoa.semData || []).length,
     zumbis: (pessoa.zumbis || []).length,
   }
-  const itens = itensDaAba(pessoa, aba)
+  const itens = itensDaAba(pessoa, aba, diaFiltro)
   const def = ABAS.find((a) => a.id === aba) || ABAS[0]
+  const horasDia = itens.reduce((s, t) => s + (Number(t.horas) || 0), 0)
   const temEstimadas = itens.some((t) => !!t.origem && t.origem !== 'estimativa')
   return (
     <section>
       <Abas aba={aba} onAba={onAba} contagens={contagens} prefixo={prefixo} />
+      {diaFiltro && (
+        <div className="mt-2 flex items-center gap-2 text-xs">
+          <span className="inline-flex items-center gap-1.5 h-6 pl-2.5 pr-1 rounded-full bg-ln-accent/15 text-ln-accent ring-1 ring-inset ring-ln-accent/30 font-medium">
+            {filtraDia ? `Só ${fmtDiaCurto(diaFiltro)} · ${itens.length} tarefa${itens.length === 1 ? '' : 's'} · ${fmtHoras(horasDia)}` : `Dia ${fmtDiaCurto(diaFiltro)} não se aplica a esta aba`}
+            <button type="button" onClick={onLimparDia} className={`w-4 h-4 rounded-full inline-flex items-center justify-center hover:bg-ln-accent/25 ${FOCO}`} aria-label="Limpar filtro de dia" title="Limpar filtro de dia">
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+          <span className="text-ln-t4">clique em outra barra do gráfico para trocar o dia</span>
+        </div>
+      )}
       <div role="tabpanel" id={`${prefixo}-painel-${aba}`} aria-labelledby={`${prefixo}-aba-${aba}`} className="mt-2">
         {itens.length === 0 ? (
-          <p className="h-8 flex items-center text-xs text-ln-t4">{def.vazio}</p>
+          <p className="h-8 flex items-center text-xs text-ln-t4">{filtraDia ? `Nada na agenda de ${fmtDiaCurto(diaFiltro)}` : def.vazio}</p>
         ) : (
           agruparPorPrioridade(itens).map((g) => (
             <GrupoPrioridade key={g.id} grupo={g} recolhido={!!recolhidos[g.id]} onToggle={() => setRecolhidos((r) => ({ ...r, [g.id]: !r[g.id] }))}>
@@ -652,6 +667,14 @@ function SemClickup({ pessoa }) {
  * @param {Function} [p.onEstimar]       (pessoa, tarefa, horas) => Promise  grava a estimativa no ClickUp
  */
 export default function PersonPanel({ pessoa, hoje, diaSelecionado = null, abaInicial = ABA_PADRAO, onNovaAtividade, onRecarregar, onEstimar, fimExpediente = 18 }) {
+  // Dia escolhido no gráfico desta pessoa: filtra a lista de tarefas. Começa
+  // com o dia selecionado na linha de calor do time (se houver) e reseta ao
+  // trocar de pessoa.
+  const [diaFiltro, setDiaFiltro] = useState(diaSelecionado)
+  const [chaveDia, setChaveDia] = useState(`${pessoa?.profileId}|${diaSelecionado}`)
+  const chaveAtual = `${pessoa?.profileId}|${diaSelecionado}`
+  if (chaveAtual !== chaveDia) { setChaveDia(chaveAtual); setDiaFiltro(diaSelecionado) }
+  const diaAtivo = diaFiltro
   const prefixo = useId()
   // A aba segue a prop quando o painel troca de pessoa ou a tabela pede outra
   // aba; entre trocas, quem manda é o clique do usuário.
@@ -694,20 +717,21 @@ export default function PersonPanel({ pessoa, hoje, diaSelecionado = null, abaIn
                       resumo={pessoa.resumo}
                       capacidade={pessoa.capacidadeDia}
                       hoje={hojeRef}
-                      diaSelecionado={diaSelecionado}
+                      diaSelecionado={diaAtivo}
                       altura={120}
+                      onSelecionarDia={setDiaFiltro}
                     />
                   ) : (
                     <p className="text-xs text-ln-t4">Sem dias úteis no resumo desta pessoa</p>
                   )}
-                  <LinhaDia pessoa={pessoa} diaSelecionado={diaSelecionado} />
+                  <LinhaDia pessoa={pessoa} diaSelecionado={diaAtivo} />
                 </section>
 
                 <Alertas alertas={alertasDe(pessoa)} />
 
                 <Distribuicao porPasta={pessoa.porPasta || []} />
 
-                <ListaTarefas pessoa={pessoa} aba={aba} onAba={setAba} diaSelecionado={diaSelecionado} prefixo={prefixo} onEstimar={onEstimar ? (tarefa, horas) => onEstimar(pessoa, tarefa, horas) : null} />
+                <ListaTarefas pessoa={pessoa} aba={aba} onAba={setAba} diaSelecionado={diaAtivo} diaFiltro={diaAtivo} onLimparDia={() => setDiaFiltro(null)} prefixo={prefixo} onEstimar={onEstimar ? (tarefa, horas) => onEstimar(pessoa, tarefa, horas) : null} />
               </>
             )}
           </>
