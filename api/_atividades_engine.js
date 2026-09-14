@@ -460,7 +460,7 @@ export function planejarParaPessoa({
   const filaProxima = cls.consideradas
     .filter((t) => idsProximos.has(t.id))
     .sort((a, b) => (a.dia < b.dia ? -1 : a.dia > b.dia ? 1 : 0))
-    .map((t) => ({ id: t.id, nome: t.nome, url: t.url, dia: t.dia, vencimento: t.vencimento, horas: t.horas, origem: t.origem, atrasada: t.atrasada, lista: t.lista, pasta: t.pasta, status: t.status }))
+    .map((t) => ({ id: t.id, nome: t.nome, url: t.url, dia: t.dia, vencimento: t.vencimento, horas: t.horas, origem: t.origem, atrasada: t.atrasada, lista: t.lista, pasta: t.pasta, status: t.status, prioridade: t.prioridade }))
 
   const horasProximos = round2(resumo.reduce((s, d) => s + d.carga, 0))
   const capProximos = round2(resumo.reduce((s, d) => s + d.capacidade, 0))

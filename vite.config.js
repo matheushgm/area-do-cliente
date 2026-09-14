@@ -20,7 +20,9 @@ const engineVirtual = {
   resolveId(id) { return id === 'virtual:atividades-engine' ? ENGINE_VIRTUAL_ID : null },
   load(id) {
     if (id !== ENGINE_VIRTUAL_ID) return null
-    return readFileSync(path.join(here, 'api', '_atividades_engine.js'), 'utf8')
+    const arquivo = path.join(here, 'api', '_atividades_engine.js')
+    this.addWatchFile(arquivo) // recarrega o preview quando o motor muda
+    return readFileSync(arquivo, 'utf8')
   },
 }
 

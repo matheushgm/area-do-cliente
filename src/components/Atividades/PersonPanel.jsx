@@ -5,6 +5,7 @@
 import { useId, useState, useEffect, useRef } from 'react'
 import { AlertTriangle, Plus, RefreshCw, Loader2, Pencil } from 'lucide-react'
 import CargaDiaria from './CargaDiaria'
+import { PrioridadeIcon, PRIORIDADE_LABEL } from './IssueList'
 import {
   NIVEIS, diaDe, tomOcupacao,
   fmtHoras, fmtCurta, fmtDiaCurto, fmtPct, fmtHora, iniciais, primeiroNome,
@@ -31,12 +32,28 @@ function normalizarAba(aba) {
   return ABAS.some((a) => a.id === aba) ? aba : ABA_PADRAO
 }
 
+// Ordem de exibição: urgente > alta > normal > baixa > sem prioridade; dentro
+// da mesma prioridade, pelo dia em que entram na agenda (ou vencimento).
+const ORDEM_PRIORIDADE = { urgent: 0, high: 1, normal: 2, low: 3 }
+function pesoPrioridade(t) {
+  const p = ORDEM_PRIORIDADE[String(t.prioridade || '').toLowerCase()]
+  return p === undefined ? 4 : p
+}
+function ordenarPorPrioridade(itens) {
+  return [...itens].sort((a, b) => {
+    const d = pesoPrioridade(a) - pesoPrioridade(b)
+    if (d !== 0) return d
+    const da = a.dia || a.vencimento || '9999', db = b.dia || b.vencimento || '9999'
+    return da < db ? -1 : da > db ? 1 : 0
+  })
+}
+
 function itensDaAba(pessoa, aba) {
   const fila = pessoa.filaProxima || []
-  if (aba === 'atrasadas') return fila.filter((t) => t.atrasada)
-  if (aba === 'semdata') return pessoa.semData || []
-  if (aba === 'zumbis') return pessoa.zumbis || []
-  return fila
+  if (aba === 'atrasadas') return ordenarPorPrioridade(fila.filter((t) => t.atrasada))
+  if (aba === 'semdata') return ordenarPorPrioridade(pessoa.semData || [])
+  if (aba === 'zumbis') return ordenarPorPrioridade(pessoa.zumbis || [])
+  return ordenarPorPrioridade(fila)
 }
 
 function alertasDe(pessoa) {
@@ -356,6 +373,9 @@ function TarefaRow({ tarefa, aba, diaSelecionado, onEstimar }) {
   const corDia = atrasada ? TOM.vermelho : aba === 'semdata' ? 'text-ln-t4' : 'text-ln-t3'
   return (
     <li className={`ln-row-hover flex items-center gap-2 h-8 px-2 -mx-2 ${selecionada ? 'bg-ln-ink/[0.03]' : ''}`}>
+      {tarefa.prioridade && PRIORIDADE_LABEL[String(tarefa.prioridade).toLowerCase()]
+        ? <PrioridadeIcon prioridade={String(tarefa.prioridade).toLowerCase()} className="w-4 h-4" />
+        : <span className="w-4 h-4 shrink-0 inline-flex items-center justify-center text-ln-t4/60" title="Sem prioridade no ClickUp" aria-label="Sem prioridade">·</span>}
       <span className={`w-14 shrink-0 text-xs tabular ${corDia}`} title={tituloDia}>{dia}</span>
       <a
         href={tarefa.url || undefined}
