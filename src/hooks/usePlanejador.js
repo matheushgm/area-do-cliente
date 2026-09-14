@@ -102,6 +102,7 @@ export function usePlanejador({ projects, teamMembers, squads, config, showToast
   const [criando, setCriando] = useState(false)
   const [criada, setCriada] = useState(null)
   const calcSeq = useRef(0)
+  const ultimoVisivel = useRef(0) // seq do último cálculo NÃO silencioso (controla o "calculando")
 
   const limparResultado = useCallback(() => {
     setResultado(null); setComparacao(null); setErroCalculo(null); setDataEscolhida(''); setJustificativa('')
@@ -168,7 +169,7 @@ export function usePlanejador({ projects, teamMembers, squads, config, showToast
   const calcular = useCallback(async ({ dataForcada = null, silencioso = false } = {}) => {
     if (!responsavel || !(horasNum > 0)) return
     const seq = ++calcSeq.current
-    if (!silencioso) { setCalculando(true); setErroCalculo(null); setComparacao(null) }
+    if (!silencioso) { ultimoVisivel.current = seq; setCalculando(true); setErroCalculo(null); setComparacao(null) }
     try {
       const r = await sugerirAtividade({
         assignees: [responsavel.clickupId],
@@ -196,7 +197,10 @@ export function usePlanejador({ projects, teamMembers, squads, config, showToast
       setErroCalculo(e.message)
       if (!silencioso) setResultado(null)
     } finally {
-      if (seq === calcSeq.current && !silencioso) setCalculando(false)
+      // O cálculo visível pode disparar um recálculo silencioso (data forçada)
+      // que avança calcSeq; por isso o "calculando" é desligado pelo último
+      // cálculo visível, e não pelo último cálculo de qualquer tipo.
+      if (!silencioso && seq === ultimoVisivel.current) setCalculando(false)
     }
   }, [responsavel, horasNum, form.naoAntesDe, form.dataDesejada])
 
