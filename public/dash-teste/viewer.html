@@ -2027,15 +2027,19 @@ function tblMetaAds(rows, prevRows){
 }
 function tblGoogleCampaigns(rows, prevRows){
   const g = groupBy(rows, r=>r['Campanha'], {
-    spend:r=>M(r,'Gasto'), conv:r=>M(r,'Conversões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')), loss:r=>M(r,'% de perda por orçamento') })
+    spend:r=>M(r,'Gasto'), conv:r=>M(r,'Conversões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')), loss:r=>M(r,'% de perda por orçamento'),
+    // "Impressões" é a contagem real (desde 20/08/2026); "na parte superior" é um
+    // percentual herdado da planilha — só serve de fallback em linha antiga.
+    impr:r=>(M(r,'Impressões')||M(r,'Impressões na parte superior')) })
   if(!g.length) return `<div class="empty">Sem campanhas no período.</div>`
   const pv = prevMapOf(prevRows, r=>r['Campanha'], r=>M(r,'Conversões'))
   const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(x.key)} — sem conversões`)
   const body = g.map((x,i)=>{ const cpa=x.conv>0?x.spend/x.conv:null; const avg=x._rows.length?x.loss/x._rows.length:0
+    const ctr=x.impr>0?x.clicks/x.impr*100:null
     return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span></td>
-      <td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td>
+      <td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td><td>${ctrCell(ctr)}</td><td>${txCell(x.conv,x.clicks)}</td>
       <td>${avg>10?`<span class="crit">${avg.toFixed(1)}% 🚨</span>`:avg>0?`<span class="warn">${avg.toFixed(1)}%</span>`:'—'}</td></tr>` }).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Campanha</th><th>Conv.</th><th>Gasto</th><th>CPA</th><th>Cliques</th><th>% Perda Orçamento</th></tr></thead><tbody>${body}</tbody></table></div>`
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Campanha</th><th>Conv.</th><th>Gasto</th><th>CPA</th><th>Cliques</th><th>CTR</th><th>Tx.Conv.</th><th>% Perda Orçamento</th></tr></thead><tbody>${body}</tbody></table></div>`
 }
 function tblGoogleGroups(rows, prevRows){
   const gk = r=>r['Grupo de palavras']||r['Grupo de palavras-chave']
