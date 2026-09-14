@@ -366,6 +366,12 @@ function TarefaRow({ tarefa, aba, diaSelecionado, onEstimar }) {
       >
         {tarefa.nome || 'Sem título'}
       </a>
+      <span
+        className="w-24 shrink-0 truncate text-[11px] text-ln-t3"
+        title={tarefa.pasta ? `Cliente: ${tarefa.pasta}${tarefa.lista ? ` › ${tarefa.lista}` : ''}` : 'Tarefa fora de uma pasta de cliente'}
+      >
+        {tarefa.pasta || <span className="text-ln-t4">sem cliente</span>}
+      </span>
       <HorasEditaveis tarefa={tarefa} estimada={estimada} onEstimar={onEstimar} />
       {tarefa.status && (
         <span className="shrink-0 max-w-[96px] truncate h-5 px-1.5 rounded-full ring-1 ring-ln-line text-[11px] leading-5 text-ln-t3" title={tarefa.status}>
