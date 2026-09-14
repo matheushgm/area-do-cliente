@@ -3,7 +3,7 @@
 // (cabeçalho da pessoa, KPIs, gráfico, alertas, clientes, abas de tarefas) e
 // o rodapé fixo com as ações.
 import { useId, useState, useEffect, useRef } from 'react'
-import { AlertTriangle, Plus, RefreshCw, Loader2, Pencil } from 'lucide-react'
+import { AlertTriangle, Plus, RefreshCw, Loader2, Pencil, ChevronDown, ChevronRight } from 'lucide-react'
 import CargaDiaria from './CargaDiaria'
 import { PrioridadeIcon, PRIORIDADE_LABEL } from './IssueList'
 import {
@@ -46,6 +46,24 @@ function ordenarPorPrioridade(itens) {
     const da = a.dia || a.vencimento || '9999', db = b.dia || b.vencimento || '9999'
     return da < db ? -1 : da > db ? 1 : 0
   })
+}
+
+// Grupos de prioridade da lista (estilo dos grupos por status do Linear)
+const GRUPOS_PRIORIDADE = [
+  { id: 'urgent', label: 'Urgente',        cls: 'bg-ln-red/15 text-ln-red ring-ln-red/30' },
+  { id: 'high',   label: 'Alta',           cls: 'bg-ln-orange/15 text-ln-orange ring-ln-orange/30' },
+  { id: 'normal', label: 'Normal',         cls: 'bg-ln-blue/15 text-ln-blue ring-ln-blue/30' },
+  { id: 'low',    label: 'Baixa',          cls: 'bg-ln-ink/5 text-ln-t3 ring-ln-ink/10' },
+  { id: 'none',   label: 'Sem prioridade', cls: 'bg-ln-ink/5 text-ln-t4 ring-ln-ink/10' },
+]
+function grupoDe(t) {
+  const p = String(t.prioridade || '').toLowerCase()
+  return ORDEM_PRIORIDADE[p] === undefined ? 'none' : p
+}
+function agruparPorPrioridade(itens) {
+  return GRUPOS_PRIORIDADE
+    .map((g) => ({ ...g, itens: itens.filter((t) => grupoDe(t) === g.id), horas: itens.filter((t) => grupoDe(t) === g.id).reduce((s, t) => s + (Number(t.horas) || 0), 0) }))
+    .filter((g) => g.itens.length > 0)
 }
 
 function itensDaAba(pessoa, aba) {
@@ -402,7 +420,28 @@ function TarefaRow({ tarefa, aba, diaSelecionado, onEstimar }) {
   )
 }
 
+function GrupoPrioridade({ grupo, recolhido, onToggle, children }) {
+  return (
+    <section className="mb-1.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={!recolhido}
+        className={`w-full h-9 -mx-2 px-2 rounded-lg flex items-center gap-2 text-left transition-colors duration-150 hover:bg-ln-ink/[0.03] ${FOCO}`}
+        style={{ width: 'calc(100% + 16px)' }}
+      >
+        {recolhido ? <ChevronRight className="w-3.5 h-3.5 text-ln-t4 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-ln-t4 shrink-0" />}
+        <span className={`inline-flex items-center h-5 px-2 rounded-full ring-1 ring-inset text-[11px] font-semibold uppercase tracking-wide ${grupo.cls}`}>{grupo.label}</span>
+        <span className="text-[13px] text-ln-t3 tabular">{grupo.itens.length}</span>
+        <span className="text-[11px] text-ln-t4 tabular ml-auto">{fmtHoras(grupo.horas)}</span>
+      </button>
+      {!recolhido && <ul>{children}</ul>}
+    </section>
+  )
+}
+
 function ListaTarefas({ pessoa, aba, onAba, diaSelecionado, prefixo, onEstimar }) {
+  const [recolhidos, setRecolhidos] = useState({})
   const contagens = {
     fila: (pessoa.filaProxima || []).length,
     atrasadas: (pessoa.filaProxima || []).filter((t) => t.atrasada).length,
@@ -415,13 +454,17 @@ function ListaTarefas({ pessoa, aba, onAba, diaSelecionado, prefixo, onEstimar }
   return (
     <section>
       <Abas aba={aba} onAba={onAba} contagens={contagens} prefixo={prefixo} />
-      <ul role="tabpanel" id={`${prefixo}-painel-${aba}`} aria-labelledby={`${prefixo}-aba-${aba}`} className="mt-2">
+      <div role="tabpanel" id={`${prefixo}-painel-${aba}`} aria-labelledby={`${prefixo}-aba-${aba}`} className="mt-2">
         {itens.length === 0 ? (
-          <li className="h-8 flex items-center text-xs text-ln-t4">{def.vazio}</li>
+          <p className="h-8 flex items-center text-xs text-ln-t4">{def.vazio}</p>
         ) : (
-          itens.map((t, i) => <TarefaRow key={t.id || i} tarefa={t} aba={aba} diaSelecionado={diaSelecionado} onEstimar={onEstimar} />)
+          agruparPorPrioridade(itens).map((g) => (
+            <GrupoPrioridade key={g.id} grupo={g} recolhido={!!recolhidos[g.id]} onToggle={() => setRecolhidos((r) => ({ ...r, [g.id]: !r[g.id] }))}>
+              {g.itens.map((t, i) => <TarefaRow key={t.id || i} tarefa={t} aba={aba} diaSelecionado={diaSelecionado} onEstimar={onEstimar} />)}
+            </GrupoPrioridade>
+          ))
         )}
-      </ul>
+      </div>
       {temEstimadas && (
         <p className="mt-1.5 text-[11px] text-ln-t4">
           * horas estimadas pelo tipo ou pela dificuldade: a tarefa não tem estimativa no ClickUp.{onEstimar ? ' Clique nas horas para preencher.' : ''}
