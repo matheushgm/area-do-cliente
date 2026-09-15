@@ -74,7 +74,8 @@ export default function CampaignPlanner({ project, onSave }) {
 
   // Mesma fonte usada pelo módulo Resultados (dash_insights via /api) — dá pra
   // ver o gasto real das contas vinculadas antes de preencher o orçamento à mão.
-  const dash = useDashboardData({ source: 'api' })
+  // Só as contas deste projeto: o canal inteiro é pesado demais para a Edge.
+  const dash = useDashboardData({ source: 'api', projectId: project.id })
 
   const [accounts,  setAccounts]  = useState(() => initAccounts(project.campaignPlan))
   const [activeIdx, setActiveIdx] = useState(0)

@@ -72,7 +72,7 @@ const STATUS_ORDER = { 'CRÍTICO': 0, 'QUEDA': 1, 'ESTÁVEL': 2, 'MELHORA': 3 }
 // `dash` vem do ResultadosModule (uma única instância de useDashboardData é
 // compartilhada com o painel de canais do funil, para não buscar 2x).
 export default function ProjectTrafficDashboard({ project, dash }) {
-  const { raw, accounts, projectsList, cplTargets, loading, error } = dash
+  const { raw, accounts, projectsList, cplTargets, allAccountNames, loading, error } = dash
 
   const [days, setDays] = useState(7)
   const [customFrom, setCustomFrom] = useState('')
@@ -100,15 +100,8 @@ export default function ProjectTrafficDashboard({ project, dash }) {
   }, [accounts, project.id])
 
   // ── Vincular conta de anúncio a este cliente (reutilizável) ──────────────────
-  // Todos os nomes de conta presentes nos dados (Meta + Google).
-  const allAccountNames = useMemo(() => {
-    const s = new Set()
-    CHANNELS.forEach(ch => (raw[ch] || []).forEach(r => {
-      const n = r[CFG[ch].accountKey]?.trim()
-      if (n) s.add(n)
-    }))
-    return [...s].sort((a, b) => a.localeCompare(b, 'pt-BR'))
-  }, [raw])
+  // `allAccountNames` (todas as contas do dash_insights) vem do hook: o `raw`
+  // aqui só tem as contas já vinculadas a este projeto.
   const [linkName, setLinkName] = useState('')
   const linkAccount = useCallback(async (name) => {
     if (!name) return

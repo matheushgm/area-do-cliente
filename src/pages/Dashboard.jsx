@@ -689,7 +689,9 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }
 
   // Conversões 7d (Meta + Google) por projeto — fonte NOVA (dash_insights/API),
   // somando as contas vinculadas. conv = últimos 7d, prev = 7d anteriores (trend).
-  const dash = useDashboardData({ source: 'api' })
+  // Só precisa de 14 dias fechados (7 + 7 anteriores); pede 20 de folga em vez
+  // do histórico inteiro, que estourava o tempo da função Edge.
+  const dash = useDashboardData({ source: 'api', dias: 20 })
   const trafficByProject = useMemo(() => {
     const { raw, accounts } = dash
     const periods = {

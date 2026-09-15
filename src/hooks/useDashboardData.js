@@ -18,15 +18,27 @@ import { SHEETS, parseCSV } from '../lib/dashboardData'
 //   - squads                      (id → name)
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function loadSheets(source = 'sheets') {
+async function loadSheets(source = 'sheets', { accountNames = null, dias = null } = {}) {
   // Fonte NOVA (API): lê do dash_insights via /api/dash-data (mesmas colunas),
   // autenticado com o JWT da sessão. Usado pelo módulo Resultados do cliente.
+  //
+  // `accountNames` (lista) restringe às contas de um projeto e `dias` à janela
+  // recente: o canal Meta inteiro tem dezenas de milhares de linhas e a leitura
+  // completa estourava o limite de 25s da função Edge (HTTP 504). Lista vazia
+  // = projeto sem conta vinculada → nem chama a API.
   if (source === 'api') {
+    if (accountNames && accountNames.length === 0) return { meta: [], google: [] }
     const { data: { session } } = await supabase.auth.getSession()
     const headers = { Authorization: `Bearer ${session?.access_token || ''}` }
+    const qs = channel => {
+      const p = new URLSearchParams({ channel })
+      ;(accountNames || []).forEach(a => p.append('account', a))
+      if (dias) p.set('dias', String(dias))
+      return '/api/dash-data?' + p.toString()
+    }
     const [metaText, googleText] = await Promise.all([
-      fetch('/api/dash-data?channel=meta', { headers }).then(r => { if (!r.ok) throw new Error('Meta (API): HTTP ' + r.status); return r.text() }),
-      fetch('/api/dash-data?channel=google', { headers }).then(r => { if (!r.ok) throw new Error('Google (API): HTTP ' + r.status); return r.text() }),
+      fetch(qs('meta'), { headers }).then(r => { if (!r.ok) throw new Error('Meta (API): HTTP ' + r.status); return r.text() }),
+      fetch(qs('google'), { headers }).then(r => { if (!r.ok) throw new Error('Google (API): HTTP ' + r.status); return r.text() }),
     ])
     return { meta: parseCSV(metaText), google: parseCSV(googleText) }
   }
@@ -38,8 +50,16 @@ async function loadSheets(source = 'sheets') {
   return { meta: parseCSV(metaText), google: parseCSV(googleText) }
 }
 
-export function useDashboardData({ source = 'sheets' } = {}) {
+// Opções:
+//   source    'sheets' (planilhas CSV) | 'api' (dash_insights via /api/dash-data)
+//   projectId (só com 'api') carrega apenas as contas vinculadas a este projeto
+//   dias      (só com 'api') janela de dias recentes em vez do histórico inteiro
+export function useDashboardData({ source = 'sheets', projectId = null, dias = null } = {}) {
   const [raw, setRaw] = useState({ meta: [], google: [] })
+  // Todas as contas presentes no dash_insights (view dash_accounts_public):
+  // com projectId o `raw` só tem as contas do projeto, e o seletor "+ vincular
+  // conta" precisa da lista completa mesmo assim.
+  const [allAccountNames, setAllAccountNames] = useState([])
   // Linhas-base de dashboard_accounts: { [account_name]: { project_id, squad_id, clickup_folder_id } }
   const [accountRows, setAccountRows] = useState({})
   const [projectsList, setProjectsList] = useState([])   // [{ id, company_name, squad_name, clickup_folder_id }]
@@ -58,16 +78,31 @@ export function useDashboardData({ source = 'sheets' } = {}) {
       // (/dashboard?shared=1) funcione também sem login — anon não enxerga as
       // tabelas-base dashboard_accounts/squads por RLS. As escritas (setSquad,
       // linkProject…) continuam indo para a tabela-base e exigem authenticated.
-      const [sheets, accRes, projRes, cplRes, sqRes] = await Promise.all([
-        loadSheets(source),
-        supabase.from('dashboard_accounts_public').select('account_name,project_id,squad_id,clickup_folder_id,hidden'),
+      const accQuery = supabase.from('dashboard_accounts_public').select('account_name,project_id,squad_id,clickup_folder_id,hidden')
+      // Com projectId, as contas vêm ANTES dos dados: são elas que dizem o que
+      // pedir à API (só as vinculadas ao projeto).
+      let accRes, accountNames = null
+      if (source === 'api' && projectId) {
+        accRes = await accQuery
+        if (accRes.error) throw new Error('Contas: ' + accRes.error.message)
+        accountNames = (accRes.data || []).filter(r => r.project_id === projectId).map(r => r.account_name)
+      }
+      const [sheets, accRes2, projRes, cplRes, sqRes, namesRes] = await Promise.all([
+        loadSheets(source, { accountNames, dias }),
+        accRes ? Promise.resolve(accRes) : accQuery,
         supabase.from('dashboard_projects_public').select('id,company_name,squad_name,clickup_folder_id'),
         supabase.from('cpl_targets_public').select('company_name,cpl_target'),
         supabase.from('dashboard_squads_public').select('id,name'),
+        source === 'api' && projectId ? supabase.from('dash_accounts_public').select('account') : Promise.resolve({ data: null }),
       ])
       if (!mounted.current) return
+      accRes = accRes2
       const accMap = {}
       ;(accRes.data || []).forEach(r => { accMap[r.account_name] = { project_id: r.project_id, squad_id: r.squad_id, clickup_folder_id: r.clickup_folder_id, hidden: !!r.hidden } })
+      if (namesRes.data) {
+        const s = new Set(namesRes.data.map(r => r.account?.trim()).filter(Boolean))
+        setAllAccountNames([...s].sort((a, b) => a.localeCompare(b, 'pt-BR')))
+      }
       const cpl = {}
       ;(cplRes.data || []).forEach(r => { const n = r.company_name?.trim(); if (n && r.cpl_target != null) cpl[n] = parseFloat(r.cpl_target) })
 
@@ -82,7 +117,7 @@ export function useDashboardData({ source = 'sheets' } = {}) {
     } finally {
       if (mounted.current) setLoading(false)
     }
-  }, [source])
+  }, [source, projectId, dias])
 
   useEffect(() => {
     mounted.current = true
@@ -134,7 +169,10 @@ export function useDashboardData({ source = 'sheets' } = {}) {
       { account_name: accountName, ...patch, updated_at: new Date().toISOString() },
       { onConflict: 'account_name' },
     )
-  }, [])
+    // No modo por projeto o `raw` só tem as contas vinculadas: (des)vincular
+    // muda esse conjunto, então busca os dados de novo.
+    if (projectId && 'project_id' in patch) await load()
+  }, [projectId, load])
 
   const setSquad = useCallback((accountName, squadName) => {
     const squadId = squadName ? (squadsList.find(s => s.name === squadName)?.id ?? null) : null
@@ -146,7 +184,7 @@ export function useDashboardData({ source = 'sheets' } = {}) {
   const setHidden = useCallback((accountName, hidden) => upsertAccount(accountName, { hidden: !!hidden }), [upsertAccount])
 
   return {
-    raw, accounts, squadByAccount, projectsList, squadsList, cplTargets,
+    raw, accounts, squadByAccount, projectsList, squadsList, cplTargets, allAccountNames,
     loading, error, lastUpdate,
     reload: load, setSquad, linkProject, setClickupFolder, setHidden,
   }

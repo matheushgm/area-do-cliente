@@ -13,8 +13,9 @@ export default function ResultadosModule({ project }) {
   const { updateProject } = useApp()
 
   // Fonte NOVA (dash_insights via /api). Carregada UMA vez aqui e compartilhada
-  // entre o dashboard de tráfego e o comparativo de canais do funil.
-  const dash = useDashboardData({ source: 'api' })
+  // entre o dashboard de tráfego e o comparativo de canais do funil. Escopada
+  // às contas deste projeto (o canal inteiro dava 504 na Edge).
+  const dash = useDashboardData({ source: 'api', projectId: project.id })
 
   const resultados = project.resultados || {}
   const modelo = resultados.modelo

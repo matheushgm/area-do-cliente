@@ -61,10 +61,19 @@ export default async function handler(req) {
   if (!ALLOWED.includes(channel)) {
     return jsonErr('channel inválido.', 400)
   }
-  // Filtro opcional por conta — usado pelos termos de pesquisa (google_terms),
-  // que são lazy/por-cliente para não baixar todas as contas de uma vez.
-  const account = url.searchParams.get('account')
-  const acctFilter = account ? `&account=eq.${encodeURIComponent(account)}` : ''
+  // Filtro opcional por conta (pode repetir: ?account=A&account=B) — usado pelos
+  // termos de pesquisa (google_terms) e pela página do cliente, que só precisa
+  // das contas vinculadas ao projeto em vez do canal inteiro. Sem isso o canal
+  // Meta (60 mil linhas) estourava os 25s da Edge ao abrir "Resultados".
+  const accountList = url.searchParams.getAll('account').map(a => a.trim()).filter(Boolean)
+  const account = accountList.length > 0
+  // Sintaxe PostgREST: eq.X para uma conta, in.("A","B") para várias (aspas
+  // internas escapadas com barra invertida).
+  const acctFilter = accountList.length === 1
+    ? `&account=eq.${encodeURIComponent(accountList[0])}`
+    : accountList.length > 1
+      ? `&account=in.(${encodeURIComponent(accountList.map(a => '"' + a.replace(/"/g, '\\"') + '"').join(','))})`
+      : ''
   // Janela opcional de dias (ex.: dias=16 para o preset de 7 dias + comparação).
   // Sem o parâmetro, devolve o histórico inteiro do canal.
   const diasRaw = parseInt(url.searchParams.get('dias') || '', 10)
