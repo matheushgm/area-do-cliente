@@ -71,3 +71,15 @@ export function estimarTarefa({ taskId, horas, assigneeClickupId = null }) {
 export function criarAtividade(payload) {
   return call('criar', payload)
 }
+
+/**
+ * Tarefas concluídas no workspace entre dois dias (inclusive, yyyy-mm-dd),
+ * para o relatório de entregas. Máximo de 31 dias por chamada.
+ * @param {object} p
+ * @param {string} p.desde
+ * @param {string} p.ate
+ * @param {boolean} [p.refresh]  ignora o cache do servidor
+ */
+export function tarefasConcluidas({ desde, ate, refresh = false }) {
+  return call('concluidas', { desde, ate, refresh })
+}

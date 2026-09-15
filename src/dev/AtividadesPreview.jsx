@@ -12,7 +12,7 @@ import Atividades from '../pages/Atividades'
 import { supabase } from '../lib/supabase'
 // O motor mora em api/, e o vercel dev sequestra qualquer URL /api/*; o plugin
 // em vite.config.js entrega o mesmo arquivo como módulo virtual.
-import { DEFAULT_CONFIG, planejarParaPessoa, hojeISO } from 'virtual:atividades-engine'
+import { DEFAULT_CONFIG, planejarParaPessoa, resumirConcluida, hojeISO } from 'virtual:atividades-engine'
 
 function mergeConfig(stored) {
   return {
@@ -56,6 +56,14 @@ function makeMock(fx) {
       }
       if (action === 'carga') return { hoje, geradoEm: new Date().toISOString(), pessoas, erros, config: resumoCfg }
       return { hoje, geradoEm: new Date().toISOString(), resultados: pessoas, erros, config: resumoCfg }
+    }
+    if (action === 'concluidas') {
+      // fixture concluidas.json (tarefas fechadas nos últimos 7 dias, raw do ClickUp)
+      const raw = fx.concluidas?.tasks || []
+      const tarefas = raw.map((t) => resumirConcluida(t, config))
+        .filter((t) => t && t.dia && t.dia >= payload.desde && t.dia <= payload.ate)
+        .sort((a, b) => (b.concluidaEm || '').localeCompare(a.concluidaEm || ''))
+      return { hoje: hojeISO(), desde: payload.desde, ate: payload.ate, geradoEm: new Date().toISOString(), total: tarefas.length, truncado: false, tarefas }
     }
     if (action === 'estimar') {
       for (const lista of Object.values(fx.tasksByAssignee || {})) {
@@ -106,10 +114,14 @@ export default function AtividadesPreview() {
   useEffect(() => {
     let restore = () => {}
     let cancelado = false
-    fetch('/src/dev/fixtures/atividades.json')
-      .then((r) => { if (!r.ok) throw new Error(`fixture ${r.status}`); return r.json() })
-      .then((data) => {
+    Promise.all([
+      fetch('/src/dev/fixtures/atividades.json').then((r) => { if (!r.ok) throw new Error(`fixture ${r.status}`); return r.json() }),
+      // opcional: sem ela o relatório de concluídas fica vazio
+      fetch('/src/dev/fixtures/concluidas.json').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ])
+      .then(([data, concluidas]) => {
         if (cancelado) return
+        data.concluidas = concluidas
         window.__atividadesMock = makeMock(data)
         restore = patchSupabase(data, () => data.historico || [])
         setFx(data)

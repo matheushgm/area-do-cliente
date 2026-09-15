@@ -10,7 +10,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Menu, CalendarCheck, ChevronUp, ChevronDown, ChevronRight, Star, RefreshCw, Loader2, Settings, Plus, X,
-  Users, ListChecks, Rows3, Layers, Maximize2, Minimize2,
+  Users, ListChecks, Rows3, Layers, Maximize2, Minimize2, CheckCircle2,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import AppSidebar from '../components/AppSidebar'
@@ -20,6 +20,8 @@ import { supabase } from '../lib/supabase'
 import { carregarConfigAtividades, estimarTarefa } from '../lib/atividades'
 import { useCargaTime } from '../hooks/useCargaTime'
 import { usePlanejador } from '../hooks/usePlanejador'
+import { useConcluidas } from '../hooks/useConcluidas'
+import { PERIODOS, SEM_RESPONSAVEL_KEY } from '../lib/atividadesConcluidas'
 import { fmtHora, chaveAtividade } from '../lib/atividadesCarga'
 import KpiStrip from '../components/Atividades/KpiStrip'
 import TeamHeatLine from '../components/Atividades/TeamHeatLine'
@@ -30,6 +32,7 @@ import AtividadePanel from '../components/Atividades/AtividadePanel'
 import NovaAtividadePanel from '../components/Atividades/NovaAtividadePanel'
 import PlannerFloat from '../components/Atividades/PlannerFloat'
 import ConfigModal from '../components/Atividades/ConfigModal'
+import RelatorioConcluidas from '../components/Atividades/RelatorioConcluidas'
 
 // Fallback só para a tela não quebrar sem API; a fonte de verdade é DEFAULT_CONFIG
 // em api/_atividades_engine.js (mesclado com atividades_config), via action=config.
@@ -136,13 +139,23 @@ export default function Atividades() {
   const { novaAtividade: resetPlanejador } = pl
 
   // ── Estado de UI ───────────────────────────────────────────────────────────
-  const [view, setView] = useState('time')            // 'time' | 'atividades' (breadcrumb + tab ativa)
+  const [view, setView] = useState('time')            // 'time' | 'atividades' | 'concluidas' (breadcrumb + tab ativa)
+  const viewRef = useRef(view)
+  useEffect(() => { viewRef.current = view }, [view])
   const [diaSelecionado, setDiaSelecionado] = useState(null)
   const [filtroNivel, setFiltroNivel] = useState(null)
   const [agrupar, setAgrupar] = useState('saude')
   const [denso, setDenso] = useState(false)
   const [filtroLista, setFiltroLista] = useState('todas')
   const [agruparLista, setAgruparLista] = useState('semana')
+
+  // ── Relatório de concluídas ────────────────────────────────────────────────
+  const [periodo, setPeriodo] = useState('hoje')       // 'hoje' | 'ontem' | '7dias'
+  const [filtrosConcl, setFiltrosConcl] = useState({ pessoa: null, cliente: null, dia: null })
+  const concl = useConcluidas(view === 'concluidas')
+  const nomeFiltroPessoa = filtrosConcl.pessoa
+    ? (filtrosConcl.pessoa === SEM_RESPONSAVEL_KEY ? 'Sem responsável' : (membros.find((m) => `p:${m.id}` === filtrosConcl.pessoa)?.nome || filtrosConcl.pessoa.replace(/^c:/, 'ClickUp ')))
+    : null
 
   const conteudoRef = useRef(null)
   const scrollRef = useRef(null)
@@ -159,6 +172,7 @@ export default function Atividades() {
     let raf = 0
     const medir = () => {
       raf = 0
+      if (viewRef.current === 'concluidas') return
       const alvo = listaRef.current
       if (!alvo) return
       const r = root.getBoundingClientRect()
@@ -171,9 +185,12 @@ export default function Atividades() {
   }, [])
 
   const irPara = (qual) => {
+    const vinhaDeConcluidas = viewRef.current === 'concluidas'
     setView(qual)
-    const el = qual === 'time' ? timeRef.current : listaRef.current
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (qual === 'concluidas') { scrollRef.current?.scrollTo({ top: 0 }); return }
+    // saindo do relatório, as seções só existem depois do próximo render
+    const rolar = () => { const el = qual === 'time' ? timeRef.current : listaRef.current; el?.scrollIntoView({ behavior: vinhaDeConcluidas ? 'auto' : 'smooth', block: 'start' }) }
+    if (vinhaDeConcluidas) requestAnimationFrame(rolar); else rolar()
   }
 
   // ── Ações ──────────────────────────────────────────────────────────────────
@@ -261,7 +278,7 @@ export default function Atividades() {
                     <CalendarCheck className="w-3.5 h-3.5 text-ln-accent shrink-0" />
                     <span className="truncate">Atividades</span>
                     <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
-                    <span className="truncate text-ln-t2">{view === 'time' ? 'Capacidade do time' : 'Atividades planejadas'}</span>
+                    <span className="truncate text-ln-t2">{view === 'time' ? 'Capacidade do time' : view === 'concluidas' ? 'Tarefas concluídas' : 'Atividades planejadas'}</span>
                   </div>
                   <button className="ln-iconbtn" aria-label="Favorito" title="Favorito"><Star className="w-3.5 h-3.5" /></button>
                 </div>
@@ -295,13 +312,23 @@ export default function Atividades() {
                 <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto scroll-hide">
                   <button onClick={() => irPara('time')} className={`ln-tab ${view === 'time' ? 'ln-tab-active' : ''}`}><Users className="w-3.5 h-3.5" /> Time</button>
                   <button onClick={() => irPara('atividades')} className={`ln-tab ${view === 'atividades' ? 'ln-tab-active' : ''}`}><ListChecks className="w-3.5 h-3.5" /> Atividades</button>
+                  <button onClick={() => irPara('concluidas')} className={`ln-tab ${view === 'concluidas' ? 'ln-tab-active' : ''}`} title="Relatório do que foi concluído no ClickUp"><CheckCircle2 className="w-3.5 h-3.5" /> Concluídas</button>
                   <span className="w-px h-4 bg-ln-line mx-1 shrink-0" />
-                  {FILTROS_LISTA.map((f) => (
-                    <button key={f.value} onClick={() => { setFiltroLista(f.value); if (f.value !== 'todas') irPara('atividades') }} className={`ln-tab ${filtroLista === f.value ? 'ln-tab-active' : ''}`}>{f.label}</button>
-                  ))}
+                  {view === 'concluidas'
+                    ? PERIODOS.map((f) => (
+                      <button key={f.value} onClick={() => { setPeriodo(f.value); setFiltrosConcl((x) => ({ ...x, dia: null })) }} className={`ln-tab whitespace-nowrap shrink-0 ${periodo === f.value ? 'ln-tab-active' : ''}`} aria-pressed={periodo === f.value}>{f.label}</button>
+                    ))
+                    : FILTROS_LISTA.map((f) => (
+                      <button key={f.value} onClick={() => { setFiltroLista(f.value); if (f.value !== 'todas') irPara('atividades') }} className={`ln-tab ${filtroLista === f.value ? 'ln-tab-active' : ''}`}>{f.label}</button>
+                    ))}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {view === 'time' ? (
+                  {view === 'concluidas' ? (
+                    <>
+                      {nomeFiltroPessoa && <button onClick={() => setFiltrosConcl((x) => ({ ...x, pessoa: null }))} className="ln-pill max-w-[200px]" title={`Pessoa: ${nomeFiltroPessoa} (limpar)`}><span className="truncate">Pessoa: {nomeFiltroPessoa}</span> <X className="w-3 h-3 shrink-0" /></button>}
+                      {filtrosConcl.cliente && <button onClick={() => setFiltrosConcl((x) => ({ ...x, cliente: null }))} className="ln-pill max-w-[200px]" title={`Cliente: ${filtrosConcl.cliente} (limpar)`}><span className="truncate">Cliente: {filtrosConcl.cliente}</span> <X className="w-3 h-3 shrink-0" /></button>}
+                    </>
+                  ) : view === 'time' ? (
                     <button onClick={() => setAgrupar(AGRUPAR_TIME[(AGRUPAR_TIME.findIndex((a) => a.value === agrupar) + 1) % AGRUPAR_TIME.length].value)} className="ln-pill" title="Agrupar a tabela do time">
                       <Layers className="w-3.5 h-3.5" /> Agrupar: {AGRUPAR_TIME.find((a) => a.value === agrupar)?.label} <ChevronDown className="w-3 h-3" />
                     </button>
@@ -319,6 +346,17 @@ export default function Atividades() {
 
               {/* Conteúdo rolável */}
               <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
+                {view === 'concluidas' ? (
+                  <RelatorioConcluidas
+                    rel={concl}
+                    periodo={periodo}
+                    filtros={filtrosConcl}
+                    setFiltros={setFiltrosConcl}
+                    membros={membros}
+                    projects={projects}
+                    denso={denso}
+                  />
+                ) : (<>
                 <section ref={timeRef} className="pb-4">
                   <KpiStrip
                     pessoas={carga.pessoas}
@@ -360,6 +398,7 @@ export default function Atividades() {
                     loading={loadingHist}
                   />
                 </section>
+                </>)}
               </div>
             </div>
 

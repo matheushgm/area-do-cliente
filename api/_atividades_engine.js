@@ -493,3 +493,47 @@ export function planejarParaPessoa({
     semData: cls.semData.slice(0, 50),
   }
 }
+
+// ─── Tarefas concluídas (relatório) ──────────────────────────────────────────
+
+export const CF_CLIENTE = 'Cliente'
+export const CF_DEPARTAMENTO = 'Departamento'
+
+/**
+ * Resume uma tarefa CONCLUÍDA do ClickUp no formato que o relatório usa.
+ * `dia` é o dia (São Paulo) em que ela foi concluída; `horas` reaproveita a
+ * mesma regra do planejador (estimativa > tipo > dificuldade > padrão), para
+ * o esforço entregue ser comparável ao esforço planejado.
+ */
+export function resumirConcluida(task, config = DEFAULT_CONFIG) {
+  if (!task) return null
+  const doneMs = Number(task.date_done || task.date_closed || task.date_updated)
+  const criadaMs = Number(task.date_created)
+  const { horas, origem } = horasDaTarefa(task, config)
+  const spent = Number(task.time_spent)
+  return {
+    id: task.id,
+    nome: task.name,
+    url: task.url || `https://app.clickup.com/t/${task.id}`,
+    status: task.status?.status || null,
+    concluidaEm: Number.isFinite(doneMs) ? new Date(doneMs).toISOString() : null,
+    dia: Number.isFinite(doneMs) ? toISODate(doneMs) : null,
+    criadaEm: Number.isFinite(criadaMs) ? new Date(criadaMs).toISOString() : null,
+    // dias entre criar e concluir (0 = mesmo dia)
+    cicloDias: Number.isFinite(doneMs) && Number.isFinite(criadaMs) ? diffDias(toISODate(criadaMs), toISODate(doneMs)) : null,
+    assignees: (task.assignees || []).map((a) => ({ id: Number(a.id), nome: a.username || a.email || null })),
+    lista: task.list?.name || null,
+    listaId: task.list?.id ? String(task.list.id) : null,
+    pasta: task.folder?.name || null,
+    pastaId: task.folder?.id ? String(task.folder.id) : null,
+    clienteCf: customFieldValue(task, CF_CLIENTE),
+    tipoTarefa: customFieldValue(task, CF_TIPO_TAREFA),
+    departamento: customFieldValue(task, CF_DEPARTAMENTO),
+    horas,
+    origem,
+    tempoRegistrado: Number.isFinite(spent) && spent > 0 ? round2(spent / 3600000) : null,
+    prioridade: task.priority?.priority || null,
+    subtarefa: !!task.parent,
+    parentId: task.parent || null,
+  }
+}

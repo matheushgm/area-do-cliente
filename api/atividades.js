@@ -9,6 +9,8 @@
 //   action=listas    → listas (com status) da pasta ClickUp do cliente
 //   action=estimar   → grava a estimativa (horas) numa tarefa do ClickUp e
 //                      invalida o cache da pessoa
+//   action=concluidas → tarefas CONCLUÍDAS no workspace entre duas datas
+//                      (relatório de entregas por colaborador e por cliente)
 //   action=criar     → cria a tarefa aprovada no ClickUp (pasta do cliente,
 //                      responsável, datas, estimativa, campos Cliente / Tipo /
 //                      Departamento / Dificuldade) e registra em
@@ -25,8 +27,11 @@
 import {
   DEFAULT_CONFIG,
   planejarParaPessoa,
+  resumirConcluida,
   hojeISO,
   isoToMillis,
+  addDays,
+  diffDias,
 } from './_atividades_engine.js'
 
 export const config = { maxDuration: 60 }
@@ -104,6 +109,38 @@ async function openTasksOf(clickupUserId, token, teamId, { refresh = false } = {
   }
   cache.set(key, { at: Date.now(), tasks })
   return tasks
+}
+
+/**
+ * Tarefas CONCLUÍDAS no workspace inteiro entre dois dias (inclusive), pelo
+ * `date_done` do ClickUp. Pagina até 20 páginas de 100; devolve `truncado`
+ * se ainda houver mais (raro: seria 2.000 tarefas fechadas no período).
+ */
+const CACHE_DONE_TTL_MS = 2 * 60 * 1000
+async function doneTasksBetween(desde, ate, token, teamId, { refresh = false } = {}) {
+  const key = `done:${desde}:${ate}`
+  const hit = cache.get(key)
+  if (!refresh && hit && Date.now() - hit.at < CACHE_DONE_TTL_MS) return hit.result
+  const tasks = []
+  let truncado = false
+  for (let page = 0; page < 20; page++) {
+    const qs = new URLSearchParams({
+      include_closed: 'true',
+      subtasks: 'true',
+      order_by: 'updated',
+      date_done_gt: String(isoToMillis(desde) - 1),
+      date_done_lt: String(isoToMillis(ate) + 86400000),
+      page: String(page),
+    })
+    const r = await clickup('GET', `/team/${teamId}/task?${qs}`, token)
+    const batch = r?.tasks || []
+    tasks.push(...batch)
+    if (r?.last_page === true || batch.length < 100) break
+    if (page === 19) truncado = true
+  }
+  const result = { tasks, truncado }
+  cache.set(key, { at: Date.now(), result })
+  return result
 }
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
@@ -205,6 +242,25 @@ async function actionCarga(body, ctx) {
     }
   }
   return { data: { hoje, geradoEm: new Date().toISOString(), pessoas, erros, config: { capacidade_padrao_horas_dia: cfg.capacidade_padrao_horas_dia, dias_atraso_maximo: cfg.dias_atraso_maximo, horizonte_dias_uteis: cfg.horizonte_dias_uteis } } }
+}
+
+/** Relatório de concluídas: tudo que fechou entre `desde` e `ate` (inclusive). */
+async function actionConcluidas(body, ctx) {
+  const hoje = hojeISO()
+  const isoOk = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || '')
+  const ate = isoOk(body.ate) ? body.ate : hoje
+  const desde = isoOk(body.desde) ? body.desde : addDays(ate, -6)
+  const span = diffDias(desde, ate)
+  if (span < 0) return { status: 400, error: 'Período inválido: "desde" é depois de "ate".' }
+  if (span > 31) return { status: 400, error: 'Período máximo de 31 dias por chamada.' }
+  const cfg = await carregarConfig()
+  const { tasks, truncado } = await doneTasksBetween(desde, ate, ctx.token, ctx.teamId, { refresh: !!body.refresh })
+  // o ClickUp filtra por ms; o recorte por dia (São Paulo) é feito aqui, no resumo
+  const tarefas = tasks
+    .map((t) => resumirConcluida(t, cfg))
+    .filter((t) => t && t.dia && t.dia >= desde && t.dia <= ate)
+    .sort((a, b) => (b.concluidaEm || '').localeCompare(a.concluidaEm || ''))
+  return { data: { hoje, desde, ate, geradoEm: new Date().toISOString(), total: tarefas.length, truncado, tarefas } }
 }
 
 /** Grava time_estimate numa tarefa do ClickUp (edição inline das horas no painel). */
@@ -412,6 +468,7 @@ export default async function handler(req, res) {
     if (action === 'sugerir') out = await actionSugerir(body, ctx)
     else if (action === 'carga') out = await actionCarga(body, ctx)
     else if (action === 'listas') out = await actionListas(body, ctx)
+    else if (action === 'concluidas') out = await actionConcluidas(body, ctx)
     else if (action === 'estimar') out = await actionEstimar(body, ctx)
     else if (action === 'criar') out = await actionCriar(body, ctx)
     else return res.status(400).json({ error: { message: 'Ação não suportada.' } })
