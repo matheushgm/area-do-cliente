@@ -370,6 +370,13 @@ views com filter tabs, listas densas de 13px, painel lateral de 480px e painel f
 
 Tailwind CSS com design system próprio (`rl-*`). Classes utilitárias como `glass-card`, `btn-primary`, `bg-gradient-dark`, `shadow-glow` são definidas em `src/index.css`.
 
+### Sidebar global recolhível
+
+`AppSidebar` tem modo recolhido (56px, só ícones com tooltip) para sobrar espaço aos
+módulos. Estado em `localStorage` (`app.sidebar.collapsed`), compartilhado entre páginas pelo
+hook `useSidebarCollapsed` (evento `app-sidebar-collapsed`). Alterna pelo botão no topo da
+sidebar ou pela tecla `[` (fora de campos de texto). Só no desktop; no mobile continua o overlay.
+
 ### Tarefas (`/tarefas`): réplica do ClickUp dentro da Área do Cliente
 
 Substitui o ClickUp na operação. **Visual:** o mesmo do módulo Atividades (frame `.ln`
