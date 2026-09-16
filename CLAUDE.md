@@ -369,3 +369,38 @@ views com filter tabs, listas densas de 13px, painel lateral de 480px e painel f
 ### Estilo
 
 Tailwind CSS com design system próprio (`rl-*`). Classes utilitárias como `glass-card`, `btn-primary`, `bg-gradient-dark`, `shadow-glow` são definidas em `src/index.css`.
+
+### Tarefas (`/tarefas`): réplica do ClickUp dentro da Área do Cliente
+
+Substitui o ClickUp na operação. Hierarquia idêntica: **Pasta** (uma por cliente, ligada a
+`projects_v2` por `project_id`) → **Lista** (com seus próprios statuses em `statuses` jsonb)
+→ **Tarefa** (com subtarefas via `parent_id`) → **Comentários**. Tabelas `tarefas_pastas`,
+`tarefas_listas`, `tarefas_itens`, `tarefas_comentarios` (migration 084; RLS liberada para
+todo `authenticated`; as quatro estão na publicação realtime).
+
+- **Página** `src/pages/Tarefas.jsx`: sidebar de pastas/listas (`TarefasSidebar`), barra com
+  Lista/Quadro, agrupamento (status, vencimento, responsável, prioridade, lista), filtro de
+  responsável, busca e toggle de concluídas. Seleção e tarefa aberta vivem na URL
+  (`?pasta=`, `?lista=`, `?minhas=1`, `?tarefa=`). Preferências em `localStorage` (`tarefas.*`).
+- **Dados** `src/hooks/useTarefas.js`: lê a estrutura inteira e as tarefas só da pasta/lista
+  aberta (paginado de 1000 em 1000), atualização otimista e canal realtime. Trocar status
+  passa por `mudarStatus` (calcula `status_tipo` e `data_conclusao`).
+- **Componentes** `src/components/Tarefas/`: `Campos.jsx` (editores inline em Popover via
+  portal: status, responsáveis, data, prioridade, tipo, dificuldade, estimativa, `AdicionarInline`),
+  `ListaView` (tabela agrupada, subtarefas indentadas), `QuadroView` (kanban com arrastar
+  entre colunas de status/prioridade), `TarefaModal` (título, campos, descrição markdown,
+  subtarefas, checklists, anexos no bucket `task-attachments`, comentários).
+- **Helpers** `src/lib/tarefas.js`: statuses padrão, prioridades, opções de Tipo de tarefa /
+  Dificuldade / Departamento (as mesmas do ClickUp, com as cores), agrupamentos, datas.
+- **Importação do ClickUp**: `scripts/baixar_clickup_tarefas.mjs <saida.json>` baixa o space
+  Clientes (pastas, listas, tarefas com `include_closed` e `subtasks`); `scripts/importar_clickup_tarefas.mjs <dump.json> [--dry]`
+  faz upsert pelos ids do ClickUp (pasta→projeto por `clickup_folder_id`, mapa manual de nomes
+  ou nome normalizado; clientes sem pasta no ClickUp ganham pasta + lista "Geral");
+  `scripts/importar_clickup_comentarios.mjs` traz os comentários das tarefas ABERTAS (as
+  fechadas seriam ~10 mil requests). Responsáveis sem perfil ativo ficam em
+  `responsaveis_extra` (nome/iniciais/cor do ClickUp). Importado em 2026-09-15: 72 pastas,
+  135 listas, 11.745 tarefas (3.653 subtarefas, 1.962 abertas).
+- **Preview sem login:** `/dev/tarefas` (`src/dev/TarefasPreview.jsx`) roda a página com um
+  hook de fixture (`src/dev/fixtures/tarefas.json`, gitignored; gerar com um script que exporta
+  pastas/listas/itens de algumas pastas do Supabase). A página aceita `tarefasHook` só para isso.
+- A página antiga (tabela `tasks`) continua em `/tarefas-antigo`.

@@ -28,6 +28,7 @@ import FunilCanvas from './pages/FunilCanvas'
 import SquadsReport from './pages/SquadsReport'
 import ResetPassword from './pages/ResetPassword'
 import Tasks from './pages/Tasks'
+import Tarefas from './pages/Tarefas'
 import Chat from './pages/Chat'
 import RoteirosExpress from './pages/RoteirosExpress'
 import RoteirosExpressPublico from './pages/RoteirosExpressPublico'
@@ -39,6 +40,7 @@ import Atividades from './pages/Atividades'
 import { lazy, Suspense } from 'react'
 // Preview sem login do módulo Atividades; só existe em desenvolvimento.
 const AtividadesPreview = import.meta.env.DEV ? lazy(() => import('./dev/AtividadesPreview')) : null
+const TarefasPreview = import.meta.env.DEV ? lazy(() => import('./dev/TarefasPreview')) : null
 import NotificationCenter from './components/NotificationCenter'
 
 function RequireAuth({ children }) {
@@ -91,10 +93,14 @@ function AppRoutes() {
         <Route path="/webinar/:token" element={<WebinarPublico />} />
         <Route path="/funil" element={<RequireAuth><FunilCanvas /></RequireAuth>} />
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
-        <Route path="/tarefas" element={<RequireAuth><Tasks /></RequireAuth>} />
+        <Route path="/tarefas" element={<RequireAuth><Tarefas /></RequireAuth>} />
+        <Route path="/tarefas-antigo" element={<RequireAuth><Tasks /></RequireAuth>} />
         <Route path="/atividades" element={<RequireAuth><Atividades /></RequireAuth>} />
         {import.meta.env.DEV && AtividadesPreview && (
           <Route path="/dev/atividades" element={<Suspense fallback={null}><AtividadesPreview /></Suspense>} />
+        )}
+        {import.meta.env.DEV && TarefasPreview && (
+          <Route path="/dev/tarefas" element={<Suspense fallback={null}><TarefasPreview /></Suspense>} />
         )}
         <Route path="/atividades-15min" element={<RequireAuth><Atividades15min /></RequireAuth>} />
         <Route path="/roteiros-express" element={<RequireAuth><RoteirosExpress /></RequireAuth>} />

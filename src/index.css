@@ -271,3 +271,23 @@
 .ln-hatch { background-image: repeating-linear-gradient(135deg, rgb(var(--ln-red) / 0.9) 0 3px, rgb(var(--ln-red) / 0.35) 3px 6px); }
 .ln-shimmer { background: linear-gradient(90deg, rgb(var(--ln-ink) / 0.04) 25%, rgb(var(--ln-ink) / 0.1) 50%, rgb(var(--ln-ink) / 0.04) 75%); background-size: 200% 100%; animation: lnShimmer 1.4s linear infinite; }
 @keyframes lnShimmer { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+
+/* Markdown dentro do módulo Tarefas (descrição e comentários). */
+.prose-tarefa p { margin: 0 0 0.5em; }
+.prose-tarefa p:last-child { margin-bottom: 0; }
+.prose-tarefa h1, .prose-tarefa h2, .prose-tarefa h3, .prose-tarefa h4 { font-weight: 600; margin: 0.9em 0 0.35em; color: rgb(var(--rl-text)); }
+.prose-tarefa h1 { font-size: 1.25em; }
+.prose-tarefa h2 { font-size: 1.12em; }
+.prose-tarefa h3 { font-size: 1.04em; }
+.prose-tarefa ul { list-style: disc; padding-left: 1.4em; margin: 0.3em 0 0.6em; }
+.prose-tarefa ol { list-style: decimal; padding-left: 1.4em; margin: 0.3em 0 0.6em; }
+.prose-tarefa li { margin: 0.15em 0; }
+.prose-tarefa a { color: rgb(var(--rl-purple)); text-decoration: underline; }
+.prose-tarefa strong { font-weight: 600; }
+.prose-tarefa code { font-size: 0.9em; padding: 0.1em 0.35em; border-radius: 4px; background: rgb(var(--rl-surface)); border: 1px solid rgb(var(--rl-border)); }
+.prose-tarefa pre { padding: 0.6em 0.8em; border-radius: 8px; background: rgb(var(--rl-surface)); border: 1px solid rgb(var(--rl-border)); overflow-x: auto; margin: 0.5em 0; }
+.prose-tarefa blockquote { border-left: 3px solid rgb(var(--rl-border)); padding-left: 0.8em; color: rgb(var(--rl-subtle)); margin: 0.5em 0; }
+.prose-tarefa hr { border: 0; border-top: 1px solid rgb(var(--rl-border)); margin: 0.8em 0; }
+.prose-tarefa img { max-width: 100%; border-radius: 8px; }
+.prose-tarefa table { border-collapse: collapse; margin: 0.5em 0; font-size: 0.95em; }
+.prose-tarefa th, .prose-tarefa td { border: 1px solid rgb(var(--rl-border)); padding: 0.25em 0.6em; }
