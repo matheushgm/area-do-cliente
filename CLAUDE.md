@@ -432,3 +432,44 @@ todo `authenticated`; as quatro estão na publicação realtime).
   e `?comentarios=0`. O mapeamento ClickUp→linha vive em `api/_tarefas_clickup_map.js`,
   compartilhado com o script de importação.
 - A página antiga (tabela `tasks`) continua em `/tarefas-antigo`.
+
+### Chat (`/chat`): réplica do ClickUp Chat
+
+Visual e comportamento copiados do ClickUp Chat, no mesmo frame claro `.ln` dos módulos
+Tarefas/Atividades: coluna de 260px com "Chat", busca, botão de nova mensagem, filtros
+**Não lida · DMs · Canais**, seções Favoritos / Canais / Mensagens diretas (negrito + badge
+quando há não lidas, `@n` vermelho quando há menção); conversa com cabeçalho de boas-vindas,
+separadores de dia ("Hoje", "Ontem", "sexta-feira, setembro 11º"), mensagens agrupadas por
+autor (janela de 5 min), toolbar de hover (👍 ❤️ 😂, mais reações, responder, excluir a
+própria), chips de reação, resumo de thread (avatares + "N respostas · Última resposta …")
+e **thread num painel lateral de 400/440px** com "Enviar também para #canal". Composer com
+borda arredondada, barra de ações (+, "Mensagem", negrito/itálico/lista, @, emoji) e envio
+com Enter; `@` abre a lista de menções (formato salvo: `@Nome_Sobrenome`).
+
+- **Tabelas** (migrations 041/043 + **086/087**): `chat_channels` ganhou `visibility`
+  (público = todo o time vê e lê, mesmo sem ser membro; DMs sempre privadas),
+  `description`, `archived`, `project_id` (cliente), `last_message_at`,
+  `clickup_channel_id`; `chat_channel_members.favorite`; `chat_messages` ganhou
+  `parent_id` (thread), `replies_count`/`last_reply_at` (trigger
+  `fn_chat_message_counters`), `reactions` jsonb `{emoji: [user_id]}` (RPC
+  `chat_toggle_reaction`), `attachments`, `clickup_message_id`. Não lidas vêm da RPC
+  `chat_unread_counts()` (mensagens de outros depois do `last_read_at` da minha associação).
+  O trigger de menção não notifica mensagens com mais de 1 h (importação).
+- **Código:** `src/pages/Chat.jsx` (shell + URL `?channel=&thread=&msg=`),
+  `src/hooks/useChat.js` (dados, uma assinatura realtime para tudo, ações),
+  `src/components/Chat/` (`ChatSidebar`, `MessageList`, `Composer`, `ThreadPanel`,
+  `ChatMarkdown`, `ChatAvatar`, `NovoDialogs`), `src/lib/chat.js` (datas no formato do
+  ClickUp, menções, cores). Conteúdo é markdown renderizado com `react-markdown`
+  (`urlTransform` liberando `mention:` e links relativos); links `/tarefas?tarefa=` viram
+  chip de tarefa.
+- **Importação do ClickUp Chat:** `scripts/baixar_clickup_chat.mjs <saida.json> [dias]`
+  (API v3, canais + membros + mensagens + threads) e `scripts/importar_clickup_chat.mjs
+  <dump.json> [--dry]` (idempotente pelos ids do ClickUp; converte
+  `[@Nome](#user_mention#id)` em `@Nome_Do_Perfil` + `mentioned_user_ids`, e links
+  `app.clickup.com/t/<id>` em `/tarefas?tarefa=<uuid>` quando a tarefa existe; DMs só
+  quando os dois têm perfil e há mensagem). Feito em 2026-09-15 com os últimos 7 dias:
+  98 canais/DMs, 834 mensagens + 218 respostas. Não há sincronização contínua do chat
+  (só a importação manual).
+- **Preview sem login:** `/dev/chat` (`src/dev/ChatPreview.jsx`) com
+  `src/dev/fixtures/chat.json` (gitignored; exportar perfis, canais, membros, projetos e
+  mensagens do Supabase). A página aceita `chatHook` só para isso.
