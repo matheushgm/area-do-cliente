@@ -6,10 +6,10 @@ import { useMemo, useState } from 'react'
 import { CheckCircle2, ChevronRight, CornerDownRight, ExternalLink, Loader2, RefreshCw, X, AlertTriangle } from 'lucide-react'
 import { Tile } from './KpiStrip'
 import { Avatar } from './IssueList'
-import { fmtHoras, fmtHora, fmtRelativo, primeiroNome } from '../../lib/atividadesCarga'
+import { fmtCurta, fmtHoras, fmtHora, fmtRelativo, primeiroNome } from '../../lib/atividadesCarga'
 import {
-  SEM_RESPONSAVEL_KEY, agregarConcluidas, aplicarFiltros, diasDoIntervalo, enriquecerTarefas,
-  filtrarPorPeriodo, intervaloDoPeriodo, rotuloDia, rotuloIntervalo,
+  SEM_RESPONSAVEL_KEY, agregarConcluidas, aplicarFiltros, diasDoIntervalo, diasEntre, enriquecerTarefas,
+  filtrarPorPeriodo, rotuloDia, rotuloIntervalo,
 } from '../../lib/atividadesConcluidas'
 
 const FOCO = 'outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-ln-t2'
@@ -17,8 +17,12 @@ const ESTILO_ATIVO = { borderColor: 'rgb(var(--ln-t2) / 0.5)', backgroundColor: 
 
 function plural(n, s, p) { return n === 1 ? s : p }
 
-function textoPeriodo(periodo) {
-  return periodo === 'hoje' ? 'hoje' : periodo === 'ontem' ? 'ontem' : 'nos últimos 7 dias'
+function textoPeriodo(periodo, intervalo) {
+  if (periodo === 'hoje') return 'hoje'
+  if (periodo === 'ontem') return 'ontem'
+  if (periodo === '7dias') return 'nos últimos 7 dias'
+  if (!intervalo) return 'no período'
+  return intervalo.desde === intervalo.ate ? `em ${fmtCurta(intervalo.desde)}` : `de ${fmtCurta(intervalo.desde)} a ${fmtCurta(intervalo.ate)}`
 }
 
 // ─── Faixa por dia (só nos 7 dias) ───────────────────────────────────────────
@@ -227,14 +231,13 @@ function Skeleton() {
  * @param {{pessoa: string|null, cliente: string|null, dia: string|null}} p.filtros
  * @param {(f) => void} p.setFiltros
  */
-export default function RelatorioConcluidas({ rel, periodo, filtros, setFiltros, membros, projects, denso }) {
+export default function RelatorioConcluidas({ rel, periodo, intervalo, filtros, setFiltros, membros, projects, denso }) {
   const hoje = rel.hoje
   const projetosPorPasta = useMemo(() => new Map((projects || []).filter((p) => p.clickupFolderId).map((p) => [String(p.clickupFolderId), p.companyName || p.company_name])), [projects])
   const membrosPorClickup = useMemo(() => new Map((membros || []).filter((m) => m.clickupId).map((m) => [m.clickupId, m])), [membros])
 
   const todas = useMemo(() => enriquecerTarefas(rel.tarefas, { projetosPorPasta, membrosPorClickup }), [rel.tarefas, projetosPorPasta, membrosPorClickup])
-  const intervalo = useMemo(() => intervaloDoPeriodo(periodo, hoje), [periodo, hoje])
-  const doPeriodo = useMemo(() => filtrarPorPeriodo(todas, periodo, hoje), [todas, periodo, hoje])
+  const doPeriodo = useMemo(() => filtrarPorPeriodo(todas, periodo, hoje, intervalo), [todas, periodo, hoje, intervalo])
   const base = useMemo(() => agregarConcluidas(doPeriodo, { dias: diasDoIntervalo(intervalo) }), [doPeriodo, intervalo])
   const filtradas = useMemo(() => {
     let out = aplicarFiltros(doPeriodo, { pessoa: filtros.pessoa, cliente: filtros.cliente })
@@ -256,7 +259,7 @@ export default function RelatorioConcluidas({ rel, periodo, filtros, setFiltros,
       <div className="flex items-start justify-between gap-3 px-1">
         <div className="min-w-0">
           <h2 className="text-[13px] font-medium text-ln-t1 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-ln-green" /> Tarefas concluídas {textoPeriodo(periodo)}
+            <CheckCircle2 className="w-4 h-4 text-ln-green" /> Tarefas concluídas {textoPeriodo(periodo, intervalo)}
             <span className="text-ln-t4 font-normal tabular">{rotuloIntervalo(intervalo)}</span>
           </h2>
           <p className="text-[11px] text-ln-t4 mt-0.5">
@@ -287,20 +290,20 @@ export default function RelatorioConcluidas({ rel, periodo, filtros, setFiltros,
         <>
           {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-            <Tile label="Concluídas" valor={ag.totais.tarefas} sub={temFiltro ? `de ${base.totais.tarefas} no período` : `${textoPeriodo(periodo)}`} />
+            <Tile label="Concluídas" valor={ag.totais.tarefas} sub={temFiltro ? `de ${base.totais.tarefas} no período` : `${textoPeriodo(periodo, intervalo)}`} />
             <Tile label="Horas entregues" valor={fmtHoras(ag.totais.horas)} sub={ag.totais.tarefas ? `${fmtHoras(ag.totais.horas / ag.totais.tarefas)} por tarefa` : ''} title="Soma das horas de cada tarefa (estimativa, tipo ou dificuldade)" />
             <Tile label="Pessoas que entregaram" valor={ag.totais.pessoas} sub={ag.totais.semResponsavel ? `${ag.totais.semResponsavel} sem responsável` : 'todas com responsável'} tom={ag.totais.semResponsavel ? 'ambar' : 'padrao'} />
             <Tile label="Clientes atendidos" valor={ag.totais.clientes} sub={ag.porCliente[0] ? `${ag.porCliente[0].nome} lidera (${ag.porCliente[0].pct}%)` : ''} />
           </div>
 
-          {periodo === '7dias' && (
+          {(periodo === '7dias' || (periodo === 'custom' && diasEntre(intervalo.desde, intervalo.ate) > 1 && diasEntre(intervalo.desde, intervalo.ate) <= 31)) && (
             <FaixaDias porDia={base.porDia} hoje={hoje} diaSelecionado={filtros.dia} onSelecionarDia={setDia} />
           )}
 
           {base.totais.tarefas === 0 ? (
             <div className="ln-card px-3 py-8 text-center">
               <CheckCircle2 className="w-5 h-5 text-ln-t4 mx-auto mb-2" />
-              <p className="text-[13px] text-ln-t2">Nenhuma tarefa concluída {textoPeriodo(periodo)}.</p>
+              <p className="text-[13px] text-ln-t2">Nenhuma tarefa concluída {textoPeriodo(periodo, intervalo)}.</p>
               <p className="text-[11px] text-ln-t4 mt-1">Conta o que foi movido para um status de conclusão no ClickUp.</p>
             </div>
           ) : (

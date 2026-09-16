@@ -8,12 +8,15 @@ export const PERIODOS = [
   { value: 'hoje', label: 'Hoje' },
   { value: 'ontem', label: 'Ontem' },
   { value: '7dias', label: 'Últimos 7 dias' },
+  { value: 'custom', label: 'Personalizado' },
 ]
+// Intervalo personalizado: no máximo este tanto de dias (3 chamadas de 31 dias)
+export const MAX_DIAS_CUSTOM = 93
 
 const SEM_RESPONSAVEL = 'sem'
 export const SEM_RESPONSAVEL_KEY = SEM_RESPONSAVEL
 
-function addDias(iso, n) {
+export function addDias(iso, n) {
   const [y, m, d] = String(iso).split('-').map(Number)
   const dt = new Date(Date.UTC(y, m - 1, d + n))
   return dt.toISOString().slice(0, 10)
@@ -27,11 +30,31 @@ function round2(n) {
   return Math.round(n * 100) / 100
 }
 
-/** Intervalo [desde, ate] de cada período pré-pronto. */
-export function intervaloDoPeriodo(periodo, hoje) {
+const ISO_RE = /^\d{4}-\d{2}-\d{2}$/
+export function isoValido(v) { return ISO_RE.test(v || '') }
+
+/** Dias de calendário entre dois ISO (inclusive). */
+export function diasEntre(desde, ate) {
+  const ms = (iso) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d) }
+  return Math.round((ms(ate) - ms(desde)) / 86400000) + 1
+}
+
+/**
+ * Intervalo [desde, ate] de cada período. O personalizado vem de `custom`
+ * ({ desde, ate }); se vier inválido ou invertido, cai nos últimos 7 dias.
+ */
+export function intervaloDoPeriodo(periodo, hoje, custom = null) {
   if (periodo === 'hoje') return { desde: hoje, ate: hoje }
   if (periodo === 'ontem') { const o = addDias(hoje, -1); return { desde: o, ate: o } }
+  if (periodo === 'custom' && isoValido(custom?.desde) && isoValido(custom?.ate) && custom.desde <= custom.ate) {
+    return { desde: custom.desde, ate: custom.ate }
+  }
   return { desde: addDias(hoje, -6), ate: hoje }
+}
+
+/** Intervalo padrão do filtro personalizado: do dia 1º do mês até hoje. */
+export function customPadrao(hoje) {
+  return { desde: `${hoje.slice(0, 7)}-01`, ate: hoje }
 }
 
 /** Lista de dias do intervalo, do mais recente para o mais antigo. */
@@ -58,8 +81,8 @@ export function rotuloIntervalo({ desde, ate }) {
   return desde === ate ? fmtCurta(desde) : `${fmtCurta(desde)} a ${fmtCurta(ate)}`
 }
 
-export function filtrarPorPeriodo(tarefas, periodo, hoje) {
-  const { desde, ate } = intervaloDoPeriodo(periodo, hoje)
+export function filtrarPorPeriodo(tarefas, periodo, hoje, custom = null) {
+  const { desde, ate } = intervaloDoPeriodo(periodo, hoje, custom)
   return (tarefas || []).filter((t) => t.dia && t.dia >= desde && t.dia <= ate)
 }
 

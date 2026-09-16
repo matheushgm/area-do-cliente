@@ -1,21 +1,24 @@
-// Tarefas concluídas nos últimos 7 dias (relatório do módulo Atividades).
-// Uma única leitura cobre os três filtros (hoje / ontem / 7 dias): a troca de
-// período é feita no browser, sem nova chamada. Cache de sessão de 5 minutos
-// para a aba abrir já preenchida; relê sozinho quando fica velho.
+// Tarefas concluídas num intervalo de dias (relatório do módulo Atividades).
+// Recebe o intervalo que a tela precisa e lê o ClickUp só quando o que já
+// está carregado não cobre esse intervalo (os filtros Hoje / Ontem cabem
+// dentro dos 7 dias; o personalizado pede o que for). A API aceita 31 dias por
+// chamada, então intervalos maiores são lidos em fatias e juntados.
+// Cache de sessão de 5 minutos para a aba abrir já preenchida.
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { tarefasConcluidas } from '../lib/atividades'
 import { hojeISO } from '../lib/atividadesCarga'
-import { intervaloDoPeriodo } from '../lib/atividadesConcluidas'
+import { addDias } from '../lib/atividadesConcluidas'
 
 const TTL_MS = 5 * 60 * 1000
-const KEY = 'atividades_concluidas_v1'
+const KEY = 'atividades_concluidas_v2'
+const FATIA_DIAS = 31
 
 function lerCache(desde, ate) {
   try {
     const raw = sessionStorage.getItem(KEY)
     if (!raw) return null
     const c = JSON.parse(raw)
-    if (c?.desde !== desde || c?.ate !== ate) return null
+    if (!(c?.desde <= desde && c?.ate >= ate)) return null
     if (!c?.geradoEm || Date.now() - new Date(c.geradoEm).getTime() > TTL_MS) return null
     return c
   } catch { return null }
@@ -24,25 +27,44 @@ function gravarCache(c) {
   try { sessionStorage.setItem(KEY, JSON.stringify(c)) } catch { /* sem espaço: segue sem cache */ }
 }
 
+/** Lê [desde, ate] em fatias de até 31 dias e junta. */
+async function lerIntervalo(desde, ate, refresh) {
+  const tarefas = []
+  let truncado = false
+  let hoje = null
+  let ini = desde
+  while (ini <= ate) {
+    const fim = addDias(ini, FATIA_DIAS - 1) < ate ? addDias(ini, FATIA_DIAS - 1) : ate
+    const r = await tarefasConcluidas({ desde: ini, ate: fim, refresh })
+    tarefas.push(...(r.tarefas || []))
+    truncado = truncado || !!r.truncado
+    hoje = r.hoje || hoje
+    ini = addDias(fim, 1)
+  }
+  tarefas.sort((a, b) => (b.concluidaEm || '').localeCompare(a.concluidaEm || ''))
+  return { desde, ate, hoje, tarefas, truncado, geradoEm: new Date().toISOString() }
+}
+
 /**
  * @param {boolean} ativo  só lê o ClickUp quando o relatório está visível
+ * @param {{desde: string, ate: string}} intervalo  o que a tela precisa (yyyy-mm-dd)
  */
-export function useConcluidas(ativo) {
-  const [dados, setDados] = useState(null) // { hoje, desde, ate, geradoEm, tarefas, truncado }
+export function useConcluidas(ativo, intervalo) {
+  const [dados, setDados] = useState(null) // { desde, ate, hoje, tarefas, truncado, geradoEm }
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState(null)
   const seq = useRef(0)
   const hoje = hojeISO()
-  const { desde, ate } = intervaloDoPeriodo('7dias', hoje)
+  const { desde, ate } = intervalo
+  const cobre = !!dados && dados.desde <= desde && dados.ate >= ate
 
   const carregar = useCallback(async ({ refresh = false } = {}) => {
     const minha = ++seq.current
     setLoading(true)
     setErro(null)
     try {
-      const r = await tarefasConcluidas({ desde, ate, refresh })
+      const c = await lerIntervalo(desde, ate, refresh)
       if (seq.current !== minha) return
-      const c = { ...r, geradoEm: r.geradoEm || new Date().toISOString() }
       setDados(c)
       gravarCache(c)
     } catch (e) {
@@ -53,15 +75,19 @@ export function useConcluidas(ativo) {
     }
   }, [desde, ate])
 
-  // primeira leitura ao ativar: cache da sessão (se fresco) e, se não houver, ClickUp
-  const jaLeu = useRef(false)
+  // lê quando o intervalo pedido não está coberto (cache da sessão primeiro).
+  // Um intervalo que falhou não é pedido de novo sozinho: o botão de reler cuida.
+  const falhou = useRef(null)
   useEffect(() => {
-    if (!ativo || jaLeu.current) return
-    jaLeu.current = true
+    if (!ativo || cobre || loading) return
+    const chave = `${desde}:${ate}`
+    if (erro && falhou.current === chave) return
     const c = lerCache(desde, ate)
     if (c) { setDados(c); return }
+    falhou.current = chave
     carregar()
-  }, [ativo, desde, ate, carregar])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativo, cobre, desde, ate])
 
   // relê sozinho quando a leitura envelhece e a aba está visível
   const dadosRef = useRef(dados)
@@ -77,15 +103,16 @@ export function useConcluidas(ativo) {
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', tick) }
   }, [ativo])
 
-  const refresh = useCallback(() => carregar({ refresh: true }), [carregar])
+  const refresh = useCallback(() => { falhou.current = null; return carregar({ refresh: true }) }, [carregar])
 
   return {
-    tarefas: dados?.tarefas || [],
+    // só o que cabe no intervalo pedido (o carregado pode ser maior)
+    tarefas: cobre ? dados.tarefas.filter((t) => t.dia >= desde && t.dia <= ate) : [],
     hoje: dados?.hoje || hoje,
     desde,
     ate,
-    geradoEm: dados?.geradoEm || null,
-    truncado: !!dados?.truncado,
+    geradoEm: cobre ? dados.geradoEm : null,
+    truncado: cobre ? !!dados.truncado : false,
     loading,
     erro,
     refresh,

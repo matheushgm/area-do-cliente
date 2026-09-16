@@ -10,7 +10,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Menu, CalendarCheck, ChevronUp, ChevronDown, ChevronRight, Star, RefreshCw, Loader2, Settings, Plus, X,
-  Users, ListChecks, Rows3, Layers, Maximize2, Minimize2, CheckCircle2,
+  Users, ListChecks, Rows3, Layers, Maximize2, Minimize2, CheckCircle2, CalendarRange,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import AppSidebar from '../components/AppSidebar'
@@ -21,7 +21,8 @@ import { carregarConfigAtividades, estimarTarefa } from '../lib/atividades'
 import { useCargaTime } from '../hooks/useCargaTime'
 import { usePlanejador } from '../hooks/usePlanejador'
 import { useConcluidas } from '../hooks/useConcluidas'
-import { PERIODOS, SEM_RESPONSAVEL_KEY } from '../lib/atividadesConcluidas'
+import { PERIODOS, SEM_RESPONSAVEL_KEY, MAX_DIAS_CUSTOM, intervaloDoPeriodo, customPadrao, diasEntre, isoValido } from '../lib/atividadesConcluidas'
+import { hojeISO } from '../lib/atividadesCarga'
 import { fmtHora, chaveAtividade } from '../lib/atividadesCarga'
 import KpiStrip from '../components/Atividades/KpiStrip'
 import TeamHeatLine from '../components/Atividades/TeamHeatLine'
@@ -150,9 +151,22 @@ export default function Atividades() {
   const [agruparLista, setAgruparLista] = useState('semana')
 
   // ── Relatório de concluídas ────────────────────────────────────────────────
-  const [periodo, setPeriodo] = useState('hoje')       // 'hoje' | 'ontem' | '7dias'
+  const [periodo, setPeriodo] = useState('hoje')       // 'hoje' | 'ontem' | '7dias' | 'custom'
+  const [custom, setCustom] = useState(() => customPadrao(hojeISO())) // datas digitadas do personalizado
   const [filtrosConcl, setFiltrosConcl] = useState({ pessoa: null, cliente: null, dia: null })
-  const concl = useConcluidas(view === 'concluidas')
+  // intervalo válido do personalizado: só muda quando as duas datas fazem sentido
+  const customErro = periodo !== 'custom' ? null
+    : !isoValido(custom.desde) || !isoValido(custom.ate) ? 'Informe as duas datas.'
+    : custom.desde > custom.ate ? 'A data inicial é depois da final.'
+    : custom.ate > hojeISO() ? 'A data final está no futuro.'
+    : diasEntre(custom.desde, custom.ate) > MAX_DIAS_CUSTOM ? `No máximo ${MAX_DIAS_CUSTOM} dias por vez.`
+    : null
+  const [customAplicado, setCustomAplicado] = useState(custom)
+  useEffect(() => { if (periodo === 'custom' && !customErro) setCustomAplicado(custom) }, [periodo, custom, customErro])
+  const intervaloConcl = useMemo(() => intervaloDoPeriodo(periodo, hojeISO(), customAplicado), [periodo, customAplicado])
+  // o que pedir ao ClickUp: hoje/ontem cabem nos 7 dias (uma leitura serve as três abas)
+  const intervaloPedido = useMemo(() => (periodo === 'custom' ? intervaloConcl : intervaloDoPeriodo('7dias', hojeISO())), [periodo, intervaloConcl])
+  const concl = useConcluidas(view === 'concluidas', intervaloPedido)
   const nomeFiltroPessoa = filtrosConcl.pessoa
     ? (filtrosConcl.pessoa === SEM_RESPONSAVEL_KEY ? 'Sem responsável' : (membros.find((m) => `p:${m.id}` === filtrosConcl.pessoa)?.nome || filtrosConcl.pessoa.replace(/^c:/, 'ClickUp ')))
     : null
@@ -315,9 +329,23 @@ export default function Atividades() {
                   <button onClick={() => irPara('concluidas')} className={`ln-tab ${view === 'concluidas' ? 'ln-tab-active' : ''}`} title="Relatório do que foi concluído no ClickUp"><CheckCircle2 className="w-3.5 h-3.5" /> Concluídas</button>
                   <span className="w-px h-4 bg-ln-line mx-1 shrink-0" />
                   {view === 'concluidas'
-                    ? PERIODOS.map((f) => (
-                      <button key={f.value} onClick={() => { setPeriodo(f.value); setFiltrosConcl((x) => ({ ...x, dia: null })) }} className={`ln-tab whitespace-nowrap shrink-0 ${periodo === f.value ? 'ln-tab-active' : ''}`} aria-pressed={periodo === f.value}>{f.label}</button>
-                    ))
+                    ? (<>
+                      {PERIODOS.map((f) => (
+                        <button key={f.value} onClick={() => { setPeriodo(f.value); setFiltrosConcl((x) => ({ ...x, dia: null })) }} className={`ln-tab whitespace-nowrap shrink-0 ${periodo === f.value ? 'ln-tab-active' : ''}`} aria-pressed={periodo === f.value} title={f.value === 'custom' ? 'Escolher o intervalo de datas' : undefined}>
+                          {f.value === 'custom' && <CalendarRange className="w-3.5 h-3.5" />}{f.label}
+                        </button>
+                      ))}
+                      {periodo === 'custom' && (
+                        <span className="inline-flex items-center gap-1.5 shrink-0 ml-1" role="group" aria-label="Intervalo personalizado">
+                          <input type="date" value={custom.desde} max={custom.ate || hojeISO()} onChange={(e) => { setCustom((c) => ({ ...c, desde: e.target.value })); setFiltrosConcl((x) => ({ ...x, dia: null })) }} className="ln-input !w-auto !h-7 !text-xs tabular" aria-label="Data inicial" />
+                          <span className="text-[11px] text-ln-t4">até</span>
+                          <input type="date" value={custom.ate} min={custom.desde} max={hojeISO()} onChange={(e) => { setCustom((c) => ({ ...c, ate: e.target.value })); setFiltrosConcl((x) => ({ ...x, dia: null })) }} className="ln-input !w-auto !h-7 !text-xs tabular" aria-label="Data final" />
+                          {customErro
+                            ? <span className="text-[11px] text-ln-red whitespace-nowrap" role="alert">{customErro}</span>
+                            : <span className="text-[11px] text-ln-t4 whitespace-nowrap tabular">{diasEntre(custom.desde, custom.ate)} {diasEntre(custom.desde, custom.ate) === 1 ? 'dia' : 'dias'}</span>}
+                        </span>
+                      )}
+                    </>)
                     : FILTROS_LISTA.map((f) => (
                       <button key={f.value} onClick={() => { setFiltroLista(f.value); if (f.value !== 'todas') irPara('atividades') }} className={`ln-tab ${filtroLista === f.value ? 'ln-tab-active' : ''}`}>{f.label}</button>
                     ))}
@@ -350,6 +378,7 @@ export default function Atividades() {
                   <RelatorioConcluidas
                     rel={concl}
                     periodo={periodo}
+                    intervalo={intervaloConcl}
                     filtros={filtrosConcl}
                     setFiltros={setFiltrosConcl}
                     membros={membros}
