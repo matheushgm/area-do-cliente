@@ -2,12 +2,13 @@
 // Esquerda: pastas (uma por cliente) → listas. Centro: Lista ou Quadro da
 // pasta/lista escolhida, com agrupamento, filtros e edição inline. Clicar
 // numa tarefa abre o detalhe (subtarefas, descrição, checklists, comentários).
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Menu, List, KanbanSquare, ChevronRight, Search, X, Plus, Loader2, Layers, Eye, EyeOff, PanelLeft, User, RefreshCw,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { supabase } from '../lib/supabase'
 import AppSidebar from '../components/AppSidebar'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
@@ -18,7 +19,65 @@ import ListaView from '../components/Tarefas/ListaView'
 import QuadroView from '../components/Tarefas/QuadroView'
 import TarefaModal from '../components/Tarefas/TarefaModal'
 import { Popover, Avatar } from '../components/Tarefas/Campos'
-import { useRef } from 'react'
+
+// Sincronização incremental com o ClickUp (api/tarefas-sync.js): botão na
+// barra e disparo automático ao abrir a página se a última rodada tem +30 min.
+const SYNC_AUTO_MS = 30 * 60 * 1000
+function useSyncClickup({ ativo, aoTerminar }) {
+  const [estado, setEstado] = useState(null)   // linha de tarefas_sync
+  const [rodando, setRodando] = useState(false)
+  const [erro, setErro] = useState(null)
+  const disparado = useRef(false)
+
+  const lerEstado = useCallback(async () => {
+    if (!supabase) return null
+    const { data } = await supabase.from('tarefas_sync').select('*').eq('id', 'clickup').maybeSingle()
+    setEstado(data || null)
+    return data
+  }, [])
+
+  const sincronizar = useCallback(async () => {
+    if (!supabase || rodando) return
+    setRodando(true)
+    setErro(null)
+    try {
+      const { data: s } = await supabase.auth.getSession()
+      const token = s?.session?.access_token
+      if (!token) throw new Error('Sessão expirada.')
+      const res = await fetch('/api/tarefas-sync', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: '{}' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || json.ok === false) throw new Error(json.error || `HTTP ${res.status}`)
+      await lerEstado()
+      aoTerminar?.(json)
+    } catch (e) {
+      setErro(e.message)
+      await lerEstado()
+    } finally {
+      setRodando(false)
+    }
+  }, [rodando, lerEstado, aoTerminar])
+
+  useEffect(() => {
+    if (!ativo || disparado.current) return
+    disparado.current = true
+    lerEstado().then((s) => {
+      const ultimo = s?.ultimo_inicio ? new Date(s.ultimo_inicio).getTime() : 0
+      if (Date.now() - ultimo > SYNC_AUTO_MS) sincronizar()
+    })
+  }, [ativo, lerEstado, sincronizar])
+
+  return { estado, rodando, erro, sincronizar }
+}
+
+function tempoRelativo(iso) {
+  if (!iso) return 'nunca'
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (min < 1) return 'agora'
+  if (min < 60) return `há ${min} min`
+  const h = Math.round(min / 60)
+  if (h < 48) return `há ${h} h`
+  return `há ${Math.round(h / 24)} dias`
+}
 
 function lerPref(chave, padrao) {
   try { const v = localStorage.getItem(`tarefas.${chave}`); return v == null ? padrao : JSON.parse(v) } catch { return padrao }
@@ -91,6 +150,15 @@ export default function Tarefas({ tarefasHook = null }) {
   const [mostrarConcluidas, setMostrarConcluidas] = useState(() => lerPref('concluidas', false))
   const [busca, setBusca] = useState('')
   const [filtroResp, setFiltroResp] = useState('todos')
+  const sync = useSyncClickup({
+    ativo: !tarefasHook && !t.loadingEstrutura,
+    aoTerminar: useCallback((r) => {
+      const n = (r?.criadas || 0) + (r?.atualizadas || 0)
+      if (n > 0) { t.carregarEstrutura(); setRecarregarTick((x) => x + 1) }
+      showToast(n > 0 ? `ClickUp sincronizado: ${n} tarefa(s) atualizada(s)` : 'ClickUp sincronizado, nada novo')
+    }, [t, showToast]), // eslint-disable-line react-hooks/exhaustive-deps
+  })
+  const [recarregarTick, setRecarregarTick] = useState(0)
 
   useEffect(() => gravarPref('view', view), [view])
   useEffect(() => gravarPref('agrupar', agrupar), [agrupar])
@@ -137,9 +205,10 @@ export default function Tarefas({ tarefasHook = null }) {
 
   useEffect(() => {
     if (t.loadingEstrutura) return
+    const force = recarregarTick > 0
     if (sel.tipo === 'minhas') t.carregarMinhas()
-    else if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id))
-  }, [sel.tipo, listasEscopo, t.loadingEstrutura, t.carregarMinhas, t.carregarListas]) // eslint-disable-line react-hooks/exhaustive-deps
+    else if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force })
+  }, [sel.tipo, listasEscopo, t.loadingEstrutura, t.carregarMinhas, t.carregarListas, recarregarTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Deep-link direto numa tarefa que ainda não está em memória
   useEffect(() => {
@@ -263,6 +332,18 @@ export default function Tarefas({ tarefasHook = null }) {
               </nav>
               <div className="flex-1" />
               {t.carregando && <Loader2 className="w-4 h-4 animate-spin text-rl-muted" />}
+              {!tarefasHook && (
+                <button
+                  type="button"
+                  onClick={sync.sincronizar}
+                  disabled={sync.rodando}
+                  title={sync.erro ? `Erro na última sincronização: ${sync.erro}` : `Última sincronização com o ClickUp: ${tempoRelativo(sync.estado?.ultimo_inicio)}${sync.estado?.ultimo_ok === false ? ' (com erro)' : ''}`}
+                  className={`hidden sm:inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium border transition disabled:opacity-60 ${sync.erro || sync.estado?.ultimo_ok === false ? 'text-rl-red border-rl-red/40' : 'text-rl-muted border-rl-border hover:text-rl-text hover:bg-rl-surface'}`}
+                >
+                  <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />
+                  {sync.rodando ? 'Sincronizando ClickUp...' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
+                </button>
+              )}
               <button type="button" onClick={() => listasEscopo.length && t.carregarListas(listasEscopo.map((l) => l.id), { force: true })} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
               {listaPadraoId && (
                 <button type="button" onClick={() => onCriar({ lista_id: listaPadraoId, titulo: 'Nova tarefa' }).then((r) => r?.data && abrirTarefa(r.data.id))} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-rl-purple text-white text-xs font-semibold hover:opacity-90">

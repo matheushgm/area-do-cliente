@@ -403,4 +403,17 @@ todo `authenticated`; as quatro estão na publicação realtime).
 - **Preview sem login:** `/dev/tarefas` (`src/dev/TarefasPreview.jsx`) roda a página com um
   hook de fixture (`src/dev/fixtures/tarefas.json`, gitignored; gerar com um script que exporta
   pastas/listas/itens de algumas pastas do Supabase). A página aceita `tarefasHook` só para isso.
+- **Sincronização incremental ClickUp → Área** (`api/tarefas-sync.js`, Node, 60s): lê pastas e
+  listas do space (cria as novas, atualiza statuses) e as tarefas com `date_updated` desde
+  o último início menos 15 min (`tarefas_sync.ultimo_inicio`), incluindo fechadas e
+  subtarefas; busca pais que faltam; comentários só das abertas que mudaram (máx. 40 por
+  rodada). Mão única: nunca escreve no ClickUp. **Conflito:** `clickup_sync_at` marca a
+  última escrita da sincronização e o trigger de `updated_at` não a bumpa (migration 085),
+  então `updated_at > clickup_sync_at` = editada na Área; nesse caso, se o ClickUp estiver
+  mais antigo que a edição, a tarefa é pulada (`puladas_conflito`), senão o mais recente
+  vence. Dispara por: cron da Vercel (`0 9 * * *`, uma vez ao dia é o limite do plano
+  Hobby), botão "ClickUp há X min" na barra de /tarefas, e automaticamente ao abrir a
+  página se a última rodada tem +30 min. Auth: `CRON_SECRET` ou JWT. Aceita `?since=<ISO>`
+  e `?comentarios=0`. O mapeamento ClickUp→linha vive em `api/_tarefas_clickup_map.js`,
+  compartilhado com o script de importação.
 - A página antiga (tabela `tasks`) continua em `/tarefas-antigo`.

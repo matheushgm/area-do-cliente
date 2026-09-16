@@ -23,12 +23,19 @@
     },
     "api/atividades.js": {
       "maxDuration": 60
+    },
+    "api/tarefas-sync.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/resultados-autofill",
       "schedule": "5 3 1,8,15,22 * *"
+    },
+    {
+      "path": "/api/tarefas-sync",
+      "schedule": "0 9 * * *"
     }
   ]
 }
