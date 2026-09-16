@@ -1,11 +1,16 @@
-// Módulo Tarefas: réplica do ClickUp dentro da Área do Cliente.
-// Esquerda: pastas (uma por cliente) → listas. Centro: Lista ou Quadro da
-// pasta/lista escolhida, com agrupamento, filtros e edição inline. Clicar
-// numa tarefa abre o detalhe (subtarefas, descrição, checklists, comentários).
+// Módulo Tarefas: réplica do ClickUp dentro da Área do Cliente, no visual do
+// Linear (tokens ln-*, mesmo frame do módulo Atividades).
+//
+// Esquerda: pastas (uma por cliente) → listas. Centro: barra superior com
+// breadcrumb e ações, barra de views (Lista/Quadro, agrupar, filtros, busca)
+// e o conteúdo rolável. À direita, o painel da tarefa aberta (empurra o
+// conteúdo em telas largas, sobrepõe nas estreitas), com subtarefas,
+// descrição, checklists, anexos e comentários.
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  Menu, List, KanbanSquare, ChevronRight, Search, X, Plus, Loader2, Layers, Eye, EyeOff, PanelLeft, User, RefreshCw,
+  Menu, List, KanbanSquare, ChevronRight, ChevronDown, Search, X, Plus, Loader2, Layers, Eye, EyeOff, PanelLeft, User, RefreshCw,
+  CheckSquare, Trash2, Check, Maximize2, Minimize2, Rows3,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
@@ -17,8 +22,30 @@ import { statusDaLista, statusDasListas, agruparItens, filtrarItens, AGRUPAMENTO
 import TarefasSidebar from '../components/Tarefas/TarefasSidebar'
 import ListaView from '../components/Tarefas/ListaView'
 import QuadroView from '../components/Tarefas/QuadroView'
-import TarefaModal from '../components/Tarefas/TarefaModal'
-import { Popover, Avatar } from '../components/Tarefas/Campos'
+import TarefaPanel from '../components/Tarefas/TarefaPanel'
+import { Popover, Avatar, FOCO } from '../components/Tarefas/Campos'
+
+const PAINEL_LARGURA = 480
+const EMPURRA_A_PARTIR_DE = 1200
+
+function useLarguraDoConteudo(ref) {
+  const [w, setW] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1440))
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver((entries) => setW(entries[0]?.contentRect?.width || window.innerWidth))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref])
+  return w
+}
+
+function estaDigitando() {
+  const el = document.activeElement
+  if (!el) return false
+  const tag = el.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
+}
 
 // Sincronização incremental com o ClickUp (api/tarefas-sync.js): botão na
 // barra e disparo automático ao abrir a página se a última rodada tem +30 min.
@@ -92,13 +119,15 @@ function MenuAgrupar({ valor, onChange }) {
   const atual = AGRUPAMENTOS.find((a) => a.value === valor)
   return (
     <>
-      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium border transition ${valor !== 'nenhum' ? 'bg-rl-purple/10 text-rl-purple border-rl-purple/30' : 'text-rl-subtle border-rl-border hover:bg-rl-surface'}`}>
-        <Layers className="w-3.5 h-3.5" /> Agrupar: {atual?.label}
+      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`ln-pill ${FOCO}`} title="Agrupar as tarefas">
+        <Layers className="w-3.5 h-3.5" /> Agrupar: {atual?.label} <ChevronDown className="w-3 h-3" />
       </button>
-      <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={200}>
-        <div className="py-1">
+      <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={200} align="right">
+        <div className="p-1">
           {AGRUPAMENTOS.map((a) => (
-            <button key={a.value} type="button" onClick={() => { setOpen(false); onChange(a.value) }} className={`w-full text-left px-3 py-1.5 text-[13px] hover:bg-rl-surface ${a.value === valor ? 'text-rl-purple font-medium' : 'text-rl-subtle'}`}>{a.label}</button>
+            <button key={a.value} type="button" onClick={() => { setOpen(false); onChange(a.value) }} className={`w-full flex items-center h-8 px-2.5 rounded-md text-[13px] hover:bg-ln-ink/5 ${a.value === valor ? 'text-ln-t1' : 'text-ln-t2'}`}>
+              {a.label}{a.value === valor && <Check className="w-3.5 h-3.5 ml-auto text-ln-accent" />}
+            </button>
           ))}
         </div>
       </Popover>
@@ -110,22 +139,27 @@ function MenuResponsavel({ valor, membros, onChange }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const sel = membros.find((m) => m.id === valor)
+  const ativo = valor !== 'todos'
   const rotulo = valor === 'todos' ? 'Responsável' : valor === 'eu' ? 'Minhas' : sel?.name?.split(' ')[0] || 'Responsável'
   return (
     <>
-      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium border transition ${valor !== 'todos' ? 'bg-rl-purple/10 text-rl-purple border-rl-purple/30' : 'text-rl-subtle border-rl-border hover:bg-rl-surface'}`}>
+      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`ln-pill ${ativo ? '!bg-ln-ink/[0.08] !text-ln-t1' : ''} ${FOCO}`} title="Filtrar por responsável">
         <User className="w-3.5 h-3.5" /> {rotulo}
-        {valor !== 'todos' && <X className="w-3 h-3" onClick={(e) => { e.stopPropagation(); onChange('todos') }} />}
+        {ativo ? <X className="w-3 h-3" onClick={(e) => { e.stopPropagation(); onChange('todos') }} /> : <ChevronDown className="w-3 h-3" />}
       </button>
-      <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={240}>
-        <div className="py-1 overflow-y-auto">
-          <button type="button" onClick={() => { setOpen(false); onChange('todos') }} className={`w-full text-left px-3 py-1.5 text-[13px] hover:bg-rl-surface ${valor === 'todos' ? 'text-rl-purple font-medium' : 'text-rl-subtle'}`}>Todos</button>
-          <button type="button" onClick={() => { setOpen(false); onChange('eu') }} className={`w-full text-left px-3 py-1.5 text-[13px] hover:bg-rl-surface ${valor === 'eu' ? 'text-rl-purple font-medium' : 'text-rl-subtle'}`}>Minhas tarefas</button>
-          <div className="border-t border-rl-border my-1" />
+      <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={240} align="right">
+        <div className="p-1 overflow-y-auto">
+          {[{ id: 'todos', label: 'Todos' }, { id: 'eu', label: 'Minhas tarefas' }].map((o) => (
+            <button key={o.id} type="button" onClick={() => { setOpen(false); onChange(o.id) }} className={`w-full flex items-center h-8 px-2.5 rounded-md text-[13px] hover:bg-ln-ink/5 ${valor === o.id ? 'text-ln-t1' : 'text-ln-t2'}`}>
+              {o.label}{valor === o.id && <Check className="w-3.5 h-3.5 ml-auto text-ln-accent" />}
+            </button>
+          ))}
+          <div className="border-t border-ln-ink/5 my-1" />
           {membros.filter((m) => !m.disabled).map((m) => (
-            <button key={m.id} type="button" onClick={() => { setOpen(false); onChange(m.id) }} className={`w-full flex items-center gap-2 text-left px-3 py-1.5 text-[13px] hover:bg-rl-surface ${valor === m.id ? 'text-rl-purple font-medium' : 'text-rl-subtle'}`}>
-              <Avatar pessoa={{ nome: m.name, iniciais: m.avatar || iniciais(m.name), cor: corDaPessoa(m.id) }} size={20} />
+            <button key={m.id} type="button" onClick={() => { setOpen(false); onChange(m.id) }} className={`w-full flex items-center gap-2 h-8 px-2.5 rounded-md text-[13px] hover:bg-ln-ink/5 ${valor === m.id ? 'text-ln-t1' : 'text-ln-t2'}`}>
+              <Avatar pessoa={{ nome: m.name, iniciais: m.avatar || iniciais(m.name), cor: corDaPessoa(m.id) }} size={18} />
               <span className="truncate">{m.name}</span>
+              {valor === m.id && <Check className="w-3.5 h-3.5 ml-auto text-ln-accent" />}
             </button>
           ))}
         </div>
@@ -139,38 +173,43 @@ function MenuResponsavel({ valor, membros, onChange }) {
 export default function Tarefas({ tarefasHook = null }) {
   const { user, projects, teamMembers } = useApp()
   const { toast, showToast } = useToast()
+  const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const useDados = tarefasHook || useTarefas
   const t = useDados(user)
 
+  const conteudoRef = useRef(null)
+  const largura = useLarguraDoConteudo(conteudoRef)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [arvoreAberta, setArvoreAberta] = useState(false)
   const [view, setView] = useState(() => lerPref('view', 'lista'))
   const [agrupar, setAgrupar] = useState(() => lerPref('agrupar', 'status'))
   const [mostrarConcluidas, setMostrarConcluidas] = useState(() => lerPref('concluidas', false))
+  const [denso, setDenso] = useState(() => lerPref('denso', false))
   const [busca, setBusca] = useState('')
   const [filtroResp, setFiltroResp] = useState('todos')
+  const [painelExpandido, setPainelExpandido] = useState(false)
+  const [recarregarTick, setRecarregarTick] = useState(0)
   const sync = useSyncClickup({
     ativo: !tarefasHook && !t.loadingEstrutura,
     aoTerminar: useCallback((r) => {
       const n = (r?.criadas || 0) + (r?.atualizadas || 0)
       if (n > 0) { t.carregarEstrutura(); setRecarregarTick((x) => x + 1) }
       showToast(n > 0 ? `ClickUp sincronizado: ${n} tarefa(s) atualizada(s)` : 'ClickUp sincronizado, nada novo')
-    }, [t, showToast]), // eslint-disable-line react-hooks/exhaustive-deps
+    }, [t, showToast]),
   })
-  const [recarregarTick, setRecarregarTick] = useState(0)
 
   useEffect(() => gravarPref('view', view), [view])
   useEffect(() => gravarPref('agrupar', agrupar), [agrupar])
   useEffect(() => gravarPref('concluidas', mostrarConcluidas), [mostrarConcluidas])
+  useEffect(() => gravarPref('denso', denso), [denso])
 
   // ── Seleção (pasta / lista / minhas) via URL ─────────────────────────────
   const sel = useMemo(() => {
     if (params.get('lista')) return { tipo: 'lista', id: params.get('lista') }
     if (params.get('pasta')) return { tipo: 'pasta', id: params.get('pasta') }
     if (params.get('minhas') === '1') return { tipo: 'minhas' }
-    const ultima = lerPref('sel', null)
-    return ultima || { tipo: 'minhas' }
+    return lerPref('sel', null) || { tipo: 'minhas' }
   }, [params])
   const tarefaAbertaId = params.get('tarefa')
 
@@ -188,8 +227,8 @@ export default function Tarefas({ tarefasHook = null }) {
     if (id) p.set('tarefa', id); else p.delete('tarefa')
     setParams(p, { replace: !!params.get('tarefa') })
   }, [params, setParams])
+  const fecharPainel = useCallback(() => { setPainelExpandido(false); abrirTarefa(null) }, [abrirTarefa])
 
-  // Depois que a estrutura carrega: se a seleção aponta para algo que não existe mais, cai em "Minhas tarefas".
   useEffect(() => {
     if (t.loadingEstrutura) return
     if (sel.tipo === 'pasta' && !t.pastasMap.has(sel.id)) setSel({ tipo: 'minhas' })
@@ -210,7 +249,6 @@ export default function Tarefas({ tarefasHook = null }) {
     else if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force })
   }, [sel.tipo, listasEscopo, t.loadingEstrutura, t.carregarMinhas, t.carregarListas, recarregarTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Deep-link direto numa tarefa que ainda não está em memória
   useEffect(() => {
     if (tarefaAbertaId && !t.itens[tarefaAbertaId]) t.carregarTarefa(tarefaAbertaId)
   }, [tarefaAbertaId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -242,7 +280,6 @@ export default function Tarefas({ tarefasHook = null }) {
   }, [todos])
 
   const topo = useMemo(() => {
-    // Na visão "Minhas", uma subtarefa minha aparece como linha própria se o pai não for meu.
     const ids = new Set(itensEscopo.map((i) => i.id))
     return itensEscopo.filter((it) => !it.parent_id || !ids.has(it.parent_id))
   }, [itensEscopo])
@@ -255,7 +292,6 @@ export default function Tarefas({ tarefasHook = null }) {
   const grupos = useMemo(() => {
     const g = agruparItens(filtrados, agrupar, { statuses, membrosMap, listasMap: t.listasMap })
     if (agrupar === 'status' && view === 'quadro') {
-      // quadro mostra todas as colunas, mesmo vazias (e esconde "concluído" se não for pra mostrar)
       const existentes = new Map(g.map((x) => [x.key, x]))
       return statuses
         .filter((s) => mostrarConcluidas || s.tipo !== 'closed')
@@ -278,141 +314,205 @@ export default function Tarefas({ tarefasHook = null }) {
     if (r.error) showToast(r.error, 'error')
     return r
   }, [t, showToast])
-
   const onAtualizar = useCallback(async (id, patch) => {
     const r = await t.atualizarTarefa(id, patch)
     if (r.error) showToast(r.error, 'error')
   }, [t, showToast])
-
   const onMudarStatus = useCallback(async (item, s) => {
     const r = await t.mudarStatus(item, s)
     if (r.error) showToast(r.error, 'error')
   }, [t, showToast])
+  const novaTarefa = useCallback(() => {
+    if (!listaPadraoId) { showToast('Escolha uma pasta ou lista primeiro', 'error'); return }
+    onCriar({ lista_id: listaPadraoId, titulo: 'Nova tarefa' }).then((r) => r?.data && abrirTarefa(r.data.id))
+  }, [listaPadraoId, onCriar, abrirTarefa, showToast])
+
+  // Atalhos: C cria, Esc fecha o painel (fora de campos de texto).
+  useEffect(() => {
+    const h = (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key === 'Escape' && tarefaAbertaId && !estaDigitando()) { e.preventDefault(); if (painelExpandido) setPainelExpandido(false); else fecharPainel() }
+      if ((e.key === 'c' || e.key === 'C') && !estaDigitando()) { e.preventDefault(); novaTarefa() }
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa])
 
   const ctx = useMemo(() => ({
-    statuses, membros: teamMembers || [], membrosMap, itensMap: t.itens, listaPadraoId, agrupar, contagemComentarios,
+    statuses, membros: teamMembers || [], membrosMap, itensMap: t.itens, listaPadraoId, agrupar, contagemComentarios, selecionadaId: tarefaAbertaId,
     onAbrir: abrirTarefa, onAtualizar, onMudarStatus, onCriar,
-  }), [statuses, teamMembers, membrosMap, t.itens, listaPadraoId, agrupar, contagemComentarios, abrirTarefa, onAtualizar, onMudarStatus, onCriar])
+  }), [statuses, teamMembers, membrosMap, t.itens, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar])
 
-  // ── Cabeçalho ────────────────────────────────────────────────────────────
+  // ── Cabeçalho e painel ───────────────────────────────────────────────────
   const pastaSel = sel.tipo === 'pasta' ? t.pastasMap.get(sel.id) : sel.tipo === 'lista' ? t.pastasMap.get(t.listasMap.get(sel.id)?.pasta_id) : null
   const listaSel = sel.tipo === 'lista' ? t.listasMap.get(sel.id) : null
   const totalAbertas = itensEscopo.filter((i) => i.status_tipo !== 'closed' && !i.parent_id).length
 
   const tarefaAberta = tarefaAbertaId ? t.itens[tarefaAbertaId] : null
   const listaDaAberta = tarefaAberta ? t.listasMap.get(tarefaAberta.lista_id) : null
+  const pastaDaAberta = listaDaAberta ? t.pastasMap.get(listaDaAberta.pasta_id) : null
+  const paiDaAberta = tarefaAberta?.parent_id ? t.itens[tarefaAberta.parent_id] : null
   const statusesDaAberta = listaDaAberta ? statusDaLista(listaDaAberta) : statuses
+  const painelEmpurra = largura >= EMPURRA_A_PARTIR_DE
+  const painel = !!tarefaAbertaId
 
   return (
-    <div className="flex min-h-screen bg-rl-bg">
-      <AppSidebar filter="all" setFilter={() => {}} counts={{}} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className="min-h-screen flex bg-gradient-dark">
+      <AppSidebar filter="tarefas" setFilter={() => navigate('/')} counts={{}} activeAccounts={[]} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 min-w-0 flex h-screen overflow-hidden">
-        <TarefasSidebar
-          pastas={t.pastas} listas={t.listas} projetos={projects} sel={sel} onSel={setSel}
-          onCriarPasta={(nome) => t.criarPasta({ nome })}
-          onCriarLista={(pastaId, nome) => t.criarLista({ pasta_id: pastaId, nome })}
-          onAtualizarPasta={t.atualizarPasta}
-          onAtualizarLista={t.atualizarLista}
-          aberta={arvoreAberta} onFechar={() => setArvoreAberta(false)}
-        />
+      <div ref={conteudoRef} className="ln flex-1 min-w-0 flex flex-col h-screen bg-ln-bg">
+        <div className="flex-1 min-h-0 p-2">
+          <div className="relative h-full min-h-0 flex rounded-lg border border-ln-ink/5 bg-ln-panel overflow-hidden" style={{ boxShadow: '0 0 0 2px rgb(var(--ln-ink) / 0.02)' }}>
+            <TarefasSidebar
+              pastas={t.pastas} listas={t.listas} projetos={projects} sel={sel} onSel={setSel}
+              onCriarPasta={(nome) => t.criarPasta({ nome })}
+              onCriarLista={(pastaId, nome) => t.criarLista({ pasta_id: pastaId, nome })}
+              onAtualizarPasta={t.atualizarPasta}
+              onAtualizarLista={t.atualizarLista}
+              aberta={arvoreAberta} onFechar={() => setArvoreAberta(false)}
+            />
 
-        <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
-          {/* Barra superior */}
-          <header className="shrink-0 border-b border-rl-border bg-rl-card/60">
-            <div className="flex items-center gap-2 h-12 px-4">
-              <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-1.5 rounded-lg text-rl-muted hover:text-rl-text" aria-label="Menu"><Menu className="w-4 h-4" /></button>
-              <button onClick={() => setArvoreAberta(true)} className="md:hidden p-1.5 rounded-lg text-rl-muted hover:text-rl-text" aria-label="Pastas"><PanelLeft className="w-4 h-4" /></button>
-              <nav className="flex items-center gap-1 text-[13px] min-w-0">
-                <span className="text-rl-muted">Clientes</span>
-                {pastaSel && <><ChevronRight className="w-3.5 h-3.5 text-rl-muted" /><button type="button" onClick={() => setSel({ tipo: 'pasta', id: pastaSel.id })} className={`truncate max-w-[200px] ${listaSel ? 'text-rl-muted hover:text-rl-text' : 'text-rl-text font-semibold'}`}>{pastaSel.nome}</button></>}
-                {listaSel && <><ChevronRight className="w-3.5 h-3.5 text-rl-muted" /><span className="text-rl-text font-semibold truncate max-w-[200px]">{listaSel.nome}</span></>}
-                {sel.tipo === 'minhas' && <><ChevronRight className="w-3.5 h-3.5 text-rl-muted" /><span className="text-rl-text font-semibold">Minhas tarefas</span></>}
-                <span className="ml-2 text-[11px] text-rl-muted">{totalAbertas} abertas</span>
-              </nav>
-              <div className="flex-1" />
-              {t.carregando && <Loader2 className="w-4 h-4 animate-spin text-rl-muted" />}
-              {!tarefasHook && (
-                <button
-                  type="button"
-                  onClick={sync.sincronizar}
-                  disabled={sync.rodando}
-                  title={sync.erro ? `Erro na última sincronização: ${sync.erro}` : `Última sincronização com o ClickUp: ${tempoRelativo(sync.estado?.ultimo_inicio)}${sync.estado?.ultimo_ok === false ? ' (com erro)' : ''}`}
-                  className={`hidden sm:inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium border transition disabled:opacity-60 ${sync.erro || sync.estado?.ultimo_ok === false ? 'text-rl-red border-rl-red/40' : 'text-rl-muted border-rl-border hover:text-rl-text hover:bg-rl-surface'}`}
-                >
-                  <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />
-                  {sync.rodando ? 'Sincronizando ClickUp...' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
-                </button>
-              )}
-              <button type="button" onClick={() => listasEscopo.length && t.carregarListas(listasEscopo.map((l) => l.id), { force: true })} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
-              {listaPadraoId && (
-                <button type="button" onClick={() => onCriar({ lista_id: listaPadraoId, titulo: 'Nova tarefa' }).then((r) => r?.data && abrirTarefa(r.data.id))} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-rl-purple text-white text-xs font-semibold hover:opacity-90">
-                  <Plus className="w-3.5 h-3.5" /> Tarefa
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2 h-11 px-4 border-t border-rl-border/60 overflow-x-auto scroll-hide">
-              <div className="flex items-center gap-0.5 mr-2">
-                {[{ v: 'lista', l: 'Lista', I: List }, { v: 'quadro', l: 'Quadro', I: KanbanSquare }].map(({ v, l, I }) => (
-                  <button key={v} type="button" onClick={() => setView(v)} className={`inline-flex items-center gap-1.5 h-8 px-2.5 text-[13px] font-medium border-b-2 transition ${view === v ? 'text-rl-text border-rl-purple' : 'text-rl-muted border-transparent hover:text-rl-text'}`}>
-                    <I className="w-4 h-4" /> {l}
+            {/* ── Painel principal ─────────────────────────────────────── */}
+            <div className="flex-1 min-w-0 flex flex-col">
+              <header className="h-11 shrink-0 flex items-center justify-between gap-3 px-3 border-b border-ln-ink/5">
+                <div className="flex items-center gap-1 min-w-0">
+                  <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
+                  <button onClick={() => setArvoreAberta(true)} aria-label="Abrir pastas" className="ln-iconbtn md:hidden"><PanelLeft className="w-4 h-4" /></button>
+                  <div className="flex items-center gap-2 h-7 px-2.5 rounded-lg text-xs font-medium text-ln-t2 min-w-0">
+                    <CheckSquare className="w-3.5 h-3.5 text-ln-accent shrink-0" />
+                    <span className="truncate">Tarefas</span>
+                    {pastaSel && (<>
+                      <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
+                      <button type="button" onClick={() => setSel({ tipo: 'pasta', id: pastaSel.id })} className={`truncate max-w-[200px] rounded ${listaSel ? 'text-ln-t3 hover:text-ln-t2' : 'text-ln-t2'} ${FOCO}`}>{pastaSel.nome}</button>
+                    </>)}
+                    {listaSel && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate max-w-[200px]">{listaSel.nome}</span></>)}
+                    {sel.tipo === 'minhas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate">Minhas tarefas</span></>)}
+                  </div>
+                  <span className="hidden sm:inline text-xs text-ln-t4 tabular whitespace-nowrap">{totalAbertas} abertas</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {t.carregando && <Loader2 className="w-3.5 h-3.5 animate-spin text-ln-t4" />}
+                  {!tarefasHook && (
+                    <button
+                      type="button"
+                      onClick={sync.sincronizar}
+                      disabled={sync.rodando}
+                      title={sync.erro ? `Erro na última sincronização: ${sync.erro}` : `Última sincronização com o ClickUp: ${tempoRelativo(sync.estado?.ultimo_inicio)}${sync.estado?.ultimo_ok === false ? ' (com erro)' : ''}`}
+                      className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${sync.erro || sync.estado?.ultimo_ok === false ? 'text-ln-red' : 'text-ln-t4 hover:text-ln-t2'} disabled:opacity-60 ${FOCO} rounded`}
+                    >
+                      <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />
+                      {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
+                    </button>
+                  )}
+                  <button onClick={() => { if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true }) }} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
+                  <button onClick={novaTarefa} className="ln-primary" title="Nova tarefa (C)">
+                    <Plus className="w-3.5 h-3.5" /> Nova tarefa <kbd className="ln-kbd !text-white/80 !bg-white/15 !border-white/20 ml-0.5">C</kbd>
                   </button>
-                ))}
+                </div>
+              </header>
+
+              {/* Barra de views */}
+              <div className="h-11 shrink-0 flex items-center justify-between gap-3 px-3 border-b border-ln-ink/5">
+                <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto scroll-hide">
+                  <button onClick={() => setView('lista')} className={`ln-tab ${view === 'lista' ? 'ln-tab-active' : ''} ${FOCO}`}><List className="w-3.5 h-3.5" /> Lista</button>
+                  <button onClick={() => setView('quadro')} className={`ln-tab ${view === 'quadro' ? 'ln-tab-active' : ''} ${FOCO}`}><KanbanSquare className="w-3.5 h-3.5" /> Quadro</button>
+                  <span className="w-px h-4 bg-ln-line mx-1 shrink-0" />
+                  <MenuAgrupar valor={agrupar} onChange={setAgrupar} />
+                  <MenuResponsavel valor={filtroResp} membros={teamMembers || []} onChange={setFiltroResp} />
+                  <button onClick={() => setMostrarConcluidas((v) => !v)} className={`ln-pill ${mostrarConcluidas ? '!bg-ln-ink/[0.08] !text-ln-t1' : ''} ${FOCO}`} title={mostrarConcluidas ? 'Esconder concluídas' : 'Mostrar concluídas'}>
+                    {mostrarConcluidas ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} Concluídas
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="ln-input !h-7 !w-[150px] hidden sm:flex items-center gap-1.5">
+                    <Search className="w-3.5 h-3.5 text-ln-t4 shrink-0" />
+                    <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar tarefa" className="flex-1 min-w-0 bg-transparent outline-none text-xs text-ln-t1 placeholder:text-ln-t4" aria-label="Buscar tarefa" />
+                    {busca && <button type="button" onClick={() => setBusca('')} className="text-ln-t4 hover:text-ln-t2" aria-label="Limpar busca"><X className="w-3 h-3" /></button>}
+                  </div>
+                  {view === 'lista' && (
+                    <button onClick={() => setDenso((v) => !v)} className={`ln-iconbtn ${denso ? 'bg-ln-ink/[0.08] text-ln-t1' : ''}`} aria-label="Densidade" title={denso ? 'Linhas confortáveis' : 'Linhas compactas'}><Rows3 className="w-3.5 h-3.5" /></button>
+                  )}
+                </div>
               </div>
-              <MenuAgrupar valor={agrupar} onChange={setAgrupar} />
-              <MenuResponsavel valor={filtroResp} membros={teamMembers || []} onChange={setFiltroResp} />
-              <button type="button" onClick={() => setMostrarConcluidas((v) => !v)} className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium border transition ${mostrarConcluidas ? 'bg-rl-green/10 text-rl-green border-rl-green/30' : 'text-rl-subtle border-rl-border hover:bg-rl-surface'}`}>
-                {mostrarConcluidas ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} Concluídas
-              </button>
-              <div className="flex-1" />
-              <div className="flex items-center gap-2 h-8 px-2.5 rounded-lg bg-rl-surface border border-rl-border w-[220px] shrink-0">
-                <Search className="w-3.5 h-3.5 text-rl-muted shrink-0" />
-                <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar tarefa" className="flex-1 min-w-0 bg-transparent outline-none text-[13px] text-rl-text placeholder:text-rl-muted" />
-                {busca && <button type="button" onClick={() => setBusca('')} className="text-rl-muted hover:text-rl-text"><X className="w-3.5 h-3.5" /></button>}
+
+              {/* Conteúdo rolável */}
+              <div className={`flex-1 min-h-0 ${view === 'quadro' ? 'overflow-hidden' : 'overflow-auto'}`}>
+                {t.loadingEstrutura ? (
+                  <div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</div>
+                ) : view === 'quadro' ? (
+                  <QuadroView grupos={grupos} filhosDe={filhosDe} ctx={ctx} />
+                ) : (
+                  <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={mostrarConcluidas} denso={denso} compacto={painel && painelEmpurra && largura < 1600} />
+                )}
               </div>
             </div>
-          </header>
 
-          {/* Conteúdo */}
-          <div className="flex-1 min-h-0 overflow-auto pt-3">
-            {t.loadingEstrutura ? (
-              <div className="flex items-center justify-center py-20 text-rl-muted text-sm gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando...</div>
-            ) : view === 'quadro' ? (
-              <QuadroView grupos={grupos} filhosDe={filhosDe} ctx={ctx} />
-            ) : (
-              <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={mostrarConcluidas} />
+            {/* ── Painel lateral ──────────────────────────────────────── */}
+            {painel && (
+              <>
+                {!painelEmpurra && !painelExpandido && <div className="absolute inset-0 z-30 bg-black/30" onClick={fecharPainel} aria-hidden="true" />}
+                <aside
+                  className={`${painelExpandido ? 'absolute inset-0 z-40' : painelEmpurra ? 'relative shrink-0 border-l border-ln-ink/[0.08]' : 'absolute inset-y-0 right-0 z-40 shadow-2xl border-l border-ln-ink/[0.08]'} flex flex-col bg-ln-panel`}
+                  style={painelExpandido ? undefined : { width: painelEmpurra ? PAINEL_LARGURA : `min(${PAINEL_LARGURA}px, 100%)` }}
+                  aria-label="Detalhe da tarefa"
+                >
+                  <div className="h-11 shrink-0 flex items-center justify-between gap-2 px-3 border-b border-ln-ink/5">
+                    <div className="flex items-center gap-2 text-xs font-medium text-ln-t2 min-w-0">
+                      {pastaDaAberta && <span className="text-ln-t4 truncate max-w-[140px]">{pastaDaAberta.nome}</span>}
+                      {pastaDaAberta && <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />}
+                      {listaDaAberta && <span className="text-ln-t4 truncate max-w-[140px]">{listaDaAberta.nome}</span>}
+                      {paiDaAberta && (<>
+                        <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
+                        <button type="button" onClick={() => abrirTarefa(paiDaAberta.id)} className={`truncate max-w-[180px] text-ln-t3 hover:text-ln-t1 rounded ${FOCO}`} title={paiDaAberta.titulo}>{paiDaAberta.titulo}</button>
+                      </>)}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {tarefaAberta && tarefaAberta.status_tipo !== 'closed' && (
+                        <button type="button" onClick={() => { const s = statusesDaAberta.find((x) => x.tipo === 'closed'); if (s) onMudarStatus(tarefaAberta, s) }} className={`ln-pill !text-ln-green ${FOCO}`} title="Marcar como concluída">
+                          <Check className="w-3.5 h-3.5" /> Concluir
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => { if (tarefaAberta && window.confirm('Excluir esta tarefa (e as subtarefas)?')) t.excluirTarefa(tarefaAberta.id).then((r) => { if (r.error) showToast(r.error, 'error'); else { fecharPainel(); showToast('Tarefa excluída') } }) }}
+                        className="ln-iconbtn hover:!text-ln-red" aria-label="Excluir tarefa" title="Excluir"
+                      ><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setPainelExpandido((v) => !v)} className="ln-iconbtn" aria-label={painelExpandido ? 'Voltar ao painel lateral' : 'Expandir em tela cheia'} title={painelExpandido ? 'Voltar ao painel lateral (Esc)' : 'Expandir em tela cheia'}>
+                        {painelExpandido ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                      </button>
+                      <button onClick={fecharPainel} className="ln-iconbtn" aria-label="Fechar painel" title="Fechar (Esc)"><X className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                  <div className={`flex-1 min-h-0 overflow-y-auto ${painelExpandido ? '[&>*]:max-w-4xl [&>*]:mx-auto [&>*]:w-full' : ''}`}>
+                    {tarefaAberta ? (
+                      <TarefaPanel
+                        key={tarefaAberta.id}
+                        item={tarefaAberta}
+                        subtarefas={filhosDe.get(tarefaAberta.id) || []}
+                        statuses={statusesDaAberta}
+                        membros={teamMembers || []}
+                        membrosMap={membrosMap}
+                        comentarios={t.comentarios[tarefaAberta.id]}
+                        user={user}
+                        onAtualizar={onAtualizar}
+                        onMudarStatus={onMudarStatus}
+                        onCriarSub={(pai, tituloSub) => onCriar({ lista_id: pai.lista_id, parent_id: pai.id, titulo: tituloSub })}
+                        onAbrir={abrirTarefa}
+                        onComentar={async (id, texto) => { const r = await t.criarComentario(id, texto); if (r.error) showToast(r.error, 'error') }}
+                        onExcluirComentario={async (tarefaId, id) => { const r = await t.excluirComentario(tarefaId, id); if (r.error) showToast(r.error, 'error') }}
+                        onCarregarComentarios={t.carregarComentarios}
+                        onErro={(m) => showToast(m, 'error')}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center py-20 text-ln-t4"><Loader2 className="w-4 h-4 animate-spin" /></div>
+                    )}
+                  </div>
+                </aside>
+              </>
             )}
           </div>
-        </main>
+        </div>
       </div>
-
-      {tarefaAbertaId && (tarefaAberta ? (
-        <TarefaModal
-          key={tarefaAberta.id}
-          item={tarefaAberta}
-          pai={tarefaAberta.parent_id ? t.itens[tarefaAberta.parent_id] : null}
-          subtarefas={filhosDe.get(tarefaAberta.id) || []}
-          statuses={statusesDaAberta}
-          lista={listaDaAberta}
-          pasta={listaDaAberta ? t.pastasMap.get(listaDaAberta.pasta_id) : null}
-          membros={teamMembers || []}
-          membrosMap={membrosMap}
-          comentarios={t.comentarios[tarefaAberta.id]}
-          user={user}
-          onFechar={() => abrirTarefa(null)}
-          onAtualizar={onAtualizar}
-          onMudarStatus={onMudarStatus}
-          onCriarSub={(pai, tituloSub) => onCriar({ lista_id: pai.lista_id, parent_id: pai.id, titulo: tituloSub })}
-          onAbrir={abrirTarefa}
-          onExcluir={async (id) => { const r = await t.excluirTarefa(id); if (r.error) showToast(r.error, 'error'); else { abrirTarefa(null); showToast('Tarefa excluída') } }}
-          onComentar={async (id, texto) => { const r = await t.criarComentario(id, texto); if (r.error) showToast(r.error, 'error') }}
-          onExcluirComentario={async (tarefaId, id) => { const r = await t.excluirComentario(tarefaId, id); if (r.error) showToast(r.error, 'error') }}
-          onCarregarComentarios={t.carregarComentarios}
-          onErro={(m) => showToast(m, 'error')}
-        />
-      ) : (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60"><Loader2 className="w-6 h-6 animate-spin text-white" /></div>
-      ))}
 
       <Toast toast={toast} />
     </div>

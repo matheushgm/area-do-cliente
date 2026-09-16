@@ -1,126 +1,141 @@
-// Visualização "Lista" (tabela agrupada) igual à do ClickUp: seções por
-// grupo, colunas fixas e edição inline em cada célula. Subtarefas aparecem
-// indentadas abaixo do pai quando expandidas.
-import { useState, useMemo } from 'react'
-import { ChevronDown, ChevronRight, CornerDownRight, MessageSquare, ListChecks, Plus } from 'lucide-react'
-import { COLUNAS_LISTA, ordenarItens, fmtDataNumerica, progressoChecklists } from '../../lib/tarefas'
+// Visualização "Lista" no visual do Linear: grupos recolhíveis com cabeçalho
+// sticky, linhas de 40px em grid e edição inline em cada célula. Subtarefas
+// aparecem indentadas abaixo do pai quando expandidas.
+import { useState } from 'react'
+import { ChevronRight, CornerDownRight, MessageSquare, ListChecks } from 'lucide-react'
+import { ordenarItens, fmtDataNumerica, progressoChecklists } from '../../lib/tarefas'
 import {
-  StatusCampo, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, AdicionarInline,
+  StatusCampo, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, AdicionarInline, FOCO,
 } from './Campos'
 
-const LARG_NOME = 420
-
-function Celula({ w, children, className = '' }) {
-  return <div style={{ width: w, minWidth: w }} className={`flex items-center px-2 h-full overflow-hidden ${className}`}>{children}</div>
+// expandir | status | prioridade | título | tipo | dificuldade | estimativa | criada | vencimento | responsável | conclusão
+// Com o painel lateral aberto (compacto), somem tipo, dificuldade, criada e conclusão.
+const COLUNAS = {
+  cheia: '16px 16px 16px minmax(280px, 1fr) minmax(0, max-content) minmax(0, max-content) 72px 60px 76px 44px 60px',
+  compacta: '16px 16px 16px minmax(200px, 1fr) 72px 76px 44px',
+}
+const CABECALHOS = {
+  cheia: ['', '', '', 'Nome', 'Tipo de tarefa', 'Dificuldade', 'Estimativa', 'Criada', 'Vencimento', 'Resp.', 'Concluída'],
+  compacta: ['', '', '', 'Nome', 'Estimativa', 'Vencimento', 'Resp.'],
 }
 
-function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx }) {
-  const { statuses, membros, membrosMap, onAbrir, onAtualizar, onMudarStatus, contagemComentarios } = ctx
+function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, denso, compacto }) {
+  const { statuses, membros, membrosMap, onAbrir, onAtualizar, onMudarStatus, contagemComentarios, selecionadaId } = ctx
   const check = progressoChecklists(item.checklists)
   const nComent = contagemComentarios?.[item.id] || 0
   const concluida = item.status_tipo === 'closed'
+  const selecionada = selecionadaId === item.id
   return (
     <div
       role="row"
+      tabIndex={0}
       onClick={() => onAbrir(item.id)}
-      className="group/linha flex items-stretch h-[38px] border-b border-rl-border/60 hover:bg-rl-surface/70 cursor-pointer text-[13px]"
+      onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(item.id) }}
+      aria-current={selecionada ? 'true' : undefined}
+      className={`ln-row-hover grid items-center gap-x-2.5 ${denso ? 'h-8' : 'h-10'} px-2 cursor-pointer overflow-hidden ${FOCO} ${selecionada ? 'bg-ln-ink/[0.04]' : ''}`}
+      style={{ gridTemplateColumns: compacto ? COLUNAS.compacta : COLUNAS.cheia }}
     >
-      <div style={{ width: LARG_NOME, minWidth: LARG_NOME }} className={`flex items-center gap-1.5 pr-2 sticky left-0 bg-rl-bg group-hover/linha:bg-rl-surface z-[1] ${sub ? 'pl-9' : 'pl-3'}`}>
+      <span className="inline-flex items-center justify-center w-4 h-4">
         {!sub && filhos.length > 0 ? (
-          <button type="button" onClick={(e) => { e.stopPropagation(); onToggle() }} className="p-0.5 rounded text-rl-muted hover:text-rl-text hover:bg-rl-border/60 shrink-0" title={`${filhos.length} subtarefa(s)`}>
-            {expandido ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          <button type="button" onClick={(e) => { e.stopPropagation(); onToggle() }} className="ln-iconbtn !w-5 !h-5 !rounded" title={`${filhos.length} subtarefa(s)`} aria-label={expandido ? 'Recolher subtarefas' : 'Expandir subtarefas'}>
+            <ChevronRight className={`w-3 h-3 transition-transform duration-150 ${expandido ? 'rotate-90' : ''}`} />
           </button>
-        ) : (
-          <span className="w-[18px] shrink-0 flex items-center justify-center">{sub && <CornerDownRight className="w-3 h-3 text-rl-muted/70" />}</span>
-        )}
-        <StatusCampo item={item} statuses={statuses} onChange={(s) => onMudarStatus(item, s)} size="icon" className="shrink-0" />
-        <span className={`flex-1 min-w-0 truncate ${concluida ? 'text-rl-muted line-through' : 'text-rl-text'}`} title={item.titulo}>{item.titulo}</span>
-        <span className="flex items-center gap-2 text-[11px] text-rl-muted shrink-0">
-          {!sub && filhos.length > 0 && <span className="inline-flex items-center gap-0.5" title="Subtarefas"><CornerDownRight className="w-3 h-3" />{filhos.length}</span>}
+        ) : sub ? <CornerDownRight className="w-3 h-3 text-ln-t4" /> : null}
+      </span>
+
+      <StatusCampo item={item} statuses={statuses} modo="icon" onChange={(s) => onMudarStatus(item, s)} />
+
+      <PrioridadeCampo valor={item.prioridade} comTexto={false} onChange={(v) => onAtualizar(item.id, { prioridade: v })} />
+
+      <span className="flex items-center gap-2 min-w-0">
+        <span className={`text-[13px] font-medium truncate min-w-0 ${concluida ? 'text-ln-t4 line-through' : 'text-ln-t2'}`} title={item.titulo}>{item.titulo}</span>
+        <span className="flex items-center gap-2 text-[11px] text-ln-t4 shrink-0 tabular">
+          {!sub && filhos.length > 0 && <span className="inline-flex items-center gap-0.5" title="Subtarefas"><CornerDownRight className="w-3 h-3" />{filhos.filter((f) => f.status_tipo === 'closed').length}/{filhos.length}</span>}
           {check.total > 0 && <span className="inline-flex items-center gap-0.5" title="Checklist"><ListChecks className="w-3 h-3" />{check.feitos}/{check.total}</span>}
           {nComent > 0 && <span className="inline-flex items-center gap-0.5" title="Comentários"><MessageSquare className="w-3 h-3" />{nComent}</span>}
         </span>
-      </div>
-      <Celula w={COLUNAS_LISTA[0].w}><StatusCampo item={item} statuses={statuses} onChange={(s) => onMudarStatus(item, s)} /></Celula>
-      <Celula w={COLUNAS_LISTA[1].w}><ResponsavelCampo item={item} membros={membros} membrosMap={membrosMap} onChange={(ids, extra) => onAtualizar(item.id, extra ? { responsaveis: ids, responsaveis_extra: extra } : { responsaveis: ids })} /></Celula>
-      <Celula w={COLUNAS_LISTA[2].w} className="text-rl-subtle">{fmtDataNumerica(item.created_at)}</Celula>
-      <Celula w={COLUNAS_LISTA[3].w}><DataCampo valor={item.data_vencimento} item={item} onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} /></Celula>
-      <Celula w={COLUNAS_LISTA[4].w}><PrioridadeCampo valor={item.prioridade} onChange={(v) => onAtualizar(item.id, { prioridade: v })} /></Celula>
-      <Celula w={COLUNAS_LISTA[5].w}><DificuldadeCampo valor={item.dificuldade} onChange={(v) => onAtualizar(item.id, { dificuldade: v })} /></Celula>
-      <Celula w={COLUNAS_LISTA[6].w}><TipoTarefaCampo valor={item.tipo_tarefa} onChange={(v) => onAtualizar(item.id, { tipo_tarefa: v })} /></Celula>
-      <Celula w={COLUNAS_LISTA[7].w}><EstimativaCampo valor={item.estimativa_min} onChange={(v) => onAtualizar(item.id, { estimativa_min: v })} /></Celula>
-      <Celula w={COLUNAS_LISTA[8].w} className="text-rl-subtle">{item.data_conclusao ? fmtDataNumerica(item.data_conclusao) : <span className="text-rl-muted/70">–</span>}</Celula>
+      </span>
+
+      {!compacto && <span className="min-w-0 overflow-hidden"><TipoTarefaCampo valor={item.tipo_tarefa} placeholder="" onChange={(v) => onAtualizar(item.id, { tipo_tarefa: v })} /></span>}
+      {!compacto && <span className="min-w-0 overflow-hidden"><DificuldadeCampo valor={item.dificuldade} placeholder="" onChange={(v) => onAtualizar(item.id, { dificuldade: v })} /></span>}
+      <EstimativaCampo valor={item.estimativa_min} vazio="" onChange={(v) => onAtualizar(item.id, { estimativa_min: v })} />
+      {!compacto && <span className="text-xs text-ln-t4 tabular whitespace-nowrap">{fmtDataNumerica(item.created_at)}</span>}
+      <DataCampo valor={item.data_vencimento} item={item} placeholder="" onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} />
+      <ResponsavelCampo item={item} membros={membros} membrosMap={membrosMap} size={16} max={2} onChange={(ids, extra) => onAtualizar(item.id, extra ? { responsaveis: ids, responsaveis_extra: extra } : { responsaveis: ids })} />
+      {!compacto && <span className="text-xs text-ln-t4 tabular whitespace-nowrap">{item.data_conclusao ? fmtDataNumerica(item.data_conclusao) : ''}</span>}
     </div>
   )
 }
 
-function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas }) {
+function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, compacto }) {
   const [aberto, setAberto] = useState(true)
   const [expandidos, setExpandidos] = useState(() => new Set())
   const { onCriar, listaPadraoId, agrupar } = ctx
   const itens = ordenarItens(grupo.itens)
   const toggle = (id) => setExpandidos((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   return (
-    <section className="mb-5">
-      <div className="flex items-center gap-2 h-9 sticky top-0 z-[2] bg-rl-bg">
-        <button type="button" onClick={() => setAberto((v) => !v)} className="p-0.5 rounded text-rl-muted hover:text-rl-text" aria-label={aberto ? 'Recolher grupo' : 'Expandir grupo'}>
-          {aberto ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </button>
-        <span className="inline-flex items-center h-[22px] px-2 rounded-md text-[11px] font-bold uppercase tracking-wide text-white" style={{ backgroundColor: grupo.cor }}>
-          {grupo.label}
-        </span>
-        <span className="text-xs text-rl-muted">{itens.length}</span>
-        <div className="flex-1" />
-        {listaPadraoId && (
-          <button type="button" onClick={() => setAberto(true)} className="hidden" aria-hidden />
-        )}
-      </div>
+    <div className="px-2">
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        className={`sticky top-7 z-10 w-full flex items-center gap-1.5 h-9 px-2 rounded-lg bg-ln-panel text-left transition-colors duration-150 hover:bg-ln-ink/[0.03] ${FOCO}`}
+      >
+        <ChevronRight className={`w-3.5 h-3.5 text-ln-t4 transition-transform duration-150 ${aberto ? 'rotate-90' : ''}`} />
+        <i className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: grupo.cor }} />
+        <span className="text-[13px] font-medium text-ln-t2 truncate">{grupo.label}</span>
+        <span className="text-[13px] text-ln-t3 tabular">{itens.length}</span>
+      </button>
       {aberto && (
-        <div className="min-w-max">
-          <div className="flex items-center h-7 text-[11px] font-medium text-rl-muted border-b border-rl-border/60">
-            <div style={{ width: LARG_NOME, minWidth: LARG_NOME }} className="pl-[38px] sticky left-0 bg-rl-bg z-[1]">Nome</div>
-            {COLUNAS_LISTA.map((c) => <div key={c.key} style={{ width: c.w, minWidth: c.w }} className="px-2">{c.label}</div>)}
-          </div>
+        <>
           {itens.map((it) => {
-            const filhos = ordenarItens((filhosDe.get(it.id) || []).filter((f) => mostrarConcluidas || f.status_tipo !== 'closed' || it.status_tipo === 'closed'))
+            const todosFilhos = filhosDe.get(it.id) || []
+            const filhos = ordenarItens(todosFilhos.filter((f) => mostrarConcluidas || f.status_tipo !== 'closed' || it.status_tipo === 'closed'))
             const exp = expandidos.has(it.id)
             return (
               <div key={it.id}>
-                <Linha item={it} filhos={filhosDe.get(it.id) || []} expandido={exp} onToggle={() => toggle(it.id)} ctx={ctx} />
-                {exp && filhos.map((f) => <Linha key={f.id} item={f} sub ctx={ctx} />)}
+                <Linha item={it} filhos={todosFilhos} expandido={exp} onToggle={() => toggle(it.id)} ctx={ctx} denso={denso} compacto={compacto} />
+                {exp && filhos.map((f) => <Linha key={f.id} item={f} sub ctx={ctx} denso={denso} compacto={compacto} />)}
                 {exp && (
-                  <div className="flex items-center h-8 pl-[52px] border-b border-rl-border/40 sticky left-0">
-                    <AdicionarInline compacto placeholder="Adicionar subtarefa" onCriar={(t) => onCriar({ lista_id: it.lista_id, parent_id: it.id, titulo: t, status: grupo.key })} />
+                  <div className="flex items-center h-8 pl-[34px]">
+                    <AdicionarInline placeholder="Adicionar subtarefa" onCriar={(t) => onCriar({ lista_id: it.lista_id, parent_id: it.id, titulo: t, status: grupo.key })} />
                   </div>
                 )}
               </div>
             )
           })}
           {listaPadraoId && (
-            <div className="flex items-center h-9 pl-[38px] sticky left-0">
-              <AdicionarInline compacto placeholder="Adicionar Tarefa" onCriar={(t) => onCriar({ lista_id: listaPadraoId, titulo: t, status: agrupar === 'status' ? grupo.key : undefined })} />
+            <div className="flex items-center h-9 pl-[34px]">
+              <AdicionarInline placeholder="Adicionar tarefa" onCriar={(t) => onCriar({ lista_id: listaPadraoId, titulo: t, status: agrupar === 'status' ? grupo.key : undefined })} />
             </div>
           )}
-        </div>
+        </>
       )}
-    </section>
+    </div>
   )
 }
 
-export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas }) {
+export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, denso = false, compacto = false }) {
   if (!grupos.length) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <p className="text-sm text-rl-muted mb-3">Nenhuma tarefa aqui ainda.</p>
-        {ctx.listaPadraoId && (
-          <AdicionarInline placeholder="Adicionar Tarefa" className="text-rl-purple" onCriar={(t) => ctx.onCriar({ lista_id: ctx.listaPadraoId, titulo: t })} />
+      <div className="flex flex-col items-center justify-center gap-1.5 py-16 text-center">
+        <p className="text-[13px] text-ln-t4">Nenhuma tarefa aqui ainda</p>
+        {ctx.listaPadraoId ? (
+          <AdicionarInline placeholder="Adicionar a primeira tarefa" onCriar={(t) => ctx.onCriar({ lista_id: ctx.listaPadraoId, titulo: t })} />
+        ) : (
+          <p className="text-xs text-ln-t4">Escolha uma pasta ou lista à esquerda</p>
         )}
       </div>
     )
   }
   return (
-    <div className="px-4 pb-16 overflow-x-auto">
-      {grupos.map((g) => <Grupo key={g.key} grupo={g} ctx={ctx} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} />)}
+    <div className={`${compacto ? 'min-w-[520px]' : 'min-w-[900px]'} pb-24`}>
+      <div className="sticky top-0 z-20 grid items-center gap-x-2.5 h-7 px-4 bg-ln-panel border-b border-ln-ink/5 text-[11px] text-ln-t4" style={{ gridTemplateColumns: compacto ? COLUNAS.compacta : COLUNAS.cheia }} aria-hidden="true">
+        {(compacto ? CABECALHOS.compacta : CABECALHOS.cheia).map((c, i) => <span key={i} className="truncate">{c}</span>)}
+      </div>
+      <div className="py-1">
+        {grupos.map((g) => <Grupo key={g.key} grupo={g} ctx={ctx} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} denso={denso} compacto={compacto} />)}
+      </div>
     </div>
   )
 }

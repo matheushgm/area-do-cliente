@@ -372,24 +372,32 @@ Tailwind CSS com design system próprio (`rl-*`). Classes utilitárias como `gla
 
 ### Tarefas (`/tarefas`): réplica do ClickUp dentro da Área do Cliente
 
-Substitui o ClickUp na operação. Hierarquia idêntica: **Pasta** (uma por cliente, ligada a
+Substitui o ClickUp na operação. **Visual:** o mesmo do módulo Atividades (frame `.ln`
+com tokens `ln-*`, barra superior e barra de views de 44px, `ln-tab`/`ln-pill`/`ln-iconbtn`/
+`ln-primary`, linhas de 40px em grid com `ln-row-hover`, detalhe num painel lateral de 480px
+que empurra o conteúdo a partir de 1200px de largura e sobrepõe abaixo disso, com botão
+de expandir). Nada de modal centralizado nem tokens `rl-*` dentro do módulo. Hierarquia idêntica: **Pasta** (uma por cliente, ligada a
 `projects_v2` por `project_id`) → **Lista** (com seus próprios statuses em `statuses` jsonb)
 → **Tarefa** (com subtarefas via `parent_id`) → **Comentários**. Tabelas `tarefas_pastas`,
 `tarefas_listas`, `tarefas_itens`, `tarefas_comentarios` (migration 084; RLS liberada para
 todo `authenticated`; as quatro estão na publicação realtime).
 
-- **Página** `src/pages/Tarefas.jsx`: sidebar de pastas/listas (`TarefasSidebar`), barra com
-  Lista/Quadro, agrupamento (status, vencimento, responsável, prioridade, lista), filtro de
-  responsável, busca e toggle de concluídas. Seleção e tarefa aberta vivem na URL
+- **Página** `src/pages/Tarefas.jsx`: coluna de pastas/listas (`TarefasSidebar`, dentro do
+  frame), barra com Lista/Quadro, agrupamento (status, vencimento, responsável, prioridade,
+  lista), filtro de responsável, busca, toggle de concluídas e densidade. Atalhos: `C` cria
+  tarefa, `Esc` fecha o painel. Com o painel aberto e largura < 1600, a lista esconde tipo,
+  dificuldade, criada e conclusão (`compacto`). Seleção e tarefa aberta vivem na URL
   (`?pasta=`, `?lista=`, `?minhas=1`, `?tarefa=`). Preferências em `localStorage` (`tarefas.*`).
 - **Dados** `src/hooks/useTarefas.js`: lê a estrutura inteira e as tarefas só da pasta/lista
   aberta (paginado de 1000 em 1000), atualização otimista e canal realtime. Trocar status
   passa por `mudarStatus` (calcula `status_tipo` e `data_conclusao`).
 - **Componentes** `src/components/Tarefas/`: `Campos.jsx` (editores inline em Popover via
   portal: status, responsáveis, data, prioridade, tipo, dificuldade, estimativa, `AdicionarInline`),
-  `ListaView` (tabela agrupada, subtarefas indentadas), `QuadroView` (kanban com arrastar
-  entre colunas de status/prioridade), `TarefaModal` (título, campos, descrição markdown,
-  subtarefas, checklists, anexos no bucket `task-attachments`, comentários).
+  `ListaView` (grid agrupado, subtarefas indentadas), `QuadroView` (kanban com `ln-card` e
+  arrastar entre colunas de status/prioridade), `TarefaPanel` (corpo do painel lateral:
+  título, propriedades em `dl`, descrição markdown, subtarefas, checklists, anexos no bucket
+  `task-attachments`, comentários). Status é o círculo do Linear na cor do status do
+  ClickUp (`StatusIcon`); prioridade são as barras (`PrioridadeIcon`).
 - **Helpers** `src/lib/tarefas.js`: statuses padrão, prioridades, opções de Tipo de tarefa /
   Dificuldade / Departamento (as mesmas do ClickUp, com as cores), agrupamentos, datas.
 - **Importação do ClickUp**: `scripts/baixar_clickup_tarefas.mjs <saida.json>` baixa o space

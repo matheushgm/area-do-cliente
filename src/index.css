@@ -260,8 +260,8 @@
 /* superfícies e controles recorrentes do módulo */
 .ln-card { @apply bg-ln-card border border-ln-ink/[0.08] rounded-[9px]; box-shadow: var(--ln-ring-card); }
 .ln-iconbtn { @apply inline-flex items-center justify-center w-7 h-7 rounded-full text-ln-t3 transition-colors duration-150 hover:bg-ln-ink/5 hover:text-ln-t2 disabled:opacity-40 disabled:cursor-not-allowed; }
-.ln-pill { @apply inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-ln-ink/[0.02] text-ln-t3 text-xs font-medium transition-colors duration-150 hover:bg-ln-ink/5 hover:text-ln-t2 ring-1 ring-inset ring-ln-ink/5; }
-.ln-tab { @apply inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium text-ln-t3 bg-ln-ink/[0.02] ring-1 ring-inset ring-ln-ink/5 transition-colors duration-150 hover:bg-ln-ink/5; }
+.ln-pill { @apply inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full whitespace-nowrap shrink-0 bg-ln-ink/[0.02] text-ln-t3 text-xs font-medium transition-colors duration-150 hover:bg-ln-ink/5 hover:text-ln-t2 ring-1 ring-inset ring-ln-ink/5; }
+.ln-tab { @apply inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full whitespace-nowrap shrink-0 text-xs font-medium text-ln-t3 bg-ln-ink/[0.02] ring-1 ring-inset ring-ln-ink/5 transition-colors duration-150 hover:bg-ln-ink/5; }
 .ln-tab-active { @apply bg-ln-ink/[0.08] text-ln-t1 ring-0; }
 .ln-primary { @apply inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-ln-brand text-white text-xs font-medium transition duration-150 hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed; }
 .ln-input { @apply w-full h-8 px-2.5 rounded-md bg-ln-ink/[0.03] border border-ln-ink/[0.08] text-[13px] text-ln-t1 placeholder:text-ln-t4 outline-none transition-colors duration-150 focus:border-ln-accent/60 focus:bg-ln-ink/[0.04]; }
