@@ -2207,6 +2207,12 @@ function aggMetrics(rows, isMeta) {
     // "ROAS de vendas" é razão por linha → agrega como receita (ROAS×gasto) ÷ gasto.
     const purchases = rows.reduce((a,r)=>a+num(r['Número de vendas']),0)
     const revenue = rows.reduce((a,r)=>a+num(r['ROAS de vendas'])*num(r['Valor investido']),0)
+    // Funil de e-commerce (pixel): clique → carrinho → checkout → compra. Só
+    // aparece quando a conta tem campanha de Vendas ou já registrou algum evento
+    // do funil (senão é ruído p/ conta de lead/WhatsApp).
+    const carts = rows.reduce((a,r)=>a+num(r['Adições ao carrinho']),0)
+    const checkouts = rows.reduce((a,r)=>a+num(r['Finalizações de compra iniciadas']),0)
+    const hasEcom = carts>0 || checkouts>0 || purchases>0 || rows.some(r => /OUTCOME_SALES|CONVERSIONS|PRODUCT_CATALOG_SALES/.test(r['Objetivo de Campanha']||'') && /compra/i.test(r['Tipo de resultado']||''))
     // Conversão custom MQL (ex.: Grupo AJ = mql_aj, GoVendas = mql_go): conta o
     // resultado das linhas cujo "Tipo de resultado" é MQL e a taxa de avanço
     // Lead→MQL (MQL ÷ Leads do escopo). Substitui o bloco de Compras quando há MQL.
@@ -2221,6 +2227,8 @@ function aggMetrics(rows, isMeta) {
     const hasMql = colMql > 0 || typeRows.length > 0
     return { spend, impressions, clicks, conv, shares, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null, frequency,
       purchases, cpp:purchases>0?spend/purchases:null, revenue, roas:spend>0?revenue/spend:null,
+      hasEcom, carts, checkouts, cpCart:carts>0?spend/carts:null, cpCheckout:checkouts>0?spend/checkouts:null,
+      clickToCart:clicks>0?carts/clicks*100:null, cartToCheckout:carts>0?checkouts/carts*100:null, checkoutToPurchase:checkouts>0?purchases/checkouts*100:null,
       hasMql, mql, leads, mqlLabel, cpMql:mql>0?mqlSpend/mql:null, leadToMql:leads>0?mql/leads*100:null }
   }
   const spend = rows.reduce((a,r)=>a+num(r['Gasto']),0)
@@ -2305,10 +2313,19 @@ function metricGroupsHTML(allRows, prevRows, isMeta, period, pace) {
       ${tileHTML(esc(cur.mqlLabel), fmtInt(cur.mql), pctVar(cur.mql, prv.mql), false)}
       ${tileHTML('Custo por MQL', fmtMoney(cur.cpMql), pctVar(cur.cpMql, prv.cpMql), true)}
       ${tileHTML('Avanço Lead→MQL', fmtPctVal(cur.leadToMql), pctVar(cur.leadToMql, prv.leadToMql), false)}` : `
+      ${cur.hasEcom ? `
+      ${tileHTML('Carrinhos', fmtInt(cur.carts), pctVar(cur.carts, prv.carts), false, 'Adições ao carrinho (evento AddToCart do pixel).')}
+      ${tileHTML('Custo/carrinho', fmtMoney(cur.cpCart), pctVar(cur.cpCart, prv.cpCart), true)}
+      ${tileHTML('Iniciou checkout', fmtInt(cur.checkouts), pctVar(cur.checkouts, prv.checkouts), false, 'Finalizações de compra iniciadas (evento InitiateCheckout do pixel).')}
+      ${tileHTML('Custo/checkout', fmtMoney(cur.cpCheckout), pctVar(cur.cpCheckout, prv.cpCheckout), true)}` : ''}
       ${tileHTML('Compras', fmtInt(cur.purchases), pctVar(cur.purchases, prv.purchases), false)}
       ${tileHTML('Custo/compra', fmtMoney(cur.cpp), pctVar(cur.cpp, prv.cpp), true)}
       ${tileHTML('Valor compras', fmtMoneyShort(cur.revenue), pctVar(cur.revenue, prv.revenue), false)}
-      ${tileHTML('ROAS', cur.roas!=null?cur.roas.toFixed(2).replace('.',',')+'x':'—', pctVar(cur.roas, prv.roas), false)}`) : ''}
+      ${tileHTML('ROAS', cur.roas!=null?cur.roas.toFixed(2).replace('.',',')+'x':'—', pctVar(cur.roas, prv.roas), false)}
+      ${cur.hasEcom ? `
+      ${tileHTML('Clique→Carrinho', fmtPctVal(cur.clickToCart), pctVar(cur.clickToCart, prv.clickToCart), false, 'Carrinhos ÷ cliques no link.')}
+      ${tileHTML('Carrinho→Checkout', fmtPctVal(cur.cartToCheckout), pctVar(cur.cartToCheckout, prv.cartToCheckout), false, 'Checkouts iniciados ÷ carrinhos.')}
+      ${tileHTML('Checkout→Compra', fmtPctVal(cur.checkoutToPurchase), pctVar(cur.checkoutToPurchase, prv.checkoutToPurchase), false, 'Compras ÷ checkouts iniciados.')}` : ''}`) : ''}
     </div>${chart('mgChartPerf')}</div>
   </div>`
 }
