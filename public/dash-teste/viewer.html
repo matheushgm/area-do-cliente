@@ -2013,12 +2013,13 @@ function tblMetaAdsets(rows, prevRows){
   const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(nameOf(x))} — gasto sem resultado`)
   const acct = acctOf(rows)
   const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const nm=nameOf(x)
+    const ctr=x.impr>0?x.clicks/x.impr*100:null, cpm=x.impr>0?x.spend/x.impr*1000:null
     const stHtml=stCell(acct,'conjunto',(x._rows.find(r=>r['adset_id'])||{})['adset_id'],nm,x._rows,'Status do Conjunto de Anúncio')
     const ativos=activeAdsCount(x._rows)
     return `<tr><td class="ad-name" title="${esc(nm)}"><span class="drill-link" data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}">${i===0&&x.conv>0?'🏆 ':''}${esc(nm)}</span></td>
       <td>${stHtml}</td><td><span class="${ativos>0?'good':'fl'}">${ativos}</span></td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
-      <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td></tr>` }).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Conjunto</th><th>Status</th><th>Anúncios ativos</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th></tr></thead><tbody>${body}</tbody></table></div>`
+      <td>${txCell(x.conv,x.clicks)}</td><td>${ctrCell(ctr)}</td><td>${cpm!=null?fmtMoney(cpm):'—'}</td><td>${fmtNum(x.impr)}</td></tr>` }).join('')
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Conjunto</th><th>Status</th><th>Anúncios ativos</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>CTR Link</th><th>CPM</th><th>Impressões</th></tr></thead><tbody>${body}</tbody></table></div>`
 }
 function tblMetaAds(rows, prevRows){
   const pv = prevMapOf(prevRows, r=>r['Nome do Anúncio'], metaConv)
@@ -2031,7 +2032,7 @@ function tblMetaAds(rows, prevRows){
   const acct = acctOf(rows)
   const noConv = g.filter(x=>x.spend>0&&x.conv===0)
   const flags = noConv.length?[`🚨 ${noConv.length} anúncio(s) com gasto e 0 resultados — R$ ${noConv.reduce((a,x)=>a+x.spend,0).toFixed(2)} desperdiçados`]:[]
-  const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const ctr=x.impr>0?x.clicks/x.impr*100:null
+  const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const ctr=x.impr>0?x.clicks/x.impr*100:null, cpm=x.impr>0?x.spend/x.impr*1000:null
     const stHtml=adGroupCell(acct,x._rows); const paused=!isActiveStatus(adGroupStatus(acct,x._rows).entry.status)
     const adId=(x._rows.find(r=>r['ad_id'])||{})['ad_id']||''
     const destino=(x._rows[0]||{})['Destino do conjunto de anúncio']||''
@@ -2041,9 +2042,9 @@ function tblMetaAds(rows, prevRows){
     const destBtn=(adId && !SHARED)?` <button class="ad-dest-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" data-destino="${esc(destino)}" title="Mostrar destino do anúncio">🔗 Destino</button>`:''
     return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(x.key)}"><span class="ad-name-flex"><span class="ad-name-txt">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span>${prevBtn}${destBtn}</span></td>
       <td>${stHtml}</td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
-      <td>${txCell(x.conv,x.clicks)}</td><td>${hookCell(x.h3,x.vv)}</td><td>${ctrCell(ctr)}</td>
+      <td>${txCell(x.conv,x.clicks)}</td><td>${hookCell(x.h3,x.vv)}</td><td>${ctrCell(ctr)}</td><td>${cpm!=null?fmtMoney(cpm):'—'}</td>
       <td>${pctVid(x.p25,x.vv)}</td><td>${pctVid(x.p50,x.vv)}</td><td>${pctVid(x.p75,x.vv)}</td><td>${pctVid(x.p100,x.vv)}</td></tr>` }).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Anúncio</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Hook 3s</th><th>CTR Link</th><th>V25%</th><th>V50%</th><th>V75%</th><th>V100%</th></tr></thead><tbody>${body}</tbody></table></div>`
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Anúncio</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Hook 3s</th><th>CTR Link</th><th>CPM</th><th>V25%</th><th>V50%</th><th>V75%</th><th>V100%</th></tr></thead><tbody>${body}</tbody></table></div>`
 }
 function tblGoogleCampaigns(rows, prevRows){
   const g = groupBy(rows, r=>r['Campanha'], {
