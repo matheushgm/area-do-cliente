@@ -478,6 +478,20 @@ function HorasEditaveis({ tarefa, estimada, onEstimar }) {
   )
 }
 
+/** Há quantos dias a tarefa está aberta no ClickUp (sinal de tarefa envelhecendo). */
+function IdadeTarefa({ tarefa }) {
+  const dias = Number(tarefa.diasAberta)
+  if (!Number.isFinite(dias)) return <span className="w-9 shrink-0" aria-hidden="true" />
+  const cor = dias >= 30 ? TOM.vermelho : dias >= 14 ? 'text-ln-orange' : 'text-ln-t4'
+  const criada = tarefa.criadaEm ? `Criada em ${fmtCurta(tarefa.criadaEm)}, ` : ''
+  const titulo = dias === 0 ? `${criada}aberta hoje` : `${criada}aberta há ${dias} dia${dias === 1 ? '' : 's'}`
+  return (
+    <span className={`w-9 shrink-0 text-[11px] tabular ${cor}`} title={titulo} aria-label={titulo}>
+      {dias === 0 ? 'hoje' : `${dias}d`}
+    </span>
+  )
+}
+
 function TarefaRow({ tarefa, aba, diaSelecionado, onEstimar }) {
   const zumbi = aba === 'zumbis'
   const atrasada = zumbi || !!tarefa.atrasada
@@ -505,6 +519,7 @@ function TarefaRow({ tarefa, aba, diaSelecionado, onEstimar }) {
         ? <PrioridadeIcon prioridade={String(tarefa.prioridade).toLowerCase()} className="w-4 h-4" />
         : <span className="w-4 h-4 shrink-0 inline-flex items-center justify-center text-ln-t4/60" title="Sem prioridade no ClickUp" aria-label="Sem prioridade">·</span>}
       <span className={`w-14 shrink-0 text-xs tabular ${corDia}`} title={tituloDia}>{dia}</span>
+      <IdadeTarefa tarefa={tarefa} />
       <a
         href={tarefa.url || undefined}
         target="_blank"

@@ -216,6 +216,8 @@ export function classificarTarefas(tasks, config = DEFAULT_CONFIG, hoje = hojeIS
   for (const t of tasks || []) {
     if (!t || isClosed(t)) continue
     const { horas, origem } = horasDaTarefa(t, config)
+    // há quantos dias a tarefa está aberta (sinal de tarefa "envelhecendo")
+    const criadaISO = t.date_created ? toISODate(Number(t.date_created)) : null
     const base = {
       id: t.id,
       nome: t.name,
@@ -226,6 +228,8 @@ export function classificarTarefas(tasks, config = DEFAULT_CONFIG, hoje = hojeIS
       prioridade: t.priority?.priority || null,
       horas,
       origem,
+      criadaEm: criadaISO,
+      diasAberta: criadaISO ? Math.max(0, diffDias(criadaISO, hoje)) : null,
     }
     const dueISO = t.due_date ? toISODate(Number(t.due_date)) : null
 
@@ -463,7 +467,7 @@ export function planejarParaPessoa({
   const filaProxima = cls.consideradas
     .filter((t) => idsProximos.has(t.id))
     .sort((a, b) => (a.dia < b.dia ? -1 : a.dia > b.dia ? 1 : 0))
-    .map((t) => ({ id: t.id, nome: t.nome, url: t.url, dia: t.dia, vencimento: t.vencimento, horas: t.horas, origem: t.origem, atrasada: t.atrasada, lista: t.lista, pasta: t.pasta, status: t.status, prioridade: t.prioridade }))
+    .map((t) => ({ id: t.id, nome: t.nome, url: t.url, dia: t.dia, vencimento: t.vencimento, horas: t.horas, origem: t.origem, atrasada: t.atrasada, lista: t.lista, pasta: t.pasta, status: t.status, prioridade: t.prioridade, criadaEm: t.criadaEm, diasAberta: t.diasAberta }))
 
   const horasProximos = round2(resumo.reduce((s, d) => s + d.carga, 0))
   const capProximos = round2(resumo.reduce((s, d) => s + d.capacidade, 0))
