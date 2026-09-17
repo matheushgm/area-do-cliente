@@ -1,13 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AppSidebar from '../components/AppSidebar'
 import {
   FAIXAS, REGRAS, BENCHMARKS, NOMENCLATURA, VISUALIZACOES, LINKS,
 } from '../lib/adsRoadmap'
+import { carregarRoadmapClickUp } from '../lib/adsRoadmapApi'
 import {
   Menu, Zap, Waypoints, ExternalLink, ChevronDown, Table2, GitFork, ShieldCheck,
-  Gauge, Tag, Columns3, Info,
+  Gauge, Tag, Columns3, Info, RefreshCw, Loader2, CloudOff, Cloud,
 } from 'lucide-react'
 
 // ─── Árvore campanha → conjunto → anúncios ───────────────────────────────────
@@ -245,7 +246,43 @@ export default function AdsRoadmap() {
 
   const [faixaId, setFaixaId] = useState('3k')
   const [seg, setSeg] = useState('b2c') // 'b2c' | 'b2b' | 'ambos'
-  const faixa = useMemo(() => FAIXAS.find((f) => f.id === faixaId) || FAIXAS[0], [faixaId])
+
+  // Tabelas vêm da página do ClickUp (fonte única); os desenhos ficam no JS.
+  // Se a API falhar, cai na cópia local de src/lib/adsRoadmap.js.
+  const [remoto, setRemoto] = useState(null)   // { faixas, updatedAt, url }
+  const [fonte, setFonte] = useState('carregando') // 'carregando' | 'clickup' | 'local'
+  const [erroRemoto, setErroRemoto] = useState(null)
+  const [atualizando, setAtualizando] = useState(false)
+
+  const carregar = async (refresh = false) => {
+    setAtualizando(true)
+    try {
+      const d = await carregarRoadmapClickUp({ refresh })
+      if (!d?.faixas?.length) throw new Error('A página do ClickUp não tem tabelas de orçamento.')
+      setRemoto(d); setFonte('clickup'); setErroRemoto(null)
+    } catch (e) {
+      setFonte('local'); setErroRemoto(e?.message || 'Falha ao ler o ClickUp')
+    } finally {
+      setAtualizando(false)
+    }
+  }
+  useEffect(() => { carregar(false) }, [])
+
+  // Lista final: faixas do ClickUp com o desenho local da mesma faixa (por id).
+  const faixas = useMemo(() => {
+    if (fonte !== 'clickup' || !remoto) return FAIXAS
+    return remoto.faixas.map((r) => {
+      const local = FAIXAS.find((f) => f.id === r.id)
+      return {
+        id: r.id, label: r.label, verbaMensal: r.verbaMensal, verbaDia: r.verbaDia,
+        resumo: r.resumo || local?.resumo || '',
+        rows: r.rows,
+        estrutura: local?.estrutura || null,
+      }
+    })
+  }, [fonte, remoto])
+
+  const faixa = useMemo(() => faixas.find((f) => f.id === faixaId) || faixas[0], [faixas, faixaId])
   const est = faixa.estrutura
 
   const segBtn = (id, label) => (
@@ -300,9 +337,32 @@ export default function AdsRoadmap() {
                   <p className="text-sm text-rl-muted">O que dá pra montar de campanha com a verba que o cliente trouxe</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <a href={LINKS.roadmapClickUp} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-4 !py-2 text-xs flex items-center gap-1.5">
-                  Roadmap no ClickUp <ExternalLink className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  title={fonte === 'clickup'
+                    ? `Tabelas lidas da página do ClickUp${remoto?.updatedAt ? ` · editada em ${new Date(remoto.updatedAt).toLocaleString('pt-BR')}` : ''}`
+                    : (erroRemoto || 'Carregando…')}
+                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1.5 ${
+                    fonte === 'clickup'
+                      ? 'bg-rl-green/10 text-rl-green border-rl-green/30'
+                      : fonte === 'local'
+                        ? 'bg-rl-gold/10 text-rl-gold border-rl-gold/30'
+                        : 'bg-rl-surface text-rl-muted border-rl-border'
+                  }`}
+                >
+                  {fonte === 'clickup' ? <Cloud className="w-3 h-3" /> : fonte === 'local' ? <CloudOff className="w-3 h-3" /> : <Loader2 className="w-3 h-3 animate-spin" />}
+                  {fonte === 'clickup' ? 'Tabelas do ClickUp' : fonte === 'local' ? 'Cópia local (ClickUp indisponível)' : 'Lendo o ClickUp…'}
+                </span>
+                <button
+                  onClick={() => carregar(true)}
+                  disabled={atualizando}
+                  title="Reler a página do ClickUp agora"
+                  className="btn-secondary !px-3 !py-2 text-xs flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${atualizando ? 'animate-spin' : ''}`} /> Atualizar
+                </button>
+                <a href={remoto?.url || LINKS.roadmapClickUp} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-4 !py-2 text-xs flex items-center gap-1.5">
+                  Editar no ClickUp <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
             </div>
@@ -312,7 +372,7 @@ export default function AdsRoadmap() {
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-rl-muted mr-1">Verba mensal</span>
-                  {FAIXAS.map((f) => (
+                  {faixas.map((f) => (
                     <button
                       key={f.id}
                       onClick={() => setFaixaId(f.id)}
@@ -343,7 +403,12 @@ export default function AdsRoadmap() {
             {/* Estruturas */}
             <section className="space-y-4">
               <h2 className="text-base font-bold text-rl-text">Estrutura de campanhas</h2>
-              <div className={`grid gap-4 ${seg === 'ambos' ? 'xl:grid-cols-2' : ''}`}>
+              {!est && (
+                <div className="glass-card p-5 text-sm text-rl-muted">
+                  Essa faixa existe na página do ClickUp mas ainda não tem desenho de estrutura no app. Adicione em <code className="text-rl-cyan">src/lib/adsRoadmap.js</code>.
+                </div>
+              )}
+              {est && <div className={`grid gap-4 ${seg === 'ambos' ? 'xl:grid-cols-2' : ''}`}>
                 {(seg === 'b2c' || seg === 'ambos') && (
                   <Estrutura
                     titulo={`Meta B2C · R$ ${faixa.verbaDia}/dia`}
@@ -360,8 +425,8 @@ export default function AdsRoadmap() {
                     vazio="B2B não faz nessa faixa: o CPL de B2B não fecha com essa verba diária."
                   />
                 )}
-              </div>
-              {est.google && (
+              </div>}
+              {est?.google && (
                 <Estrutura
                   titulo={est.google.titulo}
                   campanhas={est.google.campanhas}
@@ -413,7 +478,7 @@ export default function AdsRoadmap() {
                 </div>
               </Acordeao>
               <p className="text-[12px] text-rl-muted">
-                Fonte: página Roadmap Ads do Playbook Operacional e o Protocolo de Gestão de Tráfego. Mudou lá, atualize <code className="text-rl-cyan">src/lib/adsRoadmap.js</code>.
+                As tabelas são lidas da página Roadmap Ads do Playbook Operacional no ClickUp (cache de 5 min). Os desenhos de estrutura e as regras desta seção ficam em <code className="text-rl-cyan">src/lib/adsRoadmap.js</code>.
                 {' '}<a href={LINKS.labClickUp} target="_blank" rel="noopener noreferrer" className="text-rl-cyan hover:underline">Laboratório REV</a>
               </p>
             </section>
