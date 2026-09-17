@@ -7,7 +7,7 @@ import {
   Plus, Layers, TrendingDown,
   LogOut, Cloud, CloudOff, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare, BarChart3, DollarSign,
-  Sun, Moon, Clapperboard, Timer, Layout, CalendarCheck, PanelLeftClose, PanelLeftOpen,
+  Sun, Moon, Clapperboard, Timer, Layout, CalendarCheck, PanelLeftClose, PanelLeftOpen, Waypoints,
 } from 'lucide-react'
 
 // Sidebar recolhida (só ícones) para sobrar espaço aos módulos. O estado é
@@ -60,6 +60,7 @@ const NAV_LINKS = [
   { id: 'banco',     label: 'Banco de Anúncios', Icon: Library,      type: 'route',    to: '/banco-de-anuncios' },
   { id: 'banco-lps', label: 'Banco de LP',       Icon: Layout,       type: 'route',    to: '/banco-de-lps' },
   { id: 'funil',     label: 'Funil de Vendas',   Icon: GitFork,      type: 'route',    to: '/funil' },
+  { id: 'ads-roadmap', label: 'ADS Roadmap',     Icon: Waypoints,    type: 'route',    to: '/ads-roadmap' },
   { id: 'playbook',  label: 'Playbook',          Icon: BookOpen,     type: 'external', href: 'https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173' },
   { id: 'dashboard-teste', label: 'Dashboard',   Icon: BarChart3,    type: 'route',    to: '/dashboard-teste', badge: 'API' },
   { id: 'precificacao', label: 'Precificação',   Icon: DollarSign,   type: 'external', href: 'https://vvmkxurb.manus.space/' },

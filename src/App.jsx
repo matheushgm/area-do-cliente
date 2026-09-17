@@ -25,6 +25,7 @@ import BancoDeLPsPublico from './pages/BancoDeLPsPublico'
 import CRMPublico from './pages/CRMPublico'
 import WebinarPublico from './pages/WebinarPublico'
 import FunilCanvas from './pages/FunilCanvas'
+import AdsRoadmap from './pages/AdsRoadmap'
 import SquadsReport from './pages/SquadsReport'
 import ResetPassword from './pages/ResetPassword'
 import Tasks from './pages/Tasks'
@@ -42,6 +43,7 @@ import { lazy, Suspense } from 'react'
 const AtividadesPreview = import.meta.env.DEV ? lazy(() => import('./dev/AtividadesPreview')) : null
 const TarefasPreview = import.meta.env.DEV ? lazy(() => import('./dev/TarefasPreview')) : null
 const ChatPreview = import.meta.env.DEV ? lazy(() => import('./dev/ChatPreview')) : null
+const AdsRoadmapPreview = import.meta.env.DEV ? lazy(() => import('./dev/AdsRoadmapPreview')) : null
 import NotificationCenter from './components/NotificationCenter'
 
 function RequireAuth({ children }) {
@@ -93,6 +95,7 @@ function AppRoutes() {
         <Route path="/crm/:token" element={<CRMPublico />} />
         <Route path="/webinar/:token" element={<WebinarPublico />} />
         <Route path="/funil" element={<RequireAuth><FunilCanvas /></RequireAuth>} />
+        <Route path="/ads-roadmap" element={<RequireAuth><AdsRoadmap /></RequireAuth>} />
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
         <Route path="/tarefas" element={<RequireAuth><Tarefas /></RequireAuth>} />
         <Route path="/tarefas-antigo" element={<RequireAuth><Tasks /></RequireAuth>} />
@@ -105,6 +108,9 @@ function AppRoutes() {
         )}
         {import.meta.env.DEV && ChatPreview && (
           <Route path="/dev/chat" element={<Suspense fallback={null}><ChatPreview /></Suspense>} />
+        )}
+        {import.meta.env.DEV && AdsRoadmapPreview && (
+          <Route path="/dev/ads-roadmap" element={<Suspense fallback={null}><AdsRoadmapPreview /></Suspense>} />
         )}
         <Route path="/atividades-15min" element={<RequireAuth><Atividades15min /></RequireAuth>} />
         <Route path="/roteiros-express" element={<RequireAuth><RoteirosExpress /></RequireAuth>} />
