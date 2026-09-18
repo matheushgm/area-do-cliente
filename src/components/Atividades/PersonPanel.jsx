@@ -3,13 +3,15 @@
 // (cabeçalho da pessoa, KPIs, gráfico, alertas, clientes, abas de tarefas) e
 // o rodapé fixo com as ações.
 import { useId, useState, useEffect, useRef } from 'react'
-import { AlertTriangle, Plus, RefreshCw, Loader2, Pencil, ChevronDown, ChevronRight, X } from 'lucide-react'
+import { AlertTriangle, Plus, RefreshCw, Loader2, Pencil, ChevronDown, ChevronRight, X, CheckCircle2 } from 'lucide-react'
 import CargaDiaria from './CargaDiaria'
 import { PrioridadeIcon, PRIORIDADE_LABEL } from './IssueList'
 import {
   NIVEIS, diaDe, tomOcupacao,
-  fmtHoras, fmtCurta, fmtDiaCurto, fmtPct, fmtHora, iniciais, primeiroNome, parseDuracao,
+  fmtHoras, fmtCurta, fmtDiaCurto, fmtPct, fmtHora, fmtRelativo, iniciais, primeiroNome, parseDuracao, hojeISO,
 } from '../../lib/atividadesCarga'
+import { addDias, rotuloDia } from '../../lib/atividadesConcluidas'
+import { useConcluidas } from '../../hooks/useConcluidas'
 
 const FOCO = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ln-t2'
 
@@ -25,8 +27,20 @@ export const ABAS = [
   { id: 'atrasadas', label: 'Atrasadas', vazio: 'Nenhuma atrasada contada no cálculo' },
   { id: 'semdata',   label: 'Sem data',  vazio: 'Todas as tarefas abertas têm data' },
   { id: 'zumbis',    label: 'Zumbis',    vazio: 'Nenhuma atrasada antiga fora do cálculo' },
+  { id: 'concluidas', label: 'Concluídas', vazio: 'Nada concluído no período' },
 ]
 const ABA_PADRAO = 'fila'
+
+// Períodos da aba Concluídas (dias contados a partir de hoje, inclusive)
+const PERIODOS_CONCLUIDAS = [
+  { id: 'hoje',   label: 'Hoje',    dias: 1 },
+  { id: '7dias',  label: '7 dias',  dias: 7 },
+  { id: '30dias', label: '30 dias', dias: 30 },
+]
+function intervaloConcluidas(periodo, hoje) {
+  const def = PERIODOS_CONCLUIDAS.find((p) => p.id === periodo) || PERIODOS_CONCLUIDAS[1]
+  return { desde: addDias(hoje, -(def.dias - 1)), ate: hoje }
+}
 
 function normalizarAba(aba) {
   return ABAS.some((a) => a.id === aba) ? aba : ABA_PADRAO
@@ -371,7 +385,7 @@ function Abas({ aba, onAba, contagens, prefixo }) {
             className={`ln-tab ${ativa ? 'ln-tab-active' : ''} ${FOCO}`}
           >
             {a.label}
-            <span className={`tabular ${ativa ? 'text-ln-t3' : 'text-ln-t4'}`}>{contagens[a.id]}</span>
+            {contagens[a.id] != null && <span className={`tabular ${ativa ? 'text-ln-t3' : 'text-ln-t4'}`}>{contagens[a.id]}</span>}
           </button>
         )
       })}
@@ -545,6 +559,150 @@ function TarefaRow({ tarefa, aba, diaSelecionado, onEstimar }) {
   )
 }
 
+// ─── Aba Concluídas ──────────────────────────────────────────────────────────
+
+function ConcluidaRow({ tarefa }) {
+  const ciclo = Number(tarefa.cicloDias)
+  const tituloCiclo = Number.isFinite(ciclo)
+    ? (ciclo === 0 ? 'Criada e concluída no mesmo dia' : `Levou ${ciclo} dia${ciclo === 1 ? '' : 's'} da criação à conclusão${tarefa.criadaEm ? ` (criada em ${fmtCurta(tarefa.criadaEm)})` : ''}`)
+    : ''
+  const registrado = Number(tarefa.tempoRegistrado)
+  const estimada = !!tarefa.origem && tarefa.origem !== 'estimativa'
+  return (
+    <li className="ln-row-hover flex items-center gap-2 h-8 px-2 -mx-2">
+      <CheckCircle2 className="w-4 h-4 shrink-0 text-ln-green" aria-hidden="true" />
+      <span className="w-14 shrink-0 text-xs tabular text-ln-t3" title={tarefa.concluidaEm ? `Concluída em ${fmtCurta(tarefa.dia)} às ${fmtHora(tarefa.concluidaEm)}` : ''}>
+        {tarefa.concluidaEm ? fmtHora(tarefa.concluidaEm) : ''}
+      </span>
+      {Number.isFinite(ciclo)
+        ? <span className="w-9 shrink-0 text-[11px] tabular text-ln-t4" title={tituloCiclo}>{`${ciclo}d`}</span>
+        : <span className="w-9 shrink-0" aria-hidden="true" />}
+      <a
+        href={tarefa.url || undefined}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`flex-1 min-w-0 truncate text-[13px] text-ln-t2 hover:text-ln-t1 rounded transition-colors duration-150 ${FOCO}`}
+        title={`${tarefa.pasta || 'Sem pasta'} › ${tarefa.lista || 'Sem lista'}`}
+      >
+        {tarefa.subtarefa && <span className="text-ln-t4 mr-1">↳</span>}
+        {tarefa.nome || 'Sem título'}
+      </a>
+      <span
+        className="w-24 shrink-0 truncate text-[11px] text-ln-t3"
+        title={tarefa.pasta ? `Cliente: ${tarefa.pasta}${tarefa.lista ? ` › ${tarefa.lista}` : ''}` : 'Tarefa fora de uma pasta de cliente'}
+      >
+        {tarefa.pasta || <span className="text-ln-t4">sem cliente</span>}
+      </span>
+      <span
+        className="w-14 shrink-0 text-right text-xs tabular text-ln-t2"
+        title={registrado > 0 ? `${fmtHoras(registrado)} registradas no ClickUp · ${fmtHoras(tarefa.horas)} ${estimada ? 'estimadas pelo tipo ou dificuldade' : 'de estimativa'}` : (estimada ? `Horas estimadas pelo tipo ou dificuldade (${tarefa.origem})` : 'Estimativa preenchida no ClickUp')}
+      >
+        {registrado > 0 ? fmtHoras(registrado) : <>{fmtHoras(tarefa.horas)}{estimada && <span className="text-ln-t4">*</span>}</>}
+      </span>
+      {tarefa.status && (
+        <span className="shrink-0 max-w-[96px] truncate h-5 px-1.5 rounded-full ring-1 ring-ln-line text-[11px] leading-5 text-ln-t3" title={tarefa.status}>
+          {tarefa.status}
+        </span>
+      )}
+    </li>
+  )
+}
+
+function GrupoDia({ dia, hoje, itens, recolhido, onToggle }) {
+  const horas = itens.reduce((s, t) => s + (Number(t.tempoRegistrado) > 0 ? Number(t.tempoRegistrado) : (Number(t.horas) || 0)), 0)
+  return (
+    <section className="mb-1.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={!recolhido}
+        className={`w-full h-9 -mx-2 px-2 rounded-lg flex items-center gap-2 text-left transition-colors duration-150 hover:bg-ln-ink/[0.03] ${FOCO}`}
+        style={{ width: 'calc(100% + 16px)' }}
+      >
+        {recolhido ? <ChevronRight className="w-3.5 h-3.5 text-ln-t4 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-ln-t4 shrink-0" />}
+        <span className={`text-[13px] font-medium ${dia === hoje ? 'text-ln-t1' : 'text-ln-t2'}`}>{rotuloDia(dia, hoje)}</span>
+        <span className="text-[13px] text-ln-t3 tabular">{itens.length}</span>
+        <span className="text-[11px] text-ln-t4 tabular ml-auto">{fmtHoras(horas)}</span>
+      </button>
+      {!recolhido && <ul>{itens.map((t, i) => <ConcluidaRow key={t.id || i} tarefa={t} />)}</ul>}
+    </section>
+  )
+}
+
+/** Tarefas que esta pessoa concluiu no período (lê o ClickUp via useConcluidas). */
+function ConcluidasPessoa({ concl, periodo, onPeriodo, tarefas, vazio }) {
+  const [recolhidos, setRecolhidos] = useState({})
+  const hoje = concl.hoje
+  const porDia = []
+  for (const t of tarefas) {
+    let g = porDia.find((x) => x.dia === t.dia)
+    if (!g) { g = { dia: t.dia, itens: [] }; porDia.push(g) }
+    g.itens.push(t)
+  }
+  porDia.sort((a, b) => (a.dia < b.dia ? 1 : a.dia > b.dia ? -1 : 0))
+  const total = tarefas.length
+  const horas = tarefas.reduce((s, t) => s + (Number(t.tempoRegistrado) > 0 ? Number(t.tempoRegistrado) : (Number(t.horas) || 0)), 0)
+  const temEstimadas = tarefas.some((t) => !(Number(t.tempoRegistrado) > 0) && !!t.origem && t.origem !== 'estimativa')
+  return (
+    <div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <div role="group" aria-label="Período" className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-ln-ink/[0.03] ring-1 ring-inset ring-ln-ink/5">
+          {PERIODOS_CONCLUIDAS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => onPeriodo(p.id)}
+              aria-pressed={periodo === p.id}
+              className={`h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors duration-150 ${periodo === p.id ? 'bg-ln-ink/[0.08] text-ln-t1' : 'text-ln-t3 hover:bg-ln-ink/5'} ${FOCO}`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {concl.geradoEm && !concl.loading && (
+          <span className="text-[11px] text-ln-t4 tabular">{total} tarefa{total === 1 ? '' : 's'} · {fmtHoras(horas)}</span>
+        )}
+        <button
+          type="button"
+          onClick={() => concl.refresh()}
+          disabled={concl.loading}
+          className={`ml-auto inline-flex items-center gap-1 h-6 px-2 rounded-full text-[11px] text-ln-t4 hover:text-ln-t2 hover:bg-ln-ink/5 transition-colors duration-150 disabled:opacity-60 ${FOCO}`}
+          title={concl.geradoEm ? `Lido do ClickUp ${fmtRelativo(concl.geradoEm)}. Clique para reler` : 'Reler o ClickUp'}
+        >
+          {concl.loading ? <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" /> : <RefreshCw className="w-3 h-3" aria-hidden="true" />}
+          {concl.geradoEm ? fmtRelativo(concl.geradoEm) : 'reler'}
+        </button>
+      </div>
+
+      <div className="mt-2">
+        {concl.erro ? (
+          <div className="ln-card p-3 flex items-start gap-2" role="alert">
+            <AlertTriangle className="w-4 h-4 text-ln-red shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-ln-t2">Não consegui ler as concluídas</p>
+              <p className="mt-0.5 text-[11px] text-ln-t3 break-words">{concl.erro}</p>
+            </div>
+          </div>
+        ) : concl.loading && !concl.geradoEm ? (
+          <div className="space-y-2" aria-busy="true">
+            {[0, 1, 2, 3].map((i) => <div key={i} className="h-8 rounded-lg ln-shimmer" />)}
+          </div>
+        ) : total === 0 ? (
+          <p className="h-8 flex items-center text-xs text-ln-t4">{vazio}</p>
+        ) : (
+          porDia.map((g) => (
+            <GrupoDia key={g.dia} dia={g.dia} hoje={hoje} itens={g.itens} recolhido={!!recolhidos[g.dia]} onToggle={() => setRecolhidos((r) => ({ ...r, [g.dia]: !r[g.dia] }))} />
+          ))
+        )}
+        {concl.truncado && <p className="mt-1.5 text-[11px] text-ln-yellow">O ClickUp devolveu mais tarefas do que cabe numa leitura: a lista pode estar incompleta.</p>}
+      </div>
+      {temEstimadas && (
+        <p className="mt-1.5 text-[11px] text-ln-t4">* horas estimadas pelo tipo ou pela dificuldade: a tarefa não tem estimativa nem tempo registrado no ClickUp.</p>
+      )}
+    </div>
+  )
+}
+
 function GrupoPrioridade({ grupo, recolhido, onToggle, children }) {
   return (
     <section className="mb-1.5">
@@ -567,15 +725,34 @@ function GrupoPrioridade({ grupo, recolhido, onToggle, children }) {
 
 function ListaTarefas({ pessoa, aba, onAba, diaSelecionado, prefixo, onEstimar, diaFiltro = null, onLimparDia }) {
   const [recolhidos, setRecolhidos] = useState({})
+  // Concluídas: lê o ClickUp só quando a aba está aberta; o período é da pessoa
+  const [periodoConcl, setPeriodoConcl] = useState('7dias')
+  const hojeConcl = pessoa.hoje || hojeISO()
+  const concl = useConcluidas(aba === 'concluidas', intervaloConcluidas(periodoConcl, hojeConcl))
+  const clickupId = Number(pessoa.clickupId)
+  const concluidas = concl.geradoEm
+    ? concl.tarefas.filter((t) => (t.assignees || []).some((a) => Number(a.id) === clickupId))
+    : null
   const filtraDia = !!diaFiltro && (aba === 'fila' || aba === 'atrasadas')
   const contagens = {
     fila: itensDaAba(pessoa, 'fila', diaFiltro).length,
     atrasadas: itensDaAba(pessoa, 'atrasadas', diaFiltro).length,
     semdata: (pessoa.semData || []).length,
     zumbis: (pessoa.zumbis || []).length,
+    concluidas: concluidas ? concluidas.length : null,
+  }
+  const def = ABAS.find((a) => a.id === aba) || ABAS[0]
+  if (aba === 'concluidas') {
+    return (
+      <section>
+        <Abas aba={aba} onAba={onAba} contagens={contagens} prefixo={prefixo} />
+        <div role="tabpanel" id={`${prefixo}-painel-${aba}`} aria-labelledby={`${prefixo}-aba-${aba}`} className="mt-2">
+          <ConcluidasPessoa concl={concl} periodo={periodoConcl} onPeriodo={setPeriodoConcl} tarefas={concluidas || []} vazio={def.vazio} />
+        </div>
+      </section>
+    )
   }
   const itens = itensDaAba(pessoa, aba, diaFiltro)
-  const def = ABAS.find((a) => a.id === aba) || ABAS[0]
   const horasDia = itens.reduce((s, t) => s + (Number(t.horas) || 0), 0)
   const temEstimadas = itens.some((t) => !!t.origem && t.origem !== 'estimativa')
   return (
