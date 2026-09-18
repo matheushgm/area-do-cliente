@@ -536,7 +536,7 @@ const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:
                 // estado local da página de cliente
                 cDays:7, cFrom:'', cTo:'', cPeriod:null,
                 campFilter:[], campPanelOpen:false, campSearch:'',
-                tab:'resultados', sub:0, drillCampaign:null, drillAdset:null, drillAdsetName:null,
+                tab:'resultados', sub:0, drillSub:0, drillCampaign:null, drillAdset:null, drillAdsetName:null,
                 weekly:null, _charts:[], termsCache:{}, adsCache:{}, pagesCache:{},
                 termsSort:{key:'clicks',dir:'desc'}, termsPage:0,
                 pagesSort:{key:'spend',dir:'desc'}, pagesPage:0,
@@ -809,7 +809,7 @@ function saveNav() {
     localStorage.setItem(NAV_KEY, JSON.stringify({
       channel: state.channel, days: state.days, from: state.from, to: state.to, search: state.search, squad: state.squad,
       view: state.view, showHidden: state.showHidden, perfView: state.perfView,
-      openClient: state.openClient, tab: state.tab, sub: state.sub,
+      openClient: state.openClient, tab: state.tab, sub: state.sub, drillSub: state.drillSub,
       drillCampaign: state.drillCampaign, drillAdset: state.drillAdset, drillAdsetName: state.drillAdsetName,
       cDays: state.cDays, cFrom: state.cFrom, cTo: state.cTo, campFilter: state.campFilter,
     }))
@@ -830,7 +830,7 @@ function restoreNav() {
       const exists = (state.raw[ch] || []).some(r => (r[CFG[ch].accountKey] || '').trim() === s.openClient.client)
       if (exists) {
         state.openClient = s.openClient
-        state.tab = s.tab || 'resultados'; state.sub = s.sub || 0
+        state.tab = s.tab || 'resultados'; state.sub = s.sub || 0; state.drillSub = s.drillSub || 0
         state.drillCampaign = s.drillCampaign || null; state.drillAdset = s.drillAdset || null; state.drillAdsetName = s.drillAdsetName || null
         state.cDays = s.cDays != null ? s.cDays : 7; state.cFrom = s.cFrom || ''; state.cTo = s.cTo || ''
         state.campFilter = Array.isArray(s.campFilter) ? s.campFilter : []
@@ -2659,17 +2659,29 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span>
         <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdsetName || state.drillAdset)}</span></div>`
     } else if (!isMeta && state.drillAdset) {
-      // Os anúncios vêm do canal google_ads (lazy, por conta) — preenchido por
-      // renderGoogleAds depois que o HTML entra no DOM.
-      body = `<div id="gadsPanel"></div>`
+      // Dentro do grupo: anúncios (canal google_ads) ou termos de pesquisa
+      // (canal google_terms) só daquele grupo. Os dois são lazy/por conta —
+      // entram como container vazio e são preenchidos depois do HTML no DOM.
+      const t = googleDrillTabs(true)
+      body = `${t.html}${state.drillSub===1?`<div id="termsPanel"></div>`:`<div id="gadsPanel"></div>`}`
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">← Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span>
         <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdsetName || state.drillAdset)}</span></div>`
+    } else if (!isMeta) {
+      // Dentro da campanha: grupos (dado já em memória) ou anúncios / termos /
+      // páginas filtrados só por essa campanha (canais lazy, ver renderClient).
+      const t = googleDrillTabs(false)
+      const panel = state.drillSub===1 ? `<div id="gadsPanel"></div>`
+                  : state.drillSub===2 ? `<div id="termsPanel"></div>`
+                  : state.drillSub===3 ? `<div id="gpagesPanel"></div>`
+                  : tblGoogleGroups(allRows.filter(r=>r['Campanha']===state.drillCampaign),
+                                    prevRows.filter(r=>r['Campanha']===state.drillCampaign))
+      body = `${t.html}${panel}`
+      bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">← Voltar</button>
+        <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span></div>`
     } else {
-      body = isMeta ? tblMetaAdsets(allRows.filter(r=>r['Nome da campanha']===state.drillCampaign),
-                                    prevRows.filter(r=>r['Nome da campanha']===state.drillCampaign))
-                    : tblGoogleGroups(allRows.filter(r=>r['Campanha']===state.drillCampaign),
-                                      prevRows.filter(r=>r['Campanha']===state.drillCampaign))
+      body = tblMetaAdsets(allRows.filter(r=>r['Nome da campanha']===state.drillCampaign),
+                           prevRows.filter(r=>r['Nome da campanha']===state.drillCampaign))
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">← Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span></div>`
     }
@@ -2696,6 +2708,17 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
     ${panel}
     ${insightsCardHTML(ins, periodLabel, stats?.cpl1)}
   </div>`
+}
+
+// Sub-abas do drill do Google. Na campanha: Grupos / Anúncios / Termos / Páginas;
+// no grupo: Anúncios / Termos. Mesmo visual das sub-abas da conta, mas com
+// `data-drillsub` para não confundir com `state.sub` (que segue guardando a
+// sub-aba do nível da conta para quando o usuário voltar).
+function googleDrillTabs(inGroup) {
+  const tabs = inGroup ? [['🎨 Anúncios',0],['🔎 Termos',1]]
+                       : [['🔑 Grupos',0],['🎨 Anúncios',1],['🔎 Termos',2],['🔗 Páginas',3]]
+  if (state.drillSub >= tabs.length) state.drillSub = 0
+  return { html: `<div class="dt-subtabs">${tabs.map(([l,i])=>`<div class="dtab${state.drillSub===i?' active':''}" data-drillsub="${i}">${l}</div>`).join('')}</div>` }
 }
 
 // Preenche o painel de Termos (lazy/por conta, cacheado por cliente). Espelha o
@@ -2734,10 +2757,11 @@ async function renderGoogleAds(container, client, period, campanha, grupo) {
 
 // Painel de PÁGINAS DE DESTINO. Ordenação e paginação re-desenham do mesmo
 // conjunto já filtrado, sem refetch.
-async function renderGooglePages(container, client, period) {
+async function renderGooglePages(container, client, period, campanha) {
   if (!container) return
-  const rows = await lazyRows(container, client, period, 'google_pages', state.pagesCache, 'páginas de destino')
-  if (!rows) return
+  const todas = await lazyRows(container, client, period, 'google_pages', state.pagesCache, 'páginas de destino')
+  if (!todas) return
+  const rows = todas.filter(r => !campanha || r['Campanha'] === campanha)
   const draw = () => {
     container.innerHTML = tblGooglePages(rows)
     container.querySelectorAll('th.th-sort').forEach(th => th.onclick = () => {
@@ -2753,10 +2777,15 @@ async function renderGooglePages(container, client, period) {
   draw()
 }
 
-async function renderGoogleTerms(container, client, period) {
+// `campanha`/`grupo` vêm preenchidos no drill (Campanhas › campanha › grupo):
+// mostra só os termos que dispararam anúncios daquela campanha/grupo.
+async function renderGoogleTerms(container, client, period, campanha, grupo) {
   if (!container) return
-  const rows = await lazyRows(container, client, period, 'google_terms', state.termsCache, 'termos de pesquisa')
-  if (!rows) return
+  const todas = await lazyRows(container, client, period, 'google_terms', state.termsCache, 'termos de pesquisa')
+  if (!todas) return
+  const rows = todas.filter(r =>
+    (!campanha || r['Campanha'] === campanha) &&
+    (!grupo || googleGroupKey(r) === grupo))
   // Re-renderiza do mesmo conjunto filtrado (sem refetch) ao ordenar/paginar.
   const draw = () => {
     container.innerHTML = tblGoogleTerms(rows)
@@ -3089,7 +3118,15 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   if (state.tab==='campanhas' && ch!=='meta') {
     // O drill (campanha › grupo) tem prioridade sobre a sub-aba: os dois usam o
     // mesmo container #gadsPanel, mudando só o filtro.
-    if (state.drillAdset) renderGoogleAds(document.getElementById('gadsPanel'), client, period, state.drillCampaign, state.drillAdset)
+    if (state.drillAdset) {
+      if (state.drillSub===1) renderGoogleTerms(document.getElementById('termsPanel'), client, period, state.drillCampaign, state.drillAdset)
+      else renderGoogleAds(document.getElementById('gadsPanel'), client, period, state.drillCampaign, state.drillAdset)
+    }
+    else if (state.drillCampaign) {
+      if (state.drillSub===1) renderGoogleAds(document.getElementById('gadsPanel'), client, period, state.drillCampaign)
+      else if (state.drillSub===2) renderGoogleTerms(document.getElementById('termsPanel'), client, period, state.drillCampaign)
+      else if (state.drillSub===3) renderGooglePages(document.getElementById('gpagesPanel'), client, period, state.drillCampaign)
+    }
     else if (state.sub===2) renderGoogleAds(document.getElementById('gadsPanel'), client, period)
     else if (state.sub===3) renderGoogleTerms(document.getElementById('termsPanel'), client, period)
     else if (state.sub===4) renderGooglePages(document.getElementById('gpagesPanel'), client, period)
@@ -3098,7 +3135,7 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   // Header
   const back = document.getElementById('cpBack')
   if (back) back.onclick = () => {
-    state.openClient=null; state.tab='resultados'; state.sub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null
+    state.openClient=null; state.tab='resultados'; state.sub=0; state.drillSub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null
     state.cPeriod=null; state.campFilter=[]; state.campPanelOpen=false; state.campSearch=''
     render()
   }
@@ -3125,7 +3162,7 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
 
   // Tabs
   app.querySelectorAll('.cptab[data-tab]').forEach(e=>e.onclick=()=>{
-    state.tab=e.dataset.tab; state.sub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null; renderClient()
+    state.tab=e.dataset.tab; state.sub=0; state.drillSub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null; renderClient()
   })
 
   // Period presets
@@ -3169,12 +3206,13 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
 
   // Drill (aba campanhas)
   const bcBack=document.getElementById('bcBack')
-  if (bcBack) bcBack.onclick=()=>{ if(state.drillAdset){ state.drillAdset=null; state.drillAdsetName=null } else state.drillCampaign=null; renderClient() }
-  app.querySelectorAll('[data-bc="root"]').forEach(e=>e.onclick=()=>{ state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null; renderClient() })
-  app.querySelectorAll('[data-bc="camp"]').forEach(e=>e.onclick=()=>{ state.drillAdset=null; state.drillAdsetName=null; renderClient() })
+  if (bcBack) bcBack.onclick=()=>{ if(state.drillAdset){ state.drillAdset=null; state.drillAdsetName=null } else state.drillCampaign=null; state.drillSub=0; state.termsPage=0; state.pagesPage=0; renderClient() }
+  app.querySelectorAll('[data-bc="root"]').forEach(e=>e.onclick=()=>{ state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null; state.drillSub=0; state.termsPage=0; state.pagesPage=0; renderClient() })
+  app.querySelectorAll('[data-bc="camp"]').forEach(e=>e.onclick=()=>{ state.drillAdset=null; state.drillAdsetName=null; state.drillSub=0; state.termsPage=0; renderClient() })
   app.querySelectorAll('.dtab[data-sub]').forEach(e=>e.onclick=()=>{ state.sub=Number(e.dataset.sub); renderClient() })
-  app.querySelectorAll('.drill-link[data-camp]').forEach(e=>e.onclick=()=>{ state.drillCampaign=e.dataset.camp; state.drillAdset=null; state.drillAdsetName=null; renderClient() })
-  app.querySelectorAll('.drill-link[data-adset]').forEach(e=>e.onclick=()=>{ state.drillAdset=e.dataset.adset; state.drillAdsetName=e.dataset.adsetName; renderClient() })
+  app.querySelectorAll('.dtab[data-drillsub]').forEach(e=>e.onclick=()=>{ state.drillSub=Number(e.dataset.drillsub); state.termsPage=0; state.pagesPage=0; renderClient() })
+  app.querySelectorAll('.drill-link[data-camp]').forEach(e=>e.onclick=()=>{ state.drillCampaign=e.dataset.camp; state.drillAdset=null; state.drillAdsetName=null; state.drillSub=0; state.termsPage=0; state.pagesPage=0; renderClient() })
+  app.querySelectorAll('.drill-link[data-adset]').forEach(e=>e.onclick=()=>{ state.drillAdset=e.dataset.adset; state.drillAdsetName=e.dataset.adsetName; state.drillSub=0; state.termsPage=0; renderClient() })
   // Preview do anúncio (botão "👁 Ver" na tabela de anúncios)
   app.querySelectorAll('.ad-prev-btn').forEach(e=>e.onclick=(ev)=>{ ev.stopPropagation(); openAdPreview(e.dataset.adid, e.dataset.adname) })
   app.querySelectorAll('.ad-dest-btn').forEach(e=>e.onclick=(ev)=>{ ev.stopPropagation(); openAdDestination(e.dataset.adid, e.dataset.adname, e.dataset.destino) })
@@ -3245,7 +3283,7 @@ function wirePanel() {
     const channel = ch || state.channel || 'meta'
     state.openClient={ client: name, channel }
     // inicializa o estado local da página de cliente a partir do período global
-    state.tab='resultados'; state.sub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null
+    state.tab='resultados'; state.sub=0; state.drillSub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null
     state.campFilter=[]; state.campPanelOpen=false; state.campSearch=''
     state.termsPage=0; state.termsSort={key:'clicks',dir:'desc'}
     state.cDays = [3,7,14,30].includes(state.days) || CP_PRESET_STRINGS.has(state.days) || state.days===0 ? state.days : 7
