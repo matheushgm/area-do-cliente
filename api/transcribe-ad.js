@@ -1,3 +1,4 @@
+import { getUser, json, jsonErr } from './_http.js'
 // Edge function AUTENTICADA — transcreve o vídeo de um anúncio do Meta.
 // Fluxo (tudo no servidor, sem download/upload manual): valida o JWT da sessão →
 // pela Graph API (token só no servidor) resolve o video_id do criativo → pega a
@@ -6,12 +7,7 @@
 // é um segundo passo (api/roteiros-validados).
 export const config = { runtime: 'edge' }
 
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), { status, headers: { 'content-type': 'application/json' } })
-}
-function ok(obj) {
-  return new Response(JSON.stringify(obj), { status: 200, headers: { 'content-type': 'application/json' } })
-}
+const ok = (obj) => json(obj)
 
 export default async function handler(req) {
   if (req.method !== 'POST') return jsonErr('Use POST.', 405)
@@ -24,10 +20,8 @@ export default async function handler(req) {
   if (!GROQ_KEY) return jsonErr('Indisponível: GROQ_API_KEY não configurada na Vercel.', 503)
 
   // ── Autenticação ───────────────────────────────────────────────────────────
-  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON } })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
 
   // ── Parâmetros ─────────────────────────────────────────────────────────────
   let body = {}

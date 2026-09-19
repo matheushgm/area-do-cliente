@@ -1,12 +1,6 @@
+import { getUser, jsonErr } from './_http.js'
 // Edge Runtime: sem timeout fixo, suporta streaming nativo
 export const config = { runtime: 'edge' }
-
-function jsonErr(message, status) {
-  return new Response(
-    JSON.stringify({ error: { message } }),
-    { status, headers: { 'content-type': 'application/json' } }
-  )
-}
 
 export default async function handler(req) {
   if (req.method !== 'POST') {
@@ -21,14 +15,8 @@ export default async function handler(req) {
     return jsonErr('Servidor não configurado corretamente.', 500)
   }
 
-  const authHeader = req.headers.get('authorization') || ''
-  const jwt = authHeader.replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
 
   // ── Validar env e body ────────────────────────────────────────────────────
   const apiKey = process.env.ANTHROPIC_API_KEY

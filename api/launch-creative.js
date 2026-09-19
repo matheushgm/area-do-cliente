@@ -1,3 +1,4 @@
+import { getUser, jsonErr } from './_http.js'
 // Edge function — dispara o GitHub Action que publica os criativos da fila
 // (creative_tests 'queued') no Meta Ads, PAUSADOS. Botão "Subir teste no Meta"
 // da Central de anúncios. Valida o JWT do usuário (igual /api/trigger-sync) e
@@ -6,12 +7,6 @@ export const config = { runtime: 'edge' }
 
 const REPO = 'matheushgm/dashboard-api'
 const WORKFLOW = 'launch-ad.yml'
-
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), {
-    status, headers: { 'content-type': 'application/json' },
-  })
-}
 
 export default async function handler(req) {
   if (req.method !== 'POST') return jsonErr('Method not allowed', 405)
@@ -23,12 +18,8 @@ export default async function handler(req) {
   if (!GH_TOKEN) return jsonErr('GH_DISPATCH_TOKEN não configurado no servidor.', 500)
 
   // ── Autenticação (mesmo padrão de /api/dash-data) ───────────────────────────
-  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
 
   // ── Dispara o workflow ──────────────────────────────────────────────────────
   const r = await fetch(

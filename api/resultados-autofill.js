@@ -1,3 +1,4 @@
+import { bearer, getUser, json } from './_http.js'
 // Preenchimento automático dos Resultados do Funil com os dados reais de mídia.
 //
 // Lê APENAS (dash_insights, alimentado de hora em hora pelo sync Meta/Google) e
@@ -34,13 +35,6 @@ const WEEK_BOUNDS = [[1, 7], [8, 14], [15, 21], [22, null]]
 
 const pad = n => String(n).padStart(2, '0')
 const daysInMonth = (year, month) => new Date(Date.UTC(year, month, 0)).getUTCDate() // month 1-12
-
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
-}
 
 async function sb(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
@@ -114,8 +108,7 @@ function cronTargets(today) {
 
 // ── Autenticação ─────────────────────────────────────────────────────────────
 async function authorize(req) {
-  const auth = req.headers.get('authorization') || ''
-  const token = auth.replace(/^Bearer\s+/i, '').trim()
+  const token = bearer(req)
 
   // Vercel Cron: manda `Authorization: Bearer $CRON_SECRET` quando a env existe.
   // Não existe fallback pelo header `x-vercel-cron`: ele NÃO é removido das
@@ -123,12 +116,8 @@ async function authorize(req) {
   // disparar a escrita. Sem CRON_SECRET, só JWT de usuário passa.
   if (CRON_SECRET && token && token === CRON_SECRET) return { ok: true, via: 'cron' }
 
-  if (!token) return { ok: false }
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${token}`, apikey: ANON_KEY || SERVICE_KEY },
-  })
-  if (!res.ok) return { ok: false }
-  return { ok: true, via: 'user' }
+  const auth = await getUser(req, ANON_KEY || SERVICE_KEY)
+  return auth.ok ? { ok: true, via: 'user' } : { ok: false }
 }
 
 // ── Núcleo ───────────────────────────────────────────────────────────────────

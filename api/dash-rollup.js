@@ -1,3 +1,4 @@
+import { getUser, jsonErr } from './_http.js'
 // Edge function — serve o ROLLUP diário do Dashboard de Tráfego (public.dash_daily),
 // somente para usuários autenticados, com a mesma checagem de JWT do /api/dash-data.
 //
@@ -13,12 +14,6 @@
 // e summaryFor consomem o rollup sem alteração nenhuma. As linhas cruas continuam
 // em /api/dash-data e são lidas só ao abrir a página de um cliente.
 export const config = { runtime: 'edge' }
-
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), {
-    status, headers: { 'content-type': 'application/json' },
-  })
-}
 
 // Mapa coluna-do-rollup → nome que o cliente já espera, por canal.
 const COLS = {
@@ -47,12 +42,9 @@ export default async function handler(req) {
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
   if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr('Servidor não configurado.', 500)
 
-  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
+  const jwt = auth.jwt
 
   const url = new URL(req.url)
   const channel = url.searchParams.get('channel')

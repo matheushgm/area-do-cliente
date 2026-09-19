@@ -1,15 +1,10 @@
+import { getUser, jsonErr } from './_http.js'
 // Edge function — serve os dados do Dashboard de Tráfego (versão API) lendo da
 // tabela public.dash_insights no Supabase, SOMENTE para usuários autenticados.
 // Valida o JWT da sessão (igual api/anthropic.js) e repassa esse mesmo JWT ao
 // PostgREST, de modo que a RLS (SELECT só para authenticated) seja aplicada.
 // Os dados NUNCA ficam no repositório nem em arquivo público.
 export const config = { runtime: 'edge' }
-
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), {
-    status, headers: { 'content-type': 'application/json' },
-  })
-}
 
 // Monta CSV (todos os campos entre aspas) a partir de uma lista de objetos.
 function toCSV(rows) {
@@ -39,14 +34,9 @@ export default async function handler(req) {
   if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr('Servidor não configurado.', 500)
 
   // ── Autenticação ───────────────────────────────────────────────────────────
-  const authHeader = req.headers.get('authorization') || ''
-  const jwt = authHeader.replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
+  const jwt = auth.jwt
 
   // ── Parâmetros ─────────────────────────────────────────────────────────────
   const url = new URL(req.url)

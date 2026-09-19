@@ -1,3 +1,4 @@
+import { getUser, json, sb } from './_http.js'
 // Edge function AUTENTICADA (só o time logado) — CRUD dos "Roteiros Validados"
 // de um projeto: transcrições de anúncios em vídeo que performaram bem, salvas
 // como material de aprendizado para gerar copy nova. Usa SERVICE_ROLE no servidor
@@ -12,40 +13,16 @@ const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
-}
-
 const clip = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
-
-async function sb(path, opts = {}) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
-    ...opts,
-    headers: {
-      apikey: SERVICE_KEY,
-      Authorization: `Bearer ${SERVICE_KEY}`,
-      'Content-Type': 'application/json',
-      Prefer: opts.prefer || 'return=representation',
-    },
-  })
-  const text = await res.text()
-  let data = null
-  try { data = JSON.parse(text) } catch { data = text }
-  return { data, status: res.status }
-}
 
 export default async function handler(req) {
   if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405)
   if (!SUPABASE_URL || !SUPABASE_ANON || !SERVICE_KEY) return json({ error: 'Servidor não configurado.' }, 500)
 
   // ── Autenticação (só o time logado) ─────────────────────────────────────────
-  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return json({ error: 'Não autorizado.' }, 401)
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!authRes.ok) return json({ error: 'Sessão inválida ou expirada.' }, 401)
-  const user = await authRes.json().catch(() => ({}))
+  const auth = await getUser(req)
+  if (!auth.ok) return json({ error: auth.message }, 401)
+  const user = auth.user || {}
 
   let body
   try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }

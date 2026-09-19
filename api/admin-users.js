@@ -1,12 +1,6 @@
+import { getUser, json } from './_http.js'
 // Edge Runtime: proxy seguro para operações admin do Supabase Auth
 export const config = { runtime: 'edge' }
-
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
-}
 
 export default async function handler(req) {
   if (req.method !== 'POST') {
@@ -21,21 +15,10 @@ export default async function handler(req) {
   }
 
   // Verificar JWT do caller
-  const authHeader = req.headers.get('authorization') || ''
-  const jwt = authHeader.replace('Bearer ', '').trim()
-  if (!jwt) return json({ error: 'Unauthorized' }, 401)
+  const auth = await getUser(req, SERVICE_KEY)
+  if (!auth.ok) return json({ error: auth.message }, 401)
 
-  const meRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SERVICE_KEY },
-  })
-
-  if (!meRes.ok) {
-    return json({ error: 'Sessão inválida ou expirada.' }, 401)
-  }
-
-  const me = await meRes.json()
-
-  if (me?.app_metadata?.role !== 'admin') {
+  if (auth.user?.app_metadata?.role !== 'admin') {
     return json({ error: 'Forbidden: apenas admins podem executar esta ação.' }, 403)
   }
 

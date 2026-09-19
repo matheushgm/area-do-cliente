@@ -1,3 +1,4 @@
+import { getUser, hmacHex, jsonErr } from './_http.js'
 // Edge function — gera o LINK PÚBLICO da ferramenta "Criativos com IA" de UM
 // projeto/cliente. Apenas o time logado gera o link. O token é um HMAC do
 // projectId com um segredo de servidor (SUPABASE_SERVICE_ROLE_KEY) — prova que
@@ -8,19 +9,6 @@
 // carrega senha.
 export const config = { runtime: 'edge' }
 
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), {
-    status, headers: { 'content-type': 'application/json' },
-  })
-}
-
-async function hmacHex(secret, msg) {
-  const enc = new TextEncoder()
-  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(msg))
-  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
 export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY // chave publishable (sb_...)
@@ -30,12 +18,8 @@ export default async function handler(req) {
   if (req.method !== 'POST') return jsonErr('Método não permitido.', 405)
 
   // ── Autenticação (só o time logado gera link) ───────────────────────────────
-  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
 
   // ── Parâmetros ──────────────────────────────────────────────────────────────
   let body

@@ -1,15 +1,10 @@
+import { hmacHex, jsonErr } from './_http.js'
 // Edge function — serve os dados de UM cliente para o LINK PÚBLICO (somente
 // leitura) do dashboard. NÃO exige login: valida um token HMAC (`cliente|canal`)
 // gerado por /api/dash-share-token e devolve apenas as linhas daquela conta.
 // Usa SERVICE_ROLE no servidor para ler dash_insights (que tem RLS só-authenticated),
 // mas filtra estritamente por `account=eq.<cliente>` — nunca devolve outras contas.
 export const config = { runtime: 'edge' }
-
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), {
-    status, headers: { 'content-type': 'application/json' },
-  })
-}
 
 // Monta CSV (todos os campos entre aspas) — mesmo formato de api/dash-data.js,
 // para o viewer parsear igual. União de todas as chaves (linhas heterogêneas).
@@ -22,13 +17,6 @@ function toCSV(rows) {
   const lines = [headers.map(esc).join(',')]
   for (const r of rows) lines.push(headers.map(h => esc(r[h])).join(','))
   return lines.join('\n')
-}
-
-async function hmacHex(secret, msg) {
-  const enc = new TextEncoder()
-  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(msg))
-  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
 // Comparação de tempo constante (evita timing attack ao validar o token).

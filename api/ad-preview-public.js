@@ -1,3 +1,4 @@
+import { hmacHex, jsonErr } from './_http.js'
 // Edge function — PREVIEW de um anúncio do Meta para o LINK PÚBLICO do dashboard.
 // Versão sem login do api/ad-preview.js: em vez do JWT da sessão, valida o mesmo
 // token HMAC (`cliente|canal`) que o /api/dash-public usa. Está para o ad-preview
@@ -14,24 +15,11 @@
 // do preview aqui no servidor e devolvemos já sem o token.
 export const config = { runtime: 'edge' }
 
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), {
-    status, headers: { 'content-type': 'application/json' },
-  })
-}
-
 // Formatos de preview suportados (mesmo subset do api/ad-preview.js).
 const ALLOWED_FMT = [
   'MOBILE_FEED_STANDARD', 'DESKTOP_FEED_STANDARD', 'INSTAGRAM_STANDARD',
   'FACEBOOK_STORY_MOBILE', 'INSTAGRAM_STORY',
 ]
-
-async function hmacHex(secret, msg) {
-  const enc = new TextEncoder()
-  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(msg))
-  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('')
-}
 
 // Comparação de tempo constante (evita timing attack ao validar o token).
 function safeEq(a, b) {

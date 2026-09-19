@@ -1,3 +1,4 @@
+import { getUser, jsonErr } from './_http.js'
 // Edge function — ativa em 1 clique um teste 'paused_ready' (botão "Ativar" da
 // Central de anúncios). Chama a Meta API direto (rápido) com o META_TOKEN,
 // liga conjunto + anúncio, e agenda o veredito para +7 dias.
@@ -6,12 +7,6 @@ export const config = { runtime: 'edge' }
 const GRAPH = 'https://graph.facebook.com/v19.0'
 // Piloto — só estas contas podem ser ativadas (espelha o guardrail do motor).
 const PILOT = new Set(['act_5346279295414773', 'act_1307754696082194'])
-
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), {
-    status, headers: { 'content-type': 'application/json' },
-  })
-}
 
 async function metaSetStatus(id, status, token) {
   const r = await fetch(`${GRAPH}/${id}`, {
@@ -34,12 +29,9 @@ export default async function handler(req) {
   if (!META_TOKEN) return jsonErr('META_TOKEN não configurado no servidor.', 500)
 
   // ── Auth ────────────────────────────────────────────────────────────────────
-  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
+  const jwt = auth.jwt
 
   let body
   try { body = await req.json() } catch { return jsonErr('Body inválido.', 400) }

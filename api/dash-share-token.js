@@ -1,23 +1,10 @@
+import { getUser, hmacHex, jsonErr } from './_http.js'
 // Edge function — gera o LINK PÚBLICO (somente leitura) do dashboard de UM cliente.
 // Apenas usuários autenticados (o time) podem gerar o link. O token é um HMAC do
 // par `cliente|canal` com um segredo de servidor (SUPABASE_SERVICE_ROLE_KEY, que
 // nunca sai do servidor). Assim /api/dash-public só devolve dados quando o token
 // confere — impedindo trocar ?cliente= no link para ver os dados de outro cliente.
 export const config = { runtime: 'edge' }
-
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), {
-    status, headers: { 'content-type': 'application/json' },
-  })
-}
-
-// HMAC-SHA256(secret, msg) em hex (Web Crypto, disponível no runtime edge).
-async function hmacHex(secret, msg) {
-  const enc = new TextEncoder()
-  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(msg))
-  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('')
-}
 
 export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
@@ -26,12 +13,8 @@ export default async function handler(req) {
   if (!SUPABASE_URL || !SUPABASE_ANON || !SECRET) return jsonErr('Servidor não configurado.', 500)
 
   // ── Autenticação (só o time logado gera link) ───────────────────────────────
-  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
 
   // ── Parâmetros ──────────────────────────────────────────────────────────────
   const url = new URL(req.url)

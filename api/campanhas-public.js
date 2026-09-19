@@ -1,3 +1,4 @@
+import { NO_STORE, jsonCors, preflight, sb } from './_http.js'
 // Edge Function pública (SOMENTE LEITURA) do módulo de Campanhas / Planejamento de Verba.
 // Validação SÓ pelo client_share_token (sem JWT), igual a api/precificacao-form.js.
 //
@@ -8,31 +9,7 @@ export const config = { runtime: 'edge' }
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'content-type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      // Plano de verba não deve ficar em cache de CDN — muda toda semana.
-      'Cache-Control': 'no-store',
-    },
-  })
-}
-
-async function sb(path) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
-    headers: {
-      apikey:        SERVICE_KEY,
-      Authorization: `Bearer ${SERVICE_KEY}`,
-      'Content-Type': 'application/json',
-    },
-  })
-  const text = await res.text()
-  let data = null
-  try { data = JSON.parse(text) } catch { data = text }
-  return { data, status: res.status }
-}
+const json = (body, status) => jsonCors(body, status, NO_STORE)
 
 // ── Sanitização de saída ───────────────────────────────────────────────────
 // Devolve só os campos que a página pública precisa. Assim, se um dia entrar
@@ -116,15 +93,7 @@ function sanitizePlan(answers) {
 }
 
 export default async function handler(req) {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin':  '*',
-        'Access-Control-Allow-Methods': 'GET,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    })
-  }
+  if (req.method === 'OPTIONS') return preflight()
 
   if (req.method !== 'GET') {
     return json({ error: 'Método não permitido.' }, 405)

@@ -1,3 +1,4 @@
+import { getUser, json, jsonErr } from './_http.js'
 // Edge Function — notificação Slack quando um cliente novo é criado.
 // POST /api/slack com body { action: 'notify_new_client', payload: {...} }
 //
@@ -6,18 +7,7 @@
 //   SUPABASE_URL + SUPABASE_ANON_KEY — para validar JWT do caller
 export const config = { runtime: 'edge' }
 
-function jsonErr(message, status, extra) {
-  return new Response(
-    JSON.stringify({ error: { message, ...(extra || {}) } }),
-    { status, headers: { 'content-type': 'application/json' } }
-  )
-}
-function jsonOk(data) {
-  return new Response(JSON.stringify(data), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  })
-}
+const jsonOk = (data) => json(data)
 
 function fmtCurrencyBR(n) {
   if (n == null || isNaN(n)) return '—'
@@ -40,13 +30,8 @@ export default async function handler(req) {
   const SUPABASE_URL  = process.env.SUPABASE_URL
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
   if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr('Servidor não configurado.', 500)
-  const authHeader = req.headers.get('authorization') || ''
-  const jwt = authHeader.replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
 
   const webhookUrl = process.env.SLACK_WEBHOOK_URL
   if (!webhookUrl) return jsonErr('SLACK_WEBHOOK_URL não configurado.', 500)

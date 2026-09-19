@@ -1,3 +1,4 @@
+import { getUser, jsonErr } from './_http.js'
 // Edge function — dispara o GitHub Action de sync (dashboard-sync.yml) sob demanda
 // (botão "Atualizar" da dashboard). Valida o JWT do usuário (igual /api/dash-data)
 // e então chama a API do GitHub (workflow_dispatch) com um token de serviço.
@@ -5,12 +6,6 @@ export const config = { runtime: 'edge' }
 
 const REPO = 'matheushgm/dashboard-api'
 const WORKFLOW = 'sync.yml'
-
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), {
-    status, headers: { 'content-type': 'application/json' },
-  })
-}
 
 export default async function handler(req) {
   if (req.method !== 'POST') return jsonErr('Method not allowed', 405)
@@ -22,12 +17,8 @@ export default async function handler(req) {
   if (!GH_TOKEN) return jsonErr('GH_DISPATCH_TOKEN não configurado no servidor.', 500)
 
   // ── Autenticação (mesmo padrão de /api/dash-data) ───────────────────────────
-  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
 
   // ── Dispara o workflow ──────────────────────────────────────────────────────
   const r = await fetch(

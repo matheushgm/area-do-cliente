@@ -94,6 +94,16 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
 - Renderização de output da IA: `react-markdown` + `rehype-sanitize` (sem `dangerouslySetInnerHTML`)
 - Em desenvolvimento local, use `vercel dev`; o Vite puro (`npm run dev`) não serve `/api/*` e a IA não funcionará
 
+### Funções `/api/*` — helpers compartilhados (`api/_http.js`)
+
+Toda função importa de `./_http.js` em vez de redefinir: `json`/`jsonCors`/`jsonErr` (resposta
+JSON; `jsonCors` para endpoints públicos, `NO_STORE` quando não pode ir pra CDN), `preflight()`
+(OPTIONS), `getUser(req, apikey?)` (valida o JWT do Supabase e devolve `{ ok, jwt, user }` ou
+`{ ok: false, message }`), `bearer(req)`, `sb(path, opts)` (PostgREST com a chave de serviço —
+`prefer` padrão `return=representation`, `range`, `headers`) e `hmacHex`. Funciona no runtime
+edge e no Node. No front, `src/lib/api.js` (`apiFetch`, `sessionToken`) é o único lugar que
+monta o `Authorization: Bearer` das chamadas a `/api/*`.
+
 ### Supabase — Schema normalizado
 
 `src/lib/supabase.js` — retorna `null` se as env vars não estiverem definidas. Exporta também helpers de Storage: `uploadFile`, `deleteFile`, `getSignedUrl`.

@@ -1,3 +1,4 @@
+import { hmacHex, jsonCors, preflight } from './_http.js'
 // Public Edge Function — ferramenta pública "Criativos com IA" de um cliente.
 // Sem login: validada por token HMAC (`projectId|senha`) gerado em
 // api/criativos-share-token.js. O cliente digita a senha; o servidor recalcula
@@ -264,19 +265,7 @@ ${nivelBlock(nivelId, 'video')}
 - Separe cada roteiro com "---"`
 
 // ─── Helpers de resposta ──────────────────────────────────────────────────────
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-  })
-}
-
-async function hmacHex(secret, msg) {
-  const enc = new TextEncoder()
-  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(msg))
-  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('')
-}
+const json = jsonCors
 
 function safeEq(a, b) {
   if (a.length !== b.length) return false
@@ -564,15 +553,7 @@ async function anthropicSSE(system, instruction, context, maxTokens) {
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 export default async function handler(req) {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    })
-  }
+  if (req.method === 'OPTIONS') return preflight()
   if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405)
   if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: 'Servidor não configurado.' }, 500)
 

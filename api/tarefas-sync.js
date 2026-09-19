@@ -1,3 +1,4 @@
+import { bearer, getUser } from './_http.js'
 // Serverless Function (Node) — sincronização incremental ClickUp → Tarefas.
 // GET/POST /api/tarefas-sync   (Authorization: Bearer <CRON_SECRET> ou JWT do usuário)
 //   ?since=<ISO>   opcional: força o ponto de partida (padrão: último início - 15 min)
@@ -51,15 +52,11 @@ async function clickup(path, token) {
 }
 
 async function autorizar(req) {
-  const auth = req.headers.authorization || ''
-  const token = auth.replace(/^Bearer\s+/i, '').trim()
+  const token = bearer(req)
   const cron = envClean('CRON_SECRET')
   if (cron && token && token === cron) return { ok: true, via: 'cron' }
-  if (!token) return { ok: false }
-  const res = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${token}`, apikey: process.env.SUPABASE_ANON_KEY },
-  })
-  return res.ok ? { ok: true, via: 'user' } : { ok: false }
+  const auth = await getUser(req)
+  return auth.ok ? { ok: true, via: 'user' } : { ok: false }
 }
 
 export default async function handler(req, res) {

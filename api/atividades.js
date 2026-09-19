@@ -1,3 +1,4 @@
+import { getUser, sb } from './_http.js'
 // Serverless Function (Node) — Planejador de Atividades.
 // POST /api/atividades  { action, ...payload }   (JWT do Supabase no Authorization)
 //
@@ -146,38 +147,9 @@ async function doneTasksBetween(desde, ate, token, teamId, { refresh = false } =
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 
 async function validarJwt(req) {
-  const SUPABASE_URL = process.env.SUPABASE_URL
-  const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
-  if (!SUPABASE_URL || !SUPABASE_ANON) return { error: 'Servidor não configurado.', status: 500 }
-  const jwt = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return { error: 'Não autorizado.', status: 401 }
-  const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!r.ok) return { error: 'Sessão inválida ou expirada.', status: 401 }
-  const user = await r.json().catch(() => null)
-  return { user }
-}
-
-function serviceKey() {
-  return process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
-}
-
-async function sb(path, opts = {}) {
-  const key = serviceKey()
-  const res = await fetch(`${process.env.SUPABASE_URL}/rest/v1${path}`, {
-    ...opts,
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-      Prefer: opts.prefer || 'return=representation',
-    },
-  })
-  const text = await res.text()
-  let data = null
-  try { data = JSON.parse(text) } catch { data = text }
-  return { data, status: res.status, ok: res.ok }
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) return { error: 'Servidor não configurado.', status: 500 }
+  const auth = await getUser(req)
+  return auth.ok ? { ok: true, user: auth.user } : { error: auth.message, status: 401 }
 }
 
 async function carregarConfig() {

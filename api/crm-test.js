@@ -1,14 +1,9 @@
+import { json } from './_http.js'
 // Edge Function — dispara um lead de exemplo para o CRM e devolve a resposta
 // crua (status + corpo), sem gravar nada. Usado pelo botão "Testar envio".
 import { isAuthed, sendToCrm, buildBody } from './_crm.js'
 
 export const config = { runtime: 'edge' }
-
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status, headers: { 'content-type': 'application/json' },
-  })
-}
 
 export default async function handler(req) {
   if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405)

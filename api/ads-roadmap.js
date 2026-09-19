@@ -1,3 +1,4 @@
+import { getUser } from './_http.js'
 // ADS Roadmap: lê a página "Roadmap Ads" do Playbook Operacional no ClickUp e
 // devolve as tabelas por faixa de verba em JSON.
 //
@@ -28,16 +29,9 @@ function envClean(name) {
 }
 
 async function validarJwt(req) {
-  const SUPABASE_URL = process.env.SUPABASE_URL
-  const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
-  if (!SUPABASE_URL || !SUPABASE_ANON) return { error: 'Servidor não configurado.', status: 500 }
-  const jwt = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return { error: 'Não autorizado.', status: 401 }
-  const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!r.ok) return { error: 'Sessão inválida ou expirada.', status: 401 }
-  return { ok: true }
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) return { error: 'Servidor não configurado.', status: 500 }
+  const auth = await getUser(req)
+  return auth.ok ? { ok: true, user: auth.user } : { error: auth.message, status: 401 }
 }
 
 // ─── Parser do markdown ──────────────────────────────────────────────────────

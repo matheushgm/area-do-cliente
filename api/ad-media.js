@@ -1,3 +1,4 @@
+import { getUser, json, jsonErr } from './_http.js'
 // Edge function — salva a mídia de um anúncio do Meta no Banco de Anúncios.
 // Fluxo (tudo no servidor): valida o JWT da sessão → pela Graph API (token só no
 // servidor) resolve o vídeo/imagem do criativo + a copy → baixa a mídia →
@@ -6,12 +7,8 @@
 // insert usam o JWT do usuário (respeita a RLS, igual o app React faz).
 export const config = { runtime: 'edge' }
 
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), { status, headers: { 'content-type': 'application/json' } })
-}
-function ok(obj) {
-  return new Response(JSON.stringify(obj), { status: 200, headers: { 'content-type': 'application/json' } })
-}
+const ok = (obj) => json(obj)
+
 function extFromType(ct) {
   ct = ct || ''
   if (/mp4/.test(ct)) return 'mp4'
@@ -33,10 +30,9 @@ export default async function handler(req) {
   if (!META_TOKEN) return jsonErr('Indisponível: META_TOKEN não configurada na Vercel.', 503)
 
   // ── Autenticação ───────────────────────────────────────────────────────────
-  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON } })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
+  const jwt = auth.jwt
 
   // ── Parâmetros ─────────────────────────────────────────────────────────────
   let body = {}

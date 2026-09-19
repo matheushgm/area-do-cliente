@@ -1,3 +1,4 @@
+import { getUser } from './_http.js'
 // Helpers compartilhados do encaminhamento de leads para o CRM.
 // Arquivos com prefixo "_" não viram rota na Vercel — são só módulos.
 
@@ -65,13 +66,6 @@ export async function sendToCrm(cfg, dados) {
 
 /** Valida o JWT do chamador contra o Supabase. Retorna true/false. */
 export async function isAuthed(req) {
-  const SUPABASE_URL = process.env.SUPABASE_URL
-  const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
-  if (!SUPABASE_URL || !SUPABASE_ANON) return false
-  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return false
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  return res.ok
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) return false
+  return (await getUser(req)).ok
 }

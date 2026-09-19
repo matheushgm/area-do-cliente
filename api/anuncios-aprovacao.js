@@ -1,3 +1,4 @@
+import { NO_STORE, jsonCors, preflight, sb } from './_http.js'
 // Edge Function pública — APROVAÇÃO DE ANÚNCIOS E LANDING PAGES pelo cliente.
 // Validação só pelo client_share_token do projeto (mesmo token de
 // /campanhas, /precificacao, /crm...). Sem login.
@@ -16,32 +17,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY
 const BUCKET = 'attachments'
 
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'content-type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'no-store',
-    },
-  })
-}
-
-async function sb(path, init = {}) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
-    ...init,
-    headers: {
-      apikey:        SERVICE_KEY,
-      Authorization: `Bearer ${SERVICE_KEY}`,
-      'Content-Type': 'application/json',
-      ...(init.headers || {}),
-    },
-  })
-  const text = await res.text()
-  let data = null
-  try { data = JSON.parse(text) } catch { data = text }
-  return { data, status: res.status }
-}
+const json = (body, status) => jsonCors(body, status, NO_STORE)
 
 // URL assinada (1h) pro anexo do bucket privado — o cliente não tem login.
 async function signAttachment(path) {
@@ -138,15 +114,7 @@ async function sanitizeAd(ad) {
 }
 
 export default async function handler(req) {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin':  '*',
-        'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    })
-  }
+  if (req.method === 'OPTIONS') return preflight()
   if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: 'Servidor não configurado.' }, 500)
 
   // ── GET: lista pro cliente ──────────────────────────────────────────────────

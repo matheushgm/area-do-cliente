@@ -1,3 +1,4 @@
+import { getUser, jsonErr } from './_http.js'
 // Edge function — gera o PREVIEW de um anúncio do Meta a partir do ad_id.
 // Fluxo seguro: valida o JWT da sessão (igual api/dash-data.js), chama a Graph
 // API com o token do Meta que vive SÓ no servidor (env META_ACCESS_TOKEN),
@@ -6,12 +7,6 @@
 // nunca chega ao cliente. O repositório é público, então o token jamais pode
 // estar no código.
 export const config = { runtime: 'edge' }
-
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), {
-    status, headers: { 'content-type': 'application/json' },
-  })
-}
 
 // Formatos de preview suportados (subset dos ad_format da Graph API).
 const ALLOWED_FMT = [
@@ -28,12 +23,8 @@ export default async function handler(req) {
   if (!META_TOKEN) return jsonErr('Preview indisponível: a variável META_TOKEN não está configurada na Vercel.', 503)
 
   // ── Autenticação (mesmo padrão de dash-data) ───────────────────────────────
-  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
 
   // ── Parâmetros ─────────────────────────────────────────────────────────────
   const url = new URL(req.url)

@@ -1,3 +1,4 @@
+import { getUser, jsonErr } from './_http.js'
 // Edge function — lê o ORÇAMENTO DIÁRIO CONFIGURADO nas campanhas ativas de
 // Meta E Google Ads para as contas pedidas (por nome, igual aparecem no dash).
 //
@@ -19,12 +20,6 @@ const GRAPH = 'https://graph.facebook.com/v19.0'
 const GADS_VERSION = process.env.GOOGLE_ADS_API_VERSION || 'v24'
 const GADS = `https://googleads.googleapis.com/${GADS_VERSION}`
 const DEFAULT_MCC = '2695121976' // [MCC] - Revenue Lab
-
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), {
-    status, headers: { 'content-type': 'application/json' },
-  })
-}
 
 // Mesma normalização do normStr de src/lib/dashboardData.js (match por nome).
 function normStr(s) {
@@ -285,12 +280,8 @@ export default async function handler(req) {
   }
 
   // ── Autenticação (mesmo padrão de ad-preview/dash-data) ────────────────────
-  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON },
-  })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
 
   // ── Parâmetros ─────────────────────────────────────────────────────────────
   const url = new URL(req.url)

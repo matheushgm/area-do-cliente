@@ -1,12 +1,9 @@
+import { getUser, jsonErr } from './_http.js'
 // Edge function — retorna o destino (link real) de um anúncio do Meta.
 // O dado da planilha tem só o TIPO de destino (WhatsApp/Site/...); o link em si
 // (LP) não é coletado, então buscamos no criativo via Graph API (token só no
 // servidor). Valida o JWT da sessão, igual aos outros endpoints.
 export const config = { runtime: 'edge' }
-
-function jsonErr(message, status) {
-  return new Response(JSON.stringify({ error: { message } }), { status, headers: { 'content-type': 'application/json' } })
-}
 
 export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
@@ -15,10 +12,8 @@ export default async function handler(req) {
   if (!SUPABASE_URL || !SUPABASE_ANON) return jsonErr('Servidor não configurado.', 500)
   if (!META_TOKEN) return jsonErr('Indisponível: META_TOKEN não configurada na Vercel.', 503)
 
-  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!jwt) return jsonErr('Não autorizado.', 401)
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { Authorization: `Bearer ${jwt}`, apikey: SUPABASE_ANON } })
-  if (!authRes.ok) return jsonErr('Sessão inválida ou expirada.', 401)
+  const auth = await getUser(req)
+  if (!auth.ok) return jsonErr(auth.message, 401)
 
   const adId = (new URL(req.url).searchParams.get('ad_id') || '').trim()
   if (!/^\d+$/.test(adId)) return jsonErr('ad_id inválido.', 400)

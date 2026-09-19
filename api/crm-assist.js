@@ -1,3 +1,4 @@
+import { json } from './_http.js'
 // Edge Function — a IA lê a documentação da API do CRM e propõe a configuração
 // de integração (endpoint, headers e bodyTemplate com placeholders {{chave}}).
 // Só o time autenticado pode chamar.
@@ -8,12 +9,6 @@ export const config = { runtime: 'edge' }
 const MODEL = 'claude-sonnet-4-5'
 const DOCS_TIMEOUT_MS = 10000
 const DOCS_MAX_CHARS = 60000
-
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status, headers: { 'content-type': 'application/json' },
-  })
-}
 
 /** Busca a doc e reduz HTML a texto (heurística simples, suficiente para docs). */
 async function fetchDocs(url) {

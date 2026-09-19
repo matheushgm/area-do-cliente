@@ -1,3 +1,4 @@
+import { jsonCors, preflight, sb } from './_http.js'
 // Edge Function pública da ferramenta "Criação de Webinar" preenchível pelo
 // cliente. Validação SÓ pelo client_share_token (sem JWT) — mesmo token usado
 // por Matriz de Objeção / CRM / Precificação. GET (carregar) + PATCH (salvar).
@@ -16,31 +17,7 @@ const MAX_FIELD    = 8000   // caracteres por campo de texto
 const MAX_FIELDS   = 400    // campos por etapa
 const ETAPAS_OK    = ['abertura', 'historia', 'conteudo', 'oferta_agendamento', 'oferta_direta']
 
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'content-type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
-  })
-}
-
-async function sb(path, opts = {}) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
-    ...opts,
-    headers: {
-      apikey:         SERVICE_KEY,
-      Authorization:  `Bearer ${SERVICE_KEY}`,
-      'Content-Type': 'application/json',
-      Prefer:         opts.prefer || 'return=representation',
-    },
-  })
-  const text = await res.text()
-  let data = null
-  try { data = JSON.parse(text) } catch { data = text }
-  return { data, status: res.status }
-}
+const json = jsonCors
 
 const str = (v, max = MAX_FIELD) => String(v ?? '').slice(0, max)
 
@@ -76,15 +53,7 @@ function sanitizeWebinars(raw) {
 }
 
 export default async function handler(req) {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin':  '*',
-        'Access-Control-Allow-Methods': 'GET,PATCH,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    })
-  }
+  if (req.method === 'OPTIONS') return preflight()
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return json({ error: 'Servidor não configurado.' }, 500)
