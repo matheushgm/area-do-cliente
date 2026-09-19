@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dashboard API — Tráfego (replica)</title>
 <link rel="stylesheet" href="./vendor/dashboard.css">
+<!-- Novo visual (piloto): tema "Fynix" escopado por classe. Só entra nas contas de
+     NEW_LOOK_ACCOUNTS (bloco "Novo visual" no script); a fonte Urbanist é injetada
+     por setNewLook() só quando o tema entra, para as outras contas e o link público
+     seguirem sem dependência de terceiro nem CSS bloqueando a pintura. -->
+<link rel="stylesheet" href="./vendor/theme-fynix.css">
 <!-- Chart.js (UMD local, sem CDN) — usado pela aba "Resultados" -->
 <script src="./vendor/chart.umd.min.js"></script>
 <style>
@@ -307,6 +312,24 @@
 /* Rótulo de tile longo (ex.: "Perda por orçamento", "Pace da campanha") quebra
    em duas linhas em vez de ser cortado com reticências pelo nowrap do vendor. */
 .dt-root .mg-tile-label.wrap{ white-space:normal; overflow:visible; line-height:1.25; }
+/* Classes que substituíram estilos inline da página do cliente — assim o tema
+   (vendor/theme-fynix.css) consegue sobrescrevê-las. Valores idênticos aos de antes. */
+.dt-root .res-type{ color:#8aa0d6; font-size:11px; }
+.dt-root .cp-squad-caca{ background:rgba(22,68,150,0.10); border-color:rgba(22,68,150,0.30); color:#164496; }
+.dt-root .cp-squad-zero{ background:rgba(5,150,105,0.10); border-color:rgba(5,150,105,0.30); color:#059669; }
+.dt-root .param-accent, .dt-root .param-link{ color:#2563EB; }
+.dt-root .param-good{ color:#059669; }
+.sh-url{ width:100%; padding:10px 12px; font-size:12px; color:#1E293B; background:#F1F5F9; border:1px solid #D8E0F0; border-radius:8px; font-family:monospace; box-sizing:border-box; }
+.wk-foot .btn-ok{ background:#059669; border-color:#059669; color:#fff; }
+.dt-root .param-proj{ margin-bottom:16px; font-size:12px; color:#64748B; }
+.dt-root .terms-pager{ display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:10px 2px 2px; font-size:12px; color:#64748B; }
+.dt-root .pg-btn{ border:1px solid #D8E0F0; background:#fff; color:#334155; border-radius:6px; min-width:28px; height:28px; font-size:15px; line-height:1; cursor:pointer; }
+.dt-root .pg-btn:disabled{ opacity:.4; cursor:default; }
+.dt-root .pace-none{ color:#94A3B8; }
+/* Selo "novo visual" na lista da home: marca as contas que estão no piloto do tema. */
+.dt-root .new-look-chip{ display:inline-block; margin-left:6px; font-size:9px; font-weight:800; letter-spacing:.3px;
+  text-transform:uppercase; color:#2F6B1F; background:#EAF8DF; border:1px solid #BFE9A3; border-radius:999px;
+  padding:2px 7px; vertical-align:middle; white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -526,6 +549,113 @@ const CP_PRESET_STRINGS = new Set(['today','yesterday','this_month','last_month'
 
 // channel: '' = Todos (padrão — agrupa Meta+Google numa lista só, pra ninguém
 // passar batido só olhando a 1ª aba) | 'meta' | 'google' = filtro de um canal só.
+// ─── Novo visual (piloto do tema "Fynix") ────────────────────────────────────
+// Referência: AI Finance Management SaaS Dashboard (Behance). O tema vive em
+// vendor/theme-fynix.css e só entra na PÁGINA das contas listadas aqui — as
+// demais contas (e a lista da home) seguem no visual atual até o piloto ser
+// aprovado. setNewLook() põe a classe `th-fynix` no <body> (os modais ficam
+// fora do .dt-root) e no .dt-root; `ic()` troca emoji por ícone de linha e
+// `pal()` escolhe a paleta dos gráficos.
+const NEW_LOOK_ACCOUNTS = new Set(['Matheus Business'])
+const newLookFor = client => NEW_LOOK_ACCOUNTS.has((client || '').trim())
+const newLookChip = name => newLookFor(name) ? '<span class="new-look-chip" title="Conta no piloto do novo visual do dashboard">✨ novo visual</span>' : ''
+const FX_FONT_URL = 'https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap'
+// Redesenha os gráficos abertos quando a Urbanist termina de carregar: o canvas
+// usa a fonte disponível na hora do draw e o Chart.js não observa document.fonts.
+function redrawChartsWhenFontLoads() {
+  if (!state.newLook || !document.fonts?.load) return
+  document.fonts.load('600 12px Urbanist')
+    .then(() => { if (state.newLook) state._charts.forEach(c => { try { c.update('none') } catch (e) {} }) })
+    .catch(() => {})
+}
+function setNewLook(on) {
+  state.newLook = !!on
+  // A fonte do Google só é pedida quando o tema entra: fora do piloto o viewer
+  // continua sem nenhuma dependência de terceiro.
+  if (state.newLook && !document.getElementById('fx-font')) {
+    const l = document.createElement('link')
+    l.id = 'fx-font'; l.rel = 'stylesheet'; l.href = FX_FONT_URL
+    l.onload = redrawChartsWhenFontLoads
+    document.head.appendChild(l)
+  }
+  app.classList.toggle('th-fynix', state.newLook)
+  document.body.classList.toggle('th-fynix', state.newLook)
+  if (typeof Chart !== 'undefined') Chart.defaults.font.family = pal().font
+}
+// Ícones de linha (traço, estilo Lucide) usados no lugar dos emojis quando o
+// novo visual está ativo. Fora dele `ic()` devolve o emoji de sempre.
+const ICONS = {
+  'chart': '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx="1"/><rect x="12" y="8" width="3" height="10" rx="1"/><rect x="17" y="5" width="3" height="13" rx="1"/>',
+  'layers': '<path d="m12 3-9 5 9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
+  'check': '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/>',
+  'sliders': '<path d="M4 6h9"/><path d="M17 6h3"/><path d="M4 12h3"/><path d="M11 12h9"/><path d="M4 18h11"/><path d="M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  'back': '<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
+  'message': '<path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/>',
+  'link': '<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>',
+  'target': '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  'image': '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="m21 16-5-5-9 9"/>',
+  'key': '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9"/><path d="m17 6 3 3"/><path d="m14 9 3 3"/>',
+  'search': '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  'globe': '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',
+  'wallet': '<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/><path d="M15 15h3"/>',
+  'users': '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M17.5 14a6.5 6.5 0 0 1 4 6"/>',
+  'coin': '<circle cx="12" cy="12" r="9"/><path d="M12 6.5v11"/><path d="M15 9.5a2.5 2.5 0 0 0-2.5-1.5h-1a2.5 2.5 0 0 0 0 5h1a2.5 2.5 0 0 1 0 5h-1A2.5 2.5 0 0 1 9 15.5"/>',
+  'flag': '<path d="M5 21V4"/><path d="M5 4h12l-2 4 2 4H5"/>',
+  'trend': '<path d="m3 17 6-6 4 4 8-8"/><path d="M14 7h7v7"/>',
+  'trend-dn': '<path d="m3 7 6 6 4-4 8 8"/><path d="M14 17h7v-7"/>',
+  'activity': '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  'ruler': '<path d="m3 17 14-14 4 4L7 21z"/><path d="m14 6 2 2"/><path d="m11 9 2 2"/><path d="m8 12 2 2"/>',
+  'eye': '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  'external': '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/>',
+  'sparkles': '<path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="m19 16 .7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>',
+  'list': '<path d="M9 6h12"/><path d="M9 12h12"/><path d="M9 18h12"/><path d="m3 6 1 1 2-2"/><path d="m3 12 1 1 2-2"/><path d="m3 18 1 1 2-2"/>',
+  'alert': '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+  'trophy': '<path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v2a3 3 0 0 0 3 3"/><path d="M17 6h3v2a3 3 0 0 1-3 3"/>',
+  'lock': '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  'copy': '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
+  'refresh': '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/>',
+  'flame': '<path d="M12 3c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-1.5.5-2.5 1-3 .3 1 1 1.5 1.5 1.5C11 8 11 5 12 3z"/><path d="M8.5 14.5c0 3 1.5 5 3.5 6.5 2-1.5 3.5-3.5 3.5-6.5"/>',
+  'turtle': '<path d="M4 14a8 6 0 0 1 16 0z"/><path d="M2 14h20"/><path d="M6 14v3"/><path d="M18 14v3"/><path d="M20 12a2 2 0 0 1 3 1"/>',
+  'clock': '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+}
+const svgIco = name => ICONS[name] ? `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>` : ''
+const ic = (name, emoji) => state.newLook ? svgIco(name) : emoji
+// Paleta dos gráficos (Chart.js) por visual. A fonte padrão é a do próprio
+// Chart.js, para não mudar nada nas contas fora do piloto.
+const CHART_FONT_DEFAULT = typeof Chart !== 'undefined' ? Chart.defaults.font.family : 'sans-serif'
+const PAL_DEFAULT = { spend:'#D97706', spendFill:'rgba(217,119,6,0.12)', conv:'#2563EB', convFill:'rgba(37,99,235,0.12)',
+  prev:'#94A3B8', prevBar:'#CBD5E1', ctr:'#0891B2', ctrFill:'transparent', leads:'#2563EB', mql:'#7C3AED',
+  grid:'#E4EAF7', tick:'#64748B', legend:'#334155', font: CHART_FONT_DEFAULT }
+// Como na referência: linha lima com degradê lima embaixo, série secundária em
+// verde-escuro fino. Nas LINHAS entra o lima-3 (#5FB83A): o lima puro a 2,5px
+// sobre branco não tem contraste; ele fica nas áreas e nas barras.
+const PAL_FYNIX = { spend:'#5FB83A', spendFill:'rgba(159,232,112,0.30)', conv:'#9FE870', convFill:'rgba(159,232,112,0.22)',
+  prev:'#062F28', prevBar:'#C9CED2', ctr:'#5FB83A', ctrFill:'rgba(159,232,112,0.22)', leads:'#062F28', mql:'#5FB83A',
+  grid:'#EEF0F2', tick:'#6F6F6F', legend:'#062F28', font:"'Urbanist', 'Inter', system-ui, sans-serif" }
+const pal = () => state.newLook ? PAL_FYNIX : PAL_DEFAULT
+// Degradê lima sob a linha (só no tema). Scriptable: o Chart.js recalcula no resize.
+const limeGradient = ctx => {
+  const { ctx: c, chartArea } = ctx.chart
+  if (!chartArea) return 'rgba(159,232,112,0.25)'
+  const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
+  g.addColorStop(0, 'rgba(159,232,112,0.42)'); g.addColorStop(1, 'rgba(159,232,112,0)')
+  return g
+}
+// Legenda no tema: quadradinho arredondado sólido na cor da série + rótulo
+// verde-escuro, à direita (como nos gráficos da referência). Fora do tema, a
+// legenda padrão de cada gráfico (`fallback`).
+const fxLegend = (P, fallback) => !state.newLook ? fallback : {
+  position: 'top', align: 'end',
+  labels: { usePointStyle: true, pointStyle: 'rectRounded', boxWidth: 9, boxHeight: 9, padding: 14, color: P.legend, font: { size: 11, weight: '600' },
+    // Série de linha: o quadradinho usa a cor da linha (o fundo é o degradê).
+    generateLabels: chart => Chart.defaults.plugins.legend.labels.generateLabels(chart).map(l => {
+      const ds = chart.data.datasets[l.datasetIndex] || {}
+      if (typeof ds.borderColor === 'string') { l.fillStyle = ds.borderColor; l.strokeStyle = ds.borderColor }
+      l.lineDash = []
+      return l
+    }) },
+}
+
 const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:7, from:'', to:'', search:'', squad:'', openClient:null,
                 // visualização da lista: 'padrao' (status) | 'diagnostico' (causa da queda) | 'escala' (candidatas a mais verba)
                 view:'padrao', showHidden:false,
@@ -890,6 +1020,7 @@ function panelHTML(d) {
 function render() {
   destroyCharts()
   if (state.openClient) return renderClient()
+  setNewLook(false)
   saveNav()
   const d = listData()
   const { P, channels, stMeta, stGoogle } = d
@@ -1123,7 +1254,7 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
   const acctRow = x => {
     const trend = x.declining3d?`<span class="trend-dn">📉 Queda</span>`:x.trendDir==='up'?`<span class="trend-up">📈 Alta</span>`:`<span class="trend-fl">➡️ Estável</span>`
     return `<tr data-client="${esc(x.name)}" data-ch="${x.channel}">
-      <td><span class="client-link">${esc(x.name)}</span>${hideBtnHTML(x.name)}</td>
+      <td><span class="client-link">${esc(x.name)}</span>${newLookChip(x.name)}${hideBtnHTML(x.name)}</td>
       <td>${chIco(x.channel)}</td>
       <td><span class="pill ${pillCls(x.status)}">${pillIco(x.status)} ${x.status}</span></td>
       <td>${fmtNum(x.conv1)}</td><td>${fmtNum(x.conv2)}</td>
@@ -1167,8 +1298,8 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
     const vals = [...new Set(withTarget.map(x => state.accounts[x.name].cplTarget.value))]
     if (vals.length === 1) return targetCellHTML(withTarget[0].name, cpl)
     return vals.length > 1
-      ? '<span style="color:#94A3B8" title="As contas deste cliente têm CPL máximo diferente na Calculadora de ROI — sem alvo único para o total.">—</span>'
-      : '<span style="color:#94A3B8" title="Sem Calculadora de ROI preenchida no projeto da Área do Cliente">—</span>'
+      ? '<span class="pace-none" title="As contas deste cliente têm CPL máximo diferente na Calculadora de ROI — sem alvo único para o total.">—</span>'
+      : '<span class="pace-none" title="Sem Calculadora de ROI preenchida no projeto da Área do Cliente">—</span>'
   }
   const totalRow = list => {
     const t = totalsOf(list)
@@ -1322,7 +1453,7 @@ const SCALE_GROUPS = [
 ]
 function targetMarginHTML(name, cpl) {
   const target = state.accounts[name]?.cplTarget
-  if (!target || cpl == null) return '<span style="color:#94A3B8">—</span>'
+  if (!target || cpl == null) return '<span class="pace-none">—</span>'
   const margin = ((target.value - cpl) / target.value) * 100
   return margin >= 0
     ? `<span class="up" title="CPL Alvo: ${fmtMoney(target.value)}">${margin.toFixed(0)}% abaixo do alvo</span>`
@@ -1483,11 +1614,11 @@ function planCampaignSpend(ch, account, planName, s, e) {
 }
 
 const paceBadge = pace => {
-  if (!pace) return '<span style="color:#94A3B8">—</span>'
-  if (pace.notStarted) return `<span class="pace-pill pace-wait" title="O plano começa em ${fmtBR(pace.ps)}">⏳ começa ${fmtBR(pace.ps)}</span>`
-  if (pace.pct == null) return '<span style="color:#94A3B8">—</span>'
+  if (!pace) return '<span class="pace-none">—</span>'
+  if (pace.notStarted) return `<span class="pace-pill pace-wait" title="O plano começa em ${fmtBR(pace.ps)}">${ic('clock','⏳')} começa ${fmtBR(pace.ps)}</span>`
+  if (pace.pct == null) return '<span class="pace-none">—</span>'
   const cls = pace.pct > 110 ? 'pace-hot' : pace.pct < 90 ? 'pace-slow' : 'pace-ok'
-  const ico = pace.pct > 110 ? '🔥' : pace.pct < 90 ? '🐢' : '✅'
+  const ico = pace.pct > 110 ? ic('flame','🔥') : pace.pct < 90 ? ic('turtle','🐢') : ic('check','✅')
   const tip = pace.ended
     ? `Período encerrado em ${fmtBR(pace.pe)} — gastou ${fmtMoney(pace.actual)} de ${fmtMoney(pace.planned)} planejados`
     : `Dia ${pace.elapsed} de ${pace.totalDays} — gastou ${fmtMoney(pace.actual)}; o previsto até hoje era ${fmtMoney(pace.expected)}`
@@ -1506,7 +1637,7 @@ function paceTileHTML(pace) {
 
 const goalBadge = (target, cpl, ch) => {
   const label = ch === 'meta' ? 'CPL' : 'CPA'
-  if (target == null) return `<span style="color:#94A3B8" title="Preencha a Calculadora de ROI do projeto na Área do Cliente para ter o ${label} máximo.">—</span>`
+  if (target == null) return `<span class="pace-none" title="Preencha a Calculadora de ROI do projeto na Área do Cliente para ter o ${label} máximo.">—</span>`
   if (cpl == null) return `<span class="goal-pill goal-warn" title="Sem conversões no período — impossível medir o ${label}.">sem conv.</span>`
   const margin = ((target - cpl) / target) * 100
   return margin >= 0
@@ -1545,7 +1676,7 @@ function paceCampaignsHTML(ch, account, pace, campaigns) {
 // ou estoura (vermelho) o limite — visível independente do status da conta.
 function targetCellHTML(name, cpl) {
   const target = state.accounts[name]?.cplTarget?.value ?? null
-  if (target == null) return '<span style="color:#94A3B8" title="Sem Calculadora de ROI preenchida no projeto da Área do Cliente">—</span>'
+  if (target == null) return '<span class="pace-none" title="Sem Calculadora de ROI preenchida no projeto da Área do Cliente">—</span>'
   if (cpl == null) return `<span class="target-val" title="Sem conversões no período para comparar com o alvo">${fmtMoney(target)}</span>`
   const margin = ((target - cpl) / target) * 100
   return margin >= 0
@@ -1998,7 +2129,7 @@ function tblMetaCampaigns(rows, prevRows){
     // Resultado = nº verdadeiro do objetivo + tipo (= coluna do gerenciador) +
     // variação discreta vs período anterior (compara a mesma campanha 1:1).
     return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${i===0&&x.result>0?'🏆 ':''}${esc(x.key)}</span></td>
-      <td><b>${fmtNum(x.result)}</b>${varMini(x.result, pv[x.key])} <span style="color:#8aa0d6;font-size:11px">${esc(rl)}</span></td><td>${stHtml}</td>
+      <td><b>${fmtNum(x.result)}</b>${varMini(x.result, pv[x.key])} <span class="res-type">${esc(rl)}</span></td><td>${stHtml}</td>
       <td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Campanha</th><th>Resultado</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th><th>Cliques</th></tr></thead><tbody>${body}</tbody></table></div>`
@@ -2036,10 +2167,10 @@ function tblMetaAds(rows, prevRows){
     const stHtml=adGroupCell(acct,x._rows); const paused=!isActiveStatus(adGroupStatus(acct,x._rows).entry.status)
     const adId=(x._rows.find(r=>r['ad_id'])||{})['ad_id']||''
     const destino=(x._rows[0]||{})['Destino do conjunto de anúncio']||''
-    const prevBtn=adId?` <button class="ad-prev-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" title="Ver anúncio rodando">👁 Ver</button>`:''
+    const prevBtn=adId?` <button class="ad-prev-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" title="Ver anúncio rodando">${ic('eye','👁')} Ver</button>`:''
     // "Destino" depende de /api/ad-link (autenticado) — no link compartilhado
     // seria um botão morto, então só o "Ver" (preview) vai para o cliente.
-    const destBtn=(adId && !SHARED)?` <button class="ad-dest-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" data-destino="${esc(destino)}" title="Mostrar destino do anúncio">🔗 Destino</button>`:''
+    const destBtn=(adId && !SHARED)?` <button class="ad-dest-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" data-destino="${esc(destino)}" title="Mostrar destino do anúncio">${ic('external','🔗')} Destino</button>`:''
     return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(x.key)}"><span class="ad-name-flex"><span class="ad-name-txt">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span>${prevBtn}${destBtn}</span></td>
       <td>${stHtml}</td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${hookCell(x.h3,x.vv)}</td><td>${ctrCell(ctr)}</td><td>${cpm!=null?fmtMoney(cpm):'—'}</td>
@@ -2163,8 +2294,8 @@ function tblGooglePages(rows){
     <td>${x.cpa!=null?fmtMoney(x.cpa):'—'}</td><td>${x.cpc!=null?fmtMoney(x.cpc):'—'}</td>
     <td>${ctrCell(x.ctr)}</td><td>${fmtMoney(x.spend)}</td></tr>`).join('')
   const from = total?page*PAGES_PER_PAGE+1:0, to = Math.min(total, (page+1)*PAGES_PER_PAGE)
-  const pgBtn = (d,lbl,dis)=>`<button data-pg="${d}" ${dis?'disabled':''} style="border:1px solid #D8E0F0;background:#fff;color:#334155;border-radius:6px;min-width:28px;height:28px;font-size:15px;line-height:1;cursor:${dis?'default':'pointer'};${dis?'opacity:.4':''}">${lbl}</button>`
-  const pager = `<div class="terms-pager" style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px 2px 2px;font-size:12px;color:#64748B">
+  const pgBtn = (d,lbl,dis)=>`<button data-pg="${d}" ${dis?'disabled':''} class="pg-btn">${lbl}</button>`
+  const pager = `<div class="terms-pager">
     <span>${from}–${to} de ${total}</span>${pgBtn('prev','‹',page===0)}${pgBtn('next','›',page>=pages-1)}</div>`
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>${total>PAGES_PER_PAGE?pager:''}`
 }
@@ -2203,8 +2334,8 @@ function tblGoogleTerms(rows){
     <td>${x.cpa!=null?fmtMoney(x.cpa):'—'}</td><td>${x.cpc!=null?fmtMoney(x.cpc):'—'}</td><td>${ctrCell(x.ctr)}</td></tr>`).join('')
 
   const from = total?page*TERMS_PER_PAGE+1:0, to = Math.min(total, (page+1)*TERMS_PER_PAGE)
-  const pgBtn = (d,lbl,dis)=>`<button data-pg="${d}" ${dis?'disabled':''} style="border:1px solid #D8E0F0;background:#fff;color:#334155;border-radius:6px;min-width:28px;height:28px;font-size:15px;line-height:1;cursor:${dis?'default':'pointer'};${dis?'opacity:.4':''}">${lbl}</button>`
-  const pager = `<div class="terms-pager" style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px 2px 2px;font-size:12px;color:#64748B">
+  const pgBtn = (d,lbl,dis)=>`<button data-pg="${d}" ${dis?'disabled':''} class="pg-btn">${lbl}</button>`
+  const pager = `<div class="terms-pager">
     <span>${from}–${to} de ${total} termo${total!==1?'s':''}</span>
     ${pgBtn('prev','‹',page<=0)}<span>${page+1}/${pages}</span>${pgBtn('next','›',page>=pages-1)}</div>`
   return `<div class="dt-wrap"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>${pager}`
@@ -2457,8 +2588,8 @@ function buildInsights(stats, channel, allRows, target) {
   if (s.status === 'CRÍTICO') plan.push({ level: 'URGENTE', action: 'Auditar tracking, públicos e criativos — verificar se há bloqueio na entrega' })
   if (ctrBad) plan.push({ level: 'ALTA', action: `CTR ${aggCtr.toFixed(2)}% bem abaixo do benchmark (${benchCtr}%) — renovar criativos e copy` })
   if (convRateBad) plan.push({ level: 'ALTA', action: `Taxa de conversão ${aggConvRate.toFixed(1)}% baixa — revisar landing page / oferta / qualidade do lead` })
-  if (overTarget && overTargetPct > 30) plan.push({ level: 'ALTA', action: `CPL ${overTargetPct.toFixed(0)}% acima do alvo (R$ ${target.value}) — diagnosticar causa raiz` })
-  if (topPerformer && target && topPerformer.cpl < target.value * 0.8) plan.push({ level: 'MÉDIA', action: `Escalar "${topPerformer.key}" — CPL R$ ${topPerformer.cpl.toFixed(2)} (${((target.value - topPerformer.cpl) / target.value * 100).toFixed(0)}% abaixo do alvo)` })
+  if (overTarget && overTargetPct > 30) plan.push({ level: 'ALTA', action: `CPL ${overTargetPct.toFixed(0)}% acima do alvo (${fmtMoney(target.value)}) — diagnosticar causa raiz` })
+  if (topPerformer && target && topPerformer.cpl < target.value * 0.8) plan.push({ level: 'MÉDIA', action: `Escalar "${topPerformer.key}" — CPL ${fmtMoney(topPerformer.cpl)} (${((target.value - topPerformer.cpl) / target.value * 100).toFixed(0)}% abaixo do alvo)` })
   if (s.varConv >= 20) plan.push({ level: 'MÉDIA', action: `Conversões subiram ${s.varConv.toFixed(0)}% — entender o que mudou e replicar` })
   if (!plan.length) plan.push({ level: 'MÉDIA', action: 'Performance estável — manter monitoramento e testar novos criativos' })
 
@@ -2471,27 +2602,27 @@ function insightsCardHTML(ins, periodLabel, cpl1) {
   const convThreshold = ins.isMeta ? 20 : 5
   const planRows = ins.plan.map(p=>`<div class="ins-plan-row ${priCls[p.level]}"><span class="ins-plan-pri">${p.level}</span><span class="ins-plan-action">${esc(p.action)}</span></div>`).join('')
   const wastersSec = ins.wasters.length ? `<div class="ins-section">
-      <div class="ins-section-title">🚨 Torrando dinheiro</div>
+      <div class="ins-section-title">${ic('alert','🚨')} Torrando dinheiro</div>
       <div class="ins-section-sub">R$ ${ins.totalWaste.toFixed(2)} desperdiçados em ${ins.wasters.length} ${ins.isMeta?'anúncio(s)':'campanha(s)'}</div>
       ${ins.wasters.map(w=>`<div class="ins-item"><span class="ins-item-name" title="${esc(w.key)}">${esc(w.key)}</span><span class="ins-item-val ins-bad">R$ ${w.spend.toFixed(2)}</span></div>`).join('')}
     </div>` : ''
   const topSec = ins.topPerformer ? `<div class="ins-section">
-      <div class="ins-section-title">🏆 Top performer</div>
+      <div class="ins-section-title">${ic('trophy','🏆')} Top performer</div>
       <div class="ins-section-sub">Menor CPL com conversão</div>
       <div class="ins-item"><span class="ins-item-name" title="${esc(ins.topPerformer.key)}">${esc(ins.topPerformer.key)}</span><span class="ins-item-val ins-good">CPL R$ ${ins.topPerformer.cpl.toFixed(2)}</span></div>
       <div class="ins-item"><span class="ins-item-name">Conversões</span><span class="ins-item-val">${fmtNum(ins.topPerformer.conv)}</span></div>
     </div>` : ''
   const benchSec = `<div class="ins-section">
-      <div class="ins-section-title">📊 Benchmarks</div>
+      <div class="ins-section-title">${ic('chart','📊')} Benchmarks</div>
       <div class="ins-section-sub">vs Revenue Lab</div>
       ${ins.aggCtr!=null?`<div class="ins-item"><span class="ins-item-name">CTR ${ins.isMeta?'Link':'Search'}</span><span class="ins-item-val ${ins.aggCtr>=ctrThreshold?'ins-good':ins.aggCtr<ctrThreshold*0.5?'ins-bad':'ins-warn'}">${ins.aggCtr.toFixed(2)}% (alvo ≥${ctrThreshold}%)</span></div>`:''}
       ${ins.aggConvRate!=null?`<div class="ins-item"><span class="ins-item-name">Tx. conversão</span><span class="ins-item-val ${ins.aggConvRate>=convThreshold?'ins-good':'ins-warn'}">${ins.aggConvRate.toFixed(1)}%</span></div>`:''}
       ${ins.target?`<div class="ins-item"><span class="ins-item-name">CPL vs alvo</span><span class="ins-item-val ${!ins.overTarget?'ins-good':ins.overTargetPct>30?'ins-bad':'ins-warn'}">${cpl1?fmtMoney(cpl1):'—'}${ins.overTarget?` (+${ins.overTargetPct.toFixed(0)}%)`:''}</span></div>`:''}
     </div>`
   return `<div class="ins-card">
-    <div class="ins-header"><span class="ins-icon">🤖</span><span class="ins-title">Análise IA — Revenue Lab</span><span class="ins-meta">${esc(periodLabel)}</span></div>
+    <div class="ins-header"><span class="ins-icon">${ic('sparkles','🤖')}</span><span class="ins-title">Análise IA — Revenue Lab</span><span class="ins-meta">${esc(periodLabel)}</span></div>
     <div class="ins-diag">${esc(ins.diagnosis)}</div>
-    <div class="ins-plan"><div class="ins-plan-title">🎯 Plano de ação</div>${planRows}</div>
+    <div class="ins-plan"><div class="ins-plan-title">${ic('list','🎯')} Plano de ação</div>${planRows}</div>
     <div class="ins-grid" style="margin-top:14px;margin-bottom:0">${wastersSec}${topSec}${benchSec}</div>
   </div>`
 }
@@ -2503,14 +2634,15 @@ const cplActualCls = (actualCpl, target) => {
   if (actualCpl <= target.value * 1.3) return 'cpl-warn'
   return 'cpl-bad'
 }
-const chartBaseOptions = (yFmt) => ({
+const chartBaseOptions = (yFmt) => { const P = pal(); return {
   responsive: true, maintainAspectRatio: false,
-  plugins: { legend: { labels: { color: '#334155', font: { size: 10 } } }, tooltip: { mode: 'index', intersect: false } },
+  plugins: { legend: fxLegend(P, { labels: { color: P.legend, font: { size: 10 } } }), tooltip: { mode: 'index', intersect: false } },
   scales: {
-    x: { ticks: { color: '#64748B', font: { size: 9 }, maxRotation: 45 }, grid: { color: '#E4EAF7' } },
-    y: { ticks: { color: '#64748B', font: { size: 9 }, callback: yFmt }, grid: { color: '#E4EAF7' }, beginAtZero: true },
+    // Sem linhas verticais no novo visual (a referência só marca o eixo Y).
+    x: { ticks: { color: P.tick, font: { size: 9 }, maxRotation: 45 }, grid: { color: P.grid, display: !state.newLook } },
+    y: { ticks: { color: P.tick, font: { size: 9 }, callback: yFmt }, grid: { color: P.grid }, beginAtZero: true },
   },
-})
+} }
 function buildChartData(period, allRows, prevRows, channel) {
   const isMeta = channel === 'meta'
   const spendKey = isMeta ? 'Valor investido' : 'Gasto'
@@ -2526,14 +2658,20 @@ function buildChartData(period, allRows, prevRows, channel) {
     spends.push(parseFloat(c.spend.toFixed(2))); convs.push(c.conv)
     spendsPrev.push(parseFloat(pv.spend.toFixed(2))); convsPrev.push(pv.conv)
   }
+  const P = pal()
   return {
     line: { labels: days, datasets: [
-      { label: 'Atual (R$)', data: spends, borderColor: '#D97706', backgroundColor: 'rgba(217,119,6,0.12)', tension: 0.35, fill: true, pointRadius: 2, pointHoverRadius: 5, order: 1 },
-      { label: 'Anterior (R$)', data: spendsPrev, borderColor: '#94A3B8', backgroundColor: 'transparent', borderDash: [5, 4], tension: 0.35, fill: false, pointRadius: 0, pointHoverRadius: 4, borderWidth: 1.5, order: 2 },
+      { label: 'Atual (R$)', data: spends, borderColor: P.spend, backgroundColor: state.newLook ? limeGradient : P.spendFill, tension: 0.35, fill: true, pointRadius: 2, pointHoverRadius: 5, order: 1 },
+      { label: 'Anterior (R$)', data: spendsPrev, borderColor: P.prev, backgroundColor: 'transparent', borderDash: [5, 4], tension: 0.35, fill: false, pointRadius: 0, pointHoverRadius: 4, borderWidth: 1.5, order: 2 },
     ] },
-    bar: { labels: days, datasets: [
-      { label: 'Atual', data: convs, borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,0.12)', tension: 0.35, fill: true, pointRadius: 2, pointHoverRadius: 5, order: 1 },
-      { label: 'Anterior', data: convsPrev, borderColor: '#94A3B8', backgroundColor: 'transparent', borderDash: [5, 4], tension: 0.35, fill: false, pointRadius: 0, pointHoverRadius: 4, borderWidth: 1.5, order: 2 },
+    // Conversões: no novo visual são BARRAS (atual em lima, anterior em cinza),
+    // como o gráfico de fluxo da referência; no visual atual segue a linha.
+    bar: { labels: days, datasets: state.newLook ? [
+      { label: 'Atual', data: convs, backgroundColor: P.conv, borderRadius: 6, borderSkipped: false, maxBarThickness: 22, order: 1 },
+      { label: 'Anterior', data: convsPrev, backgroundColor: P.prevBar, borderRadius: 6, borderSkipped: false, maxBarThickness: 22, order: 2 },
+    ] : [
+      { label: 'Atual', data: convs, borderColor: P.conv, backgroundColor: P.convFill, tension: 0.35, fill: true, pointRadius: 2, pointHoverRadius: 5, order: 1 },
+      { label: 'Anterior', data: convsPrev, borderColor: P.prev, backgroundColor: 'transparent', borderDash: [5, 4], tension: 0.35, fill: false, pointRadius: 0, pointHoverRadius: 4, borderWidth: 1.5, order: 2 },
     ] },
   }
 }
@@ -2575,7 +2713,7 @@ function initResultadosCharts(period, allRows, prevRows, channel) {
   const ci = document.getElementById('cpChartInvest')
   const cc = document.getElementById('cpChartConv')
   if (ci) state._charts.push(new Chart(ci.getContext('2d'), { type: 'line', data: data.line, options: chartBaseOptions(v => 'R$' + v.toFixed(0)) }))
-  if (cc) state._charts.push(new Chart(cc.getContext('2d'), { type: 'line', data: data.bar, options: chartBaseOptions(v => v) }))
+  if (cc) state._charts.push(new Chart(cc.getContext('2d'), { type: state.newLook ? 'bar' : 'line', data: data.bar, options: chartBaseOptions(v => v) }))
 }
 
 // Mini-gráficos dos quadrantes (aba Resultados): Custos=gasto, Engajamento=CTR
@@ -2583,6 +2721,7 @@ function initResultadosCharts(period, allRows, prevRows, channel) {
 // houver). Séries diárias ao longo do período selecionado.
 function initQuadrantCharts(period, rows, channel, isMeta) {
   if (typeof Chart === 'undefined' || !period || !rows.length) return
+  const P = pal()
   const dateKey = CFG[channel].dateKey
   const spendKey = isMeta ? 'Valor investido' : 'Gasto'
   const days=[], spend=[], ctr=[], conv=[], mql=[], leads=[]
@@ -2604,21 +2743,24 @@ function initQuadrantCharts(period, rows, channel, isMeta) {
     responsive:true, maintainAspectRatio:false,
     layout:{ padding:{ top:2, right:6 } },
     interaction:{ mode:'index', intersect:false },
-    plugins:{ legend:{ display:true, position:'top', align:'start', labels:{ color:'#334155', font:{size:11, weight:'600'}, boxWidth:18, boxHeight:2, padding:8 } }, tooltip:{ mode:'index', intersect:false } },
-    scales:{ x:{ ticks:{ color:'#64748B', font:{size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:8 }, grid:{ display:false } },
-             y:{ ticks:{ color:'#64748B', font:{size:10}, callback:yFmt, maxTicksLimit:5 }, grid:{ color:'#E4EAF7' }, beginAtZero:true } },
+    plugins:{ legend: fxLegend(P, { display:true, position:'top', align:'start', labels:{ color:P.legend, font:{size:11, weight:'600'}, boxWidth:18, boxHeight:2, padding:8 } }), tooltip:{ mode:'index', intersect:false } },
+    scales:{ x:{ ticks:{ color:P.tick, font:{size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:8 }, grid:{ display:false } },
+             y:{ ticks:{ color:P.tick, font:{size:10}, callback:yFmt, maxTicksLimit:5 }, grid:{ color:P.grid }, beginAtZero:true } },
   })
   const mk = (id, datasets, yFmt) => { const el=document.getElementById(id); if(!el) return
     state._charts.push(new Chart(el.getContext('2d'), { type:'line', data:{ labels:days, datasets }, options: opts(yFmt) })) }
-  const ds = (label, data, color) => ({ label, data, borderColor:color, backgroundColor:'transparent', fill:false, tension:0.3, pointRadius:0, pointHoverRadius:4, borderWidth:2.5 })
-  mk('mgChartCost', [ds('Gasto', spend, '#D97706')], v=>'R$'+v)
-  mk('mgChartEng', [ds('CTR no link', ctr, '#0891B2')], v=>v+'%')
+  // `fill` só no novo visual (área suave sob a linha, como na referência) e só
+  // nos gráficos de série única — com duas séries a área embaralha a leitura.
+  const ds = (label, data, color, fillColor) => ({ label, data, borderColor:color, backgroundColor: fillColor && state.newLook ? limeGradient : 'transparent',
+    fill: !!(fillColor && state.newLook), tension:0.3, pointRadius:0, pointHoverRadius:4, borderWidth:2.5 })
+  mk('mgChartCost', [ds('Gasto', spend, P.spend, P.spendFill)], v=>'R$'+v)
+  mk('mgChartEng', [ds('CTR no link', ctr, P.ctr, P.ctrFill)], v=>v+'%')
   // Visão MQL: leads + MQL (o funil que o quadrante mostra); visão E-commerce:
   // conversões do objetivo + MQL quando houver.
   const perf = isMeta && perfViewFor(aggMetrics(rows, true)) === 'mql'
-    ? [ds('Leads', leads, '#2563EB'), { ...ds('MQL', mql, '#7C3AED'), borderDash:[5,4] }]
-    : [ds('Conversões', conv, '#2563EB')]
-  if (hasMql && perf.length === 1) perf.push({ ...ds('MQL', mql, '#7C3AED'), borderDash:[5,4] })
+    ? [ds('Leads', leads, P.leads), { ...ds('MQL', mql, P.mql), borderDash:[5,4] }]
+    : [ds('Conversões', conv, state.newLook ? P.ctr : P.leads, P.spendFill)]
+  if (hasMql && perf.length === 1) { perf[0].fill = false; perf[0].backgroundColor = 'transparent'; perf.push({ ...ds('MQL', mql, P.mql), borderDash:[5,4] }) }
   mk('mgChartPerf', perf, v=>v)
 }
 
@@ -2648,14 +2790,14 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
     scopeLabel = `Campanha: ${state.drillCampaign}`
     qPace = null
   }
-  const quad = `<div class="cp-quad-scope">📐 ${esc(scopeLabel)}</div>${metricGroupsHTML(qCur, qPrev, isMeta, period, qPace)}`
+  const quad = `<div class="cp-quad-scope">${ic('ruler','📐')} ${esc(scopeLabel)}</div>${metricGroupsHTML(qCur, qPrev, isMeta, period, qPace)}`
   // Drill dentro da aba
   if (state.drillCampaign || state.drillAdset) {
     let body, bc
     if (isMeta && state.drillAdset) {
       body = tblMetaAds(allRows.filter(r=>metaAdsetKey(r)===state.drillAdset),
                         prevRows.filter(r=>metaAdsetKey(r)===state.drillAdset))
-      bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">← Voltar</button>
+      bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">${ic('back','←')} Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span>
         <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdsetName || state.drillAdset)}</span></div>`
     } else if (!isMeta && state.drillAdset) {
@@ -2664,7 +2806,7 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
       // entram como container vazio e são preenchidos depois do HTML no DOM.
       const t = googleDrillTabs(true)
       body = `${t.html}${state.drillSub===1?`<div id="termsPanel"></div>`:`<div id="gadsPanel"></div>`}`
-      bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">← Voltar</button>
+      bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">${ic('back','←')} Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span>
         <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdsetName || state.drillAdset)}</span></div>`
     } else if (!isMeta) {
@@ -2677,12 +2819,12 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
                   : tblGoogleGroups(allRows.filter(r=>r['Campanha']===state.drillCampaign),
                                     prevRows.filter(r=>r['Campanha']===state.drillCampaign))
       body = `${t.html}${panel}`
-      bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">← Voltar</button>
+      bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">${ic('back','←')} Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span></div>`
     } else {
       body = tblMetaAdsets(allRows.filter(r=>r['Nome da campanha']===state.drillCampaign),
                            prevRows.filter(r=>r['Nome da campanha']===state.drillCampaign))
-      bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">← Voltar</button>
+      bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">${ic('back','←')} Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span></div>`
     }
     return `<div class="cp-panel">${bc}${quad}${body}</div>`
@@ -2690,8 +2832,8 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
   // O card de Análise IA (diagnóstico + plano de ação) é uso interno: no link
   // compartilhado o cliente não vê nem o card nem o cálculo por trás dele.
   const ins = SHARED ? null : buildInsights(stats, channel, allRows, target)
-  const tabs = isMeta ? [['📊 Campanhas',0],['🎯 Conjuntos',1],['🎨 Anúncios',2]]
-                      : [['📊 Campanhas',0],['🔑 Grupos',1],['🎨 Anúncios',2],['🔎 Termos',3],['🔗 Páginas',4]]
+  const tabs = isMeta ? [[`${ic('chart','📊')} Campanhas`,0],[`${ic('target','🎯')} Conjuntos`,1],[`${ic('image','🎨')} Anúncios`,2]]
+                      : [[`${ic('chart','📊')} Campanhas`,0],[`${ic('key','🔑')} Grupos`,1],[`${ic('image','🎨')} Anúncios`,2],[`${ic('search','🔎')} Termos`,3],[`${ic('globe','🔗')} Páginas`,4]]
   let panel
   // No Google, Anúncios/Termos/Páginas são canais lazy por conta: entram como
   // container vazio e são preenchidos por render*(…) depois do HTML no DOM.
@@ -2715,8 +2857,8 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
 // `data-drillsub` para não confundir com `state.sub` (que segue guardando a
 // sub-aba do nível da conta para quando o usuário voltar).
 function googleDrillTabs(inGroup) {
-  const tabs = inGroup ? [['🎨 Anúncios',0],['🔎 Termos',1]]
-                       : [['🔑 Grupos',0],['🎨 Anúncios',1],['🔎 Termos',2],['🔗 Páginas',3]]
+  const tabs = inGroup ? [[`${ic('image','🎨')} Anúncios`,0],[`${ic('search','🔎')} Termos`,1]]
+                       : [[`${ic('key','🔑')} Grupos`,0],[`${ic('image','🎨')} Anúncios`,1],[`${ic('search','🔎')} Termos`,2],[`${ic('globe','🔗')} Páginas`,3]]
   if (state.drillSub >= tabs.length) state.drillSub = 0
   return { html: `<div class="dt-subtabs">${tabs.map(([l,i])=>`<div class="dtab${state.drillSub===i?' active':''}" data-drillsub="${i}">${l}</div>`).join('')}</div>` }
 }
@@ -2903,20 +3045,20 @@ async function renderParametros(container, client, acName) {
     const fmtN = v => v!=null ? parseFloat(v).toLocaleString('pt-BR',{maximumFractionDigits:0}) : '—'
     const fmtM = v => v!=null ? 'R$ '+parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'
     const fmtP = v => v!=null ? parseFloat(v).toFixed(1)+'%' : '—'
-    const Row = (k,v,color)=>`<div class="param-row"><span class="param-key">${k}</span><span class="param-val"${color?` style="color:${color}"`:''}>${v}</span></div>`
+    const Row = (k,v,cls)=>`<div class="param-row"><span class="param-key">${k}</span><span class="param-val${cls?' '+cls:''}">${v}</span></div>`
     container.innerHTML = `<div class="cp-panel">
-      <div style="margin-bottom:16px;font-size:12px;color:#64748B">Projeto vinculado: <b style="color:#2563EB">${esc(acName)}</b></div>
+      <div class="param-proj">Projeto vinculado: <b class="param-link">${esc(acName)}</b></div>
       <div class="param-grid">
-        <div class="param-card"><div class="param-card-title">💰 Investimento</div>
-          ${Row('Verba de Mídia', fmtM(row.media_orcamento))}${Row('Custo de Gestão', fmtM(row.custo_marketing))}${Row('Total', fmtM(row.total_investimento), '#2563EB')}
+        <div class="param-card"><div class="param-card-title">${ic('wallet','💰')} Investimento</div>
+          ${Row('Verba de Mídia', fmtM(row.media_orcamento))}${Row('Custo de Gestão', fmtM(row.custo_marketing))}${Row('Total', fmtM(row.total_investimento), 'param-accent')}
         </div>
-        <div class="param-card"><div class="param-card-title">🎯 Funil Necessário</div>
+        <div class="param-card"><div class="param-card-title">${ic('target','🎯')} Funil Necessário</div>
           ${Row('Leads necessários', fmtN(row.leads_necessarios))}${Row('MQLs', fmtN(row.mqls_necessarios))}${Row('SQLs', fmtN(row.sqls_necessarios))}${Row('Vendas', fmtN(row.vendas_necessarias))}
         </div>
-        <div class="param-card"><div class="param-card-title">📊 Targets</div>
-          ${Row('CPL Alvo', fmtM(row.cpl_target), '#059669')}${Row('CAC', fmtM(row.cac))}${Row('ROI Desejado', fmtP(row.roi_desejado))}${Row('Margem Bruta', fmtP(row.margem_bruta))}${Row('Ticket Médio', fmtM(row.ticket_medio))}
+        <div class="param-card"><div class="param-card-title">${ic('chart','📊')} Targets</div>
+          ${Row('CPL Alvo', fmtM(row.cpl_target), 'param-good')}${Row('CAC', fmtM(row.cac))}${Row('ROI Desejado', fmtP(row.roi_desejado))}${Row('Margem Bruta', fmtP(row.margem_bruta))}${Row('Ticket Médio', fmtM(row.ticket_medio))}
         </div>
-        <div class="param-card"><div class="param-card-title">🔄 Taxas de Conversão</div>
+        <div class="param-card"><div class="param-card-title">${ic('refresh','🔄')} Taxas de Conversão</div>
           ${Row('Lead → MQL', fmtP(row.taxa_lead_mql))}${Row('MQL → SQL', fmtP(row.taxa_mql_sql))}${Row('SQL → Venda', fmtP(row.taxa_sql_venda))}${Row('Qtd. Compras/Cli.', row.qtd_compras!=null?row.qtd_compras:'—')}
         </div>
       </div>
@@ -2933,14 +3075,14 @@ function openShareModal(client, ch, url) {
   const ov = document.createElement('div')
   ov.id = 'shOverlay'; ov.className = 'wk-overlay'
   ov.innerHTML = `<div class="wk-modal" style="max-width:560px">
-      <div class="wk-head"><h3>🔗 Link compartilhável — ${esc(client)}</h3><button class="wk-x" id="shClose">✕</button></div>
+      <div class="wk-head"><h3>${ic('link','🔗')} Link compartilhável — ${esc(client)}</h3><button class="wk-x" id="shClose">✕</button></div>
       <div class="wk-body">
         <div style="font-size:12px;color:#64748B;margin-bottom:10px">Link público (somente leitura) do dashboard de <b>${ch==='meta'?'Meta Ads':'Google Ads'}</b> deste cliente. Quem abrir vê só esta conta, sem precisar de login.</div>
-        <input id="shUrl" readonly value="${esc(url)}" style="width:100%;padding:10px 12px;font-size:12px;color:#1E293B;background:#F1F5F9;border:1px solid #D8E0F0;border-radius:8px;font-family:monospace;box-sizing:border-box">
+        <input id="shUrl" class="sh-url" readonly value="${esc(url)}">
       </div>
       <div class="wk-foot" style="display:flex;gap:8px;justify-content:flex-end">
-        <a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">🔎 Abrir</a>
-        <button class="btn" id="shCopy" style="background:#059669;border-color:#059669;color:#fff">📋 Copiar link</button>
+        <a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">${ic('external','🔎')} Abrir</a>
+        <button class="btn btn-ok" id="shCopy">${ic('copy','📋')} Copiar link</button>
       </div>
     </div>`
   document.body.appendChild(ov)
@@ -2953,6 +3095,32 @@ function openShareModal(client, ch, url) {
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(inp.value).then(()=>{ setStatus('🔗 Link copiado'); setTimeout(()=>setStatus(''),2400) })
     else { inp.focus(); inp.select() }
   }
+}
+
+// KPIs do novo visual: card hero verde-lima com o investido do período (e o
+// anterior em chips) + um card por métrica, com ícone em círculo, rótulo, valor
+// e a variação em pílula. Mesmas 6 métricas da barra de KPIs de sempre.
+function kpiGridHTML(stats, period, isMeta, target, delta, dCls) {
+  const vp = (v, inv) => v == null ? '' : `<span class="vpill ${varCls(v, inv)}">${v > 0.05 ? '▲' : v < -0.05 ? '▼' : '•'} ${fmtPct(v)}</span>`
+  const card = (icon, label, value, sub, cls) => `<div class="cp-kpi-card">
+      <div class="kc-top"><span class="kc-ico">${svgIco(icon)}</span><span class="kc-label">${label}</span></div>
+      <div class="kc-value ${cls || ''}">${value}</div>
+      <div class="kc-sub">${sub}</div></div>`
+  const sv = stats.varSpend
+  const spendChip = sv == null ? '' : `<span class="chip chip-dark">${svgIco(sv >= 0 ? 'trend' : 'trend-dn')} ${fmtPct(sv)} vs anterior</span>`
+  return `<div class="cp-kpi-grid">
+    <div class="cp-kpi-hero">
+      <div class="hero-top"><span class="hero-label">Investido</span><span class="hero-ico">${svgIco('wallet')}</span></div>
+      <div class="hero-value">${fmtMoney(stats.spend1)}<span class="hero-unit">${esc(period.label1)}</span></div>
+      <div class="hero-chips"><span class="chip chip-light">Anterior ${fmtMoney(stats.spend2)}</span>${spendChip}</div>
+    </div>
+    ${card('users', isMeta ? 'Leads / Conv.' : 'Conversões', fmtNum(stats.conv1), `ant. ${fmtNum(stats.conv2)} ${vp(stats.varConv, false)}`)}
+    ${card('coin', 'CPL Real', fmtMoney(stats.cpl1), `ant. ${fmtMoney(stats.cpl2)} ${vp(stats.varCpl, true)}`)}
+    ${card('flag', 'CPL Alvo', target ? fmtMoney(target.value) : '—', target ? esc(target.acName) : 'não vinculado')}
+    ${card('trend', 'Δ vs Alvo', delta != null ? (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%' : '—',
+      delta != null ? (delta <= 0 ? '<span class="vpill up">dentro da meta</span>' : '<span class="vpill dn">acima da meta</span>') : 'vincular AC', dCls)}
+    ${card('activity', 'Var. Conv.', fmtPct(stats.varConv), 'vs período anterior', varCls(stats.varConv, false))}
+  </div>`
 }
 
 // ─── Página de detalhe do cliente (réplica do ClientPage) ─────────────────────
@@ -2978,6 +3146,7 @@ function renderClient() {
   destroyCharts()
   saveNav()
   const { client, channel:ch } = state.openClient
+  setNewLook(newLookFor(client))
   const isMeta = ch === 'meta'
   const acc = state.accounts[client] || {}
   const target = acc.cplTarget || null
@@ -3015,18 +3184,19 @@ function renderClient() {
   const delta = (target && stats?.cpl1!=null) ? ((stats.cpl1-target.value)/target.value*100) : null
   const dCls = delta==null?'fl' : delta<=0?'up' : delta<=30?'warn':'dn'
 
-  // KPI bar
-  const kpiBar = (stats && period) ? `<div class="cp-kpi-bar">
+  // KPI bar — no novo visual vira card hero (investido) + um card por métrica
+  const kpiBar = !(stats && period) ? '' : state.newLook ? kpiGridHTML(stats, period, isMeta, target, delta, dCls) : `<div class="cp-kpi-bar">
     <div class="cp-kpi-item"><div class="cp-kpi-label">Investido</div><div class="cp-kpi-value sum-accent">${fmtMoney(stats.spend1)}</div><div class="cp-kpi-sub">${period.label1}</div></div>
     <div class="cp-kpi-item"><div class="cp-kpi-label">${isMeta?'Leads / Conv.':'Conversões'}</div><div class="cp-kpi-value">${fmtNum(stats.conv1)}</div><div class="cp-kpi-sub">ant. ${fmtNum(stats.conv2)}</div></div>
     <div class="cp-kpi-item"><div class="cp-kpi-label">CPL Real</div><div class="cp-kpi-value">${fmtMoney(stats.cpl1)}</div><div class="cp-kpi-sub">ant. ${fmtMoney(stats.cpl2)}</div></div>
     <div class="cp-kpi-item"><div class="cp-kpi-label">CPL Alvo</div><div class="cp-kpi-value">${target?fmtMoney(target.value):'—'}</div><div class="cp-kpi-sub">${target?esc(target.acName):'não vinculado'}</div></div>
     <div class="cp-kpi-item"><div class="cp-kpi-label">Δ vs Alvo</div><div class="cp-kpi-value ${dCls}">${delta!=null?(delta>=0?'+':'')+delta.toFixed(1)+'%':'—'}</div><div class="cp-kpi-sub">${delta!=null?(delta<=0?'✅ dentro da meta':'🚨 acima da meta'):'vincular AC'}</div></div>
     <div class="cp-kpi-item"><div class="cp-kpi-label">Var. Conv.</div><div class="cp-kpi-value ${varCls(stats.varConv,false)}">${fmtPct(stats.varConv)}</div><div class="cp-kpi-sub">vs período ant.</div></div>
-  </div>` : ''
+  </div>`
 
   // badges header
-  const squadBadge = squad ? `<span class="cp-channel-badge" style="background:${squad==='Caça ROI'?'rgba(22,68,150,0.10)':'rgba(5,150,105,0.10)'};border-color:${squad==='Caça ROI'?'rgba(22,68,150,0.30)':'rgba(5,150,105,0.30)'};color:${squad==='Caça ROI'?'#164496':'#059669'}">${squad==='Caça ROI'?'🎯':'🔒'} ${esc(squad)}</span>` : ''
+  const caca = squad === 'Caça ROI'
+  const squadBadge = squad ? `<span class="cp-channel-badge ${caca ? 'cp-squad-caca' : 'cp-squad-zero'}">${ic(caca ? 'target' : 'lock', caca ? '🎯' : '🔒')} ${esc(squad)}</span>` : ''
 
   // period bar
   const filterLabel = state.campFilter.length===0?'todas':state.campFilter.length===1?'1 selecionada':`${state.campFilter.length} selecionadas`
@@ -3046,7 +3216,7 @@ function renderClient() {
     <div class="cp-period-presets">${CP_PRESETS.map(([l,d])=>`<button class="cp-period-btn${state.cDays===d?' active':''}" data-cd="${d}">${l}</button>`).join('')}</div>
     ${state.cDays===0?`<div class="cp-period-custom"><input type="date" id="cpFrom" value="${state.cFrom}"><input type="date" id="cpTo" value="${state.cTo}"><button class="cp-period-apply" id="cpApply">Aplicar</button></div>`:''}
     <div class="cp-camp-filter" id="campFilterWrap">
-      <button class="cp-camp-filter-btn${state.campFilter.length?' active':''}" id="campFilterBtn">🔍 Campanhas: <b>${filterLabel}</b> <span style="opacity:.6;margin-left:4px">▾</span></button>
+      <button class="cp-camp-filter-btn${state.campFilter.length?' active':''}" id="campFilterBtn">${ic('search','🔍')} Campanhas: <b>${filterLabel}</b> <span style="opacity:.6;margin-left:4px">▾</span></button>
       ${campPanel}
     </div>
     <span class="cp-period-info">${period?`${period.label1} · vs ${period.label2}`:'Sem dados no período'}</span>
@@ -3054,8 +3224,8 @@ function renderClient() {
 
   // tabs
   const TABS = SHARED
-    ? [['📊 Resultados','resultados'],['📋 Campanhas','campanhas']]
-    : [['📊 Resultados','resultados'],['📋 Campanhas','campanhas'],['✅ Atividades','atividades'],['⚙️ Parâmetros','parametros']]
+    ? [[`${ic('chart','📊')} Resultados`,'resultados'],[`${ic('layers','📋')} Campanhas`,'campanhas']]
+    : [[`${ic('chart','📊')} Resultados`,'resultados'],[`${ic('layers','📋')} Campanhas`,'campanhas'],[`${ic('check','✅')} Atividades`,'atividades'],[`${ic('sliders','⚙️')} Parâmetros`,'parametros']]
   const tabsBar = `<div class="cp-tabs">${TABS.map(([l,k])=>`<div class="cptab${state.tab===k?' active':''}" data-tab="${k}">${l}</div>`).join('')}</div>`
 
   // Pace do canal vs a verba planejada no módulo Campanha (Área do Cliente) —
@@ -3071,15 +3241,15 @@ function renderClient() {
 
   // weekly modal
   const modal = state.weekly ? `<div class="wk-overlay" id="wkOverlay"><div class="wk-modal">
-      <div class="wk-head"><h3>📋 Mensagem Semanal — ${esc(state.weekly.client)}</h3><button class="wk-x" id="wkClose">✕</button></div>
+      <div class="wk-head"><h3>${ic('message','📋')} Mensagem Semanal — ${esc(state.weekly.client)}</h3><button class="wk-x" id="wkClose">✕</button></div>
       <div class="wk-body"><div style="font-size:12px;color:#64748B;margin-bottom:8px">Período: <b>${esc(state.weekly.periodLabel)}</b></div>
         <textarea id="wkText">${esc(state.weekly.text)}</textarea></div>
-      <div class="wk-foot"><button class="btn" id="wkCopy">📋 Copiar</button></div>
+      <div class="wk-foot"><button class="btn" id="wkCopy">${ic('copy','📋')} Copiar</button></div>
     </div></div>` : ''
 
   app.innerHTML = `
     <div class="cp-header">
-      ${SHARED ? '' : `<button class="cp-back" id="cpBack">← Voltar</button>`}
+      ${SHARED ? '' : `<button class="cp-back" id="cpBack">${ic('back','←')} Voltar</button>`}
       <div class="cp-client-name">${esc(client)}</div>
       <div class="cp-badges">
         <span class="cp-channel-badge">${chIco(isMeta?'meta':'google')} ${isMeta?'Meta Ads':'Google Ads'}</span>
@@ -3087,8 +3257,8 @@ function renderClient() {
       </div>
       ${SHARED
         ? `<span style="margin-left:auto;font-size:12px;color:#64748B;font-weight:600">Revenue Lab · somente leitura</span>`
-        : `<button class="cp-weekly-btn" id="cpWeekly" title="Gerar mensagem semanal">📋 Mensagem Semanal</button>
-      <button class="cp-share-btn" id="cpShare" title="Gerar link compartilhável">🔗 Link</button>`}
+        : `<button class="cp-weekly-btn" id="cpWeekly" title="Gerar mensagem semanal">${ic('message','📋')} Mensagem Semanal</button>
+      <button class="cp-share-btn" id="cpShare" title="Gerar link compartilhável">${ic('link','🔗')} Link</button>`}
     </div>
     ${kpiBar}
     ${periodBar}
@@ -3111,6 +3281,7 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
     else if (state.drillCampaign) qRows = allRows.filter(r=>r[isMeta?'Nome da campanha':'Campanha']===state.drillCampaign)
     initQuadrantCharts(period, qRows, ch, isMeta)
   }
+  redrawChartsWhenFontLoads()
   // Abas async
   if (state.tab==='atividades') renderAtividades(document.getElementById('asyncTab'), client, folderId)
   if (state.tab==='parametros') renderParametros(document.getElementById('asyncTab'), client, acName)

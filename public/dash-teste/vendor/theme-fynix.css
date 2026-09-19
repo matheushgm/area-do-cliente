@@ -1,0 +1,379 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Tema "Fynix" — novo visual da página de cliente do Dashboard de Tráfego.
+
+   Referência: AI Finance Management SaaS Dashboard (Behance 234937291).
+   Linguagem: fundo cinza-claro, cards brancos bem arredondados, verde-lima como
+   cor de destaque, verde-escuro quase preto para texto e botões primários,
+   tipografia geométrica (Urbanist), pílulas em vez de tags quadradas, gráficos
+   em verde-escuro + lima.
+
+   PILOTO: entra só quando a conta aberta está em NEW_LOOK_ACCOUNTS (viewer.html)
+   → o viewer coloca `th-fynix` no <body> e no .dt-root. Nenhuma regra aqui vale
+   fora dessas classes, então as outras contas continuam no visual atual.
+
+   Tokens DA PRANCHA de cores do projeto (p04_01):
+     lima         #9FE870   (RGB 159,232,112)  — destaque, botão primário, hero
+     verde-escuro #062F28   (RGB 6,47,40)      — títulos, botão escuro, linhas
+     cinza        #7B7B7B                      — texto secundário (aqui #6F6F6F,
+                                                 escurecido p/ contraste 4,5:1 em 11px)
+     branco       #FFFFFF                      — cards
+   Tokens DERIVADOS para o tema (medidos nas telas, não na prancha):
+     lima-2/3     #7ED957 / #5FB83A            — linhas de gráfico/texto sobre branco
+     lima-suave   #EAF8DF                      — fundo de pílulas positivas / ícones
+     fundo        #F2F3F4 · superfície-2 #F7F8F9 · borda #E7E9EB · borda-2 #EEF0F2
+     positivo     #2E8B3D sobre #EAF8DF · negativo #D64545 sobre #FDECEC
+     atenção      #B8780E sobre #FFF4DB
+     raio         16px cards · 12px tiles · 10px botões/filtros/inputs ·
+                  999px só em chips do hero, status e variações
+     fonte        Urbanist (Google Fonts), pesos 400/500/600/700
+   ─────────────────────────────────────────────────────────────────────────── */
+
+body.th-fynix {
+  --fx-lime: #9FE870;
+  --fx-lime-2: #7ED957;
+  --fx-lime-3: #5FB83A;
+  --fx-lime-soft: #EAF8DF;
+  --fx-green: #062F28;
+  --fx-green-2: #0B4A3F;
+  --fx-ink: #14302A;
+  --fx-text: #24403A;
+  --fx-muted: #6F6F6F;
+  --fx-faint: #A9AEAC;
+  --fx-bg: #F2F3F4;
+  --fx-surface: #FFFFFF;
+  --fx-surface-2: #F7F8F9;
+  --fx-surface-3: #F1F2F4;
+  --fx-border: #E7E9EB;
+  --fx-border-2: #EEF0F2;
+  --fx-good: #2E8B3D;
+  --fx-good-bg: #EAF8DF;
+  --fx-bad: #D64545;
+  --fx-bad-bg: #FDECEC;
+  --fx-warn: #B8780E;
+  --fx-warn-bg: #FFF4DB;
+  --fx-radius: 16px;
+  --fx-radius-sm: 12px;
+  --fx-radius-btn: 10px;
+  --fx-shadow: 0 1px 2px rgba(6,47,40,.04), 0 10px 28px rgba(6,47,40,.05);
+  --fx-font: 'Urbanist', 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--fx-bg);
+}
+
+/* Banner fino do topo (fonte dos dados) vira só um rodapé discreto */
+body.th-fynix .api-banner { background: transparent; border-bottom: 0; color: var(--fx-muted);
+  font-family: var(--fx-font); font-size: 11px; padding: 8px 28px 0; }
+body.th-fynix .api-banner b { color: var(--fx-muted); font-weight: 600; }
+body.th-fynix .api-dot { background: var(--fx-lime-3); box-shadow: 0 0 0 3px var(--fx-lime-soft); }
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+.dt-root.th-fynix { font-family: var(--fx-font); color: var(--fx-text); font-size: 13.5px;
+  -webkit-font-smoothing: antialiased; }
+.dt-root.th-fynix b, .dt-root.th-fynix strong { color: var(--fx-green); }
+.dt-root.th-fynix .ico, body.th-fynix .ico { width: 15px; height: 15px; vertical-align: -3px; display: inline-block;
+  stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.dt-root.th-fynix .dt-loader { background: var(--fx-bg); }
+.dt-root.th-fynix .spinner { border-color: var(--fx-border); border-top-color: var(--fx-green); }
+.dt-root.th-fynix .empty { color: var(--fx-muted); }
+.dt-root.th-fynix .error-box { background: var(--fx-bad-bg); border-color: rgba(214,69,69,.25); color: var(--fx-bad); border-radius: var(--fx-radius-sm); }
+
+/* Botões genéricos e pílulas */
+.dt-root.th-fynix .btn, .dt-root.th-fynix .cp-back, .dt-root.th-fynix .bc-back,
+.dt-root.th-fynix .cp-weekly-btn, .dt-root.th-fynix .cp-camp-filter-btn,
+.dt-root.th-fynix .cp-period-btn, .dt-root.th-fynix .pace-exp, .dt-root.th-fynix .map-btn,
+.dt-root.th-fynix .cu-link-btn, .dt-root.th-fynix .cp-camp-quick button {
+  font-family: var(--fx-font); background: var(--fx-surface); border: 1px solid var(--fx-border);
+  color: var(--fx-green); border-radius: var(--fx-radius-btn); font-weight: 600; box-shadow: 0 1px 2px rgba(6,47,40,.04);
+  transition: background .15s, border-color .15s, color .15s; }
+.dt-root.th-fynix .btn:hover, .dt-root.th-fynix .cp-back:hover, .dt-root.th-fynix .bc-back:hover,
+.dt-root.th-fynix .cp-weekly-btn:hover, .dt-root.th-fynix .cp-camp-filter-btn:hover,
+.dt-root.th-fynix .cp-period-btn:hover, .dt-root.th-fynix .pace-exp:hover, .dt-root.th-fynix .cp-camp-quick button:hover {
+  background: var(--fx-surface-2); border-color: #D9DDE0; color: var(--fx-green); }
+.dt-root.th-fynix .cp-back, .dt-root.th-fynix .cp-weekly-btn { padding: 8px 16px; font-size: 12.5px;
+  display: inline-flex; align-items: center; gap: 6px; }
+.dt-root.th-fynix .cp-share-btn { background: var(--fx-lime); border: 1px solid var(--fx-lime); color: var(--fx-green);
+  border-radius: var(--fx-radius-btn); padding: 8px 16px; font-size: 12.5px; font-weight: 700; font-family: var(--fx-font);
+  box-shadow: 0 1px 2px rgba(6,47,40,.06); gap: 6px; }
+.dt-root.th-fynix .cp-share-btn:hover { opacity: 1; background: #8FE05A; border-color: #8FE05A; }
+.dt-root.th-fynix .cp-period-btn.active, .dt-root.th-fynix .cp-camp-filter-btn.active,
+.dt-root.th-fynix .cp-period-apply { background: var(--fx-green); border-color: var(--fx-green); color: #fff; }
+.dt-root.th-fynix .cp-period-apply { border-radius: var(--fx-radius-btn); font-family: var(--fx-font); font-weight: 600; }
+.dt-root.th-fynix .cp-period-btn.active:hover, .dt-root.th-fynix .cp-camp-filter-btn.active:hover { background: var(--fx-green-2); border-color: var(--fx-green-2); color: #fff; }
+
+/* ── Cabeçalho da página do cliente ───────────────────────────────────────── */
+.dt-root.th-fynix .cp-header { background: transparent; border-bottom: 0; padding: 22px 28px 6px; gap: 14px; }
+.dt-root.th-fynix .cp-client-name { font-size: 24px; font-weight: 700; color: var(--fx-green); letter-spacing: -.01em; }
+.dt-root.th-fynix .cp-channel-badge { background: var(--fx-surface); border: 1px solid var(--fx-border); color: var(--fx-green);
+  border-radius: var(--fx-radius-btn); padding: 5px 12px; font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.dt-root.th-fynix .cp-channel-badge.cp-squad-caca, .dt-root.th-fynix .cp-channel-badge.cp-squad-zero {
+  background: var(--fx-lime-soft); border-color: #D3EFC0; color: var(--fx-green); }
+.dt-root.th-fynix .cp-header > span[style] { color: var(--fx-muted) !important; }
+
+/* ── KPIs: hero verde-lima + cards ────────────────────────────────────────── */
+.dt-root.th-fynix .cp-kpi-grid { display: grid; grid-template-columns: minmax(250px, 1.35fr) repeat(5, minmax(0, 1fr));
+  gap: 14px; padding: 12px 28px 4px; }
+.dt-root.th-fynix .cp-kpi-hero { position: relative; overflow: hidden; background: var(--fx-lime); color: var(--fx-green);
+  border-radius: var(--fx-radius); padding: 18px 20px 16px; min-height: 128px; display: flex; flex-direction: column; justify-content: space-between;
+  box-shadow: var(--fx-shadow); isolation: isolate; }
+/* Laços decorativos do card (as curvas brilhantes do card "Total Balance") */
+.dt-root.th-fynix .cp-kpi-hero::before, .dt-root.th-fynix .cp-kpi-hero::after { content: ''; position: absolute; border-radius: 50%;
+  pointer-events: none; z-index: -1; }
+.dt-root.th-fynix .cp-kpi-hero::before { width: 240px; height: 240px; right: -70px; top: -110px;
+  border: 34px solid rgba(255,255,255,.30); box-shadow: inset 0 0 0 14px rgba(6,47,40,.06); }
+.dt-root.th-fynix .cp-kpi-hero::after { width: 190px; height: 190px; right: 60px; bottom: -120px;
+  border: 26px solid rgba(255,255,255,.22); }
+.dt-root.th-fynix .hero-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dt-root.th-fynix .hero-label { font-size: 13px; font-weight: 600; color: var(--fx-green); opacity: .9; }
+.dt-root.th-fynix .hero-ico { width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,.75);
+  display: inline-flex; align-items: center; justify-content: center; color: var(--fx-green); }
+.dt-root.th-fynix .hero-ico .ico { width: 15px; height: 15px; }
+.dt-root.th-fynix .hero-value { font-size: 30px; font-weight: 700; line-height: 1.05; letter-spacing: -.02em; margin: 6px 0 10px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.dt-root.th-fynix .hero-value .hero-unit { font-size: 12px; font-weight: 600; letter-spacing: 0; opacity: .85; }
+.dt-root.th-fynix .hero-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.dt-root.th-fynix .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 6px 12px;
+  font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.dt-root.th-fynix .chip-light { background: #fff; color: var(--fx-green); }
+.dt-root.th-fynix .chip-dark { background: var(--fx-green); color: #fff; }
+.dt-root.th-fynix .chip .ico { width: 13px; height: 13px; }
+
+.dt-root.th-fynix .cp-kpi-card { background: var(--fx-surface); border: 1px solid var(--fx-border); border-radius: var(--fx-radius);
+  padding: 14px 16px 13px; min-width: 0; box-shadow: var(--fx-shadow); display: flex; flex-direction: column; gap: 6px; }
+.dt-root.th-fynix .kc-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dt-root.th-fynix .kc-ico { width: 28px; height: 28px; border-radius: 50%; background: var(--fx-lime-soft); color: var(--fx-green);
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.dt-root.th-fynix .kc-ico .ico { width: 14px; height: 14px; }
+.dt-root.th-fynix .kc-label { font-size: 12px; font-weight: 600; color: var(--fx-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dt-root.th-fynix .kc-value { font-size: 22px; font-weight: 700; color: var(--fx-green); line-height: 1.1; letter-spacing: -.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.dt-root.th-fynix .kc-value.up { color: var(--fx-good); }
+.dt-root.th-fynix .kc-value.dn { color: var(--fx-bad); }
+.dt-root.th-fynix .kc-value.warn { color: var(--fx-warn); }
+.dt-root.th-fynix .kc-sub { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--fx-muted); min-width: 0; white-space: nowrap; overflow: hidden; }
+
+/* Pílula de variação (usada nos KPIs, tiles e tabelas) */
+.dt-root.th-fynix .vpill { display: inline-flex; align-items: center; gap: 3px; border-radius: 999px; padding: 2px 7px;
+  font-size: 10.5px; font-weight: 700; line-height: 1.3; white-space: nowrap; }
+.dt-root.th-fynix .vpill.up { background: var(--fx-good-bg); color: var(--fx-good); }
+.dt-root.th-fynix .vpill.dn { background: var(--fx-bad-bg); color: var(--fx-bad); }
+.dt-root.th-fynix .vpill.fl { background: var(--fx-surface-3); color: var(--fx-muted); }
+.dt-root.th-fynix .vpill.warn { background: var(--fx-warn-bg); color: var(--fx-warn); }
+
+/* ── Barra de período / filtros ───────────────────────────────────────────── */
+.dt-root.th-fynix .cp-period-bar { background: transparent; border-bottom: 0; padding: 12px 28px 4px; gap: 10px; }
+.dt-root.th-fynix .cp-period-label { color: var(--fx-muted); text-transform: none; letter-spacing: 0; font-size: 12px; }
+.dt-root.th-fynix .cp-period-btn { padding: 6px 13px; font-size: 12px; }
+.dt-root.th-fynix .cp-camp-filter-btn { padding: 6px 13px; font-size: 12px; }
+.dt-root.th-fynix .cp-camp-filter-btn b { color: inherit; }
+.dt-root.th-fynix .cp-period-custom input { border-radius: var(--fx-radius-btn); border-color: var(--fx-border); font-family: var(--fx-font); color: var(--fx-green); }
+.dt-root.th-fynix .cp-period-custom input:focus { border-color: var(--fx-green); }
+.dt-root.th-fynix .cp-period-info { color: var(--fx-muted); font-size: 12px; }
+.dt-root.th-fynix .cp-camp-filter-panel { border-radius: 14px; border-color: var(--fx-border); box-shadow: 0 16px 40px rgba(6,47,40,.14); }
+.dt-root.th-fynix .cp-camp-search { border-radius: 10px; background: var(--fx-surface-2); border-color: var(--fx-border); font-family: var(--fx-font); }
+.dt-root.th-fynix .cp-camp-search:focus { border-color: var(--fx-green); }
+.dt-root.th-fynix .cp-camp-list { border-radius: 10px; border-color: var(--fx-border-2); }
+.dt-root.th-fynix .cp-camp-list-item { border-color: var(--fx-border-2); color: var(--fx-text); }
+.dt-root.th-fynix .cp-camp-list-item:hover { background: var(--fx-surface-2); }
+.dt-root.th-fynix .cp-camp-list-item input[type=checkbox] { accent-color: var(--fx-green); }
+.dt-root.th-fynix .cp-camp-list-spend { color: var(--fx-muted); }
+
+/* ── Abas ─────────────────────────────────────────────────────────────────── */
+.dt-root.th-fynix .cp-tabs { background: transparent; border-bottom: 1px solid var(--fx-border); padding: 0 28px; margin-top: 6px; }
+.dt-root.th-fynix .cptab { color: var(--fx-muted); font-weight: 600; font-size: 13px; padding: 12px 16px; border-bottom-width: 3px;
+  display: inline-flex; align-items: center; gap: 7px; }
+.dt-root.th-fynix .cptab:hover { color: var(--fx-green); }
+.dt-root.th-fynix .cptab.active { color: var(--fx-green); border-bottom-color: var(--fx-lime); }
+.dt-root.th-fynix .cp-panel { padding: 18px 28px 32px; }
+.dt-root.th-fynix .dt-subtabs { background: transparent; border-bottom: 1px solid var(--fx-border); margin: 0 0 16px; padding: 0; }
+.dt-root.th-fynix .dtab { color: var(--fx-muted); font-weight: 600; font-size: 12.5px; padding: 10px 14px; border-bottom-width: 3px;
+  display: inline-flex; align-items: center; gap: 6px; }
+.dt-root.th-fynix .dtab:hover { color: var(--fx-green); }
+.dt-root.th-fynix .dtab.active { color: var(--fx-green); border-bottom-color: var(--fx-lime); }
+
+/* ── Quadrantes (Custos / Engajamento / Performance) ──────────────────────── */
+.dt-root.th-fynix .mg-grid { gap: 16px; margin-bottom: 20px; }
+.dt-root.th-fynix .mg-card { background: var(--fx-surface); border: 1px solid var(--fx-border); border-radius: var(--fx-radius);
+  padding: 18px; box-shadow: var(--fx-shadow); }
+.dt-root.th-fynix .mg-title, .dt-root.th-fynix .mg-cost .mg-title, .dt-root.th-fynix .mg-eng .mg-title, .dt-root.th-fynix .mg-perf .mg-title {
+  color: var(--fx-green); font-size: 15px; font-weight: 700; margin-bottom: 14px; }
+.dt-root.th-fynix .mg-head .mg-title { margin-bottom: 0; }
+.dt-root.th-fynix .mg-head { margin-bottom: 14px; }
+.dt-root.th-fynix .mg-tiles { gap: 10px; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+.dt-root.th-fynix .mg-tile { background: var(--fx-surface); border: 1px solid var(--fx-border-2); border-radius: var(--fx-radius-sm);
+  padding: 11px 12px 10px; }
+.dt-root.th-fynix .mg-tile-label { text-transform: none; letter-spacing: 0; font-size: 11.5px; font-weight: 600; color: var(--fx-muted); margin-bottom: 5px; }
+.dt-root.th-fynix .mg-tile-value { font-size: 19px; font-weight: 700; color: var(--fx-green); letter-spacing: -.01em; }
+.dt-root.th-fynix .mg-tile-var { margin-top: 6px; font-size: 10.5px; font-weight: 700; display: inline-flex; border-radius: 999px; padding: 2px 7px; gap: 3px; }
+.dt-root.th-fynix .mg-tile-var.up { background: var(--fx-good-bg); color: var(--fx-good); }
+.dt-root.th-fynix .mg-tile-var.dn { background: var(--fx-bad-bg); color: var(--fx-bad); }
+.dt-root.th-fynix .mg-tile-var.fl { background: var(--fx-surface-3); color: var(--fx-muted); }
+.dt-root.th-fynix .mg-chart { border-top: 1px solid var(--fx-border-2); margin-top: 14px; padding-top: 12px; }
+.dt-root.th-fynix .mg-switch { background: var(--fx-surface-3); border-color: transparent; padding: 3px; }
+.dt-root.th-fynix .mg-sw { color: var(--fx-muted); font-family: var(--fx-font); padding: 4px 11px; }
+.dt-root.th-fynix .mg-sw.active { background: var(--fx-surface); color: var(--fx-green); box-shadow: 0 1px 3px rgba(6,47,40,.12); }
+.dt-root.th-fynix .mg-funnel { border-top: 1px dashed var(--fx-border); }
+.dt-root.th-fynix .mgf-lbl { text-transform: none; letter-spacing: 0; color: var(--fx-muted); font-size: 11px; font-weight: 600; }
+.dt-root.th-fynix .mgf-val { color: var(--fx-green); font-weight: 700; }
+.dt-root.th-fynix .mgf-bar { background: var(--fx-lime); height: 7px; border-radius: 6px; }
+.dt-root.th-fynix .mgf-bar i { background: var(--fx-green); }
+.dt-root.th-fynix .mgf-rate { background: var(--fx-surface-3); border-color: transparent; color: var(--fx-green); border-radius: 999px; font-weight: 700; }
+.dt-root.th-fynix .cp-quad-scope { background: var(--fx-surface); border: 1px solid var(--fx-border); color: var(--fx-green); border-radius: var(--fx-radius-btn);
+  font-size: 12px; padding: 6px 12px; gap: 7px; margin-bottom: 14px; }
+.dt-root.th-fynix .pace-pill, .dt-root.th-fynix .goal-pill { border-radius: 999px; }
+.dt-root.th-fynix .pace-ok, .dt-root.th-fynix .goal-ok { background: var(--fx-good-bg); color: var(--fx-good); }
+.dt-root.th-fynix .pace-hot, .dt-root.th-fynix .goal-over { background: var(--fx-bad-bg); color: var(--fx-bad); }
+.dt-root.th-fynix .pace-slow, .dt-root.th-fynix .goal-warn { background: var(--fx-warn-bg); color: var(--fx-warn); }
+.dt-root.th-fynix .pace-wait { background: var(--fx-surface-3); color: var(--fx-muted); }
+.dt-root.th-fynix .pace-period { color: var(--fx-faint); }
+
+/* ── Gráficos grandes (aba Resultados) ────────────────────────────────────── */
+.dt-root.th-fynix .cp-charts { gap: 16px; margin-bottom: 20px; }
+.dt-root.th-fynix .cp-chart-card { background: var(--fx-surface); border: 1px solid var(--fx-border); border-radius: var(--fx-radius);
+  padding: 18px; box-shadow: var(--fx-shadow); }
+.dt-root.th-fynix .cp-chart-card h4 { color: var(--fx-green); font-size: 15px; font-weight: 700; text-transform: none; letter-spacing: 0;
+  margin-bottom: 14px; }
+.dt-root.th-fynix .cp-chart-canvas { height: 210px; }
+
+/* ── Tabelas ──────────────────────────────────────────────────────────────── */
+.dt-root.th-fynix .table-wrap, .dt-root.th-fynix .dt-wrap { background: var(--fx-surface); border: 1px solid var(--fx-border);
+  border-radius: var(--fx-radius); box-shadow: var(--fx-shadow); margin-bottom: 18px; }
+.dt-root.th-fynix thead, .dt-root.th-fynix .dt-wrap thead { background: var(--fx-surface-2); }
+.dt-root.th-fynix th, .dt-root.th-fynix .dt-wrap th { color: var(--fx-muted); text-transform: none; letter-spacing: 0; font-size: 11px;
+  font-weight: 500; padding: 11px 14px; }
+.dt-root.th-fynix td, .dt-root.th-fynix .dt-wrap td { border-top: 1px solid var(--fx-border-2); color: var(--fx-text); font-size: 12.5px;
+  padding: 11px 14px; font-variant-numeric: tabular-nums; }
+.dt-root.th-fynix tr:hover td, .dt-root.th-fynix .dt-wrap tr:hover td { background: var(--fx-surface-2); }
+.dt-root.th-fynix .drill-link { color: var(--fx-green); border-bottom: 0; font-weight: 600; }
+.dt-root.th-fynix .drill-link:hover { color: var(--fx-green); text-decoration: underline; text-decoration-color: var(--fx-lime); text-decoration-thickness: 2px; }
+.dt-root.th-fynix .drill-link::after { color: var(--fx-faint); }
+.dt-root.th-fynix .res-type { color: var(--fx-muted); background: var(--fx-surface-3); border-radius: 999px; padding: 1px 7px; font-size: 10.5px; font-weight: 600; margin-left: 4px; }
+.dt-root.th-fynix .ad-name-txt { color: var(--fx-green); font-weight: 600; }
+.dt-root.th-fynix .status-tag { border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 600; letter-spacing: 0; }
+.dt-root.th-fynix .st-active { background: #EEF9E6; color: #3A8F2B; }
+.dt-root.th-fynix .st-paused { background: var(--fx-surface-3); color: var(--fx-muted); }
+.dt-root.th-fynix .st-other { background: var(--fx-warn-bg); color: var(--fx-warn); }
+.dt-root.th-fynix .status-tag.st-stale { border-style: dashed; }
+.dt-root.th-fynix .good { color: var(--fx-good); }
+.dt-root.th-fynix .warn { color: var(--fx-warn); }
+.dt-root.th-fynix .crit { color: var(--fx-bad); }
+.dt-root.th-fynix .up { color: var(--fx-good); }
+.dt-root.th-fynix .dn { color: var(--fx-bad); }
+.dt-root.th-fynix .fl { color: var(--fx-muted); }
+.dt-root.th-fynix .cpl-ok { color: var(--fx-good); }
+.dt-root.th-fynix .cpl-warn { color: var(--fx-warn); }
+.dt-root.th-fynix .cpl-bad { color: var(--fx-bad); }
+.dt-root.th-fynix .var-mini.up { color: var(--fx-good); }
+.dt-root.th-fynix .var-mini.dn { color: var(--fx-bad); }
+.dt-root.th-fynix .var-mini.new { color: var(--fx-lime-3); }
+.dt-root.th-fynix .var-mini.fl { color: var(--fx-faint); }
+.dt-root.th-fynix .flag { border-radius: 999px; font-weight: 600; padding: 5px 12px; }
+.dt-root.th-fynix .flag-red { background: var(--fx-bad-bg); color: var(--fx-bad); border-color: transparent; }
+.dt-root.th-fynix .flag-yellow { background: var(--fx-warn-bg); color: var(--fx-warn); border-color: transparent; }
+.dt-root.th-fynix .flag-green { background: var(--fx-good-bg); color: var(--fx-good); border-color: transparent; }
+.dt-root.th-fynix .ad-prev-btn, .dt-root.th-fynix .ad-dest-btn { border-radius: 8px; border-color: var(--fx-border); color: var(--fx-green);
+  font-family: var(--fx-font); font-weight: 600; padding: 3px 9px; }
+.dt-root.th-fynix .ad-prev-btn:hover, .dt-root.th-fynix .ad-dest-btn:hover { background: var(--fx-green); border-color: var(--fx-green); color: #fff; }
+.dt-root.th-fynix .terms-pager { color: var(--fx-muted); }
+.dt-root.th-fynix .terms-pager button { border-radius: 8px; border-color: var(--fx-border); color: var(--fx-green); font-family: var(--fx-font); }
+.dt-root.th-fynix .th-sort { color: var(--fx-muted); }
+.dt-root.th-fynix .breadcrumb { padding: 4px 0 12px; }
+.dt-root.th-fynix .bc-item { color: var(--fx-muted); font-weight: 600; }
+.dt-root.th-fynix .bc-item:hover { color: var(--fx-green); text-decoration: none; }
+.dt-root.th-fynix .bc-current { color: var(--fx-green); font-weight: 700; }
+.dt-root.th-fynix .bc-sep { color: var(--fx-faint); }
+
+/* ── Card de Análise IA ───────────────────────────────────────────────────── */
+.dt-root.th-fynix .ins-card { background: var(--fx-surface); border: 1px solid var(--fx-border); border-left-width: 1px;
+  border-radius: var(--fx-radius); padding: 18px 20px; box-shadow: var(--fx-shadow); }
+.dt-root.th-fynix .ins-header { margin-bottom: 12px; }
+.dt-root.th-fynix .ins-icon { width: 30px; height: 30px; border-radius: 50%; background: var(--fx-lime-soft); color: var(--fx-green);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+.dt-root.th-fynix .ins-title { color: var(--fx-green); font-size: 15px; font-weight: 700; letter-spacing: 0; }
+.dt-root.th-fynix .ins-meta { color: var(--fx-muted); font-size: 11.5px; }
+.dt-root.th-fynix .ins-diag { background: var(--fx-surface-2); border: 0; border-radius: var(--fx-radius-sm); color: var(--fx-text); padding: 12px 14px; }
+.dt-root.th-fynix .ins-section, .dt-root.th-fynix .ins-plan { border: 1px solid var(--fx-border-2); border-radius: var(--fx-radius-sm); padding: 12px 14px; }
+.dt-root.th-fynix .ins-section-title, .dt-root.th-fynix .ins-plan-title { color: var(--fx-green); font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
+.dt-root.th-fynix .ins-section-sub { color: var(--fx-muted); }
+.dt-root.th-fynix .ins-item, .dt-root.th-fynix .ins-plan-row { border-color: var(--fx-border-2); }
+.dt-root.th-fynix .ins-item-name, .dt-root.th-fynix .ins-plan-action { color: var(--fx-text); }
+.dt-root.th-fynix .ins-item-val { color: var(--fx-muted); }
+.dt-root.th-fynix .ins-good { color: var(--fx-good); }
+.dt-root.th-fynix .ins-warn { color: var(--fx-warn); }
+.dt-root.th-fynix .ins-bad { color: var(--fx-bad); }
+.dt-root.th-fynix .ins-plan-pri { border-radius: 999px; border: 0; padding: 3px 8px; }
+.dt-root.th-fynix .ins-pri-urgent .ins-plan-pri { background: var(--fx-bad-bg); color: var(--fx-bad); }
+.dt-root.th-fynix .ins-pri-high .ins-plan-pri { background: var(--fx-warn-bg); color: var(--fx-warn); }
+.dt-root.th-fynix .ins-pri-med .ins-plan-pri { background: var(--fx-lime-soft); color: var(--fx-green); }
+
+/* ── Atividades (ClickUp) e Parâmetros ────────────────────────────────────── */
+.dt-root.th-fynix .cu-progress-label { color: var(--fx-muted); }
+.dt-root.th-fynix .cu-progress { background: var(--fx-lime); height: 10px; border-radius: 999px; }
+.dt-root.th-fynix .cu-progress-bar { background: var(--fx-green); border-radius: 999px; }
+.dt-root.th-fynix .cu-section-title { color: var(--fx-green); text-transform: none; letter-spacing: 0; font-size: 13px; }
+.dt-root.th-fynix .cu-task { border-color: var(--fx-border); border-radius: var(--fx-radius-sm); box-shadow: var(--fx-shadow); }
+.dt-root.th-fynix .cu-task-name { color: var(--fx-text); }
+.dt-root.th-fynix .cu-status-badge { border-radius: 999px; }
+.dt-root.th-fynix .cu-due { color: var(--fx-muted); }
+.dt-root.th-fynix .cu-due.overdue { color: var(--fx-bad); }
+.dt-root.th-fynix .param-grid { gap: 16px; }
+.dt-root.th-fynix .param-card { border-color: var(--fx-border); border-radius: var(--fx-radius); box-shadow: var(--fx-shadow); padding: 18px; }
+.dt-root.th-fynix .param-card-title { color: var(--fx-green); text-transform: none; letter-spacing: 0; font-size: 14px; border-color: var(--fx-border-2); }
+.dt-root.th-fynix .param-row { border-color: var(--fx-border-2); }
+.dt-root.th-fynix .param-key { color: var(--fx-muted); }
+.dt-root.th-fynix .param-val { color: var(--fx-green); }
+.dt-root.th-fynix .param-accent, .dt-root.th-fynix .param-link { color: var(--fx-lime-3); }
+.dt-root.th-fynix .param-good { color: var(--fx-good); }
+
+/* ── Modais (ficam fora do .dt-root, por isso o gancho é o body) ──────────── */
+body.th-fynix .wk-modal, body.th-fynix .adp-modal { border-radius: 20px; font-family: var(--fx-font); box-shadow: 0 30px 80px rgba(6,47,40,.28); }
+body.th-fynix .wk-head, body.th-fynix .adp-head { border-color: var(--fx-border-2); }
+body.th-fynix .wk-head h3, body.th-fynix .adp-head h3 { color: var(--fx-green); font-weight: 700; }
+body.th-fynix .wk-body textarea, body.th-fynix .adp-trans-text { border-radius: 12px; border-color: var(--fx-border); background: var(--fx-surface-2); }
+body.th-fynix .wk-foot, body.th-fynix .adp-save, body.th-fynix .adp-trans { border-color: var(--fx-border-2); }
+body.th-fynix .wk-foot .btn, body.th-fynix .wk-foot a.btn { font-family: var(--fx-font); border: 1px solid var(--fx-border); background: #fff;
+  color: var(--fx-green); border-radius: var(--fx-radius-btn); padding: 8px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+body.th-fynix .wk-foot .btn.btn-ok { background: var(--fx-lime); border-color: var(--fx-lime); color: var(--fx-green); }
+body.th-fynix .sh-url { border-radius: 12px; border-color: var(--fx-border); background: var(--fx-surface-2); color: var(--fx-text); }
+body.th-fynix .adp-fmt { border-radius: 8px; border-color: var(--fx-border); color: var(--fx-green); font-family: var(--fx-font); }
+body.th-fynix .adp-fmt.active { background: var(--fx-green); border-color: var(--fx-green); color: #fff; }
+body.th-fynix .adp-body { background: var(--fx-surface-2); }
+body.th-fynix .adp-save button, body.th-fynix .adp-trans button { background: var(--fx-green); border-radius: var(--fx-radius-btn); font-family: var(--fx-font); }
+body.th-fynix .adp-trans button.save { background: var(--fx-lime); color: var(--fx-green); }
+body.th-fynix .adp-save select, body.th-fynix .adp-save-dates input { border-radius: var(--fx-radius-btn); border-color: var(--fx-border); font-family: var(--fx-font); color: var(--fx-green); }
+body.th-fynix .adp-save-msg.ok { color: var(--fx-good); }
+body.th-fynix .adp-save-msg.err { color: var(--fx-bad); }
+body.th-fynix .adp-dest-v a { color: var(--fx-lime-3); }
+
+/* ── Responsivo ───────────────────────────────────────────────────────────── */
+/* Abaixo de ~1450px de iframe (viewport comum com a sidebar da Área do Cliente
+   aberta) o hero ficaria preso em 250px com os chips quebrando: ele passa a
+   ocupar a linha inteira e os 5 cards ficam numa linha só. */
+@media (max-width: 1450px) {
+  .dt-root.th-fynix .cp-kpi-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .dt-root.th-fynix .cp-kpi-hero { grid-column: 1 / -1; min-height: 120px; }
+}
+/* Entre 769 e 1023px: 3 + 2 cards sem célula vazia (os dois últimos alargam). */
+@media (max-width: 1023px) {
+  .dt-root.th-fynix .cp-kpi-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .dt-root.th-fynix .cp-kpi-card { grid-column: span 2; }
+  .dt-root.th-fynix .cp-kpi-card:nth-last-child(-n+2) { grid-column: span 3; }
+}
+@media (max-width: 768px) {
+  body.th-fynix .api-banner { padding: 6px 16px 0; }
+  .dt-root.th-fynix .cp-header { padding: 14px 16px 4px; gap: 10px; }
+  .dt-root.th-fynix .cp-client-name { font-size: 20px; }
+  .dt-root.th-fynix .cp-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 8px 16px 2px; }
+  .dt-root.th-fynix .cp-kpi-card { padding: 12px 13px 11px; grid-column: auto; }
+  /* Com o hero ocupando a linha inteira, 5 cards deixam o último sozinho na
+     grade de 2 colunas — ele passa a ocupar a linha toda. */
+  .dt-root.th-fynix .cp-kpi-card:nth-last-child(-n+2) { grid-column: auto; }
+  .dt-root.th-fynix .cp-kpi-card:last-child:nth-child(even) { grid-column: 1 / -1; }
+  .dt-root.th-fynix .hero-value { font-size: 26px; }
+  .dt-root.th-fynix .kc-value { font-size: 19px; }
+  .dt-root.th-fynix .cp-period-bar { padding: 10px 16px 2px; }
+  .dt-root.th-fynix .cp-tabs { padding: 0 16px; }
+  .dt-root.th-fynix .cp-panel { padding: 14px 16px 28px; }
+  .dt-root.th-fynix .dt-subtabs { margin: 0 0 12px; padding: 0; }
+  .dt-root.th-fynix .dt-wrap th:first-child, .dt-root.th-fynix .dt-wrap td:first-child { background: var(--fx-surface); box-shadow: 1px 0 0 var(--fx-border-2); }
+  .dt-root.th-fynix .dt-wrap thead th:first-child { background: var(--fx-surface-2); }
+  .dt-root.th-fynix .dt-wrap tr:hover td:first-child { background: var(--fx-surface-2); }
+}
