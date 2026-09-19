@@ -736,9 +736,10 @@ export default function AdsRoadmap() {
                         <div className="space-y-6">{pares}</div>
                         {googleCard && (
                           <>
-                            {ou && (
-                              <div className="self-center shrink-0">
-                                <span className="text-base font-black uppercase tracking-widest text-rl-cyan bg-rl-cyan/10 border border-rl-cyan/30 rounded-full px-4 py-1.5">ou</span>
+                            {(ou || est.google.paralelo) && (
+                              <div className="self-center shrink-0 flex flex-col items-center gap-1">
+                                <span className="text-base font-black uppercase tracking-widest text-rl-cyan bg-rl-cyan/10 border border-rl-cyan/30 rounded-full px-4 py-1.5">{ou ? 'ou' : '+'}</span>
+                                {!ou && <span className="text-[10px] uppercase tracking-wider text-rl-muted">em paralelo</span>}
                               </div>
                             )}
                             <div>{googleCard}</div>

@@ -656,6 +656,56 @@ export const FAIXAS = [
           ],
         },
       ],
+      // A partir de R$ 4.000 o Google roda EM PARALELO ao Meta (não substitui).
+      google: {
+        titulo: 'Estrutura Google',
+        paralelo: true,
+        campanhas: [
+          {
+            nome: 'Campanha', tipo: '', verba: 'até R$ 30/dia', sub: 'Search · paralelo',
+            conjuntos: [
+              { nome: 'Conjunto 01', sub: 'produto', ads: ['AD 01', 'AD 02'] },
+              { nome: 'Conjunto 02', sub: 'produto', ads: ['AD 01', 'AD 02'] },
+              { nome: 'Conjunto 03', sub: 'branding', ads: ['AD 01', 'AD 02'] },
+            ],
+          },
+        ],
+        nota: 'Só se já existe busca pelo produto. B2C: sai a Campanha 3 (Topo) e entra o Google com R$ 23 + R$ 7 do Frio. B2B: R$ 33/dia tirados do Fundo Frio.',
+      },
+      pontos: {
+        b2c: [
+          'Frio e quente viram campanhas separadas em ABO: no CBO o Meta joga quase tudo no frio e o remarketing fica sem entrega',
+          'Fundo Frio R$ 80/dia (Conjunto 01 Amplo R$ 50 + Conjunto 02 Lookalike/interesses R$ 30) · Fundo Quente R$ 30/dia · Topo R$ 23/dia só com conteúdo',
+          'O Lab roda no Conjunto 01 do Frio: 3 criativos por semana, 12 no mês, sempre 6 de gaveta',
+          'Vencedor do Frio (gasto ≥ 2× a meta e custo abaixo da meta) é replicado no Conjunto 02 e no Quente. O Quente não testa criativo, só roda vencedor com copy de reencontro (oferta, prova, urgência)',
+          'Quente: engajamento IG/FB 30 a 90 dias + visitantes site/LP 30 dias + quem iniciou conversa e não comprou. Excluir compradores',
+          'Métrica de corte: CPA ou custo por conversa. No Quente, frequência ≥ 5 em 7 dias = trocar criativo',
+          'A otimização é desligar o criativo com custo 2× acima da meta (gasto ≥ 2× a meta, nunca antes de 72h), marcar "_TESTADO" e subir um da gaveta',
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o custo ficar abaixo da meta por 3 dias seguidos'] },
+          'Aumente em 20% no conjunto até o teto da campanha. Verba pode migrar entre Frio e Quente sem passar de R$ 133/dia',
+          'Condição de entrada: o Quente e o Lookalike com R$ 30/dia só fecham se o CPL ideal for de até R$ 15. Acima disso, estrutura de R$ 3.000 com mais verba',
+        ],
+        b2b: [
+          'Fundo Frio ABO R$ 100/dia (Conjunto 01 Amplo + cargo R$ 60 + Conjunto 02 Lookalike/interesses do setor R$ 40) · Fundo Quente ABO R$ 33/dia · Sem topo',
+          'O Lab roda no Conjunto 01 do Frio: 3 criativos por semana, 12 no mês, 6 de gaveta',
+          'Vencedor vai pro Conjunto 02 do Frio e pro Quente com copy de reencontro (case, prova, chamada pra reunião)',
+          'Quente: engajamento + visitantes da LP + leads que não viraram MQL. Excluir MQLs e clientes',
+          'Destino: LP com formulário ou formulário nativo. Objetivo: leads e MQL',
+          'Métrica de corte: CPL e custo por MQL. No Quente, frequência ≥ 5 em 7 dias = trocar criativo',
+          'A otimização é desligar o criativo com CPL 2× acima do alvo (gasto ≥ 2× a meta, janela de 7 a 10 dias), marcar "_TESTADO" e subir um da gaveta',
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o CPL ficar abaixo do CPL alvo por 3 dias seguidos'] },
+          'Aumente em 20% no conjunto até o teto da campanha, sem passar de R$ 133/dia no total',
+          'Condição de entrada: o Quente com R$ 33/dia só fecha com CPL ideal de até R$ 16',
+        ],
+        google: [
+          'Roda em paralelo ao Meta (não substitui), só se já existe busca pelo produto e o CPC permite ≥ 10 cliques/dia (CPC ≤ R$ 3,00 no B2C, ≤ R$ 3,30 no B2B)',
+          'B2C: sai a Campanha 3 (Topo) e entra o Google com R$ 23 + R$ 7 do Frio. B2B: R$ 33/dia do Fundo Frio. Em B2B com busca ativa, vale',
+          '1 campanha Search, até 3 conjuntos (grupos de anúncios), 2 anúncios por conjunto',
+          { t: 'A otimização aqui é:', sub: ['negativar palavras-chave', 'mudar headlines', 'mudar anúncios'] },
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o CPL estiver abaixo do CPL alvo'] },
+          'Aumente em 20% por dia o valor para não fazer o CPC estourar',
+        ],
+      },
       notas: {
         b2c: ['Vencedor do Conjunto 01 do Frio é replicado no Conjunto 02 e no Quente.', 'Topo só se o cliente tiver conteúdo; senão a verba vai pro Fundo Frio.'],
         b2b: ['Sem topo. Quente exclui MQLs e clientes. Objetivo: leads e MQL.'],
@@ -715,12 +765,6 @@ export const FAIXAS = [
             { nome: 'Conjunto 01', sub: 'Visitas ao perfil / Video View', ads: ['AD 01', 'AD 02', 'AD 03'] },
           ],
         },
-        {
-          nome: 'Google Search', tipo: '', verba: 'até R$ 30/dia', sub: 'paralelo (opcional)', opcional: true,
-          conjuntos: [
-            { nome: 'Grupos de anúncio', sub: 'só se já existe busca pelo produto', opcional: true, ads: ['AD 01', 'AD 02'], nota: 'verba sai do Conjunto 02 do Frio' },
-          ],
-        },
       ],
       b2b: [
         {
@@ -743,6 +787,51 @@ export const FAIXAS = [
           ],
         },
       ],
+      google: {
+        titulo: 'Estrutura Google',
+        paralelo: true,
+        campanhas: [
+          {
+            nome: 'Campanha', tipo: '', verba: 'até R$ 30/dia', sub: 'Search · paralelo',
+            conjuntos: [
+              { nome: 'Conjunto 01', sub: 'produto', ads: ['AD 01', 'AD 02'] },
+              { nome: 'Conjunto 02', sub: 'produto', ads: ['AD 01', 'AD 02'] },
+              { nome: 'Conjunto 03', sub: 'branding', ads: ['AD 01', 'AD 02'] },
+            ],
+          },
+        ],
+        nota: 'Paralelo ao Meta, só se já existe busca pelo produto. Verba de até R$ 30/dia tirada do Fundo Frio (B2C: Conjunto 02). Em B2B com busca ativa entra por padrão.',
+      },
+      pontos: {
+        b2c: [
+          'Estrutura de R$ 4.000 com mais verba: Fundo Frio ABO R$ 100/dia (Conjunto 01 Amplo R$ 60 + Conjunto 02 Lookalike R$ 40) · Fundo Quente R$ 36/dia · Topo R$ 30/dia só com conteúdo',
+          'O Lab roda no Conjunto 01 do Frio: 3 criativos por semana, 12 no mês, 6 de gaveta',
+          'Vencedor (gasto ≥ 2× a meta e custo abaixo da meta) é replicado no Conjunto 02 e no Quente com copy de reencontro',
+          'Quente: engajamento 30 a 90 dias + visitantes site/LP + conversa aberta sem compra. Excluir compradores',
+          'Métrica de corte: CPA ou custo por conversa. No Quente, frequência ≥ 5 em 7 dias = trocar criativo',
+          'A otimização é desligar o criativo com custo 2× acima da meta (nunca antes de 72h), marcar "_TESTADO" e subir um da gaveta. Nunca desligar o que o Meta não priorizou',
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o custo ficar abaixo da meta por 3 dias seguidos'] },
+          'Aumente em 20% no conjunto até o teto da campanha. Verba migra entre Frio, Quente e Google sem passar de R$ 166/dia',
+        ],
+        b2b: [
+          'Entra o meio de funil: Campanha 1 Meio ABO R$ 66/dia (material rico ou webinar) · Campanha 2 Fundo Frio ABO R$ 60/dia · Campanha 3 Fundo Quente ABO R$ 40/dia · Sem topo',
+          'O Lab roda no Conjunto 01 do Meio (onde tem mais volume). Vencedor de ângulo é adaptado pro Fundo Frio (CTA de reunião) e pro Quente ("você baixou o material, agora...")',
+          'Material rico roda contínuo e só continua se ≥ 10% dos leads viram MQL em 30 dias. Webinar: 1 por mês, inscrição 10 a 14 dias antes, lembrete nos 3 dias antes, 7 dias de replay + oferta no Quente',
+          'Meta de custo do meio: CPL ≤ 1/3 do CPL de fundo (ex.: fundo R$ 60 → material/inscrição até R$ 20)',
+          'Quente: quem baixou o material ou se inscreveu (30 a 60 dias) + engajamento + visitantes LP + leads sem MQL. Excluir MQLs e clientes de tudo',
+          'Métrica de corte: Meio = CPL de material e conversão da LP (20 a 50%; abaixo de 20% o problema é a LP). Fundo = CPL e custo por MQL. Quente = custo por reunião + frequência ≥ 5',
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o CPL ficar abaixo do CPL alvo por 3 dias seguidos', '3) Se o meio entrega MQL mais barato que o fundo por 2 semanas, migra verba do Frio pro Meio (até 50/50)'] },
+          'Condição de entrada: material rico pronto (ou 1 webinar/mês) e comercial fazendo follow-up dos leads de meio em até 24h. Sem isso, estrutura de R$ 4.000 com mais verba',
+        ],
+        google: [
+          'Roda em paralelo ao Meta, se já existe busca pelo produto. Até R$ 30/dia tirados do Fundo Frio (B2C: Conjunto 02), CPC ≤ R$ 3,00',
+          'Em B2B com busca ativa (software, fornecedor, consultoria) o Google entra por padrão',
+          '1 campanha Search, até 3 conjuntos (grupos de anúncios), 2 anúncios por conjunto',
+          { t: 'A otimização aqui é:', sub: ['negativar palavras-chave', 'mudar headlines', 'mudar anúncios'] },
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o CPL estiver abaixo do CPL alvo'] },
+          'Aumente em 20% por dia o valor para não fazer o CPC estourar. O relatório mensal separa Frio vs. Quente vs. Google',
+        ],
+      },
       notas: {
         b2c: ['Vencedor do Conjunto 01 do Frio é replicado no Conjunto 02 e no Quente.'],
         b2b: ['Quem converteu no Meio (baixou material / inscreveu no webinar) vira público do Quente.', 'Sem topo. Meio só continua se ≥ 10% dos leads viram MQL em 30 dias.'],
