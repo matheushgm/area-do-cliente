@@ -7,18 +7,18 @@ Piloto de redesign da **página de cliente** do Dashboard de Tráfego (viewer em
 [AI Finance Management SaaS Dashboard](https://www.behance.net/gallery/234937291/AI-Finance-Management-SaaS-UX-UI-DashboardDesign)
 (Behance, marca fictícia "Fynix").
 
-**Estado:** piloto ativo só na conta **Matheus Business** (projeto Revenue Lab).
-Todas as outras contas, a lista da home e o link público das outras contas
-seguem no visual atual. Para estender a outras contas, basta acrescentar o nome
-da conta (coluna `account` de `dash_insights`) em `NEW_LOOK_ACCOUNTS`, no
-viewer. Para virar padrão em todas, trocar `newLookFor` por `() => true`.
+**Estado:** desde 2026-09-19 o tema entra na página de **todas as contas**
+(`newLookFor = () => true` no viewer), inclusive nos links públicos. Só a lista
+da home segue no visual antigo. Para voltar a restringir, trocar `newLookFor`
+por um `Set` de nomes de conta (coluna `account` de `dash_insights`), como era
+no piloto (só Matheus Business, 18/09).
 
 ## Onde mora
 
 | Arquivo | O que faz |
 |---|---|
 | `public/dash-teste/vendor/theme-fynix.css` | Todo o tema. Escopado em `body.th-fynix` e `.dt-root.th-fynix`; nada vaza para fora dessas classes. |
-| `public/dash-teste/viewer.html` (bloco "Novo visual") | `NEW_LOOK_ACCOUNTS`, `setNewLook()` (liga/desliga as classes e injeta a fonte), `ic()` (emoji → ícone de linha), `pal()` + `limeGradient` + `fxLegend` (gráficos), `kpiGridHTML()` (hero + cards de KPI). |
+| `public/dash-teste/viewer.html` (bloco "Novo visual") | `newLookFor()`, `setNewLook()` (liga/desliga as classes e injeta a fonte), `ic()` (emoji → ícone de linha), `pal()` + `limeGradient` + `fxLegend` (gráficos), `kpiGridHTML()` (hero + cards de KPI). |
 
 Como o viewer é a mesma página para todas as contas, o tema é ligado e desligado
 em tempo de execução: `renderClient()` chama `setNewLook(newLookFor(client))` e
@@ -106,6 +106,5 @@ referência usa cabeçalho leve, sem caixa alta). Números das tabelas com
   toda a lógica de dados.
 - Visual da home e das demais contas. As únicas mudanças fora do tema foram
   trocar estilos inline por classes com os **mesmos valores** (para o tema poder
-  sobrescrevê-los), um selo "novo visual" ao lado do nome da conta no piloto na
-  lista da home, e uma correção de formatação no plano de ação da Análise IA
+  sobrescrevê-los) e uma correção de formatação no plano de ação da Análise IA
   (o CPL alvo saía como `R$ 22.727272…`; agora `R$ 22,73`, em todas as contas).

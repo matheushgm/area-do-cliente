@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dashboard API — Tráfego (replica)</title>
 <link rel="stylesheet" href="./vendor/dashboard.css">
-<!-- Novo visual (piloto): tema "Fynix" escopado por classe. Só entra nas contas de
-     NEW_LOOK_ACCOUNTS (bloco "Novo visual" no script); a fonte Urbanist é injetada
-     por setNewLook() só quando o tema entra, para as outras contas e o link público
-     seguirem sem dependência de terceiro nem CSS bloqueando a pintura. -->
+<!-- Novo visual: tema "Fynix" (recolorido no azul Revenue Lab) escopado por classe.
+     Desde 2026-09-19 entra na página de TODAS as contas (bloco "Novo visual" no
+     script); a home segue no visual antigo. A fonte Urbanist é injetada por
+     setNewLook() só quando o tema entra, para a home seguir sem dependência de
+     terceiro nem CSS bloqueando a pintura. -->
 <link rel="stylesheet" href="./vendor/theme-fynix.css">
 <!-- Chart.js (UMD local, sem CDN) — usado pela aba "Resultados" -->
 <script src="./vendor/chart.umd.min.js"></script>
@@ -549,16 +550,17 @@ const CP_PRESET_STRINGS = new Set(['today','yesterday','this_month','last_month'
 
 // channel: '' = Todos (padrão — agrupa Meta+Google numa lista só, pra ninguém
 // passar batido só olhando a 1ª aba) | 'meta' | 'google' = filtro de um canal só.
-// ─── Novo visual (piloto do tema "Fynix") ────────────────────────────────────
-// Referência: AI Finance Management SaaS Dashboard (Behance). O tema vive em
-// vendor/theme-fynix.css e só entra na PÁGINA das contas listadas aqui — as
-// demais contas (e a lista da home) seguem no visual atual até o piloto ser
-// aprovado. setNewLook() põe a classe `th-fynix` no <body> (os modais ficam
-// fora do .dt-root) e no .dt-root; `ic()` troca emoji por ícone de linha e
-// `pal()` escolhe a paleta dos gráficos.
-const NEW_LOOK_ACCOUNTS = new Set(['Matheus Business'])
-const newLookFor = client => NEW_LOOK_ACCOUNTS.has((client || '').trim())
-const newLookChip = name => newLookFor(name) ? '<span class="new-look-chip" title="Conta no piloto do novo visual do dashboard">✨ novo visual</span>' : ''
+// ─── Novo visual (tema "Fynix") ──────────────────────────────────────────────
+// Referência: AI Finance Management SaaS Dashboard (Behance), no azul da Revenue
+// Lab. O tema vive em vendor/theme-fynix.css e entra na PÁGINA de toda conta
+// (piloto na Matheus Business em 18/09, estendido a todas em 19/09 pelo
+// Matheus); a lista da home segue no visual atual. setNewLook() põe a classe
+// `th-fynix` no <body> (os modais ficam fora do .dt-root) e no .dt-root; `ic()`
+// troca emoji por ícone de linha e `pal()` escolhe a paleta dos gráficos.
+// Para voltar a restringir por conta: `NEW_LOOK_ACCOUNTS` + `newLookFor` por Set.
+const newLookFor = () => true
+// Selo "novo visual" da home: sem sentido com o tema em todas as contas.
+const newLookChip = () => ''
 const FX_FONT_URL = 'https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap'
 // Redesenha os gráficos abertos quando a Urbanist termina de carregar: o canvas
 // usa a fonte disponível na hora do draw e o Chart.js não observa document.fonts.
