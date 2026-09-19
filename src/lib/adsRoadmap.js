@@ -406,38 +406,72 @@ export const FAIXAS = [
         {
           nome: 'Campanha 1', tipo: 'CBO', verba: 'R$ 50/dia', sub: 'Fundo',
           conjuntos: [
-            { nome: 'Conjunto 01', sub: 'Amplo Advantage+', ads: ['AD 01', 'AD 02', 'AD 03', '…', 'AD 12'], nota: 'todos ativos, sobe 3/semana (até 12)' },
+            { nome: 'Conjunto 01', sub: 'Amplo Advantage+', ads: ['AD 01', 'AD 02', 'AD 03', '…', 'AD 12'], nota: 'todos ativos · 3/semana' },
             { nome: 'Conjunto 02', sub: 'Lookalike (opcional)', opcional: true, ads: ['AD 01', 'AD 02', 'AD 03'], nota: 'só com base ≥ 1.000 eventos ou lista' },
           ],
         },
         {
           nome: 'Campanha 2', tipo: '', verba: 'R$ 16/dia', sub: 'Topo (opcional)', opcional: true,
           conjuntos: [
-            { nome: 'Conjunto 01', sub: 'Visitas ao perfil / Video View', opcional: true, ads: ['AD 01', 'AD 02', 'AD 03'], nota: 'só se o cliente tiver conteúdo' },
+            { nome: 'Conjunto 01', sub: 'Perfil / Video View', opcional: true, ads: ['AD 01', 'AD 02', 'AD 03'], nota: 'só se o cliente tiver conteúdo' },
           ],
         },
       ],
       b2b: [
         {
-          nome: 'Campanha 1', tipo: 'CBO', verba: 'R$ 66/dia', sub: 'Fundo · 100%',
+          nome: 'Campanha 1', tipo: 'CBO', verba: 'R$ 66/dia', sub: 'Fundo',
           conjuntos: [
-            { nome: 'Conjunto 01', sub: 'Amplo + sinal de cargo', ads: ['AD 01', 'AD 02', 'AD 03', '…', 'AD 12'], nota: 'todos ativos, 6 a 12 testes no mês' },
+            { nome: 'Conjunto 01', sub: 'Amplo + cargo', ads: ['AD 01', 'AD 02', 'AD 03', '…', 'AD 12'], nota: 'todos ativos · 6 a 12 no mês' },
           ],
         },
       ],
+      // Mapa "Meta OU Google": um canal substitui o outro nessa faixa.
       google: {
-        titulo: 'Se o Google Search substituir o Meta',
+        titulo: 'Estrutura Google',
+        ou: true,
         campanhas: [
           {
-            nome: 'Campanha Search', tipo: '', verba: 'R$ 66/dia', sub: 'CPC ≤ R$ 6,60',
+            nome: 'Campanha', tipo: '', verba: 'R$ 66/dia', sub: 'Search',
             conjuntos: [
-              { nome: 'Grupo 01', sub: 'grupo de anúncios', ads: ['AD 01', 'AD 02'] },
-              { nome: 'Grupo 02', sub: 'grupo de anúncios', ads: ['AD 01', 'AD 02'] },
-              { nome: 'Grupo 03', sub: 'grupo de anúncios', ads: ['AD 01', 'AD 02'] },
+              { nome: 'Conjunto 01', sub: 'produto', ads: ['AD 01', 'AD 02'] },
+              { nome: 'Conjunto 02', sub: 'produto', ads: ['AD 01', 'AD 02'] },
+              { nome: 'Conjunto 03', sub: 'branding', ads: ['AD 01', 'AD 02'] },
             ],
           },
         ],
         nota: 'Só entra se já existe busca pelo produto. Nunca junto com o Meta nessa faixa.',
+      },
+      pontos: {
+        b2c: [
+          'Testa 3 criativos por semana no máximo (até 12 ativos no mês, todos ligados)',
+          'Fundo R$ 50/dia (75%) + Topo R$ 16/dia (25%) só se o cliente tiver conteúdo. Sem conteúdo, 100% no fundo',
+          '1 a 2 conjuntos no fundo: Amplo + Lookalike (Lookalike só com base ≥ 1.000 eventos ou lista de clientes)',
+          'Um funil: WhatsApp ou LP curta',
+          'Métrica de corte: CPA/ROAS na venda, custo por conversa no WhatsApp',
+          'A otimização é desligar o criativo com custo 2× acima da meta (gasto ≥ 2× a meta, nunca antes de 72h) e marcar "_TESTADO". O Meta redistribui a verba pros criativos que ainda não foram testados',
+          'Nunca desligar anúncio que o Meta não priorizou',
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o custo ficar abaixo da meta por 3 dias seguidos'] },
+          'Aumente em 20% por dia até o teto de R$ 66/dia para não fazer o CPM estourar. Passou do teto = proposta de subir a faixa',
+        ],
+        b2b: [
+          '1 campanha, 100% no fundo (R$ 66/dia). Sem topo nessa faixa',
+          '1 conjunto: Amplo + sinal de cargo/segmento (ou lookalike da base de clientes, se existir)',
+          '6 a 12 criativos no mês, todos ativos (sobe 1 a 2 por semana)',
+          'Destino: LP com formulário ou formulário nativo do Meta',
+          'Métrica de corte: CPL. Janela de avaliação de 7 dias; desligar só com 10 a 14 dias',
+          'A otimização é desligar o criativo com CPL 2× acima do CPL alvo (gasto ≥ 2× a meta) e marcar "_TESTADO"',
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o CPL ficar abaixo do CPL alvo por 3 dias seguidos'] },
+          'Aumente em 20% por dia até o teto de R$ 66/dia para não fazer o CPM estourar',
+        ],
+        google: [
+          'Só entra no lugar do Meta quando já existe busca pelo produto e o CPC permite ≥ 10 cliques/dia (CPC ≤ R$ 6,60)',
+          'Em B2B com busca ativa ("software de X", "fornecedor de Y") o Google costuma ganhar',
+          '1 campanha Search, até 3 conjuntos (grupos de anúncios), 2 anúncios por conjunto',
+          'Apenas uma campanha para tentar não perder lances no leilão',
+          { t: 'A otimização aqui é:', sub: ['negativar palavras-chave', 'mudar headlines', 'mudar anúncios'] },
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o CPL estiver abaixo do CPL alvo'] },
+          'Aumente em 20% por dia o valor para não fazer o CPC estourar',
+        ],
       },
       notas: {
         b2c: ['Tracejado = opcional. Sem conteúdo pra topo, 100% da verba vai pro fundo.'],
