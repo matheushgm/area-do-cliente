@@ -12,41 +12,19 @@ import { supabase, isSupabaseReady } from "../lib/supabase";
 // contexto fake sem passar pelo Supabase Auth.
 export const AppContext = createContext();
 
-// ─── localStorage schema versioning ───────────────────────────────────────────
-const LS_KEY      = "rl_projects_v2";
-const LS_VER_KEY  = "rl_projects_schema_v";
-const SCHEMA_VERSION = 1;
-
-/**
- * Migrações incrementais do cache local.
- * Adicione um bloco `if (v < N)` para cada versão futura.
- */
-function migrateProjects(data, fromVersion) {
-  let v = fromVersion;
-  // Exemplo de migração futura:
-  // if (v < 2) { data = data.map(p => ({ ...p, newField: p.oldField ?? null })); v = 2; }
-  void v;
-  return data;
-}
+// ─── Cache local dos projetos (offline-first) ─────────────────────────────────
+const LS_KEY = "rl_projects_v2";
 
 function loadFromStorage() {
   try {
-    const raw     = localStorage.getItem(LS_KEY);
-    const version = Number(localStorage.getItem(LS_VER_KEY) || 0);
-    const data    = raw ? JSON.parse(raw) : [];
-    if (version < SCHEMA_VERSION) {
-      const migrated = migrateProjects(data, version);
-      saveToStorage(migrated);
-      return migrated;
-    }
-    return data;
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
   } catch { return []; }
 }
 
 function saveToStorage(data) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(data));
-    localStorage.setItem(LS_VER_KEY, String(SCHEMA_VERSION));
   } catch { /* quota exceeded — ignorar */ }
 }
 
@@ -884,10 +862,6 @@ export function AppProvider({ children }) {
   // ── Squads ────────────────────────────────────────────────────────────────
   const [squads, setSquads] = useState([]);
 
-  // ── Tasks ─────────────────────────────────────────────────────────────────
-  const [tasks, setTasks] = useState([]);
-  const [loadingTasks, setLoadingTasks] = useState(false);
-
   // ── Auth session restore + listener ───────────────────────────────────────
   useEffect(() => {
     if (!supabase) { setLoadingAuth(false); return; }
@@ -965,17 +939,6 @@ export function AppProvider({ children }) {
           departmentAssignments: s.department_assignments || {},
         })));
       });
-
-    setLoadingTasks(true);
-    supabase
-      .from("tasks")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (error) { console.error("Erro ao carregar tasks:", error); setLoadingTasks(false); return; }
-        if (data) setTasks(data);
-        setLoadingTasks(false);
-      });
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Real-time subscription (projects_v2) ──────────────────────────────────
@@ -1052,7 +1015,6 @@ export function AppProvider({ children }) {
 
   const logout = useCallback(async () => {
     localStorage.removeItem(LS_KEY);
-    localStorage.removeItem(LS_VER_KEY);
     if (supabase) await supabase.auth.signOut();
   }, []);
 
@@ -1259,81 +1221,6 @@ export function AppProvider({ children }) {
     return {};
   }, []);
 
-  // ── Tasks CRUD ────────────────────────────────────────────────────────────
-  const addTask = useCallback(async (data) => {
-    if (!supabase) return { error: "Supabase não configurado." };
-    const status = data.status ?? 'backlog';
-    const assigneeIds = Array.isArray(data.assignee_ids ?? data.assigneeIds)
-      ? (data.assignee_ids ?? data.assigneeIds)
-      : [];
-    const insertCols = {
-      project_id:         data.project_id  ?? data.projectId,
-      persona_id:         data.persona_id  ?? data.personaId  ?? null,
-      title:              data.title,
-      description:        data.description ?? null,
-      assignee_ids:       assigneeIds,
-      client_responsible: !!(data.client_responsible ?? data.clientResponsible),
-      due_date:           data.due_date    ?? data.dueDate    ?? null,
-      urgency:            data.urgency     ?? 'media',
-      status,
-      attachments:        Array.isArray(data.attachments) ? data.attachments : [],
-      completed_at:       status === 'concluido' ? new Date().toISOString() : null,
-      created_by:         user?.id ?? null,
-    };
-    if (data.id) insertCols.id = data.id;
-    const { data: row, error } = await supabase
-      .from("tasks")
-      .insert(insertCols)
-      .select()
-      .single();
-    if (error) return { error: error.message };
-    setTasks((prev) => [row, ...prev]);
-    return { data: row };
-  }, [user]);
-
-  const updateTask = useCallback(async (id, patch) => {
-    if (!supabase) return { error: "Supabase não configurado." };
-    const cols = {};
-    if ('project_id'  in patch || 'projectId'  in patch) cols.project_id  = patch.project_id  ?? patch.projectId;
-    if ('persona_id'  in patch || 'personaId'  in patch) cols.persona_id  = patch.persona_id  ?? patch.personaId;
-    if ('title'       in patch) cols.title       = patch.title;
-    if ('description' in patch) cols.description = patch.description;
-    if ('assignee_ids' in patch || 'assigneeIds' in patch) {
-      const v = patch.assignee_ids ?? patch.assigneeIds;
-      cols.assignee_ids = Array.isArray(v) ? v : [];
-    }
-    if ('client_responsible' in patch || 'clientResponsible' in patch) {
-      cols.client_responsible = !!(patch.client_responsible ?? patch.clientResponsible);
-    }
-    if ('due_date'    in patch || 'dueDate'    in patch) cols.due_date    = patch.due_date    ?? patch.dueDate;
-    if ('urgency'     in patch) cols.urgency     = patch.urgency;
-    if ('status'      in patch) {
-      cols.status       = patch.status;
-      cols.completed_at = patch.status === 'concluido' ? new Date().toISOString() : null;
-    }
-    if ('attachments' in patch) {
-      cols.attachments = Array.isArray(patch.attachments) ? patch.attachments : [];
-    }
-    cols.updated_at = new Date().toISOString();
-    const { data: row, error } = await supabase
-      .from("tasks")
-      .update(cols)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) return { error: error.message };
-    setTasks((prev) => prev.map((t) => (t.id === id ? row : t)));
-    return { data: row };
-  }, []);
-
-  const deleteTask = useCallback(async (id) => {
-    if (!supabase) return { error: "Supabase não configurado." };
-    const { error } = await supabase.from("tasks").delete().eq("id", id);
-    if (error) return { error: error.message };
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-    return {};
-  }, []);
-
   // ── NPS — marcos e respostas ──────────────────────────────────────────────
   // Escrita direta no Supabase, como squads, e não via updateProject: o padrão
   // de tabela filha do projeto é delete-all + insert, o que aqui apagaria
@@ -1477,11 +1364,6 @@ export function AppProvider({ children }) {
     addNpsResposta,
     deleteNpsResposta,
     clearNpsMarco,
-    tasks,
-    loadingTasks,
-    addTask,
-    updateTask,
-    deleteTask,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

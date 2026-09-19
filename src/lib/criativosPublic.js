@@ -26,10 +26,6 @@ export const AD_TYPES = [
   { id: 'explicacao', label: 'Explicação', emoji: '📋', desc: 'Explicação detalhada, educativa do produto/serviço' },
 ]
 
-// ─── Link público (montado a partir do projeto + token gerado no servidor) ─────
-export const publicCriativosLink = (origin, projectId, token) =>
-  `${origin}/criativos/${projectId}/${token}`
-
 // ─── Cliente público (sem login) → /api/criativos-public ──────────────────────
 
 // POST JSON simples (auth). Devolve o contexto mínimo do cliente.

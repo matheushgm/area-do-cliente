@@ -90,12 +90,3 @@ export function prepararMarkdown(texto, membros) {
     return `${antes}[@${m.name}](mention:${m.id})${sufixo}`
   })
 }
-
-// Mesmo texto, sem markdown (prévia na sidebar / notificações)
-export function textoPlano(texto = '') {
-  return texto
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/[*_`>#]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-}

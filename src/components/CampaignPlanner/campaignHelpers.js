@@ -39,16 +39,6 @@ export function todayISO() {
   return `${yyyy}-${mm}-${dd}`
 }
 
-// Dias restantes de hoje até a data final inclusive (mín. 1).
-export function getDaysUntil(endDateISO) {
-  if (!endDateISO) return getDaysLeft()
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const end = new Date(endDateISO + 'T00:00:00')
-  const diff = Math.round((end.getTime() - today.getTime()) / 86400000) + 1
-  return Math.max(diff, 1)
-}
-
 // Dias entre data de início e data final, inclusive (mín. 1). Se startISO for
 // passado, conta a partir de hoje (não vamos espalhar orçamento em dias já
 // vencidos). Se for futuro, conta a partir do startISO.
@@ -88,11 +78,6 @@ export function getPeriodLabel(startDateISO, endDateISO) {
   }
   const start = new Date(startDateISO + 'T00:00:00')
   return `${start.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} até ${end.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
-}
-
-// Mantida para compat — agora delega para getPeriodLabel.
-export function getEndDateLabel(endDateISO) {
-  return getPeriodLabel(null, endDateISO)
 }
 
 export function fmtBRL(n) {

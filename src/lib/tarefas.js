@@ -60,18 +60,6 @@ export const AGRUPAMENTOS = [
   { value: 'nenhum',      label: 'Nenhum' },
 ]
 
-export const COLUNAS_LISTA = [
-  { key: 'status',       label: 'Status',              w: 150 },
-  { key: 'responsavel',  label: 'Responsável',         w: 110 },
-  { key: 'criada',       label: 'Data criada',         w: 110 },
-  { key: 'vencimento',   label: 'Data de vencimento',  w: 150 },
-  { key: 'prioridade',   label: 'Prioridade',          w: 120 },
-  { key: 'dificuldade',  label: 'Dificuldade',         w: 120 },
-  { key: 'tipo',         label: 'Tipo de tarefa',      w: 150 },
-  { key: 'estimativa',   label: 'Estimativa de tempo', w: 150 },
-  { key: 'conclusao',    label: 'Data de conclusão',   w: 140 },
-]
-
 // ─── Status ───────────────────────────────────────────────────────────────────
 
 export function statusDaLista(lista) {
@@ -103,10 +91,6 @@ export function acharStatus(statuses, key) {
 
 export function statusInicial(statuses) {
   return statuses.find((s) => s.tipo === 'open') || statuses[0] || STATUSES_PADRAO[0]
-}
-
-export function statusConcluido(statuses) {
-  return statuses.find((s) => s.tipo === 'closed') || STATUSES_PADRAO[STATUSES_PADRAO.length - 1]
 }
 
 export function rotuloStatus(key) {
@@ -176,12 +160,6 @@ export function deInputDate(s) {
   if (!s) return null
   const d = new Date(`${s}T12:00:00`)
   return isNaN(d.getTime()) ? null : d.toISOString()
-}
-
-export function estaAtrasada(item) {
-  if (!item?.data_vencimento || item.status_tipo === 'closed') return false
-  const d = paraData(item.data_vencimento)
-  return d && inicioDoDia(d).getTime() < inicioDoDia().getTime()
 }
 
 export function corDaData(item) {

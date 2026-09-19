@@ -139,10 +139,6 @@ Quando as 3 estão completas (`allDone`), a página renderiza diretamente `Clien
 
 Várias tabelas filhas (`ofertas`, `campaign_plans`, `criativos`, `google_ads`) armazenam o formulário do componente em uma coluna JSONB `answers` e o output da IA em `generated_content`. `assembleProject()` faz o merge: se `answers` for um objeto, espalha seus campos no nível raiz do objeto montado; caso contrário (row já flat), usa a row diretamente. Isso mantém compatibilidade com objetos gerados antes e depois da normalização.
 
-#### Versionamento do cache local (`localStorage`)
-
-O localStorage usa duas chaves: `rl_projects_v2` (dados) e `rl_projects_schema_v` (número de versão). A função `migrateProjects(data, fromVersion)` em AppContext aplica migrações incrementais ao carregar dados de versões anteriores. Ao adicionar campos no schema local, incremente `SCHEMA_VERSION` e adicione um bloco `if (v < N)` na função.
-
 #### Roteamento de patches em `updateProject`
 
 `sbUpdateProjectV2(id, patch)` inspeciona as chaves do patch e roteia cada uma para a tabela correta. Campos de `projects_v2` são mapeados via `PROJECT_FIELD_MAP` (aceita tanto camelCase quanto snake_case). Campos não reconhecidos são ignorados silenciosamente (ex: `progress`, que é derivado de `completedSteps`).
@@ -359,13 +355,6 @@ views com filter tabs, listas densas de 13px, painel lateral de 480px e painel f
 
 `src/components/LinksModule.jsx` — cada link (fixo ou avulso) tem toggle Eye/EyeOff que persiste no campo `hiddenFromHeader[]` dentro do JSONB `links` em `projects_v2`. A header do `ClientProfile` usa um **ResizeObserver** para calcular dinamicamente quantos links cabem no container (substituiu o limite estático `MAX_VISIBLE=5`); quando o container cresce, re-mede e traz links de volta do overflow.
 
-### Componentes extraídos de ClientProfile
-
-`src/pages/ClientProfile.jsx` delega renderização para:
-- `src/components/ClientProfile/OnboardingEditForm.jsx` — formulário de edição inline dos dados do projeto
-- `src/components/ClientProfile/OnboardingContent.jsx` — exibe os dados do onboarding em modo leitura
-- `src/components/ClientProfile/ProjectDocs.jsx` — links para Raio-X e SLA (URLs assinadas do Storage)
-
 ### Estilo
 
 Tailwind CSS com design system próprio (`rl-*`). Classes utilitárias como `glass-card`, `btn-primary`, `bg-gradient-dark`, `shadow-glow` são definidas em `src/index.css`.
@@ -431,7 +420,6 @@ todo `authenticated`; as quatro estão na publicação realtime).
   página se a última rodada tem +30 min. Auth: `CRON_SECRET` ou JWT. Aceita `?since=<ISO>`
   e `?comentarios=0`. O mapeamento ClickUp→linha vive em `api/_tarefas_clickup_map.js`,
   compartilhado com o script de importação.
-- A página antiga (tabela `tasks`) continua em `/tarefas-antigo`.
 
 ### Chat (`/chat`): réplica do ClickUp Chat
 

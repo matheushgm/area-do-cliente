@@ -44,7 +44,7 @@ const CHANNELS = ['meta', 'google']
 const fmtSumPct = v => (v != null ? v.toFixed(2) + '%' : '—')
 
 // Soma crua (spend/leads/clicks/impr) das contas do projeto, dentro do período
-// do canal. Espelha o cálculo do ChannelSection, restrito ao conjunto de contas.
+// do canal, restrito ao conjunto de contas do projeto.
 function channelSummary(rows, channel, period, names) {
   const zero = { spend: 0, leads: 0, clicks: 0, impr: 0 }
   if (!period) return zero

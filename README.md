@@ -68,11 +68,9 @@ area-do-cliente/
 │   │   ├── CampaignPlanner/       # Sub-componentes do CampaignPlanner
 │   │   ├── GoogleAds/             # Sub-componentes do GoogleAdsModule
 │   │   ├── Resultados/            # Sub-componentes do ResultadosModule
-│   │   ├── Estrategia/            # Sub-componentes do EstrategiaModule
 │   │   ├── AppSidebar.jsx         # Menu lateral da aplicação
 │   │   ├── CampaignPlanner.jsx    # Planejador de campanhas
 │   │   ├── CriativosModule.jsx    # Módulo de criativos
-│   │   ├── EstrategiaModule.jsx   # Módulo de estratégia (narrativa IA)
 │   │   ├── EstrategiaV2Module.jsx # Módulo de estratégia estruturada (SWOT, riscos, funis)
 │   │   ├── GoogleAdsModule.jsx    # Módulo Google Ads
 │   │   ├── MetaLabModule.jsx      # Módulo Meta (Facebook/Instagram Ads)

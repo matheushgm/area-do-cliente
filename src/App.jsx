@@ -28,14 +28,12 @@ import FunilCanvas from './pages/FunilCanvas'
 import AdsRoadmap from './pages/AdsRoadmap'
 import SquadsReport from './pages/SquadsReport'
 import ResetPassword from './pages/ResetPassword'
-import Tasks from './pages/Tasks'
 import Tarefas from './pages/Tarefas'
 import Chat from './pages/Chat'
 import RoteirosExpress from './pages/RoteirosExpress'
 import RoteirosExpressPublico from './pages/RoteirosExpressPublico'
 import CriativosPublico from './pages/CriativosPublico'
 import DashboardApiTeste from './pages/DashboardApiTeste'
-import WireframePreview from './pages/WireframePreview'
 import Atividades15min from './pages/Atividades15min'
 import Atividades from './pages/Atividades'
 import { lazy, Suspense } from 'react'
@@ -98,7 +96,6 @@ function AppRoutes() {
         <Route path="/ads-roadmap" element={<RequireAuth><AdsRoadmap /></RequireAuth>} />
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
         <Route path="/tarefas" element={<RequireAuth><Tarefas /></RequireAuth>} />
-        <Route path="/tarefas-antigo" element={<RequireAuth><Tasks /></RequireAuth>} />
         <Route path="/atividades" element={<RequireAuth><Atividades /></RequireAuth>} />
         {import.meta.env.DEV && AtividadesPreview && (
           <Route path="/dev/atividades" element={<Suspense fallback={null}><AtividadesPreview /></Suspense>} />
@@ -123,7 +120,6 @@ function AppRoutes() {
         {/* "Capacidade do Time" foi fundido no módulo Atividades. */}
         <Route path="/workload" element={<Navigate to="/atividades" replace />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/wireframe-preview" element={<WireframePreview />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {user && <NotificationCenter />}
