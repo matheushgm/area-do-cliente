@@ -320,7 +320,7 @@ export const FAIXAS = [
     estrutura: {
       b2c: [
         {
-          nome: 'Campanha 1', tipo: 'CBO', verba: 'R$ 33/dia', sub: 'Fundo',
+          nome: 'Fundo', tipo: 'CBO', verba: 'R$ 33/dia', sub: 'Campanha 1',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Amplo Advantage+', ads: ['AD 01', 'AD 02', 'AD 03'], nota: '3 por semana · WhatsApp' },
           ],
@@ -333,7 +333,7 @@ export const FAIXAS = [
         ou: true,
         campanhas: [
           {
-            nome: 'Campanha', tipo: '', verba: 'R$ 33/dia', sub: 'Search',
+            nome: 'Search', tipo: '', verba: 'R$ 33/dia', sub: 'Campanha Google',
             conjuntos: [
               { nome: 'Conjunto 01', sub: 'produto', ads: ['AD 01'] },
               { nome: 'Conjunto 02', sub: 'branding', ads: ['AD 02'] },
@@ -404,14 +404,14 @@ export const FAIXAS = [
     estrutura: {
       b2c: [
         {
-          nome: 'Campanha 1', tipo: 'CBO', verba: 'R$ 50/dia', sub: 'Fundo',
+          nome: 'Fundo', tipo: 'CBO', verba: 'R$ 50/dia', sub: 'Campanha 1',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Amplo Advantage+', ads: ['AD 01', 'AD 02', 'AD 03', '…', 'AD 12'], nota: 'todos ativos · 3/semana' },
             { nome: 'Conjunto 02', sub: 'Lookalike ou Remarketing (opcional)', opcional: true, ads: ['AD 01', 'AD 02', 'AD 03'], nota: 'só com base ≥ 1.000 eventos ou lista' },
           ],
         },
         {
-          nome: 'Campanha 2', tipo: '', verba: 'R$ 16/dia', sub: 'Topo (opcional)', opcional: true,
+          nome: 'Topo (opcional)', tipo: '', verba: 'R$ 16/dia', sub: 'Campanha 2', opcional: true,
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Perfil / Video View', opcional: true, ads: ['AD 01', 'AD 02', 'AD 03'], nota: 'só se o cliente tiver conteúdo' },
           ],
@@ -419,7 +419,7 @@ export const FAIXAS = [
       ],
       b2b: [
         {
-          nome: 'Campanha 1', tipo: 'CBO', verba: 'R$ 66/dia', sub: 'Fundo',
+          nome: 'Fundo', tipo: 'CBO', verba: 'R$ 66/dia', sub: 'Campanha 1',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Amplo + cargo', ads: ['AD 01', 'AD 02', 'AD 03', '…', 'AD 12'], nota: 'todos ativos · 6 a 12 no mês' },
           ],
@@ -431,7 +431,7 @@ export const FAIXAS = [
         ou: true,
         campanhas: [
           {
-            nome: 'Campanha', tipo: '', verba: 'R$ 66/dia', sub: 'Search',
+            nome: 'Search', tipo: '', verba: 'R$ 66/dia', sub: 'Campanha Google',
             conjuntos: [
               { nome: 'Conjunto 01', sub: 'produto', ads: ['AD 01', 'AD 02'] },
               { nome: 'Conjunto 02', sub: 'produto', ads: ['AD 01', 'AD 02'] },
@@ -512,14 +512,14 @@ export const FAIXAS = [
     estrutura: {
       b2c: [
         {
-          nome: 'Campanha 1', tipo: 'CBO', verba: 'R$ 84/dia', sub: 'Fundo · o Laboratório roda aqui',
+          nome: 'Fundo', tipo: 'CBO', verba: 'R$ 84/dia', sub: 'Campanha 1 · o Laboratório roda aqui',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Amplo Advantage+', ads: ['AD 01 · 02 · 03  (sem. 1: 3 criativos)', 'AD 04 · 05 · 06  (sem. 2: 3 ganchos)', 'AD 07 · 08 · 09  (sem. 3: 3 headlines)', 'AD 10 · 11 · 12  (sem. 4: 3 criativos)'], nota: 'todos ativos · o Meta escolhe · o gestor documenta o vencedor' },
             { nome: 'Conjunto 02', sub: 'Remarketing ou Lookalike', ads: ['Vencedor 01', 'Vencedor 02', 'Vencedor 03'], nota: 'só os vencedores do Conjunto 01' },
           ],
         },
         {
-          nome: 'Campanha 2', tipo: '', verba: 'R$ 16/dia', sub: 'Topo',
+          nome: 'Topo', tipo: '', verba: 'R$ 16/dia', sub: 'Campanha 2',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Visitas ao perfil / Video View', ads: ['AD 01', 'AD 02', 'AD 03'], nota: 'só se o cliente tiver conteúdo' },
           ],
@@ -527,7 +527,7 @@ export const FAIXAS = [
       ],
       b2b: [
         {
-          nome: 'Campanha 1', tipo: 'CBO', verba: 'R$ 100/dia', sub: 'Fundo · o Laboratório roda aqui',
+          nome: 'Fundo', tipo: 'CBO', verba: 'R$ 100/dia', sub: 'Campanha 1 · o Laboratório roda aqui',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Amplo + cargo', ads: ['AD 01 · 02 · 03  (sem. 1)', 'AD 04 · 05 · 06  (sem. 2)', 'AD 07 · 08 · 09  (sem. 3)', 'AD 10 · 11 · 12  (sem. 4)'], nota: 'mesma sequência semanal do B2C' },
             { nome: 'Conjunto 02', sub: 'Remarketing ou Lookalike', ads: ['Vencedor 01', 'Vencedor 02', 'Vencedor 03'], nota: 'só os vencedores do Conjunto 01' },
@@ -540,7 +540,7 @@ export const FAIXAS = [
         ou: true,
         campanhas: [
           {
-            nome: 'Campanha', tipo: '', verba: 'R$ 100/dia', sub: 'Search',
+            nome: 'Search', tipo: '', verba: 'R$ 100/dia', sub: 'Campanha Google',
             conjuntos: [
               { nome: 'Conjunto 01', sub: 'produto', ads: ['AD 01', 'AD 02'] },
               { nome: 'Conjunto 02', sub: 'produto', ads: ['AD 01', 'AD 02'] },
@@ -622,20 +622,20 @@ export const FAIXAS = [
     estrutura: {
       b2c: [
         {
-          nome: 'Campanha 1', tipo: 'ABO', verba: 'R$ 80/dia', sub: 'Fundo Frio',
+          nome: 'Fundo Frio', tipo: 'ABO', verba: 'R$ 80/dia', sub: 'Campanha 1',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Amplo Advantage+ · R$ 50/dia', ads: ['AD 01-03 · sem. 1', 'AD 04-06 · sem. 2', 'AD 07-12 · sem. 3-4'], nota: 'Lab roda aqui · todos ativos · 6 de gaveta' },
             { nome: 'Conjunto 02', sub: 'Lookalike / interesses · R$ 30/dia', ads: ['Vencedor 01', 'Vencedor 02'] },
           ],
         },
         {
-          nome: 'Campanha 2', tipo: 'ABO', verba: 'R$ 30/dia', sub: 'Fundo Quente',
+          nome: 'Fundo Quente', tipo: 'ABO', verba: 'R$ 30/dia', sub: 'Campanha 2',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Engajamento + site + conversa aberta', ads: ['Vencedor 01', 'Vencedor 02', 'Vencedor 03'], nota: 'copy de reencontro · frequência ≥ 5 em 7 dias = trocar criativo' },
           ],
         },
         {
-          nome: 'Campanha 3', tipo: '', verba: 'R$ 23/dia', sub: 'Topo',
+          nome: 'Topo', tipo: '', verba: 'R$ 23/dia', sub: 'Campanha 3',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Visitas ao perfil / Video View', ads: ['AD 01', 'AD 02', 'AD 03'], nota: 'só se o cliente tiver conteúdo' },
           ],
@@ -643,14 +643,14 @@ export const FAIXAS = [
       ],
       b2b: [
         {
-          nome: 'Campanha 1', tipo: 'ABO', verba: 'R$ 100/dia', sub: 'Fundo Frio',
+          nome: 'Fundo Frio', tipo: 'ABO', verba: 'R$ 100/dia', sub: 'Campanha 1',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Amplo + cargo · R$ 60/dia', ads: ['AD 01-03 · sem. 1', 'AD 04-06 · sem. 2', 'AD 07-12 · sem. 3-4'], nota: 'Lab roda aqui · todos ativos · 6 de gaveta' },
             { nome: 'Conjunto 02', sub: 'Lookalike / interesses · R$ 40/dia', ads: ['Vencedor 01', 'Vencedor 02'] },
           ],
         },
         {
-          nome: 'Campanha 2', tipo: 'ABO', verba: 'R$ 33/dia', sub: 'Fundo Quente',
+          nome: 'Fundo Quente', tipo: 'ABO', verba: 'R$ 33/dia', sub: 'Campanha 2',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Engajamento + LP + leads sem MQL', ads: ['Vencedor 01', 'Vencedor 02', 'Vencedor 03'], nota: 'copy de reencontro · frequência ≥ 5 em 7 dias = trocar criativo' },
           ],
@@ -662,7 +662,7 @@ export const FAIXAS = [
         paralelo: true,
         campanhas: [
           {
-            nome: 'Campanha', tipo: '', verba: 'até R$ 30/dia', sub: 'Search · paralelo',
+            nome: 'Search', tipo: '', verba: 'até R$ 30/dia', sub: 'Campanha Google',
             conjuntos: [
               { nome: 'Conjunto 01', sub: 'produto', ads: ['AD 01', 'AD 02'] },
               { nome: 'Conjunto 02', sub: 'produto', ads: ['AD 01', 'AD 02'] },
@@ -747,20 +747,20 @@ export const FAIXAS = [
     estrutura: {
       b2c: [
         {
-          nome: 'Campanha 1', tipo: 'ABO', verba: 'R$ 100/dia', sub: 'Fundo Frio',
+          nome: 'Fundo Frio', tipo: 'ABO', verba: 'R$ 100/dia', sub: 'Campanha 1',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Amplo Advantage+ · R$ 60/dia', ads: ['AD 01-03 · sem. 1', 'AD 04-06 · sem. 2', 'AD 07-12 · sem. 3-4'], nota: 'Lab roda aqui · todos ativos · 6 de gaveta' },
             { nome: 'Conjunto 02', sub: 'Lookalike · R$ 40/dia', ads: ['Vencedor 01', 'Vencedor 02'] },
           ],
         },
         {
-          nome: 'Campanha 2', tipo: 'ABO', verba: 'R$ 36/dia', sub: 'Fundo Quente',
+          nome: 'Fundo Quente', tipo: 'ABO', verba: 'R$ 36/dia', sub: 'Campanha 2',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Engajamento + site + conversa', ads: ['Vencedor 01', 'Vencedor 02', 'Vencedor 03'], nota: 'copy de reencontro · frequência ≥ 5 em 7 dias = trocar' },
           ],
         },
         {
-          nome: 'Campanha 3', tipo: '', verba: 'R$ 30/dia', sub: 'Topo',
+          nome: 'Topo', tipo: '', verba: 'R$ 30/dia', sub: 'Campanha 3',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Visitas ao perfil / Video View', ads: ['AD 01', 'AD 02', 'AD 03'] },
           ],
@@ -768,20 +768,20 @@ export const FAIXAS = [
       ],
       b2b: [
         {
-          nome: 'Campanha 1', tipo: 'ABO', verba: 'R$ 66/dia', sub: 'Meio de funil · Material rico ou Webinar',
+          nome: 'Meio de funil (Material, Webinar)', tipo: 'ABO', verba: 'R$ 66/dia', sub: 'Campanha 1 · Leads',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Amplo + cargo · R$ 40/dia', ads: ['AD 01-03 · sem. 1', 'AD 04-06 · sem. 2', 'AD 07-12 · sem. 3-4'], nota: 'Lab roda aqui · LP de material rico ou inscrição no webinar' },
             { nome: 'Conjunto 02', sub: 'Lookalike · R$ 26/dia', ads: ['Vencedor 01', 'Vencedor 02'], nota: 'objetivo Leads · e-book, checklist, diagnóstico ou inscrição no webinar' },
           ],
         },
         {
-          nome: 'Campanha 2', tipo: 'ABO', verba: 'R$ 60/dia', sub: 'Fundo Frio',
+          nome: 'Fundo Frio', tipo: 'ABO', verba: 'R$ 60/dia', sub: 'Campanha 2',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Amplo + cargo', ads: ['Vencedor 01', 'Vencedor 02', 'Vencedor 03'], nota: 'mesma promessa do meio, CTA de reunião · LP de aplicação' },
           ],
         },
         {
-          nome: 'Campanha 3', tipo: 'ABO', verba: 'R$ 40/dia', sub: 'Fundo Quente',
+          nome: 'Fundo Quente', tipo: 'ABO', verba: 'R$ 40/dia', sub: 'Campanha 3',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Leads do meio + engajamento + LP', ads: ['Vencedor 01', 'Vencedor 02', 'Vencedor 03'], nota: 'copy de reencontro · LP de reunião ou WhatsApp comercial' },
           ],
@@ -792,7 +792,7 @@ export const FAIXAS = [
         paralelo: true,
         campanhas: [
           {
-            nome: 'Campanha', tipo: '', verba: 'até R$ 30/dia', sub: 'Search · paralelo',
+            nome: 'Search', tipo: '', verba: 'até R$ 30/dia', sub: 'Campanha Google',
             conjuntos: [
               { nome: 'Conjunto 01', sub: 'produto', ads: ['AD 01', 'AD 02'] },
               { nome: 'Conjunto 02', sub: 'produto', ads: ['AD 01', 'AD 02'] },
