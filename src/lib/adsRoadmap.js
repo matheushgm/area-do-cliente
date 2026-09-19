@@ -407,7 +407,7 @@ export const FAIXAS = [
           nome: 'Campanha 1', tipo: 'CBO', verba: 'R$ 50/dia', sub: 'Fundo',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Amplo Advantage+', ads: ['AD 01', 'AD 02', 'AD 03', '…', 'AD 12'], nota: 'todos ativos · 3/semana' },
-            { nome: 'Conjunto 02', sub: 'Lookalike (opcional)', opcional: true, ads: ['AD 01', 'AD 02', 'AD 03'], nota: 'só com base ≥ 1.000 eventos ou lista' },
+            { nome: 'Conjunto 02', sub: 'Lookalike ou Remarketing (opcional)', opcional: true, ads: ['AD 01', 'AD 02', 'AD 03'], nota: 'só com base ≥ 1.000 eventos ou lista' },
           ],
         },
         {
