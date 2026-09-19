@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { Eye, EyeOff, Zap, Lock, Mail, CheckCircle2 } from 'lucide-react'
 
 export default function Login() {
-  const { login, loginWithGoogle, isSupabaseReady, authError } = useApp()
+  const { login, loginWithGoogle, authError } = useApp()
   const navigate = useNavigate()
 
   const [email, setEmail] = useState('')
@@ -232,8 +232,7 @@ export default function Login() {
               </form>
 
               {/* Google login */}
-              {isSupabaseReady && (
-                <div className="mt-4">
+              <div className="mt-4">
                   <div className="relative flex items-center gap-3 my-4">
                     <div className="flex-1 h-px bg-rl-border" />
                     <span className="text-rl-muted text-xs">ou</span>
@@ -257,8 +256,7 @@ export default function Login() {
                     )}
                     Entrar com Google
                   </button>
-                </div>
-              )}
+              </div>
 
               {/* Footer */}
               <div className="mt-6 pt-5 border-t border-rl-border text-center">

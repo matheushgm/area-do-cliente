@@ -1,3 +1,4 @@
+import { escapeHtml } from './utils'
 // PDF do Mecanismo Único — segue o mesmo padrão de src/utils/exportPDF.js
 // e src/lib/kickoffPDF.js (HTML + window.print()). Cobre as 6 seções do
 // playbook, o pitch montado, a análise IA e o posicionamento recomendado
@@ -10,14 +11,7 @@ import {
 } from '../components/MecanismoUnico/mecanismoUnicoData'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function esc(s) {
-  if (s == null) return ''
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+const esc = escapeHtml
 
 // Conversor markdown → HTML simples — suficiente pra ## headers, **bold**,
 // *italic*, listas e parágrafos do output do Claude.

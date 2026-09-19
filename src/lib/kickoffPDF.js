@@ -1,3 +1,4 @@
+import { escapeHtml } from './utils'
 // PDF do Kickoff — segue o mesmo padrão de src/utils/exportPDF.js
 // (HTML + window.print()). Duas páginas: diagnóstico visual + perguntas/respostas.
 
@@ -7,14 +8,7 @@ import { formatAnswer } from '../components/Kickoff/kickoffViewHelpers'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function esc(s) {
-  if (s == null) return ''
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+const esc = escapeHtml
 
 function severityColor(score) {
   if (score < 31) return '#EF4444'

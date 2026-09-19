@@ -34,7 +34,6 @@ export function useTarefas(user) {
 
   // ── Estrutura ──────────────────────────────────────────────────────────────
   const carregarEstrutura = useCallback(async () => {
-    if (!supabase) return
     setLoadingEstrutura(true)
     try {
       const [{ data: p, error: e1 }, { data: l, error: e2 }] = await Promise.all([
@@ -66,7 +65,6 @@ export function useTarefas(user) {
   }, [])
 
   const carregarListas = useCallback(async (listaIds, { force = false } = {}) => {
-    if (!supabase) return
     const faltam = (listaIds || []).filter((id) => force || !carregadas.current.has(id))
     if (!faltam.length) return
     setCarregando(true)
@@ -118,7 +116,6 @@ export function useTarefas(user) {
   }, [mesclar])
 
   const criarTarefa = useCallback(async (payload) => {
-    if (!supabase) return { error: 'Supabase não configurado.' }
     const lista = listasMap.get(payload.lista_id)
     const statuses = lista ? statusDaLista(lista) : STATUSES_PADRAO
     const st = payload.status ? statuses.find((s) => s.key === payload.status) : statusInicial(statuses)
@@ -149,7 +146,6 @@ export function useTarefas(user) {
   }, [listasMap, user, mesclar])
 
   const atualizarTarefa = useCallback(async (id, patch) => {
-    if (!supabase) return { error: 'Supabase não configurado.' }
     const anterior = itens[id]
     // otimista
     setItens((prev) => prev[id] ? { ...prev, [id]: { ...prev[id], ...patch, updated_at: new Date().toISOString() } } : prev)
@@ -173,7 +169,6 @@ export function useTarefas(user) {
   }, [atualizarTarefa])
 
   const excluirTarefa = useCallback(async (id) => {
-    if (!supabase) return { error: 'Supabase não configurado.' }
     const { error } = await supabase.from('tarefas_itens').delete().eq('id', id)
     if (error) return { error: error.message }
     setItens((prev) => {
@@ -187,7 +182,6 @@ export function useTarefas(user) {
 
   // ── Pastas e listas ────────────────────────────────────────────────────────
   const criarPasta = useCallback(async ({ nome, project_id = null }) => {
-    if (!supabase) return { error: 'Supabase não configurado.' }
     const { data, error } = await supabase.from('tarefas_pastas').insert({ nome: nome.trim(), project_id, posicao: Date.now() }).select().single()
     if (error) return { error: error.message }
     setPastas((prev) => [...prev, data])
@@ -198,7 +192,6 @@ export function useTarefas(user) {
   }, [])
 
   const atualizarPasta = useCallback(async (id, patch) => {
-    if (!supabase) return { error: 'Supabase não configurado.' }
     const { data, error } = await supabase.from('tarefas_pastas').update(patch).eq('id', id).select().single()
     if (error) return { error: error.message }
     setPastas((prev) => prev.map((p) => (p.id === id ? data : p)).filter((p) => !p.arquivada))
@@ -206,7 +199,6 @@ export function useTarefas(user) {
   }, [])
 
   const criarLista = useCallback(async ({ pasta_id, nome, statuses }) => {
-    if (!supabase) return { error: 'Supabase não configurado.' }
     const { data, error } = await supabase.from('tarefas_listas').insert({ pasta_id, nome: nome.trim(), statuses: statuses || STATUSES_PADRAO, posicao: Date.now() }).select().single()
     if (error) return { error: error.message }
     setListas((prev) => [...prev, data])
@@ -215,7 +207,6 @@ export function useTarefas(user) {
   }, [])
 
   const atualizarLista = useCallback(async (id, patch) => {
-    if (!supabase) return { error: 'Supabase não configurado.' }
     const { data, error } = await supabase.from('tarefas_listas').update(patch).eq('id', id).select().single()
     if (error) return { error: error.message }
     setListas((prev) => prev.map((l) => (l.id === id ? data : l)).filter((l) => !l.arquivada))
@@ -232,7 +223,6 @@ export function useTarefas(user) {
   }, [])
 
   const criarComentario = useCallback(async (tarefaId, texto) => {
-    if (!supabase) return { error: 'Supabase não configurado.' }
     const { data, error } = await supabase.from('tarefas_comentarios').insert({
       tarefa_id: tarefaId, texto: texto.trim(), autor_id: user?.id || null, autor_nome: user?.name || null,
     }).select().single()
@@ -246,7 +236,6 @@ export function useTarefas(user) {
   }, [user])
 
   const excluirComentario = useCallback(async (tarefaId, id) => {
-    if (!supabase) return { error: 'Supabase não configurado.' }
     const { error } = await supabase.from('tarefas_comentarios').delete().eq('id', id)
     if (error) return { error: error.message }
     setComentarios((prev) => ({ ...prev, [tarefaId]: (prev[tarefaId] || []).filter((c) => c.id !== id) }))
@@ -255,7 +244,6 @@ export function useTarefas(user) {
 
   // ── Realtime ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!supabase) return
     const ch = supabase
       .channel('tarefas-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tarefas_itens' }, ({ eventType, new: row, old }) => {

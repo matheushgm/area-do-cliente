@@ -1,3 +1,4 @@
+import { fmtCurrency } from '../lib/utils'
 import { useState, useCallback, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import {
@@ -47,10 +48,6 @@ function weightedTicket(produtos) {
 }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
-const fmtBRL = (n) => {
-  if (n == null || isNaN(n) || !isFinite(n)) return '—'
-  return n.toLocaleString('pt-BR', { style:'currency', currency:'BRL', minimumFractionDigits:0, maximumFractionDigits:0 })
-}
 const fmtPct  = (n, d=1) => (n == null || isNaN(n) || !isFinite(n)) ? '—' : `${(n*100).toFixed(d)}%`
 const fmtNum  = (n) => (n == null || isNaN(n) || !isFinite(n)) ? '—' : Math.ceil(n).toLocaleString('pt-BR')
 const numVal  = (v) => { const n = Number(String(v).replace(',','.')); return isNaN(n) ? 0 : n }
@@ -259,7 +256,7 @@ function ProdutosSection({ produtos, onChange }) {
       {weightedTicket(produtos) > 0 && (
         <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-rl-cyan/8 border border-rl-cyan/25">
           <span className="text-sm text-rl-muted">Ticket médio ponderado</span>
-          <span className="text-sm font-bold text-rl-cyan">{fmtBRL(weightedTicket(produtos))}</span>
+          <span className="text-sm font-bold text-rl-cyan">{fmtCurrency(weightedTicket(produtos))}</span>
         </div>
       )}
     </div>
@@ -334,7 +331,7 @@ function CustosSection({ custos, onChange }) {
       {total > 0 && (
         <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-rl-surface border border-rl-border">
           <span className="text-sm text-rl-muted">Total mensal de custos fixos</span>
-          <span className="text-sm font-bold text-rl-text">{fmtBRL(total)}</span>
+          <span className="text-sm font-bold text-rl-text">{fmtCurrency(total)}</span>
         </div>
       )}
     </div>
@@ -382,7 +379,7 @@ function RHSection({ rh, onChange }) {
           </div>
           {numVal(r.salario) > 0 && (
             <p className="text-xs text-rl-muted">
-              Custo real: <span className="text-rl-cyan font-semibold">{fmtBRL(numVal(r.salario) * (1 + numVal(r.encargos)/100))}</span>/mês
+              Custo real: <span className="text-rl-cyan font-semibold">{fmtCurrency(numVal(r.salario) * (1 + numVal(r.encargos)/100))}</span>/mês
             </p>
           )}
         </div>
@@ -392,11 +389,11 @@ function RHSection({ rh, onChange }) {
       </button>
       {rh.length > 0 && (
         <div className="glass-card p-4 space-y-2">
-          <div className="flex justify-between text-sm"><span className="text-rl-muted">Total salários</span><span>{fmtBRL(totalSal)}</span></div>
-          <div className="flex justify-between text-sm"><span className="text-rl-muted">Total encargos</span><span>{fmtBRL(totalEnc)}</span></div>
+          <div className="flex justify-between text-sm"><span className="text-rl-muted">Total salários</span><span>{fmtCurrency(totalSal)}</span></div>
+          <div className="flex justify-between text-sm"><span className="text-rl-muted">Total encargos</span><span>{fmtCurrency(totalEnc)}</span></div>
           <div className="flex justify-between text-sm font-bold border-t border-rl-border pt-2">
             <span className="text-rl-text">Custo total RH</span>
-            <span className="text-rl-cyan">{fmtBRL(totalSal + totalEnc)}</span>
+            <span className="text-rl-cyan">{fmtCurrency(totalSal + totalEnc)}</span>
           </div>
         </div>
       )}
@@ -412,7 +409,7 @@ function DRERow({ label, value, bold, negative, highlight, isPct, isRatio, thres
   if (value != null && !isNaN(value) && isFinite(value)) {
     if (isPct)        display = fmtPct(value)
     else if (isRatio) { display = value.toFixed(2) + 'x'; color = value >= (threshold||3) ? 'text-rl-green' : 'text-red-400' }
-    else              { display = fmtBRL(Math.abs(value)); if (negative && value !== 0) display = `(${display})` }
+    else              { display = fmtCurrency(Math.abs(value)); if (negative && value !== 0) display = `(${display})` }
 
     if      (highlight === 'green')  color = 'text-rl-green'
     else if (highlight === 'cyan')   color = 'text-rl-cyan'
@@ -457,12 +454,12 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
   }, [selMonth,realizado,setup,custos,rh,funil,ticket])
 
   const kpis = [
-    { label:'Meta Anual',           value: fmtBRL(annual),         color:'text-rl-green'  },
-    { label:'Projeção (soma 12m)',   value: fmtBRL(totalP),         color: Math.abs(totalP-annual)<1?'text-rl-green':'text-rl-gold' },
-    { label:'Ticket Médio Pond.',    value: fmtBRL(ticket),         color:'text-rl-cyan'   },
+    { label:'Meta Anual',           value: fmtCurrency(annual),         color:'text-rl-green'  },
+    { label:'Projeção (soma 12m)',   value: fmtCurrency(totalP),         color: Math.abs(totalP-annual)<1?'text-rl-green':'text-rl-gold' },
+    { label:'Ticket Médio Pond.',    value: fmtCurrency(ticket),         color:'text-rl-cyan'   },
     { label:'Taxa Mensal Composta',  value: `${(rate*100).toFixed(2)}%`, color:'text-rl-purple' },
-    { label:'Custo Total Fixo/mês',  value: fmtBRL(totalRH+totalFixos), color:'text-rl-gold' },
-    { label:'Realizado Acumulado',   value: fmtBRL(realTotal),      color:'text-rl-text'   },
+    { label:'Custo Total Fixo/mês',  value: fmtCurrency(totalRH+totalFixos), color:'text-rl-gold' },
+    { label:'Realizado Acumulado',   value: fmtCurrency(realTotal),      color:'text-rl-text'   },
   ]
 
   return (
@@ -502,7 +499,7 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
                   <tr key={m} onClick={() => setSelMonth(i)}
                     className={`border-b border-rl-border/30 cursor-pointer transition-colors ${isSel ? 'bg-rl-purple/10' : 'hover:bg-rl-surface/50'}`}>
                     <td className={`py-2.5 pr-3 font-semibold ${isSel ? 'text-rl-purple' : 'text-rl-text'}`}>{m}</td>
-                    <td className="py-2.5 px-3 text-right text-rl-text">{fmtBRL(plan)}</td>
+                    <td className="py-2.5 px-3 text-right text-rl-text">{fmtCurrency(plan)}</td>
                     <td className="py-2.5 px-3 text-right" onClick={e => e.stopPropagation()}>
                       <input type="number" value={realizado?.[i] ?? ''}
                         onChange={e => onRealizadoChange({ ...(realizado||{}), [i]: e.target.value })}
@@ -510,7 +507,7 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
                         placeholder="—" />
                     </td>
                     <td className={`py-2.5 px-3 text-right font-medium hidden sm:table-cell ${real===0?'text-rl-muted':delta>=0?'text-rl-green':'text-red-400'}`}>
-                      {real > 0 ? `${delta>=0?'+':''}${fmtBRL(delta)}` : '—'}
+                      {real > 0 ? `${delta>=0?'+':''}${fmtCurrency(delta)}` : '—'}
                     </td>
                     <td className="py-2.5 pl-3 hidden sm:table-cell">
                       {pct ? (
@@ -526,8 +523,8 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
             <tfoot>
               <tr className="border-t-2 border-rl-border font-bold text-sm">
                 <td className="py-2 pr-3 text-rl-text">Total</td>
-                <td className="py-2 px-3 text-right text-rl-green">{fmtBRL(totalP)}</td>
-                <td className="py-2 px-3 text-right text-rl-text">{realTotal > 0 ? fmtBRL(realTotal) : '—'}</td>
+                <td className="py-2 px-3 text-right text-rl-green">{fmtCurrency(totalP)}</td>
+                <td className="py-2 px-3 text-right text-rl-text">{realTotal > 0 ? fmtCurrency(realTotal) : '—'}</td>
                 <td colSpan={2} className="hidden sm:table-cell" />
               </tr>
             </tfoot>
@@ -552,7 +549,7 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Planned */}
           <div className="space-y-0.5">
-            <p className="text-xs font-bold text-rl-purple uppercase tracking-wider mb-3">Planejado — {fmtBRL(projs[selMonth])}</p>
+            <p className="text-xs font-bold text-rl-purple uppercase tracking-wider mb-3">Planejado — {fmtCurrency(projs[selMonth])}</p>
             <DRERow label="Receita Bruta"                    value={projs[selMonth]}    bold />
             <DRERow label={`(−) Impostos (${numVal(setup.taxaImposto)}%)`} value={-dreP.impostos} negative indent />
             <DRERow label="= Lucro Bruto"                    value={dreP.lucroBruto}    bold highlight="green" />
@@ -573,7 +570,7 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
           {/* Realized */}
           <div className="space-y-0.5">
             <p className="text-xs font-bold text-rl-gold uppercase tracking-wider mb-3">
-              Realizado — {numVal(realizado?.[selMonth]) > 0 ? fmtBRL(numVal(realizado[selMonth])) : 'Aguardando entrada'}
+              Realizado — {numVal(realizado?.[selMonth]) > 0 ? fmtCurrency(numVal(realizado[selMonth])) : 'Aguardando entrada'}
             </p>
             {dreR ? (
               <>
@@ -608,7 +605,7 @@ function DRESection({ setup, produtos, funil, custos, rh, realizado, onRealizado
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-rl-text mb-4">🔁 Funil Reverso — {MONTH_FULL[selMonth]} (Planejado)</h3>
           <p className="text-xs text-rl-muted mb-4">
-            Para faturar <span className="text-rl-green font-semibold">{fmtBRL(projs[selMonth])}</span> com ticket médio de <span className="text-rl-cyan font-semibold">{fmtBRL(ticket)}</span>, você precisa de:
+            Para faturar <span className="text-rl-green font-semibold">{fmtCurrency(projs[selMonth])}</span> com ticket médio de <span className="text-rl-cyan font-semibold">{fmtCurrency(ticket)}</span>, você precisa de:
           </p>
           <div className="flex items-center gap-3 flex-wrap">
             {[

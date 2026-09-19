@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api'
 // Módulo Tarefas: réplica do ClickUp dentro da Área do Cliente, no visual do
 // Linear (tokens ln-*, mesmo frame do módulo Atividades).
 //
@@ -57,23 +58,18 @@ function useSyncClickup({ ativo, aoTerminar }) {
   const disparado = useRef(false)
 
   const lerEstado = useCallback(async () => {
-    if (!supabase) return null
     const { data } = await supabase.from('tarefas_sync').select('*').eq('id', 'clickup').maybeSingle()
     setEstado(data || null)
     return data
   }, [])
 
   const sincronizar = useCallback(async () => {
-    if (!supabase || rodando) return
+    if (rodando) return
     setRodando(true)
     setErro(null)
     try {
-      const { data: s } = await supabase.auth.getSession()
-      const token = s?.session?.access_token
-      if (!token) throw new Error('Sessão expirada.')
-      const res = await fetch('/api/tarefas-sync', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: '{}' })
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok || json.ok === false) throw new Error(json.error || `HTTP ${res.status}`)
+      const json = await apiFetch('/api/tarefas-sync', { body: {} })
+      if (json.ok === false) throw new Error(json.error || 'Falha na sincronização.')
       await lerEstado()
       aoTerminar?.(json)
     } catch (e) {

@@ -210,7 +210,6 @@ export function useChat({ user, teamMembers }) {
   }, [garantirMembro, teamMembers, userId])
 
   const excluir = useCallback(async (msg) => {
-    if (!supabase) return
     setMensagens((prev) => prev.filter((m) => m.id !== msg.id))
     setRespostas((prev) => prev.filter((m) => m.id !== msg.id))
     if (msg.parent_id) setMensagens((prev) => prev.map((m) => m.id === msg.parent_id ? { ...m, replies_count: Math.max(0, (m.replies_count || 1) - 1) } : m))
@@ -219,7 +218,6 @@ export function useChat({ user, teamMembers }) {
   }, [])
 
   const reagir = useCallback(async (msg, emoji) => {
-    if (!supabase) return
     // otimista
     const aplicar = (m) => {
       if (m.id !== msg.id) return m
@@ -237,7 +235,6 @@ export function useChat({ user, teamMembers }) {
   }, [userId])
 
   const alternarFavorito = useCallback(async (canal) => {
-    if (!supabase) return
     await garantirMembro(canal.id)
     const novo = !canal.favorito
     setMembrosPorCanal((prev) => { const n = new Map(prev); n.set(canal.id, (n.get(canal.id) || []).map((m) => m.user_id === userId ? { ...m, favorite: novo } : m)); return n })

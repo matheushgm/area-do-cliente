@@ -1,3 +1,4 @@
+import { fmtCurrency } from '../lib/utils'
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -26,11 +27,6 @@ const DEFAULT_STAGES = CATEGORIES.map((c, i) => ({
   order: i,
 }))
 
-function fmtBRL(n) {
-  if (!n && n !== 0) return '—'
-  return Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
-}
-
 function initCRM(existing) {
   if (existing?.stages?.length) return existing
   return { stages: DEFAULT_STAGES, contacts: [] }
@@ -55,7 +51,7 @@ function ContactCard({ contact, onDelete, onDragStart }) {
         </button>
       </div>
       {contact.valor > 0 && (
-        <p className="text-xs font-bold text-green-600 mt-1">{fmtBRL(contact.valor)}</p>
+        <p className="text-xs font-bold text-green-600 mt-1">{fmtCurrency(contact.valor)}</p>
       )}
       {contact.email && (
         <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-1 truncate">
@@ -194,7 +190,7 @@ function KanbanColumn({ stage, contacts, draggingId, onDragStart, onDrop, onAddC
         <div className={`mt-1.5 text-[10px] px-2 py-0.5 rounded-full w-fit ${cat.bgClass} ${cat.textClass} border ${cat.borderClass}`}>
           {cat.label}
         </div>
-        {total > 0 && <p className="text-[11px] font-semibold text-green-600 mt-1">{fmtBRL(total)}</p>}
+        {total > 0 && <p className="text-[11px] font-semibold text-green-600 mt-1">{fmtCurrency(total)}</p>}
       </div>
 
       <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[420px]">
@@ -331,7 +327,7 @@ export default function CRMPublico() {
             <div key={cat.id} className={`bg-white rounded-2xl border p-4 ${cat.borderClass}`}>
               <p className={`text-[10px] font-bold uppercase tracking-wider ${cat.textClass}`}>{cat.label}</p>
               <p className={`text-3xl font-black mt-1 ${cat.textClass}`}>{count}</p>
-              {valor > 0 && <p className="text-[11px] text-gray-400 mt-0.5">{fmtBRL(valor)}</p>}
+              {valor > 0 && <p className="text-[11px] text-gray-400 mt-0.5">{fmtCurrency(valor)}</p>}
             </div>
           ))}
         </div>

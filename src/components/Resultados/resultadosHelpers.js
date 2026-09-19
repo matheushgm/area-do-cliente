@@ -1,14 +1,10 @@
+import { fmtCurrency } from '../../lib/utils'
 export const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
 
-export function fmtMoney(n) {
-  if (!n && n !== 0) return '—'
-  const num = Number(n)
-  if (!isFinite(num)) return '—'
-  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
+export const fmtMoney = (n) => fmtCurrency(n, 2)
 
 // Sem centavos — usado em painéis densos (scorecards) onde precisão de
 // centavos só atrapalha a leitura rápida.

@@ -2,6 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL  = import.meta.env.SUPABASE_URL      || ''
 const SUPABASE_ANON = import.meta.env.SUPABASE_ANON_KEY || ''
+if (!SUPABASE_URL || !SUPABASE_ANON) {
+  throw new Error('SUPABASE_URL e SUPABASE_ANON_KEY são obrigatórias (ver .env.example).')
+}
 
 // Lock no-op em vez do default da lib (que usa Web Locks API).
 // O default coordena refresh do token entre múltiplas abas, mas em casos
@@ -13,19 +16,15 @@ async function noopLock(_name, _timeout, fn) {
   return await fn()
 }
 
-export const supabase = (SUPABASE_URL && SUPABASE_ANON)
-  ? createClient(SUPABASE_URL, SUPABASE_ANON, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        flowType: 'pkce',
-        lock: noopLock,
-      },
-    })
-  : null
-
-export const isSupabaseReady = !!(SUPABASE_URL && SUPABASE_ANON)
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+    lock: noopLock,
+  },
+})
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
 
@@ -37,7 +36,6 @@ export const isSupabaseReady = !!(SUPABASE_URL && SUPABASE_ANON)
  * @returns {Promise<string|null>} URL do arquivo ou null em caso de erro
  */
 export async function uploadFile(bucket, path, file) {
-  if (!supabase) return null
   const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true })
   if (error) { console.error('[Storage] upload:', error.message); return null }
   const { data } = supabase.storage.from(bucket).getPublicUrl(path)
@@ -50,7 +48,6 @@ export async function uploadFile(bucket, path, file) {
  * @param {string} path
  */
 export async function deleteFile(bucket, path) {
-  if (!supabase) return
   const { error } = await supabase.storage.from(bucket).remove([path])
   if (error) console.error('[Storage] delete:', error.message)
 }
@@ -62,7 +59,6 @@ export async function deleteFile(bucket, path) {
  * @returns {Promise<string|null>}
  */
 export async function getSignedUrl(bucket, path) {
-  if (!supabase) return null
   const { data, error } = await supabase.storage
     .from(bucket)
     .createSignedUrl(path, 3600)

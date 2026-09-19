@@ -1,3 +1,4 @@
+import { fmtDate, todayISO } from '../lib/utils'
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import Modal from './UI/Modal'
@@ -50,19 +51,7 @@ function getQ2Label(score) {
   return 'O que mais te surpreendeu positivamente na nossa parceria até agora?'
 }
 
-function fmtDate(iso) {
-  if (!iso) return ''
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function fmtDue(iso) {
-  if (!iso) return null
-  // Data pura (YYYY-MM-DD): montar local, senão o fuso joga para o dia anterior
-  const [y, m, d] = iso.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-const hojeISO = () => new Date().toISOString().slice(0, 10)
+const fmtDue = (iso) => fmtDate(iso) || null
 
 // ─── Radio Option ─────────────────────────────────────────────────────────────
 
@@ -387,12 +376,12 @@ function MarcoCard({ marco, index, onAddResponse, onClearAll, onCopyLink, isCopi
               </span>
               {marco.dueAt && (
                 <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex items-center gap-1 ${
-                  !hasResponses && marco.dueAt <= hojeISO()
+                  !hasResponses && marco.dueAt <= todayISO()
                     ? 'bg-rl-gold/10 border-rl-gold/25 text-rl-gold'
                     : 'bg-rl-surface border-rl-border text-rl-muted'
                 }`}>
                   <Calendar className="w-2.5 h-2.5" />
-                  {!hasResponses && marco.dueAt <= hojeISO() ? 'Previsto para ' : ''}{fmtDue(marco.dueAt)}
+                  {!hasResponses && marco.dueAt <= todayISO() ? 'Previsto para ' : ''}{fmtDue(marco.dueAt)}
                 </span>
               )}
             </div>

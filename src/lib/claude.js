@@ -1,3 +1,4 @@
+import { sessionToken } from './api'
 /**
  * streamClaude — gera texto via Anthropic API com streaming SSE.
  *
@@ -11,16 +12,10 @@
  * @returns {Promise<string>} texto completo gerado
  */
 export async function streamClaude({ model, max_tokens, system, messages, onChunk, signal }) {
-  // Obter token de sessão do Supabase para autenticar no endpoint
-  let sessionToken = null
-  try {
-    const { supabase } = await import('./supabase.js')
-    const { data } = await supabase?.auth.getSession() ?? {}
-    sessionToken = data?.session?.access_token ?? null
-  } catch { /* sem token — o servidor retornará 401 */ }
-
+  // Sem token o servidor responde 401 — a mensagem chega pelo fluxo de erro abaixo.
+  const token = await sessionToken().catch(() => null)
   const headers = { 'content-type': 'application/json' }
-  if (sessionToken) headers['Authorization'] = `Bearer ${sessionToken}`
+  if (token) headers['Authorization'] = `Bearer ${token}`
 
   const res = await fetch('/api/anthropic', {
     method: 'POST',

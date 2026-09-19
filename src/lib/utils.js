@@ -4,10 +4,89 @@ export function initials(name = '') {
   return name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('')
 }
 
-// n == null cobre tanto null quanto undefined sem tratar 0 como inválido
-export function fmtCurrency(n) {
-  if (n == null || isNaN(n) || !isFinite(n)) return '—'
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+// Iniciais no padrão do ClickUp: primeiro + último nome ("Ana Souza" → "AS").
+export function iniciais(nome) {
+  const partes = String(nome || '').trim().split(/\s+/).filter(Boolean)
+  if (!partes.length) return '?'
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase()
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase()
+}
+
+// Moeda BRL; `decimals` = casas decimais (0 por padrão). Vazio/NaN/∞ → '—'.
+export function fmtCurrency(n, decimals = 0) {
+  const v = Number(n)
+  if (n == null || n === '' || isNaN(v) || !isFinite(v)) return '—'
+  return v.toLocaleString('pt-BR', {
+    style: 'currency', currency: 'BRL', minimumFractionDigits: decimals, maximumFractionDigits: decimals,
+  })
+}
+
+// Inteiro no padrão BR ("12.345"); ∞ vira "∞".
+export function fmtNum(n) {
+  if (n == null || isNaN(n)) return '—'
+  if (!isFinite(n)) return '∞'
+  return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+}
+
+// Data curta em pt-BR ("14 de set. de 2026"). Aceita ISO completo ou yyyy-mm-dd
+// (interpretado como data local, senão o fuso joga para o dia anterior).
+// `time` inclui hora:minuto; `year: false` omite o ano. Vazio/inválido → ''.
+export function fmtDate(iso, { time = false, year = true } = {}) {
+  if (!iso) return ''
+  const d = new Date(typeof iso === 'string' && iso.length === 10 ? iso + 'T00:00:00' : iso)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('pt-BR', {
+    day: '2-digit', month: 'short',
+    ...(year ? { year: 'numeric' } : {}),
+    ...(time ? { hour: '2-digit', minute: '2-digit' } : {}),
+  })
+}
+
+// Hoje em yyyy-mm-dd no fuso local.
+export function todayISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Escapa texto para interpolar em HTML (PDFs, templates).
+export function escapeHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+// Dispara o "salvar como" do navegador para um Blob.
+export function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+// Baixa um arquivo remoto com o nome dado; se o fetch falhar (CORS), abre numa aba.
+export async function downloadUrl(url, filename) {
+  try {
+    downloadBlob(await (await fetch(url)).blob(), filename)
+  } catch {
+    window.open(url, '_blank')
+  }
+}
+
+// Slug seguro pra nome de arquivo (acentos viram ascii, espaços viram -).
+export function slugify(str) {
+  return String(str || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .slice(0, 60) || 'criativo'
 }
 
 // MRR normalizado: programas (contractModel === 'aceleracao') são contratos

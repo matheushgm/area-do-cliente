@@ -1,3 +1,4 @@
+import { escapeHtml } from '../../../lib/utils'
 // ─── Helpers compartilhados dos wireframes de anúncio ─────────────────────────
 // Funções puras usadas pelos builders de HTML dos wireframes (escape, rich text,
 // blocos de mídia com placeholder). Cada wireframe gera um HTML standalone —
@@ -8,14 +9,7 @@ export const AD_FORMATS = [
   { id: 'story', label: 'Story — 1080×1920', width: 1080, height: 1920 },
 ]
 
-export function escapeHtml(s) {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
+export { escapeHtml }
 
 // Escape + **negrito** → <strong> (estilizado com a cor de destaque no CSS
 // do wireframe) + quebras de linha → <br>.

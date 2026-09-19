@@ -1,3 +1,4 @@
+import { fmtCurrency, todayISO } from '../../lib/utils'
 export const CHANNEL_OPTIONS = ['Meta Ads', 'Google Ads', 'LinkedIn Ads', 'TikTok Ads', 'YouTube Ads']
 
 export const STAGE_KEYS = ['topo', 'meio', 'fundo']
@@ -31,13 +32,7 @@ export function defaultEndDateISO() {
 }
 
 // Hoje em ISO yyyy-mm-dd (mín. permitido para a data final).
-export function todayISO() {
-  const t = new Date()
-  const yyyy = t.getFullYear()
-  const mm   = String(t.getMonth() + 1).padStart(2, '0')
-  const dd   = String(t.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
+export { todayISO }
 
 // Dias entre data de início e data final, inclusive (mín. 1). Se startISO for
 // passado, conta a partir de hoje (não vamos espalhar orçamento em dias já
@@ -80,14 +75,9 @@ export function getPeriodLabel(startDateISO, endDateISO) {
   return `${start.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} até ${end.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
 }
 
-export function fmtBRL(n) {
-  if (n == null || !isFinite(n) || isNaN(n)) return '—'
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
+export const fmtBRL = (n) => fmtCurrency(n, 2)
 
-export function uid() {
-  return Math.random().toString(36).slice(2, 9)
-}
+export const uid = () => crypto.randomUUID()
 
 export function makeChannel(name = '') {
   return {

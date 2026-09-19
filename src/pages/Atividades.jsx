@@ -108,7 +108,6 @@ export default function Atividades() {
   const [historico, setHistorico] = useState([])
   const [loadingHist, setLoadingHist] = useState(true)
   const carregarHistorico = useCallback(async () => {
-    if (!supabase) { setLoadingHist(false); return }
     const { data, error } = await supabase
       .from('atividades_planejadas')
       .select('*')

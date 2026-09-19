@@ -56,24 +56,4 @@ export async function elementToPngBlob(el, opts = {}) {
   })
 }
 
-/** Helper de download: dispara o save-as no navegador. */
-export function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
-/** Slug seguro pra nome de arquivo (acentos viram ascii, espaços viram -). */
-export function slugify(str) {
-  return String(str || '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-    .slice(0, 60) || 'criativo'
-}
+export { downloadBlob, slugify } from './utils'

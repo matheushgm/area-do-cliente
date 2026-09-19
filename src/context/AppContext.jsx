@@ -6,7 +6,7 @@ import {
   useCallback,
   useEffect,
 } from "react";
-import { supabase, isSupabaseReady } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 
 // Exportado só para o preview de desenvolvimento (src/dev/*), que injeta um
 // contexto fake sem passar pelo Supabase Auth.
@@ -321,7 +321,6 @@ function assembleProject(row, rel = {}) {
 
 // ─── Supabase: busca todos os projetos + relações ──────────────────────────────
 async function sbFetchAll() {
-  if (!supabase) return null;
 
   const { data: projects, error: pErr } = await supabase
     .from("projects_v2")
@@ -486,7 +485,6 @@ const normalizeCol = (col, val) =>
 
 // ─── Supabase: update roteado por tabela ──────────────────────────────────────
 async function sbUpdateProjectV2(id, patch) {
-  if (!supabase) return { blocked: false };
 
   // ── 1. Campos da tabela projects_v2 ────────────────────────────────────────
   const projectCols = {};
@@ -817,7 +815,6 @@ async function sbUpdateProjectV2(id, patch) {
 }
 
 async function sbDeleteProject(id) {
-  if (!supabase) return;
   const { error } = await supabase.from("projects_v2").delete().eq("id", id);
   if (error) console.error("[Supabase] delete projects_v2:", error.message);
 }
@@ -850,7 +847,7 @@ export function AppProvider({ children }) {
   // ── Projects ──────────────────────────────────────────────────────────────
   const [projects, setProjects] = useState(loadFromStorage);
 
-  const [loadingProjects, setLoadingProjects] = useState(isSupabaseReady);
+  const [loadingProjects, setLoadingProjects] = useState(true);
   const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved'
   const pendingWrites    = useRef(0);
   const upsertTimers     = useRef({});
@@ -864,7 +861,6 @@ export function AppProvider({ children }) {
 
   // ── Auth session restore + listener ───────────────────────────────────────
   useEffect(() => {
-    if (!supabase) { setLoadingAuth(false); return; }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(enrichUser(session?.user ?? null));
@@ -897,8 +893,6 @@ export function AppProvider({ children }) {
 
   // ── Cloud sync — re-executa quando usuário muda (login/logout) ───────────
   useEffect(() => {
-    if (!isSupabaseReady) return;
-
     if (!user) {
       setProjects([]);
       saveToStorage([]);
@@ -943,7 +937,6 @@ export function AppProvider({ children }) {
 
   // ── Real-time subscription (projects_v2) ──────────────────────────────────
   useEffect(() => {
-    if (!supabase) return;
     const channel = supabase
       .channel("projects-v2-realtime")
       .on(
@@ -1007,7 +1000,6 @@ export function AppProvider({ children }) {
 
   // ── Auth actions ──────────────────────────────────────────────────────────
   const login = useCallback(async (email, password) => {
-    if (!supabase) return { ok: false, error: "Supabase não configurado." };
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { ok: false, error: error.message };
     return { ok: true, user: enrichUser(data.user) };
@@ -1019,7 +1011,6 @@ export function AppProvider({ children }) {
   }, []);
 
   const loginWithGoogle = useCallback(async () => {
-    if (!supabase) return { ok: false, error: "Supabase não configurado." };
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin },
@@ -1141,7 +1132,6 @@ export function AppProvider({ children }) {
 
   // ── Squads CRUD ───────────────────────────────────────────────────────────
   const addSquad = useCallback(async (data) => {
-    if (!supabase) return { error: "Supabase não configurado." };
     const insertCols = {
       name: data.name,
       emoji: data.emoji || null,
@@ -1178,7 +1168,6 @@ export function AppProvider({ children }) {
   }, []);
 
   const updateSquad = useCallback(async (id, data) => {
-    if (!supabase) return { error: "Supabase não configurado." };
     const updateCols = {
       name: data.name,
       emoji: data.emoji ?? null,
@@ -1214,7 +1203,6 @@ export function AppProvider({ children }) {
   }, []);
 
   const deleteSquad = useCallback(async (id) => {
-    if (!supabase) return { error: "Supabase não configurado." };
     const { error } = await supabase.from("squads").delete().eq("id", id);
     if (error) return { error: error.message };
     setSquads((prev) => prev.filter((s) => s.id !== id));
@@ -1235,7 +1223,6 @@ export function AppProvider({ children }) {
   }, []);
 
   const addNpsMarco = useCallback(async (projectId, data) => {
-    if (!supabase) return { error: "Supabase não configurado." };
     const { data: row, error } = await supabase
       .from("nps_marcos")
       .insert({
@@ -1258,7 +1245,6 @@ export function AppProvider({ children }) {
   }, [patchNpsMarcos]);
 
   const updateNpsMarco = useCallback(async (projectId, marcoId, patch) => {
-    if (!supabase) return { error: "Supabase não configurado." };
     const cols = {};
     if ("label"     in patch) cols.label     = patch.label;
     if ("descricao" in patch) cols.descricao = patch.descricao || null;
@@ -1276,7 +1262,6 @@ export function AppProvider({ children }) {
 
   // Só marcos 'custom' são removíveis — os três padrão fazem parte da jornada
   const deleteNpsMarco = useCallback(async (projectId, marcoId) => {
-    if (!supabase) return { error: "Supabase não configurado." };
     const { error } = await supabase
       .from("nps_marcos").delete().eq("id", marcoId).eq("origem", "custom");
     if (error) return { error: error.message };
@@ -1285,7 +1270,6 @@ export function AppProvider({ children }) {
   }, [patchNpsMarcos]);
 
   const addNpsResposta = useCallback(async (projectId, marcoId, data) => {
-    if (!supabase) return { error: "Supabase não configurado." };
     const { data: row, error } = await supabase
       .from("nps_respostas")
       .insert({
@@ -1315,7 +1299,6 @@ export function AppProvider({ children }) {
   }, [patchNpsMarcos]);
 
   const deleteNpsResposta = useCallback(async (projectId, marcoId, respostaId) => {
-    if (!supabase) return { error: "Supabase não configurado." };
     const { error } = await supabase.from("nps_respostas").delete().eq("id", respostaId);
     if (error) return { error: error.message };
     patchNpsMarcos(projectId, (cur) =>
@@ -1329,7 +1312,6 @@ export function AppProvider({ children }) {
   }, [patchNpsMarcos]);
 
   const clearNpsMarco = useCallback(async (projectId, marcoId) => {
-    if (!supabase) return { error: "Supabase não configurado." };
     const { error } = await supabase.from("nps_respostas").delete().eq("marco_id", marcoId);
     if (error) return { error: error.message };
     patchNpsMarcos(projectId, (cur) =>
@@ -1352,7 +1334,6 @@ export function AppProvider({ children }) {
     addProject,
     updateProject,
     deleteProject,
-    isSupabaseReady,
     teamMembers,
     squads,
     addSquad,

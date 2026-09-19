@@ -1,3 +1,4 @@
+import { fmtCurrency } from '../lib/utils'
 import { useState, useMemo } from 'react'
 import {
   FlaskConical, DollarSign, Calendar, ChevronDown, ChevronUp,
@@ -57,11 +58,6 @@ const PHASE_DEF = [
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function fmtBRL(n) {
-  if (n == null || !isFinite(n) || isNaN(n)) return '—'
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })
-}
 
 function calcPhase(budget, totalItems, keepMax) {
   for (let n = totalItems; n >= 1; n--) {
@@ -164,7 +160,7 @@ function PhaseCard({ def, plan, audienceType, isFirst }) {
         <div className="flex items-center gap-3 shrink-0">
           <div className="text-right hidden sm:block">
             <p className="text-[10px] text-rl-muted">{def.days}</p>
-            <p className="text-sm font-bold text-rl-text">{fmtBRL(plan.totalCost)}</p>
+            <p className="text-sm font-bold text-rl-text">{fmtCurrency(plan.totalCost)}</p>
           </div>
           {open ? <ChevronUp className="w-4 h-4 text-rl-muted" /> : <ChevronDown className="w-4 h-4 text-rl-muted" />}
         </div>
@@ -193,11 +189,11 @@ function PhaseCard({ def, plan, audienceType, isFirst }) {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-rl-subtle">Verba por conjunto</span>
-                  <span className="text-sm font-semibold text-rl-text">{fmtBRL(DAILY)}/dia</span>
+                  <span className="text-sm font-semibold text-rl-text">{fmtCurrency(DAILY)}/dia</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-rl-border/60 pt-1.5 mt-1.5">
                   <span className="text-xs font-medium text-rl-text">Gasto no Dia 1</span>
-                  <span className={`text-sm font-bold ${c.text}`}>{fmtBRL(plan.dia1Cost)}</span>
+                  <span className={`text-sm font-bold ${c.text}`}>{fmtCurrency(plan.dia1Cost)}</span>
                 </div>
               </div>
             </div>
@@ -215,11 +211,11 @@ function PhaseCard({ def, plan, audienceType, isFirst }) {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-rl-subtle">Gasto diário (dias 2–7)</span>
-                  <span className="text-sm font-semibold text-rl-text">{fmtBRL(plan.keepAfterDay1 * DAILY)}/dia</span>
+                  <span className="text-sm font-semibold text-rl-text">{fmtCurrency(plan.keepAfterDay1 * DAILY)}/dia</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-rl-border/60 pt-1.5 mt-1.5">
                   <span className="text-xs font-medium text-rl-text">Total dias 2–7</span>
-                  <span className={`text-sm font-bold ${c.text}`}>{fmtBRL(plan.dias2a7Cost)}</span>
+                  <span className={`text-sm font-bold ${c.text}`}>{fmtCurrency(plan.dias2a7Cost)}</span>
                 </div>
               </div>
             </div>
@@ -481,7 +477,7 @@ export default function MetaLabModule({ project }) {
         <div className="glass-card p-8 text-center">
           <AlertCircle className="w-8 h-8 text-rl-gold/60 mx-auto mb-2" />
           <p className="text-rl-muted text-sm">Orçamento insuficiente para o laboratório</p>
-          <p className="text-rl-muted/60 text-xs mt-1">Mínimo recomendado: {fmtBRL(DAILY * 7)} (1 conjunto por 7 dias)</p>
+          <p className="text-rl-muted/60 text-xs mt-1">Mínimo recomendado: {fmtCurrency(DAILY * 7)} (1 conjunto por 7 dias)</p>
         </div>
       )}
 
@@ -516,7 +512,7 @@ export default function MetaLabModule({ project }) {
               <div className="flex items-center gap-6">
                 <div className="text-center">
                   <p className="text-[10px] text-rl-muted">Investimento total</p>
-                  <p className={`text-xl font-bold ${lab.labColor}`}>{fmtBRL(lab.total)}</p>
+                  <p className={`text-xl font-bold ${lab.labColor}`}>{fmtCurrency(lab.total)}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-[10px] text-rl-muted">Duração</p>
@@ -541,7 +537,7 @@ export default function MetaLabModule({ project }) {
               {[lab.f1, lab.f2, lab.f3].map((f, i) => f && (
                 <div key={i} className="flex-1 flex items-center gap-1.5">
                   <div className={`w-2 h-2 rounded-full ${['bg-rl-purple','bg-rl-blue','bg-rl-gold'][i]}`} />
-                  <span className="text-[10px] text-rl-muted">Fase 0{i+1} — {fmtBRL(f.totalCost)}</span>
+                  <span className="text-[10px] text-rl-muted">Fase 0{i+1} — {fmtCurrency(f.totalCost)}</span>
                 </div>
               ))}
             </div>
@@ -552,8 +548,8 @@ export default function MetaLabModule({ project }) {
                 <AlertCircle className="w-3.5 h-3.5 text-rl-gold shrink-0 mt-0.5" />
                 <p className="text-xs text-rl-gold">
                   {!lab.f2
-                    ? `Com mais R${(1925 - budget).toLocaleString('pt-BR')} você inclui a Fase 02 (teste de públicos). Orçamento mínimo: ${fmtBRL(1925)}.`
-                    : `Com mais R${(2520 - budget).toLocaleString('pt-BR')} você inclui a Fase 03 (teste de ganchos). Orçamento mínimo: ${fmtBRL(2520)}.`
+                    ? `Com mais R${(1925 - budget).toLocaleString('pt-BR')} você inclui a Fase 02 (teste de públicos). Orçamento mínimo: ${fmtCurrency(1925)}.`
+                    : `Com mais R${(2520 - budget).toLocaleString('pt-BR')} você inclui a Fase 03 (teste de ganchos). Orçamento mínimo: ${fmtCurrency(2520)}.`
                   }
                 </p>
               </div>
@@ -601,18 +597,18 @@ export default function MetaLabModule({ project }) {
                     )}
                   </div>
                   <span className={`text-sm font-bold ${plan ? color : 'text-rl-muted'}`}>
-                    {plan ? fmtBRL(plan.totalCost) : 'não incluída'}
+                    {plan ? fmtCurrency(plan.totalCost) : 'não incluída'}
                   </span>
                 </div>
               ))}
               <div className="flex items-center justify-between rounded-xl bg-rl-surface border border-rl-border px-3 py-3 mt-1">
                 <span className="text-sm font-semibold text-rl-text">Total do Laboratório</span>
-                <span className={`text-lg font-bold ${lab.labColor}`}>{fmtBRL(lab.total)}</span>
+                <span className={`text-lg font-bold ${lab.labColor}`}>{fmtCurrency(lab.total)}</span>
               </div>
               {lab.total < budget && (
                 <div className="flex items-center justify-between rounded-lg bg-rl-green/5 border border-rl-green/20 px-3 py-2">
                   <span className="text-xs text-rl-green">Saldo restante (após o lab)</span>
-                  <span className="text-sm font-bold text-rl-green">{fmtBRL(budget - lab.total)}</span>
+                  <span className="text-sm font-bold text-rl-green">{fmtCurrency(budget - lab.total)}</span>
                 </div>
               )}
             </div>

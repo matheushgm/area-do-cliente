@@ -1,3 +1,4 @@
+import { iniciais } from './utils'
 // Helpers puros do módulo Tarefas (réplica do ClickUp): statuses, prioridades,
 // agrupamentos, formatação de datas e cores. Sem React, sem Supabase.
 
@@ -210,12 +211,7 @@ export function corDaPessoa(id, corFixa) {
   return PALETA[h % PALETA.length]
 }
 
-export function iniciais(nome) {
-  const partes = String(nome || '').trim().split(/\s+/).filter(Boolean)
-  if (!partes.length) return '?'
-  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase()
-  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase()
-}
+export { iniciais }
 
 /** Lista unificada de pessoas de uma tarefa: perfis mapeados + extras do ClickUp. */
 export function pessoasDaTarefa(item, membrosMap) {

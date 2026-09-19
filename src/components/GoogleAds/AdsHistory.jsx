@@ -1,3 +1,4 @@
+import { fmtDate } from '../../lib/utils'
 import { useState } from 'react'
 import { History, ChevronDown, ChevronUp, Trash2, Copy, CheckCheck } from 'lucide-react'
 import ResultCard from './ResultCard'
@@ -43,13 +44,6 @@ export default function AdsHistory({ project, updateProject }) {
     updateProject(project.id, { googleAds: (project.googleAds || []).filter((g) => g.id !== id) })
   }
 
-  function fmtDate(iso) {
-    if (!iso) return '—'
-    return new Date(iso).toLocaleDateString('pt-BR', {
-      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-    })
-  }
-
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -65,7 +59,7 @@ export default function AdsHistory({ project, updateProject }) {
           <div key={entry.id}>
             <div className="px-4 py-3 border-b border-rl-border/40 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <span className="text-[10px] text-rl-muted shrink-0">{fmtDate(entry.createdAt)}</span>
+                <span className="text-[10px] text-rl-muted shrink-0">{fmtDate(entry.createdAt, { time: true, year: false }) || '—'}</span>
                 <div className="flex flex-wrap gap-1 min-w-0">
                   {(entry.campaignTypes || []).map((t) => {
                     const ct = CAMPAIGN_TYPES.find((c) => c.id === t)

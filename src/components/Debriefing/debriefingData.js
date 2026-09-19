@@ -1,3 +1,4 @@
+import { todayISO } from '../../lib/utils'
 // Constantes compartilhadas pelo módulo de Debriefing.
 
 // ─── Status do anúncio ────────────────────────────────────────────────────────
@@ -93,10 +94,7 @@ export function fmtDateBR(iso) {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
 }
 
-// Helper: data de hoje no formato yyyy-mm-dd
-export function todayISO() {
-  return new Date().toISOString().slice(0, 10)
-}
+export { todayISO }
 
 // Helper: timestamp ISO completo → "dd/mm/yyyy às HH:MM" no fuso local.
 // Usado nos registros de aprovação (enviadoEm / decididoEm).

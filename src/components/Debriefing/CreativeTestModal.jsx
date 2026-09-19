@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api'
 import { useEffect, useState, useCallback } from 'react'
 import { FlaskConical, X, Loader2, CheckCircle2, AlertTriangle, Clock, Play } from 'lucide-react'
 import Modal from '../UI/Modal'
@@ -74,15 +75,7 @@ export default function CreativeTestModal({ project, onClose, onToast }) {
       if (insErr) throw new Error(insErr.message)
 
       // 2. dispara o motor (workflow_dispatch) com o JWT da sessão
-      const { data: { session } } = await supabase.auth.getSession()
-      const r = await fetch('/api/launch-creative', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
-      })
-      if (!r.ok) {
-        const e = await r.json().catch(() => ({}))
-        throw new Error(e.error?.message || ('HTTP ' + r.status))
-      }
+      await apiFetch('/api/launch-creative', { method: 'POST' })
       onToast?.('Teste enviado! Publicando na nuvem (~1-2 min) — sobe PAUSADO.')
       setDriveLink(''); setLabel('')
       await loadTests()
@@ -96,16 +89,7 @@ export default function CreativeTestModal({ project, onClose, onToast }) {
   const activate = async (testId) => {
     setActivating(testId)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const r = await fetch('/api/activate-ad', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session?.access_token || ''}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ test_id: testId }),
-      })
-      if (!r.ok) {
-        const e = await r.json().catch(() => ({}))
-        throw new Error(e.error?.message || ('HTTP ' + r.status))
-      }
+      await apiFetch('/api/activate-ad', { body: { test_id: testId } })
       onToast?.('Anúncio ativado! Veredito automático em 7 dias.')
       await loadTests()
     } catch (e) {

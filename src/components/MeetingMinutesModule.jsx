@@ -1,5 +1,5 @@
+import { fmtDate, todayISO } from '../lib/utils'
 import { useState, useEffect } from 'react'
-import PropTypes from 'prop-types'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import Modal from './UI/Modal'
@@ -89,12 +89,6 @@ function ParticipantsSelect({ members, selectedIds, onChange }) {
       )}
     </div>
   )
-}
-
-ParticipantsSelect.propTypes = {
-  members: PropTypes.array.isRequired,
-  selectedIds: PropTypes.array.isRequired,
-  onChange: PropTypes.func.isRequired,
 }
 
 // ─── Configuração das 3 assinaturas ──────────────────────────────────────────
@@ -189,17 +183,6 @@ const ACTION_AREAS = [
   { value: 'marketing', label: 'Marketing', Icon: Megaphone, color: 'text-rl-purple', bg: 'bg-rl-purple/10', border: 'border-rl-purple/30' },
   { value: 'vendas',    label: 'Vendas',    Icon: ShoppingCart, color: 'text-rl-green',  bg: 'bg-rl-green/10',  border: 'border-rl-green/30'  },
 ]
-
-function fmtDate(iso) {
-  if (!iso) return ''
-  const d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso)
-  if (isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10)
-}
 
 // ─── Editor de uma ata ──────────────────────────────────────────────────────
 function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onCancel, showToast }) {
@@ -442,16 +425,6 @@ function MinuteEditor({ initial, projectId, currentUserId, members, onSaved, onC
   )
 }
 
-MinuteEditor.propTypes = {
-  initial: PropTypes.object,
-  projectId: PropTypes.string.isRequired,
-  currentUserId: PropTypes.string,
-  members: PropTypes.array,
-  onSaved: PropTypes.func.isRequired,
-  onCancel: PropTypes.func.isRequired,
-  showToast: PropTypes.func.isRequired,
-}
-
 // ─── Card de ata ────────────────────────────────────────────────────────────
 function MinuteCard({ minute, onOpen, onDelete }) {
   const actions = Array.isArray(minute.next_actions) ? minute.next_actions : []
@@ -512,12 +485,6 @@ function MinuteCard({ minute, onOpen, onDelete }) {
   )
 }
 
-MinuteCard.propTypes = {
-  minute: PropTypes.object.isRequired,
-  onOpen: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired,
-}
-
 // 3 mini-pílulas mostrando status de assinatura (AM/GT/CL)
 function SignatureMiniIndicator({ minute }) {
   const status = signatureStatus(minute)
@@ -541,10 +508,6 @@ function SignatureMiniIndicator({ minute }) {
     </span>
   )
 }
-SignatureMiniIndicator.propTypes = {
-  minute: PropTypes.object.isRequired,
-}
-
 // ─── Painel de assinaturas (AM / GT / Cliente) ───────────────────────────────
 function SignaturesPanel({ minute, currentUser, onUpdate }) {
   const [busyRole, setBusyRole] = useState(null)
@@ -667,12 +630,6 @@ function SignaturesPanel({ minute, currentUser, onUpdate }) {
       </div>
     </div>
   )
-}
-
-SignaturesPanel.propTypes = {
-  minute: PropTypes.object.isRequired,
-  currentUser: PropTypes.object,
-  onUpdate: PropTypes.func.isRequired,
 }
 
 // ─── Visualização (modo leitura) ────────────────────────────────────────────
@@ -800,16 +757,6 @@ function MinuteView({ minute, currentUser, onEdit, onClose, onShare, onUpdate, c
   )
 }
 
-MinuteView.propTypes = {
-  minute: PropTypes.object.isRequired,
-  currentUser: PropTypes.object,
-  onEdit: PropTypes.func.isRequired,
-  onClose: PropTypes.func.isRequired,
-  onShare: PropTypes.func.isRequired,
-  onUpdate: PropTypes.func.isRequired,
-  copiedShareId: PropTypes.string,
-}
-
 // ─── Módulo principal ──────────────────────────────────────────────────────
 export default function MeetingMinutesModule({ project }) {
   const { user, teamMembers } = useApp()
@@ -863,7 +810,6 @@ export default function MeetingMinutesModule({ project }) {
   // NotificationCenter exibe um popup quando o usuário está logado. Quem está
   // offline vê quando entrar. Apenas os usuários marcados são notificados.
   async function notifyParticipantsAboutNewMinute(saved) {
-    if (!supabase) return
     try {
       const memberIds = (Array.isArray(saved.participant_ids) ? saved.participant_ids : [])
         .filter(Boolean)
@@ -1030,8 +976,4 @@ export default function MeetingMinutesModule({ project }) {
       <Toast toast={toast} />
     </div>
   )
-}
-
-MeetingMinutesModule.propTypes = {
-  project: PropTypes.object.isRequired,
 }

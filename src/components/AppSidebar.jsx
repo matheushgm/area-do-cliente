@@ -1,11 +1,10 @@
-import PropTypes from 'prop-types'
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { useTheme } from '../hooks/useTheme'
 import {
   Plus, Layers, TrendingDown,
-  LogOut, Cloud, CloudOff, Loader2,
+  LogOut, Cloud, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare, BarChart3, DollarSign,
   Sun, Moon, Clapperboard, Timer, Layout, CalendarCheck, PanelLeftClose, PanelLeftOpen, Waypoints,
 } from 'lucide-react'
@@ -69,7 +68,7 @@ const NAV_LINKS = [
 function SidebarContent({
   user, logout,
   filter, counts,
-  loadingProjects, isSupabaseReady,
+  loadingProjects,
   onNav, onNew, onClose,
   navigate, location,
   collapsed = false, onToggleCollapse,
@@ -102,8 +101,8 @@ function SidebarContent({
             : <button key={id} onClick={() => { navigate(to); onClose() }} aria-label={label} title={label} className={iconBtn(location.pathname === to)}><Icon className="w-4 h-4" /></button>
         ))}
         <div className="flex-1" />
-        <span title={isSupabaseReady ? (loadingProjects ? 'Sincronizando...' : 'Dados na nuvem') : 'Salvando localmente'} className={`w-10 h-8 flex items-center justify-center ${isSupabaseReady ? (loadingProjects ? 'text-rl-gold' : 'text-rl-green') : 'text-rl-muted'}`}>
-          {isSupabaseReady ? (loadingProjects ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Cloud className="w-3.5 h-3.5" />) : <CloudOff className="w-3.5 h-3.5" />}
+        <span title={loadingProjects ? 'Sincronizando...' : 'Dados na nuvem'} className={`w-10 h-8 flex items-center justify-center ${loadingProjects ? 'text-rl-gold' : 'text-rl-green'}`}>
+          {loadingProjects ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Cloud className="w-3.5 h-3.5" />}
         </span>
         <button onClick={toggleTheme} aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'} title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'} className={iconBtn(false)}>
           {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
@@ -237,17 +236,13 @@ function SidebarContent({
 
       {/* ── Cloud status ─────────────────────────────────── */}
       <div className={`mx-1 mb-3 flex items-center gap-2 px-3 py-2 rounded-xl border text-xs transition-all ${
-        isSupabaseReady
-          ? loadingProjects
-            ? 'text-rl-gold border-rl-gold/20 bg-rl-gold/5'
-            : 'text-rl-green border-rl-green/20 bg-rl-green/5'
-          : 'text-rl-muted border-rl-border bg-rl-surface'
+        loadingProjects
+          ? 'text-rl-gold border-rl-gold/20 bg-rl-gold/5'
+          : 'text-rl-green border-rl-green/20 bg-rl-green/5'
       }`}>
-        {isSupabaseReady
-          ? loadingProjects
-            ? <><Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /><span>Sincronizando...</span></>
-            : <><Cloud className="w-3.5 h-3.5 shrink-0" /><span>Dados na nuvem</span></>
-          : <><CloudOff className="w-3.5 h-3.5 shrink-0" /><span>Salvando localmente</span></>
+        {loadingProjects
+          ? <><Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /><span>Sincronizando...</span></>
+          : <><Cloud className="w-3.5 h-3.5 shrink-0" /><span>Dados na nuvem</span></>
         }
       </div>
 
@@ -311,7 +306,7 @@ export default function AppSidebar({
 }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, logout, loadingProjects, isSupabaseReady } = useApp()
+  const { user, logout, loadingProjects } = useApp()
   const [collapsed, setCollapsed] = useSidebarCollapsed()
 
   const handleNav = (id) => { setFilter(id); onClose() }
@@ -319,7 +314,7 @@ export default function AppSidebar({
 
   const sharedProps = {
     user, logout, filter, counts,
-    loadingProjects, isSupabaseReady,
+    loadingProjects,
     onNav: handleNav, onNew: handleNew, onClose,
     navigate, location,
   }
@@ -342,23 +337,4 @@ export default function AppSidebar({
       )}
     </>
   )
-}
-
-AppSidebar.propTypes = {
-  filter:         PropTypes.string.isRequired,
-  setFilter:      PropTypes.func.isRequired,
-  counts:         PropTypes.shape({
-    all:          PropTypes.number,
-    onboarding:   PropTypes.number,
-    active:       PropTypes.number,
-  }),
-  activeAccounts: PropTypes.arrayOf(
-    PropTypes.shape({
-      id:     PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-      name:   PropTypes.string,
-      avatar: PropTypes.string,
-    })
-  ),
-  open:    PropTypes.bool,
-  onClose: PropTypes.func,
 }

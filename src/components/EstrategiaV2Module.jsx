@@ -1,3 +1,4 @@
+import { fmtCurrency, fmtNum } from '../lib/utils'
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   Plus, X, Trash2, AlertTriangle, Target, TrendingUp,
@@ -41,18 +42,7 @@ const SWOT_CONFIG = [
   { key: 'ameacas',       label: 'Ameaças',       icon: Shield,        border: 'border-rl-gold/30',  bg: 'bg-rl-gold/5',   text: 'text-rl-gold',   placeholder: 'Ex: Novos concorrentes, mudança de algoritmo, crise econômica...' },
 ]
 
-function uid() { return Math.random().toString(36).slice(2, 9) }
-
-function fmtBRL(n) {
-  if (!n || isNaN(n) || !isFinite(n)) return '—'
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
-}
-
-function fmtNum(n) {
-  if (n == null || isNaN(n)) return '—'
-  if (!isFinite(n)) return '∞'
-  return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
-}
+const fmtBRL = (n) => (n ? fmtCurrency(n) : '—')
 
 /** Recalcula o resultado do ROI a partir dos inputs salvos */
 function computeROI(c) {
@@ -148,7 +138,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
 
   // ── Concorrentes ──────────────────────────────────────────────────────────
   const addConcorrente = useCallback(() => {
-    const novo = { id: uid(), nome: '', linkSite: '', linkInstagram: '', metaAds: false, googleAds: false, linkBiblioteca: '', grandePromessa: '', comunicacao: '' }
+    const novo = { id: crypto.randomUUID(), nome: '', linkSite: '', linkInstagram: '', metaAds: false, googleAds: false, linkBiblioteca: '', grandePromessa: '', comunicacao: '' }
     setConcorrentes(prev => { setActiveTab(prev.length); return [...prev, novo] })
   }, [])
 
@@ -166,7 +156,7 @@ export default function EstrategiaV2Module({ project, onSave }) {
 
   // ── Riscos ──────────────────────────────────────────────────────────────
   const addRisco = useCallback(() => {
-    setRiscos(prev => [...prev, { id: uid(), problema: '', riscoGerado: '', impacto: '', nivel: 'medio' }])
+    setRiscos(prev => [...prev, { id: crypto.randomUUID(), problema: '', riscoGerado: '', impacto: '', nivel: 'medio' }])
   }, [])
 
   const updateRisco = useCallback((id, patch) => {

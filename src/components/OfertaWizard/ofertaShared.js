@@ -6,8 +6,7 @@
 import { streamClaude } from '../../lib/claude'
 
 // ─── ID curto p/ itens de listas dinâmicas ──────────────────────────────────
-export const uid = () =>
-  (globalThis.crypto?.randomUUID?.() || `id-${Date.now()}-${Math.floor(Math.random() * 1e6)}`)
+export const uid = () => crypto.randomUUID()
 
 // ─── Schema do ofertaData (backward-compatible) ─────────────────────────────
 export function newOferta() {

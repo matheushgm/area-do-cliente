@@ -1,33 +1,9 @@
 // Client helper do Planejador de Atividades (/api/atividades).
 // Toda chamada leva o JWT da sessão Supabase; o token do ClickUp fica só no servidor.
-import { supabase } from './supabase'
+import { apiFetch } from './api'
 
-async function call(action, payload = {}) {
-  // Preview de desenvolvimento (/dev/atividades) responde localmente; código morto em produção.
-  if (import.meta.env.DEV && typeof window !== 'undefined' && window.__atividadesMock) {
-    return window.__atividadesMock(action, payload)
-  }
-  if (!supabase) throw new Error('Supabase não configurado.')
-  const { data: sessionData } = await supabase.auth.getSession()
-  const accessToken = sessionData?.session?.access_token
-  if (!accessToken) throw new Error('Sessão expirada. Faça login de novo.')
-
-  const res = await fetch('/api/atividades', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({ action, ...payload }),
-  })
-  const text = await res.text()
-  let data = null
-  try { data = text ? JSON.parse(text) : null } catch {
-    throw new Error('A API de atividades não respondeu JSON. Rode o app com `vercel dev` (porta 3000): `npm run dev` não serve as rotas /api.')
-  }
-  if (!res.ok) {
-    const err = new Error(data?.error?.message || `HTTP ${res.status}`)
-    err.code = data?.error?.code || null
-    throw err
-  }
-  return data
+function call(action, payload = {}) {
+  return apiFetch('/api/atividades', { body: { action, ...payload } })
 }
 
 /** Configuração do cálculo (padrão do motor mesclado com atividades_config). */

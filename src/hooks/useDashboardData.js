@@ -1,3 +1,4 @@
+import { sessionToken } from '../lib/api'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { SHEETS, parseCSV } from '../lib/dashboardData'
@@ -28,8 +29,7 @@ async function loadSheets(source = 'sheets', { accountNames = null, dias = null 
   // = projeto sem conta vinculada → nem chama a API.
   if (source === 'api') {
     if (accountNames && accountNames.length === 0) return { meta: [], google: [] }
-    const { data: { session } } = await supabase.auth.getSession()
-    const headers = { Authorization: `Bearer ${session?.access_token || ''}` }
+    const headers = { Authorization: `Bearer ${(await sessionToken()) || ''}` }
     const qs = channel => {
       const p = new URLSearchParams({ channel })
       ;(accountNames || []).forEach(a => p.append('account', a))

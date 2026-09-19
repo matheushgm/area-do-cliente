@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import PropTypes from 'prop-types'
 import { X, AlertCircle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useApp } from '../../context/AppContext'
@@ -108,10 +107,6 @@ export default function UnsignedAtaPopups({ projects = [] }) {
   )
 }
 
-UnsignedAtaPopups.propTypes = {
-  projects: PropTypes.array,
-}
-
 // ─── Popup individual ─────────────────────────────────────────────────────────
 function AtaPopup({ popup, onClick, onDismiss }) {
   return (
@@ -151,10 +146,4 @@ function AtaPopup({ popup, onClick, onDismiss }) {
       </div>
     </div>
   )
-}
-
-AtaPopup.propTypes = {
-  popup: PropTypes.object.isRequired,
-  onClick: PropTypes.func.isRequired,
-  onDismiss: PropTypes.func.isRequired,
 }

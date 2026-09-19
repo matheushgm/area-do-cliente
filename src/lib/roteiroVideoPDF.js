@@ -1,3 +1,4 @@
+import { escapeHtml } from './utils'
 /**
  * Export de roteiros de VÍDEO no template Verta.
  *
@@ -26,14 +27,7 @@ const CAIXA_BORDA = '#DCE2FE'
 const PAG_W = 1123
 const PAG_H = 1160
 
-function esc(t) {
-  if (t == null) return ''
-  return String(t)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+const esc = escapeHtml
 
 /** Remove marcação markdown residual que a IA às vezes deixa no meio do texto. */
 function limpo(t) {

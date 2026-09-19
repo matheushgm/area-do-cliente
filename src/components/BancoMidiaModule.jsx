@@ -1,3 +1,4 @@
+import { downloadUrl } from '../lib/utils'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
@@ -23,25 +24,9 @@ function fmtSize(bytes) {
 }
 
 async function storageUpload(bucket, path, file) {
-  if (!supabase) return null
   const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true })
   if (error) { console.error('[Storage] upload:', error.message); return null }
   return path
-}
-
-async function downloadFromUrl(url, name) {
-  try {
-    const res  = await fetch(url)
-    const blob = await res.blob()
-    const href = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = href; a.download = name
-    document.body.appendChild(a); a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(href)
-  } catch {
-    window.open(url, '_blank')
-  }
 }
 
 // ─── Color Chip ───────────────────────────────────────────────────────────────
@@ -81,7 +66,7 @@ function PhotoGrid({ fotos, urlMap, onDelete }) {
             )}
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
               <button
-                onClick={() => src ? downloadFromUrl(src, f.name) : null}
+                onClick={() => src ? downloadUrl(src, f.name) : null}
                 className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-all"
                 title="Baixar"
               >
@@ -141,7 +126,7 @@ function VideoList({ videos, urlMap, onDelete }) {
                   {playing === v.id ? 'Fechar' : 'Preview'}
                 </button>
                 <button
-                  onClick={() => src ? downloadFromUrl(src, v.name) : null}
+                  onClick={() => src ? downloadUrl(src, v.name) : null}
                   disabled={!src}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all disabled:opacity-40"
                   title="Baixar"
@@ -294,7 +279,7 @@ export default function BancoMidiaModule({ project }) {
     setUploadingPhotos(true)
     const result = []
     for (const file of list) {
-      const id   = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      const id   = crypto.randomUUID()
       const ext  = file.name.split('.').pop()
       const path = await storageUpload(MEDIA_BUCKET, `${project.id}/photos/${id}.${ext}`, file)
       if (!path) { setError(`Erro ao enviar "${file.name}".`); setUploadingPhotos(false); return }
@@ -328,7 +313,7 @@ export default function BancoMidiaModule({ project }) {
     setUploadingVideos(true)
     const result = []
     for (const file of list) {
-      const id   = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      const id   = crypto.randomUUID()
       const ext  = file.name.split('.').pop()
       const path = await storageUpload(MEDIA_BUCKET, `${project.id}/videos/${id}.${ext}`, file)
       if (!path) { setError(`Erro ao enviar "${file.name}".`); setUploadingVideos(false); return }

@@ -1,3 +1,5 @@
+import Modal from './UI/Modal'
+import { fmtCurrency } from '../lib/utils'
 import { useState, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
 import {
@@ -26,11 +28,6 @@ const DEFAULT_STAGES = CATEGORIES.map((c, i) => ({
   order: i,
 }))
 
-function fmtBRL(n) {
-  if (!n && n !== 0) return '—'
-  return Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
-}
-
 function initCRM(existing) {
   if (existing?.stages?.length) return existing
   return { stages: DEFAULT_STAGES, contacts: [] }
@@ -55,7 +52,7 @@ function ContactCard({ contact, onDelete, onDragStart }) {
         </button>
       </div>
       {contact.valor > 0 && (
-        <p className="text-xs font-bold text-rl-green mt-1">{fmtBRL(contact.valor)}</p>
+        <p className="text-xs font-bold text-rl-green mt-1">{fmtCurrency(contact.valor)}</p>
       )}
       {contact.email && (
         <p className="text-[11px] text-rl-muted flex items-center gap-1 mt-1 truncate">
@@ -145,8 +142,8 @@ function StageModal({ initial, onSave, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <form onSubmit={handleSubmit} className="glass-card p-6 w-full max-w-sm space-y-4">
+    <Modal onClose={onClose} maxWidth="sm">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-rl-text">{initial ? 'Editar etapa' : 'Nova etapa'}</h3>
           <button type="button" onClick={onClose}><X className="w-4 h-4 text-rl-muted" /></button>
@@ -185,7 +182,7 @@ function StageModal({ initial, onSave, onClose }) {
           <button type="button" onClick={onClose} className="btn-secondary px-4">Cancelar</button>
         </div>
       </form>
-    </div>
+    </Modal>
   )
 }
 
@@ -229,7 +226,7 @@ function KanbanColumn({ stage, contacts, draggingId, onDragStart, onDrop, onAddC
           {cat.label}
         </div>
         {total > 0 && (
-          <p className="text-[11px] font-semibold text-rl-green mt-1">{fmtBRL(total)}</p>
+          <p className="text-[11px] font-semibold text-rl-green mt-1">{fmtCurrency(total)}</p>
         )}
       </div>
 
@@ -266,7 +263,7 @@ function MetricCard({ cat, count, valor }) {
     <div className={`glass-card p-4 border ${cat.border} flex flex-col gap-1`}>
       <p className={`text-[10px] font-bold uppercase tracking-wider ${cat.text}`}>{cat.label}</p>
       <p className={`text-3xl font-black ${cat.text}`}>{count}</p>
-      {valor > 0 && <p className="text-[11px] text-rl-muted">{fmtBRL(valor)}</p>}
+      {valor > 0 && <p className="text-[11px] text-rl-muted">{fmtCurrency(valor)}</p>}
     </div>
   )
 }

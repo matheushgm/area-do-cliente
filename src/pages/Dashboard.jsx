@@ -997,7 +997,7 @@ function EmptyState({ onNew }) {
 export default function Dashboard() {
   const {
     user, projects, logout, deleteProject,
-    loadingProjects, isSupabaseReady, teamMembers, squads,
+    loadingProjects, teamMembers, squads,
   } = useApp()
   const navigate = useNavigate()
   const [deleteTarget, setDeleteTarget] = useState(null)

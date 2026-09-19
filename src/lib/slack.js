@@ -1,6 +1,6 @@
 // Client helper para chamar a Edge Function /api/slack.
 // Fail-soft: erro nunca bloqueia o fluxo principal.
-import { supabase } from './supabase'
+import { apiFetch } from './api'
 
 /**
  * Notifica no Slack quando um novo cliente é cadastrado.
@@ -8,27 +8,8 @@ import { supabase } from './supabase'
  * @returns {Promise<{ ok: boolean, error?: string }>}
  */
 export async function notifyNewClient(payload) {
-  if (!supabase) return { ok: false, error: 'Supabase não configurado.' }
   try {
-    const { data: sessionData } = await supabase.auth.getSession()
-    const accessToken = sessionData?.session?.access_token
-    if (!accessToken) return { ok: false, error: 'Sessão expirada.' }
-
-    const res = await fetch('/api/slack', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        action: 'notify_new_client',
-        payload,
-      }),
-    })
-    const data = await res.json().catch(() => null)
-    if (!res.ok) {
-      return { ok: false, error: data?.error?.message || `HTTP ${res.status}` }
-    }
+    await apiFetch('/api/slack', { body: { action: 'notify_new_client', payload } })
     return { ok: true }
   } catch (e) {
     return { ok: false, error: e?.message || 'Erro inesperado.' }

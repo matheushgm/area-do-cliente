@@ -1,3 +1,4 @@
+import { escapeHtml } from './utils'
 // Helpers puros pra extrair campos (headline/sub/cta) de uma copy
 // markdown gerada no CriativosModule, e pra aplicar esses campos
 // nos placeholders dos templates HTML.
@@ -171,11 +172,3 @@ function renderRich(s) {
 }
 
 // Escapa HTML pra evitar quebrar o template com aspas/tags inline.
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}

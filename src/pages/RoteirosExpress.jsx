@@ -83,7 +83,6 @@ export default function RoteirosExpress() {
 
   // ── Buscar respostas do banco ──────────────────────────────────────────────
   const fetchResponses = useCallback(async () => {
-    if (!supabase) return
     setLoadingResponses(true)
     const { data, error: err } = await supabase
       .from('roteiros_express')

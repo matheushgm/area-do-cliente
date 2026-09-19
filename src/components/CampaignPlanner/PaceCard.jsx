@@ -3,7 +3,7 @@ import {
   Gauge, RefreshCw, TrendingUp, TrendingDown, CheckCircle2, AlertCircle,
   ChevronDown, ChevronUp,
 } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { apiFetch } from '../../lib/api'
 import { fmtBRL } from './campaignHelpers'
 
 // Acima/abaixo do ideal dentro dessa margem, o ritmo é considerado ok.
@@ -24,13 +24,8 @@ export default function PaceCard({ accountNames, idealDaily, daysLeft, orcamento
   async function handleCheck() {
     setLoading(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
       const qs = new URLSearchParams({ accounts: accountNames.join('|') })
-      const res = await fetch(`/api/campaign-budgets?${qs}`, {
-        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
-      })
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(body?.error?.message || `HTTP ${res.status}`)
+      const body = await apiFetch(`/api/campaign-budgets?${qs}`)
       setData(body)
       // Conta não encontrada e canal sem credencial viram nota dentro do card;
       // toast vermelho fica só para erro de verdade da API.

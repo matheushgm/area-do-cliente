@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import PropTypes from 'prop-types'
 import { Plus, Pencil, Trash2, Check, X, Calculator } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import ROICalculator from './ROICalculator'
@@ -184,9 +183,4 @@ export default function ROIScenariosModule({ project, onSave }) {
       )}
     </div>
   )
-}
-
-ROIScenariosModule.propTypes = {
-  project: PropTypes.object.isRequired,
-  onSave: PropTypes.func,
 }

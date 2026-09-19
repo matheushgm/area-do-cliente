@@ -1,3 +1,4 @@
+import { downloadUrl } from '../lib/utils'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -23,20 +24,10 @@ function AdCard({ ad, onDelete }) {
     await onDelete(ad.id)
   }
 
-  async function handleDownload() {
-    try {
-      const res  = await fetch(ad.url)
-      const blob = await res.blob()
-      const ext  = ad.url.split('.').pop().split('?')[0] || (ad.type === 'video' ? 'mp4' : 'jpg')
-      const name = (ad.title || `anuncio-${ad.id.slice(0, 8)}`).replace(/\s+/g, '-') + '.' + ext
-      const href = URL.createObjectURL(blob)
-      const a    = document.createElement('a')
-      a.href = href; a.download = name
-      a.click()
-      URL.revokeObjectURL(href)
-    } catch {
-      window.open(ad.url, '_blank')
-    }
+  function handleDownload() {
+    const ext  = ad.url.split('.').pop().split('?')[0] || (ad.type === 'video' ? 'mp4' : 'jpg')
+    const name = (ad.title || `anuncio-${ad.id.slice(0, 8)}`).replace(/\s+/g, '-') + '.' + ext
+    downloadUrl(ad.url, name)
   }
 
   return (

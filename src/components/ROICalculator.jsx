@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import { useState, useMemo, useCallback } from 'react'
 import { Calculator, Target, DollarSign, Save, BarChart3, TrendingUp, AlertCircle, FileDown, CalendarDays } from 'lucide-react'
 import { getWeekRanges, MONTH_NAMES } from './Resultados/resultadosHelpers'
@@ -546,28 +545,4 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
       )}
     </div>
   )
-}
-
-ROICalculator.propTypes = {
-  project: PropTypes.shape({
-    id:              PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-    companyName:     PropTypes.string,
-    businessType:    PropTypes.string,
-    roiCalc:         PropTypes.object,
-    roiResult:       PropTypes.object,
-    completedSteps:  PropTypes.arrayOf(PropTypes.string),
-  }).isRequired,
-  onSave: PropTypes.func,
-  overrideCalc: PropTypes.object,
-  onPersist: PropTypes.func,
-}
-
-NumInput.propTypes = {
-  label:    PropTypes.string.isRequired,
-  value:    PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-  onChange: PropTypes.func.isRequired,
-  prefix:   PropTypes.string,
-  suffix:   PropTypes.string,
-  hint:     PropTypes.string,
-  min:      PropTypes.number,
 }

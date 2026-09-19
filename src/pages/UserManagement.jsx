@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
@@ -18,17 +19,7 @@ import {
 
 async function callAdminAPI(action, payload) {
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return { error: 'Sessão expirada. Faça login novamente.' }
-    const res = await fetch('/api/admin-users', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ action, ...payload }),
-    })
-    return await res.json()
+    return await apiFetch('/api/admin-users', { body: { action, ...payload } })
   } catch (err) {
     return { error: err.message || 'Erro de comunicação com o servidor.' }
   }

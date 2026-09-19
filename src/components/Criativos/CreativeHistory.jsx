@@ -1,3 +1,4 @@
+import { fmtDate } from '../../lib/utils'
 import { useState } from 'react'
 import {
   History, Trash2, FileDown,
@@ -52,14 +53,6 @@ export default function CreativeHistory({ project, updateProject, onOpen }) {
     const prefix = c.type === 'video' ? 'Vídeo' : 'Estático'
     const types  = (c.adTypeLabels || []).slice(0, 2).join(', ')
     return types ? `${prefix} — ${types}` : prefix
-  }
-
-  function fmtDate(iso) {
-    if (!iso) return '—'
-    return new Date(iso).toLocaleDateString('pt-BR', {
-      day: '2-digit', month: 'short',
-      hour: '2-digit', minute: '2-digit',
-    })
   }
 
   function patch(id, fields) {
@@ -162,7 +155,7 @@ export default function CreativeHistory({ project, updateProject, onOpen }) {
                       {c.name || getDefaultName(c)}
                     </span>
                     <span className="text-[10px] text-rl-muted shrink-0 whitespace-nowrap">
-                      · {fmtDate(c.createdAt)}
+                      · {fmtDate(c.createdAt, { time: true, year: false }) || '—'}
                     </span>
                     <Pencil className="w-3 h-3 text-rl-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                   </button>

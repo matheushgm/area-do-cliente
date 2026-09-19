@@ -1,3 +1,4 @@
+import { fmtCurrency } from '../lib/utils'
 import { useState, useCallback, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import {
@@ -24,10 +25,6 @@ const DEFAULT_DATA = {
 }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
-const fmtBRL = (n) => {
-  if (n == null || isNaN(n) || !isFinite(n)) return '—'
-  return n.toLocaleString('pt-BR', { style:'currency', currency:'BRL', minimumFractionDigits:0, maximumFractionDigits:0 })
-}
 const fmtPct = (n, d=1) => (n == null || isNaN(n) || !isFinite(n)) ? '—' : `${(n*100).toFixed(d)}%`
 const fmtNum = (n) => (n == null || isNaN(n) || !isFinite(n)) ? '—' : Math.ceil(n).toLocaleString('pt-BR')
 const numVal = (v) => { const n = Number(String(v).replace(',','.')); return isNaN(n) ? 0 : n }
@@ -270,12 +267,12 @@ function MetaRow({ metaCells, total, mesesDecorridos, realizado, onEdit }) {
         }
         return (
           <td key={i} className={`py-2.5 px-3 text-right whitespace-nowrap text-xs font-mono ${v == null ? 'text-rl-muted' : 'text-rl-green'}`}>
-            {fmtBRL(v)}
+            {fmtCurrency(v)}
           </td>
         )
       })}
       <td className="py-2.5 px-3 text-right whitespace-nowrap text-xs font-mono font-bold text-rl-green border-l border-rl-border">
-        {fmtBRL(total)}
+        {fmtCurrency(total)}
       </td>
     </tr>
   )
@@ -371,14 +368,14 @@ export default function PlanejamentoMarketingModule({ project }) {
   }, [data, project])
 
   const kpis = [
-    { label: 'Faturamento até o momento', value: fmtBRL(plan.realizadoTotal), Icon: DollarSign, color: 'text-rl-text' },
-    { label: `Média mensal (${plan.mesesDecorridos} ${plan.mesesDecorridos === 1 ? 'mês' : 'meses'})`, value: fmtBRL(plan.mediaMensal), Icon: Calculator, color: 'text-rl-cyan' },
-    { label: 'Meta anual', value: fmtBRL(plan.metaAnual), Icon: Target, color: 'text-rl-green' },
-    { label: 'Projeção mantendo a média', value: fmtBRL(plan.projetadoMedia), Icon: LineChart, color: plan.projetadoMedia >= plan.metaAnual && plan.metaAnual > 0 ? 'text-rl-green' : 'text-rl-gold' },
+    { label: 'Faturamento até o momento', value: fmtCurrency(plan.realizadoTotal), Icon: DollarSign, color: 'text-rl-text' },
+    { label: `Média mensal (${plan.mesesDecorridos} ${plan.mesesDecorridos === 1 ? 'mês' : 'meses'})`, value: fmtCurrency(plan.mediaMensal), Icon: Calculator, color: 'text-rl-cyan' },
+    { label: 'Meta anual', value: fmtCurrency(plan.metaAnual), Icon: Target, color: 'text-rl-green' },
+    { label: 'Projeção mantendo a média', value: fmtCurrency(plan.projetadoMedia), Icon: LineChart, color: plan.projetadoMedia >= plan.metaAnual && plan.metaAnual > 0 ? 'text-rl-green' : 'text-rl-gold' },
     plan.distribuicao === 'igual'
-      ? { label: 'Meta por mês (igual)', value: (plan.mesesRestantes > 0 && plan.gap > 0) ? fmtBRL(plan.gap / plan.mesesRestantes) : '—', Icon: TrendingUp, color: 'text-rl-purple' }
+      ? { label: 'Meta por mês (igual)', value: (plan.mesesRestantes > 0 && plan.gap > 0) ? fmtCurrency(plan.gap / plan.mesesRestantes) : '—', Icon: TrendingUp, color: 'text-rl-purple' }
       : { label: plan.distribuicao === 'linear' ? 'Crescimento médio/mês' : 'Crescimento necessário/mês', value: plan.crescimentoRef != null ? fmtPct(plan.crescimentoRef) : '—', Icon: TrendingUp, color: 'text-rl-purple' },
-    { label: 'Gap para a meta', value: fmtBRL(plan.gap), Icon: AlertTriangle, color: plan.gap > 0 ? 'text-rl-gold' : 'text-rl-green' },
+    { label: 'Gap para a meta', value: fmtCurrency(plan.gap), Icon: AlertTriangle, color: plan.gap > 0 ? 'text-rl-gold' : 'text-rl-green' },
   ]
 
   return (
@@ -515,15 +512,15 @@ export default function PlanejamentoMarketingModule({ project }) {
                 cells={plan.rows.map(r => r.leads)} total={plan.totals.leads} format={fmtNum} accent="text-rl-blue" />
               <SheetRow label="Investimento em mídia" mesesDecorridos={plan.mesesDecorridos}
                 cells={plan.rows.map(r => r.investimento)} total={plan.totals.investimento}
-                format={fmtBRL} bold accent="text-rl-gold" />
+                format={fmtCurrency} bold accent="text-rl-gold" />
               <SheetRow label="CPL" mesesDecorridos={plan.mesesDecorridos}
-                cells={plan.rows.map(r => r.cpl)} total={plan.totals.cpl} format={fmtBRL} accent="text-rl-blue" />
+                cells={plan.rows.map(r => r.cpl)} total={plan.totals.cpl} format={fmtCurrency} accent="text-rl-blue" />
               <SheetRow label="CPMql" mesesDecorridos={plan.mesesDecorridos}
-                cells={plan.rows.map(r => r.cpmql)} total={plan.totals.cpmql} format={fmtBRL} accent="text-rl-purple" />
+                cells={plan.rows.map(r => r.cpmql)} total={plan.totals.cpmql} format={fmtCurrency} accent="text-rl-purple" />
               <SheetRow label="CPSql" mesesDecorridos={plan.mesesDecorridos}
-                cells={plan.rows.map(r => r.cpsql)} total={plan.totals.cpsql} format={fmtBRL} accent="text-rl-cyan" />
+                cells={plan.rows.map(r => r.cpsql)} total={plan.totals.cpsql} format={fmtCurrency} accent="text-rl-cyan" />
               <SheetRow label="CAC" mesesDecorridos={plan.mesesDecorridos}
-                cells={plan.rows.map(r => r.cac)} total={plan.totals.cac} format={fmtBRL} accent="text-rl-green" />
+                cells={plan.rows.map(r => r.cac)} total={plan.totals.cac} format={fmtCurrency} accent="text-rl-green" />
             </tbody>
           </table>
         </div>

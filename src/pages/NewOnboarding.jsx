@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
-import { SERVICES_CONFIG, SEGMENTOS } from '../lib/constants'
+import { SERVICES_CONFIG, SEGMENTOS, SQUAD_COLORS } from '../lib/constants'
 import { fmtCurrency, mrrValue } from '../lib/utils'
 import { createClickUpClientFolder } from '../lib/clickup'
 import { notifyNewClient } from '../lib/slack'
@@ -287,13 +287,6 @@ const initialForm = {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-// ─── Squad colors (must match ClientProfile + UserManagement) ─────────────────
-const SQUAD_COLORS = [
-  { bg: 'bg-rl-gold/10',   border: 'border-rl-gold/30',   text: 'text-rl-gold',   activeBg: 'bg-rl-gold/20',   activeBorder: 'border-rl-gold/60'   },
-  { bg: 'bg-rl-cyan/10',   border: 'border-rl-cyan/30',   text: 'text-rl-cyan',   activeBg: 'bg-rl-cyan/20',   activeBorder: 'border-rl-cyan/60'   },
-  { bg: 'bg-rl-purple/10', border: 'border-rl-purple/30', text: 'text-rl-purple', activeBg: 'bg-rl-purple/20', activeBorder: 'border-rl-purple/60' },
-]
-
 export default function NewOnboarding() {
   const { user, addProject, updateProject, squads, projects, teamMembers } = useApp()
   const navigate = useNavigate()

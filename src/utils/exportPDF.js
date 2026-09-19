@@ -1,3 +1,5 @@
+import { fmtCurrency, fmtNum, escapeHtml } from '../lib/utils'
+import { BUSINESS_LABELS, MATURITY_LABELS } from '../lib/constants'
 import { PROPOSTA_SECTIONS } from '../lib/propostaComercial'
 import {
   ABERTURA_BLOCOS, HISTORIA_TIPOS, HISTORIA_TRANSICOES,
@@ -10,31 +12,14 @@ import {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmtBRL(n) {
-  if (n == null || !isFinite(n) || isNaN(n)) return '—'
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 })
-}
-
-function fmtNum(n) {
-  if (n == null || isNaN(n)) return '—'
-  if (!isFinite(n)) return '∞'
-  return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
-}
+const fmtBRL = (n) => fmtCurrency(n, 2)
+const esc = escapeHtml
 
 // Formata percentuais no padrão BR (vírgula decimal). Ex: 10 → "10%", 10.5 → "10,5%".
 function fmtPct(n) {
   if (n == null || isNaN(n) || !isFinite(n)) return '—'
   const formatted = Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 })
   return `${formatted}%`
-}
-
-function esc(s) {
-  if (!s) return ''
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
 
 function mdToHTML(text) {
@@ -266,21 +251,6 @@ export function exportPropostaComercialPDF(project, data = {}) {
 }
 
 // ─── Onboarding PDF ───────────────────────────────────────────────────────────
-
-const BUSINESS_LABELS = {
-  b2b: 'B2B',
-  local: 'Negócio Local',
-  ecommerce: 'E-commerce',
-  infoproduto: 'Infoproduto',
-}
-
-const MATURITY_LABELS = {
-  '1': 'Iniciante',
-  '2': 'Básico',
-  '3': 'Intermediário',
-  '4': 'Avançado',
-  '5': 'Expert',
-}
 
 export function exportOnboardingPDF(project) {
   const competitors = (project.competitors || []).filter(Boolean)

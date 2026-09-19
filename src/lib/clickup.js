@@ -1,7 +1,7 @@
 // Client helper para chamar a Edge Function /api/clickup.
 // Faz a chamada de forma fail-soft: o cadastro do cliente nunca é
 // bloqueado por falha do ClickUp.
-import { supabase } from './supabase'
+import { apiFetch } from './api'
 
 /**
  * Cria pasta + lista de onboarding no ClickUp para o cliente recém-criado.
@@ -13,19 +13,9 @@ import { supabase } from './supabase'
  * @returns {Promise<{ ok: boolean, folderId?: string, listId?: string, listUrl?: string, chatChannelId?: string, error?: string }>}
  */
 export async function createClickUpClientFolder({ companyName, startDateISO, assigneeIds, departmentToClickupId }) {
-  if (!supabase) return { ok: false, error: 'Supabase não configurado.' }
   try {
-    const { data: sessionData } = await supabase.auth.getSession()
-    const accessToken = sessionData?.session?.access_token
-    if (!accessToken) return { ok: false, error: 'Sessão expirada.' }
-
-    const res = await fetch('/api/clickup', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
+    const data = await apiFetch('/api/clickup', {
+      body: {
         action: 'create_client_folder',
         companyName,
         startDateISO: startDateISO || null,
@@ -33,16 +23,8 @@ export async function createClickUpClientFolder({ companyName, startDateISO, ass
         departmentToClickupId: departmentToClickupId && typeof departmentToClickupId === 'object'
           ? departmentToClickupId
           : {},
-      }),
+      },
     })
-
-    const data = await res.json().catch(() => null)
-    if (!res.ok) {
-      return {
-        ok: false,
-        error: data?.error?.message || `HTTP ${res.status}`,
-      }
-    }
     return {
       ok: true,
       folderId: data.folderId,
@@ -62,19 +44,8 @@ export async function createClickUpClientFolder({ companyName, startDateISO, ass
  * Usado para popular o dropdown de mapeamento na gestão de usuários.
  */
 export async function listClickUpMembers() {
-  if (!supabase) return { ok: false, error: 'Supabase não configurado.', members: [] }
   try {
-    const { data: sessionData } = await supabase.auth.getSession()
-    const accessToken = sessionData?.session?.access_token
-    if (!accessToken) return { ok: false, error: 'Sessão expirada.', members: [] }
-
-    const res = await fetch('/api/clickup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ action: 'list_workspace_members' }),
-    })
-    const data = await res.json().catch(() => null)
-    if (!res.ok) return { ok: false, error: data?.error?.message || `HTTP ${res.status}`, members: [] }
+    const data = await apiFetch('/api/clickup', { body: { action: 'list_workspace_members' } })
     return { ok: true, members: data.members || [] }
   } catch (e) {
     return { ok: false, error: e?.message || 'Erro inesperado.', members: [] }

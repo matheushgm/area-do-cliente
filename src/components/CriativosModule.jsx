@@ -1,3 +1,5 @@
+import { apiFetch } from '../lib/api'
+import { fmtDate } from '../lib/utils'
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
@@ -512,25 +514,7 @@ export default function CriativosModule({ project }) {
   const [openHistoryItem, setOpenHistoryItem] = useState(null)
 
   // Chamada autenticada (JWT da sessão do time) aos endpoints /api/criativos-*.
-  const authFetch = useCallback(async (url, payload) => {
-    let sessionToken = null
-    try {
-      const { supabase } = await import('../lib/supabase.js')
-      const { data } = (await supabase?.auth.getSession()) ?? {}
-      sessionToken = data?.session?.access_token ?? null
-    } catch { /* sem token → 401 */ }
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
-      },
-      body: JSON.stringify(payload),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data?.error?.message || data?.error || `Erro ${res.status}`)
-    return data
-  }, [])
+  const authFetch = useCallback((url, payload) => apiFetch(url, { body: payload }), [])
 
   const loadUsers = useCallback(async () => {
     try {
@@ -1119,15 +1103,6 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
     const c = historyCreative
     const companyName = project.companyName || project.company_name || 'Cliente'
 
-    function fmtDate(iso) {
-      if (!iso) return '—'
-      return new Date(iso).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    }
 
     function handleRating(rating) {
       const updated = (project.creatives || []).map((x) => (x.id === c.id ? { ...x, rating } : x))
@@ -1184,7 +1159,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               >
                 {c.type === 'video' ? '🎬 Vídeo' : '🖼️ Estático'}
               </span>
-              <span className="text-xs text-rl-muted">{fmtDate(c.createdAt)}</span>
+              <span className="text-xs text-rl-muted">{fmtDate(c.createdAt, { time: true, year: false }) || '—'}</span>
               <span className="text-xs font-bold text-rl-text">
                 {c.quantity} criativo{c.quantity !== 1 ? 's' : ''}
               </span>
@@ -1445,15 +1420,6 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
       ? selectedList.map((t, i) => `${t.label} ×${videoSplit[i]}`)
       : selectedDores.map((d) => d.text.substring(0, 50))
 
-    function fmtDate(iso) {
-      if (!iso) return ''
-      return new Date(iso).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    }
 
     return (
       <div className="space-y-5">
@@ -1480,7 +1446,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               >
                 {isVideo ? '🎬 Vídeo' : '🖼️ Estático'}
               </span>
-              <span className="text-xs text-rl-muted">{fmtDate(generatedAt)}</span>
+              <span className="text-xs text-rl-muted">{fmtDate(generatedAt, { time: true, year: false })}</span>
               <span className="text-xs font-bold text-rl-text">
                 {qty} criativo{qty !== 1 ? 's' : ''}
               </span>
@@ -2491,22 +2457,10 @@ function RoteirosValidadosPanel({ project, onGerarVariacoes }) {
   const [openId, setOpenId] = useState(null)
   const [copiedId, setCopiedId] = useState(null)
 
-  const authFetch = useCallback(async (payload) => {
-    let token = null
-    try {
-      const { supabase } = await import('../lib/supabase.js')
-      const { data } = (await supabase?.auth.getSession()) ?? {}
-      token = data?.session?.access_token ?? null
-    } catch { /* sem token → 401 */ }
-    const res = await fetch('/api/roteiros-validados', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ ...payload, projectId: project.id }),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data?.error?.message || data?.error || `Erro ${res.status}`)
-    return data
-  }, [project.id])
+  const authFetch = useCallback(
+    (payload) => apiFetch('/api/roteiros-validados', { body: { ...payload, projectId: project.id } }),
+    [project.id],
+  )
 
   const load = useCallback(async () => {
     setBusy(true); setError(null)

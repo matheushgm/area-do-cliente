@@ -60,7 +60,6 @@ export default function Atividades15min() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      if (!supabase) { setLoading(false); return }
       setLoading(true)
       const { data, error } = await supabase
         .from('atividades_15min')

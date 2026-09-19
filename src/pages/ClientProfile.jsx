@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
-import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, BUSINESS_LABELS, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, MATURITY_LABELS } from '../lib/constants'
+import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, BUSINESS_LABELS, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, MATURITY_LABELS, CONTRACT_MODEL_LABELS, CONTRACT_PAYMENT_LABELS } from '../lib/constants'
 import { fmtCurrency, initials, calcLTV, activeMonths, ltvStartSource } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
@@ -58,18 +58,6 @@ const RISK_CONFIG = [
   { value: 'neutro',   label: 'Neutro',    bg: 'bg-rl-gold/10',    border: 'border-rl-gold/40',    text: 'text-rl-gold',    dot: 'bg-rl-gold'    },
   { value: 'saudavel', label: 'Saudável',  bg: 'bg-rl-green/10',   border: 'border-rl-green/40',   text: 'text-rl-green',   dot: 'bg-rl-green'   },
 ]
-
-// ─── Service detail labels (for display in OnboardingContent) ─────────────────
-
-const CONTRACT_MODEL_LABELS = {
-  aceleracao: '🚀 Programa de Aceleração',
-  assessoria: '📅 Assessoria Mensal',
-}
-
-const CONTRACT_PAYMENT_LABELS = {
-  unico:  'Valor Único',
-  mensal: 'Parcelado (Mensal)',
-}
 
 // ─── Onboarding Edit Form ─────────────────────────────────────────────────────
 function OnboardingEditForm({ project, onSave, onCancel }) {

@@ -503,7 +503,6 @@ export default function SquadsReport() {
   // dos últimos 13 meses pra cobrir folga no gráfico de 12 meses.
   const [valueHistory, setValueHistory] = useState([])
   useEffect(() => {
-    if (!supabase) return
     const since = new Date(year, month - 13, 1).toISOString()
     let active = true
     supabase

@@ -1,3 +1,4 @@
+import { iniciais } from './utils'
 // Funções puras do painel de capacidade do time (módulo Atividades).
 // Recebem o que a action `carga` (ou `sugerir` sem horas) devolve por pessoa
 // e devolvem o que a UI mostra: sinal de saúde, agregados do time, formatação.
@@ -60,10 +61,7 @@ export function fmtPct(n) {
 export function primeiroNome(nome) {
   return String(nome || '').split(' ')[0]
 }
-export function iniciais(nome) {
-  const p = String(nome || '').trim().split(/\s+/)
-  return ((p[0]?.[0] || '') + (p[p.length - 1]?.[0] || '')).toUpperCase() || '??'
-}
+export { iniciais }
 /** ISO timestamp → 'há 3 min' / 'há 2 h' */
 export function fmtRelativo(iso, agora = Date.now()) {
   if (!iso) return ''

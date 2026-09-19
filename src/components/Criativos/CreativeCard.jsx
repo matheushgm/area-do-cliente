@@ -1,15 +1,8 @@
+import { fmtDate } from '../../lib/utils'
 import { useState } from 'react'
 import { Copy, CheckCheck, FileDown, Pencil, Check, X } from 'lucide-react'
 import { exportCreativoSinglePDF } from '../../lib/creativoPDF'
 import MarkdownBlock from './MarkdownBlock'
-
-function fmtDate(iso) {
-  if (!iso) return null
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
 
 export default function CreativeCard({ content, index, type, companyName, onChange, createdAt }) {
   const [copied,    setCopied]    = useState(false)
@@ -54,8 +47,8 @@ export default function CreativeCard({ content, index, type, companyName, onChan
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">Criativo {index + 1}</span>
-          {fmtDate(createdAt) && (
-            <span className="text-[10px] text-rl-muted/70">· {fmtDate(createdAt)}</span>
+          {fmtDate(createdAt, { time: true }) && (
+            <span className="text-[10px] text-rl-muted/70">· {fmtDate(createdAt, { time: true })}</span>
           )}
         </div>
         <div className="flex items-center gap-1.5">

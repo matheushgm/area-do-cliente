@@ -1,5 +1,6 @@
+import { downloadBlob } from '../lib/utils'
+import { apiFetch } from '../lib/api'
 import { useState, useEffect, useMemo, useRef } from 'react'
-import PropTypes from 'prop-types'
 import Modal from './UI/Modal'
 import Toast from './UI/Toast'
 import { useToast } from '../hooks/useToast'
@@ -16,17 +17,13 @@ const DEFAULT_CRM = {
   bodyTemplate: '', docsUrl: '', docsText: '', notas: '',
 }
 
-/** POST autenticado (envia o JWT do Supabase) para os endpoints /api/crm-*. */
+/** POST autenticado para os endpoints /api/crm-*; devolve { ok, status, payload } sem lançar. */
 async function authFetch(url, body) {
-  const { data } = (await supabase?.auth.getSession()) ?? {}
-  const token = data?.session?.access_token
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify(body),
-  })
-  const payload = await res.json().catch(() => ({}))
-  return { ok: res.ok, status: res.status, payload }
+  try {
+    return { ok: true, status: 200, payload: await apiFetch(url, { body }) }
+  } catch (e) {
+    return { ok: false, status: e.status || 0, payload: e.data || {} }
+  }
 }
 
 /** Valor de exemplo por tipo, para o "Testar envio" quando não há lead real. */
@@ -269,10 +266,7 @@ export default function BancoDeDadosModule({ project }) {
     const lines = registrosFiltrados.map((r) =>
       [...cols.map((c) => esc(r.dados?.[c.key])), esc(r.origem), esc(fmtDateTime(r.created_at))].join(','))
     const blob = new Blob([[head, ...lines].join('\n')], { type: 'text/csv;charset=utf-8' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${selected?.nome || 'banco'}.csv`
-    a.click()
+    downloadBlob(blob, `${selected?.nome || 'banco'}.csv`)
   }
 
   return (
@@ -423,8 +417,6 @@ export default function BancoDeDadosModule({ project }) {
     </div>
   )
 }
-
-BancoDeDadosModule.propTypes = { project: PropTypes.object.isRequired }
 
 // ── Aba Planilha ──────────────────────────────────────────────────────────────
 function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinha, onEdit, onDelete, onExport, onGoCampos }) {

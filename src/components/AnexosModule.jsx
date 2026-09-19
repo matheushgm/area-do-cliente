@@ -1,3 +1,5 @@
+import Modal from './UI/Modal'
+import { fmtDate } from '../lib/utils'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { supabase, deleteFile, getSignedUrl } from '../lib/supabase'
@@ -19,11 +21,6 @@ function fmtSize(bytes) {
   if (bytes < 1024)         return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
-function fmtDate(iso) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 function FileIcon({ type, className = 'w-4 h-4' }) {
@@ -75,24 +72,13 @@ function PreviewModal({ file, onClose, onDownload }) {
     return () => { cancelled = true }
   }, [file])
 
-  // Fechar com Esc
-  useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
-
   const isImage = file.type?.startsWith('image/')
   const isPDF   = file.type === 'application/pdf'
   const isVideo = file.type?.startsWith('video/')
   const isAudio = file.type?.startsWith('audio/')
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="relative bg-rl-bg border border-rl-border rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+    <Modal onClose={onClose} maxWidth="4xl" className="!p-0 max-h-[90vh] flex flex-col overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-3.5 border-b border-rl-border shrink-0">
@@ -101,7 +87,7 @@ function PreviewModal({ file, onClose, onDownload }) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-rl-text truncate">{file.name}</p>
-            <p className="text-xs text-rl-muted">{fmtSize(file.size)} · {fmtDate(file.uploadedAt || file.uploaded_at)}</p>
+            <p className="text-xs text-rl-muted">{fmtSize(file.size)} · {fmtDate(file.uploadedAt || file.uploaded_at) || '—'}</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <button
@@ -171,8 +157,7 @@ function PreviewModal({ file, onClose, onDownload }) {
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -408,7 +393,7 @@ export default function AnexosModule({ project }) {
                   {a.name}
                 </p>
                 <p className="text-xs text-rl-muted mt-0.5">
-                  {fmtSize(a.size)} · {fmtDate(a.uploadedAt || a.uploaded_at)}
+                  {fmtSize(a.size)} · {fmtDate(a.uploadedAt || a.uploaded_at) || '—'}
                   {canPreview(a.type) && <span className="ml-1.5 text-rl-purple/60">· clique para visualizar</span>}
                 </p>
               </div>
