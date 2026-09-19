@@ -349,6 +349,180 @@ body.th-fynix .adp-save-msg.ok { color: var(--fx-good); }
 body.th-fynix .adp-save-msg.err { color: var(--fx-bad); }
 body.th-fynix .adp-dest-v a { color: var(--fx-lime-3); }
 
+/* ── HOME (lista de contas) ───────────────────────────────────────────────
+   Mesma linguagem da página do cliente: cabeçalho solto sobre o fundo cinza,
+   abas com sublinhado azul, botões brancos arredondados, KPIs em cards (o
+   primeiro vira o hero azul), grupos de status como faixas coloridas suaves e
+   tabelas em cartão branco. Emojis viram ícones de linha via em() no viewer. */
+.dt-root.th-fynix .header { background: transparent; border-bottom: 0; padding: 22px 28px 4px; }
+.dt-root.th-fynix .header-left h1 { font-size: 24px; font-weight: 700; color: var(--fx-green); letter-spacing: -.01em; }
+.dt-root.th-fynix .header-left p { color: var(--fx-muted); font-size: 12px; margin-top: 4px; }
+.dt-root.th-fynix .header .btn { padding: 8px 16px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
+
+.dt-root.th-fynix .tabs { background: transparent; border-bottom: 1px solid var(--fx-border); padding: 0 28px; margin-top: 8px; }
+.dt-root.th-fynix .tab { color: var(--fx-muted); font-weight: 600; font-size: 13px; padding: 12px 16px; border-bottom-width: 3px;
+  display: inline-flex; align-items: center; gap: 7px; }
+.dt-root.th-fynix .tab:hover { color: var(--fx-green); }
+.dt-root.th-fynix .tab.active { color: var(--fx-green); border-bottom-color: var(--fx-lime); }
+.dt-root.th-fynix .badge { background: var(--fx-surface-3); color: var(--fx-muted); border-radius: 999px; padding: 2px 8px;
+  font-size: 10.5px; font-weight: 700; margin-left: 0; }
+.dt-root.th-fynix .tab.active .badge { background: var(--fx-lime-soft); color: var(--fx-lime-3); }
+
+/* Barra de período + busca + squad, e a barra de visualizações */
+.dt-root.th-fynix .filter-bar, .dt-root.th-fynix .squad-bar { background: transparent; border-bottom: 0; padding: 12px 28px 0; gap: 10px; }
+.dt-root.th-fynix .squad-bar { padding-top: 10px; }
+.dt-root.th-fynix .filter-label { color: var(--fx-muted); font-size: 12px; font-weight: 600; }
+.dt-root.th-fynix .presets { gap: 6px; }
+.dt-root.th-fynix .preset, .dt-root.th-fynix .squad-btn {
+  font-family: var(--fx-font); background: var(--fx-surface); border: 1px solid var(--fx-border); color: var(--fx-green);
+  border-radius: var(--fx-radius-btn); font-weight: 600; font-size: 12px; padding: 6px 13px; box-shadow: 0 1px 2px rgba(2,0,39,.04);
+  transition: background .15s, border-color .15s, color .15s; display: inline-flex; align-items: center; gap: 6px; }
+.dt-root.th-fynix .preset:hover, .dt-root.th-fynix .squad-btn:hover { background: var(--fx-surface-2); border-color: #D9DDE0; color: var(--fx-green); }
+.dt-root.th-fynix .preset.active, .dt-root.th-fynix .squad-btn.active { background: var(--fx-green); border-color: var(--fx-green); color: #fff; }
+.dt-root.th-fynix .preset.active:hover, .dt-root.th-fynix .squad-btn.active:hover { background: var(--fx-green-2); border-color: var(--fx-green-2); color: #fff; }
+.dt-root.th-fynix .squad-btn .ico { width: 14px; height: 14px; }
+.dt-root.th-fynix .custom-inputs label { color: var(--fx-muted); font-size: 12px; }
+.dt-root.th-fynix .custom-inputs input[type=date] { border-radius: var(--fx-radius-btn); border-color: var(--fx-border); font-family: var(--fx-font);
+  color: var(--fx-green); padding: 6px 10px; }
+.dt-root.th-fynix .custom-inputs input[type=date]:focus { border-color: var(--fx-green); }
+.dt-root.th-fynix .search-wrap input { border-radius: var(--fx-radius-btn); border-color: var(--fx-border); font-family: var(--fx-font);
+  color: var(--fx-green); padding: 7px 12px 7px 32px; width: 230px; font-size: 12px; box-shadow: 0 1px 2px rgba(2,0,39,.04); }
+.dt-root.th-fynix .search-wrap input::placeholder { color: var(--fx-faint); }
+.dt-root.th-fynix .search-wrap input:focus { border-color: var(--fx-green); }
+.dt-root.th-fynix .search-wrap .search-icon { color: var(--fx-muted); left: 10px; display: inline-flex; }
+.dt-root.th-fynix .search-wrap .search-icon .ico { width: 14px; height: 14px; }
+.dt-root.th-fynix .search-wrap .clear-btn { color: var(--fx-faint); }
+.dt-root.th-fynix .squad-select { font-family: var(--fx-font); border-radius: var(--fx-radius-btn); border-color: var(--fx-border);
+  color: var(--fx-green); padding: 7px 12px; box-shadow: 0 1px 2px rgba(2,0,39,.04); }
+.dt-root.th-fynix .squad-select.on { border-color: var(--fx-green); color: var(--fx-green); background: var(--fx-lime-soft); }
+.dt-root.th-fynix .filter-info { color: var(--fx-muted); font-size: 12px; }
+.dt-root.th-fynix .tab-panel { padding: 18px 28px 32px; }
+
+/* Resumo: cards; o primeiro (Total Investido) é o hero azul, como na página do cliente */
+.dt-root.th-fynix .summary-bar { background: transparent; border: 0; box-shadow: none; border-radius: 0; overflow: visible;
+  gap: 14px; margin-bottom: 16px; }
+.dt-root.th-fynix .sum-kpi { background: var(--fx-surface); border: 1px solid var(--fx-border) !important; border-radius: var(--fx-radius);
+  box-shadow: var(--fx-shadow); padding: 16px 18px 15px; }
+.dt-root.th-fynix .sum-label { text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 600; color: var(--fx-muted); margin-bottom: 8px; }
+.dt-root.th-fynix .sum-value { font-size: 24px; font-weight: 700; color: var(--fx-green); letter-spacing: -.01em; line-height: 1.05; }
+.dt-root.th-fynix .sum-sub { color: var(--fx-muted); font-size: 11.5px; margin-top: 6px; }
+.dt-root.th-fynix .sum-kpi:first-child { background: var(--fx-lime); border-color: var(--fx-lime) !important; position: relative; overflow: hidden; isolation: isolate; }
+.dt-root.th-fynix .sum-kpi:first-child::before { content: ''; position: absolute; border-radius: 50%; pointer-events: none; z-index: -1;
+  width: 170px; height: 170px; right: -50px; top: -80px; border: 26px solid rgba(255,255,255,.18); }
+.dt-root.th-fynix .sum-kpi:first-child .sum-label, .dt-root.th-fynix .sum-kpi:first-child .sum-sub { color: #fff; opacity: .88; }
+.dt-root.th-fynix .sum-kpi:first-child .sum-value, .dt-root.th-fynix .sum-accent { color: #fff; }
+
+.dt-root.th-fynix .period-row { gap: 8px; margin-bottom: 18px; }
+.dt-root.th-fynix .period-badge { background: var(--fx-surface); border: 1px solid var(--fx-border); border-radius: 999px; padding: 5px 12px;
+  font-size: 11.5px; color: var(--fx-muted); display: inline-flex; align-items: center; gap: 5px; }
+.dt-root.th-fynix .period-badge b { color: var(--fx-green); }
+
+/* Grupos de status: faixa suave na cor do status, ponto colorido no lugar do farol */
+.dt-root.th-fynix .group-section { margin-bottom: 28px; }
+.dt-root.th-fynix .group-header { border-radius: var(--fx-radius-sm); padding: 11px 16px; margin-bottom: 14px; gap: 10px; }
+.dt-root.th-fynix .gh-red { background: var(--fx-bad-bg); border: 1px solid rgba(214,69,69,.14); }
+.dt-root.th-fynix .gh-yellow { background: var(--fx-warn-bg); border: 1px solid rgba(184,120,14,.14); }
+.dt-root.th-fynix .gh-green { background: var(--fx-good-bg); border: 1px solid rgba(46,139,61,.14); }
+.dt-root.th-fynix .group-header.gh-blue { background: var(--fx-lime-soft); border: 1px solid rgba(21,68,144,.12); border-left-width: 1px; }
+.dt-root.th-fynix .gh-icon { display: inline-flex; align-items: center; font-size: 13px; }
+.dt-root.th-fynix .gh-red .gh-icon { color: var(--fx-bad); }
+.dt-root.th-fynix .gh-yellow .gh-icon { color: var(--fx-warn); }
+.dt-root.th-fynix .gh-green .gh-icon { color: var(--fx-good); }
+.dt-root.th-fynix .gh-blue .gh-icon { color: var(--fx-lime-3); }
+.dt-root.th-fynix .gh-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; display: inline-block;
+  box-shadow: 0 0 0 3px rgba(255,255,255,.7); }
+.dt-root.th-fynix .gh-title { color: var(--fx-green); font-size: 14px; font-weight: 700; }
+.dt-root.th-fynix .gh-count { background: var(--fx-surface); border-color: transparent; color: var(--fx-muted); border-radius: 999px;
+  padding: 3px 10px; font-size: 11px; font-weight: 600; }
+.dt-root.th-fynix .status-info { border-color: var(--fx-faint); color: var(--fx-muted); background: rgba(255,255,255,.7); }
+.dt-root.th-fynix .status-info:hover { border-color: var(--fx-green); color: var(--fx-green); }
+.dt-root.th-fynix .diag-hint { color: var(--fx-muted); }
+.dt-root.th-fynix .subgroup-header { background: var(--fx-surface); border: 1px solid var(--fx-border-2); border-left-width: 3px;
+  border-radius: 10px; padding: 7px 12px; }
+.dt-root.th-fynix .sg-title { color: var(--fx-green); }
+.dt-root.th-fynix .subgroup-header.causa-verba { background: var(--fx-surface); border-left-color: var(--fx-warn); }
+.dt-root.th-fynix .subgroup-header.causa-verba .gh-icon { color: var(--fx-warn); }
+.dt-root.th-fynix .subgroup-header.causa-ctr { background: var(--fx-surface); border-left-color: var(--fx-bad); }
+.dt-root.th-fynix .subgroup-header.causa-ctr .gh-icon { color: var(--fx-bad); }
+.dt-root.th-fynix .subgroup-header.causa-taxa { background: var(--fx-surface); border-left-color: var(--fx-lime); }
+.dt-root.th-fynix .subgroup-header.causa-taxa .gh-icon { color: var(--fx-lime-3); }
+.dt-root.th-fynix .metas-chip { background: var(--fx-surface); border-color: var(--fx-border); color: var(--fx-text); }
+.dt-root.th-fynix .metas-chip b { color: var(--fx-green); }
+
+/* Quadrante do cliente + tabela de contas */
+.dt-root.th-fynix .client-quad { margin-bottom: 20px; }
+.dt-root.th-fynix .client-quad-title { color: var(--fx-green); font-size: 14px; font-weight: 700; padding: 0 4px 8px; }
+.dt-root.th-fynix .client-quad-count { background: var(--fx-surface-3); color: var(--fx-muted); font-weight: 600; }
+.dt-root.th-fynix .table-wrap { margin-bottom: 20px; }
+.dt-root.th-fynix .client-quad .table-wrap { margin-bottom: 0; }
+.dt-root.th-fynix .client-link { color: var(--fx-green); border-bottom: 0; font-weight: 600; }
+.dt-root.th-fynix .client-link:hover { color: var(--fx-green); text-decoration: underline; text-decoration-color: var(--fx-lime); text-decoration-thickness: 2px; }
+.dt-root.th-fynix .pill { border: 0; border-radius: 999px; padding: 4px 10px; font-size: 10.5px; font-weight: 700; letter-spacing: .2px;
+  display: inline-flex; align-items: center; gap: 5px; line-height: 1.2; }
+.dt-root.th-fynix .pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.dt-root.th-fynix .pill.pill-ico { padding: 6px; }
+.dt-root.th-fynix .pill-red { background: var(--fx-bad-bg); color: var(--fx-bad); }
+.dt-root.th-fynix .pill-yellow { background: var(--fx-warn-bg); color: var(--fx-warn); }
+.dt-root.th-fynix .pill-green { background: var(--fx-good-bg); color: var(--fx-good); }
+.dt-root.th-fynix .up { color: var(--fx-good); }
+.dt-root.th-fynix .dn { color: var(--fx-bad); }
+.dt-root.th-fynix .fl { color: var(--fx-muted); }
+.dt-root.th-fynix .trend-up, .dt-root.th-fynix .trend-dn, .dt-root.th-fynix .trend-fl { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+.dt-root.th-fynix .trend-up { color: var(--fx-good); }
+.dt-root.th-fynix .trend-dn { color: var(--fx-bad); }
+.dt-root.th-fynix .trend-fl { color: var(--fx-warn); }
+.dt-root.th-fynix .trend-up .ico, .dt-root.th-fynix .trend-dn .ico, .dt-root.th-fynix .trend-fl .ico { width: 14px; height: 14px; }
+/* Coluna "CPL Alvo": era roxa; no tema entra no azul da marca */
+.dt-root.th-fynix th.col-target { background: var(--fx-lime-soft); color: var(--fx-lime-3) !important; font-weight: 600; }
+.dt-root.th-fynix td.col-target { background: rgba(21,68,144,.035); }
+.dt-root.th-fynix .target-val { color: var(--fx-lime-3); font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
+.dt-root.th-fynix .target-ok { color: var(--fx-good); display: inline-flex; }
+.dt-root.th-fynix .target-over { color: var(--fx-bad); display: inline-flex; }
+.dt-root.th-fynix .target-ok .ico, .dt-root.th-fynix .target-over .ico { width: 13px; height: 13px; }
+.dt-root.th-fynix .goal-pill .ico { width: 12px; height: 12px; vertical-align: -2px; }
+.dt-root.th-fynix .pace-none { color: var(--fx-faint); }
+.dt-root.th-fynix tr.total-row td { background: var(--fx-surface-2); border-top: 2px solid var(--fx-border); color: var(--fx-green); font-weight: 700; }
+.dt-root.th-fynix tr.total-row .total-label { color: var(--fx-green); }
+.dt-root.th-fynix tr.total-row .total-badge { background: var(--fx-surface-3); color: var(--fx-muted); }
+.dt-root.th-fynix .hide-btn { color: var(--fx-faint); }
+.dt-root.th-fynix .hide-btn:hover { color: var(--fx-lime-3); background: var(--fx-lime-soft); }
+.dt-root.th-fynix .hide-btn.is-hidden { color: var(--fx-lime-3); }
+.dt-root.th-fynix .pace-camp-row > td { background: var(--fx-surface-2) !important; }
+.dt-root.th-fynix .stage-chip { border-radius: 999px; }
+.dt-root.th-fynix .camp-nomatch { color: var(--fx-warn); }
+.dt-root.th-fynix .camp-match { color: var(--fx-muted); }
+
+/* Cards mobile da home */
+.dt-root.th-fynix .m-card { border-color: var(--fx-border); border-radius: var(--fx-radius); box-shadow: var(--fx-shadow); padding: 14px; }
+.dt-root.th-fynix .m-card-name { color: var(--fx-green); }
+.dt-root.th-fynix .m-card-chev { color: var(--fx-faint); }
+.dt-root.th-fynix .m-card-sub { color: var(--fx-muted); }
+.dt-root.th-fynix .m-grid { background: var(--fx-border-2); border-color: var(--fx-border-2); border-radius: 10px; }
+.dt-root.th-fynix .m-cell { background: var(--fx-surface-2); }
+.dt-root.th-fynix .m-cell-l { text-transform: none; letter-spacing: 0; font-size: 10.5px; color: var(--fx-muted); font-weight: 600; }
+.dt-root.th-fynix .m-cell-v { color: var(--fx-green); font-weight: 700; }
+.dt-root.th-fynix .m-card.total-card { background: var(--fx-surface-2); border-color: var(--fx-border); }
+
+@media (max-width: 768px) {
+  .dt-root.th-fynix .header { padding: 14px 16px 2px; }
+  .dt-root.th-fynix .header-left h1 { font-size: 20px; }
+  .dt-root.th-fynix .tabs { padding: 0 16px; }
+  .dt-root.th-fynix .tab { padding: 10px 6px; font-size: 12px; gap: 5px; white-space: nowrap; justify-content: center; }
+  .dt-root.th-fynix .tab .ico { width: 13px; height: 13px; }
+  .dt-root.th-fynix .filter-bar, .dt-root.th-fynix .squad-bar { padding: 8px 16px 0; }
+  .dt-root.th-fynix .tab-panel { padding: 12px 16px 28px; }
+  .dt-root.th-fynix .summary-bar { gap: 10px; }
+  .dt-root.th-fynix .sum-kpi { padding: 12px 13px 11px; }
+  /* Hero na linha inteira e os outros 4 em 2×2 (o vendor punha o último sozinho na linha) */
+  .dt-root.th-fynix .sum-kpi:first-child { grid-column: 1 / -1; }
+  .dt-root.th-fynix .summary-bar .sum-kpi:last-child { grid-column: auto; }
+  .dt-root.th-fynix .sum-value { font-size: 20px; }
+  .dt-root.th-fynix .period-badge { font-size: 10.5px; padding: 4px 10px; }
+  /* Mesma regra do vendor (só os 2 primeiros badges no celular); repetida aqui
+     porque o display:inline-flex acima venceria o display:none dele. */
+  .dt-root.th-fynix .period-badge:nth-child(n+3) { display: none; }
+}
+
 /* ── Responsivo ───────────────────────────────────────────────────────────── */
 /* Abaixo de ~1450px de iframe (viewport comum com a sidebar da Área do Cliente
    aberta) o hero ficaria preso em 250px com os chips quebrando: ele passa a

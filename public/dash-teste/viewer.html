@@ -327,6 +327,10 @@
 .dt-root .pg-btn{ border:1px solid #D8E0F0; background:#fff; color:#334155; border-radius:6px; min-width:28px; height:28px; font-size:15px; line-height:1; cursor:pointer; }
 .dt-root .pg-btn:disabled{ opacity:.4; cursor:default; }
 .dt-root .pace-none{ color:#94A3B8; }
+/* Select de squad da home (era estilo inline; virou classe para o tema poder sobrescrever). */
+.dt-root .squad-select{ background:#FFFFFF; border:1px solid #D8E0F0; color:#0F172A; padding:5px 12px; border-radius:8px;
+  font-size:12px; font-weight:600; outline:none; cursor:pointer; }
+.dt-root .squad-select.on{ border-color:#164496; color:#164496; }
 /* Selo "novo visual" na lista da home: marca as contas que estão no piloto do tema. */
 .dt-root .new-look-chip{ display:inline-block; margin-left:6px; font-size:9px; font-weight:800; letter-spacing:.3px;
   text-transform:uppercase; color:#123C86; background:#E5EDFB; border:1px solid #BFD0F0; border-radius:999px;
@@ -619,9 +623,22 @@ const ICONS = {
   'flame': '<path d="M12 3c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-1.5.5-2.5 1-3 .3 1 1 1.5 1.5 1.5C11 8 11 5 12 3z"/><path d="M8.5 14.5c0 3 1.5 5 3.5 6.5 2-1.5 3.5-3.5 3.5-6.5"/>',
   'turtle': '<path d="M4 14a8 6 0 0 1 16 0z"/><path d="M2 14h20"/><path d="M6 14v3"/><path d="M18 14v3"/><path d="M20 12a2 2 0 0 1 3 1"/>',
   'clock': '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  'arrow-right': '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
+  'magnet': '<path d="M6 3v8a6 6 0 0 0 12 0V3"/><path d="M6 3h4v8a2 2 0 0 0 4 0V3h4"/><path d="M6 8h4"/><path d="M14 8h4"/>',
+  'rocket': '<path d="M5 14c-1.5 2-1.5 4-1.5 6 2 0 4 0 6-1.5"/><path d="M9 15 4 10l3-3 4 1c3-4 7-5 10-5-.2 3-1.2 7-5 10l1 4-3 3-5-5"/><circle cx="14.5" cy="9.5" r="1.5"/>',
+  'eye-off': '<path d="m3 3 18 18"/><path d="M10.6 5.2A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4"/><path d="M6.6 6.6A16 16 0 0 0 2 12s3.5 7 10 7c1.6 0 3-.4 4.2-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
 }
 const svgIco = name => ICONS[name] ? `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>` : ''
 const ic = (name, emoji) => state.newLook ? svgIco(name) : emoji
+// Emojis da HOME (lista de contas) → ícone de linha no tema. Os três "faróis"
+// de status (🔴🟡🟢) viram um ponto colorido pela classe do cabeçalho do grupo
+// (gh-red / gh-yellow / gh-green), não um ícone.
+const EMOJI_ICON = { '📊':'chart', '💸':'coin', '📉':'trend-dn', '📈':'trend', '➡️':'arrow-right', '🎯':'target',
+  '🧲':'magnet', '🚀':'rocket', '👁':'eye', '🚫':'eye-off', '🔍':'search', '⟳':'refresh', '🗂️':'layers',
+  '🔥':'flame', '🐢':'turtle', '✅':'check', '⏳':'clock', '🚨':'alert' }
+const em = e => !state.newLook ? e : /^[🔴🟡🟢]$/u.test(e) ? '<span class="gh-dot"></span>' : EMOJI_ICON[e] ? svgIco(EMOJI_ICON[e]) : e
+// Pílula de status na tabela: no tema o ponto colorido vem do CSS (::before).
+const pIco = st => state.newLook ? '' : pillIco(st) + ' '
 // Paleta dos gráficos (Chart.js) por visual. A fonte padrão é a do próprio
 // Chart.js, para não mudar nada nas contas fora do piloto.
 const CHART_FONT_DEFAULT = typeof Chart !== 'undefined' ? Chart.defaults.font.family : 'sans-serif'
@@ -1022,7 +1039,7 @@ function panelHTML(d) {
 function render() {
   destroyCharts()
   if (state.openClient) return renderClient()
-  setNewLook(false)
+  setNewLook(newLookFor())
   saveNav()
   const d = listData()
   const { P, channels, stMeta, stGoogle } = d
@@ -1030,10 +1047,10 @@ function render() {
   app.innerHTML = `
     <div class="header">
       <div class="header-left"><h1>Dashboard Tráfego</h1><p>Revenue Lab — Meta Ads &amp; Google Ads · via API</p></div>
-      <div class="header-right"><button class="btn" id="reload">⟳ Atualizar</button></div>
+      <div class="header-right"><button class="btn" id="reload">${em('⟳')} Atualizar</button></div>
     </div>
     <div class="tabs">
-      <div class="tab ${!state.channel?'active':''}" data-ch="">🗂️ Todos <span class="badge" data-badge="all">${stMeta.length + stGoogle.length}</span></div>
+      <div class="tab ${!state.channel?'active':''}" data-ch="">${em('🗂️')} Todos <span class="badge" data-badge="all">${stMeta.length + stGoogle.length}</span></div>
       <div class="tab ${state.channel==='meta'?'active':''}" data-ch="meta">${chIco('meta')} Meta Ads <span class="badge" data-badge="meta">${stMeta.length}</span></div>
       <div class="tab ${state.channel==='google'?'active':''}" data-ch="google">${chIco('google')} Google Ads <span class="badge" data-badge="google">${stGoogle.length}</span></div>
     </div>
@@ -1045,11 +1062,11 @@ function render() {
         <label>Até: <input type="date" id="cto" value="${state.to}"></label>
         <button class="btn" id="capply">Aplicar</button></div>`:''}
       <div class="filter-row">
-        <div class="search-wrap"><span class="search-icon">🔍</span>
+        <div class="search-wrap"><span class="search-icon">${em('🔍')}</span>
           <input type="text" id="search" placeholder="Buscar cliente…" value="${esc(state.search)}">
           <span class="clear-btn" id="clear" style="display:${state.search?'block':'none'}">✕</span></div>
         ${(() => { const sqs = squadsForChannels(channels, P); if (state.squad && !sqs.includes(state.squad)) sqs.unshift(state.squad); return sqs.length ? `
-        <select id="squad" title="Filtrar por squad" style="background:#FFFFFF;border:1px solid ${state.squad?'#164496':'#D8E0F0'};color:${state.squad?'#164496':'#0F172A'};padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;outline:none;cursor:pointer;">
+        <select id="squad" title="Filtrar por squad" class="squad-select${state.squad?' on':''}">
           <option value="">Todos os squads</option>
           ${sqs.map(sq=>`<option value="${esc(sq)}" ${state.squad===sq?'selected':''}>${esc(sq)}</option>`).join('')}
         </select>` : '' })()}
@@ -1063,14 +1080,14 @@ function render() {
       const c = viewCounts(channels, P)
       return `<div class="squad-bar">
         <span class="filter-label">Visualização:</span>
-        <button class="squad-btn ${state.view==='padrao'?'active':''}" data-view="padrao">📊 Padrão (status)</button>
-        <button class="squad-btn ${state.view==='pace'?'active':''}" data-view="pace" title="Pace de gasto vs a verba planejada no módulo Campanha da Área do Cliente, por conta e por campanha do plano">💸 Pace de Verba<span data-vbn="pace">${vbn(c.pace)}</span></button>
-        <button class="squad-btn ${state.view==='diagnostico'?'active':''}" data-view="diagnostico" title="Contas em queda de conversão, separadas pela causa: corte de verba ou performance (CTR / taxa de conversão)">📉 Diagnóstico de Queda<span data-vbn="diag">${vbn(c.diag)}</span></button>
-        <button class="squad-btn ${state.view==='queda-ctr'?'active':''}" data-view="queda-ctr" title="Só as contas cuja queda de conversão foi causada pelo CTR (criativo/segmentação)">🎯 Queda por CTR<span data-vbn="ctr">${vbn(c.ctr)}</span></button>
-        <button class="squad-btn ${state.view==='queda-taxa'?'active':''}" data-view="queda-taxa" title="Só as contas cuja queda de conversão foi causada pela taxa de conversão (LP/oferta)">🧲 Queda por Tx. Conversão<span data-vbn="taxa">${vbn(c.taxa)}</span></button>
-        <button class="squad-btn ${state.view==='escala'?'active':''}" data-view="escala" title="Contas com conversões subindo e CPL caindo — candidatas a receber mais investimento">🚀 Contas que podem escalar<span data-vbn="escala">${vbn(c.escala)}</span></button>
+        <button class="squad-btn ${state.view==='padrao'?'active':''}" data-view="padrao">${em('📊')} Padrão (status)</button>
+        <button class="squad-btn ${state.view==='pace'?'active':''}" data-view="pace" title="Pace de gasto vs a verba planejada no módulo Campanha da Área do Cliente, por conta e por campanha do plano">${em('💸')} Pace de Verba<span data-vbn="pace">${vbn(c.pace)}</span></button>
+        <button class="squad-btn ${state.view==='diagnostico'?'active':''}" data-view="diagnostico" title="Contas em queda de conversão, separadas pela causa: corte de verba ou performance (CTR / taxa de conversão)">${em('📉')} Diagnóstico de Queda<span data-vbn="diag">${vbn(c.diag)}</span></button>
+        <button class="squad-btn ${state.view==='queda-ctr'?'active':''}" data-view="queda-ctr" title="Só as contas cuja queda de conversão foi causada pelo CTR (criativo/segmentação)">${em('🎯')} Queda por CTR<span data-vbn="ctr">${vbn(c.ctr)}</span></button>
+        <button class="squad-btn ${state.view==='queda-taxa'?'active':''}" data-view="queda-taxa" title="Só as contas cuja queda de conversão foi causada pela taxa de conversão (LP/oferta)">${em('🧲')} Queda por Tx. Conversão<span data-vbn="taxa">${vbn(c.taxa)}</span></button>
+        <button class="squad-btn ${state.view==='escala'?'active':''}" data-view="escala" title="Contas com conversões subindo e CPL caindo — candidatas a receber mais investimento">${em('🚀')} Contas que podem escalar<span data-vbn="escala">${vbn(c.escala)}</span></button>
         ${state.view==='padrao' ? `<span style="flex:1"></span>
-        <button class="squad-btn ${state.showHidden?'active':''}" id="toggle-hidden" title="${state.showHidden?'Voltar para a visão normal':'Ver as contas ocultas (clientes que saíram)'}">${state.showHidden?'👁 Vendo ocultas':'🚫 Ocultas'}<span data-vbn="hidden">${vbn(c.hidden)}</span></button>` : ''}
+        <button class="squad-btn ${state.showHidden?'active':''}" id="toggle-hidden" title="${state.showHidden?'Voltar para a visão normal':'Ver as contas ocultas (clientes que saíram)'}">${state.showHidden?em('👁')+' Vendo ocultas':em('🚫')+' Ocultas'}<span data-vbn="hidden">${vbn(c.hidden)}</span></button>` : ''}
       </div>`
     })()}
     <div class="tab-panel">${panelHTML(d)}</div>
@@ -1129,8 +1146,8 @@ const mDelta = (v, lowerIsBetter) => `<span class="${varCls(v, lowerIsBetter)}">
 // investimento) arredonda e usa separador de milhar — "R$ 2.630".
 const fmtMoneyCard = n => n == null ? '—'
   : Math.abs(n) >= 1000 ? 'R$ ' + Math.round(n).toLocaleString('pt-BR') : fmtMoney(n)
-const trendHTML = x => x.declining3d ? `<span class="trend-dn">📉 Queda 3d</span>`
-  : x.trendDir === 'up' ? `<span class="trend-up">📈 Alta 3d</span>` : `<span class="trend-fl">➡️ Estável 3d</span>`
+const trendHTML = x => x.declining3d ? `<span class="trend-dn">${em('📉')} Queda 3d</span>`
+  : x.trendDir === 'up' ? `<span class="trend-up">${em('📈')} Alta 3d</span>` : `<span class="trend-fl">${em('➡️')} Estável 3d</span>`
 
 // ─── Ordenação das tabelas de conta ──────────────────────────────────────────
 // Cada coluna com `key` vira cabeçalho clicável (1º clique ordena, o seguinte
@@ -1254,11 +1271,11 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
 
   // Linha de tabela + card mobile de uma conta (reusados por grupo e subgrupo).
   const acctRow = x => {
-    const trend = x.declining3d?`<span class="trend-dn">📉 Queda</span>`:x.trendDir==='up'?`<span class="trend-up">📈 Alta</span>`:`<span class="trend-fl">➡️ Estável</span>`
+    const trend = x.declining3d?`<span class="trend-dn">${em('📉')} Queda</span>`:x.trendDir==='up'?`<span class="trend-up">${em('📈')} Alta</span>`:`<span class="trend-fl">${em('➡️')} Estável</span>`
     return `<tr data-client="${esc(x.name)}" data-ch="${x.channel}">
       <td><span class="client-link">${esc(x.name)}</span>${newLookChip(x.name)}${hideBtnHTML(x.name)}</td>
       <td>${chIco(x.channel)}</td>
-      <td><span class="pill ${pillCls(x.status)}">${pillIco(x.status)} ${x.status}</span></td>
+      <td><span class="pill ${pillCls(x.status)}">${pIco(x.status)}${x.status}</span></td>
       <td>${fmtNum(x.conv1)}</td><td>${fmtNum(x.conv2)}</td>
       <td class="${varCls(x.varConv,false)}">${fmtPct(x.varConv)}</td>
       <td>${fmtMoney(x.cpl1)}</td><td class="col-target">${targetCellHTML(x.name, x.cpl1)}</td><td>${fmtMoney(x.cpl2)}</td>
@@ -1270,7 +1287,7 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
   const acctCard = x => {
     const target = state.accounts[x.name]?.cplTarget?.value ?? null
     return mCardHTML(x.name,
-    `<span class="pill ${pillCls(x.status)}">${pillIco(x.status)}</span>`,
+    `<span class="pill pill-ico ${pillCls(x.status)}">${state.newLook ? '' : pillIco(x.status)}</span>`,
     `${chIco(x.channel)} ${trendHTML(x)}${target != null ? ` <span style="color:#CBD5E1">·</span> ${goalBadge(target, x.cpl1, x.channel)}` : ''}`,
     [['Conversões', fmtNum(x.conv1), mDelta(x.varConv, false)],
      [x.channel==='meta'?'CPL':'CPA', fmtMoneyCard(x.cpl1), mDelta(x.varCpl, true)],
@@ -1351,13 +1368,13 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
   const groups = STATUS_GROUPS.map(g => {
     let grp = clients.filter(c => worstStatus(c) === g.key); if (!grp.length) return ''
     grp = sortClients(grp, g.key)
-    const header = `<div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} cliente${grp.length!==1?'s':''}</span></div>`
+    const header = `<div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} cliente${grp.length!==1?'s':''}</span></div>`
     // Grupo "Queda": subclassifica pelas causas do diagnóstico (verba / CTR /
     // taxa), usando a conta do cliente que está em queda como representante.
     // Cada subgrupo com clientes vira um bloco com subcabeçalho próprio.
     if (g.key === 'QUEDA') {
       const subBlock = (cls, icon, label, tip, list) => `<div class="queda-sub">
-        <div class="subgroup-header ${cls}"><span class="gh-icon">${icon}</span><span class="sg-title">${label}</span><span class="status-info" title="${esc(tip)}">i</span><span class="gh-count">${list.length} cliente${list.length!==1?'s':''}</span></div>
+        <div class="subgroup-header ${cls}"><span class="gh-icon">${em(icon)}</span><span class="sg-title">${label}</span><span class="status-info" title="${esc(tip)}">i</span><span class="gh-count">${list.length} cliente${list.length!==1?'s':''}</span></div>
         ${list.map(clientCard).join('')}</div>`
       const causaOfClient = c => {
         const rep = c.accounts.find(a => a.status === 'QUEDA')
@@ -1425,7 +1442,7 @@ function diagnosticoHTML(channels, P, only) {
       <td class="${varCls(d.varCr,false)}">${fmtPct(d.varCr)}</td>
       <td>${fmtMoney(d.cpl1)}</td>
       <td class="${varCls(d.varCpl,true)}">${fmtPct(d.varCpl)}</td></tr>`).join('')
-    const causa = g.key === 'verba' ? '💸 Verba' : g.key === 'ctr' ? '🎯 CTR' : '🧲 Taxa'
+    const causa = g.key === 'verba' ? em('💸') + ' Verba' : g.key === 'ctr' ? em('🎯') + ' CTR' : em('🧲') + ' Taxa'
     const cards = grp.map(d => mCardHTML(d.name, '', '',
       [['Conversões', fmtNum(d.conv1), mDelta(d.varConv, false)],
        ['Investido', fmtMoneyCard(d.spend1), mDelta(d.varSpend, false)],
@@ -1434,7 +1451,7 @@ function diagnosticoHTML(channels, P, only) {
        ['Tx. Conv.', fmtRatioPct(d.cr1), mDelta(d.varCr, false)],
        ['Causa', causa, '']], d.channel)).join('')
     return `<div class="group-section diag-section">
-      <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
+      <div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
       <div class="diag-hint">${esc(g.tip)}</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Conta</th><th>Canal</th><th>Conv.</th><th>Var. Conv.</th><th>Investimento</th><th>Var. Invest.</th><th>CTR</th><th>Var. CTR</th><th>Tx. Conv.</th><th>Var. Tx. Conv.</th><th>CPL</th><th>Var. CPL</th></tr></thead>
@@ -1473,7 +1490,7 @@ function escalaHTML(channels, P) {
   const groups = SCALE_GROUPS.map(g => {
     const grp = list.filter(g.match); if (!grp.length) return ''
     const rows = grp.map(d => {
-      const trend = d.declining3d?`<span class="trend-dn">📉 Queda</span>`:d.trendDir==='up'?`<span class="trend-up">📈 Alta</span>`:`<span class="trend-fl">➡️ Estável</span>`
+      const trend = d.declining3d?`<span class="trend-dn">${em('📉')} Queda</span>`:d.trendDir==='up'?`<span class="trend-up">${em('📈')} Alta</span>`:`<span class="trend-fl">${em('➡️')} Estável</span>`
       return `<tr data-client="${esc(d.name)}" data-ch="${d.channel}">
       <td><span class="client-link">${esc(d.name)}</span></td>
       <td>${chIco(d.channel)}</td>
@@ -1492,7 +1509,7 @@ function escalaHTML(channels, P) {
        ['CPL', fmtMoneyCard(d.cpl1), mDelta(d.varCpl, true)],
        ['Investido', fmtMoneyCard(d.spend1), mDelta(d.varSpend, false)]], d.channel)).join('')
     return `<div class="group-section diag-section">
-      <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
+      <div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
       <div class="diag-hint">${esc(g.tip)}</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Conta</th><th>Canal</th><th>Conv.</th><th>Conv. Ant.</th><th>Var. Conv.</th><th>CPL</th><th>CPL Ant.</th><th>Var. CPL</th><th>Margem vs. Alvo</th><th>Investimento</th><th>Var. Invest.</th><th>Tend. 3d</th></tr></thead>
@@ -1643,8 +1660,8 @@ const goalBadge = (target, cpl, ch) => {
   if (cpl == null) return `<span class="goal-pill goal-warn" title="Sem conversões no período — impossível medir o ${label}.">sem conv.</span>`
   const margin = ((target - cpl) / target) * 100
   return margin >= 0
-    ? `<span class="goal-pill goal-ok" title="${label} do período ${fmtMoney(cpl)} vs máximo ${fmtMoney(target)} da Calculadora de ROI">✅ ${margin.toFixed(0)}% abaixo</span>`
-    : `<span class="goal-pill goal-over" title="${label} do período ${fmtMoney(cpl)} vs máximo ${fmtMoney(target)} da Calculadora de ROI">🚨 ${Math.abs(margin).toFixed(0)}% acima</span>`
+    ? `<span class="goal-pill goal-ok" title="${label} do período ${fmtMoney(cpl)} vs máximo ${fmtMoney(target)} da Calculadora de ROI">${em('✅')} ${margin.toFixed(0)}% abaixo</span>`
+    : `<span class="goal-pill goal-over" title="${label} do período ${fmtMoney(cpl)} vs máximo ${fmtMoney(target)} da Calculadora de ROI">${em('🚨')} ${Math.abs(margin).toFixed(0)}% acima</span>`
 }
 
 // Linhas de campanha do plano (drill do expand) — pace individual por campanha.
@@ -1682,8 +1699,8 @@ function targetCellHTML(name, cpl) {
   if (cpl == null) return `<span class="target-val" title="Sem conversões no período para comparar com o alvo">${fmtMoney(target)}</span>`
   const margin = ((target - cpl) / target) * 100
   return margin >= 0
-    ? `<span class="target-val" title="CPL do período ${margin.toFixed(0)}% abaixo do máximo da Calculadora de ROI (${fmtMoney(target)})">${fmtMoney(target)} <span class="target-ok">✅</span></span>`
-    : `<span class="target-val" title="CPL do período ${Math.abs(margin).toFixed(0)}% ACIMA do máximo da Calculadora de ROI (${fmtMoney(target)})">${fmtMoney(target)} <span class="target-over">🚨</span></span>`
+    ? `<span class="target-val" title="CPL do período ${margin.toFixed(0)}% abaixo do máximo da Calculadora de ROI (${fmtMoney(target)})">${fmtMoney(target)} <span class="target-ok">${em('✅')}</span></span>`
+    : `<span class="target-val" title="CPL do período ${Math.abs(margin).toFixed(0)}% ACIMA do máximo da Calculadora de ROI (${fmtMoney(target)})">${fmtMoney(target)} <span class="target-over">${em('🚨')}</span></span>`
 }
 
 // Itens da visualização "Pace de Verba": contas do canal (com busca/squad/ocultas
@@ -1766,7 +1783,7 @@ function paceViewHTML(channels, P) {
     const grp = items.filter(g.match); if (!grp.length) return ''
     grp.sort((a, b) => (b.pace.pct ?? -1) - (a.pace.pct ?? -1))
     return `<div class="group-section diag-section">
-      <div class="group-header ${g.hcls}"><span class="gh-icon">${g.icon}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length !== 1 ? 's' : ''}</span></div>
+      <div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length !== 1 ? 's' : ''}</span></div>
       <div class="diag-hint">${esc(g.tip)}</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Conta</th><th>Canal</th><th>Período do plano</th><th>Verba do plano</th><th>Gasto</th><th>Previsto até hoje</th><th>Pace</th><th>Projeção</th><th>Camp.</th></tr></thead>

@@ -7,11 +7,12 @@ Piloto de redesign da **página de cliente** do Dashboard de Tráfego (viewer em
 [AI Finance Management SaaS Dashboard](https://www.behance.net/gallery/234937291/AI-Finance-Management-SaaS-UX-UI-DashboardDesign)
 (Behance, marca fictícia "Fynix").
 
-**Estado:** desde 2026-09-19 o tema entra na página de **todas as contas**
-(`newLookFor = () => true` no viewer), inclusive nos links públicos. Só a lista
-da home segue no visual antigo. Para voltar a restringir, trocar `newLookFor`
-por um `Set` de nomes de conta (coluna `account` de `dash_insights`), como era
-no piloto (só Matheus Business, 18/09).
+**Estado:** desde 2026-09-19 o tema entra em **todo o viewer**: página de todas
+as contas (`newLookFor = () => true`), links públicos e também a **home** (lista
+de contas), que ganhou a seção "HOME" no `theme-fynix.css` e o tradutor `em()`
+de emoji → ícone de linha no viewer. Para voltar a restringir a página do
+cliente, trocar `newLookFor` por um `Set` de nomes de conta; para tirar o tema
+só da home, `setNewLook(false)` no `render()`.
 
 ## Onde mora
 
@@ -104,7 +105,7 @@ referência usa cabeçalho leve, sem caixa alta). Números das tabelas com
 - Estrutura da página (KPIs, período, abas Resultados/Campanhas/Atividades/
   Parâmetros, quadrantes, drill campanha → conjunto → anúncio, Análise IA) e
   toda a lógica de dados.
-- Visual da home e das demais contas. As únicas mudanças fora do tema foram
-  trocar estilos inline por classes com os **mesmos valores** (para o tema poder
-  sobrescrevê-los) e uma correção de formatação no plano de ação da Análise IA
+- Lógica da home. As únicas mudanças fora do tema foram trocar estilos inline
+  por classes com os **mesmos valores** (para o tema poder sobrescrevê-los; o
+  último foi o select de squad, `.squad-select`) e uma correção de formatação no plano de ação da Análise IA
   (o CPL alvo saía como `R$ 22.727272…`; agora `R$ 22,73`, em todas as contas).
