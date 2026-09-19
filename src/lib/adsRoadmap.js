@@ -320,15 +320,55 @@ export const FAIXAS = [
     estrutura: {
       b2c: [
         {
-          nome: 'Campanha 1', tipo: 'CBO', verba: 'R$ 33/dia', sub: 'Fundo · 100%',
+          nome: 'Campanha 1', tipo: 'CBO', verba: 'R$ 33/dia', sub: 'Fundo',
           conjuntos: [
-            { nome: 'Conjunto 01', sub: 'Amplo Advantage+', ads: ['AD 01', 'AD 02', 'AD 03', '…', 'AD 12'], nota: 'todos ativos, sobe 3/semana (até 12) · destino: WhatsApp' },
+            { nome: 'Conjunto 01', sub: 'Amplo Advantage+', ads: ['AD 01', 'AD 02', 'AD 03'], nota: '3 por semana · WhatsApp' },
           ],
         },
       ],
       b2b: null,
+      // Mapa "Meta OU Google": nessa faixa o Google substitui o Meta, nunca roda junto.
+      google: {
+        titulo: 'Estrutura Google',
+        ou: true,
+        campanhas: [
+          {
+            nome: 'Campanha', tipo: '', verba: 'R$ 33/dia', sub: 'Search',
+            conjuntos: [
+              { nome: 'Conjunto 01', sub: 'produto', ads: ['AD 01'] },
+              { nome: 'Conjunto 02', sub: 'branding', ads: ['AD 02'] },
+            ],
+          },
+        ],
+        nota: 'Só entra se já existe busca pelo produto. Nunca junto com o Meta nessa faixa.',
+      },
+      // Pontos que aparecem embaixo de cada estrutura no mapa (treinamento).
+      // Item pode ser string ou { t, sub: [] } pra lista aninhada.
+      pontos: {
+        b2c: [
+          'Testa 3 criativos por semana no máximo',
+          'CPL: R$ 5 a R$ 15',
+          '2 a 6 mensagens por dia',
+          'Não tem público quente',
+          'Apenas um funil: WhatsApp',
+          'A otimização é apenas desligar o criativo que está com o CPL 2× acima do CPL alvo e ligar um criativo que não foi testado',
+          'Assim que um criativo é desligado ele é marcado como "_Fadigado" ou "_Ruim"',
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o CPL estiver abaixo do CPL alvo'] },
+          'Aumente em 20% por dia o valor para não fazer o CPM estourar',
+        ],
+        google: [
+          'Testa 2 campanhas no máximo',
+          'CPC: R$ 1 a R$ 5',
+          'CPL: R$ 9 a R$ 108',
+          'Até 3 conversões por dia',
+          'Apenas uma campanha para tentar não perder lances no leilão',
+          { t: 'A otimização aqui é:', sub: ['negativar palavras-chave', 'mudar headlines', 'mudar anúncios'] },
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o CPL estiver abaixo do CPL alvo'] },
+          'Aumente em 20% por dia o valor para não fazer o CPM estourar',
+        ],
+      },
       notas: {
-        b2c: ['Sem topo, sem lookalike, sem remarketing.', 'Google Search só se CPC ≤ R$ 3,30 (raro nessa faixa).', 'Não escala dentro da faixa: 7 dias abaixo da meta = proposta de subir pra R$ 2.000.'],
+        b2c: ['Sem topo, sem lookalike, sem remarketing.', 'Não escala dentro da faixa: 7 dias abaixo da meta = proposta de subir pra R$ 2.000.'],
         b2b: ['B2B não faz nessa faixa: o CPL de B2B não fecha com R$ 33/dia.'],
       },
     },

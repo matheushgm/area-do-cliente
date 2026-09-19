@@ -20,27 +20,27 @@ const SEG = { b2c: 'B2C', b2b: 'B2B' }
 function Caixa({ titulo, sub, opcional, destaque, tag }) {
   return (
     <div
-      className={`rounded-lg border px-3 py-2 min-w-[150px] ${
+      className={`rounded-xl border px-3.5 py-2.5 min-w-[150px] ${
         opcional ? 'border-dashed border-rl-muted/60' : 'border-rl-border'
       } ${destaque ? 'bg-rl-purple/10' : 'bg-rl-surface'}`}
     >
       <div className="flex items-center gap-1.5">
-        <span className={`text-[13px] leading-tight ${destaque ? 'font-bold text-rl-text' : 'font-semibold text-rl-text'}`}>{titulo}</span>
+        <span className={`text-[15px] leading-tight ${destaque ? 'font-bold text-rl-text' : 'font-semibold text-rl-text'}`}>{titulo}</span>
         {tag && (
           <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rl-cyan/15 text-rl-cyan border border-rl-cyan/30">
             {tag}
           </span>
         )}
       </div>
-      {sub && <div className="text-[11px] text-rl-muted leading-tight mt-0.5">{sub}</div>}
+      {sub && <div className="text-[12px] text-rl-muted leading-tight mt-1">{sub}</div>}
     </div>
   )
 }
 
 function Ad({ label, opcional }) {
-  if (label === '…') return <div className="text-rl-muted text-sm leading-none px-3">···</div>
+  if (label === '…') return <div className="text-rl-muted text-base leading-none px-3">···</div>
   return (
-    <div className={`rounded-md border px-2.5 py-1 text-[12px] text-rl-text bg-rl-card whitespace-nowrap ${
+    <div className={`rounded-lg border px-3 py-1.5 text-[13px] text-rl-text bg-rl-card whitespace-nowrap ${
       opcional ? 'border-dashed border-rl-muted/60' : 'border-rl-border'
     }`}>
       {label}
@@ -54,15 +54,15 @@ function Ramo({ children, opcional }) {
   const b = opcional ? 'border-dashed border-rl-muted/60' : 'border-rl-border'
   const n = children.length
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       {children.map((child, i) => (
         <div key={i} className="flex items-stretch">
-          <div className="w-4 shrink-0 flex flex-col">
+          <div className="w-5 shrink-0 flex flex-col">
             <div className={`flex-1 ${i === 0 ? '' : `border-l ${b}`}`} />
             <div className={`flex-1 ${i === n - 1 ? '' : `border-l ${b}`}`} />
           </div>
           <div className="flex items-center">
-            <div className={`w-4 border-t ${b}`} />
+            <div className={`w-5 border-t ${b}`} />
             {child}
           </div>
         </div>
@@ -81,7 +81,7 @@ function Conjunto({ c, opcional }) {
           {c.ads.map((a, i) => <Ad key={i} label={a} opcional={opc} />)}
         </Ramo>
         {c.nota && (
-          <div className="text-[11px] text-rl-muted leading-snug pl-8 pt-1 italic max-w-[360px]">{c.nota}</div>
+          <div className="text-[12px] text-rl-muted leading-snug pl-10 pt-1 italic max-w-[360px]">{c.nota}</div>
         )}
       </div>
     </div>
@@ -106,22 +106,51 @@ function Campanha({ camp }) {
   )
 }
 
-function Estrutura({ campanhas, notas, titulo, vazio }) {
+// Lista de pontos do treinamento (embaixo do desenho). Item = string ou { t, sub[] }.
+function Pontos({ itens }) {
   return (
-    <div className="glass-card p-5 space-y-4 overflow-x-auto">
+    <ul className="space-y-2">
+      {itens.map((it, i) => {
+        const t = typeof it === 'string' ? it : it.t
+        const sub = typeof it === 'string' ? null : it.sub
+        return (
+          <li key={i} className="text-[14px] text-rl-subtle leading-relaxed">
+            <div className="flex gap-2.5"><span className="text-rl-cyan shrink-0">•</span><span className="text-rl-text">{t}</span></div>
+            {sub?.length > 0 && (
+              <ul className="pl-7 mt-1 space-y-1">
+                {sub.map((x, j) => (
+                  <li key={j} className="flex gap-2.5 text-[13px]"><span className="text-rl-muted shrink-0">◦</span><span>{x}</span></li>
+                ))}
+              </ul>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function Estrutura({ campanhas, notas, titulo, vazio, pontos }) {
+  return (
+    <div className="glass-card p-6 space-y-5">
       <div className="flex items-center gap-2">
-        <GitFork className="w-4 h-4 text-rl-cyan" />
-        <h3 className="text-sm font-bold text-rl-text">{titulo}</h3>
+        <GitFork className="w-5 h-5 text-rl-cyan" />
+        <h3 className="text-base font-bold text-rl-text">{titulo}</h3>
       </div>
       {campanhas ? (
-        <div className="space-y-5 min-w-max">
-          {campanhas.map((camp, i) => <Campanha key={i} camp={camp} />)}
+        <div className="overflow-x-auto">
+          <div className="space-y-6 min-w-max py-1">
+            {campanhas.map((camp, i) => <Campanha key={i} camp={camp} />)}
+          </div>
         </div>
       ) : (
         <p className="text-sm text-rl-muted">{vazio}</p>
       )}
+      {pontos?.length > 0 && (
+        <div className="pt-4 border-t border-rl-border/60"><Pontos itens={pontos} /></div>
+      )}
       {notas?.length > 0 && (
-        <ul className="text-[12px] text-rl-subtle space-y-1 pt-2 border-t border-rl-border/60">
+        <ul className="text-[12px] text-rl-subtle space-y-1 pt-3 border-t border-rl-border/60">
           {notas.map((n, i) => <li key={i}>• {n}</li>)}
         </ul>
       )}
@@ -527,36 +556,65 @@ export default function AdsRoadmap() {
                   Essa faixa existe na página do ClickUp mas ainda não tem desenho de estrutura no app. Adicione em <code className="text-rl-cyan">src/lib/adsRoadmap.js</code>.
                 </div>
               )}
-              {est && <div className={`grid gap-4 ${seg === 'ambos' ? 'xl:grid-cols-2' : ''}`}>
-                {(seg === 'b2c' || seg === 'ambos') && (
+              {est && (() => {
+                const ou = !!est.google?.ou
+                const metaCards = [
+                  (seg === 'b2c' || seg === 'ambos') && (
+                    <Estrutura
+                      key="b2c"
+                      titulo={`Estrutura Meta · B2C · R$ ${faixa.verbaDia}/dia`}
+                      campanhas={est.b2c}
+                      notas={est.notas?.b2c}
+                      pontos={est.pontos?.b2c}
+                      vazio="B2C não faz nessa faixa."
+                    />
+                  ),
+                  (seg === 'b2b' || seg === 'ambos') && (
+                    <Estrutura
+                      key="b2b"
+                      titulo={`Estrutura Meta · B2B · R$ ${faixa.verbaDia}/dia`}
+                      campanhas={est.b2b}
+                      notas={est.notas?.b2b}
+                      pontos={est.pontos?.b2b}
+                      vazio="B2B não faz nessa faixa: o CPL de B2B não fecha com essa verba diária."
+                    />
+                  ),
+                ].filter(Boolean)
+                const googleCard = est.google && (
                   <Estrutura
-                    titulo={`Meta B2C · R$ ${faixa.verbaDia}/dia`}
-                    campanhas={est.b2c}
-                    notas={est.notas?.b2c}
-                    vazio="B2C não faz nessa faixa."
+                    key="google"
+                    titulo={`${est.google.titulo}${ou ? ` · R$ ${faixa.verbaDia}/dia` : ''}`}
+                    campanhas={est.google.campanhas}
+                    notas={[est.google.nota]}
+                    pontos={est.pontos?.google}
                   />
-                )}
-                {(seg === 'b2b' || seg === 'ambos') && (
-                  <Estrutura
-                    titulo={`Meta B2B · R$ ${faixa.verbaDia}/dia`}
-                    campanhas={est.b2b}
-                    notas={est.notas?.b2b}
-                    vazio="B2B não faz nessa faixa: o CPL de B2B não fecha com essa verba diária."
-                  />
-                )}
-              </div>}
-              {est?.google && (
-                <Estrutura
-                  titulo={est.google.titulo}
-                  campanhas={est.google.campanhas}
-                  notas={[est.google.nota]}
-                />
-              )}
+                )
+                if (ou && googleCard) {
+                  // Mapa "Meta OU Google": um canal substitui o outro nessa faixa.
+                  return (
+                    <div className="flex flex-col xl:flex-row xl:items-start gap-4">
+                      <div className="flex-[1.15] min-w-0 space-y-4">{metaCards}</div>
+                      <div className="flex xl:flex-col items-center justify-center xl:self-center shrink-0 px-1">
+                        <span className="text-sm font-bold uppercase tracking-widest text-rl-cyan bg-rl-cyan/10 border border-rl-cyan/30 rounded-full px-3 py-1">ou</span>
+                      </div>
+                      <div className="flex-1 min-w-0">{googleCard}</div>
+                    </div>
+                  )
+                }
+                return (
+                  <>
+                    <div className={`grid gap-4 ${seg === 'ambos' ? 'xl:grid-cols-2' : ''}`}>{metaCards}</div>
+                    {googleCard}
+                  </>
+                )
+              })()}
             </section>
 
-            {/* Tabela */}
+            {/* Tabela (recolhida por padrão: o mapa é o que guia o treinamento) */}
             <section className="space-y-4">
-              <Tabela rows={faixa.rows} seg={seg} />
+              <Acordeao Icon={Table2} titulo="Tabela explicativa (parâmetros da faixa)">
+                <div className="pt-3"><Tabela rows={faixa.rows} seg={seg} /></div>
+              </Acordeao>
             </section>
 
             {/* Regras universais */}
