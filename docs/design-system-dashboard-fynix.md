@@ -1,5 +1,7 @@
 # Dashboard de Tráfego, novo visual (tema "Fynix")
 
+> **2026-09-19:** a paleta verde-lima da referência foi trocada pelo azul da marca Revenue Lab a pedido do Matheus. Os nomes das variáveis CSS (`--fx-lime`, `--fx-green`) continuam os mesmos.
+
 Piloto de redesign da **página de cliente** do Dashboard de Tráfego (viewer em
 `public/dash-teste/viewer.html`), baseado no projeto
 [AI Finance Management SaaS Dashboard](https://www.behance.net/gallery/234937291/AI-Finance-Management-SaaS-UX-UI-DashboardDesign)
@@ -31,8 +33,8 @@ gráficos abertos são redesenhados (`redrawChartsWhenFontLoads`).
 
 | Papel | Hex | Uso no dashboard |
 |---|---|---|
-| Lima | `#9FE870` | Card hero do investido, botão "Link", sublinhado das abas, barras "Atual", trilho das barras de progresso |
-| Verde-escuro | `#062F28` | Títulos, valores, botão ativo do período, série "anterior" dos gráficos, preenchimento das barras de progresso |
+| Azul de ação (Revenue Lab) | `#154490` | Card hero do investido (texto branco), botão "Link", sublinhado das abas, barras "Atual", preenchimento das barras de progresso |
+| Navy (Revenue Lab) | `#020027` | Títulos, valores, botão ativo do período, série "anterior" dos gráficos |
 | Cinza | `#7B7B7B` | Texto secundário. No tema entra como `#6F6F6F`: o cinza da prancha rende 4,2:1 sobre branco e o texto vai a 11 px, então foi escurecido para passar de 4,5:1 |
 | Branco | `#FFFFFF` | Cards |
 
@@ -40,8 +42,9 @@ gráficos abertos são redesenhados (`redrawChartsWhenFontLoads`).
 
 | Papel | Hex | Uso |
 |---|---|---|
-| Lima 3 | `#5FB83A` | Linhas de gráfico sobre branco (o lima puro a 2,5 px não tem contraste) |
-| Lima suave | `#EAF8DF` / `#EEF9E6` | Fundo dos círculos de ícone, pílulas positivas, status ATIVO |
+| Azul 2 / Azul 3 | `#2F6BD4` / `#123C86` | Linhas de gráfico sobre branco / links e hover do botão primário |
+| Azul suave | `#E5EDFB` | Fundo dos círculos de ícone, filtros ativos, trilho das barras de progresso |
+| Verde suave | `#EAF8DF` / `#EEF9E6` | Pílulas positivas e status ATIVO (semântico, não é cor de marca) |
 | Fundo | `#F2F3F4` | Fundo da página |
 | Superfície 2 | `#F7F8F9` | Cabeçalho de tabela e áreas internas |
 | Borda | `#E7E9EB` / `#EEF0F2` | Cards / divisórias internas |

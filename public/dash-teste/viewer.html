@@ -328,7 +328,7 @@
 .dt-root .pace-none{ color:#94A3B8; }
 /* Selo "novo visual" na lista da home: marca as contas que estão no piloto do tema. */
 .dt-root .new-look-chip{ display:inline-block; margin-left:6px; font-size:9px; font-weight:800; letter-spacing:.3px;
-  text-transform:uppercase; color:#2F6B1F; background:#EAF8DF; border:1px solid #BFE9A3; border-radius:999px;
+  text-transform:uppercase; color:#123C86; background:#E5EDFB; border:1px solid #BFD0F0; border-radius:999px;
   padding:2px 7px; vertical-align:middle; white-space:nowrap; }
 </style>
 </head>
@@ -626,19 +626,19 @@ const CHART_FONT_DEFAULT = typeof Chart !== 'undefined' ? Chart.defaults.font.fa
 const PAL_DEFAULT = { spend:'#D97706', spendFill:'rgba(217,119,6,0.12)', conv:'#2563EB', convFill:'rgba(37,99,235,0.12)',
   prev:'#94A3B8', prevBar:'#CBD5E1', ctr:'#0891B2', ctrFill:'transparent', leads:'#2563EB', mql:'#7C3AED',
   grid:'#E4EAF7', tick:'#64748B', legend:'#334155', font: CHART_FONT_DEFAULT }
-// Como na referência: linha lima com degradê lima embaixo, série secundária em
-// verde-escuro fino. Nas LINHAS entra o lima-3 (#5FB83A): o lima puro a 2,5px
-// sobre branco não tem contraste; ele fica nas áreas e nas barras.
-const PAL_FYNIX = { spend:'#5FB83A', spendFill:'rgba(159,232,112,0.30)', conv:'#9FE870', convFill:'rgba(159,232,112,0.22)',
-  prev:'#062F28', prevBar:'#C9CED2', ctr:'#5FB83A', ctrFill:'rgba(159,232,112,0.22)', leads:'#062F28', mql:'#5FB83A',
-  grid:'#EEF0F2', tick:'#6F6F6F', legend:'#062F28', font:"'Urbanist', 'Inter', system-ui, sans-serif" }
+// Como na referência: linha na cor de destaque com degradê embaixo, série
+// secundária em navy fino. Paleta = azul da Revenue Lab (era verde-lima até
+// 2026-09-19; ver cabeçalho do theme-fynix.css).
+const PAL_FYNIX = { spend:'#2F6BD4', spendFill:'rgba(47,107,212,0.22)', conv:'#5B8DF0', convFill:'rgba(91,141,240,0.22)',
+  prev:'#020027', prevBar:'#C9CED2', ctr:'#2F6BD4', ctrFill:'rgba(47,107,212,0.18)', leads:'#020027', mql:'#2F6BD4',
+  grid:'#EEF0F2', tick:'#6F6F6F', legend:'#020027', font:"'Urbanist', 'Inter', system-ui, sans-serif" }
 const pal = () => state.newLook ? PAL_FYNIX : PAL_DEFAULT
-// Degradê lima sob a linha (só no tema). Scriptable: o Chart.js recalcula no resize.
+// Degradê azul sob a linha (só no tema). Scriptable: o Chart.js recalcula no resize.
 const limeGradient = ctx => {
   const { ctx: c, chartArea } = ctx.chart
-  if (!chartArea) return 'rgba(159,232,112,0.25)'
+  if (!chartArea) return 'rgba(47,107,212,0.18)'
   const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
-  g.addColorStop(0, 'rgba(159,232,112,0.42)'); g.addColorStop(1, 'rgba(159,232,112,0)')
+  g.addColorStop(0, 'rgba(47,107,212,0.32)'); g.addColorStop(1, 'rgba(47,107,212,0)')
   return g
 }
 // Legenda no tema: quadradinho arredondado sólido na cor da série + rótulo
