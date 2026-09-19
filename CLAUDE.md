@@ -239,9 +239,16 @@ Os seguintes componentes ainda usam base64 / estrutura legada e precisam ser atu
 
 > **Implementado:** Upload de Raio-X e SLA no `NewOnboarding` → bucket `project-docs`; visualização com URL assinada em `ClientProfile`.
 
-### Exportação PDF (`src/utils/exportPDF.js`)
+### Exportação PDF (`src/utils/exportPDF.js` + `src/lib/printDoc.js`)
 
-Utilitário puro (sem dependências externas) que gera HTML inline e abre `window.print()` com CSS específico para impressão. Funções exportadas:
+Todo documento "Salvar como PDF" é HTML aberto com `window.print()`, montado por
+`printDocument({ title, css, body })` de `src/lib/printDoc.js`, que injeta o CSS base
+(`PRINT_BASE_CSS`: reset, tipografia, cabeçalho `.header/.logo/.doc-*`, botão de imprimir) —
+cada gerador só escreve o corpo e o CSS específico (`PAGE_CSS` para a página clássica com
+margem, `docHeader()` para o cabeçalho padrão, `markdownToHtml()` para saída da IA via
+`react-markdown`). Usam esse scaffold: `exportPDF.js`, `kickoffPDF.js`, `mecanismoUnicoPDF.js`,
+`roteiroVideoPDF.js`, `creativoPDF.js`, `metaLabPDF.js` e os PDFs do `ClientForm`. Sem jsPDF:
+o nome do arquivo sugerido é o `<title>` do documento. Funções exportadas por `exportPDF.js`:
 
 | Função | Usado em |
 |---|---|
@@ -349,12 +356,6 @@ views com filter tabs, listas densas de 13px, painel lateral de 480px e painel f
   devolve `aviso`). `envClean()` limpa a quebra de linha colada nas `CLICKUP_*` da Vercel.
 - **Tabelas (migration 083):** `atividades_planejadas` (histórico + `snapshot_carga`) e
   `atividades_config` (linha `global`, editável por admin no `ConfigModal`).
-- **Preview sem login (DEV):** `/dev/atividades` (`src/dev/AtividadesPreview.jsx`, rota só em
-  `import.meta.env.DEV`) injeta um `AppContext` fake e responde a `/api/atividades` no browser
-  rodando o motor (módulo virtual `virtual:atividades-engine`, plugin em `vite.config.js`)
-  sobre `src/dev/fixtures/atividades.json` (dados reais, gitignored; gere com o script
-  `gen_fixtures.mjs` do scratchpad da sessão ou adapte). `src/lib/atividades.js` desvia para
-  `window.__atividadesMock` só em DEV.
 - **Local:** o `vercel dev` entrega às funções `/api/*` as variáveis do ambiente *Development*
   da Vercel mais o arquivo **`.env`** da raiz; o `.env.local` NÃO chega nas funções. As
   `CLICKUP_*` ficam num `.env` (ignorado pelo git) com os valores sem a quebra de linha.
@@ -414,9 +415,6 @@ todo `authenticated`; as quatro estão na publicação realtime).
   fechadas seriam ~10 mil requests). Responsáveis sem perfil ativo ficam em
   `responsaveis_extra` (nome/iniciais/cor do ClickUp). Importado em 2026-09-15: 72 pastas,
   135 listas, 11.745 tarefas (3.653 subtarefas, 1.962 abertas).
-- **Preview sem login:** `/dev/tarefas` (`src/dev/TarefasPreview.jsx`) roda a página com um
-  hook de fixture (`src/dev/fixtures/tarefas.json`, gitignored; gerar com um script que exporta
-  pastas/listas/itens de algumas pastas do Supabase). A página aceita `tarefasHook` só para isso.
 - **Sincronização incremental ClickUp → Área** (`api/tarefas-sync.js`, Node, 60s): lê pastas e
   listas do space (cria as novas, atualiza statuses) e as tarefas com `date_updated` desde
   o último início menos 15 min (`tarefas_sync.ultimo_inicio`), incluindo fechadas e
@@ -468,6 +466,3 @@ com Enter; `@` abre a lista de menções (formato salvo: `@Nome_Sobrenome`).
   quando os dois têm perfil e há mensagem). Feito em 2026-09-15 com os últimos 7 dias:
   98 canais/DMs, 834 mensagens + 218 respostas. Não há sincronização contínua do chat
   (só a importação manual).
-- **Preview sem login:** `/dev/chat` (`src/dev/ChatPreview.jsx`) com
-  `src/dev/fixtures/chat.json` (gitignored; exportar perfis, canais, membros, projetos e
-  mensagens do Supabase). A página aceita `chatHook` só para isso.

@@ -1,4 +1,5 @@
 import { fmtCurrency, fmtNum, escapeHtml } from '../lib/utils'
+import { printDocument, docHeader, markdownToHtml, PAGE_CSS } from '../lib/printDoc'
 import { BUSINESS_LABELS, MATURITY_LABELS } from '../lib/constants'
 import { PROPOSTA_SECTIONS } from '../lib/propostaComercial'
 import {
@@ -22,53 +23,9 @@ function fmtPct(n) {
   return `${formatted}%`
 }
 
-function mdToHTML(text) {
-  if (!text) return ''
-  return text
-    .split('\n')
-    .map((line) => {
-      if (line.startsWith('### ')) return `<h3>${esc(line.slice(4))}</h3>`
-      if (line.startsWith('## '))  return `<h2>${esc(line.slice(3))}</h2>`
-      if (line.startsWith('# '))   return `<h1>${esc(line.slice(2))}</h1>`
-      if (line.trim() === '')      return '<br>'
-      // Bold: **text**
-      const bold = esc(line).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      return `<p>${bold}</p>`
-    })
-    .join('\n')
-}
-
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 
-const PRINT_CSS = `
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 13px;
-    color: #1a1a2e;
-    background: #fff;
-    padding: 32px 40px;
-    max-width: 900px;
-    margin: 0 auto;
-  }
-  .header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    border-bottom: 2px solid #164496;
-    padding-bottom: 16px;
-    margin-bottom: 24px;
-  }
-  .logo {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #164496;
-  }
-  .doc-title { font-size: 22px; font-weight: 800; color: #0F172A; margin-bottom: 2px; }
-  .doc-subtitle { font-size: 13px; color: #64748B; }
-  .doc-date { font-size: 11px; color: #94A3B8; text-align: right; margin-top: 4px; }
+const PRINT_CSS = PAGE_CSS + `
   section { margin-bottom: 28px; }
   .section-title {
     font-size: 11px;
@@ -112,7 +69,8 @@ const PRINT_CSS = `
   .prose h2 { font-size: 15px; font-weight: 700; color: #164496; margin: 14px 0 5px; }
   .prose h3 { font-size: 13px; font-weight: 700; color: #0F172A; margin: 12px 0 4px; }
   .prose p  { margin-bottom: 6px; font-size: 12px; }
-  .prose br { display: block; content: ''; margin: 4px 0; }
+  .prose ul, .prose ol { padding-left: 20px; margin-bottom: 6px; }
+  .prose li { font-size: 12px; margin-bottom: 2px; }
   .persona-block {
     border: 1px solid #D8E0F0;
     border-radius: 10px;
@@ -139,15 +97,6 @@ const PRINT_CSS = `
   .account-row td { padding-left: 12px; background: #F8FAFF; font-weight: 600; }
   .stage-row td { padding-left: 20px; background: #F5F8FD; }
   .campaign-row td { padding-left: 36px; font-size: 11px; color: #64748B; }
-  .print-btn {
-    position: fixed; bottom: 24px; right: 24px;
-    background: #164496; color: white;
-    border: none; border-radius: 10px;
-    padding: 12px 24px; font-size: 14px; font-weight: 700;
-    cursor: pointer; box-shadow: 0 4px 14px rgba(22,68,150,0.35);
-    display: flex; align-items: center; gap: 8px;
-  }
-  .print-btn:hover { background: #0F3380; }
   /* Proposta Comercial — 1 bloco por página (momento vs slide) */
   .pc-block { page-break-after: always; padding-top: 6px; }
   .pc-block:last-child { page-break-after: auto; }
@@ -167,8 +116,6 @@ const PRINT_CSS = `
   .pc-field { margin-bottom: 14px; }
   .pc-field .field-label { font-size: 11px; font-weight: 700; color: #164496; margin-bottom: 4px; }
   @media print {
-    .print-btn { display: none !important; }
-    body { padding: 20px 24px; }
     .persona-block { page-break-inside: avoid; }
     .pc-block { page-break-after: always; }
     .pc-block:last-child { page-break-after: auto; }
@@ -178,36 +125,11 @@ const PRINT_CSS = `
 // ─── Core printer ─────────────────────────────────────────────────────────────
 
 function printHTML(title, subtitle, bodyHTML) {
-  const today = new Date().toLocaleDateString('pt-BR', {
-    day: '2-digit', month: 'long', year: 'numeric',
+  printDocument({
+    title: `${title} — ${subtitle}`,
+    css: PRINT_CSS,
+    body: docHeader({ logo: 'Revenue Lab · Internal', title, subtitle }) + bodyHTML,
   })
-
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${esc(title)} — ${esc(subtitle)}</title>
-  <style>${PRINT_CSS}</style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <div class="logo">Revenue Lab · Internal</div>
-      <div class="doc-title">${esc(title)}</div>
-      <div class="doc-subtitle">${esc(subtitle)}</div>
-    </div>
-    <div class="doc-date">Gerado em ${today}</div>
-  </div>
-  ${bodyHTML}
-  <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>
-</body>
-</html>`
-
-  const win = window.open('', '_blank', 'width=1000,height=800')
-  if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
-  win.document.write(html)
-  win.document.close()
 }
 
 // ─── Proposta Comercial PDF ─────────────────────────────────────────────────────
@@ -228,7 +150,7 @@ export function exportPropostaComercialPDF(project, data = {}) {
       .map((f) => `
         <div class="pc-field">
           <div class="field-label">${esc(f.label)}</div>
-          <div class="prose">${mdToHTML(data[f.id])}</div>
+          <div class="prose">${markdownToHtml(data[f.id])}</div>
         </div>`)
       .join('')
 
@@ -631,7 +553,7 @@ export function exportOfertaPDF(oferta, project) {
   const generatedHTML = oferta.generatedOffer ? `
     <section>
       <div class="section-title">🤖 Oferta Matadora Gerada por IA</div>
-      <div class="prose">${mdToHTML(oferta.generatedOffer)}</div>
+      <div class="prose">${markdownToHtml(oferta.generatedOffer)}</div>
     </section>` : ''
 
   printHTML(
@@ -807,7 +729,6 @@ export function exportCampaignPDF(campaignPlan, project) {
 // planilha mês a mês (Meta, Crescimento, funil, investimento e custos).
 const PLANEJAMENTO_MKT_CSS = `
   @page { size: A4 landscape; margin: 10mm; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     color: #0F172A; background: #fff; padding: 24px 28px;
@@ -836,9 +757,7 @@ const PLANEJAMENTO_MKT_CSS = `
   td.green, th.green { color: #059669; } td.purple { color: #164496; } td.gold { color: #D97706; } td.cyan { color: #0284C7; } td.blue { color: #2563EB; }
   tr.strong { background: #FBFCFE; }
   .foot { margin-top: 14px; font-size: 10px; color: #94A3B8; line-height: 1.5; }
-  .print-btn { position: fixed; bottom: 20px; right: 20px; background: #164496; color: #fff; border: none; border-radius: 10px; padding: 12px 22px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(22,68,150,0.35); }
-  .print-btn:hover { background: #0F3380; }
-  @media print { .print-btn { display: none !important; } body { padding: 0; } thead th, td.past, tr.strong { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  @media print { body { padding: 0; } }
 `
 
 export function exportPlanejamentoMarketingPDF(data, plan, project) {
@@ -898,14 +817,10 @@ export function exportPlanejamentoMarketingPDF(data, plan, project) {
     </tr>`
   }).join('')
 
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Planejamento de Marketing — ${esc(empresa)}</title>
-  <style>${PLANEJAMENTO_MKT_CSS}</style>
-</head>
-<body>
+  printDocument({
+    title: `Planejamento de Marketing — ${empresa}`,
+    css: PLANEJAMENTO_MKT_CSS,
+    body: `
   <div class="header">
     <div>
       <div class="logo">Revenue Lab · Internal</div>
@@ -937,47 +852,15 @@ export function exportPlanejamentoMarketingPDF(data, plan, project) {
     Meses já decorridos exibem o faturamento realizado (fundo cinza); os demais, o plano necessário para bater a meta anual.
     Funil reverso: Meta ÷ ticket = vendas · ÷ taxa SQL→venda = SQLs · ÷ taxa MQL→SQL = MQLs · ÷ taxa Lead→MQL = Leads.
     CPL/CPMql/CPSql/CAC = investimento do mês ÷ leads/MQLs/SQLs/vendas (coluna Total = custo médio ponderado).
-  </p>
-
-  <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>
-</body>
-</html>`
-
-  const win = window.open('', '_blank', 'width=1200,height=800')
-  if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
-  win.document.write(html)
-  win.document.close()
+  </p>`,
+    width: 1200, height: 800,
+  })
 }
 
 // ─── Estratégia V2 PDF ────────────────────────────────────────────────────────
 
 const V2_CSS = `
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 13px;
-    color: #1a1a2e;
-    background: #fff;
-  }
-  @media print {
-    .print-btn { display: none !important; }
-    .page-break { page-break-before: always; }
-  }
-  .print-btn {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    background: #164496;
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    padding: 10px 20px;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    box-shadow: 0 4px 16px rgba(22,68,150,0.3);
-    z-index: 999;
-  }
+  @media print { .page-break { page-break-before: always; } }
 
   /* Cover */
   .cover {
@@ -1575,14 +1458,10 @@ export function exportEstrategiaV2PDF(project, data) {
     </div>`
 
   // ── Assemble ──────────────────────────────────────────────────────────────
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Estratégia V2 — ${esc(project.companyName)}</title>
-  <style>${V2_CSS}</style>
-</head>
-<body>
+  printDocument({
+    title: `Estratégia V2 — ${project.companyName}`,
+    css: V2_CSS,
+    body: `
   ${cover}
   <div class="content">
     ${mesesHTML}
@@ -1595,15 +1474,9 @@ export function exportEstrategiaV2PDF(project, data) {
     ${metasHTML}
     ${campanhasHTML}
     ${footer}
-  </div>
-  <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>
-</body>
-</html>`
-
-  const win = window.open('', '_blank', 'width=1100,height=900')
-  if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
-  win.document.write(html)
-  win.document.close()
+  </div>`,
+    width: 1100, height: 900,
+  })
 }
 
 // ─── Produto / Serviço PDF ────────────────────────────────────────────────────
@@ -1766,7 +1639,7 @@ export function exportClientProfilePDF(project) {
           return `<div class="qa-item"><div class="qa-label">${esc(q.label)}</div><div class="qa-value">${answers.map((a, i) => `${i + 1}. ${esc(a)}`).join(' · ')}</div></div>`
         }).filter(Boolean).join('')
         const generatedHTML = persona.generatedProfile
-          ? `<div style="margin-top:12px;padding-top:10px;border-top:1px dashed #e9d5ff"><div class="qa-label" style="margin-bottom:6px">✨ Perfil Gerado por IA</div><div class="prose">${mdToHTML(persona.generatedProfile)}</div></div>`
+          ? `<div style="margin-top:12px;padding-top:10px;border-top:1px dashed #e9d5ff"><div class="qa-label" style="margin-bottom:6px">✨ Perfil Gerado por IA</div><div class="prose">${markdownToHtml(persona.generatedProfile)}</div></div>`
           : ''
         return `<div class="persona-block"><div class="persona-name">${esc(persona.name || 'Persona')}</div>${answersHTML}${generatedHTML}</div>`
       }).join('')}
@@ -1787,7 +1660,7 @@ export function exportClientProfilePDF(project) {
         ${oferta.escassez           ? `<div class="field"><div class="field-label">🔥 Escassez / Urgência</div><div class="field-value" style="font-weight:400">${esc(oferta.escassez)}</div></div>` : ''}
       </div>
       ${(oferta.bonus || []).filter((b) => b.trim()).length ? `<div class="section-title" style="margin-top:12px">🎁 Stack de Bônus</div><div>${(oferta.bonus || []).filter((b) => b.trim()).map((b, i) => `<div class="field"><div class="field-label">Bônus ${i + 1}</div><div class="field-value" style="font-weight:400">${esc(b)}</div></div>`).join('')}</div>` : ''}
-      ${oferta.generatedOffer ? `<div class="section-title" style="margin-top:12px">🤖 Copy Gerada por IA</div><div class="prose">${mdToHTML(oferta.generatedOffer)}</div>` : ''}
+      ${oferta.generatedOffer ? `<div class="section-title" style="margin-top:12px">🤖 Copy Gerada por IA</div><div class="prose">${markdownToHtml(oferta.generatedOffer)}</div>` : ''}
     </section>
   ` : ''
 
@@ -1855,12 +1728,7 @@ export function exportClientProfilePDF(project) {
 // ─── Resultados B2B PDF ────────────────────────────────────────────────────────
 
 const RESULTADOS_CSS = `
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 13px; color: #1a1a2e; background: #fff;
-    max-width: 960px; margin: 0 auto;
-  }
+  body { max-width: 960px; margin: 0 auto; }
   .cover {
     background: linear-gradient(135deg, #0F172A 0%, #1e3a8a 60%, #0369a1 100%);
     color: #fff; padding: 52px 48px 44px; position: relative; overflow: hidden;
@@ -1915,7 +1783,6 @@ const RESULTADOS_CSS = `
   .sum-sub { font-size: 9px; color: #94A3B8; margin-top: 3px; }
   .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #E2E8F0; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; }
   .footer-brand { font-weight: 700; color: #164496; }
-  .print-btn { position: fixed; bottom: 24px; right: 24px; background: #164496; color: white; border: none; border-radius: 10px; padding: 12px 24px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(22,68,150,0.35); }
   .rtable { width: 100%; border-collapse: collapse; font-size: 11px; }
   .rtable th { background: #F1F5F9; color: #64748B; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 10px; text-align: right; border-bottom: 1px solid #D8E0F0; }
   .rtable th:first-child { text-align: left; }
@@ -1932,7 +1799,7 @@ const RESULTADOS_CSS = `
   .goal-badge { width: 48px; text-align: right; font-weight: 800; }
   .goal-badge.ok { color: #059669; } .goal-badge.warn { color: #D97706; } .goal-badge.bad { color: #DC2626; } .goal-badge.none { color: #CBD5E1; }
   .note { font-size: 10px; color: #94A3B8; margin-top: 8px; }
-  @media print { .print-btn { display: none !important; } body { max-width: 100%; } .week-card { page-break-inside: avoid; } .section { page-break-inside: auto; } }
+  @media print { body { max-width: 100%; } .week-card { page-break-inside: avoid; } .section { page-break-inside: auto; } }
 `
 
 export function exportResultadosB2BPDF({ companyName, resultados, year, month, weekRanges, MONTH_NAMES: monthNames }) {
@@ -2076,14 +1943,10 @@ export function exportResultadosB2BPDF({ companyName, resultados, year, month, w
       <div>Relatório de Resultados · ${esc(companyName)} · ${today}</div>
     </div>`
 
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Resultados ${monthLabel} — ${esc(companyName)}</title>
-  <style>${RESULTADOS_CSS}</style>
-</head>
-<body>
+  printDocument({
+    title: `Resultados ${monthLabel} — ${companyName}`,
+    css: RESULTADOS_CSS,
+    body: `
   ${cover}
   ${kpiStrip}
   <div class="content">
@@ -2093,15 +1956,9 @@ export function exportResultadosB2BPDF({ companyName, resultados, year, month, w
     </div>
     ${consolidadoHTML}
     ${footer}
-  </div>
-  <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>
-</body>
-</html>`
-
-  const win = window.open('', '_blank', 'width=1100,height=900')
-  if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
-  win.document.write(html)
-  win.document.close()
+  </div>`,
+    width: 1100, height: 900,
+  })
 }
 
 // ─── Resultados B2C PDF ───────────────────────────────────────────────────────
@@ -2460,14 +2317,10 @@ export function exportResultadosB2CPDF({
       <div>Relatório de Resultados · ${esc(companyName || '')} · ${today}</div>
     </div>`
 
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Resultados ${monthLabel} — ${esc(companyName || '')}</title>
-  <style>${RESULTADOS_CSS}</style>
-</head>
-<body>
+  printDocument({
+    title: `Resultados ${monthLabel} — ${companyName || ''}`,
+    css: RESULTADOS_CSS,
+    body: `
   ${cover}
   ${kpiStrip}
   <div class="content">
@@ -2476,15 +2329,9 @@ export function exportResultadosB2CPDF({
     ${detalheHTML}
     ${vazioHTML}
     ${footer}
-  </div>
-  <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>
-</body>
-</html>`
-
-  const win = window.open('', '_blank', 'width=1100,height=900')
-  if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
-  win.document.write(html)
-  win.document.close()
+  </div>`,
+    width: 1100, height: 900,
+  })
 }
 
 // ─── Google Ads (Estrutura de Campanhas) PDF ─────────────────────────────────
@@ -2525,7 +2372,7 @@ export function exportGoogleAdsPDF(project, entry = null) {
   const generatedHTML = generated ? `
     <section>
       <div class="section-title">🤖 Estrutura de Campanhas Gerada por IA</div>
-      <div class="prose">${mdToHTML(generated)}</div>
+      <div class="prose">${markdownToHtml(generated)}</div>
     </section>
   ` : ''
 

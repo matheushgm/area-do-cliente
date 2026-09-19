@@ -8,9 +8,7 @@ import {
 } from "react";
 import { supabase } from "../lib/supabase";
 
-// Exportado só para o preview de desenvolvimento (src/dev/*), que injeta um
-// contexto fake sem passar pelo Supabase Auth.
-export const AppContext = createContext();
+const AppContext = createContext();
 
 // ─── Cache local dos projetos (offline-first) ─────────────────────────────────
 const LS_KEY = "rl_projects_v2";

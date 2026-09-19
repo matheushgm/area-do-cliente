@@ -1,4 +1,5 @@
 import { escapeHtml } from './utils'
+import { printDocument, docHeader, PAGE_CSS } from './printDoc'
 // PDF do Kickoff — segue o mesmo padrão de src/utils/exportPDF.js
 // (HTML + window.print()). Duas páginas: diagnóstico visual + perguntas/respostas.
 
@@ -96,36 +97,7 @@ function radarSvg(scores, width = 460) {
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 
-const KICKOFF_CSS = `
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 13px;
-    color: #1a1a2e;
-    background: #fff;
-    padding: 32px 40px;
-    max-width: 900px;
-    margin: 0 auto;
-  }
-  .header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    border-bottom: 2px solid #164496;
-    padding-bottom: 16px;
-    margin-bottom: 24px;
-  }
-  .logo {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #164496;
-  }
-  .doc-title { font-size: 22px; font-weight: 800; color: #0F172A; margin-bottom: 2px; }
-  .doc-subtitle { font-size: 13px; color: #64748B; }
-  .doc-date { font-size: 11px; color: #94A3B8; text-align: right; margin-top: 4px; }
-
+const KICKOFF_CSS = PAGE_CSS + `
   .stage-card {
     display: flex;
     align-items: center;
@@ -194,20 +166,7 @@ const KICKOFF_CSS = `
   .qa-answer { font-size: 11.5px; color: #1F2937; line-height: 1.5; white-space: pre-wrap; }
   .qa-answer.empty { font-style: italic; color: #94A3B8; }
 
-  .print-btn {
-    position: fixed; bottom: 24px; right: 24px;
-    background: #164496; color: white;
-    border: none; border-radius: 10px;
-    padding: 12px 24px; font-size: 14px; font-weight: 700;
-    cursor: pointer; box-shadow: 0 4px 14px rgba(22,68,150,0.35);
-    display: flex; align-items: center; gap: 8px;
-  }
-  .print-btn:hover { background: #0F3380; }
-  @media print {
-    .print-btn { display: none !important; }
-    body { padding: 20px 24px; }
-    .stage-card { page-break-inside: avoid; }
-  }
+  @media print { .stage-card { page-break-inside: avoid; } }
 `
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -271,24 +230,10 @@ export function exportKickoffPDF({ project, kickoff, questions = [] }) {
 
   const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Diagnóstico Kickoff — ${esc(companyName)}</title>
-  <style>${KICKOFF_CSS}</style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <div class="logo">Revenue Lab</div>
-      <div class="doc-title">Diagnóstico de Kickoff</div>
-      <div class="doc-subtitle">${esc(companyName)} · ${esc(businessLabel)}</div>
-    </div>
-    <div class="doc-date">Gerado em ${today}</div>
-  </div>
-
+  printDocument({
+    title: `Diagnóstico Kickoff — ${companyName}`,
+    css: KICKOFF_CSS,
+    body: docHeader({ title: 'Diagnóstico de Kickoff', subtitle: `${companyName} · ${businessLabel}`, date: today }) + `
   <div class="stage-card" style="--stage-color:${stageColor}">
     <div>
       <div class="stage-label-tag">Estágio do negócio</div>
@@ -316,13 +261,6 @@ export function exportKickoffPDF({ project, kickoff, questions = [] }) {
     <h1>Perguntas e respostas</h1>
     ${qaHtml}
   </section>
-
-  <button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button>
-</body>
-</html>`
-
-  const win = window.open('', '_blank', 'width=1000,height=800')
-  if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
-  win.document.write(html)
-  win.document.close()
+`,
+  })
 }

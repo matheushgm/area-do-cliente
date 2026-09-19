@@ -1,3 +1,5 @@
+import { printDocument, docHeader, PAGE_CSS } from '../lib/printDoc'
+import { escapeHtml } from '../lib/utils'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import {
@@ -109,37 +111,20 @@ function trackFormSubmit(formName, extra = {}) {
 
 // ─── PDF generators (client-facing) ──────────────────────────────────────────
 
-const PDF_CSS = `
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #1a1a2e; background: #fff; padding: 32px 40px; max-width: 900px; margin: 0 auto; }
-  .header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px solid #164496; padding-bottom: 16px; margin-bottom: 24px; }
-  .logo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #164496; }
-  .doc-title { font-size: 22px; font-weight: 800; color: #0F172A; margin-bottom: 2px; }
-  .doc-subtitle { font-size: 13px; color: #64748B; }
-  .doc-date { font-size: 11px; color: #94A3B8; text-align: right; margin-top: 4px; }
+const PDF_CSS = PAGE_CSS + `
   .block { border: 1px solid #D8E0F0; border-radius: 10px; padding: 16px; margin-bottom: 20px; page-break-inside: avoid; }
   .block-title { font-size: 15px; font-weight: 700; color: #164496; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #D8E0F0; }
   .qa-item { margin-bottom: 10px; }
   .qa-label { font-size: 10px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
   .qa-value { font-size: 12px; color: #334155; line-height: 1.6; white-space: pre-wrap; }
   .info-box { background: #F0F7FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 12px; color: #1e40af; }
-  .print-btn { position: fixed; bottom: 24px; right: 24px; background: #164496; color: white; border: none; border-radius: 10px; padding: 12px 24px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(22,68,150,0.35); }
-  .print-btn:hover { background: #0F3380; }
-  @media print { .print-btn { display: none !important; } body { padding: 20px 24px; } .block { page-break-inside: avoid; } }
+  @media print { .block { page-break-inside: avoid; } }
 `
 
-function escPDF(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
+const escPDF = escapeHtml
 
 function openPDF(htmlBody, docTitle) {
-  const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-  const header = `<div class="header"><div><div class="logo">Revenue Lab</div><div class="doc-title">${escPDF(docTitle)}</div></div><div class="doc-date">Gerado em ${today}</div></div>`
-  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${escPDF(docTitle)}</title><style>${PDF_CSS}</style></head><body>${header}${htmlBody}<button class="print-btn" onclick="window.print()">🖨️ Salvar como PDF</button></body></html>`
-  const win = window.open('', '_blank', 'width=1000,height=800')
-  if (!win) { alert('Permita pop-ups para gerar o PDF.'); return }
-  win.document.write(html)
-  win.document.close()
+  printDocument({ title: docTitle, css: PDF_CSS, body: docHeader({ title: docTitle }) + htmlBody })
 }
 
 function generateProdutoPDF(companyName, produtosArr) {

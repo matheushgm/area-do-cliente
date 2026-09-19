@@ -1,4 +1,5 @@
 import { escapeHtml } from './utils'
+import { openPrintWindow } from './printDoc'
 /**
  * Export de roteiros de VÍDEO no template Verta.
  *
@@ -338,12 +339,6 @@ export function exportRoteirosVideoPDF(content, { companyName = 'Cliente', index
   const titulo = `${companyName} · Roteiros de Anúncio em Vídeo`
   const html = montarHTML(roteiros, { titulo, origem: window.location.origin })
 
-  const win = window.open('', '_blank', `width=1100,height=900`)
-  if (!win) {
-    alert('Permita pop-ups para exportar o PDF.')
-    return true
-  }
-  win.document.write(html)
-  win.document.close()
+  openPrintWindow(html, { width: 1100, height: 900 })
   return true
 }

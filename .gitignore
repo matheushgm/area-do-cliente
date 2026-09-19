@@ -46,6 +46,3 @@ public/dash-teste/output/
 
 sync/__pycache__/
 sync/output/
-
-# Fixtures locais do preview de desenvolvimento (dados reais do ClickUp, não versionar)
-src/dev/fixtures/

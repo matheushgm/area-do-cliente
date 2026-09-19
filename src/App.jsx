@@ -36,12 +36,6 @@ import CriativosPublico from './pages/CriativosPublico'
 import DashboardApiTeste from './pages/DashboardApiTeste'
 import Atividades15min from './pages/Atividades15min'
 import Atividades from './pages/Atividades'
-import { lazy, Suspense } from 'react'
-// Preview sem login do módulo Atividades; só existe em desenvolvimento.
-const AtividadesPreview = import.meta.env.DEV ? lazy(() => import('./dev/AtividadesPreview')) : null
-const TarefasPreview = import.meta.env.DEV ? lazy(() => import('./dev/TarefasPreview')) : null
-const ChatPreview = import.meta.env.DEV ? lazy(() => import('./dev/ChatPreview')) : null
-const AdsRoadmapPreview = import.meta.env.DEV ? lazy(() => import('./dev/AdsRoadmapPreview')) : null
 import NotificationCenter from './components/NotificationCenter'
 
 function RequireAuth({ children }) {
@@ -97,18 +91,6 @@ function AppRoutes() {
         <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
         <Route path="/tarefas" element={<RequireAuth><Tarefas /></RequireAuth>} />
         <Route path="/atividades" element={<RequireAuth><Atividades /></RequireAuth>} />
-        {import.meta.env.DEV && AtividadesPreview && (
-          <Route path="/dev/atividades" element={<Suspense fallback={null}><AtividadesPreview /></Suspense>} />
-        )}
-        {import.meta.env.DEV && TarefasPreview && (
-          <Route path="/dev/tarefas" element={<Suspense fallback={null}><TarefasPreview /></Suspense>} />
-        )}
-        {import.meta.env.DEV && ChatPreview && (
-          <Route path="/dev/chat" element={<Suspense fallback={null}><ChatPreview /></Suspense>} />
-        )}
-        {import.meta.env.DEV && AdsRoadmapPreview && (
-          <Route path="/dev/ads-roadmap" element={<Suspense fallback={null}><AdsRoadmapPreview /></Suspense>} />
-        )}
         <Route path="/atividades-15min" element={<RequireAuth><Atividades15min /></RequireAuth>} />
         <Route path="/roteiros-express" element={<RequireAuth><RoteirosExpress /></RequireAuth>} />
         <Route path="/roteiros/:token" element={<RoteirosExpressPublico />} />

@@ -17,13 +17,12 @@ import ChatAvatar, { AvatarStack } from '../components/Chat/ChatAvatar'
 import { NovoCanalDialog, NovaDMDialog } from '../components/Chat/NovoDialogs'
 import { Hash, Lock, Star, Menu, PanelLeft, Loader2, MessageSquare, ArrowLeft, Users, LogIn } from 'lucide-react'
 
-// `chatHook` só é usado pelo preview de desenvolvimento (/dev/chat).
-export default function Chat({ chatHook = useChat }) {
+export default function Chat() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { user, teamMembers, projects } = useApp()
   const { toast, showToast } = useToast()
-  const chat = chatHook({ user, teamMembers })
+  const chat = useChat({ user, teamMembers })
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [listaAberta, setListaAberta] = useState(true) // mobile: lista × conversa

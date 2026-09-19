@@ -164,15 +164,12 @@ function MenuResponsavel({ valor, membros, onChange }) {
   )
 }
 
-// `tarefasHook` só é trocado pelo preview de desenvolvimento (/dev/tarefas),
-// que injeta um hook de fixture em vez do Supabase.
-export default function Tarefas({ tarefasHook = null }) {
+export default function Tarefas() {
   const { user, projects, teamMembers } = useApp()
   const { toast, showToast } = useToast()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const useDados = tarefasHook || useTarefas
-  const t = useDados(user)
+  const t = useTarefas(user)
 
   const conteudoRef = useRef(null)
   const largura = useLarguraDoConteudo(conteudoRef)
@@ -187,7 +184,7 @@ export default function Tarefas({ tarefasHook = null }) {
   const [painelExpandido, setPainelExpandido] = useState(false)
   const [recarregarTick, setRecarregarTick] = useState(0)
   const sync = useSyncClickup({
-    ativo: !tarefasHook && !t.loadingEstrutura,
+    ativo: !t.loadingEstrutura,
     aoTerminar: useCallback((r) => {
       const n = (r?.criadas || 0) + (r?.atualizadas || 0)
       if (n > 0) { t.carregarEstrutura(); setRecarregarTick((x) => x + 1) }
@@ -388,7 +385,6 @@ export default function Tarefas({ tarefasHook = null }) {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {t.carregando && <Loader2 className="w-3.5 h-3.5 animate-spin text-ln-t4" />}
-                  {!tarefasHook && (
                     <button
                       type="button"
                       onClick={sync.sincronizar}
@@ -399,7 +395,6 @@ export default function Tarefas({ tarefasHook = null }) {
                       <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />
                       {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
                     </button>
-                  )}
                   <button onClick={() => { if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true }) }} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
                   <button onClick={novaTarefa} className="ln-primary" title="Nova tarefa (C)">
                     <Plus className="w-3.5 h-3.5" /> Nova tarefa <kbd className="ln-kbd !text-white/80 !bg-white/15 !border-white/20 ml-0.5">C</kbd>
