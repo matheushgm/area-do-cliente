@@ -534,6 +534,55 @@ export const FAIXAS = [
           ],
         },
       ],
+      // Mapa "Meta OU Google": até R$ 3.000 o Google substitui o Meta, nunca roda junto.
+      google: {
+        titulo: 'Estrutura Google',
+        ou: true,
+        campanhas: [
+          {
+            nome: 'Campanha', tipo: '', verba: 'R$ 100/dia', sub: 'Search',
+            conjuntos: [
+              { nome: 'Conjunto 01', sub: 'produto', ads: ['AD 01', 'AD 02'] },
+              { nome: 'Conjunto 02', sub: 'produto', ads: ['AD 01', 'AD 02'] },
+              { nome: 'Conjunto 03', sub: 'branding', ads: ['AD 01', 'AD 02'] },
+            ],
+          },
+        ],
+        nota: 'Só entra se já existe busca pelo produto. Nunca junto com o Meta nessa faixa.',
+      },
+      pontos: {
+        b2c: [
+          'Testa 3 criativos por semana (até 12 ativos no mês, todos ligados), seguindo a sequência do Laboratório: criativo → gancho → headline → criativo',
+          'Fundo R$ 84/dia em CBO com dois conjuntos + Topo R$ 16/dia só se o cliente tiver conteúdo',
+          'Conjunto 01 Amplo (o Lab roda aqui). Conjunto 02 Remarketing ou Lookalike só com os vencedores do 01',
+          'Remarketing se houver base de engajamento/pixel; senão lookalike (≥ 1.000 eventos ou lista); senão fica só o Conjunto 01 até ter base',
+          'Um funil: WhatsApp ou LP curta',
+          'Métrica de corte: CPA ou custo por conversa. Sem conversão no período, CTR no link',
+          'A otimização é desligar o criativo com custo 2× acima da meta (gasto ≥ 2× a meta, nunca antes de 72h) e marcar "_TESTADO". O Meta redistribui pros que ainda não foram testados',
+          'Nunca desligar anúncio que o Meta não priorizou',
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o custo ficar abaixo da meta por 3 dias seguidos'] },
+          'Aumente em 20% por dia até o teto de R$ 84/dia no fundo. Passou do teto = proposta de subir a faixa',
+        ],
+        b2b: [
+          '1 campanha, 100% no fundo (R$ 100/dia). Sem topo nessa faixa',
+          'Conjunto 01 Amplo + sinal de cargo/segmento (o Lab roda aqui). Conjunto 02 Remarketing ou Lookalike da base de clientes, só com os vencedores do 01',
+          'Cada conjunto precisa de ≥ 2× o CPL ideal por dia de verba, senão vira 1 conjunto só',
+          'Até 12 criativos no mês, todos ativos, na mesma sequência semanal do B2C',
+          'Destino: LP com formulário ou formulário nativo do Meta',
+          'Métrica de corte: CPL. Sem conversão no período, CTR no link. Gastou 2× o CPL ideal, desliga o criativo e marca "_TESTADO"',
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o CPL ficar abaixo do CPL alvo por 3 dias seguidos'] },
+          'Aumente em 20% por dia até o teto de R$ 100/dia para não fazer o CPM estourar',
+        ],
+        google: [
+          'Só entra no lugar do Meta quando já existe busca pelo produto e o CPC permite ≥ 10 cliques/dia (CPC ≤ R$ 8,40 no B2C, ≤ R$ 10 no B2B)',
+          'Em B2B com busca ativa ("software de X", "fornecedor de Y") o Google costuma ganhar',
+          '1 campanha Search, até 3 conjuntos (grupos de anúncios), 2 anúncios por conjunto',
+          'Apenas uma campanha para tentar não perder lances no leilão',
+          { t: 'A otimização aqui é:', sub: ['negativar palavras-chave', 'mudar headlines', 'mudar anúncios'] },
+          { t: 'Quando escalar?', sub: ['1) Quando o ROAS calculado estiver acima de 3', '2) Quando o CPL estiver abaixo do CPL alvo'] },
+          'Aumente em 20% por dia o valor para não fazer o CPC estourar',
+        ],
+      },
       notas: {
         b2c: ['Sem campanha de Lab: o teste é o processo dentro do Conjunto 01.'],
         b2b: ['Sem topo. Destino: LP com formulário ou formulário nativo.'],
