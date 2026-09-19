@@ -768,10 +768,10 @@ export const FAIXAS = [
       ],
       b2b: [
         {
-          nome: 'Campanha 1', tipo: 'ABO', verba: 'R$ 66/dia', sub: 'Meio · Leads',
+          nome: 'Campanha 1', tipo: 'ABO', verba: 'R$ 66/dia', sub: 'Meio de funil · Material rico ou Webinar',
           conjuntos: [
             { nome: 'Conjunto 01', sub: 'Amplo + cargo · R$ 40/dia', ads: ['AD 01-03 · sem. 1', 'AD 04-06 · sem. 2', 'AD 07-12 · sem. 3-4'], nota: 'Lab roda aqui · LP de material rico ou inscrição no webinar' },
-            { nome: 'Conjunto 02', sub: 'Lookalike · R$ 26/dia', ads: ['Vencedor 01', 'Vencedor 02'] },
+            { nome: 'Conjunto 02', sub: 'Lookalike · R$ 26/dia', ads: ['Vencedor 01', 'Vencedor 02'], nota: 'objetivo Leads · e-book, checklist, diagnóstico ou inscrição no webinar' },
           ],
         },
         {
