@@ -133,10 +133,11 @@ function Pontos({ itens }) {
 
 function Estrutura({ campanhas, notas, titulo, vazio, pontos, largura }) {
   return (
-    <div className="glass-card p-6 space-y-5" style={largura ? { minWidth: largura, maxWidth: largura + 160, width: 'max-content' } : undefined}>
+    // Dentro do canvas (largura definida) o desenho fica solto, sem caixa em volta.
+    <div className={largura ? 'space-y-5 px-2' : 'glass-card p-6 space-y-5'} style={largura ? { minWidth: largura, maxWidth: largura + 160, width: 'max-content' } : undefined}>
       <div className="flex items-center gap-2">
         <GitFork className="w-5 h-5 text-rl-cyan" />
-        <h3 className="text-base font-bold text-rl-text">{titulo}</h3>
+        <h3 className={`font-bold text-rl-text ${largura ? 'text-lg' : 'text-base'}`}>{titulo}</h3>
       </div>
       {campanhas ? (
         <div className={largura ? '' : 'overflow-x-auto'}>
