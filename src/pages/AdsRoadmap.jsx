@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AppSidebar from '../components/AppSidebar'
 import {
-  FAIXAS, REGRAS, BENCHMARKS, NOMENCLATURA, VISUALIZACOES, LINKS,
+  FAIXAS, REGRAS, BENCHMARKS, BENCHMARK_INTERNO, NOMENCLATURA, VISUALIZACOES, LINKS,
 } from '../lib/adsRoadmap'
 import { carregarRoadmapClickUp } from '../lib/adsRoadmapApi'
 import {
   Menu, Zap, Waypoints, ExternalLink, ChevronDown, Table2, GitFork, ShieldCheck,
-  Gauge, Tag, Columns3, Info, RefreshCw, Loader2, CloudOff, Cloud,
+  Gauge, Tag, Columns3, Info, RefreshCw, Loader2, CloudOff, Cloud, BarChart3,
 } from 'lucide-react'
 
 // ─── Árvore campanha → conjunto → anúncios ───────────────────────────────────
@@ -236,6 +236,125 @@ function Benchmarks() {
   )
 }
 
+// ─── Benchmark interno (portfólio) ───────────────────────────────────────────
+// Números reais das contas do dashboard, 30 dias. Dados em BENCHMARK_INTERNO.
+function TabelaContas({ cols, rows, titulo }) {
+  return (
+    <div>
+      <div className="text-[13px] font-semibold text-rl-text mb-2">{titulo}</div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[12px]">
+          <thead>
+            <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-rl-muted">
+              {cols.map((c, i) => (
+                <th key={c} className={`py-2 pr-3 whitespace-nowrap ${i > 0 ? 'text-right' : ''}`}>{c}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r[0]} className="border-t border-rl-border/60">
+                {r.map((v, i) => (
+                  <td key={i} className={`py-1.5 pr-3 whitespace-nowrap ${
+                    i === 0 ? 'font-semibold text-rl-text' : 'text-right text-rl-subtle tabular-nums'
+                  }`}>{v}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function BenchmarkInterno({ seg }) {
+  const B = BENCHMARK_INTERNO
+  const segs = seg === 'ambos' ? ['b2b', 'b2c'] : [seg]
+  const canais = [['meta', 'Meta Ads'], ['google', 'Google Ads']]
+  return (
+    <div className="space-y-5">
+      <div className="text-[13px] text-rl-subtle leading-relaxed">
+        <p><strong className="text-rl-text">Período:</strong> {B.periodo}. {B.fonte}</p>
+        <p className="mt-1">{B.comoUsar}</p>
+      </div>
+
+      {/* Referência rápida: mediana + ponderada */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {canais.map(([canal, nome]) => {
+          const m = B.mediana[canal]
+          return (
+            <div key={canal} className="glass-card p-4">
+              <h4 className="text-sm font-bold text-rl-text mb-2">{nome} · referência (mediana)</h4>
+              <div className="overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-rl-muted">
+                    <th className="py-1.5 pr-2">Seg.</th>
+                    {m.cols.map((c) => <th key={c} className="py-1.5 pr-2 text-right whitespace-nowrap">{c}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {segs.map((sg) => (
+                    <tr key={sg} className="border-t border-rl-border/60">
+                      <td className="py-1.5 pr-2 font-semibold text-rl-text">{SEG[sg]}</td>
+                      {m[sg].map((v, i) => (
+                        <td key={i} className="py-1.5 pr-2 text-right text-rl-text font-semibold tabular-nums whitespace-nowrap">{v}</td>
+                      ))}
+                    </tr>
+                  ))}
+                  {segs.map((sg) => (
+                    <tr key={`p-${sg}`} className="border-t border-rl-border/40">
+                      <td className="py-1.5 pr-2 text-rl-muted text-[11px]">{SEG[sg]} ponderada</td>
+                      {B.ponderada[canal][sg].map((v, i) => (
+                        <td key={i} className="py-1.5 pr-2 text-right text-rl-muted tabular-nums whitespace-nowrap">{v}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Conta a conta */}
+      {canais.map(([canal, nome]) => (
+        <div key={canal} className={`grid gap-4 ${segs.length > 1 ? 'xl:grid-cols-2' : ''}`}>
+          {segs.map((sg) => (
+            <div key={sg} className="glass-card p-4">
+              <TabelaContas titulo={`${nome} · ${SEG[sg]}, conta a conta`} cols={B[canal].cols} rows={B[canal][sg]} />
+            </div>
+          ))}
+        </div>
+      ))}
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="glass-card p-4">
+          <h4 className="text-sm font-bold text-rl-text mb-2">Como cada métrica foi calculada</h4>
+          <ul className="space-y-1">
+            {B.definicoes.map(([m, d]) => (
+              <li key={m} className="text-[12px] text-rl-subtle"><span className="font-semibold text-rl-text">{m}:</span> {d}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="glass-card p-4">
+          <h4 className="text-sm font-bold text-rl-text mb-2">Ressalvas na leitura</h4>
+          <ul className="space-y-1.5">
+            {B.ressalvas.map((r, i) => (
+              <li key={i} className="text-[12px] text-rl-subtle leading-relaxed flex gap-2">
+                <span className="text-rl-cyan shrink-0">•</span><span>{r}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <p className="text-[11px] text-rl-muted">Atualizado em {B.atualizadoEm}. Os dados ficam em <code className="text-rl-cyan">BENCHMARK_INTERNO</code> em <code className="text-rl-cyan">src/lib/adsRoadmap.js</code>.</p>
+    </div>
+  )
+}
+
 // ─── Página ──────────────────────────────────────────────────────────────────
 export default function AdsRoadmap() {
   const navigate = useNavigate()
@@ -448,6 +567,9 @@ export default function AdsRoadmap() {
               </Acordeao>
               <Acordeao Icon={Gauge} titulo="Benchmarks por etapa do funil (Protocolo)">
                 <div className="pt-3"><Benchmarks /></div>
+              </Acordeao>
+              <Acordeao Icon={BarChart3} titulo={`Benchmark interno do portfólio (${BENCHMARK_INTERNO.periodo})`}>
+                <div className="pt-3"><BenchmarkInterno seg={seg} /></div>
               </Acordeao>
               <Acordeao Icon={Tag} titulo="Nomenclatura de campanha, conjunto e anúncio">
                 <table className="w-full text-sm mt-3">

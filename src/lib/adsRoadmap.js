@@ -149,6 +149,143 @@ export const VISUALIZACOES = [
   },
 ]
 
+// ─── Benchmark interno (portfólio Revenue Lab) ───────────────────────────────
+// Números reais das contas no dashboard (dash_insights), 30 dias fechados.
+// Atualizar todo mês: rodar a consulta e trocar os valores aqui + o periodo.
+// Classificação B2B/B2C pelo tipo de negócio do cliente. Só contas com mais de
+// R$ 300 investidos no período.
+export const BENCHMARK_INTERNO = {
+  periodo: '20/08 a 18/09/2026',
+  atualizadoEm: '2026-09-19',
+  fonte: 'Dashboard da Área do Cliente (Meta + Google), 30 dias fechados, contas com mais de R$ 300 investidos.',
+  comoUsar: 'A mediana é a conta típica do portfólio. Conta abaixo da mediana do seu segmento pede diagnóstico; acima da mediana é candidata a escalar.',
+  definicoes: [
+    ['CTR (Meta)', 'cliques no link ÷ impressões'],
+    ['Tx. conv (Meta)', 'Conversões (evento de otimização da campanha) ÷ cliques no link'],
+    ['Custo/conv fundo (Meta)', 'investido ÷ conversões só das campanhas com "fundo" no nome'],
+    ['CPC / CTR / Tx. conv / Custo/conv (Google)', 'gasto ÷ cliques · cliques ÷ impressões · conversões ÷ cliques · gasto ÷ conversões'],
+  ],
+  // Referência rápida: mediana das contas de cada segmento
+  mediana: {
+    meta: {
+      cols: ['CTR (link)', 'CPM', 'Tx. conv', 'Custo/conv fundo'],
+      b2b: ['1,85%', 'R$ 34,26', '7,8%', 'R$ 68,04'],
+      b2c: ['1,00%', 'R$ 12,09', '11,8%', 'R$ 8,08'],
+    },
+    google: {
+      cols: ['CPC', 'CTR', 'Tx. conv', 'Custo/conv'],
+      b2b: ['R$ 4,52', '9,1%', '4,7%', 'R$ 108,20'],
+      b2c: ['R$ 1,55', '4,6%', '18,7%', 'R$ 9,35'],
+    },
+  },
+  // Média ponderada (total do segmento ÷ total), pra comparação
+  ponderada: {
+    meta: {
+      b2b: ['1,95%', 'R$ 25,97', '15,0%', 'R$ 9,89'],
+      b2c: ['1,12%', 'R$ 11,14', '17,1%', 'R$ 4,70'],
+    },
+    google: {
+      b2b: ['R$ 1,31', '4,4%', '7,0%', 'R$ 18,55'],
+      b2c: ['R$ 1,12', '4,1%', '21,9%', 'R$ 5,13'],
+    },
+  },
+  // Conta a conta. Meta: [conta, investido, CTR, CPM, tx. conv, custo/conv fundo]
+  meta: {
+    cols: ['Conta', 'Investido', 'CTR', 'CPM', 'Tx. conv', 'Custo/conv fundo'],
+    b2b: [
+      ['NectarCRM', 'R$ 11.779', '0,53%', 'R$ 35,82', '10,5%', 'R$ 64,02'],
+      ['Bio Cosméticos', 'R$ 9.115', '2,91%', 'R$ 17,96', '28,1%', 'R$ 2,08'],
+      ['Nomus', 'R$ 6.773', '1,70%', 'R$ 20,96', '1,3%', 'R$ 85,46'],
+      ['Medicalsys', 'R$ 5.396', '3,76%', 'R$ 74,05', '2,2%', 'R$ 88,29'],
+      ['BuzzLead', 'R$ 5.297', '1,65%', 'R$ 87,23', '14,1%', 'R$ 53,12'],
+      ['Grupo AJ', 'R$ 5.000', '1,53%', 'R$ 12,84', '6,4%', 'R$ 16,00'],
+      ['GoVendas', 'R$ 4.227', '1,27%', 'R$ 32,69', '2,3%', 'R$ 181,31'],
+      ['Data LP (Alldaya)', 'R$ 3.321', '2,27%', 'R$ 27,44', '9,2%', 'R$ 131,56'],
+      ['Multichat360', 'R$ 2.417', '0,51%', 'R$ 56,70', '26,9%', 'R$ 41,67'],
+      ['2Com', 'R$ 1.980', '2,24%', 'R$ 9,25', '0,04%', '–'],
+      ['Escribo', 'R$ 1.907', '3,12%', 'R$ 15,93', '41,2%', '–'],
+      ['Matheus Business', 'R$ 1.837', '2,69%', 'R$ 42,53', '3,5%', '–'],
+      ['BPYOU', 'R$ 1.701', '2,01%', 'R$ 139,26', '10,2%', 'R$ 68,04'],
+      ['TudoMed Saúde', 'R$ 1.151', '1,17%', 'R$ 62,10', '6,5%', 'R$ 82,21'],
+    ],
+    b2c: [
+      ['Nacional Kart', 'R$ 17.715', '1,33%', 'R$ 7,55', '24,1%', 'R$ 2,35'],
+      ['Óticas Brasil 01', 'R$ 9.847', '1,00%', 'R$ 7,78', '4,8%', 'R$ 6,98'],
+      ['Boa Noite Colchões', 'R$ 9.240', '0,86%', 'R$ 22,86', '41,0%', 'R$ 7,95'],
+      ['Cical Honda Goiânia', 'R$ 7.957', '0,83%', 'R$ 8,90', '37,3%', 'R$ 2,96'],
+      ['Vital Clínica', 'R$ 7.165', '0,59%', 'R$ 9,19', '26,4%', 'R$ 5,91'],
+      ['Dr. Ulyscélio', 'R$ 5.375', '1,59%', 'R$ 16,73', '6,6%', 'R$ 9,34'],
+      ['Colégio Cordeiro', 'R$ 4.814', '2,36%', 'R$ 19,75', '6,4%', 'R$ 10,66'],
+      ['Sempre Chevrolet', 'R$ 4.731', '0,75%', 'R$ 11,49', '11,8%', '–'],
+      ['WJK Travel', 'R$ 3.762', '3,62%', 'R$ 64,44', '2,8%', 'R$ 63,76'],
+      ['Neuroexperts', 'R$ 3.144', '0,93%', 'R$ 14,31', '4,2%', 'R$ 22,41'],
+      ['AzFit Suplementos', 'R$ 2.631', '1,37%', 'R$ 11,65', '7,3%', 'R$ 7,92'],
+      ['Cical Honda Dream', 'R$ 2.581', '1,25%', 'R$ 15,40', '23,5%', 'R$ 4,95'],
+      ['Boa Vida Stays', 'R$ 2.533', '2,87%', 'R$ 35,68', '5,7%', 'R$ 21,09'],
+      ['Fabulla Animal', 'R$ 2.461', '1,25%', 'R$ 15,00', '2,1%', 'R$ 53,12'],
+      ['Cical Nissan UDI', 'R$ 2.445', '0,84%', 'R$ 12,09', '12,0%', 'R$ 10,13'],
+      ['Empório Kids', 'R$ 2.425', '0,98%', 'R$ 15,00', '37,0%', 'R$ 4,02'],
+      ['Cical Chevrolet Itumbiara', 'R$ 2.000', '0,49%', 'R$ 10,62', '14,1%', 'R$ 13,26'],
+      ['RGM Portas e Janelas', 'R$ 1.974', '0,74%', 'R$ 32,13', '52,2%', 'R$ 8,08'],
+      ['Vision Center', 'R$ 1.796', '2,09%', 'R$ 10,13', '1,9%', 'R$ 13,35'],
+      ['Universo Park', 'R$ 1.743', '3,39%', 'R$ 15,90', '5,0%', 'R$ 6,95'],
+      ['Dr. Eduardo Moura', 'R$ 1.713', '1,75%', 'R$ 15,83', '7,9%', 'R$ 10,23'],
+      ['PVB Óticas Brasil', 'R$ 1.445', '0,56%', 'R$ 10,12', '15,3%', '–'],
+      ['Nikoniko Kids', 'R$ 1.267', '1,43%', 'R$ 17,55', '11,6%', 'R$ 8,26'],
+      ['Cical Honda Trindade', 'R$ 1.246', '0,26%', 'R$ 7,34', '48,5%', 'R$ 5,07'],
+      ['Cical Honda Garavelo', 'R$ 1.237', '0,36%', 'R$ 6,08', '43,5%', 'R$ 3,14'],
+      ['Sempre Seminovos', 'R$ 1.170', '0,23%', 'R$ 7,87', '40,8%', 'R$ 6,80'],
+      ['Agropop Coimbra', 'R$ 1.146', '1,14%', 'R$ 16,11', '10,3%', 'R$ 11,83'],
+      ['Dr. Jorge Pinho', 'R$ 1.017', '0,99%', 'R$ 11,63', '16,7%', 'R$ 5,48'],
+      ['Flash Car', 'R$ 809', '1,18%', 'R$ 4,88', '4,5%', 'R$ 8,18'],
+    ],
+  },
+  // Google: [conta, investido, CPC, CTR, tx. conv, custo/conv]
+  google: {
+    cols: ['Conta', 'Investido', 'CPC', 'CTR', 'Tx. conv', 'Custo/conv'],
+    b2b: [
+      ['Nomus', 'R$ 72.350', 'R$ 1,44', '3,67%', '0,9%', 'R$ 152,57'],
+      ['Bio Cosméticos Distribuidora', 'R$ 4.914', 'R$ 0,49', '23,47%', '0,8%', 'R$ 63,82'],
+      ['Tetralite', 'R$ 4.529', 'R$ 6,51', '9,73%', '12,6%', 'R$ 51,47'],
+      ['Data LP (Alldaya)', 'R$ 3.792', 'R$ 22,98', '6,29%', '6,1%', 'R$ 379,20'],
+      ['NectarCRM', 'R$ 3.568', 'R$ 8,68', '33,47%', '3,4%', 'R$ 254,86'],
+      ['BuzzLead', 'R$ 3.414', 'R$ 0,27', '4,35%', '36,1%', 'R$ 0,75'],
+      ['Grupo AJ', 'R$ 2.752', 'R$ 6,97', '12,55%', '17,2%', 'R$ 40,47'],
+      ['REVO360', 'R$ 1.565', 'R$ 4,97', '3,75%', '2,2%', 'R$ 223,57'],
+      ['Medicalsys', 'R$ 709', 'R$ 4,07', '10,32%', '1,7%', 'R$ 236,33'],
+      ['Distribuidora Oeste', 'R$ 412', 'R$ 3,17', '8,45%', '12,3%', 'R$ 25,75'],
+    ],
+    b2c: [
+      ['Óticas Brasil', 'R$ 4.337', 'R$ 1,31', '3,52%', '23,5%', 'R$ 5,57'],
+      ['Nacional Kart Goiânia', 'R$ 1.908', 'R$ 1,40', '7,54%', '32,2%', 'R$ 4,37'],
+      ['Nacional Kart São Paulo', 'R$ 1.860', 'R$ 0,32', '3,54%', '29,1%', 'R$ 1,09'],
+      ['WJK Travel', 'R$ 1.488', 'R$ 13,65', '3,63%', '1,8%', 'R$ 744,00'],
+      ['Agropop Coimbra', 'R$ 1.466', 'R$ 0,81', '4,33%', '22,2%', 'R$ 3,62'],
+      ['Boa Noite Colchões', 'R$ 1.277', 'R$ 0,66', '4,64%', '11,7%', 'R$ 5,63'],
+      ['Cical Honda Garavelo', 'R$ 1.255', 'R$ 1,55', '8,20%', '11,8%', 'R$ 13,07'],
+      ['Tudo Móvel', 'R$ 1.192', 'R$ 3,02', '3,88%', '11,4%', 'R$ 26,49'],
+      ['Sempre Seminovos', 'R$ 1.002', 'R$ 0,87', '3,07%', '0,6%', 'R$ 143,14'],
+      ['NeuroExperts', 'R$ 985', 'R$ 2,50', '7,55%', '31,0%', 'R$ 8,07'],
+      ['Dr. Jorge Pinho', 'R$ 894', 'R$ 1,95', '10,42%', '32,0%', 'R$ 6,08'],
+      ['Cical Chevrolet Itumbiara', 'R$ 874', 'R$ 5,30', '3,08%', '32,1%', 'R$ 16,49'],
+      ['Colégio Cordeiro', 'R$ 773', 'R$ 3,75', '5,81%', '1,9%', 'R$ 193,25'],
+      ['Cical Honda Goiânia', 'R$ 725', 'R$ 1,32', '8,33%', '12,8%', 'R$ 10,36'],
+      ['Cical Honda Trindade', 'R$ 710', 'R$ 1,89', '7,63%', '16,5%', 'R$ 11,45'],
+      ['Futura AT', 'R$ 606', 'R$ 0,93', '2,94%', '21,2%', 'R$ 4,39'],
+      ['Dr. Ulyscélio', 'R$ 601', 'R$ 3,11', '5,96%', '18,7%', 'R$ 16,69'],
+      ['Flash Car', 'R$ 525', 'R$ 1,07', '2,66%', '20,0%', 'R$ 5,36'],
+      ['Pet Klinic', 'R$ 514', 'R$ 1,72', '6,63%', '18,5%', 'R$ 9,35'],
+    ],
+  },
+  ressalvas: [
+    'Conversão não é a mesma coisa em toda conta. No Meta, "Conversões" é o evento de otimização de cada campanha (conversa de WhatsApp, lead de formulário, compra). Conta de WhatsApp (Cical, Boa Noite, RGM) mostra taxa de 40 a 50% porque o clique já vira conversa; conta de LP com formulário fica em 2 a 10%.',
+    'BuzzLead (Google, R$ 0,75 por conversão), Nacional Kart SP (Google) e Bio Cosméticos (Meta, R$ 2,08) contam ação leve como conversão. Pra benchmark de lead de verdade, ignorar essas linhas.',
+    'Nomus representa 74% de todo o investimento Google do portfólio. Por isso a média ponderada B2B do Google é praticamente a Nomus. Usar a mediana.',
+    'Custo por conversão no fundo (Meta) só existe pra conta que nomeia campanha com "fundo" (nomenclatura do Protocolo). Sempre Chevrolet, Escribo, Matheus Business e PVB não seguem o padrão e ficaram sem o valor.',
+    'CTR do Google em conta com Display/PMax (Bio Cosméticos 23%, NectarCRM 33%) sai inflado porque a coluna de impressões só cobre Search/Shopping.',
+  ],
+}
+
 // ─── Faixas de verba ─────────────────────────────────────────────────────────
 const NAO_FAZ = 'Não faz'
 
