@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AppSidebar from '../components/AppSidebar'
@@ -9,6 +9,7 @@ import { carregarRoadmapClickUp } from '../lib/adsRoadmapApi'
 import {
   Menu, Zap, Waypoints, ExternalLink, ChevronDown, Table2, GitFork, ShieldCheck,
   Gauge, Tag, Columns3, Info, RefreshCw, Loader2, CloudOff, Cloud, BarChart3,
+  ZoomIn, ZoomOut, Maximize2, Minimize2, LocateFixed, Move,
 } from 'lucide-react'
 
 // ─── Árvore campanha → conjunto → anúncios ───────────────────────────────────
@@ -130,15 +131,15 @@ function Pontos({ itens }) {
   )
 }
 
-function Estrutura({ campanhas, notas, titulo, vazio, pontos }) {
+function Estrutura({ campanhas, notas, titulo, vazio, pontos, largura }) {
   return (
-    <div className="glass-card p-6 space-y-5">
+    <div className="glass-card p-6 space-y-5" style={largura ? { minWidth: largura, maxWidth: largura + 160, width: 'max-content' } : undefined}>
       <div className="flex items-center gap-2">
         <GitFork className="w-5 h-5 text-rl-cyan" />
         <h3 className="text-base font-bold text-rl-text">{titulo}</h3>
       </div>
       {campanhas ? (
-        <div className="overflow-x-auto">
+        <div className={largura ? '' : 'overflow-x-auto'}>
           <div className="space-y-6 min-w-max py-1">
             {campanhas.map((camp, i) => <Campanha key={i} camp={camp} />)}
           </div>
@@ -384,6 +385,130 @@ function BenchmarkInterno({ seg }) {
   )
 }
 
+// ─── Canvas navegável do mapa mental ─────────────────────────────────────────
+// Uma tela só, grande: arrasta pra mover, roda do mouse (ou botões) pra zoom,
+// botão de tela cheia pra apresentar. O conteúdo é o mesmo JSX dos cards.
+const ZOOM_MIN = 0.35
+const ZOOM_MAX = 2.5
+
+function MapaCanvas({ children, fitKey }) {
+  const viewRef = useRef(null)
+  const contentRef = useRef(null)
+  const [t, setT] = useState({ x: 0, y: 0, k: 1 })
+  const [full, setFull] = useState(false)
+  const drag = useRef(null)
+  const [dragging, setDragging] = useState(false)
+
+  const clampK = (k) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, k))
+
+  // Enquadra o conteúdo inteiro na tela (com margem), centralizado.
+  const fit = () => {
+    const v = viewRef.current, c = contentRef.current
+    if (!v || !c) return
+    const vw = v.clientWidth, vh = v.clientHeight
+    const cw = c.scrollWidth, ch = c.scrollHeight
+    if (!cw || !ch) return
+    const k = clampK(Math.min((vw - 48) / cw, (vh - 48) / ch, 1.15))
+    setT({ x: (vw - cw * k) / 2, y: Math.max(24, (vh - ch * k) / 2), k })
+  }
+  useLayoutEffect(() => { fit() }, [fitKey, full]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Zoom em torno do cursor (roda do mouse). Listener manual pra poder
+  // preventDefault (React registra wheel como passive).
+  useEffect(() => {
+    const v = viewRef.current
+    if (!v) return
+    const onWheel = (e) => {
+      e.preventDefault()
+      const rect = v.getBoundingClientRect()
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top
+      setT((p) => {
+        const k = clampK(p.k * (e.deltaY < 0 ? 1.1 : 0.9))
+        const r = k / p.k
+        return { k, x: mx - (mx - p.x) * r, y: my - (my - p.y) * r }
+      })
+    }
+    v.addEventListener('wheel', onWheel, { passive: false })
+    return () => v.removeEventListener('wheel', onWheel)
+  }, [])
+
+  const zoomBy = (f) => {
+    const v = viewRef.current
+    if (!v) return
+    const mx = v.clientWidth / 2, my = v.clientHeight / 2
+    setT((p) => {
+      const k = clampK(p.k * f)
+      const r = k / p.k
+      return { k, x: mx - (mx - p.x) * r, y: my - (my - p.y) * r }
+    })
+  }
+
+  const onPointerDown = (e) => {
+    if (e.button !== 0) return
+    drag.current = { sx: e.clientX, sy: e.clientY, ox: t.x, oy: t.y }
+    setDragging(true)
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const onPointerMove = (e) => {
+    if (!drag.current) return
+    const d = drag.current
+    setT((p) => ({ ...p, x: d.ox + (e.clientX - d.sx), y: d.oy + (e.clientY - d.sy) }))
+  }
+  const onPointerUp = () => { drag.current = null; setDragging(false) }
+
+  // Esc sai da tela cheia
+  useEffect(() => {
+    if (!full) return
+    const onKey = (e) => { if (e.key === 'Escape') setFull(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [full])
+
+  const btn = 'w-9 h-9 rounded-lg bg-rl-card/90 border border-rl-border text-rl-subtle hover:text-rl-text hover:bg-rl-surface flex items-center justify-center transition-colors'
+
+  return (
+    <div className={full
+      ? 'fixed inset-0 z-[80] bg-rl-bg'
+      : 'glass-card relative overflow-hidden h-[78vh] min-h-[560px]'}>
+      <div
+        ref={viewRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        className={`absolute inset-0 select-none touch-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        style={{
+          backgroundImage: 'radial-gradient(rgba(148,163,184,0.18) 1px, transparent 1px)',
+          backgroundSize: `${24 * t.k}px ${24 * t.k}px`,
+          backgroundPosition: `${t.x}px ${t.y}px`,
+        }}
+      >
+        <div
+          ref={contentRef}
+          className="absolute top-0 left-0 w-max"
+          style={{ transform: `translate(${t.x}px, ${t.y}px) scale(${t.k})`, transformOrigin: '0 0' }}
+        >
+          {children}
+        </div>
+      </div>
+
+      {/* Controles */}
+      <div className="absolute top-3 right-3 flex items-center gap-1.5">
+        <button className={btn} onClick={() => zoomBy(1 / 1.2)} title="Diminuir zoom"><ZoomOut className="w-4 h-4" /></button>
+        <span className="h-9 px-2 rounded-lg bg-rl-card/90 border border-rl-border text-[11px] font-bold text-rl-subtle flex items-center tabular-nums">{Math.round(t.k * 100)}%</span>
+        <button className={btn} onClick={() => zoomBy(1.2)} title="Aumentar zoom"><ZoomIn className="w-4 h-4" /></button>
+        <button className={btn} onClick={fit} title="Enquadrar o mapa"><LocateFixed className="w-4 h-4" /></button>
+        <button className={btn} onClick={() => setFull((f) => !f)} title={full ? 'Sair da tela cheia (Esc)' : 'Tela cheia'}>
+          {full ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+        </button>
+      </div>
+      <div className="absolute bottom-3 left-3 flex items-center gap-1.5 text-[11px] text-rl-muted bg-rl-card/80 border border-rl-border rounded-lg px-2 py-1 pointer-events-none">
+        <Move className="w-3.5 h-3.5" /> arraste pra mover · roda do mouse pra zoom
+      </div>
+    </div>
+  )
+}
+
 // ─── Página ──────────────────────────────────────────────────────────────────
 export default function AdsRoadmap() {
   const navigate = useNavigate()
@@ -548,7 +673,7 @@ export default function AdsRoadmap() {
               </div>
             </div>
 
-            {/* Estruturas */}
+            {/* Estruturas: mapa mental numa tela só, navegável */}
             <section className="space-y-4">
               <h2 className="text-base font-bold text-rl-text">Estrutura de campanhas</h2>
               {!est && (
@@ -558,10 +683,12 @@ export default function AdsRoadmap() {
               )}
               {est && (() => {
                 const ou = !!est.google?.ou
+                const W = 620 // largura de cada coluna do mapa (px, antes do zoom)
                 const metaCards = [
                   (seg === 'b2c' || seg === 'ambos') && (
                     <Estrutura
                       key="b2c"
+                      largura={W}
                       titulo={`Estrutura Meta · B2C · R$ ${faixa.verbaDia}/dia`}
                       campanhas={est.b2c}
                       notas={est.notas?.b2c}
@@ -572,6 +699,7 @@ export default function AdsRoadmap() {
                   (seg === 'b2b' || seg === 'ambos') && (
                     <Estrutura
                       key="b2b"
+                      largura={W}
                       titulo={`Estrutura Meta · B2B · R$ ${faixa.verbaDia}/dia`}
                       campanhas={est.b2b}
                       notas={est.notas?.b2b}
@@ -586,36 +714,39 @@ export default function AdsRoadmap() {
                 const googleCard = est.google && algumFaz && (
                   <Estrutura
                     key="google"
+                    largura={W}
                     titulo={`${est.google.titulo}${ou ? ` · R$ ${faixa.verbaDia}/dia` : ''}`}
                     campanhas={est.google.campanhas}
                     notas={[est.google.nota]}
                     pontos={est.pontos?.google}
                   />
                 )
-                if (ou && googleCard) {
-                  // Mapa "Meta OU Google": um canal substitui o outro nessa faixa.
-                  // No "Lado a lado", o segmento que não faz (ex.: B2B) fica só com o aviso, fora do par.
-                  const fazMeta = (c) => (c.key === 'b2c' ? !!est.b2c : !!est.b2b)
-                  const pares = metaCards.filter(fazMeta)
-                  const avisos = metaCards.filter((c) => !fazMeta(c))
-                  return (
-                    <div className="space-y-4">
-                    <div className="flex flex-col xl:flex-row xl:items-start gap-4">
-                      <div className="flex-[1.15] min-w-0 space-y-4">{pares}</div>
-                      <div className="flex xl:flex-col items-center justify-center xl:self-center shrink-0 px-1">
-                        <span className="text-sm font-bold uppercase tracking-widest text-rl-cyan bg-rl-cyan/10 border border-rl-cyan/30 rounded-full px-3 py-1">ou</span>
-                      </div>
-                      <div className="flex-1 min-w-0">{googleCard}</div>
-                    </div>
-                    {avisos}
-                    </div>
-                  )
-                }
+                const fazMeta = (c) => (c.key === 'b2c' ? !!est.b2c : !!est.b2b)
+                const pares = ou ? metaCards.filter(fazMeta) : metaCards
+                const avisos = ou ? metaCards.filter((c) => !fazMeta(c)) : []
                 return (
-                  <>
-                    <div className={`grid gap-4 ${seg === 'ambos' ? 'xl:grid-cols-2' : ''}`}>{metaCards}</div>
-                    {googleCard}
-                  </>
+                  <MapaCanvas fitKey={`${faixa.id}|${seg}`}>
+                    <div className="p-8 space-y-6">
+                      <div className="text-center">
+                        <div className="text-2xl font-black text-rl-text tracking-tight">{faixa.label}</div>
+                        <div className="text-[13px] text-rl-muted">R$ {faixa.verbaDia}/dia · {faixa.resumo}</div>
+                      </div>
+                      <div className="flex items-start gap-8">
+                        <div className="space-y-6">{pares}</div>
+                        {googleCard && (
+                          <>
+                            {ou && (
+                              <div className="self-center shrink-0">
+                                <span className="text-base font-black uppercase tracking-widest text-rl-cyan bg-rl-cyan/10 border border-rl-cyan/30 rounded-full px-4 py-1.5">ou</span>
+                              </div>
+                            )}
+                            <div>{googleCard}</div>
+                          </>
+                        )}
+                      </div>
+                      {avisos.length > 0 && <div className="space-y-6">{avisos}</div>}
+                    </div>
+                  </MapaCanvas>
                 )
               })()}
             </section>
