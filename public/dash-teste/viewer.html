@@ -2401,13 +2401,32 @@ function aggMetrics(rows, isMeta) {
     // 17/09/2026; sem ela, cai para Leads ÷ cliques no link (e avisa no tooltip).
     const lpv = rows.reduce((a,r)=>a+num(r['Visualizações da página de destino']),0)
     const lpBase = lpv > 0 ? 'lpv' : 'clicks'
-    const lpRate = lpv > 0 ? leads/lpv*100 : (clicks > 0 ? leads/clicks*100 : null)
+    // Conversões GERAIS (visão MQL): toda conversão do objetivo (leads de
+    // formulário/site, conversas de WhatsApp, cadastros, contatos, conversões
+    // personalizadas), EXCETO compras (isso é a visão E-commerce). Nas linhas
+    // cujo resultado é o próprio MQL (override por conta, ex.: Grupo AJ) a
+    // conversão geral é o lead da linha, e o MQL fica só como conversão
+    // qualificada. Guarda o detalhamento por tipo pro tooltip do tile.
+    const isPurchaseRow = r => /compra/i.test(r['Tipo de resultado'] || '')
+    const isMqlRow = r => /mql/i.test(r['Tipo de resultado'] || '')
+    const convByType = {}
+    let convGen = 0
+    for (const r of rows) {
+      if (isPurchaseRow(r)) continue
+      const v = isMqlRow(r) ? num(r['Leads']) : num(r['Conversões'])
+      if (v <= 0) continue
+      const t = isMqlRow(r) ? 'Leads' : (r['Tipo de resultado'] || 'Conversões')
+      convByType[t] = (convByType[t] || 0) + v
+      convGen += v
+    }
+    const lpRate = lpv > 0 ? convGen/lpv*100 : (clicks > 0 ? convGen/clicks*100 : null)
     return { spend, impressions, clicks, conv, shares, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null, frequency,
       purchases, cpp:purchases>0?spend/purchases:null, revenue, roas:spend>0?revenue/spend:null,
       hasEcom, carts, checkouts, cpCart:carts>0?spend/carts:null, cpCheckout:checkouts>0?spend/checkouts:null,
       clickToCart:clicks>0?carts/clicks*100:null, cartToCheckout:carts>0?checkouts/carts*100:null, checkoutToPurchase:checkouts>0?purchases/checkouts*100:null,
-      hasMql, mql, leads, mqlLabel, cpMql:mql>0?mqlSpend/mql:null, leadToMql:leads>0?mql/leads*100:null,
-      lpv, lpBase, lpRate, cpLead:leads>0?spend/leads:null }
+      hasMql, mql, leads, mqlLabel, cpMql:mql>0?mqlSpend/mql:null, leadToMql:convGen>0?mql/convGen*100:null,
+      lpv, lpBase, lpRate, convGen, convByType, cpConvGen:convGen>0?spend/convGen:null, cpLead:leads>0?spend/leads:null,
+      purchaseRate: lpv>0?purchases/lpv*100:(clicks>0?purchases/clicks*100:null) }
   }
   const spend = rows.reduce((a,r)=>a+num(r['Gasto']),0)
   const clicks = rows.reduce((a,r)=>a+(num(r['CLiques'])||num(r['Cliques'])),0)
@@ -2459,48 +2478,72 @@ function tileHTML(label, value, variance, inverted, hint) {
   return `<div class="mg-tile"${t}><div class="mg-tile-label${lw}">${label}</div><div class="mg-tile-value">${value}</div><div class="mg-tile-var ${cls}"><span class="mg-arrow">${arrow}</span>${variance==null?'—':fmtPct(variance)}</div></div>`
 }
 // ─── Quadrante Performance: duas visões (MQL / E-commerce) ───────────────────
-// 'mql'  = funil de lead: visitas na LP → leads → MQL (custo por lead/MQL, taxa
-//          de conversão da LP e avanço Lead→MQL).
-// 'ecom' = funil de compra (carrinho → checkout → compra, ROAS), o layout antigo.
-// A escolha fica salva por cliente; sem escolha, abre em MQL quando a conta já
-// registrou algum MQL nos dados carregados, senão em E-commerce.
+// 'mql'  = conversões gerais (leads, conversas, cadastros, contatos, custom —
+//          tudo menos compra) → MQL: custo por conversão/MQL, taxa de conversão
+//          da LP e avanço Conversão→MQL.
+// 'ecom' = só métricas padrão de e-commerce do Meta, onde a conversão é a
+//          própria compra (carrinho → checkout → compra, ROAS).
+// A escolha fica salva por cliente; sem escolha, abre em E-commerce quando a
+// conta tem campanha otimizada pra compra (Tipo de resultado = Compras) nos
+// dados carregados, senão em MQL. (Uma compra avulsa numa conta de lead, ex.
+// Hotmart, não muda o padrão.)
 function perfViewFor(cur) {
   const oc = state.openClient
-  if (!oc) return 'ecom'
+  if (!oc) return 'mql'
   const saved = state.perfView[oc.client]
   if (saved === 'mql' || saved === 'ecom') return saved
-  const everMql = (rawRows(oc.channel, oc.client) || []).some(r => num(r['MQL']) > 0 || /mql/i.test(r['Tipo de resultado'] || ''))
-  return everMql ? 'mql' : 'ecom'
+  const everEcom = (rawRows(oc.channel, oc.client) || []).some(r => /compra/i.test(r['Tipo de resultado'] || '') && num(r['Resultados']) > 0)
+  return everEcom ? 'ecom' : 'mql'
 }
 function perfHeadHTML(isMeta, pv) {
   if (!isMeta) return '<h4 class="mg-title">Performance</h4>'
   return `<div class="mg-head"><h4 class="mg-title">Performance</h4>
     <div class="mg-switch" role="tablist">
-      <button type="button" class="mg-sw ${pv==='mql'?'active':''}" data-perfview="mql" title="Funil de lead: visitas na LP → leads → MQL">MQL</button>
-      <button type="button" class="mg-sw ${pv==='ecom'?'active':''}" data-perfview="ecom" title="Funil de compra: carrinho → checkout → compra, ROAS">E-commerce</button>
+      <button type="button" class="mg-sw ${pv==='mql'?'active':''}" data-perfview="mql" title="Conversões gerais (leads, conversas, cadastros, personalizadas) → MQL">MQL</button>
+      <button type="button" class="mg-sw ${pv==='ecom'?'active':''}" data-perfview="ecom" title="Métricas de e-commerce: a conversão é a compra (carrinho → checkout → compra, ROAS)">E-commerce</button>
     </div></div>`
 }
 function perfMqlTilesHTML(cur, prv) {
   const lpHint = cur.lpBase === 'lpv'
-    ? 'Leads ÷ visualizações da página de destino (LPV).'
-    : 'Leads ÷ cliques no link. (Sem visualizações da página de destino no período: a coluna só existe nas linhas coletadas a partir de 17/09/2026.)'
+    ? 'Conversões ÷ visualizações da página de destino (LPV).'
+    : 'Conversões ÷ cliques no link. (Sem visualizações da página de destino no período: a coluna só existe nas linhas coletadas a partir de 17/09/2026.)'
+  const types = Object.entries(cur.convByType || {}).sort((a,b)=>b[1]-a[1]).map(([t,v])=>`${t}: ${fmtInt(v)}`).join(' · ')
+  const convHint = 'Toda conversão do objetivo (leads, conversas de WhatsApp, cadastros, contatos, conversões personalizadas), exceto compras.' + (types ? ' ' + types : '')
   return `
-      ${tileHTML('Leads', fmtInt(cur.leads), pctVar(cur.leads, prv.leads), false, 'Leads (formulário + site).')}
-      ${tileHTML('Custo por lead', fmtMoney(cur.cpLead), pctVar(cur.cpLead, prv.cpLead), true, 'Gasto ÷ leads.')}
+      ${tileHTML('Conversões', fmtInt(cur.convGen), pctVar(cur.convGen, prv.convGen), false, convHint)}
+      ${tileHTML('Custo por conversão', fmtMoney(cur.cpConvGen), pctVar(cur.cpConvGen, prv.cpConvGen), true, 'Gasto ÷ conversões.')}
       ${tileHTML('Tx. conv. da LP', fmtPctVal(cur.lpRate), pctVar(cur.lpRate, prv.lpRate), false, lpHint)}
       ${tileHTML(esc(cur.mqlLabel), fmtInt(cur.mql), pctVar(cur.mql, prv.mql), false, 'MQL: lead qualificado pelo marketing (evento personalizado do pixel).')}
       ${tileHTML('Custo por MQL', fmtMoney(cur.cpMql), pctVar(cur.cpMql, prv.cpMql), true, 'Gasto ÷ MQL.')}
-      ${tileHTML('Avanço Lead→MQL', fmtPctVal(cur.leadToMql), pctVar(cur.leadToMql, prv.leadToMql), false, 'MQL ÷ leads.')}`
+      ${tileHTML('Avanço Conv.→MQL', fmtPctVal(cur.leadToMql), pctVar(cur.leadToMql, prv.leadToMql), false, 'MQL ÷ conversões.')}`
+}
+// Visão E-commerce: só as métricas padrão de compra do Meta (a conversão é a
+// própria compra). Nada de lead/conversa/custom aqui.
+function perfEcomTilesHTML(cur, prv) {
+  const txHint = cur.lpBase === 'lpv' ? 'Compras ÷ visualizações da página de destino (LPV).' : 'Compras ÷ cliques no link.'
+  return `
+      ${tileHTML('Compras', fmtInt(cur.purchases), pctVar(cur.purchases, prv.purchases), false, 'Compras (evento Purchase do pixel).')}
+      ${tileHTML('Custo/compra', fmtMoney(cur.cpp), pctVar(cur.cpp, prv.cpp), true, 'Gasto ÷ compras.')}
+      ${tileHTML('Valor compras', fmtMoneyShort(cur.revenue), pctVar(cur.revenue, prv.revenue), false, 'Valor de conversão das compras (ROAS × gasto).')}
+      ${tileHTML('ROAS', cur.roas!=null?cur.roas.toFixed(2).replace('.',',')+'x':'—', pctVar(cur.roas, prv.roas), false, 'Valor das compras ÷ gasto.')}
+      ${tileHTML('Tx. conv. (compra)', fmtPctVal(cur.purchaseRate), pctVar(cur.purchaseRate, prv.purchaseRate), false, txHint)}
+      ${tileHTML('Carrinhos', fmtInt(cur.carts), pctVar(cur.carts, prv.carts), false, 'Adições ao carrinho (evento AddToCart do pixel).')}
+      ${tileHTML('Custo/carrinho', fmtMoney(cur.cpCart), pctVar(cur.cpCart, prv.cpCart), true)}
+      ${tileHTML('Iniciou checkout', fmtInt(cur.checkouts), pctVar(cur.checkouts, prv.checkouts), false, 'Finalizações de compra iniciadas (evento InitiateCheckout do pixel).')}
+      ${tileHTML('Custo/checkout', fmtMoney(cur.cpCheckout), pctVar(cur.cpCheckout, prv.cpCheckout), true)}
+      ${tileHTML('Clique→Carrinho', fmtPctVal(cur.clickToCart), pctVar(cur.clickToCart, prv.clickToCart), false, 'Carrinhos ÷ cliques no link.')}
+      ${tileHTML('Carrinho→Checkout', fmtPctVal(cur.cartToCheckout), pctVar(cur.cartToCheckout, prv.cartToCheckout), false, 'Checkouts iniciados ÷ carrinhos.')}
+      ${tileHTML('Checkout→Compra', fmtPctVal(cur.checkoutToPurchase), pctVar(cur.checkoutToPurchase, prv.checkoutToPurchase), false, 'Compras ÷ checkouts iniciados.')}`
 }
 function perfFunnelHTML(cur) {
   const top = cur.lpBase === 'lpv' ? cur.lpv : cur.clicks
   const topLbl = cur.lpBase === 'lpv' ? 'Visitas LP' : 'Cliques'
-  const max = Math.max(top, cur.leads, cur.mql, 1)
+  const max = Math.max(top, cur.convGen, cur.mql, 1)
   const stage = (lbl, v) => `<div class="mgf-stage"><div class="mgf-lbl">${lbl}</div><div class="mgf-val">${fmtInt(v)}</div><div class="mgf-bar"><i style="width:${Math.max(2, v/max*100).toFixed(1)}%"></i></div></div>`
   const rate = (v, t) => `<div class="mgf-rate" title="${esc(t)}">→ ${fmtPctVal(v)}</div>`
   return `<div class="mg-funnel">
     ${stage(topLbl, top)}${rate(cur.lpRate, 'Taxa de conversão da LP')}
-    ${stage('Leads', cur.leads)}${rate(cur.leadToMql, 'Avanço Lead→MQL')}
+    ${stage('Conversões', cur.convGen)}${rate(cur.leadToMql, 'Avanço Conversão→MQL')}
     ${stage(esc(cur.mqlLabel), cur.mql)}
   </div>`
 }
@@ -2531,24 +2574,10 @@ function metricGroupsHTML(allRows, prevRows, isMeta, period, pace) {
       ${tileHTML('Compartilhamentos', fmtInt(cur.shares), pctVar(cur.shares, prv.shares), false)}` : ''}
     </div>${chart('mgChartEng')}</div>
     <div class="mg-card mg-perf">${perfHeadHTML(isMeta, pv)}<div class="mg-tiles">
-      ${isMeta && pv === 'mql' ? perfMqlTilesHTML(cur, prv) : `
+      ${isMeta ? (pv === 'mql' ? perfMqlTilesHTML(cur, prv) : perfEcomTilesHTML(cur, prv)) : `
       ${tileHTML('Conversões', fmtInt(cur.conv), pctVar(cur.conv, prv.conv), false)}
-      ${tileHTML(isMeta?'CPL':'CPA', fmtMoney(cur.cpl), pctVar(cur.cpl, prv.cpl), true)}
-      ${tileHTML('Taxa de conv.', fmtPctVal(cur.convRate), pctVar(cur.convRate, prv.convRate), false)}
-      ${isMeta ? (`
-      ${cur.hasEcom ? `
-      ${tileHTML('Carrinhos', fmtInt(cur.carts), pctVar(cur.carts, prv.carts), false, 'Adições ao carrinho (evento AddToCart do pixel).')}
-      ${tileHTML('Custo/carrinho', fmtMoney(cur.cpCart), pctVar(cur.cpCart, prv.cpCart), true)}
-      ${tileHTML('Iniciou checkout', fmtInt(cur.checkouts), pctVar(cur.checkouts, prv.checkouts), false, 'Finalizações de compra iniciadas (evento InitiateCheckout do pixel).')}
-      ${tileHTML('Custo/checkout', fmtMoney(cur.cpCheckout), pctVar(cur.cpCheckout, prv.cpCheckout), true)}` : ''}
-      ${tileHTML('Compras', fmtInt(cur.purchases), pctVar(cur.purchases, prv.purchases), false)}
-      ${tileHTML('Custo/compra', fmtMoney(cur.cpp), pctVar(cur.cpp, prv.cpp), true)}
-      ${tileHTML('Valor compras', fmtMoneyShort(cur.revenue), pctVar(cur.revenue, prv.revenue), false)}
-      ${tileHTML('ROAS', cur.roas!=null?cur.roas.toFixed(2).replace('.',',')+'x':'—', pctVar(cur.roas, prv.roas), false)}
-      ${cur.hasEcom ? `
-      ${tileHTML('Clique→Carrinho', fmtPctVal(cur.clickToCart), pctVar(cur.clickToCart, prv.clickToCart), false, 'Carrinhos ÷ cliques no link.')}
-      ${tileHTML('Carrinho→Checkout', fmtPctVal(cur.cartToCheckout), pctVar(cur.cartToCheckout, prv.cartToCheckout), false, 'Checkouts iniciados ÷ carrinhos.')}
-      ${tileHTML('Checkout→Compra', fmtPctVal(cur.checkoutToPurchase), pctVar(cur.checkoutToPurchase, prv.checkoutToPurchase), false, 'Compras ÷ checkouts iniciados.')}` : ''}`) : ''}`}
+      ${tileHTML('CPA', fmtMoney(cur.cpl), pctVar(cur.cpl, prv.cpl), true)}
+      ${tileHTML('Taxa de conv.', fmtPctVal(cur.convRate), pctVar(cur.convRate, prv.convRate), false)}`}
     </div>${isMeta && pv === 'mql' ? perfFunnelHTML(cur) : ''}${chart('mgChartPerf')}</div>
   </div>`
 }
@@ -2743,7 +2772,7 @@ function initQuadrantCharts(period, rows, channel, isMeta) {
   const P = pal()
   const dateKey = CFG[channel].dateKey
   const spendKey = isMeta ? 'Valor investido' : 'Gasto'
-  const days=[], spend=[], ctr=[], conv=[], mql=[], leads=[]
+  const days=[], spend=[], ctr=[], conv=[], mql=[], convGen=[], purchases=[]
   for (let i=period.span; i>=0; i--) {
     const d = addDays(period.p1e, -i)
     const dr = rows.filter(r => fmtDate(r[dateKey]) === d)
@@ -2753,7 +2782,10 @@ function initQuadrantCharts(period, rows, channel, isMeta) {
     spend.push(parseFloat(dr.reduce((a,r)=>a+num(r[spendKey]),0).toFixed(2)))
     ctr.push(imp>0?parseFloat((clk/imp*100).toFixed(2)):0)
     conv.push(dr.reduce((a,r)=>a+num(r['Conversões']),0))
-    leads.push(dr.reduce((a,r)=>a+num(r['Leads']),0))
+    // Conversões gerais (tudo menos compra; linha de MQL conta o lead) e compras
+    // — mesma regra do aggMetrics.
+    convGen.push(dr.reduce((a,r)=>{ const t=r['Tipo de resultado']||''; if (/compra/i.test(t)) return a; return a + (/mql/i.test(t) ? num(r['Leads']) : num(r['Conversões'])) },0))
+    purchases.push(dr.reduce((a,r)=>a+num(r['Número de vendas']),0))
     const dColMql = dr.reduce((a,r)=>a+num(r['MQL']),0)
     mql.push(dColMql>0 ? dColMql : dr.filter(r=>/mql/i.test(r['Tipo de resultado']||'')).reduce((a,r)=>a+num(r['Conversões']),0))
   }
@@ -2774,12 +2806,15 @@ function initQuadrantCharts(period, rows, channel, isMeta) {
     fill: !!(fillColor && state.newLook), tension:0.3, pointRadius:0, pointHoverRadius:4, borderWidth:2.5 })
   mk('mgChartCost', [ds('Gasto', spend, P.spend, P.spendFill)], v=>'R$'+v)
   mk('mgChartEng', [ds('CTR no link', ctr, P.ctr, P.ctrFill)], v=>v+'%')
-  // Visão MQL: leads + MQL (o funil que o quadrante mostra); visão E-commerce:
-  // conversões do objetivo + MQL quando houver.
-  const perf = isMeta && perfViewFor(aggMetrics(rows, true)) === 'mql'
-    ? [ds('Leads', leads, P.leads), { ...ds('MQL', mql, P.mql), borderDash:[5,4] }]
+  // Meta, visão MQL: conversões gerais + MQL (o funil que o quadrante mostra);
+  // Meta, visão E-commerce: compras. Google: conversões (+ MQL quando houver).
+  const pv = isMeta ? perfViewFor(aggMetrics(rows, true)) : null
+  const perf = pv === 'mql'
+    ? [ds('Conversões', convGen, P.leads), { ...ds('MQL', mql, P.mql), borderDash:[5,4] }]
+    : pv === 'ecom'
+    ? [ds('Compras', purchases, state.newLook ? P.ctr : P.leads, P.spendFill)]
     : [ds('Conversões', conv, state.newLook ? P.ctr : P.leads, P.spendFill)]
-  if (hasMql && perf.length === 1) { perf[0].fill = false; perf[0].backgroundColor = 'transparent'; perf.push({ ...ds('MQL', mql, P.mql), borderDash:[5,4] }) }
+  if (!isMeta && hasMql && perf.length === 1) { perf[0].fill = false; perf[0].backgroundColor = 'transparent'; perf.push({ ...ds('MQL', mql, P.mql), borderDash:[5,4] }) }
   mk('mgChartPerf', perf, v=>v)
 }
 
