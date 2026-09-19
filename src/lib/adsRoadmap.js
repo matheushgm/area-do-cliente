@@ -369,7 +369,7 @@ export const FAIXAS = [
       },
       notas: {
         b2c: ['Sem topo, sem lookalike, sem remarketing.', 'Não escala dentro da faixa: 7 dias abaixo da meta = proposta de subir pra R$ 2.000.'],
-        b2b: ['B2B não faz nessa faixa: o CPL de B2B não fecha com R$ 33/dia.'],
+        b2b: ['B2B não roda nem Meta nem Google nessa faixa: o CPL de B2B não fecha com R$ 33/dia. Começa em R$ 2.000.'],
       },
     },
   },

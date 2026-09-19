@@ -576,11 +576,14 @@ export default function AdsRoadmap() {
                       campanhas={est.b2b}
                       notas={est.notas?.b2b}
                       pontos={est.pontos?.b2b}
-                      vazio="B2B não faz nessa faixa: o CPL de B2B não fecha com essa verba diária."
+                      vazio="B2B não faz nessa faixa: nenhum canal (Meta ou Google) roda com essa verba diária."
                     />
                   ),
                 ].filter(Boolean)
-                const googleCard = est.google && (
+                // Google só aparece se algum segmento exibido faz a faixa (B2B em R$ 1k
+                // não roda nem Meta nem Google: nenhum mapa).
+                const algumFaz = (seg !== 'b2b' && !!est.b2c) || (seg !== 'b2c' && !!est.b2b)
+                const googleCard = est.google && algumFaz && (
                   <Estrutura
                     key="google"
                     titulo={`${est.google.titulo}${ou ? ` · R$ ${faixa.verbaDia}/dia` : ''}`}
@@ -591,13 +594,20 @@ export default function AdsRoadmap() {
                 )
                 if (ou && googleCard) {
                   // Mapa "Meta OU Google": um canal substitui o outro nessa faixa.
+                  // No "Lado a lado", o segmento que não faz (ex.: B2B) fica só com o aviso, fora do par.
+                  const fazMeta = (c) => (c.key === 'b2c' ? !!est.b2c : !!est.b2b)
+                  const pares = metaCards.filter(fazMeta)
+                  const avisos = metaCards.filter((c) => !fazMeta(c))
                   return (
+                    <div className="space-y-4">
                     <div className="flex flex-col xl:flex-row xl:items-start gap-4">
-                      <div className="flex-[1.15] min-w-0 space-y-4">{metaCards}</div>
+                      <div className="flex-[1.15] min-w-0 space-y-4">{pares}</div>
                       <div className="flex xl:flex-col items-center justify-center xl:self-center shrink-0 px-1">
                         <span className="text-sm font-bold uppercase tracking-widest text-rl-cyan bg-rl-cyan/10 border border-rl-cyan/30 rounded-full px-3 py-1">ou</span>
                       </div>
                       <div className="flex-1 min-w-0">{googleCard}</div>
+                    </div>
+                    {avisos}
                     </div>
                   )
                 }
