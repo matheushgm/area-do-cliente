@@ -141,6 +141,15 @@
   .dt-root .var-mini.fl  { color:#94A3B8; font-weight:600; }
   .dt-root .var-mini.new { color:#2563EB; font-weight:600; }
 
+  /* Variação vs. período anterior LOGO ABAIXO do próprio número (CPL e
+     Investimento nas tabelas de conta da visão Padrão). Substitui as colunas
+     "Var. CPL" / "Var. Invest.", que só empurravam a tabela para o lado. */
+  .dt-root .cell-delta { font-size:10px; font-weight:700; margin-top:2px; line-height:1.2;
+    white-space:nowrap; letter-spacing:.2px; }
+  .dt-root .cell-delta.up { color:#059669; }
+  .dt-root .cell-delta.dn { color:#DC2626; }
+  .dt-root .cell-delta.fl { color:#94A3B8; font-weight:600; }
+
   /* ── MOBILE: cards no lugar das tabelas ────────────────────────────────────
      No retrato o dashboard.css esconde `.group-section .table-wrap` e espera a
      lista `.mcl`, que nunca foi portada para o viewer — o resultado era um grupo
@@ -1141,6 +1150,10 @@ function mCardHTML(name, badge, sub, cells, ch) {
   </div>`
 }
 const mDelta = (v, lowerIsBetter) => `<span class="${varCls(v, lowerIsBetter)}">${fmtPct(v)}</span>`
+// Variação vs. período anterior renderizada DENTRO da célula, embaixo do valor
+// (CPL e Investimento). É o que dispensa as colunas "Var. CPL"/"Var. Invest.".
+const cellDelta = (v, lowerIsBetter) => v == null ? ''
+  : `<div class="cell-delta ${varCls(v, lowerIsBetter)}">${v > 0.05 ? '\u25B2' : v < -0.05 ? '\u25BC' : '\u2022'} ${fmtPct(v)}</div>`
 // Dinheiro nos cards: a célula tem ~105px, onde "R$ 2629,63" já trunca. CPL fica
 // com centavos (a precisão importa na leitura); a partir de R$ 1.000 (típico do
 // investimento) arredonda e usa separador de milhar — "R$ 2.630".
@@ -1155,9 +1168,9 @@ const trendHTML = x => x.declining3d ? `<span class="trend-dn">${em('📉')} Que
 // A ordenação vale para os 4 grupos de status e também para os cards mobile.
 const ACCT_COLS = [
   ['Conta','name'], ['Canal',null], ['Status',null],
-  ['Conv.','conv1'], ['Conv. Ant.','conv2'], ['Var. Conv.','varConv'],
-  ['CPL','cpl1'], ['CPL Alvo','cplTarget'], ['CPL Ant.','cpl2'], ['Var. CPL','varCpl'],
-  ['Investimento','spend1'], ['Invest. Ant.','spend2'], ['Var. Invest.','varSpend'],
+  ['Conv.','conv1'], ['Var. Conv.','varConv'],
+  ['CPL','cpl1'], ['CPL Alvo','cplTarget'],
+  ['Investimento','spend1'], ['Invest. Ant.','spend2'],
   ['Tend. 3d','trend'],
 ]
 // Ícone do canal — logo oficial (SVG local, sem CDN), usado em toda tabela/card
@@ -1276,12 +1289,12 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <td><span class="client-link">${esc(x.name)}</span>${newLookChip(x.name)}${hideBtnHTML(x.name)}</td>
       <td>${chIco(x.channel)}</td>
       <td><span class="pill ${pillCls(x.status)}">${pIco(x.status)}${x.status}</span></td>
-      <td>${fmtNum(x.conv1)}</td><td>${fmtNum(x.conv2)}</td>
+      <td>${fmtNum(x.conv1)}</td>
       <td class="${varCls(x.varConv,false)}">${fmtPct(x.varConv)}</td>
-      <td>${fmtMoney(x.cpl1)}</td><td class="col-target">${targetCellHTML(x.name, x.cpl1)}</td><td>${fmtMoney(x.cpl2)}</td>
-      <td class="${varCls(x.varCpl,true)}">${fmtPct(x.varCpl)}</td>
-      <td>${fmtMoney(x.spend1)}</td><td>${fmtMoney(x.spend2)}</td>
-      <td class="${varCls(x.varSpend,false)}">${fmtPct(x.varSpend)}</td>
+      <td>${fmtMoney(x.cpl1)}${cellDelta(x.varCpl, true)}</td>
+      <td class="col-target">${targetCellHTML(x.name, x.cpl1)}</td>
+      <td>${fmtMoney(x.spend1)}${cellDelta(x.varSpend, false)}</td>
+      <td>${fmtMoney(x.spend2)}</td>
       <td>${trend}</td></tr>`
   }
   const acctCard = x => {
@@ -1325,12 +1338,12 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
     return `<tr class="total-row">
       <td><span class="total-label">Σ Total<span class="total-badge">${list.length} contas</span></span></td>
       <td></td><td></td>
-      <td>${fmtNum(t.conv1)}</td><td>${fmtNum(t.conv2)}</td>
+      <td>${fmtNum(t.conv1)}</td>
       <td class="${varCls(t.varConv,false)}">${fmtPct(t.varConv)}</td>
-      <td>${fmtMoney(t.cpl1)}</td><td class="col-target">${totalTargetHTML(list, t.cpl1)}</td><td>${fmtMoney(t.cpl2)}</td>
-      <td class="${varCls(t.varCpl,true)}">${fmtPct(t.varCpl)}</td>
-      <td>${fmtMoney(t.spend1)}</td><td>${fmtMoney(t.spend2)}</td>
-      <td class="${varCls(t.varSpend,false)}">${fmtPct(t.varSpend)}</td>
+      <td>${fmtMoney(t.cpl1)}${cellDelta(t.varCpl, true)}</td>
+      <td class="col-target">${totalTargetHTML(list, t.cpl1)}</td>
+      <td>${fmtMoney(t.spend1)}${cellDelta(t.varSpend, false)}</td>
+      <td>${fmtMoney(t.spend2)}</td>
       <td></td></tr>`
   }
   // Equivalente mobile da linha de totais (mesmas 3 métricas dos cards de conta).
