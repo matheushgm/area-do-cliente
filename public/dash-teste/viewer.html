@@ -362,7 +362,7 @@ import {
   CFG, parseCSV, num, fmtMoney, fmtNum, fmtPct, fmtBR, inRange, fmtDate, addDays,
   buildPeriod, periodFromDays, maxDate, pillCls, pillIco, varCls, buildStats,
   computeMainPeriod, groupBy, statusTagInfo, buildWeeklyMessage,
-  buildDeclineDiagnosis, buildScaleCandidates, normStr, localDateStr, diffDays,
+  buildDeclineDiagnosis, buildScaleCandidates, normStr, localDateStr, diffDays, googleImpr,
   monthBounds,
 } from './vendor/dashboardData.js'
 
@@ -934,7 +934,7 @@ function summaryOf(ch, p) {
   else rows.forEach(r => {
     sumSpend += num(r['Gasto']); sumConv += num(r['Conversões'])
     sumClicks += (num(r['CLiques'])||num(r['Cliques']))
-    sumImpr += (num(r['Impressões na parte superior'])||num(r['Impressões']))
+    sumImpr += googleImpr(r)
   })
   if (!isMeta) sumLeads = sumConv
   return { sumSpend, sumLeads, sumImpr, sumClicks,
@@ -1159,6 +1159,8 @@ function mCardHTML(name, badge, sub, cells, ch) {
 const mDelta = (v, lowerIsBetter) => `<span class="${varCls(v, lowerIsBetter)}">${fmtPct(v)}</span>`
 // Variação vs. período anterior renderizada DENTRO da célula, embaixo do valor
 // (CPL e Investimento). É o que dispensa as colunas "Var. CPL"/"Var. Invest.".
+// CTR e taxa de conversão já vêm em pontos percentuais do buildStats.
+const fmtRatio = v => v == null ? '—' : v.toFixed(2).replace('.', ',') + '%'
 const cellDelta = (v, lowerIsBetter) => v == null ? ''
   : `<div class="cell-delta ${varCls(v, lowerIsBetter)}">${v > 0.05 ? '\u25B2' : v < -0.05 ? '\u25BC' : '\u2022'} ${fmtPct(v)}</div>`
 // Dinheiro nos cards: a célula tem ~105px, onde "R$ 2629,63" já trunca. CPL fica
@@ -1178,6 +1180,7 @@ const ACCT_COLS = [
   ['Conv.','conv1'],
   ['CPL','cpl1'], ['CPL Alvo','cplTarget'],
   ['Investimento','spend1'], ['Invest. Ant.','spend2'],
+  ['CTR','ctr1'], ['Tx. Conv.','cr1'],
   ['Tend. 3d','trend'],
 ]
 // Ícone do canal — logo oficial (SVG local, sem CDN), usado em toda tabela/card
@@ -1301,6 +1304,8 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <td class="col-target">${targetCellHTML(x.name, x.cpl1)}</td>
       <td><span class="cell-val">${fmtMoney(x.spend1)}</span>${cellDelta(x.varSpend, false)}</td>
       <td>${fmtMoney(x.spend2)}</td>
+      <td><span class="cell-val">${fmtRatio(x.ctr1)}</span>${cellDelta(x.varCtr, false)}</td>
+      <td><span class="cell-val">${fmtRatio(x.cr1)}</span>${cellDelta(x.varCr, false)}</td>
       <td>${trend}</td></tr>`
   }
   const acctCard = x => {
@@ -1310,7 +1315,10 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
     `${chIco(x.channel)} ${trendHTML(x)}${target != null ? ` <span style="color:#CBD5E1">·</span> ${goalBadge(target, x.cpl1, x.channel)}` : ''}`,
     [['Conversões', fmtNum(x.conv1), mDelta(x.varConv, false)],
      [x.channel==='meta'?'CPL':'CPA', fmtMoneyCard(x.cpl1), mDelta(x.varCpl, true)],
-     ['Investido', fmtMoneyCard(x.spend1), mDelta(x.varSpend, false)]],
+     ['Investido', fmtMoneyCard(x.spend1), mDelta(x.varSpend, false)],
+     ['CTR', fmtRatio(x.ctr1), mDelta(x.varCtr, false)],
+     ['Tx. Conv.', fmtRatio(x.cr1), mDelta(x.varCr, false)],
+     ['Cliques', fmtNum(x.clicks1), '']],
     x.channel)
   }
   // Totais do cliente quando o quadrante tem mais de uma conta. Conversões e
@@ -1321,12 +1329,20 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
     const sum = k => list.reduce((a, x) => a + (x[k] || 0), 0)
     const conv1 = sum('conv1'), conv2 = sum('conv2')
     const spend1 = sum('spend1'), spend2 = sum('spend2')
+    const clicks1 = sum('clicks1'), clicks2 = sum('clicks2')
+    const impr1 = sum('impr1'), impr2 = sum('impr2')
     const cpl1 = conv1 > 0 ? spend1 / conv1 : null
     const cpl2 = conv2 > 0 ? spend2 / conv2 : null
-    return { conv1, conv2, spend1, spend2, cpl1, cpl2,
+    const ctr1 = impr1 > 0 ? (clicks1 / impr1) * 100 : null
+    const ctr2 = impr2 > 0 ? (clicks2 / impr2) * 100 : null
+    const cr1 = clicks1 > 0 ? (conv1 / clicks1) * 100 : null
+    const cr2 = clicks2 > 0 ? (conv2 / clicks2) * 100 : null
+    return { conv1, conv2, spend1, spend2, cpl1, cpl2, clicks1, impr1, ctr1, cr1,
       varConv: conv2 > 0 ? ((conv1 - conv2) / conv2) * 100 : (conv1 > 0 ? 100 : 0),
       varCpl: (cpl1 && cpl2) ? ((cpl1 - cpl2) / cpl2) * 100 : null,
-      varSpend: spend2 > 0 ? ((spend1 - spend2) / spend2) * 100 : 0 }
+      varSpend: spend2 > 0 ? ((spend1 - spend2) / spend2) * 100 : 0,
+      varCtr: (ctr1 != null && ctr2) ? ((ctr1 - ctr2) / ctr2) * 100 : null,
+      varCr: (cr1 != null && cr2) ? ((cr1 - cr2) / cr2) * 100 : null }
   }
   // CPL Alvo do total: o alvo vem do projeto, então as contas do mesmo cliente
   // costumam compartilhar o mesmo valor. Se houver override e os alvos
@@ -1349,6 +1365,8 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <td class="col-target">${totalTargetHTML(list, t.cpl1)}</td>
       <td><span class="cell-val">${fmtMoney(t.spend1)}</span>${cellDelta(t.varSpend, false)}</td>
       <td>${fmtMoney(t.spend2)}</td>
+      <td><span class="cell-val">${fmtRatio(t.ctr1)}</span>${cellDelta(t.varCtr, false)}</td>
+      <td><span class="cell-val">${fmtRatio(t.cr1)}</span>${cellDelta(t.varCr, false)}</td>
       <td></td></tr>`
   }
   // Equivalente mobile da linha de totais (mesmas 3 métricas dos cards de conta).
@@ -1356,7 +1374,10 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
     const t = totalsOf(list)
     const cells = [['Conversões', fmtNum(t.conv1), mDelta(t.varConv, false)],
       ['CPL', fmtMoneyCard(t.cpl1), mDelta(t.varCpl, true)],
-      ['Investido', fmtMoneyCard(t.spend1), mDelta(t.varSpend, false)]]
+      ['Investido', fmtMoneyCard(t.spend1), mDelta(t.varSpend, false)],
+      ['CTR', fmtRatio(t.ctr1), mDelta(t.varCtr, false)],
+      ['Tx. Conv.', fmtRatio(t.cr1), mDelta(t.varCr, false)],
+      ['Cliques', fmtNum(t.clicks1), '']]
     const grid = cells.map(([l, v, d]) => `<div class="m-cell">
       <div class="m-cell-l">${l}</div><div class="m-cell-v">${v}</div>
       <div class="m-cell-d">${d}</div></div>`).join('')
@@ -2217,9 +2238,7 @@ function tblMetaAds(rows, prevRows){
 function tblGoogleCampaigns(rows, prevRows){
   const g = groupBy(rows, r=>r['Campanha'], {
     spend:r=>M(r,'Gasto'), conv:r=>M(r,'Conversões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')), loss:r=>M(r,'% de perda por orçamento'),
-    // "Impressões" é a contagem real (desde 20/08/2026); "na parte superior" é um
-    // percentual herdado da planilha — só serve de fallback em linha antiga.
-    impr:r=>(M(r,'Impressões')||M(r,'Impressões na parte superior')) })
+    impr:r=>googleImpr(r) })
   if(!g.length) return `<div class="empty">Sem campanhas no período.</div>`
   const pv = prevMapOf(prevRows, r=>r['Campanha'], r=>M(r,'Conversões'))
   const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(x.key)} — sem conversões`)
@@ -2343,7 +2362,7 @@ const TERMS_PER_PAGE = 50
 const TERMS_COLS = [['Termo','termo'],['Impressões','impr'],['Cliques','clicks'],['Conv.','conv'],['Custo/conv.','cpa'],['CPC médio','cpc'],['CTR','ctr']]
 function tblGoogleTerms(rows){
   const g = groupBy(rows, r=>r['Termo de pesquisa'], {
-    impr:r=>(M(r,'Impressões')||M(r,'Impressões na parte superior')), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')),
+    impr:r=>googleImpr(r), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')),
     conv:r=>M(r,'Conversões'), spend:r=>M(r,'Gasto') })
   if(!g.length) return `<div class="empty">Sem termos de pesquisa com cliques no período.</div>`
   // Métricas derivadas por termo (razões recalculadas, nunca somadas por linha).
@@ -2449,10 +2468,7 @@ function aggMetrics(rows, isMeta) {
   const spend = rows.reduce((a,r)=>a+num(r['Gasto']),0)
   const clicks = rows.reduce((a,r)=>a+(num(r['CLiques'])||num(r['Cliques'])),0)
   const conv = rows.reduce((a,r)=>a+num(r['Conversões']),0)
-  // "Impressões" (contagem real) só existe nas linhas coletadas a partir de
-  // 20/08/2026. Antes disso a única coluna era "Impressões na parte superior",
-  // que é PERCENTUAL — fallback só para não zerar o histórico.
-  const impressions = rows.reduce((a,r)=>a+(num(r['Impressões'])||num(r['Impressões na parte superior'])),0)
+  const impressions = rows.reduce((a,r)=>a+googleImpr(r),0)
   const lost = googleLostShare(rows)
   return { spend, impressions, clicks, conv, cpc:clicks>0?spend/clicks:null, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null,
     lostBudget:lost.budget, lostRank:lost.rank, lostEligible:lost.eligible }
@@ -2609,7 +2625,7 @@ function buildInsights(stats, channel, allRows, target) {
     spend: r => isMeta ? num(r['Valor investido']) : num(r['Gasto']),
     conv: r => num(r['Conversões']),
     clicks: r => isMeta ? num(r['Número de cliques no link']) : (num(r['CLiques']) || num(r['Cliques'])),
-    impressions: r => isMeta ? num(r['Impressões']) : (num(r['Impressões na parte superior']) || num(r['Impressões'])),
+    impressions: r => isMeta ? num(r['Impressões']) : googleImpr(r),
   })
   // Só entra na lista de desperdício o anúncio que AINDA está ativo hoje —
   // cobrar a pausa de algo já pausado era o efeito colateral do status congelado.
@@ -2795,7 +2811,7 @@ function initQuadrantCharts(period, rows, channel, isMeta) {
     const d = addDays(period.p1e, -i)
     const dr = rows.filter(r => fmtDate(r[dateKey]) === d)
     days.push(fmtBR(d))
-    const imp = dr.reduce((a,r)=>a+(isMeta?num(r['Impressões']):(num(r['Impressões na parte superior'])||num(r['Impressões']))),0)
+    const imp = dr.reduce((a,r)=>a+(isMeta?num(r['Impressões']):googleImpr(r)),0)
     const clk = dr.reduce((a,r)=>a+(isMeta?num(r['Número de cliques no link']):(num(r['CLiques'])||num(r['Cliques']))),0)
     spend.push(parseFloat(dr.reduce((a,r)=>a+num(r[spendKey]),0).toFixed(2)))
     ctr.push(imp>0?parseFloat((clk/imp*100).toFixed(2)):0)

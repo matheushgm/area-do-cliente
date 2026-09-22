@@ -178,12 +178,19 @@ export function classifyFunnel(campaignName) {
 export function buildStats(rows, cfg, p) {
   if (!p) return []
   const { accountKey, dateKey, spendKey, convKeys } = cfg
+  // Cliques e impressões entram para o CTR e a taxa de conversão de cada conta
+  // na lista. O canal sai do próprio cfg, para não mexer na assinatura de
+  // buildStats, que é chamada em seis lugares entre o viewer e o app React.
+  const isMeta = cfg.spendKey === CFG.meta.spendKey
+  const clicksOf = r => isMeta ? num(r['Número de cliques no link']) : (num(r['CLiques']) || num(r['Cliques']))
+  const imprOf = r => isMeta ? num(r['Impressões']) : googleImpr(r)
   const byClient = {}
   rows.forEach(r => {
     const name = r[accountKey]?.trim(); const date = fmtDate(r[dateKey])
     if (!name || !date) return
     if (!byClient[name]) byClient[name] = []
-    byClient[name].push({ date, spend: num(r[spendKey]), conv: convKeys.reduce((a, k) => a + num(r[k]), 0) })
+    byClient[name].push({ date, spend: num(r[spendKey]), conv: convKeys.reduce((a, k) => a + num(r[k]), 0),
+      clicks: clicksOf(r), impr: imprOf(r) })
   })
 
   const ORDER = { 'CRÍTICO': 0, 'QUEDA': 1, 'ESTÁVEL': 2, 'MELHORA': 3 }
@@ -212,6 +219,20 @@ export function buildStats(rows, cfg, p) {
     const varCpl = (cpl1 && cpl2) ? ((cpl1 - cpl2) / cpl2) * 100 : null
     const varSpend = spend2 > 0 ? ((spend1 - spend2) / spend2) * 100 : 0
 
+    // CTR e taxa de conversão são RAZÕES: recalculadas sobre as somas do período
+    // (cliques ÷ impressões, conversões ÷ cliques), nunca a média das linhas.
+    // Em pontos percentuais já, para a tabela não precisar converter.
+    const clicks1 = p1r.reduce((a, r) => a + r.clicks, 0)
+    const clicks2 = p2r.reduce((a, r) => a + r.clicks, 0)
+    const impr1 = p1r.reduce((a, r) => a + r.impr, 0)
+    const impr2 = p2r.reduce((a, r) => a + r.impr, 0)
+    const ctr1 = impr1 > 0 ? (clicks1 / impr1) * 100 : null
+    const ctr2 = impr2 > 0 ? (clicks2 / impr2) * 100 : null
+    const cr1 = clicks1 > 0 ? (conv1 / clicks1) * 100 : null
+    const cr2 = clicks2 > 0 ? (conv2 / clicks2) * 100 : null
+    const varCtr = (ctr1 != null && ctr2) ? ((ctr1 - ctr2) / ctr2) * 100 : null
+    const varCr = (cr1 != null && cr2) ? ((cr1 - cr2) / cr2) * 100 : null
+
     const t1vals = p.t1.map(d => day(d).conv)
     const t0vals = p.t0.map(d => day(d).conv)
     const t1sum = t1vals.reduce((a, v) => a + v, 0)
@@ -229,6 +250,7 @@ export function buildStats(rows, cfg, p) {
     const status = getStatus(varConv, varCpl, conv1)
     return {
       name, conv1, conv2, spend1, spend2, cpl1, cpl2, varConv, varCpl, varSpend,
+      clicks1, clicks2, impr1, impr2, ctr1, ctr2, varCtr, cr1, cr2, varCr,
       t1vals, trendDir, declining3d, status, chartConv, chartDates: sampled,
     }
   }).sort((a, b) => ORDER[a.status] - ORDER[b.status])
