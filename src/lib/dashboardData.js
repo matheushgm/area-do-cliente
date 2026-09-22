@@ -60,6 +60,23 @@ export function num(s) {
   return parseFloat(s) || 0
 }
 
+// ─── Impressões do Google ────────────────────────────────────────────────────
+// "Impressões na parte superior" NÃO é contagem de impressão: é a TAXA de
+// impressões no topo, e vem com "%" (ex.: "100,00%"). Usá-la como impressão
+// fazia o CTR do canal sair errado (8 cliques sobre "100,00%" viravam 8,00% em
+// vez dos 1,20% reais) e, em conta com várias linhas no dia, somava percentuais.
+// Ordem: (1) a contagem real; (2) linhas do layout antigo (maio–ago/2026), que
+// não têm a coluna "Impressões", reconstroem por cliques ÷ CTR; (3) só aceita
+// "parte superior" se vier SEM "%", para não voltar a confundir taxa com volume.
+export function googleImpr(r) {
+  const direct = num(r['Impressões'])
+  if (direct) return direct
+  const ctr = num(r['CTR']), clicks = num(r['CLiques']) || num(r['Cliques'])
+  if (ctr > 0 && clicks > 0) return Math.round(clicks / (ctr / 100))
+  const top = r['Impressões na parte superior']
+  return top && !String(top).includes('%') ? num(top) : 0
+}
+
 export function fmtDate(s) {
   if (!s) return null
   s = s.trim().replace(/^"|"$/g, '')
@@ -252,7 +269,7 @@ export function buildClientFacingSteps(rows, channel) {
       ? num(r['Número de conversas iniciadas no Whatsapp']) + num(r['Leads']) + num(r['Número de vendas'])
       : num(r['Conversões']),
     clicks: r => isMeta ? num(r['Número de cliques no link']) : (num(r['CLiques']) || num(r['Cliques'])),
-    impressions: r => isMeta ? num(r['Impressões']) : (num(r['Impressões na parte superior']) || num(r['Impressões'])),
+    impressions: r => isMeta ? num(r['Impressões']) : googleImpr(r),
   })
 
   const ctrThreshold = isMeta ? 1 : 5

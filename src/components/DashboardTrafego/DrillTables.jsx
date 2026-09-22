@@ -1,4 +1,4 @@
-import { num, fmtMoney, fmtNum, groupBy } from '../../lib/dashboardData'
+import { num, fmtMoney, fmtNum, groupBy, googleImpr } from '../../lib/dashboardData'
 import { StatusTag, ConvCell, CtrCell, TxConvCell, HookRateCell } from './helpers'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -166,7 +166,7 @@ export function GoogleCampaigns({ rows, onDrillCampaign }) {
     spend: r => num(r['Gasto']),
     conv: r => num(r['Conversões']),
     clicks: r => (num(r['CLiques']) || num(r['Cliques'])),
-    impressions: r => num(r['Impressões na parte superior']),
+    impressions: r => googleImpr(r),
     budgetLoss: r => num(r['% de perda por orçamento']),
   })
   if (!groups.length) return <div className="empty">Sem campanhas no período.</div>

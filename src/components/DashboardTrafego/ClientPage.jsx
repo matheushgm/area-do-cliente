@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
   CFG, num, fmtMoney, fmtNum, fmtPct, fmtBR, inRange, fmtDate, addDays,
-  buildPeriod, periodFromDays, maxDate, buildStats, groupBy, varCls,
+  buildPeriod, periodFromDays, maxDate, buildStats, groupBy, varCls, googleImpr,
 } from '../../lib/dashboardData'
 import { cplActualCls, LineChart } from './helpers'
 import { MetaCampaigns, MetaAdsets, MetaAds, GoogleCampaigns, GoogleGroups } from './DrillTables'
@@ -33,7 +33,7 @@ function buildInsights(stats, channel, allRows, target) {
     spend: r => isMeta ? num(r['Valor investido']) : num(r['Gasto']),
     conv: r => isMeta ? (num(r['Número de conversas iniciadas no Whatsapp']) + num(r['Leads']) + num(r['Número de vendas'])) : num(r['Conversões']),
     clicks: r => isMeta ? num(r['Número de cliques no link']) : (num(r['CLiques']) || num(r['Cliques'])),
-    impressions: r => isMeta ? num(r['Impressões']) : num(r['Impressões na parte superior']),
+    impressions: r => isMeta ? num(r['Impressões']) : googleImpr(r),
   })
   const wasters = groups.filter(g => {
     if (g.conv > 0 || g.spend < 35) return false
@@ -141,7 +141,7 @@ function aggMetrics(rows, isMeta) {
   const spend = rows.reduce((a, r) => a + num(r['Gasto']), 0)
   const clicks = rows.reduce((a, r) => a + (num(r['CLiques']) || num(r['Cliques'])), 0)
   const conv = rows.reduce((a, r) => a + num(r['Conversões']), 0)
-  const impressions = rows.reduce((a, r) => a + (num(r['Impressões na parte superior']) || num(r['Impressões'])), 0)
+  const impressions = rows.reduce((a, r) => a + googleImpr(r), 0)
   return { spend, impressions, clicks, conv, cpc: clicks > 0 ? spend / clicks : null, cpm: impressions > 0 ? (spend / impressions) * 1000 : null, ctr: impressions > 0 ? (clicks / impressions) * 100 : null, cpl: conv > 0 ? spend / conv : null, convRate: clicks > 0 ? (conv / clicks) * 100 : null }
 }
 function pctVar(cur, prev) {

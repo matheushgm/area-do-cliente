@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback } from 'react'
 import {
   CFG, num, fmtMoney, fmtNum, fmtDate, inRange,
   computeMainPeriod, buildStats, buildWeeklyMessage, localDateStr,
-  pillCls, pillIco, varCls, fmtPct,
+  pillCls, pillIco, varCls, fmtPct, googleImpr,
 } from '../../lib/dashboardData'
 import { CplTargetCell, cplActualCls } from '../DashboardTrafego/helpers'
 import ClientPage from '../DashboardTrafego/ClientPage'
@@ -61,7 +61,7 @@ function channelSummary(rows, channel, period, names) {
       a.spend += num(r['Gasto'])
       a.leads += num(r['Conversões'])
       a.clicks += (num(r['CLiques']) || num(r['Cliques']))
-      a.impr += (num(r['Impressões na parte superior']) || num(r['Impressões']))
+      a.impr += googleImpr(r)
     }
     return a
   }, { ...zero })

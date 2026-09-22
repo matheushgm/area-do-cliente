@@ -25,7 +25,7 @@ const COLS = {
   google: [
     ['account', 'Nome da conta'], ['day', 'Data'], ['campaign', 'Campanha'],
     ['spend', 'Gasto'], ['conv', 'Conversões'],
-    ['clicks', 'CLiques'], ['impressions', 'Impressões na parte superior'],
+    ['clicks', 'CLiques'], ['impressions', 'Impressões'],
   ],
 }
 
