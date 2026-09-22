@@ -146,6 +146,11 @@
      "Var. CPL" / "Var. Invest.", que só empurravam a tabela para o lado. */
   .dt-root .cell-val { display:block; font-size:16px; font-weight:700; line-height:1.15;
     white-space:nowrap; }
+  /* Com a métrica em 16px, o nome da conta em 12,5px virava legenda. Aqui ele
+     volta a ser o título da linha — e a logo do canal acompanha. Escopado na
+     tabela da visão Padrão para não mexer nas outras visualizações. */
+  .dt-root .client-quad tbody .client-link { font-size:15px; font-weight:700; }
+  .dt-root .client-quad tbody .ch-logo { width:20px; height:20px; vertical-align:-5px; }
   .dt-root .cell-delta { font-size:10px; font-weight:700; margin-top:2px; line-height:1.2;
     white-space:nowrap; letter-spacing:.2px; }
   .dt-root .cell-delta.up { color:#059669; }
