@@ -144,6 +144,8 @@
   /* Variação vs. período anterior LOGO ABAIXO do próprio número (CPL e
      Investimento nas tabelas de conta da visão Padrão). Substitui as colunas
      "Var. CPL" / "Var. Invest.", que só empurravam a tabela para o lado. */
+  .dt-root .cell-val { display:block; font-size:16px; font-weight:700; line-height:1.15;
+    white-space:nowrap; }
   .dt-root .cell-delta { font-size:10px; font-weight:700; margin-top:2px; line-height:1.2;
     white-space:nowrap; letter-spacing:.2px; }
   .dt-root .cell-delta.up { color:#059669; }
@@ -1168,7 +1170,7 @@ const trendHTML = x => x.declining3d ? `<span class="trend-dn">${em('📉')} Que
 // A ordenação vale para os 4 grupos de status e também para os cards mobile.
 const ACCT_COLS = [
   ['Conta','name'], ['Canal',null], ['Status',null],
-  ['Conv.','conv1'], ['Var. Conv.','varConv'],
+  ['Conv.','conv1'],
   ['CPL','cpl1'], ['CPL Alvo','cplTarget'],
   ['Investimento','spend1'], ['Invest. Ant.','spend2'],
   ['Tend. 3d','trend'],
@@ -1289,11 +1291,10 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <td><span class="client-link">${esc(x.name)}</span>${newLookChip(x.name)}${hideBtnHTML(x.name)}</td>
       <td>${chIco(x.channel)}</td>
       <td><span class="pill ${pillCls(x.status)}">${pIco(x.status)}${x.status}</span></td>
-      <td>${fmtNum(x.conv1)}</td>
-      <td class="${varCls(x.varConv,false)}">${fmtPct(x.varConv)}</td>
-      <td>${fmtMoney(x.cpl1)}${cellDelta(x.varCpl, true)}</td>
+      <td><span class="cell-val">${fmtNum(x.conv1)}</span>${cellDelta(x.varConv, false)}</td>
+      <td><span class="cell-val">${fmtMoney(x.cpl1)}</span>${cellDelta(x.varCpl, true)}</td>
       <td class="col-target">${targetCellHTML(x.name, x.cpl1)}</td>
-      <td>${fmtMoney(x.spend1)}${cellDelta(x.varSpend, false)}</td>
+      <td><span class="cell-val">${fmtMoney(x.spend1)}</span>${cellDelta(x.varSpend, false)}</td>
       <td>${fmtMoney(x.spend2)}</td>
       <td>${trend}</td></tr>`
   }
@@ -1338,11 +1339,10 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
     return `<tr class="total-row">
       <td><span class="total-label">Σ Total<span class="total-badge">${list.length} contas</span></span></td>
       <td></td><td></td>
-      <td>${fmtNum(t.conv1)}</td>
-      <td class="${varCls(t.varConv,false)}">${fmtPct(t.varConv)}</td>
-      <td>${fmtMoney(t.cpl1)}${cellDelta(t.varCpl, true)}</td>
+      <td><span class="cell-val">${fmtNum(t.conv1)}</span>${cellDelta(t.varConv, false)}</td>
+      <td><span class="cell-val">${fmtMoney(t.cpl1)}</span>${cellDelta(t.varCpl, true)}</td>
       <td class="col-target">${totalTargetHTML(list, t.cpl1)}</td>
-      <td>${fmtMoney(t.spend1)}${cellDelta(t.varSpend, false)}</td>
+      <td><span class="cell-val">${fmtMoney(t.spend1)}</span>${cellDelta(t.varSpend, false)}</td>
       <td>${fmtMoney(t.spend2)}</td>
       <td></td></tr>`
   }
