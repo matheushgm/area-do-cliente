@@ -144,6 +144,18 @@
   /* Variação vs. período anterior LOGO ABAIXO do próprio número (CPL e
      Investimento nas tabelas de conta da visão Padrão). Substitui as colunas
      "Var. CPL" / "Var. Invest.", que só empurravam a tabela para o lado. */
+  /* ── Tabelas de drill da página do cliente (Campanhas / Conjuntos / Anúncios /
+     Grupos / Termos / Páginas) ───────────────────────────────────────────────
+     Herdavam 12,5px do tema e ficavam miúdas demais para leitura corrida, ainda
+     mais ao lado dos KPIs de 16px logo acima. O primeiro seletor empata em
+     especificidade com o theme-fynix.css e vence por vir depois; o segundo
+     cobre o tema antigo. A tabela já rola na horizontal, então a fonte maior
+     não quebra layout. */
+  .dt-root.th-fynix .dt-wrap td, .dt-root .dt-wrap td { font-size:14px; }
+  .dt-root.th-fynix .dt-wrap th, .dt-root .dt-wrap th { font-size:12px; }
+  /* Nome da campanha/conjunto/anúncio é a âncora da linha, não mais um rótulo. */
+  .dt-root.th-fynix .dt-wrap td:first-child, .dt-root .dt-wrap td:first-child { font-weight:600; }
+
   .dt-root .cell-val { display:block; font-size:16px; font-weight:700; line-height:1.15;
     white-space:nowrap; }
   /* Com a métrica em 16px, o nome da conta em 12,5px virava legenda. Aqui ele
