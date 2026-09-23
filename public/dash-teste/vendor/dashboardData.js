@@ -147,6 +147,27 @@ export function periodFromDays(rows, dateKey, days) {
   return buildPeriod(addDays(end, -(days - 1)), end)
 }
 
+// Primeiro e último dia COM DADOS, numa passada só (o preset "Máximo" e a ajuda
+// do viewer precisam dos dois; maxDate sozinho não serve).
+export function dateRange(rows, dateKey) {
+  let min = null, max = null
+  for (const r of rows) {
+    const d = fmtDate(r[dateKey]); if (!d) continue
+    if (!min || d < min) min = d
+    if (!max || d > max) max = d
+  }
+  return min ? { min, max } : null
+}
+
+// Domingo a sábado da semana de `iso`, com deslocamento de `offset` semanas
+// (offset=-1 → semana anterior). A semana começa no domingo, como no calendário
+// do seletor e no gerenciador de anúncios.
+export function weekBounds(iso, offset = 0) {
+  const dow = new Date(iso + 'T12:00:00Z').getUTCDay()
+  const start = addDays(iso, -dow + offset * 7)
+  return { start, end: addDays(start, 6) }
+}
+
 // Primeiro/último dia do mês de `iso`, com deslocamento de `offset` meses
 // (offset=-1 → mês anterior). Usado pelos presets "Este mês"/"Mês passado".
 export function monthBounds(iso, offset) {
@@ -162,15 +183,29 @@ export function computeMainPeriod(channelRows, channel, days, from, to) {
   const dateKey = CFG[channel].dateKey
   if (days === 'today') { const m = maxDate(channelRows, dateKey); return m ? buildPeriod(m, m) : null }
   if (days === 'yesterday') { const m = maxDate(channelRows, dateKey); if (!m) return null; const y = addDays(m, -1); return buildPeriod(y, y) }
-  if (days === 'this_month' || days === 'last_month') {
-    // Ancora no último dia FECHADO (mesma regra do periodFromDays): "hoje" não
-    // entra porque os dados do dia corrente ainda estão incompletos.
+  if (days === 'today_yesterday') { const m = maxDate(channelRows, dateKey); return m ? buildPeriod(addDays(m, -1), m) : null }
+  if (days === 'this_week' || days === 'last_week') {
+    // Semana em curso: do domingo até o último dia com dados (hoje incluído,
+    // parcial). Semana passada: domingo a sábado fechados.
     const max = maxDate(channelRows, dateKey); if (!max) return null
-    const today = localDateStr(new Date())
-    const anchor = max >= today ? addDays(max, -1) : max
-    if (!anchor) return null
-    const { start, end } = monthBounds(anchor, days === 'this_month' ? 0 : -1)
-    return buildPeriod(start, days === 'this_month' ? anchor : end)
+    const { start, end } = weekBounds(max, days === 'this_week' ? 0 : -1)
+    return buildPeriod(start, days === 'this_week' ? max : end)
+  }
+  if (days === 'max') {
+    // Todo o histórico carregado. O comparativo sai vazio (não há período
+    // anterior), então as variações aparecem como "novo".
+    const r = dateRange(channelRows, dateKey)
+    return r ? buildPeriod(r.min, r.max) : null
+  }
+  if (days === 'this_month' || days === 'last_month') {
+    // "Este mês" é o acumulado do mês em curso: vai do dia 1 até o último dia COM
+    // DADOS, hoje incluído (parcial, como todo acumulado do dia corrente). Antes
+    // parava em ontem, e o mês nunca mostrava o que já tinha acontecido hoje.
+    // "Mês passado" ancora no mesmo dia: no dia 1, ancorar em ontem jogava a
+    // conta para dois meses atrás.
+    const max = maxDate(channelRows, dateKey); if (!max) return null
+    const { start, end } = monthBounds(max, days === 'this_month' ? 0 : -1)
+    return buildPeriod(start, days === 'this_month' ? max : end)
   }
   if (days === 0) return (from && to) ? buildPeriod(from, to) : null
   return periodFromDays(channelRows, dateKey, days)

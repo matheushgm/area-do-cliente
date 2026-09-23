@@ -43,6 +43,12 @@
     margin-left:5px; border-radius:50%; border:1px solid #94A3B8; color:#64748B; background:#fff;
     font:700 9px/1 ui-sans-serif,system-ui; cursor:help; vertical-align:middle; user-select:none; }
   .status-info:hover { border-color:#164496; color:#164496; }
+  .status-info { cursor:pointer; }
+  /* Balão do "i": mesma explicação do title, mas aberta por clique (e no toque). */
+  .dt-root .tipbox { position:fixed; z-index:320; max-width:300px; padding:10px 12px;
+    background:var(--fx-surface,#FFFFFF); border:1px solid var(--fx-border,#D8E0F0); border-radius:10px;
+    box-shadow:0 10px 30px rgba(2,0,39,.16); font-size:11.5px; line-height:1.5;
+    color:var(--fx-text,#334155); }
   /* Botão de olho: ocultar/reexibir conta do dashboard (clientes que saíram) */
   .dt-root .hide-btn { display:inline-flex; align-items:center; justify-content:center; margin-left:6px;
     padding:2px; border:0; background:transparent; color:#94A3B8; cursor:pointer; border-radius:6px;
@@ -109,6 +115,21 @@
      Cliente, acima da(s) conta(s) Meta/Google empilhadas — a mesma tabela
      de sempre, só que escopada a um cliente por vez. */
   .dt-root .client-quad { margin-bottom:22px; }
+  /* Grade única entre os quadrantes: com table-layout fixo, o colgroup de
+     ACCT_COLS manda na largura e a coluna fica na mesma posição em todos os
+     grupos. O ellipsis é a válvula de escape do nome de conta comprido (o
+     completo fica no title). */
+  .dt-root .client-quad table { table-layout:fixed; }
+  .dt-root .client-quad th, .dt-root .client-quad td { overflow:hidden; text-overflow:ellipsis; }
+  /* "Anúncios ativos" não cabe numa linha na largura da coluna em tela menor:
+     só esse cabeçalho quebra (os outros seguem em nowrap, alinhados pela grade). */
+  .dt-root .client-quad th.th-wrap { white-space:normal; line-height:1.25; }
+  /* Abaixo de ~1440px a grade fixa aperta as colunas estreitas (status, tendência,
+     "Conv. ontem") e o texto começava a cortar. O respiro sai do padding lateral,
+     que devolve 10px por célula sem mexer nas proporções. */
+  @media(max-width:1440px){
+    .dt-root .client-quad th, .dt-root .client-quad td { padding-left:8px; padding-right:8px; }
+  }
   .dt-root .client-quad .table-wrap { margin-bottom:0; }
   .dt-root .client-quad-title { display:flex; align-items:center; gap:8px;
     font-size:13px; font-weight:800; color:#0F172A; padding:0 2px 8px; }
@@ -132,6 +153,10 @@
      cards, abas e badges. SVG local (sem CDN), com o mesmo tamanho/posição
      de um emoji inline. */
   .dt-root .ch-logo { width:14px; height:14px; vertical-align:-2px; display:inline-block; }
+  /* Conjunto embaixo do nome do anúncio: com uma linha por ad_id, o mesmo
+     criativo aparece várias vezes e é o conjunto que diferencia as linhas. */
+  .dt-root .ad-sub { display:block; font-size:10px; font-weight:600; color:#94A3B8;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
   /* Variação discreta vs período anterior nas tabelas de drill (campanha/conjunto/anúncio) */
   .dt-root .var-mini { font-size:10px; font-weight:700; margin-left:5px; white-space:nowrap;
@@ -177,9 +202,6 @@
      que importam (conversões, CPL, investimento) já com a variação vs. período
      anterior. Desktop nunca vê isso (a tabela completa continua sendo a visão). */
   .dt-root .m-cards { display:none; }
-  /* No desktop a busca e o select seguem sendo filhos diretos da .filter-bar
-     (display:contents dissolve o wrapper); só no mobile ele vira uma linha. */
-  .dt-root .filter-row { display:contents; }
   /* Subtabs sangram até a borda do painel: o recuo negativo precisa acompanhar
      o padding do .cp-panel (era inline com -22px fixo e estourava a tela quando
      o painel encolheu no mobile). */
@@ -221,9 +243,6 @@
        explicativa longa empurrava o #sync-status para fora da tela. */
     .api-banner { padding:5px 14px; font-size:10px; gap:6px; white-space:nowrap; }
     .api-banner .banner-desc { display:none; }
-    /* A faixa de presets rola sozinha; sem min-width:0 ela força 504px de
-       largura e passa a rolar a PÁGINA inteira na horizontal. */
-    .dt-root .presets { width:100%; min-width:0; max-width:100%; }
     .dt-root .summary-bar { margin-bottom:12px; }
     .dt-root .sum-kpi { padding:9px 12px; }
     .dt-root .sum-label { font-size:9px; margin-bottom:4px; }
@@ -231,17 +250,9 @@
     .dt-root .sum-sub { font-size:10px; margin-top:2px; }
     /* Busca e squad lado a lado em vez de empilhados. */
     .dt-root .filter-bar { gap:8px; padding:8px 16px; }
-    .dt-root .filter-row { display:flex; gap:8px; align-items:center; width:100%; }
-    .dt-root .filter-row .search-wrap { flex:1; min-width:0; }
-    .dt-root .filter-row select { flex-shrink:0; max-width:42%; }
     .dt-root .period-row { gap:6px; margin-bottom:12px; }
     .dt-root .period-badge { font-size:10px; padding:3px 8px; }
     .dt-root .tab-panel { padding:12px 16px; }
-    /* Barra de visualizações: faixa rolável em vez de 4 linhas empilhadas. */
-    .dt-root .squad-bar { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
-      scrollbar-width:none; }
-    .dt-root .squad-bar::-webkit-scrollbar { display:none; }
-    .dt-root .squad-bar .squad-btn { flex-shrink:0; }
     /* ── Página do cliente ───────────────────────────────────────────────── */
     /* O nome ficava espremido entre o "Voltar" e os badges e truncava já no
        3º caractere ("Grup…"); no mobile ele ganha a linha inteira. */
@@ -291,7 +302,10 @@
     background:#EEF2F9; border:1px solid #D8E0F0; }
   /* Célula de nome do anúncio: nome trunca, botão "Ver" fica sempre visível */
   .dt-root .ad-name .ad-name-flex { display:flex; align-items:center; gap:8px; }
-  .dt-root .ad-name .ad-name-txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .dt-root .ad-name .ad-name-txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:70px; }
+  /* A célula divide espaço entre nome, selo ×N e os botões Ver/Destino: 220px
+     (padrão do dashboard.css) deixava o nome em ~40px. */
+  .dt-root .dt-wrap .ad-name { max-width:300px; }
   /* Botões "Ver" / "Destino" na tabela de anúncios */
   .ad-prev-btn, .ad-dest-btn { flex-shrink:0; padding:2px 8px; border:1px solid #C7D2E8; border-radius:7px;
     background:#fff; color:#164496; font:700 11px/1 ui-sans-serif,system-ui; cursor:pointer;
@@ -363,6 +377,172 @@
 .dt-root .new-look-chip{ display:inline-block; margin-left:6px; font-size:9px; font-weight:800; letter-spacing:.3px;
   text-transform:uppercase; color:#123C86; background:#E5EDFB; border:1px solid #BFD0F0; border-radius:999px;
   padding:2px 7px; vertical-align:middle; white-space:nowrap; }
+  /* ── Seletor de período (estilo gerenciador de anúncios) ────────────────────
+     Os nove botões de preset tomavam a linha inteira da barra de filtros — e no
+     mobile viravam uma faixa rolável só deles. No lugar entra UM botão com o
+     período em vigor escrito nele; atalhos e calendário de dois meses abrem num
+     popover, e a lista atrás só muda quando se clica em "Atualizar". */
+  .dt-root .dp { position:relative; display:inline-flex; }
+  .dt-root .dp-trigger { display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+    font-family:inherit; font-size:12px; font-weight:600; line-height:1.3; padding:7px 12px;
+    color:var(--fx-green,#0F172A); background:var(--fx-surface,#FFFFFF);
+    border:1px solid var(--fx-border,#D8E0F0); border-radius:var(--fx-radius-btn,10px);
+    box-shadow:0 1px 2px rgba(2,0,39,.04); transition:border-color .15s, box-shadow .15s; }
+  .dt-root .dp-trigger:hover { border-color:#D9DDE0; }
+  .dt-root .dp-trigger.open { border-color:var(--fx-green,#164496); box-shadow:0 0 0 3px rgba(2,0,39,.08); }
+  .dt-root .dp-trigger .ico { width:14px; height:14px; }
+  .dt-root .dp-range { color:var(--fx-muted,#64748B); font-weight:600; }
+  .dt-root .dp-caret { color:var(--fx-faint,#94A3B8); font-size:10px; }
+  /* Com os 14 atalhos a coluna passa da altura do calendário, e em tela baixa o
+     popover inteiro não cabe abaixo do botão: as duas colunas rolam e o dpFit()
+     limita a altura (ou abre o popover para cima). */
+  .dt-root .dp-pop { max-height:min(80vh, 470px); }
+  .dt-root .dp-side, .dt-root .dp-main { overflow-y:auto; scrollbar-width:thin; }
+  .dt-root .dp-pop { position:absolute; z-index:200; top:calc(100% + 8px); left:0; display:flex;
+    background:var(--fx-surface,#FFFFFF); border:1px solid var(--fx-border,#D8E0F0);
+    border-radius:14px; box-shadow:0 18px 44px rgba(2,0,39,.18); overflow:hidden; }
+  .dt-root .dp-side { display:flex; flex-direction:column; gap:2px; width:168px; padding:8px;
+    background:var(--fx-surface-2,#F8FAFF); border-right:1px solid var(--fx-border,#E4EAF7); }
+  .dt-root .dp-opt { text-align:left; cursor:pointer; border:0; background:transparent; border-radius:8px;
+    padding:7px 10px; font-family:inherit; font-size:12px; font-weight:600; white-space:nowrap;
+    color:var(--fx-text,#334155); }
+  .dt-root .dp-opt:hover { background:var(--fx-surface-3,#EEF4FF); color:var(--fx-lime-3,#164496); }
+  .dt-root .dp-opt.active { background:var(--fx-lime-soft,#E5EDFB); color:var(--fx-lime-3,#164496); font-weight:700; }
+  .dt-root .dp-cals { position:relative; display:flex; gap:20px; padding:14px 18px 8px; }
+  .dt-root .dp-cal { width:216px; }
+  .dt-root .dp-cal-title { text-align:center; font-size:12.5px; font-weight:700; margin-bottom:8px;
+    color:var(--fx-green,#0F172A); text-transform:capitalize; }
+  .dt-root .dp-nav { position:absolute; top:12px; width:24px; height:24px; display:inline-flex;
+    align-items:center; justify-content:center; cursor:pointer; font-size:14px; line-height:1;
+    color:var(--fx-muted,#64748B); background:transparent; border:1px solid var(--fx-border,#D8E0F0);
+    border-radius:8px; }
+  .dt-root .dp-nav:hover:not([disabled]) { color:var(--fx-green,#164496); border-color:#D9DDE0; }
+  .dt-root .dp-nav[disabled] { opacity:.35; cursor:default; }
+  .dt-root .dp-prev { left:14px; }
+  .dt-root .dp-next { right:14px; }
+  .dt-root .dp-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px 0; }
+  .dt-root .dp-dow { text-align:center; padding:2px 0 6px; font-size:10px; font-weight:700;
+    color:var(--fx-faint,#94A3B8); text-transform:uppercase; }
+  .dt-root .dp-day { height:28px; padding:0; cursor:pointer; border:0; background:transparent;
+    font-family:inherit; font-size:12px; font-weight:600; color:var(--fx-text,#334155); border-radius:8px; }
+  .dt-root .dp-day:hover:not([disabled]):not(.edge) { background:var(--fx-surface-3,#EEF4FF); color:var(--fx-lime-3,#164496); }
+  .dt-root .dp-day[disabled] { color:#CBD5E1; cursor:default; }
+  .dt-root .dp-day.in { background:var(--fx-lime-soft,#E5EDFB); color:var(--fx-lime-3,#164496); border-radius:0; }
+  .dt-root .dp-day.edge { background:var(--fx-green,#164496); color:#FFFFFF; }
+  .dt-root .dp-day.start { border-radius:8px 0 0 8px; }
+  .dt-root .dp-day.end { border-radius:0 8px 8px 0; }
+  .dt-root .dp-day.only { border-radius:8px; }
+  .dt-root .dp-foot { display:flex; align-items:center; gap:8px; padding:12px 18px;
+    border-top:1px solid var(--fx-border,#E4EAF7); }
+  .dt-root .dp-foot input[type=date] { font-family:inherit; font-size:12px; font-weight:600; padding:6px 8px;
+    color:var(--fx-green,#0F172A); background:var(--fx-surface,#FFFFFF); outline:none;
+    border:1px solid var(--fx-border,#D8E0F0); border-radius:8px; }
+  .dt-root .dp-foot input[type=date]:focus { border-color:var(--fx-green,#164496); }
+  .dt-root .dp-sep { color:var(--fx-faint,#94A3B8); }
+  .dt-root .dp-cmp { margin-left:auto; font-size:11px; color:var(--fx-muted,#94A3B8); white-space:nowrap; }
+  .dt-root .dp-actions { display:flex; gap:8px; margin-left:12px; }
+  .dt-root .dp-btn { cursor:pointer; font-family:inherit; font-size:12px; font-weight:600; padding:7px 14px;
+    border-radius:var(--fx-radius-btn,10px); border:1px solid var(--fx-border,#D8E0F0);
+    background:var(--fx-surface,#FFFFFF); color:var(--fx-green,#334155); }
+  .dt-root .dp-btn:hover { background:var(--fx-surface-2,#F4F7FC); border-color:#D9DDE0; }
+  .dt-root .dp-btn.primary { background:var(--fx-green,#164496); border-color:var(--fx-green,#164496); color:#FFFFFF; }
+  .dt-root .dp-btn.primary:hover { background:var(--fx-green-2,#123C86); border-color:var(--fx-green-2,#123C86); }
+  @media(max-width:768px){
+    /* Popover ocupa a largura da barra: dois calendários não cabem em 375px,
+       então fica o do mês inicial e os atalhos viram uma faixa rolável. */
+    .dt-root .dp { width:100%; }
+    .dt-root .dp-trigger { width:100%; justify-content:flex-start; }
+    .dt-root .dp-pop { left:0; width:100%; min-width:0; flex-direction:column; }
+    .dt-root .dp-side { width:auto; flex-direction:row; overflow-x:auto; scrollbar-width:none;
+      border-right:0; border-bottom:1px solid var(--fx-border,#E4EAF7); }
+    .dt-root .dp-side::-webkit-scrollbar { display:none; }
+    .dt-root .dp-opt { flex-shrink:0; }
+    .dt-root .dp-cal2 { display:none; }
+    .dt-root .dp-cal { width:100%; }
+    .dt-root .dp-cals { padding:12px 14px 6px; }
+    .dt-root .dp-foot { flex-wrap:wrap; padding:10px 14px; }
+    .dt-root .dp-actions { margin-left:auto; }
+  }
+  /* ── Popovers da barra de filtros (visualização e info) ─────────────────────
+     Mesmo corpo do seletor de período. A barra de visualizações era uma segunda
+     faixa com seis botões; virou um dropdown à esquerda das datas, e as janelas
+     de data (selecionado / comparativo / tendência 3d), que ocupavam uma linha
+     de badges em toda visão, viraram o botão de info ao lado de "Ocultas". */
+  .dt-root .bwrap { position:relative; display:inline-flex; }
+  .dt-root .bar-right { display:flex; align-items:center; gap:8px; margin-left:auto; }
+  .dt-root .bpop { position:absolute; z-index:200; top:calc(100% + 8px); left:0;
+    background:var(--fx-surface,#FFFFFF); border:1px solid var(--fx-border,#D8E0F0);
+    border-radius:14px; box-shadow:0 18px 44px rgba(2,0,39,.18); overflow:hidden; }
+  .dt-root .bpop.right { left:auto; right:0; }
+  .dt-root .vm-pop { width:320px; padding:6px; }
+  .dt-root .vm-item { display:flex; gap:10px; width:100%; text-align:left; cursor:pointer; border:0;
+    background:transparent; border-radius:10px; padding:8px 10px; font-family:inherit;
+    color:var(--fx-text,#334155); }
+  .dt-root .vm-item:hover { background:var(--fx-surface-3,#EEF4FF); }
+  .dt-root .vm-item.active { background:var(--fx-lime-soft,#E5EDFB); }
+  .dt-root .vm-item.active .vm-label { color:var(--fx-lime-3,#164496); }
+  .dt-root .vm-ico { flex-shrink:0; line-height:1.2; color:var(--fx-muted,#64748B); }
+  .dt-root .vm-ico .ico { width:15px; height:15px; }
+  .dt-root .vm-label { display:block; font-size:12.5px; font-weight:700; color:var(--fx-green,#0F172A); }
+  .dt-root .vm-desc { display:block; font-size:11px; line-height:1.35; color:var(--fx-muted,#64748B); margin-top:2px; }
+  .dt-root .info-btn { width:30px; height:30px; padding:0; justify-content:center; }
+
+  /* ── Painel lateral de ajuda ────────────────────────────────────────────────
+     A regra de cada visão (como ela agrupa e classifica as contas) só existia
+     como `title` do cabeçalho de cada grupo — invisível para quem não passa o
+     mouse. Aqui ela fica escrita, junto das janelas de data, num painel que não
+     disputa espaço com a lista. */
+  .dt-root .side-ov { position:fixed; inset:0; z-index:300; background:rgba(2,0,39,.16);
+    animation:sideFade .16s ease-out; }
+  .dt-root .sidepanel { position:fixed; top:0; right:0; bottom:0; z-index:301; width:420px; max-width:92vw;
+    display:flex; flex-direction:column; background:var(--fx-surface,#FFFFFF);
+    border-left:1px solid var(--fx-border,#D8E0F0); box-shadow:-18px 0 44px rgba(2,0,39,.18);
+    animation:sideIn .18s ease-out; }
+  @keyframes sideIn { from { transform:translateX(24px); opacity:.4 } to { transform:none; opacity:1 } }
+  @keyframes sideFade { from { opacity:0 } to { opacity:1 } }
+  .dt-root .side-head { display:flex; align-items:center; gap:10px; padding:14px 18px;
+    border-bottom:1px solid var(--fx-border,#E4EAF7); }
+  .dt-root .side-head h3 { margin:0; font-size:14px; font-weight:700; color:var(--fx-green,#0F172A); }
+  .dt-root .side-x { margin-left:auto; cursor:pointer; border:0; background:transparent; padding:4px;
+    font-size:16px; line-height:1; color:var(--fx-faint,#94A3B8); border-radius:8px; }
+  .dt-root .side-x:hover { background:var(--fx-surface-3,#EEF4FF); color:var(--fx-green,#0F172A); }
+  .dt-root .side-body { overflow-y:auto; padding:16px 18px 24px; }
+  .dt-root .side-block + .side-block { margin-top:20px; padding-top:16px;
+    border-top:1px solid var(--fx-border,#E4EAF7); }
+  .dt-root .side-title { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:700;
+    color:var(--fx-green,#0F172A); margin-bottom:6px; }
+  .dt-root .side-title .ico { width:15px; height:15px; }
+  .dt-root .side-text { font-size:12px; line-height:1.5; color:var(--fx-muted,#64748B); margin:0 0 10px; }
+  .dt-root .side-sub { font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;
+    color:var(--fx-faint,#94A3B8); margin:14px 0 8px; }
+  .dt-root .sg { display:flex; gap:9px; padding:8px 0; border-top:1px solid var(--fx-border-2,#EEF0F2); }
+  .dt-root .sg:first-of-type { border-top:0; }
+  .dt-root .sg-ico { flex-shrink:0; line-height:1.3; }
+  .dt-root .sg-ico .ico { width:15px; height:15px; }
+  .dt-root .sg-subs { margin:0 0 4px 22px; padding-left:10px; border-left:2px solid var(--fx-border,#E4EAF7); }
+  .dt-root .sg-sub { padding:6px 0; border-top:0; }
+  .dt-root .sg-sub b { font-size:11.5px; }
+  .dt-root .sg b { display:block; font-size:12px; color:var(--fx-green,#0F172A); margin-bottom:2px; }
+  .dt-root .sg span { font-size:11.5px; line-height:1.45; color:var(--fx-muted,#64748B); }
+  .dt-root .info-ch { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700;
+    color:var(--fx-green,#0F172A); margin-bottom:5px; }
+  .dt-root .info-row { display:flex; justify-content:space-between; gap:12px; font-size:12px;
+    color:var(--fx-muted,#64748B); padding:3px 0; }
+  .dt-root .info-row b { color:var(--fx-green,#0F172A); font-weight:700; }
+  .dt-root .info-note { font-size:11.5px; line-height:1.5; color:var(--fx-muted,#64748B); margin:10px 0 0; }
+  @media(max-width:768px){
+    /* Só o dropdown de visualização (filho direto da barra) ocupa a linha; o
+       wrapper do info vive dentro do .bar-right e fica do tamanho do ícone. */
+    .dt-root .filter-bar > .bwrap { width:100%; }
+    .dt-root .filter-bar > .bwrap .dp-trigger { width:100%; justify-content:flex-start; }
+    .dt-root .bar-right { width:100%; margin-left:0; flex-wrap:wrap; }
+    .dt-root .bar-right .search-wrap { flex:1 1 100%; }
+    .dt-root .bar-right .search-wrap input { width:100%; box-sizing:border-box; }
+    .dt-root .bar-right .squad-btn { flex:1; justify-content:center; }
+    .dt-root .bar-right .info-btn { flex:0 0 auto; }
+    .dt-root .vm-pop { width:calc(100vw - 32px); max-width:340px; }
+    .dt-root .sidepanel { width:100%; max-width:none; }
+  }
 </style>
 </head>
 <body>
@@ -372,10 +552,10 @@
 <script type="module">
 import {
   CFG, parseCSV, num, fmtMoney, fmtNum, fmtPct, fmtBR, inRange, fmtDate, addDays,
-  buildPeriod, periodFromDays, maxDate, pillCls, pillIco, varCls, buildStats,
+  buildPeriod, maxDate, pillCls, pillIco, varCls, buildStats,
   computeMainPeriod, groupBy, statusTagInfo, buildWeeklyMessage,
   buildDeclineDiagnosis, buildScaleCandidates, normStr, localDateStr, diffDays, googleImpr,
-  monthBounds,
+  dateRange,
 } from './vendor/dashboardData.js'
 
 // ─── Fonte de dados ──────────────────────────────────────────────────────────
@@ -393,18 +573,34 @@ const LOCAL_ROLLUP = { meta: './output/meta.rollup.csv', google: './output/googl
 const SB_URL = 'https://dwbdzoljmdmihitssxhn.supabase.co'
 const SB_KEY = 'sb_publishable_ukbzUmT2uoD4BCnWT11Vhg_NJcAVIpT'
 
+// Sessão do projeto DESTE dashboard. A origem pode ter sessões de outros
+// projetos Supabase guardadas (outro app local na mesma porta, um projeto
+// antigo): pegar a primeira `sb-*-auth-token` que aparecesse mandava o token de
+// outro projeto para /api/*, que devolve 401. Por isso a chave certa vem
+// primeiro; a varredura fica só como rede de segurança.
+const SB_REF = SB_URL.replace(/^https?:\/\//, '').split('.')[0]
+const tokenDe = raw => {
+  try { const v = JSON.parse(raw); return v?.access_token || v?.currentSession?.access_token || v?.session?.access_token || null }
+  catch { return null }
+}
 function supabaseToken() {
   try {
+    const meu = tokenDe(localStorage.getItem(`sb-${SB_REF}-auth-token`))
+    if (meu) return meu
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
       if (/^sb-.*-auth-token$/.test(k)) {
-        const v = JSON.parse(localStorage.getItem(k))
-        const t = v?.access_token || v?.currentSession?.access_token || v?.session?.access_token
+        const t = tokenDe(localStorage.getItem(k))
         if (t) return t
       }
     }
   } catch (e) { /* ignore */ }
   return null
+}
+
+const motivo = async r => {
+  const m = await r.clone().json().then(j => j?.error?.message).catch(() => null)
+  return m ? ` — ${m}` : ''
 }
 
 async function fetchChannel(ch, fresh) {
@@ -430,7 +626,10 @@ async function fetchChannel(ch, fresh) {
     // `fresh` fura o cache do navegador. Sem isso, o botão Atualizar relia a
     // resposta guardada por max-age=300 e os números só mudavam 5 min depois.
     const r = await fetch(api, { headers: { Authorization: `Bearer ${token}` }, cache: fresh ? 'reload' : 'default' })
-    if (!r.ok) throw new Error(`${ch}: HTTP ${r.status}`)
+    // O motivo vem no corpo (`Não autorizado.` = sem token; `Sessão inválida ou
+    // expirada.` = token recusado pelo Supabase). Sem ele, todo 401 virava a
+    // mesma tela de "faça login" e não dava para saber qual dos dois era.
+    if (!r.ok) throw new Error(`${ch}: HTTP ${r.status}${await motivo(r)}`)
     return r.text()
   }
   // dev local (standalone, sem sessão)
@@ -443,6 +642,22 @@ async function fetchChannel(ch, fresh) {
   }
   const r = await fetch(LOCAL[ch])
   return isCsv(r) ? r.text() : ''
+}
+
+// Anúncios do Google dos últimos dias — só o suficiente para contar quantos
+// estão ligados por conta na lista (o canal inteiro tem ~7 mil linhas; a janela
+// de 7 dias fica em algumas centenas). Falha aqui não derruba o dashboard: a
+// coluna mostra "—".
+async function fetchGoogleAds(fresh) {
+  if (SHARED) return ''
+  const token = supabaseToken()
+  if (token) {
+    const r = await fetch('/api/dash-data?channel=google_ads&dias=7',
+      { headers: { Authorization: `Bearer ${token}` }, cache: fresh ? 'reload' : 'default' })
+    return r.ok ? r.text() : ''
+  }
+  const r = await fetch(LOCAL_LAZY.google_ads)
+  return r.ok && !/text\/html/i.test(r.headers.get('content-type') || '') ? r.text() : ''
 }
 
 // ─── Linhas CRUAS de um cliente (nível anúncio) ──────────────────────────────
@@ -574,11 +789,19 @@ const STATUS_GROUPS = [
 // cliente com contas em status diferentes (ex.: Google crítico + Meta estável
 // → o quadrante inteiro aparece em "Crítico", a pior das duas).
 const STATUS_RANK = { 'CRÍTICO': 0, 'QUEDA': 1, 'ESTÁVEL': 2, 'MELHORA': 3 }
-const PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3 dias',3],['7 dias',7],['14 dias',14],['30 dias',30],['Este mês','this_month'],['Mês passado','last_month'],['Custom',0]]
-const PRESET_STRINGS = new Set(['today','yesterday','this_month','last_month'])
+// Atalhos da coluna da esquerda do seletor de período. O valor é o mesmo
+// `state.days` de sempre — só os rótulos ficaram por extenso, que agora há
+// espaço para eles (a lista é vertical, não uma fileira de botões).
+const PRESETS = [
+  ['Hoje','today'], ['Ontem','yesterday'], ['Hoje e ontem','today_yesterday'],
+  ['Últimos 3 dias',3], ['Últimos 7 dias',7], ['Últimos 14 dias',14],
+  ['Últimos 28 dias',28], ['Últimos 30 dias',30],
+  ['Esta semana','this_week'], ['Semana passada','last_week'],
+  ['Este mês','this_month'], ['Mês passado','last_month'],
+  ['Máximo','max'], ['Personalizado',0],
+]
+const PRESET_STRINGS = new Set(['today','yesterday','today_yesterday','this_week','last_week','this_month','last_month','max'])
 // Presets da página de cliente (rótulos curtos, espelham PERIOD_PRESETS do ClientPage)
-const CP_PRESETS = [['Hoje','today'],['Ontem','yesterday'],['3d',3],['7d',7],['14d',14],['30d',30],['Este mês','this_month'],['Mês passado','last_month'],['Custom',0]]
-const CP_PRESET_STRINGS = new Set(['today','yesterday','this_month','last_month'])
 
 // channel: '' = Todos (padrão — agrupa Meta+Google numa lista só, pra ninguém
 // passar batido só olhando a 1ª aba) | 'meta' | 'google' = filtro de um canal só.
@@ -651,6 +874,8 @@ const ICONS = {
   'flame': '<path d="M12 3c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-1.5.5-2.5 1-3 .3 1 1 1.5 1.5 1.5C11 8 11 5 12 3z"/><path d="M8.5 14.5c0 3 1.5 5 3.5 6.5 2-1.5 3.5-3.5 3.5-6.5"/>',
   'turtle': '<path d="M4 14a8 6 0 0 1 16 0z"/><path d="M2 14h20"/><path d="M6 14v3"/><path d="M18 14v3"/><path d="M20 12a2 2 0 0 1 3 1"/>',
   'clock': '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  'calendar': '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M3 10h18"/>',
+  'info': '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6h.01"/>',
   'arrow-right': '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
   'magnet': '<path d="M6 3v8a6 6 0 0 0 12 0V3"/><path d="M6 3h4v8a2 2 0 0 0 4 0V3h4"/><path d="M6 8h4"/><path d="M14 8h4"/>',
   'rocket': '<path d="M5 14c-1.5 2-1.5 4-1.5 6 2 0 4 0 6-1.5"/><path d="M9 15 4 10l3-3 4 1c3-4 7-5 10-5-.2 3-1.2 7-5 10l1 4-3 3-5-5"/><circle cx="14.5" cy="9.5" r="1.5"/>',
@@ -663,10 +888,43 @@ const ic = (name, emoji) => state.newLook ? svgIco(name) : emoji
 // (gh-red / gh-yellow / gh-green), não um ícone.
 const EMOJI_ICON = { '📊':'chart', '💸':'coin', '📉':'trend-dn', '📈':'trend', '➡️':'arrow-right', '🎯':'target',
   '🧲':'magnet', '🚀':'rocket', '👁':'eye', '🚫':'eye-off', '🔍':'search', '⟳':'refresh', '🗂️':'layers',
-  '🔥':'flame', '🐢':'turtle', '✅':'check', '⏳':'clock', '🚨':'alert' }
+  '🔥':'flame', '🐢':'turtle', '✅':'check', '⏳':'clock', '🚨':'alert', '📅':'calendar', 'ℹ️':'info' }
 const em = e => !state.newLook ? e : /^[🔴🟡🟢]$/u.test(e) ? '<span class="gh-dot"></span>' : EMOJI_ICON[e] ? svgIco(EMOJI_ICON[e]) : e
 // Pílula de status na tabela: no tema o ponto colorido vem do CSS (::before).
 const pIco = st => state.newLook ? '' : pillIco(st) + ' '
+
+// ─── Ícone "i" dos cabeçalhos de grupo ───────────────────────────────────────
+// O `title` nativo só aparece no hover — e no toque, nunca. O mesmo texto agora
+// abre num balão ao CLICAR (o title fica, para quem já usa o hover).
+const infoIco = tip => `<span class="status-info" role="button" tabindex="0" data-tip="${esc(tip)}" title="${esc(tip)}">i</span>`
+let _tip = null
+function tipClose() {
+  if (!_tip) return
+  _tip.remove(); _tip = null
+  document.removeEventListener('click', tipDoc, true)
+  document.removeEventListener('keydown', tipKey, true)
+  window.removeEventListener('scroll', tipClose, true)
+}
+function tipDoc(ev) { if (!(ev.target.closest && ev.target.closest('.tipbox, [data-tip]'))) tipClose() }
+function tipKey(ev) { if (ev.key === 'Escape') tipClose() }
+function tipToggle(el) {
+  const mesmo = _tip && _tip.dono === el
+  tipClose()
+  if (mesmo || !el.dataset.tip) return
+  const box = document.createElement('div')
+  box.className = 'tipbox'; box.textContent = el.dataset.tip; box.dono = el
+  app.appendChild(box)
+  const r = el.getBoundingClientRect()
+  box.style.left = `${Math.round(Math.max(8, Math.min(r.left - 8, innerWidth - box.offsetWidth - 8)))}px`
+  box.style.top  = `${Math.round(r.bottom + 6)}px`
+  _tip = box
+  // setTimeout: sem ele o próprio clique que abriu o balão o fecharia em seguida.
+  setTimeout(() => {
+    document.addEventListener('click', tipDoc, true)
+    document.addEventListener('keydown', tipKey, true)
+    window.addEventListener('scroll', tipClose, true)
+  }, 0)
+}
 // Paleta dos gráficos (Chart.js) por visual. A fonte padrão é a do próprio
 // Chart.js, para não mudar nada nas contas fora do piloto.
 const CHART_FONT_DEFAULT = typeof Chart !== 'undefined' ? Chart.defaults.font.family : 'sans-serif'
@@ -704,6 +962,13 @@ const fxLegend = (P, fallback) => !state.newLook ? fallback : {
 }
 
 const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:7, from:'', to:'', search:'', squad:'', openClient:null,
+                // seletor de período: popover aberto + rascunho da escolha (só vai
+                // para days/from/to quando se clica em "Atualizar")
+                dpOpen:false, dp:null,
+                // anúncios do Google por conta (canal google_ads, últimos dias)
+                googleAds:{},
+                // popover aberto na barra de filtros: 'view' | 'info' | null
+                barPop:null,
                 // visualização da lista: 'padrao' (status) | 'diagnostico' (causa da queda) | 'escala' (candidatas a mais verba)
                 view:'padrao', showHidden:false,
                 // quadrante Performance por cliente: 'mql' (funil de lead) | 'ecom' (funil de compra)
@@ -755,15 +1020,17 @@ async function load(fresh) {
   try {
     // O snapshot de status é acessório: se falhar, o dashboard abre igual e cai
     // no último status conhecido de cada linha (com aviso na tag).
-    const [m, g, st, accounts] = await Promise.all([
+    const [m, g, st, ga, accounts] = await Promise.all([
       fetchChannel('meta', fresh), fetchChannel('google', fresh),
-      fetchChannel('meta_status', fresh).catch(() => ''), fetchAccounts()])
+      fetchChannel('meta_status', fresh).catch(() => ''),
+      fetchGoogleAds(fresh).catch(() => ''), fetchAccounts()])
     state.raw = { meta: parseCSV(m), google: parseCSV(g) }
     // Dados novos: o cache de linhas cruas por conta também precisa cair, senão
     // a página de cliente continuaria mostrando o que veio antes do sync.
     if (fresh) state.rows = {}
     invalidateMemo()
     state.statusSnap = buildStatusSnap(parseCSV(st))
+    state.googleAds = buildGoogleAdsSnap(parseCSV(ga))
     state.accounts = accounts
     document.getElementById('src-info').textContent =
       `· ${state.raw.meta.length} linhas Meta · ${state.raw.google.length} linhas Google`
@@ -781,7 +1048,7 @@ async function load(fresh) {
   } catch (e) {
     app.innerHTML = SHARED
       ? `<div class="dt-loader"><p>Não foi possível abrir este dashboard.<br>O link pode estar incorreto ou ter expirado.</p></div>`
-      : `<div class="dt-loader"><p>Erro ao carregar dados: ${esc(e.message)}.<br>Faça login na Área do Cliente e recarregue.</p></div>`
+      : `<div class="dt-loader"><p>Erro ao carregar dados: ${esc(e.message)}${/[.!?]$/.test(e.message) ? '' : '.'}<br>Faça login na Área do Cliente e recarregue.</p></div>`
   }
 }
 
@@ -1064,17 +1331,397 @@ function panelHTML(d) {
     : padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct)
 }
 
+// ─── Visualizações da lista ──────────────────────────────────────────────────
+// Eram seis botões numa faixa própria embaixo dos filtros. Viraram um dropdown
+// ao lado das datas: a visão ativa fica escrita no botão e a descrição de cada
+// uma (que só existia como `title`) passa a aparecer na lista.
+// `grupos` é uma função porque as constantes de cada visão (DIAG_GROUPS,
+// SCALE_GROUPS, PACE_GROUPS) são declaradas mais abaixo no arquivo — e é delas
+// que o painel de ajuda tira a regra de classificação, em vez de repetir texto.
+const VIEWS = [
+  { key:'padrao', emoji:'📊', label:'Padrão (status)',
+    desc:'Contas agrupadas pelo status de conversão do período.',
+    grupos: () => STATUS_GROUPS.map(g => g.key === 'QUEDA'
+      ? { ...g, subs: [...QUEDA_CAUSAS, QUEDA_SEM_DIAG] } : g),
+    nota: 'O status compara as CONVERSÕES do período selecionado com o período anterior — o CPL não entra na conta. '
+        + 'Cada cliente vira um quadrante com as contas Meta e Google juntas, e o quadrante cai na seção do PIOR status entre elas. '
+        + 'Dentro de "Queda", as contas ainda se separam pela causa apontada no Diagnóstico de Queda.' },
+  { key:'pace', emoji:'💸', label:'Pace de Verba', vbn:'pace',
+    desc:'Gasto vs. a verba planejada no módulo Campanha da Área do Cliente, por conta e por campanha do plano.',
+    grupos: () => PACE_GROUPS,
+    nota: 'Pace = gasto realizado ÷ o que deveria ter sido gasto até hoje, considerando a verba e o período do plano de Campanha. '
+        + 'Conta sem plano preenchido na Área do Cliente (ou sem verba naquele canal) fica fora da lista e é contada em "Sem plano".' },
+  { key:'diagnostico', emoji:'📉', label:'Diagnóstico de Queda', vbn:'diag',
+    desc:'Contas em queda de conversão, separadas pela causa: corte de verba ou performance (CTR / taxa de conversão).',
+    grupos: () => DIAG_GROUPS,
+    nota: 'Entram as contas com queda de conversão vs. o período anterior. A causa sai da comparação entre a queda de conversões e a de investimento: '
+        + 'caiu junto com a verba → corte de verba; caiu mais do que a verba explica → performance, e aí a alavanca que mais piorou (CTR ou taxa de conversão) define o grupo.' },
+  { key:'queda-ctr', emoji:'🎯', label:'Queda por CTR', vbn:'ctr',
+    desc:'Só as contas cuja queda de conversão foi causada pelo CTR (criativo/segmentação).',
+    grupos: () => DIAG_GROUPS.filter(g => g.key === 'ctr'),
+    nota: 'É um recorte do Diagnóstico de Queda: mesma classificação, só o grupo do CTR.' },
+  { key:'queda-taxa', emoji:'🧲', label:'Queda por Tx. Conversão', vbn:'taxa',
+    desc:'Só as contas cuja queda de conversão foi causada pela taxa de conversão (LP/oferta).',
+    grupos: () => DIAG_GROUPS.filter(g => g.key === 'taxa'),
+    nota: 'É um recorte do Diagnóstico de Queda: mesma classificação, só o grupo da taxa de conversão.' },
+  { key:'escala', emoji:'🚀', label:'Contas que podem escalar', vbn:'escala',
+    desc:'Conversões subindo e CPL caindo — candidatas a receber mais investimento.',
+    grupos: () => SCALE_GROUPS,
+    nota: 'Entram as contas que subiram conversões E baixaram o CPL no período. A tendência dos últimos 3 dias separa as que já podem receber verba das que ainda pedem observação.' },
+]
+
+function viewMenuHTML(c) {
+  const atual = VIEWS.find(v => v.key === state.view) || VIEWS[0]
+  return `<button class="dp-trigger${state.barPop === 'view' ? ' open' : ''}" id="vmBtn" aria-haspopup="menu" aria-expanded="${state.barPop === 'view'}">
+      ${em(atual.emoji)}<span class="dp-name">${atual.label}</span><span class="dp-caret">▾</span></button>
+    ${state.barPop !== 'view' ? '' : `<div class="bpop vm-pop" role="menu">${VIEWS.map(v => `
+      <button class="vm-item${state.view === v.key ? ' active' : ''}" data-view="${v.key}" role="menuitem">
+        <span class="vm-ico">${em(v.emoji)}</span>
+        <span class="vm-txt">
+          <span class="vm-label">${v.label}${v.vbn ? `<span data-vbn="${v.vbn}">${vbn(c[v.vbn])}</span>` : ''}</span>
+          <span class="vm-desc">${v.desc}</span>
+        </span>
+      </button>`).join('')}</div>`}`
+}
+
+// Janelas de data da lista. Meta e Google quase sempre caem no mesmo intervalo
+// (só divergem quando um canal está com a sincronização atrasada), então repetir
+// o bloco inteiro por canal era ruído: só quando as datas REALMENTE diferem é
+// que aparecem dois blocos.
+function periodosHTML(channels, P) {
+  const ativos = channels.filter(ch => P[ch])
+  if (!ativos.length) return '<p class="side-text">Sem dados no período selecionado.</p>'
+  const linhasDe = ch => {
+    const p = P[ch]
+    const t3 = p.t1.filter(Boolean).map(d => { const [, m, day] = d.split('-'); return `${day}/${m}` }).join(', ')
+    return [['Selecionado', p.label1], ['Comparativo', p.label2], ['Tendência 3d', t3 || '—']]
+  }
+  const linhas = ch => linhasDe(ch).map(([l, v]) => `<div class="info-row"><span>${l}</span><b>${v}</b></div>`).join('')
+  const nome = ch => ch === 'meta' ? 'Meta Ads' : 'Google Ads'
+  const iguais = ativos.every(ch => JSON.stringify(linhasDe(ch)) === JSON.stringify(linhasDe(ativos[0])))
+  const divergem = !iguais
+  const corpo = iguais
+    ? `<div class="info-ch">${ativos.map(chIco).join('')} ${ativos.map(nome).join(' e ')}</div>${linhas(ativos[0])}`
+    : ativos.map(ch => `<div class="info-ch" style="margin-top:10px">${chIco(ch)} ${nome(ch)}</div>${linhas(ch)}`).join('')
+  return `${corpo}
+    <p class="info-note">O <b>comparativo</b> é o período imediatamente anterior, do mesmo tamanho: é dele que saem
+      todas as variações (%) da lista. A <b>tendência 3d</b> olha os três últimos dias contra os três anteriores.${
+      divergem ? ' As datas diferem entre os canais porque cada um ancora no seu último dia com dados.' : ''}</p>`
+}
+
+// Teto de linhas por canal nas funções /api/dash-rollup e /api/dash-data
+// (MAX_ROWS lá). Acima disso a resposta é cortada, então vale dizer na ajuda
+// quanto do teto já está em uso.
+const DATA_MAX_ROWS = 200000
+const fmtBRano = iso => { const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}` }
+// Primeira e última data REAIS das linhas carregadas de um canal — é o alcance
+// que a lista consegue mostrar, independentemente do período escolhido.
+function alcanceDe(ch) {
+  const rows = state.raw[ch] || []
+  const r = rows.length ? dateRange(rows, CFG[ch].dateKey) : null
+  return r ? { n: rows.length, de: r.min, ate: r.max } : null
+}
+
+function dadosHTML(channels) {
+  const nome = ch => ch === 'meta' ? 'Meta Ads' : 'Google Ads'
+  const blocos = channels.map(ch => {
+    const a = alcanceDe(ch)
+    if (!a) return `<div class="info-ch">${chIco(ch)} ${nome(ch)}</div><div class="info-row"><span>Sem dados carregados</span></div>`
+    return `<div class="info-ch" style="margin-top:8px">${chIco(ch)} ${nome(ch)}</div>
+      <div class="info-row"><span>Histórico disponível</span><b>${fmtBRano(a.de)} – ${fmtBRano(a.ate)}</b></div>
+      <div class="info-row"><span>Linhas carregadas</span><b>${fmtNum(a.n)}</b></div>`
+  }).join('')
+  return `${blocos}
+    <p class="info-note">A lista trabalha sobre o <b>resumo diário</b> — uma linha por conta, dia e campanha —,
+      baixado inteiro quando a página abre e atualizado a cada 30 min. Escolher um período anterior à primeira
+      data acima volta vazio: o histórico começa ali. O detalhe por campanha, conjunto e anúncio não vem nessa
+      carga; é baixado só quando você abre a conta. O teto da API é de ${fmtNum(DATA_MAX_ROWS)} linhas por canal
+      em cada carga — acima disso a resposta seria cortada pelos dias mais antigos.</p>`
+}
+
+// Painel lateral de ajuda: a regra da visão aberta (como ela agrupa as contas,
+// tirada das próprias constantes de grupo), as janelas de data em uso e o
+// alcance dos dados carregados.
+function infoSideHTML(channels, P) {
+  const v = VIEWS.find(x => x.key === state.view) || VIEWS[0]
+  const sgHTML = (g, sub) => `<div class="sg${sub ? ' sg-sub' : ''}">
+      <span class="sg-ico">${em(g.icon)}</span>
+      <div><b>${g.label}</b><span>${esc(g.tip)}</span></div>
+    </div>`
+  const grupos = (v.grupos ? v.grupos() : [])
+    .map(g => sgHTML(g) + (g.subs ? `<div class="sg-subs">${g.subs.map(x => sgHTML(x, true)).join('')}</div>` : ''))
+    .join('')
+  return `<div class="side-ov" id="sideOv"></div>
+    <aside class="sidepanel" role="dialog" aria-label="Sobre esta visão">
+      <div class="side-head"><h3>Sobre esta visão</h3><button class="side-x" id="sideX" aria-label="Fechar">✕</button></div>
+      <div class="side-body">
+        <div class="side-block">
+          <div class="side-title">${em(v.emoji)} ${v.label}</div>
+          <p class="side-text">${v.desc}</p>
+          ${v.nota ? `<p class="side-text">${v.nota}</p>` : ''}
+          ${grupos ? `<div class="side-sub">Como as contas são agrupadas</div>${grupos}` : ''}
+        </div>
+        <div class="side-block">
+          <div class="side-title">${em('📅')} Períodos em uso</div>
+          ${periodosHTML(channels, P)}
+        </div>
+        <div class="side-block">
+          <div class="side-title">${em('🗂️')} Dados carregados</div>
+          ${dadosHTML(channels)}
+        </div>
+      </div>
+    </aside>`
+}
+
+// Um popover por vez na barra ('view' | 'info'); o de período tem rascunho
+// próprio e fecha junto.
+function barPopToggle(qual) {
+  const abrir = state.barPop !== qual
+  barPopTeardown()
+  if (!abrir) return render()
+  dpTeardown()
+  state.barPop = qual
+  render()
+  setTimeout(() => { document.addEventListener('click', barPopOnDoc); document.addEventListener('keydown', barPopOnKey) }, 0)
+}
+function barPopOnDoc(ev) {
+  const t = ev.target
+  if (!t || t.isConnected === false) return   // mesmo motivo do dpOnDoc
+  if (!(t.closest && t.closest('.bwrap, .sidepanel'))) barPopClose()
+}
+function barPopOnKey(ev) { if (ev.key === 'Escape') barPopClose() }
+function barPopTeardown() {
+  document.removeEventListener('click', barPopOnDoc); document.removeEventListener('keydown', barPopOnKey)
+  state.barPop = null
+}
+function barPopClose() { barPopTeardown(); render() }
+
+// ─── Seletor de período (estilo gerenciador de anúncios) ─────────────────────
+// Um botão com o período em vigor; o calendário de dois meses e os atalhos moram
+// num popover. A escolha fica num RASCUNHO (state.dp) e só vira state.days /
+// state.from / state.to no "Atualizar" — como no gerenciador do Meta, onde a
+// lista atrás não se mexe enquanto se navega pelos meses.
+const DP_MONTHS = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro']
+const DP_DOW = ['D','S','T','Q','Q','S','S']
+const dpLabel = d => (PRESETS.find(([, v]) => v === d) || ['Personalizado'])[0]
+const ymOf = iso => iso.slice(0, 7)
+const ymAdd = (ym, n) => { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m - 1 + n, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` }
+
+// O mesmo seletor serve a LISTA e a PÁGINA DO CLIENTE: muda só de onde vem o
+// período (state.days/from/to vs state.cDays/cFrom/cTo), sobre quais linhas ele
+// é resolvido e o que redesenhar depois. As duas telas nunca coexistem, então
+// os ids do botão e do popover são os mesmos.
+const DP = {
+  list: {
+    ler: () => ({ days: state.days, from: state.from, to: state.to }),
+    gravar: d => { state.days = d.days; if (d.days === 0) { state.from = d.from; state.to = d.to } },
+    // Os presets relativos ancoram no último dia COM DADOS de cada canal, que
+    // pode diferir entre Meta e Google — o botão mostra o do canal em foco
+    // (aba Meta/Google) e, em "Todos", o do Meta.
+    periodo: (days, from, to) => {
+      const ch = state.channel || ((state.raw.meta || []).length ? 'meta' : 'google')
+      return computeMainPeriod(state.raw[ch] || [], ch, days, from, to)
+    },
+    redesenhar: () => render(),
+  },
+  client: {
+    ler: () => ({ days: state.cDays, from: state.cFrom, to: state.cTo }),
+    gravar: d => {
+      state.cDays = d.days
+      if (d.days === 0) { state.cFrom = d.from; state.cTo = d.to }
+      state.cPeriod = DP.client.periodo(d.days, d.from, d.to)
+    },
+    periodo: (days, from, to) => {
+      const o = state.openClient; if (!o) return null
+      return computeClientPeriod(rawRows(o.channel, o.client), o.channel, days, from, to)
+    },
+    redesenhar: () => renderClient(),
+  },
+}
+const dpCtx = () => state.openClient ? DP.client : DP.list
+
+// Preset (ou intervalo manual) → datas reais, para desenhar no calendário e
+// escrever no botão. null enquanto não há nenhuma linha carregada.
+function dpResolve(days, from, to) {
+  const p = dpCtx().periodo(days, from, to)
+  return p ? { from: p.p1s, to: p.p1e, prev: p.label2 } : null
+}
+
+function dpTriggerHTML() {
+  const { days, from, to } = dpCtx().ler()
+  const r = dpResolve(days, from, to)
+  return `<button class="dp-trigger${state.dpOpen ? ' open' : ''}" id="dpBtn" aria-haspopup="dialog" aria-expanded="${!!state.dpOpen}">
+    ${em('📅')}<span class="dp-name">${dpLabel(days)}</span>
+    <span class="dp-range">${r ? `${fmtBR(r.from)} – ${fmtBR(r.to)}` : 'sem dados'}</span>
+    <span class="dp-caret">▾</span></button>`
+}
+
+function dpCalHTML(ym, second) {
+  const d = state.dp
+  const [y, m] = ym.split('-').map(Number)
+  const lead = new Date(y, m - 1, 1).getDay()          // domingo = 0, como no calendário BR
+  const dim = new Date(y, m, 0).getDate()
+  const today = localDateStr(new Date())
+  const cells = []
+  for (let i = 0; i < lead; i++) cells.push('<span></span>')
+  for (let day = 1; day <= dim; day++) {
+    const iso = `${ym}-${String(day).padStart(2, '0')}`
+    const isStart = iso === d.from, isEnd = iso === d.to
+    const cls = isStart && isEnd ? 'edge only' : isStart ? 'edge start' : isEnd ? 'edge end'
+      : (d.from && d.to && iso > d.from && iso < d.to) ? 'in' : ''
+    cells.push(`<button class="dp-day ${cls}" data-day="${iso}"${iso > today ? ' disabled' : ''}>${day}</button>`)
+  }
+  return `<div class="dp-cal${second ? ' dp-cal2' : ''}">
+    <div class="dp-cal-title">${DP_MONTHS[m - 1]} ${y}</div>
+    <div class="dp-grid">${DP_DOW.map(w => `<span class="dp-dow">${w}</span>`).join('')}${cells.join('')}</div>
+  </div>`
+}
+
+function dpPopHTML() {
+  const d = state.dp
+  const today = localDateStr(new Date())
+  // O limite é o mês CORRENTE no calendário da esquerda (a direita fica sempre
+  // um mês à frente, como na abertura): parar antes disso prendia quem navegou
+  // para trás — dava para voltar no tempo e não dava para voltar ao mês de hoje.
+  const right = ymAdd(d.month, 1)
+  const cmp = d.from && d.to ? (buildPeriod(d.from, d.to) || {}).label2 : ''
+  return `
+    <div class="dp-side">${PRESETS.map(([l, v]) => `<button class="dp-opt${d.days === v ? ' active' : ''}" data-dp="${v}">${l}</button>`).join('')}</div>
+    <div class="dp-main">
+      <div class="dp-cals">
+        <button class="dp-nav dp-prev" id="dpPrev" aria-label="Mês anterior">‹</button>
+        ${dpCalHTML(d.month)}${dpCalHTML(right, true)}
+        <button class="dp-nav dp-next" id="dpNext" aria-label="Mês seguinte"${d.month >= ymOf(today) ? ' disabled' : ''}>›</button>
+      </div>
+      <div class="dp-foot">
+        <input type="date" id="dpFrom" value="${d.from}" max="${today}">
+        <span class="dp-sep">–</span>
+        <input type="date" id="dpTo" value="${d.to}" max="${today}">
+        <span class="dp-cmp">${cmp ? `compara com ${cmp}` : ''}</span>
+        <div class="dp-actions">
+          <button class="dp-btn" id="dpCancel">Cancelar</button>
+          <button class="dp-btn primary" id="dpApply">Atualizar</button>
+        </div>
+      </div>
+    </div>`
+}
+
+// Abre com o período em vigor já resolvido em datas, para o calendário abrir
+// mostrando exatamente o que a lista está exibindo.
+function dpStart() {
+  const today = localDateStr(new Date())
+  const atual = dpCtx().ler()
+  const r = dpResolve(atual.days, atual.from, atual.to)
+  const from = (r && r.from) || atual.from || today
+  const to = (r && r.to) || atual.to || from
+  barPopTeardown()
+  state.dp = { days: atual.days, from, to, month: ymOf(from), pick: 'start' }
+  state.dpOpen = true
+  dpCtx().redesenhar()
+  // setTimeout: sem ele o próprio clique que abriu o popover chega no document
+  // e o fecha na sequência.
+  setTimeout(() => { document.addEventListener('click', dpOnDoc); document.addEventListener('keydown', dpOnKey) }, 0)
+}
+// Fecha ao clicar fora. O `isConnected` não é detalhe: os botões do popover
+// redesenham o próprio popover no handler, então o clique chega aqui com o alvo
+// já FORA do DOM — sem essa guarda, closest() não acha mais o `.dp` e escolher
+// um atalho ou um dia fechava o popover em vez de atualizar o rascunho.
+function dpOnDoc(ev) {
+  const t = ev.target
+  if (!t || t.isConnected === false) return
+  if (!(t.closest && t.closest('.dp'))) dpClose()
+}
+function dpOnKey(ev) { if (ev.key === 'Escape') dpClose() }
+function dpTeardown() {
+  document.removeEventListener('click', dpOnDoc); document.removeEventListener('keydown', dpOnKey)
+  state.dpOpen = false; state.dp = null
+}
+function dpClose() { const ctx = dpCtx(); dpTeardown(); ctx.redesenhar() }
+function dpApply() {
+  const d = state.dp
+  if (d.days === 0 && (!d.from || !d.to)) return
+  const ctx = dpCtx()
+  ctx.gravar(d)
+  dpTeardown(); ctx.redesenhar()
+}
+// Redesenha SÓ o popover (mês, atalho, dia): o resto da página fica parado até
+// o "Atualizar", e a lista não é recalculada a cada clique no calendário.
+function dpRender() {
+  const pop = document.getElementById('dpPop')
+  if (!pop) return dpCtx().redesenhar()
+  pop.innerHTML = dpPopHTML()
+  dpWire()
+}
+function dpSetPreset(raw) {
+  const days = PRESET_STRINGS.has(raw) ? raw : Number(raw)
+  const d = state.dp
+  d.days = days
+  d.pick = 'start'
+  if (days !== 0) {   // "Personalizado" mantém o intervalo que já está desenhado
+    const r = dpResolve(days, d.from, d.to)
+    if (r) { d.from = r.from; d.to = r.to; d.month = ymOf(r.from) }
+  }
+  dpRender()
+}
+// Primeiro clique marca o início (e zera o fim no mesmo dia); o segundo fecha o
+// intervalo — clicando antes do início, é o início que anda.
+function dpPickDay(iso) {
+  const d = state.dp
+  if (d.pick === 'end' && d.from) {
+    if (iso < d.from) d.from = iso; else d.to = iso
+    d.pick = 'start'
+  } else { d.from = iso; d.to = iso; d.pick = 'end' }
+  d.days = 0
+  dpRender()
+}
+// Encaixa o popover no espaço que sobra na tela: limita a altura ao que há
+// abaixo do botão e, quando lá embaixo é apertado demais, abre para cima.
+function dpFit() {
+  const pop = document.getElementById('dpPop'), btn = document.getElementById('dpBtn')
+  if (!pop || !btn) return
+  const r = btn.getBoundingClientRect()
+  const abaixo = innerHeight - r.bottom - 16, acima = r.top - 16
+  const paraCima = abaixo < 340 && acima > abaixo
+  pop.style.top = paraCima ? 'auto' : ''
+  pop.style.bottom = paraCima ? 'calc(100% + 8px)' : ''
+  pop.style.maxHeight = `${Math.round(Math.min(470, Math.max(240, paraCima ? acima : abaixo)))}px`
+}
+
+function dpWire() {
+  const btn = document.getElementById('dpBtn')
+  if (btn) btn.onclick = ev => { ev.stopPropagation(); state.dpOpen ? dpClose() : dpStart() }
+  const pop = document.getElementById('dpPop')
+  if (!pop) return
+  dpFit()
+  pop.querySelectorAll('[data-dp]').forEach(b => b.onclick = () => dpSetPreset(b.dataset.dp))
+  pop.querySelectorAll('[data-day]').forEach(b => b.onclick = () => dpPickDay(b.dataset.day))
+  const prev = document.getElementById('dpPrev'); if (prev) prev.onclick = () => { state.dp.month = ymAdd(state.dp.month, -1); dpRender() }
+  const next = document.getElementById('dpNext'); if (next) next.onclick = () => { if (!next.disabled) { state.dp.month = ymAdd(state.dp.month, 1); dpRender() } }
+  const f = document.getElementById('dpFrom'), t = document.getElementById('dpTo')
+  if (f) f.onchange = () => { if (!f.value) return
+    state.dp.from = f.value; if (state.dp.to < f.value) state.dp.to = f.value
+    state.dp.days = 0; state.dp.month = ymOf(f.value); state.dp.pick = 'start'; dpRender() }
+  if (t) t.onchange = () => { if (!t.value) return
+    state.dp.to = t.value; if (t.value < state.dp.from) state.dp.from = t.value
+    state.dp.days = 0; state.dp.pick = 'start'; dpRender() }
+  document.getElementById('dpCancel').onclick = dpClose
+  document.getElementById('dpApply').onclick = dpApply
+}
+
 function render() {
   destroyCharts()
+  tipClose()
   if (state.openClient) return renderClient()
   setNewLook(newLookFor())
   saveNav()
   const d = listData()
   const { P, channels, stMeta, stGoogle } = d
+  const vCounts = SHARED ? {} : viewCounts(channels, P)
 
   app.innerHTML = `
     <div class="header">
-      <div class="header-left"><h1>Dashboard Tráfego</h1><p>Revenue Lab — Meta Ads &amp; Google Ads · via API</p></div>
+      <div class="header-left"><h1>Dashboard Tráfego</h1></div>
       <div class="header-right"><button class="btn" id="reload">${em('⟳')} Atualizar</button></div>
     </div>
     <div class="tabs">
@@ -1083,42 +1730,25 @@ function render() {
       <div class="tab ${state.channel==='google'?'active':''}" data-ch="google">${chIco('google')} Google Ads <span class="badge" data-badge="google">${stGoogle.length}</span></div>
     </div>
     <div class="filter-bar">
-      <span class="filter-label">Período:</span>
-      <div class="presets">${PRESETS.map(([l,d])=>`<button class="preset ${state.days===d?'active':''}" data-d="${d}">${l}</button>`).join('')}</div>
-      ${state.days===0?`<div class="custom-inputs">
-        <label>De: <input type="date" id="cfrom" value="${state.from}"></label>
-        <label>Até: <input type="date" id="cto" value="${state.to}"></label>
-        <button class="btn" id="capply">Aplicar</button></div>`:''}
-      <div class="filter-row">
+      ${SHARED ? '' : `<div class="bwrap">${viewMenuHTML(vCounts)}</div>`}
+      <div class="dp">${dpTriggerHTML()}${state.dpOpen?`<div class="dp-pop" id="dpPop" role="dialog" aria-label="Selecionar período">${dpPopHTML()}</div>`:''}</div>
+      ${(() => { const sqs = squadsForChannels(channels, P); if (state.squad && !sqs.includes(state.squad)) sqs.unshift(state.squad); return sqs.length ? `
+      <select id="squad" title="Filtrar por squad" class="squad-select${state.squad?' on':''}">
+        <option value="">Todos os squads</option>
+        ${sqs.map(sq=>`<option value="${esc(sq)}" ${state.squad===sq?'selected':''}>${esc(sq)}</option>`).join('')}
+      </select>` : '' })()}
+      <div class="bar-right">
         <div class="search-wrap"><span class="search-icon">${em('🔍')}</span>
           <input type="text" id="search" placeholder="Buscar cliente…" value="${esc(state.search)}">
           <span class="clear-btn" id="clear" style="display:${state.search?'block':'none'}">✕</span></div>
-        ${(() => { const sqs = squadsForChannels(channels, P); if (state.squad && !sqs.includes(state.squad)) sqs.unshift(state.squad); return sqs.length ? `
-        <select id="squad" title="Filtrar por squad" class="squad-select${state.squad?' on':''}">
-          <option value="">Todos os squads</option>
-          ${sqs.map(sq=>`<option value="${esc(sq)}" ${state.squad===sq?'selected':''}>${esc(sq)}</option>`).join('')}
-        </select>` : '' })()}
+        ${SHARED || state.view!=='padrao' ? '' : `<button class="squad-btn ${state.showHidden?'active':''}" id="toggle-hidden" title="${state.showHidden?'Voltar para a visão normal':'Ver as contas ocultas (clientes que saíram)'}">${state.showHidden?em('👁')+' Vendo ocultas':em('🚫')+' Ocultas'}<span data-vbn="hidden">${vbn(vCounts.hidden)}</span></button>`}
+        <div class="bwrap">
+          <button class="dp-trigger info-btn${state.barPop==='info'?' open':''}" id="infoBtn" aria-haspopup="dialog" aria-expanded="${state.barPop==='info'}" title="Como esta visão funciona e períodos em uso">${em('ℹ️')}</button>
+        </div>
       </div>
-      ${(() => {
-        const parts = channels.filter(ch => P[ch]).map(ch => `${chIco(ch)} ${ch==='meta'?'Meta':'Google'}: ${P[ch].label1} · vs ${P[ch].label2}`)
-        return parts.length ? `<span class="filter-info">Exibindo — ${parts.join('&nbsp;&nbsp;|&nbsp;&nbsp;')}</span>` : ''
-      })()}
     </div>
-    ${SHARED ? '' : (() => {
-      const c = viewCounts(channels, P)
-      return `<div class="squad-bar">
-        <span class="filter-label">Visualização:</span>
-        <button class="squad-btn ${state.view==='padrao'?'active':''}" data-view="padrao">${em('📊')} Padrão (status)</button>
-        <button class="squad-btn ${state.view==='pace'?'active':''}" data-view="pace" title="Pace de gasto vs a verba planejada no módulo Campanha da Área do Cliente, por conta e por campanha do plano">${em('💸')} Pace de Verba<span data-vbn="pace">${vbn(c.pace)}</span></button>
-        <button class="squad-btn ${state.view==='diagnostico'?'active':''}" data-view="diagnostico" title="Contas em queda de conversão, separadas pela causa: corte de verba ou performance (CTR / taxa de conversão)">${em('📉')} Diagnóstico de Queda<span data-vbn="diag">${vbn(c.diag)}</span></button>
-        <button class="squad-btn ${state.view==='queda-ctr'?'active':''}" data-view="queda-ctr" title="Só as contas cuja queda de conversão foi causada pelo CTR (criativo/segmentação)">${em('🎯')} Queda por CTR<span data-vbn="ctr">${vbn(c.ctr)}</span></button>
-        <button class="squad-btn ${state.view==='queda-taxa'?'active':''}" data-view="queda-taxa" title="Só as contas cuja queda de conversão foi causada pela taxa de conversão (LP/oferta)">${em('🧲')} Queda por Tx. Conversão<span data-vbn="taxa">${vbn(c.taxa)}</span></button>
-        <button class="squad-btn ${state.view==='escala'?'active':''}" data-view="escala" title="Contas com conversões subindo e CPL caindo — candidatas a receber mais investimento">${em('🚀')} Contas que podem escalar<span data-vbn="escala">${vbn(c.escala)}</span></button>
-        ${state.view==='padrao' ? `<span style="flex:1"></span>
-        <button class="squad-btn ${state.showHidden?'active':''}" id="toggle-hidden" title="${state.showHidden?'Voltar para a visão normal':'Ver as contas ocultas (clientes que saíram)'}">${state.showHidden?em('👁')+' Vendo ocultas':em('🚫')+' Ocultas'}<span data-vbn="hidden">${vbn(c.hidden)}</span></button>` : ''}
-      </div>`
-    })()}
     <div class="tab-panel">${panelHTML(d)}</div>
+    ${state.barPop === 'info' ? infoSideHTML(channels, P) : ''}
   `
   wire()
 }
@@ -1187,23 +1817,97 @@ const trendHTML = x => x.declining3d ? `<span class="trend-dn">${em('📉')} Que
 // Cada coluna com `key` vira cabeçalho clicável (1º clique ordena, o seguinte
 // inverte). `null` = coluna não ordenável (Status é constante dentro do grupo).
 // A ordenação vale para os 4 grupos de status e também para os cards mobile.
+// [rótulo, chave de ordenação, largura]. A largura existe porque cada cliente é
+// um quadrante com a SUA tabela: em layout automático cada uma media as colunas
+// pelo próprio conteúdo e a mesma coluna caía num x diferente a cada grupo.
+// Percentual (e não px) para as tabelas continuarem acompanhando a largura da
+// tela, sem barra de rolagem por quadrante. Soma = 100.
 const ACCT_COLS = [
-  ['Conta','name'], ['Canal',null], ['Status',null],
-  ['Conv.','conv1'],
-  ['CPL','cpl1'], ['CPL Alvo','cplTarget'],
-  ['Investimento','spend1'], ['Invest. Ant.','spend2'],
-  ['CTR','ctr1'], ['Tx. Conv.','cr1'],
-  ['Tend. 3d','trend'], ['Conversões ontem','convYest'],
+  ['Conta','name','18%'], ['Canal',null,'5%'], ['Status',null,'9%'],
+  ['Conv.','conv1','6%'],
+  ['CPL','cpl1','8%'], ['CPL Alvo','cplTarget','8%'],
+  ['Investimento','spend1','9%'], ['Invest. Ant.','spend2','8%'],
+  ['CTR','ctr1','7%'], ['Tx. Conv.','cr1','7%'],
+  ['Tend. 3d','trend','7%'], ['Anúncios ativos','adsAtivos','8%'],
 ]
+const acctColgroupHTML = () => `<colgroup>${ACCT_COLS.map(([, , w]) => `<col style="width:${w}">`).join('')}</colgroup>`
 // Ícone do canal — logo oficial (SVG local, sem CDN), usado em toda tabela/card
 // que mistura Meta+Google (visão "Todos").
 const chIco = ch => ch === 'meta'
   ? '<img class="ch-logo" src="./vendor/logos/meta.svg" alt="Meta Ads" title="Meta Ads">'
   : '<img class="ch-logo" src="./vendor/logos/google-ads.svg" alt="Google Ads" title="Google Ads">'
+// Anúncios ATIVOS da conta, direto do snapshot de status (meta_status, baixado
+// no boot junto dos canais). A lista roda sobre o rollup diário, que é por
+// conta/dia/campanha e não tem nível de anúncio — por isso a contagem não sai
+// das linhas. Só o Meta tem snapshot: no Google devolve null (célula "—").
+// O canal é obrigatório: o snapshot é indexado só pelo NOME da conta, e o mesmo
+// cliente costuma ter contas homônimas no Meta e no Google — sem o filtro, a
+// linha do Google repetia a contagem do Meta e o total do cliente dobrava.
+// Google não tem snapshot de entidades como o Meta: o nível de anúncio vem do
+// canal `google_ads` (relatório com "Status do anúncio"), que é por anúncio/DIA.
+// Daí a contagem ser a do ÚLTIMO DIA com linhas de cada conta — e ela só enxerga
+// anúncio que teve entrega naquele dia, que é o que o relatório traz.
+function buildGoogleAdsSnap(rows) {
+  const por = {}
+  for (const r of (rows || [])) {
+    const c = (r['Nome da conta'] || '').trim(); if (!c) continue
+    const d = fmtDate(r['Data']); if (!d) continue
+    const bag = por[c] || (por[c] = { dia: '', ids: new Set() })
+    if (d > bag.dia) { bag.dia = d; bag.ids = new Set() }   // dia mais novo zera a contagem
+    if (d === bag.dia && isActiveStatus(r['Status do anúncio'])) bag.ids.add(r['ID do anúncio'] || r['Anúncio'] || '')
+  }
+  const out = {}
+  for (const [c, bag] of Object.entries(por)) out[c] = { n: bag.ids.size, dia: bag.dia }
+  return out
+}
+
+// Anúncios ligados de uma conta: { n, ts } — ts é a hora/dia da leitura, para a
+// célula poder duvidar de número velho. null = não dá para saber.
+// Um anúncio só conta como ativo se o CONJUNTO e a CAMPANHA acima dele também
+// estiverem ativos. O Meta normalmente já entrega isso pronto (marca o anúncio
+// como ADSET_PAUSED / CAMPAIGN_PAUSED), mas o snapshot acumula entidades lidas
+// em rodadas diferentes: um anúncio pode ter ficado com um ACTIVE de dias atrás
+// enquanto a campanha foi pausada depois.
+function adNoAr(a, e) {
+  if (!e || !isActiveStatus(e.status)) return false
+  const cj = e.pai && a.conjunto[e.pai]
+  if (cj && !isActiveStatus(cj.status)) return false
+  const cp = cj && cj.pai && a.campanha[cj.pai]
+  if (cp && !isActiveStatus(cp.status)) return false
+  return true
+}
+
+function activeAdsOfAccount(name, channel) {
+  if (channel === 'google') {
+    const g = state.googleAds && state.googleAds[name]
+    return g ? { n: g.n, ts: g.dia, dia: true } : null
+  }
+  if (channel !== 'meta') return null
+  const a = state.statusSnap && state.statusSnap[name]
+  if (!a) return null
+  const ads = Object.values(a.anuncio)
+  if (!ads.length) return null   // conta no snapshot sem nenhum anúncio: "—", não zero
+  let ts = ''
+  for (const e of ads) if (e.ts > ts) ts = e.ts
+  // Um anúncio por ad_id, como no Gerenciador: o mesmo criativo publicado em
+  // três conjuntos são três anúncios ativos.
+  return { n: ads.filter(e => adNoAr(a, e)).length, ts }
+}
+// Leitura de status com mais de 36h: o sync roda de hora em hora, então isso é
+// sinal de que a conta não entra há dias — o número pode não valer mais.
+const ADS_STALE_MS = 36 * 3600 * 1000
+const adsStale = r => {
+  if (!r || !r.ts) return true
+  // Google: o carimbo é o dia do relatório — vale enquanto for ontem ou hoje.
+  if (r.dia) return r.ts < addDays(localDateStr(new Date()), -1)
+  return (Date.now() - new Date(r.ts).getTime()) > ADS_STALE_MS
+}
+const adsQuando = r => r.dia ? fmtBR(r.ts) : snapWhen(r.ts)
 // Tendência não é um número na linha — vira rank (queda < estável < alta).
 // CPL Alvo vem dos metadados da conta (Calculadora de ROI), não do stats.
 const acctVal = (x, key) => key==='trend' ? (x.declining3d?-1:x.trendDir==='up'?1:0)
-  : key==='cplTarget' ? (state.accounts[x.name]?.cplTarget?.value ?? null) : x[key]
+  : key==='cplTarget' ? (state.accounts[x.name]?.cplTarget?.value ?? null)
+  : key==='adsAtivos' ? (activeAdsOfAccount(x.name, x.channel) || {}).n ?? null : x[key]
 function sortAccounts(list) {
   const { key, dir } = state.acctSort
   if (!key) return list
@@ -1258,8 +1962,10 @@ function sortClients(list, statusKey) {
 const acctTheadHTML = () => ACCT_COLS.map(([label,k])=>{
   if (!k) return `<th>${label}</th>`
   const a = state.acctSort.key===k
-  const cls = k==='cplTarget' ? ' class="col-target"' : ''
-  return `<th${cls} data-acctsort="${k}" title="Ordenar por ${label}" style="cursor:pointer;user-select:none;white-space:nowrap">${label}${a?(state.acctSort.dir==='asc'?' ▲':' ▼'):''}</th>`
+  const cls = k==='cplTarget' ? ' class="col-target"' : k==='adsAtivos' ? ' class="th-wrap"' : ''
+  // Sem white-space inline: o nowrap já vem da regra de `th` e o inline vencia a
+  // classe .th-wrap, que precisa quebrar o cabeçalho comprido em duas linhas.
+  return `<th${cls} data-acctsort="${k}" title="Ordenar por ${label}" style="cursor:pointer;user-select:none">${label}${a?(state.acctSort.dir==='asc'?' ▲':' ▼'):''}</th>`
 }).join('')
 
 // Subclassificação do grupo "Queda" por causa — mesma lógica do Diagnóstico de
@@ -1276,6 +1982,9 @@ const QUEDA_CAUSAS = [
     tip:'A conversão caiu MAIS que a verba justifica, e a taxa de conversão foi a que mais caiu — sinal de LP/oferta/fundo de funil. Testar landing page.',
     match: d => d.bucket === 'performance' && d.culprit === 'Taxa de conversão' },
 ]
+// 4º subgrupo de "Queda": entra quando o diagnóstico não consegue apontar a causa.
+const QUEDA_SEM_DIAG = { key:'semdiag', cls:'', icon:'📊', label:'Sem diagnóstico',
+  tip:'Sem dados de cliques/impressões suficientes para apontar a causa da queda.' }
 // Retorna o descritor de causa de um item do diagnóstico (ou null se não houver).
 const causaOf = d => !d ? null : QUEDA_CAUSAS.find(c => c.match(d)) || null
 
@@ -1287,16 +1996,6 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <div class="sum-kpi"><div class="sum-label">${cplLabel}</div><div class="sum-value">${s.cpl!=null?fmtMoney(s.cpl):'—'}</div><div class="sum-sub">gasto ÷ leads</div></div>
       <div class="sum-kpi"><div class="sum-label">CTR Médio</div><div class="sum-value">${fmtSumPct(s.ctr)}</div><div class="sum-sub">cliques ÷ impressões</div></div>
       <div class="sum-kpi"><div class="sum-label">Tx. Conv. Média</div><div class="sum-value">${fmtSumPct(s.txConv)}</div><div class="sum-sub">leads ÷ cliques</div></div>
-    </div>
-    <div class="period-row">
-      ${channels.map(ch => {
-        if (!P[ch]) return ''
-        const p = P[ch]
-        const dateLabels = p.t1.filter(Boolean).map(d=>{const[,m,day]=d.split('-');return `${day}/${m}`}).join(', ')
-        return `<div class="period-badge">${chIco(ch)} Selecionado: <b>${p.label1}</b></div>
-          <div class="period-badge">${chIco(ch)} Comparativo: <b>${p.label2}</b></div>
-          <div class="period-badge">${chIco(ch)} Tendência 3d: <b>${dateLabels}</b></div>`
-      }).join('')}
     </div>`
   // Diagnóstico de queda por conta (mesma fonte da visão "Diagnóstico de Queda"),
   // usado para subclassificar o grupo "Queda" já aqui na visão Padrão. Chave
@@ -1304,25 +2003,32 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
   const diagMap = {}
   channels.forEach(ch => diagFor(ch, P[ch]).forEach(d => { diagMap[ch+'|'+d.name] = d }))
 
-  // Coluna "Conversões ontem". A conta sem linha no dia pode ser duas coisas
-  // muito diferentes: não converteu (0) ou o canal ainda não sincronizou o dia
-  // (—). Por isso o zero só aparece quando o canal JÁ tem dados de ontem.
-  const yDay = addDays(localDateStr(new Date()), -1)
-  const yHas = {}
-  channels.forEach(ch => {
-    const max = P[ch] ? memo('maxday', ch, P[ch], () => maxDate(state.raw[ch], CFG[ch].dateKey)) : null
-    yHas[ch] = !!max && max >= yDay
-  })
-  const yestOf = x => x.convYest != null ? x.convYest : (yHas[x.channel] ? 0 : null)
-  const yestCell = v => v == null
-    ? `<span class="pace-none" title="O canal ainda não sincronizou o dia ${fmtBR(yDay)}.">—</span>`
-    : `<span class="cell-val">${fmtNum(v)}</span>`
+  // Coluna "Anúncios ativos": anúncios em veiculação AGORA, pelo snapshot
+  // de status. "—" quando não há como saber — no Google (sem snapshot) e na conta
+  // Meta que ainda não apareceu numa rodada do sync.
+  const adsCell = x => {
+    const r = activeAdsOfAccount(x.name, x.channel)
+    if (!r) {
+        const motivo = x.channel === 'google'
+        ? 'Esta conta do Google não tem relatório por anúncio sincronizado, então não dá para contar os ligados.'
+        : 'Esta conta não apareceu nas rodadas de status do sync, então não dá para saber quantos anúncios estão ligados.'
+      return `<span class="pace-none" title="${motivo}">—</span>`
+    }
+    // Número sem confirmação recente vira "N ?" (mesma ideia da tag de status do
+    // drill): melhor duvidar do que afirmar um zero que já mudou na conta.
+    const origem = r.dia
+      ? `Anúncios do Google com entrega em ${adsQuando(r)} e status ativo.`
+      : `Anúncios ativos agora, um por anúncio da conta (o mesmo criativo em três conjuntos são três anúncios). Leitura de ${adsQuando(r)}.`
+    return adsStale(r)
+      ? `<span class="cell-val" title="${origem} Pode ter mudado desde então.">${fmtNum(r.n)} ?</span>`
+      : `<span class="cell-val" title="${origem}">${fmtNum(r.n)}</span>`
+  }
 
   // Linha de tabela + card mobile de uma conta (reusados por grupo e subgrupo).
   const acctRow = x => {
     const trend = x.declining3d?`<span class="trend-dn">${em('📉')} Queda</span>`:x.trendDir==='up'?`<span class="trend-up">${em('📈')} Alta</span>`:`<span class="trend-fl">${em('➡️')} Estável</span>`
     return `<tr data-client="${esc(x.name)}" data-ch="${x.channel}">
-      <td><span class="client-link">${esc(x.name)}</span>${newLookChip(x.name)}${hideBtnHTML(x.name)}</td>
+      <td><span class="client-link" title="${esc(x.name)}">${esc(x.name)}</span>${newLookChip(x.name)}${hideBtnHTML(x.name)}</td>
       <td>${chIco(x.channel)}</td>
       <td><span class="pill ${pillCls(x.status)}">${pIco(x.status)}${x.status}</span></td>
       <td><span class="cell-val">${fmtNum(x.conv1)}</span>${cellDelta(x.varConv, false)}</td>
@@ -1333,7 +2039,7 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <td><span class="cell-val">${fmtRatio(x.ctr1)}</span>${cellDelta(x.varCtr, false)}</td>
       <td><span class="cell-val">${fmtRatio(x.cr1)}</span>${cellDelta(x.varCr, false)}</td>
       <td>${trend}</td>
-      <td>${yestCell(yestOf(x))}</td></tr>`
+      <td>${adsCell(x)}</td></tr>`
   }
   const acctCard = x => {
     const target = state.accounts[x.name]?.cplTarget?.value ?? null
@@ -1345,7 +2051,7 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
      ['Investido', fmtMoneyCard(x.spend1), mDelta(x.varSpend, false)],
      ['CTR', fmtRatio(x.ctr1), mDelta(x.varCtr, false)],
      ['Tx. Conv.', fmtRatio(x.cr1), mDelta(x.varCr, false)],
-     ['Conv. ontem', yestOf(x) == null ? '—' : fmtNum(yestOf(x)), '']],
+     ['Ads ativos', (r => r ? fmtNum(r.n) + (adsStale(r) ? ' ?' : '') : '—')(activeAdsOfAccount(x.name, x.channel)), '']],
     x.channel)
   }
   // Totais do cliente quando o quadrante tem mais de uma conta. Conversões e
@@ -1382,11 +2088,11 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       ? '<span class="pace-none" title="As contas deste cliente têm CPL máximo diferente na Calculadora de ROI — sem alvo único para o total.">—</span>'
       : '<span class="pace-none" title="Sem Calculadora de ROI preenchida no projeto da Área do Cliente">—</span>'
   }
-  // Totais do "Conversões ontem": soma só as contas que têm o dia. Se nenhuma
-  // tiver, o total também é "—" em vez de um zero que não quer dizer nada.
-  const yestTotal = list => {
-    const vals = list.map(yestOf).filter(v => v != null)
-    return vals.length ? vals.reduce((a, v) => a + v, 0) : null
+  // Total de anúncios ativos do cliente: soma as contas que o snapshot conhece.
+  // Se nenhuma delas tem (ex.: cliente só com Google), o total também é "—".
+  const adsTotal = list => {
+    const vals = list.map(x => activeAdsOfAccount(x.name, x.channel)).filter(Boolean)
+    return vals.length ? vals.reduce((a, v) => a + v.n, 0) : null
   }
   const totalRow = list => {
     const t = totalsOf(list)
@@ -1401,7 +2107,7 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <td><span class="cell-val">${fmtRatio(t.ctr1)}</span>${cellDelta(t.varCtr, false)}</td>
       <td><span class="cell-val">${fmtRatio(t.cr1)}</span>${cellDelta(t.varCr, false)}</td>
       <td></td>
-      <td>${yestCell(yestTotal(list))}</td></tr>`
+      <td>${adsTotal(list) == null ? '<span class="pace-none">—</span>' : `<span class="cell-val">${fmtNum(adsTotal(list))}</span>`}</td></tr>`
   }
   // Equivalente mobile da linha de totais (mesmas 3 métricas dos cards de conta).
   const totalCard = list => {
@@ -1411,7 +2117,7 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       ['Investido', fmtMoneyCard(t.spend1), mDelta(t.varSpend, false)],
       ['CTR', fmtRatio(t.ctr1), mDelta(t.varCtr, false)],
       ['Tx. Conv.', fmtRatio(t.cr1), mDelta(t.varCr, false)],
-      ['Conv. ontem', yestTotal(list) == null ? '—' : fmtNum(yestTotal(list)), '']]
+      ['Ads ativos', adsTotal(list) == null ? '—' : fmtNum(adsTotal(list)), '']]
     const grid = cells.map(([l, v, d]) => `<div class="m-cell">
       <div class="m-cell-l">${l}</div><div class="m-cell-v">${v}</div>
       <div class="m-cell-d">${d}</div></div>`).join('')
@@ -1422,6 +2128,7 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
   // Tabela + cards de um conjunto de contas. Com mais de uma conta, fecha com a
   // linha (e o card) de totais do cliente.
   const acctTable = list => `<div class="table-wrap"><table>
+        ${acctColgroupHTML()}
         <thead><tr>${acctTheadHTML()}</tr></thead>
         <tbody>${list.map(acctRow).join('')}${list.length > 1 ? totalRow(list) : ''}</tbody></table></div>
       <div class="m-cards">${list.map(acctCard).join('')}${list.length > 1 ? totalCard(list) : ''}</div>`
@@ -1441,13 +2148,13 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
   const groups = STATUS_GROUPS.map(g => {
     let grp = clients.filter(c => worstStatus(c) === g.key); if (!grp.length) return ''
     grp = sortClients(grp, g.key)
-    const header = `<div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} cliente${grp.length!==1?'s':''}</span></div>`
+    const header = `<div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span>${infoIco(g.tip)}<span class="gh-count">${grp.length} cliente${grp.length!==1?'s':''}</span></div>`
     // Grupo "Queda": subclassifica pelas causas do diagnóstico (verba / CTR /
     // taxa), usando a conta do cliente que está em queda como representante.
     // Cada subgrupo com clientes vira um bloco com subcabeçalho próprio.
     if (g.key === 'QUEDA') {
       const subBlock = (cls, icon, label, tip, list) => `<div class="queda-sub">
-        <div class="subgroup-header ${cls}"><span class="gh-icon">${em(icon)}</span><span class="sg-title">${label}</span><span class="status-info" title="${esc(tip)}">i</span><span class="gh-count">${list.length} cliente${list.length!==1?'s':''}</span></div>
+        <div class="subgroup-header ${cls}"><span class="gh-icon">${em(icon)}</span><span class="sg-title">${label}</span>${infoIco(tip)}<span class="gh-count">${list.length} cliente${list.length!==1?'s':''}</span></div>
         ${list.map(clientCard).join('')}</div>`
       const causaOfClient = c => {
         const rep = c.accounts.find(a => a.status === 'QUEDA')
@@ -1459,8 +2166,8 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       }).join('')
       // Clientes em queda sem diagnóstico disponível (raro — falta de cliques/impressões).
       const semDiag = grp.filter(c => !causaOfClient(c))
-      const outros = semDiag.length ? subBlock('', '📊', 'Sem diagnóstico',
-        'Sem dados de cliques/impressões suficientes para apontar a causa da queda.', semDiag) : ''
+      const outros = semDiag.length
+        ? subBlock(QUEDA_SEM_DIAG.cls, QUEDA_SEM_DIAG.icon, QUEDA_SEM_DIAG.label, QUEDA_SEM_DIAG.tip, semDiag) : ''
       return `<div class="group-section">${header}${subs}${outros}</div>`
     }
     return `<div class="group-section">${header}${grp.map(clientCard).join('')}</div>`
@@ -1490,8 +2197,6 @@ function diagnosticoHTML(channels, P, only) {
   const list = only ? all.filter(d => groupsDef[0].match(d)) : all
   const countLabel = only === 'ctr' ? 'Quedas por CTR' : only === 'taxa' ? 'Quedas por taxa de conversão' : 'Contas em queda'
   const head = `<div class="period-row">
-    ${channels.map(ch => P[ch] ? `<div class="period-badge">${chIco(ch)} Selecionado: <b>${P[ch].label1}</b></div>
-      <div class="period-badge">${chIco(ch)} Comparativo: <b>${P[ch].label2}</b></div>` : '').join('')}
     <div class="period-badge">${countLabel}: <b>${list.length}</b></div>
   </div>`
   if (!list.length) {
@@ -1524,7 +2229,7 @@ function diagnosticoHTML(channels, P, only) {
        ['Tx. Conv.', fmtRatioPct(d.cr1), mDelta(d.varCr, false)],
        ['Causa', causa, '']], d.channel)).join('')
     return `<div class="group-section diag-section">
-      <div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
+      <div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span>${infoIco(g.tip)}<span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
       <div class="diag-hint">${esc(g.tip)}</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Conta</th><th>Canal</th><th>Conv.</th><th>Var. Conv.</th><th>Investimento</th><th>Var. Invest.</th><th>CTR</th><th>Var. CTR</th><th>Tx. Conv.</th><th>Var. Tx. Conv.</th><th>CPL</th><th>Var. CPL</th></tr></thead>
@@ -1555,8 +2260,6 @@ function targetMarginHTML(name, cpl) {
 function escalaHTML(channels, P) {
   const list = channels.flatMap(ch => scaleFor(ch, P[ch]).map(d => ({ ...d, channel: ch })))
   const head = `<div class="period-row">
-    ${channels.map(ch => P[ch] ? `<div class="period-badge">${chIco(ch)} Selecionado: <b>${P[ch].label1}</b></div>
-      <div class="period-badge">${chIco(ch)} Comparativo: <b>${P[ch].label2}</b></div>` : '').join('')}
     <div class="period-badge">Candidatas: <b>${list.length}</b></div>
   </div>`
   if (!list.length) return head + `<div class="empty">Nenhuma conta com sinal de escala no período selecionado (conversões subindo + CPL caindo).</div>`
@@ -1582,7 +2285,7 @@ function escalaHTML(channels, P) {
        ['CPL', fmtMoneyCard(d.cpl1), mDelta(d.varCpl, true)],
        ['Investido', fmtMoneyCard(d.spend1), mDelta(d.varSpend, false)]], d.channel)).join('')
     return `<div class="group-section diag-section">
-      <div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
+      <div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span>${infoIco(g.tip)}<span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
       <div class="diag-hint">${esc(g.tip)}</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Conta</th><th>Canal</th><th>Conv.</th><th>Conv. Ant.</th><th>Var. Conv.</th><th>CPL</th><th>CPL Ant.</th><th>Var. CPL</th><th>Margem vs. Alvo</th><th>Investimento</th><th>Var. Invest.</th><th>Tend. 3d</th></tr></thead>
@@ -1856,7 +2559,7 @@ function paceViewHTML(channels, P) {
     const grp = items.filter(g.match); if (!grp.length) return ''
     grp.sort((a, b) => (b.pace.pct ?? -1) - (a.pace.pct ?? -1))
     return `<div class="group-section diag-section">
-      <div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span><span class="status-info" title="${esc(g.tip)}">i</span><span class="gh-count">${grp.length} conta${grp.length !== 1 ? 's' : ''}</span></div>
+      <div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span>${infoIco(g.tip)}<span class="gh-count">${grp.length} conta${grp.length !== 1 ? 's' : ''}</span></div>
       <div class="diag-hint">${esc(g.tip)}</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Conta</th><th>Canal</th><th>Período do plano</th><th>Verba do plano</th><th>Gasto</th><th>Previsto até hoje</th><th>Pace</th><th>Projeção</th><th>Camp.</th></tr></thead>
@@ -1927,6 +2630,10 @@ function snapUp(acct, rows, lvl) {
   return first
 }
 const isActiveStatus = s => { const l = (s || '').toLowerCase(); return l.includes('ativ') || l === 'active' || l === 'enabled' }
+// Contagem de anúncios ligados: vale o mesmo `isActiveStatus` do resto do
+// viewer — ACTIVE no Meta, ENABLED no Google. WITH_ISSUES ("com problemas") fica
+// de FORA: o Gerenciador não o conta como ativo, e incluí-lo deixava o número
+// acima do que o gestor vê na conta (Nectar: 7 contra os 6 do painel).
 // O sync roda em UTC (GitHub Actions) e carimba o fuso — aqui vira horário local.
 const snapWhen = ts => { const d = ts ? new Date(ts) : null
   return d && !isNaN(d) ? d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : 'agora há pouco' }
@@ -1969,9 +2676,26 @@ function stCell(acct, lvl, id, nome, rows, rowKey) {
 // Status de um GRUPO de anúncios (a tabela agrupa por nome e vários anúncios
 // podem repetir o nome): ativo se qualquer um dos ad_ids estiver ativo.
 function adGroupStatus(acct, rows) {
+  const a = state.statusSnap && state.statusSnap[acct]
   const ids = [...new Set((rows || []).map(r => r['ad_id']).filter(Boolean))]
-  const ents = ids.map(id => snapEntry(acct, 'anuncio', id, null)).filter(Boolean)
-  if (ents.length) return { entry: ents.find(e => isActiveStatus(e.status)) || ents[0], live: true }
+  const ents = a ? ids.map(id => a.anuncio[id]).filter(Boolean) : []
+  if (ents.length) {
+    // Ativo de verdade = ele ligado E o conjunto/campanha acima também. Anúncio
+    // ligado embaixo de conjunto pausado não está no ar, e marcá-lo como ATIVO
+    // punha a tag em desacordo com a contagem de anúncios ativos.
+    const noAr = ents.find(e => adNoAr(a, e))
+    if (noAr) return { entry: noAr, live: true }
+    const ligado = ents.find(e => isActiveStatus(e.status))
+    if (ligado) {
+      // Quem manda é o pai pausado: a tag mostra o estado dele, com o porquê.
+      const cj = ligado.pai && a.conjunto[ligado.pai]
+      const cp = cj && cj.pai && a.campanha[cj.pai]
+      const pai = (cj && !isActiveStatus(cj.status)) ? { e: cj, tipo: 'conjunto' }
+        : (cp && !isActiveStatus(cp.status)) ? { e: cp, tipo: 'campanha' } : null
+      if (pai) return { entry: { ...pai.e, motivo: `O anúncio está ligado, mas o ${pai.tipo} acima está pausado — não veicula.` }, live: true }
+    }
+    return { entry: ents[0], live: true }
+  }
   const { st } = lastKnownStatus(rows, 'Status do Aúncio')
   return { entry: { status: st, ts: '' }, live: false }
 }
@@ -1979,7 +2703,7 @@ function adGroupCell(acct, rows) {
   const { entry, live } = adGroupStatus(acct, rows)
   if (live) {
     const i = statusTagInfo(entry.status)
-    if (i) return `<span class="status-tag ${i.cls}" title="${esc(snapTitle(entry))}">${esc(i.label)}</span>`
+    if (i) return `<span class="status-tag ${i.cls}" title="${esc(entry.motivo ? `${entry.motivo} ${snapTitle(entry)}` : snapTitle(entry))}">${esc(i.label)}</span>`
   }
   return stCell(acct, 'anuncio', null, null, rows, 'Status do Aúncio')
 }
@@ -2020,12 +2744,23 @@ function varMini(cur, prev) {
   const cls = pct > 0 ? 'up' : 'dn', arrow = pct > 0 ? '▲' : '▼'
   return `<span class="var-mini ${cls}" title="Anterior: ${fmtNum(p)} · atual: ${fmtNum(c)}">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`
 }
-// Conta anúncios ATIVOS num conjunto de linhas: agrupa por nome do anúncio e
-// considera ativo quem tem status "ativ/active/enabled" (mesma regra do stTag).
+// Anúncios ATIVOS num conjunto de linhas, contados por ad_id — o mesmo critério
+// da coluna "Anúncios ativos" da lista e do Gerenciador. Antes contava GRUPOS de
+// nome, e o mesmo criativo em três conjuntos virava 1. null quando nenhum ad_id
+// aparece no snapshot (aí não dá para afirmar nada).
 function activeAdsCount(rows){
   const acct = acctOf(rows)
-  const g = groupBy(rows, r=>r['Nome do Anúncio'], { n:()=>1 })
-  return g.filter(x => isActiveStatus(adGroupStatus(acct, x._rows).entry.status)).length
+  const a = state.statusSnap && state.statusSnap[acct]
+  if (!a) return null
+  const ids = [...new Set((rows || []).map(r => r['ad_id']).filter(Boolean))]
+  const ents = ids.map(id => a.anuncio[id]).filter(Boolean)
+  if (!ents.length) return null
+  return ents.filter(e => adNoAr(a, e)).length
+}
+// "· N anúncios ativos" do cabeçalho de escopo (conta inteira ou conjunto).
+const escopoAtivos = rows => {
+  const n = activeAdsCount(rows)
+  return n == null ? '' : ` · ${n} anúncio${n !== 1 ? 's' : ''} ativo${n !== 1 ? 's' : ''}`
 }
 const flagRow = (items,kind) => items.length ? `<div class="flag-row">${items.map(f=>`<span class="flag flag-${kind}">${f}</span>`).join('')}</div>` : ''
 
@@ -2240,13 +2975,18 @@ function tblMetaAdsets(rows, prevRows){
     const stHtml=stCell(acct,'conjunto',(x._rows.find(r=>r['adset_id'])||{})['adset_id'],nm,x._rows,'Status do Conjunto de Anúncio')
     const ativos=activeAdsCount(x._rows)
     return `<tr><td class="ad-name" title="${esc(nm)}"><span class="drill-link" data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}">${i===0&&x.conv>0?'🏆 ':''}${esc(nm)}</span></td>
-      <td>${stHtml}</td><td><span class="${ativos>0?'good':'fl'}">${ativos}</span></td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
+      <td>${stHtml}</td><td>${ativos==null?'<span class="fl" title="Nenhum anúncio deste conjunto apareceu na última leitura de status.">—</span>':`<span class="${ativos>0?'good':'fl'}">${ativos}</span>`}</td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${ctrCell(ctr)}</td><td>${cpm!=null?fmtMoney(cpm):'—'}</td><td>${fmtNum(x.impr)}</td></tr>` }).join('')
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Conjunto</th><th>Status</th><th>Anúncios ativos</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>CTR Link</th><th>CPM</th><th>Impressões</th></tr></thead><tbody>${body}</tbody></table></div>`
 }
+// Agrupa por ad_id — uma linha por ANÚNCIO, como no Gerenciador. O mesmo
+// criativo publicado em três conjuntos são três linhas (o nome repete, e o
+// conjunto embaixo do nome diz qual é qual). Linha antiga sem ad_id cai no
+// nome, que era a chave anterior.
+const metaAdKey = r => r['ad_id'] || r['Nome do Anúncio']
 function tblMetaAds(rows, prevRows){
-  const pv = prevMapOf(prevRows, r=>r['Nome do Anúncio'], metaConv)
-  const g = groupBy(rows, r=>r['Nome do Anúncio'], {
+  const pv = prevMapOf(prevRows, metaAdKey, metaConv)
+  const g = groupBy(rows, metaAdKey, {
     spend:r=>M(r,'Valor investido'), conv:metaConv, impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link'),
     h3:r=>M(r,'Número de vezes que assistiram os 3 primeiros segundos'), vv:r=>M(r,'Número de vezes que o vídeo foi exibido'),
     p25:r=>M(r,'Número de vezes que assistiram 25% do vídeo'), p50:r=>M(r,'Número de vezes que assistiram 50% do vídeo'),
@@ -2258,12 +2998,17 @@ function tblMetaAds(rows, prevRows){
   const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const ctr=x.impr>0?x.clicks/x.impr*100:null, cpm=x.impr>0?x.spend/x.impr*1000:null
     const stHtml=adGroupCell(acct,x._rows); const paused=!isActiveStatus(adGroupStatus(acct,x._rows).entry.status)
     const adId=(x._rows.find(r=>r['ad_id'])||{})['ad_id']||''
+    const nome=x._rows[0]?.['Nome do Anúncio'] || x.key
+    // Dentro de um conjunto o nome dele em cada linha seria repetição; na conta
+    // inteira é o que distingue duas linhas do mesmo criativo.
+    const conjunto=state.drillAdset ? '' : (x._rows[0]?.['Conjunto de Anúncio'] || '')
     const destino=(x._rows[0]||{})['Destino do conjunto de anúncio']||''
-    const prevBtn=adId?` <button class="ad-prev-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" title="Ver anúncio rodando">${ic('eye','👁')} Ver</button>`:''
+    const prevBtn=adId?` <button class="ad-prev-btn" data-adid="${esc(adId)}" data-adname="${esc(nome)}" title="Ver anúncio rodando">${ic('eye','👁')} Ver</button>`:''
     // "Destino" depende de /api/ad-link (autenticado) — no link compartilhado
     // seria um botão morto, então só o "Ver" (preview) vai para o cliente.
-    const destBtn=(adId && !SHARED)?` <button class="ad-dest-btn" data-adid="${esc(adId)}" data-adname="${esc(x.key)}" data-destino="${esc(destino)}" title="Mostrar destino do anúncio">${ic('external','🔗')} Destino</button>`:''
-    return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(x.key)}"><span class="ad-name-flex"><span class="ad-name-txt">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span>${prevBtn}${destBtn}</span></td>
+    const destBtn=(adId && !SHARED)?` <button class="ad-dest-btn" data-adid="${esc(adId)}" data-adname="${esc(nome)}" data-destino="${esc(destino)}" title="Mostrar destino do anúncio">${ic('external','🔗')} Destino</button>`:''
+    return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(nome)}${conjunto?` · conjunto: ${esc(conjunto)}`:''}">
+      <span class="ad-name-flex"><span class="ad-name-txt">${i===0&&x.conv>0?'🏆 ':''}${esc(nome)}${conjunto?`<span class="ad-sub">${esc(conjunto)}</span>`:''}</span>${prevBtn}${destBtn}</span></td>
       <td>${stHtml}</td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${hookCell(x.h3,x.vv)}</td><td>${ctrCell(ctr)}</td><td>${cpm!=null?fmtMoney(cpm):'—'}</td>
       <td>${pctVid(x.p25,x.vv)}</td><td>${pctVid(x.p50,x.vv)}</td><td>${pctVid(x.p75,x.vv)}</td><td>${pctVid(x.p100,x.vv)}</td></tr>` }).join('')
@@ -2894,11 +3639,11 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
   // drill: conta inteira no topo, campanha ao entrar numa campanha, conjunto ao
   // entrar num conjunto. Reaproveita metricGroupsHTML da aba Resultados.
   let qCur = allRows, qPrev = prevRows, scopeLabel = 'Conta — todas as campanhas', qPace = pace
+  if (isMeta && !state.drillCampaign && !state.drillAdset) scopeLabel += escopoAtivos(allRows)
   if (isMeta && state.drillAdset) {
     qCur = allRows.filter(r=>metaAdsetKey(r)===state.drillAdset)
     qPrev = prevRows.filter(r=>metaAdsetKey(r)===state.drillAdset)
-    const ativos = activeAdsCount(qCur)
-    scopeLabel = `Conjunto: ${state.drillAdsetName || state.drillAdset} · ${ativos} anúncio${ativos!==1?'s':''} ativo${ativos!==1?'s':''}`
+    scopeLabel = `Conjunto: ${state.drillAdsetName || state.drillAdset}${escopoAtivos(qCur)}`
     qPace = null // pace é da verba do canal inteiro — não faz sentido escopado a 1 conjunto
   } else if (!isMeta && state.drillAdset) {
     qCur = allRows.filter(r=>r['Campanha']===state.drillCampaign && googleGroupKey(r)===state.drillAdset)
@@ -3246,22 +3991,12 @@ function kpiGridHTML(stats, period, isMeta, target, delta, dCls) {
 }
 
 // ─── Página de detalhe do cliente (réplica do ClientPage) ─────────────────────
+// O período da página do cliente segue exatamente as regras da lista — a única
+// diferença são as linhas sobre as quais ele é calculado (as da conta aberta, no
+// nível anúncio). Era uma cópia da função, que agora ficaria desatualizada a cada
+// preset novo.
 function computeClientPeriod(rows, ch, days, from, to) {
-  const dateKey = CFG[ch].dateKey
-  if (days===0 && from && to) return buildPeriod(from, to)
-  if (days==='today') { const m=maxDate(rows,dateKey); return m?buildPeriod(m,m):null }
-  if (days==='yesterday') { const m=maxDate(rows,dateKey); if(!m) return null; const y=addDays(m,-1); return buildPeriod(y,y) }
-  if (days==='this_month' || days==='last_month') {
-    // Mesma regra do computeMainPeriod: ancora no último dia FECHADO (hoje fica
-    // de fora porque os dados do dia corrente ainda estão incompletos).
-    const max = maxDate(rows, dateKey); if (!max) return null
-    const today = localDateStr(new Date())
-    const anchor = max >= today ? addDays(max, -1) : max
-    if (!anchor) return null
-    const { start, end } = monthBounds(anchor, days === 'this_month' ? 0 : -1)
-    return buildPeriod(start, days === 'this_month' ? anchor : end)
-  }
-  return periodFromDays(rows, dateKey, days)
+  return computeMainPeriod(rows, ch, days, from, to)
 }
 
 function renderClient() {
@@ -3334,9 +4069,7 @@ function renderClient() {
       </div>
     </div>` : ''
   const periodBar = `<div class="cp-period-bar">
-    <span class="cp-period-label">Período</span>
-    <div class="cp-period-presets">${CP_PRESETS.map(([l,d])=>`<button class="cp-period-btn${state.cDays===d?' active':''}" data-cd="${d}">${l}</button>`).join('')}</div>
-    ${state.cDays===0?`<div class="cp-period-custom"><input type="date" id="cpFrom" value="${state.cFrom}"><input type="date" id="cpTo" value="${state.cTo}"><button class="cp-period-apply" id="cpApply">Aplicar</button></div>`:''}
+    <div class="dp">${dpTriggerHTML()}${state.dpOpen?`<div class="dp-pop" id="dpPop" role="dialog" aria-label="Selecionar período">${dpPopHTML()}</div>`:''}</div>
     <div class="cp-camp-filter" id="campFilterWrap">
       <button class="cp-camp-filter-btn${state.campFilter.length?' active':''}" id="campFilterBtn">${ic('search','🔍')} Campanhas: <b>${filterLabel}</b> <span style="opacity:.6;margin-left:4px">▾</span></button>
       ${campPanel}
@@ -3459,16 +4192,7 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   })
 
   // Period presets
-  app.querySelectorAll('.cp-period-btn[data-cd]').forEach(b=>b.onclick=()=>{
-    const d=b.dataset.cd; state.cDays=CP_PRESET_STRINGS.has(d)?d:Number(d)
-    if (state.cDays!==0) { state.cPeriod=computeClientPeriod(rawRows(ch, client), ch, state.cDays); }
-    renderClient()
-  })
-  const cpA = document.getElementById('cpApply')
-  if (cpA) cpA.onclick = () => {
-    const f=document.getElementById('cpFrom').value, t=document.getElementById('cpTo').value
-    if (f && t && f<=t) { state.cFrom=f; state.cTo=t; state.cPeriod=computeClientPeriod(rawRows(ch, client), ch, 0, f, t); renderClient() }
-  }
+  dpWire()
 
   // Campaign filter
   const cfBtn = document.getElementById('campFilterBtn')
@@ -3533,11 +4257,7 @@ function availCampNames(client, ch) {
 function wire() {
   document.getElementById('reload').onclick = triggerSync
   app.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ state.channel=t.dataset.ch; render() })
-  app.querySelectorAll('.preset').forEach(b=>b.onclick=()=>{
-    const d=b.dataset.d; state.days = PRESET_STRINGS.has(d)?d:Number(d); render()
-  })
-  const cf=document.getElementById('cfrom'), ct=document.getElementById('cto'), ca=document.getElementById('capply')
-  if (ca) ca.onclick=()=>{ if(cf.value&&ct.value){state.from=cf.value;state.to=ct.value;render()} }
+  dpWire()
   const se=document.getElementById('search')
   // Só o painel e os contadores mudam com a busca: renderPanelSoon() preserva o
   // input (foco, cursor e acentuação) e dispensa o antigo remendo de refocar e
@@ -3546,7 +4266,11 @@ function wire() {
   const cl=document.getElementById('clear'); if (cl) cl.onclick=()=>{ state.search=''; render() }
   const sq=document.getElementById('squad'); if (sq) sq.onchange=e=>{ state.squad=e.target.value; render() }
   // Visualizações (Padrão / Diagnóstico de Queda / Contas que podem escalar)
-  app.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ state.view=b.dataset.view; state.showHidden=false; render() })
+  const vmBtn=document.getElementById('vmBtn'); if (vmBtn) vmBtn.onclick=ev=>{ ev.stopPropagation(); barPopToggle('view') }
+  const infoBtn=document.getElementById('infoBtn'); if (infoBtn) infoBtn.onclick=ev=>{ ev.stopPropagation(); barPopToggle('info') }
+  const sideX=document.getElementById('sideX'); if (sideX) sideX.onclick=barPopClose
+  const sideOv=document.getElementById('sideOv'); if (sideOv) sideOv.onclick=barPopClose
+  app.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ state.view=b.dataset.view; state.showHidden=false; barPopTeardown(); render() })
   const th=document.getElementById('toggle-hidden'); if (th) th.onclick=()=>{ state.showHidden=!state.showHidden; render() }
   wirePanel()
 }
@@ -3554,6 +4278,10 @@ function wire() {
 // Eventos que vivem DENTRO do .tab-panel: religados sozinhos quando só o painel
 // é trocado (busca), e junto com wire() no render cheio.
 function wirePanel() {
+  app.querySelectorAll('.status-info[data-tip]').forEach(el => {
+    el.onclick = ev => { ev.stopPropagation(); tipToggle(el) }
+    el.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); tipToggle(el) } }
+  })
   // Ordenar as tabelas de conta pelo cabeçalho (mesma coluna → inverte a direção)
   app.querySelectorAll('th[data-acctsort]').forEach(th=>th.onclick=()=>{
     const k = th.dataset.acctsort
@@ -3579,7 +4307,7 @@ function wirePanel() {
     state.tab='resultados'; state.sub=0; state.drillSub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null
     state.campFilter=[]; state.campPanelOpen=false; state.campSearch=''
     state.termsPage=0; state.termsSort={key:'clicks',dir:'desc'}
-    state.cDays = [3,7,14,30].includes(state.days) || CP_PRESET_STRINGS.has(state.days) || state.days===0 ? state.days : 7
+    state.cDays = state.days
     state.cFrom = state.from; state.cTo = state.to
     state.cPeriod = null
     // As linhas cruas (nível anúncio) desta conta são baixadas agora, não no

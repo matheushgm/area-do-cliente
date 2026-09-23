@@ -44,9 +44,11 @@ export default async function handler(req) {
   // meta_status = snapshot do status ATUAL de cada campanha/conjunto/anúncio
   // (1 linha por entidade, sem dia) — evita o dashboard mostrar como ativo o
   // que já foi pausado.
-  // google_ads = nível de anúncio do Google (com a URL de destino);
-  // google_pages = páginas de destino (landing_page_view). Os dois são lidos
-  // sob demanda, sempre com `account`, ao abrir a página de um cliente.
+  // google_ads = nível de anúncio do Google (com a URL de destino e o status do
+  // anúncio); google_pages = páginas de destino (landing_page_view). Lidos sob
+  // demanda com `account` ao abrir a página de um cliente — e, no caso do
+  // google_ads, também sem conta e com `dias` curto, para a lista contar quantos
+  // anúncios estão ligados por conta (o Google não tem snapshot como o Meta).
   const ALLOWED = ['meta', 'google', 'google_terms', 'meta_status', 'google_ads', 'google_pages']
   if (!ALLOWED.includes(channel)) {
     return jsonErr('channel inválido.', 400)
