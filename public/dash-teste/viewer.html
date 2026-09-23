@@ -1181,7 +1181,7 @@ const ACCT_COLS = [
   ['CPL','cpl1'], ['CPL Alvo','cplTarget'],
   ['Investimento','spend1'], ['Invest. Ant.','spend2'],
   ['CTR','ctr1'], ['Tx. Conv.','cr1'],
-  ['Tend. 3d','trend'],
+  ['Tend. 3d','trend'], ['Conversões ontem','convYest'],
 ]
 // Ícone do canal — logo oficial (SVG local, sem CDN), usado em toda tabela/card
 // que mistura Meta+Google (visão "Todos").
@@ -1292,6 +1292,20 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
   const diagMap = {}
   channels.forEach(ch => diagFor(ch, P[ch]).forEach(d => { diagMap[ch+'|'+d.name] = d }))
 
+  // Coluna "Conversões ontem". A conta sem linha no dia pode ser duas coisas
+  // muito diferentes: não converteu (0) ou o canal ainda não sincronizou o dia
+  // (—). Por isso o zero só aparece quando o canal JÁ tem dados de ontem.
+  const yDay = addDays(localDateStr(new Date()), -1)
+  const yHas = {}
+  channels.forEach(ch => {
+    const max = P[ch] ? memo('maxday', ch, P[ch], () => maxDate(state.raw[ch], CFG[ch].dateKey)) : null
+    yHas[ch] = !!max && max >= yDay
+  })
+  const yestOf = x => x.convYest != null ? x.convYest : (yHas[x.channel] ? 0 : null)
+  const yestCell = v => v == null
+    ? `<span class="pace-none" title="O canal ainda não sincronizou o dia ${fmtBR(yDay)}.">—</span>`
+    : `<span class="cell-val">${fmtNum(v)}</span>`
+
   // Linha de tabela + card mobile de uma conta (reusados por grupo e subgrupo).
   const acctRow = x => {
     const trend = x.declining3d?`<span class="trend-dn">${em('📉')} Queda</span>`:x.trendDir==='up'?`<span class="trend-up">${em('📈')} Alta</span>`:`<span class="trend-fl">${em('➡️')} Estável</span>`
@@ -1306,7 +1320,8 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <td>${fmtMoney(x.spend2)}</td>
       <td><span class="cell-val">${fmtRatio(x.ctr1)}</span>${cellDelta(x.varCtr, false)}</td>
       <td><span class="cell-val">${fmtRatio(x.cr1)}</span>${cellDelta(x.varCr, false)}</td>
-      <td>${trend}</td></tr>`
+      <td>${trend}</td>
+      <td>${yestCell(yestOf(x))}</td></tr>`
   }
   const acctCard = x => {
     const target = state.accounts[x.name]?.cplTarget?.value ?? null
@@ -1318,7 +1333,7 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
      ['Investido', fmtMoneyCard(x.spend1), mDelta(x.varSpend, false)],
      ['CTR', fmtRatio(x.ctr1), mDelta(x.varCtr, false)],
      ['Tx. Conv.', fmtRatio(x.cr1), mDelta(x.varCr, false)],
-     ['Cliques', fmtNum(x.clicks1), '']],
+     ['Conv. ontem', yestOf(x) == null ? '—' : fmtNum(yestOf(x)), '']],
     x.channel)
   }
   // Totais do cliente quando o quadrante tem mais de uma conta. Conversões e
@@ -1355,6 +1370,12 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       ? '<span class="pace-none" title="As contas deste cliente têm CPL máximo diferente na Calculadora de ROI — sem alvo único para o total.">—</span>'
       : '<span class="pace-none" title="Sem Calculadora de ROI preenchida no projeto da Área do Cliente">—</span>'
   }
+  // Totais do "Conversões ontem": soma só as contas que têm o dia. Se nenhuma
+  // tiver, o total também é "—" em vez de um zero que não quer dizer nada.
+  const yestTotal = list => {
+    const vals = list.map(yestOf).filter(v => v != null)
+    return vals.length ? vals.reduce((a, v) => a + v, 0) : null
+  }
   const totalRow = list => {
     const t = totalsOf(list)
     return `<tr class="total-row">
@@ -1367,7 +1388,8 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <td>${fmtMoney(t.spend2)}</td>
       <td><span class="cell-val">${fmtRatio(t.ctr1)}</span>${cellDelta(t.varCtr, false)}</td>
       <td><span class="cell-val">${fmtRatio(t.cr1)}</span>${cellDelta(t.varCr, false)}</td>
-      <td></td></tr>`
+      <td></td>
+      <td>${yestCell(yestTotal(list))}</td></tr>`
   }
   // Equivalente mobile da linha de totais (mesmas 3 métricas dos cards de conta).
   const totalCard = list => {
@@ -1377,7 +1399,7 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       ['Investido', fmtMoneyCard(t.spend1), mDelta(t.varSpend, false)],
       ['CTR', fmtRatio(t.ctr1), mDelta(t.varCtr, false)],
       ['Tx. Conv.', fmtRatio(t.cr1), mDelta(t.varCr, false)],
-      ['Cliques', fmtNum(t.clicks1), '']]
+      ['Conv. ontem', yestTotal(list) == null ? '—' : fmtNum(yestTotal(list)), '']]
     const grid = cells.map(([l, v, d]) => `<div class="m-cell">
       <div class="m-cell-l">${l}</div><div class="m-cell-v">${v}</div>
       <div class="m-cell-d">${d}</div></div>`).join('')

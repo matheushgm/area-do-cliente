@@ -201,6 +201,7 @@ export function buildStats(rows, cfg, p) {
   // na lista. O canal sai do próprio cfg, para não mexer na assinatura de
   // buildStats, que é chamada em seis lugares entre o viewer e o app React.
   const isMeta = cfg.spendKey === CFG.meta.spendKey
+  const yesterdayDay = addDays(localDateStr(new Date()), -1)
   const clicksOf = r => isMeta ? num(r['Número de cliques no link']) : (num(r['CLiques']) || num(r['Cliques']))
   const imprOf = r => isMeta ? num(r['Impressões']) : googleImpr(r)
   const byClient = {}
@@ -227,6 +228,11 @@ export function buildStats(rows, cfg, p) {
       b.spend += r.spend; b.conv += r.conv
     })
     const day = d => byDay[d] || { spend: 0, conv: 0 }
+    // "Conversões ontem": dia de calendário anterior a hoje, de propósito FORA
+    // do período selecionado (é um termômetro do último dia fechado, não muda
+    // quando se troca de 7 para 30 dias). null = a conta não tem linha nesse
+    // dia; quem exibe decide entre "0" e "—" olhando se o canal já trouxe o dia.
+    const convYest = byDay[yesterdayDay] ? byDay[yesterdayDay].conv : null
 
     const conv1 = p1r.reduce((a, r) => a + r.conv, 0)
     const conv2 = p2r.reduce((a, r) => a + r.conv, 0)
@@ -269,7 +275,7 @@ export function buildStats(rows, cfg, p) {
     const status = getStatus(varConv, varCpl, conv1)
     return {
       name, conv1, conv2, spend1, spend2, cpl1, cpl2, varConv, varCpl, varSpend,
-      clicks1, clicks2, impr1, impr2, ctr1, ctr2, varCtr, cr1, cr2, varCr,
+      clicks1, clicks2, impr1, impr2, ctr1, ctr2, varCtr, cr1, cr2, varCr, convYest,
       t1vals, trendDir, declining3d, status, chartConv, chartDates: sampled,
     }
   }).sort((a, b) => ORDER[a.status] - ORDER[b.status])
