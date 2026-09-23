@@ -102,9 +102,15 @@ export function diffDays(a, b) {
 }
 
 export function fmtBR(iso) { if (!iso) return ''; const [, m, d] = iso.split('-'); return `${d}/${m}` }
-export function fmtMoney(n) { return n == null ? '—' : 'R$ ' + n.toFixed(2).replace('.', ',') }
+// Padrão BR completo: ponto de milhar e vírgula decimal ("R$ 73.504,80"). Sem o
+// separador de milhar, valor de conta grande virava um bloco de dígitos difícil
+// de ler ("R$ 73504,80") e enganava a comparação rápida entre linhas.
+export function fmtMoney(n) {
+  return n == null ? '—'
+    : 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 export function fmtPct(n) { if (n == null) return '—'; return (n >= 0 ? '+' : '') + n.toFixed(1) + '%' }
-export function fmtNum(n) { return n != null ? Math.round(n).toString() : '0' }
+export function fmtNum(n) { return n != null ? Math.round(n).toLocaleString('pt-BR') : '0' }
 export function inRange(d, s, e) { return d && s && e && d >= s && d <= e }
 export function localDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

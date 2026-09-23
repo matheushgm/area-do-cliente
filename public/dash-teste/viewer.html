@@ -2242,7 +2242,7 @@ function tblMetaAds(rows, prevRows){
   if(!g.length) return `<div class="empty">Sem anúncios no período.</div>`
   const acct = acctOf(rows)
   const noConv = g.filter(x=>x.spend>0&&x.conv===0)
-  const flags = noConv.length?[`🚨 ${noConv.length} anúncio(s) com gasto e 0 resultados — R$ ${noConv.reduce((a,x)=>a+x.spend,0).toFixed(2)} desperdiçados`]:[]
+  const flags = noConv.length?[`🚨 ${noConv.length} anúncio(s) com gasto e 0 resultados — ${fmtMoney(noConv.reduce((a,x)=>a+x.spend,0))} desperdiçados`]:[]
   const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const ctr=x.impr>0?x.clicks/x.impr*100:null, cpm=x.impr>0?x.spend/x.impr*1000:null
     const stHtml=adGroupCell(acct,x._rows); const paused=!isActiveStatus(adGroupStatus(acct,x._rows).entry.status)
     const adId=(x._rows.find(r=>r['ad_id'])||{})['ad_id']||''
@@ -2707,7 +2707,7 @@ function insightsCardHTML(ins, periodLabel, cpl1) {
   const planRows = ins.plan.map(p=>`<div class="ins-plan-row ${priCls[p.level]}"><span class="ins-plan-pri">${p.level}</span><span class="ins-plan-action">${esc(p.action)}</span></div>`).join('')
   const wastersSec = ins.wasters.length ? `<div class="ins-section">
       <div class="ins-section-title">${ic('alert','🚨')} Torrando dinheiro</div>
-      <div class="ins-section-sub">R$ ${ins.totalWaste.toFixed(2)} desperdiçados em ${ins.wasters.length} ${ins.isMeta?'anúncio(s)':'campanha(s)'}</div>
+      <div class="ins-section-sub">${fmtMoney(ins.totalWaste)} desperdiçados em ${ins.wasters.length} ${ins.isMeta?'anúncio(s)':'campanha(s)'}</div>
       ${ins.wasters.map(w=>`<div class="ins-item"><span class="ins-item-name" title="${esc(w.key)}">${esc(w.key)}</span><span class="ins-item-val ins-bad">R$ ${w.spend.toFixed(2)}</span></div>`).join('')}
     </div>` : ''
   const topSec = ins.topPerformer ? `<div class="ins-section">
