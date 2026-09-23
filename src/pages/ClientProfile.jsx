@@ -40,7 +40,7 @@ import DebriefingModule from '../components/Debriefing/DebriefingModule'
 import LPCentralModule from '../components/LPCentral/LPCentralModule'
 import PendingAdsBanner from '../components/Debriefing/PendingAdsBanner'
 import JornadaModule from '../components/Jornada/JornadaModule'
-import { exportOnboardingPDF, exportClientProfilePDF, exportProdutoServicoPDF } from '../utils/exportPDF'
+import { exportOnboardingPDF, exportProdutoServicoPDF } from '../utils/exportPDF'
 
 // ─── Momento ──────────────────────────────────────────────────────────────────
 
