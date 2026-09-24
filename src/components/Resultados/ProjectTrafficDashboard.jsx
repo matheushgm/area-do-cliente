@@ -260,9 +260,6 @@ export default function ProjectTrafficDashboard({ project, dash }) {
   }
 
   const period = periods.meta || periods.google
-  const Trend = ({ s }) => s.declining3d
-    ? <span className="trend-dn">📉 Queda</span>
-    : s.trendDir === 'up' ? <span className="trend-up">📈 Alta</span> : <span className="trend-fl">➡️ Estável</span>
 
   return (
     <div className="dt-root">
@@ -311,7 +308,7 @@ export default function ProjectTrafficDashboard({ project, dash }) {
           <thead><tr>
             <th>Conta</th><th>Canal</th><th>Status</th>
             <th>Conv.</th><th>CPL</th><th>CPL Alvo</th>
-            <th>Investimento</th><th>Var. Conv.</th><th>Tend. 3d</th>
+            <th>Investimento</th><th>Var. Conv.</th>
           </tr></thead>
           <tbody>{tableRows.map(s => {
             const target = getTarget(s.name)
@@ -325,7 +322,6 @@ export default function ProjectTrafficDashboard({ project, dash }) {
                 <td><CplTargetCell dashName={s.name} actualCpl={s.cpl1} target={target} onMap={(n) => setMapModal(n)} /></td>
                 <td>{fmtMoney(s.spend1)}</td>
                 <td className={varCls(s.varConv, false)}>{fmtPct(s.varConv)}</td>
-                <td><Trend s={s} /></td>
               </tr>
             )
           })}</tbody>

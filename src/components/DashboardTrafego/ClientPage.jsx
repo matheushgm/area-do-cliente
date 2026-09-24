@@ -67,11 +67,9 @@ function buildInsights(stats, channel, allRows, target) {
     if (s.varCpl != null && s.varCpl < -10) parts.push(`CPL caiu ${Math.abs(s.varCpl).toFixed(0)}%`)
     diagnosis = `🟢 MELHORA: ${parts.join(' e ') || 'evolução positiva'} vs período anterior.`
   } else diagnosis = '🟡 ESTÁVEL: variações dentro da normalidade.'
-  if (s.declining3d && s.status !== 'CRÍTICO') diagnosis += ' ⚠️ Tendência negativa nos últimos 3 dias.'
 
   const plan = []
   if (wasters.length) plan.push({ level: 'URGENTE', action: `Pausar ${wasters.length} ${isMeta ? 'anúncio(s)' : 'campanha(s)'} sem conversão — economiza R$ ${totalWaste.toFixed(2)}` })
-  if (s.declining3d && s.status !== 'CRÍTICO') plan.push({ level: 'URGENTE', action: 'Conversões em queda 3 dias seguidos — revisar criativos e segmentação imediatamente' })
   if (s.status === 'CRÍTICO') plan.push({ level: 'URGENTE', action: 'Auditar tracking, públicos e criativos — verificar se há bloqueio na entrega' })
   if (ctrBad) plan.push({ level: 'ALTA', action: `CTR ${aggCtr.toFixed(2)}% bem abaixo do benchmark (${benchCtr}%) — renovar criativos e copy` })
   if (convRateBad) plan.push({ level: 'ALTA', action: `Taxa de conversão ${aggConvRate.toFixed(1)}% baixa — revisar landing page / oferta / qualidade do lead` })

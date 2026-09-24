@@ -49,7 +49,10 @@ export default async function handler(req) {
   // demanda com `account` ao abrir a página de um cliente — e, no caso do
   // google_ads, também sem conta e com `dias` curto, para a lista contar quantos
   // anúncios estão ligados por conta (o Google não tem snapshot como o Meta).
-  const ALLOWED = ['meta', 'google', 'google_terms', 'meta_status', 'google_ads', 'google_pages']
+  // saldo = snapshot do saldo ATUAL de cada conta (Meta pré-pago + orçamento do
+  // Google), uma linha por conta/canal e sem dia, como o meta_status. Alimenta a
+  // coluna "Saldo" da lista.
+  const ALLOWED = ['meta', 'google', 'google_terms', 'meta_status', 'google_ads', 'google_pages', 'saldo']
   if (!ALLOWED.includes(channel)) {
     return jsonErr('channel inválido.', 400)
   }
@@ -127,12 +130,13 @@ export default async function handler(req) {
 
   let rows
   try {
-    // meta_status não tem coluna `day` (1 linha por entidade, sem histórico), e
-    // a busca por conta já devolve um recorte pequeno: nos dois casos vale ler
-    // direto, sem fatiar.
-    if (channel === 'meta_status' || account) {
+    // meta_status e saldo não têm coluna `day` (1 linha por entidade/conta, sem
+    // histórico), e a busca por conta já devolve um recorte pequeno: nos dois
+    // casos vale ler direto, sem fatiar.
+    const snapshot = channel === 'meta_status' || channel === 'saldo'
+    if (snapshot || account) {
       const since = dias ? `&day=gte.${addDays(iso(new Date()), -dias)}` : ''
-      rows = await readAll(channel === 'meta_status' ? '' : since, channel)
+      rows = await readAll(snapshot ? '' : since, channel)
     } else {
       const hoje = iso(new Date())
       const janela = dias ? addDays(hoje, -dias) : null

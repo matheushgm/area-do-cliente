@@ -573,7 +573,7 @@ import {
 // Em produção (dentro da Área do Cliente): busca pelo endpoint AUTENTICADO
 // /api/dash-data, enviando o token da sessão Supabase (mesma origem → mesmo
 // localStorage). Em dev standalone (sem sessão): cai nos CSVs locais ./output/.
-const LOCAL = { meta: './output/meta.csv', google: './output/google.csv', google_terms: './output/google_terms.csv', meta_status: './output/meta_status.csv' }
+const LOCAL = { meta: './output/meta.csv', google: './output/google.csv', google_terms: './output/google_terms.csv', meta_status: './output/meta_status.csv', saldo: './output/saldo.csv' }
 // Em dev standalone o rollup mora em ./output/<canal>.rollup.csv quando existe;
 // sem ele, cai no CSV cru (a lista funciona igual, só carregando muito mais).
 const LOCAL_ROLLUP = { meta: './output/meta.rollup.csv', google: './output/google.rollup.csv' }
@@ -1030,11 +1030,13 @@ const fmtMoneyShort = n => {
 async function load(fresh) {
   try {
     // O snapshot de status é acessório: se falhar, o dashboard abre igual e cai
-    // no último status conhecido de cada linha (com aviso na tag).
-    const [m, g, st, ga, accounts] = await Promise.all([
+    // no último status conhecido de cada linha (com aviso na tag). O mesmo vale
+    // para o saldo: falhou, a coluna mostra "—" e o resto abre normalmente.
+    const [m, g, st, ga, sd, accounts] = await Promise.all([
       fetchChannel('meta', fresh), fetchChannel('google', fresh),
       fetchChannel('meta_status', fresh).catch(() => ''),
-      fetchGoogleAds(fresh).catch(() => ''), fetchAccounts()])
+      fetchGoogleAds(fresh).catch(() => ''),
+      fetchChannel('saldo', fresh).catch(() => ''), fetchAccounts()])
     state.raw = { meta: parseCSV(m), google: parseCSV(g) }
     // Dados novos: o cache de linhas cruas por conta também precisa cair, senão
     // a página de cliente continuaria mostrando o que veio antes do sync.
@@ -1042,6 +1044,7 @@ async function load(fresh) {
     invalidateMemo()
     state.statusSnap = buildStatusSnap(parseCSV(st))
     state.googleAds = buildGoogleAdsSnap(parseCSV(ga))
+    state.saldo = buildSaldoSnap(parseCSV(sd))
     state.accounts = accounts
     document.getElementById('src-info').textContent =
       `· ${state.raw.meta.length} linhas Meta · ${state.raw.google.length} linhas Google`
@@ -1404,8 +1407,7 @@ function periodosHTML(channels, P) {
   if (!ativos.length) return '<p class="side-text">Sem dados no período selecionado.</p>'
   const linhasDe = ch => {
     const p = P[ch]
-    const t3 = p.t1.filter(Boolean).map(d => { const [, m, day] = d.split('-'); return `${day}/${m}` }).join(', ')
-    return [['Selecionado', p.label1], ['Comparativo', p.label2], ['Tendência 3d', t3 || '—']]
+    return [['Selecionado', p.label1], ['Comparativo', p.label2]]
   }
   const linhas = ch => linhasDe(ch).map(([l, v]) => `<div class="info-row"><span>${l}</span><b>${v}</b></div>`).join('')
   const nome = ch => ch === 'meta' ? 'Meta Ads' : 'Google Ads'
@@ -1828,8 +1830,6 @@ const cellDelta = (v, lowerIsBetter) => v == null ? ''
 // investimento) arredonda e usa separador de milhar — "R$ 2.630".
 const fmtMoneyCard = n => n == null ? '—'
   : Math.abs(n) >= 1000 ? 'R$ ' + Math.round(n).toLocaleString('pt-BR') : fmtMoney(n)
-const trendHTML = x => x.declining3d ? `<span class="trend-dn">${em('📉')} Queda 3d</span>`
-  : x.trendDir === 'up' ? `<span class="trend-up">${em('📈')} Alta 3d</span>` : `<span class="trend-fl">${em('➡️')} Estável 3d</span>`
 
 // ─── Ordenação das tabelas de conta ──────────────────────────────────────────
 // Cada coluna com `key` vira cabeçalho clicável (1º clique ordena, o seguinte
@@ -1846,7 +1846,7 @@ const ACCT_COLS = [
   ['CPL','cpl1','8%'], ['CPL Alvo','cplTarget','8%'],
   ['Investimento','spend1','9%'], ['Invest. Ant.','spend2','8%'],
   ['CTR','ctr1','7%'], ['Tx. Conv.','cr1','7%'],
-  ['Tend. 3d','trend','7%'], ['Anúncios ativos','adsAtivos','8%'],
+  ['Saldo','saldo','7%'], ['Anúncios ativos','adsAtivos','8%'],
 ]
 const acctColgroupHTML = () => `<colgroup>${ACCT_COLS.map(([, , w]) => `<col style="width:${w}">`).join('')}</colgroup>`
 // Ícone do canal — logo oficial (SVG local, sem CDN), usado em toda tabela/card
@@ -1877,6 +1877,75 @@ function buildGoogleAdsSnap(rows) {
   const out = {}
   for (const [c, bag] of Object.entries(por)) out[c] = { n: bag.ids.size, dia: bag.dia }
   return out
+}
+
+// ─── Saldo da conta (canal `saldo`) ──────────────────────────────────────────
+// Snapshot coletado pelo sync junto dos demais canais: no Meta é teto − gasto
+// da conta PRÉ-PAGA (pós-pago não tem saldo); no Google é o orçamento aprovado
+// menos o servido. Indexado por CANAL + nome porque o mesmo cliente costuma ter
+// contas homônimas no Meta e no Google — sem o canal, a linha do Google
+// mostraria o saldo da conta do Meta (mesmo tropeço já visto na contagem de
+// anúncios ativos).
+function buildSaldoSnap(rows) {
+  const out = {}
+  ;(rows || []).forEach(r => {
+    const nome = (r['Nome da conta'] || '').trim()
+    const canal = (r['Canal'] || '').trim()
+    if (!nome || !canal) return
+    out[canal + '|' + nome] = {
+      valor: r['Saldo'] ? num(r['Saldo']) : null,
+      situacao: r['Situação'] || '',
+      limite: r['Limite'] ? num(r['Limite']) : null,
+      gasto: r['Gasto'] ? num(r['Gasto']) : null,
+      ts: r['Atualizado em'] || '',
+    }
+  })
+  return out
+}
+const saldoDe = (nome, canal) => (state.saldo && state.saldo[canal + '|' + nome]) || null
+
+// Situações sem número: cada uma diz POR QUE não há saldo, que é diferente de
+// "saldo zero". O texto curto vai na célula e a explicação no tooltip.
+const SALDO_SEM_VALOR = {
+  POS_PAGO: ['pós-pago', 'Conta pós-paga: o Meta cobra depois da veiculação, então não existe saldo a consumir.'],
+  SEM_LIMITE: ['—', 'Conta pré-paga sem limite de gasto definido, então não há saldo a calcular.'],
+  SEM_TETO: ['sem teto', 'Orçamento do Google sem limite de gasto (INFINITE): não há saldo a consumir.'],
+  SEM_ORCAMENTO: ['—', 'Nenhum orçamento aprovado nesta conta do Google (cobrança por fatura mensal ou cartão).'],
+  INDISPONIVEL: ['—', 'Não foi possível ler o saldo desta conta na última rodada do sync.'],
+}
+// Leitura de saldo velha é tratada como a de status: o sync roda de hora em
+// hora, então mais de 36h sem atualizar significa que a conta não entrou nas
+// últimas rodadas e o número pode não valer mais.
+const saldoStale = r => !r || !r.ts || (Date.now() - new Date(r.ts).getTime()) > ADS_STALE_MS
+
+function saldoCell(x) {
+  const r = saldoDe(x.name, x.channel)
+  if (!r) {
+    return `<span class="pace-none" title="Esta conta não apareceu na última coleta de saldo do sync.">—</span>`
+  }
+  if (r.valor == null) {
+    const [txt, tip] = SALDO_SEM_VALOR[r.situacao] || ['—', 'Saldo não disponível para esta conta.']
+    return `<span class="pace-none" title="${esc(tip)}">${txt}</span>`
+  }
+  // Cobertura estimada: quantos dias o saldo ainda paga no ritmo de gasto do
+  // período selecionado. Só entra no tooltip — é estimativa, não vira alerta.
+  const p = periods()[x.channel]
+  const dias = p ? diffDays(p.p1s, p.p1e) + 1 : 0
+  const porDia = dias > 0 && x.spend1 > 0 ? x.spend1 / dias : 0
+  const cobertura = porDia > 0 && r.valor > 0
+    ? ` Cobre ~${Math.floor(r.valor / porDia)} dia(s) no ritmo atual (${fmtMoney(porDia)}/dia).` : ''
+  const detalhe = r.limite != null
+    ? ` Teto ${fmtMoney(r.limite)} − gasto ${fmtMoney(r.gasto)}.` : ''
+  const tip = `Saldo lido em ${snapWhen(r.ts)}.${detalhe}${cobertura}`
+  // Saldo esgotado é fato, não julgamento: a conta parou (ou vai parar) de
+  // veicular. Qualquer outro limiar ("baixo") seria régua inventada, então só
+  // este caso ganha destaque.
+  if (r.valor <= 0) {
+    return `<span class="crit" title="${esc(tip)}">${fmtMoney(r.valor)} 🚨</span>`
+  }
+  return saldoStale(r)
+    ? `<span class="cell-val" title="${esc(tip)} Pode ter mudado desde então.">${fmtMoney(r.valor)} ?</span>`
+    : `<span class="cell-val" title="${esc(tip)}">${fmtMoney(r.valor)}</span>`
 }
 
 // Anúncios ligados de uma conta: { n, ts } — ts é a hora/dia da leitura, para a
@@ -1921,9 +1990,11 @@ const adsStale = r => {
   return (Date.now() - new Date(r.ts).getTime()) > ADS_STALE_MS
 }
 const adsQuando = r => r.dia ? fmtBR(r.ts) : snapWhen(r.ts)
-// Tendência não é um número na linha — vira rank (queda < estável < alta).
-// CPL Alvo vem dos metadados da conta (Calculadora de ROI), não do stats.
-const acctVal = (x, key) => key==='trend' ? (x.declining3d?-1:x.trendDir==='up'?1:0)
+// Saldo e CPL Alvo não estão no stats: o primeiro vem do snapshot do canal
+// `saldo`, o segundo dos metadados da conta (Calculadora de ROI). Conta sem
+// saldo aplicável (pós-pago, sem teto) devolve null e sortAccounts joga para o
+// fim, em qualquer direção.
+const acctVal = (x, key) => key==='saldo' ? (saldoDe(x.name, x.channel)?.valor ?? null)
   : key==='cplTarget' ? (state.accounts[x.name]?.cplTarget?.value ?? null)
   : key==='adsAtivos' ? (activeAdsOfAccount(x.name, x.channel) || {}).n ?? null : x[key]
 function sortAccounts(list) {
@@ -2044,7 +2115,6 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
 
   // Linha de tabela + card mobile de uma conta (reusados por grupo e subgrupo).
   const acctRow = x => {
-    const trend = x.declining3d?`<span class="trend-dn">${em('📉')} Queda</span>`:x.trendDir==='up'?`<span class="trend-up">${em('📈')} Alta</span>`:`<span class="trend-fl">${em('➡️')} Estável</span>`
     return `<tr data-client="${esc(x.name)}" data-ch="${x.channel}">
       <td><span class="client-link" title="${esc(x.name)}">${esc(x.name)}</span>${newLookChip(x.name)}${hideBtnHTML(x.name)}</td>
       <td>${chIco(x.channel)}</td>
@@ -2056,19 +2126,20 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <td>${fmtMoney(x.spend2)}</td>
       <td><span class="cell-val">${fmtRatio(x.ctr1)}</span>${cellDelta(x.varCtr, false)}</td>
       <td><span class="cell-val">${fmtRatio(x.cr1)}</span>${cellDelta(x.varCr, false)}</td>
-      <td>${trend}</td>
+      <td>${saldoCell(x)}</td>
       <td>${adsCell(x)}</td></tr>`
   }
   const acctCard = x => {
     const target = state.accounts[x.name]?.cplTarget?.value ?? null
     return mCardHTML(x.name,
     `<span class="pill pill-ico ${pillCls(x.status)}">${state.newLook ? '' : pillIco(x.status)}</span>`,
-    `${chIco(x.channel)} ${trendHTML(x)}${target != null ? ` <span style="color:#CBD5E1">·</span> ${goalBadge(target, x.cpl1, x.channel)}` : ''}`,
+    `${chIco(x.channel)}${target != null ? ` <span style="color:#CBD5E1">·</span> ${goalBadge(target, x.cpl1, x.channel)}` : ''}`,
     [['Conversões', fmtNum(x.conv1), mDelta(x.varConv, false)],
      [x.channel==='meta'?'CPL':'CPA', fmtMoneyCard(x.cpl1), mDelta(x.varCpl, true)],
      ['Investido', fmtMoneyCard(x.spend1), mDelta(x.varSpend, false)],
      ['CTR', fmtRatio(x.ctr1), mDelta(x.varCtr, false)],
      ['Tx. Conv.', fmtRatio(x.cr1), mDelta(x.varCr, false)],
+     ['Saldo', (r => r && r.valor != null ? fmtMoneyCard(r.valor) : '—')(saldoDe(x.name, x.channel)), ''],
      ['Ads ativos', (r => r ? fmtNum(r.n) + (adsStale(r) ? ' ?' : '') : '—')(activeAdsOfAccount(x.name, x.channel)), '']],
     x.channel)
   }
@@ -2284,7 +2355,6 @@ function escalaHTML(channels, P) {
   const groups = SCALE_GROUPS.map(g => {
     const grp = list.filter(g.match); if (!grp.length) return ''
     const rows = grp.map(d => {
-      const trend = d.declining3d?`<span class="trend-dn">${em('📉')} Queda</span>`:d.trendDir==='up'?`<span class="trend-up">${em('📈')} Alta</span>`:`<span class="trend-fl">${em('➡️')} Estável</span>`
       return `<tr data-client="${esc(d.name)}" data-ch="${d.channel}">
       <td><span class="client-link">${esc(d.name)}</span></td>
       <td>${chIco(d.channel)}</td>
@@ -2294,11 +2364,10 @@ function escalaHTML(channels, P) {
       <td class="${varCls(d.varCpl,true)}">${fmtPct(d.varCpl)}</td>
       <td>${targetMarginHTML(d.name, d.cpl1)}</td>
       <td>${fmtMoney(d.spend1)}</td>
-      <td class="${varCls(d.varSpend,false)}">${fmtPct(d.varSpend)}</td>
-      <td>${trend}</td></tr>`
+      <td class="${varCls(d.varSpend,false)}">${fmtPct(d.varSpend)}</td></tr>`
     }).join('')
     const cards = grp.map(d => mCardHTML(d.name, '',
-      `${chIco(d.channel)} ${trendHTML(d)} <span style="color:#CBD5E1">·</span> ${targetMarginHTML(d.name, d.cpl1)}`,
+      `${chIco(d.channel)} ${targetMarginHTML(d.name, d.cpl1)}`,
       [['Conversões', fmtNum(d.conv1), mDelta(d.varConv, false)],
        ['CPL', fmtMoneyCard(d.cpl1), mDelta(d.varCpl, true)],
        ['Investido', fmtMoneyCard(d.spend1), mDelta(d.varSpend, false)]], d.channel)).join('')
@@ -2306,7 +2375,7 @@ function escalaHTML(channels, P) {
       <div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span>${infoIco(g.tip)}<span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
       <div class="diag-hint">${esc(g.tip)}</div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Conta</th><th>Canal</th><th>Conv.</th><th>Conv. Ant.</th><th>Var. Conv.</th><th>CPL</th><th>CPL Ant.</th><th>Var. CPL</th><th>Margem vs. Alvo</th><th>Investimento</th><th>Var. Invest.</th><th>Tend. 3d</th></tr></thead>
+        <thead><tr><th>Conta</th><th>Canal</th><th>Conv.</th><th>Conv. Ant.</th><th>Var. Conv.</th><th>CPL</th><th>CPL Ant.</th><th>Var. CPL</th><th>Margem vs. Alvo</th><th>Investimento</th><th>Var. Invest.</th></tr></thead>
         <tbody>${rows}</tbody></table></div>
       <div class="m-cards">${cards}</div></div>`
   }).join('')
@@ -3515,11 +3584,9 @@ function buildInsights(stats, channel, allRows, target) {
     if (s.varCpl != null && s.varCpl < -10) parts.push(`CPL caiu ${Math.abs(s.varCpl).toFixed(0)}%`)
     diagnosis = `🟢 MELHORA: ${parts.join(' e ') || 'evolução positiva'} vs período anterior.`
   } else diagnosis = '🟡 ESTÁVEL: variações dentro da normalidade.'
-  if (s.declining3d && s.status !== 'CRÍTICO') diagnosis += ' ⚠️ Tendência negativa nos últimos 3 dias.'
 
   const plan = []
   if (wasters.length) plan.push({ level: 'URGENTE', action: `Pausar ${wasters.length} ${isMeta ? 'anúncio(s)' : 'campanha(s)'} sem conversão — economiza R$ ${totalWaste.toFixed(2)}` })
-  if (s.declining3d && s.status !== 'CRÍTICO') plan.push({ level: 'URGENTE', action: 'Conversões em queda 3 dias seguidos — revisar criativos e segmentação imediatamente' })
   if (s.status === 'CRÍTICO') plan.push({ level: 'URGENTE', action: 'Auditar tracking, públicos e criativos — verificar se há bloqueio na entrega' })
   if (ctrBad) plan.push({ level: 'ALTA', action: `CTR ${aggCtr.toFixed(2)}% bem abaixo do benchmark (${benchCtr}%) — renovar criativos e copy` })
   if (convRateBad) plan.push({ level: 'ALTA', action: `Taxa de conversão ${aggConvRate.toFixed(1)}% baixa — revisar landing page / oferta / qualidade do lead` })
