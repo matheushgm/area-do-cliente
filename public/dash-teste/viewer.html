@@ -4078,9 +4078,13 @@ function renderClient() {
   </div>`
 
   // tabs
+  // Na visão interna a aba "Resultados" foi removida: os mesmos números já
+  // aparecem nos quadrantes da aba Campanhas (nível conta). O link público
+  // continua com ela.
+  if (!SHARED && state.tab === 'resultados') state.tab = 'campanhas'
   const TABS = SHARED
     ? [[`${ic('chart','📊')} Resultados`,'resultados'],[`${ic('layers','📋')} Campanhas`,'campanhas']]
-    : [[`${ic('chart','📊')} Resultados`,'resultados'],[`${ic('layers','📋')} Campanhas`,'campanhas'],[`${ic('check','✅')} Atividades`,'atividades'],[`${ic('sliders','⚙️')} Parâmetros`,'parametros']]
+    : [[`${ic('layers','📋')} Campanhas`,'campanhas'],[`${ic('check','✅')} Atividades`,'atividades'],[`${ic('sliders','⚙️')} Parâmetros`,'parametros']]
   const tabsBar = `<div class="cp-tabs">${TABS.map(([l,k])=>`<div class="cptab${state.tab===k?' active':''}" data-tab="${k}">${l}</div>`).join('')}</div>`
 
   // Pace do canal vs a verba planejada no módulo Campanha (Área do Cliente) —
@@ -4161,7 +4165,7 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   // Header
   const back = document.getElementById('cpBack')
   if (back) back.onclick = () => {
-    state.openClient=null; state.tab='resultados'; state.sub=0; state.drillSub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null
+    state.openClient=null; state.tab='campanhas'; state.sub=0; state.drillSub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null
     state.cPeriod=null; state.campFilter=[]; state.campPanelOpen=false; state.campSearch=''
     render()
   }
@@ -4304,7 +4308,7 @@ function wirePanel() {
     const channel = ch || state.channel || 'meta'
     state.openClient={ client: name, channel }
     // inicializa o estado local da página de cliente a partir do período global
-    state.tab='resultados'; state.sub=0; state.drillSub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null
+    state.tab='campanhas'; state.sub=0; state.drillSub=0; state.drillCampaign=null; state.drillAdset=null; state.drillAdsetName=null
     state.campFilter=[]; state.campPanelOpen=false; state.campSearch=''
     state.termsPage=0; state.termsSort={key:'clicks',dir:'desc'}
     state.cDays = state.days
