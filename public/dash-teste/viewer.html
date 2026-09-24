@@ -497,6 +497,57 @@
   .dt-root .vm-label { display:block; font-size:12.5px; font-weight:700; color:var(--fx-green,#0F172A); }
   .dt-root .vm-desc { display:block; font-size:11px; line-height:1.35; color:var(--fx-muted,#64748B); margin-top:2px; }
   .dt-root .info-btn { width:30px; height:30px; padding:0; justify-content:center; }
+  /* Menu "Agrupar": múltipla escolha, então cada item tem caixa de seleção em vez
+     do realce de opção única do menu de visualizações. */
+  .dt-root .grp-check { flex-shrink:0; width:16px; height:16px; margin-top:1px; border-radius:5px;
+    border:1.5px solid var(--fx-border,#D8E0F0); background:var(--fx-surface,#FFFFFF);
+    display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; line-height:1; }
+  .dt-root .grp-check.on { background:var(--fx-lime-3,#164496); border-color:var(--fx-lime-3,#164496); color:#FFFFFF; }
+  .dt-root .vm-item .vm-label .vm-ico { margin-right:6px; vertical-align:-2px; }
+  .dt-root .vm-note { font-size:10.5px; line-height:1.4; color:var(--fx-faint,#94A3B8);
+    padding:8px 10px 4px; border-top:1px solid var(--fx-border-2,#EEF0F2); margin-top:4px; }
+  /* Filtro de saldo: a regra ("Menor ou igual a") e o campo do valor na mesma
+     linha, com o rodapé de Limpar/Aplicar do seletor de período. */
+  .dt-root .dp-trigger.on { border-color:var(--fx-green,#164496); color:var(--fx-green,#164496);
+    background:var(--fx-lime-soft,#E5EDFB); }
+  .dt-root .sf-pop { width:330px; }
+  .dt-root .sf-opt { display:flex; align-items:center; gap:8px; padding:14px 16px 10px; }
+  .dt-root .sf-select { flex:1; min-width:0; font-family:inherit; font-size:12px; font-weight:600;
+    padding:7px 8px; color:var(--fx-green,#0F172A); background:var(--fx-surface,#FFFFFF); outline:none;
+    border:1px solid var(--fx-border,#D8E0F0); border-radius:8px; cursor:pointer; }
+  .dt-root .sf-money { display:inline-flex; align-items:center; gap:5px; padding:6px 10px;
+    border:1px solid var(--fx-border,#D8E0F0); border-radius:8px; background:var(--fx-surface,#FFFFFF); }
+  .dt-root .sf-money:focus-within { border-color:var(--fx-green,#164496); }
+  .dt-root .sf-cur { font-size:11px; font-weight:700; color:var(--fx-faint,#94A3B8); }
+  .dt-root .sf-money input { width:74px; border:0; outline:none; background:transparent; font-family:inherit;
+    font-size:12.5px; font-weight:700; color:var(--fx-green,#0F172A); }
+  .dt-root .sf-note { font-size:10.5px; line-height:1.45; color:var(--fx-faint,#94A3B8); padding:0 16px 12px; }
+  .dt-root .sf-foot { display:flex; justify-content:flex-end; gap:8px; padding:10px 16px;
+    border-top:1px solid var(--fx-border,#E4EAF7); }
+
+  /* Carimbo da última coleta, ao lado do botão Atualizar. */
+  .dt-root .last-sync { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600;
+    color:var(--fx-muted,#64748B); white-space:nowrap; }
+  .dt-root .last-sync .ico { width:13px; height:13px; color:var(--fx-faint,#94A3B8); }
+
+  /* Página do cliente sem card de Saldo (conta pós-paga, sem teto ou sem leitura):
+     a grade de KPIs perde um card e as colunas acompanham, senão sobrava uma
+     célula vazia no fim da linha. Os limites são os mesmos do theme-fynix. */
+  .dt-root.th-fynix .cp-kpi-grid.sem-saldo { grid-template-columns:minmax(250px,1.35fr) repeat(4, minmax(0,1fr)); }
+  @media(max-width:1450px){
+    .dt-root.th-fynix .cp-kpi-grid.sem-saldo { grid-template-columns:repeat(4, minmax(0,1fr)); }
+  }
+  @media(max-width:1023px){
+    /* 6 colunas: 4 cards de span 3 = duas linhas cheias, sem célula sobrando. */
+    .dt-root.th-fynix .cp-kpi-grid.sem-saldo { grid-template-columns:repeat(6, minmax(0,1fr)); }
+    .dt-root.th-fynix .cp-kpi-grid.sem-saldo .cp-kpi-card,
+    .dt-root.th-fynix .cp-kpi-grid.sem-saldo .cp-kpi-card:nth-last-child(-n+2) { grid-column:span 3; }
+  }
+  @media(max-width:768px){
+    .dt-root.th-fynix .cp-kpi-grid.sem-saldo { grid-template-columns:repeat(2, minmax(0,1fr)); }
+    .dt-root.th-fynix .cp-kpi-grid.sem-saldo .cp-kpi-card,
+    .dt-root.th-fynix .cp-kpi-grid.sem-saldo .cp-kpi-card:nth-last-child(-n+2) { grid-column:auto; }
+  }
 
   /* ── Painel lateral de ajuda ────────────────────────────────────────────────
      A regra de cada visão (como ela agrupa e classifica as contas) só existia
@@ -546,10 +597,13 @@
        wrapper do info vive dentro do .bar-right e fica do tamanho do ícone. */
     .dt-root .filter-bar > .bwrap { width:100%; }
     .dt-root .filter-bar > .bwrap .dp-trigger { width:100%; justify-content:flex-start; }
+    .dt-root .sf-pop { width:100%; }
     .dt-root .bar-right { width:100%; margin-left:0; flex-wrap:wrap; }
     .dt-root .bar-right .search-wrap { flex:1 1 100%; }
     .dt-root .bar-right .search-wrap input { width:100%; box-sizing:border-box; }
     .dt-root .bar-right .squad-btn { flex:1; justify-content:center; }
+    .dt-root .bar-right .grp-wrap { flex:1 1 100%; }
+    .dt-root .bar-right .grp-wrap .dp-trigger { width:100%; justify-content:flex-start; }
     .dt-root .bar-right .info-btn { flex:0 0 auto; }
     .dt-root .vm-pop { width:calc(100vw - 32px); max-width:340px; }
     .dt-root .sidepanel { width:100%; max-width:none; }
@@ -899,7 +953,8 @@ const ic = (name, emoji) => state.newLook ? svgIco(name) : emoji
 // (gh-red / gh-yellow / gh-green), não um ícone.
 const EMOJI_ICON = { '📊':'chart', '💸':'coin', '📉':'trend-dn', '📈':'trend', '➡️':'arrow-right', '🎯':'target',
   '🧲':'magnet', '🚀':'rocket', '👁':'eye', '🚫':'eye-off', '🔍':'search', '⟳':'refresh', '🗂️':'layers',
-  '🔥':'flame', '🐢':'turtle', '✅':'check', '⏳':'clock', '🚨':'alert', '📅':'calendar', 'ℹ️':'info' }
+  '🔥':'flame', '🐢':'turtle', '✅':'check', '⏳':'clock', '🚨':'alert', '📅':'calendar', 'ℹ️':'info',
+  '🚦':'flag', '👥':'users', '💰':'wallet', '🕒':'clock' }
 const em = e => !state.newLook ? e : /^[🔴🟡🟢]$/u.test(e) ? '<span class="gh-dot"></span>' : EMOJI_ICON[e] ? svgIco(EMOJI_ICON[e]) : e
 // Pílula de status na tabela: no tema o ponto colorido vem do CSS (::before).
 const pIco = st => state.newLook ? '' : pillIco(st) + ' '
@@ -978,10 +1033,19 @@ const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:
                 dpOpen:false, dp:null,
                 // anúncios do Google por conta (canal google_ads, últimos dias)
                 googleAds:{},
+                // carimbo da última rodada do sync (vem dos snapshots), no header
+                syncTs:'',
                 // popover aberto na barra de filtros: 'view' | 'info' | null
                 barPop:null,
                 // visualização da lista: 'padrao' (status) | 'diagnostico' (causa da queda) | 'escala' (candidatas a mais verba)
                 view:'padrao', showHidden:false,
+                // filtro de saldo da barra: operador (só 'lte' por ora) + valor em R$;
+                // null = sem filtro. Aplicado depois do filtro de squad.
+                saldoOp:'lte', saldoMax:null,
+                // agrupamentos da visão Padrão (interruptores da barra de filtros):
+                // por status (seções Crítico/Queda/Estável/Melhora) e por cliente
+                // (contas do mesmo projeto num quadrante só). Ambos ligados = visão de sempre.
+                grpStatus:true, grpClient:true,
                 // quadrante Performance por cliente: 'mql' (funil de lead) | 'ecom' (funil de compra)
                 perfView:{},
                 // seção "CPL Máximo (ROI) & Pace de Verba": contas com o drill de campanhas aberto
@@ -1042,9 +1106,14 @@ async function load(fresh) {
     // a página de cliente continuaria mostrando o que veio antes do sync.
     if (fresh) state.rows = {}
     invalidateMemo()
-    state.statusSnap = buildStatusSnap(parseCSV(st))
+    const statusRows = parseCSV(st), saldoRows = parseCSV(sd)
+    state.statusSnap = buildStatusSnap(statusRows)
     state.googleAds = buildGoogleAdsSnap(parseCSV(ga))
-    state.saldo = buildSaldoSnap(parseCSV(sd))
+    state.saldo = buildSaldoSnap(saldoRows)
+    // Hora em que os dados desta tela foram coletados: os snapshots de status e
+    // de saldo são escritos pela mesma rodada do sync e carimbam "Atualizado em"
+    // em cada linha — a mais recente delas é a última rodada que chegou ao banco.
+    state.syncTs = maxAtualizadoEm(statusRows, saldoRows)
     state.accounts = accounts
     document.getElementById('src-info').textContent =
       `· ${state.raw.meta.length} linhas Meta · ${state.raw.google.length} linhas Google`
@@ -1064,6 +1133,21 @@ async function load(fresh) {
       ? `<div class="dt-loader"><p>Não foi possível abrir este dashboard.<br>O link pode estar incorreto ou ter expirado.</p></div>`
       : `<div class="dt-loader"><p>Erro ao carregar dados: ${esc(e.message)}${/[.!?]$/.test(e.message) ? '' : '.'}<br>Faça login na Área do Cliente e recarregue.</p></div>`
   }
+}
+
+function maxAtualizadoEm(...listas) {
+  let melhor = '', t = 0
+  listas.forEach(rows => (rows || []).forEach(r => {
+    const v = r['Atualizado em']; if (!v) return
+    const n = Date.parse(v); if (n && n > t) { t = n; melhor = v }
+  }))
+  return melhor
+}
+// "24/09 às 09:00" — o sync roda em UTC (GitHub Actions) e carimba o fuso, então
+// o toLocaleString já entrega o horário de quem está olhando.
+const syncQuando = ts => {
+  const d = new Date(ts)
+  return isNaN(d) ? '' : `${d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' })} às ${d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })}`
 }
 
 function setStatus(msg, isErr) {
@@ -1154,6 +1238,7 @@ function statsFor(ch, p) {
   let st = memo('stats', ch, p, () => buildStats(state.raw[ch], cfgFor(ch), p))
   const _q = state.search.trim(); if (_q) st = st.filter(s => s.name.toLowerCase().includes(_q))
   if (state.squad) st = st.filter(s => (state.accounts[s.name]?.squad || '') === state.squad)
+  if (state.saldoMax != null) st = st.filter(s => saldoOk(s.name, ch))
   // Contas ocultas (clientes que saíram): fora da visão normal; a visão "Ocultas"
   // (state.showHidden) mostra APENAS elas, para poder reexibir.
   return st.filter(s => (state.showHidden ? isHidden(s.name) : !isHidden(s.name)))
@@ -1181,14 +1266,31 @@ async function setHidden(name, hidden) {
 }
 
 // Filtros comuns das visões analíticas (busca + squad; ocultas nunca aparecem).
-function applyListFilters(list) {
+// ─── Filtro de saldo (barra, depois do squad) ────────────────────────────────
+// Um operador e um valor: hoje só "menor ou igual a", que é a pergunta do dia a
+// dia ("quem está perto de ficar sem verba?"). O operador vive no estado para
+// que somar outro (maior ou igual, entre) seja só mais uma linha aqui.
+const SALDO_OPS = {
+  lte: { label: 'Menor ou igual a', sinal: '≤', match: (v, n) => v <= n },
+}
+// Conta sem saldo NUMÉRICO (pós-pago, sem teto, sem leitura na última rodada)
+// fica de fora enquanto o filtro está ligado — não há número para comparar, e
+// deixá-la passar encheria a lista justamente de quem não responde à pergunta.
+function saldoOk(name, ch) {
+  if (state.saldoMax == null) return true
+  const r = saldoDe(name, ch)
+  if (!r || r.valor == null) return false
+  return (SALDO_OPS[state.saldoOp] || SALDO_OPS.lte).match(r.valor, state.saldoMax)
+}
+function applyListFilters(list, ch) {
   let out = list
   const _q = state.search.trim(); if (_q) out = out.filter(x => x.name.toLowerCase().includes(_q))
   if (state.squad) out = out.filter(x => (state.accounts[x.name]?.squad || '') === state.squad)
+  if (state.saldoMax != null) out = out.filter(x => saldoOk(x.name, ch || x.channel))
   return out.filter(x => !isHidden(x.name))
 }
-function diagFor(ch, p)  { return p ? applyListFilters(memo('diag',  ch, p, () => buildDeclineDiagnosis(state.raw[ch], cfgFor(ch), p, ch === 'meta'))) : [] }
-function scaleFor(ch, p) { return p ? applyListFilters(memo('scale', ch, p, () => buildScaleCandidates(state.raw[ch], cfgFor(ch), p))) : [] }
+function diagFor(ch, p)  { return p ? applyListFilters(memo('diag',  ch, p, () => buildDeclineDiagnosis(state.raw[ch], cfgFor(ch), p, ch === 'meta')), ch) : [] }
+function scaleFor(ch, p) { return p ? applyListFilters(memo('scale', ch, p, () => buildScaleCandidates(state.raw[ch], cfgFor(ch), p)), ch) : [] }
 
 // Ícones de olho (lucide inline) do botão ocultar/reexibir.
 const EYE_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>'
@@ -1267,6 +1369,8 @@ function saveNav() {
     localStorage.setItem(NAV_KEY, JSON.stringify({
       channel: state.channel, days: state.days, from: state.from, to: state.to, search: state.search, squad: state.squad,
       view: state.view, showHidden: state.showHidden, perfView: state.perfView,
+      grpStatus: state.grpStatus, grpClient: state.grpClient,
+      saldoOp: state.saldoOp, saldoMax: state.saldoMax,
       openClient: state.openClient, tab: state.tab, sub: state.sub, drillSub: state.drillSub,
       drillCampaign: state.drillCampaign, drillAdset: state.drillAdset, drillAdsetName: state.drillAdsetName,
       cDays: state.cDays, cFrom: state.cFrom, cTo: state.cTo, campFilter: state.campFilter,
@@ -1281,6 +1385,10 @@ function restoreNav() {
     state.from = s.from || ''; state.to = s.to || ''; state.search = s.search || ''; state.squad = s.squad || ''
     state.view = ['padrao','diagnostico','escala','queda-ctr','queda-taxa','pace'].includes(s.view) ? s.view : 'padrao'
     state.showHidden = !!s.showHidden
+    if (s.grpStatus != null) state.grpStatus = !!s.grpStatus
+    if (s.grpClient != null) state.grpClient = !!s.grpClient
+    if (SALDO_OPS[s.saldoOp]) state.saldoOp = s.saldoOp
+    state.saldoMax = Number.isFinite(s.saldoMax) ? s.saldoMax : null
     state.perfView = (s.perfView && typeof s.perfView === 'object') ? s.perfView : {}
     if (s.openClient && s.openClient.client) {
       // Só restaura o cliente se a conta ainda existir nos dados carregados.
@@ -1396,6 +1504,56 @@ function viewMenuHTML(c) {
           <span class="vm-desc">${v.desc}</span>
         </span>
       </button>`).join('')}</div>`}`
+}
+
+// ─── Dropdown "Agrupar" (múltipla escolha) da visão Padrão ───────────────────
+// Os dois eixos são independentes e qualquer combinação é válida, então é um
+// menu de caixas de seleção (não um seletor de opção única): dá para ter os
+// dois, um só ou nenhum — e nenhum é a tabela corrida, uma linha por conta.
+const GRP_OPTS = [
+  { key:'grpStatus', emoji:'🚦', label:'Status',
+    desc:'Seções por status de conversão: Crítico, Queda (subdividida pela causa), Estável e Melhora.' },
+  { key:'grpClient', emoji:'👥', label:'Cliente',
+    desc:'Contas do mesmo cliente num quadrante só, fechando com a linha de totais.' },
+]
+function grpMenuHTML() {
+  const on = GRP_OPTS.filter(o => state[o.key])
+  const aberto = state.barPop === 'grp'
+  return `<button class="dp-trigger${aberto ? ' open' : ''}" id="grpBtn" aria-haspopup="menu" aria-expanded="${aberto}" title="Como a lista é agrupada">
+      ${em('🗂️')}<span class="dp-name">Agrupar: ${on.length ? on.map(o => o.label).join(' · ') : 'nada'}</span><span class="dp-caret">▾</span></button>
+    ${!aberto ? '' : `<div class="bpop vm-pop right" role="menu">${GRP_OPTS.map(o => `
+      <button class="vm-item${state[o.key] ? ' active' : ''}" data-grp="${o.key}" role="menuitemcheckbox" aria-checked="${!!state[o.key]}">
+        <span class="grp-check${state[o.key] ? ' on' : ''}" aria-hidden="true">${state[o.key] ? '✓' : ''}</span>
+        <span class="vm-txt">
+          <span class="vm-label"><span class="vm-ico">${em(o.emoji)}</span>${o.label}</span>
+          <span class="vm-desc">${o.desc}</span>
+        </span>
+      </button>`).join('')}
+      <div class="vm-note">Sem nenhum dos dois, a lista vira uma tabela só — uma linha por conta, do pior status para o melhor.</div></div>`}`
+}
+
+// Dropdown do filtro de saldo: o botão mostra a regra em vigor e o popover traz
+// a opção ("Menor ou igual a") com o campo do valor. A escolha só vale no
+// "Aplicar" (ou Enter no campo), como no seletor de período.
+function saldoMenuHTML() {
+  const aberto = state.barPop === 'saldo'
+  const op = SALDO_OPS[state.saldoOp] || SALDO_OPS.lte
+  const ativo = state.saldoMax != null
+  return `<button class="dp-trigger${aberto ? ' open' : ''}${ativo ? ' on' : ''}" id="sfBtn" aria-haspopup="dialog" aria-expanded="${aberto}" title="Filtrar contas pelo saldo lido">
+      ${em('💰')}<span class="dp-name">${ativo ? `Saldo ${op.sinal} ${fmtMoney(state.saldoMax)}` : 'Saldo'}</span><span class="dp-caret">▾</span></button>
+    ${!aberto ? '' : `<div class="bpop sf-pop" role="dialog" aria-label="Filtrar por saldo">
+      <div class="sf-opt">
+        <select id="sfOp" class="sf-select">${Object.entries(SALDO_OPS).map(([k, o]) =>
+          `<option value="${k}" ${state.saldoOp === k ? 'selected' : ''}>${o.label}</option>`).join('')}</select>
+        <span class="sf-money"><span class="sf-cur">R$</span>
+          <input type="number" id="sfVal" min="0" step="50" inputmode="decimal" placeholder="0"
+            value="${state.saldoMax != null ? state.saldoMax : ''}"></span>
+      </div>
+      <div class="sf-note">Vale para o saldo lido pelo sync. Conta sem saldo em número (pós-pago, sem teto ou sem leitura) fica de fora enquanto o filtro estiver ligado.</div>
+      <div class="sf-foot">
+        <button class="dp-btn" id="sfClear">Limpar</button>
+        <button class="dp-btn primary" id="sfApply">Aplicar</button>
+      </div></div>`}`
 }
 
 // Janelas de data da lista. Meta e Google quase sempre caem no mesmo intervalo
@@ -1742,7 +1900,9 @@ function render() {
   app.innerHTML = `
     <div class="header">
       <div class="header-left"><h1>Dashboard Tráfego</h1></div>
-      <div class="header-right"><button class="btn" id="reload">${em('⟳')} Atualizar</button></div>
+      <div class="header-right">
+        ${!state.syncTs ? '' : `<span class="last-sync" title="Horário em que a coleta escreveu estes dados no banco. Ela roda de hora em hora; o botão ao lado dispara uma rodada na hora.">${em('🕒')} Atualizado em ${syncQuando(state.syncTs)}</span>`}
+        <button class="btn" id="reload">${em('⟳')} Atualizar</button></div>
     </div>
     <div class="tabs">
       <div class="tab ${!state.channel?'active':''}" data-ch="">${em('🗂️')} Todos <span class="badge" data-badge="all">${stMeta.length + stGoogle.length}</span></div>
@@ -1757,10 +1917,12 @@ function render() {
         <option value="">Todos os squads</option>
         ${sqs.map(sq=>`<option value="${esc(sq)}" ${state.squad===sq?'selected':''}>${esc(sq)}</option>`).join('')}
       </select>` : '' })()}
+      ${SHARED ? '' : `<div class="bwrap sf-wrap">${saldoMenuHTML()}</div>`}
       <div class="bar-right">
         <div class="search-wrap"><span class="search-icon">${em('🔍')}</span>
           <input type="text" id="search" placeholder="Buscar cliente…" value="${esc(state.search)}">
           <span class="clear-btn" id="clear" style="display:${state.search?'block':'none'}">✕</span></div>
+        ${SHARED || state.view!=='padrao' ? '' : `<div class="bwrap grp-wrap">${grpMenuHTML()}</div>`}
         ${SHARED || state.view!=='padrao' ? '' : `<button class="squad-btn ${state.showHidden?'active':''}" id="toggle-hidden" title="${state.showHidden?'Voltar para a visão normal':'Ver as contas ocultas (clientes que saíram)'}">${state.showHidden?em('👁')+' Vendo ocultas':em('🚫')+' Ocultas'}<span data-vbn="hidden">${vbn(vCounts.hidden)}</span></button>`}
         <div class="bwrap">
           <button class="dp-trigger info-btn${state.barPop==='info'?' open':''}" id="infoBtn" aria-haspopup="dialog" aria-expanded="${state.barPop==='info'}" title="Como esta visão funciona e períodos em uso">${em('ℹ️')}</button>
@@ -2237,13 +2399,15 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       <div class="m-card-top"><span class="m-card-name">Σ Total (${list.length} contas)</span></div>
       <div class="m-grid">${grid}</div></div>`
   }
-  // Tabela + cards de um conjunto de contas. Com mais de uma conta, fecha com a
-  // linha (e o card) de totais do cliente.
-  const acctTable = list => `<div class="table-wrap"><table>
+  // Tabela + cards de um conjunto de contas. Dentro do quadrante de um cliente
+  // com mais de uma conta, fecha com a linha (e o card) de totais do cliente —
+  // na tabela corrida (agrupamento por cliente desligado) não há total, porque
+  // aí as linhas são contas de clientes diferentes.
+  const acctTable = (list, totais = true) => `<div class="table-wrap"><table>
         ${acctColgroupHTML()}
         <thead><tr>${acctTheadHTML()}</tr></thead>
-        <tbody>${list.map(acctRow).join('')}${list.length > 1 ? totalRow(list) : ''}</tbody></table></div>
-      <div class="m-cards">${list.map(acctCard).join('')}${list.length > 1 ? totalCard(list) : ''}</div>`
+        <tbody>${list.map(acctRow).join('')}${totais && list.length > 1 ? totalRow(list) : ''}</tbody></table></div>
+      <div class="m-cards">${list.map(acctCard).join('')}${totais && list.length > 1 ? totalCard(list) : ''}</div>`
 
   // Quadrante do cliente: título com o nome vindo do perfil da Área do Cliente
   // (ou o nome da própria conta, se não estiver vinculada) + as contas
@@ -2256,34 +2420,63 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
     </div>`
   }
 
+  // ── Agrupamentos (interruptores da barra de filtros) ───────────────────────
+  // Dois eixos independentes: por STATUS (as seções Crítico / Queda / Estável /
+  // Melhora, com os subgrupos de causa dentro de "Queda") e por CLIENTE (contas
+  // do mesmo projeto num quadrante só, com linha de totais). Desligar os dois
+  // deixa uma tabela corrida, uma linha por conta.
+  const porStatus = state.grpStatus, porCliente = state.grpClient
   const clients = groupByClient(st)
-  const groups = STATUS_GROUPS.map(g => {
-    let grp = clients.filter(c => worstStatus(c) === g.key); if (!grp.length) return ''
-    grp = sortClients(grp, g.key)
-    const header = `<div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span>${infoIco(g.tip)}<span class="gh-count">${grp.length} cliente${grp.length!==1?'s':''}</span></div>`
-    // Grupo "Queda": subclassifica pelas causas do diagnóstico (verba / CTR /
-    // taxa), usando a conta do cliente que está em queda como representante.
-    // Cada subgrupo com clientes vira um bloco com subcabeçalho próprio.
-    if (g.key === 'QUEDA') {
-      const subBlock = (cls, icon, label, tip, list) => `<div class="queda-sub">
-        <div class="subgroup-header ${cls}"><span class="gh-icon">${em(icon)}</span><span class="sg-title">${label}</span>${infoIco(tip)}<span class="gh-count">${list.length} cliente${list.length!==1?'s':''}</span></div>
-        ${list.map(clientCard).join('')}</div>`
-      const causaOfClient = c => {
-        const rep = c.accounts.find(a => a.status === 'QUEDA')
-        return rep ? causaOf(diagMap[rep.channel+'|'+rep.name]) : null
-      }
-      const subs = QUEDA_CAUSAS.map(c => {
-        const list = grp.filter(cl => (causaOfClient(cl)||{}).key === c.key)
-        return list.length ? subBlock(c.cls, c.icon, c.label, c.tip, list) : ''
-      }).join('')
-      // Clientes em queda sem diagnóstico disponível (raro — falta de cliques/impressões).
-      const semDiag = grp.filter(c => !causaOfClient(c))
-      const outros = semDiag.length
-        ? subBlock(QUEDA_SEM_DIAG.cls, QUEDA_SEM_DIAG.icon, QUEDA_SEM_DIAG.label, QUEDA_SEM_DIAG.tip, semDiag) : ''
-      return `<div class="group-section">${header}${subs}${outros}</div>`
-    }
-    return `<div class="group-section">${header}${grp.map(clientCard).join('')}</div>`
-  }).join('')
+  const rotulo = n => porCliente ? `${n} cliente${n!==1?'s':''}` : `${n} conta${n!==1?'s':''}`
+  // Sem as seções de status a lista perde a ordem de gravidade que elas davam;
+  // a ordem natural passa a ser pior status primeiro e, dentro dele, o nome.
+  const byWorst = (a,b) => (STATUS_RANK[worstStatus(a)]-STATUS_RANK[worstStatus(b)])
+    || String(a.name).localeCompare(String(b.name),'pt-BR')
+  const byRank = (a,b) => (STATUS_RANK[a.status]-STATUS_RANK[b.status])
+    || String(a.name).localeCompare(String(b.name),'pt-BR')
+  // Itens de uma seção: clientes (quadrantes) ou contas (linhas), conforme o
+  // interruptor "Cliente". `statusKey` null = não há seções, é a lista toda.
+  const itensDe = statusKey => statusKey == null
+    ? (porCliente ? clients.slice().sort(byWorst) : st.slice().sort(byRank))
+    : (porCliente ? clients.filter(c => worstStatus(c) === statusKey) : st.filter(x => x.status === statusKey))
+  // Corpo de uma seção. `statusKey` também define a conta "representante" na
+  // ordenação por coluna dos quadrantes (a que fez o cliente cair na seção).
+  const corpoHTML = (itens, statusKey) => porCliente
+    ? sortClients(itens, statusKey).map(clientCard).join('')
+    : acctTable(sortAccounts(itens), false)
+  // Causa da queda do item (cliente ou conta), para os subgrupos de "Queda".
+  const causaDoItem = item => {
+    const rep = porCliente ? item.accounts.find(a => a.status === 'QUEDA') : item
+    return rep ? causaOf(diagMap[rep.channel+'|'+rep.name]) : null
+  }
+  // Corpo da seção "Queda": subclassifica pelas causas do diagnóstico (verba /
+  // CTR / taxa). Cada subgrupo com itens vira um bloco com subcabeçalho próprio.
+  const corpoQueda = itens => {
+    const subBlock = (cls, icon, label, tip, list) => `<div class="queda-sub">
+      <div class="subgroup-header ${cls}"><span class="gh-icon">${em(icon)}</span><span class="sg-title">${label}</span>${infoIco(tip)}<span class="gh-count">${rotulo(list.length)}</span></div>
+      ${corpoHTML(list, 'QUEDA')}</div>`
+    const subs = QUEDA_CAUSAS.map(c => {
+      const list = itens.filter(i => (causaDoItem(i)||{}).key === c.key)
+      return list.length ? subBlock(c.cls, c.icon, c.label, c.tip, list) : ''
+    }).join('')
+    // Em queda sem diagnóstico disponível (raro — falta de cliques/impressões).
+    const semDiag = itens.filter(i => !causaDoItem(i))
+    return subs + (semDiag.length
+      ? subBlock(QUEDA_SEM_DIAG.cls, QUEDA_SEM_DIAG.icon, QUEDA_SEM_DIAG.label, QUEDA_SEM_DIAG.tip, semDiag) : '')
+  }
+  let groups
+  if (porStatus) {
+    groups = STATUS_GROUPS.map(g => {
+      const itens = itensDe(g.key); if (!itens.length) return ''
+      const header = `<div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span>${infoIco(g.tip)}<span class="gh-count">${rotulo(itens.length)}</span></div>`
+      return `<div class="group-section">${header}${g.key === 'QUEDA' ? corpoQueda(itens) : corpoHTML(itens, g.key)}</div>`
+    }).join('')
+  } else {
+    const itens = itensDe(null)
+    const tip = 'Agrupamento por status desligado: uma lista só, do pior status para o melhor. A coluna Status continua em cada linha.'
+    const header = `<div class="group-header gh-blue"><span class="gh-icon">${em('🗂️')}</span><span class="gh-title">${porCliente?'Todos os clientes':'Todas as contas'}</span>${infoIco(tip)}<span class="gh-count">${rotulo(itens.length)}</span></div>`
+    groups = `<div class="group-section">${header}${corpoHTML(itens, null)}</div>`
+  }
   return summary + groups
 }
 
@@ -2593,7 +2786,7 @@ function targetCellHTML(name, cpl) {
 // aplicados) cujo projeto tem plano de Campanha alocando verba neste canal.
 function paceItemsFor(ch, p) {
   if (!p || SHARED) return []
-  return applyListFilters(memo('stats', ch, p, () => buildStats(state.raw[ch], cfgFor(ch), p))).map(x => {
+  return applyListFilters(memo('stats', ch, p, () => buildStats(state.raw[ch], cfgFor(ch), p)), ch).map(x => {
     const meta = state.accounts[x.name] || {}
     const budget = meta.plan ? planChannelBudget(meta.plan, ch) : null
     const pace = budget ? paceOf(budget.total, meta.plan.startDate || null,
@@ -4131,18 +4324,46 @@ function openShareModal(client, ch, url) {
   }
 }
 
+// Card de Saldo da página do cliente — entrou no lugar do card "Var. Conv.", que
+// repetia o que o card de Conversões já mostra embaixo do número ("ant. N ▼ x%").
+// Devolve null quando não há saldo a mostrar, e aí o card SOME em vez de virar um
+// "—" ocupando espaço: conta pós-paga, sem teto, sem orçamento ou que não entrou
+// na última coleta do sync.
+function saldoKpi(client, ch, stats, period) {
+  const r = saldoDe(client, ch)
+  if (!r) return null
+  // Conta fora do ar no Meta: vale mais que o número (é o motivo de ela não estar
+  // veiculando), então o card mostra o status, como a coluna Saldo da lista.
+  if (r.situacao === 'CONTA_INATIVA') {
+    const [txt, tip] = SALDO_STATUS_CONTA[r.statusConta] || ['conta inativa', 'Esta conta não está ativa no Meta.']
+    return { value: txt, sub: `lido em ${snapWhen(r.ts)}`, cls: 'dn', tip }
+  }
+  if (r.valor == null) return null
+  const detalhe = r.limite != null ? ` Teto ${fmtMoney(r.limite)} − gasto ${fmtMoney(r.gasto)}.` : ''
+  const tip = `Saldo lido em ${snapWhen(r.ts)}.${detalhe}`
+  if (r.valor <= 0) return { value: fmtMoney(r.valor), sub: 'sem saldo — a conta para de veicular', cls: 'dn', tip }
+  // Cobertura estimada: quantos dias o saldo ainda paga no ritmo do período
+  // aberto. É estimativa, então vai no rodapé do card, não no valor.
+  const dias = period ? diffDays(period.p1s, period.p1e) + 1 : 0
+  const porDia = dias > 0 && stats.spend1 > 0 ? stats.spend1 / dias : 0
+  const velho = saldoStale(r) ? ' · leitura antiga' : ''
+  return { value: fmtMoney(r.valor), cls: '', tip,
+    sub: (porDia > 0 ? `cobre ~${Math.floor(r.valor / porDia)} dia(s) no ritmo atual` : `lido em ${snapWhen(r.ts)}`) + velho }
+}
+
 // KPIs do novo visual: card hero verde-lima com o investido do período (e o
 // anterior em chips) + um card por métrica, com ícone em círculo, rótulo, valor
-// e a variação em pílula. Mesmas 6 métricas da barra de KPIs de sempre.
-function kpiGridHTML(stats, period, isMeta, target, delta, dCls) {
+// e a variação em pílula. O último card é o Saldo — e some quando a conta não
+// tem saldo a mostrar, com a grade reduzindo para 4 cards (classe `sem-saldo`).
+function kpiGridHTML(stats, period, isMeta, target, delta, dCls, saldo) {
   const vp = (v, inv) => v == null ? '' : `<span class="vpill ${varCls(v, inv)}">${v > 0.05 ? '▲' : v < -0.05 ? '▼' : '•'} ${fmtPct(v)}</span>`
-  const card = (icon, label, value, sub, cls) => `<div class="cp-kpi-card">
+  const card = (icon, label, value, sub, cls, tip) => `<div class="cp-kpi-card"${tip ? ` title="${esc(tip)}"` : ''}>
       <div class="kc-top"><span class="kc-ico">${svgIco(icon)}</span><span class="kc-label">${label}</span></div>
       <div class="kc-value ${cls || ''}">${value}</div>
       <div class="kc-sub">${sub}</div></div>`
   const sv = stats.varSpend
   const spendChip = sv == null ? '' : `<span class="chip chip-dark">${svgIco(sv >= 0 ? 'trend' : 'trend-dn')} ${fmtPct(sv)} vs anterior</span>`
-  return `<div class="cp-kpi-grid">
+  return `<div class="cp-kpi-grid${saldo ? '' : ' sem-saldo'}">
     <div class="cp-kpi-hero">
       <div class="hero-top"><span class="hero-label">Investido</span><span class="hero-ico">${svgIco('wallet')}</span></div>
       <div class="hero-value">${fmtMoney(stats.spend1)}<span class="hero-unit">${esc(period.label1)}</span></div>
@@ -4153,7 +4374,7 @@ function kpiGridHTML(stats, period, isMeta, target, delta, dCls) {
     ${card('flag', 'CPL Alvo', target ? fmtMoney(target.value) : '—', target ? esc(target.acName) : 'não vinculado')}
     ${card('trend', 'Δ vs Alvo', delta != null ? (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%' : '—',
       delta != null ? (delta <= 0 ? '<span class="vpill up">dentro da meta</span>' : '<span class="vpill dn">acima da meta</span>') : 'vincular AC', dCls)}
-    ${card('activity', 'Var. Conv.', fmtPct(stats.varConv), 'vs período anterior', varCls(stats.varConv, false))}
+    ${saldo ? card('wallet', 'Saldo', saldo.value, saldo.sub, saldo.cls, saldo.tip) : ''}
   </div>`
 }
 
@@ -4209,13 +4430,14 @@ function renderClient() {
   const dCls = delta==null?'fl' : delta<=0?'up' : delta<=30?'warn':'dn'
 
   // KPI bar — no novo visual vira card hero (investido) + um card por métrica
-  const kpiBar = !(stats && period) ? '' : state.newLook ? kpiGridHTML(stats, period, isMeta, target, delta, dCls) : `<div class="cp-kpi-bar">
+  const saldoK = stats ? saldoKpi(client, ch, stats, period) : null
+  const kpiBar = !(stats && period) ? '' : state.newLook ? kpiGridHTML(stats, period, isMeta, target, delta, dCls, saldoK) : `<div class="cp-kpi-bar">
     <div class="cp-kpi-item"><div class="cp-kpi-label">Investido</div><div class="cp-kpi-value sum-accent">${fmtMoney(stats.spend1)}</div><div class="cp-kpi-sub">${period.label1}</div></div>
     <div class="cp-kpi-item"><div class="cp-kpi-label">${isMeta?'Leads / Conv.':'Conversões'}</div><div class="cp-kpi-value">${fmtNum(stats.conv1)}</div><div class="cp-kpi-sub">ant. ${fmtNum(stats.conv2)}</div></div>
     <div class="cp-kpi-item"><div class="cp-kpi-label">CPL Real</div><div class="cp-kpi-value">${fmtMoney(stats.cpl1)}</div><div class="cp-kpi-sub">ant. ${fmtMoney(stats.cpl2)}</div></div>
     <div class="cp-kpi-item"><div class="cp-kpi-label">CPL Alvo</div><div class="cp-kpi-value">${target?fmtMoney(target.value):'—'}</div><div class="cp-kpi-sub">${target?esc(target.acName):'não vinculado'}</div></div>
     <div class="cp-kpi-item"><div class="cp-kpi-label">Δ vs Alvo</div><div class="cp-kpi-value ${dCls}">${delta!=null?(delta>=0?'+':'')+delta.toFixed(1)+'%':'—'}</div><div class="cp-kpi-sub">${delta!=null?(delta<=0?'✅ dentro da meta':'🚨 acima da meta'):'vincular AC'}</div></div>
-    <div class="cp-kpi-item"><div class="cp-kpi-label">Var. Conv.</div><div class="cp-kpi-value ${varCls(stats.varConv,false)}">${fmtPct(stats.varConv)}</div><div class="cp-kpi-sub">vs período ant.</div></div>
+    ${!saldoK ? '' : `<div class="cp-kpi-item" title="${esc(saldoK.tip)}"><div class="cp-kpi-label">Saldo</div><div class="cp-kpi-value ${saldoK.cls}">${saldoK.value}</div><div class="cp-kpi-sub">${saldoK.sub}</div></div>`}
   </div>`
 
   // badges header
@@ -4446,6 +4668,27 @@ function wire() {
   const sideOv=document.getElementById('sideOv'); if (sideOv) sideOv.onclick=barPopClose
   app.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ state.view=b.dataset.view; state.showHidden=false; barPopTeardown(); render() })
   const th=document.getElementById('toggle-hidden'); if (th) th.onclick=()=>{ state.showHidden=!state.showHidden; render() }
+  const grpBtn=document.getElementById('grpBtn'); if (grpBtn) grpBtn.onclick=ev=>{ ev.stopPropagation(); barPopToggle('grp') }
+  // Filtro de saldo: o valor digitado só entra no estado no Aplicar (ou Enter),
+  // senão cada tecla re-renderizaria a lista inteira embaixo do popover.
+  const sfBtn=document.getElementById('sfBtn'); if (sfBtn) sfBtn.onclick=ev=>{ ev.stopPropagation(); barPopToggle('saldo') }
+  const sfVal=document.getElementById('sfVal')
+  if (sfVal) {
+    sfVal.focus(); sfVal.select()
+    const aplicar = () => {
+      const op=document.getElementById('sfOp'); if (op) state.saldoOp = op.value
+      const v = parseFloat(String(sfVal.value).replace(',', '.'))
+      state.saldoMax = Number.isFinite(v) ? v : null
+      barPopTeardown(); render()
+    }
+    sfVal.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); aplicar() } }
+    document.getElementById('sfApply').onclick = ev => { ev.stopPropagation(); aplicar() }
+    document.getElementById('sfClear').onclick = ev => { ev.stopPropagation()
+      state.saldoMax = null; barPopTeardown(); render() }
+  }
+  // Múltipla escolha: o menu SEGUE ABERTO a cada clique (state.barPop continua
+  // 'grp' no render), para marcar os dois eixos sem reabrir o dropdown.
+  app.querySelectorAll('[data-grp]').forEach(b=>b.onclick=ev=>{ ev.stopPropagation(); state[b.dataset.grp]=!state[b.dataset.grp]; render() })
   wirePanel()
 }
 
