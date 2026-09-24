@@ -1895,6 +1895,7 @@ function buildSaldoSnap(rows) {
     out[canal + '|' + nome] = {
       valor: r['Saldo'] ? num(r['Saldo']) : null,
       situacao: r['Situação'] || '',
+      statusConta: r['Status da conta'] || '',
       limite: r['Limite'] ? num(r['Limite']) : null,
       gasto: r['Gasto'] ? num(r['Gasto']) : null,
       ts: r['Atualizado em'] || '',
@@ -1903,6 +1904,21 @@ function buildSaldoSnap(rows) {
   return out
 }
 const saldoDe = (nome, canal) => (state.saldo && state.saldo[canal + '|' + nome]) || null
+
+// Conta do Meta fora do ar. Vale mais que o saldo: a conta sai de
+// `account_status = 1` justamente quando é desabilitada por saldo ou pagamento,
+// e antes disso a célula ficava vazia bem na hora em que a informação importava.
+// Fica em vermelho porque é o mesmo tipo de aviso do saldo esgotado — a conta
+// parou de rodar.
+const SALDO_STATUS_CONTA = {
+  DESATIVADA: ['desativada', 'O Meta desabilitou esta conta. Costuma ser falta de saldo ou problema de pagamento.'],
+  INADIMPLENTE: ['inadimplente', 'Conta com pagamento em aberto no Meta (unsettled): a veiculação para até quitar.'],
+  EM_ANALISE: ['em análise', 'Conta em revisão de risco pelo Meta.'],
+  AGUARDANDO_PAGAMENTO: ['aguard. pagamento', 'Conta aguardando liquidação do pagamento no Meta.'],
+  PERIODO_DE_CARENCIA: ['em carência', 'Conta no período de carência do Meta — ainda veicula, mas há pendência de pagamento.'],
+  ENCERRAMENTO_PENDENTE: ['encerrando', 'Conta com encerramento pendente no Meta.'],
+  FECHADA: ['fechada', 'Conta fechada no Meta.'],
+}
 
 // Situações sem número: cada uma diz POR QUE não há saldo, que é diferente de
 // "saldo zero". O texto curto vai na célula e a explicação no tooltip.
@@ -1922,6 +1938,11 @@ function saldoCell(x) {
   const r = saldoDe(x.name, x.channel)
   if (!r) {
     return `<span class="pace-none" title="Esta conta não apareceu na última coleta de saldo do sync.">—</span>`
+  }
+  if (r.situacao === 'CONTA_INATIVA') {
+    const [txt, tip] = SALDO_STATUS_CONTA[r.statusConta]
+      || ['conta inativa', 'Esta conta não está ativa no Meta.']
+    return `<span class="crit" title="${esc(tip + ' Lido em ' + snapWhen(r.ts) + '.')}">${txt} 🚨</span>`
   }
   if (r.valor == null) {
     const [txt, tip] = SALDO_SEM_VALOR[r.situacao] || ['—', 'Saldo não disponível para esta conta.']
@@ -2139,7 +2160,9 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
      ['Investido', fmtMoneyCard(x.spend1), mDelta(x.varSpend, false)],
      ['CTR', fmtRatio(x.ctr1), mDelta(x.varCtr, false)],
      ['Tx. Conv.', fmtRatio(x.cr1), mDelta(x.varCr, false)],
-     ['Saldo', (r => r && r.valor != null ? fmtMoneyCard(r.valor) : '—')(saldoDe(x.name, x.channel)), ''],
+     ['Saldo', (r => !r ? '—'
+        : r.situacao === 'CONTA_INATIVA' ? (SALDO_STATUS_CONTA[r.statusConta] || ['conta inativa'])[0]
+        : r.valor != null ? fmtMoneyCard(r.valor) : '—')(saldoDe(x.name, x.channel)), ''],
      ['Ads ativos', (r => r ? fmtNum(r.n) + (adsStale(r) ? ' ?' : '') : '—')(activeAdsOfAccount(x.name, x.channel)), '']],
     x.channel)
   }
