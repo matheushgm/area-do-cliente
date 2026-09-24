@@ -300,6 +300,17 @@
   .cp-quad-scope { font-size:12px; font-weight:700; color:#475569; margin:0 0 10px;
     display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:8px;
     background:#EEF2F9; border:1px solid #D8E0F0; }
+  /* Na aba Campanhas os filtros de período e de campanha moram nesta linha, ao
+     lado do rótulo de escopo (a barra separada acima das abas só sobra para as
+     outras abas e para quando não há período). */
+  .dt-root .cp-scope-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; }
+  .dt-root .cp-scope-bar .cp-quad-scope { margin:0; }
+  .dt-root .cp-scope-filters { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-left:auto; }
+  .dt-root .cp-scope-filters .cp-period-info { margin-left:0; }
+  /* Aqui os dropdowns nascem colados na borda direita: o de campanhas ancora
+     por ela (o do período se vira sozinho no dpFit, que mede a tela). */
+  .dt-root .cp-scope-filters .cp-camp-filter-panel { left:auto; right:0; }
+  @media(max-width:680px){ .dt-root .cp-scope-filters { margin-left:0; width:100%; } }
   /* Célula de nome do anúncio: nome trunca, botão "Ver" fica sempre visível */
   .dt-root .ad-name .ad-name-flex { display:flex; align-items:center; gap:8px; }
   .dt-root .ad-name .ad-name-txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:70px; }
@@ -1686,6 +1697,13 @@ function dpFit() {
   pop.style.top = paraCima ? 'auto' : ''
   pop.style.bottom = paraCima ? 'calc(100% + 8px)' : ''
   pop.style.maxHeight = `${Math.round(Math.min(470, Math.max(240, paraCima ? acima : abaixo)))}px`
+  // Horizontal: na aba Campanhas o botão fica à DIREITA (linha do escopo) e o
+  // popover de dois meses passava da borda da tela. Ancora pela direita quando
+  // não couber. Abaixo de 680px o CSS já o faz ocupar a largura toda.
+  const estreito = innerWidth <= 680
+  const cabe = r.left + (pop.offsetWidth || 620) <= innerWidth - 12
+  pop.style.left = (estreito || cabe) ? '' : 'auto'
+  pop.style.right = (estreito || cabe) ? '' : '0'
 }
 
 function dpWire() {
@@ -2744,22 +2762,46 @@ function varMini(cur, prev) {
   const cls = pct > 0 ? 'up' : 'dn', arrow = pct > 0 ? '▲' : '▼'
   return `<span class="var-mini ${cls}" title="Anterior: ${fmtNum(p)} · atual: ${fmtNum(c)}">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`
 }
-// Anúncios ATIVOS num conjunto de linhas, contados por ad_id — o mesmo critério
-// da coluna "Anúncios ativos" da lista e do Gerenciador. Antes contava GRUPOS de
-// nome, e o mesmo criativo em três conjuntos virava 1. null quando nenhum ad_id
-// aparece no snapshot (aí não dá para afirmar nada).
+// Conjuntos (adset ids) a que pertencem estas linhas, pelo snapshot: toda linha
+// de insight tem ad_id, e o anúncio aponta para o conjunto em "ID pai". É assim
+// que se descobre o escopo de uma tabela sem depender do adset_id da linha (que
+// só existe nas mais recentes).
+function adsetIdsOf(a, rows){
+  const out = new Set()
+  for (const r of (rows || [])) { const ad = r['ad_id'] && a.anuncio[r['ad_id']]; if (ad && ad.pai) out.add(ad.pai) }
+  return out
+}
+// Anúncios ATIVOS de um escopo, lidos do SNAPSHOT — não das linhas do período.
+// O insight só devolve linha para anúncio que teve impressão, então contar pelas
+// linhas deixava de fora quem está ligado e ainda não entregou (subiu ontem) ou
+// parou de entregar sem ser pausado — e o número ficava abaixo da coluna
+// "Anúncios ativos" da lista, que sempre olhou o snapshot inteiro.
+// `escopo` = Set de adset ids (tabela/cabeçalho de um conjunto) ou null (conta
+// inteira). Devolve [[id, entrada]] ou null quando não dá para afirmar nada.
+function activeAdsOfScope(acct, escopo){
+  const a = state.statusSnap && state.statusSnap[acct]
+  if (!a) return null
+  const ads = Object.entries(a.anuncio).filter(([, e]) => !escopo || escopo.has(e.pai))
+  if (!ads.length) return null
+  return ads.filter(([, e]) => adNoAr(a, e))
+}
+// Anúncios ATIVOS de um conjunto de linhas, contados por ad_id — o mesmo
+// critério da coluna "Anúncios ativos" da lista e do Gerenciador. Antes contava
+// GRUPOS de nome, e o mesmo criativo em três conjuntos virava 1. null quando
+// nenhum ad_id das linhas aparece no snapshot (aí não dá para afirmar nada).
 function activeAdsCount(rows){
   const acct = acctOf(rows)
   const a = state.statusSnap && state.statusSnap[acct]
   if (!a) return null
-  const ids = [...new Set((rows || []).map(r => r['ad_id']).filter(Boolean))]
-  const ents = ids.map(id => a.anuncio[id]).filter(Boolean)
-  if (!ents.length) return null
-  return ents.filter(e => adNoAr(a, e)).length
+  const escopo = adsetIdsOf(a, rows)
+  if (!escopo.size) return null
+  const ativos = activeAdsOfScope(acct, escopo)
+  return ativos ? ativos.length : null
 }
-// "· N anúncios ativos" do cabeçalho de escopo (conta inteira ou conjunto).
-const escopoAtivos = rows => {
-  const n = activeAdsCount(rows)
+// "· N anúncios ativos" do cabeçalho de escopo. `conta` = conta inteira (o mesmo
+// número da coluna da lista); sem ele, o escopo sai dos conjuntos das linhas.
+const escopoAtivos = (rows, conta) => {
+  const n = conta ? ((activeAdsOfAccount(acctOf(rows), 'meta') || {}).n ?? null) : activeAdsCount(rows)
   return n == null ? '' : ` · ${n} anúncio${n !== 1 ? 's' : ''} ativo${n !== 1 ? 's' : ''}`
 }
 const flagRow = (items,kind) => items.length ? `<div class="flag-row">${items.map(f=>`<span class="flag flag-${kind}">${f}</span>`).join('')}</div>` : ''
@@ -2991,8 +3033,21 @@ function tblMetaAds(rows, prevRows){
     h3:r=>M(r,'Número de vezes que assistiram os 3 primeiros segundos'), vv:r=>M(r,'Número de vezes que o vídeo foi exibido'),
     p25:r=>M(r,'Número de vezes que assistiram 25% do vídeo'), p50:r=>M(r,'Número de vezes que assistiram 50% do vídeo'),
     p75:r=>M(r,'Número de vezes que assistiram 75% do vídeo'), p100:r=>M(r,'Número de vezes que assistiram 100% do vídeo') })
-  if(!g.length) return `<div class="empty">Sem anúncios no período.</div>`
-  const acct = acctOf(rows)
+  // Anúncios ATIVOS que não tiveram entrega no período entram zerados no fim da
+  // tabela: o insight só devolve linha para anúncio com impressão, então quem
+  // subiu ontem (ou parou de entregar sem ser pausado) sumia daqui e a tabela
+  // parecia discordar da coluna "Anúncios ativos" da lista, que lê o snapshot.
+  const acct = acctOf(rows) || (state.openClient?.client || '')
+  const snapA = state.statusSnap && state.statusSnap[acct]
+  // Dentro de um conjunto, só os ativos DELE; na conta inteira, todos.
+  const escopo = (state.drillAdset && snapA) ? adsetIdsOf(snapA, rows) : null
+  const vistos = new Set((rows || []).map(r=>r['ad_id']).filter(Boolean))
+  // Linha antiga sem ad_id cai no nome (metaAdKey) — sem isso o mesmo anúncio
+  // apareceria duas vezes: uma com dados, outra como "sem entrega".
+  const vistosNome = new Set((rows || []).filter(r=>!r['ad_id']).map(r=>r['Nome do Anúncio']).filter(Boolean))
+  const semEntrega = (activeAdsOfScope(acct, escopo) || [])
+    .filter(([id, e]) => !vistos.has(id) && !vistosNome.has(e.nome))
+  if(!g.length && !semEntrega.length) return `<div class="empty">Sem anúncios no período.</div>`
   const noConv = g.filter(x=>x.spend>0&&x.conv===0)
   const flags = noConv.length?[`🚨 ${noConv.length} anúncio(s) com gasto e 0 resultados — ${fmtMoney(noConv.reduce((a,x)=>a+x.spend,0))} desperdiçados`]:[]
   const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const ctr=x.impr>0?x.clicks/x.impr*100:null, cpm=x.impr>0?x.spend/x.impr*1000:null
@@ -3012,7 +3067,26 @@ function tblMetaAds(rows, prevRows){
       <td>${stHtml}</td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${hookCell(x.h3,x.vv)}</td><td>${ctrCell(ctr)}</td><td>${cpm!=null?fmtMoney(cpm):'—'}</td>
       <td>${pctVid(x.p25,x.vv)}</td><td>${pctVid(x.p50,x.vv)}</td><td>${pctVid(x.p75,x.vv)}</td><td>${pctVid(x.p100,x.vv)}</td></tr>` }).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Anúncio</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Hook 3s</th><th>CTR Link</th><th>CPM</th><th>V25%</th><th>V50%</th><th>V75%</th><th>V100%</th></tr></thead><tbody>${body}</tbody></table></div>`
+  // Linhas dos ativos sem entrega: zeradas, com a tag de status do snapshot e o
+  // selo "sem entrega". O "Ver" (preview) continua valendo — é por ad_id.
+  const bodySem = semEntrega.map(([id, e]) => {
+    const nome = e.nome || id
+    const conjunto = state.drillAdset ? '' : ((snapA.conjunto[e.pai] || {}).nome || '')
+    const i = statusTagInfo(e.status)
+    const stHtml = i ? `<span class="status-tag ${i.cls}" title="${esc(snapTitle(e))}">${esc(i.label)}</span>` : '—'
+    const prevBtn = `<button class="ad-prev-btn" data-adid="${esc(id)}" data-adname="${esc(nome)}" title="Ver anúncio rodando">${ic('eye','👁')} Ver</button>`
+    const destBtn = SHARED ? '' : ` <button class="ad-dest-btn" data-adid="${esc(id)}" data-adname="${esc(nome)}" data-destino="" title="Mostrar destino do anúncio">${ic('external','🔗')} Destino</button>`
+    // "sem entrega" vai na sub-linha (junto do conjunto) e não como selo ao lado
+    // do nome: a coluna já é a mais apertada da tabela e o selo comia o nome.
+    // "sem entrega" vem ANTES do conjunto: nome de conjunto é longo e o ellipsis
+    // da sub-linha engoliria justamente a informação que importa aqui.
+    const sub = `sem entrega${conjunto ? ' · ' + esc(conjunto) : ''}`
+    return `<tr><td class="ad-name" title="${esc(nome)}${conjunto?` · conjunto: ${esc(conjunto)}`:''} — ativo na conta, mas sem nenhuma impressão no período.">
+      <span class="ad-name-flex"><span class="ad-name-txt">${esc(nome)}<span class="ad-sub">${sub}</span></span>${prevBtn}${destBtn}</span></td>
+      <td>${stHtml}</td><td><span class="fl">0</span></td><td><span class="fl">${fmtMoney(0)}</span></td><td>—</td>
+      <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`
+  }).join('')
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Anúncio</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Hook 3s</th><th>CTR Link</th><th>CPM</th><th>V25%</th><th>V50%</th><th>V75%</th><th>V100%</th></tr></thead><tbody>${body}${bodySem}</tbody></table></div>`
 }
 function tblGoogleCampaigns(rows, prevRows){
   const g = groupBy(rows, r=>r['Campanha'], {
@@ -3632,14 +3706,17 @@ function initQuadrantCharts(period, rows, channel, isMeta) {
 }
 
 // ─── Aba CAMPANHAS (insights + sub-abas/drill) ────────────────────────────────
-function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, period, pace) {
+function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, period, pace, filtros) {
   const isMeta = channel === 'meta'
-  if (!allRows.length) return `<div class="cp-panel"><div class="empty">Sem dados no período.</div></div>`
+  // Sem linhas no período os filtros vêm junto assim mesmo — é por eles que se
+  // troca o período que não devolveu nada.
+  const filtrosBar = filtros ? `<div class="cp-scope-filters">${filtros}</div>` : ''
+  if (!allRows.length) return `<div class="cp-panel"><div class="cp-scope-bar">${filtrosBar}</div><div class="empty">Sem dados no período.</div></div>`
   // Quadrantes (Custos / Engajamento / Performance) escopados ao nível atual do
   // drill: conta inteira no topo, campanha ao entrar numa campanha, conjunto ao
   // entrar num conjunto. Reaproveita metricGroupsHTML da aba Resultados.
   let qCur = allRows, qPrev = prevRows, scopeLabel = 'Conta — todas as campanhas', qPace = pace
-  if (isMeta && !state.drillCampaign && !state.drillAdset) scopeLabel += escopoAtivos(allRows)
+  if (isMeta && !state.drillCampaign && !state.drillAdset) scopeLabel += escopoAtivos(allRows, true)
   if (isMeta && state.drillAdset) {
     qCur = allRows.filter(r=>metaAdsetKey(r)===state.drillAdset)
     qPrev = prevRows.filter(r=>metaAdsetKey(r)===state.drillAdset)
@@ -3657,7 +3734,7 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
     scopeLabel = `Campanha: ${state.drillCampaign}`
     qPace = null
   }
-  const quad = `<div class="cp-quad-scope">${ic('ruler','📐')} ${esc(scopeLabel)}</div>${metricGroupsHTML(qCur, qPrev, isMeta, period, qPace)}`
+  const quad = `<div class="cp-scope-bar"><div class="cp-quad-scope">${ic('ruler','📐')} ${esc(scopeLabel)}</div>${filtrosBar}</div>${metricGroupsHTML(qCur, qPrev, isMeta, period, qPace)}`
   // Drill dentro da aba
   if (state.drillCampaign || state.drillAdset) {
     let body, bc
@@ -4068,14 +4145,17 @@ function renderClient() {
           <span class="cp-camp-list-spend">${fmtMoney(c.spend)}</span></label>`).join('')}
       </div>
     </div>` : ''
-  const periodBar = `<div class="cp-period-bar">
-    <div class="dp">${dpTriggerHTML()}${state.dpOpen?`<div class="dp-pop" id="dpPop" role="dialog" aria-label="Selecionar período">${dpPopHTML()}</div>`:''}</div>
+  // Os mesmos controles servem à barra separada e à linha de escopo da aba
+  // Campanhas — só muda o invólucro.
+  const filtros = `<div class="dp">${dpTriggerHTML()}${state.dpOpen?`<div class="dp-pop" id="dpPop" role="dialog" aria-label="Selecionar período">${dpPopHTML()}</div>`:''}</div>
     <div class="cp-camp-filter" id="campFilterWrap">
       <button class="cp-camp-filter-btn${state.campFilter.length?' active':''}" id="campFilterBtn">${ic('search','🔍')} Campanhas: <b>${filterLabel}</b> <span style="opacity:.6;margin-left:4px">▾</span></button>
       ${campPanel}
     </div>
-    <span class="cp-period-info">${period?`${period.label1} · vs ${period.label2}`:'Sem dados no período'}</span>
-  </div>`
+    <span class="cp-period-info">${period?`${period.label1} · vs ${period.label2}`:'Sem dados no período'}</span>`
+  const periodBar = `<div class="cp-period-bar">${filtros}</div>`
+  // Na aba Campanhas os filtros descem para a linha do rótulo de escopo.
+  const filtrosNoEscopo = state.tab === 'campanhas' && !!period
 
   // tabs
   // Na visão interna a aba "Resultados" foi removida: os mesmos números já
@@ -4095,7 +4175,7 @@ function renderClient() {
   let content
   if (!period) content = `<div class="cp-panel"><div class="empty">Sem dados no período.</div></div>`
   else if (state.tab==='resultados') content = resultadosHTML(stats, period, allRows, prevRows, ch, pace)
-  else if (state.tab==='campanhas') content = campanhasHTML(allRows, prevRows, ch, stats, target, period.label1, period, pace)
+  else if (state.tab==='campanhas') content = campanhasHTML(allRows, prevRows, ch, stats, target, period.label1, period, pace, filtros)
   else content = `<div id="asyncTab"></div>` // atividades/parametros preenchidos async
 
   // weekly modal
@@ -4120,7 +4200,7 @@ function renderClient() {
       <button class="cp-share-btn" id="cpShare" title="Gerar link compartilhável">${ic('link','🔗')} Link</button>`}
     </div>
     ${kpiBar}
-    ${periodBar}
+    ${filtrosNoEscopo ? '' : periodBar}
     ${tabsBar}
     ${content}
     ${modal}
