@@ -506,6 +506,49 @@
   .dt-root .vm-item .vm-label .vm-ico { margin-right:6px; vertical-align:-2px; }
   .dt-root .vm-note { font-size:10.5px; line-height:1.4; color:var(--fx-faint,#94A3B8);
     padding:8px 10px 4px; border-top:1px solid var(--fx-border-2,#EEF0F2); margin-top:4px; }
+  /* Gatilhos só de ícone + contador ("Colunas" e "Ocultas"): o rótulo escrito
+     sobrava numa barra que já tem quatro controles, e o ícone + número diz o
+     mesmo. O texto completo vive no `title` (e no aria-label, para o leitor de
+     tela). */
+  .dt-root .dp-trigger.icon-trigger { padding:7px 10px; gap:6px; }
+  .dt-root .dp-count { font-size:11.5px; font-weight:700; font-variant-numeric:tabular-nums;
+    color:var(--fx-muted,#64748B); }
+  .dt-root .dp-trigger.on .dp-count { color:inherit; }
+  .dt-root .squad-btn.icon-only { display:inline-flex; align-items:center; gap:5px; padding:6px 10px; }
+
+  /* Menu "Colunas": lista das colunas na ordem da tabela, cada uma com a caixa de
+     seleção e as setas de mover. Rola quando a lista cresce. */
+  .dt-root .cols-pop { width:300px; }
+  .dt-root .cols-fixa { display:flex; align-items:center; gap:7px; padding:12px 14px 10px; font-size:12.5px;
+    font-weight:700; color:var(--fx-green,#0F172A); border-bottom:1px solid var(--fx-border-2,#EEF0F2); }
+  .dt-root .cols-fixa .ico { width:14px; height:14px; color:var(--fx-faint,#94A3B8); }
+  .dt-root .cols-tag { margin-left:auto; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;
+    color:var(--fx-faint,#94A3B8); background:var(--fx-surface-3,#EEF4FF); border-radius:999px; padding:2px 8px; }
+  .dt-root .cols-list { max-height:330px; overflow-y:auto; padding:6px; }
+  .dt-root .cols-item { display:flex; align-items:center; gap:8px; padding:5px 6px; border-radius:9px; }
+  .dt-root .cols-item:hover { background:var(--fx-surface-3,#EEF4FF); }
+  .dt-root .cols-item.off .cols-label { color:var(--fx-faint,#94A3B8); }
+  .dt-root .cols-check { flex-shrink:0; width:16px; height:16px; padding:0; cursor:pointer; border-radius:5px;
+    border:1.5px solid var(--fx-border,#D8E0F0); background:var(--fx-surface,#FFFFFF);
+    display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; line-height:1; }
+  .dt-root .cols-check.on { background:var(--fx-lime-3,#164496); border-color:var(--fx-lime-3,#164496); color:#FFFFFF; }
+  .dt-root .cols-label { flex:1; min-width:0; cursor:pointer; font-size:12.5px; font-weight:600;
+    color:var(--fx-green,#0F172A); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dt-root .cols-item { cursor:grab; }
+  .dt-root .cols-item:active { cursor:grabbing; }
+  .dt-root .cols-item:focus-visible { outline:2px solid var(--fx-lime-3,#164496); outline-offset:-2px; }
+  /* O item que está sendo arrastado fica fantasma no lugar de origem enquanto
+     a lista se reorganiza embaixo dele. */
+  .dt-root .cols-item.dragging { opacity:.4; background:var(--fx-surface-3,#EEF4FF); }
+  .dt-root .cols-grip { display:flex; flex-shrink:0; color:var(--fx-faint,#CBD5E1); }
+  .dt-root .cols-item:hover .cols-grip { color:var(--fx-muted,#64748B); }
+  .dt-root .cols-grip .ico { width:14px; height:14px; }
+  .dt-root .cols-foot { display:flex; align-items:center; gap:10px; padding:10px 14px;
+    border-top:1px solid var(--fx-border,#E4EAF7); }
+  .dt-root .cols-nota { flex:1; font-size:10.5px; line-height:1.35; color:var(--fx-faint,#94A3B8); }
+  .dt-root .cols-foot .dp-btn { padding:6px 10px; font-size:11.5px; }
+  .dt-root .cols-foot .dp-btn[disabled] { opacity:.45; cursor:default; }
+
   /* Filtro de saldo: a regra ("Menor ou igual a") e o campo do valor na mesma
      linha, com o rodapé de Limpar/Aplicar do seletor de período. */
   .dt-root .dp-trigger.on { border-color:var(--fx-green,#164496); color:var(--fx-green,#164496);
@@ -602,8 +645,15 @@
     .dt-root .bar-right .search-wrap { flex:1 1 100%; }
     .dt-root .bar-right .search-wrap input { width:100%; box-sizing:border-box; }
     .dt-root .bar-right .squad-btn { flex:1; justify-content:center; }
-    .dt-root .bar-right .grp-wrap { flex:1 1 100%; }
+    /* Os dois compactos (Colunas e Ocultas) ficam do tamanho do conteúdo; quem
+       estica é o dropdown de agrupamento, que tem rótulo escrito. */
+    .dt-root .bar-right .squad-btn.icon-only,
+    .dt-root .bar-right .cols-wrap { flex:0 0 auto; }
+    .dt-root .bar-right .grp-wrap { flex:1 1 auto; }
     .dt-root .bar-right .grp-wrap .dp-trigger { width:100%; justify-content:flex-start; }
+    /* O popover de colunas é maior que o gatilho, que aqui fica no começo da
+       linha: ancora à ESQUERDA (à direita ele saía da tela) e cabe na largura. */
+    .dt-root .cols-pop, .dt-root .cols-pop.right { left:0; right:auto; width:min(300px, calc(100vw - 32px)); }
     .dt-root .bar-right .info-btn { flex:0 0 auto; }
     .dt-root .vm-pop { width:calc(100vw - 32px); max-width:340px; }
     .dt-root .sidepanel { width:100%; max-width:none; }
@@ -931,6 +981,8 @@ const ICONS = {
   'external': '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/>',
   'sparkles': '<path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="m19 16 .7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>',
   'list': '<path d="M9 6h12"/><path d="M9 12h12"/><path d="M9 18h12"/><path d="m3 6 1 1 2-2"/><path d="m3 12 1 1 2-2"/><path d="m3 18 1 1 2-2"/>',
+  'columns': '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M15 4v16"/>',
+  'grip': '<path d="M5 9h14"/><path d="M5 15h14"/>',
   'alert': '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
   'trophy': '<path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v2a3 3 0 0 0 3 3"/><path d="M17 6h3v2a3 3 0 0 1-3 3"/>',
   'lock': '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
@@ -954,7 +1006,7 @@ const ic = (name, emoji) => state.newLook ? svgIco(name) : emoji
 const EMOJI_ICON = { '📊':'chart', '💸':'coin', '📉':'trend-dn', '📈':'trend', '➡️':'arrow-right', '🎯':'target',
   '🧲':'magnet', '🚀':'rocket', '👁':'eye', '🚫':'eye-off', '🔍':'search', '⟳':'refresh', '🗂️':'layers',
   '🔥':'flame', '🐢':'turtle', '✅':'check', '⏳':'clock', '🚨':'alert', '📅':'calendar', 'ℹ️':'info',
-  '🚦':'flag', '👥':'users', '💰':'wallet', '🕒':'clock' }
+  '🚦':'flag', '👥':'users', '💰':'wallet', '🕒':'clock', '📋':'list', '🔒':'lock' }
 const em = e => !state.newLook ? e : /^[🔴🟡🟢]$/u.test(e) ? '<span class="gh-dot"></span>' : EMOJI_ICON[e] ? svgIco(EMOJI_ICON[e]) : e
 // Pílula de status na tabela: no tema o ponto colorido vem do CSS (::before).
 const pIco = st => state.newLook ? '' : pillIco(st) + ' '
@@ -1042,6 +1094,9 @@ const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:
                 // filtro de saldo da barra: operador (só 'lte' por ora) + valor em R$;
                 // null = sem filtro. Aplicado depois do filtro de squad.
                 saldoOp:'lte', saldoMax:null,
+                // colunas da tabela da visão Padrão: ordem escolhida (sem a coluna fixa;
+                // null = a do catálogo) e ids escondidos. Ver ACCT_COLS/colOrder.
+                colOrder:null, colOff:[],
                 // agrupamentos da visão Padrão (interruptores da barra de filtros):
                 // por status (seções Crítico/Queda/Estável/Melhora) e por cliente
                 // (contas do mesmo projeto num quadrante só). Ambos ligados = visão de sempre.
@@ -1371,6 +1426,7 @@ function saveNav() {
       view: state.view, showHidden: state.showHidden, perfView: state.perfView,
       grpStatus: state.grpStatus, grpClient: state.grpClient,
       saldoOp: state.saldoOp, saldoMax: state.saldoMax,
+      colOrder: state.colOrder, colOff: state.colOff,
       openClient: state.openClient, tab: state.tab, sub: state.sub, drillSub: state.drillSub,
       drillCampaign: state.drillCampaign, drillAdset: state.drillAdset, drillAdsetName: state.drillAdsetName,
       cDays: state.cDays, cFrom: state.cFrom, cTo: state.cTo, campFilter: state.campFilter,
@@ -1389,6 +1445,8 @@ function restoreNav() {
     if (s.grpClient != null) state.grpClient = !!s.grpClient
     if (SALDO_OPS[s.saldoOp]) state.saldoOp = s.saldoOp
     state.saldoMax = Number.isFinite(s.saldoMax) ? s.saldoMax : null
+    state.colOrder = Array.isArray(s.colOrder) && s.colOrder.length ? s.colOrder : null
+    state.colOff = Array.isArray(s.colOff) ? s.colOff.filter(id => COL_BY_ID[id] && !COL_BY_ID[id].fixa) : []
     state.perfView = (s.perfView && typeof s.perfView === 'object') ? s.perfView : {}
     if (s.openClient && s.openClient.client) {
       // Só restaura o cliente se a conta ainda existir nos dados carregados.
@@ -1506,6 +1564,37 @@ function viewMenuHTML(c) {
       </button>`).join('')}</div>`}`
 }
 
+// ─── Dropdown "Colunas" da visão Padrão ──────────────────────────────────────
+// Item que deve receber o foco depois do próximo render (mover pelo teclado
+// troca o DOM inteiro, e sem isso o foco voltaria para o começo da página).
+let _colFoco = null
+// Quais colunas a tabela mostra e em que ordem. A coluna do nome é fixa (some a
+// referência da linha se ela sair, e ela é o link para a página da conta), então
+// aparece travada no topo do menu. A ordem da lista é a ordem da tabela: ▲ leva
+// a coluna para a esquerda, ▼ para a direita.
+function colsMenuHTML() {
+  const aberto = state.barPop === 'cols'
+  const ordem = colOrder()
+  const visiveis = 1 + ordem.filter(id => !state.colOff.includes(id)).length
+  const mexido = !!state.colOrder || state.colOff.length > 0
+  return `<button class="dp-trigger icon-trigger${aberto ? ' open' : ''}" id="colsBtn" aria-haspopup="dialog" aria-expanded="${aberto}" aria-label="Colunas da tabela" title="Colunas da tabela — ${visiveis} de ${ACCT_COLS.length} visíveis. Escolha quais aparecem e em que ordem.">
+      ${ic('columns','▦')}<span class="dp-count">${visiveis}/${ACCT_COLS.length}</span></button>
+    ${!aberto ? '' : `<div class="bpop cols-pop right" role="dialog" aria-label="Colunas da tabela">
+      <div class="cols-fixa">${em('🔒')} ${COL_FIXA.label}<span class="cols-tag">fixa</span></div>
+      <div class="cols-list">${ordem.map(id => {
+        const c = COL_BY_ID[id], on = !state.colOff.includes(id)
+        return `<div class="cols-item${on ? '' : ' off'}" draggable="true" data-colrow="${id}" tabindex="0"
+          title="Arraste para reordenar (ou Alt + ↑/↓ com o item selecionado)">
+          <span class="cols-grip" aria-hidden="true">${svgIco('grip')}</span>
+          <button class="cols-check${on ? ' on' : ''}" data-coltoggle="${id}" role="checkbox" aria-checked="${on}" title="${on ? 'Esconder' : 'Mostrar'} a coluna ${esc(c.label)}">${on ? '✓' : ''}</button>
+          <span class="cols-label" data-coltoggle="${id}">${c.label}</span>
+        </div>`
+      }).join('')}</div>
+      <div class="cols-foot"><span class="cols-nota">Arraste para reordenar — de cima para baixo é da esquerda para a direita na tabela.</span>
+        <button class="dp-btn" id="colsReset"${mexido ? '' : ' disabled'}>Restaurar padrão</button></div>
+    </div>`}`
+}
+
 // ─── Dropdown "Agrupar" (múltipla escolha) da visão Padrão ───────────────────
 // Os dois eixos são independentes e qualquer combinação é válida, então é um
 // menu de caixas de seleção (não um seletor de opção única): dá para ter os
@@ -1565,7 +1654,8 @@ function periodosHTML(channels, P) {
   if (!ativos.length) return '<p class="side-text">Sem dados no período selecionado.</p>'
   const linhasDe = ch => {
     const p = P[ch]
-    return [['Selecionado', p.label1], ['Comparativo', p.label2]]
+    const t3 = p.t1.filter(Boolean).map(d => { const [, m, day] = d.split('-'); return `${day}/${m}` }).join(', ')
+    return [['Selecionado', p.label1], ['Comparativo', p.label2], ['Tendência 3d', t3 || '—']]
   }
   const linhas = ch => linhasDe(ch).map(([l, v]) => `<div class="info-row"><span>${l}</span><b>${v}</b></div>`).join('')
   const nome = ch => ch === 'meta' ? 'Meta Ads' : 'Google Ads'
@@ -1922,8 +2012,9 @@ function render() {
         <div class="search-wrap"><span class="search-icon">${em('🔍')}</span>
           <input type="text" id="search" placeholder="Buscar cliente…" value="${esc(state.search)}">
           <span class="clear-btn" id="clear" style="display:${state.search?'block':'none'}">✕</span></div>
+        ${SHARED || state.view!=='padrao' ? '' : `<div class="bwrap cols-wrap">${colsMenuHTML()}</div>`}
         ${SHARED || state.view!=='padrao' ? '' : `<div class="bwrap grp-wrap">${grpMenuHTML()}</div>`}
-        ${SHARED || state.view!=='padrao' ? '' : `<button class="squad-btn ${state.showHidden?'active':''}" id="toggle-hidden" title="${state.showHidden?'Voltar para a visão normal':'Ver as contas ocultas (clientes que saíram)'}">${state.showHidden?em('👁')+' Vendo ocultas':em('🚫')+' Ocultas'}<span data-vbn="hidden">${vbn(vCounts.hidden)}</span></button>`}
+        ${SHARED || state.view!=='padrao' ? '' : `<button class="squad-btn icon-only ${state.showHidden?'active':''}" id="toggle-hidden" aria-label="Contas ocultas" title="${state.showHidden?'Vendo as contas ocultas — clique para voltar à visão normal':'Ver as contas ocultas (clientes que saíram)'}">${state.showHidden?em('👁'):em('🚫')}<span data-vbn="hidden">${vbn(vCounts.hidden)}</span></button>`}
         <div class="bwrap">
           <button class="dp-trigger info-btn${state.barPop==='info'?' open':''}" id="infoBtn" aria-haspopup="dialog" aria-expanded="${state.barPop==='info'}" title="Como esta visão funciona e períodos em uso">${em('ℹ️')}</button>
         </div>
@@ -1997,20 +2088,49 @@ const fmtMoneyCard = n => n == null ? '—'
 // Cada coluna com `key` vira cabeçalho clicável (1º clique ordena, o seguinte
 // inverte). `null` = coluna não ordenável (Status é constante dentro do grupo).
 // A ordenação vale para os 4 grupos de status e também para os cards mobile.
-// [rótulo, chave de ordenação, largura]. A largura existe porque cada cliente é
-// um quadrante com a SUA tabela: em layout automático cada uma media as colunas
-// pelo próprio conteúdo e a mesma coluna caía num x diferente a cada grupo.
-// Percentual (e não px) para as tabelas continuarem acompanhando a largura da
-// tela, sem barra de rolagem por quadrante. Soma = 100.
+//
+// Catálogo das colunas: `id` é o que fica salvo na escolha do usuário (rótulo e
+// chave podem mudar sem invalidar o que está no localStorage), `key` é a chave
+// de ordenação (null = coluna não ordenável), `w` é o peso da largura e `th` a
+// classe do cabeçalho. A largura existe porque cada cliente é um quadrante com a
+// SUA tabela: em layout automático cada uma media as colunas pelo próprio
+// conteúdo e a mesma coluna caía num x diferente a cada grupo. Os pesos são
+// normalizados para 100% em acctColgroupHTML, então escondendo ou reordenando
+// colunas a tabela continua ocupando a largura toda.
+// `fixa` = a coluna do nome: sempre visível e sempre a primeira.
 const ACCT_COLS = [
-  ['Conta','name','18%'], ['Canal',null,'5%'], ['Status',null,'9%'],
-  ['Conv.','conv1','6%'],
-  ['CPL','cpl1','8%'], ['CPL Alvo','cplTarget','8%'],
-  ['Investimento','spend1','9%'], ['Invest. Ant.','spend2','8%'],
-  ['CTR','ctr1','7%'], ['Tx. Conv.','cr1','7%'],
-  ['Saldo','saldo','7%'], ['Anúncios ativos','adsAtivos','8%'],
+  { id:'name',   label:'Conta',            key:'name',      w:16, fixa:true },
+  { id:'canal',  label:'Canal',            key:null,        w:4 },
+  { id:'status', label:'Status',           key:null,        w:7 },
+  { id:'conv',   label:'Conv.',            key:'conv1',     w:6 },
+  { id:'cpl',    label:'CPL',              key:'cpl1',      w:7 },
+  { id:'alvo',   label:'CPL Alvo',         key:'cplTarget', w:7, th:'col-target' },
+  { id:'spend',  label:'Investimento',     key:'spend1',    w:8 },
+  { id:'spend2', label:'Invest. Ant.',     key:'spend2',    w:7 },
+  { id:'ctr',    label:'CTR',              key:'ctr1',      w:6 },
+  { id:'cr',     label:'Tx. Conv.',        key:'cr1',       w:6 },
+  { id:'trend',  label:'Tend. 3d',         key:'trend',     w:7 },
+  { id:'yest',   label:'Conversões ontem', key:'convYest',  w:5, th:'th-wrap' },
+  { id:'saldo',  label:'Saldo',            key:'saldo',     w:7 },
+  { id:'ads',    label:'Anúncios ativos',  key:'adsAtivos', w:7, th:'th-wrap' },
 ]
-const acctColgroupHTML = () => `<colgroup>${ACCT_COLS.map(([, , w]) => `<col style="width:${w}">`).join('')}</colgroup>`
+const COL_BY_ID = Object.fromEntries(ACCT_COLS.map(c => [c.id, c]))
+const COL_FIXA = ACCT_COLS.find(c => c.fixa)
+// Ordem escolhida pelo usuário (sem a coluna fixa). Ids desconhecidos — de uma
+// coluna que deixou de existir — caem fora; colunas novas entram no fim, para
+// que quem já tem uma escolha salva continue enxergando o que for criado depois.
+function colOrder() {
+  const salvo = Array.isArray(state.colOrder) ? state.colOrder : []
+  const ordem = salvo.filter(id => COL_BY_ID[id] && !COL_BY_ID[id].fixa)
+  ACCT_COLS.forEach(c => { if (!c.fixa && !ordem.includes(c.id)) ordem.push(c.id) })
+  return ordem
+}
+// Colunas que a tabela realmente desenha, na ordem: a fixa e as marcadas.
+const acctCols = () => [COL_FIXA, ...colOrder().map(id => COL_BY_ID[id]).filter(c => !state.colOff.includes(c.id))]
+const acctColgroupHTML = () => {
+  const cols = acctCols(), tot = cols.reduce((a, c) => a + c.w, 0) || 1
+  return `<colgroup>${cols.map(c => `<col style="width:${(c.w / tot * 100).toFixed(2)}%">`).join('')}</colgroup>`
+}
 // Ícone do canal — logo oficial (SVG local, sem CDN), usado em toda tabela/card
 // que mistura Meta+Google (visão "Todos").
 const chIco = ch => ch === 'meta'
@@ -2066,6 +2186,15 @@ function buildSaldoSnap(rows) {
   return out
 }
 const saldoDe = (nome, canal) => (state.saldo && state.saldo[canal + '|' + nome]) || null
+
+// Selo de tendência dos últimos 3 dias (t1 vs t0 do período — ver buildStats).
+// `curto` omite o "3d" na célula da tabela, onde o cabeçalho já diz a janela.
+const trendHTML = (x, curto) => {
+  const s = curto ? '' : ' 3d'
+  return x.declining3d ? `<span class="trend-dn">${em('📉')} Queda${s}</span>`
+    : x.trendDir === 'up' ? `<span class="trend-up">${em('📈')} Alta${s}</span>`
+    : `<span class="trend-fl">${em('➡️')} Estável${s}</span>`
+}
 
 // Conta do Meta fora do ar. Vale mais que o saldo: a conta sai de
 // `account_status = 1` justamente quando é desabilitada por saldo ou pagamento,
@@ -2177,7 +2306,9 @@ const adsQuando = r => r.dia ? fmtBR(r.ts) : snapWhen(r.ts)
 // `saldo`, o segundo dos metadados da conta (Calculadora de ROI). Conta sem
 // saldo aplicável (pós-pago, sem teto) devolve null e sortAccounts joga para o
 // fim, em qualquer direção.
-const acctVal = (x, key) => key==='saldo' ? (saldoDe(x.name, x.channel)?.valor ?? null)
+// Tendência não é um número na linha — vira rank (queda < estável < alta).
+const acctVal = (x, key) => key==='trend' ? (x.declining3d?-1:x.trendDir==='up'?1:0)
+  : key==='saldo' ? (saldoDe(x.name, x.channel)?.valor ?? null)
   : key==='cplTarget' ? (state.accounts[x.name]?.cplTarget?.value ?? null)
   : key==='adsAtivos' ? (activeAdsOfAccount(x.name, x.channel) || {}).n ?? null : x[key]
 function sortAccounts(list) {
@@ -2231,13 +2362,13 @@ function sortClients(list, statusKey) {
     return s*(av-bv)
   })
 }
-const acctTheadHTML = () => ACCT_COLS.map(([label,k])=>{
-  if (!k) return `<th>${label}</th>`
-  const a = state.acctSort.key===k
-  const cls = k==='cplTarget' ? ' class="col-target"' : k==='adsAtivos' ? ' class="th-wrap"' : ''
+const acctTheadHTML = () => acctCols().map(c => {
+  const cls = c.th ? ` class="${c.th}"` : ''
+  if (!c.key) return `<th${cls}>${c.label}</th>`
+  const a = state.acctSort.key === c.key
   // Sem white-space inline: o nowrap já vem da regra de `th` e o inline vencia a
   // classe .th-wrap, que precisa quebrar o cabeçalho comprido em duas linhas.
-  return `<th${cls} data-acctsort="${k}" title="Ordenar por ${label}" style="cursor:pointer;user-select:none">${label}${a?(state.acctSort.dir==='asc'?' ▲':' ▼'):''}</th>`
+  return `<th${cls} data-acctsort="${c.key}" title="Ordenar por ${c.label}" style="cursor:pointer;user-select:none">${c.label}${a?(state.acctSort.dir==='asc'?' ▲':' ▼'):''}</th>`
 }).join('')
 
 // Subclassificação do grupo "Queda" por causa — mesma lógica do Diagnóstico de
@@ -2275,6 +2406,20 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
   const diagMap = {}
   channels.forEach(ch => diagFor(ch, P[ch]).forEach(d => { diagMap[ch+'|'+d.name] = d }))
 
+  // Coluna "Conversões ontem". A conta sem linha no dia pode ser duas coisas
+  // muito diferentes: não converteu (0) ou o canal ainda não sincronizou o dia
+  // (—). Por isso o zero só aparece quando o canal JÁ tem dados de ontem.
+  const yDay = addDays(localDateStr(new Date()), -1)
+  const yHas = {}
+  channels.forEach(ch => {
+    const max = P[ch] ? memo('maxday', ch, P[ch], () => maxDate(state.raw[ch], CFG[ch].dateKey)) : null
+    yHas[ch] = !!max && max >= yDay
+  })
+  const yestOf = x => x.convYest != null ? x.convYest : (yHas[x.channel] ? 0 : null)
+  const yestCell = v => v == null
+    ? `<span class="pace-none" title="O canal ainda não sincronizou o dia ${fmtBR(yDay)}.">—</span>`
+    : `<span class="cell-val">${fmtNum(v)}</span>`
+
   // Coluna "Anúncios ativos": anúncios em veiculação AGORA, pelo snapshot
   // de status. "—" quando não há como saber — no Google (sem snapshot) e na conta
   // Meta que ainda não apareceu numa rodada do sync.
@@ -2296,32 +2441,41 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       : `<span class="cell-val" title="${origem}">${fmtNum(r.n)}</span>`
   }
 
-  // Linha de tabela + card mobile de uma conta (reusados por grupo e subgrupo).
-  const acctRow = x => {
-    return `<tr data-client="${esc(x.name)}" data-ch="${x.channel}">
-      <td><span class="client-link" title="${esc(x.name)}">${esc(x.name)}</span>${newLookChip(x.name)}${hideBtnHTML(x.name)}</td>
-      <td>${chIco(x.channel)}</td>
-      <td><span class="pill ${pillCls(x.status)}">${pIco(x.status)}${x.status}</span></td>
-      <td><span class="cell-val">${fmtNum(x.conv1)}</span>${cellDelta(x.varConv, false)}</td>
-      <td><span class="cell-val">${fmtMoney(x.cpl1)}</span>${cellDelta(x.varCpl, true)}</td>
-      <td class="col-target">${targetCellHTML(x.name, x.cpl1)}</td>
-      <td><span class="cell-val">${fmtMoney(x.spend1)}</span>${cellDelta(x.varSpend, false)}</td>
-      <td>${fmtMoney(x.spend2)}</td>
-      <td><span class="cell-val">${fmtRatio(x.ctr1)}</span>${cellDelta(x.varCtr, false)}</td>
-      <td><span class="cell-val">${fmtRatio(x.cr1)}</span>${cellDelta(x.varCr, false)}</td>
-      <td>${saldoCell(x)}</td>
-      <td>${adsCell(x)}</td></tr>`
+  // Uma função de célula por coluna do catálogo (ACCT_COLS). A linha e a linha de
+  // totais montam-se a partir de acctCols(), então esconder ou reordenar coluna
+  // no menu "Colunas" não pode desalinhar cabeçalho e corpo.
+  const cols = acctCols()
+  const CELA = {
+    name:   x => `<td><span class="client-link" title="${esc(x.name)}">${esc(x.name)}</span>${newLookChip(x.name)}${hideBtnHTML(x.name)}</td>`,
+    canal:  x => `<td>${chIco(x.channel)}</td>`,
+    status: x => `<td><span class="pill ${pillCls(x.status)}">${pIco(x.status)}${x.status}</span></td>`,
+    conv:   x => `<td><span class="cell-val">${fmtNum(x.conv1)}</span>${cellDelta(x.varConv, false)}</td>`,
+    cpl:    x => `<td><span class="cell-val">${fmtMoney(x.cpl1)}</span>${cellDelta(x.varCpl, true)}</td>`,
+    alvo:   x => `<td class="col-target">${targetCellHTML(x.name, x.cpl1)}</td>`,
+    spend:  x => `<td><span class="cell-val">${fmtMoney(x.spend1)}</span>${cellDelta(x.varSpend, false)}</td>`,
+    spend2: x => `<td>${fmtMoney(x.spend2)}</td>`,
+    ctr:    x => `<td><span class="cell-val">${fmtRatio(x.ctr1)}</span>${cellDelta(x.varCtr, false)}</td>`,
+    cr:     x => `<td><span class="cell-val">${fmtRatio(x.cr1)}</span>${cellDelta(x.varCr, false)}</td>`,
+    trend:  x => `<td>${trendHTML(x, true)}</td>`,
+    yest:   x => `<td>${yestCell(yestOf(x))}</td>`,
+    saldo:  x => `<td>${saldoCell(x)}</td>`,
+    ads:    x => `<td>${adsCell(x)}</td>`,
   }
+  // Linha de tabela + card mobile de uma conta (reusados por grupo e subgrupo).
+  // Os cards do mobile não seguem a escolha de colunas: lá a grade é de 3 por
+  // linha e sempre mostra o mesmo conjunto.
+  const acctRow = x => `<tr data-client="${esc(x.name)}" data-ch="${x.channel}">${cols.map(c => CELA[c.id](x)).join('')}</tr>`
   const acctCard = x => {
     const target = state.accounts[x.name]?.cplTarget?.value ?? null
     return mCardHTML(x.name,
     `<span class="pill pill-ico ${pillCls(x.status)}">${state.newLook ? '' : pillIco(x.status)}</span>`,
-    `${chIco(x.channel)}${target != null ? ` <span style="color:#CBD5E1">·</span> ${goalBadge(target, x.cpl1, x.channel)}` : ''}`,
+    `${chIco(x.channel)} ${trendHTML(x)}${target != null ? ` <span style="color:#CBD5E1">·</span> ${goalBadge(target, x.cpl1, x.channel)}` : ''}`,
     [['Conversões', fmtNum(x.conv1), mDelta(x.varConv, false)],
      [x.channel==='meta'?'CPL':'CPA', fmtMoneyCard(x.cpl1), mDelta(x.varCpl, true)],
      ['Investido', fmtMoneyCard(x.spend1), mDelta(x.varSpend, false)],
      ['CTR', fmtRatio(x.ctr1), mDelta(x.varCtr, false)],
      ['Tx. Conv.', fmtRatio(x.cr1), mDelta(x.varCr, false)],
+     ['Conv. ontem', yestOf(x) == null ? '—' : fmtNum(yestOf(x)), ''],
      ['Saldo', (r => !r ? '—'
         : r.situacao === 'CONTA_INATIVA' ? (SALDO_STATUS_CONTA[r.statusConta] || ['conta inativa'])[0]
         : r.valor != null ? fmtMoneyCard(r.valor) : '—')(saldoDe(x.name, x.channel)), ''],
@@ -2368,20 +2522,31 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
     const vals = list.map(x => activeAdsOfAccount(x.name, x.channel)).filter(Boolean)
     return vals.length ? vals.reduce((a, v) => a + v.n, 0) : null
   }
+  // Totais do "Conversões ontem": soma só as contas que têm o dia. Se nenhuma
+  // tiver, o total também é "—" em vez de um zero que não quer dizer nada.
+  const yestTotal = list => {
+    const vals = list.map(yestOf).filter(v => v != null)
+    return vals.length ? vals.reduce((a, v) => a + v, 0) : null
+  }
+  // Células da linha de totais, por coluna. Canal, Status, Tend. 3d e Saldo não
+  // têm total que signifique alguma coisa e ficam vazias.
+  const vazia = () => '<td></td>'
+  const TOTAL = {
+    name:   (t, list) => `<td><span class="total-label">Σ Total<span class="total-badge">${list.length} contas</span></span></td>`,
+    canal:  vazia, status: vazia, trend: vazia, saldo: vazia,
+    conv:   t => `<td><span class="cell-val">${fmtNum(t.conv1)}</span>${cellDelta(t.varConv, false)}</td>`,
+    cpl:    t => `<td><span class="cell-val">${fmtMoney(t.cpl1)}</span>${cellDelta(t.varCpl, true)}</td>`,
+    alvo:   (t, list) => `<td class="col-target">${totalTargetHTML(list, t.cpl1)}</td>`,
+    spend:  t => `<td><span class="cell-val">${fmtMoney(t.spend1)}</span>${cellDelta(t.varSpend, false)}</td>`,
+    spend2: t => `<td>${fmtMoney(t.spend2)}</td>`,
+    ctr:    t => `<td><span class="cell-val">${fmtRatio(t.ctr1)}</span>${cellDelta(t.varCtr, false)}</td>`,
+    cr:     t => `<td><span class="cell-val">${fmtRatio(t.cr1)}</span>${cellDelta(t.varCr, false)}</td>`,
+    yest:   (t, list) => `<td>${yestCell(yestTotal(list))}</td>`,
+    ads:    (t, list) => `<td>${adsTotal(list) == null ? '<span class="pace-none">—</span>' : `<span class="cell-val">${fmtNum(adsTotal(list))}</span>`}</td>`,
+  }
   const totalRow = list => {
     const t = totalsOf(list)
-    return `<tr class="total-row">
-      <td><span class="total-label">Σ Total<span class="total-badge">${list.length} contas</span></span></td>
-      <td></td><td></td>
-      <td><span class="cell-val">${fmtNum(t.conv1)}</span>${cellDelta(t.varConv, false)}</td>
-      <td><span class="cell-val">${fmtMoney(t.cpl1)}</span>${cellDelta(t.varCpl, true)}</td>
-      <td class="col-target">${totalTargetHTML(list, t.cpl1)}</td>
-      <td><span class="cell-val">${fmtMoney(t.spend1)}</span>${cellDelta(t.varSpend, false)}</td>
-      <td>${fmtMoney(t.spend2)}</td>
-      <td><span class="cell-val">${fmtRatio(t.ctr1)}</span>${cellDelta(t.varCtr, false)}</td>
-      <td><span class="cell-val">${fmtRatio(t.cr1)}</span>${cellDelta(t.varCr, false)}</td>
-      <td></td>
-      <td>${adsTotal(list) == null ? '<span class="pace-none">—</span>' : `<span class="cell-val">${fmtNum(adsTotal(list))}</span>`}</td></tr>`
+    return `<tr class="total-row">${cols.map(c => TOTAL[c.id](t, list)).join('')}</tr>`
   }
   // Equivalente mobile da linha de totais (mesmas 3 métricas dos cards de conta).
   const totalCard = list => {
@@ -2391,6 +2556,7 @@ function padraoHTML(channels, P, st, s, leadsLabel, cplLabel, fmtSumPct) {
       ['Investido', fmtMoneyCard(t.spend1), mDelta(t.varSpend, false)],
       ['CTR', fmtRatio(t.ctr1), mDelta(t.varCtr, false)],
       ['Tx. Conv.', fmtRatio(t.cr1), mDelta(t.varCr, false)],
+      ['Conv. ontem', yestTotal(list) == null ? '—' : fmtNum(yestTotal(list)), ''],
       ['Ads ativos', adsTotal(list) == null ? '—' : fmtNum(adsTotal(list)), '']]
     const grid = cells.map(([l, v, d]) => `<div class="m-cell">
       <div class="m-cell-l">${l}</div><div class="m-cell-v">${v}</div>
@@ -2580,10 +2746,11 @@ function escalaHTML(channels, P) {
       <td class="${varCls(d.varCpl,true)}">${fmtPct(d.varCpl)}</td>
       <td>${targetMarginHTML(d.name, d.cpl1)}</td>
       <td>${fmtMoney(d.spend1)}</td>
-      <td class="${varCls(d.varSpend,false)}">${fmtPct(d.varSpend)}</td></tr>`
+      <td class="${varCls(d.varSpend,false)}">${fmtPct(d.varSpend)}</td>
+      <td>${trendHTML(d, true)}</td></tr>`
     }).join('')
     const cards = grp.map(d => mCardHTML(d.name, '',
-      `${chIco(d.channel)} ${targetMarginHTML(d.name, d.cpl1)}`,
+      `${chIco(d.channel)} ${trendHTML(d)} <span style="color:#CBD5E1">·</span> ${targetMarginHTML(d.name, d.cpl1)}`,
       [['Conversões', fmtNum(d.conv1), mDelta(d.varConv, false)],
        ['CPL', fmtMoneyCard(d.cpl1), mDelta(d.varCpl, true)],
        ['Investido', fmtMoneyCard(d.spend1), mDelta(d.varSpend, false)]], d.channel)).join('')
@@ -2591,7 +2758,7 @@ function escalaHTML(channels, P) {
       <div class="group-header ${g.hcls}"><span class="gh-icon">${em(g.icon)}</span><span class="gh-title">${g.label}</span>${infoIco(g.tip)}<span class="gh-count">${grp.length} conta${grp.length!==1?'s':''}</span></div>
       <div class="diag-hint">${esc(g.tip)}</div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Conta</th><th>Canal</th><th>Conv.</th><th>Conv. Ant.</th><th>Var. Conv.</th><th>CPL</th><th>CPL Ant.</th><th>Var. CPL</th><th>Margem vs. Alvo</th><th>Investimento</th><th>Var. Invest.</th></tr></thead>
+        <thead><tr><th>Conta</th><th>Canal</th><th>Conv.</th><th>Conv. Ant.</th><th>Var. Conv.</th><th>CPL</th><th>CPL Ant.</th><th>Var. CPL</th><th>Margem vs. Alvo</th><th>Investimento</th><th>Var. Invest.</th><th>Tend. 3d</th></tr></thead>
         <tbody>${rows}</tbody></table></div>
       <div class="m-cards">${cards}</div></div>`
   }).join('')
@@ -4668,6 +4835,64 @@ function wire() {
   const sideOv=document.getElementById('sideOv'); if (sideOv) sideOv.onclick=barPopClose
   app.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ state.view=b.dataset.view; state.showHidden=false; barPopTeardown(); render() })
   const th=document.getElementById('toggle-hidden'); if (th) th.onclick=()=>{ state.showHidden=!state.showHidden; render() }
+  const colsBtn=document.getElementById('colsBtn'); if (colsBtn) colsBtn.onclick=ev=>{ ev.stopPropagation(); barPopToggle('cols') }
+  // Marcar/desmarcar e mover mantêm o menu ABERTO (state.barPop segue 'cols' no
+  // render), para dar para montar a tabela inteira sem reabrir o dropdown.
+  app.querySelectorAll('[data-coltoggle]').forEach(b=>b.onclick=ev=>{ ev.stopPropagation()
+    const id=b.dataset.coltoggle, off=new Set(state.colOff)
+    if (off.has(id)) off.delete(id)
+    else {
+      off.add(id)
+      // Escondeu a coluna que ordena a tabela: a ordenação volta ao natural do
+      // grupo, senão a lista ficaria ordenada por algo que não está na tela.
+      if (state.acctSort.key && state.acctSort.key === COL_BY_ID[id].key) state.acctSort = { key:null, dir:'desc' }
+    }
+    state.colOff=[...off]; render() })
+  // Reordenar arrastando. O item troca de lugar no PRÓPRIO DOM durante o
+  // arraste (re-renderizar no meio mataria o drag) e a ordem só vai para o
+  // estado no `dragend`. Alt + ↑/↓ faz o mesmo pelo teclado, para quem não
+  // arrasta — e é o que sobra em tela de toque, onde o drag nativo não existe.
+  const colsLista = app.querySelector('.cols-list')
+  if (colsLista) {
+    const mover = (id, d) => {
+      const ordem = colOrder(), i = ordem.indexOf(id), j = i + d
+      if (i < 0 || j < 0 || j >= ordem.length) return
+      ordem.splice(j, 0, ordem.splice(i, 1)[0])
+      state.colOrder = ordem; _colFoco = id; render()
+    }
+    let arrastando = null
+    colsLista.ondragover = ev => ev.preventDefault()   // sem isso o drop não acontece
+    colsLista.querySelectorAll('[data-colrow]').forEach(row => {
+      row.ondragstart = ev => {
+        arrastando = row; row.classList.add('dragging')
+        ev.dataTransfer.effectAllowed = 'move'
+        ev.dataTransfer.setData('text/plain', row.dataset.colrow)   // o Firefox exige algum dado
+      }
+      row.ondragover = ev => {
+        ev.preventDefault()
+        if (!arrastando || arrastando === row) return
+        const r = row.getBoundingClientRect()
+        colsLista.insertBefore(arrastando, ev.clientY > r.top + r.height / 2 ? row.nextSibling : row)
+      }
+      row.ondrop = ev => ev.preventDefault()
+      row.ondragend = () => {
+        row.classList.remove('dragging')
+        arrastando = null
+        const nova = [...colsLista.querySelectorAll('[data-colrow]')].map(r => r.dataset.colrow)
+        if (nova.join() === colOrder().join()) return   // soltou no mesmo lugar
+        state.colOrder = nova; _colFoco = row.dataset.colrow; render()
+      }
+      row.onkeydown = ev => {
+        if (!ev.altKey || (ev.key !== 'ArrowUp' && ev.key !== 'ArrowDown')) return
+        ev.preventDefault(); ev.stopPropagation()
+        mover(row.dataset.colrow, ev.key === 'ArrowUp' ? -1 : 1)
+      }
+    })
+    // Devolve o foco ao item recém-movido pelo teclado (o render trocou o DOM).
+    if (_colFoco) { const alvo = colsLista.querySelector(`[data-colrow="${_colFoco}"]`); _colFoco = null; if (alvo) alvo.focus() }
+  }
+  const colsReset=document.getElementById('colsReset'); if (colsReset) colsReset.onclick=ev=>{ ev.stopPropagation()
+    state.colOrder=null; state.colOff=[]; render() }
   const grpBtn=document.getElementById('grpBtn'); if (grpBtn) grpBtn.onclick=ev=>{ ev.stopPropagation(); barPopToggle('grp') }
   // Filtro de saldo: o valor digitado só entra no estado no Aplicar (ou Enter),
   // senão cada tecla re-renderizaria a lista inteira embaixo do popover.
