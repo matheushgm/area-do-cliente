@@ -1687,7 +1687,7 @@ export default function ClientProfile({ project: projectProp }) {
                           <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:opacity-80 transition-opacity pr-4">
                             <Icon className="w-4 h-4" />{label}
                           </a>
-                          <button onClick={onRemove} className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 bg-white text-gray-500 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all" title="Remover"><X className="w-4 h-4" /></button>
+                          <button onClick={onRemove} className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 bg-rl-card text-rl-muted opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all" title="Remover"><X className="w-4 h-4" /></button>
                         </div>
                       ))}
 

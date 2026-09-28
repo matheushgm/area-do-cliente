@@ -55,7 +55,7 @@ export default function PendingAdsBanner({ project, onNavigate }) {
       <button
         type="button"
         onClick={handleClick}
-        className="group w-full text-left rounded-2xl bg-white border-2 border-rl-purple/40 shadow-glow hover:shadow-xl hover:border-rl-purple/60 transition-all overflow-hidden"
+        className="group w-full text-left rounded-2xl bg-rl-card border-2 border-rl-purple/40 shadow-glow hover:shadow-xl hover:border-rl-purple/60 transition-all overflow-hidden"
       >
         <div className="flex items-start gap-3 p-4">
           {/* Ícone com badge */}

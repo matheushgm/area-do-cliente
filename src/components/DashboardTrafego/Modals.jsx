@@ -20,7 +20,7 @@ export function PreviewModal({ url, name, onClose }) {
         </div>
         <div className="preview-body">
           {isImage && <img className="preview-img" src={url} alt={name} onError={e => { e.currentTarget.style.display = 'none' }} />}
-          {isVideo && <video src={url} controls style={{ width: '100%', borderRadius: 8, border: '1px solid #D8E0F0', maxHeight: 400 }} />}
+          {isVideo && <video src={url} controls style={{ width: '100%', borderRadius: 8, border: '1px solid rgb(var(--rl-border))', maxHeight: 400 }} />}
           {!isImage && !isVideo && <div className="preview-info">💡 Prévia não disponível para este tipo de link — clique abaixo para abrir.</div>}
           <div className="preview-url">{url}</div>
           <a href={url} target="_blank" rel="noopener noreferrer" className="preview-open-btn">🔗 Abrir Anúncio</a>
@@ -63,7 +63,7 @@ export function MappingModal({ dashName, projectsList, cplTargets, currentProjec
               {project && (
                 <>
                   Squad: <b>{project.squad_name || '—'}</b>
-                  {cpl != null ? <> · CPL alvo: <b>{fmtMoney(cpl)}</b></> : <span style={{ color: '#B45309' }}> · sem CPL calculado</span>}
+                  {cpl != null ? <> · CPL alvo: <b>{fmtMoney(cpl)}</b></> : <span style={{ color: 'rgb(var(--rl-gold))' }}> · sem CPL calculado</span>}
                 </>
               )}
             </div>
@@ -150,7 +150,7 @@ export function ShareLinkModal({ client, channel, url, onClose, onToast }) {
           <button className="drawer-close" onClick={onClose}>✕</button>
         </div>
         <div className="map-body">
-          <div style={{ fontSize: 11, color: '#64748B', marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: 'rgb(var(--rl-muted))', marginBottom: 10 }}>
             Link público (somente leitura) do dashboard de <b>{channel === 'meta' ? 'Meta Ads' : 'Google Ads'}</b> deste
             cliente. Quem abrir vê só esta conta, sem precisar de login.
           </div>
@@ -159,7 +159,7 @@ export function ShareLinkModal({ client, channel, url, onClose, onToast }) {
             value={url}
             onFocus={e => e.target.select()}
             spellCheck={false}
-            style={{ width: '100%', padding: '10px 12px', fontSize: 12, color: '#1E293B', background: '#F1F5F9', border: '1px solid #D8E0F0', borderRadius: 8, fontFamily: 'monospace', boxSizing: 'border-box' }}
+            style={{ width: '100%', padding: '10px 12px', fontSize: 12, color: 'rgb(var(--rl-text))', background: 'rgb(var(--rl-surface))', border: '1px solid rgb(var(--rl-border))', borderRadius: 8, fontFamily: 'monospace', boxSizing: 'border-box' }}
           />
         </div>
         <div className="map-footer">
@@ -194,7 +194,7 @@ export function WeeklyMessageModal({ client, periodLabel, initialText, onClose, 
           <button className="drawer-close" onClick={onClose}>✕</button>
         </div>
         <div className="map-body">
-          <div style={{ fontSize: 11, color: '#64748B', marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: 'rgb(var(--rl-muted))', marginBottom: 10 }}>
             Edite à vontade antes de copiar. Período usado: <b>{periodLabel}</b>
           </div>
           <textarea className="weekly-msg-text" spellCheck={false} value={text} onChange={e => setText(e.target.value)} />

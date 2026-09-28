@@ -293,7 +293,7 @@ function CampaignsTab({ allRows, channel, stats, target, periodLabel, onPreview,
   return (
     <div className="cp-panel">
       {!shared && <InsightsCard ins={ins} periodLabel={periodLabel} cpl1={stats?.cpl1} />}
-      <div style={{ display: 'flex', borderBottom: '1px solid #D8E0F0', margin: '0 -22px 18px', padding: '0 22px', background: '#FFFFFF' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid rgb(var(--rl-border))', margin: '0 -22px 18px', padding: '0 22px', background: 'rgb(var(--rl-card))' }}>
         {tabs.map(([label, idx]) => <div key={idx} className={`dtab${sub === idx ? ' active' : ''}`} onClick={() => setSub(idx)}>{label}</div>)}
       </div>
       {panel}
@@ -343,7 +343,7 @@ function AtividadesTab({ client, folderId, onOpenCuMap }) {
     return (
       <div className="cp-panel"><div className="empty" style={{ padding: '32px 20px' }}>
         <div style={{ marginBottom: 14, fontSize: 14 }}>Nenhuma pasta ClickUp vinculada a este cliente.</div>
-        <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 16 }}>Tente vincular manualmente ou verifique se o nome está correto.</div>
+        <div style={{ fontSize: 12, color: 'rgb(var(--rl-muted))', marginBottom: 16 }}>Tente vincular manualmente ou verifique se o nome está correto.</div>
         <button className="cu-link-btn" onClick={() => onOpenCuMap(client)}>🔗 Vincular pasta ClickUp</button>
       </div></div>
     )
@@ -445,19 +445,19 @@ function ParametrosTab({ client, acName, onOpenMap }) {
 
   return (
     <div className="cp-panel">
-      <div style={{ marginBottom: 16, fontSize: 12, color: '#64748B' }}>
-        Projeto vinculado: <b style={{ color: '#2563EB' }}>{acName}</b>
+      <div style={{ marginBottom: 16, fontSize: 12, color: 'rgb(var(--rl-muted))' }}>
+        Projeto vinculado: <b style={{ color: 'rgb(var(--rl-blue))' }}>{acName}</b>
         <button className="map-btn" style={{ marginLeft: 10 }} onClick={() => onOpenMap(client)}>✎ alterar</button>
       </div>
       <div className="param-grid">
         <div className="param-card"><div className="param-card-title">💰 Investimento</div>
-          <Row k="Verba de Mídia" v={fmtM(r.media_orcamento)} /><Row k="Custo de Gestão" v={fmtM(r.custo_marketing)} /><Row k="Total" v={fmtM(r.total_investimento)} color="#2563EB" />
+          <Row k="Verba de Mídia" v={fmtM(r.media_orcamento)} /><Row k="Custo de Gestão" v={fmtM(r.custo_marketing)} /><Row k="Total" v={fmtM(r.total_investimento)} color="rgb(var(--rl-blue))" />
         </div>
         <div className="param-card"><div className="param-card-title">🎯 Funil Necessário</div>
           <Row k="Leads necessários" v={fmtN(r.leads_necessarios)} /><Row k="MQLs" v={fmtN(r.mqls_necessarios)} /><Row k="SQLs" v={fmtN(r.sqls_necessarios)} /><Row k="Vendas" v={fmtN(r.vendas_necessarias)} />
         </div>
         <div className="param-card"><div className="param-card-title">📊 Targets</div>
-          <Row k="CPL Alvo" v={fmtM(r.cpl_target)} color="#059669" /><Row k="CAC" v={fmtM(r.cac)} /><Row k="ROI Desejado" v={fmtP(r.roi_desejado)} /><Row k="Margem Bruta" v={fmtP(r.margem_bruta)} /><Row k="Ticket Médio" v={fmtM(r.ticket_medio)} />
+          <Row k="CPL Alvo" v={fmtM(r.cpl_target)} color="rgb(var(--rl-green))" /><Row k="CAC" v={fmtM(r.cac)} /><Row k="ROI Desejado" v={fmtP(r.roi_desejado)} /><Row k="Margem Bruta" v={fmtP(r.margem_bruta)} /><Row k="Ticket Médio" v={fmtM(r.ticket_medio)} />
         </div>
         <div className="param-card"><div className="param-card-title">🔄 Taxas de Conversão</div>
           <Row k="Lead → MQL" v={fmtP(r.taxa_lead_mql)} /><Row k="MQL → SQL" v={fmtP(r.taxa_mql_sql)} /><Row k="SQL → Venda" v={fmtP(r.taxa_sql_venda)} /><Row k="Qtd. Compras/Cli." v={r.qtd_compras != null ? r.qtd_compras : '—'} />
@@ -553,7 +553,7 @@ export default function ClientPage({
         <div className="cp-client-name">{client}</div>
         <div className="cp-badges">
           <span className="cp-channel-badge">{channel === 'meta' ? '📱 Meta Ads' : '🔍 Google Ads'}</span>
-          {sq && <span className="cp-channel-badge" style={{ background: sq === 'Caça ROI' ? 'rgba(22,68,150,0.10)' : 'rgba(5,150,105,0.10)', borderColor: sq === 'Caça ROI' ? 'rgba(22,68,150,0.30)' : 'rgba(5,150,105,0.30)', color: sq === 'Caça ROI' ? '#164496' : '#059669' }}>{sq === 'Caça ROI' ? '🎯' : '🔒'} {sq}</span>}
+          {sq && <span className="cp-channel-badge" style={{ background: sq === 'Caça ROI' ? 'rgb(var(--rl-purple) / 0.10)' : 'rgb(var(--rl-green) / 0.10)', borderColor: sq === 'Caça ROI' ? 'rgb(var(--rl-purple) / 0.30)' : 'rgb(var(--rl-green) / 0.30)', color: sq === 'Caça ROI' ? 'rgb(var(--rl-purple))' : 'rgb(var(--rl-green))' }}>{sq === 'Caça ROI' ? '🎯' : '🔒'} {sq}</span>}
         </div>
         {!shared && <button className="cp-weekly-btn" onClick={() => onOpenWeekly(client, channel)} title="Gerar mensagem semanal">📋 Mensagem Semanal</button>}
         {!shared && <button className="cp-share-btn" onClick={() => onShare(client, channel)} title="Copiar link compartilhável">🔗 Link</button>}
