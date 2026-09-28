@@ -34,26 +34,26 @@
 
   /* ── Design tokens — tema ESCURO ───────────────────────────────── */
   .dark {
-    --rl-bg:        11  17  32;   /* #0B1120 navy profundo */
-    --rl-surface:   19  29  49;   /* #131D31 */
-    --rl-card:      24  35  59;   /* #18233B */
-    --rl-border:    42  56  80;   /* #2A3850 */
+    --rl-bg:        11  11  11;   /* #0B0B0B cinza neutro quase preto */
+    --rl-surface:   19  19  19;   /* #131313 */
+    --rl-card:      27  27  27;   /* #1B1B1B */
+    --rl-border:    44  44  44;   /* #2C2C2C */
     --rl-purple:    79 134 232;   /* #4F86E8 azul mais claro p/ contraste */
     --rl-blue:      91 141 239;   /* #5B8DEF */
     --rl-cyan:      56 169 228;   /* #38A9E4 */
     --rl-gold:     240 166  65;   /* #F0A641 */
     --rl-green:     43 185 138;   /* #2BB98A */
     --rl-red:      242  88  95;   /* #F2585F */
-    --rl-text:     232 237 247;   /* #E8EDF7 */
-    --rl-subtle:   174 187 212;   /* #AEBBD4 */
-    --rl-muted:    110 126 158;   /* #6E7E9E */
+    --rl-text:     237 237 237;   /* #EDEDED */
+    --rl-subtle:   174 174 174;   /* #AEAEAE */
+    --rl-muted:    120 120 120;   /* #787878 */
 
-    --rl-grad-from: 11  17  32;   /* #0B1120 */
-    --rl-grad-to:    8  13  25;   /* #080D19 */
+    --rl-grad-from: 11  11  11;   /* #0B0B0B */
+    --rl-grad-to:    7   7   7;   /* #070707 */
 
-    --rl-scroll-track: 19  29  49;
-    --rl-canvas:       16  24  40;
-    --rl-canvas-dot:   42  56  80;
+    --rl-scroll-track: 19  19  19;
+    --rl-canvas:       15  15  15;
+    --rl-canvas-dot:   44  44  44;
 
     color-scheme: dark;
   }
