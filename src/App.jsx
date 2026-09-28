@@ -36,6 +36,7 @@ import CriativosPublico from './pages/CriativosPublico'
 import DashboardApiTeste from './pages/DashboardApiTeste'
 import Atividades15min from './pages/Atividades15min'
 import Atividades from './pages/Atividades'
+import Portal from './pages/Portal'
 import NotificationCenter from './components/NotificationCenter'
 
 function RequireAuth({ children }) {
@@ -102,6 +103,7 @@ function AppRoutes() {
         {/* "Capacidade do Time" foi fundido no módulo Atividades. */}
         <Route path="/workload" element={<Navigate to="/atividades" replace />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/portal/:projectId" element={<Portal />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {user && <NotificationCenter />}

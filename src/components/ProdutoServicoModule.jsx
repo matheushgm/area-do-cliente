@@ -78,7 +78,7 @@ Diretrizes obrigatórias:
 - O documento deve ser acionável: qualquer pessoa que ler deve saber exatamente como comunicar este produto`
 
 // ─── Questions ────────────────────────────────────────────────────────────────
-const QUESTIONS = [
+export const QUESTIONS = [
   { id: 'q1',  emoji: '🎯', label: 'O que seu produto resolve?' },
   { id: 'q2',  emoji: '⏰', label: 'Por que e em que momento o seu cliente precisa do seu produto/serviço?' },
   { id: 'q3',  emoji: '✨', label: 'Como é a vida dele depois de usar seu produto/serviço?' },

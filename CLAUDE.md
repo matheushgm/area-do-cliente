@@ -227,6 +227,36 @@ Path convention: `{projectId}/{filename}`. Storage policies espelham as RLS das 
 - Atribuição de squad ao projeto feita via dropdown em `ClientProfile.jsx` → `updateProject(id, { squad: sq.id })`
 - `SQUAD_COLORS` — paleta cíclica de 4 cores (gold/cyan/purple/green) centralizada em `src/lib/constants.js`; importar de lá — nunca redefinir localmente
 
+### Portal do cliente / parceiro (`/portal/:projectId`)
+
+Acesso somente leitura a módulos escolhidos de UM projeto, sem Supabase Auth: um link por
+cliente e **chaves de acesso** com senha própria (uma por público: "Parceiro X", "Cliente"…),
+gerenciadas no módulo **Compartilhamento** do `ClientProfile`
+(`src/components/CompartilhamentoModule.jsx`). Cada chave tem rótulo, senha, validade opcional,
+ativa/desativada e a matriz módulo × permissão (`none | view | edit`; `edit` está no esquema
+mas o portal ainda só renderiza leitura, o botão fica desabilitado "em breve").
+
+- **Tabelas (migration 090):** `project_shares` (`password_hash`, `permissions` jsonb
+  `{ modulo: 'view' }`, `expires_at`, `last_access_at`, `access_count`) e
+  `portal_login_attempts`. As duas têm RLS ligada **sem policies**: só `api/portal.js` (chave
+  de serviço) lê e escreve — a gestão pelo time também passa pela API, que confere admin ou
+  membro do squad do projeto (`canManage`).
+- **API `api/portal.js` (edge):** gestão com JWT (`list`, `save`, `delete`); visitante com
+  `login` (projectId + senha → token de sessão HMAC de 7 dias, invalidado se a senha mudar ou
+  a chave for desativada/expirar), `data` (devolve **só** os módulos permitidos, carregados por
+  `LOADERS`; `dados` usa a whitelist `DADOS_COLS`, sem contrato/risco/observações internas) e
+  `file` (URL assinada de 1 h para `attachments`/`project-docs`/`brand-logos`, exigindo o
+  módulo correspondente). Senha: `v1$<salt>$<hmac(SERVICE_KEY)>`. Força bruta: 8 falhas por
+  projeto+IP ou 60 por projeto em 15 min → 429.
+- **Módulos disponíveis:** `src/lib/portalModules.js` (`PORTAL_MODULES`, ids iguais às seções
+  do ClientProfile; importado também pela API — por isso fica em `src/`, já que sob `vercel dev`
+  tudo em `/api/` vira rota). Front: `src/lib/portal.js` (chamadas + sessão em `sessionStorage`
+  `portal.session.<projectId>`), `src/pages/Portal.jsx` (tela de senha + layout com sidebar
+  dos módulos liberados), `src/components/Portal/` (`PortalModule` despacha um renderizador
+  por módulo; `PortalResultados` lê o mesmo JSONB do módulo interno; `PortalUI` primitivas).
+  Campanhas reaproveita `CampanhasView` exportado de `src/pages/CampanhasPublico.jsx`.
+- Os links públicos por `client_share_token` continuam existindo; o portal só centraliza.
+
 ### Pendências (Phase 5)
 
 Os seguintes componentes ainda usam base64 / estrutura legada e precisam ser atualizados:

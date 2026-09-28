@@ -123,8 +123,6 @@ export default function CampanhasPublico() {
     )
   }
 
-  const accounts = plan?.accounts || []
-
   return (
     <div className="min-h-screen bg-rl-bg">
       {/* Header */}
@@ -156,26 +154,7 @@ export default function CampanhasPublico() {
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
-        {!plan || accounts.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-12 px-6 text-center space-y-2">
-            <Megaphone className="w-8 h-8 text-rl-muted/40 mx-auto" />
-            <p className="text-sm font-semibold text-rl-text">
-              Nenhum planejamento de verba publicado ainda.
-            </p>
-            <p className="text-xs text-rl-muted">
-              Assim que o time montar a distribuição do orçamento, ela aparece aqui.
-            </p>
-          </div>
-        ) : (
-          accounts.map((acc, i) => (
-            <AccountSection
-              key={acc.id || i}
-              account={acc}
-              daysLeft={daysLeft}
-              showName={accounts.length > 1 || !!acc.name}
-            />
-          ))
-        )}
+        <CampanhasView plan={plan} />
 
         <div className="pt-2 pb-8 text-center">
           <p className="text-xs text-rl-muted">
@@ -185,6 +164,37 @@ export default function CampanhasPublico() {
         </div>
       </div>
     </div>
+  )
+}
+
+// ─── Corpo reutilizável (também usado pelo portal /portal/:projectId) ────────
+export function CampanhasView({ plan }) {
+  const accounts = plan?.accounts || []
+  const daysLeft = getDaysBetween(plan?.startDate, plan?.endDate)
+  if (!plan || accounts.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-12 px-6 text-center space-y-2">
+        <Megaphone className="w-8 h-8 text-rl-muted/40 mx-auto" />
+        <p className="text-sm font-semibold text-rl-text">
+          Nenhum planejamento de verba publicado ainda.
+        </p>
+        <p className="text-xs text-rl-muted">
+          Assim que o time montar a distribuição do orçamento, ela aparece aqui.
+        </p>
+      </div>
+    )
+  }
+  return (
+    <>
+      {accounts.map((acc, i) => (
+        <AccountSection
+          key={acc.id || i}
+          account={acc}
+          daysLeft={daysLeft}
+          showName={accounts.length > 1 || !!acc.name}
+        />
+      ))}
+    </>
   )
 }
 

@@ -113,7 +113,7 @@ function signatureStatus(minute) {
 }
 
 // ─── Template estruturado da ata ────────────────────────────────────────────
-const TEMPLATE_SECTIONS = [
+export const TEMPLATE_SECTIONS = [
   {
     id: 'resumo',
     title: 'Resumo da reunião',
@@ -179,7 +179,7 @@ const TEMPLATE_SECTIONS = [
   },
 ]
 
-const ACTION_AREAS = [
+export const ACTION_AREAS = [
   { value: 'marketing', label: 'Marketing', Icon: Megaphone, color: 'text-rl-purple', bg: 'bg-rl-purple/10', border: 'border-rl-purple/30' },
   { value: 'vendas',    label: 'Vendas',    Icon: ShoppingCart, color: 'text-rl-green',  bg: 'bg-rl-green/10',  border: 'border-rl-green/30'  },
 ]

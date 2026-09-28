@@ -10,7 +10,7 @@ import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import VideoGuide from '../components/VideoGuide'
 
 // ─── Questions ────────────────────────────────────────────────────────────────
-const QUESTIONS = [
+export const QUESTIONS = [
   {
     id:    'sonhos',
     emoji: '✨',

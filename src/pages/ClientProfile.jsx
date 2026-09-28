@@ -14,7 +14,7 @@ import {
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, ImagePlay, Map, Package,
   Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
-  NotebookPen, Wrench, Compass, Megaphone, Map as MapIcon, Database,
+  NotebookPen, Wrench, Compass, Megaphone, Map as MapIcon, Database, Share2,
 } from 'lucide-react'
 import ROIScenariosModule from '../components/ROIScenariosModule'
 import PersonaCreator from './PersonaCreator'
@@ -40,6 +40,7 @@ import DebriefingModule from '../components/Debriefing/DebriefingModule'
 import LPCentralModule from '../components/LPCentral/LPCentralModule'
 import PendingAdsBanner from '../components/Debriefing/PendingAdsBanner'
 import JornadaModule from '../components/Jornada/JornadaModule'
+import CompartilhamentoModule from '../components/CompartilhamentoModule'
 import { exportOnboardingPDF, exportProdutoServicoPDF } from '../utils/exportPDF'
 
 // ─── Momento ──────────────────────────────────────────────────────────────────
@@ -1227,6 +1228,7 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'bancodados',   label: 'Banco de Dados',            icon: Database,       color: 'text-rl-purple', filled: false },
     { id: 'atas',         label: 'Ata de Reunião',            icon: NotebookPen,    color: 'text-rl-purple', filled: false },
     { id: 'ferramentas',  label: 'Ferramentas',               icon: Wrench,         color: 'text-rl-gold',   filled: false },
+    { id: 'compartilhar', label: 'Compartilhamento',          icon: Share2,         color: 'text-rl-cyan',   filled: false },
   ]
 
   function renderContent() {
@@ -1270,6 +1272,7 @@ export default function ClientProfile({ project: projectProp }) {
       case 'bancodados':   return <BancoDeDadosModule project={project} />
       case 'atas':         return <MeetingMinutesModule project={project} />
       case 'ferramentas':  return <FerramentasModule key={pendingTool || 'main'} project={project} initialToolId={pendingTool} />
+      case 'compartilhar': return <CompartilhamentoModule project={project} showToast={showToast} />
       default:             return null
     }
   }

@@ -18,7 +18,7 @@ function num(v) {
   const x = Number(v)
   return Number.isFinite(x) ? x : 0
 }
-function str(v, max = 200) {
+export function str(v, max = 200) {
   return String(v == null ? '' : v).slice(0, max)
 }
 function dateOrNull(v) {
@@ -70,7 +70,7 @@ function sanitizeAccount(raw) {
 // Normaliza para o formato novo (array de contas). Planos legados guardavam
 // orcamentoTotal/channels na raiz — vira uma conta única, igual ao
 // initAccounts() do CampaignPlanner interno.
-function sanitizePlan(answers) {
+export function sanitizePlan(answers) {
   if (!answers || typeof answers !== 'object') return null
 
   let accounts = Array.isArray(answers.accounts) ? answers.accounts : []
