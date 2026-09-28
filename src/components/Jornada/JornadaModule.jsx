@@ -143,7 +143,7 @@ function PhaseCard({ phase, project, onClick }) {
               <button
                 key={mod.id}
                 onClick={() => onClick(mod)}
-                className="w-full group flex items-center gap-3 text-left rounded-xl bg-white border border-rl-border hover:border-rl-purple/40 hover:shadow-sm transition-all px-3 py-2.5"
+                className="w-full group flex items-center gap-3 text-left rounded-xl bg-rl-card border border-rl-border hover:border-rl-purple/40 hover:shadow-sm transition-all px-3 py-2.5"
               >
                 <div className="text-2xl shrink-0">{mod.emoji}</div>
                 <div className="flex-1 min-w-0">
