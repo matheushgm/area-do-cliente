@@ -208,6 +208,7 @@ export function exportOnboardingPDF(project) {
       <div class="grid grid-3">
         ${project.contractModel ? `<div class="field"><div class="field-label">Modelo</div><div class="field-value">${esc(CONTRACT_MODEL_LABELS[project.contractModel] || project.contractModel)}</div></div>` : ''}
         ${project.contractModel === 'aceleracao' && project.contractPaymentType ? `<div class="field"><div class="field-label">Tipo de Pagamento</div><div class="field-value">${esc(CONTRACT_PAYMENT_LABELS[project.contractPaymentType])}</div></div>` : ''}
+        ${project.contractModel === 'aceleracao' ? `<div class="field"><div class="field-label">Duração</div><div class="field-value">${Number(project.contractDurationMonths) || 3} meses</div></div>` : ''}
         ${project.contractValue ? `<div class="field"><div class="field-label">${project.contractModel === 'aceleracao' ? 'Valor do Contrato' : 'Valor Mensal'}</div><div class="field-value purple">${fmtBRL(project.contractValue)}</div></div>` : ''}
       </div>
     </section>` : ''}

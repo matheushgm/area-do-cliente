@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
 import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, BUSINESS_LABELS, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, MATURITY_LABELS, CONTRACT_MODEL_LABELS, CONTRACT_PAYMENT_LABELS } from '../lib/constants'
-import { fmtCurrency, initials, calcLTV, activeMonths, ltvStartSource } from '../lib/utils'
+import { fmtCurrency, initials, calcLTV, activeMonths, ltvStartSource, accelerationMonths } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
 import Modal from '../components/UI/Modal'
@@ -79,6 +79,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
     contractModel:       project.contractModel       || '',
     contractPaymentType: project.contractPaymentType || '',
     contractValue:       project.contractValue       ?? '',
+    contractDurationMonths: project.contractDurationMonths ?? '',
     contractDate:        project.contractDate        || '',
     competitors:         project.competitors?.length ? [...project.competitors] : [''],
     hasSalesTeam:        project.hasSalesTeam        ?? null,
@@ -168,6 +169,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
       contractModel:       form.contractModel,
       contractPaymentType: form.contractPaymentType,
       contractValue:       Number(form.contractValue) || null,
+      contractDurationMonths: form.contractDurationMonths ? Number(form.contractDurationMonths) : null,
       contractDate:        form.contractDate,
       competitors:         form.competitors.filter(Boolean),
       hasSalesTeam:        form.hasSalesTeam,
@@ -329,27 +331,39 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
           </div>
         </div>
 
-        {/* Tipo pagamento (aceleração only) */}
+        {/* Tipo pagamento + duração (aceleração only) */}
         {form.contractModel === 'aceleracao' && (
-          <div>
-            <label className="label-field">Tipo de Pagamento</label>
-            <div className="flex gap-3">
-              {[
-                { value: 'unico',  label: 'Valor Único' },
-                { value: 'mensal', label: 'Parcelado (Mensal)' },
-              ].map((pt) => (
-                <button
-                  key={pt.value}
-                  onClick={() => set('contractPaymentType', pt.value)}
-                  className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                    form.contractPaymentType === pt.value
-                      ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
-                      : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30'
-                  }`}
-                >
-                  {pt.label}
-                </button>
-              ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label-field">Tipo de Pagamento</label>
+              <div className="flex gap-3">
+                {[
+                  { value: 'unico',  label: 'Valor Único' },
+                  { value: 'mensal', label: 'Parcelado (Mensal)' },
+                ].map((pt) => (
+                  <button
+                    key={pt.value}
+                    onClick={() => set('contractPaymentType', pt.value)}
+                    className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                      form.contractPaymentType === pt.value
+                        ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
+                        : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30'
+                    }`}
+                  >
+                    {pt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="label-field">Duração do Programa (meses)</label>
+              <input
+                type="number" min="1" step="1"
+                value={form.contractDurationMonths}
+                onChange={(e) => set('contractDurationMonths', e.target.value)}
+                placeholder="3"
+                className="input-field"
+              />
             </div>
           </div>
         )}
@@ -721,7 +735,10 @@ function OnboardingContent({ project, onSave, showToast }) {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <Field label="Modelo"           value={CONTRACT_MODEL_LABELS[project.contractModel]} />
             {project.contractModel === 'aceleracao' && (
-              <Field label="Tipo de Pagamento" value={CONTRACT_PAYMENT_LABELS[project.contractPaymentType]} />
+              <>
+                <Field label="Tipo de Pagamento" value={CONTRACT_PAYMENT_LABELS[project.contractPaymentType]} />
+                <Field label="Duração" value={`${accelerationMonths(project)} meses`} />
+              </>
             )}
             <Field
               label={project.contractModel === 'aceleracao' ? 'Valor do Contrato' : 'Valor Mensal'}

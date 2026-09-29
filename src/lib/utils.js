@@ -89,12 +89,20 @@ export function slugify(str) {
     .slice(0, 60) || 'criativo'
 }
 
+// Duração (em meses) do Programa de Aceleração — editável por projeto
+// (contractDurationMonths); 3 é o fallback histórico para contratos sem
+// esse campo preenchido.
+export function accelerationMonths(project) {
+  return Number(project?.contractDurationMonths) || 3
+}
+
 // MRR normalizado: programas (contractModel === 'aceleracao') são contratos
-// fechados divididos em 3 meses; assessoria mensal já é cobrança recorrente
-// e mantém o contractValue cheio.
+// fechados divididos pela duração do programa (3, 6, 12... meses, ver
+// accelerationMonths); assessoria mensal já é cobrança recorrente e mantém
+// o contractValue cheio.
 export function mrrValue(p) {
   const v = Number(p?.contractValue) || 0
-  return p?.contractModel === 'aceleracao' ? v / 3 : v
+  return p?.contractModel === 'aceleracao' ? v / accelerationMonths(p) : v
 }
 
 // Parse de date string yyyy-mm-dd ou ISO timestamp.
@@ -161,9 +169,9 @@ export function ltvBreakdown(project) {
   // Mês 1 cobrado no dia 0 (assinatura).
   const cobrancasNominais = Math.max(1, Math.floor(days / 30) + 1)
 
-  // ── Programa de Aceleração + Parcelado (3x).
+  // ── Programa de Aceleração + Parcelado (duração editável, fallback 3x).
   if (isAceleracao) {
-    const cap              = 3
+    const cap              = accelerationMonths(project)
     const cobrancas        = Math.min(cobrancasNominais, cap)
     const installmentValue = totalContract / cap
     return {
@@ -196,7 +204,8 @@ export function ltvBreakdown(project) {
 // LTV total do cliente: soma de tudo que ele pagou desde o início do contrato
 // até hoje (ou até a churnDate, se já saiu). Considera o modelo de contrato:
 // - aceleracao + unico:    contractValue (pago integral no início)
-// - aceleracao + mensal:   min(meses, 3) × (contractValue / 3)
+// - aceleracao + mensal:   min(meses, duração) × (contractValue / duração) — duração
+//                          vem de contractDurationMonths, fallback 3 (ver accelerationMonths)
 // - assessoria:            meses × contractValue (sem cap)
 // Início do ciclo: contractDate → createdAt como fallback.
 export function calcLTV(project) {

@@ -275,6 +275,7 @@ const initialForm = {
   contractModel:       '',   // 'aceleracao' | 'assessoria'
   contractPaymentType: '',   // 'unico' | 'mensal'  (only for aceleração)
   contractValue:       '',
+  contractDurationMonths: '', // duração em meses (só aceleração; vazio = fallback 3)
   contractDate:        '',
   competitors:         [''],
   // Step 5 — Equipe
@@ -426,6 +427,7 @@ export default function NewOnboarding() {
         contract_model:        form.contractModel,
         contract_payment_type: form.contractPaymentType,
         contract_value:        parseCurrencyToNumber(form.contractValue),
+        contract_duration_months: form.contractDurationMonths ? Number(form.contractDurationMonths) : null,
         competitors:           form.competitors.filter(Boolean),
         contract_date:         form.contractDate,
         has_sales_team:        form.hasSalesTeam,
@@ -823,6 +825,17 @@ export default function NewOnboarding() {
                 {/* Programa de Aceleração — sub-fields */}
                 {form.contractModel === 'aceleracao' && (
                   <div className="mt-4 p-4 rounded-xl bg-rl-surface border border-rl-border/60 space-y-4">
+                    <div>
+                      <label className="label-field">Duração do Programa (meses)</label>
+                      <input
+                        type="number" min="1" step="1"
+                        value={form.contractDurationMonths}
+                        onChange={(e) => set('contractDurationMonths', e.target.value)}
+                        placeholder="3"
+                        className="input-field mt-1"
+                      />
+                      <p className="text-xs text-rl-muted mt-1">Padrão: 3 meses. Usado para calcular MRR e parcelas.</p>
+                    </div>
                     <div>
                       <label className="label-field mb-2">Tipo de Pagamento <span className="text-rl-red">*</span></label>
                       <div className="flex gap-3">
