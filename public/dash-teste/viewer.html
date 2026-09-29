@@ -21,6 +21,8 @@
   .api-banner { background:#FFFFFF; color:#64748B; font-size:12px;
     padding:7px 20px; border-bottom:1px solid #D8E0F0; display:flex; gap:10px; align-items:center; }
   .api-banner b { color:#164496; }
+  body.embed .api-banner { display:none; }
+  body.embed .dt-root.th-fynix .cp-header { padding-top: 10px; }
   .api-dot { width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px #22c55e; }
   /* Modal da mensagem semanal (autocontido) */
   .wk-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); display:flex;
@@ -1125,6 +1127,13 @@ const _q = new URLSearchParams(location.search)
 const SHARED = _q.get('shared') === '1'
   ? { client: (_q.get('cliente')||'').trim(), channel: _q.get('canal')==='google'?'google':'meta', token: (_q.get('t')||'').trim() }
   : null
+// ─── Modo EMBUTIDO (página do cliente da Área do Cliente) ─────────────────────
+// ?embed=1&cliente=<conta>&canal=meta|google: mesmo viewer autenticado, travado
+// na conta do projeto, sem "Voltar"/home e sem gravar a navegação do dashboard.
+const EMBED = !SHARED && _q.get('embed') === '1'
+  ? { client: (_q.get('cliente')||'').trim(), channel: _q.get('canal')==='google'?'google':'meta' }
+  : null
+if (EMBED) document.body.classList.add('embed')
 
 const destroyCharts = () => { state._charts.forEach(c=>{ try{ c.destroy() }catch(e){} }); state._charts=[] }
 
@@ -1175,6 +1184,10 @@ async function load(fresh) {
     if (SHARED) {
       state.channel = SHARED.channel
       state.openClient = { client: SHARED.client, channel: SHARED.channel }
+    } else if (EMBED) {
+      state.channel = EMBED.channel
+      state.openClient = { client: EMBED.client, channel: EMBED.channel }
+      if (!state.tab || state.tab === 'resultados') state.tab = 'campanhas'
     } else if (!state._navRestored) { restoreNav(); state._navRestored = true }
     // Navegação restaurada (ou mantida) num cliente: as linhas cruas dele são
     // baixadas antes de desenhar, já que não vêm mais no boot.
@@ -1419,7 +1432,7 @@ function squadsForChannels(channels, P) {
 // localStorage a cada render e restaura uma vez no boot, depois dos dados.
 const NAV_KEY = 'rl_dashteste_nav'
 function saveNav() {
-  if (SHARED) return
+  if (SHARED || EMBED) return
   try {
     localStorage.setItem(NAV_KEY, JSON.stringify({
       channel: state.channel, days: state.days, from: state.from, to: state.to, search: state.search, squad: state.squad,
@@ -4667,7 +4680,7 @@ function renderClient() {
 
   app.innerHTML = `
     <div class="cp-header">
-      ${SHARED ? '' : `<button class="cp-back" id="cpBack">${ic('back','←')} Voltar</button>`}
+      ${SHARED || EMBED ? '' : `<button class="cp-back" id="cpBack">${ic('back','←')} Voltar</button>`}
       <div class="cp-client-name">${esc(client)}</div>
       <div class="cp-badges">
         <span class="cp-channel-badge">${chIco(isMeta?'meta':'google')} ${isMeta?'Meta Ads':'Google Ads'}</span>

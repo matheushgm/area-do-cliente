@@ -1,4 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useDashboardData } from '../hooks/useDashboardData'
+import { useProjetoHub } from '../hooks/useProjetoHub'
+import { carregarConfigAtividades } from '../lib/atividades'
+import HubCentro from '../components/ProjetoHub/HubCentro'
+import HubDireita from '../components/ProjetoHub/HubDireita'
+import HubInformacoes from '../components/ProjetoHub/HubInformacoes'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
@@ -9,12 +15,13 @@ import Toast from '../components/UI/Toast'
 import Modal from '../components/UI/Modal'
 import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
-  Users, Zap, CalendarDays, Building2,
-  FileText, Globe, Phone, TrendingUp, Star, FileDown,
+  Users, Zap, CalendarDays,
+  FileText, Globe, Star, FileDown,
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, ImagePlay, Map, Package,
-  Pencil, Plus, Link2, PanelLeftClose, PanelLeftOpen, ChevronDown, Users2,
+  Pencil, Plus, Link2, ChevronDown, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
   NotebookPen, Wrench, Compass, Megaphone, Map as MapIcon, Database, Share2,
+  ArrowLeft, LayoutGrid, StickyNote, ChevronRight,
 } from 'lucide-react'
 import ROIScenariosModule from '../components/ROIScenariosModule'
 import PersonaCreator from './PersonaCreator'
@@ -1071,7 +1078,10 @@ export default function ClientProfile({ project: projectProp }) {
 
   const project = projects.find((p) => p.id === projectProp.id) || projectProp
 
-  const [activeSection, setActiveSection] = useState('jornada')
+  const [activeSection, setActiveSection] = useState('hub')
+  const [modulosAbertos, setModulosAbertos] = useState(false)
+  // Ação rápida da coluna esquerda que o HubCentro deve abrir (modal)
+  const [acaoRapida, setAcaoRapida] = useState(null)
   // Quando navegamos da Jornada pra uma tool dentro de Ferramentas
   // (ex: Mecanismo Único), guardamos o id da tool aqui. FerramentasModule
   // lê esse valor como initialToolId pra abrir direto na tool certa.
@@ -1092,10 +1102,7 @@ export default function ClientProfile({ project: projectProp }) {
     setPendingTool(null)
   }, [])
   // Sidebar default: aberta no desktop, fechada no mobile (drawer só abre por hambúrguer)
-  const [sidebarVisible, setSidebarVisible] = useState(() => {
-    if (typeof window === 'undefined') return true
-    return window.innerWidth >= 1024
-  })
+  const [sidebarVisible, setSidebarVisible] = useState(false)
   const [logoSignedUrl, setLogoSignedUrl] = useState(null)
   const [squadOpen, setSquadOpen] = useState(false)
   const squadRef = useRef(null)
@@ -1115,6 +1122,20 @@ export default function ClientProfile({ project: projectProp }) {
   const [squadTooltipPos, setSquadTooltipPos] = useState(null)
   const squadBadgeRef = useRef(null)
   const { toast, showToast } = useToast()
+
+  // ── Hub do projeto (coluna central): timeline, sugestões do playbook e dados do dash
+  const hub = useProjetoHub(project.id)
+  const dashReal = useDashboardData({ source: 'api', projectId: project.id, dias: 16 })
+  // Preview sem login (/dev/hub) injeta o dash pronto
+  const dash = (import.meta.env.DEV && window.__DEV_HUB?.dash) || dashReal
+  const [configAtividades, setConfigAtividades] = useState(null)
+  useEffect(() => {
+    let ativo = true
+    carregarConfigAtividades()
+      .then((r) => { if (ativo) setConfigAtividades(r?.config || {}) })
+      .catch(() => { if (ativo) setConfigAtividades({}) })
+    return () => { ativo = false }
+  }, [])
 
   useEffect(() => {
     if (!project.logoUrl) { setLogoSignedUrl(null); return }
@@ -1294,11 +1315,48 @@ export default function ClientProfile({ project: projectProp }) {
     }
   }
 
+  const modulosCard = (
+          <div className="glass-card border border-rl-border/60">
+            <div className="flex items-center gap-2 px-4 py-3">
+              <span className="w-7 h-7 rounded-full flex items-center justify-center fx-soft"><LayoutGrid className="w-3.5 h-3.5" /></span>
+              <span className="text-sm font-semibold text-rl-text flex-1">Módulos</span>
+              <span className="text-[11px] text-rl-muted">({NAV_ITEMS.length})</span>
+              <button onClick={() => setModulosAbertos((v) => !v)} className="p-1 rounded-md text-rl-muted hover:text-rl-text hover:bg-rl-surface" aria-label={modulosAbertos ? 'Recolher' : 'Expandir'}>
+                {modulosAbertos ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </button>
+            </div>
+            {modulosAbertos && (
+              <div className="p-2 border-t border-rl-border/60">
+                {NAV_ITEMS.map(({ id, label, icon: Icon, color, filled }) => {
+                  const isActive = activeSection === id
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => handleSidebarClick(id)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 ${
+                        isActive
+                          ? 'bg-rl-purple text-white shadow-sm'
+                          : 'text-rl-subtle hover:bg-rl-bg hover:text-rl-text'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : color}`} />
+                      <span className="truncate flex-1 text-left">{label}</span>
+                      {filled && !isActive && (
+                        <CheckCircle2 className="w-3 h-3 shrink-0 text-rl-green opacity-80" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+  )
+
   return (
     <div className="space-y-0">
 
       {/* ── Mobile top bar (hambúrguer + nome do cliente) ────────────────── */}
-      <div className="lg:hidden sticky top-0 z-40 -mx-4 sm:-mx-6 -mt-6 mb-4 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
+      <div className="xl:hidden sticky top-0 z-40 -mx-4 sm:-mx-6 -mt-6 mb-4 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
         <button
           onClick={() => setSidebarVisible(true)}
           aria-label="Abrir menu de módulos"
@@ -1311,535 +1369,497 @@ export default function ClientProfile({ project: projectProp }) {
         </span>
       </div>
 
-      {/* ── Profile Header ──────────────────────────────────────────────── */}
-      <div className="glass-card border border-rl-green/20">
-        <div className="relative h-32 bg-gradient-to-br from-rl-purple/20 via-rl-blue/10 to-rl-cyan/5 overflow-hidden rounded-t-xl">
-          <div className="absolute inset-0 opacity-[0.12]"
-            style={{ backgroundImage: 'radial-gradient(circle, #164496 1px, transparent 1px)', backgroundSize: '24px 24px' }}
-          />
-          <div className="absolute top-4 left-4">
-            <button
-              onClick={() => setSidebarVisible((v) => !v)}
-              title={sidebarVisible ? 'Ocultar sidebar' : 'Exibir sidebar'}
-              className={`p-2 rounded-lg border transition-all duration-150 ${
-                sidebarVisible
-                  ? 'bg-rl-purple/20 border-rl-purple/40 text-rl-purple'
-                  : 'bg-rl-surface/60 border-rl-border text-rl-muted hover:border-rl-purple/30 hover:text-rl-purple'
-              }`}
-            >
-              {sidebarVisible ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
-            </button>
-          </div>
-          <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-rl-green/20 border border-rl-green/30 px-3 py-1.5 rounded-full">
-            <CheckCircle2 className="w-3.5 h-3.5 text-rl-green" />
-            <span className="text-xs font-semibold text-rl-green">Onboarding Completo</span>
-          </div>
-        </div>
+      {/* ── Layout em 3 colunas: cliente | atividades / módulo aberto | acesso rápido ── */}
+      <div className="flex flex-col xl:flex-row gap-4 items-start">
 
-        <div className="relative px-4 sm:px-6 pb-6">
-          <div className="absolute -top-12 left-4 sm:left-6">
-            <div className="relative group">
-              <div className="w-24 h-24 rounded-2xl border-4 border-rl-bg bg-rl-surface overflow-hidden flex items-center justify-center shadow-xl">
-                {logoSignedUrl
-                  ? <img src={logoSignedUrl} alt="Logo" className="w-full h-full object-cover" />
-                  : <span className="text-2xl font-black text-rl-purple">{companyInitials}</span>
-                }
-              </div>
-              <button
-                onClick={() => logoInputRef.current?.click()}
-                className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Alterar logo"
-              >
-                <Camera className="w-6 h-6 text-white" />
-              </button>
-              <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+        {/* Coluna esquerda: cartão do cliente, ações rápidas, informações e módulos */}
+        <div className="w-full xl:w-[340px] shrink-0 space-y-3">
+      {/* ── Profile Header ──────────────────────────────────────────────── */}
+        <div className="glass-card border border-rl-border/60">
+          <div className="relative h-24 fx-hero rounded-t-2xl">
+            <div className="absolute inset-0 opacity-[0.12]"
+              style={{ backgroundImage: 'radial-gradient(circle, #164496 1px, transparent 1px)', backgroundSize: '24px 24px' }}
+            />
+            <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-white/15 px-2.5 py-1 rounded-full">
+              <CheckCircle2 className="w-3 h-3 text-white" />
+              <span className="text-[11px] font-semibold text-white">Onboarding completo</span>
             </div>
           </div>
 
-          <div className="pt-14">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-              <div>
-                <h1 className="text-2xl font-black text-rl-text">{project.companyName}</h1>
-                <p className="text-sm text-rl-muted mt-0.5">
-                  {BUSINESS_LABELS[project.businessType] || project.businessType}
-                  {project.responsibleName && ` · ${project.responsibleName}`}
-                  {project.responsibleRole && ` · ${project.responsibleRole}`}
-                </p>
-                {(project.contractDate || project.contractModel || project.contractValue) && (
-                  <p className="text-xs text-rl-muted mt-1 flex items-center gap-1.5 flex-wrap">
-                    <CalendarDays className="w-3.5 h-3.5 shrink-0" />
-                    {project.contractDate && (
-                      <span>{new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
-                    )}
-                    {project.contractModel && (
-                      <>
-                        {project.contractDate && <span className="opacity-40">·</span>}
-                        <span>{CONTRACT_MODEL_LABELS[project.contractModel] || project.contractModel}</span>
-                      </>
-                    )}
-                    {project.contractValue && (
-                      <>
-                        <span className="opacity-40">·</span>
-                        <span className="font-semibold text-rl-subtle">{fmtCurrency(project.contractValue)}{project.contractModel === 'assessoria' ? '/mês' : ''}</span>
-                      </>
-                    )}
+          <div className="relative px-4 pb-5">
+            <div className="absolute -top-10 left-4">
+              <div className="relative group">
+                <div className="w-20 h-20 rounded-2xl border-4 border-rl-card bg-rl-card shadow-card overflow-hidden flex items-center justify-center shadow-xl">
+                  {logoSignedUrl
+                    ? <img src={logoSignedUrl} alt="Logo" className="w-full h-full object-cover" />
+                    : <span className="text-2xl font-black text-rl-purple">{companyInitials}</span>
+                  }
+                </div>
+                <button
+                  onClick={() => logoInputRef.current?.click()}
+                  className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Alterar logo"
+                >
+                  <Camera className="w-6 h-6 text-white" />
+                </button>
+                <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+              </div>
+            </div>
+
+            <div className="pt-11">
+              <div className="flex flex-col gap-3">
+                <div>
+                  <h1 className="text-xl font-black text-rl-text leading-tight">{project.companyName}</h1>
+                  <p className="text-sm text-rl-muted mt-0.5">
+                    {BUSINESS_LABELS[project.businessType] || project.businessType}
+                    {project.responsibleName && ` · ${project.responsibleName}`}
+                    {project.responsibleRole && ` · ${project.responsibleRole}`}
                   </p>
-                )}
-                {/* ── LTV do cliente (cycle a partir de contractDate, fallback createdAt) ─ */}
-                {(() => {
-                  const ltv    = calcLTV(project)
-                  const months = activeMonths(project)
-                  if (ltv <= 0 || months <= 0) return null
-                  const isChurned = project.momento === 'churn' && project.churnDate
-                  const source    = ltvStartSource(project)
-                  return (
-                    <div className="mt-3 inline-flex flex-wrap items-center gap-3 px-3 py-2 rounded-xl border border-rl-purple/20 bg-rl-purple/5">
-                      <div className="flex items-center gap-1.5">
-                        <TrendingUp className="w-3.5 h-3.5 text-rl-purple shrink-0" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-rl-purple">LTV</span>
-                      </div>
-                      <span className="text-base font-bold text-rl-text leading-tight tabular-nums">{fmtCurrency(ltv)}</span>
-                      <span className="text-[10px] text-rl-muted">
-                        {months >= 1 ? `${months.toFixed(1)} ${months < 2 ? 'mês' : 'meses'}` : `${Math.max(1, Math.round(months * 30))} dia${Math.round(months * 30) === 1 ? '' : 's'}`}
-                        {isChurned && <span className="ml-1 text-red-400">· encerrado</span>}
-                      </span>
-                      {source === 'created' && (
-                        <span
-                          className="text-[10px] text-rl-gold font-semibold"
-                          title="Calculado a partir da data de cadastro pois a Data de Assinatura ainda não foi preenchida"
-                        >
-                          · estimado
+                  {(() => {
+                    const ltv = calcLTV(project)
+                    const months = activeMonths(project)
+                    const isChurned = project.momento === 'churn' && project.churnDate
+                    const estimado = ltvStartSource(project) === 'created'
+                    const linhas = [
+                      project.contractDate && ['Início', new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')],
+                      project.contractModel && ['Modelo', String(CONTRACT_MODEL_LABELS[project.contractModel] || project.contractModel).replace(/^[^\p{L}\d]+/u, '')],
+                      project.contractValue && ['Valor', `${fmtCurrency(project.contractValue)}${project.contractModel === 'assessoria' ? '/mês' : ''}`],
+                      ltv > 0 && months > 0 && ['LTV', (
+                        <span key="ltv">
+                          <span className="font-semibold text-rl-text tabular-nums">{fmtCurrency(ltv)}</span>
+                          <span className="text-rl-muted"> · {months >= 1 ? `${months.toFixed(1)} ${months < 2 ? 'mês' : 'meses'}` : `${Math.max(1, Math.round(months * 30))} dia${Math.round(months * 30) === 1 ? '' : 's'}`}</span>
+                          {isChurned && <span className="text-rl-muted"> · encerrado</span>}
+                          {estimado && <span className="text-rl-muted" title="Calculado a partir da data de cadastro pois a Data de Assinatura ainda não foi preenchida"> · estimado</span>}
                         </span>
-                      )}
-                    </div>
-                  )
-                })()}
-                {/* ── Squad Assignment ──────────────────────────────────── */}
-                {(() => {
-                  const currentSquadIdx = squads.findIndex((s) => s.id === project.squad)
-                  const currentSquad    = currentSquadIdx >= 0 ? squads[currentSquadIdx] : null
-                  const currentColors   = currentSquad ? SQUAD_COLORS[currentSquadIdx % SQUAD_COLORS.length] : null
+                      )],
+                    ].filter(Boolean)
+                    if (!linhas.length) return null
+                    return (
+                      <dl className="mt-4 space-y-1.5 text-xs">
+                        {linhas.map(([k, v]) => (
+                          <div key={k} className="flex items-baseline gap-3">
+                            <dt className="w-12 shrink-0 text-rl-muted">{k}</dt>
+                            <dd className="text-rl-subtle">{v}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )
+                  })()}
+                  {/* ── Squad Assignment ──────────────────────────────────── */}
+                  {(() => {
+                    const currentSquadIdx = squads.findIndex((s) => s.id === project.squad)
+                    const currentSquad    = currentSquadIdx >= 0 ? squads[currentSquadIdx] : null
 
-                  const resolveMembers = (sq) =>
-                    (sq.members || []).map((m) => {
-                      const profile = teamMembers.find((t) => t.id === m.profile_id)
-                      return { name: profile?.name || m.profile_id, role: m.role }
-                    })
+                    const resolveMembers = (sq) =>
+                      (sq.members || []).map((m) => {
+                        const profile = teamMembers.find((t) => t.id === m.profile_id)
+                        return { name: profile?.name || m.profile_id, role: m.role }
+                      })
 
-                  return (
-                    <div className="mt-3 relative inline-block" ref={squadRef}>
-                      {currentSquad ? (
-                        <div className="flex items-center gap-3">
-                          {/* Squad badge — click to change, hover to preview members */}
+                    return (
+                      <div className="mt-4 mr-2 relative inline-block" ref={squadRef}>
+                        {currentSquad ? (
+                          <div className="flex items-center gap-3">
+                            {/* Squad badge — click to change, hover to preview members */}
+                            <button
+                              ref={squadBadgeRef}
+                              onClick={() => setSquadOpen((v) => !v)}
+                              onMouseEnter={() => {
+                                if (!squadBadgeRef.current) return
+                                const rect = squadBadgeRef.current.getBoundingClientRect()
+                                setSquadTooltipPos({ x: rect.left, y: rect.top })
+                              }}
+                              onMouseLeave={() => setSquadTooltipPos(null)}
+                              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border font-medium text-xs transition-all shrink-0 bg-rl-surface border-rl-border text-rl-text hover:border-rl-muted/60`}
+                            >
+                              <span className="text-sm leading-none">{currentSquad.emoji}</span> {currentSquad.name}
+                              <ChevronDown className="w-3 h-3 opacity-60" />
+                            </button>
+                            {squadTooltipPos && resolveMembers(currentSquad).length > 0 && createPortal(
+                              <div
+                                style={{ position: 'fixed', left: squadTooltipPos.x, top: squadTooltipPos.y - 8, transform: 'translateY(-100%)' }}
+                                className="z-[9999] pointer-events-none"
+                              >
+                                <div className="glass-card border border-rl-border shadow-xl py-2 px-3 rounded-xl min-w-[180px]">
+                                  <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider mb-1.5">{currentSquad.name}</p>
+                                  {resolveMembers(currentSquad).map((m, i) => (
+                                    <div key={i} className="flex items-center justify-between gap-4 py-0.5">
+                                      <span className="text-xs text-rl-text whitespace-nowrap">{m.name}</span>
+                                      <span className="text-[10px] text-rl-muted whitespace-nowrap">{m.role}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>,
+                              document.body
+                            )}
+                          </div>
+                        ) : (
                           <button
-                            ref={squadBadgeRef}
                             onClick={() => setSquadOpen((v) => !v)}
-                            onMouseEnter={() => {
-                              if (!squadBadgeRef.current) return
-                              const rect = squadBadgeRef.current.getBoundingClientRect()
-                              setSquadTooltipPos({ x: rect.left, y: rect.top })
-                            }}
-                            onMouseLeave={() => setSquadTooltipPos(null)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-semibold text-xs transition-all shrink-0 ${currentColors.bg} ${currentColors.border} ${currentColors.text}`}
+                            className="flex items-center gap-1.5 text-xs text-rl-muted border border-dashed border-rl-border px-3 py-1.5 rounded-full hover:border-rl-purple/40 hover:text-rl-purple transition-all"
                           >
                             <Users2 className="w-3.5 h-3.5" />
-                            {currentSquad.emoji} {currentSquad.name}
-                            <ChevronDown className="w-3 h-3 opacity-60" />
+                            Designar Squad
                           </button>
-                          {squadTooltipPos && resolveMembers(currentSquad).length > 0 && createPortal(
-                            <div
-                              style={{ position: 'fixed', left: squadTooltipPos.x, top: squadTooltipPos.y - 8, transform: 'translateY(-100%)' }}
-                              className="z-[9999] pointer-events-none"
-                            >
-                              <div className="glass-card border border-rl-border shadow-xl py-2 px-3 rounded-xl min-w-[180px]">
-                                <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider mb-1.5">{currentSquad.name}</p>
-                                {resolveMembers(currentSquad).map((m, i) => (
-                                  <div key={i} className="flex items-center justify-between gap-4 py-0.5">
-                                    <span className="text-xs text-rl-text whitespace-nowrap">{m.name}</span>
-                                    <span className="text-[10px] text-rl-muted whitespace-nowrap">{m.role}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>,
-                            document.body
-                          )}
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setSquadOpen((v) => !v)}
-                          className="flex items-center gap-1.5 text-xs text-rl-muted border border-dashed border-rl-border px-3 py-1.5 rounded-full hover:border-rl-purple/40 hover:text-rl-purple transition-all"
-                        >
-                          <Users2 className="w-3.5 h-3.5" />
-                          Designar Squad
-                        </button>
-                      )}
+                        )}
 
-                      {/* Dropdown */}
-                      {squadOpen && (
-                        <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
-                          {squads.length === 0 && (
-                            <p className="px-3 py-2 text-xs text-rl-muted">Nenhum squad cadastrado.</p>
-                          )}
-                          {squads.map((sq, idx) => {
-                            const colors = SQUAD_COLORS[idx % SQUAD_COLORS.length]
-                            const members = resolveMembers(sq)
-                            return (
+                        {/* Dropdown */}
+                        {squadOpen && (
+                          <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
+                            {squads.length === 0 && (
+                              <p className="px-3 py-2 text-xs text-rl-muted">Nenhum squad cadastrado.</p>
+                            )}
+                            {squads.map((sq, idx) => {
+                              const colors = SQUAD_COLORS[idx % SQUAD_COLORS.length]
+                              const members = resolveMembers(sq)
+                              return (
+                                <button
+                                  key={sq.id}
+                                  onClick={() => { updateProject(project.id, { squad: sq.id }); setSquadOpen(false) }}
+                                  className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
+                                    project.squad === sq.id
+                                      ? `${colors.bg} ${colors.text} border ${colors.border}`
+                                      : 'hover:bg-rl-surface text-rl-text'
+                                  }`}
+                                >
+                                  <span className="text-base">{sq.emoji || '👥'}</span>
+                                  <div>
+                                    <p className="font-bold leading-tight">{sq.name}</p>
+                                    {members.length > 0 && (
+                                      <p className="text-[10px] opacity-60 leading-tight">{members.map((m) => m.name).join(' · ')}</p>
+                                    )}
+                                  </div>
+                                  {project.squad === sq.id && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
+                                </button>
+                              )
+                            })}
+                            {project.squad && (
                               <button
-                                key={sq.id}
-                                onClick={() => { updateProject(project.id, { squad: sq.id }); setSquadOpen(false) }}
-                                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
-                                  project.squad === sq.id
-                                    ? `${colors.bg} ${colors.text} border ${colors.border}`
+                                onClick={() => { updateProject(project.id, { squad: null }); setSquadOpen(false) }}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                Remover Squad
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+
+                  {/* ── Risk Level ───────────────────────────────────────────── */}
+                  {(() => {
+                    const current = RISK_CONFIG.find((r) => r.value === project.riskLevel) || null
+                    return (
+                      <div className="mt-2 mr-2 relative inline-block" ref={riskRef}>
+                        <button
+                          onClick={() => setRiskOpen((v) => !v)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                            current
+                              ? 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-muted/60'
+                              : 'bg-rl-surface border-dashed border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-purple'
+                          }`}
+                        >
+                          {current ? (
+                            <><span className={`w-2 h-2 rounded-full shrink-0 ${current.dot}`} />{current.label}</>
+                          ) : (
+                            <>⚡ Definir Risco</>
+                          )}
+                          <ChevronDown className="w-3 h-3 opacity-60" />
+                        </button>
+
+                        {riskOpen && (
+                          <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[180px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
+                            {RISK_CONFIG.map((r) => (
+                              <button
+                                key={r.value}
+                                onClick={() => { updateProject(project.id, { riskLevel: r.value }); setRiskOpen(false) }}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
+                                  project.riskLevel === r.value
+                                    ? `${r.bg} ${r.text} border ${r.border}`
                                     : 'hover:bg-rl-surface text-rl-text'
                                 }`}
                               >
-                                <span className="text-base">{sq.emoji || '👥'}</span>
-                                <div>
-                                  <p className="font-bold leading-tight">{sq.name}</p>
-                                  {members.length > 0 && (
-                                    <p className="text-[10px] opacity-60 leading-tight">{members.map((m) => m.name).join(' · ')}</p>
-                                  )}
-                                </div>
-                                {project.squad === sq.id && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
-                              </button>
-                            )
-                          })}
-                          {project.squad && (
-                            <button
-                              onClick={() => { updateProject(project.id, { squad: null }); setSquadOpen(false) }}
-                              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                              Remover Squad
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })()}
-
-                {/* ── Risk Level ───────────────────────────────────────────── */}
-                {(() => {
-                  const current = RISK_CONFIG.find((r) => r.value === project.riskLevel) || null
-                  return (
-                    <div className="mt-2 relative inline-block" ref={riskRef}>
-                      <button
-                        onClick={() => setRiskOpen((v) => !v)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
-                          current
-                            ? `${current.bg} ${current.border} ${current.text}`
-                            : 'bg-rl-surface border-dashed border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-purple'
-                        }`}
-                      >
-                        {current ? (
-                          <><span className={`w-2 h-2 rounded-full shrink-0 ${current.dot}`} />{current.label}</>
-                        ) : (
-                          <>⚡ Definir Risco</>
-                        )}
-                        <ChevronDown className="w-3 h-3 opacity-60" />
-                      </button>
-
-                      {riskOpen && (
-                        <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[180px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
-                          {RISK_CONFIG.map((r) => (
-                            <button
-                              key={r.value}
-                              onClick={() => { updateProject(project.id, { riskLevel: r.value }); setRiskOpen(false) }}
-                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
-                                project.riskLevel === r.value
-                                  ? `${r.bg} ${r.text} border ${r.border}`
-                                  : 'hover:bg-rl-surface text-rl-text'
-                              }`}
-                            >
-                              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${r.dot}`} />
-                              {r.label}
-                              {project.riskLevel === r.value && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
-                            </button>
-                          ))}
-                          {project.riskLevel && (
-                            <button
-                              onClick={() => { updateProject(project.id, { riskLevel: null }); setRiskOpen(false) }}
-                              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                              Remover Status
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })()}
-
-                {/* ── Momento ──────────────────────────────────────────────── */}
-                {(() => {
-                  const current = MOMENTO_CONFIG.find((m) => m.value === project.momento) || null
-                  return (
-                    <div className="mt-2 relative inline-block" ref={momentoRef}>
-                      <button
-                        onClick={() => setMomentoOpen((v) => !v)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
-                          current
-                            ? `${current.bg} ${current.border} ${current.text}`
-                            : 'bg-rl-surface border-dashed border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-purple'
-                        }`}
-                      >
-                        {current ? (
-                          <>
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${current.dot}`} />
-                            {current.label}
-                            {current.value === 'churn' && project.churnDate && (
-                              <span className="opacity-70 font-normal">
-                                · {new Date(project.churnDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          <>🎯 Definir Momento</>
-                        )}
-                        <ChevronDown className="w-3 h-3 opacity-60" />
-                      </button>
-
-                      {momentoOpen && (
-                        <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[200px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
-                          {MOMENTO_CONFIG.map((m) => (
-                            <button
-                              key={m.value}
-                              onClick={() => {
-                                if (m.value === 'churn') {
-                                  // Para churn, abre modal pedindo a data de saída
-                                  // Pré-preenche com a data atual em formato yyyy-mm-dd
-                                  const today = new Date().toISOString().slice(0, 10)
-                                  setChurnDateInput(project.churnDate || today)
-                                  setChurnModalOpen(true)
-                                  setMomentoOpen(false)
-                                  return
-                                }
-                                // Saindo de churn → limpa a data de saída
-                                const patch = project.momento === 'churn'
-                                  ? { momento: m.value, churnDate: null }
-                                  : { momento: m.value }
-                                updateProject(project.id, patch)
-                                setMomentoOpen(false)
-                              }}
-                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
-                                project.momento === m.value
-                                  ? `${m.bg} ${m.text} border ${m.border}`
-                                  : 'hover:bg-rl-surface text-rl-text'
-                              }`}
-                            >
-                              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${m.dot}`} />
-                              {m.label}
-                              {project.momento === m.value && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
-                            </button>
-                          ))}
-                          {project.momento && (
-                            <button
-                              onClick={() => {
-                                const patch = project.momento === 'churn'
-                                  ? { momento: null, churnDate: null }
-                                  : { momento: null }
-                                updateProject(project.id, patch)
-                                setMomentoOpen(false)
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                              Remover Momento
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })()}
-              </div>
-
-              <div className="flex flex-col items-start sm:items-end gap-3 w-full sm:w-auto sm:shrink-0">
-
-                {/* ── Links + Dashboard ── */}
-                {(() => {
-                  const MAX_VISIBLE = 3
-                  const allLinks = [
-                    project.dashboardUrl && {
-                      key: 'dashboard', label: 'Dashboard', href: project.dashboardUrl,
-                      Icon: LayoutDashboard, pill: 'bg-rl-cyan/10 border-rl-cyan/30 text-rl-cyan',
-                      onRemove: () => updateProject(project.id, { dashboardUrl: null }),
-                    },
-                    project.clickupListUrl && {
-                      key: 'clickup', label: 'ClickUp', href: project.clickupListUrl,
-                      Icon: Kanban, pill: 'bg-purple-500/10 border-purple-500/30 text-purple-400',
-                      onRemove: () => updateProject(project.id, { clickup_folder_id: null, clickup_list_id: null, clickup_list_url: null, clickup_chat_channel_id: null }),
-                    },
-                    lnk.instagram && {
-                      key: 'instagram', label: 'Instagram', href: lnk.instagram.startsWith('http') ? lnk.instagram : `https://${lnk.instagram}`,
-                      Icon: Instagram, pill: 'bg-pink-500/10 border-pink-500/30 text-pink-400',
-                      onRemove: () => updateProject(project.id, { links: { ...lnk, instagram: '' } }),
-                    },
-                    lnk.website && {
-                      key: 'website', label: 'Website', href: lnk.website.startsWith('http') ? lnk.website : `https://${lnk.website}`,
-                      Icon: Globe, pill: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
-                      onRemove: () => updateProject(project.id, { links: { ...lnk, website: '' } }),
-                    },
-                    lnk.googleDrive && {
-                      key: 'googleDrive', label: 'Google Drive', href: lnk.googleDrive.startsWith('http') ? lnk.googleDrive : `https://${lnk.googleDrive}`,
-                      Icon: HardDrive, pill: 'bg-green-500/10 border-green-500/30 text-green-400',
-                      onRemove: () => updateProject(project.id, { links: { ...lnk, googleDrive: '' } }),
-                    },
-                    ...(lnk.outros || []).filter(o => o.url).map((outro, i) => ({
-                      key: `outro-${i}`, label: outro.label || 'Link', href: outro.url.startsWith('http') ? outro.url : `https://${outro.url}`,
-                      Icon: Link2, pill: 'bg-rl-purple/10 border-rl-purple/30 text-rl-purple',
-                      onRemove: () => updateProject(project.id, { links: { ...lnk, outros: (lnk.outros || []).filter((_, idx) => idx !== i) } }),
-                    })),
-                  ].filter(Boolean)
-
-                  const visible  = allLinks.slice(0, MAX_VISIBLE)
-                  const overflow = allLinks.slice(MAX_VISIBLE)
-
-                  return (
-                    <div className="flex items-center gap-2 flex-wrap justify-end">
-                      {visible.map(({ key, label, href, Icon, pill, onRemove }) => (
-                        <div key={key} className={`group relative flex items-center px-4 py-2 rounded-xl border text-sm font-semibold ${pill}`}>
-                          <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:opacity-80 transition-opacity pr-4">
-                            <Icon className="w-4 h-4" />{label}
-                          </a>
-                          <button onClick={onRemove} className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 bg-rl-card text-rl-muted opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all" title="Remover"><X className="w-4 h-4" /></button>
-                        </div>
-                      ))}
-
-                      {/* Botão overflow "Mais N" */}
-                      {overflow.length > 0 && (
-                        <div className="relative" ref={overflowRef}>
-                          <button
-                            onClick={() => setOverflowOpen(o => !o)}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted text-sm font-medium hover:border-rl-purple/40 hover:text-rl-purple transition-all"
-                          >
-                            <ChevronDown className="w-3.5 h-3.5" />Mais {overflow.length}
-                          </button>
-                          {overflowOpen && (
-                            <div className="absolute right-0 top-full mt-1 z-50 glass-card p-1 min-w-[180px] shadow-lg border border-rl-border">
-                              {overflow.map(({ key, label, href, Icon, pill, onRemove }) => (
-                                <div key={key} className="group relative flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-rl-surface transition-all">
-                                  <a href={href} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 text-sm font-medium flex-1 min-w-0 hover:opacity-80 transition-opacity ${pill.split(' ').find(c => c.startsWith('text-'))}`}>
-                                    <Icon className="w-4 h-4 shrink-0" />
-                                    <span className="truncate">{label}</span>
-                                  </a>
-                                  <button onClick={() => { onRemove(); if (overflow.length === 1) setOverflowOpen(false) }} className="shrink-0 rounded p-0.5 text-rl-muted/50 hover:text-red-400 transition-colors" title="Remover"><X className="w-3.5 h-3.5" /></button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Botão + Link com dropdown e popover */}
-                      <div className="relative" ref={linkRef}>
-                        <button
-                          onClick={() => setLinkStep(s => s === 'idle' ? 'dropdown' : 'idle')}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-rl-border text-rl-muted text-sm hover:border-rl-purple/40 hover:text-rl-purple transition-all"
-                        >
-                          <Plus className="w-3.5 h-3.5" />Link
-                        </button>
-
-                        {/* Dropdown de tipos */}
-                        {linkStep === 'dropdown' && (
-                          <div className="absolute right-0 top-full mt-1 z-50 glass-card p-1 min-w-[180px] shadow-lg border border-rl-border">
-                            {[
-                              { id: 'instagram',   label: 'Instagram',    Icon: Instagram,       color: 'text-pink-400',  hide: !!lnk.instagram        },
-                              { id: 'website',     label: 'Website',      Icon: Globe,           color: 'text-blue-400',  hide: !!lnk.website          },
-                              { id: 'googleDrive', label: 'Google Drive', Icon: HardDrive,       color: 'text-green-400', hide: !!lnk.googleDrive      },
-                              { id: 'dashboard',   label: 'Dashboard',    Icon: LayoutDashboard, color: 'text-rl-cyan',   hide: !!project.dashboardUrl },
-                              { id: 'outro',       label: 'Personalizado', Icon: Link2,          color: 'text-rl-purple', hide: false                  },
-                            ].filter(o => !o.hide).map(({ id, label, Icon, color }) => (
-                              <button
-                                key={id}
-                                onClick={() => { setLinkPickedType(id); setLinkInput(''); setLinkLabel(''); setLinkStep('input') }}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-rl-text hover:bg-rl-surface transition-all"
-                              >
-                                <Icon className={`w-4 h-4 ${color} shrink-0`} />{label}
+                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${r.dot}`} />
+                                {r.label}
+                                {project.riskLevel === r.value && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
                               </button>
                             ))}
+                            {project.riskLevel && (
+                              <button
+                                onClick={() => { updateProject(project.id, { riskLevel: null }); setRiskOpen(false) }}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                Remover Status
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+
+                  {/* ── Momento ──────────────────────────────────────────────── */}
+                  {(() => {
+                    const current = MOMENTO_CONFIG.find((m) => m.value === project.momento) || null
+                    return (
+                      <div className="mt-2 mr-2 relative inline-block" ref={momentoRef}>
+                        <button
+                          onClick={() => setMomentoOpen((v) => !v)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                            current
+                              ? 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-muted/60'
+                              : 'bg-rl-surface border-dashed border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-purple'
+                          }`}
+                        >
+                          {current ? (
+                            <>
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${current.dot}`} />
+                              {current.label}
+                              {current.value === 'churn' && project.churnDate && (
+                                <span className="opacity-70 font-normal">
+                                  · {new Date(project.churnDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <>🎯 Definir Momento</>
+                          )}
+                          <ChevronDown className="w-3 h-3 opacity-60" />
+                        </button>
+
+                        {momentoOpen && (
+                          <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[200px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
+                            {MOMENTO_CONFIG.map((m) => (
+                              <button
+                                key={m.value}
+                                onClick={() => {
+                                  if (m.value === 'churn') {
+                                    // Para churn, abre modal pedindo a data de saída
+                                    // Pré-preenche com a data atual em formato yyyy-mm-dd
+                                    const today = new Date().toISOString().slice(0, 10)
+                                    setChurnDateInput(project.churnDate || today)
+                                    setChurnModalOpen(true)
+                                    setMomentoOpen(false)
+                                    return
+                                  }
+                                  // Saindo de churn → limpa a data de saída
+                                  const patch = project.momento === 'churn'
+                                    ? { momento: m.value, churnDate: null }
+                                    : { momento: m.value }
+                                  updateProject(project.id, patch)
+                                  setMomentoOpen(false)
+                                }}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
+                                  project.momento === m.value
+                                    ? `${m.bg} ${m.text} border ${m.border}`
+                                    : 'hover:bg-rl-surface text-rl-text'
+                                }`}
+                              >
+                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${m.dot}`} />
+                                {m.label}
+                                {project.momento === m.value && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
+                              </button>
+                            ))}
+                            {project.momento && (
+                              <button
+                                onClick={() => {
+                                  const patch = project.momento === 'churn'
+                                    ? { momento: null, churnDate: null }
+                                    : { momento: null }
+                                  updateProject(project.id, patch)
+                                  setMomentoOpen(false)
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                Remover Momento
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </div>
+
+                <div className="flex flex-col items-start gap-3 w-full pt-3 border-t border-rl-border/60">
+
+                  {/* ── Links + Dashboard ── */}
+                  {(() => {
+                    const MAX_VISIBLE = 3
+                    const allLinks = [
+                      project.dashboardUrl && {
+                        key: 'dashboard', label: 'Dashboard', href: project.dashboardUrl,
+                        Icon: LayoutDashboard, pill: 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-muted/60',
+                        onRemove: () => updateProject(project.id, { dashboardUrl: null }),
+                      },
+                      project.clickupListUrl && {
+                        key: 'clickup', label: 'ClickUp', href: project.clickupListUrl,
+                        Icon: Kanban, pill: 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-muted/60',
+                        onRemove: () => updateProject(project.id, { clickup_folder_id: null, clickup_list_id: null, clickup_list_url: null, clickup_chat_channel_id: null }),
+                      },
+                      lnk.instagram && {
+                        key: 'instagram', label: 'Instagram', href: lnk.instagram.startsWith('http') ? lnk.instagram : `https://${lnk.instagram}`,
+                        Icon: Instagram, pill: 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-muted/60',
+                        onRemove: () => updateProject(project.id, { links: { ...lnk, instagram: '' } }),
+                      },
+                      lnk.website && {
+                        key: 'website', label: 'Website', href: lnk.website.startsWith('http') ? lnk.website : `https://${lnk.website}`,
+                        Icon: Globe, pill: 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-muted/60',
+                        onRemove: () => updateProject(project.id, { links: { ...lnk, website: '' } }),
+                      },
+                      lnk.googleDrive && {
+                        key: 'googleDrive', label: 'Google Drive', href: lnk.googleDrive.startsWith('http') ? lnk.googleDrive : `https://${lnk.googleDrive}`,
+                        Icon: HardDrive, pill: 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-muted/60',
+                        onRemove: () => updateProject(project.id, { links: { ...lnk, googleDrive: '' } }),
+                      },
+                      ...(lnk.outros || []).filter(o => o.url).map((outro, i) => ({
+                        key: `outro-${i}`, label: outro.label || 'Link', href: outro.url.startsWith('http') ? outro.url : `https://${outro.url}`,
+                        Icon: Link2, pill: 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-muted/60',
+                        onRemove: () => updateProject(project.id, { links: { ...lnk, outros: (lnk.outros || []).filter((_, idx) => idx !== i) } }),
+                      })),
+                    ].filter(Boolean)
+
+                    const visible  = allLinks.slice(0, MAX_VISIBLE)
+                    const overflow = allLinks.slice(MAX_VISIBLE)
+
+                    return (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {visible.map(({ key, label, href, Icon, pill, onRemove }) => (
+                          <div key={key} className={`group relative flex items-center px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${pill}`}>
+                            <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity pr-3">
+                              <Icon className="w-3.5 h-3.5 text-rl-muted" />{label}
+                            </a>
+                            <button onClick={onRemove} className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 bg-rl-card text-rl-muted opacity-0 group-hover:opacity-100 hover:text-rl-red transition-all" title="Remover"><X className="w-3 h-3" /></button>
+                          </div>
+                        ))}
+
+                        {/* Botão overflow "Mais N" */}
+                        {overflow.length > 0 && (
+                          <div className="relative" ref={overflowRef}>
+                            <button
+                              onClick={() => setOverflowOpen(o => !o)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-subtle text-xs font-medium hover:border-rl-muted/60 hover:text-rl-text transition-all"
+                            >
+                              <ChevronDown className="w-3 h-3" />Mais {overflow.length}
+                            </button>
+                            {overflowOpen && (
+                              <div className="absolute left-0 top-full mt-1 z-50 glass-card p-1 min-w-[180px] shadow-lg border border-rl-border">
+                                {overflow.map(({ key, label, href, Icon, pill, onRemove }) => (
+                                  <div key={key} className="group relative flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-rl-surface transition-all">
+                                    <a href={href} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 text-sm font-medium flex-1 min-w-0 hover:opacity-80 transition-opacity ${pill.split(' ').find(c => c.startsWith('text-'))}`}>
+                                      <Icon className="w-4 h-4 shrink-0" />
+                                      <span className="truncate">{label}</span>
+                                    </a>
+                                    <button onClick={() => { onRemove(); if (overflow.length === 1) setOverflowOpen(false) }} className="shrink-0 rounded p-0.5 text-rl-muted/50 hover:text-red-400 transition-colors" title="Remover"><X className="w-3.5 h-3.5" /></button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
 
-                        {/* Popover de input */}
-                        {linkStep === 'input' && (() => {
-                          const opts = [
-                            { id: 'instagram',   label: 'Instagram',    Icon: Instagram,       color: 'text-pink-400',  placeholder: 'https://instagram.com/...' },
-                            { id: 'website',     label: 'Website',      Icon: Globe,           color: 'text-blue-400',  placeholder: 'https://www.empresa.com.br' },
-                            { id: 'googleDrive', label: 'Google Drive', Icon: HardDrive,       color: 'text-green-400', placeholder: 'https://drive.google.com/...' },
-                            { id: 'dashboard',   label: 'Dashboard',    Icon: LayoutDashboard, color: 'text-rl-cyan',   placeholder: 'https://lookerstudio.google.com/...' },
-                            { id: 'outro',       label: 'Personalizado', Icon: Link2,          color: 'text-rl-purple', placeholder: 'https://...' },
-                          ]
-                          const opt = opts.find(o => o.id === linkPickedType) || opts[0]
-                          return (
-                            <div className="absolute right-0 top-full mt-2 z-50 glass-card p-4 shadow-glow w-[min(95vw,24rem)] space-y-3 border border-rl-border">
-                              <p className={`text-sm font-semibold flex items-center gap-1.5 ${opt.color}`}>
-                                <opt.Icon className="w-4 h-4" />{opt.label}
-                              </p>
-                              {linkPickedType === 'outro' && (
-                                <input value={linkLabel} onChange={(e) => setLinkLabel(e.target.value)} placeholder="Nome da plataforma..." className="input-field w-full" />
-                              )}
-                              <div className="flex gap-2 items-center">
-                                <input
-                                  autoFocus
-                                  value={linkInput}
-                                  onChange={(e) => setLinkInput(e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveLink(); if (e.key === 'Escape') resetLinkState() }}
-                                  placeholder={opt.placeholder}
-                                  className="input-field flex-1"
-                                />
-                                <button onClick={handleSaveLink} className="w-9 h-9 flex items-center justify-center rounded-lg bg-rl-green/10 border border-rl-green/30 text-rl-green hover:bg-rl-green/20 transition-all"><Check className="w-4 h-4" /></button>
-                                <button onClick={resetLinkState} className="w-9 h-9 flex items-center justify-center rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"><X className="w-4 h-4" /></button>
-                              </div>
+                        {/* Botão + Link com dropdown e popover */}
+                        <div className="relative" ref={linkRef}>
+                          <button
+                            onClick={() => setLinkStep(s => s === 'idle' ? 'dropdown' : 'idle')}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-rl-border text-rl-muted text-xs hover:border-rl-muted/60 hover:text-rl-text transition-all"
+                          >
+                            <Plus className="w-3 h-3" />Link
+                          </button>
+
+                          {/* Dropdown de tipos */}
+                          {linkStep === 'dropdown' && (
+                            <div className="absolute left-0 top-full mt-1 z-50 glass-card p-1 min-w-[180px] shadow-lg border border-rl-border">
+                              {[
+                                { id: 'instagram',   label: 'Instagram',    Icon: Instagram,       color: 'text-pink-400',  hide: !!lnk.instagram        },
+                                { id: 'website',     label: 'Website',      Icon: Globe,           color: 'text-blue-400',  hide: !!lnk.website          },
+                                { id: 'googleDrive', label: 'Google Drive', Icon: HardDrive,       color: 'text-green-400', hide: !!lnk.googleDrive      },
+                                { id: 'dashboard',   label: 'Dashboard',    Icon: LayoutDashboard, color: 'text-rl-cyan',   hide: !!project.dashboardUrl },
+                                { id: 'outro',       label: 'Personalizado', Icon: Link2,          color: 'text-rl-purple', hide: false                  },
+                              ].filter(o => !o.hide).map(({ id, label, Icon, color }) => (
+                                <button
+                                  key={id}
+                                  onClick={() => { setLinkPickedType(id); setLinkInput(''); setLinkLabel(''); setLinkStep('input') }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-rl-text hover:bg-rl-surface transition-all"
+                                >
+                                  <Icon className={`w-4 h-4 ${color} shrink-0`} />{label}
+                                </button>
+                              ))}
                             </div>
-                          )
-                        })()}
+                          )}
+
+                          {/* Popover de input */}
+                          {linkStep === 'input' && (() => {
+                            const opts = [
+                              { id: 'instagram',   label: 'Instagram',    Icon: Instagram,       color: 'text-pink-400',  placeholder: 'https://instagram.com/...' },
+                              { id: 'website',     label: 'Website',      Icon: Globe,           color: 'text-blue-400',  placeholder: 'https://www.empresa.com.br' },
+                              { id: 'googleDrive', label: 'Google Drive', Icon: HardDrive,       color: 'text-green-400', placeholder: 'https://drive.google.com/...' },
+                              { id: 'dashboard',   label: 'Dashboard',    Icon: LayoutDashboard, color: 'text-rl-cyan',   placeholder: 'https://lookerstudio.google.com/...' },
+                              { id: 'outro',       label: 'Personalizado', Icon: Link2,          color: 'text-rl-purple', placeholder: 'https://...' },
+                            ]
+                            const opt = opts.find(o => o.id === linkPickedType) || opts[0]
+                            return (
+                              <div className="absolute left-0 top-full mt-2 z-50 glass-card p-4 shadow-glow w-[min(95vw,20rem)] space-y-3 border border-rl-border">
+                                <p className={`text-sm font-semibold flex items-center gap-1.5 ${opt.color}`}>
+                                  <opt.Icon className="w-4 h-4" />{opt.label}
+                                </p>
+                                {linkPickedType === 'outro' && (
+                                  <input value={linkLabel} onChange={(e) => setLinkLabel(e.target.value)} placeholder="Nome da plataforma..." className="input-field w-full" />
+                                )}
+                                <div className="flex gap-2 items-center">
+                                  <input
+                                    autoFocus
+                                    value={linkInput}
+                                    onChange={(e) => setLinkInput(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveLink(); if (e.key === 'Escape') resetLinkState() }}
+                                    placeholder={opt.placeholder}
+                                    className="input-field flex-1"
+                                  />
+                                  <button onClick={handleSaveLink} className="w-9 h-9 flex items-center justify-center rounded-lg bg-rl-green/10 border border-rl-green/30 text-rl-green hover:bg-rl-green/20 transition-all"><Check className="w-4 h-4" /></button>
+                                  <button onClick={resetLinkState} className="w-9 h-9 flex items-center justify-center rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"><X className="w-4 h-4" /></button>
+                                </div>
+                              </div>
+                            )
+                          })()}
+                        </div>
                       </div>
-                    </div>
-                  )
-                })()}
+                    )
+                  })()}
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ── Two-panel layout ─────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row gap-4 pt-4 lg:items-stretch">
+        {/* Ações rápidas */}
+        <div className="glass-card border border-rl-border/60 grid grid-cols-4 divide-x divide-rl-border/60">
+          {[
+            { id: 'otimizacao', label: 'Otimização', Icon: Wrench },
+            { id: 'anotacao', label: 'Anotação', Icon: StickyNote },
+            { id: 'tarefa', label: 'Tarefa', Icon: Kanban },
+            { id: 'reuniao', label: 'Reunião', Icon: CalendarDays },
+          ].map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              onClick={() => { if (id === 'reuniao') { navigateTo('atas') } else { setActiveSection('hub'); setAcaoRapida({ id, n: Date.now() }) } }}
+              className="flex flex-col items-center gap-1 py-3 text-[11px] text-rl-subtle hover:text-rl-purple hover:bg-rl-surface/60 transition-colors first:rounded-l-xl last:rounded-r-xl"
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+        <HubInformacoes project={project} onEditar={() => handleSidebarClick('dados')} />
 
-        {/* Sidebar nav — desktop (sticky) */}
+        </div>
+
+        {/* Módulos — drawer no mobile (abre pelo hambúrguer) */}
         {sidebarVisible && (
-          <div className="hidden lg:block w-64 shrink-0">
-            <div className="glass-card p-2 sticky top-20">
-              {NAV_ITEMS.map(({ id, label, icon: Icon, color, filled }) => {
-                const isActive = activeSection === id
-                return (
-                  <button
-                    key={id}
-                    onClick={() => handleSidebarClick(id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                      isActive
-                        ? 'bg-rl-purple text-white shadow-sm'
-                        : 'text-rl-subtle hover:bg-rl-bg hover:text-rl-text'
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : color}`} />
-                    <span className="truncate flex-1 text-left">{label}</span>
-                    {filled && !isActive && (
-                      <CheckCircle2 className="w-3 h-3 shrink-0 text-rl-green opacity-80" />
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Sidebar nav — mobile drawer (overlay) */}
-        {sidebarVisible && (
-          <div className="lg:hidden fixed inset-0 z-50 flex">
+          <div className="xl:hidden fixed inset-0 z-50 flex">
             <div className="absolute inset-0 bg-black/60" onClick={() => setSidebarVisible(false)} />
             <aside className="relative z-10 flex flex-col w-72 max-w-[85vw] h-full bg-rl-card border-r border-rl-border overflow-y-auto animate-slide-up">
               <div className="flex items-center justify-between px-4 py-3 border-b border-rl-border sticky top-0 bg-rl-card z-10">
@@ -1878,12 +1898,40 @@ export default function ClientProfile({ project: projectProp }) {
           </div>
         )}
 
-        {/* Content panel */}
-        <div className="flex-1 min-w-0">
-          <div className="glass-card p-4 sm:p-6">
-            {renderContent()}
-          </div>
+        {/* Centro: hub de atividades ou o módulo aberto */}
+        <div className="flex-1 min-w-0 w-full">
+          {activeSection === 'hub' ? (
+            <HubCentro
+              project={project}
+              hub={hub}
+              dash={dash}
+              config={configAtividades}
+              showToast={showToast}
+              onNavigate={navigateTo}
+              acaoRapida={acaoRapida}
+            />
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <button onClick={() => handleSidebarClick('hub')} className="flex items-center gap-1.5 text-sm text-rl-subtle hover:text-rl-purple px-2 py-1.5 rounded-lg hover:bg-rl-surface transition-colors">
+                  <ArrowLeft className="w-4 h-4" /> Visão geral
+                </button>
+                <span className="text-rl-border">/</span>
+                <span className="text-sm font-semibold text-rl-text">{NAV_ITEMS.find((n) => n.id === activeSection)?.label || ''}</span>
+              </div>
+              <div className="glass-card p-4 sm:p-6">
+                {renderContent()}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Coluna direita: acesso rápido aos módulos (só na visão geral) */}
+        {activeSection === 'hub' && (
+          <div className="w-full xl:w-[320px] shrink-0">
+            <HubDireita project={project} onNavigate={navigateTo} modulos={modulosCard} />
+          </div>
+        )}
 
       </div>
 

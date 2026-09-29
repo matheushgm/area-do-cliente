@@ -9,6 +9,7 @@ import {
 import { supabase } from "../lib/supabase";
 
 const AppContext = createContext();
+export { AppContext };
 
 // ─── Cache local dos projetos (offline-first) ─────────────────────────────────
 const LS_KEY = "rl_projects_v2";

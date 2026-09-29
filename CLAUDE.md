@@ -496,3 +496,46 @@ com Enter; `@` abre a lista de menções (formato salvo: `@Nome_Sobrenome`).
   quando os dois têm perfil e há mensagem). Feito em 2026-09-15 com os últimos 7 dias:
   98 canais/DMs, 834 mensagens + 218 respostas. Não há sincronização contínua do chat
   (só a importação manual).
+
+### Página do cliente (`/project/:id`): hub em 3 colunas
+
+`ClientProfile.jsx` abre na seção `hub` (visão geral) com layout inspirado em CRM: **esquerda**
+(340px) cartão do cliente (logo, contrato, LTV, squad, risco, momento, links), ações rápidas
+(Otimização / Anotação / Tarefa / Reunião), `HubInformacoes` (dados cadastrais) e a lista de
+**Módulos** (o antigo menu lateral, recolhível); **centro** `HubCentro` (timeline) ou o módulo
+aberto, com breadcrumb "Visão geral / Módulo"; **direita** (320px, só na visão geral)
+`HubDireita` com resumo de Jornada, Central de anúncios, LPs, Campanhas, Anexos, Links, NPS e
+Atas. Abaixo de `xl` as colunas empilham e os módulos viram drawer pelo hambúrguer.
+
+- **Timeline** (`src/hooks/useProjetoHub.js`): união de `projeto_otimizacoes` (otimizações
+  feitas + anotações, migration 089), `atividades_planejadas` do projeto, `tarefas_itens`
+  da pasta do cliente (réplica do ClickUp) e `meeting_minutes`, agrupada por mês, com abas
+  Atividade / Sugestões / Otimizações / Anotações / Tarefas / Reuniões.
+- **Sugestões do playbook** (`src/lib/playbookSugestoes.js`, puro): regras do Roadmap Ads e
+  dos guardrails aplicadas aos últimos 7 dias do `dash_insights` (via `useDashboardData`
+  com `projectId` e `dias: 16`) vs. os 7 anteriores, por conta vinculada. Meta: sem entrega,
+  meta de CPL indefinida, anúncio sem conversão (≥ 2× CPL ideal ou R$ 35, ≥ 3 dias),
+  anúncio com CPL ≥ 2× meta, CTR link < 0,5%, saturação (freq ≥ 3,5 + CTR caindo), fundo com
+  < 3 criativos ativos, escalar conjunto (CPL ≤ 0,8× meta, estável 3 dias), CPL da conta +30%,
+  sem campanha FUNDO, sem TOPO com verba ≥ R$ 2k. Google: campanha sem conversão, CPL ≥ 2×
+  meta, perda por orçamento ≥ 30%, CTR < 2%, taxa de conversão < 5%. Conversão Meta = coluna
+  `Conversões` (fallback CFG). Cada sugestão tem `chave` estável; o estado vive em
+  `projeto_sugestoes` (aceita → some; descartada → volta após `valida_ate`, 14 dias).
+- **Aba Resultados** = espelho do Dashboard de Tráfego (API): iframe do mesmo
+  `public/dash-teste/viewer.html` em modo `?embed=1&cliente=<conta>&canal=meta|google`
+  (autenticado como o `/dashboard-teste`, mas travado na conta, sem "Voltar", sem banner e
+  sem gravar a navegação em `localStorage`). Uma pílula por conta/canal vinculado quando o
+  projeto tem mais de uma. Só funciona logado e com as rotas `/api` (vercel dev ou produção).
+- **Tema visual**: a página inteira usa a classe `fx` (`src/index.css`), que replica o tema
+  Fynix do dashboard (tokens `rl-*` redefinidos, sempre claro, Urbanist, cards raio 16,
+  hero azul `.fx-hero`, círculo azul-suave `.fx-soft`). Só `/project/:id` e `/dev/hub`.
+- **Preview sem login**: `/dev/hub` (só em DEV) renderiza `ClientProfile` com projeto
+  fictício, `AppContext` falso e fixture `src/dev/fixtures/hub_meta.json` (gitignored;
+  gerar com `json_agg(data)` de `dash_insights` de uma conta). `useProjetoHub` e o dash
+  leem `window.__DEV_HUB` quando existe.
+- **Aceitar** abre `NovaTarefaClickUpModal`, que reaproveita `usePlanejador` (mesmo fluxo
+  do /atividades: lista "Geral" da pasta, responsável sugerido pelo squad, data pela carga
+  real, `criar` no ClickUp) pré-preenchido com título, briefing em markdown, tipo, horas e
+  prioridade da sugestão. Exige `clickup_folder_id` no projeto.
+- Testar o motor com Node: copiar `playbookSugestoes.js` e `dashboardData.js` como `.mjs`
+  no scratchpad e alimentar com `json_agg(data)` de `dash_insights` de uma conta.

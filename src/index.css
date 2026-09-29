@@ -313,3 +313,46 @@
 .prose-chat .task-chip { display: inline-flex; align-items: center; gap: 0.35em; max-width: 100%; vertical-align: middle; padding: 0.1em 0.55em 0.1em 0.4em; border-radius: 6px; border: 1px solid rgb(var(--ln-ink) / 0.1); background: rgb(var(--ln-card)); color: rgb(var(--ln-t1)); text-decoration: none; font-size: 0.93em; font-weight: 500; }
 .prose-chat .task-chip:hover { background: rgb(var(--ln-ink) / 0.04); }
 .prose-chat .task-chip svg { color: rgb(var(--ln-green)); }
+
+/* ── Tema "Fynix" na página do cliente (/project/:id) ──────────────────────
+   Mesma linguagem do Dashboard de Tráfego (public/dash-teste/vendor/theme-fynix.css):
+   fundo cinza-claro, cards brancos raio 16, azul da marca como destaque, navy
+   nos títulos, Urbanist. Escopado em `.fx`: redefine os tokens rl-* do Tailwind
+   (sempre claro, como o dashboard) e ajusta as classes base de card/botão. */
+.fx, .dark .fx {
+  --rl-bg:       242 243 244;   /* #F2F3F4 */
+  --rl-surface:  247 248 249;   /* #F7F8F9 */
+  --rl-card:     255 255 255;
+  --rl-border:   231 233 235;   /* #E7E9EB */
+  --rl-purple:    21  68 144;   /* #154490 azul de ação */
+  --rl-blue:      47 107 212;   /* #2F6BD4 */
+  --rl-cyan:      18  60 134;   /* #123C86 */
+  --rl-gold:     184 120  14;   /* #B8780E */
+  --rl-green:     46 139  61;   /* #2E8B3D */
+  --rl-red:      214  69  69;   /* #D64545 */
+  --rl-text:       2   0  39;   /* #020027 navy */
+  --rl-subtle:    31  37  66;   /* #1F2542 */
+  --rl-muted:    111 111 111;   /* #6F6F6F */
+  --rl-grad-from: 242 243 244;
+  --rl-grad-to:   242 243 244;
+  --fx-shadow: 0 1px 2px rgba(2,0,39,.04), 0 10px 28px rgba(2,0,39,.05);
+  color-scheme: light;
+  font-family: 'Urbanist', 'Inter', system-ui, -apple-system, sans-serif;
+  color: rgb(var(--rl-text));
+  -webkit-font-smoothing: antialiased;
+}
+.fx .glass-card { border-radius: 16px; box-shadow: var(--fx-shadow); background: rgb(var(--rl-card)); border-color: rgb(var(--rl-border)); }
+.fx .btn-primary { background: rgb(var(--rl-purple)); border-radius: 10px; box-shadow: 0 1px 2px rgba(2,0,39,.06); transform: none; }
+.fx .btn-primary:hover { background: #123C86; opacity: 1; transform: none; }
+.fx .btn-secondary { background: #fff; border-radius: 10px; color: rgb(var(--rl-text)); font-weight: 600; box-shadow: 0 1px 2px rgba(2,0,39,.04); }
+.fx .btn-secondary:hover { background: rgb(var(--rl-surface)); border-color: #D9DDE0; }
+.fx .input-field { border-radius: 10px; background: #fff; }
+.fx h1, .fx h2, .fx h3 { color: rgb(var(--rl-text)); letter-spacing: -.01em; }
+.fx .tabular-nums, .fx table { font-variant-numeric: tabular-nums; }
+.fx ::selection { background: #E5EDFB; }
+/* Hero azul do cartão do cliente (o "Total Balance" da referência) */
+.fx-hero { position: relative; overflow: hidden; background: #154490; color: #fff; isolation: isolate; }
+.fx-hero::before, .fx-hero::after { content: ''; position: absolute; border-radius: 50%; pointer-events: none; z-index: -1; }
+.fx-hero::before { width: 200px; height: 200px; right: -60px; top: -100px; border: 28px solid rgba(255,255,255,.18); box-shadow: inset 0 0 0 12px rgba(255,255,255,.05); }
+.fx-hero::after { width: 150px; height: 150px; right: 70px; bottom: -100px; border: 22px solid rgba(255,255,255,.14); }
+.fx-soft { background: #E5EDFB; color: #154490; }

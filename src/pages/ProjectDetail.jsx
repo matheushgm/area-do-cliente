@@ -37,7 +37,7 @@ export default function ProjectDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-dark">
+    <div className="fx min-h-screen bg-gradient-dark">
       <nav className="sticky top-0 z-50 border-b border-rl-border bg-rl-bg/80 backdrop-blur-xl">
         <div className="px-6 h-16 flex items-center gap-4">
           <button
@@ -60,7 +60,7 @@ export default function ProjectDetail() {
         </div>
       </nav>
 
-      <div className="max-w-screen-2xl mx-auto px-8 py-8">
+      <div className="max-w-[1800px] mx-auto px-4 sm:px-6 py-6">
         <ClientProfile project={project} />
       </div>
     </div>
