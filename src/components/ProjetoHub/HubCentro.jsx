@@ -4,7 +4,7 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import {
   Plus, ChevronDown, ChevronRight, Wrench, StickyNote, Kanban, ListChecks, Users, Sparkles,
-  ExternalLink, Loader2, CheckCircle2, Clock, Pencil, BarChart3,
+  ExternalLink, Loader2, CheckCircle2, Clock, Pencil, BarChart3, Maximize2, Minimize2,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { gerarSugestoesProjeto } from '../../lib/playbookSugestoes'
@@ -123,6 +123,16 @@ function Item({ item, expandido, nomes, onEditar, onNavigate }) {
 // Espelho do Dashboard de Tráfego (API) travado na conta do projeto: o mesmo
 // viewer de /dashboard-teste, em modo ?embed=1 (sem "Voltar", sem gravar navegação).
 function ResultadosEmbed({ contas, ativa, onTrocar, loading }) {
+  // Tela cheia: o mesmo iframe muda só de posição (fixed) pra não recarregar o dashboard
+  const [cheia, setCheia] = useState(false)
+  useEffect(() => {
+    if (!cheia) return
+    const h = (e) => { if (e.key === 'Escape') setCheia(false) }
+    window.addEventListener('keydown', h)
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', h); document.body.style.overflow = '' }
+  }, [cheia])
+
   if (loading && contas.length === 0) {
     return <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Lendo o dashboard de tráfego…</div>
   }
@@ -136,25 +146,32 @@ function ResultadosEmbed({ contas, ativa, onTrocar, loading }) {
   }
   const c = contas[Math.min(ativa, contas.length - 1)]
   const src = `/dash-teste/viewer.html?embed=1&cliente=${encodeURIComponent(c.conta)}&canal=${c.canal}`
+  const pilulas = contas.length > 1 && contas.map((x, i) => (
+    <button key={x.canal + x.conta} onClick={() => onTrocar(i)}
+      className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${i === ativa ? 'bg-rl-text text-white border-rl-text' : 'bg-rl-card border-rl-border text-rl-subtle hover:text-rl-text'}`}>
+      {x.canal === 'meta' ? 'Meta' : 'Google'} · {x.conta}
+    </button>
+  ))
+  const botao = (
+    <button onClick={() => setCheia((v) => !v)} className="btn-secondary text-xs flex items-center gap-1.5 !px-3 !py-1.5 ml-auto" title={cheia ? 'Minimizar (Esc)' : 'Ver em tela cheia'}>
+      {cheia ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+      {cheia ? 'Minimizar' : 'Tela cheia'}
+    </button>
+  )
   return (
-    <div className="space-y-3">
-      {contas.length > 1 && (
-        <div className="flex items-center gap-1.5 flex-wrap px-1">
-          {contas.map((x, i) => (
-            <button key={x.canal + x.conta} onClick={() => onTrocar(i)}
-              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${i === ativa ? 'bg-rl-text text-white border-rl-text' : 'bg-rl-card border-rl-border text-rl-subtle hover:text-rl-text'}`}>
-              {x.canal === 'meta' ? 'Meta' : 'Google'} · {x.conta}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="glass-card overflow-hidden">
+    <div className={cheia ? 'fx fixed inset-0 z-[70] bg-rl-bg flex flex-col' : 'space-y-3'}>
+      <div className={`flex items-center gap-1.5 flex-wrap ${cheia ? 'px-4 py-2.5 border-b border-rl-border bg-rl-card shrink-0' : 'px-1'}`}>
+        {cheia && <span className="text-sm font-semibold text-rl-text mr-2">{c.conta}</span>}
+        {pilulas}
+        {botao}
+      </div>
+      <div className={cheia ? 'flex-1 min-h-0' : 'glass-card overflow-hidden'}>
         <iframe
           key={src}
           src={src}
           title={`Dashboard de Tráfego · ${c.conta}`}
           className="w-full border-0 block"
-          style={{ minHeight: 'calc(100vh - 230px)', height: 1600 }}
+          style={cheia ? { height: '100%' } : { minHeight: 'calc(100vh - 230px)', height: 1600 }}
         />
       </div>
     </div>
