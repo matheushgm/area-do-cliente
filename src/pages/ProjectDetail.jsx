@@ -49,9 +49,9 @@ export default function ProjectDetail() {
           </button>
           <div className="flex items-center gap-3">
             <img
-              src="/logo-C6Vfo5bf.png"
-              alt="Revenue Lab"
-              className="w-8 h-8 rounded-lg object-contain shadow-glow"
+              src="/verta/simbolo.png"
+              alt="Verta"
+              className="w-8 h-8 object-contain"
             />
             <span className="font-semibold text-rl-text">{project.companyName}</span>
             <span className="text-rl-border text-lg leading-none">|</span>

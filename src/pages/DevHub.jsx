@@ -93,7 +93,7 @@ export default function DevHub() {
       <div className="fx min-h-screen bg-gradient-dark">
         <nav className="sticky top-0 z-50 border-b border-rl-border bg-rl-bg/80 backdrop-blur-xl">
           <div className="px-6 h-16 flex items-center gap-3">
-            <img src="/logo-C6Vfo5bf.png" alt="Revenue Lab" className="w-8 h-8 rounded-lg object-contain shadow-glow" />
+            <img src="/verta/simbolo.png" alt="Verta" className="w-8 h-8 object-contain" />
             <span className="font-semibold text-rl-text">{project.companyName}</span>
             <span className="text-rl-border text-lg leading-none">|</span>
             <span className="text-rl-muted text-sm">{project.responsibleName}</span>

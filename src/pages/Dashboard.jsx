@@ -14,9 +14,21 @@ import {
 } from 'lucide-react'
 import AppSidebar from '../components/AppSidebar'
 import { SQUAD_COLORS } from '../lib/constants'
-import { fmtCurrency, hashId, mrrValue, calcLTV, canViewSquadsReport } from '../lib/utils'
+import { fmtCurrency, hashId, mrrValue, calcLTV, canViewSquadsReport, entryDate } from '../lib/utils'
 import Modal from '../components/UI/Modal'
 import UnsignedAtaPopups from '../components/Dashboard/UnsignedAtaPopups'
+import {
+  NovosClientesCard, NovosClientesModal, NetMrrSection, CrescimentoHistoryModal,
+} from '../components/Dashboard/Crescimento'
+import { newStats } from '../lib/growth'
+
+// Janela que define "cliente novo" na tela de Novos Clientes — mesma régua
+// dos 90 dias de onboarding usada na barra de progresso.
+const NEW_CLIENT_WINDOW_DAYS = 90
+function isNewClient(p, cutoff) {
+  const d = entryDate(p)
+  return !!d && d.getTime() >= cutoff
+}
 
 const CORE_STEPS = ['roi', 'strategy', 'oferta']
 function isProfileComplete(project) {
@@ -1012,6 +1024,8 @@ export default function Dashboard() {
   const [view, setView] = useState(() => localStorage.getItem('rl_dashboard_view') || 'grid')
   const [churnListOpen, setChurnListOpen] = useState(false)
   const [churnHistoryOpen, setChurnHistoryOpen] = useState(false)
+  const [novosListOpen, setNovosListOpen] = useState(false)
+  const [growthHistoryOpen, setGrowthHistoryOpen] = useState(false)
   // Mês selecionado no modal de histórico (yyyy-mm). Default: mês corrente
   const [historyMonth, setHistoryMonth] = useState(() => {
     const t = new Date()
@@ -1028,6 +1042,9 @@ export default function Dashboard() {
   // e da listagem da home — visualização permanece via /squads-report.
   const testSquadIds = new Set(squads.filter(s => s.isTest).map(s => String(s.id)))
 
+  // Corte da janela de "cliente novo" — calculado uma vez por render.
+  const newClientCutoff = Date.now() - NEW_CLIENT_WINDOW_DAYS * 86400000
+
   // RLS no Supabase já filtra: admins veem tudo; accounts veem apenas projetos
   // cujo squad atribuído inclui o usuário como membro
   const baseProjects = testSquadIds.size > 0
@@ -1038,6 +1055,7 @@ export default function Dashboard() {
   const filteredProjects = (() => {
     let result = baseProjects
     if (filter === 'churn')            result = result.filter(p => p.momento === 'churn')
+    else if (filter === 'novos')      result = result.filter(p => isNewClient(p, newClientCutoff))
     else if (filter === 'onboarding') result = result.filter(p => p.status === 'onboarding')
     else if (filter === 'active')     result = result.filter(p => p.status === 'active')
     else if (filter !== 'all')        result = result.filter(p => String(p.accountId) === String(filter))
@@ -1097,6 +1115,7 @@ export default function Dashboard() {
   const counts = {
     all:        baseProjects.filter(p => p.momento !== 'churn').length,
     churn:      baseProjects.filter(p => p.momento === 'churn').length,
+    novos:      baseProjects.filter(p => p.momento !== 'churn' && isNewClient(p, newClientCutoff)).length,
     onboarding: baseProjects.filter(p => p.status === 'onboarding').length,
     active:     baseProjects.filter(p => p.status === 'active').length,
     members:    Object.fromEntries(
@@ -1121,6 +1140,7 @@ export default function Dashboard() {
   const pageTitle = (() => {
     if (filter === 'all')        return 'Clientes'
     if (filter === 'churn')      return 'Churn'
+    if (filter === 'novos')      return `Novos Clientes (últimos ${NEW_CLIENT_WINDOW_DAYS} dias)`
     if (filter === 'onboarding') return 'Em Onboarding'
     if (filter === 'active')     return 'Perfis Ativos'
     const member = teamMembers.find(m => String(m.id) === String(filter))
@@ -1192,6 +1212,11 @@ export default function Dashboard() {
     return { ...p, _squadName: squad?.name ?? null, _squadEmoji: squad?.emoji ?? null }
   }).sort((a, b) => (b.churnDate || '').localeCompare(a.churnDate || ''))
 
+  // Entradas do mês corrente (mesma régua do churn, do outro lado da conta).
+  // Inclui quem entrou e já saiu no mesmo mês — a entrada aconteceu, e o Net
+  // MRR precisa das duas pontas para fechar.
+  const novosThisMonth = newStats(baseProjects, _yyyy, _mm)
+
   const churnCount    = churnedThisMonth.length
   const churnMRR      = churnedThisMonth.reduce((acc, p) => acc + mrrValue(p), 0)
   const churnContract = churnedThisMonth.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
@@ -1230,7 +1255,7 @@ export default function Dashboard() {
   })()
 
   return (
-    <div className="min-h-screen flex bg-gradient-dark">
+    <div className="fx min-h-screen flex bg-gradient-dark">
 
       {/* ── Sidebar ─────────────────────────────────────── */}
       <AppSidebar
@@ -1258,7 +1283,7 @@ export default function Dashboard() {
             <div className="w-6 h-6 rounded-md bg-gradient-rl flex items-center justify-center">
               <Zap className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="font-bold text-rl-text text-sm">Revenue Lab</span>
+            <span className="font-bold text-rl-text text-sm">Verta</span>
           </div>
         </div>
 
@@ -1277,7 +1302,7 @@ export default function Dashboard() {
                 </span>
               </div>
               <p className="text-rl-muted mt-1 text-sm">
-                Bem-vindo ao Revenue Lab Internal
+                Bem-vindo à Verta Internal
               </p>
             </div>
             <button
@@ -1347,8 +1372,8 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Resumo financeiro + churn do mês corrente */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          {/* Resumo financeiro + movimentação do mês corrente */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 animate-slide-up" style={{ animationDelay: '0.1s' }}>
             {/* Contrato Cheio total */}
             <div className="glass-card p-5">
               <div className="flex items-start justify-between gap-3">
@@ -1402,6 +1427,14 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+
+            {/* Novos clientes do mês — espelho do card de churn */}
+            <NovosClientesCard
+              stats={novosThisMonth}
+              monthLabel={monthLabel}
+              onOpenList={() => setNovosListOpen(true)}
+              onOpenHistory={() => setGrowthHistoryOpen(true)}
+            />
 
             {/* Churn do mês — área principal clicável + botão de histórico discreto */}
             <div
@@ -1459,6 +1492,16 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Net MRR do mês — crescimento líquido da base */}
+          <div className="animate-slide-up" style={{ animationDelay: '0.12s' }}>
+            <NetMrrSection
+              projects={baseProjects}
+              yyyy={_yyyy}
+              mm={_mm}
+              onOpenHistory={() => setGrowthHistoryOpen(true)}
+            />
           </div>
 
           {/* Projects */}
@@ -1662,6 +1705,27 @@ export default function Dashboard() {
           project={deleteTarget}
           onConfirm={() => { deleteProject(deleteTarget.id); setDeleteTarget(null) }}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {novosListOpen && (
+        <NovosClientesModal
+          stats={novosThisMonth}
+          monthLabel={monthLabel}
+          squads={squads}
+          onClose={() => setNovosListOpen(false)}
+          onOpenProject={(id) => { setNovosListOpen(false); navigate(`/project/${id}`) }}
+        />
+      )}
+
+      {growthHistoryOpen && (
+        <CrescimentoHistoryModal
+          projects={baseProjects}
+          squads={squads}
+          yyyy={_yyyy}
+          mm={_mm}
+          onClose={() => setGrowthHistoryOpen(false)}
+          onOpenProject={(id) => { setGrowthHistoryOpen(false); navigate(`/project/${id}`) }}
         />
       )}
 

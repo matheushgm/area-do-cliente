@@ -227,6 +227,20 @@ export function ltvStartSource(project) {
   return _resolveStart(project).source
 }
 
+// Data de entrada do cliente na base: contractDate (assinatura) com fallback
+// para createdAt — a mesma resolução usada pelo LTV e pela barra de 90 dias.
+// Retorna Date ou null.
+export function entryDate(project) {
+  const { startTime } = _resolveStart(project)
+  return isNaN(startTime) ? null : new Date(startTime)
+}
+
+// True quando o cliente entrou no mês/ano informados (mm = 0-11).
+export function enteredInMonth(project, yyyy, mm) {
+  const d = entryDate(project)
+  return !!d && d.getFullYear() === yyyy && d.getMonth() === mm
+}
+
 // Lista de e-mails autorizados a ver o relatório /squads-report.
 // Restrito a sócios — Matheus Martins e Eduardo Moura.
 const SQUADS_REPORT_EMAILS = new Set([

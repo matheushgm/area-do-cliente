@@ -66,7 +66,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-dark flex items-center justify-center px-4 relative overflow-hidden">
+    <div className="fx min-h-screen bg-gradient-dark flex items-center justify-center px-4 relative overflow-hidden">
       {/* Background orbs */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-rl-purple/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-rl-blue/10 rounded-full blur-3xl pointer-events-none" />
@@ -78,11 +78,11 @@ export default function Login() {
         {/* Logo */}
         <div className="text-center mb-8">
           <img
-            src="/logo-revenue-azul-2024.png"
-            alt="Revenue Lab"
-            className="h-14 w-auto mx-auto mb-4 animate-float object-contain"
+            src="/verta/logo-vertical.png"
+            alt="Verta, aceleradora de receitas"
+            className="h-28 w-auto mx-auto mb-4 animate-float object-contain"
           />
-          <p className="text-rl-muted text-sm mt-1">Internal — Área Restrita</p>
+          <p className="text-rl-muted text-sm mt-1">Internal · Área Restrita</p>
         </div>
 
         {/* Card */}
@@ -269,7 +269,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-rl-muted/40 text-xs mt-6">
-          Revenue Lab Internal v0.1 · Acesso apenas para colaboradores
+          Verta Internal v0.1 · Acesso apenas para colaboradores
         </p>
       </div>
 

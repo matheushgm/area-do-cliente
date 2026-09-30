@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { useTheme } from '../hooks/useTheme'
 import {
-  Plus, Layers, TrendingDown,
+  Plus, Layers, TrendingDown, UserPlus,
   LogOut, Cloud, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare, BarChart3, DollarSign,
   Sun, Moon, Clapperboard, Timer, Layout, CalendarCheck, PanelLeftClose, PanelLeftOpen, Waypoints,
@@ -47,6 +47,7 @@ export function useSidebarCollapsed() {
 
 const NAV_ITEMS = [
   { id: 'all',      label: 'Clientes',          Icon: Layers,        type: 'filter'   },
+  { id: 'novos',    label: 'Novos Clientes',    Icon: UserPlus,      type: 'filter'   },
   { id: 'churn',    label: 'Churn',             Icon: TrendingDown,  type: 'filter'   },
 ]
 
@@ -125,9 +126,9 @@ function SidebarContent({
       <div className="flex items-center justify-between px-2 mb-5">
         <div className="flex items-center gap-2.5">
           <img
-            src="/logo-revenue-azul-2024.png"
-            alt="Revenue Lab"
-            className="h-8 w-auto shrink-0 object-contain"
+            src="/verta/logo-azul.png"
+            alt="Verta"
+            className="h-7 w-auto shrink-0 object-contain"
           />
           <div>
             <p className="text-[10px] text-rl-muted mt-0.5">Internal Tool</p>
