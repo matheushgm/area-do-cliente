@@ -12,6 +12,7 @@ import { hojeISO, fmtLonga } from '../../lib/atividadesCarga'
 import { addDays } from '../../lib/dashboardData'
 import { BUCKETS_VENC, bucketVencimento } from '../../lib/tarefas'
 import SugestoesPlaybook from './SugestoesPlaybook'
+import ResumoHub from './ResumoHub'
 import RegistroModal from './RegistroModal'
 import NovaTarefaClickUpModal from './NovaTarefaClickUpModal'
 
@@ -34,7 +35,7 @@ const KIND = {
 }
 
 const TABS = [
-  { id: 'atividade', label: 'Atividade' },
+  { id: 'resumo', label: 'Resumo' },
   { id: 'resultados', label: 'Resultados', Icon: BarChart3 },
   { id: 'sugestoes', label: 'Sugestões', Icon: Sparkles },
   { id: 'otimizacoes', label: 'Otimizações' },
@@ -43,7 +44,7 @@ const TABS = [
   { id: 'reunioes', label: 'Reuniões' },
 ]
 const TAB_KINDS = {
-  atividade: null,
+  resumo: null,
   otimizacoes: ['otimizacao'],
   anotacoes: ['anotacao'],
   tarefas: ['planejada', 'tarefa'],
@@ -180,7 +181,7 @@ function ResultadosEmbed({ contas, ativa, onTrocar, loading }) {
 
 export default function HubCentro({ project, hub, dash, config, showToast, onNavigate, acaoRapida = null }) {
   const { teamMembers } = useApp()
-  const [tab, setTab] = useState('atividade')
+  const [tab, setTab] = useState('resumo')
   const [expandido, setExpandido] = useState(false)
   const [novoAberto, setNovoAberto] = useState(false)
   const novoRef = useRef(null)
@@ -229,11 +230,17 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
   }, [dash.raw])
   const [contaAtiva, setContaAtiva] = useState(0)
 
+  // Badge do Resumo: atividades dos últimos 7 dias
+  const semanaCount = useMemo(() => {
+    const h = hojeISO(), d = addDays(h, -6)
+    return hub.timeline.filter((it) => it.data && it.data >= d && it.data <= h && (it.kind !== 'tarefa' || it.fechada)).length
+  }, [hub.timeline])
+
   const contagens = useMemo(() => {
-    const c = { atividade: hub.timeline.length, sugestoes: sugestoesPendentes.length, resultados: contasDash.length }
+    const c = { resumo: semanaCount, sugestoes: sugestoesPendentes.length, resultados: contasDash.length }
     for (const [id, kinds] of Object.entries(TAB_KINDS)) if (kinds) c[id] = hub.timeline.filter((i) => kinds.includes(i.kind)).length
     return c
-  }, [hub.timeline, sugestoesPendentes, contasDash])
+  }, [hub.timeline, sugestoesPendentes, contasDash, semanaCount])
 
   const itens = useMemo(() => {
     const kinds = TAB_KINDS[tab]
@@ -317,7 +324,9 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
       </div>
 
       {/* Conteúdo */}
-      {tab === 'resultados' ? (
+      {tab === 'resumo' ? (
+        <ResumoHub dash={dash} timeline={hub.timeline} sugestoesPendentes={sugestoesPendentes.length} onAbrirSugestoes={() => setTab('sugestoes')} onAbrirTab={setTab} />
+      ) : tab === 'resultados' ? (
         <ResultadosEmbed contas={contasDash} ativa={contaAtiva} onTrocar={setContaAtiva} loading={dash.loading} />
       ) : tab === 'sugestoes' ? (
         <SugestoesPlaybook
@@ -338,13 +347,6 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
         </div>
       ) : (
         <div className="space-y-5">
-          {sugestoesPendentes.length > 0 && tab === 'atividade' && (
-            <button onClick={() => setTab('sugestoes')} className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rl-purple/5 border border-rl-purple/20 text-sm text-rl-text hover:bg-rl-purple/10 text-left">
-              <Sparkles className="w-4 h-4 text-rl-purple" />
-              <span className="flex-1">{sugestoesPendentes.length} sugestão{sugestoesPendentes.length > 1 ? 'ões' : ''} de otimização do playbook aguardando decisão</span>
-              <ChevronRight className="w-4 h-4 text-rl-muted" />
-            </button>
-          )}
           {grupos.map(([mes, lista, cor]) => (
             <div key={mes}>
               <p className="text-sm font-semibold text-rl-subtle px-1 mb-2 flex items-center gap-2">
