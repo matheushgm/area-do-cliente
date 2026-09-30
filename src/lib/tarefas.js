@@ -228,7 +228,7 @@ export function pessoasDaTarefa(item, membrosMap) {
 
 // ─── Agrupamento ─────────────────────────────────────────────────────────────
 
-const BUCKETS_VENC = [
+export const BUCKETS_VENC = [
   { key: 'atrasado',  label: 'Atrasado',                 cor: '#e5484d' },
   { key: 'hoje',      label: 'Hoje',                     cor: '#30a46c' },
   { key: 'amanha',    label: 'Amanhã',                   cor: '#ffc53d' },
@@ -239,7 +239,7 @@ const BUCKETS_VENC = [
   { key: 'concluida', label: 'Concluído',                cor: '#008844' },
 ]
 
-function bucketVencimento(item) {
+export function bucketVencimento(item) {
   if (item.status_tipo === 'closed') return 'concluida'
   const d = paraData(item.data_vencimento)
   if (!d) return 'semdata'

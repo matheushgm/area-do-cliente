@@ -10,6 +10,7 @@ import { useApp } from '../../context/AppContext'
 import { gerarSugestoesProjeto } from '../../lib/playbookSugestoes'
 import { hojeISO, fmtLonga } from '../../lib/atividadesCarga'
 import { addDays } from '../../lib/dashboardData'
+import { BUCKETS_VENC, bucketVencimento } from '../../lib/tarefas'
 import SugestoesPlaybook from './SugestoesPlaybook'
 import RegistroModal from './RegistroModal'
 import NovaTarefaClickUpModal from './NovaTarefaClickUpModal'
@@ -221,11 +222,22 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
     const kinds = TAB_KINDS[tab]
     return kinds ? hub.timeline.filter((i) => kinds.includes(i.kind)) : hub.timeline
   }, [hub.timeline, tab])
+  // Aba Tarefas agrupa por vencimento (Atrasado / Hoje / Amanhã / Esta semana…),
+  // como o módulo Tarefas; as outras abas agrupam por mês.
   const grupos = useMemo(() => {
+    if (tab === 'tarefas') {
+      const m = new Map()
+      for (const it of itens) {
+        const k = bucketVencimento({ status_tipo: it.fechada ? 'closed' : 'open', data_vencimento: it.prazo })
+        if (!m.has(k)) m.set(k, [])
+        m.get(k).push(it)
+      }
+      return BUCKETS_VENC.filter((b) => m.has(b.key)).map((b) => [b.label, m.get(b.key).sort((a, c) => (a.prazo || '9999').localeCompare(c.prazo || '9999')), b.cor])
+    }
     const m = new Map()
     for (const it of itens) { const k = mesLabel(it.data); if (!m.has(k)) m.set(k, []); m.get(k).push(it) }
     return [...m.entries()]
-  }, [itens])
+  }, [itens, tab])
 
   // ── Ações ─────────────────────────────────────────────────────────────────
   async function descartar(s) {
@@ -316,9 +328,13 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
               <ChevronRight className="w-4 h-4 text-rl-muted" />
             </button>
           )}
-          {grupos.map(([mes, lista]) => (
+          {grupos.map(([mes, lista, cor]) => (
             <div key={mes}>
-              <p className="text-sm font-semibold text-rl-subtle px-1 mb-2">{mes}</p>
+              <p className="text-sm font-semibold text-rl-subtle px-1 mb-2 flex items-center gap-2">
+                {cor && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cor }} />}
+                {mes}
+                <span className="text-[11px] font-medium text-rl-muted">{lista.length}</span>
+              </p>
               <div className="space-y-2">
                 {lista.map((it) => (
                   <Item key={it.id} item={it} expandido={expandido} nomes={nomes} onNavigate={onNavigate}
