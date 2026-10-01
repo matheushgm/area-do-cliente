@@ -13,6 +13,7 @@ import { fmtCurrency, initials, calcLTV, activeMonths, ltvStartSource, accelerat
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
 import Modal from '../components/UI/Modal'
+import { ObservacoesEditor } from '../components/UI/ObservacoesCampo'
 import {
   Camera, X, CheckCircle2, ClipboardList, BarChart3,
   Users, Zap, CalendarDays,
@@ -523,11 +524,10 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
         {/* Observações */}
         <div>
           <label className="label-field">Observações</label>
-          <textarea
+          <ObservacoesEditor
             value={form.observacoes}
             onChange={(e) => set('observacoes', e.target.value)}
-            rows={4}
-            className="input-field resize-none text-sm"
+            rows={6}
             placeholder="Informações adicionais sobre o cliente..."
           />
         </div>
@@ -1000,14 +1000,13 @@ function OnboardingContent({ project, onSave, showToast }) {
       {/* Observações — edição inline com autosave */}
       <div>
         <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📝 Observações</p>
-        <textarea
+        <ObservacoesEditor
           value={observacoes}
           onChange={handleObservacoesChange}
-          rows={4}
-          className="input-field resize-y text-sm w-full"
+          rows={8}
           placeholder="Comece a digitar informações adicionais sobre o cliente..."
+          rodape="As alterações são salvas automaticamente."
         />
-        <p className="text-[11px] text-rl-muted mt-1">As alterações são salvas automaticamente.</p>
       </div>
 
       {/* Arquivos */}

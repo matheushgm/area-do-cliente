@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight, Info, Pencil } from 'lucide-react'
 import { BUSINESS_LABELS, CONTRACT_MODEL_LABELS, CONTRACT_PAYMENT_LABELS, MATURITY_LABELS } from '../../lib/constants'
 import { fmtCurrency } from '../../lib/utils'
+import { ObservacoesLeitura } from '../UI/ObservacoesCampo'
 
 function Campo({ label, valor }) {
   if (valor == null || valor === '') return null
@@ -50,7 +51,12 @@ export default function HubInformacoes({ project, onEditar }) {
       {aberto && (
         <div className="px-4 pb-2 border-t border-rl-border/60">
           {campos.map(([l, v]) => <Campo key={l} label={l} valor={v} />)}
-          {project.observacoes && <Campo label="Observações" valor={project.observacoes} />}
+          {project.observacoes && (
+            <div className="py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">Observações</p>
+              <ObservacoesLeitura texto={project.observacoes} />
+            </div>
+          )}
         </div>
       )}
     </div>
