@@ -368,6 +368,17 @@
 /* Rótulo de tile longo (ex.: "Perda por orçamento", "Pace da campanha") quebra
    em duas linhas em vez de ser cortado com reticências pelo nowrap do vendor. */
 .dt-root .mg-tile-label.wrap{ white-space:normal; overflow:visible; line-height:1.25; }
+/* Faixa Verba + Pace no topo do quadrante de Custos (verba do canal planejada
+   no módulo Campanha da Área do Cliente). */
+.dt-root .mg-budget-strip{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-bottom:8px; }
+.dt-root .mg-tile-budget{ background:linear-gradient(135deg,#0F2A5E 0%,#164496 100%); border-color:#164496; }
+.dt-root .mg-tile-budget .mg-tile-label{ color:rgba(255,255,255,0.75); }
+.dt-root .mg-tile-budget .mg-tile-value{ color:#FFFFFF; font-size:21px; overflow:visible; }
+.dt-root .mg-tile-budget .mg-tile-var{ color:rgba(255,255,255,0.85); background:rgba(255,255,255,0.14); border-radius:999px; padding:2px 7px; display:inline-flex; }
+.dt-root.th-fynix .mg-budget-strip{ gap:10px; margin-bottom:10px; }
+.dt-root.th-fynix .mg-tile-budget{ background:var(--fx-green); border-color:var(--fx-green); }
+.dt-root.th-fynix .mg-tile-budget .mg-tile-var.fl{ background:rgba(255,255,255,0.14); color:rgba(255,255,255,0.85); }
+.dt-root .mg-tile-pace .mg-tile-value{ display:flex; align-items:center; min-height:22px; }
 /* Classes que substituíram estilos inline da página do cliente — assim o tema
    (vendor/theme-fynix.css) consegue sobrescrevê-las. Valores idênticos aos de antes. */
 .dt-root .res-type{ color:#8aa0d6; font-size:11px; }
@@ -2861,7 +2872,41 @@ function channelPaceFor(ch, client) {
   if (!plan) return null
   const budget = planChannelBudget(plan, ch)
   if (!budget) return null
-  return paceOf(budget.total, plan.startDate || null, plan.endDate || null, spendFnFor(ch, client))
+  const ps = plan.startDate || null, pe = plan.endDate || null
+  const pace = paceOf(budget.total, ps, pe, spendFnFor(ch, client))
+  // Sem datas no plano não dá pra medir pace, mas a verba do canal ainda
+  // existe — devolve um objeto "só verba" (pct null) p/ o tile de verba.
+  return pace || { planned: budget.total, ps, pe, pct: null, noDates: true }
+}
+
+// Rótulo do período do plano: "outubro/2026" quando o plano cobre um mês
+// inteiro (verba mensal), senão "01/10 → 15/11".
+function planPeriodLabel(ps, pe) {
+  if (!ps || !pe) return 'sem período no plano'
+  const [y1, m1, d1] = ps.split('-').map(Number), [y2, m2, d2] = pe.split('-').map(Number)
+  const lastDay = new Date(y2, m2, 0).getDate()
+  if (y1 === y2 && m1 === m2 && d1 === 1 && d2 === lastDay) return `${DP_MONTHS[m1 - 1]}/${y1}`
+  return `${fmtBR(ps)} → ${fmtBR(pe)}`
+}
+
+// Tile de VERBA do canal (destaque) p/ o topo do quadrante de Custos: a verba
+// planejada no módulo Campanha da Área do Cliente p/ esse canal no período
+// (Meta já líquida do imposto de ${(META_PLAN_TAX*100)}%), com o período embaixo.
+function budgetTileHTML(ch, pace) {
+  if (!pace || !(pace.planned > 0)) return ''
+  const chName = PLAN_CHANNEL[ch] || ch
+  const tip = `Verba planejada para ${chName} no módulo Campanha da Área do Cliente`
+    + (ch === 'meta' ? ` (já descontados ${Math.round(META_PLAN_TAX * 100)}% de imposto)` : '')
+    + `. Período: ${planPeriodLabel(pace.ps, pace.pe)}.`
+  return `<div class="mg-tile mg-tile-budget" title="${esc(tip)}"><div class="mg-tile-label wrap">Verba ${esc(chName)}</div><div class="mg-tile-value">${fmtMoney(pace.planned)}</div><div class="mg-tile-var fl">${esc(planPeriodLabel(pace.ps, pace.pe))}</div></div>`
+}
+
+// Faixa "Verba + Pace" no topo do quadrante de Custos: a verba do canal em
+// destaque e, ao lado, o pace p/ decidir se aumenta ou segura a verba.
+function budgetStripHTML(ch, pace) {
+  const b = budgetTileHTML(ch, pace)
+  if (!b) return ''
+  return `<div class="mg-budget-strip">${b}${paceTileHTML(pace)}</div>`
 }
 
 // Gasto real de UMA campanha planejada: casa o nome do plano com os nomes reais
@@ -2908,9 +2953,10 @@ const paceBadge = pace => {
 function paceTileHTML(pace) {
   if (!pace) return ''
   const sub = pace.notStarted ? `plano começa ${fmtBR(pace.ps)}`
+    : pace.noDates ? 'defina o período no módulo Campanha'
     : pace.pct == null ? '—'
     : `${fmtMoney(pace.actual)} de ${fmtMoney(pace.expected)} previstos`
-  return `<div class="mg-tile"><div class="mg-tile-label wrap">Pace da campanha</div><div class="mg-tile-value" style="font-size:14px">${paceBadge(pace)}</div><div class="mg-tile-var fl">${esc(sub)}</div></div>`
+  return `<div class="mg-tile mg-tile-pace"><div class="mg-tile-label wrap">Pace da campanha</div><div class="mg-tile-value" style="font-size:14px">${paceBadge(pace)}</div><div class="mg-tile-var fl">${esc(sub)}</div></div>`
 }
 
 const goalBadge = (target, cpl, ch) => {
@@ -3906,7 +3952,7 @@ function metricGroupsHTML(allRows, prevRows, isMeta, period, pace) {
   // Mini-gráfico por quadrante (só quando period é passado — aba Resultados).
   const chart = id => period ? `<div class="mg-chart"><canvas id="${id}"></canvas></div>` : ''
   return `<div class="mg-grid">
-    <div class="mg-card mg-cost"><h4 class="mg-title">Custos</h4><div class="mg-tiles">
+    <div class="mg-card mg-cost"><h4 class="mg-title">Custos</h4>${budgetStripHTML(isMeta ? 'meta' : 'google', pace)}<div class="mg-tiles">
       ${tileHTML('Gasto', fmtMoney(cur.spend), pctVar(cur.spend, prv.spend), false)}
       ${isMeta ? tileHTML('Frequência', fmtFreq(cur.frequency), pctVar(cur.frequency, prv.frequency), true)
                : tileHTML('CPC', fmtMoney(cur.cpc), pctVar(cur.cpc, prv.cpc), true)}
@@ -3916,7 +3962,6 @@ function metricGroupsHTML(allRows, prevRows, isMeta, period, pace) {
         'Parcela de impressões perdida na Pesquisa por falta de verba: a campanha era elegível ao leilão e não apareceu porque o orçamento acabou. Média das campanhas de Search/Shopping ponderada pelas impressões elegíveis.')}
       ${tileHTML('Perda por qualidade', lostVal(cur.lostRank, null), pctVar(cur.lostRank, prv.lostRank), true,
         'Parcela de impressões perdida na Pesquisa por classificação do anúncio (Ad Rank): índice de qualidade, relevância ou lance abaixo do necessário. Média das campanhas de Search/Shopping ponderada pelas impressões elegíveis.')}`}
-      ${paceTileHTML(pace)}
     </div>${chart('mgChartCost')}</div>
     <div class="mg-card mg-eng"><h4 class="mg-title">Engajamento</h4><div class="mg-tiles">
       ${tileHTML('CTR', fmtPctVal(cur.ctr), pctVar(cur.ctr, prv.ctr), false)}
