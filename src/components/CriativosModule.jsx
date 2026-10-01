@@ -2580,13 +2580,16 @@ function AprovacaoButton({ creative, project, onClick }) {
   const itens = levas.flatMap((l) => l.itens || [])
   const pendentes = itens.filter((it) => (it.aprovacao?.status || 'pendente') === 'pendente').length
   const aprovados = itens.filter((it) => it.aprovacao?.status === 'aprovado').length
+  const editados = itens.filter((it) => it.aprovacao?.status === 'aprovado' && it.aprovacao?.editado).length
   const reprovados = itens.filter((it) => it.aprovacao?.status === 'reprovado').length
 
   const label = itens.length === 0
     ? 'Enviar pra aprovação'
     : pendentes > 0
       ? `${pendentes} aguardando cliente`
-      : `${aprovados} aprovado${aprovados !== 1 ? 's' : ''}${reprovados ? ` · ${reprovados} reprovado${reprovados !== 1 ? 's' : ''}` : ''}`
+      : `${aprovados} aprovado${aprovados !== 1 ? 's' : ''}`
+        + (editados ? ` (${editados} c/ alterações)` : '')
+        + (reprovados ? ` · ${reprovados} reprovado${reprovados !== 1 ? 's' : ''}` : '')
 
   return (
     <button

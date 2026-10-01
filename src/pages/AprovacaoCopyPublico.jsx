@@ -3,11 +3,15 @@
 // e aprova ou reprova cada texto. Ao reprovar, preenche motivo + como deveria
 // estar. O que ele aprova vai pra Central de anúncios como "Aprovado para
 // Edição" e entra na fila do designer.
+//
+// "Editar e aprovar": pra ajuste pequeno não vale a pena devolver pro time. O
+// cliente edita o texto na hora e aprova com alterações — o texto dele vira a
+// copy aprovada e o original fica guardado pra comparação.
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   Sparkles, Loader2, AlertTriangle, CheckCircle2, XCircle, Clock, Send, Video,
-  Image as ImageIcon, Copy, Check,
+  Image as ImageIcon, Copy, Check, Pencil,
 } from 'lucide-react'
 import MarkdownBlock from '../components/Criativos/MarkdownBlock'
 
@@ -175,23 +179,30 @@ export default function AprovacaoCopyPublico() {
 
 // ─── Card de uma copy ─────────────────────────────────────────────────────────
 function CopyCard({ item, index, token, onDecided, decided = false }) {
-  const [mode,       setMode]       = useState(null) // null | 'reprovando'
+  const [mode,       setMode]       = useState(null) // null | 'reprovando' | 'editando'
   const [motivo,     setMotivo]     = useState('')
   const [sugestao,   setSugestao]   = useState('')
+  const [texto,      setTexto]      = useState(item.conteudo || '')
   const [submitting, setSubmitting] = useState(false)
   const [error,      setError]      = useState('')
   const [copied,     setCopied]     = useState(false)
 
-  const st = item.aprovacao.status
+  const st      = item.aprovacao.status
+  const editado = st === 'aprovado' && item.aprovacao.editado
 
-  async function decide(decision) {
+  // `conteudo` só vai no "aprovar com alterações"; a aprovação simples manda o
+  // texto como está e o servidor registra sem edição.
+  async function decide(decision, { comAlteracoes = false } = {}) {
     setSubmitting(true)
     setError('')
     try {
       const res = await fetch('/api/copy-aprovacao', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, itemId: item.id, decision, motivo, sugestao }),
+        body: JSON.stringify({
+          token, itemId: item.id, decision, motivo, sugestao,
+          ...(comAlteracoes ? { conteudo: texto } : {}),
+        }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'Erro ao enviar.')
@@ -209,6 +220,7 @@ function CopyCard({ item, index, token, onDecided, decided = false }) {
   }
 
   const canReprovar = motivo.trim().length > 0 && sugestao.trim().length > 0
+  const textoMudou  = texto.trim().length > 0 && texto.trim() !== (item.conteudo || '').trim()
 
   return (
     <div className="glass-card overflow-hidden">
@@ -231,7 +243,8 @@ function CopyCard({ item, index, token, onDecided, decided = false }) {
           {decided && (
             st === 'aprovado' ? (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Aprovado
+                {editado ? <Pencil className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                {editado ? 'Aprovado com alterações' : 'Aprovado'}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-300">
@@ -242,10 +255,41 @@ function CopyCard({ item, index, token, onDecided, decided = false }) {
         </div>
       </div>
 
-      {/* Texto da copy */}
-      <div className="px-5 py-4">
-        <MarkdownBlock content={item.conteudo} />
-      </div>
+      {/* Texto da copy (ou o editor, quando o cliente está ajustando) */}
+      {mode === 'editando' ? (
+        <div className="px-5 py-4 space-y-2">
+          <label className="text-xs font-bold text-rl-text uppercase tracking-wide block">
+            Ajuste o texto como ele deve ficar
+          </label>
+          <textarea
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            rows={Math.min(24, Math.max(8, (texto.match(/\n/g) || []).length + 3))}
+            className="input-field w-full resize-y font-mono text-[13px] leading-relaxed"
+            autoFocus
+          />
+          <p className="text-[11px] text-rl-muted">
+            O texto que você aprovar aqui é o que vai pra produção. O original fica guardado pra
+            equipe comparar.
+          </p>
+        </div>
+      ) : (
+        <div className="px-5 py-4">
+          <MarkdownBlock content={item.conteudo} />
+        </div>
+      )}
+
+      {/* Texto original, quando o cliente aprovou com alterações */}
+      {decided && editado && item.conteudoOriginal && (
+        <details className="px-5 pb-4 group">
+          <summary className="text-[11px] font-semibold text-rl-muted cursor-pointer hover:text-rl-text">
+            Ver texto original (antes da sua edição)
+          </summary>
+          <div className="mt-2 rounded-xl bg-rl-surface/60 border border-rl-border px-4 py-3">
+            <MarkdownBlock content={item.conteudoOriginal} />
+          </div>
+        </details>
+      )}
 
       {/* Registro da decisão */}
       {decided && st === 'reprovado' && (
@@ -266,32 +310,65 @@ function CopyCard({ item, index, token, onDecided, decided = false }) {
       )}
       {decided && item.aprovacao.decididoEm && (
         <p className="px-5 pb-4 text-[10px] text-rl-muted">
-          {st === 'aprovado' ? 'Aprovado' : 'Reprovado'} em {fmtDateTime(item.aprovacao.decididoEm)}
+          {st === 'aprovado' ? (editado ? 'Aprovado com alterações' : 'Aprovado') : 'Reprovado'} em{' '}
+          {fmtDateTime(item.aprovacao.decididoEm)}
         </p>
       )}
 
       {/* Ações */}
       {!decided && (
         <div className="px-5 pb-5">
-          {mode !== 'reprovando' ? (
-            <div className="flex items-center gap-2">
+          {mode === null && (
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => decide('aprovado')}
                 disabled={submitting}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all disabled:opacity-50"
+                className="flex-1 min-w-[150px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all disabled:opacity-50"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 Aprovar texto
               </button>
               <button
+                onClick={() => { setTexto(item.conteudo || ''); setMode('editando'); setError('') }}
+                disabled={submitting}
+                className="flex-1 min-w-[150px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-rl-purple/40 text-rl-purple text-sm font-bold hover:bg-rl-purple/10 transition-all disabled:opacity-50"
+                title="Faça um ajuste pequeno você mesmo e aprove, sem precisar devolver pra equipe"
+              >
+                <Pencil className="w-4 h-4" /> Editar e aprovar
+              </button>
+              <button
                 onClick={() => setMode('reprovando')}
                 disabled={submitting}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-300 text-red-600 text-sm font-bold hover:bg-red-50 transition-all disabled:opacity-50"
+                className="flex-1 min-w-[150px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-300 text-red-600 text-sm font-bold hover:bg-red-50 transition-all disabled:opacity-50"
               >
                 <XCircle className="w-4 h-4" /> Reprovar
               </button>
             </div>
-          ) : (
+          )}
+          {mode === 'editando' && (
+            <div className="space-y-2">
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              <div className="flex items-center justify-end gap-2 flex-wrap">
+                <button
+                  onClick={() => { setMode(null); setTexto(item.conteudo || ''); setError('') }}
+                  disabled={submitting}
+                  className="text-xs px-4 py-2 rounded-xl bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => decide('aprovado', { comAlteracoes: true })}
+                  disabled={submitting || !textoMudou}
+                  title={!textoMudou ? 'Altere alguma coisa no texto pra aprovar com alterações' : undefined}
+                  className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  Aprovar com alterações
+                </button>
+              </div>
+            </div>
+          )}
+          {mode === 'reprovando' && (
             <div className="space-y-3 rounded-xl border border-red-500/30 bg-red-500/5 p-4">
               <div>
                 <label className="text-xs font-bold text-rl-text uppercase tracking-wide mb-1 block">
@@ -337,7 +414,7 @@ function CopyCard({ item, index, token, onDecided, decided = false }) {
               </div>
             </div>
           )}
-          {error && mode !== 'reprovando' && <p className="text-xs text-red-500 mt-2">{error}</p>}
+          {error && mode === null && <p className="text-xs text-red-500 mt-2">{error}</p>}
         </div>
       )}
     </div>

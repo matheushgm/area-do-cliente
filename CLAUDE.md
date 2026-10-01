@@ -197,6 +197,30 @@ Path convention: `{projectId}/{filename}`. Storage policies espelham as RLS das 
 - Persistido via `updateProject(id, { metaLabBudget })` — campo `metaLabBudget` em `projects_v2`
 - Sidebar badge de preenchimento: `!!project.metaLabBudget`
 
+### Aprovação de copy pelo cliente (`/aprovacao-copy/:token`)
+
+Ponte entre "Criativos com IA" e a Central de anúncios (`DebriefingModule`). Formato dos
+objetos vive em `src/lib/copyLevas.js` (única fonte da verdade). Fluxo:
+
+1. O gestor escolhe criativos de uma geração no `CopyAprovacaoModal` e cria uma **leva**
+   com token próprio (`projects_v2.copy_aprovacoes.levas[]`, migration 077). No mesmo patch,
+   cada copy vira um anúncio rascunho em `debriefing.ads[]` com `copyAprovacao.status =
+   'pendente'` (aba "Ads para aprovação").
+2. O cliente decide no link, sem login (`src/pages/AprovacaoCopyPublico.jsx` →
+   `api/copy-aprovacao.js`, edge, chave de serviço). Cada item aceita **uma** decisão (409 na
+   segunda). Reprovar exige `motivo` + `sugestao`.
+3. **Aprovar com alterações:** o cliente edita o texto no link e aprova (`decision:
+   'aprovado'` + `conteudo` diferente do enviado). O texto dele vira a copy do item e do
+   anúncio; o original fica em `item.conteudoOriginal` / `copyAprovacao.copyOriginal`, e
+   `aprovacao.editado = true` acende o selo "c/ alterações" no modal da leva, na Central e
+   no modal do anúncio. Texto igual ao enviado = aprovação simples; vazio = 400.
+4. Aprovado → anúncio em `aprovado_edicao` (fila do designer). Reprovado → volta a
+   `rascunho` com motivo/sugestão à vista. Reenvio reaproveita o mesmo anúncio; copy já
+   aprovada nunca é reescrita pelo reenvio.
+
+Não confundir com `/aprovacao/:token` (`api/anuncios-aprovacao.js`): lá o cliente aprova a
+**peça pronta** e landing pages, usando o `client_share_token` do projeto.
+
 ### Google Ads (`GoogleAdsModule`)
 
 - Entrada via **grupos de palavras-chave** — cada grupo tem `nome` editável e tabela com colunas: palavra-chave, buscas/mês e concorrência (Baixo/Médio/Alto com badge colorido)

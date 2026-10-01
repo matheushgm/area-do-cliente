@@ -7,7 +7,7 @@
 // "Aprovado para Edição" (fila do designer).
 import { useMemo, useState } from 'react'
 import {
-  Send, Link2, Copy, Check, Loader2, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp,
+  Send, Link2, Copy, Check, Loader2, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp, Pencil,
 } from 'lucide-react'
 import Modal from '../UI/Modal'
 import MarkdownBlock from './MarkdownBlock'
@@ -19,7 +19,15 @@ const EMPTY = { levas: [] }
 const STATUS_META = {
   pendente: { label: 'Aguardando', Icon: Clock, cls: 'text-rl-gold bg-rl-gold/10 border-rl-gold/30' },
   aprovado: { label: 'Aprovado', Icon: CheckCircle2, cls: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30' },
+  aprovado_editado: { label: 'Aprovado c/ alterações', Icon: Pencil, cls: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30' },
   reprovado: { label: 'Reprovado', Icon: XCircle, cls: 'text-red-500 bg-red-500/10 border-red-500/30' },
+}
+
+// Chave de exibição: "aprovado" com `editado` (o cliente mexeu no texto antes
+// de aprovar) ganha selo próprio pro time perceber que a copy mudou.
+function statusDeExibicao(aprovacao) {
+  const st = aprovacao?.status || 'pendente'
+  return st === 'aprovado' && aprovacao?.editado ? 'aprovado_editado' : st
 }
 
 function fmtDateTime(iso) {
@@ -261,7 +269,7 @@ function LevaCard({ leva, url, copied, onCopy, onDelete }) {
   const [open, setOpen] = useState(false)
   const itens = leva.itens || []
   const cont = itens.reduce((acc, it) => {
-    const st = it.aprovacao?.status || 'pendente'
+    const st = statusDeExibicao(it.aprovacao)
     acc[st] = (acc[st] || 0) + 1
     return acc
   }, {})
@@ -277,7 +285,7 @@ function LevaCard({ leva, url, copied, onCopy, onDelete }) {
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {['pendente', 'aprovado', 'reprovado'].map((st) =>
+          {['pendente', 'aprovado', 'aprovado_editado', 'reprovado'].map((st) =>
             cont[st] ? (
               <span
                 key={st}
@@ -319,7 +327,7 @@ function LevaCard({ leva, url, copied, onCopy, onDelete }) {
       {open && (
         <div className="border-t border-rl-border/60 divide-y divide-rl-border/40">
           {itens.map((it) => {
-            const st = it.aprovacao?.status || 'pendente'
+            const st = statusDeExibicao(it.aprovacao)
             const meta = STATUS_META[st]
             const StIcon = meta.Icon
             return (
@@ -352,20 +360,35 @@ function LevaCard({ leva, url, copied, onCopy, onDelete }) {
                     </div>
                   </div>
                 )}
-                {st === 'aprovado' && (
+                {(st === 'aprovado' || st === 'aprovado_editado') && (
                   <p className="text-[10px] text-emerald-500 font-semibold">
                     Na Central de anúncios como Aprovado para Edição
                     {it.aprovacao?.decididoEm ? ` · ${fmtDateTime(it.aprovacao.decididoEm)}` : ''}
                   </p>
                 )}
+                {st === 'aprovado_editado' && (
+                  <p className="text-[10px] text-rl-muted">
+                    O cliente ajustou o texto antes de aprovar. A copy abaixo já é a versão dele.
+                  </p>
+                )}
                 <details className="group">
                   <summary className="text-[10px] text-rl-muted cursor-pointer hover:text-rl-text">
-                    Ver copy enviada
+                    {st === 'aprovado_editado' ? 'Ver copy aprovada (editada pelo cliente)' : 'Ver copy enviada'}
                   </summary>
                   <div className="mt-2 rounded-lg bg-rl-bg/40 border border-rl-border px-3 py-2">
                     <MarkdownBlock content={it.conteudo} />
                   </div>
                 </details>
+                {st === 'aprovado_editado' && it.conteudoOriginal && (
+                  <details className="group">
+                    <summary className="text-[10px] text-rl-muted cursor-pointer hover:text-rl-text">
+                      Ver texto original (como foi enviado)
+                    </summary>
+                    <div className="mt-2 rounded-lg bg-rl-surface/60 border border-rl-border px-3 py-2">
+                      <MarkdownBlock content={it.conteudoOriginal} />
+                    </div>
+                  </details>
+                )}
               </div>
             )
           })}

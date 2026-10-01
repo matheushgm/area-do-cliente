@@ -8,7 +8,10 @@
 //      (aba "Ads para aprovação") e ganha uma LEVA com link só dela
 //      (/aprovacao-copy/<token>).
 //   3. O cliente aprovando, o mesmo anúncio passa a "Aprovado para Edição" e
-//      espera o designer; reprovando, volta com o motivo à vista.
+//      espera o designer; reprovando, volta com o motivo à vista. Ele também
+//      pode "aprovar com alterações": edita o texto no link e aprova — a copy
+//      do anúncio vira a dele (`copyAprovacao.editado`, original em
+//      `copyAprovacao.copyOriginal`), sem passar pelo time.
 //   4. Quando o designer anexa a peça, o anúncio migra pra aba "Design pronto".
 //
 // Este módulo é a única fonte da verdade do formato desses objetos — o modal de

@@ -556,6 +556,8 @@ export default function DebriefingModule({ project }) {
 const COPY_BADGE = {
   pendente:  { label: 'Copy com o cliente', cls: 'border-rl-gold/30 bg-rl-gold/10 text-rl-gold' },
   aprovado:  { label: 'Copy aprovada',      cls: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500' },
+  // O cliente ajustou o texto antes de aprovar: a copy do anúncio já é a dele.
+  aprovado_editado: { label: 'Copy aprovada c/ alterações', cls: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500' },
   reprovado: { label: 'Copy reprovada',     cls: 'border-red-500/30 bg-red-500/10 text-red-500' },
 }
 
@@ -564,17 +566,21 @@ function AprovacaoCell({ ad, onEnviar, mostrarCopy = false }) {
 
   // Na aba de aprovação o que importa é a resposta do cliente sobre a COPY —
   // a peça ainda nem existe. Quando ela existir, o anúncio muda de aba.
-  const copyBadge = mostrarCopy ? COPY_BADGE[ad.copyAprovacao?.status] : null
+  const st = ad.copyAprovacao?.status
+  const copyKey = st === 'aprovado' && ad.copyAprovacao?.editado ? 'aprovado_editado' : st
+  const copyBadge = mostrarCopy ? COPY_BADGE[copyKey] : null
   if (copyBadge) {
-    const st = ad.copyAprovacao.status
     const marcoCopy = st === 'pendente' ? ad.copyAprovacao.enviadoEm : ad.copyAprovacao.decididoEm
+    const tooltip = st === 'reprovado'
+      ? `Motivo: ${ad.copyAprovacao.motivo || '—'}\nComo deveria estar: ${ad.copyAprovacao.sugestao || '—'}`
+      : copyKey === 'aprovado_editado'
+        ? 'O cliente ajustou o texto antes de aprovar. Abra o anúncio pra ver a versão dele e o original.'
+        : undefined
     return (
       <div className="flex flex-col items-start gap-0.5">
         <span
           className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${copyBadge.cls}`}
-          title={st === 'reprovado'
-            ? `Motivo: ${ad.copyAprovacao.motivo || '—'}\nComo deveria estar: ${ad.copyAprovacao.sugestao || '—'}`
-            : undefined}
+          title={tooltip}
         >
           <FileText className="w-3 h-3" /> {copyBadge.label}
         </span>

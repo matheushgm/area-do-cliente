@@ -27,6 +27,10 @@ const COPY_TITULO = {
 function CopyAprovadaBlock({ copy, origem, aprovacao }) {
   const [copied, setCopied] = useState(false)
   const st = aprovacao?.status || null
+  // Aprovado com alterações: o texto exibido já é o do cliente; o original
+  // (o que o time enviou) fica numa dobra pra comparação.
+  const editado = st === 'aprovado' && aprovacao?.editado
+  const copyOriginal = editado ? aprovacao?.copyOriginal : null
   const leva = aprovacao?.levaNome || origem?.levaNome
   const quando = aprovacao?.decididoEm || aprovacao?.enviadoEm || origem?.aprovadoEm
 
@@ -41,7 +45,7 @@ function CopyAprovadaBlock({ copy, origem, aprovacao }) {
       <div className="px-4 py-2.5 flex items-center justify-between gap-2 border-b border-rl-blue/20">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-wider text-rl-blue">
-            {COPY_TITULO[st] || 'Copy do anúncio'}
+            {editado ? 'Copy aprovada pelo cliente com alterações' : (COPY_TITULO[st] || 'Copy do anúncio')}
           </p>
           {leva && (
             <p className="text-[11px] text-rl-muted truncate">
@@ -62,6 +66,23 @@ function CopyAprovadaBlock({ copy, origem, aprovacao }) {
       <pre className="px-4 py-3 text-[12px] leading-relaxed text-rl-text whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">
         {copy}
       </pre>
+      {editado && (
+        <div className="px-4 pb-4 space-y-2">
+          <p className="text-[11px] text-rl-muted">
+            O cliente editou o texto antes de aprovar. O que está acima é a versão dele e é o que vai pra peça.
+          </p>
+          {copyOriginal && (
+            <details className="group">
+              <summary className="text-[10px] font-semibold text-rl-muted cursor-pointer hover:text-rl-text">
+                Ver texto original (como o time enviou)
+              </summary>
+              <pre className="mt-2 rounded-lg bg-rl-surface/60 border border-rl-border px-3 py-2 text-[12px] leading-relaxed text-rl-text whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">
+                {copyOriginal}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
       {st === 'reprovado' && (
         <div className="px-4 pb-4 space-y-2">
           <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2">
