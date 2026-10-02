@@ -83,6 +83,13 @@ As páginas com sidebar são filhas de `<Route element={<AppLayout/>}>`; nenhuma
 página do cliente) e mantém a barra própria com nome da empresa e voltar. Só
 `/cliente/novo` fica de fora — é um fluxo focado.
 
+**Convenções do escuro no dashboard** (nasceram de uma auditoria de contraste):
+`--dt-on-fill` é o texto sobre controle preenchido — era `rgb(var(--rl-card))`, que no
+claro calha de ser branco mas no escuro vira a cor do card e some. `--dt-tint-08/10/12`
+é o alfa da "tinta" das pílulas (texto colorido sobre fundo do mesmo tom): no escuro a
+tinta aproxima fundo e texto, então cai de 0.08/0.10/0.12 para 0.05/0.06/0.07. São três
+tokens, um por valor original, para o claro continuar idêntico.
+
 ⚠️ **Largura na página do cliente:** o layout de 3 colunas do `ClientProfile` pede ~1574px.
 Com a sidebar aberta (240px) ele só cabe a partir de ~1820px de viewport; a 1440px há
 scroll horizontal. Parte disso é anterior à sidebar (a 1440 já estourava 140px sozinho).
