@@ -617,6 +617,7 @@
   .dt-root .sf-cur { font-size:11px; font-weight:700; color:var(--fx-faint,rgb(var(--rl-muted))); }
   .dt-root .sf-money input { width:74px; border:0; outline:none; background:transparent; font-family:inherit;
     font-size:12.5px; font-weight:700; color:var(--fx-green,rgb(var(--rl-text))); }
+  .dt-root .cf-money input { width:50px; }
   .dt-root .sf-note { font-size:10.5px; line-height:1.45; color:var(--fx-faint,rgb(var(--rl-muted))); padding:0 16px 12px; }
   .dt-root .sf-foot { display:flex; justify-content:flex-end; gap:8px; padding:10px 16px;
     border-top:1px solid var(--fx-border,rgb(var(--rl-scroll-track))); }
@@ -1165,6 +1166,9 @@ const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:
                 // filtro de saldo da barra: operador (só 'lte' por ora) + valor em R$;
                 // null = sem filtro. Aplicado depois do filtro de squad.
                 saldoOp:'lte', saldoMax:null,
+                // filtro de CPL vs alvo: operador + porcentagem do CPL alvo
+                // (100 = no alvo). null = sem filtro. Aplicado junto do saldo.
+                cplOp:'gte', cplPct:null,
                 // colunas da tabela da visão Padrão: ordem escolhida (sem a coluna fixa;
                 // null = a do catálogo) e ids escondidos. Ver ACCT_COLS/colOrder.
                 colOrder:null, colOff:[],
@@ -1376,6 +1380,7 @@ function statsFor(ch, p) {
   const _q = state.search.trim(); if (_q) st = st.filter(s => s.name.toLowerCase().includes(_q))
   if (state.squad) st = st.filter(s => (state.accounts[s.name]?.squad || '') === state.squad)
   if (state.saldoMax != null) st = st.filter(s => saldoOk(s.name, ch))
+  if (state.cplPct != null) st = st.filter(cplOk)
   // Contas ocultas (clientes que saíram): fora da visão normal; a visão "Ocultas"
   // (state.showHidden) mostra APENAS elas, para poder reexibir.
   return st.filter(s => (state.showHidden ? isHidden(s.name) : !isHidden(s.name)))
@@ -1455,11 +1460,29 @@ function saldoOk(name, ch) {
   if (!r || r.valor == null) return false
   return (SALDO_OPS[state.saldoOp] || SALDO_OPS.lte).match(r.valor, state.saldoMax)
 }
+// ─── Filtro de CPL vs CPL alvo (barra, depois do saldo) ──────────────────────
+// A pergunta do dia a dia é "quem estourou a meta?", então o valor é uma
+// PORCENTAGEM do alvo e não reais: 100% = em cima do alvo, 120% = 20% acima.
+// Assim o filtro vale para a lista toda, com alvos diferentes por cliente.
+// O alvo sai da Calculadora de ROI do projeto (view cpl_targets_public).
+const CPL_OPS = {
+  gte: { label: 'Maior ou igual a', sinal: '≥', match: (cpl, alvo, pct) => cpl >= alvo * (pct / 100) },
+}
+// Sem alvo preenchido ou sem CPL no período (nenhuma conversão) a conta fica de
+// fora enquanto o filtro está ligado: não há o que comparar. Mesma regra do saldo.
+function cplOk(x) {
+  if (state.cplPct == null) return true
+  const alvo = state.accounts[x.name]?.cplTarget?.value
+  if (!(alvo > 0) || x.cpl1 == null) return false
+  return (CPL_OPS[state.cplOp] || CPL_OPS.gte).match(x.cpl1, alvo, state.cplPct)
+}
+
 function applyListFilters(list, ch) {
   let out = list
   const _q = state.search.trim(); if (_q) out = out.filter(x => x.name.toLowerCase().includes(_q))
   if (state.squad) out = out.filter(x => (state.accounts[x.name]?.squad || '') === state.squad)
   if (state.saldoMax != null) out = out.filter(x => saldoOk(x.name, ch || x.channel))
+  if (state.cplPct != null) out = out.filter(cplOk)
   return out.filter(x => !isHidden(x.name))
 }
 function diagFor(ch, p)  { return p ? applyListFilters(memo('diag',  ch, p, () => buildDeclineDiagnosis(state.raw[ch], cfgFor(ch), p, ch === 'meta')), ch) : [] }
@@ -1544,6 +1567,7 @@ function saveNav() {
       view: state.view, showHidden: state.showHidden, perfView: state.perfView,
       grpStatus: state.grpStatus, grpClient: state.grpClient,
       saldoOp: state.saldoOp, saldoMax: state.saldoMax,
+      cplOp: state.cplOp, cplPct: state.cplPct,
       colOrder: state.colOrder, colOff: state.colOff,
       openClient: state.openClient, tab: state.tab, sub: state.sub, drillSub: state.drillSub,
       drillCampaign: state.drillCampaign, drillAdset: state.drillAdset, drillAdsetName: state.drillAdsetName,
@@ -1563,6 +1587,8 @@ function restoreNav() {
     if (s.grpClient != null) state.grpClient = !!s.grpClient
     if (SALDO_OPS[s.saldoOp]) state.saldoOp = s.saldoOp
     state.saldoMax = Number.isFinite(s.saldoMax) ? s.saldoMax : null
+    if (CPL_OPS[s.cplOp]) state.cplOp = s.cplOp
+    state.cplPct = Number.isFinite(s.cplPct) ? s.cplPct : null
     state.colOrder = Array.isArray(s.colOrder) && s.colOrder.length ? s.colOrder : null
     state.colOff = Array.isArray(s.colOff) ? s.colOff.filter(id => COL_BY_ID[id] && !COL_BY_ID[id].fixa) : []
     state.perfView = (s.perfView && typeof s.perfView === 'object') ? s.perfView : {}
@@ -1737,6 +1763,29 @@ function grpMenuHTML() {
         </span>
       </button>`).join('')}
       <div class="vm-note">Sem nenhum dos dois, a lista vira uma tabela só — uma linha por conta, do pior status para o melhor.</div></div>`}`
+}
+
+// Dropdown do filtro de CPL vs alvo. Mesma mecânica do saldo (regra + valor,
+// confirmados no Aplicar), mas o campo é porcentagem do alvo de cada conta.
+function cplMenuHTML() {
+  const aberto = state.barPop === 'cpl'
+  const op = CPL_OPS[state.cplOp] || CPL_OPS.gte
+  const ativo = state.cplPct != null
+  return `<button class="dp-trigger${aberto ? ' open' : ''}${ativo ? ' on' : ''}" id="cfBtn" aria-haspopup="dialog" aria-expanded="${aberto}" title="Filtrar contas pelo CPL em relação ao alvo da Calculadora de ROI">
+      ${em('🎯')}<span class="dp-name">${ativo ? `CPL ${op.sinal} ${state.cplPct}% do alvo` : 'CPL vs alvo'}</span><span class="dp-caret">▾</span></button>
+    ${!aberto ? '' : `<div class="bpop sf-pop" role="dialog" aria-label="Filtrar por CPL em relação ao alvo">
+      <div class="sf-opt">
+        <select id="cfOp" class="sf-select">${Object.entries(CPL_OPS).map(([k, o]) =>
+          `<option value="${k}" ${state.cplOp === k ? 'selected' : ''}>${o.label}</option>`).join('')}</select>
+        <span class="sf-money cf-money">
+          <input type="number" id="cfVal" min="0" step="10" inputmode="decimal" placeholder="100"
+            value="${state.cplPct != null ? state.cplPct : ''}"><span class="sf-cur">% do alvo</span></span>
+      </div>
+      <div class="sf-note">100% = CPL em cima do alvo; 120% = 20% acima. O alvo de cada conta vem da Calculadora de ROI do projeto. Conta sem alvo preenchido ou sem conversões no período fica de fora enquanto o filtro estiver ligado.</div>
+      <div class="sf-foot">
+        <button class="dp-btn" id="cfClear">Limpar</button>
+        <button class="dp-btn primary" id="cfApply">Aplicar</button>
+      </div></div>`}`
 }
 
 // Dropdown do filtro de saldo: o botão mostra a regra em vigor e o popover traz
@@ -2129,6 +2178,7 @@ function render() {
         ${sqs.map(sq=>`<option value="${esc(sq)}" ${state.squad===sq?'selected':''}>${esc(sq)}</option>`).join('')}
       </select>` : '' })()}
       ${SHARED ? '' : `<div class="bwrap sf-wrap">${saldoMenuHTML()}</div>`}
+      ${SHARED ? '' : `<div class="bwrap sf-wrap">${cplMenuHTML()}</div>`}
       <div class="bar-right">
         <div class="search-wrap"><span class="search-icon">${em('🔍')}</span>
           <input type="text" id="search" placeholder="Buscar cliente…" value="${esc(state.search)}">
@@ -5065,6 +5115,22 @@ function wire() {
     document.getElementById('sfApply').onclick = ev => { ev.stopPropagation(); aplicar() }
     document.getElementById('sfClear').onclick = ev => { ev.stopPropagation()
       state.saldoMax = null; barPopTeardown(); render() }
+  }
+  // Filtro de CPL vs alvo: mesma regra do saldo — só entra no estado no Aplicar.
+  const cfBtn=document.getElementById('cfBtn'); if (cfBtn) cfBtn.onclick=ev=>{ ev.stopPropagation(); barPopToggle('cpl') }
+  const cfVal=document.getElementById('cfVal')
+  if (cfVal) {
+    cfVal.focus(); cfVal.select()
+    const aplicarCpl = () => {
+      const op=document.getElementById('cfOp'); if (op) state.cplOp = op.value
+      const v = parseFloat(String(cfVal.value).replace(',', '.'))
+      state.cplPct = Number.isFinite(v) && v >= 0 ? v : null
+      barPopTeardown(); render()
+    }
+    cfVal.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); aplicarCpl() } }
+    document.getElementById('cfApply').onclick = ev => { ev.stopPropagation(); aplicarCpl() }
+    document.getElementById('cfClear').onclick = ev => { ev.stopPropagation()
+      state.cplPct = null; barPopTeardown(); render() }
   }
   // Múltipla escolha: o menu SEGUE ABERTO a cada clique (state.barPop continua
   // 'grp' no render), para marcar os dois eixos sem reabrir o dropdown.
