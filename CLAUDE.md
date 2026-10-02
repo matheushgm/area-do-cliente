@@ -44,17 +44,63 @@ ANTHROPIC_API_KEY=sk-ant-...    # lida apenas pelo servidor (api/anthropic.js)
 
 ## Arquitetura
 
-### Fluxo central
+### Roteamento — `src/routes/`
 
-O projeto é um SPA React com 5 rotas:
+`App.jsx` só compõe: `AppProvider` + `BrowserRouter` + `<Suspense>` + os dois grupos
+de rotas. As rotas em si vivem em `src/routes/`:
 
-| Rota | Página | Descrição |
+| Arquivo | Conteúdo |
+|---|---|
+| `guards.jsx` | `RequireAuth`, `RequireAdmin`, `RequireSquadsAccess`, `RedirectIfAuthed` |
+| `appRoutes.jsx` | rotas internas (exigem login) |
+| `publicRoutes.jsx` | rotas públicas — **nenhuma pode ser renomeada**, os links já estão com clientes |
+| `legacyRedirects.jsx` | `/project/:id` e `/dashboard-teste`, preservando params e querystring |
+| `AppLayout.jsx` | shell com a `AppSidebar` + `<Outlet>` |
+| `paths.js` | helpers só para paths **com parâmetro** (`cliente(id, secao)`, `aprovacao(token)`…) |
+
+Toda página é `lazy()` + um `<Suspense fallback={<RouteFallback/>}>` por grupo. Abrir
+`/login` baixa ~125 kB gzip (entry + react-vendor + supabase + a rota), contra 899 kB
+de chunk único antes do split. `vite.config.js` isola só `react-vendor` e `supabase`
+em `manualChunks` — forçar um chunk de markdown o puxa para o grafo de entrada.
+
+**Rotas internas** — podem ser renomeadas à vontade, *exceto* as que podem estar
+gravadas na coluna `link` de `notifications` (o `NotificationCenter` navega pra lá sem
+passar por código nosso); essas ganham redirect em `legacyRedirects.jsx`.
+
+| Rota | Página | Observação |
 |---|---|---|
-| `/login` | `Login` | Autenticação via Supabase Auth (email/senha + Google OAuth) |
-| `/` | `Dashboard` | Lista de projetos com filtros |
-| `/onboarding/new` | `NewOnboarding` | Criação de novo projeto |
-| `/project/:id` | `ProjectDetail` | Jornada de onboarding do cliente |
-| `/users` | `UserManagement` | Gestão de usuários do time (admin only) |
+| `/` | `Dashboard` | lista de clientes; o filtro mora na URL (`/?lista=novos\|churn`) |
+| `/cliente/novo` | `NewOnboarding` | criação de projeto |
+| `/cliente/:id/:secao?` | `ProjectDetail` → `ClientProfile` | sem seção = hub |
+| `/tarefas` `/atividades` `/atividades-15min` `/chat` | — | operação |
+| `/banco-de-anuncios` `/banco-de-lps` `/roteiros-express` | — | biblioteca |
+| `/dashboard` `/funil` `/ads-roadmap` `/relatorio-squads` | — | dados; `/relatorio-squads` é allowlist |
+| `/usuarios` | `UserManagement` | admin only |
+| `/login` | `Login` | Supabase Auth (email/senha + Google OAuth) |
+
+As páginas com sidebar são filhas de `<Route element={<AppLayout/>}>`; nenhuma monta a
+`AppSidebar` por conta própria. `/cliente/:id` entrou no shell (a sidebar fica visível na
+página do cliente) e mantém a barra própria com nome da empresa e voltar. Só
+`/cliente/novo` fica de fora — é um fluxo focado.
+
+⚠️ **Largura na página do cliente:** o layout de 3 colunas do `ClientProfile` pede ~1574px.
+Com a sidebar aberta (240px) ele só cabe a partir de ~1820px de viewport; a 1440px há
+scroll horizontal. Parte disso é anterior à sidebar (a 1440 já estourava 140px sozinho).
+Recolher a sidebar (tecla `[`, 56px) reduz o estouro de 380 para 196px. Resolver de vez
+pede subir o breakpoint `xl:flex-row` do `ClientProfile` ou deixar a 3ª coluna cair antes.
+
+#### Deep-link das seções do cliente
+
+`/cliente/:id/:secao` abre direto numa seção. `src/lib/clientSections.js` traduz
+`id da seção ↔ slug da URL` — **os ids não podem ser renomeados**: os que aparecem em
+`portalModules.js` são chaves de `project_shares.permissions` (jsonb, lido por
+`api/portal.js`), e renomear um revoga em silêncio a permissão de um cliente. O slug
+existe para deixar a URL legível sem tocar no id.
+
+`ClientProfile` recebe `section` + `onSectionChange` de `ProjectDetail`; sem essas props
+cai em estado local, que é o que mantém o `/dev/hub` funcionando fora de rota. Slug
+desconhecido redireciona pro hub. Ressalva: `pendingTool` (abrir uma tool específica de
+Ferramentas vindo da Jornada) continua em estado local — refresh volta pra lista.
 
 ### Estado global — `AppContext`
 
@@ -375,8 +421,8 @@ campos de funil preenchidos à mão (MQL, SQL, vendas, receita são preservados)
 
 ### Atividades (`/atividades`): capacidade do time + planejador, visual do Linear
 
-Módulo único que absorveu o antigo "Capacidade do Time" (`/workload` agora redireciona para
-cá; `WorkloadDashboard.jsx` e `public/workload/` foram removidos). A área de conteúdo replica
+Módulo único que absorveu o antigo "Capacidade do Time" (`WorkloadDashboard.jsx`,
+`public/workload/` e a rota `/workload` foram removidos). A área de conteúdo replica
 o app Linear (frame com raio 8, barra superior de 44px com breadcrumb e contador, barra de
 views com filter tabs, listas densas de 13px, painel lateral de 480px e painel flutuante do
 "agente"); o `AppSidebar` global não muda.
@@ -431,6 +477,42 @@ views com filter tabs, listas densas de 13px, painel lateral de 480px e painel f
 ### LinksModule — visibilidade na header
 
 `src/components/LinksModule.jsx` — cada link (fixo ou avulso) tem toggle Eye/EyeOff que persiste no campo `hiddenFromHeader[]` dentro do JSONB `links` em `projects_v2`. A header do `ClientProfile` usa um **ResizeObserver** para calcular dinamicamente quantos links cabem no container (substituiu o limite estático `MAX_VISIBLE=5`); quando o container cresce, re-mede e traz links de volta do overflow.
+
+### Tema claro/escuro
+
+A classe `.dark` no `<html>` é a fonte única; `index.html` traz um script anti-FOUC que a
+aplica antes da pintura, e `useTheme` (`src/hooks/useTheme.js`) persiste em `localStorage`
+na chave `rl_theme`. O toggle fica no menu do avatar da `AppSidebar`.
+
+**No claro existem duas paletas; no escuro, uma só.**
+
+| Onde | Claro | Escuro |
+|---|---|---|
+| App em geral | `:root` (`src/index.css`) | `.dark` |
+| Telas com a classe `fx` (tema Fynix) | `html:not(.dark) .fx` | herda o `.dark` |
+| Dashboard de Tráfego (`public/dash-teste/`) | `:root` do `dashboard.css` + `body.th-fynix` do `theme-fynix.css` | `.dark` e `html.dark body.th-fynix` |
+
+No claro, o **`:root` do app e o `dashboard.css` são a mesma paleta** de propósito (o cabeçalho
+do `dashboard.css` diz isso) — não os desencontre; o `theme-fynix.css` é a outra, a do rebrand
+Verta, replicada pelo `.fx`.
+
+No escuro é **um escuro só** (neutros com tom azulado, derivados do navy do Fynix), declarado
+em três lugares que precisam andar juntos: `.dark` do `src/index.css`, `.dark` do
+`dashboard.css` e `html.dark body.th-fynix` do `theme-fynix.css`.
+
+⚠️ Os tokens claros do `fx` são escopados em `html:not(.dark)` **de propósito**. Se voltarem
+para um `.fx` solto, vencem o `.dark` (são mais específicos no elemento) e todas as telas `fx`
+voltam a ficar claras no tema escuro.
+
+**Dashboard de Tráfego:** era hex cravado (356 literais) e preso no claro. Agora é todo
+`rgb(var(--token))`, e `viewer.html` tem um script que lê `localStorage.rl_theme` (mesma
+origem) e põe `.dark` no próprio `<html>`; um listener de `storage` faz o iframe acompanhar
+o toggle do app ao vivo, sem reload.
+
+**Armadilha ao mexer no escuro do `theme-fynix`:** `--fx-lime`, `--fx-green` e `--fx-lime-3`
+eram usados como texto *e* como fundo de botão preenchido. No escuro isso não inverte junto —
+quem preenche virou `--fx-fill`, `--fx-fill-2` e `--fx-fill-hover`, que precisam ficar escuros
+o bastante para o texto branco por cima (hoje 5.8:1 e 13.4:1).
 
 ### Estilo
 
@@ -533,7 +615,7 @@ com Enter; `@` abre a lista de menções (formato salvo: `@Nome_Sobrenome`).
   98 canais/DMs, 834 mensagens + 218 respostas. Não há sincronização contínua do chat
   (só a importação manual).
 
-### Página do cliente (`/project/:id`): hub em 3 colunas
+### Página do cliente (`/cliente/:id`): hub em 3 colunas
 
 `ClientProfile.jsx` abre na seção `hub` (visão geral) com layout inspirado em CRM: **esquerda**
 (340px) cartão do cliente (logo, contrato, LTV, squad, risco, momento, links), ações rápidas
@@ -559,12 +641,18 @@ Atas. Abaixo de `xl` as colunas empilham e os módulos viram drawer pelo hambúr
   `projeto_sugestoes` (aceita → some; descartada → volta após `valida_ate`, 14 dias).
 - **Aba Resultados** = espelho do Dashboard de Tráfego (API): iframe do mesmo
   `public/dash-teste/viewer.html` em modo `?embed=1&cliente=<conta>&canal=meta|google`
-  (autenticado como o `/dashboard-teste`, mas travado na conta, sem "Voltar", sem banner e
+  (autenticado como o `/dashboard`, mas travado na conta, sem "Voltar", sem banner e
   sem gravar a navegação em `localStorage`). Uma pílula por conta/canal vinculado quando o
   projeto tem mais de uma. Só funciona logado e com as rotas `/api` (vercel dev ou produção).
 - **Tema visual**: a página inteira usa a classe `fx` (`src/index.css`), que replica o tema
-  Fynix do dashboard (tokens `rl-*` redefinidos, sempre claro, Urbanist, cards raio 16,
-  hero azul `.fx-hero`, círculo azul-suave `.fx-soft`). Só `/project/:id` e `/dev/hub`.
+  Fynix do dashboard (tokens `rl-*` redefinidos, Urbanist, cards raio 16, hero azul
+  `.fx-hero`, círculo azul-suave `.fx-soft`). Além de `/cliente/:id`, `/` e `/dev/hub`,
+  também está no login, no portal e nas páginas públicas.
+  O `fx` tem **duas variantes**: `.fx` (claro) e `.dark .fx` (escuro, neutros com tom
+  azulado e azul de ação clareado para contraste). Era só-claro até então, o que fazia o
+  botão de tema não surtir efeito nessas telas. Valores que antes estavam cravados nas
+  regras (`#fff`, `#123C86`, `#E5EDFB`, as pílulas de variação do `ResumoHub`) viraram
+  variáveis `--fx-*`, então **uma cor nova se declara nos dois blocos, não na regra**.
 - **Preview sem login**: `/dev/hub` (só em DEV) renderiza `ClientProfile` com projeto
   fictício, `AppContext` falso e fixture `src/dev/fixtures/hub_meta.json` (gitignored;
   gerar com `json_agg(data)` de `dash_insights` de uma conta). `useProjetoHub` e o dash
