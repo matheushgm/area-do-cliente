@@ -5,12 +5,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
-  Lock, Loader2, AlertTriangle, Eye, EyeOff, LogOut, Menu, X, Sun, Moon,
+  Lock, Loader2, AlertTriangle, Eye, EyeOff, LogOut, Menu, X,
   ClipboardList, Compass, Package, Users, Zap, BarChart3, CalendarDays, Megaphone,
   LayoutTemplate, Search, FlaskConical, Map, Activity, Star, NotebookPen, Link2, Paperclip,
   CheckSquare, Sparkles,
 } from 'lucide-react'
-import { useTheme } from '../hooks/useTheme'
 import {
   PORTAL_MODULES, portalLogin, portalData, getPortalSession, setPortalSession,
 } from '../lib/portal'
@@ -26,12 +25,12 @@ const ICONS = {
 
 function Shell({ children }) {
   return (
-    <div className="min-h-screen bg-gradient-dark flex items-center justify-center px-4 relative overflow-hidden">
+    <div className="fx min-h-screen bg-gradient-dark flex items-center justify-center px-4 relative overflow-hidden">
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-rl-purple/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-rl-blue/10 rounded-full blur-3xl pointer-events-none" />
       <div className="relative z-10 w-full max-w-md animate-slide-up">
         <div className="text-center mb-8">
-          <img src="/logo-revenue-azul-2024.png" alt="Revenue Lab" className="h-12 w-auto mx-auto mb-3 object-contain" />
+          <img src="/verta/logo-vertical.png" alt="Verta, aceleradora de receitas" className="h-24 w-auto mx-auto mb-3 object-contain" />
           <p className="text-rl-muted text-sm">Portal do cliente</p>
         </div>
         <div className="glass-card p-8">{children}</div>
@@ -124,7 +123,6 @@ function NavList({ modules, active, onPick }) {
 
 export default function Portal() {
   const { projectId } = useParams()
-  const { theme, toggleTheme } = useTheme()
   const [token, setToken]     = useState(() => getPortalSession(projectId))
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(!!token)
@@ -189,20 +187,17 @@ export default function Portal() {
   const current = modules.find((m) => m.id === active)
 
   return (
-    <div className="min-h-screen bg-rl-bg text-rl-text">
+    <div className="fx min-h-screen bg-rl-bg text-rl-text">
       <header className="sticky top-0 z-40 bg-rl-card/90 backdrop-blur border-b border-rl-border">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-3">
           <button onClick={() => setMenuOpen(true)} className="lg:hidden p-2 -ml-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface" aria-label="Abrir menu">
             <Menu className="w-5 h-5" />
           </button>
-          <img src="/logo-revenue-azul-2024.png" alt="Revenue Lab" className="h-7 w-auto object-contain" />
+          <img src="/verta/logo-azul.png" alt="Verta" className="h-7 w-auto object-contain" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-rl-text truncate">{data.company}</p>
             <p className="text-[11px] text-rl-muted truncate">Portal · {data.label}</p>
           </div>
-          <button onClick={toggleTheme} className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface" title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}>
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
           <button onClick={logout} className="p-2 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10" title="Sair">
             <LogOut className="w-4 h-4" />
           </button>

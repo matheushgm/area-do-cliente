@@ -83,7 +83,7 @@ function SidebarContent({
     }`
     return (
       <div className="flex flex-col items-center h-full py-4 px-2 gap-1">
-        <img src="/favicon.png" alt="Revenue Lab" className="w-8 h-8 shrink-0 object-contain mb-2" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+        <img src="/verta/simbolo.png" alt="Verta" className="w-8 h-8 shrink-0 object-contain mb-2" onError={(e) => { e.currentTarget.style.display = 'none' }} />
         <button onClick={onToggleCollapse} aria-label="Expandir menu" title="Expandir menu ( [ )" className={iconBtn(false)}>
           <PanelLeftOpen className="w-4 h-4" />
         </button>

@@ -355,7 +355,7 @@ function Shell({ children }) {
   return (
     <div className="min-h-screen bg-gradient-dark flex flex-col items-center justify-center px-4 py-10">
       <div className="flex items-center gap-2.5 mb-8">
-        <img src="/logo-revenue-azul-2024.png" alt="Revenue Lab" className="h-8 w-auto object-contain" />
+        <img src="/verta/logo-azul.png" alt="Verta" className="h-7 w-auto object-contain" />
         <div className="flex items-center gap-1.5 text-rl-muted">
           <Clapperboard className="w-4 h-4 text-rl-purple" />
           <span className="text-sm font-semibold text-rl-text">Roteiros Express</span>
