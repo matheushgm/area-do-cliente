@@ -21,11 +21,16 @@ export const BANCO_FUNIS = [
 
 // Paleta cíclica de 4 cores usada nos badges de squad
 // Importar em: Dashboard, ClientProfile, UserManagement
+// `dot` é a versão sólida, para bolinhas de cor. Existe como campo próprio
+// porque antes o ponto saía de `bg.replace('/15','')` — e os valores usam
+// `/10`, então o replace não casava e a bolinha ficava com 10% de opacidade.
 export const SQUAD_COLORS = [
-  { bg: 'bg-rl-gold/10',    border: 'border-rl-gold/30',    text: 'text-rl-gold',    activeBg: 'bg-rl-gold/20',    activeBorder: 'border-rl-gold/60'    },
-  { bg: 'bg-rl-cyan/10',    border: 'border-rl-cyan/30',    text: 'text-rl-cyan',    activeBg: 'bg-rl-cyan/20',    activeBorder: 'border-rl-cyan/60'    },
-  { bg: 'bg-rl-purple/10',  border: 'border-rl-purple/30',  text: 'text-rl-purple',  activeBg: 'bg-rl-purple/20',  activeBorder: 'border-rl-purple/60'  },
-  { bg: 'bg-green-500/10',  border: 'border-green-500/30',  text: 'text-green-400',  activeBg: 'bg-green-500/20',  activeBorder: 'border-green-500/60'  },
+  { bg: 'bg-rl-gold/10',    border: 'border-rl-gold/30',    text: 'text-rl-gold',    activeBg: 'bg-rl-gold/20',    activeBorder: 'border-rl-gold/60',    dot: 'bg-rl-gold'   },
+  { bg: 'bg-rl-cyan/10',    border: 'border-rl-cyan/30',    text: 'text-rl-cyan',    activeBg: 'bg-rl-cyan/20',    activeBorder: 'border-rl-cyan/60',    dot: 'bg-rl-cyan'   },
+  { bg: 'bg-rl-purple/10',  border: 'border-rl-purple/30',  text: 'text-rl-purple',  activeBg: 'bg-rl-purple/20',  activeBorder: 'border-rl-purple/60',  dot: 'bg-rl-purple' },
+  // Era green-500/green-400 do Tailwind: fora da paleta, não acompanhava o
+  // tema e destoava das outras três no escuro.
+  { bg: 'bg-rl-green/10',   border: 'border-rl-green/30',   text: 'text-rl-green',   activeBg: 'bg-rl-green/20',   activeBorder: 'border-rl-green/60',   dot: 'bg-rl-green'  },
 ]
 
 // ─── ClickUp — campo "Departamento" ──────────────────────────────────────────

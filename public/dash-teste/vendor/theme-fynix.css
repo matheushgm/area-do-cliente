@@ -102,7 +102,10 @@ html.dark body.th-fynix {
   --fx-warn: #F0A641;
   --fx-warn-bg: rgba(240,166,65,.16);
   --fx-fill: #2B61C4;
-  --fx-fill-2: #203044;
+  /* No claro este é o navy quase preto; no escuro não existe "mais escuro que
+     o fundo" para preencher com texto branco — #203044 dava 1.2:1 contra o
+     popover e sumia. Vira azul: 2.5:1 contra o fundo, 6.4:1 para o branco. */
+  --fx-fill-2: #2A5BB5;
   --fx-fill-hover: #3A74DC;
   --fx-border-strong: #3A4556;
   --fx-soft-border: #35507F;

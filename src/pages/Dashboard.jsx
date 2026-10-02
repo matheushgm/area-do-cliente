@@ -386,7 +386,7 @@ function SquadDropdown({ squadFilter, setSquadFilter, squads, counts }) {
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${c.bg.replace('/15', '')}`} />
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${c.dot}`} />
                   <span className="truncate">{s.emoji ? `${s.emoji} ${s.name}` : s.name}</span>
                 </div>
                 <span className="text-[11px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-full shrink-0">
