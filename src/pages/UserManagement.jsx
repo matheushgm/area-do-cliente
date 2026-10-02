@@ -1,6 +1,6 @@
 import { apiFetch } from '../lib/api'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useOutletContext } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { SQUAD_COLORS, CLICKUP_DEPARTMENTS } from '../lib/constants'
@@ -9,7 +9,6 @@ import { listClickUpMembers } from '../lib/clickup'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
 import Modal from '../components/UI/Modal'
-import AppSidebar from '../components/AppSidebar'
 import {
   Users, Plus, Pencil, UserX, UserCheck,
   X, AlertTriangle, Loader2, Menu,
@@ -561,15 +560,11 @@ function SquadDepartmentsModal({ squad, teamMembers, onSave, onClose, saving }) 
 
 export default function UserManagement() {
   const { user: currentUser, squads, addSquad, updateSquad, deleteSquad, teamMembers } = useApp()
-  const navigate = useNavigate()
+  const { openSidebar } = useOutletContext()
   const [activeTab, setActiveTab] = useState('users')
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  const sidebarCounts = useMemo(() => ({ all: 0, onboarding: 0, active: 0, members: {} }), [])
-  const handleFilterChange = useCallback(() => { navigate('/') }, [navigate])
 
   const [showCreate, setShowCreate] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
@@ -763,25 +758,16 @@ export default function UserManagement() {
   }
 
   return (
-    <div className="min-h-screen flex bg-gradient-dark">
+    <>
 
       {/* Sidebar (sem filtros, só navegação) */}
-      <AppSidebar
-        filter="all"
-        setFilter={handleFilterChange}
-        onShowSettings={() => {}}
-        counts={sidebarCounts}
-        activeAccounts={[]}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
 
       <div className="flex-1 min-w-0 flex flex-col">
 
         {/* Mobile top bar */}
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
           <button
-            onClick={() => setSidebarOpen(true)}
+            onClick={() => openSidebar}
             aria-label="Abrir menu de navegação"
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
           >
@@ -1120,6 +1106,6 @@ export default function UserManagement() {
           saving={savingSquad}
         />
       )}
-    </div>
+    </>
   )
 }

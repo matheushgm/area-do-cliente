@@ -1,7 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useApp } from '../context/AppContext'
-import AppSidebar from '../components/AppSidebar'
+import { useOutletContext } from 'react-router-dom'
 import {
   FAIXAS, REGRAS, BENCHMARKS, BENCHMARK_INTERNO, NOMENCLATURA, VISUALIZACOES, LINKS,
 } from '../lib/adsRoadmap'
@@ -512,11 +510,7 @@ function MapaCanvas({ children, fitKey }) {
 
 // ─── Página ──────────────────────────────────────────────────────────────────
 export default function AdsRoadmap() {
-  const navigate = useNavigate()
-  const { squads, teamMembers } = useApp()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const emptyCounts = { all: 0, churn: 0, squads: {}, risks: {}, momentos: {} }
-  const activeAccounts = teamMembers.filter((m) => !m.disabled)
+  const { openSidebar } = useOutletContext()
 
   const [faixaId, setFaixaId] = useState('3k')
   const [seg, setSeg] = useState('b2c') // 'b2c' | 'b2b' | 'ambos'
@@ -572,21 +566,12 @@ export default function AdsRoadmap() {
   )
 
   return (
-    <div className="min-h-screen flex bg-gradient-dark">
-      <AppSidebar
-        filter="all"
-        setFilter={() => navigate('/')}
-        counts={emptyCounts}
-        activeAccounts={activeAccounts}
-        squads={squads}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
+    <>
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile top bar */}
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
-          <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu de navegação" className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+          <button onClick={() => openSidebar} aria-label="Abrir menu de navegação" className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
@@ -808,6 +793,6 @@ export default function AdsRoadmap() {
           </div>
         </main>
       </div>
-    </div>
+    </>
   )
 }

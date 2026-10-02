@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import AppSidebar from '../components/AppSidebar'
+import { useOutletContext } from 'react-router-dom'
 import MarkdownBlock from '../components/Criativos/MarkdownBlock'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
@@ -34,9 +33,8 @@ function fmtDate(iso) {
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 export default function RoteirosExpress() {
-  const navigate = useNavigate()
+  const { openSidebar } = useOutletContext()
   const { toast, showToast } = useToast()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [tab, setTab] = useState('criar') // 'criar' | 'respostas'
 
   // ── Estado de criação ──────────────────────────────────────────────────────
@@ -213,20 +211,12 @@ export default function RoteirosExpress() {
   }
 
   return (
-    <div className="min-h-screen flex bg-gradient-dark">
-      <AppSidebar
-        filter="roteiros"
-        setFilter={() => navigate('/')}
-        counts={{}}
-        activeAccounts={[]}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
+    <>
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile top bar */}
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
-          <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu de navegação"
+          <button onClick={() => openSidebar} aria-label="Abrir menu de navegação"
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
             <Menu className="w-5 h-5" />
           </button>
@@ -509,7 +499,7 @@ export default function RoteirosExpress() {
       </div>
 
       <Toast toast={toast} />
-    </div>
+    </>
   )
 }
 

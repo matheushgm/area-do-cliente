@@ -1,6 +1,7 @@
 import { fmtDate, todayISO } from '../lib/utils'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { cliente } from '../routes/paths'
 import { useApp } from '../context/AppContext'
 import Modal from './UI/Modal'
 import Toast from './UI/Toast'
@@ -822,7 +823,7 @@ export default function MeetingMinutesModule({ project }) {
         type:    'meeting_minute_created',
         title:   'Nova ata de reunião',
         body:    `${senderName} criou "${saved.title}" em ${companyName}`,
-        link:    `/project/${project.id}`,
+        link:    cliente(project.id),
         data:    { project_id: project.id, meeting_minute_id: saved.id },
       }))
       await supabase.from('notifications').insert(rows)

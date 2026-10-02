@@ -1,7 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useApp } from '../context/AppContext'
-import AppSidebar from '../components/AppSidebar'
+import { useOutletContext } from 'react-router-dom'
 import Modal from '../components/UI/Modal'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
@@ -1446,10 +1444,8 @@ function FunnelList({ funnels, onOpen, onCreate, onDuplicate, onRename, onDelete
 
 // ─── Main FunilCanvas ─────────────────────────────────────────────────────────
 export default function FunilCanvas() {
-  const navigate    = useNavigate()
-  const { teamMembers, squads } = useApp()
+  const { openSidebar } = useOutletContext()
   const { toast, showToast } = useToast()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // ── Funnel library state ─────────────────────────────────────────────────────
   const [funnels,         setFunnels]         = useState(() => initFunnels())
@@ -1486,8 +1482,6 @@ export default function FunilCanvas() {
   const activeId       = activeScenId
   const activeScenario = scenarios.find(s => s.id === activeId) ?? scenarios[0] ?? null
 
-  const emptyCounts    = { all: 0, churn: 0 }
-  const activeAccounts = teamMembers.filter(m => !m.disabled)
 
   const funnelMetrics = useMemo(
     () => computeMetrics(activeScenario),
@@ -1746,23 +1740,14 @@ export default function FunilCanvas() {
   ]
 
   return (
-    <div className="min-h-screen flex bg-gradient-dark">
+    <>
 
-      <AppSidebar
-        filter="all"
-        setFilter={() => navigate('/')}
-        counts={emptyCounts}
-        activeAccounts={activeAccounts}
-        squads={squads}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
 
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
         {/* Mobile top bar */}
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl shrink-0">
-          <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+          <button onClick={() => openSidebar} className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
@@ -2085,6 +2070,6 @@ export default function FunilCanvas() {
       )}
 
       <Toast toast={toast} />
-    </div>
+    </>
   )
 }

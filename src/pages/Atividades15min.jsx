@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import AppSidebar from '../components/AppSidebar'
+import { useOutletContext } from 'react-router-dom'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
 import { useApp } from '../context/AppContext'
@@ -45,10 +44,9 @@ const fmtDiaLongo = (iso) => {
 }
 
 export default function Atividades15min() {
-  const navigate = useNavigate()
+  const { openSidebar } = useOutletContext()
   const { user } = useApp()
   const { toast, showToast } = useToast()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const [dia, setDia] = useState(() => toISO(new Date()))
   const [loading, setLoading] = useState(true)
@@ -164,20 +162,12 @@ export default function Atividades15min() {
   }
 
   return (
-    <div className="min-h-screen flex bg-gradient-dark">
-      <AppSidebar
-        filter="atividades"
-        setFilter={() => navigate('/')}
-        counts={{}}
-        activeAccounts={[]}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
+    <>
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile top bar */}
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
-          <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu de navegação"
+          <button onClick={() => openSidebar} aria-label="Abrir menu de navegação"
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
             <Menu className="w-5 h-5" />
           </button>
@@ -308,6 +298,6 @@ export default function Atividades15min() {
       </div>
 
       <Toast toast={toast} />
-    </div>
+    </>
   )
 }

@@ -26,7 +26,7 @@ function SaveBadge({ status }) {
   return null
 }
 
-export default function PrecificacaoPublic() {
+export default function PrecificacaoPublico() {
   const { token } = useParams()
   const [loading, setLoading]       = useState(true)
   const [error,   setError]         = useState(null)

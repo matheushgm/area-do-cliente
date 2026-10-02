@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { useProjetoHub } from '../hooks/useProjetoHub'
 import { carregarConfigAtividades } from '../lib/atividades'
+import { DEFAULT_SECTION } from '../lib/clientSections'
 import HubCentro from '../components/ProjetoHub/HubCentro'
 import HubDireita from '../components/ProjetoHub/HubDireita'
 import HubInformacoes from '../components/ProjetoHub/HubInformacoes'
@@ -1071,13 +1072,21 @@ function ProjectDocs({ project }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function ClientProfile({ project: projectProp }) {
+// A seção aberta vem da rota (`/cliente/:id/:secao`) via `section` +
+// `onSectionChange`. Sem essas props o componente volta a guardar a seção em
+// estado local — é o que mantém o /dev/hub, que renderiza fora de rota.
+export default function ClientProfile({ project: projectProp, section, onSectionChange }) {
   const { updateProject, projects, squads, teamMembers } = useApp()
   const logoInputRef = useRef(null)
 
   const project = projects.find((p) => p.id === projectProp.id) || projectProp
 
-  const [activeSection, setActiveSection] = useState('hub')
+  const [localSection, setLocalSection] = useState(DEFAULT_SECTION)
+  const activeSection = section ?? localSection
+  const setActiveSection = useCallback((id) => {
+    if (onSectionChange) onSectionChange(id)
+    else setLocalSection(id)
+  }, [onSectionChange])
   const [modulosAbertos, setModulosAbertos] = useState(false)
   // Ação rápida da coluna esquerda que o HubCentro deve abrir (modal)
   const [acaoRapida, setAcaoRapida] = useState(null)
@@ -1088,10 +1097,10 @@ export default function ClientProfile({ project: projectProp }) {
 
   // Handler único usado pela Jornada pra navegar entre seções (e
   // opcionalmente pra dentro de uma tool específica de Ferramentas).
-  const navigateTo = useCallback((section, toolId = null) => {
-    setActiveSection(section)
+  const navigateTo = useCallback((id, toolId = null) => {
+    setActiveSection(id)
     setPendingTool(toolId)
-  }, [])
+  }, [setActiveSection])
 
   // Quando o usuário clica direto num item da sidebar, sempre reseta o
   // pendingTool — senão clicar em "Ferramentas" depois de ter aberto via
@@ -1099,7 +1108,7 @@ export default function ClientProfile({ project: projectProp }) {
   const handleSidebarClick = useCallback((id) => {
     setActiveSection(id)
     setPendingTool(null)
-  }, [])
+  }, [setActiveSection])
   // Sidebar default: aberta no desktop, fechada no mobile (drawer só abre por hambúrguer)
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [logoSignedUrl, setLogoSignedUrl] = useState(null)
@@ -1257,7 +1266,7 @@ export default function ClientProfile({ project: projectProp }) {
     { id: 'resultados',   label: 'Resultados',               icon: Activity,       color: 'text-rl-purple', filled: hasResultados },
     { id: 'metalab',      label: 'Lab. Meta Ads',            icon: FlaskConical,   color: 'text-rl-purple', filled: !!project.metaLabBudget },
     { id: 'googleads',    label: 'Google Ads com IA',        icon: Search,         color: 'text-rl-cyan',   filled: hasGoogleAds },
-    { id: 'bancomídia',   label: 'Banco de Mídia',           icon: ImagePlay,      color: 'text-rl-blue',   filled: hasBancoMidia },
+    { id: 'banco-midia',   label: 'Banco de Mídia',           icon: ImagePlay,      color: 'text-rl-blue',   filled: hasBancoMidia },
     { id: 'estrategiav2', label: 'Estratégia',               icon: Map,            color: 'text-rl-blue',   filled: hasEstrategiaV2 },
     { id: 'links',        label: 'Links Importantes',        icon: Link2,          color: 'text-rl-cyan',   filled: hasLinks },
     { id: 'nps',          label: 'NPS',                       icon: Star,           color: 'text-rl-gold',   filled: (project.npsMarcos || []).some((m) => (m.respostas || []).length > 0) },
@@ -1301,7 +1310,7 @@ export default function ClientProfile({ project: projectProp }) {
       case 'resultados':   return <ResultadosModule project={project} />
       case 'metalab':      return <MetaLabModule project={project} />
       case 'googleads':    return <GoogleAdsModule project={project} />
-      case 'bancomídia':   return <BancoMidiaModule project={project} />
+      case 'banco-midia':   return <BancoMidiaModule project={project} />
       case 'estrategiav2': return <EstrategiaV2Module project={project} onSave={handleSaveEstrategiaV2} />
       case 'links':        return <LinksModule project={project} onSave={handleSaveLinks} />
       case 'nps':          return <NPSModule project={project} />

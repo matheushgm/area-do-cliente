@@ -35,7 +35,7 @@ function fmtDateTimeBR(iso) {
   })
 }
 
-export default function MeetingMinutePublic() {
+export default function MeetingMinutePublico() {
   const { token } = useParams()
   const [loading, setLoading]     = useState(true)
   const [error,   setError]       = useState(null)
@@ -94,7 +94,7 @@ export default function MeetingMinutePublic() {
         body: JSON.stringify({ token, acknowledgements: next }),
       })
     } catch (e) {
-      console.warn('[MeetingMinutePublic] erro ao salvar ciência:', e.message)
+      console.warn('[MeetingMinutePublico] erro ao salvar ciência:', e.message)
     }
   }
 

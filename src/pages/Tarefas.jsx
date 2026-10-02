@@ -8,14 +8,13 @@ import { apiFetch } from '../lib/api'
 // conteúdo em telas largas, sobrepõe nas estreitas), com subtarefas,
 // descrição, checklists, anexos e comentários.
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams, useOutletContext } from 'react-router-dom'
 import {
   Menu, List, KanbanSquare, ChevronRight, ChevronDown, Search, X, Plus, Loader2, Layers, Eye, EyeOff, PanelLeft, User, RefreshCw,
   CheckSquare, Trash2, Check, Maximize2, Minimize2, Rows3,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
-import AppSidebar from '../components/AppSidebar'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
 import { useTarefas } from '../hooks/useTarefas'
@@ -167,13 +166,12 @@ function MenuResponsavel({ valor, membros, onChange }) {
 export default function Tarefas() {
   const { user, projects, teamMembers } = useApp()
   const { toast, showToast } = useToast()
-  const navigate = useNavigate()
+  const { openSidebar } = useOutletContext()
   const [params, setParams] = useSearchParams()
   const t = useTarefas(user)
 
   const conteudoRef = useRef(null)
   const largura = useLarguraDoConteudo(conteudoRef)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [arvoreAberta, setArvoreAberta] = useState(false)
   const [view, setView] = useState(() => lerPref('view', 'lista'))
   const [agrupar, setAgrupar] = useState(() => lerPref('agrupar', 'status'))
@@ -350,8 +348,7 @@ export default function Tarefas() {
   const painel = !!tarefaAbertaId
 
   return (
-    <div className="min-h-screen flex bg-gradient-dark">
-      <AppSidebar filter="tarefas" setFilter={() => navigate('/')} counts={{}} activeAccounts={[]} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <>
 
       <div ref={conteudoRef} className="ln flex-1 min-w-0 flex flex-col h-screen bg-ln-bg">
         <div className="flex-1 min-h-0 p-2">
@@ -369,7 +366,7 @@ export default function Tarefas() {
             <div className="flex-1 min-w-0 flex flex-col">
               <header className="h-11 shrink-0 flex items-center justify-between gap-3 px-3 border-b border-ln-ink/5">
                 <div className="flex items-center gap-1 min-w-0">
-                  <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
+                  <button onClick={() => openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
                   <button onClick={() => setArvoreAberta(true)} aria-label="Abrir pastas" className="ln-iconbtn md:hidden"><PanelLeft className="w-4 h-4" /></button>
                   <div className="flex items-center gap-2 h-7 px-2.5 rounded-lg text-xs font-medium text-ln-t2 min-w-0">
                     <CheckSquare className="w-3.5 h-3.5 text-ln-accent shrink-0" />
@@ -506,6 +503,6 @@ export default function Tarefas() {
       </div>
 
       <Toast toast={toast} />
-    </div>
+    </>
   )
 }

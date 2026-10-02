@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { CFG, buildStats, computeMainPeriod, fmtNum } from '../lib/dashboardData'
@@ -12,23 +12,16 @@ import {
   LayoutGrid, List, ChevronUp, ChevronDown, ChevronsUpDown, Users2,
   Wallet, TrendingDown, History, TrendingUp, Building2,
 } from 'lucide-react'
-import AppSidebar from '../components/AppSidebar'
+import { cliente } from '../routes/paths'
 import { SQUAD_COLORS } from '../lib/constants'
-import { fmtCurrency, hashId, mrrValue, calcLTV, canViewSquadsReport, entryDate } from '../lib/utils'
+import { fmtCurrency, hashId, mrrValue, calcLTV, canViewSquadsReport } from '../lib/utils'
+import { NEW_CLIENT_WINDOW_DAYS, isNewClient, baseProjectsOf } from '../lib/dashboardCounts'
 import Modal from '../components/UI/Modal'
 import UnsignedAtaPopups from '../components/Dashboard/UnsignedAtaPopups'
 import {
   NovosClientesCard, NovosClientesModal, NetMrrSection, CrescimentoHistoryModal,
 } from '../components/Dashboard/Crescimento'
 import { newStats } from '../lib/growth'
-
-// Janela que define "cliente novo" na tela de Novos Clientes — mesma régua
-// dos 90 dias de onboarding usada na barra de progresso.
-const NEW_CLIENT_WINDOW_DAYS = 90
-function isNewClient(p, cutoff) {
-  const d = entryDate(p)
-  return !!d && d.getTime() >= cutoff
-}
 
 const CORE_STEPS = ['roi', 'strategy', 'oferta']
 function isProfileComplete(project) {
@@ -1012,14 +1005,17 @@ export default function Dashboard() {
     loadingProjects, teamMembers, squads,
   } = useApp()
   const navigate = useNavigate()
+  const { openSidebar } = useOutletContext()
   const [deleteTarget, setDeleteTarget] = useState(null)
-  const [filter, setFilter] = useState('all') // 'all' | 'onboarding' | 'active' | accountId
+  // O filtro mora na URL (`/?lista=`) para sobreviver a refresh e poder ser
+  // linkado — a AppSidebar lê o mesmo parâmetro em vez de receber por prop.
+  const [searchParams] = useSearchParams()
+  const filter = searchParams.get('lista') || 'all'  // 'all' | 'onboarding' | 'active' | accountId
   const [squadFilter, setSquadFilter] = useState('all') // 'all' | squadId
   const [riskFilter, setRiskFilter] = useState('all') // 'all' | 'em_risco' | 'neutro' | 'saudavel'
   const [momentoFilter, setMomentoFilter] = useState('all') // 'all' | momento value
   const [phase90Filter, setPhase90Filter] = useState(false) // toggle: clientes com createdAt < 90d
   const [bizFilter, setBizFilter] = useState('all') // 'all' | 'b2b' | 'b2c'
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [view, setView] = useState(() => localStorage.getItem('rl_dashboard_view') || 'grid')
   const [churnListOpen, setChurnListOpen] = useState(false)
@@ -1038,18 +1034,13 @@ export default function Dashboard() {
 
   const isAdmin = user?.role === 'admin'
 
-  // Squads marcados como "Em teste" são excluídos de todas as agregações
-  // e da listagem da home — visualização permanece via /squads-report.
-  const testSquadIds = new Set(squads.filter(s => s.isTest).map(s => String(s.id)))
 
   // Corte da janela de "cliente novo" — calculado uma vez por render.
   const newClientCutoff = Date.now() - NEW_CLIENT_WINDOW_DAYS * 86400000
 
   // RLS no Supabase já filtra: admins veem tudo; accounts veem apenas projetos
   // cujo squad atribuído inclui o usuário como membro
-  const baseProjects = testSquadIds.size > 0
-    ? projects.filter(p => !p.squad || !testSquadIds.has(String(p.squad)))
-    : projects
+  const baseProjects = baseProjectsOf(projects, squads)
 
   // Apply status/member filter
   const filteredProjects = (() => {
@@ -1255,17 +1246,9 @@ export default function Dashboard() {
   })()
 
   return (
-    <div className="fx min-h-screen flex bg-gradient-dark">
+    <>
 
       {/* ── Sidebar ─────────────────────────────────────── */}
-      <AppSidebar
-        filter={filter}
-        setFilter={setFilter}
-        counts={counts}
-        activeAccounts={activeAccounts}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
 
       {/* ── Main content ────────────────────────────────── */}
       <div className="flex-1 min-w-0 flex flex-col">
@@ -1273,7 +1256,7 @@ export default function Dashboard() {
         {/* Mobile top bar */}
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
           <button
-            onClick={() => setSidebarOpen(true)}
+            onClick={() => openSidebar}
             aria-label="Abrir menu de navegação"
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
           >
@@ -1306,7 +1289,7 @@ export default function Dashboard() {
               </p>
             </div>
             <button
-              onClick={() => navigate('/onboarding/new')}
+              onClick={() => navigate('/cliente/novo')}
               className="hidden sm:flex btn-primary items-center gap-2 whitespace-nowrap animate-pulse-glow"
             >
               <Plus className="w-4 h-4" />
@@ -1581,7 +1564,7 @@ export default function Dashboard() {
               {/* Dashboard de Squads — relatório por squad (acesso restrito) */}
               {canViewSquadsReport(user) && (
                 <button
-                  onClick={() => navigate('/squads-report')}
+                  onClick={() => navigate('/relatorio-squads')}
                   className="flex items-center gap-2 h-[38px] px-3 rounded-xl border border-rl-purple/40 bg-rl-purple/10 text-rl-purple text-sm font-medium hover:bg-rl-purple/20 transition-all whitespace-nowrap shrink-0"
                   title="Abrir relatório por squad"
                 >
@@ -1626,7 +1609,7 @@ export default function Dashboard() {
               </div>
             ) : visibleProjects.length === 0 && !query ? (
               <div className="grid grid-cols-1">
-                <EmptyState onNew={() => navigate('/onboarding/new')} />
+                <EmptyState onNew={() => navigate('/cliente/novo')} />
               </div>
             ) : visibleProjects.length === 0 && query ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -1643,7 +1626,7 @@ export default function Dashboard() {
             ) : view === 'list' ? (
               <ProjectListView
                 projects={visibleProjects}
-                onNavigate={(id) => navigate(`/project/${id}`)}
+                onNavigate={(id) => navigate(cliente(id))}
                 onDelete={(p) => setDeleteTarget(p)}
                 groupByRisk={true}
               />
@@ -1686,8 +1669,8 @@ export default function Dashboard() {
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {grouped.map((p) =>
                           isProfileComplete(p)
-                            ? <ClientProfileCard key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
-                            : <ProjectCard       key={p.id} project={p} onClick={() => navigate(`/project/${p.id}`)} onDelete={() => setDeleteTarget(p)} />
+                            ? <ClientProfileCard key={p.id} project={p} onClick={() => navigate(cliente(p.id))} onDelete={() => setDeleteTarget(p)} />
+                            : <ProjectCard       key={p.id} project={p} onClick={() => navigate(cliente(p.id))} onDelete={() => setDeleteTarget(p)} />
                         )}
                       </div>
                     </div>
@@ -1714,7 +1697,7 @@ export default function Dashboard() {
           monthLabel={monthLabel}
           squads={squads}
           onClose={() => setNovosListOpen(false)}
-          onOpenProject={(id) => { setNovosListOpen(false); navigate(`/project/${id}`) }}
+          onOpenProject={(id) => { setNovosListOpen(false); navigate(cliente(id)) }}
         />
       )}
 
@@ -1725,7 +1708,7 @@ export default function Dashboard() {
           yyyy={_yyyy}
           mm={_mm}
           onClose={() => setGrowthHistoryOpen(false)}
-          onOpenProject={(id) => { setGrowthHistoryOpen(false); navigate(`/project/${id}`) }}
+          onOpenProject={(id) => { setGrowthHistoryOpen(false); navigate(cliente(id)) }}
         />
       )}
 
@@ -1757,7 +1740,7 @@ export default function Dashboard() {
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => { setChurnListOpen(false); navigate(`/project/${p.id}`) }}
+                    onClick={() => { setChurnListOpen(false); navigate(cliente(p.id)) }}
                     className="w-full flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl border border-rl-border hover:border-red-400/40 hover:bg-red-400/5 transition-all text-left group"
                   >
                     {/* Identidade */}
@@ -2028,7 +2011,7 @@ export default function Dashboard() {
                           <button
                             key={p.id}
                             type="button"
-                            onClick={() => { setChurnHistoryOpen(false); navigate(`/project/${p.id}`) }}
+                            onClick={() => { setChurnHistoryOpen(false); navigate(cliente(p.id)) }}
                             className="w-full flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 rounded-lg border border-rl-border hover:border-red-400/40 hover:bg-red-400/5 transition-all text-left"
                           >
                             <div className="flex-1 min-w-0">
@@ -2061,6 +2044,6 @@ export default function Dashboard() {
 
       {/* Popup amarelo de atas pendentes (canto inferior direito, a cada 1h) */}
       <UnsignedAtaPopups projects={projects} />
-    </div>
+    </>
   )
 }

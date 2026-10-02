@@ -1,34 +1,28 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useOutletContext } from 'react-router-dom'
 import { Menu } from 'lucide-react'
-import AppSidebar from '../components/AppSidebar'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Dashboard de Tráfego (NOVA versão — alimentada por API Meta + Google).
-// EM TESTE: enquanto reformulamos, fica embutida via iframe do viewer
-// standalone em /dash-teste/viewer.html (estático em public/). Não substitui o
-// dashboard atual (/dashboard) — é uma aba separada para validação.
+// Dashboard de Tráfego — alimentado pelas APIs de Meta + Google. A tela em si
+// é o viewer standalone de /dash-teste/viewer.html (estático em public/),
+// embutido por iframe. O dashboard antigo (planilhas) não existe mais.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function DashboardApiTeste() {
-  const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { openSidebar } = useOutletContext()
+  const { search } = useLocation()
+
+  // `?cliente=&canal=` abre o viewer já na conta certa — é o que o botão de
+  // compartilhar de ProjectTrafficDashboard monta. Antes a query morria no
+  // redirect /dashboard → /dashboard-teste e o link chegava sem contexto.
+  const viewerSrc = `/dash-teste/viewer.html${search}`
 
   return (
-    <div className="min-h-screen flex bg-gradient-dark">
-      <AppSidebar
-        filter="dashboard-teste"
-        setFilter={() => navigate('/')}
-        counts={{}}
-        activeAccounts={[]}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
+    <>
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Top bar mobile */}
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
           <button
-            onClick={() => setSidebarOpen(true)}
+            onClick={() => openSidebar}
             aria-label="Abrir menu de navegação"
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
           >
@@ -39,11 +33,11 @@ export default function DashboardApiTeste() {
 
         {/* Viewer embutido */}
         <iframe
-          src="/dash-teste/viewer.html"
-          title="Dashboard de Tráfego (API) — em teste"
+          src={viewerSrc}
+          title="Dashboard de Tráfego"
           style={{ flex: 1, width: '100%', border: 0, minHeight: 'calc(100vh - 42px)' }}
         />
       </div>
-    </div>
+    </>
   )
 }

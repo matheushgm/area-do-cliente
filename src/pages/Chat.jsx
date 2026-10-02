@@ -3,9 +3,9 @@
 // separadores de dia, menções, reações e threads num painel lateral.
 // Dados: src/hooks/useChat.js (tabelas chat_*; migrations 041/043/086/087).
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import AppSidebar from '../components/AppSidebar'
+import { cliente } from '../routes/paths'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
 import { useChat } from '../hooks/useChat'
@@ -19,12 +19,12 @@ import { Hash, Lock, Star, Menu, PanelLeft, Loader2, MessageSquare, ArrowLeft, U
 
 export default function Chat() {
   const navigate = useNavigate()
+  const { openSidebar } = useOutletContext()
   const [searchParams, setSearchParams] = useSearchParams()
   const { user, teamMembers, projects } = useApp()
   const { toast, showToast } = useToast()
   const chat = useChat({ user, teamMembers })
 
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [listaAberta, setListaAberta] = useState(true) // mobile: lista × conversa
   const [dialogo, setDialogo] = useState(null)        // 'canal' | 'dm'
   const [threadExpandida, setThreadExpandida] = useState(false)
@@ -118,14 +118,13 @@ export default function Chat() {
   const threadAberta = !!(chat.threadId && raizThread)
 
   return (
-    <div className="min-h-screen flex bg-gradient-dark">
-      <AppSidebar filter="chat" setFilter={() => navigate('/')} counts={{}} activeAccounts={[]} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <>
 
       <div className="ln flex-1 min-w-0 flex h-screen bg-ln-bg text-ln-t1">
         {/* Coluna de canais */}
         <aside className={`${listaAberta ? 'flex' : 'hidden'} md:flex w-full md:w-[260px] shrink-0 flex-col border-r border-ln-border bg-ln-panel/60 min-h-0`}>
           <div className="lg:hidden h-11 px-2 flex items-center border-b border-ln-border">
-            <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu de navegação" className="ln-iconbtn"><Menu className="w-4 h-4" /></button>
+            <button onClick={() => openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn"><Menu className="w-4 h-4" /></button>
             <span className="ml-1 text-[13px] font-semibold">Área do Cliente</span>
           </div>
           {chat.carregando ? (
@@ -157,7 +156,7 @@ export default function Chat() {
               {/* Cabeçalho do canal */}
               <header className="h-11 px-3 flex items-center gap-1.5 border-b border-ln-border shrink-0">
                 <button onClick={() => setListaAberta(true)} className="ln-iconbtn md:hidden" aria-label="Voltar para a lista"><ArrowLeft className="w-4 h-4" /></button>
-                <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu de navegação" className="ln-iconbtn hidden md:inline-flex lg:hidden"><PanelLeft className="w-4 h-4" /></button>
+                <button onClick={() => openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn hidden md:inline-flex lg:hidden"><PanelLeft className="w-4 h-4" /></button>
                 {canalAtivo.type === 'dm'
                   ? <ChatAvatar pessoa={canalAtivo.dmCom} nome={canalAtivo.nome} size={20} />
                   : canalAtivo.visibility === 'private' ? <Lock className="w-4 h-4 text-ln-t3" /> : <Hash className="w-4 h-4 text-ln-t3" />}
@@ -168,7 +167,7 @@ export default function Chat() {
                   </button>
                 )}
                 {canalAtivo.project_id && (
-                  <button onClick={() => navigate(`/project/${canalAtivo.project_id}`)} className="ln-pill !h-6 ml-1 hidden sm:inline-flex" title="Abrir o cliente">Cliente</button>
+                  <button onClick={() => navigate(cliente(canalAtivo.project_id))} className="ln-pill !h-6 ml-1 hidden sm:inline-flex" title="Abrir o cliente">Cliente</button>
                 )}
                 <div className="flex-1" />
                 {canalAtivo.type === 'channel' && (
@@ -251,6 +250,6 @@ export default function Chat() {
         <NovaDMDialog membros={teamMembers} meuId={user.id} onFechar={() => setDialogo(null)} onEscolher={abrirDM} />
       )}
       <Toast toast={toast} />
-    </div>
+    </>
   )
 }

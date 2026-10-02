@@ -1,113 +1,21 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Suspense } from 'react'
+import { BrowserRouter, Routes } from 'react-router-dom'
 import { AppProvider, useApp } from './context/AppContext'
-import { canViewSquadsReport } from './lib/utils'
-import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import NewOnboarding from './pages/NewOnboarding'
-import ProjectDetail from './pages/ProjectDetail'
-import DevHub from './pages/DevHub'
-import UserManagement from './pages/UserManagement'
-import ClientForm from './pages/ClientForm'
-import OfertaMatadoraPublico from './pages/OfertaMatadoraPublico'
-import MecanismoUnicoPublico from './pages/MecanismoUnicoPublico'
-import B2CClientForm from './pages/B2CClientForm'
-import B2BClientForm from './pages/B2BClientForm'
-import MeetingMinutePublic from './pages/MeetingMinutePublic'
-import MatrizObjecaoPublic from './pages/MatrizObjecaoPublic'
-import PrecificacaoPublic from './pages/PrecificacaoPublic'
-import CampanhasPublico from './pages/CampanhasPublico'
-import AprovacaoAnunciosPublico from './pages/AprovacaoAnunciosPublico'
-import AprovacaoCopyPublico from './pages/AprovacaoCopyPublico'
-import NPSClientForm from './pages/NPSClientForm'
-import BancoDeAnuncios from './pages/BancoDeAnuncios'
-import BancoDeAnunciosPublico from './pages/BancoDeAnunciosPublico'
-import BancoDeLPs from './pages/BancoDeLPs'
-import BancoDeLPsPublico from './pages/BancoDeLPsPublico'
-import CRMPublico from './pages/CRMPublico'
-import WebinarPublico from './pages/WebinarPublico'
-import FunilCanvas from './pages/FunilCanvas'
-import AdsRoadmap from './pages/AdsRoadmap'
-import SquadsReport from './pages/SquadsReport'
-import ResetPassword from './pages/ResetPassword'
-import Tarefas from './pages/Tarefas'
-import Chat from './pages/Chat'
-import RoteirosExpress from './pages/RoteirosExpress'
-import RoteirosExpressPublico from './pages/RoteirosExpressPublico'
-import CriativosPublico from './pages/CriativosPublico'
-import DashboardApiTeste from './pages/DashboardApiTeste'
-import Atividades15min from './pages/Atividades15min'
-import Atividades from './pages/Atividades'
-import Portal from './pages/Portal'
+import { publicRoutes } from './routes/publicRoutes'
+import { appRoutes } from './routes/appRoutes'
+import RouteFallback from './components/UI/RouteFallback'
 import NotificationCenter from './components/NotificationCenter'
 
-function RequireAuth({ children }) {
-  const { user, loadingAuth } = useApp()
-  if (loadingAuth) return null
-  return user ? children : <Navigate to="/login" replace />
-}
-
-function RequireAdmin({ children }) {
-  const { user, loadingAuth } = useApp()
-  if (loadingAuth) return null
-  if (!user) return <Navigate to="/login" replace />
-  return user.role === 'admin' ? children : <Navigate to="/" replace />
-}
-
-function RequireSquadsAccess({ children }) {
-  const { user, loadingAuth } = useApp()
-  if (loadingAuth) return null
-  if (!user) return <Navigate to="/login" replace />
-  return canViewSquadsReport(user) ? children : <Navigate to="/" replace />
-}
-
 function AppRoutes() {
-  const { user, loadingAuth } = useApp()
+  const { user } = useApp()
   return (
     <>
-      <Routes>
-        <Route path="/login" element={loadingAuth ? null : user ? <Navigate to="/" replace /> : <Login />} />
-        <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
-        <Route path="/onboarding/new" element={<RequireAuth><NewOnboarding /></RequireAuth>} />
-        <Route path="/project/:id" element={<RequireAuth><ProjectDetail /></RequireAuth>} />
-        {import.meta.env.DEV && <Route path="/dev/hub" element={<DevHub />} />}
-        <Route path="/users" element={<RequireAdmin><UserManagement /></RequireAdmin>} />
-        <Route path="/client/:token" element={<ClientForm />} />
-        <Route path="/oferta/:token" element={<OfertaMatadoraPublico />} />
-        <Route path="/mecanismo/:token" element={<MecanismoUnicoPublico />} />
-        <Route path="/b2c/:token" element={<B2CClientForm />} />
-        <Route path="/b2b/:token" element={<B2BClientForm />} />
-        <Route path="/ata/:token" element={<MeetingMinutePublic />} />
-        <Route path="/objecoes/:token" element={<MatrizObjecaoPublic />} />
-        <Route path="/precificacao/:token" element={<PrecificacaoPublic />} />
-        <Route path="/campanhas/:token" element={<CampanhasPublico />} />
-        <Route path="/aprovacao/:token" element={<AprovacaoAnunciosPublico />} />
-        <Route path="/aprovacao-copy/:token" element={<AprovacaoCopyPublico />} />
-        <Route path="/nps/:token" element={<NPSClientForm />} />
-        <Route path="/banco-de-anuncios" element={<RequireAuth><BancoDeAnuncios /></RequireAuth>} />
-        <Route path="/banco-publico" element={<BancoDeAnunciosPublico />} />
-        <Route path="/banco-de-lps" element={<RequireAuth><BancoDeLPs /></RequireAuth>} />
-        <Route path="/banco-lps-publico" element={<BancoDeLPsPublico />} />
-        <Route path="/crm/:token" element={<CRMPublico />} />
-        <Route path="/webinar/:token" element={<WebinarPublico />} />
-        <Route path="/funil" element={<RequireAuth><FunilCanvas /></RequireAuth>} />
-        <Route path="/ads-roadmap" element={<RequireAuth><AdsRoadmap /></RequireAuth>} />
-        <Route path="/squads-report" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
-        <Route path="/tarefas" element={<RequireAuth><Tarefas /></RequireAuth>} />
-        <Route path="/atividades" element={<RequireAuth><Atividades /></RequireAuth>} />
-        <Route path="/atividades-15min" element={<RequireAuth><Atividades15min /></RequireAuth>} />
-        <Route path="/roteiros-express" element={<RequireAuth><RoteirosExpress /></RequireAuth>} />
-        <Route path="/roteiros/:token" element={<RoteirosExpressPublico />} />
-        <Route path="/criativos/:projectId/:token" element={<CriativosPublico />} />
-        <Route path="/chat" element={<RequireAuth><Chat /></RequireAuth>} />
-        {/* Dashboard antigo (planilhas) foi removido — /dashboard redireciona para o atual (API). */}
-        <Route path="/dashboard" element={<Navigate to="/dashboard-teste" replace />} />
-        <Route path="/dashboard-teste" element={<RequireAuth><DashboardApiTeste /></RequireAuth>} />
-        {/* "Capacidade do Time" foi fundido no módulo Atividades. */}
-        <Route path="/workload" element={<Navigate to="/atividades" replace />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/portal/:projectId" element={<Portal />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          {publicRoutes}
+          {appRoutes}
+        </Routes>
+      </Suspense>
       {user && <NotificationCenter />}
     </>
   )

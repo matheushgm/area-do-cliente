@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useOutletContext } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { useApp } from '../context/AppContext'
 import { BANCO_FUNIS as FUNILS } from '../lib/constants'
-import AppSidebar from '../components/AppSidebar'
 import { WIREFRAMES } from '../components/Wireframes'
 import {
   Layout, Plus, X, Upload,
@@ -195,12 +193,8 @@ function ImageUploadZone({ preview, onSelect, onClear }) {
 }
 
 export default function BancoDeLPs() {
-  const navigate = useNavigate()
-  const { squads, teamMembers } = useApp()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { openSidebar } = useOutletContext()
 
-  const emptyCounts = { all: 0, churn: 0, squads: {}, risks: {}, momentos: {} }
-  const activeAccounts = teamMembers.filter(m => !m.disabled)
 
   // ── Form state
   const [funil,   setFunil]   = useState('')
@@ -316,24 +310,15 @@ export default function BancoDeLPs() {
   })
 
   return (
-    <div className="min-h-screen flex bg-gradient-dark">
+    <>
 
-      <AppSidebar
-        filter="all"
-        setFilter={() => navigate('/')}
-        counts={emptyCounts}
-        activeAccounts={activeAccounts}
-        squads={squads}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
 
       <div className="flex-1 min-w-0 flex flex-col">
 
         {/* Mobile top bar */}
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
           <button
-            onClick={() => setSidebarOpen(true)}
+            onClick={() => openSidebar}
             aria-label="Abrir menu de navegação"
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
           >
@@ -532,6 +517,6 @@ export default function BancoDeLPs() {
       {templateOpen && (
         <TemplatePreview wireframe={templateOpen} onClose={() => setTemplateOpen(null)} />
       )}
-    </div>
+    </>
   )
 }

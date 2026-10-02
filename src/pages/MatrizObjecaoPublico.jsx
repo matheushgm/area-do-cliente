@@ -25,7 +25,7 @@ function SaveBadge({ status }) {
   return null
 }
 
-export default function MatrizObjecaoPublic() {
+export default function MatrizObjecaoPublico() {
   const { token } = useParams()
   const [loading, setLoading]     = useState(true)
   const [error,   setError]       = useState(null)

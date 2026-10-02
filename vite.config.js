@@ -10,5 +10,19 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.SUPABASE_URL':      JSON.stringify(env.SUPABASE_URL      || ''),
       'import.meta.env.SUPABASE_ANON_KEY': JSON.stringify(env.SUPABASE_ANON_KEY || ''),
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // O split por rota o Rollup já faz sozinho a partir dos lazy() de
+          // src/routes. Aqui só isolamos as dependências que mudam por upgrade
+          // e não por feature: sem isso, todo deploy invalida no cache do
+          // browser também o peso de react + router + supabase.
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            supabase: ['@supabase/supabase-js'],
+          },
+        },
+      },
+    },
   }
 })

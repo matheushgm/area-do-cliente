@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { cliente } from '../../routes/paths'
 import { X, AlertCircle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useApp } from '../../context/AppContext'
@@ -88,7 +89,7 @@ export default function UnsignedAtaPopups({ projects = [] }) {
 
   function handleClick(popup) {
     dismiss(popup.id)
-    navigate(`/project/${popup.projectId}`)
+    navigate(cliente(popup.projectId))
   }
 
   if (!popups.length) return null

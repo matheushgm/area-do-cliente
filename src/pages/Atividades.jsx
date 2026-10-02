@@ -7,13 +7,12 @@
 // À direita, um painel com três modos (pessoa, atividade, nova atividade).
 // O cálculo da data vive no painel flutuante "Planejador · ClickUp".
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useOutletContext } from 'react-router-dom'
 import {
   Menu, CalendarCheck, ChevronUp, ChevronDown, ChevronRight, Star, RefreshCw, Loader2, Settings, Plus, X,
   Users, ListChecks, Rows3, Layers, Maximize2, Minimize2, CheckCircle2, CalendarRange,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import AppSidebar from '../components/AppSidebar'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
 import { supabase } from '../lib/supabase'
@@ -83,10 +82,9 @@ function estaDigitando() {
 }
 
 export default function Atividades() {
-  const navigate = useNavigate()
+  const { openSidebar } = useOutletContext()
   const { user, projects, teamMembers, squads } = useApp()
   const { toast, showToast } = useToast()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const isAdmin = user?.role === 'admin'
 
   // ── Config do cálculo ──────────────────────────────────────────────────────
@@ -268,15 +266,7 @@ export default function Atividades() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex bg-gradient-dark">
-      <AppSidebar
-        filter="atividades"
-        setFilter={() => navigate('/')}
-        counts={{}}
-        activeAccounts={[]}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
+    <>
 
       <div ref={conteudoRef} className="ln flex-1 min-w-0 flex flex-col h-screen bg-ln-bg">
         <div className="flex-1 min-h-0 p-2">
@@ -286,7 +276,7 @@ export default function Atividades() {
               {/* Barra superior */}
               <header className="h-11 shrink-0 flex items-center justify-between gap-3 px-3 border-b border-ln-ink/5">
                 <div className="flex items-center gap-1 min-w-0">
-                  <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
+                  <button onClick={() => openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
                   <div className="flex items-center gap-2 h-7 px-2.5 rounded-lg text-xs font-medium text-ln-t2 min-w-0">
                     <CalendarCheck className="w-3.5 h-3.5 text-ln-accent shrink-0" />
                     <span className="truncate">Atividades</span>
@@ -513,6 +503,6 @@ export default function Atividades() {
       )}
 
       <Toast toast={toast} />
-    </div>
+    </>
   )
 }

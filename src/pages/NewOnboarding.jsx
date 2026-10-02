@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { cliente } from '../routes/paths'
 import { supabase } from '../lib/supabase'
 import { SERVICES_CONFIG, SEGMENTOS, SQUAD_COLORS } from '../lib/constants'
 import { fmtCurrency, mrrValue } from '../lib/utils'
@@ -543,7 +544,7 @@ export default function NewOnboarding() {
             </button>
             {createdId && (
               <button
-                onClick={() => navigate(`/project/${createdId}`)}
+                onClick={() => navigate(cliente(createdId))}
                 className="btn-primary flex items-center gap-2"
               >
                 Ver Projeto <ArrowRight className="w-4 h-4" />
