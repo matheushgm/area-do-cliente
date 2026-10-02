@@ -368,16 +368,24 @@
 /* Rótulo de tile longo (ex.: "Perda por orçamento", "Pace da campanha") quebra
    em duas linhas em vez de ser cortado com reticências pelo nowrap do vendor. */
 .dt-root .mg-tile-label.wrap{ white-space:normal; overflow:visible; line-height:1.25; }
-/* Faixa Verba + Pace no topo do quadrante de Custos (verba do canal planejada
+/* Faixa Verba + Pace no rodapé do quadrante de Custos (verba do canal planejada
    no módulo Campanha da Área do Cliente). */
-.dt-root .mg-budget-strip{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-bottom:8px; }
-.dt-root .mg-tile-budget{ background:linear-gradient(135deg,#0F2A5E 0%,#164496 100%); border-color:#164496; }
-.dt-root .mg-tile-budget .mg-tile-label{ color:rgba(255,255,255,0.75); }
-.dt-root .mg-tile-budget .mg-tile-value{ color:#FFFFFF; font-size:21px; overflow:visible; }
-.dt-root .mg-tile-budget .mg-tile-var{ color:rgba(255,255,255,0.85); background:rgba(255,255,255,0.14); border-radius:999px; padding:2px 7px; display:inline-flex; }
-.dt-root.th-fynix .mg-budget-strip{ gap:10px; margin-bottom:10px; }
-.dt-root.th-fynix .mg-tile-budget{ background:var(--fx-green); border-color:var(--fx-green); }
-.dt-root.th-fynix .mg-tile-budget .mg-tile-var.fl{ background:rgba(255,255,255,0.14); color:rgba(255,255,255,0.85); }
+.dt-root .mg-budget-strip{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:8px; }
+.dt-root .mg-tile-budget .mg-tile-value{ font-size:21px; overflow:visible; }
+.dt-root.th-fynix .mg-budget-strip{ gap:10px; margin-top:10px; }
+/* O destaque escuro fica no GASTO (o que de fato saiu da conta), não na verba
+   planejada — senão o card em evidência parece ser o valor gasto. */
+.dt-root .mg-tile-spend{ background:linear-gradient(135deg,#0F2A5E 0%,#164496 100%); border-color:#164496; }
+.dt-root .mg-tile-spend .mg-tile-label{ color:rgba(255,255,255,0.75); }
+.dt-root .mg-tile-spend .mg-tile-value{ color:#FFFFFF; overflow:visible; }
+.dt-root .mg-tile-spend .mg-tile-var{ border-radius:999px; padding:2px 7px; display:inline-flex; }
+.dt-root .mg-tile-spend .mg-tile-var.fl{ background:rgba(255,255,255,0.14); color:rgba(255,255,255,0.85); }
+.dt-root .mg-tile-spend .mg-tile-var.up{ background:rgba(134,239,172,0.18); color:#86EFAC; }
+.dt-root .mg-tile-spend .mg-tile-var.dn{ background:rgba(252,165,165,0.18); color:#FCA5A5; }
+.dt-root.th-fynix .mg-tile-spend{ background:var(--fx-green); border-color:var(--fx-green); }
+.dt-root.th-fynix .mg-tile-spend .mg-tile-var.fl{ background:rgba(255,255,255,0.14); color:rgba(255,255,255,0.85); }
+.dt-root.th-fynix .mg-tile-spend .mg-tile-var.up{ background:rgba(134,239,172,0.18); color:#86EFAC; }
+.dt-root.th-fynix .mg-tile-spend .mg-tile-var.dn{ background:rgba(252,165,165,0.18); color:#FCA5A5; }
 .dt-root .mg-tile-pace .mg-tile-value{ display:flex; align-items:center; min-height:22px; }
 /* Classes que substituíram estilos inline da página do cliente — assim o tema
    (vendor/theme-fynix.css) consegue sobrescrevê-las. Valores idênticos aos de antes. */
@@ -2931,7 +2939,7 @@ function planPeriodLabel(ps, pe) {
   return `${fmtBR(ps)} → ${fmtBR(pe)}`
 }
 
-// Tile de VERBA do canal (destaque) p/ o topo do quadrante de Custos: a verba
+// Tile de VERBA do canal p/ o quadrante de Custos: a verba
 // planejada no módulo Campanha da Área do Cliente p/ esse canal no período
 // (Meta já líquida do imposto de ${(META_PLAN_TAX*100)}%), com o período embaixo.
 function budgetTileHTML(ch, pace) {
@@ -2943,8 +2951,8 @@ function budgetTileHTML(ch, pace) {
   return `<div class="mg-tile mg-tile-budget" title="${esc(tip)}"><div class="mg-tile-label wrap">Verba ${esc(chName)}</div><div class="mg-tile-value">${fmtMoney(pace.planned)}</div><div class="mg-tile-var fl">${esc(planPeriodLabel(pace.ps, pace.pe))}</div></div>`
 }
 
-// Faixa "Verba + Pace" no topo do quadrante de Custos: a verba do canal em
-// destaque e, ao lado, o pace p/ decidir se aumenta ou segura a verba.
+// Faixa "Verba + Pace" no rodapé do quadrante de Custos: a verba do canal e,
+// ao lado, o pace p/ decidir se aumenta ou segura a verba.
 function budgetStripHTML(ch, pace) {
   const b = budgetTileHTML(ch, pace)
   if (!b) return ''
@@ -3910,12 +3918,12 @@ function pctVar(cur, prev) {
   if (cur==null) return -100
   return ((cur-prev)/prev)*100
 }
-function tileHTML(label, value, variance, inverted, hint) {
+function tileHTML(label, value, variance, inverted, hint, extraCls) {
   const arrow = variance==null?'' : variance>0.05?'▲' : variance<-0.05?'▼' : '•'
   const cls = variance==null?'fl' : varCls(variance, inverted)
   const t = hint ? ` title="${esc(hint)}"` : ''
   const lw = String(label).length > 13 ? ' wrap' : ''
-  return `<div class="mg-tile"${t}><div class="mg-tile-label${lw}">${label}</div><div class="mg-tile-value">${value}</div><div class="mg-tile-var ${cls}"><span class="mg-arrow">${arrow}</span>${variance==null?'—':fmtPct(variance)}</div></div>`
+  return `<div class="mg-tile${extraCls ? ' ' + extraCls : ''}"${t}><div class="mg-tile-label${lw}">${label}</div><div class="mg-tile-value">${value}</div><div class="mg-tile-var ${cls}"><span class="mg-arrow">${arrow}</span>${variance==null?'—':fmtPct(variance)}</div></div>`
 }
 // ─── Quadrante Performance: duas visões (MQL / E-commerce) ───────────────────
 // 'mql'  = conversões gerais (leads, conversas, cadastros, contatos, custom —
@@ -3994,8 +4002,8 @@ function metricGroupsHTML(allRows, prevRows, isMeta, period, pace) {
   // Mini-gráfico por quadrante (só quando period é passado — aba Resultados).
   const chart = id => period ? `<div class="mg-chart"><canvas id="${id}"></canvas></div>` : ''
   return `<div class="mg-grid">
-    <div class="mg-card mg-cost"><h4 class="mg-title">Custos</h4>${budgetStripHTML(isMeta ? 'meta' : 'google', pace)}<div class="mg-tiles">
-      ${tileHTML('Gasto', fmtMoney(cur.spend), pctVar(cur.spend, prv.spend), false)}
+    <div class="mg-card mg-cost"><h4 class="mg-title">Custos</h4><div class="mg-tiles">
+      ${tileHTML('Gasto', fmtMoney(cur.spend), pctVar(cur.spend, prv.spend), false, '', 'mg-tile-spend')}
       ${isMeta ? tileHTML('Frequência', fmtFreq(cur.frequency), pctVar(cur.frequency, prv.frequency), true)
                : tileHTML('CPC', fmtMoney(cur.cpc), pctVar(cur.cpc, prv.cpc), true)}
       ${tileHTML('CPM', fmtMoney(cur.cpm), pctVar(cur.cpm, prv.cpm), true)}
@@ -4004,7 +4012,7 @@ function metricGroupsHTML(allRows, prevRows, isMeta, period, pace) {
         'Parcela de impressões perdida na Pesquisa por falta de verba: a campanha era elegível ao leilão e não apareceu porque o orçamento acabou. Média das campanhas de Search/Shopping ponderada pelas impressões elegíveis.')}
       ${tileHTML('Perda por qualidade', lostVal(cur.lostRank, null), pctVar(cur.lostRank, prv.lostRank), true,
         'Parcela de impressões perdida na Pesquisa por classificação do anúncio (Ad Rank): índice de qualidade, relevância ou lance abaixo do necessário. Média das campanhas de Search/Shopping ponderada pelas impressões elegíveis.')}`}
-    </div>${chart('mgChartCost')}</div>
+    </div>${budgetStripHTML(isMeta ? 'meta' : 'google', pace)}${chart('mgChartCost')}</div>
     <div class="mg-card mg-eng"><h4 class="mg-title">Engajamento</h4><div class="mg-tiles">
       ${tileHTML('CTR', fmtPctVal(cur.ctr), pctVar(cur.ctr, prv.ctr), false)}
       ${tileHTML('Cliques', fmtInt(cur.clicks), pctVar(cur.clicks, prv.clicks), false)}
