@@ -31,6 +31,25 @@
   --rl-canvas:       244 247 252;
   --rl-scroll-track: 228 234 247;
   --dt-text-2:       100 116 139;  /* #64748B texto secundário */
+  --dt-text-3:        71  85 105;  /* #475569 */
+  --dt-ink-2:         30  41  59;  /* #1E293B */
+  --dt-navy:          15  42  94;  /* #0F2A5E títulos de modal */
+  --dt-accent-deep:   18  60 134;  /* #123C86 */
+  --dt-soft:         229 237 251;  /* #E5EDFB pílula azul-suave */
+  --dt-tint:         238 244 255;  /* #EEF4FF hover/seleção */
+  --dt-tint-2:       248 250 255;  /* #F8FAFF chip */
+  --dt-tint-3:       241 245 249;  /* #F1F5F9 */
+  --dt-border-2:     203 213 225;  /* #CBD5E1 */
+  --dt-border-3:     238 240 242;  /* #EEF0F2 */
+  --dt-border-strong:217 221 224;  /* #D9DDE0 */
+  --dt-muted-blue:   138 160 214;  /* #8AA0D6 */
+  --dt-shadow-rgb:     2   0  39;
+  /* Categóricas do funil — cor como dado, não como marca. Clareiam no escuro
+     para continuarem legíveis sobre fundo escuro. */
+  --dt-cat-violet:   124  58 237;  /* #7C3AED */
+  --dt-cat-violet-2: 109  40 217;  /* #6D28D9 */
+  --dt-cat-pink:     219  39 119;  /* #DB2777 */
+  --dt-cat-cyan:      14 116 144;  /* #0E7490 */
   --dt-gold-ink:     180  83   9;  /* #B45309 texto sobre pílula âmbar */
   --dt-accent-2:      27  93 214;  /* #1B5DD6 ponta clara do gradiente */
 }
@@ -51,6 +70,23 @@
   --rl-canvas:        16  21  28;
   --rl-scroll-track:  20  26  35;
   --dt-text-2:       150 160 178;  /* texto secundário */
+  --dt-text-3:       174 184 204;
+  --dt-ink-2:        230 234 242;
+  --dt-navy:         230 234 242;
+  --dt-accent-deep:  159 192 255;
+  --dt-soft:          30  45  75;
+  --dt-tint:          34  44  60;
+  --dt-tint-2:        20  26  35;
+  --dt-tint-3:        20  26  35;
+  --dt-border-2:      58  69  86;
+  --dt-border-3:      34  42  54;
+  --dt-border-strong: 58  69  86;
+  --dt-muted-blue:   125 141 168;
+  --dt-shadow-rgb:     0   0   0;
+  --dt-cat-violet:   167 139 250;
+  --dt-cat-violet-2: 139  92 246;
+  --dt-cat-pink:     244 114 182;
+  --dt-cat-cyan:      56 189 248;
   --dt-gold-ink:     240 180 100;
   --dt-accent-2:     123 167 245;
   color-scheme: dark;
