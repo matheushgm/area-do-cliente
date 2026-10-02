@@ -388,6 +388,12 @@
 .dt-root .param-good{ color:#059669; }
 .sh-url{ width:100%; padding:10px 12px; font-size:12px; color:#1E293B; background:#F1F5F9; border:1px solid #D8E0F0; border-radius:8px; font-family:monospace; box-sizing:border-box; }
 .wk-foot .btn-ok{ background:#059669; border-color:#059669; color:#fff; }
+/* Confirmação de ocultar conta: campo em fonte normal e botão vermelho que só
+   acende quando a palavra bate. body.th-fynix repete o seletor para vencer o tema. */
+.hd-input{ font-family:inherit; font-size:14px; background:#fff; }
+.hd-input:focus{ outline:2px solid #2563EB; outline-offset:1px; }
+.wk-foot .btn.btn-danger, body.th-fynix .wk-foot .btn.btn-danger{ background:#DC2626; border-color:#DC2626; color:#fff; }
+.wk-foot .btn.btn-danger:disabled, body.th-fynix .wk-foot .btn.btn-danger:disabled{ opacity:.4; cursor:not-allowed; }
 .dt-root .param-proj{ margin-bottom:16px; font-size:12px; color:#64748B; }
 .dt-root .terms-pager{ display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:10px 2px 2px; font-size:12px; color:#64748B; }
 .dt-root .pg-btn{ border:1px solid #D8E0F0; background:#fff; color:#334155; border-radius:6px; min-width:28px; height:28px; font-size:15px; line-height:1; cursor:pointer; }
@@ -1342,6 +1348,42 @@ async function setHidden(name, hidden) {
     })
     if (!r.ok) throw new Error('HTTP ' + r.status)
   } catch (e) { setStatus('❌ Não foi possível salvar a conta oculta: ' + e.message, true) }
+}
+
+// Confirmação antes de ocultar: o olho fica colado no nome da conta e era clicado
+// por engano. Só oculta depois de digitar a palavra; reexibir continua direto.
+// Reutiliza as classes .wk-* do modal de mensagem semanal.
+const HIDE_WORD = 'ocultar'
+function confirmHide(name) {
+  document.getElementById('hdOverlay')?.remove()
+  const ov = document.createElement('div')
+  ov.id = 'hdOverlay'; ov.className = 'wk-overlay'
+  ov.innerHTML = `<div class="wk-modal" style="max-width:460px" role="dialog" aria-modal="true" aria-labelledby="hdTitle">
+      <div class="wk-head"><h3 id="hdTitle">Ocultar ${esc(name)}?</h3><button class="wk-x" id="hdClose" aria-label="Fechar">✕</button></div>
+      <div class="wk-body">
+        <div style="font-size:13px;line-height:1.5;color:#64748B;margin-bottom:12px">A conta sai da lista do dashboard para todo o time. Dá para reexibir depois pela visão de contas ocultas.</div>
+        <label for="hdInput" style="display:block;font-size:12px;color:#334155;margin-bottom:6px">Para confirmar, digite <b>${HIDE_WORD}</b>:</label>
+        <input id="hdInput" class="sh-url hd-input" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="wk-foot">
+        <button class="btn" id="hdCancel">Cancelar</button>
+        <button class="btn btn-danger" id="hdOk" disabled>Ocultar conta</button>
+      </div>
+    </div>`
+  document.body.appendChild(ov)
+  const inp = ov.querySelector('#hdInput'), ok = ov.querySelector('#hdOk')
+  const valid = () => inp.value.trim().toLowerCase() === HIDE_WORD
+  const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close() } }
+  const close = () => { document.removeEventListener('keydown', onKey, true); ov.remove() }
+  const confirm = () => { if (!valid()) return; close(); setHidden(name, true) }
+  document.addEventListener('keydown', onKey, true)
+  ov.onclick = e => { if (e.target === ov) close() }
+  ov.querySelector('#hdClose').onclick = close
+  ov.querySelector('#hdCancel').onclick = close
+  inp.oninput = () => { ok.disabled = !valid() }
+  inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); confirm() } }
+  ok.onclick = confirm
+  inp.focus()
 }
 
 // Filtros comuns das visões analíticas (busca + squad; ocultas nunca aparecem).
@@ -4990,7 +5032,8 @@ function wirePanel() {
     render()
   })
   // Olho de ocultar/reexibir conta (grava em dashboard_accounts.hidden)
-  app.querySelectorAll('.hide-btn').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); const n=b.dataset.hide; setHidden(n, !isHidden(n)) })
+  // Ocultar pede confirmação digitada (confirmHide); reexibir é direto.
+  app.querySelectorAll('.hide-btn').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); const n=b.dataset.hide; if (isHidden(n)) setHidden(n, false); else confirmHide(n) })
   // Visualização Pace de Verba: expande/recolhe o pace por campanha do plano
   app.querySelectorAll('[data-paceexp]').forEach(b=>b.onclick=(e)=>{
     e.stopPropagation()
