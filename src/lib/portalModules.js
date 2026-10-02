@@ -24,7 +24,16 @@ export const PORTAL_MODULES = [
   { id: 'atas',        label: 'Atas de Reunião' },
   { id: 'links',       label: 'Links Importantes' },
   { id: 'anexos',      label: 'Anexos' },
+  // Interativos: têm nível "edit" de verdade (o portal grava).
+  { id: 'aprovacao',   label: 'Aprovação de anúncios e LPs', levels: ['none', 'view', 'edit'], editLabel: 'Aprovar' },
+  { id: 'criativos',   label: 'Criação de anúncios (IA)',    levels: ['none', 'edit'],         editLabel: 'Usar' },
 ]
+
+// Níveis que um módulo aceita. Sem `levels` declarado = só leitura por enquanto
+// (edit existe no esquema mas o portal ainda não renderiza edição).
+export function moduleLevels(m) {
+  return m.levels || ['none', 'view']
+}
 
 export const PERMISSION_LEVELS = ['none', 'view', 'edit']
 

@@ -6,6 +6,8 @@ import { BUSINESS_LABELS, MATURITY_LABELS } from '../../lib/constants'
 import { fmtCurrency } from '../../lib/utils'
 import { portalFileUrl } from '../../lib/portal'
 import { CampanhasView } from '../../pages/CampanhasPublico'
+import { AprovacaoView } from '../../pages/AprovacaoAnunciosPublico'
+import { CriativosTool } from '../../pages/CriativosPublico'
 import { QUESTIONS as PERSONA_QUESTIONS } from '../../pages/PersonaCreator'
 import { QUESTIONS as PRODUTO_QUESTIONS } from '../ProdutoServicoModule'
 import { TEMPLATE_SECTIONS, ACTION_AREAS } from '../MeetingMinutesModule'
@@ -608,20 +610,29 @@ function Anexos({ data, projectId, token }) {
   )
 }
 
+// ─── Interativos (usam a sessão do portal nas próprias APIs) ─────────────────
+function Aprovacao({ projectId, token, level }) {
+  return <AprovacaoView auth={{ portal: token, projectId }} readOnly={level !== 'edit'} embedded />
+}
+function Criativos({ projectId, token }) {
+  return <CriativosTool auth={{ projectId, portal: token }} embedded />
+}
+
 // ─── Dispatcher ──────────────────────────────────────────────────────────────
 const RENDERERS = {
   dados: Dados, kickoff: Kickoff, produtos: Produtos, icp: Personas, oferta: Oferta, roi: Roi,
   campaign: Campanhas, debriefing: Debriefing, lpcentral: LPCentral, landingpage: LandingPages,
   googleads: GoogleAds, metalab: MetaLab, estrategiav2: Estrategia, resultados: PortalResultados,
   nps: Nps, atas: Atas, links: Links, anexos: Anexos,
+  aprovacao: Aprovacao, criativos: Criativos,
 }
 
-export default function PortalModule({ moduleId, label, data, projectId, token }) {
+export default function PortalModule({ moduleId, label, data, projectId, token, level }) {
   const R = RENDERERS[moduleId]
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-bold text-rl-text px-1">{label}</h2>
-      {R ? <R data={data} projectId={projectId} token={token} /> : <Empty text="Módulo indisponível no portal." />}
+      {R ? <R data={data} projectId={projectId} token={token} level={level} /> : <Empty text="Módulo indisponível no portal." />}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import MarkdownBlock from '../components/Criativos/MarkdownBlock'
 import { AD_TYPES, postCriativo, streamCriativo } from '../lib/criativosPublic'
@@ -47,9 +47,18 @@ function ResultCards({ content }) {
 
 export default function CriativosPublico() {
   const { projectId, token } = useParams()
+  return <CriativosTool auth={{ projectId, token }} />
+}
 
-  // 'gate' | 'select' | 'config' | 'generating' | 'result' | 'error' | 'history'
-  const [status, setStatus] = useState('gate')
+// Ferramenta reutilizável. `auth` = { projectId, token } (link público: pede
+// e-mail + senha na tela) ou { projectId, portal } (sessão do portal: entra
+// direto). `embedded` tira o fundo/logo de página inteira.
+export function CriativosTool({ auth, embedded = false }) {
+  const { projectId, token } = auth
+  const viaPortal = !!auth.portal
+
+  // 'gate' | 'loading' | 'select' | 'config' | 'generating' | 'result' | 'error' | 'history'
+  const [status, setStatus] = useState(viaPortal ? 'loading' : 'gate')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [user, setUser] = useState(null) // { id, email, name }
@@ -73,7 +82,9 @@ export default function CriativosPublico() {
   const [viewing, setViewing] = useState(null) // item do histórico aberto
 
   // Credenciais reenviadas em cada chamada (o servidor revalida no banco).
-  const creds = () => ({ projectId, token, email: email.trim().toLowerCase(), password })
+  const creds = () => (viaPortal
+    ? { projectId, portal: auth.portal }
+    : { projectId, token, email: email.trim().toLowerCase(), password })
 
   // Config: vídeo → { [typeId]: true }
   const [adTypeConfig, setAdTypeConfig] = useState({})
@@ -105,7 +116,8 @@ export default function CriativosPublico() {
 
   // ── Login (email + senha) ───────────────────────────────────────────────────
   async function login() {
-    if (!email.trim() || !password || busy) return
+    if (!viaPortal && (!email.trim() || !password)) return
+    if (busy) return
     setBusy(true); setError(null)
     try {
       const data = await postCriativo('login', creds())
@@ -114,10 +126,16 @@ export default function CriativosPublico() {
       setStatus('select')
     } catch (e) {
       setError(e.message || 'Não foi possível entrar.')
+      if (viaPortal) setStatus('error')
     } finally {
       setBusy(false)
     }
   }
+
+  // Pelo portal não há tela de senha: carrega o contexto ao montar.
+  useEffect(() => {
+    if (viaPortal) login()
+  }, [auth.portal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Histórico do próprio usuário ────────────────────────────────────────────
   async function openHistory() {
@@ -244,9 +262,19 @@ export default function CriativosPublico() {
 
   // ══ RENDER ════════════════════════════════════════════════════════════════
 
+  if (status === 'loading') {
+    return (
+      <Shell embedded={embedded}>
+        <div className="flex items-center gap-2 text-sm text-rl-muted py-10">
+          <Loader2 className="w-4 h-4 animate-spin" /> Carregando…
+        </div>
+      </Shell>
+    )
+  }
+
   if (status === 'gate') {
     return (
-      <Shell>
+      <Shell embedded={embedded}>
         <div className="glass-card p-8 max-w-md w-full">
           <div className="w-12 h-12 rounded-2xl bg-rl-purple/15 flex items-center justify-center mx-auto mb-4">
             <Lock className="w-6 h-6 text-rl-purple" />
@@ -286,7 +314,7 @@ export default function CriativosPublico() {
 
   if (status === 'select') {
     return (
-      <Shell subtitle={ctx?.companyName}>
+      <Shell subtitle={ctx?.companyName} embedded={embedded}>
         <div className="w-full max-w-2xl space-y-6">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm text-rl-muted">
@@ -334,7 +362,7 @@ export default function CriativosPublico() {
       catch { return '' }
     }
     return (
-      <Shell subtitle={ctx?.companyName}>
+      <Shell subtitle={ctx?.companyName} embedded={embedded}>
         <div className="w-full max-w-2xl space-y-4">
           <div className="flex items-center gap-3">
             <button onClick={() => { setViewing(null); setStatus('select') }}
@@ -385,7 +413,7 @@ export default function CriativosPublico() {
 
   if (status === 'generating') {
     return (
-      <Shell subtitle={ctx?.companyName}>
+      <Shell subtitle={ctx?.companyName} embedded={embedded}>
         <div className="w-full max-w-2xl">
           <div className="glass-card p-6 sm:p-8">
             <div className="flex items-center gap-2 text-rl-purple mb-4">
@@ -402,12 +430,12 @@ export default function CriativosPublico() {
 
   if (status === 'error') {
     return (
-      <Shell subtitle={ctx?.companyName}>
+      <Shell subtitle={ctx?.companyName} embedded={embedded}>
         <div className="glass-card p-8 text-center max-w-md w-full">
           <AlertTriangle className="w-10 h-10 text-red-400 mx-auto mb-3" />
           <h1 className="text-lg font-bold text-rl-text mb-1">Tivemos um problema</h1>
           <p className="text-sm text-rl-muted mb-5">{error}</p>
-          <button onClick={() => setStatus('config')} className="btn-primary inline-flex items-center gap-2 text-sm px-5 py-2.5">
+          <button onClick={() => (ctx ? setStatus('config') : login())} className="btn-primary inline-flex items-center gap-2 text-sm px-5 py-2.5">
             <RotateCcw className="w-4 h-4" /> Voltar e tentar de novo
           </button>
         </div>
@@ -417,7 +445,7 @@ export default function CriativosPublico() {
 
   if (status === 'result') {
     return (
-      <Shell subtitle={ctx?.companyName}>
+      <Shell subtitle={ctx?.companyName} embedded={embedded}>
         <div className="w-full max-w-2xl space-y-5">
           <div className="text-center">
             <div className="w-14 h-14 rounded-full bg-rl-green/15 flex items-center justify-center mx-auto mb-3">
@@ -458,7 +486,7 @@ export default function CriativosPublico() {
   const isLast = step === 'obs'
 
   return (
-    <Shell subtitle={ctx?.companyName}>
+    <Shell subtitle={ctx?.companyName} embedded={embedded}>
       <div className="w-full max-w-2xl space-y-5">
         {/* Cabeçalho + progresso */}
         <div>
@@ -775,7 +803,10 @@ export default function CriativosPublico() {
 }
 
 // ─── Casca pública (logo + fundo) ─────────────────────────────────────────────
-function Shell({ children, subtitle }) {
+function Shell({ children, subtitle, embedded = false }) {
+  if (embedded) {
+    return <div className="flex flex-col items-center px-0 py-2">{children}</div>
+  }
   return (
     <div className="min-h-screen bg-gradient-dark flex flex-col items-center justify-center px-4 py-10">
       <div className="flex items-center gap-2.5 mb-8">

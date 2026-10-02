@@ -23,11 +23,11 @@
 import { getUser, hmacHex, json, jsonErr, sb, serviceKey } from './_http.js'
 import { sanitizePermissions } from '../src/lib/portalModules.js'
 import { sanitizePlan } from './campanhas-public.js'
+import { SESSION_TTL_MS, safeEq, hashVersion, isExpired, signSession, readPortalSession } from './_portal_auth.js'
 
 export const config = { runtime: 'edge' }
 
 const NO_STORE   = { 'Cache-Control': 'no-store' }
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const WINDOW_MIN = 15
 const MAX_FAILS_IP = 8
 const MAX_FAILS_PROJECT = 60
@@ -37,19 +37,6 @@ const ok  = (body, status = 200) => json(body, status, NO_STORE)
 const err = (message, status = 400, extra) => jsonErr(message, status, extra)
 
 // ─── util ────────────────────────────────────────────────────────────────────
-function b64url(str) {
-  return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
-function fromB64url(s) {
-  const pad = s.length % 4 ? '='.repeat(4 - (s.length % 4)) : ''
-  return decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/') + pad)))
-}
-function safeEq(a, b) {
-  if (a.length !== b.length) return false
-  let r = 0
-  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  return r === 0
-}
 function clientIp(req) {
   const xf = req.headers.get('x-forwarded-for') || ''
   return (xf.split(',')[0] || req.headers.get('x-real-ip') || 'unknown').trim().slice(0, 64)
@@ -66,30 +53,11 @@ async function verifyPassword(secret, stored, password) {
   const calc = await hmacHex(secret, `portal|${salt}|${password}`)
   return safeEq(calc, h)
 }
-function hashVersion(stored) { return String(stored || '').slice(-16) }
-
-async function signSession(secret, payload) {
-  const body = b64url(JSON.stringify(payload))
-  const sig  = await hmacHex(secret, `portal-session|${body}`)
-  return `${body}.${sig}`
-}
-async function readSession(secret, token) {
-  const [body, sig] = String(token || '').split('.')
-  if (!body || !sig) return null
-  const calc = await hmacHex(secret, `portal-session|${body}`)
-  if (!safeEq(calc, sig)) return null
-  try {
-    const p = JSON.parse(fromB64url(body))
-    if (!p?.sid || !p?.pid || !p?.exp || p.exp < Date.now()) return null
-    return p
-  } catch { return null }
-}
 
 function publicShare(s) {
   const { password_hash, ...rest } = s // eslint-disable-line no-unused-vars
   return rest
 }
-function isExpired(s) { return !!(s.expires_at && new Date(s.expires_at) < new Date()) }
 
 // ─── acesso do time ao projeto (admin ou membro do squad) ───────────────────
 async function canManage(user, projectId) {
@@ -313,13 +281,9 @@ export default async function handler(req) {
 
   // ── Sessão do visitante ───────────────────────────────────────────────────
   if (action === 'data' || action === 'file') {
-    const bearer = String(req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-    const sess = await readSession(SECRET, bearer)
-    if (!sess || sess.pid !== projectId) return err('Sessão inválida.', 401)
-    const { data: rows } = await sb(`/project_shares?id=eq.${enc(sess.sid)}&project_id=eq.${enc(projectId)}&select=*&limit=1`)
-    const share = Array.isArray(rows) ? rows[0] : null
-    if (!share || !share.enabled || isExpired(share) || hashVersion(share.password_hash) !== sess.hv) return err('Sessão expirada.', 401)
-    const permissions = sanitizePermissions(share.permissions)
+    const sess = await readPortalSession(req, projectId)
+    if (!sess.ok) return err(sess.message, sess.status)
+    const { share, permissions } = sess
 
     if (action === 'file') {
       const bucket = String(url.searchParams.get('bucket') || '')

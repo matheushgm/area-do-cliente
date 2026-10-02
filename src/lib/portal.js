@@ -2,7 +2,7 @@
 // A lista de módulos e permissões é compartilhada com api/portal.js.
 import { apiFetch } from './api'
 
-export { PORTAL_MODULES, PERMISSION_LEVELS, PERMISSION_LABELS } from './portalModules.js'
+export { PORTAL_MODULES, PERMISSION_LEVELS, PERMISSION_LABELS, moduleLevels } from './portalModules.js'
 
 const SESSION_PREFIX = 'portal.session.'
 

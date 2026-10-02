@@ -1,4 +1,5 @@
 import { hmacHex, jsonCors, preflight } from './_http.js'
+import { hasPortalBearer, readPortalSession } from './_portal_auth.js'
 // Public Edge Function — ferramenta pública "Criativos com IA" de um cliente.
 // Sem login: validada por token HMAC (`projectId|senha`) gerado em
 // api/criativos-share-token.js. O cliente digita a senha; o servidor recalcula
@@ -562,19 +563,31 @@ export default async function handler(req) {
 
   const action = body?.action || 'login'
   const projectId = String(body?.projectId || '').trim()
-  const token = String(body?.token || '').trim().toLowerCase()
-  if (!projectId || !token) return json({ error: 'Link incompleto.' }, 400)
+  if (!projectId) return json({ error: 'Link incompleto.' }, 400)
 
-  // token = HMAC(projectId) — prova que o link é legítimo para este projeto.
-  const expectedToken = await hmacHex(SERVICE_KEY, projectId)
-  if (!safeEq(token, expectedToken)) return json({ error: 'Link inválido.' }, 403)
+  let user
+  if (hasPortalBearer(req)) {
+    // Sessão do portal (/portal/:projectId): exige o módulo `criativos` em 'edit'.
+    // O "usuário" é a chave de acesso; o histórico fica em user_email = portal:<id>.
+    const sess = await readPortalSession(req, projectId)
+    if (!sess.ok) return json({ error: sess.message }, sess.status)
+    if (sess.permissions.criativos !== 'edit') return json({ error: 'Sem acesso a este módulo.' }, 403)
+    user = { id: null, email: `portal:${sess.share.id}`, name: sess.share.label }
+  } else {
+    const token = String(body?.token || '').trim().toLowerCase()
+    if (!token) return json({ error: 'Link incompleto.' }, 400)
 
-  // Autentica o usuário-cliente (email + senha) a cada chamada.
-  const email = String(body?.email || '').trim().toLowerCase()
-  const password = String(body?.password || '')
-  if (!email || !password) return json({ error: 'Informe email e senha.' }, 401)
-  const user = await findUser(projectId, email, password)
-  if (!user) return json({ error: 'Email ou senha incorretos.' }, 403)
+    // token = HMAC(projectId) — prova que o link é legítimo para este projeto.
+    const expectedToken = await hmacHex(SERVICE_KEY, projectId)
+    if (!safeEq(token, expectedToken)) return json({ error: 'Link inválido.' }, 403)
+
+    // Autentica o usuário-cliente (email + senha) a cada chamada.
+    const email = String(body?.email || '').trim().toLowerCase()
+    const password = String(body?.password || '')
+    if (!email || !password) return json({ error: 'Informe email e senha.' }, 401)
+    user = await findUser(projectId, email, password)
+    if (!user) return json({ error: 'Email ou senha incorretos.' }, 403)
+  }
 
   const project = await loadProject(projectId)
   if (!project) return json({ error: 'Cliente não encontrado.' }, 404)
@@ -615,7 +628,8 @@ export default async function handler(req) {
 
   // ── history: gerações do próprio usuário ────────────────────────────────────
   if (action === 'history') {
-    const { data } = await sb(`/criativos_history?project_id=eq.${encodeURIComponent(projectId)}&user_id=eq.${encodeURIComponent(user.id)}&select=id,mode,funil,funil_label,detalhes,content,created_at&order=created_at.desc&limit=200`)
+    const who = user.id ? `user_id=eq.${encodeURIComponent(user.id)}` : `user_email=eq.${encodeURIComponent(user.email)}`
+    const { data } = await sb(`/criativos_history?project_id=eq.${encodeURIComponent(projectId)}&${who}&select=id,mode,funil,funil_label,detalhes,content,created_at&order=created_at.desc&limit=200`)
     return json({ history: data })
   }
 

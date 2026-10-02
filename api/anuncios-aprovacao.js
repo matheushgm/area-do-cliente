@@ -1,10 +1,15 @@
 import { NO_STORE, jsonCors, preflight, sb } from './_http.js'
+import { hasPortalBearer, readPortalSession } from './_portal_auth.js'
 // Edge Function pública — APROVAÇÃO DE ANÚNCIOS E LANDING PAGES pelo cliente.
-// Validação só pelo client_share_token do projeto (mesmo token de
-// /campanhas, /precificacao, /crm...). Sem login.
+// Duas formas de autenticar, sem login Supabase:
+//   • client_share_token do projeto (link /aprovacao/:token, mesmo token de
+//     /campanhas, /precificacao, /crm...);
+//   • sessão do portal (/portal/:projectId): header Authorization: Bearer
+//     <token do portal> + projectId, exigindo o módulo `aprovacao` liberado
+//     (`view` lista; `edit` decide).
 //
-//   GET  ?token=UUID → lista anúncios (debriefing) e LPs (lp_central) enviados pra aprovação
-//   POST { token, adId, kind: 'ad'|'lp', decision, motivo, sugestao } → registra a decisão
+//   GET  ?token=UUID  |  ?projectId=UUID + Bearer → lista anúncios (debriefing) e LPs (lp_central) enviados pra aprovação
+//   POST { token | projectId, adId, kind: 'ad'|'lp', decision, motivo, sugestao } → registra a decisão
 //
 // Os itens vivem nos JSONB projects_v2.debriefing (Central de anúncios) e
 // projects_v2.lp_central (Central de Landing Pages). Só sai pro cliente o que
@@ -50,14 +55,33 @@ function mediaKind(name) {
   return 'other'
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const PROJECT_COLS = 'id,company_name,debriefing,lp_central'
+
 async function findProject(token) {
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token || '')
-  if (!isUuid) return null
+  if (!UUID_RE.test(token || '')) return null
   const { data, status } = await sb(
-    `/projects_v2?client_share_token=eq.${encodeURIComponent(token)}&select=id,company_name,debriefing,lp_central`
+    `/projects_v2?client_share_token=eq.${encodeURIComponent(token)}&select=${PROJECT_COLS}`
   )
   if (status !== 200 || !Array.isArray(data) || !data.length) return null
   return data[0]
+}
+
+// Resolve o projeto pelo token público OU pela sessão do portal.
+// Devolve { project } ou { error, status }. `needEdit` exige permissão 'edit'.
+async function resolveProject(req, token, projectId, needEdit) {
+  if (hasPortalBearer(req)) {
+    if (!UUID_RE.test(projectId || '')) return { error: 'projectId inválido.', status: 400 }
+    const sess = await readPortalSession(req, projectId)
+    if (!sess.ok) return { error: sess.message, status: sess.status }
+    const level = sess.permissions.aprovacao
+    if (!level || (needEdit && level !== 'edit')) return { error: 'Sem acesso a este módulo.', status: 403 }
+    const { data, status } = await sb(`/projects_v2?id=eq.${encodeURIComponent(projectId)}&select=${PROJECT_COLS}`)
+    if (status !== 200 || !Array.isArray(data) || !data.length) return { error: 'Projeto não encontrado.', status: 404 }
+    return { project: data[0] }
+  }
+  const project = await findProject(token)
+  return project ? { project } : { error: 'Link inválido ou expirado.', status: 404 }
 }
 
 function sanitizeAprovacao(aprovacao) {
@@ -119,9 +143,10 @@ export default async function handler(req) {
 
   // ── GET: lista pro cliente ──────────────────────────────────────────────────
   if (req.method === 'GET') {
-    const token = new URL(req.url).searchParams.get('token')
-    const project = await findProject(token)
-    if (!project) return json({ error: 'Link inválido ou expirado.' }, 404)
+    const qs = new URL(req.url).searchParams
+    const r = await resolveProject(req, qs.get('token'), qs.get('projectId'), false)
+    if (r.error) return json({ error: r.error }, r.status)
+    const project = r.project
 
     const ads = (project.debriefing?.ads || [])
       .filter((ad) => ad && ad.aprovacao)
@@ -145,8 +170,9 @@ export default async function handler(req) {
     let body
     try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
 
-    const project = await findProject(str(body?.token, 60))
-    if (!project) return json({ error: 'Link inválido ou expirado.' }, 404)
+    const r = await resolveProject(req, str(body?.token, 60), str(body?.projectId, 60), true)
+    if (r.error) return json({ error: r.error }, r.status)
+    const project = r.project
 
     const adId     = str(body?.adId, 60)
     const kind     = str(body?.kind, 10) || 'ad' // 'ad' (criativo) | 'lp' (landing page)

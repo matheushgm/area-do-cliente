@@ -40,8 +40,30 @@ function fmtDateTime(iso) {
   return `${dd}/${mm}/${d.getFullYear()} às ${hh}:${mi}`
 }
 
+// Monta URL/headers conforme a origem do acesso:
+//   { token }                 → link público /aprovacao/:token (client_share_token)
+//   { portal, projectId }     → sessão do portal (/portal/:projectId)
+function authQuery(auth) {
+  return auth.portal
+    ? `projectId=${encodeURIComponent(auth.projectId)}`
+    : `token=${encodeURIComponent(auth.token)}`
+}
+function authHeaders(auth) {
+  return auth.portal ? { Authorization: `Bearer ${auth.portal}` } : {}
+}
+function authBody(auth) {
+  return auth.portal ? { projectId: auth.projectId } : { token: auth.token }
+}
+
 export default function AprovacaoAnunciosPublico() {
   const { token } = useParams()
+  return <AprovacaoView auth={{ token }} />
+}
+
+// Corpo reutilizável: página pública e módulo "Aprovação" do portal.
+// `readOnly` esconde os botões de decisão (permissão `view` no portal);
+// `embedded` tira o cabeçalho/fundo de página inteira.
+export function AprovacaoView({ auth, readOnly = false, embedded = false }) {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
   const [company, setCompany] = useState('')
@@ -50,7 +72,7 @@ export default function AprovacaoAnunciosPublico() {
 
   const load = useCallback(async () => {
     try {
-      const res  = await fetch(`/api/anuncios-aprovacao?token=${encodeURIComponent(token)}`)
+      const res  = await fetch(`/api/anuncios-aprovacao?${authQuery(auth)}`, { headers: authHeaders(auth) })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'Erro ao carregar.')
       setCompany(body.companyName || '')
@@ -62,7 +84,7 @@ export default function AprovacaoAnunciosPublico() {
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [auth.token, auth.portal, auth.projectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load() }, [load])
 
@@ -76,7 +98,7 @@ export default function AprovacaoAnunciosPublico() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-rl-bg flex items-center justify-center">
+      <div className={`${embedded ? 'py-16' : 'min-h-screen bg-rl-bg'} flex items-center justify-center`}>
         <Loader2 className="w-8 h-8 text-rl-purple animate-spin" />
       </div>
     )
@@ -84,12 +106,60 @@ export default function AprovacaoAnunciosPublico() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-rl-bg flex items-center justify-center p-6">
+      <div className={`${embedded ? 'py-8' : 'min-h-screen bg-rl-bg p-6'} flex items-center justify-center`}>
         <div className="glass-card p-8 max-w-md w-full text-center space-y-4">
           <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
-          <h2 className="text-lg font-bold text-rl-text">Link inválido</h2>
+          <h2 className="text-lg font-bold text-rl-text">{embedded ? 'Não foi possível carregar' : 'Link inválido'}</h2>
           <p className="text-sm text-rl-muted">{error}</p>
         </div>
+      </div>
+    )
+  }
+
+  const body = (
+    <>
+      {itens.length === 0 && (
+        <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-12 px-6 text-center space-y-2">
+          <Megaphone className="w-8 h-8 text-rl-muted/40 mx-auto" />
+          <p className="text-sm font-semibold text-rl-text">Nada pra aprovar no momento.</p>
+          <p className="text-xs text-rl-muted">Quando o time enviar um criativo ou landing page, aparece aqui.</p>
+        </div>
+      )}
+
+      {pendentes.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-sm font-black text-rl-text uppercase tracking-wide">
+            {readOnly ? 'Aguardando aprovação' : 'Aguardando sua aprovação'}
+          </h2>
+          {pendentes.map((ad) => (
+            <AdCard key={`${ad.kind}-${ad.id}`} ad={ad} auth={auth} onDecided={load} readOnly={readOnly} />
+          ))}
+        </section>
+      )}
+
+      {decididos.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-sm font-black text-rl-muted uppercase tracking-wide">
+            Já avaliados
+          </h2>
+          {decididos.map((ad) => (
+            <AdCard key={`${ad.kind}-${ad.id}`} ad={ad} auth={auth} decided />
+          ))}
+        </section>
+      )}
+    </>
+  )
+
+  if (embedded) {
+    return (
+      <div className="space-y-6">
+        {pendentes.length > 0 && (
+          <span className="inline-flex items-center gap-1.5 bg-rl-gold/10 border border-rl-gold/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-rl-gold">
+            <Clock className="w-3 h-3" />
+            {pendentes.length} pendente{pendentes.length !== 1 ? 's' : ''}
+          </span>
+        )}
+        {body}
       </div>
     )
   }
@@ -120,35 +190,7 @@ export default function AprovacaoAnunciosPublico() {
       </div>
 
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
-        {itens.length === 0 && (
-          <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-12 px-6 text-center space-y-2">
-            <Megaphone className="w-8 h-8 text-rl-muted/40 mx-auto" />
-            <p className="text-sm font-semibold text-rl-text">Nada pra aprovar no momento.</p>
-            <p className="text-xs text-rl-muted">Quando o time enviar um criativo ou landing page, aparece aqui.</p>
-          </div>
-        )}
-
-        {pendentes.length > 0 && (
-          <section className="space-y-4">
-            <h2 className="text-sm font-black text-rl-text uppercase tracking-wide">
-              Aguardando sua aprovação
-            </h2>
-            {pendentes.map((ad) => (
-              <AdCard key={`${ad.kind}-${ad.id}`} ad={ad} token={token} onDecided={load} />
-            ))}
-          </section>
-        )}
-
-        {decididos.length > 0 && (
-          <section className="space-y-4">
-            <h2 className="text-sm font-black text-rl-muted uppercase tracking-wide">
-              Já avaliados
-            </h2>
-            {decididos.map((ad) => (
-              <AdCard key={`${ad.kind}-${ad.id}`} ad={ad} token={token} decided />
-            ))}
-          </section>
-        )}
+        {body}
       </div>
     </div>
   )
@@ -238,7 +280,7 @@ function Lightbox({ src, alt, onClose }) {
 }
 
 // ─── Card de um anúncio ───────────────────────────────────────────────────────
-function AdCard({ ad, token, onDecided, decided = false }) {
+function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
   const [mode,       setMode]       = useState(null) // null | 'reprovando'
   const [motivo,     setMotivo]     = useState('')
   const [sugestao,   setSugestao]   = useState('')
@@ -259,8 +301,8 @@ function AdCard({ ad, token, onDecided, decided = false }) {
     try {
       const res = await fetch('/api/anuncios-aprovacao', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, adId: ad.id, kind: ad.kind || 'ad', decision, motivo, sugestao }),
+        headers: { 'Content-Type': 'application/json', ...authHeaders(auth) },
+        body: JSON.stringify({ ...authBody(auth), adId: ad.id, kind: ad.kind || 'ad', decision, motivo, sugestao }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'Erro ao enviar.')
@@ -402,8 +444,8 @@ function AdCard({ ad, token, onDecided, decided = false }) {
         </p>
       )}
 
-      {/* Ações — só pra pendentes */}
-      {!decided && (
+      {/* Ações — só pra pendentes (e só com permissão de decidir) */}
+      {!decided && !readOnly && (
         <div className="px-5 pb-5">
           {mode !== 'reprovando' ? (
             <div className="flex items-center gap-2">

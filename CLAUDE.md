@@ -279,7 +279,19 @@ mas o portal ainda só renderiza leitura, o botão fica desabilitado "em breve")
   dos módulos liberados), `src/components/Portal/` (`PortalModule` despacha um renderizador
   por módulo; `PortalResultados` lê o mesmo JSONB do módulo interno; `PortalUI` primitivas).
   Campanhas reaproveita `CampanhasView` exportado de `src/pages/CampanhasPublico.jsx`.
-- Os links públicos por `client_share_token` continuam existindo; o portal só centraliza.
+- **Módulos interativos** (únicos com `edit` real): `aprovacao` (`view` lista, `edit` aprova /
+  reprova — reaproveita `AprovacaoView` exportado de `src/pages/AprovacaoAnunciosPublico.jsx`)
+  e `criativos` (só `edit`, rótulo "Usar" — `CriativosTool` exportado de
+  `src/pages/CriativosPublico.jsx`). Os dois componentes aceitam `auth = { token }` (link
+  público) ou `auth = { portal, projectId }` (sessão do portal) e `embedded`. No servidor,
+  `api/anuncios-aprovacao.js` e `api/criativos-public.js` aceitam o token do portal no header
+  `Authorization: Bearer` como alternativa ao `client_share_token` / login de `criativos_users`
+  (helper `readPortalSession` em `api/_portal_auth.js`, que também emite o token em
+  `api/portal.js`). No histórico de criativos a chave do portal grava `user_id = null` e
+  `user_email = portal:<share_id>`. `moduleLevels(m)` em `portalModules.js` diz quais níveis
+  cada módulo aceita (sem `levels` = só `view`).
+- Os links públicos por `client_share_token` e o login por e-mail de `criativos_users`
+  continuam existindo; o portal só centraliza.
 
 ### Pendências (Phase 5)
 

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import Modal from './UI/Modal'
 import {
-  PORTAL_MODULES, PERMISSION_LABELS,
+  PORTAL_MODULES, PERMISSION_LABELS, moduleLevels,
   listShares, saveShare, deleteShare, generatePassword, portalUrl,
 } from '../lib/portal'
 
@@ -77,7 +77,13 @@ export default function CompartilhamentoModule({ project, showToast }) {
   function setAll(level) {
     setForm((f) => {
       const permissions = {}
-      if (level !== 'none') for (const m of PORTAL_MODULES) permissions[m.id] = level
+      if (level !== 'none') {
+        for (const m of PORTAL_MODULES) {
+          const lv = moduleLevels(m)
+          // Módulos sem "view" (ex.: Criação de anúncios) ficam de fora do "liberar todos".
+          if (lv.includes(level)) permissions[m.id] = level
+        }
+      }
       return { ...f, permissions }
     })
   }
@@ -213,7 +219,7 @@ export default function CompartilhamentoModule({ project, showToast }) {
                 <div className="mt-3 flex flex-wrap gap-1">
                   {mods.map((m) => (
                     <span key={m.id} className={`text-[10px] px-2 py-0.5 rounded-full border ${s.permissions[m.id] === 'edit' ? 'text-rl-gold bg-rl-gold/10 border-rl-gold/30' : 'text-rl-cyan bg-rl-cyan/10 border-rl-cyan/30'}`}>
-                      {m.label}
+                      {m.label}{s.permissions[m.id] === 'edit' ? ` · ${m.editLabel || 'editar'}` : ''}
                     </span>
                   ))}
                 </div>
@@ -282,8 +288,11 @@ export default function CompartilhamentoModule({ project, showToast }) {
                       <span className="text-sm text-rl-text">{m.label}</span>
                       <div className="flex gap-1">
                         {LEVELS.map((lv) => {
-                          const disabled = lv === 'edit'
+                          const allowed = moduleLevels(m)
+                          if (lv === 'view' && !allowed.includes('view')) return null
+                          const disabled = !allowed.includes(lv)
                           const active = cur === lv
+                          const label = lv === 'edit' && m.editLabel ? m.editLabel : PERMISSION_LABELS[lv]
                           return (
                             <button
                               key={lv}
@@ -293,11 +302,11 @@ export default function CompartilhamentoModule({ project, showToast }) {
                               title={disabled ? 'Edição pelo portal ainda não disponível' : undefined}
                               className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
                                 active
-                                  ? lv === 'none' ? 'bg-rl-surface border-rl-border text-rl-text' : 'bg-rl-cyan/15 border-rl-cyan/40 text-rl-cyan'
+                                  ? lv === 'none' ? 'bg-rl-surface border-rl-border text-rl-text' : lv === 'edit' ? 'bg-rl-gold/15 border-rl-gold/40 text-rl-gold' : 'bg-rl-cyan/15 border-rl-cyan/40 text-rl-cyan'
                                   : 'border-transparent text-rl-muted hover:bg-rl-surface'
                               } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
-                              {PERMISSION_LABELS[lv]}{disabled ? ' (em breve)' : ''}
+                              {label}{disabled ? ' (em breve)' : ''}
                             </button>
                           )
                         })}

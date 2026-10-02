@@ -28,12 +28,23 @@ export const AD_TYPES = [
 
 // ─── Cliente público (sem login) → /api/criativos-public ──────────────────────
 
+// Credenciais: { projectId, token, email, password } (link público) ou
+// { projectId, portal } (sessão do portal → vai no header, não no corpo).
+function splitAuth(payload) {
+  const { portal, ...rest } = payload
+  return {
+    body: rest,
+    headers: { 'content-type': 'application/json', ...(portal ? { Authorization: `Bearer ${portal}` } : {}) },
+  }
+}
+
 // POST JSON simples (auth). Devolve o contexto mínimo do cliente.
 export async function postCriativo(action, payload = {}) {
+  const { body, headers } = splitAuth(payload)
   const res = await fetch('/api/criativos-public', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ action, ...payload }),
+    headers,
+    body: JSON.stringify({ action, ...body }),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data?.error || `Erro ${res.status}`)
@@ -42,10 +53,11 @@ export async function postCriativo(action, payload = {}) {
 
 // POST com resposta em streaming SSE (generate). onChunk(textoAcumulado).
 export async function streamCriativo(action, payload, onChunk, signal) {
+  const { body, headers } = splitAuth(payload)
   const res = await fetch('/api/criativos-public', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ action, ...payload }),
+    headers,
+    body: JSON.stringify({ action, ...body }),
     signal,
   })
   const ct = res.headers.get('content-type') || ''

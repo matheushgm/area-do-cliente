@@ -8,6 +8,7 @@ import {
   Lock, Loader2, AlertTriangle, Eye, EyeOff, LogOut, Menu, X, Sun, Moon,
   ClipboardList, Compass, Package, Users, Zap, BarChart3, CalendarDays, Megaphone,
   LayoutTemplate, Search, FlaskConical, Map, Activity, Star, NotebookPen, Link2, Paperclip,
+  CheckSquare, Sparkles,
 } from 'lucide-react'
 import { useTheme } from '../hooks/useTheme'
 import {
@@ -20,6 +21,7 @@ const ICONS = {
   roi: BarChart3, campaign: CalendarDays, debriefing: Megaphone, lpcentral: LayoutTemplate,
   landingpage: LayoutTemplate, googleads: Search, metalab: FlaskConical, estrategiav2: Map,
   resultados: Activity, nps: Star, atas: NotebookPen, links: Link2, anexos: Paperclip,
+  aprovacao: CheckSquare, criativos: Sparkles,
 }
 
 function Shell({ children }) {
@@ -196,7 +198,7 @@ export default function Portal() {
           <img src="/logo-revenue-azul-2024.png" alt="Revenue Lab" className="h-7 w-auto object-contain" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-rl-text truncate">{data.company}</p>
-            <p className="text-[11px] text-rl-muted truncate">Portal · {data.label} · somente leitura</p>
+            <p className="text-[11px] text-rl-muted truncate">Portal · {data.label}</p>
           </div>
           <button onClick={toggleTheme} className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface" title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}>
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -227,7 +229,7 @@ export default function Portal() {
 
         <main className="flex-1 min-w-0">
           {current
-            ? <PortalModule key={current.id} moduleId={current.id} label={current.label} data={data.modules?.[current.id]} project={data.project} projectId={projectId} token={token} />
+            ? <PortalModule key={current.id} moduleId={current.id} label={current.label} data={data.modules?.[current.id]} project={data.project} projectId={projectId} token={token} level={data.permissions?.[current.id]} />
             : (
               <div className="glass-card p-8 text-center text-sm text-rl-muted">Nenhum módulo liberado para esta chave.</div>
             )}
