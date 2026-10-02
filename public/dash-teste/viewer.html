@@ -4,6 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dashboard API — Tráfego (replica)</title>
+<script>
+  // Tema: o viewer é servido da mesma origem do app, então lê a preferência
+  // direto do localStorage e espelha no próprio <html>. Antes do CSS, para não
+  // pintar claro e trocar depois (FOUC). O evento `storage` dispara nos OUTROS
+  // documentos da origem — é o que faz o iframe acompanhar o toggle do app ao vivo.
+  (function () {
+    function aplicar() {
+      try {
+        var t = localStorage.getItem('rl_theme')
+        var escuro = t === 'dark' ||
+          (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.toggle('dark', escuro)
+      } catch (e) { /* storage bloqueado: segue no claro */ }
+    }
+    aplicar()
+    window.addEventListener('storage', function (e) {
+      if (!e.key || e.key === 'rl_theme') aplicar()
+    })
+  })()
+</script>
 <link rel="stylesheet" href="./vendor/dashboard.css">
 <!-- Novo visual: tema "Fynix" (recolorido no azul Revenue Lab) escopado por classe.
      Desde 2026-09-19 entra na página de TODAS as contas (bloco "Novo visual" no

@@ -32,28 +32,35 @@
     color-scheme: light;
   }
 
-  /* ── Design tokens — tema ESCURO ───────────────────────────────── */
+  /* ── Design tokens — tema ESCURO ─────────────────────────────────
+     Escuro ÚNICO do produto: vale para o app, para as telas `fx` e para o
+     Dashboard de Tráfego (public/dash-teste/). Antes havia dois — cinza neutro
+     aqui e azulado no `fx` —, e a diferença aparecia ao navegar entre telas.
+     Os neutros têm leve tom azulado de propósito: é o navy do Fynix levado
+     para o escuro; cinza puro faz a marca sumir.
+     Mexeu aqui? Replique em `.dark` do dashboard.css e em
+     `html.dark body.th-fynix` do theme-fynix.css. */
   .dark {
-    --rl-bg:        11  11  11;   /* #0B0B0B cinza neutro quase preto */
-    --rl-surface:   19  19  19;   /* #131313 */
-    --rl-card:      27  27  27;   /* #1B1B1B */
-    --rl-border:    44  44  44;   /* #2C2C2C */
-    --rl-purple:    79 134 232;   /* #4F86E8 azul mais claro p/ contraste */
-    --rl-blue:      91 141 239;   /* #5B8DEF */
-    --rl-cyan:      56 169 228;   /* #38A9E4 */
+    --rl-bg:        13  17  23;   /* #0D1117 */
+    --rl-surface:   20  26  35;   /* #141A23 */
+    --rl-card:      26  33  44;   /* #1A212C */
+    --rl-border:    42  51  64;   /* #2A3340 */
+    --rl-purple:    91 141 239;   /* #5B8DEF azul de ação clareado p/ contraste */
+    --rl-blue:     123 167 245;   /* #7BA7F5 */
+    --rl-cyan:      79 163 227;   /* #4FA3E3 */
     --rl-gold:     240 166  65;   /* #F0A641 */
-    --rl-green:     43 185 138;   /* #2BB98A */
+    --rl-green:     60 194 122;   /* #3CC27A */
     --rl-red:      242  88  95;   /* #F2585F */
-    --rl-text:     237 237 237;   /* #EDEDED */
-    --rl-subtle:   174 174 174;   /* #AEAEAE */
-    --rl-muted:    120 120 120;   /* #787878 */
+    --rl-text:     230 234 242;   /* #E6EAF2 */
+    --rl-subtle:   174 184 204;   /* #AEB8CC */
+    --rl-muted:    132 142 161;   /* #848EA1 — 4.9:1 no card, acima do AA */
 
-    --rl-grad-from: 11  11  11;   /* #0B0B0B */
-    --rl-grad-to:    7   7   7;   /* #070707 */
+    --rl-grad-from: 13  17  23;   /* #0D1117 */
+    --rl-grad-to:   10  13  18;   /* #0A0D12 */
 
-    --rl-scroll-track: 19  19  19;
-    --rl-canvas:       15  15  15;
-    --rl-canvas-dot:   44  44  44;
+    --rl-scroll-track: 20  26  35;
+    --rl-canvas:       16  21  28;
+    --rl-canvas-dot:   42  51  64;
 
     color-scheme: dark;
   }
@@ -319,7 +326,20 @@
    fundo cinza-claro, cards brancos raio 16, azul da marca como destaque, navy
    nos títulos, Urbanist. Escopado em `.fx`: redefine os tokens rl-* do Tailwind
    (sempre claro, como o dashboard) e ajusta as classes base de card/botão. */
-.fx, .dark .fx {
+/* `.fx` aplica tipografia e cor base nos DOIS temas. */
+.fx {
+  font-family: 'Urbanist', 'Inter', system-ui, -apple-system, sans-serif;
+  color: rgb(var(--rl-text));
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Paleta Fynix CLARA. Escopada em `html:not(.dark)` de propósito: no escuro os
+   tokens vêm do `.dark` (escuro único do produto) e não há nada a redefinir —
+   é isso que mantém um escuro só em todo o app.
+   Cuidado: se estes tokens voltarem para o `.fx` sem o `:not(.dark)`, eles
+   vencem o `.dark` por serem mais específicos no elemento e as telas `fx`
+   voltam a ficar claras no tema escuro. */
+html:not(.dark) .fx {
   --rl-bg:       242 243 244;   /* #F2F3F4 */
   --rl-surface:  247 248 249;   /* #F7F8F9 */
   --rl-card:     255 255 255;
@@ -336,23 +356,41 @@
   --rl-grad-from: 242 243 244;
   --rl-grad-to:   242 243 244;
   --fx-shadow: 0 1px 2px rgba(2,0,39,.04), 0 10px 28px rgba(2,0,39,.05);
+  /* Valores que antes estavam cravados nas regras abaixo. */
+  --fx-primary-hover: #123C86;
+  --fx-border-strong: #D9DDE0;
+  --fx-soft-bg:  #E5EDFB;
+  --fx-soft-fg:  #154490;
+  --fx-hero-bg:  #154490;
+  --fx-pos-bg: #EAF8DF;  --fx-pos-fg: #2E8B3D;
+  --fx-neg-bg: #FDECEC;  --fx-neg-fg: #D64545;
   color-scheme: light;
-  font-family: 'Urbanist', 'Inter', system-ui, -apple-system, sans-serif;
-  color: rgb(var(--rl-text));
-  -webkit-font-smoothing: antialiased;
 }
+
+/* No escuro o `fx` herda a paleta do `.dark`; aqui fica só o que é do Fynix. */
+.dark .fx {
+  --fx-shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 28px rgba(0,0,0,.45);
+  --fx-primary-hover: rgb(var(--rl-blue));
+  --fx-border-strong: #3A4556;
+  --fx-soft-bg: rgb(var(--rl-purple) / .16);
+  --fx-soft-fg: rgb(var(--rl-blue));
+  --fx-hero-bg: #1D5BBF;        /* o #154490 do claro some sobre #0D1117 */
+  --fx-pos-bg: rgb(var(--rl-green) / .16);  --fx-pos-fg: rgb(var(--rl-green));
+  --fx-neg-bg: rgb(var(--rl-red) / .16);    --fx-neg-fg: rgb(var(--rl-red));
+}
+
 .fx .glass-card { border-radius: 16px; box-shadow: var(--fx-shadow); background: rgb(var(--rl-card)); border-color: rgb(var(--rl-border)); }
 .fx .btn-primary { background: rgb(var(--rl-purple)); border-radius: 10px; box-shadow: 0 1px 2px rgba(2,0,39,.06); transform: none; }
-.fx .btn-primary:hover { background: #123C86; opacity: 1; transform: none; }
-.fx .btn-secondary { background: #fff; border-radius: 10px; color: rgb(var(--rl-text)); font-weight: 600; box-shadow: 0 1px 2px rgba(2,0,39,.04); }
-.fx .btn-secondary:hover { background: rgb(var(--rl-surface)); border-color: #D9DDE0; }
-.fx .input-field { border-radius: 10px; background: #fff; }
+.fx .btn-primary:hover { background: var(--fx-primary-hover, #123C86); opacity: 1; transform: none; }
+.fx .btn-secondary { background: rgb(var(--rl-card)); border-radius: 10px; color: rgb(var(--rl-text)); font-weight: 600; box-shadow: 0 1px 2px rgba(2,0,39,.04); }
+.fx .btn-secondary:hover { background: rgb(var(--rl-surface)); border-color: var(--fx-border-strong, #D9DDE0); }
+.fx .input-field { border-radius: 10px; background: rgb(var(--rl-card)); }
 .fx h1, .fx h2, .fx h3 { color: rgb(var(--rl-text)); letter-spacing: -.01em; }
 .fx .tabular-nums, .fx table { font-variant-numeric: tabular-nums; }
-.fx ::selection { background: #E5EDFB; }
+.fx ::selection { background: var(--fx-soft-bg, #E5EDFB); color: var(--fx-soft-fg, #154490); }
 /* Hero azul do cartão do cliente (o "Total Balance" da referência) */
-.fx-hero { position: relative; overflow: hidden; background: #154490; color: #fff; isolation: isolate; }
+.fx-hero { position: relative; overflow: hidden; background: var(--fx-hero-bg, #154490); color: #fff; isolation: isolate; }
 .fx-hero::before, .fx-hero::after { content: ''; position: absolute; border-radius: 50%; pointer-events: none; z-index: -1; }
 .fx-hero::before { width: 200px; height: 200px; right: -60px; top: -100px; border: 28px solid rgba(255,255,255,.18); box-shadow: inset 0 0 0 12px rgba(255,255,255,.05); }
 .fx-hero::after { width: 150px; height: 150px; right: 70px; bottom: -100px; border: 22px solid rgba(255,255,255,.14); }
-.fx-soft { background: #E5EDFB; color: #154490; }
+.fx-soft { background: var(--fx-soft-bg, #E5EDFB); color: var(--fx-soft-fg, #154490); }

@@ -13,7 +13,7 @@ const fmtData = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '')
 function Variacao({ v, invertido = false }) {
   if (v == null) return <span className="text-[11px] text-rl-muted">sem base</span>
   const bom = invertido ? v <= 0 : v >= 0
-  const cls = Math.abs(v) < 1 ? 'bg-rl-surface text-rl-muted' : bom ? 'bg-[#EAF8DF] text-[#2E8B3D]' : 'bg-[#FDECEC] text-[#D64545]'
+  const cls = Math.abs(v) < 1 ? 'bg-rl-surface text-rl-muted' : bom ? 'bg-[var(--fx-pos-bg)] text-[var(--fx-pos-fg)]' : 'bg-[var(--fx-neg-bg)] text-[var(--fx-neg-fg)]'
   return <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${cls}`}>{v >= 0 ? '+' : ''}{Math.round(v)}%</span>
 }
 
@@ -150,7 +150,7 @@ export default function ResumoHub({ dash, timeline, sugestoesPendentes, onAbrirS
                   <ul className="space-y-1.5">
                     {alteracoes[ch].map((a, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-rl-text">
-                        <span className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${a.tipo === 'nova' ? 'bg-[#2E8B3D]' : a.tipo === 'parou' ? 'bg-[#D64545]' : 'bg-rl-purple'}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${a.tipo === 'nova' ? 'bg-[var(--fx-pos-fg)]' : a.tipo === 'parou' ? 'bg-[var(--fx-neg-fg)]' : 'bg-rl-purple'}`} />
                         <span>{a.texto}</span>
                       </li>
                     ))}
