@@ -124,7 +124,7 @@ export default function Chat() {
         {/* Coluna de canais */}
         <aside className={`${listaAberta ? 'flex' : 'hidden'} md:flex w-full md:w-[260px] shrink-0 flex-col border-r border-ln-border bg-ln-panel/60 min-h-0`}>
           <div className="lg:hidden h-11 px-2 flex items-center border-b border-ln-border">
-            <button onClick={() => openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn"><Menu className="w-4 h-4" /></button>
+            <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn"><Menu className="w-4 h-4" /></button>
             <span className="ml-1 text-[13px] font-semibold">Área do Cliente</span>
           </div>
           {chat.carregando ? (
@@ -156,7 +156,7 @@ export default function Chat() {
               {/* Cabeçalho do canal */}
               <header className="h-11 px-3 flex items-center gap-1.5 border-b border-ln-border shrink-0">
                 <button onClick={() => setListaAberta(true)} className="ln-iconbtn md:hidden" aria-label="Voltar para a lista"><ArrowLeft className="w-4 h-4" /></button>
-                <button onClick={() => openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn hidden md:inline-flex lg:hidden"><PanelLeft className="w-4 h-4" /></button>
+                <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn hidden md:inline-flex lg:hidden"><PanelLeft className="w-4 h-4" /></button>
                 {canalAtivo.type === 'dm'
                   ? <ChatAvatar pessoa={canalAtivo.dmCom} nome={canalAtivo.nome} size={20} />
                   : canalAtivo.visibility === 'private' ? <Lock className="w-4 h-4 text-ln-t3" /> : <Hash className="w-4 h-4 text-ln-t3" />}

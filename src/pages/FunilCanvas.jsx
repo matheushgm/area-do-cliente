@@ -1747,7 +1747,7 @@ export default function FunilCanvas() {
 
         {/* Mobile top bar */}
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl shrink-0">
-          <button onClick={() => openSidebar} className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+          <button onClick={openSidebar} className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">

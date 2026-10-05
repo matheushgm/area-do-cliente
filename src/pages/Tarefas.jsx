@@ -366,7 +366,7 @@ export default function Tarefas() {
             <div className="flex-1 min-w-0 flex flex-col">
               <header className="h-11 shrink-0 flex items-center justify-between gap-3 px-3 border-b border-ln-ink/5">
                 <div className="flex items-center gap-1 min-w-0">
-                  <button onClick={() => openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
+                  <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
                   <button onClick={() => setArvoreAberta(true)} aria-label="Abrir pastas" className="ln-iconbtn md:hidden"><PanelLeft className="w-4 h-4" /></button>
                   <div className="flex items-center gap-2 h-7 px-2.5 rounded-lg text-xs font-medium text-ln-t2 min-w-0">
                     <CheckSquare className="w-3.5 h-3.5 text-ln-accent shrink-0" />
