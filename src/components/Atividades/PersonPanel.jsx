@@ -31,14 +31,17 @@ export const ABAS = [
 ]
 const ABA_PADRAO = 'fila'
 
-// Períodos da aba Concluídas (dias contados a partir de hoje, inclusive)
+// Períodos da aba Concluídas. `dias` = janela que termina hoje (inclusive);
+// 'ontem' é o dia anterior sozinho, para ver só o que fechou no dia passado.
 const PERIODOS_CONCLUIDAS = [
   { id: 'hoje',   label: 'Hoje',    dias: 1 },
+  { id: 'ontem',  label: 'Ontem' },
   { id: '7dias',  label: '7 dias',  dias: 7 },
   { id: '30dias', label: '30 dias', dias: 30 },
 ]
 function intervaloConcluidas(periodo, hoje) {
-  const def = PERIODOS_CONCLUIDAS.find((p) => p.id === periodo) || PERIODOS_CONCLUIDAS[1]
+  if (periodo === 'ontem') { const o = addDias(hoje, -1); return { desde: o, ate: o } }
+  const def = PERIODOS_CONCLUIDAS.find((p) => p.id === periodo && p.dias) || PERIODOS_CONCLUIDAS[2]
   return { desde: addDias(hoje, -(def.dias - 1)), ate: hoje }
 }
 
