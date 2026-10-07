@@ -8,6 +8,8 @@ import { getUser, sb } from './_http.js'
 //   action=sugerir   → lê as tarefas abertas dos responsáveis no ClickUp e
 //                      devolve a agenda projetada + data de entrega sugerida
 //   action=listas    → listas (com status) da pasta ClickUp do cliente
+//   action=tipar     → grava o "Tipo de tarefa" numa tarefa do ClickUp e, com
+//                      ele, a estimativa em horas que o tipo define
 //   action=estimar   → grava a estimativa (horas) numa tarefa do ClickUp e
 //                      invalida o cache da pessoa
 //   action=concluidas → tarefas CONCLUÍDAS no workspace entre duas datas
@@ -249,6 +251,39 @@ async function actionEstimar(body, ctx) {
   return { data: { ok: true, taskId, horas, time_estimate: task?.time_estimate ?? null } }
 }
 
+/**
+ * Define o "Tipo de tarefa" (dropdown do ClickUp) de uma tarefa existente. O
+ * tipo é quem define o tempo: as horas configuradas para ele viram a
+ * estimativa nativa da tarefa (a não ser que o cliente mande aplicarHoras=false).
+ */
+async function actionTipar(body, ctx) {
+  const taskId = String(body.taskId || '').trim()
+  const tipo = String(body.tipo || '').trim()
+  if (!/^[a-z0-9]+$/i.test(taskId)) return { status: 400, error: 'taskId inválido.' }
+  if (!tipo) return { status: 400, error: 'Tipo de tarefa é obrigatório.' }
+
+  // A própria tarefa traz os campos acessíveis com as opções ao vivo
+  const task = await clickup('GET', `/task/${taskId}`, ctx.token)
+  const opt = optionId(task?.custom_fields || [], CF.tipoTarefa, tipo)
+  if (!opt) return { status: 400, error: `A opção "${tipo}" não existe no campo Tipo de tarefa desta lista do ClickUp.` }
+  await clickup('POST', `/task/${taskId}/field/${CF.tipoTarefa}`, ctx.token, { value: opt })
+
+  const cfg = await carregarConfig()
+  const key = Object.keys(cfg.horas_por_tipo || {}).find((k) => norm(k) === norm(tipo))
+  const horas = key ? Number(cfg.horas_por_tipo[key]) : null
+  let time_estimate = task?.time_estimate ?? null
+  if (horas > 0 && body.aplicarHoras !== false) {
+    const t2 = await clickup('PUT', `/task/${taskId}`, ctx.token, { time_estimate: Math.round(horas * 3600000) })
+    time_estimate = t2?.time_estimate ?? null
+  }
+
+  const assignees = (task?.assignees || []).map((a) => Number(a.id)).filter(Boolean)
+  for (const id of assignees) cache.delete(`tasks:${id}`)
+  const extra = Number(body.assigneeClickupId)
+  if (extra > 0) cache.delete(`tasks:${extra}`)
+  return { data: { ok: true, taskId, tipo: key || tipo, horas, time_estimate } }
+}
+
 async function actionListas(body, ctx) {
   const folderId = String(body.folderId || '').trim()
   if (!folderId) return { status: 400, error: 'folderId é obrigatório.' }
@@ -442,6 +477,7 @@ export default async function handler(req, res) {
     else if (action === 'listas') out = await actionListas(body, ctx)
     else if (action === 'concluidas') out = await actionConcluidas(body, ctx)
     else if (action === 'estimar') out = await actionEstimar(body, ctx)
+    else if (action === 'tipar') out = await actionTipar(body, ctx)
     else if (action === 'criar') out = await actionCriar(body, ctx)
     else return res.status(400).json({ error: { message: 'Ação não suportada.' } })
 

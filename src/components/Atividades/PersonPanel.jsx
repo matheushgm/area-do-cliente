@@ -12,6 +12,7 @@ import {
 } from '../../lib/atividadesCarga'
 import { addDias, rotuloDia } from '../../lib/atividadesConcluidas'
 import { useConcluidas } from '../../hooks/useConcluidas'
+import { TIPOS_TAREFA } from '../../hooks/usePlanejador'
 
 const FOCO = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ln-t2'
 
@@ -495,6 +496,70 @@ function HorasEditaveis({ tarefa, estimada, onEstimar }) {
   )
 }
 
+// Tipo de tarefa (dropdown do ClickUp) com edição inline: é o tipo que define
+// as horas da tarefa. Trocar o tipo grava o campo no ClickUp (via onTipar) e as
+// horas configuradas para ele viram a estimativa da tarefa.
+function TipoEditavel({ tarefa, onTipar }) {
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState(null)
+  const [local, setLocal] = useState(null) // valor recém-salvo, até a agenda recarregar
+  useEffect(() => { setLocal(null) }, [tarefa.tipoTarefa])
+
+  const tipo = local ?? tarefa.tipoTarefa ?? ''
+  const tipoAtual = tipo ? String(tipo).trim() : ''
+  const podeEditar = typeof onTipar === 'function' && !!tarefa.id
+  const opcoes = tipoAtual && !TIPOS_TAREFA.some((t) => t === tipoAtual) ? [tipoAtual, ...TIPOS_TAREFA] : TIPOS_TAREFA
+
+  async function mudar(e) {
+    const novo = e.target.value
+    if (!novo || novo === tipoAtual) return
+    setSalvando(true)
+    setErro(null)
+    try {
+      await onTipar(tarefa, novo)
+      setLocal(novo)
+    } catch (err) {
+      setErro(err?.message || 'Não salvou')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const titulo = erro
+    ? `Erro ao salvar o tipo: ${erro}. Escolha de novo para tentar outra vez`
+    : tipoAtual
+      ? `Tipo de tarefa: ${tipoAtual}${podeEditar ? '. Trocar o tipo redefine as horas da tarefa' : ''}`
+      : (podeEditar ? 'Sem tipo de tarefa no ClickUp. Escolha um: o tipo define as horas da tarefa' : 'Sem tipo de tarefa no ClickUp')
+
+  if (!podeEditar) {
+    return tipoAtual
+      ? <span className="shrink-0 max-w-[88px] truncate h-5 px-1.5 rounded-full bg-ln-ink/[0.05] text-[11px] leading-5 text-ln-t3" title={titulo}>{tipoAtual}</span>
+      : <span className="shrink-0 w-10" aria-hidden="true" />
+  }
+  return (
+    <span
+      className={`relative shrink-0 inline-flex items-center h-5 max-w-[88px] rounded-full text-[11px] leading-5 transition-colors duration-150 ${erro ? 'ring-1 ring-ln-red/50 text-ln-red' : tipoAtual ? 'bg-ln-ink/[0.05] text-ln-t3 hover:bg-ln-ink/10' : 'ring-1 ring-dashed ring-ln-line text-ln-t4 hover:text-ln-t2 hover:ring-ln-t4'}`}
+      title={titulo}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <span className="px-1.5 truncate inline-flex items-center gap-1">
+        {salvando && <Loader2 className="w-3 h-3 animate-spin text-ln-t3 shrink-0" aria-hidden="true" />}
+        {tipoAtual || '+ tipo'}
+      </span>
+      <select
+        value={tipoAtual}
+        onChange={mudar}
+        disabled={salvando}
+        aria-label={`Tipo de tarefa de ${tarefa.nome || 'tarefa'}`}
+        className={`absolute inset-0 w-full h-full opacity-0 cursor-pointer ${FOCO}`}
+      >
+        <option value="" disabled>{tipoAtual ? 'Trocar o tipo' : 'Escolher o tipo'}</option>
+        {opcoes.map((t) => <option key={t} value={t}>{t}</option>)}
+      </select>
+    </span>
+  )
+}
+
 /** Há quantos dias a tarefa está aberta no ClickUp (sinal de tarefa envelhecendo). */
 function IdadeTarefa({ tarefa }) {
   const dias = Number(tarefa.diasAberta)
@@ -509,7 +574,7 @@ function IdadeTarefa({ tarefa }) {
   )
 }
 
-function TarefaRow({ tarefa, aba, diaSelecionado, onEstimar }) {
+function TarefaRow({ tarefa, aba, diaSelecionado, onEstimar, onTipar }) {
   const zumbi = aba === 'zumbis'
   const atrasada = zumbi || !!tarefa.atrasada
   let dia = ''
@@ -552,6 +617,7 @@ function TarefaRow({ tarefa, aba, diaSelecionado, onEstimar }) {
       >
         {tarefa.pasta || <span className="text-ln-t4">sem cliente</span>}
       </span>
+      <TipoEditavel tarefa={tarefa} onTipar={onTipar} />
       <HorasEditaveis tarefa={tarefa} estimada={estimada} onEstimar={onEstimar} />
       {tarefa.status && (
         <span className="shrink-0 max-w-[96px] truncate h-5 px-1.5 rounded-full ring-1 ring-ln-line text-[11px] leading-5 text-ln-t3" title={tarefa.status}>
@@ -726,7 +792,7 @@ function GrupoPrioridade({ grupo, recolhido, onToggle, children }) {
   )
 }
 
-function ListaTarefas({ pessoa, aba, onAba, diaSelecionado, prefixo, onEstimar, diaFiltro = null, onLimparDia }) {
+function ListaTarefas({ pessoa, aba, onAba, diaSelecionado, prefixo, onEstimar, onTipar, diaFiltro = null, onLimparDia }) {
   const [recolhidos, setRecolhidos] = useState({})
   // Concluídas: lê o ClickUp só quando a aba está aberta; o período é da pessoa
   const [periodoConcl, setPeriodoConcl] = useState('7dias')
@@ -778,14 +844,14 @@ function ListaTarefas({ pessoa, aba, onAba, diaSelecionado, prefixo, onEstimar, 
         ) : (
           agruparPorPrioridade(itens).map((g) => (
             <GrupoPrioridade key={g.id} grupo={g} recolhido={!!recolhidos[g.id]} onToggle={() => setRecolhidos((r) => ({ ...r, [g.id]: !r[g.id] }))}>
-              {g.itens.map((t, i) => <TarefaRow key={t.id || i} tarefa={t} aba={aba} diaSelecionado={diaSelecionado} onEstimar={onEstimar} />)}
+              {g.itens.map((t, i) => <TarefaRow key={t.id || i} tarefa={t} aba={aba} diaSelecionado={diaSelecionado} onEstimar={onEstimar} onTipar={onTipar} />)}
             </GrupoPrioridade>
           ))
         )}
       </div>
       {temEstimadas && (
         <p className="mt-1.5 text-[11px] text-ln-t4">
-          * horas estimadas pelo tipo ou pela dificuldade: a tarefa não tem estimativa no ClickUp.{onEstimar ? ' Clique nas horas para preencher.' : ''}
+          * horas estimadas pelo tipo ou pela dificuldade: a tarefa não tem estimativa no ClickUp.{onTipar ? ' Escolha o tipo da tarefa para o tempo dela seguir o padrão do tipo' : ''}{onEstimar ? `${onTipar ? ', ou' : ' Ou'} clique nas horas para preencher.` : '.'}
         </p>
       )}
     </section>
@@ -860,8 +926,9 @@ function SemClickup({ pessoa }) {
  * @param {Function} [p.onNovaAtividade] (pessoa) => void
  * @param {Function} [p.onRecarregar]    (pessoa) => void
  * @param {Function} [p.onEstimar]       (pessoa, tarefa, horas) => Promise  grava a estimativa no ClickUp
+ * @param {Function} [p.onTipar]         (pessoa, tarefa, tipo) => Promise   grava o tipo de tarefa (e as horas dele) no ClickUp
  */
-export default function PersonPanel({ pessoa, hoje, diaSelecionado = null, abaInicial = ABA_PADRAO, onNovaAtividade, onRecarregar, onEstimar, fimExpediente = 18 }) {
+export default function PersonPanel({ pessoa, hoje, diaSelecionado = null, abaInicial = ABA_PADRAO, onNovaAtividade, onRecarregar, onEstimar, onTipar, fimExpediente = 18 }) {
   // Dia escolhido no gráfico desta pessoa: filtra a lista de tarefas. Começa
   // com o dia selecionado na linha de calor do time (se houver) e reseta ao
   // trocar de pessoa.
@@ -926,7 +993,7 @@ export default function PersonPanel({ pessoa, hoje, diaSelecionado = null, abaIn
 
                 <Distribuicao porPasta={pessoa.porPasta || []} />
 
-                <ListaTarefas pessoa={pessoa} aba={aba} onAba={setAba} diaSelecionado={diaAtivo} diaFiltro={diaAtivo} onLimparDia={() => setDiaFiltro(null)} prefixo={prefixo} onEstimar={onEstimar ? (tarefa, horas) => onEstimar(pessoa, tarefa, horas) : null} />
+                <ListaTarefas pessoa={pessoa} aba={aba} onAba={setAba} diaSelecionado={diaAtivo} diaFiltro={diaAtivo} onLimparDia={() => setDiaFiltro(null)} prefixo={prefixo} onEstimar={onEstimar ? (tarefa, horas) => onEstimar(pessoa, tarefa, horas) : null} onTipar={onTipar ? (tarefa, tipo) => onTipar(pessoa, tarefa, tipo) : null} />
               </>
             )}
           </>

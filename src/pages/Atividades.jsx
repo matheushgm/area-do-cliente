@@ -16,7 +16,7 @@ import { useApp } from '../context/AppContext'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
 import { supabase } from '../lib/supabase'
-import { carregarConfigAtividades, estimarTarefa } from '../lib/atividades'
+import { carregarConfigAtividades, estimarTarefa, tiparTarefa } from '../lib/atividades'
 import { useCargaTime } from '../hooks/useCargaTime'
 import { usePlanejador } from '../hooks/usePlanejador'
 import { useConcluidas } from '../hooks/useConcluidas'
@@ -225,6 +225,15 @@ export default function Atividades() {
     await estimarTarefa({ taskId: tarefa.id, horas, assigneeClickupId: pessoa?.clickupId || null })
     showToast(`Estimativa de ${tarefa.nome?.slice(0, 40) || 'tarefa'} salva no ClickUp`)
     if (pessoa?.clickupId) refreshCarga([pessoa.clickupId])
+  }, [refreshCarga, showToast])
+
+  // Tipo de tarefa inline: grava o campo no ClickUp (e as horas do tipo) e relê a agenda
+  const tipar = useCallback(async (pessoa, tarefa, tipo) => {
+    const r = await tiparTarefa({ taskId: tarefa.id, tipo, assigneeClickupId: pessoa?.clickupId || null })
+    const h = Number(r?.horas)
+    showToast(`${tarefa.nome?.slice(0, 40) || 'Tarefa'}: tipo "${r?.tipo || tipo}"${h > 0 ? ` (${h < 1 ? `${Math.round(h * 60)} min` : `${String(h).replace('.', ',')}h`})` : ''} salvo no ClickUp`)
+    if (pessoa?.clickupId) refreshCarga([pessoa.clickupId])
+    return r
   }, [refreshCarga, showToast])
 
   // atalhos: C nova atividade, Esc fecha painel, setas no contador
@@ -464,6 +473,7 @@ export default function Atividades() {
                         onNovaAtividade={(p) => novaAtividade(p)}
                         onRecarregar={recarregarPessoa}
                         onEstimar={estimar}
+                        onTipar={tipar}
                         fimExpediente={Number(config.fim_expediente_hora) || 18}
                       />
                     )}

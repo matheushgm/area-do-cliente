@@ -208,7 +208,7 @@ export default function NovaAtividadePanel({ pl, responsavelInicial = null, onCa
             </Seletor>
           </Campo>
 
-          <Campo id={id('horas')} label="Horas estimadas">
+          <Campo id={id('horas')} label="Horas estimadas" hint={form.tipo && pl.config?.horas_por_tipo?.[form.tipo] != null && String(pl.config.horas_por_tipo[form.tipo]) === String(form.horas) ? 'padrão do tipo' : null}>
             <input
               id={id('horas')}
               type="number"

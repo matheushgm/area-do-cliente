@@ -23,29 +23,32 @@ export const DEFAULT_CONFIG = {
   capacidade_por_pessoa: {},
   // Task sem estimativa, sem tipo e sem dificuldade
   horas_padrao_sem_estimativa: 1,
-  // Horas por "Tipo de tarefa" (campo do ClickUp) quando não há estimativa
+  // Horas por "Tipo de tarefa" (campo do ClickUp) quando não há estimativa.
+  // Calibrado em 2026-10-07 com as estimativas que o próprio time colocou
+  // nas tarefas concluídas dos últimos 6 meses no ClickUp (mediana por tipo;
+  // só tipos com 3+ tarefas estimadas). Os demais seguem com valor de bolso.
   horas_por_tipo: {
-    'Criação de Arte Estática': 2,
-    'Criação de Landing Page': 6,
-    'Relatório': 1.5,
-    'Edição de vídeo': 3,
-    'Integração': 3,
-    'Copy de anúncio': 1,
-    'Copy de Landing Page': 3,
-    'Estratégia': 3,
-    'Traqueamento': 2,
-    'Reunião': 1,
-    'Preenchimento de resultado': 0.5,
-    'Otimização': 1,
-    'Subir Criativo': 0.5,
-    'Criar Campanha': 2,
-    'Gravação de vídeo': 3,
-    'Fotografia': 3,
-    'Edição de fotografia': 2,
-    'Mídia Offline': 3,
-    'Motion design': 4,
-    'Projeto de identidade visual': 8,
-    'Branding (estratégia)': 4,
+    'Criação de Arte Estática': 0.5,    // 14 tarefas, mediana 0,5h
+    'Criação de Landing Page': 1,       // 6 tarefas, mediana 1h
+    'Relatório': 0.5,                   // 50 tarefas, mediana 0,5h
+    'Edição de vídeo': 1.5,             // 13 tarefas, mediana 1,5h (varia de 0,5h a 4h)
+    'Integração': 3,                    // sem amostra: valor de bolso
+    'Copy de anúncio': 0.5,             // 3 tarefas, mediana 0,5h
+    'Copy de Landing Page': 3,          // sem amostra: valor de bolso
+    'Estratégia': 2.5,                  // 16 tarefas, mediana 2,5h
+    'Traqueamento': 0.67,               // 10 tarefas, mediana 40 min
+    'Reunião': 1,                       // 82 tarefas, mediana 1h
+    'Preenchimento de resultado': 0.5,  // 40 tarefas, mediana 0,5h
+    'Otimização': 0.5,                  // 70 tarefas, mediana 0,5h
+    'Subir Criativo': 0.33,             // 17 tarefas, mediana 20 min
+    'Criar Campanha': 2,                // sem amostra: valor de bolso
+    'Gravação de vídeo': 3,             // 1 tarefa (4h): amostra pequena, mantido
+    'Fotografia': 3,                    // 1 tarefa (0,5h): amostra pequena, mantido
+    'Edição de fotografia': 2,          // sem amostra: valor de bolso
+    'Mídia Offline': 3,                 // 1 tarefa (0,5h): amostra pequena, mantido
+    'Motion design': 4,                 // sem amostra: valor de bolso
+    'Projeto de identidade visual': 8,  // 1 tarefa (0,5h): amostra pequena, mantido
+    'Branding (estratégia)': 4,         // sem amostra: valor de bolso
   },
   // Horas por "Dificuldade" quando não há estimativa nem tipo
   horas_por_dificuldade: { Complexa: 4, Regular: 2, Baixa: 1 },
@@ -226,6 +229,7 @@ export function classificarTarefas(tasks, config = DEFAULT_CONFIG, hoje = hojeIS
       lista: t.list?.name || null,
       pasta: t.folder?.name || null,
       prioridade: t.priority?.priority || null,
+      tipoTarefa: customFieldValue(t, CF_TIPO_TAREFA),
       horas,
       origem,
       criadaEm: criadaISO,

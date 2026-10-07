@@ -472,7 +472,18 @@ views com filter tabs, listas densas de 13px, painel lateral de 480px e painel f
   tarefa nova, até 12 ids por chamada, `refresh` ignora o cache de 5 min), `sugerir`, `listas`,
   `criar` (assignee, `due_date`, `start_date`, `time_estimate`, prioridade, campos Cliente /
   Tipo / Departamento / Dificuldade resolvidos ao vivo; `OAUTH_023` cria sem responsável e
-  devolve `aviso`). `envClean()` limpa a quebra de linha colada nas `CLICKUP_*` da Vercel.
+  devolve `aviso`), `estimar` (horas → `time_estimate`) e `tipar` (grava o dropdown "Tipo de
+  tarefa" via `POST /task/{id}/field/{fieldId}` e aplica as horas do tipo como
+  `time_estimate`; é o tipo que define o tempo). `envClean()` limpa a quebra de linha colada
+  nas `CLICKUP_*` da Vercel.
+- **Tipo de tarefa no ClickUp:** o campo se chama `"Tipo de tarefa "` (com espaço no fim) e
+  duas opções também ("Otimização ", "Criar Campanha "): sempre comparar com `norm()`. Ao ler
+  a task, `value` do dropdown pode vir como `orderindex` (número), não como id da opção; o
+  `customFieldValue` do motor resolve os dois. `horas_por_tipo` do `DEFAULT_CONFIG` foi
+  calibrado em 2026-10-07 pela mediana das estimativas que o time colocou nas tarefas
+  concluídas (6 meses, tipos com 3+ amostras); quase não há tempo rastreado no ClickUp
+  (43 tasks com `time_spent` em 3.000), então calibrar por tempo real não é viável ainda.
+  No painel da pessoa, cada linha tem o seletor de tipo (`TipoEditavel`) ao lado das horas.
 - **Tabelas (migration 083):** `atividades_planejadas` (histórico + `snapshot_carga`) e
   `atividades_config` (linha `global`, editável por admin no `ConfigModal`).
 - **Local:** o `vercel dev` entrega às funções `/api/*` as variáveis do ambiente *Development*

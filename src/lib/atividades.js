@@ -43,6 +43,14 @@ export function estimarTarefa({ taskId, horas, assigneeClickupId = null }) {
   return call('estimar', { taskId, horas, assigneeClickupId })
 }
 
+/**
+ * Grava o "Tipo de tarefa" numa tarefa do ClickUp. O servidor também aplica as
+ * horas configuradas para o tipo como estimativa da tarefa.
+ */
+export function tiparTarefa({ taskId, tipo, assigneeClickupId = null }) {
+  return call('tipar', { taskId, tipo, assigneeClickupId })
+}
+
 /** Cria a tarefa aprovada no ClickUp e registra no histórico. */
 export function criarAtividade(payload) {
   return call('criar', payload)
