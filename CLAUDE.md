@@ -90,11 +90,10 @@ claro calha de ser branco mas no escuro vira a cor do card e some. `--dt-tint-08
 tinta aproxima fundo e texto, então cai de 0.08/0.10/0.12 para 0.05/0.06/0.07. São três
 tokens, um por valor original, para o claro continuar idêntico.
 
-⚠️ **Largura na página do cliente:** o layout de 3 colunas do `ClientProfile` pede ~1574px.
-Com a sidebar aberta (240px) ele só cabe a partir de ~1820px de viewport; a 1440px há
-scroll horizontal. Parte disso é anterior à sidebar (a 1440 já estourava 140px sozinho).
-Recolher a sidebar (tecla `[`, 56px) reduz o estouro de 380 para 196px. Resolver de vez
-pede subir o breakpoint `xl:flex-row` do `ClientProfile` ou deixar a 3ª coluna cair antes.
+⚠️ **Largura na página do cliente (resolvido em 2026-10-08):** o contêiner
+`max-w-[1800px]` do `ProjectDetail` é item de um flex em coluna e, sem `min-w-0 w-full`,
+crescia até a largura mínima das 3 colunas e estourava a tela. Mantenha o `min-w-0`. As
+colunas laterais do `ClientProfile` são 300/280px entre `xl` e `2xl` e 340/320px acima.
 
 #### Deep-link das seções do cliente
 
@@ -632,6 +631,35 @@ com Enter; `@` abre a lista de menções (formato salvo: `@Nome_Sobrenome`).
   quando os dois têm perfil e há mensagem). Feito em 2026-09-15 com os últimos 7 dias:
   98 canais/DMs, 834 mensagens + 218 respostas. Não há sincronização contínua do chat
   (só a importação manual).
+
+### Otimizações (`/otimizacoes`): sugestões do playbook de todos os clientes
+
+Central que junta as sugestões do playbook (mesmo motor `playbookSugestoes.js` da página
+do cliente) de **todos** os clientes, agrupadas por cliente e ordenadas pela urgência.
+Cada cartão diz a **Otimização** (ação em uma frase), o **Onde está** (Campanha → Conjunto
+→ Anúncio + `ad_id`) e o **Por quê** (contexto + evidências dos últimos 7 dias).
+
+- **Dados:** `useDashboardData({ source: 'api', dias: 20 })` (o mesmo fetch da home, que
+  agora vive no `Dashboard` e é passado por prop ao `ProjectListView` e ao
+  `OtimizacoesBanner`) + `useSugestoesGlobais(dash)`, que agrupa as linhas do dash por
+  projeto pelo vínculo conta → projeto e roda `gerarSugestoesProjeto` por projeto.
+- **Anúncio é identificado pelo `ad_id`**, nunca pelo nome: o mesmo nome ("01") existe em
+  vários conjuntos e até dentro do mesmo conjunto. Agrupar por nome soma métricas de
+  anúncios diferentes e dá veredito errado. Fallback campanha + conjunto + nome só pra
+  linha sem `ad_id`.
+- **Decisão** (migration 092): `projeto_sugestoes` aceita `aceita | recusada | descartada`,
+  com `motivo`, `canal`, `conta`, `campanha`, `conjunto`, `anuncio`, `ad_id`, `acao`,
+  `decidida_em`, `decidida_por` e a fila da automação `execucao_status`
+  (`pendente` ao aceitar na central → o robô marca `executada`/`erro` + `executada_em` +
+  `execucao_log`). `linhaDecisao()` em `useSugestoesGlobais.js` monta a linha; o hub da
+  página do cliente usa a mesma função, mas aceitar lá vira tarefa no ClickUp pra uma
+  pessoa e grava `execucao_status = null` (fora da fila do robô).
+- **Fila pra automação:** `select * from projeto_sugestoes where execucao_status = 'pendente'`
+  (índice parcial `idx_projeto_sugestoes_fila`); o `payload` tem a sugestão inteira
+  (caminho, evidências, passos, regra).
+- Recusar exige motivo. "Reabrir" apaga a decisão (volta a aparecer se a regra ainda valer);
+  não aparece em decisão já executada. Item "Otimizações" na seção Operação da sidebar e
+  atalho na home (`src/components/Dashboard/OtimizacoesBanner.jsx`).
 
 ### Página do cliente (`/cliente/:id`): hub em 3 colunas
 

@@ -17,6 +17,7 @@ const ProjectDetail = lazy(() => import('../pages/ProjectDetail'))
 // ── Operação ───────────────────────────────────────────────
 const Tarefas = lazy(() => import('../pages/Tarefas'))
 const Atividades = lazy(() => import('../pages/Atividades'))
+const Otimizacoes = lazy(() => import('../pages/Otimizacoes'))
 const Atividades15min = lazy(() => import('../pages/Atividades15min'))
 const Chat = lazy(() => import('../pages/Chat'))
 
@@ -45,6 +46,7 @@ export const appRoutes = [
     <Route key="home" path="/" element={<Dashboard />} />
 
     <Route key="tarefas" path="/tarefas" element={<Tarefas />} />
+    <Route key="otimizacoes" path="/otimizacoes" element={<Otimizacoes />} />
     <Route key="atividades" path="/atividades" element={<Atividades />} />
     <Route key="atividades-15min" path="/atividades-15min" element={<Atividades15min />} />
     <Route key="chat" path="/chat" element={<Chat />} />

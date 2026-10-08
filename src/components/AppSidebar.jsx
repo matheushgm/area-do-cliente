@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext'
 import { useTheme } from '../hooks/useTheme'
 import { canViewSquadsReport } from '../lib/utils'
 import { baseProjectsOf, sidebarCounts } from '../lib/dashboardCounts'
-import {
+import { Sparkles,
   Layers, TrendingDown, UserPlus,
   LogOut, Cloud, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare, BarChart3, DollarSign,
@@ -65,6 +65,7 @@ const NAV_SECTIONS = [
   {
     label: 'Operação',
     items: [
+      { id: 'otimizacoes', label: 'Otimizações',       Icon: Sparkles,      type: 'route', to: '/otimizacoes' },
       { id: 'planejador',  label: 'Atividades',        Icon: CalendarCheck, type: 'route', to: '/atividades' },
       { id: 'tarefas',     label: 'Tarefas',           Icon: CheckSquare,   type: 'route', to: '/tarefas' },
       { id: 'atividades',  label: 'Atividades 15min',  Icon: Timer,         type: 'route', to: '/atividades-15min' },

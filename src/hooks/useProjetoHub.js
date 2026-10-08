@@ -4,6 +4,7 @@
 // playbook. Tudo vira uma timeline única ordenada por data.
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import { linhaDecisao } from './useSugestoesGlobais'
 import { useApp } from '../context/AppContext'
 
 const iso = (d) => (d ? String(d).slice(0, 10) : null)
@@ -88,15 +89,12 @@ export function useProjetoHub(projectId) {
 
   // ── Sugestões do playbook: aceitar / descartar ────────────────────────────
   const marcarSugestao = useCallback(async (sug, status, extra = {}) => {
-    const row = {
-      project_id: projectId,
-      chave: sug.chave,
-      status,
-      titulo: sug.titulo,
-      payload: sug,
-      created_by: user?.id || null,
-      ...extra,
-    }
+    // Mesmas colunas da central /otimizacoes (canal, conta, caminho, ação),
+    // pra automação de execução enxergar as decisões vindas daqui também.
+    // Aceitar aqui vira tarefa no ClickUp pra uma pessoa executar; por isso NÃO
+    // entra na fila da automação (execucao_status fica nulo). A fila é alimentada
+    // só pela central /otimizacoes.
+    const row = linhaDecisao(sug, status, { projectId, user, extra: { execucao_status: null, ...extra } })
     const { data, error } = devFixture()
       ? { data: { id: 'dev-' + Date.now(), created_at: new Date().toISOString(), ...row }, error: null }
       : await supabase.from('projeto_sugestoes').upsert(row, { onConflict: 'project_id,chave' }).select().single()

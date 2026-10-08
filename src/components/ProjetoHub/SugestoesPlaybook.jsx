@@ -15,7 +15,7 @@ const CANAL_LABEL = { meta: 'Meta Ads', google: 'Google Ads' }
 
 // Caminho até a entidade no gerenciador: Campanha → Conjunto → Anúncio.
 // Mostra só os níveis que a regra conhece (regra de conta não tem nenhum).
-function Caminho({ caminho }) {
+export function Caminho({ caminho }) {
   if (!caminho) return null
   const niveis = [
     ['Campanha', caminho.campanha],

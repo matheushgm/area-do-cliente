@@ -22,6 +22,7 @@ import {
   NovosClientesCard, NovosClientesModal, NetMrrSection, CrescimentoHistoryModal,
 } from '../components/Dashboard/Crescimento'
 import { newStats } from '../lib/growth'
+import OtimizacoesBanner from '../components/Dashboard/OtimizacoesBanner'
 
 const CORE_STEPS = ['roi', 'strategy', 'oferta']
 function isProfileComplete(project) {
@@ -683,7 +684,7 @@ function ConvCell({ t, loading }) {
   )
 }
 
-function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }) {
+function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false, dash }) {
   const [sortBy,  setSortBy]  = useState('createdAt')
   const [sortDir, setSortDir] = useState('desc')
 
@@ -695,8 +696,8 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false }
   // Conversões 7d (Meta + Google) por projeto — fonte NOVA (dash_insights/API),
   // somando as contas vinculadas. conv = últimos 7d, prev = 7d anteriores (trend).
   // Só precisa de 14 dias fechados (7 + 7 anteriores); pede 20 de folga em vez
-  // do histórico inteiro, que estourava o tempo da função Edge.
-  const dash = useDashboardData({ source: 'api', dias: 20 })
+  // do histórico inteiro, que estourava o tempo da função Edge. O fetch vive no
+  // Dashboard (prop `dash`) porque o atalho de Otimizações usa os mesmos dados.
   const trafficByProject = useMemo(() => {
     const { raw, accounts } = dash
     const periods = {
@@ -1006,6 +1007,7 @@ export default function Dashboard() {
   } = useApp()
   const navigate = useNavigate()
   const { openSidebar } = useOutletContext()
+  const dash = useDashboardData({ source: 'api', dias: 20 })
   const [deleteTarget, setDeleteTarget] = useState(null)
   // O filtro mora na URL (`/?lista=`) para sobreviver a refresh e poder ser
   // linkado — a AppSidebar lê o mesmo parâmetro em vez de receber por prop.
@@ -1487,6 +1489,11 @@ export default function Dashboard() {
             />
           </div>
 
+          {/* Otimizações do playbook pendentes (todos os clientes) */}
+          <div className="animate-slide-up" style={{ animationDelay: '0.13s' }}>
+            <OtimizacoesBanner dash={dash} onAbrir={() => navigate('/otimizacoes')} />
+          </div>
+
           {/* Projects */}
           <div className="animate-slide-up" style={{ animationDelay: '0.15s' }}>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
@@ -1625,6 +1632,7 @@ export default function Dashboard() {
               </div>
             ) : view === 'list' ? (
               <ProjectListView
+                dash={dash}
                 projects={visibleProjects}
                 onNavigate={(id) => navigate(cliente(id))}
                 onDelete={(p) => setDeleteTarget(p)}
