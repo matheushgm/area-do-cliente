@@ -24,7 +24,17 @@ const fmtInt = (n) => Math.round(n ?? 0).toLocaleString('pt-BR')
 // Conversão Meta: a coluna `Conversões` do dash (evento de otimização da campanha)
 // quando existe; senão a soma legada WhatsApp + leads + vendas (CFG).
 function convMeta(r) {
-  if (r['Conversões'] != null && r['Conversões'] !== '' && r['Conversões'] !== '-') return num(r['Conversões'])
+  if (r['Conversões'] != null && r['Conversões'] !== '' && r['Conversões'] !== '-') {
+    const c = num(r['Conversões'])
+    // Rede de segurança pra campanha de VENDAS: se o coletor não reconheceu o
+    // evento de otimização (Conversões 0) mas há compras na linha, a conversão
+    // é a compra. Evita sugerir "desligar sem conversão" pra anúncio que vende.
+    if (c === 0 && /SALES|CONVERSIONS/i.test(r['Objetivo de Campanha'] || '')) {
+      const vendas = num(r['Número de vendas'])
+      if (vendas > 0) return vendas
+    }
+    return c
+  }
   return CFG.meta.convKeys.reduce((a, k) => a + num(r[k]), 0)
 }
 
