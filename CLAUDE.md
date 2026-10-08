@@ -664,6 +664,17 @@ Cada cartão diz a **Otimização** (ação em uma frase), o **Onde está** (Cam
   `execucao_log`). `linhaDecisao()` em `useSugestoesGlobais.js` monta a linha; o hub da
   página do cliente usa a mesma função, mas aceitar lá vira tarefa no ClickUp pra uma
   pessoa e grava `execucao_status = null` (fora da fila do robô).
+- **Aceitar na central cria a atividade no ClickUp do cliente** (`criarTarefaDaSugestao` em
+  `src/lib/aceitarSugestao.js`, sem modal): lista "Geral" da pasta, tipo e horas da própria
+  sugestão, responsável = quem o squad do cliente designou ao departamento do tipo (cai em
+  quem está aceitando se o squad não define), data pela carga real do time (`sugerir`), e a
+  descrição em markdown com o caminho e o link do gerenciador. A decisão grava
+  `clickup_task_id`, `clickup_task_url` e `atividade_id`; o histórico mostra o botão "Abrir a
+  atividade no ClickUp" e, logo após aceitar, uma faixa com o link. Se o ClickUp falhar (sem
+  pasta, sem responsável), a decisão é gravada mesmo assim com `execucao_log.erro_tarefa` e o
+  histórico oferece "Criar tarefa no ClickUp" pra tentar de novo. Continua entrando na fila da
+  automação (`execucao_status = 'pendente'`). Validado em produção em 2026-10-08 criando e
+  apagando uma tarefa de teste no projeto Revenue Lab.
 - **Fila pra automação:** `select * from projeto_sugestoes where execucao_status = 'pendente'`
   (índice parcial `idx_projeto_sugestoes_fila`); o `payload` tem a sugestão inteira
   (caminho, evidências, passos, regra).
