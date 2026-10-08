@@ -128,7 +128,7 @@ function caminhoLinhas(caminho) {
   if (caminho.campanha) out.push(`- Campanha: ${caminho.campanha}`)
   if (caminho.conjunto) out.push(`- Conjunto: ${caminho.conjunto}`)
   if (caminho.anuncio) out.push(`- Anúncio: ${caminho.anuncio}${caminho.adId ? ` (ID ${caminho.adId})` : ''}`)
-  if (caminho.url) out.push(`- Abrir no gerenciador: ${caminho.url}`)
+  if (caminho.url) out.push(`- Abrir no gerenciador: ${caminho.url}${caminho.cid ? ` (no seletor do Google Ads, buscar o CID ${caminho.cid})` : ''}`)
   if (caminho.link) out.push(`- Link do anúncio: ${caminho.link}`)
   return out
 }
@@ -147,6 +147,10 @@ export function linkGerenciador(canal, c = {}) {
     return `${base}/campaigns?act=${c.accountId}`
   }
   if (canal === 'google') {
+    // Limite conhecido: quando o acesso é pela MCC, o Google Ads abre o seletor
+    // de contas e ignora `__e`/`campaignId` (só o `ocid` interno pularia isso, e
+    // ele não vem pela API). O link serve pra abrir o Google Ads; o CID vai no
+    // card pra colar na busca do seletor.
     if (!c.customerId) return null
     const e = `__e=${c.customerId}`
     if (c.campaignId) return `https://ads.google.com/aw/adgroups?campaignId=${c.campaignId}&${e}`
@@ -155,9 +159,15 @@ export function linkGerenciador(canal, c = {}) {
   return null
 }
 
+// CID do Google no formato da interface (967-903-4908)
+export function fmtCid(id) {
+  const d = String(id || '').replace(/\D/g, '')
+  return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}` : d
+}
+
 // Monta o `caminho` de uma sugestão já com o link do gerenciador.
 function caminhoDe(canal, c) {
-  return { ...c, url: linkGerenciador(canal, c) }
+  return { ...c, url: linkGerenciador(canal, c), cid: canal === 'google' && c.customerId ? fmtCid(c.customerId) : null }
 }
 
 // Valor mais recente de uma coluna de ID nas linhas (a conta é igual em todas;

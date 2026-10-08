@@ -665,6 +665,10 @@ Cada cartão diz a **Otimização** (ação em uma frase), o **Onde está** (Cam
   `campaign_id` no Google), gravados pelo coletor `dashboard-api` desde 2026-10-08; linha
   antiga sem ID = sugestão sem botão. O link abre no perfil logado do navegador, que precisa
   ter acesso à conta. Vai também na descrição do ClickUp e no `payload.caminho.url`.
+  **Google via MCC não respeita o deep link** (testado em 2026-10-08): abre o seletor de
+  contas e, escolhida a MCC, cai no nível da gerenciadora sem a campanha; só o `ocid`
+  interno (que não vem pela API) pularia isso. Por isso o card mostra o CID formatado
+  (`fmtCid`) pra colar na busca do seletor.
 - Recusar exige motivo. "Reabrir" apaga a decisão (volta a aparecer se a regra ainda valer);
   não aparece em decisão já executada. Item "Otimizações" na seção Operação da sidebar e
   atalho na home (`src/components/Dashboard/OtimizacoesBanner.jsx`).
