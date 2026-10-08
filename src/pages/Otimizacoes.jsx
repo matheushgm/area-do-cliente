@@ -14,6 +14,7 @@ import { useDashboardData } from '../hooks/useDashboardData'
 import { useSugestoesGlobais } from '../hooks/useSugestoesGlobais'
 import { PRIORIDADE_LABEL, PRIORIDADE_ORDEM, janelaAnalise } from '../lib/playbookSugestoes'
 import { Caminho } from '../components/ProjetoHub/SugestoesPlaybook'
+import { criarTarefaDaSugestao } from '../lib/aceitarSugestao'
 import { fmtBR } from '../lib/dashboardData'
 import { cliente } from '../routes/paths'
 import Toast from '../components/UI/Toast'
@@ -61,7 +62,7 @@ function Sugestao({ s, onAceitar, onRecusar }) {
 
   const botoes = (
     <>
-      <button onClick={aceitar} disabled={salvando} className="flex items-center justify-center gap-1 text-xs font-semibold px-2.5 py-2 sm:py-1.5 rounded-lg bg-rl-green/10 text-rl-green border border-rl-green/30 hover:bg-rl-green/20 disabled:opacity-50" title="Aceitar: entra na fila da automação">
+      <button onClick={aceitar} disabled={salvando} className="flex items-center justify-center gap-1 text-xs font-semibold px-2.5 py-2 sm:py-1.5 rounded-lg bg-rl-green/10 text-rl-green border border-rl-green/30 hover:bg-rl-green/20 disabled:opacity-50" title="Aceitar: cria a atividade no ClickUp do cliente e entra na fila da automação">
         {salvando === 'aceita' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Aceitar
       </button>
       <button onClick={() => setRecusando(true)} disabled={salvando} className="flex items-center justify-center gap-1 text-xs font-semibold px-2.5 py-2 sm:py-1.5 rounded-lg text-rl-muted border border-rl-border hover:text-rl-red hover:border-rl-red/30 hover:bg-rl-red/10 disabled:opacity-50" title="Recusar com motivo">
@@ -179,7 +180,7 @@ function GrupoCliente({ g, onAceitar, onRecusar, onAbrir }) {
 }
 
 // ── Histórico de decisões ─────────────────────────────────────────────────────
-function Historico({ itens, onReabrir, onAbrir }) {
+function Historico({ itens, onReabrir, onAbrir, onCriarTarefa }) {
   if (!itens.length) return <p className="text-sm text-rl-subtle text-center py-10">Nenhuma decisão registrada ainda.</p>
   return (
     <div className="space-y-2">
@@ -215,8 +216,18 @@ function Historico({ itens, onReabrir, onAbrir }) {
                     {d.execucao_status === 'executada' ? <CheckCircle2 className="w-3 h-3" /> : d.execucao_status === 'erro' ? <XCircle className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
                     {d.execucao_status ? EXEC_LABEL[d.execucao_status] : 'Virou tarefa no ClickUp'}
                     {d.executada_em ? ` · ${fmtDataHora(d.executada_em)}` : ''}
-                    {d.clickup_task_url && <a href={d.clickup_task_url} target="_blank" rel="noreferrer" className="text-rl-purple inline-flex items-center gap-0.5 ml-1">tarefa <ExternalLink className="w-3 h-3" /></a>}
                   </p>
+                )}
+                {d.status === 'aceita' && d.clickup_task_url && (
+                  <a href={d.clickup_task_url} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rl-purple/10 text-rl-purple border border-rl-purple/30 hover:bg-rl-purple/20">
+                    Abrir a atividade no ClickUp <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+                {d.status === 'aceita' && !d.clickup_task_url && (
+                  <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] text-rl-red [overflow-wrap:anywhere]">Sem tarefa no ClickUp{d.execucao_log?.erro_tarefa ? `: ${d.execucao_log.erro_tarefa}` : ''}</span>
+                    <button onClick={() => onCriarTarefa(d)} className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rl-purple/10 text-rl-purple border border-rl-purple/30 hover:bg-rl-purple/20">Criar tarefa no ClickUp</button>
+                  </div>
                 )}
               </div>
               {d.execucao_status !== 'executada' && (
@@ -237,7 +248,7 @@ export default function Otimizacoes() {
   const { openSidebar } = useOutletContext()
   const navigate = useNavigate()
   const { toast, showToast } = useToast()
-  const { squads, projects } = useApp()
+  const { squads, projects, teamMembers, user } = useApp()
   // 20 dias: o motor usa 7 + 7 anteriores (igual à home, que já carrega isso)
   const dash = useDashboardData({ source: 'api', dias: 20 })
   const sg = useSugestoesGlobais(dash)
@@ -246,6 +257,7 @@ export default function Otimizacoes() {
   const [prioridade, setPrioridade] = useState('todas')
   const [canal, setCanal] = useState('todos')
   const [squad, setSquad] = useState('todos')
+  const [criada, setCriada] = useState(null) // última tarefa criada ao aceitar: { titulo, url, ... }
 
   const projetoPorId = useMemo(() => new Map((projects || []).map((p) => [p.id, p])), [projects])
 
@@ -281,9 +293,35 @@ export default function Otimizacoes() {
   const totalFiltrado = grupos.reduce((a, g) => a + g.sugestoes.length, 0)
   const naFila = sg.historico.filter((d) => d.execucao_status === 'pendente').length
 
+  // Aceitar = cria a atividade no ClickUp do cliente e grava a decisão com o link da tarefa.
+  // Se o ClickUp falhar (sem pasta, sem responsável…), a decisão é gravada mesmo assim,
+  // com o motivo, e o histórico oferece "Criar tarefa" pra tentar de novo.
+  const ctxTarefa = { squads, teamMembers, user, config: null }
   async function aceitar(s) {
-    try { await sg.decidir(s, 'aceita'); showToast('Aceita. Entrou na fila da automação.') }
-    catch (e) { showToast(e.message, 'error') }
+    const projeto = projetoPorId.get(s.projectId)
+    let tarefa = null, erroTarefa = null
+    try { tarefa = await criarTarefaDaSugestao({ sug: s, projeto, ...ctxTarefa }) }
+    catch (e) { erroTarefa = e.message || 'Falha ao criar a tarefa no ClickUp.' }
+    try {
+      await sg.decidir(s, 'aceita', {
+        extra: tarefa
+          ? { clickup_task_id: tarefa.taskId, clickup_task_url: tarefa.url, atividade_id: tarefa.registro?.id || null }
+          : { execucao_log: { erro_tarefa: erroTarefa } },
+      })
+    } catch (e) {
+      showToast(`${e.message}${tarefa ? ` A tarefa foi criada no ClickUp: ${tarefa.url}` : ''}`, 'error')
+      return
+    }
+    if (tarefa) setCriada({ titulo: s.titulo, cliente: projeto?.companyName, responsavel: tarefa.responsavel, data: tarefa.data, url: tarefa.url, aviso: tarefa.aviso })
+    else showToast(`Aceita, mas a tarefa não foi criada: ${erroTarefa}`, 'error')
+  }
+  async function criarTarefaDe(d) {
+    try {
+      const sug = { ...(d.payload || {}), projectId: d.project_id, titulo: d.titulo || d.payload?.titulo }
+      const tarefa = await criarTarefaDaSugestao({ sug, projeto: projetoPorId.get(d.project_id), ...ctxTarefa })
+      await sg.atualizarDecisao(d, { clickup_task_id: tarefa.taskId, clickup_task_url: tarefa.url, atividade_id: tarefa.registro?.id || null, execucao_log: null })
+      setCriada({ titulo: sug.titulo, cliente: projetoPorId.get(d.project_id)?.companyName, responsavel: tarefa.responsavel, data: tarefa.data, url: tarefa.url, aviso: tarefa.aviso })
+    } catch (e) { showToast(e.message, 'error') }
   }
   async function recusar(s, motivo) {
     try { await sg.decidir(s, 'recusada', { motivo }); showToast('Recusada e registrada no histórico.') }
@@ -313,7 +351,7 @@ export default function Otimizacoes() {
               <h1 className="text-xl sm:text-2xl font-bold text-rl-text flex items-center gap-2"><Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-rl-purple" /> Otimizações do dia</h1>
               <p className="text-xs sm:text-sm text-rl-subtle mt-1">
                 Sugestões do playbook de todos os clientes, calculadas sobre os últimos 7 dias fechados
-                {janela ? ` (${fmtBR(janela.inicio)} a ${fmtBR(janela.fim)}, o mesmo período do Gerenciador e do Google Ads)` : ''} contra os 7 anteriores. Aceitar coloca a otimização na fila da automação; recusar registra o motivo.
+                {janela ? ` (${fmtBR(janela.inicio)} a ${fmtBR(janela.fim)}, o mesmo período do Gerenciador e do Google Ads)` : ''} contra os 7 anteriores. Aceitar cria a atividade no ClickUp do cliente e coloca a otimização na fila da automação; recusar registra o motivo.
               </p>
             </div>
             <button onClick={() => { dash.reload(); sg.recarregarDecisoes() }} className="btn-secondary text-xs flex items-center gap-1.5 !px-3 !py-2 shrink-0 self-start sm:self-auto" title="Recarregar">
@@ -382,6 +420,22 @@ export default function Otimizacoes() {
             )}
           </div>
 
+          {criada && (
+            <div className="glass-card border border-rl-green/40 bg-rl-green/5 px-4 py-3 flex items-start gap-3">
+              <CheckCircle2 className="w-4 h-4 text-rl-green shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-rl-text">Tarefa criada no ClickUp{criada.cliente ? ` para ${criada.cliente}` : ''}</p>
+                <p className="text-xs text-rl-subtle [overflow-wrap:anywhere]">{criada.titulo}</p>
+                <p className="text-xs text-rl-muted mt-0.5">{criada.responsavel}{criada.data ? ` · entrega ${criada.data.split('-').reverse().join('/')}` : ''}</p>
+                {criada.aviso && <p className="text-xs text-rl-gold mt-1">{criada.aviso}</p>}
+                <a href={criada.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 mt-2 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rl-purple/10 text-rl-purple border border-rl-purple/30 hover:bg-rl-purple/20">
+                  Abrir a atividade no ClickUp <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+              <button onClick={() => setCriada(null)} className="p-1 text-rl-muted hover:text-rl-text shrink-0" aria-label="Fechar"><X className="w-4 h-4" /></button>
+            </div>
+          )}
+
           {sg.erro && (
             <div className="flex items-start gap-2 p-3 rounded-xl bg-rl-red/10 border border-rl-red/30 text-xs text-rl-text"><AlertTriangle className="w-4 h-4 text-rl-red shrink-0" /> {String(sg.erro)}</div>
           )}
@@ -415,7 +469,7 @@ export default function Otimizacoes() {
               </div>
             )
           ) : (
-            <Historico itens={sg.historico} onReabrir={reabrir} onAbrir={abrir} />
+            <Historico itens={sg.historico} onReabrir={reabrir} onAbrir={abrir} onCriarTarefa={criarTarefaDe} />
           )}
         </div>
       </main>

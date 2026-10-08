@@ -126,8 +126,8 @@ export function useSugestoesGlobais(dash) {
       .sort((a, b) => score(a.sugestoes) - score(b.sugestoes) || b.sugestoes.length - a.sugestoes.length || a.nome.localeCompare(b.nome, 'pt-BR'))
   }, [pendentes, projetoPorId])
 
-  const decidir = useCallback(async (sug, status, { motivo = null } = {}) => {
-    const row = linhaDecisao(sug, status, { projectId: sug.projectId, user, motivo })
+  const decidir = useCallback(async (sug, status, { motivo = null, extra = {} } = {}) => {
+    const row = linhaDecisao(sug, status, { projectId: sug.projectId, user, motivo, extra })
     const { data, error } = await supabase
       .from('projeto_sugestoes')
       .upsert(row, { onConflict: 'project_id,chave' })
@@ -137,6 +137,14 @@ export function useSugestoesGlobais(dash) {
     setDecisoes((prev) => [data, ...prev.filter((d) => !(d.project_id === data.project_id && d.chave === data.chave))])
     return data
   }, [user])
+
+  // Atualiza campos de uma decisão já gravada (ex.: anexar a tarefa do ClickUp numa nova tentativa)
+  const atualizarDecisao = useCallback(async (d, patch) => {
+    const { data, error } = await supabase.from('projeto_sugestoes').update(patch).eq('id', d.id).select().single()
+    if (error) throw new Error(error.message)
+    setDecisoes((prev) => prev.map((x) => (x.id === d.id ? data : x)))
+    return data
+  }, [])
 
   const reabrir = useCallback(async (d) => {
     const { error } = await supabase.from('projeto_sugestoes').delete().eq('id', d.id)
@@ -152,7 +160,7 @@ export function useSugestoesGlobais(dash) {
   const recarregarDecisoes = useCallback(() => { setLoadingDecisoes(true); return carregarDecisoes() }, [carregarDecisoes])
 
   return {
-    grupos, pendentes, historico, decidir, reabrir, recarregarDecisoes,
+    grupos, pendentes, historico, decidir, atualizarDecisao, reabrir, recarregarDecisoes,
     loading: dash.loading || loadingDecisoes, erro: erro || dash.error,
     clientesComDados: porProjeto.size,
     projetosComDados: porProjeto,   // Map projectId → linhas (quem tem conta vinculada no dash)
