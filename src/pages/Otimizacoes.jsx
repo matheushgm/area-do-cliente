@@ -9,6 +9,7 @@ import {
   Menu, Sparkles, Check, X, ChevronDown, ChevronRight, ExternalLink, Loader2, RefreshCw,
   AlertTriangle, RotateCcw, Search, Wrench, History, Inbox, Bot, Clock, CheckCircle2, XCircle,
 } from 'lucide-react'
+import { useApp } from '../context/AppContext'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { useSugestoesGlobais } from '../hooks/useSugestoesGlobais'
 import { PRIORIDADE_LABEL, PRIORIDADE_ORDEM } from '../lib/playbookSugestoes'
@@ -218,6 +219,7 @@ export default function Otimizacoes() {
   const { openSidebar } = useOutletContext()
   const navigate = useNavigate()
   const { toast, showToast } = useToast()
+  const { squads, projects } = useApp()
   // 20 dias: o motor usa 7 + 7 anteriores (igual à home, que já carrega isso)
   const dash = useDashboardData({ source: 'api', dias: 20 })
   const sg = useSugestoesGlobais(dash)
@@ -225,15 +227,19 @@ export default function Otimizacoes() {
   const [busca, setBusca] = useState('')
   const [prioridade, setPrioridade] = useState('todas')
   const [canal, setCanal] = useState('todos')
+  const [squad, setSquad] = useState('todos')
+
+  const projetoPorId = useMemo(() => new Map((projects || []).map((p) => [p.id, p])), [projects])
 
   const ultimoDia = useMemo(() => {
     const a = maxDate(dash.raw?.meta || [], 'Dia'), b = maxDate(dash.raw?.google || [], 'Data')
     return [a, b].filter(Boolean).sort().pop() || null
   }, [dash.raw])
 
+  const q = busca.trim().toLowerCase()
   const grupos = useMemo(() => {
-    const q = busca.trim().toLowerCase()
     return sg.grupos
+      .filter((g) => squad === 'todos' || String(projetoPorId.get(g.projectId)?.squad || '') === String(squad))
       .filter((g) => !q || g.nome.toLowerCase().includes(q) || (g.responsavel || '').toLowerCase().includes(q))
       .map((g) => ({
         ...g,
@@ -242,7 +248,20 @@ export default function Otimizacoes() {
           (canal === 'todos' || s.canal === canal)),
       }))
       .filter((g) => g.sugestoes.length > 0)
-  }, [sg.grupos, busca, prioridade, canal])
+  }, [sg.grupos, q, prioridade, canal, squad, projetoPorId])
+
+  // Clientes que batem com a busca mas NÃO têm sugestão pendente: a busca também
+  // serve pra confirmar que um cliente está em dia. Separa quem foi analisado de
+  // quem nem tem conta vinculada no dashboard.
+  const semSugestao = useMemo(() => {
+    if (!q) return []
+    const comGrupo = new Set(sg.grupos.map((g) => g.projectId))
+    return (projects || [])
+      .filter((p) => (p.companyName || '').toLowerCase().includes(q) && !comGrupo.has(p.id))
+      .filter((p) => squad === 'todos' || String(p.squad) === String(squad))
+      .slice(0, 6)
+      .map((p) => ({ id: p.id, nome: p.companyName, analisado: sg.projetosComDados?.has(p.id) }))
+  }, [q, projects, sg.grupos, sg.projetosComDados, squad])
 
   const totalFiltrado = grupos.reduce((a, g) => a + g.sugestoes.length, 0)
   const naFila = sg.historico.filter((d) => d.execucao_status === 'pendente').length
@@ -318,8 +337,14 @@ export default function Otimizacoes() {
               <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-rl-muted pointer-events-none" />
-                  <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Cliente ou responsável" className="input-field text-sm py-2 pl-8 w-full sm:w-56" />
+                  <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente" className="input-field text-sm py-2 pl-8 w-full sm:w-52" />
                 </div>
+                {squads?.length > 0 && (
+                  <select value={squad} onChange={(e) => setSquad(e.target.value)} className={`${SELECT} ${squad !== 'todos' ? '!border-rl-purple/50 !text-rl-purple' : ''}`} title="Filtrar por squad">
+                    <option value="todos">Todos os squads</option>
+                    {squads.map((sq) => <option key={sq.id} value={sq.id}>{sq.emoji ? `${sq.emoji} ` : ''}{sq.name}</option>)}
+                  </select>
+                )}
                 <select value={prioridade} onChange={(e) => setPrioridade(e.target.value)} className={SELECT}>
                   <option value="todas">Todas as prioridades</option>
                   <option value="urgente">Só urgentes</option>
@@ -338,10 +363,24 @@ export default function Otimizacoes() {
             <div className="flex items-start gap-2 p-3 rounded-xl bg-rl-red/10 border border-rl-red/30 text-xs text-rl-text"><AlertTriangle className="w-4 h-4 text-rl-red shrink-0" /> {String(sg.erro)}</div>
           )}
 
+          {tab === 'pendentes' && semSugestao.length > 0 && (
+            <div className="glass-card border border-rl-green/30 bg-rl-green/5 px-4 py-3">
+              <p className="text-xs font-semibold text-rl-text flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-rl-green" /> Sem otimização pendente</p>
+              <ul className="mt-1.5 space-y-0.5">
+                {semSugestao.map((p) => (
+                  <li key={p.id} className="text-xs text-rl-subtle flex items-center gap-2 flex-wrap">
+                    <button onClick={() => abrir(p.id)} className="font-medium text-rl-text hover:text-rl-purple">{p.nome}</button>
+                    <span className="text-rl-muted">{p.analisado ? 'analisado, dentro das regras do playbook ou já decidido' : 'sem conta de anúncio vinculada no dashboard, não dá pra analisar'}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {tab === 'pendentes' ? (
             sg.loading && sg.pendentes.length === 0 ? (
               <div className="flex items-center gap-2 text-sm text-rl-muted py-16 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Lendo o dashboard de todas as contas…</div>
-            ) : grupos.length === 0 ? (
+            ) : grupos.length === 0 && semSugestao.length > 0 ? null : grupos.length === 0 ? (
               <div className="text-center py-16">
                 <CheckCircle2 className="w-8 h-8 text-rl-green mx-auto mb-2" />
                 <p className="text-sm text-rl-text font-semibold">{totalFiltrado === 0 && sg.pendentes.length > 0 ? 'Nenhuma sugestão com esses filtros.' : 'Nenhuma otimização pendente.'}</p>

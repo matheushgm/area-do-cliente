@@ -155,5 +155,6 @@ export function useSugestoesGlobais(dash) {
     grupos, pendentes, historico, decidir, reabrir, recarregarDecisoes,
     loading: dash.loading || loadingDecisoes, erro: erro || dash.error,
     clientesComDados: porProjeto.size,
+    projetosComDados: porProjeto,   // Map projectId → linhas (quem tem conta vinculada no dash)
   }
 }
