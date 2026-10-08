@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   Sparkles, Loader2, AlertTriangle, CheckCircle2, XCircle, Clock, Send, Video,
-  Image as ImageIcon, Copy, Check, Pencil,
+  Image as ImageIcon, Copy, Check, Pencil, FileDown,
 } from 'lucide-react'
 import MarkdownBlock from '../components/Criativos/MarkdownBlock'
 
@@ -24,6 +24,13 @@ function fmtDateTime(iso) {
   const hh = String(d.getHours()).padStart(2, '0')
   const mi = String(d.getMinutes()).padStart(2, '0')
   return `${dd}/${mm}/${d.getFullYear()} às ${hh}:${mi}`
+}
+
+// Os geradores de PDF puxam react-dom/server + react-markdown; carregados só no
+// clique pra não pesar na abertura do link.
+async function exportarPDF(fn) {
+  const mod = await import('../lib/creativoPDF')
+  fn(mod)
 }
 
 export default function AprovacaoCopyPublico() {
@@ -94,6 +101,21 @@ export default function AprovacaoCopyPublico() {
     }
   }
 
+  // A leva inteira num PDF só. Usa o texto atual de cada item (já com a edição do
+  // cliente, quando houve) — o mesmo gerador do "Criativos com IA".
+  function exportarLeva() {
+    exportarPDF(({ exportCreativoSetPDF }) => exportCreativoSetPDF({
+      companyName: leva.companyName,
+      creative: {
+        content:      itens.map((it) => it.conteudo || '').join('\n\n---\n\n'),
+        type:         leva.tipo,
+        quantity:     itens.length,
+        adTypeLabels: [leva.funilLabel, leva.nivelLabel].filter(Boolean),
+        createdAt:    leva.enviadoEm,
+      },
+    }))
+  }
+
   return (
     <div className="min-h-screen bg-rl-bg">
       {/* Header */}
@@ -132,6 +154,13 @@ export default function AprovacaoCopyPublico() {
             {leva.funilLabel && <span>· {leva.funilLabel}</span>}
             {leva.enviadoEm && <span>· enviada em {fmtDateTime(leva.enviadoEm)}</span>}
           </div>
+          <button
+            onClick={exportarLeva}
+            disabled={itens.length === 0}
+            className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border border-rl-border text-rl-subtle hover:text-rl-text hover:bg-rl-surface transition-all disabled:opacity-50"
+          >
+            <FileDown className="w-3.5 h-3.5" /> Exportar PDF
+          </button>
           {pendentes.length > 1 && (
             <button
               onClick={aprovarTodos}
@@ -157,7 +186,7 @@ export default function AprovacaoCopyPublico() {
               Aguardando sua aprovação
             </h2>
             {pendentes.map((it, i) => (
-              <CopyCard key={it.id} item={it} index={i} token={token} onDecided={load} />
+              <CopyCard key={it.id} item={it} index={i} token={token} onDecided={load} tipo={leva.tipo} companyName={leva.companyName} />
             ))}
           </section>
         )}
@@ -168,7 +197,7 @@ export default function AprovacaoCopyPublico() {
               Já avaliados
             </h2>
             {decididos.map((it, i) => (
-              <CopyCard key={it.id} item={it} index={i} token={token} decided />
+              <CopyCard key={it.id} item={it} index={i} token={token} decided tipo={leva.tipo} companyName={leva.companyName} />
             ))}
           </section>
         )}
@@ -178,7 +207,7 @@ export default function AprovacaoCopyPublico() {
 }
 
 // ─── Card de uma copy ─────────────────────────────────────────────────────────
-function CopyCard({ item, index, token, onDecided, decided = false }) {
+function CopyCard({ item, index, token, onDecided, decided = false, tipo, companyName }) {
   const [mode,       setMode]       = useState(null) // null | 'reprovando' | 'editando'
   const [motivo,     setMotivo]     = useState('')
   const [sugestao,   setSugestao]   = useState('')
@@ -219,6 +248,12 @@ function CopyCard({ item, index, token, onDecided, decided = false }) {
     setTimeout(() => setCopied(false), 1800)
   }
 
+  function exportar() {
+    exportarPDF(({ exportCreativoSinglePDF }) => exportCreativoSinglePDF({
+      content: item.conteudo || '', type: tipo, index, companyName,
+    }))
+  }
+
   const canReprovar = motivo.trim().length > 0 && sugestao.trim().length > 0
   const textoMudou  = texto.trim().length > 0 && texto.trim() !== (item.conteudo || '').trim()
 
@@ -239,6 +274,13 @@ function CopyCard({ item, index, token, onDecided, decided = false }) {
             title="Copiar o texto"
           >
             {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+          </button>
+          <button
+            onClick={exportar}
+            className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg text-rl-muted hover:text-rl-purple transition-all"
+            title="Exportar este criativo em PDF"
+          >
+            <FileDown className="w-3 h-3" />
           </button>
           {decided && (
             st === 'aprovado' ? (

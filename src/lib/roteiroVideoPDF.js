@@ -54,6 +54,9 @@ function limpo(t) {
 // exige ROTEIRO ou um número logo no começo do texto do heading.
 const INICIO_ROTEIRO = /^#{1,4}[ \t]+(?:ROTEIRO[ \t]+\d+|\d+[.):\-—])/im
 
+// Qualquer rótulo em negrito e caixa alta, sem depender do nome da seção.
+const TEM_ROTULO = /^\s*\*\*[^*\n]*\p{Lu}{3}[^*\n]*\*\*/mu
+
 export function splitRoteiros(content) {
   const texto = String(content || '')
 
@@ -62,14 +65,14 @@ export function splitRoteiros(content) {
   )
   const achados = partes
     .map((p) => p.trim())
-    .filter((p) => INICIO_ROTEIRO.test(p) && /GANCHO/i.test(p))
+    .filter((p) => INICIO_ROTEIRO.test(p) && TEM_ROTULO.test(p))
   if (achados.length) return achados
 
   // Fallback: conteúdo separado por "---" (gerações antigas ou coladas à mão)
   return texto
     .split(/\n---+\n/)
     .map((c) => c.trim())
-    .filter((c) => c && /GANCHO/i.test(c))
+    .filter((c) => c && TEM_ROTULO.test(c))
 }
 
 /**
@@ -113,7 +116,8 @@ export function parseRoteiro(chunk) {
   // Variações reais do cabeçalho:
   //   "Gancho: ⚡ Sensação | Nível: Inconsciente do Problema"
   //   "Gancho: Dilema | Meio de Funil"        (sem o rótulo "Nível:")
-  const tipoGancho = metaLinha.match(/Gancho\s*:\s*([^|]+)/i)
+  const tipoGancho =
+    metaLinha.match(/Gancho\s*:\s*([^|]+)/i) || metaLinha.match(/Tese\s*:\s*([^|]+)/i)
   const nivelRotulado = metaLinha.match(/N[íi]vel\s*:\s*([^|]+)/i)
   const depoisDaBarra = metaLinha.includes('|') ? metaLinha.split('|').pop().trim() : ''
   const nivel = nivelRotulado ? nivelRotulado[1].trim() : depoisDaBarra
@@ -132,37 +136,48 @@ export function parseRoteiro(chunk) {
     return ehAnotacao ? linhas.slice(1).join('\n').trim() : bruto
   }
 
-  const campo = (re) => {
-    const m = texto.match(re)
-    if (!m) return ''
-    return semAnotacaoDeTipo(m[1].replace(/^[ \t]*\n/, '').trim())
+  // Estrutura agnóstica: toda linha que ABRE com um rótulo em negrito e CAIXA ALTA
+  // ("**GANCHO (0s – 5s):**", "**📝 LEGENDA DO POST:**") inicia uma seção que vai até
+  // o próximo rótulo. Nenhum nome de seção é conhecido de antemão — se o prompt passar
+  // a gerar outros blocos, eles saem no PDF sem mexer aqui.
+  const secoesBrutas = []
+  let atual = null
+  for (const linha of texto.split('\n')) {
+    const m = linha.match(/^\s*\*\*([^*\n]+?)\*\*:?[ \t]*(.*)$/)
+    const nucleo = m ? m[1].replace(/\p{Extended_Pictographic}|️/gu, '').replace(/\([^)]*\)/g, '').replace(/:$/, '').trim() : ''
+    // Caixa alta distingue rótulo de uma frase que apenas começa com negrito.
+    if (m && nucleo && nucleo === nucleo.toUpperCase() && /\p{L}/u.test(nucleo)) {
+      atual = { rotulo: m[1], nucleo, linhas: m[2] ? [m[2]] : [] }
+      secoesBrutas.push(atual)
+    } else if (atual) {
+      atual.linhas.push(linha)
+    }
   }
 
-  // Cada bloco vai até o próximo rótulo em negrito ou o fim do chunk.
-  // O "[^*\n]*" antes do nome cobre rótulos com emoji ("**⏱ GANCHO ...**") sem
-  // deixar o rótulo atravessar linhas — senão a mesma palavra solta no meio do
-  // corpo casaria o "**" de um rótulo com o "**" do rótulo seguinte.
-  const ate = String.raw`([\s\S]*?)(?=\n\s*\*\*|$)`
-  const rotulo = (nome) => String.raw`\*\*[^*\n]*${nome}[^*\n]*\*\*:?[ \t]*${ate}`
-  let gancho = campo(new RegExp(rotulo('GANCHO'), 'i'))
-  let mensagem = campo(new RegExp(rotulo('MENSAGEM'), 'i'))
-  const cta = campo(new RegExp(rotulo('CTA'), 'i'))
-  const legenda = campo(new RegExp(rotulo('LEGENDA'), 'i'))
+  const rotuloLimpo = (r) => r.replace(/\p{Extended_Pictographic}|️/gu, '').replace(/\([^)]*\)/g, '').replace(/:$/, '').replace(/\s+/g, ' ').trim()
+  const capitalizar = (r) =>
+    (r.charAt(0) + r.slice(1).toLowerCase()).replace(/\b(cta|roi|ugc|lp)\b/gi, (w) => w.toUpperCase())
+  // "(5s – 20s)" do rótulo vira a dica do bloco.
+  const tempoDe = (r) => (r.match(/\(([^)]*\d+\s*s[^)]*)\)/i) || [])[1]?.trim() || ''
 
-  // Gerações antigas trazem o desenvolvimento numa tabela "| Tempo | Fala | Imagem |"
-  // sob o rótulo "**ROTEIRO**", sem um bloco MENSAGEM. Aproveitamos a coluna de
-  // fala para o bloco 02 não sair vazio.
-  if (!mensagem) mensagem = falaDaTabela(texto)
+  let legenda = ''
+  const secoes = []
+  for (const sc of secoesBrutas) {
+    const bruto = sc.linhas.filter((l) => !/^\s*-{3,}\s*$/.test(l)).join('\n').replace(/^[ \t]*\n/, '').trim()
+    if (/^LEGENDA/.test(sc.nucleo)) { legenda = bruto; continue }
+    let corpo = semAnotacaoDeTipo(bruto)
+    // Gerações antigas trazem o desenvolvimento numa tabela "| Tempo | Fala | Imagem |".
+    if (!/\p{L}/u.test(corpo.replace(/[|\-:\s]/g, ''))) corpo = ''
+    else if (/^\s*\|/.test(corpo)) corpo = falaDaTabela(corpo) || corpo
+    if (corpo) secoes.push({ titulo: capitalizar(rotuloLimpo(sc.rotulo)), tempo: tempoDe(sc.rotulo), texto: corpo })
+  }
 
-  // Roteiros escritos sem o rótulo "**MENSAGEM**" deixam o corpo como prosa solta
-  // logo abaixo do gancho — e a captura do gancho acaba engolindo tudo. Nesse caso
-  // o primeiro parágrafo é o gancho e o restante é a mensagem.
-  if (!mensagem && gancho) {
-    const blocos = gancho.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)
-    if (blocos.length > 1) {
-      gancho = blocos[0]
-      mensagem = blocos.slice(1).join('\n\n')
-    }
+  // Roteiro sem nenhum rótulo: prosa solta depois do cabeçalho. O primeiro parágrafo
+  // é o gancho e o restante, a mensagem.
+  if (!secoes.length) {
+    const prosa = texto.replace(/^#{1,4}[^\n]*\n?/, '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)
+    if (prosa.length) secoes.push({ titulo: 'Gancho', tempo: '', texto: prosa[0] })
+    if (prosa.length > 1) secoes.push({ titulo: 'Mensagem', tempo: '', texto: prosa.slice(1).join('\n\n') })
   }
 
   // Duração total = maior marca de tempo citada (ex.: "CTA FINAL (45s – 60s)" → 60 s).
@@ -184,9 +199,7 @@ export function parseRoteiro(chunk) {
       .trim(),
     nivel,
     duracao,
-    gancho,
-    mensagem,
-    cta,
+    secoes,
     legenda: legendaLimpa,
     hashtags: tags.join(' '),
   }
@@ -219,7 +232,7 @@ function celula(rotulo, valor) {
 function bloco(numero, titulo, dica, corpoHTML, peso = '500', primeiro = false) {
   const borda = primeiro ? '' : `border-top:1px solid ${LINHA};margin-top:24px;padding-top:24px;`
   return `
-      <section style="display:grid;grid-template-columns:118px 1fr;gap:28px;break-inside:avoid;${borda}">
+      <section style="display:grid;grid-template-columns:150px 1fr;gap:28px;break-inside:avoid;${borda}">
         <div>
           <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:34px;line-height:1;color:${AZUL};">${numero}</div>
           <div style="font-family:'Sora',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.2em;text-transform:uppercase;color:${TINTA_FORTE};margin-top:12px;">${esc(titulo)}</div>
@@ -237,6 +250,11 @@ function artigo(r, indice, origem) {
     ['Plataforma', r.plataforma || 'Reels / Feed / YouTube'],
     ['Nível de consciência', r.nivel || 'A definir'],
   ]
+
+  // Um bloco por seção que a IA gerou, numerados na ordem em que aparecem.
+  const blocos = r.secoes
+    .map((sc, i) => bloco(String(i + 1).padStart(2, '0'), sc.titulo, sc.tempo, paragrafos(sc.texto), '500', i === 0))
+    .join('\n')
 
   const legenda =
     r.legenda || r.hashtags
@@ -269,9 +287,7 @@ function artigo(r, indice, origem) {
     </header>
 
     <div style="padding:32px 56px 24px;background:#fff;">
-${bloco('01', 'Gancho', 'Primeiros 3 segundos. Fala olhando pra câmera.', paragrafos(r.gancho), '500', true)}
-${bloco('02', 'Mensagem', 'Desenvolvimento. Entregue a virada de chave.', paragrafos(r.mensagem))}
-${bloco('03', 'CTA', 'Chamada final. Direta e no imperativo.', paragrafos(r.cta), '600')}
+${blocos}
 ${legenda}
     </div>
 
@@ -333,7 +349,7 @@ export function exportRoteirosVideoPDF(content, { companyName = 'Cliente', index
     chunks = [chunks[0]]
   }
 
-  const roteiros = chunks.map(parseRoteiro).filter((r) => r.gancho || r.mensagem || r.cta)
+  const roteiros = chunks.map(parseRoteiro).filter((r) => r.secoes.length)
   if (!roteiros.length) return false
 
   const titulo = `${companyName} · Roteiros de Anúncio em Vídeo`
