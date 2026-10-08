@@ -59,20 +59,31 @@ function Sugestao({ s, onAceitar, onRecusar }) {
     try { await onRecusar(s, motivo.trim()) } finally { setSalvando(null) }
   }
 
+  const botoes = (
+    <>
+      <button onClick={aceitar} disabled={salvando} className="flex items-center justify-center gap-1 text-xs font-semibold px-2.5 py-2 sm:py-1.5 rounded-lg bg-rl-green/10 text-rl-green border border-rl-green/30 hover:bg-rl-green/20 disabled:opacity-50" title="Aceitar: entra na fila da automação">
+        {salvando === 'aceita' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Aceitar
+      </button>
+      <button onClick={() => setRecusando(true)} disabled={salvando} className="flex items-center justify-center gap-1 text-xs font-semibold px-2.5 py-2 sm:py-1.5 rounded-lg text-rl-muted border border-rl-border hover:text-rl-red hover:border-rl-red/30 hover:bg-rl-red/10 disabled:opacity-50" title="Recusar com motivo">
+        <X className="w-3.5 h-3.5" /> Recusar
+      </button>
+    </>
+  )
+
   return (
-    <div className="glass-card border border-rl-border/60 p-4">
-      <div className="flex items-start gap-3">
-        <button onClick={() => setAberta((v) => !v)} className="mt-0.5 p-0.5 rounded text-rl-muted hover:text-rl-text" aria-label="Detalhes">
+    <div className="glass-card border border-rl-border/60 p-3 sm:p-4">
+      <div className="flex items-start gap-2 sm:gap-3">
+        <button onClick={() => setAberta((v) => !v)} className="mt-0.5 p-0.5 rounded text-rl-muted hover:text-rl-text hidden sm:block" aria-label="Detalhes">
           {aberta ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1">
+          <div className="flex items-center gap-x-2 gap-y-1 flex-wrap mb-1">
             <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${PRI_CLS[s.prioridade]}`}>{PRIORIDADE_LABEL[s.prioridade]}</span>
             <span className="text-[11px] text-rl-muted">{CANAL_LABEL[s.canal] || s.canal}</span>
-            {s.conta && <span className="text-[11px] text-rl-muted">· {s.conta}</span>}
-            <span className="text-[11px] text-rl-muted">· {s.tipo}</span>
+            {s.conta && <span className="text-[11px] text-rl-muted truncate max-w-[45vw] sm:max-w-none">· {s.conta}</span>}
+            <span className="text-[11px] text-rl-muted hidden sm:inline">· {s.tipo}</span>
           </div>
-          <p className="text-sm font-semibold text-rl-text leading-snug break-words">{s.titulo}</p>
+          <p className="text-sm font-semibold text-rl-text leading-snug [overflow-wrap:anywhere]">{s.titulo}</p>
           {s.acao && (
             <p className="text-xs text-rl-text mt-1.5 flex items-start gap-1.5">
               <Wrench className="w-3.5 h-3.5 text-rl-purple shrink-0 mt-px" />
@@ -80,7 +91,7 @@ function Sugestao({ s, onAceitar, onRecusar }) {
             </p>
           )}
           <Caminho caminho={s.caminho} />
-          <p className="text-xs text-rl-subtle mt-1.5"><span className="font-semibold text-rl-text">Por quê:</span> {s.contexto}</p>
+          <p className="text-xs text-rl-subtle mt-1.5 [overflow-wrap:anywhere]"><span className="font-semibold text-rl-text">Por quê:</span> {s.contexto}</p>
           {s.evidencias?.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {s.evidencias.map((e) => (
@@ -90,6 +101,9 @@ function Sugestao({ s, onAceitar, onRecusar }) {
               ))}
             </div>
           )}
+          <button onClick={() => setAberta((v) => !v)} className="sm:hidden mt-2 text-[11px] text-rl-purple flex items-center gap-1">
+            {aberta ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />} {aberta ? 'Esconder passos' : 'Ver passos e regra'}
+          </button>
           {aberta && (
             <div className="mt-3 text-xs text-rl-subtle space-y-2">
               {s.passos?.length > 0 && (
@@ -120,17 +134,19 @@ function Sugestao({ s, onAceitar, onRecusar }) {
             </div>
           )}
         </div>
+        {/* Desktop: botões à direita do texto */}
         {!recusando && (
-          <div className="flex items-center gap-1 shrink-0">
-            <button onClick={aceitar} disabled={salvando} className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rl-green/10 text-rl-green border border-rl-green/30 hover:bg-rl-green/20 disabled:opacity-50" title="Aceitar: entra na fila da automação">
-              {salvando === 'aceita' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Aceitar
-            </button>
-            <button onClick={() => setRecusando(true)} disabled={salvando} className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-rl-muted border border-rl-border hover:text-rl-red hover:border-rl-red/30 hover:bg-rl-red/10 disabled:opacity-50" title="Recusar com motivo">
-              <X className="w-3.5 h-3.5" /> Recusar
-            </button>
+          <div className="hidden sm:flex items-center gap-1 shrink-0">
+            {botoes}
           </div>
         )}
       </div>
+      {/* Celular: botões numa linha própria, abaixo do conteúdo, sem disputar espaço com o texto */}
+      {!recusando && (
+        <div className="sm:hidden mt-3 pt-3 border-t border-rl-border/60 grid grid-cols-2 gap-2">
+          {botoes}
+        </div>
+      )}
     </div>
   )
 }
@@ -142,18 +158,20 @@ function GrupoCliente({ g, onAceitar, onRecusar, onAbrir }) {
   const alta = g.sugestoes.filter((s) => s.prioridade === 'alta').length
   return (
     <section className="space-y-2">
-      <div className="flex items-center gap-3 px-1">
-        <button onClick={() => setAberto((v) => !v)} className="flex items-center gap-2 min-w-0 text-left group">
-          {aberto ? <ChevronDown className="w-4 h-4 text-rl-muted" /> : <ChevronRight className="w-4 h-4 text-rl-muted" />}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1 sticky top-0 sm:static z-10 bg-rl-bg/95 backdrop-blur py-1.5 -mx-1 sm:bg-transparent sm:backdrop-blur-0 sm:py-0">
+        <button onClick={() => setAberto((v) => !v)} className="flex items-center gap-2 min-w-0 text-left group flex-1 sm:flex-initial">
+          {aberto ? <ChevronDown className="w-4 h-4 text-rl-muted shrink-0" /> : <ChevronRight className="w-4 h-4 text-rl-muted shrink-0" />}
           <h2 className="text-base font-bold text-rl-text truncate group-hover:text-rl-purple">{g.nome}</h2>
         </button>
-        {g.responsavel && <span className="text-xs text-rl-muted hidden sm:inline">· {g.responsavel}</span>}
-        <span className="text-[11px] px-2 py-0.5 rounded-full bg-rl-surface border border-rl-border text-rl-subtle">{g.sugestoes.length} sugest{g.sugestoes.length > 1 ? 'ões' : 'ão'}</span>
-        {urg > 0 && <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border bg-rl-red/10 text-rl-red border-rl-red/30">{urg} urgente{urg > 1 ? 's' : ''}</span>}
-        {alta > 0 && <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border bg-rl-gold/10 text-rl-gold border-rl-gold/30">{alta} alta{alta > 1 ? 's' : ''}</span>}
-        <button onClick={() => onAbrir(g.projectId)} className="ml-auto flex items-center gap-1 text-xs text-rl-purple hover:underline shrink-0">
-          abrir cliente <ExternalLink className="w-3 h-3" />
+        <button onClick={() => onAbrir(g.projectId)} className="sm:order-last sm:ml-auto flex items-center gap-1 text-xs text-rl-purple hover:underline shrink-0">
+          abrir <span className="hidden sm:inline">cliente</span> <ExternalLink className="w-3 h-3" />
         </button>
+        <div className="flex items-center gap-1.5 flex-wrap basis-full sm:basis-auto">
+          {g.responsavel && <span className="text-xs text-rl-muted hidden sm:inline">· {g.responsavel}</span>}
+          <span className="text-[11px] px-2 py-0.5 rounded-full bg-rl-surface border border-rl-border text-rl-subtle">{g.sugestoes.length} sugest{g.sugestoes.length > 1 ? 'ões' : 'ão'}</span>
+          {urg > 0 && <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border bg-rl-red/10 text-rl-red border-rl-red/30">{urg} urgente{urg > 1 ? 's' : ''}</span>}
+          {alta > 0 && <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border bg-rl-gold/10 text-rl-gold border-rl-gold/30">{alta} alta{alta > 1 ? 's' : ''}</span>}
+        </div>
       </div>
       {aberto && <div className="space-y-2">{g.sugestoes.map((s) => <Sugestao key={s.chave} s={s} onAceitar={onAceitar} onRecusar={onRecusar} />)}</div>}
     </section>
@@ -178,7 +196,7 @@ function Historico({ itens, onReabrir, onAbrir }) {
                   {d.canal && <span className="text-[11px] text-rl-muted">· {CANAL_LABEL[d.canal] || d.canal}</span>}
                   <span className="text-[11px] text-rl-muted flex items-center gap-1"><Clock className="w-3 h-3" /> {fmtDataHora(d.decidida_em || d.created_at)}{d.decidida_por ? ` · ${d.decidida_por}` : ''}</span>
                 </div>
-                <p className="text-sm text-rl-text break-words">{d.titulo || d.chave}</p>
+                <p className="text-sm text-rl-text [overflow-wrap:anywhere]">{d.titulo || d.chave}</p>
                 {(d.acao || d.payload?.acao) && <p className="text-xs text-rl-subtle mt-0.5"><span className="font-semibold text-rl-text">Otimização:</span> {d.acao || d.payload?.acao}</p>}
                 {niveis.length > 0 && (
                   <p className="text-[11px] text-rl-muted mt-1 break-words">
@@ -202,8 +220,8 @@ function Historico({ itens, onReabrir, onAbrir }) {
                 )}
               </div>
               {d.execucao_status !== 'executada' && (
-                <button onClick={() => onReabrir(d)} className="text-xs text-rl-muted hover:text-rl-text flex items-center gap-1 shrink-0" title="Apagar a decisão e voltar a sugerir">
-                  <RotateCcw className="w-3 h-3" /> reabrir
+                <button onClick={() => onReabrir(d)} className="text-xs text-rl-muted hover:text-rl-text flex items-center gap-1 shrink-0 p-1 -m-1" title="Apagar a decisão e voltar a sugerir">
+                  <RotateCcw className="w-3 h-3" /> <span className="hidden sm:inline">reabrir</span>
                 </button>
               )}
             </div>
@@ -280,7 +298,7 @@ export default function Otimizacoes() {
   }
   const abrir = (id) => navigate(cliente(id))
 
-  const SELECT = 'input-field !w-auto text-sm !py-2 !px-3 !pr-8 shrink-0'
+  const SELECT = 'input-field !w-auto max-w-[48vw] sm:max-w-none text-sm !py-2 !px-3 !pr-8 shrink-0'
   const filtrando = squad !== 'todos' || prioridade !== 'todas' || canal !== 'todos' || !!q
 
   return (
@@ -291,12 +309,12 @@ export default function Otimizacoes() {
         <span className="font-bold text-rl-text text-sm flex items-center gap-2"><Sparkles className="w-4 h-4 text-rl-purple" /> Otimizações</span>
       </div>
 
-      <main className="flex-1 px-4 sm:px-6 py-6">
-        <div className="w-full min-w-0 max-w-5xl mx-auto space-y-5">
+      <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6">
+        <div className="w-full min-w-0 max-w-5xl mx-auto space-y-4 sm:space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-end gap-3">
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold text-rl-text flex items-center gap-2"><Sparkles className="w-6 h-6 text-rl-purple" /> Otimizações do dia</h1>
-              <p className="text-sm text-rl-subtle mt-1">
+              <h1 className="text-xl sm:text-2xl font-bold text-rl-text flex items-center gap-2"><Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-rl-purple" /> Otimizações do dia</h1>
+              <p className="text-xs sm:text-sm text-rl-subtle mt-1">
                 Sugestões do playbook de todos os clientes, calculadas sobre os últimos 7 dias do dashboard
                 {ultimoDia ? ` (até ${fmtBR(ultimoDia)})` : ''} contra os 7 anteriores. Aceitar coloca a otimização na fila da automação; recusar registra o motivo.
               </p>
@@ -307,15 +325,15 @@ export default function Otimizacoes() {
           </div>
 
           {/* Resumo */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             {[
               [filtrando ? 'Pendentes no filtro' : 'Pendentes', filtrando ? totalFiltrado : sg.pendentes.length, Inbox, 'text-rl-purple'],
               [filtrando ? 'Clientes no filtro' : 'Clientes com sugestão', filtrando ? grupos.length : sg.grupos.length, Sparkles, 'text-rl-gold'],
               ['Na fila da automação', naFila, Bot, 'text-rl-green'],
               ['Clientes analisados', sg.clientesComDados, Search, 'text-rl-muted'],
             ].map(([label, n, Icon, cls]) => (
-              <div key={label} className="glass-card border border-rl-border/60 p-3 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-full fx-soft flex items-center justify-center shrink-0"><Icon className={`w-4 h-4 ${cls}`} /></span>
+              <div key={label} className="glass-card border border-rl-border/60 p-2.5 sm:p-3 flex items-center gap-2 sm:gap-3">
+                <span className="w-8 h-8 rounded-full fx-soft hidden sm:flex items-center justify-center shrink-0"><Icon className={`w-4 h-4 ${cls}`} /></span>
                 <div className="min-w-0">
                   <p className="text-xl font-bold text-rl-text leading-tight tabular-nums">{sg.loading && n === 0 ? '…' : n}</p>
                   <p className="text-[11px] text-rl-muted truncate">{label}</p>
@@ -336,7 +354,7 @@ export default function Otimizacoes() {
             </div>
             {tab === 'pendentes' && (
               <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
-                <div className="relative">
+                <div className="relative basis-full sm:basis-auto">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-rl-muted pointer-events-none" />
                   <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente" className="input-field text-sm !py-2 !pl-8 !pr-3 !w-full sm:!w-52" />
                 </div>

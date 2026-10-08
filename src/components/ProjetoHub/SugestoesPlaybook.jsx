@@ -27,7 +27,7 @@ export function Caminho({ caminho }) {
   const nomeGerenciador = caminho.url?.includes('ads.google.com') ? 'Google Ads' : 'Gerenciador'
   return (
     <div className="mt-2 rounded-lg bg-rl-surface border border-rl-border/70 px-3 py-2">
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
         <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted flex items-center gap-1"><MapPin className="w-3 h-3" /> Onde está</p>
         {caminho.url && (
           <a href={caminho.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
@@ -40,14 +40,14 @@ export function Caminho({ caminho }) {
         )}
       </div>
       {caminho.cid && <p className="text-[11px] text-rl-muted mb-1">Conta Google Ads: <span className="font-mono text-rl-text">{caminho.cid}</span> <span className="text-rl-muted">(cole na busca do seletor de contas)</span></p>}
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+      <dl className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-x-3 gap-y-1 sm:gap-y-0.5 text-xs">
         {niveis.map(([label, valor]) => (
           <div key={label} className="contents">
-            <dt className="text-rl-muted">{label}:</dt>
-            <dd className="text-rl-text font-medium break-words min-w-0">
+            <dt className="text-rl-muted sm:pt-0">{label}:</dt>
+            <dd className="text-rl-text font-medium [overflow-wrap:anywhere] min-w-0 -mt-1 sm:mt-0">
               {valor}
               {label === 'Anúncio' && caminho.adId && (
-                <span className="ml-1.5 font-mono font-normal text-[11px] text-rl-muted" title="ID do anúncio no Meta (único, mesmo que o nome se repita)">ID {caminho.adId}</span>
+                <span className="block sm:inline sm:ml-1.5 font-mono font-normal text-[11px] text-rl-muted" title="ID do anúncio no Meta (único, mesmo que o nome se repita)">ID {caminho.adId}</span>
               )}
               {label === 'Anúncio' && caminho.link && (
                 <a href={caminho.link} target="_blank" rel="noreferrer" className="ml-1.5 inline-flex items-center gap-0.5 text-rl-purple font-normal" title="Abrir o anúncio">
@@ -76,7 +76,7 @@ function Sugestao({ s, onAceitar, onDescartar }) {
             <span className="text-[11px] text-rl-muted">{CANAL_LABEL[s.canal] || s.canal}</span>
             <span className="text-[11px] text-rl-muted">· {s.tipo}</span>
           </div>
-          <p className="text-sm font-semibold text-rl-text leading-snug">{s.titulo}</p>
+          <p className="text-sm font-semibold text-rl-text leading-snug [overflow-wrap:anywhere]">{s.titulo}</p>
           {s.acao && (
             <p className="text-xs text-rl-text mt-1.5 flex items-start gap-1.5">
               <Wrench className="w-3.5 h-3.5 text-rl-purple shrink-0 mt-px" />
@@ -105,7 +105,7 @@ function Sugestao({ s, onAceitar, onDescartar }) {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="hidden sm:flex items-center gap-1 shrink-0">
           <button onClick={() => onAceitar(s)} className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rl-green/10 text-rl-green border border-rl-green/30 hover:bg-rl-green/20" title="Criar tarefa no ClickUp">
             <Check className="w-3.5 h-3.5" /> Aceitar
           </button>
@@ -113,6 +113,15 @@ function Sugestao({ s, onAceitar, onDescartar }) {
             <X className="w-4 h-4" />
           </button>
         </div>
+      </div>
+      {/* Celular: botões abaixo do conteúdo */}
+      <div className="sm:hidden mt-3 pt-3 border-t border-rl-border/60 grid grid-cols-2 gap-2">
+        <button onClick={() => onAceitar(s)} className="flex items-center justify-center gap-1 text-xs font-semibold px-2.5 py-2 rounded-lg bg-rl-green/10 text-rl-green border border-rl-green/30" title="Criar tarefa no ClickUp">
+          <Check className="w-3.5 h-3.5" /> Aceitar
+        </button>
+        <button onClick={() => onDescartar(s)} className="flex items-center justify-center gap-1 text-xs font-semibold px-2.5 py-2 rounded-lg text-rl-muted border border-rl-border" title="Descartar por 14 dias">
+          <X className="w-3.5 h-3.5" /> Descartar 14 dias
+        </button>
       </div>
     </div>
   )
