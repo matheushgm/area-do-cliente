@@ -3937,6 +3937,9 @@ function aggMetrics(rows, isMeta) {
     const conv = rows.reduce((a,r)=>a+num(r['Conversões']),0)
     // Engajamento social: compartilhamentos do post (action_type "post").
     const shares = rows.reduce((a,r)=>a+num(r['Compartilhamentos']),0)
+    // Instagram atribuído aos anúncios: novos seguidores e visitas ao perfil.
+    const followers = rows.reduce((a,r)=>a+num(r['Seguidores']),0)
+    const profileVisits = rows.reduce((a,r)=>a+num(r['Visitas ao perfil']),0)
     const fRows = rows.filter(r=>num(r['Frequência'])>0 && num(r['Impressões'])>0)
     const fImps = fRows.reduce((a,r)=>a+num(r['Impressões']),0)
     const frequency = fImps>0 ? fRows.reduce((a,r)=>a+num(r['Frequência'])*num(r['Impressões']),0)/fImps : null
@@ -3986,7 +3989,7 @@ function aggMetrics(rows, isMeta) {
       convGen += v
     }
     const lpRate = clicks > 0 ? convGen/clicks*100 : null
-    return { spend, impressions, clicks, conv, shares, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null, frequency,
+    return { spend, impressions, clicks, conv, shares, followers, profileVisits, cpm:impressions>0?spend/impressions*1000:null, ctr:impressions>0?clicks/impressions*100:null, cpl:conv>0?spend/conv:null, convRate:clicks>0?conv/clicks*100:null, frequency,
       purchases, cpp:purchases>0?spend/purchases:null, revenue, roas:spend>0?revenue/spend:null,
       hasEcom, carts, checkouts, cpCart:carts>0?spend/carts:null, cpCheckout:checkouts>0?spend/checkouts:null,
       clickToCart:clicks>0?carts/clicks*100:null, cartToCheckout:carts>0?checkouts/carts*100:null, checkoutToPurchase:checkouts>0?purchases/checkouts*100:null,
@@ -4131,7 +4134,9 @@ function metricGroupsHTML(allRows, prevRows, isMeta, period, pace) {
       ${tileHTML('Cliques', fmtInt(cur.clicks), pctVar(cur.clicks, prv.clicks), false)}
       ${tileHTML('Impressões', fmtInt(cur.impressions), pctVar(cur.impressions, prv.impressions), false)}
       ${isMeta ? `
-      ${tileHTML('Compartilhamentos', fmtInt(cur.shares), pctVar(cur.shares, prv.shares), false)}` : ''}
+      ${tileHTML('Compartilhamentos', fmtInt(cur.shares), pctVar(cur.shares, prv.shares), false)}
+      ${tileHTML('Seguidores', fmtInt(cur.followers), pctVar(cur.followers, prv.followers), false, 'Novos seguidores do Instagram atribuídos aos anúncios no período (não é o total de seguidores da conta).')}
+      ${tileHTML('Visitas ao perfil', fmtInt(cur.profileVisits), pctVar(cur.profileVisits, prv.profileVisits), false, 'Visitas ao perfil do Instagram atribuídas aos anúncios no período.')}` : ''}
     </div>${chart('mgChartEng')}</div>
     <div class="mg-card mg-perf">${perfHeadHTML(isMeta, pv)}<div class="mg-tiles">
       ${isMeta ? (pv === 'mql' ? perfMqlTilesHTML(cur, prv) : perfEcomTilesHTML(cur, prv)) : `
