@@ -3,8 +3,8 @@
 // que cria a tarefa no ClickUp; descartar esconde por 14 dias.
 import { useState, useMemo } from 'react'
 import { Sparkles, Check, X, ChevronDown, ChevronRight, ExternalLink, Loader2, RefreshCw, AlertTriangle, RotateCcw, Kanban, Wrench, MapPin } from 'lucide-react'
-import { PRIORIDADE_LABEL } from '../../lib/playbookSugestoes'
-import { fmtBR, maxDate } from '../../lib/dashboardData'
+import { PRIORIDADE_LABEL, janelaAnalise } from '../../lib/playbookSugestoes'
+import { fmtBR } from '../../lib/dashboardData'
 
 const PRI_CLS = {
   urgente: 'bg-rl-red/10 text-rl-red border-rl-red/30',
@@ -131,18 +131,15 @@ export default function SugestoesPlaybook({ dash, sugestoes, decididas, onAceita
   const [verDecididas, setVerDecididas] = useState(false)
   const { loading, error, raw } = dash
   const temDados = (raw?.meta?.length || 0) + (raw?.google?.length || 0) > 0
-  const ultimoDia = useMemo(() => {
-    const a = maxDate(raw?.meta || [], 'Dia'), b = maxDate(raw?.google || [], 'Data')
-    return [a, b].filter(Boolean).sort().pop() || null
-  }, [raw])
+  const janela = useMemo(() => janelaAnalise(raw?.meta || [], raw?.google || []), [raw])
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 text-xs text-rl-muted px-1">
         <Sparkles className="w-3.5 h-3.5 text-rl-purple" />
         <span>
-          Regras do playbook aplicadas aos últimos 7 dias do dashboard
-          {ultimoDia ? ` (até ${fmtBR(ultimoDia)})` : ''}, comparados com os 7 anteriores.
+          Regras do playbook aplicadas aos últimos 7 dias fechados
+          {janela ? ` (${fmtBR(janela.inicio)} a ${fmtBR(janela.fim)})` : ''}, comparados com os 7 anteriores.
         </span>
         <button onClick={onRecarregar} className="ml-auto p-1 rounded-md hover:bg-rl-surface hover:text-rl-text" title="Recarregar dados"><RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /></button>
       </div>

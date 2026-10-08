@@ -643,6 +643,16 @@ Cada cartão diz a **Otimização** (ação em uma frase), o **Onde está** (Cam
   agora vive no `Dashboard` e é passado por prop ao `ProjectListView` e ao
   `OtimizacoesBanner`) + `useSugestoesGlobais(dash)`, que agrupa as linhas do dash por
   projeto pelo vínculo conta → projeto e roda `gerarSugestoesProjeto` por projeto.
+- **Janela = 7 dias FECHADOS, igual ao Gerenciador e ao Google Ads** (`janelas()` em
+  `playbookSugestoes.js`): termina em ontem (America/Sao_Paulo), nunca em hoje, porque o dia
+  parcial fazia o card divergir dos dois. Validado em 2026-10-08 contra a API do Meta (Nomus,
+  Bio Cosméticos, Nectar: gasto, impressões, cliques no link e leads idênticos por anúncio,
+  nas duas semanas) e contra o Google Ads (Nomus: gasto, cliques e impressões idênticos por
+  campanha; conversões diferem em até 0,01 pelo arredondamento por linha). Única métrica que
+  NÃO é reproduzível: frequência (o dash guarda a frequência diária; a de 7 dias do Meta usa
+  alcance único). `janelaAnalise()` devolve a janela exibida nas telas. Script de conferência:
+  comparar `dash_insights` somado por `ad_id` com `/act_<id>/insights?level=ad` no mesmo
+  intervalo.
 - **Anúncio é identificado pelo `ad_id`**, nunca pelo nome: o mesmo nome ("01") existe em
   vários conjuntos e até dentro do mesmo conjunto. Agrupar por nome soma métricas de
   anúncios diferentes e dá veredito errado. Fallback campanha + conjunto + nome só pra

@@ -12,9 +12,9 @@ import {
 import { useApp } from '../context/AppContext'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { useSugestoesGlobais } from '../hooks/useSugestoesGlobais'
-import { PRIORIDADE_LABEL, PRIORIDADE_ORDEM } from '../lib/playbookSugestoes'
+import { PRIORIDADE_LABEL, PRIORIDADE_ORDEM, janelaAnalise } from '../lib/playbookSugestoes'
 import { Caminho } from '../components/ProjetoHub/SugestoesPlaybook'
-import { fmtBR, maxDate } from '../lib/dashboardData'
+import { fmtBR } from '../lib/dashboardData'
 import { cliente } from '../routes/paths'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
@@ -249,10 +249,7 @@ export default function Otimizacoes() {
 
   const projetoPorId = useMemo(() => new Map((projects || []).map((p) => [p.id, p])), [projects])
 
-  const ultimoDia = useMemo(() => {
-    const a = maxDate(dash.raw?.meta || [], 'Dia'), b = maxDate(dash.raw?.google || [], 'Data')
-    return [a, b].filter(Boolean).sort().pop() || null
-  }, [dash.raw])
+  const janela = useMemo(() => janelaAnalise(dash.raw?.meta || [], dash.raw?.google || []), [dash.raw])
 
   const q = busca.trim().toLowerCase()
   const grupos = useMemo(() => {
@@ -315,8 +312,8 @@ export default function Otimizacoes() {
             <div className="flex-1 min-w-0">
               <h1 className="text-xl sm:text-2xl font-bold text-rl-text flex items-center gap-2"><Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-rl-purple" /> Otimizações do dia</h1>
               <p className="text-xs sm:text-sm text-rl-subtle mt-1">
-                Sugestões do playbook de todos os clientes, calculadas sobre os últimos 7 dias do dashboard
-                {ultimoDia ? ` (até ${fmtBR(ultimoDia)})` : ''} contra os 7 anteriores. Aceitar coloca a otimização na fila da automação; recusar registra o motivo.
+                Sugestões do playbook de todos os clientes, calculadas sobre os últimos 7 dias fechados
+                {janela ? ` (${fmtBR(janela.inicio)} a ${fmtBR(janela.fim)}, o mesmo período do Gerenciador e do Google Ads)` : ''} contra os 7 anteriores. Aceitar coloca a otimização na fila da automação; recusar registra o motivo.
               </p>
             </div>
             <button onClick={() => { dash.reload(); sg.recarregarDecisoes() }} className="btn-secondary text-xs flex items-center gap-1.5 !px-3 !py-2 shrink-0 self-start sm:self-auto" title="Recarregar">

@@ -115,9 +115,30 @@ function ultimoStatus(rows, dateKey, statusKey) {
 
 // Normaliza a data da linha pra ISO (a planilha pode vir dd/mm/aaaa) e
 // devolve as janelas: últimos `dias` dias e os `dias` anteriores.
+// Hoje (yyyy-mm-dd) em America/Sao_Paulo, o fuso das contas.
+export function hojeSP() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
+}
+
+// Último dia FECHADO que serve de fim da janela: o dia mais recente do dash, mas
+// nunca hoje. O Gerenciador do Meta e o Google Ads fecham "Últimos 7 dias" em
+// ontem; incluir o dia parcial de hoje fazia o card divergir dos dois (gasto e
+// conversões menores, e "sem gasto nos 2 últimos dias" falso de manhã cedo).
+function ultimoDiaFechado(maxDia) {
+  const ontem = addDays(hojeSP(), -1)
+  return maxDia && ontem && maxDia > ontem ? ontem : maxDia
+}
+
+// Janela de análise (7 dias fechados) pra mostrar na tela: { inicio, fim } ou null.
+export function janelaAnalise(meta = [], google = []) {
+  const m = maxDate(meta, 'Dia'), g = maxDate(google, 'Data')
+  const fim = ultimoDiaFechado([m, g].filter(Boolean).sort().pop() || null)
+  return fim ? { inicio: addDays(fim, -6), fim } : null
+}
+
 function janelas(rows, dateKey, dias = 7) {
   const norm = rows.map((r) => (r._d ? r : { ...r, _d: fmtDate(r[dateKey]) })).filter((r) => r._d)
-  const fim = maxDate(norm, '_d')
+  const fim = ultimoDiaFechado(maxDate(norm, '_d'))
   if (!fim) return { atual: [], anterior: [], inicio: null, fim: null }
   const inicio = addDays(fim, -(dias - 1))
   const inicioAnt = addDays(inicio, -dias)
