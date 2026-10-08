@@ -616,7 +616,7 @@ export default async function handler(req) {
       mode: body?.mode === 'video' ? 'video' : 'estatico',
       funil: clip(body?.funil, 40) || null,
       funil_label: FUNIS_OBJETIVO[String(body?.funil || '').trim()]?.label || null,
-      detalhes: clip(body?.detalhes, 1200) || null,
+      detalhes: clip(body?.detalhes, 5000) || null,
       selection: body?.selection && typeof body.selection === 'object' ? body.selection : null,
       content: clip(body?.content, 60000) || null,
     }
@@ -674,7 +674,7 @@ export default async function handler(req) {
     }
 
     // Detalhes/particularidades deste anúncio (opcional, texto livre).
-    const detalhes = clip(body?.detalhes, 1200)
+    const detalhes = clip(body?.detalhes, 5000)
 
     if (mode === 'video') {
       const adTypes = sanitizeTypes(body?.adTypes)

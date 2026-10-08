@@ -753,9 +753,10 @@ export function CriativosTool({ auth, embedded = false }) {
           <div className="space-y-3">
             <p className="text-sm text-rl-muted">Promoção, condição, prazo, produto específico, ângulo que você quer... A IA incorpora em todas as peças. Pode deixar em branco.</p>
             <textarea value={detalhes} onChange={(e) => setDetalhes(e.target.value)}
-              rows={4} maxLength={1200} autoFocus
+              rows={4} maxLength={5000} autoFocus
               placeholder="Ex.: promoção de dia das mães, 30% off até domingo, brinde de frete grátis acima de R$199."
               className="input-field w-full text-sm resize-none" />
+            <p className="text-[11px] text-rl-muted text-right tabular-nums">{detalhes.length} / 5000</p>
             {/* Resumo das escolhas */}
             <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 text-[11px] text-rl-muted space-y-0.5">
               <p><span className="text-rl-text font-semibold">Funil:</span> {FUNIS.find((f) => f.id === funil)?.label || '—'}</p>

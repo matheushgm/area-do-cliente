@@ -2300,9 +2300,10 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                 </p>
                 <AutoResizeTextarea
                   value={extraDetails}
-                  onChange={(e) => setExtraDetails(e.target.value.slice(0, 1200))}
+                  onChange={(e) => setExtraDetails(e.target.value.slice(0, 5000))}
                   className="input-field w-full text-sm min-h-[64px]"
                 />
+                <p className="text-[11px] text-rl-muted text-right tabular-nums">{extraDetails.length} / 5000</p>
               </div>
             </div>
           )}
