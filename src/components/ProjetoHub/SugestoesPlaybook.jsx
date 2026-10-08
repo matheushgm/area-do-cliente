@@ -88,7 +88,7 @@ function Sugestao({ s, onAceitar, onDescartar }) {
           {s.evidencias?.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {s.evidencias.map((e) => (
-                <span key={e.label} className="text-[11px] px-2 py-0.5 rounded-md bg-rl-surface border border-rl-border text-rl-subtle">
+                <span key={e.label} className="text-[11px] px-2 py-0.5 rounded-md bg-rl-surface border border-rl-border text-rl-subtle max-w-full [overflow-wrap:anywhere]">
                   {e.label}: <span className="text-rl-text font-medium">{e.valor}</span>
                 </span>
               ))}

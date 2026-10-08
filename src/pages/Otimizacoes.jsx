@@ -95,7 +95,7 @@ function Sugestao({ s, onAceitar, onRecusar }) {
           {s.evidencias?.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {s.evidencias.map((e) => (
-                <span key={e.label} className="text-[11px] px-2 py-0.5 rounded-md bg-rl-surface border border-rl-border text-rl-subtle">
+                <span key={e.label} className="text-[11px] px-2 py-0.5 rounded-md bg-rl-surface border border-rl-border text-rl-subtle max-w-full [overflow-wrap:anywhere]">
                   {e.label}: <span className="text-rl-text font-medium">{e.valor}</span>
                 </span>
               ))}
@@ -298,7 +298,7 @@ export default function Otimizacoes() {
   }
   const abrir = (id) => navigate(cliente(id))
 
-  const SELECT = 'input-field !w-auto max-w-[48vw] sm:max-w-none text-sm !py-2 !px-3 !pr-8 shrink-0'
+  const SELECT = 'input-field !w-auto max-w-full text-sm !py-2 !px-3 !pr-8 shrink-0'
   const filtrando = squad !== 'todos' || prioridade !== 'todas' || canal !== 'todos' || !!q
 
   return (
@@ -319,7 +319,7 @@ export default function Otimizacoes() {
                 {ultimoDia ? ` (até ${fmtBR(ultimoDia)})` : ''} contra os 7 anteriores. Aceitar coloca a otimização na fila da automação; recusar registra o motivo.
               </p>
             </div>
-            <button onClick={() => { dash.reload(); sg.recarregarDecisoes() }} className="btn-secondary text-xs flex items-center gap-1.5 !px-3 !py-2 shrink-0" title="Recarregar">
+            <button onClick={() => { dash.reload(); sg.recarregarDecisoes() }} className="btn-secondary text-xs flex items-center gap-1.5 !px-3 !py-2 shrink-0 self-start sm:self-auto" title="Recarregar">
               <RefreshCw className={`w-3.5 h-3.5 ${sg.loading ? 'animate-spin' : ''}`} /> Recarregar
             </button>
           </div>
@@ -359,21 +359,23 @@ export default function Otimizacoes() {
                   <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente" className="input-field text-sm !py-2 !pl-8 !pr-3 !w-full sm:!w-52" />
                 </div>
                 {squads?.length > 0 && (
-                  <select value={squad} onChange={(e) => setSquad(e.target.value)} className={`${SELECT} ${squad !== 'todos' ? '!border-rl-purple/50 !text-rl-purple' : ''}`} title="Filtrar por squad">
+                  <select value={squad} onChange={(e) => setSquad(e.target.value)} className={`${SELECT} !w-full sm:!w-auto basis-full sm:basis-auto ${squad !== 'todos' ? '!border-rl-purple/50 !text-rl-purple' : ''}`} title="Filtrar por squad">
                     <option value="todos">Todos os squads</option>
                     {squads.map((sq) => <option key={sq.id} value={sq.id}>{sq.emoji ? `${sq.emoji} ` : ''}{sq.name}</option>)}
                   </select>
                 )}
-                <select value={prioridade} onChange={(e) => setPrioridade(e.target.value)} className={`${SELECT} ${prioridade !== 'todas' ? '!border-rl-purple/50 !text-rl-purple' : ''}`}>
-                  <option value="todas">Todas as prioridades</option>
-                  <option value="urgente">Só urgentes</option>
-                  <option value="alta">Urgentes e altas</option>
-                </select>
-                <select value={canal} onChange={(e) => setCanal(e.target.value)} className={`${SELECT} ${canal !== 'todos' ? '!border-rl-purple/50 !text-rl-purple' : ''}`}>
-                  <option value="todos">Meta e Google</option>
-                  <option value="meta">Só Meta Ads</option>
-                  <option value="google">Só Google Ads</option>
-                </select>
+                <div className="grid grid-cols-2 gap-2 basis-full sm:basis-auto sm:flex sm:items-center">
+                  <select value={prioridade} onChange={(e) => setPrioridade(e.target.value)} className={`${SELECT} !w-full sm:!w-auto ${prioridade !== 'todas' ? '!border-rl-purple/50 !text-rl-purple' : ''}`}>
+                    <option value="todas">Todas as prioridades</option>
+                    <option value="urgente">Só urgentes</option>
+                    <option value="alta">Urgentes e altas</option>
+                  </select>
+                  <select value={canal} onChange={(e) => setCanal(e.target.value)} className={`${SELECT} !w-full sm:!w-auto ${canal !== 'todos' ? '!border-rl-purple/50 !text-rl-purple' : ''}`}>
+                    <option value="todos">Meta e Google</option>
+                    <option value="meta">Só Meta Ads</option>
+                    <option value="google">Só Google Ads</option>
+                  </select>
+                </div>
                 {filtrando && (
                   <button onClick={() => { setBusca(''); setPrioridade('todas'); setCanal('todos'); setSquad('todos') }} className="text-xs text-rl-muted hover:text-rl-text flex items-center gap-1 px-2 py-1.5 shrink-0" title="Limpar filtros">
                     <X className="w-3.5 h-3.5" /> limpar
