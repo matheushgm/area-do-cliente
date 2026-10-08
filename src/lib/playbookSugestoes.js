@@ -8,7 +8,7 @@
 // guardrails da operação: desligar só com gasto mínimo e depois de 72h,
 // escalar em passos de 20%, 3 criativos novos por semana no fundo, etc.
 
-import { num, googleImpr, classifyFunnel, CFG, addDays, maxDate, fmtDate } from './dashboardData'
+import { num, googleImpr, classifyFunnel, CFG, addDays, maxDate, fmtDate, fmtBR } from './dashboardData'
 
 const META_STATUS_AD = 'Status do Aúncio'   // o typo é da planilha original
 const GASTO_MINIMO_SEM_RESULTADO = 35        // R$, guardrail quando não há meta
@@ -285,6 +285,26 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
     const id = (r.ad_id || '').toString().trim()
     return id ? `id${SEP}${id}` : ['nm', r['Nome da campanha'] || '', r['Conjunto de Anúncio'] || '', r['Nome do Anúncio']].join(SEP)
   })
+  // Mesmo anúncio (mesma chave) nos 7 dias ANTERIORES: o veredito de 7 dias sozinho
+  // engana quando o anúncio vinha convertendo e secou na semana (visto no Gerenciador
+  // com 30 dias, onde o total aparece). A janela exata vai no texto pra poder conferir.
+  const porAdAnt = groupRows(w.anterior.filter(ehConversao), (r) => {
+    if (!r['Nome do Anúncio']) return null
+    const id = (r.ad_id || '').toString().trim()
+    return id ? `id${SEP}${id}` : ['nm', r['Nome da campanha'] || '', r['Conjunto de Anúncio'] || '', r['Nome do Anúncio']].join(SEP)
+  })
+  const janelaTxt = `${fmtBR(w.inicio)} a ${fmtBR(w.fim)}`
+  const janelaAntTxt = `${fmtBR(addDays(w.inicio, -7))} a ${fmtBR(addDays(w.inicio, -1))}`
+  // Evidência e frase do histórico (anúncio) — vazio se o anúncio não rodou na semana anterior
+  const historico = (ant) => {
+    if (!ant || ant.spend <= 0) return { frase: '', evid: [{ label: '7 dias anteriores', valor: 'não rodou' }] }
+    const evid = [{ label: `7 dias anteriores (${janelaAntTxt})`, valor: `${fmtInt(ant.conv)} conv. por ${fmtMoney(ant.spend)}${ant.cpl != null ? `, CPL ${fmtMoney(ant.cpl)}` : ''}` }]
+    const bom = metaCpl && ant.cpl != null && ant.cpl <= metaCpl * 2
+    const frase = ant.conv > 0
+      ? ` Na semana anterior (${janelaAntTxt}) ele gerou ${fmtInt(ant.conv)} ${ant.conv > 1 ? 'conversões' : 'conversão'} com CPL ${fmtMoney(ant.cpl)}${bom ? ', dentro do aceitável, então a queda é recente' : metaCpl ? ` (${(ant.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta), já acima do aceitável` : ''}.`
+      : ` Na semana anterior (${janelaAntTxt}) também não converteu (${fmtMoney(ant.spend)}).`
+    return { frase, evid, bom }
+  }
   const gastoMin = metaCpl ? Math.max(GASTO_MINIMO_SEM_RESULTADO, metaCpl * 2) : GASTO_MINIMO_SEM_RESULTADO
   const semConv = [], cplAlto = []
   for (const [k, rs] of porAd) {
@@ -298,20 +318,26 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
     const adId = k.startsWith('id' + SEP) ? k.slice(3) : null
     const link = distintos(rs, 'Link do anúncio')[0] || null
     const ids = { adsetId: idDe(rs, 'adset_id'), campaignId: idDe(rs, 'campaign_id') }
-    if (a.conv === 0 && a.spend >= gastoMin) semConv.push({ nome, camp, conj, adId, link, ids, a })
-    else if (metaCpl && a.conv > 0 && a.cpl >= metaCpl * 2 && a.spend >= metaCpl * 2) cplAlto.push({ nome, camp, conj, adId, link, ids, a })
+    const ant = porAdAnt.has(k) ? aggMeta(porAdAnt.get(k)) : null
+    if (a.conv === 0 && a.spend >= gastoMin) semConv.push({ nome, camp, conj, adId, link, ids, a, ant })
+    else if (metaCpl && a.conv > 0 && a.cpl >= metaCpl * 2 && a.spend >= metaCpl * 2) cplAlto.push({ nome, camp, conj, adId, link, ids, a, ant })
   }
-  for (const { nome, camp, conj, adId, link, ids, a } of semConv.sort((x, y) => y.a.spend - x.a.spend).slice(0, 5)) {
+  for (const { nome, camp, conj, adId, link, ids, a, ant } of semConv.sort((x, y) => y.a.spend - x.a.spend).slice(0, 5)) {
+    const h = historico(ant)
+    // Convertia na semana anterior e secou: ainda vale agir, mas não como urgência cega
+    const vinhaConvertendo = h.bom
     out.push(sugestao({
-      chave: `meta:ad_sem_conv:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: 'urgente', entidade: nome,
+      chave: `meta:ad_sem_conv:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: vinhaConvertendo ? 'alta' : 'urgente', entidade: nome,
       titulo: `${pref}Desligar o anúncio "${nome}" (${fmtMoney(a.spend)} sem conversão)`,
       acao: `Pausar este anúncio e renomear com o sufixo _TESTADO.`,
       caminho: contaCam({ campanha: camp, conjunto: conj, anuncio: nome, adId, link, ...ids }),
       regra: 'desligar anúncio com gasto ≥ 2× o CPL ideal e zero conversão, depois de 72h; marcar _TESTADO',
-      contexto: `No conjunto "${conj}" da campanha "${camp}", este anúncio gastou ${fmtMoney(a.spend)} em ${a.dias} dias sem nenhuma conversão.`,
+      contexto: `No conjunto "${conj}" da campanha "${camp}", este anúncio gastou ${fmtMoney(a.spend)} em ${a.dias} dias (${janelaTxt}) sem nenhuma conversão.${h.frase}`,
       evidencias: [
+        { label: `Janela analisada`, valor: janelaTxt },
         { label: 'Gasto', valor: fmtMoney(a.spend) },
         { label: 'Conversões', valor: '0' },
+        ...h.evid,
         { label: 'CTR link', valor: fmtPct(a.ctr) },
         { label: 'Dias no ar na janela', valor: String(a.dias) },
       ],
@@ -319,15 +345,18 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       horas: 0.5,
     }))
   }
-  for (const { nome, camp, conj, adId, link, ids, a } of cplAlto.sort((x, y) => y.a.cpl - x.a.cpl).slice(0, 5)) {
+  for (const { nome, camp, conj, adId, link, ids, a, ant } of cplAlto.sort((x, y) => y.a.cpl - x.a.cpl).slice(0, 5)) {
+    const h = historico(ant)
     out.push(sugestao({
       chave: `meta:ad_cpl_alto:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: 'alta', entidade: nome,
       titulo: `${pref}Desligar o anúncio "${nome}" (CPL ${fmtMoney(a.cpl)}, meta ${fmtMoney(metaCpl)})`,
       acao: `Pausar este anúncio (CPL ${(a.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta) e marcar _TESTADO.`,
       caminho: contaCam({ campanha: camp, conjunto: conj, anuncio: nome, adId, link, ...ids }),
       regra: 'anúncio priorizado com CPL acima de 2× a meta e gasto ≥ 2× a meta é desligado e marcado _TESTADO',
-      contexto: `No conjunto "${conj}" da campanha "${camp}", este anúncio está com CPL ${(a.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta.`,
+      contexto: `No conjunto "${conj}" da campanha "${camp}", este anúncio está com CPL ${(a.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta em ${janelaTxt}.${h.frase}`,
       evidencias: [
+        { label: 'Janela analisada', valor: janelaTxt },
+        ...h.evid,
         { label: 'CPL', valor: fmtMoney(a.cpl) },
         { label: 'Meta de CPL', valor: fmtMoney(metaCpl) },
         { label: 'Gasto', valor: fmtMoney(a.spend) },
