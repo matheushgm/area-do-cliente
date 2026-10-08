@@ -1381,7 +1381,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
       <div className="flex flex-col xl:flex-row gap-4 items-start">
 
         {/* Coluna esquerda: cartão do cliente, ações rápidas, informações e módulos */}
-        <div className="w-full xl:w-[340px] shrink-0 space-y-3">
+        <div className="w-full xl:w-[300px] 2xl:w-[340px] shrink-0 space-y-3">
       {/* ── Profile Header ──────────────────────────────────────────────── */}
         <div className="glass-card border border-rl-border/60">
           <div className="relative h-24 fx-hero rounded-t-2xl">
@@ -1936,7 +1936,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
 
         {/* Coluna direita: acesso rápido aos módulos (só na visão geral) */}
         {activeSection === 'hub' && (
-          <div className="w-full xl:w-[320px] shrink-0">
+          <div className="w-full xl:w-[280px] 2xl:w-[320px] shrink-0">
             <HubDireita project={project} onNavigate={navigateTo} modulos={modulosCard} />
           </div>
         )}

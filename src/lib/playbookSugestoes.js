@@ -106,9 +106,31 @@ function janelas(rows, dateKey, dias = 7) {
 }
 
 // Monta a descrição em markdown que vai para o ClickUp
-function descricao({ regra, contexto, evidencias, passos }) {
+// Caminho até a entidade no gerenciador (Campanha → Conjunto → Anúncio).
+// Só entram os níveis que a regra conhece; o card e o ClickUp mostram iguais.
+function caminhoLinhas(caminho) {
+  if (!caminho) return []
+  const out = []
+  if (caminho.campanha) out.push(`- Campanha: ${caminho.campanha}`)
+  if (caminho.conjunto) out.push(`- Conjunto: ${caminho.conjunto}`)
+  if (caminho.anuncio) out.push(`- Anúncio: ${caminho.anuncio}${caminho.adId ? ` (ID ${caminho.adId})` : ''}`)
+  if (caminho.link) out.push(`- Link do anúncio: ${caminho.link}`)
+  return out
+}
+
+// Valores distintos de uma coluna nas linhas (ex.: conjuntos em que um anúncio rodou)
+function distintos(rows, key) {
+  return [...new Set(rows.map((r) => (r[key] || '').trim()).filter(Boolean))]
+}
+
+function descricao({ acao, regra, contexto, caminho, evidencias, passos }) {
   const linhas = []
+  if (acao) linhas.push(`**Otimização:** ${acao}`, '')
   if (contexto) linhas.push(contexto, '')
+  const cam = caminhoLinhas(caminho)
+  if (cam.length) {
+    linhas.push('**Onde está (Gerenciador de Anúncios):**', ...cam, '')
+  }
   if (evidencias?.length) {
     linhas.push('**Evidência (últimos 7 dias):**')
     for (const e of evidencias) linhas.push(`- ${e.label}: ${e.valor}`)
@@ -145,6 +167,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
     out.push(sugestao({
       chave: `meta:sem_entrega:${conta || 'conta'}`, canal, prioridade: 'urgente',
       titulo: `${pref}Verificar entrega da conta Meta (sem gasto há 2 dias)`,
+      acao: 'Conferir saldo, limite de gasto e anúncios rejeitados da conta.',
       regra: 'conta ativa não pode ficar sem entrega; checar saldo, limite de gasto e rejeições',
       contexto: `A conta gastou ${fmtMoney(totAnt.spend)} na semana anterior e não registra gasto nos últimos 2 dias.`,
       evidencias: [
@@ -160,6 +183,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
     out.push(sugestao({
       chave: `meta:cpl_indefinido:${conta || 'conta'}`, canal, prioridade: 'media',
       titulo: `${pref}Definir a meta de CPL da conta no dashboard`,
+      acao: 'Cadastrar a meta de CPL da conta no dashboard de tráfego.',
       regra: 'toda decisão de desligar/escalar depende do CPL ideal (2× a meta desliga, 0,8× escala)',
       contexto: 'A conta não tem meta de CPL cadastrada. Sem ela, as regras de desligar e escalar do playbook ficam desativadas.',
       evidencias: [{ label: 'CPL atual', valor: tot.cpl != null ? fmtMoney(tot.cpl) : 'sem conversão' }],
@@ -168,24 +192,40 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
     }))
   }
 
-  // Por anúncio
-  const porAd = groupRows(atual, (r) => r['Nome do Anúncio'])
+  // Por anúncio pelo `ad_id` (identificador único no Meta). O nome NÃO identifica
+  // o anúncio: "01" pode existir em vários conjuntos e campanhas, e mesmo dentro
+  // do mesmo conjunto dois anúncios podem ter o mesmo nome. Nunca somar métricas
+  // de anúncios diferentes só porque o nome coincide. Linhas antigas sem ad_id
+  // caem no fallback campanha + conjunto + nome.
+  const SEP = '\u0001'
+  const porAd = groupRows(atual, (r) => {
+    if (!r['Nome do Anúncio']) return null
+    const id = (r.ad_id || '').toString().trim()
+    return id ? `id${SEP}${id}` : ['nm', r['Nome da campanha'] || '', r['Conjunto de Anúncio'] || '', r['Nome do Anúncio']].join(SEP)
+  })
   const gastoMin = metaCpl ? Math.max(GASTO_MINIMO_SEM_RESULTADO, metaCpl * 2) : GASTO_MINIMO_SEM_RESULTADO
   const semConv = [], cplAlto = []
-  for (const [nome, rs] of porAd) {
+  for (const [k, rs] of porAd) {
     if (isPaused(ultimoStatus(rs, '_d', META_STATUS_AD))) continue
     const a = aggMeta(rs)
     if (a.dias < 3) continue // nunca antes de 72h
-    const camp = rs[0]?.['Nome da campanha'] || ''
-    if (a.conv === 0 && a.spend >= gastoMin) semConv.push({ nome, camp, a })
-    else if (metaCpl && a.conv > 0 && a.cpl >= metaCpl * 2 && a.spend >= metaCpl * 2) cplAlto.push({ nome, camp, a })
+    const ultimo = rs.reduce((b, r) => (!b || r._d > b._d ? r : b), null)
+    const nome = ultimo['Nome do Anúncio']
+    const camp = ultimo['Nome da campanha'] || ''
+    const conj = ultimo['Conjunto de Anúncio'] || ''
+    const adId = k.startsWith('id' + SEP) ? k.slice(3) : null
+    const link = distintos(rs, 'Link do anúncio')[0] || null
+    if (a.conv === 0 && a.spend >= gastoMin) semConv.push({ nome, camp, conj, adId, link, a })
+    else if (metaCpl && a.conv > 0 && a.cpl >= metaCpl * 2 && a.spend >= metaCpl * 2) cplAlto.push({ nome, camp, conj, adId, link, a })
   }
-  for (const { nome, camp, a } of semConv.sort((x, y) => y.a.spend - x.a.spend).slice(0, 5)) {
+  for (const { nome, camp, conj, adId, link, a } of semConv.sort((x, y) => y.a.spend - x.a.spend).slice(0, 5)) {
     out.push(sugestao({
-      chave: `meta:ad_sem_conv:${nome}`, canal, prioridade: 'urgente', entidade: nome,
+      chave: `meta:ad_sem_conv:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: 'urgente', entidade: nome,
       titulo: `${pref}Desligar o anúncio "${nome}" (${fmtMoney(a.spend)} sem conversão)`,
+      acao: `Pausar este anúncio e renomear com o sufixo _TESTADO.`,
+      caminho: { campanha: camp, conjunto: conj, anuncio: nome, adId, link },
       regra: 'desligar anúncio com gasto ≥ 2× o CPL ideal e zero conversão, depois de 72h; marcar _TESTADO',
-      contexto: `Anúncio da campanha "${camp}" gastou ${fmtMoney(a.spend)} em ${a.dias} dias sem nenhuma conversão.`,
+      contexto: `No conjunto "${conj}" da campanha "${camp}", este anúncio gastou ${fmtMoney(a.spend)} em ${a.dias} dias sem nenhuma conversão.`,
       evidencias: [
         { label: 'Gasto', valor: fmtMoney(a.spend) },
         { label: 'Conversões', valor: '0' },
@@ -196,12 +236,14 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       horas: 0.5,
     }))
   }
-  for (const { nome, camp, a } of cplAlto.sort((x, y) => y.a.cpl - x.a.cpl).slice(0, 5)) {
+  for (const { nome, camp, conj, adId, link, a } of cplAlto.sort((x, y) => y.a.cpl - x.a.cpl).slice(0, 5)) {
     out.push(sugestao({
-      chave: `meta:ad_cpl_alto:${nome}`, canal, prioridade: 'alta', entidade: nome,
+      chave: `meta:ad_cpl_alto:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: 'alta', entidade: nome,
       titulo: `${pref}Desligar o anúncio "${nome}" (CPL ${fmtMoney(a.cpl)}, meta ${fmtMoney(metaCpl)})`,
+      acao: `Pausar este anúncio (CPL ${(a.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta) e marcar _TESTADO.`,
+      caminho: { campanha: camp, conjunto: conj, anuncio: nome, adId, link },
       regra: 'anúncio priorizado com CPL acima de 2× a meta e gasto ≥ 2× a meta é desligado e marcado _TESTADO',
-      contexto: `Anúncio da campanha "${camp}" está com CPL ${(a.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta.`,
+      contexto: `No conjunto "${conj}" da campanha "${camp}", este anúncio está com CPL ${(a.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta.`,
       evidencias: [
         { label: 'CPL', valor: fmtMoney(a.cpl) },
         { label: 'Meta de CPL', valor: fmtMoney(metaCpl) },
@@ -230,6 +272,8 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       out.push(sugestao({
         chave: `meta:ctr_baixo:${camp}`, canal, prioridade: 'alta', entidade: camp,
         titulo: `${pref}Trocar criativos da campanha "${camp}" (CTR ${fmtPct(a.ctr)})`,
+        acao: 'Subir 3 criativos novos nesta campanha, com gancho diferente dos atuais.',
+        caminho: { campanha: camp },
         regra: 'CTR de link abaixo de 0,5% indica criativo/gancho fraco; benchmark Revenue Lab ≥ 1%',
         contexto: `A campanha entregou ${fmtInt(a.imps)} impressões com CTR de link de ${fmtPct(a.ctr)}.`,
         evidencias: [
@@ -247,6 +291,8 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       out.push(sugestao({
         chave: `meta:saturacao:${camp}`, canal, prioridade: 'alta', entidade: camp,
         titulo: `${pref}Renovar criativos da campanha "${camp}" (frequência ${a.freq.toFixed(1).replace('.', ',')})`,
+        acao: 'Subir 3 criativos novos nesta campanha antes de mexer em orçamento.',
+        caminho: { campanha: camp },
         regra: 'frequência ≥ 3,5 com CTR em queda = público saturado; renovar criativos antes de mexer em orçamento',
         contexto: `Frequência média de ${a.freq.toFixed(1).replace('.', ',')} e CTR caiu de ${fmtPct(ant.ctr)} para ${fmtPct(a.ctr)} vs. a semana anterior.`,
         evidencias: [
@@ -263,6 +309,8 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       out.push(sugestao({
         chave: `meta:poucos_criativos:${camp}`, canal, prioridade: 'media', entidade: camp,
         titulo: `${pref}Subir criativos novos no fundo "${camp}" (só ${adsAtivos} ativo${adsAtivos > 1 ? 's' : ''})`,
+        acao: `Subir 3 criativos novos nesta campanha, mantendo o${adsAtivos > 1 ? 's' : ''} ${adsAtivos} ativo${adsAtivos > 1 ? 's' : ''}.`,
+        caminho: { campanha: camp },
         regra: 'fundo em CBO roda com todos os criativos ativos: 3 novos por semana, até 12 por mês, 6 de gaveta',
         contexto: `A campanha de fundo tem apenas ${adsAtivos} anúncio${adsAtivos > 1 ? 's' : ''} ativo${adsAtivos > 1 ? 's' : ''} na última semana. O Meta precisa de opções pra priorizar.`,
         evidencias: [
@@ -286,6 +334,8 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
         out.push(sugestao({
           chave: `meta:escalar:${camp}::${conj}`, canal, prioridade: 'media', entidade: conj,
           titulo: `${pref}Escalar +20% o conjunto "${conj}" (CPL ${fmtMoney(c.cpl)}, meta ${fmtMoney(metaCpl)})`,
+          acao: 'Aumentar o orçamento deste conjunto em 20% (se a campanha for CBO, aumentar o orçamento da campanha em 20%).',
+          caminho: { campanha: camp, conjunto: conj },
           regra: 'escalar vencedor em até +20% por dia quando CPL ≤ meta e estável há 3 dias',
           contexto: `Conjunto da campanha "${camp}" com CPL ${Math.round((1 - c.cpl / metaCpl) * 100)}% abaixo da meta e ${fmtInt(c.conv)} conversões na semana.`,
           evidencias: [
@@ -306,6 +356,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
     out.push(sugestao({
       chave: `meta:cpl_piorou:${conta || 'conta'}`, canal, prioridade: 'alta',
       titulo: `${pref}Investigar alta de CPL na conta Meta (${fmtMoney(totAnt.cpl)} → ${fmtMoney(tot.cpl)})`,
+      acao: 'Comparar as campanhas entre as duas semanas e achar o que puxou o CPL pra cima.',
       regra: 'variação de CPL acima de 30% entre semanas pede diagnóstico antes de qualquer ajuste de verba',
       contexto: `O CPL da conta subiu ${Math.round((tot.cpl / totAnt.cpl - 1) * 100)}% em relação à semana anterior.`,
       evidencias: [
@@ -326,6 +377,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       out.push(sugestao({
         chave: `meta:sem_fundo:${conta || 'conta'}`, canal, prioridade: 'alta',
         titulo: `${pref}Criar a campanha de fundo de funil (não há campanha "FUNDO" ativa)`,
+      acao: 'Criar uma campanha de fundo em CBO com 3 criativos de oferta direta.',
         regra: 'toda faixa de verba começa com 1 campanha de fundo em CBO (WhatsApp ou lead); topo é opcional a partir de R$ 2k',
         contexto: `Nenhuma campanha com "fundo" no nome gastou na última semana. Verba mensal estimada: ${fmtMoney(verbaMensal)}.`,
         evidencias: [
@@ -340,6 +392,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       out.push(sugestao({
         chave: `meta:sem_topo:${conta || 'conta'}`, canal, prioridade: 'media',
         titulo: `${pref}Criar campanha de topo de funil (verba ≈ ${fmtMoney(verbaMensal)}/mês)`,
+      acao: 'Criar uma campanha de topo com 10 a 20% da verba.',
         regra: 'a partir de R$ 2k/mês o playbook prevê fundo + topo; a partir de R$ 3k o fundo separa conjunto quente e frio',
         contexto: `Só há campanha de fundo rodando. Com ${fmtMoney(verbaMensal)}/mês a conta está na faixa que prevê topo pra alimentar o remarketing.`,
         evidencias: [
@@ -374,6 +427,8 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
       out.push(sugestao({
         chave: `google:camp_sem_conv:${camp}`, canal, prioridade: 'alta', entidade: camp,
         titulo: `${pref}Revisar a campanha "${camp}" no Google (${fmtMoney(a.spend)} sem conversão)`,
+        acao: 'Negativar em exata os termos de pesquisa que não são cliente e revisar a conversão desta campanha.',
+        caminho: { campanha: camp },
         regra: 'campanha com gasto ≥ 2× o CPL ideal e zero conversão: negativar termos e revisar antes de cortar',
         contexto: `Gastou ${fmtMoney(a.spend)} em ${a.dias} dias sem conversão.`,
         evidencias: [
@@ -388,6 +443,8 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
       out.push(sugestao({
         chave: `google:camp_cpl_alto:${camp}`, canal, prioridade: 'alta', entidade: camp,
         titulo: `${pref}Reduzir orçamento -20% da campanha "${camp}" (CPL ${fmtMoney(a.cpl)}, meta ${fmtMoney(metaCpl)})`,
+        acao: 'Reduzir o orçamento diário desta campanha em 20%.',
+        caminho: { campanha: camp },
         regra: 'reduzir perdedor em até -20% por dia quando CPL está acima da meta',
         contexto: `CPL ${(a.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta com ${fmtInt(a.conv)} conversões.`,
         evidencias: [
@@ -404,6 +461,8 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
       out.push(sugestao({
         chave: `google:perda_orcamento:${camp}`, canal, prioridade: 'media', entidade: camp,
         titulo: `${pref}Aumentar +20% o orçamento da campanha "${camp}" (perde ${fmtPct(a.perdaOrcamento, 0)} por orçamento)`,
+        acao: 'Aumentar o orçamento diário desta campanha em 20%.',
+        caminho: { campanha: camp },
         regra: 'campanha dentro da meta perdendo parcela de impressão por orçamento é candidata a escalar em +20%',
         contexto: `A campanha deixa de aparecer em ${fmtPct(a.perdaOrcamento, 0)} das buscas por falta de orçamento, com CPL ${fmtMoney(a.cpl)}.`,
         evidencias: [
@@ -419,6 +478,8 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
       out.push(sugestao({
         chave: `google:ctr_baixo:${camp}`, canal, prioridade: 'media', entidade: camp,
         titulo: `${pref}Revisar anúncios e termos da campanha "${camp}" (CTR ${fmtPct(a.ctr)})`,
+        acao: 'Revisar títulos/descrições dos anúncios responsivos e apertar as palavras amplas desta campanha.',
+        caminho: { campanha: camp },
         regra: 'CTR de pesquisa abaixo de 2% indica anúncio pouco relevante ou termos amplos demais; benchmark ≥ 5%',
         contexto: `${fmtInt(a.imps)} impressões com CTR ${fmtPct(a.ctr)}.`,
         evidencias: [
@@ -436,6 +497,7 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
     out.push(sugestao({
       chave: `google:conv_rate:${conta || 'conta'}`, canal, prioridade: 'media',
       titulo: `${pref}Revisar a landing page do Google (taxa de conversão ${fmtPct(tot.convRate, 1)})`,
+      acao: 'Rodar o ciclo de CRO da landing page que recebe o tráfego do Google.',
       regra: 'taxa de conversão de pesquisa abaixo de 5% aponta pra LP ou oferta, não pra mídia',
       contexto: `${fmtInt(tot.clicks)} cliques viraram ${fmtInt(tot.conv)} conversões na última semana.`,
       evidencias: [

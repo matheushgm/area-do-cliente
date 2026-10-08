@@ -81,7 +81,9 @@ export default function ProjectDetail() {
         </div>
       </nav>
 
-      <div className="max-w-[1800px] mx-auto px-4 sm:px-6 py-6">
+      {/* min-w-0 + w-full: como item do flex em coluna do Layout, sem isso o bloco cresce até
+          a largura mínima do conteúdo (3 colunas) e estoura a tela em vez de encolher. */}
+      <div className="w-full min-w-0 max-w-[1800px] mx-auto px-4 sm:px-6 py-6">
         <ClientProfile
           project={project}
           section={section}

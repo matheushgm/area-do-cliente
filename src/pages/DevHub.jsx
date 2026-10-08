@@ -114,7 +114,7 @@ export default function DevHub() {
             <span className="ml-auto text-xs text-rl-gold">preview local (fixture)</span>
           </div>
         </nav>
-        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 py-6">
+        <div className="w-full min-w-0 max-w-[1800px] mx-auto px-4 sm:px-6 py-6">
           <ClientProfile project={project} />
         </div>
       </div>

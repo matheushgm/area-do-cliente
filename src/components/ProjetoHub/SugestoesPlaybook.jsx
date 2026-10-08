@@ -2,7 +2,7 @@
 // dados do dashboard (últimos 7 dias vs. 7 anteriores). Aceitar abre o modal
 // que cria a tarefa no ClickUp; descartar esconde por 14 dias.
 import { useState, useMemo } from 'react'
-import { Sparkles, Check, X, ChevronDown, ChevronRight, ExternalLink, Loader2, RefreshCw, AlertTriangle, RotateCcw, Kanban } from 'lucide-react'
+import { Sparkles, Check, X, ChevronDown, ChevronRight, ExternalLink, Loader2, RefreshCw, AlertTriangle, RotateCcw, Kanban, Wrench, MapPin } from 'lucide-react'
 import { PRIORIDADE_LABEL } from '../../lib/playbookSugestoes'
 import { fmtBR, maxDate } from '../../lib/dashboardData'
 
@@ -12,6 +12,41 @@ const PRI_CLS = {
   media: 'fx-soft border-transparent',
 }
 const CANAL_LABEL = { meta: 'Meta Ads', google: 'Google Ads' }
+
+// Caminho até a entidade no gerenciador: Campanha → Conjunto → Anúncio.
+// Mostra só os níveis que a regra conhece (regra de conta não tem nenhum).
+function Caminho({ caminho }) {
+  if (!caminho) return null
+  const niveis = [
+    ['Campanha', caminho.campanha],
+    ['Conjunto', caminho.conjunto],
+    ['Anúncio', caminho.anuncio],
+  ].filter(([, v]) => v)
+  if (!niveis.length) return null
+  return (
+    <div className="mt-2 rounded-lg bg-rl-surface border border-rl-border/70 px-3 py-2">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted flex items-center gap-1 mb-1"><MapPin className="w-3 h-3" /> Onde está</p>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+        {niveis.map(([label, valor]) => (
+          <div key={label} className="contents">
+            <dt className="text-rl-muted">{label}:</dt>
+            <dd className="text-rl-text font-medium break-words min-w-0">
+              {valor}
+              {label === 'Anúncio' && caminho.adId && (
+                <span className="ml-1.5 font-mono font-normal text-[11px] text-rl-muted" title="ID do anúncio no Meta (único, mesmo que o nome se repita)">ID {caminho.adId}</span>
+              )}
+              {label === 'Anúncio' && caminho.link && (
+                <a href={caminho.link} target="_blank" rel="noreferrer" className="ml-1.5 inline-flex items-center gap-0.5 text-rl-purple font-normal" title="Abrir o anúncio">
+                  abrir <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  )
+}
 
 function Sugestao({ s, onAceitar, onDescartar }) {
   const [aberta, setAberta] = useState(false)
@@ -28,7 +63,14 @@ function Sugestao({ s, onAceitar, onDescartar }) {
             <span className="text-[11px] text-rl-muted">· {s.tipo}</span>
           </div>
           <p className="text-sm font-semibold text-rl-text leading-snug">{s.titulo}</p>
-          <p className="text-xs text-rl-subtle mt-1">{s.contexto}</p>
+          {s.acao && (
+            <p className="text-xs text-rl-text mt-1.5 flex items-start gap-1.5">
+              <Wrench className="w-3.5 h-3.5 text-rl-purple shrink-0 mt-px" />
+              <span><span className="font-semibold">Otimização:</span> {s.acao}</span>
+            </p>
+          )}
+          <Caminho caminho={s.caminho} />
+          <p className="text-xs text-rl-subtle mt-1.5">{s.contexto}</p>
           {s.evidencias?.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {s.evidencias.map((e) => (
