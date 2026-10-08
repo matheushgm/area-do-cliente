@@ -677,14 +677,20 @@ Atas. Abaixo de `xl` as colunas empilham e os módulos viram drawer pelo hambúr
   Atividade / Sugestões / Otimizações / Anotações / Tarefas / Reuniões.
 - **Sugestões do playbook** (`src/lib/playbookSugestoes.js`, puro): regras do Roadmap Ads e
   dos guardrails aplicadas aos últimos 7 dias do `dash_insights` (via `useDashboardData`
-  com `projectId` e `dias: 16`) vs. os 7 anteriores, por conta vinculada. Meta: sem entrega,
-  meta de CPL indefinida, anúncio sem conversão (≥ 2× CPL ideal ou R$ 35, ≥ 3 dias),
-  anúncio com CPL ≥ 2× meta, CTR link < 0,5%, saturação (freq ≥ 3,5 + CTR caindo), fundo com
-  < 3 criativos ativos, escalar conjunto (CPL ≤ 0,8× meta, estável 3 dias), CPL da conta +30%,
-  sem campanha FUNDO, sem TOPO com verba ≥ R$ 2k. Google: campanha sem conversão, CPL ≥ 2×
-  meta, perda por orçamento ≥ 30%, CTR < 2%, taxa de conversão < 5%. Conversão Meta = coluna
-  `Conversões` (fallback CFG). Cada sugestão tem `chave` estável; o estado vive em
-  `projeto_sugestoes` (aceita → some; descartada → volta após `valida_ate`, 14 dias).
+  com `projectId` e `dias: 16`) vs. os 7 anteriores, por conta vinculada. **Toda regra de
+  CPL / conversão / escala olha só campanhas de FUNDO e MEIO** (`classifyFunnel`); topo de
+  funil nunca é julgado por CPL, e o "CPL da conta" também exclui topo. Meta (fundo/meio):
+  sem entrega, meta de CPL indefinida, anúncio sem conversão (≥ 2× CPL ideal ou R$ 35, ≥ 3
+  dias), anúncio com CPL ≥ 2× meta, CTR link < 0,5% (não vale pra topo), saturação (freq ≥
+  3,5 + CTR caindo), fundo com < 3 criativos ativos, escalar conjunto (CPL ≤ 0,8× meta,
+  estável 3 dias), CPL fundo+meio +30%, sem campanha FUNDO, sem TOPO com verba ≥ R$ 2k.
+  Meta (topo): a régua do Protocolo é vídeo (taxa de gancho = 3 s / impressões ≥ 30%,
+  tempo médio > 10 s, retenção 25% / ThruPlay) e visita ao perfil / seguidores, que o dash
+  não traz; a regra `meta:topo_gancho` troca vídeo com gancho < 30% (≥ R$ 35, ≥ 2k
+  impressões, ≥ 3 dias). Google: campanha sem conversão, CPL ≥ 2× meta, perda por
+  orçamento ≥ 30%, CTR < 2%, taxa de conversão < 5%. Conversão Meta = coluna `Conversões`
+  (fallback CFG). Cada sugestão tem `chave` estável; o estado vive em `projeto_sugestoes`
+  (aceita → some; descartada → volta após `valida_ate`, 14 dias).
 - **Aba Resultados** = espelho do Dashboard de Tráfego (API): iframe do mesmo
   `public/dash-teste/viewer.html` em modo `?embed=1&cliente=<conta>&canal=meta|google`
   (autenticado como o `/dashboard`, mas travado na conta, sem "Voltar", sem banner e

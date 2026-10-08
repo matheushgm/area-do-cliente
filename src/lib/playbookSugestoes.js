@@ -33,6 +33,7 @@ function isPaused(status) { return /paus|inativ|off|disabled|archiv/i.test(statu
 // ─── Agregação ───────────────────────────────────────────────────────────────
 function aggMeta(rows) {
   let spend = 0, imps = 0, clicks = 0, conv = 0, fSum = 0, fImps = 0
+  let v3s = 0, vPlays = 0, v25 = 0, v95 = 0, tSum = 0, tN = 0
   for (const r of rows) {
     const i = num(r['Impressões'])
     spend += num(r['Valor investido'])
@@ -41,6 +42,14 @@ function aggMeta(rows) {
     conv += convMeta(r)
     const f = num(r['Frequência'])
     if (f > 0 && i > 0) { fSum += f * i; fImps += i }
+    // Vídeo (topo de funil). "Exibido" conta autoplay e fica ~ igual às
+    // impressões; a taxa de gancho é 3 s / impressões, como no Gerenciador.
+    v3s += num(r['Número de vezes que assistiram os 3 primeiros segundos'])
+    vPlays += num(r['Número de vezes que o vídeo foi exibido'])
+    v25 += num(r['Número de vezes que assistiram 25% do vídeo'])
+    v95 += num(r['Número de vezes que assistiram 95% do vídeo'])
+    const t = num(r['Tempo médio do vídeo em segundos'])
+    if (t > 0 && i > 0) { tSum += t * i; tN += i }
   }
   return {
     spend, imps, clicks, conv,
@@ -48,6 +57,11 @@ function aggMeta(rows) {
     cpl: conv > 0 ? spend / conv : null,
     freq: fImps > 0 ? fSum / fImps : null,
     dias: new Set(rows.map((r) => r._d)).size,
+    temVideo: vPlays > 0 || v3s > 0,
+    gancho: imps > 0 && (vPlays > 0 || v3s > 0) ? v3s / imps * 100 : null,
+    ret25: v3s > 0 ? v25 / v3s * 100 : null,
+    thruplay: v3s > 0 ? v95 / v3s * 100 : null,
+    tempoMedio: tN > 0 ? tSum / tN : null,
   }
 }
 
@@ -155,14 +169,23 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
   if (!rowsMeta.length) return out
   const w = janelas(rowsMeta, 'Dia', 7)
   const atual = w.atual
-  const tot = aggMeta(atual)
-  const totAnt = aggMeta(w.anterior)
   const canal = 'meta'
   const pref = conta ? `[${conta}] ` : ''
+
+  // Topo de funil NÃO se avalia por CPL/conversão: lá a régua é visita ao perfil,
+  // seguidores e vídeo (gancho, retenção). Toda regra de CPL, conversão e escala
+  // olha só campanhas de fundo e meio; a conta como um todo também.
+  const funilDe = (r) => classifyFunnel(r['Nome da campanha'])
+  const ehConversao = (r) => { const f = funilDe(r); return f === 'fundo' || f === 'meio' }
+  const atualConv = atual.filter(ehConversao)
+  const tot = aggMeta(atual)
+  const totConv = aggMeta(atualConv)
+  const totConvAnt = aggMeta(w.anterior.filter(ehConversao))
 
   // Sem entrega: gastou na semana anterior e zerou nos últimos 2 dias
   const ultimos2 = atual.filter((r) => r._d >= addDays(w.fim, -1))
   const gasto2 = ultimos2.reduce((a, r) => a + num(r['Valor investido']), 0)
+  const totAnt = aggMeta(w.anterior)
   if (totAnt.spend > 50 && tot.spend > 0 && gasto2 === 0) {
     out.push(sugestao({
       chave: `meta:sem_entrega:${conta || 'conta'}`, canal, prioridade: 'urgente',
@@ -179,14 +202,14 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
     }))
   }
 
-  if (metaCpl == null && tot.spend > 0) {
+  if (metaCpl == null && totConv.spend > 0) {
     out.push(sugestao({
       chave: `meta:cpl_indefinido:${conta || 'conta'}`, canal, prioridade: 'media',
       titulo: `${pref}Definir a meta de CPL da conta no dashboard`,
       acao: 'Cadastrar a meta de CPL da conta no dashboard de tráfego.',
       regra: 'toda decisão de desligar/escalar depende do CPL ideal (2× a meta desliga, 0,8× escala)',
       contexto: 'A conta não tem meta de CPL cadastrada. Sem ela, as regras de desligar e escalar do playbook ficam desativadas.',
-      evidencias: [{ label: 'CPL atual', valor: tot.cpl != null ? fmtMoney(tot.cpl) : 'sem conversão' }],
+      evidencias: [{ label: 'CPL atual (fundo + meio)', valor: totConv.cpl != null ? fmtMoney(totConv.cpl) : 'sem conversão' }],
       passos: ['Calcular o CPL ideal a partir da Calculadora de ROI do projeto', 'Cadastrar a meta na coluna de metas do dashboard de tráfego'],
       tipo: 'Estratégia', horas: 0.5,
     }))
@@ -198,7 +221,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
   // de anúncios diferentes só porque o nome coincide. Linhas antigas sem ad_id
   // caem no fallback campanha + conjunto + nome.
   const SEP = '\u0001'
-  const porAd = groupRows(atual, (r) => {
+  const porAd = groupRows(atualConv, (r) => {
     if (!r['Nome do Anúncio']) return null
     const id = (r.ad_id || '').toString().trim()
     return id ? `id${SEP}${id}` : ['nm', r['Nome da campanha'] || '', r['Conjunto de Anúncio'] || '', r['Nome do Anúncio']].join(SEP)
@@ -268,7 +291,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
     const adsAtivos = new Set(rs.filter((r) => !isPaused(r[META_STATUS_AD])).map((r) => r['Nome do Anúncio'])).size
     const ant = porCampAnt.get(camp) ? aggMeta(porCampAnt.get(camp)) : null
 
-    if (a.spend >= 50 && a.imps >= 2000 && a.ctr != null && a.ctr < 0.5) {
+    if (funil !== 'topo' && a.spend >= 50 && a.imps >= 2000 && a.ctr != null && a.ctr < 0.5) {
       out.push(sugestao({
         chave: `meta:ctr_baixo:${camp}`, canal, prioridade: 'alta', entidade: camp,
         titulo: `${pref}Trocar criativos da campanha "${camp}" (CTR ${fmtPct(a.ctr)})`,
@@ -323,8 +346,8 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       }))
     }
 
-    // Escalar: conjunto com CPL ≤ 0,8× a meta, volume e estabilidade (3 dias)
-    if (metaCpl) {
+    // Escalar: conjunto com CPL ≤ 0,8× a meta, volume e estabilidade (3 dias). Só fundo/meio.
+    if (metaCpl && (funil === 'fundo' || funil === 'meio')) {
       const porConj = groupRows(rs, (r) => r['Conjunto de Anúncio'])
       for (const [conj, crs] of porConj) {
         const c = aggMeta(crs)
@@ -351,22 +374,64 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
     }
   }
 
-  // CPL da conta piorou vs semana anterior
-  if (tot.cpl != null && totAnt.cpl != null && totAnt.conv >= 3 && tot.cpl > totAnt.cpl * 1.3) {
+  // CPL das campanhas de conversão (fundo + meio) piorou vs semana anterior
+  if (totConv.cpl != null && totConvAnt.cpl != null && totConvAnt.conv >= 3 && totConv.cpl > totConvAnt.cpl * 1.3) {
     out.push(sugestao({
       chave: `meta:cpl_piorou:${conta || 'conta'}`, canal, prioridade: 'alta',
-      titulo: `${pref}Investigar alta de CPL na conta Meta (${fmtMoney(totAnt.cpl)} → ${fmtMoney(tot.cpl)})`,
-      acao: 'Comparar as campanhas entre as duas semanas e achar o que puxou o CPL pra cima.',
-      regra: 'variação de CPL acima de 30% entre semanas pede diagnóstico antes de qualquer ajuste de verba',
-      contexto: `O CPL da conta subiu ${Math.round((tot.cpl / totAnt.cpl - 1) * 100)}% em relação à semana anterior.`,
+      titulo: `${pref}Investigar alta de CPL no fundo/meio (${fmtMoney(totConvAnt.cpl)} → ${fmtMoney(totConv.cpl)})`,
+      acao: 'Comparar as campanhas de fundo e meio entre as duas semanas e achar o que puxou o CPL pra cima.',
+      regra: 'variação de CPL acima de 30% entre semanas pede diagnóstico antes de qualquer ajuste de verba (topo fica de fora da conta)',
+      contexto: `O CPL das campanhas de fundo e meio subiu ${Math.round((totConv.cpl / totConvAnt.cpl - 1) * 100)}% em relação à semana anterior.`,
       evidencias: [
-        { label: 'CPL atual', valor: fmtMoney(tot.cpl) },
-        { label: 'CPL semana anterior', valor: fmtMoney(totAnt.cpl) },
-        { label: 'Conversões atual / anterior', valor: `${fmtInt(tot.conv)} / ${fmtInt(totAnt.conv)}` },
-        { label: 'Gasto atual / anterior', valor: `${fmtMoney(tot.spend)} / ${fmtMoney(totAnt.spend)}` },
+        { label: 'CPL atual', valor: fmtMoney(totConv.cpl) },
+        { label: 'CPL semana anterior', valor: fmtMoney(totConvAnt.cpl) },
+        { label: 'Conversões atual / anterior', valor: `${fmtInt(totConv.conv)} / ${fmtInt(totConvAnt.conv)}` },
+        { label: 'Gasto atual / anterior', valor: `${fmtMoney(totConv.spend)} / ${fmtMoney(totConvAnt.spend)}` },
       ],
       passos: ['Comparar CTR, CPM e taxa de conversão por campanha entre as duas semanas', 'Checar se algum anúncio novo puxou o CPL pra cima', 'Confirmar rastreamento (pixel/CAPI) e destino do WhatsApp/LP'],
       tipo: 'Relatório', horas: 1,
+    }))
+  }
+
+  // ─── Topo de funil: avaliado por vídeo (gancho, retenção, tempo médio) ──────
+  // Protocolo: taxa de gancho acima de 30%, tempo médio bom acima de 10 s,
+  // renovar criativos a cada 7 dias mantendo os melhores. Visitas ao perfil e
+  // seguidores não chegam ao dash, então ficam de fora aqui.
+  const porAdTopo = groupRows(atual.filter((r) => funilDe(r) === 'topo'), (r) => {
+    if (!r['Nome do Anúncio']) return null
+    const id = (r.ad_id || '').toString().trim()
+    return id ? `id${SEP}${id}` : ['nm', r['Nome da campanha'] || '', r['Conjunto de Anúncio'] || '', r['Nome do Anúncio']].join(SEP)
+  })
+  const ganchoBaixo = []
+  for (const [k, rs] of porAdTopo) {
+    if (isPaused(ultimoStatus(rs, '_d', META_STATUS_AD))) continue
+    const a = aggMeta(rs)
+    if (a.dias < 3 || a.spend < GASTO_MINIMO_SEM_RESULTADO || a.imps < 2000 || !a.temVideo || a.gancho == null) continue
+    if (a.gancho < 30) {
+      const ultimo = rs.reduce((b, r) => (!b || r._d > b._d ? r : b), null)
+      ganchoBaixo.push({
+        nome: ultimo['Nome do Anúncio'], camp: ultimo['Nome da campanha'] || '', conj: ultimo['Conjunto de Anúncio'] || '',
+        adId: k.startsWith('id' + SEP) ? k.slice(3) : null, link: distintos(rs, 'Link do anúncio')[0] || null, a,
+      })
+    }
+  }
+  for (const { nome, camp, conj, adId, link, a } of ganchoBaixo.sort((x, y) => x.a.gancho - y.a.gancho).slice(0, 5)) {
+    out.push(sugestao({
+      chave: `meta:topo_gancho:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: 'media', entidade: nome,
+      titulo: `${pref}Trocar o vídeo de topo "${nome}" (gancho ${fmtPct(a.gancho, 0)}, mínimo 30%)`,
+      acao: `Pausar este vídeo de topo e subir um substituto com os 3 primeiros segundos mais fortes.`,
+      caminho: { campanha: camp, conjunto: conj, anuncio: nome, adId, link },
+      regra: 'topo de funil não se julga por CPL: vídeo com taxa de gancho abaixo de 30% (3 s / impressões) é trocado na renovação semanal',
+      contexto: `Anúncio de topo com ${fmtInt(a.imps)} impressões em ${a.dias} dias: só ${fmtPct(a.gancho, 0)} das pessoas passaram dos 3 primeiros segundos.`,
+      evidencias: [
+        { label: 'Taxa de gancho', valor: fmtPct(a.gancho, 1) },
+        { label: 'Retenção até 25%', valor: a.ret25 != null ? fmtPct(a.ret25, 1) : '—' },
+        { label: 'ThruPlay (95%)', valor: a.thruplay != null ? fmtPct(a.thruplay, 1) : '—' },
+        { label: 'Tempo médio', valor: a.tempoMedio != null ? a.tempoMedio.toFixed(1).replace('.', ',') + ' s' : '—' },
+        { label: 'Gasto', valor: fmtMoney(a.spend) },
+      ],
+      passos: ['Pausar o vídeo e marcar _TESTADO', 'Subir um criativo novo no mesmo conjunto (gancho diferente nos 3 primeiros segundos)', 'Conferir no Gerenciador custo por visita ao perfil e seguidores, que o dash não traz'],
+      tipo: 'Subir Criativo', horas: 1,
     }))
   }
 
