@@ -280,7 +280,8 @@ export default function Otimizacoes() {
   }
   const abrir = (id) => navigate(cliente(id))
 
-  const SELECT = 'input-field text-sm py-2 pr-8'
+  const SELECT = 'input-field !w-auto text-sm !py-2 !px-3 !pr-8 shrink-0'
+  const filtrando = squad !== 'todos' || prioridade !== 'todas' || canal !== 'todos' || !!q
 
   return (
     <div className="fx flex-1 min-w-0 flex flex-col">
@@ -308,8 +309,8 @@ export default function Otimizacoes() {
           {/* Resumo */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              ['Pendentes', sg.pendentes.length, Inbox, 'text-rl-purple'],
-              ['Clientes com sugestão', sg.grupos.length, Sparkles, 'text-rl-gold'],
+              [filtrando ? 'Pendentes no filtro' : 'Pendentes', filtrando ? totalFiltrado : sg.pendentes.length, Inbox, 'text-rl-purple'],
+              [filtrando ? 'Clientes no filtro' : 'Clientes com sugestão', filtrando ? grupos.length : sg.grupos.length, Sparkles, 'text-rl-gold'],
               ['Na fila da automação', naFila, Bot, 'text-rl-green'],
               ['Clientes analisados', sg.clientesComDados, Search, 'text-rl-muted'],
             ].map(([label, n, Icon, cls]) => (
@@ -326,7 +327,7 @@ export default function Otimizacoes() {
           {/* Abas + filtros */}
           <div className="glass-card border border-rl-border/60 p-2 flex flex-col sm:flex-row sm:items-center gap-2">
             <div className="flex items-center gap-1">
-              {[['pendentes', 'Pendentes', Inbox, sg.pendentes.length], ['historico', 'Histórico', History, sg.historico.length]].map(([id, label, Icon, n]) => (
+              {[['pendentes', 'Pendentes', Inbox, filtrando ? `${totalFiltrado} de ${sg.pendentes.length}` : sg.pendentes.length], ['historico', 'Histórico', History, sg.historico.length]].map(([id, label, Icon, n]) => (
                 <button key={id} onClick={() => setTab(id)} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors ${tab === id ? 'bg-rl-purple text-white font-semibold' : 'text-rl-subtle hover:text-rl-text hover:bg-rl-surface'}`}>
                   <Icon className="w-4 h-4" /> {label}
                   <span className={`text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center ${tab === id ? 'bg-white/20 text-white' : 'bg-rl-surface text-rl-muted'}`}>{n}</span>
@@ -337,7 +338,7 @@ export default function Otimizacoes() {
               <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-rl-muted pointer-events-none" />
-                  <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente" className="input-field text-sm py-2 pl-8 w-full sm:w-52" />
+                  <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente" className="input-field text-sm !py-2 !pl-8 !pr-3 !w-full sm:!w-52" />
                 </div>
                 {squads?.length > 0 && (
                   <select value={squad} onChange={(e) => setSquad(e.target.value)} className={`${SELECT} ${squad !== 'todos' ? '!border-rl-purple/50 !text-rl-purple' : ''}`} title="Filtrar por squad">
@@ -345,16 +346,21 @@ export default function Otimizacoes() {
                     {squads.map((sq) => <option key={sq.id} value={sq.id}>{sq.emoji ? `${sq.emoji} ` : ''}{sq.name}</option>)}
                   </select>
                 )}
-                <select value={prioridade} onChange={(e) => setPrioridade(e.target.value)} className={SELECT}>
+                <select value={prioridade} onChange={(e) => setPrioridade(e.target.value)} className={`${SELECT} ${prioridade !== 'todas' ? '!border-rl-purple/50 !text-rl-purple' : ''}`}>
                   <option value="todas">Todas as prioridades</option>
                   <option value="urgente">Só urgentes</option>
                   <option value="alta">Urgentes e altas</option>
                 </select>
-                <select value={canal} onChange={(e) => setCanal(e.target.value)} className={SELECT}>
+                <select value={canal} onChange={(e) => setCanal(e.target.value)} className={`${SELECT} ${canal !== 'todos' ? '!border-rl-purple/50 !text-rl-purple' : ''}`}>
                   <option value="todos">Meta e Google</option>
                   <option value="meta">Só Meta Ads</option>
                   <option value="google">Só Google Ads</option>
                 </select>
+                {filtrando && (
+                  <button onClick={() => { setBusca(''); setPrioridade('todas'); setCanal('todos'); setSquad('todos') }} className="text-xs text-rl-muted hover:text-rl-text flex items-center gap-1 px-2 py-1.5 shrink-0" title="Limpar filtros">
+                    <X className="w-3.5 h-3.5" /> limpar
+                  </button>
+                )}
               </div>
             )}
           </div>
