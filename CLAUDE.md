@@ -657,6 +657,14 @@ Cada cartão diz a **Otimização** (ação em uma frase), o **Onde está** (Cam
 - **Fila pra automação:** `select * from projeto_sugestoes where execucao_status = 'pendente'`
   (índice parcial `idx_projeto_sugestoes_fila`); o `payload` tem a sugestão inteira
   (caminho, evidências, passos, regra).
+- **Link direto no gerenciador:** `linkGerenciador(canal, ids)` em `playbookSugestoes.js`
+  monta a URL no nível mais específico da regra (Meta: `adsmanager/manage/ads?act=<account_id>
+  &selected_ad_ids=` | `selected_adset_ids=` | `adsets?...&selected_campaign_ids=`; Google:
+  `ads.google.com/aw/adgroups?campaignId=<id>&__e=<customer_id>`). Os IDs vêm do jsonb do
+  `dash_insights` (`account_id`, `campaign_id`, `adset_id`, `ad_id` no Meta; `customer_id`,
+  `campaign_id` no Google), gravados pelo coletor `dashboard-api` desde 2026-10-08; linha
+  antiga sem ID = sugestão sem botão. O link abre no perfil logado do navegador, que precisa
+  ter acesso à conta. Vai também na descrição do ClickUp e no `payload.caminho.url`.
 - Recusar exige motivo. "Reabrir" apaga a decisão (volta a aparecer se a regra ainda valer);
   não aparece em decisão já executada. Item "Otimizações" na seção Operação da sidebar e
   atalho na home (`src/components/Dashboard/OtimizacoesBanner.jsx`).

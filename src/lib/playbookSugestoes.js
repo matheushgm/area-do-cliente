@@ -128,8 +128,44 @@ function caminhoLinhas(caminho) {
   if (caminho.campanha) out.push(`- Campanha: ${caminho.campanha}`)
   if (caminho.conjunto) out.push(`- Conjunto: ${caminho.conjunto}`)
   if (caminho.anuncio) out.push(`- Anúncio: ${caminho.anuncio}${caminho.adId ? ` (ID ${caminho.adId})` : ''}`)
+  if (caminho.url) out.push(`- Abrir no gerenciador: ${caminho.url}`)
   if (caminho.link) out.push(`- Link do anúncio: ${caminho.link}`)
   return out
+}
+
+// Link direto pro Gerenciador de Anúncios (Meta) ou pro Google Ads, no nível
+// mais específico que a regra conhece. Os IDs vêm das linhas do dash
+// (account_id / campaign_id / adset_id / ad_id no Meta; customer_id /
+// campaign_id no Google). Sem o ID da conta não há link.
+export function linkGerenciador(canal, c = {}) {
+  if (canal === 'meta') {
+    if (!c.accountId) return null
+    const base = 'https://adsmanager.facebook.com/adsmanager/manage'
+    if (c.adId) return `${base}/ads?act=${c.accountId}&selected_ad_ids=${c.adId}`
+    if (c.adsetId) return `${base}/ads?act=${c.accountId}&selected_adset_ids=${c.adsetId}`
+    if (c.campaignId) return `${base}/adsets?act=${c.accountId}&selected_campaign_ids=${c.campaignId}`
+    return `${base}/campaigns?act=${c.accountId}`
+  }
+  if (canal === 'google') {
+    if (!c.customerId) return null
+    const e = `__e=${c.customerId}`
+    if (c.campaignId) return `https://ads.google.com/aw/adgroups?campaignId=${c.campaignId}&${e}`
+    return `https://ads.google.com/aw/campaigns?${e}`
+  }
+  return null
+}
+
+// Monta o `caminho` de uma sugestão já com o link do gerenciador.
+function caminhoDe(canal, c) {
+  return { ...c, url: linkGerenciador(canal, c) }
+}
+
+// Valor mais recente de uma coluna de ID nas linhas (a conta é igual em todas;
+// conjunto/campanha de um anúncio também, mas pega a linha mais nova por segurança)
+function idDe(rows, key) {
+  let best = null
+  for (const r of rows) if (r[key] && (!best || (r._d || '') > (best._d || ''))) best = r
+  return best ? String(best[key]) : null
 }
 
 // Valores distintos de uma coluna nas linhas (ex.: conjuntos em que um anúncio rodou)
@@ -175,6 +211,8 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
   // Topo de funil NÃO se avalia por CPL/conversão: lá a régua é visita ao perfil,
   // seguidores e vídeo (gancho, retenção). Toda regra de CPL, conversão e escala
   // olha só campanhas de fundo e meio; a conta como um todo também.
+  const accountId = idDe(atual, 'account_id')
+  const contaCam = (extra = {}) => caminhoDe(canal, { accountId, ...extra })
   const funilDe = (r) => classifyFunnel(r['Nome da campanha'])
   const ehConversao = (r) => { const f = funilDe(r); return f === 'fundo' || f === 'meio' }
   const atualConv = atual.filter(ehConversao)
@@ -191,6 +229,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       chave: `meta:sem_entrega:${conta || 'conta'}`, canal, prioridade: 'urgente',
       titulo: `${pref}Verificar entrega da conta Meta (sem gasto há 2 dias)`,
       acao: 'Conferir saldo, limite de gasto e anúncios rejeitados da conta.',
+      caminho: contaCam(),
       regra: 'conta ativa não pode ficar sem entrega; checar saldo, limite de gasto e rejeições',
       contexto: `A conta gastou ${fmtMoney(totAnt.spend)} na semana anterior e não registra gasto nos últimos 2 dias.`,
       evidencias: [
@@ -238,15 +277,16 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
     const conj = ultimo['Conjunto de Anúncio'] || ''
     const adId = k.startsWith('id' + SEP) ? k.slice(3) : null
     const link = distintos(rs, 'Link do anúncio')[0] || null
-    if (a.conv === 0 && a.spend >= gastoMin) semConv.push({ nome, camp, conj, adId, link, a })
-    else if (metaCpl && a.conv > 0 && a.cpl >= metaCpl * 2 && a.spend >= metaCpl * 2) cplAlto.push({ nome, camp, conj, adId, link, a })
+    const ids = { adsetId: idDe(rs, 'adset_id'), campaignId: idDe(rs, 'campaign_id') }
+    if (a.conv === 0 && a.spend >= gastoMin) semConv.push({ nome, camp, conj, adId, link, ids, a })
+    else if (metaCpl && a.conv > 0 && a.cpl >= metaCpl * 2 && a.spend >= metaCpl * 2) cplAlto.push({ nome, camp, conj, adId, link, ids, a })
   }
-  for (const { nome, camp, conj, adId, link, a } of semConv.sort((x, y) => y.a.spend - x.a.spend).slice(0, 5)) {
+  for (const { nome, camp, conj, adId, link, ids, a } of semConv.sort((x, y) => y.a.spend - x.a.spend).slice(0, 5)) {
     out.push(sugestao({
       chave: `meta:ad_sem_conv:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: 'urgente', entidade: nome,
       titulo: `${pref}Desligar o anúncio "${nome}" (${fmtMoney(a.spend)} sem conversão)`,
       acao: `Pausar este anúncio e renomear com o sufixo _TESTADO.`,
-      caminho: { campanha: camp, conjunto: conj, anuncio: nome, adId, link },
+      caminho: contaCam({ campanha: camp, conjunto: conj, anuncio: nome, adId, link, ...ids }),
       regra: 'desligar anúncio com gasto ≥ 2× o CPL ideal e zero conversão, depois de 72h; marcar _TESTADO',
       contexto: `No conjunto "${conj}" da campanha "${camp}", este anúncio gastou ${fmtMoney(a.spend)} em ${a.dias} dias sem nenhuma conversão.`,
       evidencias: [
@@ -259,12 +299,12 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       horas: 0.5,
     }))
   }
-  for (const { nome, camp, conj, adId, link, a } of cplAlto.sort((x, y) => y.a.cpl - x.a.cpl).slice(0, 5)) {
+  for (const { nome, camp, conj, adId, link, ids, a } of cplAlto.sort((x, y) => y.a.cpl - x.a.cpl).slice(0, 5)) {
     out.push(sugestao({
       chave: `meta:ad_cpl_alto:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: 'alta', entidade: nome,
       titulo: `${pref}Desligar o anúncio "${nome}" (CPL ${fmtMoney(a.cpl)}, meta ${fmtMoney(metaCpl)})`,
       acao: `Pausar este anúncio (CPL ${(a.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta) e marcar _TESTADO.`,
-      caminho: { campanha: camp, conjunto: conj, anuncio: nome, adId, link },
+      caminho: contaCam({ campanha: camp, conjunto: conj, anuncio: nome, adId, link, ...ids }),
       regra: 'anúncio priorizado com CPL acima de 2× a meta e gasto ≥ 2× a meta é desligado e marcado _TESTADO',
       contexto: `No conjunto "${conj}" da campanha "${camp}", este anúncio está com CPL ${(a.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta.`,
       evidencias: [
@@ -296,7 +336,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
         chave: `meta:ctr_baixo:${camp}`, canal, prioridade: 'alta', entidade: camp,
         titulo: `${pref}Trocar criativos da campanha "${camp}" (CTR ${fmtPct(a.ctr)})`,
         acao: 'Subir 3 criativos novos nesta campanha, com gancho diferente dos atuais.',
-        caminho: { campanha: camp },
+        caminho: contaCam({ campanha: camp, campaignId: idDe(rs, 'campaign_id') }),
         regra: 'CTR de link abaixo de 0,5% indica criativo/gancho fraco; benchmark Revenue Lab ≥ 1%',
         contexto: `A campanha entregou ${fmtInt(a.imps)} impressões com CTR de link de ${fmtPct(a.ctr)}.`,
         evidencias: [
@@ -315,7 +355,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
         chave: `meta:saturacao:${camp}`, canal, prioridade: 'alta', entidade: camp,
         titulo: `${pref}Renovar criativos da campanha "${camp}" (frequência ${a.freq.toFixed(1).replace('.', ',')})`,
         acao: 'Subir 3 criativos novos nesta campanha antes de mexer em orçamento.',
-        caminho: { campanha: camp },
+        caminho: contaCam({ campanha: camp, campaignId: idDe(rs, 'campaign_id') }),
         regra: 'frequência ≥ 3,5 com CTR em queda = público saturado; renovar criativos antes de mexer em orçamento',
         contexto: `Frequência média de ${a.freq.toFixed(1).replace('.', ',')} e CTR caiu de ${fmtPct(ant.ctr)} para ${fmtPct(a.ctr)} vs. a semana anterior.`,
         evidencias: [
@@ -333,7 +373,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
         chave: `meta:poucos_criativos:${camp}`, canal, prioridade: 'media', entidade: camp,
         titulo: `${pref}Subir criativos novos no fundo "${camp}" (só ${adsAtivos} ativo${adsAtivos > 1 ? 's' : ''})`,
         acao: `Subir 3 criativos novos nesta campanha, mantendo o${adsAtivos > 1 ? 's' : ''} ${adsAtivos} ativo${adsAtivos > 1 ? 's' : ''}.`,
-        caminho: { campanha: camp },
+        caminho: contaCam({ campanha: camp, campaignId: idDe(rs, 'campaign_id') }),
         regra: 'fundo em CBO roda com todos os criativos ativos: 3 novos por semana, até 12 por mês, 6 de gaveta',
         contexto: `A campanha de fundo tem apenas ${adsAtivos} anúncio${adsAtivos > 1 ? 's' : ''} ativo${adsAtivos > 1 ? 's' : ''} na última semana. O Meta precisa de opções pra priorizar.`,
         evidencias: [
@@ -358,7 +398,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
           chave: `meta:escalar:${camp}::${conj}`, canal, prioridade: 'media', entidade: conj,
           titulo: `${pref}Escalar +20% o conjunto "${conj}" (CPL ${fmtMoney(c.cpl)}, meta ${fmtMoney(metaCpl)})`,
           acao: 'Aumentar o orçamento deste conjunto em 20% (se a campanha for CBO, aumentar o orçamento da campanha em 20%).',
-          caminho: { campanha: camp, conjunto: conj },
+          caminho: contaCam({ campanha: camp, conjunto: conj, campaignId: idDe(crs, 'campaign_id'), adsetId: idDe(crs, 'adset_id') }),
           regra: 'escalar vencedor em até +20% por dia quando CPL ≤ meta e estável há 3 dias',
           contexto: `Conjunto da campanha "${camp}" com CPL ${Math.round((1 - c.cpl / metaCpl) * 100)}% abaixo da meta e ${fmtInt(c.conv)} conversões na semana.`,
           evidencias: [
@@ -380,6 +420,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       chave: `meta:cpl_piorou:${conta || 'conta'}`, canal, prioridade: 'alta',
       titulo: `${pref}Investigar alta de CPL no fundo/meio (${fmtMoney(totConvAnt.cpl)} → ${fmtMoney(totConv.cpl)})`,
       acao: 'Comparar as campanhas de fundo e meio entre as duas semanas e achar o que puxou o CPL pra cima.',
+      caminho: contaCam(),
       regra: 'variação de CPL acima de 30% entre semanas pede diagnóstico antes de qualquer ajuste de verba (topo fica de fora da conta)',
       contexto: `O CPL das campanhas de fundo e meio subiu ${Math.round((totConv.cpl / totConvAnt.cpl - 1) * 100)}% em relação à semana anterior.`,
       evidencias: [
@@ -412,15 +453,16 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       ganchoBaixo.push({
         nome: ultimo['Nome do Anúncio'], camp: ultimo['Nome da campanha'] || '', conj: ultimo['Conjunto de Anúncio'] || '',
         adId: k.startsWith('id' + SEP) ? k.slice(3) : null, link: distintos(rs, 'Link do anúncio')[0] || null, a,
+        adsetId: idDe(rs, 'adset_id'), campaignId: idDe(rs, 'campaign_id'),
       })
     }
   }
-  for (const { nome, camp, conj, adId, link, a } of ganchoBaixo.sort((x, y) => x.a.gancho - y.a.gancho).slice(0, 5)) {
+  for (const { nome, camp, conj, adId, link, adsetId, campaignId, a } of ganchoBaixo.sort((x, y) => x.a.gancho - y.a.gancho).slice(0, 5)) {
     out.push(sugestao({
       chave: `meta:topo_gancho:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: 'media', entidade: nome,
       titulo: `${pref}Trocar o vídeo de topo "${nome}" (gancho ${fmtPct(a.gancho, 0)}, mínimo 30%)`,
       acao: `Pausar este vídeo de topo e subir um substituto com os 3 primeiros segundos mais fortes.`,
-      caminho: { campanha: camp, conjunto: conj, anuncio: nome, adId, link },
+      caminho: contaCam({ campanha: camp, conjunto: conj, anuncio: nome, adId, link, adsetId, campaignId }),
       regra: 'topo de funil não se julga por CPL: vídeo com taxa de gancho abaixo de 30% (3 s / impressões) é trocado na renovação semanal',
       contexto: `Anúncio de topo com ${fmtInt(a.imps)} impressões em ${a.dias} dias: só ${fmtPct(a.gancho, 0)} das pessoas passaram dos 3 primeiros segundos.`,
       evidencias: [
@@ -443,6 +485,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
         chave: `meta:sem_fundo:${conta || 'conta'}`, canal, prioridade: 'alta',
         titulo: `${pref}Criar a campanha de fundo de funil (não há campanha "FUNDO" ativa)`,
       acao: 'Criar uma campanha de fundo em CBO com 3 criativos de oferta direta.',
+      caminho: contaCam(),
         regra: 'toda faixa de verba começa com 1 campanha de fundo em CBO (WhatsApp ou lead); topo é opcional a partir de R$ 2k',
         contexto: `Nenhuma campanha com "fundo" no nome gastou na última semana. Verba mensal estimada: ${fmtMoney(verbaMensal)}.`,
         evidencias: [
@@ -458,6 +501,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
         chave: `meta:sem_topo:${conta || 'conta'}`, canal, prioridade: 'media',
         titulo: `${pref}Criar campanha de topo de funil (verba ≈ ${fmtMoney(verbaMensal)}/mês)`,
       acao: 'Criar uma campanha de topo com 10 a 20% da verba.',
+      caminho: contaCam(),
         regra: 'a partir de R$ 2k/mês o playbook prevê fundo + topo; a partir de R$ 3k o fundo separa conjunto quente e frio',
         contexto: `Só há campanha de fundo rodando. Com ${fmtMoney(verbaMensal)}/mês a conta está na faixa que prevê topo pra alimentar o remarketing.`,
         evidencias: [
@@ -484,6 +528,8 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
   const pref = conta ? `[${conta}] ` : ''
   const gastoMin = metaCpl ? Math.max(GASTO_MINIMO_SEM_RESULTADO, metaCpl * 2) : GASTO_MINIMO_SEM_RESULTADO
 
+  const customerId = idDe(atual, 'customer_id')
+  const contaCam = (extra = {}) => caminhoDe(canal, { customerId, ...extra })
   const porCamp = groupRows(atual, (r) => r['Campanha'])
   for (const [camp, rs] of porCamp) {
     const a = aggGoogle(rs)
@@ -493,7 +539,7 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
         chave: `google:camp_sem_conv:${camp}`, canal, prioridade: 'alta', entidade: camp,
         titulo: `${pref}Revisar a campanha "${camp}" no Google (${fmtMoney(a.spend)} sem conversão)`,
         acao: 'Negativar em exata os termos de pesquisa que não são cliente e revisar a conversão desta campanha.',
-        caminho: { campanha: camp },
+        caminho: contaCam({ campanha: camp, campaignId: idDe(rs, 'campaign_id') }),
         regra: 'campanha com gasto ≥ 2× o CPL ideal e zero conversão: negativar termos e revisar antes de cortar',
         contexto: `Gastou ${fmtMoney(a.spend)} em ${a.dias} dias sem conversão.`,
         evidencias: [
@@ -509,7 +555,7 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
         chave: `google:camp_cpl_alto:${camp}`, canal, prioridade: 'alta', entidade: camp,
         titulo: `${pref}Reduzir orçamento -20% da campanha "${camp}" (CPL ${fmtMoney(a.cpl)}, meta ${fmtMoney(metaCpl)})`,
         acao: 'Reduzir o orçamento diário desta campanha em 20%.',
-        caminho: { campanha: camp },
+        caminho: contaCam({ campanha: camp, campaignId: idDe(rs, 'campaign_id') }),
         regra: 'reduzir perdedor em até -20% por dia quando CPL está acima da meta',
         contexto: `CPL ${(a.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta com ${fmtInt(a.conv)} conversões.`,
         evidencias: [
@@ -527,7 +573,7 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
         chave: `google:perda_orcamento:${camp}`, canal, prioridade: 'media', entidade: camp,
         titulo: `${pref}Aumentar +20% o orçamento da campanha "${camp}" (perde ${fmtPct(a.perdaOrcamento, 0)} por orçamento)`,
         acao: 'Aumentar o orçamento diário desta campanha em 20%.',
-        caminho: { campanha: camp },
+        caminho: contaCam({ campanha: camp, campaignId: idDe(rs, 'campaign_id') }),
         regra: 'campanha dentro da meta perdendo parcela de impressão por orçamento é candidata a escalar em +20%',
         contexto: `A campanha deixa de aparecer em ${fmtPct(a.perdaOrcamento, 0)} das buscas por falta de orçamento, com CPL ${fmtMoney(a.cpl)}.`,
         evidencias: [
@@ -544,7 +590,7 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
         chave: `google:ctr_baixo:${camp}`, canal, prioridade: 'media', entidade: camp,
         titulo: `${pref}Revisar anúncios e termos da campanha "${camp}" (CTR ${fmtPct(a.ctr)})`,
         acao: 'Revisar títulos/descrições dos anúncios responsivos e apertar as palavras amplas desta campanha.',
-        caminho: { campanha: camp },
+        caminho: contaCam({ campanha: camp, campaignId: idDe(rs, 'campaign_id') }),
         regra: 'CTR de pesquisa abaixo de 2% indica anúncio pouco relevante ou termos amplos demais; benchmark ≥ 5%',
         contexto: `${fmtInt(a.imps)} impressões com CTR ${fmtPct(a.ctr)}.`,
         evidencias: [
@@ -563,6 +609,7 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
       chave: `google:conv_rate:${conta || 'conta'}`, canal, prioridade: 'media',
       titulo: `${pref}Revisar a landing page do Google (taxa de conversão ${fmtPct(tot.convRate, 1)})`,
       acao: 'Rodar o ciclo de CRO da landing page que recebe o tráfego do Google.',
+      caminho: contaCam(),
       regra: 'taxa de conversão de pesquisa abaixo de 5% aponta pra LP ou oferta, não pra mídia',
       contexto: `${fmtInt(tot.clicks)} cliques viraram ${fmtInt(tot.conv)} conversões na última semana.`,
       evidencias: [

@@ -185,6 +185,11 @@ function Historico({ itens, onReabrir, onAbrir }) {
                     {(d.ad_id || cam.adId) && <span className="font-mono"> (ID {d.ad_id || cam.adId})</span>}
                   </p>
                 )}
+                {cam.url && (
+                  <a href={cam.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-rl-purple hover:underline mt-1">
+                    Abrir no {cam.url.includes('ads.google.com') ? 'Google Ads' : 'Gerenciador'} <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
                 {d.motivo && <p className="text-xs text-rl-subtle mt-1"><span className="font-semibold text-rl-text">Motivo:</span> {d.motivo}</p>}
                 {d.status === 'aceita' && (
                   <p className={`text-[11px] mt-1 flex items-center gap-1 ${EXEC_CLS[d.execucao_status] || 'text-rl-muted'}`}>
