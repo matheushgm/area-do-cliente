@@ -865,6 +865,23 @@ async function loadClientRows(ch, client, silencioso) {
   return true
 }
 
+// Campanhas de fundo de formulário ("Fundo e Forms juntos"): cada lead conta
+// TAMBÉM como MQL (regra do Matheus, 2026-10-08). Nenhum nome traz o texto
+// literal, então casa "fundo" + "forms"/"formulário" no nome da campanha.
+// Vale SÓ para a Nectar por enquanto (definido pelo Matheus, 2026-10-08).
+// Soma o Leads da linha na coluna "MQL" já na leitura, então KPIs, funil,
+// gráficos e tabelas leem o mesmo número.
+const FORMS_MQL_RE = /(?=.*fundo)(?=.*(forms?|formul))/i
+const FORMS_MQL_ACCOUNTS = /^nectar/i
+function applyFormsMql(rows) {
+  for (const r of rows) {
+    if (!FORMS_MQL_ACCOUNTS.test((r['Nome da conta'] || '').trim())) continue
+    if (!FORMS_MQL_RE.test(r['Nome da campanha'] || '')) continue
+    const l = num(r['Leads'])
+    if (l > 0) r['MQL'] = String(num(r['MQL']) + l)
+  }
+  return rows
+}
 async function ensureRawRows(ch, client) {
   if (SHARED) return rawRows(ch, client)
   const k = `${ch}|${client}`
@@ -876,13 +893,14 @@ async function ensureRawRows(ch, client) {
       { headers: { Authorization: `Bearer ${token}` } })
     if (!r.ok) throw new Error(`${ch}: HTTP ${r.status}`)
     csv = await r.text()
-    state.rows[k] = parseCSV(csv)
+    state.rows[k] = ch === 'meta' ? applyFormsMql(parseCSV(csv)) : parseCSV(csv)
   } else {
     // dev local: o CSV completo do canal, filtrado aqui mesmo.
     const r = await fetch(LOCAL[ch])
     const todas = r.ok ? parseCSV(await r.text()) : []
     const accKey = CFG[ch].accountKey
     state.rows[k] = todas.filter(x => (x[accKey] || '').trim() === client)
+    if (ch === 'meta') applyFormsMql(state.rows[k])
   }
   return state.rows[k]
 }
@@ -1238,7 +1256,7 @@ async function load(fresh) {
       fetchChannel('meta_status', fresh).catch(() => ''),
       fetchGoogleAds(fresh).catch(() => ''),
       fetchChannel('saldo', fresh).catch(() => ''), fetchAccounts()])
-    state.raw = { meta: parseCSV(m), google: parseCSV(g) }
+    state.raw = { meta: applyFormsMql(parseCSV(m)), google: parseCSV(g) }
     // Dados novos: o cache de linhas cruas por conta também precisa cair, senão
     // a página de cliente continuaria mostrando o que veio antes do sync.
     if (fresh) state.rows = {}
