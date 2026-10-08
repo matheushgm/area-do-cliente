@@ -330,7 +330,7 @@ export default function Otimizacoes() {
               {[['pendentes', 'Pendentes', Inbox, filtrando ? `${totalFiltrado} de ${sg.pendentes.length}` : sg.pendentes.length], ['historico', 'Histórico', History, sg.historico.length]].map(([id, label, Icon, n]) => (
                 <button key={id} onClick={() => setTab(id)} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors ${tab === id ? 'bg-rl-purple text-white font-semibold' : 'text-rl-subtle hover:text-rl-text hover:bg-rl-surface'}`}>
                   <Icon className="w-4 h-4" /> {label}
-                  <span className={`text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center ${tab === id ? 'bg-white/20 text-white' : 'bg-rl-surface text-rl-muted'}`}>{n}</span>
+                  <span className={`text-[10px] font-bold min-w-[18px] h-[18px] px-1.5 rounded-full flex items-center justify-center whitespace-nowrap ${tab === id ? 'bg-white/20 text-white' : 'bg-rl-surface text-rl-muted'}`}>{n}</span>
                 </button>
               ))}
             </div>
