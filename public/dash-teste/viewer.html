@@ -338,6 +338,11 @@
   /* Aqui os dropdowns nascem colados na borda direita: o de campanhas ancora
      por ela (o do período se vira sozinho no dpFit, que mede a tela). */
   .dt-root .cp-scope-filters .cp-camp-filter-panel { left:auto; right:0; }
+  /* Busca por nome do nível atual (campanha / conjunto / anúncio), colada nas
+     sub-abas ou no breadcrumb do drill. */
+  .dt-root .dt-tblsearch { margin-left:auto; width:240px; max-width:100%; flex-shrink:0; align-self:center; }
+  .dt-root .dt-subtabs .dt-tblsearch { margin-bottom:6px; }
+  .dt-root .breadcrumb .dt-tblsearch { margin-left:auto; }
   @media(max-width:680px){ .dt-root .cp-scope-filters { margin-left:0; width:100%; } }
   /* Célula de nome do anúncio: nome trunca, botão "Ver" fica sempre visível */
   .dt-root .ad-name .ad-name-flex { display:flex; align-items:center; gap:8px; }
@@ -3659,11 +3664,18 @@ function openAdDestination(adId, adName, destino){
   })()
 }
 
+// Busca por nome do nível exibido (aba Campanhas): ignora acento e caixa.
+const tblNorm = s => String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+const tblQ = () => tblNorm((state.tblSearch||'').trim())
+const tblMatch = name => { const q=tblQ(); return !q || tblNorm(name).includes(q) }
+const tblFilter = (rows, nameFn) => tblQ() ? rows.filter(r=>tblMatch(nameFn(r))) : rows
+const tblEmpty = msg => state.tblSearch && state.tblSearch.trim() ? `<div class="empty">Nenhum resultado para "${esc(state.tblSearch.trim())}".</div>` : `<div class="empty">${msg}</div>`
+const tblSearchHTML = ph => `<input class="cp-camp-search dt-tblsearch" id="tblSearch" type="search" autocomplete="off" placeholder="${ph}" value="${esc(state.tblSearch||'')}">`
 function tblMetaCampaigns(rows, prevRows){
   const g = groupBy(rows, r=>r['Nome da campanha'], {
     spend:r=>M(r,'Valor investido'), conv:metaConv, leads:metaConv, result:metaResult,
     impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link') })
-  if(!g.length) return `<div class="empty">Sem campanhas no período.</div>`
+  if(!g.length) return tblEmpty('Sem campanhas no período.')
   const pv = prevMapOf(prevRows, r=>r['Nome da campanha'], metaResult)
   const acct = acctOf(rows)
   const flags = g.filter(x=>x.spend>0&&x.result===0).map(x=>`🚨 ${esc(x.key)} — gasto sem resultado`)
@@ -3682,7 +3694,7 @@ function tblMetaCampaigns(rows, prevRows){
 function tblMetaAdsets(rows, prevRows){
   const g = groupBy(rows, metaAdsetKey, {
     spend:r=>M(r,'Valor investido'), conv:metaConv, impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link') })
-  if(!g.length) return `<div class="empty">Sem conjuntos no período.</div>`
+  if(!g.length) return tblEmpty('Sem conjuntos no período.')
   const pv = prevMapOf(prevRows, metaAdsetKey, metaConv)
   // Nome pra exibir (vários conjuntos podem ter o MESMO nome — key é o adset_id).
   const nameOf = x => x._rows[0]?.['Conjunto de Anúncio'] || x.key
@@ -3722,8 +3734,8 @@ function tblMetaAds(rows, prevRows){
   // apareceria duas vezes: uma com dados, outra como "sem entrega".
   const vistosNome = new Set((rows || []).filter(r=>!r['ad_id']).map(r=>r['Nome do Anúncio']).filter(Boolean))
   const semEntrega = (activeAdsOfScope(acct, escopo) || [])
-    .filter(([id, e]) => !vistos.has(id) && !vistosNome.has(e.nome))
-  if(!g.length && !semEntrega.length) return `<div class="empty">Sem anúncios no período.</div>`
+    .filter(([id, e]) => !vistos.has(id) && !vistosNome.has(e.nome) && tblMatch(e.nome))
+  if(!g.length && !semEntrega.length) return tblEmpty('Sem anúncios no período.')
   const noConv = g.filter(x=>x.spend>0&&x.conv===0)
   const flags = noConv.length?[`🚨 ${noConv.length} anúncio(s) com gasto e 0 resultados — ${fmtMoney(noConv.reduce((a,x)=>a+x.spend,0))} desperdiçados`]:[]
   const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const ctr=x.impr>0?x.clicks/x.impr*100:null, cpm=x.impr>0?x.spend/x.impr*1000:null
@@ -3768,7 +3780,7 @@ function tblGoogleCampaigns(rows, prevRows){
   const g = groupBy(rows, r=>r['Campanha'], {
     spend:r=>M(r,'Gasto'), conv:r=>M(r,'Conversões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')), loss:r=>M(r,'% de perda por orçamento'),
     impr:r=>googleImpr(r) })
-  if(!g.length) return `<div class="empty">Sem campanhas no período.</div>`
+  if(!g.length) return tblEmpty('Sem campanhas no período.')
   const pv = prevMapOf(prevRows, r=>r['Campanha'], r=>M(r,'Conversões'))
   const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(x.key)} — sem conversões`)
   const body = g.map((x,i)=>{ const cpa=x.conv>0?x.spend/x.conv:null; const avg=x._rows.length?x.loss/x._rows.length:0
@@ -3781,7 +3793,7 @@ function tblGoogleCampaigns(rows, prevRows){
 function tblGoogleGroups(rows, prevRows){
   const gk = r=>r['Grupo de palavras']||r['Grupo de palavras-chave']
   const g = groupBy(rows, gk, { spend:r=>M(r,'Gasto'), conv:r=>M(r,'Conversões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')) })
-  if(!g.length) return `<div class="empty">Sem grupos no período.</div>`
+  if(!g.length) return tblEmpty('Sem grupos no período.')
   const pv = prevMapOf(prevRows, gk, r=>M(r,'Conversões'))
   const body = g.map((x,i)=>{ const cpa=x.conv>0?x.spend/x.conv:null
     const nm = x.key || '(sem grupo)'
@@ -4384,6 +4396,10 @@ function initQuadrantCharts(period, rows, channel, isMeta) {
 // ─── Aba CAMPANHAS (insights + sub-abas/drill) ────────────────────────────────
 function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, period, pace, filtros) {
   const isMeta = channel === 'meta'
+  // A busca vale para o nível em tela: ao trocar de sub-aba, entrar/sair de
+  // campanha/conjunto ou de cliente ela é limpa.
+  const tblKey = [state.openClient?.client, channel, state.sub, state.drillCampaign, state.drillAdset, state.drillSub].join('|')
+  if (state.tblSearchKey !== tblKey) { state.tblSearchKey = tblKey; state.tblSearch = '' }
   // Sem linhas no período os filtros vêm junto assim mesmo — é por eles que se
   // troca o período que não devolveu nada.
   const filtrosBar = filtros ? `<div class="cp-scope-filters">${filtros}</div>` : ''
@@ -4415,11 +4431,11 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
   if (state.drillCampaign || state.drillAdset) {
     let body, bc
     if (isMeta && state.drillAdset) {
-      body = tblMetaAds(allRows.filter(r=>metaAdsetKey(r)===state.drillAdset),
+      body = tblMetaAds(tblFilter(allRows.filter(r=>metaAdsetKey(r)===state.drillAdset), r=>r['Nome do Anúncio']),
                         prevRows.filter(r=>metaAdsetKey(r)===state.drillAdset))
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">${ic('back','←')} Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span>
-        <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdsetName || state.drillAdset)}</span></div>`
+        <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdsetName || state.drillAdset)}</span>${tblSearchHTML('Buscar anúncio…')}</div>`
     } else if (!isMeta && state.drillAdset) {
       // Dentro do grupo: anúncios (canal google_ads) ou termos de pesquisa
       // (canal google_terms) só daquele grupo. Os dois são lazy/por conta —
@@ -4436,16 +4452,16 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
       const panel = state.drillSub===1 ? `<div id="gadsPanel"></div>`
                   : state.drillSub===2 ? `<div id="termsPanel"></div>`
                   : state.drillSub===3 ? `<div id="gpagesPanel"></div>`
-                  : tblGoogleGroups(allRows.filter(r=>r['Campanha']===state.drillCampaign),
+                  : tblGoogleGroups(tblFilter(allRows.filter(r=>r['Campanha']===state.drillCampaign), googleGroupKey),
                                     prevRows.filter(r=>r['Campanha']===state.drillCampaign))
       body = `${t.html}${panel}`
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">${ic('back','←')} Voltar</button>
-        <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span></div>`
+        <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span>${state.drillSub===0?tblSearchHTML('Buscar grupo…'):''}</div>`
     } else {
-      body = tblMetaAdsets(allRows.filter(r=>r['Nome da campanha']===state.drillCampaign),
+      body = tblMetaAdsets(tblFilter(allRows.filter(r=>r['Nome da campanha']===state.drillCampaign), r=>r['Conjunto de Anúncio']),
                            prevRows.filter(r=>r['Nome da campanha']===state.drillCampaign))
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">${ic('back','←')} Voltar</button>
-        <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span></div>`
+        <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span>${tblSearchHTML('Buscar conjunto…')}</div>`
     }
     return `<div class="cp-panel">${bc}${quad}${body}</div>`
   }
@@ -4457,15 +4473,19 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
   let panel
   // No Google, Anúncios/Termos/Páginas são canais lazy por conta: entram como
   // container vazio e são preenchidos por render*(…) depois do HTML no DOM.
-  if (isMeta) panel = state.sub===1?tblMetaAdsets(allRows,prevRows):state.sub===2?tblMetaAds(allRows,prevRows):tblMetaCampaigns(allRows,prevRows)
+  if (isMeta) panel = state.sub===1?tblMetaAdsets(tblFilter(allRows,r=>r['Conjunto de Anúncio']),prevRows)
+                    : state.sub===2?tblMetaAds(tblFilter(allRows,r=>r['Nome do Anúncio']),prevRows)
+                    : tblMetaCampaigns(tblFilter(allRows,r=>r['Nome da campanha']),prevRows)
   else        panel = state.sub===2?`<div id="gadsPanel"></div>`
                     : state.sub===3?`<div id="termsPanel"></div>`
                     : state.sub===4?`<div id="gpagesPanel"></div>`
-                    : state.sub===1?tblGoogleGroups(allRows,prevRows):tblGoogleCampaigns(allRows,prevRows)
+                    : state.sub===1?tblGoogleGroups(tblFilter(allRows,googleGroupKey),prevRows):tblGoogleCampaigns(tblFilter(allRows,r=>r['Campanha']),prevRows)
   return `<div class="cp-panel">
     ${quad}
     <div class="dt-subtabs">
       ${tabs.map(([l,i])=>`<div class="dtab${state.sub===i?' active':''}" data-sub="${i}">${l}</div>`).join('')}
+      ${isMeta ? tblSearchHTML(['Buscar campanha…','Buscar conjunto…','Buscar anúncio…'][state.sub]||'Buscar…')
+               : state.sub<=1 ? tblSearchHTML(state.sub===1?'Buscar grupo…':'Buscar campanha…') : ''}
     </div>
     ${panel}
     ${insightsCardHTML(ins, periodLabel, stats?.cpl1)}
@@ -5006,6 +5026,10 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
     state._campDocHandler = onDoc
     setTimeout(()=>document.addEventListener('click',onDoc),0)
   }
+
+  // Busca por nome no nível atual (campanha / conjunto / anúncio)
+  const tsEl = document.getElementById('tblSearch')
+  if (tsEl) tsEl.oninput = (e) => { state.tblSearch = e.target.value; renderClient(); const n=document.getElementById('tblSearch'); if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length) } }
 
   // Quadrante Performance: MQL / E-commerce (salvo por cliente)
   app.querySelectorAll('[data-perfview]').forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); state.perfView[client]=b.dataset.perfview; renderClient() })
