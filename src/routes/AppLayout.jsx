@@ -1,6 +1,6 @@
-import { useState, useMemo, Suspense } from 'react'
+import { useState, useMemo, useLayoutEffect, Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import AppSidebar from '../components/AppSidebar'
+import AppSidebar, { lerRecolhida, definirRecolhida } from '../components/AppSidebar'
 import RouteFallback from '../components/UI/RouteFallback'
 import OtimizacoesBridge from '../components/OtimizacoesBridge'
 
@@ -21,6 +21,20 @@ export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { pathname } = useLocation()
   const fx = usaFx(pathname)
+  const emCliente = pathname.startsWith('/cliente/')
+
+  // Abrir a página de um cliente recolhe a sidebar, para dar a largura toda às
+  // 3 colunas. Layout effect: recolhe antes da primeira pintura, sem piscar a
+  // sidebar aberta. Ao sair do cliente (ou desmontar o shell) devolve o que o
+  // usuário tinha, então a preferência global do botão/tecla `[` não é
+  // sobrescrita. Trocar de seção (`/cliente/:id/:secao`) não refaz o efeito, e
+  // por isso reabrir a sidebar à mão vale até sair do cliente.
+  useLayoutEffect(() => {
+    if (!emCliente) return undefined
+    const estavaRecolhida = lerRecolhida()
+    if (!estavaRecolhida) definirRecolhida(true)
+    return () => { if (!estavaRecolhida) definirRecolhida(false) }
+  }, [emCliente])
 
   const outletContext = useMemo(
     () => ({ openSidebar: () => setSidebarOpen(true) }),

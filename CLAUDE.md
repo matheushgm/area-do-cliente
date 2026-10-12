@@ -542,6 +542,14 @@ módulos. Estado em `localStorage` (`app.sidebar.collapsed`), compartilhado entr
 hook `useSidebarCollapsed` (evento `app-sidebar-collapsed`). Alterna pelo botão no topo da
 sidebar ou pela tecla `[` (fora de campos de texto). Só no desktop; no mobile continua o overlay.
 
+**Recolhe sozinha na página do cliente:** o `AppLayout` tem um `useLayoutEffect` atrelado a
+`pathname.startsWith('/cliente/')` que recolhe a sidebar ao abrir qualquer cliente (antes da
+primeira pintura) e, ao sair, devolve o estado que o usuário tinha, sem sobrescrever a
+preferência global. Trocar de seção (`/cliente/:id/:secao`) não refaz o efeito, então reabrir
+a sidebar à mão vale até sair do cliente. O efeito usa `lerRecolhida`/`definirRecolhida`
+(exportadas de `AppSidebar.jsx`), **não** o hook `useSidebarCollapsed`: cada instância do hook
+registra o atalho `[`, e duas instâncias desfazem o toggle uma da outra.
+
 ### Tarefas (`/tarefas`): réplica do ClickUp dentro da Área do Cliente
 
 Substitui o ClickUp na operação. **Visual:** o mesmo do módulo Atividades (frame `.ln`

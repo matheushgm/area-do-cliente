@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect, Fragment } from 'react'
+import { useState, useEffect, useMemo, useRef, useLayoutEffect, Fragment } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
@@ -18,17 +18,22 @@ import { Sparkles,
 const COLLAPSE_KEY = 'app.sidebar.collapsed'
 const COLLAPSE_EVENT = 'app-sidebar-collapsed'
 
-function lerRecolhida() {
+export function lerRecolhida() {
   try { return localStorage.getItem(COLLAPSE_KEY) === '1' } catch { return false }
+}
+
+// Fora do hook para o AppLayout recolher a sidebar sem instanciar outro
+// `useSidebarCollapsed` (cada instância registra o atalho `[`, e dois
+// listeners desfariam o toggle um do outro).
+export function definirRecolhida(v) {
+  const next = typeof v === 'function' ? v(lerRecolhida()) : v
+  try { localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0') } catch { /* noop */ }
+  window.dispatchEvent(new Event(COLLAPSE_EVENT))
 }
 
 export function useSidebarCollapsed() {
   const [collapsed, setCollapsedState] = useState(lerRecolhida)
-  const setCollapsed = useCallback((v) => {
-    const next = typeof v === 'function' ? v(lerRecolhida()) : v
-    try { localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0') } catch { /* noop */ }
-    window.dispatchEvent(new Event(COLLAPSE_EVENT))
-  }, [])
+  const setCollapsed = definirRecolhida
   useEffect(() => {
     const sync = () => setCollapsedState(lerRecolhida())
     window.addEventListener(COLLAPSE_EVENT, sync)
