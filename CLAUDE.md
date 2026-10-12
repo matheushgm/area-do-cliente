@@ -693,6 +693,29 @@ Cada cartão diz a **Otimização** (ação em uma frase), o **Onde está** (Cam
 - Recusar exige motivo. "Reabrir" apaga a decisão (volta a aparecer se a regra ainda valer);
   não aparece em decisão já executada. Item "Otimizações" na seção Operação da sidebar e
   atalho na home (`src/components/Dashboard/OtimizacoesBanner.jsx`).
+- **Painel de Otimizações dentro do Dashboard de Tráfego** (substituiu o card "Análise IA" do
+  viewer, em 2026-10-12). Aparece na aba Campanhas de toda conta Meta e Google, no fim da
+  página, e **acompanha o escopo**: conta inteira, campanha (`drillCampaign`), conjunto/grupo
+  (`drillAdset`) ou um anúncio (selo ✨ n ao lado do nome na tabela de anúncios, que filtra o
+  painel só nele). Mostra só o que pertence ao escopo, via `caminho` da sugestão
+  (`otmEscopo()` em `viewer.html`). Google só gera sugestão de campanha e conta, então no nível
+  do grupo o painel explica isso. Abas Pendentes / Decididas, com aceitar, recusar com motivo,
+  reabrir e "criar tarefa no ClickUp" de novo. Não aparece no link compartilhado (`?shared=1`).
+  - **Motor único:** o viewer é HTML estático em `public/` e não importa de `src/`, então usa
+    `public/dash-teste/vendor/playbookSugestoes.js`, **gerado** de `src/lib/playbookSugestoes.js`
+    por `scripts/sync-playbook-vendor.mjs` (roda no `predev` e no `prebuild`). Nunca edite a cópia.
+    A janela é fixa, 7 dias fechados contra os 7 anteriores, e não segue o filtro de período.
+  - **Mesmas decisões da Central:** lê/grava `projeto_sugestoes` (leitura direta por REST com o
+    token da sessão; gravação pela ponte). A chave da sugestão leva o prefixo `conta|` quando o
+    projeto tem mais de uma conta com dado nos últimos 20 dias (`otmVarias()`, espelha
+    `gerarSugestoesProjeto`); se isso divergir, a mesma sugestão aparece pendente num lugar e
+    decidida no outro. `gerarSugestoesConta()` é o ponto comum entre projeto e conta única.
+  - **Ponte `window.parent.__rlOtimizacoes`** (`src/components/OtimizacoesBridge.jsx`, montada no
+    `AppLayout`): `aceitar`, `recusar`, `criarTarefa`, `reabrir`. Reaproveita
+    `aceitarComTarefa()` (`src/lib/aceitarSugestao.js`), o mesmo caminho da página /otimizacoes
+    (cria a atividade no ClickUp pelo squad do cliente e entra na fila da automação). O viewer não
+    reimplementa nada disso. Sem a ponte (viewer aberto direto, sem login, conta sem projeto
+    vinculado) o painel fica só de leitura e diz o motivo.
 
 ### Página do cliente (`/cliente/:id`): hub em 3 colunas
 

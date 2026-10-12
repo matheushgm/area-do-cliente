@@ -2,6 +2,7 @@ import { useState, useMemo, Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import AppSidebar from '../components/AppSidebar'
 import RouteFallback from '../components/UI/RouteFallback'
+import OtimizacoesBridge from '../components/OtimizacoesBridge'
 
 // Rotas que usam o tema Fynix. `useMatches`/`handle` seria mais elegante, mas
 // exige o data router (createBrowserRouter) — este app usa <BrowserRouter>.
@@ -29,6 +30,8 @@ export default function AppLayout() {
   return (
     <div className={`${fx ? 'fx ' : ''}min-h-screen flex bg-gradient-dark`}>
       <AppSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {/* O dashboard (iframe) aceita/recusa otimizações por aqui: ver o componente */}
+      <OtimizacoesBridge />
       <Suspense fallback={<RouteFallback />}>
         <Outlet context={outletContext} />
       </Suspense>

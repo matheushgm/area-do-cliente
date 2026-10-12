@@ -731,6 +731,9 @@ import {
   buildDeclineDiagnosis, buildScaleCandidates, normStr, localDateStr, diffDays, googleImpr,
   dateRange,
 } from './vendor/dashboardData.js'
+// Motor de otimizações: o MESMO da Central de Otimizações (cópia gerada de
+// src/lib/playbookSugestoes.js por scripts/sync-playbook-vendor.mjs).
+import { gerarSugestoesConta, janelaAnalise, pendente, hojeSP, PRIORIDADE_LABEL } from './vendor/playbookSugestoes.js'
 
 // ─── Fonte de dados ──────────────────────────────────────────────────────────
 // Em produção (dentro da Área do Cliente): busca pelo endpoint AUTENTICADO
@@ -855,10 +858,13 @@ function rawRows(ch, client) {
 // `silencioso` evita piscar o "carregando" quando a recarga vem do botão
 // Atualizar e a página do cliente já está na tela.
 async function loadClientRows(ch, client, silencioso) {
+  // Decisões de otimização do projeto (aceitas/recusadas): lidas sempre, em
+  // paralelo com as linhas, para o painel e os selos dos anúncios já saírem certos.
+  const decisoes = otmCarregarDecisoes(client)
   if (!SHARED && !state.rows[`${ch}|${client}`]) {
     if (!silencioso) app.innerHTML = `<div class="dt-loader"><div class="spinner"></div><p>Carregando ${esc(client)}…</p></div>`
     try {
-      await ensureRawRows(ch, client)
+      await Promise.all([ensureRawRows(ch, client), decisoes])
     } catch (e) {
       state.openClient = null
       render()
@@ -866,6 +872,7 @@ async function loadClientRows(ch, client, silencioso) {
       return false
     }
   }
+  await decisoes
   state.cPeriod = computeClientPeriod(rawRows(ch, client), ch, state.cDays, state.cFrom, state.cTo)
   return true
 }
@@ -1214,7 +1221,10 @@ const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:
                 // { [idDaTabela]: {key,dir} } (sem entrada = ordem natural). Ver tblSorted.
                 tblSort:{},
                 // ordenação das tabelas de conta (key=null → ordem natural do grupo)
-                acctSort:{key:null,dir:'desc'} }
+                acctSort:{key:null,dir:'desc'},
+                // painel de Otimizações da página do cliente: UI (zera ao trocar de conta),
+                // decisões por projeto (projeto_sugestoes) e o último cálculo das sugestões
+                otm:{ k:'' }, otmDec:{}, _otmMemo:null }
 const app = document.getElementById('app')
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
 
@@ -3795,8 +3805,11 @@ function tblMetaAds(rows, prevRows){
       ctr:x.impr>0?x.clicks/x.impr*100:null, cpm:x.impr>0?x.spend/x.impr*1000:null,
       hook:pct(x.h3), p25:pct(x.p25), p50:pct(x.p50), p75:pct(x.p75), p100:pct(x.p100),
       st:adGroupCell(acct,x._rows), paused:!isActiveStatus(adGroupStatus(acct,x._rows).entry.status) } })
+  const otmN = otmAdPendentes(state.openClient?.client, 'meta')
   const body = tblSorted('meta-ad', items, META_AD_COLS).map(({x,top,nome,cpl,ctr,cpm,st:stHtml,paused})=>{
     const adId=(x._rows.find(r=>r['ad_id'])||{})['ad_id']||''
+    // Otimizações pendentes deste anúncio: o selo filtra o painel de Otimizações só nele.
+    const otmBtn=(adId && otmN[adId])?`<button class="otm-pill" data-otm-ad="${esc(adId)}" data-otm-name="${esc(nome)}" title="Ver as ${otmN[adId]} otimização(ões) pendente(s) deste anúncio">${ic('sparkles','💡')} ${otmN[adId]}</button>`:''
     // Dentro de um conjunto o nome dele em cada linha seria repetição; na conta
     // inteira é o que distingue duas linhas do mesmo criativo.
     const conjunto=state.drillAdset ? '' : (x._rows[0]?.['Conjunto de Anúncio'] || '')
@@ -3806,7 +3819,7 @@ function tblMetaAds(rows, prevRows){
     // seria um botão morto, então só o "Ver" (preview) vai para o cliente.
     const destBtn=(adId && !SHARED)?` <button class="ad-dest-btn" data-adid="${esc(adId)}" data-adname="${esc(nome)}" data-destino="${esc(destino)}" title="Mostrar destino do anúncio">${ic('external','🔗')} Destino</button>`:''
     return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(nome)}${conjunto?` · conjunto: ${esc(conjunto)}`:''}">
-      <span class="ad-name-flex"><span class="ad-name-txt">${top?'🏆 ':''}${esc(nome)}${conjunto?`<span class="ad-sub">${esc(conjunto)}</span>`:''}</span>${prevBtn}${destBtn}</span></td>
+      <span class="ad-name-flex"><span class="ad-name-txt">${top?'🏆 ':''}${esc(nome)}${conjunto?`<span class="ad-sub">${esc(conjunto)}</span>`:''}</span>${otmBtn}${prevBtn}${destBtn}</span></td>
       <td>${stHtml}</td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${hookCell(x.h3,x.vv)}</td><td>${ctrCell(ctr)}</td><td>${cpm!=null?fmtMoney(cpm):'—'}</td>
       <td>${pctVid(x.p25,x.vv)}</td><td>${pctVid(x.p50,x.vv)}</td><td>${pctVid(x.p75,x.vv)}</td><td>${pctVid(x.p100,x.vv)}</td></tr>` }).join('')
@@ -4225,94 +4238,279 @@ function metricGroupsHTML(allRows, prevRows, isMeta, period, pace) {
 }
 
 // ─── Insights IA (diagnóstico + plano de ação) — espelha ClientPage ───────────
-function buildInsights(stats, channel, allRows, target) {
-  if (!stats || !allRows.length) return null
-  const s = stats, isMeta = channel === 'meta'
-  const adNameKey = isMeta ? 'Nome do Anúncio' : 'Campanha'
-  const groups = groupBy(allRows, r => r[adNameKey], {
-    spend: r => isMeta ? num(r['Valor investido']) : num(r['Gasto']),
-    conv: r => num(r['Conversões']),
-    clicks: r => isMeta ? num(r['Número de cliques no link']) : (num(r['CLiques']) || num(r['Cliques'])),
-    impressions: r => isMeta ? num(r['Impressões']) : googleImpr(r),
-  })
-  // Só entra na lista de desperdício o anúncio que AINDA está ativo hoje —
-  // cobrar a pausa de algo já pausado era o efeito colateral do status congelado.
-  const wasterAcct = acctOf(allRows)
-  const wasters = groups.filter(g => {
-    if (g.conv > 0 || g.spend < 35) return false
-    if (!isMeta) return true
-    return isActiveStatus(adGroupStatus(wasterAcct, g._rows).entry.status)
-  }).sort((a, b) => b.spend - a.spend).slice(0, 3)
-  const totalWaste = wasters.reduce((a, g) => a + g.spend, 0)
-  const performers = groups.filter(g => g.conv > 0).map(g => ({ ...g, cpl: g.spend / g.conv }))
-  const topPerformer = performers.length ? performers.sort((a, b) => a.cpl - b.cpl)[0] : null
-  const totalClicks = groups.reduce((a, g) => a + g.clicks, 0)
-  const totalImps = groups.reduce((a, g) => a + g.impressions, 0)
-  const totalConv = groups.reduce((a, g) => a + g.conv, 0)
-  const aggCtr = totalImps > 0 ? totalClicks / totalImps * 100 : null
-  const aggConvRate = totalClicks > 0 ? totalConv / totalClicks * 100 : null
-  const benchCtr = isMeta ? 1 : 5
-  const ctrBad = aggCtr != null && aggCtr < (isMeta ? 0.5 : 2)
-  const convRateBad = aggConvRate != null && aggConvRate < (isMeta ? 20 : 5)
-  const overTarget = target && s.cpl1 && s.cpl1 > target.value
-  const overTargetPct = overTarget ? ((s.cpl1 - target.value) / target.value * 100) : 0
+// ─── OTIMIZAÇÕES da conta (no lugar do antigo card "Análise IA") ──────────────
+// As sugestões do playbook da conta aberta, no escopo em que o usuário está:
+// conta inteira → campanha → conjunto → anúncio (pelo selo da tabela). O motor é
+// o MESMO da Central de Otimizações (vendor/playbookSugestoes.js) e as decisões
+// vivem na mesma tabela (projeto_sugestoes), então o que se aceita ou recusa aqui
+// aparece lá e vice-versa. Aceitar/recusar/reabrir passam pela ponte do app
+// (window.parent.__rlOtimizacoes, ver src/components/OtimizacoesBridge.jsx); sem
+// ela o painel é só de leitura. A janela é fixa, 7 dias fechados contra os 7
+// anteriores, e não acompanha o período escolhido no filtro.
+const otmPid = client => state.accounts[client]?.projectId || null
+const otmBridge = () => { try { return (window.parent && window.parent.__rlOtimizacoes) || null } catch (e) { return null } }
+const OTM_STATUS = { aceita:['Aceita','ok'], recusada:['Recusada','bad'], descartada:['Adiada','mute'] }
+const OTM_EXEC = { pendente:'Na fila da automação', executada:'Executada', erro:'Erro na execução', cancelada:'Cancelada' }
+const otmDataHora = iso => { if (!iso) return ''; const d = new Date(iso)
+  return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) }
 
-  let diagnosis
-  if (s.status === 'CRÍTICO') diagnosis = '🔴 CRÍTICO: 0 conversões no período. Conta praticamente parada — investigar urgentemente.'
-  else if (s.status === 'QUEDA') {
-    const parts = []
-    if (s.varConv < -10) parts.push(`conversões caíram ${Math.abs(s.varConv).toFixed(0)}%`)
-    if (s.varCpl != null && s.varCpl > 15) parts.push(`CPL subiu ${s.varCpl.toFixed(0)}%`)
-    diagnosis = `🔴 QUEDA: ${parts.join(' e ') || 'piora detectada'} vs período anterior.`
-  } else if (s.status === 'MELHORA') {
-    const parts = []
-    if (s.varConv > 10) parts.push(`conversões subiram ${s.varConv.toFixed(0)}%`)
-    if (s.varCpl != null && s.varCpl < -10) parts.push(`CPL caiu ${Math.abs(s.varCpl).toFixed(0)}%`)
-    diagnosis = `🟢 MELHORA: ${parts.join(' e ') || 'evolução positiva'} vs período anterior.`
-  } else diagnosis = '🟡 ESTÁVEL: variações dentro da normalidade.'
-
-  const plan = []
-  if (wasters.length) plan.push({ level: 'URGENTE', action: `Pausar ${wasters.length} ${isMeta ? 'anúncio(s)' : 'campanha(s)'} sem conversão — economiza R$ ${totalWaste.toFixed(2)}` })
-  if (s.status === 'CRÍTICO') plan.push({ level: 'URGENTE', action: 'Auditar tracking, públicos e criativos — verificar se há bloqueio na entrega' })
-  if (ctrBad) plan.push({ level: 'ALTA', action: `CTR ${aggCtr.toFixed(2)}% bem abaixo do benchmark (${benchCtr}%) — renovar criativos e copy` })
-  if (convRateBad) plan.push({ level: 'ALTA', action: `Taxa de conversão ${aggConvRate.toFixed(1)}% baixa — revisar landing page / oferta / qualidade do lead` })
-  if (overTarget && overTargetPct > 30) plan.push({ level: 'ALTA', action: `CPL ${overTargetPct.toFixed(0)}% acima do alvo (${fmtMoney(target.value)}) — diagnosticar causa raiz` })
-  if (topPerformer && target && topPerformer.cpl < target.value * 0.8) plan.push({ level: 'MÉDIA', action: `Escalar "${topPerformer.key}" — CPL ${fmtMoney(topPerformer.cpl)} (${((target.value - topPerformer.cpl) / target.value * 100).toFixed(0)}% abaixo do alvo)` })
-  if (s.varConv >= 20) plan.push({ level: 'MÉDIA', action: `Conversões subiram ${s.varConv.toFixed(0)}% — entender o que mudou e replicar` })
-  if (!plan.length) plan.push({ level: 'MÉDIA', action: 'Performance estável — manter monitoramento e testar novos criativos' })
-
-  return { diagnosis, wasters, totalWaste, topPerformer, aggCtr, aggConvRate, benchCtr, plan, target, overTarget, overTargetPct, isMeta }
+// Estado de UI do painel; zera ao trocar de conta/canal.
+function otmUI() {
+  const k = state.openClient ? `${state.openClient.client}|${state.openClient.channel}` : ''
+  if (state.otm.k !== k) state.otm = { k, ad:null, tab:'pendentes', abertas:{}, recusando:null, busy:{}, aviso:null }
+  return state.otm
 }
-function insightsCardHTML(ins, periodLabel, cpl1) {
-  if (!ins) return ''
-  const priCls = { 'URGENTE':'ins-pri-urgent', 'ALTA':'ins-pri-high', 'MÉDIA':'ins-pri-med' }
-  const ctrThreshold = ins.isMeta ? 1 : 5
-  const convThreshold = ins.isMeta ? 20 : 5
-  const planRows = ins.plan.map(p=>`<div class="ins-plan-row ${priCls[p.level]}"><span class="ins-plan-pri">${p.level}</span><span class="ins-plan-action">${esc(p.action)}</span></div>`).join('')
-  const wastersSec = ins.wasters.length ? `<div class="ins-section">
-      <div class="ins-section-title">${ic('alert','🚨')} Torrando dinheiro</div>
-      <div class="ins-section-sub">${fmtMoney(ins.totalWaste)} desperdiçados em ${ins.wasters.length} ${ins.isMeta?'anúncio(s)':'campanha(s)'}</div>
-      ${ins.wasters.map(w=>`<div class="ins-item"><span class="ins-item-name" title="${esc(w.key)}">${esc(w.key)}</span><span class="ins-item-val ins-bad">R$ ${w.spend.toFixed(2)}</span></div>`).join('')}
+
+// Decisões do projeto (aceita / recusada / adiada). Nunca lança: sem login, sem
+// projeto vinculado ou com erro de rede o painel só não sabe o que já foi decidido.
+async function otmCarregarDecisoes(client) {
+  const pid = otmPid(client)
+  if (!pid || SHARED) return
+  const token = supabaseToken()
+  const atual = state.otmDec[pid]
+  if (!token) { state.otmDec[pid] = { rows: atual?.rows || [], ok: false, erro: 'login' }; return }
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/projeto_sugestoes?project_id=eq.${encodeURIComponent(pid)}&select=*&order=decidida_em.desc&limit=500`,
+      { headers: { apikey: SB_KEY, Authorization: `Bearer ${token}` } })
+    if (!r.ok) throw new Error('HTTP ' + r.status)
+    state.otmDec[pid] = { rows: await r.json(), ok: true }
+  } catch (e) {
+    state.otmDec[pid] = { rows: atual?.rows || [], ok: false, erro: e.message }
+  }
+}
+const otmDecMap = client => { const m = new Map(); (state.otmDec[otmPid(client)]?.rows || []).forEach(d => { if (!m.has(d.chave)) m.set(d.chave, d) }); return m }
+function otmSetDecisao(client, d) {
+  const pid = otmPid(client), cur = state.otmDec[pid] || { rows: [], ok: true }
+  state.otmDec[pid] = { ...cur, rows: [d, ...cur.rows.filter(x => !(x.project_id === d.project_id && x.chave === d.chave))] }
+}
+
+// A chave da sugestão leva o prefixo `conta|` quando o projeto tem mais de uma
+// conta com dado recente (mesma conta que a Central faz: contas do projeto com
+// linhas nos últimos 20 dias). Tem que bater, senão a decisão não casa.
+function otmVarias(client) {
+  const pid = otmPid(client)
+  if (!pid) return false
+  const corte = addDays(hojeSP(), -20)
+  const nomes = new Set([client])
+  for (const ch of ['meta', 'google']) {
+    const dk = CFG[ch].dateKey
+    for (const r of (state.raw[ch] || [])) {
+      const n = (r['Nome da conta'] || '').trim()
+      if (!n || n === client || nomes.has(n) || state.accounts[n]?.projectId !== pid) continue
+      const d = fmtDate(r[dk]); if (d && d >= corte) nomes.add(n)
+    }
+  }
+  return nomes.size > 1
+}
+
+// Todas as sugestões da conta aberta (sem filtro de escopo), memorizadas até as
+// linhas ou a meta de CPL mudarem.
+function otmSugestoes(client, ch) {
+  const rows = rawRows(ch, client)
+  if (!rows.length) return []
+  const acc = state.accounts[client] || {}
+  const key = [client, ch, rows.length, acc.cplTarget?.value ?? '', acc.projectId || ''].join('|')
+  const m = state._otmMemo
+  if (m && m.key === key && m.rows === rows) return m.sugs
+  let sugs = []
+  try {
+    sugs = gerarSugestoesConta({
+      meta: ch === 'meta' ? rows : [], google: ch === 'meta' ? [] : rows,
+      metaCpl: acc.cplTarget?.value ?? null, conta: client, varias: otmVarias(client),
+    }).map(s => ({ ...s, projectId: acc.projectId || null }))
+  } catch (e) { console.error('Otimizações: falha ao calcular as sugestões', e) }
+  state._otmMemo = { key, rows, sugs }
+  return sugs
+}
+const otmPendentes = (client, ch) => { const dec = otmDecMap(client), hoje = hojeSP()
+  return otmSugestoes(client, ch).filter(s => pendente(dec.get(s.chave), hoje)) }
+
+// Onde o usuário está: define o que o painel mostra. O filtro por anúncio (selo
+// da tabela) só vale na tela em que foi escolhido.
+function otmEscopo(ch) {
+  const u = otmUI(), camp = state.drillCampaign, adset = state.drillAdset
+  const ctx = [camp, adset, (camp || adset) ? state.drillSub : state.sub].join('|')
+  const ad = u.ad && u.ad.ctx === ctx ? u.ad : null
+  const isMeta = ch === 'meta'
+  const match = c => { c = c || {}
+    if (ad) return ad.id ? c.adId === ad.id : c.anuncio === ad.nome
+    // O conjunto aberto pela aba Conjuntos chega sem campanha (drillCampaign nulo): o
+    // id do conjunto já o identifica, a campanha só desempata quando ela existe.
+    if (adset) return (!camp || c.campanha === camp) && String(c.adsetId || c.conjunto || '') === String(adset)
+    if (camp) return c.campanha === camp
+    return true }
+  const rotulo = ad ? `Anúncio: ${ad.nome}` : adset ? `${isMeta ? 'Conjunto' : 'Grupo'}: ${state.drillAdsetName || adset}` : camp ? `Campanha: ${camp}` : 'Conta inteira'
+  const vazio = adset && !isMeta
+    ? 'As regras do Google olham a campanha e a conta, não o grupo. Volte para a campanha para ver as otimizações.'
+    : ad ? 'Nenhuma otimização pendente para este anúncio.'
+    : adset ? 'Nenhuma otimização pendente para este conjunto.'
+    : camp ? 'Nenhuma otimização pendente para esta campanha.'
+    : 'Nenhuma otimização pendente para esta conta. Tudo dentro das regras do playbook ou já decidido.'
+  return { match, rotulo, vazio, ad, ctx }
+}
+const otmCaminhoDe = d => d.payload?.caminho || { campanha: d.campanha, conjunto: d.conjunto, anuncio: d.anuncio, adId: d.ad_id }
+
+// Selo na tabela de anúncios: quantas otimizações pendentes cada anúncio (ad_id) tem.
+function otmAdPendentes(client, ch) {
+  if (SHARED || ch !== 'meta' || !client) return {}
+  const out = {}
+  for (const s of otmPendentes(client, ch)) { const id = s.caminho?.adId; if (id) out[id] = (out[id] || 0) + 1 }
+  return out
+}
+
+function otmItemHTML(s, u, pode) {
+  const c = s.caminho || {}
+  const aberta = !!u.abertas[s.chave], busy = u.busy[s.chave]
+  const niveis = [['Campanha', c.campanha], ['Conjunto', c.conjunto], ['Anúncio', c.anuncio]].filter(([, v]) => v)
+  const cam = niveis.map(([l, v]) => `<span class="otm-k">${l}:</span> ${esc(v)}`).join(' › ') + (c.adId ? ` <span class="otm-mono">(ID ${esc(c.adId)})</span>` : '')
+  const link = c.url ? `<a class="otm-link" href="${esc(c.url)}" target="_blank" rel="noopener noreferrer">Abrir no ${s.canal === 'google' ? 'Google Ads' : 'Gerenciador'} ${ic('external','↗')}</a>${c.cid ? ` <span class="otm-mono" title="No seletor do Google Ads, buscar este CID">CID ${esc(c.cid)}</span>` : ''}` : ''
+  const chips = (s.evidencias || []).map(e => `<span class="otm-chip">${esc(e.label)}: <b>${esc(e.valor)}</b></span>`).join('')
+  const detalhes = aberta ? `<div class="otm-det">
+      <div class="otm-por"><b>Por quê:</b> ${esc(s.contexto)}</div>
+      ${chips ? `<div class="otm-chips">${chips}</div>` : ''}
+      ${s.passos?.length ? `<ol class="otm-passos">${s.passos.map(p => `<li>${esc(p)}</li>`).join('')}</ol>` : ''}
+      ${s.regra ? `<div class="otm-regra">Regra do playbook: ${esc(s.regra)}</div>` : ''}
     </div>` : ''
-  const topSec = ins.topPerformer ? `<div class="ins-section">
-      <div class="ins-section-title">${ic('trophy','🏆')} Top performer</div>
-      <div class="ins-section-sub">Menor CPL com conversão</div>
-      <div class="ins-item"><span class="ins-item-name" title="${esc(ins.topPerformer.key)}">${esc(ins.topPerformer.key)}</span><span class="ins-item-val ins-good">CPL R$ ${ins.topPerformer.cpl.toFixed(2)}</span></div>
-      <div class="ins-item"><span class="ins-item-name">Conversões</span><span class="ins-item-val">${fmtNum(ins.topPerformer.conv)}</span></div>
-    </div>` : ''
-  const benchSec = `<div class="ins-section">
-      <div class="ins-section-title">${ic('chart','📊')} Benchmarks</div>
-      <div class="ins-section-sub">vs Revenue Lab</div>
-      ${ins.aggCtr!=null?`<div class="ins-item"><span class="ins-item-name">CTR ${ins.isMeta?'Link':'Search'}</span><span class="ins-item-val ${ins.aggCtr>=ctrThreshold?'ins-good':ins.aggCtr<ctrThreshold*0.5?'ins-bad':'ins-warn'}">${ins.aggCtr.toFixed(2)}% (alvo ≥${ctrThreshold}%)</span></div>`:''}
-      ${ins.aggConvRate!=null?`<div class="ins-item"><span class="ins-item-name">Tx. conversão</span><span class="ins-item-val ${ins.aggConvRate>=convThreshold?'ins-good':'ins-warn'}">${ins.aggConvRate.toFixed(1)}%</span></div>`:''}
-      ${ins.target?`<div class="ins-item"><span class="ins-item-name">CPL vs alvo</span><span class="ins-item-val ${!ins.overTarget?'ins-good':ins.overTargetPct>30?'ins-bad':'ins-warn'}">${cpl1?fmtMoney(cpl1):'—'}${ins.overTarget?` (+${ins.overTargetPct.toFixed(0)}%)`:''}</span></div>`:''}
-    </div>`
-  return `<div class="ins-card">
-    <div class="ins-header"><span class="ins-icon">${ic('sparkles','🤖')}</span><span class="ins-title">Análise IA — Revenue Lab</span><span class="ins-meta">${esc(periodLabel)}</span></div>
-    <div class="ins-diag">${esc(ins.diagnosis)}</div>
-    <div class="ins-plan"><div class="ins-plan-title">${ic('list','🎯')} Plano de ação</div>${planRows}</div>
-    <div class="ins-grid" style="margin-top:14px;margin-bottom:0">${wastersSec}${topSec}${benchSec}</div>
+  const recusando = u.recusando === s.chave
+  const acoes = !pode ? '' : recusando
+    ? `<div class="otm-recusa"><label>Por que recusar? (fica no histórico)</label>
+        <textarea data-otm-motivo rows="2" placeholder="Ex.: é o único anúncio priorizado do conjunto, vamos subir um substituto antes">${esc(u.motivo || '')}</textarea>
+        <div class="otm-acoes"><button class="otm-btn bad" data-otm-recusar-ok="${esc(s.chave)}"${busy ? ' disabled' : ''}>${busy === 'recusada' ? 'Salvando…' : 'Confirmar recusa'}</button>
+        <button class="otm-btn ghost" data-otm-recusar-no>Cancelar</button></div></div>`
+    : `<div class="otm-acoes"><button class="otm-btn ok" data-otm-aceitar="${esc(s.chave)}"${busy ? ' disabled' : ''} title="Cria a atividade no ClickUp do cliente e coloca a otimização na fila da automação">${busy === 'aceita' ? 'Criando a atividade…' : 'Aceitar'}</button>
+        <button class="otm-btn ghost" data-otm-recusar="${esc(s.chave)}"${busy ? ' disabled' : ''}>Recusar</button></div>`
+  return `<div class="otm-item otm-p-${esc(s.prioridade)}">
+    <div class="otm-top"><span class="otm-pri">${esc(PRIORIDADE_LABEL[s.prioridade] || s.prioridade)}</span><span class="otm-tit">${esc(s.titulo)}</span></div>
+    ${s.acao ? `<div class="otm-acao"><b>Otimização:</b> ${esc(s.acao)}</div>` : ''}
+    ${(cam || link) ? `<div class="otm-cam">${cam}${cam && link ? ' · ' : ''}${link}</div>` : ''}
+    <button class="otm-more" data-otm-abrir="${esc(s.chave)}">${aberta ? 'Esconder detalhes' : 'Ver o porquê, os passos e a regra'}</button>
+    ${detalhes}${acoes}
   </div>`
+}
+
+function otmDecididaHTML(d, u, pode) {
+  const [lab, cls] = OTM_STATUS[d.status] || [d.status, 'mute']
+  const c = otmCaminhoDe(d)
+  const niveis = [['Campanha', c.campanha], ['Conjunto', c.conjunto], ['Anúncio', c.anuncio]].filter(([, v]) => v)
+  const cam = niveis.map(([l, v]) => `<span class="otm-k">${l}:</span> ${esc(v)}`).join(' › ')
+  const exec = d.status === 'aceita' ? `<div class="otm-exec ${d.execucao_status === 'erro' ? 'bad' : ''}">${esc(d.execucao_status ? OTM_EXEC[d.execucao_status] || d.execucao_status : 'Virou tarefa no ClickUp')}${d.executada_em ? ' · ' + esc(otmDataHora(d.executada_em)) : ''}</div>` : ''
+  const tarefa = d.status !== 'aceita' ? '' : d.clickup_task_url
+    ? `<a class="otm-link" href="${esc(d.clickup_task_url)}" target="_blank" rel="noopener noreferrer">Abrir a atividade no ClickUp ${ic('external','↗')}</a>`
+    : `<div class="otm-exec bad">Sem tarefa no ClickUp${d.execucao_log?.erro_tarefa ? ': ' + esc(d.execucao_log.erro_tarefa) : ''}</div>${pode ? `<button class="otm-btn ghost" data-otm-tarefa="${esc(d.id)}"${u.busy[d.chave] ? ' disabled' : ''}>${u.busy[d.chave] === 'tarefa' ? 'Criando…' : 'Criar tarefa no ClickUp'}</button>` : ''}`
+  const reabrir = pode && d.execucao_status !== 'executada' ? `<button class="otm-more" data-otm-reabrir="${esc(d.id)}"${u.busy[d.chave] ? ' disabled' : ''} title="Apaga a decisão: a sugestão volta a aparecer se a regra ainda valer">Reabrir</button>` : ''
+  return `<div class="otm-item otm-dec">
+    <div class="otm-top"><span class="otm-st ${cls}">${esc(lab)}</span><span class="otm-tit">${esc(d.titulo || d.chave)}</span></div>
+    <div class="otm-quando">${esc(otmDataHora(d.decidida_em || d.created_at))}${d.decidida_por ? ' · ' + esc(d.decidida_por) : ''}</div>
+    ${d.acao ? `<div class="otm-acao"><b>Otimização:</b> ${esc(d.acao)}</div>` : ''}
+    ${cam ? `<div class="otm-cam">${cam}</div>` : ''}
+    ${d.motivo ? `<div class="otm-por"><b>Motivo:</b> ${esc(d.motivo)}</div>` : ''}
+    ${exec}${tarefa}${reabrir}
+  </div>`
+}
+
+function otmInnerHTML(ch, client) {
+  const u = otmUI(), escopo = otmEscopo(ch), pid = otmPid(client), dec = state.otmDec[pid]
+  const pode = !!(pid && otmBridge() && dec?.ok)
+  const pend = otmPendentes(client, ch).filter(s => escopo.match(s.caminho))
+  const decididas = (dec?.rows || []).filter(d => (d.conta || d.payload?.conta) === client && (d.canal || ch) === ch && escopo.match(otmCaminhoDe(d)))
+  const rows = rawRows(ch, client)
+  const j = janelaAnalise(ch === 'meta' ? rows : [], ch === 'meta' ? [] : rows)
+  const urg = pend.filter(s => s.prioridade === 'urgente').length, alta = pend.filter(s => s.prioridade === 'alta').length
+  const tab = u.tab === 'decididas' ? 'decididas' : 'pendentes'
+  const aviso = u.aviso ? `<div class="otm-aviso ${u.aviso.tipo}"><span>${esc(u.aviso.texto)}${u.aviso.url ? ` <a class="otm-link" href="${esc(u.aviso.url)}" target="_blank" rel="noopener noreferrer">${esc(u.aviso.rotulo || 'Abrir')} ${ic('external','↗')}</a>` : ''}</span><button class="otm-x" data-otm-fecha-aviso aria-label="Fechar">✕</button></div>` : ''
+  // O que falta para aceitar/recusar, em uma linha (só uma vez, no pé da lista).
+  const nota = !pid ? 'Esta conta não está vinculada a um projeto na Área do Cliente: dá para ver as otimizações, mas não para aceitar ou recusar.'
+    : !dec?.ok ? (dec?.erro === 'login' ? 'Sem login nesta tela: as decisões já tomadas não aparecem e aceitar/recusar ficam desligados.' : 'Não consegui ler as decisões já tomadas (' + esc(dec?.erro || 'erro') + '): aceitar e recusar ficaram desligados.')
+    : !otmBridge() ? 'Aceitar e recusar ficam disponíveis com o dashboard aberto pela Área do Cliente.' : ''
+  let lista
+  if (tab === 'pendentes') {
+    lista = pend.length ? pend.map(s => otmItemHTML(s, u, pode)).join('') : `<div class="otm-vazio">${esc(escopo.vazio)}</div>`
+  } else {
+    const mostra = decididas.slice(0, 30)
+    lista = mostra.length ? mostra.map(d => otmDecididaHTML(d, u, pode)).join('') + (decididas.length > 30 ? `<div class="otm-vazio">Mostrando as 30 mais recentes de ${decididas.length}.</div>` : '')
+      : '<div class="otm-vazio">Nenhuma decisão registrada neste escopo.</div>'
+  }
+  return `<div class="otm-head"><span class="otm-icon">${ic('sparkles','💡')}</span><span class="otm-title">Otimizações</span>
+      <span class="otm-scope" title="${esc(escopo.rotulo)}">${esc(escopo.rotulo)}</span>${escopo.ad ? `<button class="otm-x" data-otm-limpa-ad title="Voltar ao escopo anterior">✕</button>` : ''}
+      <span class="otm-meta">${j ? `7 dias fechados (${fmtBR(j.inicio)} a ${fmtBR(j.fim)}) contra os 7 anteriores, independente do período do filtro` : ''}</span></div>
+    <div class="otm-tabs">
+      <button class="otm-tab${tab === 'pendentes' ? ' active' : ''}" data-otm-tab="pendentes">Pendentes <span class="otm-n">${pend.length}</span>${urg ? `<span class="otm-n bad" title="Urgentes">${urg} urg.</span>` : ''}${alta ? `<span class="otm-n warn" title="Prioridade alta">${alta} alta${alta > 1 ? 's' : ''}</span>` : ''}</button>
+      <button class="otm-tab${tab === 'decididas' ? ' active' : ''}" data-otm-tab="decididas">Decididas <span class="otm-n">${decididas.length}</span></button>
+    </div>
+    ${aviso}${lista}${nota ? `<div class="otm-nota">${nota}</div>` : ''}`
+}
+const otmPanelHTML = (ch, client) => SHARED ? '' : `<div class="otm-card" id="otmPanel">${otmInnerHTML(ch, client)}</div>`
+
+// Redesenha só o painel (abrir detalhes, trocar de aba…): sem refazer gráficos
+// nem mexer na rolagem. Depois de uma decisão o cliente inteiro é redesenhado,
+// porque os selos da tabela de anúncios mudam junto.
+function otmRender() {
+  const el = document.getElementById('otmPanel')
+  if (!el || !state.openClient) return
+  el.innerHTML = otmInnerHTML(state.openClient.channel, state.openClient.client)
+  otmWire()
+}
+const otmErro = e => ({ tipo: 'erro', texto: (e && e.message ? e.message : 'Falha na operação.') + (e && e.tarefa ? ` A tarefa foi criada no ClickUp: ${e.tarefa.url}` : '') })
+const otmDia = iso => iso ? iso.split('-').reverse().join('/') : ''
+async function otmAgir(chave, kind, fn) {
+  const u = otmUI(), client = state.openClient.client
+  u.busy[chave] = kind; otmRender()
+  try { await fn(u, client) }
+  catch (e) { u.aviso = otmErro(e) }
+  finally { delete u.busy[chave] }
+  if (state.openClient) renderClient()
+}
+function otmWire() {
+  const root = document.getElementById('otmPanel'); if (!root || !state.openClient) return
+  const { client, channel: ch } = state.openClient, u = otmUI(), b = otmBridge()
+  const sug = chave => otmSugestoes(client, ch).find(s => s.chave === chave)
+  const dec = id => (state.otmDec[otmPid(client)]?.rows || []).find(d => String(d.id) === String(id))
+  root.querySelectorAll('[data-otm-tab]').forEach(el => el.onclick = () => { u.tab = el.dataset.otmTab; otmRender() })
+  root.querySelectorAll('[data-otm-abrir]').forEach(el => el.onclick = () => { const k = el.dataset.otmAbrir; u.abertas[k] = !u.abertas[k]; otmRender() })
+  root.querySelectorAll('[data-otm-fecha-aviso]').forEach(el => el.onclick = () => { u.aviso = null; otmRender() })
+  root.querySelectorAll('[data-otm-limpa-ad]').forEach(el => el.onclick = () => { u.ad = null; renderClient() })
+  root.querySelectorAll('[data-otm-recusar]').forEach(el => el.onclick = () => { u.recusando = el.dataset.otmRecusar; u.motivo = ''; otmRender() })
+  root.querySelectorAll('[data-otm-recusar-no]').forEach(el => el.onclick = () => { u.recusando = null; u.motivo = ''; otmRender() })
+  root.querySelectorAll('[data-otm-motivo]').forEach(el => el.oninput = () => { u.motivo = el.value })
+  if (!b) return
+  root.querySelectorAll('[data-otm-aceitar]').forEach(el => el.onclick = () => {
+    const s = sug(el.dataset.otmAceitar); if (!s) return
+    otmAgir(s.chave, 'aceita', async () => {
+      const r = await b.aceitar(s)
+      otmSetDecisao(client, r.decisao)
+      u.aviso = r.tarefa
+        ? { tipo: 'ok', texto: `Aceita. Atividade criada no ClickUp para ${r.tarefa.responsavel}${r.tarefa.data ? ` (entrega ${otmDia(r.tarefa.data)})` : ''}.${r.tarefa.aviso ? ' ' + r.tarefa.aviso : ''}`, url: r.tarefa.url, rotulo: 'Abrir a atividade no ClickUp' }
+        : { tipo: 'erro', texto: `Aceita, mas a tarefa não foi criada: ${r.erroTarefa}. Dá para tentar de novo na aba Decididas.` }
+    })
+  })
+  root.querySelectorAll('[data-otm-recusar-ok]').forEach(el => el.onclick = () => {
+    const s = sug(el.dataset.otmRecusarOk); if (!s) return
+    const motivo = (u.motivo || '').trim()
+    if (!motivo) { u.aviso = { tipo: 'erro', texto: 'Informe o motivo da recusa.' }; otmRender(); return }
+    otmAgir(s.chave, 'recusada', async () => {
+      const r = await b.recusar(s, motivo)
+      otmSetDecisao(client, r.decisao)
+      u.recusando = null; u.motivo = ''
+      u.aviso = { tipo: 'ok', texto: 'Recusada e registrada no histórico.' }
+    })
+  })
+  root.querySelectorAll('[data-otm-tarefa]').forEach(el => el.onclick = () => {
+    const d = dec(el.dataset.otmTarefa); if (!d) return
+    otmAgir(d.chave, 'tarefa', async () => {
+      const r = await b.criarTarefa(d)
+      otmSetDecisao(client, r.decisao)
+      u.aviso = { tipo: 'ok', texto: `Atividade criada no ClickUp para ${r.tarefa.responsavel}${r.tarefa.data ? ` (entrega ${otmDia(r.tarefa.data)})` : ''}.`, url: r.tarefa.url, rotulo: 'Abrir a atividade no ClickUp' }
+    })
+  })
+  root.querySelectorAll('[data-otm-reabrir]').forEach(el => el.onclick = () => {
+    const d = dec(el.dataset.otmReabrir); if (!d) return
+    otmAgir(d.chave, 'reabrir', async () => {
+      await b.reabrir(d)
+      const pid = otmPid(client), cur = state.otmDec[pid]
+      state.otmDec[pid] = { ...cur, rows: cur.rows.filter(x => x.id !== d.id) }
+      u.aviso = { tipo: 'ok', texto: 'Decisão apagada. A sugestão volta a aparecer se a regra ainda valer.' }
+    })
+  })
 }
 
 // ─── Charts (investimento + conversões: atual vs anterior) ────────────────────
@@ -4528,11 +4726,8 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">${ic('back','←')} Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span>${tblSearchHTML('Buscar conjunto…')}</div>`
     }
-    return `<div class="cp-panel">${bc}${quad}${body}</div>`
+    return `<div class="cp-panel">${bc}${quad}${body}${otmPanelHTML(channel, state.openClient.client)}</div>`
   }
-  // O card de Análise IA (diagnóstico + plano de ação) é uso interno: no link
-  // compartilhado o cliente não vê nem o card nem o cálculo por trás dele.
-  const ins = SHARED ? null : buildInsights(stats, channel, allRows, target)
   const tabs = isMeta ? [[`${ic('chart','📊')} Campanhas`,0],[`${ic('target','🎯')} Conjuntos`,1],[`${ic('image','🎨')} Anúncios`,2]]
                       : [[`${ic('chart','📊')} Campanhas`,0],[`${ic('key','🔑')} Grupos`,1],[`${ic('image','🎨')} Anúncios`,2],[`${ic('search','🔎')} Termos`,3],[`${ic('globe','🔗')} Páginas`,4]]
   let panel
@@ -4553,7 +4748,7 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
                : state.sub<=1 ? tblSearchHTML(state.sub===1?'Buscar grupo…':'Buscar campanha…') : ''}
     </div>
     ${panel}
-    ${insightsCardHTML(ins, periodLabel, stats?.cpl1)}
+    ${otmPanelHTML(channel, state.openClient.client)}
   </div>`
 }
 
@@ -5100,6 +5295,18 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   // Ordenação por coluna: clique no cabeçalho das tabelas de campanha/conjunto/anúncio/grupo.
   // (A de anúncios do Google é lazy e liga o próprio clique em renderGoogleAds.)
   app.querySelectorAll('th[data-tblsort]').forEach(th => th.onclick = () => { tblSortClick(th); renderClient() })
+  // Painel de Otimizações e o selo por anúncio da tabela
+  if (state.tab==='campanhas') {
+    otmWire()
+    app.querySelectorAll('[data-otm-ad]').forEach(el => el.onclick = (ev) => {
+      ev.stopPropagation()
+      const u = otmUI(), camp = state.drillCampaign, adset = state.drillAdset
+      u.ad = { id: el.dataset.otmAd, nome: el.dataset.otmName, ctx: [camp, adset, (camp || adset) ? state.drillSub : state.sub].join('|') }
+      u.tab = 'pendentes'
+      otmRender()
+      document.getElementById('otmPanel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
+  }
   // Busca por nome no nível atual (campanha / conjunto / anúncio)
   const tsEl = document.getElementById('tblSearch')
   if (tsEl) tsEl.oninput = (e) => { state.tblSearch = e.target.value; renderClient(); const n=document.getElementById('tblSearch'); if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length) } }

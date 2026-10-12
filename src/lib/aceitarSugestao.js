@@ -86,3 +86,33 @@ export async function criarTarefaDaSugestao({ sug, projeto, squads, teamMembers,
   })
   return { ...r, titulo, responsavel: resp.nome, data: entrega }
 }
+
+/**
+ * Aceitar uma sugestão: cria a tarefa no ClickUp e grava a decisão com o link
+ * dela. Se o ClickUp falhar (sem pasta, sem responsável…), a decisão é gravada
+ * mesmo assim, com o motivo em `execucao_log`, e quem chama oferece "criar
+ * tarefa" para tentar de novo. É o caminho único da Central de Otimizações e do
+ * painel do dashboard.
+ *
+ * `gravarDecisao(sug, 'aceita', { extra })` salva a linha em `projeto_sugestoes`
+ * e devolve a linha gravada. Se a gravação falhar depois da tarefa criada, o erro
+ * lançado leva `error.tarefa`, para a tela avisar que a tarefa existe.
+ * @returns {Promise<{ tarefa: object|null, erroTarefa: string|null, decisao: object }>}
+ */
+export async function aceitarComTarefa({ sug, projeto, ctx, gravarDecisao }) {
+  let tarefa = null, erroTarefa = null
+  try { tarefa = await criarTarefaDaSugestao({ sug, projeto, ...ctx }) }
+  catch (e) { erroTarefa = e.message || 'Falha ao criar a tarefa no ClickUp.' }
+  let decisao
+  try {
+    decisao = await gravarDecisao(sug, 'aceita', {
+      extra: tarefa
+        ? { clickup_task_id: tarefa.taskId, clickup_task_url: tarefa.url, atividade_id: tarefa.registro?.id || null }
+        : { execucao_log: { erro_tarefa: erroTarefa } },
+    })
+  } catch (e) {
+    e.tarefa = tarefa
+    throw e
+  }
+  return { tarefa, erroTarefa, decisao }
+}

@@ -341,28 +341,49 @@ body.th-fynix .api-dot { background: var(--fx-fill-hover); box-shadow: 0 0 0 3px
 .dt-root.th-fynix .bc-current { color: var(--fx-green); font-weight: 700; }
 .dt-root.th-fynix .bc-sep { color: var(--fx-faint); }
 
-/* ── Card de Análise IA ───────────────────────────────────────────────────── */
-.dt-root.th-fynix .ins-card { background: var(--fx-surface); border: 1px solid var(--fx-border); border-left-width: 1px;
+/* ── Painel de Otimizações ────────────────────────────────────────────────── */
+.dt-root.th-fynix .otm-card { background: var(--fx-surface); border: 1px solid var(--fx-border); border-left-width: 1px;
   border-radius: var(--fx-radius); padding: 18px 20px; box-shadow: var(--fx-shadow); }
-.dt-root.th-fynix .ins-header { margin-bottom: 12px; }
-.dt-root.th-fynix .ins-icon { width: 30px; height: 30px; border-radius: 50%; background: var(--fx-lime-soft); color: var(--fx-green);
-  display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
-.dt-root.th-fynix .ins-title { color: var(--fx-green); font-size: 15px; font-weight: 700; letter-spacing: 0; }
-.dt-root.th-fynix .ins-meta { color: var(--fx-muted); font-size: 11.5px; }
-.dt-root.th-fynix .ins-diag { background: var(--fx-surface-2); border: 0; border-radius: var(--fx-radius-sm); color: var(--fx-text); padding: 12px 14px; }
-.dt-root.th-fynix .ins-section, .dt-root.th-fynix .ins-plan { border: 1px solid var(--fx-border-2); border-radius: var(--fx-radius-sm); padding: 12px 14px; }
-.dt-root.th-fynix .ins-section-title, .dt-root.th-fynix .ins-plan-title { color: var(--fx-green); font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
-.dt-root.th-fynix .ins-section-sub { color: var(--fx-muted); }
-.dt-root.th-fynix .ins-item, .dt-root.th-fynix .ins-plan-row { border-color: var(--fx-border-2); }
-.dt-root.th-fynix .ins-item-name, .dt-root.th-fynix .ins-plan-action { color: var(--fx-text); }
-.dt-root.th-fynix .ins-item-val { color: var(--fx-muted); }
-.dt-root.th-fynix .ins-good { color: var(--fx-good); }
-.dt-root.th-fynix .ins-warn { color: var(--fx-warn); }
-.dt-root.th-fynix .ins-bad { color: var(--fx-bad); }
-.dt-root.th-fynix .ins-plan-pri { border-radius: 999px; border: 0; padding: 3px 8px; }
-.dt-root.th-fynix .ins-pri-urgent .ins-plan-pri { background: var(--fx-bad-bg); color: var(--fx-bad); }
-.dt-root.th-fynix .ins-pri-high .ins-plan-pri { background: var(--fx-warn-bg); color: var(--fx-warn); }
-.dt-root.th-fynix .ins-pri-med .ins-plan-pri { background: var(--fx-lime-soft); color: var(--fx-green); }
+.dt-root.th-fynix .otm-icon { width: 30px; height: 30px; border-radius: 50%; background: var(--fx-lime-soft); color: var(--fx-green);
+  align-items: center; justify-content: center; font-size: 14px; }
+.dt-root.th-fynix .otm-title { color: var(--fx-green); font-size: 15px; font-weight: 700; letter-spacing: 0; }
+.dt-root.th-fynix .otm-scope { background: var(--fx-lime-soft); color: var(--fx-green-2); }
+.dt-root.th-fynix .otm-meta, .dt-root.th-fynix .otm-cam, .dt-root.th-fynix .otm-quando, .dt-root.th-fynix .otm-vazio,
+.dt-root.th-fynix .otm-nota, .dt-root.th-fynix .otm-regra, .dt-root.th-fynix .otm-tab { color: var(--fx-muted); }
+.dt-root.th-fynix .otm-tabs { border-bottom-color: var(--fx-border); }
+.dt-root.th-fynix .otm-tab:hover { color: var(--fx-text); }
+.dt-root.th-fynix .otm-tab.active { color: var(--fx-green-2); border-bottom-color: var(--fx-fill-hover); }
+.dt-root.th-fynix .otm-n { background: var(--fx-lime-soft); color: var(--fx-green-2); }
+.dt-root.th-fynix .otm-n.bad { background: var(--fx-bad-bg); color: var(--fx-bad); }
+.dt-root.th-fynix .otm-n.warn { background: var(--fx-warn-bg); color: var(--fx-warn); }
+.dt-root.th-fynix .otm-item { background: var(--fx-surface); border: 1px solid var(--fx-border-2); border-radius: var(--fx-radius-sm); padding: 13px 15px; }
+.dt-root.th-fynix .otm-pri, .dt-root.th-fynix .otm-st { border-radius: 999px; border: 0; padding: 3px 9px; }
+.dt-root.th-fynix .otm-p-urgente .otm-pri, .dt-root.th-fynix .otm-st.bad { background: var(--fx-bad-bg); color: var(--fx-bad); border: 0; }
+.dt-root.th-fynix .otm-p-alta .otm-pri { background: var(--fx-warn-bg); color: var(--fx-warn); border: 0; }
+.dt-root.th-fynix .otm-p-media .otm-pri { background: var(--fx-lime-soft); color: var(--fx-green-2); border: 0; }
+.dt-root.th-fynix .otm-st.ok { background: var(--fx-good-bg); color: var(--fx-good); }
+.dt-root.th-fynix .otm-st.mute { background: var(--fx-surface-3); color: var(--fx-muted); }
+.dt-root.th-fynix .otm-tit, .dt-root.th-fynix .otm-acao b, .dt-root.th-fynix .otm-por b, .dt-root.th-fynix .otm-chip b,
+.dt-root.th-fynix .otm-recusa label { color: var(--fx-ink); }
+.dt-root.th-fynix .otm-acao, .dt-root.th-fynix .otm-por, .dt-root.th-fynix .otm-passos, .dt-root.th-fynix .otm-exec,
+.dt-root.th-fynix .otm-k, .dt-root.th-fynix .otm-chip { color: var(--fx-text); }
+.dt-root.th-fynix .otm-chip { background: var(--fx-surface-2); border-color: var(--fx-border-2); }
+.dt-root.th-fynix .otm-det { border-top-color: var(--fx-border); }
+.dt-root.th-fynix .otm-link, .dt-root.th-fynix .otm-more, .dt-root.th-fynix .otm-pill { color: var(--fx-green-2); }
+.dt-root.th-fynix .otm-pill { background: var(--fx-lime-soft); border-color: var(--fx-soft-border); }
+.dt-root.th-fynix .otm-pill:hover { background: var(--fx-fill-hover); border-color: var(--fx-fill-hover); color: #fff; }
+.dt-root.th-fynix .otm-btn { border-radius: var(--fx-radius-btn); font-family: var(--fx-font); }
+.dt-root.th-fynix .otm-btn.ok { background: var(--fx-fill); color: #fff; border-color: var(--fx-fill); }
+.dt-root.th-fynix .otm-btn.ok:hover:not(:disabled) { background: var(--fx-fill-hover); border-color: var(--fx-fill-hover); }
+.dt-root.th-fynix .otm-btn.bad { background: var(--fx-bad-bg); color: var(--fx-bad); border-color: transparent; }
+.dt-root.th-fynix .otm-btn.ghost { background: var(--fx-surface); color: var(--fx-muted); border-color: var(--fx-border); }
+.dt-root.th-fynix .otm-btn.ghost:hover:not(:disabled) { color: var(--fx-ink); border-color: var(--fx-border-strong); }
+.dt-root.th-fynix .otm-recusa { background: var(--fx-bad-bg); border-color: transparent; border-radius: var(--fx-radius-sm); }
+.dt-root.th-fynix .otm-recusa textarea { background: var(--fx-surface); border-color: var(--fx-border); color: var(--fx-text); border-radius: var(--fx-radius-btn); font-family: var(--fx-font); }
+.dt-root.th-fynix .otm-aviso { border-radius: var(--fx-radius-sm); color: var(--fx-text); }
+.dt-root.th-fynix .otm-aviso.ok { background: var(--fx-good-bg); border-color: transparent; }
+.dt-root.th-fynix .otm-aviso.erro { background: var(--fx-bad-bg); border-color: transparent; }
+.dt-root.th-fynix .otm-exec.bad { color: var(--fx-bad); }
 
 /* ── Atividades (ClickUp) e Parâmetros ────────────────────────────────────── */
 .dt-root.th-fynix .cu-progress-label { color: var(--fx-muted); }

@@ -14,7 +14,7 @@ import { useDashboardData } from '../hooks/useDashboardData'
 import { useSugestoesGlobais } from '../hooks/useSugestoesGlobais'
 import { PRIORIDADE_LABEL, PRIORIDADE_ORDEM, janelaAnalise } from '../lib/playbookSugestoes'
 import { Caminho } from '../components/ProjetoHub/SugestoesPlaybook'
-import { criarTarefaDaSugestao } from '../lib/aceitarSugestao'
+import { aceitarComTarefa, criarTarefaDaSugestao } from '../lib/aceitarSugestao'
 import { fmtBR } from '../lib/dashboardData'
 import { cliente } from '../routes/paths'
 import Toast from '../components/UI/Toast'
@@ -299,17 +299,11 @@ export default function Otimizacoes() {
   const ctxTarefa = { squads, teamMembers, user, config: null }
   async function aceitar(s) {
     const projeto = projetoPorId.get(s.projectId)
-    let tarefa = null, erroTarefa = null
-    try { tarefa = await criarTarefaDaSugestao({ sug: s, projeto, ...ctxTarefa }) }
-    catch (e) { erroTarefa = e.message || 'Falha ao criar a tarefa no ClickUp.' }
+    let tarefa, erroTarefa
     try {
-      await sg.decidir(s, 'aceita', {
-        extra: tarefa
-          ? { clickup_task_id: tarefa.taskId, clickup_task_url: tarefa.url, atividade_id: tarefa.registro?.id || null }
-          : { execucao_log: { erro_tarefa: erroTarefa } },
-      })
+      ({ tarefa, erroTarefa } = await aceitarComTarefa({ sug: s, projeto, ctx: ctxTarefa, gravarDecisao: sg.decidir }))
     } catch (e) {
-      showToast(`${e.message}${tarefa ? ` A tarefa foi criada no ClickUp: ${tarefa.url}` : ''}`, 'error')
+      showToast(`${e.message}${e.tarefa ? ` A tarefa foi criada no ClickUp: ${e.tarefa.url}` : ''}`, 'error')
       return
     }
     if (tarefa) setCriada({ titulo: s.titulo, cliente: projeto?.companyName, responsavel: tarefa.responsavel, data: tarefa.data, url: tarefa.url, aviso: tarefa.aviso })

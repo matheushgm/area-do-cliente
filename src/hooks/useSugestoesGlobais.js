@@ -8,7 +8,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
-import { gerarSugestoesProjeto, PRIORIDADE_ORDEM } from '../lib/playbookSugestoes'
+import { gerarSugestoesProjeto, pendente, PRIORIDADE_ORDEM } from '../lib/playbookSugestoes'
 import { hojeISO } from '../lib/atividadesCarga'
 
 // Linha de `projeto_sugestoes` a partir de uma sugestão: além do payload inteiro,
@@ -35,14 +35,6 @@ export function linhaDecisao(sug, status, { projectId, user, motivo = null, extr
     valida_ate: null,
     ...extra,
   }
-}
-
-// Decide se uma sugestão calculada agora ainda está pendente dado o registro
-// de decisão (mesma regra da página do cliente).
-export function pendente(st, hoje) {
-  if (!st) return true
-  if (st.status === 'aceita' || st.status === 'recusada') return false
-  return !!(st.valida_ate && st.valida_ate < hoje)
 }
 
 export function useSugestoesGlobais(dash) {

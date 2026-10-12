@@ -720,13 +720,36 @@ export function gerarSugestoesProjeto({ meta = [], google = [], accounts = {} })
   const varias = contas.size > 1
   const out = []
   for (const conta of contas) {
-    const metaCpl = accounts[conta]?.cplTarget?.value ?? null
-    out.push(...gerarSugestoes({
+    out.push(...gerarSugestoesConta({
       meta: meta.filter((r) => r['Nome da conta'] === conta),
       google: google.filter((r) => r['Nome da conta'] === conta),
-      metaCpl: metaCpl > 0 ? Number(metaCpl) : null,
-      conta: varias ? conta : null,
-    }).map((s) => ({ ...s, conta, chave: varias ? `${conta}|${s.chave}` : s.chave })))
+      metaCpl: accounts[conta]?.cplTarget?.value ?? null,
+      conta, varias,
+    }))
   }
   return out.sort((a, b) => PRIORIDADE_ORDEM[a.prioridade] - PRIORIDADE_ORDEM[b.prioridade])
+}
+
+/**
+ * Sugestões de UMA conta, com `conta` e `chave` no mesmo formato do projeto.
+ * A chave leva o prefixo `conta|` quando o projeto tem mais de uma conta
+ * (`varias`), e é por ela que a decisão em `projeto_sugestoes` casa com a
+ * sugestão: quem monta a lista de uma conta só (o dashboard) precisa informar
+ * `varias` como a Central de Otimizações calcularia, senão a mesma sugestão
+ * apareceria pendente num lugar e decidida no outro.
+ */
+export function gerarSugestoesConta({ meta = [], google = [], metaCpl = null, conta, varias = false }) {
+  return gerarSugestoes({
+    meta, google,
+    metaCpl: metaCpl > 0 ? Number(metaCpl) : null,
+    conta: varias ? conta : null,
+  }).map((s) => ({ ...s, conta, chave: varias ? `${conta}|${s.chave}` : s.chave }))
+}
+
+// Decide se uma sugestão calculada agora ainda está pendente dado o registro
+// de decisão: sem registro, ou adiada (`descartada`) com a validade vencida.
+export function pendente(st, hoje) {
+  if (!st) return true
+  if (st.status === 'aceita' || st.status === 'recusada') return false
+  return !!(st.valida_ate && st.valida_ate < hoje)
 }

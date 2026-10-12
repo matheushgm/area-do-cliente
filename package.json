@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "sync:vendor": "node scripts/sync-playbook-vendor.mjs",
+    "predev": "npm run sync:vendor",
     "dev": "vite",
+    "prebuild": "npm run sync:vendor",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src",
