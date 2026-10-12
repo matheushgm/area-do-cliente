@@ -333,6 +333,8 @@ body.th-fynix .api-dot { background: var(--fx-fill-hover); box-shadow: 0 0 0 3px
 .dt-root.th-fynix .terms-pager { color: var(--fx-muted); }
 .dt-root.th-fynix .terms-pager button { border-radius: 8px; border-color: var(--fx-border); color: var(--fx-green); font-family: var(--fx-font); }
 .dt-root.th-fynix .th-sort { color: var(--fx-muted); }
+.dt-root.th-fynix .dt-wrap th.th-sort:hover { color: var(--fx-text); }
+.dt-root.th-fynix .dt-wrap th.th-sort-on { color: var(--fx-green); }
 .dt-root.th-fynix .breadcrumb { padding: 4px 0 12px; }
 .dt-root.th-fynix .bc-item { color: var(--fx-muted); font-weight: 600; }
 .dt-root.th-fynix .bc-item:hover { color: var(--fx-green); text-decoration: none; }

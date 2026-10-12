@@ -1210,6 +1210,9 @@ const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:
                 weekly:null, _charts:[], termsCache:{}, adsCache:{}, pagesCache:{},
                 termsSort:{key:'clicks',dir:'desc'}, termsPage:0,
                 pagesSort:{key:'spend',dir:'desc'}, pagesPage:0,
+                // ordenação por coluna das tabelas de campanha/conjunto/anúncio/grupo:
+                // { [idDaTabela]: {key,dir} } (sem entrada = ordem natural). Ver tblSorted.
+                tblSort:{},
                 // ordenação das tabelas de conta (key=null → ordem natural do grupo)
                 acctSort:{key:null,dir:'desc'} }
 const app = document.getElementById('app')
@@ -3671,6 +3674,41 @@ const tblMatch = name => { const q=tblQ(); return !q || tblNorm(name).includes(q
 const tblFilter = (rows, nameFn) => tblQ() ? rows.filter(r=>tblMatch(nameFn(r))) : rows
 const tblEmpty = msg => state.tblSearch && state.tblSearch.trim() ? `<div class="empty">Nenhum resultado para "${esc(state.tblSearch.trim())}".</div>` : `<div class="empty">${msg}</div>`
 const tblSearchHTML = ph => `<input class="cp-camp-search dt-tblsearch" id="tblSearch" type="search" autocomplete="off" placeholder="${ph}" value="${esc(state.tblSearch||'')}">`
+
+// Ordenação por coluna (campanhas, conjuntos, anúncios e grupos, Meta e Google).
+// Cada tabela declara suas colunas [rótulo, chave, valor(item), 'text'?] e o
+// estado vive em state.tblSort[idDaTabela]. 1º clique = maior→menor (A→Z na
+// coluna de nome), o 2º inverte. Vazio ("—") fica sempre no fim, nos dois
+// sentidos. Sem coluna ativa vale a ordem natural da tabela, e o 🏆 acompanha o
+// melhor dela (não a primeira linha da ordenação).
+const tblSortOf = id => (state.tblSort && state.tblSort[id]) || { key:null, dir:'desc' }
+function tblSorted(id, items, cols){
+  const { key, dir } = tblSortOf(id), col = cols.find(c=>c[1]===key)
+  if (!col) return items
+  const s = dir==='asc' ? 1 : -1, txt = col[3]==='text'
+  const vazio = v => v==null || v==='' || (typeof v==='number' && !isFinite(v))
+  return items.slice().sort((a,b)=>{
+    const av = col[2](a), bv = col[2](b)
+    if (vazio(av) && vazio(bv)) return 0
+    if (vazio(av)) return 1
+    if (vazio(bv)) return -1
+    return txt ? s*String(av).localeCompare(String(bv),'pt-BR',{numeric:true,sensitivity:'base'}) : s*(av-bv)
+  })
+}
+const tblThead = (id, cols) => { const { key, dir } = tblSortOf(id)
+  return cols.map(([label,k,,t])=>`<th class="th-sort${key===k?' th-sort-on':''}" data-tblsort="${id}" data-sortkey="${k}"${t==='text'?' data-sorttext="1"':''} title="Ordenar por ${label}" style="cursor:pointer;user-select:none;white-space:nowrap">${label}${key===k?(dir==='asc'?' ▲':' ▼'):''}</th>`).join('') }
+function tblSortClick(th){
+  const id = th.dataset.tblsort, k = th.dataset.sortkey, cur = tblSortOf(id)
+  state.tblSort = state.tblSort || {}
+  state.tblSort[id] = cur.key===k ? { key:k, dir: cur.dir==='asc'?'desc':'asc' } : { key:k, dir: th.dataset.sorttext==='1'?'asc':'desc' }
+}
+// Status em número, para ordenar a coluna: ativo > outro (em análise, com problema…) > pausado.
+const stRank = html => /st-active/.test(html) ? 2 : /st-other/.test(html) ? 1 : /st-paused/.test(html) ? 0 : null
+
+const META_CAMP_COLS = [
+  ['Campanha','nome',it=>it.nome,'text'], ['Resultado','result',it=>it.x.result], ['Status','st',it=>stRank(it.st)],
+  ['Conv.','conv',it=>it.x.conv], ['Gasto','spend',it=>it.x.spend], ['CPL','cpl',it=>it.cpl],
+  ['Tx.Conv.','tx',it=>it.tx], ['Impressões','impr',it=>it.x.impr], ['Cliques','clicks',it=>it.x.clicks] ]
 function tblMetaCampaigns(rows, prevRows){
   const g = groupBy(rows, r=>r['Nome da campanha'], {
     spend:r=>M(r,'Valor investido'), conv:metaConv, leads:metaConv, result:metaResult,
@@ -3679,18 +3717,24 @@ function tblMetaCampaigns(rows, prevRows){
   const pv = prevMapOf(prevRows, r=>r['Nome da campanha'], metaResult)
   const acct = acctOf(rows)
   const flags = g.filter(x=>x.spend>0&&x.result===0).map(x=>`🚨 ${esc(x.key)} — gasto sem resultado`)
-  const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null
+  const items = g.map((x,i)=>({ x, top:i===0&&x.result>0, nome:x.key, cpl:x.conv>0?x.spend/x.conv:null,
+    tx:x.clicks>0?x.conv/x.clicks:null,
     // Status de AGORA (snapshot por campaign_id); a linha é só o último recurso.
-    const stHtml=stCell(acct,'campanha',(x._rows.find(r=>r['campaign_id'])||{})['campaign_id'],x.key,x._rows,'Status da Campanha')
-    const rl=(x._rows.find(r=>r['Tipo de resultado'])||{})['Tipo de resultado']||'—'
+    st:stCell(acct,'campanha',(x._rows.find(r=>r['campaign_id'])||{})['campaign_id'],x.key,x._rows,'Status da Campanha'),
+    rl:(x._rows.find(r=>r['Tipo de resultado'])||{})['Tipo de resultado']||'—' }))
+  const body = tblSorted('meta-camp', items, META_CAMP_COLS).map(({x,top,cpl,st:stHtml,rl})=>{
     // Resultado = nº verdadeiro do objetivo + tipo (= coluna do gerenciador) +
     // variação discreta vs período anterior (compara a mesma campanha 1:1).
-    return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${i===0&&x.result>0?'🏆 ':''}${esc(x.key)}</span></td>
+    return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${top?'🏆 ':''}${esc(x.key)}</span></td>
       <td><b>${fmtNum(x.result)}</b>${varMini(x.result, pv[x.key])} <span class="res-type">${esc(rl)}</span></td><td>${stHtml}</td>
       <td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Campanha</th><th>Resultado</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Impressões</th><th>Cliques</th></tr></thead><tbody>${body}</tbody></table></div>`
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${tblThead('meta-camp', META_CAMP_COLS)}</tr></thead><tbody>${body}</tbody></table></div>`
 }
+const META_ADSET_COLS = [
+  ['Conjunto','nome',it=>it.nome,'text'], ['Status','st',it=>stRank(it.st)], ['Anúncios ativos','ativos',it=>it.ativos],
+  ['Conv.','conv',it=>it.x.conv], ['Gasto','spend',it=>it.x.spend], ['CPL','cpl',it=>it.cpl], ['Tx.Conv.','tx',it=>it.tx],
+  ['CTR Link','ctr',it=>it.ctr], ['CPM','cpm',it=>it.cpm], ['Impressões','impr',it=>it.x.impr] ]
 function tblMetaAdsets(rows, prevRows){
   const g = groupBy(rows, metaAdsetKey, {
     spend:r=>M(r,'Valor investido'), conv:metaConv, impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link') })
@@ -3700,20 +3744,27 @@ function tblMetaAdsets(rows, prevRows){
   const nameOf = x => x._rows[0]?.['Conjunto de Anúncio'] || x.key
   const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(nameOf(x))} — gasto sem resultado`)
   const acct = acctOf(rows)
-  const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const nm=nameOf(x)
-    const ctr=x.impr>0?x.clicks/x.impr*100:null, cpm=x.impr>0?x.spend/x.impr*1000:null
-    const stHtml=stCell(acct,'conjunto',(x._rows.find(r=>r['adset_id'])||{})['adset_id'],nm,x._rows,'Status do Conjunto de Anúncio')
-    const ativos=activeAdsCount(x._rows)
-    return `<tr><td class="ad-name" title="${esc(nm)}"><span class="drill-link" data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}">${i===0&&x.conv>0?'🏆 ':''}${esc(nm)}</span></td>
+  const items = g.map((x,i)=>{ const nm=nameOf(x)
+    return { x, top:i===0&&x.conv>0, nome:nm, cpl:x.conv>0?x.spend/x.conv:null, tx:x.clicks>0?x.conv/x.clicks:null,
+      ctr:x.impr>0?x.clicks/x.impr*100:null, cpm:x.impr>0?x.spend/x.impr*1000:null,
+      st:stCell(acct,'conjunto',(x._rows.find(r=>r['adset_id'])||{})['adset_id'],nm,x._rows,'Status do Conjunto de Anúncio'),
+      ativos:activeAdsCount(x._rows) } })
+  const body = tblSorted('meta-adset', items, META_ADSET_COLS).map(({x,top,nome:nm,cpl,ctr,cpm,st:stHtml,ativos})=>{
+    return `<tr><td class="ad-name" title="${esc(nm)}"><span class="drill-link" data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}">${top?'🏆 ':''}${esc(nm)}</span></td>
       <td>${stHtml}</td><td>${ativos==null?'<span class="fl" title="Nenhum anúncio deste conjunto apareceu na última leitura de status.">—</span>':`<span class="${ativos>0?'good':'fl'}">${ativos}</span>`}</td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${ctrCell(ctr)}</td><td>${cpm!=null?fmtMoney(cpm):'—'}</td><td>${fmtNum(x.impr)}</td></tr>` }).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Conjunto</th><th>Status</th><th>Anúncios ativos</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>CTR Link</th><th>CPM</th><th>Impressões</th></tr></thead><tbody>${body}</tbody></table></div>`
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${tblThead('meta-adset', META_ADSET_COLS)}</tr></thead><tbody>${body}</tbody></table></div>`
 }
 // Agrupa por ad_id — uma linha por ANÚNCIO, como no Gerenciador. O mesmo
 // criativo publicado em três conjuntos são três linhas (o nome repete, e o
 // conjunto embaixo do nome diz qual é qual). Linha antiga sem ad_id cai no
 // nome, que era a chave anterior.
 const metaAdKey = r => r['ad_id'] || r['Nome do Anúncio']
+const META_AD_COLS = [
+  ['Anúncio','nome',it=>it.nome,'text'], ['Status','st',it=>stRank(it.st)], ['Conv.','conv',it=>it.x.conv],
+  ['Gasto','spend',it=>it.x.spend], ['CPL','cpl',it=>it.cpl], ['Tx.Conv.','tx',it=>it.tx], ['Hook 3s','hook',it=>it.hook],
+  ['CTR Link','ctr',it=>it.ctr], ['CPM','cpm',it=>it.cpm], ['V25%','p25',it=>it.p25], ['V50%','p50',it=>it.p50],
+  ['V75%','p75',it=>it.p75], ['V100%','p100',it=>it.p100] ]
 function tblMetaAds(rows, prevRows){
   const pv = prevMapOf(prevRows, metaAdKey, metaConv)
   const g = groupBy(rows, metaAdKey, {
@@ -3738,10 +3789,14 @@ function tblMetaAds(rows, prevRows){
   if(!g.length && !semEntrega.length) return tblEmpty('Sem anúncios no período.')
   const noConv = g.filter(x=>x.spend>0&&x.conv===0)
   const flags = noConv.length?[`🚨 ${noConv.length} anúncio(s) com gasto e 0 resultados — ${fmtMoney(noConv.reduce((a,x)=>a+x.spend,0))} desperdiçados`]:[]
-  const body = g.map((x,i)=>{ const cpl=x.conv>0?x.spend/x.conv:null; const ctr=x.impr>0?x.clicks/x.impr*100:null, cpm=x.impr>0?x.spend/x.impr*1000:null
-    const stHtml=adGroupCell(acct,x._rows); const paused=!isActiveStatus(adGroupStatus(acct,x._rows).entry.status)
+  const items = g.map((x,i)=>{ const pct = p => x.vv>0 ? p/x.vv*100 : null
+    return { x, top:i===0&&x.conv>0, nome:x._rows[0]?.['Nome do Anúncio'] || x.key,
+      cpl:x.conv>0?x.spend/x.conv:null, tx:x.clicks>0?x.conv/x.clicks:null,
+      ctr:x.impr>0?x.clicks/x.impr*100:null, cpm:x.impr>0?x.spend/x.impr*1000:null,
+      hook:pct(x.h3), p25:pct(x.p25), p50:pct(x.p50), p75:pct(x.p75), p100:pct(x.p100),
+      st:adGroupCell(acct,x._rows), paused:!isActiveStatus(adGroupStatus(acct,x._rows).entry.status) } })
+  const body = tblSorted('meta-ad', items, META_AD_COLS).map(({x,top,nome,cpl,ctr,cpm,st:stHtml,paused})=>{
     const adId=(x._rows.find(r=>r['ad_id'])||{})['ad_id']||''
-    const nome=x._rows[0]?.['Nome do Anúncio'] || x.key
     // Dentro de um conjunto o nome dele em cada linha seria repetição; na conta
     // inteira é o que distingue duas linhas do mesmo criativo.
     const conjunto=state.drillAdset ? '' : (x._rows[0]?.['Conjunto de Anúncio'] || '')
@@ -3751,7 +3806,7 @@ function tblMetaAds(rows, prevRows){
     // seria um botão morto, então só o "Ver" (preview) vai para o cliente.
     const destBtn=(adId && !SHARED)?` <button class="ad-dest-btn" data-adid="${esc(adId)}" data-adname="${esc(nome)}" data-destino="${esc(destino)}" title="Mostrar destino do anúncio">${ic('external','🔗')} Destino</button>`:''
     return `<tr${paused?' style="opacity:.55"':''}><td class="ad-name" title="${esc(nome)}${conjunto?` · conjunto: ${esc(conjunto)}`:''}">
-      <span class="ad-name-flex"><span class="ad-name-txt">${i===0&&x.conv>0?'🏆 ':''}${esc(nome)}${conjunto?`<span class="ad-sub">${esc(conjunto)}</span>`:''}</span>${prevBtn}${destBtn}</span></td>
+      <span class="ad-name-flex"><span class="ad-name-txt">${top?'🏆 ':''}${esc(nome)}${conjunto?`<span class="ad-sub">${esc(conjunto)}</span>`:''}</span>${prevBtn}${destBtn}</span></td>
       <td>${stHtml}</td><td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${hookCell(x.h3,x.vv)}</td><td>${ctrCell(ctr)}</td><td>${cpm!=null?fmtMoney(cpm):'—'}</td>
       <td>${pctVid(x.p25,x.vv)}</td><td>${pctVid(x.p50,x.vv)}</td><td>${pctVid(x.p75,x.vv)}</td><td>${pctVid(x.p100,x.vv)}</td></tr>` }).join('')
@@ -3774,8 +3829,11 @@ function tblMetaAds(rows, prevRows){
       <td>${stHtml}</td><td><span class="fl">0</span></td><td><span class="fl">${fmtMoney(0)}</span></td><td>—</td>
       <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`
   }).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Anúncio</th><th>Status</th><th>Conv.</th><th>Gasto</th><th>CPL</th><th>Tx.Conv.</th><th>Hook 3s</th><th>CTR Link</th><th>CPM</th><th>V25%</th><th>V50%</th><th>V75%</th><th>V100%</th></tr></thead><tbody>${body}${bodySem}</tbody></table></div>`
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${tblThead('meta-ad', META_AD_COLS)}</tr></thead><tbody>${body}${bodySem}</tbody></table></div>`
 }
+const G_CAMP_COLS = [
+  ['Campanha','nome',it=>it.nome,'text'], ['Conv.','conv',it=>it.x.conv], ['Gasto','spend',it=>it.x.spend], ['CPA','cpa',it=>it.cpa],
+  ['Cliques','clicks',it=>it.x.clicks], ['CTR','ctr',it=>it.ctr], ['Tx.Conv.','tx',it=>it.tx], ['% Perda Orçamento','loss',it=>it.avg] ]
 function tblGoogleCampaigns(rows, prevRows){
   const g = groupBy(rows, r=>r['Campanha'], {
     spend:r=>M(r,'Gasto'), conv:r=>M(r,'Conversões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')), loss:r=>M(r,'% de perda por orçamento'),
@@ -3783,28 +3841,32 @@ function tblGoogleCampaigns(rows, prevRows){
   if(!g.length) return tblEmpty('Sem campanhas no período.')
   const pv = prevMapOf(prevRows, r=>r['Campanha'], r=>M(r,'Conversões'))
   const flags = g.filter(x=>x.spend>0&&x.conv===0).map(x=>`🚨 ${esc(x.key)} — sem conversões`)
-  const body = g.map((x,i)=>{ const cpa=x.conv>0?x.spend/x.conv:null; const avg=x._rows.length?x.loss/x._rows.length:0
-    const ctr=x.impr>0?x.clicks/x.impr*100:null
-    return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${i===0&&x.conv>0?'🏆 ':''}${esc(x.key)}</span></td>
+  const items = g.map((x,i)=>({ x, top:i===0&&x.conv>0, nome:x.key, cpa:x.conv>0?x.spend/x.conv:null,
+    avg:x._rows.length?x.loss/x._rows.length:0, ctr:x.impr>0?x.clicks/x.impr*100:null, tx:x.clicks>0?x.conv/x.clicks:null }))
+  const body = tblSorted('g-camp', items, G_CAMP_COLS).map(({x,top,cpa,avg,ctr})=>{
+    return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${top?'🏆 ':''}${esc(x.key)}</span></td>
       <td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td><td>${ctrCell(ctr)}</td><td>${txCell(x.conv,x.clicks)}</td>
       <td>${avg>10?`<span class="crit">${avg.toFixed(1)}% 🚨</span>`:avg>0?`<span class="warn">${avg.toFixed(1)}%</span>`:'—'}</td></tr>` }).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr><th>Campanha</th><th>Conv.</th><th>Gasto</th><th>CPA</th><th>Cliques</th><th>CTR</th><th>Tx.Conv.</th><th>% Perda Orçamento</th></tr></thead><tbody>${body}</tbody></table></div>`
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${tblThead('g-camp', G_CAMP_COLS)}</tr></thead><tbody>${body}</tbody></table></div>`
 }
+const G_GROUP_COLS = [
+  ['Grupo','nome',it=>it.nome,'text'], ['Conv.','conv',it=>it.x.conv], ['Gasto','spend',it=>it.x.spend],
+  ['CPA','cpa',it=>it.cpa], ['Cliques','clicks',it=>it.x.clicks] ]
 function tblGoogleGroups(rows, prevRows){
   const gk = r=>r['Grupo de palavras']||r['Grupo de palavras-chave']
   const g = groupBy(rows, gk, { spend:r=>M(r,'Gasto'), conv:r=>M(r,'Conversões'), clicks:r=>(M(r,'CLiques')||M(r,'Cliques')) })
   if(!g.length) return tblEmpty('Sem grupos no período.')
   const pv = prevMapOf(prevRows, gk, r=>M(r,'Conversões'))
-  const body = g.map((x,i)=>{ const cpa=x.conv>0?x.spend/x.conv:null
-    const nm = x.key || '(sem grupo)'
+  const items = g.map((x,i)=>({ x, top:i===0&&x.conv>0, nome:x.key || '(sem grupo)', cpa:x.conv>0?x.spend/x.conv:null }))
+  const body = tblSorted('g-group', items, G_GROUP_COLS).map(({x,top,nome:nm,cpa})=>{
     // Campanha sem grupo (PMax, Smart, Demand Gen) não tem anúncio em grupo para
     // abrir — o rótulo fica sem link em vez de virar um clique que não faz nada.
     const rotulo = x.key
-      ? `<span class="drill-link" data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}">${i===0&&x.conv>0?'🏆 ':''}${esc(nm)}</span>`
+      ? `<span class="drill-link" data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}">${top?'🏆 ':''}${esc(nm)}</span>`
       : `${esc(nm)}`
     return `<tr><td class="ad-name" title="${esc(nm)}">${rotulo}</td>
       <td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
-  return `<div class="dt-wrap"><table><thead><tr><th>Grupo</th><th>Conv.</th><th>Gasto</th><th>CPA</th><th>Cliques</th></tr></thead><tbody>${body}</tbody></table></div>`
+  return `<div class="dt-wrap"><table><thead><tr>${tblThead('g-group', G_GROUP_COLS)}</tr></thead><tbody>${body}</tbody></table></div>`
 }
 
 // URL de destino como link. Só vira <a> quando é http(s) — nada de href com
@@ -3841,17 +3903,20 @@ function tblGoogleAds(rows, comGrupo){
   // com as classes que o CSS conhece.
   const stTag = st => { const i = statusTagInfo(st)
     return i ? `<span class="status-tag ${i.cls}">${esc(i.label)}</span>` : '—' }
-  const body = items.map(x=>`<tr>
+  // Sem coluna escolhida segue o gasto desc de cima; "Grupo" só existe fora do drill de grupo.
+  const cols = [
+    ['Anúncio','nome',x=>x.nome,'text'], ['Status','st',x=>stRank(stTag(x.status))],
+    ...(comGrupo ? [['Grupo','grupo',x=>x.grupo,'text']] : []), ['Página de destino','pagina',x=>x.pagina,'text'],
+    ['Impressões','impr',x=>x.impr], ['Cliques','clicks',x=>x.clicks], ['Conv.','conv',x=>x.conv],
+    ['Custo/conv.','cpa',x=>x.cpa], ['CTR','ctr',x=>x.ctr], ['Gasto','spend',x=>x.spend] ]
+  const body = tblSorted('g-ad', items, cols).map(x=>`<tr>
     <td class="ad-name" title="${esc(x.tipo ? x.tipo + ' — ' + x.nome : x.nome)}">${esc(x.nome.length>60?x.nome.slice(0,60)+'…':x.nome)}</td>
     <td>${stTag(x.status)}</td>
     ${comGrupo?`<td class="ad-name" title="${esc(x.grupo)}">${esc(x.grupo||'—')}</td>`:''}
     <td class="ad-name">${urlCell(x.pagina)}</td>
     <td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td><td>${convCell(x.conv,x.spend)}</td>
     <td>${x.cpa!=null?fmtMoney(x.cpa):'—'}</td><td>${ctrCell(x.ctr)}</td><td>${fmtMoney(x.spend)}</td></tr>`).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>
-    <th>Anúncio</th><th>Status</th>${comGrupo?'<th>Grupo</th>':''}<th>Página de destino</th>
-    <th>Impressões</th><th>Cliques</th><th>Conv.</th><th>Custo/conv.</th><th>CTR</th><th>Gasto</th>
-    </tr></thead><tbody>${body}</tbody></table></div>`
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${tblThead('g-ad', cols)}</tr></thead><tbody>${body}</tbody></table></div>`
 }
 
 // ─── PÁGINAS DE DESTINO do Google (canal google_pages) ───────────────────────
@@ -4534,7 +4599,12 @@ async function renderGoogleAds(container, client, period, campanha, grupo) {
   const rows = todas.filter(r =>
     (!campanha || r['Campanha'] === campanha) &&
     (!grupo || (r['Grupo de palavras']||'').trim() === grupo))
-  container.innerHTML = tblGoogleAds(rows, !grupo)
+  // Ordenar re-desenha do mesmo conjunto já filtrado, sem refetch.
+  const draw = () => {
+    container.innerHTML = tblGoogleAds(rows, !grupo)
+    container.querySelectorAll('th[data-tblsort]').forEach(th => th.onclick = () => { tblSortClick(th); draw() })
+  }
+  draw()
 }
 
 // Painel de PÁGINAS DE DESTINO. Ordenação e paginação re-desenham do mesmo
@@ -5027,6 +5097,9 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
     setTimeout(()=>document.addEventListener('click',onDoc),0)
   }
 
+  // Ordenação por coluna: clique no cabeçalho das tabelas de campanha/conjunto/anúncio/grupo.
+  // (A de anúncios do Google é lazy e liga o próprio clique em renderGoogleAds.)
+  app.querySelectorAll('th[data-tblsort]').forEach(th => th.onclick = () => { tblSortClick(th); renderClient() })
   // Busca por nome no nível atual (campanha / conjunto / anúncio)
   const tsEl = document.getElementById('tblSearch')
   if (tsEl) tsEl.oninput = (e) => { state.tblSearch = e.target.value; renderClient(); const n=document.getElementById('tblSearch'); if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length) } }

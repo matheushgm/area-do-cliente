@@ -240,6 +240,9 @@
 .dt-root .dt-wrap th{ padding:8px 12px; text-align:left; font-size:10px; font-weight:700; color:rgb(var(--dt-text-2)); text-transform:uppercase; letter-spacing:.5px; white-space:nowrap; }
 .dt-root .dt-wrap td{ padding:8px 12px; border-top:1px solid rgb(var(--rl-scroll-track)); font-size:12px; white-space:nowrap; }
 .dt-root .dt-wrap tr:hover td{ background:rgb(var(--rl-canvas)); }
+/* cabeçalho ordenável (tabelas de campanha/conjunto/anúncio/grupo) */
+.dt-root .dt-wrap th.th-sort:hover{ color:rgb(var(--rl-text)); }
+.dt-root .dt-wrap th.th-sort-on{ color:rgb(var(--rl-purple)); }
 .dt-root .ad-name{ max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .dt-root .status-tag{ font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; }
 .dt-root .st-active{ background:rgb(var(--rl-green) / var(--dt-tint-12)); color:rgb(var(--rl-green)); }
