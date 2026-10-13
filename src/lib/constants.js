@@ -176,6 +176,11 @@ export const UNIDADES_POR_PROJETO = {
     { id: 'osasco',   label: 'Osasco'   },
     { id: 'morumbi',  label: 'Morumbi'  },
   ],
+  // Universo Park — duas business units
+  '91b37dbb-73e1-4ff6-970f-8e523d46711b': [
+    { id: 'restaurante', label: 'Universo Park Restaurante' },
+    { id: 'festa',       label: 'Universo Festa'            },
+  ],
   // Boa Noite Colchões — lojas da bandeira + a loja Concept (dentro da Urias)
   'baae1d12-5bd6-42a0-925b-9dd8ee706cd4': [
     { id: 'urias',          label: 'Urias'          },
