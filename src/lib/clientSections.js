@@ -27,7 +27,7 @@ const SLUG_BY_ID = {
 // uma seção que não está em nenhuma das duas listas é URL inválida.
 const IDENTITY_IDS = [
   'jornada', 'dados', 'kickoff', 'produtos', 'oferta', 'roi', 'anexos',
-  'criativos', 'resultados', 'links', 'nps', 'crm', 'atas', 'ferramentas',
+  'criativos', 'resultados', 'clarity', 'links', 'nps', 'crm', 'atas', 'ferramentas',
   'compartilhar',
 ]
 

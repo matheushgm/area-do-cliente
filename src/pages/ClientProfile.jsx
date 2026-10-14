@@ -23,7 +23,7 @@ import {
   Pencil, Plus, Link2, ChevronDown, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
   NotebookPen, Wrench, Compass, Megaphone, Map as MapIcon, Database, Share2,
-  ArrowLeft, LayoutGrid, StickyNote, ChevronRight,
+  ArrowLeft, LayoutGrid, StickyNote, ChevronRight, PanelLeftClose, PanelLeftOpen, MousePointerClick,
 } from 'lucide-react'
 import ROIScenariosModule from '../components/ROIScenariosModule'
 import PersonaCreator from './PersonaCreator'
@@ -42,6 +42,7 @@ import BancoMidiaModule from '../components/BancoMidiaModule'
 import LinksModule from '../components/LinksModule'
 import CRMModule from '../components/CRMModule'
 import BancoDeDadosModule from '../components/BancoDeDadosModule'
+import ClarityModule from '../components/ClarityModule'
 import MeetingMinutesModule from '../components/MeetingMinutesModule'
 import FerramentasModule from '../components/FerramentasModule'
 import KickoffModule from '../components/Kickoff/KickoffModule'
@@ -1112,6 +1113,15 @@ export default function ClientProfile({ project: projectProp, section, onSection
   // Sidebar default: aberta no desktop, fechada no mobile (drawer só abre por hambúrguer)
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [logoSignedUrl, setLogoSignedUrl] = useState(null)
+  // Coluna esquerda (dados do cliente) recolhível dentro dos módulos; lembra a escolha.
+  const [infoRecolhida, setInfoRecolhida] = useState(() => {
+    try { return localStorage.getItem('rl:cliente-info-recolhida') === '1' } catch { return false }
+  })
+  const toggleInfoRecolhida = () => setInfoRecolhida((v) => {
+    const next = !v
+    try { localStorage.setItem('rl:cliente-info-recolhida', next ? '1' : '0') } catch { /* ignore */ }
+    return next
+  })
   const [squadOpen, setSquadOpen] = useState(false)
   const squadRef = useRef(null)
   const [riskOpen, setRiskOpen] = useState(false)
@@ -1264,6 +1274,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
     { id: 'criativos',    label: 'Criação de anúncios',      icon: Clapperboard,   color: 'text-rl-cyan',   filled: false },
     { id: 'landingpage',  label: 'Criação de landing page',  icon: LayoutTemplate, color: 'text-rl-green',  filled: hasLandingPages },
     { id: 'resultados',   label: 'Resultados',               icon: Activity,       color: 'text-rl-purple', filled: hasResultados },
+    { id: 'clarity',      label: 'Comportamento na LP',      icon: MousePointerClick, color: 'text-rl-cyan', filled: false },
     { id: 'metalab',      label: 'Lab. Meta Ads',            icon: FlaskConical,   color: 'text-rl-purple', filled: !!project.metaLabBudget },
     { id: 'googleads',    label: 'Google Ads com IA',        icon: Search,         color: 'text-rl-cyan',   filled: hasGoogleAds },
     { id: 'banco-midia',   label: 'Banco de Mídia',           icon: ImagePlay,      color: 'text-rl-blue',   filled: hasBancoMidia },
@@ -1308,6 +1319,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
       case 'criativos':    return <CriativosModule project={project} />
       case 'landingpage':  return <LandingPageModule project={project} />
       case 'resultados':   return <ResultadosModule project={project} />
+      case 'clarity':      return <ClarityModule project={project} />
       case 'metalab':      return <MetaLabModule project={project} />
       case 'googleads':    return <GoogleAdsModule project={project} />
       case 'banco-midia':   return <BancoMidiaModule project={project} />
@@ -1381,7 +1393,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
       <div className="flex flex-col xl:flex-row gap-4 items-start">
 
         {/* Coluna esquerda: cartão do cliente, ações rápidas, informações e módulos */}
-        <div className="w-full xl:w-[300px] 2xl:w-[340px] shrink-0 space-y-3">
+        <div className={`w-full xl:w-[300px] 2xl:w-[340px] shrink-0 space-y-3 ${activeSection !== 'hub' && infoRecolhida ? 'xl:hidden' : ''}`}>
       {/* ── Profile Header ──────────────────────────────────────────────── */}
         <div className="glass-card border border-rl-border/60">
           <div className="relative h-24 fx-hero rounded-t-2xl">
@@ -1921,6 +1933,14 @@ export default function ClientProfile({ project: projectProp, section, onSection
           ) : (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleInfoRecolhida}
+                  title={infoRecolhida ? 'Mostrar informações do cliente' : 'Recolher informações do cliente'}
+                  aria-label={infoRecolhida ? 'Mostrar informações do cliente' : 'Recolher informações do cliente'}
+                  className="hidden xl:flex p-1.5 rounded-lg text-rl-subtle hover:text-rl-purple hover:bg-rl-surface transition-colors"
+                >
+                  {infoRecolhida ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+                </button>
                 <button onClick={() => handleSidebarClick('hub')} className="flex items-center gap-1.5 text-sm text-rl-subtle hover:text-rl-purple px-2 py-1.5 rounded-lg hover:bg-rl-surface transition-colors">
                   <ArrowLeft className="w-4 h-4" /> Visão geral
                 </button>

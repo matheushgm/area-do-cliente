@@ -26,6 +26,9 @@
     },
     "api/tarefas-sync.js": {
       "maxDuration": 60
+    },
+    "api/clarity.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -36,6 +39,10 @@
     {
       "path": "/api/tarefas-sync",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/clarity",
+      "schedule": "0 8 * * *"
     }
   ]
 }
