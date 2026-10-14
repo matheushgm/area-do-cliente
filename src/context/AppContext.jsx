@@ -234,7 +234,10 @@ function assembleProject(row, rel = {}) {
     estrategia:   estrategia
       ? { narrativa: estrategia.narrativa, updatedAt: estrategia.generated_at }
       : null,
-    estrategiaV2: estrategiaV2 ?? null,
+    // meses_plano (snake_case no DB) → mesesPlano, que é o que EstrategiaV2Module lê
+    estrategiaV2: estrategiaV2
+      ? { ...estrategiaV2, mesesPlano: estrategiaV2.meses_plano ?? null }
+      : null,
 
     // Links
     links: row.links || {},
@@ -755,6 +758,8 @@ async function sbUpdateProjectV2(id, patch) {
         concorrentes:ev2.concorrentes || [],
         riscos:      ev2.riscos       || [],
         funis:       ev2.funis        || [],
+        // só envia quando vier no patch, para não zerar o que já está salvo
+        ...(ev2.mesesPlano !== undefined && { meses_plano: ev2.mesesPlano }),
       },
       { onConflict: "project_id" },
     );
