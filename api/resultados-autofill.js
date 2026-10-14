@@ -84,15 +84,14 @@ function closedWeeks(year, month, today) {
 }
 
 // Semana em andamento (só usada no preenchimento manual): vai do início da
-// semana até ONTEM. Retorna null se ainda não há dia fechado nela.
+// semana até HOJE. O dia de hoje é parcial (o sync de mídia roda de hora em
+// hora), então cada novo "Puxar da API" o atualiza.
 function partialWeek(year, month, today) {
   if (year !== today.y || month !== today.m) return null
-  const yesterday = today.d - 1
-  if (yesterday < 1) return null
   const week = today.d >= 22 ? 4 : today.d >= 15 ? 3 : today.d >= 8 ? 2 : 1
   const r = weekRange(year, month, week)
-  if (!r || yesterday < r.start) return null
-  return { week, start: r.start, end: Math.min(yesterday, r.end), parcial: true }
+  if (!r) return null
+  return { week, start: r.start, end: Math.min(today.d, r.end), parcial: true }
 }
 
 // Alvos padrão do cron: no dia 1 fecha o mês anterior inteiro; nos demais,
@@ -147,7 +146,7 @@ export default async function handler(req) {
     if (monthParam < 1 || monthParam > 12) return json({ error: 'month inválido (1-12).' }, 400)
     targets = closedWeeks(yearParam, monthParam, today).map(week => ({ year: yearParam, month: monthParam, week }))
     // No preenchimento manual do mês corrente, inclui também a semana em curso
-    // (até ontem) — é o que dá a sensação de acompanhamento diário.
+    // (até hoje, dia parcial) — é o que dá a sensação de acompanhamento diário.
     const partial = partialWeek(yearParam, monthParam, today)
     if (partial) targets.push({ year: yearParam, month: monthParam, week: partial.week, parcial: true })
   } else {
@@ -163,7 +162,7 @@ export default async function handler(req) {
     .map(t => {
       const base = weekRange(t.year, t.month, t.week)
       if (!base) return null
-      const end = t.parcial ? Math.min(today.d - 1, base.end) : base.end
+      const end = t.parcial ? Math.min(today.d, base.end) : base.end
       if (end < base.start) return null
       return { ...t, start: base.start, end }
     })

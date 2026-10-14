@@ -419,7 +419,7 @@ campos de funil preenchidos à mão (MQL, SQL, vendas, receita são preservados)
   (`src/components/Resultados/AutofillResultados.jsx`).
 - **Modo manual:** botão "Puxar da API" no cabeçalho de B2B/B2C chama o mesmo endpoint com o JWT
   do usuário (`src/lib/autofillResultados.js`), preenche o mês exibido — incluindo a semana em
-  curso até ontem — e devolve o JSONB mesclado, que o componente aplica via `onUpdate` para não
+  curso até hoje (dia parcial) — e devolve o JSONB mesclado, que o componente aplica via `onUpdate` para não
   depender de reload.
 - **Env:** `CRON_SECRET` na Vercel autentica o cron (sem ela, o fallback aceita o header
   `x-vercel-cron`). A chave de serviço é lida de `SUPABASE_SECRET_KEY` com fallback para

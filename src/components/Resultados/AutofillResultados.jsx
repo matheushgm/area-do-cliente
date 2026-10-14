@@ -7,7 +7,7 @@ import { autofillResultados } from '../../lib/autofillResultados'
 //
 // O mesmo endpoint roda sozinho pelo Vercel Cron nos dias 1, 8, 15 e 22 (fecha a
 // semana anterior). Estes componentes são a versão manual — útil para puxar o
-// mês na hora e para acompanhar a semana em curso (até ontem).
+// mês na hora e para acompanhar a semana em curso (até hoje, dia parcial).
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Selo nos cards preenchidos pela API.
