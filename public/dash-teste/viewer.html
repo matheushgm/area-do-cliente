@@ -230,6 +230,28 @@
      que importam (conversões, CPL, investimento) já com a variação vs. período
      anterior. Desktop nunca vê isso (a tabela completa continua sendo a visão). */
   .dt-root .m-cards { display:none; }
+  /* Cards de campanha/conjunto/anúncio (mobile) — ver mRowCard() */
+  .dt-root .m-list { display:none; }
+  .dt-root .m-row .m-card-top { align-items:flex-start; }
+  .dt-root .m-row .m-card-name { white-space:normal; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;
+    overflow:hidden; overflow-wrap:anywhere; line-height:1.3; }
+  .dt-root .m-row:not([data-camp]):not([data-adset]) { cursor:default; }
+  .dt-root .m-row:not([data-camp]):not([data-adset]):active { background:rgb(var(--rl-card)); }
+  .dt-root .m-row.m-dim { opacity:.6; }
+  .dt-root .m-row.m-alert { border-left:3px solid rgb(var(--rl-red)); }
+  .dt-root .m-flag { color:rgb(var(--rl-red)); font-weight:700; }
+  .dt-root .m-sub-txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+  .dt-root .m-row .m-cell-d { white-space:normal; line-height:1.3; overflow:visible; }
+  .dt-root .m-row .m-cell-d .res-type { margin-left:0; display:inline-block; max-width:100%; white-space:normal; }
+  .dt-root .m-foot { display:flex; flex-wrap:wrap; gap:5px 14px; margin-top:10px; font-size:11.5px; color:rgb(var(--dt-text-2)); }
+  .dt-root .m-chip i { font-style:normal; margin-right:4px; }
+  .dt-root .m-chip b { font-weight:700; color:rgb(var(--rl-text)); }
+  .dt-root .m-acts { display:flex; gap:8px; margin-top:10px; }
+  .dt-root .m-acts button { flex:1; padding:8px 10px; font-size:12.5px; }
+  .dt-root .m-sortbar { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12px;
+    font-weight:600; color:rgb(var(--dt-text-2)); }
+  .dt-root .m-sort { font:inherit; font-weight:700; color:rgb(var(--rl-text)); background:rgb(var(--rl-card));
+    border:1px solid rgb(var(--rl-border)); border-radius:10px; padding:7px 10px; max-width:60%; }
   /* Subtabs sangram até a borda do painel: o recuo negativo precisa acompanhar
      o padding do .cp-panel (era inline com -22px fixo e estourava a tela quando
      o painel encolheu no mobile). */
@@ -258,6 +280,8 @@
     overflow:hidden; text-overflow:ellipsis; }
   @media(max-width:768px){
     .dt-root .m-cards { display:flex; flex-direction:column; gap:10px; margin-bottom:24px; }
+    .dt-root .m-list { display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+    .dt-root .dt-wrap.has-m { display:none; }
     /* Diagnóstico/escala também viram cards — nada de scroll horizontal. */
     .dt-root .group-section.diag-section .table-wrap { display:none; }
     /* 5 KPIs em 2 colunas deixavam uma célula vazia; a última ocupa a linha. */
@@ -299,6 +323,10 @@
       -webkit-overflow-scrolling:touch; scrollbar-width:none; }
     .dt-root .dt-subtabs::-webkit-scrollbar { display:none; }
     .dt-root .dt-subtabs .dtab { flex-shrink:0; }
+    /* A busca ficava espremida na ponta da faixa rolável ("Busc…"): vai para a
+       própria linha, embaixo das sub-abas, com a largura toda. */
+    .dt-root .dt-subtabs { flex-wrap:wrap; overflow:visible; }
+    .dt-root .dt-subtabs .dt-tblsearch { order:9; flex:0 0 100%; width:100%; margin:8px 0 10px; box-sizing:border-box; }
     /* Tabelas profundas da página do cliente (campanhas/anúncios): a 1ª coluna
        fica fixa, então dá pra rolar as métricas sem perder de vista o nome. */
     .dt-root .dt-wrap th:first-child, .dt-root .dt-wrap td:first-child { position:sticky; left:0; z-index:2;
@@ -3685,6 +3713,32 @@ const tblFilter = (rows, nameFn) => tblQ() ? rows.filter(r=>tblMatch(nameFn(r)))
 const tblEmpty = msg => state.tblSearch && state.tblSearch.trim() ? `<div class="empty">Nenhum resultado para "${esc(state.tblSearch.trim())}".</div>` : `<div class="empty">${msg}</div>`
 const tblSearchHTML = ph => `<input class="cp-camp-search dt-tblsearch" id="tblSearch" type="search" autocomplete="off" placeholder="${ph}" value="${esc(state.tblSearch||'')}">`
 
+// ─── Cards mobile das tabelas (campanha / conjunto / anúncio / grupo) ─────────
+// No retrato a tabela de 9–14 colunas vira rolagem lateral e esconde justamente
+// as métricas. Em ≤768px a tabela some (.dt-wrap.has-m) e entra esta lista: um
+// card por linha, com o nome inteiro (quebra em 2 linhas), o status, as 3
+// métricas que decidem (resultado, gasto, custo por resultado) e o resto em
+// chips pequenos. Tocar no card abre o nível de baixo (drill). Desktop nunca vê
+// isso. A ordenação, que no desktop é clicar no cabeçalho, vira um seletor.
+// opts: [rótulo, chave da coluna, 'asc'?] (custo ordena do menor para o maior).
+const mSortHTML = (id, opts) => { const { key } = tblSortOf(id)
+  return `<label class="m-sortbar">Ordenar por<select class="m-sort" data-msort="${id}" data-mdir="${opts.map(o=>o[1]+':'+(o[2]||'desc')).join(',')}">
+    <option value="">Padrão</option>${opts.map(([l,k])=>`<option value="${k}"${key===k?' selected':''}>${l}</option>`).join('')}</select></label>` }
+const mChips = arr => arr.filter(Boolean).map(([l,v])=>`<span class="m-chip"><i>${l}</i><b>${v}</b></span>`).join('')
+// c: { attr (atributos de drill), nome, top, alert, st (html do status), sub, hero [[rótulo,valor,delta?]×3], chips, acts, dim }
+function mRowCard(c) {
+  const grid = c.hero.map(([l,v,d])=>`<div class="m-cell"><div class="m-cell-l">${l}</div><div class="m-cell-v">${v}</div>${d?`<div class="m-cell-d">${d}</div>`:''}</div>`).join('')
+  const sub = [c.st||'', c.alert?`<span class="m-flag">${em('🚨')} ${c.alert}</span>`:'', c.sub||''].filter(Boolean).join('')
+  return `<div class="m-card m-row${c.alert?' m-alert':''}${c.dim?' m-dim':''}"${c.attr?` ${c.attr}`:''}>
+    <div class="m-card-top"><span class="m-card-name">${c.top?'🏆 ':''}${esc(c.nome).replace(/_/g,'_<wbr>')}</span>${c.attr?'<span class="m-card-chev">›</span>':''}</div>
+    ${sub?`<div class="m-card-sub">${sub}</div>`:''}
+    <div class="m-grid">${grid}</div>
+    ${c.chips?`<div class="m-foot">${c.chips}</div>`:''}
+    ${c.acts?`<div class="m-acts">${c.acts}</div>`:''}
+  </div>`
+}
+const mList = (id, opts, cards) => `<div class="m-list">${mSortHTML(id, opts)}${cards.join('')}</div>`
+
 // Ordenação por coluna (campanhas, conjuntos, anúncios e grupos, Meta e Google).
 // Cada tabela declara suas colunas [rótulo, chave, valor(item), 'text'?] e o
 // estado vive em state.tblSort[idDaTabela]. 1º clique = maior→menor (A→Z na
@@ -3773,7 +3827,14 @@ function tblMetaCampaigns(rows, prevRows){
       <td><b>${fmtNum(x.result)}</b>${varMini(x.result, pv[x.key])} <span class="res-type">${esc(rl)}</span></td><td>${stHtml}</td>
       ${mqlCells(it)}<td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${tblThead('meta-camp', cols)}</tr></thead><tbody>${body}</tbody></table></div>`
+  const cards = tblSorted('meta-camp', items, cols).map(it=>{ const {x,top,cpl,tx,st:stHtml,rl}=it
+    return mRowCard({ attr:`data-camp="${esc(x.key)}"`, nome:x.key, top, st:stHtml,
+      alert:(x.spend>0&&x.result===0)?'gasto sem resultado':'',
+      hero:[['Resultado',`${fmtNum(x.result)}`,`${varMini(x.result, pv[x.key])} ${esc(rl)}`],['Gasto',fmtMoney(x.spend)],['CPL',cpl!=null?fmtMoney(cpl):'—']],
+      chips:mChips([state.tblMql&&['MQL',fmtNum(x.mql)],state.tblMql&&['CPMQL',it.cpmql!=null?fmtMoney(it.cpmql):'—'],x.conv!==x.result&&['Conv.',fmtNum(x.conv)],['Tx. Conv.',txCell(x.conv,x.clicks)],['Impr.',fmtNum(x.impr)],['Cliques',fmtNum(x.clicks)]]) })
+  })
+  return flagRow(flags,'red')+`<div class="dt-wrap has-m"><table><thead><tr>${tblThead('meta-camp', cols)}</tr></thead><tbody>${body}</tbody></table></div>`
+    + mList('meta-camp', [['Resultado','result'],['Gasto','spend'],['CPL','cpl','asc'],['Nome','nome','asc']], cards)
 }
 const META_ADSET_COLS = [
   ['Conjunto','nome',it=>it.nome,'text'], ['Status','st',it=>stRank(it.st)], ['Anúncios ativos','ativos',it=>it.ativos],
@@ -3798,7 +3859,14 @@ function tblMetaAdsets(rows, prevRows){
     return `<tr><td class="ad-name" title="${esc(nm)}"><span class="drill-link" data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}">${top?'🏆 ':''}${esc(nm)}</span></td>
       <td>${stHtml}</td><td>${ativos==null?'<span class="fl" title="Nenhum anúncio deste conjunto apareceu na última leitura de status.">—</span>':`<span class="${ativos>0?'good':'fl'}">${ativos}</span>`}</td>${mqlCells(it)}<td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${ctrCell(ctr)}</td><td>${cpm!=null?fmtMoney(cpm):'—'}</td><td>${fmtNum(x.impr)}</td></tr>` }).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${tblThead('meta-adset', cols)}</tr></thead><tbody>${body}</tbody></table></div>`
+  const cards = tblSorted('meta-adset', items, cols).map(it=>{ const {x,top,nome:nm,cpl,ctr,cpm,st:stHtml,ativos}=it
+    return mRowCard({ attr:`data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}"`, nome:nm, top, st:stHtml,
+      alert:(x.spend>0&&x.conv===0)?'gasto sem resultado':'',
+      hero:[['Conv.',fmtNum(x.conv),varMini(x.conv, pv[x.key])],['Gasto',fmtMoney(x.spend)],['CPL',cpl!=null?fmtMoney(cpl):'—']],
+      chips:mChips([['Anúncios ativos',ativos==null?'—':`<span class="${ativos>0?'good':'fl'}">${ativos}</span>`],state.tblMql&&['MQL',fmtNum(x.mql)],state.tblMql&&['CPMQL',it.cpmql!=null?fmtMoney(it.cpmql):'—'],['Tx. Conv.',txCell(x.conv,x.clicks)],['CTR Link',ctrCell(ctr)],['CPM',cpm!=null?fmtMoney(cpm):'—'],['Impr.',fmtNum(x.impr)]]) })
+  })
+  return flagRow(flags,'red')+`<div class="dt-wrap has-m"><table><thead><tr>${tblThead('meta-adset', cols)}</tr></thead><tbody>${body}</tbody></table></div>`
+    + mList('meta-adset', [['Conversões','conv'],['Gasto','spend'],['CPL','cpl','asc'],['Nome','nome','asc']], cards)
 }
 // Agrupa por ad_id — uma linha por ANÚNCIO, como no Gerenciador. O mesmo
 // criativo publicado em três conjuntos são três linhas (o nome repete, e o
@@ -3879,7 +3947,28 @@ function tblMetaAds(rows, prevRows){
       <td>${stHtml}</td>${state.tblMql ? '<td><span class="fl">0</span></td><td>—</td>' : ''}<td><span class="fl">0</span></td><td><span class="fl">${fmtMoney(0)}</span></td><td>—</td>
       <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`
   }).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${tblThead('meta-ad', cols)}</tr></thead><tbody>${body}${bodySem}</tbody></table></div>`
+  const cards = tblSorted('meta-ad', items, cols).map(it=>{ const {x,top,nome,cpl,ctr,cpm,st:stHtml,paused}=it
+    const adId=(x._rows.find(r=>r['ad_id'])||{})['ad_id']||''
+    const conjunto=state.drillAdset ? '' : (x._rows[0]?.['Conjunto de Anúncio'] || '')
+    const destino=(x._rows[0]||{})['Destino do conjunto de anúncio']||''
+    return mRowCard({ nome, top, st:stHtml, dim:paused, alert:(x.spend>0&&x.conv===0)?'gasto sem resultado':'',
+      sub:conjunto?`<span class="m-sub-txt">${esc(conjunto)}</span>`:'',
+      hero:[['Conv.',fmtNum(x.conv),varMini(x.conv, pv[x.key])],['Gasto',fmtMoney(x.spend)],['CPL',cpl!=null?fmtMoney(cpl):'—']],
+      chips:mChips([state.tblMql&&['MQL',fmtNum(x.mql)],state.tblMql&&['CPMQL',it.cpmql!=null?fmtMoney(it.cpmql):'—'],['Tx. Conv.',txCell(x.conv,x.clicks)],['Hook 3s',hookCell(x.h3,x.vv)],['CTR Link',ctrCell(ctr)],['CPM',cpm!=null?fmtMoney(cpm):'—'],
+        x.vv>0&&['Retenção 25/50/75/100%',`${pctVid(x.p25,x.vv)} · ${pctVid(x.p50,x.vv)} · ${pctVid(x.p75,x.vv)} · ${pctVid(x.p100,x.vv)}`]]),
+      acts:adId?`<button class="ad-prev-btn" data-adid="${esc(adId)}" data-adname="${esc(nome)}">${ic('eye','👁')} Ver anúncio</button>${SHARED?'':` <button class="ad-dest-btn" data-adid="${esc(adId)}" data-adname="${esc(nome)}" data-destino="${esc(destino)}">${ic('external','🔗')} Destino</button>`}`:'' })
+  })
+  const cardsSem = semEntrega.map(([id, e]) => {
+    const nome = e.nome || id
+    const conjunto = state.drillAdset ? '' : ((snapA.conjunto[e.pai] || {}).nome || '')
+    const i = statusTagInfo(e.status)
+    return mRowCard({ nome, dim:true, st:i?`<span class="status-tag ${i.cls}">${esc(i.label)}</span>`:'',
+      sub:`<span class="m-sub-txt">sem entrega${conjunto ? ' · ' + esc(conjunto) : ''}</span>`,
+      hero:[['Conv.','0'],['Gasto',fmtMoney(0)],['CPL','—']],
+      acts:`<button class="ad-prev-btn" data-adid="${esc(id)}" data-adname="${esc(nome)}">${ic('eye','👁')} Ver anúncio</button>` })
+  })
+  return flagRow(flags,'red')+`<div class="dt-wrap has-m"><table><thead><tr>${tblThead('meta-ad', cols)}</tr></thead><tbody>${body}${bodySem}</tbody></table></div>`
+    + mList('meta-ad', [['Conversões','conv'],['Gasto','spend'],['CPL','cpl','asc'],['Hook 3s','hook'],['CTR Link','ctr'],['Nome','nome','asc']], [...cards, ...cardsSem])
 }
 const G_CAMP_COLS = [
   ['Campanha','nome',it=>it.nome,'text'], ['Conv.','conv',it=>it.x.conv], ['Gasto','spend',it=>it.x.spend], ['CPA','cpa',it=>it.cpa],
@@ -3897,7 +3986,13 @@ function tblGoogleCampaigns(rows, prevRows){
     return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${top?'🏆 ':''}${esc(x.key)}</span></td>
       <td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td><td>${ctrCell(ctr)}</td><td>${txCell(x.conv,x.clicks)}</td>
       <td>${avg>10?`<span class="crit">${avg.toFixed(1)}% 🚨</span>`:avg>0?`<span class="warn">${avg.toFixed(1)}%</span>`:'—'}</td></tr>` }).join('')
-  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${tblThead('g-camp', G_CAMP_COLS)}</tr></thead><tbody>${body}</tbody></table></div>`
+  const cards = tblSorted('g-camp', items, G_CAMP_COLS).map(({x,top,cpa,avg,ctr})=>
+    mRowCard({ attr:`data-camp="${esc(x.key)}"`, nome:x.key, top, alert:(x.spend>0&&x.conv===0)?'sem conversões':'',
+      hero:[['Conv.',fmtNum(x.conv),varMini(x.conv, pv[x.key])],['Gasto',fmtMoney(x.spend)],['CPA',cpa!=null?fmtMoney(cpa):'—']],
+      chips:mChips([['Cliques',fmtNum(x.clicks)],['CTR',ctrCell(ctr)],['Tx. Conv.',txCell(x.conv,x.clicks)],
+        avg>0&&['Perda por orçamento',avg>10?`<span class="crit">${avg.toFixed(1)}%</span>`:`<span class="warn">${avg.toFixed(1)}%</span>`]]) }))
+  return flagRow(flags,'red')+`<div class="dt-wrap has-m"><table><thead><tr>${tblThead('g-camp', G_CAMP_COLS)}</tr></thead><tbody>${body}</tbody></table></div>`
+    + mList('g-camp', [['Conversões','conv'],['Gasto','spend'],['CPA','cpa','asc'],['Nome','nome','asc']], cards)
 }
 const G_GROUP_COLS = [
   ['Grupo','nome',it=>it.nome,'text'], ['Conv.','conv',it=>it.x.conv], ['Gasto','spend',it=>it.x.spend],
@@ -3916,7 +4011,12 @@ function tblGoogleGroups(rows, prevRows){
       : `${esc(nm)}`
     return `<tr><td class="ad-name" title="${esc(nm)}">${rotulo}</td>
       <td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpa!=null?fmtMoney(cpa):'—'}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
-  return `<div class="dt-wrap"><table><thead><tr>${tblThead('g-group', G_GROUP_COLS)}</tr></thead><tbody>${body}</tbody></table></div>`
+  const cards = tblSorted('g-group', items, G_GROUP_COLS).map(({x,top,nome:nm,cpa})=>
+    mRowCard({ attr:x.key?`data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}"`:'', nome:nm, top,
+      hero:[['Conv.',fmtNum(x.conv),varMini(x.conv, pv[x.key])],['Gasto',fmtMoney(x.spend)],['CPA',cpa!=null?fmtMoney(cpa):'—']],
+      chips:mChips([['Cliques',fmtNum(x.clicks)]]) }))
+  return `<div class="dt-wrap has-m"><table><thead><tr>${tblThead('g-group', G_GROUP_COLS)}</tr></thead><tbody>${body}</tbody></table></div>`
+    + mList('g-group', [['Conversões','conv'],['Gasto','spend'],['CPA','cpa','asc'],['Nome','nome','asc']], cards)
 }
 
 // URL de destino como link. Só vira <a> quando é http(s) — nada de href com
@@ -5186,14 +5286,13 @@ function renderClient() {
   const filtrosNoEscopo = state.tab === 'campanhas' && !!period
 
   // tabs
-  // Na visão interna a aba "Resultados" foi removida: os mesmos números já
-  // aparecem nos quadrantes da aba Campanhas (nível conta). O link público
-  // continua com ela.
-  if (!SHARED && state.tab === 'resultados') state.tab = 'campanhas'
-  const TABS = SHARED
-    ? [[`${ic('chart','📊')} Resultados`,'resultados'],[`${ic('layers','📋')} Campanhas`,'campanhas']]
-    : [[`${ic('layers','📋')} Campanhas`,'campanhas'],[`${ic('check','✅')} Atividades`,'atividades'],[`${ic('sliders','⚙️')} Parâmetros`,'parametros']]
-  const tabsBar = `<div class="cp-tabs">${TABS.map(([l,k])=>`<div class="cptab${state.tab===k?' active':''}" data-tab="${k}">${l}</div>`).join('')}</div>`
+  // A aba "Resultados" foi removida (interna e link público): os mesmos números
+  // já aparecem nos quadrantes da aba Campanhas (nível conta).
+  if (state.tab === 'resultados' || SHARED) state.tab = 'campanhas'
+  // O link público do cliente só tem Campanhas: sem "Resultados" e, com uma aba
+  // só, sem a barra de abas.
+  const TABS = [[`${ic('layers','📋')} Campanhas`,'campanhas'],[`${ic('check','✅')} Atividades`,'atividades'],[`${ic('sliders','⚙️')} Parâmetros`,'parametros']]
+  const tabsBar = SHARED ? '' : `<div class="cp-tabs">${TABS.map(([l,k])=>`<div class="cptab${state.tab===k?' active':''}" data-tab="${k}">${l}</div>`).join('')}</div>`
 
   // Pace do canal vs a verba planejada no módulo Campanha (Área do Cliente) —
   // mostrado como tile no quadrante de Custos. null p/ conta sem plano nesse canal.
@@ -5361,6 +5460,16 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   app.querySelectorAll('.dtab[data-drillsub]').forEach(e=>e.onclick=()=>{ state.drillSub=Number(e.dataset.drillsub); state.termsPage=0; state.pagesPage=0; renderClient() })
   app.querySelectorAll('.drill-link[data-camp]').forEach(e=>e.onclick=()=>{ state.drillCampaign=e.dataset.camp; state.drillAdset=null; state.drillAdsetName=null; state.drillSub=0; state.termsPage=0; state.pagesPage=0; renderClient() })
   app.querySelectorAll('.drill-link[data-adset]').forEach(e=>e.onclick=()=>{ state.drillAdset=e.dataset.adset; state.drillAdsetName=e.dataset.adsetName; state.drillSub=0; state.termsPage=0; renderClient() })
+  // Cards mobile: tocar no card faz o mesmo drill do link da tabela.
+  app.querySelectorAll('.m-row[data-camp]').forEach(e=>e.onclick=()=>{ state.drillCampaign=e.dataset.camp; state.drillAdset=null; state.drillAdsetName=null; state.drillSub=0; state.termsPage=0; state.pagesPage=0; renderClient() })
+  app.querySelectorAll('.m-row[data-adset]').forEach(e=>e.onclick=()=>{ state.drillAdset=e.dataset.adset; state.drillAdsetName=e.dataset.adsetName; state.drillSub=0; state.termsPage=0; renderClient() })
+  app.querySelectorAll('select[data-msort]').forEach(sel=>sel.onchange=()=>{
+    const id = sel.dataset.msort, k = sel.value
+    const dir = (sel.dataset.mdir.split(',').find(p=>p.split(':')[0]===k)||'').split(':')[1] || 'desc'
+    state.tblSort = state.tblSort || {}
+    state.tblSort[id] = k ? { key:k, dir } : { key:null, dir:'desc' }
+    renderClient()
+  })
   // Preview do anúncio (botão "👁 Ver" na tabela de anúncios)
   app.querySelectorAll('.ad-prev-btn').forEach(e=>e.onclick=(ev)=>{ ev.stopPropagation(); openAdPreview(e.dataset.adid, e.dataset.adname) })
   app.querySelectorAll('.ad-dest-btn').forEach(e=>e.onclick=(ev)=>{ ev.stopPropagation(); openAdDestination(e.dataset.adid, e.dataset.adname, e.dataset.destino) })
