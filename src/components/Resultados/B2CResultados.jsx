@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus, Edit2, Check, X, Link2, CheckCircle2, Wallet, Users, Target, Trophy, FileDown } from 'lucide-react'
-import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, computeRoiPlan, MONTH_NAMES } from './resultadosHelpers'
+import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, computeRoiPlan, weekdayShort, MONTH_NAMES } from './resultadosHelpers'
 import { MonthNav, SummaryCard } from './B2BResultados'
 import { KpiHero, AreaChart, CostTile, C } from './ResultadosCharts'
 import ComparativoCanais from './ComparativoCanais'
@@ -451,6 +451,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
                       <tr key={day} className="border-b border-rl-border bg-rl-surface/40">
                         <td className="px-4 py-3 font-medium text-rl-text text-xs whitespace-nowrap align-top">
                           {day}/{month + 1}
+                          <span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span>
                         </td>
                         <td colSpan={7} className="px-4 py-3">
                           <B2CEntryForm
@@ -471,6 +472,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
                     >
                       <td className="px-4 py-2.5 font-medium text-rl-text text-xs whitespace-nowrap">
                         {day}/{month + 1}
+                          <span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span>
                       </td>
                       <td className="px-4 py-2.5 text-right text-xs text-rl-text">{d ? fmtMoney(d.investido) : '—'}</td>
                       <td className="px-4 py-2.5 text-right text-xs text-rl-blue font-medium">{d ? d.leads : '—'}</td>
