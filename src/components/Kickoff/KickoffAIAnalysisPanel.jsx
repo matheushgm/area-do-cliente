@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Sparkles, Loader2, AlertTriangle, RotateCcw } from 'lucide-react'
 import { streamClaude } from '../../lib/claude'
 import { buildCachedPayload } from '../../lib/buildContext'
-import MarkdownBlock from '../Criativos/MarkdownBlock'
+import MarkdownView from '../Editor/MarkdownView'
+import TextoEditavelIA from '../Editor/TextoEditavelIA'
 import { PILLARS_BY_ID } from './KickoffQuestions'
 
 const SYSTEM_PROMPT = `Você é um consultor sênior de Revenue Lab analisando o diagnóstico de kickoff de um cliente. Receberá: tipo de negócio, respostas do questionário, scores por pilar (0-100), pilares mais fracos e ações sugeridas.
@@ -102,7 +103,8 @@ export default function KickoffAIAnalysisPanel({
     }
   }
 
-  // Já existe análise salva
+  // Já existe análise salva: editável no lugar e refinável com IA (o texto
+  // editado é o que vai pro PDF e pro portal).
   if (existing && !loading) {
     return (
       <div className="glass-card p-5 space-y-4">
@@ -120,7 +122,7 @@ export default function KickoffAIAnalysisPanel({
           </button>
         </div>
         <div className="border-t border-rl-border/60 pt-4">
-          <MarkdownBlock content={existing} />
+          <TextoEditavelIA valor={existing} onSalvar={onSave} project={project} />
         </div>
       </div>
     )
@@ -136,7 +138,7 @@ export default function KickoffAIAnalysisPanel({
         </div>
         {streaming && (
           <div className="border-t border-rl-border/60 pt-4">
-            <MarkdownBlock content={streaming} />
+            <MarkdownView content={streaming} />
           </div>
         )}
       </div>

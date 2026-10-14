@@ -326,9 +326,15 @@
    .md-editor → edição (Lexical); as classes .md-* vêm de Editor/theme.js
    Só tokens rl-*: funciona no claro, no escuro e dentro do .fx sem cor cravada. */
 .md-prose, .md-editor-content {
-  font-size: 0.875rem; line-height: 1.6; color: rgb(var(--rl-text)); overflow-wrap: anywhere;
+  font-size: 0.875rem; line-height: 1.6; color: inherit; overflow-wrap: anywhere;
 }
 .md-prose--xs, .md-editor--xs .md-editor-content { font-size: 0.75rem; }
+.md-prose--13, .md-editor--13 .md-editor-content { font-size: 13px; }
+/* Variante "nua", pra dentro de composers que já têm a própria caixa (comentário
+   da tarefa, briefing da nova atividade): sem borda, fundo nem padding. */
+.md-editor.md-editor--nu { border: 0; background: transparent; border-radius: 0; }
+.md-editor.md-editor--nu .md-editor-content { padding: 0.25rem 0; }
+.md-editor.md-editor--nu .md-editor-placeholder { top: 0.25rem; left: 0; }
 .md-prose > :first-child, .md-editor-content > :first-child { margin-top: 0; }
 .md-prose p { margin: 0 0 0.6em; }
 .md-prose p:last-child { margin-bottom: 0; }
@@ -337,7 +343,7 @@
 .md-editor-content .md-p { margin: 0; }
 .md-prose h1, .md-prose h2, .md-prose h3, .md-prose h4,
 .md-h1, .md-h2, .md-h3, .md-h4, .md-h5, .md-h6 {
-  font-weight: 700; color: rgb(var(--rl-text)); margin: 0.9em 0 0.35em; line-height: 1.3;
+  font-weight: 700; color: inherit; margin: 0.9em 0 0.35em; line-height: 1.3;
 }
 .md-prose h1, .md-h1 { font-size: 1.25em; }
 .md-prose h2, .md-h2 { font-size: 1.12em; }

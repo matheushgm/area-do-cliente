@@ -10,6 +10,7 @@ import { useApp } from '../../context/AppContext'
 import { gerarSugestoesProjeto } from '../../lib/playbookSugestoes'
 import { hojeISO, fmtLonga } from '../../lib/atividadesCarga'
 import { addDays } from '../../lib/dashboardData'
+import MarkdownView from '../Editor/MarkdownView'
 import { BUCKETS_VENC, bucketVencimento } from '../../lib/tarefas'
 import SugestoesPlaybook from './SugestoesPlaybook'
 import ResumoHub from './ResumoHub'
@@ -81,7 +82,8 @@ function Item({ item, expandido, nomes, onEditar, onNavigate }) {
   } else if (item.kind === 'planejada') {
     const resp = nomes.get(r.responsavel_profile_id)
     sub = [resp, r.tipo_tarefa, item.prazo ? `entrega ${fmtData(item.prazo)}` : null, r.status === 'erro' ? 'erro ao criar' : null].filter(Boolean).join(' · ')
-    corpo = r.descricao ? <p className="text-xs text-rl-subtle whitespace-pre-wrap line-clamp-6">{r.descricao}</p> : null
+    // Briefing em markdown, recortado na altura (line-clamp não funciona com blocos aninhados)
+    corpo = r.descricao ? <div className="text-rl-subtle max-h-28 overflow-hidden"><MarkdownView content={r.descricao} className="md-prose--xs" /></div> : null
   } else if (item.kind === 'tarefa') {
     const resp = (r.responsaveis || []).map((id) => nomes.get(id)).filter(Boolean).concat((r.responsaveis_extra || []).map((x) => x.nome)).join(', ')
     sub = [item.lista, resp, r.status, item.prazo ? `vence ${fmtData(item.prazo)}` : null].filter(Boolean).join(' · ')

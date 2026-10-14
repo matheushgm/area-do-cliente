@@ -1,5 +1,5 @@
 import { escapeHtml } from './utils'
-import { printDocument, docHeader, PAGE_CSS } from './printDoc'
+import { printDocument, docHeader, markdownToHtml, PAGE_CSS } from './printDoc'
 // PDF do Kickoff — segue o mesmo padrão de src/utils/exportPDF.js
 // (HTML + window.print()). Duas páginas: diagnóstico visual + perguntas/respostas.
 
@@ -261,6 +261,11 @@ export function exportKickoffPDF({ project, kickoff, questions = [] }) {
     <h1>Perguntas e respostas</h1>
     ${qaHtml}
   </section>
-`,
+${kickoff.aiAnalysis ? `
+  <section class="qa-section">
+    <h1>Análise aprofundada (IA)</h1>
+    <div style="font-size:13px;line-height:1.6">${markdownToHtml(kickoff.aiAnalysis)}</div>
+  </section>
+` : ''}`,
   })
 }

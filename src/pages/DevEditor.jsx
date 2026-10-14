@@ -7,6 +7,32 @@ import CreativeResultBlock from '../components/Criativos/CreativeResultBlock'
 import { replaceAdInContent } from '../components/Criativos/ResultBlock'
 import MarkdownView from '../components/Editor/MarkdownView'
 import MarkdownEditor from '../components/Editor/MarkdownEditor'
+import TextoEditavelIA from '../components/Editor/TextoEditavelIA'
+import { ObservacoesEditor, ObservacoesLeitura } from '../components/UI/ObservacoesCampo'
+
+const ANALISE = `## Pilar: Aquisição
+
+**Diagnóstico:** o tráfego pago depende de um único canal e a taxa de conversão da LP está abaixo de 2%.
+
+**Hipótese da raiz:** a oferta não está clara acima da dobra.
+
+1. Reescrever a headline com a promessa principal (1 semana)
+2. Testar 3 criativos de topo (2 semanas)
+3. Instalar o pixel de conversão de formulário (3 dias)
+
+## Pilar: Retenção
+
+Sem rotina de acompanhamento pós-venda. Risco: churn em 90 dias.`
+
+// Refino simulado do TextoEditavelIA: devolve o texto com uma marca no fim.
+async function refinarFakeTexto(texto, trecho, instrucao, onChunk) {
+  const alvo = `${texto.trim()}\n\n*(refinado${trecho ? ` no trecho "${trecho.slice(0, 30)}"` : ''}: ${instrucao.slice(0, 40)})*`
+  for (let i = 1; i <= 6; i++) {
+    await new Promise((r) => setTimeout(r, 80))
+    onChunk(alvo.slice(0, Math.ceil((alvo.length * i) / 6)))
+  }
+  return alvo
+}
 
 const VIDEO = `# ROTEIRO 1: Tese: O que você não enxerga também degrada | Ângulo: Mito | Nível: Inconsciente do problema
 
@@ -60,6 +86,10 @@ export default function DevEditor() {
   const [estatico, setEstatico] = useState(ESTATICO)
   const [livre, setLivre] = useState('Texto **livre** com _itálico_ e uma lista:\n\n- um\n- dois')
   const [leitura, setLeitura] = useState(false)
+  const [analise, setAnalise] = useState(ANALISE)
+  const [obs, setObs] = useState(
+    'Cliente PRÉ-PAGO.\n\n- Loja Centro: R$ 1.200\n- Loja Norte: R$ 3.000'
+  )
 
   return (
     <div className="min-h-screen bg-rl-bg text-rl-text p-6 space-y-10 max-w-5xl mx-auto">
@@ -102,6 +132,70 @@ export default function DevEditor() {
             {estatico}
           </pre>
         </details>
+      </section>
+
+      <section className="space-y-3">
+        <h1 className="text-lg font-bold">
+          TextoEditavelIA — texto gerado pela IA (Kickoff, Mecanismo, Produto)
+        </h1>
+        <div className="glass-card p-5">
+          <TextoEditavelIA valor={analise} onSalvar={setAnalise} onRefinar={refinarFakeTexto} />
+        </div>
+        <details>
+          <summary className="text-xs text-rl-muted cursor-pointer">
+            Markdown atual (análise)
+          </summary>
+          <pre
+            data-testid="md-analise"
+            className="text-[11px] whitespace-pre-wrap bg-rl-surface border border-rl-border rounded-xl p-3 mt-2"
+          >
+            {analise}
+          </pre>
+        </details>
+      </section>
+
+      <section className="space-y-3">
+        <h1 className="text-lg font-bold">Observações do cliente (editor + leitura)</h1>
+        <div className="glass-card p-5 space-y-4">
+          <ObservacoesEditor
+            value={obs}
+            onChange={(e) => setObs(e.target.value)}
+            rows={5}
+            placeholder="Observações…"
+            rodape="Salva automaticamente (simulado)"
+          />
+          <div className="border-t border-rl-border pt-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted mb-1">
+              Leitura (HubInformacoes)
+            </p>
+            <ObservacoesLeitura texto={obs} />
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h1 className="text-lg font-bold">Contexto .ln — descrição e comentário da tarefa</h1>
+        <div className="ln rounded-lg border border-ln-ink/5 bg-ln-panel p-4 space-y-4">
+          <div>
+            <p className="ln-label mb-1">Descrição (leitura, md-prose--13)</p>
+            <MarkdownView content={livre} className="md-prose--13 text-ln-t2" />
+          </div>
+          <div>
+            <p className="ln-label mb-1">Comentário (composer nu)</p>
+            <div className="ln-card flex items-end gap-2 px-3 py-2 focus-within:border-ln-accent/60">
+              <MarkdownEditor
+                value={obs}
+                onChange={setObs}
+                minHeight={24}
+                placeholder="Escreva um comentário..."
+                className="md-editor--nu md-editor--13 flex-1 min-w-0 text-ln-t1"
+              />
+              <button type="button" className="ln-primary !px-2">
+                Enviar
+              </button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="space-y-3">

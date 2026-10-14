@@ -1539,6 +1539,11 @@ export function exportProdutoServicoPDF(project) {
           </div>
         </div>
         ${questionsHTML}
+        ${p.summary ? `
+          <div style="margin-top:18px;page-break-inside:avoid">
+            <div class="qa-label" style="font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Briefing gerado pela IA</div>
+            <div style="font-size:13px;color:#0F172A;line-height:1.6">${markdownToHtml(p.summary)}</div>
+          </div>` : ''}
       </div>
     `
   }).join('<hr style="border:none;border-top:1px solid #E2E8F0;margin:32px 0">')

@@ -407,11 +407,26 @@ showToast('Erro ao salvar', 'error')
   as 2 diferenças são sublista indentada com 3 espaços que sai com 4).
 - CSS em `src/index.css` (bloco "Editor de Markdown", classes `.md-*`, só tokens `rl-*`).
   `/dev/editor` (só em DEV) renderiza os cards de criativo e o editor sem login.
+- `TextoEditavelIA` (`valor`, `onSalvar(md)`, `project`, `onRefinar?`, `semIA`, `acoes`):
+  leitura + "Editar" + "Refinar com IA" num bloco só, pros textos gerados pela IA que antes só
+  podiam ser regerados. O refino padrão é `src/lib/refinarMarkdown.js` (modelo
+  `MODELO_REFINO`, hoje `claude-opus-5-5`; devolve o texto inteiro, com o trecho selecionado
+  como foco) e o módulo pode trocar por um refino próprio via `onRefinar` (a LP usa o dela,
+  que reescreve só a dobra). Fluxo igual ao dos criativos: streaming, versão nova, aprovar
+  ou recusar.
 - Em uso: edição do criativo em `CreativeResultBlock` (o botão IA da toolbar abre o painel
   de refino com o trecho selecionado; o cabeçalho `# DOR` / `## ROTEIRO` fica fora do editor
   e é recolocado no salvar), "Editar e aprovar" do link público `/aprovacao-copy/:token`,
-  copy do anúncio no modal da Central (`DebriefingAdModal`) e no portal. O `MarkdownBlock`
-  de Criativos continua nos demais lugares (histórico de clientes, Roteiros Express, portal).
+  copy do anúncio no modal da Central (`DebriefingAdModal`) e no portal; análise do Kickoff,
+  pitch e posicionamento do Mecanismo Único, briefing do Produto/Serviço (os três via
+  `TextoEditavelIA`, e os dois PDFs de Kickoff e Produto passaram a incluir esses textos);
+  dobras da LP (`DobraBlock`); bloco inteiro da headline na Promessa (`editedBlocks[i].block`,
+  com `headline`/`sub` ainda gravados ao lado); descrição e comentários da tarefa
+  (`TarefaPanel`, variante `md-editor--nu` no composer); briefing da atividade
+  (`NovaAtividadePanel`, `NovaTarefaClickUpModal`, leitura em `AtividadePanel` e `HubCentro`);
+  observações do cliente (`ObservacoesCampo`, que mantém a assinatura `onChange(e)` com
+  `e.target.value`). O `MarkdownBlock` de Criativos continua nos demais lugares (histórico
+  de clientes, Roteiros Express, portal). `markdownToHtml` dos PDFs agora usa `remark-gfm`.
 
 ### Bibliotecas utilitárias
 

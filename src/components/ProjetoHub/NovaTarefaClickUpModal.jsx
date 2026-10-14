@@ -5,6 +5,7 @@
 import { useEffect } from 'react'
 import { Kanban, Loader2, Sparkles, AlertTriangle, ExternalLink, CheckCircle2, CalendarDays } from 'lucide-react'
 import Modal from '../UI/Modal'
+import MarkdownEditor from '../Editor/MarkdownEditor'
 import { useApp } from '../../context/AppContext'
 import { usePlanejador, TIPO_PARA_DEPARTAMENTO } from '../../hooks/usePlanejador'
 import { fmtLonga, fmtHoras } from '../../lib/atividadesCarga'
@@ -81,7 +82,7 @@ export default function NovaTarefaClickUpModal({ project, sugestao = null, confi
           </div>
           <div>
             <label className={LABEL}>Briefing</label>
-            <textarea value={f.descricao} onChange={(e) => pl.set('descricao', e.target.value)} rows={sugestao ? 6 : 3} className={INPUT + ' resize-y font-mono text-xs'} />
+            <MarkdownEditor value={f.descricao || ''} onChange={(md) => pl.set('descricao', md)} minHeight={sugestao ? 180 : 90} className="md-editor--xs" placeholder="Briefing da tarefa (markdown)" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

@@ -12,18 +12,18 @@ import { lazy, Suspense } from 'react'
 
 const Lexical = lazy(() => import('./LexicalMarkdownEditor'))
 
-function Carregando({ value, minHeight }) {
+function Carregando({ value, minHeight, className }) {
   return (
-    <div className="md-editor md-editor--carregando" style={{ '--md-min-h': `${minHeight}px` }}>
+    <div className={`md-editor md-editor--carregando ${className}`} style={{ '--md-min-h': `${minHeight}px` }}>
       <div className="md-editor-content whitespace-pre-wrap">{value}</div>
     </div>
   )
 }
 
 export default function MarkdownEditor(props) {
-  const { value = '', minHeight = 200 } = props
+  const { value = '', minHeight = 200, className = '' } = props
   return (
-    <Suspense fallback={<Carregando value={value} minHeight={minHeight} />}>
+    <Suspense fallback={<Carregando value={value} minHeight={minHeight} className={className} />}>
       <Lexical {...props} />
     </Suspense>
   )
