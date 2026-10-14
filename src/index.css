@@ -321,6 +321,76 @@
 .prose-chat .task-chip:hover { background: rgb(var(--ln-ink) / 0.04); }
 .prose-chat .task-chip svg { color: rgb(var(--ln-green)); }
 
+/* ── Editor de Markdown (src/components/Editor) ─────────────────────────────
+   .md-prose  → leitura (MarkdownView, react-markdown + remark-gfm)
+   .md-editor → edição (Lexical); as classes .md-* vêm de Editor/theme.js
+   Só tokens rl-*: funciona no claro, no escuro e dentro do .fx sem cor cravada. */
+.md-prose, .md-editor-content {
+  font-size: 0.875rem; line-height: 1.6; color: rgb(var(--rl-text)); overflow-wrap: anywhere;
+}
+.md-prose--xs, .md-editor--xs .md-editor-content { font-size: 0.75rem; }
+.md-prose > :first-child, .md-editor-content > :first-child { margin-top: 0; }
+.md-prose p { margin: 0 0 0.6em; }
+.md-prose p:last-child { margin-bottom: 0; }
+/* No editor cada linha do texto é um parágrafo (quebras preservadas): sem margem,
+   senão o texto fica com o dobro do espaço que tem no markdown. */
+.md-editor-content .md-p { margin: 0; }
+.md-prose h1, .md-prose h2, .md-prose h3, .md-prose h4,
+.md-h1, .md-h2, .md-h3, .md-h4, .md-h5, .md-h6 {
+  font-weight: 700; color: rgb(var(--rl-text)); margin: 0.9em 0 0.35em; line-height: 1.3;
+}
+.md-prose h1, .md-h1 { font-size: 1.25em; }
+.md-prose h2, .md-h2 { font-size: 1.12em; }
+.md-prose h3, .md-h3 { font-size: 1.04em; }
+.md-prose h4, .md-h4, .md-h5, .md-h6 { font-size: 1em; }
+.md-prose ul, .md-ul { list-style: disc; padding-left: 1.4em; margin: 0.3em 0 0.6em; }
+.md-prose ol, .md-ol { list-style: decimal; padding-left: 1.4em; margin: 0.3em 0 0.6em; }
+.md-editor-content .md-ul, .md-editor-content .md-ol { margin: 0; }
+.md-prose li, .md-li { margin: 0.15em 0; }
+.md-li-nested { list-style: none; }
+.md-prose a, .md-link { color: rgb(var(--rl-purple)); text-decoration: underline; cursor: pointer; }
+.md-prose strong, .md-bold { font-weight: 700; }
+.md-italic { font-style: italic; }
+.md-underline { text-decoration: underline; }
+.md-prose del, .md-strike { text-decoration: line-through; }
+.md-underline.md-strike { text-decoration: underline line-through; }
+.md-prose code, .md-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; padding: 0.1em 0.35em;
+  border-radius: 4px; background: rgb(var(--rl-surface)); border: 1px solid rgb(var(--rl-border));
+}
+.md-prose pre { padding: 0.6em 0.8em; border-radius: 8px; background: rgb(var(--rl-surface)); border: 1px solid rgb(var(--rl-border)); overflow-x: auto; margin: 0.5em 0; }
+.md-prose pre code { border: 0; padding: 0; background: none; }
+.md-prose blockquote, .md-quote { border-left: 3px solid rgb(var(--rl-purple) / 0.4); padding-left: 0.8em; color: rgb(var(--rl-subtle)); margin: 0.5em 0; }
+.md-prose hr, .md-hr { border: 0; border-top: 1px solid rgb(var(--rl-border)); margin: 0.8em 0; }
+.md-hr.selected { outline: 2px solid rgb(var(--rl-purple) / 0.5); outline-offset: 2px; }
+.md-prose img { max-width: 100%; border-radius: 8px; }
+.md-prose table, .md-table { border-collapse: collapse; margin: 0.5em 0; font-size: 0.95em; }
+.md-prose th, .md-prose td, .md-th, .md-td { border: 1px solid rgb(var(--rl-border)); padding: 0.25em 0.6em; vertical-align: top; min-width: 4em; }
+.md-prose th, .md-th { background: rgb(var(--rl-surface)); font-weight: 600; text-align: left; }
+.md-prose input[type="checkbox"] { margin-right: 0.4em; }
+
+/* Caixa do editor */
+.md-editor { position: relative; border: 1px solid rgb(var(--rl-purple) / 0.4); border-radius: 0.75rem; background: rgb(var(--rl-surface) / 0.6); transition: border-color 0.2s; }
+.md-editor:focus-within { border-color: rgb(var(--rl-purple)); }
+.md-editor--leitura, .md-editor--carregando { border-color: rgb(var(--rl-border)); }
+.md-editor-content { padding: 0.75rem 0.875rem; min-height: var(--md-min-h, 200px); outline: none; caret-color: rgb(var(--rl-purple)); }
+.md-editor-placeholder { position: absolute; top: 0.75rem; left: 0.875rem; color: rgb(var(--rl-muted)); pointer-events: none; user-select: none; font-size: 0.875rem; }
+.md-editor-content ::selection { background: rgb(var(--rl-purple) / 0.25); }
+
+/* Toolbar flutuante (portal no body, posicionada sobre a seleção) */
+.md-toolbar {
+  position: fixed; z-index: 120; display: flex; align-items: center; gap: 2px; padding: 4px;
+  border-radius: 10px; background: rgb(var(--rl-card)); border: 1px solid rgb(var(--rl-border));
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.22); transform: translate(-50%, calc(-100% - 8px));
+}
+.md-toolbar button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; color: rgb(var(--rl-subtle)); }
+.md-toolbar button svg { width: 15px; height: 15px; }
+.md-toolbar button:hover { background: rgb(var(--rl-surface)); color: rgb(var(--rl-text)); }
+.md-toolbar button.ativo { background: rgb(var(--rl-purple) / 0.15); color: rgb(var(--rl-purple)); }
+.md-toolbar button.ia { width: auto; padding: 0 9px 0 7px; gap: 4px; font-size: 11px; font-weight: 700; color: rgb(var(--rl-purple)); }
+.md-toolbar button.ia:hover { background: rgb(var(--rl-purple) / 0.12); }
+.md-toolbar .sep { width: 1px; height: 18px; background: rgb(var(--rl-border)); margin: 0 3px; }
+
 /* ── Tema "Fynix" na página do cliente (/project/:id) ──────────────────────
    Mesma linguagem do Dashboard de Tráfego (public/dash-teste/vendor/theme-fynix.css):
    fundo cinza-claro, cards brancos raio 16, azul da marca como destaque, navy

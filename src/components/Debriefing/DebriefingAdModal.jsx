@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle, Play, CheckCircle2, Clock, Upload, Paperclip, Loader2, Trash2, XCircle, Send, History, PlusCircle, Palette, FileText } from 'lucide-react'
 import Modal from '../UI/Modal'
+import MarkdownView from '../Editor/MarkdownView'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
 import { STATUS_OPTIONS, RESULTADO_OPTIONS, DEFAULT_STATUS, APROVACAO_BY_ID, todayISO, fmtDateTimeBR } from './debriefingData'
 import { uploadFile, deleteFile, getSignedUrl } from '../../lib/supabase'
@@ -63,9 +64,9 @@ function CopyAprovadaBlock({ copy, origem, aprovacao }) {
           {copied ? 'Copiada!' : 'Copiar texto'}
         </button>
       </div>
-      <pre className="px-4 py-3 text-[12px] leading-relaxed text-rl-text whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">
-        {copy}
-      </pre>
+      <div className="px-4 py-3 max-h-64 overflow-y-auto">
+        <MarkdownView content={copy} className="md-prose--xs" />
+      </div>
       {editado && (
         <div className="px-4 pb-4 space-y-2">
           <p className="text-[11px] text-rl-muted">
@@ -76,9 +77,9 @@ function CopyAprovadaBlock({ copy, origem, aprovacao }) {
               <summary className="text-[10px] font-semibold text-rl-muted cursor-pointer hover:text-rl-text">
                 Ver texto original (como o time enviou)
               </summary>
-              <pre className="mt-2 rounded-lg bg-rl-surface/60 border border-rl-border px-3 py-2 text-[12px] leading-relaxed text-rl-text whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">
-                {copyOriginal}
-              </pre>
+              <div className="mt-2 rounded-lg bg-rl-surface/60 border border-rl-border px-3 py-2 max-h-64 overflow-y-auto">
+                <MarkdownView content={copyOriginal} className="md-prose--xs" />
+              </div>
             </details>
           )}
         </div>

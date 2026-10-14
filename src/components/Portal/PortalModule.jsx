@@ -5,6 +5,7 @@ import { ExternalLink, FileText, Loader2, Star } from 'lucide-react'
 import { BUSINESS_LABELS, MATURITY_LABELS } from '../../lib/constants'
 import { fmtCurrency } from '../../lib/utils'
 import { portalFileUrl } from '../../lib/portal'
+import MarkdownView from '../Editor/MarkdownView'
 import { CampanhasView } from '../../pages/CampanhasPublico'
 import { AprovacaoView } from '../../pages/AprovacaoAnunciosPublico'
 import { CriativosTool } from '../../pages/CriativosPublico'
@@ -317,7 +318,7 @@ function Debriefing({ data, projectId, token }) {
               </div>
             </div>
             {ad.observacao && <p className="text-sm text-rl-muted mt-2">{ad.observacao}</p>}
-            {ad.copy && <div className="mt-3"><Details title="Copy"><PreText text={ad.copy} /></Details></div>}
+            {ad.copy && <div className="mt-3"><Details title="Copy"><MarkdownView content={ad.copy} /></Details></div>}
             <div className="flex flex-wrap gap-2 mt-3">
               {ad.url && <ExtLink href={ad.url} className="btn-secondary inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 !no-underline"><ExternalLink className="w-3.5 h-3.5" /> Ver peça</ExtLink>}
               {ad.attachmentPath && <FileButton projectId={projectId} token={token} bucket="attachments" path={ad.attachmentPath} label={ad.attachmentName || 'Anexo'} />}

@@ -15,17 +15,31 @@
     "format": "prettier --write src"
   },
   "dependencies": {
+    "@lexical/code": "^0.52.0",
+    "@lexical/html": "^0.52.0",
+    "@lexical/link": "^0.52.0",
+    "@lexical/list": "^0.52.0",
+    "@lexical/markdown": "^0.52.0",
+    "@lexical/react": "^0.52.0",
+    "@lexical/rich-text": "^0.52.0",
+    "@lexical/selection": "^0.52.0",
+    "@lexical/table": "^0.52.0",
+    "@lexical/utils": "^0.52.0",
     "@supabase/supabase-js": "^2.99.0",
     "chart.js": "^4.5.1",
     "html2canvas": "^1.4.1",
+    "lexical": "^0.52.0",
     "lucide-react": "^0.441.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^6.26.2",
-    "rehype-sanitize": "^6.0.0"
+    "rehype-sanitize": "^6.0.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@lexical/headless": "^0.52.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.39.4",

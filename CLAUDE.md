@@ -388,6 +388,31 @@ showToast('Erro ao salvar', 'error')
 <Toast toast={toast} />
 ```
 
+**`src/components/Editor/`** — editor rico de Markdown (Lexical) e leitura rica, estilo Notion.
+
+- `MarkdownEditor` (`value`/`onChange` em **markdown**, `readOnly`, `minHeight`, `autoFocus`,
+  `placeholder`, `onAI(trecho)`): carrega o Lexical sob demanda — o chunk de ~124 kB gzip só
+  entra quando alguém clica em editar. Toolbar flutuante na seleção (parágrafo/H2/H3/lista,
+  negrito/itálico/tachado/link e o botão **IA** quando `onAI` existe), atalhos Markdown ao
+  vivo (`# `, `- `, `**x**`), desfazer.
+- `MarkdownView` (`content`, `className`; variante `md-prose--xs`): react-markdown +
+  remark-gfm + remark-breaks + rehype-sanitize, sem Lexical. Quebra de linha simples vira
+  `<br>`, igual ao editor.
+- `markdownConfig.js` é a fonte da verdade da ida e volta: nós registrados, transformers
+  (sem bloco de código, pra não puxar o Prism), **quebras de linha preservadas** e os escapes
+  do exportador desfeitos (`\*` → `*`). Isso mantém o contrato dos criativos, que é lido por
+  regex em `splitChunks`, `replaceAdInContent`, nos PDFs e em `copyLevas`. Qualquer mudança
+  aqui passa por `node scripts/testar_roundtrip_markdown.mjs [n]`, que reimporta e reexporta
+  os últimos n criativos do banco e exige texto idêntico (2026-10-14: 1.732 de 1.734 trechos;
+  as 2 diferenças são sublista indentada com 3 espaços que sai com 4).
+- CSS em `src/index.css` (bloco "Editor de Markdown", classes `.md-*`, só tokens `rl-*`).
+  `/dev/editor` (só em DEV) renderiza os cards de criativo e o editor sem login.
+- Em uso: edição do criativo em `CreativeResultBlock` (o botão IA da toolbar abre o painel
+  de refino com o trecho selecionado; o cabeçalho `# DOR` / `## ROTEIRO` fica fora do editor
+  e é recolocado no salvar), "Editar e aprovar" do link público `/aprovacao-copy/:token`,
+  copy do anúncio no modal da Central (`DebriefingAdModal`) e no portal. O `MarkdownBlock`
+  de Criativos continua nos demais lugares (histórico de clientes, Roteiros Express, portal).
+
 ### Bibliotecas utilitárias
 
 **`src/lib/utils.js`** — funções puras compartilhadas: `initials(name)`, `fmtCurrency(n)` (BRL, sem casas decimais), `hashId(id)` (compatível com IDs legados numéricos e UUIDs).
