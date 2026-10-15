@@ -12,7 +12,7 @@
 
 import { useState } from 'react'
 import { Edit2, Plus, Check, X, Store, TrendingUp, TrendingDown } from 'lucide-react'
-import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, MONTH_NAMES } from './resultadosHelpers'
+import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, weekdayShort, MONTH_NAMES } from './resultadosHelpers'
 
 const UNIT_STYLE = [
   { text: 'text-rl-blue',   bg: 'bg-rl-blue/5',   border: 'border-rl-blue/20',   bar: 'rgb(var(--rl-blue))'   },
@@ -478,6 +478,7 @@ export default function VendasPorUnidade({
                         <tr key={day} className="border-b border-rl-border bg-rl-surface/40">
                           <td className={`px-4 py-2 text-xs font-medium text-rl-text whitespace-nowrap ${STICKY_LEFT}`}>
                             {dayKey}/{String(month + 1).padStart(2, '0')}
+                            <span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span>
                           </td>
                           {unidades.map((u, i) => [
                             <td key={`${u.id}-q`} className="px-2 py-2 border-l border-rl-border/50">
@@ -543,6 +544,7 @@ export default function VendasPorUnidade({
                       >
                         <td className={`px-4 py-2 text-xs font-medium text-rl-text whitespace-nowrap ${STICKY_LEFT}`}>
                           {dayKey}/{String(month + 1).padStart(2, '0')}
+                            <span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span>
                         </td>
                         {unidades.map((u, i) => {
                           const v = entry?.[u.id]
