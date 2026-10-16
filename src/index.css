@@ -328,13 +328,31 @@
 .md-prose, .md-editor-content {
   font-size: 0.875rem; line-height: 1.6; color: inherit; overflow-wrap: anywhere;
 }
-.md-prose--xs, .md-editor--xs .md-editor-content { font-size: 0.75rem; }
-.md-prose--13, .md-editor--13 .md-editor-content { font-size: 13px; }
+/* Tamanhos: o modificador vai no invólucro (.md-view / .md-editor) e vale pro
+   formatado, pro Markdown cru e pro textarea. */
+.md-prose--xs .md-prose, .md-prose--xs .md-raw, .md-editor--xs .md-editor-content, .md-editor--xs .md-editor-raw { font-size: 0.75rem; }
+.md-prose--13 .md-prose, .md-prose--13 .md-raw, .md-editor--13 .md-editor-content, .md-editor--13 .md-editor-raw { font-size: 13px; }
+/* Leitura: ícone <> no canto alterna formatado ↔ Markdown cru */
+.md-view { position: relative; }
+.md-toggle {
+  float: right; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
+  margin: 0 0 2px 8px; border-radius: 5px; color: rgb(var(--rl-muted)); opacity: 0.55;
+  transition: opacity 0.15s, background 0.15s;
+}
+.md-toggle svg { width: 12px; height: 12px; }
+.md-view:hover .md-toggle, .md-toggle:focus-visible, .md-toggle[aria-pressed="true"] { opacity: 1; }
+.md-toggle:hover { background: rgb(var(--rl-surface)); color: rgb(var(--rl-text)); }
+.md-raw {
+  margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; line-height: 1.55;
+  background: rgb(var(--rl-surface) / 0.6); border: 1px solid rgb(var(--rl-border)); border-radius: 8px; padding: 0.6rem 0.75rem;
+}
 /* Variante "nua", pra dentro de composers que já têm a própria caixa (comentário
    da tarefa, briefing da nova atividade): sem borda, fundo nem padding. */
 .md-editor.md-editor--nu { border: 0; background: transparent; border-radius: 0; }
-.md-editor.md-editor--nu .md-editor-content { padding: 0.25rem 0; }
+.md-editor.md-editor--nu .md-editor-content, .md-editor.md-editor--nu .md-editor-raw { padding: 0.25rem 0; }
 .md-editor.md-editor--nu .md-editor-placeholder { top: 0.25rem; left: 0; }
+.md-editor.md-editor--nu .md-editor-bar { padding: 0 0 2px; }
 .md-prose > :first-child, .md-editor-content > :first-child { margin-top: 0; }
 .md-prose p { margin: 0 0 0.6em; }
 .md-prose p:last-child { margin-bottom: 0; }
@@ -375,12 +393,24 @@
 .md-prose th, .md-th { background: rgb(var(--rl-surface)); font-weight: 600; text-align: left; }
 .md-prose input[type="checkbox"] { margin-right: 0.4em; }
 
-/* Caixa do editor */
-.md-editor { position: relative; border: 1px solid rgb(var(--rl-purple) / 0.4); border-radius: 0.75rem; background: rgb(var(--rl-surface) / 0.6); transition: border-color 0.2s; }
+/* Caixa do editor: barra Visual/Markdown no alto + corpo (Lexical ou textarea cru) */
+.md-editor { position: relative; display: flex; flex-direction: column; border: 1px solid rgb(var(--rl-purple) / 0.4); border-radius: 0.75rem; background: rgb(var(--rl-surface) / 0.6); transition: border-color 0.2s; }
 .md-editor:focus-within { border-color: rgb(var(--rl-purple)); }
-.md-editor--leitura, .md-editor--carregando { border-color: rgb(var(--rl-border)); }
+.md-editor--leitura { border-color: rgb(var(--rl-border)); }
+.md-editor-body { position: relative; }
 .md-editor-content { padding: 0.75rem 0.875rem; min-height: var(--md-min-h, 200px); outline: none; caret-color: rgb(var(--rl-purple)); }
 .md-editor-placeholder { position: absolute; top: 0.75rem; left: 0.875rem; color: rgb(var(--rl-muted)); pointer-events: none; user-select: none; font-size: 0.875rem; }
+.md-editor-bar { display: flex; justify-content: flex-end; gap: 2px; padding: 5px 6px 0; }
+.md-editor-bar button { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 10px; font-weight: 600; color: rgb(var(--rl-muted)); transition: color 0.15s, background 0.15s; }
+.md-editor-bar button svg { width: 11px; height: 11px; }
+.md-editor-bar button:hover { color: rgb(var(--rl-text)); background: rgb(var(--rl-surface)); }
+.md-editor-bar button.ativo { color: rgb(var(--rl-purple)); background: rgb(var(--rl-purple) / 0.12); }
+.md-editor-raw {
+  display: block; width: 100%; min-height: var(--md-min-h, 200px); padding: 0.75rem 0.875rem;
+  background: transparent; border: 0; outline: none; resize: vertical; color: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; line-height: 1.55;
+}
+.md-editor-raw::placeholder { color: rgb(var(--rl-muted)); }
 .md-editor-content ::selection { background: rgb(var(--rl-purple) / 0.25); }
 
 /* Toolbar flutuante (portal no body, posicionada sobre a seleção) */

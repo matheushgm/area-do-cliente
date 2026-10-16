@@ -74,15 +74,15 @@ function aoErrar(e) {
   console.error('[MarkdownEditor]', e)
 }
 
+// A caixa (borda, fundo, barra Visual/Markdown) é do MarkdownEditor; aqui só o
+// corpo editável.
 export default function LexicalMarkdownEditor({
   value = '',
   onChange,
   readOnly = false,
   placeholder = 'Escreva aqui…',
-  minHeight = 200,
   autoFocus = false,
   onAI,
-  className = '',
 }) {
   // initialConfig só é lido na montagem; useState com inicializador garante
   // que o markdown inicial é importado uma vez só.
@@ -97,10 +97,7 @@ export default function LexicalMarkdownEditor({
 
   return (
     <LexicalComposer initialConfig={initialConfig}>
-      <div
-        className={`md-editor ${readOnly ? 'md-editor--leitura' : ''} ${className}`}
-        style={{ '--md-min-h': `${minHeight}px` }}
-      >
+      <div className="md-editor-body">
         <RichTextPlugin
           contentEditable={
             <ContentEditable

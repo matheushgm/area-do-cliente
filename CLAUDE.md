@@ -391,13 +391,19 @@ showToast('Erro ao salvar', 'error')
 **`src/components/Editor/`** — editor rico de Markdown (Lexical) e leitura rica, estilo Notion.
 
 - `MarkdownEditor` (`value`/`onChange` em **markdown**, `readOnly`, `minHeight`, `autoFocus`,
-  `placeholder`, `onAI(trecho)`): carrega o Lexical sob demanda — o chunk de ~124 kB gzip só
-  entra quando alguém clica em editar. Toolbar flutuante na seleção (parágrafo/H2/H3/lista,
-  negrito/itálico/tachado/link e o botão **IA** quando `onAI` existe), atalhos Markdown ao
-  vivo (`# `, `- `, `**x**`), desfazer.
-- `MarkdownView` (`content`, `className`; variante `md-prose--xs`): react-markdown +
-  remark-gfm + remark-breaks + rehype-sanitize, sem Lexical. Quebra de linha simples vira
-  `<br>`, igual ao editor.
+  `placeholder`, `onAI(trecho)`, `codigo`): carrega o Lexical sob demanda — o chunk de
+  ~124 kB gzip só entra quando alguém clica em editar. Toolbar flutuante na seleção
+  (parágrafo/H2/H3/lista, negrito/itálico/tachado/link e o botão **IA** quando `onAI`
+  existe), atalhos Markdown ao vivo (`# `, `- `, `**x**`), desfazer. A barra **Visual |
+  Markdown** no alto da caixa alterna entre o Lexical e um textarea com o texto cru (os dois
+  editam a mesma string); a escolha fica em `localStorage['md.editor.modo']` e vale pra
+  todos os editores. `codigo={false}` esconde a barra. A caixa (borda, barra) é do
+  `MarkdownEditor`; o `LexicalMarkdownEditor` só renderiza o corpo (`.md-editor-body`).
+- `MarkdownView` (`content`, `className`, `codigo`; variantes `md-prose--xs` e
+  `md-prose--13` no invólucro): react-markdown + remark-gfm + remark-breaks +
+  rehype-sanitize, sem Lexical. Quebra de linha simples vira `<br>`, igual ao editor. O
+  ícone `<>` no canto (flutuado à direita, aparece no hover) alterna entre o formatado e o
+  Markdown cru em `<pre>`; `codigo={false}` esconde.
 - `markdownConfig.js` é a fonte da verdade da ida e volta: nós registrados, transformers
   (sem bloco de código, pra não puxar o Prism), **quebras de linha preservadas** e os escapes
   do exportador desfeitos (`\*` → `*`). Isso mantém o contrato dos criativos, que é lido por
