@@ -4545,6 +4545,9 @@ function otmDecididaHTML(d, u, pode) {
   </div>`
 }
 
+// Painel minimizado (lembrado no navegador): só o cabeçalho com as contagens.
+const otmMin = () => { try { return localStorage.getItem('dt_otm_min') === '1' } catch (e) { return false } }
+const otmSetMin = v => { try { localStorage.setItem('dt_otm_min', v ? '1' : '0') } catch (e) {} }
 function otmInnerHTML(ch, client) {
   const u = otmUI(), escopo = otmEscopo(ch), pid = otmPid(client), dec = state.otmDec[pid]
   const pode = !!(pid && otmBridge() && dec?.ok)
@@ -4567,9 +4570,13 @@ function otmInnerHTML(ch, client) {
     lista = mostra.length ? mostra.map(d => otmDecididaHTML(d, u, pode)).join('') + (decididas.length > 30 ? `<div class="otm-vazio">Mostrando as 30 mais recentes de ${decididas.length}.</div>` : '')
       : '<div class="otm-vazio">Nenhuma decisão registrada neste escopo.</div>'
   }
+  const min = otmMin()
+  const toggle = `<button class="otm-x otm-toggle" data-otm-min title="${min ? 'Expandir otimizações' : 'Minimizar otimizações'}" aria-expanded="${!min}" style="margin-left:auto">${min ? 'Expandir ▾' : 'Minimizar ▴'}</button>`
+  if (min) return `<div class="otm-head"><span class="otm-icon">${ic('sparkles','💡')}</span><span class="otm-title">Otimizações</span>
+      <span class="otm-n">${pend.length} pendente${pend.length === 1 ? '' : 's'}</span>${urg ? `<span class="otm-n bad">${urg} urg.</span>` : ''}${alta ? `<span class="otm-n warn">${alta} alta${alta > 1 ? 's' : ''}</span>` : ''}${toggle}</div>`
   return `<div class="otm-head"><span class="otm-icon">${ic('sparkles','💡')}</span><span class="otm-title">Otimizações</span>
       <span class="otm-scope" title="${esc(escopo.rotulo)}">${esc(escopo.rotulo)}</span>${escopo.ad ? `<button class="otm-x" data-otm-limpa-ad title="Voltar ao escopo anterior">✕</button>` : ''}
-      <span class="otm-meta">${j ? `7 dias fechados (${fmtBR(j.inicio)} a ${fmtBR(j.fim)}) contra os 7 anteriores, independente do período do filtro` : ''}</span></div>
+      <span class="otm-meta">${j ? `7 dias fechados (${fmtBR(j.inicio)} a ${fmtBR(j.fim)}) contra os 7 anteriores, independente do período do filtro` : ''}</span>${toggle}</div>
     <div class="otm-tabs">
       <button class="otm-tab${tab === 'pendentes' ? ' active' : ''}" data-otm-tab="pendentes">Pendentes <span class="otm-n">${pend.length}</span>${urg ? `<span class="otm-n bad" title="Urgentes">${urg} urg.</span>` : ''}${alta ? `<span class="otm-n warn" title="Prioridade alta">${alta} alta${alta > 1 ? 's' : ''}</span>` : ''}</button>
       <button class="otm-tab${tab === 'decididas' ? ' active' : ''}" data-otm-tab="decididas">Decididas <span class="otm-n">${decididas.length}</span></button>
@@ -4602,6 +4609,7 @@ function otmWire() {
   const { client, channel: ch } = state.openClient, u = otmUI(), b = otmBridge()
   const sug = chave => otmSugestoes(client, ch).find(s => s.chave === chave)
   const dec = id => (state.otmDec[otmPid(client)]?.rows || []).find(d => String(d.id) === String(id))
+  root.querySelectorAll('[data-otm-min]').forEach(el => el.onclick = () => { otmSetMin(!otmMin()); otmRender() })
   root.querySelectorAll('[data-otm-tab]').forEach(el => el.onclick = () => { u.tab = el.dataset.otmTab; otmRender() })
   root.querySelectorAll('[data-otm-abrir]').forEach(el => el.onclick = () => { const k = el.dataset.otmAbrir; u.abertas[k] = !u.abertas[k]; otmRender() })
   root.querySelectorAll('[data-otm-fecha-aviso]').forEach(el => el.onclick = () => { u.aviso = null; otmRender() })
@@ -5440,6 +5448,7 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
       const u = otmUI(), camp = state.drillCampaign, adset = state.drillAdset
       u.ad = { id: el.dataset.otmAd, nome: el.dataset.otmName, ctx: [camp, adset, (camp || adset) ? state.drillSub : state.sub].join('|') }
       u.tab = 'pendentes'
+      otmSetMin(false)
       otmRender()
       document.getElementById('otmPanel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     })
