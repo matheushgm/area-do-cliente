@@ -637,7 +637,14 @@ O módulo passou a se chamar **VertaTask** (rótulo na sidebar e no breadcrumb; 
   no corpo, cartões brancos de borda 1px e raio 12) e redefine `ln-card`, `ln-pill`, `ln-tab`,
   `ln-primary` e `ln-input` com o look do protótipo; no escuro só o azul muda. Lista agrupada em
   cartões sobre fundo `ln-bg`. Os componentes continuam usando só `ln-*`.
-- **Ainda não feito:** views salvas, Pages (documentos) e a decisão sobre desligar o ClickUp.
+- **Estrutura igual à do protótipo:** a coluna esquerda (`TarefasSidebar`) tem a marca, a navegação
+  (Intake com contador, Minhas tarefas, Todas as tarefas, Cycles, Modules), **Views salvas** e a
+  árvore Clientes (pasta → listas, com bolinha colorida e abertas carregadas). O cabeçalho é só o
+  título da seção (Sora 20px) com o breadcrumb da pasta/lista; as seções não ficam mais em abas no
+  topo. "Todas as tarefas" = `?todas=1` (`carregarAbertas`: tudo que não está concluído).
+  **Views salvas** vivem em `localStorage` (`tarefas.views`, por navegador): guardam seleção
+  (lista/pasta/minhas/todas), visão, agrupamento, responsável e "concluídas".
+- **Ainda não feito:** views salvas compartilhadas entre o time (hoje por navegador), Pages (documentos) e a decisão sobre desligar o ClickUp.
 
 ### Chat (`/chat`): réplica do ClickUp Chat
 

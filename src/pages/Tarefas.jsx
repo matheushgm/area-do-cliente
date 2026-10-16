@@ -11,7 +11,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useOutletContext } from 'react-router-dom'
 import {
   Menu, List, KanbanSquare, ChevronRight, ChevronDown, Search, X, Plus, Loader2, Layers, Eye, EyeOff, PanelLeft, User, RefreshCw,
-  CheckSquare, Trash2, Check, Maximize2, Minimize2, Rows3, CalendarDays, ArrowLeft,
+  Trash2, Check, Maximize2, Minimize2, Rows3, CalendarDays, ArrowLeft,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
@@ -45,6 +45,8 @@ function useLarguraDoConteudo(ref) {
   }, [ref])
   return w
 }
+
+const novoIdView = () => `v${Date.now().toString(36)}`
 
 function estaDigitando() {
   const el = document.activeElement
@@ -188,6 +190,7 @@ export default function Tarefas() {
   const [filtroResp, setFiltroResp] = useState('todos')
   const [painelExpandido, setPainelExpandido] = useState(false)
   const [recarregarTick, setRecarregarTick] = useState(0)
+  const [viewsSalvas, setViewsSalvas] = useState(() => lerPref('views', []))
   const [unidadeBurn, setUnidadeBurn] = useState(() => lerPref('burn', 'tarefas'))
   const sync = useSyncClickup({
     ativo: !t.loadingEstrutura,
@@ -203,6 +206,7 @@ export default function Tarefas() {
   useEffect(() => gravarPref('concluidas', mostrarConcluidas), [mostrarConcluidas])
   useEffect(() => gravarPref('denso', denso), [denso])
   useEffect(() => gravarPref('burn', unidadeBurn), [unidadeBurn])
+  useEffect(() => gravarPref('views', viewsSalvas), [viewsSalvas])
 
   // ── Seleção (pasta / lista / minhas) via URL ─────────────────────────────
   const aba = params.get('aba') // null = tarefas | 'intake' | 'ciclos' | 'modulos'
@@ -213,6 +217,7 @@ export default function Tarefas() {
     if (params.get('lista')) return { tipo: 'lista', id: params.get('lista') }
     if (params.get('pasta')) return { tipo: 'pasta', id: params.get('pasta') }
     if (params.get('minhas') === '1') return { tipo: 'minhas' }
+    if (params.get('todas') === '1') return { tipo: 'todas' }
     return lerPref('sel', null) || { tipo: 'minhas' }
   }, [params, aba, vt.ciclos])
   const tarefaAbertaId = params.get('tarefa')
@@ -222,6 +227,7 @@ export default function Tarefas() {
     const p = new URLSearchParams()
     if (s.tipo === 'lista') p.set('lista', s.id)
     else if (s.tipo === 'pasta') p.set('pasta', s.id)
+    else if (s.tipo === 'todas') p.set('todas', '1')
     else p.set('minhas', '1')
     setParams(p)
   }, [setParams])
@@ -230,6 +236,18 @@ export default function Tarefas() {
     if (a === 'tarefas') { setSel(lerPref('sel', null) || { tipo: 'minhas' }); return }
     setParams(new URLSearchParams({ aba: a, ...extra }))
   }, [setSel, setParams])
+
+  const salvarView = useCallback(() => {
+    const nome = window.prompt('Nome da view')
+    if (!nome || !nome.trim()) return
+    const alvo = ['lista', 'pasta', 'minhas', 'todas'].includes(sel.tipo) ? sel : { tipo: 'todas' }
+    setViewsSalvas((v) => [...v, { id: novoIdView(), nome: nome.trim(), sel: alvo, view, agrupar, filtroResp, mostrarConcluidas }])
+    showToast('View salva')
+  }, [sel, view, agrupar, filtroResp, mostrarConcluidas, showToast])
+  const aplicarView = useCallback((v) => {
+    setView(v.view); setAgrupar(v.agrupar); setFiltroResp(v.filtroResp); setMostrarConcluidas(!!v.mostrarConcluidas)
+    setSel(v.sel)
+  }, [setSel])
 
   const abrirTarefa = useCallback((id) => {
     const p = new URLSearchParams(params)
@@ -255,10 +273,11 @@ export default function Tarefas() {
     if (t.loadingEstrutura) return
     const force = recarregarTick > 0
     if (sel.tipo === 'minhas') t.carregarMinhas()
+    else if (sel.tipo === 'todas') t.carregarAbertas({ force })
     else if (sel.tipo === 'ciclo' && sel.id) t.carregarPorCampo('ciclo_id', sel.id, { force })
     else if (sel.tipo === 'modulo' && sel.id) t.carregarPorCampo('modulo_id', sel.id, { force })
     else if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force })
-  }, [sel.tipo, sel.id, t.carregarPorCampo, listasEscopo, t.loadingEstrutura, t.carregarMinhas, t.carregarListas, recarregarTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sel.tipo, sel.id, t.carregarPorCampo, t.carregarAbertas, listasEscopo, t.loadingEstrutura, t.carregarMinhas, t.carregarListas, recarregarTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (tarefaAbertaId && !t.itens[tarefaAbertaId]) t.carregarTarefa(tarefaAbertaId)
@@ -276,6 +295,7 @@ export default function Tarefas() {
   const todos = useMemo(() => Object.values(t.itens), [t.itens])
   const itensEscopo = useMemo(() => {
     if (sel.tipo === 'minhas') return todos.filter((it) => (it.responsaveis || []).includes(user?.id))
+    if (sel.tipo === 'todas') return todos
     if (sel.tipo === 'ciclo') return todos.filter((it) => it.ciclo_id === sel.id)
     if (sel.tipo === 'modulo') return todos.filter((it) => it.modulo_id === sel.id)
     const ids = new Set(listasEscopo.map((l) => l.id))
@@ -320,6 +340,15 @@ export default function Tarefas() {
   }, [t.comentarios])
 
   // Fora de uma pasta/lista (cycles, modules, minhas): usa a última lista visitada.
+  // Abertas por pasta, só do que já está carregado (a lista de clientes mostra o número quando existe).
+  const contagemPorPasta = useMemo(() => {
+    const porLista = new Map()
+    for (const it of todos) if (!it.parent_id && it.status_tipo !== 'closed') porLista.set(it.lista_id, (porLista.get(it.lista_id) || 0) + 1)
+    const m = {}
+    for (const l of t.listas) if (porLista.has(l.id)) m[l.pasta_id] = (m[l.pasta_id] || 0) + porLista.get(l.id)
+    return m
+  }, [todos, t.listas])
+
   const listaPadraoId = useMemo(() => {
     if (sel.tipo === 'lista') return sel.id
     if (listasEscopo[0]) return listasEscopo[0].id
@@ -400,8 +429,8 @@ export default function Tarefas() {
     <>
 
       <div ref={conteudoRef} className="ln vt flex-1 min-w-0 flex flex-col h-screen bg-ln-bg">
-        <div className="flex-1 min-h-0 p-2">
-          <div className="relative h-full min-h-0 flex rounded-lg border border-ln-ink/5 bg-ln-panel overflow-hidden" style={{ boxShadow: '0 0 0 2px rgb(var(--ln-ink) / 0.02)' }}>
+        <div className="flex-1 min-h-0">
+          <div className="relative h-full min-h-0 flex bg-ln-panel overflow-hidden">
             <TarefasSidebar
               pastas={t.pastas} listas={t.listas} projetos={projects} sel={sel} onSel={setSel}
               onCriarPasta={(nome) => t.criarPasta({ nome })}
@@ -409,49 +438,46 @@ export default function Tarefas() {
               onAtualizarPasta={t.atualizarPasta}
               onAtualizarLista={t.atualizarLista}
               aberta={arvoreAberta} onFechar={() => setArvoreAberta(false)}
+              nav={{ aba: aba || 'tarefas', onAba: irAba, intake: vt.intakePendentes.length }}
+              views={viewsSalvas} onAplicarView={aplicarView} onExcluirView={(id) => setViewsSalvas((v) => v.filter((x) => x.id !== id))}
+              contagem={contagemPorPasta}
             />
 
             {/* ── Painel principal ─────────────────────────────────────── */}
             <div className="flex-1 min-w-0 flex flex-col">
-              <header className="h-11 shrink-0 flex items-center justify-between gap-3 px-3 border-b border-ln-ink/5">
-                <div className="flex items-center gap-1 min-w-0">
+              <header className="min-h-[56px] shrink-0 flex items-center justify-between gap-3 px-6 py-2 border-b border-ln-ink/[0.08]">
+                <div className="flex items-center gap-2 min-w-0">
                   <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
                   <button onClick={() => setArvoreAberta(true)} aria-label="Abrir pastas" className="ln-iconbtn md:hidden"><PanelLeft className="w-4 h-4" /></button>
-                  <div className="flex items-center gap-2 h-7 px-2.5 rounded-lg text-xs font-medium text-ln-t2 min-w-0">
-                    <img src="/vertatask-simbolo.png" alt="" className="w-4 h-4 shrink-0" />
-                    <span className="truncate vt-display font-bold text-ln-t1 text-[13px]">Verta<span className="font-medium text-ln-accent">Task</span></span>
-                    {pastaSel && (<>
-                      <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
-                      <button type="button" onClick={() => setSel({ tipo: 'pasta', id: pastaSel.id })} className={`truncate max-w-[200px] rounded ${listaSel ? 'text-ln-t3 hover:text-ln-t2' : 'text-ln-t2'} ${FOCO}`}>{pastaSel.nome}</button>
-                    </>)}
-                    {listaSel && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate max-w-[200px]">{listaSel.nome}</span></>)}
-                    {sel.tipo === 'minhas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate">Minhas tarefas</span></>)}
-                  </div>
+                  <h1 className="text-xl font-bold text-ln-t1 truncate">{{ intake: 'Intake', ciclos: 'Cycles', modulos: 'Modules' }[aba] || 'Tarefas'}</h1>
+                  {!aba && (
+                    <div className="hidden sm:flex items-center gap-1.5 text-[13px] text-ln-t3 min-w-0">
+                      {pastaSel && (<>
+                        <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
+                        <button type="button" onClick={() => setSel({ tipo: 'pasta', id: pastaSel.id })} className={`truncate max-w-[200px] rounded ${listaSel ? 'hover:text-ln-t1' : 'text-ln-t2'} ${FOCO}`}>{pastaSel.nome}</button>
+                      </>)}
+                      {listaSel && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate max-w-[200px] text-ln-t2">{listaSel.nome}</span></>)}
+                      {sel.tipo === 'minhas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">Minhas tarefas</span></>)}
+                      {sel.tipo === 'todas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">Todas as abertas</span></>)}
+                    </div>
+                  )}
                   {(!aba || aba === 'ciclos' || (aba === 'modulos' && sel.id)) && <span className="hidden xl:inline text-xs text-ln-t4 tabular whitespace-nowrap">{totalAbertas} abertas</span>}
-                  <nav aria-label="Seções do VertaTask" className="flex items-center gap-0.5 ml-1 min-w-0 overflow-x-auto scroll-hide">
-                    {[['tarefas', 'Tarefas'], ['intake', 'Intake'], ['ciclos', 'Cycles'], ['modulos', 'Modules']].map(([k, rot]) => (
-                      <button key={k} type="button" onClick={() => irAba(k)} className={`ln-tab ${(aba || 'tarefas') === k ? 'ln-tab-active' : ''} ${FOCO}`}>
-                        {rot}
-                        {k === 'intake' && vt.intakePendentes.length > 0 && <span className="ml-0.5 min-w-[16px] h-4 px-1 rounded-full bg-ln-accent text-white text-[10px] font-semibold inline-flex items-center justify-center tabular">{vt.intakePendentes.length}</span>}
-                      </button>
-                    ))}
-                  </nav>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {t.carregando && <Loader2 className="w-3.5 h-3.5 animate-spin text-ln-t4" />}
-                    <button
-                      type="button"
-                      onClick={sync.sincronizar}
-                      disabled={sync.rodando}
-                      title={sync.erro ? `Erro na última sincronização: ${sync.erro}` : `Última sincronização com o ClickUp: ${tempoRelativo(sync.estado?.ultimo_inicio)}${sync.estado?.ultimo_ok === false ? ' (com erro)' : ''}`}
-                      className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${sync.erro || sync.estado?.ultimo_ok === false ? 'text-ln-red' : 'text-ln-t4 hover:text-ln-t2'} disabled:opacity-60 ${FOCO} rounded`}
-                    >
-                      <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />
-                      {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
-                    </button>
-                  <button onClick={() => { if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true }) }} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
+                  <button
+                    type="button"
+                    onClick={sync.sincronizar}
+                    disabled={sync.rodando}
+                    title={sync.erro ? `Erro na última sincronização: ${sync.erro}` : `Última sincronização com o ClickUp: ${tempoRelativo(sync.estado?.ultimo_inicio)}${sync.estado?.ultimo_ok === false ? ' (com erro)' : ''}`}
+                    className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${sync.erro || sync.estado?.ultimo_ok === false ? 'text-ln-red' : 'text-ln-t4 hover:text-ln-t2'} disabled:opacity-60 ${FOCO} rounded`}
+                  >
+                    <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />
+                    {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
+                  </button>
+                  <button onClick={() => { if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true }); else if (sel.tipo === 'todas') t.carregarAbertas({ force: true }) }} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
                   <button onClick={novaTarefa} className="ln-primary" title="Nova tarefa (C)">
-                    <Plus className="w-3.5 h-3.5" /> Nova tarefa <kbd className="ln-kbd !text-white/80 !bg-white/15 !border-white/20 ml-0.5">C</kbd>
+                    <Plus className="w-3.5 h-3.5" /> Nova tarefa
                   </button>
                 </div>
               </header>
@@ -471,6 +497,7 @@ export default function Tarefas() {
                   </button>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {!aba && <button onClick={salvarView} className="ln-pill" title="Guardar esta combinação de filtros como view">Salvar view</button>}
                   <div className="ln-input !h-7 !w-[150px] hidden sm:flex items-center gap-1.5">
                     <Search className="w-3.5 h-3.5 text-ln-t4 shrink-0" />
                     <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar tarefa" className="flex-1 min-w-0 bg-transparent outline-none text-xs text-ln-t1 placeholder:text-ln-t4" aria-label="Buscar tarefa" />

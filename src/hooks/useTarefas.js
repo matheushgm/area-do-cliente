@@ -125,6 +125,25 @@ export function useTarefas(user) {
     }
   }, [user?.id, mesclar])
 
+  /** VertaTask, "Todas as tarefas": tudo que está aberto (as concluídas ficam nas pastas). */
+  const abertasCarregadas = useRef(false)
+  const carregarAbertas = useCallback(async ({ force = false } = {}) => {
+    if (!supabase || (abertasCarregadas.current && !force)) return
+    setCarregando(true)
+    try {
+      const rows = await selectPaginado(
+        supabase.from('tarefas_itens').select('*').neq('status_tipo', 'closed').eq('arquivada', false).order('data_vencimento', { ascending: true, nullsFirst: false }),
+      )
+      abertasCarregadas.current = true
+      mesclar(rows)
+    } catch (e) {
+      console.error('Erro ao carregar tarefas abertas:', e)
+      setErro(e.message)
+    } finally {
+      setCarregando(false)
+    }
+  }, [mesclar])
+
   /** Uma tarefa por id (deep-link) + suas subtarefas + o pai, se houver. */
   const carregarTarefa = useCallback(async (id) => {
     if (!supabase || !id) return null
@@ -318,7 +337,7 @@ export function useTarefas(user) {
   return {
     pastas, listas, pastasMap, listasMap, loadingEstrutura, carregando, erro,
     itens, comentarios,
-    carregarEstrutura, carregarListas, carregarMinhas, carregarPorCampo, carregarTarefa,
+    carregarEstrutura, carregarListas, carregarMinhas, carregarAbertas, carregarPorCampo, carregarTarefa,
     criarTarefa, atualizarTarefa, mudarStatus, excluirTarefa,
     criarPasta, atualizarPasta, criarLista, atualizarLista,
     carregarComentarios, criarComentario, excluirComentario,

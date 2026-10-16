@@ -2,12 +2,18 @@
 // reprovações de anúncio e sugestões do playbook chegam aqui; o time escolhe
 // cliente e responsável e aceita (vira tarefa em "A fazer") ou recusa.
 import { useMemo, useState } from 'react'
-import { Plus, Check, X, Undo2, ExternalLink } from 'lucide-react'
+import { Plus, Undo2, ExternalLink } from 'lucide-react'
 import { PRIORIDADES, fmtDataHora } from '../../lib/tarefas'
 import { ORIGENS_INTAKE } from '../../lib/vertatask'
-import { PrioridadeIcon } from './Campos'
 
 const ROTULO_PRIO = Object.fromEntries(PRIORIDADES.map((p) => [p.key, p.label]))
+// pílula de prioridade do protótipo: urgente vermelho, alta âmbar, normal azul, baixa cinza
+const PILULA_PRIO = {
+  urgent: 'bg-ln-red/10 text-ln-red',
+  high: 'bg-ln-yellow/15 text-[#8a6a14] dark:text-ln-yellow',
+  normal: 'bg-ln-accent/10 text-ln-accent',
+  low: 'bg-ln-ink/[0.06] text-ln-t3',
+}
 
 function nomeProjeto(p) { return p?.company_name || p?.companyName || p?.name || 'Sem nome' }
 
@@ -33,22 +39,22 @@ function Cartao({ it, pastas, listas, projetos, membros, onAceitar, onRecusar })
   const temLista = pastaId && listas.some((l) => l.pasta_id === pastaId)
 
   return (
-    <div className="ln-card p-4 grid gap-4 md:grid-cols-[1fr_260px] max-w-4xl">
+    <div className="ln-card px-[18px] py-4 grid gap-4 md:grid-cols-[1fr_220px] max-w-[880px]">
       <div className="min-w-0">
-        <p className="text-[11px] uppercase tracking-wider text-ln-accent font-medium">{it.origem} · {fmtDataHora(it.created_at)}</p>
-        <h3 className="text-sm font-semibold text-ln-t1 mt-1">{it.titulo}</h3>
-        {it.descricao && <p className="text-[13px] text-ln-t2 mt-1.5 whitespace-pre-line">{it.descricao}</p>}
-        <div className="flex items-center gap-3 mt-2.5 text-xs text-ln-t3">
+        <p className="text-[11px] uppercase tracking-[0.12em] text-ln-accent font-bold">{it.origem} · {fmtDataHora(it.created_at)}</p>
+        <h3 className="text-[15px] font-bold text-ln-t1 mt-1">{it.titulo}</h3>
+        {it.descricao && <p className="text-sm text-ln-t2 mt-1.5 mb-2.5 whitespace-pre-line">{it.descricao}</p>}
+        <div className="flex items-center gap-2 mt-2 text-xs text-ln-t3">
+          {it.prioridade && <span className={`px-2 py-0.5 rounded-full text-[11.5px] font-bold ${PILULA_PRIO[it.prioridade] || PILULA_PRIO.low}`}>{ROTULO_PRIO[it.prioridade]}</span>}
           {projeto && <span>{nomeProjeto(projeto)}</span>}
-          {it.prioridade && <span className="inline-flex items-center gap-1"><PrioridadeIcon valor={it.prioridade} />{ROTULO_PRIO[it.prioridade]}</span>}
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <select className="ln-input !h-8" value={pastaId} onChange={(e) => setPastaId(e.target.value)} aria-label="Cliente">
+        <select className="ln-input !h-9" value={pastaId} onChange={(e) => setPastaId(e.target.value)} aria-label="Cliente">
           <option value="">Escolha o cliente</option>
           {pastas.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
         </select>
-        <select className="ln-input !h-8" value={resp} onChange={(e) => setResp(e.target.value)} aria-label="Responsável">
+        <select className="ln-input !h-9" value={resp} onChange={(e) => setResp(e.target.value)} aria-label="Responsável">
           <option value="">Sem responsável</option>
           {membros.filter((m) => !m.disabled).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
@@ -61,9 +67,9 @@ function Cartao({ it, pastas, listas, projetos, membros, onAceitar, onRecusar })
             </div>
           </>
         ) : (
-          <div className="flex gap-2">
-            <button type="button" disabled={busy || !temLista} onClick={aceitar} className="ln-primary disabled:opacity-50" title={temLista ? '' : 'Escolha um cliente com pasta'}><Check className="w-3.5 h-3.5" /> Aceitar</button>
-            <button type="button" disabled={busy} onClick={() => setRecusando(true)} className="ln-pill hover:!text-ln-red"><X className="w-3.5 h-3.5" /> Recusar</button>
+          <div className="flex flex-col gap-2">
+            <button type="button" disabled={busy || !temLista} onClick={aceitar} className="ln-primary !h-9 w-full justify-center disabled:opacity-50" title={temLista ? '' : 'Escolha um cliente com pasta'}>Aceitar como tarefa</button>
+            <button type="button" disabled={busy} onClick={() => setRecusando(true)} className="ln-pill !h-9 w-full justify-center !text-ln-t1 hover:!text-ln-red">Recusar</button>
           </div>
         )}
       </div>
