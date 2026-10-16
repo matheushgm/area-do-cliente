@@ -60,6 +60,8 @@ export function useDashboardData({ source = 'sheets', projectId = null, dias = n
   // com projectId o `raw` só tem as contas do projeto, e o seletor "+ vincular
   // conta" precisa da lista completa mesmo assim.
   const [allAccountNames, setAllAccountNames] = useState([])
+  // Canais (meta/google) em que cada conta tem dados: { [account]: ['meta', ...] }
+  const [accountChannels, setAccountChannels] = useState({})
   // Linhas-base de dashboard_accounts: { [account_name]: { project_id, squad_id, clickup_folder_id } }
   const [accountRows, setAccountRows] = useState({})
   const [projectsList, setProjectsList] = useState([])   // [{ id, company_name, squad_name, clickup_folder_id }]
@@ -93,7 +95,7 @@ export function useDashboardData({ source = 'sheets', projectId = null, dias = n
         supabase.from('dashboard_projects_public').select('id,company_name,squad_name,clickup_folder_id'),
         supabase.from('cpl_targets_public').select('company_name,cpl_target'),
         supabase.from('dashboard_squads_public').select('id,name'),
-        source === 'api' && projectId ? supabase.from('dash_accounts_public').select('account') : Promise.resolve({ data: null }),
+        source === 'api' && projectId ? supabase.from('dash_accounts_public').select('account,channel') : Promise.resolve({ data: null }),
       ])
       if (!mounted.current) return
       accRes = accRes2
@@ -102,6 +104,12 @@ export function useDashboardData({ source = 'sheets', projectId = null, dias = n
       if (namesRes.data) {
         const s = new Set(namesRes.data.map(r => r.account?.trim()).filter(Boolean))
         setAllAccountNames([...s].sort((a, b) => a.localeCompare(b, 'pt-BR')))
+        const ch = {}
+        namesRes.data.forEach(r => {
+          const n = r.account?.trim(); if (!n || !r.channel) return
+          ;(ch[n] ||= []).includes(r.channel) || ch[n].push(r.channel)
+        })
+        setAccountChannels(ch)
       }
       const cpl = {}
       ;(cplRes.data || []).forEach(r => { const n = r.company_name?.trim(); if (n && r.cpl_target != null) cpl[n] = parseFloat(r.cpl_target) })
@@ -184,7 +192,7 @@ export function useDashboardData({ source = 'sheets', projectId = null, dias = n
   const setHidden = useCallback((accountName, hidden) => upsertAccount(accountName, { hidden: !!hidden }), [upsertAccount])
 
   return {
-    raw, accounts, squadByAccount, projectsList, squadsList, cplTargets, allAccountNames,
+    raw, accounts, squadByAccount, projectsList, squadsList, cplTargets, allAccountNames, accountChannels,
     loading, error, lastUpdate,
     reload: load, setSquad, linkProject, setClickupFolder, setHidden,
   }

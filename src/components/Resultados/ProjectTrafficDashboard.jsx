@@ -1,91 +1,27 @@
-import { useMemo, useState, useCallback } from 'react'
-import {
-  CFG, num, fmtMoney, fmtNum, fmtDate, inRange,
-  computeMainPeriod, buildStats, buildWeeklyMessage, localDateStr,
-  pillCls, pillIco, varCls, fmtPct, googleImpr,
-} from '../../lib/dashboardData'
-import { CplTargetCell, cplActualCls } from '../DashboardTrafego/helpers'
-import ClientPage from '../DashboardTrafego/ClientPage'
-import { PreviewModal, MappingModal, ClickupMapModal, WeeklyMessageModal, ShareLinkModal } from '../DashboardTrafego/Modals'
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import { Maximize2, Minimize2 } from 'lucide-react'
 import '../DashboardTrafego/dashboard.css'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ProjectTrafficDashboard — a experiência completa do Dashboard de Tráfego,
-// porém ESCOPADA às contas vinculadas a um único projeto (project.id).
-//
-// Reaproveita useDashboardData (carrega planilhas + contas) e apenas FILTRA o
-// universo pelo projeto. Entrega: (1) totalizadores combinados Meta+Google,
-// (2) tabela única unindo todas as contas do cliente (coluna Canal no lugar de
-// squad), (3) filtros de data (Hoje/Ontem/3/7/14/30/Este mês/Mês passado/Custom),
-// (4) clique na conta → mesma ClientPage do dashboard (inline, com "← Voltar"),
-// incluindo modais.
+// ProjectTrafficDashboard — espelho do Dashboard de Tráfego (API) escopado às
+// contas vinculadas a um projeto. Aqui só vive o vínculo de contas (chips +
+// "+ vincular conta"); a visão de campanhas Meta/Google é o PRÓPRIO viewer de
+// /dashboard-teste (public/dash-teste/viewer.html) em modo ?embed=1, travado na
+// conta escolhida. Qualquer alteração feita no viewer aparece aqui sem retrabalho.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PRESETS = [
-  ['Hoje', 'today'], ['Ontem', 'yesterday'],
-  ['3 dias', 3], ['7 dias', 7], ['14 dias', 14], ['30 dias', 30],
-  ['Este mês', 'month'], ['Mês passado', 'lastmonth'],
-  ['Custom', 0],
-]
-// Presets de mês calendário: resolvidos para um intervalo fixo (from/to) e
-// tratados como período customizado no computeMainPeriod.
-const MONTH_PRESETS = new Set(['month', 'lastmonth'])
-function monthRange(kind) {
-  const now = new Date()
-  if (kind === 'month') {
-    return [localDateStr(new Date(now.getFullYear(), now.getMonth(), 1)), localDateStr(now)]
-  }
-  return [
-    localDateStr(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
-    localDateStr(new Date(now.getFullYear(), now.getMonth(), 0)), // dia 0 = último do mês anterior
-  ]
-}
-const CHANNELS = ['meta', 'google']
-const fmtSumPct = v => (v != null ? v.toFixed(2) + '%' : '—')
-
-// Soma crua (spend/leads/clicks/impr) das contas do projeto, dentro do período
-// do canal, restrito ao conjunto de contas do projeto.
-function channelSummary(rows, channel, period, names) {
-  const zero = { spend: 0, leads: 0, clicks: 0, impr: 0 }
-  if (!period) return zero
-  const { accountKey, dateKey } = CFG[channel]
-  return rows.reduce((a, r) => {
-    if (!names.has(r[accountKey]?.trim())) return a
-    if (!inRange(fmtDate(r[dateKey]), period.p1s, period.p1e)) return a
-    if (channel === 'meta') {
-      a.spend += num(r['Valor investido'])
-      a.leads += num(r['Número de conversas iniciadas no Whatsapp']) + num(r['Leads']) + num(r['Número de vendas'])
-      a.clicks += num(r['Número de cliques no link'])
-      a.impr += num(r['Impressões'])
-    } else {
-      a.spend += num(r['Gasto'])
-      a.leads += num(r['Conversões'])
-      a.clicks += (num(r['CLiques']) || num(r['Cliques']))
-      a.impr += googleImpr(r)
-    }
-    return a
-  }, { ...zero })
-}
-
-const STATUS_ORDER = { 'CRÍTICO': 0, 'QUEDA': 1, 'ESTÁVEL': 2, 'MELHORA': 3 }
+const CHANNEL_LABEL = { meta: 'Meta', google: 'Google' }
 
 // `dash` vem do ResultadosModule (uma única instância de useDashboardData é
 // compartilhada com o painel de canais do funil, para não buscar 2x).
 export default function ProjectTrafficDashboard({ project, dash }) {
-  const { raw, accounts, projectsList, cplTargets, allAccountNames, loading, error } = dash
+  const { accounts, allAccountNames, accountChannels = {}, loading, error } = dash
 
-  const [days, setDays] = useState(7)
-  const [customFrom, setCustomFrom] = useState('')
-  const [customTo, setCustomTo] = useState('')
-  const [chanFilter, setChanFilter] = useState('') // '' = todos | 'meta' | 'google'
-
-  const [openClient, setOpenClient] = useState(null) // { client, channel }
-  const [preview, setPreview] = useState(null)
-  const [mapModal, setMapModal] = useState(null)
-  const [cuMapModal, setCuMapModal] = useState(null)
-  const [weekly, setWeekly] = useState(null)
-  const [share, setShare] = useState(null)            // { client, channel, url }
   const [toast, setToast] = useState('')
+  const [ativa, setAtiva] = useState(0)
+  const [cheia, setCheia] = useState(false)
+  const [altura, setAltura] = useState(1600)
+  const iframeRef = useRef(null)
 
   const showToast = useCallback((msg) => {
     setToast(msg)
@@ -99,9 +35,16 @@ export default function ProjectTrafficDashboard({ project, dash }) {
     return s
   }, [accounts, project.id])
 
-  // ── Vincular conta de anúncio a este cliente (reutilizável) ──────────────────
-  // `allAccountNames` (todas as contas do dash_insights) vem do hook: o `raw`
-  // aqui só tem as contas já vinculadas a este projeto.
+  // Uma entrada por (canal, conta): a mesma conta pode ter dados em Meta e Google.
+  const contas = useMemo(() => {
+    const out = []
+    ;[...projectAccountNames].sort((a, b) => a.localeCompare(b, 'pt-BR')).forEach(n => {
+      ;(accountChannels[n] || []).forEach(canal => out.push({ canal, conta: n }))
+    })
+    return out.sort((a, b) => (a.canal === b.canal ? 0 : a.canal === 'meta' ? -1 : 1))
+  }, [projectAccountNames, accountChannels])
+
+  // ── Vincular conta de anúncio a este cliente ─────────────────────────────────
   const [linkName, setLinkName] = useState('')
   const linkAccount = useCallback(async (name) => {
     if (!name) return
@@ -114,68 +57,35 @@ export default function ProjectTrafficDashboard({ project, dash }) {
     showToast('Conta desvinculada')
   }, [dash, showToast])
 
-  // Período por canal (cada planilha tem seu próprio maxDate).
-  // "Este mês"/"Mês passado" já gravam customFrom/customTo, então viram intervalo fixo.
-  const periods = useMemo(() => {
-    const d = MONTH_PRESETS.has(days) ? 0 : days
-    return {
-      meta: computeMainPeriod(raw.meta, 'meta', d, customFrom, customTo),
-      google: computeMainPeriod(raw.google, 'google', d, customFrom, customTo),
-    }
-  }, [raw, days, customFrom, customTo])
+  const idx = Math.min(ativa, Math.max(contas.length - 1, 0))
+  const c = contas[idx]
+  const src = c ? `/dash-teste/viewer.html?embed=1&cliente=${encodeURIComponent(c.conta)}&canal=${c.canal}` : null
 
-  // Totalizadores combinados Meta + Google (apenas contas do projeto).
-  const totals = useMemo(() => {
-    const m = channelSummary(raw.meta, 'meta', periods.meta, projectAccountNames)
-    const g = channelSummary(raw.google, 'google', periods.google, projectAccountNames)
-    const spend = m.spend + g.spend, leads = m.leads + g.leads
-    const clicks = m.clicks + g.clicks, impr = m.impr + g.impr
-    return {
-      spend, leads,
-      cpl: leads > 0 ? spend / leads : null,
-      ctr: impr > 0 ? (clicks / impr) * 100 : null,
-      txConv: clicks > 0 ? (leads / clicks) * 100 : null,
-    }
-  }, [raw, periods, projectAccountNames])
+  // Tela cheia: o mesmo iframe só muda de posição (fixed), sem recarregar.
+  useEffect(() => {
+    if (!cheia) return
+    const h = (e) => { if (e.key === 'Escape') setCheia(false) }
+    window.addEventListener('keydown', h)
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', h); document.body.style.overflow = '' }
+  }, [cheia])
 
-  // Tabela única: stats por conta de ambos os canais, marcadas com o canal.
-  const tableRows = useMemo(() => {
-    const out = []
-    CHANNELS.forEach(ch => {
-      if (chanFilter && chanFilter !== ch) return
-      const p = periods[ch]
-      if (!p) return
-      buildStats(raw[ch], CFG[ch], p)
-        .filter(s => projectAccountNames.has(s.name))
-        .forEach(s => out.push({ ...s, channel: ch }))
-    })
-    return out.sort((a, b) => (STATUS_ORDER[a.status] - STATUS_ORDER[b.status]) || (b.spend1 - a.spend1))
-  }, [raw, periods, projectAccountNames, chanFilter])
-
-  const getTarget = useCallback((name) => accounts[name]?.cplTarget ?? null, [accounts])
-
-  // ── Handlers de período ──────────────────────────────────────────────────────
-  const selectPreset = (d) => {
-    setDays(d)
-    if (d === 'today') { const s = localDateStr(new Date()); setCustomFrom(s); setCustomTo(s) }
-    else if (d === 'yesterday') { const dt = new Date(); dt.setDate(dt.getDate() - 1); const s = localDateStr(dt); setCustomFrom(s); setCustomTo(s) }
-    else if (MONTH_PRESETS.has(d)) { const [f, t] = monthRange(d); setCustomFrom(f); setCustomTo(t) }
-  }
-  const applyCustom = () => {
-    if (!customFrom || !customTo) { showToast('⚠️ Selecione as duas datas'); return }
-    if (customFrom > customTo) { showToast('⚠️ A data inicial deve ser anterior à final'); return }
-    setDays(0)
-  }
-
-  const openWeekly = (client, ch) => {
-    const result = buildWeeklyMessage(raw[ch], ch, client)
-    if (!result) { showToast('⚠️ Sem dados suficientes para gerar a mensagem'); return }
-    setWeekly({ client, periodLabel: result.periodLabel, text: result.msg })
-  }
-  const shareLink = (client, ch) => {
-    const url = `${window.location.origin}/dashboard?cliente=${encodeURIComponent(client)}&canal=${ch}&shared=1`
-    setShare({ client, channel: ch, url })
-  }
+  // Viewer é same-origin: acompanha a altura do conteúdo pra não ter 2 scrolls.
+  const roRef = useRef(null)
+  const onLoad = useCallback(() => {
+    roRef.current?.disconnect()
+    try {
+      const doc = iframeRef.current?.contentDocument
+      if (!doc?.documentElement) return
+      const ro = new ResizeObserver(() => {
+        const h = doc.documentElement.scrollHeight
+        if (h > 300) setAltura(h)
+      })
+      ro.observe(doc.documentElement)
+      roRef.current = ro
+    } catch { /* cross-origin: mantém a altura padrão */ }
+  }, [])
+  useEffect(() => () => roRef.current?.disconnect(), [])
 
   // Barra de vínculo de contas — chips das contas do cliente + seletor p/ vincular.
   const linker = (
@@ -200,135 +110,58 @@ export default function ProjectTrafficDashboard({ project, dash }) {
     </div>
   )
 
-  const modals = (
-    <>
-      {preview && <PreviewModal url={preview.url} name={preview.name} onClose={() => setPreview(null)} />}
-      {mapModal && <MappingModal dashName={mapModal} projectsList={projectsList} cplTargets={cplTargets} currentProjectId={accounts[mapModal]?.projectId} onSave={dash.linkProject} onClose={() => setMapModal(null)} />}
-      {cuMapModal && <ClickupMapModal dashName={cuMapModal} currentFolderId={accounts[cuMapModal]?.clickupOverride} onSave={dash.setClickupFolder} onClose={() => setCuMapModal(null)} />}
-      {weekly && <WeeklyMessageModal client={weekly.client} periodLabel={weekly.periodLabel} initialText={weekly.text} onClose={() => setWeekly(null)} onToast={showToast} />}
-      {share && <ShareLinkModal client={share.client} channel={share.channel} url={share.url} onClose={() => setShare(null)} onToast={showToast} />}
-      {toast && <div className="share-toast">{toast}</div>}
-    </>
-  )
-
-  // ── Drill-down: ClientPage inline substitui o board ──────────────────────────
-  if (openClient) {
-    return (
-      <div className="dt-root">
-        <ClientPage
-          key={openClient.client + openClient.channel}
-          client={openClient.client}
-          channel={openClient.channel}
-          raw={raw}
-          initialDays={MONTH_PRESETS.has(days) ? 0 : ([3, 7, 14, 30].includes(days) || days === 'today' || days === 'yesterday' || days === 0 ? days : 7)}
-          initialPeriod={periods[openClient.channel]}
-          account={accounts[openClient.client]}
-          onClose={() => setOpenClient(null)}
-          onPreview={(url, name) => setPreview({ url, name })}
-          onOpenWeekly={openWeekly}
-          onShare={shareLink}
-          onOpenMap={(n) => setMapModal(n)}
-          onOpenCuMap={(n) => setCuMapModal(n)}
-        />
-        {modals}
-      </div>
-    )
-  }
-
-  // ── Estados de carregamento / vazios ─────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="dt-root">
-        <div className="empty"><div className="spinner" style={{ margin: '0 auto 12px' }} /><p>Carregando dados de tráfego…</p></div>
-      </div>
-    )
-  }
-  if (error) {
-    return <div className="dt-root"><div className="error-box">⚠️ Erro ao carregar tráfego: {error}</div></div>
-  }
-  if (!projectAccountNames.size) {
-    return (
-      <div className="dt-root">
-        {linker}
-        <div className="empty" style={{ padding: '32px 20px' }}>
-          <div style={{ marginBottom: 8, fontSize: 14 }}>Nenhuma conta de anúncio vinculada a este cliente.</div>
-          <div style={{ fontSize: 12, color: '#94A3B8' }}>Use o seletor acima (<b style={{ color: '#64748B' }}>+ vincular conta</b>) para associar uma conta e ver os números reais aqui.</div>
-        </div>
-        {modals}
-      </div>
-    )
-  }
-
-  const period = periods.meta || periods.google
+  const rotulo = (x) => `${CHANNEL_LABEL[x.canal]} · ${x.conta}`
 
   return (
     <div className="dt-root">
       {linker}
 
-      {/* Filtro de período */}
-      <div className="filter-bar" style={{ border: '1px solid #D8E0F0', borderRadius: 12, marginBottom: 18 }}>
-        <span className="filter-label">Período:</span>
-        <div className="presets">
-          {PRESETS.map(([label, d]) => (
-            <button key={String(d)} className={`preset${days === d ? ' active' : ''}`} onClick={() => selectPreset(d)}>{label}</button>
-          ))}
-        </div>
-        {days === 0 && (
-          <div className="custom-inputs">
-            <label>De: <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} /></label>
-            <label>Até: <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} /></label>
-            <button className="btn" onClick={applyCustom}>Aplicar</button>
-          </div>
-        )}
-        <span className="filter-info">{period ? `Exibindo: ${period.label1} · vs ${period.label2}` : 'Sem dados no período'}</span>
-      </div>
+      {error && <div className="error-box">⚠️ Erro ao carregar tráfego: {error}</div>}
 
-      {/* Totalizadores combinados Meta + Google */}
-      <div className="summary-bar">
-        <div className="sum-kpi"><div className="sum-label">Total Investido</div><div className="sum-value sum-accent">{fmtMoney(totals.spend)}</div><div className="sum-sub">Meta + Google</div></div>
-        <div className="sum-kpi"><div className="sum-label">Leads Gerados</div><div className="sum-value">{fmtNum(totals.leads)}</div><div className="sum-sub">no período</div></div>
-        <div className="sum-kpi"><div className="sum-label">CPL Médio</div><div className="sum-value">{totals.cpl != null ? fmtMoney(totals.cpl) : '—'}</div><div className="sum-sub">gasto ÷ leads</div></div>
-        <div className="sum-kpi"><div className="sum-label">CTR Médio</div><div className="sum-value">{fmtSumPct(totals.ctr)}</div><div className="sum-sub">cliques ÷ impressões</div></div>
-        <div className="sum-kpi"><div className="sum-label">Tx. Conv. Média</div><div className="sum-value">{fmtSumPct(totals.txConv)}</div><div className="sum-sub">leads ÷ cliques</div></div>
-      </div>
-
-      {/* Filtro de canal */}
-      <div className="squad-bar">
-        <span className="filter-label">Canal:</span>
-        <button className={`squad-btn${chanFilter === '' ? ' active' : ''}`} onClick={() => setChanFilter('')}>Todos</button>
-        <button className={`squad-btn${chanFilter === 'meta' ? ' active' : ''}`} onClick={() => setChanFilter('meta')}>📱 Meta Ads</button>
-        <button className={`squad-btn${chanFilter === 'google' ? ' active' : ''}`} onClick={() => setChanFilter('google')}>🔍 Google Ads</button>
-      </div>
-
-      {/* Tabela única (Meta + Google) */}
-      {!tableRows.length ? (
-        <div className="empty">Nenhum dado disponível para o período selecionado.</div>
-      ) : (
-        <div className="table-wrap"><table>
-          <thead><tr>
-            <th>Conta</th><th>Canal</th><th>Status</th>
-            <th>Conv.</th><th>CPL</th><th>CPL Alvo</th>
-            <th>Investimento</th><th>Var. Conv.</th>
-          </tr></thead>
-          <tbody>{tableRows.map(s => {
-            const target = getTarget(s.name)
-            return (
-              <tr key={s.channel + s.name}>
-                <td><span className="client-link" onClick={() => setOpenClient({ client: s.name, channel: s.channel })}>{s.name}</span></td>
-                <td>{s.channel === 'meta' ? '📱 Meta' : '🔍 Google'}</td>
-                <td><span className={`pill ${pillCls(s.status)}`}>{pillIco(s.status)} {s.status}</span></td>
-                <td>{fmtNum(s.conv1)}</td>
-                <td className={cplActualCls(s.cpl1, target)}>{fmtMoney(s.cpl1)}</td>
-                <td><CplTargetCell dashName={s.name} actualCpl={s.cpl1} target={target} onMap={(n) => setMapModal(n)} /></td>
-                <td>{fmtMoney(s.spend1)}</td>
-                <td className={varCls(s.varConv, false)}>{fmtPct(s.varConv)}</td>
-              </tr>
-            )
-          })}</tbody>
-        </table></div>
+      {!error && loading && contas.length === 0 && (
+        <div className="empty"><div className="spinner" style={{ margin: '0 auto 12px' }} /><p>Carregando contas de tráfego…</p></div>
       )}
 
-      {modals}
+      {!error && !loading && projectAccountNames.size === 0 && (
+        <div className="empty" style={{ padding: '32px 20px' }}>
+          <div style={{ marginBottom: 8, fontSize: 14 }}>Nenhuma conta de anúncio vinculada a este cliente.</div>
+          <div style={{ fontSize: 12, color: '#94A3B8' }}>Use o seletor acima (<b style={{ color: '#64748B' }}>+ vincular conta</b>) para associar uma conta e ver as campanhas aqui.</div>
+        </div>
+      )}
+
+      {!error && !loading && projectAccountNames.size > 0 && contas.length === 0 && (
+        <div className="empty" style={{ padding: '32px 20px' }}>As contas vinculadas ainda não têm dados de campanha no dashboard.</div>
+      )}
+
+      {src && (
+        <div className={cheia ? 'fixed inset-0 z-[70] bg-rl-bg flex flex-col' : 'space-y-3'}>
+          <div className={`squad-bar ${cheia ? '' : ''}`} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', ...(cheia ? { padding: '10px 16px', borderBottom: '1px solid #D8E0F0', background: '#fff' } : {}) }}>
+            <span className="filter-label">Conta:</span>
+            {contas.map((x, i) => (
+              <button key={x.canal + x.conta} className={`squad-btn${i === idx ? ' active' : ''}`} onClick={() => setAtiva(i)}>
+                {x.canal === 'meta' ? '📱' : '🔍'} {rotulo(x)}
+              </button>
+            ))}
+            <span style={{ flex: 1 }} />
+            <button className="btn" onClick={() => setCheia(v => !v)} title={cheia ? 'Minimizar (Esc)' : 'Ver em tela cheia'} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {cheia ? <Minimize2 size={14} /> : <Maximize2 size={14} />}{cheia ? 'Minimizar' : 'Tela cheia'}
+            </button>
+          </div>
+          <div className={cheia ? 'flex-1 min-h-0' : ''} style={cheia ? undefined : { border: '1px solid #D8E0F0', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
+            <iframe
+              ref={iframeRef}
+              key={src}
+              src={src}
+              onLoad={onLoad}
+              title={`Dashboard de Tráfego · ${c.conta}`}
+              className="w-full border-0 block"
+              style={cheia ? { height: '100%' } : { height: altura, minHeight: 600 }}
+            />
+          </div>
+        </div>
+      )}
+
+      {toast && <div className="share-toast">{toast}</div>}
     </div>
   )
 }
