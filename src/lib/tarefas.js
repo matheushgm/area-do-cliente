@@ -58,6 +58,8 @@ export const AGRUPAMENTOS = [
   { value: 'responsavel', label: 'Responsável' },
   { value: 'prioridade',  label: 'Prioridade' },
   { value: 'lista',       label: 'Lista' },
+  { value: 'modulo',      label: 'Module' },
+  { value: 'ciclo',       label: 'Cycle' },
   { value: 'nenhum',      label: 'Nenhum' },
 ]
 
@@ -261,7 +263,7 @@ export function bucketVencimento(item) {
  * Agrupa as tarefas de topo (sem parent) em seções. Devolve
  * [{ key, label, cor, itens }] já na ordem de exibição.
  */
-export function agruparItens(itens, modo, { statuses = [], membrosMap = new Map(), listasMap = new Map() } = {}) {
+export function agruparItens(itens, modo, { statuses = [], membrosMap = new Map(), listasMap = new Map(), modulosMap = new Map(), ciclosMap = new Map() } = {}) {
   const grupos = new Map()
   const push = (key, label, cor, item) => {
     if (!grupos.has(key)) grupos.set(key, { key, label, cor, itens: [] })
@@ -297,6 +299,18 @@ export function agruparItens(itens, modo, { statuses = [], membrosMap = new Map(
         push(it.lista_id, l?.nome || 'Lista', '#7b68ee', it)
         break
       }
+      case 'modulo': {
+        const m = modulosMap.get(it.modulo_id)
+        if (m) push(m.id, m.nome, '#7b68ee', it)
+        else push('nenhum', 'Sem module', '#87909e', it)
+        break
+      }
+      case 'ciclo': {
+        const c = ciclosMap.get(it.ciclo_id)
+        if (c) push(c.id, c.nome, '#2A25F0', it)
+        else push('nenhum', 'Sem cycle', '#87909e', it)
+        break
+      }
       default:
         push('todas', 'Tarefas', '#87909e', it)
     }
@@ -306,7 +320,7 @@ export function agruparItens(itens, modo, { statuses = [], membrosMap = new Map(
     if (modo === 'status') { const i = statuses.findIndex((s) => s.key === key); return i < 0 ? 999 : i }
     if (modo === 'vencimento') return BUCKETS_VENC.findIndex((b) => b.key === key)
     if (modo === 'prioridade') { const i = PRIORIDADES.findIndex((p) => p.key === key); return i < 0 ? 999 : i }
-    if (modo === 'responsavel') return key === 'nenhum' ? 999 : 0
+    if (modo === 'responsavel' || modo === 'modulo' || modo === 'ciclo') return key === 'nenhum' ? 999 : 0
     return 0
   }
   return [...grupos.values()].sort((a, b) => ordem(a.key) - ordem(b.key) || a.label.localeCompare(b.label))

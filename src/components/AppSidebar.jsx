@@ -72,7 +72,7 @@ const NAV_SECTIONS = [
     items: [
       { id: 'otimizacoes', label: 'Otimizações',       Icon: Sparkles,      type: 'route', to: '/otimizacoes' },
       { id: 'planejador',  label: 'Atividades',        Icon: CalendarCheck, type: 'route', to: '/atividades' },
-      { id: 'tarefas',     label: 'Tarefas',           Icon: CheckSquare,   type: 'route', to: '/tarefas' },
+      { id: 'tarefas',     label: 'VertaTask',         Icon: CheckSquare,   type: 'route', to: '/tarefas' },
       { id: 'atividades',  label: 'Atividades 15min',  Icon: Timer,         type: 'route', to: '/atividades-15min' },
       { id: 'chat',        label: 'Chat',              Icon: MessageSquare, type: 'route', to: '/chat' },
     ],

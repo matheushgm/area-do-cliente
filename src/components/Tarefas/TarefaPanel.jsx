@@ -13,6 +13,8 @@ import {
   StatusCampo, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, AdicionarInline,
   Avatar, Avatares, Popover, FOCO,
 } from './Campos'
+import RelacaoCampo from './RelacaoCampo'
+import { faseDoCiclo, fmtDiaMes, ROTULO_FASE } from '../../lib/vertatask'
 
 const BUCKET = 'task-attachments'
 
@@ -254,7 +256,7 @@ function Secao({ titulo, extra, children }) {
 }
 
 export default function TarefaPanel({
-  item, subtarefas, statuses, membros, membrosMap, comentarios, user,
+  item, subtarefas, statuses, membros, membrosMap, comentarios, user, ciclos = [], modulos = [],
   onAtualizar, onMudarStatus, onCriarSub, onAbrir, onComentar, onExcluirComentario, onCarregarComentarios, onErro,
 }) {
   const [titulo, setTitulo] = useState(item?.titulo || '')
@@ -307,6 +309,16 @@ export default function TarefaPanel({
           <Propriedade label="Prioridade"><PrioridadeCampo valor={item.prioridade} onChange={(v) => onAtualizar(item.id, { prioridade: v })} /></Propriedade>
           <Propriedade label="Início"><DataCampo valor={item.data_inicio} placeholder="definir" onChange={(v) => onAtualizar(item.id, { data_inicio: v })} /></Propriedade>
           <Propriedade label="Vencimento"><DataCampo valor={item.data_vencimento} item={item} placeholder="definir" onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} /></Propriedade>
+          <Propriedade label="Cycle">
+            <RelacaoCampo
+              valor={item.ciclo_id} cor="#2A25F0" vazio="nenhum"
+              opcoes={ciclos.map((c) => ({ id: c.id, rotulo: c.nome, sub: `${fmtDiaMes(c.inicio)} a ${fmtDiaMes(c.fim)} · ${ROTULO_FASE[faseDoCiclo(c)]}` }))}
+              onChange={(v) => onAtualizar(item.id, { ciclo_id: v })}
+            />
+          </Propriedade>
+          <Propriedade label="Module">
+            <RelacaoCampo valor={item.modulo_id} opcoes={modulos.map((m) => ({ id: m.id, rotulo: m.nome }))} onChange={(v) => onAtualizar(item.id, { modulo_id: v })} />
+          </Propriedade>
           <Propriedade label="Estimativa"><EstimativaCampo valor={item.estimativa_min} onChange={(v) => onAtualizar(item.id, { estimativa_min: v })} /></Propriedade>
           <Propriedade label="Tipo"><TipoTarefaCampo valor={item.tipo_tarefa} onChange={(v) => onAtualizar(item.id, { tipo_tarefa: v })} /></Propriedade>
           <Propriedade label="Dificuldade"><DificuldadeCampo valor={item.dificuldade} onChange={(v) => onAtualizar(item.id, { dificuldade: v })} /></Propriedade>

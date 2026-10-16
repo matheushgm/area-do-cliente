@@ -28,6 +28,7 @@ export function useTarefas(user) {
   const [erro, setErro] = useState(null)
   const carregadas = useRef(new Set())               // lista_id já carregada
   const minhasCarregadas = useRef(false)
+  const camposCarregados = useRef({ ciclo_id: new Set(), modulo_id: new Set() }) // VertaTask: ciclo/módulo já carregado
 
   const listasMap = useMemo(() => new Map(listas.map((l) => [l.id, l])), [listas])
   const pastasMap = useMemo(() => new Map(pastas.map((p) => [p.id, p])), [pastas])
@@ -76,6 +77,31 @@ export function useTarefas(user) {
       mesclar(rows)
     } catch (e) {
       console.error('Erro ao carregar tarefas:', e)
+      setErro(e.message)
+    } finally {
+      setCarregando(false)
+    }
+  }, [mesclar])
+
+  /** VertaTask: tarefas de um ciclo ou módulo, de qualquer lista. campo = 'ciclo_id' | 'modulo_id'. */
+  const carregarPorCampo = useCallback(async (campo, valor, { force = false } = {}) => {
+    if (!supabase || !valor) return
+    if (!force && camposCarregados.current[campo]?.has(valor)) return
+    setCarregando(true)
+    try {
+      const rows = await selectPaginado(
+        supabase.from('tarefas_itens').select('*').eq(campo, valor).eq('arquivada', false).order('posicao').order('created_at'),
+      )
+      camposCarregados.current[campo].add(valor)
+      // subtarefas das tarefas carregadas (o ciclo/módulo está só no pai)
+      const ids = rows.map((r) => r.id)
+      for (let i = 0; i < ids.length; i += 150) {
+        const { data: subs } = await supabase.from('tarefas_itens').select('*').in('parent_id', ids.slice(i, i + 150)).eq('arquivada', false)
+        if (subs?.length) rows.push(...subs)
+      }
+      mesclar(rows)
+    } catch (e) {
+      console.error('Erro ao carregar tarefas do ciclo/módulo:', e)
       setErro(e.message)
     } finally {
       setCarregando(false)
@@ -135,6 +161,8 @@ export function useTarefas(user) {
       dificuldade: payload.dificuldade || null,
       departamento: payload.departamento || [],
       tags: payload.tags || [],
+      ciclo_id: payload.ciclo_id || null,
+      modulo_id: payload.modulo_id || null,
       posicao: payload.posicao ?? Date.now(),
       criado_por: user?.id || null,
       criador_nome: user?.name || null,
@@ -253,6 +281,8 @@ export function useTarefas(user) {
         }
         setItens((prev) => {
           const conhecida = carregadas.current.has(row.lista_id) || !!prev[row.id] || (row.parent_id && !!prev[row.parent_id])
+            || (row.ciclo_id && camposCarregados.current.ciclo_id.has(row.ciclo_id))
+            || (row.modulo_id && camposCarregados.current.modulo_id.has(row.modulo_id))
           if (!conhecida) return prev
           if (row.arquivada) { const n = { ...prev }; delete n[row.id]; return n }
           return { ...prev, [row.id]: row }
@@ -288,7 +318,7 @@ export function useTarefas(user) {
   return {
     pastas, listas, pastasMap, listasMap, loadingEstrutura, carregando, erro,
     itens, comentarios,
-    carregarEstrutura, carregarListas, carregarMinhas, carregarTarefa,
+    carregarEstrutura, carregarListas, carregarMinhas, carregarPorCampo, carregarTarefa,
     criarTarefa, atualizarTarefa, mudarStatus, excluirTarefa,
     criarPasta, atualizarPasta, criarLista, atualizarLista,
     carregarComentarios, criarComentario, excluirComentario,

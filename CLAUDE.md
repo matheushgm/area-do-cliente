@@ -602,6 +602,38 @@ todo `authenticated`; as quatro estão na publicação realtime).
   e `?comentarios=0`. O mapeamento ClickUp→linha vive em `api/_tarefas_clickup_map.js`,
   compartilhado com o script de importação.
 
+#### VertaTask (evolução do `/tarefas`, migration 094)
+
+O módulo passou a se chamar **VertaTask** (rótulo na sidebar e no breadcrumb; a rota continua
+`/tarefas`, há links gravados em chat e notificações). Ganhou quatro seções no cabeçalho, via
+`?aba=` (sem `aba` = Tarefas): **Intake**, **Cycles** (`?aba=ciclos&ciclo=<id>`) e **Modules**
+(`?aba=modulos[&modulo=<id>]`), mais a view **Calendário** ao lado de Lista/Quadro. Inspirado no Plane.
+
+- **Tabelas** (migration 094, RLS liberada para todo `authenticated`, realtime ligado):
+  `tarefas_ciclos` (nome, inicio, fim), `tarefas_modulos` (nome, descricao, `project_id` opcional),
+  `tarefas_intake` (titulo, descricao, origem, `origem_ref` único para idempotência de quem alimentar
+  a fila, `project_id`, prioridade, `status` pendente/aceito/recusado, `tarefa_id`, `motivo_recusa`,
+  `payload`). `tarefas_itens` ganhou `ciclo_id` e `modulo_id` (`on delete set null`). A sincronização
+  com o ClickUp não escreve nessas colunas.
+- **Dados:** `src/hooks/useVertaTask.js` (ciclos, módulos, intake, com realtime) e, em
+  `useTarefas`, `carregarPorCampo('ciclo_id' | 'modulo_id', valor)` (tarefas de um ciclo/módulo de
+  qualquer lista, mais as subtarefas). A seleção da página ganhou os tipos `ciclo` e `modulo`; o
+  filtro por ciclo/módulo reaproveita a mesma lista/quadro/calendário. Tarefa criada dentro de um
+  ciclo ou módulo já nasce nele (na última lista visitada, `tarefas.sel` em localStorage).
+- **Regras puras** em `src/lib/vertatask.js`: fase do ciclo (atual/próximo/encerrado), sugestão do
+  "Novo cycle" (próxima segunda, 14 dias) e `calcularBurndown` (por **tarefas** ou por **horas
+  estimadas** = `estimativa_min`; o real usa `data_conclusao`; tarefa sem estimativa não entra na
+  conta de horas). Agrupar por Module / Cycle foi acrescentado em `AGRUPAMENTOS`.
+- **Componentes** (`src/components/Tarefas/`): `IntakeView` (aceitar cria a tarefa na lista "Geral"
+  da pasta escolhida com o responsável escolhido; recusar guarda o motivo; recusados podem voltar
+  para a fila), `CiclosView` (abas dos ciclos, resumo, burndown em SVG), `ModulosView` (cartões
+  com progresso), `CalendarioView` (tarefas de topo no dia do vencimento), `RelacaoCampo` (Cycle e
+  Module no painel da tarefa).
+- **Quem alimenta o Intake hoje:** só o botão "Novo pedido". Ligar a reprovação de anúncio
+  (`api/anuncios-aprovacao.js`), a Central de Otimizações e o playbook é a próxima etapa (inserir em
+  `tarefas_intake` com `origem` e `origem_ref`).
+- **Ainda não feito:** views salvas, Pages (documentos) e a decisão sobre desligar o ClickUp.
+
 ### Chat (`/chat`): réplica do ClickUp Chat
 
 Visual e comportamento copiados do ClickUp Chat, no mesmo frame claro `.ln` dos módulos

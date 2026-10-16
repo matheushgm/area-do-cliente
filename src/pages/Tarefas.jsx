@@ -11,18 +11,24 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useOutletContext } from 'react-router-dom'
 import {
   Menu, List, KanbanSquare, ChevronRight, ChevronDown, Search, X, Plus, Loader2, Layers, Eye, EyeOff, PanelLeft, User, RefreshCw,
-  CheckSquare, Trash2, Check, Maximize2, Minimize2, Rows3,
+  CheckSquare, Trash2, Check, Maximize2, Minimize2, Rows3, CalendarDays, ArrowLeft,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
 import { useTarefas } from '../hooks/useTarefas'
+import { useVertaTask } from '../hooks/useVertaTask'
+import { cicloPadrao } from '../lib/vertatask'
 import { statusDaLista, statusDasListas, agruparItens, filtrarItens, AGRUPAMENTOS, STATUSES_PADRAO, corDaPessoa, iniciais } from '../lib/tarefas'
 import TarefasSidebar from '../components/Tarefas/TarefasSidebar'
 import ListaView from '../components/Tarefas/ListaView'
 import QuadroView from '../components/Tarefas/QuadroView'
 import TarefaPanel from '../components/Tarefas/TarefaPanel'
+import CalendarioView from '../components/Tarefas/CalendarioView'
+import CiclosView from '../components/Tarefas/CiclosView'
+import ModulosView from '../components/Tarefas/ModulosView'
+import IntakeView from '../components/Tarefas/IntakeView'
 import { Popover, Avatar, FOCO } from '../components/Tarefas/Campos'
 
 const PAINEL_LARGURA = 480
@@ -169,6 +175,7 @@ export default function Tarefas() {
   const { openSidebar } = useOutletContext()
   const [params, setParams] = useSearchParams()
   const t = useTarefas(user)
+  const vt = useVertaTask(user)
 
   const conteudoRef = useRef(null)
   const largura = useLarguraDoConteudo(conteudoRef)
@@ -181,6 +188,7 @@ export default function Tarefas() {
   const [filtroResp, setFiltroResp] = useState('todos')
   const [painelExpandido, setPainelExpandido] = useState(false)
   const [recarregarTick, setRecarregarTick] = useState(0)
+  const [unidadeBurn, setUnidadeBurn] = useState(() => lerPref('burn', 'tarefas'))
   const sync = useSyncClickup({
     ativo: !t.loadingEstrutura,
     aoTerminar: useCallback((r) => {
@@ -194,14 +202,19 @@ export default function Tarefas() {
   useEffect(() => gravarPref('agrupar', agrupar), [agrupar])
   useEffect(() => gravarPref('concluidas', mostrarConcluidas), [mostrarConcluidas])
   useEffect(() => gravarPref('denso', denso), [denso])
+  useEffect(() => gravarPref('burn', unidadeBurn), [unidadeBurn])
 
   // ── Seleção (pasta / lista / minhas) via URL ─────────────────────────────
+  const aba = params.get('aba') // null = tarefas | 'intake' | 'ciclos' | 'modulos'
   const sel = useMemo(() => {
+    if (aba === 'ciclos') return { tipo: 'ciclo', id: params.get('ciclo') || cicloPadrao(vt.ciclos)?.id || null }
+    if (aba === 'modulos' && params.get('modulo')) return { tipo: 'modulo', id: params.get('modulo') }
+    if (aba === 'modulos' || aba === 'intake') return { tipo: 'nenhum' }
     if (params.get('lista')) return { tipo: 'lista', id: params.get('lista') }
     if (params.get('pasta')) return { tipo: 'pasta', id: params.get('pasta') }
     if (params.get('minhas') === '1') return { tipo: 'minhas' }
     return lerPref('sel', null) || { tipo: 'minhas' }
-  }, [params])
+  }, [params, aba, vt.ciclos])
   const tarefaAbertaId = params.get('tarefa')
 
   const setSel = useCallback((s) => {
@@ -212,6 +225,11 @@ export default function Tarefas() {
     else p.set('minhas', '1')
     setParams(p)
   }, [setParams])
+
+  const irAba = useCallback((a, extra = {}) => {
+    if (a === 'tarefas') { setSel(lerPref('sel', null) || { tipo: 'minhas' }); return }
+    setParams(new URLSearchParams({ aba: a, ...extra }))
+  }, [setSel, setParams])
 
   const abrirTarefa = useCallback((id) => {
     const p = new URLSearchParams(params)
@@ -237,8 +255,10 @@ export default function Tarefas() {
     if (t.loadingEstrutura) return
     const force = recarregarTick > 0
     if (sel.tipo === 'minhas') t.carregarMinhas()
+    else if (sel.tipo === 'ciclo' && sel.id) t.carregarPorCampo('ciclo_id', sel.id, { force })
+    else if (sel.tipo === 'modulo' && sel.id) t.carregarPorCampo('modulo_id', sel.id, { force })
     else if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force })
-  }, [sel.tipo, listasEscopo, t.loadingEstrutura, t.carregarMinhas, t.carregarListas, recarregarTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sel.tipo, sel.id, t.carregarPorCampo, listasEscopo, t.loadingEstrutura, t.carregarMinhas, t.carregarListas, recarregarTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (tarefaAbertaId && !t.itens[tarefaAbertaId]) t.carregarTarefa(tarefaAbertaId)
@@ -256,9 +276,11 @@ export default function Tarefas() {
   const todos = useMemo(() => Object.values(t.itens), [t.itens])
   const itensEscopo = useMemo(() => {
     if (sel.tipo === 'minhas') return todos.filter((it) => (it.responsaveis || []).includes(user?.id))
+    if (sel.tipo === 'ciclo') return todos.filter((it) => it.ciclo_id === sel.id)
+    if (sel.tipo === 'modulo') return todos.filter((it) => it.modulo_id === sel.id)
     const ids = new Set(listasEscopo.map((l) => l.id))
     return todos.filter((it) => ids.has(it.lista_id))
-  }, [todos, sel.tipo, listasEscopo, user?.id])
+  }, [todos, sel.tipo, sel.id, listasEscopo, user?.id])
 
   const filhosDe = useMemo(() => {
     const m = new Map()
@@ -281,7 +303,7 @@ export default function Tarefas() {
   )
 
   const grupos = useMemo(() => {
-    const g = agruparItens(filtrados, agrupar, { statuses, membrosMap, listasMap: t.listasMap })
+    const g = agruparItens(filtrados, agrupar, { statuses, membrosMap, listasMap: t.listasMap, modulosMap: vt.modulosMap, ciclosMap: vt.ciclosMap })
     if (agrupar === 'status' && view === 'quadro') {
       const existentes = new Map(g.map((x) => [x.key, x]))
       return statuses
@@ -289,7 +311,7 @@ export default function Tarefas() {
         .map((s) => existentes.get(s.key) || { key: s.key, label: s.label, cor: s.cor, itens: [] })
     }
     return g
-  }, [filtrados, agrupar, statuses, membrosMap, t.listasMap, view, mostrarConcluidas])
+  }, [filtrados, agrupar, statuses, membrosMap, t.listasMap, vt.modulosMap, vt.ciclosMap, view, mostrarConcluidas])
 
   const contagemComentarios = useMemo(() => {
     const m = {}
@@ -297,14 +319,24 @@ export default function Tarefas() {
     return m
   }, [t.comentarios])
 
-  const listaPadraoId = sel.tipo === 'lista' ? sel.id : listasEscopo[0]?.id || null
+  // Fora de uma pasta/lista (cycles, modules, minhas): usa a última lista visitada.
+  const listaPadraoId = useMemo(() => {
+    if (sel.tipo === 'lista') return sel.id
+    if (listasEscopo[0]) return listasEscopo[0].id
+    const ult = lerPref('sel', null)
+    if (ult?.tipo === 'lista' && t.listasMap.has(ult.id)) return ult.id
+    if (ult?.tipo === 'pasta') return t.listas.find((l) => l.pasta_id === ult.id)?.id || null
+    return null
+  }, [sel, listasEscopo, t.listasMap, t.listas])
 
   // ── Ações ────────────────────────────────────────────────────────────────
   const onCriar = useCallback(async (payload) => {
-    const r = await t.criarTarefa(payload)
+    // dentro de um cycle ou module, a tarefa nova já nasce nele
+    const escopo = payload.parent_id ? {} : { ciclo_id: sel.tipo === 'ciclo' ? sel.id : undefined, modulo_id: sel.tipo === 'modulo' ? sel.id : undefined }
+    const r = await t.criarTarefa({ ...payload, ...escopo })
     if (r.error) showToast(r.error, 'error')
     return r
-  }, [t, showToast])
+  }, [t, sel, showToast])
   const onAtualizar = useCallback(async (id, patch) => {
     const r = await t.atualizarTarefa(id, patch)
     if (r.error) showToast(r.error, 'error')
@@ -317,6 +349,20 @@ export default function Tarefas() {
     if (!listaPadraoId) { showToast('Escolha uma pasta ou lista primeiro', 'error'); return }
     onCriar({ lista_id: listaPadraoId, titulo: 'Nova tarefa' }).then((r) => r?.data && abrirTarefa(r.data.id))
   }, [listaPadraoId, onCriar, abrirTarefa, showToast])
+
+  const aceitarIntake = useCallback(async (it, { pastaId, responsavelId }) => {
+    const lista = t.listas.find((l) => l.pasta_id === pastaId && l.nome === 'Geral') || t.listas.find((l) => l.pasta_id === pastaId)
+    if (!lista) { showToast('Essa pasta não tem lista. Crie uma lista primeiro.', 'error'); return }
+    const r = await t.criarTarefa({
+      lista_id: lista.id, titulo: it.titulo, prioridade: it.prioridade,
+      descricao: it.descricao ? `${it.descricao}\n\nOrigem: ${it.origem}` : `Origem: ${it.origem}`,
+      responsaveis: responsavelId ? [responsavelId] : [],
+    })
+    if (r.error) { showToast(r.error, 'error'); return }
+    const d = await vt.decidirIntake(it.id, { status: 'aceito', tarefa_id: r.data.id })
+    if (d.error) showToast(d.error, 'error')
+    else showToast(`Tarefa criada em ${lista.nome}`)
+  }, [t, vt, showToast])
 
   // Atalhos: C cria, Esc fecha o painel (fora de campos de texto).
   useEffect(() => {
@@ -345,6 +391,9 @@ export default function Tarefas() {
   const paiDaAberta = tarefaAberta?.parent_id ? t.itens[tarefaAberta.parent_id] : null
   const statusesDaAberta = listaDaAberta ? statusDaLista(listaDaAberta) : statuses
   const painelEmpurra = largura >= EMPURRA_A_PARTIR_DE
+  const moduloSel = sel.tipo === 'modulo' ? vt.modulosMap.get(sel.id) : null
+  const mostrarViews = !aba || aba === 'ciclos' || (aba === 'modulos' && !!sel.id)
+  const comTopo = aba === 'ciclos' || aba === 'modulos' // cabeçalho acima da view: a página rola inteira
   const painel = !!tarefaAbertaId
 
   return (
@@ -370,7 +419,7 @@ export default function Tarefas() {
                   <button onClick={() => setArvoreAberta(true)} aria-label="Abrir pastas" className="ln-iconbtn md:hidden"><PanelLeft className="w-4 h-4" /></button>
                   <div className="flex items-center gap-2 h-7 px-2.5 rounded-lg text-xs font-medium text-ln-t2 min-w-0">
                     <CheckSquare className="w-3.5 h-3.5 text-ln-accent shrink-0" />
-                    <span className="truncate">Tarefas</span>
+                    <span className="truncate">VertaTask</span>
                     {pastaSel && (<>
                       <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
                       <button type="button" onClick={() => setSel({ tipo: 'pasta', id: pastaSel.id })} className={`truncate max-w-[200px] rounded ${listaSel ? 'text-ln-t3 hover:text-ln-t2' : 'text-ln-t2'} ${FOCO}`}>{pastaSel.nome}</button>
@@ -378,7 +427,15 @@ export default function Tarefas() {
                     {listaSel && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate max-w-[200px]">{listaSel.nome}</span></>)}
                     {sel.tipo === 'minhas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate">Minhas tarefas</span></>)}
                   </div>
-                  <span className="hidden sm:inline text-xs text-ln-t4 tabular whitespace-nowrap">{totalAbertas} abertas</span>
+                  {(!aba || aba === 'ciclos' || (aba === 'modulos' && sel.id)) && <span className="hidden xl:inline text-xs text-ln-t4 tabular whitespace-nowrap">{totalAbertas} abertas</span>}
+                  <nav aria-label="Seções do VertaTask" className="flex items-center gap-0.5 ml-1 min-w-0 overflow-x-auto scroll-hide">
+                    {[['tarefas', 'Tarefas'], ['intake', 'Intake'], ['ciclos', 'Cycles'], ['modulos', 'Modules']].map(([k, rot]) => (
+                      <button key={k} type="button" onClick={() => irAba(k)} className={`ln-tab ${(aba || 'tarefas') === k ? 'ln-tab-active' : ''} ${FOCO}`}>
+                        {rot}
+                        {k === 'intake' && vt.intakePendentes.length > 0 && <span className="ml-0.5 min-w-[16px] h-4 px-1 rounded-full bg-ln-accent text-white text-[10px] font-semibold inline-flex items-center justify-center tabular">{vt.intakePendentes.length}</span>}
+                      </button>
+                    ))}
+                  </nav>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {t.carregando && <Loader2 className="w-3.5 h-3.5 animate-spin text-ln-t4" />}
@@ -400,10 +457,12 @@ export default function Tarefas() {
               </header>
 
               {/* Barra de views */}
+              {mostrarViews && (
               <div className="h-11 shrink-0 flex items-center justify-between gap-3 px-3 border-b border-ln-ink/5">
                 <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto scroll-hide">
                   <button onClick={() => setView('lista')} className={`ln-tab ${view === 'lista' ? 'ln-tab-active' : ''} ${FOCO}`}><List className="w-3.5 h-3.5" /> Lista</button>
                   <button onClick={() => setView('quadro')} className={`ln-tab ${view === 'quadro' ? 'ln-tab-active' : ''} ${FOCO}`}><KanbanSquare className="w-3.5 h-3.5" /> Quadro</button>
+                  <button onClick={() => setView('calendario')} className={`ln-tab ${view === 'calendario' ? 'ln-tab-active' : ''} ${FOCO}`}><CalendarDays className="w-3.5 h-3.5" /> Calendário</button>
                   <span className="w-px h-4 bg-ln-line mx-1 shrink-0" />
                   <MenuAgrupar valor={agrupar} onChange={setAgrupar} />
                   <MenuResponsavel valor={filtroResp} membros={teamMembers || []} onChange={setFiltroResp} />
@@ -422,15 +481,43 @@ export default function Tarefas() {
                   )}
                 </div>
               </div>
+              )}
 
               {/* Conteúdo rolável */}
-              <div className={`flex-1 min-h-0 ${view === 'quadro' ? 'overflow-hidden' : 'overflow-auto'}`}>
-                {t.loadingEstrutura ? (
+              <div className={`flex-1 min-h-0 ${view === 'quadro' && !comTopo ? 'overflow-hidden' : 'overflow-auto'}`}>
+                {t.loadingEstrutura || vt.loading ? (
                   <div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</div>
-                ) : view === 'quadro' ? (
-                  <QuadroView grupos={grupos} filhosDe={filhosDe} ctx={ctx} />
+                ) : aba === 'intake' ? (
+                  <IntakeView vt={vt} pastas={t.pastas} listas={t.listas} projetos={projects || []} membros={teamMembers || []} onAceitar={aceitarIntake} onToast={showToast} onAbrirTarefa={abrirTarefa} />
+                ) : aba === 'modulos' && !sel.id ? (
+                  <ModulosView modulos={vt.modulos} projetos={projects || []} membrosMap={membrosMap} vt={vt} onAbrirModulo={(id) => irAba('modulos', { modulo: id })} onToast={showToast} refreshKey={recarregarTick + Object.keys(t.itens).length} />
                 ) : (
-                  <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={mostrarConcluidas} denso={denso} compacto={painel && painelEmpurra && largura < 1600} />
+                  <>
+                    {aba === 'ciclos' && (
+                      <CiclosView ciclos={vt.ciclos} ciclo={sel.id ? vt.ciclosMap.get(sel.id) : null} itens={todos} onSel={(id) => irAba('ciclos', { ciclo: id })} vt={vt} onToast={showToast} unidade={unidadeBurn} onUnidade={setUnidadeBurn} />
+                    )}
+                    {aba === 'modulos' && moduloSel && (
+                      <div className="flex items-start justify-between gap-3 px-4 pt-3">
+                        <div className="min-w-0">
+                          <button type="button" onClick={() => irAba('modulos')} className={`inline-flex items-center gap-1 text-xs text-ln-t3 hover:text-ln-t1 rounded ${FOCO}`}><ArrowLeft className="w-3 h-3" /> Todos os modules</button>
+                          <h2 className="text-base font-semibold text-ln-t1 mt-1 truncate">{moduloSel.nome}</h2>
+                          {moduloSel.descricao && <p className="text-xs text-ln-t3 mt-0.5">{moduloSel.descricao}</p>}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => { if (window.confirm(`Excluir o module "${moduloSel.nome}"? As tarefas continuam, só saem do module.`)) { const r = await vt.excluirModulo(moduloSel.id); if (r.error) showToast(r.error, 'error'); else { irAba('modulos'); showToast('Module excluído') } } }}
+                          className="ln-iconbtn hover:!text-ln-red shrink-0" aria-label="Excluir module" title="Excluir module"
+                        ><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    )}
+                    {view === 'calendario' ? (
+                      <CalendarioView itens={filtrados} ctx={ctx} />
+                    ) : view === 'quadro' ? (
+                      <div className={comTopo ? 'h-[560px]' : 'h-full'}><QuadroView grupos={grupos} filhosDe={filhosDe} ctx={ctx} /></div>
+                    ) : (
+                      <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={mostrarConcluidas} denso={denso} compacto={painel && painelEmpurra && largura < 1600} />
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -482,6 +569,8 @@ export default function Tarefas() {
                         membrosMap={membrosMap}
                         comentarios={t.comentarios[tarefaAberta.id]}
                         user={user}
+                        ciclos={vt.ciclos}
+                        modulos={vt.modulos}
                         onAtualizar={onAtualizar}
                         onMudarStatus={onMudarStatus}
                         onCriarSub={(pai, tituloSub) => onCriar({ lista_id: pai.lista_id, parent_id: pai.id, titulo: tituloSub })}
