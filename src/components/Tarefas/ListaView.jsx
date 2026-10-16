@@ -74,20 +74,20 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, compacto }) {
   const itens = ordenarItens(grupo.itens)
   const toggle = (id) => setExpandidos((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   return (
-    <div className="px-2">
+    <div className="px-3 mb-3">
       <button
         type="button"
         onClick={() => setAberto((v) => !v)}
         aria-expanded={aberto}
-        className={`sticky top-7 z-10 w-full flex items-center gap-1.5 h-9 px-2 rounded-lg bg-ln-panel text-left transition-colors duration-150 hover:bg-ln-ink/[0.03] ${FOCO}`}
+        className={`sticky top-7 z-10 w-full flex items-center gap-1.5 h-9 px-2 rounded-lg bg-ln-bg text-left transition-colors duration-150 hover:bg-ln-ink/[0.03] ${FOCO}`}
       >
         <ChevronRight className={`w-3.5 h-3.5 text-ln-t4 transition-transform duration-150 ${aberto ? 'rotate-90' : ''}`} />
         <i className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: grupo.cor }} />
-        <span className="text-[13px] font-medium text-ln-t2 truncate">{grupo.label}</span>
+        <span className="text-[13px] font-semibold vt-display text-ln-t1 truncate">{grupo.label}</span>
         <span className="text-[13px] text-ln-t3 tabular">{itens.length}</span>
       </button>
       {aberto && (
-        <>
+        <div className="ln-card overflow-hidden">
           {itens.map((it) => {
             const todosFilhos = filhosDe.get(it.id) || []
             const filhos = ordenarItens(todosFilhos.filter((f) => mostrarConcluidas || f.status_tipo !== 'closed' || it.status_tipo === 'closed'))
@@ -109,7 +109,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, compacto }) {
               <AdicionarInline placeholder="Adicionar tarefa" onCriar={(t) => onCriar({ lista_id: listaPadraoId, titulo: t, status: agrupar === 'status' ? grupo.key : undefined })} />
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )
@@ -130,7 +130,7 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
   }
   return (
     <div className={`${compacto ? 'min-w-[520px]' : 'min-w-[900px]'} pb-24`}>
-      <div className="sticky top-0 z-20 grid items-center gap-x-2.5 h-7 px-4 bg-ln-panel border-b border-ln-ink/5 text-[11px] text-ln-t4" style={{ gridTemplateColumns: compacto ? COLUNAS.compacta : COLUNAS.cheia }} aria-hidden="true">
+      <div className="sticky top-0 z-20 grid items-center gap-x-2.5 h-7 px-5 bg-ln-bg border-b border-ln-ink/5 text-[11px] text-ln-t4" style={{ gridTemplateColumns: compacto ? COLUNAS.compacta : COLUNAS.cheia }} aria-hidden="true">
         {(compacto ? CABECALHOS.compacta : CABECALHOS.cheia).map((c, i) => <span key={i} className="truncate">{c}</span>)}
       </div>
       <div className="py-1">

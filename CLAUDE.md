@@ -632,6 +632,11 @@ O módulo passou a se chamar **VertaTask** (rótulo na sidebar e no breadcrumb; 
 - **Quem alimenta o Intake hoje:** só o botão "Novo pedido". Ligar a reprovação de anúncio
   (`api/anuncios-aprovacao.js`), a Central de Otimizações e o playbook é a próxima etapa (inserir em
   `tarefas_intake` com `origem` e `origem_ref`).
+- **Visual:** a página usa `ln vt`. O escopo `.vt` (em `src/index.css`, logo depois do `.ln`) troca
+  os tokens `--ln-*` pela paleta da Verta (azul `#2A25F0`, neutros frios, Sora nos títulos e Manrope
+  no corpo, cartões brancos de borda 1px e raio 12) e redefine `ln-card`, `ln-pill`, `ln-tab`,
+  `ln-primary` e `ln-input` com o look do protótipo; no escuro só o azul muda. Lista agrupada em
+  cartões sobre fundo `ln-bg`. Os componentes continuam usando só `ln-*`.
 - **Ainda não feito:** views salvas, Pages (documentos) e a decisão sobre desligar o ClickUp.
 
 ### Chat (`/chat`): réplica do ClickUp Chat

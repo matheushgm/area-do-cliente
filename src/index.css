@@ -279,6 +279,64 @@
 .ln-shimmer { background: linear-gradient(90deg, rgb(var(--ln-ink) / 0.04) 25%, rgb(var(--ln-ink) / 0.1) 50%, rgb(var(--ln-ink) / 0.04) 75%); background-size: 200% 100%; animation: lnShimmer 1.4s linear infinite; }
 @keyframes lnShimmer { from { background-position: 200% 0 } to { background-position: -200% 0 } }
 
+/* ─── VertaTask: tema Verta sobre os tokens ln-* (escopo .vt, junto de .ln) ──
+   Mesmas classes e componentes do módulo Tarefas, com a paleta e a tipografia do
+   design system da Verta: azul #2A25F0, neutros frios, Sora nos títulos e Manrope
+   no corpo, cartões brancos com borda de 1px e raio 12. No escuro só o azul muda. */
+.vt {
+  --ln-bg:      248 249 252;
+  --ln-panel:   255 255 255;
+  --ln-card:    255 255 255;
+  --ln-level2:  242 244 250;
+  --ln-level3:  228 231 240;
+  --ln-ink:     11 11 20;
+  --ln-line:    228 231 240;
+  --ln-border:  228 231 240;
+  --ln-t1:      11 11 20;
+  --ln-t2:      61 66 84;
+  --ln-t3:      90 96 114;
+  --ln-t4:      118 124 142;
+  --ln-accent:  42 37 240;
+  --ln-brand:   42 37 240;
+  --ln-green:   31 138 91;
+  --ln-yellow:  201 154 46;
+  --ln-red:     226 86 75;
+  --ln-blue:    81 140 255;
+  --ln-ring-card: none;
+  --vt-tab-bg:  238 241 254;
+  --vt-tab-fg:  24 0 219;
+  --vt-tab-a:   1;
+  font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  letter-spacing: 0;
+  font-feature-settings: normal;
+}
+.dark .vt {
+  --ln-accent:  108 130 255;
+  --ln-brand:   67 98 254;
+  --vt-tab-bg:  108 130 255;
+  --vt-tab-fg:  255 255 255;
+  --vt-tab-a:   0.22;
+}
+.vt h1, .vt h2, .vt h3, .vt .vt-display, .vt .text-xl.font-semibold, .vt .text-base.font-semibold {
+  font-family: 'Sora', 'Manrope', system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+.vt .ln-card { border-color: rgb(var(--ln-line)); border-radius: 12px; box-shadow: none; }
+.vt .ln-pill, .vt .ln-tab { border-radius: 8px; background: rgb(var(--ln-card)); color: rgb(var(--ln-t3)); font-weight: 600; box-shadow: inset 0 0 0 1px rgb(var(--ln-line)); --tw-ring-shadow: 0 0 #0000; }
+.vt .ln-pill:hover, .vt .ln-tab:hover { background: rgb(var(--ln-level2)); color: rgb(var(--ln-t1)); }
+.vt .ln-tab-active, .vt .ln-tab-active:hover { background: rgb(var(--vt-tab-bg) / var(--vt-tab-a)); color: rgb(var(--vt-tab-fg)); box-shadow: none; }
+.dark .vt .ln-tab-active, .dark .vt .ln-tab-active:hover { color: rgb(var(--ln-t1)); }
+.vt .ln-primary { height: 32px; padding: 0 14px; border-radius: 8px; background: rgb(var(--ln-brand)); font-weight: 600; }
+.vt .ln-primary:hover { background: rgb(24 0 219); filter: none; }
+.dark .vt .ln-primary:hover { background: rgb(81 140 255); }
+.vt .ln-input { background: rgb(var(--ln-card)); border-color: rgb(var(--ln-line)); border-radius: 8px; }
+.vt .ln-input:hover { border-color: rgb(var(--ln-ink) / 0.2); }
+.vt .ln-input:focus { background: rgb(var(--ln-card)); border-color: rgb(var(--ln-accent)); box-shadow: 0 0 0 3px rgb(var(--ln-accent) / 0.25); }
+.vt .ln-iconbtn { border-radius: 8px; }
+.vt .ln-label { text-transform: uppercase; letter-spacing: 0.12em; font-size: 10.5px; font-weight: 700; }
+.vt .ln-row-hover { border-radius: 8px; }
+.vt ::selection { background: rgb(var(--ln-accent) / 0.2); }
+
 /* Markdown dentro do módulo Tarefas (descrição e comentários). */
 .prose-tarefa p { margin: 0 0 0.5em; }
 .prose-tarefa p:last-child { margin-bottom: 0; }

@@ -73,11 +73,11 @@ function Coluna({ grupo, ctx, filhosDe }) {
       onDragOver={(e) => { if (podeSoltar) { e.preventDefault(); setOver(true) } }}
       onDragLeave={() => setOver(false)}
       onDrop={soltar}
-      className={`flex flex-col w-[300px] shrink-0 max-h-full rounded-lg transition-colors duration-150 ${over ? 'bg-ln-accent/10 ring-1 ring-ln-accent/40' : 'bg-ln-ink/[0.02]'}`}
+      className={`flex flex-col w-[300px] shrink-0 max-h-full rounded-lg transition-colors duration-150 ${over ? 'bg-ln-accent/10 ring-1 ring-ln-accent/40' : 'bg-ln-ink/[0.04]'}`}
     >
       <div className="flex items-center gap-1.5 h-9 px-3 shrink-0">
         <i className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: grupo.cor }} />
-        <span className="text-[13px] font-medium text-ln-t2 truncate">{grupo.label}</span>
+        <span className="text-[13px] font-semibold vt-display text-ln-t1 truncate">{grupo.label}</span>
         <span className="text-[13px] text-ln-t3 tabular">{itens.length}</span>
         <div className="flex-1" />
         {listaPadraoId && (

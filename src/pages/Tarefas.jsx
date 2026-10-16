@@ -399,7 +399,7 @@ export default function Tarefas() {
   return (
     <>
 
-      <div ref={conteudoRef} className="ln flex-1 min-w-0 flex flex-col h-screen bg-ln-bg">
+      <div ref={conteudoRef} className="ln vt flex-1 min-w-0 flex flex-col h-screen bg-ln-bg">
         <div className="flex-1 min-h-0 p-2">
           <div className="relative h-full min-h-0 flex rounded-lg border border-ln-ink/5 bg-ln-panel overflow-hidden" style={{ boxShadow: '0 0 0 2px rgb(var(--ln-ink) / 0.02)' }}>
             <TarefasSidebar
@@ -418,8 +418,8 @@ export default function Tarefas() {
                   <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
                   <button onClick={() => setArvoreAberta(true)} aria-label="Abrir pastas" className="ln-iconbtn md:hidden"><PanelLeft className="w-4 h-4" /></button>
                   <div className="flex items-center gap-2 h-7 px-2.5 rounded-lg text-xs font-medium text-ln-t2 min-w-0">
-                    <CheckSquare className="w-3.5 h-3.5 text-ln-accent shrink-0" />
-                    <span className="truncate">VertaTask</span>
+                    <img src="/vertatask-simbolo.png" alt="" className="w-4 h-4 shrink-0" />
+                    <span className="truncate vt-display font-bold text-ln-t1 text-[13px]">Verta<span className="font-medium text-ln-accent">Task</span></span>
                     {pastaSel && (<>
                       <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
                       <button type="button" onClick={() => setSel({ tipo: 'pasta', id: pastaSel.id })} className={`truncate max-w-[200px] rounded ${listaSel ? 'text-ln-t3 hover:text-ln-t2' : 'text-ln-t2'} ${FOCO}`}>{pastaSel.nome}</button>
@@ -484,7 +484,7 @@ export default function Tarefas() {
               )}
 
               {/* Conteúdo rolável */}
-              <div className={`flex-1 min-h-0 ${view === 'quadro' && !comTopo ? 'overflow-hidden' : 'overflow-auto'}`}>
+              <div className={`flex-1 min-h-0 bg-ln-bg ${view === 'quadro' && !comTopo ? 'overflow-hidden' : 'overflow-auto'}`}>
                 {t.loadingEstrutura || vt.loading ? (
                   <div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</div>
                 ) : aba === 'intake' ? (
