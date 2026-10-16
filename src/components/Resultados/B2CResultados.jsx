@@ -8,6 +8,7 @@ import PlanoVsRealizado from './PlanoVsRealizado'
 import { AutofillButton, AutoBadge } from './AutofillResultados'
 import VendasPorUnidade from './VendasPorUnidade'
 import { getUnidades } from '../../lib/constants'
+import { investimentoPorUnidade } from '../../lib/roasPorUnidade'
 import { exportResultadosB2CPDF } from '../../utils/exportPDF'
 
 // ─── Form compartilhado (dia e semana) ────────────────────────────────────────
@@ -111,6 +112,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
 
   // Quebra por unidade: recurso pontual, habilitado por projeto (ver constants).
   const unidades = getUnidades(projectId)
+  const investimento = unidades ? investimentoPorUnidade(dash?.raw, projectId, unidades, year, month) : null
 
   // ── Save day ────────────────────────────────────────────────────────────────
   const saveDay = (day, data) => {
@@ -531,6 +533,7 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
       {mode === 'unidades' && unidades && (
         <VendasPorUnidade
           unidades={unidades}
+          investimento={investimento}
           year={year}
           month={month}
           data={unitData}
