@@ -77,11 +77,13 @@ export default function ProjectTrafficDashboard({ project, dash }) {
     try {
       const doc = iframeRef.current?.contentDocument
       if (!doc?.documentElement) return
+      // Mede o <body> (altura do conteúdo), não o <html>: o scrollHeight do html
+      // nunca fica menor que o iframe e a altura não encolhia ao minimizar painéis.
       const ro = new ResizeObserver(() => {
-        const h = doc.documentElement.scrollHeight
-        if (h > 300) setAltura(h)
+        const h = Math.ceil(doc.body.getBoundingClientRect().height)
+        if (h > 100) setAltura(h + 8)
       })
-      ro.observe(doc.documentElement)
+      ro.observe(doc.body)
       roRef.current = ro
     } catch { /* cross-origin: mantém a altura padrão */ }
   }, [])
@@ -155,7 +157,7 @@ export default function ProjectTrafficDashboard({ project, dash }) {
               onLoad={onLoad}
               title={`Dashboard de Tráfego · ${c.conta}`}
               className="w-full border-0 block"
-              style={cheia ? { height: '100%' } : { height: altura, minHeight: 600 }}
+              style={cheia ? { height: '100%' } : { height: altura }}
             />
           </div>
         </div>
