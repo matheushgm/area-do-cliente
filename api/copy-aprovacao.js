@@ -1,4 +1,5 @@
 import { NO_STORE, jsonCors, preflight, sb } from './_http.js'
+import { registrarIntake } from './_intake.js'
 // Edge Function pública — APROVAÇÃO DE COPY (leva de Criativos com IA).
 //
 // Diferente de /api/anuncios-aprovacao (que usa o client_share_token do projeto
@@ -260,6 +261,17 @@ export default async function handler(req) {
       { method: 'PATCH', body: JSON.stringify(patch), headers: { Prefer: 'return=minimal' } }
     )
     if (status >= 400) return json({ error: 'Erro ao salvar a decisão.' }, 500)
+
+    if (decision === 'reprovado') {
+      await registrarIntake({
+        project_id: project.id,
+        titulo: `Copy reprovada pelo cliente: ${str(item.titulo || item.tipo || item.conteudo, 100)}`,
+        descricao: `Motivo: ${motivo}\n\nComo deveria estar: ${sugestao}`,
+        origem: 'Aprovação de copy',
+        origem_ref: `copy:${itemId}:${now}`,
+        prioridade: 'high',
+      })
+    }
 
     return json({ success: true })
   }

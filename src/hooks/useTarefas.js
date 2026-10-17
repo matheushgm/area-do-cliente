@@ -215,6 +215,16 @@ export function useTarefas(user) {
     })
   }, [atualizarTarefa])
 
+  /** Aplica o mesmo patch a várias tarefas já gravadas (a gravação em lote é feita por quem chama). */
+  const aplicarLocal = useCallback((ids, patch) => {
+    const set = new Set(ids)
+    setItens((prev) => {
+      const next = { ...prev }
+      for (const id of set) if (next[id]) next[id] = { ...next[id], ...patch }
+      return next
+    })
+  }, [])
+
   const excluirTarefa = useCallback(async (id) => {
     const { error } = await supabase.from('tarefas_itens').delete().eq('id', id)
     if (error) return { error: error.message }
@@ -337,7 +347,7 @@ export function useTarefas(user) {
   return {
     pastas, listas, pastasMap, listasMap, loadingEstrutura, carregando, erro,
     itens, comentarios,
-    carregarEstrutura, carregarListas, carregarMinhas, carregarAbertas, carregarPorCampo, carregarTarefa,
+    carregarEstrutura, carregarListas, carregarMinhas, carregarAbertas, carregarPorCampo, carregarTarefa, aplicarLocal,
     criarTarefa, atualizarTarefa, mudarStatus, excluirTarefa,
     criarPasta, atualizarPasta, criarLista, atualizarLista,
     carregarComentarios, criarComentario, excluirComentario,

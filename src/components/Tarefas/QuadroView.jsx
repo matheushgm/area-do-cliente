@@ -26,9 +26,10 @@ function Card({ item, filhos, ctx, arrastavel }) {
         <StatusIcon status={item.status} statuses={statuses} size={14} className="mt-0.5" />
         <p className={`text-[13px] font-medium leading-snug min-w-0 flex-1 ${item.status_tipo === 'closed' ? 'text-ln-t4 line-through' : 'text-ln-t2'}`}>{item.titulo}</p>
       </div>
-      {(item.tipo_tarefa || item.tags?.length > 0) && (
+      {(item.tipo_tarefa || item.tags?.length > 0 || item.etiquetas?.length > 0) && (
         <div className="flex flex-wrap gap-1 mt-2">
           {item.tipo_tarefa && <Chip texto={item.tipo_tarefa} cor={tipo?.cor} />}
+          {(item.etiquetas || []).map((id) => { const e = ctx.etiquetasMap?.get(id); return e ? <Chip key={id} texto={e.nome} cor={e.cor} /> : null })}
           {(item.tags || []).map((t) => <span key={t} className="inline-flex items-center h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t3">{t}</span>)}
         </div>
       )}

@@ -1,7 +1,7 @@
 // Cabeçalho da aba Cycles: seletor de ciclo, criação, resumo e burndown.
 // A lista/quadro das tarefas do ciclo é a própria view do módulo, abaixo.
 import { useMemo, useState } from 'react'
-import { Plus, Trash2, Check, X } from 'lucide-react'
+import { Plus, Trash2, Check, X, Pencil, ArrowRightLeft } from 'lucide-react'
 import { calcularBurndown, faseDoCiclo, fmtDiaMes, fmtHoras, sugerirCiclo, ROTULO_FASE, hojeISO, diasEntre, somarDias } from '../../lib/vertatask'
 import { FOCO } from './Campos'
 
@@ -44,8 +44,10 @@ function Tile({ k, v, sub, alerta }) {
   )
 }
 
-export default function CiclosView({ ciclos, ciclo, itens, onSel, vt, onToast, unidade, onUnidade }) {
+export default function CiclosView({ ciclos, ciclo, itens, onSel, vt, onToast, unidade, onUnidade, membros = [], onMoverPendentes }) {
   const [novo, setNovo] = useState(null)
+  const [edit, setEdit] = useState(null)
+  const [destino, setDestino] = useState('')
   const hoje = hojeISO()
   const topo = useMemo(() => itens.filter((i) => i.ciclo_id === ciclo?.id && !i.parent_id), [itens, ciclo?.id])
   const bd = useMemo(() => (ciclo ? calcularBurndown(ciclo, topo, unidade) : null), [ciclo, topo, unidade])
@@ -53,6 +55,15 @@ export default function CiclosView({ ciclos, ciclo, itens, onSel, vt, onToast, u
   const fmt = (n) => (unidade === 'horas' ? fmtHoras(n) : String(Math.round(n)))
   const pct = bd?.total ? Math.round((bd.feito / bd.total) * 100) : 0
   const diaAtual = ciclo ? Math.max(0, Math.min(diasEntre(ciclo.inicio, ciclo.fim) + 1, diasEntre(ciclo.inicio, hoje) + 1)) : 0
+
+  const pendentes = topo.filter((i) => i.status_tipo !== 'closed')
+  const outros = ciclos.filter((c) => c.id !== ciclo?.id && c.fim >= hoje)
+  async function salvarEdicao(e) {
+    e.preventDefault()
+    if (!edit.nome.trim() || edit.fim < edit.inicio) { onToast('Confira o nome e as datas do cycle', 'error'); return }
+    const r = await vt.atualizarCiclo(ciclo.id, { nome: edit.nome.trim(), inicio: edit.inicio, fim: edit.fim, descricao: edit.descricao?.trim() || null, responsavel_id: edit.responsavel_id || null })
+    if (r.error) onToast(r.error, 'error'); else { setEdit(null); onToast('Cycle atualizado') }
+  }
 
   async function criar(e) {
     e.preventDefault()
@@ -98,12 +109,36 @@ export default function CiclosView({ ciclos, ciclo, itens, onSel, vt, onToast, u
               <button type="button" onClick={() => onUnidade('tarefas')} className={`ln-pill ${unidade === 'tarefas' ? '!bg-ln-ink/[0.08] !text-ln-t1' : ''}`}>Tarefas</button>
               <button type="button" onClick={() => onUnidade('horas')} className={`ln-pill ${unidade === 'horas' ? '!bg-ln-ink/[0.08] !text-ln-t1' : ''}`}>Horas estimadas</button>
             </div>
+            <div className="flex items-center gap-1">
+            <button type="button" onClick={() => setEdit({ nome: ciclo.nome, inicio: ciclo.inicio, fim: ciclo.fim, descricao: ciclo.descricao || '', responsavel_id: ciclo.responsavel_id || '' })} className="ln-iconbtn" aria-label="Editar cycle" title="Editar cycle"><Pencil className="w-3.5 h-3.5" /></button>
             <button
               type="button"
               onClick={async () => { if (window.confirm(`Excluir o ${ciclo.nome}? As tarefas continuam, só saem do cycle.`)) { const r = await vt.excluirCiclo(ciclo.id); if (r.error) onToast(r.error, 'error'); else onToast('Cycle excluído') } }}
               className="ln-iconbtn hover:!text-ln-red" aria-label="Excluir cycle" title="Excluir cycle"
             ><Trash2 className="w-3.5 h-3.5" /></button>
+            </div>
           </div>
+          {edit && (
+            <form onSubmit={salvarEdicao} className="ln-card p-3 grid gap-2 md:grid-cols-4 max-w-4xl items-end">
+              <label className="flex flex-col gap-1 text-xs text-ln-t3 md:col-span-2">Nome<input className="ln-input !h-8" value={edit.nome} onChange={(e) => setEdit({ ...edit, nome: e.target.value })} autoFocus /></label>
+              <label className="flex flex-col gap-1 text-xs text-ln-t3">Início<input type="date" className="ln-input !h-8" value={edit.inicio} onChange={(e) => setEdit({ ...edit, inicio: e.target.value })} /></label>
+              <label className="flex flex-col gap-1 text-xs text-ln-t3">Fim<input type="date" className="ln-input !h-8" value={edit.fim} onChange={(e) => setEdit({ ...edit, fim: e.target.value })} /></label>
+              <label className="flex flex-col gap-1 text-xs text-ln-t3 md:col-span-2">Responsável<select className="ln-input !h-8" value={edit.responsavel_id} onChange={(e) => setEdit({ ...edit, responsavel_id: e.target.value })}><option value="">Sem responsável</option>{membros.filter((m) => !m.disabled).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+              <label className="flex flex-col gap-1 text-xs text-ln-t3 md:col-span-2">Objetivo do cycle<input className="ln-input !h-8" value={edit.descricao} onChange={(e) => setEdit({ ...edit, descricao: e.target.value })} placeholder="O que o time quer fechar nestas duas semanas" /></label>
+              <div className="flex gap-2 md:col-span-4"><button type="submit" className="ln-primary"><Check className="w-3.5 h-3.5" /> Salvar</button><button type="button" onClick={() => setEdit(null)} className="ln-pill"><X className="w-3.5 h-3.5" /> Cancelar</button></div>
+            </form>
+          )}
+          {(ciclo.descricao || ciclo.responsavel_id) && !edit && (
+            <p className="text-[13px] text-ln-t3 max-w-4xl">{ciclo.descricao}{ciclo.responsavel_id && membros.find((m) => m.id === ciclo.responsavel_id) ? <span className="text-ln-t4">{ciclo.descricao ? ' · ' : ''}Responsável: {membros.find((m) => m.id === ciclo.responsavel_id).name}</span> : null}</p>
+          )}
+          {pendentes.length > 0 && outros.length > 0 && onMoverPendentes && (
+            <div className="ln-card px-3 py-2 max-w-4xl flex items-center gap-2 flex-wrap text-[13px] text-ln-t2">
+              <ArrowRightLeft className="w-4 h-4 text-ln-accent shrink-0" />
+              <span>{pendentes.length} tarefa(s) ainda abertas. Passar para</span>
+              <select className="ln-input !h-8 !w-[200px]" value={destino} onChange={(e) => setDestino(e.target.value)} aria-label="Cycle de destino"><option value="">Escolha o cycle</option>{outros.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
+              <button type="button" disabled={!destino} onClick={async () => { await onMoverPendentes(ciclo.id, destino); setDestino('') }} className="ln-pill disabled:opacity-50">Mover pendentes</button>
+            </div>
+          )}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 max-w-4xl">
             <Tile k="Progresso" v={`${pct}%`} />
             <Tile k={unidade === 'horas' ? 'Horas feitas' : 'Tarefas feitas'} v={fmt(bd.feito)} sub={`/ ${fmt(bd.total)}`} />

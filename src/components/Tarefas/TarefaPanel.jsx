@@ -14,6 +14,7 @@ import {
   Avatar, Avatares, Popover, FOCO,
 } from './Campos'
 import RelacaoCampo from './RelacaoCampo'
+import { EtiquetasCampo, RelacoesSecao, HistoricoSecao, SeguirBotao } from './TarefaExtras'
 import { faseDoCiclo, fmtDiaMes, ROTULO_FASE } from '../../lib/vertatask'
 
 const BUCKET = 'task-attachments'
@@ -256,7 +257,7 @@ function Secao({ titulo, extra, children }) {
 }
 
 export default function TarefaPanel({
-  item, subtarefas, statuses, membros, membrosMap, comentarios, user, ciclos = [], modulos = [],
+  item, subtarefas, statuses, membros, membrosMap, comentarios, user, ciclos = [], modulos = [], etiquetas = [], ciclosMap = new Map(), modulosMap = new Map(), etiquetasMap = new Map(), onCriarEtiqueta, onSalvarModelo,
   onAtualizar, onMudarStatus, onCriarSub, onAbrir, onComentar, onExcluirComentario, onCarregarComentarios, onErro,
 }) {
   const [titulo, setTitulo] = useState(item?.titulo || '')
@@ -282,6 +283,9 @@ export default function TarefaPanel({
       <header>
         <div className="flex items-center gap-2 text-xs text-ln-t3">
           <StatusCampo item={item} statuses={statuses} onChange={(s) => onMudarStatus(item, s)} />
+          <span className="flex-1" />
+          <SeguirBotao tarefaId={item.id} user={user} />
+          {onSalvarModelo && <button type="button" onClick={() => onSalvarModelo(item, (subtarefas || []).map((x) => x.titulo))} className={`ln-pill ${FOCO}`} title="Guardar esta tarefa como modelo para criar outras iguais">Salvar como modelo</button>}
           {item.clickup_url && (
             <a href={item.clickup_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 text-ln-t4 hover:text-ln-accent ${FOCO}`} title="Abrir no ClickUp">
               ClickUp <ExternalLink className="w-3 h-3" />
@@ -319,6 +323,9 @@ export default function TarefaPanel({
           <Propriedade label="Module">
             <RelacaoCampo valor={item.modulo_id} opcoes={modulos.map((m) => ({ id: m.id, rotulo: m.nome }))} onChange={(v) => onAtualizar(item.id, { modulo_id: v })} />
           </Propriedade>
+          <Propriedade label="Etiquetas">
+            <EtiquetasCampo valor={item.etiquetas || []} etiquetas={etiquetas} onChange={(v) => onAtualizar(item.id, { etiquetas: v })} onCriar={onCriarEtiqueta} />
+          </Propriedade>
           <Propriedade label="Estimativa"><EstimativaCampo valor={item.estimativa_min} onChange={(v) => onAtualizar(item.id, { estimativa_min: v })} /></Propriedade>
           <Propriedade label="Tipo"><TipoTarefaCampo valor={item.tipo_tarefa} onChange={(v) => onAtualizar(item.id, { tipo_tarefa: v })} /></Propriedade>
           <Propriedade label="Dificuldade"><DificuldadeCampo valor={item.dificuldade} onChange={(v) => onAtualizar(item.id, { dificuldade: v })} /></Propriedade>
@@ -352,12 +359,20 @@ export default function TarefaPanel({
         </div>
       </Secao>
 
+      <Secao titulo="Relações">
+        <RelacoesSecao tarefaId={item.id} user={user} onAbrir={onAbrir} onErro={onErro} />
+      </Secao>
+
       <Secao titulo="Checklists">
         <Checklists checklists={item.checklists || []} onChange={(v) => onAtualizar(item.id, { checklists: v })} />
       </Secao>
 
       <Secao titulo="Anexos">
         <Anexos item={item} onChange={(v) => onAtualizar(item.id, { anexos: v })} onErro={onErro} />
+      </Secao>
+
+      <Secao titulo="Histórico">
+        <HistoricoSecao tarefaId={item.id} versao={item.updated_at} membrosMap={membrosMap} ciclosMap={ciclosMap} modulosMap={modulosMap} etiquetasMap={etiquetasMap} />
       </Secao>
 
       <Secao titulo="Atividade">

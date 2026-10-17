@@ -1,7 +1,7 @@
 // Coluna esquerda do módulo Tarefas: árvore Pastas (clientes) → Listas, no
 // visual do Linear (mesma coluna de navegação densa do app).
 import { useState, useMemo, useRef } from 'react'
-import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, Box, ListChecks, MessageSquare, CalendarCheck } from 'lucide-react'
+import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, Box, ListChecks, MessageSquare, CalendarCheck, FileText, BarChart3, EyeOff, Globe } from 'lucide-react'
 import { Popover, FOCO } from './Campos'
 
 function MenuPasta({ onRenomear, onNovaLista, onArquivar }) {
@@ -62,7 +62,7 @@ export default function TarefasSidebar({
   pastas, listas, projetos, sel, onSel,
   onCriarPasta, onCriarLista, onAtualizarPasta, onAtualizarLista,
   aberta, onFechar,
-  nav = { aba: 'tarefas', onAba: () => {}, intake: 0 }, views = [], onAplicarView, onExcluirView, contagem = {},
+  nav = { aba: 'tarefas', onAba: () => {}, intake: 0 }, views = [], userId, onAplicarView, onExcluirView, onAlternarAcessoView, contagem = {},
 }) {
   const [busca, setBusca] = useState('')
   const [expandidas, setExpandidas] = useState(() => {
@@ -120,6 +120,8 @@ export default function TarefasSidebar({
         <NavItem icon={ListChecks} ativo={nav.aba === 'tarefas' && sel.tipo === 'todas'} onClick={() => { onSel({ tipo: 'todas' }); onFechar?.() }}>Todas as tarefas</NavItem>
         <NavItem icon={Repeat} ativo={nav.aba === 'ciclos'} onClick={() => { nav.onAba('ciclos'); onFechar?.() }}>Cycles</NavItem>
         <NavItem icon={Box} ativo={nav.aba === 'modulos'} onClick={() => { nav.onAba('modulos'); onFechar?.() }}>Modules</NavItem>
+        <NavItem icon={FileText} ativo={nav.aba === 'paginas'} onClick={() => { nav.onAba('paginas'); onFechar?.() }}>Pages</NavItem>
+        <NavItem icon={BarChart3} ativo={nav.aba === 'analytics'} onClick={() => { nav.onAba('analytics'); onFechar?.() }}>Analytics</NavItem>
         <NavItem icon={CalendarCheck} ativo={nav.aba === 'atividades'} onClick={() => { nav.onAba('atividades'); onFechar?.() }}>Atividades</NavItem>
         <NavItem icon={MessageSquare} ativo={nav.aba === 'chat'} onClick={() => { nav.onAba('chat'); onFechar?.() }} badge={nav.chat}>Chat</NavItem>
 
@@ -129,8 +131,14 @@ export default function TarefasSidebar({
           <div key={v.id} className="group/view flex items-center">
             <button type="button" onClick={() => { onAplicarView?.(v); onFechar?.() }} className={`flex-1 min-w-0 flex items-center gap-2.5 h-8 px-2.5 rounded-lg text-[13.5px] text-ln-t2 hover:bg-ln-ink/[0.04] ${FOCO}`}>
               <i className="w-2 h-2 rounded-full shrink-0 bg-ln-blue" /><span className="truncate">{v.nome}</span>
+              {v.acesso === 'privada' && <EyeOff className="w-3 h-3 text-ln-t4 shrink-0" aria-label="Só você vê" />}
             </button>
-            <button type="button" onClick={() => onExcluirView?.(v.id)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/view:opacity-100 focus-visible:opacity-100" title="Remover view" aria-label={`Remover a view ${v.nome}`}><X className="w-3 h-3" /></button>
+            {v.dono_id === userId && (
+              <>
+                <button type="button" onClick={() => onAlternarAcessoView?.(v)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/view:opacity-100 focus-visible:opacity-100" title={v.acesso === 'publica' ? 'Compartilhada: clique para deixar só para você' : 'Só sua: clique para compartilhar'} aria-label="Mudar quem vê a view">{v.acesso === 'publica' ? <Globe className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}</button>
+                <button type="button" onClick={() => onExcluirView?.(v.id)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/view:opacity-100 focus-visible:opacity-100" title="Remover view" aria-label={`Remover a view ${v.nome}`}><X className="w-3 h-3" /></button>
+              </>
+            )}
           </div>
         ))}
 

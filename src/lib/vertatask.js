@@ -108,4 +108,13 @@ export function progressoDoModulo(itens) {
   return { total: topo.length, feitas, pct: topo.length ? Math.round((feitas / topo.length) * 100) : 0 }
 }
 
+export const STATUS_MODULO = [
+  { key: 'planejado', label: 'Planejado', cor: '#9AA0B2' },
+  { key: 'em_andamento', label: 'Em andamento', cor: '#2A25F0' },
+  { key: 'pausado', label: 'Pausado', cor: '#C99A2E' },
+  { key: 'concluido', label: 'Concluído', cor: '#1F8A5B' },
+  { key: 'cancelado', label: 'Cancelado', cor: '#E2564B' },
+]
+export const statusModulo = (k) => STATUS_MODULO.find((s) => s.key === k) || STATUS_MODULO[0]
+
 export const ORIGENS_INTAKE = ['Cliente', 'Aprovação de anúncios', 'Central de Otimizações', 'Playbook', 'Interno', 'Manual']

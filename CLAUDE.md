@@ -652,7 +652,36 @@ O módulo passou a se chamar **VertaTask** (rótulo na sidebar e no breadcrumb; 
   topo. "Todas as tarefas" = `?todas=1` (`carregarAbertas`: tudo que não está concluído).
   **Views salvas** vivem em `localStorage` (`tarefas.views`, por navegador): guardam seleção
   (lista/pasta/minhas/todas), visão, agrupamento, responsável e "concluídas".
-- **Ainda não feito:** views salvas compartilhadas entre o time (hoje por navegador), Pages (documentos) e a decisão sobre desligar o ClickUp.
+- **Paridade com o Plane (migration 095, 2026-10-16).** Reimplementado do zero a partir do que o
+  repositório do Plane faz (o código dele é AGPL-3.0, nada foi copiado):
+  - **Etiquetas** (`tarefas_etiquetas` + `tarefas_itens.etiquetas uuid[]`; o `tags` do ClickUp segue à parte), filtro na barra,
+    chips no quadro/planilha.
+  - **Relações** (`tarefas_relacoes`: bloqueia, duplica, relacionada; o inverso é calculado na tela).
+  - **Histórico** (`tarefas_atividade`, preenchida por trigger `tarefas_log_atividade`; só registra edição
+    de pessoa logada, a sincronização do ClickUp usa chave de serviço e fica de fora) e **seguidores**
+    (`tarefas_seguidores`, quem comenta ou recebe a tarefa passa a seguir). Trigger de comentário e de
+    atribuição escrevem em `notifications` (`tarefa_comentario`, `tarefa_atribuida`, link `/tarefas?tarefa=`).
+  - **Views compartilhadas** (`tarefas_views`, `acesso` publica/privada, só o dono edita/apaga). As que
+    ficavam no `localStorage` migram sozinhas para o banco como privadas.
+  - **Modelos de tarefa** (`tarefas_modelos`: título, descrição, prioridade, estimativa, etiquetas,
+    checklists e subtarefas), botão "Modelos" no cabeçalho e "Salvar como modelo" no painel.
+  - **Pages** (`?aba=paginas&pagina=<id>`, `tarefas_paginas`, `usePaginas`, `PaginasView`): markdown com
+    barra de formatação, subpáginas, cliente e module, privada/do time, bloqueio (só o dono edita),
+    arquivo, salvamento automático e **versões** (`tarefas_paginas_versoes`, guarda o texto anterior se
+    a última versão tem +5 min).
+  - **Analytics** (`?aba=analytics`): RPC `vertatask_analytics(p_dias)` devolve tudo em um JSON (abertas,
+    atrasadas, criadas/concluídas por dia, tempo médio, por status/prioridade/pessoa/cliente, cycles).
+  - **Planilha** e **Gantt** como visões ao lado de Lista/Quadro/Calendário.
+  - **Cycles:** editar (nome, datas, objetivo, responsável) e "Mover pendentes" para outro cycle.
+    **Modules:** status (planejado, em andamento, pausado, concluído, cancelado), líder, membros, datas e links,
+    editor em `ModuloEditor`.
+  - **Intake:** adiar (volta à fila na data), marcar duplicada, contato de quem pediu, link público
+    `/pedido/:token` (`api/intake-publico.js`, edge, `client_share_token`, 8 pedidos/hora por cliente) e entrada
+    automática por `api/_intake.js` (`registrarIntake`, idempotente por `origem_ref`) quando o cliente
+    **reprova** anúncio, LP (`api/anuncios-aprovacao.js`) ou copy (`api/copy-aprovacao.js`).
+  - **Não portado de propósito:** pontos de estimativa (usamos `estimativa_min`), rascunhos, sticky notes,
+    favoritos, webhooks/API pública, importadores e editor rich text (Pages usa markdown).
+- **Ainda não feito:** ligar a Central de Otimizações e o playbook ao Intake, e a decisão sobre desligar o ClickUp.
 
 ### Chat (módulo do VertaTask, `/tarefas?aba=chat`): réplica do ClickUp Chat
 
