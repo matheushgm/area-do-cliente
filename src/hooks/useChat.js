@@ -272,3 +272,23 @@ export function useChat({ user, teamMembers }) {
     enviar, excluir, reagir, alternarFavorito, criarCanal, abrirDM, garantirMembro, marcarLido, recarregar,
   }
 }
+
+/**
+ * Total de mensagens não lidas, para o contador do Chat na navegação do VertaTask.
+ * Consulta leve (RPC chat_unread_counts) a cada 45 s e sempre que `atualizar` muda.
+ */
+export function useChatNaoLidas(userId, atualizar) {
+  const [total, setTotal] = useState(0)
+  useEffect(() => {
+    if (!supabase || !userId) return undefined
+    let vivo = true
+    const ler = async () => {
+      const { data } = await supabase.rpc('chat_unread_counts')
+      if (vivo) setTotal((data || []).reduce((a, u) => a + Number(u.unread || 0), 0))
+    }
+    ler()
+    const t = setInterval(ler, 45000)
+    return () => { vivo = false; clearInterval(t) }
+  }, [userId, atualizar])
+  return total
+}

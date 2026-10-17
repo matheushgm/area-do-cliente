@@ -646,7 +646,15 @@ O módulo passou a se chamar **VertaTask** (rótulo na sidebar e no breadcrumb; 
   (lista/pasta/minhas/todas), visão, agrupamento, responsável e "concluídas".
 - **Ainda não feito:** views salvas compartilhadas entre o time (hoje por navegador), Pages (documentos) e a decisão sobre desligar o ClickUp.
 
-### Chat (`/chat`): réplica do ClickUp Chat
+### Chat (módulo do VertaTask, `/tarefas?aba=chat`): réplica do ClickUp Chat
+
+> **Desde 2026-10-16 o Chat é uma seção do VertaTask**, no item "Chat" da coluna esquerda (com
+> contador de não lidas, `useChatNaoLidas`, RPC `chat_unread_counts` a cada 45 s). O componente
+> é `src/components/Chat/ChatModulo.jsx` (era `src/pages/Chat.jsx`) e mantém `?aba=chat` ao trocar
+> `channel`/`thread`/`msg`. `/chat?...` virou redirect (`RedirectChat` em `legacyRedirects.jsx`)
+> porque há links gravados em notificações e mensagens; o item "Chat" saiu da sidebar global.
+> O resto desta seção continua valendo.
+
 
 Visual e comportamento copiados do ClickUp Chat, no mesmo frame claro `.ln` dos módulos
 Tarefas/Atividades: coluna de 260px com "Chat", busca, botão de nova mensagem, filtros

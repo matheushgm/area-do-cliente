@@ -19,6 +19,8 @@ import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
 import { useTarefas } from '../hooks/useTarefas'
 import { useVertaTask } from '../hooks/useVertaTask'
+import { useChatNaoLidas } from '../hooks/useChat'
+import ChatModulo from '../components/Chat/ChatModulo'
 import { cicloPadrao } from '../lib/vertatask'
 import { statusDaLista, statusDasListas, agruparItens, filtrarItens, AGRUPAMENTOS, STATUSES_PADRAO, corDaPessoa, iniciais } from '../lib/tarefas'
 import TarefasSidebar from '../components/Tarefas/TarefasSidebar'
@@ -209,11 +211,11 @@ export default function Tarefas() {
   useEffect(() => gravarPref('views', viewsSalvas), [viewsSalvas])
 
   // ── Seleção (pasta / lista / minhas) via URL ─────────────────────────────
-  const aba = params.get('aba') // null = tarefas | 'intake' | 'ciclos' | 'modulos'
+  const aba = params.get('aba') // null = tarefas | 'intake' | 'ciclos' | 'modulos' | 'chat'
   const sel = useMemo(() => {
     if (aba === 'ciclos') return { tipo: 'ciclo', id: params.get('ciclo') || cicloPadrao(vt.ciclos)?.id || null }
     if (aba === 'modulos' && params.get('modulo')) return { tipo: 'modulo', id: params.get('modulo') }
-    if (aba === 'modulos' || aba === 'intake') return { tipo: 'nenhum' }
+    if (aba === 'modulos' || aba === 'intake' || aba === 'chat') return { tipo: 'nenhum' }
     if (params.get('lista')) return { tipo: 'lista', id: params.get('lista') }
     if (params.get('pasta')) return { tipo: 'pasta', id: params.get('pasta') }
     if (params.get('minhas') === '1') return { tipo: 'minhas' }
@@ -221,6 +223,7 @@ export default function Tarefas() {
     return lerPref('sel', null) || { tipo: 'minhas' }
   }, [params, aba, vt.ciclos])
   const tarefaAbertaId = params.get('tarefa')
+  const chatNaoLidas = useChatNaoLidas(user?.id, aba)
 
   const setSel = useCallback((s) => {
     gravarPref('sel', s)
@@ -398,11 +401,11 @@ export default function Tarefas() {
     const h = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.key === 'Escape' && tarefaAbertaId && !estaDigitando()) { e.preventDefault(); if (painelExpandido) setPainelExpandido(false); else fecharPainel() }
-      if ((e.key === 'c' || e.key === 'C') && !estaDigitando()) { e.preventDefault(); novaTarefa() }
+      if ((e.key === 'c' || e.key === 'C') && !estaDigitando() && aba !== 'chat') { e.preventDefault(); novaTarefa() }
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa])
+  }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa, aba])
 
   const ctx = useMemo(() => ({
     statuses, membros: teamMembers || [], membrosMap, itensMap: t.itens, listaPadraoId, agrupar, contagemComentarios, selecionadaId: tarefaAbertaId,
@@ -438,12 +441,13 @@ export default function Tarefas() {
               onAtualizarPasta={t.atualizarPasta}
               onAtualizarLista={t.atualizarLista}
               aberta={arvoreAberta} onFechar={() => setArvoreAberta(false)}
-              nav={{ aba: aba || 'tarefas', onAba: irAba, intake: vt.intakePendentes.length }}
+              nav={{ aba: aba || 'tarefas', onAba: irAba, intake: vt.intakePendentes.length, chat: chatNaoLidas }}
               views={viewsSalvas} onAplicarView={aplicarView} onExcluirView={(id) => setViewsSalvas((v) => v.filter((x) => x.id !== id))}
               contagem={contagemPorPasta}
             />
 
             {/* ── Painel principal ─────────────────────────────────────── */}
+            {aba === 'chat' ? <ChatModulo onAbrirMenu={openSidebar} /> : (
             <div className="flex-1 min-w-0 flex flex-col">
               <header className="min-h-[56px] shrink-0 flex items-center justify-between gap-3 px-6 py-2 border-b border-ln-ink/[0.08]">
                 <div className="flex items-center gap-2 min-w-0">
@@ -548,9 +552,10 @@ export default function Tarefas() {
                 )}
               </div>
             </div>
+            )}
 
             {/* ── Painel lateral ──────────────────────────────────────── */}
-            {painel && (
+            {painel && aba !== 'chat' && (
               <>
                 {!painelEmpurra && !painelExpandido && <div className="absolute inset-0 z-30 bg-black/30" onClick={fecharPainel} aria-hidden="true" />}
                 <aside

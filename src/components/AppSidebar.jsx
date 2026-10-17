@@ -8,7 +8,7 @@ import { baseProjectsOf, sidebarCounts } from '../lib/dashboardCounts'
 import { Sparkles,
   Layers, TrendingDown, UserPlus,
   LogOut, Cloud, Loader2,
-  X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare, BarChart3, DollarSign,
+  X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, BarChart3, DollarSign,
   Sun, Moon, Clapperboard, Timer, Layout, CalendarCheck, PanelLeftClose, PanelLeftOpen, Waypoints, Users2,
   ChevronUp,
 } from 'lucide-react'
@@ -74,7 +74,6 @@ const NAV_SECTIONS = [
       { id: 'planejador',  label: 'Atividades',        Icon: CalendarCheck, type: 'route', to: '/atividades' },
       { id: 'tarefas',     label: 'VertaTask',         Icon: CheckSquare,   type: 'route', to: '/tarefas' },
       { id: 'atividades',  label: 'Atividades 15min',  Icon: Timer,         type: 'route', to: '/atividades-15min' },
-      { id: 'chat',        label: 'Chat',              Icon: MessageSquare, type: 'route', to: '/chat' },
     ],
   },
   {

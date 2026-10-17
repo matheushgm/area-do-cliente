@@ -1,7 +1,7 @@
 // Coluna esquerda do módulo Tarefas: árvore Pastas (clientes) → Listas, no
 // visual do Linear (mesma coluna de navegação densa do app).
 import { useState, useMemo, useRef } from 'react'
-import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, Box, ListChecks } from 'lucide-react'
+import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, Box, ListChecks, MessageSquare } from 'lucide-react'
 import { Popover, FOCO } from './Campos'
 
 function MenuPasta({ onRenomear, onNovaLista, onArquivar }) {
@@ -120,6 +120,7 @@ export default function TarefasSidebar({
         <NavItem icon={ListChecks} ativo={nav.aba === 'tarefas' && sel.tipo === 'todas'} onClick={() => { onSel({ tipo: 'todas' }); onFechar?.() }}>Todas as tarefas</NavItem>
         <NavItem icon={Repeat} ativo={nav.aba === 'ciclos'} onClick={() => { nav.onAba('ciclos'); onFechar?.() }}>Cycles</NavItem>
         <NavItem icon={Box} ativo={nav.aba === 'modulos'} onClick={() => { nav.onAba('modulos'); onFechar?.() }}>Modules</NavItem>
+        <NavItem icon={MessageSquare} ativo={nav.aba === 'chat'} onClick={() => { nav.onAba('chat'); onFechar?.() }} badge={nav.chat}>Chat</NavItem>
 
         <div className={SECAO}>Views salvas</div>
         {views.length === 0 && <p className="px-2.5 text-xs text-ln-t4">Nenhuma ainda. Use Salvar view na barra de filtros.</p>}
