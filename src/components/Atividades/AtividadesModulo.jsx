@@ -8,7 +8,7 @@
 // O cálculo da data vive no painel flutuante "Planejador · ClickUp".
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
-  Menu, CalendarCheck, ChevronUp, ChevronDown, ChevronRight, Star, RefreshCw, Loader2, Settings, Plus, X,
+  Menu, ChevronUp, ChevronDown, ChevronRight, RefreshCw, Loader2, Settings, Plus, X,
   Users, ListChecks, Rows3, Layers, Maximize2, Minimize2, CheckCircle2, CalendarRange,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
@@ -282,16 +282,14 @@ export default function AtividadesModulo({ onAbrirMenu }) {
             {/* ── Painel principal ─────────────────────────────────────── */}
             <div className="flex-1 min-w-0 flex flex-col">
               {/* Barra superior */}
-              <header className="h-11 shrink-0 flex items-center justify-between gap-3 px-3 border-b border-ln-ink/5">
-                <div className="flex items-center gap-1 min-w-0">
+              <header className="min-h-[56px] shrink-0 flex items-center justify-between gap-3 px-6 py-2 border-b border-ln-ink/[0.08]">
+                <div className="flex items-center gap-2 min-w-0">
                   <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
-                  <div className="flex items-center gap-2 h-7 px-2.5 rounded-lg text-xs font-medium text-ln-t2 min-w-0">
-                    <CalendarCheck className="w-3.5 h-3.5 text-ln-accent shrink-0" />
-                    <span className="truncate">Atividades</span>
+                  <h1 className="text-xl font-bold text-ln-t1 truncate">Atividades</h1>
+                  <div className="hidden sm:flex items-center gap-1.5 text-[13px] text-ln-t3 min-w-0">
                     <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
                     <span className="truncate text-ln-t2">{view === 'time' ? 'Capacidade do time' : view === 'concluidas' ? 'Tarefas concluídas' : 'Atividades planejadas'}</span>
                   </div>
-                  <button className="ln-iconbtn" aria-label="Favorito" title="Favorito"><Star className="w-3.5 h-3.5" /></button>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${carga.envelhecido ? 'text-ln-yellow' : 'text-ln-t4'}`} title={carga.geradoEm ? `Carga lida do ClickUp às ${fmtHora(carga.geradoEm)}` : 'Ainda não li o ClickUp'}>
@@ -303,18 +301,18 @@ export default function AtividadesModulo({ onAbrirMenu }) {
                     {contador.i >= 0 ? `${contador.i + 1} / ${contador.n}` : `${carga.lidas} / ${carga.pessoas.length}`}
                   </span>
                   <div className="hidden md:flex items-center">
-                    <button onClick={() => contador.ir(contador.i - 1)} disabled={contador.i <= 0} className="ln-iconbtn !w-[30px] !rounded-md" aria-label="Anterior"><ChevronUp className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => contador.ir(contador.i + 1)} disabled={contador.i < 0 || contador.i >= contador.n - 1} className="ln-iconbtn !w-[30px] !rounded-md" aria-label="Próximo"><ChevronDown className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => contador.ir(contador.i - 1)} disabled={contador.i <= 0} className="ln-iconbtn" aria-label="Anterior"><ChevronUp className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => contador.ir(contador.i + 1)} disabled={contador.i < 0 || contador.i >= contador.n - 1} className="ln-iconbtn" aria-label="Próximo"><ChevronDown className="w-3.5 h-3.5" /></button>
                   </div>
                   <button onClick={() => carga.refresh()} disabled={carga.loading} className="ln-iconbtn" aria-label="Recarregar do ClickUp" title="Recarregar do ClickUp">
                     <RefreshCw className={`w-3.5 h-3.5 ${carga.loading ? 'animate-spin' : ''}`} />
                   </button>
-                  <button onClick={() => novaAtividade()} className="ln-primary" title="Nova atividade (C)">
-                    <Plus className="w-3.5 h-3.5" /> Nova atividade <kbd className="ln-kbd !text-white/80 !bg-white/15 !border-white/20 ml-0.5">C</kbd>
-                  </button>
                   {isAdmin && (
                     <button onClick={() => setShowConfig(true)} className="ln-iconbtn" aria-label="Capacidade e horas padrão" title="Capacidade e horas padrão"><Settings className="w-3.5 h-3.5" /></button>
                   )}
+                  <button onClick={() => novaAtividade()} className="ln-primary" title="Nova atividade (C)">
+                    <Plus className="w-3.5 h-3.5" /> Nova atividade
+                  </button>
                 </div>
               </header>
 
@@ -370,7 +368,7 @@ export default function AtividadesModulo({ onAbrirMenu }) {
               </div>
 
               {/* Conteúdo rolável */}
-              <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
+              <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto bg-ln-bg">
                 {view === 'concluidas' ? (
                   <RelatorioConcluidas
                     rel={concl}
@@ -383,7 +381,7 @@ export default function AtividadesModulo({ onAbrirMenu }) {
                     denso={denso}
                   />
                 ) : (<>
-                <section ref={timeRef} className="pb-4">
+                <section ref={timeRef} className="pb-4 pt-3">
                   <KpiStrip
                     pessoas={carga.pessoas}
                     hoje={carga.hoje}
@@ -397,6 +395,7 @@ export default function AtividadesModulo({ onAbrirMenu }) {
                     colunas={painel && painelEmpurra ? 3 : 6}
                   />
                   <TeamHeatLine pessoas={carga.pessoas} hoje={carga.hoje} diaSelecionado={diaSelecionado} onSelecionarDia={setDiaSelecionado} />
+                  <div className="mx-4 ln-card">
                   <TeamTable
                     pessoas={carga.pessoas}
                     hoje={carga.hoje}
@@ -411,8 +410,10 @@ export default function AtividadesModulo({ onAbrirMenu }) {
                     onRecarregar={recarregarPessoa}
                     colunasOcultas={painel && painelEmpurra ? (largura < 1440 ? ['semdata', 'zumbis', 'alem', 'proxlivre'].concat(largura < 1100 ? ['hoje'] : []) : []) : []}
                   />
+                  </div>
                 </section>
                 <section ref={listaRef} className="pb-24">
+                  <div className="mx-4 ln-card">
                   <IssueList
                     registros={historico}
                     nomeProjeto={nomeProjeto}
@@ -423,6 +424,7 @@ export default function AtividadesModulo({ onAbrirMenu }) {
                     onAbrir={abrirAtividade}
                     loading={loadingHist}
                   />
+                  </div>
                 </section>
                 </>)}
               </div>
