@@ -1,4 +1,4 @@
-// Módulo Atividades: capacidade do time (lida do ClickUp) + planejador de
+// Módulo Atividades (hoje uma seção do VertaTask, `/tarefas?aba=atividades`): capacidade do time (lida do ClickUp) + planejador de
 // atividades, num frame com a linguagem visual do Linear (tokens ln-*).
 //
 // De cima para baixo: barra superior (breadcrumb, contador, ações), barra de
@@ -7,32 +7,31 @@
 // À direita, um painel com três modos (pessoa, atividade, nova atividade).
 // O cálculo da data vive no painel flutuante "Planejador · ClickUp".
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useOutletContext } from 'react-router-dom'
 import {
   Menu, CalendarCheck, ChevronUp, ChevronDown, ChevronRight, Star, RefreshCw, Loader2, Settings, Plus, X,
   Users, ListChecks, Rows3, Layers, Maximize2, Minimize2, CheckCircle2, CalendarRange,
 } from 'lucide-react'
-import { useApp } from '../context/AppContext'
-import Toast from '../components/UI/Toast'
-import { useToast } from '../hooks/useToast'
-import { supabase } from '../lib/supabase'
-import { carregarConfigAtividades, estimarTarefa, tiparTarefa } from '../lib/atividades'
-import { useCargaTime } from '../hooks/useCargaTime'
-import { usePlanejador } from '../hooks/usePlanejador'
-import { useConcluidas } from '../hooks/useConcluidas'
-import { PERIODOS, SEM_RESPONSAVEL_KEY, MAX_DIAS_CUSTOM, intervaloDoPeriodo, customPadrao, diasEntre, isoValido } from '../lib/atividadesConcluidas'
-import { hojeISO } from '../lib/atividadesCarga'
-import { fmtHora, chaveAtividade } from '../lib/atividadesCarga'
-import KpiStrip from '../components/Atividades/KpiStrip'
-import TeamHeatLine from '../components/Atividades/TeamHeatLine'
-import TeamTable from '../components/Atividades/TeamTable'
-import PersonPanel from '../components/Atividades/PersonPanel'
-import IssueList from '../components/Atividades/IssueList'
-import AtividadePanel from '../components/Atividades/AtividadePanel'
-import NovaAtividadePanel from '../components/Atividades/NovaAtividadePanel'
-import PlannerFloat from '../components/Atividades/PlannerFloat'
-import ConfigModal from '../components/Atividades/ConfigModal'
-import RelatorioConcluidas from '../components/Atividades/RelatorioConcluidas'
+import { useApp } from '../../context/AppContext'
+import Toast from '../UI/Toast'
+import { useToast } from '../../hooks/useToast'
+import { supabase } from '../../lib/supabase'
+import { carregarConfigAtividades, estimarTarefa, tiparTarefa } from '../../lib/atividades'
+import { useCargaTime } from '../../hooks/useCargaTime'
+import { usePlanejador } from '../../hooks/usePlanejador'
+import { useConcluidas } from '../../hooks/useConcluidas'
+import { PERIODOS, SEM_RESPONSAVEL_KEY, MAX_DIAS_CUSTOM, intervaloDoPeriodo, customPadrao, diasEntre, isoValido } from '../../lib/atividadesConcluidas'
+import { hojeISO } from '../../lib/atividadesCarga'
+import { fmtHora, chaveAtividade } from '../../lib/atividadesCarga'
+import KpiStrip from './KpiStrip'
+import TeamHeatLine from './TeamHeatLine'
+import TeamTable from './TeamTable'
+import PersonPanel from './PersonPanel'
+import IssueList from './IssueList'
+import AtividadePanel from './AtividadePanel'
+import NovaAtividadePanel from './NovaAtividadePanel'
+import PlannerFloat from './PlannerFloat'
+import ConfigModal from './ConfigModal'
+import RelatorioConcluidas from './RelatorioConcluidas'
 
 // Fallback só para a tela não quebrar sem API; a fonte de verdade é DEFAULT_CONFIG
 // em api/_atividades_engine.js (mesclado com atividades_config), via action=config.
@@ -81,8 +80,8 @@ function estaDigitando() {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
 }
 
-export default function Atividades() {
-  const { openSidebar } = useOutletContext()
+export default function AtividadesModulo({ onAbrirMenu }) {
+  const openSidebar = onAbrirMenu || (() => {})
   const { user, projects, teamMembers, squads } = useApp()
   const { toast, showToast } = useToast()
   const isAdmin = user?.role === 'admin'
@@ -277,9 +276,9 @@ export default function Atividades() {
   return (
     <>
 
-      <div ref={conteudoRef} className="ln flex-1 min-w-0 flex flex-col h-screen bg-ln-bg">
-        <div className="flex-1 min-h-0 p-2">
-          <div className="relative h-full min-h-0 flex rounded-lg border border-ln-ink/5 bg-ln-panel overflow-hidden" style={{ boxShadow: '0 0 0 2px rgb(var(--ln-ink) / 0.02)' }}>
+      <div ref={conteudoRef} className="flex-1 min-w-0 flex flex-col h-full min-h-0 bg-ln-bg">
+        <div className="flex-1 min-h-0">
+          <div className="relative h-full min-h-0 flex bg-ln-panel overflow-hidden">
             {/* ── Painel principal ─────────────────────────────────────── */}
             <div className="flex-1 min-w-0 flex flex-col">
               {/* Barra superior */}

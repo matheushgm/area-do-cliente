@@ -21,6 +21,7 @@ import { useTarefas } from '../hooks/useTarefas'
 import { useVertaTask } from '../hooks/useVertaTask'
 import { useChatNaoLidas } from '../hooks/useChat'
 import ChatModulo from '../components/Chat/ChatModulo'
+import AtividadesModulo from '../components/Atividades/AtividadesModulo'
 import { cicloPadrao } from '../lib/vertatask'
 import { statusDaLista, statusDasListas, agruparItens, filtrarItens, AGRUPAMENTOS, STATUSES_PADRAO, corDaPessoa, iniciais } from '../lib/tarefas'
 import TarefasSidebar from '../components/Tarefas/TarefasSidebar'
@@ -211,11 +212,11 @@ export default function Tarefas() {
   useEffect(() => gravarPref('views', viewsSalvas), [viewsSalvas])
 
   // ── Seleção (pasta / lista / minhas) via URL ─────────────────────────────
-  const aba = params.get('aba') // null = tarefas | 'intake' | 'ciclos' | 'modulos' | 'chat'
+  const aba = params.get('aba') // null = tarefas | 'intake' | 'ciclos' | 'modulos' | 'chat' | 'atividades'
   const sel = useMemo(() => {
     if (aba === 'ciclos') return { tipo: 'ciclo', id: params.get('ciclo') || cicloPadrao(vt.ciclos)?.id || null }
     if (aba === 'modulos' && params.get('modulo')) return { tipo: 'modulo', id: params.get('modulo') }
-    if (aba === 'modulos' || aba === 'intake' || aba === 'chat') return { tipo: 'nenhum' }
+    if (aba === 'modulos' || aba === 'intake' || aba === 'chat' || aba === 'atividades') return { tipo: 'nenhum' }
     if (params.get('lista')) return { tipo: 'lista', id: params.get('lista') }
     if (params.get('pasta')) return { tipo: 'pasta', id: params.get('pasta') }
     if (params.get('minhas') === '1') return { tipo: 'minhas' }
@@ -401,7 +402,7 @@ export default function Tarefas() {
     const h = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.key === 'Escape' && tarefaAbertaId && !estaDigitando()) { e.preventDefault(); if (painelExpandido) setPainelExpandido(false); else fecharPainel() }
-      if ((e.key === 'c' || e.key === 'C') && !estaDigitando() && aba !== 'chat') { e.preventDefault(); novaTarefa() }
+      if ((e.key === 'c' || e.key === 'C') && !estaDigitando() && aba !== 'chat' && aba !== 'atividades') { e.preventDefault(); novaTarefa() }
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
@@ -447,7 +448,7 @@ export default function Tarefas() {
             />
 
             {/* ── Painel principal ─────────────────────────────────────── */}
-            {aba === 'chat' ? <ChatModulo onAbrirMenu={openSidebar} /> : (
+            {aba === 'chat' ? <ChatModulo onAbrirMenu={openSidebar} /> : aba === 'atividades' ? <AtividadesModulo onAbrirMenu={openSidebar} /> : (
             <div className="flex-1 min-w-0 flex flex-col">
               <header className="min-h-[56px] shrink-0 flex items-center justify-between gap-3 px-6 py-2 border-b border-ln-ink/[0.08]">
                 <div className="flex items-center gap-2 min-w-0">
@@ -555,7 +556,7 @@ export default function Tarefas() {
             )}
 
             {/* ── Painel lateral ──────────────────────────────────────── */}
-            {painel && aba !== 'chat' && (
+            {painel && aba !== 'chat' && aba !== 'atividades' && (
               <>
                 {!painelEmpurra && !painelExpandido && <div className="absolute inset-0 z-30 bg-black/30" onClick={fecharPainel} aria-hidden="true" />}
                 <aside

@@ -1,7 +1,7 @@
 import { lazy } from 'react'
 import { Route, Navigate } from 'react-router-dom'
 import { RequireAuth, RequireAdmin, RequireSquadsAccess } from './guards'
-import { RedirectProjetoLegado, RedirectComQuery, RedirectChat } from './legacyRedirects'
+import { RedirectProjetoLegado, RedirectComQuery, RedirectChat, RedirectAtividades } from './legacyRedirects'
 import AppLayout from './AppLayout'
 
 // Rotas que exigem login. Diferente das públicas, estas podem ser renomeadas
@@ -16,7 +16,6 @@ const ProjectDetail = lazy(() => import('../pages/ProjectDetail'))
 
 // ── Operação ───────────────────────────────────────────────
 const Tarefas = lazy(() => import('../pages/Tarefas'))
-const Atividades = lazy(() => import('../pages/Atividades'))
 const Otimizacoes = lazy(() => import('../pages/Otimizacoes'))
 const Atividades15min = lazy(() => import('../pages/Atividades15min'))
 
@@ -46,7 +45,7 @@ export const appRoutes = [
 
     <Route key="tarefas" path="/tarefas" element={<Tarefas />} />
     <Route key="otimizacoes" path="/otimizacoes" element={<Otimizacoes />} />
-    <Route key="atividades" path="/atividades" element={<Atividades />} />
+    <Route key="atividades" path="/atividades" element={<RedirectAtividades />} />
     <Route key="atividades-15min" path="/atividades-15min" element={<Atividades15min />} />
     <Route key="chat" path="/chat" element={<RedirectChat />} />
 

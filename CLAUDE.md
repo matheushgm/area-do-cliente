@@ -425,7 +425,15 @@ campos de funil preenchidos à mão (MQL, SQL, vendas, receita são preservados)
   `x-vercel-cron`). A chave de serviço é lida de `SUPABASE_SECRET_KEY` com fallback para
   `SUPABASE_SERVICE_ROLE_KEY`.
 
-### Atividades (`/atividades`): capacidade do time + planejador, visual do Linear
+### Atividades (módulo do VertaTask, `/tarefas?aba=atividades`): capacidade do time + planejador, visual do Linear
+
+> **Desde 2026-10-16 o Atividades é uma seção do VertaTask** (item "Atividades" na coluna
+> esquerda). O componente é `src/components/Atividades/AtividadesModulo.jsx` (era
+> `src/pages/Atividades.jsx`), sem moldura própria: preenche a área principal do VertaTask.
+> `/atividades` virou redirect (`RedirectAtividades`) e saiu da sidebar global. O `C` abre a
+> nova atividade só nessa seção. "Atividades 15min" (`/atividades-15min`) continua separado.
+> O resto desta seção continua valendo.
+
 
 Módulo único que absorveu o antigo "Capacidade do Time" (`WorkloadDashboard.jsx`,
 `public/workload/` e a rota `/workload` foram removidos). A área de conteúdo replica

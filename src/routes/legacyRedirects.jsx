@@ -24,6 +24,14 @@ export function RedirectChat() {
   return <Navigate to={`/tarefas?${p.toString()}${hash}`} replace />
 }
 
+// `/atividades` → `/tarefas?aba=atividades`: o planejador de capacidade virou seção do VertaTask.
+export function RedirectAtividades() {
+  const { search, hash } = useLocation()
+  const p = new URLSearchParams(search)
+  p.set('aba', 'atividades')
+  return <Navigate to={`/tarefas?${p.toString()}${hash}`} replace />
+}
+
 // Redirect simples que preserva querystring e hash.
 export function RedirectComQuery({ to }) {
   const { search, hash } = useLocation()
