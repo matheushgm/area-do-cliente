@@ -6,9 +6,9 @@ import { CFG, buildStats, computeMainPeriod, fmtNum } from '../lib/dashboardData
 import {
   Zap, Plus, LogOut, Clock, CheckCircle2, Layers,
   Calendar, User,
-  BarChart3, FileText, DollarSign, Users,
+  FileText, DollarSign, Users,
   Eye, X, Trash2, AlertTriangle,
-  Cloud, CloudOff, Loader2, Menu, Search,
+  CloudOff, Loader2, Menu, Search,
   LayoutGrid, List, ChevronUp, ChevronDown, ChevronsUpDown, Users2,
   Wallet, TrendingDown, History, TrendingUp, Building2,
 } from 'lucide-react'
@@ -1140,39 +1140,6 @@ export default function Dashboard() {
     return member ? `Clientes de ${member.name.split(' ')[0]}` : 'Clientes'
   })()
 
-  function riskCounts(list) {
-    return {
-      em_risco: list.filter(p => p.riskLevel === 'em_risco').length,
-      neutro:   list.filter(p => p.riskLevel === 'neutro').length,
-      saudavel: list.filter(p => p.riskLevel === 'saudavel').length,
-      vazio:    list.filter(p => !p.riskLevel).length,
-    }
-  }
-
-  const MOMENTO_CARDS = [
-    { value: 'onboarding',      label: 'Em Onboarding',   icon: <Clock    className="w-5 h-5" />, color: 'text-orange-400', bg: 'bg-orange-400/10' },
-    { value: 'voo_de_cruzeiro', label: 'Voo de Cruzeiro', icon: <Cloud    className="w-5 h-5" />, color: 'text-rl-cyan',    bg: 'bg-rl-cyan/10'    },
-    { value: 'aceleracao',      label: 'Aceleração',      icon: <Zap      className="w-5 h-5" />, color: 'text-rl-green',   bg: 'bg-rl-green/10'   },
-    { value: null,              label: 'Sem Momento',     icon: <Layers   className="w-5 h-5" />, color: 'text-rl-muted',   bg: 'bg-rl-muted/10'   },
-  ]
-
-  const stats = [
-    ...MOMENTO_CARDS.map(m => {
-      const group = baseProjects.filter(p =>
-        m.value === null ? (!p.momento || p.momento === '') : p.momento === m.value
-      )
-      return { ...m, count: group.length, risks: riskCounts(group) }
-    }),
-    {
-      label: 'Total de Clientes',
-      count: baseProjects.filter(p => p.momento !== 'churn').length,
-      icon:  <BarChart3 className="w-5 h-5" />,
-      color: 'text-rl-purple',
-      bg:    'bg-rl-purple/10',
-      risks: riskCounts(baseProjects.filter(p => p.momento !== 'churn')),
-    },
-  ]
-
   // ── Resumo financeiro + churn do mês corrente ─────────────────────────────
   const _now      = new Date()
   const _yyyy     = _now.getFullYear()
@@ -1297,64 +1264,6 @@ export default function Dashboard() {
               <Plus className="w-4 h-4" />
               Novo Cliente
             </button>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 animate-slide-up" style={{ animationDelay: '0.05s' }}>
-            {stats.map((s) => (
-              <div key={s.label} className="glass-card p-5">
-                <div className="flex items-start justify-between gap-2 mb-0">
-                  <div>
-                    <p className="text-2xl font-bold text-rl-text">{s.count}</p>
-                    <p className={`text-xs mt-0.5 ${s.count === 0 ? 'text-rl-muted/50' : 'text-rl-muted'}`}>{s.label}</p>
-                  </div>
-                  <div className={`w-9 h-9 rounded-xl ${s.bg} flex items-center justify-center shrink-0 ${s.color}`}>
-                    {s.icon}
-                  </div>
-                </div>
-
-                {s.risks && (s.risks.em_risco > 0 || s.risks.neutro > 0 || s.risks.saudavel > 0 || s.risks.vazio > 0) && (
-                  <div className="mt-3 pt-3 border-t border-rl-border space-y-1.5">
-                    {s.risks.em_risco > 0 && (
-                      <div className="flex items-center justify-between text-[11px]">
-                        <div className="flex items-center gap-1.5 text-rl-muted">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
-                          Em Risco
-                        </div>
-                        <span className="font-semibold text-red-400">{s.risks.em_risco}</span>
-                      </div>
-                    )}
-                    {s.risks.neutro > 0 && (
-                      <div className="flex items-center justify-between text-[11px]">
-                        <div className="flex items-center gap-1.5 text-rl-muted">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rl-gold shrink-0" />
-                          Neutro
-                        </div>
-                        <span className="font-semibold text-rl-gold">{s.risks.neutro}</span>
-                      </div>
-                    )}
-                    {s.risks.saudavel > 0 && (
-                      <div className="flex items-center justify-between text-[11px]">
-                        <div className="flex items-center gap-1.5 text-rl-muted">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rl-green shrink-0" />
-                          Saudável
-                        </div>
-                        <span className="font-semibold text-rl-green">{s.risks.saudavel}</span>
-                      </div>
-                    )}
-                    {s.risks.vazio > 0 && (
-                      <div className="flex items-center justify-between text-[11px]">
-                        <div className="flex items-center gap-1.5 text-rl-muted">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rl-muted/40 shrink-0" />
-                          Sem risco
-                        </div>
-                        <span className="font-semibold text-rl-muted">{s.risks.vazio}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
           </div>
 
           {/* Resumo financeiro + movimentação do mês corrente */}
