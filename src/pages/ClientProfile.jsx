@@ -9,7 +9,7 @@ import HubInformacoes from '../components/ProjetoHub/HubInformacoes'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
-import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, BUSINESS_LABELS, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, MATURITY_LABELS, CONTRACT_MODEL_LABELS, CONTRACT_PAYMENT_LABELS } from '../lib/constants'
+import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, BUSINESS_LABELS, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, MATURITY_LABELS, CONTRACT_MODEL_LABELS, CONTRACT_PAYMENT_LABELS, PLAN_TYPE_OPTIONS, BILLING_MODE_OPTIONS, PLAN_TYPE_LABELS, BILLING_MODE_LABELS } from '../lib/constants'
 import { fmtCurrency, initials, calcLTV, activeMonths, ltvStartSource, accelerationMonths } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
@@ -71,6 +71,44 @@ const RISK_CONFIG = [
 ]
 
 // ─── Onboarding Edit Form ─────────────────────────────────────────────────────
+// Pergunta curta no cartão do cliente: sem resposta mostra as opções como
+// botões; respondida mostra o valor, e um clique reabre as opções para trocar.
+function InlineChoice({ value, options, onChange }) {
+  const [editando, setEditando] = useState(false)
+  const atual = options.find((o) => o.value === value)
+  if (atual && !editando) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditando(true)}
+        className="inline-flex items-center gap-1 text-rl-subtle hover:text-rl-text transition-colors"
+        title="Alterar"
+      >
+        {atual.label}
+        <ChevronDown className="w-3 h-3 opacity-50" />
+      </button>
+    )
+  }
+  return (
+    <span className="inline-flex flex-wrap gap-1.5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => { onChange(o.value); setEditando(false) }}
+          className={`px-2 py-0.5 rounded-md border text-[11px] font-medium transition-all ${
+            o.value === value
+              ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
+              : 'border-dashed border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-text'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </span>
+  )
+}
+
 function OnboardingEditForm({ project, onSave, onCancel }) {
   // Map stored service labels → IDs for the checkboxes
   const initialServiceIds = (project.services || [])
@@ -91,6 +129,8 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
     contractValue:       project.contractValue       ?? '',
     contractDurationMonths: project.contractDurationMonths ?? '',
     contractDate:        project.contractDate        || '',
+    planType:            project.planType            || '',
+    billingMode:         project.billingMode         || '',
     competitors:         project.competitors?.length ? [...project.competitors] : [''],
     hasSalesTeam:        project.hasSalesTeam        ?? null,
     digitalMaturity:     project.digitalMaturity     || '',
@@ -181,6 +221,8 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
       contractValue:       Number(form.contractValue) || null,
       contractDurationMonths: form.contractDurationMonths ? Number(form.contractDurationMonths) : null,
       contractDate:        form.contractDate,
+      planType:            form.planType,
+      billingMode:         form.billingMode,
       competitors:         form.competitors.filter(Boolean),
       hasSalesTeam:        form.hasSalesTeam,
       digitalMaturity:     form.digitalMaturity,
@@ -339,6 +381,33 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Programa ou plano · Pré-pago ou pós-pago */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            { key: 'planType',    label: 'Programa ou plano?',     options: PLAN_TYPE_OPTIONS    },
+            { key: 'billingMode', label: 'Pré-pago ou pós-pago?',  options: BILLING_MODE_OPTIONS },
+          ].map((q) => (
+            <div key={q.key}>
+              <label className="label-field">{q.label}</label>
+              <div className="flex gap-3">
+                {q.options.map((o) => (
+                  <button
+                    key={o.value}
+                    onClick={() => set(q.key, o.value)}
+                    className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                      form[q.key] === o.value
+                        ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
+                        : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Tipo pagamento + duração (aceleração only) */}
@@ -743,6 +812,8 @@ function OnboardingContent({ project, onSave, showToast }) {
           <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📋 Modelo de Contrato</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <Field label="Modelo"           value={CONTRACT_MODEL_LABELS[project.contractModel]} />
+            <Field label="Programa ou plano" value={PLAN_TYPE_LABELS[project.planType]} />
+            <Field label="Pré ou pós-pago"   value={BILLING_MODE_LABELS[project.billingMode]} />
             {project.contractModel === 'aceleracao' && (
               <>
                 <Field label="Tipo de Pagamento" value={CONTRACT_PAYMENT_LABELS[project.contractPaymentType]} />
@@ -1444,6 +1515,14 @@ export default function ClientProfile({ project: projectProp, section, onSection
                       project.contractDate && ['Início', new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')],
                       project.contractModel && ['Modelo', String(CONTRACT_MODEL_LABELS[project.contractModel] || project.contractModel).replace(/^[^\p{L}\d]+/u, '')],
                       project.contractValue && ['Valor', `${fmtCurrency(project.contractValue)}${project.contractModel === 'assessoria' ? '/mês' : ''}`],
+                      ['Tipo', (
+                        <InlineChoice key="tipo" value={project.planType} options={PLAN_TYPE_OPTIONS}
+                          onChange={(v) => updateProject(project.id, { planType: v })} />
+                      )],
+                      ['Pagamento', (
+                        <InlineChoice key="pagamento" value={project.billingMode} options={BILLING_MODE_OPTIONS}
+                          onChange={(v) => updateProject(project.id, { billingMode: v })} />
+                      )],
                       ltv > 0 && months > 0 && ['LTV', (
                         <span key="ltv">
                           <span className="font-semibold text-rl-text tabular-nums">{fmtCurrency(ltv)}</span>
@@ -1453,12 +1532,11 @@ export default function ClientProfile({ project: projectProp, section, onSection
                         </span>
                       )],
                     ].filter(Boolean)
-                    if (!linhas.length) return null
                     return (
                       <dl className="mt-4 space-y-1.5 text-xs">
                         {linhas.map(([k, v]) => (
                           <div key={k} className="flex items-baseline gap-3">
-                            <dt className="w-12 shrink-0 text-rl-muted">{k}</dt>
+                            <dt className="w-[4.5rem] shrink-0 text-rl-muted">{k}</dt>
                             <dd className="text-rl-subtle">{v}</dd>
                           </div>
                         ))}

@@ -158,6 +158,20 @@ export const CONTRACT_MODEL_LABELS = {
   assessoria: '📅 Assessoria Mensal',
 }
 
+// Classificação comercial (perguntada no cadastro e no cartão do perfil)
+export const PLAN_TYPE_OPTIONS = [
+  { value: 'programa', label: 'Programa' },
+  { value: 'plano',    label: 'Plano'    },
+]
+
+export const BILLING_MODE_OPTIONS = [
+  { value: 'pre_pago', label: 'Pré-pago' },
+  { value: 'pos_pago', label: 'Pós-pago' },
+]
+
+export const PLAN_TYPE_LABELS    = Object.fromEntries(PLAN_TYPE_OPTIONS.map((o) => [o.value, o.label]))
+export const BILLING_MODE_LABELS = Object.fromEntries(BILLING_MODE_OPTIONS.map((o) => [o.value, o.label]))
+
 export const CONTRACT_PAYMENT_LABELS = {
   unico:  'Valor Único',
   mensal: 'Parcelado (Mensal)',

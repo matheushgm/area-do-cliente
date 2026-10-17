@@ -121,6 +121,8 @@ function assembleProject(row, rel = {}) {
     contractValue:        row.contract_value,
     contractDate:         row.contract_date,
     contractDurationMonths: row.contract_duration_months,
+    planType:             row.plan_type,
+    billingMode:          row.billing_mode,
     hasSalesTeam:         row.has_sales_team,
     digitalMaturity:      row.digital_maturity,
     upsellPotential:      row.upsell_potential,
@@ -401,6 +403,8 @@ const PROJECT_FIELD_MAP = {
   contractValue:       "contract_value",
   contractDate:        "contract_date",
   contractDurationMonths: "contract_duration_months",
+  planType:            "plan_type",
+  billingMode:         "billing_mode",
   competitors:         "competitors",
   hasSalesTeam:        "has_sales_team",
   digitalMaturity:     "digital_maturity",
@@ -440,6 +444,8 @@ const PROJECT_FIELD_MAP = {
   contract_value:       "contract_value",
   contract_date:        "contract_date",
   contract_duration_months: "contract_duration_months",
+  plan_type:            "plan_type",
+  billing_mode:         "billing_mode",
   has_sales_team:       "has_sales_team",
   digital_maturity:     "digital_maturity",
   upsell_potential:     "upsell_potential",
@@ -483,6 +489,8 @@ const EMPTY_TO_NULL_COLS = new Set([
   "meta_lab_budget", // numeric
   "digital_maturity",// smallint
   "contract_duration_months", // smallint
+  "plan_type",       // check ('programa' | 'plano')
+  "billing_mode",    // check ('pre_pago' | 'pos_pago')
 ]);
 
 // Normaliza '' → null para colunas não-textuais; demais valores passam direto.
@@ -1048,6 +1056,8 @@ export function AppProvider({ children }) {
         contract_value:        normalizeCol("contract_value",   data.contract_value   ?? data.contractValue   ?? null),
         contract_date:         normalizeCol("contract_date",    data.contract_date    ?? data.contractDate    ?? null),
         contract_duration_months: normalizeCol("contract_duration_months", data.contract_duration_months ?? data.contractDurationMonths ?? null),
+        plan_type:             normalizeCol("plan_type",    data.plan_type    ?? data.planType    ?? null),
+        billing_mode:          normalizeCol("billing_mode", data.billing_mode ?? data.billingMode ?? null),
         competitors:           data.competitors           ?? [],
         has_sales_team:        data.has_sales_team        ?? data.hasSalesTeam         ?? null,
         digital_maturity:      normalizeCol("digital_maturity", data.digital_maturity ?? data.digitalMaturity ?? null),

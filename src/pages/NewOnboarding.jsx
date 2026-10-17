@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { cliente } from '../routes/paths'
 import { supabase } from '../lib/supabase'
-import { SERVICES_CONFIG, SEGMENTOS, SQUAD_COLORS } from '../lib/constants'
+import { SERVICES_CONFIG, SEGMENTOS, SQUAD_COLORS, PLAN_TYPE_OPTIONS, BILLING_MODE_OPTIONS } from '../lib/constants'
 import { fmtCurrency, mrrValue } from '../lib/utils'
 import { createClickUpClientFolder } from '../lib/clickup'
 import { notifyNewClient } from '../lib/slack'
@@ -278,6 +278,8 @@ const initialForm = {
   contractValue:       '',
   contractDurationMonths: '', // duração em meses (só aceleração; vazio = fallback 3)
   contractDate:        '',
+  planType:            '',   // 'programa' | 'plano'
+  billingMode:         '',   // 'pre_pago' | 'pos_pago'
   competitors:         [''],
   // Step 5 — Equipe
   squad:               null,
@@ -375,6 +377,8 @@ export default function NewOnboarding() {
       if (!form.contractValue.trim()) e.contractValue = 'Informe o valor do contrato'
       if (form.contractModel === 'aceleracao' && !form.contractPaymentType)
         e.contractPaymentType = 'Selecione o tipo de pagamento'
+      if (!form.planType)    e.planType    = 'Informe se o cliente é programa ou plano'
+      if (!form.billingMode) e.billingMode = 'Informe se o pagamento é pré-pago ou pós-pago'
     }
     if (s === 4) {
       if (squads.length > 0 && !form.squad) e.squad           = 'Selecione o squad responsável'
@@ -429,6 +433,8 @@ export default function NewOnboarding() {
         contract_payment_type: form.contractPaymentType,
         contract_value:        parseCurrencyToNumber(form.contractValue),
         contract_duration_months: form.contractDurationMonths ? Number(form.contractDurationMonths) : null,
+        plan_type:             form.planType,
+        billing_mode:          form.billingMode,
         competitors:           form.competitors.filter(Boolean),
         contract_date:         form.contractDate,
         has_sales_team:        form.hasSalesTeam,
@@ -894,6 +900,34 @@ export default function NewOnboarding() {
                   </div>
                 )}
               </div>
+
+              {/* Programa ou plano · Pré-pago ou pós-pago */}
+              {[
+                { key: 'planType',    label: 'Esse cliente é programa ou plano?',             options: PLAN_TYPE_OPTIONS    },
+                { key: 'billingMode', label: 'O pagamento dele é pré-pago ou pós-pago?',      options: BILLING_MODE_OPTIONS },
+              ].map((q) => (
+                <div key={q.key}>
+                  <label className="label-field">
+                    {q.label} <span className="text-rl-red">*</span>
+                  </label>
+                  <div className="flex gap-3 mt-2">
+                    {q.options.map((opt) => (
+                      <button
+                        key={opt.value} type="button"
+                        onClick={() => set(q.key, opt.value)}
+                        className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                          form[q.key] === opt.value
+                            ? 'bg-gradient-rl border-transparent text-white shadow-glow'
+                            : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-text'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  {errors[q.key] && <p className="text-rl-red text-xs mt-1">{errors[q.key]}</p>}
+                </div>
+              ))}
 
               {/* Data de Assinatura */}
               <div>
