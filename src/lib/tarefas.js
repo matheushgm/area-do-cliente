@@ -143,6 +143,26 @@ export function fmtDataCurta(v) {
   return fmtDataNumerica(d)
 }
 
+/**
+ * Vencimento como a coluna do ClickUp: "Hoje", "Amanhã", "ontem", "há N dias"
+ * (até 7 dias de atraso), senão a data numérica. Devolve { texto, classe }.
+ */
+export function fmtVencimentoClickUp(v, item) {
+  const d = paraData(v)
+  if (!d) return { texto: '', classe: 'text-ln-t4' }
+  const dia = inicioDoDia(d).getTime()
+  const h0 = inicioDoDia().getTime()
+  const concluida = item?.status_tipo === 'closed'
+  const dias = Math.round((h0 - dia) / 86400000)
+  if (concluida) return { texto: fmtDataNumerica(d), classe: 'text-ln-t4' }
+  if (dias === 0) return { texto: 'Hoje', classe: 'text-ln-green' }
+  if (dias === -1) return { texto: 'Amanhã', classe: 'text-ln-yellow' }
+  if (dias === 1) return { texto: 'ontem', classe: 'text-ln-red' }
+  if (dias > 1 && dias <= 7) return { texto: `há ${dias} dias`, classe: 'text-ln-red' }
+  if (dias > 7) return { texto: fmtDataNumerica(d), classe: 'text-ln-red' }
+  return { texto: fmtDataNumerica(d), classe: 'text-ln-t2' }
+}
+
 export function fmtDataHora(v) {
   const d = paraData(v)
   if (!d) return ''
@@ -231,7 +251,7 @@ export function pessoasDaTarefa(item, membrosMap) {
 // ─── Agrupamento ─────────────────────────────────────────────────────────────
 
 export const BUCKETS_VENC = [
-  { key: 'atrasado',  label: 'Atrasado',                 cor: '#e5484d' },
+  { key: 'atrasado',  label: 'Em atraso',                cor: '#e5484d' },
   { key: 'hoje',      label: 'Hoje',                     cor: '#30a46c' },
   { key: 'amanha',    label: 'Amanhã',                   cor: '#ffc53d' },
   { key: 'semana',    label: 'Esta semana',              cor: '#0091ff' },

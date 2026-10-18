@@ -579,6 +579,16 @@ todo `authenticated`; as quatro estão na publicação realtime).
 - **Dados** `src/hooks/useTarefas.js`: lê a estrutura inteira e as tarefas só da pasta/lista
   aberta (paginado de 1000 em 1000), atualização otimista e canal realtime. Trocar status
   passa por `mudarStatus` (calcula `status_tipo` e `data_conclusao`).
+- **Lista = cara do ClickUp (2026-10-18, pedido do Matheus):** `ListaView.jsx` agrupa por
+  **Data de vencimento** por padrão ("Em atraso 47", "Hoje", "Amanhã"…), repete o cabeçalho de
+  colunas em cada grupo e usa as colunas na ordem do ClickUp: Nome · Status (pill preenchida,
+  BACKLOG cinza) · Tipo de tarefa (pill colorida) · Responsável · Data criada · Data de vencimento
+  ("há N dias"/"ontem" em vermelho até 7 dias, "Hoje" verde, "Amanhã" amarelo) · Prioridade
+  (bandeira) · Sprints (= Cycle, `ciclo_id`) · Estimativa de tempo (ampulheta) · Cliente (pill azul
+  com o projeto da pasta) · Pontos do Sprint (só o ícone, não existe o campo). Os editores de
+  `Campos.jsx` aceitam `render` para trocar só o gatilho visual. Com o painel aberto (`compacto`)
+  ficam Status, Responsável, Vencimento, Prioridade e Estimativa. Para conferir sem login:
+  `/dev/lista` (só em DEV, lê `src/dev/fixtures/tarefas.json` via `import.meta.glob`).
 - **Componentes** `src/components/Tarefas/`: `Campos.jsx` (editores inline em Popover via
   portal: status, responsáveis, data, prioridade, tipo, dificuldade, estimativa, `AdicionarInline`),
   `ListaView` (grid agrupado, subtarefas indentadas), `QuadroView` (kanban com `ln-card` e

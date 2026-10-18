@@ -195,7 +195,7 @@ export default function Tarefas() {
   const largura = useLarguraDoConteudo(conteudoRef)
   const [arvoreAberta, setArvoreAberta] = useState(false)
   const [view, setView] = useState(() => lerPref('view', 'lista'))
-  const [agrupar, setAgrupar] = useState(() => lerPref('agrupar', 'status'))
+  const [agrupar, setAgrupar] = useState(() => lerPref('agrupar', 'vencimento')) // como a lista do ClickUp
   const [mostrarConcluidas, setMostrarConcluidas] = useState(() => lerPref('concluidas', false))
   const [denso, setDenso] = useState(() => lerPref('denso', false))
   const [busca, setBusca] = useState('')
@@ -476,7 +476,9 @@ export default function Tarefas() {
   const ctx = useMemo(() => ({
     statuses, membros: teamMembers || [], membrosMap, itensMap: t.itens, listaPadraoId, agrupar, contagemComentarios, selecionadaId: tarefaAbertaId,
     onAbrir: abrirTarefa, onAtualizar, onMudarStatus, onCriar, etiquetasMap: vt.etiquetasMap,
-  }), [vt.etiquetasMap, statuses, teamMembers, membrosMap, t.itens, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar])
+    // colunas Cliente e Sprints da Lista (estilo ClickUp)
+    listas: t.listas, pastas: t.pastas, projetos: projects || [], ciclos: vt.ciclos || [],
+  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar])
 
   // ── Cabeçalho e painel ───────────────────────────────────────────────────
   const pastaSel = sel.tipo === 'pasta' ? t.pastasMap.get(sel.id) : sel.tipo === 'lista' ? t.pastasMap.get(t.listasMap.get(sel.id)?.pasta_id) : null

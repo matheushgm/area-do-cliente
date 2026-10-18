@@ -35,6 +35,7 @@ const UserManagement = lazy(() => import('../pages/UserManagement'))
 
 // ── Dev (só no build de desenvolvimento) ───────────────────
 const DevHub = lazy(() => import('../pages/DevHub'))
+const DevLista = lazy(() => import('../pages/DevLista'))
 
 export const appRoutes = [
   // Páginas com a sidebar global: o AppLayout monta a AppSidebar uma vez e
@@ -80,7 +81,7 @@ export const appRoutes = [
   <Route key="legado-dashboard" path="/dashboard-teste" element={<RedirectComQuery to="/dashboard" />} />,
 
   ...(import.meta.env.DEV
-    ? [<Route key="dev-hub" path="/dev/hub" element={<DevHub />} />]
+    ? [<Route key="dev-hub" path="/dev/hub" element={<DevHub />} />, <Route key="dev-lista" path="/dev/lista" element={<DevLista />} />]
     : []),
 
   <Route key="catch-all" path="*" element={<Navigate to="/" replace />} />,
