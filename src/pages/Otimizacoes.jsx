@@ -32,9 +32,16 @@ const STATUS_CLS = {
   descartada: 'bg-rl-surface text-rl-muted border-rl-border',
 }
 const STATUS_LABEL = { aceita: 'Aceita', recusada: 'Recusada', descartada: 'Adiada' }
-const EXEC_LABEL = { pendente: 'Na fila da automação', executada: 'Executada', erro: 'Erro na execução', cancelada: 'Cancelada' }
+// bloqueada/manual: migration 098 (reconciliar_fila_otimizacoes). Bloqueada = o
+// anúncio voltou a converter depois da decisão e o robô não executa; manual = ação
+// que o robô não sabe fazer (criativo, investigação, Google), fica com a tarefa.
+const EXEC_LABEL = {
+  pendente: 'Na fila da automação', executada: 'Executada', erro: 'Erro na execução', cancelada: 'Cancelada',
+  bloqueada: 'Bloqueada: o anúncio voltou a converter, reavaliar', manual: 'Virou tarefa no ClickUp',
+}
 const EXEC_CLS = {
   pendente: 'text-rl-purple', executada: 'text-rl-green', erro: 'text-rl-red', cancelada: 'text-rl-muted',
+  bloqueada: 'text-rl-gold', manual: 'text-rl-muted',
 }
 
 function fmtDataHora(iso) {
