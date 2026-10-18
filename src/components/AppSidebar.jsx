@@ -78,6 +78,7 @@ const NAV_SECTIONS = [
         { id: 'atividades',  label: 'Atividades 15min',  Icon: Timer,         type: 'route', to: '/atividades-15min' },
         { id: 'roteiros',    label: 'Roteiros Express',  Icon: Clapperboard,  type: 'route', to: '/roteiros-express' },
         { id: 'funil',       label: 'Funil de Vendas',   Icon: GitFork,       type: 'route', to: '/funil' },
+        { id: 'precificacao',label: 'Precificação',      Icon: DollarSign,    type: 'external', href: 'https://vvmkxurb.manus.space/' },
       ] },
     ],
   },
@@ -95,7 +96,6 @@ const NAV_SECTIONS = [
       { id: 'ads-roadmap', label: 'ADS Roadmap',       Icon: Waypoints,     type: 'route', to: '/ads-roadmap' },
       // Antes só existia como botão dentro do Dashboard — ninguém achava.
       { id: 'squads',      label: 'Relatório de Squads', Icon: Users2,      type: 'route', to: '/relatorio-squads', gate: canViewSquadsReport },
-      { id: 'precificacao',label: 'Precificação',      Icon: DollarSign,    type: 'external', href: 'https://vvmkxurb.manus.space/' },
     ],
   },
 ]
@@ -432,19 +432,31 @@ function SidebarContent({
                     {aberto && (
                       <div className="ml-4 pl-2.5 border-l border-rl-border/60 mt-0.5 space-y-0.5">
                         {item.children.map((c) => {
-                          const cAtivo = location.pathname === c.to
+                          const cAtivo = c.type === 'route' && location.pathname === c.to
+                          const cClass = `w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 border ${
+                            cAtivo
+                              ? 'bg-rl-purple/15 text-rl-purple border-rl-purple/25'
+                              : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text border-transparent'
+                          }`
+                          const cContent = (
+                            <>
+                              <div className="flex items-center gap-2.5">
+                                <c.Icon className="w-4 h-4 shrink-0" />
+                                {c.label}
+                              </div>
+                              {c.type === 'external' && <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-50" />}
+                            </>
+                          )
+                          if (c.type === 'external') {
+                            return (
+                              <a key={c.id} href={c.href} target="_blank" rel="noopener noreferrer" className={cClass}>
+                                {cContent}
+                              </a>
+                            )
+                          }
                           return (
-                            <button
-                              key={c.id}
-                              onClick={() => { navigate(c.to); onClose() }}
-                              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 border ${
-                                cAtivo
-                                  ? 'bg-rl-purple/15 text-rl-purple border-rl-purple/25'
-                                  : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text border-transparent'
-                              }`}
-                            >
-                              <c.Icon className="w-4 h-4 shrink-0" />
-                              {c.label}
+                            <button key={c.id} onClick={() => { navigate(c.to); onClose() }} className={cClass}>
+                              {cContent}
                             </button>
                           )
                         })}
