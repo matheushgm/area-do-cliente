@@ -174,11 +174,13 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
       onClick={() => onAbrir(item.id)}
       onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(item.id) }}
       aria-current={selecionada ? 'true' : undefined}
-      className={`group/linha grid items-center ${denso ? 'h-[30px]' : 'h-[34px]'} border-b border-ln-line/70 cursor-pointer ${FOCO} ${selecionada ? 'bg-ln-accent/[0.05]' : 'hover:bg-ln-ink/[0.025]'}`}
+      className={`group/linha grid items-center ${denso ? 'h-[30px]' : 'h-[34px]'} border-b border-ln-line/70 cursor-pointer ${FOCO} ${selecionada ? 'bg-ln-level2' : 'hover:bg-ln-level2/60'}`}
       style={{ gridTemplateColumns: grid(cols) }}
     >
-      {/* Nome: alça + checkbox (hover) · expandir · status · título · badges · ações */}
-      <div className={`relative flex items-center gap-1 min-w-0 pr-3 ${sub ? 'pl-9' : 'pl-2'}`}>
+      {/* Nome: congelada à esquerda ao rolar (como no ClickUp). O fundo precisa ser
+          opaco, então a cor de hover/seleção entra por um overlay atrás do conteúdo. */}
+      <div className={`sticky left-0 z-[1] bg-ln-panel relative flex items-center gap-1 min-w-0 h-full pr-3 ${sub ? 'pl-9' : 'pl-2'}`}>
+        <span aria-hidden="true" className={`absolute inset-0 -z-10 ${selecionada ? 'bg-ln-level2' : 'group-hover/linha:bg-ln-level2/60'}`} />
         <span className="hidden sm:inline-flex items-center gap-0.5 w-9 shrink-0 opacity-0 group-hover/linha:opacity-100 transition-opacity">
           <GripVertical className="w-3.5 h-3.5 text-ln-t4" />
           <input type="checkbox" className="w-3 h-3 accent-[#1b5cff]" onClick={(e) => e.stopPropagation()} aria-label="Selecionar" />
@@ -199,7 +201,7 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
           {nComent > 0 && <span className="inline-flex items-center gap-0.5" title="Comentários"><MessageSquare className="w-3 h-3" />{nComent}</span>}
         </span>
         {/* ações de hover sobrepostas à direita (não roubam largura do título) */}
-        <span className="absolute right-2 top-0 bottom-0 hidden md:inline-flex items-center gap-0.5 pl-6 bg-gradient-to-r from-transparent via-ln-panel to-ln-panel opacity-0 group-hover/linha:opacity-100 transition-opacity">
+        <span className="absolute right-2 top-0 bottom-0 hidden md:inline-flex items-center gap-0.5 pl-6 bg-gradient-to-r from-transparent via-ln-level2/60 to-ln-level2/60 opacity-0 group-hover/linha:opacity-100 transition-opacity">
           <button type="button" onClick={(e) => { e.stopPropagation(); onAbrir(item.id) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Abrir"><AlignLeft className="w-3 h-3" /></button>
           <button type="button" onClick={(e) => { e.stopPropagation(); ctx.onCriar({ lista_id: item.lista_id, parent_id: item.parent_id || item.id, titulo: 'Nova subtarefa' }) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Adicionar subtarefa"><Plus className="w-3 h-3" /></button>
           {item.clickup_url && <a href={item.clickup_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="ln-iconbtn !w-5 !h-5 !rounded" title="Abrir no ClickUp"><Link2 className="w-3 h-3" /></a>}
@@ -229,7 +231,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
   return (
     <section className="mb-6" aria-label={grupo.label}>
       {/* Cabeçalho do grupo: ▾ Em atraso 47 ··· + */}
-      <div className="flex items-center gap-2 h-9 px-3">
+      <div className="sticky left-0 w-fit flex items-center gap-2 h-9 px-3">
         <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} className={`ln-iconbtn !w-5 !h-5 !rounded ${FOCO}`} aria-label={aberto ? 'Recolher grupo' : 'Expandir grupo'}>
           <ChevronDown className={`w-3.5 h-3.5 text-ln-t3 transition-transform duration-150 ${aberto ? '' : '-rotate-90'}`} />
         </button>
@@ -248,7 +250,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
         <div className="min-w-0">
           {/* Cabeçalho das colunas, repetido em cada grupo como no ClickUp */}
           <div className="grid items-center h-7 border-b border-ln-line/70 text-[11px] text-ln-t4" style={{ gridTemplateColumns: grid(cols) }} aria-hidden="true">
-            <span className="pl-[66px] sm:pl-[66px]">Nome</span>
+            <span className="sticky left-0 z-[1] bg-ln-panel h-full flex items-center pl-[66px]">Nome</span>
             {cols.map((c) => <span key={c.k} className="px-2 truncate">{c.label}</span>)}
             <span className="inline-flex items-center justify-center text-ln-t4"><Plus className="w-3.5 h-3.5" /></span>
           </div>
@@ -301,7 +303,7 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
     )
   }
   return (
-    <div className={`${compacto ? 'min-w-[900px]' : 'min-w-[1580px]'} pb-24 pt-2 bg-ln-panel`}>
+    <div className={`w-max min-w-full ${compacto ? '[&>section]:min-w-[900px]' : '[&>section]:min-w-[1580px]'} pb-24 pt-2 bg-ln-panel`}>
       {grupos.map((g) => <Grupo key={g.key} grupo={g} ctx={ctxLista} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} denso={denso} cols={cols} />)}
     </div>
   )
