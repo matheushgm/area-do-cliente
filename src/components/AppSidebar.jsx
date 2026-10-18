@@ -72,10 +72,11 @@ const NAV_SECTIONS = [
     items: [
       { id: 'otimizacoes', label: 'Otimizações',       Icon: Sparkles,      type: 'route', to: '/otimizacoes' },
       { id: 'tarefas',     label: 'VertaTask',         Icon: CheckSquare,   type: 'route', to: '/tarefas' },
-      // Grupo com dropdown. Hoje só tem as Atividades 15min; novas ferramentas
-      // entram em `children` e aparecem no mesmo dropdown.
+      // Grupo com dropdown. Novas ferramentas entram em `children` e aparecem
+      // no mesmo dropdown.
       { id: 'ferramentas', label: 'Ferramentas',       Icon: Wrench,        type: 'group', children: [
         { id: 'atividades',  label: 'Atividades 15min',  Icon: Timer,         type: 'route', to: '/atividades-15min' },
+        { id: 'roteiros',    label: 'Roteiros Express',  Icon: Clapperboard,  type: 'route', to: '/roteiros-express' },
       ] },
     ],
   },
@@ -84,7 +85,6 @@ const NAV_SECTIONS = [
     items: [
       { id: 'banco',       label: 'Banco de Anúncios', Icon: Library,       type: 'route', to: '/banco-de-anuncios' },
       { id: 'banco-lps',   label: 'Banco de LP',       Icon: Layout,        type: 'route', to: '/banco-de-lps' },
-      { id: 'roteiros',    label: 'Roteiros Express',  Icon: Clapperboard,  type: 'route', to: '/roteiros-express' },
       { id: 'playbook',    label: 'Playbook',          Icon: BookOpen,      type: 'external', href: 'https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173' },
     ],
   },
