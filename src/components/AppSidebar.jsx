@@ -6,7 +6,7 @@ import { useTheme } from '../hooks/useTheme'
 import { canViewSquadsReport } from '../lib/utils'
 import { baseProjectsOf, sidebarCounts } from '../lib/dashboardCounts'
 import { Sparkles,
-  Layers, TrendingDown, UserPlus,
+  Layers,
   LogOut, Cloud, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, BarChart3, DollarSign,
   Sun, Moon, Clapperboard, Timer, Layout, PanelLeftClose, PanelLeftOpen, Waypoints, Users2,
@@ -54,13 +54,13 @@ export function useSidebarCollapsed() {
   return [collapsed, setCollapsed]
 }
 
-// Bloco do topo. Os três primeiros são "filtros" da lista de clientes — viraram
-// link (`/?lista=`) em vez de callback, então sobrevivem a um refresh e dá para
-// abrir em outra aba. O Dashboard é rota normal e convive no mesmo bloco.
+// Bloco do topo. "Clientes" é um "filtro" da lista (link `/?lista=`), então
+// sobrevive a um refresh e dá para abrir em outra aba. "Novos Clientes" e
+// "Churn" saíram daqui em 2026-10-18: viraram botões de filtro na toolbar da
+// própria página de Clientes (Dashboard.jsx), ao lado de "Onboarding (90d)".
+// O Dashboard é rota normal e convive no mesmo bloco.
 const NAV_ITEMS = [
   { id: 'all',       label: 'Clientes',       Icon: Layers,       type: 'filter' },
-  { id: 'novos',     label: 'Novos Clientes', Icon: UserPlus,     type: 'filter' },
-  { id: 'churn',     label: 'Churn',          Icon: TrendingDown, type: 'filter' },
   { id: 'dashboard', label: 'Dashboard',      Icon: BarChart3,    type: 'route', to: '/dashboard', badge: 'API' },
 ]
 

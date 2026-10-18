@@ -10,7 +10,7 @@ import {
   Eye, X, Trash2, AlertTriangle,
   CloudOff, Loader2, Menu, Search,
   LayoutGrid, List, ChevronUp, ChevronDown, ChevronsUpDown, Users2,
-  Wallet, TrendingDown, History, TrendingUp, Building2,
+  Wallet, TrendingDown, History, TrendingUp, Building2, UserPlus,
 } from 'lucide-react'
 import { cliente } from '../routes/paths'
 import { SQUAD_COLORS } from '../lib/constants'
@@ -1473,6 +1473,64 @@ export default function Dashboard() {
                   <X
                     className="w-3.5 h-3.5 opacity-70 hover:opacity-100"
                     onClick={(e) => { e.stopPropagation(); setPhase90Filter(false) }}
+                  />
+                )}
+              </button>
+
+              {/* Filtros: Novos Clientes / Churn — toggles que escrevem em
+                  `/?lista=` (mesmo parâmetro que a sidebar usava antes), então
+                  o título da página, os contadores e o link direto continuam
+                  funcionando. Clicar no ativo volta para a lista completa. */}
+              <button
+                onClick={() => navigate(filter === 'novos' ? '/' : '/?lista=novos', { replace: true })}
+                title={`Mostrar apenas clientes que entraram nos últimos ${NEW_CLIENT_WINDOW_DAYS} dias`}
+                className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
+                  filter === 'novos'
+                    ? 'bg-rl-green/10 border-rl-green/40 text-rl-green'
+                    : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-green/30 hover:text-rl-green'
+                }`}
+              >
+                <UserPlus className="w-4 h-4" />
+                <span className="hidden md:inline">Novos Clientes</span>
+                <span className="md:hidden">Novos</span>
+                {counts.novos > 0 && (
+                  <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
+                    filter === 'novos' ? 'bg-rl-green/20 text-rl-green' : 'bg-rl-bg text-rl-muted'
+                  }`}>
+                    {counts.novos}
+                  </span>
+                )}
+                {filter === 'novos' && (
+                  <X
+                    className="w-3.5 h-3.5 opacity-70 hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); navigate('/', { replace: true }) }}
+                  />
+                )}
+              </button>
+
+              <button
+                onClick={() => navigate(filter === 'churn' ? '/' : '/?lista=churn', { replace: true })}
+                title="Mostrar apenas clientes que deram churn"
+                className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
+                  filter === 'churn'
+                    ? 'bg-red-400/10 border-red-400/40 text-red-400'
+                    : 'bg-rl-surface border-rl-border text-rl-muted hover:border-red-400/30 hover:text-red-400'
+                }`}
+              >
+                <TrendingDown className="w-4 h-4" />
+                <span className="hidden md:inline">Churn</span>
+                <span className="md:hidden">Churn</span>
+                {counts.churn > 0 && (
+                  <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
+                    filter === 'churn' ? 'bg-red-400/20 text-red-400' : 'bg-rl-bg text-rl-muted'
+                  }`}>
+                    {counts.churn}
+                  </span>
+                )}
+                {filter === 'churn' && (
+                  <X
+                    className="w-3.5 h-3.5 opacity-70 hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); navigate('/', { replace: true }) }}
                   />
                 )}
               </button>
