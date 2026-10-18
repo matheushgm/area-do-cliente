@@ -585,7 +585,7 @@ todo `authenticated`; as quatro estão na publicação realtime).
   BACKLOG cinza) · Tipo de tarefa (pill colorida) · Responsável · Data criada · Data de vencimento
   ("há N dias"/"ontem" em vermelho até 7 dias, "Hoje" verde, "Amanhã" amarelo) · Prioridade
   (bandeira) · Sprints (= Cycle, `ciclo_id`) · Estimativa de tempo (ampulheta) · Cliente (pill azul
-  com o projeto da pasta) · Pontos do Sprint (só o ícone, não existe o campo). Os editores de
+  com o projeto da pasta). A coluna Pontos do Sprint foi retirada a pedido do Matheus. Os editores de
   `Campos.jsx` aceitam `render` para trocar só o gatilho visual. Com o painel aberto (`compacto`)
   ficam Status, Responsável, Vencimento, Prioridade e Estimativa. Para conferir sem login:
   `/dev/lista` (só em DEV, lê `src/dev/fixtures/tarefas.json` via `import.meta.glob`).

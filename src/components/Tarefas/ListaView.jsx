@@ -2,11 +2,10 @@
 // 2026-10-18): grupos por data de vencimento ("Em atraso 47"), cabeçalho de
 // colunas em cada grupo, linhas finas separadas por borda, e as colunas na
 // ordem do ClickUp: Nome · Status · Tipo de tarefa · Responsável · Data criada
-// · Data de vencimento · Prioridade · Sprints · Estimativa de tempo · Cliente
-// · Pontos do Sprint. Edição inline continua em cada célula (Popovers de
+// · Data de vencimento · Prioridade · Sprints · Estimativa de tempo · Cliente. Edição inline continua em cada célula (Popovers de
 // Campos.jsx). Subtarefas indentadas abaixo do pai quando expandidas.
 import { useState, useRef } from 'react'
-import { ChevronRight, ChevronDown, CornerDownRight, MessageSquare, ListChecks, GripVertical, Plus, MoreHorizontal, Flag, Hourglass, AlignLeft, Target, Pencil, Link2 } from 'lucide-react'
+import { ChevronRight, ChevronDown, CornerDownRight, MessageSquare, ListChecks, GripVertical, Plus, MoreHorizontal, Flag, Hourglass, AlignLeft, Pencil, Link2 } from 'lucide-react'
 import { ordenarItens, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
 import {
   StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo, AdicionarInline, Popover, ItemMenu, FOCO,
@@ -24,7 +23,6 @@ const COLS = {
     { k: 'sprint',     label: 'Sprints',             w: 160 },
     { k: 'estim',      label: 'Estimativa de tempo', w: 140 },
     { k: 'cliente',    label: 'Cliente',             w: 140 },
-    { k: 'pontos',     label: 'Pontos do Sprint',    w: 120 },
   ],
   compacta: [
     { k: 'status',     label: 'Status',              w: 130 },
@@ -159,7 +157,6 @@ function Celula({ k, item, ctx }) {
       const projeto = pasta?.project_id ? ctx.projetosMap?.get(pasta.project_id) : null
       return <ClientePillCU nome={projeto?.company_name || projeto?.companyName || pasta?.nome || null} />
     }
-    case 'pontos': return <span className="inline-flex items-center text-ln-t4"><Target className="w-3.5 h-3.5" /></span>
     default: return null
   }
 }
@@ -210,7 +207,7 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
         </span>
       </div>
       {cols.map((c) => (
-        <div key={c.k} className="flex items-center min-w-0 px-2 overflow-hidden" onClick={(e) => { if (c.k !== 'criada' && c.k !== 'pontos') e.stopPropagation() }}>
+        <div key={c.k} className="flex items-center min-w-0 px-2 overflow-hidden" onClick={(e) => { if (c.k !== 'criada') e.stopPropagation() }}>
           <Celula k={c.k} item={item} ctx={ctx} />
         </div>
       ))}
@@ -304,7 +301,7 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
     )
   }
   return (
-    <div className={`${compacto ? 'min-w-[900px]' : 'min-w-[1700px]'} pb-24 pt-2 bg-ln-panel`}>
+    <div className={`${compacto ? 'min-w-[900px]' : 'min-w-[1580px]'} pb-24 pt-2 bg-ln-panel`}>
       {grupos.map((g) => <Grupo key={g.key} grupo={g} ctx={ctxLista} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} denso={denso} cols={cols} />)}
     </div>
   )
