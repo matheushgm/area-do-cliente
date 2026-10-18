@@ -29,6 +29,34 @@ export const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, 
 
 export const ms = (v) => (v ? new Date(Number(v)).toISOString() : null)
 
+// No ClickUp, data sem hora fica às 04:00 do fuso do workspace (America/Sao_Paulo,
+// UTC-3 → 07:00 UTC). O endpoint de tarefas do time não devolve due_date_time,
+// então a flag é inferida por essa convenção.
+export const comHora = (v) => {
+  if (!v) return false
+  const d = new Date(Number(v))
+  return !(d.getUTCHours() === 7 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0)
+}
+
+/** Linha de tarefas_pastas a partir de uma pasta (folder) do ClickUp. */
+export function mapPasta(f, { spaceId = null, espaco = null } = {}) {
+  return {
+    clickup_folder_id: String(f.id), nome: String(f.name || '').trim() || '(sem nome)',
+    posicao: Number(f.orderindex) || 0, arquivada: !!f.archived,
+    clickup_space_id: spaceId ? String(spaceId) : null, espaco,
+  }
+}
+
+/** Linha de tarefas_listas a partir de uma lista do ClickUp (sem statuses: ver mapStatuses). */
+export function mapLista(l, { pastaId = null, spaceId = null } = {}) {
+  return {
+    clickup_list_id: String(l.id), pasta_id: pastaId, nome: String(l.name || '').trim() || '(sem nome)',
+    descricao: l.content || null, posicao: Number(l.orderindex) || 0, arquivada: !!l.archived,
+    data_inicio: ms(l.start_date), data_vencimento: ms(l.due_date),
+    clickup_space_id: spaceId ? String(spaceId) : null,
+  }
+}
+
 export const rotuloStatus = (k) => (['complete', 'closed', 'done'].includes(k) ? 'Concluído' : k.charAt(0).toUpperCase() + k.slice(1))
 
 export const mapStatuses = (arr) => (arr || []).map((s) => ({
@@ -110,6 +138,10 @@ export function mapTarefa(t, perfilDe) {
     data_inicio: ms(t.start_date),
     data_vencimento: ms(t.due_date),
     data_conclusao: ms(t.date_done || t.date_closed),
+    data_fechamento: ms(t.date_closed),
+    vencimento_com_hora: comHora(t.due_date),
+    inicio_com_hora: comHora(t.start_date),
+    clickup_removida_at: null,
     estimativa_min: t.time_estimate ? Math.round(t.time_estimate / 60000) : null,
     tipo_tarefa: tipo,
     dificuldade,

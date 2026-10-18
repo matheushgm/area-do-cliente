@@ -596,19 +596,42 @@ todo `authenticated`; as quatro estão na publicação realtime).
   fechadas seriam ~10 mil requests). Responsáveis sem perfil ativo ficam em
   `responsaveis_extra` (nome/iniciais/cor do ClickUp). Importado em 2026-09-15: 72 pastas,
   135 listas, 11.745 tarefas (3.653 subtarefas, 1.962 abertas).
-- **Sincronização incremental ClickUp → Área** (`api/tarefas-sync.js`, Node, 60s): lê pastas e
-  listas do space (cria as novas, atualiza statuses) e as tarefas com `date_updated` desde
-  o último início menos 15 min (`tarefas_sync.ultimo_inicio`), incluindo fechadas e
-  subtarefas; busca pais que faltam; comentários só das abertas que mudaram (máx. 40 por
-  rodada). Mão única: nunca escreve no ClickUp. **Conflito:** `clickup_sync_at` marca a
-  última escrita da sincronização e o trigger de `updated_at` não a bumpa (migration 085),
-  então `updated_at > clickup_sync_at` = editada na Área; nesse caso, se o ClickUp estiver
-  mais antigo que a edição, a tarefa é pulada (`puladas_conflito`), senão o mais recente
-  vence. Dispara por: cron da Vercel (`0 9 * * *`, uma vez ao dia é o limite do plano
-  Hobby), botão "ClickUp há X min" na barra de /tarefas, e automaticamente ao abrir a
-  página se a última rodada tem +30 min. Auth: `CRON_SECRET` ou JWT. Aceita `?since=<ISO>`
-  e `?comentarios=0`. O mapeamento ClickUp→linha vive em `api/_tarefas_clickup_map.js`,
-  compartilhado com o script de importação.
+- **Sincronização ClickUp → VertaTask** (reescrita em 2026-10-18 para o espelho ficar fiel).
+  A lógica mora em `api/_tarefas_sync_core.js` (`sincronizar()`), usada por dois chamadores:
+  `api/tarefas-sync.js` (Node, 60s: cron diário `0 9 * * *`, botão "ClickUp há X min" em
+  /tarefas e automático ao abrir a página se +30 min) e `scripts/sincronizar_clickup.mjs`
+  (local, sem limite de tempo; `--completo` passa por TODAS as tarefas, `--reconciliar`
+  confere o que sumiu do ClickUp, `--since=ISO`, `--sem-comentarios`, `--espacos=id,id`).
+  Mão única: nunca escreve no ClickUp. O mapeamento ClickUp→linha vive em
+  `api/_tarefas_clickup_map.js` (`mapTarefa`, `mapLista`, `mapPasta`, `comHora`).
+  - **Spaces:** cobre Clientes, Operações e PROMPTS (`SPACES_PADRAO`; env opcional
+    `CLICKUP_SYNC_SPACE_IDS`). Templates e o space privado "Matheus" ficam de fora. Pastas e
+    listas guardam `clickup_space_id`/`espaco` (migration 099); a `TarefasSidebar` mostra as
+    pastas de Clientes na seção de sempre e os outros spaces em seções com o nome do space.
+  - **Estrutura:** cria pastas/listas novas e ATUALIZA nome, ordem, arquivada, datas da lista
+    (`data_inicio`/`data_vencimento`), statuses e o vínculo pasta→projeto quando ainda não
+    há; pastas e listas arquivadas no ClickUp ficam `arquivada=true` (listas arquivadas dentro
+    de pasta só na rodada `--completo`, é uma chamada por pasta).
+  - **Tarefas:** alteradas desde `tarefas_sync.ultimo_inicio` - 15 min (ou todas em
+    `--completo`), com subtarefas e fechadas. Pais que faltam são buscados um a um em rodadas
+    até fechar a hierarquia; a gravação é por **profundidade** (pais antes dos filhos, também
+    entre lotes de 200), e filho cujo pai não pôde ser gravado fica sem pai + aviso. Isso
+    corrigiu o `tarefas_itens_parent_id_fkey` que travou o cron de 14/10 a 18/10/2026.
+    Campos novos: `data_fechamento` (date_closed), `vencimento_com_hora`/`inicio_com_hora`
+    (no ClickUp, data sem hora fica às 04:00 de São Paulo = 07:00 UTC; a flag é inferida por
+    isso, o endpoint do time não devolve `due_date_time`), `clickup_removida_at`.
+  - **Reconciliação** (`?reconciliar=1` / `--reconciliar`): lista as abertas no ClickUp e
+    compara com as abertas aqui; o que sumiu de lá é rebuscado: fechada/movida → atualiza,
+    apagada (404) → `arquivada=true` + `clickup_removida_at`.
+  - **Conflito:** `clickup_sync_at` marca a última escrita da sincronização e o trigger de
+    `updated_at` não a bumpa (migration 085; a 099 corrigiu o trigger, que quebrava qualquer
+    UPDATE em `tarefas_listas` por acessar `new.clickup_sync_at` fora de `tarefas_itens`).
+    `updated_at > clickup_sync_at` = editada na Área; nesse caso, se o ClickUp estiver mais
+    antigo que a edição, a tarefa é pulada (`puladas_conflito`), senão o mais recente vence.
+  - **Não vem do ClickUp:** anexos, tempo rastreado (`time_spent` exige o endpoint de time
+    entries), dependências/links entre tarefas e tarefas arquivadas lá. Comentários só das
+    abertas que mudaram (máx. 40 no endpoint, 400 no script).
+  - Auth do endpoint: `CRON_SECRET` ou JWT. Para testar local: `node scripts/sincronizar_clickup.mjs --since=<ISO>`.
 
 #### VertaTask (evolução do `/tarefas`, migration 094)
 
