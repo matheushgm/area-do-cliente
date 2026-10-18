@@ -38,7 +38,9 @@ export function useCargaTime(membros, squads) {
   const [hoje, setHoje] = useState(null)
   const seq = useRef(0)
 
-  const ids = useMemo(() => membros.map((m) => m.clickupId).filter((n) => n > 0), [membros])
+  // chave enviada à API: clickup_user_id (número) ou, para quem não tem ClickUp, o uuid do perfil
+  const chaveDe = (m) => m.clickupId || m.id
+  const ids = useMemo(() => membros.map(chaveDe).filter(Boolean), [membros])
 
   const carregar = useCallback(async ({ refresh = false, apenas = null } = {}) => {
     const alvo = apenas ? ids.filter((id) => apenas.includes(id)) : ids
@@ -107,8 +109,8 @@ export function useCargaTime(membros, squads) {
   const pessoas = useMemo(() => {
     return membros.map((m) => {
       const meta = { profileId: m.id, nome: m.nome, avatar: m.avatar, clickupId: m.clickupId, departamentos: departamentosDe(m.id, squads) }
-      const api = m.clickupId ? porId.get(m.clickupId) : null
-      const erro = m.clickupId ? erros.get(m.clickupId) || null : null
+      const api = porId.get(chaveDe(m)) || null
+      const erro = erros.get(chaveDe(m)) || null
       return enriquecerPessoa(api, meta, { erro, hoje })
     })
   }, [membros, squads, porId, erros, hoje])

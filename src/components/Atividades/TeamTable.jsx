@@ -349,8 +349,8 @@ function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, 
   }
 
   const semLeitura = estado === 'erro' || estado === 'sem_api'
-  const textoSemLeitura = estado === 'erro' ? 'Não consegui ler o ClickUp' : pessoa.saude?.texto || 'Sem leitura'
-  const podeRecarregar = estado === 'erro' || !!pessoa.clickupId
+  const textoSemLeitura = estado === 'erro' ? 'Não consegui ler as tarefas' : pessoa.saude?.texto || 'Sem leitura'
+  const podeRecarregar = true
 
   return (
     <div
@@ -477,7 +477,7 @@ export default function TeamTable({
         <span className="text-[13px] text-ln-t3 tabular">· {total}</span>
         {loading && (
           <span className="ml-auto flex items-center gap-1.5 text-[11px] text-ln-t4 tabular whitespace-nowrap">
-            <Loader2 className="w-3 h-3 animate-spin" /> lendo o ClickUp · {lidas} de {pessoas.length}
+            <Loader2 className="w-3 h-3 animate-spin" /> lendo as tarefas · {lidas} de {pessoas.length}
           </span>
         )}
       </div>

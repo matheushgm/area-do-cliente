@@ -714,6 +714,15 @@ O módulo passou a se chamar **VertaTask** (rótulo na sidebar e no breadcrumb; 
     **reprova** anúncio, LP (`api/anuncios-aprovacao.js`) ou copy (`api/copy-aprovacao.js`).
   - **Não portado de propósito:** pontos de estimativa (usamos `estimativa_min`), rascunhos, sticky notes,
     favoritos, webhooks/API pública, importadores e editor rich text (Pages usa markdown).
+- **Atividades / Capacidade do time lê o espelho (2026-10-18):** `api/atividades.js` deixou de
+  chamar a API do ClickUp para `carga`, `sugerir`, `concluidas` e `listas`; lê `tarefas_*` via
+  `api/_atividades_fonte.js`, que converte cada linha para o formato de tarefa do ClickUp que o
+  motor (`_atividades_engine.js`) já entendia. Tarefas em lista/pasta arquivada ficam de fora
+  (como no ClickUp). `assignees` aceita `clickup_user_id` ou o uuid do perfil (quem não tem
+  ClickUp também entra na Capacidade); a resposta ecoa a chave enviada em `clickupUserId` e traz
+  `profileId`. As escritas (`criar`, `estimar`, `tipar`) continuam no ClickUp e são refletidas no
+  espelho na hora por `espelharTarefaClickUp` (mapTarefa + `clickup_sync_at`/`updated_at` = agora).
+  Conferido em 2026-10-18: 8 pessoas em ~7 s (antes "lendo o ClickUp 3 de 8" com rate limit).
 - **Ainda não feito:** ligar a Central de Otimizações e o playbook ao Intake, e a decisão sobre desligar o ClickUp.
 
 ### Chat (módulo do VertaTask, `/tarefas?aba=chat`): réplica do ClickUp Chat

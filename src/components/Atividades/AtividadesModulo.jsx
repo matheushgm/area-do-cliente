@@ -129,8 +129,8 @@ export default function AtividadesModulo({ onAbrirMenu }) {
   const onCriada = useCallback((r) => {
     carregarHistorico()
     // a carga do responsável acabou de mudar
-    const id = Number(r?.registro?.responsavel_clickup_id)
-    if (id > 0) refreshCarga([id])
+    const id = Number(r?.registro?.responsavel_clickup_id) || r?.registro?.responsavel_profile_id
+    if (id) refreshCarga([id])
   }, [carregarHistorico, refreshCarga])
   const pl = usePlanejador({ projects, teamMembers, squads, config, showToast, onCriada })
   const { novaAtividade: resetPlanejador } = pl
@@ -218,12 +218,12 @@ export default function AtividadesModulo({ onAbrirMenu }) {
   }, [resetPlanejador])
   const fecharPainel = useCallback(() => { setPainel(null); setPainelExpandido(false) }, [])
   const onCalculado = useCallback(() => { setPlannerAberto(true); setPlannerMin(false) }, [])
-  const recarregarPessoa = useCallback((pessoa) => { if (pessoa?.clickupId) refreshCarga([pessoa.clickupId]) }, [refreshCarga])
+  const recarregarPessoa = useCallback((pessoa) => { const k = pessoa?.clickupId || pessoa?.profileId; if (k) refreshCarga([k]) }, [refreshCarga])
   // Edição inline das horas no painel da pessoa: grava no ClickUp e relê a agenda dela
   const estimar = useCallback(async (pessoa, tarefa, horas) => {
     await estimarTarefa({ taskId: tarefa.id, horas, assigneeClickupId: pessoa?.clickupId || null })
     showToast(`Estimativa de ${tarefa.nome?.slice(0, 40) || 'tarefa'} salva no ClickUp`)
-    if (pessoa?.clickupId) refreshCarga([pessoa.clickupId])
+    { const k = pessoa?.clickupId || pessoa?.profileId; if (k) refreshCarga([k]) }
   }, [refreshCarga, showToast])
 
   // Tipo de tarefa inline: grava o campo no ClickUp (e as horas do tipo) e relê a agenda
@@ -231,7 +231,7 @@ export default function AtividadesModulo({ onAbrirMenu }) {
     const r = await tiparTarefa({ taskId: tarefa.id, tipo, assigneeClickupId: pessoa?.clickupId || null })
     const h = Number(r?.horas)
     showToast(`${tarefa.nome?.slice(0, 40) || 'Tarefa'}: tipo "${r?.tipo || tipo}"${h > 0 ? ` (${h < 1 ? `${Math.round(h * 60)} min` : `${String(h).replace('.', ',')}h`})` : ''} salvo no ClickUp`)
-    if (pessoa?.clickupId) refreshCarga([pessoa.clickupId])
+    { const k = pessoa?.clickupId || pessoa?.profileId; if (k) refreshCarga([k]) }
     return r
   }, [refreshCarga, showToast])
 
