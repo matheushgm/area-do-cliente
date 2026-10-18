@@ -48,7 +48,7 @@ export default function ThreadPanel({ raiz, respostas, carregando, canal, meuId,
           placeholder="Responda na thread"
           membros={membros}
           meuId={meuId}
-          onEnviar={(t) => onEnviar(t, tambem)}
+          onEnviar={(t, arquivos) => onEnviar(t, tambem, arquivos)}
           extra={canal?.type === 'channel' ? (
             <label className="inline-flex items-center gap-1.5 text-[11px] text-ln-t3 cursor-pointer select-none">
               <input type="checkbox" checked={tambem} onChange={(e) => setTambem(e.target.checked)} className="w-3 h-3 accent-[rgb(var(--ln-brand))]" />

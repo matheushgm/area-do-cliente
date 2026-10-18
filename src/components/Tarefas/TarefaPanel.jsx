@@ -5,7 +5,9 @@
 import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { X, Trash2, Plus, Check, Square, CheckSquare, Paperclip, ExternalLink, Send, CornerDownRight, Loader2 } from 'lucide-react'
-import { uploadFile, deleteFile, getSignedUrl } from '../../lib/supabase'
+import { uploadFile, deleteFile } from '../../lib/supabase'
+import AnexoPreview from '../UI/AnexoPreview'
+import { tipoDoAnexo, nomeDoAnexo } from '../../lib/anexos'
 import {
   ordenarItens, fmtDataHora, fmtDataNumerica, descricaoVazia, novoId, progressoChecklists, corDaPessoa, iniciais, DEPARTAMENTOS,
 } from '../../lib/tarefas'
@@ -146,6 +148,7 @@ function Checklists({ checklists = [], onChange }) {
 
 function Anexos({ item, onChange, onErro }) {
   const [enviando, setEnviando] = useState(false)
+  const [aberto, setAberto] = useState(null) // índice do anexo em pré-visualização
   async function upload(e) {
     const files = Array.from(e.target.files || [])
     e.target.value = ''
@@ -162,26 +165,28 @@ function Anexos({ item, onChange, onErro }) {
     if (novos.length) onChange([...(item.anexos || []), ...novos])
     setEnviando(false)
   }
-  async function abrir(a) {
-    if (a.url) { window.open(a.url, '_blank', 'noopener,noreferrer'); return }
-    const url = await getSignedUrl(BUCKET, a.path)
-    if (url) window.open(url, '_blank', 'noopener,noreferrer')
-  }
   async function remover(idx) {
     const a = item.anexos[idx]
     onChange(item.anexos.filter((_, i) => i !== idx))
     if (a?.path) await deleteFile(BUCKET, a.path)
   }
+  const anexos = item.anexos || []
   return (
     <div className="flex flex-col gap-1">
-      {(item.anexos || []).map((a, i) => (
-        <div key={a.path || a.url || i} className="group/an ln-card flex items-center gap-2 h-8 px-2.5 text-xs">
-          <Paperclip className="w-3.5 h-3.5 text-ln-t4 shrink-0" />
-          <button type="button" onClick={() => abrir(a)} className={`flex-1 min-w-0 text-left truncate text-ln-t2 hover:text-ln-accent ${FOCO}`}>{a.name || a.title || 'arquivo'}</button>
-          <span className="text-[11px] text-ln-t4 tabular">{fmtBytes(a.size)}</span>
-          <button type="button" onClick={() => remover(i)} className="ln-iconbtn !w-5 !h-5 opacity-0 group-hover/an:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" aria-label="Remover anexo"><X className="w-3 h-3" /></button>
-        </div>
-      ))}
+      {anexos.map((a, i) => {
+        const doClickUp = a.source === 'clickup'
+        const imagem = tipoDoAnexo(a) === 'imagem' && (a.thumbnail || a.url)
+        return (
+          <div key={a.path || a.url || a.id || i} className="group/an ln-card flex items-center gap-2 h-9 px-2.5 text-xs">
+            {imagem ? <img src={a.thumbnail || a.url} alt="" className="w-6 h-6 rounded object-cover shrink-0" loading="lazy" /> : <Paperclip className="w-3.5 h-3.5 text-ln-t4 shrink-0" />}
+            <button type="button" onClick={() => setAberto(i)} className={`flex-1 min-w-0 text-left truncate text-ln-t2 hover:text-ln-accent ${FOCO}`} title="Pré-visualizar">{nomeDoAnexo(a)}</button>
+            {doClickUp && <span className="text-[10px] text-ln-t4 shrink-0" title="Anexo vindo do ClickUp">ClickUp</span>}
+            <span className="text-[11px] text-ln-t4 tabular">{fmtBytes(a.size)}</span>
+            {!doClickUp && <button type="button" onClick={() => remover(i)} className="ln-iconbtn !w-5 !h-5 opacity-0 group-hover/an:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" aria-label="Remover anexo"><X className="w-3 h-3" /></button>}
+          </div>
+        )
+      })}
+      {aberto != null && <AnexoPreview anexos={anexos} indice={aberto} bucket={BUCKET} onFechar={() => setAberto(null)} />}
       <label className={`self-start inline-flex items-center gap-1.5 h-7 px-2 -mx-2 rounded-md text-xs text-ln-t4 hover:text-ln-t2 hover:bg-ln-ink/[0.03] cursor-pointer ${FOCO}`}>
         {enviando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
         {enviando ? 'Enviando...' : 'Anexar arquivo'}

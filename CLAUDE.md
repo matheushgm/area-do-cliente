@@ -729,6 +729,28 @@ O módulo passou a se chamar **VertaTask** (rótulo na sidebar e no breadcrumb; 
   `api/tarefas-sync.js` (empurra antes de puxar). Testado em 18/10 com criar → editar →
   comentar → excluir numa tarefa de teste na lista Geral da Revenue Lab. Fila:
   `select * from tarefas_outbox where status in ('pendente','erro')`.
+- **Anexos (2026-10-18):** `src/lib/anexos.js` (tipo, tamanho, URL assinada) e
+  `src/components/UI/AnexoPreview.jsx` (pré-visualização em tela cheia: imagem, vídeo, áudio, PDF em
+  iframe, texto; o resto cartão com Baixar; ← → navegam, Esc fecha). No **chat**, o Composer tem o
+  clipe/"+" e aceita colar imagem (até 25 MB, 10 por mensagem); os arquivos vão para o bucket
+  privado `chat-attachments/<canal>/…` e a lista fica em `chat_messages.attachments`
+  (`[{path,name,type,size}]`); `Chat/Anexos.jsx` mostra miniaturas e cartões. Nas **tarefas**, o
+  painel abre o mesmo preview e mostra também os anexos vindos do ClickUp (`anexos[]` com
+  `source:'clickup'`, `url`, `thumbnail`, não removíveis aqui): a sincronização relê
+  `GET /task/{id}` das abertas que mudaram (`maxAnexos`, 40 por rodada no endpoint) e o script
+  aceita `--anexos=N` / `--anexos-de-todas`. A policy antiga do bucket `task-attachments` olhava a
+  tabela legada `tasks`; a 102 liberou a pasta `<id da tarefa em tarefas_itens>` para o time.
+- **Chat ↔ ClickUp Chat (2026-10-18, migration 102):** `api/_chat_sync_core.js` com `puxar()`
+  (canais novos/atualizados + vínculo com o cliente, membros dos canais novos, mensagens dos canais
+  com `latest_comment_at` desde `desde`, respostas das threads cuja contagem mudou; idempotente por
+  `clickup_message_id`) e `empurrar()` (fila `chat_outbox` por trigger em `chat_messages`
+  insert/delete e `chat_channels` insert de canal: envia mensagem/resposta, apaga, cria canal; o
+  autor no ClickUp é o dono do token, as outras pessoas vão assinadas "(Nome, via VertaTask)";
+  anexos viram links; DM criada aqui não é replicada). Endpoint `api/chat-sync.js`
+  (`?push=0|?pull=0|?since|?completo=1`); o `useChat` empurra com debounce ao enviar/apagar e puxa
+  ao abrir e a cada 2 min; o cron diário de `tarefas-sync` também roda a rodada do chat. Estado em
+  `chat_sync`. Em 18/10 o pull trouxe 3.993 mensagens e 546 respostas desde a importação de
+  setembro (19 canais novos). Reações não cruzam.
 - **Atividades / Capacidade do time lê o espelho (2026-10-18):** `api/atividades.js` deixou de
   chamar a API do ClickUp para `carga`, `sugerir`, `concluidas` e `listas`; lê `tarefas_*` via
   `api/_atividades_fonte.js`, que converte cada linha para o formato de tarefa do ClickUp que o

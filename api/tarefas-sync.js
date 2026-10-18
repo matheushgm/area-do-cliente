@@ -14,6 +14,7 @@ import { bearer, getUser } from './_http.js'
 import { createClient } from '@supabase/supabase-js'
 import { sincronizar, SPACES_PADRAO } from './_tarefas_sync_core.js'
 import { empurrar } from './_tarefas_push_core.js'
+import { sincronizarChat } from './_chat_sync_core.js'
 
 export const config = { maxDuration: 60 }
 
@@ -64,7 +65,10 @@ export default async function handler(req, res) {
       comentarios: qp('comentarios') !== '0', reconciliar: qp('reconciliar') === '1',
       orcamentoMs: 50_000,
     })
-    resumo = { via: auth.via, ...r, push }
+    // chat (push + pull) na mesma rodada diária, com o tempo que sobrar
+    let chat = null
+    try { chat = await sincronizarChat({ sb, token: TOKEN, team: TEAM, orcamentoMs: Math.max(5_000, 55_000 - (Date.now() - inicio)) }) } catch (e) { chat = { erro: e.message } }
+    resumo = { via: auth.via, ...r, push, chat }
     await sb.from('tarefas_sync').upsert({ id: 'clickup', ultimo_inicio: new Date(inicio).toISOString(), ultimo_fim: new Date().toISOString(), ultimo_ok: true, resumo, updated_at: new Date().toISOString() })
     return res.status(200).json({ ok: true, ...resumo })
   } catch (e) {

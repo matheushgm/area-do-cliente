@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { Plus, AtSign, Smile, SendHorizontal, ChevronDown, Bold, Italic, List } from 'lucide-react'
+import { Plus, AtSign, Smile, SendHorizontal, ChevronDown, Bold, Italic, List, Paperclip, X, FileText } from 'lucide-react'
+import { fmtBytes } from '../../lib/anexos'
+
+export const LIMITE_ANEXO = 25 * 1024 * 1024 // 25 MB por arquivo
 import ChatAvatar from './ChatAvatar'
 import { slugDe } from '../../lib/chat'
 
@@ -8,8 +11,10 @@ const EMOJIS = ['👍', '❤️', '😂', '🙌', '🔥', '✅', '👀', '🎉',
 // Caixa de escrita no padrão do ClickUp: borda arredondada, barra de ações
 // embaixo (+, tipo "Mensagem", @, emoji) e botão de enviar à direita.
 // Enter envia, Shift+Enter quebra linha, @ abre a lista de menções.
-export default function Composer({ placeholder, membros = [], meuId, onEnviar, compacto = false, extra = null, autoFocus = false }) {
+export default function Composer({ placeholder, membros = [], meuId, onEnviar, compacto = false, extra = null, autoFocus = false, onErro }) {
   const [texto, setTexto] = useState('')
+  const [arquivos, setArquivos] = useState([]) // File[] pendentes
+  const fileRef = useRef(null)
   const [mencao, setMencao] = useState(null) // { query, inicio, fim }
   const [emojiAberto, setEmojiAberto] = useState(false)
   const [enviando, setEnviando] = useState(false)
@@ -56,13 +61,26 @@ export default function Composer({ placeholder, membros = [], meuId, onEnviar, c
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(ini + marca.length, ini + marca.length + sel.length) })
   }
 
+  function adicionarArquivos(lista) {
+    const novos = []
+    for (const f of Array.from(lista || [])) {
+      if (f.size > LIMITE_ANEXO) { onErro?.(`${f.name} passa de ${fmtBytes(LIMITE_ANEXO)}.`); continue }
+      novos.push(f)
+    }
+    if (novos.length) setArquivos((prev) => [...prev, ...novos].slice(0, 10))
+  }
+  function onPaste(e) {
+    const files = Array.from(e.clipboardData?.files || [])
+    if (files.length) { e.preventDefault(); adicionarArquivos(files) }
+  }
+
   async function enviar() {
     const t = texto.trim()
-    if (!t || enviando) return
+    if ((!t && !arquivos.length) || enviando) return
     setEnviando(true)
-    const ok = await onEnviar(t)
+    const ok = await onEnviar(t, arquivos)
     setEnviando(false)
-    if (ok !== false) { setTexto(''); setMencao(null); requestAnimationFrame(() => { if (ref.current) ref.current.style.height = 'auto' }) }
+    if (ok !== false) { setTexto(''); setArquivos([]); setMencao(null); requestAnimationFrame(() => { if (ref.current) ref.current.style.height = 'auto' }) }
   }
 
   function onChange(e) {
@@ -102,16 +120,31 @@ export default function Composer({ placeholder, membros = [], meuId, onEnviar, c
           value={texto}
           onChange={onChange}
           onKeyDown={onKeyDown}
+          onPaste={onPaste}
           onBlur={() => setTimeout(() => setMencao(null), 150)}
           placeholder={placeholder}
           rows={1}
           className={`block w-full bg-transparent resize-none outline-none text-[14px] leading-[21px] text-ln-t1 placeholder:text-ln-t4 ${compacto ? 'px-3 pt-2.5 pb-1' : 'px-3.5 pt-3 pb-1.5'}`}
         />
+        {arquivos.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-3 pb-1.5">
+            {arquivos.map((f, i) => (
+              <span key={`${f.name}-${i}`} className="inline-flex items-center gap-1.5 h-7 pl-2 pr-1 rounded-md border border-ln-ink/10 bg-ln-ink/[0.03] text-[12px] text-ln-t2 max-w-[240px]">
+                {f.type.startsWith('image/') ? <img src={URL.createObjectURL(f)} alt="" className="w-5 h-5 rounded object-cover" /> : <FileText className="w-3.5 h-3.5 text-ln-t4 shrink-0" />}
+                <span className="truncate">{f.name}</span>
+                <span className="text-ln-t4 tabular shrink-0">{fmtBytes(f.size)}</span>
+                <button type="button" onClick={() => setArquivos((prev) => prev.filter((_, j) => j !== i))} className="ln-iconbtn !w-5 !h-5 !rounded" aria-label={`Remover ${f.name}`}><X className="w-3 h-3" /></button>
+              </span>
+            ))}
+          </div>
+        )}
         {extra && <div className="px-3 pb-1">{extra}</div>}
         <div className={`flex items-center gap-0.5 ${compacto ? 'px-2 pb-2' : 'px-2.5 pb-2.5'}`}>
-          <button type="button" onClick={() => ref.current?.focus()} className="w-6 h-6 rounded-md inline-flex items-center justify-center text-ln-t3 hover:bg-ln-ink/5 hover:text-ln-t1 border border-ln-ink/10 mr-1" title="Adicionar" aria-label="Adicionar">
+          <button type="button" onClick={() => fileRef.current?.click()} className="w-6 h-6 rounded-md inline-flex items-center justify-center text-ln-t3 hover:bg-ln-ink/5 hover:text-ln-t1 border border-ln-ink/10 mr-1" title="Anexar arquivo" aria-label="Anexar arquivo">
             <Plus className="w-3.5 h-3.5" />
           </button>
+          <input ref={fileRef} type="file" multiple className="hidden" onChange={(e) => { adicionarArquivos(e.target.files); e.target.value = '' }} />
+          <button type="button" onClick={() => fileRef.current?.click()} className="ln-iconbtn !w-6 !h-6 !rounded-md" title="Anexar arquivo (ou cole uma imagem)" aria-label="Anexar"><Paperclip className="w-3.5 h-3.5" /></button>
           {!compacto && (
             <span className="hidden sm:inline-flex items-center gap-1 h-6 px-1.5 rounded-md border border-ln-ink/10 text-[11px] text-ln-t2 mr-1">Mensagem <ChevronDown className="w-3 h-3 text-ln-t4" /></span>
           )}
@@ -132,7 +165,7 @@ export default function Composer({ placeholder, membros = [], meuId, onEnviar, c
           <button
             type="button"
             onClick={enviar}
-            disabled={!texto.trim() || enviando}
+            disabled={(!texto.trim() && !arquivos.length) || enviando}
             className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-ln-brand text-white disabled:bg-ln-ink/[0.06] disabled:text-ln-t4 transition-colors"
             title="Enviar (Enter)"
             aria-label="Enviar"

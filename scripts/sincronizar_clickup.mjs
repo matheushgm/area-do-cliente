@@ -10,6 +10,8 @@
 //   --reconciliar   confere o que está aberto aqui mas sumiu do ClickUp
 //                   (apagada → arquivada; fechada/movida → atualizada).
 //   --since=ISO     ponto de partida (padrão: tarefas_sync.ultimo_inicio - 15 min).
+//   --anexos=N      quantas tarefas abertas têm os anexos relidos (GET /task/{id}); padrão 400.
+//   --anexos-de-todas  relê os anexos de TODAS as abertas (~2.200 requests, ~25 min).
 //
 // Lê SUPABASE_URL, SUPABASE_SECRET_KEY (ou SERVICE_ROLE), CLICKUP_API_TOKEN,
 // CLICKUP_TEAM_ID e CLICKUP_SYNC_SPACE_IDS de .env e .env.local. Grava o
@@ -47,6 +49,7 @@ try {
     sb, token: TOKEN, team: TEAM, spaces: spaces.length ? spaces : SPACES_PADRAO, desde,
     completo: !!args.completo, reconciliar: !!args.reconciliar,
     comentarios: !args['sem-comentarios'], maxComentarios: Number(args['max-comentarios']) || 400,
+    maxAnexos: args.anexos === undefined ? 400 : Number(args.anexos), anexosDeTodas: !!args['anexos-de-todas'],
     orcamentoMs: 6 * 60 * 60_000, log,
   })
   await sb.from('tarefas_sync').upsert({ id: 'clickup', ultimo_inicio: new Date(inicio).toISOString(), ultimo_fim: new Date().toISOString(), ultimo_ok: true, resumo: { via: 'script', ...resumo }, updated_at: new Date().toISOString() })

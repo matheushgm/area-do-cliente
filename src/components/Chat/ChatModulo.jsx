@@ -13,6 +13,8 @@ import { useChat } from '../../hooks/useChat'
 import ChatSidebar from './ChatSidebar'
 import MessageList from './MessageList'
 import Composer from './Composer'
+import { BUCKET_CHAT } from './Anexos'
+import { uploadFile } from '../../lib/supabase'
 import ThreadPanel from './ThreadPanel'
 import ChatAvatar, { AvatarStack } from './ChatAvatar'
 import { NovoCanalDialog, NovaDMDialog } from './NovoDialogs'
@@ -90,13 +92,29 @@ export default function ChatModulo({ onAbrirMenu }) {
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [chat])
 
-  async function enviarNoCanal(texto) {
-    const r = await chat.enviar({ canalId: canalAtivo.id, texto })
+  // Sobe os arquivos para o Storage (chat-attachments/<canal>/<ts>-<nome>) e
+  // devolve a lista que vai no campo attachments da mensagem.
+  async function subirAnexos(arquivos) {
+    const out = []
+    for (const f of arquivos || []) {
+      const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `${canalAtivo.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${safe}`
+      const url = await uploadFile(BUCKET_CHAT, path, f)
+      if (url) out.push({ path, name: f.name, type: f.type, size: f.size })
+      else showToast(`Falha ao enviar ${f.name}`, 'error')
+    }
+    return out
+  }
+  async function enviarNoCanal(texto, arquivos = []) {
+    const attachments = await subirAnexos(arquivos)
+    if (!texto && arquivos.length && !attachments.length) return false
+    const r = await chat.enviar({ canalId: canalAtivo.id, texto, attachments })
     if (r?.error) { showToast('Falha ao enviar: ' + r.error, 'error'); return false }
     return true
   }
-  async function enviarNaThread(texto, tambem) {
-    const r = await chat.enviar({ canalId: canalAtivo.id, texto, parentId: raizThread.id, tambemNoCanal: tambem })
+  async function enviarNaThread(texto, tambem, arquivos = []) {
+    const attachments = await subirAnexos(arquivos)
+    const r = await chat.enviar({ canalId: canalAtivo.id, texto, parentId: raizThread.id, tambemNoCanal: tambem, attachments })
     if (r?.error) { showToast('Falha ao enviar: ' + r.error, 'error'); return false }
     return true
   }
@@ -217,6 +235,7 @@ export default function ChatModulo({ onAbrirMenu }) {
                   membros={membrosParaMencao}
                   meuId={user.id}
                   onEnviar={enviarNoCanal}
+                  onErro={(m) => showToast(m, 'error')}
                 />
               </div>
             </>

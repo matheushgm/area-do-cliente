@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { MessageSquare, Reply, Smile, Trash2, ChevronDown, ChevronRight, Hash } from 'lucide-react'
 import ChatAvatar, { AvatarStack } from './ChatAvatar'
 import ChatMarkdown from './ChatMarkdown'
+import Anexos from './Anexos'
 import { chaveDia, rotuloDia, hora, horaRelativa, ultimaResposta } from '../../lib/chat'
 
 const REACOES_RAPIDAS = ['👍', '❤️', '😂']
@@ -88,7 +89,8 @@ export function MessageItem({ msg, autor, agrupada, meuId, membros, membrosMap, 
             {msg.edited_at && <span className="text-[11px] text-ln-t4">(editada)</span>}
           </div>
         )}
-        <ChatMarkdown texto={msg.content} membros={membros} meuId={meuId} />
+        {msg.content && <ChatMarkdown texto={msg.content} membros={membros} meuId={meuId} />}
+        <Anexos anexos={msg.attachments} />
         <Reacoes msg={msg} meuId={meuId} membrosMap={membrosMap} onReagir={onReagir} />
         {podeResponder && msg.replies_count > 0 && (
           <button onClick={() => onAbrirThread(msg)} className="group/t mt-1 mb-0.5 -ml-1 flex items-center gap-1.5 h-7 pl-1 pr-2 rounded-md hover:bg-ln-ink/[0.04] max-w-full">

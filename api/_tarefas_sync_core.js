@@ -65,7 +65,7 @@ const diffCampos = (atual, novo, campos) => Object.fromEntries(campos.filter((k)
 export async function sincronizar({
   sb, token, team, spaces = SPACES_PADRAO, desde,
   completo = false, reconciliar = false, comentarios = true,
-  maxComentarios = 40, maxPaginas = 30, orcamentoMs = 50_000, log = () => {},
+  maxComentarios = 40, maxAnexos = 40, anexosDeTodas = false, maxPaginas = 30, orcamentoMs = 50_000, log = () => {},
 }) {
   const clickup = fazClickup(token)
   const inicio = Date.now()
@@ -75,7 +75,7 @@ export async function sincronizar({
     desde: completo ? null : desde?.toISOString?.() ?? null, completo, reconciliar, spaces,
     pastas_novas: 0, pastas_atualizadas: 0, listas_novas: 0, listas_atualizadas: 0,
     tarefas_recebidas: 0, pais_buscados: 0, criadas: 0, atualizadas: 0, puladas_conflito: 0, sem_pai: 0,
-    reconciliadas: 0, removidas: 0, comentarios: 0, avisos: [],
+    reconciliadas: 0, removidas: 0, comentarios: 0, anexos: 0, avisos: [],
   }
   const aviso = (m) => { if (resumo.avisos.length < 200) resumo.avisos.push(m); log('aviso: ' + m) }
 
@@ -327,6 +327,38 @@ export async function sincronizar({
           if (!error) resumo.comentarios += novos.length
         }
       } catch (e) { aviso(`comentários ${l.clickup_task_id}: ${e.message}`) }
+    }
+  }
+
+  // ── Anexos do ClickUp (só vêm no GET /task/{id}): das abertas que mudaram,
+  //    ou de TODAS as abertas (anexosDeTodas, para a passada única do script).
+  //    Entram em `anexos` com source:'clickup', sem mexer nos anexos locais (path).
+  if (maxAnexos > 0 && !estourou()) {
+    let alvo = ordenadas.filter((l) => l._aberta).map((l) => ({ id: l.id, clickup_task_id: l.clickup_task_id }))
+    if (anexosDeTodas) {
+      alvo = []
+      for (let from = 0; ; from += 1000) {
+        const { data } = await sb.from('tarefas_itens').select('id, clickup_task_id').not('clickup_task_id', 'is', null).neq('status_tipo', 'closed').eq('arquivada', false).range(from, from + 999)
+        alvo.push(...(data || [])); if (!data || data.length < 1000) break
+      }
+    }
+    for (const t of alvo.slice(0, maxAnexos)) {
+      if (estourou()) { aviso('tempo esgotado nos anexos; o resto vem na próxima rodada'); break }
+      try {
+        const det = await clickup(`/task/${t.clickup_task_id}`)
+        const cu = (det?.attachments || []).map((a) => ({
+          source: 'clickup', id: String(a.id), name: a.title || a.name || 'arquivo', url: a.url, size: Number(a.size) || null,
+          type: a.mimetype || null, thumbnail: a.thumbnail_medium || a.thumbnail_small || null, created_at: a.date ? new Date(Number(a.date)).toISOString() : null,
+        }))
+        const { data: row } = await sb.from('tarefas_itens').select('anexos').eq('id', t.id).maybeSingle()
+        const locais = (row?.anexos || []).filter((a) => a.source !== 'clickup')
+        const antes = JSON.stringify((row?.anexos || []).filter((a) => a.source === 'clickup').map((a) => a.id).sort())
+        const depois = JSON.stringify(cu.map((a) => a.id).sort())
+        if (antes !== depois) {
+          const { error } = await sb.from('tarefas_itens').update({ anexos: [...locais, ...cu], clickup_sync_at: agora, updated_at: agora }).eq('id', t.id)
+          if (error) aviso(`anexos ${t.clickup_task_id}: ${error.message}`); else resumo.anexos += cu.length
+        }
+      } catch (e) { aviso(`anexos ${t.clickup_task_id}: ${e.message}`) }
     }
   }
 
