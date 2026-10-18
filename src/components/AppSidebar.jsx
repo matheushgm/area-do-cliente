@@ -77,6 +77,7 @@ const NAV_SECTIONS = [
       { id: 'ferramentas', label: 'Ferramentas',       Icon: Wrench,        type: 'group', children: [
         { id: 'atividades',  label: 'Atividades 15min',  Icon: Timer,         type: 'route', to: '/atividades-15min' },
         { id: 'roteiros',    label: 'Roteiros Express',  Icon: Clapperboard,  type: 'route', to: '/roteiros-express' },
+        { id: 'funil',       label: 'Funil de Vendas',   Icon: GitFork,       type: 'route', to: '/funil' },
       ] },
     ],
   },
@@ -91,7 +92,6 @@ const NAV_SECTIONS = [
   {
     label: 'Dados',
     items: [
-      { id: 'funil',       label: 'Funil de Vendas',   Icon: GitFork,       type: 'route', to: '/funil' },
       { id: 'ads-roadmap', label: 'ADS Roadmap',       Icon: Waypoints,     type: 'route', to: '/ads-roadmap' },
       // Antes só existia como botão dentro do Dashboard — ninguém achava.
       { id: 'squads',      label: 'Relatório de Squads', Icon: Users2,      type: 'route', to: '/relatorio-squads', gate: canViewSquadsReport },
