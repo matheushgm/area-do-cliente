@@ -13,6 +13,7 @@ import { bearer, getUser } from './_http.js'
 // quando a última rodada tem mais de 30 minutos.
 import { createClient } from '@supabase/supabase-js'
 import { sincronizar, SPACES_PADRAO } from './_tarefas_sync_core.js'
+import { empurrar } from './_tarefas_push_core.js'
 
 export const config = { maxDuration: 60 }
 
@@ -54,12 +55,16 @@ export default async function handler(req, res) {
 
   let resumo = { via: auth.via }
   try {
+    // primeiro a mão de volta (o que foi escrito no VertaTask vai para o ClickUp),
+    // depois a leitura; assim a leitura já enxerga o que acabou de subir
+    let push = null
+    try { push = await empurrar({ sb, token: TOKEN, orcamentoMs: 15_000 }) } catch (e) { push = { erro: e.message } }
     const r = await sincronizar({
       sb, token: TOKEN, team: TEAM, spaces: spaces.length ? spaces : SPACES_PADRAO, desde,
       comentarios: qp('comentarios') !== '0', reconciliar: qp('reconciliar') === '1',
       orcamentoMs: 50_000,
     })
-    resumo = { via: auth.via, ...r }
+    resumo = { via: auth.via, ...r, push }
     await sb.from('tarefas_sync').upsert({ id: 'clickup', ultimo_inicio: new Date(inicio).toISOString(), ultimo_fim: new Date().toISOString(), ultimo_ok: true, resumo, updated_at: new Date().toISOString() })
     return res.status(200).json({ ok: true, ...resumo })
   } catch (e) {

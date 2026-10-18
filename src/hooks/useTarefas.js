@@ -2,6 +2,7 @@
 // direto no Supabase (RLS: todo o time). Atualizações otimistas + realtime
 // para que duas pessoas na mesma lista vejam as mudanças uma da outra.
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { apiFetch } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { STATUSES_PADRAO, statusDaLista, statusInicial } from '../lib/tarefas'
 
@@ -160,6 +161,15 @@ export function useTarefas(user) {
     return data
   }, [mesclar])
 
+  // Mão de volta para o ClickUp: a escrita entrou na fila (trigger); um pouco
+  // depois pedimos ao servidor para esvaziá-la. Falha aqui não atrapalha a UI:
+  // o cron diário também empurra a fila.
+  const pushTimer = useRef(null)
+  const agendarPush = useCallback(() => {
+    clearTimeout(pushTimer.current)
+    pushTimer.current = setTimeout(() => { apiFetch('/api/tarefas-push', { body: {} }).catch(() => {}) }, 1500)
+  }, [])
+
   const criarTarefa = useCallback(async (payload) => {
     const lista = listasMap.get(payload.lista_id)
     const statuses = lista ? statusDaLista(lista) : STATUSES_PADRAO
@@ -187,23 +197,25 @@ export function useTarefas(user) {
       criador_nome: user?.name || null,
     }
     const { data, error } = await supabase.from('tarefas_itens').insert(row).select().single()
+    if (!error) agendarPush()
     if (error) return { error: error.message }
     mesclar([data])
     return { data }
-  }, [listasMap, user, mesclar])
+  }, [listasMap, user, mesclar, agendarPush])
 
   const atualizarTarefa = useCallback(async (id, patch) => {
     const anterior = itens[id]
     // otimista
     setItens((prev) => prev[id] ? { ...prev, [id]: { ...prev[id], ...patch, updated_at: new Date().toISOString() } } : prev)
     const { data, error } = await supabase.from('tarefas_itens').update(patch).eq('id', id).select().single()
+    if (!error) agendarPush()
     if (error) {
       if (anterior) setItens((prev) => ({ ...prev, [id]: anterior }))
       return { error: error.message }
     }
     mesclar([data])
     return { data }
-  }, [itens, mesclar])
+  }, [itens, mesclar, agendarPush])
 
   /** Troca o status calculando status_tipo e data_conclusao. */
   const mudarStatus = useCallback((item, statusObj) => {
@@ -227,6 +239,7 @@ export function useTarefas(user) {
 
   const excluirTarefa = useCallback(async (id) => {
     const { error } = await supabase.from('tarefas_itens').delete().eq('id', id)
+    if (!error) agendarPush()
     if (error) return { error: error.message }
     setItens((prev) => {
       const next = { ...prev }
@@ -235,7 +248,7 @@ export function useTarefas(user) {
       return next
     })
     return {}
-  }, [])
+  }, [agendarPush])
 
   // ── Pastas e listas ────────────────────────────────────────────────────────
   const criarPasta = useCallback(async ({ nome, project_id = null }) => {
@@ -283,6 +296,7 @@ export function useTarefas(user) {
     const { data, error } = await supabase.from('tarefas_comentarios').insert({
       tarefa_id: tarefaId, texto: texto.trim(), autor_id: user?.id || null, autor_nome: user?.name || null,
     }).select().single()
+    if (!error) agendarPush()
     if (error) return { error: error.message }
     setComentarios((prev) => {
       const atual = prev[tarefaId] || []
@@ -290,7 +304,7 @@ export function useTarefas(user) {
       return { ...prev, [tarefaId]: [...atual, data] }
     })
     return { data }
-  }, [user])
+  }, [user, agendarPush])
 
   const excluirComentario = useCallback(async (tarefaId, id) => {
     const { error } = await supabase.from('tarefas_comentarios').delete().eq('id', id)

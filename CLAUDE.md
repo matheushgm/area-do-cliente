@@ -714,6 +714,21 @@ O módulo passou a se chamar **VertaTask** (rótulo na sidebar e no breadcrumb; 
     **reprova** anúncio, LP (`api/anuncios-aprovacao.js`) ou copy (`api/copy-aprovacao.js`).
   - **Não portado de propósito:** pontos de estimativa (usamos `estimativa_min`), rascunhos, sticky notes,
     favoritos, webhooks/API pública, importadores e editor rich text (Pages usa markdown).
+- **Mão de volta VertaTask → ClickUp (2026-10-18, migration 101):** toda escrita de pessoa
+  logada em `tarefas_itens` (insert/update/delete) e `tarefas_comentarios` (insert) entra em
+  `tarefas_outbox` por trigger (`tarefas_outbox_enfileira`, só com `auth.uid()`: a
+  sincronização, o push e os scripts usam a chave de serviço e não re-enfileiram).
+  `api/_tarefas_push_core.js` (`empurrar`) esvazia a fila: cria a tarefa no ClickUp (e antes a
+  pasta/lista, se nasceram aqui), atualiza só os `campos` que mudaram (nome, descrição, status,
+  prioridade, responsáveis add/rem, datas com a regra das 04:00, estimativa, tags, pai,
+  arquivada, campos Tipo/Dificuldade/Departamento/Cliente), exclui e comenta (assinatura
+  "(Nome, via VertaTask)"); depois grava `clickup_task_id`/`url`/`clickup_updated_at` com
+  `clickup_sync_at = updated_at = agora`. Mover de lista NÃO é replicado (só aviso). Até 5
+  tentativas por item; 400/404 desistem na hora. Dispara por `api/tarefas-push.js` (o
+  `useTarefas` chama com debounce de 1,5 s após cada escrita) e no começo de
+  `api/tarefas-sync.js` (empurra antes de puxar). Testado em 18/10 com criar → editar →
+  comentar → excluir numa tarefa de teste na lista Geral da Revenue Lab. Fila:
+  `select * from tarefas_outbox where status in ('pendente','erro')`.
 - **Atividades / Capacidade do time lê o espelho (2026-10-18):** `api/atividades.js` deixou de
   chamar a API do ClickUp para `carga`, `sugerir`, `concluidas` e `listas`; lê `tarefas_*` via
   `api/_atividades_fonte.js`, que converte cada linha para o formato de tarefa do ClickUp que o
