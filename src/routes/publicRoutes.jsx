@@ -26,6 +26,7 @@ const CampanhasPublico = lazy(() => import('../pages/CampanhasPublico'))
 const NPSClientForm = lazy(() => import('../pages/NPSClientForm'))
 const CRMPublico = lazy(() => import('../pages/CRMPublico'))
 const WebinarPublico = lazy(() => import('../pages/WebinarPublico'))
+const BancoDadosPublico = lazy(() => import('../pages/BancoDadosPublico'))
 
 // ── Aprovação pelo cliente ─────────────────────────────────
 const AprovacaoAnunciosPublico = lazy(() => import('../pages/AprovacaoAnunciosPublico'))
@@ -55,6 +56,7 @@ export const publicRoutes = [
   <Route key="nps" path="/nps/:token" element={<NPSClientForm />} />,
   <Route key="crm" path="/crm/:token" element={<CRMPublico />} />,
   <Route key="webinar" path="/webinar/:token" element={<WebinarPublico />} />,
+  <Route key="leads" path="/leads/:token" element={<BancoDadosPublico />} />,
 
   <Route key="aprovacao" path="/aprovacao/:token" element={<AprovacaoAnunciosPublico />} />,
   <Route key="pedido" path="/pedido/:token" element={<PedidoPublico />} />,

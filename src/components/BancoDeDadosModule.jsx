@@ -9,8 +9,10 @@ import { supabase } from '../lib/supabase'
 import {
   Database, Plus, Trash2, Copy, Check, Loader2, Search, Download,
   Table2, Columns3, Webhook, ChevronDown, Code2, X, Sparkles,
-  Plug, Wand2, Send, AlertTriangle,
+  Plug, Wand2, Send, AlertTriangle, Link2, Eye, EyeOff, RotateCcw,
 } from 'lucide-react'
+import { useColumnWidths, larguraPadrao } from '../hooks/useColumnWidths'
+import ResizeHandle from './UI/ResizeHandle'
 
 const DEFAULT_CRM = {
   enabled: false, endpoint: '', method: 'POST', headers: [],
@@ -94,6 +96,7 @@ export default function BancoDeDadosModule({ project }) {
   const [showCreate, setShowCreate] = useState(false)
   const [novoNome, setNovoNome] = useState('')
   const [novoTemplate, setNovoTemplate] = useState('leads')
+  const [showShare, setShowShare] = useState(false)
 
   const saveTimers = useRef({})
 
@@ -190,6 +193,17 @@ export default function BancoDeDadosModule({ project }) {
       .eq('id', selectedId)
     if (error) showToast('Erro ao salvar integração', 'error')
     else showToast('Integração salva!')
+  }
+
+  // Link de visualização do cliente (/leads/<share_token>). null = desligado.
+  const salvarShare = async (patch) => {
+    setBancos((prev) => prev.map((b) => (b.id === selectedId ? { ...b, ...patch } : b)))
+    const { error } = await supabase
+      .from('bancos_dados')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', selectedId)
+    if (error) { showToast('Erro ao salvar o link', 'error'); return false }
+    return true
   }
 
   // Lead de exemplo para o "Testar envio": usa o último lead real se houver.
@@ -351,6 +365,8 @@ export default function BancoDeDadosModule({ project }) {
                   busca={busca} setBusca={setBusca} onAddLinha={addLinha}
                   onEdit={editarCelula} onDelete={excluirLinha} onExport={exportCSV}
                   onGoCampos={() => setTab('campos')}
+                  bancoId={selected.id} shareAtivo={!!selected.share_token}
+                  onShare={() => setShowShare(true)}
                 />
               )}
               {tab === 'campos' && <CamposTab campos={campos} onSave={salvarCampos} />}
@@ -413,13 +429,120 @@ export default function BancoDeDadosModule({ project }) {
         </Modal>
       )}
 
+      {showShare && selected && (
+        <ShareModal
+          banco={selected} campos={campos}
+          onSave={salvarShare} onClose={() => setShowShare(false)}
+        />
+      )}
+
       <Toast toast={toast} />
     </div>
   )
 }
 
+// ── Link do cliente (somente leitura) ─────────────────────────────────────────
+const novoShareToken = () => crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+
+function ShareModal({ banco, campos, onSave, onClose }) {
+  const [copiado, setCopiado] = useState(false)
+  const [salvando, setSalvando] = useState(false)
+  const ocultos = new Set(banco.share_ocultos || [])
+  const url = banco.share_token
+    ? `${window.location.origin}/leads/${banco.share_token}`
+    : ''
+
+  const run = async (patch) => { setSalvando(true); await onSave(patch); setSalvando(false) }
+  const copiar = () => {
+    navigator.clipboard?.writeText(url)
+    setCopiado(true); setTimeout(() => setCopiado(false), 1500)
+  }
+  const toggleCampo = (key) => {
+    const next = new Set(ocultos)
+    next.has(key) ? next.delete(key) : next.add(key)
+    onSave({ share_ocultos: [...next] })
+  }
+
+  return (
+    <Modal onClose={onClose} maxWidth="lg">
+      <div className="p-5 space-y-4">
+        <div>
+          <h3 className="text-lg font-bold text-rl-text flex items-center gap-2"><Link2 className="w-5 h-5 text-rl-purple" /> Link do cliente</h3>
+          <p className="text-sm text-rl-muted mt-1">
+            O cliente abre sem login e só <strong className="text-rl-text">visualiza</strong> os leads de “{banco.nome}”: busca, filtra por período,
+            ajusta a largura das colunas e abre cada lead. Não edita nem apaga nada.
+          </p>
+        </div>
+
+        {!banco.share_token ? (
+          <button onClick={() => run({ share_token: novoShareToken() })} disabled={salvando}
+            className="btn-primary flex items-center gap-2 text-sm py-2 px-4 disabled:opacity-50">
+            {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />} Gerar link
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <code className="flex-1 min-w-0 truncate bg-rl-bg border border-rl-border rounded-lg px-3 py-2 text-xs text-rl-green font-mono">{url}</code>
+              <button onClick={copiar} className="shrink-0 flex items-center gap-1.5 text-sm border border-rl-border rounded-lg px-3 py-2 text-rl-muted hover:text-rl-text">
+                {copiado ? <Check className="w-4 h-4 text-rl-green" /> : <Copy className="w-4 h-4" />} Copiar
+              </button>
+              <a href={url} target="_blank" rel="noreferrer" title="Abrir como o cliente vê"
+                className="shrink-0 flex items-center text-sm border border-rl-border rounded-lg px-3 py-2 text-rl-muted hover:text-rl-text">
+                <Eye className="w-4 h-4" />
+              </a>
+            </div>
+            <div className="flex items-center gap-4 text-xs">
+              <button onClick={() => window.confirm('Gerar um link novo? O link atual para de funcionar.') && run({ share_token: novoShareToken() })}
+                disabled={salvando} className="flex items-center gap-1 text-rl-muted hover:text-rl-text">
+                <RotateCcw className="w-3.5 h-3.5" /> Gerar outro link
+              </button>
+              <button onClick={() => window.confirm('Desativar o link? O cliente perde o acesso.') && run({ share_token: null })}
+                disabled={salvando} className="flex items-center gap-1 text-red-400 hover:text-red-500">
+                <X className="w-3.5 h-3.5" /> Desativar link
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="text-xs font-semibold text-rl-muted uppercase tracking-wide">Colunas que o cliente vê</label>
+          {campos.length === 0 ? (
+            <p className="text-sm text-rl-muted mt-2">Nenhum campo configurado ainda.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {campos.map((c) => {
+                const oculto = ocultos.has(c.key)
+                return (
+                  <button key={c.key} onClick={() => toggleCampo(c.key)}
+                    className={`text-xs rounded-md px-2 py-1 border flex items-center gap-1.5 transition-all ${
+                      oculto ? 'border-rl-border text-rl-muted/60 line-through' : 'border-rl-purple/40 bg-rl-purple/10 text-rl-text'
+                    }`}>
+                    {oculto ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />} {c.label || c.key}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <p className="text-[11px] text-rl-muted mt-1.5">Clique para esconder ou mostrar. Origem, status do CRM e campos sem coluna nunca aparecem no link.</p>
+        </div>
+
+        <div className="flex justify-end pt-1">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-rl-muted hover:text-rl-text">Fechar</button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 // ── Aba Planilha ──────────────────────────────────────────────────────────────
-function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinha, onEdit, onDelete, onExport, onGoCampos }) {
+function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinha, onEdit, onDelete, onExport, onGoCampos, bancoId, shareAtivo, onShare }) {
+  const defaults = useMemo(() => {
+    const o = { __origem: 130, __data: 120, __acoes: 36 }
+    for (const c of campos) o[c.key] = larguraPadrao(c)
+    return o
+  }, [campos])
+  const { widths, total, startResize, resetCol, reset, customizado } = useColumnWidths(`bd.cols.${bancoId}`, defaults)
+
   if (!campos.length) {
     return (
       <div className="glass-card p-8 text-center">
@@ -440,6 +563,18 @@ function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinh
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar…"
             className="w-full bg-rl-surface border border-rl-border rounded-lg pl-9 pr-3 py-2 text-sm text-rl-text outline-none focus:border-rl-purple" />
         </div>
+        {customizado && (
+          <button onClick={reset} title="Voltar as colunas à largura padrão"
+            className="flex items-center gap-1.5 text-sm text-rl-muted hover:text-rl-text border border-rl-border rounded-lg px-3 py-2">
+            <Columns3 className="w-4 h-4" /> Largura padrão
+          </button>
+        )}
+        <button onClick={onShare} title="Link para o cliente só visualizar os leads"
+          className={`flex items-center gap-1.5 text-sm border rounded-lg px-3 py-2 ${
+            shareAtivo ? 'border-rl-purple/40 text-rl-purple bg-rl-purple/10' : 'border-rl-border text-rl-muted hover:text-rl-text'
+          }`}>
+          <Link2 className="w-4 h-4" /> Link do cliente
+        </button>
         <button onClick={onExport} className="flex items-center gap-1.5 text-sm text-rl-muted hover:text-rl-text border border-rl-border rounded-lg px-3 py-2">
           <Download className="w-4 h-4" /> CSV
         </button>
@@ -449,17 +584,22 @@ function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinh
       </div>
 
       <div className="glass-card overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
+        <table className="text-sm border-collapse" style={{ width: total, minWidth: '100%', tableLayout: 'fixed' }}>
+          <colgroup>
+            {campos.map((c) => <col key={c.key} style={{ width: widths[c.key] }} />)}
+            <col style={{ width: widths.__origem }} />
+            <col style={{ width: widths.__data }} />
+            <col style={{ width: widths.__acoes }} />
+          </colgroup>
           <thead>
-            <tr className="border-b border-rl-border">
-              {campos.map((c) => (
-                <th key={c.key} className="text-left font-semibold text-rl-muted px-3 py-2 whitespace-nowrap text-xs uppercase tracking-wide">
-                  {c.label}
+            <tr className="border-b border-rl-border text-rl-muted">
+              {[...campos, { key: '__origem', label: 'Origem' }, { key: '__data', label: 'Data' }].map((c) => (
+                <th key={c.key} className="relative text-left font-semibold px-3 py-2 text-xs uppercase tracking-wide">
+                  <span className="block truncate pr-1">{c.label}</span>
+                  <ResizeHandle onPointerDown={(e) => startResize(c.key, e)} onDoubleClick={() => resetCol(c.key)} />
                 </th>
               ))}
-              <th className="text-left font-semibold text-rl-muted px-3 py-2 text-xs uppercase whitespace-nowrap">Origem</th>
-              <th className="text-left font-semibold text-rl-muted px-3 py-2 text-xs uppercase whitespace-nowrap">Data</th>
-              <th className="w-8" />
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -478,7 +618,7 @@ function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinh
                     <CellEditor field={c} value={r.dados?.[c.key]} onChange={(v) => onEdit(r.id, c.key, v)} />
                   </td>
                 ))}
-                <td className="px-3 py-1.5 whitespace-nowrap">
+                <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
                     r.origem === 'webhook' ? 'text-rl-green border-rl-green/30 bg-rl-green/10' : 'text-rl-muted border-rl-border'
                   }`}>{r.origem}</span>
@@ -488,7 +628,7 @@ function PlanilhaTab({ campos, registros, loadingReg, busca, setBusca, onAddLinh
                     }`}>CRM {r.crm_status}</span>
                   )}
                 </td>
-                <td className="px-3 py-1.5 text-rl-muted text-xs whitespace-nowrap">{fmtDateTime(r.created_at)}</td>
+                <td className="px-3 py-1.5 text-rl-muted text-xs whitespace-nowrap overflow-hidden text-ellipsis">{fmtDateTime(r.created_at)}</td>
                 <td className="px-1">
                   <button onClick={() => onDelete(r.id)} className="p-1 text-rl-muted/40 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
                     <Trash2 className="w-3.5 h-3.5" />
@@ -509,7 +649,7 @@ function CellEditor({ field, value, onChange }) {
     return (
       <div className="relative">
         <select value={value ?? ''} onChange={(e) => onChange(e.target.value)}
-          className="appearance-none bg-transparent text-rl-text text-sm pr-6 pl-2 py-1.5 rounded-md hover:bg-rl-surface outline-none focus:bg-rl-surface w-full min-w-[110px]">
+          className="appearance-none bg-transparent text-rl-text text-sm pr-6 pl-2 py-1.5 rounded-md hover:bg-rl-surface outline-none focus:bg-rl-surface w-full min-w-0">
           <option value="">—</option>
           {(field.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
@@ -519,8 +659,8 @@ function CellEditor({ field, value, onChange }) {
   }
   const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'email' ? 'email' : 'text'
   return (
-    <input type={type} value={value ?? ''} onChange={(e) => onChange(e.target.value)}
-      className="bg-transparent text-rl-text text-sm px-2 py-1.5 rounded-md hover:bg-rl-surface outline-none focus:bg-rl-surface w-full min-w-[120px] placeholder:text-rl-muted/30" placeholder="—" />
+    <input type={type} value={value ?? ''} onChange={(e) => onChange(e.target.value)} title={value ? String(value) : undefined}
+      className="bg-transparent text-rl-text text-sm px-2 py-1.5 rounded-md hover:bg-rl-surface outline-none focus:bg-rl-surface w-full min-w-0 truncate placeholder:text-rl-muted/30" placeholder="—" />
   )
 }
 
