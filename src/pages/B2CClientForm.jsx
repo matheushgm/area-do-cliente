@@ -4,7 +4,7 @@ import {
   Loader2, AlertTriangle, Check, X, Edit2, Plus,
   CheckCircle2, CalendarDays,
 } from 'lucide-react'
-import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, MONTH_NAMES } from '../components/Resultados/resultadosHelpers'
+import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, weekdayShort, MONTH_NAMES } from '../components/Resultados/resultadosHelpers'
 import VendasPorUnidade from '../components/Resultados/VendasPorUnidade'
 import { getUnidades } from '../lib/constants'
 
@@ -541,6 +541,7 @@ export default function B2CClientForm() {
                         <tr key={day} className="border-b border-rl-border bg-rl-surface/40">
                           <td className="px-4 py-3 font-medium text-rl-text text-xs whitespace-nowrap">
                             {day}/{month + 1}
+                            <span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span>
                           </td>
                           <td colSpan={5} className="px-4 py-3">
                             <DayForm
@@ -559,7 +560,7 @@ export default function B2CClientForm() {
                         key={day}
                         className={`border-b border-rl-border/30 hover:bg-rl-surface/20 transition-colors ${!d ? 'opacity-50' : ''}`}
                       >
-                        <td className="px-4 py-2.5 font-medium text-rl-text text-xs whitespace-nowrap">{day}/{month + 1}</td>
+                        <td className="px-4 py-2.5 font-medium text-rl-text text-xs whitespace-nowrap">{day}/{month + 1}<span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span></td>
                         <td className="px-4 py-2.5 text-right text-xs text-rl-text">{d ? fmtMoney(d.investido) : '—'}</td>
                         <td className="px-4 py-2.5 text-right text-xs text-rl-blue font-medium">{d ? d.leads : '—'}</td>
                         <td className="px-4 py-2.5 text-right text-xs text-rl-green font-medium">{d ? fmtMoney(d.valorVendas) : '—'}</td>

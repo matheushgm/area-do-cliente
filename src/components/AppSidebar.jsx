@@ -6,11 +6,11 @@ import { useTheme } from '../hooks/useTheme'
 import { canViewSquadsReport } from '../lib/utils'
 import { baseProjectsOf, sidebarCounts } from '../lib/dashboardCounts'
 import { Sparkles,
-  Layers, TrendingDown, UserPlus,
+  Layers,
   LogOut, Cloud, Loader2,
-  X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, MessageSquare, BarChart3, DollarSign,
-  Sun, Moon, Clapperboard, Timer, Layout, CalendarCheck, PanelLeftClose, PanelLeftOpen, Waypoints, Users2,
-  ChevronUp,
+  X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, BarChart3, DollarSign,
+  Sun, Moon, Clapperboard, Timer, Layout, PanelLeftClose, PanelLeftOpen, Waypoints, Users2,
+  ChevronUp, ChevronDown, Wrench,
 } from 'lucide-react'
 
 // Sidebar recolhida (só ícones) para sobrar espaço aos módulos. O estado é
@@ -54,13 +54,13 @@ export function useSidebarCollapsed() {
   return [collapsed, setCollapsed]
 }
 
-// Bloco do topo. Os três primeiros são "filtros" da lista de clientes — viraram
-// link (`/?lista=`) em vez de callback, então sobrevivem a um refresh e dá para
-// abrir em outra aba. O Dashboard é rota normal e convive no mesmo bloco.
+// Bloco do topo. "Clientes" é um "filtro" da lista (link `/?lista=`), então
+// sobrevive a um refresh e dá para abrir em outra aba. "Novos Clientes" e
+// "Churn" saíram daqui em 2026-10-18: viraram botões de filtro na toolbar da
+// própria página de Clientes (Dashboard.jsx), ao lado de "Onboarding (90d)".
+// O Dashboard é rota normal e convive no mesmo bloco.
 const NAV_ITEMS = [
   { id: 'all',       label: 'Clientes',       Icon: Layers,       type: 'filter' },
-  { id: 'novos',     label: 'Novos Clientes', Icon: UserPlus,     type: 'filter' },
-  { id: 'churn',     label: 'Churn',          Icon: TrendingDown, type: 'filter' },
   { id: 'dashboard', label: 'Dashboard',      Icon: BarChart3,    type: 'route', to: '/dashboard', badge: 'API' },
 ]
 
@@ -71,10 +71,15 @@ const NAV_SECTIONS = [
     label: 'Operação',
     items: [
       { id: 'otimizacoes', label: 'Otimizações',       Icon: Sparkles,      type: 'route', to: '/otimizacoes' },
-      { id: 'planejador',  label: 'Atividades',        Icon: CalendarCheck, type: 'route', to: '/atividades' },
-      { id: 'tarefas',     label: 'Tarefas',           Icon: CheckSquare,   type: 'route', to: '/tarefas' },
-      { id: 'atividades',  label: 'Atividades 15min',  Icon: Timer,         type: 'route', to: '/atividades-15min' },
-      { id: 'chat',        label: 'Chat',              Icon: MessageSquare, type: 'route', to: '/chat' },
+      { id: 'tarefas',     label: 'VertaTask',         Icon: CheckSquare,   type: 'route', to: '/tarefas' },
+      // Grupo com dropdown. Novas ferramentas entram em `children` e aparecem
+      // no mesmo dropdown.
+      { id: 'ferramentas', label: 'Ferramentas',       Icon: Wrench,        type: 'group', children: [
+        { id: 'atividades',  label: 'Atividades 15min',  Icon: Timer,         type: 'route', to: '/atividades-15min' },
+        { id: 'roteiros',    label: 'Roteiros Express',  Icon: Clapperboard,  type: 'route', to: '/roteiros-express' },
+        { id: 'funil',       label: 'Funil de Vendas',   Icon: GitFork,       type: 'route', to: '/funil' },
+        { id: 'precificacao',label: 'Precificação',      Icon: DollarSign,    type: 'external', href: 'https://vvmkxurb.manus.space/' },
+      ] },
     ],
   },
   {
@@ -82,18 +87,15 @@ const NAV_SECTIONS = [
     items: [
       { id: 'banco',       label: 'Banco de Anúncios', Icon: Library,       type: 'route', to: '/banco-de-anuncios' },
       { id: 'banco-lps',   label: 'Banco de LP',       Icon: Layout,        type: 'route', to: '/banco-de-lps' },
-      { id: 'roteiros',    label: 'Roteiros Express',  Icon: Clapperboard,  type: 'route', to: '/roteiros-express' },
       { id: 'playbook',    label: 'Playbook',          Icon: BookOpen,      type: 'external', href: 'https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173' },
     ],
   },
   {
     label: 'Dados',
     items: [
-      { id: 'funil',       label: 'Funil de Vendas',   Icon: GitFork,       type: 'route', to: '/funil' },
       { id: 'ads-roadmap', label: 'ADS Roadmap',       Icon: Waypoints,     type: 'route', to: '/ads-roadmap' },
       // Antes só existia como botão dentro do Dashboard — ninguém achava.
       { id: 'squads',      label: 'Relatório de Squads', Icon: Users2,      type: 'route', to: '/relatorio-squads', gate: canViewSquadsReport },
-      { id: 'precificacao',label: 'Precificação',      Icon: DollarSign,    type: 'external', href: 'https://vvmkxurb.manus.space/' },
     ],
   },
 ]
@@ -101,8 +103,14 @@ const NAV_SECTIONS = [
 // Lista achatada — usada pelo modo recolhido, que não mostra rótulo de seção.
 const navItemsFor = (user) => NAV_SECTIONS.map((sec) => ({
   ...sec,
-  items: sec.items.filter((it) => !it.gate || it.gate(user)),
+  items: sec.items
+    .filter((it) => !it.gate || it.gate(user))
+    .map((it) => it.type !== 'group' ? it : { ...it, children: it.children.filter((c) => !c.gate || c.gate(user)) })
+    .filter((it) => it.type !== 'group' || it.children.length > 0),
 })).filter((sec) => sec.items.length > 0)
+
+// Grupo está "ativo" quando a rota atual é de um dos filhos.
+const grupoAtivo = (item, pathname) => item.children.some((c) => c.to === pathname)
 
 
 // Menu do avatar: status da nuvem, tema, usuários e sair. Vai num portal com
@@ -227,6 +235,11 @@ function SidebarContent({
 }) {
   const avatarRef = useRef(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  // Dropdowns dos grupos (ex.: Ferramentas). Sem valor salvo, o grupo começa
+  // aberto quando a rota atual é de um filho dele.
+  const [openGroups, setOpenGroups] = useState({})
+  const grupoAberto = (item) => openGroups[item.id] ?? grupoAtivo(item, location.pathname)
+  const toggleGroup = (item) => setOpenGroups((g) => ({ ...g, [item.id]: !grupoAberto(item) }))
 
   if (collapsed) {
     const iconBtn = (active) => `w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-150 border ${
@@ -258,7 +271,12 @@ function SidebarContent({
         {sections.map((sec) => (
           <Fragment key={sec.label}>
             <div className="border-t border-rl-border/50 w-8 my-1" />
-            {sec.items.map(({ id, label, Icon, type, to, href }) => (
+            {/* Grupo no modo recolhido: os filhos entram direto, o tooltip já
+                diz o nome (ex.: "Ferramentas · Atividades 15min"). */}
+            {sec.items.flatMap((it) => it.type === 'group'
+              ? it.children.map((c) => ({ ...c, label: `${it.label} · ${c.label}` }))
+              : [it]
+            ).map(({ id, label, Icon, type, to, href }) => (
               type === 'external'
                 ? <a key={id} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label} className={iconBtn(false)}><Icon className="w-4 h-4" /></a>
                 : <button key={id} onClick={() => { navigate(to); onClose() }} aria-label={label} title={label} className={iconBtn(location.pathname === to)}><Icon className="w-4 h-4" /></button>
@@ -389,7 +407,64 @@ function SidebarContent({
             {sec.label}
           </p>
           <nav className="space-y-0.5">
-            {sec.items.map(({ id, label, Icon, type, to, href, badge }) => {
+            {sec.items.map((item) => {
+              const { id, label, Icon, type, to, href, badge } = item
+              if (type === 'group') {
+                const aberto = grupoAberto(item)
+                const ativo = grupoAtivo(item, location.pathname)
+                return (
+                  <div key={id}>
+                    <button
+                      onClick={() => toggleGroup(item)}
+                      aria-expanded={aberto}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 border ${
+                        ativo && !aberto
+                          ? 'bg-rl-purple/15 text-rl-purple border-rl-purple/25'
+                          : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className="w-4 h-4 shrink-0" />
+                        {label}
+                      </div>
+                      <ChevronDown className={`w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-150 ${aberto ? 'rotate-180' : ''}`} />
+                    </button>
+                    {aberto && (
+                      <div className="ml-4 pl-2.5 border-l border-rl-border/60 mt-0.5 space-y-0.5">
+                        {item.children.map((c) => {
+                          const cAtivo = c.type === 'route' && location.pathname === c.to
+                          const cClass = `w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 border ${
+                            cAtivo
+                              ? 'bg-rl-purple/15 text-rl-purple border-rl-purple/25'
+                              : 'text-rl-muted hover:bg-rl-surface hover:text-rl-text border-transparent'
+                          }`
+                          const cContent = (
+                            <>
+                              <div className="flex items-center gap-2.5">
+                                <c.Icon className="w-4 h-4 shrink-0" />
+                                {c.label}
+                              </div>
+                              {c.type === 'external' && <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-50" />}
+                            </>
+                          )
+                          if (c.type === 'external') {
+                            return (
+                              <a key={c.id} href={c.href} target="_blank" rel="noopener noreferrer" className={cClass}>
+                                {cContent}
+                              </a>
+                            )
+                          }
+                          return (
+                            <button key={c.id} onClick={() => { navigate(c.to); onClose() }} className={cClass}>
+                              {cContent}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
               const active = type === 'route' && location.pathname === to
               const baseClass = `w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group border ${
                 active

@@ -185,6 +185,10 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
   const { teamMembers } = useApp()
   const [tab, setTab] = useState('resumo')
   const [expandido, setExpandido] = useState(false)
+  // Filtro de período da aba Tarefas: null | '7d' | 'custom'
+  const [periodo, setPeriodo] = useState(null)
+  const [de, setDe] = useState(() => addDays(hojeISO(), -29))
+  const [ate, setAte] = useState(() => hojeISO())
   const [novoAberto, setNovoAberto] = useState(false)
   const novoRef = useRef(null)
   const [modal, setModal] = useState(null) // { tipo:'registro', registro?, tipoInicial } | { tipo:'tarefa', sugestao? }
@@ -244,10 +248,22 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
     return c
   }, [hub.timeline, sugestoesPendentes, contasDash, semanaCount])
 
+  // Atividade dos últimos 7 dias (criada ou concluída nesse intervalo), mesma janela do Resumo
+  const em7dias = (i) => { const h = hojeISO(), d = addDays(h, -6); return !!i.data && i.data >= d && i.data <= h }
+  const noPeriodo = (i) => {
+    if (periodo === '7d') return em7dias(i)
+    if (periodo === 'custom') return !!i.data && (!de || i.data >= de) && (!ate || i.data <= ate)
+    return true
+  }
   const itens = useMemo(() => {
     const kinds = TAB_KINDS[tab]
-    return kinds ? hub.timeline.filter((i) => kinds.includes(i.kind)) : hub.timeline
-  }, [hub.timeline, tab])
+    const base = kinds ? hub.timeline.filter((i) => kinds.includes(i.kind)) : hub.timeline
+    return tab === 'tarefas' && periodo ? base.filter(noPeriodo) : base
+  }, [hub.timeline, tab, periodo, de, ate])
+  const tarefas7dias = useMemo(
+    () => hub.timeline.filter((i) => TAB_KINDS.tarefas.includes(i.kind) && em7dias(i)).length,
+    [hub.timeline],
+  )
   // Aba Tarefas agrupa por vencimento (Atrasado / Hoje / Amanhã / Esta semana…),
   // como o módulo Tarefas; as outras abas agrupam por mês.
   const grupos = useMemo(() => {
@@ -344,11 +360,39 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
         <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Carregando atividades…</div>
       ) : itens.length === 0 ? (
         <div className="text-center py-10">
+          {tab === 'tarefas' && periodo && (
+            <button onClick={() => setPeriodo(null)} className="text-xs text-rl-purple hover:underline mb-2">Limpar filtro de período</button>
+          )}
           <p className="text-sm text-rl-subtle">Nada por aqui ainda.</p>
           <p className="text-xs text-rl-muted mt-1">Use o botão Novo pra registrar uma otimização, anotação ou tarefa.</p>
         </div>
       ) : (
         <div className="space-y-5">
+          {tab === 'tarefas' && (
+            <div className="flex items-center gap-2 px-1 flex-wrap">
+              <button
+                onClick={() => setPeriodo((v) => (v === '7d' ? null : '7d'))}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5 ${periodo === '7d' ? 'bg-rl-purple text-white border-rl-purple' : 'border-rl-border text-rl-subtle hover:text-rl-text hover:bg-rl-surface'}`}
+              >
+                Últimos 7 dias
+                <span className={`text-[10px] font-bold ${periodo === '7d' ? 'text-white/80' : 'text-rl-muted'}`}>{tarefas7dias}</span>
+              </button>
+              <button
+                onClick={() => setPeriodo((v) => (v === 'custom' ? null : 'custom'))}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${periodo === 'custom' ? 'bg-rl-purple text-white border-rl-purple' : 'border-rl-border text-rl-subtle hover:text-rl-text hover:bg-rl-surface'}`}
+              >
+                Personalizado
+              </button>
+              {periodo === 'custom' && (
+                <div className="flex items-center gap-1.5 text-xs text-rl-subtle">
+                  <input type="date" value={de} max={ate || undefined} onChange={(e) => setDe(e.target.value)} className="input-field text-xs py-1 px-2" />
+                  <span>até</span>
+                  <input type="date" value={ate} min={de || undefined} onChange={(e) => setAte(e.target.value)} className="input-field text-xs py-1 px-2" />
+                </div>
+              )}
+              {periodo && <span className="text-[11px] text-rl-muted">Tarefas criadas ou concluídas no período</span>}
+            </div>
+          )}
           {grupos.map(([mes, lista, cor]) => (
             <div key={mes}>
               <p className="text-sm font-semibold text-rl-subtle px-1 mb-2 flex items-center gap-2">

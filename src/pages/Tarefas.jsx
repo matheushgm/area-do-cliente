@@ -11,18 +11,35 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useOutletContext } from 'react-router-dom'
 import {
   Menu, List, KanbanSquare, ChevronRight, ChevronDown, Search, X, Plus, Loader2, Layers, Eye, EyeOff, PanelLeft, User, RefreshCw,
-  CheckSquare, Trash2, Check, Maximize2, Minimize2, Rows3,
+  Trash2, Check, Maximize2, Minimize2, Rows3, CalendarDays, ArrowLeft, Table2, GanttChart, Pencil, ExternalLink,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
 import { useTarefas } from '../hooks/useTarefas'
+import { useVertaTask } from '../hooks/useVertaTask'
+import { useChatNaoLidas } from '../hooks/useChat'
+import ChatModulo from '../components/Chat/ChatModulo'
+import AtividadesModulo from '../components/Atividades/AtividadesModulo'
+import PlanilhaView from '../components/Tarefas/PlanilhaView'
+import GanttView from '../components/Tarefas/GanttView'
+import PaginasView from '../components/Tarefas/PaginasView'
+import AnalyticsView from '../components/Tarefas/AnalyticsView'
+import ModuloEditor from '../components/Tarefas/ModuloEditor'
+import ModelosMenu from '../components/Tarefas/ModelosMenu'
+import { usePaginas } from '../hooks/usePaginas'
+import { statusModulo } from '../lib/vertatask'
+import { cicloPadrao } from '../lib/vertatask'
 import { statusDaLista, statusDasListas, agruparItens, filtrarItens, AGRUPAMENTOS, STATUSES_PADRAO, corDaPessoa, iniciais } from '../lib/tarefas'
 import TarefasSidebar from '../components/Tarefas/TarefasSidebar'
 import ListaView from '../components/Tarefas/ListaView'
 import QuadroView from '../components/Tarefas/QuadroView'
 import TarefaPanel from '../components/Tarefas/TarefaPanel'
+import CalendarioView from '../components/Tarefas/CalendarioView'
+import CiclosView from '../components/Tarefas/CiclosView'
+import ModulosView from '../components/Tarefas/ModulosView'
+import IntakeView from '../components/Tarefas/IntakeView'
 import { Popover, Avatar, FOCO } from '../components/Tarefas/Campos'
 
 const PAINEL_LARGURA = 480
@@ -39,6 +56,8 @@ function useLarguraDoConteudo(ref) {
   }, [ref])
   return w
 }
+
+const novoIdView = () => `v${Date.now().toString(36)}`
 
 function estaDigitando() {
   const el = document.activeElement
@@ -169,18 +188,23 @@ export default function Tarefas() {
   const { openSidebar } = useOutletContext()
   const [params, setParams] = useSearchParams()
   const t = useTarefas(user)
+  const vt = useVertaTask(user)
+  const pgHook = usePaginas(user)
 
   const conteudoRef = useRef(null)
   const largura = useLarguraDoConteudo(conteudoRef)
   const [arvoreAberta, setArvoreAberta] = useState(false)
   const [view, setView] = useState(() => lerPref('view', 'lista'))
-  const [agrupar, setAgrupar] = useState(() => lerPref('agrupar', 'status'))
+  const [agrupar, setAgrupar] = useState(() => lerPref('agrupar', 'vencimento')) // como a lista do ClickUp
   const [mostrarConcluidas, setMostrarConcluidas] = useState(() => lerPref('concluidas', false))
   const [denso, setDenso] = useState(() => lerPref('denso', false))
   const [busca, setBusca] = useState('')
   const [filtroResp, setFiltroResp] = useState('todos')
   const [painelExpandido, setPainelExpandido] = useState(false)
   const [recarregarTick, setRecarregarTick] = useState(0)
+  const [filtroEtiqueta, setFiltroEtiqueta] = useState('')
+  const [editandoModulo, setEditandoModulo] = useState(false)
+  const [unidadeBurn, setUnidadeBurn] = useState(() => lerPref('burn', 'tarefas'))
   const sync = useSyncClickup({
     ativo: !t.loadingEstrutura,
     aoTerminar: useCallback((r) => {
@@ -194,24 +218,91 @@ export default function Tarefas() {
   useEffect(() => gravarPref('agrupar', agrupar), [agrupar])
   useEffect(() => gravarPref('concluidas', mostrarConcluidas), [mostrarConcluidas])
   useEffect(() => gravarPref('denso', denso), [denso])
+  useEffect(() => gravarPref('burn', unidadeBurn), [unidadeBurn])
 
   // ── Seleção (pasta / lista / minhas) via URL ─────────────────────────────
+  const aba = params.get('aba') // null = tarefas | 'intake' | 'ciclos' | 'modulos' | 'paginas' | 'analytics' | 'chat' | 'atividades'
   const sel = useMemo(() => {
+    if (aba === 'ciclos') return { tipo: 'ciclo', id: params.get('ciclo') || cicloPadrao(vt.ciclos)?.id || null }
+    if (aba === 'modulos' && params.get('modulo')) return { tipo: 'modulo', id: params.get('modulo') }
+    if (aba === 'modulos' || aba === 'intake' || aba === 'chat' || aba === 'atividades' || aba === 'paginas' || aba === 'analytics') return { tipo: 'nenhum' }
     if (params.get('lista')) return { tipo: 'lista', id: params.get('lista') }
     if (params.get('pasta')) return { tipo: 'pasta', id: params.get('pasta') }
     if (params.get('minhas') === '1') return { tipo: 'minhas' }
+    if (params.get('todas') === '1') return { tipo: 'todas' }
     return lerPref('sel', null) || { tipo: 'minhas' }
-  }, [params])
+  }, [params, aba, vt.ciclos])
   const tarefaAbertaId = params.get('tarefa')
+  const chatNaoLidas = useChatNaoLidas(user?.id, aba)
 
   const setSel = useCallback((s) => {
     gravarPref('sel', s)
     const p = new URLSearchParams()
     if (s.tipo === 'lista') p.set('lista', s.id)
     else if (s.tipo === 'pasta') p.set('pasta', s.id)
+    else if (s.tipo === 'todas') p.set('todas', '1')
     else p.set('minhas', '1')
     setParams(p)
   }, [setParams])
+
+  const irAba = useCallback((a, extra = {}) => {
+    if (a === 'tarefas') { setSel(lerPref('sel', null) || { tipo: 'minhas' }); return }
+    setParams(new URLSearchParams({ aba: a, ...extra }))
+  }, [setSel, setParams])
+
+  const salvarView = useCallback(async () => {
+    const nome = window.prompt('Nome da view')
+    if (!nome || !nome.trim()) return
+    const compartilhar = window.confirm('Compartilhar esta view com o time?\n\nOK = todo mundo vê. Cancelar = só você.')
+    const alvo = ['lista', 'pasta', 'minhas', 'todas'].includes(sel.tipo) ? sel : { tipo: 'todas' }
+    const r = await vt.criarView({ nome, acesso: compartilhar ? 'publica' : 'privada', config: { sel: alvo, view, agrupar, filtroResp, mostrarConcluidas, etiqueta: filtroEtiqueta } })
+    if (r.error) showToast(r.error, 'error'); else showToast(compartilhar ? 'View salva e compartilhada' : 'View salva só para você')
+  }, [sel, view, agrupar, filtroResp, mostrarConcluidas, filtroEtiqueta, vt, showToast])
+  const aplicarView = useCallback((v) => {
+    const c = v.config || {}
+    setView(c.view || 'lista'); setAgrupar(c.agrupar || 'status'); setFiltroResp(c.filtroResp || 'todos'); setMostrarConcluidas(!!c.mostrarConcluidas); setFiltroEtiqueta(c.etiqueta || '')
+    setSel(c.sel || { tipo: 'todas' })
+  }, [setSel])
+  const excluirView = useCallback(async (id) => {
+    const r = await vt.excluirView(id)
+    if (r.error) showToast(r.error, 'error')
+  }, [vt, showToast])
+  const alternarAcessoView = useCallback(async (v) => {
+    const r = await vt.atualizarView(v.id, { acesso: v.acesso === 'publica' ? 'privada' : 'publica' })
+    if (r.error) showToast(r.error, 'error'); else showToast(v.acesso === 'publica' ? 'Agora só você vê esta view' : 'View compartilhada com o time')
+  }, [vt, showToast])
+
+  // Views que ficavam só neste navegador (versão anterior) passam para o banco, privadas.
+  const migrouViews = useRef(false)
+  useEffect(() => {
+    if (vt.loading || migrouViews.current || !user?.id) return
+    migrouViews.current = true
+    const locais = lerPref('views', [])
+    if (!Array.isArray(locais) || !locais.length) return
+    Promise.all(locais.map((v) => vt.criarView({ nome: v.nome, acesso: 'privada', config: { sel: v.sel, view: v.view, agrupar: v.agrupar, filtroResp: v.filtroResp, mostrarConcluidas: v.mostrarConcluidas } })))
+      .then(() => { try { localStorage.removeItem('tarefas.views') } catch { /* noop */ } })
+  }, [vt.loading, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Modelos de tarefa
+  const salvarComoModelo = useCallback(async (item, subs = []) => {
+    const nome = window.prompt('Nome do modelo', item.titulo)
+    if (!nome || !nome.trim()) return
+    const r = await vt.criarModelo({ nome, payload: {
+      titulo: item.titulo, descricao: item.descricao, prioridade: item.prioridade, estimativa_min: item.estimativa_min, tipo_tarefa: item.tipo_tarefa,
+      dificuldade: item.dificuldade, departamento: item.departamento, etiquetas: item.etiquetas || [], subtarefas: subs,
+      checklists: (item.checklists || []).map((c) => ({ ...c, itens: (c.itens || []).map((i) => ({ ...i, feito: false })) })),
+    } })
+    if (r.error) showToast(r.error, 'error'); else showToast('Modelo salvo')
+  }, [vt, showToast])
+
+  const moverPendentes = useCallback(async (origem, destino) => {
+    const ids = Object.values(t.itens).filter((it) => it.ciclo_id === origem && !it.parent_id && it.status_tipo !== 'closed').map((i) => i.id)
+    if (!ids.length) return
+    const { error } = await supabase.from('tarefas_itens').update({ ciclo_id: destino }).in('id', ids)
+    if (error) { showToast(error.message, 'error'); return }
+    t.aplicarLocal(ids, { ciclo_id: destino })
+    showToast(`${ids.length} tarefa(s) passaram para o outro cycle`)
+  }, [t, showToast])
 
   const abrirTarefa = useCallback((id) => {
     const p = new URLSearchParams(params)
@@ -237,8 +328,11 @@ export default function Tarefas() {
     if (t.loadingEstrutura) return
     const force = recarregarTick > 0
     if (sel.tipo === 'minhas') t.carregarMinhas()
+    else if (sel.tipo === 'todas') t.carregarAbertas({ force })
+    else if (sel.tipo === 'ciclo' && sel.id) t.carregarPorCampo('ciclo_id', sel.id, { force })
+    else if (sel.tipo === 'modulo' && sel.id) t.carregarPorCampo('modulo_id', sel.id, { force })
     else if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force })
-  }, [sel.tipo, listasEscopo, t.loadingEstrutura, t.carregarMinhas, t.carregarListas, recarregarTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sel.tipo, sel.id, t.carregarPorCampo, t.carregarAbertas, listasEscopo, t.loadingEstrutura, t.carregarMinhas, t.carregarListas, recarregarTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (tarefaAbertaId && !t.itens[tarefaAbertaId]) t.carregarTarefa(tarefaAbertaId)
@@ -256,9 +350,12 @@ export default function Tarefas() {
   const todos = useMemo(() => Object.values(t.itens), [t.itens])
   const itensEscopo = useMemo(() => {
     if (sel.tipo === 'minhas') return todos.filter((it) => (it.responsaveis || []).includes(user?.id))
+    if (sel.tipo === 'todas') return todos
+    if (sel.tipo === 'ciclo') return todos.filter((it) => it.ciclo_id === sel.id)
+    if (sel.tipo === 'modulo') return todos.filter((it) => it.modulo_id === sel.id)
     const ids = new Set(listasEscopo.map((l) => l.id))
     return todos.filter((it) => ids.has(it.lista_id))
-  }, [todos, sel.tipo, listasEscopo, user?.id])
+  }, [todos, sel.tipo, sel.id, listasEscopo, user?.id])
 
   const filhosDe = useMemo(() => {
     const m = new Map()
@@ -276,12 +373,12 @@ export default function Tarefas() {
   }, [itensEscopo])
 
   const filtrados = useMemo(
-    () => filtrarItens(topo, { busca, responsavel: filtroResp, mostrarConcluidas, userId: user?.id }),
-    [topo, busca, filtroResp, mostrarConcluidas, user?.id],
+    () => filtrarItens(topo, { busca, responsavel: filtroResp, mostrarConcluidas, userId: user?.id }).filter((it) => !filtroEtiqueta || (it.etiquetas || []).includes(filtroEtiqueta)),
+    [topo, busca, filtroResp, mostrarConcluidas, user?.id, filtroEtiqueta],
   )
 
   const grupos = useMemo(() => {
-    const g = agruparItens(filtrados, agrupar, { statuses, membrosMap, listasMap: t.listasMap })
+    const g = agruparItens(filtrados, agrupar, { statuses, membrosMap, listasMap: t.listasMap, modulosMap: vt.modulosMap, ciclosMap: vt.ciclosMap })
     if (agrupar === 'status' && view === 'quadro') {
       const existentes = new Map(g.map((x) => [x.key, x]))
       return statuses
@@ -289,7 +386,7 @@ export default function Tarefas() {
         .map((s) => existentes.get(s.key) || { key: s.key, label: s.label, cor: s.cor, itens: [] })
     }
     return g
-  }, [filtrados, agrupar, statuses, membrosMap, t.listasMap, view, mostrarConcluidas])
+  }, [filtrados, agrupar, statuses, membrosMap, t.listasMap, vt.modulosMap, vt.ciclosMap, view, mostrarConcluidas])
 
   const contagemComentarios = useMemo(() => {
     const m = {}
@@ -297,14 +394,33 @@ export default function Tarefas() {
     return m
   }, [t.comentarios])
 
-  const listaPadraoId = sel.tipo === 'lista' ? sel.id : listasEscopo[0]?.id || null
+  // Fora de uma pasta/lista (cycles, modules, minhas): usa a última lista visitada.
+  // Abertas por pasta, só do que já está carregado (a lista de clientes mostra o número quando existe).
+  const contagemPorPasta = useMemo(() => {
+    const porLista = new Map()
+    for (const it of todos) if (!it.parent_id && it.status_tipo !== 'closed') porLista.set(it.lista_id, (porLista.get(it.lista_id) || 0) + 1)
+    const m = {}
+    for (const l of t.listas) if (porLista.has(l.id)) m[l.pasta_id] = (m[l.pasta_id] || 0) + porLista.get(l.id)
+    return m
+  }, [todos, t.listas])
+
+  const listaPadraoId = useMemo(() => {
+    if (sel.tipo === 'lista') return sel.id
+    if (listasEscopo[0]) return listasEscopo[0].id
+    const ult = lerPref('sel', null)
+    if (ult?.tipo === 'lista' && t.listasMap.has(ult.id)) return ult.id
+    if (ult?.tipo === 'pasta') return t.listas.find((l) => l.pasta_id === ult.id)?.id || null
+    return null
+  }, [sel, listasEscopo, t.listasMap, t.listas])
 
   // ── Ações ────────────────────────────────────────────────────────────────
   const onCriar = useCallback(async (payload) => {
-    const r = await t.criarTarefa(payload)
+    // dentro de um cycle ou module, a tarefa nova já nasce nele
+    const escopo = payload.parent_id ? {} : { ciclo_id: sel.tipo === 'ciclo' ? sel.id : undefined, modulo_id: sel.tipo === 'modulo' ? sel.id : undefined }
+    const r = await t.criarTarefa({ ...payload, ...escopo })
     if (r.error) showToast(r.error, 'error')
     return r
-  }, [t, showToast])
+  }, [t, sel, showToast])
   const onAtualizar = useCallback(async (id, patch) => {
     const r = await t.atualizarTarefa(id, patch)
     if (r.error) showToast(r.error, 'error')
@@ -318,21 +434,51 @@ export default function Tarefas() {
     onCriar({ lista_id: listaPadraoId, titulo: 'Nova tarefa' }).then((r) => r?.data && abrirTarefa(r.data.id))
   }, [listaPadraoId, onCriar, abrirTarefa, showToast])
 
+  const aceitarIntake = useCallback(async (it, { pastaId, responsavelId }) => {
+    const lista = t.listas.find((l) => l.pasta_id === pastaId && l.nome === 'Geral') || t.listas.find((l) => l.pasta_id === pastaId)
+    if (!lista) { showToast('Essa pasta não tem lista. Crie uma lista primeiro.', 'error'); return }
+    const r = await t.criarTarefa({
+      lista_id: lista.id, titulo: it.titulo, prioridade: it.prioridade,
+      descricao: it.descricao ? `${it.descricao}\n\nOrigem: ${it.origem}` : `Origem: ${it.origem}`,
+      responsaveis: responsavelId ? [responsavelId] : [],
+    })
+    if (r.error) { showToast(r.error, 'error'); return }
+    const d = await vt.decidirIntake(it.id, { status: 'aceito', tarefa_id: r.data.id })
+    if (d.error) showToast(d.error, 'error')
+    else showToast(`Tarefa criada em ${lista.nome}`)
+  }, [t, vt, showToast])
+
+  const usarModelo = useCallback(async (m) => {
+    if (!listaPadraoId) { showToast('Escolha uma pasta ou lista primeiro', 'error'); return }
+    const p = m.payload || {}
+    const r = await t.criarTarefa({ lista_id: listaPadraoId, titulo: p.titulo, descricao: p.descricao, prioridade: p.prioridade, estimativa_min: p.estimativa_min, tipo_tarefa: p.tipo_tarefa, dificuldade: p.dificuldade, departamento: p.departamento, ciclo_id: sel.tipo === 'ciclo' ? sel.id : null, modulo_id: sel.tipo === 'modulo' ? sel.id : null })
+    if (r.error) { showToast(r.error, 'error'); return }
+    const extra = {}
+    if ((p.etiquetas || []).length) extra.etiquetas = p.etiquetas
+    if ((p.checklists || []).length) extra.checklists = p.checklists
+    if (Object.keys(extra).length) await t.atualizarTarefa(r.data.id, extra)
+    for (const titulo of p.subtarefas || []) await t.criarTarefa({ lista_id: listaPadraoId, parent_id: r.data.id, titulo })
+    abrirTarefa(r.data.id)
+    showToast('Tarefa criada a partir do modelo')
+  }, [t, sel, listaPadraoId, showToast, abrirTarefa])
+
   // Atalhos: C cria, Esc fecha o painel (fora de campos de texto).
   useEffect(() => {
     const h = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.key === 'Escape' && tarefaAbertaId && !estaDigitando()) { e.preventDefault(); if (painelExpandido) setPainelExpandido(false); else fecharPainel() }
-      if ((e.key === 'c' || e.key === 'C') && !estaDigitando()) { e.preventDefault(); novaTarefa() }
+      if ((e.key === 'c' || e.key === 'C') && !estaDigitando() && aba !== 'chat' && aba !== 'atividades' && aba !== 'paginas') { e.preventDefault(); novaTarefa() }
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa])
+  }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa, aba])
 
   const ctx = useMemo(() => ({
     statuses, membros: teamMembers || [], membrosMap, itensMap: t.itens, listaPadraoId, agrupar, contagemComentarios, selecionadaId: tarefaAbertaId,
-    onAbrir: abrirTarefa, onAtualizar, onMudarStatus, onCriar,
-  }), [statuses, teamMembers, membrosMap, t.itens, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar])
+    onAbrir: abrirTarefa, onAtualizar, onMudarStatus, onCriar, etiquetasMap: vt.etiquetasMap,
+    // colunas Cliente e Sprints da Lista (estilo ClickUp)
+    listas: t.listas, pastas: t.pastas, projetos: projects || [], ciclos: vt.ciclos || [],
+  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar])
 
   // ── Cabeçalho e painel ───────────────────────────────────────────────────
   const pastaSel = sel.tipo === 'pasta' ? t.pastasMap.get(sel.id) : sel.tipo === 'lista' ? t.pastasMap.get(t.listasMap.get(sel.id)?.pasta_id) : null
@@ -345,14 +491,18 @@ export default function Tarefas() {
   const paiDaAberta = tarefaAberta?.parent_id ? t.itens[tarefaAberta.parent_id] : null
   const statusesDaAberta = listaDaAberta ? statusDaLista(listaDaAberta) : statuses
   const painelEmpurra = largura >= EMPURRA_A_PARTIR_DE
+  const moduloSel = sel.tipo === 'modulo' ? vt.modulosMap.get(sel.id) : null
+  const mostrarViews = !aba || aba === 'ciclos' || (aba === 'modulos' && !!sel.id)
+  const comTopo = aba === 'ciclos' || aba === 'modulos' // cabeçalho acima da view: a página rola inteira
+  const semRolagem = aba === 'paginas'
   const painel = !!tarefaAbertaId
 
   return (
     <>
 
-      <div ref={conteudoRef} className="ln flex-1 min-w-0 flex flex-col h-screen bg-ln-bg">
-        <div className="flex-1 min-h-0 p-2">
-          <div className="relative h-full min-h-0 flex rounded-lg border border-ln-ink/5 bg-ln-panel overflow-hidden" style={{ boxShadow: '0 0 0 2px rgb(var(--ln-ink) / 0.02)' }}>
+      <div ref={conteudoRef} className="ln vt flex-1 min-w-0 flex flex-col h-screen bg-ln-bg">
+        <div className="flex-1 min-h-0">
+          <div className="relative h-full min-h-0 flex bg-ln-panel overflow-hidden">
             <TarefasSidebar
               pastas={t.pastas} listas={t.listas} projetos={projects} sel={sel} onSel={setSel}
               onCriarPasta={(nome) => t.criarPasta({ nome })}
@@ -360,58 +510,76 @@ export default function Tarefas() {
               onAtualizarPasta={t.atualizarPasta}
               onAtualizarLista={t.atualizarLista}
               aberta={arvoreAberta} onFechar={() => setArvoreAberta(false)}
+              nav={{ aba: aba || 'tarefas', onAba: irAba, intake: vt.intakePendentes.length, chat: chatNaoLidas }}
+              views={vt.views} userId={user?.id} onAplicarView={aplicarView} onExcluirView={excluirView} onAlternarAcessoView={alternarAcessoView}
+              contagem={contagemPorPasta}
             />
 
             {/* ── Painel principal ─────────────────────────────────────── */}
+            {aba === 'chat' ? <ChatModulo onAbrirMenu={openSidebar} /> : aba === 'atividades' ? <AtividadesModulo onAbrirMenu={openSidebar} /> : (
             <div className="flex-1 min-w-0 flex flex-col">
-              <header className="h-11 shrink-0 flex items-center justify-between gap-3 px-3 border-b border-ln-ink/5">
-                <div className="flex items-center gap-1 min-w-0">
+              <header className="min-h-[56px] shrink-0 flex items-center justify-between gap-3 px-6 py-2 border-b border-ln-ink/[0.08]">
+                <div className="flex items-center gap-2 min-w-0">
                   <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
                   <button onClick={() => setArvoreAberta(true)} aria-label="Abrir pastas" className="ln-iconbtn md:hidden"><PanelLeft className="w-4 h-4" /></button>
-                  <div className="flex items-center gap-2 h-7 px-2.5 rounded-lg text-xs font-medium text-ln-t2 min-w-0">
-                    <CheckSquare className="w-3.5 h-3.5 text-ln-accent shrink-0" />
-                    <span className="truncate">Tarefas</span>
-                    {pastaSel && (<>
-                      <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
-                      <button type="button" onClick={() => setSel({ tipo: 'pasta', id: pastaSel.id })} className={`truncate max-w-[200px] rounded ${listaSel ? 'text-ln-t3 hover:text-ln-t2' : 'text-ln-t2'} ${FOCO}`}>{pastaSel.nome}</button>
-                    </>)}
-                    {listaSel && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate max-w-[200px]">{listaSel.nome}</span></>)}
-                    {sel.tipo === 'minhas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate">Minhas tarefas</span></>)}
-                  </div>
-                  <span className="hidden sm:inline text-xs text-ln-t4 tabular whitespace-nowrap">{totalAbertas} abertas</span>
+                  <h1 className="text-xl font-bold text-ln-t1 truncate">{{ intake: 'Intake', ciclos: 'Cycles', modulos: 'Modules', paginas: 'Pages', analytics: 'Analytics' }[aba] || 'Tarefas'}</h1>
+                  {!aba && (
+                    <div className="hidden sm:flex items-center gap-1.5 text-[13px] text-ln-t3 min-w-0">
+                      {pastaSel && (<>
+                        <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
+                        <button type="button" onClick={() => setSel({ tipo: 'pasta', id: pastaSel.id })} className={`truncate max-w-[200px] rounded ${listaSel ? 'hover:text-ln-t1' : 'text-ln-t2'} ${FOCO}`}>{pastaSel.nome}</button>
+                      </>)}
+                      {listaSel && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate max-w-[200px] text-ln-t2">{listaSel.nome}</span></>)}
+                      {sel.tipo === 'minhas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">Minhas tarefas</span></>)}
+                      {sel.tipo === 'todas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">Todas as abertas</span></>)}
+                    </div>
+                  )}
+                  {(!aba || aba === 'ciclos' || (aba === 'modulos' && sel.id)) && <span className="hidden xl:inline text-xs text-ln-t4 tabular whitespace-nowrap">{totalAbertas} abertas</span>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {t.carregando && <Loader2 className="w-3.5 h-3.5 animate-spin text-ln-t4" />}
-                    <button
-                      type="button"
-                      onClick={sync.sincronizar}
-                      disabled={sync.rodando}
-                      title={sync.erro ? `Erro na última sincronização: ${sync.erro}` : `Última sincronização com o ClickUp: ${tempoRelativo(sync.estado?.ultimo_inicio)}${sync.estado?.ultimo_ok === false ? ' (com erro)' : ''}`}
-                      className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${sync.erro || sync.estado?.ultimo_ok === false ? 'text-ln-red' : 'text-ln-t4 hover:text-ln-t2'} disabled:opacity-60 ${FOCO} rounded`}
-                    >
-                      <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />
-                      {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
-                    </button>
-                  <button onClick={() => { if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true }) }} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
+                  <button
+                    type="button"
+                    onClick={sync.sincronizar}
+                    disabled={sync.rodando}
+                    title={sync.erro ? `Erro na última sincronização: ${sync.erro}` : `Última sincronização com o ClickUp: ${tempoRelativo(sync.estado?.ultimo_inicio)}${sync.estado?.ultimo_ok === false ? ' (com erro)' : ''}`}
+                    className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${sync.erro || sync.estado?.ultimo_ok === false ? 'text-ln-red' : 'text-ln-t4 hover:text-ln-t2'} disabled:opacity-60 ${FOCO} rounded`}
+                  >
+                    <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />
+                    {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
+                  </button>
+                  <button onClick={() => { if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true }); else if (sel.tipo === 'todas') t.carregarAbertas({ force: true }) }} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
+                  {(!aba || aba === 'ciclos' || (aba === 'modulos' && sel.id)) && <ModelosMenu modelos={vt.modelos} onUsar={usarModelo} onExcluir={async (m) => { if (window.confirm(`Apagar o modelo "${m.nome}"?`)) { const r = await vt.excluirModelo(m.id); if (r.error) showToast(r.error, 'error') } }} />}
                   <button onClick={novaTarefa} className="ln-primary" title="Nova tarefa (C)">
-                    <Plus className="w-3.5 h-3.5" /> Nova tarefa <kbd className="ln-kbd !text-white/80 !bg-white/15 !border-white/20 ml-0.5">C</kbd>
+                    <Plus className="w-3.5 h-3.5" /> Nova tarefa
                   </button>
                 </div>
               </header>
 
               {/* Barra de views */}
+              {mostrarViews && (
               <div className="h-11 shrink-0 flex items-center justify-between gap-3 px-3 border-b border-ln-ink/5">
                 <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto scroll-hide">
                   <button onClick={() => setView('lista')} className={`ln-tab ${view === 'lista' ? 'ln-tab-active' : ''} ${FOCO}`}><List className="w-3.5 h-3.5" /> Lista</button>
                   <button onClick={() => setView('quadro')} className={`ln-tab ${view === 'quadro' ? 'ln-tab-active' : ''} ${FOCO}`}><KanbanSquare className="w-3.5 h-3.5" /> Quadro</button>
+                  <button onClick={() => setView('calendario')} className={`ln-tab ${view === 'calendario' ? 'ln-tab-active' : ''} ${FOCO}`}><CalendarDays className="w-3.5 h-3.5" /> Calendário</button>
+                  <button onClick={() => setView('planilha')} className={`ln-tab ${view === 'planilha' ? 'ln-tab-active' : ''} ${FOCO}`}><Table2 className="w-3.5 h-3.5" /> Planilha</button>
+                  <button onClick={() => setView('gantt')} className={`ln-tab ${view === 'gantt' ? 'ln-tab-active' : ''} ${FOCO}`}><GanttChart className="w-3.5 h-3.5" /> Gantt</button>
                   <span className="w-px h-4 bg-ln-line mx-1 shrink-0" />
                   <MenuAgrupar valor={agrupar} onChange={setAgrupar} />
                   <MenuResponsavel valor={filtroResp} membros={teamMembers || []} onChange={setFiltroResp} />
+                  {vt.etiquetas.length > 0 && (
+                    <select className={`ln-pill !pr-1 ${filtroEtiqueta ? '!text-ln-accent' : ''}`} value={filtroEtiqueta} onChange={(e) => setFiltroEtiqueta(e.target.value)} aria-label="Filtrar por etiqueta">
+                      <option value="">Etiqueta</option>
+                      {vt.etiquetas.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                    </select>
+                  )}
                   <button onClick={() => setMostrarConcluidas((v) => !v)} className={`ln-pill ${mostrarConcluidas ? '!bg-ln-ink/[0.08] !text-ln-t1' : ''} ${FOCO}`} title={mostrarConcluidas ? 'Esconder concluídas' : 'Mostrar concluídas'}>
                     {mostrarConcluidas ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} Concluídas
                   </button>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {!aba && <button onClick={salvarView} className="ln-pill" title="Guardar esta combinação de filtros como view">Salvar view</button>}
                   <div className="ln-input !h-7 !w-[150px] hidden sm:flex items-center gap-1.5">
                     <Search className="w-3.5 h-3.5 text-ln-t4 shrink-0" />
                     <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar tarefa" className="flex-1 min-w-0 bg-transparent outline-none text-xs text-ln-t1 placeholder:text-ln-t4" aria-label="Buscar tarefa" />
@@ -422,21 +590,75 @@ export default function Tarefas() {
                   )}
                 </div>
               </div>
+              )}
 
               {/* Conteúdo rolável */}
-              <div className={`flex-1 min-h-0 ${view === 'quadro' ? 'overflow-hidden' : 'overflow-auto'}`}>
-                {t.loadingEstrutura ? (
+              <div className={`flex-1 min-h-0 bg-ln-bg ${(view === 'quadro' && !comTopo && mostrarViews) || semRolagem ? 'overflow-hidden' : 'overflow-auto'}`}>
+                {t.loadingEstrutura || vt.loading ? (
                   <div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</div>
-                ) : view === 'quadro' ? (
-                  <QuadroView grupos={grupos} filhosDe={filhosDe} ctx={ctx} />
+                ) : aba === 'intake' ? (
+                  <IntakeView vt={vt} pastas={t.pastas} listas={t.listas} projetos={projects || []} membros={teamMembers || []} onAceitar={aceitarIntake} onToast={showToast} onAbrirTarefa={abrirTarefa} />
+                ) : aba === 'paginas' ? (
+                  <PaginasView pg={pgHook} projetos={projects || []} modulos={vt.modulos} user={user} paginaId={params.get('pagina')} onSelecionar={(id) => setParams(id ? new URLSearchParams({ aba: 'paginas', pagina: id }) : new URLSearchParams({ aba: 'paginas' }))} onToast={showToast} />
+                ) : aba === 'analytics' ? (
+                  <AnalyticsView />
+                ) : aba === 'modulos' && !sel.id ? (
+                  <ModulosView modulos={vt.modulos} projetos={projects || []} membrosMap={membrosMap} vt={vt} onAbrirModulo={(id) => irAba('modulos', { modulo: id })} onToast={showToast} refreshKey={recarregarTick + Object.keys(t.itens).length} />
                 ) : (
-                  <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={mostrarConcluidas} denso={denso} compacto={painel && painelEmpurra && largura < 1600} />
+                  <>
+                    {aba === 'ciclos' && (
+                      <CiclosView ciclos={vt.ciclos} ciclo={sel.id ? vt.ciclosMap.get(sel.id) : null} itens={todos} onSel={(id) => irAba('ciclos', { ciclo: id })} vt={vt} onToast={showToast} unidade={unidadeBurn} onUnidade={setUnidadeBurn} membros={teamMembers || []} onMoverPendentes={moverPendentes} />
+                    )}
+                    {aba === 'modulos' && moduloSel && (
+                      <>
+                        <div className="flex items-start justify-between gap-3 px-4 pt-3">
+                          <div className="min-w-0">
+                            <button type="button" onClick={() => { setEditandoModulo(false); irAba('modulos') }} className={`inline-flex items-center gap-1 text-xs text-ln-t3 hover:text-ln-t1 rounded ${FOCO}`}><ArrowLeft className="w-3 h-3" /> Todos os modules</button>
+                            <div className="flex items-center gap-2 mt-1">
+                              <h2 className="text-base font-bold text-ln-t1 truncate">{moduloSel.nome}</h2>
+                              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-ln-t3 shrink-0"><i className="w-2 h-2 rounded-full" style={{ backgroundColor: statusModulo(moduloSel.status).cor }} />{statusModulo(moduloSel.status).label}</span>
+                            </div>
+                            {moduloSel.descricao && <p className="text-xs text-ln-t3 mt-0.5">{moduloSel.descricao}</p>}
+                            <div className="flex items-center gap-3 flex-wrap mt-1 text-xs text-ln-t4">
+                              {moduloSel.lider_id && membrosMap.get(moduloSel.lider_id) && <span>Líder: {membrosMap.get(moduloSel.lider_id).name}</span>}
+                              {(moduloSel.inicio || moduloSel.alvo) && <span className="tabular">{moduloSel.inicio ? moduloSel.inicio.split('-').reverse().slice(0, 2).join('/') : '...'} a {moduloSel.alvo ? moduloSel.alvo.split('-').reverse().slice(0, 2).join('/') : '...'}</span>}
+                              {(moduloSel.links || []).map((l, i) => <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-ln-accent hover:underline"><ExternalLink className="w-3 h-3" />{l.titulo}</a>)}
+                              <button type="button" onClick={() => irAba('paginas')} className="text-ln-accent hover:underline">Ver Pages</button>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button type="button" onClick={() => setEditandoModulo((v) => !v)} className="ln-iconbtn" aria-label="Editar module" title="Editar module"><Pencil className="w-3.5 h-3.5" /></button>
+                            <button
+                              type="button"
+                              onClick={async () => { if (window.confirm(`Excluir o module "${moduloSel.nome}"? As tarefas continuam, só saem do module.`)) { const r = await vt.excluirModulo(moduloSel.id); if (r.error) showToast(r.error, 'error'); else { irAba('modulos'); showToast('Module excluído') } } }}
+                              className="ln-iconbtn hover:!text-ln-red" aria-label="Excluir module" title="Excluir module"
+                            ><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </div>
+                        {editandoModulo && (
+                          <ModuloEditor modulo={moduloSel} membros={teamMembers || []} projetos={projects || []} onCancelar={() => setEditandoModulo(false)} onSalvar={async (patch) => { const r = await vt.atualizarModulo(moduloSel.id, patch); if (r.error) showToast(r.error, 'error'); else { setEditandoModulo(false); showToast('Module atualizado') } }} />
+                        )}
+                      </>
+                    )}
+                    {view === 'calendario' ? (
+                      <CalendarioView itens={filtrados} ctx={ctx} />
+                    ) : view === 'planilha' ? (
+                      <PlanilhaView itens={filtrados} ctx={ctx} ciclos={vt.ciclos} modulos={vt.modulos} etiquetasMap={vt.etiquetasMap} />
+                    ) : view === 'gantt' ? (
+                      <GanttView itens={filtrados} ctx={ctx} />
+                    ) : view === 'quadro' ? (
+                      <div className={comTopo ? 'h-[560px]' : 'h-full'}><QuadroView grupos={grupos} filhosDe={filhosDe} ctx={ctx} /></div>
+                    ) : (
+                      <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={mostrarConcluidas} denso={denso} compacto={painel && painelEmpurra && largura < 1600} />
+                    )}
+                  </>
                 )}
               </div>
             </div>
+            )}
 
             {/* ── Painel lateral ──────────────────────────────────────── */}
-            {painel && (
+            {painel && aba !== 'chat' && aba !== 'atividades' && (
               <>
                 {!painelEmpurra && !painelExpandido && <div className="absolute inset-0 z-30 bg-black/30" onClick={fecharPainel} aria-hidden="true" />}
                 <aside
@@ -482,6 +704,14 @@ export default function Tarefas() {
                         membrosMap={membrosMap}
                         comentarios={t.comentarios[tarefaAberta.id]}
                         user={user}
+                        ciclos={vt.ciclos}
+                        modulos={vt.modulos}
+                        etiquetas={vt.etiquetas}
+                        ciclosMap={vt.ciclosMap}
+                        modulosMap={vt.modulosMap}
+                        etiquetasMap={vt.etiquetasMap}
+                        onCriarEtiqueta={vt.criarEtiqueta}
+                        onSalvarModelo={salvarComoModelo}
                         onAtualizar={onAtualizar}
                         onMudarStatus={onMudarStatus}
                         onCriarSub={(pai, tituloSub) => onCriar({ lista_id: pai.lista_id, parent_id: pai.id, titulo: tituloSub })}

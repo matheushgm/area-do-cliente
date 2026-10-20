@@ -72,7 +72,7 @@ export function usePlanejador({ projects, teamMembers, squads, config, showToast
 
   const responsaveis = useMemo(() => (teamMembers || [])
     .filter((m) => Number(m.clickupUserId ?? m.clickup_user_id) > 0)
-    .map((m) => ({ id: m.id, nome: m.name, clickupId: Number(m.clickupUserId ?? m.clickup_user_id), avatar: m.avatar }))
+    .map((m) => ({ id: m.id, nome: m.name, clickupId: Number(m.clickupUserId ?? m.clickup_user_id) || m.id, avatar: m.avatar })) // sem ClickUp: a chave é o uuid do perfil
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [teamMembers])
   const responsavelPorClickup = useMemo(() => new Map(responsaveis.map((r) => [r.clickupId, r])), [responsaveis])
 

@@ -761,7 +761,7 @@ import {
 } from './vendor/dashboardData.js'
 // Motor de otimizações: o MESMO da Central de Otimizações (cópia gerada de
 // src/lib/playbookSugestoes.js por scripts/sync-playbook-vendor.mjs).
-import { gerarSugestoesConta, janelaAnalise, pendente, hojeSP, PRIORIDADE_LABEL } from './vendor/playbookSugestoes.js'
+import { gerarSugestoesConta, metasDaConta, janelaAnalise, pendente, hojeSP, PRIORIDADE_LABEL } from './vendor/playbookSugestoes.js'
 
 // ─── Fonte de dados ──────────────────────────────────────────────────────────
 // Em produção (dentro da Área do Cliente): busca pelo endpoint AUTENTICADO
@@ -978,7 +978,7 @@ async function fetchAccounts() {
   const [acc, proj, cpl, sq, plans] = await Promise.all([
     get('dashboard_accounts_public?select=account_name,project_id,squad_id,clickup_folder_id,hidden'),
     get('dashboard_projects_public?select=id,company_name,squad_name,clickup_folder_id'),
-    get('cpl_targets_public?select=company_name,cpl_target'),
+    get('cpl_targets_public?select=company_name,cpl_target,cac_target,mql_target,metrica_formulario'),
     get('dashboard_squads_public?select=id,name'),
     // Último plano de campanha por projeto (verba planejada do período, por
     // canal/campanha) — view só para authenticated: sem login volta [].
@@ -986,7 +986,13 @@ async function fetchAccounts() {
   ])
   const projById = {}; proj.forEach(p => { projById[p.id] = p })
   const sqById = {}; sq.forEach(s => { sqById[s.id] = s.name })
-  const cplBy = {}; cpl.forEach(r => { const n = r.company_name?.trim(); if (n && r.cpl_target != null) cplBy[n] = parseFloat(r.cpl_target) })
+  const cplBy = {}, mxBy = {}
+  cpl.forEach(r => {
+    const n = r.company_name?.trim(); if (!n) return
+    if (r.cpl_target != null) cplBy[n] = parseFloat(r.cpl_target)
+    // Metas por métrica da Central de Otimizações (CAC e custo por MQL de mídia, migration 097)
+    mxBy[n] = { cac: r.cac_target != null ? parseFloat(r.cac_target) : null, mql: r.mql_target != null ? parseFloat(r.mql_target) : null, formulario: r.metrica_formulario || 'lead' }
+  })
   const planBy = {}; plans.forEach(r => { if (r.project_id && r.answers) planBy[r.project_id] = r.answers })
   const out = {}
   acc.forEach(row => {
@@ -994,12 +1000,17 @@ async function fetchAccounts() {
     const acCompanyName = project?.company_name ?? null
     const squad = (row.squad_id ? sqById[row.squad_id] : null) ?? project?.squad_name ?? null
     const clickupFolderId = row.clickup_folder_id ?? project?.clickup_folder_id ?? null
-    const cplVal = acCompanyName != null ? cplBy[acCompanyName] : null
+    // cplBy é indexado pelo nome aparado (WJK "Travel " tem espaço no fim): apara aqui também
+    const nomeCia = acCompanyName?.trim()
+    const cplVal = nomeCia != null ? cplBy[nomeCia] : null
     out[row.account_name] = {
       acCompanyName, squad, clickupFolderId,
       projectId: row.project_id || null,
       hidden: !!row.hidden,
       cplTarget: cplVal != null ? { value: cplVal, acName: acCompanyName } : null,
+      cacTarget: mxBy[nomeCia]?.cac ?? null,
+      mqlTarget: mxBy[nomeCia]?.mql ?? null,
+      metricaFormulario: mxBy[nomeCia]?.formulario ?? 'lead',
       plan: (row.project_id && planBy[row.project_id]) || null,
     }
   })
@@ -4387,7 +4398,8 @@ function metricGroupsHTML(allRows, prevRows, isMeta, period, pace) {
 const otmPid = client => state.accounts[client]?.projectId || null
 const otmBridge = () => { try { return (window.parent && window.parent.__rlOtimizacoes) || null } catch (e) { return null } }
 const OTM_STATUS = { aceita:['Aceita','ok'], recusada:['Recusada','bad'], descartada:['Adiada','mute'] }
-const OTM_EXEC = { pendente:'Na fila da automação', executada:'Executada', erro:'Erro na execução', cancelada:'Cancelada' }
+const OTM_EXEC = { pendente:'Na fila da automação', executada:'Executada', erro:'Erro na execução', cancelada:'Cancelada',
+  bloqueada:'Bloqueada: o anúncio voltou a converter, reavaliar', manual:'Virou tarefa no ClickUp' }
 const otmDataHora = iso => { if (!iso) return ''; const d = new Date(iso)
   return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) }
 
@@ -4446,14 +4458,14 @@ function otmSugestoes(client, ch) {
   const rows = rawRows(ch, client)
   if (!rows.length) return []
   const acc = state.accounts[client] || {}
-  const key = [client, ch, rows.length, acc.cplTarget?.value ?? '', acc.projectId || ''].join('|')
+  const key = [client, ch, rows.length, acc.cplTarget?.value ?? '', acc.cacTarget ?? '', acc.mqlTarget ?? '', acc.metricaFormulario || '', acc.projectId || ''].join('|')
   const m = state._otmMemo
   if (m && m.key === key && m.rows === rows) return m.sugs
   let sugs = []
   try {
     sugs = gerarSugestoesConta({
       meta: ch === 'meta' ? rows : [], google: ch === 'meta' ? [] : rows,
-      metaCpl: acc.cplTarget?.value ?? null, conta: client, varias: otmVarias(client),
+      metas: metasDaConta(acc), conta: client, varias: otmVarias(client),
     }).map(s => ({ ...s, projectId: acc.projectId || null }))
   } catch (e) { console.error('Otimizações: falha ao calcular as sugestões', e) }
   state._otmMemo = { key, rows, sugs }
@@ -4545,6 +4557,9 @@ function otmDecididaHTML(d, u, pode) {
   </div>`
 }
 
+// Painel minimizado (lembrado no navegador): só o cabeçalho com as contagens.
+const otmMin = () => { try { return localStorage.getItem('dt_otm_min') === '1' } catch (e) { return false } }
+const otmSetMin = v => { try { localStorage.setItem('dt_otm_min', v ? '1' : '0') } catch (e) {} }
 function otmInnerHTML(ch, client) {
   const u = otmUI(), escopo = otmEscopo(ch), pid = otmPid(client), dec = state.otmDec[pid]
   const pode = !!(pid && otmBridge() && dec?.ok)
@@ -4567,9 +4582,13 @@ function otmInnerHTML(ch, client) {
     lista = mostra.length ? mostra.map(d => otmDecididaHTML(d, u, pode)).join('') + (decididas.length > 30 ? `<div class="otm-vazio">Mostrando as 30 mais recentes de ${decididas.length}.</div>` : '')
       : '<div class="otm-vazio">Nenhuma decisão registrada neste escopo.</div>'
   }
+  const min = otmMin()
+  const toggle = `<button class="otm-x otm-toggle" data-otm-min title="${min ? 'Expandir otimizações' : 'Minimizar otimizações'}" aria-expanded="${!min}" style="margin-left:auto">${min ? 'Expandir ▾' : 'Minimizar ▴'}</button>`
+  if (min) return `<div class="otm-head"><span class="otm-icon">${ic('sparkles','💡')}</span><span class="otm-title">Otimizações</span>
+      <span class="otm-n">${pend.length} pendente${pend.length === 1 ? '' : 's'}</span>${urg ? `<span class="otm-n bad">${urg} urg.</span>` : ''}${alta ? `<span class="otm-n warn">${alta} alta${alta > 1 ? 's' : ''}</span>` : ''}${toggle}</div>`
   return `<div class="otm-head"><span class="otm-icon">${ic('sparkles','💡')}</span><span class="otm-title">Otimizações</span>
       <span class="otm-scope" title="${esc(escopo.rotulo)}">${esc(escopo.rotulo)}</span>${escopo.ad ? `<button class="otm-x" data-otm-limpa-ad title="Voltar ao escopo anterior">✕</button>` : ''}
-      <span class="otm-meta">${j ? `7 dias fechados (${fmtBR(j.inicio)} a ${fmtBR(j.fim)}) contra os 7 anteriores, independente do período do filtro` : ''}</span></div>
+      <span class="otm-meta">${j ? `7 dias fechados (${fmtBR(j.inicio)} a ${fmtBR(j.fim)}) contra os 7 anteriores, independente do período do filtro` : ''}</span>${toggle}</div>
     <div class="otm-tabs">
       <button class="otm-tab${tab === 'pendentes' ? ' active' : ''}" data-otm-tab="pendentes">Pendentes <span class="otm-n">${pend.length}</span>${urg ? `<span class="otm-n bad" title="Urgentes">${urg} urg.</span>` : ''}${alta ? `<span class="otm-n warn" title="Prioridade alta">${alta} alta${alta > 1 ? 's' : ''}</span>` : ''}</button>
       <button class="otm-tab${tab === 'decididas' ? ' active' : ''}" data-otm-tab="decididas">Decididas <span class="otm-n">${decididas.length}</span></button>
@@ -4602,6 +4621,7 @@ function otmWire() {
   const { client, channel: ch } = state.openClient, u = otmUI(), b = otmBridge()
   const sug = chave => otmSugestoes(client, ch).find(s => s.chave === chave)
   const dec = id => (state.otmDec[otmPid(client)]?.rows || []).find(d => String(d.id) === String(id))
+  root.querySelectorAll('[data-otm-min]').forEach(el => el.onclick = () => { otmSetMin(!otmMin()); otmRender() })
   root.querySelectorAll('[data-otm-tab]').forEach(el => el.onclick = () => { u.tab = el.dataset.otmTab; otmRender() })
   root.querySelectorAll('[data-otm-abrir]').forEach(el => el.onclick = () => { const k = el.dataset.otmAbrir; u.abertas[k] = !u.abertas[k]; otmRender() })
   root.querySelectorAll('[data-otm-fecha-aviso]').forEach(el => el.onclick = () => { u.aviso = null; otmRender() })
@@ -5440,6 +5460,7 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
       const u = otmUI(), camp = state.drillCampaign, adset = state.drillAdset
       u.ad = { id: el.dataset.otmAd, nome: el.dataset.otmName, ctx: [camp, adset, (camp || adset) ? state.drillSub : state.sub].join('|') }
       u.tab = 'pendentes'
+      otmSetMin(false)
       otmRender()
       document.getElementById('otmPanel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     })

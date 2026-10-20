@@ -3,7 +3,7 @@
 // Dados do Cliente.
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Info, Pencil } from 'lucide-react'
-import { BUSINESS_LABELS, CONTRACT_MODEL_LABELS, CONTRACT_PAYMENT_LABELS, MATURITY_LABELS } from '../../lib/constants'
+import { BUSINESS_LABELS, CONTRACT_MODEL_LABELS, CONTRACT_PAYMENT_LABELS, MATURITY_LABELS, PLAN_TYPE_LABELS, BILLING_MODE_LABELS } from '../../lib/constants'
 import { fmtCurrency } from '../../lib/utils'
 import { ObservacoesLeitura } from '../UI/ObservacoesCampo'
 
@@ -30,6 +30,8 @@ export default function HubInformacoes({ project, onEditar }) {
     ['Cargo', project.responsibleRole],
     ['Modelo de contrato', String(CONTRACT_MODEL_LABELS[project.contractModel] || project.contractModel || '').replace(/^[^\p{L}\d]+/u, '')],
     ['Pagamento', CONTRACT_PAYMENT_LABELS?.[project.contractPaymentType] || project.contractPaymentType],
+    ['Programa ou plano', PLAN_TYPE_LABELS[project.planType]],
+    ['Pré ou pós-pago', BILLING_MODE_LABELS[project.billingMode]],
     ['Valor', project.contractValue ? fmtCurrency(project.contractValue) + (project.contractModel === 'assessoria' ? '/mês' : '') : null],
     ['Início do contrato', dataContrato],
     ['Pasta no ClickUp', project.clickupFolderId ? `#${project.clickupFolderId}` : 'não vinculada'],

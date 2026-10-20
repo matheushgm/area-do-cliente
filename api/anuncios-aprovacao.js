@@ -1,5 +1,6 @@
 import { NO_STORE, jsonCors, preflight, sb } from './_http.js'
 import { hasPortalBearer, readPortalSession } from './_portal_auth.js'
+import { registrarIntake } from './_intake.js'
 // Edge Function pública — APROVAÇÃO DE ANÚNCIOS E LANDING PAGES pelo cliente.
 // Duas formas de autenticar, sem login Supabase:
 //   • client_share_token do projeto (link /aprovacao/:token, mesmo token de
@@ -219,6 +220,19 @@ export default async function handler(req) {
       { method: 'PATCH', body: JSON.stringify({ [column]: next }), headers: { Prefer: 'return=minimal' } }
     )
     if (status >= 400) return json({ error: 'Erro ao salvar a decisão.' }, 500)
+
+    // Reprovação vira pedido na fila do Intake do VertaTask, para o time decidir quem refaz.
+    if (decision === 'reprovado') {
+      const nome = str(target.nome || target.titulo || target.name || target.headline, 120)
+      await registrarIntake({
+        project_id: project.id,
+        titulo: `${kind === 'lp' ? 'Landing page' : 'Anúncio'} reprovado pelo cliente${nome ? `: ${nome}` : ''}`,
+        descricao: `Motivo: ${motivo}\n\nComo deveria estar: ${sugestao}`,
+        origem: kind === 'lp' ? 'Aprovação de LP' : 'Aprovação de anúncios',
+        origem_ref: `aprovacao:${kind}:${adId}:${now}`,
+        prioridade: 'high',
+      })
+    }
 
     return json({ success: true })
   }

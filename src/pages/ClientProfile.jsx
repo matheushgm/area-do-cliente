@@ -9,7 +9,7 @@ import HubInformacoes from '../components/ProjetoHub/HubInformacoes'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
-import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, BUSINESS_LABELS, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, MATURITY_LABELS, CONTRACT_MODEL_LABELS, CONTRACT_PAYMENT_LABELS } from '../lib/constants'
+import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, BUSINESS_LABELS, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, MATURITY_LABELS, CONTRACT_MODEL_LABELS, CONTRACT_PAYMENT_LABELS, PLAN_TYPE_OPTIONS, BILLING_MODE_OPTIONS, PLAN_TYPE_LABELS, BILLING_MODE_LABELS } from '../lib/constants'
 import { fmtCurrency, initials, calcLTV, activeMonths, ltvStartSource, accelerationMonths } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
@@ -23,7 +23,7 @@ import {
   Pencil, Plus, Link2, ChevronDown, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
   NotebookPen, Wrench, Compass, Megaphone, Map as MapIcon, Database, Share2,
-  ArrowLeft, LayoutGrid, StickyNote, ChevronRight,
+  ArrowLeft, LayoutGrid, StickyNote, ChevronRight, PanelLeftClose, PanelLeftOpen, MousePointerClick,
 } from 'lucide-react'
 import ROIScenariosModule from '../components/ROIScenariosModule'
 import PersonaCreator from './PersonaCreator'
@@ -42,6 +42,7 @@ import BancoMidiaModule from '../components/BancoMidiaModule'
 import LinksModule from '../components/LinksModule'
 import CRMModule from '../components/CRMModule'
 import BancoDeDadosModule from '../components/BancoDeDadosModule'
+import ClarityModule from '../components/ClarityModule'
 import MeetingMinutesModule from '../components/MeetingMinutesModule'
 import FerramentasModule from '../components/FerramentasModule'
 import KickoffModule from '../components/Kickoff/KickoffModule'
@@ -70,6 +71,44 @@ const RISK_CONFIG = [
 ]
 
 // ─── Onboarding Edit Form ─────────────────────────────────────────────────────
+// Pergunta curta no cartão do cliente: sem resposta mostra as opções como
+// botões; respondida mostra o valor, e um clique reabre as opções para trocar.
+function InlineChoice({ value, options, onChange }) {
+  const [editando, setEditando] = useState(false)
+  const atual = options.find((o) => o.value === value)
+  if (atual && !editando) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditando(true)}
+        className="inline-flex items-center gap-1 text-rl-subtle hover:text-rl-text transition-colors"
+        title="Alterar"
+      >
+        {atual.label}
+        <ChevronDown className="w-3 h-3 opacity-50" />
+      </button>
+    )
+  }
+  return (
+    <span className="inline-flex flex-wrap gap-1.5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => { onChange(o.value); setEditando(false) }}
+          className={`px-2 py-0.5 rounded-md border text-[11px] font-medium transition-all ${
+            o.value === value
+              ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
+              : 'border-dashed border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-text'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </span>
+  )
+}
+
 function OnboardingEditForm({ project, onSave, onCancel }) {
   // Map stored service labels → IDs for the checkboxes
   const initialServiceIds = (project.services || [])
@@ -90,6 +129,8 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
     contractValue:       project.contractValue       ?? '',
     contractDurationMonths: project.contractDurationMonths ?? '',
     contractDate:        project.contractDate        || '',
+    planType:            project.planType            || '',
+    billingMode:         project.billingMode         || '',
     competitors:         project.competitors?.length ? [...project.competitors] : [''],
     hasSalesTeam:        project.hasSalesTeam        ?? null,
     digitalMaturity:     project.digitalMaturity     || '',
@@ -180,6 +221,8 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
       contractValue:       Number(form.contractValue) || null,
       contractDurationMonths: form.contractDurationMonths ? Number(form.contractDurationMonths) : null,
       contractDate:        form.contractDate,
+      planType:            form.planType,
+      billingMode:         form.billingMode,
       competitors:         form.competitors.filter(Boolean),
       hasSalesTeam:        form.hasSalesTeam,
       digitalMaturity:     form.digitalMaturity,
@@ -338,6 +381,33 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Programa ou plano · Pré-pago ou pós-pago */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            { key: 'planType',    label: 'Programa ou plano?',     options: PLAN_TYPE_OPTIONS    },
+            { key: 'billingMode', label: 'Pré-pago ou pós-pago?',  options: BILLING_MODE_OPTIONS },
+          ].map((q) => (
+            <div key={q.key}>
+              <label className="label-field">{q.label}</label>
+              <div className="flex gap-3">
+                {q.options.map((o) => (
+                  <button
+                    key={o.value}
+                    onClick={() => set(q.key, o.value)}
+                    className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                      form[q.key] === o.value
+                        ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
+                        : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Tipo pagamento + duração (aceleração only) */}
@@ -742,6 +812,8 @@ function OnboardingContent({ project, onSave, showToast }) {
           <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📋 Modelo de Contrato</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <Field label="Modelo"           value={CONTRACT_MODEL_LABELS[project.contractModel]} />
+            <Field label="Programa ou plano" value={PLAN_TYPE_LABELS[project.planType]} />
+            <Field label="Pré ou pós-pago"   value={BILLING_MODE_LABELS[project.billingMode]} />
             {project.contractModel === 'aceleracao' && (
               <>
                 <Field label="Tipo de Pagamento" value={CONTRACT_PAYMENT_LABELS[project.contractPaymentType]} />
@@ -1112,6 +1184,15 @@ export default function ClientProfile({ project: projectProp, section, onSection
   // Sidebar default: aberta no desktop, fechada no mobile (drawer só abre por hambúrguer)
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [logoSignedUrl, setLogoSignedUrl] = useState(null)
+  // Coluna esquerda (dados do cliente) recolhível dentro dos módulos; lembra a escolha.
+  const [infoRecolhida, setInfoRecolhida] = useState(() => {
+    try { return localStorage.getItem('rl:cliente-info-recolhida') === '1' } catch { return false }
+  })
+  const toggleInfoRecolhida = () => setInfoRecolhida((v) => {
+    const next = !v
+    try { localStorage.setItem('rl:cliente-info-recolhida', next ? '1' : '0') } catch { /* ignore */ }
+    return next
+  })
   const [squadOpen, setSquadOpen] = useState(false)
   const squadRef = useRef(null)
   const [riskOpen, setRiskOpen] = useState(false)
@@ -1264,6 +1345,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
     { id: 'criativos',    label: 'Criação de anúncios',      icon: Clapperboard,   color: 'text-rl-cyan',   filled: false },
     { id: 'landingpage',  label: 'Criação de landing page',  icon: LayoutTemplate, color: 'text-rl-green',  filled: hasLandingPages },
     { id: 'resultados',   label: 'Resultados',               icon: Activity,       color: 'text-rl-purple', filled: hasResultados },
+    { id: 'clarity',      label: 'Comportamento na LP',      icon: MousePointerClick, color: 'text-rl-cyan', filled: false },
     { id: 'metalab',      label: 'Lab. Meta Ads',            icon: FlaskConical,   color: 'text-rl-purple', filled: !!project.metaLabBudget },
     { id: 'googleads',    label: 'Google Ads com IA',        icon: Search,         color: 'text-rl-cyan',   filled: hasGoogleAds },
     { id: 'banco-midia',   label: 'Banco de Mídia',           icon: ImagePlay,      color: 'text-rl-blue',   filled: hasBancoMidia },
@@ -1308,6 +1390,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
       case 'criativos':    return <CriativosModule project={project} />
       case 'landingpage':  return <LandingPageModule project={project} />
       case 'resultados':   return <ResultadosModule project={project} />
+      case 'clarity':      return <ClarityModule project={project} />
       case 'metalab':      return <MetaLabModule project={project} />
       case 'googleads':    return <GoogleAdsModule project={project} />
       case 'banco-midia':   return <BancoMidiaModule project={project} />
@@ -1381,7 +1464,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
       <div className="flex flex-col xl:flex-row gap-4 items-start">
 
         {/* Coluna esquerda: cartão do cliente, ações rápidas, informações e módulos */}
-        <div className="w-full xl:w-[300px] 2xl:w-[340px] shrink-0 space-y-3">
+        <div className={`w-full xl:w-[300px] 2xl:w-[340px] shrink-0 space-y-3 ${activeSection !== 'hub' && infoRecolhida ? 'xl:hidden' : ''}`}>
       {/* ── Profile Header ──────────────────────────────────────────────── */}
         <div className="glass-card border border-rl-border/60">
           <div className="relative h-24 fx-hero rounded-t-2xl">
@@ -1432,6 +1515,14 @@ export default function ClientProfile({ project: projectProp, section, onSection
                       project.contractDate && ['Início', new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')],
                       project.contractModel && ['Modelo', String(CONTRACT_MODEL_LABELS[project.contractModel] || project.contractModel).replace(/^[^\p{L}\d]+/u, '')],
                       project.contractValue && ['Valor', `${fmtCurrency(project.contractValue)}${project.contractModel === 'assessoria' ? '/mês' : ''}`],
+                      ['Tipo', (
+                        <InlineChoice key="tipo" value={project.planType} options={PLAN_TYPE_OPTIONS}
+                          onChange={(v) => updateProject(project.id, { planType: v })} />
+                      )],
+                      ['Pagamento', (
+                        <InlineChoice key="pagamento" value={project.billingMode} options={BILLING_MODE_OPTIONS}
+                          onChange={(v) => updateProject(project.id, { billingMode: v })} />
+                      )],
                       ltv > 0 && months > 0 && ['LTV', (
                         <span key="ltv">
                           <span className="font-semibold text-rl-text tabular-nums">{fmtCurrency(ltv)}</span>
@@ -1441,12 +1532,11 @@ export default function ClientProfile({ project: projectProp, section, onSection
                         </span>
                       )],
                     ].filter(Boolean)
-                    if (!linhas.length) return null
                     return (
                       <dl className="mt-4 space-y-1.5 text-xs">
                         {linhas.map(([k, v]) => (
                           <div key={k} className="flex items-baseline gap-3">
-                            <dt className="w-12 shrink-0 text-rl-muted">{k}</dt>
+                            <dt className="w-[4.5rem] shrink-0 text-rl-muted">{k}</dt>
                             <dd className="text-rl-subtle">{v}</dd>
                           </div>
                         ))}
@@ -1921,6 +2011,14 @@ export default function ClientProfile({ project: projectProp, section, onSection
           ) : (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleInfoRecolhida}
+                  title={infoRecolhida ? 'Mostrar informações do cliente' : 'Recolher informações do cliente'}
+                  aria-label={infoRecolhida ? 'Mostrar informações do cliente' : 'Recolher informações do cliente'}
+                  className="hidden xl:flex p-1.5 rounded-lg text-rl-subtle hover:text-rl-purple hover:bg-rl-surface transition-colors"
+                >
+                  {infoRecolhida ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+                </button>
                 <button onClick={() => handleSidebarClick('hub')} className="flex items-center gap-1.5 text-sm text-rl-subtle hover:text-rl-purple px-2 py-1.5 rounded-lg hover:bg-rl-surface transition-colors">
                   <ArrowLeft className="w-4 h-4" /> Visão geral
                 </button>

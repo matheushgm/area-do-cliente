@@ -42,6 +42,70 @@ function convMeta(r) {
 
 function isPaused(status) { return /paus|inativ|off|disabled|archiv/i.test(status || '') }
 
+// ─── Métrica de julgamento por campanha ──────────────────────────────────────
+// O CPL da calculadora só vale pra campanha de lead/conversa. Compra é julgada
+// pelo CAC (custo por venda) e MQL pelo custo por MQL, as duas na base de MÍDIA,
+// como o CPL (o gasto do dash é só mídia; ver migration 097). Formulário nativo
+// conta como MQL quando o projeto marca `metrica_formulario = 'mql'`
+// (formulário condicional/qualificado: Nectar FORMS, Multichat360, WJK).
+export const METRICA_LABEL = { lead: 'CPL', mql: 'custo por MQL', compra: 'custo por venda' }
+const METRICA_META = { lead: 'Meta de CPL', mql: 'Meta de custo por MQL', compra: 'CAC da calculadora' }
+
+export function metricaDaLinha(r, metas = {}) {
+  const obj = r['Objetivo de Campanha'] || ''
+  const tipo = r['Tipo de resultado'] || ''
+  if (/SALES|CONVERSIONS/i.test(obj) || /compra/i.test(tipo)) return 'compra'
+  if (/mql/i.test(tipo)) return 'mql'
+  if (metas.formularioMql && /formul/i.test(tipo)) return 'mql'
+  return 'lead'
+}
+
+// Métrica de um grupo de linhas (anúncio, conjunto, campanha): a da linha mais nova.
+function metricaDe(rows, metas) {
+  const ult = rows.reduce((b, r) => (!b || (r._d || '') > (b._d || '') ? r : b), null)
+  return ult ? metricaDaLinha(ult, metas) : 'lead'
+}
+
+// Meta da métrica. Sem CAC / custo por MQL cadastrado NÃO cai no CPL: julgar
+// compra pelo CPL foi a origem das recusas de 13 a 15/10/2026.
+function metaDe(metas, metrica) {
+  const v = metrica === 'compra' ? metas.cac : metrica === 'mql' ? metas.mql : metas.cpl
+  return v > 0 ? Number(v) : null
+}
+
+// Metas da conta a partir do mapa `accounts` do dashboard (cpl_targets_public).
+export function metasDaConta(acc) {
+  return {
+    cpl: acc?.cplTarget?.value ?? null,
+    cac: acc?.cacTarget ?? null,
+    mql: acc?.mqlTarget ?? null,
+    formularioMql: acc?.metricaFormulario === 'mql',
+  }
+}
+
+// Funil: o nome manda (TOPO/MEIO/FUNDO). Sem marca no nome, decide o tipo de
+// resultado; senão "[Forms] Onix" ou "CBO - SONIC" no WhatsApp (Sempre Chevrolet,
+// PVB) ficam sem fundo e fora de toda regra de CPL.
+export function funilDaLinha(r) {
+  const f = classifyFunnel(r['Nome da campanha'])
+  if (f !== 'outro') return f
+  const tipo = r['Tipo de resultado'] || ''
+  if (/compra|conversa|lead|mql|formul|convers/i.test(tipo)) return 'fundo'
+  if (/thruplay|alcance|visitas ao perfil|impress|engajamento|seguidor/i.test(tipo)) return 'topo'
+  return 'outro'
+}
+
+// A campanha otimiza pra clique/conversão? Engajamento com publicação, ThruPlay,
+// alcance, impressões e visita ao perfil entregam pra quem NÃO clica: CTR baixo e
+// zero conversão ali são esperados (Óticas AF_MEIO_ENGAJAMENTO / AF_MEIO_VIDEO_VIEW).
+function otimizaConversao(r) {
+  const tipo = r['Tipo de resultado'] || ''
+  const destino = r['Destino do conjunto de anúncio'] || ''
+  if (/thruplay|alcance|impress|engajamento com|visitas ao perfil|seguidor/i.test(tipo)) return false
+  if (/^(ON_POST|ON_VIDEO|INSTAGRAM_PROFILE)/.test(destino)) return false
+  return true
+}
+
 // ─── Agregação ───────────────────────────────────────────────────────────────
 function aggMeta(rows) {
   let spend = 0, imps = 0, clicks = 0, conv = 0, fSum = 0, fImps = 0
@@ -243,8 +307,9 @@ function sugestao(base) {
 }
 
 // ─── Meta Ads ────────────────────────────────────────────────────────────────
-function regrasMeta(rowsMeta, metaCpl, conta) {
+function regrasMeta(rowsMeta, metas, conta) {
   const out = []
+  const metaCpl = metaDe(metas, 'lead')
   if (!rowsMeta.length) return out
   const w = janelas(rowsMeta, 'Dia', 7)
   const atual = w.atual
@@ -256,12 +321,12 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
   // olha só campanhas de fundo e meio; a conta como um todo também.
   const accountId = idDe(atual, 'account_id')
   const contaCam = (extra = {}) => caminhoDe(canal, { accountId, ...extra })
-  const funilDe = (r) => classifyFunnel(r['Nome da campanha'])
-  const ehConversao = (r) => { const f = funilDe(r); return f === 'fundo' || f === 'meio' }
+  const funilDe = funilDaLinha
+  // Meio de engajamento/ThruPlay é MEIO no nome mas não gera conversão: fica fora das regras de CPL.
+  const ehConversao = (r) => { const f = funilDe(r); return (f === 'fundo' || f === 'meio') && otimizaConversao(r) }
   const atualConv = atual.filter(ehConversao)
   const tot = aggMeta(atual)
   const totConv = aggMeta(atualConv)
-  const totConvAnt = aggMeta(w.anterior.filter(ehConversao))
 
   // Sem entrega: gastou na semana anterior e zerou nos últimos 2 dias
   const ultimos2 = atual.filter((r) => r._d >= addDays(w.fim, -1))
@@ -319,21 +384,23 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
   const janelaTxt = `${fmtBR(w.inicio)} a ${fmtBR(w.fim)}`
   const janelaAntTxt = `${fmtBR(addDays(w.inicio, -7))} a ${fmtBR(addDays(w.inicio, -1))}`
   // Evidência e frase do histórico (anúncio) — vazio se o anúncio não rodou na semana anterior
-  const historico = (ant) => {
+  const historico = (ant, metaCpl = null, lbl = 'CPL') => {
     if (!ant || ant.spend <= 0) return { frase: '', evid: [{ label: '7 dias anteriores', valor: 'não rodou' }] }
-    const evid = [{ label: `7 dias anteriores (${janelaAntTxt})`, valor: `${fmtInt(ant.conv)} conv. por ${fmtMoney(ant.spend)}${ant.cpl != null ? `, CPL ${fmtMoney(ant.cpl)}` : ''}` }]
+    const evid = [{ label: `7 dias anteriores (${janelaAntTxt})`, valor: `${fmtInt(ant.conv)} conv. por ${fmtMoney(ant.spend)}${ant.cpl != null ? `, ${lbl} ${fmtMoney(ant.cpl)}` : ''}` }]
     const bom = metaCpl && ant.cpl != null && ant.cpl <= metaCpl * 2
     const frase = ant.conv > 0
-      ? ` Na semana anterior (${janelaAntTxt}) ele gerou ${fmtInt(ant.conv)} ${ant.conv > 1 ? 'conversões' : 'conversão'} com CPL ${fmtMoney(ant.cpl)}${bom ? ', dentro do aceitável, então a queda é recente' : metaCpl ? ` (${(ant.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta), já acima do aceitável` : ''}.`
+      ? ` Na semana anterior (${janelaAntTxt}) ele gerou ${fmtInt(ant.conv)} ${ant.conv > 1 ? 'conversões' : 'conversão'} com ${lbl} ${fmtMoney(ant.cpl)}${bom ? ', dentro do aceitável, então a queda é recente' : metaCpl ? ` (${(ant.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta), já acima do aceitável` : ''}.`
       : ` Na semana anterior (${janelaAntTxt}) também não converteu (${fmtMoney(ant.spend)}).`
     return { frase, evid, bom }
   }
-  const gastoMin = metaCpl ? Math.max(GASTO_MINIMO_SEM_RESULTADO, metaCpl * 2) : GASTO_MINIMO_SEM_RESULTADO
   const semConv = [], cplAlto = []
   for (const [k, rs] of porAd) {
     if (isPaused(ultimoStatus(rs, '_d', META_STATUS_AD))) continue
     const a = aggMeta(rs)
     if (a.dias < 3) continue // nunca antes de 72h
+    const metrica = metricaDe(rs, metas)
+    const meta = metaDe(metas, metrica)
+    const gastoMin = meta ? Math.max(GASTO_MINIMO_SEM_RESULTADO, meta * 2) : GASTO_MINIMO_SEM_RESULTADO
     const ultimo = rs.reduce((b, r) => (!b || r._d > b._d ? r : b), null)
     const nome = ultimo['Nome do Anúncio']
     const camp = ultimo['Nome da campanha'] || ''
@@ -342,11 +409,12 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
     const link = distintos(rs, 'Link do anúncio')[0] || null
     const ids = { adsetId: idDe(rs, 'adset_id'), campaignId: idDe(rs, 'campaign_id') }
     const ant = porAdAnt.has(k) ? aggMeta(porAdAnt.get(k)) : null
-    if (a.conv === 0 && a.spend >= gastoMin) semConv.push({ nome, camp, conj, adId, link, ids, a, ant })
-    else if (metaCpl && a.conv > 0 && a.cpl >= metaCpl * 2 && a.spend >= metaCpl * 2) cplAlto.push({ nome, camp, conj, adId, link, ids, a, ant })
+    const item = { nome, camp, conj, adId, link, ids, a, ant, metrica, meta }
+    if (a.conv === 0 && a.spend >= gastoMin) semConv.push(item)
+    else if (meta && a.conv > 0 && a.cpl >= meta * 2 && a.spend >= meta * 2) cplAlto.push(item)
   }
-  for (const { nome, camp, conj, adId, link, ids, a, ant } of semConv.sort((x, y) => y.a.spend - x.a.spend).slice(0, 5)) {
-    const h = historico(ant)
+  for (const { nome, camp, conj, adId, link, ids, a, ant, metrica, meta } of semConv.sort((x, y) => y.a.spend - x.a.spend).slice(0, 5)) {
+    const h = historico(ant, meta, METRICA_LABEL[metrica])
     // Convertia na semana anterior e secou: ainda vale agir, mas não como urgência cega
     const vinhaConvertendo = h.bom
     out.push(sugestao({
@@ -368,20 +436,21 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       horas: 0.5,
     }))
   }
-  for (const { nome, camp, conj, adId, link, ids, a, ant } of cplAlto.sort((x, y) => y.a.cpl - x.a.cpl).slice(0, 5)) {
-    const h = historico(ant)
+  for (const { nome, camp, conj, adId, link, ids, a, ant, metrica, meta } of cplAlto.sort((x, y) => y.a.cpl / y.meta - x.a.cpl / x.meta).slice(0, 5)) {
+    const lbl = METRICA_LABEL[metrica]
+    const h = historico(ant, meta, lbl)
     out.push(sugestao({
       chave: `meta:ad_cpl_alto:${adId || `${camp}::${conj}::${nome}`}`, canal, prioridade: 'alta', entidade: nome,
-      titulo: `${pref}Desligar o anúncio "${nome}" (CPL ${fmtMoney(a.cpl)}, meta ${fmtMoney(metaCpl)})`,
-      acao: `Pausar este anúncio (CPL ${(a.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta) e marcar _TESTADO.`,
+      titulo: `${pref}Desligar o anúncio "${nome}" (${lbl} ${fmtMoney(a.cpl)}, meta ${fmtMoney(meta)})`,
+      acao: `Pausar este anúncio (${lbl} ${(a.cpl / meta).toFixed(1).replace('.', ',')}× a meta) e marcar _TESTADO.`,
       caminho: contaCam({ campanha: camp, conjunto: conj, anuncio: nome, adId, link, ...ids }),
-      regra: 'anúncio priorizado com CPL acima de 2× a meta e gasto ≥ 2× a meta é desligado e marcado _TESTADO',
-      contexto: `No conjunto "${conj}" da campanha "${camp}", este anúncio está com CPL ${(a.cpl / metaCpl).toFixed(1).replace('.', ',')}× a meta em ${janelaTxt}.${h.frase}`,
+      regra: 'anúncio priorizado com custo acima de 2× a meta e gasto ≥ 2× a meta é desligado e marcado _TESTADO (CPL pra lead, custo por MQL pra MQL, CAC pra venda)',
+      contexto: `No conjunto "${conj}" da campanha "${camp}", este anúncio está com ${lbl} ${(a.cpl / meta).toFixed(1).replace('.', ',')}× a meta em ${janelaTxt}.${h.frase}`,
       evidencias: [
         { label: 'Janela analisada', valor: janelaTxt },
         ...h.evid,
-        { label: 'CPL', valor: fmtMoney(a.cpl) },
-        { label: 'Meta de CPL', valor: fmtMoney(metaCpl) },
+        { label: lbl.charAt(0).toUpperCase() + lbl.slice(1), valor: fmtMoney(a.cpl) },
+        { label: METRICA_META[metrica], valor: fmtMoney(meta) },
         { label: 'Gasto', valor: fmtMoney(a.spend) },
         { label: 'Conversões', valor: fmtInt(a.conv) },
       ],
@@ -397,13 +466,16 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
   for (const [camp, rs] of porCamp) {
     const a = aggMeta(rs)
     if (a.spend <= 0) continue
-    const funil = classifyFunnel(camp)
+    const ultCamp = rs.reduce((b, r) => (!b || r._d > b._d ? r : b), null)
+    const funil = funilDe(ultCamp)
     if (funil === 'fundo') temFundo = true
     if (funil === 'topo') temTopo = true
+    // Campanha pausada hoje não recebe sugestão de CTR, saturação nem escala.
+    const campPausada = isPaused(ultCamp['Status da Campanha'])
     const adsAtivos = new Set(rs.filter((r) => !isPaused(r[META_STATUS_AD])).map((r) => r['Nome do Anúncio'])).size
     const ant = porCampAnt.get(camp) ? aggMeta(porCampAnt.get(camp)) : null
 
-    if (funil !== 'topo' && a.spend >= 50 && a.imps >= 2000 && a.ctr != null && a.ctr < 0.5) {
+    if (funil !== 'topo' && !campPausada && otimizaConversao(ultCamp) && a.spend >= 50 && a.imps >= 2000 && a.ctr != null && a.ctr < 0.5) {
       out.push(sugestao({
         chave: `meta:ctr_baixo:${camp}`, canal, prioridade: 'alta', entidade: camp,
         titulo: `${pref}Trocar criativos da campanha "${camp}" (CTR ${fmtPct(a.ctr)})`,
@@ -422,7 +494,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       }))
     }
 
-    if (funil === 'fundo' && a.freq != null && a.freq >= 3.5 && ant?.ctr != null && a.ctr != null && a.ctr < ant.ctr * 0.9) {
+    if (funil === 'fundo' && !campPausada && a.freq != null && a.freq >= 3.5 && ant?.ctr != null && a.ctr != null && a.ctr < ant.ctr * 0.9) {
       out.push(sugestao({
         chave: `meta:saturacao:${camp}`, canal, prioridade: 'alta', entidade: camp,
         titulo: `${pref}Renovar criativos da campanha "${camp}" (frequência ${a.freq.toFixed(1).replace('.', ',')})`,
@@ -458,24 +530,25 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       }))
     }
 
-    // Escalar: conjunto com CPL ≤ 0,8× a meta, volume e estabilidade (3 dias). Só fundo/meio.
-    if (metaCpl && (funil === 'fundo' || funil === 'meio')) {
-      const porConj = groupRows(rs, (r) => r['Conjunto de Anúncio'])
+    // Escalar: conjunto com custo ≤ 0,8× a meta da métrica dele, volume e estabilidade (3 dias). Só fundo/meio.
+    if (!campPausada && (funil === 'fundo' || funil === 'meio')) {
+      const porConj = groupRows(rs.filter(ehConversao), (r) => r['Conjunto de Anúncio'])
       for (const [conj, crs] of porConj) {
         const c = aggMeta(crs)
-        if (c.conv < 3 || c.cpl == null || c.cpl > metaCpl * 0.8 || c.dias < 3) continue
+        const mtr = metricaDe(crs, metas), mC = metaDe(metas, mtr), lC = METRICA_LABEL[mtr]
+        if (!mC || c.conv < 3 || c.cpl == null || c.cpl > mC * 0.8 || c.dias < 3) continue
         const ult3 = aggMeta(crs.filter((r) => r._d >= addDays(w.fim, -2)))
-        if (ult3.cpl == null || ult3.cpl > metaCpl) continue
+        if (ult3.cpl == null || ult3.cpl > mC) continue
         out.push(sugestao({
           chave: `meta:escalar:${camp}::${conj}`, canal, prioridade: 'media', entidade: conj,
-          titulo: `${pref}Escalar +20% o conjunto "${conj}" (CPL ${fmtMoney(c.cpl)}, meta ${fmtMoney(metaCpl)})`,
+          titulo: `${pref}Escalar +20% o conjunto "${conj}" (${lC} ${fmtMoney(c.cpl)}, meta ${fmtMoney(mC)})`,
           acao: 'Aumentar o orçamento deste conjunto em 20% (se a campanha for CBO, aumentar o orçamento da campanha em 20%).',
           caminho: contaCam({ campanha: camp, conjunto: conj, campaignId: idDe(crs, 'campaign_id'), adsetId: idDe(crs, 'adset_id') }),
-          regra: 'escalar vencedor em até +20% por dia quando CPL ≤ meta e estável há 3 dias',
-          contexto: `Conjunto da campanha "${camp}" com CPL ${Math.round((1 - c.cpl / metaCpl) * 100)}% abaixo da meta e ${fmtInt(c.conv)} conversões na semana.`,
+          regra: 'escalar vencedor em até +20% por dia quando o custo da métrica (CPL, custo por MQL ou CAC) ≤ meta e estável há 3 dias',
+          contexto: `Conjunto da campanha "${camp}" com ${lC} ${Math.round((1 - c.cpl / mC) * 100)}% abaixo da meta e ${fmtInt(c.conv)} conversões na semana.`,
           evidencias: [
-            { label: 'CPL 7 dias', valor: fmtMoney(c.cpl) },
-            { label: 'CPL últimos 3 dias', valor: fmtMoney(ult3.cpl) },
+            { label: `${lC} 7 dias`, valor: fmtMoney(c.cpl) },
+            { label: `${lC} últimos 3 dias`, valor: fmtMoney(ult3.cpl) },
             { label: 'Conversões', valor: fmtInt(c.conv) },
             { label: 'Gasto', valor: fmtMoney(c.spend) },
           ],
@@ -486,22 +559,31 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
     }
   }
 
-  // CPL das campanhas de conversão (fundo + meio) piorou vs semana anterior
-  if (totConv.cpl != null && totConvAnt.cpl != null && totConvAnt.conv >= 3 && totConv.cpl > totConvAnt.cpl * 1.3) {
+  // Custo das campanhas de conversão (fundo + meio) piorou vs semana anterior, uma
+  // conta por métrica: somar conversa de WhatsApp com compra num CPL só não diz nada.
+  // A chave de lead continua a de antes; MQL e compra ganham sufixo.
+  const convAnt = w.anterior.filter(ehConversao)
+  for (const metrica of ['lead', 'mql', 'compra']) {
+    const daMetrica = (r) => metricaDaLinha(r, metas) === metrica
+    const totM = aggMeta(atualConv.filter(daMetrica))
+    const totMAnt = aggMeta(convAnt.filter(daMetrica))
+    if (!(totM.cpl != null && totMAnt.cpl != null && totMAnt.conv >= 3 && totM.cpl > totMAnt.cpl * 1.3)) continue
+    const lbl = METRICA_LABEL[metrica]
+    const Lbl = lbl.charAt(0).toUpperCase() + lbl.slice(1)
     out.push(sugestao({
-      chave: `meta:cpl_piorou:${conta || 'conta'}`, canal, prioridade: 'alta',
-      titulo: `${pref}Investigar alta de CPL no fundo/meio (${fmtMoney(totConvAnt.cpl)} → ${fmtMoney(totConv.cpl)})`,
-      acao: 'Comparar as campanhas de fundo e meio entre as duas semanas e achar o que puxou o CPL pra cima.',
+      chave: `meta:cpl_piorou:${conta || 'conta'}${metrica === 'lead' ? '' : `:${metrica}`}`, canal, prioridade: 'alta',
+      titulo: `${pref}Investigar alta de ${lbl} no fundo/meio (${fmtMoney(totMAnt.cpl)} → ${fmtMoney(totM.cpl)})`,
+      acao: `Comparar as campanhas de fundo e meio entre as duas semanas e achar o que puxou o ${lbl} pra cima.`,
       caminho: contaCam(),
-      regra: 'variação de CPL acima de 30% entre semanas pede diagnóstico antes de qualquer ajuste de verba (topo fica de fora da conta)',
-      contexto: `O CPL das campanhas de fundo e meio subiu ${Math.round((totConv.cpl / totConvAnt.cpl - 1) * 100)}% em relação à semana anterior.`,
+      regra: 'variação de custo por resultado acima de 30% entre semanas pede diagnóstico antes de qualquer ajuste de verba (topo fica de fora da conta)',
+      contexto: `O ${lbl} das campanhas de fundo e meio subiu ${Math.round((totM.cpl / totMAnt.cpl - 1) * 100)}% em relação à semana anterior.`,
       evidencias: [
-        { label: 'CPL atual', valor: fmtMoney(totConv.cpl) },
-        { label: 'CPL semana anterior', valor: fmtMoney(totConvAnt.cpl) },
-        { label: 'Conversões atual / anterior', valor: `${fmtInt(totConv.conv)} / ${fmtInt(totConvAnt.conv)}` },
-        { label: 'Gasto atual / anterior', valor: `${fmtMoney(totConv.spend)} / ${fmtMoney(totConvAnt.spend)}` },
+        { label: `${Lbl} atual`, valor: fmtMoney(totM.cpl) },
+        { label: `${Lbl} semana anterior`, valor: fmtMoney(totMAnt.cpl) },
+        { label: 'Conversões atual / anterior', valor: `${fmtInt(totM.conv)} / ${fmtInt(totMAnt.conv)}` },
+        { label: 'Gasto atual / anterior', valor: `${fmtMoney(totM.spend)} / ${fmtMoney(totMAnt.spend)}` },
       ],
-      passos: ['Comparar CTR, CPM e taxa de conversão por campanha entre as duas semanas', 'Checar se algum anúncio novo puxou o CPL pra cima', 'Confirmar rastreamento (pixel/CAPI) e destino do WhatsApp/LP'],
+      passos: ['Comparar CTR, CPM e taxa de conversão por campanha entre as duas semanas', `Checar se algum anúncio novo puxou o ${lbl} pra cima`, 'Confirmar rastreamento (pixel/CAPI) e destino do WhatsApp/LP'],
       tipo: 'Relatório', horas: 1,
     }))
   }
@@ -559,7 +641,7 @@ function regrasMeta(rowsMeta, metaCpl, conta) {
       acao: 'Criar uma campanha de fundo em CBO com 3 criativos de oferta direta.',
       caminho: contaCam(),
         regra: 'toda faixa de verba começa com 1 campanha de fundo em CBO (WhatsApp ou lead); topo é opcional a partir de R$ 2k',
-        contexto: `Nenhuma campanha com "fundo" no nome gastou na última semana. Verba mensal estimada: ${fmtMoney(verbaMensal)}.`,
+        contexto: `Nenhuma campanha de fundo (pelo nome ou pelo tipo de resultado: conversa, lead, MQL, compra) gastou na última semana. Verba mensal estimada: ${fmtMoney(verbaMensal)}.`,
         evidencias: [
           { label: 'Campanhas com gasto', valor: [...porCamp.keys()].slice(0, 4).join(', ') || '—' },
           { label: 'Verba mensal estimada', valor: fmtMoney(verbaMensal) },
@@ -702,11 +784,13 @@ function regrasGoogle(rowsGoogle, metaCpl, conta) {
  * @param {object} p
  * @param {Array}  p.meta        linhas do canal Meta (já filtradas pras contas do projeto)
  * @param {Array}  p.google      linhas do canal Google
- * @param {number|null} p.metaCpl  meta de CPL da conta (R$)
+ * @param {number|null} p.metaCpl  meta de CPL da conta (R$), legado: usado quando não vem `metas`
+ * @param {object} [p.metas]     { cpl, cac, mql, formularioMql } (ver metasDaConta)
  * @param {string} [p.conta]     nome da conta (prefixo do título quando há várias)
  */
-export function gerarSugestoes({ meta = [], google = [], metaCpl = null, conta = null }) {
-  const todas = [...regrasMeta(meta, metaCpl, conta), ...regrasGoogle(google, metaCpl, conta)]
+export function gerarSugestoes({ meta = [], google = [], metaCpl = null, metas = null, conta = null }) {
+  const m = metas || { cpl: metaCpl }
+  const todas = [...regrasMeta(meta, m, conta), ...regrasGoogle(google, metaDe(m, 'lead'), conta)]
   return todas.sort((a, b) => PRIORIDADE_ORDEM[a.prioridade] - PRIORIDADE_ORDEM[b.prioridade])
 }
 
@@ -715,7 +799,7 @@ export function gerarSugestoes({ meta = [], google = [], metaCpl = null, conta =
  * @param {object} p
  * @param {Array} p.meta
  * @param {Array} p.google
- * @param {object} p.accounts   mapa nome da conta → { cplTarget: {value} }
+ * @param {object} p.accounts   mapa nome da conta → { cplTarget: {value}, cacTarget, mqlTarget, metricaFormulario }
  */
 export function gerarSugestoesProjeto({ meta = [], google = [], accounts = {} }) {
   const contas = new Set([...meta.map((r) => r['Nome da conta']), ...google.map((r) => r['Nome da conta'])].filter(Boolean))
@@ -725,7 +809,7 @@ export function gerarSugestoesProjeto({ meta = [], google = [], accounts = {} })
     out.push(...gerarSugestoesConta({
       meta: meta.filter((r) => r['Nome da conta'] === conta),
       google: google.filter((r) => r['Nome da conta'] === conta),
-      metaCpl: accounts[conta]?.cplTarget?.value ?? null,
+      metas: metasDaConta(accounts[conta]),
       conta, varias,
     }))
   }
@@ -740,10 +824,10 @@ export function gerarSugestoesProjeto({ meta = [], google = [], accounts = {} })
  * `varias` como a Central de Otimizações calcularia, senão a mesma sugestão
  * apareceria pendente num lugar e decidida no outro.
  */
-export function gerarSugestoesConta({ meta = [], google = [], metaCpl = null, conta, varias = false }) {
+export function gerarSugestoesConta({ meta = [], google = [], metaCpl = null, metas = null, conta, varias = false }) {
   return gerarSugestoes({
     meta, google,
-    metaCpl: metaCpl > 0 ? Number(metaCpl) : null,
+    metas: metas || { cpl: metaCpl },
     conta: varias ? conta : null,
   }).map((s) => ({ ...s, conta, chave: varias ? `${conta}|${s.chave}` : s.chave }))
 }

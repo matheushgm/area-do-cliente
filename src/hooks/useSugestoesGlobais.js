@@ -11,6 +11,12 @@ import { useApp } from '../context/AppContext'
 import { gerarSugestoesProjeto, pendente, PRIORIDADE_ORDEM } from '../lib/playbookSugestoes'
 import { hojeISO } from '../lib/atividadesCarga'
 
+// Só entra na fila do robô o que ele sabe fazer sozinho: pausar/trocar um anúncio
+// identificado pelo ad_id. O resto (subir criativo, investigar, Google) já vira
+// tarefa no ClickUp pra uma pessoa e fica como 'manual'. A mesma regra está na
+// função reconciliar_fila_otimizacoes (migration 098).
+const REGRA_AUTOMATICA = /(^|\|)meta:(ad_sem_conv|ad_cpl_alto|topo_gancho):/
+
 // Linha de `projeto_sugestoes` a partir de uma sugestão: além do payload inteiro,
 // copia canal/conta/caminho/ação em colunas próprias pra automação consultar por SQL.
 export function linhaDecisao(sug, status, { projectId, user, motivo = null, extra = {} }) {
@@ -31,7 +37,7 @@ export function linhaDecisao(sug, status, { projectId, user, motivo = null, extr
     decidida_em: new Date().toISOString(),
     decidida_por: user?.name || user?.email || null,
     created_by: user?.id || null,
-    execucao_status: status === 'aceita' ? 'pendente' : null,
+    execucao_status: status !== 'aceita' ? null : REGRA_AUTOMATICA.test(sug.chave) && sug.caminho?.adId ? 'pendente' : 'manual',
     valida_ate: null,
     ...extra,
   }

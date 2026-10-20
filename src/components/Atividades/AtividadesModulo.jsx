@@ -1,4 +1,4 @@
-// Módulo Atividades: capacidade do time (lida do ClickUp) + planejador de
+// Módulo Atividades (hoje uma seção do VertaTask, `/tarefas?aba=atividades`): capacidade do time (lida do ClickUp) + planejador de
 // atividades, num frame com a linguagem visual do Linear (tokens ln-*).
 //
 // De cima para baixo: barra superior (breadcrumb, contador, ações), barra de
@@ -7,32 +7,31 @@
 // À direita, um painel com três modos (pessoa, atividade, nova atividade).
 // O cálculo da data vive no painel flutuante "Planejador · ClickUp".
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useOutletContext } from 'react-router-dom'
 import {
-  Menu, CalendarCheck, ChevronUp, ChevronDown, ChevronRight, Star, RefreshCw, Loader2, Settings, Plus, X,
+  Menu, ChevronUp, ChevronDown, ChevronRight, RefreshCw, Loader2, Settings, Plus, X,
   Users, ListChecks, Rows3, Layers, Maximize2, Minimize2, CheckCircle2, CalendarRange,
 } from 'lucide-react'
-import { useApp } from '../context/AppContext'
-import Toast from '../components/UI/Toast'
-import { useToast } from '../hooks/useToast'
-import { supabase } from '../lib/supabase'
-import { carregarConfigAtividades, estimarTarefa, tiparTarefa } from '../lib/atividades'
-import { useCargaTime } from '../hooks/useCargaTime'
-import { usePlanejador } from '../hooks/usePlanejador'
-import { useConcluidas } from '../hooks/useConcluidas'
-import { PERIODOS, SEM_RESPONSAVEL_KEY, MAX_DIAS_CUSTOM, intervaloDoPeriodo, customPadrao, diasEntre, isoValido } from '../lib/atividadesConcluidas'
-import { hojeISO } from '../lib/atividadesCarga'
-import { fmtHora, chaveAtividade } from '../lib/atividadesCarga'
-import KpiStrip from '../components/Atividades/KpiStrip'
-import TeamHeatLine from '../components/Atividades/TeamHeatLine'
-import TeamTable from '../components/Atividades/TeamTable'
-import PersonPanel from '../components/Atividades/PersonPanel'
-import IssueList from '../components/Atividades/IssueList'
-import AtividadePanel from '../components/Atividades/AtividadePanel'
-import NovaAtividadePanel from '../components/Atividades/NovaAtividadePanel'
-import PlannerFloat from '../components/Atividades/PlannerFloat'
-import ConfigModal from '../components/Atividades/ConfigModal'
-import RelatorioConcluidas from '../components/Atividades/RelatorioConcluidas'
+import { useApp } from '../../context/AppContext'
+import Toast from '../UI/Toast'
+import { useToast } from '../../hooks/useToast'
+import { supabase } from '../../lib/supabase'
+import { carregarConfigAtividades, estimarTarefa, tiparTarefa } from '../../lib/atividades'
+import { useCargaTime } from '../../hooks/useCargaTime'
+import { usePlanejador } from '../../hooks/usePlanejador'
+import { useConcluidas } from '../../hooks/useConcluidas'
+import { PERIODOS, SEM_RESPONSAVEL_KEY, MAX_DIAS_CUSTOM, intervaloDoPeriodo, customPadrao, diasEntre, isoValido } from '../../lib/atividadesConcluidas'
+import { hojeISO } from '../../lib/atividadesCarga'
+import { fmtHora, chaveAtividade } from '../../lib/atividadesCarga'
+import KpiStrip from './KpiStrip'
+import TeamHeatLine from './TeamHeatLine'
+import TeamTable from './TeamTable'
+import PersonPanel from './PersonPanel'
+import IssueList from './IssueList'
+import AtividadePanel from './AtividadePanel'
+import NovaAtividadePanel from './NovaAtividadePanel'
+import PlannerFloat from './PlannerFloat'
+import ConfigModal from './ConfigModal'
+import RelatorioConcluidas from './RelatorioConcluidas'
 
 // Fallback só para a tela não quebrar sem API; a fonte de verdade é DEFAULT_CONFIG
 // em api/_atividades_engine.js (mesclado com atividades_config), via action=config.
@@ -81,8 +80,8 @@ function estaDigitando() {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
 }
 
-export default function Atividades() {
-  const { openSidebar } = useOutletContext()
+export default function AtividadesModulo({ onAbrirMenu }) {
+  const openSidebar = onAbrirMenu || (() => {})
   const { user, projects, teamMembers, squads } = useApp()
   const { toast, showToast } = useToast()
   const isAdmin = user?.role === 'admin'
@@ -130,8 +129,8 @@ export default function Atividades() {
   const onCriada = useCallback((r) => {
     carregarHistorico()
     // a carga do responsável acabou de mudar
-    const id = Number(r?.registro?.responsavel_clickup_id)
-    if (id > 0) refreshCarga([id])
+    const id = Number(r?.registro?.responsavel_clickup_id) || r?.registro?.responsavel_profile_id
+    if (id) refreshCarga([id])
   }, [carregarHistorico, refreshCarga])
   const pl = usePlanejador({ projects, teamMembers, squads, config, showToast, onCriada })
   const { novaAtividade: resetPlanejador } = pl
@@ -219,12 +218,12 @@ export default function Atividades() {
   }, [resetPlanejador])
   const fecharPainel = useCallback(() => { setPainel(null); setPainelExpandido(false) }, [])
   const onCalculado = useCallback(() => { setPlannerAberto(true); setPlannerMin(false) }, [])
-  const recarregarPessoa = useCallback((pessoa) => { if (pessoa?.clickupId) refreshCarga([pessoa.clickupId]) }, [refreshCarga])
+  const recarregarPessoa = useCallback((pessoa) => { const k = pessoa?.clickupId || pessoa?.profileId; if (k) refreshCarga([k]) }, [refreshCarga])
   // Edição inline das horas no painel da pessoa: grava no ClickUp e relê a agenda dela
   const estimar = useCallback(async (pessoa, tarefa, horas) => {
     await estimarTarefa({ taskId: tarefa.id, horas, assigneeClickupId: pessoa?.clickupId || null })
     showToast(`Estimativa de ${tarefa.nome?.slice(0, 40) || 'tarefa'} salva no ClickUp`)
-    if (pessoa?.clickupId) refreshCarga([pessoa.clickupId])
+    { const k = pessoa?.clickupId || pessoa?.profileId; if (k) refreshCarga([k]) }
   }, [refreshCarga, showToast])
 
   // Tipo de tarefa inline: grava o campo no ClickUp (e as horas do tipo) e relê a agenda
@@ -232,7 +231,7 @@ export default function Atividades() {
     const r = await tiparTarefa({ taskId: tarefa.id, tipo, assigneeClickupId: pessoa?.clickupId || null })
     const h = Number(r?.horas)
     showToast(`${tarefa.nome?.slice(0, 40) || 'Tarefa'}: tipo "${r?.tipo || tipo}"${h > 0 ? ` (${h < 1 ? `${Math.round(h * 60)} min` : `${String(h).replace('.', ',')}h`})` : ''} salvo no ClickUp`)
-    if (pessoa?.clickupId) refreshCarga([pessoa.clickupId])
+    { const k = pessoa?.clickupId || pessoa?.profileId; if (k) refreshCarga([k]) }
     return r
   }, [refreshCarga, showToast])
 
@@ -277,22 +276,20 @@ export default function Atividades() {
   return (
     <>
 
-      <div ref={conteudoRef} className="ln flex-1 min-w-0 flex flex-col h-screen bg-ln-bg">
-        <div className="flex-1 min-h-0 p-2">
-          <div className="relative h-full min-h-0 flex rounded-lg border border-ln-ink/5 bg-ln-panel overflow-hidden" style={{ boxShadow: '0 0 0 2px rgb(var(--ln-ink) / 0.02)' }}>
+      <div ref={conteudoRef} className="flex-1 min-w-0 flex flex-col h-full min-h-0 bg-ln-bg">
+        <div className="flex-1 min-h-0">
+          <div className="relative h-full min-h-0 flex bg-ln-panel overflow-hidden">
             {/* ── Painel principal ─────────────────────────────────────── */}
             <div className="flex-1 min-w-0 flex flex-col">
               {/* Barra superior */}
-              <header className="h-11 shrink-0 flex items-center justify-between gap-3 px-3 border-b border-ln-ink/5">
-                <div className="flex items-center gap-1 min-w-0">
+              <header className="min-h-[56px] shrink-0 flex items-center justify-between gap-3 px-6 py-2 border-b border-ln-ink/[0.08]">
+                <div className="flex items-center gap-2 min-w-0">
                   <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
-                  <div className="flex items-center gap-2 h-7 px-2.5 rounded-lg text-xs font-medium text-ln-t2 min-w-0">
-                    <CalendarCheck className="w-3.5 h-3.5 text-ln-accent shrink-0" />
-                    <span className="truncate">Atividades</span>
+                  <h1 className="text-xl font-bold text-ln-t1 truncate">Atividades</h1>
+                  <div className="hidden sm:flex items-center gap-1.5 text-[13px] text-ln-t3 min-w-0">
                     <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
                     <span className="truncate text-ln-t2">{view === 'time' ? 'Capacidade do time' : view === 'concluidas' ? 'Tarefas concluídas' : 'Atividades planejadas'}</span>
                   </div>
-                  <button className="ln-iconbtn" aria-label="Favorito" title="Favorito"><Star className="w-3.5 h-3.5" /></button>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${carga.envelhecido ? 'text-ln-yellow' : 'text-ln-t4'}`} title={carga.geradoEm ? `Carga lida do ClickUp às ${fmtHora(carga.geradoEm)}` : 'Ainda não li o ClickUp'}>
@@ -304,18 +301,18 @@ export default function Atividades() {
                     {contador.i >= 0 ? `${contador.i + 1} / ${contador.n}` : `${carga.lidas} / ${carga.pessoas.length}`}
                   </span>
                   <div className="hidden md:flex items-center">
-                    <button onClick={() => contador.ir(contador.i - 1)} disabled={contador.i <= 0} className="ln-iconbtn !w-[30px] !rounded-md" aria-label="Anterior"><ChevronUp className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => contador.ir(contador.i + 1)} disabled={contador.i < 0 || contador.i >= contador.n - 1} className="ln-iconbtn !w-[30px] !rounded-md" aria-label="Próximo"><ChevronDown className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => contador.ir(contador.i - 1)} disabled={contador.i <= 0} className="ln-iconbtn" aria-label="Anterior"><ChevronUp className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => contador.ir(contador.i + 1)} disabled={contador.i < 0 || contador.i >= contador.n - 1} className="ln-iconbtn" aria-label="Próximo"><ChevronDown className="w-3.5 h-3.5" /></button>
                   </div>
                   <button onClick={() => carga.refresh()} disabled={carga.loading} className="ln-iconbtn" aria-label="Recarregar do ClickUp" title="Recarregar do ClickUp">
                     <RefreshCw className={`w-3.5 h-3.5 ${carga.loading ? 'animate-spin' : ''}`} />
                   </button>
-                  <button onClick={() => novaAtividade()} className="ln-primary" title="Nova atividade (C)">
-                    <Plus className="w-3.5 h-3.5" /> Nova atividade <kbd className="ln-kbd !text-white/80 !bg-white/15 !border-white/20 ml-0.5">C</kbd>
-                  </button>
                   {isAdmin && (
                     <button onClick={() => setShowConfig(true)} className="ln-iconbtn" aria-label="Capacidade e horas padrão" title="Capacidade e horas padrão"><Settings className="w-3.5 h-3.5" /></button>
                   )}
+                  <button onClick={() => novaAtividade()} className="ln-primary" title="Nova atividade (C)">
+                    <Plus className="w-3.5 h-3.5" /> Nova atividade
+                  </button>
                 </div>
               </header>
 
@@ -371,7 +368,7 @@ export default function Atividades() {
               </div>
 
               {/* Conteúdo rolável */}
-              <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
+              <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto bg-ln-bg">
                 {view === 'concluidas' ? (
                   <RelatorioConcluidas
                     rel={concl}
@@ -384,7 +381,7 @@ export default function Atividades() {
                     denso={denso}
                   />
                 ) : (<>
-                <section ref={timeRef} className="pb-4">
+                <section ref={timeRef} className="pb-4 pt-3">
                   <KpiStrip
                     pessoas={carga.pessoas}
                     hoje={carga.hoje}
@@ -398,6 +395,7 @@ export default function Atividades() {
                     colunas={painel && painelEmpurra ? 3 : 6}
                   />
                   <TeamHeatLine pessoas={carga.pessoas} hoje={carga.hoje} diaSelecionado={diaSelecionado} onSelecionarDia={setDiaSelecionado} />
+                  <div className="mx-4 ln-card">
                   <TeamTable
                     pessoas={carga.pessoas}
                     hoje={carga.hoje}
@@ -412,8 +410,10 @@ export default function Atividades() {
                     onRecarregar={recarregarPessoa}
                     colunasOcultas={painel && painelEmpurra ? (largura < 1440 ? ['semdata', 'zumbis', 'alem', 'proxlivre'].concat(largura < 1100 ? ['hoje'] : []) : []) : []}
                   />
+                  </div>
                 </section>
                 <section ref={listaRef} className="pb-24">
+                  <div className="mx-4 ln-card">
                   <IssueList
                     registros={historico}
                     nomeProjeto={nomeProjeto}
@@ -424,6 +424,7 @@ export default function Atividades() {
                     onAbrir={abrirAtividade}
                     loading={loadingHist}
                   />
+                  </div>
                 </section>
                 </>)}
               </div>

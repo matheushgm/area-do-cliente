@@ -2,6 +2,7 @@
 // direto no Supabase (RLS: todo o time). Atualizações otimistas + realtime
 // para que duas pessoas na mesma lista vejam as mudanças uma da outra.
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { apiFetch } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { STATUSES_PADRAO, statusDaLista, statusInicial } from '../lib/tarefas'
 
@@ -28,6 +29,7 @@ export function useTarefas(user) {
   const [erro, setErro] = useState(null)
   const carregadas = useRef(new Set())               // lista_id já carregada
   const minhasCarregadas = useRef(false)
+  const camposCarregados = useRef({ ciclo_id: new Set(), modulo_id: new Set() }) // VertaTask: ciclo/módulo já carregado
 
   const listasMap = useMemo(() => new Map(listas.map((l) => [l.id, l])), [listas])
   const pastasMap = useMemo(() => new Map(pastas.map((p) => [p.id, p])), [pastas])
@@ -82,6 +84,31 @@ export function useTarefas(user) {
     }
   }, [mesclar])
 
+  /** VertaTask: tarefas de um ciclo ou módulo, de qualquer lista. campo = 'ciclo_id' | 'modulo_id'. */
+  const carregarPorCampo = useCallback(async (campo, valor, { force = false } = {}) => {
+    if (!supabase || !valor) return
+    if (!force && camposCarregados.current[campo]?.has(valor)) return
+    setCarregando(true)
+    try {
+      const rows = await selectPaginado(
+        supabase.from('tarefas_itens').select('*').eq(campo, valor).eq('arquivada', false).order('posicao').order('created_at'),
+      )
+      camposCarregados.current[campo].add(valor)
+      // subtarefas das tarefas carregadas (o ciclo/módulo está só no pai)
+      const ids = rows.map((r) => r.id)
+      for (let i = 0; i < ids.length; i += 150) {
+        const { data: subs } = await supabase.from('tarefas_itens').select('*').in('parent_id', ids.slice(i, i + 150)).eq('arquivada', false)
+        if (subs?.length) rows.push(...subs)
+      }
+      mesclar(rows)
+    } catch (e) {
+      console.error('Erro ao carregar tarefas do ciclo/módulo:', e)
+      setErro(e.message)
+    } finally {
+      setCarregando(false)
+    }
+  }, [mesclar])
+
   const carregarMinhas = useCallback(async () => {
     if (!supabase || !user?.id || minhasCarregadas.current) return
     setCarregando(true)
@@ -99,6 +126,25 @@ export function useTarefas(user) {
     }
   }, [user?.id, mesclar])
 
+  /** VertaTask, "Todas as tarefas": tudo que está aberto (as concluídas ficam nas pastas). */
+  const abertasCarregadas = useRef(false)
+  const carregarAbertas = useCallback(async ({ force = false } = {}) => {
+    if (!supabase || (abertasCarregadas.current && !force)) return
+    setCarregando(true)
+    try {
+      const rows = await selectPaginado(
+        supabase.from('tarefas_itens').select('*').neq('status_tipo', 'closed').eq('arquivada', false).order('data_vencimento', { ascending: true, nullsFirst: false }),
+      )
+      abertasCarregadas.current = true
+      mesclar(rows)
+    } catch (e) {
+      console.error('Erro ao carregar tarefas abertas:', e)
+      setErro(e.message)
+    } finally {
+      setCarregando(false)
+    }
+  }, [mesclar])
+
   /** Uma tarefa por id (deep-link) + suas subtarefas + o pai, se houver. */
   const carregarTarefa = useCallback(async (id) => {
     if (!supabase || !id) return null
@@ -114,6 +160,15 @@ export function useTarefas(user) {
     mesclar(extras)
     return data
   }, [mesclar])
+
+  // Mão de volta para o ClickUp: a escrita entrou na fila (trigger); um pouco
+  // depois pedimos ao servidor para esvaziá-la. Falha aqui não atrapalha a UI:
+  // o cron diário também empurra a fila.
+  const pushTimer = useRef(null)
+  const agendarPush = useCallback(() => {
+    clearTimeout(pushTimer.current)
+    pushTimer.current = setTimeout(() => { apiFetch('/api/tarefas-push', { body: {} }).catch(() => {}) }, 1500)
+  }, [])
 
   const criarTarefa = useCallback(async (payload) => {
     const lista = listasMap.get(payload.lista_id)
@@ -135,28 +190,32 @@ export function useTarefas(user) {
       dificuldade: payload.dificuldade || null,
       departamento: payload.departamento || [],
       tags: payload.tags || [],
+      ciclo_id: payload.ciclo_id || null,
+      modulo_id: payload.modulo_id || null,
       posicao: payload.posicao ?? Date.now(),
       criado_por: user?.id || null,
       criador_nome: user?.name || null,
     }
     const { data, error } = await supabase.from('tarefas_itens').insert(row).select().single()
+    if (!error) agendarPush()
     if (error) return { error: error.message }
     mesclar([data])
     return { data }
-  }, [listasMap, user, mesclar])
+  }, [listasMap, user, mesclar, agendarPush])
 
   const atualizarTarefa = useCallback(async (id, patch) => {
     const anterior = itens[id]
     // otimista
     setItens((prev) => prev[id] ? { ...prev, [id]: { ...prev[id], ...patch, updated_at: new Date().toISOString() } } : prev)
     const { data, error } = await supabase.from('tarefas_itens').update(patch).eq('id', id).select().single()
+    if (!error) agendarPush()
     if (error) {
       if (anterior) setItens((prev) => ({ ...prev, [id]: anterior }))
       return { error: error.message }
     }
     mesclar([data])
     return { data }
-  }, [itens, mesclar])
+  }, [itens, mesclar, agendarPush])
 
   /** Troca o status calculando status_tipo e data_conclusao. */
   const mudarStatus = useCallback((item, statusObj) => {
@@ -168,8 +227,19 @@ export function useTarefas(user) {
     })
   }, [atualizarTarefa])
 
+  /** Aplica o mesmo patch a várias tarefas já gravadas (a gravação em lote é feita por quem chama). */
+  const aplicarLocal = useCallback((ids, patch) => {
+    const set = new Set(ids)
+    setItens((prev) => {
+      const next = { ...prev }
+      for (const id of set) if (next[id]) next[id] = { ...next[id], ...patch }
+      return next
+    })
+  }, [])
+
   const excluirTarefa = useCallback(async (id) => {
     const { error } = await supabase.from('tarefas_itens').delete().eq('id', id)
+    if (!error) agendarPush()
     if (error) return { error: error.message }
     setItens((prev) => {
       const next = { ...prev }
@@ -178,7 +248,7 @@ export function useTarefas(user) {
       return next
     })
     return {}
-  }, [])
+  }, [agendarPush])
 
   // ── Pastas e listas ────────────────────────────────────────────────────────
   const criarPasta = useCallback(async ({ nome, project_id = null }) => {
@@ -226,6 +296,7 @@ export function useTarefas(user) {
     const { data, error } = await supabase.from('tarefas_comentarios').insert({
       tarefa_id: tarefaId, texto: texto.trim(), autor_id: user?.id || null, autor_nome: user?.name || null,
     }).select().single()
+    if (!error) agendarPush()
     if (error) return { error: error.message }
     setComentarios((prev) => {
       const atual = prev[tarefaId] || []
@@ -233,7 +304,7 @@ export function useTarefas(user) {
       return { ...prev, [tarefaId]: [...atual, data] }
     })
     return { data }
-  }, [user])
+  }, [user, agendarPush])
 
   const excluirComentario = useCallback(async (tarefaId, id) => {
     const { error } = await supabase.from('tarefas_comentarios').delete().eq('id', id)
@@ -253,6 +324,8 @@ export function useTarefas(user) {
         }
         setItens((prev) => {
           const conhecida = carregadas.current.has(row.lista_id) || !!prev[row.id] || (row.parent_id && !!prev[row.parent_id])
+            || (row.ciclo_id && camposCarregados.current.ciclo_id.has(row.ciclo_id))
+            || (row.modulo_id && camposCarregados.current.modulo_id.has(row.modulo_id))
           if (!conhecida) return prev
           if (row.arquivada) { const n = { ...prev }; delete n[row.id]; return n }
           return { ...prev, [row.id]: row }
@@ -288,7 +361,7 @@ export function useTarefas(user) {
   return {
     pastas, listas, pastasMap, listasMap, loadingEstrutura, carregando, erro,
     itens, comentarios,
-    carregarEstrutura, carregarListas, carregarMinhas, carregarTarefa,
+    carregarEstrutura, carregarListas, carregarMinhas, carregarAbertas, carregarPorCampo, carregarTarefa, aplicarLocal,
     criarTarefa, atualizarTarefa, mudarStatus, excluirTarefa,
     criarPasta, atualizarPasta, criarLista, atualizarLista,
     carregarComentarios, criarComentario, excluirComentario,

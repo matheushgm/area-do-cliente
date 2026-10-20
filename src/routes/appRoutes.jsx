@@ -1,7 +1,7 @@
 import { lazy } from 'react'
 import { Route, Navigate } from 'react-router-dom'
 import { RequireAuth, RequireAdmin, RequireSquadsAccess } from './guards'
-import { RedirectProjetoLegado, RedirectComQuery } from './legacyRedirects'
+import { RedirectProjetoLegado, RedirectComQuery, RedirectChat, RedirectAtividades } from './legacyRedirects'
 import AppLayout from './AppLayout'
 
 // Rotas que exigem login. Diferente das públicas, estas podem ser renomeadas
@@ -16,10 +16,8 @@ const ProjectDetail = lazy(() => import('../pages/ProjectDetail'))
 
 // ── Operação ───────────────────────────────────────────────
 const Tarefas = lazy(() => import('../pages/Tarefas'))
-const Atividades = lazy(() => import('../pages/Atividades'))
 const Otimizacoes = lazy(() => import('../pages/Otimizacoes'))
 const Atividades15min = lazy(() => import('../pages/Atividades15min'))
-const Chat = lazy(() => import('../pages/Chat'))
 
 // ── Biblioteca ─────────────────────────────────────────────
 const BancoDeAnuncios = lazy(() => import('../pages/BancoDeAnuncios'))
@@ -38,6 +36,7 @@ const UserManagement = lazy(() => import('../pages/UserManagement'))
 // ── Dev (só no build de desenvolvimento) ───────────────────
 const DevHub = lazy(() => import('../pages/DevHub'))
 const DevEditor = lazy(() => import('../pages/DevEditor'))
+const DevLista = lazy(() => import('../pages/DevLista'))
 
 export const appRoutes = [
   // Páginas com a sidebar global: o AppLayout monta a AppSidebar uma vez e
@@ -48,9 +47,9 @@ export const appRoutes = [
 
     <Route key="tarefas" path="/tarefas" element={<Tarefas />} />
     <Route key="otimizacoes" path="/otimizacoes" element={<Otimizacoes />} />
-    <Route key="atividades" path="/atividades" element={<Atividades />} />
+    <Route key="atividades" path="/atividades" element={<RedirectAtividades />} />
     <Route key="atividades-15min" path="/atividades-15min" element={<Atividades15min />} />
-    <Route key="chat" path="/chat" element={<Chat />} />
+    <Route key="chat" path="/chat" element={<RedirectChat />} />
 
     <Route key="banco-anuncios" path="/banco-de-anuncios" element={<BancoDeAnuncios />} />
     <Route key="banco-lps" path="/banco-de-lps" element={<BancoDeLPs />} />
@@ -86,6 +85,7 @@ export const appRoutes = [
     ? [
         <Route key="dev-hub" path="/dev/hub" element={<DevHub />} />,
         <Route key="dev-editor" path="/dev/editor" element={<DevEditor />} />,
+        <Route key="dev-lista" path="/dev/lista" element={<DevLista />} />,
       ]
     : []),
 

@@ -158,6 +158,20 @@ export const CONTRACT_MODEL_LABELS = {
   assessoria: '📅 Assessoria Mensal',
 }
 
+// Classificação comercial (perguntada no cadastro e no cartão do perfil)
+export const PLAN_TYPE_OPTIONS = [
+  { value: 'programa', label: 'Programa' },
+  { value: 'plano',    label: 'Plano'    },
+]
+
+export const BILLING_MODE_OPTIONS = [
+  { value: 'pre_pago', label: 'Pré-pago' },
+  { value: 'pos_pago', label: 'Pós-pago' },
+]
+
+export const PLAN_TYPE_LABELS    = Object.fromEntries(PLAN_TYPE_OPTIONS.map((o) => [o.value, o.label]))
+export const BILLING_MODE_LABELS = Object.fromEntries(BILLING_MODE_OPTIONS.map((o) => [o.value, o.label]))
+
 export const CONTRACT_PAYMENT_LABELS = {
   unico:  'Valor Único',
   mensal: 'Parcelado (Mensal)',
@@ -191,6 +205,19 @@ export const UNIDADES_POR_PROJETO = {
     { id: 'itatiaia',       label: 'Itatiaia'       },
     { id: 'santa_genoveva', label: 'Santa Genoveva' },
   ],
+}
+
+// ─── Anúncios por unidade (para o ROAS por unidade) ───────────────────────────
+// Como atribuir o investimento do dashboard a cada unidade de UNIDADES_POR_PROJETO:
+// Meta = regex no nome da campanha (a conta é uma só); Google = contas inteiras.
+export const ANUNCIOS_POR_UNIDADE = {
+  // Nacional Kart
+  'dcffbed5-5018-4408-90d8-ecb706c77c7c': {
+    penha:   { meta: /penha|s[aã]o paulo/i, google: ['Nacional Kart - São Paulo'] },
+    goiania: { meta: /goi[aâ]nia/i,          google: ['Nacional Kart - Goiânia']   },
+    osasco:  { meta: /osasco/i,              google: ['Nacional Kart - Osasco']    },
+    morumbi: { meta: /morumbi/i,             google: ['Nacional Kart - Morumbi']   },
+  },
 }
 
 export function getUnidades(projectId) {

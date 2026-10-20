@@ -1,25 +1,31 @@
-// Chat da Área do Cliente no modelo do ClickUp Chat: coluna de canais
+// Chat da Área do Cliente, hoje um módulo do VertaTask (aba "Chat" de /tarefas,
+// `?aba=chat&channel=&thread=&msg=`). No modelo do ClickUp Chat: coluna de canais
 // (favoritos / canais / DMs, filtros Não lida · DMs · Canais), conversa com
 // separadores de dia, menções, reações e threads num painel lateral.
 // Dados: src/hooks/useChat.js (tabelas chat_*; migrations 041/043/086/087).
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom'
-import { useApp } from '../context/AppContext'
-import { cliente } from '../routes/paths'
-import Toast from '../components/UI/Toast'
-import { useToast } from '../hooks/useToast'
-import { useChat } from '../hooks/useChat'
-import ChatSidebar from '../components/Chat/ChatSidebar'
-import MessageList from '../components/Chat/MessageList'
-import Composer from '../components/Chat/Composer'
-import ThreadPanel from '../components/Chat/ThreadPanel'
-import ChatAvatar, { AvatarStack } from '../components/Chat/ChatAvatar'
-import { NovoCanalDialog, NovaDMDialog } from '../components/Chat/NovoDialogs'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useApp } from '../../context/AppContext'
+import { cliente } from '../../routes/paths'
+import Toast from '../UI/Toast'
+import { useToast } from '../../hooks/useToast'
+import { useChat } from '../../hooks/useChat'
+import ChatSidebar from './ChatSidebar'
+import MessageList from './MessageList'
+import Composer from './Composer'
+import { BUCKET_CHAT } from './Anexos'
+import { uploadFile } from '../../lib/supabase'
+import ThreadPanel from './ThreadPanel'
+import ChatAvatar, { AvatarStack } from './ChatAvatar'
+import { NovoCanalDialog, NovaDMDialog } from './NovoDialogs'
 import { Hash, Lock, Star, Menu, PanelLeft, Loader2, MessageSquare, ArrowLeft, Users, LogIn } from 'lucide-react'
 
-export default function Chat() {
+// `?aba=chat` mantém o VertaTask na seção Chat quando a URL do canal muda.
+const ABA = { aba: 'chat' }
+
+export default function ChatModulo({ onAbrirMenu }) {
   const navigate = useNavigate()
-  const { openSidebar } = useOutletContext()
+  const openSidebar = onAbrirMenu || (() => {})
   const [searchParams, setSearchParams] = useSearchParams()
   const { user, teamMembers, projects } = useApp()
   const { toast, showToast } = useToast()
@@ -58,17 +64,17 @@ export default function Chat() {
     chat.setCanalAtivo(c.id)
     setListaAberta(false)
     setDestaque(null)
-    setSearchParams({ channel: c.id }, { replace: true })
+    setSearchParams({ ...ABA, channel: c.id }, { replace: true })
   }, [chat, setSearchParams])
 
   function abrirThread(msg) {
     chat.setThreadId(msg.id)
-    setSearchParams({ channel: msg.channel_id, thread: msg.id }, { replace: true })
+    setSearchParams({ ...ABA, channel: msg.channel_id, thread: msg.id }, { replace: true })
   }
   function fecharThread() {
     chat.setThreadId(null)
     setThreadExpandida(false)
-    if (canalAtivo) setSearchParams({ channel: canalAtivo.id }, { replace: true })
+    if (canalAtivo) setSearchParams({ ...ABA, channel: canalAtivo.id }, { replace: true })
   }
 
   // Esc fecha thread; foco em texto não interfere
@@ -86,13 +92,29 @@ export default function Chat() {
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [chat])
 
-  async function enviarNoCanal(texto) {
-    const r = await chat.enviar({ canalId: canalAtivo.id, texto })
+  // Sobe os arquivos para o Storage (chat-attachments/<canal>/<ts>-<nome>) e
+  // devolve a lista que vai no campo attachments da mensagem.
+  async function subirAnexos(arquivos) {
+    const out = []
+    for (const f of arquivos || []) {
+      const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `${canalAtivo.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${safe}`
+      const url = await uploadFile(BUCKET_CHAT, path, f)
+      if (url) out.push({ path, name: f.name, type: f.type, size: f.size })
+      else showToast(`Falha ao enviar ${f.name}`, 'error')
+    }
+    return out
+  }
+  async function enviarNoCanal(texto, arquivos = []) {
+    const attachments = await subirAnexos(arquivos)
+    if (!texto && arquivos.length && !attachments.length) return false
+    const r = await chat.enviar({ canalId: canalAtivo.id, texto, attachments })
     if (r?.error) { showToast('Falha ao enviar: ' + r.error, 'error'); return false }
     return true
   }
-  async function enviarNaThread(texto, tambem) {
-    const r = await chat.enviar({ canalId: canalAtivo.id, texto, parentId: raizThread.id, tambemNoCanal: tambem })
+  async function enviarNaThread(texto, tambem, arquivos = []) {
+    const attachments = await subirAnexos(arquivos)
+    const r = await chat.enviar({ canalId: canalAtivo.id, texto, parentId: raizThread.id, tambemNoCanal: tambem, attachments })
     if (r?.error) { showToast('Falha ao enviar: ' + r.error, 'error'); return false }
     return true
   }
@@ -103,7 +125,7 @@ export default function Chat() {
     setDialogo(null)
     showToast('Canal criado')
     chat.setCanalAtivo(r.data.id)
-    setSearchParams({ channel: r.data.id }, { replace: true })
+    setSearchParams({ ...ABA, channel: r.data.id }, { replace: true })
   }
   async function abrirDM(pessoa) {
     const r = await chat.abrirDM(pessoa)
@@ -111,7 +133,7 @@ export default function Chat() {
     setDialogo(null)
     chat.setCanalAtivo(r.data.id)
     setListaAberta(false)
-    setSearchParams({ channel: r.data.id }, { replace: true })
+    setSearchParams({ ...ABA, channel: r.data.id }, { replace: true })
   }
 
   const projetosOrdenados = useMemo(() => [...(projects || [])].sort((a, b) => (a.company_name || a.companyName || '').localeCompare(b.company_name || b.companyName || '', 'pt-BR')), [projects])
@@ -120,7 +142,7 @@ export default function Chat() {
   return (
     <>
 
-      <div className="ln flex-1 min-w-0 flex h-screen bg-ln-bg text-ln-t1">
+      <div className="flex-1 min-w-0 flex h-full min-h-0 bg-ln-bg text-ln-t1">
         {/* Coluna de canais */}
         <aside className={`${listaAberta ? 'flex' : 'hidden'} md:flex w-full md:w-[260px] shrink-0 flex-col border-r border-ln-border bg-ln-panel/60 min-h-0`}>
           <div className="lg:hidden h-11 px-2 flex items-center border-b border-ln-border">
@@ -213,6 +235,7 @@ export default function Chat() {
                   membros={membrosParaMencao}
                   meuId={user.id}
                   onEnviar={enviarNoCanal}
+                  onErro={(m) => showToast(m, 'error')}
                 />
               </div>
             </>

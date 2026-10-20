@@ -12,7 +12,7 @@
 
 import { useState } from 'react'
 import { Edit2, Plus, Check, X, Store, TrendingUp, TrendingDown } from 'lucide-react'
-import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, MONTH_NAMES } from './resultadosHelpers'
+import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, weekdayShort, MONTH_NAMES } from './resultadosHelpers'
 
 const UNIT_STYLE = [
   { text: 'text-rl-blue',   bg: 'bg-rl-blue/5',   border: 'border-rl-blue/20',   bar: 'rgb(var(--rl-blue))'   },
@@ -229,8 +229,25 @@ function ResumoSemanal({ unidades, month, data, semanas }) {
   )
 }
 
+// ROAS = receita ÷ investimento em anúncios (mês). Mesmas faixas de cor do restante dos Resultados.
+function RoasLinha({ receita, investido }) {
+  const roas = investido > 0 ? receita / investido : 0
+  const cor = roas >= 3 ? 'text-rl-green' : roas >= 1.5 ? 'text-rl-gold' : 'text-rl-purple'
+  return (
+    <div className="mt-3 pt-3 border-t border-rl-border/60 flex items-center justify-between">
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-rl-muted">ROAS</div>
+        <div className="text-[10px] text-rl-muted">investido {fmtMoney(investido)}</div>
+      </div>
+      <div className={`text-xl font-bold ${roas > 0 ? cor : 'text-rl-muted'}`}>
+        {roas > 0 ? `${roas.toFixed(2).replace('.', ',')}x` : '—'}
+      </div>
+    </div>
+  )
+}
+
 // ─── Cartão de resumo da unidade ──────────────────────────────────────────────
-function UnitCard({ unidade, total, receitaMes, index }) {
+function UnitCard({ unidade, total, receitaMes, index, investido }) {
   const st     = styleOf(index)
   const ticket = total.vendas > 0 ? total.valorVendas / total.vendas : 0
   const share  = receitaMes > 0 ? (total.valorVendas / receitaMes) * 100 : 0
@@ -251,6 +268,8 @@ function UnitCard({ unidade, total, receitaMes, index }) {
         {total.vendas.toLocaleString('pt-BR')} vendas
         {ticket > 0 && ` · ticket ${fmtMoney(ticket)}`}
       </div>
+
+      {investido != null && <RoasLinha receita={total.valorVendas} investido={investido} />}
 
       <div className="mt-3 pt-3 border-t border-rl-border/60">
         <div className="flex items-center justify-between text-[10px] text-rl-muted mb-1.5">
@@ -278,6 +297,7 @@ export default function VendasPorUnidade({
   weekData = {},
   onSaveWeek,
   readOnly = false,
+  investimento = null, // { porUnidade: { [id]: { total } }, total } — só na visão interna
 }) {
   const [granularity, setGranularity] = useState('diario') // 'diario' | 'semanal'
   const [editing, setEditing]         = useState(null)      // número do dia em edição
@@ -401,6 +421,7 @@ export default function VendasPorUnidade({
               index={i}
               total={totaisPorUnidade[i]}
               receitaMes={totalMes.valorVendas}
+              investido={investimento ? investimento.porUnidade[u.id]?.total ?? 0 : null}
             />
           ))}
           <div className="glass-card p-4 border border-rl-green/25">
@@ -414,6 +435,7 @@ export default function VendasPorUnidade({
               {totalMes.vendas.toLocaleString('pt-BR')} vendas
               {totalMes.vendas > 0 && ` · ticket ${fmtMoney(totalMes.valorVendas / totalMes.vendas)}`}
             </div>
+            {investimento && <RoasLinha receita={totalMes.valorVendas} investido={investimento.total} />}
           </div>
         </div>
       )}
@@ -478,6 +500,7 @@ export default function VendasPorUnidade({
                         <tr key={day} className="border-b border-rl-border bg-rl-surface/40">
                           <td className={`px-4 py-2 text-xs font-medium text-rl-text whitespace-nowrap ${STICKY_LEFT}`}>
                             {dayKey}/{String(month + 1).padStart(2, '0')}
+                            <span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span>
                           </td>
                           {unidades.map((u, i) => [
                             <td key={`${u.id}-q`} className="px-2 py-2 border-l border-rl-border/50">
@@ -543,6 +566,7 @@ export default function VendasPorUnidade({
                       >
                         <td className={`px-4 py-2 text-xs font-medium text-rl-text whitespace-nowrap ${STICKY_LEFT}`}>
                           {dayKey}/{String(month + 1).padStart(2, '0')}
+                            <span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span>
                         </td>
                         {unidades.map((u, i) => {
                           const v = entry?.[u.id]

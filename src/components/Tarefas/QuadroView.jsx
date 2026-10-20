@@ -26,9 +26,10 @@ function Card({ item, filhos, ctx, arrastavel }) {
         <StatusIcon status={item.status} statuses={statuses} size={14} className="mt-0.5" />
         <p className={`text-[13px] font-medium leading-snug min-w-0 flex-1 ${item.status_tipo === 'closed' ? 'text-ln-t4 line-through' : 'text-ln-t2'}`}>{item.titulo}</p>
       </div>
-      {(item.tipo_tarefa || item.tags?.length > 0) && (
+      {(item.tipo_tarefa || item.tags?.length > 0 || item.etiquetas?.length > 0) && (
         <div className="flex flex-wrap gap-1 mt-2">
           {item.tipo_tarefa && <Chip texto={item.tipo_tarefa} cor={tipo?.cor} />}
+          {(item.etiquetas || []).map((id) => { const e = ctx.etiquetasMap?.get(id); return e ? <Chip key={id} texto={e.nome} cor={e.cor} /> : null })}
           {(item.tags || []).map((t) => <span key={t} className="inline-flex items-center h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t3">{t}</span>)}
         </div>
       )}
@@ -73,11 +74,11 @@ function Coluna({ grupo, ctx, filhosDe }) {
       onDragOver={(e) => { if (podeSoltar) { e.preventDefault(); setOver(true) } }}
       onDragLeave={() => setOver(false)}
       onDrop={soltar}
-      className={`flex flex-col w-[300px] shrink-0 max-h-full rounded-lg transition-colors duration-150 ${over ? 'bg-ln-accent/10 ring-1 ring-ln-accent/40' : 'bg-ln-ink/[0.02]'}`}
+      className={`flex flex-col w-[300px] shrink-0 max-h-full rounded-lg transition-colors duration-150 ${over ? 'bg-ln-accent/10 ring-1 ring-ln-accent/40' : 'bg-ln-ink/[0.04]'}`}
     >
       <div className="flex items-center gap-1.5 h-9 px-3 shrink-0">
         <i className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: grupo.cor }} />
-        <span className="text-[13px] font-medium text-ln-t2 truncate">{grupo.label}</span>
+        <span className="text-[13px] font-semibold vt-display text-ln-t1 truncate">{grupo.label}</span>
         <span className="text-[13px] text-ln-t3 tabular">{itens.length}</span>
         <div className="flex-1" />
         {listaPadraoId && (

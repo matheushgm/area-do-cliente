@@ -72,7 +72,7 @@ function BuscaMenu({ valor, onChange, placeholder = 'Buscar...' }) {
   )
 }
 
-function ItemMenu({ ativo, onClick, children, className = '' }) {
+export function ItemMenu({ ativo, onClick, children, className = '' }) {
   return (
     <button
       type="button"
@@ -121,13 +121,13 @@ export function StatusPill({ status, statuses, className = '' }) {
   )
 }
 
-export function StatusCampo({ item, statuses, onChange, modo = 'pill', className = '' }) {
+export function StatusCampo({ item, statuses, onChange, modo = 'pill', render = null, className = '' }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   return (
     <>
       <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center max-w-full rounded-md ${FOCO} ${className}`} title="Mudar status">
-        {modo === 'icon' ? <StatusIcon status={item.status} statuses={statuses} /> : <StatusPill status={item.status} statuses={statuses} />}
+        {render ? render : modo === 'icon' ? <StatusIcon status={item.status} statuses={statuses} /> : <StatusPill status={item.status} statuses={statuses} />}
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={220}>
         <div className="p-1 overflow-y-auto">
@@ -243,7 +243,7 @@ function corDaData(valor, item) {
   return 'text-ln-t3'
 }
 
-export function DataCampo({ valor, onChange, item, formato = 'numerica', placeholder = 'sem data', className = '' }) {
+export function DataCampo({ valor, onChange, item, formato = 'numerica', placeholder = 'sem data', render = null, className = '' }) {
   const inputRef = useRef(null)
   const texto = valor ? (formato === 'curta' ? fmtDataCurta(valor) : fmtDataNumerica(valor)) : ''
   return (
@@ -251,9 +251,9 @@ export function DataCampo({ valor, onChange, item, formato = 'numerica', placeho
       <button
         type="button"
         onClick={() => { try { inputRef.current?.showPicker?.() } catch { /* noop */ } inputRef.current?.focus() }}
-        className={`text-xs tabular whitespace-nowrap rounded ${corDaData(valor, item)} hover:text-ln-t1 ${FOCO}`}
+        className={`text-xs tabular whitespace-nowrap rounded ${render ? '' : corDaData(valor, item)} hover:text-ln-t1 ${FOCO}`}
       >
-        {texto || placeholder || <span className="inline-block w-8 h-3 rounded bg-ln-ink/[0.04]" aria-hidden="true" />}
+        {render ? render : (texto || placeholder || <span className="inline-block w-8 h-3 rounded bg-ln-ink/[0.04]" aria-hidden="true" />)}
       </button>
       {texto && (
         <button type="button" onClick={() => onChange(null)} className="opacity-0 group-hover/data:opacity-100 text-ln-t4 hover:text-ln-red transition" title="Limpar" aria-label="Limpar data">
@@ -292,15 +292,17 @@ export function PrioridadeIcon({ valor, className = '' }) {
   )
 }
 
-export function PrioridadeCampo({ valor, onChange, comTexto = true, className = '' }) {
+export function PrioridadeCampo({ valor, onChange, comTexto = true, render = null, className = '' }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const p = PRIORIDADES.find((x) => x.key === valor)
   return (
     <>
       <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center gap-1.5 rounded-md text-xs ${p ? 'text-ln-t2' : 'text-ln-t4'} ${FOCO} ${className}`} title="Prioridade">
-        <PrioridadeIcon valor={valor} />
-        {comTexto && <span className="truncate">{p ? p.label : 'sem prioridade'}</span>}
+        {render ? render : (<>
+          <PrioridadeIcon valor={valor} />
+          {comTexto && <span className="truncate">{p ? p.label : 'sem prioridade'}</span>}
+        </>)}
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={190}>
         <div className="p-1">
@@ -332,14 +334,14 @@ export function Chip({ texto, cor, className = '' }) {
   )
 }
 
-export function OpcaoCampo({ valor, opcoes, onChange, placeholder = 'não informado', className = '' }) {
+export function OpcaoCampo({ valor, opcoes, onChange, placeholder = 'não informado', render = null, className = '' }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const atual = opcoes.find((o) => o.key === valor) || (valor ? { key: valor, cor: '#87909e' } : null)
   return (
     <>
       <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center max-w-full rounded-md ${FOCO} ${className}`}>
-        {atual ? <Chip texto={atual.key} cor={atual.cor} /> : <span className="text-xs text-ln-t4">{placeholder}</span>}
+        {render ? render : atual ? <Chip texto={atual.key} cor={atual.cor} /> : <span className="text-xs text-ln-t4">{placeholder}</span>}
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={230}>
         <div className="p-1 overflow-y-auto">

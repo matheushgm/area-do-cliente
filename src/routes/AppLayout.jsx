@@ -22,19 +22,23 @@ export default function AppLayout() {
   const { pathname } = useLocation()
   const fx = usaFx(pathname)
   const emCliente = pathname.startsWith('/cliente/')
+  // VertaTask (lista/quadro/calendário) também pede a largura toda.
+  const emTarefas = pathname === '/tarefas' || pathname.startsWith('/tarefas/')
+  const recolheAuto = emCliente || emTarefas
 
-  // Abrir a página de um cliente recolhe a sidebar, para dar a largura toda às
-  // 3 colunas. Layout effect: recolhe antes da primeira pintura, sem piscar a
-  // sidebar aberta. Ao sair do cliente (ou desmontar o shell) devolve o que o
-  // usuário tinha, então a preferência global do botão/tecla `[` não é
-  // sobrescrita. Trocar de seção (`/cliente/:id/:secao`) não refaz o efeito, e
-  // por isso reabrir a sidebar à mão vale até sair do cliente.
+  // Abrir a página de um cliente ou o VertaTask recolhe a sidebar, para dar a
+  // largura toda ao conteúdo. Layout effect: recolhe antes da primeira
+  // pintura, sem piscar a sidebar aberta. Ao sair (ou desmontar o shell)
+  // devolve o que o usuário tinha, então a preferência global do botão/tecla
+  // `[` não é sobrescrita. Trocar de seção dentro da mesma área
+  // (`/cliente/:id/:secao`, `/tarefas/...`) não refaz o efeito, e por isso
+  // reabrir a sidebar à mão vale até sair dela.
   useLayoutEffect(() => {
-    if (!emCliente) return undefined
+    if (!recolheAuto) return undefined
     const estavaRecolhida = lerRecolhida()
     if (!estavaRecolhida) definirRecolhida(true)
     return () => { if (!estavaRecolhida) definirRecolhida(false) }
-  }, [emCliente])
+  }, [recolheAuto])
 
   const outletContext = useMemo(
     () => ({ openSidebar: () => setSidebarOpen(true) }),

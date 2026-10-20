@@ -2,6 +2,7 @@
 // não lidas, favoritos, reações e realtime. Tabelas chat_channels /
 // chat_channel_members / chat_messages (migrations 041, 043, 086, 087).
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { apiFetch } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { extrairMencoes } from '../lib/chat'
 
@@ -189,15 +190,34 @@ export function useChat({ user, teamMembers }) {
     setMembrosPorCanal((prev) => { const n = new Map(prev); n.set(canalId, [...(n.get(canalId) || []), { channel_id: canalId, user_id: userId, last_read_at: new Date().toISOString(), favorite: false }]); return n })
   }, [membrosPorCanal, userId])
 
-  const enviar = useCallback(async ({ canalId, texto, parentId = null, tambemNoCanal = false }) => {
+  // Mão de volta para o ClickUp Chat: a mensagem entrou na fila (trigger); um
+  // pouco depois pedimos ao servidor para esvaziá-la. O pull (ClickUp → aqui)
+  // roda ao abrir o chat e a cada 2 min com a aba visível; o realtime entrega
+  // o que o servidor gravar.
+  const pushTimer = useRef(null)
+  const agendarPush = useCallback(() => {
+    clearTimeout(pushTimer.current)
+    pushTimer.current = setTimeout(() => { apiFetch('/api/chat-sync', { body: { push: '1', pull: '0' } }).catch(() => {}) }, 1500)
+  }, [])
+  const puxarClickUp = useCallback(() => apiFetch('/api/chat-sync', { body: { push: '0', pull: '1' } }).catch(() => {}), [])
+  useEffect(() => {
+    if (!userId) return
+    puxarClickUp()
+    const tick = () => { if (document.visibilityState === 'visible') puxarClickUp() }
+    const timer = setInterval(tick, 2 * 60 * 1000)
+    return () => clearInterval(timer)
+  }, [userId, puxarClickUp])
+
+  const enviar = useCallback(async ({ canalId, texto, parentId = null, tambemNoCanal = false, attachments = [] }) => {
     const limpo = (texto || '').trim()
-    if (!limpo || !canalId || !supabase) return { error: 'vazio' }
+    if ((!limpo && !attachments.length) || !canalId || !supabase) return { error: 'vazio' }
     await garantirMembro(canalId)
     const mencionados = extrairMencoes(limpo, teamMembers)
-    const linhas = [{ channel_id: canalId, user_id: userId, content: limpo, mentioned_user_ids: mencionados, parent_id: parentId }]
-    if (parentId && tambemNoCanal) linhas.push({ channel_id: canalId, user_id: userId, content: limpo, mentioned_user_ids: mencionados, parent_id: null })
+    const linhas = [{ channel_id: canalId, user_id: userId, content: limpo, mentioned_user_ids: mencionados, parent_id: parentId, attachments }]
+    if (parentId && tambemNoCanal) linhas.push({ channel_id: canalId, user_id: userId, content: limpo, mentioned_user_ids: mencionados, parent_id: null, attachments })
     const { data, error } = await supabase.from('chat_messages').insert(linhas).select()
     if (error) { console.error(error); return { error: error.message } }
+    agendarPush()
     for (const row of data || []) {
       if (!row.parent_id) setMensagens((prev) => prev.some((m) => m.id === row.id) ? prev : [...prev, row])
       else {
@@ -207,15 +227,16 @@ export function useChat({ user, teamMembers }) {
       }
     }
     return { data }
-  }, [garantirMembro, teamMembers, userId])
+  }, [garantirMembro, teamMembers, userId, agendarPush])
 
   const excluir = useCallback(async (msg) => {
     setMensagens((prev) => prev.filter((m) => m.id !== msg.id))
     setRespostas((prev) => prev.filter((m) => m.id !== msg.id))
     if (msg.parent_id) setMensagens((prev) => prev.map((m) => m.id === msg.parent_id ? { ...m, replies_count: Math.max(0, (m.replies_count || 1) - 1) } : m))
     const { error } = await supabase.from('chat_messages').delete().eq('id', msg.id)
+    if (!error) agendarPush()
     if (error) console.error(error)
-  }, [])
+  }, [agendarPush])
 
   const reagir = useCallback(async (msg, emoji) => {
     // otimista
@@ -266,9 +287,30 @@ export function useChat({ user, teamMembers }) {
   }, [canaisEnriquecidos, userId, recarregar])
 
   return {
+    puxarClickUp,
     canais: canaisEnriquecidos, carregando, membrosMap,
     canalAtivo, setCanalAtivo, mensagens, respondentes, carregandoMsgs,
     threadId, setThreadId, respostas, carregandoThread,
     enviar, excluir, reagir, alternarFavorito, criarCanal, abrirDM, garantirMembro, marcarLido, recarregar,
   }
+}
+
+/**
+ * Total de mensagens não lidas, para o contador do Chat na navegação do VertaTask.
+ * Consulta leve (RPC chat_unread_counts) a cada 45 s e sempre que `atualizar` muda.
+ */
+export function useChatNaoLidas(userId, atualizar) {
+  const [total, setTotal] = useState(0)
+  useEffect(() => {
+    if (!supabase || !userId) return undefined
+    let vivo = true
+    const ler = async () => {
+      const { data } = await supabase.rpc('chat_unread_counts')
+      if (vivo) setTotal((data || []).reduce((a, u) => a + Number(u.unread || 0), 0))
+    }
+    ler()
+    const t = setInterval(ler, 45000)
+    return () => { vivo = false; clearInterval(t) }
+  }, [userId, atualizar])
+  return total
 }

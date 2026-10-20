@@ -58,6 +58,8 @@ export const AGRUPAMENTOS = [
   { value: 'responsavel', label: 'Responsável' },
   { value: 'prioridade',  label: 'Prioridade' },
   { value: 'lista',       label: 'Lista' },
+  { value: 'modulo',      label: 'Module' },
+  { value: 'ciclo',       label: 'Cycle' },
   { value: 'nenhum',      label: 'Nenhum' },
 ]
 
@@ -139,6 +141,26 @@ export function fmtDataCurta(v) {
   if (dia === h0 - 86400000) return 'Ontem'
   if (d.getFullYear() === hoje.getFullYear()) return `${d.getDate()} ${MESES[d.getMonth()]}`
   return fmtDataNumerica(d)
+}
+
+/**
+ * Vencimento como a coluna do ClickUp: "Hoje", "Amanhã", "ontem", "há N dias"
+ * (até 7 dias de atraso), senão a data numérica. Devolve { texto, classe }.
+ */
+export function fmtVencimentoClickUp(v, item) {
+  const d = paraData(v)
+  if (!d) return { texto: '', classe: 'text-ln-t4' }
+  const dia = inicioDoDia(d).getTime()
+  const h0 = inicioDoDia().getTime()
+  const concluida = item?.status_tipo === 'closed'
+  const dias = Math.round((h0 - dia) / 86400000)
+  if (concluida) return { texto: fmtDataNumerica(d), classe: 'text-ln-t4' }
+  if (dias === 0) return { texto: 'Hoje', classe: 'text-ln-green' }
+  if (dias === -1) return { texto: 'Amanhã', classe: 'text-ln-yellow' }
+  if (dias === 1) return { texto: 'ontem', classe: 'text-ln-red' }
+  if (dias > 1 && dias <= 7) return { texto: `há ${dias} dias`, classe: 'text-ln-red' }
+  if (dias > 7) return { texto: fmtDataNumerica(d), classe: 'text-ln-red' }
+  return { texto: fmtDataNumerica(d), classe: 'text-ln-t2' }
 }
 
 export function fmtDataHora(v) {
@@ -229,7 +251,7 @@ export function pessoasDaTarefa(item, membrosMap) {
 // ─── Agrupamento ─────────────────────────────────────────────────────────────
 
 export const BUCKETS_VENC = [
-  { key: 'atrasado',  label: 'Atrasado',                 cor: '#e5484d' },
+  { key: 'atrasado',  label: 'Em atraso',                cor: '#e5484d' },
   { key: 'hoje',      label: 'Hoje',                     cor: '#30a46c' },
   { key: 'amanha',    label: 'Amanhã',                   cor: '#ffc53d' },
   { key: 'semana',    label: 'Esta semana',              cor: '#0091ff' },
@@ -261,7 +283,7 @@ export function bucketVencimento(item) {
  * Agrupa as tarefas de topo (sem parent) em seções. Devolve
  * [{ key, label, cor, itens }] já na ordem de exibição.
  */
-export function agruparItens(itens, modo, { statuses = [], membrosMap = new Map(), listasMap = new Map() } = {}) {
+export function agruparItens(itens, modo, { statuses = [], membrosMap = new Map(), listasMap = new Map(), modulosMap = new Map(), ciclosMap = new Map() } = {}) {
   const grupos = new Map()
   const push = (key, label, cor, item) => {
     if (!grupos.has(key)) grupos.set(key, { key, label, cor, itens: [] })
@@ -297,6 +319,18 @@ export function agruparItens(itens, modo, { statuses = [], membrosMap = new Map(
         push(it.lista_id, l?.nome || 'Lista', '#7b68ee', it)
         break
       }
+      case 'modulo': {
+        const m = modulosMap.get(it.modulo_id)
+        if (m) push(m.id, m.nome, '#7b68ee', it)
+        else push('nenhum', 'Sem module', '#87909e', it)
+        break
+      }
+      case 'ciclo': {
+        const c = ciclosMap.get(it.ciclo_id)
+        if (c) push(c.id, c.nome, '#2A25F0', it)
+        else push('nenhum', 'Sem cycle', '#87909e', it)
+        break
+      }
       default:
         push('todas', 'Tarefas', '#87909e', it)
     }
@@ -306,7 +340,7 @@ export function agruparItens(itens, modo, { statuses = [], membrosMap = new Map(
     if (modo === 'status') { const i = statuses.findIndex((s) => s.key === key); return i < 0 ? 999 : i }
     if (modo === 'vencimento') return BUCKETS_VENC.findIndex((b) => b.key === key)
     if (modo === 'prioridade') { const i = PRIORIDADES.findIndex((p) => p.key === key); return i < 0 ? 999 : i }
-    if (modo === 'responsavel') return key === 'nenhum' ? 999 : 0
+    if (modo === 'responsavel' || modo === 'modulo' || modo === 'ciclo') return key === 'nenhum' ? 999 : 0
     return 0
   }
   return [...grupos.values()].sort((a, b) => ordem(a.key) - ordem(b.key) || a.label.localeCompare(b.label))

@@ -471,7 +471,15 @@ campos de funil preenchidos à mão (MQL, SQL, vendas, receita são preservados)
   `x-vercel-cron`). A chave de serviço é lida de `SUPABASE_SECRET_KEY` com fallback para
   `SUPABASE_SERVICE_ROLE_KEY`.
 
-### Atividades (`/atividades`): capacidade do time + planejador, visual do Linear
+### Atividades (módulo do VertaTask, `/tarefas?aba=atividades`): capacidade do time + planejador, visual do Linear
+
+> **Desde 2026-10-16 o Atividades é uma seção do VertaTask** (item "Atividades" na coluna
+> esquerda). O componente é `src/components/Atividades/AtividadesModulo.jsx` (era
+> `src/pages/Atividades.jsx`), sem moldura própria: preenche a área principal do VertaTask.
+> `/atividades` virou redirect (`RedirectAtividades`) e saiu da sidebar global. O `C` abre a
+> nova atividade só nessa seção. "Atividades 15min" (`/atividades-15min`) continua separado.
+> O resto desta seção continua valendo.
+
 
 Módulo único que absorveu o antigo "Capacidade do Time" (`WorkloadDashboard.jsx`,
 `public/workload/` e a rota `/workload` foram removidos). A área de conteúdo replica
@@ -617,6 +625,16 @@ todo `authenticated`; as quatro estão na publicação realtime).
 - **Dados** `src/hooks/useTarefas.js`: lê a estrutura inteira e as tarefas só da pasta/lista
   aberta (paginado de 1000 em 1000), atualização otimista e canal realtime. Trocar status
   passa por `mudarStatus` (calcula `status_tipo` e `data_conclusao`).
+- **Lista = cara do ClickUp (2026-10-18, pedido do Matheus):** `ListaView.jsx` agrupa por
+  **Data de vencimento** por padrão ("Em atraso 47", "Hoje", "Amanhã"…), repete o cabeçalho de
+  colunas em cada grupo e usa as colunas na ordem do ClickUp: Nome · Status (pill preenchida,
+  BACKLOG cinza) · Tipo de tarefa (pill colorida) · Responsável · Data criada · Data de vencimento
+  ("há N dias"/"ontem" em vermelho até 7 dias, "Hoje" verde, "Amanhã" amarelo) · Prioridade
+  (bandeira) · Sprints (= Cycle, `ciclo_id`) · Estimativa de tempo (ampulheta) · Cliente (pill azul
+  com o projeto da pasta). A coluna Pontos do Sprint foi retirada a pedido do Matheus. Os editores de
+  `Campos.jsx` aceitam `render` para trocar só o gatilho visual. Com o painel aberto (`compacto`)
+  ficam Status, Responsável, Vencimento, Prioridade e Estimativa. Para conferir sem login:
+  `/dev/lista` (só em DEV, lê `src/dev/fixtures/tarefas.json` via `import.meta.glob`).
 - **Componentes** `src/components/Tarefas/`: `Campos.jsx` (editores inline em Popover via
   portal: status, responsáveis, data, prioridade, tipo, dificuldade, estimativa, `AdicionarInline`),
   `ListaView` (grid agrupado, subtarefas indentadas), `QuadroView` (kanban com `ln-card` e
@@ -634,21 +652,171 @@ todo `authenticated`; as quatro estão na publicação realtime).
   fechadas seriam ~10 mil requests). Responsáveis sem perfil ativo ficam em
   `responsaveis_extra` (nome/iniciais/cor do ClickUp). Importado em 2026-09-15: 72 pastas,
   135 listas, 11.745 tarefas (3.653 subtarefas, 1.962 abertas).
-- **Sincronização incremental ClickUp → Área** (`api/tarefas-sync.js`, Node, 60s): lê pastas e
-  listas do space (cria as novas, atualiza statuses) e as tarefas com `date_updated` desde
-  o último início menos 15 min (`tarefas_sync.ultimo_inicio`), incluindo fechadas e
-  subtarefas; busca pais que faltam; comentários só das abertas que mudaram (máx. 40 por
-  rodada). Mão única: nunca escreve no ClickUp. **Conflito:** `clickup_sync_at` marca a
-  última escrita da sincronização e o trigger de `updated_at` não a bumpa (migration 085),
-  então `updated_at > clickup_sync_at` = editada na Área; nesse caso, se o ClickUp estiver
-  mais antigo que a edição, a tarefa é pulada (`puladas_conflito`), senão o mais recente
-  vence. Dispara por: cron da Vercel (`0 9 * * *`, uma vez ao dia é o limite do plano
-  Hobby), botão "ClickUp há X min" na barra de /tarefas, e automaticamente ao abrir a
-  página se a última rodada tem +30 min. Auth: `CRON_SECRET` ou JWT. Aceita `?since=<ISO>`
-  e `?comentarios=0`. O mapeamento ClickUp→linha vive em `api/_tarefas_clickup_map.js`,
-  compartilhado com o script de importação.
+- **Sincronização ClickUp → VertaTask** (reescrita em 2026-10-18 para o espelho ficar fiel).
+  A lógica mora em `api/_tarefas_sync_core.js` (`sincronizar()`), usada por dois chamadores:
+  `api/tarefas-sync.js` (Node, 60s: cron diário `0 9 * * *`, botão "ClickUp há X min" em
+  /tarefas e automático ao abrir a página se +30 min) e `scripts/sincronizar_clickup.mjs`
+  (local, sem limite de tempo; `--completo` passa por TODAS as tarefas, `--reconciliar`
+  confere o que sumiu do ClickUp, `--since=ISO`, `--sem-comentarios`, `--espacos=id,id`).
+  Mão única: nunca escreve no ClickUp. O mapeamento ClickUp→linha vive em
+  `api/_tarefas_clickup_map.js` (`mapTarefa`, `mapLista`, `mapPasta`, `comHora`).
+  - **Spaces:** cobre Clientes, Operações e PROMPTS (`SPACES_PADRAO`; env opcional
+    `CLICKUP_SYNC_SPACE_IDS`). Templates e o space privado "Matheus" ficam de fora. Pastas e
+    listas guardam `clickup_space_id`/`espaco` (migration 099); a `TarefasSidebar` mostra as
+    pastas de Clientes na seção de sempre e os outros spaces em seções com o nome do space.
+  - **Estrutura:** cria pastas/listas novas e ATUALIZA nome, ordem, arquivada, datas da lista
+    (`data_inicio`/`data_vencimento`), statuses e o vínculo pasta→projeto quando ainda não
+    há; pastas e listas arquivadas no ClickUp ficam `arquivada=true` (listas arquivadas dentro
+    de pasta só na rodada `--completo`, é uma chamada por pasta).
+  - **Tarefas:** alteradas desde `tarefas_sync.ultimo_inicio` - 15 min (ou todas em
+    `--completo`), com subtarefas e fechadas. Pais que faltam são buscados um a um em rodadas
+    até fechar a hierarquia; a gravação é por **profundidade** (pais antes dos filhos, também
+    entre lotes de 200), e filho cujo pai não pôde ser gravado fica sem pai + aviso. Isso
+    corrigiu o `tarefas_itens_parent_id_fkey` que travou o cron de 14/10 a 18/10/2026.
+    Campos novos: `data_fechamento` (date_closed), `vencimento_com_hora`/`inicio_com_hora`
+    (no ClickUp, data sem hora fica às 04:00 de São Paulo = 07:00 UTC; a flag é inferida por
+    isso, o endpoint do time não devolve `due_date_time`), `clickup_removida_at`.
+  - **Reconciliação** (`?reconciliar=1` / `--reconciliar`): lista as abertas no ClickUp e
+    compara com as abertas aqui; o que sumiu de lá é rebuscado: fechada/movida → atualiza,
+    apagada (404) → `arquivada=true` + `clickup_removida_at`.
+  - **Conflito:** `clickup_sync_at` marca a última escrita da sincronização e o trigger de
+    `updated_at` não a bumpa (migration 085; a 099 corrigiu o trigger, que quebrava qualquer
+    UPDATE em `tarefas_listas` por acessar `new.clickup_sync_at` fora de `tarefas_itens`).
+    `updated_at > clickup_sync_at` = editada na Área; nesse caso, se o ClickUp estiver mais
+    antigo que a edição, a tarefa é pulada (`puladas_conflito`), senão o mais recente vence.
+  - **Não vem do ClickUp:** anexos, tempo rastreado (`time_spent` exige o endpoint de time
+    entries), dependências/links entre tarefas e tarefas arquivadas lá. Comentários só das
+    abertas que mudaram (máx. 40 no endpoint, 400 no script).
+  - Auth do endpoint: `CRON_SECRET` ou JWT. Para testar local: `node scripts/sincronizar_clickup.mjs --since=<ISO>`.
 
-### Chat (`/chat`): réplica do ClickUp Chat
+#### VertaTask (evolução do `/tarefas`, migration 094)
+
+O módulo passou a se chamar **VertaTask** (rótulo na sidebar e no breadcrumb; a rota continua
+`/tarefas`, há links gravados em chat e notificações). Ganhou quatro seções no cabeçalho, via
+`?aba=` (sem `aba` = Tarefas): **Intake**, **Cycles** (`?aba=ciclos&ciclo=<id>`) e **Modules**
+(`?aba=modulos[&modulo=<id>]`), mais a view **Calendário** ao lado de Lista/Quadro. Inspirado no Plane.
+
+- **Tabelas** (migration 094, RLS liberada para todo `authenticated`, realtime ligado):
+  `tarefas_ciclos` (nome, inicio, fim), `tarefas_modulos` (nome, descricao, `project_id` opcional),
+  `tarefas_intake` (titulo, descricao, origem, `origem_ref` único para idempotência de quem alimentar
+  a fila, `project_id`, prioridade, `status` pendente/aceito/recusado, `tarefa_id`, `motivo_recusa`,
+  `payload`). `tarefas_itens` ganhou `ciclo_id` e `modulo_id` (`on delete set null`). A sincronização
+  com o ClickUp não escreve nessas colunas.
+- **Dados:** `src/hooks/useVertaTask.js` (ciclos, módulos, intake, com realtime) e, em
+  `useTarefas`, `carregarPorCampo('ciclo_id' | 'modulo_id', valor)` (tarefas de um ciclo/módulo de
+  qualquer lista, mais as subtarefas). A seleção da página ganhou os tipos `ciclo` e `modulo`; o
+  filtro por ciclo/módulo reaproveita a mesma lista/quadro/calendário. Tarefa criada dentro de um
+  ciclo ou módulo já nasce nele (na última lista visitada, `tarefas.sel` em localStorage).
+- **Regras puras** em `src/lib/vertatask.js`: fase do ciclo (atual/próximo/encerrado), sugestão do
+  "Novo cycle" (próxima segunda, 14 dias) e `calcularBurndown` (por **tarefas** ou por **horas
+  estimadas** = `estimativa_min`; o real usa `data_conclusao`; tarefa sem estimativa não entra na
+  conta de horas). Agrupar por Module / Cycle foi acrescentado em `AGRUPAMENTOS`.
+- **Componentes** (`src/components/Tarefas/`): `IntakeView` (aceitar cria a tarefa na lista "Geral"
+  da pasta escolhida com o responsável escolhido; recusar guarda o motivo; recusados podem voltar
+  para a fila), `CiclosView` (abas dos ciclos, resumo, burndown em SVG), `ModulosView` (cartões
+  com progresso), `CalendarioView` (tarefas de topo no dia do vencimento), `RelacaoCampo` (Cycle e
+  Module no painel da tarefa).
+- **Quem alimenta o Intake hoje:** só o botão "Novo pedido". Ligar a reprovação de anúncio
+  (`api/anuncios-aprovacao.js`), a Central de Otimizações e o playbook é a próxima etapa (inserir em
+  `tarefas_intake` com `origem` e `origem_ref`).
+- **Visual:** a página usa `ln vt`. O escopo `.vt` (em `src/index.css`, logo depois do `.ln`) troca
+  os tokens `--ln-*` pela paleta da Verta (azul `#2A25F0`, neutros frios, Sora nos títulos e Manrope
+  no corpo, cartões brancos de borda 1px e raio 12) e redefine `ln-card`, `ln-pill`, `ln-tab`,
+  `ln-primary` e `ln-input` com o look do protótipo; no escuro só o azul muda. Lista agrupada em
+  cartões sobre fundo `ln-bg`. Os componentes continuam usando só `ln-*`.
+- **Estrutura igual à do protótipo:** a coluna esquerda (`TarefasSidebar`) tem a marca, a navegação
+  (Intake com contador, Minhas tarefas, Todas as tarefas, Cycles, Modules), **Views salvas** e a
+  árvore Clientes (pasta → listas, com bolinha colorida e abertas carregadas). O cabeçalho é só o
+  título da seção (Sora 20px) com o breadcrumb da pasta/lista; as seções não ficam mais em abas no
+  topo. "Todas as tarefas" = `?todas=1` (`carregarAbertas`: tudo que não está concluído).
+  **Views salvas** vivem em `localStorage` (`tarefas.views`, por navegador): guardam seleção
+  (lista/pasta/minhas/todas), visão, agrupamento, responsável e "concluídas".
+- **Paridade com o Plane (migration 095, 2026-10-16).** Reimplementado do zero a partir do que o
+  repositório do Plane faz (o código dele é AGPL-3.0, nada foi copiado):
+  - **Etiquetas** (`tarefas_etiquetas` + `tarefas_itens.etiquetas uuid[]`; o `tags` do ClickUp segue à parte), filtro na barra,
+    chips no quadro/planilha.
+  - **Relações** (`tarefas_relacoes`: bloqueia, duplica, relacionada; o inverso é calculado na tela).
+  - **Histórico** (`tarefas_atividade`, preenchida por trigger `tarefas_log_atividade`; só registra edição
+    de pessoa logada, a sincronização do ClickUp usa chave de serviço e fica de fora) e **seguidores**
+    (`tarefas_seguidores`, quem comenta ou recebe a tarefa passa a seguir). Trigger de comentário e de
+    atribuição escrevem em `notifications` (`tarefa_comentario`, `tarefa_atribuida`, link `/tarefas?tarefa=`).
+  - **Views compartilhadas** (`tarefas_views`, `acesso` publica/privada, só o dono edita/apaga). As que
+    ficavam no `localStorage` migram sozinhas para o banco como privadas.
+  - **Modelos de tarefa** (`tarefas_modelos`: título, descrição, prioridade, estimativa, etiquetas,
+    checklists e subtarefas), botão "Modelos" no cabeçalho e "Salvar como modelo" no painel.
+  - **Pages** (`?aba=paginas&pagina=<id>`, `tarefas_paginas`, `usePaginas`, `PaginasView`): markdown com
+    barra de formatação, subpáginas, cliente e module, privada/do time, bloqueio (só o dono edita),
+    arquivo, salvamento automático e **versões** (`tarefas_paginas_versoes`, guarda o texto anterior se
+    a última versão tem +5 min).
+  - **Analytics** (`?aba=analytics`): RPC `vertatask_analytics(p_dias)` devolve tudo em um JSON (abertas,
+    atrasadas, criadas/concluídas por dia, tempo médio, por status/prioridade/pessoa/cliente, cycles).
+  - **Planilha** e **Gantt** como visões ao lado de Lista/Quadro/Calendário.
+  - **Cycles:** editar (nome, datas, objetivo, responsável) e "Mover pendentes" para outro cycle.
+    **Modules:** status (planejado, em andamento, pausado, concluído, cancelado), líder, membros, datas e links,
+    editor em `ModuloEditor`.
+  - **Intake:** adiar (volta à fila na data), marcar duplicada, contato de quem pediu, link público
+    `/pedido/:token` (`api/intake-publico.js`, edge, `client_share_token`, 8 pedidos/hora por cliente) e entrada
+    automática por `api/_intake.js` (`registrarIntake`, idempotente por `origem_ref`) quando o cliente
+    **reprova** anúncio, LP (`api/anuncios-aprovacao.js`) ou copy (`api/copy-aprovacao.js`).
+  - **Não portado de propósito:** pontos de estimativa (usamos `estimativa_min`), rascunhos, sticky notes,
+    favoritos, webhooks/API pública, importadores e editor rich text (Pages usa markdown).
+- **Mão de volta VertaTask → ClickUp (2026-10-18, migration 101):** toda escrita de pessoa
+  logada em `tarefas_itens` (insert/update/delete) e `tarefas_comentarios` (insert) entra em
+  `tarefas_outbox` por trigger (`tarefas_outbox_enfileira`, só com `auth.uid()`: a
+  sincronização, o push e os scripts usam a chave de serviço e não re-enfileiram).
+  `api/_tarefas_push_core.js` (`empurrar`) esvazia a fila: cria a tarefa no ClickUp (e antes a
+  pasta/lista, se nasceram aqui), atualiza só os `campos` que mudaram (nome, descrição, status,
+  prioridade, responsáveis add/rem, datas com a regra das 04:00, estimativa, tags, pai,
+  arquivada, campos Tipo/Dificuldade/Departamento/Cliente), exclui e comenta (assinatura
+  "(Nome, via VertaTask)"); depois grava `clickup_task_id`/`url`/`clickup_updated_at` com
+  `clickup_sync_at = updated_at = agora`. Mover de lista NÃO é replicado (só aviso). Até 5
+  tentativas por item; 400/404 desistem na hora. Dispara por `api/tarefas-push.js` (o
+  `useTarefas` chama com debounce de 1,5 s após cada escrita) e no começo de
+  `api/tarefas-sync.js` (empurra antes de puxar). Testado em 18/10 com criar → editar →
+  comentar → excluir numa tarefa de teste na lista Geral da Revenue Lab. Fila:
+  `select * from tarefas_outbox where status in ('pendente','erro')`.
+- **Anexos (2026-10-18):** `src/lib/anexos.js` (tipo, tamanho, URL assinada) e
+  `src/components/UI/AnexoPreview.jsx` (pré-visualização em tela cheia: imagem, vídeo, áudio, PDF em
+  iframe, texto; o resto cartão com Baixar; ← → navegam, Esc fecha). No **chat**, o Composer tem o
+  clipe/"+" e aceita colar imagem (até 25 MB, 10 por mensagem); os arquivos vão para o bucket
+  privado `chat-attachments/<canal>/…` e a lista fica em `chat_messages.attachments`
+  (`[{path,name,type,size}]`); `Chat/Anexos.jsx` mostra miniaturas e cartões. Nas **tarefas**, o
+  painel abre o mesmo preview e mostra também os anexos vindos do ClickUp (`anexos[]` com
+  `source:'clickup'`, `url`, `thumbnail`, não removíveis aqui): a sincronização relê
+  `GET /task/{id}` das abertas que mudaram (`maxAnexos`, 40 por rodada no endpoint) e o script
+  aceita `--anexos=N` / `--anexos-de-todas`. A policy antiga do bucket `task-attachments` olhava a
+  tabela legada `tasks`; a 102 liberou a pasta `<id da tarefa em tarefas_itens>` para o time.
+- **Chat ↔ ClickUp Chat (2026-10-18, migration 102):** `api/_chat_sync_core.js` com `puxar()`
+  (canais novos/atualizados + vínculo com o cliente, membros dos canais novos, mensagens dos canais
+  com `latest_comment_at` desde `desde`, respostas das threads cuja contagem mudou; idempotente por
+  `clickup_message_id`) e `empurrar()` (fila `chat_outbox` por trigger em `chat_messages`
+  insert/delete e `chat_channels` insert de canal: envia mensagem/resposta, apaga, cria canal; o
+  autor no ClickUp é o dono do token, as outras pessoas vão assinadas "(Nome, via VertaTask)";
+  anexos viram links; DM criada aqui não é replicada). Endpoint `api/chat-sync.js`
+  (`?push=0|?pull=0|?since|?completo=1`); o `useChat` empurra com debounce ao enviar/apagar e puxa
+  ao abrir e a cada 2 min; o cron diário de `tarefas-sync` também roda a rodada do chat. Estado em
+  `chat_sync`. Em 18/10 o pull trouxe 3.993 mensagens e 546 respostas desde a importação de
+  setembro (19 canais novos). Reações não cruzam.
+- **Atividades / Capacidade do time lê o espelho (2026-10-18):** `api/atividades.js` deixou de
+  chamar a API do ClickUp para `carga`, `sugerir`, `concluidas` e `listas`; lê `tarefas_*` via
+  `api/_atividades_fonte.js`, que converte cada linha para o formato de tarefa do ClickUp que o
+  motor (`_atividades_engine.js`) já entendia. Tarefas em lista/pasta arquivada ficam de fora
+  (como no ClickUp). `assignees` aceita `clickup_user_id` ou o uuid do perfil (quem não tem
+  ClickUp também entra na Capacidade); a resposta ecoa a chave enviada em `clickupUserId` e traz
+  `profileId`. As escritas (`criar`, `estimar`, `tipar`) continuam no ClickUp e são refletidas no
+  espelho na hora por `espelharTarefaClickUp` (mapTarefa + `clickup_sync_at`/`updated_at` = agora).
+  Conferido em 2026-10-18: 8 pessoas em ~7 s (antes "lendo o ClickUp 3 de 8" com rate limit).
+- **Ainda não feito:** ligar a Central de Otimizações e o playbook ao Intake, e a decisão sobre desligar o ClickUp.
+
+### Chat (módulo do VertaTask, `/tarefas?aba=chat`): réplica do ClickUp Chat
+
+> **Desde 2026-10-16 o Chat é uma seção do VertaTask**, no item "Chat" da coluna esquerda (com
+> contador de não lidas, `useChatNaoLidas`, RPC `chat_unread_counts` a cada 45 s). O componente
+> é `src/components/Chat/ChatModulo.jsx` (era `src/pages/Chat.jsx`) e mantém `?aba=chat` ao trocar
+> `channel`/`thread`/`msg`. `/chat?...` virou redirect (`RedirectChat` em `legacyRedirects.jsx`)
+> porque há links gravados em notificações e mensagens; o item "Chat" saiu da sidebar global.
+> O resto desta seção continua valendo.
+
 
 Visual e comportamento copiados do ClickUp Chat, no mesmo frame claro `.ln` dos módulos
 Tarefas/Atividades: coluna de 260px com "Chat", busca, botão de nova mensagem, filtros

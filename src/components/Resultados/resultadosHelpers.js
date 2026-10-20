@@ -29,6 +29,13 @@ export function getDaysInMonth(year, month) {
   return new Date(year, month + 1, 0).getDate()
 }
 
+const WEEKDAYS_SHORT = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
+
+// Dia da semana abreviado ("seg", "ter"…) de um dia do mês. `month` é 0-based.
+export function weekdayShort(year, month, day) {
+  return WEEKDAYS_SHORT[new Date(year, month, day).getDay()]
+}
+
 // Plano MENSAL derivado da Calculadora de ROI (mesmas fórmulas do
 // ROICalculator.jsx). É a "meta" contra a qual o realizado é comparado.
 // Retorna null quando não há roiCalc ou o lucro por venda é zero.
