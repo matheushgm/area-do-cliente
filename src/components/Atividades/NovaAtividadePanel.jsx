@@ -4,6 +4,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { CheckCircle2, ChevronDown, ExternalLink, Loader2 } from 'lucide-react'
 import { fmtLonga, hojeISO } from '../../lib/atividadesCarga'
+import MarkdownEditor from '../Editor/MarkdownEditor'
 
 export const FOCO = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ln-t2'
 
@@ -13,11 +14,6 @@ export const FOCO = 'focus-visible:outline focus-visible:outline-2 focus-visible
 const CAMPO_BASE = 'w-full rounded-md bg-ln-ink/[0.03] border border-ln-ink/[0.08] text-[13px] text-ln-t1 placeholder:text-ln-t4 outline-none transition-colors duration-150 focus:border-ln-accent/60 focus:bg-ln-ink/[0.04]'
 export const SELECT_CLS = `${CAMPO_BASE} h-8 pl-2.5 pr-7 appearance-none disabled:opacity-50 disabled:cursor-not-allowed ${FOCO}`
 export const AREA_CLS = `${CAMPO_BASE} px-2.5 py-1.5 resize-none ${FOCO}`
-
-function linhasDe(texto, min = 2, max = 8) {
-  const quebras = (String(texto || '').match(/\n/g) || []).length
-  return Math.min(max, Math.max(min, quebras + 1))
-}
 
 export function Campo({ id, label, hint, className = '', children }) {
   return (
@@ -142,14 +138,13 @@ export default function NovaAtividadePanel({ pl, responsavelInicial = null, onCa
             autoComplete="off"
             className="w-full bg-transparent border-0 p-0 text-[20px] leading-7 font-semibold tracking-[-0.01em] text-ln-t2 placeholder:text-ln-t4 outline-none"
           />
-          <textarea
-            id={id('descricao')}
+          {/* Briefing em markdown (o ClickUp recebe o mesmo texto) */}
+          <MarkdownEditor
             value={form.descricao || ''}
-            onChange={set('descricao')}
-            rows={linhasDe(form.descricao)}
+            onChange={(md) => pl.set?.('descricao', md)}
+            minHeight={60}
             placeholder="Briefing, referências, onde estão os materiais…"
-            aria-label="Briefing da atividade"
-            className="w-full bg-transparent border-0 p-0 text-sm leading-5 text-ln-t2 placeholder:text-ln-t4 outline-none resize-none"
+            className="md-editor--nu text-ln-t2"
           />
         </div>
 

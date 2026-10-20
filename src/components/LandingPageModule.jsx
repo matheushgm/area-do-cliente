@@ -8,11 +8,12 @@ import RatingSelector from './RatingSelector'
 import {
   Globe, Sparkles, Loader2, AlertTriangle, Copy, CheckCheck,
   ChevronDown, ChevronUp, RotateCcw, Trash2, Plus, CheckCircle2,
-  Check, X, Zap, LayoutTemplate, FileText, Lock, Pencil, Download,
+  Check, Zap, LayoutTemplate, FileText, Lock, Pencil, Download,
   FileCode2,
 } from 'lucide-react'
 import { WIREFRAME_TYPES, getWireframe } from './Wireframes'
 import { setByPath } from './Wireframes/wireframePrimitives'
+import TextoEditavelIA from './Editor/TextoEditavelIA'
 
 // ─── System Prompt (baseado na skill criador-de-landing-page) ─────────────────
 const LANDING_SYSTEM = `Você é um especialista em planejamento e criação de copy de alta taxa de conversão para landing pages, usando a metodologia Revenue Lab.
@@ -192,151 +193,42 @@ function replaceDobra(content, index, newDobra) {
   return dobras.join('\n\n')
 }
 
-// ─── Dobra Block — render + refinamento individual ────────────────────────────
+// ─── Dobra Block — edição rica + refinamento individual ──────────────────────
+// O texto da dobra é editável no lugar (editor de markdown) e refinável com IA
+// pelo TextoEditavelIA. O refino do módulo (`onRefine`) recebe a dobra inteira e
+// devolve só a dobra reescrita; um trecho selecionado no editor vira parte da
+// instrução. Salvar e aprovar passam pelo mesmo `onApprove` → replaceDobra.
 function DobraBlock({ dobra, index, onRefine, onApprove }) {
-  const [refineOpen,     setRefineOpen]     = useState(false)
-  const [refineNote,     setRefineNote]     = useState('')
-  const [isRefining,     setIsRefining]     = useState(false)
-  const [streamingBody,  setStreamingBody]  = useState('')
-  const [refinedContent, setRefinedContent] = useState(null)
-
   const title = dobraTitle(dobra)
-
-  function toggleRefine() {
-    setRefineOpen((v) => !v)
-    setRefineNote('')
-    setRefinedContent(null)
-    setStreamingBody('')
-  }
-
-  async function submitRefine() {
-    if (!refineNote.trim() || !onRefine || isRefining) return
-    setIsRefining(true)
-    setStreamingBody('')
-    setRefinedContent(null)
-    try {
-      const refined = await onRefine(index, dobra, refineNote, (text) => setStreamingBody(text))
-      setRefinedContent(refined)
-    } catch (e) {
-      console.error('Refinar dobra falhou:', e)
-    } finally {
-      setIsRefining(false)
-      setStreamingBody('')
-    }
-  }
-
-  function approveRefine() {
-    if (onApprove && refinedContent) onApprove(index, refinedContent)
-    setRefinedContent(null)
-    setRefineOpen(false)
-    setRefineNote('')
-  }
-
-  function rejectRefine() {
-    setRefinedContent(null)
-  }
+  const refinar = onRefine
+    ? (texto, trecho, instrucao, onChunk) =>
+        onRefine(
+          index,
+          texto,
+          trecho
+            ? `Trecho selecionado: "${trecho}"\n\n${instrucao}\n\nMude apenas o trecho indicado e mantenha o resto da dobra igual.`
+            : instrucao,
+          onChunk,
+        )
+    : undefined
 
   return (
     <div className="rounded-xl border border-rl-border/50 overflow-hidden">
       {/* Header da dobra */}
-      <div className="px-4 py-2.5 bg-rl-surface/40 border-b border-rl-border/40 flex items-center justify-between gap-3">
+      <div className="px-4 py-2.5 bg-rl-surface/40 border-b border-rl-border/40">
         <p className="text-xs font-bold text-rl-text leading-snug truncate">{title || `Dobra ${index + 1}`}</p>
-        {onRefine && (
-          <button
-            onClick={toggleRefine}
-            className={`flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg border transition-all shrink-0 ${
-              refineOpen
-                ? 'bg-rl-purple/20 border-rl-purple/40 text-rl-purple'
-                : 'bg-rl-purple/10 border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20'
-            }`}
-          >
-            <Sparkles className="w-3 h-3" /> Refinar
-          </button>
-        )}
       </div>
 
       {/* Conteúdo da dobra */}
       <div className="px-4 py-3">
-        <div className="space-y-0">{renderMarkdownLines(dobra, `d${index}-`)}</div>
+        <TextoEditavelIA
+          valor={dobra}
+          onSalvar={onApprove ? (md) => onApprove(index, md) : undefined}
+          onRefinar={refinar}
+          semIA={!onRefine}
+          minHeight={160}
+        />
       </div>
-
-      {/* Painel de refinamento */}
-      {refineOpen && (
-        <div className="px-4 pb-4 space-y-2.5 border-t border-rl-purple/20 bg-rl-purple/5">
-          {/* Fase 1: input */}
-          {!refinedContent && !isRefining && (
-            <>
-              <p className="text-[10px] font-semibold text-rl-purple uppercase tracking-wide pt-3">
-                O que deseja melhorar nesta dobra?
-              </p>
-              <textarea
-                value={refineNote}
-                onChange={(e) => setRefineNote(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitRefine() }}
-                placeholder="Ex: deixe a headline mais forte, adicione um número concreto, encurte o texto, foque mais na dor..."
-                rows={3}
-                className="w-full bg-rl-surface/60 border border-rl-purple/30 rounded-xl p-3 text-xs text-rl-text leading-relaxed resize-none focus:outline-none focus:border-rl-purple/60 transition-colors placeholder:text-rl-muted/60"
-                autoFocus
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={submitRefine}
-                  disabled={!refineNote.trim()}
-                  className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/20 transition-all disabled:opacity-50"
-                >
-                  <Sparkles className="w-3 h-3" /> Refinar dobra
-                </button>
-                <button
-                  onClick={() => { setRefineOpen(false); setRefineNote('') }}
-                  className="text-[10px] px-2.5 py-1 text-rl-muted hover:text-rl-text transition-all"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </>
-          )}
-
-          {/* Fase 2: streaming */}
-          {isRefining && (
-            <>
-              <p className="text-[10px] font-semibold text-rl-purple uppercase tracking-wide pt-3 flex items-center gap-1.5">
-                <Loader2 className="w-3 h-3 animate-spin" /> Refinando...
-              </p>
-              {streamingBody && (
-                <div className="bg-rl-surface/60 border border-rl-purple/20 rounded-xl p-3">
-                  <div className="space-y-0">{renderMarkdownLines(streamingBody, `s${index}-`)}</div>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Fase 3: aprovação */}
-          {refinedContent && !isRefining && (
-            <>
-              <p className="text-[10px] font-semibold text-rl-purple uppercase tracking-wide pt-3">
-                Versão refinada
-              </p>
-              <div className="bg-rl-purple/5 border border-rl-purple/30 rounded-xl p-3">
-                <div className="space-y-0">{renderMarkdownLines(refinedContent, `r${index}-`)}</div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={approveRefine}
-                  className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition-all"
-                >
-                  <Check className="w-3 h-3" /> Aprovar
-                </button>
-                <button
-                  onClick={rejectRefine}
-                  className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg bg-rl-surface text-rl-muted hover:text-red-400 transition-all"
-                >
-                  <X className="w-3 h-3" /> Recusar e tentar novamente
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
     </div>
   )
 }

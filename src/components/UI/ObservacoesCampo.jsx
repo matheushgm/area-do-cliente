@@ -1,11 +1,15 @@
 // Campo de Observações do cliente, nas duas formas em que aparece:
-//  - ObservacoesEditor: textarea (autosave ou formulário) com botão "Ampliar"
-//    que abre a mesma caixa em tela cheia, para textos longos.
-//  - ObservacoesLeitura: texto só-leitura preservando quebras de linha, com
-//    "Ver tudo / Ver menos" e botão "Ampliar" que abre o texto num modal.
+//  - ObservacoesEditor: editor de markdown (autosave ou formulário) com botão
+//    "Ampliar" que abre o mesmo editor em tela cheia, para textos longos.
+//  - ObservacoesLeitura: leitura rica, com "Ver tudo / Ver menos" e botão
+//    "Ampliar" que abre o texto num modal.
+// O texto é markdown; o que já estava gravado como texto puro continua
+// legível (quebra de linha vira <br>).
 import { useState } from 'react'
 import { Maximize2, X } from 'lucide-react'
 import Modal from './Modal'
+import MarkdownEditor from '../Editor/MarkdownEditor'
+import MarkdownView from '../Editor/MarkdownView'
 
 const LINHAS_RECOLHIDO = 8
 
@@ -13,50 +17,78 @@ function Cabecalho({ titulo, onClose }) {
   return (
     <div className="flex items-center justify-between mb-3">
       <p className="text-sm font-semibold text-rl-text">{titulo}</p>
-      <button onClick={onClose} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface" aria-label="Fechar">
+      <button
+        onClick={onClose}
+        className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface"
+        aria-label="Fechar"
+      >
         <X className="w-4 h-4" />
       </button>
     </div>
   )
 }
 
-export function ObservacoesEditor({ value, onChange, rows = 6, placeholder, titulo = 'Observações', rodape }) {
+// `onChange` recebe um evento sintético `{ target: { value } }` pra manter a
+// assinatura que os dois formulários do ClientProfile já usam (e.target.value).
+export function ObservacoesEditor({
+  value,
+  onChange,
+  rows = 6,
+  placeholder,
+  titulo = 'Observações',
+  rodape,
+}) {
   const [ampliado, setAmpliado] = useState(false)
+  const emitir = (md) => onChange({ target: { value: md } })
+  const alturaModal = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.6) : 480
   return (
     <div>
-      <div className="relative">
-        <textarea
-          value={value}
-          onChange={onChange}
-          rows={rows}
-          className="input-field resize-y text-sm w-full pr-10 leading-relaxed"
-          placeholder={placeholder}
-        />
+      <div className="flex items-center justify-end mb-1">
         <button
           type="button"
           onClick={() => setAmpliado(true)}
-          className="absolute top-2 right-2 p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-surface transition-colors"
+          className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-surface transition-colors"
           title="Ampliar"
           aria-label="Ampliar observações"
         >
-          <Maximize2 className="w-4 h-4" />
+          <Maximize2 className="w-3.5 h-3.5" /> Ampliar
         </button>
       </div>
+      {!ampliado && (
+        <MarkdownEditor
+          value={value || ''}
+          onChange={emitir}
+          minHeight={rows * 24}
+          placeholder={placeholder}
+        />
+      )}
       {rodape && <p className="text-[11px] text-rl-muted mt-1">{rodape}</p>}
 
       {ampliado && (
-        <Modal onClose={() => setAmpliado(false)} maxWidth="4xl" className="flex flex-col max-h-[90vh]">
+        <Modal
+          onClose={() => setAmpliado(false)}
+          maxWidth="4xl"
+          className="flex flex-col max-h-[90vh]"
+        >
           <Cabecalho titulo={titulo} onClose={() => setAmpliado(false)} />
-          <textarea
-            autoFocus
-            value={value}
-            onChange={onChange}
-            className="input-field resize-none text-sm w-full flex-1 min-h-[60vh] leading-relaxed"
-            placeholder={placeholder}
-          />
+          <div className="overflow-y-auto flex-1">
+            <MarkdownEditor
+              value={value || ''}
+              onChange={emitir}
+              minHeight={alturaModal}
+              placeholder={placeholder}
+              autoFocus
+            />
+          </div>
           <div className="flex items-center justify-between mt-3">
             <p className="text-[11px] text-rl-muted">{rodape || ''}</p>
-            <button type="button" onClick={() => setAmpliado(false)} className="btn-primary text-sm">Concluir</button>
+            <button
+              type="button"
+              onClick={() => setAmpliado(false)}
+              className="btn-primary text-sm"
+            >
+              Concluir
+            </button>
           </div>
         </Modal>
       )}
@@ -73,12 +105,12 @@ export function ObservacoesLeitura({ texto, titulo = 'Observações' }) {
   return (
     <div>
       <div className="flex items-start gap-2">
-        <p
-          className="text-sm text-rl-text mt-0.5 break-words whitespace-pre-wrap leading-relaxed flex-1 overflow-hidden"
-          style={longo && !tudo ? { display: '-webkit-box', WebkitLineClamp: LINHAS_RECOLHIDO, WebkitBoxOrient: 'vertical' } : undefined}
+        <div
+          className="mt-0.5 flex-1 overflow-hidden"
+          style={longo && !tudo ? { maxHeight: `${LINHAS_RECOLHIDO * 1.6}em` } : undefined}
         >
-          {texto}
-        </p>
+          <MarkdownView content={texto} />
+        </div>
         <button
           onClick={() => setAmpliado(true)}
           className="shrink-0 p-1 rounded-md text-rl-muted hover:text-rl-purple hover:bg-rl-surface"
@@ -89,16 +121,23 @@ export function ObservacoesLeitura({ texto, titulo = 'Observações' }) {
         </button>
       </div>
       {longo && (
-        <button onClick={() => setTudo((v) => !v)} className="text-xs text-rl-purple hover:text-rl-purple/80 mt-1">
+        <button
+          onClick={() => setTudo((v) => !v)}
+          className="text-xs text-rl-purple hover:text-rl-purple/80 mt-1"
+        >
           {tudo ? 'Ver menos' : 'Ver tudo'}
         </button>
       )}
 
       {ampliado && (
-        <Modal onClose={() => setAmpliado(false)} maxWidth="4xl" className="flex flex-col max-h-[90vh]">
+        <Modal
+          onClose={() => setAmpliado(false)}
+          maxWidth="4xl"
+          className="flex flex-col max-h-[90vh]"
+        >
           <Cabecalho titulo={titulo} onClose={() => setAmpliado(false)} />
           <div className="overflow-y-auto flex-1 pr-1">
-            <p className="text-sm text-rl-text whitespace-pre-wrap break-words leading-relaxed">{texto}</p>
+            <MarkdownView content={texto} />
           </div>
         </Modal>
       )}

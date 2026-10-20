@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
+import MarkdownEditor from './Editor/MarkdownEditor'
 import {
   Target, Sparkles, Loader2, Plus, X, Users, Package,
   CheckCircle2, Copy, CheckCheck, ChevronRight, AlertCircle,
@@ -137,6 +138,32 @@ function AddItemRow({ value, onChange, onAdd, placeholder }) {
 
 // ─── Result renderer ──────────────────────────────────────────────────────────
 
+// Campos de um bloco "## HEADLINE N — ângulo" no markdown gerado.
+function parseBloco(block) {
+  const b = String(block || '')
+  return {
+    headline: b.match(/\*\*Headline:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/m)?.[1]?.trim() || '',
+    sub:      b.match(/\*\*Subheadline:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/m)?.[1]?.trim() || '',
+    dor:      b.match(/\*\*Dor\/Resultado trabalhado:\*\*\s*(.*)/m)?.[1]?.trim() || '',
+    obj:      b.match(/\*\*Objeções removidas:\*\*\s*(.*)/m)?.[1]?.trim() || '',
+    angle:    b.match(/^##\s+HEADLINE\s+\d+\s*[—-]\s*(.+)/im)?.[1]?.trim() || '',
+  }
+}
+
+// Bloco com as edições aplicadas: a edição completa salva (`block`) ou, no
+// formato antigo, o original com headline/sub trocados por cima.
+function blocoEfetivo(block, editedData) {
+  if (editedData?.block) return editedData.block
+  let b = String(block || '')
+  if (editedData?.headline !== undefined) {
+    b = b.replace(/(\*\*Headline:\*\*\s*\n)([\s\S]*?)(?=\n\*\*|$)/m, (_, rotulo) => rotulo + editedData.headline)
+  }
+  if (editedData?.sub !== undefined) {
+    b = b.replace(/(\*\*Subheadline:\*\*\s*\n)([\s\S]*?)(?=\n\*\*|$)/m, (_, rotulo) => rotulo + editedData.sub)
+  }
+  return b
+}
+
 function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegenerate }) {
   const [copied,          setCopied]          = useState(false)
   const [isEditing,       setIsEditing]       = useState(false)
@@ -144,26 +171,14 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
   const [isRegenerating,  setIsRegenerating]  = useState(false)
   const [streamText,      setStreamText]      = useState('')
   const [regenError,      setRegenError]      = useState(null)
-  const [editHeadline,    setEditHeadline]    = useState('')
-  const [editSub,         setEditSub]         = useState('')
+  const [editBloco,       setEditBloco]       = useState('')
 
-  // Parse original markdown
-  const headlineMatch = block.match(/\*\*Headline:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/m)
-  const subMatch      = block.match(/\*\*Subheadline:\*\*\s*\n([\s\S]*?)(?=\n\*\*|$)/m)
-  const dorMatch      = block.match(/\*\*Dor\/Resultado trabalhado:\*\*\s*(.*)/m)
-  const objMatch      = block.match(/\*\*Objeções removidas:\*\*\s*(.*)/m)
-  const titleMatch    = block.match(/^##\s+HEADLINE\s+\d+\s*[—-]\s*(.+)/im)
-
-  const parsedHeadline = headlineMatch?.[1]?.trim() || ''
-  const parsedSub      = subMatch?.[1]?.trim()      || ''
-  const dor            = dorMatch?.[1]?.trim()       || ''
-  const obj            = objMatch?.[1]?.trim()       || ''
-  const angle          = titleMatch?.[1]?.trim()     || ''
-
-  // Apply saved edits on top of parsed values
-  const displayHeadline = editedData?.headline !== undefined ? editedData.headline : parsedHeadline
-  const displaySub      = editedData?.sub      !== undefined ? editedData.sub      : parsedSub
-  const wasEdited       = editedData?.headline !== undefined || editedData?.sub !== undefined
+  // O original diz se o bloco é mesmo uma headline; o efetivo é o que se mostra.
+  const { headline: parsedHeadline, sub: parsedSub } = parseBloco(block)
+  const efetivo = blocoEfetivo(block, editedData)
+  const { headline: displayHeadline, sub: displaySub, dor, obj, angle } = parseBloco(efetivo)
+  const wasEdited =
+    editedData?.block !== undefined || editedData?.headline !== undefined || editedData?.sub !== undefined
 
   function handleCopy() {
     navigator.clipboard.writeText(`${displayHeadline}\n\n${displaySub}`)
@@ -172,13 +187,17 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
   }
 
   function startEdit() {
-    setEditHeadline(displayHeadline)
-    setEditSub(displaySub)
+    setEditBloco(efetivo)
     setIsEditing(true)
   }
 
+  // Salva o bloco inteiro; headline e sub continuam gravados à parte pra quem
+  // lê só esses campos (histórico e versões antigas).
   function saveEdit() {
-    onSaveEdit(index, { headline: editHeadline, sub: editSub })
+    const md = editBloco.trim()
+    if (!md) { setIsEditing(false); return }
+    const p = parseBloco(md)
+    onSaveEdit(index, { headline: p.headline, sub: p.sub, block: md })
     setIsEditing(false)
   }
 
@@ -322,38 +341,24 @@ function HeadlineCard({ block, index, editedData, onSaveEdit, onDelete, onRegene
         </div>
       )}
 
-      {/* ── Headline field (hidden during regen) ── */}
-      {!isRegenerating && (
+      {/* ── Edição do bloco inteiro (headline, sub, dor, objeções) ── */}
+      {!isRegenerating && isEditing && (
         <div className="mb-3">
-          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1.5">Headline</p>
-          {isEditing ? (
-            <textarea
-              value={editHeadline}
-              onChange={(e) => setEditHeadline(e.target.value)}
-              rows={3}
-              autoFocus
-              className="w-full px-3 py-2.5 rounded-xl border border-rl-purple/40 bg-rl-surface/60 text-sm font-semibold text-rl-text outline-none resize-none focus:border-rl-purple focus:ring-1 focus:ring-rl-purple/20 transition-colors leading-relaxed"
-            />
-          ) : (
-            <p className="text-sm font-semibold text-rl-text leading-relaxed">{displayHeadline}</p>
-          )}
+          <MarkdownEditor value={editBloco} onChange={setEditBloco} minHeight={200} autoFocus />
         </div>
       )}
 
-      {/* ── Subheadline field (hidden during regen) ── */}
-      {!isRegenerating && (parsedSub || isEditing) && (
+      {/* ── Headline / Subheadline (leitura; escondidas durante a regeneração) ── */}
+      {!isRegenerating && !isEditing && (
+        <div className="mb-3">
+          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1.5">Headline</p>
+          <p className="text-sm font-semibold text-rl-text leading-relaxed">{displayHeadline}</p>
+        </div>
+      )}
+      {!isRegenerating && !isEditing && displaySub && (
         <div className="mb-3">
           <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-1.5">Subheadline</p>
-          {isEditing ? (
-            <textarea
-              value={editSub}
-              onChange={(e) => setEditSub(e.target.value)}
-              rows={4}
-              className="w-full px-3 py-2.5 rounded-xl border border-rl-purple/40 bg-rl-surface/60 text-sm text-rl-text outline-none resize-none focus:border-rl-purple focus:ring-1 focus:ring-rl-purple/20 transition-colors leading-relaxed"
-            />
-          ) : (
-            <p className="text-sm text-rl-text leading-relaxed">{displaySub}</p>
-          )}
+          <p className="text-sm text-rl-text leading-relaxed">{displaySub}</p>
         </div>
       )}
 

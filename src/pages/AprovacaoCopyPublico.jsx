@@ -13,7 +13,8 @@ import {
   Sparkles, Loader2, AlertTriangle, CheckCircle2, XCircle, Clock, Send, Video,
   Image as ImageIcon, Copy, Check, Pencil, FileDown,
 } from 'lucide-react'
-import MarkdownBlock from '../components/Criativos/MarkdownBlock'
+import MarkdownView from '../components/Editor/MarkdownView'
+import MarkdownEditor from '../components/Editor/MarkdownEditor'
 
 function fmtDateTime(iso) {
   if (!iso) return ''
@@ -303,13 +304,7 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
           <label className="text-xs font-bold text-rl-text uppercase tracking-wide block">
             Ajuste o texto como ele deve ficar
           </label>
-          <textarea
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            rows={Math.min(24, Math.max(8, (texto.match(/\n/g) || []).length + 3))}
-            className="input-field w-full resize-y font-mono text-[13px] leading-relaxed"
-            autoFocus
-          />
+          <MarkdownEditor value={texto} onChange={setTexto} minHeight={240} autoFocus />
           <p className="text-[11px] text-rl-muted">
             O texto que você aprovar aqui é o que vai pra produção. O original fica guardado pra
             equipe comparar.
@@ -317,7 +312,7 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
         </div>
       ) : (
         <div className="px-5 py-4">
-          <MarkdownBlock content={item.conteudo} />
+          <MarkdownView content={item.conteudo} />
         </div>
       )}
 
@@ -328,7 +323,7 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
             Ver texto original (antes da sua edição)
           </summary>
           <div className="mt-2 rounded-xl bg-rl-surface/60 border border-rl-border px-4 py-3">
-            <MarkdownBlock content={item.conteudoOriginal} />
+            <MarkdownView content={item.conteudoOriginal} />
           </div>
         </details>
       )}

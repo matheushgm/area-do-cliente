@@ -3,7 +3,8 @@
 // markdown, subtarefas, checklists, anexos e a atividade (comentários).
 // O container e o header ficam na página.
 import { useState, useEffect, useRef } from 'react'
-import ReactMarkdown from 'react-markdown'
+import MarkdownView from '../Editor/MarkdownView'
+import MarkdownEditor from '../Editor/MarkdownEditor'
 import { X, Trash2, Plus, Check, Square, CheckSquare, Paperclip, ExternalLink, Send, CornerDownRight, Loader2 } from 'lucide-react'
 import { uploadFile, deleteFile } from '../../lib/supabase'
 import AnexoPreview from '../UI/AnexoPreview'
@@ -74,15 +75,14 @@ function Descricao({ valor, onSalvar }) {
   }
   if (editando) {
     return (
-      <div>
-        <textarea
-          autoFocus
+      <div onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEditando(false) } if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); salvar() } }}>
+        <MarkdownEditor
           value={txt}
-          onChange={(e) => setTxt(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEditando(false) } if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') salvar() }}
-          rows={Math.min(24, Math.max(6, txt.split('\n').length + 2))}
+          onChange={setTxt}
+          minHeight={140}
+          autoFocus
           placeholder="Escreva a descrição (aceita markdown)..."
-          className="ln-input !h-auto py-2 leading-relaxed resize-y"
+          className="md-editor--13 text-ln-t2"
         />
         <div className="flex items-center gap-2 mt-2">
           <button type="button" onClick={salvar} className="ln-primary">Salvar</button>
@@ -96,7 +96,7 @@ function Descricao({ valor, onSalvar }) {
     <div role="button" tabIndex={0} onClick={abrir} onKeyDown={(e) => { if (e.key === 'Enter') abrir() }} className={`min-h-[44px] -mx-2 px-2 py-1.5 rounded-lg cursor-text transition-colors duration-150 hover:bg-ln-ink/[0.03] ${FOCO}`}>
       {descricaoVazia(valor)
         ? <p className="text-sm text-ln-t4">Sem descrição. Clique para escrever.</p>
-        : <div className="prose-tarefa text-sm text-ln-t2 leading-relaxed"><ReactMarkdown>{valor}</ReactMarkdown></div>}
+        : <MarkdownView content={valor} className="md-prose--13 text-ln-t2" />}
     </div>
   )
 }
@@ -226,20 +226,22 @@ function Comentarios({ item, comentarios, user, membrosMap, onComentar, onExclui
                 <span className="text-[11px] text-ln-t4 tabular">{fmtDataHora(c.created_at)}</span>
                 {meu && <button type="button" onClick={() => onExcluir(c.id)} className="ln-iconbtn !w-5 !h-5 ml-auto opacity-0 group-hover/com:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" title="Excluir" aria-label="Excluir comentário"><Trash2 className="w-3 h-3" /></button>}
               </div>
-              <div className="prose-tarefa text-[13px] text-ln-t2 leading-relaxed mt-0.5"><ReactMarkdown>{c.texto}</ReactMarkdown></div>
+              <MarkdownView content={c.texto} className="md-prose--13 text-ln-t2 mt-0.5" />
             </div>
           </div>
         )
       })}
       {comentarios && !comentarios.length && <p className="text-xs text-ln-t4">Sem comentários. Use este espaço para anotar o andamento.</p>}
-      <div className="ln-card flex items-end gap-2 px-3 py-2 focus-within:border-ln-accent/60">
-        <textarea
+      <div
+        className="ln-card flex items-end gap-2 px-3 py-2 focus-within:border-ln-accent/60"
+        onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); enviar() } }}
+      >
+        <MarkdownEditor
           value={txt}
-          onChange={(e) => setTxt(e.target.value)}
-          onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') enviar() }}
-          rows={Math.min(8, Math.max(1, txt.split('\n').length))}
+          onChange={setTxt}
+          minHeight={24}
           placeholder="Escreva um comentário..."
-          className="flex-1 bg-transparent outline-none text-[13px] text-ln-t1 placeholder:text-ln-t4 resize-none"
+          className="md-editor--nu md-editor--13 flex-1 min-w-0 text-ln-t1"
         />
         <button type="button" onClick={enviar} disabled={enviando || !txt.trim()} className="ln-primary !px-2" title="Enviar (⌘/Ctrl + Enter)" aria-label="Enviar comentário">
           {enviando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}

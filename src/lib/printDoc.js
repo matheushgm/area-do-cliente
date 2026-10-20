@@ -4,6 +4,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { escapeHtml } from './utils'
 
 export const PRINT_BASE_CSS = `
@@ -52,9 +53,11 @@ export function docHeader({ logo = 'Revenue Lab', title, subtitle = '', date = t
 }
 
 // Markdown gerado pela IA → HTML estático (mesmo renderizador das telas).
+// remark-gfm: tabelas, tachado e checklists, como no MarkdownView.
+const REMARK_PDF = [remarkGfm]
 export function markdownToHtml(md) {
   if (!md) return ''
-  return renderToStaticMarkup(createElement(ReactMarkdown, null, String(md)))
+  return renderToStaticMarkup(createElement(ReactMarkdown, { remarkPlugins: REMARK_PDF }, String(md)))
 }
 
 export function openPrintWindow(html, { width = 1000, height = 800 } = {}) {

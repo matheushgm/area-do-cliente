@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Copy, CheckCheck, FileDown, Pencil, Check, X, Sparkles, Loader2, Trash2 } from 'lucide-react'
-import MarkdownBlock from './MarkdownBlock'
+import MarkdownView from '../Editor/MarkdownView'
+import MarkdownEditor from '../Editor/MarkdownEditor'
 import { exportCreativoSinglePDF } from '../../lib/creativoPDF'
 
 // ── Split ─────────────────────────────────────────────────────────────────────
@@ -154,6 +155,17 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
     setRefinedContent(null)
   }
 
+  // Botão "IA" da toolbar do editor: salva o que foi editado e abre o painel de
+  // refino já apontando pro trecho selecionado. A IA devolve o criativo inteiro
+  // com só aquele trecho mudado — mesmo fluxo de aprovar/recusar de sempre.
+  function refinarTrecho(trecho) {
+    saveEdit()
+    setRefineOpen(true)
+    setRefinedContent(null)
+    setStreamingBody('')
+    setRefineNote(`Mude apenas este trecho, mantendo o restante exatamente igual:\n"${String(trecho || '').trim()}"\n\nO que mudar: `)
+  }
+
   return (
     <div className="glass-card overflow-hidden">
       {/* Header */}
@@ -254,14 +266,15 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
       {/* Body */}
       <div className="p-4">
         {editing ? (
-          <textarea
+          <MarkdownEditor
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            className="w-full min-h-[260px] bg-rl-surface/60 border border-rl-purple/40 rounded-xl p-3 text-xs text-rl-text font-mono leading-relaxed resize-y focus:outline-none focus:border-rl-purple transition-colors"
+            onChange={setDraft}
+            minHeight={260}
             autoFocus
+            onAI={onRefine ? refinarTrecho : undefined}
           />
         ) : (
-          <MarkdownBlock content={body} />
+          <MarkdownView content={body} />
         )}
       </div>
 
@@ -310,7 +323,7 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
               </p>
               {streamingBody && (
                 <div className="bg-rl-surface/60 border border-rl-purple/20 rounded-xl p-3">
-                  <MarkdownBlock content={streamingBody} />
+                  <MarkdownView content={streamingBody} />
                 </div>
               )}
             </>
@@ -323,7 +336,7 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
                 Versão refinada
               </p>
               <div className="bg-rl-purple/5 border border-rl-purple/30 rounded-xl p-3">
-                <MarkdownBlock content={refinedContent} />
+                <MarkdownView content={refinedContent} />
               </div>
               <div className="flex items-center gap-2">
                 <button

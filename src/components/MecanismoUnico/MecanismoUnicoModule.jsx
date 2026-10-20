@@ -7,7 +7,8 @@ import {
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
 import Toast from '../UI/Toast'
-import MarkdownBlock from '../Criativos/MarkdownBlock'
+import MarkdownView from '../Editor/MarkdownView'
+import TextoEditavelIA from '../Editor/TextoEditavelIA'
 import { streamClaude } from '../../lib/claude'
 import { buildCachedPayload } from '../../lib/buildContext'
 import { exportMecanismoUnicoPDF } from '../../lib/mecanismoUnicoPDF'
@@ -377,7 +378,7 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
         </div>
         {pitch ? (
           <div className="rounded-xl bg-rl-surface/50 border border-rl-border p-4">
-            <MarkdownBlock content={pitch} />
+            <MarkdownView content={pitch} />
           </div>
         ) : (
           <p className="text-sm text-rl-muted text-center py-6 italic">
@@ -422,7 +423,15 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
             </h3>
           </div>
           <div className="border-t border-rl-border/60 pt-4">
-            <MarkdownBlock content={aiStreaming || data.aiAnalysis} />
+            {aiLoading ? (
+              <MarkdownView content={aiStreaming} />
+            ) : (
+              <TextoEditavelIA
+                valor={data.aiAnalysis}
+                onSalvar={(md) => persist({ ...data, aiAnalysis: md })}
+                project={project}
+              />
+            )}
           </div>
         </div>
       )}
@@ -458,14 +467,18 @@ Regras: português brasileiro consultivo, direto, sem jargão vazio. NÃO use tr
               <Loader2 className="w-4 h-4 text-rl-blue animate-spin" />
               <span className="text-xs font-semibold text-rl-blue">Construindo posicionamento...</span>
             </div>
-            {posStreaming && <MarkdownBlock content={posStreaming} />}
+            {posStreaming && <MarkdownView content={posStreaming} />}
           </div>
         )}
 
         {data.positioningAI && !posLoading && (
           <>
             <div className="rounded-xl bg-rl-blue/5 border border-rl-blue/20 p-4">
-              <MarkdownBlock content={data.positioningAI} />
+              <TextoEditavelIA
+                valor={data.positioningAI}
+                onSalvar={(md) => persist({ ...data, positioningAI: md })}
+                project={project}
+              />
             </div>
             <div className="flex items-center justify-end">
               <button

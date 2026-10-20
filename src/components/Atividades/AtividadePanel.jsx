@@ -3,6 +3,7 @@
 // do responsável no momento da aprovação. O container e o header ficam fora.
 import { AlertTriangle, ExternalLink } from 'lucide-react'
 import CargaDiaria from './CargaDiaria'
+import MarkdownView from '../Editor/MarkdownView'
 import { Avatar, PrioridadeIcon, PRIORIDADE_LABEL, StatusIcon, dotDepartamento } from './IssueList'
 import {
   chaveAtividade, fmtDiaCurto, fmtHora, fmtHoras, fmtLonga, fmtPct, fmtRelativo,
@@ -72,7 +73,7 @@ export default function AtividadePanel({ registro, nomeProjeto, nomeMembro, agor
           {r.titulo || <span className="text-ln-t4 font-normal">Sem título</span>}
         </h2>
         {r.descricao ? (
-          <p className="mt-2 text-sm text-ln-t3 leading-relaxed whitespace-pre-wrap break-words">{r.descricao}</p>
+          <MarkdownView content={r.descricao} className="md-prose--13 mt-2 text-ln-t3 break-words" />
         ) : (
           <p className="mt-2 text-sm text-ln-t4">Sem briefing</p>
         )}

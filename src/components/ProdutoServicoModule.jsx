@@ -4,7 +4,8 @@ import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
 import { streamClaude } from '../lib/claude'
 import { supabase } from '../lib/supabase'
-import ReactMarkdown from 'react-markdown'
+import MarkdownView from './Editor/MarkdownView'
+import TextoEditavelIA from './Editor/TextoEditavelIA'
 import VideoGuide from './VideoGuide'
 
 // ─── System Prompt ─────────────────────────────────────────────────────────────
@@ -503,14 +504,17 @@ Gere o documento de briefing completo baseado nessas informações.`
             )}
           </div>
 
-          <div className="prose prose-sm prose-invert max-w-none text-rl-text leading-relaxed
-            [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-rl-text [&_h2]:mt-6 [&_h2]:mb-2
-            [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-rl-text
-            [&_strong]:text-rl-text [&_hr]:border-rl-border [&_hr]:my-4
-            [&_p]:text-sm [&_p]:text-rl-text/90
-            [&_ul]:space-y-1 [&_li]:text-sm [&_li]:text-rl-text/90">
-            <ReactMarkdown>{summary || ''}</ReactMarkdown>
-          </div>
+          {generating ? (
+            <MarkdownView content={summary || ''} />
+          ) : (
+            // Editável e refinável com IA; a edição segue o mesmo caminho de
+            // gravação do briefing gerado (updateProduto → produtos.summary).
+            <TextoEditavelIA
+              valor={summary}
+              onSalvar={(md) => { setSummary(md); updateProduto({ summary: md }) }}
+              project={project}
+            />
+          )}
         </div>
       )}
 

@@ -388,6 +388,52 @@ showToast('Erro ao salvar', 'error')
 <Toast toast={toast} />
 ```
 
+**`src/components/Editor/`** — editor rico de Markdown (Lexical) e leitura rica, estilo Notion.
+
+- `MarkdownEditor` (`value`/`onChange` em **markdown**, `readOnly`, `minHeight`, `autoFocus`,
+  `placeholder`, `onAI(trecho)`, `codigo`): carrega o Lexical sob demanda — o chunk de
+  ~124 kB gzip só entra quando alguém clica em editar. Toolbar flutuante na seleção
+  (parágrafo/H2/H3/lista, negrito/itálico/tachado/link e o botão **IA** quando `onAI`
+  existe), atalhos Markdown ao vivo (`# `, `- `, `**x**`), desfazer. A barra **Visual |
+  Markdown** no alto da caixa alterna entre o Lexical e um textarea com o texto cru (os dois
+  editam a mesma string); a escolha fica em `localStorage['md.editor.modo']` e vale pra
+  todos os editores. `codigo={false}` esconde a barra. A caixa (borda, barra) é do
+  `MarkdownEditor`; o `LexicalMarkdownEditor` só renderiza o corpo (`.md-editor-body`).
+- `MarkdownView` (`content`, `className`, `codigo`; variantes `md-prose--xs` e
+  `md-prose--13` no invólucro): react-markdown + remark-gfm + remark-breaks +
+  rehype-sanitize, sem Lexical. Quebra de linha simples vira `<br>`, igual ao editor. O
+  ícone `<>` no canto (flutuado à direita, aparece no hover) alterna entre o formatado e o
+  Markdown cru em `<pre>`; `codigo={false}` esconde.
+- `markdownConfig.js` é a fonte da verdade da ida e volta: nós registrados, transformers
+  (sem bloco de código, pra não puxar o Prism), **quebras de linha preservadas** e os escapes
+  do exportador desfeitos (`\*` → `*`). Isso mantém o contrato dos criativos, que é lido por
+  regex em `splitChunks`, `replaceAdInContent`, nos PDFs e em `copyLevas`. Qualquer mudança
+  aqui passa por `node scripts/testar_roundtrip_markdown.mjs [n]`, que reimporta e reexporta
+  os últimos n criativos do banco e exige texto idêntico (2026-10-14: 1.732 de 1.734 trechos;
+  as 2 diferenças são sublista indentada com 3 espaços que sai com 4).
+- CSS em `src/index.css` (bloco "Editor de Markdown", classes `.md-*`, só tokens `rl-*`).
+  `/dev/editor` (só em DEV) renderiza os cards de criativo e o editor sem login.
+- `TextoEditavelIA` (`valor`, `onSalvar(md)`, `project`, `onRefinar?`, `semIA`, `acoes`):
+  leitura + "Editar" + "Refinar com IA" num bloco só, pros textos gerados pela IA que antes só
+  podiam ser regerados. O refino padrão é `src/lib/refinarMarkdown.js` (modelo
+  `MODELO_REFINO`, hoje `claude-opus-5-5`; devolve o texto inteiro, com o trecho selecionado
+  como foco) e o módulo pode trocar por um refino próprio via `onRefinar` (a LP usa o dela,
+  que reescreve só a dobra). Fluxo igual ao dos criativos: streaming, versão nova, aprovar
+  ou recusar.
+- Em uso: edição do criativo em `CreativeResultBlock` (o botão IA da toolbar abre o painel
+  de refino com o trecho selecionado; o cabeçalho `# DOR` / `## ROTEIRO` fica fora do editor
+  e é recolocado no salvar), "Editar e aprovar" do link público `/aprovacao-copy/:token`,
+  copy do anúncio no modal da Central (`DebriefingAdModal`) e no portal; análise do Kickoff,
+  pitch e posicionamento do Mecanismo Único, briefing do Produto/Serviço (os três via
+  `TextoEditavelIA`, e os dois PDFs de Kickoff e Produto passaram a incluir esses textos);
+  dobras da LP (`DobraBlock`); bloco inteiro da headline na Promessa (`editedBlocks[i].block`,
+  com `headline`/`sub` ainda gravados ao lado); descrição e comentários da tarefa
+  (`TarefaPanel`, variante `md-editor--nu` no composer); briefing da atividade
+  (`NovaAtividadePanel`, `NovaTarefaClickUpModal`, leitura em `AtividadePanel` e `HubCentro`);
+  observações do cliente (`ObservacoesCampo`, que mantém a assinatura `onChange(e)` com
+  `e.target.value`). O `MarkdownBlock` de Criativos continua nos demais lugares (histórico
+  de clientes, Roteiros Express, portal). `markdownToHtml` dos PDFs agora usa `remark-gfm`.
+
 ### Bibliotecas utilitárias
 
 **`src/lib/utils.js`** — funções puras compartilhadas: `initials(name)`, `fmtCurrency(n)` (BRL, sem casas decimais), `hashId(id)` (compatível com IDs legados numéricos e UUIDs).
