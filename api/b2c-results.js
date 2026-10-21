@@ -1,4 +1,5 @@
 import { jsonCors, preflight, sb } from './_http.js'
+import { mergeResultados } from './_resultados_merge.js'
 // Public Edge Function — validated only by client_share_token
 export const config = { runtime: 'edge' }
 
@@ -63,13 +64,13 @@ export default async function handler(req) {
     const { data: existing } = await sb(`/resultados?project_id=eq.${pid}&select=data`)
     const current = (Array.isArray(existing) && existing[0]?.data) || {}
 
-    // Merge somente os campos b2c, b2c_semanas, b2c_unidades e b2c_unidades_semanas
+    // Merge (por dia/semana, sem apagar nem sobrescrever dado mais novo da API) dos campos b2c, b2c_semanas, b2c_unidades e b2c_unidades_semanas
     const merged = {
       ...current,
-      b2c:                  b2cData.b2c                  !== undefined ? b2cData.b2c                  : current.b2c,
-      b2c_semanas:          b2cData.b2c_semanas          !== undefined ? b2cData.b2c_semanas          : current.b2c_semanas,
-      b2c_unidades:         b2cData.b2c_unidades         !== undefined ? b2cData.b2c_unidades         : current.b2c_unidades,
-      b2c_unidades_semanas: b2cData.b2c_unidades_semanas !== undefined ? b2cData.b2c_unidades_semanas : current.b2c_unidades_semanas,
+      b2c: mergeResultados(current.b2c, b2cData.b2c),
+      b2c_semanas: mergeResultados(current.b2c_semanas, b2cData.b2c_semanas),
+      b2c_unidades: mergeResultados(current.b2c_unidades, b2cData.b2c_unidades),
+      b2c_unidades_semanas: mergeResultados(current.b2c_unidades_semanas, b2cData.b2c_unidades_semanas),
     }
 
     // `on_conflict` é obrigatório: sem ele o PostgREST resolve o upsert pela PK

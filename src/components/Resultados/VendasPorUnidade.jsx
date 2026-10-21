@@ -10,7 +10,7 @@
 // ou `b2c_semanas[YYYY-MM][N]` (vendas / valorVendas), para que KPIs, ROAS e
 // gráficos continuem lendo de um lugar só.
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Edit2, Plus, Check, X, Store, TrendingUp, TrendingDown } from 'lucide-react'
 import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, weekdayShort, MONTH_NAMES } from './resultadosHelpers'
 
@@ -297,6 +297,7 @@ export default function VendasPorUnidade({
   weekData = {},
   onSaveWeek,
   readOnly = false,
+  onEditingChange,
   investimento = null, // { porUnidade: { [id]: { total } }, total } — só na visão interna
 }) {
   const [granularity, setGranularity] = useState('diario') // 'diario' | 'semanal'
@@ -304,6 +305,12 @@ export default function VendasPorUnidade({
   const [form, setForm]               = useState({})        // { unidadeId: { vendas, valorVendas } }
   const [editingWeek, setEditingWeek] = useState(null)       // índice (0-based) da semana em edição
   const [weekForm, setWeekForm]       = useState({})         // { unidadeId: { vendas, valorVendas } }
+
+  // Avisa o formulário pai quando há linha aberta com campos ainda não confirmados.
+  useEffect(() => {
+    onEditingChange?.(editing !== null || editingWeek !== null)
+    return () => onEditingChange?.(false)
+  }, [editing, editingWeek, onEditingChange])
 
   const days    = Array.from({ length: getDaysInMonth(year, month) }, (_, i) => i + 1)
   const semanas = getWeekRanges(year, month)

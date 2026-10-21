@@ -1,4 +1,5 @@
 import { jsonCors, preflight, sb } from './_http.js'
+import { mergeResultados } from './_resultados_merge.js'
 // Public Edge Function — validated only by client_share_token
 // Mirror de b2c-results.js, mas opera na chave `b2b` do JSONB `resultados.data`.
 export const config = { runtime: 'edge' }
@@ -66,7 +67,7 @@ export default async function handler(req) {
     // Merge somente o campo b2b
     const merged = {
       ...current,
-      b2b: b2bData.b2b !== undefined ? b2bData.b2b : current.b2b,
+      b2b: mergeResultados(current.b2b, b2bData.b2b),
     }
 
     // `on_conflict` é obrigatório: sem ele o PostgREST resolve o upsert pela PK

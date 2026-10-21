@@ -1,27 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Loader2, AlertTriangle, Check, X, Edit2, Plus,
-  CheckCircle2, CalendarDays,
+  CalendarDays,
 } from 'lucide-react'
 import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, weekdayShort, MONTH_NAMES } from '../components/Resultados/resultadosHelpers'
 import VendasPorUnidade from '../components/Resultados/VendasPorUnidade'
 import { getUnidades } from '../lib/constants'
-
-// ─── Save badge ────────────────────────────────────────────────────────────────
-function SaveBadge({ status }) {
-  if (status === 'saving') return (
-    <span className="flex items-center gap-1.5 text-xs text-rl-muted">
-      <Loader2 className="w-3 h-3 animate-spin" /> Salvando...
-    </span>
-  )
-  if (status === 'saved') return (
-    <span className="flex items-center gap-1.5 text-xs text-rl-green">
-      <CheckCircle2 className="w-3 h-3" /> Salvo
-    </span>
-  )
-  return null
-}
+import useResultadosSave from '../hooks/useResultadosSave'
+import SaveBar, { SaveStatus, SaveButton } from '../components/Resultados/SaveBar'
 
 // ─── Day Form ──────────────────────────────────────────────────────────────────
 function DayForm({ initial = {}, onSave, onCancel }) {
@@ -215,13 +202,12 @@ export default function B2CClientForm() {
   const [companyName, setCompanyName] = useState('')
   const [projectId, setProjectId]     = useState(null)
   const [resultados, setResultados]   = useState({})
-  const [saveStatus, setSaveStatus]   = useState('idle')
+  const [unitEditing, setUnitEditing] = useState(false)
   const [mode, setMode]         = useState('diario')
   const [year, setYear]         = useState(today.getFullYear())
   const [month, setMonth]       = useState(today.getMonth())
   const [editing, setEditing]       = useState(null)
   const [editingWeek, setEditingWeek] = useState(null)
-  const debounceRef = useRef(null)
 
   // ── Load ────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -251,33 +237,20 @@ export default function B2CClientForm() {
     load()
   }, [token])
 
-  // ── Debounced save ──────────────────────────────────────────────────────────
-  const scheduleSave = useCallback((updated) => {
-    clearTimeout(debounceRef.current)
-    setSaveStatus('saving')
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch('/api/b2c-results', {
-          method:  'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({
-            token,
-            b2cData: {
-              b2c:                  updated.b2c,
-              b2c_semanas:          updated.b2c_semanas,
-              b2c_unidades:         updated.b2c_unidades,
-              b2c_unidades_semanas: updated.b2c_unidades_semanas,
-            },
-          }),
-        })
-        if (!res.ok) throw new Error()
-        setSaveStatus('saved')
-        setTimeout(() => setSaveStatus('idle'), 2500)
-      } catch {
-        setSaveStatus('idle')
-      }
-    }, 1500)
-  }, [token])
+  // ── Save (autosave + botão Salvar + flush ao sair) ──────────────────────────
+  const { status: saveStatus, savedAt, schedule: scheduleSave, saveNow } = useResultadosSave({
+    endpoint: '/api/b2c-results',
+    token,
+    bodyKey:  'b2cData',
+    pick: (u) => ({
+      b2c:                  u.b2c,
+      b2c_semanas:          u.b2c_semanas,
+      b2c_unidades:         u.b2c_unidades,
+      b2c_unidades_semanas: u.b2c_unidades_semanas,
+    }),
+    hasOpenEdit: editing !== null || editingWeek !== null || unitEditing,
+  })
+  const pendingEdit = editing !== null || editingWeek !== null || unitEditing
 
   const monthKey  = `${year}-${String(month + 1).padStart(2, '0')}`
   const monthData = resultados.b2c?.[monthKey] || {}
@@ -455,11 +428,14 @@ export default function B2CClientForm() {
             <p className="text-xs text-rl-muted font-medium uppercase tracking-wider">Resultados B2C</p>
             <h1 className="text-lg font-bold text-rl-text">{companyName}</h1>
           </div>
-          <SaveBadge status={saveStatus} />
+          <div className="flex items-center gap-3">
+            <SaveStatus status={saveStatus} savedAt={savedAt} pendingEdit={pendingEdit} />
+            <SaveButton status={saveStatus} onClick={saveNow} className="hidden sm:flex px-4 py-2" />
+          </div>
         </div>
       </div>
 
-      <div className={`${unidades ? 'max-w-6xl' : 'max-w-3xl'} mx-auto px-6 py-8 space-y-6`}>
+      <div className={`${unidades ? 'max-w-6xl' : 'max-w-3xl'} mx-auto px-6 py-8 pb-28 space-y-6`}>
 
         {/* Instrução */}
         <div className="glass-card p-5 border-l-4 border-rl-green/50">
@@ -467,7 +443,7 @@ export default function B2CClientForm() {
             <CalendarDays className="w-4 h-4 text-rl-green" /> Como preencher
           </p>
           <p className="text-sm text-rl-muted leading-relaxed">
-            Preencha os dados de investimento, leads e vendas. Você pode optar por registrar diariamente ou semanalmente. Os dados são salvos automaticamente.
+            Preencha os dados de investimento, leads e vendas. Você pode optar por registrar diariamente ou semanalmente. Os dados são salvos automaticamente, mas toque em Salvar antes de sair da página para garantir.
           </p>
         </div>
 
@@ -596,6 +572,7 @@ export default function B2CClientForm() {
             onSaveDay={saveUnidadesDay}
             weekData={unitWeekData}
             onSaveWeek={saveUnidadesWeek}
+            onEditingChange={setUnitEditing}
           />
         )}
 
@@ -678,10 +655,12 @@ export default function B2CClientForm() {
 
         {/* Footer */}
         <div className="pt-4 pb-8 text-center">
-          <p className="text-xs text-rl-muted">Os dados são salvos automaticamente conforme você preenche.</p>
+          <p className="text-xs text-rl-muted">Os dados são salvos automaticamente. Toque em Salvar antes de sair da página.</p>
           <p className="text-xs text-rl-muted/50 mt-1">Revenue Lab © {new Date().getFullYear()}</p>
         </div>
       </div>
+
+      <SaveBar status={saveStatus} savedAt={savedAt} pendingEdit={pendingEdit} onSave={saveNow} />
     </div>
   )
 }
