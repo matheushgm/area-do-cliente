@@ -954,11 +954,12 @@ const LOCAL_LAZY = {
   google_terms: './output/google_terms.csv',
   google_ads:   './output/google_ads.csv',
   google_pages: './output/google_pages.csv',
+  google_keywords: './output/google_keywords.csv',
 }
-async function fetchLazyChannel(canal, account) {
+async function fetchLazyChannel(canal, account, extra = '') {
   const token = supabaseToken()
   if (token) {
-    const r = await fetch(`/api/dash-data?channel=${canal}&account=${encodeURIComponent(account)}`,
+    const r = await fetch(`/api/dash-data?channel=${canal}&account=${encodeURIComponent(account)}${extra}`,
       { headers: { Authorization: `Bearer ${token}` } })
     if (!r.ok) throw new Error(`${canal}: HTTP ${r.status}`)
     return r.text()
@@ -1090,6 +1091,7 @@ const ICONS = {
   'target': '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
   'image': '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="m21 16-5-5-9 9"/>',
   'key': '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9"/><path d="m17 6 3 3"/><path d="m14 9 3 3"/>',
+  'hash': '<path d="M5 9h14"/><path d="M5 15h14"/><path d="M10 4 8 20"/><path d="M16 4l-2 16"/>',
   'search': '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   'globe': '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',
   'wallet': '<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/><path d="M15 15h3"/>',
@@ -1253,7 +1255,7 @@ const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:
                 cDays:7, cFrom:'', cTo:'', cPeriod:null,
                 campFilter:[], campPanelOpen:false, campSearch:'',
                 tab:'resultados', sub:0, drillSub:0, drillCampaign:null, drillAdset:null, drillAdsetName:null,
-                weekly:null, _charts:[], termsCache:{}, adsCache:{}, pagesCache:{},
+                weekly:null, _charts:[], termsCache:{}, adsCache:{}, pagesCache:{}, kwCache:{}, kwSit:'POS', kwMatch:'', kwQ:'', kwPage:0,
                 termsSort:{key:'clicks',dir:'desc'}, termsPage:0,
                 pagesSort:{key:'spend',dir:'desc'}, pagesPage:0,
                 // ordenação por coluna das tabelas de campanha/conjunto/anúncio/grupo:
@@ -4122,6 +4124,73 @@ function tblGooglePages(rows){
     <span>${from}–${to} de ${total}</span>${pgBtn('prev','‹',page===0)}${pgBtn('next','›',page>=pages-1)}</div>`
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>${total>PAGES_PER_PAGE?pager:''}`
 }
+// ─── PALAVRAS-CHAVE do Google (canal google_keywords) ─────────────────────────
+// Snapshot do estado ATUAL de cada palavra: tipo de correspondência (exata, frase,
+// ampla) e situação (ativa, pausada, negativada). Negativa de campanha e de grupo
+// entram juntas, com o nível visível. As métricas são dos últimos 30 dias,
+// independentes do período do viewer (a lista é o que a conta TEM agora).
+const KW_MATCH_ORDER = { 'Exata':0, 'Frase':1, 'Ampla':2 }
+const KW_SIT_ORDER = { 'ATIVA':0, 'PAUSADA':1, 'NEGATIVADA':2 }
+const KW_PER_PAGE = 50
+function tblGoogleKeywords(rows, comCampanha, comGrupo, negCarregadas){
+  const nrm = v => String(v||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+  const cont = (campo, v) => rows.filter(r=>r[campo]===v).length
+  const resumo = `<div class="kw-summary" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 10px;font-size:12.5px;opacity:.9">
+    <span><b>${cont('Situação','ATIVA')}</b> ativas</span><span><b>${cont('Situação','PAUSADA')}</b> pausadas</span>
+    <span>${negCarregadas ? `<b>${cont('Situação','NEGATIVADA')}</b> negativadas` : 'negativadas: escolha o filtro para carregar'}</span><span style="opacity:.6">·</span>
+    <span><b>${cont('Correspondência','Exata')}</b> exatas</span><span><b>${cont('Correspondência','Frase')}</b> frase</span>
+    <span><b>${cont('Correspondência','Ampla')}</b> amplas</span>
+    <span style="opacity:.6">Métricas dos últimos 30 dias</span></div>`
+  const sel = (id, val, opts) => `<select id="${id}" style="font:inherit;padding:5px 8px;border-radius:8px;border:1px solid rgb(var(--rl-border));background:rgb(var(--rl-card));color:inherit">${
+    opts.map(([v,l])=>`<option value="${v}"${val===v?' selected':''}>${l}</option>`).join('')}</select>`
+  const bar = `<div class="kw-bar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px">
+    <input id="kwQ" type="search" placeholder="Buscar palavra-chave…" value="${esc(state.kwQ)}" style="font:inherit;padding:5px 10px;border-radius:8px;border:1px solid rgb(var(--rl-border));background:rgb(var(--rl-card));color:inherit;min-width:200px">
+    ${sel('kwSit', state.kwSit, [['POS','Ativas e pausadas'],['ATIVA','Ativas'],['PAUSADA','Pausadas'],['NEGATIVADA','Negativadas'],['','Todas']])}
+    ${sel('kwMatch', state.kwMatch, [['','Todas as correspondências'],['Exata','Exata'],['Frase','Frase'],['Ampla','Ampla']])}</div>`
+  const q = nrm(state.kwQ)
+  const vis = rows.filter(r => (!state.kwSit || (state.kwSit==='POS' ? r['Tipo']==='Positiva' : r['Situação']===state.kwSit)) && (!state.kwMatch || r['Correspondência']===state.kwMatch)
+    && (!q || nrm(r['Palavra-chave']).includes(q)))
+  if(!rows.length) return `<div class="empty">Sem palavras-chave nesta conta (ou ainda não coletadas).</div>`
+  const items = vis.map(r=>{
+    const impr = M(r,'Impressões'), clicks = M(r,'CLiques'), conv = M(r,'Conversões'), spend = M(r,'Gasto')
+    const pausadoPai = r['Situação']==='ATIVA' && (r['Status da campanha']==='PAUSED' || r['Status do grupo']==='PAUSED')
+    return { kw:r['Palavra-chave'], match:r['Correspondência'], sit:r['Situação'], nivel:r['Nível'], tipo:r['Tipo'],
+             camp:r['Campanha'], grupo:r['Grupo de palavras'], iq:parseInt(r['Índice de qualidade'])||null, pausadoPai,
+             impr, clicks, conv, spend, ctr: impr>0 ? clicks/impr*100 : null,
+             cpc: clicks>0 ? spend/clicks : null, cpa: conv>0 ? spend/conv : null,
+             sitRank: KW_SIT_ORDER[r['Situação']] ?? 9, matchRank: KW_MATCH_ORDER[r['Correspondência']] ?? 9 }
+  })
+  const sitTag = x => {
+    const cls = x.sit==='ATIVA' ? 'st-active' : x.sit==='PAUSADA' ? 'st-paused' : 'st-other'
+    const lbl = x.sit==='ATIVA' ? 'Ativa' : x.sit==='PAUSADA' ? 'Pausada' : 'Negativada'
+    const nota = x.pausadoPai ? ' title="A palavra está ativa, mas a campanha ou o grupo está pausado."' : ''
+    return `<span class="status-tag ${cls}"${nota}>${lbl}${x.pausadoPai?' *':''}</span>` }
+  const cols = [
+    ['Palavra-chave','kw',x=>x.kw,'text'], ['Correspondência','match',x=>x.matchRank],
+    ['Situação','sit',x=>x.sitRank],
+    ['Nível','nivel',x=>x.nivel,'text'],
+    ...(comCampanha ? [['Campanha','camp',x=>x.camp,'text']] : []),
+    ...(comGrupo ? [['Grupo','grupo',x=>x.grupo,'text']] : []),
+    ['IQ','iq',x=>x.iq], ['Impressões','impr',x=>x.impr], ['Cliques','clicks',x=>x.clicks], ['Conv.','conv',x=>x.conv],
+    ['Custo/conv.','cpa',x=>x.cpa], ['CPC médio','cpc',x=>x.cpc], ['CTR','ctr',x=>x.ctr], ['Gasto','spend',x=>x.spend] ]
+  // Sem coluna escolhida: ativas primeiro, depois pausadas e negativadas; dentro de cada, quem gastou mais.
+  const base = items.slice().sort((a,b)=> a.sitRank-b.sitRank || b.spend-a.spend || a.matchRank-b.matchRank || String(a.kw).localeCompare(String(b.kw),'pt-BR'))
+  const ord = tblSorted('g-kw', base, cols)
+  const pages = Math.max(1, Math.ceil(ord.length/KW_PER_PAGE)), page = Math.min(Math.max(0, state.kwPage), pages-1); state.kwPage = page
+  const body = ord.slice(page*KW_PER_PAGE, (page+1)*KW_PER_PAGE).map(x=>{ const neg = x.sit==='NEGATIVADA'
+    const met = neg ? '<td colspan="7" style="opacity:.5">—</td>' :
+      `<td>${x.iq??'—'}</td><td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td><td>${convCell(x.conv,x.spend)}</td>
+       <td>${x.cpa!=null?fmtMoney(x.cpa):'—'}</td><td>${x.cpc!=null?fmtMoney(x.cpc):'—'}</td><td>${ctrCell(x.ctr)}</td><td>${fmtMoney(x.spend)}</td>`
+    return `<tr><td class="ad-name" title="${esc(x.kw)}">${esc(x.kw)}</td><td>${esc(x.match)}</td><td>${sitTag(x)}</td>
+      <td>${esc(x.nivel)}</td>${comCampanha?`<td class="ad-name" title="${esc(x.camp)}">${esc(x.camp)}</td>`:''}
+      ${comGrupo?`<td class="ad-name" title="${esc(x.grupo)}">${esc(x.grupo||'—')}</td>`:''}${neg?met.replace('colspan="7"','colspan="8"'):met}</tr>` }).join('')
+  const vazio = vis.length ? '' : `<div class="empty">Nenhuma palavra com esses filtros.</div>`
+  const from = ord.length ? page*KW_PER_PAGE+1 : 0, to = Math.min(ord.length, (page+1)*KW_PER_PAGE)
+  const pgBtn = (d,lbl,dis)=>`<button data-kwpg="${d}" ${dis?'disabled':''} class="pg-btn">${lbl}</button>`
+  const pager = ord.length>KW_PER_PAGE ? `<div class="terms-pager"><span>${from}–${to} de ${ord.length}</span>${pgBtn('prev','‹',page===0)}${pgBtn('next','›',page>=pages-1)}</div>` : ''
+  return resumo+bar+`<div class="dt-wrap"><table><thead><tr>${tblThead('g-kw', cols)}</tr></thead><tbody>${body}</tbody></table></div>${vazio}${pager}`
+}
+
 // Termos de pesquisa (search_term_view) — só termos com clique. Agrega somáveis
 // (impr/clicks/conv/gasto) e RECALCULA razões (CPA/CPC/CTR). Ordena por gasto desc
 // ("para onde o dinheiro foi").
@@ -4862,7 +4931,7 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
       // (canal google_terms) só daquele grupo. Os dois são lazy/por conta —
       // entram como container vazio e são preenchidos depois do HTML no DOM.
       const t = googleDrillTabs(true)
-      body = `${t.html}${state.drillSub===1?`<div id="termsPanel"></div>`:`<div id="gadsPanel"></div>`}`
+      body = `${t.html}${state.drillSub===2?`<div id="kwPanel"></div>`:state.drillSub===1?`<div id="termsPanel"></div>`:`<div id="gadsPanel"></div>`}`
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">${ic('back','←')} Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span>
         <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdsetName || state.drillAdset)}</span></div>`
@@ -4870,7 +4939,8 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
       // Dentro da campanha: grupos (dado já em memória) ou anúncios / termos /
       // páginas filtrados só por essa campanha (canais lazy, ver renderClient).
       const t = googleDrillTabs(false)
-      const panel = state.drillSub===1 ? `<div id="gadsPanel"></div>`
+      const panel = state.drillSub===4 ? `<div id="kwPanel"></div>`
+                  : state.drillSub===1 ? `<div id="gadsPanel"></div>`
                   : state.drillSub===2 ? `<div id="termsPanel"></div>`
                   : state.drillSub===3 ? `<div id="gpagesPanel"></div>`
                   : tblGoogleGroups(tblFilter(allRows.filter(r=>r['Campanha']===state.drillCampaign), googleGroupKey),
@@ -4887,14 +4957,15 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
     return `<div class="cp-panel">${bc}${quad}${body}${otmPanelHTML(channel, state.openClient.client)}</div>`
   }
   const tabs = isMeta ? [[`${ic('chart','📊')} Campanhas`,0],[`${ic('target','🎯')} Conjuntos`,1],[`${ic('image','🎨')} Anúncios`,2]]
-                      : [[`${ic('chart','📊')} Campanhas`,0],[`${ic('key','🔑')} Grupos`,1],[`${ic('image','🎨')} Anúncios`,2],[`${ic('search','🔎')} Termos`,3],[`${ic('globe','🔗')} Páginas`,4]]
+                      : [[`${ic('chart','📊')} Campanhas`,0],[`${ic('key','🔑')} Grupos`,1],[`${ic('hash','🗝️')} Palavra-chave`,5],[`${ic('image','🎨')} Anúncios`,2],[`${ic('search','🔎')} Termos`,3],[`${ic('globe','🔗')} Páginas`,4]]
   let panel
   // No Google, Anúncios/Termos/Páginas são canais lazy por conta: entram como
   // container vazio e são preenchidos por render*(…) depois do HTML no DOM.
   if (isMeta) panel = state.sub===1?tblMetaAdsets(tblFilter(allRows,r=>r['Conjunto de Anúncio']),prevRows)
                     : state.sub===2?tblMetaAds(tblFilter(allRows,r=>r['Nome do Anúncio']),prevRows)
                     : tblMetaCampaigns(tblFilter(allRows,r=>r['Nome da campanha']),prevRows)
-  else        panel = state.sub===2?`<div id="gadsPanel"></div>`
+  else        panel = state.sub===5?`<div id="kwPanel"></div>`
+                    : state.sub===2?`<div id="gadsPanel"></div>`
                     : state.sub===3?`<div id="termsPanel"></div>`
                     : state.sub===4?`<div id="gpagesPanel"></div>`
                     : state.sub===1?tblGoogleGroups(tblFilter(allRows,googleGroupKey),prevRows):tblGoogleCampaigns(tblFilter(allRows,r=>r['Campanha']),prevRows)
@@ -4915,9 +4986,11 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
 // `data-drillsub` para não confundir com `state.sub` (que segue guardando a
 // sub-aba do nível da conta para quando o usuário voltar).
 function googleDrillTabs(inGroup) {
-  const tabs = inGroup ? [[`${ic('image','🎨')} Anúncios`,0],[`${ic('search','🔎')} Termos`,1]]
-                       : [[`${ic('key','🔑')} Grupos`,0],[`${ic('image','🎨')} Anúncios`,1],[`${ic('search','🔎')} Termos`,2],[`${ic('globe','🔗')} Páginas`,3]]
-  if (state.drillSub >= tabs.length) state.drillSub = 0
+  // `drillSub` identifica a aba (não a posição): Palavra-chave é 4 na campanha e 2
+  // no grupo, mas aparece logo depois de Grupos / antes de Anúncios.
+  const tabs = inGroup ? [[`${ic('hash','🗝️')} Palavra-chave`,2],[`${ic('image','🎨')} Anúncios`,0],[`${ic('search','🔎')} Termos`,1]]
+                       : [[`${ic('key','🔑')} Grupos`,0],[`${ic('hash','🗝️')} Palavra-chave`,4],[`${ic('image','🎨')} Anúncios`,1],[`${ic('search','🔎')} Termos`,2],[`${ic('globe','🔗')} Páginas`,3]]
+  if (!tabs.some(([,i])=>i===state.drillSub)) state.drillSub = tabs[0][1]
   return { html: `<div class="dt-subtabs">${tabs.map(([l,i])=>`<div class="dtab${state.drillSub===i?' active':''}" data-drillsub="${i}">${l}</div>`).join('')}</div>` }
 }
 
@@ -4978,6 +5051,47 @@ async function renderGooglePages(container, client, period, campanha) {
     const prev = container.querySelector('[data-pg="prev"]'), next = container.querySelector('[data-pg="next"]')
     if (prev) prev.onclick = () => { state.pagesPage = Math.max(0, state.pagesPage-1); draw() }
     if (next) next.onclick = () => { state.pagesPage = state.pagesPage+1; draw() }
+  }
+  draw()
+}
+
+// Painel de PALAVRAS-CHAVE. Snapshot por conta (sem período): lazy, cacheado por
+// cliente. `campanha`/`grupo` vêm no drill; no grupo, entram também as negativas
+// da campanha que o afetam. Filtros e busca re-desenham só a tabela.
+async function renderGoogleKeywords(container, client, campanha, grupo) {
+  if (!container) return
+  const wantNeg = () => state.kwSit==='NEGATIVADA' || state.kwSit===''
+  // Positivas: sempre (poucas centenas). Negativas: só sob demanda, recortadas por
+  // campanha quando há drill — uma conta pode ter dezenas de milhares.
+  const carrega = async (chave, extra, rotulo) => {
+    if (state.kwCache[chave]) return true
+    container.innerHTML = `<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><p>Carregando ${rotulo}…</p></div>`
+    try { const tipo = extra.includes('tipo=positiva') ? 'Positiva' : 'Negativa'
+      // Em produção a API já filtra; em dev (CSV local completo) filtra aqui.
+      state.kwCache[chave] = parseCSV(await fetchLazyChannel('google_keywords', client, extra)).filter(r => r['Tipo']===tipo); return true }
+    catch (e) { container.innerHTML = `<div class="empty">Erro ao carregar palavras-chave: ${esc(e.message)}</div>`; return false }
+  }
+  const campQ = campanha ? `&campanha=${encodeURIComponent(campanha)}` : ''
+  const draw = async () => {
+    if (!await carrega(`${client}|pos`, '&tipo=positiva', 'palavras-chave')) return
+    const negKey = `${client}|neg|${campanha||''}`
+    const negOk = wantNeg()
+    if (negOk && !await carrega(negKey, `&tipo=negativa${campQ}`, 'palavras negativas')) return
+    const todas = [...state.kwCache[`${client}|pos`], ...((negOk || state.kwCache[negKey]) ? (state.kwCache[negKey]||[]) : [])]
+    const rows = todas.filter(r =>
+      (r['Nome da conta']||'').trim()===client &&
+      (!campanha || r['Campanha']===campanha) &&
+      (!grupo || r['Nível']==='Campanha' || (r['Grupo de palavras']||'').trim()===grupo))
+    container.innerHTML = tblGoogleKeywords(rows, !campanha, !grupo, !!state.kwCache[negKey])
+    container.querySelectorAll('th[data-tblsort]').forEach(th => th.onclick = () => { tblSortClick(th); state.kwPage = 0; draw() })
+    const q = container.querySelector('#kwQ'), sit = container.querySelector('#kwSit'), mt = container.querySelector('#kwMatch')
+    if (sit) sit.onchange = () => { state.kwSit = sit.value; state.kwPage = 0; draw() }
+    if (mt) mt.onchange = () => { state.kwMatch = mt.value; state.kwPage = 0; draw() }
+    if (q) q.oninput = () => { state.kwQ = q.value; state.kwPage = 0; const pos = q.selectionStart; draw().then(() => {
+      const nq = container.querySelector('#kwQ'); if (nq) { nq.focus(); nq.setSelectionRange(pos,pos) } }) }
+    const prev = container.querySelector('[data-kwpg="prev"]'), next = container.querySelector('[data-kwpg="next"]')
+    if (prev) prev.onclick = () => { state.kwPage = Math.max(0, state.kwPage-1); draw() }
+    if (next) next.onclick = () => { state.kwPage = state.kwPage+1; draw() }
   }
   draw()
 }
@@ -5376,14 +5490,17 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
     // O drill (campanha › grupo) tem prioridade sobre a sub-aba: os dois usam o
     // mesmo container #gadsPanel, mudando só o filtro.
     if (state.drillAdset) {
-      if (state.drillSub===1) renderGoogleTerms(document.getElementById('termsPanel'), client, period, state.drillCampaign, state.drillAdset)
+      if (state.drillSub===2) renderGoogleKeywords(document.getElementById('kwPanel'), client, state.drillCampaign, state.drillAdset)
+      else if (state.drillSub===1) renderGoogleTerms(document.getElementById('termsPanel'), client, period, state.drillCampaign, state.drillAdset)
       else renderGoogleAds(document.getElementById('gadsPanel'), client, period, state.drillCampaign, state.drillAdset)
     }
     else if (state.drillCampaign) {
-      if (state.drillSub===1) renderGoogleAds(document.getElementById('gadsPanel'), client, period, state.drillCampaign)
+      if (state.drillSub===4) renderGoogleKeywords(document.getElementById('kwPanel'), client, state.drillCampaign)
+      else if (state.drillSub===1) renderGoogleAds(document.getElementById('gadsPanel'), client, period, state.drillCampaign)
       else if (state.drillSub===2) renderGoogleTerms(document.getElementById('termsPanel'), client, period, state.drillCampaign)
       else if (state.drillSub===3) renderGooglePages(document.getElementById('gpagesPanel'), client, period, state.drillCampaign)
     }
+    else if (state.sub===5) renderGoogleKeywords(document.getElementById('kwPanel'), client)
     else if (state.sub===2) renderGoogleAds(document.getElementById('gadsPanel'), client, period)
     else if (state.sub===3) renderGoogleTerms(document.getElementById('termsPanel'), client, period)
     else if (state.sub===4) renderGooglePages(document.getElementById('gpagesPanel'), client, period)

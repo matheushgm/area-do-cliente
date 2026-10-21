@@ -52,7 +52,9 @@ export default async function handler(req) {
   // saldo = snapshot do saldo ATUAL de cada conta (Meta pré-pago + orçamento do
   // Google), uma linha por conta/canal e sem dia, como o meta_status. Alimenta a
   // coluna "Saldo" da lista.
-  const ALLOWED = ['meta', 'google', 'google_terms', 'meta_status', 'google_ads', 'google_pages', 'saldo']
+  // google_keywords = palavras-chave (tipo de correspondência + situação), snapshot
+  // sem dia, lido sob demanda por conta como google_ads/google_pages.
+  const ALLOWED = ['meta', 'google', 'google_terms', 'meta_status', 'google_ads', 'google_pages', 'saldo', 'google_keywords']
   if (!ALLOWED.includes(channel)) {
     return jsonErr('channel inválido.', 400)
   }
@@ -78,7 +80,17 @@ export default async function handler(req) {
     apikey: SUPABASE_ANON,
     Authorization: `Bearer ${jwt}`, // RLS aplicada como o usuário
   }
-  const base = `${SUPABASE_URL}/rest/v1/dash_insights?channel=eq.${channel}${acctFilter}`
+  // google_keywords: a conta pode ter dezenas de milhares de negativas (NectarCRM:
+  // ~28 mil), então o viewer pede as positivas à parte (?tipo=positiva) e só busca
+  // as negativas (?tipo=negativa) quando o usuário abre esse filtro, de preferência
+  // já recortadas por campanha (?campanha=).
+  const kwTipo = url.searchParams.get('tipo')
+  const kwCamp = url.searchParams.get('campanha')
+  const kwFilter = channel === 'google_keywords'
+    ? (kwTipo === 'positiva' ? '&data->>Tipo=eq.Positiva' : kwTipo === 'negativa' ? '&data->>Tipo=eq.Negativa' : '')
+      + (kwCamp ? `&data->>Campanha=eq.${encodeURIComponent(kwCamp)}` : '')
+    : ''
+  const base = `${SUPABASE_URL}/rest/v1/dash_insights?channel=eq.${channel}${acctFilter}${kwFilter}`
 
   // Uma página que falhe derruba a resposta INTEIRA (o dashboard mostra
   // "meta: HTTP 500") — e falhas transitórias acontecem sob requisições
@@ -111,6 +123,18 @@ export default async function handler(req) {
   // statement_timeout de 8s no papel `authenticated` — e cada falha dessas
   // derruba a resposta inteira em 504. Daí o fatiamento por dia abaixo.
   const readAll = async (qs, label) => {
+    // Palavras-chave de uma conta grande são dezenas de páginas; em série passam
+    // do limite de 25s da Edge. Lê em ondas paralelas e para na primeira página curta.
+    if (channel === 'google_keywords') {
+      const out = []
+      for (let offset = 0; ; offset += PAGE * CONCURRENCY) {
+        const onda = await Promise.all(Array.from({ length: CONCURRENCY },
+          (_, i) => getPage(qs, offset + i * PAGE, label)))
+        let curta = false
+        for (const batch of onda) { for (const row of batch) out.push(row.data); if (batch.length < PAGE) curta = true }
+        if (curta || out.length > MAX_ROWS) return out
+      }
+    }
     const out = []
     for (let offset = 0; ; offset += PAGE) {
       const batch = await getPage(qs, offset, label)
@@ -133,7 +157,7 @@ export default async function handler(req) {
     // meta_status e saldo não têm coluna `day` (1 linha por entidade/conta, sem
     // histórico), e a busca por conta já devolve um recorte pequeno: nos dois
     // casos vale ler direto, sem fatiar.
-    const snapshot = channel === 'meta_status' || channel === 'saldo'
+    const snapshot = channel === 'meta_status' || channel === 'saldo' || channel === 'google_keywords'
     if (snapshot || account) {
       const since = dias ? `&day=gte.${addDays(iso(new Date()), -dias)}` : ''
       rows = await readAll(snapshot ? '' : since, channel)
