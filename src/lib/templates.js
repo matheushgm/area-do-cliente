@@ -235,9 +235,10 @@ export function perfilDoUsuarioCliente(membros = []) {
 /**
  * Responsáveis de um item do template para um cliente. Departamento "Cliente" vai para
  * o usuário Cliente do ClickUp (usuarioClienteId); os demais, para quem o squad do
- * cliente designou ao departamento (squad.department_assignments).
+ * cliente designou ao departamento (squad.department_assignments). Com `ativos` (Set de
+ * ids de perfis ativos), quem o squad aponta mas está desativado não é atribuído.
  */
-export function responsaveisDoItem(item, squad, usuarioClienteId = null) {
+export function responsaveisDoItem(item, squad, usuarioClienteId = null, ativos = null) {
   const r = item.responsavel || {}
   if (r.modo === 'nenhum') return { ids: [], aviso: null }
   if (r.modo === 'pessoa') return { ids: r.pessoa_id ? [r.pessoa_id] : [], aviso: r.pessoa_id ? null : 'Pessoa não escolhida' }
@@ -245,15 +246,18 @@ export function responsaveisDoItem(item, squad, usuarioClienteId = null) {
   const asg = squad?.department_assignments || squad?.departmentAssignments || {}
   const ids = []
   const faltam = []
+  const desativados = []
   for (const d of item.departamento) {
     const id = d === DEPARTAMENTO_CLIENTE ? usuarioClienteId : (asg[d] || asg[DEPARTAMENTO_ALIAS_SQUAD[d]] || null)
-    if (id) { if (!ids.includes(id)) ids.push(id) } else faltam.push(d)
+    if (id && ativos && !ativos.has(id)) desativados.push(d)
+    else if (id) { if (!ids.includes(id)) ids.push(id) } else faltam.push(d)
   }
-  if (!faltam.length) return { ids, aviso: null }
+  if (!faltam.length && !desativados.length) return { ids, aviso: null }
   const doSquad = faltam.filter((d) => d !== DEPARTAMENTO_CLIENTE)
   const avisos = []
   if (faltam.includes(DEPARTAMENTO_CLIENTE)) avisos.push('Usuário Cliente não encontrado')
   if (doSquad.length) avisos.push(squad ? `Squad sem ${doSquad.join(', ')}` : 'Cliente sem squad')
+  if (desativados.length) avisos.push(`Squad aponta pessoa desativada em ${desativados.join(', ')}`)
   return { ids, aviso: avisos.join(' · ') }
 }
 
@@ -265,11 +269,11 @@ export const comCliente = (txt, cliente) => String(txt || '').split(VARIAVEL_CLI
  * Plano de aplicação: uma linha por tarefa a criar, com datas (ISO, meio-dia local,
  * como o DataCampo grava), responsáveis e textos já resolvidos.
  */
-export function planejarAplicacao(itens, { dataInicio, squad, cliente = '', usuarioClienteId = null }) {
+export function planejarAplicacao(itens, { dataInicio, squad, cliente = '', usuarioClienteId = null, ativos = null }) {
   const inicio = proximoDiaUtil(dataInicio || hojeISO())
   const data = (n) => (n == null ? null : deInputDate(somarDiasUteis(inicio, n)))
   return achatar(itens).map(({ item, nivel, pai }) => {
-    const resp = responsaveisDoItem(item, squad, usuarioClienteId)
+    const resp = responsaveisDoItem(item, squad, usuarioClienteId, ativos)
     return {
       item, nivel, paiId: pai?.id || null,
       titulo: comCliente(item.titulo, cliente).trim() || 'Nova tarefa',

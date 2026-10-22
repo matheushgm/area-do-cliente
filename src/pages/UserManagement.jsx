@@ -296,7 +296,7 @@ const SQUAD_MEMBER_ROLES = ['Account Manager', 'Gestor de Tráfego', 'Designer']
 
 // ── SquadFormModal ──────────────────────────────────────────────────────────
 
-function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
+function SquadFormModal({ initial, teamMembers, perfis, onSave, onClose, saving }) {
   const isCreate = !initial
   const [form, setForm] = useState({
     name:    initial?.name    || '',
@@ -305,6 +305,8 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
   })
 
   const valid = form.name.trim().length > 0
+  // membros gravados na equipe que não estão entre os ativos (desativados ou apagados)
+  const inativos = form.members.filter((m) => !teamMembers.some((t) => t.id === m.profile_id))
 
   function toggleMember(profileId) {
     setForm((prev) => {
@@ -370,6 +372,23 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
           <div>
             <label className="block text-xs font-semibold text-rl-text mb-2">Membros</label>
             <div className="space-y-2">
+              {inativos.length > 0 && (
+                <p className="text-[11px] text-red-400">
+                  {inativos.length === 1 ? 'Esta pessoa não está ativa' : 'Estas pessoas não estão ativas'} e segue{inativos.length === 1 ? '' : 'm'} na equipe. Desmarque para tirar.
+                </p>
+              )}
+              {inativos.map((m) => {
+                const info = rotuloInativo(perfis, m.profile_id)
+                return (
+                  <div key={m.profile_id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-red-500/30 bg-red-500/5 cursor-pointer" onClick={() => toggleMember(m.profile_id)}>
+                    <input type="checkbox" checked onChange={() => toggleMember(m.profile_id)} onClick={(e) => e.stopPropagation()} className="w-4 h-4 accent-rl-purple shrink-0" aria-label={`Tirar ${info.nome} da equipe`} />
+                    <div className="w-8 h-8 rounded-full bg-rl-surface border border-rl-border flex items-center justify-center text-xs font-bold text-rl-muted shrink-0">{initials(info.nome)}</div>
+                    <span className="text-base text-rl-muted flex-1 min-w-0 truncate leading-none line-through">{info.nome}</span>
+                    <SeloInativo motivo={info.motivo} />
+                    <span className="text-xs text-rl-muted w-48 shrink-0 truncate">{m.role}</span>
+                  </div>
+                )
+              })}
               {teamMembers.map((t) => {
                 const memberEntry = form.members.find((m) => m.profile_id === t.id)
                 const checked     = !!memberEntry
@@ -425,6 +444,21 @@ function SquadFormModal({ initial, teamMembers, onSave, onClose, saving }) {
   )
 }
 
+// Perfil de quem está na equipe mas não está ativo: desativado em Usuários ou apagado.
+// `perfis` = todos os profiles (ativos e desativados), carregados pela página.
+function rotuloInativo(perfis, id) {
+  const p = perfis?.get(id)
+  return p ? { nome: p.name || p.email || 'Sem nome', motivo: 'desativado' } : { nome: `Perfil removido (${String(id).slice(0, 8)})`, motivo: 'removido' }
+}
+
+function SeloInativo({ motivo }) {
+  return (
+    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border border-red-500/30 bg-red-500/10 text-red-400 whitespace-nowrap">
+      {motivo === 'removido' ? 'removido' : 'desativado'}
+    </span>
+  )
+}
+
 // ── DeleteSquadModal ────────────────────────────────────────────────────────
 
 function DeleteSquadModal({ squad, onConfirm, onClose, saving }) {
@@ -463,7 +497,7 @@ function DeleteSquadModal({ squad, onConfirm, onClose, saving }) {
 // integração com ClickUp: quando uma tarefa tem o custom field 'Departamento'
 // preenchido, o sistema atribui o responsável conforme essa matriz.
 
-function SquadDepartmentsModal({ squad, teamMembers, onSave, onClose, saving }) {
+function SquadDepartmentsModal({ squad, teamMembers, perfis, onSave, onClose, saving }) {
   // assignments: { [departmentName]: profile_uuid | '' }
   const [assignments, setAssignments] = useState(() => {
     const initial = squad.departmentAssignments || squad.department_assignments || {}
@@ -516,9 +550,10 @@ function SquadDepartmentsModal({ squad, teamMembers, onSave, onClose, saving }) 
         {CLICKUP_DEPARTMENTS.map((dep) => {
           const value = assignments[dep.name] || ''
           const selected = value ? sortedMembers.find((m) => m.id === value) : null
+          const inativo = value && !selected ? rotuloInativo(perfis, value) : null
           const noClickup = selected && !(selected.clickupUserId ?? selected.clickup_user_id)
           return (
-            <div key={dep.id} className="flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2.5 rounded-xl border border-rl-border bg-rl-surface/40">
+            <div key={dep.id} className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2.5 rounded-xl border ${inativo ? 'border-red-500/30 bg-red-500/5' : 'border-rl-border bg-rl-surface/40'}`}>
               <div className="flex items-center gap-2 sm:w-44 shrink-0">
                 <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: dep.color }} />
                 <span className="text-sm font-semibold text-rl-text truncate">{dep.name}</span>
@@ -530,10 +565,12 @@ function SquadDepartmentsModal({ squad, teamMembers, onSave, onClose, saving }) 
                   className="input-field flex-1 text-sm"
                 >
                   <option value="">— Não atribuído —</option>
+                  {inativo && <option value={value}>{inativo.nome} ({inativo.motivo})</option>}
                   {sortedMembers.map((m) => (
                     <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
+                {inativo && <SeloInativo motivo={inativo.motivo} />}
                 {noClickup && (
                   <span title="Esse usuário ainda não tem ClickUp ID vinculado" className="text-[10px] text-rl-gold font-semibold whitespace-nowrap">
                     ⚠ sem ClickUp
@@ -600,6 +637,8 @@ export default function UserManagement() {
   }, [])
 
   useEffect(() => { loadUsers() }, [loadUsers])
+  // todos os perfis (ativos e desativados): dá nome a quem segue numa equipe depois de desativado
+  const perfis = useMemo(() => new Map(users.map((u) => [u.id, u])), [users])
 
   // Carrega lista de membros do ClickUp sob demanda na primeira vez que
   // um modal de edição for aberto (cache no estado do componente).
@@ -960,8 +999,13 @@ export default function UserManagement() {
                     const colors   = SQUAD_COLORS[idx % SQUAD_COLORS.length]
                     const members  = (sq.members || []).map((m) => {
                       const profile = teamMembers.find((t) => t.id === m.profile_id)
-                      return { name: profile?.name || m.profile_id, role: m.role, avatar: profile?.avatar }
+                      if (profile) return { id: m.profile_id, name: profile.name, role: m.role, avatar: profile.avatar }
+                      const info = rotuloInativo(perfis, m.profile_id)
+                      return { id: m.profile_id, name: info.nome, role: m.role, inativo: info.motivo }
                     })
+                    const asg = sq.department_assignments || sq.departmentAssignments || {}
+                    const depsInativos = Object.entries(asg).filter(([, id]) => id && !teamMembers.some((t) => t.id === id)).map(([d]) => d)
+                    const ativos = members.filter((m) => !m.inativo).length
                     return (
                       <div key={sq.id} className={`glass-card p-5 border ${colors.border} space-y-4`}>
                         {/* Header do card */}
@@ -972,7 +1016,7 @@ export default function UserManagement() {
                             </div>
                             <div>
                               <p className={`font-bold text-sm ${colors.text}`}>{sq.name}</p>
-                              <p className="text-xs text-rl-muted">{members.length} membro{members.length !== 1 ? 's' : ''}</p>
+                              <p className="text-xs text-rl-muted">{ativos} membro{ativos !== 1 ? 's' : ''}{members.length > ativos ? ` · ${members.length - ativos} inativo${members.length - ativos !== 1 ? 's' : ''}` : ''}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
@@ -1007,15 +1051,22 @@ export default function UserManagement() {
                         {members.length > 0 && (
                           <div className="flex flex-wrap gap-2">
                             {members.map((m) => (
-                              <div key={m.name} className="flex items-center gap-1.5">
-                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${colors.bg} ${colors.text}`}>
-                                  {m.avatar || (m.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase())}
+                              <div key={m.id} className={`flex items-center gap-1.5 ${m.inativo ? 'opacity-70' : ''}`}>
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${m.inativo ? 'bg-rl-surface text-rl-muted' : `${colors.bg} ${colors.text}`}`}>
+                                  {m.avatar || initials(m.name)}
                                 </div>
-                                <span className="text-xs text-rl-text">{m.name}</span>
+                                <span className={`text-xs ${m.inativo ? 'text-rl-muted line-through' : 'text-rl-text'}`}>{m.name}</span>
+                                {m.inativo && <SeloInativo motivo={m.inativo} />}
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>{m.role}</span>
                               </div>
                             ))}
                           </div>
+                        )}
+
+                        {depsInativos.length > 0 && (
+                          <button type="button" onClick={() => setDepartmentSquadTarget(sq)} className="w-full text-left text-[11px] text-red-400 px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 transition-all">
+                            Departamento{depsInativos.length > 1 ? 's' : ''} com pessoa inativa: {depsInativos.join(', ')}. Tarefas desses departamentos ficam sem responsável até trocar. Clique para ajustar.
+                          </button>
                         )}
                       </div>
                     )
@@ -1075,6 +1126,7 @@ export default function UserManagement() {
         <SquadFormModal
           initial={null}
           teamMembers={teamMembers}
+          perfis={perfis}
           onSave={handleCreateSquad}
           onClose={() => setShowCreateSquad(false)}
           saving={savingSquad}
@@ -1084,6 +1136,7 @@ export default function UserManagement() {
         <SquadFormModal
           initial={editSquadTarget}
           teamMembers={teamMembers}
+          perfis={perfis}
           onSave={handleUpdateSquad}
           onClose={() => setEditSquadTarget(null)}
           saving={savingSquad}
@@ -1101,6 +1154,7 @@ export default function UserManagement() {
         <SquadDepartmentsModal
           squad={departmentSquadTarget}
           teamMembers={teamMembers}
+          perfis={perfis}
           onSave={handleUpdateSquadDepartments}
           onClose={() => setDepartmentSquadTarget(null)}
           saving={savingSquad}

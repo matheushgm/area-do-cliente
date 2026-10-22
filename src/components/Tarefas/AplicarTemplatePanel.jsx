@@ -28,7 +28,8 @@ export default function AplicarTemplatePanel({ template, pastas, listas, projeto
   const cliente = nomeProjeto(projeto) || pasta?.nome || ''
   const itens = useMemo(() => itensDoTemplate(template), [template])
   const usuarioClienteId = useMemo(() => perfilDoUsuarioCliente([...membrosMap.values()]), [membrosMap])
-  const plano = useMemo(() => planejarAplicacao(itens, { dataInicio, squad, cliente, usuarioClienteId }), [itens, dataInicio, squad, cliente, usuarioClienteId])
+  const ativos = useMemo(() => new Set(membrosMap.keys()), [membrosMap]) // membrosMap = só perfis ativos
+  const plano = useMemo(() => planejarAplicacao(itens, { dataInicio, squad, cliente, usuarioClienteId, ativos }), [itens, dataInicio, squad, cliente, usuarioClienteId, ativos])
   const avisos = plano.filter((l) => l.aviso).length
   const pronto = !!listaId && !!dataInicio && plano.length > 0 && !aplicando
 
