@@ -1261,7 +1261,7 @@ const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:
                 tab:'resultados', sub:0, drillSub:0, drillCampaign:null, drillAdset:null, drillAdsetName:null,
                 weekly:null, _charts:[], termsCache:{}, adsCache:{}, pagesCache:{}, kwCache:{}, kwSit:'POS', kwMatch:'', kwQ:'', kwPage:0,
                 termsSort:{key:'clicks',dir:'desc'}, termsPage:0,
-                pagesSort:{key:'spend',dir:'desc'}, pagesPage:0, mpagesSort:{key:'spend',dir:'desc'}, metaLinks:{},
+                pagesSort:{key:'spend',dir:'desc'}, pagesPage:0, bench:{ canal:'meta', dias:30, sort:{key:'spend',dir:'desc'}, cache:{}, err:null }, mpagesSort:{key:'spend',dir:'desc'}, metaLinks:{},
                 // ordenação por coluna das tabelas de campanha/conjunto/anúncio/grupo:
                 // { [idDaTabela]: {key,dir} } (sem entrada = ordem natural). Ver tblSorted.
                 tblSort:{},
@@ -1680,7 +1680,7 @@ function saveNav() {
 function restoreNav() {
   try {
     const s = JSON.parse(localStorage.getItem(NAV_KEY) || 'null'); if (!s) return
-    if (s.channel) state.channel = s.channel
+    if (s.channel && s.channel !== 'benchmark') state.channel = s.channel
     if (s.days != null) state.days = s.days
     state.from = s.from || ''; state.to = s.to || ''; state.search = s.search || ''; state.squad = s.squad || ''
     state.view = ['padrao','diagnostico','escala','queda-ctr','queda-taxa','pace'].includes(s.view) ? s.view : 'padrao'
@@ -2249,12 +2249,23 @@ function dpWire() {
 // Repinta ao trocar o tema: os gráficos já desenhados guardam as cores antigas.
 window.addEventListener('tema-mudou', () => { try { render() } catch (e) { /* ainda sem dados */ } })
 
+// Abas do topo da lista. "Benchmark" (comparação interna entre os clientes) é de uso
+// do time: some no link do cliente e no modo embutido.
+function tabsHTML(nMeta, nGoogle) {
+  return `<div class="tabs">
+      <div class="tab ${!state.channel?'active':''}" data-ch="">${em('🗂️')} Todos <span class="badge" data-badge="all">${nMeta + nGoogle}</span></div>
+      <div class="tab ${state.channel==='meta'?'active':''}" data-ch="meta">${chIco('meta')} Meta Ads <span class="badge" data-badge="meta">${nMeta}</span></div>
+      <div class="tab ${state.channel==='google'?'active':''}" data-ch="google">${chIco('google')} Google Ads <span class="badge" data-badge="google">${nGoogle}</span></div>
+      ${SHARED || EMBED ? '' : `<div class="tab ${state.channel==='benchmark'?'active':''}" data-ch="benchmark">${em('📊')} Benchmark</div>`}
+    </div>`
+}
 function render() {
   destroyCharts()
   tipClose()
   if (state.openClient) return renderClient()
   setNewLook(newLookFor())
   saveNav()
+  if (state.channel === 'benchmark' && !SHARED && !EMBED) return renderBenchmark()
   const d = listData()
   const { P, channels, stMeta, stGoogle } = d
   const vCounts = SHARED ? {} : viewCounts(channels, P)
@@ -2266,11 +2277,7 @@ function render() {
         ${!state.syncTs ? '' : `<span class="last-sync" title="Horário em que a coleta escreveu estes dados no banco. Ela roda de hora em hora; o botão ao lado dispara uma rodada na hora.">${em('🕒')} Atualizado em ${syncQuando(state.syncTs)}</span>`}
         <button class="btn" id="reload">${em('⟳')} Atualizar</button></div>
     </div>
-    <div class="tabs">
-      <div class="tab ${!state.channel?'active':''}" data-ch="">${em('🗂️')} Todos <span class="badge" data-badge="all">${stMeta.length + stGoogle.length}</span></div>
-      <div class="tab ${state.channel==='meta'?'active':''}" data-ch="meta">${chIco('meta')} Meta Ads <span class="badge" data-badge="meta">${stMeta.length}</span></div>
-      <div class="tab ${state.channel==='google'?'active':''}" data-ch="google">${chIco('google')} Google Ads <span class="badge" data-badge="google">${stGoogle.length}</span></div>
-    </div>
+    ${tabsHTML(stMeta.length, stGoogle.length)}
     <div class="filter-bar">
       ${SHARED ? '' : `<div class="bwrap">${viewMenuHTML(vCounts)}</div>`}
       <div class="dp">${dpTriggerHTML()}${state.dpOpen?`<div class="dp-pop" id="dpPop" role="dialog" aria-label="Selecionar período">${dpPopHTML()}</div>`:''}</div>
@@ -4148,6 +4155,120 @@ function tblGooglePages(rows){
   const pager = `<div class="terms-pager">
     <span>${from}–${to} de ${total}</span>${pgBtn('prev','‹',page===0)}${pgBtn('next','›',page>=pages-1)}</div>`
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>${total>PAGES_PER_PAGE?pager:''}`
+}
+// ─── BENCHMARK interno ───────────────────────────────────────────────────────
+// Compara os clientes que estamos tocando: custo do lead, custo por mensagem, custo
+// por MQL, taxas de avanço do funil e taxa de conversão, nos últimos N dias fechados.
+// Dados de /api/dash-benchmark (RPC dash_benchmark: soma por conta, SEM campanhas de
+// topo, porque CPL e conversão só se julgam em fundo e meio). Contas ocultas e com
+// menos de BENCH_MIN_GASTO no período ficam de fora; métrica sem volume mínimo vira "—".
+const BENCH_MIN_GASTO = 300
+// Cada métrica = n ÷ d × mult, só quando a conta tem volume (ok). A média ponderada
+// soma n e d apenas das contas que valem para aquela métrica.
+// Custo do lead / por mensagem: o evento precisa ser pelo menos 20% das conversões da
+// conta; sem isso, uma conta de WhatsApp com 5 leads soltos viraria "CPL de R$ 800".
+const benchShare = (x, campo) => x.conv > 0 && x[campo] / x.conv >= 0.2
+const BENCH_METRICS = {
+  meta: [
+    { k:'cpl',   label:'Custo do lead',       tip:'Gasto ÷ leads (formulário e site). Só contas em que leads são 20%+ das conversões; mín. 5 leads.', low:true,  fmt:fmtMoney,  mult:1,   n:x=>x.spend, d:x=>x.leads, ok:x=>x.leads>=5 && benchShare(x,'leads') },
+    { k:'cpmsg', label:'Custo por mensagem',  tip:'Gasto ÷ conversas iniciadas no WhatsApp. Só contas em que conversas são 20%+ das conversões; mín. 5.', low:true,  fmt:fmtMoney,  mult:1,   n:x=>x.spend, d:x=>x.msgs,  ok:x=>x.msgs>=5 && benchShare(x,'msgs') },
+    { k:'cpmql', label:'Custo por MQL',       tip:'Gasto ÷ MQL. Só contas que rastreiam MQL; mín. 3.',                                                  low:true,  fmt:fmtMoney,  mult:1,   n:x=>x.spend, d:x=>x.mql,   ok:x=>x.mql>=3 },
+    { k:'conexao', label:'Clique → visita',   tip:'Taxa de avanço: visitas à página ÷ cliques no link. Baixa = página lenta ou clique acidental. Só contas com visita rastreada.', low:false, fmt:fmtPctVal, mult:100, n:x=>x.lpv, d:x=>x.clicks, ok:x=>x.lpv>0 && x.clicks>=30 },
+    { k:'avanco', label:'Conversão → MQL',    tip:'Taxa de avanço: MQL ÷ conversões. Só contas que rastreiam MQL.',                                     low:false, fmt:fmtPctVal, mult:100, n:x=>x.mql, d:x=>x.conv,   ok:x=>x.mql>=3 && x.conv>=5 },
+    { k:'tx',    label:'Taxa de conversão',   tip:'Conversões ÷ cliques no link.',                                                                      low:false, fmt:fmtPctVal, mult:100, n:x=>x.conv, d:x=>x.clicks, ok:x=>x.clicks>=30 },
+    { k:'txlp',  label:'Conversão da página', tip:'Conversões ÷ visitas à página de destino. Só contas com visita rastreada.',                          low:false, fmt:fmtPctVal, mult:100, n:x=>x.conv, d:x=>x.lpv,    ok:x=>x.lpv>=30 },
+  ],
+  google: [
+    { k:'cpl',   label:'Custo por conversão', tip:'Gasto ÷ conversões. Mín. 5 conversões.', low:true,  fmt:fmtMoney,  mult:1,   n:x=>x.spend,  d:x=>x.conv,   ok:x=>x.conv>=5 },
+    { k:'cpc',   label:'CPC médio',           tip:'Gasto ÷ cliques.',                       low:true,  fmt:fmtMoney,  mult:1,   n:x=>x.spend,  d:x=>x.clicks, ok:x=>x.clicks>=30 },
+    { k:'ctr',   label:'CTR',                 tip:'Cliques ÷ impressões.',                  low:false, fmt:fmtPctVal, mult:100, n:x=>x.clicks, d:x=>x.impr,   ok:x=>x.impr>=1000 },
+    { k:'tx',    label:'Taxa de conversão',   tip:'Conversões ÷ cliques.',                  low:false, fmt:fmtPctVal, mult:100, n:x=>x.conv,   d:x=>x.clicks, ok:x=>x.clicks>=30 },
+  ],
+}
+const benchVal = (mt, x) => (mt.ok(x) && mt.d(x) > 0) ? mt.n(x) / mt.d(x) * mt.mult : null
+const benchMediana = a => { const v=a.filter(n=>n!=null).sort((x,y)=>x-y); if(!v.length) return null; const m=v.length>>1; return v.length%2?v[m]:(v[m-1]+v[m])/2 }
+// Cor da célula contra a mediana: custo menor é melhor, taxa maior é melhor.
+function benchCls(v, med, low){
+  if (v==null || med==null || med===0) return ''
+  const r = v / med
+  if (low) return r <= 1 ? 'good' : r <= 1.5 ? 'warn' : 'crit'
+  return r >= 1 ? 'good' : r >= 0.5 ? 'warn' : 'crit'
+}
+function benchHTML(){
+  const B = state.bench, data = B.cache[B.dias]
+  const barra = `<div class="filter-bar" style="margin:0 0 12px;gap:8px;flex-wrap:wrap">
+    ${[['meta','Meta Ads'],['google','Google Ads']].map(([c,l])=>`<button class="btn${B.canal===c?' active':''}" data-bcanal="${c}" style="${B.canal===c?'font-weight:700':''}">${l}</button>`).join('')}
+    <span style="opacity:.5">·</span>
+    ${[7,15,30,60,90].map(d=>`<button class="btn${B.dias===d?' active':''}" data-bdias="${d}" style="${B.dias===d?'font-weight:700':''}">${d} dias</button>`).join('')}</div>`
+  if (B.err) return barra + `<div class="empty">Erro ao carregar o benchmark: ${esc(B.err)}</div>`
+  if (!data) return barra + `<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><p>Calculando o benchmark dos últimos ${B.dias} dias…</p></div>`
+  const metrics = BENCH_METRICS[B.canal]
+  const rows = (data[B.canal] || []).filter(x => !isHidden(x.account) && x.spend >= BENCH_MIN_GASTO)
+    .map(x => ({ ...x, nome: clientNameOf(x.account), m: Object.fromEntries(metrics.map(mt => [mt.k, benchVal(mt, x)])) }))
+  if (!rows.length) return barra + `<div class="empty">Nenhum cliente com gasto relevante neste período.</div>`
+  // Média ponderada: soma n e d só das contas que valem para a métrica
+  const ponderada = mt => { const v = rows.filter(x=>x.m[mt.k]!=null); const d = v.reduce((a,x)=>a+mt.d(x),0)
+    return d>0 ? v.reduce((a,x)=>a+mt.n(x),0)/d*mt.mult : null }
+  const meds = Object.fromEntries(metrics.map(mt => [mt.k, benchMediana(rows.map(x=>x.m[mt.k]))]))
+  const ext = mt => { const v = rows.filter(x=>x.m[mt.k]!=null).sort((a,b)=>a.m[mt.k]-b.m[mt.k]); if(!v.length) return {}
+    return mt.low ? { best:v[0], worst:v[v.length-1], n:v.length } : { best:v[v.length-1], worst:v[0], n:v.length } }
+  const exts = Object.fromEntries(metrics.map(mt => [mt.k, ext(mt)]))
+  const cel = (txt, tit) => `<td title="${esc(tit||'')}">${txt}</td>`
+  const ref = `<div class="dt-wrap"><table><thead><tr><th>Referência (${rows.length} clientes)</th>${metrics.map(mt=>`<th title="${esc(mt.tip)}">${mt.label}</th>`).join('')}</tr></thead><tbody>
+    <tr><td><b>Mediana</b></td>${metrics.map(mt=>`<td><b>${meds[mt.k]!=null?mt.fmt(meds[mt.k]):'—'}</b></td>`).join('')}</tr>
+    <tr><td>Média ponderada <span style="opacity:.6">(soma de todos)</span></td>${metrics.map(mt=>{ const v = ponderada(mt); return `<td>${v!=null?mt.fmt(v):'—'}</td>` }).join('')}</tr>
+    <tr><td>Melhor</td>${metrics.map(mt=>{ const e=exts[mt.k]; return e.best?cel(`<span class="good">${mt.fmt(e.best.m[mt.k])}</span> <span style="opacity:.6;font-size:11px">${esc(e.best.nome)}</span>`):'<td>—</td>' }).join('')}</tr>
+    <tr><td>Pior</td>${metrics.map(mt=>{ const e=exts[mt.k]; return e.worst&&e.n>1?cel(`<span class="crit">${mt.fmt(e.worst.m[mt.k])}</span> <span style="opacity:.6;font-size:11px">${esc(e.worst.nome)}</span>`):'<td>—</td>' }).join('')}</tr>
+    <tr><td style="opacity:.7">Clientes com dado</td>${metrics.map(mt=>`<td style="opacity:.7">${exts[mt.k].n||0}</td>`).join('')}</tr></tbody></table></div>`
+  const { key, dir } = B.sort, sg = dir==='asc'?1:-1
+  const val = x => key==='nome' ? x.nome : key==='spend' ? x.spend : x.m[key]
+  rows.sort((a,b)=>{ const av=val(a), bv=val(b)
+    if (key==='nome') return sg*String(av).localeCompare(String(bv),'pt-BR')
+    if (av==null && bv==null) return 0; if (av==null) return 1; if (bv==null) return -1
+    return sg*(av-bv) })
+  const th = (k,label,tip) => `<th class="th-sort" data-bsort="${k}" title="${esc(tip||'')}" style="cursor:pointer;user-select:none;white-space:nowrap">${label}${key===k?(dir==='asc'?' ▲':' ▼'):''}</th>`
+  const lista = `<div class="dt-wrap"><table><thead><tr>${th('nome','Cliente')}${th('spend','Gasto')}${metrics.map(mt=>th(mt.k,mt.label,mt.tip)).join('')}</tr></thead><tbody>
+    ${rows.map(x=>`<tr><td class="ad-name" title="${esc(x.account)}">${esc(x.nome)}</td><td>${fmtMoney(x.spend)}</td>${metrics.map(mt=>{ const v=x.m[mt.k]; return `<td class="${benchCls(v,meds[mt.k],mt.low)}">${v!=null?mt.fmt(v):'<span class="fl">—</span>'}</td>` }).join('')}</tr>`).join('')}
+    </tbody></table></div>`
+  const nota = `<div style="margin:2px 2px 0;font-size:11.5px;opacity:.7">Últimos ${B.dias} dias fechados (até ontem), só campanhas de fundo e meio. Clientes com menos de ${fmtMoney(BENCH_MIN_GASTO)} no período e contas ocultas ficam de fora; cada métrica só entra com volume mínimo (passe o mouse no título da coluna para ver a regra). Verde = melhor ou igual à mediana; vermelho = pelo menos 50% pior.${B.canal==='meta'?' MQL só existe nas contas que rastreiam o evento.':''}</div>`
+  return barra + ref + lista + nota
+}
+async function loadBenchmark(){
+  const B = state.bench
+  if (B.cache[B.dias]) return
+  const token = supabaseToken()
+  if (!token) { B.err = 'faça login para ver o benchmark'; return }
+  try {
+    const r = await fetch(`/api/dash-benchmark?dias=${B.dias}`, { headers:{ Authorization:`Bearer ${token}` } })
+    if (!r.ok) { let m=''; try { m=(await r.json()).error?.message||'' } catch(e){}; throw new Error(m||`HTTP ${r.status}`) }
+    B.cache[B.dias] = await r.json(); B.err = null
+  } catch (e) { B.err = e.message }
+}
+function renderBenchmark(){
+  const ch0 = state.channel; state.channel = ''
+  let d; try { d = listData() } finally { state.channel = ch0 }
+  app.innerHTML = `
+    <div class="header">
+      <div class="header-left"><h1>Dashboard Tráfego</h1></div>
+      <div class="header-right">
+        ${!state.syncTs ? '' : `<span class="last-sync">${em('🕒')} Atualizado em ${syncQuando(state.syncTs)}</span>`}
+        <button class="btn" id="reload">${em('⟳')} Atualizar</button></div>
+    </div>
+    ${tabsHTML(d.stMeta.length, d.stGoogle.length)}
+    <div class="tab-panel" id="benchPanel"></div>`
+  wire()
+  const draw = () => {
+    const el = document.getElementById('benchPanel'); if (!el) return
+    el.innerHTML = benchHTML()
+    el.querySelectorAll('[data-bcanal]').forEach(b => b.onclick = () => { state.bench.canal = b.dataset.bcanal; state.bench.sort = { key:'spend', dir:'desc' }; draw() })
+    el.querySelectorAll('[data-bdias]').forEach(b => b.onclick = async () => { state.bench.dias = Number(b.dataset.bdias); state.bench.err = null; draw(); await loadBenchmark(); draw() })
+    el.querySelectorAll('[data-bsort]').forEach(th => th.onclick = () => {
+      const k = th.dataset.bsort, s = state.bench.sort
+      state.bench.sort = s.key===k ? { key:k, dir:s.dir==='asc'?'desc':'asc' } : { key:k, dir:k==='nome'?'asc':'desc' }
+      draw() })
+  }
+  draw()
+  loadBenchmark().then(draw)
 }
 // ─── LANDING PAGES do Meta ───────────────────────────────────────────────────
 // O dash_insights só guarda o TIPO de destino; o link está no criativo. O painel
