@@ -765,7 +765,7 @@ import {
 } from './vendor/dashboardData.js'
 // Motor de otimizações: o MESMO da Central de Otimizações (cópia gerada de
 // src/lib/playbookSugestoes.js por scripts/sync-playbook-vendor.mjs).
-import { gerarSugestoesConta, metasDaConta, janelaAnalise, pendente, hojeSP, PRIORIDADE_LABEL } from './vendor/playbookSugestoes.js'
+import { gerarSugestoesConta, metasDaConta, janelaAnalise, pendente, hojeSP, PRIORIDADE_LABEL, tituloConta, tituloSemConta, tituloLocal } from './vendor/playbookSugestoes.js'
 
 // ─── Fonte de dados ──────────────────────────────────────────────────────────
 // Em produção (dentro da Área do Cliente): busca pelo endpoint AUTENTICADO
@@ -4698,12 +4698,16 @@ function otmItemHTML(s, u, pode) {
     : `<div class="otm-acoes"><button class="otm-btn ok" data-otm-aceitar="${esc(s.chave)}"${busy ? ' disabled' : ''} title="Cria a atividade no ClickUp do cliente e coloca a otimização na fila da automação">${busy === 'aceita' ? 'Criando a atividade…' : 'Aceitar'}</button>
         <button class="otm-btn ghost" data-otm-recusar="${esc(s.chave)}"${busy ? ' disabled' : ''}>Recusar</button></div>`
   return `<div class="otm-item otm-p-${esc(s.prioridade)}">
-    <div class="otm-top"><span class="otm-pri">${esc(PRIORIDADE_LABEL[s.prioridade] || s.prioridade)}</span><span class="otm-tit">${esc(s.titulo)}</span></div>
-    ${s.acao ? `<div class="otm-acao"><b>Otimização:</b> ${esc(s.acao)}</div>` : ''}
+    <div class="otm-top"><span class="otm-pri">${esc(PRIORIDADE_LABEL[s.prioridade] || s.prioridade)}</span><span class="otm-tit">${otmTitulo(s)}</span></div>
     ${(cam || link) ? `<div class="otm-cam">${cam}${cam && link ? ' · ' : ''}${link}</div>` : ''}
     <button class="otm-more" data-otm-abrir="${esc(s.chave)}">${aberta ? 'Esconder detalhes' : 'Ver o porquê, os passos e a regra'}</button>
     ${detalhes}${acoes}
   </div>`
+}
+
+function otmTitulo(s) {
+  const loc = tituloLocal(s)
+  return `<span class="otm-l"><b>Conta:</b> ${esc(tituloConta(s))}</span><span class="otm-l"><b>O que fazer:</b> ${esc(s.acao || tituloSemConta(s))}</span>${loc ? `<span class="otm-l"><b>Local:</b> ${esc(loc)}</span>` : ''}`
 }
 
 function otmDecididaHTML(d, u, pode) {
@@ -4717,9 +4721,8 @@ function otmDecididaHTML(d, u, pode) {
     : `<div class="otm-exec bad">Sem tarefa no ClickUp${d.execucao_log?.erro_tarefa ? ': ' + esc(d.execucao_log.erro_tarefa) : ''}</div>${pode ? `<button class="otm-btn ghost" data-otm-tarefa="${esc(d.id)}"${u.busy[d.chave] ? ' disabled' : ''}>${u.busy[d.chave] === 'tarefa' ? 'Criando…' : 'Criar tarefa no ClickUp'}</button>` : ''}`
   const reabrir = pode && d.execucao_status !== 'executada' ? `<button class="otm-more" data-otm-reabrir="${esc(d.id)}"${u.busy[d.chave] ? ' disabled' : ''} title="Apaga a decisão: a sugestão volta a aparecer se a regra ainda valer">Reabrir</button>` : ''
   return `<div class="otm-item otm-dec">
-    <div class="otm-top"><span class="otm-st ${cls}">${esc(lab)}</span><span class="otm-tit">${esc(d.titulo || d.chave)}</span></div>
+    <div class="otm-top"><span class="otm-st ${cls}">${esc(lab)}</span><span class="otm-tit">${otmTitulo({ ...d, caminho: c, titulo: d.titulo || d.chave })}</span></div>
     <div class="otm-quando">${esc(otmDataHora(d.decidida_em || d.created_at))}${d.decidida_por ? ' · ' + esc(d.decidida_por) : ''}</div>
-    ${d.acao ? `<div class="otm-acao"><b>Otimização:</b> ${esc(d.acao)}</div>` : ''}
     ${cam ? `<div class="otm-cam">${cam}</div>` : ''}
     ${d.motivo ? `<div class="otm-por"><b>Motivo:</b> ${esc(d.motivo)}</div>` : ''}
     ${exec}${tarefa}${reabrir}

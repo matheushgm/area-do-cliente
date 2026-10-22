@@ -839,3 +839,21 @@ export function pendente(st, hoje) {
   if (st.status === 'aceita' || st.status === 'recusada') return false
   return !!(st.valida_ate && st.valida_ate < hoje)
 }
+
+// ── Título do cartão em 3 linhas: Conta / O que fazer / Local ──────────────────
+// A conta vem do campo `conta` ou, quando o projeto tem uma só, do prefixo "[Conta] " do título.
+export function tituloConta(s) {
+  return s.conta || s.titulo?.match(/^\[(.+?)\]\s/)?.[1] || '-'
+}
+export function tituloSemConta(s) {
+  return (s.titulo || '').replace(/^\[.+?\]\s/, '')
+}
+// Nível mais específico que a regra conhece: anúncio > conjunto > campanha (rótulo + nome).
+export function tituloLocal(s) {
+  const c = s.caminho
+  if (!c) return ''
+  if (c.anuncio) return `Anúncio ${c.anuncio}`
+  if (c.conjunto) return `Conjunto ${c.conjunto}`
+  if (c.campanha) return `Campanha ${c.campanha}`
+  return ''
+}

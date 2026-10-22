@@ -7,12 +7,12 @@ import { useState, useMemo } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import {
   Menu, Sparkles, Check, X, ChevronDown, ChevronRight, ExternalLink, Loader2, RefreshCw,
-  AlertTriangle, RotateCcw, Search, Wrench, History, Inbox, Bot, Clock, CheckCircle2, XCircle,
+  AlertTriangle, RotateCcw, Search, History, Inbox, Bot, Clock, CheckCircle2, XCircle,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { useSugestoesGlobais } from '../hooks/useSugestoesGlobais'
-import { PRIORIDADE_LABEL, PRIORIDADE_ORDEM, janelaAnalise } from '../lib/playbookSugestoes'
+import { PRIORIDADE_LABEL, PRIORIDADE_ORDEM, janelaAnalise, tituloConta, tituloSemConta, tituloLocal } from '../lib/playbookSugestoes'
 import { Caminho } from '../components/ProjetoHub/SugestoesPlaybook'
 import { aceitarComTarefa, criarTarefaDaSugestao } from '../lib/aceitarSugestao'
 import { fmtBR } from '../lib/dashboardData'
@@ -91,13 +91,11 @@ function Sugestao({ s, onAceitar, onRecusar }) {
             {s.conta && <span className="text-[11px] text-rl-muted truncate max-w-[45vw] sm:max-w-none">· {s.conta}</span>}
             <span className="text-[11px] text-rl-muted hidden sm:inline">· {s.tipo}</span>
           </div>
-          <p className="text-sm font-semibold text-rl-text leading-snug [overflow-wrap:anywhere]">{s.titulo}</p>
-          {s.acao && (
-            <p className="text-xs text-rl-text mt-1.5 flex items-start gap-1.5">
-              <Wrench className="w-3.5 h-3.5 text-rl-purple shrink-0 mt-px" />
-              <span><span className="font-semibold">Otimização:</span> {s.acao}</span>
-            </p>
-          )}
+          <dl className="text-sm text-rl-text leading-snug space-y-0.5 [overflow-wrap:anywhere]">
+            <div><dt className="inline font-semibold">Conta: </dt><dd className="inline">{tituloConta(s)}</dd></div>
+            <div><dt className="inline font-semibold">O que fazer: </dt><dd className="inline">{s.acao || tituloSemConta(s)}</dd></div>
+            {tituloLocal(s) && <div><dt className="inline font-semibold">Local: </dt><dd className="inline">{tituloLocal(s)}</dd></div>}
+          </dl>
           <Caminho caminho={s.caminho} />
           <p className="text-xs text-rl-subtle mt-1.5 [overflow-wrap:anywhere]"><span className="font-semibold text-rl-text">Por quê:</span> {s.contexto}</p>
           {s.evidencias?.length > 0 && (

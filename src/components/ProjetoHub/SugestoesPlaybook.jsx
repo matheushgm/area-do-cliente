@@ -2,8 +2,8 @@
 // dados do dashboard (últimos 7 dias vs. 7 anteriores). Aceitar abre o modal
 // que cria a tarefa no ClickUp; descartar esconde por 14 dias.
 import { useState, useMemo } from 'react'
-import { Sparkles, Check, X, ChevronDown, ChevronRight, ExternalLink, Loader2, RefreshCw, AlertTriangle, RotateCcw, Kanban, Wrench, MapPin } from 'lucide-react'
-import { PRIORIDADE_LABEL, janelaAnalise } from '../../lib/playbookSugestoes'
+import { Sparkles, Check, X, ChevronDown, ChevronRight, ExternalLink, Loader2, RefreshCw, AlertTriangle, RotateCcw, Kanban, MapPin } from 'lucide-react'
+import { PRIORIDADE_LABEL, janelaAnalise, tituloConta, tituloSemConta, tituloLocal } from '../../lib/playbookSugestoes'
 import { fmtBR } from '../../lib/dashboardData'
 
 const PRI_CLS = {
@@ -76,13 +76,11 @@ function Sugestao({ s, onAceitar, onDescartar }) {
             <span className="text-[11px] text-rl-muted">{CANAL_LABEL[s.canal] || s.canal}</span>
             <span className="text-[11px] text-rl-muted">· {s.tipo}</span>
           </div>
-          <p className="text-sm font-semibold text-rl-text leading-snug [overflow-wrap:anywhere]">{s.titulo}</p>
-          {s.acao && (
-            <p className="text-xs text-rl-text mt-1.5 flex items-start gap-1.5">
-              <Wrench className="w-3.5 h-3.5 text-rl-purple shrink-0 mt-px" />
-              <span><span className="font-semibold">Otimização:</span> {s.acao}</span>
-            </p>
-          )}
+          <dl className="text-sm text-rl-text leading-snug space-y-0.5 [overflow-wrap:anywhere]">
+            <div><dt className="inline font-semibold">Conta: </dt><dd className="inline">{tituloConta(s)}</dd></div>
+            <div><dt className="inline font-semibold">O que fazer: </dt><dd className="inline">{s.acao || tituloSemConta(s)}</dd></div>
+            {tituloLocal(s) && <div><dt className="inline font-semibold">Local: </dt><dd className="inline">{tituloLocal(s)}</dd></div>}
+          </dl>
           <Caminho caminho={s.caminho} />
           <p className="text-xs text-rl-subtle mt-1.5">{s.contexto}</p>
           {s.evidencias?.length > 0 && (
