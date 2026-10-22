@@ -48,6 +48,10 @@
     padding:7px 20px; border-bottom:1px solid rgb(var(--rl-border)); display:flex; gap:10px; align-items:center; }
   .api-banner b { color:rgb(var(--rl-purple)); }
   body.embed .api-banner { display:none; }
+  /* Lista embutida (Modo Apresentação): só título, abas e período; sem os menus de operação */
+  body.embed-lista .header-left h1, body.embed-lista .last-sync, body.embed-lista #reload { display:none; }
+  body.embed-lista .filter-bar .bwrap, body.embed-lista .filter-bar .squad-select, body.embed-lista .filter-bar .search-wrap, body.embed-lista .filter-bar #toggle-hidden { display:none; }
+  body.embed-lista .filter-bar .dp { display:block; }
   body.embed .dt-root.th-fynix .cp-header { padding-top: 10px; }
   .api-dot { width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px #22c55e; }
   /* Modal da mensagem semanal (autocontido) */
@@ -1280,10 +1284,26 @@ const SHARED = _q.get('shared') === '1'
 // ─── Modo EMBUTIDO (página do cliente da Área do Cliente) ─────────────────────
 // ?embed=1&cliente=<conta>&canal=meta|google: mesmo viewer autenticado, travado
 // na conta do projeto, sem "Voltar"/home e sem gravar a navegação do dashboard.
+// ?embed=1&lista=1&contas=[{"canal":"meta","conta":"X"},...]: a LISTA da tela principal
+// (Meta + Google juntos, aba "Todos") restrita às contas do projeto; clicar numa conta
+// abre a página dela e o "Voltar" devolve à lista. Avisa o pai da altura via postMessage.
+const EMBED_LISTA = !SHARED && _q.get('embed') === '1' && _q.get('lista') === '1'
+const EMBED_CONTAS = (() => {
+  if (!EMBED_LISTA) return null
+  try { const a = JSON.parse(_q.get('contas') || '[]'); return Array.isArray(a) ? a.map(x => ({ canal: x.canal === 'google' ? 'google' : 'meta', conta: String(x.conta || '').trim() })) : [] } catch (e) { return [] }
+})()
 const EMBED = !SHARED && _q.get('embed') === '1'
-  ? { client: (_q.get('cliente')||'').trim(), channel: _q.get('canal')==='google'?'google':'meta' }
+  ? { client: (_q.get('cliente')||'').trim(), channel: _q.get('canal')==='google'?'google':'meta', lista: EMBED_LISTA }
   : null
 if (EMBED) document.body.classList.add('embed')
+if (EMBED_LISTA) document.body.classList.add('embed-lista')
+// Só as contas do projeto, por canal (o filtro roda a cada carga, inclusive no "Atualizar")
+const restringeContas = raw => {
+  if (!EMBED_CONTAS) return raw
+  const ok = ch => new Set(EMBED_CONTAS.filter(c => c.canal === ch).map(c => c.conta))
+  const m = ok('meta'), g = ok('google')
+  return { meta: raw.meta.filter(r => m.has((r['Nome da conta']||'').trim())), google: raw.google.filter(r => g.has((r['Nome da conta']||'').trim())) }
+}
 
 const destroyCharts = () => { state._charts.forEach(c=>{ try{ c.destroy() }catch(e){} }); state._charts=[] }
 
@@ -1315,7 +1335,7 @@ async function load(fresh) {
       fetchChannel('meta_status', fresh).catch(() => ''),
       fetchGoogleAds(fresh).catch(() => ''),
       fetchChannel('saldo', fresh).catch(() => ''), fetchAccounts()])
-    state.raw = { meta: applyFormsMql(parseCSV(m)), google: parseCSV(g) }
+    state.raw = restringeContas({ meta: applyFormsMql(parseCSV(m)), google: parseCSV(g) })
     // Dados novos: o cache de linhas cruas por conta também precisa cair, senão
     // a página de cliente continuaria mostrando o que veio antes do sync.
     if (fresh) state.rows = {}
@@ -1334,6 +1354,9 @@ async function load(fresh) {
     if (SHARED) {
       state.channel = SHARED.channel
       state.openClient = { client: SHARED.client, channel: SHARED.channel }
+    } else if (EMBED_LISTA) {
+      state.channel = ''
+      state.view = 'padrao'
     } else if (EMBED) {
       state.channel = EMBED.channel
       state.openClient = { client: EMBED.client, channel: EMBED.channel }
@@ -5449,7 +5472,7 @@ function renderClient() {
 
   app.innerHTML = `
     <div class="cp-header">
-      ${SHARED || EMBED ? '' : `<button class="cp-back" id="cpBack">${ic('back','←')} Voltar</button>`}
+      ${SHARED || (EMBED && !EMBED_LISTA) ? '' : `<button class="cp-back" id="cpBack">${ic('back','←')} Voltar</button>`}
       <div class="cp-client-name">${esc(client)}</div>
       <div class="cp-badges">
         <span class="cp-channel-badge">${chIco(isMeta?'meta':'google')} ${isMeta?'Meta Ads':'Google Ads'}</span>
@@ -5792,6 +5815,16 @@ function wirePanel() {
   app.querySelectorAll('tr[data-client]').forEach(tr=>tr.querySelector('.client-link').onclick=()=>openClient(tr.dataset.client, tr.dataset.ch))
   // Mobile: o card inteiro é a área de toque (o olho de ocultar já faz stopPropagation).
   app.querySelectorAll('.m-card[data-client]').forEach(c=>c.onclick=()=>openClient(c.dataset.client, c.dataset.ch))
+}
+
+// Lista embutida: conta a altura do conteúdo pro iframe do pai caber sem barra interna
+if (EMBED_LISTA && window.parent !== window) {
+  let ultima = 0
+  const avisa = () => {
+    const h = Math.ceil(app.getBoundingClientRect().height) + 8
+    if (h && h !== ultima) { ultima = h; window.parent.postMessage({ type: 'rl-embed-lista-h', h }, location.origin) }
+  }
+  new ResizeObserver(avisa).observe(app)
 }
 
 load()

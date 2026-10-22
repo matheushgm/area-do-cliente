@@ -2,7 +2,7 @@
 //   1. Resultados: o dashboard de tráfego (API) travado na conta do cliente
 //   2. Otimizações: o que mudou no gerenciador, em linguagem de leigo
 //   3. Tarefas: o que foi entregue, o que vem aí e o que depende do cliente
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import {
   X, BarChart3, Wrench, ListChecks, Wallet, PauseCircle, ImagePlus, Users, Layers,
   Plus, Loader2, CheckCircle2, AlertTriangle, CalendarDays, UserRound, ChevronLeft, ChevronRight, Hand,
@@ -71,6 +71,34 @@ function usePeriodo(inicial = '7') {
     return { de: de || addDays(hojeISO(), -6), ate: ate || hojeISO() }
   }, [periodo, de, ate])
   return { periodo, setPeriodo, de, setDe, ate, setAte, faixa }
+}
+
+// ── Tela 1: visão geral (a lista da tela principal do dashboard, só com as contas do cliente)
+function VisaoGeralContas({ contas, loading }) {
+  const ref = useRef(null)
+  const [altura, setAltura] = useState(360)
+  const src = useMemo(() => `/dash-teste/viewer.html?embed=1&lista=1&contas=${encodeURIComponent(JSON.stringify(contas))}`, [contas])
+
+  // O viewer avisa a altura do conteúdo; o iframe cresce em vez de ter barra interna
+  useEffect(() => {
+    const h = (e) => {
+      if (e.origin !== window.location.origin || e.source !== ref.current?.contentWindow) return
+      if (e.data?.type === 'rl-embed-lista-h' && Number.isFinite(e.data.h)) setAltura(Math.min(3000, Math.max(260, e.data.h)))
+    }
+    window.addEventListener('message', h)
+    return () => window.removeEventListener('message', h)
+  }, [])
+
+  if (loading && contas.length === 0) return null
+  if (contas.length === 0) return null
+  return (
+    <section>
+      <p className="text-sm font-semibold text-rl-text px-1 mb-2">Visão geral das contas <span className="text-rl-muted font-normal">· Meta Ads + Google Ads</span></p>
+      <div className="glass-card overflow-hidden">
+        <iframe ref={ref} key={src} src={src} title="Visão geral das contas" className="w-full border-0 block" style={{ height: altura }} />
+      </div>
+    </section>
+  )
 }
 
 // ── Tela 2: Otimizações ─────────────────────────────────────────────────────
@@ -359,7 +387,9 @@ export default function ModoApresentacao({ project, hub, config, showToast, onCl
 
       <main className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-6">
         {tab === 'resultados' && (
-          <div className="max-w-[1600px] mx-auto">
+          <div className="max-w-[1600px] mx-auto space-y-6">
+            <VisaoGeralContas contas={contasDash} loading={dash.loading} />
+            {contasDash.length > 0 && <p className="text-sm font-semibold text-rl-text px-1 -mb-3">Detalhe por conta</p>}
             <ResultadosEmbed contas={contasDash} ativa={contaAtiva} onTrocar={setContaAtiva} loading={dash.loading} />
           </div>
         )}
