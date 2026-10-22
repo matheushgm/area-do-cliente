@@ -792,6 +792,15 @@ export function gerarSugestoes({ meta = [], google = [], metaCpl = null, metas =
   return todas.sort((a, b) => PRIORIDADE_ORDEM[a.prioridade] - PRIORIDADE_ORDEM[b.prioridade])
 }
 
+// Contas compartilhadas com o nosso usuário, mas que a Revenue Lab não opera: ficam fora de
+// toda análise de otimização (Central, hub do cliente e painel do dashboard).
+// Compara pelo nome normalizado, igual no Meta e no Google.
+const CONTAS_FORA_DA_ANALISE = ['sempre chevrolet']
+export function contaForaDaAnalise(nome) {
+  const n = String(nome || '').trim().toLowerCase().replace(/\s+/g, ' ')
+  return CONTAS_FORA_DA_ANALISE.includes(n)
+}
+
 /**
  * Gera por conta vinculada (quando o projeto tem mais de uma conta) e junta.
  * @param {object} p
@@ -804,6 +813,7 @@ export function gerarSugestoesProjeto({ meta = [], google = [], accounts = {} })
   const varias = contas.size > 1
   const out = []
   for (const conta of contas) {
+    if (contaForaDaAnalise(conta)) continue // `varias` já foi contado com ela: as chaves das outras não mudam
     out.push(...gerarSugestoesConta({
       meta: meta.filter((r) => r['Nome da conta'] === conta),
       google: google.filter((r) => r['Nome da conta'] === conta),
@@ -823,6 +833,7 @@ export function gerarSugestoesProjeto({ meta = [], google = [], accounts = {} })
  * apareceria pendente num lugar e decidida no outro.
  */
 export function gerarSugestoesConta({ meta = [], google = [], metaCpl = null, metas = null, conta, varias = false }) {
+  if (contaForaDaAnalise(conta)) return []
   return gerarSugestoes({
     meta, google,
     metas: metas || { cpl: metaCpl },
