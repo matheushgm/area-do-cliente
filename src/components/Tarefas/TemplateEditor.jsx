@@ -130,7 +130,7 @@ function ItemForm({ item, itens, num, membros, etiquetas, onCriarEtiqueta, onPat
         </dl>
         <p className="mt-2 text-[11px] text-ln-t4 flex items-start gap-1.5">
           <Info className="w-3 h-3 mt-px shrink-0" />
-          <span>Prazos contam dias úteis a partir da data de início escolhida ao aplicar (D+0 é o próprio dia). Pelo departamento, o responsável sai do squad do cliente, configurado em Usuários → Equipes.</span>
+          <span>Prazos contam dias úteis a partir da data de início escolhida ao aplicar (D+0 é o próprio dia). Pelo departamento, o responsável sai do squad do cliente, configurado em Usuários → Equipes; o departamento Cliente vai para o usuário Cliente do ClickUp.</span>
         </p>
       </section>
 

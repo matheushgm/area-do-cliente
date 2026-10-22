@@ -11,7 +11,7 @@
 //     subtarefas[] }               // mesmos campos, sem subtarefas próprias
 import { novoId, deInputDate } from './tarefas'
 import { paraDiaLocal, paraISODia, hojeISO } from './vertatask'
-import { DEPARTAMENTO_ALIAS_SQUAD } from './constants'
+import { DEPARTAMENTO_ALIAS_SQUAD, CLICKUP_USUARIO_CLIENTE } from './constants'
 
 export const MODOS_RESPONSAVEL = [
   { key: 'departamento', label: 'Pelo departamento (squad do cliente)' },
@@ -224,21 +224,37 @@ export function validarItens(itens) {
 
 // ─── Aplicação ───────────────────────────────────────────────────────────────
 
-/** Responsáveis de um item do template para um cliente (squad.department_assignments). */
-export function responsaveisDoItem(item, squad) {
+export const DEPARTAMENTO_CLIENTE = 'Cliente'
+
+/** Perfil do usuário "Cliente" do ClickUp entre os membros do time (id ou null). */
+export function perfilDoUsuarioCliente(membros = []) {
+  const porClickup = membros.find((m) => Number(m.clickup_user_id ?? m.clickupUserId) === CLICKUP_USUARIO_CLIENTE)
+  return (porClickup || membros.find((m) => String(m.name || '').trim().toLowerCase() === 'cliente'))?.id || null
+}
+
+/**
+ * Responsáveis de um item do template para um cliente. Departamento "Cliente" vai para
+ * o usuário Cliente do ClickUp (usuarioClienteId); os demais, para quem o squad do
+ * cliente designou ao departamento (squad.department_assignments).
+ */
+export function responsaveisDoItem(item, squad, usuarioClienteId = null) {
   const r = item.responsavel || {}
   if (r.modo === 'nenhum') return { ids: [], aviso: null }
   if (r.modo === 'pessoa') return { ids: r.pessoa_id ? [r.pessoa_id] : [], aviso: r.pessoa_id ? null : 'Pessoa não escolhida' }
   if (!item.departamento.length) return { ids: [], aviso: 'Sem departamento' }
-  if (!squad) return { ids: [], aviso: 'Cliente sem squad' }
-  const asg = squad.department_assignments || squad.departmentAssignments || {}
+  const asg = squad?.department_assignments || squad?.departmentAssignments || {}
   const ids = []
   const faltam = []
   for (const d of item.departamento) {
-    const id = asg[d] || asg[DEPARTAMENTO_ALIAS_SQUAD[d]] || null
+    const id = d === DEPARTAMENTO_CLIENTE ? usuarioClienteId : (asg[d] || asg[DEPARTAMENTO_ALIAS_SQUAD[d]] || null)
     if (id) { if (!ids.includes(id)) ids.push(id) } else faltam.push(d)
   }
-  return { ids, aviso: faltam.length ? `Squad sem ${faltam.join(', ')}` : null }
+  if (!faltam.length) return { ids, aviso: null }
+  const doSquad = faltam.filter((d) => d !== DEPARTAMENTO_CLIENTE)
+  const avisos = []
+  if (faltam.includes(DEPARTAMENTO_CLIENTE)) avisos.push('Usuário Cliente não encontrado')
+  if (doSquad.length) avisos.push(squad ? `Squad sem ${doSquad.join(', ')}` : 'Cliente sem squad')
+  return { ids, aviso: avisos.join(' · ') }
 }
 
 /** {cliente} no título ou na descrição vira o nome do cliente ao aplicar. */
@@ -249,11 +265,11 @@ export const comCliente = (txt, cliente) => String(txt || '').split(VARIAVEL_CLI
  * Plano de aplicação: uma linha por tarefa a criar, com datas (ISO, meio-dia local,
  * como o DataCampo grava), responsáveis e textos já resolvidos.
  */
-export function planejarAplicacao(itens, { dataInicio, squad, cliente = '' }) {
+export function planejarAplicacao(itens, { dataInicio, squad, cliente = '', usuarioClienteId = null }) {
   const inicio = proximoDiaUtil(dataInicio || hojeISO())
   const data = (n) => (n == null ? null : deInputDate(somarDiasUteis(inicio, n)))
   return achatar(itens).map(({ item, nivel, pai }) => {
-    const resp = responsaveisDoItem(item, squad)
+    const resp = responsaveisDoItem(item, squad, usuarioClienteId)
     return {
       item, nivel, paiId: pai?.id || null,
       titulo: comCliente(item.titulo, cliente).trim() || 'Nova tarefa',

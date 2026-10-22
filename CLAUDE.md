@@ -767,7 +767,9 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     **prazo relativo** (`inicio_dia`/`vencimento_dia` em **dias úteis** depois da data de início; D+0 =
     o próprio dia), a **regra de responsável** (`responsavel.modo`: `departamento` = pessoa que o squad
     do cliente designou ao departamento em `squads.department_assignments`, com o alias
-    `DEPARTAMENTO_ALIAS_SQUAD` de `constants.js`; `pessoa` = fixa; `nenhum`) e `depende_de[]` (ids de
+    `DEPARTAMENTO_ALIAS_SQUAD` de `constants.js`, exceto o departamento **Cliente**, que vai para o perfil
+    do usuário Cliente do ClickUp, `CLICKUP_USUARIO_CLIENTE` = 84048101, achado por `perfilDoUsuarioCliente`;
+    `pessoa` = fixa; `nenhum`) e `depende_de[]` (ids de
     outros itens). O formato e as regras puras (dias úteis, validação de ciclo, `planejarAplicacao`,
     `templateDaTarefa`, edição da árvore) estão em `src/lib/templates.js`; `itensDoTemplate` ainda lê
     o `payload` antigo, que a 107 converteu e a 108 apaga.

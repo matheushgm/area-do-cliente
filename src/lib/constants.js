@@ -55,6 +55,10 @@ export const CLICKUP_DEPARTMENTS = [
 // squads.department_assignments, quando os dois divergem.
 export const DEPARTAMENTO_ALIAS_SQUAD = { 'Tecnologia': 'Automação / Integração' }
 
+// Usuário "Cliente" do ClickUp (perfil "Cliente" em profiles.clickup_user_id): quem responde
+// pelas tarefas do departamento Cliente (aprovar copy, gravar vídeo…).
+export const CLICKUP_USUARIO_CLIENTE = 84048101
+
 // ─── Serviços ─────────────────────────────────────────────────────────────────
 
 export const SERVICES_CONFIG = [

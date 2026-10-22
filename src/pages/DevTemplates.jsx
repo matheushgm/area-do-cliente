@@ -10,6 +10,7 @@ import { novoItem, clonarItens, itensDoTemplate } from '../lib/templates'
 const P1 = 'p-ana', P2 = 'p-bruno', P3 = 'p-carla', P4 = 'p-davi'
 const membros = [
   { id: P1, name: 'Ana Account' }, { id: P2, name: 'Bruno Designer' }, { id: P3, name: 'Carla Tráfego' }, { id: P4, name: 'Davi Dev' },
+  { id: 'p-cliente', name: 'Cliente', clickup_user_id: 84048101 },
 ]
 const membrosMap = new Map(membros.map((m) => [m.id, m]))
 const squads = [{ id: 'sq1', name: 'Caça ROI', emoji: '🏹', department_assignments: { 'Account Manager': P1, Designer: P2, 'Gestor de tráfego': P3, 'Automação / Integração': P4 } }]
@@ -20,10 +21,11 @@ const listas = [{ id: 'l1', pasta_id: 'f1', nome: 'Geral' }, { id: 'l2', pasta_i
 function lp() {
   const briefing = novoItem({ titulo: 'Briefing da LP de {cliente}', departamento: ['Account Manager'], vencimento_dia: 0, estimativa_min: 60, prioridade: 'high' })
   const design = novoItem({ titulo: 'Layout desktop + mobile', departamento: ['Designer'], inicio_dia: 1, vencimento_dia: 3, estimativa_min: 360, tipo_tarefa: 'Criação de Landing Page', depende_de: [briefing.id] })
+  const aprovar = novoItem({ titulo: 'Aprovar layout com o cliente', departamento: ['Cliente'], vencimento_dia: 4 })
   const dev = novoItem({ titulo: 'Montar LP e integrar formulário', departamento: ['Tecnologia'], vencimento_dia: 5, estimativa_min: 300 })
   dev.subtarefas = [novoItem({ titulo: 'Apontar o domínio', departamento: ['Tecnologia'], vencimento_dia: 5 }), novoItem({ titulo: 'Conferir traqueamento', departamento: ['Gestor de tráfego'], vencimento_dia: 6 })]
   dev.depende_de = [design.id]
-  return [briefing, design, dev]
+  return [briefing, design, aprovar, dev]
 }
 
 export default function DevTemplates() {

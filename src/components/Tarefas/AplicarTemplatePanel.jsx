@@ -2,7 +2,7 @@
 // início, mostra a prévia com datas e responsáveis já calculados e cria tudo.
 import { useMemo, useState } from 'react'
 import { X, Play, Loader2, AlertTriangle, CornerDownRight, Link2 } from 'lucide-react'
-import { itensDoTemplate, planejarAplicacao, proximoDiaUtil } from '../../lib/templates'
+import { itensDoTemplate, planejarAplicacao, proximoDiaUtil, perfilDoUsuarioCliente } from '../../lib/templates'
 import { fmtDataCurta, corDaPessoa, iniciais } from '../../lib/tarefas'
 import { hojeISO } from '../../lib/vertatask'
 import { Avatar, FOCO } from './Campos'
@@ -27,7 +27,8 @@ export default function AplicarTemplatePanel({ template, pastas, listas, projeto
   const squad = (squads || []).find((s) => s.id === projeto?.squad)
   const cliente = nomeProjeto(projeto) || pasta?.nome || ''
   const itens = useMemo(() => itensDoTemplate(template), [template])
-  const plano = useMemo(() => planejarAplicacao(itens, { dataInicio, squad, cliente }), [itens, dataInicio, squad, cliente])
+  const usuarioClienteId = useMemo(() => perfilDoUsuarioCliente([...membrosMap.values()]), [membrosMap])
+  const plano = useMemo(() => planejarAplicacao(itens, { dataInicio, squad, cliente, usuarioClienteId }), [itens, dataInicio, squad, cliente, usuarioClienteId])
   const avisos = plano.filter((l) => l.aviso).length
   const pronto = !!listaId && !!dataInicio && plano.length > 0 && !aplicando
 
