@@ -10,7 +10,7 @@ import { Sparkles,
   LogOut, Cloud, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, BarChart3, DollarSign,
   Sun, Moon, Clapperboard, Timer, Layout, PanelLeftClose, PanelLeftOpen, Waypoints, Users2,
-  ChevronUp, ChevronDown, Wrench,
+  ChevronUp, ChevronDown, Wrench, Percent,
 } from 'lucide-react'
 
 // Sidebar recolhida (só ícones) para sobrar espaço aos módulos. O estado é
@@ -78,6 +78,7 @@ const NAV_SECTIONS = [
         { id: 'atividades',  label: 'Atividades 15min',  Icon: Timer,         type: 'route', to: '/atividades-15min' },
         { id: 'roteiros',    label: 'Roteiros Express',  Icon: Clapperboard,  type: 'route', to: '/roteiros-express' },
         { id: 'funil',       label: 'Funil de Vendas',   Icon: GitFork,       type: 'route', to: '/funil' },
+        { id: 'calculadora-roi', label: 'Calculadora de ROI', Icon: Percent,    type: 'route', to: '/calculadora-roi' },
         { id: 'precificacao',label: 'Precificação',      Icon: DollarSign,    type: 'external', href: 'https://vvmkxurb.manus.space/' },
       ] },
     ],

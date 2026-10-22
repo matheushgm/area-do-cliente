@@ -176,8 +176,6 @@ function assembleProject(row, rel = {}) {
     roiResult:    rois[0]?.result ?? null,
     // Cenários extras de ROI (múltiplas calculadoras) — JSONB em projects_v2
     roiCenarios:  row.roi_cenarios ?? null,
-    // Calculadoras de ROI avulsas (Ferramentas), independentes do cliente
-    roiLivres:    row.roi_livres ?? null,
     // Ofertas Matadoras: um projeto pode ter várias. `ofertas` é a lista completa
     // (ordenada da mais antiga p/ a mais nova) e `ofertaData` é a PRINCIPAL — a que
     // alimenta LP, criativos, estratégia e PDFs, que trabalham com uma oferta só.
@@ -477,7 +475,6 @@ const PROJECT_FIELD_MAP = {
   matrizObjecao:        "matriz_objecao",
   webinars:             "webinars",
   roiCenarios:          "roi_cenarios",
-  roiLivres:            "roi_livres",
   propostaComercial:    "proposta_comercial",
 };
 

@@ -27,6 +27,7 @@ const RoteirosExpress = lazy(() => import('../pages/RoteirosExpress'))
 // ── Dados ──────────────────────────────────────────────────
 const DashboardApiTeste = lazy(() => import('../pages/DashboardApiTeste'))
 const FunilCanvas = lazy(() => import('../pages/FunilCanvas'))
+const CalculadoraROI = lazy(() => import('../pages/CalculadoraROI'))
 const AdsRoadmap = lazy(() => import('../pages/AdsRoadmap'))
 const SquadsReport = lazy(() => import('../pages/SquadsReport'))
 
@@ -59,6 +60,7 @@ export const appRoutes = [
         não precisa mais do sufixo "-teste" que marcava a convivência dos dois. */}
     <Route key="dashboard" path="/dashboard" element={<DashboardApiTeste />} />
     <Route key="funil" path="/funil" element={<FunilCanvas />} />
+    <Route key="calculadora-roi" path="/calculadora-roi" element={<CalculadoraROI />} />
     <Route key="ads-roadmap" path="/ads-roadmap" element={<AdsRoadmap />} />
     <Route key="relatorio-squads" path="/relatorio-squads" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
 
