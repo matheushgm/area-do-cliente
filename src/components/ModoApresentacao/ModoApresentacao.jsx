@@ -237,8 +237,8 @@ function TelaTarefas({ project, config, showToast }) {
     return d && d >= faixa.de && d <= faixa.ate
   }), [t.concluidas, faixa])
 
-  const doCliente = useMemo(() => t.abertas.filter(dependeDoCliente), [t.abertas])
-  const doTime = useMemo(() => t.abertas.filter((x) => !dependeDoCliente(x)), [t.abertas])
+  const doCliente = useMemo(() => t.abertas.filter((x) => dependeDoCliente(x, nomePorId)), [t.abertas, nomePorId])
+  const doTime = useMemo(() => t.abertas.filter((x) => !dependeDoCliente(x, nomePorId)), [t.abertas, nomePorId])
   const grupos = useMemo(() => GRUPOS_ABERTAS.map((g) => ({
     ...g, itens: doTime.filter((x) => g.buckets.includes(bucketVencimento(x))),
   })).filter((g) => g.itens.length > 0), [doTime])

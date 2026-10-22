@@ -32,7 +32,15 @@ export function useApresentacaoTarefas(projectId, desde) {
   return { abertas, concluidas, loading, erro, recarregar: carregar }
 }
 
-/** Tarefa que depende do cliente: departamento "Cliente" (ou tag "cliente"). */
-export const dependeDoCliente = (t) =>
-  (t.departamento || []).some((d) => String(d).trim().toLowerCase() === 'cliente')
-  || (t.tags || []).some((g) => String(g).trim().toLowerCase() === 'cliente')
+const ehCliente = (v) => String(v || '').trim().toLowerCase() === 'cliente'
+
+/**
+ * Tarefa aguardando o cliente: responsável é o usuário "Cliente" (perfil ou
+ * usuário do ClickUp sem perfil), ou departamento "Cliente", ou tag "cliente".
+ * `nomePorId` traduz os ids de perfil em responsaveis para nomes.
+ */
+export const dependeDoCliente = (t, nomePorId = new Map()) =>
+  (t.responsaveis || []).some((id) => ehCliente(nomePorId.get(id)))
+  || (t.responsaveis_extra || []).some((x) => ehCliente(x?.nome))
+  || (t.departamento || []).some(ehCliente)
+  || (t.tags || []).some(ehCliente)
