@@ -4,6 +4,12 @@
 // ordem do ClickUp: Nome · Status · Tipo de tarefa · Responsável · Data criada
 // · Data de vencimento · Prioridade · Sprints · Estimativa de tempo · Cliente. Edição inline continua em cada célula (Popovers de
 // Campos.jsx). Subtarefas indentadas abaixo do pai quando expandidas.
+//
+// Também serve o construtor e a aplicação de templates, com ganchos opcionais:
+// `colunas` (troca as colunas), `ctx.renderCelula(k, item)` (célula própria),
+// `ctx.semStatus` (sem o círculo de status), `ctx.acaoLinha(item)` (última coluna),
+// `ctx.expandirTudo` (subtarefas abertas de início) e `ctx.acoesHover === false`
+// (sem os botões de hover do nome nem a linha "Adicionar subtarefa").
 import { useState, useRef } from 'react'
 import { ChevronRight, ChevronDown, CornerDownRight, MessageSquare, ListChecks, GripVertical, Plus, MoreHorizontal, Flag, Hourglass, AlignLeft, Pencil, Link2 } from 'lucide-react'
 import { ordenarItens, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
@@ -134,6 +140,8 @@ function ResponsavelCU({ item, ctx }) {
 
 function Celula({ k, item, ctx }) {
   const { statuses, onAtualizar, onMudarStatus } = ctx
+  const propria = ctx.renderCelula?.(k, item)
+  if (propria !== undefined) return propria
   switch (k) {
     case 'status': return <StatusCampo item={item} statuses={statuses} onChange={(s) => onMudarStatus(item, s)} modo="custom" render={<StatusPillCU status={item.status} statuses={statuses} />} />
     case 'tipo': return <TipoTarefaCampo valor={item.tipo_tarefa} onChange={(v) => onAtualizar(item.id, { tipo_tarefa: v })} render={<TipoPillCU valor={item.tipo_tarefa} />} />
@@ -192,7 +200,7 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
             </button>
           ) : null}
         </span>
-        <StatusCampo item={item} statuses={statuses} modo="icon" onChange={(s) => onMudarStatus(item, s)} className="shrink-0 mr-1.5" />
+        {!ctx.semStatus && <StatusCampo item={item} statuses={statuses} modo="icon" onChange={(s) => onMudarStatus(item, s)} className="shrink-0 mr-1.5" />}
         <span className={`text-[13px] truncate min-w-0 ${concluida ? 'text-ln-t4 line-through' : 'text-ln-t1'}`} title={item.titulo}>{item.titulo}</span>
         <span className="flex items-center gap-2 text-[11px] text-ln-t4 shrink-0 tabular ml-1.5">
           {!sub && filhos.length > 0 && <span className="inline-flex items-center gap-0.5" title="Subtarefas"><CornerDownRight className="w-3 h-3" />{filhos.length}</span>}
@@ -201,19 +209,19 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
           {nComent > 0 && <span className="inline-flex items-center gap-0.5" title="Comentários"><MessageSquare className="w-3 h-3" />{nComent}</span>}
         </span>
         {/* ações de hover sobrepostas à direita (não roubam largura do título) */}
-        <span className="absolute right-2 top-0 bottom-0 hidden md:inline-flex items-center gap-0.5 pl-6 bg-gradient-to-r from-transparent via-ln-level2/60 to-ln-level2/60 opacity-0 group-hover/linha:opacity-100 transition-opacity">
+        {ctx.acoesHover !== false && <span className="absolute right-2 top-0 bottom-0 hidden md:inline-flex items-center gap-0.5 pl-6 bg-gradient-to-r from-transparent via-ln-level2/60 to-ln-level2/60 opacity-0 group-hover/linha:opacity-100 transition-opacity">
           <button type="button" onClick={(e) => { e.stopPropagation(); onAbrir(item.id) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Abrir"><AlignLeft className="w-3 h-3" /></button>
           <button type="button" onClick={(e) => { e.stopPropagation(); ctx.onCriar({ lista_id: item.lista_id, parent_id: item.parent_id || item.id, titulo: 'Nova subtarefa' }) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Adicionar subtarefa"><Plus className="w-3 h-3" /></button>
           {item.clickup_url && <a href={item.clickup_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="ln-iconbtn !w-5 !h-5 !rounded" title="Abrir no ClickUp"><Link2 className="w-3 h-3" /></a>}
           <button type="button" onClick={(e) => { e.stopPropagation(); onAbrir(item.id) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Editar"><Pencil className="w-3 h-3" /></button>
-        </span>
+        </span>}
       </div>
       {cols.map((c) => (
         <div key={c.k} className="flex items-center min-w-0 px-2 overflow-hidden" onClick={(e) => { if (c.k !== 'criada') e.stopPropagation() }}>
           <Celula k={c.k} item={item} ctx={ctx} />
         </div>
       ))}
-      <span />
+      <span className="flex items-center justify-center" onClick={ctx.acaoLinha ? (e) => e.stopPropagation() : undefined}>{ctx.acaoLinha?.(item)}</span>
     </div>
   )
 }
@@ -222,7 +230,7 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
 
 function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
   const [aberto, setAberto] = useState(true)
-  const [expandidos, setExpandidos] = useState(() => new Set())
+  const [expandidos, setExpandidos] = useState(() => new Set(ctx.expandirTudo ? grupo.itens.filter((i) => (filhosDe.get(i.id) || []).length).map((i) => i.id) : []))
   const [novaTarefa, setNovaTarefa] = useState(false)
   const { onCriar, listaPadraoId, agrupar } = ctx
   const itens = ordenarItens(grupo.itens)
@@ -250,7 +258,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
         <div className="min-w-0">
           {/* Cabeçalho das colunas, repetido em cada grupo como no ClickUp */}
           <div className="grid items-center h-7 border-b border-ln-line/70 text-[11px] text-ln-t4" style={{ gridTemplateColumns: grid(cols) }} aria-hidden="true">
-            <span className="sticky left-0 z-[1] bg-ln-panel h-full flex items-center pl-[66px]">Nome</span>
+            <span className={`sticky left-0 z-[1] bg-ln-panel h-full flex items-center ${ctx.semStatus ? 'pl-[46px]' : 'pl-[66px]'}`}>Nome</span>
             {cols.map((c) => <span key={c.k} className="px-2 truncate">{c.label}</span>)}
             <span className="inline-flex items-center justify-center text-ln-t4"><Plus className="w-3.5 h-3.5" /></span>
           </div>
@@ -262,8 +270,8 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
               <div key={it.id}>
                 <Linha item={it} filhos={todosFilhos} expandido={exp} onToggle={() => toggle(it.id)} ctx={ctx} cols={cols} denso={denso} />
                 {exp && filhos.map((f) => <Linha key={f.id} item={f} sub ctx={ctx} cols={cols} denso={denso} />)}
-                {exp && (
-                  <div className="flex items-center h-8 pl-[66px] border-b border-ln-line/70">
+                {exp && ctx.acoesHover !== false && (
+                  <div className={`flex items-center h-8 ${ctx.semStatus ? 'pl-[46px]' : 'pl-[66px]'} border-b border-ln-line/70`}>
                     <AdicionarInline placeholder="Adicionar subtarefa" onCriar={(t) => onCriar({ lista_id: it.lista_id, parent_id: it.id, titulo: t, status: agrupar === 'status' ? grupo.key : undefined })} />
                   </div>
                 )}
@@ -271,7 +279,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
             )
           })}
           {listaPadraoId && (
-            <div className="flex items-center h-8 pl-[66px]">
+            <div className={`flex items-center h-8 ${ctx.semStatus ? 'pl-[46px]' : 'pl-[66px]'}`}>
               <AdicionarInline autoFocus={novaTarefa} placeholder="Adicionar tarefa" onCriar={(t) => { setNovaTarefa(false); onCriar({ lista_id: listaPadraoId, titulo: t, status: agrupar === 'status' ? grupo.key : undefined }) }} />
             </div>
           )}
@@ -281,8 +289,9 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
   )
 }
 
-export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, denso = false, compacto = false }) {
-  const cols = compacto ? COLS.compacta : COLS.cheia
+export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, denso = false, compacto = false, colunas = null, vazio = null }) {
+  const cols = colunas || (compacto ? COLS.compacta : COLS.cheia)
+  const larguraMin = colunas ? 420 + colunas.reduce((a, c) => a + c.w, 0) + 40 : null
   // mapas para a coluna Cliente (uma vez por render; listas/pastas/projetos mudam pouco)
   const ctxLista = {
     ...ctx,
@@ -290,6 +299,7 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
     pastasMap: new Map((ctx.pastas || []).map((p) => [p.id, p])),
     projetosMap: new Map((ctx.projetos || []).map((p) => [p.id, p])),
   }
+  if (!grupos.length && vazio) return vazio
   if (!grupos.length) {
     return (
       <div className="flex flex-col items-center justify-center gap-1.5 py-16 text-center">
@@ -303,8 +313,12 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
     )
   }
   return (
-    <div className={`w-max min-w-full ${compacto ? '[&>section]:min-w-[900px]' : '[&>section]:min-w-[1580px]'} pb-24 pt-2 bg-ln-panel`}>
-      {grupos.map((g) => <Grupo key={g.key} grupo={g} ctx={ctxLista} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} denso={denso} cols={cols} />)}
+    <div className={`w-max min-w-full ${larguraMin ? '' : compacto ? '[&>section]:min-w-[900px]' : '[&>section]:min-w-[1580px]'} pb-24 pt-2 bg-ln-panel`}>
+      {grupos.map((g) => (larguraMin ? (
+        <div key={g.key} style={{ minWidth: larguraMin }}>
+          <Grupo grupo={g} ctx={ctxLista} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} denso={denso} cols={cols} />
+        </div>
+      ) : <Grupo key={g.key} grupo={g} ctx={ctxLista} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} denso={denso} cols={cols} />))}
     </div>
   )
 }

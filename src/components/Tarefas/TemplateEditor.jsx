@@ -1,16 +1,18 @@
-// Construtor de um template do VertaTask: à esquerda a estrutura (tarefas e
-// subtarefas, em ordem), à direita os atributos da tarefa escolhida. Salva só no
-// botão Salvar; sair com alterações pede confirmação.
+// Construtor de um template do VertaTask, com a mesma cara da lista de tarefas de um
+// cliente: a ListaView (colunas do template, edição inline nas células, subtarefas
+// abertas) e, ao clicar numa linha, o painel lateral de 480px com nome, propriedades,
+// descrição e checklists. Salva só no botão Salvar; sair com alterações pede confirmação.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowLeft, Plus, Trash2, Copy, ChevronUp, ChevronDown, CornerDownRight, Play, Save, AlertTriangle, Link2, CheckSquare, Square, X, Clock3, Info,
+  ArrowLeft, Trash2, Copy, ChevronUp, ChevronDown, Play, Save, AlertTriangle, CheckSquare, Square, X, Info, Users, User,
 } from 'lucide-react'
 import {
   itensDoTemplate, resumoDoTemplate, achatar, novoItem, atualizarItem, removerItem, moverItem, duplicarItem, validarItens,
   MODOS_RESPONSAVEL, VARIAVEL_CLIENTE,
 } from '../../lib/templates'
-import { fmtEstimativa, corDaPessoa, iniciais } from '../../lib/tarefas'
-import { PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, Popover, Avatar, AdicionarInline, FOCO } from './Campos'
+import { fmtEstimativa, corDaPessoa, iniciais, STATUSES_PADRAO } from '../../lib/tarefas'
+import { PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, Popover, Avatar, ItemMenu, FOCO } from './Campos'
+import ListaView from './ListaView'
 import { Propriedade, DepartamentoCampo, Descricao, Checklists } from './TarefaPanel'
 import { EtiquetasCampo } from './TarefaExtras'
 
@@ -18,13 +20,6 @@ const numeracao = (itens) => {
   const m = new Map()
   itens.forEach((it, i) => { m.set(it.id, `${i + 1}`); it.subtarefas.forEach((s, j) => m.set(s.id, `${i + 1}.${j + 1}`)) })
   return m
-}
-
-function textoPrazo(item) {
-  const a = item.inicio_dia, b = item.vencimento_dia
-  if (a == null && b == null) return ''
-  if (a != null && b != null && a !== b) return `D+${a} → D+${b}`
-  return `D+${b ?? a}`
 }
 
 // ─── Campos próprios do template ─────────────────────────────────────────────
@@ -68,7 +63,7 @@ function ResponsavelTemplateCampo({ valor, membros, onChange }) {
   )
 }
 
-function DependeCampo({ item, itens, num, onChange }) {
+function DependeCampo({ item, itens, num, onChange, compacto = false }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const sel = new Set(item.depende_de)
@@ -76,8 +71,12 @@ function DependeCampo({ item, itens, num, onChange }) {
   const nomes = opcoes.filter((o) => sel.has(o.id))
   return (
     <>
-      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`flex flex-wrap gap-1 text-left rounded-md min-w-0 ${FOCO}`}>
-        {nomes.length ? nomes.map((o) => (
+      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`flex flex-wrap gap-1 text-left rounded-md min-w-0 ${FOCO}`}>
+        {compacto ? (
+          nomes.length
+            ? <span className="text-[13px] text-ln-t2 tabular truncate" title={nomes.map((o) => `${num.get(o.id)} ${o.titulo}`).join('\n')}>após {nomes.map((o) => num.get(o.id)).join(', ')}</span>
+            : <span className="text-[13px] text-ln-t4 pl-1">–</span>
+        ) : nomes.length ? nomes.map((o) => (
           <span key={o.id} className="inline-flex items-center gap-1 h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t3 max-w-[220px]"><span className="tabular text-ln-t4">{num.get(o.id)}</span><span className="truncate">{o.titulo || 'Sem título'}</span></span>
         )) : <span className="text-ln-t4">nenhuma</span>}
       </button>
@@ -100,16 +99,15 @@ function DependeCampo({ item, itens, num, onChange }) {
 
 // ─── Formulário da tarefa escolhida ──────────────────────────────────────────
 
-function ItemForm({ item, itens, num, membros, etiquetas, onCriarEtiqueta, onPatch, ehSub }) {
+function ItemForm({ item, itens, num, membros, etiquetas, onCriarEtiqueta, onPatch }) {
   const set = (patch) => onPatch(patch)
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <p className="text-[11px] text-ln-t4 tabular">{ehSub ? 'Subtarefa' : 'Tarefa'} {num.get(item.id)}</p>
         <input
           value={item.titulo} onChange={(e) => set({ titulo: e.target.value })} placeholder="Nome da tarefa"
           aria-label="Nome da tarefa" autoFocus={!item.titulo}
-          className="mt-1 w-full bg-transparent text-xl font-semibold tracking-[-0.01em] text-ln-t1 outline-none rounded-md -mx-1 px-1 hover:bg-ln-ink/[0.03] focus:bg-ln-ink/[0.04]"
+          className="w-full bg-transparent text-xl font-semibold tracking-[-0.01em] text-ln-t1 outline-none rounded-md -mx-1 px-1 hover:bg-ln-ink/[0.03] focus:bg-ln-ink/[0.04]"
         />
         <p className="mt-1 text-[11px] text-ln-t4">Use <code className="ln-kbd">{VARIAVEL_CLIENTE}</code> no nome ou na descrição para entrar o nome do cliente ao aplicar.</p>
       </div>
@@ -147,13 +145,113 @@ function ItemForm({ item, itens, num, membros, etiquetas, onCriarEtiqueta, onPat
   )
 }
 
+// ─── Células do template na ListaView ────────────────────────────────────────
+
+/** "D+3" na célula; clique abre o campo numérico (dias úteis depois da data de início). */
+function DiaCelula({ valor, onChange, rotulo }) {
+  const [editando, setEditando] = useState(false)
+  const [txt, setTxt] = useState('')
+  const salvar = () => {
+    setEditando(false)
+    const n = txt.trim() === '' ? null : Math.max(0, Math.round(Number(txt)))
+    if (!Number.isNaN(n) && n !== valor) onChange(n)
+  }
+  if (editando) {
+    return (
+      <span className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <span className="text-[13px] text-ln-t4 tabular">D+</span>
+        <input
+          autoFocus type="number" min={0} inputMode="numeric" value={txt} aria-label={rotulo}
+          onChange={(e) => setTxt(e.target.value)} onBlur={salvar}
+          onKeyDown={(e) => { if (e.key === 'Enter') salvar(); if (e.key === 'Escape') { e.stopPropagation(); setEditando(false) } }}
+          className="ln-input !h-6 !w-14 !px-1.5 !text-xs tabular"
+        />
+      </span>
+    )
+  }
+  return (
+    <button type="button" onClick={(e) => { e.stopPropagation(); setTxt(valor ?? ''); setEditando(true) }} className={`text-[13px] tabular whitespace-nowrap rounded hover:text-ln-t1 ${valor == null ? 'text-ln-t4 pl-1' : 'text-ln-t2'} ${FOCO}`} title={`${rotulo}: dias úteis depois da data de início`}>
+      {valor == null ? '–' : `D+${valor}`}
+    </button>
+  )
+}
+
+/** Regra do responsável na célula: "Pelo squad", a pessoa fixa ou "–". */
+function RegraCelula({ valor, membros, membrosMap, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const modo = valor?.modo || 'departamento'
+  const pessoa = modo === 'pessoa' ? membrosMap.get(valor?.pessoa_id) : null
+  return (
+    <>
+      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center gap-1.5 min-w-0 rounded-md ${FOCO}`} title="Quem recebe a tarefa ao aplicar">
+        {modo === 'departamento' && <span className="inline-flex items-center gap-1 h-[22px] px-2 rounded-md text-xs text-ln-t2 bg-ln-level2 whitespace-nowrap"><Users className="w-3 h-3 text-ln-t4" /> Pelo squad</span>}
+        {modo === 'pessoa' && (pessoa
+          ? <><Avatar pessoa={{ nome: pessoa.name, iniciais: pessoa.avatar || iniciais(pessoa.name), cor: corDaPessoa(pessoa.id) }} size={22} /><span className="text-[13px] text-ln-t2 truncate">{pessoa.name.split(' ')[0]}</span></>
+          : <span className="text-[13px] text-ln-orange">escolher pessoa</span>)}
+        {modo === 'nenhum' && <span className="text-[13px] text-ln-t4 pl-1">–</span>}
+      </button>
+      <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={260}>
+        <div className="p-1 overflow-y-auto">
+          <ItemMenu ativo={modo === 'departamento'} onClick={() => { setOpen(false); onChange({ modo: 'departamento', pessoa_id: null }) }}><Users className="w-3.5 h-3.5 text-ln-t4" /> Pelo departamento (squad)</ItemMenu>
+          <ItemMenu ativo={modo === 'nenhum'} onClick={() => { setOpen(false); onChange({ modo: 'nenhum', pessoa_id: null }) }}><User className="w-3.5 h-3.5 text-ln-t4" /> Sem responsável</ItemMenu>
+          <div className="px-2.5 pt-2 pb-1 text-[10px] uppercase tracking-wide text-ln-t4">Pessoa fixa</div>
+          {membros.filter((m) => !m.disabled).map((m) => (
+            <ItemMenu key={m.id} ativo={modo === 'pessoa' && valor?.pessoa_id === m.id} onClick={() => { setOpen(false); onChange({ modo: 'pessoa', pessoa_id: m.id }) }}>
+              <Avatar pessoa={{ nome: m.name, iniciais: m.avatar || iniciais(m.name), cor: corDaPessoa(m.id) }} size={18} />
+              <span className="truncate">{m.name}</span>
+            </ItemMenu>
+          ))}
+        </div>
+      </Popover>
+    </>
+  )
+}
+
+const COLUNAS_TEMPLATE = [
+  { k: 'depto', label: 'Departamento', w: 180 },
+  { k: 'resp', label: 'Responsável', w: 150 },
+  { k: 'ini', label: 'Início', w: 90 },
+  { k: 'venc', label: 'Vencimento', w: 100 },
+  { k: 'prio', label: 'Prioridade', w: 120 },
+  { k: 'tipo', label: 'Tipo de tarefa', w: 150 },
+  { k: 'estim', label: 'Estimativa', w: 110 },
+  { k: 'deps', label: 'Depende de', w: 120 },
+]
+
+/** Item do template no formato de tarefa que a ListaView lê. */
+const comoLinha = (it, i, paiId = null) => ({
+  ...it, parent_id: paiId, posicao: i, lista_id: 'template', status: 'a fazer', status_tipo: 'open',
+  responsaveis: [], responsaveis_extra: [], created_at: null,
+})
+
+// ─── Painel lateral (mesmo chrome do painel da tarefa) ───────────────────────
+
+export function PainelLateral({ titulo, acoes, onFechar, children, label }) {
+  return (
+    <>
+      <div className="absolute inset-0 z-30 bg-black/30 xl:hidden" onClick={onFechar} aria-hidden="true" />
+      <aside className="absolute inset-y-0 right-0 z-40 shadow-2xl xl:shadow-none xl:relative xl:z-auto shrink-0 border-l border-ln-ink/[0.08] flex flex-col bg-ln-panel" style={{ width: 'min(480px, 100%)' }} aria-label={label}>
+        <div className="h-11 shrink-0 flex items-center justify-between gap-2 px-3 border-b border-ln-ink/5">
+          <div className="text-xs font-medium text-ln-t3 truncate">{titulo}</div>
+          <div className="flex items-center gap-1 shrink-0">
+            {acoes}
+            <button type="button" onClick={onFechar} className="ln-iconbtn" aria-label="Fechar painel" title="Fechar (Esc)"><X className="w-4 h-4" /></button>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">{children}</div>
+      </aside>
+    </>
+  )
+}
+
 // ─── Editor ──────────────────────────────────────────────────────────────────
 
 export default function TemplateEditor({ template, membros, membrosMap, etiquetas, onCriarEtiqueta, onSalvar, onVoltar, onAplicar, onDuplicar, onExcluir }) {
   const [nome, setNome] = useState(template.nome || '')
   const [descricao, setDescricao] = useState(template.descricao || '')
   const [itens, setItens] = useState(() => itensDoTemplate(template))
-  const [selId, setSelId] = useState(() => itensDoTemplate(template)[0]?.id || null)
+  const [selId, setSelId] = useState(null)
   const [salvando, setSalvando] = useState(false)
   const [base, setBase] = useState(() => JSON.stringify({ n: template.nome || '', d: template.descricao || '', i: itensDoTemplate(template) }))
 
@@ -166,7 +264,6 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
     const i = itensDoTemplate(template)
     setNome(template.nome || ''); setDescricao(template.descricao || ''); setItens(i)
     setBase(JSON.stringify({ n: template.nome || '', d: template.descricao || '', i }))
-    if (!achatar(i).some((p) => p.item.id === selId)) setSelId(i[0]?.id || null)
   }, [template.updated_at]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -176,26 +273,35 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
     return () => window.removeEventListener('beforeunload', h)
   }, [sujo])
 
+  useEffect(() => {
+    if (!selId) return undefined
+    const h = (e) => {
+      const el = document.activeElement
+      if (e.key === 'Escape' && !(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable))) setSelId(null)
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [selId])
+
   const num = useMemo(() => numeracao(itens), [itens])
   const resumo = useMemo(() => resumoDoTemplate(itens), [itens])
   const erros = useMemo(() => validarItens(itens), [itens])
-  const comErro = useMemo(() => new Set(erros.map((e) => e.id)), [erros])
   const plano = useMemo(() => achatar(itens), [itens])
   const sel = plano.find((p) => p.item.id === selId)
 
   const patch = (id, p) => setItens((prev) => atualizarItem(prev, id, (it) => ({ ...it, ...p })))
-  const addTarefa = (titulo) => { const it = novoItem({ titulo }); setItens((p) => [...p, it]); setSelId(it.id) }
+  const addTarefa = (titulo) => { const it = novoItem({ titulo }); setItens((p) => [...p, it]); return it }
   const addSub = (paiId, titulo = '') => {
     const s = novoItem({ titulo })
     setItens((prev) => prev.map((it) => (it.id === paiId ? { ...it, subtarefas: [...it.subtarefas, s] } : it)))
-    setSelId(s.id)
+    return s
   }
   const excluir = (id) => {
     const alvo = plano.find((p) => p.item.id === id)
     const n = alvo?.nivel === 0 ? alvo.item.subtarefas.length : 0
     if (n && !window.confirm(`Excluir a tarefa e as ${n} subtarefa(s) dela?`)) return
     setItens((prev) => removerItem(prev, id))
-    if (selId === id || alvo?.item.subtarefas.some((s) => s.id === selId)) setSelId(alvo?.pai?.id || null)
+    if (selId === id || alvo?.item.subtarefas.some((s) => s.id === selId)) setSelId(null)
   }
 
   async function salvar() {
@@ -214,6 +320,40 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
     onAplicar({ ...template, nome: nome.trim(), descricao, itens })
   }
 
+  // ── ListaView: um grupo só, subtarefas abertas, colunas do template ──
+  const grupos = [{ key: 'template', label: 'Tarefas do template', cor: '#2A25F0', itens: itens.map((it, i) => comoLinha(it, i)) }]
+  const filhosDe = new Map(itens.map((it) => [it.id, it.subtarefas.map((s, j) => comoLinha(s, j, it.id))]))
+  const ctx = {
+    statuses: STATUSES_PADRAO, membros, membrosMap, itensMap: {}, listaPadraoId: 'template', agrupar: 'nenhum',
+    contagemComentarios: {}, selecionadaId: selId, semStatus: true, expandirTudo: true,
+    onAbrir: (id) => setSelId(id),
+    onAtualizar: (id, p) => patch(id, p),
+    onMudarStatus: () => {},
+    onCriar: ({ parent_id, titulo }) => {
+      const novo = parent_id ? addSub(parent_id, titulo === 'Nova subtarefa' ? '' : titulo) : addTarefa(titulo)
+      if (!novo.titulo) setSelId(novo.id)
+      return Promise.resolve({ data: novo })
+    },
+    renderCelula: (k, it) => {
+      switch (k) {
+        case 'depto': return <DepartamentoCampo valor={it.departamento} onChange={(v) => patch(it.id, { departamento: v })} />
+        case 'resp': return <RegraCelula valor={it.responsavel} membros={membros} membrosMap={membrosMap} onChange={(v) => patch(it.id, { responsavel: v })} />
+        case 'ini': return <DiaCelula valor={it.inicio_dia} rotulo="Início" onChange={(v) => patch(it.id, { inicio_dia: v })} />
+        case 'venc': return <DiaCelula valor={it.vencimento_dia} rotulo="Vencimento" onChange={(v) => patch(it.id, { vencimento_dia: v })} />
+        case 'deps': return <DependeCampo compacto item={it} itens={itens} num={num} onChange={(v) => patch(it.id, { depende_de: v })} />
+        default: return undefined
+      }
+    },
+    acaoLinha: (it) => (
+      <button type="button" onClick={() => excluir(it.id)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/linha:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" aria-label={`Excluir ${it.titulo || 'tarefa'}`} title="Excluir"><Trash2 className="w-3.5 h-3.5" /></button>
+    ),
+  }
+  // remonta a lista quando entra subtarefa nova, para ela já aparecer aberta
+  const chaveLista = itens.map((it) => `${it.id}:${it.subtarefas.length}`).join('|')
+
+  const irmaos = sel ? (sel.nivel === 0 ? itens : sel.pai.subtarefas) : []
+  const idx = sel ? irmaos.findIndex((x) => x.id === sel.item.id) : -1
+
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* cabeçalho do template */}
@@ -224,6 +364,11 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
           <span className="text-[11px] text-ln-t4 tabular hidden sm:inline">
             {resumo.total} tarefa{resumo.total === 1 ? '' : 's'}{resumo.estimativaMin ? ` · ${fmtEstimativa(resumo.estimativaMin)}` : ''}
           </span>
+          {erros.length > 0 && (
+            <button type="button" onClick={() => setSelId(erros[0].id)} className="inline-flex items-center gap-1 text-[11px] text-ln-orange" title={[...new Set(erros.map((e) => e.msg))].join('\n')}>
+              <AlertTriangle className="w-3 h-3" /> {erros.length} pendência{erros.length === 1 ? '' : 's'}
+            </button>
+          )}
           {sujo && <span className="text-[11px] font-semibold text-ln-orange">Alterações não salvas</span>}
           <button type="button" onClick={() => onDuplicar({ ...template, nome, descricao, itens })} className="ln-iconbtn" aria-label="Duplicar template" title="Duplicar"><Copy className="w-3.5 h-3.5" /></button>
           <button type="button" onClick={() => onExcluir(template)} className="ln-iconbtn hover:!text-ln-red" aria-label="Apagar template" title="Apagar"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -234,69 +379,32 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
         <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Para que serve este template (opcional)" aria-label="Descrição do template" className="mt-0.5 w-full bg-transparent outline-none text-[13px] text-ln-t3 placeholder:text-ln-t4" />
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        {/* estrutura */}
-        <aside className="lg:w-[400px] shrink-0 lg:border-r border-b lg:border-b-0 border-ln-ink/[0.08] bg-ln-panel flex flex-col min-h-0 max-h-[45vh] lg:max-h-none">
-          <div className="px-4 pt-3 pb-2 flex items-center justify-between">
-            <p className="ln-label">Estrutura</p>
-            {erros.length > 0 && <span className="inline-flex items-center gap-1 text-[11px] text-ln-orange" title={[...new Set(erros.map((e) => e.msg))].join('\n')}><AlertTriangle className="w-3 h-3" /> {erros.length} pendência{erros.length === 1 ? '' : 's'}</span>}
-          </div>
-          <ol className="flex-1 min-h-0 overflow-y-auto px-2 pb-2">
-            {itens.length === 0 && <li className="px-2 py-3 text-xs text-ln-t4">Comece adicionando a primeira tarefa.</li>}
-            {plano.map(({ item, nivel, pai }) => {
-              const irmaos = nivel === 0 ? itens : pai.subtarefas
-              const idx = irmaos.findIndex((x) => x.id === item.id)
-              const ativo = item.id === selId
-              const resp = item.responsavel?.modo === 'pessoa' ? membrosMap.get(item.responsavel.pessoa_id) : null
-              return (
-                <li key={item.id} className={`group/row flex items-center gap-1.5 min-h-[34px] rounded-lg pr-1 ${ativo ? 'bg-ln-accent/10' : 'hover:bg-ln-ink/[0.04]'}`} style={{ paddingLeft: nivel ? 26 : 8 }}>
-                  {nivel === 1 && <CornerDownRight className="w-3 h-3 text-ln-t4 shrink-0" />}
-                  <button type="button" onClick={() => setSelId(item.id)} className={`flex-1 min-w-0 flex items-center gap-2 text-left py-1 rounded ${FOCO}`}>
-                    <span className="tabular text-[11px] text-ln-t4 w-7 shrink-0">{num.get(item.id)}</span>
-                    <span className={`truncate text-[13px] ${ativo ? 'text-ln-accent font-semibold' : item.titulo ? 'text-ln-t2' : 'text-ln-t4 italic'}`}>{item.titulo || 'Sem título'}</span>
-                    {comErro.has(item.id) && <AlertTriangle className="w-3 h-3 text-ln-orange shrink-0" />}
-                    {item.depende_de.length > 0 && <Link2 className="w-3 h-3 text-ln-t4 shrink-0" aria-label="Depende de outra tarefa" />}
-                  </button>
-                  <span className="flex items-center gap-1.5 shrink-0 group-hover/row:hidden">
-                    {textoPrazo(item) && <span className="text-[11px] text-ln-t4 tabular">{textoPrazo(item)}</span>}
-                    {item.estimativa_min > 0 && <span className="text-[11px] text-ln-t4 tabular inline-flex items-center gap-0.5"><Clock3 className="w-3 h-3" />{fmtEstimativa(item.estimativa_min)}</span>}
-                    {resp && <Avatar pessoa={{ nome: resp.name, iniciais: resp.avatar || iniciais(resp.name), cor: corDaPessoa(resp.id) }} size={16} />}
-                  </span>
-                  <span className="hidden group-hover/row:flex group-focus-within/row:flex items-center shrink-0">
-                    <button type="button" onClick={() => setItens((p) => moverItem(p, item.id, -1))} disabled={idx === 0} className="ln-iconbtn !w-6 !h-6 disabled:opacity-30" aria-label="Subir" title="Subir"><ChevronUp className="w-3 h-3" /></button>
-                    <button type="button" onClick={() => setItens((p) => moverItem(p, item.id, 1))} disabled={idx === irmaos.length - 1} className="ln-iconbtn !w-6 !h-6 disabled:opacity-30" aria-label="Descer" title="Descer"><ChevronDown className="w-3 h-3" /></button>
-                    {nivel === 0 && <button type="button" onClick={() => addSub(item.id)} className="ln-iconbtn !w-6 !h-6" aria-label="Adicionar subtarefa" title="Adicionar subtarefa"><Plus className="w-3 h-3" /></button>}
-                    <button type="button" onClick={() => setItens((p) => duplicarItem(p, item.id))} className="ln-iconbtn !w-6 !h-6" aria-label="Duplicar" title="Duplicar"><Copy className="w-3 h-3" /></button>
-                    <button type="button" onClick={() => excluir(item.id)} className="ln-iconbtn !w-6 !h-6 hover:!text-ln-red" aria-label="Excluir" title="Excluir"><Trash2 className="w-3 h-3" /></button>
-                  </span>
-                </li>
-              )
-            })}
-          </ol>
-          <div className="px-3 py-2 border-t border-ln-ink/5 flex flex-col gap-1">
-            <AdicionarInline placeholder="Adicionar tarefa" onCriar={async (t) => addTarefa(t)} />
-            {sel && (
-              <AdicionarInline placeholder={`Adicionar subtarefa em ${num.get(sel.nivel === 0 ? sel.item.id : sel.pai.id)}`} onCriar={async (t) => addSub(sel.nivel === 0 ? sel.item.id : sel.pai.id, t)} />
-            )}
-          </div>
-        </aside>
+      <div className="relative flex-1 min-h-0 flex">
+        <div className="flex-1 min-w-0 overflow-auto bg-ln-panel">
+          <ListaView key={chaveLista} grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas colunas={COLUNAS_TEMPLATE} />
+        </div>
 
-        {/* atributos */}
-        <section className="flex-1 min-w-0 min-h-0 overflow-y-auto bg-ln-bg">
-          <div className="max-w-3xl px-4 sm:px-8 py-6">
-            {sel ? (
-              <ItemForm
-                key={sel.item.id}
-                item={sel.item} itens={itens} num={num} membros={membros} etiquetas={etiquetas} onCriarEtiqueta={onCriarEtiqueta}
-                ehSub={sel.nivel === 1} onPatch={(p) => patch(sel.item.id, p)}
-              />
-            ) : (
-              <div className="text-center text-[13px] text-ln-t4 py-16">
-                {itens.length ? 'Escolha uma tarefa à esquerda para editar os atributos dela.' : 'Adicione a primeira tarefa na coluna da esquerda.'}
-              </div>
+        {sel && (
+          <PainelLateral
+            label="Tarefa do template"
+            titulo={`${sel.nivel === 0 ? 'Tarefa' : `Subtarefa de ${num.get(sel.pai.id)}`} ${num.get(sel.item.id)}`}
+            onFechar={() => setSelId(null)}
+            acoes={(
+              <>
+                <button type="button" onClick={() => setItens((p) => moverItem(p, sel.item.id, -1))} disabled={idx <= 0} className="ln-iconbtn disabled:opacity-30" aria-label="Subir" title="Subir"><ChevronUp className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={() => setItens((p) => moverItem(p, sel.item.id, 1))} disabled={idx === irmaos.length - 1} className="ln-iconbtn disabled:opacity-30" aria-label="Descer" title="Descer"><ChevronDown className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={() => setItens((p) => duplicarItem(p, sel.item.id))} className="ln-iconbtn" aria-label="Duplicar" title="Duplicar"><Copy className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={() => excluir(sel.item.id)} className="ln-iconbtn hover:!text-ln-red" aria-label="Excluir" title="Excluir"><Trash2 className="w-3.5 h-3.5" /></button>
+              </>
             )}
-          </div>
-        </section>
+          >
+            <ItemForm
+              key={sel.item.id}
+              item={sel.item} itens={itens} num={num} membros={membros} etiquetas={etiquetas} onCriarEtiqueta={onCriarEtiqueta}
+              onPatch={(p) => patch(sel.item.id, p)}
+            />
+          </PainelLateral>
+        )}
       </div>
     </div>
   )

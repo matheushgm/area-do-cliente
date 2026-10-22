@@ -1,10 +1,10 @@
 // Harness DEV (só import.meta.env.DEV): construtor de templates do VertaTask com
 // dados em memória, para conferir lista, editor e aplicação sem login nem banco.
-// "Criar N tarefas" só registra o plano no console.
+// "Criar N tarefas" só registra o plano no console (window.__plano).
 import { useState } from 'react'
 import TemplatesView from '../components/Tarefas/TemplatesView'
 import TemplateEditor from '../components/Tarefas/TemplateEditor'
-import AplicarTemplatePanel from '../components/Tarefas/AplicarTemplatePanel'
+import AplicarTemplateView from '../components/Tarefas/AplicarTemplateView'
 import { novoItem, clonarItens, itensDoTemplate } from '../lib/templates'
 
 const P1 = 'p-ana', P2 = 'p-bruno', P3 = 'p-carla', P4 = 'p-davi'
@@ -42,8 +42,15 @@ export default function DevTemplates() {
     <div className="ln vt h-screen flex bg-ln-bg">
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="h-11 shrink-0 flex items-center gap-2 px-4 border-b border-ln-line text-xs text-ln-t3"><strong className="text-ln-t1">DevTemplates</strong> · dados em memória</div>
-        <div className={`flex-1 min-h-0 ${aberto ? 'overflow-hidden' : 'overflow-auto'}`}>
-          {aberto ? (
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {aplicando ? (
+            <AplicarTemplateView
+              template={aplicando} listaInicialId="l1" pastas={pastas} listas={listas} projetos={projetos} squads={squads}
+              membros={membros} membrosMap={membrosMap}
+              onAplicar={async ({ listaId, plano }) => { console.log('aplicar', listaId, plano); window.__plano = plano; setAplicando(null); return {} }}
+              onCancelar={() => setAplicando(null)}
+            />
+          ) : aberto ? (
             <TemplateEditor
               key={aberto.id} template={aberto} membros={membros} membrosMap={membrosMap} etiquetas={etiquetas} onCriarEtiqueta={async () => ({})}
               onSalvar={async (patch) => { setModelos((ms) => ms.map((m) => (m.id === aberto.id ? { ...m, ...patch, updated_at: new Date().toISOString() } : m))); return {} }}
@@ -61,15 +68,6 @@ export default function DevTemplates() {
           )}
         </div>
       </div>
-      {aplicando && (
-        <aside className="w-[480px] shrink-0 border-l border-ln-ink/[0.08] bg-ln-panel flex flex-col">
-          <AplicarTemplatePanel
-            template={aplicando} listaInicialId="l1" pastas={pastas} listas={listas} projetos={projetos} squads={squads} membrosMap={membrosMap}
-            onAplicar={async ({ listaId, plano }) => { console.log('aplicar', listaId, plano); window.__plano = plano; return {} }}
-            onFechar={() => setAplicando(null)}
-          />
-        </aside>
-      )}
     </div>
   )
 }

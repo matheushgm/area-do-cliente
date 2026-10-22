@@ -38,7 +38,7 @@ import CalendarioView from '../components/Tarefas/CalendarioView'
 import CiclosView from '../components/Tarefas/CiclosView'
 import TemplatesView from '../components/Tarefas/TemplatesView'
 import TemplateEditor from '../components/Tarefas/TemplateEditor'
-import AplicarTemplatePanel from '../components/Tarefas/AplicarTemplatePanel'
+import AplicarTemplateView from '../components/Tarefas/AplicarTemplateView'
 import { templateDaTarefa, clonarItens, itensDoTemplate } from '../lib/templates'
 import IntakeView from '../components/Tarefas/IntakeView'
 import { Popover, Avatar, FOCO } from '../components/Tarefas/Campos'
@@ -206,7 +206,7 @@ export default function Tarefas() {
   const [painelExpandido, setPainelExpandido] = useState(false)
   const [recarregarTick, setRecarregarTick] = useState(0)
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('')
-  const [aplicandoTpl, setAplicandoTpl] = useState(null) // { template, listaId }: painel "Aplicar template"
+  const [aplicandoTpl, setAplicandoTpl] = useState(null) // { template, listaId }: tela "Aplicar template"
   const [unidadeBurn, setUnidadeBurn] = useState(() => lerPref('burn', 'tarefas'))
   const sync = useSyncClickup({
     ativo: !t.loadingEstrutura,
@@ -505,6 +505,7 @@ export default function Tarefas() {
       if (error) showToast(`Tarefas criadas, mas as dependências falharam: ${error.message}`, 'error')
     }
     const raizes = plano.filter((l) => !l.paiId)
+    setAplicandoTpl(null)
     gravarPref('sel', { tipo: 'lista', id: listaId })
     const p = new URLSearchParams({ lista: listaId })
     if (raizes.length === 1 && mapa.get(raizes[0].item.id)) p.set('tarefa', mapa.get(raizes[0].item.id))
@@ -517,9 +518,8 @@ export default function Tarefas() {
   useEffect(() => {
     const h = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      if (e.key === 'Escape' && aplicandoTpl && !estaDigitando()) { e.preventDefault(); setAplicandoTpl(null); return }
       if (e.key === 'Escape' && tarefaAbertaId && !estaDigitando()) { e.preventDefault(); if (painelExpandido) setPainelExpandido(false); else fecharPainel() }
-      if ((e.key === 'c' || e.key === 'C') && !estaDigitando() && aba !== 'chat' && aba !== 'atividades' && aba !== 'paginas' && aba !== 'templates') { e.preventDefault(); novaTarefa() }
+      if ((e.key === 'c' || e.key === 'C') && !estaDigitando() && aba !== 'chat' && aba !== 'atividades' && aba !== 'paginas' && aba !== 'templates' && !aplicandoTpl) { e.preventDefault(); novaTarefa() }
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
@@ -543,10 +543,10 @@ export default function Tarefas() {
   const paiDaAberta = tarefaAberta?.parent_id ? t.itens[tarefaAberta.parent_id] : null
   const statusesDaAberta = listaDaAberta ? statusDaLista(listaDaAberta) : statuses
   const painelEmpurra = largura >= EMPURRA_A_PARTIR_DE
-  const mostrarViews = !aba || aba === 'ciclos'
+  const mostrarViews = !aplicandoTpl && (!aba || aba === 'ciclos')
   const comTopo = aba === 'ciclos' // cabeçalho acima da view: a página rola inteira
-  const semRolagem = aba === 'paginas' || !!templateAbertoId // o editor de template rola por dentro
-  const painel = !!tarefaAbertaId || !!aplicandoTpl
+  const semRolagem = aba === 'paginas' || aba === 'templates' || !!aplicandoTpl // templates (lista, editor, aplicação) rolam por dentro
+  const painel = !!tarefaAbertaId && !aplicandoTpl
 
   return (
     <>
@@ -573,8 +573,8 @@ export default function Tarefas() {
                 <div className="flex items-center gap-2 min-w-0">
                   <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
                   <button onClick={() => setArvoreAberta(true)} aria-label="Abrir pastas" className="ln-iconbtn md:hidden"><PanelLeft className="w-4 h-4" /></button>
-                  <h1 className="text-xl font-bold text-ln-t1 truncate">{{ intake: 'Intake', ciclos: 'Cycles', templates: 'Templates', paginas: 'Pages', analytics: 'Analytics' }[aba] || 'Tarefas'}</h1>
-                  {!aba && (
+                  <h1 className="text-xl font-bold text-ln-t1 truncate">{aplicandoTpl ? 'Templates' : ({ intake: 'Intake', ciclos: 'Cycles', templates: 'Templates', paginas: 'Pages', analytics: 'Analytics' }[aba] || 'Tarefas')}</h1>
+                  {!aba && !aplicandoTpl && (
                     <div className="hidden sm:flex items-center gap-1.5 text-[13px] text-ln-t3 min-w-0">
                       {pastaSel && (<>
                         <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
@@ -585,7 +585,7 @@ export default function Tarefas() {
                       {sel.tipo === 'todas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">Todas as abertas</span></>)}
                     </div>
                   )}
-                  {(!aba || aba === 'ciclos') && <span className="hidden xl:inline text-xs text-ln-t4 tabular whitespace-nowrap">{totalAbertas} abertas</span>}
+                  {(!aba || aba === 'ciclos') && !aplicandoTpl && <span className="hidden xl:inline text-xs text-ln-t4 tabular whitespace-nowrap">{totalAbertas} abertas</span>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {t.carregando && <Loader2 className="w-3.5 h-3.5 animate-spin text-ln-t4" />}
@@ -600,8 +600,8 @@ export default function Tarefas() {
                     {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
                   </button>
                   <button onClick={() => { if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true }); else if (sel.tipo === 'todas') t.carregarAbertas({ force: true }) }} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
-                  {(!aba || aba === 'ciclos') && <ModelosMenu modelos={vt.modelos} onUsar={usarModelo} onGerenciar={() => abrirTemplate(null)} />}
-                  {aba !== 'templates' && (
+                  {(!aba || aba === 'ciclos') && !aplicandoTpl && <ModelosMenu modelos={vt.modelos} onUsar={usarModelo} onGerenciar={() => abrirTemplate(null)} />}
+                  {aba !== 'templates' && !aplicandoTpl && (
                     <button onClick={novaTarefa} className="ln-primary" title="Nova tarefa (C)">
                       <Plus className="w-3.5 h-3.5" /> Nova tarefa
                     </button>
@@ -649,6 +649,14 @@ export default function Tarefas() {
               <div className={`flex-1 min-h-0 bg-ln-bg ${(view === 'quadro' && !comTopo && mostrarViews) || semRolagem ? 'overflow-hidden' : 'overflow-auto'}`}>
                 {t.loadingEstrutura || vt.loading ? (
                   <div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</div>
+                ) : aplicandoTpl ? (
+                  <AplicarTemplateView
+                    key={aplicandoTpl.template.id}
+                    template={aplicandoTpl.template} listaInicialId={aplicandoTpl.listaId}
+                    pastas={t.pastas} listas={t.listas} projetos={projects || []} squads={squads}
+                    membros={teamMembers || []} membrosMap={membrosMap}
+                    onAplicar={aplicarTemplate} onCancelar={() => setAplicandoTpl(null)}
+                  />
                 ) : aba === 'intake' ? (
                   <IntakeView vt={vt} pastas={t.pastas} listas={t.listas} projetos={projects || []} membros={teamMembers || []} onAceitar={aceitarIntake} onToast={showToast} onAbrirTarefa={abrirTarefa} />
                 ) : aba === 'paginas' ? (
@@ -693,25 +701,6 @@ export default function Tarefas() {
                 )}
               </div>
             </div>
-            )}
-
-            {/* ── Painel lateral: aplicar template ────────────────────── */}
-            {aplicandoTpl && aba !== 'chat' && aba !== 'atividades' && (
-              <>
-                {!painelEmpurra && <div className="absolute inset-0 z-30 bg-black/30" onClick={() => setAplicandoTpl(null)} aria-hidden="true" />}
-                <aside
-                  className={`${painelEmpurra ? 'relative shrink-0 border-l border-ln-ink/[0.08]' : 'absolute inset-y-0 right-0 z-40 shadow-2xl border-l border-ln-ink/[0.08]'} flex flex-col bg-ln-panel`}
-                  style={{ width: painelEmpurra ? PAINEL_LARGURA : `min(${PAINEL_LARGURA}px, 100%)` }}
-                  aria-label="Aplicar template"
-                >
-                  <AplicarTemplatePanel
-                    key={aplicandoTpl.template.id}
-                    template={aplicandoTpl.template} listaInicialId={aplicandoTpl.listaId}
-                    pastas={t.pastas} listas={t.listas} projetos={projects || []} squads={squads} membrosMap={membrosMap}
-                    onAplicar={aplicarTemplate} onFechar={() => setAplicandoTpl(null)}
-                  />
-                </aside>
-              </>
             )}
 
             {/* ── Painel lateral: tarefa ──────────────────────────────── */}

@@ -773,16 +773,26 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     outros itens). O formato e as regras puras (dias úteis, validação de ciclo, `planejarAplicacao`,
     `templateDaTarefa`, edição da árvore) estão em `src/lib/templates.js`; `itensDoTemplate` ainda lê
     o `payload` antigo, que a 107 converteu e a 108 apaga.
-  - **Telas:** `?aba=templates` = `TemplatesView` (cartões com nº de tarefas, horas e departamentos;
-    novo, editar, duplicar, apagar, aplicar). `?aba=templates&template=<id>` = `TemplateEditor`
-    (estrutura à esquerda com subir/descer/duplicar/excluir/+subtarefa; atributos à direita reaproveitando
-    `Propriedade`, `DepartamentoCampo`, `Descricao` e `Checklists` exportados de `TarefaPanel`; salva só no
-    botão, avisa ao sair com alteração). `{cliente}` no título/descrição vira o nome do cliente ao aplicar.
-  - **Aplicar** (`AplicarTemplatePanel`, painel lateral de 480px): cliente (pasta), lista (padrão
-    "Geral") e data de início; prévia com datas e responsáveis já calculados e aviso de quem fica sem
-    responsável. `aplicarTemplate` em `Tarefas.jsx` cria pais antes dos filhos via `criarTarefa` (que
-    agora aceita `etiquetas` e `checklists`), grava as dependências como `bloqueia` em `tarefas_relacoes`
-    e abre a lista (e a tarefa, se o template tem uma raiz só). Tudo segue para o ClickUp pela outbox.
+  - **Telas (com a cara da lista de um cliente, 2026-10-22):** as três reaproveitam a `ListaView`, que
+    ganhou ganchos opcionais sem mudar a lista de tarefas: `colunas` (troca as colunas),
+    `ctx.renderCelula(k, item)` (célula própria; `undefined` = célula padrão), `ctx.semStatus`,
+    `ctx.acaoLinha(item)` (última coluna), `ctx.expandirTudo` e `ctx.acoesHover === false` (sem os botões
+    de hover e sem "Adicionar subtarefa"). `?aba=templates` = `TemplatesView` (um template por linha:
+    Aplicar, tarefas, horas, departamentos, editado). `?aba=templates&template=<id>` = `TemplateEditor`
+    (tarefas e subtarefas como linhas, edição inline de departamento, regra de responsável, início/vencimento
+    em D+N, prioridade, tipo, estimativa e "depende de"; clicar na linha abre o `PainelLateral` de 480px com
+    nome, propriedades, descrição e checklists, reaproveitando `Propriedade`, `DepartamentoCampo`,
+    `Descricao` e `Checklists` de `TarefaPanel`; salva só no botão, avisa ao sair com alteração).
+    `{cliente}` no título/descrição vira o nome do cliente ao aplicar.
+  - **Aplicar** (`AplicarTemplateView`, tela cheia no lugar do conteúdo): cliente (pasta), lista (padrão
+    "Geral") e data de início no topo; a prévia é a ListaView com as tarefas que serão criadas, **editável**:
+    célula a célula (responsáveis, início, vencimento, prioridade, tipo, estimativa), nome/descrição/
+    checklists no painel lateral, e o X tira a linha (e as subtarefas dela). Os ajustes ficam num mapa por
+    item por cima do cálculo do template, então trocar data ou cliente recalcula o resto sem perder o que foi
+    mexido; "desfazer N ajustes" e "trazer de volta N removidas" voltam ao calculado. `aplicarTemplate` em
+    `Tarefas.jsx` cria pais antes dos filhos via `criarTarefa` (que aceita `etiquetas` e `checklists`), grava
+    as dependências como `bloqueia` em `tarefas_relacoes` e abre a lista (e a tarefa, se o template tem uma
+    raiz só). Tudo segue para o ClickUp pela outbox.
   - Entradas: item "Templates" na coluna do VertaTask, botão "Templates" no cabeçalho de Tarefas
     (aplica na lista aberta ou leva ao construtor) e "Salvar como template" no painel da tarefa (leva a
     tarefa e as subtarefas com todos os atributos e os prazos convertidos em dias úteis).
