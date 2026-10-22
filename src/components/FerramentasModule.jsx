@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Presentation, FileSignature, Clock, Target, TrendingUp, ChevronLeft, Calculator, Sparkles,
-  ShieldQuestion, LineChart,
+  ShieldQuestion, LineChart, Percent,
 } from 'lucide-react'
 import PromessaModule from './PromessaModule'
 import PlanejamentoAnualModule from './PlanejamentoAnualModule'
@@ -11,6 +11,7 @@ import MecanismoUnicoModule from './MecanismoUnico/MecanismoUnicoModule'
 import MatrizObjecaoModule from './MatrizObjecao/MatrizObjecaoModule'
 import WebinarModule from './Webinar/WebinarModule'
 import PropostaComercialModule from './PropostaComercialModule'
+import ROILivresModule from './ROILivresModule'
 
 // ─── Catálogo de Ferramentas ──────────────────────────────────────────────────
 // `Component` é o módulo real renderizado quando a card é clicada. Tools com
@@ -87,6 +88,15 @@ const TOOLS = [
     Icon: FileSignature,
     color: 'rl-cyan',
     Component: PropostaComercialModule,
+  },
+  {
+    id: 'calculadora_roi',
+    title: 'Calculadora de ROI',
+    description:
+      'Crie calculadoras de ROI avulsas, em branco e com nome próprio, sem depender dos dados do perfil do cliente. Faça quantas quiser.',
+    Icon: Percent,
+    color: 'rl-green',
+    Component: ROILivresModule,
   },
 ]
 
