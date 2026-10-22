@@ -134,7 +134,6 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
       <button type="button" onClick={() => remover(r.id)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/linha:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" aria-label={`Não criar ${r.titulo}`} title={r.parent_id ? 'Não criar esta subtarefa' : 'Não criar esta tarefa (e as subtarefas)'}><X className="w-3.5 h-3.5" /></button>
     ),
   }
-  const chaveLista = topo.map((r) => `${r.id}:${(filhosDe.get(r.id) || []).length}`).join('|')
   const sel = selId ? porId.get(selId) : null
 
   return (
@@ -177,7 +176,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
 
       <div className="relative flex-1 min-h-0 flex">
         <div className="flex-1 min-w-0 overflow-auto bg-ln-panel">
-          <ListaView key={chaveLista} grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas colunas={COLUNAS}
+          <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas colunas={COLUNAS}
             vazio={<p className="text-[13px] text-ln-t4 py-16 text-center">Todas as tarefas foram tiradas. Use “trazer de volta” no topo.</p>} />
         </div>
 

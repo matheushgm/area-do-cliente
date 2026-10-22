@@ -230,7 +230,8 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
 
 function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
   const [aberto, setAberto] = useState(true)
-  const [expandidos, setExpandidos] = useState(() => new Set(ctx.expandirTudo ? grupo.itens.filter((i) => (filhosDe.get(i.id) || []).length).map((i) => i.id) : []))
+  // com ctx.expandirTudo o conjunto guarda as RECOLHIDAS (tudo nasce aberto); sem ele, as abertas
+  const [expandidos, setExpandidos] = useState(() => new Set())
   const [novaTarefa, setNovaTarefa] = useState(false)
   const { onCriar, listaPadraoId, agrupar } = ctx
   const itens = ordenarItens(grupo.itens)
@@ -265,7 +266,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
           {itens.map((it) => {
             const todosFilhos = filhosDe.get(it.id) || []
             const filhos = ordenarItens(todosFilhos.filter((f) => mostrarConcluidas || f.status_tipo !== 'closed' || it.status_tipo === 'closed'))
-            const exp = expandidos.has(it.id)
+            const exp = ctx.expandirTudo ? todosFilhos.length > 0 && !expandidos.has(it.id) : expandidos.has(it.id)
             return (
               <div key={it.id}>
                 <Linha item={it} filhos={todosFilhos} expandido={exp} onToggle={() => toggle(it.id)} ctx={ctx} cols={cols} denso={denso} />

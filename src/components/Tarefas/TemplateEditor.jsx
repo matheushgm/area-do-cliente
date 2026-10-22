@@ -336,7 +336,7 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
     },
     renderCelula: (k, it) => {
       switch (k) {
-        case 'depto': return <DepartamentoCampo valor={it.departamento} onChange={(v) => patch(it.id, { departamento: v })} />
+        case 'depto': return <DepartamentoCampo compacto valor={it.departamento} onChange={(v) => patch(it.id, { departamento: v })} />
         case 'resp': return <RegraCelula valor={it.responsavel} membros={membros} membrosMap={membrosMap} onChange={(v) => patch(it.id, { responsavel: v })} />
         case 'ini': return <DiaCelula valor={it.inicio_dia} rotulo="Início" onChange={(v) => patch(it.id, { inicio_dia: v })} />
         case 'venc': return <DiaCelula valor={it.vencimento_dia} rotulo="Vencimento" onChange={(v) => patch(it.id, { vencimento_dia: v })} />
@@ -348,8 +348,6 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
       <button type="button" onClick={() => excluir(it.id)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/linha:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" aria-label={`Excluir ${it.titulo || 'tarefa'}`} title="Excluir"><Trash2 className="w-3.5 h-3.5" /></button>
     ),
   }
-  // remonta a lista quando entra subtarefa nova, para ela já aparecer aberta
-  const chaveLista = itens.map((it) => `${it.id}:${it.subtarefas.length}`).join('|')
 
   const irmaos = sel ? (sel.nivel === 0 ? itens : sel.pai.subtarefas) : []
   const idx = sel ? irmaos.findIndex((x) => x.id === sel.item.id) : -1
@@ -381,7 +379,7 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
 
       <div className="relative flex-1 min-h-0 flex">
         <div className="flex-1 min-w-0 overflow-auto bg-ln-panel">
-          <ListaView key={chaveLista} grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas colunas={COLUNAS_TEMPLATE} />
+          <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas colunas={COLUNAS_TEMPLATE} />
         </div>
 
         {sel && (

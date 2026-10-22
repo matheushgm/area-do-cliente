@@ -42,14 +42,19 @@ function Vazio({ children = 'não informado' }) {
   return <span className="text-ln-t4">{children}</span>
 }
 
-export function DepartamentoCampo({ valor = [], onChange }) {
+/** `compacto`: uma linha só (o primeiro departamento e "+N"), para célula de lista. */
+export function DepartamentoCampo({ valor = [], onChange, compacto = false }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const sel = new Set(valor)
+  const chip = (d) => <span key={d} className="inline-flex items-center h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t3 whitespace-nowrap min-w-0 truncate">{d}</span>
   return (
     <>
-      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`flex flex-wrap gap-1 text-left rounded-md ${FOCO}`}>
-        {valor.length ? valor.map((d) => <span key={d} className="inline-flex items-center h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t3">{d}</span>) : <Vazio />}
+      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} title={valor.join(', ') || undefined}
+        className={`${compacto ? 'flex flex-nowrap items-center gap-1 min-w-0 max-w-full overflow-hidden' : 'flex flex-wrap gap-1'} text-left rounded-md ${FOCO}`}>
+        {!valor.length ? <Vazio>{compacto ? '–' : undefined}</Vazio>
+          : compacto ? (<>{chip(valor[0])}{valor.length > 1 && <span className="text-xs text-ln-t4 tabular shrink-0">+{valor.length - 1}</span>}</>)
+            : valor.map(chip)}
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={230}>
         <div className="p-1">

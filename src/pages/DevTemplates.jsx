@@ -22,7 +22,7 @@ function lp() {
   const briefing = novoItem({ titulo: 'Briefing da LP de {cliente}', departamento: ['Account Manager'], vencimento_dia: 0, estimativa_min: 60, prioridade: 'high' })
   const design = novoItem({ titulo: 'Layout desktop + mobile', departamento: ['Designer'], inicio_dia: 1, vencimento_dia: 3, estimativa_min: 360, tipo_tarefa: 'Criação de Landing Page', depende_de: [briefing.id] })
   const aprovar = novoItem({ titulo: 'Aprovar layout com o cliente', departamento: ['Cliente'], vencimento_dia: 4 })
-  const dev = novoItem({ titulo: 'Montar LP e integrar formulário', departamento: ['Tecnologia'], vencimento_dia: 5, estimativa_min: 300 })
+  const dev = novoItem({ titulo: 'Montar LP e integrar formulário', departamento: ['Tecnologia', 'Designer', 'Gestor de tráfego'], vencimento_dia: 5, estimativa_min: 300 })
   dev.subtarefas = [novoItem({ titulo: 'Apontar o domínio', departamento: ['Tecnologia'], vencimento_dia: 5 }), novoItem({ titulo: 'Conferir traqueamento', departamento: ['Gestor de tráfego'], vencimento_dia: 6 })]
   dev.depende_de = [design.id]
   return [briefing, design, aprovar, dev]
