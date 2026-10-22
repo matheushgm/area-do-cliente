@@ -185,11 +185,44 @@ function GrupoCliente({ g, onAceitar, onRecusar, onAbrir }) {
 }
 
 // ── Histórico de decisões ─────────────────────────────────────────────────────
+const PERIODOS = [
+  ['todos', 'Todos', () => true],
+  ['hoje', 'Hoje', (n) => n === 0],
+  ['ontem', 'Ontem', (n) => n === 1],
+  ['7d', 'Últimos 7 dias', (n) => n >= 0 && n <= 6],
+  ['14d', 'Últimos 14 dias', (n) => n >= 0 && n <= 13],
+  ['30d', 'Últimos 30 dias', (n) => n >= 0 && n <= 29],
+]
+// Dias corridos entre a decisão e hoje, no fuso de São Paulo (0 = hoje, 1 = ontem).
+function diasAtras(iso) {
+  const dia = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  return Math.round((Date.parse(dia(new Date())) - Date.parse(dia(iso))) / 86400000)
+}
+
 function Historico({ itens, onReabrir, onAbrir, onCriarTarefa }) {
+  const [periodo, setPeriodo] = useState('todos')
+  const comIdade = useMemo(() => itens.map((d) => ({ d, n: diasAtras(d.decidida_em || d.created_at) })), [itens])
+  const visiveis = useMemo(() => {
+    const ok = PERIODOS.find(([id]) => id === periodo)[2]
+    return comIdade.filter(({ n }) => ok(n)).map(({ d }) => d)
+  }, [comIdade, periodo])
   if (!itens.length) return <p className="text-sm text-rl-subtle text-center py-10">Nenhuma decisão registrada ainda.</p>
   return (
     <div className="space-y-2">
-      {itens.map((d) => {
+      <div className="flex flex-wrap gap-1.5 pb-1">
+        {PERIODOS.map(([id, label, ok]) => {
+          const n = comIdade.filter((x) => ok(x.n)).length
+          const ativo = periodo === id
+          return (
+            <button key={id} onClick={() => setPeriodo(id)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${ativo ? 'bg-rl-purple text-white border-rl-purple' : 'bg-rl-card text-rl-subtle border-rl-border hover:text-rl-text'}`}>
+              {label} <span className={ativo ? 'opacity-80' : 'text-rl-muted'}>{n}</span>
+            </button>
+          )
+        })}
+      </div>
+      {!visiveis.length && <p className="text-sm text-rl-subtle text-center py-10">Nenhuma decisão neste período.</p>}
+      {visiveis.map((d) => {
         const cam = d.payload?.caminho || {}
         const niveis = [['Campanha', d.campanha || cam.campanha], ['Conjunto', d.conjunto || cam.conjunto], ['Anúncio', d.anuncio || cam.anuncio]].filter(([, v]) => v)
         return (
