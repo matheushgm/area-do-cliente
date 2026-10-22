@@ -6,6 +6,7 @@ import { DEFAULT_SECTION } from '../lib/clientSections'
 import HubCentro from '../components/ProjetoHub/HubCentro'
 import HubDireita from '../components/ProjetoHub/HubDireita'
 import HubInformacoes from '../components/ProjetoHub/HubInformacoes'
+import ModoApresentacao from '../components/ModoApresentacao/ModoApresentacao'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
@@ -23,7 +24,7 @@ import {
   Pencil, Plus, Link2, ChevronDown, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
   NotebookPen, Wrench, Compass, Megaphone, Map as MapIcon, Database, Share2,
-  ArrowLeft, LayoutGrid, StickyNote, ChevronRight, PanelLeftClose, PanelLeftOpen, MousePointerClick,
+  Presentation, ArrowLeft, LayoutGrid, StickyNote, ChevronRight, PanelLeftClose, PanelLeftOpen, MousePointerClick,
 } from 'lucide-react'
 import ROIScenariosModule from '../components/ROIScenariosModule'
 import PersonaCreator from './PersonaCreator'
@@ -1160,6 +1161,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
     else setLocalSection(id)
   }, [onSectionChange])
   const [modulosAbertos, setModulosAbertos] = useState(false)
+  const [apresentando, setApresentando] = useState(false)
   // Ação rápida da coluna esquerda que o HubCentro deve abrir (modal)
   const [acaoRapida, setAcaoRapida] = useState(null)
   // Quando navegamos da Jornada pra uma tool dentro de Ferramentas
@@ -1466,6 +1468,12 @@ export default function ClientProfile({ project: projectProp, section, onSection
         {/* Coluna esquerda: cartão do cliente, ações rápidas, informações e módulos */}
         <div className={`w-full xl:w-[300px] 2xl:w-[340px] shrink-0 space-y-3 ${activeSection !== 'hub' && infoRecolhida ? 'xl:hidden' : ''}`}>
       {/* ── Profile Header ──────────────────────────────────────────────── */}
+        <button
+          onClick={() => setApresentando(true)}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rl-purple text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
+        >
+          <Presentation className="w-4 h-4" /> Modo Apresentação
+        </button>
         <div className="glass-card border border-rl-border/60">
           <div className="relative h-24 fx-hero rounded-t-2xl">
             <div className="absolute inset-0 opacity-[0.12]"
@@ -2093,6 +2101,15 @@ export default function ClientProfile({ project: projectProp, section, onSection
             </button>
           </div>
         </Modal>
+      )}
+      {apresentando && (
+        <ModoApresentacao
+          project={project}
+          hub={hub}
+          config={configAtividades}
+          showToast={showToast}
+          onClose={() => setApresentando(false)}
+        />
       )}
     </div>
   )

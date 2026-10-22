@@ -46,6 +46,7 @@ export const PRIORIDADES = [
 const FORM_VAZIO = () => ({
   projectId: '', listId: '', titulo: '', descricao: '', tipo: '', departamento: '',
   responsavelId: '', horas: '', prioridade: 'normal', naoAntesDe: hojeISO(), dataDesejada: '',
+  dependeCliente: false, // demanda que depende do cliente: Departamento = Cliente
 })
 
 /**
@@ -261,7 +262,7 @@ export function usePlanejador({ projects, teamMembers, squads, config, showToast
         titulo: form.titulo.trim(),
         descricao: form.descricao.trim(),
         tipoTarefa: form.tipo || null,
-        departamento: form.departamento || null,
+        departamento: form.dependeCliente ? 'Cliente' : (form.departamento || null),
         responsavelProfileId: responsavel.id,
         assigneeClickupId: responsavel.clickupId,
         horas: horasNum,

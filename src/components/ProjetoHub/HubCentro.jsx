@@ -125,7 +125,7 @@ function Item({ item, expandido, nomes, onEditar, onNavigate }) {
 
 // Espelho do Dashboard de Tráfego (API) travado na conta do projeto: o mesmo
 // viewer de /dashboard-teste, em modo ?embed=1 (sem "Voltar", sem gravar navegação).
-function ResultadosEmbed({ contas, ativa, onTrocar, loading }) {
+export function ResultadosEmbed({ contas, ativa, onTrocar, loading }) {
   // Tela cheia: o mesmo iframe muda só de posição (fixed) pra não recarregar o dashboard
   const [cheia, setCheia] = useState(false)
   useEffect(() => {
