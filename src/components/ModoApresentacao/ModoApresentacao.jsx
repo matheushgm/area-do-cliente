@@ -16,6 +16,7 @@ import { CATEGORIAS, mudancasDoGerenciador, mudancasRegistradas } from '../../li
 import { bucketVencimento, paraData, inicioDoDia } from '../../lib/tarefas'
 import { hojeISO } from '../../lib/atividadesCarga'
 import { addDays, fmtBR } from '../../lib/dashboardData'
+import { apiFetch } from '../../lib/api'
 
 const ICONES = { Wallet, PauseCircle, ImagePlus, Users, Layers, Wrench }
 const TABS = [
@@ -102,16 +103,38 @@ function VisaoGeralContas({ contas, loading }) {
 }
 
 // ── Tela 2: Otimizações ─────────────────────────────────────────────────────
-function TelaOtimizacoes({ dash, hub }) {
+function TelaOtimizacoes({ dash, hub, contas = [] }) {
   const per = usePeriodo('7')
   const { faixa } = per
   const raw = dash.raw
   const temDados = (raw?.meta?.length || 0) + (raw?.google?.length || 0) > 0
 
-  const itens = useMemo(() => [
-    ...mudancasDoGerenciador(raw || { meta: [], google: [] }, faixa.de, faixa.ate),
-    ...mudancasRegistradas(hub.otimizacoes, faixa.de, faixa.ate),
-  ], [raw, hub.otimizacoes, faixa])
+  // Log de atividades do Meta: fonte fiel do que mudou (pausas, criações, orçamento).
+  // Contas lidas com sucesso dispensam a inferência por gasto; as demais (e o Google)
+  // seguem pela inferência de mudancasDoGerenciador.
+  const contasMeta = useMemo(() => contas.filter((c) => c.canal === 'meta').map((c) => c.conta), [contas])
+  const chaveContas = contasMeta.join('|')
+  const [log, setLog] = useState({ itens: [], accounts: [], loading: false })
+  useEffect(() => {
+    if (!chaveContas) { setLog({ itens: [], accounts: [], loading: false }); return undefined }
+    let cancel = false
+    setLog((l) => ({ ...l, loading: true }))
+    const qs = new URLSearchParams({ accounts: chaveContas, since: faixa.de, until: addDays(faixa.ate, 1) })
+    apiFetch(`/api/meta-activities?${qs}`)
+      .then((b) => { if (!cancel) setLog({ itens: b.itens || [], accounts: b.accounts || [], loading: false }) })
+      .catch(() => { if (!cancel) setLog({ itens: [], accounts: [], loading: false }) })
+    return () => { cancel = true }
+  }, [chaveContas, faixa.de, faixa.ate])
+
+  const itens = useMemo(() => {
+    const inferidos = mudancasDoGerenciador(raw || { meta: [], google: [] }, faixa.de, faixa.ate)
+      .filter((i) => !(i.canal === 'meta' && log.accounts.length > 0))
+    return [
+      ...inferidos,
+      ...log.itens.filter((i) => i.data >= faixa.de && i.data <= faixa.ate),
+      ...mudancasRegistradas(hub.otimizacoes, faixa.de, faixa.ate),
+    ]
+  }, [raw, hub.otimizacoes, faixa, log])
 
   const porCat = useMemo(() => {
     const m = new Map(CATEGORIAS.map((c) => [c.id, []]))
@@ -130,7 +153,7 @@ function TelaOtimizacoes({ dash, hub }) {
         <SeletorPeriodo {...per} />
       </div>
 
-      {dash.loading && !temDados ? (
+      {(dash.loading && !temDados) || (log.loading && log.itens.length === 0) ? (
         <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Lendo o gerenciador de anúncios…</div>
       ) : (
         <>
@@ -393,7 +416,7 @@ export default function ModoApresentacao({ project, hub, config, showToast, onCl
             <ResultadosEmbed apresentacao contas={contasDash} ativa={contaAtiva} onTrocar={setContaAtiva} loading={dash.loading} />
           </div>
         )}
-        {tab === 'otimizacoes' && <TelaOtimizacoes dash={dash} hub={hub} />}
+        {tab === 'otimizacoes' && <TelaOtimizacoes dash={dash} hub={hub} contas={contasDash} />}
         {tab === 'tarefas' && <TelaTarefas project={project} config={config} showToast={showToast} />}
       </main>
 
