@@ -110,7 +110,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
   const filhosDe = new Map(topo.map((r) => [r.id, linhas.filter((x) => x.parent_id === r.id)]))
   const ctx = {
     statuses: STATUSES_PADRAO, membros, membrosMap, itensMap: {}, listaPadraoId: null, agrupar: 'nenhum',
-    contagemComentarios: {}, selecionadaId: selId, semStatus: true, expandirTudo: true, acoesHover: false,
+    contagemComentarios: {}, selecionadaId: selId, semStatus: true, expandirTudo: true, acoesHover: false, simples: true,
     onAbrir: (id) => setSelId(id),
     onAtualizar: (id, patch) => editar(id, patch),
     onMudarStatus: () => {},

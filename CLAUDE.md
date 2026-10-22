@@ -776,8 +776,10 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   - **Telas (com a cara da lista de um cliente, 2026-10-22):** as três reaproveitam a `ListaView`, que
     ganhou ganchos opcionais sem mudar a lista de tarefas: `colunas` (troca as colunas),
     `ctx.renderCelula(k, item)` (célula própria; `undefined` = célula padrão), `ctx.semStatus`,
-    `ctx.acaoLinha(item)` (última coluna), `ctx.expandirTudo` e `ctx.acoesHover === false` (sem os botões
-    de hover e sem "Adicionar subtarefa"). `?aba=templates` = `TemplatesView` (um template por linha:
+    `ctx.acaoLinha(item)` (última coluna), `ctx.expandirTudo` (com subtarefas abertas, só fecha se a pessoa
+    recolher), `ctx.acoesHover === false` (sem os botões de hover e sem "Adicionar subtarefa") e `ctx.simples`
+    (sem cabeçalho de grupo, sem arrastar/selecionar e sem o "+" do cabeçalho de colunas: nos Templates há um
+    grupo só e nada disso teria ação). As três telas de Templates usam `simples`. `?aba=templates` = `TemplatesView` (um template por linha:
     Aplicar, tarefas, horas, departamentos, editado). `?aba=templates&template=<id>` = `TemplateEditor`
     (tarefas e subtarefas como linhas, edição inline de departamento, regra de responsável, início/vencimento
     em D+N, prioridade, tipo, estimativa e "depende de"; clicar na linha abre o `PainelLateral` de 480px com

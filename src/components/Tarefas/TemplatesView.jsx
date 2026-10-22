@@ -29,7 +29,7 @@ export default function TemplatesView({ modelos, membrosMap, onNovo, onAbrir, on
 
   const ctx = {
     statuses: STATUSES_PADRAO, membros: [], membrosMap, itensMap: {}, listaPadraoId: null, agrupar: 'nenhum',
-    contagemComentarios: {}, selecionadaId: null, semStatus: true, acoesHover: false,
+    contagemComentarios: {}, selecionadaId: null, semStatus: true, acoesHover: false, simples: true,
     onAbrir, onAtualizar: () => {}, onMudarStatus: () => {}, onCriar: () => Promise.resolve({}),
     renderCelula: (k, r) => {
       const res = r._resumo

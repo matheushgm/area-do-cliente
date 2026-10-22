@@ -8,8 +8,10 @@
 // Também serve o construtor e a aplicação de templates, com ganchos opcionais:
 // `colunas` (troca as colunas), `ctx.renderCelula(k, item)` (célula própria),
 // `ctx.semStatus` (sem o círculo de status), `ctx.acaoLinha(item)` (última coluna),
-// `ctx.expandirTudo` (subtarefas abertas de início) e `ctx.acoesHover === false`
-// (sem os botões de hover do nome nem a linha "Adicionar subtarefa").
+// `ctx.expandirTudo` (subtarefas abertas de início), `ctx.acoesHover === false`
+// (sem os botões de hover do nome nem a linha "Adicionar subtarefa") e `ctx.simples`
+// (lista de um grupo só: sem cabeçalho de grupo, sem arrastar/selecionar e sem o "+"
+// do cabeçalho das colunas, que ali não teriam o que fazer).
 import { useState, useRef } from 'react'
 import { ChevronRight, ChevronDown, CornerDownRight, MessageSquare, ListChecks, GripVertical, Plus, MoreHorizontal, Flag, Hourglass, AlignLeft, Pencil, Link2 } from 'lucide-react'
 import { ordenarItens, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
@@ -39,6 +41,8 @@ const COLS = {
   ],
 }
 const grid = (cols) => `minmax(420px, 1fr) ${cols.map((c) => `${c.w}px`).join(' ')} 40px`
+// recuo do cabeçalho "Nome" e das linhas "Adicionar": alinha com o que vem depois da seta
+const recuo = (ctx) => (ctx.simples ? 'pl-[26px]' : 'pl-[66px]')
 
 // ── Células no estilo ClickUp ─────────────────────────────────────────────────
 
@@ -189,10 +193,12 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
           opaco, então a cor de hover/seleção entra por um overlay atrás do conteúdo. */}
       <div className={`sticky left-0 z-[1] bg-ln-panel relative flex items-center gap-1 min-w-0 h-full pr-3 ${sub ? 'pl-9' : 'pl-2'}`}>
         <span aria-hidden="true" className={`absolute inset-0 -z-10 ${selecionada ? 'bg-ln-level2' : 'group-hover/linha:bg-ln-level2/60'}`} />
-        <span className="hidden sm:inline-flex items-center gap-0.5 w-9 shrink-0 opacity-0 group-hover/linha:opacity-100 transition-opacity">
-          <GripVertical className="w-3.5 h-3.5 text-ln-t4" />
-          <input type="checkbox" className="w-3 h-3 accent-[#1b5cff]" onClick={(e) => e.stopPropagation()} aria-label="Selecionar" />
-        </span>
+        {!ctx.simples && (
+          <span className="hidden sm:inline-flex items-center gap-0.5 w-9 shrink-0 opacity-0 group-hover/linha:opacity-100 transition-opacity">
+            <GripVertical className="w-3.5 h-3.5 text-ln-t4" />
+            <input type="checkbox" className="w-3 h-3 accent-[#1b5cff]" onClick={(e) => e.stopPropagation()} aria-label="Selecionar" />
+          </span>
+        )}
         <span className="inline-flex items-center justify-center w-4 h-4 shrink-0">
           {!sub && filhos.length > 0 ? (
             <button type="button" onClick={(e) => { e.stopPropagation(); onToggle() }} className="ln-iconbtn !w-4 !h-4 !rounded" title={`${filhos.length} subtarefa(s)`} aria-label={expandido ? 'Recolher subtarefas' : 'Expandir subtarefas'}>
@@ -240,7 +246,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
   return (
     <section className="mb-6" aria-label={grupo.label}>
       {/* Cabeçalho do grupo: ▾ Em atraso 47 ··· + */}
-      <div className="sticky left-0 w-fit flex items-center gap-2 h-9 px-3">
+      {!ctx.simples && <div className="sticky left-0 w-fit flex items-center gap-2 h-9 px-3">
         <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} className={`ln-iconbtn !w-5 !h-5 !rounded ${FOCO}`} aria-label={aberto ? 'Recolher grupo' : 'Expandir grupo'}>
           <ChevronDown className={`w-3.5 h-3.5 text-ln-t3 transition-transform duration-150 ${aberto ? '' : '-rotate-90'}`} />
         </button>
@@ -254,14 +260,14 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
         {listaPadraoId && (
           <button type="button" onClick={() => { setAberto(true); setNovaTarefa(true) }} className={`ln-iconbtn !w-5 !h-5 !rounded text-ln-t4 ${FOCO}`} title="Adicionar tarefa" aria-label="Adicionar tarefa"><Plus className="w-3.5 h-3.5" /></button>
         )}
-      </div>
-      {aberto && (
+      </div>}
+      {(aberto || ctx.simples) && (
         <div className="min-w-0">
           {/* Cabeçalho das colunas, repetido em cada grupo como no ClickUp */}
           <div className="grid items-center h-7 border-b border-ln-line/70 text-[11px] text-ln-t4" style={{ gridTemplateColumns: grid(cols) }} aria-hidden="true">
-            <span className={`sticky left-0 z-[1] bg-ln-panel h-full flex items-center ${ctx.semStatus ? 'pl-[46px]' : 'pl-[66px]'}`}>Nome</span>
+            <span className={`sticky left-0 z-[1] bg-ln-panel h-full flex items-center ${recuo(ctx)}`}>Nome</span>
             {cols.map((c) => <span key={c.k} className="px-2 truncate">{c.label}</span>)}
-            <span className="inline-flex items-center justify-center text-ln-t4"><Plus className="w-3.5 h-3.5" /></span>
+            <span className="inline-flex items-center justify-center text-ln-t4">{!ctx.simples && <Plus className="w-3.5 h-3.5" />}</span>
           </div>
           {itens.map((it) => {
             const todosFilhos = filhosDe.get(it.id) || []
@@ -272,7 +278,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
                 <Linha item={it} filhos={todosFilhos} expandido={exp} onToggle={() => toggle(it.id)} ctx={ctx} cols={cols} denso={denso} />
                 {exp && filhos.map((f) => <Linha key={f.id} item={f} sub ctx={ctx} cols={cols} denso={denso} />)}
                 {exp && ctx.acoesHover !== false && (
-                  <div className={`flex items-center h-8 ${ctx.semStatus ? 'pl-[46px]' : 'pl-[66px]'} border-b border-ln-line/70`}>
+                  <div className={`flex items-center h-8 ${recuo(ctx)} border-b border-ln-line/70`}>
                     <AdicionarInline placeholder="Adicionar subtarefa" onCriar={(t) => onCriar({ lista_id: it.lista_id, parent_id: it.id, titulo: t, status: agrupar === 'status' ? grupo.key : undefined })} />
                   </div>
                 )}
@@ -280,7 +286,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
             )
           })}
           {listaPadraoId && (
-            <div className={`flex items-center h-8 ${ctx.semStatus ? 'pl-[46px]' : 'pl-[66px]'}`}>
+            <div className={`flex items-center h-8 ${recuo(ctx)}`}>
               <AdicionarInline autoFocus={novaTarefa} placeholder="Adicionar tarefa" onCriar={(t) => { setNovaTarefa(false); onCriar({ lista_id: listaPadraoId, titulo: t, status: agrupar === 'status' ? grupo.key : undefined }) }} />
             </div>
           )}

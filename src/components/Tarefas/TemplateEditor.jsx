@@ -325,7 +325,7 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
   const filhosDe = new Map(itens.map((it) => [it.id, it.subtarefas.map((s, j) => comoLinha(s, j, it.id))]))
   const ctx = {
     statuses: STATUSES_PADRAO, membros, membrosMap, itensMap: {}, listaPadraoId: 'template', agrupar: 'nenhum',
-    contagemComentarios: {}, selecionadaId: selId, semStatus: true, expandirTudo: true,
+    contagemComentarios: {}, selecionadaId: selId, semStatus: true, expandirTudo: true, simples: true,
     onAbrir: (id) => setSelId(id),
     onAtualizar: (id, p) => patch(id, p),
     onMudarStatus: () => {},
