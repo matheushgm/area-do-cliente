@@ -5,7 +5,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import {
   X, BarChart3, Wrench, ListChecks, Wallet, PauseCircle, ImagePlus, Users, Layers,
-  Plus, Loader2, CheckCircle2, AlertTriangle, CalendarDays, UserRound, ChevronLeft, ChevronRight, Hand,
+  Plus, Loader2, CheckCircle2, Gauge, AlertTriangle, CalendarDays, UserRound, ChevronLeft, ChevronRight, Hand,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useDashboardData } from '../../hooks/useDashboardData'
@@ -23,6 +23,7 @@ const TABS = [
   { id: 'resultados', label: 'Resultados', Icon: BarChart3 },
   { id: 'otimizacoes', label: 'Otimizações', Icon: Wrench },
   { id: 'tarefas', label: 'Tarefas', Icon: ListChecks },
+  { id: 'benchmark', label: 'Benchmark', Icon: Gauge },
 ]
 const PERIODOS = [
   { id: '7', label: '7 dias', dias: 7 },
@@ -74,13 +75,11 @@ function usePeriodo(inicial = '7') {
   return { periodo, setPeriodo, de, setDe, ate, setAte, faixa }
 }
 
-// ── Tela 1: visão geral (a lista da tela principal do dashboard, só com as contas do cliente)
-function VisaoGeralContas({ contas, loading }) {
+// ── Telas com o viewer do dashboard embutido (altura segue o conteúdo) ─────
+// O viewer avisa a altura do conteúdo por postMessage; o iframe cresce em vez de ter barra interna.
+function ViewerAutoAltura({ src, title }) {
   const ref = useRef(null)
   const [altura, setAltura] = useState(360)
-  const src = useMemo(() => `/dash-teste/viewer.html?embed=1&lista=1&contas=${encodeURIComponent(JSON.stringify(contas))}&apresentacao=1`, [contas])
-
-  // O viewer avisa a altura do conteúdo; o iframe cresce em vez de ter barra interna
   useEffect(() => {
     const h = (e) => {
       if (e.origin !== window.location.origin || e.source !== ref.current?.contentWindow) return
@@ -89,16 +88,40 @@ function VisaoGeralContas({ contas, loading }) {
     window.addEventListener('message', h)
     return () => window.removeEventListener('message', h)
   }, [])
+  return <iframe ref={ref} key={src} src={src} title={title} className="w-full border-0 block" style={{ height: altura }} />
+}
 
+// Tela 1: a lista da tela principal do dashboard, só com as contas do cliente
+function VisaoGeralContas({ contas, loading }) {
+  const src = useMemo(() => `/dash-teste/viewer.html?embed=1&lista=1&contas=${encodeURIComponent(JSON.stringify(contas))}&apresentacao=1`, [contas])
   if (loading && contas.length === 0) return null
   if (contas.length === 0) return null
   return (
     <section>
       <p className="text-sm font-semibold text-rl-text px-1 mb-2">Visão geral das contas <span className="text-rl-muted font-normal">· Meta Ads + Google Ads</span></p>
-      <div className="glass-card overflow-hidden">
-        <iframe ref={ref} key={src} src={src} title="Visão geral das contas" className="w-full border-0 block" style={{ height: altura }} />
-      </div>
+      <div className="glass-card overflow-hidden"><ViewerAutoAltura src={src} title="Visão geral das contas" /></div>
     </section>
+  )
+}
+
+// Tela 4: como as contas do cliente se posicionam contra a carteira da agência.
+// O viewer não mostra o nome dos outros clientes neste modo.
+function TelaBenchmark({ contas, loading }) {
+  const src = useMemo(() => `/dash-teste/viewer.html?embed=1&benchmark=1&contas=${encodeURIComponent(JSON.stringify(contas))}&apresentacao=1`, [contas])
+  return (
+    <div className="max-w-[1600px] mx-auto space-y-4">
+      <div>
+        <h2 className="text-2xl font-bold text-rl-text">Como você se compara</h2>
+        <p className="text-sm text-rl-subtle mt-1">Suas contas contra a média dos clientes que a gente acompanha, nos mesmos tipos de campanha. Verde: igual ou melhor que a mediana. Vermelho: pelo menos 50% pior.</p>
+      </div>
+      {loading && contas.length === 0 ? (
+        <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Lendo o dashboard de tráfego…</div>
+      ) : contas.length === 0 ? (
+        <div className="glass-card p-4 text-sm text-rl-subtle">Nenhuma conta de anúncio vinculada a este projeto no dashboard.</div>
+      ) : (
+        <div className="glass-card overflow-hidden p-3"><ViewerAutoAltura src={src} title="Benchmark" /></div>
+      )}
+    </div>
   )
 }
 
@@ -418,6 +441,7 @@ export default function ModoApresentacao({ project, hub, config, showToast, onCl
         )}
         {tab === 'otimizacoes' && <TelaOtimizacoes dash={dash} hub={hub} contas={contasDash} />}
         {tab === 'tarefas' && <TelaTarefas project={project} config={config} showToast={showToast} />}
+        {tab === 'benchmark' && <TelaBenchmark contas={contasDash} loading={dash.loading} />}
       </main>
 
       <footer className="shrink-0 flex items-center justify-between px-4 sm:px-6 h-12 border-t border-rl-border bg-rl-card">
