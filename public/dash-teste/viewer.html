@@ -1261,7 +1261,7 @@ const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:
                 tab:'resultados', sub:0, drillSub:0, drillCampaign:null, drillAdset:null, drillAdsetName:null,
                 weekly:null, _charts:[], termsCache:{}, adsCache:{}, pagesCache:{}, kwCache:{}, kwSit:'POS', kwMatch:'', kwQ:'', kwPage:0,
                 termsSort:{key:'clicks',dir:'desc'}, termsPage:0,
-                pagesSort:{key:'spend',dir:'desc'}, pagesPage:0,
+                pagesSort:{key:'spend',dir:'desc'}, pagesPage:0, mpagesSort:{key:'spend',dir:'desc'}, metaLinks:{},
                 // ordenação por coluna das tabelas de campanha/conjunto/anúncio/grupo:
                 // { [idDaTabela]: {key,dir} } (sem entrada = ordem natural). Ver tblSorted.
                 tblSort:{},
@@ -4149,6 +4149,81 @@ function tblGooglePages(rows){
     <span>${from}–${to} de ${total}</span>${pgBtn('prev','‹',page===0)}${pgBtn('next','›',page>=pages-1)}</div>`
   return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>${total>PAGES_PER_PAGE?pager:''}`
 }
+// ─── LANDING PAGES do Meta ───────────────────────────────────────────────────
+// O dash_insights só guarda o TIPO de destino; o link está no criativo. O painel
+// pede os links dos anúncios do período a /api/meta-pages (Graph API no servidor),
+// agrupa por página (sem query/UTM) e soma as métricas dos anúncios de cada uma.
+const MPAGES_COLS = [['Página','pagina'],['Anúncios','ads'],['Gasto','spend'],['Impressões','impr'],['Cliques no link','clicks'],
+  ['Visitas à página','lpv'],['Conv.','conv'],['CPL','cpl'],['Tx. Conv.','tx'],['Conexão','conexao']]
+const SEM_LINK = 'Sem página de destino (post, perfil ou formulário do Meta)'
+const WHATS = 'WhatsApp (conversa)'
+function paginaDoLink(info){
+  const link = info && info.link
+  if (!link) return (info && /WHATSAPP/i.test(info.cta||'')) ? WHATS : SEM_LINK
+  try {
+    const u = new URL(link)
+    if (/(^|\.)(wa\.me|whatsapp\.com)$/i.test(u.hostname)) return WHATS
+    return (u.hostname.replace(/^www\./,'') + u.pathname).replace(/\/+$/,'').toLowerCase().replace(/^/, u.protocol + '//')
+  } catch (e) { return link }
+}
+async function fetchMetaLinks(adIds){
+  const faltam = adIds.filter(id => !(id in state.metaLinks))
+  if (!faltam.length) return true
+  const token = supabaseToken()
+  if (!token) throw new Error('faça login para ler as páginas de destino')
+  const r = await fetch('/api/meta-pages', { method:'POST', headers:{ Authorization:`Bearer ${token}`, 'content-type':'application/json' }, body: JSON.stringify({ ad_ids: faltam }) })
+  if (!r.ok) { let m=''; try { m = (await r.json()).error?.message || '' } catch(e){}; throw new Error(m || `HTTP ${r.status}`) }
+  const d = await r.json()
+  for (const id of faltam) state.metaLinks[id] = d.links[id] || { link:null, cta:null }
+  return true
+}
+function tblMetaPages(rows){
+  const keyOf = r => paginaDoLink(state.metaLinks[r['ad_id']])
+  const g = groupBy(rows, keyOf, { spend:r=>M(r,'Valor investido'), conv:metaConv, impr:r=>M(r,'Impressões'),
+    clicks:r=>M(r,'Número de cliques no link'), lpv:r=>M(r,'Visualizações da página de destino') })
+  if(!g.length) return `<div class="empty">Sem anúncios no período.</div>`
+  const items = g.map(x=>({ pagina:x.key, ads:new Set(x._rows.map(r=>r['ad_id']).filter(Boolean)).size,
+    spend:x.spend, impr:x.impr, clicks:x.clicks, lpv:x.lpv, conv:x.conv,
+    cpl:x.conv>0?x.spend/x.conv:null, tx:x.clicks>0?x.conv/x.clicks:null, conexao:x.clicks>0&&x.lpv>0?x.lpv/x.clicks*100:null }))
+  const { key, dir } = state.mpagesSort, sg = dir==='asc'?1:-1
+  items.sort((a,b)=>{
+    if (key==='pagina') return sg*String(a.pagina).localeCompare(String(b.pagina),'pt-BR')
+    const av=a[key], bv=b[key]
+    if (av==null && bv==null) return 0
+    if (av==null) return 1
+    if (bv==null) return -1
+    return sg*(av-bv)
+  })
+  const flags = items.filter(x=>x.spend>0 && x.conv===0).slice(0,4)
+    .map(x=>`🚨 ${esc(x.pagina.replace(/^https?:\/\//,'').slice(0,44))} — ${fmtMoney(x.spend)} sem conversão`)
+  const th = MPAGES_COLS.map(([label,k])=>{ const a=key===k
+    return `<th class="th-sort" data-sortkey="${k}" style="cursor:pointer;user-select:none;white-space:nowrap">${label}${a?(dir==='asc'?' ▲':' ▼'):''}</th>` }).join('')
+  const nome = x => (x.pagina===SEM_LINK || x.pagina===WHATS) ? `<span title="${esc(x.pagina)}">${esc(x.pagina)}</span>` : urlCell(x.pagina)
+  const body = items.map(x=>`<tr><td class="ad-name">${nome(x)}</td><td>${fmtNum(x.ads)}</td><td>${fmtMoney(x.spend)}</td>
+    <td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td><td>${x.lpv>0?fmtNum(x.lpv):'—'}</td><td>${convCell(x.conv,x.spend)}</td>
+    <td>${x.cpl!=null?fmtMoney(x.cpl):'—'}</td><td>${txCell(x.conv,x.clicks)}</td><td>${x.conexao!=null?fmtPctVal(x.conexao):'—'}</td></tr>`).join('')
+  const nota = `<div class="otm-nota" style="margin:8px 2px 0;font-size:11.5px;opacity:.7">Agrupado pelo link do criativo, sem parâmetros de UTM. Conexão = visitas à página ÷ cliques no link (baixa indica página lenta ou clique acidental).</div>`
+  return flagRow(flags,'red')+`<div class="dt-wrap"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>${nota}`
+}
+async function renderMetaPages(container, rows){
+  if (!container) return
+  const ativos = (rows||[]).filter(r=>r['ad_id'] && M(r,'Valor investido')>0)
+  const ids = [...new Set(ativos.map(r=>r['ad_id']))]
+  container.innerHTML = `<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><p>Lendo as páginas de destino dos anúncios…</p></div>`
+  try { await fetchMetaLinks(ids) }
+  catch (e) { container.innerHTML = `<div class="empty">Erro ao carregar as páginas de destino: ${esc(e.message)}</div>`; return }
+  if (!document.body.contains(container)) return
+  const draw = () => {
+    container.innerHTML = tblMetaPages(ativos)
+    container.querySelectorAll('th.th-sort').forEach(th => th.onclick = () => {
+      const k = th.dataset.sortkey
+      if (state.mpagesSort.key === k) state.mpagesSort = { key:k, dir: state.mpagesSort.dir==='asc'?'desc':'asc' }
+      else state.mpagesSort = { key:k, dir: k==='pagina'?'asc':'desc' }
+      draw()
+    })
+  }
+  draw()
+}
 // ─── PALAVRAS-CHAVE do Google (canal google_keywords) ─────────────────────────
 // Snapshot do estado ATUAL de cada palavra: tipo de correspondência (exata, frase,
 // ampla) e situação (ativa, pausada, negativada). Negativa de campanha e de grupo
@@ -4981,12 +5056,13 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
     }
     return `<div class="cp-panel">${bc}${quad}${body}${otmPanelHTML(channel, state.openClient.client)}</div>`
   }
-  const tabs = isMeta ? [[`${ic('chart','📊')} Campanhas`,0],[`${ic('target','🎯')} Conjuntos`,1],[`${ic('image','🎨')} Anúncios`,2]]
+  const tabs = isMeta ? [[`${ic('chart','📊')} Campanhas`,0],[`${ic('target','🎯')} Conjuntos`,1],[`${ic('image','🎨')} Anúncios`,2],[`${ic('globe','🔗')} Landing pages`,3]]
                       : [[`${ic('chart','📊')} Campanhas`,0],[`${ic('key','🔑')} Grupos`,1],[`${ic('hash','🗝️')} Palavra-chave`,5],[`${ic('image','🎨')} Anúncios`,2],[`${ic('search','🔎')} Termos`,3],[`${ic('globe','🔗')} Páginas`,4]]
   let panel
   // No Google, Anúncios/Termos/Páginas são canais lazy por conta: entram como
   // container vazio e são preenchidos por render*(…) depois do HTML no DOM.
   if (isMeta) panel = state.sub===1?tblMetaAdsets(tblFilter(allRows,r=>r['Conjunto de Anúncio']),prevRows)
+                    : state.sub===3?`<div id="mpagesPanel"></div>`
                     : state.sub===2?tblMetaAds(tblFilter(allRows,r=>r['Nome do Anúncio']),prevRows)
                     : tblMetaCampaigns(tblFilter(allRows,r=>r['Nome da campanha']),prevRows)
   else        panel = state.sub===5?`<div id="kwPanel"></div>`
@@ -4998,7 +5074,7 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
     ${quad}
     <div class="dt-subtabs">
       ${tabs.map(([l,i])=>`<div class="dtab${state.sub===i?' active':''}" data-sub="${i}">${l}</div>`).join('')}
-      ${isMeta ? tblSearchHTML(['Buscar campanha…','Buscar conjunto…','Buscar anúncio…'][state.sub]||'Buscar…')
+      ${isMeta ? (state.sub<=2 ? tblSearchHTML(['Buscar campanha…','Buscar conjunto…','Buscar anúncio…'][state.sub]) : '')
                : state.sub<=1 ? tblSearchHTML(state.sub===1?'Buscar grupo…':'Buscar campanha…') : ''}
     </div>
     ${panel}
@@ -5510,6 +5586,8 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
   // Abas async
   if (state.tab==='atividades') renderAtividades(document.getElementById('asyncTab'), client, folderId)
   if (state.tab==='parametros') renderParametros(document.getElementById('asyncTab'), client, acName)
+  // Landing pages (Meta, sub-aba 3): o link vem do criativo, lido sob demanda.
+  if (state.tab==='campanhas' && ch==='meta' && !state.drillCampaign && !state.drillAdset && state.sub===3) renderMetaPages(document.getElementById('mpagesPanel'), allRows)
   // Termos de pesquisa (Google, sub-aba 2) — lazy/por conta, filtrado pelo período.
   if (state.tab==='campanhas' && ch!=='meta') {
     // O drill (campanha › grupo) tem prioridade sobre a sub-aba: os dois usam o
