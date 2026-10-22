@@ -1287,6 +1287,8 @@ const SHARED = _q.get('shared') === '1'
 // ?embed=1&lista=1&contas=[{"canal":"meta","conta":"X"},...]: a LISTA da tela principal
 // (Meta + Google juntos, aba "Todos") restrita às contas do projeto; clicar numa conta
 // abre a página dela e o "Voltar" devolve à lista. Avisa o pai da altura via postMessage.
+// ?apresentacao=1 (Modo Apresentação): sem o painel nem os selos de Otimizações, que são de operação
+const SEM_OTM = _q.get('apresentacao') === '1'
 const EMBED_LISTA = !SHARED && _q.get('embed') === '1' && _q.get('lista') === '1'
 const EMBED_CONTAS = (() => {
   if (!EMBED_LISTA) return null
@@ -3950,7 +3952,7 @@ function tblMetaAds(rows, prevRows){
   const body = tblSorted('meta-ad', items, cols).map((it)=>{ const {x,top,nome,cpl,ctr,cpm,st:stHtml,paused}=it
     const adId=(x._rows.find(r=>r['ad_id'])||{})['ad_id']||''
     // Otimizações pendentes deste anúncio: o selo filtra o painel de Otimizações só nele.
-    const otmBtn=(adId && otmN[adId])?`<button class="otm-pill" data-otm-ad="${esc(adId)}" data-otm-name="${esc(nome)}" title="Ver as ${otmN[adId]} otimização(ões) pendente(s) deste anúncio">${ic('sparkles','💡')} ${otmN[adId]}</button>`:''
+    const otmBtn=(adId && otmN[adId] && !SEM_OTM)?`<button class="otm-pill" data-otm-ad="${esc(adId)}" data-otm-name="${esc(nome)}" title="Ver as ${otmN[adId]} otimização(ões) pendente(s) deste anúncio">${ic('sparkles','💡')} ${otmN[adId]}</button>`:''
     // Dentro de um conjunto o nome dele em cada linha seria repetição; na conta
     // inteira é o que distingue duas linhas do mesmo criativo.
     const conjunto=state.drillAdset ? '' : (x._rows[0]?.['Conjunto de Anúncio'] || '')
@@ -4687,7 +4689,7 @@ function otmInnerHTML(ch, client) {
     </div>
     ${aviso}${lista}${nota ? `<div class="otm-nota">${nota}</div>` : ''}`
 }
-const otmPanelHTML = (ch, client) => SHARED ? '' : `<div class="otm-card" id="otmPanel">${otmInnerHTML(ch, client)}</div>`
+const otmPanelHTML = (ch, client) => SHARED || SEM_OTM ? '' : `<div class="otm-card" id="otmPanel">${otmInnerHTML(ch, client)}</div>`
 
 // Redesenha só o painel (abrir detalhes, trocar de aba…): sem refazer gráficos
 // nem mexer na rolagem. Depois de uma decisão o cliente inteiro é redesenhado,

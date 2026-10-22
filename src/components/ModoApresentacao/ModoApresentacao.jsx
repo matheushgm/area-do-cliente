@@ -77,7 +77,7 @@ function usePeriodo(inicial = '7') {
 function VisaoGeralContas({ contas, loading }) {
   const ref = useRef(null)
   const [altura, setAltura] = useState(360)
-  const src = useMemo(() => `/dash-teste/viewer.html?embed=1&lista=1&contas=${encodeURIComponent(JSON.stringify(contas))}`, [contas])
+  const src = useMemo(() => `/dash-teste/viewer.html?embed=1&lista=1&contas=${encodeURIComponent(JSON.stringify(contas))}&apresentacao=1`, [contas])
 
   // O viewer avisa a altura do conteúdo; o iframe cresce em vez de ter barra interna
   useEffect(() => {
@@ -390,7 +390,7 @@ export default function ModoApresentacao({ project, hub, config, showToast, onCl
           <div className="max-w-[1600px] mx-auto space-y-6">
             <VisaoGeralContas contas={contasDash} loading={dash.loading} />
             {contasDash.length > 0 && <p className="text-sm font-semibold text-rl-text px-1 -mb-3">Detalhe por conta</p>}
-            <ResultadosEmbed contas={contasDash} ativa={contaAtiva} onTrocar={setContaAtiva} loading={dash.loading} />
+            <ResultadosEmbed apresentacao contas={contasDash} ativa={contaAtiva} onTrocar={setContaAtiva} loading={dash.loading} />
           </div>
         )}
         {tab === 'otimizacoes' && <TelaOtimizacoes dash={dash} hub={hub} />}

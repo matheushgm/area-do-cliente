@@ -125,7 +125,7 @@ function Item({ item, expandido, nomes, onEditar, onNavigate }) {
 
 // Espelho do Dashboard de Tráfego (API) travado na conta do projeto: o mesmo
 // viewer de /dashboard-teste, em modo ?embed=1 (sem "Voltar", sem gravar navegação).
-export function ResultadosEmbed({ contas, ativa, onTrocar, loading }) {
+export function ResultadosEmbed({ contas, ativa, onTrocar, loading, apresentacao = false }) {
   // Tela cheia: o mesmo iframe muda só de posição (fixed) pra não recarregar o dashboard
   const [cheia, setCheia] = useState(false)
   useEffect(() => {
@@ -148,7 +148,7 @@ export function ResultadosEmbed({ contas, ativa, onTrocar, loading }) {
     )
   }
   const c = contas[Math.min(ativa, contas.length - 1)]
-  const src = `/dash-teste/viewer.html?embed=1&cliente=${encodeURIComponent(c.conta)}&canal=${c.canal}`
+  const src = `/dash-teste/viewer.html?embed=1&cliente=${encodeURIComponent(c.conta)}&canal=${c.canal}${apresentacao ? '&apresentacao=1' : ''}`
   const pilulas = contas.length > 1 && contas.map((x, i) => (
     <button key={x.canal + x.conta} onClick={() => onTrocar(i)}
       className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${i === ativa ? 'bg-rl-text text-white border-rl-text' : 'bg-rl-card border-rl-border text-rl-subtle hover:text-rl-text'}`}>
