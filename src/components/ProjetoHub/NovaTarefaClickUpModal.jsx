@@ -13,7 +13,7 @@ import { PRIORIDADE_CLICKUP } from '../../lib/playbookSugestoes'
 const INPUT = 'w-full px-3 py-2 rounded-lg bg-rl-surface border border-rl-border text-sm text-rl-text placeholder:text-rl-muted focus:outline-none focus:border-rl-purple/50 transition-colors'
 const LABEL = 'block text-[11px] font-semibold uppercase tracking-wider text-rl-muted mb-1'
 
-export default function NovaTarefaClickUpModal({ project, sugestao = null, config, showToast, onCriada, onClose }) {
+export default function NovaTarefaClickUpModal({ project, sugestao = null, dependeCliente = false, config, showToast, onCriada, onClose }) {
   const { projects, teamMembers, squads } = useApp()
   const pl = usePlanejador({
     projects, teamMembers, squads, config, showToast,
@@ -31,6 +31,7 @@ export default function NovaTarefaClickUpModal({ project, sugestao = null, confi
       departamento: TIPO_PARA_DEPARTAMENTO[tipo] || 'Gestor de tráfego',
       horas: String(sugestao?.horas ?? config?.horas_por_tipo?.[tipo] ?? 1),
       prioridade: sugestao ? (PRIORIDADE_CLICKUP[sugestao.prioridade] || 'normal') : 'normal',
+      dependeCliente,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id, sugestao?.chave])
@@ -121,6 +122,10 @@ export default function NovaTarefaClickUpModal({ project, sugestao = null, confi
                 </select>
               </div>
             </div>
+            <label className="col-span-2 flex items-start gap-2 p-2.5 rounded-lg bg-rl-surface border border-rl-border cursor-pointer">
+              <input type="checkbox" checked={!!f.dependeCliente} onChange={(e) => pl.set('dependeCliente', e.target.checked)} className="mt-0.5" />
+              <span className="text-sm text-rl-text">Depende do cliente<span className="block text-[11px] text-rl-muted">Marca a tarefa com o departamento &quot;Cliente&quot; (ex.: enviar material, aprovar, liberar acesso). O responsável abaixo é quem do time cobra.</span></span>
+            </label>
             <div>
               <label className={LABEL}>Não começar antes de</label>
               <input type="date" value={f.naoAntesDe} onChange={(e) => pl.set('naoAntesDe', e.target.value)} className={INPUT} />
