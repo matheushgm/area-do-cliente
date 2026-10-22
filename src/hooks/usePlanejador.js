@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { sugerirAtividade, listarListasClickUp, criarAtividade } from '../lib/atividades'
 import { hojeISO } from '../lib/atividadesCarga'
+import { DEPARTAMENTO_ALIAS_SQUAD } from '../lib/constants'
 
 // Tipo de tarefa (campo do ClickUp) → departamento que normalmente executa
 export const TIPO_PARA_DEPARTAMENTO = {
@@ -35,7 +36,6 @@ export const DEPARTAMENTOS = [
   'Web Designer', 'Designer', 'Account Manager', 'Tecnologia',
 ]
 // No squad da Área do Cliente o departamento de tecnologia ainda se chama assim
-const DEPARTAMENTO_ALIAS_SQUAD = { 'Tecnologia': 'Automação / Integração' }
 export const PRIORIDADES = [
   { value: 'urgent', label: 'Urgente' },
   { value: 'high',   label: 'Alta' },

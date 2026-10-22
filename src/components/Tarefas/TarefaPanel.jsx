@@ -29,7 +29,7 @@ function fmtBytes(n) {
   return `${(n / 1048576).toFixed(1)} MB`
 }
 
-function Propriedade({ label, children }) {
+export function Propriedade({ label, children }) {
   return (
     <div className="flex items-center min-h-[26px] gap-2">
       <dt className="w-24 shrink-0 text-xs text-ln-t3">{label}</dt>
@@ -42,7 +42,7 @@ function Vazio({ children = 'não informado' }) {
   return <span className="text-ln-t4">{children}</span>
 }
 
-function DepartamentoCampo({ valor = [], onChange }) {
+export function DepartamentoCampo({ valor = [], onChange }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const sel = new Set(valor)
@@ -65,7 +65,7 @@ function DepartamentoCampo({ valor = [], onChange }) {
   )
 }
 
-function Descricao({ valor, onSalvar }) {
+export function Descricao({ valor, onSalvar }) {
   const [editando, setEditando] = useState(false)
   const [txt, setTxt] = useState('')
   const abrir = () => { setTxt(valor || ''); setEditando(true) }
@@ -101,7 +101,7 @@ function Descricao({ valor, onSalvar }) {
   )
 }
 
-function Checklists({ checklists = [], onChange }) {
+export function Checklists({ checklists = [], onChange }) {
   const [novaLista, setNovaLista] = useState(false)
   const [novoItemEm, setNovoItemEm] = useState(null)
   const set = (next) => onChange(next)
@@ -264,7 +264,7 @@ function Secao({ titulo, extra, children }) {
 }
 
 export default function TarefaPanel({
-  item, subtarefas, statuses, membros, membrosMap, comentarios, user, ciclos = [], modulos = [], etiquetas = [], ciclosMap = new Map(), modulosMap = new Map(), etiquetasMap = new Map(), onCriarEtiqueta, onSalvarModelo,
+  item, subtarefas, statuses, membros, membrosMap, comentarios, user, ciclos = [], etiquetas = [], ciclosMap = new Map(), etiquetasMap = new Map(), onCriarEtiqueta, onSalvarModelo,
   onAtualizar, onMudarStatus, onCriarSub, onAbrir, onComentar, onExcluirComentario, onCarregarComentarios, onErro,
 }) {
   const [titulo, setTitulo] = useState(item?.titulo || '')
@@ -292,7 +292,7 @@ export default function TarefaPanel({
           <StatusCampo item={item} statuses={statuses} onChange={(s) => onMudarStatus(item, s)} />
           <span className="flex-1" />
           <SeguirBotao tarefaId={item.id} user={user} />
-          {onSalvarModelo && <button type="button" onClick={() => onSalvarModelo(item, (subtarefas || []).map((x) => x.titulo))} className={`ln-pill ${FOCO}`} title="Guardar esta tarefa como modelo para criar outras iguais">Salvar como modelo</button>}
+          {onSalvarModelo && <button type="button" onClick={() => onSalvarModelo(item, subtarefas || [])} className={`ln-pill ${FOCO}`} title="Guardar esta tarefa e as subtarefas como template, com todos os atributos">Salvar como template</button>}
           {item.clickup_url && (
             <a href={item.clickup_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 text-ln-t4 hover:text-ln-accent ${FOCO}`} title="Abrir no ClickUp">
               ClickUp <ExternalLink className="w-3 h-3" />
@@ -326,9 +326,6 @@ export default function TarefaPanel({
               opcoes={ciclos.map((c) => ({ id: c.id, rotulo: c.nome, sub: `${fmtDiaMes(c.inicio)} a ${fmtDiaMes(c.fim)} · ${ROTULO_FASE[faseDoCiclo(c)]}` }))}
               onChange={(v) => onAtualizar(item.id, { ciclo_id: v })}
             />
-          </Propriedade>
-          <Propriedade label="Module">
-            <RelacaoCampo valor={item.modulo_id} opcoes={modulos.map((m) => ({ id: m.id, rotulo: m.nome }))} onChange={(v) => onAtualizar(item.id, { modulo_id: v })} />
           </Propriedade>
           <Propriedade label="Etiquetas">
             <EtiquetasCampo valor={item.etiquetas || []} etiquetas={etiquetas} onChange={(v) => onAtualizar(item.id, { etiquetas: v })} onCriar={onCriarEtiqueta} />
@@ -379,7 +376,7 @@ export default function TarefaPanel({
       </Secao>
 
       <Secao titulo="Histórico">
-        <HistoricoSecao tarefaId={item.id} versao={item.updated_at} membrosMap={membrosMap} ciclosMap={ciclosMap} modulosMap={modulosMap} etiquetasMap={etiquetasMap} />
+        <HistoricoSecao tarefaId={item.id} versao={item.updated_at} membrosMap={membrosMap} ciclosMap={ciclosMap} etiquetasMap={etiquetasMap} />
       </Secao>
 
       <Secao titulo="Atividade">

@@ -19,12 +19,11 @@ const COLUNAS = [
   { k: 'venc', rot: 'Vencimento', w: '96px' },
   { k: 'estimativa', rot: 'Estimativa', w: '92px' },
   { k: 'ciclo', rot: 'Cycle', w: '140px' },
-  { k: 'modulo', rot: 'Module', w: '160px' },
   { k: 'etiquetas', rot: 'Etiquetas', w: 'minmax(140px, 1fr)' },
 ]
 const GRID = COLUNAS.map((c) => c.w).join(' ')
 
-export default function PlanilhaView({ itens, ctx, ciclos, modulos, etiquetasMap }) {
+export default function PlanilhaView({ itens, ctx, ciclos, etiquetasMap }) {
   const [ordem, setOrdem] = useState({ k: 'venc', dir: 1 })
   const { statuses, membros, membrosMap, onAbrir, onAtualizar, onMudarStatus, selecionadaId } = ctx
 
@@ -38,19 +37,18 @@ export default function PlanilhaView({ itens, ctx, ciclos, modulos, etiquetasMap
         case 'venc': return it.data_vencimento || '9'
         case 'estimativa': return it.estimativa_min ?? 1e9
         case 'ciclo': return ciclos.find((c) => c.id === it.ciclo_id)?.nome || '~'
-        case 'modulo': return modulos.find((m) => m.id === it.modulo_id)?.nome || '~'
         default: return 0
       }
     }
     return [...itens].sort((a, b) => (v(a) < v(b) ? -1 : v(a) > v(b) ? 1 : 0) * ordem.dir)
-  }, [itens, ordem, ciclos, modulos])
+  }, [itens, ordem, ciclos])
 
-  const ordenavel = new Set(['titulo', 'status', 'prioridade', 'inicio', 'venc', 'estimativa', 'ciclo', 'modulo'])
+  const ordenavel = new Set(['titulo', 'status', 'prioridade', 'inicio', 'venc', 'estimativa', 'ciclo'])
   if (!itens.length) return <p className="text-[13px] text-ln-t4 py-10 px-5">Nenhuma tarefa aqui ainda</p>
 
   return (
     <div className="p-3 overflow-x-auto">
-      <div className="ln-card min-w-[1480px] overflow-hidden">
+      <div className="ln-card min-w-[1320px] overflow-hidden">
         <div className="grid items-center gap-x-3 h-9 px-3 border-b border-ln-ink/[0.08] bg-ln-ink/[0.02] text-[11px] uppercase tracking-wider font-bold text-ln-t4" style={{ gridTemplateColumns: GRID }} role="row">
           {COLUNAS.map((c) => (
             ordenavel.has(c.k) ? (
@@ -78,7 +76,6 @@ export default function PlanilhaView({ itens, ctx, ciclos, modulos, etiquetasMap
             <span onClick={(e) => e.stopPropagation()}><DataCampo valor={it.data_vencimento} item={it} formato="curta" placeholder="" onChange={(v) => onAtualizar(it.id, { data_vencimento: v })} /></span>
             <span onClick={(e) => e.stopPropagation()}><EstimativaCampo valor={it.estimativa_min} vazio="" onChange={(v) => onAtualizar(it.id, { estimativa_min: v })} /></span>
             <span onClick={(e) => e.stopPropagation()} className="min-w-0"><RelacaoCampo valor={it.ciclo_id} cor="#2A25F0" vazio="" opcoes={ciclos.map((c) => ({ id: c.id, rotulo: c.nome, sub: `${fmtDiaMes(c.inicio)} a ${fmtDiaMes(c.fim)}` }))} onChange={(v) => onAtualizar(it.id, { ciclo_id: v })} /></span>
-            <span onClick={(e) => e.stopPropagation()} className="min-w-0"><RelacaoCampo valor={it.modulo_id} vazio="" opcoes={modulos.map((m) => ({ id: m.id, rotulo: m.nome }))} onChange={(v) => onAtualizar(it.id, { modulo_id: v })} /></span>
             <span className="flex flex-wrap gap-1 min-w-0">{(it.etiquetas || []).map((id) => <EtiquetaChip key={id} etiqueta={etiquetasMap.get(id)} />)}</span>
           </div>
         ))}

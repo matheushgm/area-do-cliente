@@ -1,5 +1,5 @@
-// Aba Pages: documentos em markdown (briefs, playbooks, processos) ligados a cliente
-// e module. Lista em árvore à esquerda, editor/leitor à direita, com salvamento
+// Aba Pages: documentos em markdown (briefs, playbooks, processos) ligados a um
+// cliente. Lista em árvore à esquerda, editor/leitor à direita, com salvamento
 // automático, bloqueio, arquivo e histórico de versões.
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -34,11 +34,10 @@ function inserir(el, antes, depois = '', padrao = '') {
   return { novo, cursor: ini + antes.length + sel.length + depois.length }
 }
 
-export default function PaginasView({ pg: hook, projetos, modulos, user, paginaId, onSelecionar, onToast }) {
+export default function PaginasView({ pg: hook, projetos, user, paginaId, onSelecionar, onToast }) {
   const { paginas, loading, filhosDe } = hook
   const [busca, setBusca] = useState('')
   const [fCliente, setFCliente] = useState('')
-  const [fModulo, setFModulo] = useState('')
   const [verArquivadas, setVerArquivadas] = useState(false)
   const [aberta, setAberta] = useState(null) // linha completa
   const [titulo, setTitulo] = useState('')
@@ -80,14 +79,14 @@ export default function PaginasView({ pg: hook, projetos, modulos, user, paginaI
   const visiveis = useMemo(() => {
     const q = busca.trim().toLowerCase()
     return paginas.filter((p) => (verArquivadas ? p.arquivada : !p.arquivada)
-      && (!fCliente || p.project_id === fCliente) && (!fModulo || p.modulo_id === fModulo)
+      && (!fCliente || p.project_id === fCliente)
       && (!q || (p.titulo || '').toLowerCase().includes(q)))
-  }, [paginas, busca, fCliente, fModulo, verArquivadas])
-  const filtrando = !!(busca.trim() || fCliente || fModulo || verArquivadas)
+  }, [paginas, busca, fCliente, verArquivadas])
+  const filtrando = !!(busca.trim() || fCliente || verArquivadas)
   const raizes = filtrando ? visiveis : (filhosDe.get('raiz') || []).filter((p) => !p.arquivada)
 
   async function nova(paiId = null) {
-    const r = await hook.criar({ titulo: 'Sem título', project_id: fCliente || meta?.project_id || null, modulo_id: fModulo || meta?.modulo_id || null, pai_id: paiId })
+    const r = await hook.criar({ titulo: 'Sem título', project_id: fCliente || meta?.project_id || null, pai_id: paiId })
     if (r.error) { onToast(r.error, 'error'); return }
     onSelecionar(r.data.id)
   }
@@ -104,7 +103,6 @@ export default function PaginasView({ pg: hook, projetos, modulos, user, paginaI
           <button type="button" onClick={() => nova()} className="ln-primary !h-9 justify-center"><Plus className="w-3.5 h-3.5" /> Nova página</button>
           <div className="ln-input !h-8 flex items-center gap-1.5"><Search className="w-3.5 h-3.5 text-ln-t4" /><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar página" className="flex-1 min-w-0 bg-transparent outline-none text-xs" /></div>
           <select className="ln-input !h-8" value={fCliente} onChange={(e) => setFCliente(e.target.value)} aria-label="Cliente"><option value="">Todos os clientes</option>{projetos.map((p) => <option key={p.id} value={p.id}>{nomeProjeto(p)}</option>)}</select>
-          <select className="ln-input !h-8" value={fModulo} onChange={(e) => setFModulo(e.target.value)} aria-label="Module"><option value="">Todos os modules</option>{modulos.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}</select>
           <button type="button" onClick={() => setVerArquivadas((v) => !v)} className={`ln-pill self-start ${verArquivadas ? '!text-ln-accent' : ''}`}><Archive className="w-3.5 h-3.5" /> {verArquivadas ? 'Vendo arquivadas' : 'Ver arquivadas'}</button>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-2">
@@ -124,7 +122,6 @@ export default function PaginasView({ pg: hook, projetos, modulos, user, paginaI
               <input value={titulo} disabled={travada} onChange={(e) => { sujo.current = true; setTitulo(e.target.value) }} placeholder="Sem título" aria-label="Título da página" className="w-full bg-transparent outline-none text-2xl font-bold text-ln-t1 vt-display" />
               <div className="flex items-center gap-2 flex-wrap mt-2">
                 <select disabled={travada} className="ln-input !h-7 !w-auto !text-xs" value={meta.project_id || ''} onChange={(e) => patch({ project_id: e.target.value || null })} aria-label="Cliente"><option value="">Sem cliente</option>{projetos.map((p) => <option key={p.id} value={p.id}>{nomeProjeto(p)}</option>)}</select>
-                <select disabled={travada} className="ln-input !h-7 !w-auto !text-xs" value={meta.modulo_id || ''} onChange={(e) => patch({ modulo_id: e.target.value || null })} aria-label="Module"><option value="">Sem module</option>{modulos.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}</select>
                 {souDono && <button type="button" onClick={() => patch({ acesso: meta.acesso === 'publica' ? 'privada' : 'publica' })} className="ln-pill" title="Quem pode ver">{meta.acesso === 'publica' ? <><Globe className="w-3.5 h-3.5" /> Do time</> : <><EyeOff className="w-3.5 h-3.5" /> Só eu</>}</button>}
                 {souDono && <button type="button" onClick={() => patch({ bloqueada: !meta.bloqueada })} className="ln-pill" title="Bloqueada: só o dono edita">{meta.bloqueada ? <><Lock className="w-3.5 h-3.5" /> Bloqueada</> : <><Unlock className="w-3.5 h-3.5" /> Desbloqueada</>}</button>}
                 <button type="button" onClick={() => nova(meta.id)} className="ln-pill"><CornerDownRight className="w-3.5 h-3.5" /> Subpágina</button>

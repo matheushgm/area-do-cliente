@@ -1,7 +1,7 @@
 // Coluna esquerda do módulo Tarefas: árvore Pastas (clientes) → Listas, no
 // visual do Linear (mesma coluna de navegação densa do app).
 import { useState, useMemo, useRef, Fragment } from 'react'
-import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, Box, ListChecks, MessageSquare, CalendarCheck, FileText, BarChart3, EyeOff, Globe } from 'lucide-react'
+import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, LayoutTemplate, ListChecks, MessageSquare, CalendarCheck, FileText, BarChart3, EyeOff, Globe } from 'lucide-react'
 import { Popover, FOCO } from './Campos'
 
 function MenuPasta({ onRenomear, onNovaLista, onArquivar }) {
@@ -186,7 +186,7 @@ export default function TarefasSidebar({
         <NavItem icon={User} ativo={nav.aba === 'tarefas' && sel.tipo === 'minhas'} onClick={() => { onSel({ tipo: 'minhas' }); onFechar?.() }}>Minhas tarefas</NavItem>
         <NavItem icon={ListChecks} ativo={nav.aba === 'tarefas' && sel.tipo === 'todas'} onClick={() => { onSel({ tipo: 'todas' }); onFechar?.() }}>Todas as tarefas</NavItem>
         <NavItem icon={Repeat} ativo={nav.aba === 'ciclos'} onClick={() => { nav.onAba('ciclos'); onFechar?.() }}>Cycles</NavItem>
-        <NavItem icon={Box} ativo={nav.aba === 'modulos'} onClick={() => { nav.onAba('modulos'); onFechar?.() }}>Modules</NavItem>
+        <NavItem icon={LayoutTemplate} ativo={nav.aba === 'templates'} onClick={() => { nav.onAba('templates'); onFechar?.() }}>Templates</NavItem>
         <NavItem icon={FileText} ativo={nav.aba === 'paginas'} onClick={() => { nav.onAba('paginas'); onFechar?.() }}>Pages</NavItem>
         <NavItem icon={BarChart3} ativo={nav.aba === 'analytics'} onClick={() => { nav.onAba('analytics'); onFechar?.() }}>Analytics</NavItem>
         <NavItem icon={CalendarCheck} ativo={nav.aba === 'atividades'} onClick={() => { nav.onAba('atividades'); onFechar?.() }}>Atividades</NavItem>

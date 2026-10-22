@@ -693,29 +693,31 @@ todo `authenticated`; as quatro estão na publicação realtime).
 
 O módulo passou a se chamar **VertaTask** (rótulo na sidebar e no breadcrumb; a rota continua
 `/tarefas`, há links gravados em chat e notificações). Ganhou quatro seções no cabeçalho, via
-`?aba=` (sem `aba` = Tarefas): **Intake**, **Cycles** (`?aba=ciclos&ciclo=<id>`) e **Modules**
-(`?aba=modulos[&modulo=<id>]`), mais a view **Calendário** ao lado de Lista/Quadro. Inspirado no Plane.
+`?aba=` (sem `aba` = Tarefas): **Intake**, **Cycles** (`?aba=ciclos&ciclo=<id>`) e **Templates**
+(`?aba=templates[&template=<id>]`), mais a view **Calendário** ao lado de Lista/Quadro. Inspirado no Plane.
+(Os **Modules** do Plane existiram de 16/10 a 22/10/2026 e foram removidos a pedido do Matheus: toda
+tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migration 108.)
 
 - **Tabelas** (migration 094, RLS liberada para todo `authenticated`, realtime ligado):
-  `tarefas_ciclos` (nome, inicio, fim), `tarefas_modulos` (nome, descricao, `project_id` opcional),
+  `tarefas_ciclos` (nome, inicio, fim),
   `tarefas_intake` (titulo, descricao, origem, `origem_ref` único para idempotência de quem alimentar
   a fila, `project_id`, prioridade, `status` pendente/aceito/recusado, `tarefa_id`, `motivo_recusa`,
-  `payload`). `tarefas_itens` ganhou `ciclo_id` e `modulo_id` (`on delete set null`). A sincronização
-  com o ClickUp não escreve nessas colunas.
-- **Dados:** `src/hooks/useVertaTask.js` (ciclos, módulos, intake, com realtime) e, em
-  `useTarefas`, `carregarPorCampo('ciclo_id' | 'modulo_id', valor)` (tarefas de um ciclo/módulo de
-  qualquer lista, mais as subtarefas). A seleção da página ganhou os tipos `ciclo` e `modulo`; o
-  filtro por ciclo/módulo reaproveita a mesma lista/quadro/calendário. Tarefa criada dentro de um
-  ciclo ou módulo já nasce nele (na última lista visitada, `tarefas.sel` em localStorage).
+  `payload`). `tarefas_itens` ganhou `ciclo_id` (`on delete set null`). A sincronização
+  com o ClickUp não escreve nessa coluna.
+- **Dados:** `src/hooks/useVertaTask.js` (ciclos, intake, etiquetas, views e templates, com realtime) e,
+  em `useTarefas`, `carregarPorCampo('ciclo_id', valor)` (tarefas de um ciclo de qualquer lista, mais
+  as subtarefas). A seleção da página ganhou o tipo `ciclo`; o filtro por ciclo reaproveita a mesma
+  lista/quadro/calendário. Tarefa criada dentro de um ciclo já nasce nele (na última lista visitada,
+  `tarefas.sel` em localStorage).
 - **Regras puras** em `src/lib/vertatask.js`: fase do ciclo (atual/próximo/encerrado), sugestão do
   "Novo cycle" (próxima segunda, 14 dias) e `calcularBurndown` (por **tarefas** ou por **horas
   estimadas** = `estimativa_min`; o real usa `data_conclusao`; tarefa sem estimativa não entra na
-  conta de horas). Agrupar por Module / Cycle foi acrescentado em `AGRUPAMENTOS`.
+  conta de horas). Agrupar por Cycle foi acrescentado em `AGRUPAMENTOS` (agrupamento gravado que não
+  existe mais, como o antigo "Module", volta ao padrão por `agrupamentoValido` em `Tarefas.jsx`).
 - **Componentes** (`src/components/Tarefas/`): `IntakeView` (aceitar cria a tarefa na lista "Geral"
   da pasta escolhida com o responsável escolhido; recusar guarda o motivo; recusados podem voltar
-  para a fila), `CiclosView` (abas dos ciclos, resumo, burndown em SVG), `ModulosView` (cartões
-  com progresso), `CalendarioView` (tarefas de topo no dia do vencimento), `RelacaoCampo` (Cycle e
-  Module no painel da tarefa).
+  para a fila), `CiclosView` (abas dos ciclos, resumo, burndown em SVG), `CalendarioView` (tarefas
+  de topo no dia do vencimento), `RelacaoCampo` (Cycle no painel da tarefa).
 - **Quem alimenta o Intake hoje:** só o botão "Novo pedido". Ligar a reprovação de anúncio
   (`api/anuncios-aprovacao.js`), a Central de Otimizações e o playbook é a próxima etapa (inserir em
   `tarefas_intake` com `origem` e `origem_ref`).
@@ -725,7 +727,7 @@ O módulo passou a se chamar **VertaTask** (rótulo na sidebar e no breadcrumb; 
   `ln-primary` e `ln-input` com o look do protótipo; no escuro só o azul muda. Lista agrupada em
   cartões sobre fundo `ln-bg`. Os componentes continuam usando só `ln-*`.
 - **Estrutura igual à do protótipo:** a coluna esquerda (`TarefasSidebar`) tem a marca, a navegação
-  (Intake com contador, Minhas tarefas, Todas as tarefas, Cycles, Modules), **Views salvas** e a
+  (Intake com contador, Minhas tarefas, Todas as tarefas, Cycles, Templates), **Views salvas** e a
   árvore Clientes (pasta → listas, com bolinha colorida e abertas carregadas). O cabeçalho é só o
   título da seção (Sora 20px) com o breadcrumb da pasta/lista; as seções não ficam mais em abas no
   topo. "Todas as tarefas" = `?todas=1` (`carregarAbertas`: tudo que não está concluído).
@@ -742,24 +744,47 @@ O módulo passou a se chamar **VertaTask** (rótulo na sidebar e no breadcrumb; 
     atribuição escrevem em `notifications` (`tarefa_comentario`, `tarefa_atribuida`, link `/tarefas?tarefa=`).
   - **Views compartilhadas** (`tarefas_views`, `acesso` publica/privada, só o dono edita/apaga). As que
     ficavam no `localStorage` migram sozinhas para o banco como privadas.
-  - **Modelos de tarefa** (`tarefas_modelos`: título, descrição, prioridade, estimativa, etiquetas,
-    checklists e subtarefas), botão "Modelos" no cabeçalho e "Salvar como modelo" no painel.
   - **Pages** (`?aba=paginas&pagina=<id>`, `tarefas_paginas`, `usePaginas`, `PaginasView`): markdown com
-    barra de formatação, subpáginas, cliente e module, privada/do time, bloqueio (só o dono edita),
+    barra de formatação, subpáginas, cliente, privada/do time, bloqueio (só o dono edita),
     arquivo, salvamento automático e **versões** (`tarefas_paginas_versoes`, guarda o texto anterior se
     a última versão tem +5 min).
   - **Analytics** (`?aba=analytics`): RPC `vertatask_analytics(p_dias)` devolve tudo em um JSON (abertas,
     atrasadas, criadas/concluídas por dia, tempo médio, por status/prioridade/pessoa/cliente, cycles).
   - **Planilha** e **Gantt** como visões ao lado de Lista/Quadro/Calendário.
   - **Cycles:** editar (nome, datas, objetivo, responsável) e "Mover pendentes" para outro cycle.
-    **Modules:** status (planejado, em andamento, pausado, concluído, cancelado), líder, membros, datas e links,
-    editor em `ModuloEditor`.
   - **Intake:** adiar (volta à fila na data), marcar duplicada, contato de quem pediu, link público
     `/pedido/:token` (`api/intake-publico.js`, edge, `client_share_token`, 8 pedidos/hora por cliente) e entrada
     automática por `api/_intake.js` (`registrarIntake`, idempotente por `origem_ref`) quando o cliente
     **reprova** anúncio, LP (`api/anuncios-aprovacao.js`) ou copy (`api/copy-aprovacao.js`).
   - **Não portado de propósito:** pontos de estimativa (usamos `estimativa_min`), rascunhos, sticky notes,
     favoritos, webhooks/API pública, importadores e editor rich text (Pages usa markdown).
+- **Templates (construtor, 2026-10-22, migrations 107/108):** receita reutilizável de uma entrega
+  (ex.: "Criação de Landing Page") aplicada na lista de um cliente. Substituiu os Modules e o antigo
+  "Modelo de tarefa" (que guardava uma tarefa só, com subtarefas só de título).
+  - **Dados:** `tarefas_modelos` (`nome`, `descricao`, `itens` jsonb, `dono_id`, `updated_at`; RLS do time,
+    realtime). `itens` é uma árvore tarefa → subtarefas; cada item tem os atributos da tarefa
+    (descrição, prioridade, tipo, dificuldade, departamento[], estimativa, etiquetas, checklists), o
+    **prazo relativo** (`inicio_dia`/`vencimento_dia` em **dias úteis** depois da data de início; D+0 =
+    o próprio dia), a **regra de responsável** (`responsavel.modo`: `departamento` = pessoa que o squad
+    do cliente designou ao departamento em `squads.department_assignments`, com o alias
+    `DEPARTAMENTO_ALIAS_SQUAD` de `constants.js`; `pessoa` = fixa; `nenhum`) e `depende_de[]` (ids de
+    outros itens). O formato e as regras puras (dias úteis, validação de ciclo, `planejarAplicacao`,
+    `templateDaTarefa`, edição da árvore) estão em `src/lib/templates.js`; `itensDoTemplate` ainda lê
+    o `payload` antigo, que a 107 converteu e a 108 apaga.
+  - **Telas:** `?aba=templates` = `TemplatesView` (cartões com nº de tarefas, horas e departamentos;
+    novo, editar, duplicar, apagar, aplicar). `?aba=templates&template=<id>` = `TemplateEditor`
+    (estrutura à esquerda com subir/descer/duplicar/excluir/+subtarefa; atributos à direita reaproveitando
+    `Propriedade`, `DepartamentoCampo`, `Descricao` e `Checklists` exportados de `TarefaPanel`; salva só no
+    botão, avisa ao sair com alteração). `{cliente}` no título/descrição vira o nome do cliente ao aplicar.
+  - **Aplicar** (`AplicarTemplatePanel`, painel lateral de 480px): cliente (pasta), lista (padrão
+    "Geral") e data de início; prévia com datas e responsáveis já calculados e aviso de quem fica sem
+    responsável. `aplicarTemplate` em `Tarefas.jsx` cria pais antes dos filhos via `criarTarefa` (que
+    agora aceita `etiquetas` e `checklists`), grava as dependências como `bloqueia` em `tarefas_relacoes`
+    e abre a lista (e a tarefa, se o template tem uma raiz só). Tudo segue para o ClickUp pela outbox.
+  - Entradas: item "Templates" na coluna do VertaTask, botão "Templates" no cabeçalho de Tarefas
+    (aplica na lista aberta ou leva ao construtor) e "Salvar como template" no painel da tarefa (leva a
+    tarefa e as subtarefas com todos os atributos e os prazos convertidos em dias úteis).
+  - Sem login: `/dev/templates` (só em DEV, dados em memória; "Criar" só registra o plano no console).
 - **Mão de volta VertaTask → ClickUp (2026-10-18, migration 101):** toda escrita de pessoa
   logada em `tarefas_itens` (insert/update/delete) e `tarefas_comentarios` (insert) entra em
   `tarefas_outbox` por trigger (`tarefas_outbox_enfileira`, só com `auth.uid()`: a

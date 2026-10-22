@@ -149,7 +149,7 @@ export function RelacoesSecao({ tarefaId, user, onAbrir, onErro }) {
 
 // ── Histórico ───────────────────────────────────────────────────────────────
 
-export function HistoricoSecao({ tarefaId, versao, membrosMap, ciclosMap, modulosMap, etiquetasMap }) {
+export function HistoricoSecao({ tarefaId, versao, membrosMap, ciclosMap, etiquetasMap }) {
   const [linhas, setLinhas] = useState(null)
   useEffect(() => {
     let vivo = true
@@ -174,12 +174,11 @@ export function HistoricoSecao({ tarefaId, versao, membrosMap, ciclosMap, modulo
       case 'data_vencimento': return para ? `definiu o vencimento para ${fmtDataNumerica(para)}` : 'removeu o vencimento'
       case 'estimativa_min': return para ? `estimou em ${Math.round(Number(para) / 6) / 10}h` : 'removeu a estimativa'
       case 'ciclo': return para ? `colocou no cycle ${ciclosMap.get(para)?.nome || ''}` : 'tirou do cycle'
-      case 'modulo': return para ? `colocou no module ${modulosMap.get(para)?.nome || ''}` : 'tirou do module'
       case 'responsaveis': return `mudou os responsáveis para ${nomes(para, membrosMap, 'm')}`
       case 'etiquetas': return para ? `mudou as etiquetas para ${nomes(para, etiquetasMap)}` : 'removeu as etiquetas'
       default: return `alterou ${a.campo}`
     }
-  }, [ciclosMap, modulosMap, membrosMap, etiquetasMap, nomes])
+  }, [ciclosMap, membrosMap, etiquetasMap, nomes])
 
   if (linhas === null) return <div className="py-2 text-ln-t4"><Loader2 className="w-3.5 h-3.5 animate-spin" /></div>
   if (!linhas.length) return <p className="text-xs text-ln-t4">Sem alterações registradas. O histórico começa a partir de agora e não inclui o que veio do ClickUp.</p>

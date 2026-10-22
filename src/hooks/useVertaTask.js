@@ -1,11 +1,12 @@
-// Dados do VertaTask: ciclos, módulos, Intake, etiquetas, views compartilhadas e modelos,
+// Dados do VertaTask: ciclos, Intake, etiquetas, views compartilhadas e templates,
 // direto no Supabase (RLS: todo o time). As tarefas em si continuam em useTarefas.
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 
+const porNome = (a, b) => a.nome.localeCompare(b.nome, 'pt-BR')
+
 export function useVertaTask(user) {
   const [ciclos, setCiclos] = useState([])
-  const [modulos, setModulos] = useState([])
   const [intake, setIntake] = useState([])
   const [etiquetas, setEtiquetas] = useState([])
   const [views, setViews] = useState([])
@@ -13,25 +14,21 @@ export function useVertaTask(user) {
   const [loading, setLoading] = useState(true)
 
   const ciclosMap = useMemo(() => new Map(ciclos.map((c) => [c.id, c])), [ciclos])
-  const modulosMap = useMemo(() => new Map(modulos.map((m) => [m.id, m])), [modulos])
   const etiquetasMap = useMemo(() => new Map(etiquetas.map((e) => [e.id, e])), [etiquetas])
 
   const carregar = useCallback(async () => {
     if (!supabase) { setLoading(false); return }
     try {
-      const [c, m, i, et, vw, md] = await Promise.all([
+      const [c, i, et, vw, md] = await Promise.all([
         supabase.from('tarefas_ciclos').select('*').eq('arquivado', false).order('inicio'),
-        supabase.from('tarefas_modulos').select('*').eq('arquivado', false).order('nome'),
         supabase.from('tarefas_intake').select('*').order('created_at', { ascending: false }).limit(300),
         supabase.from('tarefas_etiquetas').select('*').order('nome'),
         supabase.from('tarefas_views').select('*').order('created_at'),
         supabase.from('tarefas_modelos').select('*').order('nome'),
       ])
       if (c.error) throw c.error
-      if (m.error) throw m.error
       if (i.error) throw i.error
       setCiclos(c.data || [])
-      setModulos(m.data || [])
       setIntake(i.data || [])
       setEtiquetas(et.data || [])
       setViews(vw.data || [])
@@ -64,28 +61,6 @@ export function useVertaTask(user) {
     const { error } = await supabase.from('tarefas_ciclos').delete().eq('id', id)
     if (error) return { error: error.message }
     setCiclos((prev) => prev.filter((c) => c.id !== id))
-    return {}
-  }, [])
-
-  // ── Módulos ────────────────────────────────────────────────────────────────
-  const criarModulo = useCallback(async ({ nome, descricao, project_id }) => {
-    const { data, error } = await supabase.from('tarefas_modulos').insert({ nome: nome.trim(), descricao: descricao?.trim() || null, project_id: project_id || null }).select().single()
-    if (error) return { error: error.message }
-    setModulos((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data].sort((a, b) => a.nome.localeCompare(b.nome))))
-    return { data }
-  }, [])
-
-  const atualizarModulo = useCallback(async (id, patch) => {
-    const { data, error } = await supabase.from('tarefas_modulos').update(patch).eq('id', id).select().single()
-    if (error) return { error: error.message }
-    setModulos((prev) => prev.map((m) => (m.id === id ? data : m)).filter((m) => !m.arquivado))
-    return { data }
-  }, [])
-
-  const excluirModulo = useCallback(async (id) => {
-    const { error } = await supabase.from('tarefas_modulos').delete().eq('id', id)
-    if (error) return { error: error.message }
-    setModulos((prev) => prev.filter((m) => m.id !== id))
     return {}
   }, [])
 
@@ -149,13 +124,20 @@ export function useVertaTask(user) {
     return {}
   }, [])
 
-  // ── Modelos de tarefa ──────────────────────────────────────────────────────
-  const criarModelo = useCallback(async ({ nome, payload }) => {
-    const { data, error } = await supabase.from('tarefas_modelos').insert({ nome: nome.trim(), payload, dono_id: user?.id }).select().single()
+  // ── Templates (tarefas_modelos) ────────────────────────────────────────────
+  // itens = árvore do template (ver src/lib/templates.js); payload é legado.
+  const criarModelo = useCallback(async ({ nome, descricao = null, itens = [] }) => {
+    const { data, error } = await supabase.from('tarefas_modelos').insert({ nome: nome.trim(), descricao, itens, dono_id: user?.id }).select().single()
     if (error) return { error: error.message }
-    setModelos((prev) => [...prev, data].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
+    setModelos((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data].sort(porNome)))
     return { data }
   }, [user?.id])
+  const atualizarModelo = useCallback(async (id, patch) => {
+    const { data, error } = await supabase.from('tarefas_modelos').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id).select().single()
+    if (error) return { error: error.message }
+    setModelos((prev) => prev.map((m) => (m.id === id ? data : m)).sort(porNome))
+    return { data }
+  }, [])
   const excluirModelo = useCallback(async (id) => {
     const { error } = await supabase.from('tarefas_modelos').delete().eq('id', id)
     if (error) return { error: error.message }
@@ -178,7 +160,7 @@ export function useVertaTask(user) {
     const ch = supabase
       .channel('vertatask-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tarefas_ciclos' }, aplicar(setCiclos, (a, b) => a.inicio.localeCompare(b.inicio)))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tarefas_modulos' }, aplicar(setModulos, (a, b) => a.nome.localeCompare(b.nome)))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tarefas_modelos' }, aplicar(setModelos, porNome))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tarefas_intake' }, ({ eventType, new: row, old }) => {
         setIntake((prev) => {
           if (eventType === 'DELETE') return prev.filter((x) => x.id !== old.id)
@@ -212,10 +194,10 @@ export function useVertaTask(user) {
   const intakeAdiados = useMemo(() => intake.filter((i) => i.status === 'adiado' && i.adiado_ate && new Date(i.adiado_ate) > new Date()), [intake])
 
   return {
-    ciclos, modulos, intake, intakePendentes, intakeAdiados, ciclosMap, modulosMap, loading,
+    ciclos, intake, intakePendentes, intakeAdiados, ciclosMap, loading,
     etiquetas, etiquetasMap, views, modelos,
-    criarEtiqueta, excluirEtiqueta, criarView, atualizarView, excluirView, criarModelo, excluirModelo,
-    carregar, criarCiclo, atualizarCiclo, excluirCiclo, criarModulo, atualizarModulo, excluirModulo,
+    criarEtiqueta, excluirEtiqueta, criarView, atualizarView, excluirView, criarModelo, atualizarModelo, excluirModelo,
+    carregar, criarCiclo, atualizarCiclo, excluirCiclo,
     criarIntake, decidirIntake, reabrirIntake,
   }
 }

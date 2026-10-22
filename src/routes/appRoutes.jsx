@@ -38,6 +38,7 @@ const UserManagement = lazy(() => import('../pages/UserManagement'))
 const DevHub = lazy(() => import('../pages/DevHub'))
 const DevEditor = lazy(() => import('../pages/DevEditor'))
 const DevLista = lazy(() => import('../pages/DevLista'))
+const DevTemplates = lazy(() => import('../pages/DevTemplates'))
 
 export const appRoutes = [
   // Páginas com a sidebar global: o AppLayout monta a AppSidebar uma vez e
@@ -88,6 +89,7 @@ export const appRoutes = [
         <Route key="dev-hub" path="/dev/hub" element={<DevHub />} />,
         <Route key="dev-editor" path="/dev/editor" element={<DevEditor />} />,
         <Route key="dev-lista" path="/dev/lista" element={<DevLista />} />,
+        <Route key="dev-templates" path="/dev/templates" element={<DevTemplates />} />,
       ]
     : []),
 

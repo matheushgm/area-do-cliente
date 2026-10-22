@@ -51,6 +51,10 @@ export const CLICKUP_DEPARTMENTS = [
   { id: '5bee1f1a-4595-4dc1-bf9a-1e69e6fc4f36', name: 'Automação / Integração',color: '#f9d900' },
 ]
 
+// Departamento da tarefa (DEPARTAMENTOS em src/lib/tarefas.js) → nome usado em
+// squads.department_assignments, quando os dois divergem.
+export const DEPARTAMENTO_ALIAS_SQUAD = { 'Tecnologia': 'Automação / Integração' }
+
 // ─── Serviços ─────────────────────────────────────────────────────────────────
 
 export const SERVICES_CONFIG = [
