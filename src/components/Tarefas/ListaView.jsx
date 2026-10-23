@@ -8,12 +8,15 @@
 // Também serve o construtor e a aplicação de templates, com ganchos opcionais:
 // `colunas` (troca as colunas), `ctx.renderCelula(k, item)` (célula própria),
 // `ctx.semStatus` (sem o círculo de status), `ctx.acaoLinha(item)` (última coluna),
+// `ctx.renderAcoesHover(item)` (troca os atalhos de hover do nome),
 // `ctx.expandirTudo` (subtarefas abertas de início), `ctx.acoesHover === false`
 // (sem os botões de hover do nome nem a linha "Adicionar subtarefa") e `ctx.simples`
 // (lista de um grupo só: sem cabeçalho de grupo, sem arrastar/selecionar e sem o "+"
-// do cabeçalho das colunas, que ali não teriam o que fazer).
+// do cabeçalho das colunas, que ali não teriam o que fazer) e `ctx.selecao`
+// ({ ids: Set, alternar(id), definir(ids, marcar) }: caixa de seleção por linha e
+// "selecionar todas" no cabeçalho; quem usa mostra a BarraSelecao).
 import { useState, useRef } from 'react'
-import { ChevronRight, ChevronDown, CornerDownRight, MessageSquare, ListChecks, GripVertical, Plus, MoreHorizontal, Flag, Hourglass, AlignLeft, Pencil, Link2 } from 'lucide-react'
+import { ChevronRight, ChevronDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Flag, Hourglass, AlignLeft, Pencil, Link2 } from 'lucide-react'
 import { ordenarItens, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
 import {
   StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo, AdicionarInline, Popover, ItemMenu, FOCO,
@@ -53,8 +56,20 @@ function cliqueNaCelula(e, editavel) {
   if (!editavel || alvo) return
   e.currentTarget.querySelector('button')?.click() // o gatilho do editor (Popover, data, estimativa)
 }
-// recuo do cabeçalho "Nome" e das linhas "Adicionar": alinha com o que vem depois da seta
-const recuo = (ctx) => (ctx.simples ? 'pl-[26px]' : 'pl-[66px]')
+// recuo das linhas "Adicionar": alinha com o que vem depois da seta (e da caixa de seleção)
+const recuo = (ctx) => (ctx.selecao ? 'pl-[50px]' : 'pl-[26px]')
+
+/** Caixa de seleção da linha / do cabeçalho: some até o hover, a não ser que haja seleção. */
+function Caixa({ marcada, parcial = false, visivel, onChange, label }) {
+  return (
+    <input
+      type="checkbox" checked={marcada} aria-label={label}
+      ref={(el) => { if (el) el.indeterminate = parcial && !marcada }}
+      onChange={onChange} onClick={(e) => e.stopPropagation()}
+      className={`w-3.5 h-3.5 cursor-pointer accent-[#2A25F0] transition-opacity ${marcada || parcial || visivel ? 'opacity-100' : 'opacity-0 group-hover/linha:opacity-100 focus-visible:opacity-100'}`}
+    />
+  )
+}
 
 // ── Células no estilo ClickUp ─────────────────────────────────────────────────
 
@@ -191,6 +206,8 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
   const nComent = contagemComentarios?.[item.id] || 0
   const concluida = item.status_tipo === 'closed'
   const selecionada = selecionadaId === item.id
+  const marcada = !!ctx.selecao?.ids.has(item.id)
+  const destaque = selecionada ? 'bg-ln-level2' : marcada ? 'bg-ln-accent/[0.07]' : ''
   return (
     <div
       role="row"
@@ -198,17 +215,16 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
       onClick={() => onAbrir(item.id)}
       onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(item.id) }}
       aria-current={selecionada ? 'true' : undefined}
-      className={`group/linha grid items-center ${denso ? 'h-[30px]' : 'h-[34px]'} border-b border-ln-line/70 cursor-pointer ${FOCO} ${selecionada ? 'bg-ln-level2' : 'hover:bg-ln-level2/60'}`}
+      className={`group/linha grid items-center ${denso ? 'h-[30px]' : 'h-[34px]'} border-b border-ln-line/70 cursor-pointer ${FOCO} ${destaque || 'hover:bg-ln-level2/60'}`}
       style={{ gridTemplateColumns: grid(cols) }}
     >
       {/* Nome: congelada à esquerda ao rolar (como no ClickUp). O fundo precisa ser
           opaco, então a cor de hover/seleção entra por um overlay atrás do conteúdo. */}
       <div className={`sticky left-0 z-[1] bg-ln-panel relative flex items-center gap-1 min-w-0 h-full pr-3 ${sub ? 'pl-9' : 'pl-2'}`}>
-        <span aria-hidden="true" className={`absolute inset-0 -z-10 ${selecionada ? 'bg-ln-level2' : 'group-hover/linha:bg-ln-level2/60'}`} />
-        {!ctx.simples && (
-          <span className="hidden sm:inline-flex items-center gap-0.5 w-9 shrink-0 opacity-0 group-hover/linha:opacity-100 transition-opacity">
-            <GripVertical className="w-3.5 h-3.5 text-ln-t4" />
-            <input type="checkbox" className="w-3 h-3 accent-[#1b5cff]" onClick={(e) => e.stopPropagation()} aria-label="Selecionar" />
+        <span aria-hidden="true" className={`absolute inset-0 -z-10 ${destaque || 'group-hover/linha:bg-ln-level2/60'}`} />
+        {ctx.selecao && (
+          <span className="inline-flex items-center justify-center w-5 shrink-0">
+            <Caixa marcada={marcada} visivel={ctx.selecao.ids.size > 0} onChange={() => ctx.selecao.alternar(item.id)} label={`Selecionar ${item.titulo || 'tarefa'}`} />
           </span>
         )}
         <span className="inline-flex items-center justify-center w-4 h-4 shrink-0">
@@ -228,10 +244,12 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
         </span>
         {/* ações de hover sobrepostas à direita (não roubam largura do título) */}
         {ctx.acoesHover !== false && <span className="absolute right-2 top-0 bottom-0 hidden md:inline-flex items-center gap-0.5 pl-6 bg-gradient-to-r from-transparent via-ln-level2/60 to-ln-level2/60 opacity-0 group-hover/linha:opacity-100 transition-opacity">
-          <button type="button" onClick={(e) => { e.stopPropagation(); onAbrir(item.id) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Abrir"><AlignLeft className="w-3 h-3" /></button>
-          <button type="button" onClick={(e) => { e.stopPropagation(); ctx.onCriar({ lista_id: item.lista_id, parent_id: item.parent_id || item.id, titulo: 'Nova subtarefa' }) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Adicionar subtarefa"><Plus className="w-3 h-3" /></button>
-          {item.clickup_url && <a href={item.clickup_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="ln-iconbtn !w-5 !h-5 !rounded" title="Abrir no ClickUp"><Link2 className="w-3 h-3" /></a>}
-          <button type="button" onClick={(e) => { e.stopPropagation(); onAbrir(item.id) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Editar"><Pencil className="w-3 h-3" /></button>
+          {ctx.renderAcoesHover ? <span className="inline-flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>{ctx.renderAcoesHover(item)}</span> : (<>
+            <button type="button" onClick={(e) => { e.stopPropagation(); onAbrir(item.id) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Abrir"><AlignLeft className="w-3 h-3" /></button>
+            <button type="button" onClick={(e) => { e.stopPropagation(); ctx.onCriar({ lista_id: item.lista_id, parent_id: item.parent_id || item.id, titulo: 'Nova subtarefa' }) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Adicionar subtarefa"><Plus className="w-3 h-3" /></button>
+            {item.clickup_url && <a href={item.clickup_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="ln-iconbtn !w-5 !h-5 !rounded" title="Abrir no ClickUp"><Link2 className="w-3 h-3" /></a>}
+            <button type="button" onClick={(e) => { e.stopPropagation(); onAbrir(item.id) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Editar"><Pencil className="w-3 h-3" /></button>
+          </>)}
         </span>}
       </div>
       {cols.map((c) => {
@@ -261,6 +279,8 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
   const { onCriar, listaPadraoId, agrupar } = ctx
   const itens = ordenarItens(grupo.itens)
   const toggle = (id) => setExpandidos((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const idsDoGrupo = ctx.selecao ? itens.flatMap((i) => [i.id, ...(filhosDe.get(i.id) || []).map((f) => f.id)]) : []
+  const nMarcadas = ctx.selecao ? idsDoGrupo.filter((id) => ctx.selecao.ids.has(id)).length : 0
   const corLabel = grupo.key === 'atrasado' ? 'text-ln-red' : grupo.key === 'hoje' ? 'text-ln-green' : grupo.key === 'amanha' ? 'text-ln-yellow' : 'text-ln-t1'
   return (
     <section className="mb-6" aria-label={grupo.label}>
@@ -283,9 +303,20 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
       {(aberto || ctx.simples) && (
         <div className="min-w-0">
           {/* Cabeçalho das colunas, repetido em cada grupo como no ClickUp */}
-          <div className="grid items-center h-7 border-b border-ln-line/70 text-[11px] text-ln-t4" style={{ gridTemplateColumns: grid(cols) }} aria-hidden="true">
-            <span className={`sticky left-0 z-[1] bg-ln-panel h-full flex items-center ${recuo(ctx)}`}>Nome</span>
-            {cols.map((c) => <span key={c.k} className="px-2 truncate">{c.label}</span>)}
+          <div className="group/linha grid items-center h-7 border-b border-ln-line/70 text-[11px] text-ln-t4" style={{ gridTemplateColumns: grid(cols) }}>
+            <span className="sticky left-0 z-[1] bg-ln-panel h-full flex items-center gap-1 pl-2">
+              {ctx.selecao && (
+                <span className="inline-flex items-center justify-center w-5 shrink-0">
+                  <Caixa
+                    marcada={idsDoGrupo.length > 0 && nMarcadas === idsDoGrupo.length} parcial={nMarcadas > 0} visivel={ctx.selecao.ids.size > 0}
+                    onChange={() => ctx.selecao.definir(idsDoGrupo, nMarcadas < idsDoGrupo.length)} label="Selecionar todas"
+                  />
+                </span>
+              )}
+              <span className="w-4 shrink-0" aria-hidden="true" />
+              <span aria-hidden="true">Nome</span>
+            </span>
+            {cols.map((c) => <span key={c.k} className="px-2 truncate" aria-hidden="true">{c.label}</span>)}
             <span className="inline-flex items-center justify-center text-ln-t4">{!ctx.simples && <Plus className="w-3.5 h-3.5" />}</span>
           </div>
           {itens.map((it) => {

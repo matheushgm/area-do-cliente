@@ -11,7 +11,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useOutletContext } from 'react-router-dom'
 import {
   Menu, List, KanbanSquare, ChevronRight, ChevronDown, Search, X, Plus, Loader2, Layers, Eye, EyeOff, PanelLeft, User, RefreshCw,
-  Trash2, Check, Maximize2, Minimize2, Rows3, CalendarDays, Table2, GanttChart,
+  Check, Maximize2, Minimize2, Rows3, CalendarDays, Table2, GanttChart, CircleDot, Users, Flag, Hourglass, Shapes, CalendarClock, ExternalLink,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
@@ -41,7 +41,9 @@ import TemplateEditor from '../components/Tarefas/TemplateEditor'
 import AplicarTemplateView from '../components/Tarefas/AplicarTemplateView'
 import { templateDaTarefa, clonarItens, itensDoTemplate } from '../lib/templates'
 import IntakeView from '../components/Tarefas/IntakeView'
-import { Popover, Avatar, FOCO } from '../components/Tarefas/Campos'
+import { Popover, Avatar, FOCO, StatusCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo } from '../components/Tarefas/Campos'
+import BarraSelecao, { BotaoBarra, ResponsaveisEmMassa, aplicarDiferenca } from '../components/Tarefas/BarraSelecao'
+import { MenuTarefa } from '../components/Tarefas/TarefaExtras'
 
 const PAINEL_LARGURA = 480
 const EMPURRA_A_PARTIR_DE = 1200
@@ -206,6 +208,8 @@ export default function Tarefas() {
   const [painelExpandido, setPainelExpandido] = useState(false)
   const [recarregarTick, setRecarregarTick] = useState(0)
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('')
+  const [selecionadas, setSelecionadas] = useState(() => new Set()) // seleção da Lista (barra no rodapé)
+  const [emMassa, setEmMassa] = useState(false)
   const [aplicandoTpl, setAplicandoTpl] = useState(null) // { template, listaId }: tela "Aplicar template"
   const [unidadeBurn, setUnidadeBurn] = useState(() => lerPref('burn', 'tarefas'))
   const sync = useSyncClickup({
@@ -518,12 +522,13 @@ export default function Tarefas() {
   useEffect(() => {
     const h = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      if (e.key === 'Escape' && tarefaAbertaId && !estaDigitando()) { e.preventDefault(); if (painelExpandido) setPainelExpandido(false); else fecharPainel() }
+      if (e.key === 'Escape' && tarefaAbertaId && !estaDigitando()) { e.preventDefault(); if (painelExpandido) setPainelExpandido(false); else fecharPainel(); return }
+      if (e.key === 'Escape' && selecionadas.size && !aplicandoTpl && !estaDigitando()) { e.preventDefault(); setSelecionadas(new Set()) }
       if ((e.key === 'c' || e.key === 'C') && !estaDigitando() && aba !== 'chat' && aba !== 'atividades' && aba !== 'paginas' && aba !== 'templates' && !aplicandoTpl) { e.preventDefault(); novaTarefa() }
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa, aba, aplicandoTpl])
+  }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa, aba, aplicandoTpl, selecionadas.size])
 
   const ctx = useMemo(() => ({
     statuses, membros: teamMembers || [], membrosMap, itensMap: t.itens, listaPadraoId, agrupar, contagemComentarios, selecionadaId: tarefaAbertaId,
@@ -531,6 +536,69 @@ export default function Tarefas() {
     // colunas Cliente e Sprints da Lista (estilo ClickUp)
     listas: t.listas, pastas: t.pastas, projetos: projects || [], ciclos: vt.ciclos || [],
   }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar])
+
+  // ── Seleção da Lista e ações em massa (BarraSelecao) ─────────────────────
+  // a seleção vale para o que está na tela: trocar de pasta, lista, seção ou visão limpa
+  useEffect(() => { setSelecionadas(new Set()) }, [sel.tipo, sel.id, aba, view])
+  const selecao = useMemo(() => ({
+    ids: selecionadas,
+    alternar: (id) => setSelecionadas((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n }),
+    definir: (ids, marcar) => setSelecionadas((p) => { const n = new Set(p); for (const id of ids) { if (marcar) n.add(id); else n.delete(id) } return n }),
+  }), [selecionadas])
+  const itensSel = useMemo(() => [...selecionadas].map((id) => t.itens[id]).filter(Boolean), [selecionadas, t.itens])
+  // subtarefa cujo pai também está selecionado vai junto com o pai (duplicar/excluir)
+  const raizesSel = useMemo(() => itensSel.filter((it) => !(it.parent_id && selecionadas.has(it.parent_id))), [itensSel, selecionadas])
+
+  /** Roda fn em cada selecionada, uma de cada vez; fn devolve null para "pulada". */
+  const emLote = useCallback(async (fn, rotulo) => {
+    setEmMassa(true)
+    let ok = 0, puladas = 0, falhas = 0
+    for (const it of itensSel) {
+      const r = await fn(it)
+      if (r === null) puladas++
+      else if (r?.error) falhas++
+      else ok++
+    }
+    setEmMassa(false)
+    const extra = [puladas && `${puladas} sem esse status na lista`, falhas && `${falhas} com erro`].filter(Boolean).join(', ')
+    showToast(`${rotulo}: ${ok} tarefa(s)${extra ? ` (${extra})` : ''}`, falhas ? 'error' : undefined)
+  }, [itensSel, showToast])
+  const atualizarSel = useCallback((patch, rotulo) => emLote((it) => t.atualizarTarefa(it.id, typeof patch === 'function' ? patch(it) : patch), rotulo), [emLote, t])
+
+  const copiaDe = (it, extra) => ({
+    lista_id: it.lista_id, parent_id: it.parent_id, titulo: it.titulo, descricao: it.descricao, status: it.status, prioridade: it.prioridade,
+    responsaveis: it.responsaveis, data_inicio: it.data_inicio, data_vencimento: it.data_vencimento, estimativa_min: it.estimativa_min,
+    tipo_tarefa: it.tipo_tarefa, dificuldade: it.dificuldade, departamento: it.departamento, tags: it.tags, etiquetas: it.etiquetas,
+    checklists: it.checklists, ciclo_id: it.ciclo_id, posicao: (Number(it.posicao) || 0) + 0.5, ...extra,
+  })
+  const duplicarSel = useCallback(async () => {
+    setEmMassa(true)
+    let n = 0, falhas = 0
+    for (const it of raizesSel) {
+      const r = await t.criarTarefa(copiaDe(it))
+      if (r.error) { falhas++; continue }
+      n++
+      for (const f of filhosDe.get(it.id) || []) {
+        const rf = await t.criarTarefa(copiaDe(f, { parent_id: r.data.id, lista_id: r.data.lista_id }))
+        if (rf.error) falhas++; else n++
+      }
+    }
+    setEmMassa(false)
+    setSelecionadas(new Set())
+    showToast(`${n} tarefa(s) duplicada(s)${falhas ? `, ${falhas} com erro` : ''}`, falhas ? 'error' : undefined)
+  }, [raizesSel, filhosDe, t, showToast])
+  const excluirSel = useCallback(async () => {
+    const nSubs = raizesSel.reduce((a, it) => a + (filhosDe.get(it.id) || []).length, 0)
+    if (!window.confirm(`Excluir ${raizesSel.length} tarefa(s)${nSubs ? ` e ${nSubs} subtarefa(s) delas` : ''}? A exclusão também acontece no ClickUp.`)) return
+    setEmMassa(true)
+    let n = 0, falhas = 0
+    for (const it of raizesSel) { const r = await t.excluirTarefa(it.id); if (r.error) falhas++; else n++ }
+    setEmMassa(false)
+    if (tarefaAbertaId && selecionadas.has(tarefaAbertaId)) fecharPainel()
+    setSelecionadas(new Set())
+    showToast(`${n} tarefa(s) excluída(s)${falhas ? `, ${falhas} com erro` : ''}`, falhas ? 'error' : undefined)
+  }, [raizesSel, filhosDe, t, showToast, tarefaAbertaId, selecionadas, fecharPainel])
+  const statusComum = itensSel.length && itensSel.every((i) => i.status === itensSel[0].status) ? itensSel[0].status : null
 
   // ── Cabeçalho e painel ───────────────────────────────────────────────────
   const pastaSel = sel.tipo === 'pasta' ? t.pastasMap.get(sel.id) : sel.tipo === 'lista' ? t.pastasMap.get(t.listasMap.get(sel.id)?.pasta_id) : null
@@ -568,7 +636,7 @@ export default function Tarefas() {
 
             {/* ── Painel principal ─────────────────────────────────────── */}
             {aba === 'chat' ? <ChatModulo onAbrirMenu={openSidebar} /> : aba === 'atividades' ? <AtividadesModulo onAbrirMenu={openSidebar} /> : (
-            <div className="flex-1 min-w-0 flex flex-col">
+            <div className="relative flex-1 min-w-0 flex flex-col">
               <header className="min-h-[56px] shrink-0 flex items-center justify-between gap-3 px-6 py-2 border-b border-ln-ink/[0.08]">
                 <div className="flex items-center gap-2 min-w-0">
                   <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
@@ -687,11 +755,28 @@ export default function Tarefas() {
                     ) : view === 'quadro' ? (
                       <div className={comTopo ? 'h-[560px]' : 'h-full'}><QuadroView grupos={grupos} filhosDe={filhosDe} ctx={ctx} /></div>
                     ) : (
-                      <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={mostrarConcluidas} denso={denso} compacto={painel && painelEmpurra && largura < 1600} />
+                      <ListaView grupos={grupos} filhosDe={filhosDe} ctx={{ ...ctx, selecao }} mostrarConcluidas={mostrarConcluidas} denso={denso} compacto={painel && painelEmpurra && largura < 1600} />
                     )}
                   </>
                 )}
               </div>
+
+              {mostrarViews && view === 'lista' && (
+                <BarraSelecao n={itensSel.length} onLimpar={() => setSelecionadas(new Set())} onDuplicar={duplicarSel} onExcluir={excluirSel} ocupado={emMassa}>
+                  <StatusCampo
+                    item={{ status: statusComum }} statuses={statuses}
+                    onChange={(s) => emLote((it) => { const st = statusDaLista(t.listasMap.get(it.lista_id)).find((x) => x.key === s.key); return st ? t.mudarStatus(it, st) : null }, 'Status')}
+                    render={<BotaoBarra icon={CircleDot}>Status</BotaoBarra>}
+                  />
+                  <ResponsaveisEmMassa listas={itensSel.map((i) => i.responsaveis)} membros={teamMembers || []} membrosMap={membrosMap} icon={Users}
+                    onAplicar={(d) => atualizarSel((it) => ({ responsaveis: aplicarDiferenca(it.responsaveis, d) }), 'Responsáveis')} />
+                  <DataCampo valor={null} onChange={(v) => atualizarSel({ data_inicio: v }, 'Início')} render={<BotaoBarra icon={CalendarDays}>Início</BotaoBarra>} />
+                  <DataCampo valor={null} onChange={(v) => atualizarSel({ data_vencimento: v }, 'Vencimento')} render={<BotaoBarra icon={CalendarClock}>Vencimento</BotaoBarra>} />
+                  <PrioridadeCampo valor={null} onChange={(v) => atualizarSel({ prioridade: v }, 'Prioridade')} render={<BotaoBarra icon={Flag}>Prioridade</BotaoBarra>} />
+                  <TipoTarefaCampo valor={null} onChange={(v) => atualizarSel({ tipo_tarefa: v }, 'Tipo')} render={<BotaoBarra icon={Shapes}>Tipo</BotaoBarra>} />
+                  <EstimativaCampo valor={null} onChange={(v) => atualizarSel({ estimativa_min: v }, 'Estimativa')} render={<BotaoBarra icon={Hourglass}>Estimativa</BotaoBarra>} />
+                </BarraSelecao>
+              )}
             </div>
             )}
 
@@ -728,16 +813,18 @@ export default function Tarefas() {
                       </>)}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {tarefaAberta && tarefaAberta.status_tipo !== 'closed' && (
-                        <button type="button" onClick={() => { const s = statusesDaAberta.find((x) => x.tipo === 'closed'); if (s) onMudarStatus(tarefaAberta, s) }} className={`ln-pill !text-ln-green ${FOCO}`} title="Marcar como concluída">
-                          <Check className="w-3.5 h-3.5" /> Concluir
-                        </button>
+                      {tarefaAberta?.clickup_url && (
+                        <a href={tarefaAberta.clickup_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-ln-t3 hover:text-ln-accent hover:bg-ln-ink/[0.04] ${FOCO}`} title="Abrir no ClickUp">
+                          ClickUp <ExternalLink className="w-3 h-3" />
+                        </a>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => { if (tarefaAberta && window.confirm('Excluir esta tarefa (e as subtarefas)?')) t.excluirTarefa(tarefaAberta.id).then((r) => { if (r.error) showToast(r.error, 'error'); else { fecharPainel(); showToast('Tarefa excluída') } }) }}
-                        className="ln-iconbtn hover:!text-ln-red" aria-label="Excluir tarefa" title="Excluir"
-                      ><Trash2 className="w-3.5 h-3.5" /></button>
+                      {tarefaAberta && (
+                        <MenuTarefa
+                          key={tarefaAberta.id} tarefaId={tarefaAberta.id} user={user}
+                          onSalvarTemplate={() => salvarComoModelo(tarefaAberta, filhosDe.get(tarefaAberta.id) || [])}
+                          onExcluir={() => { if (window.confirm('Excluir esta tarefa (e as subtarefas)?')) t.excluirTarefa(tarefaAberta.id).then((r) => { if (r.error) showToast(r.error, 'error'); else { fecharPainel(); showToast('Tarefa excluída') } }) }}
+                        />
+                      )}
                       <button onClick={() => setPainelExpandido((v) => !v)} className="ln-iconbtn" aria-label={painelExpandido ? 'Voltar ao painel lateral' : 'Expandir em tela cheia'} title={painelExpandido ? 'Voltar ao painel lateral (Esc)' : 'Expandir em tela cheia'}>
                         {painelExpandido ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
                       </button>
@@ -760,7 +847,6 @@ export default function Tarefas() {
                         ciclosMap={vt.ciclosMap}
                         etiquetasMap={vt.etiquetasMap}
                         onCriarEtiqueta={vt.criarEtiqueta}
-                        onSalvarModelo={salvarComoModelo}
                         onAtualizar={onAtualizar}
                         onMudarStatus={onMudarStatus}
                         onCriarSub={(pai, tituloSub) => onCriar({ lista_id: pai.lista_id, parent_id: pai.id, titulo: tituloSub })}

@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from 'react'
 import MarkdownView from '../Editor/MarkdownView'
 import MarkdownEditor from '../Editor/MarkdownEditor'
-import { X, Trash2, Plus, Check, Square, CheckSquare, Paperclip, ExternalLink, Send, CornerDownRight, Loader2 } from 'lucide-react'
+import { X, Trash2, Plus, Check, Square, CheckSquare, Paperclip, Send, Loader2 } from 'lucide-react'
 import { uploadFile, deleteFile } from '../../lib/supabase'
 import AnexoPreview from '../UI/AnexoPreview'
 import { tipoDoAnexo, nomeDoAnexo } from '../../lib/anexos'
@@ -17,7 +17,8 @@ import {
   Avatar, Avatares, Popover, FOCO,
 } from './Campos'
 import RelacaoCampo from './RelacaoCampo'
-import { EtiquetasCampo, RelacoesSecao, HistoricoSecao, SeguirBotao } from './TarefaExtras'
+import { Secao, ListaSubtarefas } from './SecoesTarefa'
+import { EtiquetasCampo, RelacoesSecao, HistoricoSecao } from './TarefaExtras'
 import { faseDoCiclo, fmtDiaMes, ROTULO_FASE } from '../../lib/vertatask'
 
 const BUCKET = 'task-attachments'
@@ -43,7 +44,7 @@ function Vazio({ children = 'não informado' }) {
 }
 
 /** `compacto`: uma linha só (o primeiro departamento e "+N"), para célula de lista. */
-export function DepartamentoCampo({ valor = [], onChange, compacto = false }) {
+export function DepartamentoCampo({ valor = [], onChange, compacto = false, render = null }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const sel = new Set(valor)
@@ -52,9 +53,9 @@ export function DepartamentoCampo({ valor = [], onChange, compacto = false }) {
     <>
       <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} title={valor.join(', ') || undefined}
         className={`${compacto ? 'flex flex-nowrap items-center gap-1 min-w-0 max-w-full overflow-hidden' : 'flex flex-wrap gap-1'} text-left rounded-md ${FOCO}`}>
-        {!valor.length ? <Vazio>{compacto ? '–' : undefined}</Vazio>
+        {render || (!valor.length ? <Vazio>{compacto ? '–' : undefined}</Vazio>
           : compacto ? (<>{chip(valor[0])}{valor.length > 1 && <span className="text-xs text-ln-t4 tabular shrink-0">+{valor.length - 1}</span>}</>)
-            : valor.map(chip)}
+            : valor.map(chip))}
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={230}>
         <div className="p-1">
@@ -256,20 +257,9 @@ function Comentarios({ item, comentarios, user, membrosMap, onComentar, onExclui
   )
 }
 
-function Secao({ titulo, extra, children }) {
-  return (
-    <section>
-      <div className="flex items-center gap-2 mb-1.5">
-        <p className="ln-label !mb-0">{titulo}</p>
-        {extra}
-      </div>
-      {children}
-    </section>
-  )
-}
 
 export default function TarefaPanel({
-  item, subtarefas, statuses, membros, membrosMap, comentarios, user, ciclos = [], etiquetas = [], ciclosMap = new Map(), etiquetasMap = new Map(), onCriarEtiqueta, onSalvarModelo,
+  item, subtarefas, statuses, membros, membrosMap, comentarios, user, ciclos = [], etiquetas = [], ciclosMap = new Map(), etiquetasMap = new Map(), onCriarEtiqueta,
   onAtualizar, onMudarStatus, onCriarSub, onAbrir, onComentar, onExcluirComentario, onCarregarComentarios, onErro,
 }) {
   const [titulo, setTitulo] = useState(item?.titulo || '')
@@ -293,17 +283,6 @@ export default function TarefaPanel({
   return (
     <div className="flex flex-col gap-5 p-4">
       <header>
-        <div className="flex items-center gap-2 text-xs text-ln-t3">
-          <StatusCampo item={item} statuses={statuses} onChange={(s) => onMudarStatus(item, s)} />
-          <span className="flex-1" />
-          <SeguirBotao tarefaId={item.id} user={user} />
-          {onSalvarModelo && <button type="button" onClick={() => onSalvarModelo(item, subtarefas || [])} className={`ln-pill ${FOCO}`} title="Guardar esta tarefa e as subtarefas como template, com todos os atributos">Salvar como template</button>}
-          {item.clickup_url && (
-            <a href={item.clickup_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 text-ln-t4 hover:text-ln-accent ${FOCO}`} title="Abrir no ClickUp">
-              ClickUp <ExternalLink className="w-3 h-3" />
-            </a>
-          )}
-        </div>
         <textarea
           ref={tituloRef}
           value={titulo}
@@ -312,13 +291,14 @@ export default function TarefaPanel({
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur() } if (e.key === 'Escape') { e.stopPropagation(); setTitulo(item.titulo); e.target.blur() } }}
           rows={1}
           aria-label="Título da tarefa"
-          className={`mt-1.5 w-full bg-transparent text-xl font-semibold tracking-[-0.01em] leading-tight outline-none resize-none rounded-md -mx-1 px-1 hover:bg-ln-ink/[0.03] focus:bg-ln-ink/[0.04] ${item.status_tipo === 'closed' ? 'text-ln-t4 line-through' : 'text-ln-t2'}`}
+          className={`w-full bg-transparent text-xl font-semibold tracking-[-0.01em] leading-tight outline-none resize-none rounded-md -mx-1 px-1 hover:bg-ln-ink/[0.03] focus:bg-ln-ink/[0.04] ${item.status_tipo === 'closed' ? 'text-ln-t4 line-through' : 'text-ln-t2'}`}
         />
       </header>
 
       <section>
         <p className="ln-label">Propriedades</p>
         <dl className="flex flex-col">
+          <Propriedade label="Status"><StatusCampo item={item} statuses={statuses} onChange={(s) => onMudarStatus(item, s)} /></Propriedade>
           <Propriedade label="Responsáveis">
             <ResponsavelCampo item={item} membros={membros} membrosMap={membrosMap} size={16} max={4} comNome onChange={(ids, extra) => onAtualizar(item.id, extra ? { responsaveis: ids, responsaveis_extra: extra } : { responsaveis: ids })} />
           </Propriedade>
@@ -354,18 +334,14 @@ export default function TarefaPanel({
       </Secao>
 
       <Secao titulo="Subtarefas" extra={subs.length > 0 && <span className="text-[11px] text-ln-t4 tabular">{feitas}/{subs.length}</span>}>
-        <div className="flex flex-col">
-          {subs.map((s) => (
-            <div key={s.id} role="button" tabIndex={0} onClick={() => onAbrir(s.id)} onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(s.id) }} className={`ln-row-hover flex items-center gap-2 h-8 -mx-2 px-2 cursor-pointer ${FOCO}`}>
-              <CornerDownRight className="w-3 h-3 text-ln-t4 shrink-0" />
-              <StatusCampo item={s} statuses={statuses} modo="icon" onChange={(st) => onMudarStatus(s, st)} />
-              <span className={`text-[13px] flex-1 min-w-0 truncate ${s.status_tipo === 'closed' ? 'line-through text-ln-t4' : 'text-ln-t2'}`}>{s.titulo}</span>
-              <DataCampo valor={s.data_vencimento} item={s} formato="curta" placeholder="" onChange={(v) => onAtualizar(s.id, { data_vencimento: v })} />
-              <Avatares item={s} membrosMap={membrosMap} size={16} max={2} vazio={false} />
-            </div>
-          ))}
-          <div className="-mx-2"><AdicionarInline placeholder="Adicionar subtarefa" onCriar={(t) => onCriarSub(item, t)} /></div>
-        </div>
+        <ListaSubtarefas
+          itens={subs.map((s) => ({ ...s, concluida: s.status_tipo === 'closed' }))} onAbrir={onAbrir} onAdicionar={(t) => onCriarSub(item, t)}
+          inicio={(s) => <span onClick={(e) => e.stopPropagation()}><StatusCampo item={s} statuses={statuses} modo="icon" onChange={(st) => onMudarStatus(s, st)} /></span>}
+          fim={(s) => (<>
+            <DataCampo valor={s.data_vencimento} item={s} formato="curta" placeholder="" onChange={(v) => onAtualizar(s.id, { data_vencimento: v })} />
+            <Avatares item={s} membrosMap={membrosMap} size={16} max={2} vazio={false} />
+          </>)}
+        />
       </Secao>
 
       <Secao titulo="Relações">

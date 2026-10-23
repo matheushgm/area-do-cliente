@@ -1,10 +1,11 @@
 // Extras do painel da tarefa no VertaTask: etiquetas, relações entre tarefas,
 // histórico de atividade e seguir/deixar de seguir.
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Plus, X, Check, Search, Bell, BellOff, Link2, Loader2 } from 'lucide-react'
+import { Plus, X, Check, Bell, BellOff, Loader2, MoreHorizontal, LayoutTemplate, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { fmtDataHora, fmtDataNumerica, rotuloStatus, prioridade as prioDe } from '../../lib/tarefas'
-import { Popover, FOCO } from './Campos'
+import { Popover, ItemMenu, FOCO } from './Campos'
+import { ListaRelacoes } from './SecoesTarefa'
 
 const PALETA = ['#2A25F0', '#518CFF', '#1F8A5B', '#C99A2E', '#E2564B', '#8B5CF6', '#EC4899', '#5A6072']
 
@@ -71,10 +72,6 @@ const ROTULO_INVERSO = { bloqueia: 'Bloqueada por', duplica: 'Tem a duplicata', 
 export function RelacoesSecao({ tarefaId, user, onAbrir, onErro }) {
   const [linhas, setLinhas] = useState([])
   const [titulos, setTitulos] = useState({})
-  const [adicionando, setAdicionando] = useState(false)
-  const [tipo, setTipo] = useState('relacionada')
-  const [q, setQ] = useState('')
-  const [achados, setAchados] = useState([])
 
   const carregar = useCallback(async () => {
     const { data } = await supabase.from('tarefas_relacoes').select('*').or(`tarefa_id.eq.${tarefaId},relacionada_id.eq.${tarefaId}`)
@@ -88,21 +85,16 @@ export function RelacoesSecao({ tarefaId, user, onAbrir, onErro }) {
   }, [tarefaId])
   useEffect(() => { carregar() }, [carregar])
 
-  useEffect(() => {
-    if (!adicionando || q.trim().length < 2) { setAchados([]); return undefined }
-    const h = setTimeout(async () => {
-      const { data } = await supabase.from('tarefas_itens').select('id,titulo,status_tipo').ilike('titulo', `%${q.trim()}%`).neq('id', tarefaId).eq('arquivada', false).limit(8)
-      setAchados(data || [])
-    }, 250)
-    return () => clearTimeout(h)
-  }, [q, adicionando, tarefaId])
-
-  async function adicionar(alvo) {
+  const buscar = async (q) => {
+    const { data } = await supabase.from('tarefas_itens').select('id,titulo,status_tipo').ilike('titulo', `%${q}%`).neq('id', tarefaId).eq('arquivada', false).limit(8)
+    return data || []
+  }
+  async function adicionar(tipo, alvo) {
     // "Bloqueia" e "duplica" gravam tarefa → alvo; "relacionada" também.
     const { error } = await supabase.from('tarefas_relacoes').insert({ tarefa_id: tarefaId, relacionada_id: alvo.id, tipo, criado_por: user?.id || null })
-    if (error) { onErro?.(error.code === '23505' ? 'Essa relação já existe.' : error.message); return }
-    setQ(''); setAchados([]); setAdicionando(false)
+    if (error) { onErro?.(error.code === '23505' ? 'Essa relação já existe.' : error.message); return false }
     carregar()
+    return true
   }
   async function remover(id) {
     const { error } = await supabase.from('tarefas_relacoes').delete().eq('id', id)
@@ -110,40 +102,18 @@ export function RelacoesSecao({ tarefaId, user, onAbrir, onErro }) {
   }
 
   return (
-    <div className="flex flex-col">
-      {linhas.map((r) => {
+    <ListaRelacoes
+      linhas={linhas.map((r) => {
         const direto = r.tarefa_id === tarefaId
         const outro = titulos[direto ? r.relacionada_id : r.tarefa_id]
-        return (
-          <div key={r.id} className="group/rel flex items-center gap-2 h-8 -mx-2 px-2 rounded-lg hover:bg-ln-ink/[0.03]">
-            <span className="text-[11px] text-ln-t4 w-[110px] shrink-0">{(direto ? ROTULO_DIRETO : ROTULO_INVERSO)[r.tipo]}</span>
-            <button type="button" onClick={() => outro && onAbrir(outro.id)} className={`flex-1 min-w-0 truncate text-left text-[13px] hover:text-ln-accent ${outro?.status_tipo === 'closed' ? 'line-through text-ln-t4' : 'text-ln-t2'} ${FOCO}`}>{outro?.titulo || 'Tarefa removida'}</button>
-            <button type="button" onClick={() => remover(r.id)} className="ln-iconbtn !w-5 !h-5 opacity-0 group-hover/rel:opacity-100 focus-visible:opacity-100" aria-label="Remover relação"><X className="w-3 h-3" /></button>
-          </div>
-        )
+        return {
+          key: r.id, rotulo: (direto ? ROTULO_DIRETO : ROTULO_INVERSO)[r.tipo], titulo: outro?.titulo, concluida: outro?.status_tipo === 'closed',
+          onAbrir: outro ? () => onAbrir(outro.id) : undefined, onRemover: () => remover(r.id),
+        }
       })}
-      {adicionando ? (
-        <div className="mt-1 flex flex-col gap-1.5">
-          <div className="flex gap-1.5">
-            <select className="ln-input !h-8 !w-[150px]" value={tipo} onChange={(e) => setTipo(e.target.value)} aria-label="Tipo de relação">
-              <option value="relacionada">Relacionada a</option>
-              <option value="bloqueia">Bloqueia</option>
-              <option value="duplica">Duplicada de</option>
-            </select>
-            <div className="ln-input !h-8 flex items-center gap-1.5 flex-1">
-              <Search className="w-3.5 h-3.5 text-ln-t4" />
-              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar tarefa pelo título" className="flex-1 min-w-0 bg-transparent outline-none text-xs" />
-            </div>
-            <button type="button" onClick={() => { setAdicionando(false); setQ('') }} className="ln-iconbtn" aria-label="Cancelar"><X className="w-3.5 h-3.5" /></button>
-          </div>
-          {achados.map((a) => (
-            <button key={a.id} type="button" onClick={() => adicionar(a)} className="text-left text-[13px] px-2 h-8 rounded-md hover:bg-ln-ink/5 text-ln-t2 truncate">{a.titulo}</button>
-          ))}
-        </div>
-      ) : (
-        <button type="button" onClick={() => setAdicionando(true)} className={`self-start inline-flex items-center gap-1.5 h-7 px-2 -mx-2 rounded-md text-xs text-ln-t4 hover:text-ln-t2 hover:bg-ln-ink/[0.03] ${FOCO}`}><Link2 className="w-3.5 h-3.5" /> Adicionar relação</button>
-      )}
-    </div>
+      tipos={[{ value: 'relacionada', label: 'Relacionada a' }, { value: 'bloqueia', label: 'Bloqueia' }, { value: 'duplica', label: 'Duplicada de' }]}
+      buscar={buscar} onAdicionar={adicionar}
+    />
   )
 }
 
@@ -197,7 +167,8 @@ export function HistoricoSecao({ tarefaId, versao, membrosMap, ciclosMap, etique
 
 // ── Seguir ──────────────────────────────────────────────────────────────────
 
-export function SeguirBotao({ tarefaId, user }) {
+/** Quem segue a tarefa: estado e alternar (tarefas_seguidores). */
+function useSeguir(tarefaId, user) {
   const [seguindo, setSeguindo] = useState(false)
   const [total, setTotal] = useState(0)
   useEffect(() => {
@@ -219,11 +190,37 @@ export function SeguirBotao({ tarefaId, user }) {
       setSeguindo(true); setTotal((n) => n + 1)
     }
   }
+  return { seguindo, total, alternar }
+}
+
+/** Menu ⋯ do painel da tarefa: seguir, salvar como template e excluir. */
+export function MenuTarefa({ tarefaId, user, onSalvarTemplate, onExcluir }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const { seguindo, total, alternar } = useSeguir(tarefaId, user)
+  const fechar = (fn) => () => { setOpen(false); fn?.() }
   return (
-    <button type="button" onClick={alternar} className={`ln-pill ${seguindo ? '!text-ln-accent' : ''} ${FOCO}`} title={seguindo ? 'Você recebe aviso de comentários e mudanças. Clique para parar.' : 'Receber aviso de comentários nesta tarefa'}>
-      {seguindo ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
-      {seguindo ? 'Seguindo' : 'Seguir'}{total > 0 && <span className="text-ln-t4 tabular">{total}</span>}
-    </button>
+    <>
+      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`ln-iconbtn ${open ? 'bg-ln-ink/[0.08] text-ln-t1' : ''} ${FOCO}`} aria-label="Mais ações" title="Mais ações" aria-haspopup="menu" aria-expanded={open}>
+        <MoreHorizontal className="w-4 h-4" />
+      </button>
+      <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={230} align="right">
+        <div className="p-1" role="menu">
+          <ItemMenu onClick={fechar(alternar)}>
+            {seguindo ? <BellOff className="w-3.5 h-3.5 text-ln-t4" /> : <Bell className="w-3.5 h-3.5 text-ln-t4" />}
+            <span className="flex-1">{seguindo ? 'Deixar de seguir' : 'Seguir'}</span>
+            {total > 0 && <span className="text-[11px] text-ln-t4 tabular" title={`${total} pessoa(s) seguindo`}>{total}</span>}
+          </ItemMenu>
+          {onSalvarTemplate && (
+            <ItemMenu onClick={fechar(onSalvarTemplate)}><LayoutTemplate className="w-3.5 h-3.5 text-ln-t4" /> Salvar como template</ItemMenu>
+          )}
+          {onExcluir && (<>
+            <div className="border-t border-ln-ink/5 my-1" />
+            <ItemMenu onClick={fechar(onExcluir)} className="!text-ln-red"><Trash2 className="w-3.5 h-3.5" /> Excluir</ItemMenu>
+          </>)}
+        </div>
+      </Popover>
+    </>
   )
 }
 

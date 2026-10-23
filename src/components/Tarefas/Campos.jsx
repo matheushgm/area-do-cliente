@@ -24,10 +24,11 @@ export function Popover({ anchorRef, open, onClose, children, width = 240, align
     const vw = window.innerWidth, vh = window.innerHeight
     let left = align === 'right' ? r.right - width : r.left
     left = Math.max(8, Math.min(left, vw - width - 8))
-    let top = r.bottom + 4
-    const alturaEstim = Math.min(340, vh - 16)
-    if (top + alturaEstim > vh) top = Math.max(8, r.top - alturaEstim - 4)
-    setPos({ left, top })
+    const alturaMax = Math.min(340, vh - 16)
+    // sem espaço embaixo (ex.: barra de seleção no rodapé): abre para cima, ancorado pela
+    // base, colado no gatilho qualquer que seja a altura real do menu
+    if (r.bottom + 4 + alturaMax > vh && r.top > vh - r.bottom) setPos({ left, bottom: vh - r.top + 4, maxH: Math.min(340, r.top - 12) })
+    else setPos({ left, top: r.bottom + 4, maxH: Math.min(340, vh - r.bottom - 12) })
   }, [open, anchorRef, width, align])
 
   useEffect(() => {
@@ -47,8 +48,8 @@ export function Popover({ anchorRef, open, onClose, children, width = 240, align
   return createPortal(
     <div
       ref={ref}
-      style={{ position: 'fixed', left: pos.left, top: pos.top, width, zIndex: 90, boxShadow: 'var(--ln-shadow-panel)' }}
-      className="ln bg-ln-panel border border-ln-ink/[0.08] rounded-lg overflow-hidden max-h-[340px] flex flex-col text-ln-t2"
+      style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, maxHeight: pos.maxH, width, zIndex: 90, boxShadow: 'var(--ln-shadow-panel)' }}
+      className="ln bg-ln-panel border border-ln-ink/[0.08] rounded-lg overflow-hidden flex flex-col text-ln-t2"
       onClick={(e) => e.stopPropagation()}
     >
       {children}
@@ -179,7 +180,7 @@ export function Avatares({ item, membrosMap, size = 20, max = 3, vazio = true })
   )
 }
 
-export function ResponsavelCampo({ item, membros, membrosMap, onChange, size = 20, max = 3, comNome = false, className = '' }) {
+export function ResponsavelCampo({ item, membros, membrosMap, onChange, size = 20, max = 3, comNome = false, render = null, className = '' }) {
   const [open, setOpen] = useState(false)
   const [busca, setBusca] = useState('')
   const ref = useRef(null)
@@ -193,8 +194,8 @@ export function ResponsavelCampo({ item, membros, membrosMap, onChange, size = 2
   return (
     <>
       <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center gap-1.5 rounded-md min-w-0 ${FOCO} ${className}`} title="Responsáveis">
-        <Avatares item={item} membrosMap={membrosMap} size={size} max={max} />
-        {comNome && (
+        {render || <Avatares item={item} membrosMap={membrosMap} size={size} max={max} />}
+        {!render && comNome && (
           <span className={`text-xs truncate ${pessoas.length ? 'text-ln-t2' : 'text-ln-t4'}`}>
             {pessoas.length ? pessoas.map((p) => p.nome.split(' ')[0]).join(', ') : 'sem responsável'}
           </span>
@@ -371,7 +372,7 @@ export function DificuldadeCampo(props) { return <OpcaoCampo opcoes={DIFICULDADE
 
 // ─── Estimativa ───────────────────────────────────────────────────────────────
 
-export function EstimativaCampo({ valor, onChange, vazio = 'sem estimativa', className = '' }) {
+export function EstimativaCampo({ valor, onChange, vazio = 'sem estimativa', render = null, className = '' }) {
   const [editando, setEditando] = useState(false)
   const [txt, setTxt] = useState('')
   function abrir(e) { e.stopPropagation(); setTxt(fmtEstimativa(valor)); setEditando(true) }
@@ -396,8 +397,10 @@ export function EstimativaCampo({ valor, onChange, vazio = 'sem estimativa', cla
   }
   return (
     <button type="button" onClick={abrir} className={`inline-flex items-center gap-1.5 text-xs tabular whitespace-nowrap rounded ${valor ? 'text-ln-t3' : 'text-ln-t4'} hover:text-ln-t1 ${FOCO} ${className}`} title="Estimativa de tempo">
-      {(valor || vazio) && <Clock3 className="w-3.5 h-3.5 text-ln-t4" />}
-      {valor ? fmtEstimativa(valor) : vazio}
+      {render || (<>
+        {(valor || vazio) && <Clock3 className="w-3.5 h-3.5 text-ln-t4" />}
+        {valor ? fmtEstimativa(valor) : vazio}
+      </>)}
     </button>
   )
 }

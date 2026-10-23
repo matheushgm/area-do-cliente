@@ -779,7 +779,28 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     `ctx.acaoLinha(item)` (última coluna), `ctx.expandirTudo` (com subtarefas abertas, só fecha se a pessoa
     recolher), `ctx.acoesHover === false` (sem os botões de hover e sem "Adicionar subtarefa") e `ctx.simples`
     (sem cabeçalho de grupo, sem arrastar/selecionar e sem o "+" do cabeçalho de colunas: nos Templates há um
-    grupo só e nada disso teria ação). As três telas de Templates usam `simples`. `?aba=templates` = `TemplatesView` (um template por linha:
+    grupo só e nada disso teria ação). As três telas de Templates usam `simples`.
+    **Seleção em massa (2026-10-23):** `ctx.selecao` (`{ ids: Set, alternar, definir(ids, marcar) }`) põe a
+    caixa de seleção em cada linha (some até o hover, a não ser que haja seleção) e "selecionar todas" no
+    cabeçalho; a alça de arrastar, que nunca teve função, saiu. Quem passa `selecao` mostra a
+    `BarraSelecao` (`src/components/Tarefas/BarraSelecao.jsx`): barra flutuante no rodapé com "N selecionadas
+    ×", os campos (os mesmos editores das células, com o gatilho trocado por `BotaoBarra` via `render`;
+    `ResponsaveisEmMassa`/`DepartamentosEmMassa` marcam quem está em todas e põem/tiram de todas), Duplicar e
+    Excluir. Esc limpa a seleção. Na **lista de tarefas** (`Tarefas.jsx`, só na visão Lista) cada ação grava
+    tarefa a tarefa e segue para o ClickUp (status só onde a lista tem aquele status; duplicar leva as
+    subtarefas; excluir pede confirmação). No **editor de template** mexe na árvore (salva no Salvar), com
+    Responsável, Departamento, Prazo D+N, Prioridade, Tipo e Estimativa. Na **prévia de aplicação** entra nos
+    ajustes; duplicar cria linhas a mais (`copias`, id próprio, logo depois da origem) que viram tarefas
+    separadas ao aplicar. `ResponsavelCampo`, `EstimativaCampo`, `DepartamentoCampo` e `RegraCelula` ganharam
+    `render` para isso.
+    **Painel lateral igual nos três (2026-10-23):** `src/components/Tarefas/SecoesTarefa.jsx` tem `Secao`,
+    `ListaSubtarefas` e `ListaRelacoes`, usadas pelo painel da tarefa (`TarefaPanel` + `RelacoesSecao`), pelo do
+    editor de template e pelo da prévia. Ordem: Propriedades → Descrição → Subtarefas (só em tarefa principal) →
+    Relações → Checklists. No template a relação é só `depende_de`: "Bloqueada por" (o que está em
+    `depende_de`) e "Bloqueia" (quem tem esta em `depende_de`), editáveis no painel; na prévia entram nos
+    ajustes e valem ao criar. O "Depende de" saiu das propriedades do editor (a coluna da lista ficou). O
+    painel da tarefa ganhou o menu ⋯ (`MenuTarefa` em `TarefaExtras`: Seguir, Salvar como template, Excluir)
+    ao lado do link do ClickUp; saíram o Concluir e a lixeira do topo, e Status é a 1ª propriedade. `?aba=templates` = `TemplatesView` (um template por linha:
     Aplicar, tarefas, horas, departamentos, editado). `?aba=templates&template=<id>` = `TemplateEditor`
     (tarefas e subtarefas como linhas, edição inline de departamento, regra de responsável, início/vencimento
     em D+N, prioridade, tipo, estimativa e "depende de"; clicar na linha abre o `PainelLateral` de 480px com

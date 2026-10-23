@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, Trash2, Copy, ChevronUp, ChevronDown, Play, Save, AlertTriangle, CheckSquare, Square, X, Info, Users, User,
+  Layers, CalendarRange, Flag, Shapes, Hourglass, Plus,
 } from 'lucide-react'
 import {
   itensDoTemplate, resumoDoTemplate, achatar, novoItem, atualizarItem, removerItem, moverItem, duplicarItem, validarItens,
@@ -13,8 +14,10 @@ import {
 import { fmtEstimativa, corDaPessoa, iniciais, STATUSES_PADRAO } from '../../lib/tarefas'
 import { PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, Popover, Avatar, ItemMenu, FOCO } from './Campos'
 import ListaView from './ListaView'
+import { Secao, ListaSubtarefas, ListaRelacoes } from './SecoesTarefa'
 import { Propriedade, DepartamentoCampo, Descricao, Checklists } from './TarefaPanel'
 import { EtiquetasCampo } from './TarefaExtras'
+import BarraSelecao, { BotaoBarra, DepartamentosEmMassa, aplicarDiferenca } from './BarraSelecao'
 
 const numeracao = (itens) => {
   const m = new Map()
@@ -99,8 +102,33 @@ function DependeCampo({ item, itens, num, onChange, compacto = false }) {
 
 // ─── Formulário da tarefa escolhida ──────────────────────────────────────────
 
-function ItemForm({ item, itens, num, membros, etiquetas, onCriarEtiqueta, onPatch }) {
+/** Relações do template no formato do painel da tarefa: depende_de = "Bloqueada por"; quem depende desta = "Bloqueia". */
+function relacoesDoItem(item, itens, num, { onAbrir, set, onPatchOutro }) {
+  const plano = achatar(itens).map((p) => p.item)
+  const porId = new Map(plano.map((x) => [x.id, x]))
+  const rotulo = (x) => `${num.get(x.id)}  ${x.titulo || 'Sem título'}`
+  const linhas = [
+    ...item.depende_de.filter((d) => porId.has(d)).map((d) => ({
+      key: `por-${d}`, rotulo: 'Bloqueada por', titulo: rotulo(porId.get(d)), onAbrir: () => onAbrir(d),
+      onRemover: () => set({ depende_de: item.depende_de.filter((x) => x !== d) }),
+    })),
+    ...plano.filter((x) => x.depende_de.includes(item.id)).map((x) => ({
+      key: `bloqueia-${x.id}`, rotulo: 'Bloqueia', titulo: rotulo(x), onAbrir: () => onAbrir(x.id),
+      onRemover: () => onPatchOutro(x.id, (o) => ({ depende_de: o.depende_de.filter((d) => d !== item.id) })),
+    })),
+  ]
+  const fora = new Set([item.id, ...(item.subtarefas || []).map((x) => x.id)])
+  const buscar = async (q) => plano.filter((x) => !fora.has(x.id) && (!q || (x.titulo || '').toLowerCase().includes(q.toLowerCase()))).map((x) => ({ id: x.id, titulo: rotulo(x) }))
+  const onAdicionar = (tipo, alvo) => {
+    if (tipo === 'bloqueada') set({ depende_de: [...new Set([...item.depende_de, alvo.id])] })
+    else onPatchOutro(alvo.id, (o) => ({ depende_de: [...new Set([...o.depende_de, item.id])] }))
+  }
+  return { linhas, buscar, onAdicionar, tipos: [{ value: 'bloqueada', label: 'Bloqueada por' }, { value: 'bloqueia', label: 'Bloqueia' }] }
+}
+
+function ItemForm({ item, itens, num, membros, etiquetas, onCriarEtiqueta, onPatch, ehSub, onAbrir, onAdicionarSub, onPatchOutro }) {
   const set = (patch) => onPatch(patch)
+  const rel = relacoesDoItem(item, itens, num, { onAbrir, set, onPatchOutro })
   return (
     <div className="flex flex-col gap-5">
       <div>
@@ -119,7 +147,6 @@ function ItemForm({ item, itens, num, membros, etiquetas, onCriarEtiqueta, onPat
           <Propriedade label="Departamento"><DepartamentoCampo valor={item.departamento} onChange={(v) => set({ departamento: v })} /></Propriedade>
           <Propriedade label="Início"><DiaCampo valor={item.inicio_dia} rotulo="Início" onChange={(v) => set({ inicio_dia: v })} /></Propriedade>
           <Propriedade label="Vencimento"><DiaCampo valor={item.vencimento_dia} rotulo="Vencimento" onChange={(v) => set({ vencimento_dia: v })} /></Propriedade>
-          <Propriedade label="Depende de"><DependeCampo item={item} itens={itens} num={num} onChange={(v) => set({ depende_de: v })} /></Propriedade>
           <Propriedade label="Prioridade"><PrioridadeCampo valor={item.prioridade} onChange={(v) => set({ prioridade: v })} /></Propriedade>
           <Propriedade label="Tipo"><TipoTarefaCampo valor={item.tipo_tarefa} onChange={(v) => set({ tipo_tarefa: v })} /></Propriedade>
           <Propriedade label="Dificuldade"><DificuldadeCampo valor={item.dificuldade} onChange={(v) => set({ dificuldade: v })} /></Propriedade>
@@ -132,15 +159,26 @@ function ItemForm({ item, itens, num, membros, etiquetas, onCriarEtiqueta, onPat
         </p>
       </section>
 
-      <section>
-        <p className="ln-label mb-1.5">Descrição</p>
+      <Secao titulo="Descrição">
         <Descricao key={item.id} valor={item.descricao} onSalvar={(v) => set({ descricao: v || '' })} />
-      </section>
+      </Secao>
 
-      <section>
-        <p className="ln-label mb-1.5">Checklists</p>
+      {!ehSub && (
+        <Secao titulo="Subtarefas" extra={item.subtarefas.length > 0 && <span className="text-[11px] text-ln-t4 tabular">{item.subtarefas.length}</span>}>
+          <ListaSubtarefas
+            itens={item.subtarefas} onAbrir={onAbrir} onAdicionar={(t) => onAdicionarSub(item.id, t)}
+            fim={(s) => <span className="text-[11px] text-ln-t4 tabular">{s.vencimento_dia != null ? `D+${s.vencimento_dia}` : ''}</span>}
+          />
+        </Secao>
+      )}
+
+      <Secao titulo="Relações">
+        <ListaRelacoes linhas={rel.linhas} tipos={rel.tipos} buscar={rel.buscar} minBusca={0} onAdicionar={rel.onAdicionar} placeholder="Buscar tarefa do template" />
+      </Secao>
+
+      <Secao titulo="Checklists">
         <Checklists checklists={item.checklists} onChange={(v) => set({ checklists: v })} />
-      </section>
+      </Secao>
     </div>
   )
 }
@@ -177,7 +215,7 @@ function DiaCelula({ valor, onChange, rotulo }) {
 }
 
 /** Regra do responsável na célula: "Pelo squad", a pessoa fixa ou "–". */
-function RegraCelula({ valor, membros, membrosMap, onChange }) {
+export function RegraCelula({ valor, membros, membrosMap, onChange, render = null }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const modo = valor?.modo || 'departamento'
@@ -185,11 +223,12 @@ function RegraCelula({ valor, membros, membrosMap, onChange }) {
   return (
     <>
       <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center gap-1.5 min-w-0 rounded-md ${FOCO}`} title="Quem recebe a tarefa ao aplicar">
-        {modo === 'departamento' && <span className="inline-flex items-center gap-1 h-[22px] px-2 rounded-md text-xs text-ln-t2 bg-ln-level2 whitespace-nowrap"><Users className="w-3 h-3 text-ln-t4" /> Pelo squad</span>}
-        {modo === 'pessoa' && (pessoa
+        {render}
+        {!render && modo === 'departamento' && <span className="inline-flex items-center gap-1 h-[22px] px-2 rounded-md text-xs text-ln-t2 bg-ln-level2 whitespace-nowrap"><Users className="w-3 h-3 text-ln-t4" /> Pelo squad</span>}
+        {!render && modo === 'pessoa' && (pessoa
           ? <><Avatar pessoa={{ nome: pessoa.name, iniciais: pessoa.avatar || iniciais(pessoa.name), cor: corDaPessoa(pessoa.id) }} size={22} /><span className="text-[13px] text-ln-t2 truncate">{pessoa.name.split(' ')[0]}</span></>
           : <span className="text-[13px] text-ln-orange">escolher pessoa</span>)}
-        {modo === 'nenhum' && <span className="text-[13px] text-ln-t4 pl-1">–</span>}
+        {!render && modo === 'nenhum' && <span className="text-[13px] text-ln-t4 pl-1">–</span>}
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={260}>
         <div className="p-1 overflow-y-auto">
@@ -202,6 +241,42 @@ function RegraCelula({ valor, membros, membrosMap, onChange }) {
               <span className="truncate">{m.name}</span>
             </ItemMenu>
           ))}
+        </div>
+      </Popover>
+    </>
+  )
+}
+
+/** Prazo em massa: início e/ou vencimento em D+N para todas as selecionadas. */
+function PrazoEmMassa({ onAplicar }) {
+  const [open, setOpen] = useState(false)
+  const [ini, setIni] = useState('')
+  const [venc, setVenc] = useState('')
+  const ref = useRef(null)
+  const n = (v) => (v === '' ? undefined : Math.max(0, Math.round(Number(v))))
+  const pronto = (ini !== '' && !Number.isNaN(Number(ini))) || (venc !== '' && !Number.isNaN(Number(venc)))
+  const aplicar = () => {
+    const patch = {}
+    if (n(ini) !== undefined) patch.inicio_dia = n(ini)
+    if (n(venc) !== undefined) patch.vencimento_dia = n(venc)
+    onAplicar(patch); setOpen(false); setIni(''); setVenc('')
+  }
+  const campo = (rotulo, v, set) => (
+    <label className="flex items-center gap-2 text-xs text-ln-t3">
+      <span className="w-20">{rotulo}</span>
+      <span className="text-ln-t4 tabular">D+</span>
+      <input type="number" min={0} inputMode="numeric" value={v} onChange={(e) => set(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && pronto) aplicar() }} placeholder="—" className="ln-input !h-7 !w-16 !px-1.5 !text-xs tabular" />
+    </label>
+  )
+  return (
+    <>
+      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className="rounded-lg"><BotaoBarra icon={CalendarRange}>Prazo</BotaoBarra></button>
+      <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={240}>
+        <div className="p-3 flex flex-col gap-2">
+          <p className="text-[11px] text-ln-t4">Dias úteis depois da data de início. Em branco = não muda.</p>
+          {campo('Início', ini, setIni)}
+          {campo('Vencimento', venc, setVenc)}
+          <button type="button" onClick={aplicar} disabled={!pronto} className="ln-primary !h-7 justify-center disabled:opacity-50">Aplicar</button>
         </div>
       </Popover>
     </>
@@ -253,6 +328,7 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
   const [itens, setItens] = useState(() => itensDoTemplate(template))
   const [selId, setSelId] = useState(null)
   const [salvando, setSalvando] = useState(false)
+  const [selecionadas, setSelecionadas] = useState(() => new Set()) // seleção da lista (barra no rodapé)
   const [base, setBase] = useState(() => JSON.stringify({ n: template.nome || '', d: template.descricao || '', i: itensDoTemplate(template) }))
 
   const atual = JSON.stringify({ n: nome, d: descricao, i: itens })
@@ -273,15 +349,17 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
     return () => window.removeEventListener('beforeunload', h)
   }, [sujo])
 
+  // Esc fecha o painel; sem painel, limpa a seleção
   useEffect(() => {
-    if (!selId) return undefined
+    if (!selId && !selecionadas.size) return undefined
     const h = (e) => {
       const el = document.activeElement
-      if (e.key === 'Escape' && !(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable))) setSelId(null)
+      if (e.key !== 'Escape' || (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable))) return
+      if (selId) setSelId(null); else setSelecionadas(new Set())
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [selId])
+  }, [selId, selecionadas.size])
 
   const num = useMemo(() => numeracao(itens), [itens])
   const resumo = useMemo(() => resumoDoTemplate(itens), [itens])
@@ -290,6 +368,25 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
   const sel = plano.find((p) => p.item.id === selId)
 
   const patch = (id, p) => setItens((prev) => atualizarItem(prev, id, (it) => ({ ...it, ...p })))
+
+  // ── Seleção e ações em massa ──
+  const idsSel = plano.map((p) => p.item.id).filter((id) => selecionadas.has(id)) // só o que ainda existe
+  const itensSel = plano.filter((p) => selecionadas.has(p.item.id)).map((p) => p.item)
+  const raizesSel = plano.filter((p) => selecionadas.has(p.item.id) && !(p.pai && selecionadas.has(p.pai.id))).map((p) => p.item.id)
+  const selecao = {
+    ids: selecionadas,
+    alternar: (id) => setSelecionadas((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n }),
+    definir: (ids, marcar) => setSelecionadas((s) => { const n = new Set(s); for (const id of ids) { if (marcar) n.add(id); else n.delete(id) } return n }),
+  }
+  const patchSel = (fn) => setItens((prev) => idsSel.reduce((acc, id) => atualizarItem(acc, id, (it) => ({ ...it, ...(typeof fn === 'function' ? fn(it) : fn) })), prev))
+  const duplicarSel = () => { setItens((prev) => raizesSel.reduce((acc, id) => duplicarItem(acc, id), prev)); setSelecionadas(new Set()) }
+  const excluirSel = () => {
+    const nSubs = plano.filter((p) => raizesSel.includes(p.item.id) && p.nivel === 0).reduce((a, p) => a + p.item.subtarefas.length, 0)
+    if (!window.confirm(`Excluir ${raizesSel.length} tarefa(s)${nSubs ? ` e ${nSubs} subtarefa(s) delas` : ''} do template?`)) return
+    setItens((prev) => raizesSel.reduce((acc, id) => removerItem(acc, id), prev))
+    if (selId && selecionadas.has(selId)) setSelId(null)
+    setSelecionadas(new Set())
+  }
   const addTarefa = (titulo) => { const it = novoItem({ titulo }); setItens((p) => [...p, it]); return it }
   const addSub = (paiId, titulo = '') => {
     const s = novoItem({ titulo })
@@ -325,7 +422,7 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
   const filhosDe = new Map(itens.map((it) => [it.id, it.subtarefas.map((s, j) => comoLinha(s, j, it.id))]))
   const ctx = {
     statuses: STATUSES_PADRAO, membros, membrosMap, itensMap: {}, listaPadraoId: 'template', agrupar: 'nenhum',
-    contagemComentarios: {}, selecionadaId: selId, semStatus: true, expandirTudo: true, simples: true,
+    contagemComentarios: {}, selecionadaId: selId, semStatus: true, expandirTudo: true, simples: true, selecao,
     onAbrir: (id) => setSelId(id),
     onAtualizar: (id, p) => patch(id, p),
     onMudarStatus: () => {},
@@ -343,6 +440,21 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
         case 'deps': return <DependeCampo compacto item={it} itens={itens} num={num} onChange={(v) => patch(it.id, { depende_de: v })} />
         default: return undefined
       }
+    },
+    // hover do nome: subir/descer entre as irmãs e, só nas tarefas principais, + subtarefa
+    renderAcoesHover: (it) => {
+      const irmas = it.parent_id ? itens.find((p) => p.id === it.parent_id)?.subtarefas || [] : itens
+      const i = irmas.findIndex((x) => x.id === it.id)
+      const btn = 'ln-iconbtn !w-5 !h-5 !rounded disabled:opacity-30 disabled:pointer-events-none'
+      return (
+        <>
+          <button type="button" onClick={() => setItens((p) => moverItem(p, it.id, -1))} disabled={i <= 0} className={btn} title="Subir" aria-label="Subir"><ChevronUp className="w-3 h-3" /></button>
+          <button type="button" onClick={() => setItens((p) => moverItem(p, it.id, 1))} disabled={i === irmas.length - 1} className={btn} title="Descer" aria-label="Descer"><ChevronDown className="w-3 h-3" /></button>
+          {!it.parent_id && (
+            <button type="button" onClick={() => { const s = addSub(it.id, ''); setSelId(s.id) }} className={btn} title="Adicionar subtarefa" aria-label="Adicionar subtarefa"><Plus className="w-3 h-3" /></button>
+          )}
+        </>
+      )
     },
     acaoLinha: (it) => (
       <button type="button" onClick={() => excluir(it.id)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/linha:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" aria-label={`Excluir ${it.titulo || 'tarefa'}`} title="Excluir"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -382,6 +494,15 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
           <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas colunas={COLUNAS_TEMPLATE} />
         </div>
 
+        <BarraSelecao n={idsSel.length} onLimpar={() => setSelecionadas(new Set())} onDuplicar={duplicarSel} onExcluir={excluirSel}>
+          <RegraCelula valor={null} membros={membros} membrosMap={membrosMap} onChange={(v) => patchSel({ responsavel: v })} render={<BotaoBarra icon={Users}>Responsável</BotaoBarra>} />
+          <DepartamentosEmMassa listas={itensSel.map((i) => i.departamento)} icon={Layers} onAplicar={(d) => patchSel((it) => ({ departamento: aplicarDiferenca(it.departamento, d) }))} />
+          <PrazoEmMassa onAplicar={(p) => patchSel(p)} />
+          <PrioridadeCampo valor={null} onChange={(v) => patchSel({ prioridade: v })} render={<BotaoBarra icon={Flag}>Prioridade</BotaoBarra>} />
+          <TipoTarefaCampo valor={null} onChange={(v) => patchSel({ tipo_tarefa: v })} render={<BotaoBarra icon={Shapes}>Tipo</BotaoBarra>} />
+          <EstimativaCampo valor={null} onChange={(v) => patchSel({ estimativa_min: v })} render={<BotaoBarra icon={Hourglass}>Estimativa</BotaoBarra>} />
+        </BarraSelecao>
+
         {sel && (
           <PainelLateral
             label="Tarefa do template"
@@ -399,7 +520,9 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
             <ItemForm
               key={sel.item.id}
               item={sel.item} itens={itens} num={num} membros={membros} etiquetas={etiquetas} onCriarEtiqueta={onCriarEtiqueta}
-              onPatch={(p) => patch(sel.item.id, p)}
+              onPatch={(p) => patch(sel.item.id, p)} ehSub={sel.nivel === 1} onAbrir={(id) => setSelId(id)}
+              onAdicionarSub={(paiId, t) => addSub(paiId, t)}
+              onPatchOutro={(id, fn) => setItens((prev) => atualizarItem(prev, id, (it) => ({ ...it, ...fn(it) })))}
             />
           </PainelLateral>
         )}
