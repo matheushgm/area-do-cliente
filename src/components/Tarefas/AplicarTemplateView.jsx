@@ -1,11 +1,11 @@
 // Aplicar um template, em tela cheia: cliente, lista e data de início no topo e a prévia
 // das tarefas como a lista de um cliente (ListaView), editável antes de criar. Cada
 // célula ajusta só aquela tarefa (responsável, início, vencimento, prioridade, tipo,
-// estimativa); o painel lateral edita nome, descrição e checklists; o X tira a linha.
+// estimativa); o painel lateral edita nome, descrição e checklists; a lixeira tira a linha.
 // Os ajustes ficam por cima do cálculo do template, então trocar a data ou o cliente
 // recalcula o resto sem perder o que foi mexido à mão.
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Play, Loader2, AlertTriangle, X, RotateCcw } from 'lucide-react'
+import { ArrowLeft, Play, Loader2, AlertTriangle, Trash2, RotateCcw } from 'lucide-react'
 import { itensDoTemplate, planejarAplicacao, proximoDiaUtil, perfilDoUsuarioCliente } from '../../lib/templates'
 import { STATUSES_PADRAO, fmtEstimativa } from '../../lib/tarefas'
 import { hojeISO } from '../../lib/vertatask'
@@ -131,7 +131,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
       return undefined
     },
     acaoLinha: (r) => (
-      <button type="button" onClick={() => remover(r.id)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/linha:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" aria-label={`Não criar ${r.titulo}`} title={r.parent_id ? 'Não criar esta subtarefa' : 'Não criar esta tarefa (e as subtarefas)'}><X className="w-3.5 h-3.5" /></button>
+      <button type="button" onClick={() => remover(r.id)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/linha:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" aria-label={`Não criar ${r.titulo}`} title={r.parent_id ? 'Não criar esta subtarefa' : 'Não criar esta tarefa (e as subtarefas)'}><Trash2 className="w-3.5 h-3.5" /></button>
     ),
   }
   const sel = selId ? porId.get(selId) : null
@@ -182,7 +182,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
 
         {sel && (
           <PainelLateral label="Tarefa da prévia" titulo={sel.parent_id ? 'Subtarefa que será criada' : 'Tarefa que será criada'} onFechar={() => setSelId(null)}
-            acoes={<button type="button" onClick={() => remover(sel.id)} className="ln-iconbtn hover:!text-ln-red" aria-label="Não criar" title="Não criar"><X className="w-3.5 h-3.5" /></button>}>
+            acoes={<button type="button" onClick={() => remover(sel.id)} className="ln-iconbtn hover:!text-ln-red" aria-label="Não criar" title="Não criar esta tarefa"><Trash2 className="w-3.5 h-3.5" /></button>}>
             <div className="flex flex-col gap-5">
               <input
                 value={sel.titulo} onChange={(e) => editar(sel.id, { titulo: e.target.value })} aria-label="Nome da tarefa"

@@ -543,10 +543,10 @@ export default function Tarefas() {
   const paiDaAberta = tarefaAberta?.parent_id ? t.itens[tarefaAberta.parent_id] : null
   const statusesDaAberta = listaDaAberta ? statusDaLista(listaDaAberta) : statuses
   const painelEmpurra = largura >= EMPURRA_A_PARTIR_DE
-  const mostrarViews = !aplicandoTpl && (!aba || aba === 'ciclos')
+  const mostrarViews = !aba || aba === 'ciclos'
   const comTopo = aba === 'ciclos' // cabeçalho acima da view: a página rola inteira
-  const semRolagem = aba === 'paginas' || aba === 'templates' || !!aplicandoTpl // templates (lista, editor, aplicação) rolam por dentro
-  const painel = !!tarefaAbertaId && !aplicandoTpl
+  const semRolagem = aba === 'paginas' || aba === 'templates' // templates (lista e editor) rolam por dentro
+  const painel = !!tarefaAbertaId
 
   return (
     <>
@@ -573,8 +573,8 @@ export default function Tarefas() {
                 <div className="flex items-center gap-2 min-w-0">
                   <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
                   <button onClick={() => setArvoreAberta(true)} aria-label="Abrir pastas" className="ln-iconbtn md:hidden"><PanelLeft className="w-4 h-4" /></button>
-                  <h1 className="text-xl font-bold text-ln-t1 truncate">{aplicandoTpl ? 'Templates' : ({ intake: 'Intake', ciclos: 'Cycles', templates: 'Templates', paginas: 'Pages', analytics: 'Analytics' }[aba] || 'Tarefas')}</h1>
-                  {!aba && !aplicandoTpl && (
+                  <h1 className="text-xl font-bold text-ln-t1 truncate">{{ intake: 'Intake', ciclos: 'Cycles', templates: 'Templates', paginas: 'Pages', analytics: 'Analytics' }[aba] || 'Tarefas'}</h1>
+                  {!aba && (
                     <div className="hidden sm:flex items-center gap-1.5 text-[13px] text-ln-t3 min-w-0">
                       {pastaSel && (<>
                         <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
@@ -585,7 +585,7 @@ export default function Tarefas() {
                       {sel.tipo === 'todas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">Todas as abertas</span></>)}
                     </div>
                   )}
-                  {(!aba || aba === 'ciclos') && !aplicandoTpl && <span className="hidden xl:inline text-xs text-ln-t4 tabular whitespace-nowrap">{totalAbertas} abertas</span>}
+                  {(!aba || aba === 'ciclos') && <span className="hidden xl:inline text-xs text-ln-t4 tabular whitespace-nowrap">{totalAbertas} abertas</span>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {t.carregando && <Loader2 className="w-3.5 h-3.5 animate-spin text-ln-t4" />}
@@ -600,8 +600,8 @@ export default function Tarefas() {
                     {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
                   </button>
                   <button onClick={() => { if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true }); else if (sel.tipo === 'todas') t.carregarAbertas({ force: true }) }} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
-                  {(!aba || aba === 'ciclos') && !aplicandoTpl && <ModelosMenu modelos={vt.modelos} onUsar={usarModelo} onGerenciar={() => abrirTemplate(null)} />}
-                  {aba !== 'templates' && !aplicandoTpl && (
+                  {(!aba || aba === 'ciclos') && <ModelosMenu modelos={vt.modelos} onUsar={usarModelo} onGerenciar={() => abrirTemplate(null)} />}
+                  {aba !== 'templates' && (
                     <button onClick={novaTarefa} className="ln-primary" title="Nova tarefa (C)">
                       <Plus className="w-3.5 h-3.5" /> Nova tarefa
                     </button>
@@ -649,14 +649,6 @@ export default function Tarefas() {
               <div className={`flex-1 min-h-0 bg-ln-bg ${(view === 'quadro' && !comTopo && mostrarViews) || semRolagem ? 'overflow-hidden' : 'overflow-auto'}`}>
                 {t.loadingEstrutura || vt.loading ? (
                   <div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</div>
-                ) : aplicandoTpl ? (
-                  <AplicarTemplateView
-                    key={aplicandoTpl.template.id}
-                    template={aplicandoTpl.template} listaInicialId={aplicandoTpl.listaId}
-                    pastas={t.pastas} listas={t.listas} projetos={projects || []} squads={squads}
-                    membros={teamMembers || []} membrosMap={membrosMap}
-                    onAplicar={aplicarTemplate} onCancelar={() => setAplicandoTpl(null)}
-                  />
                 ) : aba === 'intake' ? (
                   <IntakeView vt={vt} pastas={t.pastas} listas={t.listas} projetos={projects || []} membros={teamMembers || []} onAceitar={aceitarIntake} onToast={showToast} onAbrirTarefa={abrirTarefa} />
                 ) : aba === 'paginas' ? (
@@ -701,6 +693,19 @@ export default function Tarefas() {
                 )}
               </div>
             </div>
+            )}
+
+            {/* ── Aplicar template: cobre o quadro inteiro, como a tarefa expandida ── */}
+            {aplicandoTpl && (
+              <div className="absolute inset-0 z-40 flex flex-col bg-ln-panel" role="dialog" aria-label={`Aplicar ${aplicandoTpl.template.nome}`}>
+                <AplicarTemplateView
+                  key={aplicandoTpl.template.id}
+                  template={aplicandoTpl.template} listaInicialId={aplicandoTpl.listaId}
+                  pastas={t.pastas} listas={t.listas} projetos={projects || []} squads={squads}
+                  membros={teamMembers || []} membrosMap={membrosMap}
+                  onAplicar={aplicarTemplate} onCancelar={() => setAplicandoTpl(null)}
+                />
+              </div>
             )}
 
             {/* ── Painel lateral: tarefa ──────────────────────────────── */}
