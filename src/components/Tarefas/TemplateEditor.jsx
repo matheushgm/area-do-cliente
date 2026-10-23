@@ -209,14 +209,14 @@ function RegraCelula({ valor, membros, membrosMap, onChange }) {
 }
 
 const COLUNAS_TEMPLATE = [
-  { k: 'depto', label: 'Departamento', w: 180 },
+  { k: 'depto', label: 'Departamento', w: 180, editavel: true },
   { k: 'resp', label: 'Responsável', w: 150 },
-  { k: 'ini', label: 'Início', w: 90 },
+  { k: 'ini', label: 'Início', w: 90, editavel: true },
   { k: 'venc', label: 'Vencimento', w: 100 },
   { k: 'prio', label: 'Prioridade', w: 120 },
   { k: 'tipo', label: 'Tipo de tarefa', w: 150 },
   { k: 'estim', label: 'Estimativa', w: 110 },
-  { k: 'deps', label: 'Depende de', w: 120 },
+  { k: 'deps', label: 'Depende de', w: 120, editavel: true },
 ]
 
 /** Item do template no formato de tarefa que a ListaView lê. */

@@ -41,6 +41,18 @@ const COLS = {
   ],
 }
 const grid = (cols) => `minmax(420px, 1fr) ${cols.map((c) => `${c.w}px`).join(' ')} 40px`
+
+// Célula editável: a célula inteira é o alvo do clique (com hover), não só o valor. Assim
+// dá para editar mesmo quando o campo está vazio. Colunas padrão editáveis por chave; coluna
+// própria marca `editavel: true`.
+const EDITAVEIS = new Set(['status', 'tipo', 'resp', 'venc', 'prio', 'sprint', 'estim'])
+const INTERATIVO = 'button, input, select, textarea, a, [contenteditable="true"]'
+function cliqueNaCelula(e, editavel) {
+  const alvo = e.target.closest(INTERATIVO)
+  if (alvo || editavel) e.stopPropagation() // não abre a tarefa
+  if (!editavel || alvo) return
+  e.currentTarget.querySelector('button')?.click() // o gatilho do editor (Popover, data, estimativa)
+}
 // recuo do cabeçalho "Nome" e das linhas "Adicionar": alinha com o que vem depois da seta
 const recuo = (ctx) => (ctx.simples ? 'pl-[26px]' : 'pl-[66px]')
 
@@ -222,11 +234,18 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
           <button type="button" onClick={(e) => { e.stopPropagation(); onAbrir(item.id) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Editar"><Pencil className="w-3 h-3" /></button>
         </span>}
       </div>
-      {cols.map((c) => (
-        <div key={c.k} className="flex items-center min-w-0 px-2 overflow-hidden" onClick={(e) => { if (c.k !== 'criada') e.stopPropagation() }}>
-          <Celula k={c.k} item={item} ctx={ctx} />
-        </div>
-      ))}
+      {cols.map((c) => {
+        const editavel = c.editavel ?? EDITAVEIS.has(c.k)
+        return (
+          <div
+            key={c.k}
+            onClick={(e) => cliqueNaCelula(e, editavel)}
+            className={`flex items-center min-w-0 px-2 overflow-hidden self-stretch ${editavel ? 'cursor-pointer rounded-[4px] hover:bg-ln-ink/[0.06] hover:ring-1 hover:ring-inset hover:ring-ln-line' : ''}`}
+          >
+            <Celula k={c.k} item={item} ctx={ctx} />
+          </div>
+        )
+      })}
       <span className="flex items-center justify-center" onClick={ctx.acaoLinha ? (e) => e.stopPropagation() : undefined}>{ctx.acaoLinha?.(item)}</span>
     </div>
   )

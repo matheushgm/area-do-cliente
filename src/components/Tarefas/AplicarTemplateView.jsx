@@ -18,7 +18,7 @@ const nomeProjeto = (p) => p?.company_name || p?.companyName || ''
 
 const COLUNAS = [
   { k: 'resp', label: 'Responsável', w: 130 },
-  { k: 'ini', label: 'Início', w: 110 },
+  { k: 'ini', label: 'Início', w: 110, editavel: true },
   { k: 'venc', label: 'Vencimento', w: 120 },
   { k: 'prio', label: 'Prioridade', w: 120 },
   { k: 'tipo', label: 'Tipo de tarefa', w: 150 },
