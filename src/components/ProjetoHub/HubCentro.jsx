@@ -16,6 +16,7 @@ import SugestoesPlaybook from './SugestoesPlaybook'
 import ResumoHub from './ResumoHub'
 import RegistroModal from './RegistroModal'
 import NovaTarefaClickUpModal from './NovaTarefaClickUpModal'
+import ModulosMenu from './ModulosMenu'
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 const CANAL_LABEL = { meta: 'Meta Ads', google: 'Google Ads', ambos: 'Meta + Google', outro: 'Outro' }
@@ -181,7 +182,7 @@ export function ResultadosEmbed({ contas, ativa, onTrocar, loading, apresentacao
   )
 }
 
-export default function HubCentro({ project, hub, dash, config, showToast, onNavigate, acaoRapida = null }) {
+export default function HubCentro({ project, hub, dash, config, showToast, onNavigate, acaoRapida = null, modulos = [], onAbrirModulo }) {
   const { teamMembers } = useApp()
   const [tab, setTab] = useState('resumo')
   const [expandido, setExpandido] = useState(false)
@@ -324,7 +325,9 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
             {expandido ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />} {expandido ? 'Recolher tudo' : 'Expandir tudo'}
           </button>
         </div>
-        <div className="px-2 mt-2 flex items-center gap-0.5 overflow-x-auto border-b border-rl-border/60">
+        {/* Abas roláveis + botão Módulos fora do scroll, pro dropdown não ser cortado */}
+        <div className="px-2 mt-2 flex items-center border-b border-rl-border/60">
+          <div className="flex items-center gap-0.5 overflow-x-auto min-w-0">
           {TABS.map((t) => {
             const ativo = tab === t.id
             const n = contagens[t.id] ?? 0
@@ -338,6 +341,8 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
               </button>
             )
           })}
+          </div>
+          {modulos.length > 0 && <ModulosMenu modulos={modulos} onAbrir={onAbrirModulo || onNavigate} />}
         </div>
       </div>
 

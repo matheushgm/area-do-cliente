@@ -56,7 +56,7 @@ function Linha({ label, valor, href }) {
 const ADS_STATUS = { para_subir: 'Para subir', em_andamento: 'Em andamento', finalizado: 'Finalizado' }
 const LP_STATUS = { em_producao: 'Em produção', no_ar: 'No ar', desativada: 'Desativada' }
 
-export default function HubDireita({ project, onNavigate, modulos = null }) {
+export default function HubDireita({ project, onNavigate }) {
   const progresso = computeProgress(project)
   const proximo = (() => {
     for (const fase of PHASES) for (const m of fase.modules) if (getModuleStatus(project, m.id) !== 'concluido') return m
@@ -95,8 +95,6 @@ export default function HubDireita({ project, onNavigate, modulos = null }) {
           ? <p className="text-xs text-rl-muted mt-2">Próxima etapa: <button onClick={() => onNavigate(proximo.viaFerramentas ? 'ferramentas' : proximo.id, proximo.viaFerramentas ? proximo.id : null)} className="font-semibold text-rl-text hover:text-rl-purple">{proximo.label}</button></p>
           : <p className="text-xs text-rl-green mt-2">Jornada concluída</p>}
       </Card>
-
-      {modulos}
 
       <Card icon={Megaphone} color="text-rl-purple" titulo="Central de anúncios" contagem={ads.length} onAbrir={() => onNavigate('debriefing')} onAdicionar={() => onNavigate('debriefing')}>
         {ads.length === 0 ? <Vazio texto="Sem anúncios" sub="Nenhum anúncio cadastrado na central" /> : (

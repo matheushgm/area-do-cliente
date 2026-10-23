@@ -24,7 +24,7 @@ import {
   Pencil, Plus, Link2, ChevronDown, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
   NotebookPen, Wrench, Compass, Megaphone, Map as MapIcon, Database, Share2,
-  Presentation, ArrowLeft, LayoutGrid, StickyNote, ChevronRight, PanelLeftClose, PanelLeftOpen, MousePointerClick,
+  Presentation, ArrowLeft, StickyNote, PanelLeftClose, PanelLeftOpen, MousePointerClick,
 } from 'lucide-react'
 import ROIScenariosModule from '../components/ROIScenariosModule'
 import PersonaCreator from './PersonaCreator'
@@ -1160,7 +1160,6 @@ export default function ClientProfile({ project: projectProp, section, onSection
     if (onSectionChange) onSectionChange(id)
     else setLocalSection(id)
   }, [onSectionChange])
-  const [modulosAbertos, setModulosAbertos] = useState(false)
   const [apresentando, setApresentando] = useState(false)
   // Ação rápida da coluna esquerda que o HubCentro deve abrir (modal)
   const [acaoRapida, setAcaoRapida] = useState(null)
@@ -1407,43 +1406,6 @@ export default function ClientProfile({ project: projectProp, section, onSection
       default:             return null
     }
   }
-
-  const modulosCard = (
-          <div className="glass-card border border-rl-border/60">
-            <div className="flex items-center gap-2 px-4 py-3">
-              <span className="w-7 h-7 rounded-full flex items-center justify-center fx-soft"><LayoutGrid className="w-3.5 h-3.5" /></span>
-              <span className="text-sm font-semibold text-rl-text flex-1">Módulos</span>
-              <span className="text-[11px] text-rl-muted">({NAV_ITEMS.length})</span>
-              <button onClick={() => setModulosAbertos((v) => !v)} className="p-1 rounded-md text-rl-muted hover:text-rl-text hover:bg-rl-surface" aria-label={modulosAbertos ? 'Recolher' : 'Expandir'}>
-                {modulosAbertos ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-              </button>
-            </div>
-            {modulosAbertos && (
-              <div className="p-2 border-t border-rl-border/60">
-                {NAV_ITEMS.map(({ id, label, icon: Icon, color, filled }) => {
-                  const isActive = activeSection === id
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => handleSidebarClick(id)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 ${
-                        isActive
-                          ? 'bg-rl-purple text-white shadow-sm'
-                          : 'text-rl-subtle hover:bg-rl-bg hover:text-rl-text'
-                      }`}
-                    >
-                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : color}`} />
-                      <span className="truncate flex-1 text-left">{label}</span>
-                      {filled && !isActive && (
-                        <CheckCircle2 className="w-3 h-3 shrink-0 text-rl-green opacity-80" />
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-  )
 
   return (
     <div className="space-y-0">
@@ -2015,6 +1977,8 @@ export default function ClientProfile({ project: projectProp, section, onSection
               showToast={showToast}
               onNavigate={navigateTo}
               acaoRapida={acaoRapida}
+              modulos={NAV_ITEMS}
+              onAbrirModulo={handleSidebarClick}
             />
           ) : (
             <div className="space-y-3">
@@ -2043,7 +2007,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
         {/* Coluna direita: acesso rápido aos módulos (só na visão geral) */}
         {activeSection === 'hub' && (
           <div className="w-full xl:w-[280px] 2xl:w-[320px] shrink-0">
-            <HubDireita project={project} onNavigate={navigateTo} modulos={modulosCard} />
+            <HubDireita project={project} onNavigate={navigateTo} />
           </div>
         )}
 
