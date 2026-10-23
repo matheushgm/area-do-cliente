@@ -658,7 +658,7 @@ todo `authenticated`; as quatro estão na publicação realtime).
   /tarefas e automático ao abrir a página se +30 min) e `scripts/sincronizar_clickup.mjs`
   (local, sem limite de tempo; `--completo` passa por TODAS as tarefas, `--reconciliar`
   confere o que sumiu do ClickUp, `--since=ISO`, `--sem-comentarios`, `--espacos=id,id`).
-  Mão única: nunca escreve no ClickUp. O mapeamento ClickUp→linha vive em
+  Mão única: nunca escreve no ClickUp (a volta é a outbox, abaixo). O mapeamento ClickUp→linha vive em
   `api/_tarefas_clickup_map.js` (`mapTarefa`, `mapLista`, `mapPasta`, `comHora`).
   - **Spaces:** cobre Clientes, Operações e PROMPTS (`SPACES_PADRAO`; env opcional
     `CLICKUP_SYNC_SPACE_IDS`). Templates e o space privado "Matheus" ficam de fora. Pastas e
@@ -688,6 +688,29 @@ todo `authenticated`; as quatro estão na publicação realtime).
     entries), dependências/links entre tarefas e tarefas arquivadas lá. Comentários só das
     abertas que mudaram (máx. 40 no endpoint, 400 no script).
   - Auth do endpoint: `CRON_SECRET` ou JWT. Para testar local: `node scripts/sincronizar_clickup.mjs --since=<ISO>`.
+  - **Trava (migration 109, 2026-10-23):** uma rodada de `/api/tarefas-sync` por vez.
+    `tarefas_sync_travar('clickup', 90)` marca `tarefas_sync.rodando_desde`; quem chega com
+    outra em andamento recebe `{ ok: true, emAndamento: true }` sem chamar o ClickUp (o /tarefas
+    mostra um toast) e o `finally` solta com `tarefas_sync_soltar`. Passados 90 s a trava vale
+    como morta (a função tem 60 s), então uma rodada que estourou não prende as seguintes. As
+    duas RPCs só rodam com a chave de serviço.
+  - **Webhook (`api/clickup-webhook.js`, 2026-10-23):** caminho principal das mudanças do dia a
+    dia; o polling acima vira rede de segurança. Handler Web (`export async function POST`) para
+    ler o corpo cru: `X-Signature` = HMAC-SHA256 do corpo com `CLICKUP_WEBHOOK_SECRET`
+    (comparação em tempo constante; errada = 401). `CLICKUP_WEBHOOK_ID`, se definida, descarta
+    eventos de outro webhook. A lógica é `processarEventoTarefa` em
+    `api/_tarefas_webhook_core.js`: lê só a tarefa do evento (`GET /task/{id}`), descarta o que
+    não é dos spaces sincronizados, cria lista/pasta que ainda não existam, grava o pai que
+    faltar antes do filho e aplica as mesmas regras de conflito e de mesma versão da rodada. A
+    regra de mesma versão é o que evita o eco: o push grava o `date_updated` que o ClickUp
+    devolveu, então o evento da nossa própria escrita chega como `sem_mudanca`. `taskDeleted`
+    ou 404 = `arquivada` + `clickup_removida_at`; **401 não arquiva** (token vencido também
+    responde 401). Evento de comentário relê os comentários da tarefa (idempotente). Também
+    traz os anexos do ClickUp da tarefa. Erro ao processar responde 200 com `ok: false` (o
+    ClickUp suspende webhook que falha muito) e o último evento fica em `tarefas_sync`, linha
+    `clickup_webhook`. Registro: `node scripts/registrar_webhook_clickup.mjs [listar | criar
+    --url= | atualizar --id= | apagar --id=]`, um webhook para o workspace inteiro; o secret só
+    aparece na criação.
 
 #### VertaTask (evolução do `/tarefas`, migration 094)
 

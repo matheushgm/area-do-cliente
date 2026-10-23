@@ -215,6 +215,7 @@ export default function Tarefas() {
   const sync = useSyncClickup({
     ativo: !t.loadingEstrutura,
     aoTerminar: useCallback((r) => {
+      if (r?.emAndamento) { showToast('O ClickUp já está sendo sincronizado agora'); return }
       const n = (r?.criadas || 0) + (r?.atualizadas || 0)
       if (n > 0) { t.carregarEstrutura(); setRecarregarTick((x) => x + 1) }
       showToast(n > 0 ? `ClickUp sincronizado: ${n} tarefa(s) atualizada(s)` : 'ClickUp sincronizado, nada novo')

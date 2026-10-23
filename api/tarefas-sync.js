@@ -10,7 +10,10 @@ import { bearer, getUser } from './_http.js'
 // tempo). Aqui só: auth, env, ponto de partida e o registro em tarefas_sync.
 // Roda pelo cron da Vercel (uma vez por dia, limite do plano Hobby), pelo
 // botão "Sincronizar" da página /tarefas e automaticamente ao abrir a página
-// quando a última rodada tem mais de 30 minutos.
+// quando a última rodada tem mais de 30 minutos. Uma rodada por vez: a trava
+// tarefas_sync_travar (migration 109) faz a segunda chamada responder
+// { emAndamento: true } sem chamar o ClickUp. As mudanças do dia a dia chegam
+// pelo webhook (api/clickup-webhook.js); esta rodada é a rede de segurança.
 import { createClient } from '@supabase/supabase-js'
 import { sincronizar, SPACES_PADRAO } from './_tarefas_sync_core.js'
 import { empurrar } from './_tarefas_push_core.js'
@@ -19,6 +22,7 @@ import { sincronizarChat } from './_chat_sync_core.js'
 export const config = { maxDuration: 60 }
 
 const MARGEM_MS = 15 * 60 * 1000
+const TRAVA_TTL_S = 90 // a função tem 60 s; passou disso, a rodada anterior morreu
 
 function envClean(name) {
   return String(process.env[name] || '').replace(/\\n/g, '').trim()
@@ -45,6 +49,17 @@ export default async function handler(req, res) {
   if (!auth.ok) return res.status(401).json({ error: 'Não autorizado.' })
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
+  const { data: travou, error: errTrava } = await sb.rpc('tarefas_sync_travar', { p_id: 'clickup', p_ttl_s: TRAVA_TTL_S })
+  if (errTrava) return res.status(500).json({ ok: false, error: `trava: ${errTrava.message}` })
+  if (!travou) return res.status(200).json({ ok: true, emAndamento: true, via: auth.via })
+  try {
+    return await rodada(req, res, sb, { auth, TOKEN, TEAM, spaces })
+  } finally {
+    await sb.rpc('tarefas_sync_soltar', { p_id: 'clickup' })
+  }
+}
+
+async function rodada(req, res, sb, { auth, TOKEN, TEAM, spaces }) {
   const body = req.method === 'POST' ? (req.body || {}) : {}
   const qp = (k) => body[k] ?? req.query?.[k]
   const inicio = Date.now()
