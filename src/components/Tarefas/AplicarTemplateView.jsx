@@ -16,6 +16,7 @@ import { Propriedade, Descricao, Checklists } from './TarefaPanel'
 import ListaView from './ListaView'
 import { PainelLateral } from './TemplateEditor'
 import BarraSelecao, { BotaoBarra, ResponsaveisEmMassa, aplicarDiferenca } from './BarraSelecao'
+import { DataInput } from './Calendario'
 
 const nomeProjeto = (p) => p?.company_name || p?.companyName || ''
 
@@ -207,7 +208,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
             </select>
           </label>
           <label className="grid gap-1 text-xs text-ln-t3 w-[170px]">Data de início
-            <input type="date" className="ln-input !h-9" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
+            <DataInput className="!h-9" value={dataInicio} onChange={(v) => v && setDataInicio(v)} aria-label="Data de início" />
           </label>
           <div className="flex items-center gap-3 flex-wrap text-xs text-ln-t3 pb-2">
             {pastaId && (squad ? <span>Squad <b className="text-ln-t2">{squad.emoji} {squad.name}</b></span> : <span className="text-ln-orange">Cliente sem squad</span>)}

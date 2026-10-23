@@ -9,12 +9,13 @@ import {
   PRIORIDADES, TIPOS_TAREFA, DIFICULDADES, rotuloStatus, corDaPessoa, iniciais, pessoasDaTarefa,
   fmtDataNumerica, fmtDataCurta, paraInputDate, deInputDate, fmtEstimativa, parseEstimativa, paraData, inicioDoDia,
 } from '../../lib/tarefas'
+import { PopoverCalendario } from './Calendario'
 
 export const FOCO = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ln-t2'
 
 // ─── Popover ──────────────────────────────────────────────────────────────────
 
-export function Popover({ anchorRef, open, onClose, children, width = 240, align = 'left' }) {
+export function Popover({ anchorRef, open, onClose, children, width = 240, align = 'left', alturaMax: alturaPedida = 340 }) {
   const [pos, setPos] = useState(null)
   const ref = useRef(null)
 
@@ -24,12 +25,12 @@ export function Popover({ anchorRef, open, onClose, children, width = 240, align
     const vw = window.innerWidth, vh = window.innerHeight
     let left = align === 'right' ? r.right - width : r.left
     left = Math.max(8, Math.min(left, vw - width - 8))
-    const alturaMax = Math.min(340, vh - 16)
+    const alturaMax = Math.min(alturaPedida, vh - 16)
     // sem espaço embaixo (ex.: barra de seleção no rodapé): abre para cima, ancorado pela
     // base, colado no gatilho qualquer que seja a altura real do menu
-    if (r.bottom + 4 + alturaMax > vh && r.top > vh - r.bottom) setPos({ left, bottom: vh - r.top + 4, maxH: Math.min(340, r.top - 12) })
-    else setPos({ left, top: r.bottom + 4, maxH: Math.min(340, vh - r.bottom - 12) })
-  }, [open, anchorRef, width, align])
+    if (r.bottom + 4 + alturaMax > vh && r.top > vh - r.bottom) setPos({ left, bottom: vh - r.top + 4, maxH: Math.min(alturaPedida, r.top - 12) })
+    else setPos({ left, top: r.bottom + 4, maxH: Math.min(alturaPedida, vh - r.bottom - 12) })
+  }, [open, anchorRef, width, align, alturaPedida])
 
   useEffect(() => {
     if (!open) return
@@ -245,13 +246,16 @@ function corDaData(valor, item) {
 }
 
 export function DataCampo({ valor, onChange, item, formato = 'numerica', placeholder = 'sem data', render = null, className = '' }) {
-  const inputRef = useRef(null)
+  const ref = useRef(null)
+  const [aberto, setAberto] = useState(false)
   const texto = valor ? (formato === 'curta' ? fmtDataCurta(valor) : fmtDataNumerica(valor)) : ''
   return (
     <span className={`relative inline-flex items-center gap-1 group/data min-w-0 ${className}`} onClick={(e) => e.stopPropagation()}>
       <button
+        ref={ref}
         type="button"
-        onClick={() => { try { inputRef.current?.showPicker?.() } catch { /* noop */ } inputRef.current?.focus() }}
+        onClick={() => setAberto((x) => !x)}
+        aria-haspopup="dialog" aria-expanded={aberto}
         className={`text-xs tabular whitespace-nowrap rounded ${render ? '' : corDaData(valor, item)} hover:text-ln-t1 ${FOCO}`}
       >
         {render ? render : (texto || placeholder || <span className="inline-block w-8 h-3 rounded bg-ln-ink/[0.04]" aria-hidden="true" />)}
@@ -261,15 +265,7 @@ export function DataCampo({ valor, onChange, item, formato = 'numerica', placeho
           <X className="w-3 h-3" />
         </button>
       )}
-      <input
-        ref={inputRef}
-        type="date"
-        value={paraInputDate(valor)}
-        onChange={(e) => onChange(deInputDate(e.target.value))}
-        className="absolute inset-0 w-0 h-0 opacity-0 pointer-events-none"
-        tabIndex={-1}
-        aria-hidden="true"
-      />
+      <PopoverCalendario anchorRef={ref} open={aberto} onClose={() => setAberto(false)} valor={paraInputDate(valor)} onEscolher={(v) => onChange(deInputDate(v))} />
     </span>
   )
 }

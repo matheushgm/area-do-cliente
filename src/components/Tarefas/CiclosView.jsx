@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { Plus, Trash2, Check, X, Pencil, ArrowRightLeft } from 'lucide-react'
 import { calcularBurndown, faseDoCiclo, fmtDiaMes, fmtHoras, sugerirCiclo, ROTULO_FASE, hojeISO, diasEntre, somarDias } from '../../lib/vertatask'
 import { FOCO } from './Campos'
+import { DataInput } from './Calendario'
 
 function Burndown({ bd, unidade, ciclo }) {
   const W = 860, H = 210, L = 36, B = 24, T = 10, R = 24
@@ -89,8 +90,8 @@ export default function CiclosView({ ciclos, ciclo, itens, onSel, vt, onToast, u
       {novo && (
         <form onSubmit={criar} className="ln-card p-3 flex items-end gap-2 flex-wrap">
           <label className="flex flex-col gap-1 text-xs text-ln-t3">Nome<input className="ln-input !h-8 !w-[180px]" value={novo.nome} onChange={(e) => setNovo({ ...novo, nome: e.target.value })} autoFocus /></label>
-          <label className="flex flex-col gap-1 text-xs text-ln-t3">Início<input type="date" className="ln-input !h-8" value={novo.inicio} onChange={(e) => setNovo({ ...novo, inicio: e.target.value })} /></label>
-          <label className="flex flex-col gap-1 text-xs text-ln-t3">Fim<input type="date" className="ln-input !h-8" value={novo.fim} onChange={(e) => setNovo({ ...novo, fim: e.target.value })} /></label>
+          <label className="flex flex-col gap-1 text-xs text-ln-t3">Início<DataInput className="!h-8" value={novo.inicio} onChange={(v) => setNovo({ ...novo, inicio: v })} /></label>
+          <label className="flex flex-col gap-1 text-xs text-ln-t3">Fim<DataInput className="!h-8" value={novo.fim} onChange={(v) => setNovo({ ...novo, fim: v })} /></label>
           <button type="submit" className="ln-primary"><Check className="w-3.5 h-3.5" /> Criar</button>
           <button type="button" onClick={() => setNovo(null)} className="ln-pill"><X className="w-3.5 h-3.5" /> Cancelar</button>
         </form>
@@ -121,8 +122,8 @@ export default function CiclosView({ ciclos, ciclo, itens, onSel, vt, onToast, u
           {edit && (
             <form onSubmit={salvarEdicao} className="ln-card p-3 grid gap-2 md:grid-cols-4 max-w-4xl items-end">
               <label className="flex flex-col gap-1 text-xs text-ln-t3 md:col-span-2">Nome<input className="ln-input !h-8" value={edit.nome} onChange={(e) => setEdit({ ...edit, nome: e.target.value })} autoFocus /></label>
-              <label className="flex flex-col gap-1 text-xs text-ln-t3">Início<input type="date" className="ln-input !h-8" value={edit.inicio} onChange={(e) => setEdit({ ...edit, inicio: e.target.value })} /></label>
-              <label className="flex flex-col gap-1 text-xs text-ln-t3">Fim<input type="date" className="ln-input !h-8" value={edit.fim} onChange={(e) => setEdit({ ...edit, fim: e.target.value })} /></label>
+              <label className="flex flex-col gap-1 text-xs text-ln-t3">Início<DataInput className="!h-8" value={edit.inicio} onChange={(v) => setEdit({ ...edit, inicio: v })} /></label>
+              <label className="flex flex-col gap-1 text-xs text-ln-t3">Fim<DataInput className="!h-8" value={edit.fim} onChange={(v) => setEdit({ ...edit, fim: v })} /></label>
               <label className="flex flex-col gap-1 text-xs text-ln-t3 md:col-span-2">Responsável<select className="ln-input !h-8" value={edit.responsavel_id} onChange={(e) => setEdit({ ...edit, responsavel_id: e.target.value })}><option value="">Sem responsável</option>{membros.filter((m) => !m.disabled).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
               <label className="flex flex-col gap-1 text-xs text-ln-t3 md:col-span-2">Objetivo do cycle<input className="ln-input !h-8" value={edit.descricao} onChange={(e) => setEdit({ ...edit, descricao: e.target.value })} placeholder="O que o time quer fechar nestas duas semanas" /></label>
               <div className="flex gap-2 md:col-span-4"><button type="submit" className="ln-primary"><Check className="w-3.5 h-3.5" /> Salvar</button><button type="button" onClick={() => setEdit(null)} className="ln-pill"><X className="w-3.5 h-3.5" /> Cancelar</button></div>
