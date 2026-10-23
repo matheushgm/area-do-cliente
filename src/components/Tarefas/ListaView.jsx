@@ -9,6 +9,7 @@
 // `colunas` (troca as colunas), `ctx.renderCelula(k, item)` (célula própria),
 // `ctx.semStatus` (sem o círculo de status), `ctx.acaoLinha(item)` (última coluna),
 // `ctx.renderAcoesHover(item)` (troca os atalhos de hover do nome),
+// `ctx.rotuloPai(item)` (texto depois do título, ex.: "↳ tarefa-pai" com subtarefas separadas),
 // `ctx.expandirTudo` (subtarefas abertas de início), `ctx.acoesHover === false`
 // (sem os botões de hover do nome nem a linha "Adicionar subtarefa") e `ctx.simples`
 // (lista de um grupo só: sem cabeçalho de grupo, sem arrastar/selecionar e sem o "+"
@@ -236,6 +237,7 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
         </span>
         {!ctx.semStatus && <StatusCampo item={item} statuses={statuses} modo="icon" onChange={(s) => onMudarStatus(item, s)} className="shrink-0 mr-1.5" />}
         <span className={`text-[13px] truncate min-w-0 ${concluida ? 'text-ln-t4 line-through' : 'text-ln-t1'}`} title={item.titulo}>{item.titulo}</span>
+        {ctx.rotuloPai?.(item)}
         <span className="flex items-center gap-2 text-[11px] text-ln-t4 shrink-0 tabular ml-1.5">
           {!sub && filhos.length > 0 && <span className="inline-flex items-center gap-0.5" title="Subtarefas"><CornerDownRight className="w-3 h-3" />{filhos.length}</span>}
           {item.descricao && item.descricao.trim() && <AlignLeft className="w-3 h-3" aria-label="Tem descrição" />}
