@@ -10,7 +10,7 @@ import { apiFetch } from '../lib/api'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useOutletContext } from 'react-router-dom'
 import {
-  Menu, List, KanbanSquare, ChevronRight, ChevronDown, Search, X, Plus, Loader2, Layers, Eye, EyeOff, PanelLeft, User, RefreshCw,
+  Menu, List, KanbanSquare, ChevronRight, ChevronDown, Search, X, Plus, Loader2, Layers, Eye, EyeOff, PanelLeft, User, RefreshCw, CloudUpload,
   Check, Maximize2, Minimize2, Rows3, CalendarDays, Table2, GanttChart, CircleDot, Users, Flag, Hourglass, Shapes, CalendarClock, ExternalLink,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
@@ -531,12 +531,14 @@ export default function Tarefas() {
     return () => window.removeEventListener('keydown', h)
   }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa, aba, aplicandoTpl, selecionadas.size])
 
+  // listas que existem no ClickUp: só nelas uma tarefa sem clickup_task_id está "aguardando ClickUp"
+  const listasComClickup = useMemo(() => new Set(t.listas.filter((l) => l.clickup_list_id).map((l) => l.id)), [t.listas])
   const ctx = useMemo(() => ({
     statuses, membros: teamMembers || [], membrosMap, itensMap: t.itens, listaPadraoId, agrupar, contagemComentarios, selecionadaId: tarefaAbertaId,
-    onAbrir: abrirTarefa, onAtualizar, onMudarStatus, onCriar, etiquetasMap: vt.etiquetasMap,
+    onAbrir: abrirTarefa, onAtualizar, onMudarStatus, onCriar, etiquetasMap: vt.etiquetasMap, listasComClickup,
     // colunas Cliente e Sprints da Lista (estilo ClickUp)
     listas: t.listas, pastas: t.pastas, projetos: projects || [], ciclos: vt.ciclos || [],
-  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar])
+  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, listasComClickup])
 
   // ── Seleção da Lista e ações em massa (BarraSelecao) ─────────────────────
   // a seleção vale para o que está na tela: trocar de pasta, lista, seção ou visão limpa
@@ -605,6 +607,9 @@ export default function Tarefas() {
   const pastaSel = sel.tipo === 'pasta' ? t.pastasMap.get(sel.id) : sel.tipo === 'lista' ? t.pastasMap.get(t.listasMap.get(sel.id)?.pasta_id) : null
   const listaSel = sel.tipo === 'lista' ? t.listasMap.get(sel.id) : null
   const totalAbertas = itensEscopo.filter((i) => i.status_tipo !== 'closed' && !i.parent_id).length
+  // na fila do push (ainda sem clickup_task_id, em lista que existe no ClickUp); o realtime
+  // zera quando o vínculo é gravado. Listas sem clickup_list_id (ex.: "🤖 Agentes") ficam fora.
+  const aguardandoClickup = itensEscopo.filter((i) => !i.clickup_task_id && !i.arquivada && listasComClickup.has(i.lista_id)).length
 
   const tarefaAberta = tarefaAbertaId ? t.itens[tarefaAbertaId] : null
   const listaDaAberta = tarefaAberta ? t.listasMap.get(tarefaAberta.lista_id) : null
@@ -667,6 +672,7 @@ export default function Tarefas() {
                   >
                     <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />
                     {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
+                    {!sync.rodando && aguardandoClickup > 0 && <span className="inline-flex items-center gap-1 text-ln-yellow" title="Tarefas desta tela que ainda não foram para o ClickUp"><CloudUpload className="w-3 h-3" />{aguardandoClickup} aguardando</span>}
                   </button>
                   <button onClick={() => { if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true }); else if (sel.tipo === 'todas') t.carregarAbertas({ force: true }) }} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
                   {(!aba || aba === 'ciclos') && <ModelosMenu modelos={vt.modelos} onUsar={usarModelo} onGerenciar={() => abrirTemplate(null)} />}
@@ -818,6 +824,11 @@ export default function Tarefas() {
                         <a href={tarefaAberta.clickup_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-ln-t3 hover:text-ln-accent hover:bg-ln-ink/[0.04] ${FOCO}`} title="Abrir no ClickUp">
                           ClickUp <ExternalLink className="w-3 h-3" />
                         </a>
+                      )}
+                      {tarefaAberta && !tarefaAberta.clickup_task_id && listasComClickup.has(tarefaAberta.lista_id) && (
+                        <span className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-ln-yellow" title="Está na fila para ir ao ClickUp; o link aparece assim que chegar lá">
+                          <CloudUpload className="w-3 h-3" /> aguardando ClickUp
+                        </span>
                       )}
                       {tarefaAberta && (
                         <MenuTarefa

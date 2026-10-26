@@ -874,6 +874,18 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     absorve a cópia (filhos e comentários passam para a original, cópia apagada). Item cuja
     tarefa já tem um `criar` em `processando` noutra rodada é devolvido à fila (`devolvidas`).
     Sem a RPC o push cai na leitura antiga e avisa `aplique a migration 110`.
+  - **Fila que ficava para trás (2026-10-26).** A criação mandava 6 ou 7 chamadas ao ClickUp
+    por tarefa (criar, até 4 campos personalizados, releitura) e um template não cabia nos 50 s
+    de uma invocação; o resto esperava a próxima escrita, o cron ou o botão "ClickUp há X min".
+    Agora os campos personalizados vão em `custom_fields` no próprio POST (1 chamada por tarefa;
+    `valoresCampos` resolve as opções, `camposPersonalizados` continua no update), `empurrar`
+    devolve `restantes` (itens `pendente` ao fim), `api/tarefas-push.js` encadeia rodadas na
+    mesma invocação enquanto houver fila e tempo, e `agendarPush` em `useTarefas` chama de novo
+    1 s depois enquanto `restantes > 0`. Na tela, tarefa sem `clickup_task_id` em lista que
+    existe no ClickUp (`ctx.listasComClickup`) mostra o ícone `CloudUpload` amarelo
+    "Aguardando ClickUp" na linha e no cabeçalho do painel, e o botão "ClickUp há X min" soma
+    "n aguardando"; o realtime apaga tudo quando o push grava o vínculo. Listas sem
+    `clickup_list_id` (ex.: "🤖 Agentes", alimentada pelo Escritório) ficam fora do indicador.
 - **Anexos (2026-10-18):** `src/lib/anexos.js` (tipo, tamanho, URL assinada) e
   `src/components/UI/AnexoPreview.jsx` (pré-visualização em tela cheia: imagem, vídeo, áudio, PDF em
   iframe, texto; o resto cartão com Baixar; ← → navegam, Esc fecha). No **chat**, o Composer tem o

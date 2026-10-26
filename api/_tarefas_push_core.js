@@ -14,6 +14,8 @@
 //    processar: pushes em paralelo nunca pegam o mesmo item;
 //  * logo após o POST o id do ClickUp vai para o item da fila e para a linha; se o
 //    webhook taskCreated já tiver inserido uma cópia, ela é absorvida pela original.
+// A criação manda os campos personalizados no próprio POST (1 chamada por tarefa) e
+// `resumo.restantes` diz quanto ficou na fila, para o chamador continuar.
 import { mapStatuses } from './_tarefas_clickup_map.js'
 
 const CLICKUP_BASE = 'https://api.clickup.com/api/v2'
@@ -91,6 +93,7 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
     if (error) throw new Error(`outbox: ${error.message}`)
     fila = data || []
   } else fila = (reiv.data || []).sort((a, b) => a.id - b.id)
+  resumo.restantes = 0
   if (!fila.length) return resumo
 
   const [{ data: perfis }, { data: listas }, { data: pastas }, { data: projetos }] = await Promise.all([
@@ -164,18 +167,29 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
     const { data } = await sb.from('tarefas_itens').select('clickup_task_id').eq('id', row.parent_id).maybeSingle()
     return data?.clickup_task_id || null
   }
-  async function camposPersonalizados(row, l, taskId, quais) {
+  const TODOS_OS_CAMPOS = new Set(['tipo_tarefa', 'dificuldade', 'departamento', 'cliente'])
+  // Resolve os campos personalizados do space para o formato da API ({ id, value }).
+  // value null = campo vazio: no update vira DELETE, na criação é só omitido.
+  async function valoresCampos(row, l, quais) {
     const fields = await camposDa(l.clickup_list_id)
-    const set = async (fid, nome, valor, lista = false) => {
-      if (valor == null || valor === '' || (Array.isArray(valor) && !valor.length)) { await cu('DELETE', `/task/${taskId}/field/${fid}`).catch(() => {}); return }
+    const out = []
+    const resolve = (fid, nome, valor, lista = false) => {
+      if (valor == null || valor === '' || (Array.isArray(valor) && !valor.length)) { out.push({ id: fid, value: null }); return }
       const vals = (Array.isArray(valor) ? valor : [valor]).map((v) => optionId(fields, fid, v)).filter(Boolean)
-      if (!vals.length) { aviso(`tarefa ${taskId}: opção "${valor}" não existe no campo ${nome} desta lista`); return }
-      await cu('POST', `/task/${taskId}/field/${fid}`, { value: lista ? vals : vals[0] })
+      if (!vals.length) { aviso(`tarefa ${row.clickup_task_id || row.titulo}: opção "${valor}" não existe no campo ${nome} desta lista`); return }
+      out.push({ id: fid, value: lista ? vals : vals[0] })
     }
-    if (quais.has('tipo_tarefa')) await set(CF.tipoTarefa, 'Tipo de tarefa', row.tipo_tarefa)
-    if (quais.has('dificuldade')) await set(CF.dificuldade, 'Dificuldade', row.dificuldade)
-    if (quais.has('departamento')) await set(CF.departamento, 'Departamento', row.departamento, true)
-    if (quais.has('cliente')) { const p = pasta.get(l.pasta_id); const nome = p?.project_id ? projeto.get(p.project_id)?.company_name : null; if (nome) await set(CF.cliente, 'Cliente', nome) }
+    if (quais.has('tipo_tarefa')) resolve(CF.tipoTarefa, 'Tipo de tarefa', row.tipo_tarefa)
+    if (quais.has('dificuldade')) resolve(CF.dificuldade, 'Dificuldade', row.dificuldade)
+    if (quais.has('departamento')) resolve(CF.departamento, 'Departamento', row.departamento, true)
+    if (quais.has('cliente')) { const p = pasta.get(l.pasta_id); const nome = p?.project_id ? projeto.get(p.project_id)?.company_name : null; if (nome) resolve(CF.cliente, 'Cliente', nome) }
+    return out
+  }
+  async function camposPersonalizados(row, l, taskId, quais) {
+    for (const c of await valoresCampos(row, l, quais)) {
+      if (c.value == null) await cu('DELETE', `/task/${taskId}/field/${c.id}`).catch(() => {})
+      else await cu('POST', `/task/${taskId}/field/${c.id}`, { value: c.value })
+    }
   }
 
   for (const [idx, item] of fila.entries()) {
@@ -213,7 +227,13 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
           if (emCurso?.length) { await devolver(item.id); resumo.devolvidas++; continue }
           // tentativa anterior criou no ClickUp mas falhou antes de gravar o vínculo: reaproveita
           let task = item.clickup_task_id ? await cu('GET', `/task/${item.clickup_task_id}`).catch(() => null) : null
-          if (!task) {
+          if (task) {
+            await camposPersonalizados(row, l, task.id, TODOS_OS_CAMPOS)
+            task = await cu('GET', `/task/${task.id}`).catch(() => task)
+          } else {
+            // campos personalizados vão no próprio POST: 1 chamada por tarefa (eram 6 ou 7, o
+            // que não deixava um template inteiro caber numa rodada de 50 s)
+            const cfs = (await valoresCampos(row, l, TODOS_OS_CAMPOS)).filter((c) => c.value != null)
             const payload = {
               name: row.titulo || '(sem título)',
               markdown_description: row.descricao || undefined,
@@ -224,19 +244,17 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
               time_estimate: row.estimativa_min ? row.estimativa_min * 60000 : undefined,
               tags: row.tags?.length ? row.tags : undefined,
               parent: (await paiCu(row)) || undefined,
+              custom_fields: cfs.length ? cfs : undefined,
             }
             const st = statusValido(l, row.status); if (st) payload.status = st
             try { task = await cu('POST', `/list/${l.clickup_list_id}/task`, payload) }
             catch (e) { if (e.ecode === 'OAUTH_023' && payload.assignees.length) { task = await cu('POST', `/list/${l.clickup_list_id}/task`, { ...payload, assignees: [] }); aviso(`tarefa ${row.titulo}: o ClickUp não deixou atribuir o responsável por este token`) } else throw e }
-            // vínculo imediato, no item da fila e na linha: o webhook taskCreated já acha a
+            // id do ClickUp no item da fila antes de tudo: o webhook taskCreated já casa a
             // tarefa (e não insere cópia), e uma nova tentativa não cria de novo
             await sb.from('tarefas_outbox').update({ clickup_task_id: String(task.id) }).eq('id', item.id)
-            await gravarEspelho(row.id, task)
             if (row.status_tipo === 'closed' && !st) aviso(`tarefa ${row.titulo}: status "${row.status}" não existe na lista do ClickUp`)
           }
-          await camposPersonalizados(row, l, task.id, new Set(['tipo_tarefa', 'dificuldade', 'departamento', 'cliente']))
-          const final = await cu('GET', `/task/${task.id}`).catch(() => task)
-          await gravarEspelho(row.id, final)
+          await gravarEspelho(row.id, task)
           resumo.criadas++
         } else {
           const quais = new Set(item.campos || [])
@@ -282,6 +300,10 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
     }
   }
   resumo.duracao_s = Math.round((Date.now() - inicio) / 100) / 10
+  // o que ficou na fila (tempo esgotado, devolvidos, enfileirado durante a rodada): quem
+  // chamou continua enquanto houver, em vez de esperar a próxima escrita ou o cron
+  const { count } = await sb.from('tarefas_outbox').select('id', { count: 'exact', head: true }).eq('status', 'pendente')
+  resumo.restantes = count ?? 0
   log(`push: ${resumo.criadas} criadas, ${resumo.atualizadas} atualizadas, ${resumo.excluidas} excluídas, ${resumo.comentadas} comentários, ${resumo.erros} erros, ${resumo.devolvidas} devolvidas, ${resumo.copias_absorvidas} cópias absorvidas`)
   return resumo
 }

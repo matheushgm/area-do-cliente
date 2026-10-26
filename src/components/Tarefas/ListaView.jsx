@@ -16,7 +16,7 @@
 // ({ ids: Set, alternar(id), definir(ids, marcar) }: caixa de seleção por linha e
 // "selecionar todas" no cabeçalho; quem usa mostra a BarraSelecao).
 import { useState, useRef } from 'react'
-import { ChevronRight, ChevronDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Flag, Hourglass, AlignLeft, Pencil, Link2 } from 'lucide-react'
+import { ChevronRight, ChevronDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Flag, Hourglass, AlignLeft, Pencil, Link2, CloudUpload } from 'lucide-react'
 import { ordenarItens, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
 import {
   StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo, AdicionarInline, Popover, ItemMenu, FOCO,
@@ -241,6 +241,8 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
           {item.descricao && item.descricao.trim() && <AlignLeft className="w-3 h-3" aria-label="Tem descrição" />}
           {check.total > 0 && <span className="inline-flex items-center gap-0.5" title="Checklist"><ListChecks className="w-3 h-3" />{check.feitos}/{check.total}</span>}
           {nComent > 0 && <span className="inline-flex items-center gap-0.5" title="Comentários"><MessageSquare className="w-3 h-3" />{nComent}</span>}
+          {/* ainda não chegou ao ClickUp (fila do push); some sozinho pelo realtime quando o vínculo é gravado */}
+          {!item.clickup_task_id && ctx.listasComClickup?.has(item.lista_id) && <CloudUpload className="w-3 h-3 text-ln-yellow" aria-label="Aguardando ClickUp" title="Ainda não foi para o ClickUp" />}
         </span>
         {/* ações de hover sobrepostas à direita (não roubam largura do título) */}
         {ctx.acoesHover !== false && <span className="absolute right-2 top-0 bottom-0 hidden md:inline-flex items-center gap-0.5 pl-6 bg-gradient-to-r from-transparent via-ln-level2/60 to-ln-level2/60 opacity-0 group-hover/linha:opacity-100 transition-opacity">

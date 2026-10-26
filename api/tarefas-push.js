@@ -11,6 +11,16 @@ export const config = { maxDuration: 60 }
 
 const envClean = (n) => String(process.env[n] || '').replace(/\\n/g, '').trim()
 
+function somar(a, b) {
+  const out = { ...a }
+  for (const [k, v] of Object.entries(b)) {
+    if (k === 'avisos') out.avisos = [...(a.avisos || []), ...v].slice(0, 50)
+    else if (k === 'restantes') out.restantes = v
+    else if (typeof v === 'number') out[k] = (a[k] || 0) + v
+  }
+  return out
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' })
   const SUPABASE_URL = process.env.SUPABASE_URL
@@ -22,7 +32,15 @@ export default async function handler(req, res) {
   if (!(cron && t && t === cron)) { const a = await getUser(req); if (!a.ok) return res.status(401).json({ error: 'Não autorizado.' }) }
   const sb = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
   try {
-    const r = await empurrar({ sb, token: TOKEN, orcamentoMs: 50_000 })
+    // Rodadas seguidas na mesma invocação enquanto houver fila e tempo (um template pode
+    // passar de 40 itens). O que sobrar volta em `restantes`: o front chama de novo.
+    const inicio = Date.now()
+    const ORCAMENTO = 50_000
+    let r = await empurrar({ sb, token: TOKEN, orcamentoMs: ORCAMENTO })
+    while (r.restantes > 0 && Date.now() - inicio < ORCAMENTO - 10_000) {
+      const r2 = await empurrar({ sb, token: TOKEN, orcamentoMs: ORCAMENTO - (Date.now() - inicio) })
+      r = somar(r, r2)
+    }
     return res.status(200).json({ ok: true, ...r })
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message })
