@@ -181,6 +181,12 @@ export default function PainelFiltros({ filtros, onChange, ctx, barra, total, mo
             </div>
           </div>
         ))}
+        {filtros.grupos.length > 0 && (
+          <div className="flex items-start gap-1.5">
+            <span className={`${LARG_CONECTOR.grupo[0]} shrink-0`} aria-hidden="true" />
+            <button type="button" onClick={addGrupo} className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-dashed border-ln-ink/[0.15] text-[13px] text-ln-t2 hover:text-ln-t1 hover:bg-ln-ink/5 ${FOCO}`}><Plus className="w-3.5 h-3.5" /> Adicionar grupo</button>
+          </div>
+        )}
 
         {filtros.grupos.length > 0 && mostrando === 0 && (
           <p className="text-xs text-ln-t3 bg-ln-orange/10 rounded-lg px-3 py-2">Nenhuma tarefa passa nesses filtros. Troque um “E” por “OU” ou remova uma condição.</p>
@@ -196,8 +202,7 @@ export default function PainelFiltros({ filtros, onChange, ctx, barra, total, mo
               {podeEditar && <button type="button" onClick={onSalvar} className="h-6 px-2 rounded-md bg-ln-orange/15 text-ln-orange font-medium hover:bg-ln-orange/20">Salvar</button>}
             </div>
           )}
-          <div className="p-3 flex items-center justify-between">
-            <button type="button" onClick={addGrupo} className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-ln-ink/[0.1] text-[13px] text-ln-t2 hover:bg-ln-ink/5 ${FOCO}`}><Plus className="w-3.5 h-3.5" /> Adicionar filtro</button>
+          <div className="p-3 flex items-center justify-end">
             <button type="button" onClick={() => onChange(FILTROS_VAZIOS)} className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-ln-red/40 text-[13px] text-ln-red hover:bg-ln-red/10 ${FOCO}`}>Apagar tudo</button>
           </div>
         </div>
