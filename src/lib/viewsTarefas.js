@@ -8,6 +8,7 @@
 //   filtros     filtros avançados (src/lib/filtrosTarefas.js)
 //   ordenar     { campo, dir } da Lista (cabeçalho clicável) ou null = ordem manual
 //   calendario  mes (padrão) | semana: escala do Calendário
+//   larguraNome largura (px) da coluna Nome da Lista, arrastada à mão; null = ocupa o que sobrar (mín. 420)
 //   colunas     colunas da Lista: { ordem: [k], ocultas: [k] } ou null = padrão (todas, na ordem do ClickUp)
 // A tela trabalha sobre um rascunho da config; "Salvar visualização" grava.
 import { AGRUPAMENTOS } from './tarefas'
@@ -58,6 +59,10 @@ export function colunasDaView(c) {
 /** Chaves das colunas visíveis, na ordem da view. */
 export const colunasVisiveis = (c) => colunasDaView(c).filter((x) => !x.oculta).map((x) => x.k)
 
+// Coluna Nome da Lista: largura arrastada à mão, entre estes limites
+export const LARGURA_NOME = { min: 200, max: 900 }
+export const normalizarLarguraNome = (w) => (Number.isFinite(w) ? Math.round(Math.min(LARGURA_NOME.max, Math.max(LARGURA_NOME.min, w))) : null)
+
 /** Patch da config ao mudar as colunas: ocultar a coluna da ordenação também tira a ordenação. */
 export function patchColunas(colunas, config) {
   const campo = config.ordenar?.campo
@@ -76,7 +81,7 @@ export const rotuloSubtarefas = (v) => SUBTAREFAS.find((s) => s.key === v)?.labe
 const agrupamentoValido = (v, padrao) => (AGRUPAMENTOS.some((a) => a.value === v) ? v : padrao)
 
 export function configPadrao(tipo = 'lista') {
-  return { tipo, agrupar: tipo === 'quadro' ? 'status' : 'vencimento', subtarefas: 'recolhidas', responsaveis: [], concluidas: false, filtros: FILTROS_VAZIOS, ordenar: null, calendario: 'mes', colunas: null }
+  return { tipo, agrupar: tipo === 'quadro' ? 'status' : 'vencimento', subtarefas: 'recolhidas', responsaveis: [], concluidas: false, filtros: FILTROS_VAZIOS, ordenar: null, calendario: 'mes', colunas: null, larguraNome: null }
 }
 
 /** Config de uma linha do banco (aceita o formato antigo: view/filtroResp/mostrarConcluidas/etiqueta). */
@@ -95,6 +100,7 @@ export function normalizarConfig(c = {}, tipoPadrao = 'lista') {
     filtros,
     calendario: c.calendario === 'semana' ? 'semana' : 'mes',
     colunas: normalizarColunas(c.colunas),
+    larguraNome: normalizarLarguraNome(c.larguraNome),
     ordenar: c.ordenar?.campo ? { campo: c.ordenar.campo, dir: c.ordenar.dir === -1 ? -1 : 1 } : null,
   }
 }
@@ -104,6 +110,7 @@ export const igualConfig = (a, b) => a.tipo === b.tipo && a.agrupar === b.agrupa
   && mesmos(a.responsaveis, b.responsaveis) && a.concluidas === b.concluidas && JSON.stringify(a.filtros) === JSON.stringify(b.filtros)
   && JSON.stringify(a.ordenar || null) === JSON.stringify(b.ordenar || null) && (a.calendario || 'mes') === (b.calendario || 'mes')
   && JSON.stringify(normalizarColunas(a.colunas)) === JSON.stringify(normalizarColunas(b.colunas))
+  && (a.larguraNome ?? null) === (b.larguraNome ?? null)
 
 /**
  * Onde as views da seleção moram: pasta (também para uma lista dela), "minhas" ou "todas".

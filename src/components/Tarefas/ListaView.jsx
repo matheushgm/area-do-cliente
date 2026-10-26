@@ -20,8 +20,10 @@
 // "selecionar todas" no cabeçalho; quem usa mostra a BarraSelecao).
 // Colunas: `ctx.colunas` (config.colunas da view: ordem e ocultas) e `ctx.onColunas(c)`
 // (o "+" no fim do cabeçalho abre o editor). Com `colunas` (templates) nada disso vale.
+// Largura do Nome: `ctx.larguraNome` (px, null = o que sobrar) e `ctx.onLarguraNome(w)`, que
+// liga a alça na borda direita do cabeçalho do Nome (arrastar; ← → com foco; duplo clique volta ao automático).
 import { useState, useRef } from 'react'
-import { colunasVisiveis } from '../../lib/viewsTarefas'
+import { colunasVisiveis, normalizarLarguraNome } from '../../lib/viewsTarefas'
 import EditorColunas from './ColunasLista'
 import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Flag, Hourglass } from 'lucide-react'
 import { ordenarItens, ordenarPorCampo, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
@@ -56,7 +58,8 @@ const colunasDaLista = (cfg, compacto) => {
   const m = POR_CHAVE[compacto ? 'compacta' : 'cheia']
   return colunasVisiveis(cfg).filter((k) => m.has(k)).map((k) => m.get(k))
 }
-const grid = (cols) => `minmax(420px, 1fr) ${cols.map((c) => `${c.w}px`).join(' ')} 40px`
+const NOME_MIN = 420 // largura mínima do Nome no automático (sem largura arrastada)
+const grid = (cols, larguraNome) => `${larguraNome ? `${larguraNome}px` : `minmax(${NOME_MIN}px, 1fr)`} ${cols.map((c) => `${c.w}px`).join(' ')} 40px`
 
 // Célula editável: a célula inteira é o alvo do clique (com hover), não só o valor. Assim
 // dá para editar mesmo quando o campo está vazio. Colunas padrão editáveis por chave; coluna
@@ -279,7 +282,7 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
       onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(item.id) }}
       aria-current={selecionada ? 'true' : undefined}
       className={`group/linha grid items-center ${denso ? 'h-[30px]' : 'h-[34px]'} border-b border-ln-line/70 cursor-pointer ${FOCO} ${destaque || 'hover:bg-ln-level2/60'}`}
-      style={{ gridTemplateColumns: grid(cols) }}
+      style={{ gridTemplateColumns: grid(cols, ctx.larguraNome) }}
     >
       {/* Nome: congelada à esquerda ao rolar (como no ClickUp). O fundo precisa ser
           opaco, então a cor de hover/seleção entra por um overlay atrás do conteúdo. */}
@@ -332,6 +335,45 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
 
 // Título da coluna: clicável quando a lista aceita ordenar (ctx.onOrdenar) e a coluna é padrão.
 const ORDENAVEIS = new Set(['nome', 'status', 'tipo', 'resp', 'criada', 'venc', 'prio', 'sprint', 'estim', 'cliente'])
+/** Alça na borda direita do cabeçalho do Nome: arrastar muda a largura ao vivo (todos os grupos) e grava ao soltar. */
+function AlcaNome({ ctx }) {
+  const [arrastando, setArrastando] = useState(false)
+  const gravar = (w) => ctx.onLarguraNome(normalizarLarguraNome(w))
+  const iniciar = (e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const celula = e.currentTarget.parentElement
+    const x0 = e.clientX, w0 = celula.getBoundingClientRect().width
+    let w = w0
+    setArrastando(true)
+    document.body.style.cursor = 'col-resize'
+    const mover = (ev) => { w = normalizarLarguraNome(w0 + ev.clientX - x0); ctx.setLarguraViva(w) }
+    const soltar = () => {
+      window.removeEventListener('pointermove', mover); window.removeEventListener('pointerup', soltar)
+      document.body.style.cursor = ''
+      setArrastando(false); ctx.setLarguraViva(null)
+      if (Math.abs(w - w0) >= 1) gravar(w)
+    }
+    window.addEventListener('pointermove', mover); window.addEventListener('pointerup', soltar)
+  }
+  const teclado = (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    e.preventDefault()
+    const w = e.currentTarget.parentElement.getBoundingClientRect().width
+    gravar(w + (e.key === 'ArrowRight' ? 20 : -20))
+  }
+  return (
+    <span
+      role="separator" aria-orientation="vertical" aria-label="Largura da coluna Nome (setas ← →; duplo clique volta ao automático)" tabIndex={0}
+      title="Arraste para mudar a largura · duplo clique: automático"
+      onPointerDown={iniciar} onKeyDown={teclado} onDoubleClick={() => ctx.onLarguraNome(null)} onClick={(e) => e.stopPropagation()}
+      className={`absolute -right-1 top-0 bottom-0 z-[2] w-2 flex justify-center cursor-col-resize group/alca ${FOCO}`}
+    >
+      <span className={`w-0.5 h-full transition-colors ${arrastando ? 'bg-ln-accent' : 'bg-transparent group-hover/alca:bg-ln-accent/60 group-focus-visible/alca:bg-ln-accent'}`} />
+    </span>
+  )
+}
+
 /** "+" no fim do cabeçalho: ordem e visibilidade das colunas (rascunho da view, como a ordenação). */
 function MaisColunas({ ctx }) {
   const ref = useRef(null)
@@ -397,7 +439,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
       {(aberto || ctx.simples) && (
         <div className="min-w-0">
           {/* Cabeçalho das colunas, repetido em cada grupo como no ClickUp */}
-          <div className="group/linha grid items-center h-7 border-b border-ln-line/70 text-[11px] text-ln-t4" style={{ gridTemplateColumns: grid(cols) }}>
+          <div className="group/linha grid items-center h-7 border-b border-ln-line/70 text-[11px] text-ln-t4" style={{ gridTemplateColumns: grid(cols, ctx.larguraNome) }}>
             <span className="sticky left-0 z-[1] bg-ln-panel h-full flex items-center gap-1 pl-2">
               {ctx.selecao && (
                 <span className="inline-flex items-center justify-center w-5 shrink-0">
@@ -409,6 +451,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
               )}
               <span className="w-4 shrink-0" aria-hidden="true" />
               <TituloColuna k="nome" label="Nome" ctx={ctx} />
+              {ctx.onLarguraNome && <AlcaNome ctx={ctx} />}
             </span>
             {cols.map((c) => <span key={c.k} className="px-2 min-w-0 flex"><TituloColuna k={c.k} label={c.label} ctx={ctx} ordenavel={!c.editavel || ORDENAVEIS.has(c.k)} /></span>)}
             <span className="inline-flex items-center justify-center text-ln-t4">{!ctx.simples && ctx.onColunas && <MaisColunas ctx={ctx} />}</span>
@@ -443,10 +486,15 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
 export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, denso = false, compacto = false, colunas = null, vazio = null }) {
   const cols = colunas || colunasDaLista(ctx.colunas, compacto)
   // largura mínima do grid (o Nome tem 420 px no mínimo); acompanha as colunas visíveis
-  const larguraMin = 420 + cols.reduce((a, c) => a + c.w, 0) + 40
+  // largura do Nome enquanto a alça é arrastada (vale para todos os grupos); ao soltar vira ctx.larguraNome
+  const [larguraViva, setLarguraViva] = useState(null)
+  const larguraNome = colunas ? null : (larguraViva ?? ctx.larguraNome ?? null)
+  const larguraMin = (larguraNome ?? NOME_MIN) + cols.reduce((a, c) => a + c.w, 0) + 40
   // mapas para a coluna Cliente (uma vez por render; listas/pastas/projetos mudam pouco)
   const ctxLista = {
     ...ctx,
+    larguraNome, setLarguraViva,
+    onLarguraNome: colunas ? undefined : ctx.onLarguraNome,
     listasMap: new Map((ctx.listas || []).map((l) => [l.id, l])),
     pastasMap: new Map((ctx.pastas || []).map((p) => [p.id, p])),
     projetosMap: new Map((ctx.projetos || []).map((p) => [p.id, p])),

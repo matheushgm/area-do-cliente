@@ -795,6 +795,9 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     (rascunho, como a ordenação) ou na sidebar de configurações (grava na hora). Com o painel da tarefa aberto
     (`compacto`) valem só as colunas da versão compacta, na ordem da view. Ocultar a coluna ordenada tira a ordenação
     (`patchColunas`).
+  - **Largura do Nome:** só a coluna Nome é redimensionável, pela alça na borda direita do cabeçalho (arrastar, ← → de
+    20 px com ela em foco, duplo clique volta ao automático = `minmax(420px, 1fr)`). Fica em `config.larguraNome`
+    (px, 200 a 900, `normalizarLarguraNome`) como rascunho da view; enquanto arrasta, todos os grupos mudam juntos.
     Setas ↑↓ no hover da linha mudam a ordem manual (`posicao`, não vai para o ClickUp); com ordenação por
     coluna, a primeira seta congela a ordem da tela como manual, tira a ordenação e então move.
   - **Calendário:** Mês ou Semana, sempre de domingo a sábado (igual aos grupos de vencimento da Lista e

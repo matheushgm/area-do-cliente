@@ -541,6 +541,8 @@ export default function Tarefas() {
     ordenar: config.ordenar, onOrdenar: (ordenar) => editarView({ ordenar }),
     calendario: config.calendario, onCalendario: (calendario) => editarView({ calendario }),
     // colunas da Lista: ordem e visibilidade (rascunho da view; o "+" do cabeçalho abre o editor)
+    // largura do Nome arrastada na alça do cabeçalho (rascunho da view)
+    larguraNome: config.larguraNome, onLarguraNome: (larguraNome) => editarView({ larguraNome }),
     colunas: config.colunas, onColunas: (colunas) => editarView(patchColunas(colunas, { ordenar: config.ordenar })),
     // Separar: nome da tarefa-pai para Quadro, Calendário e Gantt
     nomePai: config.subtarefas === 'separar' ? (it) => (it.parent_id ? t.itens[it.parent_id]?.titulo || null : null) : undefined,
@@ -549,7 +551,7 @@ export default function Tarefas() {
         <CornerDownRight className="w-3 h-3 shrink-0" /><span className="truncate max-w-[220px]">{t.itens[it.parent_id].titulo}</span>
       </span>
     ) : null) : undefined,
-  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, editarView])
+  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, config.larguraNome, editarView])
 
   // ── Seleção da Lista e ações em massa (BarraSelecao) ─────────────────────
   // a seleção vale para o que está na tela: trocar de pasta, lista, seção ou visão limpa
