@@ -34,6 +34,7 @@ export const COLUNAS_LISTA = [
   { k: 'resp', label: 'Responsável' },
   { k: 'criada', label: 'Data criada' },
   { k: 'venc', label: 'Data de vencimento' },
+  { k: 'concluida', label: 'Data de conclusão' },
   { k: 'prio', label: 'Prioridade' },
   { k: 'sprint', label: 'Sprints' },
   { k: 'estim', label: 'Estimativa de tempo' },

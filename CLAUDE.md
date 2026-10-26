@@ -80,7 +80,7 @@ passar por código nosso); essas ganham redirect em `legacyRedirects.jsx`.
 
 As páginas com sidebar são filhas de `<Route element={<AppLayout/>}>`; nenhuma monta a
 `AppSidebar` por conta própria. `/cliente/:id` entrou no shell (a sidebar fica visível na
-página do cliente) e mantém a barra própria com nome da empresa e voltar. Só
+página do cliente) e não tem barra superior desde 2026-10-26: o "Voltar" divide a linha com o "Modo Apresentação" no topo da coluna esquerda (no mobile, voltar e menu ficam na barra do `ClientProfile`). Só
 `/cliente/novo` fica de fora — é um fluxo focado.
 
 **Convenções do escuro no dashboard** (nasceram de uma auditoria de contraste):
@@ -90,10 +90,11 @@ claro calha de ser branco mas no escuro vira a cor do card e some. `--dt-tint-08
 tinta aproxima fundo e texto, então cai de 0.08/0.10/0.12 para 0.05/0.06/0.07. São três
 tokens, um por valor original, para o claro continuar idêntico.
 
-⚠️ **Largura na página do cliente (resolvido em 2026-10-08):** o contêiner
-`max-w-[1800px]` do `ProjectDetail` é item de um flex em coluna e, sem `min-w-0 w-full`,
-crescia até a largura mínima das 3 colunas e estourava a tela. Mantenha o `min-w-0`. As
-colunas laterais do `ClientProfile` são 300/280px entre `xl` e `2xl` e 340/320px acima.
+⚠️ **Largura na página do cliente (resolvido em 2026-10-08):** o contêiner do `ProjectDetail`
+é item de um flex em coluna e, sem `min-w-0 w-full`, crescia até a largura mínima das colunas e
+estourava a tela. Mantenha o `min-w-0`. Desde 2026-10-26 ele não tem mais `max-w-[1800px]`: a página
+ocupa a tela toda em monitores grandes. A coluna esquerda do `ClientProfile` tem 340px entre `xl` e
+`2xl`, 380px acima e 420px a partir de 2200px; a central ocupa o resto.
 
 #### Deep-link das seções do cliente
 
@@ -622,6 +623,16 @@ todo `authenticated`; as quatro estão na publicação realtime).
   tarefa, `Esc` fecha o painel. Com o painel aberto e largura < 1600, a lista esconde tipo,
   dificuldade, criada e conclusão (`compacto`). Seleção e tarefa aberta vivem na URL
   (`?pasta=`, `?lista=`, `?minhas=1`, `?tarefa=`). Preferências em `localStorage` (`tarefas.*`).
+- **Área compartilhada (2026-10-26):** a página é só a moldura (coluna de pastas, cabeçalho, sincronização,
+  Intake, Cycles, Templates, Pages, Analytics, Chat, Atividades). A área de tarefas inteira (abas de views,
+  barra, Lista/Quadro/Calendário/Gantt, sidebars da view, seleção em massa, "Aplicar template", painel da
+  tarefa, atalhos C/Esc/Ctrl+Enter) é `src/components/Tarefas/AreaTarefas.jsx`, usada também pelo módulo
+  **aba Tarefas do hub da página do cliente** (`TarefasDoCliente.jsx` dentro do `HubCentro`, como a aba Resultados;
+  travada na pasta ativa do cliente, com as listas dela em cima e `?lista=`/`?view=`/`?tarefa=` na URL do cliente). Mexer na área
+  muda os dois lugares. Ganchos: `cabecalho(api)`, `secao(api)` (conteúdo no lugar das views), `antesDaView`
+  (Cycles), `largura`, `atalhoCriar`, `onIrParaLista`, `onAbrirTemplate`; `api` = `{ listaPadraoId,
+  totalAbertas, novaTarefa, recarregar, abrirTarefa, usarModelo, todos, mostrarViews }`. Na pasta, a tarefa
+  nova cai na lista "Geral" (ou na primeira, se não houver). No cliente não há sincronização automática.
 - **Dados** `src/hooks/useTarefas.js`: lê a estrutura inteira e as tarefas só da pasta/lista
   aberta (paginado de 1000 em 1000), atualização otimista e canal realtime. Trocar status
   passa por `mudarStatus` (calcula `status_tipo` e `data_conclusao`).
@@ -629,7 +640,9 @@ todo `authenticated`; as quatro estão na publicação realtime).
   **Data de vencimento** por padrão ("Em atraso 47", "Hoje", "Amanhã"…), repete o cabeçalho de
   colunas em cada grupo e usa as colunas na ordem do ClickUp: Nome · Status (pill preenchida,
   BACKLOG cinza) · Tipo de tarefa (pill colorida) · Responsável · Data criada · Data de vencimento
-  ("há N dias"/"ontem" em vermelho até 7 dias, "Hoje" verde, "Amanhã" amarelo) · Prioridade
+  ("há N dias"/"ontem" em vermelho até 7 dias, "Hoje" verde, "Amanhã" amarelo) · Data de conclusão
+  (`data_conclusao`, só leitura: gravada ao ir para um status de concluída, aqui por `mudarStatus` ou no ClickUp por
+  `date_done`; também ordena e é campo dos filtros avançados) · Prioridade
   (bandeira) · Sprints (= Cycle, `ciclo_id`) · Estimativa de tempo (ampulheta) · Cliente (pill azul
   com o projeto da pasta). A coluna Pontos do Sprint foi retirada a pedido do Matheus. Os editores de
   `Campos.jsx` aceitam `render` para trocar só o gatilho visual. Com o painel aberto (`compacto`)
@@ -1076,20 +1089,25 @@ Cada cartão diz a **Otimização** (ação em uma frase), o **Onde está** (Cam
     reimplementa nada disso. Sem a ponte (viewer aberto direto, sem login, conta sem projeto
     vinculado) o painel fica só de leitura e diz o motivo.
 
-### Página do cliente (`/cliente/:id`): hub em 3 colunas
+### Página do cliente (`/cliente/:id`): hub em 2 colunas
 
 `ClientProfile.jsx` abre na seção `hub` (visão geral) com layout inspirado em CRM: **esquerda**
-(340px) cartão do cliente (logo, contrato, LTV, squad, risco, momento, links), ações rápidas
+(340px; 380px a partir de `2xl`) cartão do cliente (logo, contrato, LTV, squad, risco, momento, links), ações rápidas
 (Otimização / Anotação / Tarefa / Reunião), `HubInformacoes` (dados cadastrais) e a lista de
 **Módulos** (o antigo menu lateral, recolhível); **centro** `HubCentro` (timeline) ou o módulo
-aberto, com breadcrumb "Visão geral / Módulo"; **direita** (320px, só na visão geral)
-`HubDireita` com resumo de Jornada, Central de anúncios, LPs, Campanhas, Anexos, Links, NPS e
-Atas. Abaixo de `xl` as colunas empilham e os módulos viram drawer pelo hambúrguer.
+aberto, com breadcrumb "Visão geral / Módulo", ocupando o resto da largura. A antiga coluna
+direita (`HubDireita`: resumo de Jornada, Central de anúncios, LPs, Campanhas, Anexos, Links, NPS e
+Atas) foi removida em 2026-10-26 a pedido do Matheus. Abaixo de `xl` as colunas empilham e os módulos viram drawer pelo hambúrguer.
 
 - **Timeline** (`src/hooks/useProjetoHub.js`): união de `projeto_otimizacoes` (otimizações
   feitas + anotações, migration 089), `atividades_planejadas` do projeto, `tarefas_itens`
   da pasta do cliente (réplica do ClickUp) e `meeting_minutes`, agrupada por mês, com abas
-  Atividade / Sugestões / Otimizações / Anotações / Tarefas / Reuniões.
+  Atividade / Sugestões / Otimizações / Anotações / Tarefas / Reuniões. A aba **Tarefas** é a área do VertaTask
+  (`TarefasDoCliente` → `AreaTarefas`, carregada sob demanda): a linha do tempo de tarefas, as tarefas planejadas e
+  o filtro de período que a aba tinha saíram (2026-10-26). Com `?tarefa=`, `?view=` ou `?lista=` na URL a página abre
+  nessa aba; sair dela limpa esses parâmetros. Para não haver dois scrolls na mesma região, nessa aba a área vai do
+  ponto onde começa até o fim da tela (`useAlturaAteOFim`, margem de 24 px) e a coluna esquerda fica `sticky` com
+  rolagem própria (`travarRolagem` no `ClientProfile`, avisado por `onTab` do `HubCentro`): a página não rola.
 - **Sugestões do playbook** (`src/lib/playbookSugestoes.js`, puro): regras do Roadmap Ads e
   dos guardrails aplicadas aos últimos 7 dias do `dash_insights` (via `useDashboardData`
   com `projectId` e `dias: 16`) vs. os 7 anteriores, por conta vinculada. **Toda regra de

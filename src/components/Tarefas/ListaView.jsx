@@ -2,7 +2,7 @@
 // 2026-10-18): grupos por data de vencimento ("Em atraso 47"), cabeçalho de
 // colunas em cada grupo, linhas finas separadas por borda, e as colunas na
 // ordem do ClickUp: Nome · Status · Tipo de tarefa · Responsável · Data criada
-// · Data de vencimento · Prioridade · Sprints · Estimativa de tempo · Cliente. Edição inline continua em cada célula (Popovers de
+// · Data de vencimento · Data de conclusão · Prioridade · Sprints · Estimativa de tempo · Cliente. Edição inline continua em cada célula (Popovers de
 // Campos.jsx). Subtarefas indentadas abaixo do pai quando expandidas.
 //
 // Também serve o construtor e a aplicação de templates, com ganchos opcionais:
@@ -39,6 +39,7 @@ const COLS = {
     { k: 'resp',       label: 'Responsável',         w: 140 },
     { k: 'criada',     label: 'Data criada',         w: 140 },
     { k: 'venc',       label: 'Data de vencimento',  w: 140 },
+    { k: 'concluida',  label: 'Data de conclusão',   w: 140 },
     { k: 'prio',       label: 'Prioridade',          w: 140 },
     { k: 'sprint',     label: 'Sprints',             w: 160 },
     { k: 'estim',      label: 'Estimativa de tempo', w: 140 },
@@ -243,6 +244,8 @@ function Celula({ k, item, ctx }) {
     case 'tipo': return <TipoTarefaCampo valor={item.tipo_tarefa} onChange={(v) => onAtualizar(item.id, { tipo_tarefa: v })} render={<TipoPillCU valor={item.tipo_tarefa} />} />
     case 'resp': return <ResponsavelCU item={item} ctx={ctx} />
     case 'criada': return <span className="text-[13px] text-ln-t2 tabular whitespace-nowrap">{fmtDataNumerica(item.created_at)}</span>
+    // data em que a tarefa foi para um status de concluída (aqui ou no ClickUp); só leitura
+    case 'concluida': return <span className="text-[13px] text-ln-t2 tabular whitespace-nowrap">{item.data_conclusao ? fmtDataNumerica(item.data_conclusao) : ''}</span>
     case 'venc': {
       const { texto, classe } = fmtVencimentoClickUp(item.data_vencimento, item)
       return <DataCampo valor={item.data_vencimento} item={item} placeholder="" onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} render={<span className={`text-[13px] tabular whitespace-nowrap ${classe}`}>{texto}</span>} />
@@ -334,7 +337,7 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
 }
 
 // Título da coluna: clicável quando a lista aceita ordenar (ctx.onOrdenar) e a coluna é padrão.
-const ORDENAVEIS = new Set(['nome', 'status', 'tipo', 'resp', 'criada', 'venc', 'prio', 'sprint', 'estim', 'cliente'])
+const ORDENAVEIS = new Set(['nome', 'status', 'tipo', 'resp', 'criada', 'venc', 'concluida', 'prio', 'sprint', 'estim', 'cliente'])
 /** Alça na borda direita do cabeçalho do Nome: arrastar muda a largura ao vivo (todos os grupos) e grava ao soltar. */
 function AlcaNome({ ctx }) {
   const [arrastando, setArrastando] = useState(false)

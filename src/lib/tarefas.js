@@ -357,6 +357,7 @@ export function ordenarPorCampo(itens, ordenar, ctx = {}) {
       case 'tipo': return (it.tipo_tarefa || '').trim().toLocaleLowerCase('pt-BR') || null
       case 'resp': { const p = pessoasDaTarefa(it, ctx.membrosMap || new Map())[0]; return p?.nome?.toLocaleLowerCase('pt-BR') || null }
       case 'criada': return it.created_at ? new Date(it.created_at).getTime() : null
+      case 'concluida': return it.data_conclusao ? new Date(it.data_conclusao).getTime() : null
       case 'venc': return it.data_vencimento ? new Date(it.data_vencimento).getTime() : null
       case 'prio': return it.prioridade ? ordemPrio[it.prioridade] ?? null : null
       case 'sprint': return (ctx.ciclos || []).find((c) => c.id === it.ciclo_id)?.nome?.toLocaleLowerCase('pt-BR') || null

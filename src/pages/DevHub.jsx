@@ -105,17 +105,10 @@ export default function DevHub() {
   return (
     <AppContext.Provider value={value}>
       <div className="fx min-h-screen bg-gradient-dark">
-        <nav className="sticky top-0 z-50 border-b border-rl-border bg-rl-bg/80 backdrop-blur-xl">
-          <div className="px-6 h-16 flex items-center gap-3">
-            <img src="/verta/simbolo.png" alt="Verta" className="w-8 h-8 object-contain" />
-            <span className="font-semibold text-rl-text">{project.companyName}</span>
-            <span className="text-rl-border text-lg leading-none">|</span>
-            <span className="text-rl-muted text-sm">{project.responsibleName}</span>
-            <span className="ml-auto text-xs text-rl-gold">preview local (fixture)</span>
-          </div>
-        </nav>
-        <div className="w-full min-w-0 max-w-[1800px] mx-auto px-4 sm:px-6 py-6">
-          <ClientProfile project={project} />
+        {/* como o ProjectDetail: sem barra superior */}
+        <span className="fixed top-2 right-3 z-50 text-xs text-rl-gold">preview local (fixture)</span>
+        <div className="w-full min-w-0 px-4 sm:px-6 2xl:px-8 py-6">
+          <ClientProfile project={project} onVoltar={() => console.log('[dev] voltar')} />
         </div>
       </div>
     </AppContext.Provider>

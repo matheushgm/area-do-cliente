@@ -15,6 +15,7 @@ export const CAMPOS_FILTRO = [
   { key: 'vencimento', label: 'Data de vencimento', tipo: 'data', atrasada: true },
   { key: 'inicio', label: 'Data de início', tipo: 'data' },
   { key: 'criada', label: 'Data de criação', tipo: 'data' },
+  { key: 'concluida', label: 'Data de conclusão', tipo: 'data' },
   { key: 'tipo', label: 'Tipo de tarefa', tipo: 'opcao', vazio: true },
   { key: 'dificuldade', label: 'Dificuldade', tipo: 'opcao', vazio: true },
   { key: 'departamento', label: 'Departamento', tipo: 'multi' },
@@ -77,6 +78,7 @@ function valorDe(it, campo) {
     case 'vencimento': return it.data_vencimento
     case 'inicio': return it.data_inicio
     case 'criada': return it.created_at
+    case 'concluida': return it.data_conclusao
     case 'tipo': return (it.tipo_tarefa || '').trim() || null
     case 'dificuldade': return (it.dificuldade || '').trim() || null
     case 'departamento': return it.departamento || []
