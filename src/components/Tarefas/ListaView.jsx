@@ -372,9 +372,12 @@ function AlcaNome({ ctx }) {
       role="separator" aria-orientation="vertical" aria-label="Largura da coluna Nome (setas ← →; duplo clique volta ao automático)" tabIndex={0}
       title="Arraste para mudar a largura · duplo clique: automático"
       onPointerDown={iniciar} onKeyDown={teclado} onDoubleClick={() => ctx.onLarguraNome(null)} onClick={(e) => e.stopPropagation()}
-      className={`absolute -right-1 top-0 bottom-0 z-[2] w-2 flex justify-center cursor-col-resize group/alca ${FOCO}`}
+      className={`absolute -right-1.5 top-0 bottom-0 z-[2] w-3 flex items-center justify-center cursor-col-resize group/alca ${FOCO}`}
     >
-      <span className={`w-0.5 h-full transition-colors ${arrastando ? 'bg-ln-accent' : 'bg-transparent group-hover/alca:bg-ln-accent/60 group-focus-visible/alca:bg-ln-accent'}`} />
+      {/* sempre à mostra um traço duplo (‖) de alça; no hover/arrasto vira a linha inteira da borda */}
+      <span className={`rounded-full transition-all duration-150 ${arrastando
+        ? 'w-0.5 h-full bg-ln-accent'
+        : 'w-[3px] h-3.5 border-x border-ln-ink/35 group-hover/alca:w-0.5 group-hover/alca:h-full group-hover/alca:border-0 group-hover/alca:bg-ln-accent/70 group-focus-visible/alca:w-0.5 group-focus-visible/alca:h-full group-focus-visible/alca:border-0 group-focus-visible/alca:bg-ln-accent'}`} />
     </span>
   )
 }
@@ -459,7 +462,12 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
               {ctx.onLarguraNome && <AlcaNome ctx={ctx} />}
             </span>
             {cols.map((c) => <span key={c.k} className="px-2 min-w-0 flex"><TituloColuna k={c.k} label={c.label} ctx={ctx} ordenavel={!c.editavel || ORDENAVEIS.has(c.k)} /></span>)}
-            <span className="inline-flex items-center justify-center text-ln-t4">{!ctx.simples && ctx.onColunas && <MaisColunas ctx={ctx} />}</span>
+            {/* "+" das colunas preso à borda direita (como o Nome à esquerda): a grade passa de 1.900 px e ele sumia ao rolar */}
+            {!ctx.simples && ctx.onColunas ? (
+              <span className="sticky right-0 z-[1] h-full inline-flex items-center justify-center text-ln-t4 bg-ln-panel border-l border-ln-line/70 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
+                <MaisColunas ctx={ctx} />
+              </span>
+            ) : <span aria-hidden="true" />}
           </div>
           {itens.map((it) => {
             const todosFilhos = filhosDe.get(it.id) || []
