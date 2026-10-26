@@ -22,7 +22,6 @@ import { useVertaTask } from '../hooks/useVertaTask'
 import { useChatNaoLidas } from '../hooks/useChat'
 import ChatModulo from '../components/Chat/ChatModulo'
 import AtividadesModulo from '../components/Atividades/AtividadesModulo'
-import PlanilhaView from '../components/Tarefas/PlanilhaView'
 import GanttView from '../components/Tarefas/GanttView'
 import PaginasView from '../components/Tarefas/PaginasView'
 import AnalyticsView from '../components/Tarefas/AnalyticsView'
@@ -541,7 +540,7 @@ export default function Tarefas() {
     // ordenação pelos cabeçalhos da Lista (rascunho da view, como a barra)
     ordenar: config.ordenar, onOrdenar: (ordenar) => editarView({ ordenar }),
     calendario: config.calendario, onCalendario: (calendario) => editarView({ calendario }),
-    // Separar: nome da tarefa-pai para Quadro, Planilha, Calendário e Gantt
+    // Separar: nome da tarefa-pai para Quadro, Calendário e Gantt
     nomePai: config.subtarefas === 'separar' ? (it) => (it.parent_id ? t.itens[it.parent_id]?.titulo || null : null) : undefined,
     rotuloPai: config.subtarefas === 'separar' ? (it) => (it.parent_id && t.itens[it.parent_id] ? (
       <span className="inline-flex items-center gap-1 ml-1.5 min-w-0 text-[11px] text-ln-t4" title={`Subtarefa de ${t.itens[it.parent_id].titulo}`}>
@@ -738,8 +737,6 @@ export default function Tarefas() {
                     )}
                     {view === 'calendario' ? (
                       <CalendarioView itens={filtrados} ctx={ctx} />
-                    ) : view === 'planilha' ? (
-                      <PlanilhaView itens={filtrados} ctx={ctx} ciclos={vt.ciclos} etiquetasMap={vt.etiquetasMap} />
                     ) : view === 'gantt' ? (
                       <GanttView itens={filtrados} ctx={ctx} />
                     ) : view === 'quadro' ? (

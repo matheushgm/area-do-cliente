@@ -1,12 +1,12 @@
 // Barra de visualizações do VertaTask, no modelo do ClickUp:
-//   AbasViews        linha 1: as 5 padrão | as salvas do escopo | "+ Visualização"
+//   AbasViews        linha 1: as 4 padrão | as salvas do escopo | "+ Visualização"
 //   FerramentasView  linha 2: agrupador e subtarefas à esquerda; à direita "Salvar
 //                    visualização ▾" (quando há rascunho), busca, filtros, responsáveis,
 //                    concluídas, densidade, configurações e "+ Tarefa ▾" (templates)
 // Só apresentação: config, rascunho e gravação vêm de Tarefas.jsx (src/lib/viewsTarefas.js).
 import { createElement, useRef, useState } from 'react'
 import {
-  List, KanbanSquare, CalendarDays, Table2, GanttChart, Plus, EyeOff, Check, X, Search, Layers, User, Users, CircleCheck,
+  List, KanbanSquare, CalendarDays, GanttChart, Plus, EyeOff, Check, X, Search, Layers, User, Users, CircleCheck,
   Settings, ChevronDown, ChevronUp, Undo2, CopyPlus, ListTree, ListFilter, Rows3,
 } from 'lucide-react'
 import { Popover, Avatar, FOCO } from './Campos'
@@ -14,7 +14,7 @@ import ModelosMenu from './ModelosMenu'
 import { AGRUPAMENTOS, corDaPessoa, iniciais } from '../../lib/tarefas'
 import { SUBTAREFAS, rotuloSubtarefas, SEM_RESPONSAVEL, nomeResponsavelFiltro } from '../../lib/viewsTarefas'
 
-const ICONES_TIPO = { lista: List, quadro: KanbanSquare, calendario: CalendarDays, planilha: Table2, gantt: GanttChart }
+const ICONES_TIPO = { lista: List, quadro: KanbanSquare, calendario: CalendarDays, gantt: GanttChart }
 export const iconeTipo = (tipo, className = 'w-3.5 h-3.5') => createElement(ICONES_TIPO[tipo] || List, { className })
 const rotuloAgrupar = (v) => AGRUPAMENTOS.find((a) => a.value === v)?.label || v
 

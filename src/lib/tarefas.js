@@ -341,7 +341,7 @@ export function agruparItens(itens, modo, { statuses = [], membrosMap = new Map(
 
 /** Ordenação padrão dentro de um grupo: posição (ordem do ClickUp) e depois criação. */
 /**
- * Ordena por uma coluna da Lista (cabeçalho clicável), como a Planilha. ordenar = { campo, dir: 1|-1 }.
+ * Ordena por uma coluna da Lista (cabeçalho clicável), ordenar = { campo, dir: 1|-1 }.
  * Vazios ficam sempre no fim, nos dois sentidos; empate cai na ordem manual (posição).
  * ctx: statusesDe/statuses, membrosMap, ciclos, listasMap, pastasMap, projetosMap.
  */

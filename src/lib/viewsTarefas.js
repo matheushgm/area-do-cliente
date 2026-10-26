@@ -1,8 +1,8 @@
 // Visualizações (views) do VertaTask: abas dentro da pasta do cliente (ou de "Minhas" /
-// "Todas"), ao lado das 5 padrão. Regras puras; os dados vêm de tarefas_views (migration 110).
+// "Todas"), ao lado das 4 padrão. Regras puras; os dados vêm de tarefas_views (migration 110).
 //
 // config de uma view = { tipo, agrupar, subtarefas, responsaveis[], concluidas, filtros, ordenar }
-//   tipo        lista | quadro | calendario | planilha | gantt
+//   tipo        lista | quadro | calendario | gantt (a Planilha saiu: era a Lista de novo)
 //   subtarefas  recolhidas (padrão) | expandidas | separar
 //   responsaveis [] = todos; com gente, tarefa de qualquer um deles; SEM_RESPONSAVEL = tarefa sem ninguém
 //   filtros     filtros avançados (src/lib/filtrosTarefas.js)
@@ -16,7 +16,6 @@ export const TIPOS_VIEW = [
   { key: 'lista', label: 'Lista' },
   { key: 'quadro', label: 'Quadro' },
   { key: 'calendario', label: 'Calendário' },
-  { key: 'planilha', label: 'Planilha' },
   { key: 'gantt', label: 'Gantt' },
 ]
 /** Valor especial do filtro de responsáveis: tarefas sem responsável (nem do time, nem só do ClickUp). */
@@ -67,7 +66,7 @@ export const igualConfig = (a, b) => a.tipo === b.tipo && a.agrupar === b.agrupa
 
 /**
  * Onde as views da seleção moram: pasta (também para uma lista dela), "minhas" ou "todas".
- * null = sem views salvas (cycles, lista solta): só as 5 padrão, sem gravar.
+ * null = sem views salvas (cycles, lista solta): só as 4 padrão, sem gravar.
  */
 export function escopoDaSelecao(sel, listasMap) {
   if (sel.tipo === 'pasta') return { escopo: 'pasta', pastaId: sel.id }

@@ -758,8 +758,8 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   a antiga seção "Views salvas" da coluna esquerda. Desenho aprovado no protótipo `/dev/prototipo-views`
   (branch `prototipo-views-na-pasta`, já apagado).
   - **Escopo** (`escopoDaSelecao` em `src/lib/viewsTarefas.js`): pasta do cliente (vale para a pasta e as
-    listas dela), "Minhas" ou "Todas". Cycles e lista solta não têm escopo: só as 5 padrão, sem salvar.
-  - **Abas** (`AbasViews` em `BarraViews.jsx`): as 5 padrão (Lista, Quadro, Calendário, Planilha, Gantt)
+    listas dela), "Minhas" ou "Todas". Cycles e lista solta não têm escopo: só as 4 padrão, sem salvar.
+  - **Abas** (`AbasViews` em `BarraViews.jsx`): as 4 padrão (Lista, Quadro, Calendário, Gantt; a Planilha saiu em 2026-10-26 por repetir a Lista, e a linha `padrao_tipo = 'planilha'` que o check da 110 ainda aceita não é mais criada)
     e depois as salvas do escopo, mais "+ Visualização". As padrão também são linhas de `tarefas_views` (a 111 trava nelas dono, escopo, pasta e padrao_tipo; só nome e config mudam)
     (`padrao_tipo`), criadas na 1ª vez que alguém salva uma (`salvarViewPadrao`): qualquer pessoa edita,
     ninguém exclui, sempre públicas, tipo fixo. As salvas: só o dono edita/exclui; pública ou privada.
@@ -788,7 +788,7 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     sobrepõem; Esc fecha; abrir uma tarefa fecha a sidebar e vice-versa.
   - **config** também guarda `ordenar` (`{ campo, dir }`: cabeçalhos da Lista clicáveis, sobe → desce →
     ordem manual; `ordenarPorCampo` em `src/lib/tarefas.js`, vazios sempre no fim; vale para as subtarefas
-    abertas) e `calendario` (`mes` | `semana`). A Planilha mantém a ordenação dela, só na tela.
+    abertas) e `calendario` (`mes` | `semana`).
     Setas ↑↓ no hover da linha mudam a ordem manual (`posicao`, não vai para o ClickUp); com ordenação por
     coluna, a primeira seta congela a ordem da tela como manual, tira a ordenação e então move.
   - **Calendário:** Mês ou Semana, sempre de domingo a sábado (igual aos grupos de vencimento da Lista e
@@ -797,14 +797,14 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   - **Minhas tarefas:** o filtro de responsável da barra e da sidebar fica travado (é sempre você); o campo
     Responsáveis dos filtros avançados continua.
   - **Status por tarefa:** Minhas/Todas misturam listas; `ctx.statusesDe(item)` faz o seletor de status
-    (Lista, Planilha) e os cartões mostrarem só os status da lista da tarefa, e o Quadro por status recusa
+    (Lista) e os cartões mostrarem só os status da lista da tarefa, e o Quadro por status recusa
     soltar numa coluna que não existe na lista da tarefa arrastada.
   - **Subtarefas fora da Lista:** Expandidas só existe na Lista (nas outras fica desabilitada e vale como
-    Recolhidas); em Separar, Quadro/Planilha/Calendário/Gantt mostram o pai (`ctx.nomePai`).
+    Recolhidas); em Separar, Quadro/Calendário/Gantt mostram o pai (`ctx.nomePai`).
 - **Paridade com o Plane (migration 095, 2026-10-16).** Reimplementado do zero a partir do que o
   repositório do Plane faz (o código dele é AGPL-3.0, nada foi copiado):
   - **Etiquetas** (`tarefas_etiquetas` + `tarefas_itens.etiquetas uuid[]`; o `tags` do ClickUp segue à parte), filtro na barra,
-    chips no quadro/planilha.
+    chips no quadro.
   - **Relações** (`tarefas_relacoes`: bloqueia, duplica, relacionada; o inverso é calculado na tela).
   - **Histórico** (`tarefas_atividade`, preenchida por trigger `tarefas_log_atividade`; só registra edição
     de pessoa logada, a sincronização do ClickUp usa chave de serviço e fica de fora) e **seguidores**
@@ -818,7 +818,7 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     a última versão tem +5 min).
   - **Analytics** (`?aba=analytics`): RPC `vertatask_analytics(p_dias)` devolve tudo em um JSON (abertas,
     atrasadas, criadas/concluídas por dia, tempo médio, por status/prioridade/pessoa/cliente, cycles).
-  - **Planilha** e **Gantt** como visões ao lado de Lista/Quadro/Calendário.
+  - **Gantt** como visão ao lado de Lista/Quadro/Calendário (a Planilha também veio daqui e saiu em 2026-10-26).
   - **Cycles:** editar (nome, datas, objetivo, responsável) e "Mover pendentes" para outro cycle.
   - **Intake:** adiar (volta à fila na data), marcar duplicada, contato de quem pediu, link público
     `/pedido/:token` (`api/intake-publico.js`, edge, `client_share_token`, 8 pedidos/hora por cliente) e entrada
