@@ -110,7 +110,7 @@ export default function ResumoHub({ dash, timeline, sugestoesPendentes, onAbrirS
       {/* Atividades da semana */}
       <Secao icon={ListChecks} titulo="Atividades dos últimos 7 dias" sub={`${fmtBR(desde)} a ${fmtBR(hoje)}`}>
         {semana.length === 0 ? (
-          <p className="text-sm text-rl-subtle">Nenhuma atividade registrada nesta semana. Use o botão Novo pra registrar otimizações, anotações e tarefas.</p>
+          <p className="text-sm text-rl-subtle">Nenhuma atividade registrada nesta semana. Use as ações rápidas da coluna à esquerda pra registrar otimizações, anotações e tarefas.</p>
         ) : (
           <>
             <p className="text-sm text-rl-subtle mb-3">Na semana o time fez {frases.join(', ')} neste projeto.</p>

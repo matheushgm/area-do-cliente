@@ -1,7 +1,8 @@
-// Dados do VertaTask: ciclos, Intake, etiquetas, views compartilhadas e templates,
+// Dados do VertaTask: ciclos, Intake, etiquetas, visualizações (views) e templates,
 // direto no Supabase (RLS: todo o time). As tarefas em si continuam em useTarefas.
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import { colunasEscopo } from '../lib/viewsTarefas'
 
 const porNome = (a, b) => a.nome.localeCompare(b.nome, 'pt-BR')
 
@@ -23,7 +24,7 @@ export function useVertaTask(user) {
         supabase.from('tarefas_ciclos').select('*').eq('arquivado', false).order('inicio'),
         supabase.from('tarefas_intake').select('*').order('created_at', { ascending: false }).limit(300),
         supabase.from('tarefas_etiquetas').select('*').order('nome'),
-        supabase.from('tarefas_views').select('*').order('created_at'),
+        supabase.from('tarefas_views').select('*').order('posicao').order('created_at'),
         supabase.from('tarefas_modelos').select('*').order('nome'),
       ])
       if (c.error) throw c.error
@@ -104,9 +105,12 @@ export function useVertaTask(user) {
     return {}
   }, [])
 
-  // ── Views compartilhadas ───────────────────────────────────────────────────
-  const criarView = useCallback(async ({ nome, config, acesso = 'publica' }) => {
-    const { data, error } = await supabase.from('tarefas_views').insert({ nome: nome.trim(), config, acesso, dono_id: user?.id }).select().single()
+  // ── Visualizações (abas da pasta / Minhas / Todas, migration 112) ──────────
+  // escopo = { escopo: 'pasta'|'minhas'|'todas', pastaId? } (src/lib/viewsTarefas.js)
+  const criarView = useCallback(async ({ nome, config, acesso = 'publica', escopo }) => {
+    const { data, error } = await supabase.from('tarefas_views').insert({
+      nome: nome.trim(), config, acesso, dono_id: user?.id, posicao: Date.now(), ...colunasEscopo(escopo),
+    }).select().single()
     if (error) return { error: error.message }
     setViews((prev) => (prev.some((v) => v.id === data.id) ? prev : [...prev, data]))
     return { data }
@@ -117,6 +121,25 @@ export function useVertaTask(user) {
     setViews((prev) => prev.map((v) => (v.id === id ? data : v)))
     return { data }
   }, [])
+  /** Grava uma das 5 padrão do escopo: atualiza a linha se já existe, senão cria (sempre pública). */
+  const salvarViewPadrao = useCallback(async ({ escopo, tipo, nome, patch }) => {
+    const cols = colunasEscopo(escopo)
+    const existente = (atual) => atual.find((v) => v.padrao_tipo === tipo && v.escopo === cols.escopo && (v.pasta_id || null) === cols.pasta_id)
+    let row = existente(views)
+    if (!row) {
+      const { data, error } = await supabase.from('tarefas_views')
+        .insert({ nome, config: {}, acesso: 'publica', dono_id: user?.id, padrao_tipo: tipo, ...cols, ...patch }).select().single()
+      if (!error) { setViews((prev) => (prev.some((v) => v.id === data.id) ? prev : [...prev, data])); return { data } }
+      if (error.code !== '23505') return { error: error.message }
+      // outra pessoa criou a linha ao mesmo tempo: relê e atualiza a dela
+      let q = supabase.from('tarefas_views').select('*').eq('escopo', cols.escopo).eq('padrao_tipo', tipo)
+      q = cols.pasta_id ? q.eq('pasta_id', cols.pasta_id) : q.is('pasta_id', null)
+      const { data: lida } = await q.maybeSingle()
+      row = lida
+      if (!row) return { error: error.message }
+    }
+    return atualizarView(row.id, patch)
+  }, [views, user?.id, atualizarView])
   const excluirView = useCallback(async (id) => {
     const { error } = await supabase.from('tarefas_views').delete().eq('id', id)
     if (error) return { error: error.message }
@@ -196,7 +219,7 @@ export function useVertaTask(user) {
   return {
     ciclos, intake, intakePendentes, intakeAdiados, ciclosMap, loading,
     etiquetas, etiquetasMap, views, modelos,
-    criarEtiqueta, excluirEtiqueta, criarView, atualizarView, excluirView, criarModelo, atualizarModelo, excluirModelo,
+    criarEtiqueta, excluirEtiqueta, criarView, atualizarView, salvarViewPadrao, excluirView, criarModelo, atualizarModelo, excluirModelo,
     carregar, criarCiclo, atualizarCiclo, excluirCiclo,
     criarIntake, decidirIntake, reabrirIntake,
   }

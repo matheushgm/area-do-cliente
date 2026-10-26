@@ -80,7 +80,7 @@ passar por código nosso); essas ganham redirect em `legacyRedirects.jsx`.
 
 As páginas com sidebar são filhas de `<Route element={<AppLayout/>}>`; nenhuma monta a
 `AppSidebar` por conta própria. `/cliente/:id` entrou no shell (a sidebar fica visível na
-página do cliente) e mantém a barra própria com nome da empresa e voltar. Só
+página do cliente) e não tem barra superior desde 2026-10-26: o "Voltar" divide a linha com o "Modo Apresentação" no topo da coluna esquerda (no mobile, voltar e menu ficam na barra do `ClientProfile`). Só
 `/cliente/novo` fica de fora — é um fluxo focado.
 
 **Convenções do escuro no dashboard** (nasceram de uma auditoria de contraste):
@@ -90,10 +90,11 @@ claro calha de ser branco mas no escuro vira a cor do card e some. `--dt-tint-08
 tinta aproxima fundo e texto, então cai de 0.08/0.10/0.12 para 0.05/0.06/0.07. São três
 tokens, um por valor original, para o claro continuar idêntico.
 
-⚠️ **Largura na página do cliente (resolvido em 2026-10-08):** o contêiner
-`max-w-[1800px]` do `ProjectDetail` é item de um flex em coluna e, sem `min-w-0 w-full`,
-crescia até a largura mínima das 3 colunas e estourava a tela. Mantenha o `min-w-0`. As
-colunas laterais do `ClientProfile` são 300/280px entre `xl` e `2xl` e 340/320px acima.
+⚠️ **Largura na página do cliente (resolvido em 2026-10-08):** o contêiner do `ProjectDetail`
+é item de um flex em coluna e, sem `min-w-0 w-full`, crescia até a largura mínima das colunas e
+estourava a tela. Mantenha o `min-w-0`. Desde 2026-10-26 ele não tem mais `max-w-[1800px]`: a página
+ocupa a tela toda em monitores grandes. A coluna esquerda do `ClientProfile` tem 340px entre `xl` e
+`2xl`, 380px acima e 420px a partir de 2200px; a central ocupa o resto.
 
 #### Deep-link das seções do cliente
 
@@ -622,6 +623,16 @@ todo `authenticated`; as quatro estão na publicação realtime).
   tarefa, `Esc` fecha o painel. Com o painel aberto e largura < 1600, a lista esconde tipo,
   dificuldade, criada e conclusão (`compacto`). Seleção e tarefa aberta vivem na URL
   (`?pasta=`, `?lista=`, `?minhas=1`, `?tarefa=`). Preferências em `localStorage` (`tarefas.*`).
+- **Área compartilhada (2026-10-26):** a página é só a moldura (coluna de pastas, cabeçalho, sincronização,
+  Intake, Cycles, Templates, Pages, Analytics, Chat, Atividades). A área de tarefas inteira (abas de views,
+  barra, Lista/Quadro/Calendário/Gantt, sidebars da view, seleção em massa, "Aplicar template", painel da
+  tarefa, atalhos C/Esc/Ctrl+Enter) é `src/components/Tarefas/AreaTarefas.jsx`, usada também pelo módulo
+  **aba Tarefas do hub da página do cliente** (`TarefasDoCliente.jsx` dentro do `HubCentro`, como a aba Resultados;
+  travada na pasta ativa do cliente, com as listas dela em cima e `?lista=`/`?view=`/`?tarefa=` na URL do cliente). Mexer na área
+  muda os dois lugares. Ganchos: `cabecalho(api)`, `secao(api)` (conteúdo no lugar das views), `antesDaView`
+  (Cycles), `largura`, `atalhoCriar`, `onIrParaLista`, `onAbrirTemplate`; `api` = `{ listaPadraoId,
+  totalAbertas, aguardandoClickup, novaTarefa, recarregar, abrirTarefa, usarModelo, todos, mostrarViews }`. Na pasta, a tarefa
+  nova cai na lista "Geral" (ou na primeira, se não houver). No cliente não há sincronização automática.
 - **Dados** `src/hooks/useTarefas.js`: lê a estrutura inteira e as tarefas só da pasta/lista
   aberta (paginado de 1000 em 1000), atualização otimista e canal realtime. Trocar status
   passa por `mudarStatus` (calcula `status_tipo` e `data_conclusao`).
@@ -629,7 +640,9 @@ todo `authenticated`; as quatro estão na publicação realtime).
   **Data de vencimento** por padrão ("Em atraso 47", "Hoje", "Amanhã"…), repete o cabeçalho de
   colunas em cada grupo e usa as colunas na ordem do ClickUp: Nome · Status (pill preenchida,
   BACKLOG cinza) · Tipo de tarefa (pill colorida) · Responsável · Data criada · Data de vencimento
-  ("há N dias"/"ontem" em vermelho até 7 dias, "Hoje" verde, "Amanhã" amarelo) · Prioridade
+  ("há N dias"/"ontem" em vermelho até 7 dias, "Hoje" verde, "Amanhã" amarelo) · Data de conclusão
+  (`data_conclusao`, só leitura: gravada ao ir para um status de concluída, aqui por `mudarStatus` ou no ClickUp por
+  `date_done`; também ordena e é campo dos filtros avançados) · Prioridade
   (bandeira) · Sprints (= Cycle, `ciclo_id`) · Estimativa de tempo (ampulheta) · Cliente (pill azul
   com o projeto da pasta). A coluna Pontos do Sprint foi retirada a pedido do Matheus. Os editores de
   `Campos.jsx` aceitam `render` para trocar só o gatilho visual. Com o painel aberto (`compacto`)
@@ -753,30 +766,84 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   `ln-primary` e `ln-input` com o look do protótipo; no escuro só o azul muda. Lista agrupada em
   cartões sobre fundo `ln-bg`. Os componentes continuam usando só `ln-*`.
 - **Estrutura igual à do protótipo:** a coluna esquerda (`TarefasSidebar`) tem a marca, a navegação
-  (Intake com contador, Minhas tarefas, Todas as tarefas, Cycles, Templates), **Views salvas** e a
+  (Intake com contador, Minhas tarefas, Todas as tarefas, Cycles, Templates) e a
   árvore Clientes (pasta → listas, com bolinha colorida e abertas carregadas). O cabeçalho é só o
   título da seção (Sora 20px) com o breadcrumb da pasta/lista; as seções não ficam mais em abas no
   topo. "Todas as tarefas" = `?todas=1` (`carregarAbertas`: tudo que não está concluído).
-  **Views salvas** vivem em `localStorage` (`tarefas.views`, por navegador): guardam seleção
-  (lista/pasta/minhas/todas), visão, agrupamento, responsável e "concluídas".
+- **Visualizações (views) dentro da pasta (2026-10-26, migration 112; o arquivo nasceu como 110 e foi renumerado ao juntar com a 110 do outbox):** abas no modelo do ClickUp, sem
+  a antiga seção "Views salvas" da coluna esquerda. Desenho aprovado no protótipo `/dev/prototipo-views`
+  (branch `prototipo-views-na-pasta`, já apagado).
+  - **Escopo** (`escopoDaSelecao` em `src/lib/viewsTarefas.js`): pasta do cliente (vale para a pasta e as
+    listas dela), "Minhas" ou "Todas". Cycles e lista solta não têm escopo: só as 4 padrão, sem salvar.
+  - **Abas** (`AbasViews` em `BarraViews.jsx`): as 4 padrão (Lista, Quadro, Calendário, Gantt; a Planilha saiu em 2026-10-26 por repetir a Lista, e a linha `padrao_tipo = 'planilha'` que o check da 110 ainda aceita não é mais criada)
+    e depois as salvas do escopo, mais "+ Visualização". As padrão também são linhas de `tarefas_views` (a 113 trava nelas dono, escopo, pasta e padrao_tipo; só nome e config mudam)
+    (`padrao_tipo`), criadas na 1ª vez que alguém salva uma (`salvarViewPadrao`): qualquer pessoa edita,
+    ninguém exclui, sempre públicas, tipo fixo. As salvas: só o dono edita/exclui; pública ou privada.
+    A aba ativa vai na URL (`?view=lista` nas padrão, `?view=<uuid>` nas salvas) e fica lembrada por
+    escopo em `localStorage` (`tarefas.viewAtiva.<escopo>`).
+  - **config** (jsonb): `{ tipo, agrupar, subtarefas, responsaveis[], concluidas, filtros }`;
+    `normalizarConfig` também lê o formato antigo (view/filtroResp/mostrarConcluidas/etiqueta).
+  - **Rascunho:** a tela mostra o rascunho da view ativa (`rascunhoView` em `Tarefas.jsx`). Mexer pela
+    barra (`FerramentasView`) só muda a tela e acende o botão dividido "Salvar visualização ▾" (salvar,
+    Ctrl+Enter fora de campos; salvar como nova; reverter). A sidebar de configurações
+    (`PainelConfigView`, engrenagem) grava na hora. Quem não pode editar a view mexe só na tela e salva
+    como nova.
+  - **Barra:** à esquerda o agrupador e o modo das subtarefas; à direita busca (ícone que vira campo),
+    filtros (funil, com contador e ponto laranja se diferem dos salvos), responsáveis (múltipla seleção;
+    nenhum = todos), concluídas, densidade (Lista), engrenagem e "+ Tarefa ▾" (a seta é o `ModelosMenu`
+    de templates). O "Nova tarefa" e o "Templates" do cabeçalho só aparecem nas seções sem essa barra.
+  - **Subtarefas:** Recolhidas (padrão) e Expandidas (`ctx.expandirTudo`) ficam sob o pai e os filtros e o
+    agrupamento olham só o pai, como no ClickUp; Separar avalia e agrupa cada subtarefa sozinha, sem
+    aninhar, com "↳ pai" ao lado do título (`ctx.rotuloPai` da `ListaView`).
+  - **Filtros avançados** (`PainelFiltros.jsx` + motor em `src/lib/filtrosTarefas.js`):
+    `{ op, grupos: [{ op, regras: [{ campo, operador, valor }] }] }`. Condição conforme o tipo do campo
+    (opção, lista, data com períodos/antes/depois/atrasada, número, texto); E/OU dentro do grupo e entre
+    grupos (1º "Onde", 2º seletor, 3º+ o mesmo E/OU em texto); regra incompleta não filtra. Somam (E) com
+    os da barra e são rascunho da view, como a barra. A etiqueta saiu da barra e virou campo daqui.
+  - **Sidebars** à direita (340 px; filtros 600 px): empurram o conteúdo quando sobra largura, senão
+    sobrepõem; Esc fecha; abrir uma tarefa fecha a sidebar e vice-versa.
+  - **config** também guarda `ordenar` (`{ campo, dir }`: cabeçalhos da Lista clicáveis, sobe → desce →
+    ordem manual; `ordenarPorCampo` em `src/lib/tarefas.js`, vazios sempre no fim; vale para as subtarefas
+    abertas), `calendario` (`mes` | `semana`) e `colunas` da Lista (`{ ordem, ocultas }`, null = padrão; ver abaixo).
+  - **Colunas da Lista:** ordem e visível/oculta por view (`COLUNAS_LISTA`, `normalizarColunas`, `colunasVisiveis` em
+    `viewsTarefas.js`; editor `ColunasLista.jsx`: arrastar pela alça ou ↑↓ com ela em foco, olho, "Restaurar padrão").
+    O Nome é fixo e sempre visível; coluna nova entra no fim, visível. Abre pelo "+" no fim do cabeçalho de colunas
+    (rascunho, como a ordenação) ou na sidebar de configurações (grava na hora). Com o painel da tarefa aberto
+    (`compacto`) valem só as colunas da versão compacta, na ordem da view. Ocultar a coluna ordenada tira a ordenação
+    (`patchColunas`).
+  - **Largura do Nome:** só a coluna Nome é redimensionável, pela alça na borda direita do cabeçalho (arrastar, ← → de
+    20 px com ela em foco, duplo clique volta ao automático = `minmax(420px, 1fr)`). Fica em `config.larguraNome`
+    (px, 200 a 900, `normalizarLarguraNome`) como rascunho da view; enquanto arrasta, todos os grupos mudam juntos.
+    Setas ↑↓ no hover da linha mudam a ordem manual (`posicao`, não vai para o ClickUp); com ordenação por
+    coluna, a primeira seta congela a ordem da tela como manual, tira a ordenação e então move.
+  - **Calendário:** Mês ou Semana, sempre de domingo a sábado (igual aos grupos de vencimento da Lista e
+    aos períodos "Esta semana"/"Próxima semana" dos filtros). Na Semana cada dia é uma coluna com todas as
+    tarefas; no Mês, "+N mais" abre a semana do dia.
+  - **Minhas tarefas:** o filtro de responsável da barra e da sidebar fica travado (é sempre você); o campo
+    Responsáveis dos filtros avançados continua.
+  - **Status por tarefa:** Minhas/Todas misturam listas; `ctx.statusesDe(item)` faz o seletor de status
+    (Lista) e os cartões mostrarem só os status da lista da tarefa, e o Quadro por status recusa
+    soltar numa coluna que não existe na lista da tarefa arrastada.
+  - **Subtarefas fora da Lista:** Expandidas só existe na Lista (nas outras fica desabilitada e vale como
+    Recolhidas); em Separar, Quadro/Calendário/Gantt mostram o pai (`ctx.nomePai`).
 - **Paridade com o Plane (migration 095, 2026-10-16).** Reimplementado do zero a partir do que o
   repositório do Plane faz (o código dele é AGPL-3.0, nada foi copiado):
   - **Etiquetas** (`tarefas_etiquetas` + `tarefas_itens.etiquetas uuid[]`; o `tags` do ClickUp segue à parte), filtro na barra,
-    chips no quadro/planilha.
+    chips no quadro.
   - **Relações** (`tarefas_relacoes`: bloqueia, duplica, relacionada; o inverso é calculado na tela).
   - **Histórico** (`tarefas_atividade`, preenchida por trigger `tarefas_log_atividade`; só registra edição
     de pessoa logada, a sincronização do ClickUp usa chave de serviço e fica de fora) e **seguidores**
     (`tarefas_seguidores`, quem comenta ou recebe a tarefa passa a seguir). Trigger de comentário e de
     atribuição escrevem em `notifications` (`tarefa_comentario`, `tarefa_atribuida`, link `/tarefas?tarefa=`).
-  - **Views compartilhadas** (`tarefas_views`, `acesso` publica/privada, só o dono edita/apaga). As que
-    ficavam no `localStorage` migram sozinhas para o banco como privadas.
+  - **Views compartilhadas** (`tarefas_views`, `acesso` publica/privada). Desde a migration 112 são as
+    abas da pasta; ver "Visualizações (views) dentro da pasta" acima.
   - **Pages** (`?aba=paginas&pagina=<id>`, `tarefas_paginas`, `usePaginas`, `PaginasView`): markdown com
     barra de formatação, subpáginas, cliente, privada/do time, bloqueio (só o dono edita),
     arquivo, salvamento automático e **versões** (`tarefas_paginas_versoes`, guarda o texto anterior se
     a última versão tem +5 min).
   - **Analytics** (`?aba=analytics`): RPC `vertatask_analytics(p_dias)` devolve tudo em um JSON (abertas,
     atrasadas, criadas/concluídas por dia, tempo médio, por status/prioridade/pessoa/cliente, cycles).
-  - **Planilha** e **Gantt** como visões ao lado de Lista/Quadro/Calendário.
+  - **Gantt** como visão ao lado de Lista/Quadro/Calendário (a Planilha também veio daqui e saiu em 2026-10-26).
   - **Cycles:** editar (nome, datas, objetivo, responsável) e "Mover pendentes" para outro cycle.
   - **Intake:** adiar (volta à fila na data), marcar duplicada, contato de quem pediu, link público
     `/pedido/:token` (`api/intake-publico.js`, edge, `client_share_token`, 8 pedidos/hora por cliente) e entrada
@@ -1050,20 +1117,25 @@ Cada cartão diz a **Otimização** (ação em uma frase), o **Onde está** (Cam
     reimplementa nada disso. Sem a ponte (viewer aberto direto, sem login, conta sem projeto
     vinculado) o painel fica só de leitura e diz o motivo.
 
-### Página do cliente (`/cliente/:id`): hub em 3 colunas
+### Página do cliente (`/cliente/:id`): hub em 2 colunas
 
 `ClientProfile.jsx` abre na seção `hub` (visão geral) com layout inspirado em CRM: **esquerda**
-(340px) cartão do cliente (logo, contrato, LTV, squad, risco, momento, links), ações rápidas
+(340px; 380px a partir de `2xl`) cartão do cliente (logo, contrato, LTV, squad, risco, momento, links), ações rápidas
 (Otimização / Anotação / Tarefa / Reunião), `HubInformacoes` (dados cadastrais) e a lista de
 **Módulos** (o antigo menu lateral, recolhível); **centro** `HubCentro` (timeline) ou o módulo
-aberto, com breadcrumb "Visão geral / Módulo"; **direita** (320px, só na visão geral)
-`HubDireita` com resumo de Jornada, Central de anúncios, LPs, Campanhas, Anexos, Links, NPS e
-Atas. Abaixo de `xl` as colunas empilham e os módulos viram drawer pelo hambúrguer.
+aberto, com breadcrumb "Visão geral / Módulo", ocupando o resto da largura. A antiga coluna
+direita (`HubDireita`: resumo de Jornada, Central de anúncios, LPs, Campanhas, Anexos, Links, NPS e
+Atas) foi removida em 2026-10-26 a pedido do Matheus. Abaixo de `xl` as colunas empilham e os módulos viram drawer pelo hambúrguer.
 
 - **Timeline** (`src/hooks/useProjetoHub.js`): união de `projeto_otimizacoes` (otimizações
   feitas + anotações, migration 089), `atividades_planejadas` do projeto, `tarefas_itens`
   da pasta do cliente (réplica do ClickUp) e `meeting_minutes`, agrupada por mês, com abas
-  Atividade / Sugestões / Otimizações / Anotações / Tarefas / Reuniões.
+  Atividade / Sugestões / Otimizações / Anotações / Tarefas / Reuniões. A aba **Tarefas** é a área do VertaTask
+  (`TarefasDoCliente` → `AreaTarefas`, carregada sob demanda): a linha do tempo de tarefas, as tarefas planejadas e
+  o filtro de período que a aba tinha saíram (2026-10-26). Com `?tarefa=`, `?view=` ou `?lista=` na URL a página abre
+  nessa aba; sair dela limpa esses parâmetros. Para não haver dois scrolls na mesma região, nessa aba a área vai do
+  ponto onde começa até o fim da tela (`useAlturaAteOFim`, margem de 24 px) e a coluna esquerda fica `sticky` com
+  rolagem própria (`travarRolagem` no `ClientProfile`, avisado por `onTab` do `HubCentro`): a página não rola.
 - **Sugestões do playbook** (`src/lib/playbookSugestoes.js`, puro): regras do Roadmap Ads e
   dos guardrails aplicadas aos últimos 7 dias do `dash_insights` (via `useDashboardData`
   com `projectId` e `dias: 16`) vs. os 7 anteriores, por conta vinculada. **Toda regra de

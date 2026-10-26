@@ -12,6 +12,8 @@ export default function DevLista() {
   const [compacto, setCompacto] = useState(false)
   const [denso, setDenso] = useState(false)
   const [abertaId, setAbertaId] = useState(null)
+  const [colunas, setColunas] = useState(null)
+  const [larguraNome, setLarguraNome] = useState(null)
   const listas = fixture.listas
   const pastaRL = fixture.pastas.find((p) => /revenue lab/i.test(p.nome)) || fixture.pastas[0] || { id: null, nome: '(sem fixture)' }
   const listasEscopo = listas.filter((l) => l.pasta_id === pastaRL.id)
@@ -30,6 +32,8 @@ export default function DevLista() {
     onMudarStatus: (it, s) => console.log('status', it.id, s.key), onCriar: async (row) => { console.log('criar', row); return {} },
     listas, pastas: fixture.pastas, projetos: fixture.projetos.map((p) => ({ id: p.id, company_name: p.company_name })),
     ciclos: [{ id: 'c1', nome: 'Sprint 42' }],
+    larguraNome, onLarguraNome: (w) => { console.log('larguraNome', w); setLarguraNome(w) },
+    colunas, onColunas: (c) => { console.log('colunas', c); setColunas(c) },
   }
   return (
     <div className="ln vt min-h-screen bg-ln-bg">

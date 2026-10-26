@@ -270,7 +270,7 @@ export function bucketVencimento(item) {
   if (dia < h0) return 'atrasado'
   if (dia === h0) return 'hoje'
   if (dia === h0 + 86400000) return 'amanha'
-  // semana = até domingo
+  // semana de domingo a sábado (como o Calendário): vai até o sábado; o próximo domingo já é "Próxima semana"
   const dow = hoje.getDay() // 0 dom
   const fimSemana = h0 + (7 - dow) * 86400000 // próximo domingo (exclusivo)
   if (dia < fimSemana) return 'semana'
@@ -340,6 +340,49 @@ export function agruparItens(itens, modo, { statuses = [], membrosMap = new Map(
 }
 
 /** Ordenação padrão dentro de um grupo: posição (ordem do ClickUp) e depois criação. */
+/**
+ * Ordena por uma coluna da Lista (cabeçalho clicável), ordenar = { campo, dir: 1|-1 }.
+ * Vazios ficam sempre no fim, nos dois sentidos; empate cai na ordem manual (posição).
+ * ctx: statusesDe/statuses, membrosMap, ciclos, listasMap, pastasMap, projetosMap.
+ */
+export function ordenarPorCampo(itens, ordenar, ctx = {}) {
+  const ordemPrio = Object.fromEntries(PRIORIDADES.map((p, i) => [p.key, i]))
+  const valor = (it) => {
+    switch (ordenar.campo) {
+      case 'nome': return (it.titulo || '').toLocaleLowerCase('pt-BR') || null
+      case 'status': {
+        const st = (ctx.statusesDe?.(it) || ctx.statuses || []).find((s) => s.key === it.status)
+        return st ? (st.tipo === 'closed' ? 1000 : 0) + (Number(st.ordem) || 0) : null
+      }
+      case 'tipo': return (it.tipo_tarefa || '').trim().toLocaleLowerCase('pt-BR') || null
+      case 'resp': { const p = pessoasDaTarefa(it, ctx.membrosMap || new Map())[0]; return p?.nome?.toLocaleLowerCase('pt-BR') || null }
+      case 'criada': return it.created_at ? new Date(it.created_at).getTime() : null
+      case 'concluida': return it.data_conclusao ? new Date(it.data_conclusao).getTime() : null
+      case 'venc': return it.data_vencimento ? new Date(it.data_vencimento).getTime() : null
+      case 'prio': return it.prioridade ? ordemPrio[it.prioridade] ?? null : null
+      case 'sprint': return (ctx.ciclos || []).find((c) => c.id === it.ciclo_id)?.nome?.toLocaleLowerCase('pt-BR') || null
+      case 'estim': return it.estimativa_min ?? null
+      case 'cliente': {
+        const lista = ctx.listasMap?.get(it.lista_id)
+        const pasta = lista ? ctx.pastasMap?.get(lista.pasta_id) : null
+        const proj = pasta?.project_id ? ctx.projetosMap?.get(pasta.project_id) : null
+        return (proj?.company_name || pasta?.nome || '').toLocaleLowerCase('pt-BR') || null
+      }
+      default: return null
+    }
+  }
+  const base = ordenarItens(itens)
+  const pos = new Map(base.map((it, i) => [it.id, i]))
+  const vs = new Map(base.map((it) => [it.id, valor(it)]))
+  return base.sort((a, b) => {
+    const va = vs.get(a.id), vb = vs.get(b.id)
+    if (va == null || vb == null) return va == null && vb == null ? pos.get(a.id) - pos.get(b.id) : va == null ? 1 : -1
+    if (va < vb) return -ordenar.dir
+    if (va > vb) return ordenar.dir
+    return pos.get(a.id) - pos.get(b.id)
+  })
+}
+
 export function ordenarItens(itens) {
   return [...itens].sort((a, b) => {
     const pa = Number(a.posicao) || 0

@@ -4,7 +4,6 @@ import { useProjetoHub } from '../hooks/useProjetoHub'
 import { carregarConfigAtividades } from '../lib/atividades'
 import { DEFAULT_SECTION } from '../lib/clientSections'
 import HubCentro from '../components/ProjetoHub/HubCentro'
-import HubDireita from '../components/ProjetoHub/HubDireita'
 import HubInformacoes from '../components/ProjetoHub/HubInformacoes'
 import ModoApresentacao from '../components/ModoApresentacao/ModoApresentacao'
 import { createPortal } from 'react-dom'
@@ -1148,7 +1147,7 @@ function ProjectDocs({ project }) {
 // A seção aberta vem da rota (`/cliente/:id/:secao`) via `section` +
 // `onSectionChange`. Sem essas props o componente volta a guardar a seção em
 // estado local — é o que mantém o /dev/hub, que renderiza fora de rota.
-export default function ClientProfile({ project: projectProp, section, onSectionChange }) {
+export default function ClientProfile({ project: projectProp, section, onSectionChange, onVoltar, onAbrirMenu }) {
   const { updateProject, projects, squads, teamMembers } = useApp()
   const logoInputRef = useRef(null)
 
@@ -1186,6 +1185,9 @@ export default function ClientProfile({ project: projectProp, section, onSection
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [logoSignedUrl, setLogoSignedUrl] = useState(null)
   // Coluna esquerda (dados do cliente) recolhível dentro dos módulos; lembra a escolha.
+  // aba do hub aberta; na de Tarefas a coluna esquerda rola sozinha e a página não rola (um scroll só por região)
+  const [abaHub, setAbaHub] = useState(null)
+  const travarRolagem = activeSection === 'hub' && abaHub === 'tarefas'
   const [infoRecolhida, setInfoRecolhida] = useState(() => {
     try { return localStorage.getItem('rl:cliente-info-recolhida') === '1' } catch { return false }
   })
@@ -1411,7 +1413,17 @@ export default function ClientProfile({ project: projectProp, section, onSection
     <div className="space-y-0">
 
       {/* ── Mobile top bar (hambúrguer + nome do cliente) ────────────────── */}
-      <div className="xl:hidden sticky top-0 z-40 -mx-4 sm:-mx-6 -mt-6 mb-4 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
+      <div className="xl:hidden sticky top-0 z-40 -mx-4 sm:-mx-6 -mt-6 mb-4 flex items-center gap-1 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
+        {onAbrirMenu && (
+          <button onClick={onAbrirMenu} aria-label="Abrir menu de navegação" className="lg:hidden p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+        {onVoltar && (
+          <button onClick={onVoltar} aria-label="Voltar à lista de clientes" className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+        )}
         <button
           onClick={() => setSidebarVisible(true)}
           aria-label="Abrir menu de módulos"
@@ -1424,18 +1436,30 @@ export default function ClientProfile({ project: projectProp, section, onSection
         </span>
       </div>
 
-      {/* ── Layout em 3 colunas: cliente | atividades / módulo aberto | acesso rápido ── */}
+      {/* ── Layout em 2 colunas: cliente | atividades / módulo aberto ── */}
       <div className="flex flex-col xl:flex-row gap-4 items-start">
 
         {/* Coluna esquerda: cartão do cliente, ações rápidas, informações e módulos */}
-        <div className={`w-full xl:w-[300px] 2xl:w-[340px] shrink-0 space-y-3 ${activeSection !== 'hub' && infoRecolhida ? 'xl:hidden' : ''}`}>
+        <div className={`w-full xl:w-[340px] 2xl:w-[380px] min-[2200px]:w-[420px] shrink-0 space-y-3 ${activeSection !== 'hub' && infoRecolhida ? 'xl:hidden' : ''} ${travarRolagem ? 'xl:sticky xl:top-6 xl:max-h-[calc(100vh-48px)] xl:overflow-y-auto xl:pr-1' : ''}`}>
       {/* ── Profile Header ──────────────────────────────────────────────── */}
-        <button
-          onClick={() => setApresentando(true)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rl-purple text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
-        >
-          <Presentation className="w-4 h-4" /> Modo Apresentação
-        </button>
+        {/* Voltar divide a linha com o Modo Apresentação (a página não tem barra superior) */}
+        <div className="flex items-stretch gap-2">
+          {onVoltar && (
+            <button
+              onClick={onVoltar}
+              aria-label="Voltar à lista de clientes" title="Voltar à lista de clientes"
+              className="hidden xl:flex items-center justify-center gap-1.5 px-3.5 rounded-xl glass-card border border-rl-border/60 text-sm font-medium text-rl-subtle hover:text-rl-text transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </button>
+          )}
+          <button
+            onClick={() => setApresentando(true)}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rl-purple text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
+          >
+            <Presentation className="w-4 h-4" /> Modo Apresentação
+          </button>
+        </div>
         <div className="glass-card border border-rl-border/60">
           <div className="relative h-24 fx-hero rounded-t-2xl">
             <div className="absolute inset-0 opacity-[0.12]"
@@ -1979,6 +2003,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
               acaoRapida={acaoRapida}
               modulos={NAV_ITEMS}
               onAbrirModulo={handleSidebarClick}
+              onTab={setAbaHub}
             />
           ) : (
             <div className="space-y-3">
@@ -2003,13 +2028,6 @@ export default function ClientProfile({ project: projectProp, section, onSection
             </div>
           )}
         </div>
-
-        {/* Coluna direita: acesso rápido aos módulos (só na visão geral) */}
-        {activeSection === 'hub' && (
-          <div className="w-full xl:w-[280px] 2xl:w-[320px] shrink-0">
-            <HubDireita project={project} onNavigate={navigateTo} />
-          </div>
-        )}
 
       </div>
 
