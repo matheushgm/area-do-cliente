@@ -38,7 +38,6 @@ const UserManagement = lazy(() => import('../pages/UserManagement'))
 const DevHub = lazy(() => import('../pages/DevHub'))
 const DevEditor = lazy(() => import('../pages/DevEditor'))
 const DevLista = lazy(() => import('../pages/DevLista'))
-const DevPrototipoViews = lazy(() => import('../pages/DevPrototipoViews')) // TEMPORÁRIO: apagar com a versão definitiva das views
 const DevTemplates = lazy(() => import('../pages/DevTemplates'))
 
 export const appRoutes = [
@@ -90,7 +89,6 @@ export const appRoutes = [
         <Route key="dev-hub" path="/dev/hub" element={<DevHub />} />,
         <Route key="dev-editor" path="/dev/editor" element={<DevEditor />} />,
         <Route key="dev-lista" path="/dev/lista" element={<DevLista />} />,
-        <Route key="dev-prototipo-views" path="/dev/prototipo-views" element={<DevPrototipoViews />} />,
         <Route key="dev-templates" path="/dev/templates" element={<DevTemplates />} />,
       ]
     : []),

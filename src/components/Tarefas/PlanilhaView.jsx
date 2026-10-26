@@ -1,7 +1,7 @@
 // Visualização "Planilha": uma linha por tarefa, todas as propriedades em colunas,
 // com edição direta e ordenação pelo cabeçalho.
 import { useMemo, useState } from 'react'
-import { ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowUp, ArrowDown, CornerDownRight } from 'lucide-react'
 import { PRIORIDADES } from '../../lib/tarefas'
 import { fmtDiaMes } from '../../lib/vertatask'
 import { StatusCampo, PrioridadeCampo, ResponsavelCampo, DataCampo, EstimativaCampo, FOCO } from './Campos'
@@ -68,8 +68,11 @@ export default function PlanilhaView({ itens, ctx, ciclos, etiquetasMap }) {
             className={`grid items-center gap-x-3 min-h-[40px] px-3 border-b border-ln-ink/5 last:border-0 cursor-pointer hover:bg-ln-ink/[0.03] ${selecionadaId === it.id ? 'bg-ln-ink/[0.04]' : ''} ${FOCO}`}
             style={{ gridTemplateColumns: GRID }}
           >
-            <span className={`truncate text-[13px] font-medium ${it.status_tipo === 'closed' ? 'text-ln-t4 line-through' : 'text-ln-t1'}`}>{it.titulo}</span>
-            <span onClick={(e) => e.stopPropagation()}><StatusCampo item={it} statuses={statuses} onChange={(s) => onMudarStatus(it, s)} /></span>
+            <span className="flex flex-col min-w-0">
+              <span className={`truncate text-[13px] font-medium ${it.status_tipo === 'closed' ? 'text-ln-t4 line-through' : 'text-ln-t1'}`}>{it.titulo}</span>
+              {ctx.nomePai?.(it) && <span className="flex items-center gap-1 text-[11px] text-ln-t4 min-w-0" title={`Subtarefa de ${ctx.nomePai(it)}`}><CornerDownRight className="w-3 h-3 shrink-0" /><span className="truncate">{ctx.nomePai(it)}</span></span>}
+            </span>
+            <span onClick={(e) => e.stopPropagation()}><StatusCampo item={it} statuses={ctx.statusesDe?.(it) || statuses} onChange={(s) => onMudarStatus(it, s)} /></span>
             <span onClick={(e) => e.stopPropagation()}><PrioridadeCampo valor={it.prioridade} onChange={(v) => onAtualizar(it.id, { prioridade: v })} /></span>
             <span onClick={(e) => e.stopPropagation()}><ResponsavelCampo item={it} membros={membros} membrosMap={membrosMap} size={18} max={3} onChange={(ids, extra) => onAtualizar(it.id, extra ? { responsaveis: ids, responsaveis_extra: extra } : { responsaveis: ids })} /></span>
             <span onClick={(e) => e.stopPropagation()}><DataCampo valor={it.data_inicio} formato="curta" placeholder="" onChange={(v) => onAtualizar(it.id, { data_inicio: v })} /></span>

@@ -750,12 +750,55 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   `ln-primary` e `ln-input` com o look do protótipo; no escuro só o azul muda. Lista agrupada em
   cartões sobre fundo `ln-bg`. Os componentes continuam usando só `ln-*`.
 - **Estrutura igual à do protótipo:** a coluna esquerda (`TarefasSidebar`) tem a marca, a navegação
-  (Intake com contador, Minhas tarefas, Todas as tarefas, Cycles, Templates), **Views salvas** e a
+  (Intake com contador, Minhas tarefas, Todas as tarefas, Cycles, Templates) e a
   árvore Clientes (pasta → listas, com bolinha colorida e abertas carregadas). O cabeçalho é só o
   título da seção (Sora 20px) com o breadcrumb da pasta/lista; as seções não ficam mais em abas no
   topo. "Todas as tarefas" = `?todas=1` (`carregarAbertas`: tudo que não está concluído).
-  **Views salvas** vivem em `localStorage` (`tarefas.views`, por navegador): guardam seleção
-  (lista/pasta/minhas/todas), visão, agrupamento, responsável e "concluídas".
+- **Visualizações (views) dentro da pasta (2026-10-26, migration 110):** abas no modelo do ClickUp, sem
+  a antiga seção "Views salvas" da coluna esquerda. Desenho aprovado no protótipo `/dev/prototipo-views`
+  (branch `prototipo-views-na-pasta`, já apagado).
+  - **Escopo** (`escopoDaSelecao` em `src/lib/viewsTarefas.js`): pasta do cliente (vale para a pasta e as
+    listas dela), "Minhas" ou "Todas". Cycles e lista solta não têm escopo: só as 5 padrão, sem salvar.
+  - **Abas** (`AbasViews` em `BarraViews.jsx`): as 5 padrão (Lista, Quadro, Calendário, Planilha, Gantt)
+    e depois as salvas do escopo, mais "+ Visualização". As padrão também são linhas de `tarefas_views`
+    (`padrao_tipo`), criadas na 1ª vez que alguém salva uma (`salvarViewPadrao`): qualquer pessoa edita,
+    ninguém exclui, sempre públicas, tipo fixo. As salvas: só o dono edita/exclui; pública ou privada.
+    A aba ativa vai na URL (`?view=lista` nas padrão, `?view=<uuid>` nas salvas) e fica lembrada por
+    escopo em `localStorage` (`tarefas.viewAtiva.<escopo>`).
+  - **config** (jsonb): `{ tipo, agrupar, subtarefas, responsaveis[], concluidas, filtros }`;
+    `normalizarConfig` também lê o formato antigo (view/filtroResp/mostrarConcluidas/etiqueta).
+  - **Rascunho:** a tela mostra o rascunho da view ativa (`rascunhoView` em `Tarefas.jsx`). Mexer pela
+    barra (`FerramentasView`) só muda a tela e acende o botão dividido "Salvar visualização ▾" (salvar,
+    Ctrl+Enter fora de campos; salvar como nova; reverter). A sidebar de configurações
+    (`PainelConfigView`, engrenagem) grava na hora. Quem não pode editar a view mexe só na tela e salva
+    como nova.
+  - **Barra:** à esquerda o agrupador e o modo das subtarefas; à direita busca (ícone que vira campo),
+    filtros (funil, com contador e ponto laranja se diferem dos salvos), responsáveis (múltipla seleção;
+    nenhum = todos), concluídas, densidade (Lista), engrenagem e "+ Tarefa ▾" (a seta é o `ModelosMenu`
+    de templates). O "Nova tarefa" e o "Templates" do cabeçalho só aparecem nas seções sem essa barra.
+  - **Subtarefas:** Recolhidas (padrão) e Expandidas (`ctx.expandirTudo`) ficam sob o pai e os filtros e o
+    agrupamento olham só o pai, como no ClickUp; Separar avalia e agrupa cada subtarefa sozinha, sem
+    aninhar, com "↳ pai" ao lado do título (`ctx.rotuloPai` da `ListaView`).
+  - **Filtros avançados** (`PainelFiltros.jsx` + motor em `src/lib/filtrosTarefas.js`):
+    `{ op, grupos: [{ op, regras: [{ campo, operador, valor }] }] }`. Condição conforme o tipo do campo
+    (opção, lista, data com períodos/antes/depois/atrasada, número, texto); E/OU dentro do grupo e entre
+    grupos (1º "Onde", 2º seletor, 3º+ o mesmo E/OU em texto); regra incompleta não filtra. Somam (E) com
+    os da barra e são rascunho da view, como a barra. A etiqueta saiu da barra e virou campo daqui.
+  - **Sidebars** à direita (340 px; filtros 600 px): empurram o conteúdo quando sobra largura, senão
+    sobrepõem; Esc fecha; abrir uma tarefa fecha a sidebar e vice-versa.
+  - **config** também guarda `ordenar` (`{ campo, dir }`: cabeçalhos da Lista clicáveis, sobe → desce →
+    ordem manual; `ordenarPorCampo` em `src/lib/tarefas.js`, vazios sempre no fim; vale para as subtarefas
+    abertas) e `calendario` (`mes` | `semana`). A Planilha mantém a ordenação dela, só na tela.
+  - **Calendário:** Mês ou Semana, sempre de domingo a sábado (igual aos grupos de vencimento da Lista e
+    aos períodos "Esta semana"/"Próxima semana" dos filtros). Na Semana cada dia é uma coluna com todas as
+    tarefas; no Mês, "+N mais" abre a semana do dia.
+  - **Minhas tarefas:** o filtro de responsável da barra e da sidebar fica travado (é sempre você); o campo
+    Responsáveis dos filtros avançados continua.
+  - **Status por tarefa:** Minhas/Todas misturam listas; `ctx.statusesDe(item)` faz o seletor de status
+    (Lista, Planilha) e os cartões mostrarem só os status da lista da tarefa, e o Quadro por status recusa
+    soltar numa coluna que não existe na lista da tarefa arrastada.
+  - **Subtarefas fora da Lista:** Expandidas só existe na Lista (nas outras fica desabilitada e vale como
+    Recolhidas); em Separar, Quadro/Planilha/Calendário/Gantt mostram o pai (`ctx.nomePai`).
 - **Paridade com o Plane (migration 095, 2026-10-16).** Reimplementado do zero a partir do que o
   repositório do Plane faz (o código dele é AGPL-3.0, nada foi copiado):
   - **Etiquetas** (`tarefas_etiquetas` + `tarefas_itens.etiquetas uuid[]`; o `tags` do ClickUp segue à parte), filtro na barra,
@@ -765,8 +808,8 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     de pessoa logada, a sincronização do ClickUp usa chave de serviço e fica de fora) e **seguidores**
     (`tarefas_seguidores`, quem comenta ou recebe a tarefa passa a seguir). Trigger de comentário e de
     atribuição escrevem em `notifications` (`tarefa_comentario`, `tarefa_atribuida`, link `/tarefas?tarefa=`).
-  - **Views compartilhadas** (`tarefas_views`, `acesso` publica/privada, só o dono edita/apaga). As que
-    ficavam no `localStorage` migram sozinhas para o banco como privadas.
+  - **Views compartilhadas** (`tarefas_views`, `acesso` publica/privada). Desde a migration 110 são as
+    abas da pasta; ver "Visualizações (views) dentro da pasta" acima.
   - **Pages** (`?aba=paginas&pagina=<id>`, `tarefas_paginas`, `usePaginas`, `PaginasView`): markdown com
     barra de formatação, subpáginas, cliente, privada/do time, bloqueio (só o dono edita),
     arquivo, salvamento automático e **versões** (`tarefas_paginas_versoes`, guarda o texto anterior se

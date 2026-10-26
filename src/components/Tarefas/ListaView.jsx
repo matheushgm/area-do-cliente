@@ -9,6 +9,8 @@
 // `colunas` (troca as colunas), `ctx.renderCelula(k, item)` (célula própria),
 // `ctx.semStatus` (sem o círculo de status), `ctx.acaoLinha(item)` (última coluna),
 // `ctx.renderAcoesHover(item)` (troca os atalhos de hover do nome),
+// `ctx.ordenar` + `ctx.onOrdenar(o)` ({ campo, dir } ou null: cabeçalho clicável, sobe → desce → sem),
+// `ctx.statusesDe(item)` (status da lista da tarefa, para Minhas/Todas, que misturam listas),
 // `ctx.rotuloPai(item)` (texto depois do título, ex.: "↳ tarefa-pai" com subtarefas separadas),
 // `ctx.expandirTudo` (subtarefas abertas de início), `ctx.acoesHover === false`
 // (sem os botões de hover do nome nem a linha "Adicionar subtarefa") e `ctx.simples`
@@ -17,8 +19,8 @@
 // ({ ids: Set, alternar(id), definir(ids, marcar) }: caixa de seleção por linha e
 // "selecionar todas" no cabeçalho; quem usa mostra a BarraSelecao).
 import { useState, useRef } from 'react'
-import { ChevronRight, ChevronDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Flag, Hourglass, AlignLeft, Pencil, Link2 } from 'lucide-react'
-import { ordenarItens, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
+import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Flag, Hourglass, AlignLeft, Pencil, Link2 } from 'lucide-react'
+import { ordenarItens, ordenarPorCampo, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
 import {
   StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo, AdicionarInline, Popover, ItemMenu, FOCO,
 } from './Campos'
@@ -171,7 +173,8 @@ function ResponsavelCU({ item, ctx }) {
 // ── Linha ─────────────────────────────────────────────────────────────────────
 
 function Celula({ k, item, ctx }) {
-  const { statuses, onAtualizar, onMudarStatus } = ctx
+  const { onAtualizar, onMudarStatus } = ctx
+  const statuses = ctx.statusesDe?.(item) || ctx.statuses
   const propria = ctx.renderCelula?.(k, item)
   if (propria !== undefined) return propria
   switch (k) {
@@ -202,7 +205,8 @@ function Celula({ k, item, ctx }) {
 }
 
 function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols, denso }) {
-  const { statuses, onAbrir, onMudarStatus, contagemComentarios, selecionadaId } = ctx
+  const { onAbrir, onMudarStatus, contagemComentarios, selecionadaId } = ctx
+  const statuses = ctx.statusesDe?.(item) || ctx.statuses
   const check = progressoChecklists(item.checklists)
   const nComent = contagemComentarios?.[item.id] || 0
   const concluida = item.status_tipo === 'closed'
@@ -271,6 +275,20 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
   )
 }
 
+// Título da coluna: clicável quando a lista aceita ordenar (ctx.onOrdenar) e a coluna é padrão.
+const ORDENAVEIS = new Set(['nome', 'status', 'tipo', 'resp', 'criada', 'venc', 'prio', 'sprint', 'estim', 'cliente'])
+function TituloColuna({ k, label, ctx, ordenavel = true }) {
+  if (!ctx.onOrdenar || !ordenavel || !ORDENAVEIS.has(k)) return <span className="truncate" aria-hidden="true">{label}</span>
+  const ativo = ctx.ordenar?.campo === k
+  const proximo = !ativo ? { campo: k, dir: 1 } : ctx.ordenar.dir === 1 ? { campo: k, dir: -1 } : null
+  return (
+    <button type="button" onClick={() => ctx.onOrdenar(proximo)} title={!ativo ? `Ordenar por ${label}` : ctx.ordenar.dir === 1 ? 'Inverter a ordem' : 'Tirar a ordenação'}
+      className={`inline-flex items-center gap-1 min-w-0 rounded hover:text-ln-t2 ${ativo ? 'text-ln-t2 font-medium' : ''} ${FOCO}`}>
+      <span className="truncate">{label}</span>{ativo && (ctx.ordenar.dir === 1 ? <ArrowUp className="w-3 h-3 shrink-0" /> : <ArrowDown className="w-3 h-3 shrink-0" />)}
+    </button>
+  )
+}
+
 // ── Grupo ─────────────────────────────────────────────────────────────────────
 
 function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
@@ -279,7 +297,9 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
   const [expandidos, setExpandidos] = useState(() => new Set())
   const [novaTarefa, setNovaTarefa] = useState(false)
   const { onCriar, listaPadraoId, agrupar } = ctx
-  const itens = ordenarItens(grupo.itens)
+  const ordenar = ctx.ordenar?.campo ? ctx.ordenar : null
+  const ordenarLista = (lista) => (ordenar ? ordenarPorCampo(lista, ordenar, ctx) : ordenarItens(lista))
+  const itens = ordenarLista(grupo.itens)
   const toggle = (id) => setExpandidos((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const idsDoGrupo = ctx.selecao ? itens.flatMap((i) => [i.id, ...(filhosDe.get(i.id) || []).map((f) => f.id)]) : []
   const nMarcadas = ctx.selecao ? idsDoGrupo.filter((id) => ctx.selecao.ids.has(id)).length : 0
@@ -316,14 +336,14 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
                 </span>
               )}
               <span className="w-4 shrink-0" aria-hidden="true" />
-              <span aria-hidden="true">Nome</span>
+              <TituloColuna k="nome" label="Nome" ctx={ctx} />
             </span>
-            {cols.map((c) => <span key={c.k} className="px-2 truncate" aria-hidden="true">{c.label}</span>)}
+            {cols.map((c) => <span key={c.k} className="px-2 min-w-0 flex"><TituloColuna k={c.k} label={c.label} ctx={ctx} ordenavel={!c.editavel || ORDENAVEIS.has(c.k)} /></span>)}
             <span className="inline-flex items-center justify-center text-ln-t4">{!ctx.simples && <Plus className="w-3.5 h-3.5" />}</span>
           </div>
           {itens.map((it) => {
             const todosFilhos = filhosDe.get(it.id) || []
-            const filhos = ordenarItens(todosFilhos.filter((f) => mostrarConcluidas || f.status_tipo !== 'closed' || it.status_tipo === 'closed'))
+            const filhos = ordenarLista(todosFilhos.filter((f) => mostrarConcluidas || f.status_tipo !== 'closed' || it.status_tipo === 'closed'))
             const exp = ctx.expandirTudo ? todosFilhos.length > 0 && !expandidos.has(it.id) : expandidos.has(it.id)
             return (
               <div key={it.id}>

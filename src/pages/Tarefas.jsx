@@ -10,8 +10,8 @@ import { apiFetch } from '../lib/api'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useOutletContext } from 'react-router-dom'
 import {
-  Menu, List, KanbanSquare, ChevronRight, ChevronDown, Search, X, Plus, Loader2, Layers, Eye, EyeOff, PanelLeft, User, RefreshCw,
-  Check, Maximize2, Minimize2, Rows3, CalendarDays, Table2, GanttChart, CircleDot, Users, Flag, Hourglass, Shapes, CalendarClock, ExternalLink,
+  Menu, ChevronRight, X, Plus, Loader2, PanelLeft, RefreshCw, Maximize2, Minimize2, CalendarDays, CircleDot, Users, Flag, Hourglass,
+  Shapes, CalendarClock, ExternalLink, CornerDownRight,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
@@ -26,10 +26,14 @@ import PlanilhaView from '../components/Tarefas/PlanilhaView'
 import GanttView from '../components/Tarefas/GanttView'
 import PaginasView from '../components/Tarefas/PaginasView'
 import AnalyticsView from '../components/Tarefas/AnalyticsView'
-import ModelosMenu from '../components/Tarefas/ModelosMenu'
+import { AbasViews, FerramentasView } from '../components/Tarefas/BarraViews'
+import { PainelConfigView, PainelNovaView } from '../components/Tarefas/PainelView'
+import PainelFiltros from '../components/Tarefas/PainelFiltros'
+import { escopoDaSelecao, chaveEscopo, viewsDoEscopo, igualConfig } from '../lib/viewsTarefas'
+import { passaFiltros, contarRegras } from '../lib/filtrosTarefas'
 import { usePaginas } from '../hooks/usePaginas'
 import { cicloPadrao } from '../lib/vertatask'
-import { statusDaLista, statusDasListas, agruparItens, filtrarItens, AGRUPAMENTOS, STATUSES_PADRAO, corDaPessoa, iniciais, novoId } from '../lib/tarefas'
+import { statusDaLista, statusDasListas, agruparItens, filtrarItens, STATUSES_PADRAO, novoId } from '../lib/tarefas'
 import TarefasSidebar from '../components/Tarefas/TarefasSidebar'
 import ListaView from '../components/Tarefas/ListaView'
 import QuadroView from '../components/Tarefas/QuadroView'
@@ -41,7 +45,7 @@ import TemplateEditor from '../components/Tarefas/TemplateEditor'
 import AplicarTemplateView from '../components/Tarefas/AplicarTemplateView'
 import { templateDaTarefa, clonarItens, itensDoTemplate } from '../lib/templates'
 import IntakeView from '../components/Tarefas/IntakeView'
-import { Popover, Avatar, FOCO, StatusCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo } from '../components/Tarefas/Campos'
+import { FOCO, StatusCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo } from '../components/Tarefas/Campos'
 import BarraSelecao, { BotaoBarra, ResponsaveisEmMassa, aplicarDiferenca } from '../components/Tarefas/BarraSelecao'
 import { MenuTarefa } from '../components/Tarefas/TarefaExtras'
 
@@ -60,9 +64,7 @@ function useLarguraDoConteudo(ref) {
   return w
 }
 
-const novoIdView = () => `v${Date.now().toString(36)}`
-// agrupamento gravado que não existe mais (ex.: o antigo "Module") volta ao padrão
-const agrupamentoValido = (v) => (AGRUPAMENTOS.some((a) => a.value === v) ? v : 'vencimento')
+const SEM_FILHOS = new Map() // subtarefas "Separar": cada uma vira linha própria, sem aninhar
 
 function estaDigitando() {
   const el = document.activeElement
@@ -132,61 +134,6 @@ function gravarPref(chave, v) {
   try { localStorage.setItem(`tarefas.${chave}`, JSON.stringify(v)) } catch { /* noop */ }
 }
 
-function MenuAgrupar({ valor, onChange }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-  const atual = AGRUPAMENTOS.find((a) => a.value === valor)
-  return (
-    <>
-      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`ln-pill ${FOCO}`} title="Agrupar as tarefas">
-        <Layers className="w-3.5 h-3.5" /> Agrupar: {atual?.label} <ChevronDown className="w-3 h-3" />
-      </button>
-      <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={200} align="right">
-        <div className="p-1">
-          {AGRUPAMENTOS.map((a) => (
-            <button key={a.value} type="button" onClick={() => { setOpen(false); onChange(a.value) }} className={`w-full flex items-center h-8 px-2.5 rounded-md text-[13px] hover:bg-ln-ink/5 ${a.value === valor ? 'text-ln-t1' : 'text-ln-t2'}`}>
-              {a.label}{a.value === valor && <Check className="w-3.5 h-3.5 ml-auto text-ln-accent" />}
-            </button>
-          ))}
-        </div>
-      </Popover>
-    </>
-  )
-}
-
-function MenuResponsavel({ valor, membros, onChange }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-  const sel = membros.find((m) => m.id === valor)
-  const ativo = valor !== 'todos'
-  const rotulo = valor === 'todos' ? 'Responsável' : valor === 'eu' ? 'Minhas' : sel?.name?.split(' ')[0] || 'Responsável'
-  return (
-    <>
-      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`ln-pill ${ativo ? '!bg-ln-ink/[0.08] !text-ln-t1' : ''} ${FOCO}`} title="Filtrar por responsável">
-        <User className="w-3.5 h-3.5" /> {rotulo}
-        {ativo ? <X className="w-3 h-3" onClick={(e) => { e.stopPropagation(); onChange('todos') }} /> : <ChevronDown className="w-3 h-3" />}
-      </button>
-      <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={240} align="right">
-        <div className="p-1 overflow-y-auto">
-          {[{ id: 'todos', label: 'Todos' }, { id: 'eu', label: 'Minhas tarefas' }].map((o) => (
-            <button key={o.id} type="button" onClick={() => { setOpen(false); onChange(o.id) }} className={`w-full flex items-center h-8 px-2.5 rounded-md text-[13px] hover:bg-ln-ink/5 ${valor === o.id ? 'text-ln-t1' : 'text-ln-t2'}`}>
-              {o.label}{valor === o.id && <Check className="w-3.5 h-3.5 ml-auto text-ln-accent" />}
-            </button>
-          ))}
-          <div className="border-t border-ln-ink/5 my-1" />
-          {membros.filter((m) => !m.disabled).map((m) => (
-            <button key={m.id} type="button" onClick={() => { setOpen(false); onChange(m.id) }} className={`w-full flex items-center gap-2 h-8 px-2.5 rounded-md text-[13px] hover:bg-ln-ink/5 ${valor === m.id ? 'text-ln-t1' : 'text-ln-t2'}`}>
-              <Avatar pessoa={{ nome: m.name, iniciais: m.avatar || iniciais(m.name), cor: corDaPessoa(m.id) }} size={18} />
-              <span className="truncate">{m.name}</span>
-              {valor === m.id && <Check className="w-3.5 h-3.5 ml-auto text-ln-accent" />}
-            </button>
-          ))}
-        </div>
-      </Popover>
-    </>
-  )
-}
-
 export default function Tarefas() {
   const { user, projects, teamMembers, squads } = useApp()
   const { toast, showToast } = useToast()
@@ -199,15 +146,12 @@ export default function Tarefas() {
   const conteudoRef = useRef(null)
   const largura = useLarguraDoConteudo(conteudoRef)
   const [arvoreAberta, setArvoreAberta] = useState(false)
-  const [view, setView] = useState(() => lerPref('view', 'lista'))
-  const [agrupar, setAgrupar] = useState(() => agrupamentoValido(lerPref('agrupar', 'vencimento'))) // como a lista do ClickUp
-  const [mostrarConcluidas, setMostrarConcluidas] = useState(() => lerPref('concluidas', false))
   const [denso, setDenso] = useState(() => lerPref('denso', false))
   const [busca, setBusca] = useState('')
-  const [filtroResp, setFiltroResp] = useState('todos')
+  const [rascunhoView, setRascunhoView] = useState(null) // { chave, config }: o que mudou na tela e não foi salvo
+  const [painelView, setPainelView] = useState(null) // null | 'config' | 'nova' | 'filtros' (sidebar à direita)
   const [painelExpandido, setPainelExpandido] = useState(false)
   const [recarregarTick, setRecarregarTick] = useState(0)
-  const [filtroEtiqueta, setFiltroEtiqueta] = useState('')
   const [selecionadas, setSelecionadas] = useState(() => new Set()) // seleção da Lista (barra no rodapé)
   const [emMassa, setEmMassa] = useState(false)
   const [aplicandoTpl, setAplicandoTpl] = useState(null) // { template, listaId }: tela "Aplicar template"
@@ -222,9 +166,6 @@ export default function Tarefas() {
     }, [t, showToast]),
   })
 
-  useEffect(() => gravarPref('view', view), [view])
-  useEffect(() => gravarPref('agrupar', agrupar), [agrupar])
-  useEffect(() => gravarPref('concluidas', mostrarConcluidas), [mostrarConcluidas])
   useEffect(() => gravarPref('denso', denso), [denso])
   useEffect(() => gravarPref('burn', unidadeBurn), [unidadeBurn])
 
@@ -257,38 +198,79 @@ export default function Tarefas() {
     setParams(new URLSearchParams({ aba: a, ...extra }))
   }, [setSel, setParams])
 
-  const salvarView = useCallback(async () => {
-    const nome = window.prompt('Nome da view')
-    if (!nome || !nome.trim()) return
-    const compartilhar = window.confirm('Compartilhar esta view com o time?\n\nOK = todo mundo vê. Cancelar = só você.')
-    const alvo = ['lista', 'pasta', 'minhas', 'todas'].includes(sel.tipo) ? sel : { tipo: 'todas' }
-    const r = await vt.criarView({ nome, acesso: compartilhar ? 'publica' : 'privada', config: { sel: alvo, view, agrupar, filtroResp, mostrarConcluidas, etiqueta: filtroEtiqueta } })
-    if (r.error) showToast(r.error, 'error'); else showToast(compartilhar ? 'View salva e compartilhada' : 'View salva só para você')
-  }, [sel, view, agrupar, filtroResp, mostrarConcluidas, filtroEtiqueta, vt, showToast])
-  const aplicarView = useCallback((v) => {
-    const c = v.config || {}
-    setView(c.view || 'lista'); setAgrupar(agrupamentoValido(c.agrupar || 'status')); setFiltroResp(c.filtroResp || 'todos'); setMostrarConcluidas(!!c.mostrarConcluidas); setFiltroEtiqueta(c.etiqueta || '')
-    setSel(c.sel || { tipo: 'todas' })
-  }, [setSel])
-  const excluirView = useCallback(async (id) => {
-    const r = await vt.excluirView(id)
-    if (r.error) showToast(r.error, 'error')
-  }, [vt, showToast])
-  const alternarAcessoView = useCallback(async (v) => {
-    const r = await vt.atualizarView(v.id, { acesso: v.acesso === 'publica' ? 'privada' : 'publica' })
-    if (r.error) showToast(r.error, 'error'); else showToast(v.acesso === 'publica' ? 'Agora só você vê esta view' : 'View compartilhada com o time')
-  }, [vt, showToast])
+  // ── Visualizações: abas da pasta (ou de Minhas/Todas), src/lib/viewsTarefas.js ──
+  // A tela mostra o rascunho da view ativa; a barra mexe no rascunho e "Salvar
+  // visualização" grava. A sidebar de configurações grava na hora.
+  const mostrarViews = !aba || aba === 'ciclos'
+  const escopoViews = useMemo(() => escopoDaSelecao(sel, t.listasMap), [sel, t.listasMap])
+  const chaveEsc = chaveEscopo(escopoViews)
+  const persistente = !!escopoViews
+  const { padrao: viewsPadrao, salvas: viewsSalvas } = useMemo(() => viewsDoEscopo(vt.views, escopoViews), [vt.views, escopoViews])
+  const viewParam = params.get('view')
+  const viewAtiva = useMemo(() => {
+    const todasV = [...viewsPadrao, ...viewsSalvas]
+    return todasV.find((v) => v.chave === viewParam) || todasV.find((v) => v.chave === lerPref(`viewAtiva.${chaveEsc}`, null)) || viewsPadrao[0]
+  }, [viewsPadrao, viewsSalvas, viewParam, chaveEsc])
+  const chaveRascunho = `${chaveEsc}|${viewAtiva.chave}`
+  const config = rascunhoView?.chave === chaveRascunho ? rascunhoView.config : viewAtiva.config
+  const alterada = persistente && !igualConfig(viewAtiva.config, config)
+  const podeEditarView = persistente && (viewAtiva.padrao || viewAtiva.donoId === user?.id)
+  const view = config.tipo
+  const agrupar = config.agrupar
+  const mostrarConcluidas = config.concluidas
+  // em "Minhas tarefas" o responsável é sempre a pessoa logada: o filtro da barra fica travado
+  const respBloqueado = sel.tipo === 'minhas'
+  const respFiltro = useMemo(() => (respBloqueado ? [] : config.responsaveis), [respBloqueado, config.responsaveis])
 
-  // Views que ficavam só neste navegador (versão anterior) passam para o banco, privadas.
-  const migrouViews = useRef(false)
-  useEffect(() => {
-    if (vt.loading || migrouViews.current || !user?.id) return
-    migrouViews.current = true
-    const locais = lerPref('views', [])
-    if (!Array.isArray(locais) || !locais.length) return
-    Promise.all(locais.map((v) => vt.criarView({ nome: v.nome, acesso: 'privada', config: { sel: v.sel, view: v.view, agrupar: v.agrupar, filtroResp: v.filtroResp, mostrarConcluidas: v.mostrarConcluidas } })))
-      .then(() => { try { localStorage.removeItem('tarefas.views') } catch { /* noop */ } })
-  }, [vt.loading, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const editarView = useCallback((patch) => {
+    setRascunhoView((prev) => ({ chave: chaveRascunho, config: { ...(prev?.chave === chaveRascunho ? prev.config : viewAtiva.config), ...patch } }))
+  }, [chaveRascunho, viewAtiva])
+  const gravarView = useCallback((patch) => (viewAtiva.padrao
+    ? vt.salvarViewPadrao({ escopo: escopoViews, tipo: viewAtiva.chave, nome: viewAtiva.nome, patch })
+    : vt.atualizarView(viewAtiva.row.id, patch)), [viewAtiva, escopoViews, vt])
+  const salvarVisualizacao = useCallback(async () => {
+    if (!podeEditarView || !alterada) return
+    const r = await gravarView({ config })
+    if (r.error) showToast(r.error, 'error'); else { setRascunhoView(null); showToast(`"${viewAtiva.nome}" salva`) }
+  }, [podeEditarView, alterada, gravarView, config, viewAtiva.nome, showToast])
+  const reverterView = useCallback(() => { setRascunhoView(null); showToast('Alterações revertidas') }, [showToast])
+  // sidebar de configurações: grava na hora (levando junto o que estava pendente na barra)
+  const editarViewNaSidebar = useCallback(async (patch) => {
+    const novo = { ...config, ...patch }
+    setRascunhoView({ chave: chaveRascunho, config: novo })
+    if (!podeEditarView) return
+    const r = await gravarView({ config: novo })
+    if (r.error) showToast(r.error, 'error')
+  }, [config, chaveRascunho, podeEditarView, gravarView, showToast])
+  const metaView = useCallback(async (patch) => {
+    const r = await gravarView(patch)
+    if (r.error) showToast(r.error, 'error')
+    else if (patch.acesso) showToast(patch.acesso === 'privada' ? 'Agora só você vê esta visualização' : 'Visualização compartilhada com o time')
+  }, [gravarView, showToast])
+  const abrirView = useCallback((v) => {
+    gravarPref(`viewAtiva.${chaveEsc}`, v.chave)
+    setRascunhoView(null)
+    setPainelView((p) => (p === 'nova' ? null : p))
+    const p = new URLSearchParams(params)
+    p.set('view', v.chave)
+    setParams(p)
+  }, [chaveEsc, params, setParams])
+  const criarVisualizacao = useCallback(async ({ nome, publica, cfg = config }) => {
+    const r = await vt.criarView({ nome, config: cfg, acesso: publica ? 'publica' : 'privada', escopo: escopoViews })
+    if (r.error) { showToast(r.error, 'error'); return r }
+    abrirView({ chave: r.data.id })
+    setPainelView('config')
+    showToast(`Visualização "${nome}" criada`)
+    return r
+  }, [vt, config, escopoViews, abrirView, showToast])
+  const excluirVisualizacao = useCallback(async () => {
+    if (viewAtiva.padrao) return
+    const r = await vt.excluirView(viewAtiva.row.id)
+    if (r.error) { showToast(r.error, 'error'); return }
+    setPainelView(null)
+    abrirView(viewsPadrao[0])
+    showToast('Visualização excluída')
+  }, [vt, viewAtiva, viewsPadrao, abrirView, showToast])
 
   // ── Templates ────────────────────────────────────────────────────────────
   const templateAbertoId = aba === 'templates' ? params.get('template') : null
@@ -338,11 +320,16 @@ export default function Tarefas() {
   }, [t, showToast])
 
   const abrirTarefa = useCallback((id) => {
+    if (id) setPainelView(null)
     const p = new URLSearchParams(params)
     if (id) p.set('tarefa', id); else p.delete('tarefa')
     setParams(p, { replace: !!params.get('tarefa') })
   }, [params, setParams])
   const fecharPainel = useCallback(() => { setPainelExpandido(false); abrirTarefa(null) }, [abrirTarefa])
+  const abrirPainelView = useCallback((qual) => {
+    if (qual && tarefaAbertaId) abrirTarefa(null)
+    setPainelView(qual)
+  }, [tarefaAbertaId, abrirTarefa])
 
   useEffect(() => {
     if (t.loadingEstrutura) return
@@ -403,10 +390,18 @@ export default function Tarefas() {
     return itensEscopo.filter((it) => !it.parent_id || !ids.has(it.parent_id))
   }, [itensEscopo])
 
-  const filtrados = useMemo(
-    () => filtrarItens(topo, { busca, responsavel: filtroResp, mostrarConcluidas, userId: user?.id }).filter((it) => !filtroEtiqueta || (it.etiquetas || []).includes(filtroEtiqueta)),
-    [topo, busca, filtroResp, mostrarConcluidas, user?.id, filtroEtiqueta],
-  )
+  // Recolhidas/Expandidas: filtra e agrupa só as tarefas de cima (as subtarefas vêm junto do
+  // pai). Separar: cada tarefa e subtarefa é avaliada e agrupada pelos próprios campos.
+  // Filtros da barra (busca, responsáveis, concluídas) E filtros avançados da sidebar.
+  const separar = config.subtarefas === 'separar'
+  const baseFiltro = separar ? itensEscopo : topo
+  const filtrados = useMemo(() => {
+    const resp = respFiltro
+    return filtrarItens(baseFiltro, { busca, mostrarConcluidas })
+      .filter((it) => !resp.length || resp.some((id) => (it.responsaveis || []).includes(id)))
+      .filter((it) => passaFiltros(it, config.filtros))
+  }, [baseFiltro, busca, mostrarConcluidas, respFiltro, config.filtros])
+  const filhosVisao = separar ? SEM_FILHOS : filhosDe
 
   const grupos = useMemo(() => {
     const g = agruparItens(filtrados, agrupar, { statuses, membrosMap, listasMap: t.listasMap, ciclosMap: vt.ciclosMap })
@@ -522,21 +517,38 @@ export default function Tarefas() {
   // Atalhos: C cria, Esc fecha o painel (fora de campos de texto).
   useEffect(() => {
     const h = (e) => {
+      // Ctrl+Enter salva a visualização (fora de campos, para não brigar com comentários)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && mostrarViews && alterada && podeEditarView && !estaDigitando()) { e.preventDefault(); salvarVisualizacao(); return }
       if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key === 'Escape' && painelView && !estaDigitando()) { e.preventDefault(); setPainelView(null); return }
       if (e.key === 'Escape' && tarefaAbertaId && !estaDigitando()) { e.preventDefault(); if (painelExpandido) setPainelExpandido(false); else fecharPainel(); return }
       if (e.key === 'Escape' && selecionadas.size && !aplicandoTpl && !estaDigitando()) { e.preventDefault(); setSelecionadas(new Set()) }
       if ((e.key === 'c' || e.key === 'C') && !estaDigitando() && aba !== 'chat' && aba !== 'atividades' && aba !== 'paginas' && aba !== 'templates' && !aplicandoTpl) { e.preventDefault(); novaTarefa() }
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa, aba, aplicandoTpl, selecionadas.size])
+  }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa, aba, aplicandoTpl, selecionadas.size, mostrarViews, alterada, podeEditarView, salvarVisualizacao, painelView])
 
   const ctx = useMemo(() => ({
     statuses, membros: teamMembers || [], membrosMap, itensMap: t.itens, listaPadraoId, agrupar, contagemComentarios, selecionadaId: tarefaAbertaId,
     onAbrir: abrirTarefa, onAtualizar, onMudarStatus, onCriar, etiquetasMap: vt.etiquetasMap,
+    // cada tarefa só oferece os status da própria lista (Minhas/Todas misturam listas)
+    statusesDe: (it) => { const l = t.listasMap.get(it.lista_id); return l ? statusDaLista(l) : statuses },
     // colunas Cliente e Sprints da Lista (estilo ClickUp)
     listas: t.listas, pastas: t.pastas, projetos: projects || [], ciclos: vt.ciclos || [],
-  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar])
+    // subtarefas: Expandidas abre todas; Separar mostra "↳ pai" ao lado do título
+    expandirTudo: config.subtarefas === 'expandidas',
+    // ordenação pelos cabeçalhos da Lista (rascunho da view, como a barra)
+    ordenar: config.ordenar, onOrdenar: (ordenar) => editarView({ ordenar }),
+    calendario: config.calendario, onCalendario: (calendario) => editarView({ calendario }),
+    // Separar: nome da tarefa-pai para Quadro, Planilha, Calendário e Gantt
+    nomePai: config.subtarefas === 'separar' ? (it) => (it.parent_id ? t.itens[it.parent_id]?.titulo || null : null) : undefined,
+    rotuloPai: config.subtarefas === 'separar' ? (it) => (it.parent_id && t.itens[it.parent_id] ? (
+      <span className="inline-flex items-center gap-1 ml-1.5 min-w-0 text-[11px] text-ln-t4" title={`Subtarefa de ${t.itens[it.parent_id].titulo}`}>
+        <CornerDownRight className="w-3 h-3 shrink-0" /><span className="truncate max-w-[220px]">{t.itens[it.parent_id].titulo}</span>
+      </span>
+    ) : null) : undefined,
+  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, editarView])
 
   // ── Seleção da Lista e ações em massa (BarraSelecao) ─────────────────────
   // a seleção vale para o que está na tela: trocar de pasta, lista, seção ou visão limpa
@@ -612,7 +624,6 @@ export default function Tarefas() {
   const paiDaAberta = tarefaAberta?.parent_id ? t.itens[tarefaAberta.parent_id] : null
   const statusesDaAberta = listaDaAberta ? statusDaLista(listaDaAberta) : statuses
   const painelEmpurra = largura >= EMPURRA_A_PARTIR_DE
-  const mostrarViews = !aba || aba === 'ciclos'
   const comTopo = aba === 'ciclos' // cabeçalho acima da view: a página rola inteira
   const semRolagem = aba === 'paginas' || aba === 'templates' // templates (lista e editor) rolam por dentro
   const painel = !!tarefaAbertaId
@@ -631,7 +642,6 @@ export default function Tarefas() {
               onAtualizarLista={t.atualizarLista}
               aberta={arvoreAberta} onFechar={() => setArvoreAberta(false)}
               nav={{ aba: aba || 'tarefas', onAba: irAba, intake: vt.intakePendentes.length, chat: chatNaoLidas }}
-              views={vt.views} userId={user?.id} onAplicarView={aplicarView} onExcluirView={excluirView} onAlternarAcessoView={alternarAcessoView}
               contagem={contagemPorPasta}
             />
 
@@ -669,8 +679,7 @@ export default function Tarefas() {
                     {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
                   </button>
                   <button onClick={() => { if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true }); else if (sel.tipo === 'todas') t.carregarAbertas({ force: true }) }} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
-                  {(!aba || aba === 'ciclos') && <ModelosMenu modelos={vt.modelos} onUsar={usarModelo} onGerenciar={() => abrirTemplate(null)} />}
-                  {aba !== 'templates' && (
+                  {aba !== 'templates' && !mostrarViews && (
                     <button onClick={novaTarefa} className="ln-primary" title="Nova tarefa (C)">
                       <Plus className="w-3.5 h-3.5" /> Nova tarefa
                     </button>
@@ -678,41 +687,21 @@ export default function Tarefas() {
                 </div>
               </header>
 
-              {/* Barra de views */}
-              {mostrarViews && (
-              <div className="h-11 shrink-0 flex items-center justify-between gap-3 px-3 border-b border-ln-ink/5">
-                <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto scroll-hide">
-                  <button onClick={() => setView('lista')} className={`ln-tab ${view === 'lista' ? 'ln-tab-active' : ''} ${FOCO}`}><List className="w-3.5 h-3.5" /> Lista</button>
-                  <button onClick={() => setView('quadro')} className={`ln-tab ${view === 'quadro' ? 'ln-tab-active' : ''} ${FOCO}`}><KanbanSquare className="w-3.5 h-3.5" /> Quadro</button>
-                  <button onClick={() => setView('calendario')} className={`ln-tab ${view === 'calendario' ? 'ln-tab-active' : ''} ${FOCO}`}><CalendarDays className="w-3.5 h-3.5" /> Calendário</button>
-                  <button onClick={() => setView('planilha')} className={`ln-tab ${view === 'planilha' ? 'ln-tab-active' : ''} ${FOCO}`}><Table2 className="w-3.5 h-3.5" /> Planilha</button>
-                  <button onClick={() => setView('gantt')} className={`ln-tab ${view === 'gantt' ? 'ln-tab-active' : ''} ${FOCO}`}><GanttChart className="w-3.5 h-3.5" /> Gantt</button>
-                  <span className="w-px h-4 bg-ln-line mx-1 shrink-0" />
-                  <MenuAgrupar valor={agrupar} onChange={setAgrupar} />
-                  <MenuResponsavel valor={filtroResp} membros={teamMembers || []} onChange={setFiltroResp} />
-                  {vt.etiquetas.length > 0 && (
-                    <select className={`ln-pill !pr-1 ${filtroEtiqueta ? '!text-ln-accent' : ''}`} value={filtroEtiqueta} onChange={(e) => setFiltroEtiqueta(e.target.value)} aria-label="Filtrar por etiqueta">
-                      <option value="">Etiqueta</option>
-                      {vt.etiquetas.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
-                    </select>
-                  )}
-                  <button onClick={() => setMostrarConcluidas((v) => !v)} className={`ln-pill ${mostrarConcluidas ? '!bg-ln-ink/[0.08] !text-ln-t1' : ''} ${FOCO}`} title={mostrarConcluidas ? 'Esconder concluídas' : 'Mostrar concluídas'}>
-                    {mostrarConcluidas ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} Concluídas
-                  </button>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {!aba && <button onClick={salvarView} className="ln-pill" title="Guardar esta combinação de filtros como view">Salvar view</button>}
-                  <div className="ln-input !h-7 !w-[150px] hidden sm:flex items-center gap-1.5">
-                    <Search className="w-3.5 h-3.5 text-ln-t4 shrink-0" />
-                    <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar tarefa" className="flex-1 min-w-0 bg-transparent outline-none text-xs text-ln-t1 placeholder:text-ln-t4" aria-label="Buscar tarefa" />
-                    {busca && <button type="button" onClick={() => setBusca('')} className="text-ln-t4 hover:text-ln-t2" aria-label="Limpar busca"><X className="w-3 h-3" /></button>}
-                  </div>
-                  {view === 'lista' && (
-                    <button onClick={() => setDenso((v) => !v)} className={`ln-iconbtn ${denso ? 'bg-ln-ink/[0.08] text-ln-t1' : ''}`} aria-label="Densidade" title={denso ? 'Linhas confortáveis' : 'Linhas compactas'}><Rows3 className="w-3.5 h-3.5" /></button>
-                  )}
-                </div>
-              </div>
-              )}
+              {/* Visualizações: abas (padrão + salvas do escopo) e ferramentas */}
+              {mostrarViews && (<>
+                <AbasViews
+                  padrao={viewsPadrao} salvas={viewsSalvas} ativaChave={viewAtiva.chave} tipoAtivo={config.tipo} alterada={alterada}
+                  onAbrir={abrirView} onNova={persistente ? () => abrirPainelView('nova') : null}
+                />
+                <FerramentasView
+                  config={config} onEditar={editarView} alterada={alterada} podeEditar={podeEditarView} persistente={persistente}
+                  onSalvar={salvarVisualizacao} onSalvarNova={() => abrirPainelView('nova')} onReverter={reverterView}
+                  busca={busca} onBusca={setBusca} membros={teamMembers || []} respBloqueado={respBloqueado}
+                  nFiltros={contarRegras(config.filtros)} filtrosAlterados={persistente && JSON.stringify(config.filtros) !== JSON.stringify(viewAtiva.config.filtros)}
+                  painel={painelView} onPainel={abrirPainelView} denso={denso} onDenso={() => setDenso((v) => !v)}
+                  modelos={vt.modelos} onUsarModelo={usarModelo} onGerenciarModelos={() => abrirTemplate(null)} onNovaTarefa={novaTarefa}
+                />
+              </>)}
 
               {/* Conteúdo rolável */}
               <div className={`flex-1 min-h-0 bg-ln-bg ${(view === 'quadro' && !comTopo && mostrarViews) || semRolagem ? 'overflow-hidden' : 'overflow-auto'}`}>
@@ -754,9 +743,9 @@ export default function Tarefas() {
                     ) : view === 'gantt' ? (
                       <GanttView itens={filtrados} ctx={ctx} />
                     ) : view === 'quadro' ? (
-                      <div className={comTopo ? 'h-[560px]' : 'h-full'}><QuadroView grupos={grupos} filhosDe={filhosDe} ctx={ctx} /></div>
+                      <div className={comTopo ? 'h-[560px]' : 'h-full'}><QuadroView grupos={grupos} filhosDe={filhosVisao} ctx={ctx} /></div>
                     ) : (
-                      <ListaView grupos={grupos} filhosDe={filhosDe} ctx={{ ...ctx, selecao }} mostrarConcluidas={mostrarConcluidas} denso={denso} compacto={painel && painelEmpurra && largura < 1600} />
+                      <ListaView key={`${chaveRascunho}:${config.subtarefas}`} grupos={grupos} filhosDe={filhosVisao} ctx={{ ...ctx, selecao }} mostrarConcluidas={mostrarConcluidas} denso={denso} compacto={painel && painelEmpurra && largura < 1600} />
                     )}
                   </>
                 )}
@@ -793,6 +782,46 @@ export default function Tarefas() {
                 />
               </div>
             )}
+
+            {/* ── Sidebars da visualização: configurações, nova, filtros ── */}
+            {painelView && mostrarViews && !aplicandoTpl && (() => {
+              const larg = painelView === 'filtros' ? 600 : 340
+              const empurra = largura >= larg + 760
+              return (
+                <>
+                  {!empurra && <div className="absolute inset-0 z-30 bg-black/30" onClick={() => setPainelView(null)} aria-hidden="true" />}
+                  <aside
+                    className={`${empurra ? 'relative shrink-0' : 'absolute inset-y-0 right-0 z-40 shadow-2xl'} border-l border-ln-ink/[0.08] flex flex-col min-h-0 bg-ln-panel`}
+                    style={{ width: empurra ? larg : `min(${larg}px, 100%)` }}
+                    aria-label={painelView === 'filtros' ? 'Filtros' : painelView === 'nova' ? 'Nova visualização' : 'Configurações da visualização'}
+                  >
+                    {painelView === 'filtros' ? (
+                      <PainelFiltros
+                        filtros={config.filtros} onChange={(filtros) => editarView({ filtros })}
+                        ctx={{ statuses, membros: teamMembers || [], etiquetas: vt.etiquetas, ciclos: vt.ciclos, listas: listasEscopo.length ? listasEscopo : t.listas }}
+                        barra={[
+                          respFiltro.length && `Responsáveis: ${respFiltro.map((id) => membrosMap.get(id)?.name || '—').join(', ')}`,
+                          !config.concluidas && 'Sem concluídas',
+                          busca.trim() && `Nome contém “${busca.trim()}”`,
+                        ].filter(Boolean)}
+                        total={baseFiltro.length} mostrando={filtrados.length} persistente={persistente}
+                        alterados={JSON.stringify(config.filtros) !== JSON.stringify(viewAtiva.config.filtros)} podeEditar={podeEditarView}
+                        onSalvar={salvarVisualizacao} onReverter={() => editarView({ filtros: viewAtiva.config.filtros })} onFechar={() => setPainelView(null)}
+                      />
+                    ) : painelView === 'nova' ? (
+                      <PainelNovaView config={config} origem={viewAtiva.nome} membros={teamMembers || []} onCriar={criarVisualizacao} onFechar={() => setPainelView(null)} />
+                    ) : (
+                      <PainelConfigView
+                        key={chaveRascunho} v={viewAtiva} config={config} podeEditar={podeEditarView} membros={teamMembers || []} respBloqueado={respBloqueado}
+                        onEditar={editarViewNaSidebar} onMeta={metaView} onAbrirFiltros={() => setPainelView('filtros')}
+                        onDuplicar={() => criarVisualizacao({ nome: `${viewAtiva.nome} (cópia)`, publica: true })}
+                        onExcluir={excluirVisualizacao} onFechar={() => setPainelView(null)}
+                      />
+                    )}
+                  </aside>
+                </>
+              )
+            })()}
 
             {/* ── Painel lateral: tarefa ──────────────────────────────── */}
             {!!tarefaAbertaId && !aplicandoTpl && aba !== 'chat' && aba !== 'atividades' && (

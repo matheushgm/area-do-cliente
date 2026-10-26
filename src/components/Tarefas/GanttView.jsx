@@ -69,7 +69,7 @@ export default function GanttView({ itens, ctx }) {
             const ia = Math.max(0, diasEntre(inicio, a)), ib = Math.min(total - 1, diasEntre(inicio, b))
             return (
               <div key={it.id} className="flex h-9 border-b border-ln-ink/5 hover:bg-ln-ink/[0.02]">
-                <button type="button" onClick={() => ctx.onAbrir(it.id)} title={it.titulo} className={`sticky left-0 z-10 bg-ln-panel border-r border-ln-ink/[0.08] px-3 text-left text-[13px] truncate ${it.status_tipo === 'closed' ? 'text-ln-t4 line-through' : 'text-ln-t2'} hover:text-ln-accent ${FOCO}`} style={{ width: ESQ }}>{it.titulo}</button>
+                <button type="button" onClick={() => ctx.onAbrir(it.id)} title={ctx.nomePai?.(it) ? `${it.titulo} (subtarefa de ${ctx.nomePai(it)})` : it.titulo} className={`sticky left-0 z-10 bg-ln-panel border-r border-ln-ink/[0.08] px-3 text-left text-[13px] truncate ${it.status_tipo === 'closed' ? 'text-ln-t4 line-through' : 'text-ln-t2'} hover:text-ln-accent ${FOCO}`} style={{ width: ESQ }}>{it.titulo}{ctx.nomePai?.(it) && <span className="text-[11px] text-ln-t4"> · ↳ {ctx.nomePai(it)}</span>}</button>
                 <div className="relative flex-1" style={{ width: total * DIA_PX }}>
                   {hojeIdx >= 0 && hojeIdx < total && <i className="absolute top-0 bottom-0 w-px bg-ln-accent/50" style={{ left: hojeIdx * DIA_PX + DIA_PX / 2 }} />}
                   <button

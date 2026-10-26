@@ -1,7 +1,7 @@
 // Coluna esquerda do módulo Tarefas: árvore Pastas (clientes) → Listas, no
 // visual do Linear (mesma coluna de navegação densa do app).
 import { useState, useMemo, useRef, Fragment } from 'react'
-import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, LayoutTemplate, ListChecks, MessageSquare, CalendarCheck, FileText, BarChart3, EyeOff, Globe } from 'lucide-react'
+import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, LayoutTemplate, ListChecks, MessageSquare, CalendarCheck, FileText, BarChart3 } from 'lucide-react'
 import { Popover, FOCO } from './Campos'
 
 function MenuPasta({ onRenomear, onNovaLista, onArquivar }) {
@@ -62,7 +62,7 @@ export default function TarefasSidebar({
   pastas, listas, projetos, sel, onSel,
   onCriarPasta, onCriarLista, onAtualizarPasta, onAtualizarLista,
   aberta, onFechar,
-  nav = { aba: 'tarefas', onAba: () => {}, intake: 0 }, views = [], userId, onAplicarView, onExcluirView, onAlternarAcessoView, contagem = {},
+  nav = { aba: 'tarefas', onAba: () => {}, intake: 0 }, contagem = {},
 }) {
   const [busca, setBusca] = useState('')
   const [expandidas, setExpandidas] = useState(() => {
@@ -191,23 +191,6 @@ export default function TarefasSidebar({
         <NavItem icon={BarChart3} ativo={nav.aba === 'analytics'} onClick={() => { nav.onAba('analytics'); onFechar?.() }}>Analytics</NavItem>
         <NavItem icon={CalendarCheck} ativo={nav.aba === 'atividades'} onClick={() => { nav.onAba('atividades'); onFechar?.() }}>Atividades</NavItem>
         <NavItem icon={MessageSquare} ativo={nav.aba === 'chat'} onClick={() => { nav.onAba('chat'); onFechar?.() }} badge={nav.chat}>Chat</NavItem>
-
-        <div className={SECAO}>Views salvas</div>
-        {views.length === 0 && <p className="px-2.5 text-xs text-ln-t4">Nenhuma ainda. Use Salvar view na barra de filtros.</p>}
-        {views.map((v) => (
-          <div key={v.id} className="group/view flex items-center">
-            <button type="button" onClick={() => { onAplicarView?.(v); onFechar?.() }} className={`flex-1 min-w-0 flex items-center gap-2.5 h-8 px-2.5 rounded-lg text-[13.5px] text-ln-t2 hover:bg-ln-ink/[0.04] ${FOCO}`}>
-              <i className="w-2 h-2 rounded-full shrink-0 bg-ln-blue" /><span className="truncate">{v.nome}</span>
-              {v.acesso === 'privada' && <EyeOff className="w-3 h-3 text-ln-t4 shrink-0" aria-label="Só você vê" />}
-            </button>
-            {v.dono_id === userId && (
-              <>
-                <button type="button" onClick={() => onAlternarAcessoView?.(v)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/view:opacity-100 focus-visible:opacity-100" title={v.acesso === 'publica' ? 'Compartilhada: clique para deixar só para você' : 'Só sua: clique para compartilhar'} aria-label="Mudar quem vê a view">{v.acesso === 'publica' ? <Globe className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}</button>
-                <button type="button" onClick={() => onExcluirView?.(v.id)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/view:opacity-100 focus-visible:opacity-100" title="Remover view" aria-label={`Remover a view ${v.nome}`}><X className="w-3 h-3" /></button>
-              </>
-            )}
-          </div>
-        ))}
 
         <div className={`${SECAO} flex items-center justify-between !pr-1`}>
           Clientes
