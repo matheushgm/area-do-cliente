@@ -5,13 +5,13 @@
 import { useRef, useState } from 'react'
 import { Settings, X, Copy, Trash2, Lock, Globe, EyeOff, ChevronDown, ListFilter } from 'lucide-react'
 import { Popover, FOCO } from './Campos'
-import { TIPOS_VIEW, rotuloTipo, rotuloSubtarefas } from '../../lib/viewsTarefas'
+import { TIPOS_VIEW, rotuloTipo, rotuloSubtarefas, nomeResponsavelFiltro } from '../../lib/viewsTarefas'
 import { contarRegras } from '../../lib/filtrosTarefas'
 import { AGRUPAMENTOS } from '../../lib/tarefas'
 import { iconeTipo, ListaAgrupar, ListaResponsaveis, OpcoesSubtarefas } from './BarraViews'
 
 const rotuloAgrupar = (v) => AGRUPAMENTOS.find((a) => a.value === v)?.label || v
-const nomesDe = (ids, membros) => (ids.length ? ids.map((id) => membros.find((m) => m.id === id)?.name || '—').join(', ') : 'Todos')
+const nomesDe = (ids, membros) => (ids.length ? ids.map((id) => nomeResponsavelFiltro(id, membros)).join(', ') : 'Todos')
 
 export function CabecalhoPainel({ titulo, icone = Settings, onFechar, extra }) {
   const Icone = icone

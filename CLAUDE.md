@@ -789,6 +789,8 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   - **config** também guarda `ordenar` (`{ campo, dir }`: cabeçalhos da Lista clicáveis, sobe → desce →
     ordem manual; `ordenarPorCampo` em `src/lib/tarefas.js`, vazios sempre no fim; vale para as subtarefas
     abertas) e `calendario` (`mes` | `semana`). A Planilha mantém a ordenação dela, só na tela.
+    Setas ↑↓ no hover da linha mudam a ordem manual (`posicao`, não vai para o ClickUp); com ordenação por
+    coluna, a primeira seta congela a ordem da tela como manual, tira a ordenação e então move.
   - **Calendário:** Mês ou Semana, sempre de domingo a sábado (igual aos grupos de vencimento da Lista e
     aos períodos "Esta semana"/"Próxima semana" dos filtros). Na Semana cada dia é uma coluna com todas as
     tarefas; no Mês, "+N mais" abre a semana do dia.

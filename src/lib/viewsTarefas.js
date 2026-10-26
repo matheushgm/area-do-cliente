@@ -4,7 +4,7 @@
 // config de uma view = { tipo, agrupar, subtarefas, responsaveis[], concluidas, filtros, ordenar }
 //   tipo        lista | quadro | calendario | planilha | gantt
 //   subtarefas  recolhidas (padrão) | expandidas | separar
-//   responsaveis [] = todos; com gente, tarefa de qualquer um deles
+//   responsaveis [] = todos; com gente, tarefa de qualquer um deles; SEM_RESPONSAVEL = tarefa sem ninguém
 //   filtros     filtros avançados (src/lib/filtrosTarefas.js)
 //   ordenar     { campo, dir } da Lista (cabeçalho clicável) ou null = ordem manual
 //   calendario  mes (padrão) | semana: escala do Calendário
@@ -19,6 +19,13 @@ export const TIPOS_VIEW = [
   { key: 'planilha', label: 'Planilha' },
   { key: 'gantt', label: 'Gantt' },
 ]
+/** Valor especial do filtro de responsáveis: tarefas sem responsável (nem do time, nem só do ClickUp). */
+export const SEM_RESPONSAVEL = '__nenhum__'
+export const temResponsavel = (it) => (it.responsaveis || []).length > 0 || (it.responsaveis_extra || []).length > 0
+/** Passa no filtro de responsáveis da barra (lista vazia = todos). */
+export const passaResponsaveis = (it, ids) => !ids.length || ids.some((id) => (id === SEM_RESPONSAVEL ? !temResponsavel(it) : (it.responsaveis || []).includes(id)))
+export const nomeResponsavelFiltro = (id, membros) => (id === SEM_RESPONSAVEL ? 'Sem responsável' : membros.find((m) => m.id === id)?.name || '—')
+
 export const rotuloTipo = (tipo) => TIPOS_VIEW.find((t) => t.key === tipo)?.label || tipo
 
 export const SUBTAREFAS = [

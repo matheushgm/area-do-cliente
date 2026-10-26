@@ -29,7 +29,7 @@ import AnalyticsView from '../components/Tarefas/AnalyticsView'
 import { AbasViews, FerramentasView } from '../components/Tarefas/BarraViews'
 import { PainelConfigView, PainelNovaView } from '../components/Tarefas/PainelView'
 import PainelFiltros from '../components/Tarefas/PainelFiltros'
-import { escopoDaSelecao, chaveEscopo, viewsDoEscopo, igualConfig } from '../lib/viewsTarefas'
+import { escopoDaSelecao, chaveEscopo, viewsDoEscopo, igualConfig, passaResponsaveis, nomeResponsavelFiltro } from '../lib/viewsTarefas'
 import { passaFiltros, contarRegras } from '../lib/filtrosTarefas'
 import { usePaginas } from '../hooks/usePaginas'
 import { cicloPadrao } from '../lib/vertatask'
@@ -398,7 +398,7 @@ export default function Tarefas() {
   const filtrados = useMemo(() => {
     const resp = respFiltro
     return filtrarItens(baseFiltro, { busca, mostrarConcluidas })
-      .filter((it) => !resp.length || resp.some((id) => (it.responsaveis || []).includes(id)))
+      .filter((it) => passaResponsaveis(it, resp))
       .filter((it) => passaFiltros(it, config.filtros))
   }, [baseFiltro, busca, mostrarConcluidas, respFiltro, config.filtros])
   const filhosVisao = separar ? SEM_FILHOS : filhosDe
@@ -800,7 +800,7 @@ export default function Tarefas() {
                         filtros={config.filtros} onChange={(filtros) => editarView({ filtros })}
                         ctx={{ statuses, membros: teamMembers || [], etiquetas: vt.etiquetas, ciclos: vt.ciclos, listas: listasEscopo.length ? listasEscopo : t.listas }}
                         barra={[
-                          respFiltro.length && `Responsáveis: ${respFiltro.map((id) => membrosMap.get(id)?.name || '—').join(', ')}`,
+                          respFiltro.length && `Responsáveis: ${respFiltro.map((id) => nomeResponsavelFiltro(id, teamMembers || [])).join(', ')}`,
                           !config.concluidas && 'Sem concluídas',
                           busca.trim() && `Nome contém “${busca.trim()}”`,
                         ].filter(Boolean)}

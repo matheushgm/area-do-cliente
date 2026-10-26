@@ -6,13 +6,13 @@
 // Só apresentação: config, rascunho e gravação vêm de Tarefas.jsx (src/lib/viewsTarefas.js).
 import { createElement, useRef, useState } from 'react'
 import {
-  List, KanbanSquare, CalendarDays, Table2, GanttChart, Plus, EyeOff, Check, X, Search, Layers, Users, CircleCheck,
+  List, KanbanSquare, CalendarDays, Table2, GanttChart, Plus, EyeOff, Check, X, Search, Layers, User, Users, CircleCheck,
   Settings, ChevronDown, ChevronUp, Undo2, CopyPlus, ListTree, ListFilter, Rows3,
 } from 'lucide-react'
 import { Popover, Avatar, FOCO } from './Campos'
 import ModelosMenu from './ModelosMenu'
 import { AGRUPAMENTOS, corDaPessoa, iniciais } from '../../lib/tarefas'
-import { SUBTAREFAS, rotuloSubtarefas } from '../../lib/viewsTarefas'
+import { SUBTAREFAS, rotuloSubtarefas, SEM_RESPONSAVEL, nomeResponsavelFiltro } from '../../lib/viewsTarefas'
 
 const ICONES_TIPO = { lista: List, quadro: KanbanSquare, calendario: CalendarDays, planilha: Table2, gantt: GanttChart }
 export const iconeTipo = (tipo, className = 'w-3.5 h-3.5') => createElement(ICONES_TIPO[tipo] || List, { className })
@@ -95,6 +95,17 @@ export function ListaResponsaveis({ valor, membros, onChange }) {
         {valor.length > 0 && <button type="button" onClick={() => onChange([])} className="text-[11px] text-ln-accent hover:underline">Limpar</button>}
       </div>
       <div className="p-1 overflow-y-auto">
+        {(() => {
+          const marcado = valor.includes(SEM_RESPONSAVEL)
+          return (
+            <button type="button" role="menuitemcheckbox" aria-checked={marcado} onClick={() => alternar(SEM_RESPONSAVEL)} className={`w-full flex items-center gap-2.5 h-8 px-2.5 rounded-md text-[13px] hover:bg-ln-ink/5 ${marcado ? 'text-ln-t1' : 'text-ln-t2'}`}>
+              <span className={`w-4 h-4 rounded grid place-items-center shrink-0 border ${marcado ? 'bg-ln-accent border-ln-accent text-white' : 'border-ln-ink/25'}`}>{marcado && <Check className="w-3 h-3" />}</span>
+              <span className="w-[18px] h-[18px] rounded-full border border-dashed border-ln-ink/30 grid place-items-center shrink-0"><User className="w-2.5 h-2.5 text-ln-t4" /></span>
+              <span className="truncate">Sem responsável</span>
+            </button>
+          )
+        })()}
+        <div className="border-t border-ln-ink/5 my-1" />
         {membros.filter((m) => !m.disabled).map((m) => {
           const marcado = valor.includes(m.id)
           return (
@@ -181,7 +192,7 @@ function MenuResponsaveis({ valor, membros, onChange, bloqueado }) {
     return <span className="inline-flex items-center justify-center h-8 min-w-8 px-1.5 rounded-md text-ln-t4 opacity-50 cursor-not-allowed" title="Em Minhas tarefas o responsável é sempre você" aria-label="Filtro de responsável indisponível em Minhas tarefas"><Users className="w-4 h-4" /></span>
   }
   const ativo = valor.length > 0
-  const nomes = valor.map((id) => membros.find((m) => m.id === id)?.name).filter(Boolean)
+  const nomes = valor.map((id) => nomeResponsavelFiltro(id, membros))
   return (
     <>
       <IconeBtn refBtn={ref} ativo={ativo} onClick={() => setAberto((x) => !x)} titulo={ativo ? `Responsáveis: ${nomes.join(', ')}` : 'Filtrar por responsável'}>

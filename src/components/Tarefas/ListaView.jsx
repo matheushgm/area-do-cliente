@@ -19,7 +19,7 @@
 // ({ ids: Set, alternar(id), definir(ids, marcar) }: caixa de seleção por linha e
 // "selecionar todas" no cabeçalho; quem usa mostra a BarraSelecao).
 import { useState, useRef } from 'react'
-import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Flag, Hourglass, AlignLeft, Pencil, Link2 } from 'lucide-react'
+import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Flag, Hourglass } from 'lucide-react'
 import { ordenarItens, ordenarPorCampo, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
 import {
   StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo, AdicionarInline, Popover, ItemMenu, FOCO,
@@ -170,6 +170,54 @@ function ResponsavelCU({ item, ctx }) {
   )
 }
 
+// ── Ordem manual ──────────────────────────────────────────────────────────────
+// Setas no hover da linha: troca a tarefa de lugar com a vizinha (no grupo, ou entre as
+// subtarefas do mesmo pai) gravando `posicao`. Com a Lista ordenada por coluna, a primeira
+// seta "congela" a ordem que está na tela como ordem manual (renumera o que aparece, em
+// cada grupo), tira a ordenação por coluna e só então move.
+const posDe = (it) => Number(it.posicao) || 0
+const PASSO = 1000
+
+/** Grava `posicao` em sequência na ordem dada (só onde mudou). */
+function renumerar(lista, ctx) {
+  lista.forEach((x, k) => { const p = (k + 1) * PASSO; if (posDe(x) !== p) ctx.onAtualizar(x.id, { posicao: p }) })
+}
+function trocar(lista, i, j) {
+  const nova = [...lista]
+  const [it] = nova.splice(i, 1)
+  nova.splice(j, 0, it)
+  return nova
+}
+
+function mover(item, irmas, dir, ctx) {
+  const i = irmas.findIndex((x) => x.id === item.id)
+  const j = i + dir
+  if (i < 0 || j < 0 || j >= irmas.length) return
+  if (ctx.ordenar?.campo) {
+    // congela a ordem da tela: os grupos de cima como estão e o trecho da tarefa já movido
+    for (const lista of ctx.ordemVisivel || []) if (!lista.some((x) => x.id === item.id)) renumerar(lista, ctx)
+    renumerar(trocar(irmas, i, j), ctx)
+    ctx.onOrdenar?.(null)
+    return
+  }
+  const viz = irmas[j]
+  const alem = irmas[j + dir]
+  if (posDe(viz) === posDe(item) || (alem && posDe(alem) === posDe(viz))) {
+    renumerar(trocar(irmas, i, j), ctx) // posições repetidas (comum em tarefas criadas aqui)
+    return
+  }
+  // entre a vizinha e a seguinte a ela (ou um passo além da ponta)
+  ctx.onAtualizar(item.id, { posicao: alem ? (posDe(viz) + posDe(alem)) / 2 : posDe(viz) + dir * PASSO })
+}
+function BotoesMover({ item, irmas, ctx }) {
+  const i = irmas.findIndex((x) => x.id === item.id)
+  const dica = ctx.ordenar?.campo ? ' (a ordem da tela vira a ordem manual)' : ''
+  return (<>
+    <button type="button" disabled={i <= 0} onClick={(e) => { e.stopPropagation(); mover(item, irmas, -1, ctx) }} className="ln-iconbtn !w-5 !h-5 !rounded disabled:opacity-30" title={`Mover para cima${dica}`} aria-label="Mover para cima"><ArrowUp className="w-3 h-3" /></button>
+    <button type="button" disabled={i < 0 || i >= irmas.length - 1} onClick={(e) => { e.stopPropagation(); mover(item, irmas, 1, ctx) }} className="ln-iconbtn !w-5 !h-5 !rounded disabled:opacity-30" title={`Mover para baixo${dica}`} aria-label="Mover para baixo"><ArrowDown className="w-3 h-3" /></button>
+  </>)
+}
+
 // ── Linha ─────────────────────────────────────────────────────────────────────
 
 function Celula({ k, item, ctx }) {
@@ -204,7 +252,7 @@ function Celula({ k, item, ctx }) {
   }
 }
 
-function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols, denso }) {
+function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols, denso, irmas = [] }) {
   const { onAbrir, onMudarStatus, contagemComentarios, selecionadaId } = ctx
   const statuses = ctx.statusesDe?.(item) || ctx.statuses
   const check = progressoChecklists(item.checklists)
@@ -244,17 +292,14 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
         {ctx.rotuloPai?.(item)}
         <span className="flex items-center gap-2 text-[11px] text-ln-t4 shrink-0 tabular ml-1.5">
           {!sub && filhos.length > 0 && <span className="inline-flex items-center gap-0.5" title="Subtarefas"><CornerDownRight className="w-3 h-3" />{filhos.length}</span>}
-          {item.descricao && item.descricao.trim() && <AlignLeft className="w-3 h-3" aria-label="Tem descrição" />}
           {check.total > 0 && <span className="inline-flex items-center gap-0.5" title="Checklist"><ListChecks className="w-3 h-3" />{check.feitos}/{check.total}</span>}
           {nComent > 0 && <span className="inline-flex items-center gap-0.5" title="Comentários"><MessageSquare className="w-3 h-3" />{nComent}</span>}
         </span>
         {/* ações de hover sobrepostas à direita (não roubam largura do título) */}
         {ctx.acoesHover !== false && <span className="absolute right-2 top-0 bottom-0 hidden md:inline-flex items-center gap-0.5 pl-6 bg-gradient-to-r from-transparent via-ln-level2/60 to-ln-level2/60 opacity-0 group-hover/linha:opacity-100 transition-opacity">
           {ctx.renderAcoesHover ? <span className="inline-flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>{ctx.renderAcoesHover(item)}</span> : (<>
-            <button type="button" onClick={(e) => { e.stopPropagation(); onAbrir(item.id) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Abrir"><AlignLeft className="w-3 h-3" /></button>
+            <BotoesMover item={item} irmas={irmas} ctx={ctx} />
             <button type="button" onClick={(e) => { e.stopPropagation(); ctx.onCriar({ lista_id: item.lista_id, parent_id: item.parent_id || item.id, titulo: 'Nova subtarefa' }) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Adicionar subtarefa"><Plus className="w-3 h-3" /></button>
-            {item.clickup_url && <a href={item.clickup_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="ln-iconbtn !w-5 !h-5 !rounded" title="Abrir no ClickUp"><Link2 className="w-3 h-3" /></a>}
-            <button type="button" onClick={(e) => { e.stopPropagation(); onAbrir(item.id) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Editar"><Pencil className="w-3 h-3" /></button>
           </>)}
         </span>}
       </div>
@@ -347,8 +392,8 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
             const exp = ctx.expandirTudo ? todosFilhos.length > 0 && !expandidos.has(it.id) : expandidos.has(it.id)
             return (
               <div key={it.id}>
-                <Linha item={it} filhos={todosFilhos} expandido={exp} onToggle={() => toggle(it.id)} ctx={ctx} cols={cols} denso={denso} />
-                {exp && filhos.map((f) => <Linha key={f.id} item={f} sub ctx={ctx} cols={cols} denso={denso} />)}
+                <Linha item={it} filhos={todosFilhos} expandido={exp} onToggle={() => toggle(it.id)} ctx={ctx} cols={cols} denso={denso} irmas={itens} />
+                {exp && filhos.map((f) => <Linha key={f.id} item={f} sub ctx={ctx} cols={cols} denso={denso} irmas={filhos} />)}
                 {exp && ctx.acoesHover !== false && (
                   <div className={`flex items-center h-8 ${recuo(ctx)} border-b border-ln-line/70`}>
                     <AdicionarInline placeholder="Adicionar subtarefa" onCriar={(t) => onCriar({ lista_id: it.lista_id, parent_id: it.id, titulo: t, status: agrupar === 'status' ? grupo.key : undefined })} />
@@ -378,6 +423,8 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
     pastasMap: new Map((ctx.pastas || []).map((p) => [p.id, p])),
     projetosMap: new Map((ctx.projetos || []).map((p) => [p.id, p])),
   }
+  // ordem de cada grupo como está na tela: as setas usam para congelar a ordenação por coluna
+  if (ctx.ordenar?.campo) ctxLista.ordemVisivel = grupos.map((g) => ordenarPorCampo(g.itens, ctx.ordenar, ctxLista))
   if (!grupos.length && vazio) return vazio
   if (!grupos.length) {
     return (
