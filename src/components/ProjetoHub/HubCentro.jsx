@@ -41,7 +41,7 @@ const KIND = {
 
 const TABS = [
   { id: 'resumo', label: 'Resumo' },
-  { id: 'tarefas', label: 'Tarefas' },
+  { id: 'tarefas', label: 'Tarefas', semContador: true }, // é a área do VertaTask; o nº do histórico não dizia nada
   { id: 'resultados', label: 'Resultados', Icon: BarChart3 },
   { id: 'sugestoes', label: 'Sugestões', Icon: Sparkles },
   { id: 'otimizacoes', label: 'Otimizações' },
@@ -291,7 +291,7 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
               <button key={t.id} onClick={() => abrirTab(t.id)} className={`relative flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap transition-colors ${ativo ? 'text-rl-text font-semibold' : 'text-rl-subtle hover:text-rl-text'}`}>
                 {t.Icon && <t.Icon className={`w-3.5 h-3.5 ${destaque ? 'text-rl-purple' : ''}`} />}
                 {t.label}
-                <span className={`text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center ${destaque ? 'bg-rl-purple text-white' : ativo ? 'bg-rl-purple/15 text-rl-purple' : 'bg-rl-surface text-rl-muted'}`}>{n}</span>
+                {!t.semContador && <span className={`text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center ${destaque ? 'bg-rl-purple text-white' : ativo ? 'bg-rl-purple/15 text-rl-purple' : 'bg-rl-surface text-rl-muted'}`}>{n}</span>}
                 {ativo && <span className="absolute left-2 right-2 -bottom-px h-[3px] bg-rl-purple rounded-full" />}
               </button>
             )

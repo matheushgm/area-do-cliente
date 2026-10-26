@@ -64,6 +64,16 @@ export const AGRUPAMENTOS = [
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
+// Links para abrir a pasta / lista no ClickUp. O id do workspace é público (está em toda
+// URL do ClickUp e já aparece nos links do Playbook e do Roadmap em src/lib/adsRoadmap.js).
+export const CLICKUP_TEAM_ID = '9009170774'
+export function urlClickUpPasta(pasta) {
+  return pasta?.clickup_folder_id ? `https://app.clickup.com/${CLICKUP_TEAM_ID}/v/f/${pasta.clickup_folder_id}` : null
+}
+export function urlClickUpLista(lista) {
+  return lista?.clickup_list_id ? `https://app.clickup.com/${CLICKUP_TEAM_ID}/v/li/${lista.clickup_list_id}` : null
+}
+
 export function statusDaLista(lista) {
   const s = Array.isArray(lista?.statuses) && lista.statuses.length ? lista.statuses : STATUSES_PADRAO
   return [...s].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))

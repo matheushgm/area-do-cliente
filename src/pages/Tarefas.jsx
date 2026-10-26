@@ -9,7 +9,7 @@ import { apiFetch } from '../lib/api'
 // Tarefas da página do cliente.
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useOutletContext } from 'react-router-dom'
-import { Menu, ChevronRight, Plus, Loader2, PanelLeft, RefreshCw, CloudUpload } from 'lucide-react'
+import { Menu, ChevronRight, Plus, Loader2, PanelLeft, RefreshCw, CloudUpload, ExternalLink } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import Toast from '../components/UI/Toast'
@@ -30,6 +30,7 @@ import TemplateEditor from '../components/Tarefas/TemplateEditor'
 import { clonarItens, itensDoTemplate } from '../lib/templates'
 import IntakeView from '../components/Tarefas/IntakeView'
 import { FOCO } from '../components/Tarefas/Campos'
+import { urlClickUpPasta, urlClickUpLista } from '../lib/tarefas'
 import AreaTarefas, { lerPref, gravarPref, useLarguraDoConteudo } from '../components/Tarefas/AreaTarefas'
 
 // Sincronização incremental com o ClickUp (api/tarefas-sync.js): botão na
@@ -84,6 +85,16 @@ function tempoRelativo(iso) {
   const h = Math.round(min / 60)
   if (h < 48) return `há ${h} h`
   return `há ${Math.round(h / 24)} dias`
+}
+
+// ícone de link externo no breadcrumb (pasta / lista que existem no ClickUp)
+function LinkClickUp({ href, titulo }) {
+  if (!href) return null
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" title={titulo} aria-label={titulo} className={`shrink-0 text-ln-t4 hover:text-ln-t1 rounded ${FOCO}`}>
+      <ExternalLink className="w-3 h-3" />
+    </a>
+  )
 }
 
 export default function Tarefas() {
@@ -235,8 +246,12 @@ export default function Tarefas() {
             {pastaSel && (<>
               <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
               <button type="button" onClick={() => setSel({ tipo: 'pasta', id: pastaSel.id })} className={`truncate max-w-[200px] rounded ${listaSel ? 'hover:text-ln-t1' : 'text-ln-t2'} ${FOCO}`}>{pastaSel.nome}</button>
+              <LinkClickUp href={urlClickUpPasta(pastaSel)} titulo="Abrir a pasta no ClickUp" />
             </>)}
-            {listaSel && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate max-w-[200px] text-ln-t2">{listaSel.nome}</span></>)}
+            {listaSel && (<>
+              <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate max-w-[200px] text-ln-t2">{listaSel.nome}</span>
+              <LinkClickUp href={urlClickUpLista(listaSel)} titulo="Abrir a lista no ClickUp" />
+            </>)}
             {sel.tipo === 'minhas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">Minhas tarefas</span></>)}
             {sel.tipo === 'todas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">Todas as abertas</span></>)}
           </div>
