@@ -706,7 +706,10 @@ todo `authenticated`; as quatro estão na publicação realtime).
     devolveu, então o evento da nossa própria escrita chega como `sem_mudanca`. `taskDeleted`
     ou 404 = `arquivada` + `clickup_removida_at`; **401 não arquiva** (token vencido também
     responde 401). Evento de comentário relê os comentários da tarefa (idempotente). Também
-    traz os anexos do ClickUp da tarefa. Erro ao processar responde 200 com `ok: false` (o
+    traz os anexos do ClickUp da tarefa. **Evento de tarefa com item da outbox `processando`
+    (ou `pendente` há menos de 2 min) é ignorado**: o push está escrevendo essa tarefa e grava
+    ele mesmo o vínculo e a versão final. Linha que já existe mantém `created_at`/`criado_por`
+    (o upsert antigo trocava o autor pelo dono do token; a rodada periódica segue a mesma regra). Erro ao processar responde 200 com `ok: false` (o
     ClickUp suspende webhook que falha muito) e o último evento fica em `tarefas_sync`, linha
     `clickup_webhook`. Registro: `node scripts/registrar_webhook_clickup.mjs [listar | criar
     --url= | atualizar --id= | apagar --id=]`, um webhook para o workspace inteiro; o secret só
@@ -858,6 +861,19 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   `api/tarefas-sync.js` (empurra antes de puxar). Testado em 18/10 com criar → editar →
   comentar → excluir numa tarefa de teste na lista Geral da Revenue Lab. Fila:
   `select * from tarefas_outbox where status in ('pendente','erro')`.
+  - **Duplicação corrigida em 2026-10-26 (migration 110).** Em 23/10, aplicar um template e
+    editar em massa logo depois criou 26 tarefas no ClickUp para 14 do template. Duas causas:
+    (1) o push não marcava o que estava processando, e as invocações paralelas da Vercel (uma
+    por escrita do front) liam os mesmos itens `pendente`; (2) o `taskCreated` do webhook chegava
+    antes de o push gravar o `clickup_task_id` na linha original e inseria uma **cópia** com esse
+    id; a gravação batia na unique, o erro era ignorado, a original ficava sem vínculo e cada
+    edição dela enfileirava outro `criar`. Agora `empurrar` reivindica os itens pela RPC
+    `tarefas_outbox_reivindicar` (status `processando`, `FOR UPDATE SKIP LOCKED`, ttl de 5 min
+    para rodada que morreu), grava o id do ClickUp no item e na linha **logo após o POST**
+    (nova tentativa reaproveita a tarefa em vez de criar outra), e se a gravação bater na unique
+    absorve a cópia (filhos e comentários passam para a original, cópia apagada). Item cuja
+    tarefa já tem um `criar` em `processando` noutra rodada é devolvido à fila (`devolvidas`).
+    Sem a RPC o push cai na leitura antiga e avisa `aplique a migration 110`.
 - **Anexos (2026-10-18):** `src/lib/anexos.js` (tipo, tamanho, URL assinada) e
   `src/components/UI/AnexoPreview.jsx` (pré-visualização em tela cheia: imagem, vídeo, áudio, PDF em
   iframe, texto; o resto cartão com Baixar; ← → navegam, Esc fecha). No **chat**, o Composer tem o
