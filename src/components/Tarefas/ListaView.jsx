@@ -18,7 +18,11 @@
 // do cabeçalho das colunas, que ali não teriam o que fazer) e `ctx.selecao`
 // ({ ids: Set, alternar(id), definir(ids, marcar) }: caixa de seleção por linha e
 // "selecionar todas" no cabeçalho; quem usa mostra a BarraSelecao).
+// Colunas: `ctx.colunas` (config.colunas da view: ordem e ocultas) e `ctx.onColunas(c)`
+// (o "+" no fim do cabeçalho abre o editor). Com `colunas` (templates) nada disso vale.
 import { useState, useRef } from 'react'
+import { colunasVisiveis } from '../../lib/viewsTarefas'
+import EditorColunas from './ColunasLista'
 import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Flag, Hourglass } from 'lucide-react'
 import { ordenarItens, ordenarPorCampo, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
 import {
@@ -45,6 +49,12 @@ const COLS = {
     { k: 'prio',       label: 'Prioridade',          w: 110 },
     { k: 'estim',      label: 'Estimativa',          w: 100 },
   ],
+}
+const POR_CHAVE = { cheia: new Map(COLS.cheia.map((c) => [c.k, c])), compacta: new Map(COLS.compacta.map((c) => [c.k, c])) }
+/** Colunas visíveis na ordem da view; no modo compacto só as da versão compacta. */
+const colunasDaLista = (cfg, compacto) => {
+  const m = POR_CHAVE[compacto ? 'compacta' : 'cheia']
+  return colunasVisiveis(cfg).filter((k) => m.has(k)).map((k) => m.get(k))
 }
 const grid = (cols) => `minmax(420px, 1fr) ${cols.map((c) => `${c.w}px`).join(' ')} 40px`
 
@@ -322,6 +332,23 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
 
 // Título da coluna: clicável quando a lista aceita ordenar (ctx.onOrdenar) e a coluna é padrão.
 const ORDENAVEIS = new Set(['nome', 'status', 'tipo', 'resp', 'criada', 'venc', 'prio', 'sprint', 'estim', 'cliente'])
+/** "+" no fim do cabeçalho: ordem e visibilidade das colunas (rascunho da view, como a ordenação). */
+function MaisColunas({ ctx }) {
+  const ref = useRef(null)
+  const [aberto, setAberto] = useState(false)
+  return (
+    <>
+      <button ref={ref} type="button" onClick={() => setAberto((x) => !x)} aria-expanded={aberto} className={`ln-iconbtn !w-6 !h-6 !rounded ${aberto ? 'bg-ln-ink/5 text-ln-t1' : 'text-ln-t4'} ${FOCO}`} title="Colunas: ordem e visibilidade" aria-label="Colunas: ordem e visibilidade"><Plus className="w-3.5 h-3.5" /></button>
+      <Popover anchorRef={ref} open={aberto} onClose={() => setAberto(false)} width={260} align="right" alturaMax={460}>
+        <div className="p-1.5">
+          <p className="px-2 pt-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ln-t4">Colunas</p>
+          <EditorColunas valor={ctx.colunas} onChange={ctx.onColunas} />
+        </div>
+      </Popover>
+    </>
+  )
+}
+
 function TituloColuna({ k, label, ctx, ordenavel = true }) {
   if (!ctx.onOrdenar || !ordenavel || !ORDENAVEIS.has(k)) return <span className="truncate" aria-hidden="true">{label}</span>
   const ativo = ctx.ordenar?.campo === k
@@ -384,7 +411,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
               <TituloColuna k="nome" label="Nome" ctx={ctx} />
             </span>
             {cols.map((c) => <span key={c.k} className="px-2 min-w-0 flex"><TituloColuna k={c.k} label={c.label} ctx={ctx} ordenavel={!c.editavel || ORDENAVEIS.has(c.k)} /></span>)}
-            <span className="inline-flex items-center justify-center text-ln-t4">{!ctx.simples && <Plus className="w-3.5 h-3.5" />}</span>
+            <span className="inline-flex items-center justify-center text-ln-t4">{!ctx.simples && ctx.onColunas && <MaisColunas ctx={ctx} />}</span>
           </div>
           {itens.map((it) => {
             const todosFilhos = filhosDe.get(it.id) || []
@@ -414,8 +441,9 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
 }
 
 export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, denso = false, compacto = false, colunas = null, vazio = null }) {
-  const cols = colunas || (compacto ? COLS.compacta : COLS.cheia)
-  const larguraMin = colunas ? 420 + colunas.reduce((a, c) => a + c.w, 0) + 40 : null
+  const cols = colunas || colunasDaLista(ctx.colunas, compacto)
+  // largura mínima do grid (o Nome tem 420 px no mínimo); acompanha as colunas visíveis
+  const larguraMin = 420 + cols.reduce((a, c) => a + c.w, 0) + 40
   // mapas para a coluna Cliente (uma vez por render; listas/pastas/projetos mudam pouco)
   const ctxLista = {
     ...ctx,
@@ -439,12 +467,12 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
     )
   }
   return (
-    <div className={`w-max min-w-full ${larguraMin ? '' : compacto ? '[&>section]:min-w-[900px]' : '[&>section]:min-w-[1580px]'} pb-24 pt-2 bg-ln-panel`}>
-      {grupos.map((g) => (larguraMin ? (
+    <div className="w-max min-w-full pb-24 pt-2 bg-ln-panel">
+      {grupos.map((g) => (
         <div key={g.key} style={{ minWidth: larguraMin }}>
           <Grupo grupo={g} ctx={ctxLista} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} denso={denso} cols={cols} />
         </div>
-      ) : <Grupo key={g.key} grupo={g} ctx={ctxLista} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} denso={denso} cols={cols} />))}
+      ))}
     </div>
   )
 }

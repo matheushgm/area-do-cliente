@@ -1,14 +1,15 @@
 // Sidebars da visualização (engrenagem da barra e "+ Visualização"):
-//   PainelConfigView  nome, tipo, subtarefas, agrupamento e filtros, quem vê; tudo grava na
+//   PainelConfigView  nome, tipo, colunas (Lista), subtarefas, agrupamento e filtros, quem vê; tudo grava na
 //                     hora (sem botão de confirmar). Padrão: qualquer um edita, não exclui.
 //   PainelNovaView    cria uma visualização a partir do que está na tela.
 import { useRef, useState } from 'react'
 import { Settings, X, Copy, Trash2, Lock, Globe, EyeOff, ChevronDown, ListFilter } from 'lucide-react'
 import { Popover, FOCO } from './Campos'
-import { TIPOS_VIEW, rotuloTipo, rotuloSubtarefas, nomeResponsavelFiltro } from '../../lib/viewsTarefas'
+import { TIPOS_VIEW, rotuloTipo, rotuloSubtarefas, nomeResponsavelFiltro, patchColunas, colunasVisiveis, COLUNAS_LISTA } from '../../lib/viewsTarefas'
 import { contarRegras } from '../../lib/filtrosTarefas'
 import { AGRUPAMENTOS } from '../../lib/tarefas'
 import { iconeTipo, ListaAgrupar, ListaResponsaveis, OpcoesSubtarefas } from './BarraViews'
+import EditorColunas from './ColunasLista'
 
 const rotuloAgrupar = (v) => AGRUPAMENTOS.find((a) => a.value === v)?.label || v
 const nomesDe = (ids, membros) => (ids.length ? ids.map((id) => nomeResponsavelFiltro(id, membros)).join(', ') : 'Todos')
@@ -97,6 +98,11 @@ export function PainelConfigView({ v, config, podeEditar, membros, respBloqueado
           <EscolhaTipo valor={config.tipo} onChange={(tipo) => onEditar({ tipo })} fixo={v.padrao} />
           {v.padrao && <p className="text-[11px] text-ln-t4">Nas padrão o tipo é fixo; para outro tipo, crie uma visualização.</p>}
         </Bloco>
+        {config.tipo === 'lista' && (
+          <Bloco titulo="Colunas">
+            <div className="rounded-lg border border-ln-ink/[0.08] p-1.5"><EditorColunas valor={config.colunas} onChange={(colunas) => onEditar(patchColunas(colunas, config))} /></div>
+          </Bloco>
+        )}
         <Bloco titulo="Subtarefas">
           <div className="rounded-lg border border-ln-ink/[0.08] p-1"><OpcoesSubtarefas valor={config.subtarefas} tipo={config.tipo} onChange={(subtarefas) => onEditar({ subtarefas })} /></div>
         </Bloco>
@@ -167,6 +173,7 @@ export function PainelNovaView({ config, origem, membros, onCriar, onFechar }) {
             <dt className="text-ln-t3">Subtarefas</dt><dd className="text-ln-t1">{rotuloSubtarefas(config.subtarefas)}</dd>
             <dt className="text-ln-t3">Responsáveis</dt><dd className="text-ln-t1 truncate">{nomesDe(config.responsaveis, membros)}</dd>
             <dt className="text-ln-t3">Concluídas</dt><dd className="text-ln-t1">{config.concluidas ? 'Mostrar' : 'Esconder'}</dd>
+            {config.tipo === 'lista' && <><dt className="text-ln-t3">Colunas</dt><dd className="text-ln-t1">{colunasVisiveis(config.colunas).length} de {COLUNAS_LISTA.length} visíveis</dd></>}
             <dt className="text-ln-t3">Filtros</dt><dd className="text-ln-t1">{nFiltros ? `${nFiltros} condição${nFiltros === 1 ? '' : 'ões'}` : 'Nenhum'}</dd>
           </dl>
         </Bloco>

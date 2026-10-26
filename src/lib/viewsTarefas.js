@@ -8,6 +8,7 @@
 //   filtros     filtros avançados (src/lib/filtrosTarefas.js)
 //   ordenar     { campo, dir } da Lista (cabeçalho clicável) ou null = ordem manual
 //   calendario  mes (padrão) | semana: escala do Calendário
+//   colunas     colunas da Lista: { ordem: [k], ocultas: [k] } ou null = padrão (todas, na ordem do ClickUp)
 // A tela trabalha sobre um rascunho da config; "Salvar visualização" grava.
 import { AGRUPAMENTOS } from './tarefas'
 import { FILTROS_VAZIOS, normalizarFiltros } from './filtrosTarefas'
@@ -25,6 +26,44 @@ export const temResponsavel = (it) => (it.responsaveis || []).length > 0 || (it.
 export const passaResponsaveis = (it, ids) => !ids.length || ids.some((id) => (id === SEM_RESPONSAVEL ? !temResponsavel(it) : (it.responsaveis || []).includes(id)))
 export const nomeResponsavelFiltro = (id, membros) => (id === SEM_RESPONSAVEL ? 'Sem responsável' : membros.find((m) => m.id === id)?.name || '—')
 
+// Colunas da Lista, na ordem padrão (a do ClickUp). O Nome é fixo: sempre a primeira e sempre visível.
+export const COLUNAS_LISTA = [
+  { k: 'status', label: 'Status' },
+  { k: 'tipo', label: 'Tipo de tarefa' },
+  { k: 'resp', label: 'Responsável' },
+  { k: 'criada', label: 'Data criada' },
+  { k: 'venc', label: 'Data de vencimento' },
+  { k: 'prio', label: 'Prioridade' },
+  { k: 'sprint', label: 'Sprints' },
+  { k: 'estim', label: 'Estimativa de tempo' },
+  { k: 'cliente', label: 'Cliente' },
+]
+const CHAVES_COLUNAS = COLUNAS_LISTA.map((c) => c.k)
+
+/** { ordem, ocultas } válido, ou null quando igual ao padrão. Coluna nova (que a view ainda não conhece) entra no fim, visível. */
+export function normalizarColunas(c) {
+  if (!c || !Array.isArray(c.ordem)) return null
+  const ordem = c.ordem.filter((k, i) => CHAVES_COLUNAS.includes(k) && c.ordem.indexOf(k) === i)
+  for (const k of CHAVES_COLUNAS) if (!ordem.includes(k)) ordem.push(k)
+  const ocultas = (Array.isArray(c.ocultas) ? c.ocultas : []).filter((k, i, a) => CHAVES_COLUNAS.includes(k) && a.indexOf(k) === i)
+  if (!ocultas.length && ordem.every((k, i) => k === CHAVES_COLUNAS[i])) return null
+  return { ordem, ocultas: ordem.filter((k) => ocultas.includes(k)) }
+}
+/** Colunas da Lista na ordem da view: [{ k, label, oculta }]. */
+export function colunasDaView(c) {
+  const n = normalizarColunas(c)
+  const ordem = n ? n.ordem : CHAVES_COLUNAS
+  return ordem.map((k) => ({ ...COLUNAS_LISTA.find((x) => x.k === k), oculta: !!n?.ocultas.includes(k) }))
+}
+/** Chaves das colunas visíveis, na ordem da view. */
+export const colunasVisiveis = (c) => colunasDaView(c).filter((x) => !x.oculta).map((x) => x.k)
+
+/** Patch da config ao mudar as colunas: ocultar a coluna da ordenação também tira a ordenação. */
+export function patchColunas(colunas, config) {
+  const campo = config.ordenar?.campo
+  return campo && campo !== 'nome' && !colunasVisiveis(colunas).includes(campo) ? { colunas, ordenar: null } : { colunas }
+}
+
 export const rotuloTipo = (tipo) => TIPOS_VIEW.find((t) => t.key === tipo)?.label || tipo
 
 export const SUBTAREFAS = [
@@ -37,7 +76,7 @@ export const rotuloSubtarefas = (v) => SUBTAREFAS.find((s) => s.key === v)?.labe
 const agrupamentoValido = (v, padrao) => (AGRUPAMENTOS.some((a) => a.value === v) ? v : padrao)
 
 export function configPadrao(tipo = 'lista') {
-  return { tipo, agrupar: tipo === 'quadro' ? 'status' : 'vencimento', subtarefas: 'recolhidas', responsaveis: [], concluidas: false, filtros: FILTROS_VAZIOS, ordenar: null, calendario: 'mes' }
+  return { tipo, agrupar: tipo === 'quadro' ? 'status' : 'vencimento', subtarefas: 'recolhidas', responsaveis: [], concluidas: false, filtros: FILTROS_VAZIOS, ordenar: null, calendario: 'mes', colunas: null }
 }
 
 /** Config de uma linha do banco (aceita o formato antigo: view/filtroResp/mostrarConcluidas/etiqueta). */
@@ -55,6 +94,7 @@ export function normalizarConfig(c = {}, tipoPadrao = 'lista') {
     concluidas: typeof c.concluidas === 'boolean' ? c.concluidas : !!c.mostrarConcluidas,
     filtros,
     calendario: c.calendario === 'semana' ? 'semana' : 'mes',
+    colunas: normalizarColunas(c.colunas),
     ordenar: c.ordenar?.campo ? { campo: c.ordenar.campo, dir: c.ordenar.dir === -1 ? -1 : 1 } : null,
   }
 }
@@ -63,6 +103,7 @@ const mesmos = (a = [], b = []) => a.length === b.length && a.every((x) => b.inc
 export const igualConfig = (a, b) => a.tipo === b.tipo && a.agrupar === b.agrupar && a.subtarefas === b.subtarefas
   && mesmos(a.responsaveis, b.responsaveis) && a.concluidas === b.concluidas && JSON.stringify(a.filtros) === JSON.stringify(b.filtros)
   && JSON.stringify(a.ordenar || null) === JSON.stringify(b.ordenar || null) && (a.calendario || 'mes') === (b.calendario || 'mes')
+  && JSON.stringify(normalizarColunas(a.colunas)) === JSON.stringify(normalizarColunas(b.colunas))
 
 /**
  * Onde as views da seleção moram: pasta (também para uma lista dela), "minhas" ou "todas".

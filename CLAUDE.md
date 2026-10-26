@@ -788,7 +788,13 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     sobrepõem; Esc fecha; abrir uma tarefa fecha a sidebar e vice-versa.
   - **config** também guarda `ordenar` (`{ campo, dir }`: cabeçalhos da Lista clicáveis, sobe → desce →
     ordem manual; `ordenarPorCampo` em `src/lib/tarefas.js`, vazios sempre no fim; vale para as subtarefas
-    abertas) e `calendario` (`mes` | `semana`).
+    abertas), `calendario` (`mes` | `semana`) e `colunas` da Lista (`{ ordem, ocultas }`, null = padrão; ver abaixo).
+  - **Colunas da Lista:** ordem e visível/oculta por view (`COLUNAS_LISTA`, `normalizarColunas`, `colunasVisiveis` em
+    `viewsTarefas.js`; editor `ColunasLista.jsx`: arrastar pela alça ou ↑↓ com ela em foco, olho, "Restaurar padrão").
+    O Nome é fixo e sempre visível; coluna nova entra no fim, visível. Abre pelo "+" no fim do cabeçalho de colunas
+    (rascunho, como a ordenação) ou na sidebar de configurações (grava na hora). Com o painel da tarefa aberto
+    (`compacto`) valem só as colunas da versão compacta, na ordem da view. Ocultar a coluna ordenada tira a ordenação
+    (`patchColunas`).
     Setas ↑↓ no hover da linha mudam a ordem manual (`posicao`, não vai para o ClickUp); com ordenação por
     coluna, a primeira seta congela a ordem da tela como manual, tira a ordenação e então move.
   - **Calendário:** Mês ou Semana, sempre de domingo a sábado (igual aos grupos de vencimento da Lista e
