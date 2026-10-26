@@ -105,7 +105,7 @@ export function useVertaTask(user) {
     return {}
   }, [])
 
-  // ── Visualizações (abas da pasta / Minhas / Todas, migration 110) ──────────
+  // ── Visualizações (abas da pasta / Minhas / Todas, migration 112) ──────────
   // escopo = { escopo: 'pasta'|'minhas'|'todas', pastaId? } (src/lib/viewsTarefas.js)
   const criarView = useCallback(async ({ nome, config, acesso = 'publica', escopo }) => {
     const { data, error } = await supabase.from('tarefas_views').insert({

@@ -5,7 +5,7 @@
 // (?lista=), junto com ?view= e ?tarefa= da área.
 import { useCallback, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ExternalLink, Loader2, RefreshCw, FolderX } from 'lucide-react'
+import { ExternalLink, Loader2, RefreshCw, FolderX, CloudUpload } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
 import { useTarefas } from '../../hooks/useTarefas'
@@ -75,6 +75,7 @@ export default function TarefasDoCliente({ project }) {
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
         {t.carregando && <Loader2 className="w-3.5 h-3.5 animate-spin text-ln-t4" />}
+        {api.aguardandoClickup > 0 && <span className="inline-flex items-center gap-1 text-xs text-ln-yellow" title="Tarefas deste cliente que ainda não foram para o ClickUp"><CloudUpload className="w-3 h-3" />{api.aguardandoClickup} aguardando</span>}
         <button onClick={api.recarregar} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
         <Link to={`/tarefas?${listaId ? `lista=${listaId}` : `pasta=${pasta.id}`}`} className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs text-ln-t3 hover:text-ln-t1 hover:bg-ln-ink/[0.04] ${FOCO}`} title="Abrir esta pasta no VertaTask">
           VertaTask <ExternalLink className="w-3 h-3" />

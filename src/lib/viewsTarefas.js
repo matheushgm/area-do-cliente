@@ -1,5 +1,5 @@
 // Visualizações (views) do VertaTask: abas dentro da pasta do cliente (ou de "Minhas" /
-// "Todas"), ao lado das 4 padrão. Regras puras; os dados vêm de tarefas_views (migration 110).
+// "Todas"), ao lado das 4 padrão. Regras puras; os dados vêm de tarefas_views (migration 112).
 //
 // config de uma view = { tipo, agrupar, subtarefas, responsaveis[], concluidas, filtros, ordenar }
 //   tipo        lista | quadro | calendario | gantt (a Planilha saiu: era a Lista de novo)

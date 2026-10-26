@@ -9,7 +9,7 @@ import { apiFetch } from '../lib/api'
 // Tarefas da página do cliente.
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useOutletContext } from 'react-router-dom'
-import { Menu, ChevronRight, Plus, Loader2, PanelLeft, RefreshCw } from 'lucide-react'
+import { Menu, ChevronRight, Plus, Loader2, PanelLeft, RefreshCw, CloudUpload } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import Toast from '../components/UI/Toast'
@@ -254,6 +254,7 @@ export default function Tarefas() {
         >
           <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />
           {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
+          {!sync.rodando && api.aguardandoClickup > 0 && <span className="inline-flex items-center gap-1 text-ln-yellow" title="Tarefas desta tela que ainda não foram para o ClickUp"><CloudUpload className="w-3 h-3" />{api.aguardandoClickup} aguardando</span>}
         </button>
         <button onClick={api.recarregar} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
         {aba !== 'templates' && !api.mostrarViews && (

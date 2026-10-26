@@ -631,7 +631,7 @@ todo `authenticated`; as quatro estão na publicação realtime).
   travada na pasta ativa do cliente, com as listas dela em cima e `?lista=`/`?view=`/`?tarefa=` na URL do cliente). Mexer na área
   muda os dois lugares. Ganchos: `cabecalho(api)`, `secao(api)` (conteúdo no lugar das views), `antesDaView`
   (Cycles), `largura`, `atalhoCriar`, `onIrParaLista`, `onAbrirTemplate`; `api` = `{ listaPadraoId,
-  totalAbertas, novaTarefa, recarregar, abrirTarefa, usarModelo, todos, mostrarViews }`. Na pasta, a tarefa
+  totalAbertas, aguardandoClickup, novaTarefa, recarregar, abrirTarefa, usarModelo, todos, mostrarViews }`. Na pasta, a tarefa
   nova cai na lista "Geral" (ou na primeira, se não houver). No cliente não há sincronização automática.
 - **Dados** `src/hooks/useTarefas.js`: lê a estrutura inteira e as tarefas só da pasta/lista
   aberta (paginado de 1000 em 1000), atualização otimista e canal realtime. Trocar status
@@ -719,7 +719,10 @@ todo `authenticated`; as quatro estão na publicação realtime).
     devolveu, então o evento da nossa própria escrita chega como `sem_mudanca`. `taskDeleted`
     ou 404 = `arquivada` + `clickup_removida_at`; **401 não arquiva** (token vencido também
     responde 401). Evento de comentário relê os comentários da tarefa (idempotente). Também
-    traz os anexos do ClickUp da tarefa. Erro ao processar responde 200 com `ok: false` (o
+    traz os anexos do ClickUp da tarefa. **Evento de tarefa com item da outbox `processando`
+    (ou `pendente` há menos de 2 min) é ignorado**: o push está escrevendo essa tarefa e grava
+    ele mesmo o vínculo e a versão final. Linha que já existe mantém `created_at`/`criado_por`
+    (o upsert antigo trocava o autor pelo dono do token; a rodada periódica segue a mesma regra). Erro ao processar responde 200 com `ok: false` (o
     ClickUp suspende webhook que falha muito) e o último evento fica em `tarefas_sync`, linha
     `clickup_webhook`. Registro: `node scripts/registrar_webhook_clickup.mjs [listar | criar
     --url= | atualizar --id= | apagar --id=]`, um webhook para o workspace inteiro; o secret só
@@ -767,13 +770,13 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   árvore Clientes (pasta → listas, com bolinha colorida e abertas carregadas). O cabeçalho é só o
   título da seção (Sora 20px) com o breadcrumb da pasta/lista; as seções não ficam mais em abas no
   topo. "Todas as tarefas" = `?todas=1` (`carregarAbertas`: tudo que não está concluído).
-- **Visualizações (views) dentro da pasta (2026-10-26, migration 110):** abas no modelo do ClickUp, sem
+- **Visualizações (views) dentro da pasta (2026-10-26, migration 112; o arquivo nasceu como 110 e foi renumerado ao juntar com a 110 do outbox):** abas no modelo do ClickUp, sem
   a antiga seção "Views salvas" da coluna esquerda. Desenho aprovado no protótipo `/dev/prototipo-views`
   (branch `prototipo-views-na-pasta`, já apagado).
   - **Escopo** (`escopoDaSelecao` em `src/lib/viewsTarefas.js`): pasta do cliente (vale para a pasta e as
     listas dela), "Minhas" ou "Todas". Cycles e lista solta não têm escopo: só as 4 padrão, sem salvar.
   - **Abas** (`AbasViews` em `BarraViews.jsx`): as 4 padrão (Lista, Quadro, Calendário, Gantt; a Planilha saiu em 2026-10-26 por repetir a Lista, e a linha `padrao_tipo = 'planilha'` que o check da 110 ainda aceita não é mais criada)
-    e depois as salvas do escopo, mais "+ Visualização". As padrão também são linhas de `tarefas_views` (a 111 trava nelas dono, escopo, pasta e padrao_tipo; só nome e config mudam)
+    e depois as salvas do escopo, mais "+ Visualização". As padrão também são linhas de `tarefas_views` (a 113 trava nelas dono, escopo, pasta e padrao_tipo; só nome e config mudam)
     (`padrao_tipo`), criadas na 1ª vez que alguém salva uma (`salvarViewPadrao`): qualquer pessoa edita,
     ninguém exclui, sempre públicas, tipo fixo. As salvas: só o dono edita/exclui; pública ou privada.
     A aba ativa vai na URL (`?view=lista` nas padrão, `?view=<uuid>` nas salvas) e fica lembrada por
@@ -832,7 +835,7 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     de pessoa logada, a sincronização do ClickUp usa chave de serviço e fica de fora) e **seguidores**
     (`tarefas_seguidores`, quem comenta ou recebe a tarefa passa a seguir). Trigger de comentário e de
     atribuição escrevem em `notifications` (`tarefa_comentario`, `tarefa_atribuida`, link `/tarefas?tarefa=`).
-  - **Views compartilhadas** (`tarefas_views`, `acesso` publica/privada). Desde a migration 110 são as
+  - **Views compartilhadas** (`tarefas_views`, `acesso` publica/privada). Desde a migration 112 são as
     abas da pasta; ver "Visualizações (views) dentro da pasta" acima.
   - **Pages** (`?aba=paginas&pagina=<id>`, `tarefas_paginas`, `usePaginas`, `PaginasView`): markdown com
     barra de formatação, subpáginas, cliente, privada/do time, bloqueio (só o dono edita),
@@ -925,6 +928,31 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   `api/tarefas-sync.js` (empurra antes de puxar). Testado em 18/10 com criar → editar →
   comentar → excluir numa tarefa de teste na lista Geral da Revenue Lab. Fila:
   `select * from tarefas_outbox where status in ('pendente','erro')`.
+  - **Duplicação corrigida em 2026-10-26 (migration 110).** Em 23/10, aplicar um template e
+    editar em massa logo depois criou 26 tarefas no ClickUp para 14 do template. Duas causas:
+    (1) o push não marcava o que estava processando, e as invocações paralelas da Vercel (uma
+    por escrita do front) liam os mesmos itens `pendente`; (2) o `taskCreated` do webhook chegava
+    antes de o push gravar o `clickup_task_id` na linha original e inseria uma **cópia** com esse
+    id; a gravação batia na unique, o erro era ignorado, a original ficava sem vínculo e cada
+    edição dela enfileirava outro `criar`. Agora `empurrar` reivindica os itens pela RPC
+    `tarefas_outbox_reivindicar` (status `processando`, `FOR UPDATE SKIP LOCKED`, ttl de 5 min
+    para rodada que morreu), grava o id do ClickUp no item e na linha **logo após o POST**
+    (nova tentativa reaproveita a tarefa em vez de criar outra), e se a gravação bater na unique
+    absorve a cópia (filhos e comentários passam para a original, cópia apagada). Item cuja
+    tarefa já tem um `criar` em `processando` noutra rodada é devolvido à fila (`devolvidas`).
+    Sem a RPC o push cai na leitura antiga e avisa `aplique a migration 110`.
+  - **Fila que ficava para trás (2026-10-26).** A criação mandava 6 ou 7 chamadas ao ClickUp
+    por tarefa (criar, até 4 campos personalizados, releitura) e um template não cabia nos 50 s
+    de uma invocação; o resto esperava a próxima escrita, o cron ou o botão "ClickUp há X min".
+    Agora os campos personalizados vão em `custom_fields` no próprio POST (1 chamada por tarefa;
+    `valoresCampos` resolve as opções, `camposPersonalizados` continua no update), `empurrar`
+    devolve `restantes` (itens `pendente` ao fim), `api/tarefas-push.js` encadeia rodadas na
+    mesma invocação enquanto houver fila e tempo, e `agendarPush` em `useTarefas` chama de novo
+    1 s depois enquanto `restantes > 0`. Na tela, tarefa sem `clickup_task_id` em lista que
+    existe no ClickUp (`ctx.listasComClickup`) mostra o ícone `CloudUpload` amarelo
+    "Aguardando ClickUp" na linha e no cabeçalho do painel, e o botão "ClickUp há X min" soma
+    "n aguardando"; o realtime apaga tudo quando o push grava o vínculo. Listas sem
+    `clickup_list_id` (ex.: "🤖 Agentes", alimentada pelo Escritório) ficam fora do indicador.
 - **Anexos (2026-10-18):** `src/lib/anexos.js` (tipo, tamanho, URL assinada) e
   `src/components/UI/AnexoPreview.jsx` (pré-visualização em tela cheia: imagem, vídeo, áudio, PDF em
   iframe, texto; o resto cartão com Baixar; ← → navegam, Esc fecha). No **chat**, o Composer tem o

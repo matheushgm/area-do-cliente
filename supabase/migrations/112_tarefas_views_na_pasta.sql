@@ -1,4 +1,4 @@
--- 110 — Views do VertaTask dentro da pasta do cliente
+-- 112 (era 110; renumerada ao juntar com a 110 do outbox, já aplicada no banco com o nome antigo) — Views do VertaTask dentro da pasta do cliente
 --
 -- As views deixam de ser atalhos soltos na coluna da esquerda e viram abas ao lado de
 -- Lista/Quadro/Calendário/Planilha/Gantt, no escopo onde foram criadas:

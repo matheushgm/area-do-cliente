@@ -25,7 +25,7 @@
 import { useState, useRef } from 'react'
 import { colunasVisiveis, normalizarLarguraNome } from '../../lib/viewsTarefas'
 import EditorColunas from './ColunasLista'
-import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Flag, Hourglass } from 'lucide-react'
+import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Flag, Hourglass, CloudUpload } from 'lucide-react'
 import { ordenarItens, ordenarPorCampo, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
 import {
   StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo, AdicionarInline, Popover, ItemMenu, FOCO,
@@ -310,6 +310,8 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
           {!sub && filhos.length > 0 && <span className="inline-flex items-center gap-0.5" title="Subtarefas"><CornerDownRight className="w-3 h-3" />{filhos.length}</span>}
           {check.total > 0 && <span className="inline-flex items-center gap-0.5" title="Checklist"><ListChecks className="w-3 h-3" />{check.feitos}/{check.total}</span>}
           {nComent > 0 && <span className="inline-flex items-center gap-0.5" title="Comentários"><MessageSquare className="w-3 h-3" />{nComent}</span>}
+          {/* ainda não chegou ao ClickUp (fila do push); some sozinho pelo realtime quando o vínculo é gravado */}
+          {!item.clickup_task_id && ctx.listasComClickup?.has(item.lista_id) && <CloudUpload className="w-3 h-3 text-ln-yellow" aria-label="Aguardando ClickUp" title="Ainda não foi para o ClickUp" />}
         </span>
         {/* ações de hover sobrepostas à direita (não roubam largura do título) */}
         {ctx.acoesHover !== false && <span className="absolute right-2 top-0 bottom-0 hidden md:inline-flex items-center gap-0.5 pl-6 bg-gradient-to-r from-transparent via-ln-level2/60 to-ln-level2/60 opacity-0 group-hover/linha:opacity-100 transition-opacity">

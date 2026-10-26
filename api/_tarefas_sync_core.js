@@ -270,10 +270,20 @@ export async function sincronizar({
   for (const nivel of [...niveis.keys()].sort((a, b) => a - b)) {
     const ls = niveis.get(nivel)
     for (let i = 0; i < ls.length; i += 200) {
-      // updated_at = clickup_sync_at também aqui (além do trigger), para linha nova nunca parecer editada na Área
-      const lote = ls.slice(i, i + 200).map((r) => { const c = { ...r, clickup_sync_at: agora, updated_at: agora }; delete c._aberta; delete c._novo; delete c._parentCu; delete c._prof; return c })
-      const { error } = await sb.from('tarefas_itens').upsert(lote, { onConflict: 'clickup_task_id' })
-      if (error) throw new Error(`upsert tarefas (nível ${nivel}): ${error.message}`)
+      // updated_at = clickup_sync_at também aqui (além do trigger), para linha nova nunca parecer editada na Área.
+      // Linha que já existe mantém created_at/criado_por (pode ter nascido na Área): esses campos só na inserção.
+      const fatia = ls.slice(i, i + 200)
+      for (const novo of [true, false]) {
+        const lote = fatia.filter((r) => r._novo === novo).map((r) => {
+          const c = { ...r, clickup_sync_at: agora, updated_at: agora }
+          delete c._aberta; delete c._novo; delete c._parentCu; delete c._prof
+          if (!novo) { delete c.created_at; delete c.criado_por; delete c.criador_nome }
+          return c
+        })
+        if (!lote.length) continue
+        const { error } = await sb.from('tarefas_itens').upsert(lote, { onConflict: 'clickup_task_id' })
+        if (error) throw new Error(`upsert tarefas (nível ${nivel}): ${error.message}`)
+      }
     }
   }
   log(`${resumo.criadas} criadas, ${resumo.atualizadas} atualizadas, ${resumo.puladas_conflito} puladas por conflito, ${resumo.sem_pai} sem pai`)
@@ -300,6 +310,7 @@ export async function sincronizar({
         if (!lista) { aviso(`reconciliar ${t.id}: lista desconhecida (${t.list?.id})`); continue }
         const paiEx = t.parent ? (await sb.from('tarefas_itens').select('id').eq('clickup_task_id', t.parent).maybeSingle()).data : null
         const row = { ...mapTarefa(t, perfilDe), id: r.id, lista_id: lista.id, parent_id: paiEx?.id || null, clickup_sync_at: agora, updated_at: agora }
+        delete row.created_at; delete row.criado_por; delete row.criador_nome // linha existente mantém o autor
         const { error } = await sb.from('tarefas_itens').upsert(row, { onConflict: 'clickup_task_id' })
         if (error) aviso(`reconciliar ${t.id}: ${error.message}`); else resumo.reconciliadas++
       } catch (e) {

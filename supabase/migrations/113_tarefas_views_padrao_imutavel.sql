@@ -1,6 +1,6 @@
--- 111 — Views padrão: o que qualquer pessoa pode mudar
+-- 113 (era 111; renumerada, já aplicada no banco com o nome antigo) — Views padrão: o que qualquer pessoa pode mudar
 --
--- A 110 deixou qualquer pessoa do time editar as visualizações padrão (padrao_tipo), mas a
+-- A 112 deixou qualquer pessoa do time editar as visualizações padrão (padrao_tipo), mas a
 -- política de UPDATE não restringia QUAIS colunas: quem não é dono podia trocar dono_id para
 -- si, mover a view de pasta/escopo ou zerar padrao_tipo e transformá-la numa view comum dele.
 -- Nas padrão só nome, config e posicao mudam; o resto fica como foi criado. (acesso já é

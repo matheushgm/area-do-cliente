@@ -453,6 +453,11 @@
 /* Classes que substituíram estilos inline da página do cliente — assim o tema
    (vendor/theme-fynix.css) consegue sobrescrevê-las. Valores idênticos aos de antes. */
 .dt-root .res-type{ color:rgb(var(--dt-muted-blue)); font-size:11px; }
+/* Onde está a verba da campanha: CBO (na campanha) ou ABO (em cada conjunto). */
+.dt-root .orc-cbo{ background:rgb(var(--rl-blue) / var(--dt-tint-12)); color:rgb(var(--rl-blue)); }
+.dt-root .orc-abo{ background:rgb(var(--rl-purple) / var(--dt-tint-12)); color:rgb(var(--rl-purple)); }
+.dt-root.th-fynix .orc-cbo{ background:var(--fx-lime-soft); color:var(--fx-lime); }
+.dt-root.th-fynix .orc-abo{ background:var(--fx-surface-3); color:var(--fx-green-2); }
 .dt-root .cp-squad-caca{ background:rgb(var(--rl-purple) / var(--dt-tint-10)); border-color:rgb(var(--rl-purple) / 0.30); color:rgb(var(--rl-purple)); }
 .dt-root .cp-squad-zero{ background:rgb(var(--rl-green) / var(--dt-tint-10)); border-color:rgb(var(--rl-green) / 0.30); color:rgb(var(--rl-green)); }
 .dt-root .param-accent, .dt-root .param-link{ color:rgb(var(--rl-blue)); }
@@ -3380,7 +3385,10 @@ function buildStatusSnap(rows) {
     // "ligada mas com agendamento terminado" é o caso que mais confundia.
     const e = { status: r['Veiculação'] || r['Status'] || '', botao: r['Status'] || '',
                 sched: r['Agendamento'] || '', nome: r['Nome'] || '',
-                ts: r['Atualizado em'] || '', pai: r['ID pai'] || '' }
+                ts: r['Atualizado em'] || '', pai: r['ID pai'] || '',
+                // Orçamento (campanha e conjunto): CBO/ABO e verba de AGORA.
+                orc: r['Orçamento'] || '', orcDia: num(r['Orçamento diário']) || null,
+                orcTotal: num(r['Orçamento total']) || null }
     a[lvl][id] = e
     // Índice por nome só vale quando o nome é ÚNICO na conta: o Ads Manager
     // permite duas campanhas/conjuntos com o mesmo nome e status diferentes.
@@ -3853,8 +3861,28 @@ const tblComMql = cols => { if (!state.tblMql) return cols
   const i = cols.findIndex(c => c[1] === 'conv')
   return [...cols.slice(0, i), ...MQL_COLS, ...cols.slice(i)] }
 const mqlCells = it => state.tblMql ? `<td>${fmtNum(it.x.mql)}</td><td>${it.cpmql != null ? fmtMoney(it.cpmql) : '—'}</td>` : ''
+// ─── Orçamento (ABO × CBO e verba diária) ─────────────────────────────────────
+// Vem do snapshot de status (meta_status), então é a verba de AGORA, não a do
+// período. CBO = verba na campanha; ABO = verba em cada conjunto, e a verba da
+// campanha é a soma dos conjuntos que estão rodando. Orçamento vitalício (sem
+// diária) aparece como "total".
+const orcTag = e => !e || !e.orc ? '<span class="fl" title="Orçamento ainda não lido para esta campanha.">—</span>'
+  : `<span class="status-tag orc-${e.orc.toLowerCase()}" title="${e.orc === 'CBO'
+      ? 'CBO: a verba fica na campanha e o Meta distribui entre os conjuntos.'
+      : 'ABO: cada conjunto tem a própria verba.'}">${e.orc}</span>`
+function verbaCell(e, lvl) {
+  if (!e || !e.orc) return '<span class="fl">—</span>'
+  if (lvl === 'conjunto' && e.orc === 'CBO')
+    return '<span class="fl" title="Campanha CBO: a verba fica na campanha, não no conjunto.">na campanha</span>'
+  const dica = lvl === 'campanha' && e.orc === 'ABO' ? 'Soma da verba dos conjuntos que estão rodando agora.' : 'Verba configurada agora na conta.'
+  if (e.orcDia) return `<span title="${dica}">${fmtMoney(e.orcDia)}</span>`
+  if (e.orcTotal) return `<span title="Orçamento vitalício (total), sem verba diária. ${dica}">${fmtMoney(e.orcTotal)} <span class="res-type">total</span></span>`
+  return `<span class="fl" title="${lvl === 'campanha' && e.orc === 'ABO' ? 'Nenhum conjunto rodando agora.' : 'Sem verba configurada.'}">—</span>`
+}
+const orcRank = e => e && e.orc ? (e.orc === 'CBO' ? 'CBO' : 'ABO') : null
 const META_CAMP_COLS = [
-  ['Campanha','nome',it=>it.nome,'text'], ['Resultado','result',it=>it.x.result], ['Status','st',it=>stRank(it.st)],
+  ['Campanha','nome',it=>it.nome,'text'], ['Orçamento','orc',it=>orcRank(it.orc),'text'], ['Verba diária','verba',it=>it.orc&&(it.orc.orcDia||it.orc.orcTotal)],
+  ['Resultado','result',it=>it.x.result], ['Status','st',it=>stRank(it.st)],
   ['Conv.','conv',it=>it.x.conv], ['Gasto','spend',it=>it.x.spend], ['CPL','cpl',it=>it.cpl],
   ['Tx.Conv.','tx',it=>it.tx], ['Impressões','impr',it=>it.x.impr], ['Cliques','clicks',it=>it.x.clicks] ]
 function tblMetaCampaigns(rows, prevRows){
@@ -3870,11 +3898,13 @@ function tblMetaCampaigns(rows, prevRows){
     cpmql:x.mql>0?x.mqlSp/x.mql:null, tx:x.clicks>0?x.conv/x.clicks:null,
     // Status de AGORA (snapshot por campaign_id); a linha é só o último recurso.
     st:stCell(acct,'campanha',(x._rows.find(r=>r['campaign_id'])||{})['campaign_id'],x.key,x._rows,'Status da Campanha'),
+    orc:snapEntry(acct,'campanha',(x._rows.find(r=>r['campaign_id'])||{})['campaign_id'],x.key,x._rows),
     rl:(x._rows.find(r=>r['Tipo de resultado'])||{})['Tipo de resultado']||'—' }))
   const body = tblSorted('meta-camp', items, cols).map((it)=>{ const {x,top,cpl,st:stHtml,rl}=it
     // Resultado = nº verdadeiro do objetivo + tipo (= coluna do gerenciador) +
     // variação discreta vs período anterior (compara a mesma campanha 1:1).
     return `<tr><td class="ad-name" title="${esc(x.key)}"><span class="drill-link" data-camp="${esc(x.key)}">${top?'🏆 ':''}${esc(x.key)}</span></td>
+      <td>${orcTag(it.orc)}</td><td>${verbaCell(it.orc,'campanha')}</td>
       <td><b>${fmtNum(x.result)}</b>${varMini(x.result, pv[x.key])} <span class="res-type">${esc(rl)}</span></td><td>${stHtml}</td>
       ${mqlCells(it)}<td>${convCell(x.conv,x.spend)}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${fmtNum(x.impr)}</td><td>${fmtNum(x.clicks)}</td></tr>` }).join('')
@@ -3882,13 +3912,14 @@ function tblMetaCampaigns(rows, prevRows){
     return mRowCard({ attr:`data-camp="${esc(x.key)}"`, nome:x.key, top, st:stHtml,
       alert:(x.spend>0&&x.result===0)?'gasto sem resultado':'',
       hero:[['Resultado',`${fmtNum(x.result)}`,`${varMini(x.result, pv[x.key])} ${esc(rl)}`],['Gasto',fmtMoney(x.spend)],['CPL',cpl!=null?fmtMoney(cpl):'—']],
-      chips:mChips([state.tblMql&&['MQL',fmtNum(x.mql)],state.tblMql&&['CPMQL',it.cpmql!=null?fmtMoney(it.cpmql):'—'],x.conv!==x.result&&['Conv.',fmtNum(x.conv)],['Tx. Conv.',txCell(x.conv,x.clicks)],['Impr.',fmtNum(x.impr)],['Cliques',fmtNum(x.clicks)]]) })
+      chips:mChips([it.orc&&it.orc.orc&&['Orçamento',`${it.orc.orc} · ${verbaCell(it.orc,'campanha')}`],state.tblMql&&['MQL',fmtNum(x.mql)],state.tblMql&&['CPMQL',it.cpmql!=null?fmtMoney(it.cpmql):'—'],x.conv!==x.result&&['Conv.',fmtNum(x.conv)],['Tx. Conv.',txCell(x.conv,x.clicks)],['Impr.',fmtNum(x.impr)],['Cliques',fmtNum(x.clicks)]]) })
   })
   return flagRow(flags,'red')+`<div class="dt-wrap has-m"><table><thead><tr>${tblThead('meta-camp', cols)}</tr></thead><tbody>${body}</tbody></table></div>`
     + mList('meta-camp', [['Resultado','result'],['Gasto','spend'],['CPL','cpl','asc'],['Nome','nome','asc']], cards)
 }
 const META_ADSET_COLS = [
-  ['Conjunto','nome',it=>it.nome,'text'], ['Status','st',it=>stRank(it.st)], ['Anúncios ativos','ativos',it=>it.ativos],
+  ['Conjunto','nome',it=>it.nome,'text'], ['Status','st',it=>stRank(it.st)],
+  ['Verba diária','verba',it=>it.orc&&it.orc.orc==='ABO'?(it.orc.orcDia||it.orc.orcTotal):null], ['Anúncios ativos','ativos',it=>it.ativos],
   ['Conv.','conv',it=>it.x.conv], ['Gasto','spend',it=>it.x.spend], ['CPL','cpl',it=>it.cpl], ['Tx.Conv.','tx',it=>it.tx],
   ['CTR Link','ctr',it=>it.ctr], ['CPM','cpm',it=>it.cpm], ['Impressões','impr',it=>it.x.impr] ]
 function tblMetaAdsets(rows, prevRows){
@@ -3905,16 +3936,17 @@ function tblMetaAdsets(rows, prevRows){
     return { x, top:i===0&&x.conv>0, nome:nm, cpl:x.conv>0?x.spend/x.conv:null, cpmql:x.mql>0?x.mqlSp/x.mql:null, tx:x.clicks>0?x.conv/x.clicks:null,
       ctr:x.impr>0?x.clicks/x.impr*100:null, cpm:x.impr>0?x.spend/x.impr*1000:null,
       st:stCell(acct,'conjunto',(x._rows.find(r=>r['adset_id'])||{})['adset_id'],nm,x._rows,'Status do Conjunto de Anúncio'),
+      orc:snapEntry(acct,'conjunto',(x._rows.find(r=>r['adset_id'])||{})['adset_id'],nm,x._rows),
       ativos:activeAdsCount(x._rows) } })
   const body = tblSorted('meta-adset', items, cols).map((it)=>{ const {x,top,nome:nm,cpl,ctr,cpm,st:stHtml,ativos}=it
     return `<tr><td class="ad-name" title="${esc(nm)}"><span class="drill-link" data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}">${top?'🏆 ':''}${esc(nm)}</span></td>
-      <td>${stHtml}</td><td>${ativos==null?'<span class="fl" title="Nenhum anúncio deste conjunto apareceu na última leitura de status.">—</span>':`<span class="${ativos>0?'good':'fl'}">${ativos}</span>`}</td>${mqlCells(it)}<td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
+      <td>${stHtml}</td><td>${verbaCell(it.orc,'conjunto')}</td><td>${ativos==null?'<span class="fl" title="Nenhum anúncio deste conjunto apareceu na última leitura de status.">—</span>':`<span class="${ativos>0?'good':'fl'}">${ativos}</span>`}</td>${mqlCells(it)}<td>${convCell(x.conv,x.spend)}${varMini(x.conv, pv[x.key])}</td><td>${fmtMoney(x.spend)}</td><td>${cpl!=null?fmtMoney(cpl):'—'}</td>
       <td>${txCell(x.conv,x.clicks)}</td><td>${ctrCell(ctr)}</td><td>${cpm!=null?fmtMoney(cpm):'—'}</td><td>${fmtNum(x.impr)}</td></tr>` }).join('')
   const cards = tblSorted('meta-adset', items, cols).map(it=>{ const {x,top,nome:nm,cpl,ctr,cpm,st:stHtml,ativos}=it
     return mRowCard({ attr:`data-adset="${esc(x.key)}" data-adset-name="${esc(nm)}"`, nome:nm, top, st:stHtml,
       alert:(x.spend>0&&x.conv===0)?'gasto sem resultado':'',
       hero:[['Conv.',fmtNum(x.conv),varMini(x.conv, pv[x.key])],['Gasto',fmtMoney(x.spend)],['CPL',cpl!=null?fmtMoney(cpl):'—']],
-      chips:mChips([['Anúncios ativos',ativos==null?'—':`<span class="${ativos>0?'good':'fl'}">${ativos}</span>`],state.tblMql&&['MQL',fmtNum(x.mql)],state.tblMql&&['CPMQL',it.cpmql!=null?fmtMoney(it.cpmql):'—'],['Tx. Conv.',txCell(x.conv,x.clicks)],['CTR Link',ctrCell(ctr)],['CPM',cpm!=null?fmtMoney(cpm):'—'],['Impr.',fmtNum(x.impr)]]) })
+      chips:mChips([it.orc&&it.orc.orc&&['Verba diária',verbaCell(it.orc,'conjunto')],['Anúncios ativos',ativos==null?'—':`<span class="${ativos>0?'good':'fl'}">${ativos}</span>`],state.tblMql&&['MQL',fmtNum(x.mql)],state.tblMql&&['CPMQL',it.cpmql!=null?fmtMoney(it.cpmql):'—'],['Tx. Conv.',txCell(x.conv,x.clicks)],['CTR Link',ctrCell(ctr)],['CPM',cpm!=null?fmtMoney(cpm):'—'],['Impr.',fmtNum(x.impr)]]) })
   })
   return flagRow(flags,'red')+`<div class="dt-wrap has-m"><table><thead><tr>${tblThead('meta-adset', cols)}</tr></thead><tbody>${body}</tbody></table></div>`
     + mList('meta-adset', [['Conversões','conv'],['Gasto','spend'],['CPL','cpl','asc'],['Nome','nome','asc']], cards)

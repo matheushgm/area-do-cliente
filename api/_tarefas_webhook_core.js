@@ -8,6 +8,11 @@
 //  * mesma versão (clickup_updated_at igual) e mesma lista/pai = nada a fazer. É o que
 //    evita o eco: o push (api/_tarefas_push_core.js) grava a versão que o ClickUp
 //    devolveu, então o webhook da nossa própria edição chega e é ignorado;
+//  * tarefa com item da outbox pendente/em processamento (push em andamento, inclusive a
+//    criação): evento ignorado. O push grava o vínculo e a versão final; sem isso o
+//    taskCreated inseria uma CÓPIA da tarefa antes de a original receber o clickup_task_id
+//    (bug de 23/10/2026) e estados intermediários do ClickUp sobrescreviam a edição;
+//  * linha que já existe mantém created_at/criado_por (pode ter nascido na Área);
 //  * taskDeleted (ou 404 na leitura) = arquivada aqui com clickup_removida_at;
 //  * eventos de comentário relêem os comentários da tarefa (idempotente pelo id).
 // Sem HTTP nem env; `clickup` pode ser injetado (testes).
@@ -19,6 +24,7 @@ const EVENTOS_COMENTARIO = new Set(['taskCommentPosted', 'taskCommentUpdated'])
 // remoção arquivaria toda tarefa que recebesse evento. O 401 de space sem acesso
 // fica para a reconciliação da rodada periódica.
 const naoEncontrada = (e) => e?.status === 404
+const PENDENTE_RECENTE_MS = 2 * 60_000
 
 export async function processarEventoTarefa({ sb, token, evento, taskId, spaces = SPACES_PADRAO, clickup = fazClickup(token), agora = new Date().toISOString() }) {
   if (!taskId) return { acao: 'ignorado', motivo: 'evento sem tarefa' }
@@ -66,9 +72,22 @@ async function gravarTarefa(t, ctx, profundidade) {
     }
   }
 
-  const { data: ex } = await sb.from('tarefas_itens')
-    .select('id, lista_id, parent_id, updated_at, clickup_sync_at, clickup_updated_at, arquivada, anexos')
-    .eq('clickup_task_id', String(t.id)).maybeSingle()
+  const COLS = 'id, lista_id, parent_id, updated_at, clickup_sync_at, clickup_updated_at, arquivada, anexos'
+  let { data: ex } = await sb.from('tarefas_itens').select(COLS).eq('clickup_task_id', String(t.id)).maybeSingle()
+  // Push em andamento para esta tarefa: quem grava é ele. Item 'pendente' só conta se é
+  // recente (o front dispara o push 1,5 s depois da escrita); um pendente antigo é de uma
+  // aba fechada antes do push, e aí o evento segue pelas regras normais de conflito.
+  const { data: fila } = await sb.from('tarefas_outbox').select('tarefa_id, status, created_at')
+    .eq('clickup_task_id', String(t.id)).in('status', ['pendente', 'processando']).order('id', { ascending: false }).limit(5)
+  const limiar = new Date(agora).getTime() - PENDENTE_RECENTE_MS
+  const emCurso = (fila || []).find((o) => o.status === 'processando' || new Date(o.created_at).getTime() > limiar)
+  if (emCurso) return { acao: 'ignorado', motivo: 'push em andamento para esta tarefa', id: emCurso.tarefa_id || ex?.id }
+  if (!ex) {
+    // criada pelo push, mas a linha ficou sem o vínculo: liga à original em vez de inserir cópia
+    const { data: criada } = await sb.from('tarefas_outbox').select('tarefa_id')
+      .eq('clickup_task_id', String(t.id)).eq('operacao', 'criar').not('tarefa_id', 'is', null).order('id', { ascending: false }).limit(1)
+    if (criada?.[0]?.tarefa_id) ex = (await sb.from('tarefas_itens').select(COLS).eq('id', criada[0].tarefa_id).is('clickup_task_id', null).maybeSingle()).data || null
+  }
   const row = mapTarefa(t, perfilDe)
 
   if (ex) {
@@ -89,7 +108,11 @@ async function gravarTarefa(t, ctx, profundidade) {
     ...row, id: ex?.id || globalThis.crypto.randomUUID(), lista_id: lista.id, parent_id: parentId,
     anexos: [...locais, ...anexosCu], clickup_sync_at: agora, updated_at: agora,
   }
-  const { error } = await sb.from('tarefas_itens').upsert(linha, { onConflict: 'clickup_task_id' })
+  // quem criou a linha continua sendo o autor (o upsert antigo trocava pelo dono do token)
+  if (ex) { delete linha.created_at; delete linha.criado_por; delete linha.criador_nome }
+  const { error } = ex
+    ? await sb.from('tarefas_itens').update(linha).eq('id', ex.id)
+    : await sb.from('tarefas_itens').upsert(linha, { onConflict: 'clickup_task_id' })
   if (error) throw new Error(`gravar ${t.id}: ${error.message}`)
   return { acao: ex ? 'atualizada' : 'criada', id: linha.id }
 }

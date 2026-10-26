@@ -17,7 +17,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   ChevronRight, X, Loader2, Maximize2, Minimize2, CalendarDays, CircleDot, Users, Flag, Hourglass,
-  Shapes, CalendarClock, ExternalLink, CornerDownRight,
+  Shapes, CalendarClock, ExternalLink, CornerDownRight, CloudUpload,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import GanttView from './GanttView'
@@ -365,9 +365,11 @@ export default function AreaTarefas({
     return () => window.removeEventListener('keydown', h)
   }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa, atalhoCriar, aplicandoTpl, selecionadas.size, mostrarViews, alterada, podeEditarView, salvarVisualizacao, painelView])
 
+  // listas que existem no ClickUp: só nelas uma tarefa sem clickup_task_id está "aguardando ClickUp"
+  const listasComClickup = useMemo(() => new Set(t.listas.filter((l) => l.clickup_list_id).map((l) => l.id)), [t.listas])
   const ctx = useMemo(() => ({
     statuses, membros: teamMembers || [], membrosMap, itensMap: t.itens, listaPadraoId, agrupar, contagemComentarios, selecionadaId: tarefaAbertaId,
-    onAbrir: abrirTarefa, onAtualizar, onMudarStatus, onCriar, etiquetasMap: vt.etiquetasMap,
+    onAbrir: abrirTarefa, onAtualizar, onMudarStatus, onCriar, etiquetasMap: vt.etiquetasMap, listasComClickup,
     // cada tarefa só oferece os status da própria lista (Minhas/Todas misturam listas)
     statusesDe: (it) => { const l = t.listasMap.get(it.lista_id); return l ? statusDaLista(l) : statuses },
     // colunas Cliente e Sprints da Lista (estilo ClickUp)
@@ -388,7 +390,7 @@ export default function AreaTarefas({
         <CornerDownRight className="w-3 h-3 shrink-0" /><span className="truncate max-w-[220px]">{t.itens[it.parent_id].titulo}</span>
       </span>
     ) : null) : undefined,
-  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, config.larguraNome, editarView])
+  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, config.larguraNome, editarView, listasComClickup])
 
   // ── Seleção da Lista e ações em massa (BarraSelecao) ─────────────────────
   // a seleção vale para o que está na tela: trocar de pasta, lista, seção ou visão limpa
@@ -455,6 +457,9 @@ export default function AreaTarefas({
 
   // ── Painel ───────────────────────────────────────────────────────────────
   const totalAbertas = itensEscopo.filter((i) => i.status_tipo !== 'closed' && !i.parent_id).length
+  // na fila do push (ainda sem clickup_task_id, em lista que existe no ClickUp); o realtime
+  // zera quando o vínculo é gravado. Listas sem clickup_list_id (ex.: "🤖 Agentes") ficam fora.
+  const aguardandoClickup = itensEscopo.filter((i) => !i.clickup_task_id && !i.arquivada && listasComClickup.has(i.lista_id)).length
   const tarefaAberta = tarefaAbertaId ? t.itens[tarefaAbertaId] : null
   const listaDaAberta = tarefaAberta ? t.listasMap.get(tarefaAberta.lista_id) : null
   const pastaDaAberta = listaDaAberta ? t.pastasMap.get(listaDaAberta.pasta_id) : null
@@ -465,7 +470,7 @@ export default function AreaTarefas({
   const painel = !!tarefaAbertaId
 
   // o que a moldura (cabeçalho, seções) pode usar
-  const api = { listaPadraoId, totalAbertas, novaTarefa, recarregar, abrirTarefa, usarModelo, todos, mostrarViews }
+  const api = { listaPadraoId, totalAbertas, aguardandoClickup, novaTarefa, recarregar, abrirTarefa, usarModelo, todos, mostrarViews }
 
   return (
     <div ref={areaRef} className="relative flex-1 min-w-0 h-full min-h-0 flex">
@@ -603,6 +608,11 @@ export default function AreaTarefas({
                   <a href={tarefaAberta.clickup_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-ln-t3 hover:text-ln-accent hover:bg-ln-ink/[0.04] ${FOCO}`} title="Abrir no ClickUp">
                     ClickUp <ExternalLink className="w-3 h-3" />
                   </a>
+                )}
+                {tarefaAberta && !tarefaAberta.clickup_task_id && listasComClickup.has(tarefaAberta.lista_id) && (
+                  <span className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-ln-yellow" title="Está na fila para ir ao ClickUp; o link aparece assim que chegar lá">
+                    <CloudUpload className="w-3 h-3" /> aguardando ClickUp
+                  </span>
                 )}
                 {tarefaAberta && (
                   <MenuTarefa
