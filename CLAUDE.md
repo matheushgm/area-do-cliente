@@ -760,7 +760,7 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   - **Escopo** (`escopoDaSelecao` em `src/lib/viewsTarefas.js`): pasta do cliente (vale para a pasta e as
     listas dela), "Minhas" ou "Todas". Cycles e lista solta não têm escopo: só as 5 padrão, sem salvar.
   - **Abas** (`AbasViews` em `BarraViews.jsx`): as 5 padrão (Lista, Quadro, Calendário, Planilha, Gantt)
-    e depois as salvas do escopo, mais "+ Visualização". As padrão também são linhas de `tarefas_views`
+    e depois as salvas do escopo, mais "+ Visualização". As padrão também são linhas de `tarefas_views` (a 111 trava nelas dono, escopo, pasta e padrao_tipo; só nome e config mudam)
     (`padrao_tipo`), criadas na 1ª vez que alguém salva uma (`salvarViewPadrao`): qualquer pessoa edita,
     ninguém exclui, sempre públicas, tipo fixo. As salvas: só o dono edita/exclui; pública ou privada.
     A aba ativa vai na URL (`?view=lista` nas padrão, `?view=<uuid>` nas salvas) e fica lembrada por
