@@ -173,9 +173,8 @@ function SprintCampo({ item, ciclos, onChange }) {
 function ClientePillCU({ nome }) {
   if (!nome) return <span className="text-[13px] text-ln-t4 pl-1">–</span>
   return (
-    <span className="inline-flex items-center gap-1 h-[22px] pl-2 pr-1.5 rounded-md text-xs font-semibold text-white whitespace-nowrap max-w-full" style={{ background: '#1b5cff' }} title={nome}>
+    <span className="inline-flex items-center h-[22px] px-2 rounded-md text-xs font-medium text-ln-t2 bg-ln-ink/5 whitespace-nowrap max-w-full" title={nome}>
       <span className="truncate">{nome}</span>
-      <ChevronDown className="w-3 h-3 shrink-0 opacity-80" />
     </span>
   )
 }
