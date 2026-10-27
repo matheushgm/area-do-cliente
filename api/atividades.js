@@ -319,8 +319,11 @@ async function actionCriar(body, ctx) {
     priority: PRIORIDADE[body.prioridade] || PRIORIDADE.normal,
     custom_fields,
   }
+  // Início depois do vencimento faz o ClickUp empurrar o vencimento para o
+  // início. Com data escolhida antes da sugerida, o início sugerido (dia em
+  // que o responsável fica livre) cai depois dela: limita à data escolhida.
   if (/^\d{4}-\d{2}-\d{2}$/.test(body.dataInicio || '')) {
-    payload.start_date = isoToMillis(body.dataInicio)
+    payload.start_date = isoToMillis(body.dataInicio > dueDate ? dueDate : body.dataInicio)
     payload.start_date_time = false
   }
   if (status) payload.status = status

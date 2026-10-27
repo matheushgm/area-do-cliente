@@ -267,7 +267,8 @@ export function usePlanejador({ projects, teamMembers, squads, config, showToast
         assigneeClickupId: responsavel.clickupId,
         horas: horasNum,
         prioridade: form.prioridade,
-        dataInicio: resultado.sugestao?.inicio || null,
+        // data forçada: começa no 1º dia com folga até ela, não no dia em que o responsável fica livre
+        dataInicio: (forcandoData ? forcada?.alocacao?.[0]?.data : resultado.sugestao?.inicio) || null,
         dataSugerida: sugerida,
         dataEscolhida,
         sobrecarga,
@@ -283,7 +284,7 @@ export function usePlanejador({ projects, teamMembers, squads, config, showToast
     } finally {
       setCriando(false)
     }
-  }, [podeCriar, cliente, form, responsavel, horasNum, resultado, sugerida, dataEscolhida, sobrecarga, forcada, justificativa, showToast, onCriada])
+  }, [podeCriar, cliente, form, responsavel, horasNum, resultado, sugerida, dataEscolhida, forcandoData, sobrecarga, forcada, justificativa, showToast, onCriada])
 
   const novaAtividade = useCallback((preset = {}) => {
     setCriada(null)
