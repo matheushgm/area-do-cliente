@@ -36,7 +36,7 @@ export function AbasViews({ padrao, salvas, ativaChave, tipoAtivo, alterada, onA
     <Aba key={v.chave} tipo={v.chave === ativaChave ? tipoAtivo : v.config.tipo} ativa={v.chave === ativaChave} onClick={() => onAbrir(v)}
       extra={<>
         {v.chave === ativaChave && alterada && <i className="w-1.5 h-1.5 rounded-full bg-ln-orange shrink-0" title="Alterações não salvas" />}
-        {v.acesso === 'privada' && <EyeOff className="w-3 h-3 text-ln-t4 shrink-0" aria-label="Só você vê" />}
+        {v.acesso === 'privada' && !v.padrao && <EyeOff className="w-3 h-3 text-ln-t4 shrink-0" aria-label="Só você vê" />}
       </>}
     >{v.nome}</Aba>
   )

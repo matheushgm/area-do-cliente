@@ -2,7 +2,7 @@
 // direto no Supabase (RLS: todo o time). As tarefas em si continuam em useTarefas.
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
-import { colunasEscopo } from '../lib/viewsTarefas'
+import { colunasEscopo, padraoPessoal } from '../lib/viewsTarefas'
 
 const porNome = (a, b) => a.nome.localeCompare(b.nome, 'pt-BR')
 
@@ -121,19 +121,24 @@ export function useVertaTask(user) {
     setViews((prev) => prev.map((v) => (v.id === id ? data : v)))
     return { data }
   }, [])
-  /** Grava uma das 5 padrão do escopo: atualiza a linha se já existe, senão cria (sempre pública). */
+  /**
+   * Grava uma das padrão do escopo: atualiza a linha se já existe, senão cria. Em "Minhas
+   * tarefas" a linha é da pessoa (privada); nos outros escopos é do time (pública).
+   */
   const salvarViewPadrao = useCallback(async ({ escopo, tipo, nome, patch }) => {
     const cols = colunasEscopo(escopo)
-    const existente = (atual) => atual.find((v) => v.padrao_tipo === tipo && v.escopo === cols.escopo && (v.pasta_id || null) === cols.pasta_id)
+    const pessoal = padraoPessoal(escopo)
+    const existente = (atual) => atual.find((v) => v.padrao_tipo === tipo && v.escopo === cols.escopo && (v.pasta_id || null) === cols.pasta_id && (!pessoal || v.dono_id === user?.id))
     let row = existente(views)
     if (!row) {
       const { data, error } = await supabase.from('tarefas_views')
-        .insert({ nome, config: {}, acesso: 'publica', dono_id: user?.id, padrao_tipo: tipo, ...cols, ...patch }).select().single()
+        .insert({ nome, config: {}, acesso: pessoal ? 'privada' : 'publica', dono_id: user?.id, padrao_tipo: tipo, ...cols, ...patch }).select().single()
       if (!error) { setViews((prev) => (prev.some((v) => v.id === data.id) ? prev : [...prev, data])); return { data } }
       if (error.code !== '23505') return { error: error.message }
-      // outra pessoa criou a linha ao mesmo tempo: relê e atualiza a dela
+      // a linha já existe (outra pessoa, ou outra aba sua, criou ao mesmo tempo): relê e atualiza
       let q = supabase.from('tarefas_views').select('*').eq('escopo', cols.escopo).eq('padrao_tipo', tipo)
       q = cols.pasta_id ? q.eq('pasta_id', cols.pasta_id) : q.is('pasta_id', null)
+      if (pessoal) q = q.eq('dono_id', user?.id)
       const { data: lida } = await q.maybeSingle()
       row = lida
       if (!row) return { error: error.message }

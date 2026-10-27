@@ -128,17 +128,21 @@ const doEscopo = (row, e) => !!e && row.escopo === e.escopo && (e.escopo !== 'pa
  * Views do escopo prontas para as abas. Cada uma: { chave, nome, padrao, row, config, acesso, donoId }.
  * chave = tipo nas padrão (estável, mesmo antes da linha existir) e o id nas salvas.
  */
-export function viewsDoEscopo(rows, e) {
+export function viewsDoEscopo(rows, e, userId) {
   const doEsc = (rows || []).filter((r) => doEscopo(r, e))
+  const pessoal = padraoPessoal(e)
   const padrao = TIPOS_VIEW.map((t) => {
-    const row = doEsc.find((r) => r.padrao_tipo === t.key) || null
-    return { chave: t.key, nome: row?.nome || t.label, padrao: true, row, config: row ? normalizarConfig({ ...row.config, tipo: t.key }, t.key) : configPadrao(t.key), acesso: 'publica', donoId: row?.dono_id || null }
+    const row = doEsc.find((r) => r.padrao_tipo === t.key && (!pessoal || r.dono_id === userId)) || null
+    return { chave: t.key, nome: row?.nome || t.label, padrao: true, pessoal, row, config: row ? normalizarConfig({ ...row.config, tipo: t.key }, t.key) : configPadrao(t.key), acesso: pessoal ? 'privada' : 'publica', donoId: row?.dono_id || null }
   })
   const salvas = doEsc.filter((r) => !r.padrao_tipo)
     .sort((a, b) => (Number(a.posicao) - Number(b.posicao)) || String(a.created_at).localeCompare(String(b.created_at)))
     .map((row) => ({ chave: row.id, nome: row.nome, padrao: false, row, config: normalizarConfig(row.config), acesso: row.acesso, donoId: row.dono_id }))
   return { padrao, salvas }
 }
+
+/** Em "Minhas tarefas" as padrão são de cada pessoa (privadas, migration 114); nos outros escopos, do time. */
+export const padraoPessoal = (e) => e?.escopo === 'minhas'
 
 /** Colunas de tarefas_views para gravar uma view no escopo. */
 export const colunasEscopo = (e) => ({ escopo: e.escopo, pasta_id: e.escopo === 'pasta' ? e.pastaId : null })

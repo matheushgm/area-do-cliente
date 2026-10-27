@@ -157,7 +157,7 @@ export default function AreaTarefas({
   const escopoViews = useMemo(() => escopoDaSelecao(sel, t.listasMap), [sel, t.listasMap])
   const chaveEsc = chaveEscopo(escopoViews)
   const persistente = !!escopoViews
-  const { padrao: viewsPadrao, salvas: viewsSalvas } = useMemo(() => viewsDoEscopo(vt.views, escopoViews), [vt.views, escopoViews])
+  const { padrao: viewsPadrao, salvas: viewsSalvas } = useMemo(() => viewsDoEscopo(vt.views, escopoViews, user?.id), [vt.views, escopoViews, user?.id])
   const viewParam = params.get('view')
   const viewAtiva = useMemo(() => {
     const todasV = [...viewsPadrao, ...viewsSalvas]
