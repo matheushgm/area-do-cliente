@@ -76,7 +76,7 @@ export default function DevLista() {
         {nova && !aberta && (
           <aside className="relative shrink-0 border-l border-ln-line bg-ln-panel flex flex-col" style={{ width: larguraPainel }} aria-label="Nova tarefa">
             <NovaTarefaPanel
-              grupos={[{ pasta: pastaRL, listas: listasEscopo }]} listasMap={new Map(listas.map((l) => [l.id, l]))} inicial={{ lista_id: null, responsaveis: [] }}
+              grupos={fixture.pastas.map((p) => ({ pasta: p, listas: listas.filter((l) => l.pasta_id === p.id) })).filter((g) => g.listas.length)} listasMap={new Map(listas.map((l) => [l.id, l]))} inicial={{ lista_id: null, responsaveis: [] }}
               membros={membros} membrosMap={membrosMap} onCancelar={() => setNova(false)}
               onCriar={async (p) => { console.log('criar', p); setNova(false); return { data: {} } }}
             />

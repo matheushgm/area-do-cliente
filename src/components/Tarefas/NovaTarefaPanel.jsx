@@ -2,11 +2,59 @@
 // propriedades e só então confirma em "Criar tarefa" (Ctrl+Enter). Nada vai para o banco antes.
 // Usado pelo "+ Tarefa" e pelo atalho C da AreaTarefas (em Minhas/Todas a lista é escolhida aqui).
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ChevronDown, Folder } from 'lucide-react'
 import MarkdownEditor from '../Editor/MarkdownEditor'
-import { StatusCampo, ResponsavelCampo, PrioridadeCampo, DataCampo, EstimativaCampo, TipoTarefaCampo, FOCO } from './Campos'
+import { StatusCampo, ResponsavelCampo, PrioridadeCampo, DataCampo, EstimativaCampo, TipoTarefaCampo, Popover, ItemMenu, BuscaMenu, FOCO } from './Campos'
 import { Propriedade, DepartamentoCampo } from './TarefaPanel'
 import { statusDaLista, statusInicial } from '../../lib/tarefas'
+
+const semAcento = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+/** Lista da tarefa com busca pelo nome do cliente (pasta) ou da lista. */
+function ListaCampo({ grupos, valor, onChange }) {
+  const [open, setOpen] = useState(false)
+  const [busca, setBusca] = useState('')
+  const ref = useRef(null)
+  const grupoAtual = grupos.find((g) => g.listas.some((x) => x.id === valor))
+  const atual = grupoAtual ? { pasta: grupoAtual.pasta, lista: grupoAtual.listas.find((x) => x.id === valor) } : null
+  // a pasta que bate mostra todas as listas dela; senão só as listas cujo nome bate
+  const filtrados = useMemo(() => {
+    const q = semAcento(busca.trim())
+    if (!q) return grupos
+    return grupos
+      .map((g) => (semAcento(g.pasta?.nome).includes(q) ? g : { ...g, listas: g.listas.filter((l) => semAcento(l.nome).includes(q)) }))
+      .filter((g) => g.listas.length)
+  }, [grupos, busca])
+  const fechar = () => { setOpen(false); setBusca('') }
+  return (
+    <>
+      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`inline-flex items-center gap-1 min-w-0 max-w-full h-7 px-1.5 -mx-1.5 rounded-md text-xs hover:bg-ln-ink/[0.04] ${atual ? 'text-ln-t2' : 'text-ln-t4'} ${FOCO}`} aria-label="Lista da tarefa" aria-haspopup="listbox" aria-expanded={open}>
+        {atual ? (<>
+          {atual.pasta && <span className="truncate text-ln-t3">{atual.pasta.nome}</span>}
+          {atual.pasta && <span className="text-ln-t4">/</span>}
+          <span className="truncate">{atual.lista.nome}</span>
+        </>) : 'escolher lista'}
+        <ChevronDown className="w-3 h-3 shrink-0 text-ln-t4" />
+      </button>
+      <Popover anchorRef={ref} open={open} onClose={fechar} width={300} alturaMax={380}>
+        <BuscaMenu valor={busca} onChange={setBusca} placeholder="Buscar cliente ou lista..." />
+        <div className="p-1 overflow-y-auto" role="listbox">
+          {filtrados.map((g) => (
+            <div key={g.pasta?.id || 'soltas'}>
+              <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1 text-[11px] text-ln-t4"><Folder className="w-3 h-3" /><span className="truncate">{g.pasta?.nome || 'Sem pasta'}</span></div>
+              {g.listas.map((l) => (
+                <ItemMenu key={l.id} ativo={l.id === valor} onClick={() => { onChange(l.id); fechar() }}>
+                  <span className="truncate pl-4">{l.nome}</span>
+                </ItemMenu>
+              ))}
+            </div>
+          ))}
+          {!filtrados.length && <div className="px-2.5 py-3 text-xs text-ln-t4">Nenhum cliente ou lista encontrado.</div>}
+        </div>
+      </Popover>
+    </>
+  )
+}
 
 /**
  * grupos = [{ pasta, listas }] com as listas que podem receber a tarefa; inicial = valores
@@ -63,19 +111,7 @@ export default function NovaTarefaPanel({ grupos, listasMap, inicial, membros, m
           <p className="ln-label">Propriedades</p>
           <dl className="flex flex-col">
             <Propriedade label="Lista">
-              <select
-                value={f.lista_id || ''}
-                onChange={(e) => mudar({ lista_id: e.target.value || null })}
-                aria-label="Lista da tarefa"
-                className={`min-w-0 max-w-full h-7 px-1.5 -mx-1.5 rounded-md bg-transparent text-xs hover:bg-ln-ink/[0.04] ${f.lista_id ? 'text-ln-t2' : 'text-ln-t4'} ${FOCO}`}
-              >
-                <option value="">escolher lista</option>
-                {grupos.map((g) => (
-                  <optgroup key={g.pasta?.id || 'soltas'} label={g.pasta?.nome || 'Sem pasta'}>
-                    {g.listas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
-                  </optgroup>
-                ))}
-              </select>
+              <ListaCampo grupos={grupos} valor={f.lista_id} onChange={(id) => mudar({ lista_id: id })} />
             </Propriedade>
             <Propriedade label="Status">
               {lista ? <StatusCampo item={{ status: status?.key }} statuses={statuses} onChange={(s) => mudar({ status: s.key })} /> : <span className="text-ln-t4">escolha a lista</span>}

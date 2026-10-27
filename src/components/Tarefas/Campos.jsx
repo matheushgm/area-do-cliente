@@ -59,7 +59,7 @@ export function Popover({ anchorRef, open, onClose, children, width = 240, align
   )
 }
 
-function BuscaMenu({ valor, onChange, placeholder = 'Buscar...' }) {
+export function BuscaMenu({ valor, onChange, placeholder = 'Buscar...' }) {
   return (
     <div className="flex items-center gap-2 h-9 px-3 border-b border-ln-ink/5">
       <Search className="w-3.5 h-3.5 text-ln-t4 shrink-0" />
