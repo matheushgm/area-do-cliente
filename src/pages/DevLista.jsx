@@ -9,6 +9,28 @@ import { agruparItens, filtrarItens, statusDasListas, AGRUPAMENTOS } from '../li
 const fixtures = import.meta.glob('../dev/fixtures/tarefas.json', { eager: true, import: 'default' })
 const fixture = fixtures['../dev/fixtures/tarefas.json'] || { pastas: [], listas: [], itens: [], perfis: [], projetos: [] }
 
+// Dados fixos, montados uma vez (como no app, os objetos das tarefas não mudam a cada render;
+// senão as linhas memorizadas da ListaView redesenhariam sempre). `?x=N` multiplica as
+// tarefas N vezes, para medir a lista com o volume de "Todas" (~900 de topo).
+const listas = fixture.listas
+const pastaRL = fixture.pastas.find((p) => /revenue lab/i.test(p.nome)) || fixture.pastas[0] || { id: null, nome: '(sem fixture)' }
+const listasEscopo = listas.filter((l) => l.pasta_id === pastaRL.id)
+const idsEscopo = new Set(listasEscopo.map((l) => l.id))
+const base = fixture.itens.filter((i) => idsEscopo.has(i.lista_id) && !i.arquivada)
+const fator = Math.max(1, Number(new URLSearchParams(window.location.search).get('x')) || 1)
+const itens = Array.from({ length: fator }, (_, k) => (k ? base.map((i) => ({ ...i, id: `${i.id}~${k}`, parent_id: i.parent_id ? `${i.parent_id}~${k}` : null, titulo: `${i.titulo} #${k}` })) : base)).flat()
+// um neto fictício (subtarefa de subtarefa) para a Hierarquia do painel ter dois níveis de pais
+const subEx = itens.find((i) => i.parent_id)
+if (subEx) itens.push({ ...subEx, id: 'dev-neto', parent_id: subEx.id, titulo: 'Neto de exemplo (DEV)', posicao: 0, clickup_task_id: null, clickup_url: null })
+const topo = itens.filter((i) => !i.parent_id)
+const filhosDe = new Map(); for (const i of itens) if (i.parent_id) { if (!filhosDe.has(i.parent_id)) filhosDe.set(i.parent_id, []); filhosDe.get(i.parent_id).push(i) }
+const membros = fixture.perfis.map((p) => ({ id: p.id, name: p.name, avatar: p.avatar }))
+const membrosMap = new Map(membros.map((m) => [m.id, m]))
+const statuses = statusDasListas(listasEscopo)
+const itensMap = Object.fromEntries(itens.map((i) => [i.id, i]))
+const projetos = fixture.projetos.map((p) => ({ id: p.id, company_name: p.company_name }))
+const ciclos = [{ id: 'c1', nome: 'Sprint 42' }]
+
 export default function DevLista() {
   const [agrupar, setAgrupar] = useState('vencimento')
   const [compacto, setCompacto] = useState(false)
@@ -17,48 +39,33 @@ export default function DevLista() {
   const [colunas, setColunas] = useState(null)
   const [larguraNome, setLarguraNome] = useState(null)
   const [larguraPainel, setLarguraPainel] = useState(PAINEL_LARGURA)
-  const listas = fixture.listas
-  const pastaRL = fixture.pastas.find((p) => /revenue lab/i.test(p.nome)) || fixture.pastas[0] || { id: null, nome: '(sem fixture)' }
-  const listasEscopo = listas.filter((l) => l.pasta_id === pastaRL.id)
-  const ids = new Set(listasEscopo.map((l) => l.id))
-  const itens = fixture.itens.filter((i) => ids.has(i.lista_id) && !i.arquivada)
-  // um neto fictício (subtarefa de subtarefa) para a Hierarquia do painel ter dois níveis de pais
-  const sub = itens.find((i) => i.parent_id)
-  if (sub) itens.push({ ...sub, id: 'dev-neto', parent_id: sub.id, titulo: 'Neto de exemplo (DEV)', posicao: 0, clickup_task_id: null, clickup_url: null })
-  const topo = itens.filter((i) => !i.parent_id)
-  const filhosDe = new Map(); for (const i of itens) if (i.parent_id) { if (!filhosDe.has(i.parent_id)) filhosDe.set(i.parent_id, []); filhosDe.get(i.parent_id).push(i) }
-  const membros = fixture.perfis.map((p) => ({ id: p.id, name: p.name, avatar: p.avatar }))
-  const membrosMap = new Map(membros.map((m) => [m.id, m]))
-  const statuses = statusDasListas(listasEscopo)
   const visiveis = filtrarItens(topo, { mostrarConcluidas: false })
   const grupos = agruparItens(visiveis, agrupar, { statuses, membrosMap, listasMap: new Map(listas.map((l) => [l.id, l])) })
-  const itensMap = Object.fromEntries(itens.map((i) => [i.id, i]))
   const aberta = abertaId ? itensMap[abertaId] : null
   const ancestrais = []
   for (let p = aberta?.parent_id; p && itensMap[p]; p = itensMap[p].parent_id) ancestrais.unshift(itensMap[p])
   const ctx = {
-    statuses, membros, membrosMap, itensMap: Object.fromEntries(itens.map((i) => [i.id, i])), listaPadraoId: listasEscopo[0]?.id, agrupar,
+    statuses, membros, membrosMap, itensMap, listaPadraoId: listasEscopo[0]?.id, agrupar,
     contagemComentarios: {}, selecionadaId: abertaId, onAbrir: setAbertaId, onAtualizar: (id, patch) => console.log('atualizar', id, patch),
     onMudarStatus: (it, s) => console.log('status', it.id, s.key), onCriar: async (row) => { console.log('criar', row); return {} },
-    listas, pastas: fixture.pastas, projetos: fixture.projetos.map((p) => ({ id: p.id, company_name: p.company_name })),
-    ciclos: [{ id: 'c1', nome: 'Sprint 42' }],
+    listas, pastas: fixture.pastas, projetos, ciclos,
     larguraNome, onLarguraNome: (w) => { console.log('larguraNome', w); setLarguraNome(w) },
     colunas, onColunas: (c) => { console.log('colunas', c); setColunas(c) },
   }
   return (
-    <div className="ln vt min-h-screen bg-ln-bg">
+    <div className="ln vt h-screen bg-ln-bg">
       <div className="flex items-center gap-3 h-11 px-4 border-b border-ln-line text-xs text-ln-t3">
         <strong className="text-ln-t1">DevLista</strong> · {pastaRL.nome} · {visiveis.length} abertas
         <select value={agrupar} onChange={(e) => setAgrupar(e.target.value)} className="ln-pill">{AGRUPAMENTOS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}</select>
         <label className="flex items-center gap-1"><input type="checkbox" checked={compacto} onChange={(e) => setCompacto(e.target.checked)} /> compacto</label>
         <label className="flex items-center gap-1"><input type="checkbox" checked={denso} onChange={(e) => setDenso(e.target.checked)} /> denso</label>
       </div>
-      <div className="flex">
-        <div className="flex-1 min-w-0 overflow-auto">
+      <div className="flex h-[calc(100vh-44px)]">
+        <div className="flex-1 min-w-0 overflow-auto" data-dev-rolagem>
           <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={false} denso={denso} compacto={compacto} />
         </div>
         {aberta && (
-          <aside className="relative shrink-0 border-l border-ln-line bg-ln-panel" style={{ width: larguraPainel }} aria-label="Detalhe da tarefa">
+          <aside className="relative shrink-0 border-l border-ln-line bg-ln-panel overflow-y-auto" style={{ width: larguraPainel }} aria-label="Detalhe da tarefa">
             <AlcaPainel largura={larguraPainel} onLargura={setLarguraPainel} />
             <TarefaPanel
               key={aberta.id} item={aberta} subtarefas={filhosDe.get(aberta.id) || []} ancestrais={ancestrais}

@@ -638,6 +638,16 @@ todo `authenticated`; as quatro estão na publicação realtime).
 - **Dados** `src/hooks/useTarefas.js`: lê a estrutura inteira e as tarefas só da pasta/lista
   aberta (paginado de 1000 em 1000), atualização otimista e canal realtime. Trocar status
   passa por `mudarStatus` (calcula `status_tipo` e `data_conclusao`).
+- **Desempenho da Lista (2026-10-27; "Todas" tem ~2.200 abertas, ~900 de topo):** cada grupo desenha 50 linhas e
+  mais 50 quando o fim chega a ~600 px da área visível (`MaisLinhas`, `IntersectionObserver` no contêiner que rola;
+  o botão "Mostrar mais (N)" é a reserva). A `Linha` é memorizada (`igualLinha`): o ctx muda a cada tarefa alterada,
+  então a comparação o ignora; o que a linha desenha do ctx entra em `versao` (ListaView), os eventos
+  (`EVENTOS_LINHA`) passam por proxies que chamam o ctx atual, e as setas leem irmãs e ordem na hora do clique.
+  **Campo novo do ctx que a linha desenha precisa entrar em `versao`**, senão a linha não atualiza. O realtime de
+  `tarefas_itens` aplica em lote a cada 150 ms, e `carregarAbertas` pede as páginas em paralelo (`selectParalelo`,
+  com desempate por id). Medido no `/dev/lista?x=12` (948 de topo, modo dev): abrir uma tarefa caiu de 2,5 a 4,4 s
+  para 70 a 100 ms. A carga continua com `select('*')`: o painel, duplicar e "Salvar como template" usam
+  `descricao` e `anexos` da linha carregada.
 - **Lista = cara do ClickUp (2026-10-18, pedido do Matheus):** `ListaView.jsx` agrupa por
   **Data de vencimento** por padrão ("Em atraso 47", "Hoje", "Amanhã"…), repete o cabeçalho de
   colunas em cada grupo e usa as colunas na ordem do ClickUp: Nome · Status (pill preenchida,

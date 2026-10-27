@@ -19,6 +19,21 @@ async function selectPaginado(query) {
   return out
 }
 
+/**
+ * Como o selectPaginado, mas a 1ª página traz a contagem e as demais saem juntas (2 idas ao
+ * servidor em vez de uma por página). `montar(comContagem)` devolve uma query NOVA a cada
+ * chamada, com ordem total (desempate por id), senão as páginas repetem ou pulam linhas.
+ */
+async function selectParalelo(montar) {
+  const { data, count, error } = await montar(true).range(0, PAGINA - 1)
+  if (error) throw error
+  const resto = Math.max(0, Math.ceil((count ?? 0) / PAGINA) - 1)
+  const paginas = await Promise.all(Array.from({ length: resto }, (_, k) => montar(false).range((k + 1) * PAGINA, (k + 2) * PAGINA - 1)))
+  const out = [...(data || [])]
+  for (const pg of paginas) { if (pg.error) throw pg.error; out.push(...(pg.data || [])) }
+  return out
+}
+
 export function useTarefas(user) {
   const [pastas, setPastas] = useState([])
   const [listas, setListas] = useState([])
@@ -132,9 +147,9 @@ export function useTarefas(user) {
     if (!supabase || (abertasCarregadas.current && !force)) return
     setCarregando(true)
     try {
-      const rows = await selectPaginado(
-        supabase.from('tarefas_itens').select('*').neq('status_tipo', 'closed').eq('arquivada', false).order('data_vencimento', { ascending: true, nullsFirst: false }),
-      )
+      const rows = await selectParalelo((comContagem) => supabase.from('tarefas_itens')
+        .select('*', comContagem ? { count: 'exact' } : undefined).neq('status_tipo', 'closed').eq('arquivada', false)
+        .order('data_vencimento', { ascending: true, nullsFirst: false }).order('id'))
       abertasCarregadas.current = true
       mesclar(rows)
     } catch (e) {
@@ -334,20 +349,34 @@ export function useTarefas(user) {
 
   // ── Realtime ───────────────────────────────────────────────────────────────
   useEffect(() => {
+    // Eventos de tarefa em lote: a sincronização e o push gravam dezenas de linhas de uma vez,
+    // e cada setItens recalculava filtros, grupos e a lista inteira. Junta o que chega em
+    // 150 ms e aplica num único setItens (copiando o mapa só se algo mudou).
+    const fila = []
+    let timer = null
+    const aplicarLote = () => {
+      timer = null
+      const lote = fila.splice(0)
+      setItens((prev) => {
+        let n = prev
+        const editavel = () => { if (n === prev) n = { ...prev } }
+        for (const { eventType, row, old } of lote) {
+          if (eventType === 'DELETE') { if (n[old.id]) { editavel(); delete n[old.id] } continue }
+          const conhecida = carregadas.current.has(row.lista_id) || !!n[row.id] || (row.parent_id && !!n[row.parent_id])
+            || (row.ciclo_id && camposCarregados.current.ciclo_id.has(row.ciclo_id))
+          if (!conhecida) continue
+          editavel()
+          if (row.arquivada) delete n[row.id]
+          else n[row.id] = row
+        }
+        return n
+      })
+    }
     const ch = supabase
       .channel('tarefas-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tarefas_itens' }, ({ eventType, new: row, old }) => {
-        if (eventType === 'DELETE') {
-          setItens((prev) => { if (!prev[old.id]) return prev; const n = { ...prev }; delete n[old.id]; return n })
-          return
-        }
-        setItens((prev) => {
-          const conhecida = carregadas.current.has(row.lista_id) || !!prev[row.id] || (row.parent_id && !!prev[row.parent_id])
-            || (row.ciclo_id && camposCarregados.current.ciclo_id.has(row.ciclo_id))
-          if (!conhecida) return prev
-          if (row.arquivada) { const n = { ...prev }; delete n[row.id]; return n }
-          return { ...prev, [row.id]: row }
-        })
+        fila.push({ eventType, row, old })
+        if (!timer) timer = setTimeout(aplicarLote, 150)
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tarefas_comentarios' }, ({ new: row }) => {
         setComentarios((prev) => {
@@ -373,7 +402,7 @@ export function useTarefas(user) {
         })
       })
       .subscribe()
-    return () => { supabase.removeChannel(ch) }
+    return () => { if (timer) clearTimeout(timer); supabase.removeChannel(ch) }
   }, [])
 
   return {

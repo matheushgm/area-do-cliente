@@ -22,7 +22,10 @@
 // (o "+" no fim do cabeçalho abre o editor). Com `colunas` (templates) nada disso vale.
 // Largura do Nome: `ctx.larguraNome` (px, null = o que sobrar; preferência local, não da view) e `ctx.onLarguraNome(w)`, que
 // liga a alça na borda direita do cabeçalho do Nome (arrastar; ← → com foco; duplo clique volta ao automático).
-import { useState, useRef } from 'react'
+// Desempenho (2026-10-27, "Todas" com ~900 linhas de topo): cada grupo desenha 50 linhas e
+// mais 50 quando o fim do que está desenhado chega perto da tela (MaisLinhas), e a linha é
+// memorizada (igualLinha): só redesenha quando a própria tarefa ou o que ela mostra muda.
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, memo } from 'react'
 import { colunasVisiveis, normalizarLarguraNome } from '../../lib/viewsTarefas'
 import EditorColunas from './ColunasLista'
 import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Flag, Hourglass, CloudUpload } from 'lucide-react'
@@ -223,12 +226,14 @@ function mover(item, irmas, dir, ctx) {
   // entre a vizinha e a seguinte a ela (ou um passo além da ponta)
   ctx.onAtualizar(item.id, { posicao: alem ? (posDe(viz) + posDe(alem)) / 2 : posDe(viz) + dir * PASSO })
 }
-function BotoesMover({ item, irmas, ctx }) {
-  const i = irmas.findIndex((x) => x.id === item.id)
+// irmasDe() e ctx.atual() são lidos na hora do clique: a linha memorizada pode ter sido
+// desenhada antes de a ordem mudar.
+function BotoesMover({ item, irmasDe, primeira, ultima, ctx }) {
   const dica = ctx.ordenar?.campo ? ' (a ordem da tela vira a ordem manual)' : ''
+  const clicar = (e, dir) => { e.stopPropagation(); mover(item, irmasDe(), dir, ctx.atual?.() || ctx) }
   return (<>
-    <button type="button" disabled={i <= 0} onClick={(e) => { e.stopPropagation(); mover(item, irmas, -1, ctx) }} className="ln-iconbtn !w-5 !h-5 !rounded disabled:opacity-30" title={`Mover para cima${dica}`} aria-label="Mover para cima"><ArrowUp className="w-3 h-3" /></button>
-    <button type="button" disabled={i < 0 || i >= irmas.length - 1} onClick={(e) => { e.stopPropagation(); mover(item, irmas, 1, ctx) }} className="ln-iconbtn !w-5 !h-5 !rounded disabled:opacity-30" title={`Mover para baixo${dica}`} aria-label="Mover para baixo"><ArrowDown className="w-3 h-3" /></button>
+    <button type="button" disabled={primeira} onClick={(e) => clicar(e, -1)} className="ln-iconbtn !w-5 !h-5 !rounded disabled:opacity-30" title={`Mover para cima${dica}`} aria-label="Mover para cima"><ArrowUp className="w-3 h-3" /></button>
+    <button type="button" disabled={ultima} onClick={(e) => clicar(e, 1)} className="ln-iconbtn !w-5 !h-5 !rounded disabled:opacity-30" title={`Mover para baixo${dica}`} aria-label="Mover para baixo"><ArrowDown className="w-3 h-3" /></button>
   </>)
 }
 
@@ -268,14 +273,20 @@ function Celula({ k, item, ctx }) {
   }
 }
 
-function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols, denso, irmas = [] }) {
-  const { onAbrir, onMudarStatus, contagemComentarios, selecionadaId } = ctx
+/**
+ * Linha memorizada: o ctx muda a cada mudança de qualquer tarefa, então a comparação o ignora.
+ * O que a linha desenha a partir do ctx entra em `versao` (ListaView); o que é dela vem em
+ * props próprias; os eventos do ctx chamam sempre a versão atual (proxies da ListaView).
+ */
+const igualLinha = (a, b) => a.item === b.item && a.versao === b.versao && a.sub === b.sub && a.nFilhos === b.nFilhos
+  && a.expandido === b.expandido && a.denso === b.denso && a.primeira === b.primeira && a.ultima === b.ultima
+  && a.selecionada === b.selecionada && a.marcada === b.marcada && a.caixas === b.caixas && a.nComent === b.nComent
+
+const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, onToggle, ctx, cols, denso, irmasDe, primeira, ultima, selecionada, marcada, caixas, nComent }) {
+  const { onAbrir, onMudarStatus } = ctx
   const statuses = ctx.statusesDe?.(item) || ctx.statuses
   const check = progressoChecklists(item.checklists)
-  const nComent = contagemComentarios?.[item.id] || 0
   const concluida = item.status_tipo === 'closed'
-  const selecionada = selecionadaId === item.id
-  const marcada = !!ctx.selecao?.ids.has(item.id)
   const destaque = selecionada ? 'bg-ln-level2' : marcada ? 'bg-ln-accent/[0.07]' : ''
   return (
     <div
@@ -293,12 +304,12 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
         <span aria-hidden="true" className={`absolute inset-0 -z-10 ${destaque || 'group-hover/linha:bg-ln-level2/60'}`} />
         {ctx.selecao && (
           <span className="inline-flex items-center justify-center w-5 shrink-0">
-            <Caixa marcada={marcada} visivel={ctx.selecao.ids.size > 0} onChange={() => ctx.selecao.alternar(item.id)} label={`Selecionar ${item.titulo || 'tarefa'}`} />
+            <Caixa marcada={marcada} visivel={caixas} onChange={() => ctx.selecao.alternar(item.id)} label={`Selecionar ${item.titulo || 'tarefa'}`} />
           </span>
         )}
         <span className="inline-flex items-center justify-center w-4 h-4 shrink-0">
-          {!sub && filhos.length > 0 ? (
-            <button type="button" onClick={(e) => { e.stopPropagation(); onToggle() }} className="ln-iconbtn !w-4 !h-4 !rounded" title={`${filhos.length} subtarefa(s)`} aria-label={expandido ? 'Recolher subtarefas' : 'Expandir subtarefas'}>
+          {!sub && nFilhos > 0 ? (
+            <button type="button" onClick={(e) => { e.stopPropagation(); onToggle() }} className="ln-iconbtn !w-4 !h-4 !rounded" title={`${nFilhos} subtarefa(s)`} aria-label={expandido ? 'Recolher subtarefas' : 'Expandir subtarefas'}>
               <ChevronRight className={`w-3 h-3 transition-transform duration-150 ${expandido ? 'rotate-90' : ''}`} />
             </button>
           ) : null}
@@ -307,7 +318,7 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
         <span className={`text-[13px] truncate min-w-0 ${concluida ? 'text-ln-t4 line-through' : 'text-ln-t1'}`} title={item.titulo}>{item.titulo}</span>
         {ctx.rotuloPai?.(item)}
         <span className="flex items-center gap-2 text-[11px] text-ln-t4 shrink-0 tabular ml-1.5">
-          {!sub && filhos.length > 0 && <span className="inline-flex items-center gap-0.5" title="Subtarefas"><CornerDownRight className="w-3 h-3" />{filhos.length}</span>}
+          {!sub && nFilhos > 0 && <span className="inline-flex items-center gap-0.5" title="Subtarefas"><CornerDownRight className="w-3 h-3" />{nFilhos}</span>}
           {check.total > 0 && <span className="inline-flex items-center gap-0.5" title="Checklist"><ListChecks className="w-3 h-3" />{check.feitos}/{check.total}</span>}
           {nComent > 0 && <span className="inline-flex items-center gap-0.5" title="Comentários"><MessageSquare className="w-3 h-3" />{nComent}</span>}
           {/* ainda não chegou ao ClickUp (fila do push); some sozinho pelo realtime quando o vínculo é gravado */}
@@ -316,7 +327,7 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
         {/* ações de hover sobrepostas à direita (não roubam largura do título) */}
         {ctx.acoesHover !== false && <span className="absolute right-2 top-0 bottom-0 hidden md:inline-flex items-center gap-0.5 pl-6 bg-gradient-to-r from-transparent via-ln-level2/60 to-ln-level2/60 opacity-0 group-hover/linha:opacity-100 transition-opacity">
           {ctx.renderAcoesHover ? <span className="inline-flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>{ctx.renderAcoesHover(item)}</span> : (<>
-            <BotoesMover item={item} irmas={irmas} ctx={ctx} />
+            <BotoesMover item={item} irmasDe={irmasDe} primeira={primeira} ultima={ultima} ctx={ctx} />
             <button type="button" onClick={(e) => { e.stopPropagation(); ctx.onCriar({ lista_id: item.lista_id, parent_id: item.parent_id || item.id, titulo: 'Nova subtarefa' }) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Adicionar subtarefa"><Plus className="w-3 h-3" /></button>
           </>)}
         </span>}
@@ -334,6 +345,39 @@ function Linha({ item, sub = false, filhos = [], expandido, onToggle, ctx, cols,
         )
       })}
       <span className="flex items-center justify-center" onClick={ctx.acaoLinha ? (e) => e.stopPropagation() : undefined}>{ctx.acaoLinha?.(item)}</span>
+    </div>
+  )
+}, igualLinha)
+
+// eventos do ctx usados pelas linhas (e pelas células): passam por proxy para a linha
+// memorizada não chamar a versão de quando foi desenhada
+const EVENTOS_LINHA = ['onAbrir', 'onAtualizar', 'onMudarStatus', 'onCriar', 'onOrdenar']
+
+// ── Mais linhas ───────────────────────────────────────────────────────────────
+const LINHAS_POR_VEZ = 50
+// contêiner que rola de verdade (overflow auto/scroll e conteúdo maior que ele)
+const rolavel = (el) => { const o = getComputedStyle(el).overflowY; return (o === 'auto' || o === 'scroll') && el.scrollHeight > el.clientHeight }
+/**
+ * Fim do que o grupo desenhou: quando chega a ~600 px da área visível, pede mais linhas
+ * (onMais). O botão fica de reserva (sem IntersectionObserver, ou para quem usa teclado).
+ */
+function MaisLinhas({ restantes, onMais, ctx }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined
+    // a lista rola dentro de um contêiner, não na janela: é ele a raiz da interseção
+    let raiz = el.parentElement
+    while (raiz && raiz !== document.body && !rolavel(raiz)) raiz = raiz.parentElement
+    const obs = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) onMais() }, { root: raiz === document.body ? null : raiz, rootMargin: '600px 0px' })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [onMais, restantes]) // recriar a cada lote reavalia: em tela alta, segue pedindo até sair da margem
+  return (
+    <div ref={ref} className={`flex items-center h-8 ${recuo(ctx)} border-b border-ln-line/70`}>
+      <button type="button" onClick={onMais} className={`sticky left-2 text-xs text-ln-t4 hover:text-ln-t2 rounded ${FOCO}`}>
+        Mostrar mais ({restantes})
+      </button>
     </div>
   )
 }
@@ -413,11 +457,13 @@ function TituloColuna({ k, label, ctx, ordenavel = true }) {
 
 // ── Grupo ─────────────────────────────────────────────────────────────────────
 
-function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
+function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols, versao }) {
   const [aberto, setAberto] = useState(true)
   // com ctx.expandirTudo o conjunto guarda as RECOLHIDAS (tudo nasce aberto); sem ele, as abertas
   const [expandidos, setExpandidos] = useState(() => new Set())
   const [novaTarefa, setNovaTarefa] = useState(false)
+  const [limite, setLimite] = useState(LINHAS_POR_VEZ)
+  const mais = useCallback(() => setLimite((n) => n + LINHAS_POR_VEZ), [])
   const { onCriar, listaPadraoId, agrupar } = ctx
   const ordenar = ctx.ordenar?.campo ? ctx.ordenar : null
   const ordenarLista = (lista) => (ordenar ? ordenarPorCampo(lista, ordenar, ctx) : ordenarItens(lista))
@@ -425,6 +471,15 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
   const toggle = (id) => setExpandidos((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const idsDoGrupo = ctx.selecao ? itens.flatMap((i) => [i.id, ...(filhosDe.get(i.id) || []).map((f) => f.id)]) : []
   const nMarcadas = ctx.selecao ? idsDoGrupo.filter((id) => ctx.selecao.ids.has(id)).length : 0
+  // ordem atual das tarefas e das subtarefas de cada pai, para as setas lerem na hora do clique
+  const ordemRef = useRef({ topo: [], filhos: new Map() })
+  const irmasDe = useCallback((paiId) => () => (paiId ? ordemRef.current.filhos.get(paiId) : ordemRef.current.topo) || [], [])
+  const selIds = ctx.selecao?.ids
+  const caixas = !!selIds && selIds.size > 0
+  const visiveis = itens.slice(0, limite)
+  // subtarefas visíveis de cada tarefa desenhada, na ordem da tela
+  const filhosOrdenados = new Map(visiveis.map((it) => [it.id, ordenarLista((filhosDe.get(it.id) || []).filter((f) => mostrarConcluidas || f.status_tipo !== 'closed' || it.status_tipo === 'closed'))]))
+  useLayoutEffect(() => { ordemRef.current = { topo: itens, filhos: filhosOrdenados } })
   const corLabel = grupo.key === 'atrasado' ? 'text-ln-red' : grupo.key === 'hoje' ? 'text-ln-green' : grupo.key === 'amanha' ? 'text-ln-yellow' : 'text-ln-t1'
   return (
     <section className="mb-6" aria-label={grupo.label}>
@@ -469,14 +524,15 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
               </span>
             ) : <span aria-hidden="true" />}
           </div>
-          {itens.map((it) => {
+          {visiveis.map((it, idx) => {
             const todosFilhos = filhosDe.get(it.id) || []
-            const filhos = ordenarLista(todosFilhos.filter((f) => mostrarConcluidas || f.status_tipo !== 'closed' || it.status_tipo === 'closed'))
+            const filhos = filhosOrdenados.get(it.id)
             const exp = ctx.expandirTudo ? todosFilhos.length > 0 && !expandidos.has(it.id) : expandidos.has(it.id)
+            const deLinha = (x) => ({ ctx, cols, denso, versao, selecionada: ctx.selecionadaId === x.id, marcada: !!selIds?.has(x.id), caixas, nComent: ctx.contagemComentarios?.[x.id] || 0 })
             return (
               <div key={it.id}>
-                <Linha item={it} filhos={todosFilhos} expandido={exp} onToggle={() => toggle(it.id)} ctx={ctx} cols={cols} denso={denso} irmas={itens} />
-                {exp && filhos.map((f) => <Linha key={f.id} item={f} sub ctx={ctx} cols={cols} denso={denso} irmas={filhos} />)}
+                <Linha item={it} nFilhos={todosFilhos.length} expandido={exp} onToggle={() => toggle(it.id)} irmasDe={irmasDe(null)} primeira={idx === 0} ultima={idx === itens.length - 1} {...deLinha(it)} />
+                {exp && filhos.map((f, j) => <Linha key={f.id} item={f} sub irmasDe={irmasDe(it.id)} primeira={j === 0} ultima={j === filhos.length - 1} {...deLinha(f)} />)}
                 {exp && ctx.acoesHover !== false && (
                   <div className={`flex items-center h-8 ${recuo(ctx)} border-b border-ln-line/70`}>
                     <AdicionarInline placeholder="Adicionar subtarefa" onCriar={(t) => onCriar({ lista_id: it.lista_id, parent_id: it.id, titulo: t, status: agrupar === 'status' ? grupo.key : undefined })} />
@@ -485,6 +541,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols }) {
               </div>
             )
           })}
+          {itens.length > limite && <MaisLinhas restantes={itens.length - limite} onMais={mais} ctx={ctx} />}
           {listaPadraoId && (
             <div className={`flex items-center h-8 ${recuo(ctx)}`}>
               <AdicionarInline autoFocus={novaTarefa} placeholder="Adicionar tarefa" onCriar={(t) => { setNovaTarefa(false); onCriar({ lista_id: listaPadraoId, titulo: t, status: agrupar === 'status' ? grupo.key : undefined }) }} />
@@ -514,6 +571,19 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
   }
   // ordem de cada grupo como está na tela: as setas usam para congelar a ordenação por coluna
   if (ctx.ordenar?.campo) ctxLista.ordemVisivel = grupos.map((g) => ordenarPorCampo(g.itens, ctx.ordenar, ctxLista))
+
+  // Linhas memorizadas (igualLinha): os eventos chamam o ctx atual por estes proxies, e
+  // `versao` muda quando muda algo do ctx que a linha desenha (fora a própria tarefa).
+  const atual = useRef(ctxLista)
+  useLayoutEffect(() => { atual.current = ctxLista })
+  const proxies = useMemo(() => Object.fromEntries(EVENTOS_LINHA.map((k) => [k, (...a) => atual.current[k]?.(...a)])), [])
+  const ctxLinhas = { ...ctxLista, atual: () => atual.current }
+  for (const k of EVENTOS_LINHA) if (ctxLista[k]) ctxLinhas[k] = proxies[k]
+  const colsChave = cols.map((c) => c.k).join(',')
+  const versao = useMemo(() => ({}), [ // eslint-disable-line react-hooks/exhaustive-deps
+    ctx.statuses, ctx.membros, ctx.membrosMap, ctx.ciclos, ctx.listas, ctx.pastas, ctx.projetos, ctx.listasComClickup, ctx.ordenar,
+    ctx.expandirTudo, ctx.semStatus, ctx.acoesHover, ctx.renderCelula, ctx.acaoLinha, ctx.rotuloPai, ctx.renderAcoesHover, larguraNome, colsChave,
+  ])
   if (!grupos.length && vazio) return vazio
   if (!grupos.length) {
     return (
@@ -531,7 +601,7 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
     <div className="w-max min-w-full pb-24 pt-2 bg-ln-panel">
       {grupos.map((g) => (
         <div key={g.key} style={{ minWidth: larguraMin }}>
-          <Grupo grupo={g} ctx={ctxLista} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} denso={denso} cols={cols} />
+          <Grupo grupo={g} ctx={ctxLinhas} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} denso={denso} cols={cols} versao={versao} />
         </div>
       ))}
     </div>
