@@ -869,6 +869,20 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     `/pedido/:token` (`api/intake-publico.js`, edge, `client_share_token`, 8 pedidos/hora por cliente) e entrada
     automática por `api/_intake.js` (`registrarIntake`, idempotente por `origem_ref`) quando o cliente
     **reprova** anúncio, LP (`api/anuncios-aprovacao.js`) ou copy (`api/copy-aprovacao.js`).
+  - **Pedido do cliente por tipo (2026-10-27):** o `/pedido/:token` virou formulário em 3 etapas (tipo →
+    detalhes → revisão). Tipos e campos vivem em `src/lib/pedidoTipos.js`, lido pela página
+    (`PedidoPublico.jsx`), pelo servidor (valida com `validarPedido`, monta título e descrição markdown com
+    `montarPedido`) e pelo Intake: Criativo estático, Criativo de vídeo e Landing page (espelham
+    `tarefas_modelos.nome` em `template`), Nova campanha, Orçamento, Alteração de WhatsApp e Outras. Campo
+    `drive` = link do Google Drive conferido **sem login** pelo servidor (`GET ?token&drive=URL`: pasta/arquivo
+    aberto dá 200 com o nome no `<title>`, fechado cai em `accounts.google.com` ou 401, apagado 404); fechado
+    barra o envio, e o POST confere de novo. O pedido grava `payload` `{ versao: 2, tipo, template, prazo,
+    respostas, itens }`; o cartão do Intake mostra os `itens`, e para tipo com template oferece **Aplicar
+    template** (`api.usarModelo(tpl, listaGeral, pedido)` do `AreaTarefas`: o pedido vai para a descrição da
+    tarefa raiz e sai da fila como aceito). "Só uma tarefa" usa `payload.prazo` como vencimento. O GET devolve
+    `prazos` (dias úteis até publicar, lidos do template) para a dica de prazo. Rascunho do formulário em
+    `localStorage` (`pedido.rascunho.<token>`) e nome/contato lembrados (`pedido.contato`). POST sem `tipo`
+    (formato antigo) continua aceito.
   - **Não portado de propósito:** pontos de estimativa (usamos `estimativa_min`), rascunhos, sticky notes,
     favoritos, webhooks/API pública, importadores e editor rich text (Pages usa markdown).
 - **Templates (construtor, 2026-10-22, migrations 107/108):** receita reutilizável de uma entrega

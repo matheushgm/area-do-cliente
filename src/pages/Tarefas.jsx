@@ -226,6 +226,7 @@ export default function Tarefas() {
       lista_id: lista.id, titulo: it.titulo, prioridade: it.prioridade,
       descricao: it.descricao ? `${it.descricao}\n\nOrigem: ${it.origem}` : `Origem: ${it.origem}`,
       responsaveis: responsavelId ? [responsavelId] : [],
+      data_vencimento: it.payload?.prazo || null, // prazo que o cliente pediu no link
     })
     if (r.error) { showToast(r.error, 'error'); return }
     const d = await vt.decidirIntake(it.id, { status: 'aceito', tarefa_id: r.data.id })
@@ -293,7 +294,16 @@ export default function Tarefas() {
 
   const secao = !ehSecao ? null : (api) => (
     aba === 'intake' ? (
-      <IntakeView vt={vt} pastas={t.pastas} listas={t.listas} projetos={projects || []} membros={teamMembers || []} onAceitar={aceitarIntake} onToast={showToast} onAbrirTarefa={api.abrirTarefa} />
+      <IntakeView
+        vt={vt} pastas={t.pastas} listas={t.listas} projetos={projects || []} membros={teamMembers || []} onAceitar={aceitarIntake} onToast={showToast} onAbrirTarefa={api.abrirTarefa}
+        modelos={vt.modelos}
+        onAplicarTemplate={(it, tpl, pastaId) => {
+          // pedido com template (criativo, LP): "Aplicar template" na lista Geral do cliente
+          const lista = t.listas.find((l) => l.pasta_id === pastaId && l.nome === 'Geral') || t.listas.find((l) => l.pasta_id === pastaId)
+          if (!lista) showToast('Essa pasta não tem lista. Crie uma lista primeiro.', 'error')
+          else api.usarModelo(tpl, lista.id, it)
+        }}
+      />
     ) : aba === 'paginas' ? (
       <PaginasView pg={pgHook} projetos={projects || []} user={user} paginaId={params.get('pagina')} onSelecionar={(id) => setParams(id ? new URLSearchParams({ aba: 'paginas', pagina: id }) : new URLSearchParams({ aba: 'paginas' }))} onToast={showToast} />
     ) : aba === 'analytics' ? (

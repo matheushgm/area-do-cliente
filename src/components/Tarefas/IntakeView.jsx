@@ -2,7 +2,7 @@
 // reprovações de anúncio e sugestões do playbook chegam aqui; o time escolhe
 // cliente e responsável e aceita (vira tarefa em "A fazer") ou recusa.
 import { useMemo, useState, useEffect } from 'react'
-import { Plus, Undo2, ExternalLink, Clock, Copy, Link2, Search } from 'lucide-react'
+import { Plus, Undo2, ExternalLink, Clock, Copy, Link2, Search, CheckCircle2, LayoutTemplate } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { PRIORIDADES, fmtDataHora } from '../../lib/tarefas'
 import { ORIGENS_INTAKE } from '../../lib/vertatask'
@@ -38,7 +38,27 @@ function BuscaDuplicada({ onEscolher, onCancelar }) {
   )
 }
 
-function Cartao({ it, pastas, listas, projetos, membros, onAceitar, onRecusar, onAdiar, onDuplicada }) {
+// Respostas do pedido feito pelo link /pedido (payload.itens, ver src/lib/pedidoTipos.js).
+function RespostasPedido({ itens }) {
+  return (
+    <dl className="mt-2.5 mb-1 grid gap-x-4 gap-y-1.5 sm:grid-cols-[140px_1fr] text-[13px]">
+      {itens.filter((i) => !['urgente', 'prazo', 'nome', 'contato'].includes(i.k)).map((i) => (
+        <div key={i.k} className="contents">
+          <dt className="text-ln-t4 font-medium">{i.label}</dt>
+          <dd className="text-ln-t2 whitespace-pre-line break-words min-w-0">
+            {i.tipo === 'link' || i.tipo === 'drive'
+              ? <a href={i.valor} target="_blank" rel="noreferrer" className="text-ln-accent hover:underline break-all">{i.drive?.nome || i.valor}</a>
+              : i.valor}
+            {i.drive?.publico === true && <span className="ml-1.5 inline-flex items-center gap-1 text-[11.5px] font-semibold text-ln-green"><CheckCircle2 className="w-3 h-3" /> aberto</span>}
+            {i.drive && i.drive.publico !== true && <span className="ml-1.5 text-[11.5px] text-ln-t4">acesso não conferido</span>}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+function Cartao({ it, pastas, listas, projetos, membros, modelos, onAceitar, onAplicarTemplate, onRecusar, onAdiar, onDuplicada }) {
   const pastaDoProjeto = useMemo(() => pastas.find((p) => p.project_id && p.project_id === it.project_id)?.id || '', [pastas, it.project_id])
   const [pastaId, setPastaId] = useState(pastaDoProjeto)
   const [resp, setResp] = useState('')
@@ -60,15 +80,19 @@ function Cartao({ it, pastas, listas, projetos, membros, onAceitar, onRecusar, o
     setBusy(false)
   }
   const temLista = pastaId && listas.some((l) => l.pasta_id === pastaId)
+  const pedido = Array.isArray(it.payload?.itens) ? it.payload : null
+  const template = pedido?.template ? (modelos || []).find((m) => m.nome === pedido.template) : null
 
   return (
     <div className="ln-card px-[18px] py-4 grid gap-4 md:grid-cols-[1fr_220px] max-w-[880px]">
       <div className="min-w-0">
-        <p className="text-[11px] uppercase tracking-[0.12em] text-ln-accent font-bold">{it.origem} · {fmtDataHora(it.created_at)}</p>
+        <p className="text-[11px] uppercase tracking-[0.12em] text-ln-accent font-bold">{it.origem}{pedido?.tipo_nome ? ` · ${pedido.tipo_nome}` : ''} · {fmtDataHora(it.created_at)}</p>
         <h3 className="text-[15px] font-bold text-ln-t1 mt-1">{it.titulo}</h3>
-        {it.descricao && <p className="text-sm text-ln-t2 mt-1.5 mb-2.5 whitespace-pre-line">{it.descricao}</p>}
-        <div className="flex items-center gap-2 mt-2 text-xs text-ln-t3">
-          {it.prioridade && <span className={`px-2 py-0.5 rounded-full text-[11.5px] font-bold ${PILULA_PRIO[it.prioridade] || PILULA_PRIO.low}`}>{ROTULO_PRIO[it.prioridade]}</span>}
+        {pedido ? <RespostasPedido itens={pedido.itens} />
+          : it.descricao && <p className="text-sm text-ln-t2 mt-1.5 mb-2.5 whitespace-pre-line">{it.descricao}</p>}
+        <div className="flex items-center gap-2 mt-2 text-xs text-ln-t3 flex-wrap">
+          {it.prioridade && it.prioridade !== 'normal' && <span className={`px-2 py-0.5 rounded-full text-[11.5px] font-bold ${PILULA_PRIO[it.prioridade] || PILULA_PRIO.low}`}>{pedido && it.prioridade === 'high' ? 'Urgente' : ROTULO_PRIO[it.prioridade]}</span>}
+          {pedido?.prazo && <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> para {new Date(`${pedido.prazo}T12:00:00`).toLocaleDateString('pt-BR')}</span>}
           {projeto && <span>{nomeProjeto(projeto)}</span>}
           {it.contato && <span>Contato: {it.contato}</span>}
         </div>
@@ -101,7 +125,12 @@ function Cartao({ it, pastas, listas, projetos, membros, onAceitar, onRecusar, o
           </>
         ) : (
           <div className="flex flex-col gap-2">
-            <button type="button" disabled={busy || !temLista} onClick={aceitar} className="ln-primary !h-9 w-full justify-center disabled:opacity-50" title={temLista ? '' : 'Escolha um cliente com pasta'}>Aceitar como tarefa</button>
+            {template && (
+              <button type="button" disabled={busy || !temLista} onClick={() => onAplicarTemplate(it, template, pastaId)} className="ln-primary !h-9 w-full justify-center disabled:opacity-50" title={temLista ? `Cria as tarefas do template ${template.nome} com o pedido na descrição` : 'Escolha um cliente com pasta'}>
+                <LayoutTemplate className="w-3.5 h-3.5" /> Aplicar template
+              </button>
+            )}
+            <button type="button" disabled={busy || !temLista} onClick={aceitar} className={`${template ? 'ln-pill !text-ln-t1' : 'ln-primary'} !h-9 w-full justify-center disabled:opacity-50`} title={temLista ? '' : 'Escolha um cliente com pasta'}>{template ? 'Só uma tarefa' : 'Aceitar como tarefa'}</button>
             <button type="button" disabled={busy} onClick={() => setRecusando(true)} className="ln-pill !h-9 w-full justify-center !text-ln-t1 hover:!text-ln-red">Recusar</button>
             <div className="flex gap-2">
               <button type="button" disabled={busy} onClick={() => setAdiando(true)} className="ln-pill !h-8 flex-1 justify-center" title="Tirar da fila e voltar numa data"><Clock className="w-3.5 h-3.5" /> Adiar</button>
@@ -165,7 +194,7 @@ function LinkCliente({ projetos, pastas, onToast }) {
   )
 }
 
-export default function IntakeView({ vt, pastas, listas, projetos, membros, onAceitar, onToast, onAbrirTarefa }) {
+export default function IntakeView({ vt, pastas, listas, projetos, membros, modelos, onAceitar, onAplicarTemplate, onToast, onAbrirTarefa }) {
   const [criando, setCriando] = useState(false)
   const pendentes = vt.intakePendentes
   const recentes = useMemo(() => vt.intake.filter((i) => ['aceito', 'recusado', 'duplicado'].includes(i.status)).slice(0, 15), [vt.intake])
@@ -202,7 +231,7 @@ export default function IntakeView({ vt, pastas, listas, projetos, membros, onAc
         <div className="rounded-lg border border-dashed border-ln-ink/15 p-10 text-center text-[13px] text-ln-t4 max-w-4xl">Fila vazia. Tudo que chegou já virou tarefa ou foi recusado.</div>
       )}
       {pendentes.map((it) => (
-        <Cartao key={it.id} it={it} pastas={pastas} listas={listas} projetos={projetos} membros={membros} onAceitar={onAceitar} onRecusar={recusar} onAdiar={adiar} onDuplicada={duplicada} />
+        <Cartao key={it.id} it={it} pastas={pastas} listas={listas} projetos={projetos} membros={membros} modelos={modelos} onAceitar={onAceitar} onAplicarTemplate={onAplicarTemplate} onRecusar={recusar} onAdiar={adiar} onDuplicada={duplicada} />
       ))}
 
       {vt.intakeAdiados.length > 0 && (

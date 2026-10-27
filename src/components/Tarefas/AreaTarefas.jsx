@@ -383,18 +383,22 @@ export default function AreaTarefas({
     return r
   }, [onCriar, abrirTarefa, showToast])
 
-  const usarModelo = useCallback((m, listaId = listaPadraoId) => setAplicandoTpl({ template: m, listaId }), [listaPadraoId])
+  // `intake`: pedido do Intake que originou a aplicação (o pedido vai para a descrição da tarefa
+  // raiz e sai da fila como aceito).
+  const usarModelo = useCallback((m, listaId = listaPadraoId, intake = null) => setAplicandoTpl({ template: m, listaId, intake }), [listaPadraoId])
 
   /** Cria as tarefas do plano (pais antes dos filhos) e as dependências como "bloqueia". */
   const aplicarTemplate = useCallback(async ({ listaId, plano, onProgresso }) => {
+    const intake = aplicandoTpl?.intake
     const mapa = new Map()
     const base = Date.now()
     for (const [i, l] of plano.entries()) {
       const parent_id = l.paiId ? mapa.get(l.paiId) : null
       if (l.paiId && !parent_id) continue
       const it = l.item
+      const descricao = intake && !l.paiId ? [intake.descricao, l.descricao].filter(Boolean).join('\n\n---\n\n') : l.descricao
       const r = await t.criarTarefa({
-        lista_id: listaId, parent_id, titulo: l.titulo, descricao: l.descricao, posicao: base + i,
+        lista_id: listaId, parent_id, titulo: l.titulo, descricao, posicao: base + i,
         prioridade: it.prioridade, estimativa_min: it.estimativa_min, tipo_tarefa: it.tipo_tarefa, dificuldade: it.dificuldade,
         departamento: it.departamento, etiquetas: it.etiquetas, responsaveis: l.responsaveis,
         data_inicio: l.data_inicio, data_vencimento: l.data_vencimento,
@@ -414,13 +418,17 @@ export default function AreaTarefas({
       if (error) showToast(`Tarefas criadas, mas as dependências falharam: ${error.message}`, 'error')
     }
     const raizes = plano.filter((l) => !l.paiId)
+    if (intake) {
+      const d = await vt.decidirIntake(intake.id, { status: 'aceito', tarefa_id: mapa.get(raizes[0]?.item.id) || null })
+      if (d.error) showToast(`Tarefas criadas, mas o pedido não saiu da fila: ${d.error}`, 'error')
+    }
     setAplicandoTpl(null)
     const tarefaId = raizes.length === 1 ? mapa.get(raizes[0].item.id) || null : null
     if (onIrParaLista) onIrParaLista(listaId, tarefaId)
     else if (tarefaId) abrirTarefa(tarefaId)
     showToast(`${mapa.size} tarefa(s) criada(s) a partir do template`)
     return {}
-  }, [t, user?.id, showToast, onIrParaLista, abrirTarefa])
+  }, [t, vt, aplicandoTpl, user?.id, showToast, onIrParaLista, abrirTarefa])
 
   // Atalhos: C cria, Esc fecha o painel (fora de campos de texto).
   useEffect(() => {
