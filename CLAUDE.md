@@ -621,8 +621,11 @@ todo `authenticated`; as quatro estão na publicação realtime).
 
 - **Página** `src/pages/Tarefas.jsx`: coluna de pastas/listas (`TarefasSidebar`, dentro do
   frame), barra com Lista/Quadro, agrupamento (status, vencimento, responsável, prioridade,
-  lista), filtro de responsável, busca, toggle de concluídas e densidade. Atalhos: `C` cria
-  tarefa, `Esc` fecha o painel. Com o painel aberto e largura < 1600, a lista esconde tipo,
+  lista), filtro de responsável, busca, toggle de concluídas e densidade. Atalhos: `C` abre
+  a tarefa nova, `Esc` fecha o painel. **Tarefa nova é rascunho** (2026-10-27, `NovaTarefaPanel`): "+ Tarefa"/`C`
+  abrem o painel lateral com lista, título e propriedades, e nada é gravado até "Criar tarefa" (Ctrl+Enter); na pasta a
+  lista "Geral" vem marcada, em Minhas/Todas a pessoa escolhe a lista (a última visitada vem marcada) e em Minhas o
+  responsável já é ela. Com o painel aberto e largura < 1600, a lista esconde tipo,
   dificuldade, criada e conclusão (`compacto`). Seleção e tarefa aberta vivem na URL
   (`?pasta=`, `?lista=`, `?minhas=1`, `?tarefa=`). Preferências em `localStorage` (`tarefas.*`).
 - **Área compartilhada (2026-10-26):** a página é só a moldura (coluna de pastas, cabeçalho, sincronização,

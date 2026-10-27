@@ -30,6 +30,7 @@ import { statusDaLista, statusDasListas, agruparItens, filtrarItens, STATUSES_PA
 import ListaView from './ListaView'
 import QuadroView from './QuadroView'
 import TarefaPanel from './TarefaPanel'
+import NovaTarefaPanel from './NovaTarefaPanel'
 import CalendarioView from './CalendarioView'
 import AplicarTemplateView from './AplicarTemplateView'
 import { templateDaTarefa } from '../../lib/templates'
@@ -137,6 +138,7 @@ export default function AreaTarefas({
   const [selecionadas, setSelecionadas] = useState(() => new Set()) // seleção da Lista (barra no rodapé)
   const [emMassa, setEmMassa] = useState(false)
   const [aplicandoTpl, setAplicandoTpl] = useState(null) // { template, listaId }: tela "Aplicar template"
+  const [novaInicial, setNovaInicial] = useState(null) // rascunho de tarefa nova no painel lateral (NovaTarefaPanel)
   useEffect(() => gravarPref('denso', denso), [denso])
   // largura da coluna Nome da Lista: preferência local, a mesma em todas as views
   const [larguraNome, setLarguraNome] = useState(() => normalizarLarguraNome(lerPref('larguraNome', null)))
@@ -234,7 +236,7 @@ export default function AreaTarefas({
   }, [vt, showToast, abrirTemplate])
 
   const abrirTarefa = useCallback((id) => {
-    if (id) setPainelView(null)
+    if (id) { setPainelView(null); setNovaInicial(null) }
     const p = new URLSearchParams(params)
     if (id) p.set('tarefa', id); else p.delete('tarefa')
     setParams(p, { replace: !!params.get('tarefa') })
@@ -359,10 +361,27 @@ export default function AreaTarefas({
     const r = await t.mudarStatus(item, s)
     if (r.error) showToast(r.error, 'error')
   }, [t, showToast])
+  // "+ Tarefa" / C abrem o rascunho; a tarefa só é criada no "Criar tarefa". Em Minhas/Todas
+  // a lista é escolhida no rascunho (a última visitada vem marcada) e, em Minhas, o responsável é você.
   const novaTarefa = useCallback(() => {
-    if (!listaPadraoId) { showToast('Escolha uma pasta ou lista primeiro', 'error'); return }
-    onCriar({ lista_id: listaPadraoId, titulo: 'Nova tarefa' }).then((r) => r?.data && abrirTarefa(r.data.id))
-  }, [listaPadraoId, onCriar, abrirTarefa, showToast])
+    if (tarefaAbertaId) abrirTarefa(null)
+    setPainelView(null)
+    const eu = user?.id
+    setNovaInicial({ lista_id: listaPadraoId, responsaveis: sel.tipo === 'minhas' && eu ? [eu] : [] })
+  }, [tarefaAbertaId, abrirTarefa, listaPadraoId, sel.tipo, user])
+  const gruposNova = useMemo(() => {
+    const ativas = (ls) => ls.filter((l) => !l.arquivada).sort((a, b) => (Number(a.ordem) || 0) - (Number(b.ordem) || 0) || a.nome.localeCompare(b.nome, 'pt-BR'))
+    if (listasEscopo.length) return [{ pasta: t.pastasMap.get(listasEscopo[0].pasta_id) || null, listas: ativas(sel.tipo === 'pasta' ? listasEscopo : t.listas.filter((l) => l.pasta_id === listasEscopo[0].pasta_id)) }]
+    return t.pastas.filter((p) => !p.arquivada)
+      .map((p) => ({ pasta: p, listas: ativas(t.listas.filter((l) => l.pasta_id === p.id)) }))
+      .filter((g) => g.listas.length)
+      .sort((a, b) => a.pasta.nome.localeCompare(b.pasta.nome, 'pt-BR'))
+  }, [listasEscopo, sel.tipo, t.pastas, t.listas, t.pastasMap])
+  const criarDoRascunho = useCallback(async (payload) => {
+    const r = await onCriar(payload)
+    if (r?.data) { setNovaInicial(null); abrirTarefa(r.data.id); showToast('Tarefa criada') }
+    return r
+  }, [onCriar, abrirTarefa, showToast])
 
   const usarModelo = useCallback((m, listaId = listaPadraoId) => setAplicandoTpl({ template: m, listaId }), [listaPadraoId])
 
@@ -409,14 +428,15 @@ export default function AreaTarefas({
       // Ctrl+Enter salva a visualização (fora de campos, para não brigar com comentários)
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && mostrarViews && alterada && podeEditarView && !estaDigitando()) { e.preventDefault(); salvarVisualizacao(); return }
       if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key === 'Escape' && novaInicial && !estaDigitando()) { e.preventDefault(); setNovaInicial(null); return }
       if (e.key === 'Escape' && painelView && !estaDigitando()) { e.preventDefault(); setPainelView(null); return }
       if (e.key === 'Escape' && tarefaAbertaId && !estaDigitando()) { e.preventDefault(); if (painelExpandido) setPainelExpandido(false); else fecharPainel(); return }
       if (e.key === 'Escape' && selecionadas.size && !aplicandoTpl && !estaDigitando()) { e.preventDefault(); setSelecionadas(new Set()) }
-      if ((e.key === 'c' || e.key === 'C') && atalhoCriar && !estaDigitando() && !aplicandoTpl) { e.preventDefault(); novaTarefa() }
+      if ((e.key === 'c' || e.key === 'C') && atalhoCriar && !estaDigitando() && !aplicandoTpl && !novaInicial) { e.preventDefault(); novaTarefa() }
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa, atalhoCriar, aplicandoTpl, selecionadas.size, mostrarViews, alterada, podeEditarView, salvarVisualizacao, painelView])
+  }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa, atalhoCriar, aplicandoTpl, selecionadas.size, mostrarViews, alterada, podeEditarView, salvarVisualizacao, painelView, novaInicial])
 
   // listas que existem no ClickUp: só nelas uma tarefa sem clickup_task_id está "aguardando ClickUp"
   const listasComClickup = useMemo(() => new Set(t.listas.filter((l) => l.clickup_list_id).map((l) => l.id)), [t.listas])
@@ -643,6 +663,27 @@ export default function AreaTarefas({
           </>
         )
       })()}
+
+      {/* ── Painel lateral: tarefa nova (rascunho) ──────────────── */}
+      {!!novaInicial && !tarefaAbertaId && !aplicandoTpl && (
+        <>
+          {painelComFundo && <div className="absolute inset-0 z-30 bg-black/30" onClick={() => setNovaInicial(null)} aria-hidden="true" />}
+          <aside className="absolute inset-y-0 right-0 z-40 shadow-2xl border-l border-ln-ink/[0.08] flex flex-col bg-ln-panel" style={{ width: `min(${larguraPainel}px, 100%)` }} aria-label="Nova tarefa">
+            <AlcaPainel largura={larguraPainel} onLargura={setLarguraPainel} />
+            <div className="h-11 shrink-0 flex items-center justify-between gap-2 px-3 border-b border-ln-ink/5">
+              <span className="text-xs font-medium text-ln-t2">Nova tarefa</span>
+              <button onClick={() => setNovaInicial(null)} className="ln-iconbtn" aria-label="Descartar a tarefa nova" title="Descartar (Esc)"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="flex-1 min-h-0">
+              <NovaTarefaPanel
+                grupos={gruposNova} listasMap={t.listasMap} inicial={novaInicial}
+                membros={teamMembers || []} membrosMap={membrosMap}
+                onCriar={criarDoRascunho} onCancelar={() => setNovaInicial(null)}
+              />
+            </div>
+          </aside>
+        </>
+      )}
 
       {/* ── Painel lateral: tarefa ──────────────────────────────── */}
       {!!tarefaAbertaId && !aplicandoTpl && (

@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import ListaView from '../components/Tarefas/ListaView'
 import TarefaPanel from '../components/Tarefas/TarefaPanel'
+import NovaTarefaPanel from '../components/Tarefas/NovaTarefaPanel'
 import { AlcaPainel, PAINEL_LARGURA } from '../components/Tarefas/AreaTarefas'
 import { agruparItens, filtrarItens, statusDasListas, AGRUPAMENTOS } from '../lib/tarefas'
 // Fixture gitignored: via glob para o build da Vercel (clone limpo, sem a pasta) não quebrar.
@@ -36,6 +37,7 @@ export default function DevLista() {
   const [compacto, setCompacto] = useState(false)
   const [denso, setDenso] = useState(false)
   const [abertaId, setAbertaId] = useState(null)
+  const [nova, setNova] = useState(false)
   const [colunas, setColunas] = useState(null)
   const [larguraNome, setLarguraNome] = useState(null)
   const [larguraPainel, setLarguraPainel] = useState(PAINEL_LARGURA)
@@ -65,11 +67,21 @@ export default function DevLista() {
         <select value={agrupar} onChange={(e) => setAgrupar(e.target.value)} className="ln-pill">{AGRUPAMENTOS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}</select>
         <label className="flex items-center gap-1"><input type="checkbox" checked={compacto} onChange={(e) => setCompacto(e.target.checked)} /> compacto</label>
         <label className="flex items-center gap-1"><input type="checkbox" checked={denso} onChange={(e) => setDenso(e.target.checked)} /> denso</label>
+        <button type="button" onClick={() => { setAbertaId(null); setNova(true) }} className="ln-primary">+ Tarefa</button>
       </div>
       <div className="flex h-[calc(100vh-44px)]">
         <div className="flex-1 min-w-0 overflow-auto" data-dev-rolagem>
           <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={false} denso={denso} compacto={compacto} />
         </div>
+        {nova && !aberta && (
+          <aside className="relative shrink-0 border-l border-ln-line bg-ln-panel flex flex-col" style={{ width: larguraPainel }} aria-label="Nova tarefa">
+            <NovaTarefaPanel
+              grupos={[{ pasta: pastaRL, listas: listasEscopo }]} listasMap={new Map(listas.map((l) => [l.id, l]))} inicial={{ lista_id: null, responsaveis: [] }}
+              membros={membros} membrosMap={membrosMap} onCancelar={() => setNova(false)}
+              onCriar={async (p) => { console.log('criar', p); setNova(false); return { data: {} } }}
+            />
+          </aside>
+        )}
         {aberta && (
           <aside className="relative shrink-0 border-l border-ln-line bg-ln-panel overflow-y-auto" style={{ width: larguraPainel }} aria-label="Detalhe da tarefa">
             <AlcaPainel largura={larguraPainel} onLargura={setLarguraPainel} />
