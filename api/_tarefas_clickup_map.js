@@ -103,6 +103,9 @@ function valorCampo(f) {
  * @param t tarefa do ClickUp (payload da API v2)
  * @param perfilDe (clickupUserId) → { id, name, disabled } | null
  */
+/** Checklists do ClickUp no formato de tarefas_itens.checklists (os ids são os do ClickUp). */
+export const mapChecklists = (arr) => (arr || []).map((c) => ({ id: c.id, nome: c.name, itens: (c.items || []).map((i) => ({ id: i.id, nome: i.name, feito: !!i.resolved })) }))
+
 export function mapTarefa(t, perfilDe) {
   const responsaveis = [], extras = []
   for (const a of t.assignees || []) {
@@ -148,7 +151,7 @@ export function mapTarefa(t, perfilDe) {
     departamento,
     campos,
     tags: (t.tags || []).map((x) => x.name),
-    checklists: (t.checklists || []).map((c) => ({ id: c.id, nome: c.name, itens: (c.items || []).map((i) => ({ id: i.id, nome: i.name, feito: !!i.resolved })) })),
+    checklists: mapChecklists(t.checklists),
     posicao: Number(t.orderindex) || 0,
     arquivada: !!t.archived,
     criado_por: criador?.id || null,

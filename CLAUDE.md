@@ -955,7 +955,8 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   `api/_tarefas_push_core.js` (`empurrar`) esvazia a fila: cria a tarefa no ClickUp (e antes a
   pasta/lista, se nasceram aqui), atualiza só os `campos` que mudaram (nome, descrição, status,
   prioridade, responsáveis add/rem, datas com a regra das 04:00, estimativa, tags, pai,
-  arquivada, campos Tipo/Dificuldade/Departamento/Cliente), exclui e comenta (assinatura
+  arquivada, campos Tipo/Dificuldade/Departamento/Cliente, checklists — migration 115: diferença entre o checklist
+  da linha e o do ClickUp, criando/renomeando/marcando/apagando listas e itens, e a linha recebe os ids do ClickUp), exclui e comenta (assinatura
   "(Nome, via VertaTask)"); depois grava `clickup_task_id`/`url`/`clickup_updated_at` com
   `clickup_sync_at = updated_at = agora`. Mover de lista NÃO é replicado (só aviso). Até 5
   tentativas por item; 400/404 desistem na hora. Dispara por `api/tarefas-push.js` (o
