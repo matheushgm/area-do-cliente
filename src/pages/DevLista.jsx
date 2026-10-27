@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import ListaView from '../components/Tarefas/ListaView'
 import TarefaPanel from '../components/Tarefas/TarefaPanel'
+import { AlcaPainel, PAINEL_LARGURA } from '../components/Tarefas/AreaTarefas'
 import { agruparItens, filtrarItens, statusDasListas, AGRUPAMENTOS } from '../lib/tarefas'
 // Fixture gitignored: via glob para o build da Vercel (clone limpo, sem a pasta) não quebrar.
 const fixtures = import.meta.glob('../dev/fixtures/tarefas.json', { eager: true, import: 'default' })
@@ -15,6 +16,7 @@ export default function DevLista() {
   const [abertaId, setAbertaId] = useState(null)
   const [colunas, setColunas] = useState(null)
   const [larguraNome, setLarguraNome] = useState(null)
+  const [larguraPainel, setLarguraPainel] = useState(PAINEL_LARGURA)
   const listas = fixture.listas
   const pastaRL = fixture.pastas.find((p) => /revenue lab/i.test(p.nome)) || fixture.pastas[0] || { id: null, nome: '(sem fixture)' }
   const listasEscopo = listas.filter((l) => l.pasta_id === pastaRL.id)
@@ -56,7 +58,8 @@ export default function DevLista() {
           <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={false} denso={denso} compacto={compacto} />
         </div>
         {aberta && (
-          <aside className="w-[480px] shrink-0 border-l border-ln-line bg-ln-panel" aria-label="Detalhe da tarefa">
+          <aside className="relative shrink-0 border-l border-ln-line bg-ln-panel" style={{ width: larguraPainel }} aria-label="Detalhe da tarefa">
+            <AlcaPainel largura={larguraPainel} onLargura={setLarguraPainel} />
             <TarefaPanel
               key={aberta.id} item={aberta} subtarefas={filhosDe.get(aberta.id) || []} ancestrais={ancestrais}
               irmas={aberta.parent_id ? filhosDe.get(aberta.parent_id) : null} statuses={statuses} membros={membros} membrosMap={membrosMap}

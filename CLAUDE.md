@@ -812,8 +812,12 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     (`compacto`) valem só as colunas da versão compacta, na ordem da view. Ocultar a coluna ordenada tira a ordenação
     (`patchColunas`).
   - **Largura do Nome:** só a coluna Nome é redimensionável, pela alça na borda direita do cabeçalho (arrastar, ← → de
-    20 px com ela em foco, duplo clique volta ao automático = `minmax(420px, 1fr)`). Fica em `config.larguraNome`
-    (px, 200 a 900, `normalizarLarguraNome`) como rascunho da view; enquanto arrasta, todos os grupos mudam juntos.
+    20 px com ela em foco, duplo clique volta ao automático = `minmax(420px, 1fr)`). **Não é da view** (desde
+    2026-10-27): é preferência local, `localStorage['tarefas.larguraNome']` (px, 200 a 900, `normalizarLarguraNome`),
+    a mesma em todas as views; `larguraNome` antigo gravado em views é ignorado. Enquanto arrasta, todos os grupos mudam juntos.
+  - **Largura do painel da tarefa:** alça na borda esquerda (`AlcaPainel` em `AreaTarefas.jsx`: arrastar, ← → de 20 px,
+    duplo clique volta a 480), entre 380 e 1000 px, em `localStorage['tarefas.larguraPainel']`. Empurrando o conteúdo,
+    a lista nunca fica com menos de 520 px, e o `compacto` vale quando sobram menos de 1120 px para ela.
     Setas ↑↓ no hover da linha mudam a ordem manual (`posicao`, não vai para o ClickUp); com ordenação por
     coluna, a primeira seta congela a ordem da tela como manual, tira a ordenação e então move.
   - **Calendário:** Mês ou Semana, sempre de domingo a sábado (igual aos grupos de vencimento da Lista e

@@ -20,7 +20,7 @@
 // "selecionar todas" no cabeçalho; quem usa mostra a BarraSelecao).
 // Colunas: `ctx.colunas` (config.colunas da view: ordem e ocultas) e `ctx.onColunas(c)`
 // (o "+" no fim do cabeçalho abre o editor). Com `colunas` (templates) nada disso vale.
-// Largura do Nome: `ctx.larguraNome` (px, null = o que sobrar) e `ctx.onLarguraNome(w)`, que
+// Largura do Nome: `ctx.larguraNome` (px, null = o que sobrar; preferência local, não da view) e `ctx.onLarguraNome(w)`, que
 // liga a alça na borda direita do cabeçalho do Nome (arrastar; ← → com foco; duplo clique volta ao automático).
 import { useState, useRef } from 'react'
 import { colunasVisiveis, normalizarLarguraNome } from '../../lib/viewsTarefas'

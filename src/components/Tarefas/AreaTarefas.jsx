@@ -24,7 +24,7 @@ import GanttView from './GanttView'
 import { AbasViews, FerramentasView } from './BarraViews'
 import { PainelConfigView, PainelNovaView } from './PainelView'
 import PainelFiltros from './PainelFiltros'
-import { escopoDaSelecao, chaveEscopo, viewsDoEscopo, igualConfig, passaResponsaveis, nomeResponsavelFiltro, patchColunas } from '../../lib/viewsTarefas'
+import { escopoDaSelecao, chaveEscopo, viewsDoEscopo, igualConfig, passaResponsaveis, nomeResponsavelFiltro, patchColunas, normalizarLarguraNome } from '../../lib/viewsTarefas'
 import { passaFiltros, contarRegras } from '../../lib/filtrosTarefas'
 import { statusDaLista, statusDasListas, agruparItens, filtrarItens, STATUSES_PADRAO, novoId } from '../../lib/tarefas'
 import ListaView from './ListaView'
@@ -37,7 +37,46 @@ import { FOCO, StatusCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, Estimat
 import BarraSelecao, { BotaoBarra, ResponsaveisEmMassa, aplicarDiferenca } from './BarraSelecao'
 import { MenuTarefa } from './TarefaExtras'
 
-const PAINEL_LARGURA = 480
+export const PAINEL_LARGURA = 480 // padrão do painel da tarefa; quem usa arrasta a borda esquerda (tarefas.larguraPainel)
+const PAINEL_MIN = 380
+const PAINEL_MAX = 1000
+const CONTEUDO_MIN = 520 // com o painel empurrando, a lista não fica mais estreita que isso
+export const limitarPainel = (w) => (Number.isFinite(w) ? Math.round(Math.min(PAINEL_MAX, Math.max(PAINEL_MIN, w))) : PAINEL_LARGURA)
+
+/** Alça na borda esquerda do painel da tarefa: arrastar, ← → de 20 px com foco, duplo clique volta ao padrão. */
+export function AlcaPainel({ largura, onLargura }) {
+  const [arrastando, setArrastando] = useState(false)
+  const iniciar = (e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const x0 = e.clientX
+    setArrastando(true)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    const mover = (ev) => onLargura(limitarPainel(largura + x0 - ev.clientX))
+    const soltar = () => {
+      window.removeEventListener('pointermove', mover); window.removeEventListener('pointerup', soltar)
+      document.body.style.cursor = ''; document.body.style.userSelect = ''
+      setArrastando(false)
+    }
+    window.addEventListener('pointermove', mover); window.addEventListener('pointerup', soltar)
+  }
+  const teclado = (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    e.preventDefault()
+    onLargura(limitarPainel(largura + (e.key === 'ArrowLeft' ? 20 : -20)))
+  }
+  return (
+    <span
+      role="separator" aria-orientation="vertical" aria-label="Largura do painel da tarefa (setas ← →; duplo clique volta ao padrão)" tabIndex={0}
+      title="Arraste para mudar a largura · duplo clique: padrão"
+      onPointerDown={iniciar} onKeyDown={teclado} onDoubleClick={() => onLargura(PAINEL_LARGURA)}
+      className={`absolute -left-1.5 inset-y-0 z-10 w-3 flex justify-center cursor-col-resize group/alcap ${FOCO}`}
+    >
+      <span className={`w-0.5 h-full transition-colors ${arrastando ? 'bg-ln-accent' : 'bg-transparent group-hover/alcap:bg-ln-accent/70 group-focus-visible/alcap:bg-ln-accent'}`} />
+    </span>
+  )
+}
 const EMPURRA_A_PARTIR_DE = 1200
 
 export function lerPref(chave, padrao) {
@@ -98,6 +137,11 @@ export default function AreaTarefas({
   const [emMassa, setEmMassa] = useState(false)
   const [aplicandoTpl, setAplicandoTpl] = useState(null) // { template, listaId }: tela "Aplicar template"
   useEffect(() => gravarPref('denso', denso), [denso])
+  // largura da coluna Nome da Lista: preferência local, a mesma em todas as views
+  const [larguraNome, setLarguraNome] = useState(() => normalizarLarguraNome(lerPref('larguraNome', null)))
+  useEffect(() => gravarPref('larguraNome', larguraNome), [larguraNome])
+  const [larguraPainel, setLarguraPainel] = useState(() => limitarPainel(lerPref('larguraPainel', PAINEL_LARGURA)))
+  useEffect(() => gravarPref('larguraPainel', larguraPainel), [larguraPainel])
 
   const tarefaAbertaId = params.get('tarefa')
   const abrirTemplate = useCallback((id) => {
@@ -388,7 +432,7 @@ export default function AreaTarefas({
     ordenar: config.ordenar, onOrdenar: (ordenar) => editarView({ ordenar }),
     calendario: config.calendario, onCalendario: (calendario) => editarView({ calendario }),
     // largura do Nome arrastada na alça do cabeçalho (rascunho da view)
-    larguraNome: config.larguraNome, onLarguraNome: (larguraNome) => editarView({ larguraNome }),
+    larguraNome, onLarguraNome: setLarguraNome,
     // colunas da Lista: ordem e visibilidade (rascunho da view; o "+" do cabeçalho abre o editor)
     colunas: config.colunas, onColunas: (colunas) => editarView(patchColunas(colunas, { ordenar: config.ordenar })),
     // Separar: nome da tarefa-pai para Quadro, Calendário e Gantt
@@ -398,7 +442,7 @@ export default function AreaTarefas({
         <CornerDownRight className="w-3 h-3 shrink-0" /><span className="truncate max-w-[220px]">{t.itens[it.parent_id].titulo}</span>
       </span>
     ) : null) : undefined,
-  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, config.larguraNome, editarView, listasComClickup])
+  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, larguraNome, editarView, listasComClickup])
 
   // ── Seleção da Lista e ações em massa (BarraSelecao) ─────────────────────
   // a seleção vale para o que está na tela: trocar de pasta, lista, seção ou visão limpa
@@ -482,6 +526,8 @@ export default function AreaTarefas({
   const irmasDaAberta = tarefaAberta?.parent_id ? (filhosDe.get(tarefaAberta.parent_id) || [tarefaAberta]).filter((s) => !s.arquivada) : null
   const statusesDaAberta = listaDaAberta ? statusDaLista(listaDaAberta) : statuses
   const painelEmpurra = largura >= EMPURRA_A_PARTIR_DE
+  // a largura escolhida, sem espremer a lista quando o painel empurra o conteúdo
+  const larguraPainelTela = painelEmpurra ? Math.max(PAINEL_MIN, Math.min(larguraPainel, largura - CONTEUDO_MIN)) : larguraPainel
   const comTopo = !!antesDaView // cabeçalho acima da view: a página rola inteira
   const painel = !!tarefaAbertaId
 
@@ -523,7 +569,7 @@ export default function AreaTarefas({
               ) : view === 'quadro' ? (
                 <div className={comTopo ? 'h-[560px]' : 'h-full'}><QuadroView grupos={grupos} filhosDe={filhosVisao} ctx={ctx} /></div>
               ) : (
-                <ListaView key={`${chaveRascunho}:${config.subtarefas}`} grupos={grupos} filhosDe={filhosVisao} ctx={{ ...ctx, selecao }} mostrarConcluidas={mostrarConcluidas} denso={denso} compacto={painel && painelEmpurra && largura < 1600} />
+                <ListaView key={`${chaveRascunho}:${config.subtarefas}`} grupos={grupos} filhosDe={filhosVisao} ctx={{ ...ctx, selecao }} mostrarConcluidas={mostrarConcluidas} denso={denso} compacto={painel && painelEmpurra && largura - larguraPainelTela < 1120} />
               )}
             </>
           )}
@@ -606,9 +652,10 @@ export default function AreaTarefas({
           {!painelEmpurra && !painelExpandido && <div className="absolute inset-0 z-30 bg-black/30" onClick={fecharPainel} aria-hidden="true" />}
           <aside
             className={`${painelExpandido ? 'absolute inset-0 z-40' : painelEmpurra ? 'relative shrink-0 border-l border-ln-ink/[0.08]' : 'absolute inset-y-0 right-0 z-40 shadow-2xl border-l border-ln-ink/[0.08]'} flex flex-col bg-ln-panel`}
-            style={painelExpandido ? undefined : { width: painelEmpurra ? PAINEL_LARGURA : `min(${PAINEL_LARGURA}px, 100%)` }}
+            style={painelExpandido ? undefined : { width: painelEmpurra ? larguraPainelTela : `min(${larguraPainelTela}px, 100%)` }}
             aria-label="Detalhe da tarefa"
           >
+            {!painelExpandido && <AlcaPainel largura={larguraPainelTela} onLargura={setLarguraPainel} />}
             <div className="h-11 shrink-0 flex items-center justify-between gap-2 px-3 border-b border-ln-ink/5">
               <div className="flex items-center gap-2 text-xs font-medium text-ln-t2 min-w-0">
                 {pastaDaAberta && <span className="text-ln-t4 truncate max-w-[140px]">{pastaDaAberta.nome}</span>}
