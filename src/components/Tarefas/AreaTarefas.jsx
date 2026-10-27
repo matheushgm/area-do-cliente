@@ -40,7 +40,6 @@ import { MenuTarefa } from './TarefaExtras'
 export const PAINEL_LARGURA = 480 // padrão do painel da tarefa; quem usa arrasta a borda esquerda (tarefas.larguraPainel)
 const PAINEL_MIN = 380
 const PAINEL_MAX = 1000
-const CONTEUDO_MIN = 520 // com o painel empurrando, a lista não fica mais estreita que isso
 export const limitarPainel = (w) => (Number.isFinite(w) ? Math.round(Math.min(PAINEL_MAX, Math.max(PAINEL_MIN, w))) : PAINEL_LARGURA)
 
 /** Alça na borda esquerda do painel da tarefa: arrastar, ← → de 20 px com foco, duplo clique volta ao padrão. */
@@ -77,7 +76,9 @@ export function AlcaPainel({ largura, onLargura }) {
     </span>
   )
 }
-const EMPURRA_A_PARTIR_DE = 1200
+// O painel da tarefa fica sempre por cima da lista; abaixo desta largura ganha um fundo escuro
+// que fecha ao clicar. Acima, a lista continua clicável (clicar em outra linha troca a tarefa).
+const FUNDO_ATE = 1200
 
 export function lerPref(chave, padrao) {
   try { const v = localStorage.getItem(`tarefas.${chave}`); return v == null ? padrao : JSON.parse(v) } catch { return padrao }
@@ -525,11 +526,8 @@ export default function AreaTarefas({
   }, [tarefaAberta, t.itens])
   const irmasDaAberta = tarefaAberta?.parent_id ? (filhosDe.get(tarefaAberta.parent_id) || [tarefaAberta]).filter((s) => !s.arquivada) : null
   const statusesDaAberta = listaDaAberta ? statusDaLista(listaDaAberta) : statuses
-  const painelEmpurra = largura >= EMPURRA_A_PARTIR_DE
-  // a largura escolhida, sem espremer a lista quando o painel empurra o conteúdo
-  const larguraPainelTela = painelEmpurra ? Math.max(PAINEL_MIN, Math.min(larguraPainel, largura - CONTEUDO_MIN)) : larguraPainel
+  const painelComFundo = largura < FUNDO_ATE
   const comTopo = !!antesDaView // cabeçalho acima da view: a página rola inteira
-  const painel = !!tarefaAbertaId
 
   // o que a moldura (cabeçalho, seções) pode usar
   const api = { listaPadraoId, totalAbertas, aguardandoClickup, novaTarefa, recarregar, abrirTarefa, usarModelo, todos, mostrarViews }
@@ -569,7 +567,7 @@ export default function AreaTarefas({
               ) : view === 'quadro' ? (
                 <div className={comTopo ? 'h-[560px]' : 'h-full'}><QuadroView grupos={grupos} filhosDe={filhosVisao} ctx={ctx} /></div>
               ) : (
-                <ListaView key={`${chaveRascunho}:${config.subtarefas}`} grupos={grupos} filhosDe={filhosVisao} ctx={{ ...ctx, selecao }} mostrarConcluidas={mostrarConcluidas} denso={denso} compacto={painel && painelEmpurra && largura - larguraPainelTela < 1120} />
+                <ListaView key={`${chaveRascunho}:${config.subtarefas}`} grupos={grupos} filhosDe={filhosVisao} ctx={{ ...ctx, selecao }} mostrarConcluidas={mostrarConcluidas} denso={denso} />
               )}
             </>
           )}
@@ -649,13 +647,13 @@ export default function AreaTarefas({
       {/* ── Painel lateral: tarefa ──────────────────────────────── */}
       {!!tarefaAbertaId && !aplicandoTpl && (
         <>
-          {!painelEmpurra && !painelExpandido && <div className="absolute inset-0 z-30 bg-black/30" onClick={fecharPainel} aria-hidden="true" />}
+          {painelComFundo && !painelExpandido && <div className="absolute inset-0 z-30 bg-black/30" onClick={fecharPainel} aria-hidden="true" />}
           <aside
-            className={`${painelExpandido ? 'absolute inset-0 z-40' : painelEmpurra ? 'relative shrink-0 border-l border-ln-ink/[0.08]' : 'absolute inset-y-0 right-0 z-40 shadow-2xl border-l border-ln-ink/[0.08]'} flex flex-col bg-ln-panel`}
-            style={painelExpandido ? undefined : { width: painelEmpurra ? larguraPainelTela : `min(${larguraPainelTela}px, 100%)` }}
+            className={`${painelExpandido ? 'absolute inset-0 z-40' : 'absolute inset-y-0 right-0 z-40 shadow-2xl border-l border-ln-ink/[0.08]'} flex flex-col bg-ln-panel`}
+            style={painelExpandido ? undefined : { width: `min(${larguraPainel}px, 100%)` }}
             aria-label="Detalhe da tarefa"
           >
-            {!painelExpandido && <AlcaPainel largura={larguraPainelTela} onLargura={setLarguraPainel} />}
+            {!painelExpandido && <AlcaPainel largura={larguraPainel} onLargura={setLarguraPainel} />}
             <div className="h-11 shrink-0 flex items-center justify-between gap-2 px-3 border-b border-ln-ink/5">
               <div className="flex items-center gap-2 text-xs font-medium text-ln-t2 min-w-0">
                 {pastaDaAberta && <span className="text-ln-t4 truncate max-w-[140px]">{pastaDaAberta.nome}</span>}

@@ -61,7 +61,7 @@ const SECAO = 'px-2.5 pt-4 pb-1.5 text-[11px] tracking-[0.14em] uppercase font-b
 export default function TarefasSidebar({
   pastas, listas, projetos, sel, onSel,
   onCriarPasta, onCriarLista, onAtualizarPasta, onAtualizarLista,
-  aberta, onFechar,
+  aberta, onFechar, recolhida = false,
   nav = { aba: 'tarefas', onAba: () => {}, intake: 0 }, contagem = {},
 }) {
   const [busca, setBusca] = useState('')
@@ -240,9 +240,12 @@ export default function TarefasSidebar({
 
   return (
     <>
-      <aside className="hidden md:flex flex-col w-[248px] shrink-0 border-r border-ln-ink/[0.08] h-full min-h-0 bg-ln-panel">
-        {conteudo}
-      </aside>
+      {/* recolhida (botão ao lado do título no cabeçalho) some só no desktop; no mobile é a gaveta de sempre */}
+      {!recolhida && (
+        <aside className="hidden md:flex flex-col w-[248px] shrink-0 border-r border-ln-ink/[0.08] h-full min-h-0 bg-ln-panel">
+          {conteudo}
+        </aside>
+      )}
       {aberta && (
         <div className="md:hidden absolute inset-0 z-40 flex">
           <div className="absolute inset-0 bg-black/30" onClick={onFechar} aria-hidden="true" />

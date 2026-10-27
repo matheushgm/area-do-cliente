@@ -9,7 +9,7 @@ import { apiFetch } from '../lib/api'
 // Tarefas da página do cliente.
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useOutletContext } from 'react-router-dom'
-import { Menu, ChevronRight, Plus, Loader2, PanelLeft, RefreshCw, CloudUpload, ExternalLink } from 'lucide-react'
+import { Menu, ChevronRight, Plus, Loader2, PanelLeft, PanelLeftClose, PanelLeftOpen, RefreshCw, CloudUpload, ExternalLink } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import Toast from '../components/UI/Toast'
@@ -109,6 +109,9 @@ export default function Tarefas() {
   const conteudoRef = useRef(null)
   const largura = useLarguraDoConteudo(conteudoRef)
   const [arvoreAberta, setArvoreAberta] = useState(false)
+  // coluna esquerda do VertaTask recolhida no desktop (botão ao lado do título); Chat e Atividades
+  // não têm esse cabeçalho, então lá ela aparece sempre (senão não haveria como voltar às seções)
+  const [colunaRecolhida, setColunaRecolhida] = useState(() => lerPref('colunaRecolhida', false))
   const [recarregarTick, setRecarregarTick] = useState(0)
   const [unidadeBurn, setUnidadeBurn] = useState(() => lerPref('burn', 'tarefas'))
   const sync = useSyncClickup({
@@ -122,6 +125,7 @@ export default function Tarefas() {
   })
 
   useEffect(() => gravarPref('burn', unidadeBurn), [unidadeBurn])
+  useEffect(() => gravarPref('colunaRecolhida', colunaRecolhida), [colunaRecolhida])
 
   // ── Seleção (pasta / lista / minhas) via URL ─────────────────────────────
   const aba = params.get('aba') // null = tarefas | 'intake' | 'ciclos' | 'templates' | 'paginas' | 'analytics' | 'chat' | 'atividades'
@@ -240,6 +244,12 @@ export default function Tarefas() {
       <div className="flex items-center gap-2 min-w-0">
         <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
         <button onClick={() => setArvoreAberta(true)} aria-label="Abrir pastas" className="ln-iconbtn md:hidden"><PanelLeft className="w-4 h-4" /></button>
+        <button
+          type="button" onClick={() => setColunaRecolhida((v) => !v)} className="ln-iconbtn hidden md:inline-flex"
+          aria-label={colunaRecolhida ? 'Mostrar a coluna do VertaTask' : 'Recolher a coluna do VertaTask'} title={colunaRecolhida ? 'Mostrar a coluna' : 'Recolher a coluna'}
+        >
+          {colunaRecolhida ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+        </button>
         <h1 className="text-xl font-bold text-ln-t1 truncate">{{ intake: 'Intake', ciclos: 'Cycles', templates: 'Templates', paginas: 'Pages', analytics: 'Analytics' }[aba] || 'Tarefas'}</h1>
         {!aba && (
           <div className="hidden sm:flex items-center gap-1.5 text-[13px] text-ln-t3 min-w-0">
@@ -320,6 +330,7 @@ export default function Tarefas() {
               onAtualizarPasta={t.atualizarPasta}
               onAtualizarLista={t.atualizarLista}
               aberta={arvoreAberta} onFechar={() => setArvoreAberta(false)}
+              recolhida={colunaRecolhida && aba !== 'chat' && aba !== 'atividades'}
               nav={{ aba: aba || 'tarefas', onAba: irAba, intake: vt.intakePendentes.length, chat: chatNaoLidas }}
               contagem={contagemPorPasta}
             />

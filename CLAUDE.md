@@ -609,9 +609,11 @@ registra o atalho `[`, e duas instâncias desfazem o toggle uma da outra.
 
 Substitui o ClickUp na operação. **Visual:** o mesmo do módulo Atividades (frame `.ln`
 com tokens `ln-*`, barra superior e barra de views de 44px, `ln-tab`/`ln-pill`/`ln-iconbtn`/
-`ln-primary`, linhas de 40px em grid com `ln-row-hover`, detalhe num painel lateral de 480px
-que empurra o conteúdo a partir de 1200px de largura e sobrepõe abaixo disso, com botão
-de expandir). Nada de modal centralizado nem tokens `rl-*` dentro do módulo. Hierarquia idêntica: **Pasta** (uma por cliente, ligada a
+`ln-primary`, linhas de 40px em grid com `ln-row-hover`, detalhe num painel lateral (480px por padrão,
+redimensionável) que fica **sempre por cima** da lista (desde 2026-10-27; antes empurrava a partir de 1200px), com fundo
+escuro só abaixo de 1200px e botão de expandir; acima disso a lista segue clicável e clicar em outra linha troca a tarefa).
+A coluna esquerda do VertaTask (`TarefasSidebar`) recolhe no desktop pelo botão ao lado do título "Tarefas" do cabeçalho
+(`localStorage['tarefas.colunaRecolhida']`); em Chat e Atividades, que não têm esse cabeçalho, ela aparece sempre. Nada de modal centralizado nem tokens `rl-*` dentro do módulo. Hierarquia idêntica: **Pasta** (uma por cliente, ligada a
 `projects_v2` por `project_id`) → **Lista** (com seus próprios statuses em `statuses` jsonb)
 → **Tarefa** (com subtarefas via `parent_id`) → **Comentários**. Tabelas `tarefas_pastas`,
 `tarefas_listas`, `tarefas_itens`, `tarefas_comentarios` (migration 084; RLS liberada para
@@ -816,8 +818,8 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     2026-10-27): é preferência local, `localStorage['tarefas.larguraNome']` (px, 200 a 900, `normalizarLarguraNome`),
     a mesma em todas as views; `larguraNome` antigo gravado em views é ignorado. Enquanto arrasta, todos os grupos mudam juntos.
   - **Largura do painel da tarefa:** alça na borda esquerda (`AlcaPainel` em `AreaTarefas.jsx`: arrastar, ← → de 20 px,
-    duplo clique volta a 480), entre 380 e 1000 px, em `localStorage['tarefas.larguraPainel']`. Empurrando o conteúdo,
-    a lista nunca fica com menos de 520 px, e o `compacto` vale quando sobram menos de 1120 px para ela.
+    duplo clique volta a 480), entre 380 e 1000 px, em `localStorage['tarefas.larguraPainel']`. Como o painel fica
+    por cima, a lista não muda de largura e não entra no modo `compacto` por causa dele.
     Setas ↑↓ no hover da linha mudam a ordem manual (`posicao`, não vai para o ClickUp); com ordenação por
     coluna, a primeira seta congela a ordem da tela como manual, tira a ordenação e então move.
   - **Calendário:** Mês ou Semana, sempre de domingo a sábado (igual aos grupos de vencimento da Lista e
