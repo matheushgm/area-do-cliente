@@ -216,9 +216,12 @@ export default function AreaTarefas({
     else if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force })
   }, [sel.tipo, sel.id, t.carregarPorCampo, t.carregarAbertas, listasEscopo, t.loadingEstrutura, t.carregarMinhas, t.carregarListas, recarregarTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Tarefa aberta fora do que foi carregado, ou subtarefa cujo pai ficou de fora do escopo
+  // (em "Minhas", pai de outra pessoa): carregarTarefa traz a tarefa e o pai.
+  const paiAusente = !!(tarefaAbertaId && t.itens[tarefaAbertaId]?.parent_id && !t.itens[t.itens[tarefaAbertaId].parent_id])
   useEffect(() => {
-    if (tarefaAbertaId && !t.itens[tarefaAbertaId]) t.carregarTarefa(tarefaAbertaId)
-  }, [tarefaAbertaId]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (tarefaAbertaId && (!t.itens[tarefaAbertaId] || paiAusente)) t.carregarTarefa(tarefaAbertaId)
+  }, [tarefaAbertaId, paiAusente]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const recarregar = useCallback(() => {
     if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true })
