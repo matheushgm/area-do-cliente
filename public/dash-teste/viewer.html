@@ -376,6 +376,13 @@
   .dt-root .dt-subtabs .dt-tblsearch { margin-bottom:6px; }
   .dt-root .breadcrumb .dt-tblsearch { margin-left:auto; }
   @media(max-width:680px){ .dt-root .cp-scope-filters { margin-left:0; width:100%; } }
+  /* Filtro Ativos / Inativos: canto direito, entre os gráficos e a tabela.
+     Reaproveita o seletor MQL / E-commerce (.mg-switch), um pouco maior. */
+  .dt-root .st-filtro-bar { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin:2px 0 10px; }
+  .dt-root .st-filtro-lbl { font-size:12px; font-weight:600; color:rgb(var(--dt-text-2)); }
+  .dt-root .st-filtro-bar .mg-sw { font-size:12px; padding:5px 12px; }
+  .dt-root .st-filtro-reset { border:0; background:none; padding:0; margin-left:4px; font:inherit; font-weight:700;
+    color:rgb(var(--rl-blue)); cursor:pointer; text-decoration:underline; }
   /* Célula de nome do anúncio: nome trunca, botão "Ver" fica sempre visível */
   .dt-root .ad-name .ad-name-flex { display:flex; align-items:center; gap:8px; }
   .dt-root .ad-name .ad-name-txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:70px; }
@@ -1264,6 +1271,8 @@ const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:
                 cDays:7, cFrom:'', cTo:'', cPeriod:null,
                 campFilter:[], campPanelOpen:false, campSearch:'',
                 tab:'resultados', sub:0, drillSub:0, drillCampaign:null, drillAdset:null, drillAdsetName:null,
+                // filtro Ativos / Inativos das tabelas do Meta ('todos' | 'ativos' | 'inativos'). Ver stFilter.
+                stFiltro:'todos', stAplicado:null,
                 weekly:null, _charts:[], termsCache:{}, adsCache:{}, pagesCache:{}, kwCache:{}, kwSit:'POS', kwMatch:'', kwQ:'', kwPage:0,
                 termsSort:{key:'clicks',dir:'desc'}, termsPage:0,
                 pagesSort:{key:'spend',dir:'desc'}, pagesPage:0, bench:{ canal:'meta', dias:30, sort:{key:'spend',dir:'desc'}, cache:{}, err:null }, mpagesSort:{key:'spend',dir:'desc'}, metaLinks:{},
@@ -1685,6 +1694,7 @@ function saveNav() {
       openClient: state.openClient, tab: state.tab, sub: state.sub, drillSub: state.drillSub,
       drillCampaign: state.drillCampaign, drillAdset: state.drillAdset, drillAdsetName: state.drillAdsetName,
       cDays: state.cDays, cFrom: state.cFrom, cTo: state.cTo, campFilter: state.campFilter,
+      stFiltro: state.stFiltro,
     }))
   } catch (e) { /* ignore (modo privado etc.) */ }
 }
@@ -1705,6 +1715,7 @@ function restoreNav() {
     state.colOrder = Array.isArray(s.colOrder) && s.colOrder.length ? s.colOrder : null
     state.colOff = Array.isArray(s.colOff) ? s.colOff.filter(id => COL_BY_ID[id] && !COL_BY_ID[id].fixa) : []
     state.perfView = (s.perfView && typeof s.perfView === 'object') ? s.perfView : {}
+    state.stFiltro = ['ativos','inativos'].includes(s.stFiltro) ? s.stFiltro : 'todos'
     if (s.openClient && s.openClient.client) {
       // Só restaura o cliente se a conta ainda existir nos dados carregados.
       const ch = s.openClient.channel || state.channel || 'meta'
@@ -3506,6 +3517,12 @@ function adGroupCell(acct, rows) {
   }
   return stCell(acct, 'anuncio', null, null, rows, 'Status do Aúncio')
 }
+// Tag de status da campanha / do conjunto no Meta. A coluna Status e o filtro
+// Ativos / Inativos chamam a mesma função, para nunca discordarem.
+const stCampMeta = (acct, nome, rows) =>
+  stCell(acct, 'campanha', (rows.find(r => r['campaign_id']) || {})['campaign_id'], nome, rows, 'Status da Campanha')
+const stAdsetMeta = (acct, nome, rows) =>
+  stCell(acct, 'conjunto', (rows.find(r => r['adset_id']) || {})['adset_id'], nome, rows, 'Status do Conjunto de Anúncio')
 // Conta de qual conta são estas linhas (as tabelas de drill recebem só as linhas).
 const acctOf = rows => (rows && rows.length && rows[0]['Nome da conta']) || ''
 const convCell = (conv,spend) => (spend>0 && conv===0) ? `<span class="crit">0 🚨</span>` : fmtNum(conv)
@@ -3769,8 +3786,40 @@ const tblNorm = s => String(s==null?'':s).toLowerCase().normalize('NFD').replace
 const tblQ = () => tblNorm((state.tblSearch||'').trim())
 const tblMatch = name => { const q=tblQ(); return !q || tblNorm(name).includes(q) }
 const tblFilter = (rows, nameFn) => tblQ() ? rows.filter(r=>tblMatch(nameFn(r))) : rows
-const tblEmpty = msg => state.tblSearch && state.tblSearch.trim() ? `<div class="empty">Nenhum resultado para "${esc(state.tblSearch.trim())}".</div>` : `<div class="empty">${msg}</div>`
+const tblEmpty = msg => state.tblSearch && state.tblSearch.trim() ? `<div class="empty">Nenhum resultado para "${esc(state.tblSearch.trim())}".</div>`
+  : state.stAplicado ? stVazioHTML() : `<div class="empty">${msg}</div>`
 const tblSearchHTML = ph => `<input class="cp-camp-search dt-tblsearch" id="tblSearch" type="search" autocomplete="off" placeholder="${ph}" value="${esc(state.tblSearch||'')}">`
+
+// ─── Filtro Ativos / Inativos (tabelas do Meta) ──────────────────────────────
+// Seletor no canto direito, entre os gráficos e a tabela. Filtra o nível em
+// tela (campanha, conjunto ou anúncio) pela MESMA tag da coluna Status: ATIVO
+// fica em "Ativos"; pausado, encerrado, programado, sem entrega ou sem status
+// confirmado ficam em "Inativos", então Ativos + Inativos = Todos. Tira ou
+// mantém o grupo inteiro (todas as linhas do período daquela campanha/conjunto/
+// anúncio), e as somas de cada linha não mudam. Os gráficos de cima não seguem
+// o filtro. O Google fica de fora: o coletor não grava status de campanha/grupo.
+const ST_FILTROS = [['todos','Todos'],['ativos','Ativos'],['inativos','Inativos']]
+const ST_NIVEIS = {
+  campanha: { key: r => r['Nome da campanha'], st: (acct, k, rs) => stCampMeta(acct, k, rs), nome: 'campanha', fem: true },
+  conjunto: { key: r => metaAdsetKey(r), st: (acct, k, rs) => stAdsetMeta(acct, rs[0]['Conjunto de Anúncio'] || k, rs), nome: 'conjunto' },
+  anuncio:  { key: r => metaAdKey(r), st: (acct, k, rs) => adGroupCell(acct, rs), nome: 'anúncio' },
+}
+function stFilter(rows, nivel) {
+  const f = state.stFiltro
+  if (f !== 'ativos' && f !== 'inativos') return rows
+  state.stAplicado = { nivel }
+  const { key, st } = ST_NIVEIS[nivel], acct = acctOf(rows), grupos = new Map()
+  rows.forEach(r => { const k = key(r); grupos.has(k) ? grupos.get(k).push(r) : grupos.set(k, [r]) })
+  const ok = new Set([...grupos].filter(([k, rs]) => (stRank(st(acct, k, rs)) === 2) === (f === 'ativos')).map(([k]) => k))
+  return rows.filter(r => ok.has(key(r)))
+}
+function stVazioHTML() {
+  const n = ST_NIVEIS[state.stAplicado.nivel], ativo = state.stFiltro === 'ativos'
+  return `<div class="empty">${n.fem ? 'Nenhuma' : 'Nenhum'} ${n.nome} ${ativo ? 'ativ' : 'inativ'}${n.fem ? 'a' : 'o'} no período.<button type="button" class="st-filtro-reset" data-stfiltro="todos">Mostrar todos</button></div>`
+}
+const stFiltroHTML = () => `<div class="st-filtro-bar"><span class="st-filtro-lbl">Mostrar</span>
+  <div class="mg-switch" role="tablist" aria-label="Filtrar por status">${ST_FILTROS.map(([v, l]) =>
+    `<button type="button" role="tab" aria-selected="${state.stFiltro === v}" class="mg-sw${state.stFiltro === v ? ' active' : ''}" data-stfiltro="${v}">${l}</button>`).join('')}</div></div>`
 
 // ─── Cards mobile das tabelas (campanha / conjunto / anúncio / grupo) ─────────
 // No retrato a tabela de 9–14 colunas vira rolagem lateral e esconde justamente
@@ -3897,7 +3946,7 @@ function tblMetaCampaigns(rows, prevRows){
   const items = g.map((x,i)=>({ x, top:i===0&&x.result>0, nome:x.key, cpl:x.conv>0?x.spend/x.conv:null,
     cpmql:x.mql>0?x.mqlSp/x.mql:null, tx:x.clicks>0?x.conv/x.clicks:null,
     // Status de AGORA (snapshot por campaign_id); a linha é só o último recurso.
-    st:stCell(acct,'campanha',(x._rows.find(r=>r['campaign_id'])||{})['campaign_id'],x.key,x._rows,'Status da Campanha'),
+    st:stCampMeta(acct,x.key,x._rows),
     orc:snapEntry(acct,'campanha',(x._rows.find(r=>r['campaign_id'])||{})['campaign_id'],x.key,x._rows),
     rl:(x._rows.find(r=>r['Tipo de resultado'])||{})['Tipo de resultado']||'—' }))
   const body = tblSorted('meta-camp', items, cols).map((it)=>{ const {x,top,cpl,st:stHtml,rl}=it
@@ -3935,7 +3984,7 @@ function tblMetaAdsets(rows, prevRows){
   const items = g.map((x,i)=>{ const nm=nameOf(x)
     return { x, top:i===0&&x.conv>0, nome:nm, cpl:x.conv>0?x.spend/x.conv:null, cpmql:x.mql>0?x.mqlSp/x.mql:null, tx:x.clicks>0?x.conv/x.clicks:null,
       ctr:x.impr>0?x.clicks/x.impr*100:null, cpm:x.impr>0?x.spend/x.impr*1000:null,
-      st:stCell(acct,'conjunto',(x._rows.find(r=>r['adset_id'])||{})['adset_id'],nm,x._rows,'Status do Conjunto de Anúncio'),
+      st:stAdsetMeta(acct,nm,x._rows),
       orc:snapEntry(acct,'conjunto',(x._rows.find(r=>r['adset_id'])||{})['adset_id'],nm,x._rows),
       ativos:activeAdsCount(x._rows) } })
   const body = tblSorted('meta-adset', items, cols).map((it)=>{ const {x,top,nome:nm,cpl,ctr,cpm,st:stHtml,ativos}=it
@@ -3961,7 +4010,10 @@ const META_AD_COLS = [
   ['Gasto','spend',it=>it.x.spend], ['CPL','cpl',it=>it.cpl], ['Tx.Conv.','tx',it=>it.tx], ['Hook 3s','hook',it=>it.hook],
   ['CTR Link','ctr',it=>it.ctr], ['CPM','cpm',it=>it.cpm], ['V25%','p25',it=>it.p25], ['V50%','p50',it=>it.p50],
   ['V75%','p75',it=>it.p75], ['V100%','p100',it=>it.p100] ]
-function tblMetaAds(rows, prevRows){
+// `todas` = as linhas antes do filtro Ativos / Inativos: é delas que sai o
+// escopo dos ativos sem entrega (com "Ativos" o conjunto pode não ter nenhuma
+// linha e mesmo assim ter anúncio ligado esperando entregar).
+function tblMetaAds(rows, prevRows, todas = rows){
   const pv = prevMapOf(prevRows, metaAdKey, metaConv)
   const g = groupBy(rows, metaAdKey, {
     spend:r=>M(r,'Valor investido'), conv:metaConv, impr:r=>M(r,'Impressões'), clicks:r=>M(r,'Número de cliques no link'),
@@ -3973,15 +4025,16 @@ function tblMetaAds(rows, prevRows){
   // tabela: o insight só devolve linha para anúncio com impressão, então quem
   // subiu ontem (ou parou de entregar sem ser pausado) sumia daqui e a tabela
   // parecia discordar da coluna "Anúncios ativos" da lista, que lê o snapshot.
-  const acct = acctOf(rows) || (state.openClient?.client || '')
+  const acct = acctOf(todas) || (state.openClient?.client || '')
   const snapA = state.statusSnap && state.statusSnap[acct]
   // Dentro de um conjunto, só os ativos DELE; na conta inteira, todos.
-  const escopo = (state.drillAdset && snapA) ? adsetIdsOf(snapA, rows) : null
-  const vistos = new Set((rows || []).map(r=>r['ad_id']).filter(Boolean))
+  const escopo = (state.drillAdset && snapA) ? adsetIdsOf(snapA, todas) : null
+  const vistos = new Set((todas || []).map(r=>r['ad_id']).filter(Boolean))
   // Linha antiga sem ad_id cai no nome (metaAdKey) — sem isso o mesmo anúncio
   // apareceria duas vezes: uma com dados, outra como "sem entrega".
-  const vistosNome = new Set((rows || []).filter(r=>!r['ad_id']).map(r=>r['Nome do Anúncio']).filter(Boolean))
-  const semEntrega = (activeAdsOfScope(acct, escopo) || [])
+  const vistosNome = new Set((todas || []).filter(r=>!r['ad_id']).map(r=>r['Nome do Anúncio']).filter(Boolean))
+  // São todos ativos: com o filtro em "Inativos" ficam de fora.
+  const semEntrega = state.stFiltro === 'inativos' ? [] : (activeAdsOfScope(acct, escopo) || [])
     .filter(([id, e]) => !vistos.has(id) && !vistosNome.has(e.nome) && tblMatch(e.nome))
   if(!g.length && !semEntrega.length) return tblEmpty('Sem anúncios no período.')
   const noConv = g.filter(x=>x.spend>0&&x.conv===0)
@@ -5183,12 +5236,16 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
     qPace = null
   }
   const quad = `<div class="cp-scope-bar"><div class="cp-quad-scope">${ic('ruler','📐')} ${esc(scopeLabel)}</div>${filtrosBar}</div>${metricGroupsHTML(qCur, qPrev, isMeta, period, qPace)}`
+  // Filtro Ativos / Inativos: só nas tabelas de campanha, conjunto e anúncio do
+  // Meta (Landing pages agrupa por link, não tem status).
+  state.stAplicado = null
+  const stBar = isMeta && (state.drillCampaign || state.drillAdset || state.sub <= 2) ? stFiltroHTML() : ''
   // Drill dentro da aba
   if (state.drillCampaign || state.drillAdset) {
     let body, bc
     if (isMeta && state.drillAdset) {
-      body = tblMetaAds(tblFilter(allRows.filter(r=>metaAdsetKey(r)===state.drillAdset), r=>r['Nome do Anúncio']),
-                        prevRows.filter(r=>metaAdsetKey(r)===state.drillAdset))
+      const ads = tblFilter(allRows.filter(r=>metaAdsetKey(r)===state.drillAdset), r=>r['Nome do Anúncio'])
+      body = tblMetaAds(stFilter(ads, 'anuncio'), prevRows.filter(r=>metaAdsetKey(r)===state.drillAdset), ads)
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">${ic('back','←')} Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span>
         <span class="bc-item" data-bc="camp">${esc(state.drillCampaign)}</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillAdsetName || state.drillAdset)}</span>${tblSearchHTML('Buscar anúncio…')}</div>`
@@ -5215,22 +5272,22 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">${ic('back','←')} Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span>${state.drillSub===0?tblSearchHTML('Buscar grupo…'):''}</div>`
     } else {
-      body = tblMetaAdsets(tblFilter(allRows.filter(r=>r['Nome da campanha']===state.drillCampaign), r=>r['Conjunto de Anúncio']),
+      body = tblMetaAdsets(stFilter(tblFilter(allRows.filter(r=>r['Nome da campanha']===state.drillCampaign), r=>r['Conjunto de Anúncio']), 'conjunto'),
                            prevRows.filter(r=>r['Nome da campanha']===state.drillCampaign))
       bc = `<div class="breadcrumb"><button class="bc-back" id="bcBack" style="margin-right:4px">${ic('back','←')} Voltar</button>
         <span class="bc-item" data-bc="root">Campanhas</span><span class="bc-sep">›</span><span class="bc-current">${esc(state.drillCampaign)}</span>${tblSearchHTML('Buscar conjunto…')}</div>`
     }
-    return `<div class="cp-panel">${bc}${quad}${body}${otmPanelHTML(channel, state.openClient.client)}</div>`
+    return `<div class="cp-panel">${bc}${quad}${stBar}${body}${otmPanelHTML(channel, state.openClient.client)}</div>`
   }
   const tabs = isMeta ? [[`${ic('chart','📊')} Campanhas`,0],[`${ic('target','🎯')} Conjuntos`,1],[`${ic('image','🎨')} Anúncios`,2],[`${ic('globe','🔗')} Landing pages`,3]]
                       : [[`${ic('chart','📊')} Campanhas`,0],[`${ic('key','🔑')} Grupos`,1],[`${ic('hash','🗝️')} Palavra-chave`,5],[`${ic('image','🎨')} Anúncios`,2],[`${ic('search','🔎')} Termos`,3],[`${ic('globe','🔗')} Páginas`,4]]
   let panel
   // No Google, Anúncios/Termos/Páginas são canais lazy por conta: entram como
   // container vazio e são preenchidos por render*(…) depois do HTML no DOM.
-  if (isMeta) panel = state.sub===1?tblMetaAdsets(tblFilter(allRows,r=>r['Conjunto de Anúncio']),prevRows)
+  if (isMeta) panel = state.sub===1?tblMetaAdsets(stFilter(tblFilter(allRows,r=>r['Conjunto de Anúncio']),'conjunto'),prevRows)
                     : state.sub===3?`<div id="mpagesPanel"></div>`
-                    : state.sub===2?tblMetaAds(tblFilter(allRows,r=>r['Nome do Anúncio']),prevRows)
-                    : tblMetaCampaigns(tblFilter(allRows,r=>r['Nome da campanha']),prevRows)
+                    : state.sub===2?(ads => tblMetaAds(stFilter(ads,'anuncio'),prevRows,ads))(tblFilter(allRows,r=>r['Nome do Anúncio']))
+                    : tblMetaCampaigns(stFilter(tblFilter(allRows,r=>r['Nome da campanha']),'campanha'),prevRows)
   else        panel = state.sub===5?`<div id="kwPanel"></div>`
                     : state.sub===2?`<div id="gadsPanel"></div>`
                     : state.sub===3?`<div id="termsPanel"></div>`
@@ -5238,6 +5295,7 @@ function campanhasHTML(allRows, prevRows, channel, stats, target, periodLabel, p
                     : state.sub===1?tblGoogleGroups(tblFilter(allRows,googleGroupKey),prevRows):tblGoogleCampaigns(tblFilter(allRows,r=>r['Campanha']),prevRows)
   return `<div class="cp-panel">
     ${quad}
+    ${stBar}
     <div class="dt-subtabs">
       ${tabs.map(([l,i])=>`<div class="dtab${state.sub===i?' active':''}" data-sub="${i}">${l}</div>`).join('')}
       ${isMeta ? (state.sub<=2 ? tblSearchHTML(['Buscar campanha…','Buscar conjunto…','Buscar anúncio…'][state.sub]) : '')
@@ -5857,6 +5915,8 @@ function wireClient(client, ch, period, allRows, prevRows, acName, folderId) {
 
   // Quadrante Performance: MQL / E-commerce (salvo por cliente)
   app.querySelectorAll('[data-perfview]').forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); state.perfView[client]=b.dataset.perfview; renderClient() })
+  // Filtro Ativos / Inativos das tabelas (vale para todos os níveis e contas, fica salvo)
+  app.querySelectorAll('[data-stfiltro]').forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); state.stFiltro=b.dataset.stfiltro; renderClient() })
 
   // Drill (aba campanhas)
   const bcBack=document.getElementById('bcBack')
