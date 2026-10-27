@@ -377,11 +377,25 @@ export default function AreaTarefas({
       .filter((g) => g.listas.length)
       .sort((a, b) => a.pasta.nome.localeCompare(b.pasta.nome, 'pt-BR'))
   }, [listasEscopo, sel.tipo, t.pastas, t.listas, t.pastasMap])
-  const criarDoRascunho = useCallback(async (payload) => {
+  // cria a tarefa e, depois, as subtarefas (na mesma lista) e as relações do rascunho
+  const criarDoRascunho = useCallback(async ({ subtarefas = [], relacoes = [], ...payload }) => {
     const r = await onCriar(payload)
-    if (r?.data) { setNovaInicial(null); abrirTarefa(r.data.id); showToast('Tarefa criada') }
+    if (!r?.data) return r
+    const id = r.data.id
+    let falhas = 0
+    for (const s of subtarefas) {
+      const rs = await onCriar({ lista_id: r.data.lista_id, parent_id: id, titulo: s.titulo, responsaveis: payload.responsaveis })
+      if (rs?.error) falhas++
+    }
+    if (relacoes.length) {
+      const { error } = await supabase.from('tarefas_relacoes').insert(relacoes.map((x) => ({ tarefa_id: id, relacionada_id: x.alvo.id, tipo: x.tipo, criado_por: user?.id || null })))
+      if (error) falhas += relacoes.length
+    }
+    setNovaInicial(null)
+    abrirTarefa(id)
+    showToast(falhas ? `Tarefa criada, mas ${falhas} subtarefa(s)/relação(ões) falharam` : 'Tarefa criada', falhas ? 'error' : undefined)
     return r
-  }, [onCriar, abrirTarefa, showToast])
+  }, [onCriar, abrirTarefa, showToast, user])
 
   // `intake`: pedido do Intake que originou a aplicação (o pedido vai para a descrição da tarefa
   // raiz e sai da fila como aceito).

@@ -1,12 +1,16 @@
 // Rascunho de tarefa nova no painel lateral: a pessoa escolhe a lista, preenche título e
 // propriedades e só então confirma em "Criar tarefa" (Ctrl+Enter). Nada vai para o banco antes.
 // Usado pelo "+ Tarefa" e pelo atalho C da AreaTarefas (em Minhas/Todas a lista é escolhida aqui).
+// Subtarefas, relações e checklists também ficam no rascunho e são criados junto (AreaTarefas).
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Loader2, ChevronDown, Folder } from 'lucide-react'
+import { Loader2, ChevronDown, Folder, X } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
 import MarkdownEditor from '../Editor/MarkdownEditor'
 import { StatusCampo, ResponsavelCampo, PrioridadeCampo, DataCampo, EstimativaCampo, TipoTarefaCampo, Popover, ItemMenu, BuscaMenu, FOCO } from './Campos'
-import { Propriedade, DepartamentoCampo } from './TarefaPanel'
-import { statusDaLista, statusInicial } from '../../lib/tarefas'
+import { Propriedade, DepartamentoCampo, Checklists } from './TarefaPanel'
+import { Secao, ListaSubtarefas, ListaRelacoes } from './SecoesTarefa'
+import { TIPOS_RELACAO, ROTULO_DIRETO } from './TarefaExtras'
+import { statusDaLista, statusInicial, novoId } from '../../lib/tarefas'
 
 const semAcento = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
@@ -63,7 +67,7 @@ function ListaCampo({ grupos, valor, onChange }) {
 export default function NovaTarefaPanel({ grupos, listasMap, inicial, membros, membrosMap, onCriar, onCancelar }) {
   const [f, setF] = useState(() => ({
     titulo: '', descricao: '', prioridade: null, data_inicio: null, data_vencimento: null, estimativa_min: null,
-    tipo_tarefa: null, departamento: [], responsaveis: [], status: null, ...inicial,
+    tipo_tarefa: null, departamento: [], responsaveis: [], status: null, subtarefas: [], relacoes: [], checklists: [], ...inicial,
   }))
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
@@ -132,6 +136,35 @@ export default function NovaTarefaPanel({ grupos, listasMap, inicial, membros, m
           <p className="ln-label">Descrição</p>
           <MarkdownEditor value={f.descricao} onChange={(v) => mudar({ descricao: v })} minHeight={120} placeholder="Escreva a descrição (aceita markdown)..." className="md-editor--13 text-ln-t2" />
         </section>
+
+        <Secao titulo="Subtarefas">
+          <ListaSubtarefas
+            itens={f.subtarefas}
+            onAbrir={() => {}}
+            onAdicionar={async (titulo) => mudar({ subtarefas: [...f.subtarefas, { id: novoId(), titulo }] })}
+            fim={(s) => <button type="button" onClick={() => mudar({ subtarefas: f.subtarefas.filter((x) => x.id !== s.id) })} className="ln-iconbtn !w-5 !h-5" aria-label={`Tirar a subtarefa ${s.titulo}`}><X className="w-3 h-3" /></button>}
+          />
+        </Secao>
+
+        <Secao titulo="Relações">
+          <ListaRelacoes
+            linhas={f.relacoes.map((r) => ({
+              key: r.key, rotulo: ROTULO_DIRETO[r.tipo], titulo: r.alvo.titulo, concluida: r.alvo.status_tipo === 'closed',
+              onRemover: () => mudar({ relacoes: f.relacoes.filter((x) => x.key !== r.key) }),
+            }))}
+            tipos={TIPOS_RELACAO}
+            buscar={async (q) => (await supabase.from('tarefas_itens').select('id,titulo,status_tipo').ilike('titulo', `%${q}%`).eq('arquivada', false).limit(8)).data || []}
+            onAdicionar={async (tipo, alvo) => {
+              if (f.relacoes.some((r) => r.tipo === tipo && r.alvo.id === alvo.id)) { setErro('Essa relação já está na lista'); return false }
+              mudar({ relacoes: [...f.relacoes, { key: novoId(), tipo, alvo }] })
+              return true
+            }}
+          />
+        </Secao>
+
+        <Secao titulo="Checklists">
+          <Checklists checklists={f.checklists} onChange={(v) => mudar({ checklists: v })} />
+        </Secao>
       </div>
 
       <div className="shrink-0 flex items-center gap-2 px-4 py-3 border-t border-ln-ink/[0.06]">

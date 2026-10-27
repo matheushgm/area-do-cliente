@@ -66,7 +66,8 @@ export function EtiquetasCampo({ valor = [], etiquetas, onChange, onCriar }) {
 
 // ── Relações ────────────────────────────────────────────────────────────────
 
-const ROTULO_DIRETO = { bloqueia: 'Bloqueia', duplica: 'Duplicada de', relacionada: 'Relacionada a' }
+export const TIPOS_RELACAO = [{ value: 'relacionada', label: 'Relacionada a' }, { value: 'bloqueia', label: 'Bloqueia' }, { value: 'duplica', label: 'Duplicada de' }]
+export const ROTULO_DIRETO = { bloqueia: 'Bloqueia', duplica: 'Duplicada de', relacionada: 'Relacionada a' }
 const ROTULO_INVERSO = { bloqueia: 'Bloqueada por', duplica: 'Tem a duplicata', relacionada: 'Relacionada a' }
 
 export function RelacoesSecao({ tarefaId, user, onAbrir, onErro }) {
@@ -111,7 +112,7 @@ export function RelacoesSecao({ tarefaId, user, onAbrir, onErro }) {
           onAbrir: outro ? () => onAbrir(outro.id) : undefined, onRemover: () => remover(r.id),
         }
       })}
-      tipos={[{ value: 'relacionada', label: 'Relacionada a' }, { value: 'bloqueia', label: 'Bloqueia' }, { value: 'duplica', label: 'Duplicada de' }]}
+      tipos={TIPOS_RELACAO}
       buscar={buscar} onAdicionar={adicionar}
     />
   )

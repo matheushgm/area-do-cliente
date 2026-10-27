@@ -78,7 +78,7 @@ export default function DevLista() {
             <NovaTarefaPanel
               grupos={fixture.pastas.map((p) => ({ pasta: p, listas: listas.filter((l) => l.pasta_id === p.id) })).filter((g) => g.listas.length)} listasMap={new Map(listas.map((l) => [l.id, l]))} inicial={{ lista_id: null, responsaveis: [] }}
               membros={membros} membrosMap={membrosMap} onCancelar={() => setNova(false)}
-              onCriar={async (p) => { console.log('criar', p); setNova(false); return { data: {} } }}
+              onCriar={async (p) => { console.log('criar', JSON.stringify(p)); setNova(false); return { data: {} } }}
             />
           </aside>
         )}

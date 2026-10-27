@@ -623,7 +623,8 @@ todo `authenticated`; as quatro estão na publicação realtime).
   frame), barra com Lista/Quadro, agrupamento (status, vencimento, responsável, prioridade,
   lista), filtro de responsável, busca, toggle de concluídas e densidade. Atalhos: `C` abre
   a tarefa nova, `Esc` fecha o painel. **Tarefa nova é rascunho** (2026-10-27, `NovaTarefaPanel`): "+ Tarefa"/`C`
-  abrem o painel lateral com lista (busca pelo cliente ou pela lista, sem acento), título e propriedades, e nada é gravado até "Criar tarefa" (Ctrl+Enter); na pasta a
+  abrem o painel lateral com lista (busca pelo cliente ou pela lista, sem acento), título, propriedades, descrição, subtarefas, relações e checklists, e nada é gravado até "Criar tarefa"
+  (Ctrl+Enter; a tarefa, depois as subtarefas na mesma lista e as relações em `tarefas_relacoes`); na pasta a
   lista "Geral" vem marcada, em Minhas/Todas a pessoa escolhe a lista (a última visitada vem marcada) e em Minhas o
   responsável já é ela. Com o painel aberto e largura < 1600, a lista esconde tipo,
   dificuldade, criada e conclusão (`compacto`). Seleção e tarefa aberta vivem na URL
