@@ -1,7 +1,6 @@
 // Corpo do painel lateral de uma tarefa (mesmo lugar e linguagem do painel
 // de atividade do módulo Atividades): título, propriedades, descrição em
-// markdown, subtarefas, relações, anexos e a atividade (comentários). Checklists ficam só nos
-// templates (saíram do painel da tarefa em 2026-10-27).
+// markdown, subtarefas, checklists, anexos e a atividade (comentários).
 // O container e o header ficam na página.
 import { useState, useEffect, useRef } from 'react'
 import MarkdownView from '../Editor/MarkdownView'
@@ -417,6 +416,10 @@ export default function TarefaPanel({
 
       <Secao titulo="Relações">
         <RelacoesSecao tarefaId={item.id} user={user} onAbrir={onAbrir} onErro={onErro} />
+      </Secao>
+
+      <Secao titulo="Checklists">
+        <Checklists checklists={item.checklists || []} onChange={(v) => onAtualizar(item.id, { checklists: v })} />
       </Secao>
 
       <Secao titulo="Anexos">
