@@ -79,13 +79,17 @@ function cliqueNaCelula(e, editavel) {
 // recuo das linhas "Adicionar": alinha com o que vem depois da seta (e da caixa de seleção)
 const recuo = (ctx) => (ctx.selecao ? 'pl-[50px]' : 'pl-[26px]')
 
-/** Caixa de seleção da linha / do cabeçalho: some até o hover, a não ser que haja seleção. */
-function Caixa({ marcada, parcial = false, visivel, onChange, label }) {
+/**
+ * Caixa de seleção da linha / do cabeçalho: some até o hover, a não ser que haja seleção.
+ * Na linha, onClique(shift) recebe o Shift (o change do checkbox não traz a tecla).
+ */
+function Caixa({ marcada, parcial = false, visivel, onChange, onClique, label }) {
   return (
     <input
       type="checkbox" checked={marcada} aria-label={label}
       ref={(el) => { if (el) el.indeterminate = parcial && !marcada }}
-      onChange={onChange} onClick={(e) => e.stopPropagation()}
+      onChange={onClique ? () => {} : onChange}
+      onClick={(e) => { e.stopPropagation(); onClique?.(e.shiftKey) }}
       className={`w-3.5 h-3.5 cursor-pointer accent-[#2A25F0] transition-opacity ${marcada || parcial || visivel ? 'opacity-100' : 'opacity-0 group-hover/linha:opacity-100 focus-visible:opacity-100'}`}
     />
   )
@@ -291,8 +295,11 @@ const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, o
   return (
     <div
       role="row"
+      data-tarefa={item.id}
       tabIndex={0}
-      onClick={() => onAbrir(item.id)}
+      // Shift+clique na linha seleciona (até a última marcada) em vez de abrir
+      onMouseDown={ctx.selecao ? (e) => { if (e.shiftKey) e.preventDefault() } : undefined}
+      onClick={(e) => { if (e.shiftKey && ctx.selecao) ctx.onSelecionarLinha(item.id, true); else onAbrir(item.id) }}
       onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(item.id) }}
       aria-current={selecionada ? 'true' : undefined}
       className={`group/linha grid items-center ${denso ? 'h-[30px]' : 'h-[34px]'} border-b border-ln-line/70 cursor-pointer ${FOCO} ${destaque || 'hover:bg-ln-level2/60'}`}
@@ -304,7 +311,7 @@ const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, o
         <span aria-hidden="true" className={`absolute inset-0 -z-10 ${destaque || 'group-hover/linha:bg-ln-level2/60'}`} />
         {ctx.selecao && (
           <span className="inline-flex items-center justify-center w-5 shrink-0">
-            <Caixa marcada={marcada} visivel={caixas} onChange={() => ctx.selecao.alternar(item.id)} label={`Selecionar ${item.titulo || 'tarefa'}`} />
+            <Caixa marcada={marcada} visivel={caixas} onClique={(shift) => ctx.onSelecionarLinha(item.id, shift)} label={`Selecionar ${item.titulo || 'tarefa'}`} />
           </span>
         )}
         <span className="inline-flex items-center justify-center w-4 h-4 shrink-0">
@@ -560,6 +567,26 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
   const [larguraViva, setLarguraViva] = useState(null)
   const larguraNome = colunas ? null : (larguraViva ?? ctx.larguraNome ?? null)
   const larguraMin = (larguraNome ?? NOME_MIN) + cols.reduce((a, c) => a + c.w, 0) + 40
+  // Seleção por linha: clique alterna; Shift+clique leva todas as linhas entre a última clicada
+  // (âncora) e esta, na ordem da tela (entre grupos e com subtarefas abertas), ao estado que
+  // esta vai ter. Só conta o que está desenhado.
+  const raiz = useRef(null)
+  const ancora = useRef(null)
+  // a seleção atual por ref: a função fica estável e as linhas memorizadas não a guardam velha
+  const selecaoRef = useRef(ctx.selecao)
+  useLayoutEffect(() => { selecaoRef.current = ctx.selecao })
+  const selecionarLinha = useCallback((id, shift) => {
+    const selecao = selecaoRef.current
+    if (!selecao) return
+    const marcar = !selecao.ids.has(id)
+    const ordem = shift && ancora.current && ancora.current !== id
+      ? [...(raiz.current?.querySelectorAll('[role="row"][data-tarefa]') || [])].map((el) => el.dataset.tarefa) : []
+    const a = ordem.indexOf(ancora.current)
+    const b = ordem.indexOf(id)
+    if (a >= 0 && b >= 0) selecao.definir(ordem.slice(Math.min(a, b), Math.max(a, b) + 1), marcar)
+    else selecao.alternar(id)
+    ancora.current = id
+  }, [])
   // mapas para a coluna Cliente (uma vez por render; listas/pastas/projetos mudam pouco)
   const ctxLista = {
     ...ctx,
@@ -579,6 +606,7 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
   const proxies = useMemo(() => Object.fromEntries(EVENTOS_LINHA.map((k) => [k, (...a) => atual.current[k]?.(...a)])), [])
   const ctxLinhas = { ...ctxLista, atual: () => atual.current }
   for (const k of EVENTOS_LINHA) if (ctxLista[k]) ctxLinhas[k] = proxies[k]
+  if (ctx.selecao) ctxLinhas.onSelecionarLinha = selecionarLinha
   const colsChave = cols.map((c) => c.k).join(',')
   const versao = useMemo(() => ({}), [ // eslint-disable-line react-hooks/exhaustive-deps
     ctx.statuses, ctx.membros, ctx.membrosMap, ctx.ciclos, ctx.listas, ctx.pastas, ctx.projetos, ctx.listasComClickup, ctx.ordenar,
@@ -598,7 +626,7 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
     )
   }
   return (
-    <div className="w-max min-w-full pb-24 pt-2 bg-ln-panel">
+    <div ref={raiz} className="w-max min-w-full pb-24 pt-2 bg-ln-panel">
       {grupos.map((g) => (
         <div key={g.key} style={{ minWidth: larguraMin }}>
           <Grupo grupo={g} ctx={ctxLinhas} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} denso={denso} cols={cols} versao={versao} />

@@ -892,7 +892,8 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     grupo só e nada disso teria ação). As três telas de Templates usam `simples`.
     **Seleção em massa (2026-10-23):** `ctx.selecao` (`{ ids: Set, alternar, definir(ids, marcar) }`) põe a
     caixa de seleção em cada linha (some até o hover, a não ser que haja seleção) e "selecionar todas" no
-    cabeçalho; a alça de arrastar, que nunca teve função, saiu. Quem passa `selecao` mostra a
+    cabeçalho; **Shift+clique** (na caixa ou na linha) seleciona do último clicado até ali, na ordem da tela e só no
+    que está desenhado, levando o intervalo ao estado que a linha clicada vai ter (`onSelecionarLinha`, 2026-10-27); a alça de arrastar, que nunca teve função, saiu. Quem passa `selecao` mostra a
     `BarraSelecao` (`src/components/Tarefas/BarraSelecao.jsx`): barra flutuante no rodapé com "N selecionadas
     ×", os campos (os mesmos editores das células, com o gatilho trocado por `BotaoBarra` via `render`;
     `ResponsaveisEmMassa`/`DepartamentosEmMassa` marcam quem está em todas e põem/tiram de todas), Duplicar e

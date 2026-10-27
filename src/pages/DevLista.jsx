@@ -1,6 +1,6 @@
 // Harness DEV (só import.meta.env.DEV): renderiza a ListaView e o painel da tarefa com a
 // fixture gitignored src/dev/fixtures/tarefas.json para conferir o visual sem login.
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import ListaView from '../components/Tarefas/ListaView'
 import TarefaPanel from '../components/Tarefas/TarefaPanel'
 import { AlcaPainel, PAINEL_LARGURA } from '../components/Tarefas/AreaTarefas'
@@ -39,6 +39,12 @@ export default function DevLista() {
   const [colunas, setColunas] = useState(null)
   const [larguraNome, setLarguraNome] = useState(null)
   const [larguraPainel, setLarguraPainel] = useState(PAINEL_LARGURA)
+  const [selecionadas, setSelecionadas] = useState(() => new Set())
+  const selecao = useMemo(() => ({
+    ids: selecionadas,
+    alternar: (id) => setSelecionadas((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n }),
+    definir: (ids, marcar) => setSelecionadas((p) => { const n = new Set(p); for (const id of ids) { if (marcar) n.add(id); else n.delete(id) } return n }),
+  }), [selecionadas])
   const visiveis = filtrarItens(topo, { mostrarConcluidas: false })
   const grupos = agruparItens(visiveis, agrupar, { statuses, membrosMap, listasMap: new Map(listas.map((l) => [l.id, l])) })
   const aberta = abertaId ? itensMap[abertaId] : null
@@ -48,14 +54,14 @@ export default function DevLista() {
     statuses, membros, membrosMap, itensMap, listaPadraoId: listasEscopo[0]?.id, agrupar,
     contagemComentarios: {}, selecionadaId: abertaId, onAbrir: setAbertaId, onAtualizar: (id, patch) => console.log('atualizar', id, patch),
     onMudarStatus: (it, s) => console.log('status', it.id, s.key), onCriar: async (row) => { console.log('criar', row); return {} },
-    listas, pastas: fixture.pastas, projetos, ciclos,
+    listas, pastas: fixture.pastas, projetos, ciclos, selecao,
     larguraNome, onLarguraNome: (w) => { console.log('larguraNome', w); setLarguraNome(w) },
     colunas, onColunas: (c) => { console.log('colunas', c); setColunas(c) },
   }
   return (
     <div className="ln vt h-screen bg-ln-bg">
       <div className="flex items-center gap-3 h-11 px-4 border-b border-ln-line text-xs text-ln-t3">
-        <strong className="text-ln-t1">DevLista</strong> · {pastaRL.nome} · {visiveis.length} abertas
+        <strong className="text-ln-t1">DevLista</strong> · {pastaRL.nome} · {visiveis.length} abertas · <span data-dev-selecionadas>{selecionadas.size}</span> selecionadas
         <select value={agrupar} onChange={(e) => setAgrupar(e.target.value)} className="ln-pill">{AGRUPAMENTOS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}</select>
         <label className="flex items-center gap-1"><input type="checkbox" checked={compacto} onChange={(e) => setCompacto(e.target.checked)} /> compacto</label>
         <label className="flex items-center gap-1"><input type="checkbox" checked={denso} onChange={(e) => setDenso(e.target.checked)} /> denso</label>
