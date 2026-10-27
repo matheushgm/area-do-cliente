@@ -888,7 +888,7 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     `render` para isso.
     **Painel lateral igual nos três (2026-10-23):** `src/components/Tarefas/SecoesTarefa.jsx` tem `Secao`,
     `ListaSubtarefas` e `ListaRelacoes`, usadas pelo painel da tarefa (`TarefaPanel` + `RelacoesSecao`), pelo do
-    editor de template e pelo da prévia. Ordem: Propriedades → Descrição → Subtarefas (só em tarefa principal) →
+    editor de template e pelo da prévia. Ordem: Propriedades → Descrição → Subtarefas (no painel da tarefa, se ela é subtarefa, vira **Hierarquia**: pais da raiz ao pai direto, irmãs com ela destacada e as subtarefas dela; `carregarTarefa` traz pais e irmãs fora do escopo, ex.: "Minhas"; conferir em `/dev/lista`) →
     Relações → Checklists. No template a relação é só `depende_de`: "Bloqueada por" (o que está em
     `depende_de`) e "Bloqueia" (quem tem esta em `depende_de`), editáveis no painel; na prévia entram nos
     ajustes e valem ao criar. O "Depende de" saiu das propriedades do editor (a coluna da lista ficou). O

@@ -216,12 +216,17 @@ export default function AreaTarefas({
     else if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force })
   }, [sel.tipo, sel.id, t.carregarPorCampo, t.carregarAbertas, listasEscopo, t.loadingEstrutura, t.carregarMinhas, t.carregarListas, recarregarTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Tarefa aberta fora do que foi carregado, ou subtarefa cujo pai ficou de fora do escopo
-  // (em "Minhas", pai de outra pessoa): carregarTarefa traz a tarefa e o pai.
-  const paiAusente = !!(tarefaAbertaId && t.itens[tarefaAbertaId]?.parent_id && !t.itens[t.itens[tarefaAbertaId].parent_id])
+  // Tarefa aberta fora do que foi carregado, ou subtarefa (uma vez por tarefa): carregarTarefa
+  // traz a tarefa, os pais até a raiz e as irmãs, que podem estar fora do escopo (em "Minhas",
+  // o pai e as irmãs de outra pessoa) e formam a Hierarquia do painel.
+  const hierarquiaLida = useRef(new Set())
+  const abertaTemPai = !!t.itens[tarefaAbertaId]?.parent_id
   useEffect(() => {
-    if (tarefaAbertaId && (!t.itens[tarefaAbertaId] || paiAusente)) t.carregarTarefa(tarefaAbertaId)
-  }, [tarefaAbertaId, paiAusente]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!tarefaAbertaId) return
+    if (t.itens[tarefaAbertaId] && (!abertaTemPai || hierarquiaLida.current.has(tarefaAbertaId))) return
+    hierarquiaLida.current.add(tarefaAbertaId)
+    t.carregarTarefa(tarefaAbertaId)
+  }, [tarefaAbertaId, abertaTemPai]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const recarregar = useCallback(() => {
     if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true })
@@ -467,6 +472,14 @@ export default function AreaTarefas({
   const listaDaAberta = tarefaAberta ? t.listasMap.get(tarefaAberta.lista_id) : null
   const pastaDaAberta = listaDaAberta ? t.pastasMap.get(listaDaAberta.pasta_id) : null
   const paiDaAberta = tarefaAberta?.parent_id ? t.itens[tarefaAberta.parent_id] : null
+  // Hierarquia do painel: pais da raiz até o pai direto, e as irmãs (incluindo a própria).
+  const ancestraisDaAberta = useMemo(() => {
+    const r = []
+    const vistos = new Set()
+    for (let p = tarefaAberta?.parent_id; p && t.itens[p] && !vistos.has(p); p = t.itens[p].parent_id) { vistos.add(p); r.unshift(t.itens[p]) }
+    return r
+  }, [tarefaAberta, t.itens])
+  const irmasDaAberta = tarefaAberta?.parent_id ? (filhosDe.get(tarefaAberta.parent_id) || [tarefaAberta]).filter((s) => !s.arquivada) : null
   const statusesDaAberta = listaDaAberta ? statusDaLista(listaDaAberta) : statuses
   const painelEmpurra = largura >= EMPURRA_A_PARTIR_DE
   const comTopo = !!antesDaView // cabeçalho acima da view: a página rola inteira
@@ -636,6 +649,8 @@ export default function AreaTarefas({
                   key={tarefaAberta.id}
                   item={tarefaAberta}
                   subtarefas={filhosDe.get(tarefaAberta.id) || []}
+                  ancestrais={ancestraisDaAberta}
+                  irmas={irmasDaAberta}
                   statuses={statusesDaAberta}
                   membros={teamMembers || []}
                   membrosMap={membrosMap}

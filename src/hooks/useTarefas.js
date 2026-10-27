@@ -153,9 +153,19 @@ export function useTarefas(user) {
     const extras = [data]
     const { data: subs } = await supabase.from('tarefas_itens').select('*').eq('parent_id', id)
     if (subs) extras.push(...subs)
+    // Subtarefa: a cadeia de pais até a raiz e as irmãs, para o painel mostrar onde ela fica.
     if (data.parent_id) {
-      const { data: pai } = await supabase.from('tarefas_itens').select('*').eq('id', data.parent_id).maybeSingle()
-      if (pai) extras.push(pai)
+      const { data: irmas } = await supabase.from('tarefas_itens').select('*').eq('parent_id', data.parent_id).eq('arquivada', false)
+      if (irmas) extras.push(...irmas.filter((s) => s.id !== id))
+      const vistos = new Set([id])
+      let paiId = data.parent_id
+      while (paiId && !vistos.has(paiId) && vistos.size < 8) {
+        vistos.add(paiId)
+        const { data: pai } = await supabase.from('tarefas_itens').select('*').eq('id', paiId).maybeSingle()
+        if (!pai) break
+        extras.push(pai)
+        paiId = pai.parent_id
+      }
     }
     mesclar(extras)
     return data

@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from 'react'
 import MarkdownView from '../Editor/MarkdownView'
 import MarkdownEditor from '../Editor/MarkdownEditor'
-import { X, Trash2, Plus, Check, Square, CheckSquare, Paperclip, Send, Loader2 } from 'lucide-react'
+import { X, Trash2, Plus, Check, Square, CheckSquare, Paperclip, Send, Loader2, CornerDownRight } from 'lucide-react'
 import { uploadFile, deleteFile } from '../../lib/supabase'
 import AnexoPreview from '../UI/AnexoPreview'
 import { tipoDoAnexo, nomeDoAnexo } from '../../lib/anexos'
@@ -13,7 +13,7 @@ import {
   ordenarItens, fmtDataHora, fmtDataNumerica, descricaoVazia, novoId, progressoChecklists, corDaPessoa, iniciais, DEPARTAMENTOS,
 } from '../../lib/tarefas'
 import {
-  StatusCampo, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, AdicionarInline,
+  StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, AdicionarInline,
   Avatar, Avatares, Popover, FOCO,
 } from './Campos'
 import RelacaoCampo from './RelacaoCampo'
@@ -258,8 +258,71 @@ function Comentarios({ item, comentarios, user, membrosMap, onComentar, onExclui
 }
 
 
+// Colunas das linhas de subtarefa: status editável antes do título; vencimento e responsáveis depois.
+const inicioSub = (s, statuses, onMudarStatus) => (
+  <span onClick={(e) => e.stopPropagation()}><StatusCampo item={s} statuses={statuses} modo="icon" onChange={(st) => onMudarStatus(s, st)} /></span>
+)
+const fimSub = (s, membrosMap, onAtualizar) => (<>
+  <DataCampo valor={s.data_vencimento} item={s} formato="curta" placeholder="" onChange={(v) => onAtualizar(s.id, { data_vencimento: v })} />
+  <Avatares item={s} membrosMap={membrosMap} size={16} max={2} vazio={false} />
+</>)
+const RECUO = 18
+
+/**
+ * Onde a subtarefa fica na árvore: os pais da raiz até o pai direto, as irmãs na ordem
+ * da lista com esta destacada no meio delas, e as subtarefas desta logo abaixo dela.
+ */
+function Hierarquia({ item, subs, ancestrais, irmas, statuses, membrosMap, onAbrir, onAtualizar, onMudarStatus, onCriarSub }) {
+  const nivel = ancestrais.length
+  const lista = ordenarItens(irmas?.length ? irmas : [item])
+  const recuo = (n) => ({ paddingLeft: 8 + n * RECUO })
+  return (
+    <div className="flex flex-col">
+      {ancestrais.map((a, i) => (
+        <div
+          key={a.id} role="button" tabIndex={0} onClick={() => onAbrir(a.id)} onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(a.id) }}
+          className={`ln-row-hover flex items-center gap-2 h-8 -mx-2 pr-2 cursor-pointer ${FOCO}`} style={recuo(i)} title="Abrir esta tarefa"
+        >
+          {i > 0 && <CornerDownRight className="w-3 h-3 text-ln-t4 shrink-0" />}
+          <StatusIcon status={a.status} statuses={statuses} />
+          <span className={`text-[13px] flex-1 min-w-0 truncate ${a.status_tipo === 'closed' ? 'line-through text-ln-t4' : 'text-ln-t3'}`}>{a.titulo || 'Sem título'}</span>
+          {i === nivel - 1 && <span className="text-[11px] text-ln-t4 shrink-0">pai</span>}
+        </div>
+      ))}
+      {lista.map((s) => s.id === item.id ? (
+        <div key={s.id}>
+          <div className="flex items-center gap-2 h-8 -mx-2 pr-2 rounded-md bg-ln-accent/[0.07]" style={recuo(nivel)} aria-current="true">
+            <CornerDownRight className="w-3 h-3 text-ln-accent shrink-0" />
+            <StatusIcon status={s.status} statuses={statuses} />
+            <span className={`text-[13px] font-medium flex-1 min-w-0 truncate ${s.status_tipo === 'closed' ? 'line-through text-ln-t4' : 'text-ln-t1'}`}>{nomeDe(s)}</span>
+            <span className="text-[11px] text-ln-accent shrink-0">esta tarefa</span>
+          </div>
+          <div style={{ paddingLeft: (nivel + 1) * RECUO }}>
+            <ListaSubtarefas
+              itens={subs.map((x) => ({ ...x, concluida: x.status_tipo === 'closed' }))} onAbrir={onAbrir} onAdicionar={(t) => onCriarSub(item, t)}
+              inicio={(x) => inicioSub(x, statuses, onMudarStatus)}
+              fim={(x) => fimSub(x, membrosMap, onAtualizar)}
+            />
+          </div>
+        </div>
+      ) : (
+        <div
+          key={s.id} role="button" tabIndex={0} onClick={() => onAbrir(s.id)} onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(s.id) }}
+          className={`ln-row-hover flex items-center gap-2 h-8 -mx-2 pr-2 cursor-pointer ${FOCO}`} style={recuo(nivel)}
+        >
+          <CornerDownRight className="w-3 h-3 text-ln-t4 shrink-0" />
+          {inicioSub(s, statuses, onMudarStatus)}
+          <span className={`text-[13px] flex-1 min-w-0 truncate ${s.status_tipo === 'closed' ? 'line-through text-ln-t4' : 'text-ln-t2'}`}>{nomeDe(s)}</span>
+          <span className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>{fimSub(s, membrosMap, onAtualizar)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+const nomeDe = (s) => s.titulo || 'Sem título'
+
 export default function TarefaPanel({
-  item, subtarefas, statuses, membros, membrosMap, comentarios, user, ciclos = [], etiquetas = [], ciclosMap = new Map(), etiquetasMap = new Map(), onCriarEtiqueta,
+  item, subtarefas, ancestrais = [], irmas = null, statuses, membros, membrosMap, comentarios, user, ciclos = [], etiquetas = [], ciclosMap = new Map(), etiquetasMap = new Map(), onCriarEtiqueta,
   onAtualizar, onMudarStatus, onCriarSub, onAbrir, onComentar, onExcluirComentario, onCarregarComentarios, onErro,
 }) {
   const [titulo, setTitulo] = useState(item?.titulo || '')
@@ -333,15 +396,22 @@ export default function TarefaPanel({
         <Descricao valor={item.descricao} onSalvar={(v) => onAtualizar(item.id, { descricao: v })} />
       </Secao>
 
-      <Secao titulo="Subtarefas" extra={subs.length > 0 && <span className="text-[11px] text-ln-t4 tabular">{feitas}/{subs.length}</span>}>
-        <ListaSubtarefas
-          itens={subs.map((s) => ({ ...s, concluida: s.status_tipo === 'closed' }))} onAbrir={onAbrir} onAdicionar={(t) => onCriarSub(item, t)}
-          inicio={(s) => <span onClick={(e) => e.stopPropagation()}><StatusCampo item={s} statuses={statuses} modo="icon" onChange={(st) => onMudarStatus(s, st)} /></span>}
-          fim={(s) => (<>
-            <DataCampo valor={s.data_vencimento} item={s} formato="curta" placeholder="" onChange={(v) => onAtualizar(s.id, { data_vencimento: v })} />
-            <Avatares item={s} membrosMap={membrosMap} size={16} max={2} vazio={false} />
-          </>)}
-        />
+      <Secao
+        titulo={item.parent_id ? 'Hierarquia' : 'Subtarefas'}
+        extra={subs.length > 0 && <span className="text-[11px] text-ln-t4 tabular" title="Subtarefas desta tarefa concluídas">{feitas}/{subs.length}</span>}
+      >
+        {item.parent_id ? (
+          <Hierarquia
+            item={item} subs={subs} ancestrais={ancestrais} irmas={irmas} statuses={statuses} membrosMap={membrosMap}
+            onAbrir={onAbrir} onAtualizar={onAtualizar} onMudarStatus={onMudarStatus} onCriarSub={onCriarSub}
+          />
+        ) : (
+          <ListaSubtarefas
+            itens={subs.map((s) => ({ ...s, concluida: s.status_tipo === 'closed' }))} onAbrir={onAbrir} onAdicionar={(t) => onCriarSub(item, t)}
+            inicio={(s) => inicioSub(s, statuses, onMudarStatus)}
+            fim={(s) => fimSub(s, membrosMap, onAtualizar)}
+          />
+        )}
       </Secao>
 
       <Secao titulo="Relações">

@@ -1,7 +1,8 @@
-// Harness DEV (só import.meta.env.DEV): renderiza a ListaView com a fixture
-// gitignored src/dev/fixtures/tarefas.json para conferir o visual sem login.
+// Harness DEV (só import.meta.env.DEV): renderiza a ListaView e o painel da tarefa com a
+// fixture gitignored src/dev/fixtures/tarefas.json para conferir o visual sem login.
 import { useState } from 'react'
 import ListaView from '../components/Tarefas/ListaView'
+import TarefaPanel from '../components/Tarefas/TarefaPanel'
 import { agruparItens, filtrarItens, statusDasListas, AGRUPAMENTOS } from '../lib/tarefas'
 // Fixture gitignored: via glob para o build da Vercel (clone limpo, sem a pasta) não quebrar.
 const fixtures = import.meta.glob('../dev/fixtures/tarefas.json', { eager: true, import: 'default' })
@@ -19,6 +20,9 @@ export default function DevLista() {
   const listasEscopo = listas.filter((l) => l.pasta_id === pastaRL.id)
   const ids = new Set(listasEscopo.map((l) => l.id))
   const itens = fixture.itens.filter((i) => ids.has(i.lista_id) && !i.arquivada)
+  // um neto fictício (subtarefa de subtarefa) para a Hierarquia do painel ter dois níveis de pais
+  const sub = itens.find((i) => i.parent_id)
+  if (sub) itens.push({ ...sub, id: 'dev-neto', parent_id: sub.id, titulo: 'Neto de exemplo (DEV)', posicao: 0, clickup_task_id: null, clickup_url: null })
   const topo = itens.filter((i) => !i.parent_id)
   const filhosDe = new Map(); for (const i of itens) if (i.parent_id) { if (!filhosDe.has(i.parent_id)) filhosDe.set(i.parent_id, []); filhosDe.get(i.parent_id).push(i) }
   const membros = fixture.perfis.map((p) => ({ id: p.id, name: p.name, avatar: p.avatar }))
@@ -26,6 +30,10 @@ export default function DevLista() {
   const statuses = statusDasListas(listasEscopo)
   const visiveis = filtrarItens(topo, { mostrarConcluidas: false })
   const grupos = agruparItens(visiveis, agrupar, { statuses, membrosMap, listasMap: new Map(listas.map((l) => [l.id, l])) })
+  const itensMap = Object.fromEntries(itens.map((i) => [i.id, i]))
+  const aberta = abertaId ? itensMap[abertaId] : null
+  const ancestrais = []
+  for (let p = aberta?.parent_id; p && itensMap[p]; p = itensMap[p].parent_id) ancestrais.unshift(itensMap[p])
   const ctx = {
     statuses, membros, membrosMap, itensMap: Object.fromEntries(itens.map((i) => [i.id, i])), listaPadraoId: listasEscopo[0]?.id, agrupar,
     contagemComentarios: {}, selecionadaId: abertaId, onAbrir: setAbertaId, onAtualizar: (id, patch) => console.log('atualizar', id, patch),
@@ -43,8 +51,21 @@ export default function DevLista() {
         <label className="flex items-center gap-1"><input type="checkbox" checked={compacto} onChange={(e) => setCompacto(e.target.checked)} /> compacto</label>
         <label className="flex items-center gap-1"><input type="checkbox" checked={denso} onChange={(e) => setDenso(e.target.checked)} /> denso</label>
       </div>
-      <div className="overflow-auto">
-        <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={false} denso={denso} compacto={compacto} />
+      <div className="flex">
+        <div className="flex-1 min-w-0 overflow-auto">
+          <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={false} denso={denso} compacto={compacto} />
+        </div>
+        {aberta && (
+          <aside className="w-[480px] shrink-0 border-l border-ln-line bg-ln-panel" aria-label="Detalhe da tarefa">
+            <TarefaPanel
+              key={aberta.id} item={aberta} subtarefas={filhosDe.get(aberta.id) || []} ancestrais={ancestrais}
+              irmas={aberta.parent_id ? filhosDe.get(aberta.parent_id) : null} statuses={statuses} membros={membros} membrosMap={membrosMap}
+              comentarios={[]} user={{ id: membros[0]?.id }} onAtualizar={ctx.onAtualizar} onMudarStatus={ctx.onMudarStatus}
+              onCriarSub={(pai, t) => console.log('criar sub', pai.id, t)} onAbrir={setAbertaId} onComentar={() => {}} onExcluirComentario={() => {}}
+              onCarregarComentarios={() => {}} onErro={(m) => console.log('erro', m)}
+            />
+          </aside>
+        )}
       </div>
     </div>
   )
