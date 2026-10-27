@@ -194,9 +194,14 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
 
   // Checklists: compara o da linha com o do ClickUp e aplica a diferença. Os ids do ClickUp
   // são os que a linha guarda (vêm da sincronização); checklist ou item com id que o ClickUp
-  // não conhece nasceu aqui e é criado lá. O que só existe no ClickUp é apagado. A ordem dos
-  // itens não é replicada. Depois a linha recebe a versão do ClickUp (ids novos incluídos).
-  async function sincronizarChecklists(taskId, locais, remotos) {
+  // não conhece nasceu aqui e é criado lá. O que só existe no ClickUp é apagado, MAS só se já
+  // existia na última sincronização (`desde`): o que foi criado lá depois ainda não chegou à
+  // linha e não foi removido por ninguém, então fica. A ordem dos itens não é replicada.
+  // Depois a linha recebe a versão do ClickUp (ids novos incluídos).
+  async function sincronizarChecklists(taskId, locais, remotos, desde) {
+    const limite = ms(desde) ?? 0
+    const conhecido = (x) => Number(x?.date_created) > 0 && Number(x.date_created) <= limite
+    const checarTempo = () => { if (estourou()) throw new Error('tempo esgotado no checklist; tento de novo na próxima rodada') }
     const remPorId = new Map((remotos || []).map((c) => [String(c.id), c]))
     const vistos = new Set()
     for (const c of locais || []) {
@@ -211,6 +216,7 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
       const itensRem = new Map((rc.items || []).map((i) => [String(i.id), i]))
       const itensVistos = new Set()
       for (const it of c.itens || []) {
+        checarTempo()
         const nomeItem = String(it.nome || '').trim()
         if (!nomeItem) continue
         const ri = itensRem.get(String(it.id))
@@ -224,9 +230,17 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
           if (novo) { itensVistos.add(String(novo.id)); itensRem.set(String(novo.id), novo); if (it.feito) await cu('PUT', `/checklist/${rc.id}/checklist_item/${novo.id}`, { resolved: true }) }
         }
       }
-      for (const id of itensRem.keys()) if (!itensVistos.has(id)) await cu('DELETE', `/checklist/${rc.id}/checklist_item/${id}`).catch((e) => { if (e.status !== 404) throw e })
+      for (const [id, ri] of itensRem) {
+        if (itensVistos.has(id)) continue
+        if (!conhecido(ri)) { aviso(`tarefa ${taskId}: item "${ri.name}" do checklist foi criado no ClickUp depois da última sincronização; mantido`); continue }
+        await cu('DELETE', `/checklist/${rc.id}/checklist_item/${id}`).catch((e) => { if (e.status !== 404) throw e })
+      }
     }
-    for (const id of remPorId.keys()) if (!vistos.has(id)) await cu('DELETE', `/checklist/${id}`).catch((e) => { if (e.status !== 404) throw e })
+    for (const [id, rc] of remPorId) {
+      if (vistos.has(id)) continue
+      if (!conhecido(rc)) { aviso(`tarefa ${taskId}: checklist "${rc.name}" foi criado no ClickUp depois da última sincronização; mantido`); continue }
+      await cu('DELETE', `/checklist/${id}`).catch((e) => { if (e.status !== 404) throw e })
+    }
   }
 
   for (const [idx, item] of fila.entries()) {
@@ -292,7 +306,7 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
             if (row.status_tipo === 'closed' && !st) aviso(`tarefa ${row.titulo}: status "${row.status}" não existe na lista do ClickUp`)
           }
           if (row.checklists?.length) {
-            await sincronizarChecklists(task.id, row.checklists, task.checklists)
+            await sincronizarChecklists(task.id, row.checklists, task.checklists, null)
             task = await cu('GET', `/task/${task.id}`).catch(() => task)
             await gravarEspelho(row.id, task, { checklists: mapChecklists(task.checklists) })
           } else await gravarEspelho(row.id, task)
@@ -328,7 +342,7 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
           if (cfs.size) await camposPersonalizados(row, l, row.clickup_task_id, cfs)
           if (quais.has('checklists')) {
             const atual = await cu('GET', `/task/${row.clickup_task_id}`)
-            await sincronizarChecklists(row.clickup_task_id, row.checklists, atual.checklists)
+            await sincronizarChecklists(row.clickup_task_id, row.checklists, atual.checklists, row.clickup_sync_at)
           }
           const final = await cu('GET', `/task/${row.clickup_task_id}`).catch(() => task)
           if (final) await gravarEspelho(row.id, final, quais.has('checklists') ? { checklists: mapChecklists(final.checklists) } : {})
