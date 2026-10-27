@@ -783,10 +783,17 @@ import { gerarSugestoesConta, metasDaConta, janelaAnalise, pendente, hojeSP, PRI
 // Em produção (dentro da Área do Cliente): busca pelo endpoint AUTENTICADO
 // /api/dash-data, enviando o token da sessão Supabase (mesma origem → mesmo
 // localStorage). Em dev standalone (sem sessão): cai nos CSVs locais ./output/.
-const LOCAL = { meta: './output/meta.csv', google: './output/google.csv', google_terms: './output/google_terms.csv', meta_status: './output/meta_status.csv', saldo: './output/saldo.csv' }
+// ?mock=1 (só o preview /dev/resultados usa): ignora a sessão e lê os CSVs fictícios de
+// ./mock/, gerados por scripts/gerar_mock_dash.mjs. Arquivo que não existe vira canal vazio.
+const MOCK = new URLSearchParams(location.search).get('mock') === '1'
+const DIR_LOCAL = MOCK ? './mock' : './output'
+const LOCAL = { meta: `${DIR_LOCAL}/meta.csv`, google: `${DIR_LOCAL}/google.csv`, google_terms: `${DIR_LOCAL}/google_terms.csv`, meta_status: `${DIR_LOCAL}/meta_status.csv`, saldo: `${DIR_LOCAL}/saldo.csv` }
 // Em dev standalone o rollup mora em ./output/<canal>.rollup.csv quando existe;
 // sem ele, cai no CSV cru (a lista funciona igual, só carregando muito mais).
-const LOCAL_ROLLUP = { meta: './output/meta.rollup.csv', google: './output/google.rollup.csv' }
+const LOCAL_ROLLUP = { meta: `${DIR_LOCAL}/meta.rollup.csv`, google: `${DIR_LOCAL}/google.rollup.csv` }
+// O dev server do Vite responde index.html para arquivo inexistente: sem a checagem
+// de content-type, o HTML entraria como CSV.
+const isCsv = r => r.ok && !/text\/html/i.test(r.headers.get('content-type') || '')
 
 // Supabase (chaves publishable — públicas por design, mesmas expostas ao browser
 // pelo app React). Usadas para puxar os metadados de conta das views *_public:
@@ -805,6 +812,7 @@ const tokenDe = raw => {
   catch { return null }
 }
 function supabaseToken() {
+  if (MOCK) return null
   try {
     const meu = tokenDe(localStorage.getItem(`sb-${SB_REF}-auth-token`))
     if (meu) return meu
@@ -854,9 +862,6 @@ async function fetchChannel(ch, fresh) {
     return r.text()
   }
   // dev local (standalone, sem sessão)
-  // (o dev server do Vite responde index.html para arquivo inexistente — por
-  // isso a checagem de content-type, senão o HTML entraria como CSV.)
-  const isCsv = r => r.ok && !/text\/html/i.test(r.headers.get('content-type') || '')
   if (rollup) {
     const rr = await fetch(LOCAL_ROLLUP[ch])
     if (isCsv(rr)) return rr.text()
@@ -878,7 +883,7 @@ async function fetchGoogleAds(fresh) {
     return r.ok ? r.text() : ''
   }
   const r = await fetch(LOCAL_LAZY.google_ads)
-  return r.ok && !/text\/html/i.test(r.headers.get('content-type') || '') ? r.text() : ''
+  return isCsv(r) ? r.text() : ''
 }
 
 // ─── Linhas CRUAS de um cliente (nível anúncio) ──────────────────────────────
@@ -953,7 +958,7 @@ async function ensureRawRows(ch, client) {
   } else {
     // dev local: o CSV completo do canal, filtrado aqui mesmo.
     const r = await fetch(LOCAL[ch])
-    const todas = r.ok ? parseCSV(await r.text()) : []
+    const todas = isCsv(r) ? parseCSV(await r.text()) : []
     const accKey = CFG[ch].accountKey
     state.rows[k] = todas.filter(x => (x[accKey] || '').trim() === client)
     if (ch === 'meta') applyFormsMql(state.rows[k])
@@ -967,10 +972,10 @@ async function ensureRawRows(ch, client) {
 // /api/dash-data?channel=<canal>&account=<conta>; em dev (sem sessão) cai no CSV
 // local completo e o chamador filtra a conta.
 const LOCAL_LAZY = {
-  google_terms: './output/google_terms.csv',
-  google_ads:   './output/google_ads.csv',
-  google_pages: './output/google_pages.csv',
-  google_keywords: './output/google_keywords.csv',
+  google_terms: `${DIR_LOCAL}/google_terms.csv`,
+  google_ads:   `${DIR_LOCAL}/google_ads.csv`,
+  google_pages: `${DIR_LOCAL}/google_pages.csv`,
+  google_keywords: `${DIR_LOCAL}/google_keywords.csv`,
 }
 async function fetchLazyChannel(canal, account, extra = '') {
   const token = supabaseToken()
@@ -981,7 +986,7 @@ async function fetchLazyChannel(canal, account, extra = '') {
     return r.text()
   }
   const r = await fetch(LOCAL_LAZY[canal])
-  return r.ok ? r.text() : ''
+  return isCsv(r) ? r.text() : ''
 }
 
 // Metadados de conta: espelha o `accounts` de useDashboardData (deriva do projeto

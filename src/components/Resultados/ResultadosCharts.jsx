@@ -35,7 +35,7 @@ export function KpiHero({ label, value, sub, color = 'blue', icon, footer }) {
   return (
     <div className="glass-card p-5 flex flex-col justify-between min-h-[132px]">
       <div className="flex items-start justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-rl-muted leading-tight">
+        <span className="text-xs font-semibold uppercase tracking-wider text-rl-muted leading-tight">
           {label}
         </span>
         {icon && (
@@ -46,7 +46,7 @@ export function KpiHero({ label, value, sub, color = 'blue', icon, footer }) {
         <div className={`font-bold leading-none tracking-tight text-[28px] sm:text-[32px] ${TEXT_CLASS[color] || 'text-rl-text'}`}>
           {value ?? '—'}
         </div>
-        {sub && <div className="text-[11px] text-rl-muted mt-1.5">{sub}</div>}
+        {sub && <div className="text-xs text-rl-muted mt-1.5">{sub}</div>}
       </div>
       {footer && <div className="mt-3 pt-2 border-t border-rl-border/60">{footer}</div>}
     </div>
@@ -142,7 +142,7 @@ export function AreaChart({ labels, series, height = 190, formatValue }) {
 
       <div className="flex items-center justify-center gap-4 flex-wrap mt-2">
         {scaled.map(s => (
-          <span key={s.key} className="flex items-center gap-1.5 text-[11px] text-rl-muted">
+          <span key={s.key} className="flex items-center gap-1.5 text-xs text-rl-muted">
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />
             {s.label}
             <b className="text-rl-text font-semibold">
@@ -169,8 +169,8 @@ const COST_TILE_STYLE = {
 export function CostTile({ label, value, color = 'blue' }) {
   return (
     <div className={`rounded-lg border px-2 py-1.5 text-center ${COST_TILE_STYLE[color]}`}>
-      <div className="text-[9px] uppercase tracking-wider text-rl-muted leading-tight">{label}</div>
-      <div className="text-[13px] font-bold leading-tight mt-0.5">
+      <div className="text-[11px] uppercase tracking-wider text-rl-muted leading-tight">{label}</div>
+      <div className="text-sm font-bold leading-tight mt-0.5">
         {value > 0 ? fmtMoney(value) : '—'}
       </div>
     </div>
@@ -193,7 +193,7 @@ export function CostGrid({ investido, leads, mql, sql, vendas, compact = false }
   return (
     <div>
       {!compact && (
-        <div className="text-[10px] text-rl-muted uppercase tracking-wider mb-1.5 font-semibold">
+        <div className="text-xs text-rl-muted uppercase tracking-wider mb-1.5 font-semibold">
           Custo por etapa
         </div>
       )}

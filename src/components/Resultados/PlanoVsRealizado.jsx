@@ -31,8 +31,8 @@ function GoalRow({ label, real, meta, kind = 'count', better = 'high' }) {
     return (
       <div className="flex items-center gap-2.5 py-1.5">
         <span className="w-1.5 h-1.5 rounded-full bg-rl-border shrink-0" />
-        <span className="text-[11px] text-rl-muted flex-1 truncate">{label}</span>
-        <span className="text-[11px] text-rl-muted">sem meta</span>
+        <span className="text-xs text-rl-muted flex-1 truncate">{label}</span>
+        <span className="text-xs text-rl-muted">sem meta</span>
       </div>
     )
   }
@@ -54,14 +54,14 @@ function GoalRow({ label, real, meta, kind = 'count', better = 'high' }) {
   return (
     <div className="flex items-center gap-2.5 py-1.5">
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${hasReal ? st.dot : 'bg-rl-border'}`} />
-      <span className="text-[11px] text-rl-muted flex-1 truncate">{label}</span>
+      <span className="text-xs text-rl-muted flex-1 truncate">{label}</span>
       <span className="text-xs font-semibold text-rl-text text-right tabular-nums">
         {hasReal ? fmt(real) : '—'}
       </span>
-      <span className="text-[10px] text-rl-muted w-16 text-right shrink-0 tabular-nums">
+      <span className="text-xs text-rl-muted w-16 text-right shrink-0 tabular-nums">
         /{fmt(meta)}
       </span>
-      <span className={`text-[11px] font-bold w-9 text-right shrink-0 tabular-nums ${hasReal ? st.text : 'text-rl-muted'}`}>
+      <span className={`text-xs font-bold w-9 text-right shrink-0 tabular-nums ${hasReal ? st.text : 'text-rl-muted'}`}>
         {badge}
       </span>
     </div>
@@ -107,7 +107,7 @@ export default function PlanoVsRealizado({ plan, real, showMqlSql = true }) {
       <div className="flex items-start justify-between gap-2 mb-3">
         <div>
           <h4 className="text-sm font-bold text-rl-text">Plano vs Realizado</h4>
-          <p className="text-[11px] text-rl-muted mt-0.5">meta da Calculadora de ROI</p>
+          <p className="text-xs text-rl-muted mt-0.5">meta da Calculadora de ROI</p>
         </div>
         <span className={`text-xs font-bold px-2.5 py-1 rounded-lg shrink-0 ${
           batidas === comMeta && comMeta > 0 ? 'bg-rl-green/10 text-rl-green'
@@ -118,19 +118,19 @@ export default function PlanoVsRealizado({ plan, real, showMqlSql = true }) {
         </span>
       </div>
 
-      <div className="text-[10px] text-rl-muted uppercase tracking-wider mb-0.5 font-semibold">Volume</div>
+      <div className="text-xs text-rl-muted uppercase tracking-wider mb-0.5 font-semibold">Volume</div>
       <div className="divide-y divide-rl-border/30">
         {volume.map(v => <GoalRow key={v.label} {...v} />)}
       </div>
 
-      <div className="text-[10px] text-rl-muted uppercase tracking-wider mb-0.5 mt-3 font-semibold">
+      <div className="text-xs text-rl-muted uppercase tracking-wider mb-0.5 mt-3 font-semibold">
         Custo · quanto menor, melhor
       </div>
       <div className="divide-y divide-rl-border/30">
         {custo.map(v => <GoalRow key={v.label} {...v} />)}
       </div>
 
-      <div className="flex items-center gap-2 pt-3 mt-auto border-t border-rl-border/60 text-[11px] text-rl-muted">
+      <div className="flex items-center gap-2 pt-3 mt-auto border-t border-rl-border/60 text-xs text-rl-muted">
         <Target size={13} className="text-rl-purple shrink-0" />
         <span>
           Verba planejada <b className="text-rl-text">{fmtMoneyShort(plan.mediaOrcamento)}</b> ·

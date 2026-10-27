@@ -18,7 +18,7 @@ export function AutoBadge({ entry }) {
     : null
   return (
     <span
-      className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-rl-cyan bg-rl-cyan/10 border border-rl-cyan/25 rounded-full px-1.5 py-0.5"
+      className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-rl-cyan bg-rl-cyan/10 border border-rl-cyan/25 rounded-full px-1.5 py-0.5"
       title={`Investimento e conversões vindos da API${quando ? ` · atualizado em ${quando}` : ''}${entry.parcial ? ' · semana ainda em curso' : ''}`}
     >
       <Zap size={9} />
@@ -60,7 +60,7 @@ export function AutofillButton({ projectId, year, month, onFilled }) {
   return (
     <div className="flex items-center gap-2">
       {msg && (
-        <span className={`text-[11px] ${state === 'error' ? 'text-red-400' : 'text-rl-muted'}`}>{msg}</span>
+        <span className={`text-xs ${state === 'error' ? 'text-red-400' : 'text-rl-muted'}`}>{msg}</span>
       )}
       <button
         onClick={run}

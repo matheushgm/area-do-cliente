@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Plus, Edit2, Check, X, Link2, CheckCircle2, Wallet, Users, Target, Trophy, FileDown } from 'lucide-react'
-import { fmtMoney, parseMoney, getDaysInMonth, getWeekRanges, computeRoiPlan, weekdayShort, MONTH_NAMES } from './resultadosHelpers'
-import { MonthNav, SummaryCard } from './B2BResultados'
-import { KpiHero, AreaChart, CostTile, C } from './ResultadosCharts'
+import { Plus, Edit2, Check, X, Link2, CheckCircle2, FileDown } from 'lucide-react'
+import { fmtMoney, fmtPct, parseMoney, getDaysInMonth, getWeekRanges, computeRoiPlan, weekdayShort, MONTH_NAMES } from './resultadosHelpers'
+import { MonthNav } from './B2BResultados'
+import { CostTile } from './ResultadosCharts'
+import GraficosEvolucao from './GraficosEvolucao'
+import FunilDoMes, { FonteTag } from './FunilDoMes'
 import ComparativoCanais from './ComparativoCanais'
 import PlanoVsRealizado from './PlanoVsRealizado'
 import { AutofillButton, AutoBadge } from './AutofillResultados'
@@ -31,54 +33,131 @@ function B2CEntryForm({ initial = {}, onSave, onCancel }) {
   const cac  = qtd > 0 && inv > 0 ? inv / qtd : 0
   const roas = inv > 0 ? vend / inv : 0
 
+  const campos = [
+    ['investido', 'Investido', 'R$ 0,00', 'api'], ['leads', 'Leads', '0', 'api'],
+    ['vendas', 'Vendas (qtd)', '0', 'lancado'], ['valorVendas', 'Vendas (R$)', 'R$ 0,00', 'lancado'],
+  ]
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div>
-          <label className="label-field">Investido</label>
-          <input className="input-field" placeholder="R$ 0,00" value={form.investido}
-            onChange={e => set('investido', e.target.value)} />
-        </div>
-        <div>
-          <label className="label-field">Leads</label>
-          <input className="input-field" type="number" min="0" placeholder="0" value={form.leads}
-            onChange={e => set('leads', e.target.value)} />
-        </div>
-        <div>
-          <label className="label-field">Vendas (qtd)</label>
-          <input className="input-field" type="number" min="0" placeholder="0" value={form.vendas}
-            onChange={e => set('vendas', e.target.value)} />
-        </div>
-        <div>
-          <label className="label-field">Vendas (R$)</label>
-          <input className="input-field" placeholder="R$ 0,00" value={form.valorVendas}
-            onChange={e => set('valorVendas', e.target.value)} />
-        </div>
+        {campos.map(([k, lbl, ph, fonte]) => (
+          <div key={k}>
+            <label className="label-field flex items-center gap-1.5">{lbl} <FonteTag fonte={fonte} /></label>
+            <input className="input-field" placeholder={ph} value={form[k]} onChange={e => set(k, e.target.value)}
+              {...(ph === '0' ? { type: 'number', min: '0' } : {})} />
+          </div>
+        ))}
       </div>
-      {inv > 0 && (
-        <div className="grid grid-cols-3 gap-1.5">
-          <CostTile label="Custo / Lead" value={cpl} color="blue" />
-          <CostTile label="CAC" value={cac} color="gold" />
-          <div className={`rounded-lg border px-2 py-1.5 text-center ${
-            roas >= 3   ? 'bg-rl-green/8  border-rl-green/25  text-rl-green'  :
-            roas >= 1.5 ? 'bg-rl-gold/8   border-rl-gold/25   text-rl-gold'   :
-                          'bg-rl-purple/8 border-rl-purple/25 text-rl-purple'
-          }`}>
-            <div className="text-[9px] uppercase tracking-wider text-rl-muted leading-tight">ROAS</div>
-            <div className="text-[13px] font-bold leading-tight mt-0.5">
-              {roas > 0 ? `${roas.toFixed(2)}x` : '—'}
+      {initial.fonte === 'api' && <p className="text-xs text-rl-muted">Investido e leads vêm da API: uma mudança aqui é sobrescrita no próximo preenchimento automático.</p>}
+      <div className="flex items-center gap-3 flex-wrap">
+        {inv > 0 && (
+          <div className="grid grid-cols-3 gap-1.5 flex-1 min-w-[240px] max-w-md">
+            <CostTile label="Custo / Lead" value={cpl} color="blue" />
+            <CostTile label="CAC" value={cac} color="gold" />
+            <div className="rounded-lg border border-rl-green/25 bg-rl-green/8 text-rl-green px-2 py-1.5 text-center">
+              <div className="text-[11px] uppercase tracking-wider text-rl-muted leading-tight">ROAS</div>
+              <div className="text-sm font-bold leading-tight mt-0.5">{roas > 0 ? `${roas.toFixed(2)}x` : '—'}</div>
             </div>
           </div>
+        )}
+        <div className="flex gap-2 ml-auto">
+          <button onClick={onCancel} className="btn-secondary flex items-center gap-1 text-sm"><X size={13} /> Cancelar</button>
+          <button onClick={() => onSave(form)} className="btn-primary flex items-center gap-1.5 text-sm"><Check size={13} /> Salvar</button>
         </div>
-      )}
-      <div className="flex gap-2">
-        <button onClick={() => onSave(form)}
-          className="btn-primary flex-1 flex items-center justify-center gap-1.5 text-sm">
-          <Check size={13} /> Salvar
-        </button>
-        <button onClick={onCancel} className="btn-secondary flex items-center gap-1 text-sm">
-          <X size={13} />
-        </button>
+      </div>
+    </div>
+  )
+}
+
+const fmtInt = n => Number(n || 0).toLocaleString('pt-BR')
+
+// Tabela de períodos (dias ou semanas): investido e leads da API, vendas e receita lançadas,
+// custos calculados. O lançamento abre numa linha logo abaixo da linha editada.
+// `cobrarLancamento`: destaca "Lançar vendas" onde já há investimento e nenhuma venda (nas
+// semanas; no diário, dia sem venda é comum e o destaque viraria ruído).
+function TabelaPeriodos({ linhas, editando, onEditar, onSalvar, onCancelar, totais, cobrarLancamento = false }) {
+  const cel = 'px-3 py-2 text-right tabular-nums'
+  const per = (d, q) => (d?.investido > 0 && q > 0 ? fmtMoney(d.investido / q) : '—')
+  return (
+    <div className="rounded-2xl border border-rl-border overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-sm">
+          <thead>
+            <tr className="text-xs uppercase tracking-wider">
+              <th className="bg-rl-surface/60" />
+              <th colSpan={2} className="bg-rl-surface/60 px-3 pt-2.5 text-left"><FonteTag fonte="api" /></th>
+              <th colSpan={2} className="bg-rl-surface/60 px-3 pt-2.5 text-left border-l border-rl-border"><FonteTag fonte="lancado" /></th>
+              <th colSpan={3} className="bg-rl-surface/60 px-3 pt-2.5 text-left text-rl-muted font-semibold border-l border-rl-border">Calculado</th>
+              <th className="bg-rl-surface/60" />
+            </tr>
+            <tr className="text-xs text-rl-muted border-b border-rl-border">
+              {['Período', 'Investido', 'Leads', 'Vendas', 'Receita', 'CPL', 'CAC', 'ROAS', ''].map((h, i) => (
+                <th key={h + i} className={`bg-rl-surface/60 px-3 pb-2 pt-1 font-medium ${i === 0 ? 'text-left' : 'text-right'} ${i === 3 || i === 5 ? 'border-l border-rl-border' : ''}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {linhas.map(({ key, label, sub, d, futuro }) => {
+              const semLancamento = cobrarLancamento && d && d.investido > 0 && !(d.vendas || d.valorVendas)
+              return [
+                <tr key={key} className={`border-b border-rl-border/50 ${editando === key ? 'bg-rl-purple/5' : 'hover:bg-rl-surface/40'} ${futuro ? 'opacity-40' : ''}`}>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <span className="font-medium text-rl-text">{label}</span>
+                    {sub && <span className="ml-1.5 text-xs text-rl-muted">{sub}</span>}
+                    {d?.parcial && <span className="ml-2 align-middle"><AutoBadge entry={d} /></span>}
+                  </td>
+                  {d ? (
+                    <>
+                      <td className={cel}>{fmtMoney(d.investido)}</td>
+                      <td className={cel}>{fmtInt(d.leads)}</td>
+                      <td className={`${cel} border-l border-rl-border/60`}>{d.vendas ? fmtInt(d.vendas) : '—'}</td>
+                      <td className={cel}>{d.valorVendas ? fmtMoney(d.valorVendas) : '—'}</td>
+                      <td className={`${cel} border-l border-rl-border/60 text-rl-subtle`}>{per(d, d.leads)}</td>
+                      <td className={`${cel} text-rl-subtle`}>{per(d, d.vendas)}</td>
+                      <td className={`${cel} text-rl-subtle`}>{d.investido > 0 && d.valorVendas > 0 ? `${(d.valorVendas / d.investido).toFixed(2)}x` : '—'}</td>
+                    </>
+                  ) : (
+                    <td colSpan={7} className="px-3 py-2 text-xs text-rl-muted">{futuro ? '' : 'Sem dados'}</td>
+                  )}
+                  <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                    {futuro ? null : semLancamento ? (
+                      <button onClick={() => onEditar(key)} className="inline-flex items-center gap-1 text-xs font-semibold text-rl-purple bg-rl-purple/10 hover:bg-rl-purple/15 px-2.5 py-1 rounded-lg">
+                        <Plus size={12} /> Lançar vendas
+                      </button>
+                    ) : (
+                      <button onClick={() => onEditar(editando === key ? null : key)} title={d ? 'Editar' : 'Lançar'}
+                        className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-colors">
+                        {d ? <Edit2 size={13} /> : <Plus size={13} />}
+                      </button>
+                    )}
+                  </td>
+                </tr>,
+                editando === key && (
+                  <tr key={key + '-form'} className="border-b border-rl-border/50 bg-rl-purple/5">
+                    <td colSpan={9} className="px-3 pb-4 pt-1">
+                      <B2CEntryForm initial={d} onSave={data => onSalvar(key, data)} onCancel={onCancelar} />
+                    </td>
+                  </tr>
+                ),
+              ]
+            })}
+          </tbody>
+          {totais.investido > 0 && (
+            <tfoot>
+              <tr className="bg-rl-surface/60 font-semibold text-rl-text">
+                <td className="px-3 py-2.5">Total do mês</td>
+                <td className={cel}>{fmtMoney(totais.investido)}</td>
+                <td className={cel}>{fmtInt(totais.leads)}</td>
+                <td className={`${cel} border-l border-rl-border/60`}>{fmtInt(totais.vendas)}</td>
+                <td className={cel}>{fmtMoney(totais.valorVendas)}</td>
+                <td className={`${cel} border-l border-rl-border/60`}>{per(totais, totais.leads)}</td>
+                <td className={cel}>{per(totais, totais.vendas)}</td>
+                <td className={cel}>{totais.valorVendas > 0 ? `${(totais.valorVendas / totais.investido).toFixed(2)}x` : '—'}</td>
+                <td />
+              </tr>
+            </tfoot>
+          )}
+        </table>
       </div>
     </div>
   )
@@ -234,21 +313,14 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
   // Meta mensal vinda da Calculadora de ROI do projeto.
   const plan = computeRoiPlan(roiCalc)
 
-  const days = Array.from({ length: daysInMon }, (_, i) => i + 1)
-  const hasData = totals.investido > 0 || totals.leads > 0
-
-  // Séries do gráfico: por dia no modo diário, por semana no semanal.
-  // Cálculo barato (≤31 pontos), roda a cada render sem memoização.
-  const chart = (() => {
-    if (mode === 'semanal') {
-      const labels = weeks.map((_, i) => `S${i + 1}`)
-      const pick = key => weeks.map((_, i) => weekData[String(i + 1)]?.[key] || 0)
-      return { labels, investido: pick('investido'), leads: pick('leads'), receita: pick('valorVendas') }
-    }
-    const labels = days.map(d => (d === 1 || d % 5 === 0 ? String(d) : ''))
-    const pick = key => days.map(d => monthData[String(d).padStart(2, '0')]?.[key] || 0)
-    return { labels, investido: pick('investido'), leads: pick('leads'), receita: pick('valorVendas') }
+  // Última vez que a API preencheu algum dia/semana do mês
+  const atualizadoApi = (() => {
+    const ts = [...Object.values(monthData), ...Object.values(weekData)].map(d => d?.fonte === 'api' && d.atualizadoEm).filter(Boolean).sort().at(-1)
+    return ts ? new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : null
   })()
+
+  const days = Array.from({ length: daysInMon }, (_, i) => i + 1)
+
 
   // ── Copy share link ─────────────────────────────────────────────────────────
   // Usa getOrCreateShareToken quando disponível (gera token se ainda não
@@ -277,26 +349,6 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
             month={month}
             onFilled={onUpdate}
           />
-          <div className="flex items-center gap-2 bg-rl-surface border border-rl-border rounded-xl p-1">
-            {[
-              { id: 'diario',   label: 'Diário' },
-              { id: 'semanal',  label: 'Semanal' },
-              ...(unidades ? [{ id: 'unidades', label: 'Por unidade' }] : []),
-            ].map(opt => (
-              <button
-                key={opt.id}
-                onClick={() => { setMode(opt.id); setEditing(null); setEditingWeek(null) }}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  mode === opt.id
-                    ? 'bg-gradient-rl text-white shadow-glow'
-                    : 'text-rl-muted hover:text-rl-text'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-
           {(clientShareToken || getOrCreateShareToken) && (
             <button
               onClick={copyLink}
@@ -326,53 +378,111 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
         </div>
       </div>
 
-      {/* ── Faixa de KPIs ────────────────────────────────────────────────────── */}
-      {hasData && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiHero
-            label="Investimento"
-            value={fmtMoney(totals.investido)}
-            sub={`${MONTH_NAMES[month]} ${year}`}
-            color="gold"
-            icon={<Wallet size={18} />}
-          />
-          <KpiHero
-            label="Custo por Lead"
-            value={cpl > 0 ? fmtMoney(cpl) : '—'}
-            sub={`${totals.leads.toLocaleString('pt-BR')} leads no período`}
-            color="blue"
-            icon={<Users size={18} />}
-          />
-          <KpiHero
-            label="CAC"
-            value={cac > 0 ? fmtMoney(cac) : '—'}
-            sub={totals.vendas > 0
-              ? `${totals.vendas.toLocaleString('pt-BR')} vendas · ticket ${fmtMoney(ticket)}`
-              : 'Informe a qtd. de vendas'}
-            color="purple"
-            icon={<Target size={18} />}
-          />
-          <KpiHero
-            label="ROAS"
-            value={roas > 0 ? `${roas.toFixed(2)}x` : '—'}
-            sub={totals.valorVendas > 0 ? `${fmtMoney(totals.valorVendas)} de receita` : 'Sem receita lançada'}
-            color={roas >= 3 ? 'green' : roas >= 1.5 ? 'gold' : 'red'}
-            icon={<Trophy size={18} />}
-          />
-        </div>
-      )}
+      {/* ── Funil do mês: API + lançado ──────────────────────────────────────── */}
+      <FunilDoMes
+        titulo={`Funil de ${MONTH_NAMES[month]}${mode === 'semanal' ? ' (lançamentos semanais)' : ''}`}
+        atualizado={atualizadoApi}
+        etapas={[
+          { key: 'inv', label: 'Investido', valor: fmtMoney(totals.investido), sub: plan ? `plano ${fmtMoney(plan.mediaOrcamento)}` : null, fonte: 'api' },
+          { key: 'leads', label: 'Leads', valor: fmtInt(totals.leads), sub: cpl ? `${fmtMoney(cpl)} por lead` : null, fonte: 'api' },
+          { key: 'vendas', label: 'Vendas', valor: fmtInt(totals.vendas), sub: cac ? `CAC ${fmtMoney(cac)}` : null, fonte: 'lancado', conversao: totals.vendas ? `${fmtPct(totals.vendas, totals.leads)} dos leads` : null },
+          { key: 'receita', label: 'Receita', valor: fmtMoney(totals.valorVendas), sub: roas ? `ROAS ${roas.toFixed(2)}x` : null, fonte: 'lancado', conversao: ticket ? `ticket ${fmtMoney(ticket)}` : null },
+        ]}
+      />
 
-      {/* ── Canais (dados reais) × Plano de ROI ──────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <ComparativoCanais
-            dash={dash}
-            projectId={projectId}
+      {/* ── Lançamentos: diário, semanal ou por unidade ──────────────────────────── */}
+      <div className="space-y-3">
+        <div className="inline-flex p-1 rounded-xl bg-rl-surface border border-rl-border">
+          {[
+            { id: 'diario',   label: 'Diário' },
+            { id: 'semanal',  label: 'Semanal' },
+            ...(unidades ? [{ id: 'unidades', label: 'Por loja' }] : []),
+          ].map(opt => (
+            <button
+              key={opt.id}
+              onClick={() => { setMode(opt.id); setEditing(null); setEditingWeek(null) }}
+              className={`px-3.5 py-1.5 rounded-lg text-sm transition-colors ${mode === opt.id ? 'bg-rl-card text-rl-text font-semibold shadow-sm' : 'text-rl-subtle hover:text-rl-text'}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'diario' && (
+          <TabelaPeriodos
+            linhas={days.map(day => ({
+              key: day,
+              label: `${day}/${month + 1}`,
+              sub: weekdayShort(year, month, day),
+              d: monthData[String(day).padStart(2, '0')],
+              futuro: new Date(year, month, day) > today,
+            }))}
+            editando={editing}
+            onEditar={setEditing}
+            onSalvar={(day, data) => saveDay(day, data)}
+            onCancelar={() => setEditing(null)}
+            totais={dailyTotals}
+          />
+        )}
+
+        {mode === 'semanal' && (
+          <TabelaPeriodos
+            linhas={weeks.map((week, idx) => ({
+              key: idx,
+              label: week.label,
+              sub: `${week.start}/${month + 1} a ${week.end}/${month + 1}`,
+              d: weekData[String(idx + 1)],
+              futuro: new Date(year, month, week.start) > today,
+            }))}
+            editando={editingWeek}
+            onEditar={setEditingWeek}
+            cobrarLancamento
+            onSalvar={(idx, data) => saveWeek(idx + 1, data)}
+            onCancelar={() => setEditingWeek(null)}
+            totais={weeklyTotals}
+          />
+        )}
+
+        {mode === 'unidades' && unidades && (
+          <VendasPorUnidade
+            unidades={unidades}
+            investimento={investimento}
             year={year}
             month={month}
-            monthLabel={`${MONTH_NAMES[month]} ${year}`}
+            data={unitData}
+            onSaveDay={saveUnidadesDay}
+            weekData={unitWeekData}
+            onSaveWeek={saveUnidadesWeek}
           />
-        </div>
+        )}
+      </div>
+
+      {/* ── Evolução (diária ou semanal, conforme a aba) ──────────────────────────── */}
+      {mode === 'semanal' ? (
+        <GraficosEvolucao
+          titulo="Evolução semanal"
+          labels={weeks.map((_, i) => `S${i + 1}`)}
+          nomes={weeks.map(w => `${w.label} · ${w.start}/${month + 1} a ${w.end}/${month + 1}`)}
+            periodos={weeks.map((_, i) => {
+            const w = weekData[String(i + 1)]
+            return w ? { investido: w.investido, leads: w.leads, vendas: w.vendas, receita: w.valorVendas } : null
+          })}
+        />
+      ) : (
+        <GraficosEvolucao
+          titulo="Evolução diária"
+          labels={days.map(d => String(d))}
+          nomes={days.map(d => `${d}/${month + 1} · ${weekdayShort(year, month, d)}`)}
+          rotuloX={i => ([0, 4, 9, 14, 19, 24, 29].includes(i) ? String(i + 1) : null)}
+          periodos={days.map(d => {
+            const x = monthData[String(d).padStart(2, '0')]
+            return x ? { investido: x.investido, leads: x.leads, vendas: x.vendas, receita: x.valorVendas } : null
+          })}
+        />
+      )}
+
+      {/* ── Plano de ROI e canais ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
         <PlanoVsRealizado
           plan={plan}
           showMqlSql={false}
@@ -384,260 +494,16 @@ export default function B2CView({ resultados, onUpdate, clientShareToken, getOrC
             receita: totals.valorVendas,
           }}
         />
+        <div className="lg:col-span-2">
+          <ComparativoCanais
+            dash={dash}
+            projectId={projectId}
+            year={year}
+            month={month}
+            monthLabel={`${MONTH_NAMES[month]} ${year}`}
+          />
+        </div>
       </div>
-
-      {/* ── Evolução do funil ────────────────────────────────────────────────── */}
-      {hasData && (
-        <div className="glass-card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-bold text-rl-text">
-              Evolução {mode === 'diario' ? 'diária' : 'semanal'} do funil
-            </h4>
-            <span className="text-[11px] text-rl-muted">pico de cada série</span>
-          </div>
-          <AreaChart
-            labels={chart.labels}
-            height={200}
-            series={[
-              { key: 'inv',   label: 'Investido', values: chart.investido, color: C.gold },
-              { key: 'leads', label: 'Leads',     values: chart.leads,     color: C.blue },
-              { key: 'rec',   label: 'Receita',   values: chart.receita,   color: C.green, area: false },
-            ]}
-            formatValue={(key, max) => (key === 'leads' ? max.toLocaleString('pt-BR') : fmtMoney(max))}
-          />
-        </div>
-      )}
-
-      {/* Monthly Summary */}
-      {hasData && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-          <SummaryCard label="Investido" value={fmtMoney(totals.investido)}            color="rl-gold" />
-          <SummaryCard label="Leads"     value={totals.leads.toLocaleString('pt-BR')}  color="rl-blue"   sub={cpl > 0 ? fmtMoney(cpl) + '/lead'  : null} />
-          <SummaryCard label="Vendas"    value={totals.vendas.toLocaleString('pt-BR')} color="rl-purple" sub={cac > 0 ? fmtMoney(cac) + '/venda' : null} />
-          <SummaryCard label="Receita"   value={fmtMoney(totals.valorVendas)}          color="rl-green" />
-          <SummaryCard label="Ticket"    value={ticket > 0 ? fmtMoney(ticket) : '—'}   color="rl-cyan" />
-          <SummaryCard
-            label="ROAS"
-            value={roas > 0 ? roas.toFixed(2) + 'x' : '—'}
-            color={roas >= 3 ? 'rl-green' : roas >= 1.5 ? 'rl-gold' : 'rl-purple'}
-          />
-        </div>
-      )}
-
-      {/* ── DIÁRIO ────────────────────────────────────────────────────────── */}
-      {mode === 'diario' && (
-        <div className="glass-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] text-sm">
-              <thead>
-                <tr className="border-b border-rl-border">
-                  {['Dia', 'Investido', 'Leads', 'Vendas', 'Receita', 'CPL', 'CAC', 'ROAS'].map((h, i) => (
-                    <th key={h} className={`px-4 py-3 text-rl-muted font-medium text-xs uppercase tracking-wide ${i === 0 ? 'text-left' : 'text-right'}`}>
-                      {h}
-                    </th>
-                  ))}
-                  <th className="w-10 px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {days.map(day => {
-                  const dayKey  = String(day).padStart(2, '0')
-                  const d       = monthData[dayKey]
-                  const isEdit  = editing === day
-                  const dayCpl  = d?.leads  > 0 && d?.investido > 0 ? d.investido / d.leads  : 0
-                  const dayCac  = d?.vendas > 0 && d?.investido > 0 ? d.investido / d.vendas : 0
-                  const dayRoas = d?.investido > 0 ? (d.valorVendas || 0) / d.investido : 0
-
-                  if (isEdit) {
-                    return (
-                      <tr key={day} className="border-b border-rl-border bg-rl-surface/40">
-                        <td className="px-4 py-3 font-medium text-rl-text text-xs whitespace-nowrap align-top">
-                          {day}/{month + 1}
-                          <span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span>
-                        </td>
-                        <td colSpan={7} className="px-4 py-3">
-                          <B2CEntryForm
-                            initial={d}
-                            onSave={data => saveDay(day, data)}
-                            onCancel={() => setEditing(null)}
-                          />
-                        </td>
-                        <td />
-                      </tr>
-                    )
-                  }
-
-                  return (
-                    <tr
-                      key={day}
-                      className={`border-b border-rl-border/30 hover:bg-rl-surface/20 transition-colors ${!d ? 'opacity-50' : ''}`}
-                    >
-                      <td className="px-4 py-2.5 font-medium text-rl-text text-xs whitespace-nowrap">
-                        {day}/{month + 1}
-                          <span className="ml-1.5 text-rl-muted font-normal capitalize">{weekdayShort(year, month, day)}</span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right text-xs text-rl-text">{d ? fmtMoney(d.investido) : '—'}</td>
-                      <td className="px-4 py-2.5 text-right text-xs text-rl-blue font-medium">{d ? d.leads : '—'}</td>
-                      <td className="px-4 py-2.5 text-right text-xs text-rl-purple font-medium">{d?.vendas ? d.vendas : '—'}</td>
-                      <td className="px-4 py-2.5 text-right text-xs text-rl-green font-medium">{d ? fmtMoney(d.valorVendas) : '—'}</td>
-                      <td className="px-4 py-2.5 text-right text-xs text-rl-cyan">{dayCpl > 0 ? fmtMoney(dayCpl) : '—'}</td>
-                      <td className="px-4 py-2.5 text-right text-xs text-rl-gold">{dayCac > 0 ? fmtMoney(dayCac) : '—'}</td>
-                      <td className="px-4 py-2.5 text-right text-xs">
-                        {d && dayRoas > 0 ? (
-                          <span className={`font-semibold ${
-                            dayRoas >= 3   ? 'text-rl-green' :
-                            dayRoas >= 1.5 ? 'text-rl-gold'  :
-                                             'text-rl-purple'
-                          }`}>
-                            {dayRoas.toFixed(2)}x
-                          </span>
-                        ) : '—'}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <button
-                          onClick={() => setEditing(day)}
-                          className="text-rl-muted hover:text-rl-text transition-colors p-1 rounded"
-                        >
-                          {d ? <Edit2 size={12} /> : <Plus size={12} />}
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-              {dailyTotals.investido > 0 && (
-                <tfoot>
-                  <tr className="border-t-2 border-rl-border bg-rl-surface/60">
-                    <td className="px-4 py-3 text-xs font-bold text-rl-text uppercase tracking-wide">Total</td>
-                    <td className="px-4 py-3 text-right text-xs font-bold text-rl-gold">{fmtMoney(dailyTotals.investido)}</td>
-                    <td className="px-4 py-3 text-right text-xs font-bold text-rl-blue">{dailyTotals.leads.toLocaleString('pt-BR')}</td>
-                    <td className="px-4 py-3 text-right text-xs font-bold text-rl-purple">{dailyTotals.vendas.toLocaleString('pt-BR')}</td>
-                    <td className="px-4 py-3 text-right text-xs font-bold text-rl-green">{fmtMoney(dailyTotals.valorVendas)}</td>
-                    <td className="px-4 py-3 text-right text-xs font-bold text-rl-cyan">{cpl > 0 ? fmtMoney(cpl) : '—'}</td>
-                    <td className="px-4 py-3 text-right text-xs font-bold text-rl-gold">{cac > 0 ? fmtMoney(cac) : '—'}</td>
-                    <td className="px-4 py-3 text-right text-xs font-bold">
-                      <span className={roas >= 3 ? 'text-rl-green' : roas >= 1.5 ? 'text-rl-gold' : 'text-rl-purple'}>
-                        {roas > 0 ? roas.toFixed(2) + 'x' : '—'}
-                      </span>
-                    </td>
-                    <td />
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ── POR UNIDADE ───────────────────────────────────────────────────── */}
-      {mode === 'unidades' && unidades && (
-        <VendasPorUnidade
-          unidades={unidades}
-          investimento={investimento}
-          year={year}
-          month={month}
-          data={unitData}
-          onSaveDay={saveUnidadesDay}
-          weekData={unitWeekData}
-          onSaveWeek={saveUnidadesWeek}
-        />
-      )}
-
-      {/* ── SEMANAL ───────────────────────────────────────────────────────── */}
-      {mode === 'semanal' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {weeks.map((week, idx) => {
-            const wKey = String(idx + 1)
-            const w    = weekData[wKey]
-            const isEdit = editingWeek === idx
-
-            const wCpl  = w?.leads  > 0 && w?.investido > 0 ? w.investido / w.leads  : 0
-            const wCac  = w?.vendas > 0 && w?.investido > 0 ? w.investido / w.vendas : 0
-            const wRoas = w?.investido > 0 ? (w.valorVendas || 0) / w.investido : 0
-
-            return (
-              <div key={idx} className="glass-card p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-rl-text">{week.label}</p>
-                      <AutoBadge entry={w} />
-                    </div>
-                    <p className="text-xs text-rl-muted">
-                      {MONTH_NAMES[month].slice(0,3)} {week.start}–{week.end}
-                    </p>
-                  </div>
-                  {!isEdit && (
-                    <button
-                      onClick={() => setEditingWeek(idx)}
-                      className="text-rl-muted hover:text-rl-text transition-colors p-1.5 rounded-lg hover:bg-rl-surface"
-                    >
-                      {w ? <Edit2 size={14} /> : <Plus size={14} />}
-                    </button>
-                  )}
-                </div>
-
-                {isEdit ? (
-                  <B2CEntryForm
-                    initial={w}
-                    onSave={data => saveWeek(idx + 1, data)}
-                    onCancel={() => setEditingWeek(null)}
-                  />
-                ) : w ? (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-rl-gold/5 border border-rl-gold/20 rounded-xl p-3 text-center">
-                        <p className="text-[10px] text-rl-muted uppercase tracking-wide mb-1">Investido</p>
-                        <p className="text-sm font-bold text-rl-gold">{fmtMoney(w.investido)}</p>
-                      </div>
-                      <div className="bg-rl-blue/5 border border-rl-blue/20 rounded-xl p-3 text-center">
-                        <p className="text-[10px] text-rl-muted uppercase tracking-wide mb-1">Leads</p>
-                        <p className="text-sm font-bold text-rl-blue">{w.leads}</p>
-                      </div>
-                      <div className="bg-rl-green/5 border border-rl-green/20 rounded-xl p-3 text-center">
-                        <p className="text-[10px] text-rl-muted uppercase tracking-wide mb-1">Receita</p>
-                        <p className="text-sm font-bold text-rl-green">{fmtMoney(w.valorVendas)}</p>
-                      </div>
-                    </div>
-
-                    {/* Custo por etapa da semana */}
-                    <div>
-                      <div className="text-[10px] text-rl-muted uppercase tracking-wider mb-1.5 font-semibold">
-                        Custo por etapa
-                      </div>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        <CostTile label="Custo / Lead" value={wCpl} color="blue" />
-                        <CostTile label="CAC" value={wCac} color="gold" />
-                        <div className={`rounded-lg border px-2 py-1.5 text-center ${
-                          wRoas >= 3   ? 'bg-rl-green/8  border-rl-green/25  text-rl-green'  :
-                          wRoas >= 1.5 ? 'bg-rl-gold/8   border-rl-gold/25   text-rl-gold'   :
-                                         'bg-rl-purple/8 border-rl-purple/25 text-rl-purple'
-                        }`}>
-                          <div className="text-[9px] uppercase tracking-wider text-rl-muted leading-tight">ROAS</div>
-                          <div className="text-[13px] font-bold leading-tight mt-0.5">
-                            {wRoas > 0 ? `${wRoas.toFixed(2)}x` : '—'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {w.vendas > 0 && (
-                      <div className="flex items-center justify-between bg-rl-surface rounded-lg px-3 py-2">
-                        <span className="text-[11px] text-rl-muted">{w.vendas} vendas · ticket médio</span>
-                        <span className="text-xs font-bold text-rl-cyan">
-                          {fmtMoney(w.valorVendas / w.vendas)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-xs text-rl-muted text-center py-4">Sem dados para esta semana</p>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
     </div>
   )
 }

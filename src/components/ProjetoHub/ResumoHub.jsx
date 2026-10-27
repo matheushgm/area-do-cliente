@@ -160,7 +160,7 @@ export default function ResumoHub({ dash, timeline, sugestoesPendentes, onAbrirS
             ))}
           </div>
         )}
-        <p className="text-[11px] text-rl-muted mt-3">Detectado a partir do dashboard: campanhas e anúncios que entraram, pararam ou pausaram, e verba com variação de 30% ou mais. Pra ver campanha a campanha, use a aba <button onClick={() => onAbrirTab('resultados')} className="text-rl-purple hover:underline">Resultados</button>.</p>
+        <p className="text-[11px] text-rl-muted mt-3">Detectado a partir do dashboard: campanhas e anúncios que entraram, pararam ou pausaram, e verba com variação de 30% ou mais. Pra ver campanha a campanha, abra <button onClick={() => onAbrirTab('resultados')} className="text-rl-purple hover:underline">Resultados › Resultados de Tráfego</button>.</p>
       </Secao>
     </div>
   )

@@ -80,7 +80,7 @@ passar por código nosso); essas ganham redirect em `legacyRedirects.jsx`.
 
 As páginas com sidebar são filhas de `<Route element={<AppLayout/>}>`; nenhuma monta a
 `AppSidebar` por conta própria. `/cliente/:id` entrou no shell (a sidebar fica visível na
-página do cliente) e não tem barra superior desde 2026-10-26: o "Voltar" divide a linha com o "Modo Apresentação" no topo da coluna esquerda (no mobile, voltar e menu ficam na barra do `ClientProfile`). Só
+página do cliente) e não tem barra superior desde 2026-10-26: o "Voltar" divide a linha com o "Modo Apresentação" e o "Compartilhar" (só ícone) no topo da coluna esquerda (no mobile, voltar e menu ficam na barra do `ClientProfile`). Só
 `/cliente/novo` fica de fora — é um fluxo focado.
 
 **Convenções do escuro no dashboard** (nasceram de uma auditoria de contraste):
@@ -237,7 +237,7 @@ Path convention: `{projectId}/{filename}`. Storage policies espelham as RLS das 
 `src/pages/ClientProfile.jsx` — renderizado quando `allDone` no onboarding. Layout com sidebar de navegação + painel principal:
 
 - **Header:** nome da empresa, squad badge com dropdown de atribuição, botão "Dashboard" que abre `dashboard_url` (Looker Studio) em nova aba; ícone de lápis para editar o URL inline (confirmar com Enter/✓, cancelar com Esc/✕); quando vazio, exibe "Adicionar Dashboard"
-- **Módulos:** navegação lateral com seções — Perfil, ROI, Personas, Oferta, Campanha, Criativos, Google Ads, Landing Pages, Links, Estratégia, Produto/Serviço, Banco de Mídia, Lab. Meta Ads, Resultados, Anexos
+- **Módulos:** pelo menu da página (`MenuCliente`, ver "Página do cliente" abaixo)
 - **Toast:** notificação bottom-right com `CheckCircle2` verde e auto-dismiss em 2.8s presente em todos os handlers de save
 
 ### Lab. Meta Ads (`MetaLabModule`)
@@ -1158,21 +1158,37 @@ Cada cartão diz a **Otimização** (ação em uma frase), o **Onde está** (Cam
 
 `ClientProfile.jsx` abre na seção `hub` (visão geral) com layout inspirado em CRM: **esquerda**
 (340px; 380px a partir de `2xl`) cartão do cliente (logo, contrato, LTV, squad, risco, momento, links), ações rápidas
-(Otimização / Anotação / Tarefa / Reunião), `HubInformacoes` (dados cadastrais) e a lista de
-**Módulos** (o antigo menu lateral, recolhível); **centro** `HubCentro` (timeline) ou o módulo
-aberto, com breadcrumb "Visão geral / Módulo", ocupando o resto da largura. A antiga coluna
+(Otimização / Anotação / Tarefa / Reunião) e `HubInformacoes` (dados cadastrais); **centro** o menu da página e,
+abaixo, `HubCentro` (abas do hub) ou o módulo aberto com breadcrumb "Visão geral › Menu › Grupo › Módulo",
+ocupando o resto da largura. A antiga coluna
 direita (`HubDireita`: resumo de Jornada, Central de anúncios, LPs, Campanhas, Anexos, Links, NPS e
 Atas) foi removida em 2026-10-26 a pedido do Matheus. Abaixo de `xl` as colunas empilham e os módulos viram drawer pelo hambúrguer.
 
+- **Menu da página** (`src/components/ProjetoHub/MenuCliente.jsx`, 2026-10-27): substituiu a barra de abas do
+  `HubCentro` e o antigo menu de Módulos. "Visão geral" + cinco menus suspensos, nesta ordem (pedido do Matheus):
+  **Cliente** (Cadastro: Dados, Banco de Mídia, Links, Anexos · Estratégia: Kickoff, Produto/Serviço, Personas,
+  Oferta, Estratégia, Ferramentas), **Projetos** (Tarefas, Reuniões, Anotações, Jornada, NPS), **Resultados**
+  (Desempenho: Tráfego, Funil · Otimização: Sugestões, Otimizações · Leads e vendas: CRM, Banco de Dados; numa
+  coluna só, `colunas: 1`), **Planejamento** (ROI, Plan. de campanhas, Labs Meta/Google) e **Criação** (Anúncios ·
+  Landing pages). A estrutura é a constante `MENU_CLIENTE`: item `'aba:<id>'` abre uma aba do hub (estado `abaHub`
+  no `ClientProfile`, que agora controla o `HubCentro` por `tab`/`onAbrirTab`), o resto é id de seção; o rótulo do
+  menu é livre, o id não muda. Não há gaveta "Outros": item em teste leva `beta: true` (selo no item). O painel abre
+  para a direita do botão e recua só o que passar da tela (`Painel`). A lupa no fim busca em todos os itens; no
+  mobile o drawer mostra a mesma hierarquia (`MenuClienteLista`). O número de sugestões pendentes vem de
+  `useSugestoesHub` (no `ClientProfile`, pra aparecer com um módulo aberto). Trocar de seção leva ao topo da página.
+- **Coluna do cliente recolhível em todas as visões** (botão no começo do menu, `localStorage['rl:cliente-info-recolhida']`):
+  recolhida, o Voltar e o nome do cliente vão para a barra do menu.
+
 - **Timeline** (`src/hooks/useProjetoHub.js`): união de `projeto_otimizacoes` (otimizações
   feitas + anotações, migration 089), `atividades_planejadas` do projeto, `tarefas_itens`
-  da pasta do cliente (réplica do ClickUp) e `meeting_minutes`, agrupada por mês, com abas
-  Atividade / Sugestões / Otimizações / Anotações / Tarefas / Reuniões. A aba **Tarefas** é a área do VertaTask
+  da pasta do cliente (réplica do ClickUp) e `meeting_minutes`, agrupada por mês. Abas do hub (escolhidas pelo
+  menu): Resumo (= Visão geral), Tarefas, Sugestões, Otimizações e Anotações; Reuniões virou o módulo de atas e
+  Resultados virou os módulos de Tráfego e Funil. A aba **Tarefas** é a área do VertaTask
   (`TarefasDoCliente` → `AreaTarefas`, carregada sob demanda): a linha do tempo de tarefas, as tarefas planejadas e
   o filtro de período que a aba tinha saíram (2026-10-26). Com `?tarefa=`, `?view=` ou `?lista=` na URL a página abre
   nessa aba; sair dela limpa esses parâmetros. Para não haver dois scrolls na mesma região, nessa aba a área vai do
   ponto onde começa até o fim da tela (`useAlturaAteOFim`, margem de 24 px) e a coluna esquerda fica `sticky` com
-  rolagem própria (`travarRolagem` no `ClientProfile`, avisado por `onTab` do `HubCentro`): a página não rola.
+  rolagem própria (`travarRolagem` no `ClientProfile`, que guarda a aba aberta): a página não rola.
 - **Sugestões do playbook** (`src/lib/playbookSugestoes.js`, puro): regras do Roadmap Ads e
   dos guardrails aplicadas aos últimos 7 dias do `dash_insights` (via `useDashboardData`
   com `projectId` e `dias: 16`) vs. os 7 anteriores, por conta vinculada. **Toda regra de
@@ -1189,11 +1205,23 @@ Atas) foi removida em 2026-10-26 a pedido do Matheus. Abaixo de `xl` as colunas 
   orçamento ≥ 30%, CTR < 2%, taxa de conversão < 5%. Conversão Meta = coluna `Conversões`
   (fallback CFG). Cada sugestão tem `chave` estável; o estado vive em `projeto_sugestoes`
   (aceita → some; descartada → volta após `valida_ate`, 14 dias).
-- **Aba Resultados** = espelho do Dashboard de Tráfego (API): iframe do mesmo
-  `public/dash-teste/viewer.html` em modo `?embed=1&cliente=<conta>&canal=meta|google`
-  (autenticado como o `/dashboard`, mas travado na conta, sem "Voltar", sem banner e
-  sem gravar a navegação em `localStorage`). Uma pílula por conta/canal vinculado quando o
-  projeto tem mais de uma. Só funciona logado e com as rotas `/api` (vercel dev ou produção).
+- **Resultados de Tráfego** (seção `trafego`, slug `resultados-de-trafego`; `TrafegoModule` em
+  `src/components/ResultadosModule.jsx`): `ContasVinculadas` (vincular/desvincular contas de anúncio,
+  `dashboard_accounts.project_id`, busca e aviso quando a conta está em outro cliente) e
+  `ProjectTrafficDashboard`, iframe do mesmo `public/dash-teste/viewer.html` em modo
+  `?embed=1&cliente=<conta>&canal=meta|google` (autenticado como o `/dashboard`, travado na conta). Uma pílula por
+  conta/canal quando há mais de uma. Só funciona logado e com as rotas `/api` (vercel dev ou produção).
+- **Resultados de Funil** (seção `resultados`, que é a chave do portal; `ResultadosModule`): B2B (semanal) e
+  B2C (diário/semanal/por loja). Faixa "Funil do mês" (`FunilDoMes`: cada etapa marcada **API** = investimento e
+  leads do autofill ou **Lançado** = MQL/SQL/vendas/receita), tabela por período com cabeçalho API · Lançado ·
+  Calculado e o lançamento abrindo na própria linha ("Lançar vendas" em semana com API e sem venda), gráfico único
+  `GraficosEvolucao` (investido e receita em barras no eixo de reais, leads em linha no eixo da direita; cores
+  `.viz` em `src/index.css`, validadas para daltonismo), Plano vs Realizado e Meta × Google. Sem conta vinculada
+  aparece um aviso com atalho para Tráfego.
+- **Preview do Resultados sem login**: `/dev/resultados` (só em DEV) com dados fictícios
+  (`src/dev/mockResultados.js`): alterna Tráfego/Funil, B2B/B2C e claro/escuro. O tráfego vem de
+  `public/dash-teste/mock/*.csv`, gerados por `scripts/gerar_mock_dash.mjs` no `predev` (gitignored; datas até
+  ontem); o viewer lê esses arquivos com `?mock=1` (ignora a sessão). Edições e vínculos ficam em memória.
 - **Tema visual**: a página inteira usa a classe `fx` (`src/index.css`), que replica o tema
   Fynix do dashboard (tokens `rl-*` redefinidos, Urbanist, cards raio 16, hero azul
   `.fx-hero`, círculo azul-suave `.fx-soft`). Além de `/cliente/:id`, `/` e `/dev/hub`,

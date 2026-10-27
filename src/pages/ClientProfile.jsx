@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { useProjetoHub } from '../hooks/useProjetoHub'
 import { carregarConfigAtividades } from '../lib/atividades'
 import { DEFAULT_SECTION } from '../lib/clientSections'
-import HubCentro from '../components/ProjetoHub/HubCentro'
+import HubCentro, { useSugestoesHub } from '../components/ProjetoHub/HubCentro'
+import MenuCliente, { MenuClienteLista, montarMenu, localizarNoMenu } from '../components/ProjetoHub/MenuCliente'
 import HubInformacoes from '../components/ProjetoHub/HubInformacoes'
 import ModoApresentacao from '../components/ModoApresentacao/ModoApresentacao'
 import { createPortal } from 'react-dom'
@@ -20,7 +22,7 @@ import {
   Users, Zap, CalendarDays,
   FileText, Globe, Star, FileDown,
   Paperclip, Clapperboard, LayoutTemplate, Activity, FlaskConical, Search, ImagePlay, Map, Package,
-  Pencil, Plus, Link2, ChevronDown, Users2,
+  Pencil, Plus, Link2, ChevronDown, ChevronRight, Users2,
   LayoutDashboard, Check, Instagram, HardDrive, Kanban, Menu,
   NotebookPen, Wrench, Compass, Megaphone, Map as MapIcon, Database, Share2,
   Presentation, ArrowLeft, StickyNote, PanelLeftClose, PanelLeftOpen, MousePointerClick,
@@ -32,7 +34,7 @@ import CampaignPlanner from '../components/CampaignPlanner'
 import AnexosModule from '../components/AnexosModule'
 import CriativosModule from '../components/CriativosModule'
 import LandingPageModule from '../components/LandingPageModule'
-import ResultadosModule from '../components/ResultadosModule'
+import ResultadosModule, { TrafegoModule } from '../components/ResultadosModule'
 import MetaLabModule from '../components/MetaLabModule'
 import NPSModule from '../components/NPSModule'
 import GoogleAdsModule from '../components/GoogleAdsModule'
@@ -1184,10 +1186,34 @@ export default function ClientProfile({ project: projectProp, section, onSection
   // Sidebar default: aberta no desktop, fechada no mobile (drawer só abre por hambúrguer)
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [logoSignedUrl, setLogoSignedUrl] = useState(null)
-  // Coluna esquerda (dados do cliente) recolhível dentro dos módulos; lembra a escolha.
-  // aba do hub aberta; na de Tarefas a coluna esquerda rola sozinha e a página não rola (um scroll só por região)
-  const [abaHub, setAbaHub] = useState(null)
+  // Aba do hub aberta (quem escolhe é o MenuCliente). A aba Tarefas guarda lista, view e tarefa
+  // aberta na URL: com eles, a página reabre nela. Nela a coluna esquerda rola sozinha e a página
+  // não rola (um scroll só por região).
+  const [params, setParams] = useSearchParams()
+  const [abaHub, setAbaHub] = useState(() => (['tarefa', 'view', 'lista'].some((k) => params.has(k)) ? 'tarefas' : 'resumo'))
   const travarRolagem = activeSection === 'hub' && abaHub === 'tarefas'
+  const abrirAba = useCallback((id) => {
+    setAbaHub(id)
+    if (activeSection !== 'hub') { handleSidebarClick('hub'); return }
+    if (id !== 'tarefas' && ['tarefa', 'view', 'lista'].some((k) => params.has(k))) {
+      const p = new URLSearchParams(params); p.delete('tarefa'); p.delete('view'); p.delete('lista')
+      setParams(p, { replace: true })
+    }
+  }, [activeSection, handleSidebarClick, params, setParams])
+  // Trocar de seção leva ao topo: a página rola na janela e, sem isso, o módulo novo abria
+  // no meio, com o menu e o breadcrumb fora da tela
+  const secaoAnterior = useRef(activeSection)
+  useEffect(() => {
+    if (secaoAnterior.current === activeSection) return
+    secaoAnterior.current = activeSection
+    window.scrollTo({ top: 0 })
+  }, [activeSection])
+  // Item do menu: 'aba:<id>' é aba do hub, o resto é seção
+  const abrirItemMenu = useCallback((chave) => {
+    if (chave.startsWith('aba:')) abrirAba(chave.slice(4))
+    else handleSidebarClick(chave)
+  }, [abrirAba, handleSidebarClick])
+  // Coluna esquerda (dados do cliente) recolhível em todas as visões (hub e módulos); lembra a escolha.
   const [infoRecolhida, setInfoRecolhida] = useState(() => {
     try { return localStorage.getItem('rl:cliente-info-recolhida') === '1' } catch { return false }
   })
@@ -1220,6 +1246,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
   const dashReal = useDashboardData({ source: 'api', projectId: project.id, dias: 16 })
   // Preview sem login (/dev/hub) injeta o dash pronto
   const dash = (import.meta.env.DEV && window.__DEV_HUB?.dash) || dashReal
+  const sugestoesHub = useSugestoesHub(dash, hub)
   const [configAtividades, setConfigAtividades] = useState(null)
   useEffect(() => {
     let ativo = true
@@ -1347,7 +1374,8 @@ export default function ClientProfile({ project: projectProp, section, onSection
     { id: 'anexos',       label: 'Anexos',                   icon: Paperclip,      color: 'text-rl-gold',   filled: hasAnexos },
     { id: 'criativos',    label: 'Criação de anúncios',      icon: Clapperboard,   color: 'text-rl-cyan',   filled: false },
     { id: 'landingpage',  label: 'Criação de landing page',  icon: LayoutTemplate, color: 'text-rl-green',  filled: hasLandingPages },
-    { id: 'resultados',   label: 'Resultados',               icon: Activity,       color: 'text-rl-purple', filled: hasResultados },
+    { id: 'trafego',      label: 'Resultados de Tráfego',    icon: BarChart3,      color: 'text-rl-blue',   filled: false },
+    { id: 'resultados',   label: 'Resultados de Funil',      icon: Activity,       color: 'text-rl-purple', filled: hasResultados },
     { id: 'clarity',      label: 'Comportamento na LP',      icon: MousePointerClick, color: 'text-rl-cyan', filled: false },
     { id: 'metalab',      label: 'Lab. Meta Ads',            icon: FlaskConical,   color: 'text-rl-purple', filled: !!project.metaLabBudget },
     { id: 'googleads',    label: 'Google Ads com IA',        icon: Search,         color: 'text-rl-cyan',   filled: hasGoogleAds },
@@ -1361,6 +1389,16 @@ export default function ClientProfile({ project: projectProp, section, onSection
     { id: 'ferramentas',  label: 'Ferramentas',               icon: Wrench,         color: 'text-rl-gold',   filled: false },
     { id: 'compartilhar', label: 'Compartilhamento',          icon: Share2,         color: 'text-rl-cyan',   filled: false },
   ]
+
+  // Menu da página (MenuCliente): abas do hub + módulos em cinco menus suspensos
+  const menus = montarMenu(NAV_ITEMS)
+  const chaveAtiva = activeSection === 'hub' ? `aba:${abaHub}` : activeSection
+  const noMenu = localizarNoMenu(menus, chaveAtiva)
+  const contagensMenu = {
+    'aba:sugestoes': sugestoesHub.pendentes.length,
+    'aba:anotacoes': hub.timeline.filter((i) => i.kind === 'anotacao').length,
+    'aba:otimizacoes': hub.timeline.filter((i) => i.kind === 'otimizacao').length,
+  }
 
   function renderContent() {
     switch (activeSection) {
@@ -1392,7 +1430,8 @@ export default function ClientProfile({ project: projectProp, section, onSection
       case 'anexos':       return <AnexosModule project={project} />
       case 'criativos':    return <CriativosModule project={project} />
       case 'landingpage':  return <LandingPageModule project={project} />
-      case 'resultados':   return <ResultadosModule project={project} />
+      case 'trafego':      return <TrafegoModule project={project} />
+      case 'resultados':   return <ResultadosModule project={project} onIrParaTrafego={() => navigateTo('trafego')} />
       case 'clarity':      return <ClarityModule project={project} />
       case 'metalab':      return <MetaLabModule project={project} />
       case 'googleads':    return <GoogleAdsModule project={project} />
@@ -1440,24 +1479,32 @@ export default function ClientProfile({ project: projectProp, section, onSection
       <div className="flex flex-col xl:flex-row gap-4 items-start">
 
         {/* Coluna esquerda: cartão do cliente, ações rápidas, informações e módulos */}
-        <div className={`w-full xl:w-[340px] 2xl:w-[380px] min-[2200px]:w-[420px] shrink-0 space-y-3 ${activeSection !== 'hub' && infoRecolhida ? 'xl:hidden' : ''} ${travarRolagem ? 'xl:sticky xl:top-6 xl:max-h-[calc(100vh-48px)] xl:overflow-y-auto xl:pr-1' : ''}`}>
+        <div className={`w-full xl:w-[340px] 2xl:w-[380px] min-[2200px]:w-[420px] shrink-0 space-y-3 ${infoRecolhida ? 'xl:hidden' : ''} ${travarRolagem ? 'xl:sticky xl:top-6 xl:max-h-[calc(100vh-48px)] xl:overflow-y-auto xl:pr-1' : ''}`}>
       {/* ── Profile Header ──────────────────────────────────────────────── */}
-        {/* Voltar divide a linha com o Modo Apresentação (a página não tem barra superior) */}
+        {/* Voltar e Compartilhar dividem a linha com o Modo Apresentação (a página não tem barra superior) */}
         <div className="flex items-stretch gap-2">
           {onVoltar && (
             <button
               onClick={onVoltar}
               aria-label="Voltar à lista de clientes" title="Voltar à lista de clientes"
-              className="hidden xl:flex items-center justify-center gap-1.5 px-3.5 rounded-xl glass-card border border-rl-border/60 text-sm font-medium text-rl-subtle hover:text-rl-text transition-colors"
+              className="hidden xl:flex shrink-0 items-center justify-center gap-1.5 px-3.5 rounded-xl glass-card border border-rl-border/60 text-sm font-medium text-rl-subtle hover:text-rl-text transition-colors"
             >
               <ArrowLeft className="w-4 h-4" /> Voltar
             </button>
           )}
           <button
             onClick={() => setApresentando(true)}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rl-purple text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
+            className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rl-purple text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
           >
             <Presentation className="w-4 h-4" /> Modo Apresentação
+          </button>
+          <button
+            onClick={() => handleSidebarClick('compartilhar')}
+            aria-label="Compartilhamento" title="Compartilhamento (portal do cliente)"
+            className={`shrink-0 flex items-center justify-center gap-1.5 px-3 rounded-xl glass-card border text-sm font-medium transition-colors ${activeSection === 'compartilhar' ? 'border-rl-purple/60 text-rl-purple' : 'border-rl-border/60 text-rl-subtle hover:text-rl-text'}`}
+          >
+            {/* só ícone na coluna estreita; o texto entra a partir de 2200px (coluna de 420px) */}
+            <Share2 className="w-4 h-4" /><span className="hidden min-[2200px]:inline">Compartilhar</span>
           </button>
         </div>
         <div className="glass-card border border-rl-border/60">
@@ -1964,34 +2011,48 @@ export default function ClientProfile({ project: projectProp, section, onSection
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="p-2">
-                {NAV_ITEMS.map(({ id, label, icon: Icon, color, filled }) => {
-                  const isActive = activeSection === id
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => { handleSidebarClick(id); setSidebarVisible(false) }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                        isActive
-                          ? 'bg-rl-purple text-white shadow-sm'
-                          : 'text-rl-subtle hover:bg-rl-bg hover:text-rl-text'
-                      }`}
-                    >
-                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : color}`} />
-                      <span className="truncate flex-1 text-left">{label}</span>
-                      {filled && !isActive && (
-                        <CheckCircle2 className="w-3 h-3 shrink-0 text-rl-green opacity-80" />
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
+              <MenuClienteLista menus={menus} ativa={chaveAtiva} contagens={contagensMenu}
+                onEscolher={(chave) => { abrirItemMenu(chave); setSidebarVisible(false) }} />
             </aside>
           </div>
         )}
 
         {/* Centro: hub de atividades ou o módulo aberto */}
-        <div className="flex-1 min-w-0 w-full">
+        <div className="flex-1 min-w-0 w-full space-y-4">
+          <MenuCliente
+            menus={menus}
+            ativa={chaveAtiva}
+            contagens={contagensMenu}
+            onEscolher={abrirItemMenu}
+            antes={(
+              <div className="hidden xl:flex items-center gap-1 shrink-0">
+                <button
+                  onClick={toggleInfoRecolhida}
+                  title={infoRecolhida ? 'Mostrar informações do cliente' : 'Recolher informações do cliente'}
+                  aria-label={infoRecolhida ? 'Mostrar informações do cliente' : 'Recolher informações do cliente'}
+                  className="p-1.5 rounded-lg text-rl-subtle hover:text-rl-purple hover:bg-rl-surface transition-colors"
+                >
+                  {infoRecolhida ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+                </button>
+                {/* recolhida: o Voltar e o nome do cliente (que moram na coluna) vêm para a barra */}
+                {infoRecolhida && (
+                  <>
+                    {onVoltar && (
+                      <button onClick={onVoltar} title="Voltar à lista de clientes" aria-label="Voltar à lista de clientes"
+                        className="p-1.5 rounded-lg text-rl-subtle hover:text-rl-purple hover:bg-rl-surface transition-colors">
+                        <ArrowLeft className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button onClick={toggleInfoRecolhida} title="Mostrar informações do cliente"
+                      className="max-w-[200px] truncate px-2 py-1 rounded-lg text-sm font-semibold text-rl-text hover:bg-rl-surface transition-colors">
+                      {project.companyName || 'Cliente'}
+                    </button>
+                    <span className="w-px h-5 bg-rl-border mx-1" />
+                  </>
+                )}
+              </div>
+            )}
+          />
           {activeSection === 'hub' ? (
             <HubCentro
               project={project}
@@ -2001,27 +2062,22 @@ export default function ClientProfile({ project: projectProp, section, onSection
               showToast={showToast}
               onNavigate={navigateTo}
               acaoRapida={acaoRapida}
-              modulos={NAV_ITEMS}
-              onAbrirModulo={handleSidebarClick}
-              onTab={setAbaHub}
+              tab={abaHub}
+              onAbrirTab={abrirAba}
+              sugestoes={sugestoesHub}
             />
           ) : (
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={toggleInfoRecolhida}
-                  title={infoRecolhida ? 'Mostrar informações do cliente' : 'Recolher informações do cliente'}
-                  aria-label={infoRecolhida ? 'Mostrar informações do cliente' : 'Recolher informações do cliente'}
-                  className="hidden xl:flex p-1.5 rounded-lg text-rl-subtle hover:text-rl-purple hover:bg-rl-surface transition-colors"
-                >
-                  {infoRecolhida ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
-                </button>
-                <button onClick={() => handleSidebarClick('hub')} className="flex items-center gap-1.5 text-sm text-rl-subtle hover:text-rl-purple px-2 py-1.5 rounded-lg hover:bg-rl-surface transition-colors">
-                  <ArrowLeft className="w-4 h-4" /> Visão geral
-                </button>
-                <span className="text-rl-border">/</span>
-                <span className="text-sm font-semibold text-rl-text">{NAV_ITEMS.find((n) => n.id === activeSection)?.label || ''}</span>
-              </div>
+              <nav aria-label="Você está em" className="flex items-center gap-1.5 flex-wrap px-1 text-sm">
+                <button onClick={() => abrirAba('resumo')} className="text-rl-subtle hover:text-rl-purple transition-colors">Visão geral</button>
+                {[noMenu?.menu.label, noMenu?.grupo.label].filter(Boolean).map((t) => (
+                  <span key={t} className="flex items-center gap-1.5 text-rl-subtle">
+                    <ChevronRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />{t}
+                  </span>
+                ))}
+                <ChevronRight className="w-3.5 h-3.5 shrink-0 text-rl-subtle" aria-hidden="true" />
+                <span aria-current="page" className="font-semibold text-rl-text">{noMenu?.item.label || NAV_ITEMS.find((n) => n.id === activeSection)?.label || ''}</span>
+              </nav>
               <div className="glass-card p-4 sm:p-6">
                 {renderContent()}
               </div>

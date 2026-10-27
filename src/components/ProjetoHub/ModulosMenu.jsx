@@ -1,7 +1,7 @@
-// Botão "Módulos" na barra de abas do hub: abre um dropdown com busca por nome
-// e a lista de módulos do projeto (os mesmos itens da navegação lateral).
+// Botão "Buscar" no fim do menu da página do cliente (MenuCliente): abre um dropdown com
+// busca por nome em todos os itens dos menus (abas do hub e módulos).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { LayoutGrid, ChevronDown, Search, CheckCircle2 } from 'lucide-react'
+import { Search, CheckCircle2 } from 'lucide-react'
 
 const normalizar = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
@@ -15,7 +15,7 @@ export default function ModulosMenu({ modulos = [], onAbrir }) {
 
   const filtrados = useMemo(() => {
     const q = normalizar(busca.trim())
-    return q ? modulos.filter((m) => normalizar(m.label).includes(q)) : modulos
+    return q ? modulos.filter((m) => normalizar(`${m.label} ${m.grupo || ''}`).includes(q)) : modulos
   }, [modulos, busca])
 
   function alternar() {
@@ -56,11 +56,10 @@ export default function ModulosMenu({ modulos = [], onAbrir }) {
         className={`flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap transition-colors ${aberto ? 'text-rl-text font-semibold' : 'text-rl-subtle hover:text-rl-text'}`}
         aria-haspopup="listbox"
         aria-expanded={aberto}
+        title="Buscar módulo"
       >
-        <LayoutGrid className="w-3.5 h-3.5" />
-        Módulos
-        <span className="text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center bg-rl-surface text-rl-muted">{modulos.length}</span>
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${aberto ? 'rotate-180' : ''}`} />
+        <Search className="w-3.5 h-3.5" />
+        <span className="hidden 2xl:inline">Buscar</span>
       </button>
       {aberto && (
         <div className="absolute right-0 mt-1 w-72 glass-card border border-rl-border shadow-xl z-30 p-1.5">
@@ -71,7 +70,7 @@ export default function ModulosMenu({ modulos = [], onAbrir }) {
               value={busca}
               onChange={(e) => { setBusca(e.target.value); setCursor(0) }}
               onKeyDown={onKeyDown}
-              placeholder="Buscar módulo…"
+              placeholder="Buscar no menu…"
               className="input-field !py-2 !pl-9 !pr-3"
             />
           </div>
@@ -92,7 +91,10 @@ export default function ModulosMenu({ modulos = [], onAbrir }) {
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left transition-colors ${ativo ? 'bg-rl-surface text-rl-text' : 'text-rl-subtle'}`}
                 >
                   <Icon className={`w-4 h-4 shrink-0 ${m.color || 'text-rl-muted'}`} />
-                  <span className="truncate flex-1">{m.label}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block truncate">{m.label}</span>
+                    {m.grupo && <span className="block truncate text-[10px] text-rl-muted">{m.grupo}</span>}
+                  </span>
                   {m.filled && <CheckCircle2 className="w-3 h-3 shrink-0 text-rl-green opacity-80" />}
                 </button>
               )

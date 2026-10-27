@@ -49,3 +49,6 @@ sync/output/
 
 # Fixtures de preview local (dados reais de clientes)
 src/dev/fixtures/
+
+# Dados fictícios do preview /dev/resultados (gerados no predev por scripts/gerar_mock_dash.mjs)
+public/dash-teste/mock/

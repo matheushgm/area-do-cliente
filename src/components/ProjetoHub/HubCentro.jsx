@@ -2,11 +2,11 @@
 // (otimizações, anotações, tarefas planejadas, tarefas do ClickUp, reuniões)
 // e a aba de sugestões do playbook, que viram tarefa no ClickUp ao aceitar. A aba Tarefas é a
 // área de tarefas do VertaTask (TarefasDoCliente → AreaTarefas), a mesma tela do /tarefas.
+// A aba aberta vem de fora (ClientProfile): quem escolhe é o menu da página (MenuCliente).
 import { useMemo, useState, useEffect, lazy, Suspense } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import {
   ChevronDown, ChevronRight, Wrench, StickyNote, Kanban, ListChecks, Users, Sparkles,
-  ExternalLink, Loader2, CheckCircle2, Clock, Pencil, BarChart3, Maximize2, Minimize2,
+  ExternalLink, Loader2, CheckCircle2, Clock, Pencil, Maximize2, Minimize2,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { gerarSugestoesProjeto } from '../../lib/playbookSugestoes'
@@ -19,7 +19,6 @@ import RegistroModal from './RegistroModal'
 // sob demanda: o VertaTask só é baixado quando a aba Tarefas abre
 const TarefasDoCliente = lazy(() => import('../Tarefas/TarefasDoCliente'))
 import NovaTarefaClickUpModal from './NovaTarefaClickUpModal'
-import ModulosMenu from './ModulosMenu'
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 const CANAL_LABEL = { meta: 'Meta Ads', google: 'Google Ads', ambos: 'Meta + Google', outro: 'Outro' }
@@ -39,22 +38,35 @@ const KIND = {
   reuniao: { label: 'Reunião', Icon: Users, cls: 'fx-soft' },
 }
 
-const TABS = [
-  { id: 'resumo', label: 'Resumo' },
-  { id: 'tarefas', label: 'Tarefas', semContador: true }, // é a área do VertaTask; o nº do histórico não dizia nada
-  { id: 'resultados', label: 'Resultados', Icon: BarChart3 },
-  { id: 'sugestoes', label: 'Sugestões', Icon: Sparkles },
-  { id: 'otimizacoes', label: 'Otimizações' },
-  { id: 'anotacoes', label: 'Anotações' },
-  { id: 'reunioes', label: 'Reuniões' },
-]
+// Abas que listam a timeline (filtrada por tipo). Resumo, Tarefas e Sugestões têm tela própria;
+// Reuniões virou o módulo de atas; Resultados virou os módulos Resultados de Tráfego e de Funil.
+export const ABAS_HUB = ['resumo', 'tarefas', 'sugestoes', 'otimizacoes', 'anotacoes']
 const TAB_KINDS = {
   resumo: null,
   otimizacoes: ['otimizacao'],
   anotacoes: ['anotacao'],
-  tarefas: ['planejada', 'tarefa'],
-  reunioes: ['reuniao'],
 }
+
+// Sugestões do playbook pendentes e já decididas. Fica no ClientProfile (o menu mostra o
+// número de pendentes mesmo com um módulo aberto) e desce pro HubCentro.
+export function useSugestoesHub(dash, hub) {
+  const todas = useMemo(() => gerarSugestoesProjeto({
+    meta: dash.raw?.meta || [], google: dash.raw?.google || [], accounts: dash.accounts || {},
+  }), [dash.raw, dash.accounts])
+  const hoje = hojeISO()
+  const statusPorChave = useMemo(() => new Map(hub.sugestoesStatus.map((s) => [s.chave, s])), [hub.sugestoesStatus])
+  const pendentes = useMemo(() => todas.filter((s) => {
+    const st = statusPorChave.get(s.chave)
+    if (!st) return true
+    if (st.status === 'aceita') return false
+    return st.valida_ate && st.valida_ate < hoje
+  }), [todas, statusPorChave, hoje])
+  const decididas = useMemo(() => hub.sugestoesStatus
+    .filter((s) => s.status === 'aceita' || !s.valida_ate || s.valida_ate >= hoje)
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')), [hub.sugestoesStatus, hoje])
+  return { pendentes, decididas }
+}
+
 
 function Item({ item, expandido = false, nomes, onEditar, onNavigate }) {
   const [aberto, setAberto] = useState(false)
@@ -185,20 +197,8 @@ export function ResultadosEmbed({ contas, ativa, onTrocar, loading, apresentacao
   )
 }
 
-export default function HubCentro({ project, hub, dash, config, showToast, onNavigate, acaoRapida = null, modulos = [], onAbrirModulo, onTab }) {
+export default function HubCentro({ project, hub, dash, config, showToast, onNavigate, acaoRapida = null, tab = 'resumo', onAbrirTab, sugestoes }) {
   const { teamMembers } = useApp()
-  const [params, setParams] = useSearchParams()
-  // a aba Tarefas guarda lista, view e tarefa aberta na URL: com eles, a página reabre nela
-  const [tab, setTab] = useState(() => (['tarefa', 'view', 'lista'].some((k) => params.has(k)) ? 'tarefas' : 'resumo'))
-  // a página trava a altura na aba Tarefas (a área tem rolagem própria): avisa quem está em volta
-  useEffect(() => { onTab?.(tab) }, [tab, onTab])
-  const abrirTab = (id) => {
-    setTab(id)
-    if (id !== 'tarefas' && ['tarefa', 'view', 'lista'].some((k) => params.has(k))) {
-      const p = new URLSearchParams(params); p.delete('tarefa'); p.delete('view'); p.delete('lista')
-      setParams(p, { replace: true })
-    }
-  }
   const [modal, setModal] = useState(null) // { tipo:'registro', registro?, tipoInicial } | { tipo:'tarefa', sugestao? }
 
   const nomes = useMemo(() => new Map((teamMembers || []).map((m) => [m.id, m.name])), [teamMembers])
@@ -211,43 +211,8 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
   }, [acaoRapida])
 
   // ── Sugestões do playbook ──────────────────────────────────────────────────
-  const todasSugestoes = useMemo(() => gerarSugestoesProjeto({
-    meta: dash.raw?.meta || [], google: dash.raw?.google || [], accounts: dash.accounts || {},
-  }), [dash.raw, dash.accounts])
   const hoje = hojeISO()
-  const statusPorChave = useMemo(() => new Map(hub.sugestoesStatus.map((s) => [s.chave, s])), [hub.sugestoesStatus])
-  const sugestoesPendentes = useMemo(() => todasSugestoes.filter((s) => {
-    const st = statusPorChave.get(s.chave)
-    if (!st) return true
-    if (st.status === 'aceita') return false
-    return st.valida_ate && st.valida_ate < hoje
-  }), [todasSugestoes, statusPorChave, hoje])
-  const decididas = useMemo(() => hub.sugestoesStatus
-    .filter((s) => s.status === 'aceita' || !s.valida_ate || s.valida_ate >= hoje)
-    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')), [hub.sugestoesStatus, hoje])
-
-  // Contas do dashboard vinculadas ao projeto (canal + nome), pra aba Resultados
-  const contasDash = useMemo(() => {
-    const out = []
-    for (const ch of ['meta', 'google']) {
-      const nomes = new Set((dash.raw?.[ch] || []).map((r) => (r['Nome da conta'] || '').trim()).filter(Boolean))
-      for (const n of [...nomes].sort()) out.push({ canal: ch, conta: n })
-    }
-    return out
-  }, [dash.raw])
-  const [contaAtiva, setContaAtiva] = useState(0)
-
-  // Badge do Resumo: atividades dos últimos 7 dias
-  const semanaCount = useMemo(() => {
-    const h = hojeISO(), d = addDays(h, -6)
-    return hub.timeline.filter((it) => it.data && it.data >= d && it.data <= h && (it.kind !== 'tarefa' || it.fechada)).length
-  }, [hub.timeline])
-
-  const contagens = useMemo(() => {
-    const c = { resumo: semanaCount, sugestoes: sugestoesPendentes.length, resultados: contasDash.length }
-    for (const [id, kinds] of Object.entries(TAB_KINDS)) if (kinds) c[id] = hub.timeline.filter((i) => kinds.includes(i.kind)).length
-    return c
-  }, [hub.timeline, sugestoesPendentes, contasDash, semanaCount])
+  const { pendentes: sugestoesPendentes, decididas } = sugestoes
 
   const itens = useMemo(() => {
     const kinds = TAB_KINDS[tab]
@@ -278,38 +243,13 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
 
   return (
     <div className="space-y-4">
-      {/* Abas */}
-      <div className="glass-card border border-rl-border/60">
-        {/* Abas (sem rolagem: quebram linha se faltar espaço) + botão Módulos */}
-        <div className="px-2 flex items-center">
-          <div className="flex flex-wrap items-center gap-0.5 min-w-0 flex-1">
-          {TABS.map((t) => {
-            const ativo = tab === t.id
-            const n = contagens[t.id] ?? 0
-            const destaque = t.id === 'sugestoes' && n > 0
-            return (
-              <button key={t.id} onClick={() => abrirTab(t.id)} className={`relative flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap transition-colors ${ativo ? 'text-rl-text font-semibold' : 'text-rl-subtle hover:text-rl-text'}`}>
-                {t.Icon && <t.Icon className={`w-3.5 h-3.5 ${destaque ? 'text-rl-purple' : ''}`} />}
-                {t.label}
-                {!t.semContador && <span className={`text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center ${destaque ? 'bg-rl-purple text-white' : ativo ? 'bg-rl-purple/15 text-rl-purple' : 'bg-rl-surface text-rl-muted'}`}>{n}</span>}
-                {ativo && <span className="absolute left-2 right-2 -bottom-px h-[3px] bg-rl-purple rounded-full" />}
-              </button>
-            )
-          })}
-          </div>
-          {modulos.length > 0 && <ModulosMenu modulos={modulos} onAbrir={onAbrirModulo || onNavigate} />}
-        </div>
-      </div>
-
-      {/* Conteúdo */}
       {tab === 'resumo' ? (
-        <ResumoHub dash={dash} timeline={hub.timeline} sugestoesPendentes={sugestoesPendentes.length} onAbrirSugestoes={() => setTab('sugestoes')} onAbrirTab={abrirTab} />
+        <ResumoHub dash={dash} timeline={hub.timeline} sugestoesPendentes={sugestoesPendentes.length} onAbrirSugestoes={() => onAbrirTab('sugestoes')}
+          onAbrirTab={(id) => (id === 'resultados' ? onNavigate('trafego') : onAbrirTab(id))} />
       ) : tab === 'tarefas' ? (
         <Suspense fallback={<div className="flex items-center justify-center gap-2 py-20 text-sm text-rl-muted"><Loader2 className="w-4 h-4 animate-spin" /> Carregando tarefas…</div>}>
           <TarefasDoCliente project={project} />
         </Suspense>
-      ) : tab === 'resultados' ? (
-        <ResultadosEmbed contas={contasDash} ativa={contaAtiva} onTrocar={setContaAtiva} loading={dash.loading} />
       ) : tab === 'sugestoes' ? (
         <SugestoesPlaybook
           dash={dash}

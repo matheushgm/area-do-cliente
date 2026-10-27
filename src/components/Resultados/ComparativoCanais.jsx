@@ -49,7 +49,7 @@ function ChannelCard({ ch, data, bestCpa }) {
           <span>{ch.icon}</span> {ch.label}
         </span>
         {isBest && (
-          <span className="text-[10px] font-bold text-rl-green bg-rl-green/10 px-2 py-0.5 rounded-full shrink-0">
+          <span className="text-xs font-bold text-rl-green bg-rl-green/10 px-2 py-0.5 rounded-full shrink-0">
             melhor custo/conv
           </span>
         )}
@@ -58,15 +58,15 @@ function ChannelCard({ ch, data, bestCpa }) {
       {data.spend > 0 || data.conv > 0 ? (
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <div className="text-[10px] text-rl-muted uppercase tracking-wider">Gasto</div>
+            <div className="text-xs text-rl-muted uppercase tracking-wider">Gasto</div>
             <div className="text-base font-bold text-rl-text leading-tight mt-0.5">{fmtMoney(data.spend)}</div>
           </div>
           <div>
-            <div className="text-[10px] text-rl-muted uppercase tracking-wider">Conversões</div>
+            <div className="text-xs text-rl-muted uppercase tracking-wider">Conversões</div>
             <div className={`text-base font-bold leading-tight mt-0.5 ${ch.textCls}`}>{fmtInt(data.conv)}</div>
           </div>
           <div>
-            <div className="text-[10px] text-rl-muted uppercase tracking-wider">Custo / conv.</div>
+            <div className="text-xs text-rl-muted uppercase tracking-wider">Custo / conv.</div>
             <div className="text-base font-bold text-rl-gold leading-tight mt-0.5">
               {cpa > 0 ? fmtMoney(cpa) : '—'}
             </div>
@@ -92,12 +92,12 @@ function RatioBar({ label, metaPct }) {
 
   return (
     <div className="flex items-center gap-2.5">
-      <span className="text-[10px] text-rl-muted uppercase tracking-wider w-10 shrink-0">{label}</span>
+      <span className="text-xs text-rl-muted uppercase tracking-wider w-10 shrink-0">{label}</span>
       <div className="h-2 rounded-full overflow-hidden flex bg-rl-border/40 flex-1">
         {metaPct   > 0 && <div style={{ width: `${metaPct}%`,   minWidth: 3 }} className="bg-rl-blue" />}
         {googlePct > 0 && <div style={{ width: `${googlePct}%`, minWidth: 3 }} className="bg-rl-cyan" />}
       </div>
-      <span className="text-[11px] font-semibold w-16 text-right shrink-0 tabular-nums">
+      <span className="text-xs font-semibold w-16 text-right shrink-0 tabular-nums">
         <span className="text-rl-blue">{mLabel}</span>
         <span className="text-rl-muted"> / </span>
         <span className="text-rl-cyan">{gLabel}</span>
@@ -112,7 +112,7 @@ function SplitBar({ data, totalSpend }) {
   const metaPct = totalSpend > 0 ? (data.meta.spend / totalSpend) * 100 : 0
   return (
     <div className="mt-4 mb-4">
-      <div className="text-[10px] text-rl-muted uppercase tracking-wider mb-1.5">Participação no investimento</div>
+      <div className="text-xs text-rl-muted uppercase tracking-wider mb-1.5">Participação no investimento</div>
       <RatioBar label="Hoje" metaPct={metaPct} />
     </div>
   )
@@ -160,8 +160,8 @@ function GoldenSplit({ data, totalSpend }) {
   return (
     <div className="mt-4 flex-1 flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[10px] text-rl-muted uppercase tracking-wider">Proporção de ouro</span>
-        <span className="text-[10px] text-rl-muted">volume ÷ custo/conv · retorno decrescente</span>
+        <span className="text-xs text-rl-muted uppercase tracking-wider">Proporção de ouro</span>
+        <span className="text-xs text-rl-muted">volume ÷ custo/conv · retorno decrescente</span>
       </div>
       <RatioBar label="Hoje"  metaPct={curMeta * 100} />
       <RatioBar label="Ideal" metaPct={idealMeta * 100} />
@@ -243,7 +243,7 @@ export default function ComparativoCanais({ dash, projectId, year, month, monthL
   const header = (
     <div className="flex items-center justify-between gap-2 mb-3">
       <h4 className="text-sm font-bold text-rl-text">Meta Ads × Google Ads</h4>
-      <span className="text-[11px] text-rl-muted">{monthLabel}</span>
+      <span className="text-xs text-rl-muted">{monthLabel}</span>
     </div>
   )
 

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { BarChart3, Filter } from 'lucide-react'
+import { BarChart3, Filter, Link2 } from 'lucide-react'
+import { useToast } from '../hooks/useToast'
+import Toast from './UI/Toast'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { useDashboardData } from '../hooks/useDashboardData'
@@ -7,15 +9,59 @@ import ModelSelector from './Resultados/ModelSelector'
 import B2BView from './Resultados/B2BResultados'
 import B2CView from './Resultados/B2CResultados'
 import ProjectTrafficDashboard from './Resultados/ProjectTrafficDashboard'
+import ContasVinculadas from './Resultados/ContasVinculadas'
 
 // ─── Main Export ───────────────────────────────────────────────────────────────
-export default function ResultadosModule({ project }) {
-  const { updateProject } = useApp()
-
-  // Fonte NOVA (dash_insights via /api). Carregada UMA vez aqui e compartilhada
-  // entre o dashboard de tráfego e o comparativo de canais do funil. Escopada
-  // às contas deste projeto (o canal inteiro dava 504 na Edge).
+// Dois módulos do cliente que leem o mesmo dash (dash_insights via /api, escopado às
+// contas vinculadas; o canal inteiro dava 504 na Edge):
+//   trafego    → TrafegoModule: contas de anúncio vinculadas + Dashboard de Tráfego delas
+//   resultados → ResultadosModule: Resultados do Funil (investimento/conversões da API + vendas)
+// O id `resultados` é chave de project_shares.permissions (portal), por isso ficou com o funil,
+// que é o que o portal já mostrava.
+export default function ResultadosModule({ project, onIrParaTrafego }) {
   const dash = useDashboardData({ source: 'api', projectId: project.id })
+  return <ResultadosConteudo project={project} dash={dash} onIrParaTrafego={onIrParaTrafego} />
+}
+
+export function TrafegoModule({ project }) {
+  const dash = useDashboardData({ source: 'api', projectId: project.id })
+  return <TrafegoConteudo project={project} dash={dash} />
+}
+
+function Cabecalho({ Icon, titulo, sub, children }) {
+  return (
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="w-9 h-9 rounded-xl fx-soft flex items-center justify-center shrink-0"><Icon size={18} /></span>
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-rl-text leading-tight">{titulo}</h2>
+          {sub && <p className="text-xs text-rl-muted">{sub}</p>}
+        </div>
+        {children?.[0]}
+      </div>
+      {children?.[1]}
+    </div>
+  )
+}
+
+// Os *Conteudo recebem o `dash` de fora. O preview /dev/resultados passa um dash
+// fictício e `mock`: o viewer lê os CSVs de public/dash-teste/mock e não há releitura
+// do Supabase (o projeto B2C do preview usa o id real da Boa Noite, por causa das lojas).
+export function TrafegoConteudo({ project, dash, mock = false }) {
+  const { toast, showToast } = useToast()
+  return (
+    <div className="space-y-4">
+      <Cabecalho Icon={BarChart3} titulo="Resultados de Tráfego" sub="Dados reais das contas de anúncio vinculadas a este cliente" />
+      <ContasVinculadas project={project} dash={dash} showToast={showToast} />
+      <ProjectTrafficDashboard project={project} dash={dash} viewerExtra={mock ? '&mock=1' : ''} />
+      <Toast toast={toast} />
+    </div>
+  )
+}
+
+export function ResultadosConteudo({ project, dash, mock = false, onIrParaTrafego }) {
+  const { updateProject } = useApp()
+  const semContas = !dash.loading && !Object.values(dash.accounts || {}).some((a) => a.projectId === project.id)
 
   const resultados = project.resultados || {}
   const modelo = resultados.modelo
@@ -27,7 +73,7 @@ export default function ResultadosModule({ project }) {
   // não parecer que o preenchimento do cliente "sumiu".
   const syncedProjectRef = useRef(null)
   useEffect(() => {
-    if (!supabase || syncedProjectRef.current === project.id) return
+    if (mock || !supabase || syncedProjectRef.current === project.id) return
     syncedProjectRef.current = project.id
     supabase
       .from('resultados')
@@ -65,58 +111,27 @@ export default function ResultadosModule({ project }) {
   }, [project.id, project.clientShareToken, updateProject])
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
-      {/* ─── Seção: Resultados de Tráfego (Meta + Google, contas vinculadas) ─── */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-rl-purple/10 flex items-center justify-center shrink-0">
-            <BarChart3 size={18} className="text-rl-purple" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-rl-text leading-tight">Resultados de Tráfego</h2>
-            <p className="text-xs text-rl-muted">Dados reais das contas de anúncio vinculadas a este projeto</p>
-          </div>
-        </div>
-        <ProjectTrafficDashboard project={project} dash={dash} />
-      </section>
-
-      {/* ─── Divisória entre Tráfego e Funil ─── */}
-      <div className="py-8" role="separator" aria-label="Separação entre resultados de tráfego e de funil">
-        <div className="border-t border-rl-border" />
-      </div>
-
-      {/* ─── Seção: Resultados do Funil (preenchimento manual B2B/B2C) ─── */}
-      <section className="space-y-6">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-rl-blue/10 flex items-center justify-center shrink-0">
-              <Filter size={18} className="text-rl-blue" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-rl-text leading-tight">Resultados do Funil</h2>
-              <p className="text-xs text-rl-muted">Leads, MQLs, vendas e métricas preenchidas manualmente</p>
-            </div>
-            {modelo && (
-              <span
-                className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${
-                  modelo === 'b2b'
-                    ? 'border-rl-blue/30  text-rl-blue  bg-rl-blue/10'
-                    : 'border-rl-green/30 text-rl-green bg-rl-green/10'
-                }`}
-              >
-                {modelo === 'b2b' ? '🏢 B2B · Semanal' : '🛒 B2C · Diário'}
-              </span>
-            )}
-          </div>
-          {modelo && (
-            <button
-              onClick={() => handleUpdate({ ...resultados, modelo: null })}
-              className="btn-secondary text-xs"
-            >
-              Trocar Modelo
+    <div className="space-y-6">
+        <Cabecalho Icon={Filter} titulo="Resultados de Funil" sub="Investimento e conversões da API somados às vendas lançadas pelo time ou pelo cliente">
+          {modelo ? (
+            <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${modelo === 'b2b' ? 'border-rl-blue/30 text-rl-blue bg-rl-blue/10' : 'border-rl-green/30 text-rl-green bg-rl-green/10'}`}>
+              {modelo === 'b2b' ? 'B2B · Semanal' : 'B2C · Diário'}
+            </span>
+          ) : null}
+          {modelo ? (
+            <button onClick={() => handleUpdate({ ...resultados, modelo: null })} className="btn-secondary text-xs">
+              Trocar modelo
             </button>
-          )}
-        </div>
+          ) : null}
+        </Cabecalho>
+
+        {semContas && (
+          <div className="flex items-center gap-3 rounded-xl border border-rl-gold/30 bg-rl-gold/5 px-4 py-3 text-sm text-rl-text">
+            <Link2 className="w-4 h-4 text-rl-gold shrink-0" />
+            <span className="flex-1">Nenhuma conta de anúncio vinculada: investimento e leads não vêm da API e precisam ser lançados à mão.</span>
+            {onIrParaTrafego && <button onClick={onIrParaTrafego} className="btn-secondary text-sm !py-1.5">Vincular contas</button>}
+          </div>
+        )}
 
         {!modelo && <ModelSelector onSelect={selectModel} />}
 
@@ -144,7 +159,6 @@ export default function ResultadosModule({ project }) {
             projectId={project.id}
           />
         )}
-      </section>
     </div>
   )
 }

@@ -21,6 +21,7 @@ const SLUG_BY_ID = {
   'banco-midia': 'banco-de-midia',
   estrategiav2: 'estrategia',
   bancodados: 'banco-de-dados',
+  trafego: 'resultados-de-trafego',
 }
 
 // Ids sem slug próprio (slug = id). Mantido explícito para servir de whitelist:

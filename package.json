@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "sync:vendor": "node scripts/sync-playbook-vendor.mjs",
-    "predev": "npm run sync:vendor",
+    "predev": "npm run sync:vendor && node scripts/gerar_mock_dash.mjs",
     "dev": "vite",
     "prebuild": "npm run sync:vendor",
     "build": "vite build",
