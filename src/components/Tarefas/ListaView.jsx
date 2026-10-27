@@ -28,10 +28,10 @@
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, memo } from 'react'
 import { colunasVisiveis, normalizarLarguraNome } from '../../lib/viewsTarefas'
 import EditorColunas from './ColunasLista'
-import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Flag, Hourglass, CloudUpload } from 'lucide-react'
+import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Hourglass, CloudUpload } from 'lucide-react'
 import { ordenarItens, ordenarPorCampo, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
 import {
-  StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo, AdicionarInline, Popover, ItemMenu, FOCO,
+  StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, PrioridadeCampo, PrioridadeIcon, TipoTarefaCampo, EstimativaCampo, AdicionarInline, Popover, ItemMenu, FOCO,
 } from './Campos'
 
 // ── Colunas (larguras fixas como no ClickUp; o Nome ocupa o resto) ────────────
@@ -135,12 +135,11 @@ function TipoPillCU({ valor }) {
   )
 }
 
-const COR_FLAG = { urgent: '#f50000', high: '#ffcc00', normal: '#6fddff', low: '#d8d8d8' }
 function PrioridadeCU({ valor }) {
   const p = PRIORIDADES.find((x) => x.key === valor)
   return (
     <span className={`inline-flex items-center gap-1.5 text-[13px] whitespace-nowrap ${p ? 'text-ln-t2' : 'text-ln-t4'}`} title={p ? p.label : 'Sem prioridade'}>
-      <Flag className="w-3.5 h-3.5 shrink-0" style={p ? { color: COR_FLAG[p.key], fill: COR_FLAG[p.key] } : { color: 'rgb(var(--ln-t4))' }} />
+      <PrioridadeIcon valor={valor} />
       {p && <span>{p.label}</span>}
     </span>
   )

@@ -4,7 +4,7 @@
 // não serem cortados pela rolagem da tabela.
 import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, Search, X, Clock3, Plus, User } from 'lucide-react'
+import { Check, Search, X, Clock3, Plus, User, Flag } from 'lucide-react'
 import {
   PRIORIDADES, TIPOS_TAREFA, DIFICULDADES, rotuloStatus, corDaPessoa, iniciais, pessoasDaTarefa,
   fmtDataNumerica, fmtDataCurta, paraInputDate, deInputDate, fmtEstimativa, parseEstimativa, paraData, inicioDoDia,
@@ -270,22 +270,14 @@ export function DataCampo({ valor, onChange, item, formato = 'numerica', placeho
   )
 }
 
-// ─── Prioridade (barras, como no Linear) ─────────────────────────────────────
-
-const BARRAS = { urgent: 3, high: 3, normal: 2, low: 1 }
+// ─── Prioridade (bandeira na cor do ClickUp, o padrão em todo o VertaTask e no Atividades) ───
 
 export function PrioridadeIcon({ valor, className = '' }) {
   const p = PRIORIDADES.find((x) => x.key === valor)
-  const cheias = p ? BARRAS[p.key] : 0
   const label = p ? `Prioridade: ${p.label}` : 'Sem prioridade'
   return (
-    <svg viewBox="0 0 16 16" width="16" height="16" role="img" aria-label={label} className={`shrink-0 ${className}`}>
-      <title>{label}</title>
-      {[0, 1, 2].map((i) => (
-        <rect key={i} x={1.5 + i * 5} y={10.5 - i * 3.5} width="3" height={4.5 + i * 3.5} rx="1"
-          className={`${p?.key === 'urgent' ? 'fill-ln-red' : p?.key === 'high' ? 'fill-ln-orange' : 'fill-ln-t3'} ${i < cheias ? '' : 'opacity-30'}`} />
-      ))}
-    </svg>
+    <Flag role="img" aria-label={label} className={`w-3.5 h-3.5 shrink-0 ${className}`}
+      style={p ? { color: p.cor, fill: p.cor } : { color: 'rgb(var(--ln-t4))' }} />
   )
 }
 

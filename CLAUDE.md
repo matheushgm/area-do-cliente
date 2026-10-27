@@ -666,7 +666,7 @@ todo `authenticated`; as quatro estão na publicação realtime).
   arrastar entre colunas de status/prioridade), `TarefaPanel` (corpo do painel lateral:
   título, propriedades em `dl`, descrição markdown, subtarefas, checklists, anexos no bucket
   `task-attachments`, comentários). Status é o círculo do Linear na cor do status do
-  ClickUp (`StatusIcon`); prioridade são as barras (`PrioridadeIcon`).
+  ClickUp (`StatusIcon`); prioridade é a bandeira na cor do ClickUp (`PrioridadeIcon`, a mesma no Atividades).
 - **Helpers** `src/lib/tarefas.js`: statuses padrão, prioridades, opções de Tipo de tarefa /
   Dificuldade / Departamento (as mesmas do ClickUp, com as cores), agrupamentos, datas.
 - **Importação do ClickUp**: `scripts/baixar_clickup_tarefas.mjs <saida.json>` baixa o space

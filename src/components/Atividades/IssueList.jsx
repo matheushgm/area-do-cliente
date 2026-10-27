@@ -2,6 +2,7 @@
 // Recebe os registros da tabela atividades_planejadas já carregados pela página.
 import { useMemo, useState } from 'react'
 import { AlertTriangle, ChevronRight } from 'lucide-react'
+import { PrioridadeIcon as BandeiraPrioridade } from '../Tarefas/Campos'
 import {
   chaveAtividade, fmtCurta, fmtDiaCurto, fmtHoras, fmtLonga, fmtRelativo, fmtHora,
   hojeISO, inicioDaSemana, iniciais, rotuloSemana,
@@ -24,7 +25,6 @@ export function dotDepartamento(departamento) {
 }
 
 export const PRIORIDADE_LABEL = { urgent: 'Urgente', high: 'Alta', normal: 'Normal', low: 'Baixa' }
-const BARRAS_PRIORIDADE = { urgent: 3, high: 3, normal: 2, low: 1 }
 
 const AVATAR_TAMANHO = {
   14: 'w-3.5 h-3.5 text-[8px]',
@@ -52,27 +52,9 @@ export function Avatar({ nome, tamanho = 16, className = '' }) {
   )
 }
 
+/** A mesma bandeira do VertaTask; prioridade desconhecida vale como normal. */
 export function PrioridadeIcon({ prioridade, className = '' }) {
-  const p = PRIORIDADE_LABEL[prioridade] ? prioridade : 'normal'
-  const cheias = BARRAS_PRIORIDADE[p]
-  const cor = p === 'urgent' ? 'fill-ln-red' : 'fill-ln-t3'
-  const label = `Prioridade: ${PRIORIDADE_LABEL[p]}`
-  return (
-    <svg viewBox="0 0 16 16" width="16" height="16" role="img" aria-label={label} className={`shrink-0 ${className}`}>
-      <title>{label}</title>
-      {[0, 1, 2].map((i) => (
-        <rect
-          key={i}
-          x={1.5 + i * 5}
-          y={10.5 - i * 3.5}
-          width="3"
-          height={4.5 + i * 3.5}
-          rx="1"
-          className={`${cor} ${i < cheias ? '' : 'opacity-30'}`}
-        />
-      ))}
-    </svg>
-  )
+  return <BandeiraPrioridade valor={PRIORIDADE_LABEL[prioridade] ? prioridade : 'normal'} className={className} />
 }
 
 export function StatusIcon({ registro, className = '' }) {
