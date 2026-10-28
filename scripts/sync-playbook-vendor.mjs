@@ -1,4 +1,4 @@
-// Gera public/dash-teste/vendor/playbookSugestoes.js a partir do motor do app
+// Gera public/dash-teste/vendor/playbookSugestoes.js (e vendor/dashCache.js) a partir do app
 // (src/lib/playbookSugestoes.js). O viewer do dashboard é HTML estático em
 // public/ e não passa pelo Vite, então não consegue importar de src/: ele usa
 // esta cópia. Roda sozinha no `npm run dev` e no `npm run build` (pre-hooks),
@@ -26,4 +26,16 @@ try { atual = readFileSync(destino, 'utf8') } catch { /* primeira geração */ }
 if (atual !== saida) {
   writeFileSync(destino, saida)
   console.log('sync-playbook-vendor: vendor/playbookSugestoes.js atualizado')
+}
+
+// Cache local do dashboard (src/lib/dashCache.js): sem imports, vai como está.
+// Mesma origem = mesmo IndexedDB, então o viewer e o app dividem as entradas.
+const cacheOrigem = join(raiz, 'src/lib/dashCache.js')
+const cacheDestino = join(raiz, 'public/dash-teste/vendor/dashCache.js')
+const cacheSaida = cabecalho.replace('src/lib/playbookSugestoes.js', 'src/lib/dashCache.js') + readFileSync(cacheOrigem, 'utf8')
+let cacheAtual = null
+try { cacheAtual = readFileSync(cacheDestino, 'utf8') } catch { /* primeira geração */ }
+if (cacheAtual !== cacheSaida) {
+  writeFileSync(cacheDestino, cacheSaida)
+  console.log('sync-playbook-vendor: vendor/dashCache.js atualizado')
 }

@@ -778,6 +778,9 @@ import {
 // Motor de otimizações: o MESMO da Central de Otimizações (cópia gerada de
 // src/lib/playbookSugestoes.js por scripts/sync-playbook-vendor.mjs).
 import { gerarSugestoesConta, metasDaConta, janelaAnalise, pendente, hojeSP, PRIORIDADE_LABEL, tituloConta, tituloSemConta, tituloLocal } from './vendor/playbookSugestoes.js'
+// Cache local (IndexedDB) com busca incremental, o mesmo do app (cópia gerada de
+// src/lib/dashCache.js). Mesma origem: o que a home já baixou serve aqui.
+import { lerDash } from './vendor/dashCache.js'
 
 // ─── Fonte de dados ──────────────────────────────────────────────────────────
 // Em produção (dentro da Área do Cliente): busca pelo endpoint AUTENTICADO
@@ -830,6 +833,16 @@ function supabaseToken() {
 const motivo = async r => {
   const m = await r.clone().json().then(j => j?.error?.message).catch(() => null)
   return m ? ` — ${m}` : ''
+}
+
+// Meta e Google (rollup da lista) com sessão vão pelo cache local e já voltam como
+// linhas; o resto (status, saldo, link compartilhado, dev sem sessão) segue em CSV.
+async function fetchRows(ch, fresh) {
+  const token = !SHARED && LOCAL_ROLLUP[ch] != null && supabaseToken()
+  if (!token) return parseCSV(await fetchChannel(ch, fresh))
+  const contas = contasDoServidor(ch)
+  if (contas && !contas.length) return []
+  return lerDash({ fonte: 'rollup', canal: ch, contas, fresco: !!fresh, token, sbUrl: SB_URL, sbKey: SB_KEY, parseCSV })
 }
 
 async function fetchChannel(ch, fresh) {
@@ -910,14 +923,14 @@ function rawRows(ch, client) {
 // de deixar a página de cliente vazia sem explicação.
 // `silencioso` evita piscar o "carregando" quando a recarga vem do botão
 // Atualizar e a página do cliente já está na tela.
-async function loadClientRows(ch, client, silencioso) {
+async function loadClientRows(ch, client, silencioso, fresco) {
   // Decisões de otimização do projeto (aceitas/recusadas): lidas sempre, em
   // paralelo com as linhas, para o painel e os selos dos anúncios já saírem certos.
   const decisoes = otmCarregarDecisoes(client)
   if (!SHARED && !state.rows[`${ch}|${client}`]) {
     if (!silencioso) app.innerHTML = `<div class="dt-loader"><div class="spinner"></div><p>Carregando ${esc(client)}…</p></div>`
     try {
-      await Promise.all([ensureRawRows(ch, client), decisoes])
+      await Promise.all([ensureRawRows(ch, client, fresco), decisoes])
     } catch (e) {
       state.openClient = null
       render()
@@ -947,18 +960,15 @@ function applyFormsMql(rows) {
   }
   return rows
 }
-async function ensureRawRows(ch, client) {
+async function ensureRawRows(ch, client, fresco) {
   if (SHARED) return rawRows(ch, client)
   const k = `${ch}|${client}`
   if (state.rows[k]) return state.rows[k]
   const token = supabaseToken()
-  let csv = ''
   if (token) {
-    const r = await fetch(`/api/dash-data?channel=${ch}&account=${encodeURIComponent(client)}`,
-      { headers: { Authorization: `Bearer ${token}` } })
-    if (!r.ok) throw new Error(`${ch}: HTTP ${r.status}`)
-    csv = await r.text()
-    state.rows[k] = ch === 'meta' ? applyFormsMql(parseCSV(csv)) : parseCSV(csv)
+    // Pelo cache local: na volta só baixa os dias que o coletor regravou.
+    const rows = await lerDash({ fonte: 'data', canal: ch, contas: [client], fresco: !!fresco, token, sbUrl: SB_URL, sbKey: SB_KEY, parseCSV })
+    state.rows[k] = ch === 'meta' ? applyFormsMql(rows) : rows
   } else {
     // dev local: o CSV completo do canal, filtrado aqui mesmo.
     const r = await fetch(LOCAL[ch])
@@ -1371,11 +1381,11 @@ async function load(fresh) {
     // no último status conhecido de cada linha (com aviso na tag). O mesmo vale
     // para o saldo: falhou, a coluna mostra "—" e o resto abre normalmente.
     const [m, g, st, ga, sd, accounts] = await Promise.all([
-      fetchChannel('meta', fresh), fetchChannel('google', fresh),
+      fetchRows('meta', fresh), fetchRows('google', fresh),
       fetchChannel('meta_status', fresh).catch(() => ''),
       fetchGoogleAds(fresh).catch(() => ''),
       fetchChannel('saldo', fresh).catch(() => ''), fetchAccounts()])
-    state.raw = restringeContas({ meta: applyFormsMql(parseCSV(m)), google: parseCSV(g) })
+    state.raw = restringeContas({ meta: applyFormsMql(m), google: g })
     // Dados novos: o cache de linhas cruas por conta também precisa cair, senão
     // a página de cliente continuaria mostrando o que veio antes do sync.
     if (fresh) state.rows = {}
@@ -1409,7 +1419,7 @@ async function load(fresh) {
     // baixadas antes de desenhar, já que não vêm mais no boot.
     if (state.openClient && !SHARED) {
       state.cPeriod = null
-      if (!await loadClientRows(state.openClient.channel, state.openClient.client, true)) return
+      if (!await loadClientRows(state.openClient.channel, state.openClient.client, true, fresh)) return
     }
     render()
   } catch (e) {

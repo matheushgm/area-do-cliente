@@ -2,6 +2,7 @@ import { sessionToken } from '../lib/api'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { SHEETS, parseCSV } from '../lib/dashboardData'
+import { lerDash } from '../lib/dashCache'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hook de dados do Dashboard de Tráfego (modelo consolidado).
@@ -29,18 +30,16 @@ async function loadSheets(source = 'sheets', { accountNames = null, dias = null 
   // = projeto sem conta vinculada → nem chama a API.
   if (source === 'api') {
     if (accountNames && accountNames.length === 0) return { meta: [], google: [] }
-    const headers = { Authorization: `Bearer ${(await sessionToken()) || ''}` }
-    const qs = channel => {
-      const p = new URLSearchParams({ channel })
-      ;(accountNames || []).forEach(a => p.append('account', a))
-      if (dias) p.set('dias', String(dias))
-      return '/api/dash-data?' + p.toString()
+    // Pelo cache local (src/lib/dashCache.js): só baixa os dias que o coletor
+    // regravou desde a última leitura, e reaproveita o que outra tela já baixou.
+    const cfg = {
+      token: (await sessionToken()) || '',
+      sbUrl: import.meta.env.SUPABASE_URL, sbKey: import.meta.env.SUPABASE_ANON_KEY, parseCSV,
     }
-    const [metaText, googleText] = await Promise.all([
-      fetch(qs('meta'), { headers }).then(r => { if (!r.ok) throw new Error('Meta (API): HTTP ' + r.status); return r.text() }),
-      fetch(qs('google'), { headers }).then(r => { if (!r.ok) throw new Error('Google (API): HTTP ' + r.status); return r.text() }),
-    ])
-    return { meta: parseCSV(metaText), google: parseCSV(googleText) }
+    const ler = (canal, rotulo) => lerDash({ ...cfg, fonte: 'data', canal, contas: accountNames, dias })
+      .catch(e => { throw new Error(`${rotulo} (API): ${e.message}`) })
+    const [meta, google] = await Promise.all([ler('meta', 'Meta'), ler('google', 'Google')])
+    return { meta, google }
   }
   // Fonte ANTIGA (planilhas Google CSV) — usada pelo /dashboard.
   const [metaText, googleText] = await Promise.all([

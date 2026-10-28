@@ -450,6 +450,30 @@ showToast('Erro ao salvar', 'error')
 
 **`src/lib/constants.js`** — constantes de domínio centralizadas: `SQUAD_COLORS`, `SERVICES_CONFIG`, `BUSINESS_LABELS`, `EDIT_BUSINESS_TYPES`, `SEGMENTOS`, `MATURITY_LABELS`, `EDIT_MATURITY_OPTIONS`, `CONTRACT_MODEL_LABELS`, `CONTRACT_PAYMENT_LABELS`. Importar sempre daqui — não redefinir localmente.
 
+### Cache local do Dashboard de Tráfego (`src/lib/dashCache.js`, 2026-10-28)
+
+`lerDash({ fonte: 'data'|'rollup', canal, contas, dias, fresco, token, sbUrl, sbKey, parseCSV })`
+guarda em IndexedDB (`rl_dash_cache`) as linhas de `/api/dash-data` e `/api/dash-rollup` (só
+meta e google) e, na volta, baixa só o que mudou. Usado pelo `useDashboardData` (home,
+/otimizacoes, hub, Funil, Planejamento, Modo Apresentação) e pelo viewer (rollup da lista e
+linhas de cada conta), que importa a cópia `public/dash-teste/vendor/dashCache.js` gerada por
+`scripts/sync-playbook-vendor.mjs` (mesma origem = mesmo IndexedDB, as telas dividem as entradas).
+
+- **Relógio = rollup.** O coletor reescreve em `dash_insights` os últimos 8 dias por rodada e
+  recalcula o `dash_daily` da mesma faixa (apaga e reinsere, `updated_at` novo). O maior
+  `updated_at` do `dash_daily` do canal diz se houve rodada nova; o menor `day` gravado depois da
+  versão do cache diz de onde rebaixar; esses dias são trocados inteiros. **Não use o
+  `updated_at` do `dash_insights`**: o upsert do coletor não o atualiza.
+- Entrada = fonte + canal + contas ("*" = todas); a janela (`desde`) é atributo, então a entrada
+  de 20 dias de todas as contas da home atende o hub (16 dias, contas do projeto) sem rede.
+- Checa no máximo a cada 30 s (`fresco` ignora: botão Atualizar do viewer), recarga completa a
+  cada 7 dias, devolve cópias (o viewer soma MQL nas linhas). Falha de rede = mostra o cache.
+- Cache amarrado ao usuário do token (claim `sub`): sessão de outra pessoa apaga tudo; o
+  logout e o evento `SIGNED_OUT` também limpam.
+- Medido em 2026-10-28 (home, Meta 20 dias): 1ª abertura 6,4 MB / 9,4 s; seguintes sem rodada
+  nova, só 2 consultas de versão (~0,4 s) e 0,5 s lendo 15 mil linhas do IndexedDB; após uma
+  rodada, 8 dias (~2,7 MB).
+
 ### Resultados do Funil — preenchimento automático (Meta + Google)
 
 `api/resultados-autofill.js` (Edge) preenche **investimento** e **conversões** das semanas

@@ -7,6 +7,7 @@ import {
   useEffect,
 } from "react";
 import { supabase } from "../lib/supabase";
+import { limparCacheDash } from "../lib/dashCache";
 
 const AppContext = createContext();
 export { AppContext };
@@ -944,6 +945,9 @@ export function AppProvider({ children }) {
         // A página /reset-password gerencia essa sessão de forma independente.
         return;
       }
+      // Sessão encerrada por qualquer caminho (Sair, token revogado, outra aba):
+      // o cache do Dashboard de Tráfego vai junto.
+      if (event === "SIGNED_OUT") limparCacheDash().catch(() => {});
       if (event === "SIGNED_IN" && session?.user) {
         syncProfileIfExists(session.user).then((exists) => {
           if (!exists) {
@@ -1073,6 +1077,8 @@ export function AppProvider({ children }) {
 
   const logout = useCallback(async () => {
     localStorage.removeItem(LS_KEY);
+    // Linhas de anúncio guardadas pelo Dashboard de Tráfego (IndexedDB).
+    await limparCacheDash().catch(() => {});
     if (supabase) await supabase.auth.signOut();
   }, []);
 
