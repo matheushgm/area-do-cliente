@@ -1023,6 +1023,13 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     "Aguardando ClickUp" na linha e no cabeçalho do painel, e o botão "ClickUp há X min" soma
     "n aguardando"; o realtime apaga tudo quando o push grava o vínculo. Listas sem
     `clickup_list_id` (ex.: "🤖 Agentes", alimentada pelo Escritório) ficam fora do indicador.
+  - **Timeout de 60 s (2026-10-28).** Com edição em massa, os pushes paralelos esgotavam o limite
+    do token no ClickUp e as esperas do 429 (até 84 s numa chamada) estouravam os 60 s da função:
+    a Vercel a matava, os itens ficavam `processando` até o ttl e o front largava a fila. Agora
+    `fazClickup(token, prazo)` não começa chamada nem espera 429 além do orçamento (45 s no
+    `tarefas-push`); o erro `semTempo` devolve o item e o resto à fila sem contar tentativa (`.catch`
+    que engole erro do ClickUp usa `ignora()`, que deixa o `semTempo` passar). Falha da chamada no
+    front tenta de novo em 15, 30… 75 s (5 vezes).
 - **Anexos (2026-10-18):** `src/lib/anexos.js` (tipo, tamanho, URL assinada) e
   `src/components/UI/AnexoPreview.jsx` (pré-visualização em tela cheia: imagem, vídeo, áudio, PDF em
   iframe, texto; o resto cartão com Baixar; ← → navegam, Esc fecha). No **chat**, o Composer tem o

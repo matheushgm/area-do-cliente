@@ -190,15 +190,22 @@ export function useTarefas(user) {
   // depois pedimos ao servidor para esvaziá-la. Falha aqui não atrapalha a UI:
   // o cron diário também empurra a fila.
   const pushTimer = useRef(null)
+  const pushFalhas = useRef(0)
   const agendarPush = useCallback((atraso = 1500) => {
     clearTimeout(pushTimer.current)
     pushTimer.current = setTimeout(async () => {
       try {
         const r = await apiFetch('/api/tarefas-push', { body: {} })
+        pushFalhas.current = 0
         // ficou fila (uma invocação não deu conta): chama de novo até esvaziar, em vez de
         // esperar a próxima escrita, o botão "ClickUp há X min" ou o cron
         if (r?.restantes > 0) agendarPush(1000)
-      } catch { /* o cron diário e o botão também empurram */ }
+      } catch {
+        // falha (504, rede): tenta de novo com espera crescente em vez de largar a fila
+        // parada até a próxima escrita; depois de 5 seguidas, o cron e o botão assumem
+        pushFalhas.current += 1
+        if (pushFalhas.current <= 5) agendarPush(15_000 * pushFalhas.current)
+      }
     }, atraso)
   }, [])
   useEffect(() => () => clearTimeout(pushTimer.current), [])

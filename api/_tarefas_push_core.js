@@ -36,14 +36,27 @@ const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toL
 const ms = (iso) => (iso ? new Date(iso).getTime() : null)
 const isoDe = (v) => (v ? new Date(Number(v)).toISOString() : null)
 
-function fazClickup(token) {
+// Sem tempo na invocação (a função tem 60 s na Vercel): a chamada não começa, ou a espera
+// do 429 passaria do prazo. O item volta à fila sem contar tentativa. Antes as esperas do
+// 429 (até 84 s numa chamada) estouravam os 60 s, a Vercel matava a função, os itens
+// ficavam 'processando' até o ttl e o front parava de chamar (28/10/2026).
+function semTempo(msg) { const e = new Error(msg); e.semTempo = true; return e }
+// .catch que engole erro do ClickUp mas deixa passar o "sem tempo"
+const ignora = (fallback) => (e) => { if (e?.semTempo) throw e; return typeof fallback === 'function' ? fallback(e) : fallback }
+
+function fazClickup(token, prazo = Infinity) {
   return async function cu(method, path, body) {
     for (let tent = 0; tent < 6; tent++) {
+      if (Date.now() > prazo) throw semTempo(`ClickUp ${method} ${path}: sem tempo nesta invocação`)
       const res = await fetch(`${CLICKUP_BASE}${path}`, {
         method, headers: { Authorization: token, 'Content-Type': 'application/json' },
         body: body !== undefined ? JSON.stringify(body) : undefined,
       })
-      if (res.status === 429) { await sleep(Math.max((Number(res.headers.get('retry-after')) || 0) * 1000, 4000 * (tent + 1))); continue }
+      if (res.status === 429) {
+        const espera = Math.max((Number(res.headers.get('retry-after')) || 0) * 1000, 4000 * (tent + 1))
+        if (Date.now() + espera > prazo) throw semTempo(`ClickUp ${method} ${path}: limite de requisições e sem tempo para esperar`)
+        await sleep(espera); continue
+      }
       const txt = await res.text()
       let json = null; try { json = JSON.parse(txt) } catch { json = null }
       if (!res.ok) { const e = new Error(json?.err || `ClickUp ${method} ${path}: ${res.status}`); e.status = res.status; e.ecode = json?.ECODE; throw e }
@@ -76,8 +89,8 @@ function dataClickUp(iso, comHora) {
 }
 
 export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, log = () => {} }) {
-  const cu = fazClickup(token)
   const inicio = Date.now()
+  const cu = fazClickup(token, inicio + orcamentoMs)
   const estourou = () => Date.now() - inicio > orcamentoMs
   const resumo = { processadas: 0, criadas: 0, atualizadas: 0, excluidas: 0, comentadas: 0, erros: 0, devolvidas: 0, copias_absorvidas: 0, pastas_criadas: 0, listas_criadas: 0, avisos: [] }
   const aviso = (m) => { if (resumo.avisos.length < 50) resumo.avisos.push(m); log('aviso: ' + m) }
@@ -108,7 +121,7 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
   const projeto = new Map((projetos || []).map((p) => [p.id, p]))
   const camposPorLista = new Map()
   const camposDa = async (listId) => {
-    if (!camposPorLista.has(listId)) camposPorLista.set(listId, (await cu('GET', `/list/${listId}/field`).catch(() => null))?.fields || [])
+    if (!camposPorLista.has(listId)) camposPorLista.set(listId, (await cu('GET', `/list/${listId}/field`).catch(ignora(null)))?.fields || [])
     return camposPorLista.get(listId)
   }
   const agora = () => new Date().toISOString()
@@ -187,7 +200,7 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
   }
   async function camposPersonalizados(row, l, taskId, quais) {
     for (const c of await valoresCampos(row, l, quais)) {
-      if (c.value == null) await cu('DELETE', `/task/${taskId}/field/${c.id}`).catch(() => {})
+      if (c.value == null) await cu('DELETE', `/task/${taskId}/field/${c.id}`).catch(ignora())
       else await cu('POST', `/task/${taskId}/field/${c.id}`, { value: c.value })
     }
   }
@@ -277,10 +290,10 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
           const { data: emCurso } = await sb.from('tarefas_outbox').select('id').eq('tarefa_id', row.id).eq('operacao', 'criar').eq('status', 'processando').neq('id', item.id).limit(1)
           if (emCurso?.length) { await devolver(item.id); resumo.devolvidas++; continue }
           // tentativa anterior criou no ClickUp mas falhou antes de gravar o vínculo: reaproveita
-          let task = item.clickup_task_id ? await cu('GET', `/task/${item.clickup_task_id}`).catch(() => null) : null
+          let task = item.clickup_task_id ? await cu('GET', `/task/${item.clickup_task_id}`).catch(ignora(null)) : null
           if (task) {
             await camposPersonalizados(row, l, task.id, TODOS_OS_CAMPOS)
-            task = await cu('GET', `/task/${task.id}`).catch(() => task)
+            task = await cu('GET', `/task/${task.id}`).catch(ignora(task))
           } else {
             // campos personalizados vão no próprio POST: 1 chamada por tarefa (eram 6 ou 7, o
             // que não deixava um template inteiro caber numa rodada de 50 s)
@@ -307,7 +320,7 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
           }
           if (row.checklists?.length) {
             await sincronizarChecklists(task.id, row.checklists, task.checklists, null)
-            task = await cu('GET', `/task/${task.id}`).catch(() => task)
+            task = await cu('GET', `/task/${task.id}`).catch(ignora(task))
             await gravarEspelho(row.id, task, { checklists: mapChecklists(task.checklists) })
           } else await gravarEspelho(row.id, task)
           resumo.criadas++
@@ -335,8 +348,8 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
           if (quais.has('tags')) {
             const atual = task || await cu('GET', `/task/${row.clickup_task_id}`)
             const tem = new Set((atual.tags || []).map((t) => t.name))
-            for (const t of row.tags || []) if (!tem.has(t)) await cu('POST', `/task/${row.clickup_task_id}/tag/${encodeURIComponent(t)}`).catch((e) => aviso(`tag ${t}: ${e.message}`))
-            for (const t of tem) if (!(row.tags || []).includes(t)) await cu('DELETE', `/task/${row.clickup_task_id}/tag/${encodeURIComponent(t)}`).catch(() => {})
+            for (const t of row.tags || []) if (!tem.has(t)) await cu('POST', `/task/${row.clickup_task_id}/tag/${encodeURIComponent(t)}`).catch(ignora((e) => aviso(`tag ${t}: ${e.message}`)))
+            for (const t of tem) if (!(row.tags || []).includes(t)) await cu('DELETE', `/task/${row.clickup_task_id}/tag/${encodeURIComponent(t)}`).catch(ignora())
           }
           const cfs = new Set([...quais].filter((k) => ['tipo_tarefa', 'dificuldade', 'departamento'].includes(k)))
           if (cfs.size) await camposPersonalizados(row, l, row.clickup_task_id, cfs)
@@ -344,13 +357,20 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
             const atual = await cu('GET', `/task/${row.clickup_task_id}`)
             await sincronizarChecklists(row.clickup_task_id, row.checklists, atual.checklists, row.clickup_sync_at)
           }
-          const final = await cu('GET', `/task/${row.clickup_task_id}`).catch(() => task)
+          const final = await cu('GET', `/task/${row.clickup_task_id}`).catch(ignora(task))
           if (final) await gravarEspelho(row.id, final, quais.has('checklists') ? { checklists: mapChecklists(final.checklists) } : {})
           resumo.atualizadas++
         }
       }
       await marcar(item.id, { status: 'ok', erro: null })
     } catch (e) {
+      if (e.semTempo) {
+        // não é erro do item: ele e o resto voltam à fila, sem contar tentativa
+        aviso(`tempo esgotado (${e.message}); o resto fica para a próxima chamada`)
+        if (reivindicada) await Promise.all(fila.slice(idx).map((i) => devolver(i.id)))
+        resumo.processadas--
+        break
+      }
       resumo.erros++
       const tentativas = (item.tentativas || 0) + 1
       const desiste = tentativas >= MAX_TENTATIVAS || e.status === 404 || e.status === 400

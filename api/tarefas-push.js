@@ -34,8 +34,10 @@ export default async function handler(req, res) {
   try {
     // Rodadas seguidas na mesma invocação enquanto houver fila e tempo (um template pode
     // passar de 40 itens). O que sobrar volta em `restantes`: o front chama de novo.
+    // O orçamento é também o prazo de cada chamada ao ClickUp (ver fazClickup); a folga até
+    // os 60 s cobre a chamada em curso e as gravações no Supabase.
     const inicio = Date.now()
-    const ORCAMENTO = 50_000
+    const ORCAMENTO = 45_000
     let r = await empurrar({ sb, token: TOKEN, orcamentoMs: ORCAMENTO })
     while (r.restantes > 0 && Date.now() - inicio < ORCAMENTO - 10_000) {
       const r2 = await empurrar({ sb, token: TOKEN, orcamentoMs: ORCAMENTO - (Date.now() - inicio) })
