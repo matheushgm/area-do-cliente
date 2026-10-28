@@ -69,7 +69,7 @@ passar por código nosso); essas ganham redirect em `legacyRedirects.jsx`.
 
 | Rota | Página | Observação |
 |---|---|---|
-| `/` | `Dashboard` | lista de clientes; o filtro mora na URL (`/?lista=novos\|churn`) |
+| `/` | `Dashboard` | lista de clientes; o filtro mora na URL (`/?lista=novos\|churn`); `/?visao=crescimento[&mes=yyyy-mm&aba=novos\|churn]` troca a lista pela tela de crescimento da base (`CrescimentoView`) |
 | `/cliente/novo` | `NewOnboarding` | criação de projeto |
 | `/cliente/:id/:secao?` | `ProjectDetail` → `ClientProfile` | sem seção = hub |
 | `/tarefas` `/atividades` `/atividades-15min` `/chat` | — | operação |

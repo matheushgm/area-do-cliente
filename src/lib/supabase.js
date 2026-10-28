@@ -65,3 +65,15 @@ export async function getSignedUrl(bucket, path) {
   if (error) { console.error('[Storage] signed url:', error.message); return null }
   return data?.signedUrl ?? null
 }
+
+// Várias URLs assinadas numa chamada só → { path: url }.
+export async function getSignedUrls(bucket, paths, expiresIn = 3600) {
+  if (!paths.length) return {}
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrls(paths, expiresIn)
+  if (error) { console.error('[Storage] signed urls:', error.message); return {} }
+  const out = {}
+  for (const d of data || []) if (d.signedUrl && d.path) out[d.path] = d.signedUrl
+  return out
+}

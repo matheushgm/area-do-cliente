@@ -1,67 +1,124 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { CFG, buildStats, computeMainPeriod, fmtNum } from '../lib/dashboardData'
 import {
-  Zap, Plus, LogOut, Clock, CheckCircle2, Layers,
-  Calendar, User,
-  FileText, DollarSign, Users,
-  Eye, X, Trash2, AlertTriangle,
+  Zap, Plus, LogOut, Layers,
+  User,
+  DollarSign, Users,
+  X, Trash2, AlertTriangle,
   CloudOff, Loader2, Menu, Search,
-  LayoutGrid, List, ChevronUp, ChevronDown, ChevronsUpDown, Users2,
-  Wallet, TrendingDown, History, TrendingUp, Building2, UserPlus,
+  ChevronUp, ChevronDown, ChevronsUpDown, Users2,
+  Wallet, TrendingDown, TrendingUp, Building2, UserPlus,
+  Check, ShieldAlert, Target, ShieldCheck, ArrowRight,
 } from 'lucide-react'
 import { cliente } from '../routes/paths'
 import { SQUAD_COLORS } from '../lib/constants'
-import { fmtCurrency, hashId, mrrValue, calcLTV, canViewSquadsReport } from '../lib/utils'
+import { fmtCurrency, hashId, mrrValue, calcLTV, activeMonths, canViewSquadsReport, initials } from '../lib/utils'
+import { useLogosAssinados } from '../hooks/useLogosAssinados'
 import { NEW_CLIENT_WINDOW_DAYS, isNewClient, baseProjectsOf } from '../lib/dashboardCounts'
 import Modal from '../components/UI/Modal'
 import UnsignedAtaPopups from '../components/Dashboard/UnsignedAtaPopups'
-import {
-  NovosClientesCard, NovosClientesModal, NetMrrSection, CrescimentoHistoryModal,
-} from '../components/Dashboard/Crescimento'
-import { newStats } from '../lib/growth'
+import { CrescimentoView, fmtNet, PctNet } from '../components/Dashboard/Crescimento'
+import { netStats, MONTHS_PT } from '../lib/growth'
 import OtimizacoesBanner from '../components/Dashboard/OtimizacoesBanner'
 
-const CORE_STEPS = ['roi', 'strategy', 'oferta']
-function isProfileComplete(project) {
-  return CORE_STEPS.every(s => (project.completedSteps || []).includes(s))
-}
+// Base comum dos chips da lista (squad, risco, momento): mesma altura, raio e corpo.
+const CHIP = 'inline-flex items-center gap-1.5 h-[22px] px-2 rounded-full text-[11px] font-semibold whitespace-nowrap max-w-full'
 
+// Squad é identificação, não estado: chip neutro, com o emoji (ou um ponto na
+// cor do squad) para distinguir. A cor forte fica para risco e momento.
+// Os membros abrem num cartão em portal: dentro da tabela ele era cortado pelo
+// `overflow` do cartão do grupo (a 1ª linha abria pra cima e sumia).
 function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
-  if (!name) return <span className="text-rl-muted text-xs">—</span>
+  const ref = useRef(null)
+  const [pos, setPos] = useState(null)
+  // Rolar a página com o cartão aberto o deixaria solto: fecha.
+  useEffect(() => {
+    if (!pos) return
+    const fechar = () => setPos(null)
+    window.addEventListener('scroll', fechar, true)
+    return () => window.removeEventListener('scroll', fechar, true)
+  }, [pos])
+  if (!name) return <Vazio />
   const c = SQUAD_COLORS[colorIndex % SQUAD_COLORS.length]
 
-  return (
-    <div className="relative group/squad inline-flex">
-      <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border cursor-default ${c.bg} ${c.text} ${c.border}`}>
-        {emoji && <span className="text-[11px] leading-none">{emoji}</span>}
-        <span className="text-[11px] font-semibold whitespace-nowrap">{name}</span>
-      </div>
+  function abrir() {
+    const r = ref.current?.getBoundingClientRect()
+    if (!r) return
+    // Abre embaixo; se não couber (~ 40px por membro + cabeçalho), abre em cima.
+    const altura = 56 + Math.max(1, members.length) * 30
+    const emCima = r.bottom + 8 + altura > window.innerHeight && r.top > altura
+    setPos({ left: Math.min(r.left, window.innerWidth - 248), top: emCima ? r.top - 8 : r.bottom + 8, emCima })
+  }
 
-      {members.length > 0 && (
-        <div className="absolute bottom-full left-0 mb-2 hidden group-hover/squad:block z-50 pointer-events-none">
-          <div className="glass-card border border-rl-border shadow-xl py-2 px-3 rounded-xl min-w-[180px]">
-            <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider mb-1.5">{name}</p>
-            {members.map((m, i) => (
-              <div key={i} className="flex items-center justify-between gap-4 py-0.5">
-                <span className="text-xs text-rl-text whitespace-nowrap">{m.name}</span>
-                <span className="text-[10px] text-rl-muted whitespace-nowrap">{m.role}</span>
-              </div>
-            ))}
+  return (
+    <>
+      <span
+        ref={ref}
+        tabIndex={0}
+        onMouseEnter={abrir}
+        onMouseLeave={() => setPos(null)}
+        onFocus={abrir}
+        onBlur={() => setPos(null)}
+        className={`${CHIP} cursor-default bg-rl-surface border border-rl-border text-rl-subtle hover:border-rl-text/20 hover:text-rl-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-rl-purple transition-colors`}
+      >
+        {emoji
+          ? <span className="text-[12px] leading-none shrink-0">{emoji}</span>
+          : <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`} />}
+        <span className="truncate">{name}</span>
+      </span>
+
+      {pos && createPortal(
+        <div
+          role="tooltip"
+          className="fx fixed z-[60] pointer-events-none w-60"
+          style={{ left: pos.left, top: pos.top, transform: pos.emCima ? 'translateY(-100%)' : undefined }}
+        >
+          <div className="bg-rl-card border border-rl-border shadow-xl rounded-xl overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-rl-border">
+              {emoji
+                ? <span className="text-sm leading-none">{emoji}</span>
+                : <span className={`w-2 h-2 rounded-full ${c.dot}`} />}
+              <span className="text-[13px] font-semibold text-rl-text truncate">{name}</span>
+              <span className="ml-auto text-[11px] text-rl-muted tabular-nums shrink-0">
+                {members.length} {members.length === 1 ? 'pessoa' : 'pessoas'}
+              </span>
+            </div>
+            {members.length > 0 ? (
+              <ul className="py-1.5">
+                {members.map((m, i) => (
+                  <li key={i} className="flex items-center gap-2.5 px-3 py-1">
+                    <span className="fx-soft w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">
+                      {initials(m.name)}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-xs font-medium text-rl-text truncate">{m.name}</span>
+                      {m.role && <span className="block text-[11px] text-rl-muted truncate">{m.role}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-3 py-2.5 text-xs text-rl-muted">Nenhum membro no squad.</p>
+            )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
-    </div>
+    </>
   )
 }
 
-// ─── Risk badge ────────────────────────────────────────────────────────────────
+// ─── Pílulas de risco / momento ───────────────────────────────────────────────
+// Tinta = texto colorido sobre fundo do mesmo tom. No escuro a tinta aproxima
+// fundo e texto, então o alfa cai (a mesma regra do `--dt-tint-*` do dashboard).
 const RISK_CONFIG = {
-  em_risco: { label: 'Em Risco',  className: 'text-red-400 bg-red-400/10 border-red-400/30',     dot: 'bg-red-400'     },
-  neutro:   { label: 'Neutro',    className: 'text-rl-gold bg-rl-gold/10 border-rl-gold/30',      dot: 'bg-rl-gold'     },
-  saudavel: { label: 'Saudável',  className: 'text-rl-green bg-rl-green/10 border-rl-green/30',   dot: 'bg-rl-green'    },
+  em_risco: { label: 'Em Risco',  className: 'text-rl-red bg-rl-red/10 dark:bg-rl-red/[.12]',       dot: 'bg-rl-red'   },
+  neutro:   { label: 'Neutro',    className: 'text-rl-gold bg-rl-gold/10 dark:bg-rl-gold/[.12]',    dot: 'bg-rl-gold'  },
+  saudavel: { label: 'Saudável',  className: 'text-rl-green bg-rl-green/10 dark:bg-rl-green/[.12]', dot: 'bg-rl-green' },
 }
 
 function RiskBadge({ riskLevel }) {
@@ -69,19 +126,20 @@ function RiskBadge({ riskLevel }) {
   const cfg = RISK_CONFIG[riskLevel]
   if (!cfg) return null
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-semibold ${cfg.className}`}>
+    <span className={`${CHIP} ${cfg.className}`}>
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
       {cfg.label}
     </span>
   )
 }
 
-// ─── Momento badge ─────────────────────────────────────────────────────────────
+// Onboarding segue laranja: não há token laranja e o âmbar (rl-gold) já é "Neutro".
+// `chip`: o chip da lista (só tinta, sem borda); `dot` também vai no filtro.
 const MOMENTO_OPTIONS = [
-  { value: 'onboarding',      label: 'Onboarding',      dot: 'bg-orange-400', text: 'text-orange-400', activeCls: 'bg-orange-400/10 border-orange-400/40 text-orange-400' },
-  { value: 'aceleracao',      label: 'Aceleração',      dot: 'bg-rl-green',   text: 'text-rl-green',   activeCls: 'bg-rl-green/10 border-rl-green/40 text-rl-green'       },
-  { value: 'voo_de_cruzeiro', label: 'Voo de cruzeiro', dot: 'bg-rl-cyan',    text: 'text-rl-cyan',    activeCls: 'bg-rl-cyan/10 border-rl-cyan/40 text-rl-cyan'          },
-  { value: 'churn',           label: 'Churn',           dot: 'bg-red-600',    text: 'text-red-600',    activeCls: 'bg-red-700/10 border-red-700/40 text-red-600'          },
+  { value: 'onboarding',      label: 'Onboarding',      dot: 'bg-orange-500', chip: 'bg-orange-500/10 dark:bg-orange-400/[.12] text-orange-700 dark:text-orange-400' },
+  { value: 'aceleracao',      label: 'Aceleração',      dot: 'bg-rl-green', chip: 'bg-rl-green/10 dark:bg-rl-green/[.12] text-rl-green' },
+  { value: 'voo_de_cruzeiro', label: 'Voo de cruzeiro', dot: 'bg-rl-cyan', chip: 'bg-rl-cyan/10 dark:bg-rl-cyan/[.12] text-rl-cyan' },
+  { value: 'churn',           label: 'Churn',           dot: 'bg-rl-red', chip: 'bg-rl-red/10 dark:bg-rl-red/[.12] text-rl-red' },
 ]
 
 function MomentoBadge({ momento }) {
@@ -89,11 +147,29 @@ function MomentoBadge({ momento }) {
   const cfg = MOMENTO_OPTIONS.find(m => m.value === momento)
   if (!cfg) return null
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-semibold ${cfg.activeCls}`}>
+    <span className={`${CHIP} ${cfg.chip}`}>
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
       {cfg.label}
     </span>
   )
+}
+
+// LT (lifetime) em meses e dias: "3m 11d", "14m", "12d". Mês = 30,4375 dias,
+// o mesmo de `activeMonths`, para bater com o LTV.
+const DIAS_MES = 30.4375
+function LtCell({ meses }) {
+  if (!(meses > 0)) return <Vazio />
+  const total = Math.max(1, Math.round(meses * DIAS_MES))
+  let m = Math.floor(total / DIAS_MES)
+  let d = Math.round(total - m * DIAS_MES)
+  if (d >= 30) { m += 1; d = 0 }
+  const txt = m === 0 ? `${d}d` : d === 0 ? `${m}m` : `${m}m ${d}d`
+  return <span className="text-rl-subtle">{txt}</span>
+}
+
+// Célula vazia: traço discreto, igual em todas as colunas.
+function Vazio({ children = '—' }) {
+  return <span className="text-rl-muted/60">{children}</span>
 }
 
 // ─── Creator badge ─────────────────────────────────────────────────────────────
@@ -123,561 +199,216 @@ function CreatorBadge({ accountName, colorIndex = 0 }) {
   )
 }
 
-// ─── Onboarding 90-day progress bar ──────────────────────────────────────────
-// Mostra quanto da janela de 90 dias de onboarding já passou, contando a partir
-// da data de assinatura do contrato (contractDate). Cai pra createdAt quando
-// contractDate não foi preenchido. Quando o cliente já passou dos 90 dias,
-// retorna null (não exibe nada).
-function OnboardingProgressBar({ project, compact = false }) {
-  const startISO = project.contractDate || project.createdAt
-  if (!startISO) return null
-  // contractDate vem como yyyy-mm-dd (date), createdAt como ISO timestamp
-  const startTime = new Date(
-    typeof startISO === 'string' && startISO.length === 10 ? startISO + 'T00:00:00' : startISO
-  ).getTime()
-  if (isNaN(startTime)) return null
+// ─── Filtros da lista ─────────────────────────────────────────────────────────
+// Um visual só para todos: pílula neutra; ativa, ganha a tinta do azul de ação,
+// mostra o valor escolhido e um X próprio (botão irmão, não aninhado). A cor
+// de cada opção fica no ponto, como nos chips da tabela.
+const FILTRO_BASE = 'inline-flex items-center gap-1.5 h-8 rounded-full border text-[13px] font-medium transition-colors whitespace-nowrap shrink-0'
+const FILTRO_OFF  = 'bg-rl-card border-rl-border text-rl-subtle hover:text-rl-text hover:border-rl-text/25'
+const FILTRO_ON   = 'bg-rl-purple/[.08] dark:bg-rl-purple/[.12] border-rl-purple/35 text-rl-text'
+const FOCO = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rl-purple'
 
-  const daysSince = Math.floor((Date.now() - startTime) / 86400000)
-  if (daysSince >= 90) return null
-  const safeDays  = Math.max(0, daysSince)
-  const remaining = 90 - safeDays
-  const pct       = Math.min(Math.max((safeDays / 90) * 100, 0), 100)
-
-  return (
-    <div className={compact ? '' : 'mb-3'}>
-      {!compact && (
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-orange-400 flex items-center gap-1.5">
-            <Clock className="w-3 h-3" />
-            Onboarding · {remaining}d restantes
-          </span>
-          <span className="text-[10px] font-semibold text-orange-400 tabular-nums">
-            {safeDays}/90
-          </span>
-        </div>
-      )}
-      <div className={`bg-rl-surface rounded-full overflow-hidden ${compact ? 'h-1' : 'h-1.5'}`}>
-        <div
-          className="h-full bg-orange-400 rounded-full transition-all"
-          style={{ width: `${pct}%` }}
-          title={`${safeDays} de 90 dias · ${remaining}d restantes`}
-        />
-      </div>
-    </div>
-  )
+function PontoOpcao({ o }) {
+  if (o.emoji) return <span className="text-[13px] leading-none w-4 text-center shrink-0">{o.emoji}</span>
+  return <span className={`w-2 h-2 rounded-full shrink-0 ${o.dot}`} />
 }
 
-function ProjectCard({ project, onClick, onDelete }) {
-  const daysSince = Math.floor(
-    (Date.now() - new Date(project.createdAt).getTime()) / 86400000
-  )
-  const daysLeft = project.contractDate
-    ? Math.ceil((new Date(project.contractDate).getTime() - Date.now()) / 86400000)
-    : null
-
-  return (
-    <div onClick={onClick} className="glass-card p-5 hover:border-rl-purple/40 transition-all duration-200 cursor-pointer group relative">
-      {/* Delete button */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onDelete() }}
-        className="absolute top-3 right-3 p-1.5 rounded-lg text-rl-muted opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-400/10 transition-all duration-150 z-10"
-        aria-label="Excluir projeto"
-        title="Excluir projeto"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
-
-      {/* Header */}
-      <div className="mb-1">
-        <h3 className="font-semibold text-rl-text group-hover:text-rl-purple transition-colors leading-tight pr-8">
-          {project.companyName}
-        </h3>
-      </div>
-      <p className="text-rl-muted text-xs mb-3">{project.responsibleName}{project.responsibleRole ? ` · ${project.responsibleRole}` : ''}</p>
-
-      {/* Squad + Risk + Momento */}
-      <div className="mb-3 flex items-center gap-2 flex-wrap">
-        <SquadBadge name={project.squadName} emoji={project.squadEmoji} colorIndex={project.squadColorIndex} members={project.squadMembers ?? []} />
-        <RiskBadge riskLevel={project.riskLevel} />
-        <MomentoBadge momento={project.momento} />
-      </div>
-
-      {/* Onboarding 90-day progress (oculta após 90 dias) */}
-      <OnboardingProgressBar project={project} />
-
-      {/* Progress */}
-      <div className="mb-3">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-rl-muted">Progresso</span>
-          <span className="text-xs font-semibold text-rl-purple">{project.progress}%</span>
-        </div>
-        <div className="h-1.5 bg-rl-surface rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-rl rounded-full progress-fill"
-            style={{ width: `${project.progress}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between text-xs text-rl-muted">
-        <div className="flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          <span>Iniciado há {daysSince}d</span>
-        </div>
-        {daysLeft !== null && (
-          <div className={`flex items-center gap-1 ${daysLeft < 7 ? 'text-rl-red' : 'text-rl-muted'}`}>
-            <Calendar className="w-3 h-3" />
-            <span>{daysLeft > 0 ? `${daysLeft}d restantes` : 'Vencido'}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function ClientProfileCard({ project, onClick, onDelete }) {
-  const daysSince = Math.floor(
-    (Date.now() - new Date(project.createdAt).getTime()) / 86400000
-  )
-  const totalInvestimento = project.roiResult?.totalInvestimento
-  const personaCount = project.personas?.length || 0
-  const ofertaNome = project.ofertaData?.nome
-
-  return (
-    <div
-      onClick={onClick}
-      className="glass-card p-5 border border-rl-green/30 hover:border-rl-green/60 transition-all duration-200 cursor-pointer group relative"
-    >
-      {/* Delete button */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onDelete() }}
-        className="absolute top-3 right-3 p-1.5 rounded-lg text-rl-muted opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-400/10 transition-all duration-150 z-10"
-        aria-label="Excluir projeto"
-        title="Excluir projeto"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
-
-      {/* Header */}
-      <div className="flex items-center gap-3 min-w-0 mb-1">
-        <div className="w-9 h-9 rounded-xl bg-rl-green/10 flex items-center justify-center shrink-0">
-          <FileText className="w-4 h-4 text-rl-green" />
-        </div>
-        <div className="min-w-0 pr-8">
-          <h3 className="font-semibold text-rl-text group-hover:text-rl-purple transition-colors truncate">
-            {project.companyName}
-          </h3>
-          <p className="text-rl-muted text-xs mt-0.5 truncate">
-            {project.businessType && <span className="mr-1">{project.businessType} ·</span>}
-            {project.responsibleName}
-          </p>
-        </div>
-      </div>
-
-      {/* Squad + Risk + Momento */}
-      <div className="mt-3 mb-3 flex items-center gap-2 flex-wrap">
-        <SquadBadge name={project.squadName} emoji={project.squadEmoji} colorIndex={project.squadColorIndex} members={project.squadMembers ?? []} />
-        <RiskBadge riskLevel={project.riskLevel} />
-        <MomentoBadge momento={project.momento} />
-      </div>
-
-      {/* Chips de resumo */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {totalInvestimento && (
-          <div className="flex items-center gap-1.5 bg-rl-surface px-2.5 py-1 rounded-lg">
-            <DollarSign className="w-3 h-3 text-rl-purple" />
-            <span className="text-xs text-rl-text">{fmtCurrency(totalInvestimento)}/mês</span>
-          </div>
-        )}
-        {personaCount > 0 && (
-          <div className="flex items-center gap-1.5 bg-rl-surface px-2.5 py-1 rounded-lg">
-            <Users className="w-3 h-3 text-rl-blue" />
-            <span className="text-xs text-rl-text">{personaCount} persona{personaCount > 1 ? 's' : ''}</span>
-          </div>
-        )}
-        {ofertaNome && (
-          <div className="flex items-center gap-1.5 bg-rl-surface px-2.5 py-1 rounded-lg max-w-full overflow-hidden">
-            <Zap className="w-3 h-3 text-rl-gold shrink-0" />
-            <span className="text-xs text-rl-text truncate">{ofertaNome}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Onboarding 90-day progress (oculta após 90 dias) */}
-      <OnboardingProgressBar project={project} />
-
-      {/* Footer */}
-      <div className="flex items-center justify-between text-xs text-rl-muted">
-        <div className="flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          <span>Criado há {daysSince}d</span>
-        </div>
-        <div className="flex items-center gap-1 text-rl-green/70">
-          <CheckCircle2 className="w-3 h-3" />
-          <span>Documentação completa</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Squad Dropdown ───────────────────────────────────────────────────────────
-
-function SquadDropdown({ squadFilter, setSquadFilter, squads, counts }) {
+// `opcoes`: [{ value, label, dot?, emoji?, count }]. `valor` 'all' = sem filtro.
+function FiltroMenu({ icone: Icone, rotulo, valor, opcoes, onChange, todos = 'Todos' }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
   useEffect(() => {
-    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
+    if (!open) return
+    const fora = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const esc  = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', fora)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', fora); document.removeEventListener('keydown', esc) }
+  }, [open])
 
-  const activeSquad = squads.find(s => String(s.id) === String(squadFilter))
-  const label = activeSquad ? (activeSquad.emoji ? `${activeSquad.emoji} ${activeSquad.name}` : activeSquad.name) : 'Squad'
-  const isFiltered = !!activeSquad
+  const ativo = opcoes.find(o => String(o.value) === String(valor))
+  const escolher = (v) => { onChange(v); setOpen(false) }
 
   return (
     <div ref={ref} className="relative shrink-0">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all ${
-          isFiltered
-            ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
-            : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
-        }`}
-      >
-        <Users className="w-3.5 h-3.5 shrink-0" />
-        <span className="max-w-[120px] truncate">{label}</span>
-        {isFiltered
-          ? <span
-              role="button"
-              onClick={(e) => { e.stopPropagation(); setSquadFilter('all') }}
-              className="ml-0.5 rounded-full hover:bg-rl-purple/20 p-0.5 transition-colors"
-            ><X className="w-3 h-3" /></span>
-          : <ChevronDown className={`w-3.5 h-3.5 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
-        }
-      </button>
+      <div className={`${FILTRO_BASE} ${ativo ? FILTRO_ON : FILTRO_OFF}`}>
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          className={`inline-flex items-center gap-1.5 h-full rounded-full ${ativo ? 'pl-3 pr-1' : 'px-3'} ${FOCO}`}
+        >
+          {ativo ? (
+            <>
+              <span className="text-rl-muted">{rotulo}:</span>
+              <PontoOpcao o={ativo} />
+              <span className="max-w-[140px] truncate">{ativo.label}</span>
+            </>
+          ) : (
+            <>
+              <Icone className="w-3.5 h-3.5 shrink-0" />
+              {rotulo}
+              <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </>
+          )}
+        </button>
+        {ativo && (
+          <button
+            type="button"
+            onClick={() => onChange('all')}
+            aria-label={`Limpar filtro ${rotulo}`}
+            className={`mr-1 p-1 rounded-full text-rl-muted hover:text-rl-text hover:bg-rl-purple/10 ${FOCO}`}
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
+      </div>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-52 glass-card border border-rl-border shadow-xl py-1 rounded-xl overflow-hidden">
-          <button
-            onClick={() => { setSquadFilter('all'); setOpen(false) }}
-            className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
-              !isFiltered ? 'text-rl-purple font-semibold' : 'text-rl-muted'
-            }`}
-          >
-            <span>Todos os squads</span>
-            {!isFiltered && <span className="w-1.5 h-1.5 rounded-full bg-rl-purple" />}
-          </button>
-
-          {squads.length > 0 && <div className="border-t border-rl-border/60 my-1" />}
-
-          {squads.map((s, idx) => {
-            const isActive = String(squadFilter) === String(s.id)
-            const c = SQUAD_COLORS[idx % SQUAD_COLORS.length]
-            const count = counts?.squads?.[String(s.id)] ?? 0
-            return (
-              <button
-                key={s.id}
-                onClick={() => { setSquadFilter(String(s.id)); setOpen(false) }}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
-                  isActive ? 'text-rl-text font-medium' : 'text-rl-muted'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${c.dot}`} />
-                  <span className="truncate">{s.emoji ? `${s.emoji} ${s.name}` : s.name}</span>
-                </div>
-                <span className="text-[11px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-full shrink-0">
-                  {count}
-                </span>
-              </button>
-            )
-          })}
+        <div role="menu" className="absolute left-0 top-[calc(100%+6px)] z-30 min-w-[13rem] bg-rl-card border border-rl-border shadow-xl py-1 rounded-xl">
+          <ItemFiltro selecionado={!ativo} onClick={() => escolher('all')}>
+            <span className="w-2 shrink-0" />
+            <span className="flex-1 text-left">{todos}</span>
+          </ItemFiltro>
+          <div className="border-t border-rl-border my-1" />
+          {opcoes.map(o => (
+            <ItemFiltro key={o.value} selecionado={String(o.value) === String(valor)} onClick={() => escolher(String(o.value))}>
+              <PontoOpcao o={o} />
+              <span className="flex-1 text-left truncate">{o.label}</span>
+              <span className="text-[11px] text-rl-muted tabular-nums">{o.count ?? 0}</span>
+            </ItemFiltro>
+          ))}
         </div>
       )}
     </div>
   )
 }
 
-// ─── Risk Dropdown ────────────────────────────────────────────────────────────
+function ItemFiltro({ selecionado, onClick, children }) {
+  return (
+    <button
+      type="button"
+      role="menuitemradio"
+      aria-checked={selecionado}
+      onClick={onClick}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-rl-surface focus-visible:bg-rl-surface focus-visible:outline-none ${
+        selecionado ? 'text-rl-text font-semibold' : 'text-rl-subtle'
+      }`}
+    >
+      {children}
+      <Check className={`w-3.5 h-3.5 shrink-0 text-rl-purple ${selecionado ? '' : 'invisible'}`} />
+    </button>
+  )
+}
+
+// Atalho liga/desliga (Novos, Churn): mesma pílula, com o contador.
+function FiltroAtalho({ icone: Icone, rotulo, ativo, count, onClick, title }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={ativo}
+      title={title}
+      className={`${FILTRO_BASE} px-3 ${ativo ? FILTRO_ON : FILTRO_OFF} ${FOCO}`}
+    >
+      <Icone className="w-3.5 h-3.5 shrink-0" />
+      {rotulo}
+      {count > 0 && (
+        <span className={`text-[11px] font-semibold tabular-nums px-1.5 rounded-full ${ativo ? 'bg-rl-purple/15 text-rl-text' : 'bg-rl-surface text-rl-muted'}`}>
+          {count}
+        </span>
+      )}
+      {ativo && <X className="w-3 h-3 text-rl-muted" />}
+    </button>
+  )
+}
 
 const RISK_OPTIONS = [
-  { value: 'em_risco', label: 'Em Risco',  dot: 'bg-red-400',   text: 'text-red-400',   activeCls: 'bg-red-400/10 border-red-400/40 text-red-400'    },
-  { value: 'neutro',   label: 'Neutro',    dot: 'bg-rl-gold',   text: 'text-rl-gold',   activeCls: 'bg-rl-gold/10 border-rl-gold/40 text-rl-gold'    },
-  { value: 'saudavel', label: 'Saudável',  dot: 'bg-rl-green',  text: 'text-rl-green',  activeCls: 'bg-rl-green/10 border-rl-green/40 text-rl-green' },
+  { value: 'em_risco', label: 'Em Risco', dot: 'bg-rl-red'   },
+  { value: 'neutro',   label: 'Neutro',   dot: 'bg-rl-gold'  },
+  { value: 'saudavel', label: 'Saudável', dot: 'bg-rl-green' },
 ]
-
-function RiskDropdown({ riskFilter, setRiskFilter, counts }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  const active = RISK_OPTIONS.find(r => r.value === riskFilter)
-
-  return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all ${
-          active
-            ? active.activeCls
-            : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
-        }`}
-      >
-        {active
-          ? <><span className={`w-2 h-2 rounded-full shrink-0 ${active.dot}`} />{active.label}</>
-          : <><Eye className="w-3.5 h-3.5 shrink-0" />Risco</>
-        }
-        {active
-          ? <span
-              role="button"
-              onClick={(e) => { e.stopPropagation(); setRiskFilter('all') }}
-              className="ml-0.5 rounded-full hover:opacity-70 p-0.5 transition-opacity"
-            ><X className="w-3 h-3" /></span>
-          : <ChevronDown className={`w-3.5 h-3.5 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
-        }
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-48 glass-card border border-rl-border shadow-xl py-1 rounded-xl overflow-hidden">
-          <button
-            onClick={() => { setRiskFilter('all'); setOpen(false) }}
-            className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
-              !active ? 'text-rl-purple font-semibold' : 'text-rl-muted'
-            }`}
-          >
-            <span>Todos</span>
-            {!active && <span className="w-1.5 h-1.5 rounded-full bg-rl-purple" />}
-          </button>
-          <div className="border-t border-rl-border/60 my-1" />
-          {RISK_OPTIONS.map(r => {
-            const isActive = riskFilter === r.value
-            const count = counts?.risks?.[r.value] ?? 0
-            return (
-              <button
-                key={r.value}
-                onClick={() => { setRiskFilter(r.value); setOpen(false) }}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
-                  isActive ? `${r.text} font-medium` : 'text-rl-muted'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${r.dot}`} />
-                  {r.label}
-                </div>
-                <span className="text-[11px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-full shrink-0">{count}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── Momento Dropdown ─────────────────────────────────────────────────────────
-
-function MomentoDropdown({ momentoFilter, setMomentoFilter, counts }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  const active = MOMENTO_OPTIONS.find(m => m.value === momentoFilter)
-
-  return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all ${
-          active
-            ? active.activeCls
-            : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
-        }`}
-      >
-        {active
-          ? <><span className={`w-2 h-2 rounded-full shrink-0 ${active.dot}`} />{active.label}</>
-          : <>🎯 Momento</>
-        }
-        {active
-          ? <span
-              role="button"
-              onClick={(e) => { e.stopPropagation(); setMomentoFilter('all') }}
-              className="ml-0.5 rounded-full hover:opacity-70 p-0.5 transition-opacity"
-            ><X className="w-3 h-3" /></span>
-          : <ChevronDown className={`w-3.5 h-3.5 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
-        }
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-52 glass-card border border-rl-border shadow-xl py-1 rounded-xl overflow-hidden">
-          <button
-            onClick={() => { setMomentoFilter('all'); setOpen(false) }}
-            className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
-              !active ? 'text-rl-purple font-semibold' : 'text-rl-muted'
-            }`}
-          >
-            <span>Todos</span>
-            {!active && <span className="w-1.5 h-1.5 rounded-full bg-rl-purple" />}
-          </button>
-          <div className="border-t border-rl-border/60 my-1" />
-          {MOMENTO_OPTIONS.map(m => {
-            const isActive = momentoFilter === m.value
-            const count = counts?.momentos?.[m.value] ?? 0
-            return (
-              <button
-                key={m.value}
-                onClick={() => { setMomentoFilter(m.value); setOpen(false) }}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
-                  isActive ? `${m.text} font-medium` : 'text-rl-muted'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${m.dot}`} />
-                  {m.label}
-                </div>
-                <span className="text-[11px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-full shrink-0">{count}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── Business Model Dropdown (B2B / B2C) ─────────────────────────────────────
 
 const BIZ_MODEL_OPTIONS = [
-  { value: 'b2b', label: 'B2B', dot: 'bg-rl-blue',  text: 'text-rl-blue',  activeCls: 'bg-rl-blue/10 border-rl-blue/40 text-rl-blue'   },
-  { value: 'b2c', label: 'B2C', dot: 'bg-rl-green', text: 'text-rl-green', activeCls: 'bg-rl-green/10 border-rl-green/40 text-rl-green' },
+  { value: 'b2b', label: 'B2B', dot: 'bg-rl-blue'  },
+  { value: 'b2c', label: 'B2C', dot: 'bg-rl-green' },
 ]
 
-function BusinessModelDropdown({ bizFilter, setBizFilter, counts }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  const active = BIZ_MODEL_OPTIONS.find(o => o.value === bizFilter)
-
+// ─── Indicador do topo ────────────────────────────────────────────────────────
+// Com `onClick`, o cartão inteiro vira botão e mostra a `acao` no rodapé.
+function Kpi({ icone: Icone, rotulo, valor, cor = 'text-rl-text', extra, title, onClick, acao, children }) {
+  const Tag = onClick ? 'button' : 'div'
   return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all ${
-          active
-            ? active.activeCls
-            : 'bg-rl-surface border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/30'
-        }`}
-      >
-        {active
-          ? <><span className={`w-2 h-2 rounded-full shrink-0 ${active.dot}`} />{active.label}</>
-          : <><Building2 className="w-3.5 h-3.5 shrink-0" />B2B / B2C</>
-        }
-        {active
-          ? <span
-              role="button"
-              onClick={(e) => { e.stopPropagation(); setBizFilter('all') }}
-              className="ml-0.5 rounded-full hover:opacity-70 p-0.5 transition-opacity"
-            ><X className="w-3 h-3" /></span>
-          : <ChevronDown className={`w-3.5 h-3.5 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
-        }
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-44 glass-card border border-rl-border shadow-xl py-1 rounded-xl overflow-hidden">
-          <button
-            onClick={() => { setBizFilter('all'); setOpen(false) }}
-            className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
-              !active ? 'text-rl-purple font-semibold' : 'text-rl-muted'
-            }`}
-          >
-            <span>Todos</span>
-            {!active && <span className="w-1.5 h-1.5 rounded-full bg-rl-purple" />}
-          </button>
-          <div className="border-t border-rl-border/60 my-1" />
-          {BIZ_MODEL_OPTIONS.map(o => {
-            const isActive = bizFilter === o.value
-            const count = counts?.businessModels?.[o.value] ?? 0
-            return (
-              <button
-                key={o.value}
-                onClick={() => { setBizFilter(o.value); setOpen(false) }}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-rl-surface/80 ${
-                  isActive ? `${o.text} font-medium` : 'text-rl-muted'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${o.dot}`} />
-                  {o.label}
-                </div>
-                <span className="text-[11px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-full shrink-0">{count}</span>
-              </button>
-            )
-          })}
-        </div>
+    <Tag
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      title={title}
+      className={`glass-card p-4 sm:p-5 text-left flex flex-col min-w-0 ${onClick ? 'group/kpi hover:border-rl-purple/40 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-rl-purple' : ''}`}
+    >
+      <span className="flex items-center gap-2 text-xs text-rl-muted">
+        <Icone className="w-3.5 h-3.5 shrink-0" />
+        <span className="truncate">{rotulo}</span>
+      </span>
+      <span className="flex items-baseline gap-2 mt-1.5 min-w-0">
+        <span className={`text-xl sm:text-2xl font-bold tabular-nums leading-tight truncate ${cor}`}>{valor}</span>
+        {extra}
+      </span>
+      <span className="text-xs sm:text-sm text-rl-muted mt-1.5 tabular-nums">{children}</span>
+      {acao && (
+        <span className="mt-auto pt-2 inline-flex items-center gap-1 text-xs font-semibold text-rl-purple">
+          {acao}
+          <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover/kpi:translate-x-0.5" />
+        </span>
       )}
-    </div>
+    </Tag>
   )
 }
 
 // ─── List View ────────────────────────────────────────────────────────────────
+// `num`: alinhado à direita (números tabulares). `hide`: some no mobile.
+// `w`: largura fixa — cada grupo de risco é uma tabela própria, e sem largura
+// fixa as colunas de um grupo não alinham com as do outro. Empresa fica com o resto.
 const LIST_COLS = [
-  { key: 'companyName',     label: 'Empresa'             },
-  { key: 'squadName',       label: 'Squad'               },
-  { key: 'conv7d',          label: 'Conversões 7d'       },
-  { key: 'riskLevel',       label: 'Risco'               },
-  { key: 'momento',         label: 'Momento'             },
-  { key: 'progress',        label: 'Progresso'           },
-  { key: 'contractValue',   label: 'Contrato'            },
-  { key: 'createdAt',       label: 'Criado em'           },
+  { key: 'companyName',   label: 'Empresa'                                                         },
+  { key: 'squadName',     label: 'Squad',         w: 'w-36', hide: 'hidden md:table-cell'           },
+  { key: 'conv7d',        label: 'Conversões 7d', w: 'w-36', hide: 'hidden lg:table-cell', num: true },
+  { key: 'riskLevel',     label: 'Risco',         w: 'w-32', semGrupo: true                         },
+  { key: 'momento',       label: 'Momento',       w: 'w-40', hide: 'hidden sm:table-cell'           },
+  { key: 'ltv',           label: 'LTV',           w: 'w-32', num: true                              },
+  { key: 'lt',            label: 'LT',            w: 'w-28', hide: 'hidden sm:table-cell', num: true, title: 'Lifetime: tempo de contrato ativo, em meses e dias (até hoje ou até o churn)' },
+  { key: 'contractValue', label: 'Contrato',      w: 'w-28', hide: 'hidden sm:table-cell', num: true },
+  { key: 'createdAt',     label: 'Criado em',     w: 'w-36', hide: 'hidden xl:table-cell', num: true },
 ]
 
-
 function SortIcon({ col, sortBy, sortDir }) {
-  if (sortBy !== col) return <ChevronsUpDown className="w-3 h-3 text-rl-muted/40" />
+  if (sortBy !== col) return <ChevronsUpDown className="w-3 h-3 opacity-0 group-hover/th:opacity-60 transition-opacity" />
   return sortDir === 'asc'
     ? <ChevronUp   className="w-3 h-3 text-rl-purple" />
     : <ChevronDown className="w-3 h-3 text-rl-purple" />
 }
 
 const RISK_GROUPS = [
-  { value: 'em_risco', label: 'Em Risco', dot: 'bg-red-400',  text: 'text-red-400',  border: 'border-red-400/30',  bg: 'bg-red-400/5'  },
-  { value: 'neutro',   label: 'Neutro',   dot: 'bg-rl-gold',  text: 'text-rl-gold',  border: 'border-rl-gold/30',  bg: 'bg-rl-gold/5'  },
-  { value: 'saudavel', label: 'Saudável', dot: 'bg-rl-green', text: 'text-rl-green', border: 'border-rl-green/30', bg: 'bg-rl-green/5' },
-  { value: null,       label: 'Sem Risco',dot: 'bg-rl-muted', text: 'text-rl-muted', border: 'border-rl-border',   bg: 'bg-rl-surface/30' },
+  { value: 'em_risco', label: 'Em Risco',  dot: 'bg-rl-red',   text: 'text-rl-red',   valor: 'text-rl-red',   bg: 'bg-rl-red/[.04]'   },
+  { value: 'neutro',   label: 'Neutro',    dot: 'bg-rl-gold',  text: 'text-rl-gold',  valor: 'text-rl-gold',  bg: 'bg-rl-gold/[.04]'  },
+  { value: 'saudavel', label: 'Saudável',  dot: 'bg-rl-green', text: 'text-rl-green', valor: 'text-rl-green', bg: 'bg-rl-green/[.04]' },
+  { value: null,       label: 'Sem Risco', dot: 'bg-rl-muted', text: 'text-rl-muted', valor: 'text-rl-text',  bg: 'bg-rl-surface/60'  },
 ]
 
 
 // Célula de Conversões 7d: número + seta de tendência (vs 7 dias anteriores).
 function ConvCell({ t, loading }) {
-  if (!t) return <span className="text-rl-muted">{loading ? '·' : '—'}</span>
+  if (!t) return <Vazio>{loading ? '·' : '—'}</Vazio>
   const { conv, prev } = t
-  if (conv === 0 && prev === 0) return <span className="text-rl-muted">—</span>
+  if (conv === 0 && prev === 0) return <Vazio />
   const dir = conv > prev ? 'up' : conv < prev ? 'down' : 'flat'
   const pct = prev > 0 ? Math.round(((conv - prev) / prev) * 100) : null
-  const color = dir === 'up' ? 'text-rl-green' : dir === 'down' ? 'text-red-400' : 'text-rl-muted'
+  const color = dir === 'up' ? 'text-rl-green' : dir === 'down' ? 'text-rl-red' : 'text-rl-muted'
   const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '▬'
   const label = pct == null ? 'novo' : `${pct > 0 ? '+' : ''}${pct}%`
   return (
-    <div className="flex items-center gap-2 whitespace-nowrap">
+    <div className="flex items-center justify-end gap-2 whitespace-nowrap">
       <span className="text-rl-text font-medium">{fmtNum(conv)}</span>
       <span className={`text-xs flex items-center gap-0.5 ${color}`}>{arrow} {label}</span>
     </div>
@@ -687,6 +418,7 @@ function ConvCell({ t, loading }) {
 function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false, dash }) {
   const [sortBy,  setSortBy]  = useState('createdAt')
   const [sortDir, setSortDir] = useState('desc')
+  const logoDe = useLogosAssinados(projects.map(p => p.logoUrl))
 
   function handleSort(key) {
     if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -728,8 +460,12 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false, 
   const sorted = [...projects].sort((a, b) => {
     let av = a[sortBy] ?? ''
     let bv = b[sortBy] ?? ''
-    if (sortBy === 'progress' || sortBy === 'contractValue') {
+    if (sortBy === 'contractValue') {
       av = Number(av) || 0; bv = Number(bv) || 0
+    } else if (sortBy === 'ltv') {
+      av = calcLTV(a); bv = calcLTV(b)
+    } else if (sortBy === 'lt') {
+      av = activeMonths(a); bv = activeMonths(b)
     } else if (sortBy === 'conv7d') {
       av = trafficByProject[a.id]?.conv || 0; bv = trafficByProject[b.id]?.conv || 0
     } else if (sortBy === 'createdAt') {
@@ -756,90 +492,53 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false, 
       }).filter(g => g.rows.length > 0)
     : null
 
-  function renderRow(p, isLast) {
+  const cols = groupByRisk ? LIST_COLS.filter(c => !c.semGrupo) : LIST_COLS
+
+  function renderRow(p) {
     const createdStr = p.createdAt
       ? new Date(p.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-      : '—'
+      : null
+    const ltv = calcLTV(p)
+    const logo = logoDe(p.logoUrl)
+    const td = (c) => `px-4 py-2.5 ${c.hide || ''} ${c.num ? 'text-right tabular-nums whitespace-nowrap' : ''} ${c.key === 'companyName' ? '' : 'overflow-hidden'}`
+    const cel = {
+      companyName: (
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-8 h-8 shrink-0 rounded-[10px] border border-rl-border overflow-hidden flex items-center justify-center ${logo ? 'bg-rl-card' : 'fx-soft'}`}>
+            {logo
+              ? <img src={logo} alt="" className="w-full h-full object-cover" loading="lazy" />
+              : <span className="text-[11px] font-bold">{initials(p.companyName)}</span>
+            }
+          </div>
+          <span className="font-semibold text-rl-text group-hover:text-rl-purple transition-colors truncate" title={p.companyName}>
+            {p.companyName}
+          </span>
+        </div>
+      ),
+      squadName: <SquadBadge name={p.squadName} emoji={p.squadEmoji} colorIndex={p.squadColorIndex} members={p.squadMembers ?? []} />,
+      conv7d: <ConvCell t={trafficByProject[p.id]} loading={dash.loading} />,
+      riskLevel: p.riskLevel ? <RiskBadge riskLevel={p.riskLevel} /> : <Vazio />,
+      momento: p.momento ? <MomentoBadge momento={p.momento} /> : <Vazio />,
+      ltv: ltv > 0 ? <span className="font-semibold text-rl-text">{fmtCurrency(ltv)}</span> : <Vazio />,
+      lt: <LtCell meses={activeMonths(p)} />,
+      contractValue: p.contractValue ? <span className="text-rl-subtle">{fmtCurrency(Number(p.contractValue))}</span> : <Vazio />,
+      createdAt: createdStr ? <span className="text-xs text-rl-muted">{createdStr}</span> : <Vazio />,
+    }
     return (
       <tr
         key={p.id}
+        tabIndex={0}
         onClick={() => onNavigate(p.id)}
-        className={`cursor-pointer transition-colors hover:bg-rl-surface/50 group
-          ${!isLast ? 'border-b border-rl-border/50' : ''}`}
+        onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) onNavigate(p.id) }}
+        className="cursor-pointer transition-colors hover:bg-rl-surface focus-visible:outline-none focus-visible:bg-rl-surface focus-visible:shadow-[inset_2px_0_0_rgb(var(--rl-purple))] group border-b border-rl-border last:border-b-0"
       >
-        {/* Empresa */}
-        <td className="px-4 py-3">
-          <div className="flex flex-col gap-0.5">
-            <span className="font-medium text-rl-text group-hover:text-rl-purple transition-colors leading-tight">
-              {p.companyName}
-            </span>
-            {p.businessType && (
-              <span className="text-[10px] text-rl-muted">{p.businessType}</span>
-            )}
-          </div>
-        </td>
-
-        {/* Squad */}
-        <td className="px-4 py-3">
-          <SquadBadge name={p.squadName} emoji={p.squadEmoji} colorIndex={p.squadColorIndex} members={p.squadMembers ?? []} />
-        </td>
-
-        {/* Conversões 7d (Meta + Google) */}
-        <td className="px-4 py-3">
-          <ConvCell t={trafficByProject[p.id]} loading={dash.loading} />
-        </td>
-
-        {/* Risco */}
-        <td className="px-4 py-3">
-          {p.riskLevel
-            ? <RiskBadge riskLevel={p.riskLevel} />
-            : <span className="text-rl-muted">—</span>
-          }
-        </td>
-
-        {/* Momento */}
-        <td className="px-4 py-3">
-          {p.momento
-            ? <MomentoBadge momento={p.momento} />
-            : <span className="text-rl-muted">—</span>
-          }
-        </td>
-
-        {/* Progresso */}
-        <td className="px-4 py-3">
-          <div className="flex flex-col gap-1 min-w-[80px]">
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-rl-surface rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-rl rounded-full"
-                  style={{ width: `${p.progress ?? 0}%` }}
-                />
-              </div>
-              <span className="text-xs text-rl-muted w-7 text-right shrink-0">
-                {p.progress ?? 0}%
-              </span>
-            </div>
-            <OnboardingProgressBar project={p} compact />
-          </div>
-        </td>
-
-        {/* Contrato */}
-        <td className="px-4 py-3 text-rl-muted whitespace-nowrap">
-          {p.contractValue ? fmtCurrency(Number(p.contractValue)) : '—'}
-        </td>
-
-        {/* Criado em */}
-        <td className="px-4 py-3 text-rl-muted whitespace-nowrap text-xs">
-          {createdStr}
-        </td>
-
-        {/* Ações */}
-        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+        {cols.map(c => <td key={c.key} className={td(c)}>{cel[c.key]}</td>)}
+        <td className="pl-1 pr-3 py-2.5 w-10" onClick={e => e.stopPropagation()}>
           <button
             onClick={() => onDelete(p)}
-            aria-label="Excluir projeto"
+            aria-label={`Excluir ${p.companyName}`}
             title="Excluir projeto"
-            className="p-1.5 rounded-lg text-rl-muted opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-400/10 transition-all"
+            className="p-1.5 rounded-lg text-rl-muted md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 hover:text-rl-red hover:bg-rl-red/10 transition-all"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -851,26 +550,35 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false, 
   function renderTable(rows) {
     return (
       <div className="overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
+        <table className="w-full table-fixed min-w-[17rem] sm:min-w-[40rem] text-sm border-collapse">
           <thead>
-            <tr className="border-b border-rl-border">
-              {LIST_COLS.map(col => (
-                <th
-                  key={col.key}
-                  onClick={() => handleSort(col.key)}
-                  className="px-4 py-3 text-left text-xs font-semibold text-rl-muted uppercase tracking-wider whitespace-nowrap cursor-pointer select-none hover:text-rl-text transition-colors"
-                >
-                  <span className="flex items-center gap-1.5">
-                    {col.label}
-                    <SortIcon col={col.key} sortBy={sortBy} sortDir={sortDir} />
-                  </span>
-                </th>
-              ))}
-              <th className="px-4 py-3 w-10" />
+            <tr className="border-b border-rl-border bg-rl-surface/60">
+              {cols.map(col => {
+                const ativo = sortBy === col.key
+                return (
+                  <th
+                    key={col.key}
+                    scope="col"
+                    aria-sort={ativo ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className={`px-4 py-2 font-semibold whitespace-nowrap ${col.w || ''} ${col.hide || ''} ${col.num ? 'text-right' : 'text-left'}`}
+                  >
+                    <button
+                      type="button"
+                      title={col.title}
+                      onClick={() => handleSort(col.key)}
+                      className={`group/th inline-flex items-center gap-1 text-[11px] uppercase tracking-wider transition-colors hover:text-rl-text ${ativo ? 'text-rl-text' : 'text-rl-muted'} ${col.num ? 'flex-row-reverse' : ''}`}
+                    >
+                      {col.label}
+                      <SortIcon col={col.key} sortBy={sortBy} sortDir={sortDir} />
+                    </button>
+                  </th>
+                )
+              })}
+              <th className="w-10"><span className="sr-only">Ações</span></th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((p, i) => renderRow(p, i === rows.length - 1))}
+            {rows.map(p => renderRow(p))}
           </tbody>
         </table>
       </div>
@@ -886,37 +594,35 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false, 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {groups.map(g => (
-        <div
-          key={g.value ?? 'sem_risco'}
-          className={`glass-card overflow-hidden border ${g.border}`}
-        >
-          <div className={`flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4 border-b border-rl-border/60 ${g.bg}`}>
+        <section key={g.value ?? 'sem_risco'} className="glass-card overflow-hidden" aria-label={g.label}>
+          <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 border-b border-rl-border ${g.bg}`}>
             <div className="flex items-center gap-2">
-              <span className={`w-2.5 h-2.5 rounded-full ${g.dot}`} />
-              <span className={`text-sm font-bold uppercase tracking-wider ${g.text}`}>{g.label}</span>
-              <span className="text-xs text-rl-muted bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full">
+              <span className={`w-2 h-2 rounded-full ${g.dot}`} />
+              <h3 className={`text-xs font-bold uppercase tracking-wider ${g.text}`}>{g.label}</h3>
+              <span className="text-[11px] font-semibold text-rl-muted bg-rl-card border border-rl-border px-2 py-0.5 rounded-full tabular-nums">
                 {g.rows.length} {g.rows.length === 1 ? 'cliente' : 'clientes'}
               </span>
             </div>
-            <div className="ml-auto flex items-center gap-6">
+            {/* Totais do grupo: valor grande, na cor do grupo (o "Sem risco" fica no texto) */}
+            <dl className="ml-auto flex items-center gap-6 sm:gap-8">
               {g.totalVal > 0 && (
-                <div className="flex flex-col items-end">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">Contrato Cheio</span>
-                  <span className={`text-2xl font-bold leading-tight ${g.text}`}>{fmtCurrency(g.totalVal)}</span>
+                <div className="text-right">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">Contrato cheio</dt>
+                  <dd className={`text-lg font-bold tabular-nums leading-tight ${g.valor}`}>{fmtCurrency(g.totalVal)}</dd>
                 </div>
               )}
               {g.totalMRR > 0 && (
-                <div className="flex flex-col items-end">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">MRR</span>
-                  <span className={`text-2xl font-bold leading-tight ${g.text}`}>{fmtCurrency(g.totalMRR)}</span>
+                <div className="text-right">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">MRR</dt>
+                  <dd className={`text-lg font-bold tabular-nums leading-tight ${g.valor}`}>{fmtCurrency(g.totalMRR)}</dd>
                 </div>
               )}
-            </div>
+            </dl>
           </div>
           {renderTable(g.rows)}
-        </div>
+        </section>
       ))}
     </div>
   )
@@ -1011,28 +717,27 @@ export default function Dashboard() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   // O filtro mora na URL (`/?lista=`) para sobreviver a refresh e poder ser
   // linkado — a AppSidebar lê o mesmo parâmetro em vez de receber por prop.
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  // Tela de crescimento da base: mesma rota, `?visao=crescimento&mes=yyyy-mm&aba=novos|churn`.
+  const emCrescimento = searchParams.get('visao') === 'crescimento'
+  function abrirCrescimento(extra = {}) {
+    setSearchParams({ visao: 'crescimento', ...extra })
+    window.scrollTo(0, 0)
+  }
+  function mudarCrescimento(chave, valor) {
+    const q = new URLSearchParams(searchParams)
+    q.set(chave, valor)
+    setSearchParams(q, { replace: true })
+  }
   const filter = searchParams.get('lista') || 'all'  // 'all' | 'onboarding' | 'active' | accountId
   const [squadFilter, setSquadFilter] = useState('all') // 'all' | squadId
   const [riskFilter, setRiskFilter] = useState('all') // 'all' | 'em_risco' | 'neutro' | 'saudavel'
   const [momentoFilter, setMomentoFilter] = useState('all') // 'all' | momento value
-  const [phase90Filter, setPhase90Filter] = useState(false) // toggle: clientes com createdAt < 90d
   const [bizFilter, setBizFilter] = useState('all') // 'all' | 'b2b' | 'b2c'
   const [searchQuery, setSearchQuery] = useState('')
-  const [view, setView] = useState(() => localStorage.getItem('rl_dashboard_view') || 'grid')
-  const [churnListOpen, setChurnListOpen] = useState(false)
-  const [churnHistoryOpen, setChurnHistoryOpen] = useState(false)
-  const [novosListOpen, setNovosListOpen] = useState(false)
-  const [growthHistoryOpen, setGrowthHistoryOpen] = useState(false)
-  // Mês selecionado no modal de histórico (yyyy-mm). Default: mês corrente
-  const [historyMonth, setHistoryMonth] = useState(() => {
-    const t = new Date()
-    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`
-  })
-  // Qual lista mostrar no modal de histórico: 'selected' | 'previous'
-  const [historyTab, setHistoryTab] = useState('selected')
 
-  function switchView(v) { setView(v); localStorage.setItem('rl_dashboard_view', v) }
+  // A visão em cards saiu (2026-10-28); a lista é a única. Limpa a preferência antiga.
+  useEffect(() => { localStorage.removeItem('rl_dashboard_view') }, [])
 
   const isAdmin = user?.role === 'admin'
 
@@ -1058,19 +763,6 @@ export default function Dashboard() {
     else if (filter !== 'churn')      result = result.filter(p => p.momento !== 'churn')
     if (bizFilter === 'b2b')      result = result.filter(p => p.businessType === 'b2b')
     else if (bizFilter === 'b2c') result = result.filter(p => p.businessType !== 'b2b')
-    if (phase90Filter) {
-      const cutoff = Date.now() - 90 * 86400000
-      result = result.filter(p => {
-        // Mesma lógica da barra de progresso: usa contractDate (assinatura)
-        // com fallback pra createdAt quando não preenchido.
-        const startISO = p.contractDate || p.createdAt
-        if (!startISO) return false
-        const t = new Date(
-          typeof startISO === 'string' && startISO.length === 10 ? startISO + 'T00:00:00' : startISO
-        ).getTime()
-        return !isNaN(t) && t >= cutoff
-      })
-    }
     return result
   })()
 
@@ -1130,6 +822,13 @@ export default function Dashboard() {
   }
 
   // Derive page title from filter
+  const listaAtalho = filter === 'novos' || filter === 'churn'
+  const filtrosAtivos = [squadFilter, riskFilter, momentoFilter, bizFilter].filter(v => v !== 'all').length + (listaAtalho ? 1 : 0)
+  function limparFiltros() {
+    setSquadFilter('all'); setRiskFilter('all'); setMomentoFilter('all'); setBizFilter('all')
+    if (listaAtalho) navigate('/', { replace: true })
+  }
+
   const pageTitle = (() => {
     if (filter === 'all')        return 'Clientes'
     if (filter === 'churn')      return 'Churn'
@@ -1141,20 +840,18 @@ export default function Dashboard() {
   })()
 
   // ── Resumo financeiro + churn do mês corrente ─────────────────────────────
-  const _now      = new Date()
+const _now      = new Date()
   const _yyyy     = _now.getFullYear()
   const _mm       = _now.getMonth()
-  const _monthsPT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-  const monthLabel = `${_monthsPT[_mm]} ${_yyyy}`
+  const monthLabel = MONTHS_PT[_mm]
 
   const activeBase  = baseProjects.filter(p => p.momento !== 'churn')
   const totalContract = activeBase.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
   const totalMRR      = activeBase.reduce((acc, p) => acc + mrrValue(p), 0)
   // Ticket médio considera apenas clientes ativos com contractValue > 0
   // para evitar "diluição" por contas ainda em onboarding sem valor preenchido.
-  const billedClients   = activeBase.filter(p => (Number(p.contractValue) || 0) > 0)
-  const avgTicketContract = billedClients.length > 0 ? totalContract / billedClients.length : 0
-  const avgTicketMRR      = billedClients.length > 0 ? totalMRR      / billedClients.length : 0
+  const billedClients = activeBase.filter(p => (Number(p.contractValue) || 0) > 0)
+  const avgTicketMRR  = billedClients.length > 0 ? totalMRR / billedClients.length : 0
 
   // LTV Médio — considera TODOS os clientes com contractDate (ativos +
   // churnados), pois churnados representam ciclos completos que entram
@@ -1163,56 +860,8 @@ export default function Dashboard() {
   const totalLTV   = ltvClients.reduce((acc, p) => acc + calcLTV(p), 0)
   const avgLTV     = ltvClients.length > 0 ? totalLTV / ltvClients.length : 0
 
-  const churnedThisMonth = baseProjects.filter(p => {
-    if (p.momento !== 'churn' || !p.churnDate) return false
-    const d = new Date(p.churnDate + 'T00:00:00')
-    return d.getFullYear() === _yyyy && d.getMonth() === _mm
-  }).map(p => {
-    const squad = squads.find(s => String(s.id) === String(p.squad)) || null
-    return { ...p, _squadName: squad?.name ?? null, _squadEmoji: squad?.emoji ?? null }
-  }).sort((a, b) => (b.churnDate || '').localeCompare(a.churnDate || ''))
-
-  // Entradas do mês corrente (mesma régua do churn, do outro lado da conta).
-  // Inclui quem entrou e já saiu no mesmo mês — a entrada aconteceu, e o Net
-  // MRR precisa das duas pontas para fechar.
-  const novosThisMonth = newStats(baseProjects, _yyyy, _mm)
-
-  const churnCount    = churnedThisMonth.length
-  const churnMRR      = churnedThisMonth.reduce((acc, p) => acc + mrrValue(p), 0)
-  const churnContract = churnedThisMonth.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
-
-  // Helpers para histórico de churn por mês
-  function churnsForMonth(yyyy, mm) {
-    return baseProjects.filter(p => {
-      if (p.momento !== 'churn' || !p.churnDate) return false
-      const d = new Date(p.churnDate + 'T00:00:00')
-      return d.getFullYear() === yyyy && d.getMonth() === mm
-    })
-  }
-  function statsForMonth(yyyy, mm) {
-    const list = churnsForMonth(yyyy, mm)
-    return {
-      count:    list.length,
-      mrr:      list.reduce((acc, p) => acc + mrrValue(p), 0),
-      contract: list.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0),
-      list,
-    }
-  }
-  // Constroi os últimos 12 meses (yyyy-mm) começando do mês atual e voltando
-  const HISTORY_OPTIONS = (() => {
-    const out = []
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(_yyyy, _mm - i, 1)
-      const yyyy = d.getFullYear()
-      const m = d.getMonth()
-      out.push({
-        key: `${yyyy}-${String(m + 1).padStart(2, '0')}`,
-        yyyy, mm: m,
-        label: `${_monthsPT[m]} ${yyyy}`,
-      })
-    }
-    return out
-  })()
+  // Saldo do mês corrente (entradas − saídas), a mesma conta da tela de crescimento.
+  const net = netStats(baseProjects, _yyyy, _mm)
 
   return (
     <>
@@ -1240,162 +889,86 @@ export default function Dashboard() {
         </div>
 
         <main className="flex-1 px-6 py-8 space-y-8">
-
-          {/* Welcome */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up">
-            <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-2xl font-bold text-rl-text">
-                  Olá, {user.name.split(' ')[0]} 👋
-                </h1>
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-rl-purple/10 text-rl-purple border border-rl-purple/20">
-                  <Eye className="w-3 h-3" />
-                  {isAdmin ? 'Visão Admin' : 'Visão Geral'}
-                </span>
-              </div>
-              <p className="text-rl-muted mt-1 text-sm">
-                Bem-vindo à Verta Internal
-              </p>
-            </div>
-            <button
-              onClick={() => navigate('/cliente/novo')}
-              className="hidden sm:flex btn-primary items-center gap-2 whitespace-nowrap animate-pulse-glow"
-            >
-              <Plus className="w-4 h-4" />
-              Novo Cliente
-            </button>
-          </div>
-
-          {/* Resumo financeiro + movimentação do mês corrente */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            {/* Contrato Cheio total */}
-            <div className="glass-card p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs text-rl-muted">Contrato Cheio</p>
-                  <p className="text-2xl font-bold text-rl-text mt-1 leading-tight">{fmtCurrency(totalContract)}</p>
-                  <p className="text-[11px] text-rl-muted mt-1">
-                    {activeBase.length} {activeBase.length === 1 ? 'cliente ativo' : 'clientes ativos'}
-                  </p>
-                  {billedClients.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-rl-border/60">
-                      <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">Ticket Médio</p>
-                      <p className="text-sm font-bold text-rl-cyan mt-0.5">{fmtCurrency(avgTicketContract)}</p>
-                    </div>
-                  )}
-                </div>
-                <div className="w-9 h-9 rounded-xl bg-rl-cyan/10 text-rl-cyan flex items-center justify-center shrink-0">
-                  <Wallet className="w-5 h-5" />
-                </div>
-              </div>
-            </div>
-
-            {/* MRR total */}
-            <div className="glass-card p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-rl-muted">MRR</p>
-                  <p className="text-2xl font-bold text-rl-text mt-1 leading-tight">{fmtCurrency(totalMRR)}</p>
-                  <p className="text-[11px] text-rl-muted mt-1">Receita mensal recorrente</p>
-                  {(billedClients.length > 0 || ltvClients.length > 0) && (
-                    <div className="mt-2 pt-2 border-t border-rl-border/60 grid grid-cols-2 gap-3">
-                      {billedClients.length > 0 && (
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">Ticket Médio</p>
-                          <p className="text-sm font-bold text-rl-green mt-0.5">{fmtCurrency(avgTicketMRR)}</p>
-                        </div>
-                      )}
-                      {ltvClients.length > 0 && (
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold" title={`Média do LTV de ${ltvClients.length} ${ltvClients.length === 1 ? 'cliente' : 'clientes'}`}>
-                            LTV Médio
-                          </p>
-                          <p className="text-sm font-bold text-rl-purple mt-0.5">{fmtCurrency(avgLTV)}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="w-9 h-9 rounded-xl bg-rl-green/10 text-rl-green flex items-center justify-center shrink-0">
-                  <DollarSign className="w-5 h-5" />
-                </div>
-              </div>
-            </div>
-
-            {/* Novos clientes do mês — espelho do card de churn */}
-            <NovosClientesCard
-              stats={novosThisMonth}
-              monthLabel={monthLabel}
-              onOpenList={() => setNovosListOpen(true)}
-              onOpenHistory={() => setGrowthHistoryOpen(true)}
-            />
-
-            {/* Churn do mês — área principal clicável + botão de histórico discreto */}
-            <div
-              className={`glass-card p-5 relative transition-all ${
-                churnCount > 0 ? 'border-red-400/30' : ''
-              }`}
-            >
-              {/* Botão pequeno para histórico */}
-              <button
-                type="button"
-                onClick={() => setChurnHistoryOpen(true)}
-                title="Ver histórico de churn (períodos anteriores)"
-                aria-label="Histórico de churn"
-                className="absolute top-2 right-2 p-1.5 rounded-lg text-rl-muted/60 hover:text-red-400 hover:bg-red-400/10 transition-all"
-              >
-                <History className="w-3.5 h-3.5" />
-              </button>
-
-              {/* Área clicável (mês corrente) */}
-              <div
-                onClick={() => churnCount > 0 && setChurnListOpen(true)}
-                role={churnCount > 0 ? 'button' : undefined}
-                tabIndex={churnCount > 0 ? 0 : undefined}
-                onKeyDown={(e) => {
-                  if (churnCount > 0 && (e.key === 'Enter' || e.key === ' ')) {
-                    e.preventDefault()
-                    setChurnListOpen(true)
-                  }
-                }}
-                className={`flex items-start justify-between gap-3 ${
-                  churnCount > 0 ? 'cursor-pointer hover:opacity-90 -m-5 p-5 rounded-xl hover:bg-red-400/5 transition-all' : ''
-                }`}
-              >
-                <div className="min-w-0">
-                  <p className="text-xs text-rl-muted">Churn — {monthLabel}</p>
-                  <p className={`text-2xl font-bold mt-1 leading-tight ${churnCount > 0 ? 'text-red-400' : 'text-rl-text'}`}>
-                    {churnCount} {churnCount === 1 ? 'cliente' : 'clientes'}
-                  </p>
-                  {churnCount > 0 ? (
-                    <div className="mt-1.5 space-y-0.5">
-                      <p className="text-[11px] text-rl-muted">
-                        <span className="text-red-400 font-semibold">{fmtCurrency(churnMRR)}</span> em MRR perdido
-                      </p>
-                      <p className="text-[11px] text-rl-muted">
-                        <span className="text-red-400 font-semibold">{fmtCurrency(churnContract)}</span> em contrato cheio
-                      </p>
-                      <p className="text-[10px] text-red-400/80 mt-1 font-medium">Clique para ver lista →</p>
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-rl-muted mt-1">Nenhum churn neste mês</p>
-                  )}
-                </div>
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${churnCount > 0 ? 'bg-red-400/10 text-red-400' : 'bg-rl-muted/10 text-rl-muted'}`}>
-                  <TrendingDown className="w-5 h-5" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Net MRR do mês — crescimento líquido da base */}
-          <div className="animate-slide-up" style={{ animationDelay: '0.12s' }}>
-            <NetMrrSection
+          {emCrescimento ? (
+            <CrescimentoView
               projects={baseProjects}
+              squads={squads}
               yyyy={_yyyy}
               mm={_mm}
-              onOpenHistory={() => setGrowthHistoryOpen(true)}
+              mes={searchParams.get('mes')}
+              aba={searchParams.get('aba') === 'churn' ? 'churn' : 'novos'}
+              onMes={(v) => mudarCrescimento('mes', v)}
+              onAba={(v) => mudarCrescimento('aba', v)}
+              onVoltar={() => setSearchParams({})}
+              onOpenProject={(id) => navigate(cliente(id))}
             />
+          ) : (<>
+
+          {/* Cabeçalho: escopo do que a pessoa vê + ações da página */}
+          <div className="flex flex-wrap items-center gap-3 animate-slide-up">
+            <div className="flex items-center gap-2.5 flex-wrap mr-auto min-w-0">
+              <h1 className="text-2xl font-bold text-rl-text">Visão geral</h1>
+              <span
+                title={isAdmin ? 'Você é admin: vê os clientes de todos os squads' : 'Você vê os clientes dos squads de que faz parte'}
+                className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11px] font-semibold bg-rl-surface border border-rl-border text-rl-subtle"
+              >
+                {isAdmin ? <ShieldCheck className="w-3.5 h-3.5 text-rl-purple" /> : <Users className="w-3.5 h-3.5 text-rl-purple" />}
+                {isAdmin ? 'Admin · todos os squads' : 'Seus squads'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {canViewSquadsReport(user) && (
+                <button
+                  onClick={() => navigate('/relatorio-squads')}
+                  className="btn-secondary inline-flex items-center gap-2 h-[38px] px-3 text-sm whitespace-nowrap"
+                  title="Abrir relatório por squad"
+                >
+                  <Users2 className="w-4 h-4" />
+                  <span className="hidden md:inline">Dashboard de Squads</span>
+                </button>
+              )}
+              <button
+                onClick={() => navigate('/cliente/novo')}
+                className="btn-primary inline-flex items-center gap-2 h-[38px] px-4 py-0 text-sm whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" />
+                Novo cliente
+              </button>
+            </div>
+          </div>
+
+          {/* Indicadores: a carteira hoje + o saldo do mês. O detalhe de
+              entradas e saídas mora em `/?visao=crescimento`. */}
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 animate-slide-up" style={{ animationDelay: '0.05s' }}>
+            <Kpi icone={DollarSign} rotulo="MRR" valor={fmtCurrency(totalMRR)}>
+              Contrato cheio <span className="font-semibold text-rl-text">{fmtCurrency(totalContract)}</span>
+            </Kpi>
+            <Kpi icone={Users} rotulo="Clientes ativos" valor={activeBase.length}>
+              {billedClients.length > 0
+                ? <>Ticket médio <span className="font-semibold text-rl-text">{fmtCurrency(avgTicketMRR)}</span>/mês</>
+                : 'Sem valor de contrato'}
+            </Kpi>
+            <Kpi
+              icone={Wallet}
+              rotulo="LTV médio"
+              valor={ltvClients.length ? fmtCurrency(avgLTV) : '—'}
+              title="Média do LTV dos clientes com data de assinatura, ativos e churn"
+            >
+              {ltvClients.length} {ltvClients.length === 1 ? 'cliente' : 'clientes'}, ativos e churn
+            </Kpi>
+            <Kpi
+              icone={net.net < 0 ? TrendingDown : TrendingUp}
+              rotulo={`Net MRR · ${monthLabel}`}
+              valor={fmtNet(net.net)}
+              extra={<PctNet valor={net.growthPct} />}
+              cor={net.net > 0 ? 'text-rl-green' : net.net < 0 ? 'text-rl-red' : 'text-rl-text'}
+              onClick={() => abrirCrescimento()}
+              acao="Ver crescimento"
+            >
+              <span className="text-rl-green font-semibold">+{fmtCurrency(net.novos.mrr)}</span> ({net.novos.count})
+              {' · '}
+              <span className="text-rl-red font-semibold">−{fmtCurrency(net.churn.mrr)}</span> ({net.churn.count})
+            </Kpi>
           </div>
 
           {/* Otimizações do playbook pendentes (todos os clientes) */}
@@ -1405,26 +978,95 @@ export default function Dashboard() {
 
           {/* Projects */}
           <div className="animate-slide-up" style={{ animationDelay: '0.15s' }}>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-              {/* Title + count */}
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <h2 className="text-lg font-semibold text-rl-text">{pageTitle}</h2>
+            {/* Título, filtros e busca numa linha só (quebra quando falta largura) */}
+            <div className="flex flex-wrap items-center gap-2 mb-4" role="group" aria-label="Filtros da lista">
+              <div className="flex items-center gap-2 mr-2 min-w-0">
+                <h2 className="text-lg font-semibold text-rl-text truncate">{pageTitle}</h2>
                 {visibleProjects.length > 0 && (
-                  <span className="text-xs bg-rl-cyan/10 text-rl-cyan border border-rl-cyan/30 px-2 py-0.5 rounded-full font-medium">
+                  <span className="text-xs font-semibold tabular-nums text-rl-subtle bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full">
                     {visibleProjects.length}
                   </span>
                 )}
               </div>
+              {squads.length > 0 && (
+                <FiltroMenu
+                  icone={Users}
+                  rotulo="Squad"
+                  todos="Todos os squads"
+                  valor={squadFilter}
+                  onChange={setSquadFilter}
+                  opcoes={squads.map((s, idx) => ({
+                    value: String(s.id),
+                    label: s.name,
+                    emoji: s.emoji,
+                    dot: SQUAD_COLORS[idx % SQUAD_COLORS.length].dot,
+                    count: counts.squads?.[String(s.id)],
+                  }))}
+                />
+              )}
+              <FiltroMenu
+                icone={Building2}
+                rotulo="Modelo"
+                valor={bizFilter}
+                onChange={setBizFilter}
+                opcoes={BIZ_MODEL_OPTIONS.map(o => ({ ...o, count: counts.businessModels?.[o.value] }))}
+              />
+              <FiltroMenu
+                icone={ShieldAlert}
+                rotulo="Risco"
+                valor={riskFilter}
+                onChange={setRiskFilter}
+                opcoes={RISK_OPTIONS.map(o => ({ ...o, count: counts.risks?.[o.value] }))}
+              />
+              <FiltroMenu
+                icone={Target}
+                rotulo="Momento"
+                valor={momentoFilter}
+                onChange={setMomentoFilter}
+                opcoes={MOMENTO_OPTIONS.map(o => ({ value: o.value, label: o.label, dot: o.dot, count: counts.momentos?.[o.value] }))}
+              />
 
-              {/* Search input */}
-              <div className="relative w-full sm:w-64">
+              <span className="hidden sm:block w-px h-5 bg-rl-border mx-1" aria-hidden="true" />
+
+              {/* Novos / Churn escrevem em `/?lista=` (o título da página, os
+                  contadores e o link direto dependem disso). Clicar no ativo volta
+                  para a lista completa. */}
+              <FiltroAtalho
+                icone={UserPlus}
+                rotulo={`Novos (${NEW_CLIENT_WINDOW_DAYS}d)`}
+                ativo={filter === 'novos'}
+                count={counts.novos}
+                title={`Clientes que entraram nos últimos ${NEW_CLIENT_WINDOW_DAYS} dias`}
+                onClick={() => navigate(filter === 'novos' ? '/' : '/?lista=novos', { replace: true })}
+              />
+              <FiltroAtalho
+                icone={TrendingDown}
+                rotulo="Churn"
+                ativo={filter === 'churn'}
+                count={counts.churn}
+                title="Clientes que deram churn"
+                onClick={() => navigate(filter === 'churn' ? '/' : '/?lista=churn', { replace: true })}
+              />
+
+              {filtrosAtivos > 0 && (
+                <button
+                  type="button"
+                  onClick={limparFiltros}
+                  className="h-8 px-2 text-[13px] font-medium text-rl-muted hover:text-rl-text underline-offset-2 hover:underline"
+                >
+                  Limpar filtros ({filtrosAtivos})
+                </button>
+              )}
+              {/* Busca à direita */}
+              <div className="relative w-full sm:w-56 sm:ml-auto">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-rl-muted pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Buscar por nome..."
-                  className="input-field w-full pl-8 pr-8 py-2 text-sm"
+                  aria-label="Buscar cliente"
+                  className="input-field w-full h-8 pl-8 pr-8 py-0 text-sm"
                 />
                 {searchQuery && (
                   <button
@@ -1436,150 +1078,21 @@ export default function Dashboard() {
                   </button>
                 )}
               </div>
-
-              {/* Squad filter dropdown */}
-              {squads.length > 0 && (
-                <SquadDropdown
-                  squadFilter={squadFilter}
-                  setSquadFilter={setSquadFilter}
-                  squads={squads}
-                  counts={counts}
-                />
-              )}
-
-              {/* Business Model filter (B2B / B2C) */}
-              <BusinessModelDropdown bizFilter={bizFilter} setBizFilter={setBizFilter} counts={counts} />
-
-              {/* Risk filter dropdown */}
-              <RiskDropdown riskFilter={riskFilter} setRiskFilter={setRiskFilter} counts={counts} />
-
-              {/* Momento filter dropdown */}
-              <MomentoDropdown momentoFilter={momentoFilter} setMomentoFilter={setMomentoFilter} counts={counts} />
-
-              {/* Filtro: Onboarding (90 dias) — toggle */}
-              <button
-                onClick={() => setPhase90Filter((v) => !v)}
-                title="Mostrar apenas clientes criados há menos de 90 dias"
-                className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
-                  phase90Filter
-                    ? 'bg-orange-400/10 border-orange-400/40 text-orange-400'
-                    : 'bg-rl-surface border-rl-border text-rl-muted hover:border-orange-400/30 hover:text-orange-400'
-                }`}
-              >
-                <Clock className="w-4 h-4" />
-                <span className="hidden md:inline">Onboarding (90d)</span>
-                <span className="md:hidden">90d</span>
-                {phase90Filter && (
-                  <X
-                    className="w-3.5 h-3.5 opacity-70 hover:opacity-100"
-                    onClick={(e) => { e.stopPropagation(); setPhase90Filter(false) }}
-                  />
-                )}
-              </button>
-
-              {/* Filtros: Novos Clientes / Churn — toggles que escrevem em
-                  `/?lista=` (mesmo parâmetro que a sidebar usava antes), então
-                  o título da página, os contadores e o link direto continuam
-                  funcionando. Clicar no ativo volta para a lista completa. */}
-              <button
-                onClick={() => navigate(filter === 'novos' ? '/' : '/?lista=novos', { replace: true })}
-                title={`Mostrar apenas clientes que entraram nos últimos ${NEW_CLIENT_WINDOW_DAYS} dias`}
-                className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
-                  filter === 'novos'
-                    ? 'bg-rl-green/10 border-rl-green/40 text-rl-green'
-                    : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-green/30 hover:text-rl-green'
-                }`}
-              >
-                <UserPlus className="w-4 h-4" />
-                <span className="hidden md:inline">Novos Clientes</span>
-                <span className="md:hidden">Novos</span>
-                {counts.novos > 0 && (
-                  <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
-                    filter === 'novos' ? 'bg-rl-green/20 text-rl-green' : 'bg-rl-bg text-rl-muted'
-                  }`}>
-                    {counts.novos}
-                  </span>
-                )}
-                {filter === 'novos' && (
-                  <X
-                    className="w-3.5 h-3.5 opacity-70 hover:opacity-100"
-                    onClick={(e) => { e.stopPropagation(); navigate('/', { replace: true }) }}
-                  />
-                )}
-              </button>
-
-              <button
-                onClick={() => navigate(filter === 'churn' ? '/' : '/?lista=churn', { replace: true })}
-                title="Mostrar apenas clientes que deram churn"
-                className={`flex items-center gap-2 h-[38px] px-3 rounded-xl border text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
-                  filter === 'churn'
-                    ? 'bg-red-400/10 border-red-400/40 text-red-400'
-                    : 'bg-rl-surface border-rl-border text-rl-muted hover:border-red-400/30 hover:text-red-400'
-                }`}
-              >
-                <TrendingDown className="w-4 h-4" />
-                <span className="hidden md:inline">Churn</span>
-                <span className="md:hidden">Churn</span>
-                {counts.churn > 0 && (
-                  <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
-                    filter === 'churn' ? 'bg-red-400/20 text-red-400' : 'bg-rl-bg text-rl-muted'
-                  }`}>
-                    {counts.churn}
-                  </span>
-                )}
-                {filter === 'churn' && (
-                  <X
-                    className="w-3.5 h-3.5 opacity-70 hover:opacity-100"
-                    onClick={(e) => { e.stopPropagation(); navigate('/', { replace: true }) }}
-                  />
-                )}
-              </button>
-
-              {/* Dashboard de Squads — relatório por squad (acesso restrito) */}
-              {canViewSquadsReport(user) && (
-                <button
-                  onClick={() => navigate('/relatorio-squads')}
-                  className="flex items-center gap-2 h-[38px] px-3 rounded-xl border border-rl-purple/40 bg-rl-purple/10 text-rl-purple text-sm font-medium hover:bg-rl-purple/20 transition-all whitespace-nowrap shrink-0"
-                  title="Abrir relatório por squad"
-                >
-                  <Users2 className="w-4 h-4" />
-                  <span className="hidden md:inline">Dashboard de Squads</span>
-                </button>
-              )}
-
-              {/* View switcher */}
-              <div className="flex items-center gap-1 bg-rl-surface border border-rl-border rounded-xl p-1 shrink-0">
-                <button
-                  onClick={() => switchView('grid')}
-                  aria-label="Visualização em cards"
-                  title="Cards"
-                  className={`p-1.5 rounded-lg transition-all ${
-                    view === 'grid'
-                      ? 'bg-rl-purple text-white shadow-sm'
-                      : 'text-rl-muted hover:text-rl-text'
-                  }`}
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => switchView('list')}
-                  aria-label="Visualização em lista"
-                  title="Lista"
-                  className={`p-1.5 rounded-lg transition-all ${
-                    view === 'list'
-                      ? 'bg-rl-purple text-white shadow-sm'
-                      : 'text-rl-muted hover:text-rl-text'
-                  }`}
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
             </div>
 
             {loadingProjects ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-rl-muted">
                 <Loader2 className="w-8 h-8 animate-spin text-rl-purple" />
                 <p className="text-sm">Carregando projetos da nuvem...</p>
+              </div>
+            ) : visibleProjects.length === 0 && !query && filtrosAtivos > 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <Search className="w-10 h-10 text-rl-muted/30 mb-3" />
+                <p className="text-rl-text font-semibold mb-1">Nenhum cliente com esses filtros</p>
+                <p className="text-rl-muted text-sm">Tire um filtro ou limpe todos.</p>
+                <button onClick={limparFiltros} className="mt-4 text-xs text-rl-purple hover:underline">
+                  Limpar filtros
+                </button>
               </div>
             ) : visibleProjects.length === 0 && !query ? (
               <div className="grid grid-cols-1">
@@ -1597,7 +1110,7 @@ export default function Dashboard() {
                   Limpar busca
                 </button>
               </div>
-            ) : view === 'list' ? (
+            ) : (
               <ProjectListView
                 dash={dash}
                 projects={visibleProjects}
@@ -1605,56 +1118,10 @@ export default function Dashboard() {
                 onDelete={(p) => setDeleteTarget(p)}
                 groupByRisk={true}
               />
-            ) : (
-              /* Grouped by risk — order: Em Risco → Neutro → Saudável → Sem Risco
-                 (sempre agrupado, mesmo com filtros aplicados) */
-              <div className="space-y-8">
-                {RISK_GROUPS.map(group => {
-                  const grouped = visibleProjects.filter(p =>
-                    group.value === null ? !p.riskLevel : p.riskLevel === group.value
-                  )
-                  if (grouped.length === 0) return null
-                  const totalVal = grouped.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
-                  const totalMRR = grouped.reduce((acc, p) => acc + mrrValue(p), 0)
-                  return (
-                    <div key={group.value ?? 'none'}>
-                      <div className={`flex flex-wrap items-center gap-x-6 gap-y-3 mb-4 px-4 py-3 rounded-xl border ${group.border} ${group.bg}`}>
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2.5 h-2.5 rounded-full ${group.dot}`} />
-                          <span className={`text-sm font-bold uppercase tracking-wider ${group.text}`}>{group.label}</span>
-                          <span className="text-xs text-rl-muted bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full">
-                            {grouped.length} {grouped.length === 1 ? 'cliente' : 'clientes'}
-                          </span>
-                        </div>
-                        <div className="ml-auto flex items-center gap-6">
-                          {totalVal > 0 && (
-                            <div className="flex flex-col items-end">
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">Contrato Cheio</span>
-                              <span className={`text-2xl font-bold leading-tight ${group.text}`}>{fmtCurrency(totalVal)}</span>
-                            </div>
-                          )}
-                          {totalMRR > 0 && (
-                            <div className="flex flex-col items-end">
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">MRR</span>
-                              <span className={`text-2xl font-bold leading-tight ${group.text}`}>{fmtCurrency(totalMRR)}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {grouped.map((p) =>
-                          isProfileComplete(p)
-                            ? <ClientProfileCard key={p.id} project={p} onClick={() => navigate(cliente(p.id))} onDelete={() => setDeleteTarget(p)} />
-                            : <ProjectCard       key={p.id} project={p} onClick={() => navigate(cliente(p.id))} onDelete={() => setDeleteTarget(p)} />
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
             )}
           </div>
 
+          </>)}
         </main>
       </div>
 
@@ -1665,357 +1132,6 @@ export default function Dashboard() {
           onCancel={() => setDeleteTarget(null)}
         />
       )}
-
-      {novosListOpen && (
-        <NovosClientesModal
-          stats={novosThisMonth}
-          monthLabel={monthLabel}
-          squads={squads}
-          onClose={() => setNovosListOpen(false)}
-          onOpenProject={(id) => { setNovosListOpen(false); navigate(cliente(id)) }}
-        />
-      )}
-
-      {growthHistoryOpen && (
-        <CrescimentoHistoryModal
-          projects={baseProjects}
-          squads={squads}
-          yyyy={_yyyy}
-          mm={_mm}
-          onClose={() => setGrowthHistoryOpen(false)}
-          onOpenProject={(id) => { setGrowthHistoryOpen(false); navigate(cliente(id)) }}
-        />
-      )}
-
-      {churnListOpen && (
-        <Modal onClose={() => setChurnListOpen(false)} maxWidth="2xl" className="border-red-400/30">
-          {/* Header */}
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-red-400/10 border border-red-400/30 flex items-center justify-center text-red-400 shrink-0">
-              <TrendingDown className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base font-bold text-rl-text">Clientes em Churn — {monthLabel}</h3>
-              <p className="text-xs text-rl-muted">
-                {churnCount} {churnCount === 1 ? 'cliente saiu' : 'clientes saíram'} neste mês ·
-                <span className="text-red-400 font-semibold"> {fmtCurrency(churnMRR)}</span> em MRR ·
-                <span className="text-red-400 font-semibold"> {fmtCurrency(churnContract)}</span> em contrato cheio
-              </p>
-            </div>
-          </div>
-
-          {/* Lista */}
-          <div className="max-h-[60vh] overflow-y-auto -mx-6 px-6 -mb-6 pb-6">
-            <div className="space-y-2">
-              {churnedThisMonth.map(p => {
-                const dStr = new Date(p.churnDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                const mrr  = mrrValue(p)
-                const contract = Number(p.contractValue) || 0
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => { setChurnListOpen(false); navigate(cliente(p.id)) }}
-                    className="w-full flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl border border-rl-border hover:border-red-400/40 hover:bg-red-400/5 transition-all text-left group"
-                  >
-                    {/* Identidade */}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-rl-text group-hover:text-red-400 transition-colors leading-tight truncate">
-                        {p.companyName || '—'}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] text-rl-muted">
-                        {p._squadName && (
-                          <span className="inline-flex items-center gap-1">
-                            {p._squadEmoji && <span>{p._squadEmoji}</span>}
-                            {p._squadName}
-                          </span>
-                        )}
-                        {p._squadName && <span>·</span>}
-                        <span className="inline-flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          Saiu em {dStr}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Valores */}
-                    <div className="flex items-center gap-6 shrink-0">
-                      <div className="text-right">
-                        <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">MRR</p>
-                        <p className="text-sm font-bold text-red-400">{fmtCurrency(mrr)}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold">Contrato</p>
-                        <p className="text-sm font-bold text-red-400">{fmtCurrency(contract)}</p>
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Modal: Histórico de Churn — comparativo mês selecionado vs mês anterior */}
-      {churnHistoryOpen && (() => {
-        // Quebra historyMonth em year/month
-        const [hYStr, hMStr] = historyMonth.split('-')
-        const selYear  = Number(hYStr)
-        const selMonth = Number(hMStr) - 1
-        const selOpt   = HISTORY_OPTIONS.find(o => o.key === historyMonth) || HISTORY_OPTIONS[0]
-        const selStats = statsForMonth(selYear, selMonth)
-
-        // Mês anterior (independentemente de mudar de ano)
-        const prevDate  = new Date(selYear, selMonth - 1, 1)
-        const prevYear  = prevDate.getFullYear()
-        const prevMonth = prevDate.getMonth()
-        const prevLabel = `${_monthsPT[prevMonth]} ${prevYear}`
-        const prevStats = statsForMonth(prevYear, prevMonth)
-
-        // Delta (positivo = aumento de churn, ruim)
-        const deltaCount    = selStats.count - prevStats.count
-        const deltaMRR      = selStats.mrr - prevStats.mrr
-        const deltaContract = selStats.contract - prevStats.contract
-
-        // Bar chart: últimos 6 meses (do mês selecionado para trás)
-        const chartMonths = []
-        for (let i = 5; i >= 0; i--) {
-          const d = new Date(selYear, selMonth - i, 1)
-          chartMonths.push({
-            yyyy: d.getFullYear(),
-            mm: d.getMonth(),
-            label: `${_monthsPT[d.getMonth()].slice(0, 3)}/${String(d.getFullYear()).slice(2)}`,
-            stats: statsForMonth(d.getFullYear(), d.getMonth()),
-            isSelected: d.getFullYear() === selYear && d.getMonth() === selMonth,
-            isPrev:     d.getFullYear() === prevYear && d.getMonth() === prevMonth,
-          })
-        }
-        const chartMax = Math.max(...chartMonths.map(c => c.stats.mrr), 1)
-
-        function DeltaBadge({ value, suffix = '' }) {
-          if (value === 0) return <span className="text-[11px] text-rl-muted">sem mudança</span>
-          const positive = value > 0 // aumento de churn = ruim (vermelho)
-          const Icon = positive ? TrendingUp : TrendingDown
-          const color = positive ? 'text-red-400' : 'text-rl-green'
-          const sign = positive ? '+' : '−'
-          return (
-            <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${color}`}>
-              <Icon className="w-3 h-3" />
-              {sign}{suffix === '%' ? Math.abs(value).toFixed(0) : fmtCurrency(Math.abs(value))}{suffix === '%' ? '%' : ''}
-            </span>
-          )
-        }
-
-        return (
-          <Modal onClose={() => setChurnHistoryOpen(false)} maxWidth="2xl" className="border-red-400/30">
-            {/* Header */}
-            <div className="flex items-start gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-red-400/10 border border-red-400/30 flex items-center justify-center text-red-400 shrink-0">
-                <History className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-rl-text">Histórico de Churn</h3>
-                <p className="text-xs text-rl-muted">Compare qualquer mês com o anterior e veja tendências.</p>
-              </div>
-            </div>
-
-            {/* Seletor de mês */}
-            <div className="mb-5">
-              <label htmlFor="history-month" className="block text-[10px] font-semibold uppercase tracking-wider text-rl-muted mb-1.5">
-                Período de referência
-              </label>
-              <select
-                id="history-month"
-                value={historyMonth}
-                onChange={(e) => { setHistoryMonth(e.target.value); setHistoryTab('selected') }}
-                className="input-field w-full sm:w-64"
-              >
-                {HISTORY_OPTIONS.map((opt) => (
-                  <option key={opt.key} value={opt.key}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Comparativo: Selecionado vs Mês Anterior */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-              {/* Card mês selecionado */}
-              <div className="rounded-xl border border-red-400/30 bg-red-400/5 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-red-400">Selecionado</p>
-                <p className="text-sm font-semibold text-rl-text mt-0.5">{selOpt.label}</p>
-                <div className="mt-3 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-rl-muted">Clientes</span>
-                    <span className="text-lg font-bold text-red-400">{selStats.count}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-rl-muted">MRR perdido</span>
-                    <span className="text-sm font-bold text-red-400">{fmtCurrency(selStats.mrr)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-rl-muted">Contrato cheio</span>
-                    <span className="text-sm font-bold text-red-400">{fmtCurrency(selStats.contract)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card mês anterior */}
-              <div className="rounded-xl border border-rl-border bg-rl-surface/30 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">Mês anterior</p>
-                <p className="text-sm font-semibold text-rl-text mt-0.5">{prevLabel}</p>
-                <div className="mt-3 space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-rl-muted">Clientes</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-rl-text">{prevStats.count}</span>
-                      <DeltaBadge value={deltaCount} />
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-rl-muted">MRR perdido</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-rl-text">{fmtCurrency(prevStats.mrr)}</span>
-                      <DeltaBadge value={deltaMRR} />
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-rl-muted">Contrato</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-rl-text">{fmtCurrency(prevStats.contract)}</span>
-                      <DeltaBadge value={deltaContract} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Bar chart — últimos 6 meses */}
-            <div className="rounded-xl border border-rl-border bg-rl-surface/30 p-4 mb-5">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted">MRR perdido por mês (últimos 6)</p>
-                <p className="text-[10px] text-rl-muted">Pico: {fmtCurrency(chartMax)}</p>
-              </div>
-              <div className="flex items-end justify-between gap-2 h-32">
-                {chartMonths.map((m) => {
-                  const heightPct = (m.stats.mrr / chartMax) * 100
-                  const barColor = m.isSelected
-                    ? 'bg-red-400'
-                    : m.isPrev
-                    ? 'bg-red-400/40'
-                    : 'bg-rl-muted/30'
-                  return (
-                    <div key={`${m.yyyy}-${m.mm}`} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                      <span className={`text-[10px] font-semibold tabular-nums ${m.isSelected ? 'text-red-400' : 'text-rl-muted'}`}>
-                        {m.stats.count > 0 ? m.stats.count : '—'}
-                      </span>
-                      <div className="w-full flex items-end justify-center h-20">
-                        <div
-                          className={`w-full rounded-t transition-all ${barColor}`}
-                          style={{ height: m.stats.mrr > 0 ? `${Math.max(heightPct, 4)}%` : '2px' }}
-                          title={`${m.label}: ${m.stats.count} cliente${m.stats.count === 1 ? '' : 's'} · ${fmtCurrency(m.stats.mrr)}`}
-                        />
-                      </div>
-                      <span className={`text-[10px] truncate ${m.isSelected ? 'text-red-400 font-semibold' : 'text-rl-muted'}`}>
-                        {m.label}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="flex items-center gap-3 mt-3 text-[10px] text-rl-muted">
-                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-400" />Selecionado</span>
-                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-400/40" />Anterior</span>
-                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-rl-muted/30" />Outros meses</span>
-              </div>
-            </div>
-
-            {/* Lista de clientes — com tabs para alternar entre mês selecionado e anterior */}
-            {(() => {
-              const activeStats = historyTab === 'previous' ? prevStats : selStats
-              const activeLabel = historyTab === 'previous' ? prevLabel : selOpt.label
-              return (
-                <div>
-                  {/* Tabs */}
-                  <div className="flex items-center gap-1 p-1 rounded-xl bg-rl-surface border border-rl-border mb-3 w-full sm:w-fit">
-                    <button
-                      type="button"
-                      onClick={() => setHistoryTab('selected')}
-                      className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        historyTab === 'selected'
-                          ? 'bg-red-400 text-white shadow-sm'
-                          : 'text-rl-muted hover:text-rl-text'
-                      }`}
-                    >
-                      {selOpt.label}
-                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] tabular-nums ${
-                        historyTab === 'selected' ? 'bg-white/20' : 'bg-rl-bg border border-rl-border'
-                      }`}>
-                        {selStats.count}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setHistoryTab('previous')}
-                      className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        historyTab === 'previous'
-                          ? 'bg-red-400 text-white shadow-sm'
-                          : 'text-rl-muted hover:text-rl-text'
-                      }`}
-                    >
-                      {prevLabel}
-                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] tabular-nums ${
-                        historyTab === 'previous' ? 'bg-white/20' : 'bg-rl-bg border border-rl-border'
-                      }`}>
-                        {prevStats.count}
-                      </span>
-                    </button>
-                  </div>
-
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-rl-muted mb-2">
-                    Clientes — {activeLabel}
-                  </p>
-
-                  {activeStats.list.length === 0 ? (
-                    <p className="text-sm text-rl-muted py-4 text-center">Nenhum churn neste mês.</p>
-                  ) : (
-                    <div className="space-y-1.5 max-h-[40vh] overflow-y-auto -mx-6 px-6">
-                      {[...activeStats.list].sort((a, b) => (b.churnDate || '').localeCompare(a.churnDate || '')).map(p => {
-                        const dStr = new Date(p.churnDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                        const squad = squads.find(s => String(s.id) === String(p.squad)) || null
-                        return (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => { setChurnHistoryOpen(false); navigate(cliente(p.id)) }}
-                            className="w-full flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 rounded-lg border border-rl-border hover:border-red-400/40 hover:bg-red-400/5 transition-all text-left"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-rl-text truncate">{p.companyName || '—'}</p>
-                              <p className="text-[10px] text-rl-muted">
-                                {squad?.emoji && <span>{squad.emoji} </span>}{squad?.name || 'sem squad'} · Saiu em {dStr}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-4 shrink-0">
-                              <div className="text-right">
-                                <p className="text-[9px] uppercase text-rl-muted">MRR</p>
-                                <p className="text-xs font-bold text-red-400">{fmtCurrency(mrrValue(p))}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-[9px] uppercase text-rl-muted">Contrato</p>
-                                <p className="text-xs font-bold text-red-400">{fmtCurrency(Number(p.contractValue) || 0)}</p>
-                              </div>
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-          </Modal>
-        )
-      })()}
 
       {/* Popup amarelo de atas pendentes (canto inferior direito, a cada 1h) */}
       <UnsignedAtaPopups projects={projects} />
