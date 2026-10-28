@@ -402,6 +402,15 @@ export function ordenarItens(itens) {
   })
 }
 
+/** Ordem do painel da tarefa (Hierarquia e Subtarefas): criação, a mais antiga primeiro; empate (inserção em lote) pela ordem manual. */
+export function ordenarPorCriacao(itens) {
+  return [...itens].sort((a, b) => {
+    const d = new Date(a.created_at) - new Date(b.created_at)
+    if (d) return d
+    return (Number(a.posicao) || 0) - (Number(b.posicao) || 0)
+  })
+}
+
 export function filtrarItens(itens, { busca = '', responsavel = 'todos', mostrarConcluidas = false, userId = null } = {}) {
   const q = busca.trim().toLowerCase()
   return itens.filter((it) => {

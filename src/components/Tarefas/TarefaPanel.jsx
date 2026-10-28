@@ -10,7 +10,7 @@ import { uploadFile, deleteFile } from '../../lib/supabase'
 import AnexoPreview from '../UI/AnexoPreview'
 import { tipoDoAnexo, nomeDoAnexo } from '../../lib/anexos'
 import {
-  ordenarItens, fmtDataHora, fmtDataNumerica, descricaoVazia, novoId, progressoChecklists, corDaPessoa, iniciais, DEPARTAMENTOS,
+  ordenarPorCriacao, fmtDataHora, fmtDataNumerica, descricaoVazia, novoId, progressoChecklists, corDaPessoa, iniciais, DEPARTAMENTOS,
 } from '../../lib/tarefas'
 import {
   StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, AdicionarInline,
@@ -274,7 +274,7 @@ const RECUO = 18
  */
 function Hierarquia({ item, subs, ancestrais, irmas, statuses, membrosMap, onAbrir, onAtualizar, onMudarStatus, onCriarSub }) {
   const nivel = ancestrais.length
-  const lista = ordenarItens(irmas?.length ? irmas : [item])
+  const lista = ordenarPorCriacao(irmas?.length ? irmas : [item])
   const recuo = (n) => ({ paddingLeft: 8 + n * RECUO })
   return (
     <div className="flex flex-col">
@@ -297,13 +297,15 @@ function Hierarquia({ item, subs, ancestrais, irmas, statuses, membrosMap, onAbr
             <span className={`text-[13px] font-medium flex-1 min-w-0 truncate ${s.status_tipo === 'closed' ? 'line-through text-ln-t4' : 'text-ln-t1'}`}>{nomeDe(s)}</span>
             <span className="text-[11px] text-ln-accent shrink-0">esta tarefa</span>
           </div>
-          <div style={{ paddingLeft: (nivel + 1) * RECUO }}>
-            <ListaSubtarefas
-              itens={subs.map((x) => ({ ...x, concluida: x.status_tipo === 'closed' }))} onAbrir={onAbrir} onAdicionar={(t) => onCriarSub(item, t)}
-              inicio={(x) => inicioSub(x, statuses, onMudarStatus)}
-              fim={(x) => fimSub(x, membrosMap, onAtualizar)}
-            />
-          </div>
+          {subs.length > 0 && (
+            <div style={{ paddingLeft: (nivel + 1) * RECUO }}>
+              <ListaSubtarefas
+                itens={subs.map((x) => ({ ...x, concluida: x.status_tipo === 'closed' }))} onAbrir={onAbrir}
+                inicio={(x) => inicioSub(x, statuses, onMudarStatus)}
+                fim={(x) => fimSub(x, membrosMap, onAtualizar)}
+              />
+            </div>
+          )}
         </div>
       ) : (
         <div
@@ -316,6 +318,10 @@ function Hierarquia({ item, subs, ancestrais, irmas, statuses, membrosMap, onAbr
           <span className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>{fimSub(s, membrosMap, onAtualizar)}</span>
         </div>
       ))}
+      {/* Cria irmã (subtarefa do pai), não neta: o pai pode não estar em `ancestrais`, então monta pelo parent_id. */}
+      <div className="-mx-2" style={recuo(nivel)}>
+        <AdicionarInline placeholder="Adicionar subtarefa" onCriar={(t) => onCriarSub({ id: item.parent_id, lista_id: item.lista_id }, t)} />
+      </div>
     </div>
   )
 }
@@ -334,7 +340,7 @@ export default function TarefaPanel({
   }, [titulo])
 
   if (!item) return <p className="p-4 text-[13px] text-ln-t4">Selecione uma tarefa na lista.</p>
-  const subs = ordenarItens(subtarefas || [])
+  const subs = ordenarPorCriacao(subtarefas || [])
   const feitas = subs.filter((s) => s.status_tipo === 'closed').length
 
   function salvarTitulo() {
