@@ -58,11 +58,21 @@ export default async function handler(req) {
     since = `&day=gte.${iso(d)}`
   }
 
+  // Filtro opcional por conta (repetível: ?account=A&account=B), mesma sintaxe do
+  // /api/dash-data. O viewer embutido na página do cliente pede só as contas do
+  // projeto em vez do canal inteiro.
+  const accountList = url.searchParams.getAll('account').map(a => a.trim()).filter(Boolean)
+  const acctFilter = accountList.length === 1
+    ? `&account=eq.${encodeURIComponent(accountList[0])}`
+    : accountList.length > 1
+      ? `&account=in.(${encodeURIComponent(accountList.map(a => '"' + a.replace(/"/g, '\\"') + '"').join(','))})`
+      : ''
+
   const cols = COLS[channel]
   const select = cols.map(([c]) => c).join(',')
   // A ordem bate com a PK (channel, account, day, campaign), então o Postgres
   // pagina direto pelo índice, sem ordenar.
-  const base = `${SUPABASE_URL}/rest/v1/dash_daily?channel=eq.${channel}${since}`
+  const base = `${SUPABASE_URL}/rest/v1/dash_daily?channel=eq.${channel}${acctFilter}${since}`
     + `&select=${select}&order=account.asc,day.asc,campaign.asc`
   const headers = { apikey: SUPABASE_ANON, Authorization: `Bearer ${jwt}` }
 

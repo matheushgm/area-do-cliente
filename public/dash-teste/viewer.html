@@ -851,7 +851,9 @@ async function fetchChannel(ch, fresh) {
   // não mudam. As linhas cruas viraram lazy: ver ensureRawRows().
   const rollup = LOCAL_ROLLUP[ch] != null
   if (token) {
-    const api = rollup ? `/api/dash-rollup?channel=${ch}` : `/api/dash-data?channel=${ch}`
+    const contas = contasDoServidor(ch)
+    if (contas && !contas.length) return ''
+    const api = (rollup ? `/api/dash-rollup?channel=${ch}` : `/api/dash-data?channel=${ch}`) + qsContas(contas)
     // `fresh` fura o cache do navegador. Sem isso, o botão Atualizar relia a
     // resposta guardada por max-age=300 e os números só mudavam 5 min depois.
     const r = await fetch(api, { headers: { Authorization: `Bearer ${token}` }, cache: fresh ? 'reload' : 'default' })
@@ -878,7 +880,9 @@ async function fetchGoogleAds(fresh) {
   if (SHARED) return ''
   const token = supabaseToken()
   if (token) {
-    const r = await fetch('/api/dash-data?channel=google_ads&dias=7',
+    const contas = contasDoServidor('google_ads')
+    if (contas && !contas.length) return ''
+    const r = await fetch(`/api/dash-data?channel=google_ads&dias=7${qsContas(contas)}`,
       { headers: { Authorization: `Bearer ${token}` }, cache: fresh ? 'reload' : 'default' })
     return r.ok ? r.text() : ''
   }
@@ -1312,14 +1316,26 @@ const EMBED_LISTA = !SHARED && _q.get('embed') === '1' && _q.get('lista') === '1
 // ?embed=1&benchmark=1&contas=[...]: só a etapa Benchmark do Modo Apresentação (posição das contas do
 // cliente contra a carteira, sem o nome dos outros clientes)
 const EMBED_BENCH = !SHARED && _q.get('embed') === '1' && _q.get('benchmark') === '1'
+// Na conta embutida (página do cliente), `contas` é opcional e lista as contas do projeto.
 const EMBED_CONTAS = (() => {
-  if (!EMBED_LISTA && !EMBED_BENCH) return null
+  if (SHARED || _q.get('embed') !== '1' || (!EMBED_LISTA && !EMBED_BENCH && !_q.get('contas'))) return null
   try { const a = JSON.parse(_q.get('contas') || '[]'); return Array.isArray(a) ? a.map(x => ({ canal: x.canal === 'google' ? 'google' : 'meta', conta: String(x.conta || '').trim() })) : [] } catch (e) { return [] }
 })()
 const EMBED = !SHARED && _q.get('embed') === '1'
   ? { client: (_q.get('cliente')||'').trim(), channel: _q.get('canal')==='google'?'google':'meta', lista: EMBED_LISTA }
   : null
 if (EMBED) document.body.classList.add('embed')
+// Contas que o servidor deve devolver em cada canal (null = todas). Só na lista e na
+// conta embutidas: sem isso a página do cliente baixava o rollup da carteira inteira.
+// O benchmark fica de fora porque compara o cliente com a carteira. A lista do
+// projeto inteiro (e não só a conta aberta) é o que otmVarias() precisa.
+function contasDoServidor(ch) {
+  if (!EMBED_CONTAS || EMBED_BENCH) return null
+  if (ch === 'saldo') return EMBED_CONTAS.map(c => c.conta)
+  const canal = ch === 'meta_status' ? 'meta' : ch === 'google_ads' ? 'google' : ch
+  return EMBED_CONTAS.filter(c => c.canal === canal).map(c => c.conta)
+}
+const qsContas = contas => (contas || []).map(a => `&account=${encodeURIComponent(a)}`).join('')
 if (EMBED_LISTA) document.body.classList.add('embed-lista')
 // Só as contas do projeto, por canal (o filtro roda a cada carga, inclusive no "Atualizar")
 const restringeContas = raw => {

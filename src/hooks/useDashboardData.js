@@ -54,7 +54,9 @@ async function loadSheets(source = 'sheets', { accountNames = null, dias = null 
 //   source    'sheets' (planilhas CSV) | 'api' (dash_insights via /api/dash-data)
 //   projectId (só com 'api') carrega apenas as contas vinculadas a este projeto
 //   dias      (só com 'api') janela de dias recentes em vez do histórico inteiro
-export function useDashboardData({ source = 'sheets', projectId = null, dias = null } = {}) {
+//   linhas    false = não baixa as linhas de anúncio (`raw` fica vazio); para quem só
+//             precisa das contas e dos vínculos, como o módulo Resultados de Tráfego
+export function useDashboardData({ source = 'sheets', projectId = null, dias = null, linhas = true } = {}) {
   const [raw, setRaw] = useState({ meta: [], google: [] })
   // Todas as contas presentes no dash_insights (view dash_accounts_public):
   // com projectId o `raw` só tem as contas do projeto, e o seletor "+ vincular
@@ -92,7 +94,7 @@ export function useDashboardData({ source = 'sheets', projectId = null, dias = n
         accountNames = (accRes.data || []).filter(r => r.project_id === projectId).map(r => r.account_name)
       }
       const [sheets, accRes2, projRes, cplRes, sqRes, namesRes] = await Promise.all([
-        loadSheets(source, { accountNames, dias }),
+        linhas ? loadSheets(source, { accountNames, dias }) : Promise.resolve({ meta: [], google: [] }),
         accRes ? Promise.resolve(accRes) : accQuery,
         supabase.from('dashboard_projects_public').select('id,company_name,squad_name,clickup_folder_id'),
         supabase.from('cpl_targets_public').select('company_name,cpl_target,cac_target,mql_target,metrica_formulario'),
@@ -136,7 +138,7 @@ export function useDashboardData({ source = 'sheets', projectId = null, dias = n
     } finally {
       if (mounted.current) setLoading(false)
     }
-  }, [source, projectId, dias])
+  }, [source, projectId, dias, linhas])
 
   useEffect(() => {
     mounted.current = true

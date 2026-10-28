@@ -24,7 +24,8 @@ export default function ResultadosModule({ project, onIrParaTrafego }) {
 }
 
 export function TrafegoModule({ project }) {
-  const dash = useDashboardData({ source: 'api', projectId: project.id })
+  // Só contas e vínculos: os números quem desenha é o viewer do iframe, que lê os dele.
+  const dash = useDashboardData({ source: 'api', projectId: project.id, linhas: false })
   return <TrafegoConteudo project={project} dash={dash} />
 }
 

@@ -41,7 +41,9 @@ export default function ProjectTrafficDashboard({ project, dash, viewerExtra = '
 
   const idx = Math.min(ativa, Math.max(contas.length - 1, 0))
   const c = contas[idx]
-  const src = c ? `/dash-teste/viewer.html?embed=1&cliente=${encodeURIComponent(c.conta)}&canal=${c.canal}${viewerExtra}` : null
+  // `contas` = todas as do projeto: o viewer pede ao servidor só elas, em vez da carteira inteira.
+  const contasQs = useMemo(() => encodeURIComponent(JSON.stringify(contas)), [contas])
+  const src = c ? `/dash-teste/viewer.html?embed=1&cliente=${encodeURIComponent(c.conta)}&canal=${c.canal}&contas=${contasQs}${viewerExtra}` : null
 
   // Tela cheia: o mesmo iframe só muda de posição (fixed), sem recarregar.
   useEffect(() => {

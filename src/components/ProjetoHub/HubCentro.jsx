@@ -164,7 +164,8 @@ export function ResultadosEmbed({ contas, ativa, onTrocar, loading, apresentacao
     )
   }
   const c = contas[Math.min(ativa, contas.length - 1)]
-  const src = `/dash-teste/viewer.html?embed=1&cliente=${encodeURIComponent(c.conta)}&canal=${c.canal}${apresentacao ? '&apresentacao=1' : ''}`
+  // `contas` = todas as do projeto: o viewer pede ao servidor só elas, em vez da carteira inteira.
+  const src = `/dash-teste/viewer.html?embed=1&cliente=${encodeURIComponent(c.conta)}&canal=${c.canal}&contas=${encodeURIComponent(JSON.stringify(contas.map(({ canal, conta }) => ({ canal, conta }))))}${apresentacao ? '&apresentacao=1' : ''}`
   const pilulas = contas.length > 1 && contas.map((x, i) => (
     <button key={x.canal + x.conta} onClick={() => onTrocar(i)}
       className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${i === ativa ? 'bg-rl-text text-white border-rl-text' : 'bg-rl-card border-rl-border text-rl-subtle hover:text-rl-text'}`}>
