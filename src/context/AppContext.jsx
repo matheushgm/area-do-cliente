@@ -12,10 +12,57 @@ const AppContext = createContext();
 export { AppContext };
 
 // ─── Cache local dos projetos (offline-first) ─────────────────────────────────
-const LS_KEY = "rl_projects_v2";
+// Cache local só da lista leve (o que a home e as outras listas usam). Guardar o
+// projeto inteiro passava de 9 MB, acima da cota do navegador, e a gravação falhava
+// em silêncio. A chave antiga é apagada no primeiro carregamento.
+const LS_KEY = "rl_projects_lista_v1";
+const LS_KEY_ANTIGA = "rl_projects_v2";
+
+// Colunas de projects_v2 que só a página do cliente usa. Ficam fora da lista
+// (sbFetchLista) e chegam com o detalhe (sbFetchDetalhe), junto com as tabelas
+// filhas. Coluna nova pequena que a home precise ler entra em LISTA_COLS.
+const LISTA_COLS = [
+  "id", "legacy_id", "company_name", "cnpj", "business_type", "segmento",
+  "responsible_name", "responsible_role", "contract_model", "contract_payment_type",
+  "contract_value", "contract_date", "contract_duration_months", "plan_type", "billing_mode",
+  "competitors", "has_sales_team", "digital_maturity", "upsell_potential", "upsell_notes",
+  "other_people", "services", "services_data", "raio_x_file_url", "sla_file_url",
+  "account_id", "status", "completed_steps", "created_at", "updated_at", "logo_url",
+  "squad", "dashboard_url", "risk_level", "momento", "client_share_token", "churn_date",
+  "clickup_folder_id", "clickup_list_id", "clickup_list_url", "clickup_chat_channel_id",
+  "meta_lab_budget", "meta_lab_audience_type",
+].join(",");
+
+// Chaves do projeto montado que dependem do detalhe: saem do cache local.
+const CHAVES_DETALHE = [
+  "links", "nps", "crm_data", "promessa", "kickoff", "precificacao", "mecanismo_unico",
+  "debriefing", "matriz_objecao", "webinars", "roi_cenarios", "proposta_comercial",
+  "planejamento_marketing", "observacoes", "lp_central", "copy_aprovacoes", "metrica_formulario",
+  "personas", "roiCalc", "roiResult", "roiCenarios", "ofertas", "ofertaData", "campaignPlan",
+  "creatives", "googleAds", "landingPages", "resultados", "attachments", "bancoMidia",
+  "brandFotos", "brandVideos", "brandKit", "observacoesMidia", "estrategia", "estrategiaV2",
+  "npsMarcos", "crmData", "planejamentoAnual", "planejamentoMarketing", "mecanismoUnico",
+  "lpCentral", "copyAprovacoes", "matrizObjecao", "propostaComercial", "produtos",
+  "_completo",
+];
+
+// Chaves montadas a partir das tabelas filhas (o realtime de projects_v2 não as traz).
+const CHAVES_RELACAO = [
+  "personas", "roiCalc", "roiResult", "ofertas", "ofertaData", "campaignPlan", "creatives",
+  "googleAds", "landingPages", "resultados", "attachments", "bancoMidia", "brandFotos",
+  "brandVideos", "brandKit", "observacoesMidia", "estrategia", "estrategiaV2", "npsMarcos",
+  "produtos",
+];
+
+function aliviar(p) {
+  const leve = { ...p };
+  for (const k of CHAVES_DETALHE) delete leve[k];
+  return leve;
+}
 
 function loadFromStorage() {
   try {
+    localStorage.removeItem(LS_KEY_ANTIGA);
     const raw = localStorage.getItem(LS_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch { return []; }
@@ -23,7 +70,7 @@ function loadFromStorage() {
 
 function saveToStorage(data) {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(data));
+    localStorage.setItem(LS_KEY, JSON.stringify(data.map(aliviar)));
   } catch { /* quota exceeded — ignorar */ }
 }
 
@@ -324,70 +371,78 @@ function assembleProject(row, rel = {}) {
   };
 }
 
-// ─── Supabase: busca todos os projetos + relações ──────────────────────────────
-async function sbFetchAll() {
-
-  const { data: projects, error: pErr } = await supabase
+// ─── Supabase: lista leve de todos os projetos ─────────────────────────────────
+// Só as colunas da lista, sem tabelas filhas (~50 kB em vez de ~9 MB). O projeto
+// sai sem `_completo`: a página do cliente chama `carregarDetalhe` antes de abrir.
+async function sbFetchLista() {
+  const { data: projects, error } = await supabase
     .from("projects_v2")
-    .select("*")
+    .select(LISTA_COLS)
     .order("created_at", { ascending: false });
 
-  if (pErr) { console.error("[Supabase] fetch projects_v2:", pErr.message); return null; }
-  if (!projects.length) return [];
+  if (error) { console.error("[Supabase] fetch projects_v2:", error.message); return null; }
+  return projects.map((p) => assembleProject(p));
+}
 
-  const ids = projects.map((p) => p.id);
-
+// ─── Supabase: um projeto inteiro (colunas pesadas + relações) ─────────────────
+async function sbFetchDetalhe(id) {
+  const filhas = (tabela, select = "*") => supabase.from(tabela).select(select).eq("project_id", id);
   const [
+    { data: row, error },
     { data: rois },
-    { data: personasData },
-    { data: ofertasData },
-    { data: campaignsData },
-    { data: criativosData },
-    { data: googleAdsData },
-    { data: lpData },
-    { data: bancoData },
-    { data: estrategiaData },
-    { data: ev2Data },
-    { data: attachmentsData },
-    { data: resultadosData },
-    { data: produtosData },
-    { data: npsMarcosData },
+    { data: personas },
+    { data: ofertas },
+    { data: campaigns },
+    { data: criativos },
+    { data: googleAds },
+    { data: landingPages },
+    { data: bancoMidia },
+    { data: estrategia },
+    { data: estrategiaV2 },
+    { data: attachments },
+    { data: resultados },
+    { data: produtos },
+    { data: npsMarcos },
   ] = await Promise.all([
-    supabase.from("roi_calculators").select("*").in("project_id", ids),
-    supabase.from("personas").select("*").in("project_id", ids),
-    supabase.from("ofertas").select("*").in("project_id", ids),
-    supabase.from("campaign_plans").select("*").in("project_id", ids).order("created_at", { ascending: false }),
-    supabase.from("criativos").select("*").in("project_id", ids),
-    supabase.from("google_ads").select("*").in("project_id", ids),
-    supabase.from("landing_pages").select("*").in("project_id", ids),
-    supabase.from("banco_midia").select("*").in("project_id", ids),
-    supabase.from("estrategia").select("*").in("project_id", ids),
-    supabase.from("estrategia_v2").select("*").in("project_id", ids),
-    supabase.from("attachments").select("*").in("project_id", ids),
-    supabase.from("resultados").select("*").in("project_id", ids),
-    supabase.from("produtos").select("*").in("project_id", ids),
+    supabase.from("projects_v2").select("*").eq("id", id).maybeSingle(),
+    filhas("roi_calculators"),
+    filhas("personas"),
+    filhas("ofertas"),
+    filhas("campaign_plans").order("created_at", { ascending: false }),
+    filhas("criativos"),
+    filhas("google_ads"),
+    filhas("landing_pages"),
+    filhas("banco_midia"),
+    filhas("estrategia"),
+    filhas("estrategia_v2"),
+    filhas("attachments"),
+    filhas("resultados"),
+    filhas("produtos"),
     // As respostas vêm aninhadas no marco — uma query em vez de duas
-    supabase.from("nps_marcos").select("*, nps_respostas(*)").in("project_id", ids).order("ordem", { ascending: true }),
+    filhas("nps_marcos", "*, nps_respostas(*)").order("ordem", { ascending: true }),
   ]);
 
-  return projects.map((p) =>
-    assembleProject(p, {
-      rois:         (rois         || []).filter((r) => r.project_id === p.id),
-      personas:     (personasData || []).filter((r) => r.project_id === p.id),
-      ofertas:      (ofertasData  || []).filter((r) => r.project_id === p.id),
-      campaigns:    (campaignsData|| []).filter((r) => r.project_id === p.id),
-      criativos:    (criativosData|| []).filter((r) => r.project_id === p.id),
-      googleAds:    (googleAdsData|| []).filter((r) => r.project_id === p.id),
-      landingPages: (lpData       || []).filter((r) => r.project_id === p.id),
-      bancoMidia:   (bancoData    || []).find ((r) => r.project_id === p.id) ?? null,
-      estrategia:   (estrategiaData || []).find((r) => r.project_id === p.id) ?? null,
-      estrategiaV2: (ev2Data      || []).find ((r) => r.project_id === p.id) ?? null,
-      attachments:  (attachmentsData || []).filter((r) => r.project_id === p.id),
-      resultados:   (resultadosData  || []).filter((r) => r.project_id === p.id),
-      produtos:     (produtosData || []).filter((r) => r.project_id === p.id),
-      npsMarcos:    (npsMarcosData || []).filter((r) => r.project_id === p.id),
+  if (error) { console.error("[Supabase] fetch projeto:", error.message); return null; }
+  if (!row) return null;
+  return {
+    ...assembleProject(row, {
+      rois:         rois         || [],
+      personas:     personas     || [],
+      ofertas:      ofertas      || [],
+      campaigns:    campaigns    || [],
+      criativos:    criativos    || [],
+      googleAds:    googleAds    || [],
+      landingPages: landingPages || [],
+      bancoMidia:   bancoMidia?.[0]   ?? null,
+      estrategia:   estrategia?.[0]   ?? null,
+      estrategiaV2: estrategiaV2?.[0] ?? null,
+      attachments:  attachments  || [],
+      resultados:   resultados   || [],
+      produtos:     produtos     || [],
+      npsMarcos:    npsMarcos    || [],
     }),
-  );
+    _completo: true,
+  };
 }
 
 // ─── Mapeamento patch → coluna projects_v2 ────────────────────────────────────
@@ -917,11 +972,16 @@ export function AppProvider({ children }) {
     }
 
     setLoadingProjects(true);
-    sbFetchAll()
+    sbFetchLista()
       .then((rows) => {
         if (rows !== null) {
-          setProjects(rows);
-          saveToStorage(rows);
+          setProjects((prev) => {
+            // Projeto cujo detalhe já chegou (ex.: /cliente/:id aberto direto) fica inteiro.
+            const completos = new Map(prev.filter((p) => p._completo).map((p) => [p.id, p]));
+            const updated = rows.map((r) => completos.get(r.id) || r);
+            saveToStorage(updated);
+            return updated;
+          });
         }
       })
       .catch((err) => console.error("Erro ao carregar projetos:", err))
@@ -976,22 +1036,12 @@ export function AppProvider({ children }) {
           setProjects((prev) => {
             const updated = prev.map((p) => {
               if (p.id !== row.id) return p;
-              // Preservar relações que não vêm do realtime
-              return assembleProject(row, {
-                rois:        p.roiCalc ? [{ ...p.roiCalc, result: p.roiResult }] : [],
-                personas:    p.personas    || [],
-                ofertas:     p.ofertas?.length ? p.ofertas : (p.ofertaData ? [p.ofertaData] : []),
-                campaigns:   p.campaignPlan? [p.campaignPlan] : [],
-                criativos:   p.creatives   || [],
-                googleAds:   p.googleAds   || [],
-                landingPages:p.landingPages|| [],
-                bancoMidia:  p.bancoMidia  || null,
-                estrategia:  p.estrategia ? { narrativa: p.estrategia.narrativa } : null,
-                estrategiaV2:p.estrategiaV2|| null,
-                attachments: p.attachments || [],
-                resultados:  p.resultados  || [],
-                produtos:    p.produtos    || [],
-              });
+              // O realtime só traz a row de projects_v2: as relações (tabelas filhas)
+              // ficam como estavam. Antes elas eram remontadas a partir do objeto já
+              // montado, o que zerava `resultados` e `npsMarcos` a cada UPDATE.
+              const rel = {};
+              for (const k of CHAVES_RELACAO) if (k in p) rel[k] = p[k];
+              return { ...assembleProject(row), ...rel, _completo: p._completo };
             });
             saveToStorage(updated);
             return updated;
@@ -1076,7 +1126,8 @@ export function AppProvider({ children }) {
         updated_at:            now,
       };
 
-      const project = assembleProject(row);
+      // Projeto novo não tem nada nas tabelas filhas: já nasce completo.
+      const project = { ...assembleProject(row), _completo: true };
 
       setProjects((prev) => {
         const updated = [project, ...prev];
@@ -1139,6 +1190,33 @@ export function AppProvider({ children }) {
       return updated;
     });
   }, []);
+
+  // Completa um projeto da lista com as colunas pesadas e as tabelas filhas.
+  // Quem chama só precisa chamar enquanto o projeto não tem `_completo`; duas
+  // chamadas ao mesmo tempo dividem a mesma busca. Depois disso o realtime mantém
+  // a row em dia, como antes, quando tudo vinha na carga inicial.
+  const detalhesEmCurso = useRef(new Map());
+  const carregarDetalhe = useCallback((id) => {
+    if (!id || !user) return Promise.resolve(null);
+    const emCurso = detalhesEmCurso.current.get(id);
+    if (emCurso) return emCurso;
+    const busca = sbFetchDetalhe(id)
+      .then((full) => {
+        if (!full) return null;
+        setProjects((prev) => {
+          const updated = prev.some((p) => p.id === id)
+            ? prev.map((p) => (p.id === id ? (p._completo ? p : full) : p))
+            : [full, ...prev];
+          saveToStorage(updated);
+          return updated;
+        });
+        return full;
+      })
+      .catch((err) => { console.error("Erro ao carregar projeto:", err); return null; })
+      .finally(() => detalhesEmCurso.current.delete(id));
+    detalhesEmCurso.current.set(id, busca);
+    return busca;
+  }, [user]);
 
   const deleteProject = useCallback((id) => {
     setProjects((prev) => {
@@ -1352,6 +1430,7 @@ export function AppProvider({ children }) {
     loginWithGoogle,
     addProject,
     updateProject,
+    carregarDetalhe,
     deleteProject,
     teamMembers,
     squads,

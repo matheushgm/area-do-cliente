@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate, Navigate, useOutletContext } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { Loader2 } from 'lucide-react'
@@ -10,9 +10,26 @@ export default function ProjectDetail() {
   const { id, secao } = useParams()
   const navigate = useNavigate()
   const { openSidebar } = useOutletContext()
-  const { projects, loadingProjects, loadingAuth } = useApp()
+  const { projects, loadingProjects, loadingAuth, carregarDetalhe } = useApp()
 
   const project = projects.find((p) => String(p.id) === String(id))
+  const completo = !!project?._completo
+
+  // A lista do AppContext traz só as colunas leves; o resto do cliente (colunas
+  // pesadas e tabelas filhas) é buscado aqui. Os módulos só montam com o projeto
+  // completo: salvar a partir de um projeto incompleto apagaria o que não veio.
+  // A busca começa já no primeiro render, em paralelo com a lista.
+  // A falha vale para o par cliente + tentativa: outro cliente ou "Tentar de novo"
+  // voltam ao carregando sem precisar limpar estado.
+  const [tentativa, setTentativa] = useState(0)
+  const [falha, setFalha] = useState(null)
+  const falhou = falha === `${id}:${tentativa}`
+  useEffect(() => {
+    if (completo || loadingAuth) return
+    let vivo = true
+    carregarDetalhe(id).then((full) => { if (vivo && !full) setFalha(`${id}:${tentativa}`) })
+    return () => { vivo = false }
+  }, [id, completo, loadingAuth, carregarDetalhe, tentativa])
 
   // null = slug inexistente na URL. O hub mora na raiz (`/cliente/:id`), então
   // o slug vazio devolve a seção padrão.
@@ -23,9 +40,24 @@ export default function ProjectDetail() {
     navigate(cliente(id, slug))
   }, [id, navigate])
 
+  // Projeto existe mas o detalhe não veio (rede, permissão): oferece tentar de novo.
+  if (project && !completo && falhou) {
+    return (
+      <div className="flex-1 min-w-0 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-rl-muted">Não foi possível carregar este cliente.</p>
+          <button onClick={() => setTentativa((n) => n + 1)} className="btn-primary mt-4">
+            Tentar de novo
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // Ao dar refresh, os projetos ainda estão carregando da nuvem — mostramos
   // loading em vez de "não encontrado" (que aparecia num flash de race condition).
-  if (!project && (loadingProjects || loadingAuth)) {
+  // Também enquanto o detalhe do cliente não chegou.
+  if ((!project && (loadingProjects || loadingAuth)) || (project && !completo)) {
     return (
       <div className="flex-1 min-w-0 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-rl-muted">

@@ -123,10 +123,19 @@ Todo o estado da aplicação vive em `src/context/AppContext.jsx`. Ele expõe:
 
 ### Persistência e sincronização
 
-- **Offline-first:** toda mutação salva em `localStorage` imediatamente sob a chave `rl_projects_v2`
+- **Carga em duas fases (2026-10-28):** a carga inicial (`sbFetchLista`) traz só as colunas leves de
+  `projects_v2` (`LISTA_COLS`), sem tabelas filhas: 108 kB em ~0,4 s, contra 8,8 MB em ~7 s quando tudo vinha de
+  uma vez. As colunas pesadas (debriefing, kickoff, promessa, copy_aprovacoes, links…) e as tabelas filhas chegam
+  por `carregarDetalhe(id)` (`sbFetchDetalhe`, ~0,7 s), chamado pelo `ProjectDetail`, que só monta o
+  `ClientProfile` quando o projeto tem `_completo` (salvar a partir de um projeto incompleto apagaria o que não
+  veio). Fora da página do cliente, nenhuma tela lê campos pesados; **coluna nova que a home ou outra lista precise
+  ler entra em `LISTA_COLS`**. Projeto criado por `addProject` já nasce completo.
+- **Cache local:** só a lista leve fica em `localStorage` (`rl_projects_lista_v1`, `aliviar()` tira as chaves de
+  `CHAVES_DETALHE`); a home desenha o cache enquanto a nuvem responde. A chave antiga `rl_projects_v2` (o projeto
+  inteiro, que passava da cota do navegador e não gravava) é apagada ao carregar.
 - **Debounce:** `updateProject` tem debounce de 1s por `id` antes de escrever no Supabase (via `upsertTimers` ref)
 - **Race condition:** `pendingWrites` ref contador — o listener de realtime ignora eventos enquanto há escritas locais pendentes
-- **Realtime granular:** listener em `projects_v2` usa handlers separados por evento (`INSERT`/`UPDATE`/`DELETE`), atualizando apenas o registro afetado no state local. Mudanças em tabelas filhas (personas, criativos, etc.) **não** disparam realtime — são refletidas apenas via escrita local imediata.
+- **Realtime granular:** listener em `projects_v2` usa handlers separados por evento (`INSERT`/`UPDATE`/`DELETE`), atualizando apenas o registro afetado no state local. No `UPDATE` as chaves montadas das tabelas filhas (`CHAVES_RELACAO`) e o `_completo` ficam como estavam. Mudanças em tabelas filhas (personas, criativos, etc.) **não** disparam realtime — são refletidas apenas via escrita local imediata.
 - **Aliases camelCase:** `assembleProject()` em AppContext expõe tanto os campos snake_case do DB quanto aliases camelCase (ex: `company_name` + `companyName`) para compatibilidade com os componentes existentes.
 
 ### Jornada de onboarding (`ProjectDetail`)

@@ -1080,7 +1080,9 @@ const _now      = new Date()
               </div>
             </div>
 
-            {loadingProjects ? (
+            {/* Com o cache local da lista, a home já desenha a última versão e só troca
+                os dados quando a nuvem responde; o loading fica para a primeira visita. */}
+            {loadingProjects && !projects.length ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-rl-muted">
                 <Loader2 className="w-8 h-8 animate-spin text-rl-purple" />
                 <p className="text-sm">Carregando projetos da nuvem...</p>
