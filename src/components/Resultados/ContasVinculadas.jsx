@@ -19,6 +19,13 @@ export function CanalLogo({ canal, className = 'w-4 h-4' }) {
 function Seletor({ dash, projectId, onVincular, onFechar }) {
   const [busca, setBusca] = useState('')
   const ref = useRef(null)
+  // A lista de todas as contas só é lida quando o seletor abre (não a cada visita).
+  const [carregando, setCarregando] = useState(!(dash.allAccountNames || []).length)
+  useEffect(() => {
+    let vivo = true
+    Promise.resolve(dash.carregarTodasContas?.()).finally(() => { if (vivo) setCarregando(false) })
+    return () => { vivo = false }
+  }, [dash.carregarTodasContas])
   useEffect(() => {
     const fora = (e) => { if (ref.current && !ref.current.contains(e.target)) onFechar() }
     const esc = (e) => { if (e.key === 'Escape') onFechar() }
@@ -42,7 +49,9 @@ function Seletor({ dash, projectId, onVincular, onFechar }) {
       </div>
       <div className="max-h-72 overflow-y-auto">
         {opcoes.length === 0 ? (
-          <p className="text-xs text-rl-muted text-center py-4">Nenhuma conta encontrada</p>
+          carregando
+            ? <p className="text-xs text-rl-muted text-center py-4 flex items-center justify-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Carregando contas…</p>
+            : <p className="text-xs text-rl-muted text-center py-4">Nenhuma conta encontrada</p>
         ) : opcoes.map((n) => {
           const outro = dash.accounts?.[n]?.projectId ? dash.accounts[n].acCompanyName || 'outro cliente' : null
           return (

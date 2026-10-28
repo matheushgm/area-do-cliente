@@ -1442,14 +1442,18 @@ async function load(fresh) {
     // Com sessão, a coluna "Anúncios no ar" vem pronta (fetchAdsNoAr) e o status
     // completo só é lido ao abrir uma conta. O link compartilhado continua lendo o
     // status da sua única conta pelo endpoint público.
+    // Embutido numa conta só (página do cliente na Área): não há lista, e a contagem
+    // da página sai do status da própria conta (ensureStatusConta). A RPC calcularia
+    // todas as contas à toa (~2 s de banco).
+    const soConta = EMBED && !EMBED_LISTA && !EMBED_BENCH
     const [m, g, noAr, stShared, sd, accounts] = await Promise.all([
       fetchRows('meta', fresh), fetchRows('google', fresh),
-      fetchAdsNoAr(),
+      soConta ? null : fetchAdsNoAr(),
       SHARED ? fetchChannel('meta_status', fresh).catch(() => '') : '',
       fetchChannel('saldo', fresh).catch(() => ''), fetchAccounts()])
     // Sem a RPC (dev sem sessão, migration 116 não aplicada): caminho antigo.
     let st = stShared, ga = ''
-    if (!noAr && !SHARED) {
+    if (!noAr && !SHARED && !soConta) {
       ;[st, ga] = await Promise.all([fetchChannel('meta_status', fresh).catch(() => ''), fetchGoogleAds(fresh).catch(() => '')])
     }
     state.raw = restringeContas({ meta: applyFormsMql(m), google: g })

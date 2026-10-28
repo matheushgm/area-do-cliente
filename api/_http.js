@@ -86,6 +86,9 @@ export async function hmacHex(secret, msg) {
 // saem em ondas paralelas e a leitura para na primeira página curta. `url` já traz
 // filtros, select e order (o order precisa ser estável para o Range não repetir
 // nem pular linhas). Cada página tenta 3 vezes: uma falha derruba a resposta toda.
+// A 1ª página vai SOZINHA: a maioria das leituras (uma conta, uma janela curta) cabe
+// nela, e abrir 8 de uma vez fazia o banco rodar a mesma consulta 8 vezes à toa
+// (página do cliente: 8 × 0,9 s de CPU para 416 linhas, medido em 2026-10-28).
 export const PAGINA_PGRST = 1000
 export async function lerPaginado(url, headers, { ondas = 8, max = 200000, rotulo = '' } = {}) {
   const pagina = async (offset) => {
@@ -104,8 +107,9 @@ export async function lerPaginado(url, headers, { ondas = 8, max = 200000, rotul
     }
     throw ultimo
   }
-  const out = []
-  for (let offset = 0; ; offset += PAGINA_PGRST * ondas) {
+  const out = await pagina(0)
+  if (out.length < PAGINA_PGRST) return out
+  for (let offset = PAGINA_PGRST; ; offset += PAGINA_PGRST * ondas) {
     const onda = await Promise.all(Array.from({ length: ondas }, (_, i) => pagina(offset + i * PAGINA_PGRST)))
     let curta = false
     for (const lote of onda) {

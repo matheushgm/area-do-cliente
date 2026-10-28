@@ -485,6 +485,13 @@ linhas de cada conta), que importa a cópia `public/dash-teste/vendor/dashCache.
   em `gru1` cada página pagava a travessia) e leem as páginas em ondas paralelas
   (`lerPaginado` em `api/_http.js`). O Supabase devolve no máximo **1000 linhas por resposta**,
   peça o que pedir. Medido em 2026-10-28 antes da mudança: rollup Meta = 30 páginas em série = 11 s.
+  A 1ª página vai sozinha (a maioria das leituras cabe nela); as ondas só abrem se ela vier cheia.
+  Índice `dash_insights (channel, account, day)` (migration 118) para as leituras por conta com janela.
+- **Página do cliente:** a lista de TODAS as contas (`dash_accounts_public`) só é lida quando o
+  seletor "+ vincular conta" abre (`carregarTodasContas` do `useDashboardData`); os canais das
+  contas do projeto vêm de 1 linha por conta e canal no `dash_daily` (opção `canais`, só a seção
+  Resultados de Tráfego liga). O viewer embutido numa conta não chama `dash_anuncios_no_ar`: a
+  contagem da página sai do status da própria conta.
 - Checa no máximo a cada 30 s (`fresco` ignora: botão Atualizar do viewer), recarga completa a
   cada 7 dias, devolve cópias (o viewer soma MQL nas linhas). Falha de rede = mostra o cache.
 - Cache amarrado ao usuário do token (claim `sub`): sessão de outra pessoa apaga tudo; o

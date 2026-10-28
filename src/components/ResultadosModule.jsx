@@ -25,7 +25,8 @@ export default function ResultadosModule({ project, onIrParaTrafego }) {
 
 export function TrafegoModule({ project }) {
   // Só contas e vínculos: os números quem desenha é o viewer do iframe, que lê os dele.
-  const dash = useDashboardData({ source: 'api', projectId: project.id, linhas: false })
+  // `canais`: em que canal cada conta vinculada tem dado (pílulas e iframe do viewer).
+  const dash = useDashboardData({ source: 'api', projectId: project.id, linhas: false, canais: true })
   return <TrafegoConteudo project={project} dash={dash} />
 }
 

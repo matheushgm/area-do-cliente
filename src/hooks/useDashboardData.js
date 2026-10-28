@@ -20,6 +20,26 @@ import { lerDash } from '../lib/dashCache'
 //   - squads                      (id → name)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// [{ account, channel }] → { conta: ['meta', 'google'] }, com o nome aparado.
+function canaisPorConta(rows) {
+  const ch = {}
+  for (const r of rows || []) {
+    const n = r.account?.trim(); if (!n || !r.channel) continue
+    ;(ch[n] ||= []).includes(r.channel) || ch[n].push(r.channel)
+  }
+  return ch
+}
+
+// Em que canais cada conta tem dado: uma consulta de 1 linha por conta e canal no
+// rollup (chave primária channel, account, …). Devolve no formato de uma resposta
+// do supabase-js ({ data }) para entrar no mesmo Promise.all.
+async function canaisDasContas(contas) {
+  const pares = (contas || []).flatMap(conta => ['meta', 'google'].map(channel => ({ conta, channel })))
+  const res = await Promise.all(pares.map(({ conta, channel }) =>
+    supabase.from('dash_daily').select('account,channel').eq('channel', channel).eq('account', conta.trim()).limit(1)))
+  return { data: res.flatMap(r => r.data || []) }
+}
+
 async function loadSheets(source = 'sheets', { accountNames = null, dias = null } = {}) {
   // Fonte NOVA (API): lê do dash_insights via /api/dash-data (mesmas colunas),
   // autenticado com o JWT da sessão. Usado pelo módulo Resultados do cliente.
@@ -55,11 +75,14 @@ async function loadSheets(source = 'sheets', { accountNames = null, dias = null 
 //   dias      (só com 'api') janela de dias recentes em vez do histórico inteiro
 //   linhas    false = não baixa as linhas de anúncio (`raw` fica vazio); para quem só
 //             precisa das contas e dos vínculos, como o módulo Resultados de Tráfego
-export function useDashboardData({ source = 'sheets', projectId = null, dias = null, linhas = true } = {}) {
+//   canais    (só com 'api' + projectId) preenche `accountChannels` das contas do
+//             projeto; a lista de TODAS as contas (seletor "+ vincular conta") só vem
+//             com carregarTodasContas(). Só a seção Resultados de Tráfego usa os dois.
+export function useDashboardData({ source = 'sheets', projectId = null, dias = null, linhas = true, canais = false } = {}) {
   const [raw, setRaw] = useState({ meta: [], google: [] })
-  // Todas as contas presentes no dash_insights (view dash_accounts_public):
-  // com projectId o `raw` só tem as contas do projeto, e o seletor "+ vincular
-  // conta" precisa da lista completa mesmo assim.
+  // Todas as contas presentes no dashboard (view dash_accounts_public), lidas sob
+  // demanda por carregarTodasContas(): com projectId o `raw` só tem as contas do
+  // projeto, e o seletor "+ vincular conta" precisa da lista completa.
   const [allAccountNames, setAllAccountNames] = useState([])
   // Canais (meta/google) em que cada conta tem dados: { [account]: ['meta', ...] }
   const [accountChannels, setAccountChannels] = useState({})
@@ -98,22 +121,16 @@ export function useDashboardData({ source = 'sheets', projectId = null, dias = n
         supabase.from('dashboard_projects_public').select('id,company_name,squad_name,clickup_folder_id'),
         supabase.from('cpl_targets_public').select('company_name,cpl_target,cac_target,mql_target,metrica_formulario'),
         supabase.from('dashboard_squads_public').select('id,name'),
-        source === 'api' && projectId ? supabase.from('dash_accounts_public').select('account,channel') : Promise.resolve({ data: null }),
+        // Canais em que cada conta DO PROJETO tem dado: uma linha por conta e canal
+        // no rollup, pelo índice. A view de todas as contas lia ~115 mil linhas
+        // (3,3 s) a cada abertura da página do cliente, e o iframe esperava por ela.
+        source === 'api' && projectId && canais ? canaisDasContas(accountNames) : Promise.resolve({ data: null }),
       ])
       if (!mounted.current) return
       accRes = accRes2
       const accMap = {}
       ;(accRes.data || []).forEach(r => { accMap[r.account_name] = { project_id: r.project_id, squad_id: r.squad_id, clickup_folder_id: r.clickup_folder_id, hidden: !!r.hidden } })
-      if (namesRes.data) {
-        const s = new Set(namesRes.data.map(r => r.account?.trim()).filter(Boolean))
-        setAllAccountNames([...s].sort((a, b) => a.localeCompare(b, 'pt-BR')))
-        const ch = {}
-        namesRes.data.forEach(r => {
-          const n = r.account?.trim(); if (!n || !r.channel) return
-          ;(ch[n] ||= []).includes(r.channel) || ch[n].push(r.channel)
-        })
-        setAccountChannels(ch)
-      }
+      if (namesRes.data) setAccountChannels(prev => ({ ...prev, ...canaisPorConta(namesRes.data) }))
       const cpl = {}, metas = {}
       ;(cplRes.data || []).forEach(r => {
         const n = r.company_name?.trim(); if (!n) return
@@ -137,13 +154,29 @@ export function useDashboardData({ source = 'sheets', projectId = null, dias = n
     } finally {
       if (mounted.current) setLoading(false)
     }
-  }, [source, projectId, dias, linhas])
+  }, [source, projectId, dias, linhas, canais])
 
   useEffect(() => {
     mounted.current = true
     load()
     return () => { mounted.current = false }
   }, [load])
+
+  // Lista de todas as contas do dashboard, para o seletor "+ vincular conta": só
+  // quando alguém abre o seletor (uma vez por instância do hook).
+  const todasPromessa = useRef(null)
+  const carregarTodasContas = useCallback(() => {
+    if (!todasPromessa.current) {
+      todasPromessa.current = supabase.from('dash_accounts_public').select('account,channel').then(({ data, error }) => {
+        if (error) { todasPromessa.current = null; return }
+        if (!mounted.current || !data) return
+        const ch = canaisPorConta(data)
+        setAllAccountNames(Object.keys(ch).sort((a, b) => a.localeCompare(b, 'pt-BR')))
+        setAccountChannels(prev => ({ ...ch, ...prev }))
+      })
+    }
+    return todasPromessa.current
+  }, [])
 
   // ── Resolução por conta (deriva do projeto; override quando presente) ────────
   const projectsById = useMemo(() => {
@@ -210,6 +243,6 @@ export function useDashboardData({ source = 'sheets', projectId = null, dias = n
   return {
     raw, accounts, squadByAccount, projectsList, squadsList, cplTargets, allAccountNames, accountChannels,
     loading, error, lastUpdate,
-    reload: load, setSquad, linkProject, setClickupFolder, setHidden,
+    reload: load, setSquad, linkProject, setClickupFolder, setHidden, carregarTodasContas,
   }
 }
