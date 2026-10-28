@@ -1,7 +1,7 @@
 // Coluna esquerda do módulo Tarefas: árvore Pastas (clientes) → Listas, no
 // visual do Linear (mesma coluna de navegação densa do app).
 import { useState, useMemo, useRef, Fragment } from 'react'
-import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, LayoutTemplate, ListChecks, MessageSquare, CalendarCheck, FileText, BarChart3 } from 'lucide-react'
+import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, LayoutTemplate, ListChecks, MessageSquare, CalendarCheck, FileText, BarChart3, ArrowLeftRight } from 'lucide-react'
 import { Popover, FOCO } from './Campos'
 
 function MenuPasta({ onRenomear, onNovaLista, onArquivar }) {
@@ -189,6 +189,7 @@ export default function TarefasSidebar({
         <NavItem icon={LayoutTemplate} ativo={nav.aba === 'templates'} onClick={() => { nav.onAba('templates'); onFechar?.() }}>Templates</NavItem>
         <NavItem icon={FileText} ativo={nav.aba === 'paginas'} onClick={() => { nav.onAba('paginas'); onFechar?.() }}>Pages</NavItem>
         <NavItem icon={BarChart3} ativo={nav.aba === 'analytics'} onClick={() => { nav.onAba('analytics'); onFechar?.() }}>Analytics</NavItem>
+        <NavItem icon={ArrowLeftRight} ativo={nav.aba === 'sincronizacao'} onClick={() => { nav.onAba('sincronizacao'); onFechar?.() }} badge={nav.syncErros}>Sincronização</NavItem>
         <NavItem icon={CalendarCheck} ativo={nav.aba === 'atividades'} onClick={() => { nav.onAba('atividades'); onFechar?.() }}>Atividades</NavItem>
         <NavItem icon={MessageSquare} ativo={nav.aba === 'chat'} onClick={() => { nav.onAba('chat'); onFechar?.() }} badge={nav.chat}>Chat</NavItem>
 

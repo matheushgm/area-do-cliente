@@ -1087,6 +1087,27 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   `profileId`. As escritas (`criar`, `estimar`, `tipar`) continuam no ClickUp e são refletidas no
   espelho na hora por `espelharTarefaClickUp` (mapTarefa + `clickup_sync_at`/`updated_at` = agora).
   Conferido em 2026-10-18: 8 pessoas em ~7 s (antes "lendo o ClickUp 3 de 8" com rate limit).
+- **Painel Sincronização (`?aba=sincronizacao`, 2026-10-28, migration 120):** auditoria da ida e da volta com o
+  ClickUp, nascida dos incidentes de 23/10 (template + edição em massa duplicando) e 28/10 (193 alterações que levaram
+  34 min para chegar). Item "Sincronização" na coluna do VertaTask, com contador de itens da fila em erro.
+  - **Ida:** `tarefas_outbox` agrupada em **lotes** (`agruparLotes` em `src/lib/sincronizacao.js`: mesma pessoa,
+    escritas a até 30 s uma da outra = um template ou uma edição em massa), com progresso, quanto o lote levou para
+    chegar inteiro e cada item com campos, situação, erro traduzido (`traduzirErro`) e avisos do push. A 120 deu à fila
+    `ator_id` (gravado pelo trigger), `avisos` (o push guarda o que avisou sobre o item; sem a coluna grava sem eles) e
+    `resolvido_por`/`resolvido_em`. Ações: "Tentar de novo" (`tarefas_outbox_reenviar`), "Ignorar"
+    (`tarefas_outbox_ignorar`, vira `cancelado` com `resolvido_por`) e, no histórico da tarefa, "Forçar envio ao
+    ClickUp" (`tarefas_outbox_forcar`: um `atualizar` com todos os campos). Depois de reenviar o painel chama o push.
+  - **Volta:** `tarefas_sync_log`. Origem `clickup` = trigger `tarefas_sync_log_mudanca` em `tarefas_itens`: toda
+    escrita **sem pessoa logada** (webhook, rodada, scripts, push) que mudou um campo, com `detalhe` `{ campo: { de,
+    para } }` (descrição e checklists só como "mudou"); origem `webhook` = evento que não virou escrita (`ignorado`
+    com o motivo, `sem_mudanca` = eco, `pulada_conflito`, `erro`), gravado por `api/clickup-webhook.js` via
+    `api/_tarefas_sync_log.js`; origem `rodada` = resumo de cada `/api/tarefas-sync` e as tarefas puladas por conflito
+    ou sem pai (`sincronizar({ eventos })`). A rodada apaga o que passa de 30 dias (`tarefas_sync_log_limpar`).
+  - **Histórico de uma tarefa** (`&sync_tarefa=<id>`, também pelo menu ⋯ do painel da tarefa): edições de pessoa
+    (`tarefas_atividade`), envios e recebidos numa linha do tempo só.
+  - Dados por `useSincronizacao` (relê a cada 15 s com a aba visível, sem realtime). Sem a 120 o painel mostra os
+    envios e avisa que o rastro da volta não está ligado. Preview sem login: `/dev/sincronizacao` (só em DEV, dados em
+    memória no formato dos incidentes; o hook lê `window.__DEV_SYNC`).
 - **Ainda não feito:** ligar a Central de Otimizações e o playbook ao Intake, e a decisão sobre desligar o ClickUp.
 
 ### Chat (módulo do VertaTask, `/tarefas?aba=chat`): réplica do ClickUp Chat

@@ -93,7 +93,9 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
   const cu = fazClickup(token, inicio + orcamentoMs)
   const estourou = () => Date.now() - inicio > orcamentoMs
   const resumo = { processadas: 0, criadas: 0, atualizadas: 0, excluidas: 0, comentadas: 0, erros: 0, devolvidas: 0, copias_absorvidas: 0, pastas_criadas: 0, listas_criadas: 0, avisos: [] }
-  const aviso = (m) => { if (resumo.avisos.length < 50) resumo.avisos.push(m); log('aviso: ' + m) }
+  // avisos do item em processamento vão também para tarefas_outbox.avisos (painel Sincronização)
+  let avisosItem = null
+  const aviso = (m) => { if (resumo.avisos.length < 50) resumo.avisos.push(m); if (avisosItem && avisosItem.length < 10) avisosItem.push(m); log('aviso: ' + m) }
 
   // Reivindica os itens (status 'processando'): cada item é de uma rodada só. Sem a RPC
   // (migration 110 ainda não aplicada) cai na leitura antiga, sem proteção, e avisa.
@@ -125,7 +127,15 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
     return camposPorLista.get(listId)
   }
   const agora = () => new Date().toISOString()
-  const marcar = (id, patch) => sb.from('tarefas_outbox').update({ ...patch, processed_at: agora() }).eq('id', id)
+  // Sem a coluna avisos (migration 120 ainda não aplicada) grava sem eles: o item nunca
+  // pode ficar 'processando' por causa do rastro.
+  const marcar = async (id, patch) => {
+    const p = { ...patch, processed_at: agora() }
+    if (avisosItem?.length) p.avisos = [...avisosItem]
+    const r = await sb.from('tarefas_outbox').update(p).eq('id', id)
+    if (r.error && p.avisos) { delete p.avisos; return sb.from('tarefas_outbox').update(p).eq('id', id) }
+    return r
+  }
   // devolve o item à fila sem contar tentativa (outra rodada está criando a mesma tarefa)
   const devolver = (id) => sb.from('tarefas_outbox').update({ status: 'pendente', reivindicado_em: null }).eq('id', id)
   // O webhook taskCreated pode chegar antes de o vínculo ser gravado na linha original e
@@ -263,6 +273,7 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
       break
     }
     resumo.processadas++
+    avisosItem = []
     try {
       if (item.operacao === 'excluir') {
         await cu('DELETE', `/task/${item.clickup_task_id}`).catch((e) => { if (e.status !== 404) throw e })

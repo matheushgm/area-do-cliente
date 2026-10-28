@@ -9,11 +9,13 @@
 // A gravação é a de api/_tarefas_webhook_core.js (lê só a tarefa do evento e aplica
 // as regras da rodada periódica). Erro ao processar responde 200 com ok:false: o
 // ClickUp suspende webhook que falha muito, e a rodada de /api/tarefas-sync pega o
-// que escapou. O último evento fica em tarefas_sync, linha 'clickup_webhook'.
+// que escapou. O último evento fica em tarefas_sync, linha 'clickup_webhook', e o rastro
+// dos eventos em tarefas_sync_log (painel Sincronização).
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { processarEventoTarefa } from './_tarefas_webhook_core.js'
 import { SPACES_PADRAO } from './_tarefas_sync_core.js'
+import { registrarSyncLog, linhaWebhook } from './_tarefas_sync_log.js'
 
 export const config = { maxDuration: 30 }
 
@@ -59,5 +61,7 @@ export async function POST(request) {
     id: 'clickup_webhook', ultimo_inicio: inicio, ultimo_fim: new Date().toISOString(),
     ultimo_ok: r.acao !== 'erro', resumo, updated_at: new Date().toISOString(),
   })
+  // rastro do evento que não virou escrita (o que virou, o trigger da tarefa já registrou)
+  await registrarSyncLog(sb, [linhaWebhook(ev.event, ev.task_id, r)])
   return resposta({ ok: r.acao !== 'erro', ...resumo })
 }

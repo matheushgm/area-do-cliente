@@ -66,6 +66,7 @@ export async function sincronizar({
   sb, token, team, spaces = SPACES_PADRAO, desde,
   completo = false, reconciliar = false, comentarios = true,
   maxComentarios = 40, maxAnexos = 40, anexosDeTodas = false, maxPaginas = 30, orcamentoMs = 50_000, log = () => {},
+  eventos = null, // array opcional: tarefas puladas nesta rodada, para tarefas_sync_log
 }) {
   const clickup = fazClickup(token)
   const inicio = Date.now()
@@ -231,7 +232,11 @@ export async function sincronizar({
     const row = mapTarefa(t, perfilDe)
     if (ex) {
       const editadaNaArea = ex.clickup_sync_at && new Date(ex.updated_at).getTime() > new Date(ex.clickup_sync_at).getTime() + 1000
-      if (editadaNaArea && new Date(row.clickup_updated_at).getTime() <= new Date(ex.updated_at).getTime()) { resumo.puladas_conflito++; continue }
+      if (editadaNaArea && new Date(row.clickup_updated_at).getTime() <= new Date(ex.updated_at).getTime()) {
+        resumo.puladas_conflito++
+        eventos?.push({ origem: 'rodada', evento: 'rodada', acao: 'pulada_conflito', tarefa_id: ex.id, clickup_task_id: String(t.id), motivo: 'editada no VertaTask depois da última sincronização e o ClickUp não é mais novo' })
+        continue
+      }
       // nada novo? (em `completo` ainda confere se lista/pai mudaram ou se estava marcada como removida)
       const mesmaVersao = ex.clickup_updated_at && new Date(row.clickup_updated_at).getTime() <= new Date(ex.clickup_updated_at).getTime()
       const paiEsperado = t.parent ? (existentes.get(t.parent)?.id || idDe.get(t.parent) || null) : null
@@ -260,7 +265,10 @@ export async function sincronizar({
     let parent_id = null
     if (l._parentCu) {
       if (presente(l._parentCu)) parent_id = existentes.get(l._parentCu)?.id || idDe.get(l._parentCu)
-      else { resumo.sem_pai++; aviso(`tarefa ${l.clickup_task_id}: pai ${l._parentCu} não pôde ser gravado; ficou sem pai`) }
+      else {
+        resumo.sem_pai++; aviso(`tarefa ${l.clickup_task_id}: pai ${l._parentCu} não pôde ser gravado; ficou sem pai`)
+        eventos?.push({ origem: 'rodada', evento: 'rodada', acao: 'sem_pai', tarefa_id: l.id, clickup_task_id: String(l.clickup_task_id), motivo: `pai ${l._parentCu} não pôde ser gravado` })
+      }
     }
     return { ...l, parent_id, _prof: profDe(l.clickup_task_id) }
   }).sort((a, b) => a._prof - b._prof)
