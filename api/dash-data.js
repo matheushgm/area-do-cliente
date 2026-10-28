@@ -1,10 +1,12 @@
-import { getUser, jsonErr } from './_http.js'
+import { getUser, jsonErr, lerPaginado, filtroDias } from './_http.js'
 // Edge function — serve os dados do Dashboard de Tráfego (versão API) lendo da
 // tabela public.dash_insights no Supabase, SOMENTE para usuários autenticados.
 // Valida o JWT da sessão (igual api/anthropic.js) e repassa esse mesmo JWT ao
 // PostgREST, de modo que a RLS (SELECT só para authenticated) seja aplicada.
 // Os dados NUNCA ficam no repositório nem em arquivo público.
-export const config = { runtime: 'edge' }
+// Região iad1 (Virgínia), a mesma do banco (us-east-1): rodando perto do usuário
+// (gru1) cada página do PostgREST pagava a travessia do continente.
+export const config = { runtime: 'edge', regions: ['iad1'] }
 
 // Monta CSV (todos os campos entre aspas) a partir de uma lista de objetos.
 function toCSV(rows) {
@@ -20,7 +22,6 @@ function toCSV(rows) {
   return lines.join('\n')
 }
 
-const PAGE = 1000        // linhas por requisição ao PostgREST
 const CONCURRENCY = 8    // fatias lidas ao mesmo tempo
 const SLICE_TARGET = 5   // dias por fatia (~2 mil linhas no canal Meta)
 const MAX_ROWS = 200000  // trava de segurança
@@ -71,10 +72,10 @@ export default async function handler(req) {
     : accountList.length > 1
       ? `&account=in.(${encodeURIComponent(accountList.map(a => '"' + a.replace(/"/g, '\\"') + '"').join(','))})`
       : ''
-  // Janela opcional de dias (ex.: dias=16 para o preset de 7 dias + comparação).
-  // Sem o parâmetro, devolve o histórico inteiro do canal.
-  const diasRaw = parseInt(url.searchParams.get('dias') || '', 10)
-  const dias = Number.isFinite(diasRaw) && diasRaw > 0 ? Math.min(diasRaw, 3650) : null
+  // Janela opcional: `dias=N` (ex.: 15 para 7 dias fechados + comparação) ou
+  // `de`/`ate` (o cache do navegador busca só o período mais antigo que falta).
+  // Sem nada, devolve o histórico inteiro do canal.
+  const { de, ate, qs: janela } = filtroDias(url)
 
   const headers = {
     apikey: SUPABASE_ANON,
@@ -92,55 +93,21 @@ export default async function handler(req) {
     : ''
   const base = `${SUPABASE_URL}/rest/v1/dash_insights?channel=eq.${channel}${acctFilter}${kwFilter}`
 
-  // Uma página que falhe derruba a resposta INTEIRA (o dashboard mostra
-  // "meta: HTTP 500") — e falhas transitórias acontecem sob requisições
-  // paralelas (hiccup de rede/Supabase). Retry curto por página (3 tentativas,
-  // backoff 250/500ms) absorve isso sem estourar o limite de 25s da Edge.
-  const getPage = async (qs, offset, label) => {
-    let lastErr
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const r = await fetch(`${base}${qs}&select=data&order=row_key.asc`, {
-          headers: { ...headers, Range: `${offset}-${offset + PAGE - 1}`, 'Range-Unit': 'items' },
-        })
-        if (r.ok) return r.json()
-        lastErr = new Error(`${label}+${offset}: HTTP ${r.status}`)
-      } catch (e) {
-        lastErr = new Error(`${label}+${offset}: ${e?.message || e}`)
-      }
-      await new Promise(res => setTimeout(res, 250 * (attempt + 1)))
-    }
-    throw lastErr
-  }
-
-  // Lê TUDO que casa com `qs`, paginando por Range. Usado só em recortes
-  // pequenos (uma fatia de dias, uma conta, o snapshot de status), onde o
-  // offset nunca passa de alguns milhares.
+  // Lê TUDO que casa com `qs`, em páginas de 1000 (teto do Supabase) lidas em
+  // ondas paralelas (lerPaginado). Usado só em recortes pequenos (uma fatia de
+  // dias, uma ou poucas contas, um snapshot), onde o offset fica em alguns milhares.
   //
   // Por que não paginar o canal inteiro assim: OFFSET faz o Postgres reler
   // todas as linhas anteriores, então o custo cresce ao QUADRADO do tamanho da
   // tabela. Com 55 mil linhas, a página do fim já leva ~3,6s sozinha, contra um
   // statement_timeout de 8s no papel `authenticated` — e cada falha dessas
   // derruba a resposta inteira em 504. Daí o fatiamento por dia abaixo.
-  const readAll = async (qs, label) => {
-    // Palavras-chave de uma conta grande são dezenas de páginas; em série passam
-    // do limite de 25s da Edge. Lê em ondas paralelas e para na primeira página curta.
-    if (channel === 'google_keywords') {
-      const out = []
-      for (let offset = 0; ; offset += PAGE * CONCURRENCY) {
-        const onda = await Promise.all(Array.from({ length: CONCURRENCY },
-          (_, i) => getPage(qs, offset + i * PAGE, label)))
-        let curta = false
-        for (const batch of onda) { for (const row of batch) out.push(row.data); if (batch.length < PAGE) curta = true }
-        if (curta || out.length > MAX_ROWS) return out
-      }
-    }
-    const out = []
-    for (let offset = 0; ; offset += PAGE) {
-      const batch = await getPage(qs, offset, label)
-      for (const row of batch) out.push(row.data)
-      if (batch.length < PAGE || out.length > MAX_ROWS) return out
-    }
+  // `ondas` = páginas ao mesmo tempo: as fatias já rodam 8 em paralelo, então
+  // cada uma lê de 2 em 2 para não abrir 64 conexões de uma vez.
+  const readAll = async (qs, label, ondas = 8) => {
+    const rows = await lerPaginado(`${base}${qs}&select=data&order=row_key.asc`, headers,
+      { ondas, max: MAX_ROWS, rotulo: label })
+    return rows.map(row => row.data)
   }
 
   // Menor e maior dia do canal, para saber onde começa e termina o fatiamento.
@@ -159,16 +126,15 @@ export default async function handler(req) {
     // casos vale ler direto, sem fatiar.
     const snapshot = channel === 'meta_status' || channel === 'saldo' || channel === 'google_keywords'
     if (snapshot || account) {
-      const since = dias ? `&day=gte.${addDays(iso(new Date()), -dias)}` : ''
-      rows = await readAll(snapshot ? '' : since, channel)
+      rows = await readAll(snapshot ? '' : janela, channel)
     } else {
-      const hoje = iso(new Date())
-      const janela = dias ? addDays(hoje, -dias) : null
-      const [minDia, ultimo] = await Promise.all([edgeDay('asc'), edgeDay('desc')])
+      const [minDia, maxDia] = await Promise.all([edgeDay('asc'), edgeDay('desc')])
       // Começa no mais recente entre o início da janela pedida e o primeiro dia
       // que existe no canal: fatiar antes disso só geraria consultas vazias.
-      const inicio = janela && minDia && janela > minDia ? janela : minDia
-      if (!inicio || !ultimo) {
+      // Termina no último dia com dado ou na véspera de `ate` (exclusivo).
+      const inicio = de && minDia && de > minDia ? de : minDia
+      const ultimo = ate && maxDia && addDays(ate, -1) < maxDia ? addDays(ate, -1) : maxDia
+      if (!inicio || !ultimo || inicio > ultimo) {
         rows = []
       } else {
         // Fatias de dias, lidas em PARALELO. Cada fatia é uma consulta rasa e
@@ -177,12 +143,12 @@ export default async function handler(req) {
         const fatias = []
         for (let d = inicio; d <= ultimo; d = addDays(d, SLICE_TARGET)) {
           const fim = addDays(d, SLICE_TARGET)
-          fatias.push(`&day=gte.${d}&day=lt.${fim}`)
+          fatias.push(`&day=gte.${d}&day=lt.${ate && ate < fim ? ate : fim}`)
         }
         rows = []
         for (let i = 0; i < fatias.length; i += CONCURRENCY) {
           const lote = fatias.slice(i, i + CONCURRENCY)
-          const res = await Promise.all(lote.map((qs, j) => readAll(qs, `${channel} fatia ${i + j}`)))
+          const res = await Promise.all(lote.map((qs, j) => readAll(qs, `${channel} fatia ${i + j}`, 2)))
           for (const parte of res) for (const row of parte) rows.push(row)
           if (rows.length > MAX_ROWS) break
         }

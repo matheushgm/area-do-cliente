@@ -78,3 +78,56 @@ export async function hmacHex(secret, msg) {
   const sig = await crypto.subtle.sign('HMAC', key, enc.encode(msg))
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
+
+// ─── Leitura paginada do PostgREST (Dashboard de Tráfego) ────────────────────
+// O Supabase devolve no máximo 1000 linhas por resposta, peça o que pedir. Ler
+// página a página em série custava ~300 ms de ida e volta por página (medido em
+// 2026-10-28: rollup Meta de 29 mil linhas = 30 páginas = 11 s). Aqui as páginas
+// saem em ondas paralelas e a leitura para na primeira página curta. `url` já traz
+// filtros, select e order (o order precisa ser estável para o Range não repetir
+// nem pular linhas). Cada página tenta 3 vezes: uma falha derruba a resposta toda.
+export const PAGINA_PGRST = 1000
+export async function lerPaginado(url, headers, { ondas = 8, max = 200000, rotulo = '' } = {}) {
+  const pagina = async (offset) => {
+    let ultimo
+    for (let tentativa = 0; tentativa < 3; tentativa++) {
+      try {
+        const r = await fetch(url, {
+          headers: { ...headers, Range: `${offset}-${offset + PAGINA_PGRST - 1}`, 'Range-Unit': 'items' },
+        })
+        if (r.ok) return r.json()
+        ultimo = new Error(`${rotulo}+${offset}: HTTP ${r.status}`)
+      } catch (e) {
+        ultimo = new Error(`${rotulo}+${offset}: ${e?.message || e}`)
+      }
+      await new Promise((res) => setTimeout(res, 250 * (tentativa + 1)))
+    }
+    throw ultimo
+  }
+  const out = []
+  for (let offset = 0; ; offset += PAGINA_PGRST * ondas) {
+    const onda = await Promise.all(Array.from({ length: ondas }, (_, i) => pagina(offset + i * PAGINA_PGRST)))
+    let curta = false
+    for (const lote of onda) {
+      for (const row of lote) out.push(row)
+      if (lote.length < PAGINA_PGRST) curta = true
+    }
+    if (curta || out.length > max) return out
+  }
+}
+
+// Janela de dias das leituras do dashboard: `dias=N` (de hoje-N até hoje) ou
+// `de=YYYY-MM-DD` / `ate=YYYY-MM-DD` (ate exclusivo), que o cache do navegador usa
+// para buscar só o período mais antigo que ainda não tem. Devolve o trecho de
+// filtro PostgREST sobre a coluna `day`.
+export function filtroDias(url) {
+  const iso = (d) => d.toISOString().slice(0, 10)
+  const dia = (s) => (/^\d{4}-\d{2}-\d{2}$/.test(s || '') ? s : null)
+  const diasRaw = parseInt(url.searchParams.get('dias') || '', 10)
+  let de = dia(url.searchParams.get('de'))
+  const ate = dia(url.searchParams.get('ate'))
+  if (!de && Number.isFinite(diasRaw) && diasRaw > 0) {
+    const d = new Date(); d.setUTCDate(d.getUTCDate() - Math.min(diasRaw, 3650)); de = iso(d)
+  }
+  return { de, ate, qs: (de ? `&day=gte.${de}` : '') + (ate ? `&day=lt.${ate}` : '') }
+}

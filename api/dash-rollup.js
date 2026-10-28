@@ -1,4 +1,4 @@
-import { getUser, jsonErr } from './_http.js'
+import { getUser, jsonErr, lerPaginado, filtroDias } from './_http.js'
 // Edge function — serve o ROLLUP diário do Dashboard de Tráfego (public.dash_daily),
 // somente para usuários autenticados, com a mesma checagem de JWT do /api/dash-data.
 //
@@ -13,7 +13,10 @@ import { getUser, jsonErr } from './_http.js'
 // `Gasto`, `Data`…), então buildStats, buildDeclineDiagnosis, buildScaleCandidates
 // e summaryFor consomem o rollup sem alteração nenhuma. As linhas cruas continuam
 // em /api/dash-data e são lidas só ao abrir a página de um cliente.
-export const config = { runtime: 'edge' }
+//
+// Região iad1 (Virgínia), a mesma do banco (us-east-1): rodando perto do usuário
+// (gru1) cada página do PostgREST pagava a travessia do continente.
+export const config = { runtime: 'edge', regions: ['iad1'] }
 
 // Mapa coluna-do-rollup → nome que o cliente já espera, por canal.
 const COLS = {
@@ -29,14 +32,6 @@ const COLS = {
   ],
 }
 
-// Página grande de propósito: o rollup inteiro do Meta sai do índice em ~12ms,
-// então o custo aqui é round-trip, não banco. Se o PostgREST devolver menos que
-// o pedido (limite do servidor), a paginação abaixo continua correta: ela avança
-// pelo tamanho REAL de cada página, não pelo pedido.
-const PAGE = 10000
-const MAX_ROWS = 200000
-const iso = d => d.toISOString().slice(0, 10)
-
 export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY
@@ -50,13 +45,8 @@ export default async function handler(req) {
   const channel = url.searchParams.get('channel')
   if (!COLS[channel]) return jsonErr('channel inválido (use meta|google).', 400)
 
-  // Janela opcional em dias. Sem ela, devolve o histórico inteiro do canal.
-  const diasRaw = parseInt(url.searchParams.get('dias') || '', 10)
-  let since = ''
-  if (Number.isFinite(diasRaw) && diasRaw > 0) {
-    const d = new Date(); d.setUTCDate(d.getUTCDate() - Math.min(diasRaw, 3650))
-    since = `&day=gte.${iso(d)}`
-  }
+  // Janela: `dias=N` ou `de`/`ate` (ver filtroDias). Sem nada, o histórico inteiro.
+  const { qs: janela } = filtroDias(url)
 
   // Filtro opcional por conta (repetível: ?account=A&account=B), mesma sintaxe do
   // /api/dash-data. O viewer embutido na página do cliente pede só as contas do
@@ -70,34 +60,14 @@ export default async function handler(req) {
 
   const cols = COLS[channel]
   const select = cols.map(([c]) => c).join(',')
-  // A ordem bate com a PK (channel, account, day, campaign), então o Postgres
-  // pagina direto pelo índice, sem ordenar.
-  const base = `${SUPABASE_URL}/rest/v1/dash_daily?channel=eq.${channel}${acctFilter}${since}`
+  // A ordem bate com a PK (channel, account, day, campaign): o Postgres pagina
+  // direto pelo índice e o Range é estável entre as páginas paralelas.
+  const base = `${SUPABASE_URL}/rest/v1/dash_daily?channel=eq.${channel}${acctFilter}${janela}`
     + `&select=${select}&order=account.asc,day.asc,campaign.asc`
-  const headers = { apikey: SUPABASE_ANON, Authorization: `Bearer ${jwt}` }
 
-  const rows = []
+  let rows
   try {
-    // Avança pelo tamanho REAL de cada página em vez de assumir PAGE: se o
-    // PostgREST devolver menos que o pedido por limite do servidor, a paginação
-    // continua correta em vez de parar cedo e perder linhas.
-    for (let offset = 0; ;) {
-      let batch, lastErr
-      for (let attempt = 0; attempt < 3 && !batch; attempt++) {
-        try {
-          const r = await fetch(base, {
-            headers: { ...headers, Range: `${offset}-${offset + PAGE - 1}`, 'Range-Unit': 'items' },
-          })
-          if (r.ok) { batch = await r.json(); break }
-          lastErr = new Error(`offset ${offset}: HTTP ${r.status}`)
-        } catch (e) { lastErr = new Error(`offset ${offset}: ${e?.message || e}`) }
-        await new Promise(res => setTimeout(res, 250 * (attempt + 1)))
-      }
-      if (!batch) throw lastErr
-      for (const row of batch) rows.push(row)
-      if (!batch.length || rows.length > MAX_ROWS) break
-      offset += batch.length
-    }
+    rows = await lerPaginado(base, { apikey: SUPABASE_ANON, Authorization: `Bearer ${jwt}` }, { rotulo: channel })
   } catch (e) {
     return jsonErr(`Erro ao consultar o rollup (${e?.message || e}).`, 500)
   }

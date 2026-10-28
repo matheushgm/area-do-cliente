@@ -452,7 +452,7 @@ showToast('Erro ao salvar', 'error')
 
 ### Cache local do Dashboard de Tráfego (`src/lib/dashCache.js`, 2026-10-28)
 
-`lerDash({ fonte: 'data'|'rollup', canal, contas, dias, fresco, token, sbUrl, sbKey, parseCSV })`
+`lerDash({ fonte: 'data'|'rollup', canal, contas, dias | desde, fresco, token, sbUrl, sbKey, parseCSV })`
 guarda em IndexedDB (`rl_dash_cache`) as linhas de `/api/dash-data` e `/api/dash-rollup` (só
 meta e google) e, na volta, baixa só o que mudou. Usado pelo `useDashboardData` (home,
 /otimizacoes, hub, Funil, Planejamento, Modo Apresentação) e pelo viewer (rollup da lista e
@@ -466,6 +466,25 @@ linhas de cada conta), que importa a cópia `public/dash-teste/vendor/dashCache.
   `updated_at` do `dash_insights`**: o upsert do coletor não o atualiza.
 - Entrada = fonte + canal + contas ("*" = todas); a janela (`desde`) é atributo, então a entrada
   de 20 dias de todas as contas da home atende o hub (16 dias, contas do projeto) sem rede.
+  Pedido mais antigo que a entrada **emenda só o trecho que falta** (`de`/`ate` no servidor,
+  `estender`) em vez de baixar tudo de novo.
+- **Janelas por tela (2026-10-28):** viewer (lista, conta, link público) abre com **62 dias**
+  (todos os atalhos com a comparação; "Mês passado" é o mais longo) e só "Máximo" ou um
+  personalizado antigo buscam o resto (`garantirJanela`, antes de gravar o período);
+  Planejamento 62 dias; Modo Apresentação 75; hub 16. **Home e /otimizacoes ficam em 20 dias
+  de propósito:** a chave da sugestão ganha o prefixo `conta|` quando o projeto tem mais de uma
+  conta com dado nos últimos 20 dias (`otmVarias` no viewer, `gerarSugestoesProjeto`), e
+  encurtar faria a mesma sugestão aparecer decidida num lugar e pendente no outro. O **Funil**
+  continua com as linhas de anúncio do projeto, histórico inteiro: o comparativo Meta × Google
+  conta conversão Meta como WhatsApp + Leads + Vendas, e o rollup só tem a coluna `Conversões`.
+- **Status:** a coluna "Anúncios no ar" da lista vem da RPC `dash_anuncios_no_ar()` (migration
+  116; espelha `adNoAr`/`buildGoogleAdsSnap`, mudou um, mude o outro); o snapshot completo de
+  `meta_status` só é lido ao abrir a conta, filtrado por ela (`ensureStatusConta`). Sem a RPC o
+  viewer cai no caminho antigo (snapshot inteiro).
+- **Servidor:** `dash-data`, `dash-rollup` e `dash-public` rodam em `iad1` (o banco é us-east-1;
+  em `gru1` cada página pagava a travessia) e leem as páginas em ondas paralelas
+  (`lerPaginado` em `api/_http.js`). O Supabase devolve no máximo **1000 linhas por resposta**,
+  peça o que pedir. Medido em 2026-10-28 antes da mudança: rollup Meta = 30 páginas em série = 11 s.
 - Checa no máximo a cada 30 s (`fresco` ignora: botão Atualizar do viewer), recarga completa a
   cada 7 dias, devolve cópias (o viewer soma MQL nas linhas). Falha de rede = mostra o cache.
 - Cache amarrado ao usuário do token (claim `sub`): sessão de outra pessoa apaga tudo; o

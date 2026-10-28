@@ -27,7 +27,6 @@ const COLUNA_DIA = { meta: 'Dia', google: 'Data' }
 
 const isoHoje = () => new Date().toISOString().slice(0, 10)
 const somaDias = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
-const diasEntre = (de, ate) => Math.round((Date.parse(ate + 'T00:00:00Z') - Date.parse(de + 'T00:00:00Z')) / 864e5)
 
 // ─── IndexedDB (falha = segue só com a memória da página) ────────────────────
 let dbPromise = null
@@ -129,11 +128,15 @@ function diaMaisAntigoDesde(cfg, canal, versao) {
 }
 
 // ─── Servidor ────────────────────────────────────────────────────────────────
-async function baixar(cfg, fonte, canal, contas, dias) {
-  const p = new URLSearchParams({ channel: canal })
-  ;(contas || []).forEach((a) => p.append('account', a))
-  if (dias) p.set('dias', String(dias))
-  const r = await fetch(`/api/dash-${fonte}?${p}`, { headers: { Authorization: `Bearer ${cfg.token}` }, cache: 'no-store' })
+// `de` (inclusivo) e `ate` (exclusivo), YYYY-MM-DD; sem `de` = desde o começo.
+async function baixar(cfg, fonte, canal, contas, { de = null, ate = null } = {}) {
+  // encodeURIComponent, não URLSearchParams: este troca espaço por "+", que o
+  // `vercel dev` não devolve como espaço ("Complexo+Agro" não casava com conta nenhuma).
+  const qs = [`channel=${encodeURIComponent(canal)}`]
+  for (const a of contas || []) qs.push(`account=${encodeURIComponent(a)}`)
+  if (de) qs.push(`de=${de}`)
+  if (ate) qs.push(`ate=${ate}`)
+  const r = await fetch(`/api/dash-${fonte}?${qs.join('&')}`, { headers: { Authorization: `Bearer ${cfg.token}` }, cache: 'no-store' })
   if (!r.ok) {
     const m = await r.clone().json().then((j) => j?.error?.message).catch(() => null)
     const e = new Error(`${canal}: HTTP ${r.status}${m ? ` — ${m}` : ''}`)
@@ -143,12 +146,12 @@ async function baixar(cfg, fonte, canal, contas, dias) {
   return cfg.parseCSV(await r.text())
 }
 
-async function carregarCompleta(cfg, fonte, canal, contas, dias, inicio) {
+async function carregarCompleta(cfg, fonte, canal, contas, inicio) {
   // A versão é pedida ANTES dos dados (em paralelo, sem esperar): o que o coletor
   // gravar durante o download entra na próxima diferença em vez de se perder.
   const [versao, rows] = await Promise.all([
     versaoAtual(cfg, canal, true).catch(() => null),
-    baixar(cfg, fonte, canal, contas, dias),
+    baixar(cfg, fonte, canal, contas, { de: inicio }),
   ])
   const agora = Date.now()
   const e = { id: idDe(fonte, canal, contas), fonte, canal, contas, desde: inicio, versao, cheioEm: agora, usadoEm: agora, checadoEm: agora, rows }
@@ -157,15 +160,36 @@ async function carregarCompleta(cfg, fonte, canal, contas, dias, inicio) {
   return e
 }
 
-// Uma atualização por entrada de cada vez: pedidos com janelas diferentes podem cair
-// na mesma entrada ao mesmo tempo (home + banner, hub + Funil).
-const atualizando = new Map()
+// Uma operação por entrada de cada vez (diferença ou extensão para trás): pedidos
+// com janelas diferentes podem cair na mesma entrada ao mesmo tempo (home + banner,
+// hub + Funil, lista + "Máximo").
+const travas = new Map()
+function comTrava(id, fn) {
+  const antes = travas.get(id) || Promise.resolve()
+  const p = antes.catch(() => {}).then(fn)
+  const fim = p.catch(() => {}).then(() => { if (travas.get(id) === fim) travas.delete(id) })
+  travas.set(id, fim)
+  return p
+}
 function atualizar(cfg, e, fresco) {
   if (!fresco && Date.now() - e.checadoEm < CHECAGEM_MS) return Promise.resolve(e)
-  if (atualizando.has(e.id)) return atualizando.get(e.id)
-  const p = aplicarDiferenca(cfg, e, fresco).finally(() => atualizando.delete(e.id))
-  atualizando.set(e.id, p)
-  return p
+  return comTrava(e.id, () => (!fresco && Date.now() - e.checadoEm < CHECAGEM_MS) ? e : aplicarDiferenca(cfg, e, fresco))
+}
+
+// Entrada que começa depois do que foi pedido ("Máximo", "Personalizado", mês
+// anterior no Funil): baixa só o trecho que falta, de `inicio` até o `desde` dela,
+// e emenda na frente. `inicio` null = desde o começo.
+function estender(cfg, e, inicio) {
+  return comTrava(e.id, async () => {
+    if (cobre(e, inicio)) return e
+    const col = COLUNA_DIA[e.canal]
+    const antigas = (await baixar(cfg, e.fonte, e.canal, e.contas, { de: inicio, ate: e.desde }))
+      .filter((r) => (r[col] || '') < e.desde)
+    e.rows = antigas.concat(e.rows)
+    e.desde = inicio
+    gravarDepois(e)
+    return e
+  })
 }
 
 async function aplicarDiferenca(cfg, e, fresco) {
@@ -178,8 +202,8 @@ async function aplicarDiferenca(cfg, e, fresco) {
   let corte = e.versao ? await diaMaisAntigoDesde(cfg, e.canal, e.versao) : somaDias(hoje, -9)
   if (!corte) { e.versao = versao; return e }
   if (e.desde && corte < e.desde) corte = e.desde
-  // `dias=0` o servidor lê como "sem janela", por isso o piso de 1 e o filtro abaixo.
-  const delta = (await baixar(cfg, e.fonte, e.canal, e.contas, Math.max(1, diasEntre(corte, hoje))))
+  if (corte > hoje) corte = hoje
+  const delta = await baixar(cfg, e.fonte, e.canal, e.contas, { de: corte })
   const col = COLUNA_DIA[e.canal]
   const rows = e.rows.filter((r) => (r[col] || '') < corte)
   for (const r of delta) if ((r[col] || '') >= corte) rows.push(r)
@@ -224,27 +248,37 @@ async function conferirDono(uid) {
 }
 
 // Linhas de /api/dash-data (fonte 'data') ou /api/dash-rollup (fonte 'rollup'), só
-// meta e google, pelo cache. `dias` = mesma janela do servidor (null = histórico
-// inteiro); `contas` = recorte por conta (null = todas). `fresco` ignora a espera
-// de 30 s entre checagens (botão Atualizar). `cfg` = { token, sbUrl, sbKey, parseCSV }.
-export async function lerDash({ fonte, canal, contas = null, dias = null, fresco = false, ...cfg }) {
+// meta e google, pelo cache. Janela: `dias` (hoje − N, igual ao servidor) ou `desde`
+// (YYYY-MM-DD); sem os dois, o histórico inteiro. `contas` = recorte por conta (null =
+// todas). `fresco` ignora a espera de 30 s entre checagens (botão Atualizar).
+// `cfg` = { token, sbUrl, sbKey, parseCSV }.
+export async function lerDash({ fonte, canal, contas = null, dias = null, desde = null, fresco = false, ...cfg }) {
   const uid = usuarioDo(cfg.token)
   if (!uid) throw Object.assign(new Error('Sessão inválida.'), { status: 401 })
   await conferirDono(uid)
   const lista = contas ? [...new Set(contas.map((c) => c.trim()).filter(Boolean))].sort() : null
-  const inicio = dias ? somaDias(isoHoje(), -dias) : null
+  const inicio = desde || (dias ? somaDias(isoHoje(), -dias) : null)
   const chave = `${idDe(fonte, canal, lista)}|${inicio}|${fresco}`
   if (emAndamento.has(chave)) return emAndamento.get(chave)
   const p = (async () => {
     const id = idDe(fonte, canal, lista)
     let e = await carregarEntrada(id)
+    const propria = e
     if (!cobre(e, inicio)) e = null
     if (!e && lista) {
       const geral = await carregarEntrada(idDe(fonte, canal, null))
       if (cobre(geral, inicio)) e = geral
     }
+    // A entrada desta busca existe mas começa depois do pedido: emenda só o trecho
+    // que falta em vez de baixar tudo de novo.
+    if (!e && propria && Date.now() - propria.cheioEm <= RECARGA_COMPLETA_MS) {
+      try { e = await estender(cfg, propria, inicio) } catch (err) {
+        if (err?.status === 401) throw err
+        e = null
+      }
+    }
     if (!e || Date.now() - e.cheioEm > RECARGA_COMPLETA_MS) {
-      e = await carregarCompleta(cfg, fonte, canal, lista, dias, inicio)
+      e = await carregarCompleta(cfg, fonte, canal, lista, inicio)
     } else {
       try { e = await atualizar(cfg, e, fresco) } catch (err) {
         // Sem rede ou sessão expirada: mostra o que já tem e tenta de novo na próxima.

@@ -835,6 +835,21 @@ const motivo = async r => {
   return m ? ` — ${m}` : ''
 }
 
+// ─── Janela de dias carregada ────────────────────────────────────────────────
+// A tela abre com 62 dias, que cobrem todos os atalhos do seletor com o período de
+// comparação (o mais longo, "Mês passado", vai até o 1º dia do mês retrasado). Só
+// "Máximo" e um "Personalizado" mais antigo pedem o resto, e aí só o trecho que
+// falta é baixado (ver garantirJanela). Antes vinha o histórico inteiro sempre.
+const JANELA_PADRAO = 62
+const inicioPadrao = () => addDays(localDateStr(new Date()), -JANELA_PADRAO)
+// Primeiro dia que um período precisa (o início da comparação); null = tudo.
+function inicioNecessario(ctx, d) {
+  if (d.days === 'max') return null
+  const p = ctx.periodo(d.days, d.from, d.to)
+  return p ? p.p2s : undefined   // undefined = ainda sem linhas para resolver o preset
+}
+const cobreDesde = (carregado, preciso) => preciso === undefined || carregado == null || (preciso != null && carregado <= preciso)
+
 // Meta e Google (rollup da lista) com sessão vão pelo cache local e já voltam como
 // linhas; o resto (status, saldo, link compartilhado, dev sem sessão) segue em CSV.
 async function fetchRows(ch, fresh) {
@@ -842,7 +857,7 @@ async function fetchRows(ch, fresh) {
   if (!token) return parseCSV(await fetchChannel(ch, fresh))
   const contas = contasDoServidor(ch)
   if (contas && !contas.length) return []
-  return lerDash({ fonte: 'rollup', canal: ch, contas, fresco: !!fresh, token, sbUrl: SB_URL, sbKey: SB_KEY, parseCSV })
+  return lerDash({ fonte: 'rollup', canal: ch, contas, desde: state.listaDesde, fresco: !!fresh, token, sbUrl: SB_URL, sbKey: SB_KEY, parseCSV })
 }
 
 async function fetchChannel(ch, fresh) {
@@ -852,7 +867,9 @@ async function fetchChannel(ch, fresh) {
     // parâmetro `dados=status` no endpoint público.
     const isStatus = ch === 'meta_status'
     if (isStatus ? SHARED.channel !== 'meta' : ch !== SHARED.channel) return ''
-    const r = await fetch(`/api/dash-public?cliente=${encodeURIComponent(SHARED.client)}&canal=${SHARED.channel}&t=${encodeURIComponent(SHARED.token)}${isStatus ? '&dados=status' : ''}`)
+    // As linhas vêm na mesma janela da tela (state.listaDesde, null = tudo).
+    const janela = !isStatus && state.listaDesde ? `&de=${state.listaDesde}` : ''
+    const r = await fetch(`/api/dash-public?cliente=${encodeURIComponent(SHARED.client)}&canal=${SHARED.channel}&t=${encodeURIComponent(SHARED.token)}${isStatus ? '&dados=status' : ''}${janela}`)
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     return r.text()
   }
@@ -903,6 +920,34 @@ async function fetchGoogleAds(fresh) {
   return isCsv(r) ? r.text() : ''
 }
 
+// Coluna "Anúncios no ar" da lista, pronta do banco (RPC dash_anuncios_no_ar,
+// migration 116): { meta: { conta: { n, ts } }, google: { conta: { n, dia } } }.
+// Substitui baixar o snapshot inteiro de status (~6,4 mil entidades, ~17 s na
+// abertura) e os anúncios do Google só para contar. A regra espelha adNoAr e
+// buildGoogleAdsSnap — mudou uma, mude a outra. null = indisponível (sem sessão,
+// RPC ainda não aplicada): load() cai no caminho antigo.
+async function fetchAdsNoAr() {
+  const token = supabaseToken()
+  if (SHARED || !token) return null
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/dash_anuncios_no_ar`, {
+      method: 'POST', body: '{}',
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    })
+    return r.ok ? await r.json() : null
+  } catch { return null }
+}
+
+// Snapshot de status de UMA conta Meta (campanhas, conjuntos e anúncios com
+// veiculação, orçamento e agendamento), lido ao abrir a página dela. A lista não
+// precisa dele desde a RPC acima.
+async function ensureStatusConta(client, fresco) {
+  if (SHARED || (state.statusContas[client] && !fresco)) return
+  const rows = parseCSV(await fetchLazyChannel('meta_status', client))
+  state.statusSnap = { ...state.statusSnap, ...buildStatusSnap(rows) }
+  state.statusContas[client] = true
+}
+
 // ─── Linhas CRUAS de um cliente (nível anúncio) ──────────────────────────────
 // Só a página de cliente precisa desse detalhe, então ele é baixado sob demanda,
 // filtrado pela conta, e fica em cache por conta+canal. É o único ponto que
@@ -927,10 +972,13 @@ async function loadClientRows(ch, client, silencioso, fresco) {
   // Decisões de otimização do projeto (aceitas/recusadas): lidas sempre, em
   // paralelo com as linhas, para o painel e os selos dos anúncios já saírem certos.
   const decisoes = otmCarregarDecisoes(client)
+  // Status das entidades (só Meta): falhou, a página abre igual e as tags caem no
+  // último status conhecido de cada linha, como quando o snapshot inteiro falhava.
+  const status = ch === 'meta' ? ensureStatusConta(client, fresco).catch(() => {}) : null
   if (!SHARED && !state.rows[`${ch}|${client}`]) {
     if (!silencioso) app.innerHTML = `<div class="dt-loader"><div class="spinner"></div><p>Carregando ${esc(client)}…</p></div>`
     try {
-      await Promise.all([ensureRawRows(ch, client, fresco), decisoes])
+      await Promise.all([ensureRawRows(ch, client, fresco), decisoes, status])
     } catch (e) {
       state.openClient = null
       render()
@@ -938,8 +986,10 @@ async function loadClientRows(ch, client, silencioso, fresco) {
       return false
     }
   }
-  await decisoes
+  await Promise.all([decisoes, status])
   state.cPeriod = computeClientPeriod(rawRows(ch, client), ch, state.cDays, state.cFrom, state.cTo)
+  // Período salvo (navegação restaurada, "Máximo") mais antigo que os 62 dias.
+  if (!await garantirJanela(DP.client, { days: state.cDays, from: state.cFrom, to: state.cTo })) return false
   return true
 }
 
@@ -966,8 +1016,10 @@ async function ensureRawRows(ch, client, fresco) {
   if (state.rows[k]) return state.rows[k]
   const token = supabaseToken()
   if (token) {
-    // Pelo cache local: na volta só baixa os dias que o coletor regravou.
-    const rows = await lerDash({ fonte: 'data', canal: ch, contas: [client], fresco: !!fresco, token, sbUrl: SB_URL, sbKey: SB_KEY, parseCSV })
+    // Pelo cache local: na volta só baixa os dias que o coletor regravou. Janela de
+    // 62 dias, ou a que garantirJanela pediu para esta conta.
+    if (!(k in state.cliDesde)) state.cliDesde[k] = inicioPadrao()
+    const rows = await lerDash({ fonte: 'data', canal: ch, contas: [client], desde: state.cliDesde[k], fresco: !!fresco, token, sbUrl: SB_URL, sbKey: SB_KEY, parseCSV })
     state.rows[k] = ch === 'meta' ? applyFormsMql(rows) : rows
   } else {
     // dev local: o CSV completo do canal, filtrado aqui mesmo.
@@ -1263,6 +1315,13 @@ const state = { raw:{meta:[],google:[]}, rows:{}, accounts:{}, channel:'', days:
                 dpOpen:false, dp:null,
                 // anúncios do Google por conta (canal google_ads, últimos dias)
                 googleAds:{},
+                // "Anúncios no ar" por conta, da RPC dash_anuncios_no_ar (null = caminho antigo)
+                adsNoAr:null,
+                // contas Meta cujo snapshot de status já foi lido (ensureStatusConta)
+                statusContas:{},
+                // 1º dia carregado: da lista (rollup; no link público, as linhas) e de
+                // cada conta aberta (`canal|conta`); null = histórico inteiro
+                listaDesde: inicioPadrao(), cliDesde:{},
                 // carimbo da última rodada do sync (vem dos snapshots), no header
                 syncTs:'',
                 // popover aberto na barra de filtros: 'view' | 'info' | null
@@ -1380,24 +1439,35 @@ async function load(fresh) {
     // O snapshot de status é acessório: se falhar, o dashboard abre igual e cai
     // no último status conhecido de cada linha (com aviso na tag). O mesmo vale
     // para o saldo: falhou, a coluna mostra "—" e o resto abre normalmente.
-    const [m, g, st, ga, sd, accounts] = await Promise.all([
+    // Com sessão, a coluna "Anúncios no ar" vem pronta (fetchAdsNoAr) e o status
+    // completo só é lido ao abrir uma conta. O link compartilhado continua lendo o
+    // status da sua única conta pelo endpoint público.
+    const [m, g, noAr, stShared, sd, accounts] = await Promise.all([
       fetchRows('meta', fresh), fetchRows('google', fresh),
-      fetchChannel('meta_status', fresh).catch(() => ''),
-      fetchGoogleAds(fresh).catch(() => ''),
+      fetchAdsNoAr(),
+      SHARED ? fetchChannel('meta_status', fresh).catch(() => '') : '',
       fetchChannel('saldo', fresh).catch(() => ''), fetchAccounts()])
+    // Sem a RPC (dev sem sessão, migration 116 não aplicada): caminho antigo.
+    let st = stShared, ga = ''
+    if (!noAr && !SHARED) {
+      ;[st, ga] = await Promise.all([fetchChannel('meta_status', fresh).catch(() => ''), fetchGoogleAds(fresh).catch(() => '')])
+    }
     state.raw = restringeContas({ meta: applyFormsMql(m), google: g })
     // Dados novos: o cache de linhas cruas por conta também precisa cair, senão
     // a página de cliente continuaria mostrando o que veio antes do sync.
-    if (fresh) state.rows = {}
+    if (fresh) { state.rows = {}; state.statusContas = {} }
     invalidateMemo()
     const statusRows = parseCSV(st), saldoRows = parseCSV(sd)
-    state.statusSnap = buildStatusSnap(statusRows)
+    state.adsNoAr = noAr
+    if (statusRows.length || !noAr) state.statusSnap = buildStatusSnap(statusRows)
     state.googleAds = buildGoogleAdsSnap(parseCSV(ga))
     state.saldo = buildSaldoSnap(saldoRows)
     // Hora em que os dados desta tela foram coletados: os snapshots de status e
     // de saldo são escritos pela mesma rodada do sync e carimbam "Atualizado em"
     // em cada linha — a mais recente delas é a última rodada que chegou ao banco.
-    state.syncTs = maxAtualizadoEm(statusRows, saldoRows)
+    // Com a RPC, o carimbo do status vem por conta (o maior entre os anúncios).
+    const tsNoAr = Object.values(noAr?.meta || {}).map(v => ({ 'Atualizado em': v.ts }))
+    state.syncTs = maxAtualizadoEm(statusRows, saldoRows, tsNoAr)
     state.accounts = accounts
     document.getElementById('src-info').textContent =
       `· ${state.raw.meta.length} linhas Meta · ${state.raw.google.length} linhas Google`
@@ -1420,6 +1490,11 @@ async function load(fresh) {
     if (state.openClient && !SHARED) {
       state.cPeriod = null
       if (!await loadClientRows(state.openClient.channel, state.openClient.client, true, fresh)) return
+    } else if (SHARED) {
+      await garantirJanela(DP.client, { days: state.cDays, from: state.cFrom, to: state.cTo })
+    } else if (!state.openClient) {
+      // Período da lista restaurado da última visita ("Máximo", personalizado antigo).
+      await garantirJanela(DP.list, { days: state.days, from: state.from, to: state.to })
     }
     render()
   } catch (e) {
@@ -1427,6 +1502,45 @@ async function load(fresh) {
       ? `<div class="dt-loader"><p>Não foi possível abrir este dashboard.<br>O link pode estar incorreto ou ter expirado.</p></div>`
       : `<div class="dt-loader"><p>Erro ao carregar dados: ${esc(e.message)}${/[.!?]$/.test(e.message) ? '' : '.'}<br>Faça login na Área do Cliente e recarregue.</p></div>`
   }
+}
+
+// Baixa o que falta para o período `d` caber nos dados carregados: as linhas da
+// conta aberta, ou o rollup da lista (no link público, as linhas da conta, que são
+// o state.raw). O cache local emenda só o trecho mais antigo que faltava. Falha
+// não trava a tela: avisa na barra e desenha com o que já tem.
+async function garantirJanela(ctx, d) {
+  const preciso = inicioNecessario(ctx, d)
+  try {
+    if (ctx === DP.client && !SHARED) {
+      const o = state.openClient; if (!o) return true
+      const k = `${o.channel}|${o.client}`
+      if (cobreDesde(state.cliDesde[k], preciso)) return true
+      setStatus('⏳ Carregando o período…')
+      const antes = state.cliDesde[k]
+      state.cliDesde[k] = preciso
+      const guardadas = state.rows[k]
+      delete state.rows[k]
+      try { await ensureRawRows(o.channel, o.client) } catch (e) { state.cliDesde[k] = antes; state.rows[k] = guardadas; throw e }
+      state.cPeriod = computeClientPeriod(rawRows(o.channel, o.client), o.channel, state.cDays, state.cFrom, state.cTo)
+    } else {
+      if (cobreDesde(state.listaDesde, preciso)) return true
+      setStatus('⏳ Carregando o período…')
+      const antes = state.listaDesde
+      state.listaDesde = preciso
+      try {
+        const [m, g] = await Promise.all([fetchRows('meta'), fetchRows('google')])
+        state.raw = restringeContas({ meta: applyFormsMql(m), google: g })
+        invalidateMemo()
+        document.getElementById('src-info').textContent =
+          `· ${state.raw.meta.length} linhas Meta · ${state.raw.google.length} linhas Google`
+      } catch (e) { state.listaDesde = antes; throw e }
+      if (state.openClient) state.cPeriod = computeClientPeriod(rawRows(state.openClient.channel, state.openClient.client), state.openClient.channel, state.cDays, state.cFrom, state.cTo)
+    }
+    setStatus('')
+  } catch (e) {
+    setStatus(`❌ Não foi possível carregar o período: ${e.message}`, true)
+  }
+  return true
 }
 
 function maxAtualizadoEm(...listas) {
@@ -2221,12 +2335,16 @@ function dpTeardown() {
   state.dpOpen = false; state.dp = null
 }
 function dpClose() { const ctx = dpCtx(); dpTeardown(); ctx.redesenhar() }
-function dpApply() {
+async function dpApply() {
   const d = state.dp
   if (d.days === 0 && (!d.from || !d.to)) return
   const ctx = dpCtx()
+  dpTeardown()
+  // Período mais antigo que o carregado ("Máximo", personalizado): busca o trecho
+  // que falta ANTES de gravar, porque o período do cliente é resolvido sobre as linhas.
+  await garantirJanela(ctx, d)
   ctx.gravar(d)
-  dpTeardown(); ctx.redesenhar()
+  ctx.redesenhar()
 }
 // Redesenha SÓ o popover (mês, atalho, dia): o resto da página fica parado até
 // o "Atualizar", e a lista não é recalculada a cada clique no calendário.
@@ -2610,6 +2728,12 @@ function adNoAr(a, e) {
 }
 
 function activeAdsOfAccount(name, channel) {
+  // Pronto do banco (RPC dash_anuncios_no_ar), com a mesma regra de baixo.
+  if (state.adsNoAr) {
+    const v = state.adsNoAr[channel === 'google' ? 'google' : 'meta']?.[name]
+    if (!v || (channel !== 'google' && channel !== 'meta')) return null
+    return channel === 'google' ? { n: v.n, ts: v.dia, dia: true } : { n: v.n, ts: v.ts }
+  }
   if (channel === 'google') {
     const g = state.googleAds && state.googleAds[name]
     return g ? { n: g.n, ts: g.dia, dia: true } : null

@@ -1,10 +1,11 @@
-import { hmacHex, jsonErr } from './_http.js'
+import { hmacHex, jsonErr, lerPaginado, filtroDias } from './_http.js'
 // Edge function — serve os dados de UM cliente para o LINK PÚBLICO (somente
 // leitura) do dashboard. NÃO exige login: valida um token HMAC (`cliente|canal`)
 // gerado por /api/dash-share-token e devolve apenas as linhas daquela conta.
 // Usa SERVICE_ROLE no servidor para ler dash_insights (que tem RLS só-authenticated),
 // mas filtra estritamente por `account=eq.<cliente>` — nunca devolve outras contas.
-export const config = { runtime: 'edge' }
+// Região iad1, a mesma do banco (ver api/dash-data.js).
+export const config = { runtime: 'edge', regions: ['iad1'] }
 
 // Monta CSV (todos os campos entre aspas) — mesmo formato de api/dash-data.js,
 // para o viewer parsear igual. União de todas as chaves (linhas heterogêneas).
@@ -49,32 +50,22 @@ export default async function handler(req) {
   const wantStatus = url.searchParams.get('dados') === 'status'
   if (wantStatus && canal !== 'meta') return jsonErr('status só existe no canal meta.', 400)
   const channel = wantStatus ? 'meta_status' : canal
-  const order = wantStatus ? 'row_key.asc' : 'day.asc'
+  // row_key desempata o dia: as páginas são lidas em paralelo e o Range só é
+  // estável com uma ordem total.
+  const order = wantStatus ? 'row_key.asc' : 'day.asc,row_key.asc'
+  // Janela (`dias` ou `de`/`ate`), como no /api/dash-data. O status não tem dia.
+  const janela = wantStatus ? '' : filtroDias(url).qs
 
-  // ── Lê dash_insights só desta conta, paginado (PostgREST limita ~1000/req) ───
-  const PAGE = 1000
-  let offset = 0
-  const rows = []
+  // ── Lê dash_insights só desta conta, em páginas paralelas (teto de 1000/req) ──
+  let rows
   try {
-    for (;;) {
-      const r = await fetch(
-        `${SUPABASE_URL}/rest/v1/dash_insights?channel=eq.${encodeURIComponent(channel)}&account=eq.${encodeURIComponent(cliente)}&select=data&order=${order}`,
-        {
-          headers: {
-            apikey: SERVICE_KEY,
-            Authorization: `Bearer ${SERVICE_KEY}`, // service_role: bypassa RLS, mas o filtro account=eq trava no cliente
-            Range: `${offset}-${offset + PAGE - 1}`,
-            'Range-Unit': 'items',
-          },
-        }
-      )
-      if (!r.ok) return jsonErr('Falha ao ler dados.', 502)
-      const batch = await r.json()
-      for (const row of batch) rows.push(row.data)
-      if (batch.length < PAGE) break
-      offset += PAGE
-      if (offset > 200000) break // trava de segurança
-    }
+    const lidas = await lerPaginado(
+      `${SUPABASE_URL}/rest/v1/dash_insights?channel=eq.${encodeURIComponent(channel)}&account=eq.${encodeURIComponent(cliente)}${janela}&select=data&order=${order}`,
+      // service_role: bypassa RLS, mas o filtro account=eq trava no cliente
+      { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+      { rotulo: channel },
+    )
+    rows = lidas.map(row => row.data)
   } catch (e) {
     return jsonErr('Erro ao consultar os dados.', 500)
   }

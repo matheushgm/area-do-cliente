@@ -75,7 +75,9 @@ export default function CampaignPlanner({ project, onSave }) {
   // Mesma fonte usada pelo módulo Resultados (dash_insights via /api) — dá pra
   // ver o gasto real das contas vinculadas antes de preencher o orçamento à mão.
   // Só as contas deste projeto: o canal inteiro é pesado demais para a Edge.
-  const dash = useDashboardData({ source: 'api', projectId: project.id })
+  // 62 dias: o "Puxar do dashboard" lê o mês corrente e os últimos 7 dias com dado
+  // (pullFromDashboard), e o histórico inteiro só pesava.
+  const dash = useDashboardData({ source: 'api', projectId: project.id, dias: 62 })
 
   const [accounts,  setAccounts]  = useState(() => initAccounts(project.campaignPlan))
   const [activeIdx, setActiveIdx] = useState(0)
