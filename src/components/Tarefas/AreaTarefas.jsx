@@ -168,7 +168,9 @@ export default function AreaTarefas({
   const chaveRascunho = `${chaveEsc}|${viewAtiva.chave}`
   const config = rascunhoView?.chave === chaveRascunho ? rascunhoView.config : viewAtiva.config
   const alterada = persistente && !igualConfig(viewAtiva.config, config)
-  const podeEditarView = persistente && (viewAtiva.padrao || viewAtiva.donoId === user?.id)
+  // compartilhada (pública) = qualquer pessoa edita nome e configuração; quem vê e excluir ficam com o dono
+  const souDonoView = viewAtiva.donoId === user?.id
+  const podeEditarView = persistente && (viewAtiva.padrao || souDonoView || viewAtiva.acesso === 'publica')
   const view = config.tipo
   const agrupar = config.agrupar
   const mostrarConcluidas = config.concluidas
@@ -675,7 +677,7 @@ export default function AreaTarefas({
                 <PainelNovaView config={config} origem={viewAtiva.nome} membros={teamMembers || []} onCriar={criarVisualizacao} onFechar={() => setPainelView(null)} />
               ) : (
                 <PainelConfigView
-                  key={chaveRascunho} v={viewAtiva} config={config} podeEditar={podeEditarView} membros={teamMembers || []} respBloqueado={respBloqueado}
+                  key={chaveRascunho} v={viewAtiva} config={config} podeEditar={podeEditarView} souDono={souDonoView} membros={teamMembers || []} respBloqueado={respBloqueado}
                   onEditar={editarViewNaSidebar} onMeta={metaView} onAbrirFiltros={() => setPainelView('filtros')}
                   onDuplicar={() => criarVisualizacao({ nome: `${viewAtiva.nome} (cópia)`, publica: true })}
                   onExcluir={excluirVisualizacao} onFechar={() => setPainelView(null)}

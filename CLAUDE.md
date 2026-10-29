@@ -854,7 +854,7 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     e depois as salvas do escopo, mais "+ Visualização". As padrão também são linhas de `tarefas_views` (a 113 trava nelas dono, escopo, pasta e padrao_tipo; só nome e config mudam)
     (`padrao_tipo`), criadas na 1ª vez que alguém salva uma (`salvarViewPadrao`): qualquer pessoa edita,
     ninguém exclui, sempre públicas, tipo fixo. **Exceto em "Minhas tarefas"** (migration 114): lá cada pessoa tem as
-    suas padrão (uma linha por tipo e dono, privada, só o dono edita; `padraoPessoal` em `viewsTarefas.js`). As salvas: só o dono edita/exclui; pública ou privada.
+    suas padrão (uma linha por tipo e dono, privada, só o dono edita; `padraoPessoal` em `viewsTarefas.js`). As salvas são públicas ou privadas; privada só o dono vê e edita; **compartilhada (pública) qualquer pessoa edita nome e configuração** (migration 116), mas mudar quem vê e excluir continuam só do dono (`souDonoView` em `AreaTarefas.jsx`; o trigger `tarefas_views_padrao_imutavel` barra o resto).
     A aba ativa vai na URL (`?view=lista` nas padrão, `?view=<uuid>` nas salvas) e fica lembrada por
     escopo em `localStorage` (`tarefas.viewAtiva.<escopo>`).
   - **config** (jsonb): `{ tipo, agrupar, subtarefas, responsaveis[], concluidas, filtros }`;

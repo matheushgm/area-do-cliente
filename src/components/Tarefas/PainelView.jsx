@@ -77,9 +77,10 @@ function EscolhaAcesso({ publica, onChange, desabilitado }) {
 
 /**
  * v = view ativa (viewsDoEscopo), config = rascunho na tela. onEditar(patch) grava config;
- * onMeta(patch) grava nome/acesso. Sem podeEditar, as mudanças valem só na tela.
+ * onMeta(patch) grava nome/acesso. Sem podeEditar, as mudanças valem só na tela. Compartilhada:
+ * qualquer pessoa edita nome e configuração, mas quem vê e excluir são só do dono (souDono).
  */
-export function PainelConfigView({ v, config, podeEditar, membros, respBloqueado, onEditar, onMeta, onAbrirFiltros, onDuplicar, onExcluir, onFechar }) {
+export function PainelConfigView({ v, config, podeEditar, souDono, membros, respBloqueado, onEditar, onMeta, onAbrirFiltros, onDuplicar, onExcluir, onFechar }) {
   const [nome, setNome] = useState(v.nome)
   const [confirmar, setConfirmar] = useState(false)
   const salvarNome = () => { const n = nome.trim(); if (n && n !== v.nome) onMeta({ nome: n }); else setNome(v.nome) }
@@ -89,6 +90,7 @@ export function PainelConfigView({ v, config, podeEditar, membros, respBloqueado
       <CabecalhoPainel titulo="Configurações da visualização" onFechar={onFechar} />
       <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-5">
         {v.padrao && <p className="flex items-start gap-2 text-xs text-ln-t3 bg-ln-ink/[0.04] rounded-lg px-3 py-2"><Lock className="w-3.5 h-3.5 mt-px shrink-0" />{v.pessoal ? 'Visualização padrão: estes ajustes são só seus (cada pessoa tem a sua em Minhas tarefas) e ela não pode ser excluída.' : 'Visualização padrão: qualquer pessoa do time ajusta, mas ela não pode ser excluída.'}</p>}
+        {!v.padrao && podeEditar && !souDono && <p className="text-xs text-ln-t3 bg-ln-ink/[0.04] rounded-lg px-3 py-2">Compartilhada por outra pessoa: o que você muda aqui vale para todo o time. Só quem criou muda quem vê ou exclui.</p>}
         {!podeEditar && <p className="text-xs text-ln-t3 bg-ln-ink/[0.04] rounded-lg px-3 py-2">Criada por outra pessoa. O que você mudar aqui vale só na sua tela; para guardar, use “Salvar como nova visualização” na barra.</p>}
 
         <Bloco titulo="Nome">
@@ -132,13 +134,13 @@ export function PainelConfigView({ v, config, podeEditar, membros, respBloqueado
         </Bloco>
         {!v.padrao && (
           <Bloco titulo="Quem vê">
-            <EscolhaAcesso publica={v.acesso === 'publica'} onChange={(p) => onMeta({ acesso: p ? 'publica' : 'privada' })} desabilitado={!podeEditar} />
+            <EscolhaAcesso publica={v.acesso === 'publica'} onChange={(p) => onMeta({ acesso: p ? 'publica' : 'privada' })} desabilitado={!souDono} />
           </Bloco>
         )}
       </div>
       <div className="shrink-0 p-3 border-t border-ln-ink/[0.06] flex items-center gap-1.5">
         <button type="button" onClick={onDuplicar} className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] text-ln-t2 hover:bg-ln-ink/5 ${FOCO}`}><Copy className="w-3.5 h-3.5" /> Duplicar</button>
-        {!v.padrao && podeEditar && (confirmar
+        {!v.padrao && souDono && (confirmar
           ? <span className="ml-auto flex items-center gap-1.5 text-xs text-ln-t3">Excluir para todos?<button type="button" onClick={() => setConfirmar(false)} className="ln-pill">Não</button><button type="button" onClick={onExcluir} className="h-7 px-2.5 rounded-md text-xs font-medium bg-ln-red text-white">Excluir</button></span>
           : <button type="button" onClick={() => setConfirmar(true)} className={`ml-auto inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] text-ln-red hover:bg-ln-red/10 ${FOCO}`}><Trash2 className="w-3.5 h-3.5" /> Excluir</button>)}
       </div>
