@@ -9,7 +9,8 @@
 //    evita o eco: o push (api/_tarefas_push_core.js) grava a versão que o ClickUp
 //    devolveu, então o webhook da nossa própria edição chega e é ignorado;
 //  * tarefa com item da outbox pendente/em processamento (push em andamento, inclusive a
-//    criação): evento ignorado. O push grava o vínculo e a versão final; sem isso o
+//    criação): evento ignorado, conferido ANTES de ler a tarefa no ClickUp (o eco do push não
+//    gasta chamada). O push grava o vínculo e a versão final; sem isso o
 //    taskCreated inseria uma CÓPIA da tarefa antes de a original receber o clickup_task_id
 //    (bug de 23/10/2026) e estados intermediários do ClickUp sobrescreviam a edição;
 //  * linha que já existe mantém created_at/criado_por (pode ter nascido na Área);
@@ -26,9 +27,41 @@ const EVENTOS_COMENTARIO = new Set(['taskCommentPosted', 'taskCommentUpdated'])
 const naoEncontrada = (e) => e?.status === 404
 const PENDENTE_RECENTE_MS = 2 * 60_000
 
-export async function processarEventoTarefa({ sb, token, evento, taskId, spaces = SPACES_PADRAO, clickup = fazClickup(token), agora = new Date().toISOString() }) {
+// Push em andamento para esta tarefa (item 'processando', ou 'pendente' recente: o front dispara o
+// push 1,5 s depois da escrita; um pendente antigo é de uma aba fechada antes do push, e aí o
+// evento segue pelas regras normais de conflito). Quem grava a versão final é o push.
+async function pushEmCurso(sb, cuId, agora) {
+  const { data: fila } = await sb.from('tarefas_outbox').select('tarefa_id, status, created_at')
+    .eq('clickup_task_id', String(cuId)).in('status', ['pendente', 'processando']).order('id', { ascending: false }).limit(5)
+  const limiar = new Date(agora).getTime() - PENDENTE_RECENTE_MS
+  return (fila || []).find((o) => o.status === 'processando' || new Date(o.created_at).getTime() > limiar) || null
+}
+
+/** Data (ms) da mudança mais nova que o evento descreve (history_items[].date), ou null. */
+export function dataDoEvento(historico) {
+  const ds = (historico || []).map((h) => Number(h?.date)).filter((n) => n > 0)
+  return ds.length ? Math.max(...ds) : null
+}
+
+export async function processarEventoTarefa({ sb, token, evento, taskId, historico = null, spaces = SPACES_PADRAO, clickup = fazClickup(token), agora = new Date().toISOString() }) {
   if (!taskId) return { acao: 'ignorado', motivo: 'evento sem tarefa' }
   if (evento === 'taskDeleted') return arquivar(sb, taskId, agora)
+  // Eco da nossa própria escrita: olha a fila ANTES de ler a tarefa no ClickUp. Sem isso cada
+  // envio do push custava mais uma leitura (às vezes três, um evento por campo) só para
+  // descobrir que era para ignorar. Evento de comentário segue: comentário feito lá no meio de
+  // um envio daqui ainda precisa ser lido.
+  if (!EVENTOS_COMENTARIO.has(evento)) {
+    const emCurso = await pushEmCurso(sb, taskId, agora)
+    if (emCurso) return { acao: 'ignorado', motivo: 'push em andamento para esta tarefa', id: emCurso.tarefa_id || undefined, semLeitura: true }
+    // O push grava na linha o date_updated que o ClickUp devolveu; se a mudança do evento não é
+    // mais nova que isso, o espelho já tem essa versão (é o eco, que chegou depois de o push
+    // terminar). Sem data no evento, ou com data mais nova, lê a tarefa como sempre.
+    const quando = dataDoEvento(historico)
+    if (quando) {
+      const { data: ex } = await sb.from('tarefas_itens').select('id, clickup_updated_at').eq('clickup_task_id', String(taskId)).maybeSingle()
+      if (ex?.clickup_updated_at && quando <= new Date(ex.clickup_updated_at).getTime()) return { acao: 'sem_mudanca', id: ex.id, semLeitura: true }
+    }
+  }
 
   let t
   try {
@@ -74,13 +107,8 @@ async function gravarTarefa(t, ctx, profundidade) {
 
   const COLS = 'id, lista_id, parent_id, updated_at, clickup_sync_at, clickup_updated_at, arquivada, anexos'
   let { data: ex } = await sb.from('tarefas_itens').select(COLS).eq('clickup_task_id', String(t.id)).maybeSingle()
-  // Push em andamento para esta tarefa: quem grava é ele. Item 'pendente' só conta se é
-  // recente (o front dispara o push 1,5 s depois da escrita); um pendente antigo é de uma
-  // aba fechada antes do push, e aí o evento segue pelas regras normais de conflito.
-  const { data: fila } = await sb.from('tarefas_outbox').select('tarefa_id, status, created_at')
-    .eq('clickup_task_id', String(t.id)).in('status', ['pendente', 'processando']).order('id', { ascending: false }).limit(5)
-  const limiar = new Date(agora).getTime() - PENDENTE_RECENTE_MS
-  const emCurso = (fila || []).find((o) => o.status === 'processando' || new Date(o.created_at).getTime() > limiar)
+  // Push em andamento para esta tarefa (vale também para o pai buscado aqui): quem grava é ele.
+  const emCurso = await pushEmCurso(sb, t.id, agora)
   if (emCurso) return { acao: 'ignorado', motivo: 'push em andamento para esta tarefa', id: emCurso.tarefa_id || ex?.id }
   if (!ex) {
     // criada pelo push, mas a linha ficou sem o vínculo: liga à original em vez de inserir cópia

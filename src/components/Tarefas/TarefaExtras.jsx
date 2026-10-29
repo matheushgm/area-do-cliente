@@ -1,7 +1,7 @@
 // Extras do painel da tarefa no VertaTask: etiquetas, relações entre tarefas,
 // histórico de atividade e seguir/deixar de seguir.
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Plus, X, Check, Bell, BellOff, Loader2, MoreHorizontal, LayoutTemplate, Trash2 } from 'lucide-react'
+import { Plus, X, Check, Bell, BellOff, Loader2, MoreHorizontal, LayoutTemplate, Trash2, History } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { fmtDataHora, fmtDataNumerica, rotuloStatus, prioridade as prioDe } from '../../lib/tarefas'
 import { Popover, ItemMenu, FOCO } from './Campos'
@@ -195,7 +195,7 @@ function useSeguir(tarefaId, user) {
 }
 
 /** Menu ⋯ do painel da tarefa: seguir, salvar como template e excluir. */
-export function MenuTarefa({ tarefaId, user, onSalvarTemplate, onExcluir }) {
+export function MenuTarefa({ tarefaId, user, onSalvarTemplate, onHistoricoSync, onExcluir }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const { seguindo, total, alternar } = useSeguir(tarefaId, user)
@@ -214,6 +214,9 @@ export function MenuTarefa({ tarefaId, user, onSalvarTemplate, onExcluir }) {
           </ItemMenu>
           {onSalvarTemplate && (
             <ItemMenu onClick={fechar(onSalvarTemplate)}><LayoutTemplate className="w-3.5 h-3.5 text-ln-t4" /> Salvar como template</ItemMenu>
+          )}
+          {onHistoricoSync && (
+            <ItemMenu onClick={fechar(onHistoricoSync)}><History className="w-3.5 h-3.5 text-ln-t4" /> Histórico de sincronização</ItemMenu>
           )}
           {onExcluir && (<>
             <div className="border-t border-ln-ink/5 my-1" />

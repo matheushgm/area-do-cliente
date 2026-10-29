@@ -744,6 +744,7 @@ export default function AreaTarefas({
                   <MenuTarefa
                     key={tarefaAberta.id} tarefaId={tarefaAberta.id} user={user}
                     onSalvarTemplate={() => salvarComoModelo(tarefaAberta, filhosDe.get(tarefaAberta.id) || [])}
+                    onHistoricoSync={() => navigate(`/tarefas?aba=sincronizacao&sync_tarefa=${tarefaAberta.id}`)}
                     onExcluir={() => { if (window.confirm('Excluir esta tarefa (e as subtarefas)?')) t.excluirTarefa(tarefaAberta.id).then((r) => { if (r.error) showToast(r.error, 'error'); else { fecharPainel(); showToast('Tarefa excluída') } }) }}
                   />
                 )}

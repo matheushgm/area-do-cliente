@@ -31,14 +31,24 @@ export function canon(v) {
   return JSON.stringify(v, (k, val) => (val && typeof val === 'object' && !Array.isArray(val)) ? Object.fromEntries(Object.keys(val).sort().map((x) => [x, val[x]])) : val)
 }
 
-/** Cliente da API v2 do ClickUp com espera no 429 (100 req/min no token pessoal). */
-export function fazClickup(token) {
+// Sem tempo na invocação: a chamada não começa, ou a espera do 429 passaria do prazo (mesma regra
+// do push). Antes as esperas (5, 10, 15… s, até 8) estouravam os 60 s da Vercel, a função morria
+// sem passar pelo catch e a rodada não terminava nem registrava a falha.
+export function semTempo(msg) { const e = new Error(msg); e.semTempo = true; return e }
+// .catch que engole erro do ClickUp mas deixa passar o "sem tempo"
+const ignora = (valor) => (e) => { if (e?.semTempo) throw e; return valor }
+
+/** Cliente da API v2 do ClickUp com espera no 429 (100 req/min no token pessoal) e prazo opcional. */
+export function fazClickup(token, prazo = Infinity) {
   return async function clickup(path) {
     for (let tent = 0; tent < 8; tent++) {
+      if (Date.now() > prazo) throw semTempo(`ClickUp ${path}: sem tempo nesta invocação`)
       const res = await fetch(`${CLICKUP_BASE}${path}`, { headers: { Authorization: token } })
       if (res.status === 429) {
         const ra = Number(res.headers.get('retry-after')) || 0
-        await sleep(Math.max(ra * 1000, 5000 * (tent + 1)))
+        const espera = Math.max(ra * 1000, 5000 * (tent + 1))
+        if (Date.now() + espera > prazo) throw semTempo(`ClickUp ${path}: limite de requisições e sem tempo para esperar`)
+        await sleep(espera)
         continue
       }
       const json = await res.json().catch(() => null)
@@ -66,9 +76,11 @@ export async function sincronizar({
   sb, token, team, spaces = SPACES_PADRAO, desde,
   completo = false, reconciliar = false, comentarios = true,
   maxComentarios = 40, maxAnexos = 40, anexosDeTodas = false, maxPaginas = 30, orcamentoMs = 50_000, log = () => {},
+  eventos = null, // array opcional: tarefas puladas nesta rodada, para tarefas_sync_log
+  arquivados = true, // false = não lista pastas/listas arquivadas (rodada do botão/página; o cron e --completo listam)
 }) {
-  const clickup = fazClickup(token)
   const inicio = Date.now()
+  const clickup = fazClickup(token, inicio + orcamentoMs)
   const estourou = () => Date.now() - inicio > orcamentoMs
   const agora = new Date().toISOString()
   const resumo = {
@@ -76,6 +88,9 @@ export async function sincronizar({
     pastas_novas: 0, pastas_atualizadas: 0, listas_novas: 0, listas_atualizadas: 0,
     tarefas_recebidas: 0, pais_buscados: 0, criadas: 0, atualizadas: 0, puladas_conflito: 0, sem_pai: 0,
     reconciliadas: 0, removidas: 0, comentarios: 0, anexos: 0, avisos: [],
+    // true = a lista de tarefas alteradas não foi lida inteira (tempo ou limite de páginas): quem
+    // chama NÃO avança o ponto de partida, e a próxima rodada cobre o mesmo intervalo de novo
+    incompleto: false,
   }
   const aviso = (m) => { if (resumo.avisos.length < 200) resumo.avisos.push(m); log('aviso: ' + m) }
 
@@ -103,9 +118,9 @@ export async function sincronizar({
     const espaco = nomeSpace.get(sid)
     const [ativas, arquivadas, soltas, soltasArq] = await Promise.all([
       clickup(`/space/${sid}/folder?archived=false`).then((r) => r?.folders || []),
-      clickup(`/space/${sid}/folder?archived=true`).then((r) => r?.folders || []).catch(() => []),
+      arquivados ? clickup(`/space/${sid}/folder?archived=true`).then((r) => r?.folders || []).catch(ignora([])) : [],
       clickup(`/space/${sid}/list?archived=false`).then((r) => r?.lists || []),
-      clickup(`/space/${sid}/list?archived=true`).then((r) => r?.lists || []).catch(() => []),
+      arquivados ? clickup(`/space/${sid}/list?archived=true`).then((r) => r?.lists || []).catch(ignora([])) : [],
     ])
     const folders = [...ativas, ...arquivadas.map((f) => ({ ...f, archived: true }))]
     for (const f of folders) {
@@ -133,7 +148,7 @@ export async function sincronizar({
     if (completo) {
       for (const f of ativas) {
         if (estourou()) { aviso('tempo esgotado nas listas arquivadas'); break }
-        const arq = await clickup(`/folder/${f.id}/list?archived=true`).then((r) => r?.lists || []).catch(() => [])
+        const arq = await clickup(`/folder/${f.id}/list?archived=true`).then((r) => r?.lists || []).catch(ignora([]))
         for (const l of arq) if (!listasDePasta.some((x) => x.id === l.id)) listasDePasta.push({ ...l, _folder: String(f.id), archived: true })
       }
     }
@@ -172,18 +187,23 @@ export async function sincronizar({
       })
       if (!abertasApenas) qs.set('include_closed', 'true')
       if (!completo && !abertasApenas && desde) qs.set('date_updated_gt', String(desde.getTime()))
-      const r = await clickup(`/team/${team}/task?${qs}`)
+      let r
+      try { r = await clickup(`/team/${team}/task?${qs}`) } catch (e) {
+        if (!e.semTempo) throw e
+        if (!abertasApenas) resumo.incompleto = true
+        aviso('tempo esgotado ao paginar; a próxima rodada cobre o mesmo intervalo'); break
+      }
       const batch = r?.tasks || []
       for (const t of batch) { ids.add(t.id); if (!abertasApenas) recebidas.set(t.id, t) }
       if (page % 10 === 9) log(`  ${nomeSpace.get(sid)}: página ${page + 1}, ${ids.size} tarefas`)
       if (r?.last_page === true || batch.length < 100) break
-      if (!completo && page === maxPaginas - 1) aviso('mais de 3.000 tarefas alteradas: rode de novo para continuar')
-      if (estourou()) { aviso('tempo esgotado ao paginar; rode de novo'); break }
+      if (!completo && page === maxPaginas - 1) { if (!abertasApenas) resumo.incompleto = true; aviso('mais de 3.000 tarefas alteradas: rode de novo para continuar') }
+      if (estourou()) { if (!abertasApenas) resumo.incompleto = true; aviso('tempo esgotado ao paginar; a próxima rodada cobre o mesmo intervalo'); break }
     }
     return ids
   }
   for (const sid of spacesOk) {
-    if (estourou()) break
+    if (estourou()) { resumo.incompleto = true; break }
     await paginar(sid)
   }
   resumo.tarefas_recebidas = recebidas.size
@@ -231,7 +251,11 @@ export async function sincronizar({
     const row = mapTarefa(t, perfilDe)
     if (ex) {
       const editadaNaArea = ex.clickup_sync_at && new Date(ex.updated_at).getTime() > new Date(ex.clickup_sync_at).getTime() + 1000
-      if (editadaNaArea && new Date(row.clickup_updated_at).getTime() <= new Date(ex.updated_at).getTime()) { resumo.puladas_conflito++; continue }
+      if (editadaNaArea && new Date(row.clickup_updated_at).getTime() <= new Date(ex.updated_at).getTime()) {
+        resumo.puladas_conflito++
+        eventos?.push({ origem: 'rodada', evento: 'rodada', acao: 'pulada_conflito', tarefa_id: ex.id, clickup_task_id: String(t.id), motivo: 'editada no VertaTask depois da última sincronização e o ClickUp não é mais novo' })
+        continue
+      }
       // nada novo? (em `completo` ainda confere se lista/pai mudaram ou se estava marcada como removida)
       const mesmaVersao = ex.clickup_updated_at && new Date(row.clickup_updated_at).getTime() <= new Date(ex.clickup_updated_at).getTime()
       const paiEsperado = t.parent ? (existentes.get(t.parent)?.id || idDe.get(t.parent) || null) : null
@@ -260,7 +284,10 @@ export async function sincronizar({
     let parent_id = null
     if (l._parentCu) {
       if (presente(l._parentCu)) parent_id = existentes.get(l._parentCu)?.id || idDe.get(l._parentCu)
-      else { resumo.sem_pai++; aviso(`tarefa ${l.clickup_task_id}: pai ${l._parentCu} não pôde ser gravado; ficou sem pai`) }
+      else {
+        resumo.sem_pai++; aviso(`tarefa ${l.clickup_task_id}: pai ${l._parentCu} não pôde ser gravado; ficou sem pai`)
+        eventos?.push({ origem: 'rodada', evento: 'rodada', acao: 'sem_pai', tarefa_id: l.id, clickup_task_id: String(l.clickup_task_id), motivo: `pai ${l._parentCu} não pôde ser gravado` })
+      }
     }
     return { ...l, parent_id, _prof: profDe(l.clickup_task_id) }
   }).sort((a, b) => a._prof - b._prof)

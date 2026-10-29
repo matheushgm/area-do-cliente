@@ -4,12 +4,12 @@ import { apiFetch } from '../lib/api'
 //
 // Esta página é a moldura: coluna de pastas (uma por cliente) → listas, cabeçalho com
 // breadcrumb e ações, e as seções próprias do VertaTask (Intake, Cycles, Templates, Pages,
-// Analytics, Chat, Atividades). A área de tarefas em si (views, Lista/Quadro/Calendário/Gantt,
+// Analytics, Sincronização, Chat, Atividades). A área de tarefas em si (views, Lista/Quadro/Calendário/Gantt,
 // filtros, seleção em massa, painel da tarefa) é o componente AreaTarefas, o mesmo do módulo
 // Tarefas da página do cliente.
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useOutletContext } from 'react-router-dom'
-import { Menu, ChevronRight, Plus, Loader2, PanelLeft, PanelLeftClose, PanelLeftOpen, RefreshCw, CloudUpload, ExternalLink } from 'lucide-react'
+import { Menu, ChevronRight, Plus, Loader2, PanelLeft, PanelLeftClose, PanelLeftOpen, RefreshCw, CloudUpload, ExternalLink, AlertTriangle } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import Toast from '../components/UI/Toast'
@@ -21,6 +21,7 @@ import ChatModulo from '../components/Chat/ChatModulo'
 import AtividadesModulo from '../components/Atividades/AtividadesModulo'
 import PaginasView from '../components/Tarefas/PaginasView'
 import AnalyticsView from '../components/Tarefas/AnalyticsView'
+import SincronizacaoView from '../components/Tarefas/SincronizacaoView'
 import { usePaginas } from '../hooks/usePaginas'
 import { cicloPadrao } from '../lib/vertatask'
 import TarefasSidebar from '../components/Tarefas/TarefasSidebar'
@@ -33,19 +34,27 @@ import { FOCO } from '../components/Tarefas/Campos'
 import { urlClickUpPasta, urlClickUpLista } from '../lib/tarefas'
 import AreaTarefas, { lerPref, gravarPref, useLarguraDoConteudo } from '../components/Tarefas/AreaTarefas'
 
-// Sincronização incremental com o ClickUp (api/tarefas-sync.js): botão na
-// barra e disparo automático ao abrir a página se a última rodada tem +30 min.
-const SYNC_AUTO_MS = 30 * 60 * 1000
+// Sincronização incremental com o ClickUp (api/tarefas-sync.js): botão na barra e disparo
+// automático ao abrir a página. Com o webhook entregando, a rodada de 30 em 30 min quase não
+// trazia nada e gastava a API (plano item 4): agora só dispara se o webhook está em silêncio há
+// +30 min (e a última rodada tem +30 min) ou se a última rodada tem +3 h.
+const SYNC_MIN_MS = 30 * 60 * 1000
+const SYNC_MAX_MS = 3 * 60 * 60 * 1000
+const WEBHOOK_SILENCIO_MS = 30 * 60 * 1000
+const ms = (iso) => (iso ? new Date(iso).getTime() : 0)
 function useSyncClickup({ ativo, aoTerminar }) {
-  const [estado, setEstado] = useState(null)   // linha de tarefas_sync
+  const [estado, setEstado] = useState(null)   // linha 'clickup' de tarefas_sync
+  const [webhook, setWebhook] = useState(null) // linha 'clickup_webhook'
   const [rodando, setRodando] = useState(false)
   const [erro, setErro] = useState(null)
   const disparado = useRef(false)
 
   const lerEstado = useCallback(async () => {
-    const { data } = await supabase.from('tarefas_sync').select('*').eq('id', 'clickup').maybeSingle()
-    setEstado(data || null)
-    return data
+    const { data } = await supabase.from('tarefas_sync').select('*').in('id', ['clickup', 'clickup_webhook'])
+    const linha = (id) => (data || []).find((r) => r.id === id) || null
+    setEstado(linha('clickup'))
+    setWebhook(linha('clickup_webhook'))
+    return { estado: linha('clickup'), webhook: linha('clickup_webhook') }
   }, [])
 
   const sincronizar = useCallback(async () => {
@@ -68,13 +77,16 @@ function useSyncClickup({ ativo, aoTerminar }) {
   useEffect(() => {
     if (!ativo || disparado.current) return
     disparado.current = true
-    lerEstado().then((s) => {
-      const ultimo = s?.ultimo_inicio ? new Date(s.ultimo_inicio).getTime() : 0
-      if (Date.now() - ultimo > SYNC_AUTO_MS) sincronizar()
+    lerEstado().then(({ estado: s, webhook: w }) => {
+      const desdeRodada = Date.now() - ms(s?.ultimo_fim || s?.ultimo_inicio)
+      const webhookCalado = Date.now() - ms(w?.ultimo_fim) > WEBHOOK_SILENCIO_MS
+      if (desdeRodada > SYNC_MAX_MS || (webhookCalado && desdeRodada > SYNC_MIN_MS)) sincronizar()
     })
   }, [ativo, lerEstado, sincronizar])
 
-  return { estado, rodando, erro, sincronizar }
+  // aviso da última conferência do webhook (rodada do cron): suspenso, reativado, ausente
+  const avisoWebhook = estado?.resumo?.webhook && estado.resumo.webhook.status !== 'active' ? estado.resumo.webhook.aviso : null
+  return { estado, webhook, avisoWebhook, rodando, erro, sincronizar }
 }
 
 function tempoRelativo(iso) {
@@ -85,6 +97,23 @@ function tempoRelativo(iso) {
   const h = Math.round(min / 60)
   if (h < 48) return `há ${h} h`
   return `há ${Math.round(h / 24)} dias`
+}
+
+// Itens da fila VertaTask → ClickUp que pararam em erro: contador no item "Sincronização"
+// da coluna esquerda (relido a cada minuto; a fila em si fica no painel).
+function useErrosSync() {
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    let vivo = true
+    const ler = async () => {
+      const { count } = await supabase.from('tarefas_outbox').select('id', { count: 'exact', head: true }).eq('status', 'erro')
+      if (vivo) setN(count || 0)
+    }
+    ler()
+    const id = setInterval(() => { if (document.visibilityState === 'visible') ler() }, 60_000)
+    return () => { vivo = false; clearInterval(id) }
+  }, [])
+  return n
 }
 
 // ícone de link externo no breadcrumb (pasta / lista que existem no ClickUp)
@@ -128,10 +157,10 @@ export default function Tarefas() {
   useEffect(() => gravarPref('colunaRecolhida', colunaRecolhida), [colunaRecolhida])
 
   // ── Seleção (pasta / lista / minhas) via URL ─────────────────────────────
-  const aba = params.get('aba') // null = tarefas | 'intake' | 'ciclos' | 'templates' | 'paginas' | 'analytics' | 'chat' | 'atividades'
+  const aba = params.get('aba') // null = tarefas | 'intake' | 'ciclos' | 'templates' | 'paginas' | 'analytics' | 'sincronizacao' | 'chat' | 'atividades'
   const sel = useMemo(() => {
     if (aba === 'ciclos') return { tipo: 'ciclo', id: params.get('ciclo') || cicloPadrao(vt.ciclos)?.id || null }
-    if (aba === 'templates' || aba === 'intake' || aba === 'chat' || aba === 'atividades' || aba === 'paginas' || aba === 'analytics') return { tipo: 'nenhum' }
+    if (aba === 'templates' || aba === 'intake' || aba === 'chat' || aba === 'atividades' || aba === 'paginas' || aba === 'analytics' || aba === 'sincronizacao') return { tipo: 'nenhum' }
     if (params.get('lista')) return { tipo: 'lista', id: params.get('lista') }
     if (params.get('pasta')) return { tipo: 'pasta', id: params.get('pasta') }
     if (params.get('minhas') === '1') return { tipo: 'minhas' }
@@ -139,6 +168,7 @@ export default function Tarefas() {
     return lerPref('sel', null) || { tipo: 'minhas' }
   }, [params, aba, vt.ciclos])
   const chatNaoLidas = useChatNaoLidas(user?.id, aba)
+  const syncErros = useErrosSync()
 
   const setSel = useCallback((s) => {
     gravarPref('sel', s)
@@ -238,7 +268,7 @@ export default function Tarefas() {
   const pastaSel = sel.tipo === 'pasta' ? t.pastasMap.get(sel.id) : sel.tipo === 'lista' ? t.pastasMap.get(t.listasMap.get(sel.id)?.pasta_id) : null
   const listaSel = sel.tipo === 'lista' ? t.listasMap.get(sel.id) : null
   // seções que trocam a área de tarefas por outro conteúdo (Cycles mantém a área, com o resumo em cima)
-  const ehSecao = aba === 'intake' || aba === 'templates' || aba === 'paginas' || aba === 'analytics'
+  const ehSecao = aba === 'intake' || aba === 'templates' || aba === 'paginas' || aba === 'analytics' || aba === 'sincronizacao'
 
   const cabecalho = (api) => (
     <header className="min-h-[56px] shrink-0 flex items-center justify-between gap-3 px-6 py-2 border-b border-ln-ink/[0.08]">
@@ -251,7 +281,7 @@ export default function Tarefas() {
         >
           {colunaRecolhida ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
         </button>
-        <h1 className="text-xl font-bold text-ln-t1 truncate">{{ intake: 'Intake', ciclos: 'Cycles', templates: 'Templates', paginas: 'Pages', analytics: 'Analytics' }[aba] || 'Tarefas'}</h1>
+        <h1 className="text-xl font-bold text-ln-t1 truncate">{{ intake: 'Intake', ciclos: 'Cycles', templates: 'Templates', paginas: 'Pages', analytics: 'Analytics', sincronizacao: 'Sincronização com o ClickUp' }[aba] || 'Tarefas'}</h1>
         {!aba && (
           <div className="hidden sm:flex items-center gap-1.5 text-[13px] text-ln-t3 min-w-0">
             {pastaSel && (<>
@@ -275,11 +305,15 @@ export default function Tarefas() {
           type="button"
           onClick={sync.sincronizar}
           disabled={sync.rodando}
-          title={sync.erro ? `Erro na última sincronização: ${sync.erro}` : `Última sincronização com o ClickUp: ${tempoRelativo(sync.estado?.ultimo_inicio)}${sync.estado?.ultimo_ok === false ? ' (com erro)' : ''}`}
-          className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${sync.erro || sync.estado?.ultimo_ok === false ? 'text-ln-red' : 'text-ln-t4 hover:text-ln-t2'} disabled:opacity-60 ${FOCO} rounded`}
+          title={sync.erro ? `Erro na última sincronização: ${sync.erro}` : [
+            `Última rodada com o ClickUp: ${tempoRelativo(sync.estado?.ultimo_fim || sync.estado?.ultimo_inicio)}${sync.estado?.ultimo_ok === false ? ' (com erro)' : sync.estado?.resumo?.incompleto ? ' (incompleta, a próxima cobre o resto)' : ''}`,
+            `Último evento do webhook: ${tempoRelativo(sync.webhook?.ultimo_fim)}`,
+            sync.avisoWebhook,
+          ].filter(Boolean).join('\n')}
+          className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${sync.erro || sync.estado?.ultimo_ok === false ? 'text-ln-red' : sync.avisoWebhook ? 'text-ln-yellow' : 'text-ln-t4 hover:text-ln-t2'} disabled:opacity-60 ${FOCO} rounded`}
         >
-          <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />
-          {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
+          {sync.avisoWebhook && !sync.rodando ? <AlertTriangle className="w-3 h-3" /> : <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />}
+          {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_fim || sync.estado?.ultimo_inicio)}`}
           {!sync.rodando && api.aguardandoClickup > 0 && <span className="inline-flex items-center gap-1 text-ln-yellow" title="Tarefas desta tela que ainda não foram para o ClickUp"><CloudUpload className="w-3 h-3" />{api.aguardandoClickup} aguardando</span>}
         </button>
         <button onClick={api.recarregar} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
@@ -308,6 +342,13 @@ export default function Tarefas() {
       <PaginasView pg={pgHook} projetos={projects || []} user={user} paginaId={params.get('pagina')} onSelecionar={(id) => setParams(id ? new URLSearchParams({ aba: 'paginas', pagina: id }) : new URLSearchParams({ aba: 'paginas' }))} onToast={showToast} />
     ) : aba === 'analytics' ? (
       <AnalyticsView />
+    ) : aba === 'sincronizacao' ? (
+      <SincronizacaoView
+        membrosMap={membrosMap} listasMap={t.listasMap} pastasMap={t.pastasMap}
+        tarefaFiltro={params.get('sync_tarefa')}
+        onFiltrarTarefa={(id) => setParams((p) => { const n = new URLSearchParams(p); if (id) n.set('sync_tarefa', id); else n.delete('sync_tarefa'); return n })}
+        onAbrirTarefa={api.abrirTarefa} onToast={showToast}
+      />
     ) : templateAbertoId ? (
       templateAberto ? (
         <TemplateEditor
@@ -341,7 +382,7 @@ export default function Tarefas() {
               onAtualizarLista={t.atualizarLista}
               aberta={arvoreAberta} onFechar={() => setArvoreAberta(false)}
               recolhida={colunaRecolhida && aba !== 'chat' && aba !== 'atividades'}
-              nav={{ aba: aba || 'tarefas', onAba: irAba, intake: vt.intakePendentes.length, chat: chatNaoLidas }}
+              nav={{ aba: aba || 'tarefas', onAba: irAba, intake: vt.intakePendentes.length, chat: chatNaoLidas, syncErros }}
               contagem={contagemPorPasta}
             />
 
