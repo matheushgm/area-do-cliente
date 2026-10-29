@@ -1,7 +1,7 @@
 // Extras do painel da tarefa no VertaTask: etiquetas, relações entre tarefas,
 // histórico de atividade e seguir/deixar de seguir.
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Plus, X, Check, Bell, BellOff, Loader2, MoreHorizontal, LayoutTemplate, Trash2, History } from 'lucide-react'
+import { Plus, X, Check, Bell, BellOff, Loader2, MoreHorizontal, LayoutTemplate, Trash2, History, Archive } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { fmtDataHora, fmtDataNumerica, rotuloStatus, prioridade as prioDe } from '../../lib/tarefas'
 import { Popover, ItemMenu, FOCO } from './Campos'
@@ -194,8 +194,9 @@ function useSeguir(tarefaId, user) {
   return { seguindo, total, alternar }
 }
 
-/** Menu ⋯ do painel da tarefa: seguir, salvar como template e excluir. */
-export function MenuTarefa({ tarefaId, user, onSalvarTemplate, onHistoricoSync, onExcluir }) {
+/** Menu ⋯ do painel da tarefa: seguir, salvar como template, arquivar e excluir
+ *  (quem passa onArquivar/onExcluir pede a confirmação). */
+export function MenuTarefa({ tarefaId, user, onSalvarTemplate, onHistoricoSync, onArquivar, onExcluir }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const { seguindo, total, alternar } = useSeguir(tarefaId, user)
@@ -218,10 +219,13 @@ export function MenuTarefa({ tarefaId, user, onSalvarTemplate, onHistoricoSync, 
           {onHistoricoSync && (
             <ItemMenu onClick={fechar(onHistoricoSync)}><History className="w-3.5 h-3.5 text-ln-t4" /> Histórico de sincronização</ItemMenu>
           )}
-          {onExcluir && (<>
-            <div className="border-t border-ln-ink/5 my-1" />
+          {(onArquivar || onExcluir) && <div className="border-t border-ln-ink/5 my-1" />}
+          {onArquivar && (
+            <ItemMenu onClick={fechar(onArquivar)}><Archive className="w-3.5 h-3.5 text-ln-t4" /> Arquivar</ItemMenu>
+          )}
+          {onExcluir && (
             <ItemMenu onClick={fechar(onExcluir)} className="!text-ln-red"><Trash2 className="w-3.5 h-3.5" /> Excluir</ItemMenu>
-          </>)}
+          )}
         </div>
       </Popover>
     </>

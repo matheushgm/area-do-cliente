@@ -4,6 +4,8 @@ import { useState, useMemo } from 'react'
 import ListaView from '../components/Tarefas/ListaView'
 import TarefaPanel from '../components/Tarefas/TarefaPanel'
 import NovaTarefaPanel from '../components/Tarefas/NovaTarefaPanel'
+import BarraSelecao from '../components/Tarefas/BarraSelecao'
+import { useConfirmar } from '../components/Tarefas/Confirmacao'
 import { AlcaPainel, PAINEL_LARGURA } from '../components/Tarefas/AreaTarefas'
 import { agruparItens, filtrarItens, statusDasListas, AGRUPAMENTOS } from '../lib/tarefas'
 // Fixture gitignored: via glob para o build da Vercel (clone limpo, sem a pasta) não quebrar.
@@ -42,6 +44,7 @@ export default function DevLista() {
   const [larguraNome, setLarguraNome] = useState(null)
   const [larguraPainel, setLarguraPainel] = useState(PAINEL_LARGURA)
   const [selecionadas, setSelecionadas] = useState(() => new Set())
+  const [confirmar, dialogoConfirmar] = useConfirmar()
   const selecao = useMemo(() => ({
     ids: selecionadas,
     alternar: (id) => setSelecionadas((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n }),
@@ -62,6 +65,7 @@ export default function DevLista() {
   }
   return (
     <div className="ln vt h-screen bg-ln-bg">
+      {dialogoConfirmar}
       <div className="flex items-center gap-3 h-11 px-4 border-b border-ln-line text-xs text-ln-t3">
         <strong className="text-ln-t1">DevLista</strong> · {pastaRL.nome} · {visiveis.length} abertas · <span data-dev-selecionadas>{selecionadas.size}</span> selecionadas
         <select value={agrupar} onChange={(e) => setAgrupar(e.target.value)} className="ln-pill">{AGRUPAMENTOS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}</select>
@@ -70,8 +74,16 @@ export default function DevLista() {
         <button type="button" onClick={() => { setAbertaId(null); setNova(true) }} className="ln-primary">+ Tarefa</button>
       </div>
       <div className="flex h-[calc(100vh-44px)]">
-        <div className="flex-1 min-w-0 overflow-auto" data-dev-rolagem>
-          <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={false} denso={denso} compacto={compacto} />
+        <div className="relative flex-1 min-w-0 flex">
+          <div className="flex-1 min-w-0 overflow-auto" data-dev-rolagem>
+            <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={false} denso={denso} compacto={compacto} />
+          </div>
+          <BarraSelecao
+            n={selecionadas.size} onLimpar={() => setSelecionadas(new Set())}
+            onDuplicar={() => console.log('duplicar', [...selecionadas])}
+            onArquivar={async () => { if (await confirmar({ titulo: `Arquivar ${selecionadas.size} tarefas?`, texto: 'Saem das listas do VertaTask e ficam arquivadas no ClickUp. Nada é apagado.', rotuloItens: 'Tarefas a serem arquivadas', itens: [...selecionadas].map((id) => itensMap[id]?.titulo), acao: 'Arquivar' })) console.log('arquivar', [...selecionadas]) }}
+            onExcluir={async () => { if (await confirmar({ perigo: true, titulo: `Excluir ${selecionadas.size} tarefas?`, texto: 'A exclusão também acontece no ClickUp e não pode ser desfeita.', rotuloItens: 'Tarefas a serem excluídas', itens: [...selecionadas].map((id) => itensMap[id]?.titulo), acao: 'Excluir' })) console.log('excluir', [...selecionadas]) }}
+          />
         </div>
         {nova && !aberta && (
           <aside className="relative shrink-0 border-l border-ln-line bg-ln-panel flex flex-col" style={{ width: larguraPainel }} aria-label="Nova tarefa">

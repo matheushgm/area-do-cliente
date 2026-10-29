@@ -36,6 +36,7 @@ import AplicarTemplateView from './AplicarTemplateView'
 import { templateDaTarefa } from '../../lib/templates'
 import { FOCO, StatusCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo } from './Campos'
 import BarraSelecao, { BotaoBarra, ResponsaveisEmMassa, aplicarDiferenca } from './BarraSelecao'
+import { contarTarefas, useConfirmar } from './Confirmacao'
 import { MenuTarefa } from './TarefaExtras'
 
 export const PAINEL_LARGURA = 480 // padrão do painel da tarefa; quem usa arrasta a borda esquerda (tarefas.larguraPainel)
@@ -137,6 +138,7 @@ export default function AreaTarefas({
   const [painelExpandido, setPainelExpandido] = useState(false)
   const [selecionadas, setSelecionadas] = useState(() => new Set()) // seleção da Lista (barra no rodapé)
   const [emMassa, setEmMassa] = useState(false)
+  const [confirmar, dialogoConfirmar] = useConfirmar()
   const [aplicandoTpl, setAplicandoTpl] = useState(null) // { template, listaId }: tela "Aplicar template"
   const [novaInicial, setNovaInicial] = useState(null) // rascunho de tarefa nova no painel lateral (NovaTarefaPanel)
   useEffect(() => gravarPref('denso', denso), [denso])
@@ -546,9 +548,26 @@ export default function AreaTarefas({
     setSelecionadas(new Set())
     showToast(`${n} tarefa(s) duplicada(s)${falhas ? `, ${falhas} com erro` : ''}`, falhas ? 'error' : undefined)
   }, [raizesSel, filhosDe, t, showToast])
+  // diálogo de arquivar/excluir (menu ⋯ do painel e barra de seleção)
+  const pedirConfirmacao = useCallback((qual, tarefas) => {
+    const nSubs = tarefas.reduce((a, it) => a + (filhosDe.get(it.id) || []).length, 0)
+    const qtd = tarefas.length === 1 ? `esta tarefa${nSubs ? ` e ${nSubs === 1 ? 'a subtarefa' : `as ${nSubs} subtarefas`}` : ''}` : contarTarefas(tarefas.length, nSubs)
+    const itens = tarefas.map((it) => it.titulo)
+    if (qual === 'excluir') {
+      return confirmar({
+        perigo: true, titulo: `Excluir ${qtd}?`, acao: 'Excluir',
+        texto: 'A exclusão também acontece no ClickUp e não pode ser desfeita.',
+        rotuloItens: tarefas.length === 1 ? 'Tarefa a ser excluída' : 'Tarefas a serem excluídas', itens,
+      })
+    }
+    return confirmar({
+      titulo: `Arquivar ${qtd}?`, acao: 'Arquivar',
+      texto: 'Saem das listas do VertaTask e ficam arquivadas no ClickUp. Nada é apagado.',
+      rotuloItens: tarefas.length === 1 ? 'Tarefa a ser arquivada' : 'Tarefas a serem arquivadas', itens,
+    })
+  }, [confirmar, filhosDe])
   const excluirSel = useCallback(async () => {
-    const nSubs = raizesSel.reduce((a, it) => a + (filhosDe.get(it.id) || []).length, 0)
-    if (!window.confirm(`Excluir ${raizesSel.length} tarefa(s)${nSubs ? ` e ${nSubs} subtarefa(s) delas` : ''}? A exclusão também acontece no ClickUp.`)) return
+    if (!(await pedirConfirmacao('excluir', raizesSel))) return
     setEmMassa(true)
     let n = 0, falhas = 0
     for (const it of raizesSel) { const r = await t.excluirTarefa(it.id); if (r.error) falhas++; else n++ }
@@ -556,7 +575,17 @@ export default function AreaTarefas({
     if (tarefaAbertaId && selecionadas.has(tarefaAbertaId)) fecharPainel()
     setSelecionadas(new Set())
     showToast(`${n} tarefa(s) excluída(s)${falhas ? `, ${falhas} com erro` : ''}`, falhas ? 'error' : undefined)
-  }, [raizesSel, filhosDe, t, showToast, tarefaAbertaId, selecionadas, fecharPainel])
+  }, [raizesSel, t, showToast, tarefaAbertaId, selecionadas, fecharPainel, pedirConfirmacao])
+  const arquivarSel = useCallback(async () => {
+    if (!(await pedirConfirmacao('arquivar', raizesSel))) return
+    setEmMassa(true)
+    let n = 0, falhas = 0
+    for (const it of raizesSel) { const r = await t.arquivarTarefa(it.id); if (r.error) falhas++; else n++ }
+    setEmMassa(false)
+    if (tarefaAbertaId && selecionadas.has(tarefaAbertaId)) fecharPainel()
+    setSelecionadas(new Set())
+    showToast(`${n} tarefa(s) arquivada(s)${falhas ? `, ${falhas} com erro` : ''}`, falhas ? 'error' : undefined)
+  }, [raizesSel, t, showToast, tarefaAbertaId, selecionadas, fecharPainel, pedirConfirmacao])
   const statusComum = itensSel.length && itensSel.every((i) => i.status === itensSel[0].status) ? itensSel[0].status : null
 
   // ── Painel ───────────────────────────────────────────────────────────────
@@ -585,6 +614,7 @@ export default function AreaTarefas({
 
   return (
     <div ref={areaRef} className="relative flex-1 min-w-0 h-full min-h-0 flex">
+      {dialogoConfirmar}
       <div className="relative flex-1 min-w-0 flex flex-col">
         {cabecalho?.(api)}
 
@@ -625,7 +655,7 @@ export default function AreaTarefas({
         </div>
 
         {mostrarViews && view === 'lista' && (
-          <BarraSelecao n={itensSel.length} onLimpar={() => setSelecionadas(new Set())} onDuplicar={duplicarSel} onExcluir={excluirSel} ocupado={emMassa}>
+          <BarraSelecao n={itensSel.length} onLimpar={() => setSelecionadas(new Set())} onDuplicar={duplicarSel} onArquivar={arquivarSel} onExcluir={excluirSel} ocupado={emMassa}>
             <StatusCampo
               item={{ status: statusComum }} statuses={statuses}
               onChange={(s) => emLote((it) => { const st = statusDaLista(t.listasMap.get(it.lista_id)).find((x) => x.key === s.key); return st ? t.mudarStatus(it, st) : null }, 'Status')}
@@ -752,7 +782,16 @@ export default function AreaTarefas({
                     key={tarefaAberta.id} tarefaId={tarefaAberta.id} user={user}
                     onSalvarTemplate={() => salvarComoModelo(tarefaAberta, filhosDe.get(tarefaAberta.id) || [])}
                     onHistoricoSync={() => navigate(`/tarefas?aba=sincronizacao&sync_tarefa=${tarefaAberta.id}`)}
-                    onExcluir={() => { if (window.confirm('Excluir esta tarefa (e as subtarefas)?')) t.excluirTarefa(tarefaAberta.id).then((r) => { if (r.error) showToast(r.error, 'error'); else { fecharPainel(); showToast('Tarefa excluída') } }) }}
+                    onArquivar={async () => {
+                      if (!(await pedirConfirmacao('arquivar', [tarefaAberta]))) return
+                      const r = await t.arquivarTarefa(tarefaAberta.id)
+                      if (r.error) showToast(r.error, 'error'); else { fecharPainel(); showToast('Tarefa arquivada') }
+                    }}
+                    onExcluir={async () => {
+                      if (!(await pedirConfirmacao('excluir', [tarefaAberta]))) return
+                      const r = await t.excluirTarefa(tarefaAberta.id)
+                      if (r.error) showToast(r.error, 'error'); else { fecharPainel(); showToast('Tarefa excluída') }
+                    }}
                   />
                 )}
                 <button onClick={() => setPainelExpandido((v) => !v)} className="ln-iconbtn" aria-label={painelExpandido ? 'Voltar ao painel lateral' : 'Expandir em tela cheia'} title={painelExpandido ? 'Voltar ao painel lateral (Esc)' : 'Expandir em tela cheia'}>

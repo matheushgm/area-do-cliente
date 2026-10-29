@@ -1,8 +1,8 @@
 // Barra flutuante de seleção (rodapé), como a do ClickUp: "N selecionadas ×", os campos
-// para editar todas de uma vez, Duplicar e Excluir. Os campos são os mesmos editores das
+// para editar todas de uma vez, Duplicar, Arquivar e Excluir. Os campos são os mesmos editores das
 // células (Campos.jsx etc.) com o gatilho trocado por `BotaoBarra` via `render`.
 // Usada pela lista de tarefas, pelo editor de template e pela prévia de aplicação.
-import { X, Copy, Trash2, Loader2 } from 'lucide-react'
+import { X, Copy, Trash2, Loader2, Archive } from 'lucide-react'
 import { ResponsavelCampo } from './Campos'
 import { DepartamentoCampo } from './TarefaPanel'
 
@@ -47,7 +47,7 @@ export function DepartamentosEmMassa({ listas, icon, onAplicar }) {
   )
 }
 
-export default function BarraSelecao({ n, rotulo = 'tarefa', onLimpar, children, onDuplicar, onExcluir, ocupado = false }) {
+export default function BarraSelecao({ n, rotulo = 'tarefa', onLimpar, children, onDuplicar, onArquivar, onExcluir, ocupado = false }) {
   if (!n) return null
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[35] max-w-[calc(100%-2rem)]" role="toolbar" aria-label="Ações para as selecionadas">
@@ -62,6 +62,11 @@ export default function BarraSelecao({ n, rotulo = 'tarefa', onLimpar, children,
         {onDuplicar && (
           <button type="button" onClick={onDuplicar} disabled={ocupado} className="rounded-lg disabled:opacity-50" title="Duplicar as selecionadas">
             <BotaoBarra icon={Copy}>Duplicar</BotaoBarra>
+          </button>
+        )}
+        {onArquivar && (
+          <button type="button" onClick={onArquivar} disabled={ocupado} className="rounded-lg disabled:opacity-50" title="Arquivar as selecionadas">
+            <BotaoBarra icon={Archive}>Arquivar</BotaoBarra>
           </button>
         )}
         {onExcluir && (

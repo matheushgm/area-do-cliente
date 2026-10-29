@@ -973,10 +973,10 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     que está desenhado, levando o intervalo ao estado que a linha clicada vai ter (`onSelecionarLinha`, 2026-10-27); a alça de arrastar, que nunca teve função, saiu. Quem passa `selecao` mostra a
     `BarraSelecao` (`src/components/Tarefas/BarraSelecao.jsx`): barra flutuante no rodapé com "N selecionadas
     ×", os campos (os mesmos editores das células, com o gatilho trocado por `BotaoBarra` via `render`;
-    `ResponsaveisEmMassa`/`DepartamentosEmMassa` marcam quem está em todas e põem/tiram de todas), Duplicar e
-    Excluir. Esc limpa a seleção. Na **lista de tarefas** (`Tarefas.jsx`, só na visão Lista) cada ação grava
+    `ResponsaveisEmMassa`/`DepartamentosEmMassa` marcam quem está em todas e põem/tiram de todas), Duplicar,
+    Arquivar (só na lista de tarefas) e Excluir. Esc limpa a seleção. Na **lista de tarefas** (`Tarefas.jsx`, só na visão Lista) cada ação grava
     tarefa a tarefa e segue para o ClickUp (status só onde a lista tem aquele status; duplicar leva as
-    subtarefas; excluir pede confirmação). No **editor de template** mexe na árvore (salva no Salvar), com
+    subtarefas; arquivar e excluir pedem confirmação). No **editor de template** mexe na árvore (salva no Salvar), com
     Responsável, Departamento, Prazo D+N, Prioridade, Tipo e Estimativa. Na **prévia de aplicação** entra nos
     ajustes; duplicar cria linhas a mais (`copias`, id próprio, logo depois da origem) que viram tarefas
     separadas ao aplicar. `ResponsavelCampo`, `EstimativaCampo`, `DepartamentoCampo` e `RegraCelula` ganharam
@@ -987,7 +987,12 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     Relações → Checklists. No template a relação é só `depende_de`: "Bloqueada por" (o que está em
     `depende_de`) e "Bloqueia" (quem tem esta em `depende_de`), editáveis no painel; na prévia entram nos
     ajustes e valem ao criar. O "Depende de" saiu das propriedades do editor (a coluna da lista ficou). O
-    painel da tarefa ganhou o menu ⋯ (`MenuTarefa` em `TarefaExtras`: Seguir, Salvar como template, Excluir)
+    painel da tarefa ganhou o menu ⋯ (`MenuTarefa` em `TarefaExtras`: Seguir, Salvar como template, Arquivar, Excluir; arquivar = `arquivarTarefa` do
+    `useTarefas`, que marca `arquivada` na tarefa e em todas as subtarefas e vai ao ClickUp como `archived` pela outbox;
+    ainda não há tela de arquivadas). Confirmação de arquivar/excluir: `useConfirmar()` de `Confirmacao.jsx`
+    (`await confirmar({ titulo, texto, rotuloItens, itens, acao, perigo })`), diálogo centrado no formato dos alertas de
+    "Excluir cliente" e "Ocultar conta" do Dashboard de Tráfego, sem palavra para digitar; no lugar de `window.confirm`.
+    É a exceção à regra de não ter modal centralizado no módulo. `perigo` põe o foco no Cancelar
     ao lado do link do ClickUp; saíram o Concluir e a lixeira do topo, e Status é a 1ª propriedade. `?aba=templates` = `TemplatesView` (um template por linha:
     Aplicar, tarefas, horas, departamentos, editado). `?aba=templates&template=<id>` = `TemplateEditor`
     (tarefas e subtarefas como linhas, edição inline de departamento, regra de responsável, início/vencimento

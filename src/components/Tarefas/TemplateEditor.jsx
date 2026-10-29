@@ -18,6 +18,7 @@ import { Secao, ListaSubtarefas, ListaRelacoes } from './SecoesTarefa'
 import { Propriedade, DepartamentoCampo, Descricao, Checklists } from './TarefaPanel'
 import { EtiquetasCampo } from './TarefaExtras'
 import BarraSelecao, { BotaoBarra, DepartamentosEmMassa, aplicarDiferenca } from './BarraSelecao'
+import { contarTarefas, useConfirmar } from './Confirmacao'
 
 const numeracao = (itens) => {
   const m = new Map()
@@ -329,6 +330,7 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
   const [selId, setSelId] = useState(null)
   const [salvando, setSalvando] = useState(false)
   const [selecionadas, setSelecionadas] = useState(() => new Set()) // seleção da lista (barra no rodapé)
+  const [confirmar, dialogoConfirmar] = useConfirmar()
   const [base, setBase] = useState(() => JSON.stringify({ n: template.nome || '', d: template.descricao || '', i: itensDoTemplate(template) }))
 
   const atual = JSON.stringify({ n: nome, d: descricao, i: itens })
@@ -380,9 +382,14 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
   }
   const patchSel = (fn) => setItens((prev) => idsSel.reduce((acc, id) => atualizarItem(acc, id, (it) => ({ ...it, ...(typeof fn === 'function' ? fn(it) : fn) })), prev))
   const duplicarSel = () => { setItens((prev) => raizesSel.reduce((acc, id) => duplicarItem(acc, id), prev)); setSelecionadas(new Set()) }
-  const excluirSel = () => {
-    const nSubs = plano.filter((p) => raizesSel.includes(p.item.id) && p.nivel === 0).reduce((a, p) => a + p.item.subtarefas.length, 0)
-    if (!window.confirm(`Excluir ${raizesSel.length} tarefa(s)${nSubs ? ` e ${nSubs} subtarefa(s) delas` : ''} do template?`)) return
+  const nSubsSel = plano.filter((p) => raizesSel.includes(p.item.id) && p.nivel === 0).reduce((a, p) => a + p.item.subtarefas.length, 0)
+  const excluirSel = async () => {
+    const ok = await confirmar({
+      perigo: true, titulo: `Excluir ${contarTarefas(raizesSel.length, nSubsSel)} do template?`, acao: 'Excluir',
+      texto: 'Saem do template quando você salvar. Tarefas já criadas com ele continuam.',
+      rotuloItens: 'Do template', itens: plano.filter((p) => raizesSel.includes(p.item.id)).map((p) => p.item.titulo || 'Sem título'),
+    })
+    if (!ok) return
     setItens((prev) => raizesSel.reduce((acc, id) => removerItem(acc, id), prev))
     if (selId && selecionadas.has(selId)) setSelId(null)
     setSelecionadas(new Set())
@@ -466,6 +473,7 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
 
   return (
     <div className="flex flex-col h-full min-h-0">
+      {dialogoConfirmar}
       {/* cabeçalho do template */}
       <div className="shrink-0 px-4 sm:px-6 pt-3 pb-3 border-b border-ln-ink/[0.08] bg-ln-panel">
         <div className="flex items-center gap-2 flex-wrap">

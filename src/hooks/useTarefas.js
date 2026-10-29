@@ -296,6 +296,27 @@ export function useTarefas(user) {
     return {}
   }, [agendarPush])
 
+  // Arquivar tira a tarefa e as subtarefas (todos os níveis) de todas as telas sem apagar;
+  // cada linha segue para o ClickUp como `archived` pela outbox.
+  const arquivarTarefa = useCallback(async (id) => {
+    const ids = [id]
+    for (let frente = [id]; frente.length;) {
+      const { data, error } = await supabase.from('tarefas_itens').select('id').in('parent_id', frente).eq('arquivada', false)
+      if (error) return { error: error.message }
+      frente = (data || []).map((r) => r.id).filter((x) => !ids.includes(x))
+      ids.push(...frente)
+    }
+    const { error } = await supabase.from('tarefas_itens').update({ arquivada: true }).in('id', ids)
+    if (!error) agendarPush()
+    if (error) return { error: error.message }
+    setItens((prev) => {
+      const next = { ...prev }
+      for (const x of ids) delete next[x]
+      return next
+    })
+    return { n: ids.length }
+  }, [agendarPush])
+
   // ── Pastas e listas ────────────────────────────────────────────────────────
   const criarPasta = useCallback(async ({ nome, project_id = null }) => {
     const { data, error } = await supabase.from('tarefas_pastas').insert({ nome: nome.trim(), project_id, posicao: Date.now() }).select().single()
@@ -421,7 +442,7 @@ export function useTarefas(user) {
     pastas, listas, pastasMap, listasMap, loadingEstrutura, carregando, erro,
     itens, comentarios,
     carregarEstrutura, carregarListas, carregarMinhas, carregarAbertas, carregarPorCampo, carregarTarefa, aplicarLocal,
-    criarTarefa, atualizarTarefa, mudarStatus, excluirTarefa,
+    criarTarefa, atualizarTarefa, mudarStatus, excluirTarefa, arquivarTarefa,
     criarPasta, atualizarPasta, criarLista, atualizarLista,
     carregarComentarios, criarComentario, excluirComentario,
   }
