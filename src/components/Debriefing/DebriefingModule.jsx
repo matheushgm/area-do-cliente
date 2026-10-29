@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   Megaphone, Plus, Pencil, Trash2, ExternalLink, Video, Image as ImageIcon, Layers,
   Filter, X, Clock, Play, CheckCircle2, Paperclip, FlaskConical, Link2, Send, Palette,
-  FileText, CalendarDays, ChevronDown,
+  FileText, ChevronDown,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
@@ -76,6 +76,18 @@ export default function DebriefingModule({ project }) {
 
   // Blocos por mês de criação, do mais recente pro mais antigo ("Sem data" no fim)
   const grupos = useMemo(() => agruparPorMes(visibleAds), [visibleAds])
+  // Meses recolhidos (chave yyyy-mm ou 'sem-data'); todos nascem abertos.
+  const [recolhidos, setRecolhidos] = useState(() => new Set())
+  const chaveDoMes = (grupo) => grupo.chave || 'sem-data'
+  const mesAtual = todayISO().slice(0, 7)
+  function alternarMes(chave) {
+    setRecolhidos((prev) => {
+      const next = new Set(prev)
+      if (next.has(chave)) next.delete(chave)
+      else next.add(chave)
+      return next
+    })
+  }
 
   const isAprovacao = etapa === 'aprovacao'
 
@@ -340,37 +352,49 @@ export default function DebriefingModule({ project }) {
       ) : (
         <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
+            {/* Uma tabela só (as colunas ficam alinhadas entre os meses), com
+                cada mês separado como os grupos da lista de tarefas. */}
             <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-rl-surface/60 border-b border-rl-border">
-                  <Th className="w-24">Data</Th>
-                  <Th className="min-w-[220px]">Nome</Th>
-                  <Th>Tipo</Th>
-                  <Th>Aprovação</Th>
-                  <Th>Status</Th>
-                  <Th>Campanha</Th>
-                  <Th>Funil</Th>
-                  <Th>{isAprovacao ? 'Link do cliente' : 'Link'}</Th>
-                  <Th>Obs.</Th>
-                  <Th className="w-20"></Th>
-                </tr>
-              </thead>
-              {grupos.map((grupo) => (
-                <tbody key={grupo.chave || 'sem-data'}>
-                  {/* Cabeçalho do bloco: mês de criação + quantos criativos
-                      dele aparecem nesta aba (com os filtros aplicados). */}
-                  <tr className="bg-rl-purple/10 border-y border-rl-border">
-                    <td colSpan={10} className="px-3 py-2">
-                      <span className="flex items-center gap-2 text-xs">
-                        <CalendarDays className="w-3.5 h-3.5 text-rl-purple shrink-0" />
-                        <span className="font-bold text-rl-text">{grupo.rotulo}</span>
-                        <span className="text-rl-subtle">
-                          · {grupo.ads.length} {grupo.ads.length === 1 ? 'criativo' : 'criativos'}
+              {grupos.map((grupo, i) => (
+                <tbody key={chaveDoMes(grupo)}>
+                  {/* ▾ Outubro 2026  14 criativos (os visíveis nesta aba, com os filtros) */}
+                  <tr>
+                    <td colSpan={10} className={`px-2 pb-1 ${i === 0 ? 'pt-2' : 'pt-8'}`}>
+                      <span className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => alternarMes(chaveDoMes(grupo))}
+                          aria-expanded={!recolhidos.has(chaveDoMes(grupo))}
+                          aria-label={recolhidos.has(chaveDoMes(grupo)) ? 'Expandir mês' : 'Recolher mês'}
+                          className="w-5 h-5 rounded flex items-center justify-center text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
+                        >
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${recolhidos.has(chaveDoMes(grupo)) ? '-rotate-90' : ''}`} />
+                        </button>
+                        <span className={`text-[13px] font-semibold ${grupo.chave === mesAtual ? 'text-rl-purple' : 'text-rl-text'}`}>
+                          {grupo.rotulo}
+                        </span>
+                        <span className="text-xs text-rl-muted tabular-nums">
+                          {grupo.ads.length} {grupo.ads.length === 1 ? 'criativo' : 'criativos'}
                         </span>
                       </span>
                     </td>
                   </tr>
-                  {grupo.ads.map((ad) => {
+                  {/* Cabeçalho das colunas, repetido em cada mês */}
+                  {!recolhidos.has(chaveDoMes(grupo)) && (
+                    <tr className="border-b border-rl-border">
+                      <Th className="w-24">Data</Th>
+                      <Th className="min-w-[220px]">Nome</Th>
+                      <Th>Tipo</Th>
+                      <Th>Aprovação</Th>
+                      <Th>Status</Th>
+                      <Th>Campanha</Th>
+                      <Th>Funil</Th>
+                      <Th>{isAprovacao ? 'Link do cliente' : 'Link'}</Th>
+                      <Th>Obs.</Th>
+                      <Th className="w-20"></Th>
+                    </tr>
+                  )}
+                  {!recolhidos.has(chaveDoMes(grupo)) && grupo.ads.map((ad) => {
                     const TipoIcon = TIPO_ICON[ad.tipo] || Layers
                     const status = STATUS_BY_ID[ad.status || 'para_subir']
                     const StatusIcon = STATUS_ICON[ad.status || 'para_subir'] || Clock
@@ -725,7 +749,7 @@ function AprovacaoCell({ ad, onEnviar, mostrarCopy = false }) {
 
 function Th({ children, className = '' }) {
   return (
-    <th className={`text-left text-[10px] font-bold uppercase tracking-wider text-rl-muted px-3 py-2.5 whitespace-nowrap ${className}`}>
+    <th className={`text-left text-[11px] font-medium text-rl-muted px-3 h-8 whitespace-nowrap ${className}`}>
       {children}
     </th>
   )
