@@ -31,7 +31,7 @@ import EditorColunas from './ColunasLista'
 import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Hourglass, CloudUpload } from 'lucide-react'
 import { ordenarItens, ordenarPorCampo, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
 import {
-  StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, PrioridadeCampo, PrioridadeIcon, TipoTarefaCampo, EstimativaCampo, AdicionarInline, Popover, ItemMenu, FOCO,
+  StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, limitesVencimento, PrioridadeCampo, PrioridadeIcon, TipoTarefaCampo, EstimativaCampo, AdicionarInline, Popover, ItemMenu, FOCO,
 } from './Campos'
 
 // ── Colunas (larguras fixas como no ClickUp; o Nome ocupa o resto) ────────────
@@ -255,7 +255,7 @@ function Celula({ k, item, ctx }) {
     case 'concluida': return <span className="text-[13px] text-ln-t2 tabular whitespace-nowrap">{item.data_conclusao ? fmtDataNumerica(item.data_conclusao) : ''}</span>
     case 'venc': {
       const { texto, classe } = fmtVencimentoClickUp(item.data_vencimento, item)
-      return <DataCampo valor={item.data_vencimento} item={item} placeholder="" onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} render={<span className={`text-[13px] tabular whitespace-nowrap ${classe}`}>{texto}</span>} />
+      return <DataCampo valor={item.data_vencimento} item={item} placeholder="" {...limitesVencimento(item)} onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} render={<span className={`text-[13px] tabular whitespace-nowrap ${classe}`}>{texto}</span>} />
     }
     case 'prio': return <PrioridadeCampo valor={item.prioridade} onChange={(v) => onAtualizar(item.id, { prioridade: v })} render={<PrioridadeCU valor={item.prioridade} />} />
     case 'sprint': return <SprintCampo item={item} ciclos={ctx.ciclos} onChange={(id) => onAtualizar(item.id, { ciclo_id: id })} />

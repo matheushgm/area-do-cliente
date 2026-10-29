@@ -13,7 +13,7 @@ import {
   ordenarPorCriacao, fmtDataHora, fmtDataNumerica, descricaoVazia, novoId, progressoChecklists, corDaPessoa, iniciais, DEPARTAMENTOS,
 } from '../../lib/tarefas'
 import {
-  StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, AdicionarInline,
+  StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, limitesInicio, limitesVencimento, PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, AdicionarInline,
   Avatar, Avatares, Popover, FOCO,
 } from './Campos'
 import RelacaoCampo from './RelacaoCampo'
@@ -263,7 +263,7 @@ const inicioSub = (s, statuses, onMudarStatus) => (
   <span onClick={(e) => e.stopPropagation()}><StatusCampo item={s} statuses={statuses} modo="icon" onChange={(st) => onMudarStatus(s, st)} /></span>
 )
 const fimSub = (s, membrosMap, onAtualizar) => (<>
-  <DataCampo valor={s.data_vencimento} item={s} formato="curta" placeholder="" onChange={(v) => onAtualizar(s.id, { data_vencimento: v })} />
+  <DataCampo valor={s.data_vencimento} item={s} formato="curta" placeholder="" {...limitesVencimento(s)} onChange={(v) => onAtualizar(s.id, { data_vencimento: v })} />
   <Avatares item={s} membrosMap={membrosMap} size={16} max={2} vazio={false} />
 </>)
 const RECUO = 18
@@ -372,8 +372,8 @@ export default function TarefaPanel({
             <ResponsavelCampo item={item} membros={membros} membrosMap={membrosMap} size={16} max={4} comNome onChange={(ids, extra) => onAtualizar(item.id, extra ? { responsaveis: ids, responsaveis_extra: extra } : { responsaveis: ids })} />
           </Propriedade>
           <Propriedade label="Prioridade"><PrioridadeCampo valor={item.prioridade} onChange={(v) => onAtualizar(item.id, { prioridade: v })} /></Propriedade>
-          <Propriedade label="Início"><DataCampo valor={item.data_inicio} placeholder="definir" onChange={(v) => onAtualizar(item.id, { data_inicio: v })} /></Propriedade>
-          <Propriedade label="Vencimento"><DataCampo valor={item.data_vencimento} item={item} placeholder="definir" onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} /></Propriedade>
+          <Propriedade label="Início"><DataCampo valor={item.data_inicio} placeholder="definir" {...limitesInicio(item)} onChange={(v) => onAtualizar(item.id, { data_inicio: v })} /></Propriedade>
+          <Propriedade label="Vencimento"><DataCampo valor={item.data_vencimento} item={item} placeholder="definir" {...limitesVencimento(item)} onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} /></Propriedade>
           <Propriedade label="Cycle">
             <RelacaoCampo
               valor={item.ciclo_id} cor="#2A25F0" vazio="nenhum"

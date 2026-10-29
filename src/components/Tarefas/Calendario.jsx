@@ -4,6 +4,8 @@
 // de prazo (Hoje, Amanhã, Próxima segunda…) e o clique já escolhe. Tokens ln-*.
 // `CalendarioPrazo` é só o conteúdo (vai dentro de um Popover); `DataInput` é o
 // substituto do <input type="date"> com o mesmo calendário. Valores 'yyyy-mm-dd'.
+// `min`/`max` bloqueiam os dias fora do intervalo (ex.: vencimento antes do início, que o
+// ClickUp recusa); `motivoMin`/`motivoMax` explicam o bloqueio no rodapé e no título do dia.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { Popover, FOCO } from './Campos'
@@ -42,7 +44,7 @@ function lerDigitada(txt, hoje) {
 }
 
 /** valor: 'yyyy-mm-dd' ou ''; onEscolher('yyyy-mm-dd' | '') — '' = sem data. */
-export function CalendarioPrazo({ valor, onEscolher }) {
+export function CalendarioPrazo({ valor, onEscolher, min = '', max = '', motivoMin = '', motivoMax = '' }) {
   const hoje = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
   const hojeS = ymd(hoje)
   const [mes, setMes] = useState((valor || hojeS).slice(0, 7))
@@ -51,6 +53,9 @@ export function CalendarioPrazo({ valor, onEscolher }) {
   const [erro, setErro] = useState(false)
   const gridRef = useRef(null)
   const lista = useMemo(() => atalhos(hoje), [hoje])
+  const textoMin = min ? (motivoMin ? `${motivoMin} (${fmtCurto(min)})` : `Antes de ${fmtCurto(min)}`) : ''
+  const textoMax = max ? (motivoMax ? `${motivoMax} (${fmtCurto(max)})` : `Depois de ${fmtCurto(max)}`) : ''
+  const foraDoIntervalo = (dia) => (min && dia < min ? textoMin : max && dia > max ? textoMax : '')
 
   // abre com o foco no dia escolhido (ou hoje): Enter confirma, setas andam
   // e, ao andar pelas setas, leva o foco junto (inclusive quando o mês muda)
@@ -75,7 +80,7 @@ export function CalendarioPrazo({ valor, onEscolher }) {
   function confirmarDigitada() {
     if (!digitado.trim()) return
     const v = lerDigitada(digitado, hoje)
-    if (v) onEscolher(v); else setErro(true)
+    if (v && !foraDoIntervalo(v)) onEscolher(v); else setErro(v ? foraDoIntervalo(v) : true)
   }
 
   const [y, m] = mes.split('-').map(Number)
@@ -85,14 +90,17 @@ export function CalendarioPrazo({ valor, onEscolher }) {
   return (
     <div className="flex flex-col sm:flex-row min-h-0 overflow-auto">
       <div className="flex sm:flex-col gap-0.5 p-2 sm:w-[196px] shrink-0 overflow-x-auto bg-ln-ink/[0.025] border-b sm:border-b-0 sm:border-r border-ln-ink/[0.06]">
-        {lista.map((a) => (
-          <button
-            key={a.rotulo} type="button" onClick={() => onEscolher(a.valor)}
-            className={`shrink-0 flex items-center justify-between gap-3 h-8 px-2.5 rounded-md text-[12px] font-medium text-left whitespace-nowrap transition-colors duration-150 ${a.valor === valor ? 'bg-ln-accent/10 text-ln-accent' : 'text-ln-t2 hover:bg-ln-accent/[0.07] hover:text-ln-accent'} ${FOCO}`}
-          >
-            {a.rotulo}<span className="hidden sm:inline text-[11px] text-ln-t4 tabular">{fmtCurto(a.valor)}</span>
-          </button>
-        ))}
+        {lista.map((a) => {
+          const bloqueio = foraDoIntervalo(a.valor)
+          return (
+            <button
+              key={a.rotulo} type="button" onClick={() => onEscolher(a.valor)} disabled={!!bloqueio} title={bloqueio || undefined}
+              className={`shrink-0 flex items-center justify-between gap-3 h-8 px-2.5 rounded-md text-[12px] font-medium text-left whitespace-nowrap transition-colors duration-150 ${bloqueio ? 'text-ln-t4 opacity-50 cursor-not-allowed' : a.valor === valor ? 'bg-ln-accent/10 text-ln-accent' : 'text-ln-t2 hover:bg-ln-accent/[0.07] hover:text-ln-accent'} ${FOCO}`}
+            >
+              {a.rotulo}<span className="hidden sm:inline text-[11px] text-ln-t4 tabular">{fmtCurto(a.valor)}</span>
+            </button>
+          )
+        })}
         {valor && (
           <button type="button" onClick={() => onEscolher('')} className={`shrink-0 flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[12px] font-medium text-ln-t3 hover:bg-ln-red/[0.07] hover:text-ln-red sm:mt-auto ${FOCO}`}>
             <X className="w-3 h-3" /> Sem data
@@ -113,14 +121,16 @@ export function CalendarioPrazo({ valor, onEscolher }) {
             const dia = `${mes}-${String(i + 1).padStart(2, '0')}`
             const escolhido = dia === valor, ehHoje = dia === hojeS, passado = dia < hojeS
             const fds = [0, 6].includes(deYmd(dia).getDay())
+            const bloqueio = foraDoIntervalo(dia)
             return (
               <button
                 key={dia} type="button" data-dia={dia} data-foco={dia === foco ? '1' : undefined}
                 tabIndex={dia === foco || (!foco.startsWith(mes) && i === 0) ? 0 : -1}
-                onClick={() => onEscolher(dia)} onFocus={() => setFoco(dia)}
-                aria-label={fmtDataLonga(dia)} aria-pressed={escolhido}
+                onClick={() => { if (!bloqueio) onEscolher(dia) }} onFocus={() => setFoco(dia)}
+                aria-label={fmtDataLonga(dia)} aria-pressed={escolhido} aria-disabled={bloqueio ? true : undefined} title={bloqueio || undefined}
                 className={`h-8 rounded-md text-[12px] tabular transition-colors duration-150 ${FOCO} ${
-                  escolhido ? 'bg-ln-accent text-white font-semibold'
+                  bloqueio ? 'text-ln-t4 opacity-40 line-through cursor-not-allowed'
+                  : escolhido ? 'bg-ln-accent text-white font-semibold'
                     : ehHoje ? 'text-ln-accent font-semibold ring-1 ring-inset ring-ln-accent/40 hover:bg-ln-accent/10'
                       : `${passado ? 'text-ln-t4' : fds ? 'text-ln-t3' : 'text-ln-t2'} font-medium hover:bg-ln-accent/10 hover:text-ln-accent`
                 }`}
@@ -134,25 +144,30 @@ export function CalendarioPrazo({ valor, onEscolher }) {
           <input
             value={digitado} onChange={(e) => { setDigitado(e.target.value); setErro(false) }}
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmarDigitada() } }}
-            placeholder="dd/mm/aaaa" aria-label="Digitar data" aria-invalid={erro}
+            placeholder="dd/mm/aaaa" aria-label="Digitar data" aria-invalid={!!erro} title={typeof erro === 'string' ? erro : undefined}
             className={`ln-input !h-7 !text-[12px] flex-1 min-w-0 tabular ${erro ? '!border-ln-red' : ''}`}
           />
           {mes !== hojeS.slice(0, 7) && (
             <button type="button" onClick={() => { setMes(hojeS.slice(0, 7)); setFoco(hojeS) }} className={`h-7 px-2 rounded-md text-[12px] font-medium text-ln-t3 hover:text-ln-accent hover:bg-ln-accent/[0.07] ${FOCO}`}>Hoje</button>
           )}
         </div>
+        {(min || max) && (
+          <p className="px-3 pb-2.5 -mt-1 text-[11px] leading-snug text-ln-t4">
+            {[textoMin, textoMax].filter(Boolean).join(' · ')}: bloqueado.
+          </p>
+        )}
       </div>
     </div>
   )
 }
 
 /** Gatilho + Popover do calendário (largura cabe no celular). */
-export function PopoverCalendario({ anchorRef, open, onClose, valor, onEscolher }) {
+export function PopoverCalendario({ anchorRef, open, onClose, valor, onEscolher, ...limites }) {
   const vw = typeof window === 'undefined' ? 1024 : window.innerWidth
   // no celular os atalhos viram uma faixa em cima do mês e o conjunto fica mais alto
   return (
     <Popover anchorRef={anchorRef} open={open} onClose={onClose} width={Math.min(446, vw - 16)} alturaMax={vw < 640 ? 480 : 340}>
-      <CalendarioPrazo valor={valor} onEscolher={(v) => { onEscolher(v); onClose() }} />
+      <CalendarioPrazo valor={valor} onEscolher={(v) => { onEscolher(v); onClose() }} {...limites} />
     </Popover>
   )
 }

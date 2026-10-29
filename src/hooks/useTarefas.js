@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { apiFetch } from '../lib/api'
 import { supabase } from '../lib/supabase'
-import { STATUSES_PADRAO, statusDaLista, statusInicial } from '../lib/tarefas'
+import { STATUSES_PADRAO, statusDaLista, statusInicial, datasCoerentes } from '../lib/tarefas'
 
 const PAGINA = 1000
 
@@ -237,6 +237,8 @@ export function useTarefas(user) {
       criado_por: user?.id || null,
       criador_nome: user?.name || null,
     }
+    // início depois do vencimento trava no ClickUp; aqui o vencimento manda e o início acompanha
+    Object.assign(row, datasCoerentes({}, row))
     const { data, error } = await supabase.from('tarefas_itens').insert(row).select().single()
     if (!error) agendarPush()
     if (error) return { error: error.message }
@@ -244,8 +246,11 @@ export function useTarefas(user) {
     return { data }
   }, [listasMap, user, mesclar, agendarPush])
 
-  const atualizarTarefa = useCallback(async (id, patch) => {
+  const atualizarTarefa = useCallback(async (id, patchPedido) => {
     const anterior = itens[id]
+    // mexer numa data pode deixar o início depois do vencimento (o ClickUp recusa): a outra acompanha
+    const patch = anterior ? datasCoerentes(anterior, patchPedido) : patchPedido
+    const ajustou = patch !== patchPedido
     // otimista
     setItens((prev) => prev[id] ? { ...prev, [id]: { ...prev[id], ...patch, updated_at: new Date().toISOString() } } : prev)
     const { data, error } = await supabase.from('tarefas_itens').update(patch).eq('id', id).select().single()
@@ -255,7 +260,7 @@ export function useTarefas(user) {
       return { error: error.message }
     }
     mesclar([data])
-    return { data }
+    return { data, ajustou }
   }, [itens, mesclar, agendarPush])
 
   /** Troca o status calculando status_tipo e data_conclusao. */

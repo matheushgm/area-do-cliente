@@ -194,6 +194,38 @@ export function deInputDate(s) {
   return isNaN(d.getTime()) ? null : d.toISOString()
 }
 
+// ─── Início × vencimento ──────────────────────────────────────────────────────
+// O ClickUp recusa início depois do vencimento ("Start date cannot be after due date") e a
+// tarefa trava na fila do push. Compara o instante que o push manda: data sem hora vai às
+// 04:00 de São Paulo (dataClickUp em api/_tarefas_push_core.js; mudou lá, mude aqui).
+
+const DIA_SP = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' })
+function instanteClickUp(iso, comHora) {
+  const d = paraData(iso)
+  if (!d) return null
+  return comHora ? d.getTime() : new Date(`${DIA_SP.format(d)}T04:00:00-03:00`).getTime()
+}
+
+export function inicioDepoisDoVencimento(t) {
+  const ini = instanteClickUp(t?.data_inicio, t?.inicio_com_hora)
+  const venc = instanteClickUp(t?.data_vencimento, t?.vencimento_com_hora)
+  return ini != null && venc != null && ini > venc
+}
+
+/**
+ * Patch com início ≤ vencimento. A data que a pessoa mexeu fica como ela escolheu e a outra
+ * acompanha: vencimento antes do início puxa o início para o vencimento; início depois do
+ * vencimento empurra o vencimento para o início. Devolve o patch (o mesmo objeto se já estava ok).
+ */
+export function datasCoerentes(atual, patch) {
+  const t = { ...atual, ...patch }
+  if (!inicioDepoisDoVencimento(t)) return patch
+  if ('data_inicio' in patch && !('data_vencimento' in patch)) {
+    return { ...patch, data_vencimento: t.data_inicio, vencimento_com_hora: !!t.inicio_com_hora }
+  }
+  return { ...patch, data_inicio: t.data_vencimento, inicio_com_hora: !!t.vencimento_com_hora }
+}
+
 export function corDaData(item) {
   if (!item?.data_vencimento) return ''
   if (item.status_tipo === 'closed') return 'text-rl-muted'

@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { Plus, CornerDownRight, ListChecks, MessageSquare, Paperclip } from 'lucide-react'
 import { ordenarItens, progressoChecklists, PRIORIDADES, TIPOS_TAREFA } from '../../lib/tarefas'
-import { Avatares, DataCampo, PrioridadeCampo, AdicionarInline, Chip, StatusIcon, FOCO } from './Campos'
+import { Avatares, DataCampo, limitesVencimento, PrioridadeCampo, AdicionarInline, Chip, StatusIcon, FOCO } from './Campos'
 
 function Card({ item, filhos, ctx, arrastavel, onArrastar }) {
   const { membrosMap, onAbrir, onAtualizar, contagemComentarios, selecionadaId } = ctx
@@ -42,7 +42,7 @@ function Card({ item, filhos, ctx, arrastavel, onArrastar }) {
       )}
       <div className="flex items-center gap-2.5 mt-2.5 min-w-0">
         <PrioridadeCampo valor={item.prioridade} comTexto={false} onChange={(v) => onAtualizar(item.id, { prioridade: v })} />
-        <DataCampo valor={item.data_vencimento} item={item} formato="curta" onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} />
+        <DataCampo valor={item.data_vencimento} item={item} formato="curta" {...limitesVencimento(item)} onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} />
         <span className="flex items-center gap-2 ml-auto text-[11px] text-ln-t4 tabular">
           {filhos.length > 0 && <span className="inline-flex items-center gap-0.5" title="Subtarefas"><CornerDownRight className="w-3 h-3" />{filhos.length}</span>}
           {check.total > 0 && <span className="inline-flex items-center gap-0.5" title="Checklist"><ListChecks className="w-3 h-3" />{check.feitos}/{check.total}</span>}

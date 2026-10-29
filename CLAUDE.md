@@ -1056,6 +1056,14 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     `tarefas-push`); o erro `semTempo` devolve o item e o resto à fila sem contar tentativa (`.catch`
     que engole erro do ClickUp usa `ignora()`, que deixa o `semTempo` passar). Falha da chamada no
     front tenta de novo em 15, 30… 75 s (5 vezes).
+  - **Início depois do vencimento (2026-10-29).** O ClickUp recusa ("Start date cannot be after
+    due date") e o item fica em erro na fila. Em 28/10, mudar o vencimento de duas tarefas para
+    hoje com o início em 03/11 travou as duas. Agora o calendário (`DataCampo` com `min`/`max`,
+    atalhos `limitesInicio`/`limitesVencimento` de `Campos.jsx`) bloqueia os dias inválidos, e
+    `datasCoerentes` (`src/lib/tarefas.js`) corrige o patch em `criarTarefa`/`atualizarTarefa` e
+    na prévia do template: a data que a pessoa mexeu fica, a outra acompanha (o toast da edição em
+    massa diz quantas). A comparação usa o instante que o push manda (sem hora = 04:00 de São
+    Paulo, `dataClickUp`); mudou um, mude o outro.
 - **Plano de 29/10 (`docs/plano-sincronizacao-clickup.md`, para não estourar as 100 chamadas/min do token):**
   - **Push agrupado por tarefa (item 1):** `agruparFila()` em `api/_tarefas_push_core.js` (pura) junta os
     `atualizar` reivindicados da mesma tarefa numa unidade (união dos `campos`, um PUT, uma leitura de

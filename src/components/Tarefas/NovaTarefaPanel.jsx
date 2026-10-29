@@ -6,7 +6,7 @@ import { useMemo, useRef, useState, useEffect } from 'react'
 import { Loader2, ChevronDown, Folder, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import MarkdownEditor from '../Editor/MarkdownEditor'
-import { StatusCampo, ResponsavelCampo, PrioridadeCampo, DataCampo, EstimativaCampo, TipoTarefaCampo, Popover, ItemMenu, BuscaMenu, FOCO } from './Campos'
+import { StatusCampo, ResponsavelCampo, PrioridadeCampo, DataCampo, limitesInicio, limitesVencimento, EstimativaCampo, TipoTarefaCampo, Popover, ItemMenu, BuscaMenu, FOCO } from './Campos'
 import { Propriedade, DepartamentoCampo, Checklists } from './TarefaPanel'
 import { Secao, ListaSubtarefas, ListaRelacoes } from './SecoesTarefa'
 import { TIPOS_RELACAO, ROTULO_DIRETO } from './TarefaExtras'
@@ -124,8 +124,8 @@ export default function NovaTarefaPanel({ grupos, listasMap, inicial, membros, m
               <ResponsavelCampo item={{ responsaveis: f.responsaveis, responsaveis_extra: [] }} membros={membros} membrosMap={membrosMap} size={16} max={4} comNome onChange={(ids) => mudar({ responsaveis: ids })} />
             </Propriedade>
             <Propriedade label="Prioridade"><PrioridadeCampo valor={f.prioridade} onChange={(v) => mudar({ prioridade: v })} /></Propriedade>
-            <Propriedade label="Início"><DataCampo valor={f.data_inicio} placeholder="definir" onChange={(v) => mudar({ data_inicio: v })} /></Propriedade>
-            <Propriedade label="Vencimento"><DataCampo valor={f.data_vencimento} placeholder="definir" onChange={(v) => mudar({ data_vencimento: v })} /></Propriedade>
+            <Propriedade label="Início"><DataCampo valor={f.data_inicio} placeholder="definir" {...limitesInicio(f)} onChange={(v) => mudar({ data_inicio: v })} /></Propriedade>
+            <Propriedade label="Vencimento"><DataCampo valor={f.data_vencimento} placeholder="definir" {...limitesVencimento(f)} onChange={(v) => mudar({ data_vencimento: v })} /></Propriedade>
             <Propriedade label="Estimativa"><EstimativaCampo valor={f.estimativa_min} onChange={(v) => mudar({ estimativa_min: v })} /></Propriedade>
             <Propriedade label="Tipo"><TipoTarefaCampo valor={f.tipo_tarefa} onChange={(v) => mudar({ tipo_tarefa: v })} /></Propriedade>
             <Propriedade label="Departamento"><DepartamentoCampo valor={f.departamento} onChange={(v) => mudar({ departamento: v })} /></Propriedade>

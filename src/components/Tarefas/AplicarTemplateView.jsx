@@ -8,9 +8,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Play, Loader2, AlertTriangle, Trash2, RotateCcw, Users, CalendarDays, CalendarClock, Flag, Shapes, Hourglass } from 'lucide-react'
 import { itensDoTemplate, planejarAplicacao, proximoDiaUtil, perfilDoUsuarioCliente } from '../../lib/templates'
-import { STATUSES_PADRAO, fmtEstimativa, novoId } from '../../lib/tarefas'
+import { STATUSES_PADRAO, fmtEstimativa, novoId, datasCoerentes } from '../../lib/tarefas'
 import { hojeISO } from '../../lib/vertatask'
-import { DataCampo, ResponsavelCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo, Avatares, FOCO } from './Campos'
+import { DataCampo, limitesInicio, limitesVencimento, ResponsavelCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo, Avatares, FOCO } from './Campos'
 import { Secao, ListaSubtarefas, ListaRelacoes } from './SecoesTarefa'
 import { Propriedade, Descricao, Checklists } from './TarefaPanel'
 import ListaView from './ListaView'
@@ -79,7 +79,8 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
       _linha: { ...c.snap._linha, paiId: c.pai, item: { ...c.snap._linha.item, id: c.id, depende_de: [] } },
       ...(edicoes[c.id] || {}),
     }))
-    const todas = [...base, ...extras]
+    // template com início depois do vencimento (ou ajuste antigo) não chega assim ao ClickUp
+    const todas = [...base, ...extras].map((r) => ({ ...r, ...datasCoerentes(r, {}) }))
     const fora = new Set(removidos)
     for (const r of todas) if (r.parent_id && fora.has(r.parent_id)) fora.add(r.id)
     return todas.filter((r) => !fora.has(r.id))
@@ -87,7 +88,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
   const porId = useMemo(() => new Map(linhas.map((r) => [r.id, r])), [linhas])
   const titulosPorId = useMemo(() => new Map(calculado.map((l) => [l.item.id, l.titulo])), [calculado])
 
-  const editar = (id, patch) => setEdicoes((e) => ({ ...e, [id]: { ...(e[id] || {}), ...patch } }))
+  const editar = (id, patch) => setEdicoes((e) => ({ ...e, [id]: { ...(e[id] || {}), ...datasCoerentes(porId.get(id), patch) } }))
   const remover = (id) => { setRemovidos((s) => new Set(s).add(id)); if (selId === id) setSelId(null) }
   const nAjustes = Object.keys(edicoes).length
 
@@ -101,7 +102,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
   }
   const editarSel = (fn) => setEdicoes((e) => {
     const n = { ...e }
-    for (const r of linhasSel) n[r.id] = { ...(n[r.id] || {}), ...(typeof fn === 'function' ? fn(r) : fn) }
+    for (const r of linhasSel) n[r.id] = { ...(n[r.id] || {}), ...datasCoerentes(r, typeof fn === 'function' ? fn(r) : fn) }
     return n
   })
   const duplicarSel = () => {
@@ -163,7 +164,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
     onMudarStatus: () => {},
     onCriar: () => Promise.resolve({}),
     renderCelula: (k, r) => {
-      if (k === 'ini') return <DataCampo valor={r.data_inicio} placeholder="" onChange={(v) => editar(r.id, { data_inicio: v })} render={<span className={`text-[13px] tabular whitespace-nowrap ${r.data_inicio ? 'text-ln-t2' : 'text-ln-t4 pl-1'}`}>{r.data_inicio ? new Date(r.data_inicio).toLocaleDateString('pt-BR', { day: 'numeric', month: 'numeric', year: '2-digit' }) : '–'}</span>} />
+      if (k === 'ini') return <DataCampo valor={r.data_inicio} placeholder="" {...limitesInicio(r)} onChange={(v) => editar(r.id, { data_inicio: v })} render={<span className={`text-[13px] tabular whitespace-nowrap ${r.data_inicio ? 'text-ln-t2' : 'text-ln-t4 pl-1'}`}>{r.data_inicio ? new Date(r.data_inicio).toLocaleDateString('pt-BR', { day: 'numeric', month: 'numeric', year: '2-digit' }) : '–'}</span>} />
       if (k === 'deps') {
         const deps = r.depende_de.filter((d) => porId.has(d))
         return deps.length
@@ -250,8 +251,8 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
                 <p className="ln-label">Propriedades</p>
                 <dl className="mt-1.5 flex flex-col gap-0.5">
                   <Propriedade label="Responsáveis"><ResponsavelCampo item={sel} membros={membros} membrosMap={membrosMap} comNome onChange={(ids) => editar(sel.id, { responsaveis: ids })} /></Propriedade>
-                  <Propriedade label="Início"><DataCampo valor={sel.data_inicio} placeholder="definir" onChange={(v) => editar(sel.id, { data_inicio: v })} /></Propriedade>
-                  <Propriedade label="Vencimento"><DataCampo valor={sel.data_vencimento} item={sel} placeholder="definir" onChange={(v) => editar(sel.id, { data_vencimento: v })} /></Propriedade>
+                  <Propriedade label="Início"><DataCampo valor={sel.data_inicio} placeholder="definir" {...limitesInicio(sel)} onChange={(v) => editar(sel.id, { data_inicio: v })} /></Propriedade>
+                  <Propriedade label="Vencimento"><DataCampo valor={sel.data_vencimento} item={sel} placeholder="definir" {...limitesVencimento(sel)} onChange={(v) => editar(sel.id, { data_vencimento: v })} /></Propriedade>
                   <Propriedade label="Prioridade"><PrioridadeCampo valor={sel.prioridade} onChange={(v) => editar(sel.id, { prioridade: v })} /></Propriedade>
                   <Propriedade label="Tipo"><TipoTarefaCampo valor={sel.tipo_tarefa} onChange={(v) => editar(sel.id, { tipo_tarefa: v })} /></Propriedade>
                   <Propriedade label="Estimativa"><EstimativaCampo valor={sel.estimativa_min} onChange={(v) => editar(sel.id, { estimativa_min: v })} /></Propriedade>
@@ -268,7 +269,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
                     <ListaSubtarefas
                       itens={subs} onAbrir={(id) => setSelId(id)}
                       fim={(x) => (<>
-                        <DataCampo valor={x.data_vencimento} item={x} formato="curta" placeholder="" onChange={(v) => editar(x.id, { data_vencimento: v })} />
+                        <DataCampo valor={x.data_vencimento} item={x} formato="curta" placeholder="" {...limitesVencimento(x)} onChange={(v) => editar(x.id, { data_vencimento: v })} />
                         <Avatares item={x} membrosMap={membrosMap} size={16} max={2} vazio={false} />
                       </>)}
                     />

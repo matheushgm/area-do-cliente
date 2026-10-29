@@ -245,7 +245,9 @@ function corDaData(valor, item) {
   return 'text-ln-t3'
 }
 
-export function DataCampo({ valor, onChange, item, formato = 'numerica', placeholder = 'sem data', render = null, className = '' }) {
+/** `min`/`max` (datas da própria tarefa) bloqueiam no calendário os dias que deixariam o
+ *  início depois do vencimento; `motivoMin`/`motivoMax` dizem por quê. */
+export function DataCampo({ valor, onChange, item, formato = 'numerica', placeholder = 'sem data', render = null, className = '', min = null, max = null, motivoMin = '', motivoMax = '' }) {
   const ref = useRef(null)
   const [aberto, setAberto] = useState(false)
   const texto = valor ? (formato === 'curta' ? fmtDataCurta(valor) : fmtDataNumerica(valor)) : ''
@@ -265,10 +267,15 @@ export function DataCampo({ valor, onChange, item, formato = 'numerica', placeho
           <X className="w-3 h-3" />
         </button>
       )}
-      <PopoverCalendario anchorRef={ref} open={aberto} onClose={() => setAberto(false)} valor={paraInputDate(valor)} onEscolher={(v) => onChange(deInputDate(v))} />
+      <PopoverCalendario anchorRef={ref} open={aberto} onClose={() => setAberto(false)} valor={paraInputDate(valor)} onEscolher={(v) => onChange(deInputDate(v))}
+        min={paraInputDate(min)} max={paraInputDate(max)} motivoMin={motivoMin} motivoMax={motivoMax} />
     </span>
   )
 }
+
+/** Limites prontos para os dois campos de data de uma tarefa (ou rascunho). */
+export const limitesInicio = (t) => ({ max: t?.data_vencimento || null, motivoMax: 'Depois do vencimento' })
+export const limitesVencimento = (t) => ({ min: t?.data_inicio || null, motivoMin: 'Antes do início' })
 
 // ─── Prioridade (bandeira na cor do ClickUp, o padrão em todo o VertaTask e no Atividades) ───
 

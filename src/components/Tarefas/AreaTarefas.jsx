@@ -504,15 +504,18 @@ export default function AreaTarefas({
   /** Roda fn em cada selecionada, uma de cada vez; fn devolve null para "pulada". */
   const emLote = useCallback(async (fn, rotulo) => {
     setEmMassa(true)
-    let ok = 0, puladas = 0, falhas = 0
+    let ok = 0, puladas = 0, falhas = 0, ajustadas = 0
     for (const it of itensSel) {
       const r = await fn(it)
       if (r === null) puladas++
       else if (r?.error) falhas++
-      else ok++
+      else { ok++; if (r?.ajustou) ajustadas++ }
     }
     setEmMassa(false)
-    const extra = [puladas && `${puladas} sem esse status na lista`, falhas && `${falhas} com erro`].filter(Boolean).join(', ')
+    const extra = [
+      ajustadas && `${ajustadas} com ${rotulo === 'Início' ? 'o vencimento' : 'o início'} ajustado para não ficar o início depois do vencimento`,
+      puladas && `${puladas} sem esse status na lista`, falhas && `${falhas} com erro`,
+    ].filter(Boolean).join(', ')
     showToast(`${rotulo}: ${ok} tarefa(s)${extra ? ` (${extra})` : ''}`, falhas ? 'error' : undefined)
   }, [itensSel, showToast])
   const atualizarSel = useCallback((patch, rotulo) => emLote((it) => t.atualizarTarefa(it.id, typeof patch === 'function' ? patch(it) : patch), rotulo), [emLote, t])
