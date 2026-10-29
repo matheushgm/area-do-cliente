@@ -97,7 +97,7 @@ export default function AtividadesModulo({ onAbrirMenu }) {
 
   // ── Time e carga ───────────────────────────────────────────────────────────
   const membros = useMemo(() => (teamMembers || [])
-    .map((m) => ({ id: m.id, nome: m.name, avatar: m.avatar, clickupId: Number(m.clickupUserId ?? m.clickup_user_id) || null }))
+    .map((m) => ({ id: m.id, nome: m.name, avatar: m.avatar, foto: m.foto_url || null, clickupId: Number(m.clickupUserId ?? m.clickup_user_id) || null }))
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [teamMembers])
   const carga = useCargaTime(membros, squads)
 

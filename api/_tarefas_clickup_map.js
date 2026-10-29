@@ -113,7 +113,7 @@ export function mapTarefa(t, perfilDe) {
     if (p && !p.disabled) responsaveis.push(p.id)
     else {
       const nome = p?.name || a.username
-      extras.push({ clickup_id: a.id, nome, iniciais: a.initials || nome.split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase(), cor: a.color || null })
+      extras.push({ clickup_id: a.id, nome, iniciais: a.initials || nome.split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase(), cor: a.color || null, foto: a.profilePicture || null })
     }
   }
   let tipo = null, dificuldade = null, departamento = []

@@ -32,8 +32,9 @@ function plural(n, um, varios) {
   return `${n} ${n === 1 ? um : varios}`
 }
 
-function Avatar({ nome, avatar, tamanho = 16 }) {
+function Avatar({ nome, avatar, foto = null, tamanho = 16 }) {
   const txt = String(avatar || iniciais(nome)).slice(0, 2).toUpperCase()
+  if (foto) return <img src={foto} alt="" referrerPolicy="no-referrer" className="rounded-full object-cover shrink-0" style={{ width: tamanho, height: tamanho }} />
   return (
     <span
       className="inline-flex items-center justify-center rounded-full bg-ln-brand/20 text-ln-brand font-semibold shrink-0 leading-none"
@@ -231,7 +232,7 @@ export function Comparacao({ pl }) {
             const atual = !!atualId && row.pessoa?.id === atualId
             return (
               <div key={row.pessoa?.id || row.pessoa?.clickupId} className="flex items-center gap-2 py-1.5">
-                <Avatar nome={row.pessoa?.nome} avatar={row.pessoa?.avatar} tamanho={16} />
+                <Avatar nome={row.pessoa?.nome} avatar={row.pessoa?.avatar} foto={row.pessoa?.foto} tamanho={16} />
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] leading-4 text-ln-t2 truncate">
                     {row.pessoa?.nome}

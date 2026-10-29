@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { Popover, Avatar, FOCO } from './Campos'
 import ModelosMenu from './ModelosMenu'
-import { AGRUPAMENTOS, corDaPessoa, iniciais } from '../../lib/tarefas'
+import { AGRUPAMENTOS, pessoaDoPerfil } from '../../lib/tarefas'
 import { SUBTAREFAS, rotuloSubtarefas, SEM_RESPONSAVEL, nomeResponsavelFiltro } from '../../lib/viewsTarefas'
 
 const ICONES_TIPO = { lista: List, quadro: KanbanSquare, calendario: CalendarDays, gantt: GanttChart }
@@ -111,7 +111,7 @@ export function ListaResponsaveis({ valor, membros, onChange }) {
           return (
             <button key={m.id} type="button" role="menuitemcheckbox" aria-checked={marcado} onClick={() => alternar(m.id)} className={`w-full flex items-center gap-2.5 h-8 px-2.5 rounded-md text-[13px] hover:bg-ln-ink/5 ${marcado ? 'text-ln-t1' : 'text-ln-t2'}`}>
               <span className={`w-4 h-4 rounded grid place-items-center shrink-0 border ${marcado ? 'bg-ln-accent border-ln-accent text-white' : 'border-ln-ink/25'}`}>{marcado && <Check className="w-3 h-3" />}</span>
-              <Avatar pessoa={{ nome: m.name, iniciais: m.avatar || iniciais(m.name), cor: corDaPessoa(m.id) }} size={18} />
+              <Avatar pessoa={pessoaDoPerfil(m)} size={18} />
               <span className="truncate">{m.name}</span>
             </button>
           )

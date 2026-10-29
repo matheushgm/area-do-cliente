@@ -181,6 +181,11 @@ monta o `Authorization: Bearer` das chamadas a `/api/*`.
     - Projetos sem squad atribuído (`squad IS NULL`) ficam invisíveis para members
   - `account_id` é apenas registro do criador — não controla mais o acesso de leitura/edição
 - **`profiles`** — espelha os metadados do Auth; usada para listar membros do time no Dashboard e pela gestão de usuários
+  - `foto_url` (migration 123): foto do ClickUp (`profilePicture` de `GET /team`, cruzada por `clickup_user_id`),
+    regravada pela rodada diária do cron (`api/_clickup_fotos.js`; na hora: `node scripts/atualizar_fotos_clickup.mjs`).
+    `avatar` continua sendo as iniciais. O `Avatar` do VertaTask (`pessoaDoPerfil`/`pessoaExtra` em `src/lib/tarefas.js`),
+    o `ChatAvatar` e os do Atividades mostram a foto e voltam às iniciais sem ela ou se a imagem falhar;
+    `responsaveis_extra[].foto` vem da tarefa na sincronização.
   - RLS: leitura para qualquer autenticado; admins podem escrever qualquer perfil; cada usuário só escreve o próprio
 - **`squads`** — entidades de equipe gerenciáveis; `members` é JSONB array `[{ profile_id, role }]`; `projects_v2.squad` referencia por UUID com `ON DELETE SET NULL`
   - RLS: leitura para qualquer autenticado; escrita apenas para admins

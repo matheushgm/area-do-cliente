@@ -108,7 +108,7 @@ export function useCargaTime(membros, squads) {
 
   const pessoas = useMemo(() => {
     return membros.map((m) => {
-      const meta = { profileId: m.id, nome: m.nome, avatar: m.avatar, clickupId: m.clickupId, departamentos: departamentosDe(m.id, squads) }
+      const meta = { profileId: m.id, nome: m.nome, avatar: m.avatar, foto: m.foto || null, clickupId: m.clickupId, departamentos: departamentosDe(m.id, squads) }
       const api = porId.get(chaveDe(m)) || null
       const erro = erros.get(chaveDe(m)) || null
       return enriquecerPessoa(api, meta, { erro, hoje })

@@ -11,7 +11,8 @@ import { bearer, getUser } from './_http.js'
 //    um intervalo que o polling nunca mais varria;
 //  * toda chamada ao ClickUp tem prazo (push 15 s + pull até 40 s cabem nos 60 s com folga);
 //  * a rodada do botão/página é leve (sem comentários, anexos e arquivados, que o webhook ou o
-//    cron trazem); a do cron confere a saúde do webhook e, aos domingos, reconcilia;
+//    cron trazem); a do cron confere a saúde do webhook, atualiza as fotos do time
+//    (api/_clickup_fotos.js) e, aos domingos, reconcilia;
 //  * quem disparou fica em resumo.por (id e nome), lido pelo painel Sincronização.
 //
 // A lógica vive em api/_tarefas_sync_core.js (compartilhada com
@@ -28,6 +29,7 @@ import { sincronizar, SPACES_PADRAO } from './_tarefas_sync_core.js'
 import { empurrar } from './_tarefas_push_core.js'
 import { registrarSyncLog, linhaRodada } from './_tarefas_sync_log.js'
 import { conferirWebhook } from './_tarefas_webhook_saude.js'
+import { atualizarFotos } from './_clickup_fotos.js'
 
 export const config = { maxDuration: 60 }
 
@@ -96,6 +98,8 @@ async function rodada(req, res, sb, { auth, TOKEN, TEAM, spaces }) {
     let push = null
     try { push = await empurrar({ sb, token: TOKEN, orcamentoMs: PUSH_MS }) } catch (e) { push = { erro: e.message } }
     const webhook = doCron ? await conferirWebhook({ token: TOKEN, team: TEAM, webhookId: envClean('CLICKUP_WEBHOOK_ID'), prazo: inicio + PUSH_MS + 8_000 }) : null
+    // fotos do time (profiles.foto_url): 1 chamada por dia, na rodada do cron
+    const fotos = doCron ? await atualizarFotos({ sb, token: TOKEN, team: TEAM, prazo: inicio + PUSH_MS + 12_000 }) : null
     const eventos = []
     const leve = !doCron // botão / abertura da página: o webhook já traz comentários e anexos
     const r = await sincronizar({
@@ -105,8 +109,9 @@ async function rodada(req, res, sb, { auth, TOKEN, TEAM, spaces }) {
       orcamentoMs: Math.max(10_000, Math.min(PULL_MAX_MS, FIM_MS - (Date.now() - inicio))), eventos,
     })
     // o chat não sincroniza mais com o ClickUp (2026-10-29, plano item 6)
-    resumo = { ...resumo, ...r, push, ...(webhook ? { webhook } : {}) }
+    resumo = { ...resumo, ...r, push, ...(webhook ? { webhook } : {}), ...(fotos ? { fotos } : {}) }
     if (webhook?.aviso) resumo.avisos = [webhook.aviso, ...(resumo.avisos || [])]
+    if (fotos?.aviso) resumo.avisos = [...(resumo.avisos || []), fotos.aviso]
     const fim = new Date().toISOString()
     // leitura incompleta (tempo ou páginas): mantém o ponto de partida anterior
     const avanca = !r.incompleto

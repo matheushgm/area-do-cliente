@@ -277,15 +277,18 @@ export function corDaPessoa(id, corFixa) {
 export { iniciais }
 
 /** Lista unificada de pessoas de uma tarefa: perfis mapeados + extras do ClickUp. */
+/** Pessoa para o Avatar a partir de um perfil: { id, nome, iniciais, cor, foto }. */
+export const pessoaDoPerfil = (m) => ({ id: m.id, nome: m.name, iniciais: m.avatar || iniciais(m.name), cor: corDaPessoa(m.id), foto: m.foto_url || null })
+/** O mesmo para um responsável do ClickUp sem perfil aqui (responsaveis_extra). */
+export const pessoaExtra = (e) => ({ id: `cu:${e.clickup_id}`, nome: e.nome, iniciais: e.iniciais || iniciais(e.nome), cor: e.cor || corDaPessoa(e.nome), foto: e.foto || null, extra: true })
+
 export function pessoasDaTarefa(item, membrosMap) {
   const out = []
   for (const id of item?.responsaveis || []) {
     const m = membrosMap.get(id)
-    if (m) out.push({ id, nome: m.name, iniciais: m.avatar || iniciais(m.name), cor: corDaPessoa(id) })
+    if (m) out.push(pessoaDoPerfil(m))
   }
-  for (const e of item?.responsaveis_extra || []) {
-    out.push({ id: `cu:${e.clickup_id}`, nome: e.nome, iniciais: e.iniciais || iniciais(e.nome), cor: e.cor || corDaPessoa(e.nome), extra: true })
-  }
+  for (const e of item?.responsaveis_extra || []) out.push(pessoaExtra(e))
   return out
 }
 

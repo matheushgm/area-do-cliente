@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, ChevronRight, Loader2, MoreHorizontal, PanelRight, Plus, RefreshCw } from 'lucide-react'
+import { Avatar } from './IssueList'
 import {
   NIVEIS, DIAS, weekday, agruparPessoas, diaDe, tomOcupacao,
   fmtHoras, fmtPct, fmtDiaCurto, iniciais, primeiroNome,
@@ -297,9 +298,11 @@ function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, 
     if (col.id === 'pessoa') {
       return (
         <div key={col.id} className="flex items-center gap-2 min-w-0">
-          <span aria-hidden="true" className="w-5 h-5 rounded-full bg-ln-brand/20 text-ln-brand text-[10px] font-semibold flex items-center justify-center shrink-0">
-            {pessoa.avatar || iniciais(nome)}
-          </span>
+          {pessoa.foto ? <Avatar nome={nome} foto={pessoa.foto} tamanho={20} /> : (
+            <span aria-hidden="true" className="w-5 h-5 rounded-full bg-ln-brand/20 text-ln-brand text-[10px] font-semibold flex items-center justify-center shrink-0">
+              {pessoa.avatar || iniciais(nome)}
+            </span>
+          )}
           <div className="flex items-baseline gap-1 min-w-0 whitespace-nowrap">
             <button type="button" onClick={abrir()} title={`Abrir ${nome}`} className={`truncate text-[13px] font-medium text-ln-t2 hover:text-ln-t1 rounded transition-colors duration-150 ${FOCO}`}>
               {nome}

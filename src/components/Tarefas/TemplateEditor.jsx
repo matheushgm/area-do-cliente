@@ -11,7 +11,7 @@ import {
   itensDoTemplate, resumoDoTemplate, achatar, novoItem, atualizarItem, removerItem, moverItem, duplicarItem, validarItens,
   MODOS_RESPONSAVEL, VARIAVEL_CLIENTE,
 } from '../../lib/templates'
-import { fmtEstimativa, corDaPessoa, iniciais, STATUSES_PADRAO } from '../../lib/tarefas'
+import { fmtEstimativa, pessoaDoPerfil, STATUSES_PADRAO } from '../../lib/tarefas'
 import { PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, Popover, Avatar, ItemMenu, FOCO } from './Campos'
 import ListaView from './ListaView'
 import { Secao, ListaSubtarefas, ListaRelacoes } from './SecoesTarefa'
@@ -227,7 +227,7 @@ export function RegraCelula({ valor, membros, membrosMap, onChange, render = nul
         {render}
         {!render && modo === 'departamento' && <span className="inline-flex items-center gap-1 h-[22px] px-2 rounded-md text-xs text-ln-t2 bg-ln-level2 whitespace-nowrap"><Users className="w-3 h-3 text-ln-t4" /> Pelo squad</span>}
         {!render && modo === 'pessoa' && (pessoa
-          ? <><Avatar pessoa={{ nome: pessoa.name, iniciais: pessoa.avatar || iniciais(pessoa.name), cor: corDaPessoa(pessoa.id) }} size={22} /><span className="text-[13px] text-ln-t2 truncate">{pessoa.name.split(' ')[0]}</span></>
+          ? <><Avatar pessoa={pessoaDoPerfil(pessoa)} size={22} /><span className="text-[13px] text-ln-t2 truncate">{pessoa.name.split(' ')[0]}</span></>
           : <span className="text-[13px] text-ln-orange">escolher pessoa</span>)}
         {!render && modo === 'nenhum' && <span className="text-[13px] text-ln-t4 pl-1">–</span>}
       </button>
@@ -238,7 +238,7 @@ export function RegraCelula({ valor, membros, membrosMap, onChange, render = nul
           <div className="px-2.5 pt-2 pb-1 text-[10px] uppercase tracking-wide text-ln-t4">Pessoa fixa</div>
           {membros.filter((m) => !m.disabled).map((m) => (
             <ItemMenu key={m.id} ativo={modo === 'pessoa' && valor?.pessoa_id === m.id} onClick={() => { setOpen(false); onChange({ modo: 'pessoa', pessoa_id: m.id }) }}>
-              <Avatar pessoa={{ nome: m.name, iniciais: m.avatar || iniciais(m.name), cor: corDaPessoa(m.id) }} size={18} />
+              <Avatar pessoa={pessoaDoPerfil(m)} size={18} />
               <span className="truncate">{m.name}</span>
             </ItemMenu>
           ))}

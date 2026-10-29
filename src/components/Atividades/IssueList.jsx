@@ -40,8 +40,13 @@ const COLUNAS = '16px 72px 16px minmax(120px, 1fr) minmax(0, max-content) 40px 7
 
 // ─── Peças reutilizadas pelo painel da atividade ─────────────────────────────
 
-export function Avatar({ nome, tamanho = 16, className = '' }) {
+/** `foto`: a do ClickUp (profiles.foto_url); sem ela, as iniciais. */
+export function Avatar({ nome, foto = null, tamanho = 16, className = '' }) {
   const cls = AVATAR_TAMANHO[tamanho] || AVATAR_TAMANHO[16]
+  const [falhou, setFalhou] = useState(null)
+  if (foto && falhou !== foto) {
+    return <img src={foto} alt="" title={nome || undefined} loading="lazy" referrerPolicy="no-referrer" onError={() => setFalhou(foto)} className={`inline-block rounded-full object-cover shrink-0 ${cls} ${className}`} />
+  }
   return (
     <span
       title={nome || 'Sem responsável'}

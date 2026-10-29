@@ -1,10 +1,23 @@
+import { useState } from 'react'
 import { corDe, iniciaisDe } from '../../lib/chat'
 
-// Avatar redondo com iniciais na cor da pessoa (mesma cor sempre, por id).
+// Avatar redondo: a foto do ClickUp (profiles.foto_url) quando houver; sem ela, ou se a
+// imagem não carregar, as iniciais na cor da pessoa (mesma cor sempre, por id).
 export default function ChatAvatar({ pessoa, id, nome, size = 28, className = '', ring = false }) {
   const uid = pessoa?.id || id || ''
   const n = pessoa?.name || nome || '?'
   const fonte = Math.max(8, Math.round(size * 0.4))
+  const foto = pessoa?.foto_url || null
+  const [falhou, setFalhou] = useState(null)
+  if (foto && falhou !== foto) {
+    return (
+      <img
+        src={foto} alt={n} title={n} loading="lazy" referrerPolicy="no-referrer" onError={() => setFalhou(foto)}
+        className={`inline-block rounded-full object-cover shrink-0 select-none ${ring ? 'ring-2 ring-ln-bg' : ''} ${className}`}
+        style={{ width: size, height: size, backgroundColor: corDe(uid || n) }}
+      />
+    )
+  }
   return (
     <span
       className={`inline-flex items-center justify-center rounded-full font-semibold leading-none text-white shrink-0 select-none ${ring ? 'ring-2 ring-ln-bg' : ''} ${className}`}

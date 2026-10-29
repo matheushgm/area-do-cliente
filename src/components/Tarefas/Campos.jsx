@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, Search, X, Clock3, Plus, User, Flag, CalendarDays } from 'lucide-react'
 import {
-  PRIORIDADES, TIPOS_TAREFA, DIFICULDADES, rotuloStatus, statusInicial, corDaPessoa, iniciais, pessoasDaTarefa,
+  PRIORIDADES, TIPOS_TAREFA, DIFICULDADES, rotuloStatus, statusInicial, pessoasDaTarefa, pessoaDoPerfil, pessoaExtra,
   fmtDataNumerica, fmtDataCurta, paraInputDate, deInputDate, fmtEstimativa, parseEstimativa, paraData, inicioDoDia,
 } from '../../lib/tarefas'
 import { PopoverCalendario } from './Calendario'
@@ -148,8 +148,21 @@ export function StatusCampo({ item, statuses, onChange, modo = 'pill', render = 
 
 // ─── Responsáveis ─────────────────────────────────────────────────────────────
 
+// Foto do ClickUp (profiles.foto_url / responsaveis_extra[].foto) quando houver; sem foto,
+// ou se a imagem não carregar, as iniciais sobre a cor da pessoa.
 export function Avatar({ pessoa, size = 20, className = '' }) {
   const fonte = Math.max(8, Math.round(size * 0.42))
+  const [falhou, setFalhou] = useState(null)
+  if (pessoa.foto && falhou !== pessoa.foto) {
+    return (
+      <img
+        src={pessoa.foto} alt={pessoa.nome || ''} title={pessoa.nome} loading="lazy" referrerPolicy="no-referrer"
+        onError={() => setFalhou(pessoa.foto)}
+        className={`inline-block rounded-full object-cover shrink-0 ring-2 ring-ln-panel ${className}`}
+        style={{ width: size, height: size, backgroundColor: pessoa.cor }}
+      />
+    )
+  }
   return (
     <span
       className={`inline-flex items-center justify-center rounded-full font-semibold leading-none text-white shrink-0 ring-2 ring-ln-panel ${className}`}
@@ -207,7 +220,7 @@ export function ResponsavelCampo({ item, membros, membrosMap, onChange, size = 2
         <BuscaMenu valor={busca} onChange={setBusca} placeholder="Buscar pessoa..." />
         <div className="p-1 overflow-y-auto">
           {lista.map((m) => {
-            const p = { id: m.id, nome: m.name, iniciais: m.avatar || iniciais(m.name), cor: corDaPessoa(m.id) }
+            const p = pessoaDoPerfil(m)
             return (
               <ItemMenu key={m.id} ativo={sel.has(m.id)} onClick={() => toggle(m.id)}>
                 <Avatar pessoa={p} size={18} />
@@ -220,7 +233,7 @@ export function ResponsavelCampo({ item, membros, membrosMap, onChange, size = 2
           )}
           {(item.responsaveis_extra || []).map((e) => (
             <div key={e.clickup_id} className="flex items-center gap-2.5 h-8 px-2.5 text-[13px] text-ln-t3">
-              <Avatar pessoa={{ nome: e.nome, iniciais: e.iniciais || iniciais(e.nome), cor: e.cor || corDaPessoa(e.nome) }} size={18} />
+              <Avatar pessoa={pessoaExtra(e)} size={18} />
               <span className="truncate flex-1">{e.nome}</span>
               <button type="button" className="ln-iconbtn !w-6 !h-6" title="Remover" onClick={() => onChange(item.responsaveis || [], (item.responsaveis_extra || []).filter((x) => x.clickup_id !== e.clickup_id))}>
                 <X className="w-3 h-3" />

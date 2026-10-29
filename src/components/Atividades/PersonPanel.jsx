@@ -132,8 +132,9 @@ function alertasDe(pessoa) {
 
 function Avatar({ pessoa }) {
   const avatar = pessoa.avatar || ''
-  if (/^https?:\/\//.test(avatar)) {
-    return <img src={avatar} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+  const foto = pessoa.foto || (/^https?:\/\//.test(avatar) ? avatar : null)
+  if (foto) {
+    return <img src={foto} alt="" referrerPolicy="no-referrer" className="w-6 h-6 rounded-full object-cover shrink-0" />
   }
   return (
     <span className="w-6 h-6 rounded-full bg-ln-brand/20 text-ln-brand text-[10px] font-semibold flex items-center justify-center shrink-0" aria-hidden="true">

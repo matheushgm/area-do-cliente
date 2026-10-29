@@ -7,7 +7,7 @@ import { ListFilter, Plus, Trash2, Check, ChevronDown, Search, Flag } from 'luci
 import { Popover, Avatar, FOCO } from './Campos'
 import { DataInput } from './Calendario'
 import { CabecalhoPainel } from './PainelView'
-import { corDaPessoa, iniciais } from '../../lib/tarefas'
+import { pessoaDoPerfil } from '../../lib/tarefas'
 import {
   camposDoEscopo, PERIODOS, SEM_VALOR, FILTROS_VAZIOS, campoFiltro, operadoresDe, regraCompleta, contarRegras,
   novaRegra, novoGrupo, opcoesDoCampo,
@@ -16,7 +16,7 @@ import {
 const INCOMPLETO = '!border-dashed !border-ln-orange/60'
 
 function Marcador({ o }) {
-  if (o.pessoa) return <Avatar pessoa={{ nome: o.pessoa.name, iniciais: o.pessoa.avatar || iniciais(o.pessoa.name), cor: corDaPessoa(o.pessoa.id) }} size={16} />
+  if (o.pessoa) return <Avatar pessoa={pessoaDoPerfil(o.pessoa)} size={16} />
   if (o.bandeira) return <Flag className="w-3.5 h-3.5 shrink-0" style={{ color: o.cor }} fill={o.cor} />
   if (o.cor) return <i className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: o.cor }} />
   return null
