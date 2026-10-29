@@ -464,9 +464,13 @@ export default function AreaTarefas({
 
   // listas que existem no ClickUp: só nelas uma tarefa sem clickup_task_id está "aguardando ClickUp"
   const listasComClickup = useMemo(() => new Set(t.listas.filter((l) => l.clickup_list_id).map((l) => l.id)), [t.listas])
+  // "Adicionar tarefa" da Lista: em Minhas tarefas o responsável já é você
+  const euId = user?.id
+  const responsaveisPadrao = useMemo(() => (sel.tipo === 'minhas' && euId ? [euId] : []), [sel.tipo, euId])
   const ctx = useMemo(() => ({
     statuses, membros: teamMembers || [], membrosMap, itensMap: t.itens, listaPadraoId, agrupar, contagemComentarios, selecionadaId: tarefaAbertaId,
     onAbrir: abrirTarefa, onAtualizar, onMudarStatus, onCriar, etiquetasMap: vt.etiquetasMap, listasComClickup,
+    responsaveisPadrao,
     // cada tarefa só oferece os status da própria lista (Minhas/Todas misturam listas)
     statusesDe: (it) => { const l = t.listasMap.get(it.lista_id); return l ? statusDaLista(l) : statuses },
     // colunas Cliente e Sprints da Lista (estilo ClickUp)
@@ -487,7 +491,7 @@ export default function AreaTarefas({
         <CornerDownRight className="w-3 h-3 shrink-0" /><span className="truncate max-w-[220px]">{t.itens[it.parent_id].titulo}</span>
       </span>
     ) : null) : undefined,
-  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, larguraNome, editarView, listasComClickup])
+  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, larguraNome, editarView, listasComClickup, responsaveisPadrao])
 
   // ── Seleção da Lista e ações em massa (BarraSelecao) ─────────────────────
   // a seleção vale para o que está na tela: trocar de pasta, lista, seção ou visão limpa

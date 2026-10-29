@@ -4,9 +4,9 @@
 // não serem cortados pela rolagem da tabela.
 import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, Search, X, Clock3, Plus, User, Flag } from 'lucide-react'
+import { Check, Search, X, Clock3, Plus, User, Flag, CalendarDays } from 'lucide-react'
 import {
-  PRIORIDADES, TIPOS_TAREFA, DIFICULDADES, rotuloStatus, corDaPessoa, iniciais, pessoasDaTarefa,
+  PRIORIDADES, TIPOS_TAREFA, DIFICULDADES, rotuloStatus, statusInicial, corDaPessoa, iniciais, pessoasDaTarefa,
   fmtDataNumerica, fmtDataCurta, paraInputDate, deInputDate, fmtEstimativa, parseEstimativa, paraData, inicioDoDia,
 } from '../../lib/tarefas'
 import { PopoverCalendario } from './Calendario'
@@ -49,6 +49,7 @@ export function Popover({ anchorRef, open, onClose, children, width = 240, align
   return createPortal(
     <div
       ref={ref}
+      data-popover=""
       style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, maxHeight: pos.maxH, width, zIndex: 90, boxShadow: 'var(--ln-shadow-panel)' }}
       className="ln bg-ln-panel border border-ln-ink/[0.08] rounded-lg overflow-hidden flex flex-col text-ln-t2"
       onClick={(e) => e.stopPropagation()}
@@ -247,7 +248,7 @@ function corDaData(valor, item) {
 
 /** `min`/`max` (datas da própria tarefa) bloqueiam no calendário os dias que deixariam o
  *  início depois do vencimento; `motivoMin`/`motivoMax` dizem por quê. */
-export function DataCampo({ valor, onChange, item, formato = 'numerica', placeholder = 'sem data', render = null, className = '', min = null, max = null, motivoMin = '', motivoMax = '' }) {
+export function DataCampo({ valor, onChange, item, formato = 'numerica', placeholder = 'sem data', render = null, limpavel = true, className = '', min = null, max = null, motivoMin = '', motivoMax = '' }) {
   const ref = useRef(null)
   const [aberto, setAberto] = useState(false)
   const texto = valor ? (formato === 'curta' ? fmtDataCurta(valor) : fmtDataNumerica(valor)) : ''
@@ -262,7 +263,7 @@ export function DataCampo({ valor, onChange, item, formato = 'numerica', placeho
       >
         {render ? render : (texto || placeholder || <span className="inline-block w-8 h-3 rounded bg-ln-ink/[0.04]" aria-hidden="true" />)}
       </button>
-      {texto && (
+      {texto && limpavel && (
         <button type="button" onClick={() => onChange(null)} className="opacity-0 group-hover/data:opacity-100 text-ln-t4 hover:text-ln-red transition" title="Limpar" aria-label="Limpar data">
           <X className="w-3 h-3" />
         </button>
@@ -402,43 +403,97 @@ export function EstimativaCampo({ valor, onChange, vazio = 'sem estimativa', ren
 
 // ─── Linha "+ Adicionar" ──────────────────────────────────────────────────────
 
-export function AdicionarInline({ onCriar, placeholder = 'Adicionar tarefa', className = '', autoFocus = false }) {
+// Com `campos` ({ statuses, membros, membrosMap, padrao }) a linha também escolhe status,
+// responsáveis, vencimento e prioridade antes de salvar, como no ClickUp; `padrao` vem do
+// grupo em que se está criando. onCriar(titulo, extras) recebe esses campos no 2º argumento.
+export function AdicionarInline({ onCriar, placeholder = 'Adicionar tarefa', className = '', autoFocus = false, campos = null }) {
   const [aberto, setAberto] = useState(autoFocus)
   const [titulo, setTitulo] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const inicial = () => ({ status: null, responsaveis: [], data_vencimento: null, prioridade: null, ...(campos?.padrao || {}) })
+  const [extras, setExtras] = useState(inicial)
+  const wrap = useRef(null)
+  const input = useRef(null)
+  const mudar = (patch, focar = true) => {
+    setExtras((x) => ({ ...x, ...patch }))
+    if (focar) requestAnimationFrame(() => input.current?.focus())
+  }
+  function fechar() { setAberto(false); setTitulo(''); setExtras(inicial()) }
   async function salvar(continuar) {
     const t = titulo.trim()
-    if (!t) { setAberto(false); return }
+    if (!t) { fechar(); return }
     setSalvando(true)
-    await onCriar(t)
+    const limpos = campos ? Object.fromEntries(Object.entries(extras).filter(([, v]) => v != null && !(Array.isArray(v) && !v.length))) : undefined
+    await onCriar(t, limpos)
     setSalvando(false)
     setTitulo('')
+    setExtras(inicial())
     if (!continuar) setAberto(false)
+    else requestAnimationFrame(() => input.current?.focus())
   }
   if (!aberto) {
     return (
-      <button type="button" onClick={() => setAberto(true)} className={`inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-xs text-ln-t4 hover:text-ln-t2 hover:bg-ln-ink/[0.03] transition-colors ${FOCO} ${className}`}>
+      <button type="button" onClick={() => { setExtras(inicial()); setAberto(true) }} className={`inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-xs text-ln-t4 hover:text-ln-t2 hover:bg-ln-ink/[0.03] transition-colors ${FOCO} ${className}`}>
         <Plus className="w-3.5 h-3.5" /> {placeholder}
       </button>
     )
   }
+  const statuses = campos?.statuses || []
+  const statusAtual = extras.status || statusInicial(statuses)?.key
+  const comPessoa = (extras.responsaveis || []).length > 0
   return (
-    <div className={`flex items-center gap-2 ${className}`} onClick={(e) => e.stopPropagation()}>
+    <div ref={wrap} className={`flex items-center gap-2 ${campos ? 'w-full max-w-[860px] pr-2' : ''} ${className}`} onClick={(e) => e.stopPropagation()}>
+      {campos && statuses.length > 0 && (
+        <StatusCampo item={{ status: statusAtual }} statuses={statuses} modo="icon" onChange={(s) => mudar({ status: s.key })} />
+      )}
       <input
+        ref={input}
         autoFocus
         value={titulo}
         disabled={salvando}
         onChange={(e) => setTitulo(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); salvar(true) }
-          if (e.key === 'Escape') { e.stopPropagation(); setAberto(false); setTitulo('') }
+          if (e.key === 'Escape') { e.stopPropagation(); fechar() }
         }}
-        onBlur={() => { if (!titulo.trim()) setAberto(false) }}
+        onBlur={(e) => {
+          // foco indo para um dos campos ou para o menu deles (portal) não fecha a linha
+          const alvo = e.relatedTarget
+          if (alvo && (wrap.current?.contains(alvo) || alvo.closest?.('[data-popover]'))) return
+          if (!titulo.trim()) fechar()
+        }}
         placeholder="Nome da tarefa (Enter salva)"
         className="ln-input !h-7 flex-1 min-w-0"
       />
-      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => salvar(false)} disabled={salvando || !titulo.trim()} className="ln-primary">Salvar</button>
-      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setAberto(false); setTitulo('') }} className="ln-pill">Cancelar</button>
+      {campos && (
+        <div className="flex items-center gap-1 shrink-0">
+          <ResponsavelCampo
+            item={{ responsaveis: extras.responsaveis }} membros={campos.membros || []} membrosMap={campos.membrosMap || new Map()}
+            onChange={(ids) => mudar({ responsaveis: ids }, false)}
+            render={comPessoa ? <Avatares item={{ responsaveis: extras.responsaveis }} membrosMap={campos.membrosMap || new Map()} size={20} max={2} /> : <BotaoCampo titulo="Responsável"><User className="w-3.5 h-3.5" /></BotaoCampo>}
+          />
+          <DataCampo
+            valor={extras.data_vencimento} onChange={(v) => mudar({ data_vencimento: v })} formato="curta" limpavel={false}
+            render={extras.data_vencimento
+              ? <span className="inline-flex items-center h-7 px-2 rounded-md border border-ln-ink/[0.08] text-xs text-ln-t2">{fmtDataCurta(extras.data_vencimento)}</span>
+              : <BotaoCampo titulo="Data de vencimento"><CalendarDays className="w-3.5 h-3.5" /></BotaoCampo>}
+          />
+          <PrioridadeCampo
+            valor={extras.prioridade} onChange={(v) => mudar({ prioridade: v })}
+            render={<BotaoCampo titulo="Prioridade"><PrioridadeIcon valor={extras.prioridade} /></BotaoCampo>}
+          />
+        </div>
+      )}
+      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={fechar} className="ln-pill shrink-0">Cancelar</button>
+      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => salvar(false)} disabled={salvando || !titulo.trim()} className="ln-primary shrink-0">Salvar</button>
     </div>
+  )
+}
+
+function BotaoCampo({ titulo, children }) {
+  return (
+    <span title={titulo} aria-label={titulo} className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-ln-ink/[0.08] text-ln-t4 hover:text-ln-t1 hover:bg-ln-ink/[0.03]">
+      {children}
+    </span>
   )
 }

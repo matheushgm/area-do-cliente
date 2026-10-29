@@ -29,7 +29,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, mem
 import { colunasVisiveis, normalizarLarguraNome } from '../../lib/viewsTarefas'
 import EditorColunas from './ColunasLista'
 import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Hourglass, CloudUpload } from 'lucide-react'
-import { ordenarItens, ordenarPorCampo, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa } from '../../lib/tarefas'
+import { ordenarItens, ordenarPorCampo, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa, deInputDate, paraInputDate } from '../../lib/tarefas'
 import {
   StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, limitesVencimento, PrioridadeCampo, PrioridadeIcon, TipoTarefaCampo, EstimativaCampo, AdicionarInline, Popover, ItemMenu, FOCO,
 } from './Campos'
@@ -462,6 +462,20 @@ function TituloColuna({ k, label, ctx, ordenavel = true }) {
 
 // ── Grupo ─────────────────────────────────────────────────────────────────────
 
+// Campos que a tarefa criada dentro de um grupo herda dele
+function padraoDoGrupo(agrupar, chave, responsaveisPadrao = []) {
+  const p = { responsaveis: responsaveisPadrao || [] }
+  if (agrupar === 'status') p.status = chave
+  if (agrupar === 'responsavel' && chave !== 'nenhum' && !String(chave).startsWith('cu:')) p.responsaveis = [chave]
+  if (agrupar === 'prioridade' && chave !== 'nenhuma') p.prioridade = chave
+  if (agrupar === 'vencimento' && (chave === 'hoje' || chave === 'amanha')) {
+    const d = new Date()
+    if (chave === 'amanha') d.setDate(d.getDate() + 1)
+    p.data_vencimento = deInputDate(paraInputDate(d))
+  }
+  return p
+}
+
 function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols, versao }) {
   const [aberto, setAberto] = useState(true)
   // com ctx.expandirTudo o conjunto guarda as RECOLHIDAS (tudo nasce aberto); sem ele, as abertas
@@ -485,6 +499,14 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols, versao })
   // subtarefas visíveis de cada tarefa desenhada, na ordem da tela
   const filhosOrdenados = new Map(visiveis.map((it) => [it.id, ordenarLista((filhosDe.get(it.id) || []).filter((f) => mostrarConcluidas || f.status_tipo !== 'closed' || it.status_tipo === 'closed'))]))
   useLayoutEffect(() => { ordemRef.current = { topo: itens, filhos: filhosOrdenados } })
+  // "Adicionar tarefa" do grupo já nasce com o que o grupo define (status, responsável,
+  // prioridade, Hoje/Amanhã); o resto se escolhe na própria linha
+  // (a subtarefa herda só o status, como antes)
+  const camposNova = (listaId, sub = false) => ({
+    statuses: ctx.statusesDe ? ctx.statusesDe({ lista_id: listaId }) : ctx.statuses,
+    membros: ctx.membros, membrosMap: ctx.membrosMap,
+    padrao: sub ? { status: agrupar === 'status' ? grupo.key : null } : padraoDoGrupo(agrupar, grupo.key, ctx.responsaveisPadrao),
+  })
   const corLabel = grupo.key === 'atrasado' ? 'text-ln-red' : grupo.key === 'hoje' ? 'text-ln-green' : grupo.key === 'amanha' ? 'text-ln-yellow' : 'text-ln-t1'
   return (
     <section className="mb-6" aria-label={grupo.label}>
@@ -540,7 +562,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols, versao })
                 {exp && filhos.map((f, j) => <Linha key={f.id} item={f} sub irmasDe={irmasDe(it.id)} primeira={j === 0} ultima={j === filhos.length - 1} {...deLinha(f)} />)}
                 {exp && ctx.acoesHover !== false && (
                   <div className={`flex items-center h-8 ${recuo(ctx)} border-b border-ln-line/70`}>
-                    <AdicionarInline placeholder="Adicionar subtarefa" onCriar={(t) => onCriar({ lista_id: it.lista_id, parent_id: it.id, titulo: t, status: agrupar === 'status' ? grupo.key : undefined })} />
+                    <AdicionarInline placeholder="Adicionar subtarefa" campos={camposNova(it.lista_id, true)} onCriar={(t, extras) => onCriar({ lista_id: it.lista_id, parent_id: it.id, titulo: t, ...extras })} />
                   </div>
                 )}
               </div>
@@ -549,7 +571,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols, versao })
           {itens.length > limite && <MaisLinhas restantes={itens.length - limite} onMais={mais} ctx={ctx} />}
           {listaPadraoId && (
             <div className={`flex items-center h-8 ${recuo(ctx)}`}>
-              <AdicionarInline autoFocus={novaTarefa} placeholder="Adicionar tarefa" onCriar={(t) => { setNovaTarefa(false); onCriar({ lista_id: listaPadraoId, titulo: t, status: agrupar === 'status' ? grupo.key : undefined }) }} />
+              <AdicionarInline autoFocus={novaTarefa} placeholder="Adicionar tarefa" campos={camposNova(listaPadraoId)} onCriar={(t, extras) => { setNovaTarefa(false); return onCriar({ lista_id: listaPadraoId, titulo: t, ...extras }) }} />
             </div>
           )}
         </div>
@@ -616,7 +638,11 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
       <div className="flex flex-col items-center justify-center gap-1.5 py-16 text-center">
         <p className="text-[13px] text-ln-t4">Nenhuma tarefa aqui ainda</p>
         {ctx.listaPadraoId ? (
-          <AdicionarInline placeholder="Adicionar a primeira tarefa" onCriar={(t) => ctx.onCriar({ lista_id: ctx.listaPadraoId, titulo: t })} />
+          <AdicionarInline
+            placeholder="Adicionar a primeira tarefa"
+            campos={{ statuses: ctx.statusesDe ? ctx.statusesDe({ lista_id: ctx.listaPadraoId }) : ctx.statuses, membros: ctx.membros, membrosMap: ctx.membrosMap, padrao: padraoDoGrupo(null, null, ctx.responsaveisPadrao) }}
+            onCriar={(t, extras) => ctx.onCriar({ lista_id: ctx.listaPadraoId, titulo: t, ...extras })}
+          />
         ) : (
           <p className="text-xs text-ln-t4">Escolha uma pasta ou lista à esquerda</p>
         )}
