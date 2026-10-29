@@ -323,7 +323,9 @@ export function PainelLateral({ titulo, acoes, onFechar, children, label }) {
 
 // ─── Editor ──────────────────────────────────────────────────────────────────
 
-export default function TemplateEditor({ template, membros, membrosMap, etiquetas, onCriarEtiqueta, onSalvar, onVoltar, onAplicar, onDuplicar, onExcluir }) {
+// `novo`: rascunho ainda não gravado (só o Salvar grava); nasce "não salvo" e não tem
+// Duplicar nem Apagar.
+export default function TemplateEditor({ template, novo = false, membros, membrosMap, etiquetas, onCriarEtiqueta, onSalvar, onVoltar, onAplicar, onDuplicar, onExcluir }) {
   const [nome, setNome] = useState(template.nome || '')
   const [descricao, setDescricao] = useState(template.descricao || '')
   const [itens, setItens] = useState(() => itensDoTemplate(template))
@@ -334,7 +336,7 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
   const [base, setBase] = useState(() => JSON.stringify({ n: template.nome || '', d: template.descricao || '', i: itensDoTemplate(template) }))
 
   const atual = JSON.stringify({ n: nome, d: descricao, i: itens })
-  const sujo = atual !== base
+  const sujo = novo || atual !== base
 
   // outra pessoa salvou este template e aqui não há edição pendente: recarrega
   useEffect(() => {
@@ -413,15 +415,28 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
     setSalvando(true)
     const r = await onSalvar({ nome: nome.trim(), descricao: descricao.trim() || null, itens })
     setSalvando(false)
-    if (r?.error) return false
+    if (r?.error) return null
     setBase(atual)
-    return true
+    return r || {}
   }
-  const voltar = () => { if (!sujo || window.confirm('Sair sem salvar as alterações?')) onVoltar() }
+  async function voltar() {
+    if (sujo) {
+      const ok = await confirmar(novo
+        ? { perigo: true, titulo: 'Descartar este template?', texto: 'Ele ainda não foi salvo. Saindo agora, nada fica gravado.', acao: 'Descartar' }
+        : { perigo: true, titulo: 'Sair sem salvar?', texto: 'As alterações deste template se perdem.', acao: 'Sair sem salvar' })
+      if (!ok) return
+    }
+    onVoltar()
+  }
   async function aplicar() {
     if (erros.length) { window.alert(`Corrija antes de aplicar:\n\n${[...new Set(erros.map((e) => e.msg))].join('\n')}`); return }
-    if (sujo && !(await salvar())) return
-    onAplicar({ ...template, nome: nome.trim(), descricao, itens })
+    let salvo = template
+    if (sujo) {
+      const r = await salvar()
+      if (!r) return
+      if (r.data) salvo = r.data // rascunho acabou de virar template
+    }
+    onAplicar({ ...salvo, nome: nome.trim(), descricao, itens })
   }
 
   // ── ListaView: um grupo só, subtarefas abertas, colunas do template ──
@@ -487,9 +502,9 @@ export default function TemplateEditor({ template, membros, membrosMap, etiqueta
               <AlertTriangle className="w-3 h-3" /> {erros.length} pendência{erros.length === 1 ? '' : 's'}
             </button>
           )}
-          {sujo && <span className="text-[11px] font-semibold text-ln-orange">Alterações não salvas</span>}
-          <button type="button" onClick={() => onDuplicar({ ...template, nome, descricao, itens })} className="ln-iconbtn" aria-label="Duplicar template" title="Duplicar"><Copy className="w-3.5 h-3.5" /></button>
-          <button type="button" onClick={() => onExcluir(template)} className="ln-iconbtn hover:!text-ln-red" aria-label="Apagar template" title="Apagar"><Trash2 className="w-3.5 h-3.5" /></button>
+          {sujo && <span className="text-[11px] font-semibold text-ln-orange">{novo ? 'Ainda não salvo' : 'Alterações não salvas'}</span>}
+          {!novo && <button type="button" onClick={() => onDuplicar({ ...template, nome, descricao, itens })} className="ln-iconbtn" aria-label="Duplicar template" title="Duplicar"><Copy className="w-3.5 h-3.5" /></button>}
+          {!novo && <button type="button" onClick={() => onExcluir(template)} className="ln-iconbtn hover:!text-ln-red" aria-label="Apagar template" title="Apagar"><Trash2 className="w-3.5 h-3.5" /></button>}
           <button type="button" onClick={aplicar} disabled={!resumo.total} className="ln-pill disabled:opacity-50"><Play className="w-3 h-3" /> Aplicar</button>
           <button type="button" onClick={salvar} disabled={!sujo || salvando} className="ln-primary disabled:opacity-50"><Save className="w-3.5 h-3.5" /> {salvando ? 'Salvando…' : 'Salvar'}</button>
         </div>

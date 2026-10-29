@@ -987,13 +987,17 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     Relações → Checklists. No template a relação é só `depende_de`: "Bloqueada por" (o que está em
     `depende_de`) e "Bloqueia" (quem tem esta em `depende_de`), editáveis no painel; na prévia entram nos
     ajustes e valem ao criar. O "Depende de" saiu das propriedades do editor (a coluna da lista ficou). O
-    painel da tarefa ganhou o menu ⋯ (`MenuTarefa` em `TarefaExtras`: Seguir, Salvar como template, Arquivar, Excluir; arquivar = `arquivarTarefa` do
+    painel da tarefa ganhou o menu ⋯ (`MenuTarefa` em `TarefaExtras`; o mesmo menu abre no clique direito de uma tarefa na Lista, no Quadro e no
+    Calendário, `MenuContextoTarefa` via `ctx.onMenuTarefa(item, x, y, origem)`, com as ações em `acoesTarefa(origem)` do
+    `AreaTarefas`: Copiar link e ClickUp (abre a tarefa lá; lado a lado no topo), Renomear (na Lista vira campo na linha, `ctx.renomeandoId`;
+    no resto foca o título do painel), Seguir, Duplicar, Salvar como template (abre o construtor com um rascunho da tarefa),
+    Histórico de sincronização, Arquivar, Excluir; arquivar = `arquivarTarefa` do
     `useTarefas`, que marca `arquivada` na tarefa e em todas as subtarefas e vai ao ClickUp como `archived` pela outbox;
     ainda não há tela de arquivadas). Confirmação de arquivar/excluir: `useConfirmar()` de `Confirmacao.jsx`
     (`await confirmar({ titulo, texto, rotuloItens, itens, acao, perigo })`), diálogo centrado no formato dos alertas de
     "Excluir cliente" e "Ocultar conta" do Dashboard de Tráfego, sem palavra para digitar; no lugar de `window.confirm`.
     É a exceção à regra de não ter modal centralizado no módulo. `perigo` põe o foco no Cancelar
-    ao lado do link do ClickUp; saíram o Concluir e a lixeira do topo, e Status é a 1ª propriedade. `?aba=templates` = `TemplatesView` (um template por linha:
+    no cabeçalho do painel (o link do ClickUp saiu de lá e vive no menu); saíram o Concluir e a lixeira do topo, e Status é a 1ª propriedade. `?aba=templates` = `TemplatesView` (um template por linha:
     Aplicar, tarefas, horas, departamentos, editado). `?aba=templates&template=<id>` = `TemplateEditor`
     (tarefas e subtarefas como linhas, edição inline de departamento, regra de responsável, início/vencimento
     em D+N, prioridade, tipo, estimativa e "depende de"; clicar na linha abre o `PainelLateral` de 480px com
@@ -1012,6 +1016,10 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   - Entradas: item "Templates" na coluna do VertaTask, botão "Templates" no cabeçalho de Tarefas
     (aplica na lista aberta ou leva ao construtor) e "Salvar como template" no painel da tarefa (leva a
     tarefa e as subtarefas com todos os atributos e os prazos convertidos em dias úteis).
+  - **Rascunho (2026-10-29):** "Novo template", "Duplicar" e "Salvar como template" não gravam nada: guardam um
+    rascunho (`src/lib/rascunhoTemplate.js`, `sessionStorage['tarefas.rascunhoTemplate']`) e abrem
+    `?aba=templates&template=novo`; o `TemplateEditor` com `novo` nasce "Ainda não salvo", sem Duplicar/Apagar, e só o
+    Salvar chama `criarModelo` (depois troca a URL pelo id). Sair pergunta se descarta; Aplicar salva antes.
   - Sem login: `/dev/templates` (só em DEV, dados em memória; "Criar" só registra o plano no console).
 - **Mão de volta VertaTask → ClickUp (2026-10-18, migration 101):** toda escrita de pessoa
   logada em `tarefas_itens` (insert/update/delete) e `tarefas_comentarios` (insert) entra em

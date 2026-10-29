@@ -6,6 +6,7 @@ import TarefaPanel from '../components/Tarefas/TarefaPanel'
 import NovaTarefaPanel from '../components/Tarefas/NovaTarefaPanel'
 import BarraSelecao from '../components/Tarefas/BarraSelecao'
 import { useConfirmar } from '../components/Tarefas/Confirmacao'
+import { MenuContextoTarefa } from '../components/Tarefas/TarefaExtras'
 import { AlcaPainel, PAINEL_LARGURA } from '../components/Tarefas/AreaTarefas'
 import { agruparItens, filtrarItens, statusDasListas, AGRUPAMENTOS } from '../lib/tarefas'
 // Fixture gitignored: via glob para o build da Vercel (clone limpo, sem a pasta) não quebrar.
@@ -45,6 +46,16 @@ export default function DevLista() {
   const [larguraPainel, setLarguraPainel] = useState(PAINEL_LARGURA)
   const [selecionadas, setSelecionadas] = useState(() => new Set())
   const [confirmar, dialogoConfirmar] = useConfirmar()
+  const [menu, setMenu] = useState(null)
+  const [renomeandoId, setRenomeandoId] = useState(null)
+  const log = (acao) => (it) => console.log(acao, it.id)
+  const acoesDev = {
+    copiarLink: log('copiarLink'), abrirClickup: log('abrirClickup'), duplicar: log('duplicar'),
+    salvarTemplate: log('salvarTemplate'), historico: log('historico'),
+    renomear: (it) => setRenomeandoId(it.id),
+    arquivar: async (it) => { if (await confirmar({ titulo: 'Arquivar esta tarefa?', texto: 'Saem das listas do VertaTask e ficam arquivadas no ClickUp. Nada é apagado.', rotuloItens: 'Tarefa a ser arquivada', itens: [it.titulo], acao: 'Arquivar' })) console.log('arquivar', it.id) },
+    excluir: async (it) => { if (await confirmar({ perigo: true, titulo: 'Excluir esta tarefa?', texto: 'A exclusão também acontece no ClickUp e não pode ser desfeita.', rotuloItens: 'Tarefa a ser excluída', itens: [it.titulo], acao: 'Excluir' })) console.log('excluir', it.id) },
+  }
   const selecao = useMemo(() => ({
     ids: selecionadas,
     alternar: (id) => setSelecionadas((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n }),
@@ -62,10 +73,12 @@ export default function DevLista() {
     listas, pastas: fixture.pastas, projetos, ciclos, selecao,
     larguraNome, onLarguraNome: (w) => { console.log('larguraNome', w); setLarguraNome(w) },
     colunas, onColunas: (c) => { console.log('colunas', c); setColunas(c) },
+    onMenuTarefa: (item, x, y) => setMenu({ item, x, y }), renomeandoId, onFimRenomear: () => setRenomeandoId(null),
   }
   return (
     <div className="ln vt h-screen bg-ln-bg">
       {dialogoConfirmar}
+      {menu && <MenuContextoTarefa key={`${menu.x}:${menu.y}`} menu={menu} user={{ id: membros[0]?.id }} acoes={acoesDev} onFechar={() => setMenu(null)} />}
       <div className="flex items-center gap-3 h-11 px-4 border-b border-ln-line text-xs text-ln-t3">
         <strong className="text-ln-t1">DevLista</strong> · {pastaRL.nome} · {visiveis.length} abertas · <span data-dev-selecionadas>{selecionadas.size}</span> selecionadas
         <select value={agrupar} onChange={(e) => setAgrupar(e.target.value)} className="ln-pill">{AGRUPAMENTOS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}</select>

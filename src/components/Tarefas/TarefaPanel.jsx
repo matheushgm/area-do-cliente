@@ -354,6 +354,7 @@ export default function TarefaPanel({
       <header>
         <textarea
           ref={tituloRef}
+          data-titulo-tarefa={item.id}
           value={titulo}
           onChange={(e) => setTitulo(e.target.value)}
           onBlur={salvarTitulo}

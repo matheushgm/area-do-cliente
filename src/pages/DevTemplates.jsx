@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import TemplatesView from '../components/Tarefas/TemplatesView'
 import TemplateEditor from '../components/Tarefas/TemplateEditor'
+import { useConfirmar } from '../components/Tarefas/Confirmacao'
 import AplicarTemplateView from '../components/Tarefas/AplicarTemplateView'
 import { novoItem, clonarItens, itensDoTemplate } from '../lib/templates'
 
@@ -34,12 +35,22 @@ export default function DevTemplates() {
     { id: 't2', nome: 'Legado (payload)', payload: { titulo: 'Tarefa antiga', departamento: ['Designer'], subtarefas: ['Passo 1', 'Passo 2'] }, itens: [], created_at: new Date().toISOString() },
   ])
   const [abertoId, setAbertoId] = useState(null)
+  // rascunho do "Novo"/"Duplicar", como no /tarefas: só entra em `modelos` no Salvar
+  const [rascunho, setRascunho] = useState(null)
+  const [confirmar, dialogoConfirmar] = useConfirmar()
+  // mesmo diálogo do /tarefas (Tarefas.jsx, excluirTemplate)
+  const excluir = async (m) => {
+    if (!(await confirmar({ perigo: true, titulo: 'Excluir template?', acao: 'Excluir', texto: 'As tarefas já criadas com ele continuam. O template não pode ser recuperado.', rotuloItens: 'Template a ser excluído', itens: [m.nome] }))) return
+    setModelos((ms) => ms.filter((x) => x.id !== m.id))
+    if (abertoId === m.id) setAbertoId(null)
+  }
   const [aplicando, setAplicando] = useState(null)
   const aberto = modelos.find((m) => m.id === abertoId)
   const etiquetas = [{ id: 'e1', nome: 'Urgente cliente', cor: '#E2564B' }]
 
   return (
     <div className="ln vt h-screen flex bg-ln-bg">
+      {dialogoConfirmar}
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="h-11 shrink-0 flex items-center gap-2 px-4 border-b border-ln-line text-xs text-ln-t3"><strong className="text-ln-t1">DevTemplates</strong> · dados em memória</div>
         <div className="flex-1 min-h-0 overflow-hidden">
@@ -50,20 +61,26 @@ export default function DevTemplates() {
               onAplicar={async ({ listaId, plano }) => { console.log('aplicar', listaId, plano); window.__plano = plano; setAplicando(null); return {} }}
               onCancelar={() => setAplicando(null)}
             />
+          ) : rascunho ? (
+            <TemplateEditor
+              key={rascunho.chave} template={{ id: 'novo', ...rascunho }} novo membros={membros} membrosMap={membrosMap} etiquetas={etiquetas} onCriarEtiqueta={async () => ({})}
+              onSalvar={async (patch) => { const m = { ...patch, id: `t${Date.now()}`, updated_at: new Date().toISOString() }; setModelos((ms) => [...ms, m]); setRascunho(null); setAbertoId(m.id); return { data: m } }}
+              onVoltar={() => setRascunho(null)} onAplicar={(tpl) => setAplicando(tpl)}
+            />
           ) : aberto ? (
             <TemplateEditor
               key={aberto.id} template={aberto} membros={membros} membrosMap={membrosMap} etiquetas={etiquetas} onCriarEtiqueta={async () => ({})}
               onSalvar={async (patch) => { setModelos((ms) => ms.map((m) => (m.id === aberto.id ? { ...m, ...patch, updated_at: new Date().toISOString() } : m))); return {} }}
               onVoltar={() => setAbertoId(null)} onAplicar={(tpl) => setAplicando(tpl)}
-              onDuplicar={(m) => setModelos((ms) => [...ms, { ...m, id: `t${Date.now()}`, nome: `${m.nome} (cópia)`, itens: clonarItens(itensDoTemplate(m)) }])}
-              onExcluir={(m) => { setModelos((ms) => ms.filter((x) => x.id !== m.id)); setAbertoId(null) }}
+              onDuplicar={(m) => { setAbertoId(null); setRascunho({ nome: `${m.nome} (cópia)`, descricao: m.descricao, itens: clonarItens(itensDoTemplate(m)), chave: Date.now() }) }}
+              onExcluir={excluir}
             />
           ) : (
             <TemplatesView
               modelos={modelos} membrosMap={membrosMap} onAbrir={setAbertoId} onAplicar={setAplicando}
-              onNovo={() => { const id = `t${Date.now()}`; setModelos((ms) => [...ms, { id, nome: 'Novo template', itens: [] }]); setAbertoId(id) }}
-              onDuplicar={(m) => setModelos((ms) => [...ms, { ...m, id: `t${Date.now()}`, nome: `${m.nome} (cópia)`, itens: clonarItens(itensDoTemplate(m)) }])}
-              onExcluir={(m) => setModelos((ms) => ms.filter((x) => x.id !== m.id))}
+              onNovo={() => setRascunho({ nome: 'Novo template', itens: [], chave: Date.now() })}
+              onDuplicar={(m) => setRascunho({ nome: `${m.nome} (cópia)`, descricao: m.descricao, itens: clonarItens(itensDoTemplate(m)), chave: Date.now() })}
+              onExcluir={excluir}
             />
           )}
         </div>

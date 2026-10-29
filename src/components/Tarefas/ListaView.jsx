@@ -283,8 +283,38 @@ function Celula({ k, item, ctx }) {
 const igualLinha = (a, b) => a.item === b.item && a.versao === b.versao && a.sub === b.sub && a.nFilhos === b.nFilhos
   && a.expandido === b.expandido && a.denso === b.denso && a.primeira === b.primeira && a.ultima === b.ultima
   && a.selecionada === b.selecionada && a.marcada === b.marcada && a.caixas === b.caixas && a.nComent === b.nComent
+  && a.renomeando === b.renomeando
 
-const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, onToggle, ctx, cols, denso, irmasDe, primeira, ultima, selecionada, marcada, caixas, nComent }) {
+// "Renomear" do menu: o título vira campo na própria linha. Enter ou sair do campo salva,
+// Esc desiste; o campo não deixa o clique e as teclas chegarem na linha.
+function TituloEditavel({ item, onSalvar, onFim }) {
+  const [valor, setValor] = useState(item.titulo || '')
+  const feito = useRef(false)
+  const terminar = (salvar) => {
+    if (feito.current) return
+    feito.current = true
+    const t = valor.trim()
+    if (salvar && t && t !== item.titulo) onSalvar(t)
+    onFim()
+  }
+  return (
+    <input
+      autoFocus value={valor} aria-label="Nome da tarefa"
+      onChange={(e) => setValor(e.target.value)}
+      onFocus={(e) => e.target.select()}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        e.stopPropagation()
+        if (e.key === 'Enter') { e.preventDefault(); terminar(true) }
+        if (e.key === 'Escape') { e.preventDefault(); terminar(false) }
+      }}
+      onBlur={() => terminar(true)}
+      className="ln-input !h-6 !px-1.5 !text-[13px] flex-1 min-w-0"
+    />
+  )
+}
+
+const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, onToggle, ctx, cols, denso, irmasDe, primeira, ultima, selecionada, marcada, caixas, nComent, renomeando = false }) {
   const { onAbrir, onMudarStatus } = ctx
   const statuses = ctx.statusesDe?.(item) || ctx.statuses
   const check = progressoChecklists(item.checklists)
@@ -299,6 +329,8 @@ const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, o
       onMouseDown={ctx.selecao ? (e) => { if (e.shiftKey) e.preventDefault() } : undefined}
       onClick={(e) => { if (e.shiftKey && ctx.selecao) ctx.onSelecionarLinha(item.id, true); else onAbrir(item.id) }}
       onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(item.id) }}
+      // clique direito: menu da tarefa (no campo de renomear fica o menu do navegador)
+      onContextMenu={ctx.onMenuTarefa ? (e) => { if (e.target.closest('input, textarea')) return; e.preventDefault(); ctx.onMenuTarefa(item, e.clientX, e.clientY, 'lista') } : undefined}
       aria-current={selecionada ? 'true' : undefined}
       className={`group/linha grid items-center ${denso ? 'h-[30px]' : 'h-[34px]'} border-b border-ln-line/70 cursor-pointer ${FOCO} ${destaque || 'hover:bg-ln-level2/60'}`}
       style={{ gridTemplateColumns: grid(cols, ctx.larguraNome) }}
@@ -320,7 +352,11 @@ const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, o
           ) : null}
         </span>
         {!ctx.semStatus && <StatusCampo item={item} statuses={statuses} modo="icon" onChange={(s) => onMudarStatus(item, s)} className="shrink-0 mr-1.5" />}
-        <span className={`text-[13px] truncate min-w-0 ${concluida ? 'text-ln-t4 line-through' : 'text-ln-t1'}`} title={item.titulo}>{item.titulo}</span>
+        {renomeando ? (
+          <TituloEditavel item={item} onSalvar={(titulo) => ctx.onAtualizar(item.id, { titulo })} onFim={ctx.onFimRenomear} />
+        ) : (
+          <span className={`text-[13px] truncate min-w-0 ${concluida ? 'text-ln-t4 line-through' : 'text-ln-t1'}`} title={item.titulo}>{item.titulo}</span>
+        )}
         {ctx.rotuloPai?.(item)}
         <span className="flex items-center gap-2 text-[11px] text-ln-t4 shrink-0 tabular ml-1.5">
           {!sub && nFilhos > 0 && <span className="inline-flex items-center gap-0.5" title="Subtarefas"><CornerDownRight className="w-3 h-3" />{nFilhos}</span>}
@@ -356,7 +392,7 @@ const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, o
 
 // eventos do ctx usados pelas linhas (e pelas células): passam por proxy para a linha
 // memorizada não chamar a versão de quando foi desenhada
-const EVENTOS_LINHA = ['onAbrir', 'onAtualizar', 'onMudarStatus', 'onCriar', 'onOrdenar']
+const EVENTOS_LINHA = ['onAbrir', 'onAtualizar', 'onMudarStatus', 'onCriar', 'onOrdenar', 'onMenuTarefa', 'onFimRenomear']
 
 // ── Mais linhas ───────────────────────────────────────────────────────────────
 const LINHAS_POR_VEZ = 50
@@ -555,7 +591,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols, versao })
             const todosFilhos = filhosDe.get(it.id) || []
             const filhos = filhosOrdenados.get(it.id)
             const exp = ctx.expandirTudo ? todosFilhos.length > 0 && !expandidos.has(it.id) : expandidos.has(it.id)
-            const deLinha = (x) => ({ ctx, cols, denso, versao, selecionada: ctx.selecionadaId === x.id, marcada: !!selIds?.has(x.id), caixas, nComent: ctx.contagemComentarios?.[x.id] || 0 })
+            const deLinha = (x) => ({ ctx, cols, denso, versao, selecionada: ctx.selecionadaId === x.id, marcada: !!selIds?.has(x.id), caixas, nComent: ctx.contagemComentarios?.[x.id] || 0, renomeando: ctx.renomeandoId === x.id })
             return (
               <div key={it.id}>
                 <Linha item={it} nFilhos={todosFilhos.length} expandido={exp} onToggle={() => toggle(it.id)} irmasDe={irmasDe(null)} primeira={idx === 0} ultima={idx === itens.length - 1} {...deLinha(it)} />

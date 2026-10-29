@@ -20,7 +20,9 @@ const domingoDe = (k) => somarDias(k, -deISO(k).getDay()) // a semana começa no
 function ItemDia({ it, ctx, alto }) {
   const pai = ctx.nomePai?.(it)
   return (
-    <button type="button" onClick={() => ctx.onAbrir(it.id)} title={pai ? `${it.titulo} (subtarefa de ${pai})` : it.titulo}
+    <button type="button" onClick={() => ctx.onAbrir(it.id)}
+      onContextMenu={ctx.onMenuTarefa ? (e) => { e.preventDefault(); ctx.onMenuTarefa(it, e.clientX, e.clientY, 'calendario') } : undefined}
+      title={pai ? `${it.titulo} (subtarefa de ${pai})` : it.titulo}
       className={`w-full flex ${alto ? 'items-start gap-1.5 px-2 py-1.5 rounded-lg border border-ln-ink/[0.06] bg-ln-panel hover:border-ln-ink/[0.14]' : 'items-center gap-1.5 h-6 px-1.5 rounded-md hover:bg-ln-ink/5'} mb-1 text-left text-xs ${FOCO}`}>
       <StatusIcon status={it.status} statuses={ctx.statusesDe?.(it) || ctx.statuses} size={12} className={alto ? 'mt-0.5' : ''} />
       {alto ? (

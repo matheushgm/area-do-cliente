@@ -1,7 +1,7 @@
 // Extras do painel da tarefa no VertaTask: etiquetas, relações entre tarefas,
 // histórico de atividade e seguir/deixar de seguir.
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Plus, X, Check, Bell, BellOff, Loader2, MoreHorizontal, LayoutTemplate, Trash2, History, Archive } from 'lucide-react'
+import { Plus, X, Check, Bell, BellOff, Loader2, MoreHorizontal, LayoutTemplate, Trash2, History, Archive, Link2, ExternalLink, Pencil, Copy } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { fmtDataHora, fmtDataNumerica, rotuloStatus, prioridade as prioDe } from '../../lib/tarefas'
 import { Popover, ItemMenu, FOCO } from './Campos'
@@ -194,41 +194,70 @@ function useSeguir(tarefaId, user) {
   return { seguindo, total, alternar }
 }
 
-/** Menu ⋯ do painel da tarefa: seguir, salvar como template, arquivar e excluir
- *  (quem passa onArquivar/onExcluir pede a confirmação). */
-export function MenuTarefa({ tarefaId, user, onSalvarTemplate, onHistoricoSync, onArquivar, onExcluir }) {
+const BOTAO_TOPO = `inline-flex items-center justify-center gap-1.5 h-7 px-1 rounded-md border border-ln-ink/[0.1] text-xs text-ln-t2 whitespace-nowrap hover:bg-ln-ink/[0.04] hover:text-ln-t1 ${FOCO}`
+
+/** Itens do menu de uma tarefa (⋯ do painel e clique direito na Lista, Quadro e
+ *  Calendário). `acoes` traz as funções, cada uma recebe a tarefa; a que faltar some.
+ *  Arquivar e excluir pedem confirmação em quem os passa (useConfirmar). */
+function ItensMenuTarefa({ item, user, acoes, fechar }) {
+  const { seguindo, total, alternar } = useSeguir(item.id, user)
+  const rodar = (fn) => () => { fechar(); fn(item) }
+  const sep = <div className="border-t border-ln-ink/5 my-1" />
+  const clickup = !!(acoes.abrirClickup && item.clickup_url)
+  return (
+    <div className="p-1" role="menu">
+      {/* topo em dois botões, como no ClickUp; sem vínculo com o ClickUp o link ocupa a linha toda */}
+      {(acoes.copiarLink || clickup) && (
+        <div className={`grid ${acoes.copiarLink && clickup ? 'grid-cols-2' : 'grid-cols-1'} gap-1 p-0.5 pb-1`}>
+          {acoes.copiarLink && <button type="button" role="menuitem" onClick={rodar(acoes.copiarLink)} className={BOTAO_TOPO}><Link2 className="w-3.5 h-3.5 text-ln-t4" /> Copiar link</button>}
+          {clickup && <button type="button" role="menuitem" onClick={rodar(acoes.abrirClickup)} className={BOTAO_TOPO} title="Abrir no ClickUp"><ExternalLink className="w-3.5 h-3.5 text-ln-t4" /> ClickUp</button>}
+        </div>
+      )}
+      {(acoes.copiarLink || clickup) && sep}
+      {acoes.renomear && <ItemMenu onClick={rodar(acoes.renomear)}><Pencil className="w-3.5 h-3.5 text-ln-t4" /> Renomear</ItemMenu>}
+      <ItemMenu onClick={() => { fechar(); alternar() }}>
+        {seguindo ? <BellOff className="w-3.5 h-3.5 text-ln-t4" /> : <Bell className="w-3.5 h-3.5 text-ln-t4" />}
+        <span className="flex-1">{seguindo ? 'Deixar de seguir' : 'Seguir tarefa'}</span>
+        {total > 0 && <span className="text-[11px] text-ln-t4 tabular" title={`${total} pessoa(s) seguindo`}>{total}</span>}
+      </ItemMenu>
+      {acoes.duplicar && <ItemMenu onClick={rodar(acoes.duplicar)}><Copy className="w-3.5 h-3.5 text-ln-t4" /> Duplicar</ItemMenu>}
+      {acoes.salvarTemplate && <ItemMenu onClick={rodar(acoes.salvarTemplate)}><LayoutTemplate className="w-3.5 h-3.5 text-ln-t4" /> Salvar como template</ItemMenu>}
+      {acoes.historico && <ItemMenu onClick={rodar(acoes.historico)}><History className="w-3.5 h-3.5 text-ln-t4" /> Histórico de sincronização</ItemMenu>}
+      {(acoes.arquivar || acoes.excluir) && sep}
+      {acoes.arquivar && <ItemMenu onClick={rodar(acoes.arquivar)}><Archive className="w-3.5 h-3.5 text-ln-t4" /> Arquivar</ItemMenu>}
+      {acoes.excluir && <ItemMenu onClick={rodar(acoes.excluir)} className="!text-ln-red"><Trash2 className="w-3.5 h-3.5" /> Excluir</ItemMenu>}
+    </div>
+  )
+}
+
+const LARGURA_MENU = 264
+
+/** Botão ⋯ do painel da tarefa com o menu de ações. */
+export function MenuTarefa({ item, user, acoes }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
-  const { seguindo, total, alternar } = useSeguir(tarefaId, user)
-  const fechar = (fn) => () => { setOpen(false); fn?.() }
   return (
     <>
       <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`ln-iconbtn ${open ? 'bg-ln-ink/[0.08] text-ln-t1' : ''} ${FOCO}`} aria-label="Mais ações" title="Mais ações" aria-haspopup="menu" aria-expanded={open}>
         <MoreHorizontal className="w-4 h-4" />
       </button>
-      <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={230} align="right">
-        <div className="p-1" role="menu">
-          <ItemMenu onClick={fechar(alternar)}>
-            {seguindo ? <BellOff className="w-3.5 h-3.5 text-ln-t4" /> : <Bell className="w-3.5 h-3.5 text-ln-t4" />}
-            <span className="flex-1">{seguindo ? 'Deixar de seguir' : 'Seguir'}</span>
-            {total > 0 && <span className="text-[11px] text-ln-t4 tabular" title={`${total} pessoa(s) seguindo`}>{total}</span>}
-          </ItemMenu>
-          {onSalvarTemplate && (
-            <ItemMenu onClick={fechar(onSalvarTemplate)}><LayoutTemplate className="w-3.5 h-3.5 text-ln-t4" /> Salvar como template</ItemMenu>
-          )}
-          {onHistoricoSync && (
-            <ItemMenu onClick={fechar(onHistoricoSync)}><History className="w-3.5 h-3.5 text-ln-t4" /> Histórico de sincronização</ItemMenu>
-          )}
-          {(onArquivar || onExcluir) && <div className="border-t border-ln-ink/5 my-1" />}
-          {onArquivar && (
-            <ItemMenu onClick={fechar(onArquivar)}><Archive className="w-3.5 h-3.5 text-ln-t4" /> Arquivar</ItemMenu>
-          )}
-          {onExcluir && (
-            <ItemMenu onClick={fechar(onExcluir)} className="!text-ln-red"><Trash2 className="w-3.5 h-3.5" /> Excluir</ItemMenu>
-          )}
-        </div>
+      <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={LARGURA_MENU} align="right" alturaMax={520}>
+        <ItensMenuTarefa item={item} user={user} acoes={acoes} fechar={() => setOpen(false)} />
       </Popover>
     </>
+  )
+}
+
+/** O mesmo menu aberto pelo clique direito, na posição do cursor (`menu = { item, x, y }`). */
+export function MenuContextoTarefa({ menu, user, acoes, onFechar }) {
+  // âncora de tamanho zero no ponto do clique: o Popover posiciona e inverte como sempre
+  const ancora = useMemo(() => ({
+    current: { getBoundingClientRect: () => ({ left: menu.x, right: menu.x, top: menu.y, bottom: menu.y, width: 0, height: 0 }), contains: () => false },
+  }), [menu.x, menu.y])
+  return (
+    <Popover anchorRef={ancora} open onClose={onFechar} width={LARGURA_MENU} alturaMax={520}>
+      <ItensMenuTarefa item={menu.item} user={user} acoes={acoes} fechar={onFechar} />
+    </Popover>
   )
 }
 

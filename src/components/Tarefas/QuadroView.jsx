@@ -23,6 +23,7 @@ function Card({ item, filhos, ctx, arrastavel, onArrastar }) {
       onDragEnd={() => onArrastar?.(null)}
       onClick={() => onAbrir(item.id)}
       onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(item.id) }}
+      onContextMenu={ctx.onMenuTarefa ? (e) => { e.preventDefault(); ctx.onMenuTarefa(item, e.clientX, e.clientY, 'quadro') } : undefined}
       aria-current={selecionada ? 'true' : undefined}
       className={`ln-card p-3 cursor-pointer transition-colors duration-150 hover:bg-ln-ink/[0.02] ${selecionada ? '!border-ln-accent/50' : ''} ${FOCO}`}
     >

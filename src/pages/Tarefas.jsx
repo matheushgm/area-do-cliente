@@ -28,7 +28,9 @@ import TarefasSidebar from '../components/Tarefas/TarefasSidebar'
 import CiclosView from '../components/Tarefas/CiclosView'
 import TemplatesView from '../components/Tarefas/TemplatesView'
 import TemplateEditor from '../components/Tarefas/TemplateEditor'
-import { clonarItens, itensDoTemplate } from '../lib/templates'
+import { clonarItens, itensDoTemplate, resumoDoTemplate } from '../lib/templates'
+import { useConfirmar } from '../components/Tarefas/Confirmacao'
+import { ID_RASCUNHO_TEMPLATE, guardarRascunhoTemplate, lerRascunhoTemplate, limparRascunhoTemplate } from '../lib/rascunhoTemplate'
 import IntakeView from '../components/Tarefas/IntakeView'
 import { FOCO } from '../components/Tarefas/Campos'
 import { urlClickUpPasta, urlClickUpLista } from '../lib/tarefas'
@@ -129,6 +131,7 @@ function LinkClickUp({ href, titulo }) {
 export default function Tarefas() {
   const { user, projects, teamMembers, squads } = useApp()
   const { toast, showToast } = useToast()
+  const [confirmar, dialogoConfirmar] = useConfirmar()
   const { openSidebar } = useOutletContext()
   const [params, setParams] = useSearchParams()
   const t = useTarefas(user)
@@ -195,32 +198,48 @@ export default function Tarefas() {
 
   // ── Templates ────────────────────────────────────────────────────────────
   const templateAbertoId = aba === 'templates' ? params.get('template') : null
-  const templateAberto = templateAbertoId ? vt.modelos.find((m) => m.id === templateAbertoId) : null
+  // rascunho (?template=novo): só vira linha em tarefas_modelos no Salvar do construtor
+  const editandoRascunho = templateAbertoId === ID_RASCUNHO_TEMPLATE
+  const rascunhoTpl = useMemo(() => (editandoRascunho ? lerRascunhoTemplate() : null), [editandoRascunho, params]) // eslint-disable-line react-hooks/exhaustive-deps
+  const templateAberto = editandoRascunho
+    ? (rascunhoTpl ? { id: ID_RASCUNHO_TEMPLATE, ...rascunhoTpl } : null)
+    : templateAbertoId ? vt.modelos.find((m) => m.id === templateAbertoId) : null
   const abrirTemplate = useCallback((id) => irAba('templates', id ? { template: id } : {}), [irAba])
+  const abrirRascunho = useCallback((t) => { guardarRascunhoTemplate(t); abrirTemplate(ID_RASCUNHO_TEMPLATE) }, [abrirTemplate])
 
-  const novoTemplate = useCallback(async () => {
-    const r = await vt.criarModelo({ nome: 'Novo template', itens: [] })
-    if (r.error) showToast(r.error, 'error'); else abrirTemplate(r.data.id)
-  }, [vt, showToast, abrirTemplate])
+  const novoTemplate = useCallback(() => abrirRascunho({ nome: 'Novo template', itens: [] }), [abrirRascunho])
 
-  const duplicarTemplate = useCallback(async (m) => {
-    const r = await vt.criarModelo({ nome: `${m.nome} (cópia)`, descricao: m.descricao || null, itens: clonarItens(itensDoTemplate(m)) })
-    if (r.error) showToast(r.error, 'error'); else { showToast('Template duplicado'); abrirTemplate(r.data.id) }
-  }, [vt, showToast, abrirTemplate])
+  const duplicarTemplate = useCallback((m) => {
+    abrirRascunho({ nome: `${m.nome} (cópia)`, descricao: m.descricao || null, itens: clonarItens(itensDoTemplate(m)) })
+  }, [abrirRascunho])
 
   const excluirTemplate = useCallback(async (m) => {
-    if (!window.confirm(`Apagar o template "${m.nome}"? As tarefas já criadas com ele continuam.`)) return
+    const n = resumoDoTemplate(itensDoTemplate(m)).total
+    const ok = await confirmar({
+      perigo: true, titulo: 'Excluir template?', acao: 'Excluir',
+      texto: 'As tarefas já criadas com ele continuam. O template não pode ser recuperado.',
+      rotuloItens: 'Template a ser excluído', itens: [`${m.nome}${n ? ` · ${n === 1 ? '1 tarefa' : `${n} tarefas`}` : ''}`],
+    })
+    if (!ok) return
     const r = await vt.excluirModelo(m.id)
     if (r.error) { showToast(r.error, 'error'); return }
-    showToast('Template apagado')
+    showToast('Template excluído')
     if (templateAbertoId === m.id) abrirTemplate(null)
-  }, [vt, showToast, templateAbertoId, abrirTemplate])
+  }, [vt, showToast, templateAbertoId, abrirTemplate, confirmar])
 
   const salvarTemplate = useCallback(async (id, patch) => {
+    if (id === ID_RASCUNHO_TEMPLATE) {
+      const r = await vt.criarModelo(patch)
+      if (r.error) { showToast(r.error, 'error'); return r }
+      limparRascunhoTemplate()
+      showToast('Template criado')
+      abrirTemplate(r.data.id)
+      return r
+    }
     const r = await vt.atualizarModelo(id, patch)
     if (r.error) showToast(r.error, 'error'); else showToast('Template salvo')
     return r
-  }, [vt, showToast])
+  }, [vt, showToast, abrirTemplate])
 
   const moverPendentes = useCallback(async (origem, destino) => {
     const ids = Object.values(t.itens).filter((it) => it.ciclo_id === origem && !it.parent_id && it.status_tipo !== 'closed').map((i) => i.id)
@@ -352,11 +371,11 @@ export default function Tarefas() {
     ) : templateAbertoId ? (
       templateAberto ? (
         <TemplateEditor
-          key={templateAberto.id}
-          template={templateAberto} membros={teamMembers || []} membrosMap={membrosMap}
+          key={editandoRascunho ? `${ID_RASCUNHO_TEMPLATE}:${templateAberto.chave}` : templateAberto.id}
+          template={templateAberto} novo={editandoRascunho} membros={teamMembers || []} membrosMap={membrosMap}
           etiquetas={vt.etiquetas} onCriarEtiqueta={vt.criarEtiqueta}
           onSalvar={(patch) => salvarTemplate(templateAberto.id, patch)}
-          onVoltar={() => abrirTemplate(null)}
+          onVoltar={() => { if (editandoRascunho) limparRascunhoTemplate(); abrirTemplate(null) }}
           onAplicar={(tpl) => api.usarModelo(tpl)}
           onDuplicar={duplicarTemplate} onExcluir={excluirTemplate}
         />
@@ -370,7 +389,7 @@ export default function Tarefas() {
 
   return (
     <>
-
+      {dialogoConfirmar}
       <div ref={conteudoRef} className="ln vt flex-1 min-w-0 flex flex-col h-screen bg-ln-bg">
         <div className="flex-1 min-h-0">
           <div className="relative h-full min-h-0 flex bg-ln-panel overflow-hidden">
