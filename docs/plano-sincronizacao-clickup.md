@@ -8,11 +8,11 @@ também `api/atividades.js`, `api/clickup.js` e `api/clickup-proxy.js` dividem e
 
 | Item | Status |
 |---|---|
-| 1. Push agrupado por tarefa | Feito (`agruparFila`, sem GET final desnecessário, reivindicação de 120 itens). Testado com Supabase e ClickUp falsos: 8 itens → 4 chamadas. Falta o teste real com edição em massa numa lista de teste. |
+| 1. Push agrupado por tarefa | Feito (`agruparFila`, sem GET final desnecessário, reivindicação de 120 itens) e testado de verdade na Africa PET STORE: 80 itens em 20 tarefas → 20 PUTs, 20 de 20 iguais no ClickUp. Depois ganhou envio em paralelo de 3 tarefas (edição em massa 166 s → 74 s) e reaproveitamento de tarefa criada numa tentativa que falhou (o teste do template mostrou uma duplicada por isso). |
 | 2. Prazo no pull e `ultimo_inicio` no fim | Feito (`semTempo` na rodada, `resumo.incompleto`, pull de até 40 s; endpoint e script). |
 | 3. Saúde do webhook e reconciliação semanal | Feito (`api/_tarefas_webhook_saude.js`, só no cron; reconciliação aos domingos; prazo de 18 s no webhook; aviso no botão e no painel). |
 | 4. Rodada ao abrir mais rara e leve | Feito (só com webhook calado +30 min ou rodada +3 h; sem comentários, anexos e arquivados fora do cron). |
-| 5. Webhook em duas fases | Não feito, como previsto: só se 1 a 4 não bastarem. |
+| 5. Webhook em duas fases | Não feito, como previsto. Parte do ganho veio de outro jeito: o eco do push é ignorado antes de ler o ClickUp (fila em andamento ou data do evento não mais nova que a versão gravada). |
 | 6. Chat desligado + tarja offline | Feito (front, endpoint 503, rodada sem chat, migration 122 desliga os triggers de `chat_outbox`). |
 | 7. Conflito silencioso | Só registrado, como previsto. |
 

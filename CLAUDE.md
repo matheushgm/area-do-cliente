@@ -1065,6 +1065,17 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     campos personalizados ou checklist (o PUT já devolve `date_updated`). A reivindicação pega até 120
     itens (era 40) para juntar mais. A fila real de 28/10 (382 itens) cairia de ~906 chamadas para ~376
     só pelo agrupamento. `resumo.agrupadas`/`canceladas` no retorno.
+  - **Envio em paralelo (`PARALELO = 3`):** o gargalo é a espera do ClickUp (~6 a 8 s por PUT/POST/DELETE,
+    até 19 s, medido em 29/10 na Africa PET STORE), não o limite. Até 3 unidades ao mesmo tempo, nunca duas
+    da mesma tarefa; criação também, exceto subtarefa cujo pai é criado na mesma rodada e tarefa em lista sem
+    `clickup_list_id`, que esperam tudo em voo e rodam sozinhas. Avisos por unidade via `AsyncLocalStorage`
+    (o push roda em Node). Medido: edição em massa de 80 itens em 20 tarefas 166 s → 74 s, exclusão de 20
+    108 s → 39 s, template de 6 + 12 subtarefas em 97 s com 12 de 12 no pai certo.
+  - **Criação que falhou depois de criar:** no teste, o ClickUp criou uma tarefa e devolveu erro; a nova
+    tentativa criou outra e o webhook gravou uma cópia da primeira. Agora, em `tentativas > 0` sem id, o
+    push procura na lista (`acharCriadaAntes`: mesmo nome, criada pelo dono do token depois do pedido,
+    não ligada a outra tarefa com pedido de criação) e reaproveita; a cópia do webhook é absorvida no
+    `gravarEspelho`. O erro da tentativa anterior vira aviso do item (o `erro` é limpo no sucesso).
   - **Rodada com prazo (item 2):** o `fazClickup(token, prazo)` de `api/_tarefas_sync_core.js` tem o mesmo
     `semTempo` do push (exportado; `ignora()` local nos `.catch`); o pull ganha no máximo 40 s depois dos
     15 s do push. `ultimo_inicio` **só é gravado no fim**, e só se `resumo.incompleto` for falso
@@ -1076,6 +1087,10 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     `tarefas_sync.resumo.webhook` + aviso, exibido no botão "ClickUp há X min" (ícone amarelo) e na faixa
     do painel. Aos domingos (São Paulo) a rodada do cron também reconcilia. O webhook usa
     `fazClickup(TOKEN, agora + 18 s)` (a função tem 30 s; morrer por timeout contava como falha).
+  - **Eco do push sem leitura:** `processarEventoTarefa` olha a fila **antes** do `GET /task` (push em
+    andamento = `ignorado`) e compara a data do evento (`history_items[].date`, `dataDoEvento`) com o
+    `clickup_updated_at` da linha: não mais nova = `sem_mudanca` sem ler o ClickUp. Sem data, data mais
+    nova ou evento de comentário, lê como antes. Cada envio nosso deixava de 1 a 3 leituras de eco.
   - **Rodada leve (item 4):** botão e abertura da página rodam sem comentários, anexos e arquivados (o
     cron e `--completo` trazem). A abertura só dispara se o webhook está calado há +30 min (e a última
     rodada tem +30 min) ou se a última rodada tem +3 h (`useSyncClickup` em `Tarefas.jsx`, que agora lê as

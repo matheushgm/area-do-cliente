@@ -16,6 +16,7 @@
 //    webhook taskCreated já tiver inserido uma cópia, ela é absorvida pela original.
 // A criação manda os campos personalizados no próprio POST (1 chamada por tarefa) e
 // `resumo.restantes` diz quanto ficou na fila, para o chamador continuar.
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { mapStatuses, mapChecklists } from './_tarefas_clickup_map.js'
 
 const CLICKUP_BASE = 'https://api.clickup.com/api/v2'
@@ -29,6 +30,10 @@ const CF = {
 }
 const PRIORIDADE = { urgent: 1, high: 2, normal: 3, low: 4 }
 const MAX_TENTATIVAS = 5
+// Tarefas enviadas ao mesmo tempo. O gargalo é a espera do ClickUp (~6 s por PUT/DELETE no teste
+// de 29/10/2026 na Africa PET STORE), não o limite de chamadas: um por vez usava ~10 das 100/min.
+// Três deixam folga para o webhook, a rodada e o Atividades, que dividem o mesmo token.
+const PARALELO = 3
 const TTL_PROCESSANDO_S = 300 // item 'processando' há mais que isso = rodada morreu; volta à fila
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -124,9 +129,15 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
   const cu = fazClickup(token, inicio + orcamentoMs)
   const estourou = () => Date.now() - inicio > orcamentoMs
   const resumo = { processadas: 0, criadas: 0, atualizadas: 0, excluidas: 0, comentadas: 0, erros: 0, devolvidas: 0, agrupadas: 0, canceladas: 0, copias_absorvidas: 0, pastas_criadas: 0, listas_criadas: 0, avisos: [] }
-  // avisos do item em processamento vão também para tarefas_outbox.avisos (painel Sincronização)
-  let avisosItem = null
-  const aviso = (m) => { if (resumo.avisos.length < 50) resumo.avisos.push(m); if (avisosItem && avisosItem.length < 10) avisosItem.push(m); log('aviso: ' + m) }
+  // avisos do item em processamento vão também para tarefas_outbox.avisos (painel Sincronização);
+  // com envios em paralelo, cada unidade tem os seus (AsyncLocalStorage segue a cadeia de awaits)
+  const doItem = new AsyncLocalStorage()
+  const aviso = (m) => {
+    if (resumo.avisos.length < 50) resumo.avisos.push(m)
+    const alvo = doItem.getStore()?.avisos
+    if (alvo && alvo.length < 10) alvo.push(m)
+    log('aviso: ' + m)
+  }
 
   // Reivindica os itens (status 'processando'): cada item é de uma rodada só. Sem a RPC
   // (migration 110 ainda não aplicada) cai na leitura antiga, sem proteção, e avisa.
@@ -154,7 +165,8 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
   const projeto = new Map((projetos || []).map((p) => [p.id, p]))
   const camposPorLista = new Map()
   const camposDa = async (listId) => {
-    if (!camposPorLista.has(listId)) camposPorLista.set(listId, (await cu('GET', `/list/${listId}/field`).catch(ignora(null)))?.fields || [])
+    // guarda a promessa: duas unidades em paralelo na mesma lista leem os campos uma vez só
+    if (!camposPorLista.has(listId)) camposPorLista.set(listId, cu('GET', `/list/${listId}/field`).then((r) => r?.fields || [], ignora([])))
     return camposPorLista.get(listId)
   }
   const agora = () => new Date().toISOString()
@@ -163,6 +175,7 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
   // marca a unidade inteira (os itens juntados da mesma tarefa recebem o mesmo resultado)
   const marcar = async (ids, patch) => {
     const p = { ...patch, processed_at: agora() }
+    const avisosItem = doItem.getStore()?.avisos
     if (avisosItem?.length) p.avisos = [...avisosItem]
     const r = await sb.from('tarefas_outbox').update(p).in('id', ids)
     if (r.error && p.avisos) { delete p.avisos; return sb.from('tarefas_outbox').update(p).in('id', ids) }
@@ -195,6 +208,31 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
     let { error } = await sb.from('tarefas_itens').update(patch).eq('id', tarefaId)
     if (ehUnique(error) && await absorverCopia(tarefaId, String(task.id))) ({ error } = await sb.from('tarefas_itens').update(patch).eq('id', tarefaId))
     if (error) throw new Error(`gravar vínculo ${task.id} na tarefa ${tarefaId}: ${error.message}`)
+  }
+
+  // Criação que já falhou antes e não tem o id do ClickUp: o ClickUp pode ter criado a tarefa e
+  // devolvido erro (ou a resposta se perdeu). Teste de 29/10/2026 na Africa PET STORE: a nova
+  // tentativa criou de novo e o webhook gravou uma cópia da primeira. Antes de criar, procura na
+  // lista a tarefa que o próprio push criou (mesmo nome, criada pelo dono do token, depois do
+  // pedido) e que nenhuma outra tarefa do VertaTask usa; a linha-cópia do webhook é absorvida no
+  // gravarEspelho.
+  let donoDoToken = null
+  async function acharCriadaAntes(row, listId, desdeIso) {
+    const desde = (ms(desdeIso) || Date.now()) - 60_000
+    if (donoDoToken == null) donoDoToken = String((await cu('GET', '/user').catch(ignora(null)))?.user?.id || '')
+    const r = await cu('GET', `/list/${listId}/task?include_closed=true&subtasks=true&date_created_gt=${desde}`).catch(ignora(null))
+    const nome = row.titulo || '(sem título)'
+    // só o que o próprio push cria: mesmo nome, criada pelo dono do token, depois do pedido
+    const candidatas = (r?.tasks || []).filter((t) => (t.name || '') === nome && donoDoToken && String(t.creator?.id || '') === donoDoToken)
+    if (!candidatas.length) return null
+    // ocupada = ligada a uma linha que tem pedido de criação na fila (outra tarefa do VertaTask, ex.:
+    // o mesmo template aplicado duas vezes). Linha sem pedido é a cópia que o webhook gravou.
+    const { data: usadas } = await sb.from('tarefas_itens').select('id, clickup_task_id').in('clickup_task_id', candidatas.map((t) => String(t.id)))
+    const ids = (usadas || []).map((x) => x.id)
+    const { data: comPedido } = ids.length ? await sb.from('tarefas_outbox').select('tarefa_id').in('tarefa_id', ids).eq('operacao', 'criar') : { data: [] }
+    const originais = new Set((comPedido || []).map((x) => x.tarefa_id))
+    const ocupadas = new Set((usadas || []).filter((x) => originais.has(x.id) && x.id !== row.id).map((x) => x.clickup_task_id))
+    return candidatas.sort((a, b) => Number(a.date_created) - Number(b.date_created)).find((t) => !ocupadas.has(String(t.id))) || null
   }
 
   // Pasta/lista criadas no VertaTask ainda não existem no ClickUp: cria lá.
@@ -303,136 +341,183 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
     await sb.from('tarefas_outbox').update({ status: 'cancelado', erro: 'tarefa excluída na mesma rodada', processed_at: agora() }).in('id', canceladas.map((i) => i.id))
     resumo.canceladas = canceladas.length
   }
-  const devolverDesde = (idx) => (reivindicada ? devolver(unidades.slice(idx).flatMap((u) => u.ids)) : null) // sem esperar o ttl
-
-  for (const [idx, u] of unidades.entries()) {
+  // Unidade a unidade. Devolve 'semTempo' quando a invocação acabou o prazo: ela (e o que não
+  // começou) volta à fila sem contar tentativa.
+  const feitas = new Set() // índices com destino resolvido (ok, erro, devolvida)
+  let parar = false
+  async function processar(idx) {
+    const u = unidades[idx]
     const item = u.item
-    if (estourou()) {
-      aviso('tempo esgotado; o resto fica para a próxima chamada')
-      await devolverDesde(idx)
-      break
-    }
     resumo.processadas += u.ids.length
     resumo.agrupadas += u.ids.length - 1 // itens que foram juntos com outro (só do que foi processado)
-    avisosItem = []
-    try {
-      if (item.operacao === 'excluir') {
-        await cu('DELETE', `/task/${item.clickup_task_id}`).catch((e) => { if (e.status !== 404) throw e })
-        resumo.excluidas++
-      } else if (item.operacao === 'comentar') {
-        const { data: c } = await sb.from('tarefas_comentarios').select('id, texto, autor_id, clickup_comment_id').eq('id', item.comentario_id).maybeSingle()
-        const { data: row } = await sb.from('tarefas_itens').select('clickup_task_id').eq('id', item.tarefa_id).maybeSingle()
-        if (!c) throw new Error('comentário não existe mais')
-        if (!c.clickup_comment_id) {
-          if (!row?.clickup_task_id) throw new Error('tarefa ainda não existe no ClickUp (criação pendente); tento de novo depois')
-          const autor = perfil.get(c.autor_id)?.name
-          const r = await cu('POST', `/task/${row.clickup_task_id}/comment`, { comment_text: autor ? `${c.texto}\n\n(${autor}, via VertaTask)` : c.texto, notify_all: false })
-          await sb.from('tarefas_comentarios').update({ clickup_comment_id: String(r.id) }).eq('id', c.id)
-        }
-        resumo.comentadas++
-      } else {
-        const { data: row } = await sb.from('tarefas_itens').select('*').eq('id', item.tarefa_id).maybeSingle()
-        if (!row) throw new Error('tarefa não existe mais')
-        const l = lista.get(row.lista_id)
-        if (!l) throw new Error('lista não encontrada')
-        await garantirLista(l)
-        if (item.operacao === 'criar' || !row.clickup_task_id) {
-          if (row.clickup_task_id) { await marcar(u.ids, { status: 'ok' }); continue } // já criada por outro item da fila
-          // outra rodada está criando esta tarefa agora: este item espera a próxima rodada
-          const { data: emCurso } = await sb.from('tarefas_outbox').select('id').eq('tarefa_id', row.id).eq('operacao', 'criar').eq('status', 'processando').neq('id', item.id).limit(1)
-          if (emCurso?.length) { await devolver(u.ids); resumo.devolvidas++; continue }
-          // tentativa anterior criou no ClickUp mas falhou antes de gravar o vínculo: reaproveita
-          let task = item.clickup_task_id ? await cu('GET', `/task/${item.clickup_task_id}`).catch(ignora(null)) : null
-          if (task) {
-            await camposPersonalizados(row, l, task.id, TODOS_OS_CAMPOS)
-            task = await cu('GET', `/task/${task.id}`).catch(ignora(task))
-          } else {
-            // campos personalizados vão no próprio POST: 1 chamada por tarefa (eram 6 ou 7, o
-            // que não deixava um template inteiro caber numa rodada de 50 s)
-            const cfs = (await valoresCampos(row, l, TODOS_OS_CAMPOS)).filter((c) => c.value != null)
-            const payload = {
-              name: row.titulo || '(sem título)',
-              markdown_description: row.descricao || undefined,
-              assignees: assigneesDe(row),
-              priority: PRIORIDADE[row.prioridade] || undefined,
-              due_date: dataClickUp(row.data_vencimento, row.vencimento_com_hora) ?? undefined, due_date_time: !!row.vencimento_com_hora,
-              start_date: dataClickUp(row.data_inicio, row.inicio_com_hora) ?? undefined, start_date_time: !!row.inicio_com_hora,
-              time_estimate: row.estimativa_min ? row.estimativa_min * 60000 : undefined,
-              tags: row.tags?.length ? row.tags : undefined,
-              parent: (await paiCu(row)) || undefined,
-              custom_fields: cfs.length ? cfs : undefined,
-            }
-            const st = statusValido(l, row.status); if (st) payload.status = st
-            try { task = await cu('POST', `/list/${l.clickup_list_id}/task`, payload) }
-            catch (e) { if (e.ecode === 'OAUTH_023' && payload.assignees.length) { task = await cu('POST', `/list/${l.clickup_list_id}/task`, { ...payload, assignees: [] }); aviso(`tarefa ${row.titulo}: o ClickUp não deixou atribuir o responsável por este token`) } else throw e }
-            // id do ClickUp no item da fila antes de tudo: o webhook taskCreated já casa a
-            // tarefa (e não insere cópia), e uma nova tentativa não cria de novo
-            await sb.from('tarefas_outbox').update({ clickup_task_id: String(task.id) }).eq('id', item.id)
-            if (row.status_tipo === 'closed' && !st) aviso(`tarefa ${row.titulo}: status "${row.status}" não existe na lista do ClickUp`)
+    if ((item.tentativas || 0) > 0 && item.erro) aviso(`tentativa anterior falhou: ${item.erro}`)
+    const corpo = async () => {
+        if (item.operacao === 'excluir') {
+          await cu('DELETE', `/task/${item.clickup_task_id}`).catch((e) => { if (e.status !== 404) throw e })
+          resumo.excluidas++
+        } else if (item.operacao === 'comentar') {
+          const { data: c } = await sb.from('tarefas_comentarios').select('id, texto, autor_id, clickup_comment_id').eq('id', item.comentario_id).maybeSingle()
+          const { data: row } = await sb.from('tarefas_itens').select('clickup_task_id').eq('id', item.tarefa_id).maybeSingle()
+          if (!c) throw new Error('comentário não existe mais')
+          if (!c.clickup_comment_id) {
+            if (!row?.clickup_task_id) throw new Error('tarefa ainda não existe no ClickUp (criação pendente); tento de novo depois')
+            const autor = perfil.get(c.autor_id)?.name
+            const r = await cu('POST', `/task/${row.clickup_task_id}/comment`, { comment_text: autor ? `${c.texto}\n\n(${autor}, via VertaTask)` : c.texto, notify_all: false })
+            await sb.from('tarefas_comentarios').update({ clickup_comment_id: String(r.id) }).eq('id', c.id)
           }
-          if (row.checklists?.length) {
-            await sincronizarChecklists(task.id, row.checklists, task.checklists, null)
-            task = await cu('GET', `/task/${task.id}`).catch(ignora(task))
-            await gravarEspelho(row.id, task, { checklists: mapChecklists(task.checklists) })
-          } else await gravarEspelho(row.id, task)
-          resumo.criadas++
+          resumo.comentadas++
         } else {
-          const quais = new Set(item.campos || [])
-          const body = {}
-          if (quais.has('titulo')) body.name = row.titulo
-          if (quais.has('descricao')) body.markdown_description = row.descricao || ''
-          if (quais.has('prioridade')) body.priority = PRIORIDADE[row.prioridade] || null
-          if (quais.has('data_vencimento')) { body.due_date = dataClickUp(row.data_vencimento, row.vencimento_com_hora); body.due_date_time = !!row.vencimento_com_hora }
-          if (quais.has('data_inicio')) { body.start_date = dataClickUp(row.data_inicio, row.inicio_com_hora); body.start_date_time = !!row.inicio_com_hora }
-          if (quais.has('estimativa_min')) body.time_estimate = row.estimativa_min ? row.estimativa_min * 60000 : null
-          if (quais.has('arquivada')) body.archived = !!row.arquivada
-          if (quais.has('parent_id')) body.parent = (await paiCu(row)) || null
-          if (quais.has('status')) { const st = statusValido(l, row.status); if (st) body.status = st; else aviso(`tarefa ${row.clickup_task_id}: status "${row.status}" não existe na lista do ClickUp`) }
-          if (quais.has('responsaveis')) {
-            const atual = await cu('GET', `/task/${row.clickup_task_id}`)
-            const tem = new Set((atual.assignees || []).map((a) => Number(a.id)))
-            const quer = new Set(assigneesDe(row))
-            body.assignees = { add: [...quer].filter((x) => !tem.has(x)), rem: [...tem].filter((x) => !quer.has(x)) }
+          const { data: row } = await sb.from('tarefas_itens').select('*').eq('id', item.tarefa_id).maybeSingle()
+          if (!row) throw new Error('tarefa não existe mais')
+          const l = lista.get(row.lista_id)
+          if (!l) throw new Error('lista não encontrada')
+          await garantirLista(l)
+          if (item.operacao === 'criar' || !row.clickup_task_id) {
+            if (row.clickup_task_id) { await marcar(u.ids, { status: 'ok' }); return 'marcada' } // já criada por outro item da fila
+            // outra rodada está criando esta tarefa agora: este item espera a próxima rodada
+            const { data: emCurso } = await sb.from('tarefas_outbox').select('id').eq('tarefa_id', row.id).eq('operacao', 'criar').eq('status', 'processando').neq('id', item.id).limit(1)
+            if (emCurso?.length) { await devolver(u.ids); resumo.devolvidas++; return 'devolvida' }
+            // tentativa anterior criou no ClickUp mas falhou antes de gravar o vínculo: reaproveita
+            let task = item.clickup_task_id ? await cu('GET', `/task/${item.clickup_task_id}`).catch(ignora(null)) : null
+            if (!task && (item.tentativas || 0) > 0) {
+              task = await acharCriadaAntes(row, l.clickup_list_id, item.created_at)
+              if (task) {
+                aviso(`tarefa ${row.titulo}: a tentativa anterior já tinha criado no ClickUp (${task.id}); reaproveitada em vez de criar de novo`)
+                await sb.from('tarefas_outbox').update({ clickup_task_id: String(task.id) }).in('id', u.ids)
+              }
+            }
+            if (task) {
+              await camposPersonalizados(row, l, task.id, TODOS_OS_CAMPOS)
+              task = await cu('GET', `/task/${task.id}`).catch(ignora(task))
+            } else {
+              // campos personalizados vão no próprio POST: 1 chamada por tarefa (eram 6 ou 7, o
+              // que não deixava um template inteiro caber numa rodada de 50 s)
+              const cfs = (await valoresCampos(row, l, TODOS_OS_CAMPOS)).filter((c) => c.value != null)
+              const payload = {
+                name: row.titulo || '(sem título)',
+                markdown_description: row.descricao || undefined,
+                assignees: assigneesDe(row),
+                priority: PRIORIDADE[row.prioridade] || undefined,
+                due_date: dataClickUp(row.data_vencimento, row.vencimento_com_hora) ?? undefined, due_date_time: !!row.vencimento_com_hora,
+                start_date: dataClickUp(row.data_inicio, row.inicio_com_hora) ?? undefined, start_date_time: !!row.inicio_com_hora,
+                time_estimate: row.estimativa_min ? row.estimativa_min * 60000 : undefined,
+                tags: row.tags?.length ? row.tags : undefined,
+                parent: (await paiCu(row)) || undefined,
+                custom_fields: cfs.length ? cfs : undefined,
+              }
+              const st = statusValido(l, row.status); if (st) payload.status = st
+              try { task = await cu('POST', `/list/${l.clickup_list_id}/task`, payload) }
+              catch (e) { if (e.ecode === 'OAUTH_023' && payload.assignees.length) { task = await cu('POST', `/list/${l.clickup_list_id}/task`, { ...payload, assignees: [] }); aviso(`tarefa ${row.titulo}: o ClickUp não deixou atribuir o responsável por este token`) } else throw e }
+              // id do ClickUp no item da fila antes de tudo: o webhook taskCreated já casa a
+              // tarefa (e não insere cópia), e uma nova tentativa não cria de novo
+              await sb.from('tarefas_outbox').update({ clickup_task_id: String(task.id) }).eq('id', item.id)
+              if (row.status_tipo === 'closed' && !st) aviso(`tarefa ${row.titulo}: status "${row.status}" não existe na lista do ClickUp`)
+            }
+            if (row.checklists?.length) {
+              await sincronizarChecklists(task.id, row.checklists, task.checklists, null)
+              task = await cu('GET', `/task/${task.id}`).catch(ignora(task))
+              await gravarEspelho(row.id, task, { checklists: mapChecklists(task.checklists) })
+            } else await gravarEspelho(row.id, task)
+            resumo.criadas++
+          } else {
+            const quais = new Set(item.campos || [])
+            const body = {}
+            if (quais.has('titulo')) body.name = row.titulo
+            if (quais.has('descricao')) body.markdown_description = row.descricao || ''
+            if (quais.has('prioridade')) body.priority = PRIORIDADE[row.prioridade] || null
+            if (quais.has('data_vencimento')) { body.due_date = dataClickUp(row.data_vencimento, row.vencimento_com_hora); body.due_date_time = !!row.vencimento_com_hora }
+            if (quais.has('data_inicio')) { body.start_date = dataClickUp(row.data_inicio, row.inicio_com_hora); body.start_date_time = !!row.inicio_com_hora }
+            if (quais.has('estimativa_min')) body.time_estimate = row.estimativa_min ? row.estimativa_min * 60000 : null
+            if (quais.has('arquivada')) body.archived = !!row.arquivada
+            if (quais.has('parent_id')) body.parent = (await paiCu(row)) || null
+            if (quais.has('status')) { const st = statusValido(l, row.status); if (st) body.status = st; else aviso(`tarefa ${row.clickup_task_id}: status "${row.status}" não existe na lista do ClickUp`) }
+            if (quais.has('responsaveis')) {
+              const atual = await cu('GET', `/task/${row.clickup_task_id}`)
+              const tem = new Set((atual.assignees || []).map((a) => Number(a.id)))
+              const quer = new Set(assigneesDe(row))
+              body.assignees = { add: [...quer].filter((x) => !tem.has(x)), rem: [...tem].filter((x) => !quer.has(x)) }
+            }
+            if (quais.has('lista_id')) aviso(`tarefa ${row.clickup_task_id}: mover de lista não é replicado no ClickUp (mova lá também)`)
+            let task = null
+            if (Object.keys(body).length) task = await cu('PUT', `/task/${row.clickup_task_id}`, body)
+            if (quais.has('tags')) {
+              const atual = task || await cu('GET', `/task/${row.clickup_task_id}`)
+              const tem = new Set((atual.tags || []).map((t) => t.name))
+              for (const t of row.tags || []) if (!tem.has(t)) await cu('POST', `/task/${row.clickup_task_id}/tag/${encodeURIComponent(t)}`).catch(ignora((e) => aviso(`tag ${t}: ${e.message}`)))
+              for (const t of tem) if (!(row.tags || []).includes(t)) await cu('DELETE', `/task/${row.clickup_task_id}/tag/${encodeURIComponent(t)}`).catch(ignora())
+            }
+            const cfs = new Set([...quais].filter((k) => ['tipo_tarefa', 'dificuldade', 'departamento'].includes(k)))
+            if (cfs.size) await camposPersonalizados(row, l, row.clickup_task_id, cfs)
+            if (quais.has('checklists')) {
+              const atual = await cu('GET', `/task/${row.clickup_task_id}`)
+              await sincronizarChecklists(row.clickup_task_id, row.checklists, atual.checklists, row.clickup_sync_at)
+            }
+            // o PUT já devolve a tarefa com date_updated: só relê quando algo foi por outra chamada
+            const reler = !task || quais.has('tags') || cfs.size > 0 || quais.has('checklists')
+            const final = reler ? await cu('GET', `/task/${row.clickup_task_id}`).catch(ignora(task)) : task
+            if (final) await gravarEspelho(row.id, final, quais.has('checklists') ? { checklists: mapChecklists(final.checklists) } : {})
+            resumo.atualizadas++
           }
-          if (quais.has('lista_id')) aviso(`tarefa ${row.clickup_task_id}: mover de lista não é replicado no ClickUp (mova lá também)`)
-          let task = null
-          if (Object.keys(body).length) task = await cu('PUT', `/task/${row.clickup_task_id}`, body)
-          if (quais.has('tags')) {
-            const atual = task || await cu('GET', `/task/${row.clickup_task_id}`)
-            const tem = new Set((atual.tags || []).map((t) => t.name))
-            for (const t of row.tags || []) if (!tem.has(t)) await cu('POST', `/task/${row.clickup_task_id}/tag/${encodeURIComponent(t)}`).catch(ignora((e) => aviso(`tag ${t}: ${e.message}`)))
-            for (const t of tem) if (!(row.tags || []).includes(t)) await cu('DELETE', `/task/${row.clickup_task_id}/tag/${encodeURIComponent(t)}`).catch(ignora())
-          }
-          const cfs = new Set([...quais].filter((k) => ['tipo_tarefa', 'dificuldade', 'departamento'].includes(k)))
-          if (cfs.size) await camposPersonalizados(row, l, row.clickup_task_id, cfs)
-          if (quais.has('checklists')) {
-            const atual = await cu('GET', `/task/${row.clickup_task_id}`)
-            await sincronizarChecklists(row.clickup_task_id, row.checklists, atual.checklists, row.clickup_sync_at)
-          }
-          // o PUT já devolve a tarefa com date_updated: só relê quando algo foi por outra chamada
-          const reler = !task || quais.has('tags') || cfs.size > 0 || quais.has('checklists')
-          const final = reler ? await cu('GET', `/task/${row.clickup_task_id}`).catch(ignora(task)) : task
-          if (final) await gravarEspelho(row.id, final, quais.has('checklists') ? { checklists: mapChecklists(final.checklists) } : {})
-          resumo.atualizadas++
         }
-      }
-      await marcar(u.ids, { status: 'ok', erro: null })
+    }
+    try {
+      const r = await corpo()
+      if (r !== 'marcada' && r !== 'devolvida') await marcar(u.ids, { status: 'ok', erro: null })
+      feitas.add(idx)
     } catch (e) {
       if (e.semTempo) {
         // não é erro do item: ele e o resto voltam à fila, sem contar tentativa
-        aviso(`tempo esgotado (${e.message}); o resto fica para a próxima chamada`)
-        await devolverDesde(idx)
+        if (!parar) aviso(`tempo esgotado (${e.message}); o resto fica para a próxima chamada`)
+        parar = true
         resumo.processadas -= u.ids.length
         resumo.agrupadas -= u.ids.length - 1
-        break
+        return
       }
       resumo.erros++
       const tentativas = (item.tentativas || 0) + 1
       const desiste = tentativas >= MAX_TENTATIVAS || e.status === 404 || e.status === 400
       await marcar(u.ids, { status: desiste ? 'erro' : 'pendente', tentativas, erro: e.message, ...(desiste ? {} : { processed_at: null }), ...(reivindicada ? { reivindicado_em: null } : {}) })
+      feitas.add(idx)
       aviso(`${item.operacao} ${item.tarefa_id || item.comentario_id}: ${e.message}${desiste ? ' (desisti)' : ''}`)
     }
   }
+
+  // Até PARALELO unidades ao mesmo tempo, nunca duas da mesma tarefa. Criação (inclusive atualizar
+  // de tarefa que ainda não tem id do ClickUp, que vira criação) também vai em paralelo, menos em
+  // dois casos que esperam tudo o que está em voo e rodam sozinhos: subtarefa cujo pai é criado
+  // nesta mesma rodada (precisa do id dele; o template grava pais antes dos filhos, então o pai já
+  // começou) e tarefa em lista que ainda não existe no ClickUp (a lista/pasta é criada uma vez só).
+  const criaTarefa = (it) => it.operacao === 'criar' || (it.operacao === 'atualizar' && !it.clickup_task_id)
+  const idsCriar = unidades.filter((u) => criaTarefa(u.item) && u.item.tarefa_id).map((u) => u.item.tarefa_id)
+  const linhaCriar = new Map()
+  for (let i = 0; i < idsCriar.length; i += 150) {
+    const { data } = await sb.from('tarefas_itens').select('id, parent_id, lista_id').in('id', idsCriar.slice(i, i + 150))
+    for (const r of data || []) linhaCriar.set(r.id, r)
+  }
+  const criandoAgora = new Set(idsCriar)
+  const precisaSozinha = (it) => {
+    if (!criaTarefa(it)) return false
+    const r = linhaCriar.get(it.tarefa_id)
+    if (!r) return true // sem a linha, na dúvida, na ordem
+    return (r.parent_id && criandoAgora.has(r.parent_id)) || !lista.get(r.lista_id)?.clickup_list_id
+  }
+  const emVoo = new Map() // promessa → tarefa_id
+  const esperarVaga = () => Promise.race(emVoo.keys())
+  for (let idx = 0; idx < unidades.length && !parar; idx++) {
+    if (estourou()) { aviso('tempo esgotado; o resto fica para a próxima chamada'); break }
+    const item = unidades[idx].item
+    const sozinha = precisaSozinha(item)
+    if (sozinha) await Promise.all(emVoo.keys())
+    while (emVoo.size >= PARALELO || (item.tarefa_id && [...emVoo.values()].includes(item.tarefa_id))) await esperarVaga()
+    if (parar) break
+    const p = doItem.run({ avisos: [] }, () => processar(idx)).finally(() => emVoo.delete(p))
+    emVoo.set(p, item.tarefa_id || null)
+    if (sozinha) await p
+  }
+  await Promise.all(emVoo.keys())
+  // o que não chegou a ser resolvido (tempo esgotado) volta à fila sem esperar o ttl
+  const sobra = unidades.flatMap((u, i) => (feitas.has(i) ? [] : u.ids))
+  if (reivindicada && sobra.length) await devolver(sobra)
   resumo.duracao_s = Math.round((Date.now() - inicio) / 100) / 10
   // o que ficou na fila (tempo esgotado, devolvidos, enfileirado durante a rodada): quem
   // chamou continua enquanto houver, em vez de esperar a próxima escrita ou o cron

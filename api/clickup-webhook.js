@@ -55,7 +55,7 @@ export async function POST(request) {
   try {
     // prazo bem abaixo dos 30 s da função: em rajada, esperar o 429 aqui dentro fazia a invocação
     // morrer por timeout, o que conta como falha e leva o ClickUp a suspender o webhook (plano item 3)
-    r = await processarEventoTarefa({ sb, token: TOKEN, evento: ev.event, taskId: ev.task_id, spaces: spaces.length ? spaces : SPACES_PADRAO, clickup: fazClickup(TOKEN, Date.now() + PRAZO_MS) })
+    r = await processarEventoTarefa({ sb, token: TOKEN, evento: ev.event, taskId: ev.task_id, historico: ev.history_items, spaces: spaces.length ? spaces : SPACES_PADRAO, clickup: fazClickup(TOKEN, Date.now() + PRAZO_MS) })
   } catch (e) {
     r = { acao: 'erro', erro: e.message }
   }
