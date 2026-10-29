@@ -75,6 +75,40 @@ export function etapaDoAd(ad) {
   return 'aprovacao'
 }
 
+// ─── Mês de criação (blocos por mês dentro de cada aba) ─────────────────────
+const MESES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
+
+// Data (yyyy-mm-dd) em que o criativo foi criado: a "Data de criação" do
+// cadastro (createdAt). Se faltar, o dia local em que ele entrou na central
+// (addedAt, timestamp ISO). Sem nenhuma das duas, null.
+export function dataDoAd(ad) {
+  const criado = String(ad?.createdAt || '')
+  if (/^\d{4}-(0[1-9]|1[0-2])-\d{2}/.test(criado)) return criado.slice(0, 10)
+  const d = ad?.addedAt ? new Date(ad.addedAt) : null
+  if (!d || Number.isNaN(d.getTime())) return null
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Agrupa os anúncios pelo mês de criação, do mais recente pro mais antigo,
+// com "Sem data" no fim. Dentro do mês, mantém a ordem recebida.
+export function agruparPorMes(ads) {
+  const porMes = new Map()
+  for (const ad of ads) {
+    const chave = dataDoAd(ad)?.slice(0, 7) || null
+    if (!porMes.has(chave)) porMes.set(chave, [])
+    porMes.get(chave).push(ad)
+  }
+  return [...porMes.entries()]
+    .sort(([a], [b]) => (a === null) - (b === null) || (b || '').localeCompare(a || ''))
+    .map(([chave, lista]) => {
+      const [ano, mes] = (chave || '').split('-')
+      return { chave, rotulo: chave ? `${MESES[Number(mes) - 1]} ${ano}` : 'Sem data', ads: lista }
+    })
+}
+
 // ─── Aprovação do cliente (link público /aprovacao/:token) ───────────────────
 // Guardada em ad.aprovacao = { status, motivo, sugestao, decididoEm }.
 // Anúncio sem ad.aprovacao = nunca foi enviado pro cliente.
@@ -89,6 +123,10 @@ export const APROVACAO_BY_ID = Object.fromEntries(APROVACAO_OPTIONS.map((a) => [
 // Helper: formata date string yyyy-mm-dd pra dd/mm/yyyy
 export function fmtDateBR(iso) {
   if (!iso) return '—'
+  // yyyy-mm-dd puro é lido como data local: new Date('2026-09-01') é meia-noite
+  // UTC, que no Brasil ainda é 31/08, e a data saía um dia antes.
+  const dia = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (dia) return `${dia[3]}/${dia[2]}/${dia[1]}`
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`

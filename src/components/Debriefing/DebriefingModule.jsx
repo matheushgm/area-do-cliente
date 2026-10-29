@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   Megaphone, Plus, Pencil, Trash2, ExternalLink, Video, Image as ImageIcon, Layers,
   Filter, X, Clock, Play, CheckCircle2, Paperclip, FlaskConical, Link2, Send, Palette,
-  FileText,
+  FileText, CalendarDays,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
@@ -13,7 +13,7 @@ import CreativeTestModal from './CreativeTestModal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
 import {
   STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, APROVACAO_BY_ID,
-  ETAPAS, etapaDoAd, fmtDateBR, fmtDateTimeBR, todayISO,
+  ETAPAS, etapaDoAd, dataDoAd, agruparPorMes, fmtDateBR, fmtDateTimeBR, todayISO,
 } from './debriefingData'
 import { linkDaLeva } from '../../lib/copyLevas'
 
@@ -58,7 +58,7 @@ export default function DebriefingModule({ project }) {
   const visibleAds = useMemo(() => {
     return ads
       .slice()
-      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+      .sort((a, b) => (dataDoAd(b) || '').localeCompare(dataDoAd(a) || ''))
       .filter((ad) => {
         if (etapaDoAd(ad) !== etapa) return false
         if (filterTipo && ad.tipo !== filterTipo) return false
@@ -67,6 +67,9 @@ export default function DebriefingModule({ project }) {
         return true
       })
   }, [ads, etapa, filterTipo, filterFunil, filterStatus])
+
+  // Blocos por mês de criação, do mais recente pro mais antigo ("Sem data" no fim)
+  const grupos = useMemo(() => agruparPorMes(visibleAds), [visibleAds])
 
   const isAprovacao = etapa === 'aprovacao'
 
@@ -316,208 +319,220 @@ export default function DebriefingModule({ project }) {
                   <Th className="w-20"></Th>
                 </tr>
               </thead>
-              <tbody>
-                {visibleAds.map((ad) => {
-                  const TipoIcon = TIPO_ICON[ad.tipo] || Layers
-                  const status = STATUS_BY_ID[ad.status || 'para_subir']
-                  const StatusIcon = STATUS_ICON[ad.status || 'para_subir'] || Clock
-                  const resultado = ad.resultado ? RESULTADO_BY_ID[ad.resultado] : null
-                  const dt = ad.createdAt ? new Date(ad.createdAt) : null
-                  const dtStr = dt
-                    ? `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`
-                    : '—'
-
-                  return (
-                    <tr
-                      key={ad.id}
-                      onClick={() => setEditingAd(ad)}
-                      className="border-b border-rl-border/40 hover:bg-rl-surface/40 cursor-pointer transition-colors"
-                    >
-                      <Td className="whitespace-nowrap text-rl-subtle">{dtStr}</Td>
-                      {/* Nome comprido (títulos de roteiro) quebrava a linha
-                          inteira: limita a largura e corta em 2 linhas. */}
-                      <Td className="font-mono text-xs font-semibold text-rl-text min-w-[220px] max-w-[300px]">
-                        <span className="flex items-start gap-1.5">
-                          <span className="line-clamp-2 break-words" title={ad.nome || ''}>
-                            {ad.nome || '—'}
-                          </span>
-                          {(ad.version || 1) > 1 && (
-                            <span
-                              className="font-sans shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/10 text-rl-purple border border-rl-purple/30"
-                              title={`${ad.versionHistory?.length || 0} versão(ões) anterior(es) no histórico`}
-                            >
-                              v{ad.version}
-                            </span>
-                          )}
-                          {ad.copy && (
-                            <span
-                              className="font-sans shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-blue/10 text-rl-blue border border-rl-blue/30"
-                              title="Tem copy escrita (veio de Criação de anúncios). Abra o anúncio pra ler o texto."
-                            >
-                              copy
-                            </span>
-                          )}
+              {grupos.map((grupo) => (
+                <tbody key={grupo.chave || 'sem-data'}>
+                  {/* Cabeçalho do bloco: mês de criação + quantos criativos
+                      dele aparecem nesta aba (com os filtros aplicados). */}
+                  <tr className="bg-rl-purple/10 border-y border-rl-border">
+                    <td colSpan={10} className="px-3 py-2">
+                      <span className="flex items-center gap-2 text-xs">
+                        <CalendarDays className="w-3.5 h-3.5 text-rl-purple shrink-0" />
+                        <span className="font-bold text-rl-text">{grupo.rotulo}</span>
+                        <span className="text-rl-subtle">
+                          · {grupo.ads.length} {grupo.ads.length === 1 ? 'criativo' : 'criativos'}
                         </span>
-                      </Td>
-                      <Td>
-                        <InlineSelect
-                          value={ad.tipo || ''}
-                          onChange={(v) => updateAd(ad.id, { tipo: v })}
-                          options={TIPOS_ANUNCIO.map((t) => ({ value: t.id, label: t.label }))}
-                          color="#7C3AED"
-                          bgColor="rgba(124,58,237,0.10)"
-                          borderColor="rgba(124,58,237,0.30)"
-                          LeftIcon={TipoIcon}
-                        />
-                      </Td>
-                      <Td>
-                        <AprovacaoCell
-                          ad={ad}
-                          mostrarCopy={isAprovacao}
-                          onEnviar={() => {
-                            updateAd(ad.id, { aprovacao: { status: 'pendente', enviadoEm: new Date().toISOString() } })
-                            showToast('Anúncio enviado pra aprovação do cliente!')
-                          }}
-                        />
-                      </Td>
-                      <Td>
-                        <div className="flex flex-col items-start gap-1">
-                          <InlineSelect
-                            value={ad.status || 'para_subir'}
-                            onChange={(v) => updateAd(ad.id, { status: v })}
-                            options={STATUS_OPTIONS.map((s) => ({ value: s.id, label: s.label }))}
-                            color={status.color}
-                            bgColor={status.bgColor}
-                            borderColor={status.borderColor}
-                            LeftIcon={StatusIcon}
-                          />
-                          {resultado && (
-                            <span
-                              className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border whitespace-nowrap"
-                              style={{
-                                color: resultado.color,
-                                background: resultado.bgColor,
-                                borderColor: resultado.borderColor,
-                              }}
-                              title={ad.justificativa || ''}
-                            >
-                              <span>{resultado.emoji}</span> {resultado.label}
+                      </span>
+                    </td>
+                  </tr>
+                  {grupo.ads.map((ad) => {
+                    const TipoIcon = TIPO_ICON[ad.tipo] || Layers
+                    const status = STATUS_BY_ID[ad.status || 'para_subir']
+                    const StatusIcon = STATUS_ICON[ad.status || 'para_subir'] || Clock
+                    const resultado = ad.resultado ? RESULTADO_BY_ID[ad.resultado] : null
+                    const dtStr = fmtDateBR(dataDoAd(ad))
+
+                    return (
+                      <tr
+                        key={ad.id}
+                        onClick={() => setEditingAd(ad)}
+                        className="border-b border-rl-border/40 hover:bg-rl-surface/40 cursor-pointer transition-colors"
+                      >
+                        <Td className="whitespace-nowrap text-rl-subtle">{dtStr}</Td>
+                        {/* Nome comprido (títulos de roteiro) quebrava a linha
+                            inteira: limita a largura e corta em 2 linhas. */}
+                        <Td className="font-mono text-xs font-semibold text-rl-text min-w-[220px] max-w-[300px]">
+                          <span className="flex items-start gap-1.5">
+                            <span className="line-clamp-2 break-words" title={ad.nome || ''}>
+                              {ad.nome || '—'}
                             </span>
-                          )}
-                          {ad.status === 'em_andamento' && ad.startedAt && (
-                            <span className="text-[9px] text-rl-muted whitespace-nowrap">
-                              desde {fmtDateBR(ad.startedAt)}
-                            </span>
-                          )}
-                          {ad.status === 'finalizado' && ad.finishedAt && (
-                            <span className="text-[9px] text-rl-muted whitespace-nowrap">
-                              fim {fmtDateBR(ad.finishedAt)}
-                            </span>
-                          )}
-                        </div>
-                      </Td>
-                      <Td className="text-xs">
-                        <InlineSelect
-                          value={ad.campanhaId || ''}
-                          onChange={(v) => updateAd(ad.id, { campanhaId: v })}
-                          options={[
-                            { value: '', label: '— sem campanha —' },
-                            ...campaigns.map((c) => ({
-                              value: c.id,
-                              label: `[${c.stageLabel}] ${c.name}${c.channel ? ' · ' + c.channel : ''}`,
-                            })),
-                          ]}
-                          color="#0F172A"
-                          bgColor="#F8FAFC"
-                          borderColor="#E2E8F0"
-                          textPlaceholder="— sem campanha —"
-                        />
-                      </Td>
-                      <Td>
-                        <InlineSelect
-                          value={ad.funilId || ''}
-                          onChange={(v) => updateAd(ad.id, { funilId: v })}
-                          options={[
-                            { value: '', label: '— sem funil —' },
-                            ...FUNNELS.map((f) => ({ value: f.id, label: `${f.icon} ${f.label}` })),
-                          ]}
-                          color="#2563EB"
-                          bgColor="rgba(37,99,235,0.08)"
-                          borderColor="rgba(37,99,235,0.25)"
-                          textPlaceholder="— sem funil —"
-                        />
-                      </Td>
-                      <Td>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {/* Na aba de aprovação, o link útil é o que o cliente
-                              recebeu: a leva da copy ou a página da peça. */}
-                          {isAprovacao && ad.copyAprovacao?.status === 'pendente' && ad.copyAprovacao?.token && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); copiarLink(linkDaLeva(ad.copyAprovacao.token)) }}
-                              className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
-                              title={`Copiar o link da leva "${ad.copyAprovacao.levaNome || ''}"`}
-                            >
-                              <Link2 className="w-3 h-3" /> Link da leva
-                            </button>
-                          )}
-                          {ad.url ? (
-                            <a
-                              href={ad.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
-                            >
-                              <ExternalLink className="w-3 h-3" /> Link
-                            </a>
-                          ) : (
-                            !ad.attachmentUrl && <span className="text-rl-muted italic text-xs">—</span>
-                          )}
-                          {ad.attachmentUrl && (
-                            <a
-                              href={ad.attachmentUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 text-xs text-rl-blue font-semibold hover:underline"
-                              title={ad.attachmentName || 'Anexo'}
-                            >
-                              <Paperclip className="w-3 h-3" /> Anexo
-                            </a>
-                          )}
-                        </div>
-                      </Td>
-                      <Td className="max-w-[200px]">
-                        {ad.observacao ? (
-                          <span className="text-[11px] text-rl-subtle line-clamp-2" title={ad.observacao}>
-                            {ad.observacao}
+                            {(ad.version || 1) > 1 && (
+                              <span
+                                className="font-sans shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/10 text-rl-purple border border-rl-purple/30"
+                                title={`${ad.versionHistory?.length || 0} versão(ões) anterior(es) no histórico`}
+                              >
+                                v{ad.version}
+                              </span>
+                            )}
+                            {ad.copy && (
+                              <span
+                                className="font-sans shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-blue/10 text-rl-blue border border-rl-blue/30"
+                                title="Tem copy escrita (veio de Criação de anúncios). Abra o anúncio pra ler o texto."
+                              >
+                                copy
+                              </span>
+                            )}
                           </span>
-                        ) : (
-                          <span className="text-rl-muted italic text-xs">—</span>
-                        )}
-                      </Td>
-                      <Td>
-                        <div className="flex items-center gap-1 justify-end">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setEditingAd(ad) }}
-                            className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-                            title="Editar"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDelete(ad.id) }}
-                            className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </Td>
-                    </tr>
-                  )
-                })}
-              </tbody>
+                        </Td>
+                        <Td>
+                          <InlineSelect
+                            value={ad.tipo || ''}
+                            onChange={(v) => updateAd(ad.id, { tipo: v })}
+                            options={TIPOS_ANUNCIO.map((t) => ({ value: t.id, label: t.label }))}
+                            color="#7C3AED"
+                            bgColor="rgba(124,58,237,0.10)"
+                            borderColor="rgba(124,58,237,0.30)"
+                            LeftIcon={TipoIcon}
+                          />
+                        </Td>
+                        <Td>
+                          <AprovacaoCell
+                            ad={ad}
+                            mostrarCopy={isAprovacao}
+                            onEnviar={() => {
+                              updateAd(ad.id, { aprovacao: { status: 'pendente', enviadoEm: new Date().toISOString() } })
+                              showToast('Anúncio enviado pra aprovação do cliente!')
+                            }}
+                          />
+                        </Td>
+                        <Td>
+                          <div className="flex flex-col items-start gap-1">
+                            <InlineSelect
+                              value={ad.status || 'para_subir'}
+                              onChange={(v) => updateAd(ad.id, { status: v })}
+                              options={STATUS_OPTIONS.map((s) => ({ value: s.id, label: s.label }))}
+                              color={status.color}
+                              bgColor={status.bgColor}
+                              borderColor={status.borderColor}
+                              LeftIcon={StatusIcon}
+                            />
+                            {resultado && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border whitespace-nowrap"
+                                style={{
+                                  color: resultado.color,
+                                  background: resultado.bgColor,
+                                  borderColor: resultado.borderColor,
+                                }}
+                                title={ad.justificativa || ''}
+                              >
+                                <span>{resultado.emoji}</span> {resultado.label}
+                              </span>
+                            )}
+                            {ad.status === 'em_andamento' && ad.startedAt && (
+                              <span className="text-[9px] text-rl-muted whitespace-nowrap">
+                                desde {fmtDateBR(ad.startedAt)}
+                              </span>
+                            )}
+                            {ad.status === 'finalizado' && ad.finishedAt && (
+                              <span className="text-[9px] text-rl-muted whitespace-nowrap">
+                                fim {fmtDateBR(ad.finishedAt)}
+                              </span>
+                            )}
+                          </div>
+                        </Td>
+                        <Td className="text-xs">
+                          <InlineSelect
+                            value={ad.campanhaId || ''}
+                            onChange={(v) => updateAd(ad.id, { campanhaId: v })}
+                            options={[
+                              { value: '', label: '— sem campanha —' },
+                              ...campaigns.map((c) => ({
+                                value: c.id,
+                                label: `[${c.stageLabel}] ${c.name}${c.channel ? ' · ' + c.channel : ''}`,
+                              })),
+                            ]}
+                            color="#0F172A"
+                            bgColor="#F8FAFC"
+                            borderColor="#E2E8F0"
+                            textPlaceholder="— sem campanha —"
+                          />
+                        </Td>
+                        <Td>
+                          <InlineSelect
+                            value={ad.funilId || ''}
+                            onChange={(v) => updateAd(ad.id, { funilId: v })}
+                            options={[
+                              { value: '', label: '— sem funil —' },
+                              ...FUNNELS.map((f) => ({ value: f.id, label: `${f.icon} ${f.label}` })),
+                            ]}
+                            color="#2563EB"
+                            bgColor="rgba(37,99,235,0.08)"
+                            borderColor="rgba(37,99,235,0.25)"
+                            textPlaceholder="— sem funil —"
+                          />
+                        </Td>
+                        <Td>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {/* Na aba de aprovação, o link útil é o que o cliente
+                                recebeu: a leva da copy ou a página da peça. */}
+                            {isAprovacao && ad.copyAprovacao?.status === 'pendente' && ad.copyAprovacao?.token && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); copiarLink(linkDaLeva(ad.copyAprovacao.token)) }}
+                                className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
+                                title={`Copiar o link da leva "${ad.copyAprovacao.levaNome || ''}"`}
+                              >
+                                <Link2 className="w-3 h-3" /> Link da leva
+                              </button>
+                            )}
+                            {ad.url ? (
+                              <a
+                                href={ad.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
+                              >
+                                <ExternalLink className="w-3 h-3" /> Link
+                              </a>
+                            ) : (
+                              !ad.attachmentUrl && <span className="text-rl-muted italic text-xs">—</span>
+                            )}
+                            {ad.attachmentUrl && (
+                              <a
+                                href={ad.attachmentUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 text-xs text-rl-blue font-semibold hover:underline"
+                                title={ad.attachmentName || 'Anexo'}
+                              >
+                                <Paperclip className="w-3 h-3" /> Anexo
+                              </a>
+                            )}
+                          </div>
+                        </Td>
+                        <Td className="max-w-[200px]">
+                          {ad.observacao ? (
+                            <span className="text-[11px] text-rl-subtle line-clamp-2" title={ad.observacao}>
+                              {ad.observacao}
+                            </span>
+                          ) : (
+                            <span className="text-rl-muted italic text-xs">—</span>
+                          )}
+                        </Td>
+                        <Td>
+                          <div className="flex items-center gap-1 justify-end">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setEditingAd(ad) }}
+                              className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
+                              title="Editar"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDelete(ad.id) }}
+                              className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </Td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              ))}
             </table>
           </div>
         </div>
