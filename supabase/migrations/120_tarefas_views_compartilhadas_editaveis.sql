@@ -1,4 +1,4 @@
--- 116 — Views salvas compartilhadas: qualquer pessoa do time edita
+-- 120 (era 116; renumerada, já aplicada no banco com o nome antigo) — Views salvas compartilhadas: qualquer pessoa do time edita
 --
 -- Até a 114 uma visualização salva (padrao_tipo nula) só podia ser editada pelo dono, mesmo
 -- compartilhada (acesso = 'publica'): os outros mexiam só na tela e salvavam como nova. Agora,
