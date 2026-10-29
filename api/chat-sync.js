@@ -4,15 +4,19 @@ import { bearer, getUser } from './_http.js'
 //   ?push=0 | ?pull=0   opcional: só um dos sentidos
 //   ?since=<ISO>        opcional: ponto de partida do pull
 //   ?completo=1         opcional: relê todos os canais (histórico inteiro)
-// O front chama com push=1&pull=0 logo após enviar (debounce) e pull ao abrir
-// o chat / a cada 2 min; o cron diário de tarefas-sync também roda a rodada.
+//
+// DESLIGADO desde 2026-10-29 (docs/plano-sincronizacao-clickup.md, item 6): o chat ficou só no
+// VertaTask e este endpoint responde 503 sem chamar o ClickUp. O resto do handler e
+// api/_chat_sync_core.js ficam para religar (CHAT_SYNC_DESLIGADO = false).
 import { createClient } from '@supabase/supabase-js'
 import { sincronizarChat } from './_chat_sync_core.js'
 
 export const config = { maxDuration: 60 }
 const envClean = (n) => String(process.env[n] || '').replace(/\\n/g, '').trim()
+const CHAT_SYNC_DESLIGADO = true
 
 export default async function handler(req, res) {
+  if (CHAT_SYNC_DESLIGADO) return res.status(503).json({ ok: false, error: 'Sincronização do chat desativada.' })
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' })
   const SUPABASE_URL = process.env.SUPABASE_URL
   const SERVICE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY

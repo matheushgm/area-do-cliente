@@ -1,4 +1,4 @@
--- 120 — Auditoria da sincronização VertaTask ⇄ ClickUp (2026-10-28)
+-- 121 — Auditoria da sincronização VertaTask ⇄ ClickUp (2026-10-28)
 --
 -- Duas vezes (23/10, template + edição em massa; 28/10, 164 alterações que levaram 33 min
 -- para chegar ao ClickUp) ninguém conseguia dizer o que tinha acontecido com as tarefas:

@@ -9,7 +9,7 @@ import { apiFetch } from '../lib/api'
 // Tarefas da página do cliente.
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useOutletContext } from 'react-router-dom'
-import { Menu, ChevronRight, Plus, Loader2, PanelLeft, PanelLeftClose, PanelLeftOpen, RefreshCw, CloudUpload, ExternalLink } from 'lucide-react'
+import { Menu, ChevronRight, Plus, Loader2, PanelLeft, PanelLeftClose, PanelLeftOpen, RefreshCw, CloudUpload, ExternalLink, AlertTriangle } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import Toast from '../components/UI/Toast'
@@ -34,19 +34,27 @@ import { FOCO } from '../components/Tarefas/Campos'
 import { urlClickUpPasta, urlClickUpLista } from '../lib/tarefas'
 import AreaTarefas, { lerPref, gravarPref, useLarguraDoConteudo } from '../components/Tarefas/AreaTarefas'
 
-// Sincronização incremental com o ClickUp (api/tarefas-sync.js): botão na
-// barra e disparo automático ao abrir a página se a última rodada tem +30 min.
-const SYNC_AUTO_MS = 30 * 60 * 1000
+// Sincronização incremental com o ClickUp (api/tarefas-sync.js): botão na barra e disparo
+// automático ao abrir a página. Com o webhook entregando, a rodada de 30 em 30 min quase não
+// trazia nada e gastava a API (plano item 4): agora só dispara se o webhook está em silêncio há
+// +30 min (e a última rodada tem +30 min) ou se a última rodada tem +3 h.
+const SYNC_MIN_MS = 30 * 60 * 1000
+const SYNC_MAX_MS = 3 * 60 * 60 * 1000
+const WEBHOOK_SILENCIO_MS = 30 * 60 * 1000
+const ms = (iso) => (iso ? new Date(iso).getTime() : 0)
 function useSyncClickup({ ativo, aoTerminar }) {
-  const [estado, setEstado] = useState(null)   // linha de tarefas_sync
+  const [estado, setEstado] = useState(null)   // linha 'clickup' de tarefas_sync
+  const [webhook, setWebhook] = useState(null) // linha 'clickup_webhook'
   const [rodando, setRodando] = useState(false)
   const [erro, setErro] = useState(null)
   const disparado = useRef(false)
 
   const lerEstado = useCallback(async () => {
-    const { data } = await supabase.from('tarefas_sync').select('*').eq('id', 'clickup').maybeSingle()
-    setEstado(data || null)
-    return data
+    const { data } = await supabase.from('tarefas_sync').select('*').in('id', ['clickup', 'clickup_webhook'])
+    const linha = (id) => (data || []).find((r) => r.id === id) || null
+    setEstado(linha('clickup'))
+    setWebhook(linha('clickup_webhook'))
+    return { estado: linha('clickup'), webhook: linha('clickup_webhook') }
   }, [])
 
   const sincronizar = useCallback(async () => {
@@ -69,13 +77,16 @@ function useSyncClickup({ ativo, aoTerminar }) {
   useEffect(() => {
     if (!ativo || disparado.current) return
     disparado.current = true
-    lerEstado().then((s) => {
-      const ultimo = s?.ultimo_inicio ? new Date(s.ultimo_inicio).getTime() : 0
-      if (Date.now() - ultimo > SYNC_AUTO_MS) sincronizar()
+    lerEstado().then(({ estado: s, webhook: w }) => {
+      const desdeRodada = Date.now() - ms(s?.ultimo_fim || s?.ultimo_inicio)
+      const webhookCalado = Date.now() - ms(w?.ultimo_fim) > WEBHOOK_SILENCIO_MS
+      if (desdeRodada > SYNC_MAX_MS || (webhookCalado && desdeRodada > SYNC_MIN_MS)) sincronizar()
     })
   }, [ativo, lerEstado, sincronizar])
 
-  return { estado, rodando, erro, sincronizar }
+  // aviso da última conferência do webhook (rodada do cron): suspenso, reativado, ausente
+  const avisoWebhook = estado?.resumo?.webhook && estado.resumo.webhook.status !== 'active' ? estado.resumo.webhook.aviso : null
+  return { estado, webhook, avisoWebhook, rodando, erro, sincronizar }
 }
 
 function tempoRelativo(iso) {
@@ -294,11 +305,15 @@ export default function Tarefas() {
           type="button"
           onClick={sync.sincronizar}
           disabled={sync.rodando}
-          title={sync.erro ? `Erro na última sincronização: ${sync.erro}` : `Última sincronização com o ClickUp: ${tempoRelativo(sync.estado?.ultimo_inicio)}${sync.estado?.ultimo_ok === false ? ' (com erro)' : ''}`}
-          className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${sync.erro || sync.estado?.ultimo_ok === false ? 'text-ln-red' : 'text-ln-t4 hover:text-ln-t2'} disabled:opacity-60 ${FOCO} rounded`}
+          title={sync.erro ? `Erro na última sincronização: ${sync.erro}` : [
+            `Última rodada com o ClickUp: ${tempoRelativo(sync.estado?.ultimo_fim || sync.estado?.ultimo_inicio)}${sync.estado?.ultimo_ok === false ? ' (com erro)' : sync.estado?.resumo?.incompleto ? ' (incompleta, a próxima cobre o resto)' : ''}`,
+            `Último evento do webhook: ${tempoRelativo(sync.webhook?.ultimo_fim)}`,
+            sync.avisoWebhook,
+          ].filter(Boolean).join('\n')}
+          className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${sync.erro || sync.estado?.ultimo_ok === false ? 'text-ln-red' : sync.avisoWebhook ? 'text-ln-yellow' : 'text-ln-t4 hover:text-ln-t2'} disabled:opacity-60 ${FOCO} rounded`}
         >
-          <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />
-          {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_inicio)}`}
+          {sync.avisoWebhook && !sync.rodando ? <AlertTriangle className="w-3 h-3" /> : <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />}
+          {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_fim || sync.estado?.ultimo_inicio)}`}
           {!sync.rodando && api.aguardandoClickup > 0 && <span className="inline-flex items-center gap-1 text-ln-yellow" title="Tarefas desta tela que ainda não foram para o ClickUp"><CloudUpload className="w-3 h-3" />{api.aguardandoClickup} aguardando</span>}
         </button>
         <button onClick={api.recarregar} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>

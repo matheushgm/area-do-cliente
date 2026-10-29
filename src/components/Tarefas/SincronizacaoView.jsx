@@ -1,7 +1,7 @@
 // Seção Sincronização do VertaTask (/tarefas?aba=sincronizacao): o que foi e o que veio do
 // ClickUp, para auditar uma ação em massa ou um template e para quem usa entender por que o
 // ClickUp ainda não mostra uma mudança. Ida = fila tarefas_outbox agrupada em lotes; volta =
-// tarefas_sync_log (migration 120); rodadas = resumo de cada /api/tarefas-sync. Com
+// tarefas_sync_log (migration 121); rodadas = resumo de cada /api/tarefas-sync. Com
 // ?sync_tarefa=<id> vira o histórico de uma tarefa só (edições, envios e recebidos juntos).
 import { useMemo, useState } from 'react'
 import {
@@ -208,23 +208,28 @@ function LinhaLog({ l, ctx, mostrarTarefa = true }) {
 function Rodada({ l }) {
   const [aberto, setAberto] = useState(false)
   const r = l.detalhe || {}
-  const via = { cron: 'automática (todo dia)', user: 'pelo VertaTask', script: 'script local' }[r.via] || r.via || '—'
+  const via = r.via === 'user' ? (r.por?.nome ? `por ${r.por.nome}` : 'pelo VertaTask') : ({ cron: 'automática (todo dia)', script: 'pelo script local' }[r.via] || r.via || '—')
   const numeros = [
     ['tarefas lidas', r.tarefas_recebidas], ['criadas', r.criadas], ['atualizadas', r.atualizadas],
     ['puladas por conflito', r.puladas_conflito], ['sem pai', r.sem_pai], ['removidas', r.removidas], ['comentários', r.comentarios],
   ].filter(([, n]) => n)
-  const push = r.push && !r.push.erro ? [['enviadas ao ClickUp', (r.push.criadas || 0) + (r.push.atualizadas || 0) + (r.push.excluidas || 0)], ['erros no envio', r.push.erros]].filter(([, n]) => n) : []
+  const push = r.push && !r.push.erro ? [
+    ['enviadas ao ClickUp', (r.push.criadas || 0) + (r.push.atualizadas || 0) + (r.push.excluidas || 0)],
+    ['alterações juntadas no envio', r.push.agrupadas], ['canceladas (tarefa excluída)', r.push.canceladas], ['erros no envio', r.push.erros],
+  ].filter(([, n]) => n) : []
   const avisos = [...(r.avisos || []), ...(r.push?.avisos || [])]
   return (
-    <div className={`ln-card overflow-hidden border-l-[3px] ${l.acao === 'erro' ? BORDA.red : r.puladas_conflito || avisos.length ? BORDA.yellow : BORDA.green}`}>
+    <div className={`ln-card overflow-hidden border-l-[3px] ${l.acao === 'erro' ? BORDA.red : r.puladas_conflito || r.incompleto || avisos.length ? BORDA.yellow : BORDA.green}`}>
       <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} disabled={!avisos.length && l.acao !== 'erro'} className={`w-full text-left px-3 py-2.5 flex items-center gap-3 ${FOCO}`}>
         <span className="text-[12px] text-ln-t4 tabular w-10 shrink-0">{hora(l.created_at)}</span>
         <span className="min-w-0 flex-1 flex flex-col">
           <span className="text-[13px] text-ln-t1">Rodada {via}{r.duracao_s ? <span className="text-ln-t4"> · {String(r.duracao_s).replace('.', ',')} s</span> : null}</span>
-          <span className="text-[11px] text-ln-t4">{l.acao === 'erro' ? (l.motivo || 'falhou') : [...numeros, ...push].map(([k, n]) => `${n} ${k}`).join(' · ') || 'nada novo'}</span>
+          <span className="text-[11px] text-ln-t4">{l.acao === 'erro' ? (l.motivo || 'falhou') : [...numeros, ...push].map(([k, n]) => `${Number(n).toLocaleString('pt-BR')} ${k}`).join(' · ') || 'nada novo'}</span>
         </span>
+        {r.webhook && r.webhook.status !== 'active' && <Pilula tom="yellow" title={r.webhook.aviso}>{r.webhook.reativado ? 'webhook reativado' : `webhook ${r.webhook.status}`}</Pilula>}
+        {r.reconciliar && <Pilula tom="muted" title="Conferiu o que sumiu do ClickUp (apagadas ou fechadas lá)">reconciliação</Pilula>}
         {avisos.length > 0 && <Pilula tom="yellow">{avisos.length} {avisos.length === 1 ? 'aviso' : 'avisos'}</Pilula>}
-        {l.acao === 'erro' ? <Pilula tom="red">falhou</Pilula> : <Pilula tom="green">ok</Pilula>}
+        {l.acao === 'erro' ? <Pilula tom="red">falhou</Pilula> : r.incompleto ? <Pilula tom="yellow" title="Não leu todas as tarefas alteradas a tempo; a próxima rodada cobre o mesmo intervalo">incompleta</Pilula> : <Pilula tom="green">ok</Pilula>}
       </button>
       {aberto && avisos.length > 0 && (
         <ul className="border-t border-ln-ink/[0.08] px-4 py-2 flex flex-col gap-1 text-[12px] text-ln-t3">
@@ -249,7 +254,8 @@ function ComoFunciona() {
             <p className="font-semibold text-ln-t1 inline-flex items-center gap-1.5 mb-1"><ArrowUpRight className="w-4 h-4 text-ln-accent" /> Daqui para o ClickUp</p>
             <ul className="list-disc pl-5 flex flex-col gap-1">
               <li>Toda edição feita aqui entra numa fila e costuma chegar ao ClickUp em segundos.</li>
-              <li><b>Template e edição em massa</b> viram muitas alterações de uma vez. O ClickUp aceita cerca de 100 chamadas por minuto, então um lote grande leva minutos (já levou 33 min com 164 alterações). Enquanto o lote não termina, o ClickUp mostra a versão antiga.</li>
+              <li><b>Template e edição em massa</b> viram muitas alterações de uma vez. O ClickUp aceita cerca de 100 chamadas por minuto, então um lote grande leva minutos. Enquanto o lote não termina, o ClickUp mostra a versão antiga.</li>
+              <li>Alterações seguidas na <b>mesma tarefa</b> vão juntas, num envio só, com o valor final de cada campo. Por isso várias linhas de um lote podem chegar ao ClickUp no mesmo segundo.</li>
               <li>Cada alteração tenta até 5 vezes. Se o ClickUp recusar (data de início depois do vencimento, opção que não existe na lista), ela para em <b>Problemas</b> e o ClickUp fica diferente daqui até alguém resolver.</li>
               <li>Mover a tarefa de lista <b>não</b> vai para o ClickUp: mova lá também.</li>
             </ul>
@@ -258,10 +264,13 @@ function ComoFunciona() {
             <p className="font-semibold text-ln-t1 inline-flex items-center gap-1.5 mb-1"><ArrowDownLeft className="w-4 h-4 text-ln-accent" /> Do ClickUp para cá</p>
             <ul className="list-disc pl-5 flex flex-col gap-1">
               <li>Mudanças feitas no ClickUp chegam pelo <b>webhook</b>, em segundos.</li>
-              <li>Uma <b>rodada</b> completa confere o que o webhook perdeu: todo dia às 6h, ao abrir o VertaTask (se a última tem mais de 30 min) e pelo botão &ldquo;Sincronizar agora&rdquo;.</li>
+              <li>Uma <b>rodada</b> confere o que o webhook perdeu. A do dia (6h) é completa: traz comentários e anexos, confere se o webhook está ativo (e o reativa se o ClickUp o suspendeu) e, aos domingos, procura tarefas apagadas lá.</li>
+              <li>Ao abrir o VertaTask roda uma versão leve, só se o webhook está calado há mais de 30 min ou a última rodada tem mais de 3 h. O botão &ldquo;Sincronizar agora&rdquo; roda a mesma versão leve na hora.</li>
+              <li>Se a rodada não der conta de ler tudo a tempo, ela fica <b>incompleta</b> e a próxima confere o mesmo período de novo: nada fica para trás.</li>
               <li>Enquanto uma tarefa está sendo enviada daqui, os eventos dela vindos do ClickUp são <b>ignorados</b>: quem grava a versão final é o envio. É o que evita tarefa duplicada.</li>
               <li><b>Conflito:</b> se a tarefa foi editada aqui depois da última sincronização e o ClickUp não é mais novo, vale a edição daqui.</li>
               <li>Não vêm do ClickUp: tempo rastreado, dependências e tarefas arquivadas lá.</li>
+              <li>O <b>Chat</b> não sincroniza mais com o ClickUp (desde 29/10): as mensagens ficam só no VertaTask.</li>
             </ul>
           </div>
         </div>
@@ -349,6 +358,8 @@ export default function SincronizacaoView({ membrosMap, listasMap, pastasMap, ta
 
   const webhook = sync.estado.clickup_webhook
   const rodada = sync.estado.clickup
+  // última conferência da saúde do webhook (rodada do cron); null = ativo ou não conferido
+  const saudeWebhook = rodada?.resumo?.webhook && rodada.resumo.webhook.status !== 'active' ? rodada.resumo.webhook : null
   const membros = useMemo(() => [...new Set(sync.fila.map((i) => i.ator_id).filter(Boolean))].map((id) => ({ id, nome: membrosMap.get(id)?.name || 'Alguém' })).sort((a, b) => a.nome.localeCompare(b.nome)), [sync.fila, membrosMap])
   const tarefaAlvo = tarefaFiltro ? sync.tarefas.get(tarefaFiltro) : null
 
@@ -363,7 +374,7 @@ export default function SincronizacaoView({ membrosMap, listasMap, pastasMap, ta
     <div className="p-5 flex flex-col gap-4 max-w-6xl">
       {sync.erro && <p className="text-[13px] text-ln-red">Não consegui carregar: {sync.erro}</p>}
       {sync.logIndisponivel && (
-        <p className="ln-card px-4 py-2.5 text-[12px] text-[#8a6a14] dark:text-ln-yellow inline-flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" />O rastro do que chega do ClickUp ainda não está ligado (migration 120). Os envios daqui aparecem normalmente.</p>
+        <p className="ln-card px-4 py-2.5 text-[12px] text-[#8a6a14] dark:text-ln-yellow inline-flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" />O rastro do que chega do ClickUp ainda não está ligado (migration 121). Os envios daqui aparecem normalmente.</p>
       )}
 
       {/* ── saúde + números ── */}
@@ -379,10 +390,10 @@ export default function SincronizacaoView({ membrosMap, listasMap, pastasMap, ta
           <Tile icone={Send} k="Fila para o ClickUp" v={emAberto.length} tom={emAberto.length && Date.now() - Math.min(...emAberto.map((i) => new Date(i.created_at))) > FILA_ATRASADA_MS ? 'yellow' : undefined}
             sub={emAberto.length ? `mais antiga ${tempoRelativo(emAberto.reduce((m, i) => (i.created_at < m ? i.created_at : m), emAberto[0].created_at))}` : 'vazia'} />
           <Tile icone={AlertTriangle} k="Com erro" v={erros.length} tom={erros.length ? 'red' : undefined} sub={erros.length ? 'não chegaram ao ClickUp' : 'nenhum'} />
-          <Tile icone={Webhook} k="Último evento do ClickUp" v={tempoRelativo(webhook?.ultimo_fim)} tom={webhook?.ultimo_ok === false ? 'yellow' : undefined}
-            sub={webhook?.resumo ? `${webhook.resumo.evento || 'evento'} · ${ACAO_CURTA[webhook.resumo.acao] || webhook.resumo.acao || ''}` : 'webhook'} />
+          <Tile icone={Webhook} k="Último evento do ClickUp" v={tempoRelativo(webhook?.ultimo_fim)} tom={webhook?.ultimo_ok === false || saudeWebhook ? 'yellow' : undefined}
+            sub={saudeWebhook ? (saudeWebhook.reativado ? 'webhook reativado na última rodada' : `webhook ${saudeWebhook.status}`) : webhook?.resumo ? `${webhook.resumo.evento || 'evento'} · ${ACAO_CURTA[webhook.resumo.acao] || webhook.resumo.acao || ''}` : 'webhook'} />
           <Tile icone={RefreshCw} k="Última rodada" v={tempoRelativo(rodada?.ultimo_fim || rodada?.ultimo_inicio)} tom={rodada?.ultimo_ok === false ? 'yellow' : undefined}
-            sub={rodada?.ultimo_ok === false ? 'com erro' : rodada?.resumo ? `${(rodada.resumo.criadas || 0) + (rodada.resumo.atualizadas || 0)} tarefas atualizadas` : ''}
+            sub={rodada?.ultimo_ok === false ? 'com erro' : rodada?.resumo?.incompleto ? 'incompleta: a próxima cobre o resto' : rodada?.resumo ? `${rodada.resumo.por?.nome ? `por ${rodada.resumo.por.nome.split(' ')[0]} · ` : ''}${(rodada.resumo.criadas || 0) + (rodada.resumo.atualizadas || 0)} tarefas atualizadas` : ''}
             acao={<button type="button" onClick={sincronizarAgora} disabled={rodando} className="ln-pill !h-6 mt-1 self-start disabled:opacity-50"><RefreshCw className={`w-3 h-3 ${rodando ? 'animate-spin' : ''}`} />{rodando ? 'Sincronizando…' : 'Sincronizar agora'}</button>} />
         </div>
         <ComoFunciona />
@@ -492,14 +503,14 @@ export default function SincronizacaoView({ membrosMap, listasMap, pastasMap, ta
               </div>
             )
           ) : aba === 'recebidos' ? (
-            sync.logIndisponivel ? <Vazio>Disponível depois da migration 120.</Vazio> : !recebidos.length ? <Vazio>Nada recebido do ClickUp no período.</Vazio> : (
+            sync.logIndisponivel ? <Vazio>Disponível depois da migration 121.</Vazio> : !recebidos.length ? <Vazio>Nada recebido do ClickUp no período.</Vazio> : (
               <div className="flex flex-col gap-2">
                 <p className="text-[12px] text-ln-t4"><b>Gravado</b> = o ClickUp mudou a tarefa aqui (com o antes e o depois). <b>Webhook</b> = evento que chegou e não mudou nada, com o motivo.</p>
                 <PorDia itens={recebidos.slice(0, 500)} render={(l) => <div key={l.id} className="ln-card overflow-hidden"><LinhaLog l={l} ctx={ctx} /></div>} />
               </div>
             )
           ) : (
-            sync.logIndisponivel ? <Vazio>Disponível depois da migration 120.</Vazio> : !rodadas.length ? <Vazio>Nenhuma rodada registrada no período.</Vazio> : (
+            sync.logIndisponivel ? <Vazio>Disponível depois da migration 121.</Vazio> : !rodadas.length ? <Vazio>Nenhuma rodada registrada no período.</Vazio> : (
               <div className="flex flex-col gap-2"><PorDia itens={rodadas} render={(l) => <Rodada key={l.id} l={l} />} /></div>
             )
           )}

@@ -14,10 +14,11 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { processarEventoTarefa } from './_tarefas_webhook_core.js'
-import { SPACES_PADRAO } from './_tarefas_sync_core.js'
+import { SPACES_PADRAO, fazClickup } from './_tarefas_sync_core.js'
 import { registrarSyncLog, linhaWebhook } from './_tarefas_sync_log.js'
 
 export const config = { maxDuration: 30 }
+const PRAZO_MS = 18_000
 
 function envClean(name) {
   return String(process.env[name] || '').replace(/\\n/g, '').trim()
@@ -52,7 +53,9 @@ export async function POST(request) {
   const inicio = new Date().toISOString()
   let r
   try {
-    r = await processarEventoTarefa({ sb, token: TOKEN, evento: ev.event, taskId: ev.task_id, spaces: spaces.length ? spaces : SPACES_PADRAO })
+    // prazo bem abaixo dos 30 s da função: em rajada, esperar o 429 aqui dentro fazia a invocação
+    // morrer por timeout, o que conta como falha e leva o ClickUp a suspender o webhook (plano item 3)
+    r = await processarEventoTarefa({ sb, token: TOKEN, evento: ev.event, taskId: ev.task_id, spaces: spaces.length ? spaces : SPACES_PADRAO, clickup: fazClickup(TOKEN, Date.now() + PRAZO_MS) })
   } catch (e) {
     r = { acao: 'erro', erro: e.message }
   }

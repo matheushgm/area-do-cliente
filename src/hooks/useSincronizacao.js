@@ -1,5 +1,5 @@
 // Dados do painel Sincronização do VertaTask: fila VertaTask → ClickUp (tarefas_outbox), rastro
-// da volta (tarefas_sync_log, migration 120), estado das rodadas e do webhook (tarefas_sync) e,
+// da volta (tarefas_sync_log, migration 121), estado das rodadas e do webhook (tarefas_sync) e,
 // no modo de uma tarefa só, o histórico de edições (tarefas_atividade). Relê a cada 15 s com
 // a aba visível; sem realtime, porque uma edição em massa geraria centenas de eventos.
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -100,7 +100,7 @@ export function useSincronizacao({ dias = 7, tarefaId = null, ecos = false } = {
   const rpc = useCallback(async (nome, args, empurrarDepois = true) => {
     const dev = import.meta.env.DEV ? window.__DEV_SYNC : null
     const { data, error } = dev ? dev.rpc(nome, args) : await supabase.rpc(nome, args)
-    if (error) return { error: /could not find the function/i.test(error.message) ? 'Aplique a migration 120 para usar esta ação.' : error.message }
+    if (error) return { error: /could not find the function/i.test(error.message) ? 'Aplique a migration 121 para usar esta ação.' : error.message }
     carregar()
     if (empurrarDepois) empurrar()
     return { data }

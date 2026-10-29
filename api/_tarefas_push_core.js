@@ -88,11 +88,42 @@ function dataClickUp(iso, comHora) {
   return new Date(`${dia}T04:00:00-03:00`).getTime()
 }
 
-export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, log = () => {} }) {
+// Junta a fila reivindicada por tarefa (docs/plano-sincronizacao-clickup.md, item 1): numa edição
+// em massa cada campo mexido vira um item, e em 28/10/2026 foram 427 itens para 99 tarefas (~900
+// chamadas, 69 min para esvaziar). Os 'atualizar' da mesma tarefa viram UMA unidade com a união
+// dos campos (um PUT, uma leitura de responsáveis), na posição do último deles; 'criar', 'excluir'
+// e 'comentar' seguem um por unidade. 'atualizar' de tarefa que tem 'excluir' na mesma rodada é
+// cancelado (a tarefa vai sumir do ClickUp). O push lê o estado ATUAL da linha, então a união dos
+// campos manda o valor final de cada um. Pura, para testar com Node.
+export function agruparFila(fila) {
+  const ordem = [...(fila || [])].sort((a, b) => a.id - b.id)
+  const excluidas = new Set(ordem.filter((i) => i.operacao === 'excluir' && i.tarefa_id).map((i) => i.tarefa_id))
+  const canceladas = []
+  const grupos = new Map() // tarefa_id → itens 'atualizar'
+  const soltas = []
+  for (const it of ordem) {
+    if (it.operacao === 'atualizar' && it.tarefa_id) {
+      if (excluidas.has(it.tarefa_id)) { canceladas.push(it); continue }
+      if (!grupos.has(it.tarefa_id)) grupos.set(it.tarefa_id, [])
+      grupos.get(it.tarefa_id).push(it)
+    } else soltas.push({ item: it, ids: [it.id], _pos: it.id })
+  }
+  const unidades = [...soltas]
+  for (const itens of grupos.values()) {
+    const ultimo = itens[itens.length - 1]
+    const campos = [...new Set(itens.flatMap((i) => i.campos || []))]
+    const tentativas = Math.max(...itens.map((i) => i.tentativas || 0))
+    unidades.push({ item: { ...ultimo, campos, tentativas }, ids: itens.map((i) => i.id), _pos: ultimo.id })
+  }
+  unidades.sort((a, b) => a._pos - b._pos)
+  return { unidades: unidades.map(({ _pos, ...u }) => u), canceladas }
+}
+
+export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, log = () => {} }) {
   const inicio = Date.now()
   const cu = fazClickup(token, inicio + orcamentoMs)
   const estourou = () => Date.now() - inicio > orcamentoMs
-  const resumo = { processadas: 0, criadas: 0, atualizadas: 0, excluidas: 0, comentadas: 0, erros: 0, devolvidas: 0, copias_absorvidas: 0, pastas_criadas: 0, listas_criadas: 0, avisos: [] }
+  const resumo = { processadas: 0, criadas: 0, atualizadas: 0, excluidas: 0, comentadas: 0, erros: 0, devolvidas: 0, agrupadas: 0, canceladas: 0, copias_absorvidas: 0, pastas_criadas: 0, listas_criadas: 0, avisos: [] }
   // avisos do item em processamento vão também para tarefas_outbox.avisos (painel Sincronização)
   let avisosItem = null
   const aviso = (m) => { if (resumo.avisos.length < 50) resumo.avisos.push(m); if (avisosItem && avisosItem.length < 10) avisosItem.push(m); log('aviso: ' + m) }
@@ -127,17 +158,18 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
     return camposPorLista.get(listId)
   }
   const agora = () => new Date().toISOString()
-  // Sem a coluna avisos (migration 120 ainda não aplicada) grava sem eles: o item nunca
+  // Sem a coluna avisos (migration 121 ainda não aplicada) grava sem eles: o item nunca
   // pode ficar 'processando' por causa do rastro.
-  const marcar = async (id, patch) => {
+  // marca a unidade inteira (os itens juntados da mesma tarefa recebem o mesmo resultado)
+  const marcar = async (ids, patch) => {
     const p = { ...patch, processed_at: agora() }
     if (avisosItem?.length) p.avisos = [...avisosItem]
-    const r = await sb.from('tarefas_outbox').update(p).eq('id', id)
-    if (r.error && p.avisos) { delete p.avisos; return sb.from('tarefas_outbox').update(p).eq('id', id) }
+    const r = await sb.from('tarefas_outbox').update(p).in('id', ids)
+    if (r.error && p.avisos) { delete p.avisos; return sb.from('tarefas_outbox').update(p).in('id', ids) }
     return r
   }
   // devolve o item à fila sem contar tentativa (outra rodada está criando a mesma tarefa)
-  const devolver = (id) => sb.from('tarefas_outbox').update({ status: 'pendente', reivindicado_em: null }).eq('id', id)
+  const devolver = (ids) => sb.from('tarefas_outbox').update({ status: 'pendente', reivindicado_em: null }).in('id', [].concat(ids))
   // O webhook taskCreated pode chegar antes de o vínculo ser gravado na linha original e
   // inserir uma cópia com o mesmo clickup_task_id; a gravação então bate na unique. A cópia
   // é absorvida (filhos e comentários passam para a original) e apagada, e a gravação é
@@ -266,13 +298,22 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
     }
   }
 
-  for (const [idx, item] of fila.entries()) {
+  const { unidades, canceladas } = agruparFila(fila)
+  resumo.agrupadas = fila.length - canceladas.length - unidades.length
+  if (canceladas.length) {
+    await sb.from('tarefas_outbox').update({ status: 'cancelado', erro: 'tarefa excluída na mesma rodada', processed_at: agora() }).in('id', canceladas.map((i) => i.id))
+    resumo.canceladas = canceladas.length
+  }
+  const devolverDesde = (idx) => (reivindicada ? devolver(unidades.slice(idx).flatMap((u) => u.ids)) : null) // sem esperar o ttl
+
+  for (const [idx, u] of unidades.entries()) {
+    const item = u.item
     if (estourou()) {
       aviso('tempo esgotado; o resto fica para a próxima chamada')
-      if (reivindicada) await Promise.all(fila.slice(idx).map((i) => devolver(i.id))) // sem esperar o ttl
+      await devolverDesde(idx)
       break
     }
-    resumo.processadas++
+    resumo.processadas += u.ids.length
     avisosItem = []
     try {
       if (item.operacao === 'excluir') {
@@ -296,10 +337,10 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
         if (!l) throw new Error('lista não encontrada')
         await garantirLista(l)
         if (item.operacao === 'criar' || !row.clickup_task_id) {
-          if (row.clickup_task_id) { await marcar(item.id, { status: 'ok' }); continue } // já criada por outro item da fila
+          if (row.clickup_task_id) { await marcar(u.ids, { status: 'ok' }); continue } // já criada por outro item da fila
           // outra rodada está criando esta tarefa agora: este item espera a próxima rodada
           const { data: emCurso } = await sb.from('tarefas_outbox').select('id').eq('tarefa_id', row.id).eq('operacao', 'criar').eq('status', 'processando').neq('id', item.id).limit(1)
-          if (emCurso?.length) { await devolver(item.id); resumo.devolvidas++; continue }
+          if (emCurso?.length) { await devolver(u.ids); resumo.devolvidas++; continue }
           // tentativa anterior criou no ClickUp mas falhou antes de gravar o vínculo: reaproveita
           let task = item.clickup_task_id ? await cu('GET', `/task/${item.clickup_task_id}`).catch(ignora(null)) : null
           if (task) {
@@ -368,24 +409,26 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
             const atual = await cu('GET', `/task/${row.clickup_task_id}`)
             await sincronizarChecklists(row.clickup_task_id, row.checklists, atual.checklists, row.clickup_sync_at)
           }
-          const final = await cu('GET', `/task/${row.clickup_task_id}`).catch(ignora(task))
+          // o PUT já devolve a tarefa com date_updated: só relê quando algo foi por outra chamada
+          const reler = !task || quais.has('tags') || cfs.size > 0 || quais.has('checklists')
+          const final = reler ? await cu('GET', `/task/${row.clickup_task_id}`).catch(ignora(task)) : task
           if (final) await gravarEspelho(row.id, final, quais.has('checklists') ? { checklists: mapChecklists(final.checklists) } : {})
           resumo.atualizadas++
         }
       }
-      await marcar(item.id, { status: 'ok', erro: null })
+      await marcar(u.ids, { status: 'ok', erro: null })
     } catch (e) {
       if (e.semTempo) {
         // não é erro do item: ele e o resto voltam à fila, sem contar tentativa
         aviso(`tempo esgotado (${e.message}); o resto fica para a próxima chamada`)
-        if (reivindicada) await Promise.all(fila.slice(idx).map((i) => devolver(i.id)))
-        resumo.processadas--
+        await devolverDesde(idx)
+        resumo.processadas -= u.ids.length
         break
       }
       resumo.erros++
       const tentativas = (item.tentativas || 0) + 1
       const desiste = tentativas >= MAX_TENTATIVAS || e.status === 404 || e.status === 400
-      await marcar(item.id, { status: desiste ? 'erro' : 'pendente', tentativas, erro: e.message, ...(desiste ? {} : { processed_at: null }), ...(reivindicada ? { reivindicado_em: null } : {}) })
+      await marcar(u.ids, { status: desiste ? 'erro' : 'pendente', tentativas, erro: e.message, ...(desiste ? {} : { processed_at: null }), ...(reivindicada ? { reivindicado_em: null } : {}) })
       aviso(`${item.operacao} ${item.tarefa_id || item.comentario_id}: ${e.message}${desiste ? ' (desisti)' : ''}`)
     }
   }
@@ -394,6 +437,6 @@ export async function empurrar({ sb, token, limite = 40, orcamentoMs = 45_000, l
   // chamou continua enquanto houver, em vez de esperar a próxima escrita ou o cron
   const { count } = await sb.from('tarefas_outbox').select('id', { count: 'exact', head: true }).eq('status', 'pendente')
   resumo.restantes = count ?? 0
-  log(`push: ${resumo.criadas} criadas, ${resumo.atualizadas} atualizadas, ${resumo.excluidas} excluídas, ${resumo.comentadas} comentários, ${resumo.erros} erros, ${resumo.devolvidas} devolvidas, ${resumo.copias_absorvidas} cópias absorvidas`)
+  log(`push: ${resumo.agrupadas} itens juntados, ${resumo.criadas} criadas, ${resumo.atualizadas} atualizadas, ${resumo.excluidas} excluídas, ${resumo.comentadas} comentários, ${resumo.erros} erros, ${resumo.devolvidas} devolvidas, ${resumo.copias_absorvidas} cópias absorvidas`)
   return resumo
 }

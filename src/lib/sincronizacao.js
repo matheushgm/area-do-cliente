@@ -1,7 +1,7 @@
 // Regras puras do painel Sincronização do VertaTask (/tarefas?aba=sincronizacao): agrupa a
 // fila VertaTask → ClickUp (tarefas_outbox) em "lotes" (uma ação em massa ou um template
 // viram um lote só), traduz erros e avisos para quem não conhece a sincronização e
-// descreve o rastro da volta (tarefas_sync_log, migration 120). Sem React nem Supabase.
+// descreve o rastro da volta (tarefas_sync_log, migration 121). Sem React nem Supabase.
 
 export const CAMPOS = {
   titulo: 'Título', descricao: 'Descrição', status: 'Status', prioridade: 'Prioridade',
@@ -105,6 +105,7 @@ export function fmtDuracao(ms) {
 
 // Erros que o ClickUp / o push devolvem, em português e com o que fazer.
 const ERROS = [
+  [/tarefa excluída na mesma rodada/i, 'Não foi enviada: a tarefa foi excluída logo depois, então só a exclusão foi para o ClickUp.'],
   [/start date cannot be after due date/i, 'O ClickUp recusou: a data de início ficou depois do vencimento. Corrija as datas da tarefa e tente de novo.'],
   [/due date cannot be before start date/i, 'O ClickUp recusou: o vencimento ficou antes da data de início. Corrija as datas da tarefa e tente de novo.'],
   [/OAUTH_0\d\d|not authorized|team not authorized|unauthorized/i, 'O token do ClickUp não tem permissão para esta tarefa ou lista. Peça a um admin para conferir o acesso.'],
@@ -174,6 +175,8 @@ export function saudeGeral({ fila = [], erros = 0, webhook = null, rodada = null
   if (erros > 0) return { tom: 'red', titulo: `${erros} ${erros === 1 ? 'alteração não chegou' : 'alterações não chegaram'} ao ClickUp`, texto: 'Veja em Problemas o motivo de cada uma e tente de novo ou ignore.' }
   if (emAberto.length && agora - maisAntigo > FILA_ATRASADA_MS) return { tom: 'yellow', titulo: `Fila atrasada: ${emAberto.length} ${emAberto.length === 1 ? 'alteração esperando' : 'alterações esperando'} há ${fmtDuracao(agora - maisAntigo)}`, texto: 'O ClickUp limita as requisições; muitas alterações de uma vez levam alguns minutos. Enquanto isso, o ClickUp mostra a versão antiga.' }
   if (emAberto.length) return { tom: 'accent', titulo: `Enviando ${emAberto.length} ${emAberto.length === 1 ? 'alteração' : 'alterações'} ao ClickUp`, texto: 'Assim que terminar, o ClickUp fica igual ao VertaTask.' }
+  const wh = rodada?.resumo?.webhook
+  if (wh && wh.status !== 'active' && !wh.ok) return { tom: 'yellow', titulo: 'O webhook do ClickUp não está ativo', texto: `${wh.aviso || ''} Enquanto isso, as mudanças feitas no ClickUp só chegam pelas rodadas.`.trim() }
   if (rodada && rodada.ultimo_ok === false) return { tom: 'yellow', titulo: 'A última rodada de sincronização falhou', texto: rodada.resumo?.erro || 'Rode de novo pelo botão "Sincronizar agora".' }
   const ultimaNoticia = Math.max(t(webhook?.ultimo_fim) || 0, t(rodada?.ultimo_fim) || 0)
   if (ultimaNoticia && agora - ultimaNoticia > 26 * 3600_000) return { tom: 'yellow', titulo: 'Sem notícias do ClickUp há mais de um dia', texto: 'O webhook pode estar suspenso. Rode "Sincronizar agora" e, se continuar, peça a um admin para conferir o webhook.' }

@@ -1,6 +1,6 @@
-// Rastro da volta ClickUp → VertaTask (tabela tarefas_sync_log, migration 120), lido pelo
+// Rastro da volta ClickUp → VertaTask (tabela tarefas_sync_log, migration 121), lido pelo
 // painel Sincronização do VertaTask. O que virou escrita na tarefa o trigger da própria
-// tabela registra (origem 'clickup', com o antes e o depois); aqui entram o que NÃO virou
+// tabela registra (origem `clickup`, com o antes e o depois); aqui entram o que NÃO virou
 // escrita (evento do webhook ignorado, eco, conflito, erro) e o resumo de cada rodada.
 // Nunca derruba quem chama: sem a tabela (migration não aplicada) só devolve o erro.
 

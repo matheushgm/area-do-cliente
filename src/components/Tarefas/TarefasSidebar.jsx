@@ -2,6 +2,7 @@
 // visual do Linear (mesma coluna de navegação densa do app).
 import { useState, useMemo, useRef, Fragment } from 'react'
 import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, LayoutTemplate, ListChecks, MessageSquare, CalendarCheck, FileText, BarChart3, ArrowLeftRight } from 'lucide-react'
+import { CHAT_OFFLINE } from '../../lib/chat'
 import { Popover, FOCO } from './Campos'
 
 function MenuPasta({ onRenomear, onNovaLista, onArquivar }) {
@@ -46,11 +47,12 @@ function corDaPasta(nome = '') {
   return CORES_PASTA[h % CORES_PASTA.length]
 }
 
-function NavItem({ icon: Icon, ativo, onClick, children, badge }) {
+function NavItem({ icon: Icon, ativo, onClick, children, badge, selo }) {
   return (
     <button type="button" onClick={onClick} className={`w-full flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[14px] font-medium text-left transition-colors duration-150 ${ativo ? 'bg-ln-accent/10 text-ln-accent' : 'text-ln-t2 hover:bg-ln-ink/[0.04]'} ${FOCO}`}>
       <Icon className="w-[18px] h-[18px] shrink-0" />
       <span className="truncate">{children}</span>
+      {selo}
       {badge > 0 && <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-ln-brand text-white text-[11.5px] font-bold inline-flex items-center justify-center tabular">{badge}</span>}
     </button>
   )
@@ -191,7 +193,9 @@ export default function TarefasSidebar({
         <NavItem icon={BarChart3} ativo={nav.aba === 'analytics'} onClick={() => { nav.onAba('analytics'); onFechar?.() }}>Analytics</NavItem>
         <NavItem icon={ArrowLeftRight} ativo={nav.aba === 'sincronizacao'} onClick={() => { nav.onAba('sincronizacao'); onFechar?.() }} badge={nav.syncErros}>Sincronização</NavItem>
         <NavItem icon={CalendarCheck} ativo={nav.aba === 'atividades'} onClick={() => { nav.onAba('atividades'); onFechar?.() }}>Atividades</NavItem>
-        <NavItem icon={MessageSquare} ativo={nav.aba === 'chat'} onClick={() => { nav.onAba('chat'); onFechar?.() }} badge={nav.chat}>Chat</NavItem>
+        <NavItem icon={MessageSquare} ativo={nav.aba === 'chat'} onClick={() => { nav.onAba('chat'); onFechar?.() }} badge={nav.chat}
+          selo={CHAT_OFFLINE ? <span className="ln-pill !h-5 !px-1.5 text-[10px] uppercase tracking-wide" title="Sem sincronização com o ClickUp. As mensagens ficam só aqui.">offline</span> : null}
+        >Chat</NavItem>
 
         <div className={`${SECAO} flex items-center justify-between !pr-1`}>
           Clientes

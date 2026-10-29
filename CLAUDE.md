@@ -743,7 +743,7 @@ todo `authenticated`; as quatro estão na publicação realtime).
 - **Sincronização ClickUp → VertaTask** (reescrita em 2026-10-18 para o espelho ficar fiel).
   A lógica mora em `api/_tarefas_sync_core.js` (`sincronizar()`), usada por dois chamadores:
   `api/tarefas-sync.js` (Node, 60s: cron diário `0 9 * * *`, botão "ClickUp há X min" em
-  /tarefas e automático ao abrir a página se +30 min) e `scripts/sincronizar_clickup.mjs`
+  /tarefas e automático ao abrir a página; ver "Plano de 29/10" abaixo) e `scripts/sincronizar_clickup.mjs`
   (local, sem limite de tempo; `--completo` passa por TODAS as tarefas, `--reconciliar`
   confere o que sumiu do ClickUp, `--since=ISO`, `--sem-comentarios`, `--espacos=id,id`).
   Mão única: nunca escreve no ClickUp (a volta é a outbox, abaixo). O mapeamento ClickUp→linha vive em
@@ -1056,6 +1056,32 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     `tarefas-push`); o erro `semTempo` devolve o item e o resto à fila sem contar tentativa (`.catch`
     que engole erro do ClickUp usa `ignora()`, que deixa o `semTempo` passar). Falha da chamada no
     front tenta de novo em 15, 30… 75 s (5 vezes).
+- **Plano de 29/10 (`docs/plano-sincronizacao-clickup.md`, para não estourar as 100 chamadas/min do token):**
+  - **Push agrupado por tarefa (item 1):** `agruparFila()` em `api/_tarefas_push_core.js` (pura) junta os
+    `atualizar` reivindicados da mesma tarefa numa unidade (união dos `campos`, um PUT, uma leitura de
+    responsáveis, na posição do último item); `criar`/`excluir`/`comentar` seguem sozinhos e `atualizar` de
+    tarefa com `excluir` na mesma rodada vira `cancelado` (erro "tarefa excluída na mesma rodada"). Todos os
+    itens da unidade recebem o mesmo resultado (`marcar(ids)`). O GET depois do PUT só acontece com tags,
+    campos personalizados ou checklist (o PUT já devolve `date_updated`). A reivindicação pega até 120
+    itens (era 40) para juntar mais. A fila real de 28/10 (382 itens) cairia de ~906 chamadas para ~376
+    só pelo agrupamento. `resumo.agrupadas`/`canceladas` no retorno.
+  - **Rodada com prazo (item 2):** o `fazClickup(token, prazo)` de `api/_tarefas_sync_core.js` tem o mesmo
+    `semTempo` do push (exportado; `ignora()` local nos `.catch`); o pull ganha no máximo 40 s depois dos
+    15 s do push. `ultimo_inicio` **só é gravado no fim**, e só se `resumo.incompleto` for falso
+    (paginação cortada por tempo ou por `maxPaginas`): senão fica o anterior e a próxima rodada cobre o
+    mesmo intervalo. O script local segue a mesma regra.
+  - **Saúde do webhook (item 3):** a rodada do cron chama `conferirWebhook()`
+    (`api/_tarefas_webhook_saude.js`: `GET /team/{team}/webhook`, acha por `CLICKUP_WEBHOOK_ID` ou pelo
+    endpoint, e se não estiver `active` reativa com `PUT /webhook/{id}`); resultado em
+    `tarefas_sync.resumo.webhook` + aviso, exibido no botão "ClickUp há X min" (ícone amarelo) e na faixa
+    do painel. Aos domingos (São Paulo) a rodada do cron também reconcilia. O webhook usa
+    `fazClickup(TOKEN, agora + 18 s)` (a função tem 30 s; morrer por timeout contava como falha).
+  - **Rodada leve (item 4):** botão e abertura da página rodam sem comentários, anexos e arquivados (o
+    cron e `--completo` trazem). A abertura só dispara se o webhook está calado há +30 min (e a última
+    rodada tem +30 min) ou se a última rodada tem +3 h (`useSyncClickup` em `Tarefas.jsx`, que agora lê as
+    linhas `clickup` e `clickup_webhook`). O rótulo usa `ultimo_fim`. Quem disparou vai em `resumo.por`.
+  - **Não feito:** webhook em duas fases (item 5, só se o resto não bastar) e o conflito silencioso do item 7
+    (registrado no plano).
 - **Anexos (2026-10-18):** `src/lib/anexos.js` (tipo, tamanho, URL assinada) e
   `src/components/UI/AnexoPreview.jsx` (pré-visualização em tela cheia: imagem, vídeo, áudio, PDF em
   iframe, texto; o resto cartão com Baixar; ← → navegam, Esc fecha). No **chat**, o Composer tem o
@@ -1067,6 +1093,12 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   `GET /task/{id}` das abertas que mudaram (`maxAnexos`, 40 por rodada no endpoint) e o script
   aceita `--anexos=N` / `--anexos-de-todas`. A policy antiga do bucket `task-attachments` olhava a
   tabela legada `tasks`; a 102 liberou a pasta `<id da tarefa em tarefas_itens>` para o time.
+- **Chat ↔ ClickUp Chat: DESLIGADO desde 2026-10-29** (plano, item 6; era o único consumo da API que nunca
+  parava). O chat interno segue entre as pessoas; o `useChat` não chama mais `/api/chat-sync`, que responde
+  503 (`CHAT_SYNC_DESLIGADO`), a rodada diária não roda o chat e a migration 122 desliga (`disable trigger`)
+  os triggers de `chat_outbox` e cancela o que estava na fila. Tarja "offline" no item Chat da coluna e no
+  topo da conversa (`CHAT_OFFLINE` em `src/lib/chat.js`). Para religar: o inverso de cada passo (o
+  comentário em `src/lib/chat.js` lista). O que vem abaixo descreve como funcionava.
 - **Chat ↔ ClickUp Chat (2026-10-18, migration 102):** `api/_chat_sync_core.js` com `puxar()`
   (canais novos/atualizados + vínculo com o cliente, membros dos canais novos, mensagens dos canais
   com `latest_comment_at` desde `desde`, respostas das threads cuja contagem mudou; idempotente por
@@ -1087,12 +1119,12 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   `profileId`. As escritas (`criar`, `estimar`, `tipar`) continuam no ClickUp e são refletidas no
   espelho na hora por `espelharTarefaClickUp` (mapTarefa + `clickup_sync_at`/`updated_at` = agora).
   Conferido em 2026-10-18: 8 pessoas em ~7 s (antes "lendo o ClickUp 3 de 8" com rate limit).
-- **Painel Sincronização (`?aba=sincronizacao`, 2026-10-28, migration 120):** auditoria da ida e da volta com o
+- **Painel Sincronização (`?aba=sincronizacao`, 2026-10-28, migration 121):** auditoria da ida e da volta com o
   ClickUp, nascida dos incidentes de 23/10 (template + edição em massa duplicando) e 28/10 (193 alterações que levaram
   34 min para chegar). Item "Sincronização" na coluna do VertaTask, com contador de itens da fila em erro.
   - **Ida:** `tarefas_outbox` agrupada em **lotes** (`agruparLotes` em `src/lib/sincronizacao.js`: mesma pessoa,
     escritas a até 30 s uma da outra = um template ou uma edição em massa), com progresso, quanto o lote levou para
-    chegar inteiro e cada item com campos, situação, erro traduzido (`traduzirErro`) e avisos do push. A 120 deu à fila
+    chegar inteiro e cada item com campos, situação, erro traduzido (`traduzirErro`) e avisos do push. A 121 deu à fila
     `ator_id` (gravado pelo trigger), `avisos` (o push guarda o que avisou sobre o item; sem a coluna grava sem eles) e
     `resolvido_por`/`resolvido_em`. Ações: "Tentar de novo" (`tarefas_outbox_reenviar`), "Ignorar"
     (`tarefas_outbox_ignorar`, vira `cancelado` com `resolvido_por`) e, no histórico da tarefa, "Forçar envio ao
@@ -1102,10 +1134,12 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     para } }` (descrição e checklists só como "mudou"); origem `webhook` = evento que não virou escrita (`ignorado`
     com o motivo, `sem_mudanca` = eco, `pulada_conflito`, `erro`), gravado por `api/clickup-webhook.js` via
     `api/_tarefas_sync_log.js`; origem `rodada` = resumo de cada `/api/tarefas-sync` e as tarefas puladas por conflito
-    ou sem pai (`sincronizar({ eventos })`). A rodada apaga o que passa de 30 dias (`tarefas_sync_log_limpar`).
+    ou sem pai (`sincronizar({ eventos })`), com quem disparou (`detalhe.por`), rodada incompleta, webhook
+    reativado e reconciliação; o script local também grava a rodada dele. A rodada apaga o que passa de 30
+    dias (`tarefas_sync_log_limpar`).
   - **Histórico de uma tarefa** (`&sync_tarefa=<id>`, também pelo menu ⋯ do painel da tarefa): edições de pessoa
     (`tarefas_atividade`), envios e recebidos numa linha do tempo só.
-  - Dados por `useSincronizacao` (relê a cada 15 s com a aba visível, sem realtime). Sem a 120 o painel mostra os
+  - Dados por `useSincronizacao` (relê a cada 15 s com a aba visível, sem realtime). Sem a 121 o painel mostra os
     envios e avisa que o rastro da volta não está ligado. Preview sem login: `/dev/sincronizacao` (só em DEV, dados em
     memória no formato dos incidentes; o hook lê `window.__DEV_SYNC`).
 - **Ainda não feito:** ligar a Central de Otimizações e o playbook ao Intake, e a decisão sobre desligar o ClickUp.
@@ -1153,8 +1187,8 @@ com Enter; `@` abre a lista de menções (formato salvo: `@Nome_Sobrenome`).
   `[@Nome](#user_mention#id)` em `@Nome_Do_Perfil` + `mentioned_user_ids`, e links
   `app.clickup.com/t/<id>` em `/tarefas?tarefa=<uuid>` quando a tarefa existe; DMs só
   quando os dois têm perfil e há mensagem). Feito em 2026-09-15 com os últimos 7 dias:
-  98 canais/DMs, 834 mensagens + 218 respostas. Não há sincronização contínua do chat
-  (só a importação manual).
+  98 canais/DMs, 834 mensagens + 218 respostas. A sincronização contínua com o ClickUp Chat
+  existiu de 18/10 a 29/10/2026 e está desligada (ver "Chat ↔ ClickUp Chat" em Tarefas).
 
 ### Otimizações (`/otimizacoes`): sugestões do playbook de todos os clientes
 

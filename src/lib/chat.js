@@ -90,3 +90,9 @@ export function prepararMarkdown(texto, membros) {
     return `${antes}[@${m.name}](mention:${m.id})${sufixo}`
   })
 }
+
+// Sincronização Chat ↔ ClickUp Chat desligada em 2026-10-29 (docs/plano-sincronizacao-clickup.md,
+// item 6). Para religar: voltar o pull/push em useChat, a chamada em api/tarefas-sync.js, o
+// handler de api/chat-sync.js e os triggers de chat_outbox (migration 122), e pôr false aqui.
+export const CHAT_OFFLINE = true
+export const CHAT_OFFLINE_TEXTO = 'Chat offline: este chat não sincroniza mais com o ClickUp. O que você escrever aqui fica só no VertaTask.'

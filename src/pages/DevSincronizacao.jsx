@@ -32,6 +32,8 @@ function montar() {
   // hoje: 2 vencimentos recusados pelo ClickUp
   add({ operacao: 'atualizar', ator_id: P3, tarefa_id: 't6', campos: ['data_vencimento'], status: 'erro', tentativas: 1, erro: 'Start date cannot be after due date on task cu6. Enable the Duration ClickApp to allow automatic date adjustment.', created_at: iso(5 * 3600_000), processed_at: iso(5 * 3600_000 - 3000) })
   add({ operacao: 'atualizar', ator_id: P3, tarefa_id: 't7', campos: ['data_vencimento'], status: 'erro', tentativas: 1, erro: 'Start date cannot be after due date on task cu7. Enable the Duration ClickApp to allow automatic date adjustment.', created_at: iso(5 * 3600_000 - 20_000), processed_at: iso(5 * 3600_000 - 23_000) })
+  add({ operacao: 'atualizar', ator_id: P2, tarefa_id: 't13', campos: ['titulo'], status: 'cancelado', erro: 'tarefa excluída na mesma rodada', created_at: iso(3 * 3600_000 + 40_000), processed_at: iso(3 * 3600_000 + 30_000) })
+  add({ operacao: 'excluir', ator_id: P2, tarefa_id: 't13', created_at: iso(3 * 3600_000 + 30_000), processed_at: iso(3 * 3600_000 + 28_000) })
   add({ operacao: 'criar', ator_id: P2, tarefa_id: 't14', created_at: iso(3 * 3600_000), processed_at: iso(3 * 3600_000 - 4000), avisos: ['tarefa Gravar vídeo de depoimento: o ClickUp não deixou atribuir o responsável por este token'] })
   // agora: lote em andamento (40 alterações, 12 já enviadas)
   for (let i = 0; i < 40; i++) add({ operacao: 'atualizar', ator_id: P2, tarefa_id: `t${8 + (i % 8)}`, campos: ['status'], status: i < 12 ? 'ok' : i < 15 ? 'processando' : 'pendente', created_at: iso(4 * 60_000 - i * 200), processed_at: i < 12 ? iso(2 * 60_000) : null })
@@ -46,8 +48,10 @@ function montar() {
   addL({ origem: 'webhook', evento: 'taskUpdated', acao: 'sem_mudanca', tarefa_id: 't8', clickup_task_id: 'cu8', created_at: iso(2 * 60_000) })
   addL({ origem: 'webhook', evento: 'taskUpdated', acao: 'pulada_conflito', tarefa_id: 't2', clickup_task_id: 'cu2', created_at: iso(6 * 3600_000) })
   addL({ origem: 'clickup', acao: 'removida', tarefa_id: 't4', campos: ['arquivada'], detalhe: { arquivada: { de: false, para: true } }, created_at: iso(ontem + 3600_000) })
-  addL({ origem: 'rodada', evento: 'rodada', acao: 'resumo', created_at: iso(30 * 60_000), detalhe: { via: 'user', duracao_s: 9.7, tarefas_recebidas: 12, criadas: 1, atualizadas: 9, puladas_conflito: 1, avisos: [], push: { criadas: 0, atualizadas: 3, excluidas: 0, erros: 0, avisos: [] } } })
-  addL({ origem: 'rodada', evento: 'rodada', acao: 'resumo', created_at: iso(20 * 3600_000), detalhe: { via: 'cron', duracao_s: 41.2, tarefas_recebidas: 220, criadas: 4, atualizadas: 180, avisos: ['tempo esgotado nos comentários; o resto vem na próxima rodada'] } })
+  addL({ origem: 'rodada', evento: 'rodada', acao: 'resumo', created_at: iso(30 * 60_000), detalhe: { via: 'user', por: { id: P1, nome: 'Ana Account' }, duracao_s: 9.7, tarefas_recebidas: 12, criadas: 1, atualizadas: 9, puladas_conflito: 1, avisos: [], push: { criadas: 0, atualizadas: 3, excluidas: 0, agrupadas: 9, erros: 0, avisos: [] } } })
+  addL({ origem: 'rodada', evento: 'rodada', acao: 'resumo', created_at: iso(4 * 3600_000), detalhe: { via: 'user', por: { id: P3, nome: 'Carla Tráfego' }, duracao_s: 40.3, tarefas_recebidas: 900, atualizadas: 120, incompleto: true, avisos: ['tempo esgotado ao paginar; a próxima rodada cobre o mesmo intervalo'] } })
+  addL({ origem: 'rodada', evento: 'rodada', acao: 'resumo', created_at: iso(20 * 3600_000), detalhe: { via: 'cron', duracao_s: 41.2, tarefas_recebidas: 220, criadas: 4, atualizadas: 180, reconciliar: true, webhook: { ok: true, status: 'suspended', falhas: 37, reativado: true, aviso: 'O webhook do ClickUp estava "suspended" (37 falhas) e foi reativado.' }, avisos: ['O webhook do ClickUp estava "suspended" (37 falhas) e foi reativado.', 'tempo esgotado nos comentários; o resto vem na próxima rodada'] } })
+  addL({ origem: 'rodada', evento: 'rodada', acao: 'resumo', created_at: iso(2 * 86400_000), detalhe: { via: 'script', duracao_s: 812.4, tarefas_recebidas: 11980, atualizadas: 41, completo: true, avisos: [] } })
   addL({ origem: 'rodada', evento: 'rodada', acao: 'erro', motivo: 'upsert tarefas (nível 1): insert or update on table "tarefas_itens" violates foreign key constraint', created_at: iso(3 * 86400_000), detalhe: { via: 'cron' } })
   log.sort((a, b) => b.id - a.id)
 
@@ -56,7 +60,7 @@ function montar() {
     { id: 'a2', tarefa_id: 't6', ator_nome: 'Ana Account', campo: 'status', valor_novo: 'em andamento', created_at: iso(ontem - 600_000) },
   ]
   const estado = {
-    clickup: { id: 'clickup', ultimo_inicio: iso(30 * 60_000 + 10_000), ultimo_fim: iso(30 * 60_000), ultimo_ok: true, resumo: { criadas: 1, atualizadas: 9 } },
+    clickup: { id: 'clickup', ultimo_inicio: iso(30 * 60_000 + 10_000), ultimo_fim: iso(30 * 60_000), ultimo_ok: true, resumo: { via: 'user', por: { id: P1, nome: 'Ana Account' }, criadas: 1, atualizadas: 9 } },
     clickup_webhook: { id: 'clickup_webhook', ultimo_fim: iso(2 * 60_000), ultimo_ok: true, resumo: { evento: 'taskUpdated', acao: 'sem_mudanca' } },
   }
   return { fila, log, atividade, estado, tarefas }

@@ -18,6 +18,7 @@ import { uploadFile } from '../../lib/supabase'
 import ThreadPanel from './ThreadPanel'
 import ChatAvatar, { AvatarStack } from './ChatAvatar'
 import { NovoCanalDialog, NovaDMDialog } from './NovoDialogs'
+import { CHAT_OFFLINE, CHAT_OFFLINE_TEXTO } from '../../lib/chat'
 import { Hash, Lock, Star, Menu, PanelLeft, Loader2, MessageSquare, ArrowLeft, Users, LogIn } from 'lucide-react'
 
 // `?aba=chat` mantém o VertaTask na seção Chat quando a URL do canal muda.
@@ -164,6 +165,9 @@ export default function ChatModulo({ onAbrirMenu }) {
 
         {/* Conversa */}
         <section className={`${listaAberta ? 'hidden' : 'flex'} md:flex flex-1 min-w-0 flex-col min-h-0 ${threadAberta && threadExpandida ? 'md:hidden' : ''}`}>
+          {CHAT_OFFLINE && (
+            <p role="status" className="shrink-0 px-3 py-1.5 text-[12px] leading-snug bg-ln-yellow/10 text-[#8a6a14] dark:text-ln-yellow border-b border-ln-yellow/20">{CHAT_OFFLINE_TEXTO}</p>
+          )}
           {!canalAtivo ? (
             <div className="flex-1 flex items-center justify-center text-ln-t4">
               {chat.carregando ? <Loader2 className="w-4 h-4 animate-spin" /> : (
