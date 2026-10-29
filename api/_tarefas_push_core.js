@@ -299,7 +299,6 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
   }
 
   const { unidades, canceladas } = agruparFila(fila)
-  resumo.agrupadas = fila.length - canceladas.length - unidades.length
   if (canceladas.length) {
     await sb.from('tarefas_outbox').update({ status: 'cancelado', erro: 'tarefa excluída na mesma rodada', processed_at: agora() }).in('id', canceladas.map((i) => i.id))
     resumo.canceladas = canceladas.length
@@ -314,6 +313,7 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
       break
     }
     resumo.processadas += u.ids.length
+    resumo.agrupadas += u.ids.length - 1 // itens que foram juntos com outro (só do que foi processado)
     avisosItem = []
     try {
       if (item.operacao === 'excluir') {
@@ -423,6 +423,7 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
         aviso(`tempo esgotado (${e.message}); o resto fica para a próxima chamada`)
         await devolverDesde(idx)
         resumo.processadas -= u.ids.length
+        resumo.agrupadas -= u.ids.length - 1
         break
       }
       resumo.erros++
