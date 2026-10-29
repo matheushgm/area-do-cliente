@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   Megaphone, Plus, Pencil, Trash2, ExternalLink, Video, Image as ImageIcon, Layers,
   Filter, X, Clock, Play, CheckCircle2, Paperclip, FlaskConical, Link2, Send, Palette,
-  FileText, CalendarDays,
+  FileText, CalendarDays, ChevronDown,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
@@ -10,6 +10,9 @@ import { deleteFile } from '../../lib/supabase'
 import Toast from '../UI/Toast'
 import DebriefingAdModal, { TIPOS_ANUNCIO, flattenCampaigns } from './DebriefingAdModal'
 import CreativeTestModal from './CreativeTestModal'
+import GrupoAnunciosModal from './GrupoAnunciosModal'
+import AnexoPreview from '../UI/AnexoPreview'
+import { arquivosDoAd, resumoArquivos, FORMATOS } from './arquivosCriativo'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
 import {
   STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, APROVACAO_BY_ID,
@@ -36,6 +39,9 @@ export default function DebriefingModule({ project }) {
   const persisted = project.debriefing || EMPTY
   const [editingAd, setEditingAd] = useState(null) // ad obj | {} | null
   const [showTest, setShowTest] = useState(false)  // modal "Subir teste no Meta"
+  const [showGrupo, setShowGrupo] = useState(false) // modal "Grupo de anúncios"
+  const [menuNovo, setMenuNovo] = useState(false)   // dropdown do "Novo anúncio"
+  const [verArquivos, setVerArquivos] = useState(null) // { anexos, indice } na pré-visualização
   const [filterTipo,    setFilterTipo]    = useState('')
   const [filterFunil,   setFilterFunil]   = useState('')
   const [filterStatus,  setFilterStatus]  = useState('')
@@ -94,12 +100,20 @@ export default function DebriefingModule({ project }) {
     showToast(exists ? 'Anúncio atualizado!' : 'Anúncio cadastrado!')
   }
 
+  // Grupo de anúncios: entram todos de uma vez, já com os arquivos no Storage.
+  function handleSaveGrupo(novos, grupo) {
+    persist({ ...persisted, ads: [...(persisted.ads || []), ...novos] })
+    setShowGrupo(false)
+    setEtapa('design')
+    showToast(`${novos.length} ${novos.length === 1 ? 'anúncio criado' : 'anúncios criados'} em "${grupo.nome}"`)
+  }
+
   function handleDelete(id) {
     if (!window.confirm('Excluir esse anúncio da central?')) return
     const target = (persisted.ads || []).find((x) => x.id === id)
-    // Remove o anexo do Storage (best-effort) pra não deixar lixo
-    if (target?.attachmentPath) {
-      deleteFile(ATTACHMENT_BUCKET, target.attachmentPath).catch(() => {})
+    // Remove os arquivos do Storage (best-effort) pra não deixar lixo
+    for (const arq of arquivosDoAd(target)) {
+      deleteFile(ATTACHMENT_BUCKET, arq.path).catch(() => {})
     }
     const next = (persisted.ads || []).filter((x) => x.id !== id)
     persist({ ...persisted, ads: next })
@@ -279,12 +293,34 @@ export default function DebriefingModule({ project }) {
           >
             <FlaskConical className="w-4 h-4" /> Subir teste no Meta
           </button>
-          <button
-            onClick={() => setEditingAd({})}
-            className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
-          >
-            <Plus className="w-4 h-4" /> Novo anúncio
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setMenuNovo((v) => !v)}
+              className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
+            >
+              <Plus className="w-4 h-4" /> Novo anúncio
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${menuNovo ? 'rotate-180' : ''}`} />
+            </button>
+            {menuNovo && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setMenuNovo(false)} />
+                <div className="absolute right-0 z-20 mt-1 w-72 rounded-xl border border-rl-border bg-rl-surface shadow-2xl p-1">
+                  <MenuItem
+                    Icon={Plus}
+                    titulo="Anúncio único"
+                    texto="Um criativo, com link do Drive ou arquivo."
+                    onClick={() => { setMenuNovo(false); setEditingAd({}) }}
+                  />
+                  <MenuItem
+                    Icon={Layers}
+                    titulo="Grupo de anúncios"
+                    texto="Vários criativos prontos de uma vez: posts separados (feed + story) ou carrossel."
+                    onClick={() => { setMenuNovo(false); setShowGrupo(true) }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -340,6 +376,7 @@ export default function DebriefingModule({ project }) {
                     const StatusIcon = STATUS_ICON[ad.status || 'para_subir'] || Clock
                     const resultado = ad.resultado ? RESULTADO_BY_ID[ad.resultado] : null
                     const dtStr = fmtDateBR(dataDoAd(ad))
+                    const arquivos = arquivosDoAd(ad)
 
                     return (
                       <tr
@@ -369,6 +406,14 @@ export default function DebriefingModule({ project }) {
                                 title="Tem copy escrita (veio de Criação de anúncios). Abra o anúncio pra ler o texto."
                               >
                                 copy
+                              </span>
+                            )}
+                            {ad.grupo?.nome && (
+                              <span
+                                className="font-sans shrink-0 max-w-[110px] truncate text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-surface text-rl-subtle border border-rl-border"
+                                title={`Subido junto no grupo "${ad.grupo.nome}"`}
+                              >
+                                {ad.grupo.nome}
                               </span>
                             )}
                           </span>
@@ -485,19 +530,18 @@ export default function DebriefingModule({ project }) {
                                 <ExternalLink className="w-3 h-3" /> Link
                               </a>
                             ) : (
-                              !ad.attachmentUrl && <span className="text-rl-muted italic text-xs">—</span>
+                              !arquivos.length && <span className="text-rl-muted italic text-xs">—</span>
                             )}
-                            {ad.attachmentUrl && (
-                              <a
-                                href={ad.attachmentUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 text-xs text-rl-blue font-semibold hover:underline"
-                                title={ad.attachmentName || 'Anexo'}
+                            {/* Arquivos do criativo (feed, story, cards): abre a
+                                pré-visualização e navega entre eles. */}
+                            {arquivos.length > 0 && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setVerArquivos({ anexos: arquivos, indice: 0 }) }}
+                                className="inline-flex items-center gap-1 text-xs text-rl-blue font-semibold hover:underline whitespace-nowrap"
+                                title={arquivos.map((a) => `${FORMATOS[a.formato]?.label || 'Arquivo'}: ${a.name}`).join('\n')}
                               >
-                                <Paperclip className="w-3 h-3" /> Anexo
-                              </a>
+                                <Paperclip className="w-3 h-3" /> {resumoArquivos(arquivos)}
+                              </button>
                             )}
                           </div>
                         </Td>
@@ -558,8 +602,42 @@ export default function DebriefingModule({ project }) {
         />
       )}
 
+      {showGrupo && (
+        <GrupoAnunciosModal
+          projectId={project.id}
+          campaignPlan={project.campaignPlan}
+          existingAds={ads}
+          onSave={handleSaveGrupo}
+          onClose={() => setShowGrupo(false)}
+        />
+      )}
+
+      {verArquivos && (
+        <AnexoPreview
+          anexos={verArquivos.anexos}
+          indice={verArquivos.indice}
+          bucket={ATTACHMENT_BUCKET}
+          onFechar={() => setVerArquivos(null)}
+        />
+      )}
+
       <Toast toast={toast} />
     </div>
+  )
+}
+
+function MenuItem({ Icon, titulo, texto, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-lg text-left hover:bg-rl-purple/10 transition-all"
+    >
+      <Icon className="w-4 h-4 mt-0.5 text-rl-purple shrink-0" />
+      <span>
+        <span className="text-sm font-semibold text-rl-text block">{titulo}</span>
+        <span className="text-[11px] text-rl-muted">{texto}</span>
+      </span>
+    </button>
   )
 }
 

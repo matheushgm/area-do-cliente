@@ -1,12 +1,15 @@
 import { useMemo, useRef, useState } from 'react'
-import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle, Play, CheckCircle2, Clock, Upload, Paperclip, Loader2, Trash2, XCircle, Send, History, PlusCircle, Palette, FileText } from 'lucide-react'
+import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangle, Play, CheckCircle2, Clock, Upload, Paperclip, Loader2, Trash2, XCircle, Send, History, PlusCircle, Palette, FileText, ArrowUp, ArrowDown } from 'lucide-react'
 import Modal from '../UI/Modal'
 import MarkdownView from '../Editor/MarkdownView'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
 import { STATUS_OPTIONS, RESULTADO_OPTIONS, DEFAULT_STATUS, APROVACAO_BY_ID, todayISO, fmtDateTimeBR } from './debriefingData'
 import { uploadFile, deleteFile, getSignedUrl } from '../../lib/supabase'
-
-const ATTACHMENT_BUCKET = 'attachments'
+import AnexoPreview from '../UI/AnexoPreview'
+import {
+  ATTACHMENT_BUCKET, FORMATOS, arquivosDoAd, espelhoLegado, caminhoArquivo, lerMedidas,
+  formatoDoArquivo, useUrlsAssinadas,
+} from './arquivosCriativo'
 
 const STATUS_ICON = {
   rascunho: FileText,
@@ -186,8 +189,11 @@ export default function DebriefingAdModal({
     version:         1,
     versionHistory:  [],
     ...(initial || {}),
+    arquivos:        arquivosDoAd(initial),
   }))
   const [uploading, setUploading] = useState(false)
+  const [verArquivo, setVerArquivo] = useState(null) // { anexos, indice } na pré-visualização
+  const urlsArquivos = useUrlsAssinadas(values.arquivos.map((a) => a.path))
   const [uploadError, setUploadError] = useState('')
   // Novos anúncios vão pra aprovação do cliente por padrão — o fluxo é: subir
   // o criativo → cliente aprova/reprova no link público → aí decide campanha.
@@ -228,10 +234,16 @@ export default function DebriefingAdModal({
     set('nome', nome)
   }
 
-  // ── Upload de anexo ──────────────────────────────────────────────────────
-  async function handleFileSelect(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
+  // ── Arquivos do criativo (feed, story, cards) ─────────────────────────────
+  // Arquivo guardado numa versão antiga continua no Storage: o cliente compara.
+  function guardadoNoHistorico(path) {
+    return (values.versionHistory || []).some((v) => v.attachmentPath === path
+      || (v.arquivos || []).some((a) => a.path === path))
+  }
+
+  async function handleFilesSelect(e) {
+    const files = [...(e.target.files || [])]
+    if (!files.length) return
     if (!projectId) {
       setUploadError('Projeto sem ID — recarregue a página antes de anexar.')
       return
@@ -239,26 +251,22 @@ export default function DebriefingAdModal({
     setUploadError('')
     setUploading(true)
     try {
-      // Sanitiza filename pra evitar problemas no path
-      const safeName = file.name.replace(/[^A-Za-z0-9._-]+/g, '_')
-      const path = `${projectId}/debriefing/${stableId}-${safeName}`
-      const url = await uploadFile(ATTACHMENT_BUCKET, path, file)
-      if (!url) {
-        setUploadError('Falha ao subir o arquivo. Tente de novo.')
-        return
+      const novos = []
+      for (const file of files) {
+        const med = await lerMedidas(file)
+        const formato = values.tipo === 'carrossel' ? 'card' : formatoDoArquivo({ name: file.name, ...med })
+        const path = caminhoArquivo(projectId, stableId, formato, file.name)
+        const url = await uploadFile(ATTACHMENT_BUCKET, path, file)
+        if (!url) {
+          setUploadError(`Falha ao subir ${file.name}. Tente de novo.`)
+          continue
+        }
+        novos.push({ path, name: file.name, formato, midia: med.midia, largura: med.largura, altura: med.altura })
       }
-      // Remove o anexo anterior (se houver) pra não deixar lixo, exceto quando
-      // ele ainda está guardado no histórico de versões (o cliente precisa
-      // continuar vendo a versão antiga pra comparar).
-      const keptInHistory = (values.versionHistory || []).some((v) => v.attachmentPath === values.attachmentPath)
-      if (values.attachmentPath && values.attachmentPath !== path && !keptInHistory) {
-        deleteFile(ATTACHMENT_BUCKET, values.attachmentPath).catch(() => {})
-      }
+      // Mesmo caminho (mesmo nome e formato) substitui o arquivo da lista.
       setValues((prev) => ({
         ...prev,
-        attachmentPath: path,
-        attachmentName: file.name,
-        attachmentUrl:  url,
+        arquivos: [...prev.arquivos.filter((a) => !novos.some((n) => n.path === a.path)), ...novos],
       }))
     } catch (err) {
       console.error('[Debriefing upload]', err)
@@ -270,17 +278,23 @@ export default function DebriefingAdModal({
     }
   }
 
-  function handleRemoveAttachment() {
-    const keptInHistory = (values.versionHistory || []).some((v) => v.attachmentPath === values.attachmentPath)
-    if (values.attachmentPath && !keptInHistory) {
-      deleteFile(ATTACHMENT_BUCKET, values.attachmentPath).catch(() => {})
-    }
-    setValues((prev) => ({
-      ...prev,
-      attachmentPath: null,
-      attachmentName: null,
-      attachmentUrl:  null,
-    }))
+  function handleRemoveArquivo(path) {
+    if (!guardadoNoHistorico(path)) deleteFile(ATTACHMENT_BUCKET, path).catch(() => {})
+    setValues((prev) => ({ ...prev, arquivos: prev.arquivos.filter((a) => a.path !== path) }))
+  }
+
+  function setFormatoArquivo(path, formato) {
+    setValues((prev) => ({ ...prev, arquivos: prev.arquivos.map((a) => (a.path === path ? { ...a, formato } : a)) }))
+  }
+
+  function moverArquivo(i, delta) {
+    setValues((prev) => {
+      const j = i + delta
+      if (j < 0 || j >= prev.arquivos.length) return prev
+      const arquivos = [...prev.arquivos]
+      ;[arquivos[i], arquivos[j]] = [arquivos[j], arquivos[i]]
+      return { ...prev, arquivos }
+    })
   }
 
   // ── Nova versão (v2, v3...) ──────────────────────────────────────────────
@@ -299,6 +313,7 @@ export default function DebriefingAdModal({
         url:            prev.url || null,
         attachmentPath: prev.attachmentPath || null,
         attachmentName: prev.attachmentName || null,
+        arquivos:       prev.arquivos || [],
         aprovacao:      prev.aprovacao || null,
         archivedAt:     new Date().toISOString(),
       }
@@ -314,6 +329,7 @@ export default function DebriefingAdModal({
   // Abre a mídia de uma versão antiga do histórico numa nova aba (anexo
   // privado → precisa de URL assinada; link do Drive abre direto).
   async function handleOpenHistoryMedia(entry) {
+    if (entry.arquivos?.length) { setVerArquivo({ anexos: entry.arquivos, indice: 0 }); return }
     if (entry.attachmentPath) {
       const signed = await getSignedUrl(ATTACHMENT_BUCKET, entry.attachmentPath)
       if (signed) { window.open(signed, '_blank', 'noopener'); return }
@@ -326,8 +342,9 @@ export default function DebriefingAdModal({
   // pronta — só a copy. O link vira obrigatório quando o anúncio avança de
   // status, que é justamente quando a peça já existe.
   const emEdicao = values.status === 'rascunho' || values.status === 'aprovado_edicao'
+  const temArquivo = values.arquivos.length > 0
   const baseValid =
-    (emEdicao || !!(values.url || '').trim()) && !!(values.nome || '').trim() && !!values.tipo
+    (emEdicao || temArquivo || !!(values.url || '').trim()) && !!(values.nome || '').trim() && !!values.tipo
   const finalizadoValid = values.status !== 'finalizado'
     || (!!values.resultado && !!(values.justificativa || '').trim())
   const canSave = baseValid && finalizadoValid
@@ -340,6 +357,7 @@ export default function DebriefingAdModal({
       : values.aprovacao
     onSave({
       ...values,
+      ...espelhoLegado(values.arquivos),
       aprovacao,
       id: stableId,
       addedAt: initial?.addedAt || now,
@@ -410,8 +428,10 @@ export default function DebriefingAdModal({
         {/* URL */}
         <Field
           label="Link do anúncio (Google Drive ou plataforma)"
-          required={!emEdicao}
-          hint={emEdicao ? 'Preencha quando a peça estiver pronta e o anúncio sair da fila do designer.' : undefined}
+          required={!emEdicao && !temArquivo}
+          hint={emEdicao
+            ? 'Preencha quando a peça estiver pronta e o anúncio sair da fila do designer.'
+            : temArquivo ? 'Opcional: os arquivos do criativo já estão anexados abaixo.' : 'Ou anexe os arquivos do criativo abaixo.'}
         >
           <div className="relative">
             <input
@@ -435,63 +455,78 @@ export default function DebriefingAdModal({
           </div>
         </Field>
 
-        {/* Anexo do criativo */}
+        {/* Arquivos do criativo */}
         <Field
-          label="Anexar criativo (opcional)"
-          hint="Faça upload do arquivo do anúncio (imagem, vídeo ou PDF). Fica salvo junto do projeto."
+          label="Arquivos do criativo"
+          hint={values.tipo === 'carrossel'
+            ? 'Cada arquivo é um card do carrossel, na ordem da lista.'
+            : 'O feed e o story da mesma peça ficam neste anúncio. 9:16 entra como story; quadrado e 4:5 como feed.'}
         >
-          {values.attachmentPath ? (
-            <div className="flex items-center gap-2 p-3 rounded-xl border border-rl-purple/30 bg-rl-purple/5">
-              <Paperclip className="w-4 h-4 text-rl-purple shrink-0" />
-              <span className="text-sm text-rl-text font-medium truncate flex-1">
-                {values.attachmentName || 'arquivo anexado'}
-              </span>
-              {values.attachmentUrl && (
-                <a
-                  href={values.attachmentUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-                  title="Baixar/visualizar"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              )}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
-                title="Substituir"
-              >
-                <Upload className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={handleRemoveAttachment}
-                className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
-                title="Remover anexo"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+          {values.arquivos.length > 0 && (
+            <div className="space-y-1.5 mb-2">
+              {values.arquivos.map((a, i) => (
+                <div key={a.path} className="flex items-center gap-2 p-2 rounded-xl border border-rl-purple/30 bg-rl-purple/5">
+                  <button
+                    type="button"
+                    onClick={() => setVerArquivo({ anexos: values.arquivos, indice: i })}
+                    className="w-10 h-12 rounded-md overflow-hidden border border-rl-border bg-rl-surface shrink-0 flex items-center justify-center"
+                    title="Ver arquivo"
+                  >
+                    {a.midia === 'image' && urlsArquivos[a.path]
+                      ? <img src={urlsArquivos[a.path]} alt={a.name} className="w-full h-full object-cover" />
+                      : a.midia === 'video' ? <Video className="w-4 h-4 text-rl-muted" /> : <Paperclip className="w-4 h-4 text-rl-muted" />}
+                  </button>
+                  <select
+                    value={a.formato}
+                    onChange={(e) => setFormatoArquivo(a.path, e.target.value)}
+                    className="input-field text-xs py-1 pl-2 pr-7 w-auto"
+                    title="Formato deste arquivo"
+                  >
+                    {Object.values(FORMATOS).map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+                  </select>
+                  <span className="text-sm text-rl-text font-medium truncate flex-1" title={a.name}>
+                    {a.name}
+                    {a.largura ? <span className="ml-1.5 text-[10px] text-rl-muted font-normal">{a.largura}×{a.altura}</span> : null}
+                  </span>
+                  {values.tipo === 'carrossel' && (
+                    <>
+                      <button type="button" onClick={() => moverArquivo(i, -1)} disabled={i === 0} className="p-1 rounded text-rl-muted hover:text-rl-purple disabled:opacity-30" title="Subir na ordem">
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button type="button" onClick={() => moverArquivo(i, 1)} disabled={i === values.arquivos.length - 1} className="p-1 rounded text-rl-muted hover:text-rl-purple disabled:opacity-30" title="Descer na ordem">
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveArquivo(a.path)}
+                    className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
+                    title="Remover arquivo"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-purple transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {uploading
-                ? <><Loader2 className="w-4 h-4 animate-spin" /> Subindo...</>
-                : <><Upload className="w-4 h-4" /> Selecionar arquivo</>
-              }
-            </button>
           )}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-purple transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {uploading
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Subindo...</>
+              : <><Upload className="w-4 h-4" /> {values.arquivos.length ? 'Adicionar mais arquivos' : 'Selecionar arquivos'}</>
+            }
+          </button>
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             accept="image/*,video/*,application/pdf"
-            onChange={handleFileSelect}
+            onChange={handleFilesSelect}
             className="hidden"
           />
           {uploadError && (
@@ -741,6 +776,15 @@ export default function DebriefingAdModal({
           <Check className="w-3.5 h-3.5" /> {initial ? 'Salvar alterações' : 'Salvar anúncio'}
         </button>
       </div>
+
+      {verArquivo && (
+        <AnexoPreview
+          anexos={verArquivo.anexos}
+          indice={verArquivo.indice}
+          bucket={ATTACHMENT_BUCKET}
+          onFechar={() => setVerArquivo(null)}
+        />
+      )}
     </Modal>
   )
 }
@@ -890,7 +934,7 @@ function VersionHistory({ versionHistory, onOpenMedia }) {
                       {vInfo.label}
                     </span>
                   )}
-                  {(v.attachmentPath || v.url) && (
+                  {(v.arquivos?.length || v.attachmentPath || v.url) && (
                     <button
                       type="button"
                       onClick={() => onOpenMedia?.(v)}
@@ -914,7 +958,7 @@ function VersionHistory({ versionHistory, onOpenMedia }) {
   )
 }
 
-function Field({ label, hint, required, children }) {
+export function Field({ label, hint, required, children }) {
   return (
     <div>
       <label className="text-xs font-bold text-rl-text uppercase tracking-wide mb-1 block">

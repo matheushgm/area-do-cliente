@@ -56,6 +56,21 @@ function mediaKind(name) {
   return 'other'
 }
 
+// Arquivos do criativo (feed, story, cards do carrossel), cada um com URL
+// assinada. Anúncio antigo, só com attachmentPath, vira lista de um.
+const FORMATOS = ['feed', 'story', 'card']
+async function sanitizeArquivos(item) {
+  const lista = Array.isArray(item?.arquivos) && item.arquivos.length
+    ? item.arquivos
+    : item?.attachmentPath ? [{ path: item.attachmentPath, name: item.attachmentName }] : []
+  return Promise.all(lista.slice(0, 20).map(async (a) => ({
+    name:      str(a?.name, 200) || null,
+    formato:   FORMATOS.includes(a?.formato) ? a.formato : null,
+    url:       await signAttachment(a?.path),
+    mediaKind: mediaKind(a?.name || a?.path),
+  })))
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const PROJECT_COLS = 'id,company_name,debriefing,lp_central'
 
@@ -115,6 +130,7 @@ async function sanitizeVersionEntry(v) {
     attachmentName: str(v?.attachmentName, 200) || null,
     attachmentUrl:  await signAttachment(v?.attachmentPath),
     mediaKind:      v?.attachmentPath ? mediaKind(v.attachmentName || v.attachmentPath) : null,
+    arquivos:       await sanitizeArquivos(v),
     aprovacao:      v?.aprovacao ? sanitizeAprovacao(v.aprovacao) : null,
     archivedAt:     str(v?.archivedAt, 40) || null,
   }
@@ -131,6 +147,7 @@ async function sanitizeAd(ad) {
     attachmentName: str(ad.attachmentName, 200) || null,
     attachmentUrl:  await signAttachment(ad.attachmentPath),
     mediaKind:      ad.attachmentPath ? mediaKind(ad.attachmentName || ad.attachmentPath) : null,
+    arquivos:       await sanitizeArquivos(ad),
     observacao:     str(ad.observacao, 1200) || null,
     aprovacao:      sanitizeAprovacao(ad.aprovacao),
     version:        Number(ad.version) || 1,

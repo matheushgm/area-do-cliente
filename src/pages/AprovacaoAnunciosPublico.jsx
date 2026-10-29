@@ -287,8 +287,11 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
   const [submitting, setSubmitting] = useState(false)
   const [error,      setError]      = useState('')
   const [expanded,   setExpanded]   = useState(false) // lightbox da imagem
+  const [ampliado,   setAmpliado]   = useState(null)  // lightbox de um arquivo da galeria
 
   const isLp = ad.kind === 'lp'
+  // Criativo com mais de um arquivo (feed + story, cards do carrossel) vira galeria.
+  const galeria = !isLp && Array.isArray(ad.arquivos) && ad.arquivos.length > 1
   const tipo = isLp
     ? { label: 'Landing page', Icon: LayoutTemplate }
     : TIPO_META[ad.tipo] || { label: ad.tipo || 'Criativo', Icon: Layers }
@@ -348,7 +351,9 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
 
       {/* Prévia do criativo */}
       <div className="px-5 py-4 space-y-3">
-        {ad.attachmentUrl && ad.mediaKind === 'image' && (
+        {galeria && <ArquivosGaleria arquivos={ad.arquivos} nome={ad.nome} onAmpliar={setAmpliado} />}
+        {ampliado && <Lightbox src={ampliado} alt={ad.nome || 'Criativo'} onClose={() => setAmpliado(null)} />}
+        {!galeria && ad.attachmentUrl && ad.mediaKind === 'image' && (
           <div className="relative w-fit mx-auto max-w-full group">
             <img
               src={ad.attachmentUrl}
@@ -370,7 +375,7 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
         {expanded && ad.attachmentUrl && ad.mediaKind === 'image' && (
           <Lightbox src={ad.attachmentUrl} alt={ad.nome || 'Criativo'} onClose={() => setExpanded(false)} />
         )}
-        {ad.attachmentUrl && ad.mediaKind === 'video' && (
+        {!galeria && ad.attachmentUrl && ad.mediaKind === 'video' && (
           <video
             src={ad.attachmentUrl}
             controls
@@ -378,7 +383,7 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
             className="max-h-[420px] w-auto max-w-full rounded-xl border border-rl-border mx-auto"
           />
         )}
-        {ad.attachmentUrl && (ad.mediaKind === 'pdf' || ad.mediaKind === 'other') && (
+        {!galeria && ad.attachmentUrl && (ad.mediaKind === 'pdf' || ad.mediaKind === 'other') && (
           <a
             href={ad.attachmentUrl}
             target="_blank"
@@ -521,6 +526,42 @@ function AdCard({ ad, auth, onDecided, decided = false, readOnly = false }) {
 // ─── Comparação com versões anteriores ────────────────────────────────────────
 // Quando o time reprova... corrige e sobe uma mídia nova, a versão antiga fica
 // guardada aqui pra o cliente ver lado a lado o que mudou desde a última rodada.
+// Arquivos de um criativo lado a lado: feed e story da mesma peça, ou os cards
+// do carrossel em sequência (com rolagem lateral).
+const FORMATO_LABEL = { feed: 'Feed', story: 'Story' }
+
+function ArquivosGaleria({ arquivos, nome, onAmpliar, compacta = false }) {
+  const carrossel = arquivos.some((a) => a.formato === 'card')
+  const altura = compacta ? 'max-h-[160px]' : carrossel ? 'max-h-[280px]' : 'max-h-[380px]'
+  return (
+    <div className={`flex gap-3 ${carrossel ? 'overflow-x-auto pb-2' : 'flex-wrap justify-center items-end'}`}>
+      {arquivos.map((a, i) => (
+        <figure key={i} className="shrink-0 space-y-1 max-w-full">
+          {a.url && a.mediaKind === 'image' && (
+            <img
+              src={a.url}
+              alt={`${nome || 'Criativo'} ${i + 1}`}
+              onClick={onAmpliar ? () => onAmpliar(a.url) : undefined}
+              className={`${altura} w-auto max-w-full rounded-xl border border-rl-border ${onAmpliar ? 'cursor-zoom-in' : ''}`}
+            />
+          )}
+          {a.url && a.mediaKind === 'video' && (
+            <video src={a.url} controls playsInline className={`${altura} w-auto max-w-full rounded-xl border border-rl-border`} />
+          )}
+          {a.url && (a.mediaKind === 'pdf' || a.mediaKind === 'other') && (
+            <a href={a.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-rl-purple font-semibold hover:underline">
+              <Paperclip className="w-3.5 h-3.5" /> Abrir {a.name || 'arquivo'}
+            </a>
+          )}
+          <figcaption className="text-[10px] font-bold uppercase tracking-wide text-rl-muted text-center">
+            {carrossel ? `Card ${i + 1}` : FORMATO_LABEL[a.formato] || `Arquivo ${i + 1}`}
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+  )
+}
+
 function VersionCompare({ versions }) {
   const [open, setOpen] = useState(false)
   const sorted = versions.slice().sort((a, b) => (b.version || 0) - (a.version || 0))
@@ -551,13 +592,14 @@ function VersionCompare({ versions }) {
                 )}
               </div>
               <div className="p-3 space-y-2">
-                {v.attachmentUrl && v.mediaKind === 'image' && (
+                {v.arquivos?.length > 1 && <ArquivosGaleria arquivos={v.arquivos} nome={`Versão ${v.version}`} compacta />}
+                {!(v.arquivos?.length > 1) && v.attachmentUrl && v.mediaKind === 'image' && (
                   <img src={v.attachmentUrl} alt={`Versão ${v.version}`} className="max-h-[220px] w-auto max-w-full mx-auto rounded-lg border border-rl-border" />
                 )}
-                {v.attachmentUrl && v.mediaKind === 'video' && (
+                {!(v.arquivos?.length > 1) && v.attachmentUrl && v.mediaKind === 'video' && (
                   <video src={v.attachmentUrl} controls playsInline className="max-h-[220px] w-auto max-w-full mx-auto rounded-lg border border-rl-border" />
                 )}
-                {v.attachmentUrl && (v.mediaKind === 'pdf' || v.mediaKind === 'other') && (
+                {!(v.arquivos?.length > 1) && v.attachmentUrl && (v.mediaKind === 'pdf' || v.mediaKind === 'other') && (
                   <a href={v.attachmentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-rl-purple font-semibold hover:underline">
                     <Paperclip className="w-3.5 h-3.5" /> Abrir arquivo
                   </a>

@@ -16,6 +16,7 @@ import { getQuestionsFor, PILLARS_BY_ID } from '../Kickoff/KickoffQuestions'
 import KickoffRadar from '../Kickoff/KickoffRadar'
 import KickoffPillarBars from '../Kickoff/KickoffPillarBars'
 import { STATUS_BY_ID, RESULTADO_BY_ID, APROVACAO_BY_ID } from '../Debriefing/debriefingData'
+import { arquivosDoAd, FORMATOS } from '../Debriefing/arquivosCriativo'
 import { LP_STATUS_BY_ID } from '../LPCentral/lpCentralData'
 import { hydrateOferta, DRIVER_BY_ID } from '../OfertaWizard/ofertaShared'
 import { getPeriodLabel } from '../CampaignPlanner/campaignHelpers'
@@ -321,7 +322,16 @@ function Debriefing({ data, projectId, token }) {
             {ad.copy && <div className="mt-3"><Details title="Copy"><MarkdownView content={ad.copy} /></Details></div>}
             <div className="flex flex-wrap gap-2 mt-3">
               {ad.url && <ExtLink href={ad.url} className="btn-secondary inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 !no-underline"><ExternalLink className="w-3.5 h-3.5" /> Ver peça</ExtLink>}
-              {ad.attachmentPath && <FileButton projectId={projectId} token={token} bucket="attachments" path={ad.attachmentPath} label={ad.attachmentName || 'Anexo'} />}
+              {arquivosDoAd(ad).map((a, i, lista) => (
+                <FileButton
+                  key={a.path}
+                  projectId={projectId}
+                  token={token}
+                  bucket="attachments"
+                  path={a.path}
+                  label={lista.length > 1 ? (a.formato === 'card' ? `Card ${i + 1}` : FORMATOS[a.formato]?.label || a.name) : (a.name || 'Anexo')}
+                />
+              ))}
             </div>
           </Section>
         )
