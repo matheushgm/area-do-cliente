@@ -109,6 +109,33 @@ export function agruparPorMes(ads) {
     })
 }
 
+// ─── Pastas (organização dentro do mês) ──────────────────────────────────────
+// ad.pasta é só um nome (texto); a mesma pasta pode ter anúncios de vários meses.
+export function normalizarPasta(v) {
+  return String(v || '').trim().replace(/\s+/g, ' ').slice(0, 60)
+}
+
+const porNomeDaPasta = (a, b) => a.localeCompare(b, 'pt-BR', { numeric: true, sensitivity: 'base' })
+
+// Pastas que já existem no projeto, em ordem alfabética (sugestão nos campos).
+export function pastasDoProjeto(ads) {
+  return [...new Set((ads || []).map((ad) => normalizarPasta(ad?.pasta)).filter(Boolean))].sort(porNomeDaPasta)
+}
+
+// Agrupa por pasta, em ordem alfabética, com os sem pasta no fim ("Sem pasta").
+// Dentro da pasta, mantém a ordem recebida.
+export function agruparPorPasta(ads) {
+  const porPasta = new Map()
+  for (const ad of ads || []) {
+    const pasta = normalizarPasta(ad?.pasta) || null
+    if (!porPasta.has(pasta)) porPasta.set(pasta, [])
+    porPasta.get(pasta).push(ad)
+  }
+  return [...porPasta.entries()]
+    .sort(([a], [b]) => (a === null) - (b === null) || (a && b ? porNomeDaPasta(a, b) : 0))
+    .map(([pasta, lista]) => ({ pasta, rotulo: pasta || 'Sem pasta', ads: lista }))
+}
+
 // ─── Aprovação do cliente (link público /aprovacao/:token) ───────────────────
 // Guardada em ad.aprovacao = { status, motivo, sugestao, decididoEm }.
 // Anúncio sem ad.aprovacao = nunca foi enviado pro cliente.

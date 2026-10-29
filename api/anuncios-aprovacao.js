@@ -148,6 +148,7 @@ async function sanitizeAd(ad) {
     attachmentUrl:  await signAttachment(ad.attachmentPath),
     mediaKind:      ad.attachmentPath ? mediaKind(ad.attachmentName || ad.attachmentPath) : null,
     arquivos:       await sanitizeArquivos(ad),
+    pasta:          str(ad.pasta, 60) || null,
     observacao:     str(ad.observacao, 1200) || null,
     aprovacao:      sanitizeAprovacao(ad.aprovacao),
     version:        Number(ad.version) || 1,

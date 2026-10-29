@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Megaphone, Plus, Pencil, Trash2, ExternalLink, Video, Image as ImageIcon, Layers,
   Filter, X, Clock, Play, CheckCircle2, Paperclip, FlaskConical, Link2, Send, Palette,
-  FileText, ChevronDown,
+  FileText, ChevronDown, Folder, FolderOpen,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
@@ -16,7 +16,8 @@ import { arquivosDoAd, resumoArquivos, FORMATOS } from './arquivosCriativo'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
 import {
   STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, APROVACAO_BY_ID,
-  ETAPAS, etapaDoAd, dataDoAd, agruparPorMes, fmtDateBR, fmtDateTimeBR, todayISO,
+  ETAPAS, etapaDoAd, dataDoAd, agruparPorMes, agruparPorPasta, pastasDoProjeto, normalizarPasta,
+  fmtDateBR, fmtDateTimeBR, todayISO,
 } from './debriefingData'
 import { linkDaLeva } from '../../lib/copyLevas'
 
@@ -89,6 +90,51 @@ export default function DebriefingModule({ project }) {
     })
   }
 
+  // Pastas dentro do mês (ad.pasta). Nascem recolhidas; as que a pessoa abre
+  // ficam lembradas neste navegador, por projeto.
+  const chavePastasLS = `central.pastasAbertas.${project.id}`
+  const [pastasAbertas, setPastasAbertas] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(chavePastasLS) || '[]')) } catch { return new Set() }
+  })
+  const chaveDaPasta = (grupo, pasta) => `${chaveDoMes(grupo)}|${pasta || ''}`
+  function mudarPastasAbertas(fn) {
+    setPastasAbertas((prev) => {
+      const next = fn(new Set(prev))
+      try { localStorage.setItem(chavePastasLS, JSON.stringify([...next])) } catch { /* sem storage: só não lembra */ }
+      return next
+    })
+  }
+  function alternarPasta(chave) {
+    mudarPastasAbertas((abertas) => {
+      if (abertas.has(chave)) abertas.delete(chave)
+      else abertas.add(chave)
+      return abertas
+    })
+  }
+  // Abre a pasta pra onde os anúncios foram (salvar, mover, grupo novo).
+  function abrirPastasDe(lista) {
+    const chaves = lista
+      .filter((ad) => normalizarPasta(ad.pasta))
+      .map((ad) => `${dataDoAd(ad)?.slice(0, 7) || 'sem-data'}|${normalizarPasta(ad.pasta)}`)
+    if (chaves.length) mudarPastasAbertas((abertas) => { chaves.forEach((c) => abertas.add(c)); return abertas })
+  }
+  const pastas = useMemo(() => pastasDoProjeto(ads), [ads])
+  const [renomeando, setRenomeando] = useState(null) // { chave, valor }
+  const cancelouRenomeio = useRef(false)
+
+  // Seleção pelas caixas da tabela, pra mover vários de uma vez. Só conta o
+  // que está visível na aba e nos filtros atuais.
+  const [selecionados, setSelecionados] = useState(() => new Set())
+  const [pastaDestino, setPastaDestino] = useState('')
+  const selecionadosVisiveis = visibleAds.filter((ad) => selecionados.has(ad.id))
+  function selecionar(ids, marcar) {
+    setSelecionados((prev) => {
+      const next = new Set(prev)
+      ids.forEach((id) => (marcar ? next.add(id) : next.delete(id)))
+      return next
+    })
+  }
+
   const isAprovacao = etapa === 'aprovacao'
 
   function copiarLink(url) {
@@ -109,6 +155,7 @@ export default function DebriefingModule({ project }) {
       : [...list, ad]
     persist({ ...persisted, ads: next })
     setEditingAd(null)
+    abrirPastasDe([ad])
     showToast(exists ? 'Anúncio atualizado!' : 'Anúncio cadastrado!')
   }
 
@@ -117,6 +164,7 @@ export default function DebriefingModule({ project }) {
     persist({ ...persisted, ads: [...(persisted.ads || []), ...novos] })
     setShowGrupo(false)
     setEtapa('design')
+    abrirPastasDe(novos)
     showToast(`${novos.length} ${novos.length === 1 ? 'anúncio criado' : 'anúncios criados'} em "${grupo.nome}"`)
   }
 
@@ -153,6 +201,39 @@ export default function DebriefingModule({ project }) {
     persist({ ...persisted, ads: next })
   }
 
+  // Muda vários anúncios de uma vez (mover pra pasta, renomear pasta).
+  function updateAds(ids, patch) {
+    const alvo = new Set(ids)
+    const now = new Date().toISOString()
+    const next = (persisted.ads || []).map((x) => (alvo.has(x.id) ? { ...x, ...patch, updatedAt: now } : x))
+    persist({ ...persisted, ads: next })
+    return next.filter((x) => alvo.has(x.id))
+  }
+
+  function moverParaPasta(nome) {
+    const pasta = normalizarPasta(nome) || null
+    const ids = selecionadosVisiveis.map((ad) => ad.id)
+    if (!ids.length) return
+    abrirPastasDe(updateAds(ids, { pasta }))
+    setSelecionados(new Set())
+    setPastaDestino('')
+    const n = ids.length
+    showToast(pasta
+      ? `${n} ${n === 1 ? 'anúncio movido' : 'anúncios movidos'} para "${pasta}"`
+      : `${n} ${n === 1 ? 'anúncio saiu' : 'anúncios saíram'} da pasta`)
+  }
+
+  // Renomear vale pro projeto todo: a pasta é o mesmo nome em qualquer mês.
+  function renomearPasta(antiga, nova) {
+    setRenomeando(null)
+    const nome = normalizarPasta(nova)
+    if (!antiga || !nome || nome === antiga) return
+    const ids = (persisted.ads || []).filter((ad) => normalizarPasta(ad.pasta) === antiga).map((ad) => ad.id)
+    updateAds(ids, { pasta: nome })
+    mudarPastasAbertas((abertas) => new Set([...abertas].map((c) => (c.endsWith(`|${antiga}`) ? c.slice(0, -antiga.length) + nome : c))))
+    showToast(`Pasta renomeada para "${nome}"`)
+  }
+
   // ── Link público de aprovação (mesmo client_share_token de /campanhas etc.) ─
   function getOrCreateShareToken() {
     if (project.clientShareToken) return project.clientShareToken
@@ -177,6 +258,216 @@ export default function DebriefingModule({ project }) {
   )
 
   const hasFilters = filterTipo || filterFunil || filterStatus
+
+  // Uma linha da tabela (o mesmo anúncio aparece solto ou dentro da pasta).
+  function renderLinha(ad) {
+    const TipoIcon = TIPO_ICON[ad.tipo] || Layers
+    const status = STATUS_BY_ID[ad.status || 'para_subir']
+    const StatusIcon = STATUS_ICON[ad.status || 'para_subir'] || Clock
+    const resultado = ad.resultado ? RESULTADO_BY_ID[ad.resultado] : null
+    const dtStr = fmtDateBR(dataDoAd(ad))
+    const arquivos = arquivosDoAd(ad)
+
+    return (
+      <tr
+        key={ad.id}
+        onClick={() => setEditingAd(ad)}
+        className={`border-b border-rl-border/40 hover:bg-rl-surface/40 cursor-pointer transition-colors ${selecionados.has(ad.id) ? 'bg-rl-purple/5' : ''}`}
+      >
+        <td className="pl-3 py-2.5 w-8" onClick={(e) => e.stopPropagation()}>
+          <Caixa marcada={selecionados.has(ad.id)} onChange={() => selecionar([ad.id], !selecionados.has(ad.id))} label={`Selecionar ${ad.nome || 'anúncio'}`} />
+        </td>
+        <Td className="whitespace-nowrap text-rl-subtle">{dtStr}</Td>
+        {/* Nome comprido (títulos de roteiro) quebrava a linha
+            inteira: limita a largura e corta em 2 linhas. */}
+        <Td className="font-mono text-xs font-semibold text-rl-text min-w-[220px] max-w-[300px]">
+          <span className="flex items-start gap-1.5">
+            <span className="line-clamp-2 break-words" title={ad.nome || ''}>
+              {ad.nome || '—'}
+            </span>
+            {(ad.version || 1) > 1 && (
+              <span
+                className="font-sans shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/10 text-rl-purple border border-rl-purple/30"
+                title={`${ad.versionHistory?.length || 0} versão(ões) anterior(es) no histórico`}
+              >
+                v{ad.version}
+              </span>
+            )}
+            {ad.copy && (
+              <span
+                className="font-sans shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-blue/10 text-rl-blue border border-rl-blue/30"
+                title="Tem copy escrita (veio de Criação de anúncios). Abra o anúncio pra ler o texto."
+              >
+                copy
+              </span>
+            )}
+            {ad.grupo?.nome && ad.grupo.nome !== ad.pasta && (
+              <span
+                className="font-sans shrink-0 max-w-[110px] truncate text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-surface text-rl-subtle border border-rl-border"
+                title={`Subido junto no grupo "${ad.grupo.nome}"`}
+              >
+                {ad.grupo.nome}
+              </span>
+            )}
+          </span>
+        </Td>
+        <Td>
+          <InlineSelect
+            value={ad.tipo || ''}
+            onChange={(v) => updateAd(ad.id, { tipo: v })}
+            options={TIPOS_ANUNCIO.map((t) => ({ value: t.id, label: t.label }))}
+            color="#7C3AED"
+            bgColor="rgba(124,58,237,0.10)"
+            borderColor="rgba(124,58,237,0.30)"
+            LeftIcon={TipoIcon}
+          />
+        </Td>
+        <Td>
+          <AprovacaoCell
+            ad={ad}
+            mostrarCopy={isAprovacao}
+            onEnviar={() => {
+              updateAd(ad.id, { aprovacao: { status: 'pendente', enviadoEm: new Date().toISOString() } })
+              showToast('Anúncio enviado pra aprovação do cliente!')
+            }}
+          />
+        </Td>
+        <Td>
+          <div className="flex flex-col items-start gap-1">
+            <InlineSelect
+              value={ad.status || 'para_subir'}
+              onChange={(v) => updateAd(ad.id, { status: v })}
+              options={STATUS_OPTIONS.map((s) => ({ value: s.id, label: s.label }))}
+              color={status.color}
+              bgColor={status.bgColor}
+              borderColor={status.borderColor}
+              LeftIcon={StatusIcon}
+            />
+            {resultado && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border whitespace-nowrap"
+                style={{
+                  color: resultado.color,
+                  background: resultado.bgColor,
+                  borderColor: resultado.borderColor,
+                }}
+                title={ad.justificativa || ''}
+              >
+                <span>{resultado.emoji}</span> {resultado.label}
+              </span>
+            )}
+            {ad.status === 'em_andamento' && ad.startedAt && (
+              <span className="text-[9px] text-rl-muted whitespace-nowrap">
+                desde {fmtDateBR(ad.startedAt)}
+              </span>
+            )}
+            {ad.status === 'finalizado' && ad.finishedAt && (
+              <span className="text-[9px] text-rl-muted whitespace-nowrap">
+                fim {fmtDateBR(ad.finishedAt)}
+              </span>
+            )}
+          </div>
+        </Td>
+        <Td className="text-xs">
+          <InlineSelect
+            value={ad.campanhaId || ''}
+            onChange={(v) => updateAd(ad.id, { campanhaId: v })}
+            options={[
+              { value: '', label: '— sem campanha —' },
+              ...campaigns.map((c) => ({
+                value: c.id,
+                label: `[${c.stageLabel}] ${c.name}${c.channel ? ' · ' + c.channel : ''}`,
+              })),
+            ]}
+            color="#0F172A"
+            bgColor="#F8FAFC"
+            borderColor="#E2E8F0"
+            textPlaceholder="— sem campanha —"
+          />
+        </Td>
+        <Td>
+          <InlineSelect
+            value={ad.funilId || ''}
+            onChange={(v) => updateAd(ad.id, { funilId: v })}
+            options={[
+              { value: '', label: '— sem funil —' },
+              ...FUNNELS.map((f) => ({ value: f.id, label: `${f.icon} ${f.label}` })),
+            ]}
+            color="#2563EB"
+            bgColor="rgba(37,99,235,0.08)"
+            borderColor="rgba(37,99,235,0.25)"
+            textPlaceholder="— sem funil —"
+          />
+        </Td>
+        <Td>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Na aba de aprovação, o link útil é o que o cliente
+                recebeu: a leva da copy ou a página da peça. */}
+            {isAprovacao && ad.copyAprovacao?.status === 'pendente' && ad.copyAprovacao?.token && (
+              <button
+                onClick={(e) => { e.stopPropagation(); copiarLink(linkDaLeva(ad.copyAprovacao.token)) }}
+                className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
+                title={`Copiar o link da leva "${ad.copyAprovacao.levaNome || ''}"`}
+              >
+                <Link2 className="w-3 h-3" /> Link da leva
+              </button>
+            )}
+            {ad.url ? (
+              <a
+                href={ad.url}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
+              >
+                <ExternalLink className="w-3 h-3" /> Link
+              </a>
+            ) : (
+              !arquivos.length && <span className="text-rl-muted italic text-xs">—</span>
+            )}
+            {/* Arquivos do criativo (feed, story, cards): abre a
+                pré-visualização e navega entre eles. */}
+            {arquivos.length > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setVerArquivos({ anexos: arquivos, indice: 0 }) }}
+                className="inline-flex items-center gap-1 text-xs text-rl-blue font-semibold hover:underline whitespace-nowrap"
+                title={arquivos.map((a) => `${FORMATOS[a.formato]?.label || 'Arquivo'}: ${a.name}`).join('\n')}
+              >
+                <Paperclip className="w-3 h-3" /> {resumoArquivos(arquivos)}
+              </button>
+            )}
+          </div>
+        </Td>
+        <Td className="max-w-[200px]">
+          {ad.observacao ? (
+            <span className="text-[11px] text-rl-subtle line-clamp-2" title={ad.observacao}>
+              {ad.observacao}
+            </span>
+          ) : (
+            <span className="text-rl-muted italic text-xs">—</span>
+          )}
+        </Td>
+        <Td>
+          <div className="flex items-center gap-1 justify-end">
+            <button
+              onClick={(e) => { e.stopPropagation(); setEditingAd(ad) }}
+              className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
+              title="Editar"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDelete(ad.id) }}
+              className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
+              title="Excluir"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </Td>
+      </tr>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -336,6 +627,49 @@ export default function DebriefingModule({ project }) {
         </div>
       </div>
 
+      {/* Selecionados: mover pra uma pasta */}
+      {selecionadosVisiveis.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap px-4 py-2.5 rounded-xl border border-rl-purple/30 bg-rl-purple/5">
+          <span className="text-sm font-semibold text-rl-text">
+            {selecionadosVisiveis.length} {selecionadosVisiveis.length === 1 ? 'selecionado' : 'selecionados'}
+          </span>
+          <span className="text-xs text-rl-muted ml-2">Mover para a pasta</span>
+          <input
+            list="central-pastas"
+            value={pastaDestino}
+            onChange={(e) => setPastaDestino(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && normalizarPasta(pastaDestino)) moverParaPasta(pastaDestino) }}
+            placeholder="Escolha ou digite uma pasta nova"
+            className="input-field text-xs py-1.5 px-3 w-64"
+            maxLength={60}
+          />
+          <datalist id="central-pastas">
+            {pastas.map((p) => <option key={p} value={p} />)}
+          </datalist>
+          <button
+            onClick={() => moverParaPasta(pastaDestino)}
+            disabled={!normalizarPasta(pastaDestino)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-rl-purple text-white hover:bg-rl-purple/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <FolderOpen className="w-3.5 h-3.5" /> Mover
+          </button>
+          {selecionadosVisiveis.some((ad) => normalizarPasta(ad.pasta)) && (
+            <button
+              onClick={() => moverParaPasta('')}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-rl-border text-rl-subtle hover:text-rl-text transition-all"
+            >
+              Tirar da pasta
+            </button>
+          )}
+          <button
+            onClick={() => setSelecionados(new Set())}
+            className="ml-auto text-xs text-rl-muted hover:text-rl-text flex items-center gap-1 transition-colors"
+          >
+            <X className="w-3 h-3" /> Limpar seleção
+          </button>
+        </div>
+      )}
+
       {/* Tabela */}
       {ads.length === 0 ? (
         <EmptyState onCreate={() => setEditingAd({})} />
@@ -359,7 +693,7 @@ export default function DebriefingModule({ project }) {
                 <tbody key={chaveDoMes(grupo)}>
                   {/* ▾ Outubro 2026  14 criativos (os visíveis nesta aba, com os filtros) */}
                   <tr>
-                    <td colSpan={10} className={`px-2 pb-1 ${i === 0 ? 'pt-2' : 'pt-8'}`}>
+                    <td colSpan={11} className={`px-2 pb-1 ${i === 0 ? 'pt-2' : 'pt-8'}`}>
                       <span className="flex items-center gap-2">
                         <button
                           type="button"
@@ -382,6 +716,14 @@ export default function DebriefingModule({ project }) {
                   {/* Cabeçalho das colunas, repetido em cada mês */}
                   {!recolhidos.has(chaveDoMes(grupo)) && (
                     <tr className="border-b border-rl-border">
+                      <th className="pl-3 w-8">
+                        <Caixa
+                          marcada={grupo.ads.length > 0 && grupo.ads.every((a) => selecionados.has(a.id))}
+                          parcial={grupo.ads.some((a) => selecionados.has(a.id))}
+                          onChange={() => selecionar(grupo.ads.map((a) => a.id), !grupo.ads.every((a) => selecionados.has(a.id)))}
+                          label={`Selecionar ${grupo.rotulo}`}
+                        />
+                      </th>
                       <Th className="w-24">Data</Th>
                       <Th className="min-w-[220px]">Nome</Th>
                       <Th>Tipo</Th>
@@ -394,209 +736,77 @@ export default function DebriefingModule({ project }) {
                       <Th className="w-20"></Th>
                     </tr>
                   )}
-                  {!recolhidos.has(chaveDoMes(grupo)) && grupo.ads.map((ad) => {
-                    const TipoIcon = TIPO_ICON[ad.tipo] || Layers
-                    const status = STATUS_BY_ID[ad.status || 'para_subir']
-                    const StatusIcon = STATUS_ICON[ad.status || 'para_subir'] || Clock
-                    const resultado = ad.resultado ? RESULTADO_BY_ID[ad.resultado] : null
-                    const dtStr = fmtDateBR(dataDoAd(ad))
-                    const arquivos = arquivosDoAd(ad)
-
+                  {!recolhidos.has(chaveDoMes(grupo)) && agruparPorPasta(grupo.ads).map((pg, j, todas) => {
+                    // Mês sem pasta nenhuma: as linhas ficam soltas, como antes.
+                    if (todas.length === 1 && !pg.pasta) return pg.ads.map(renderLinha)
+                    const chaveP = chaveDaPasta(grupo, pg.pasta)
+                    const aberta = pastasAbertas.has(chaveP)
+                    const idsP = pg.ads.map((a) => a.id)
+                    const nSel = idsP.filter((id) => selecionados.has(id)).length
                     return (
-                      <tr
-                        key={ad.id}
-                        onClick={() => setEditingAd(ad)}
-                        className="border-b border-rl-border/40 hover:bg-rl-surface/40 cursor-pointer transition-colors"
-                      >
-                        <Td className="whitespace-nowrap text-rl-subtle">{dtStr}</Td>
-                        {/* Nome comprido (títulos de roteiro) quebrava a linha
-                            inteira: limita a largura e corta em 2 linhas. */}
-                        <Td className="font-mono text-xs font-semibold text-rl-text min-w-[220px] max-w-[300px]">
-                          <span className="flex items-start gap-1.5">
-                            <span className="line-clamp-2 break-words" title={ad.nome || ''}>
-                              {ad.nome || '—'}
-                            </span>
-                            {(ad.version || 1) > 1 && (
-                              <span
-                                className="font-sans shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/10 text-rl-purple border border-rl-purple/30"
-                                title={`${ad.versionHistory?.length || 0} versão(ões) anterior(es) no histórico`}
-                              >
-                                v{ad.version}
-                              </span>
-                            )}
-                            {ad.copy && (
-                              <span
-                                className="font-sans shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-blue/10 text-rl-blue border border-rl-blue/30"
-                                title="Tem copy escrita (veio de Criação de anúncios). Abra o anúncio pra ler o texto."
-                              >
-                                copy
-                              </span>
-                            )}
-                            {ad.grupo?.nome && (
-                              <span
-                                className="font-sans shrink-0 max-w-[110px] truncate text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rl-surface text-rl-subtle border border-rl-border"
-                                title={`Subido junto no grupo "${ad.grupo.nome}"`}
-                              >
-                                {ad.grupo.nome}
-                              </span>
-                            )}
-                          </span>
-                        </Td>
-                        <Td>
-                          <InlineSelect
-                            value={ad.tipo || ''}
-                            onChange={(v) => updateAd(ad.id, { tipo: v })}
-                            options={TIPOS_ANUNCIO.map((t) => ({ value: t.id, label: t.label }))}
-                            color="#7C3AED"
-                            bgColor="rgba(124,58,237,0.10)"
-                            borderColor="rgba(124,58,237,0.30)"
-                            LeftIcon={TipoIcon}
-                          />
-                        </Td>
-                        <Td>
-                          <AprovacaoCell
-                            ad={ad}
-                            mostrarCopy={isAprovacao}
-                            onEnviar={() => {
-                              updateAd(ad.id, { aprovacao: { status: 'pendente', enviadoEm: new Date().toISOString() } })
-                              showToast('Anúncio enviado pra aprovação do cliente!')
-                            }}
-                          />
-                        </Td>
-                        <Td>
-                          <div className="flex flex-col items-start gap-1">
-                            <InlineSelect
-                              value={ad.status || 'para_subir'}
-                              onChange={(v) => updateAd(ad.id, { status: v })}
-                              options={STATUS_OPTIONS.map((s) => ({ value: s.id, label: s.label }))}
-                              color={status.color}
-                              bgColor={status.bgColor}
-                              borderColor={status.borderColor}
-                              LeftIcon={StatusIcon}
+                      <Fragment key={chaveP}>
+                        <tr className="border-b border-rl-border/40 bg-rl-surface/30">
+                          <td className="pl-3 py-2 w-8">
+                            <Caixa
+                              marcada={nSel > 0 && nSel === idsP.length}
+                              parcial={nSel > 0 && nSel < idsP.length}
+                              onChange={() => selecionar(idsP, nSel < idsP.length)}
+                              label={`Selecionar a pasta ${pg.rotulo}`}
                             />
-                            {resultado && (
-                              <span
-                                className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border whitespace-nowrap"
-                                style={{
-                                  color: resultado.color,
-                                  background: resultado.bgColor,
-                                  borderColor: resultado.borderColor,
-                                }}
-                                title={ad.justificativa || ''}
-                              >
-                                <span>{resultado.emoji}</span> {resultado.label}
+                          </td>
+                          <td colSpan={10} className="py-1.5 pr-3">
+                            <span className="group/pasta flex items-center gap-2">
+                              {renomeando?.chave === chaveP ? (
+                                <span className="flex items-center gap-2">
+                                  <FolderOpen className="w-4 h-4 text-rl-purple shrink-0" />
+                                  <input
+                                    autoFocus
+                                    value={renomeando.valor}
+                                    onChange={(e) => setRenomeando({ ...renomeando, valor: e.target.value })}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') e.currentTarget.blur()
+                                      if (e.key === 'Escape') { e.stopPropagation(); cancelouRenomeio.current = true; setRenomeando(null) }
+                                    }}
+                                    onBlur={() => {
+                                      if (cancelouRenomeio.current) { cancelouRenomeio.current = false; return }
+                                      renomearPasta(pg.pasta, renomeando.valor)
+                                    }}
+                                    className="input-field text-xs py-1 px-2 w-64"
+                                    maxLength={60}
+                                  />
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => alternarPasta(chaveP)}
+                                  aria-expanded={aberta}
+                                  className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-rl-surface transition-all"
+                                >
+                                  <ChevronDown className={`w-3.5 h-3.5 text-rl-muted transition-transform duration-150 ${aberta ? '' : '-rotate-90'}`} />
+                                  {aberta
+                                    ? <FolderOpen className="w-4 h-4 text-rl-purple shrink-0" />
+                                    : <Folder className="w-4 h-4 text-rl-purple shrink-0" />}
+                                  <span className={`text-[13px] font-semibold ${pg.pasta ? 'text-rl-text' : 'text-rl-muted italic'}`}>{pg.rotulo}</span>
+                                </button>
+                              )}
+                              <span className="text-xs text-rl-muted tabular-nums">
+                                {pg.ads.length} {pg.ads.length === 1 ? 'criativo' : 'criativos'}
                               </span>
-                            )}
-                            {ad.status === 'em_andamento' && ad.startedAt && (
-                              <span className="text-[9px] text-rl-muted whitespace-nowrap">
-                                desde {fmtDateBR(ad.startedAt)}
-                              </span>
-                            )}
-                            {ad.status === 'finalizado' && ad.finishedAt && (
-                              <span className="text-[9px] text-rl-muted whitespace-nowrap">
-                                fim {fmtDateBR(ad.finishedAt)}
-                              </span>
-                            )}
-                          </div>
-                        </Td>
-                        <Td className="text-xs">
-                          <InlineSelect
-                            value={ad.campanhaId || ''}
-                            onChange={(v) => updateAd(ad.id, { campanhaId: v })}
-                            options={[
-                              { value: '', label: '— sem campanha —' },
-                              ...campaigns.map((c) => ({
-                                value: c.id,
-                                label: `[${c.stageLabel}] ${c.name}${c.channel ? ' · ' + c.channel : ''}`,
-                              })),
-                            ]}
-                            color="#0F172A"
-                            bgColor="#F8FAFC"
-                            borderColor="#E2E8F0"
-                            textPlaceholder="— sem campanha —"
-                          />
-                        </Td>
-                        <Td>
-                          <InlineSelect
-                            value={ad.funilId || ''}
-                            onChange={(v) => updateAd(ad.id, { funilId: v })}
-                            options={[
-                              { value: '', label: '— sem funil —' },
-                              ...FUNNELS.map((f) => ({ value: f.id, label: `${f.icon} ${f.label}` })),
-                            ]}
-                            color="#2563EB"
-                            bgColor="rgba(37,99,235,0.08)"
-                            borderColor="rgba(37,99,235,0.25)"
-                            textPlaceholder="— sem funil —"
-                          />
-                        </Td>
-                        <Td>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {/* Na aba de aprovação, o link útil é o que o cliente
-                                recebeu: a leva da copy ou a página da peça. */}
-                            {isAprovacao && ad.copyAprovacao?.status === 'pendente' && ad.copyAprovacao?.token && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); copiarLink(linkDaLeva(ad.copyAprovacao.token)) }}
-                                className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
-                                title={`Copiar o link da leva "${ad.copyAprovacao.levaNome || ''}"`}
-                              >
-                                <Link2 className="w-3 h-3" /> Link da leva
-                              </button>
-                            )}
-                            {ad.url ? (
-                              <a
-                                href={ad.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
-                              >
-                                <ExternalLink className="w-3 h-3" /> Link
-                              </a>
-                            ) : (
-                              !arquivos.length && <span className="text-rl-muted italic text-xs">—</span>
-                            )}
-                            {/* Arquivos do criativo (feed, story, cards): abre a
-                                pré-visualização e navega entre eles. */}
-                            {arquivos.length > 0 && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setVerArquivos({ anexos: arquivos, indice: 0 }) }}
-                                className="inline-flex items-center gap-1 text-xs text-rl-blue font-semibold hover:underline whitespace-nowrap"
-                                title={arquivos.map((a) => `${FORMATOS[a.formato]?.label || 'Arquivo'}: ${a.name}`).join('\n')}
-                              >
-                                <Paperclip className="w-3 h-3" /> {resumoArquivos(arquivos)}
-                              </button>
-                            )}
-                          </div>
-                        </Td>
-                        <Td className="max-w-[200px]">
-                          {ad.observacao ? (
-                            <span className="text-[11px] text-rl-subtle line-clamp-2" title={ad.observacao}>
-                              {ad.observacao}
+                              {pg.pasta && renomeando?.chave !== chaveP && (
+                                <button
+                                  type="button"
+                                  onClick={() => { cancelouRenomeio.current = false; setRenomeando({ chave: chaveP, valor: pg.pasta }) }}
+                                  className="p-1 rounded text-rl-muted opacity-0 group-hover/pasta:opacity-100 hover:text-rl-purple transition-all"
+                                  title="Renomear pasta (vale pra todos os meses)"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                              )}
                             </span>
-                          ) : (
-                            <span className="text-rl-muted italic text-xs">—</span>
-                          )}
-                        </Td>
-                        <Td>
-                          <div className="flex items-center gap-1 justify-end">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setEditingAd(ad) }}
-                              className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-                              title="Editar"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDelete(ad.id) }}
-                              className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
-                              title="Excluir"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </Td>
-                      </tr>
+                          </td>
+                        </tr>
+                        {aberta && pg.ads.map(renderLinha)}
+                      </Fragment>
                     )
                   })}
                 </tbody>
@@ -613,6 +823,7 @@ export default function DebriefingModule({ project }) {
           campaignPlan={project.campaignPlan}
           projectId={project.id}
           existingAdsCount={ads.length}
+          pastas={pastas}
           onSave={handleSaveAd}
           onClose={() => setEditingAd(null)}
         />
@@ -631,6 +842,7 @@ export default function DebriefingModule({ project }) {
           projectId={project.id}
           campaignPlan={project.campaignPlan}
           existingAds={ads}
+          pastas={pastas}
           onSave={handleSaveGrupo}
           onClose={() => setShowGrupo(false)}
         />
@@ -647,6 +859,26 @@ export default function DebriefingModule({ project }) {
 
       <Toast toast={toast} />
     </div>
+  )
+}
+
+// Caixa de seleção da tabela; `parcial` mostra o traço quando só parte do
+// mês ou da pasta está marcada.
+function Caixa({ marcada, parcial = false, onChange, label }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = parcial && !marcada
+  }, [parcial, marcada])
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={!!marcada}
+      onChange={onChange}
+      onClick={(e) => e.stopPropagation()}
+      aria-label={label}
+      className="w-3.5 h-3.5 cursor-pointer accent-[#7C3AED] align-middle"
+    />
   )
 }
 

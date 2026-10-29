@@ -13,7 +13,7 @@ import {
 import Modal from '../UI/Modal'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
 import { flattenCampaigns, TIPOS_ANUNCIO, Field } from './DebriefingAdModal'
-import { STATUS_BY_ID, DEFAULT_STATUS, fmtDateBR, todayISO } from './debriefingData'
+import { STATUS_BY_ID, DEFAULT_STATUS, fmtDateBR, todayISO, normalizarPasta } from './debriefingData'
 import {
   ATTACHMENT_BUCKET, FORMATOS, midiaDoArquivo, lerMedidas, formatoDoArquivo, parearFeedStory,
   caminhoArquivo, espelhoLegado,
@@ -69,7 +69,7 @@ function paraCriativos(lista, anteriores = []) {
   })
 }
 
-export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAds = [], onSave, onClose }) {
+export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAds = [], pastas = [], onSave, onClose }) {
   const campaigns = useMemo(() => flattenCampaigns(campaignPlan), [campaignPlan])
   const inputRef = useRef(null)
   const grupoId = useMemo(() => crypto.randomUUID(), [])
@@ -82,7 +82,7 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
   const [lendo, setLendo] = useState(false)
   const [arrastandoArquivo, setArrastandoArquivo] = useState(false)
   const [comum, setComum] = useState({
-    nomeGrupo: '', createdAt: todayISO(), etapa: 'FUNDO', campanhaId: '', funilId: '',
+    pasta: '', createdAt: todayISO(), etapa: 'FUNDO', campanhaId: '', funilId: '',
     status: DEFAULT_STATUS, observacao: '',
   })
   const [enviarAprovacao, setEnviarAprovacao] = useState(true)
@@ -218,9 +218,10 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
 
     const now = new Date().toISOString()
     const hoje = todayISO()
+    const pasta = normalizarPasta(comum.pasta) || null
     const grupo = {
       id: grupoId,
-      nome: comum.nomeGrupo.trim() || `Grupo de ${fmtDateBR(comum.createdAt)}`,
+      nome: pasta || `Grupo de ${fmtDateBR(comum.createdAt)}`,
       modo,
       criadoEm: now,
     }
@@ -248,6 +249,7 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
         url:            '',
         arquivos,
         ...espelhoLegado(arquivos),
+        pasta,
         aprovacao:      enviarAprovacao ? { status: 'pendente', enviadoEm: now } : null,
         version:        1,
         versionHistory: [],
@@ -431,15 +433,19 @@ export default function GrupoAnunciosModal({ projectId, campaignPlan, existingAd
         <div className="space-y-3 pt-1">
           <p className="text-xs font-bold text-rl-text uppercase tracking-wide">Vale pra todos os anúncios do grupo</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Nome do grupo" hint="Pra achar o lote depois. Ex.: Estáticos de novembro">
+            <Field label="Pasta" hint="Os criativos entram nesta pasta dentro do mês, na Central.">
               <input
                 type="text"
-                value={comum.nomeGrupo}
-                onChange={(e) => setC('nomeGrupo', e.target.value)}
-                placeholder={`Grupo de ${fmtDateBR(comum.createdAt)}`}
+                list="grupo-pastas"
+                value={comum.pasta}
+                onChange={(e) => setC('pasta', e.target.value)}
+                placeholder="Ex.: Estáticos com foto"
                 className="input-field w-full"
-                maxLength={80}
+                maxLength={60}
               />
+              <datalist id="grupo-pastas">
+                {pastas.map((p) => <option key={p} value={p} />)}
+              </datalist>
             </Field>
             <Field label="Data de criação" required>
               <input

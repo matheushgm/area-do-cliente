@@ -8,8 +8,9 @@ import { useParams } from 'react-router-dom'
 import {
   Megaphone, Loader2, AlertTriangle, CheckCircle2, XCircle, ExternalLink,
   Video, Image as ImageIcon, Layers, Clock, Paperclip, Send, LayoutTemplate,
-  Maximize2, X, ZoomIn, ZoomOut, History,
+  Maximize2, X, ZoomIn, ZoomOut, History, Folder, FolderOpen, ChevronDown,
 } from 'lucide-react'
+import { agruparPorPasta } from '../components/Debriefing/debriefingData'
 
 const TIPO_META = {
   video:     { label: 'Vídeo',     Icon: Video },
@@ -131,9 +132,13 @@ export function AprovacaoView({ auth, readOnly = false, embedded = false }) {
           <h2 className="text-sm font-black text-rl-text uppercase tracking-wide">
             {readOnly ? 'Aguardando aprovação' : 'Aguardando sua aprovação'}
           </h2>
-          {pendentes.map((ad) => (
-            <AdCard key={`${ad.kind}-${ad.id}`} ad={ad} auth={auth} onDecided={load} readOnly={readOnly} />
-          ))}
+          <PorPasta
+            itens={pendentes}
+            abertaInicial={(nPastas) => nPastas === 1}
+            renderCard={(ad) => (
+              <AdCard key={`${ad.kind}-${ad.id}`} ad={ad} auth={auth} onDecided={load} readOnly={readOnly} />
+            )}
+          />
         </section>
       )}
 
@@ -142,9 +147,11 @@ export function AprovacaoView({ auth, readOnly = false, embedded = false }) {
           <h2 className="text-sm font-black text-rl-muted uppercase tracking-wide">
             Já avaliados
           </h2>
-          {decididos.map((ad) => (
-            <AdCard key={`${ad.kind}-${ad.id}`} ad={ad} auth={auth} decided />
-          ))}
+          <PorPasta
+            itens={decididos}
+            abertaInicial={() => false}
+            renderCard={(ad) => <AdCard key={`${ad.kind}-${ad.id}`} ad={ad} auth={auth} decided />}
+          />
         </section>
       )}
     </>
@@ -192,6 +199,45 @@ export function AprovacaoView({ auth, readOnly = false, embedded = false }) {
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
         {body}
       </div>
+    </div>
+  )
+}
+
+// Cards separados pelas pastas que o time usa na Central. Sem pasta nenhuma,
+// a lista segue corrida como sempre; o que não tem pasta (e as LPs) vai em
+// "Outros", no fim.
+function PorPasta({ itens, abertaInicial, renderCard }) {
+  const grupos = agruparPorPasta(itens)
+  if (grupos.length === 1 && !grupos[0].pasta) return grupos[0].ads.map(renderCard)
+  return grupos.map((g) => (
+    <PastaBloco
+      key={g.pasta || 'outros'}
+      nome={g.pasta || 'Outros'}
+      total={g.ads.length}
+      abertaInicial={abertaInicial(grupos.length)}
+    >
+      {g.ads.map(renderCard)}
+    </PastaBloco>
+  ))
+}
+
+function PastaBloco({ nome, total, abertaInicial, children }) {
+  const [aberta, setAberta] = useState(abertaInicial)
+  const Icone = aberta ? FolderOpen : Folder
+  return (
+    <div className="space-y-4">
+      <button
+        type="button"
+        onClick={() => setAberta((v) => !v)}
+        aria-expanded={aberta}
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-rl-border bg-rl-surface/40 hover:border-rl-purple/40 transition-all text-left"
+      >
+        <Icone className="w-4 h-4 text-rl-purple shrink-0" />
+        <span className="text-sm font-bold text-rl-text flex-1 min-w-0 truncate">{nome}</span>
+        <span className="text-xs text-rl-muted shrink-0">{total} {total === 1 ? 'criativo' : 'criativos'}</span>
+        <ChevronDown className={`w-4 h-4 text-rl-muted shrink-0 transition-transform ${aberta ? 'rotate-180' : ''}`} />
+      </button>
+      {aberta && <div className="space-y-4">{children}</div>}
     </div>
   )
 }

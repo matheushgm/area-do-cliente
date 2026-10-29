@@ -3,7 +3,7 @@ import { X, Check, Video, Image as ImageIcon, Layers, ExternalLink, AlertTriangl
 import Modal from '../UI/Modal'
 import MarkdownView from '../Editor/MarkdownView'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
-import { STATUS_OPTIONS, RESULTADO_OPTIONS, DEFAULT_STATUS, APROVACAO_BY_ID, todayISO, fmtDateTimeBR } from './debriefingData'
+import { STATUS_OPTIONS, RESULTADO_OPTIONS, DEFAULT_STATUS, APROVACAO_BY_ID, todayISO, fmtDateTimeBR, normalizarPasta } from './debriefingData'
 import { uploadFile, deleteFile, getSignedUrl } from '../../lib/supabase'
 import AnexoPreview from '../UI/AnexoPreview'
 import {
@@ -159,6 +159,7 @@ export default function DebriefingAdModal({
   campaignPlan,
   projectId,
   existingAdsCount = 0,
+  pastas = [],
   onSave,
   onClose,
 }) {
@@ -358,6 +359,7 @@ export default function DebriefingAdModal({
     onSave({
       ...values,
       ...espelhoLegado(values.arquivos),
+      pasta: normalizarPasta(values.pasta) || null,
       aprovacao,
       id: stableId,
       addedAt: initial?.addedAt || now,
@@ -580,6 +582,25 @@ export default function DebriefingAdModal({
               Sugerir nome
             </button>
           </div>
+        </Field>
+
+        {/* Pasta */}
+        <Field
+          label="Pasta"
+          hint="Organiza o anúncio dentro do mês na Central. Escolha uma que já existe ou digite um nome novo."
+        >
+          <input
+            type="text"
+            list="modal-pastas"
+            value={values.pasta || ''}
+            onChange={(e) => set('pasta', e.target.value)}
+            placeholder="Ex.: Estáticos com foto"
+            className="input-field w-full"
+            maxLength={60}
+          />
+          <datalist id="modal-pastas">
+            {pastas.map((p) => <option key={p} value={p} />)}
+          </datalist>
         </Field>
 
         {/* Funil */}
