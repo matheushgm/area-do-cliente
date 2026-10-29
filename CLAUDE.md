@@ -558,7 +558,7 @@ views com filter tabs, listas densas de 13px, painel lateral de 480px e painel f
   3 pessoas, progressivo, cache de 10 min em sessionStorage), `usePlanejador` (todo o fluxo
   formulário → cálculo → comparação → aprovação, extraído sem mudar regra), estado de UI
   (painel lateral com 3 modos: pessoa / atividade / nova; dia selecionado na linha de calor;
-  filtro por saúde; agrupamento; densidade), atalhos (`C` nova atividade, `Esc` fecha) e o
+  filtro por saúde; agrupamento), atalhos (`C` nova atividade, `Esc` fecha) e o
   contador "n / N" com setas.
 - **Componentes** (`src/components/Atividades/`): `KpiStrip` (6 tiles do time), `TeamHeatLine`
   (ocupação do time por dia útil, 10 células), `TeamTable` (pessoas agrupadas por saúde:
@@ -680,7 +680,7 @@ todo `authenticated`; as quatro estão na publicação realtime).
 
 - **Página** `src/pages/Tarefas.jsx`: coluna de pastas/listas (`TarefasSidebar`, dentro do
   frame), barra com Lista/Quadro, agrupamento (status, vencimento, responsável, prioridade,
-  lista), filtro de responsável, busca, toggle de concluídas e densidade. Atalhos: `C` abre
+  lista), filtro de responsável, busca e toggle de concluídas. Atalhos: `C` abre
   a tarefa nova, `Esc` fecha o painel. **Tarefa nova é rascunho** (2026-10-27, `NovaTarefaPanel`): "+ Tarefa"/`C`
   abrem o painel lateral com lista (busca pelo cliente ou pela lista, sem acento), título, propriedades, descrição, subtarefas, relações e checklists, e nada é gravado até "Criar tarefa"
   (Ctrl+Enter; a tarefa, depois as subtarefas na mesma lista e as relações em `tarefas_relacoes`); na pasta a
@@ -866,7 +866,7 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     como nova.
   - **Barra:** à esquerda o agrupador e o modo das subtarefas; à direita busca (ícone que vira campo),
     filtros (funil, com contador e ponto laranja se diferem dos salvos), responsáveis (múltipla seleção;
-    nenhum = todos), concluídas, densidade (Lista), engrenagem e "+ Tarefa ▾" (a seta é o `ModelosMenu`
+    nenhum = todos), concluídas, engrenagem e "+ Tarefa ▾" (a seta é o `ModelosMenu`
     de templates). O "Nova tarefa" e o "Templates" do cabeçalho só aparecem nas seções sem essa barra.
   - **Subtarefas:** Recolhidas (padrão) e Expandidas (`ctx.expandirTudo`) ficam sob o pai e os filtros e o
     agrupamento olham só o pai, como no ClickUp; Separar avalia e agrupa cada subtarefa sozinha, sem
@@ -875,7 +875,10 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     `{ op, grupos: [{ op, regras: [{ campo, operador, valor }] }] }`. Condição conforme o tipo do campo
     (opção, lista, data com períodos/antes/depois/atrasada, número, texto); E/OU dentro do grupo e entre
     grupos (1º "Onde", 2º seletor, 3º+ o mesmo E/OU em texto); regra incompleta não filtra. Somam (E) com
-    os da barra e são rascunho da view, como a barra. A etiqueta saiu da barra e virou campo daqui.
+    os da barra e são rascunho da view, como a barra. A etiqueta saiu da barra e virou campo daqui. No campo Lista cada
+    opção mostra a pasta (cliente) ao lado e a busca acha pela lista, pela pasta ou pelo projeto, sem acento (`opcoesDeLista`). Em Todas e Minhas há também o campo
+    **Squad** (squad do cliente: lista → pasta → `projects_v2.squad`, via `ctx.squadDe` em `passaFiltros`; campos por escopo em
+    `camposDoEscopo`).
   - **Sidebars** à direita (340 px; filtros 600 px): empurram o conteúdo quando sobra largura, senão
     sobrepõem; Esc fecha; abrir uma tarefa fecha a sidebar e vice-versa.
   - **config** também guarda `ordenar` (`{ campo, dir }`: cabeçalhos da Lista clicáveis, sobe → desce →

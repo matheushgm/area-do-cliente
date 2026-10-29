@@ -132,7 +132,6 @@ export default function AreaTarefas({
   const larguraPropria = useLarguraDoConteudo(areaRef)
   const largura = larguraExterna ?? larguraPropria
 
-  const [denso, setDenso] = useState(() => lerPref('denso', false))
   const [busca, setBusca] = useState('')
   const [rascunhoView, setRascunhoView] = useState(null) // { chave, config }: o que mudou na tela e não foi salvo
   const [painelView, setPainelView] = useState(null) // null | 'config' | 'nova' | 'filtros' (sidebar à direita)
@@ -144,7 +143,6 @@ export default function AreaTarefas({
   const [confirmar, dialogoConfirmar] = useConfirmar()
   const [aplicandoTpl, setAplicandoTpl] = useState(null) // { template, listaId }: tela "Aplicar template"
   const [novaInicial, setNovaInicial] = useState(null) // rascunho de tarefa nova no painel lateral (NovaTarefaPanel)
-  useEffect(() => gravarPref('denso', denso), [denso])
   // largura da coluna Nome da Lista: preferência local, a mesma em todas as views
   const [larguraNome, setLarguraNome] = useState(() => normalizarLarguraNome(lerPref('larguraNome', null)))
   useEffect(() => gravarPref('larguraNome', larguraNome), [larguraNome])
@@ -323,12 +321,19 @@ export default function AreaTarefas({
   // Filtros da barra (busca, responsáveis, concluídas) E filtros avançados da sidebar.
   const separar = config.subtarefas === 'separar'
   const baseFiltro = separar ? itensEscopo : topo
+  // squad do cliente de cada lista (lista → pasta → projeto), para o campo Squad dos filtros
+  const squadDaLista = useMemo(() => {
+    const doProjeto = new Map((projects || []).map((p) => [p.id, p.squad || null]))
+    const daPasta = new Map(t.pastas.map((p) => [p.id, p.project_id ? doProjeto.get(p.project_id) || null : null]))
+    return new Map(t.listas.map((l) => [l.id, daPasta.get(l.pasta_id) || null]))
+  }, [projects, t.pastas, t.listas])
   const filtrados = useMemo(() => {
     const resp = respFiltro
+    const ctxFiltro = { squadDe: (it) => squadDaLista.get(it.lista_id) }
     return filtrarItens(baseFiltro, { busca, mostrarConcluidas })
       .filter((it) => passaResponsaveis(it, resp))
-      .filter((it) => passaFiltros(it, config.filtros))
-  }, [baseFiltro, busca, mostrarConcluidas, respFiltro, config.filtros])
+      .filter((it) => passaFiltros(it, config.filtros, ctxFiltro))
+  }, [baseFiltro, busca, mostrarConcluidas, respFiltro, config.filtros, squadDaLista])
   const filhosVisao = separar ? SEM_FILHOS : filhosDe
 
   const grupos = useMemo(() => {
@@ -687,7 +692,7 @@ export default function AreaTarefas({
             onSalvar={salvarVisualizacao} onSalvarNova={() => abrirPainelView('nova')} onReverter={reverterView}
             busca={busca} onBusca={setBusca} membros={teamMembers || []} respBloqueado={respBloqueado}
             nFiltros={contarRegras(config.filtros)} filtrosAlterados={persistente && JSON.stringify(config.filtros) !== JSON.stringify(viewAtiva.config.filtros)}
-            painel={painelView} onPainel={abrirPainelView} denso={denso} onDenso={() => setDenso((v) => !v)}
+            painel={painelView} onPainel={abrirPainelView}
             modelos={vt.modelos} onUsarModelo={usarModelo} onGerenciarModelos={() => abrirTemplate(null)} onNovaTarefa={novaTarefa}
           />
         </>)}
@@ -706,7 +711,7 @@ export default function AreaTarefas({
               ) : view === 'quadro' ? (
                 <div className={comTopo ? 'h-[560px]' : 'h-full'}><QuadroView grupos={grupos} filhosDe={filhosVisao} ctx={ctx} /></div>
               ) : (
-                <ListaView key={`${chaveRascunho}:${config.subtarefas}`} grupos={grupos} filhosDe={filhosVisao} ctx={{ ...ctx, selecao }} mostrarConcluidas={mostrarConcluidas} denso={denso} />
+                <ListaView key={`${chaveRascunho}:${config.subtarefas}`} grupos={grupos} filhosDe={filhosVisao} ctx={{ ...ctx, selecao }} mostrarConcluidas={mostrarConcluidas} />
               )}
             </>
           )}
@@ -758,7 +763,7 @@ export default function AreaTarefas({
               {painelView === 'filtros' ? (
                 <PainelFiltros
                   filtros={config.filtros} onChange={(filtros) => editarView({ filtros })}
-                  ctx={{ statuses, membros: teamMembers || [], etiquetas: vt.etiquetas, ciclos: vt.ciclos, listas: listasEscopo.length ? listasEscopo : t.listas }}
+                  ctx={{ statuses, membros: teamMembers || [], etiquetas: vt.etiquetas, ciclos: vt.ciclos, listas: listasEscopo.length ? listasEscopo : t.listas, pastas: t.pastas, projetos: projects || [], squads: squads || [], escopo: escopoViews?.escopo }}
                   barra={[
                     respFiltro.length && `Responsáveis: ${respFiltro.map((id) => nomeResponsavelFiltro(id, teamMembers || [])).join(', ')}`,
                     !config.concluidas && 'Sem concluídas',

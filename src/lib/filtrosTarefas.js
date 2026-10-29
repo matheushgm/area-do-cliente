@@ -8,6 +8,7 @@ import { PRIORIDADES, TIPOS_TAREFA, DIFICULDADES, DEPARTAMENTOS } from './tarefa
 export const FILTROS_VAZIOS = { op: 'e', grupos: [] }
 
 // tipo: opcao (um valor por tarefa) | multi (lista na tarefa) | data | numero | texto
+// escopos: só aparece nesses escopos de view (sem = em todos)
 export const CAMPOS_FILTRO = [
   { key: 'status', label: 'Status', tipo: 'opcao' },
   { key: 'prioridade', label: 'Prioridade', tipo: 'opcao', vazio: true },
@@ -22,6 +23,8 @@ export const CAMPOS_FILTRO = [
   { key: 'etiquetas', label: 'Etiquetas', tipo: 'multi' },
   { key: 'ciclo', label: 'Cycle (Sprint)', tipo: 'opcao', vazio: true },
   { key: 'lista', label: 'Lista', tipo: 'opcao' },
+  // squad do cliente da tarefa (lista → pasta → projeto → squad); dentro de uma pasta é um só
+  { key: 'squad', label: 'Squad', tipo: 'opcao', vazio: true, escopos: ['minhas', 'todas'] },
   { key: 'estimativa', label: 'Estimativa (horas)', tipo: 'numero' },
   { key: 'nome', label: 'Nome', tipo: 'texto' },
 ]
@@ -39,6 +42,8 @@ export const PERIODOS = [
 ]
 
 export const campoFiltro = (k) => CAMPOS_FILTRO.find((c) => c.key === k) || null
+/** Campos oferecidos no escopo da view ('pasta' | 'minhas' | 'todas'; sem escopo = Cycles, lista solta). */
+export const camposDoEscopo = (escopo) => CAMPOS_FILTRO.filter((c) => !c.escopos || c.escopos.includes(escopo))
 export const operadoresDe = (c) => (c ? OPERADORES[c.tipo].filter(([k]) => (k !== 'atrasada' || c.atrasada) && (!['definido', 'vazio'].includes(k) || c.tipo !== 'opcao' || c.vazio)) : [])
 const idLocal = () => Math.random().toString(36).slice(2, 9)
 export const novaRegra = () => ({ id: idLocal(), campo: '', operador: '', valor: null })
@@ -70,7 +75,8 @@ function intervalo(periodo) {
   return r[periodo] || [0, 0]
 }
 
-function valorDe(it, campo) {
+// ctx.squadDe(it): squad do cliente da tarefa (quem filtra monta o mapa)
+function valorDe(it, campo, ctx) {
   switch (campo) {
     case 'status': return it.status
     case 'prioridade': return it.prioridade || null
@@ -85,15 +91,16 @@ function valorDe(it, campo) {
     case 'etiquetas': return it.etiquetas || []
     case 'ciclo': return it.ciclo_id || null
     case 'lista': return it.lista_id
+    case 'squad': return ctx?.squadDe?.(it) || null
     case 'estimativa': return it.estimativa_min ? it.estimativa_min / 60 : null
     case 'nome': return it.titulo || ''
     default: return null
   }
 }
 
-function avaliarRegra(it, r) {
+function avaliarRegra(it, r, ctx) {
   const c = campoFiltro(r.campo)
-  const v = valorDe(it, r.campo)
+  const v = valorDe(it, r.campo, ctx)
   const op = r.operador
   if (c.tipo === 'opcao') {
     if (op === 'definido') return !!v
@@ -130,19 +137,36 @@ function avaliarRegra(it, r) {
   return op === 'contem' ? tem : !tem
 }
 
-/** true se o item passa nos filtros avançados (grupos e regras incompletos são ignorados). */
-export function passaFiltros(it, f) {
+/** true se o item passa nos filtros avançados (grupos e regras incompletos são ignorados).
+ *  ctx = { squadDe } para o campo Squad. */
+export function passaFiltros(it, f, ctx) {
   const resultados = (f?.grupos || []).map((g) => {
     const regras = g.regras.filter(regraCompleta)
     if (!regras.length) return null
-    return g.op === 'ou' ? regras.some((r) => avaliarRegra(it, r)) : regras.every((r) => avaliarRegra(it, r))
+    return g.op === 'ou' ? regras.some((r) => avaliarRegra(it, r, ctx)) : regras.every((r) => avaliarRegra(it, r, ctx))
   }).filter((x) => x !== null)
   if (!resultados.length) return true
   return f.op === 'ou' ? resultados.some(Boolean) : resultados.every(Boolean)
 }
 
-/** Opções de valor do campo (com cor quando houver). ctx = { statuses, membros, etiquetas, ciclos, listas }. */
-export function opcoesDoCampo(campo, { statuses = [], membros = [], etiquetas = [], ciclos = [], listas = [] } = {}) {
+// Quase todo cliente tem uma lista "Geral": cada lista leva o nome da pasta (cliente) ao
+// lado e a busca acha pela lista, pela pasta ou pelo nome do projeto ligado a ela.
+function opcoesDeLista(listas, pastas, projetos) {
+  const pastaDe = new Map(pastas.map((p) => [p.id, p]))
+  const projetoDe = new Map(projetos.map((p) => [p.id, p]))
+  return listas
+    .map((l) => {
+      const pasta = pastaDe.get(l.pasta_id)
+      const projeto = pasta?.project_id ? projetoDe.get(pasta.project_id) : null
+      const cliente = projeto?.company_name || projeto?.companyName || ''
+      return { value: l.id, label: l.nome, detalhe: pasta?.nome || '', busca: [l.nome, pasta?.nome, cliente].filter(Boolean).join(' ') }
+    })
+    .sort((a, b) => (a.detalhe || '\uffff').localeCompare(b.detalhe || '\uffff', 'pt-BR') || a.label.localeCompare(b.label, 'pt-BR'))
+}
+
+/** Opções de valor do campo (com cor quando houver). ctx = { statuses, membros, etiquetas, ciclos, listas, pastas, projetos, squads }.
+ *  `detalhe` aparece apagado ao lado do rótulo e `busca` é o texto pesquisado (padrão: o rótulo). */
+export function opcoesDoCampo(campo, { statuses = [], membros = [], etiquetas = [], ciclos = [], listas = [], pastas = [], projetos = [], squads = [] } = {}) {
   switch (campo) {
     case 'status': return statuses.map((s) => ({ value: s.key, label: s.label, cor: s.cor }))
     case 'prioridade': return PRIORIDADES.map((p) => ({ value: p.key, label: p.label, cor: p.cor, bandeira: true }))
@@ -152,7 +176,8 @@ export function opcoesDoCampo(campo, { statuses = [], membros = [], etiquetas = 
     case 'departamento': return DEPARTAMENTOS.map((d) => ({ value: d, label: d }))
     case 'etiquetas': return etiquetas.map((e) => ({ value: e.id, label: e.nome, cor: e.cor }))
     case 'ciclo': return ciclos.map((c) => ({ value: c.id, label: c.nome }))
-    case 'lista': return listas.map((l) => ({ value: l.id, label: l.nome }))
+    case 'lista': return opcoesDeLista(listas, pastas, projetos)
+    case 'squad': return squads.map((s) => ({ value: s.id, label: [s.emoji, s.name].filter(Boolean).join(' ') }))
     default: return []
   }
 }

@@ -9,7 +9,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   Menu, ChevronUp, ChevronDown, ChevronRight, RefreshCw, Loader2, Settings, Plus, X,
-  Users, ListChecks, Rows3, Layers, Maximize2, Minimize2, CheckCircle2, CalendarRange,
+  Users, ListChecks, Layers, Maximize2, Minimize2, CheckCircle2, CalendarRange,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import Toast from '../UI/Toast'
@@ -142,7 +142,6 @@ export default function AtividadesModulo({ onAbrirMenu }) {
   const [diaSelecionado, setDiaSelecionado] = useState(null)
   const [filtroNivel, setFiltroNivel] = useState(null)
   const [agrupar, setAgrupar] = useState('saude')
-  const [denso, setDenso] = useState(false)
   const [filtroLista, setFiltroLista] = useState('todas')
   const [agruparLista, setAgruparLista] = useState('semana')
 
@@ -363,7 +362,6 @@ export default function AtividadesModulo({ onAbrirMenu }) {
                   {filtroNivel && (
                     <button onClick={() => setFiltroNivel(null)} className="ln-pill" title="Limpar filtro de saúde">Filtro: {filtroNivel.replace('_', ' ')} <X className="w-3 h-3" /></button>
                   )}
-                  <button onClick={() => setDenso((v) => !v)} className={`ln-iconbtn ${denso ? 'bg-ln-ink/[0.08] text-ln-t1' : ''}`} aria-label="Densidade" title={denso ? 'Linhas confortáveis' : 'Linhas compactas'}><Rows3 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
 
@@ -378,7 +376,6 @@ export default function AtividadesModulo({ onAbrirMenu }) {
                     setFiltros={setFiltrosConcl}
                     membros={membros}
                     projects={projects}
-                    denso={denso}
                   />
                 ) : (<>
                 <section ref={timeRef} className="pb-4 pt-3">
@@ -404,7 +401,6 @@ export default function AtividadesModulo({ onAbrirMenu }) {
                     filtroNivel={filtroNivel}
                     diaSelecionado={diaSelecionado}
                     selecionadaId={painel?.tipo === 'pessoa' ? painel.profileId : null}
-                    denso={denso}
                     onAbrirPessoa={abrirPessoa}
                     onNovaAtividadePara={(p) => novaAtividade(p)}
                     onRecarregar={recarregarPessoa}

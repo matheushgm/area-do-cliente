@@ -281,7 +281,7 @@ function Celula({ k, item, ctx }) {
  * props próprias; os eventos do ctx chamam sempre a versão atual (proxies da ListaView).
  */
 const igualLinha = (a, b) => a.item === b.item && a.versao === b.versao && a.sub === b.sub && a.nFilhos === b.nFilhos
-  && a.expandido === b.expandido && a.denso === b.denso && a.primeira === b.primeira && a.ultima === b.ultima
+  && a.expandido === b.expandido && a.primeira === b.primeira && a.ultima === b.ultima
   && a.selecionada === b.selecionada && a.marcada === b.marcada && a.caixas === b.caixas && a.nComent === b.nComent
   && a.renomeando === b.renomeando
 
@@ -314,7 +314,7 @@ function TituloEditavel({ item, onSalvar, onFim }) {
   )
 }
 
-const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, onToggle, ctx, cols, denso, irmasDe, primeira, ultima, selecionada, marcada, caixas, nComent, renomeando = false }) {
+const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, onToggle, ctx, cols, irmasDe, primeira, ultima, selecionada, marcada, caixas, nComent, renomeando = false }) {
   const { onAbrir, onMudarStatus } = ctx
   const statuses = ctx.statusesDe?.(item) || ctx.statuses
   const check = progressoChecklists(item.checklists)
@@ -332,7 +332,7 @@ const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, o
       // clique direito: menu da tarefa (no campo de renomear fica o menu do navegador)
       onContextMenu={ctx.onMenuTarefa ? (e) => { if (e.target.closest('input, textarea')) return; e.preventDefault(); ctx.onMenuTarefa(item, e.clientX, e.clientY, 'lista') } : undefined}
       aria-current={selecionada ? 'true' : undefined}
-      className={`group/linha grid items-center ${denso ? 'h-[30px]' : 'h-[34px]'} border-b border-ln-line/70 cursor-pointer ${FOCO} ${destaque || 'hover:bg-ln-level2/60'}`}
+      className={`group/linha grid items-center h-[34px] border-b border-ln-line/70 cursor-pointer ${FOCO} ${destaque || 'hover:bg-ln-level2/60'}`}
       style={{ gridTemplateColumns: grid(cols, ctx.larguraNome) }}
     >
       {/* Nome: congelada à esquerda ao rolar (como no ClickUp). O fundo precisa ser
@@ -512,7 +512,7 @@ function padraoDoGrupo(agrupar, chave, responsaveisPadrao = []) {
   return p
 }
 
-function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols, versao }) {
+function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, cols, versao }) {
   const [aberto, setAberto] = useState(true)
   // com ctx.expandirTudo o conjunto guarda as RECOLHIDAS (tudo nasce aberto); sem ele, as abertas
   const [expandidos, setExpandidos] = useState(() => new Set())
@@ -591,7 +591,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols, versao })
             const todosFilhos = filhosDe.get(it.id) || []
             const filhos = filhosOrdenados.get(it.id)
             const exp = ctx.expandirTudo ? todosFilhos.length > 0 && !expandidos.has(it.id) : expandidos.has(it.id)
-            const deLinha = (x) => ({ ctx, cols, denso, versao, selecionada: ctx.selecionadaId === x.id, marcada: !!selIds?.has(x.id), caixas, nComent: ctx.contagemComentarios?.[x.id] || 0, renomeando: ctx.renomeandoId === x.id })
+            const deLinha = (x) => ({ ctx, cols, versao, selecionada: ctx.selecionadaId === x.id, marcada: !!selIds?.has(x.id), caixas, nComent: ctx.contagemComentarios?.[x.id] || 0, renomeando: ctx.renomeandoId === x.id })
             return (
               <div key={it.id}>
                 <Linha item={it} nFilhos={todosFilhos.length} expandido={exp} onToggle={() => toggle(it.id)} irmasDe={irmasDe(null)} primeira={idx === 0} ultima={idx === itens.length - 1} {...deLinha(it)} />
@@ -616,7 +616,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, denso, cols, versao })
   )
 }
 
-export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, denso = false, compacto = false, colunas = null, vazio = null }) {
+export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, compacto = false, colunas = null, vazio = null }) {
   const cols = colunas || colunasDaLista(ctx.colunas, compacto)
   // largura mínima do grid (o Nome tem 420 px no mínimo); acompanha as colunas visíveis
   // largura do Nome enquanto a alça é arrastada (vale para todos os grupos); ao soltar vira ctx.larguraNome
@@ -689,7 +689,7 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, de
     <div ref={raiz} className="w-max min-w-full pb-24 pt-2 bg-ln-panel">
       {grupos.map((g) => (
         <div key={g.key} style={{ minWidth: larguraMin }}>
-          <Grupo grupo={g} ctx={ctxLinhas} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} denso={denso} cols={cols} versao={versao} />
+          <Grupo grupo={g} ctx={ctxLinhas} filhosDe={filhosDe} mostrarConcluidas={mostrarConcluidas} cols={cols} versao={versao} />
         </div>
       ))}
     </div>

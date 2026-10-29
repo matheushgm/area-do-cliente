@@ -9,7 +9,7 @@ import { DataInput } from './Calendario'
 import { CabecalhoPainel } from './PainelView'
 import { corDaPessoa, iniciais } from '../../lib/tarefas'
 import {
-  CAMPOS_FILTRO, PERIODOS, SEM_VALOR, FILTROS_VAZIOS, campoFiltro, operadoresDe, regraCompleta, contarRegras,
+  camposDoEscopo, PERIODOS, SEM_VALOR, FILTROS_VAZIOS, campoFiltro, operadoresDe, regraCompleta, contarRegras,
   novaRegra, novoGrupo, opcoesDoCampo,
 } from '../../lib/filtrosTarefas'
 
@@ -22,27 +22,31 @@ function Marcador({ o }) {
   return null
 }
 
+const semAcento = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
 function SeletorOpcoes({ opcoes, valor, onChange }) {
   const ref = useRef(null)
   const [aberto, setAberto] = useState(false)
   const [busca, setBusca] = useState('')
   const sel = opcoes.filter((o) => valor.includes(o.value))
-  const visiveis = opcoes.filter((o) => o.label.toLowerCase().includes(busca.toLowerCase()))
+  const q = semAcento(busca.trim())
+  const visiveis = q ? opcoes.filter((o) => semAcento(o.busca || o.label).includes(q)) : opcoes
+  const comDetalhe = opcoes.some((o) => o.detalhe)
   const alternar = (v) => onChange(valor.includes(v) ? valor.filter((x) => x !== v) : [...valor, v])
   return (
     <>
       <button ref={ref} type="button" onClick={() => setAberto((x) => !x)} className={`ln-input !h-8 flex-1 min-w-[120px] flex items-center gap-1.5 text-left text-[12.5px] ${!sel.length ? INCOMPLETO : ''} ${aberto ? '!border-ln-accent' : ''}`}>
         {sel.length ? (
           <span className="flex items-center gap-1.5 min-w-0 flex-1">
-            {sel.slice(0, 2).map((o) => <span key={o.value} className="inline-flex items-center gap-1 min-w-0"><Marcador o={o} /><span className="truncate text-ln-t1">{o.label}</span></span>)}
+            {sel.slice(0, 2).map((o) => <span key={o.value} className="inline-flex items-center gap-1 min-w-0"><Marcador o={o} /><span className="truncate text-ln-t1">{o.label}</span>{o.detalhe && <span className="truncate text-ln-t4">· {o.detalhe}</span>}</span>)}
             {sel.length > 2 && <span className="text-ln-t4 shrink-0">+{sel.length - 2}</span>}
           </span>
         ) : <span className="flex-1 text-ln-t4">Escolha…</span>}
         <ChevronDown className="w-3 h-3 text-ln-t4 shrink-0" />
       </button>
-      <Popover anchorRef={ref} open={aberto} onClose={() => { setAberto(false); setBusca('') }} width={260} align="right">
+      <Popover anchorRef={ref} open={aberto} onClose={() => { setAberto(false); setBusca('') }} width={comDetalhe ? 320 : 260} align="right">
         {opcoes.length > 6 && (
-          <div className="flex items-center gap-2 h-9 px-3 border-b border-ln-ink/5 shrink-0"><Search className="w-3.5 h-3.5 text-ln-t4" /><input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar…" className="flex-1 bg-transparent outline-none text-[13px] text-ln-t1 placeholder:text-ln-t4" /></div>
+          <div className="flex items-center gap-2 h-9 px-3 border-b border-ln-ink/5 shrink-0"><Search className="w-3.5 h-3.5 text-ln-t4" /><input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={comDetalhe ? 'Buscar lista ou cliente…' : 'Buscar…'} className="flex-1 bg-transparent outline-none text-[13px] text-ln-t1 placeholder:text-ln-t4" /></div>
         )}
         <div className="p-1 overflow-y-auto">
           {visiveis.map((o) => {
@@ -51,6 +55,7 @@ function SeletorOpcoes({ opcoes, valor, onChange }) {
               <button key={o.value} type="button" role="menuitemcheckbox" aria-checked={marcado} onClick={() => alternar(o.value)} className={`w-full flex items-center gap-2.5 h-8 px-2.5 rounded-md text-[13px] hover:bg-ln-ink/5 ${marcado ? 'text-ln-t1' : 'text-ln-t2'}`}>
                 <span className={`w-4 h-4 rounded grid place-items-center shrink-0 border ${marcado ? 'bg-ln-accent border-ln-accent text-white' : 'border-ln-ink/25'}`}>{marcado && <Check className="w-3 h-3" />}</span>
                 <Marcador o={o} /><span className="truncate">{o.label}</span>
+                {o.detalhe && <span className="ml-auto pl-2 truncate text-xs text-ln-t4 max-w-[55%]" title={o.detalhe}>{o.detalhe}</span>}
               </button>
             )
           })}
@@ -115,7 +120,7 @@ function RegraFiltro({ r, ctx, indice, opGrupo, onOpGrupo, onChange, onRemover, 
         <select ref={campoRef} value={r.campo} onChange={(e) => { const c = campoFiltro(e.target.value); onChange({ campo: c.key, operador: operadoresDe(c)[0][0], valor: null }) }}
           className={`ln-input !h-8 !w-[136px] shrink-0 !text-[12.5px] ${!r.campo ? `${INCOMPLETO} text-ln-t4` : ''}`} aria-label="Campo">
           <option value="" disabled>Escolha o campo…</option>
-          {CAMPOS_FILTRO.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+          {camposDoEscopo(ctx.escopo).map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
         </select>
         <select value={r.operador} disabled={!campo} onChange={(e) => onChange({ operador: e.target.value, valor: campo.tipo === 'opcao' || campo.tipo === 'multi' ? r.valor : null })}
           className="ln-input !h-8 !w-[112px] shrink-0 !text-[12.5px] disabled:opacity-50" aria-label="Condição">

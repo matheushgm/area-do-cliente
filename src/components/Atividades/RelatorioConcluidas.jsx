@@ -132,16 +132,16 @@ function Ranking({ titulo, subtitulo, itens, ativoKey, onEscolher, tipo, limite 
 
 // ─── Relatório de uma pessoa (dividido por dia) ──────────────────────────────
 
-function LinhaTarefa({ t, mostrarPessoa = false, denso }) {
+function LinhaTarefa({ t, mostrarPessoa = false }) {
   return (
-    <li className={`ln-row-hover grid items-center gap-x-2.5 px-2 ${denso ? 'h-7' : 'h-9'}`} style={{ gridTemplateColumns: '40px 16px minmax(0,1fr) minmax(0,max-content) 44px 16px' }}>
+    <li className="ln-row-hover grid items-center gap-x-2.5 px-2 h-9" style={{ gridTemplateColumns: '40px 16px minmax(0,1fr) minmax(0,max-content) 44px 16px' }}>
       <span className="text-[11px] text-ln-t4 tabular">{fmtHora(t.concluidaEm)}</span>
       {t.subtarefa
         ? <CornerDownRight className="w-3.5 h-3.5 text-ln-t4" aria-label="Subtarefa" />
         : <CheckCircle2 className="w-3.5 h-3.5 text-ln-green" aria-hidden="true" />}
       <span className="min-w-0 flex items-baseline gap-2">
         <a href={t.url} target="_blank" rel="noreferrer" className="text-[13px] text-ln-t1 truncate hover:underline" title={t.nome}>{t.nome}</a>
-        {t.lista && !denso && <span className="text-[11px] text-ln-t4 truncate hidden md:inline">{t.lista}</span>}
+        {t.lista && <span className="text-[11px] text-ln-t4 truncate hidden md:inline">{t.lista}</span>}
         {mostrarPessoa && t.pessoas?.length > 0 && <span className="text-[11px] text-ln-t3 truncate hidden sm:inline">{t.pessoas.map((p) => p.nome ? primeiroNome(p.nome) : 'sem resp.').join(', ')}</span>}
       </span>
       <span className="text-[11px] text-ln-t3 truncate max-w-[180px] px-1.5 h-5 inline-flex items-center rounded-full bg-ln-ink/[0.04] ring-1 ring-inset ring-ln-ink/5" title={`Cliente: ${t.cliente}${t.tipoTarefa ? ` · ${t.tipoTarefa}` : ''}`}>{t.cliente}</span>
@@ -153,7 +153,7 @@ function LinhaTarefa({ t, mostrarPessoa = false, denso }) {
   )
 }
 
-function SecaoPessoa({ p, hoje, denso, abertoInicial = true, mostrarPessoa = false, onFiltrarCliente }) {
+function SecaoPessoa({ p, hoje, abertoInicial = true, mostrarPessoa = false, onFiltrarCliente }) {
   const [aberto, setAberto] = useState(abertoInicial)
   const semResp = p.key === SEM_RESPONSAVEL_KEY
   const nome = p.nome || 'Sem responsável'
@@ -195,7 +195,7 @@ function SecaoPessoa({ p, hoje, denso, abertoInicial = true, mostrarPessoa = fal
                 <span className="text-[11px] text-ln-t4 tabular">{d.tarefas.length} {plural(d.tarefas.length, 'tarefa', 'tarefas')} · {fmtHoras(d.horas)}</span>
               </div>
               <ul className="py-1">
-                {d.tarefas.map((t) => <LinhaTarefa key={`${t.id}:${d.dia}`} t={t} denso={denso} mostrarPessoa={mostrarPessoa} />)}
+                {d.tarefas.map((t) => <LinhaTarefa key={`${t.id}:${d.dia}`} t={t} mostrarPessoa={mostrarPessoa} />)}
               </ul>
             </div>
           ))}
@@ -231,7 +231,7 @@ function Skeleton() {
  * @param {{pessoa: string|null, cliente: string|null, dia: string|null}} p.filtros
  * @param {(f) => void} p.setFiltros
  */
-export default function RelatorioConcluidas({ rel, periodo, intervalo, filtros, setFiltros, membros, projects, denso }) {
+export default function RelatorioConcluidas({ rel, periodo, intervalo, filtros, setFiltros, membros, projects }) {
   const hoje = rel.hoje
   const projetosPorPasta = useMemo(() => new Map((projects || []).filter((p) => p.clickupFolderId).map((p) => [String(p.clickupFolderId), p.companyName || p.company_name])), [projects])
   const membrosPorClickup = useMemo(() => new Map((membros || []).filter((m) => m.clickupId).map((m) => [m.clickupId, m])), [membros])
@@ -340,7 +340,6 @@ export default function RelatorioConcluidas({ rel, periodo, intervalo, filtros, 
                   key={p.key}
                   p={p}
                   hoje={hoje}
-                  denso={denso}
                   abertoInicial={p.key !== SEM_RESPONSAVEL_KEY && (i < 6 || !!filtros.pessoa)}
                   onFiltrarCliente={setCliente}
                 />

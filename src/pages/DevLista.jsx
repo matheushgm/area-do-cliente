@@ -38,7 +38,6 @@ const ciclos = [{ id: 'c1', nome: 'Sprint 42' }]
 export default function DevLista() {
   const [agrupar, setAgrupar] = useState('vencimento')
   const [compacto, setCompacto] = useState(false)
-  const [denso, setDenso] = useState(false)
   const [abertaId, setAbertaId] = useState(null)
   const [nova, setNova] = useState(false)
   const [colunas, setColunas] = useState(null)
@@ -83,13 +82,12 @@ export default function DevLista() {
         <strong className="text-ln-t1">DevLista</strong> · {pastaRL.nome} · {visiveis.length} abertas · <span data-dev-selecionadas>{selecionadas.size}</span> selecionadas
         <select value={agrupar} onChange={(e) => setAgrupar(e.target.value)} className="ln-pill">{AGRUPAMENTOS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}</select>
         <label className="flex items-center gap-1"><input type="checkbox" checked={compacto} onChange={(e) => setCompacto(e.target.checked)} /> compacto</label>
-        <label className="flex items-center gap-1"><input type="checkbox" checked={denso} onChange={(e) => setDenso(e.target.checked)} /> denso</label>
         <button type="button" onClick={() => { setAbertaId(null); setNova(true) }} className="ln-primary">+ Tarefa</button>
       </div>
       <div className="flex h-[calc(100vh-44px)]">
         <div className="relative flex-1 min-w-0 flex">
           <div className="flex-1 min-w-0 overflow-auto" data-dev-rolagem>
-            <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={false} denso={denso} compacto={compacto} />
+            <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas={false} compacto={compacto} />
           </div>
           <BarraSelecao
             n={selecionadas.size} onLimpar={() => setSelecionadas(new Set())}

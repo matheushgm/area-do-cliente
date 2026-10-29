@@ -29,7 +29,6 @@ const OCULTAVEIS = new Set(['semdata', 'zumbis', 'alem', 'proxlivre', 'hoje'])
 const SEM_OCULTAS = []
 
 const ALINHA = { left: 'justify-start text-left', right: 'justify-end text-right' }
-const ALTURA_LINHA = { normal: 'h-10', denso: 'h-8' }
 const LARGURA_SKELETON = {
   ocupacao: 'w-28', dias: 'w-20', hoje: 'w-12', fila: 'w-12', atrasadas: 'w-12',
   semdata: 'w-5', zumbis: 'w-5', proxlivre: 'w-16', alem: 'w-8',
@@ -195,9 +194,9 @@ function ItemMenu({ icone: Icone, onClick, children }) {
   )
 }
 
-function LinhaSkeleton({ colunas, gridStyle, denso }) {
+function LinhaSkeleton({ colunas, gridStyle }) {
   return (
-    <div className={`grid items-center gap-x-2 mx-2 px-2 ${ALTURA_LINHA[denso ? 'denso' : 'normal']}`} style={gridStyle} aria-hidden="true">
+    <div className="grid items-center gap-x-2 mx-2 px-2 h-10" style={gridStyle} aria-hidden="true">
       {colunas.map((c) => {
         if (c.id === 'saude') return <span key={c.id} className="ln-shimmer w-2 h-2 rounded-full justify-self-center" />
         if (c.id === 'pessoa') {
@@ -219,7 +218,7 @@ function LinhaSkeleton({ colunas, gridStyle, denso }) {
   )
 }
 
-function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, denso, loading, menuAberto, onAbrir, onNova, onRecarregar, onMenu }) {
+function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, loading, menuAberto, onAbrir, onNova, onRecarregar, onMenu }) {
   const t = pessoa.totais || {}
   const nome = pessoa.nome || 'Sem nome'
   const estado = pessoa.erro ? 'erro' : pessoa.api ? 'ok' : loading ? 'carregando' : 'sem_api'
@@ -356,7 +355,7 @@ function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, 
     <div
       onClick={() => onAbrir?.(pessoa)}
       data-selecionada={selecionada ? '1' : undefined}
-      className={`group grid items-center gap-x-2 mx-2 px-2 cursor-pointer ln-row-hover ${ALTURA_LINHA[denso ? 'denso' : 'normal']} ${selecionada ? 'bg-ln-ink/[0.04] hover:bg-ln-ink/[0.05]' : ''}`}
+      className={`group grid items-center gap-x-2 mx-2 px-2 cursor-pointer ln-row-hover h-10 ${selecionada ? 'bg-ln-ink/[0.04] hover:bg-ln-ink/[0.05]' : ''}`}
       style={gridStyle}
     >
       {semLeitura
@@ -397,7 +396,6 @@ function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, 
  * @param {string|null} p.filtroNivel     nível de saúde para filtrar
  * @param {string|null} p.diaSelecionado  dia da linha de calor (yyyy-mm-dd)
  * @param {string|null} p.selecionadaId   profileId da pessoa aberta no painel
- * @param {boolean}  p.denso              linhas de 32px
  * @param {function} p.onAbrirPessoa      (pessoa, aba?) abre o painel
  * @param {function} p.onNovaAtividadePara (pessoa)
  * @param {function} p.onRecarregar       (pessoa)
@@ -405,7 +403,7 @@ function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, 
  */
 export default function TeamTable({
   pessoas = [], hoje = null, loading = false, agrupar = 'saude', filtroNivel = null, diaSelecionado = null,
-  selecionadaId = null, denso = false, onAbrirPessoa, onNovaAtividadePara, onRecarregar, colunasOcultas = SEM_OCULTAS,
+  selecionadaId = null, onAbrirPessoa, onNovaAtividadePara, onRecarregar, colunasOcultas = SEM_OCULTAS,
 }) {
   const [aberta, setAberta] = useState(true)
   const [recolhidos, setRecolhidos] = useState({})
@@ -493,7 +491,7 @@ export default function TeamTable({
               ))}
             </div>
 
-            {carregandoVazio && [0, 1, 2].map((i) => <LinhaSkeleton key={i} colunas={colunas} gridStyle={gridStyle} denso={denso} />)}
+            {carregandoVazio && [0, 1, 2].map((i) => <LinhaSkeleton key={i} colunas={colunas} gridStyle={gridStyle} />)}
 
             {!carregandoVazio && total === 0 && (
               <div className="h-10 flex items-center px-4 text-xs text-ln-t4">Ninguém neste grupo</div>
@@ -511,7 +509,6 @@ export default function TeamTable({
                     hoje={hoje}
                     diaSelecionado={diaSelecionado}
                     selecionada={!!selecionadaId && p.profileId === selecionadaId}
-                    denso={denso}
                     loading={loading}
                     menuAberto={menu?.id === p.profileId}
                     onAbrir={onAbrirPessoa}

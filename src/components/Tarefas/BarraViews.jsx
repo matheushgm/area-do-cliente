@@ -2,12 +2,12 @@
 //   AbasViews        linha 1: as 4 padrão | as salvas do escopo | "+ Visualização"
 //   FerramentasView  linha 2: agrupador e subtarefas à esquerda; à direita "Salvar
 //                    visualização ▾" (quando há rascunho), busca, filtros, responsáveis,
-//                    concluídas, densidade, configurações e "+ Tarefa ▾" (templates)
+//                    concluídas, configurações e "+ Tarefa ▾" (templates)
 // Só apresentação: config, rascunho e gravação vêm de Tarefas.jsx (src/lib/viewsTarefas.js).
 import { createElement, useRef, useState } from 'react'
 import {
   List, KanbanSquare, CalendarDays, GanttChart, Plus, EyeOff, Check, X, Search, Layers, User, Users, CircleCheck,
-  Settings, ChevronDown, ChevronUp, Undo2, CopyPlus, ListTree, ListFilter, Rows3,
+  Settings, ChevronDown, ChevronUp, Undo2, CopyPlus, ListTree, ListFilter,
 } from 'lucide-react'
 import { Popover, Avatar, FOCO } from './Campos'
 import ModelosMenu from './ModelosMenu'
@@ -246,7 +246,7 @@ function BotaoSalvar({ podeEditar, onSalvar, onNova, onReverter }) {
  */
 export function FerramentasView({
   config, onEditar, alterada, podeEditar, persistente, onSalvar, onSalvarNova, onReverter,
-  busca, onBusca, membros, respBloqueado, nFiltros, filtrosAlterados, painel, onPainel, denso, onDenso,
+  busca, onBusca, membros, respBloqueado, nFiltros, filtrosAlterados, painel, onPainel,
   modelos, onUsarModelo, onGerenciarModelos, onNovaTarefa,
 }) {
   return (
@@ -264,7 +264,6 @@ export function FerramentasView({
         </IconeBtn>
         <MenuResponsaveis valor={config.responsaveis} membros={membros} bloqueado={respBloqueado} onChange={(responsaveis) => onEditar({ responsaveis })} />
         <IconeBtn ativo={config.concluidas} onClick={() => onEditar({ concluidas: !config.concluidas })} titulo={config.concluidas ? 'Esconder concluídas' : 'Mostrar concluídas'}><CircleCheck className="w-4 h-4" /></IconeBtn>
-        {config.tipo === 'lista' && <IconeBtn ativo={denso} onClick={onDenso} titulo={denso ? 'Linhas confortáveis' : 'Linhas compactas'}><Rows3 className="w-4 h-4" /></IconeBtn>}
         {persistente && (<>
           <span className="w-px h-5 bg-ln-line mx-1" />
           <IconeBtn ativo={painel === 'config'} onClick={() => onPainel(painel === 'config' ? null : 'config')} titulo="Configurações da visualização"><Settings className="w-4 h-4" /></IconeBtn>
