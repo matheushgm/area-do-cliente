@@ -66,6 +66,13 @@ export function achatar(itens) {
   return out
 }
 
+/** Número de cada item na ordem do template: "1", "1.1", "1.2", "2"… (id → número). */
+export function numeracao(itens) {
+  const m = new Map()
+  itens.forEach((it, i) => { m.set(it.id, `${i + 1}`); (it.subtarefas || []).forEach((s, j) => m.set(s.id, `${i + 1}.${j + 1}`)) })
+  return m
+}
+
 export function resumoDoTemplate(itens) {
   const plano = achatar(itens)
   const deps = new Set()

@@ -974,7 +974,9 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     o `payload` antigo, que a 107 converteu e a 108 apaga.
   - **Telas (com a cara da lista de um cliente, 2026-10-22):** as três reaproveitam a `ListaView`, que
     ganhou ganchos opcionais sem mudar a lista de tarefas: `colunas` (troca as colunas),
-    `ctx.renderCelula(k, item)` (célula própria; `undefined` = célula padrão), `ctx.semStatus`,
+    `ctx.renderCelula(k, item)` (célula própria; `undefined` = célula padrão), `ctx.numeroLinha(item)` (número
+    antes do título: "1", "1.2"… na ordem do template, `numeracao` de `templates.js`, o mesmo citado no "Depende de";
+    na prévia de aplicação a cópia de uma linha leva o número da origem com ′), `ctx.semStatus`,
     `ctx.acaoLinha(item)` (última coluna), `ctx.expandirTudo` (com subtarefas abertas, só fecha se a pessoa
     recolher), `ctx.acoesHover === false` (sem os botões de hover e sem "Adicionar subtarefa") e `ctx.simples`
     (sem cabeçalho de grupo, sem arrastar/selecionar e sem o "+" do cabeçalho de colunas: nos Templates há um

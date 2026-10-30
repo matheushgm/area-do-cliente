@@ -12,6 +12,7 @@
 // `ctx.ordenar` + `ctx.onOrdenar(o)` ({ campo, dir } ou null: cabeçalho clicável, sobe → desce → sem),
 // `ctx.statusesDe(item)` (status da lista da tarefa, para Minhas/Todas, que misturam listas),
 // `ctx.rotuloPai(item)` (texto depois do título, ex.: "↳ tarefa-pai" com subtarefas separadas),
+// `ctx.numeroLinha(item)` (número antes do título, ex.: "1.3" nos templates, citado no "Depende de"),
 // `ctx.expandirTudo` (subtarefas abertas de início), `ctx.acoesHover === false`
 // (sem os botões de hover do nome nem a linha "Adicionar subtarefa") e `ctx.simples`
 // (lista de um grupo só: sem cabeçalho de grupo, sem arrastar/selecionar e sem o "+"
@@ -352,6 +353,7 @@ const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, o
           ) : null}
         </span>
         {!ctx.semStatus && <StatusCampo item={item} statuses={statuses} modo="icon" onChange={(s) => onMudarStatus(item, s)} className="shrink-0 mr-1.5" />}
+        {ctx.numeroLinha && <span className="shrink-0 min-w-[2rem] pr-1 text-[12px] text-ln-t4 tabular">{ctx.numeroLinha(item)}</span>}
         {renomeando ? (
           <TituloEditavel item={item} onSalvar={(titulo) => ctx.onAtualizar(item.id, { titulo })} onFim={ctx.onFimRenomear} />
         ) : (
@@ -666,7 +668,7 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, co
   const colsChave = cols.map((c) => c.k).join(',')
   const versao = useMemo(() => ({}), [ // eslint-disable-line react-hooks/exhaustive-deps
     ctx.statuses, ctx.membros, ctx.membrosMap, ctx.ciclos, ctx.listas, ctx.pastas, ctx.projetos, ctx.listasComClickup, ctx.ordenar,
-    ctx.expandirTudo, ctx.semStatus, ctx.acoesHover, ctx.renderCelula, ctx.acaoLinha, ctx.rotuloPai, ctx.renderAcoesHover, larguraNome, colsChave,
+    ctx.expandirTudo, ctx.semStatus, ctx.acoesHover, ctx.renderCelula, ctx.acaoLinha, ctx.rotuloPai, ctx.numeroLinha, ctx.renderAcoesHover, larguraNome, colsChave,
   ])
   if (!grupos.length && vazio) return vazio
   if (!grupos.length) {

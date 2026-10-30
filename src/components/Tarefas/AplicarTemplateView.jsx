@@ -7,7 +7,7 @@
 // duplicam (a cópia é uma linha a mais, com id próprio) ou tiram várias de uma vez.
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Play, Loader2, AlertTriangle, Trash2, RotateCcw, Users, CalendarDays, CalendarClock, Flag, Shapes, Hourglass } from 'lucide-react'
-import { itensDoTemplate, planejarAplicacao, proximoDiaUtil, perfilDoUsuarioCliente } from '../../lib/templates'
+import { itensDoTemplate, planejarAplicacao, proximoDiaUtil, perfilDoUsuarioCliente, numeracao } from '../../lib/templates'
 import { STATUSES_PADRAO, fmtEstimativa, novoId, datasCoerentes } from '../../lib/tarefas'
 import { hojeISO } from '../../lib/vertatask'
 import { DataCampo, limitesInicio, limitesVencimento, ResponsavelCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo, Avatares, FOCO } from './Campos'
@@ -87,6 +87,12 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
   }, [calculado, removidos, edicoes, listaId, copias])
   const porId = useMemo(() => new Map(linhas.map((r) => [r.id, r])), [linhas])
   const titulosPorId = useMemo(() => new Map(calculado.map((l) => [l.item.id, l.titulo])), [calculado])
+  // número da linha no template (o mesmo do construtor); cópia leva o da origem com ′
+  const num = useMemo(() => {
+    const m = numeracao(itens)
+    for (const c of copias) if (m.has(c.snap.id)) m.set(c.id, `${m.get(c.snap.id)}′`)
+    return m
+  }, [itens, copias])
 
   const editar = (id, patch) => setEdicoes((e) => ({ ...e, [id]: { ...(e[id] || {}), ...datasCoerentes(porId.get(id), patch) } }))
   const remover = (id) => { setRemovidos((s) => new Set(s).add(id)); if (selId === id) setSelId(null) }
@@ -160,6 +166,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
     statuses: STATUSES_PADRAO, membros, membrosMap, itensMap: {}, listaPadraoId: null, agrupar: 'nenhum',
     contagemComentarios: {}, selecionadaId: selId, semStatus: true, expandirTudo: true, acoesHover: false, simples: true, selecao,
     onAbrir: (id) => setSelId(id),
+    numeroLinha: (r) => num.get(r.id),
     onAtualizar: (id, patch) => editar(id, patch),
     onMudarStatus: () => {},
     onCriar: () => Promise.resolve({}),
@@ -168,7 +175,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
       if (k === 'deps') {
         const deps = r.depende_de.filter((d) => porId.has(d))
         return deps.length
-          ? <span className="text-[13px] text-ln-t3 truncate" title={deps.map((d) => titulosPorId.get(d)).join('\n')}>após {deps.length} tarefa{deps.length === 1 ? '' : 's'}</span>
+          ? <span className="text-[13px] text-ln-t3 tabular truncate" title={deps.map((d) => `${num.get(d)} ${titulosPorId.get(d)}`).join('\n')}>após {deps.map((d) => num.get(d)).join(', ')}</span>
           : <span className="text-[13px] text-ln-t4 pl-1">–</span>
       }
       if (k === 'aviso') {

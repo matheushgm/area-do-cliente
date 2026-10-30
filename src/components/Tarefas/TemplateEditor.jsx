@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import {
   itensDoTemplate, resumoDoTemplate, achatar, novoItem, atualizarItem, removerItem, moverItem, duplicarItem, validarItens,
-  MODOS_RESPONSAVEL, VARIAVEL_CLIENTE,
+  MODOS_RESPONSAVEL, VARIAVEL_CLIENTE, numeracao,
 } from '../../lib/templates'
 import { fmtEstimativa, pessoaDoPerfil, STATUSES_PADRAO } from '../../lib/tarefas'
 import { PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, Popover, Avatar, ItemMenu, FOCO } from './Campos'
@@ -19,12 +19,6 @@ import { Propriedade, DepartamentoCampo, Descricao, Checklists } from './TarefaP
 import { EtiquetasCampo } from './TarefaExtras'
 import BarraSelecao, { BotaoBarra, DepartamentosEmMassa, aplicarDiferenca } from './BarraSelecao'
 import { contarTarefas, useConfirmar } from './Confirmacao'
-
-const numeracao = (itens) => {
-  const m = new Map()
-  itens.forEach((it, i) => { m.set(it.id, `${i + 1}`); it.subtarefas.forEach((s, j) => m.set(s.id, `${i + 1}.${j + 1}`)) })
-  return m
-}
 
 // ─── Campos próprios do template ─────────────────────────────────────────────
 
@@ -446,6 +440,7 @@ export default function TemplateEditor({ template, novo = false, membros, membro
     statuses: STATUSES_PADRAO, membros, membrosMap, itensMap: {}, listaPadraoId: 'template', agrupar: 'nenhum',
     contagemComentarios: {}, selecionadaId: selId, semStatus: true, expandirTudo: true, simples: true, selecao,
     onAbrir: (id) => setSelId(id),
+    numeroLinha: (it) => num.get(it.id),
     onAtualizar: (id, p) => patch(id, p),
     onMudarStatus: () => {},
     onCriar: ({ parent_id, titulo }) => {
