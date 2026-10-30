@@ -42,6 +42,25 @@ export function ListaSubtarefas({ itens, onAbrir, onAdicionar, inicio, fim }) {
  * Para adicionar: tipos [{ value, label }], buscar(q) → Promise<[{ id, titulo, status_tipo? }]>
  * (minBusca caracteres antes de buscar; 0 = mostra tudo ao abrir) e onAdicionar(tipo, alvo).
  */
+// Ícones de bloqueio iguais aos do ClickUp: disco vermelho com traço ("Bloqueia") e triângulo
+// amarelo com "!" ("Bloqueada por"). Os outros tipos ficam sem ícone.
+function IconeRelacao({ rotulo }) {
+  if (rotulo === 'Bloqueia') return (
+    <svg viewBox="0 0 14 14" className="w-3.5 h-3.5 shrink-0 text-ln-red" aria-hidden="true">
+      <circle cx="7" cy="7" r="7" fill="currentColor" />
+      <rect x="3.5" y="6.1" width="7" height="1.8" rx="0.9" fill="#fff" />
+    </svg>
+  )
+  if (rotulo === 'Bloqueada por') return (
+    <svg viewBox="0 0 14 14" className="w-3.5 h-3.5 shrink-0 text-ln-yellow" aria-hidden="true">
+      <path d="M6.13 1.5a1 1 0 0 1 1.74 0l5.6 9.75A1 1 0 0 1 12.6 12.75H1.4a1 1 0 0 1-.87-1.5Z" fill="currentColor" />
+      <rect x="6.25" y="4.6" width="1.5" height="4.2" rx="0.75" fill="#1f1f1f" />
+      <circle cx="7" cy="10.4" r="0.85" fill="#1f1f1f" />
+    </svg>
+  )
+  return null
+}
+
 export function ListaRelacoes({ linhas, tipos, buscar, minBusca = 2, onAdicionar, placeholder = 'Buscar tarefa pelo título' }) {
   const [adicionando, setAdicionando] = useState(false)
   const [tipo, setTipo] = useState(tipos?.[0]?.value)
@@ -65,7 +84,7 @@ export function ListaRelacoes({ linhas, tipos, buscar, minBusca = 2, onAdicionar
     <div className="flex flex-col">
       {linhas.map((r) => (
         <div key={r.key} className="group/rel flex items-center gap-2 h-8 -mx-2 px-2 rounded-lg hover:bg-ln-ink/[0.03]">
-          <span className="text-[11px] text-ln-t4 w-[110px] shrink-0">{r.rotulo}</span>
+          <span className="text-[11px] text-ln-t4 w-[110px] shrink-0 inline-flex items-center gap-1.5"><IconeRelacao rotulo={r.rotulo} />{r.rotulo}</span>
           <button type="button" onClick={r.onAbrir} disabled={!r.onAbrir} className={`flex-1 min-w-0 truncate text-left text-[13px] hover:text-ln-accent disabled:hover:text-inherit ${r.concluida ? 'line-through text-ln-t4' : 'text-ln-t2'} ${FOCO}`}>{r.titulo || 'Tarefa removida'}</button>
           {r.onRemover && <button type="button" onClick={r.onRemover} className="ln-iconbtn !w-5 !h-5 opacity-0 group-hover/rel:opacity-100 focus-visible:opacity-100" aria-label="Remover relação"><X className="w-3 h-3" /></button>}
         </div>
