@@ -176,10 +176,20 @@ export default async function handler(req) {
   try {
     // 1) Gasto e conversões por projeto/dia (agregados no Postgres — migration 075).
     // { [project_id]: { 'YYYY-MM-DD': [gasto, conversões] } }
-    const byProject = await sb('/rpc/dash_totals_by_project', {
+    // Uma chamada por semana, em paralelo: o mês inteiro numa chamada só passava
+    // dos 8 s de statement_timeout do PostgREST (medido em 2026-10-30: ~12 s, e o
+    // botão e o cron falhavam desde 22/10); cada semana leva de 2 a 4 s.
+    const partes = await Promise.all(windows.map(w => sb('/rpc/dash_totals_by_project', {
       method: 'POST',
-      body: JSON.stringify({ p_from: pFrom, p_to: pTo }),
-    })
+      body: JSON.stringify({
+        p_from: `${w.year}-${pad(w.month)}-${pad(w.start)}`,
+        p_to:   `${w.year}-${pad(w.month)}-${pad(w.end)}`,
+      }),
+    })))
+    const byProject = {}
+    for (const parte of partes) {
+      for (const [pid, dias] of Object.entries(parte || {})) Object.assign(byProject[pid] ||= {}, dias)
+    }
 
     const projectIds = Object.keys(byProject).filter(id => !projectId || id === projectId)
     if (!projectIds.length) {
