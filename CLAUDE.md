@@ -1129,7 +1129,10 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
 - **Replanejamento em cascata (2026-10-30):** mudar a data de uma tarefa pela tela (linha, painel)
   desloca, na mesma quantidade de **dias úteis**, as tarefas que ela bloqueia (`tarefas_relacoes` `bloqueia`, em
   cadeia) e, se ela tem subtarefas, as subtarefas abertas; depois cada pai acima de quem mudou é recalculado pelas
-  filhas (início = o mais cedo, vencimento = o mais tarde; filha só com uma das datas conta como um ponto nela). A
+  filhas (início = o mais cedo, vencimento = o mais tarde; filha só com uma das datas conta como um ponto nela; sem
+  hora compara pelo dia, o ClickUp grava às 04:00 e a tela ao meio-dia). **Pai cujo vencimento foi recalculado empurra
+  as dependentes dele** pela mesma distância (a etapa atrasou, a próxima etapa atrasa junto), o que vale para tarefas
+  principais ligadas entre si, como as etapas do Onboarding v2. A
   data que a pessoa escolheu fica como ela escolheu; concluídas e arquivadas não andam. Regra pura em
   `src/lib/cascata.js` (`planejarCascata`); `src/hooks/useCascata.js` lê a família e as dependentes
   (`carregarGrafoCascata`), pergunta antes ("Mover N tarefas" / "Só esta tarefa" / Cancelar; só o pai mudando =
@@ -1141,7 +1144,13 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   (pai mais alto) e dois alertas: **Entrega em risco** (abertas vencidas; "Replanejar a partir de hoje" =
   `planejarReplanejamento`, cada atrasada que nenhuma outra alcança passa a vencer hoje e a cascata leva as seguintes)
   e **dependência fora de ordem** (dependente que vence antes de quem a bloqueia, típico de data mudada no ClickUp;
-  "Ajustar dependências" = `planejarAjusteConflitos`). Testes da regra: copiar `cascata.js`/`tarefas.js`/`utils.js` como módulos com extensão.
+  "Ajustar dependências" = `planejarAjusteConflitos`).
+  **Templates v2 (30/10/2026)**, ao lado dos originais, que continuam iguais (o Intake/`pedidoTipos.js` ainda aponta
+  para os originais): **Criativo Estático v2** (cadeia completa, como o Vídeo), **Criativo de Vídeo v2** e o Estático v2
+  com "Trazer insight" fora da entrega (tarefa principal que espera "Publicar criativo", senão a entrega viraria D+9),
+  e **Onboarding do cliente (Geral) v2** (etapas em sequência: Kick-off → Acessos → Estratégia → Primeira campanha →
+  Subir Google/Meta, agora D+9 → Entrega e NPS; "Apresentar estratégia" espera as outras 10 da etapa; copy → implementação
+  → reunião e roteiros → criativos na primeira campanha; "Solicitar ativos de imagens" passou para a primeira campanha). Testes da regra: copiar `cascata.js`/`tarefas.js`/`utils.js` como módulos com extensão.
 - **Plano de 29/10 (`docs/plano-sincronizacao-clickup.md`, para não estourar as 100 chamadas/min do token):**
   - **Push agrupado por tarefa (item 1):** `agruparFila()` em `api/_tarefas_push_core.js` (pura) junta os
     `atualizar` reivindicados da mesma tarefa numa unidade (união dos `campos`, um PUT, uma leitura de

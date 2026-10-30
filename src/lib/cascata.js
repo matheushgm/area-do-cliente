@@ -54,7 +54,7 @@ const mesmoDia = (a, b) => {
 }
 
 /**
- * Plano da cascata para `patch` na tarefa `id`.
+ * Plano da cascata para `patch` na tarefa `id` (pai recalculado também empurra as dependentes dele).
  * itens: Map ou objeto id → tarefa (id, parent_id, titulo, status_tipo, arquivada, datas e *_com_hora),
  *        com a família inteira e quem ela bloqueia. relacoes: linhas de tarefas_relacoes.
  * deslocar: false = só recalcula os pais ("Só esta tarefa").
@@ -88,34 +88,36 @@ export function planejarCascata({ itens, relacoes = [], id, patch, deslocar = tr
   const chave = 'data_vencimento' in patch ? 'data_vencimento' : 'data_inicio'
   const delta = deslocar && mexeEmData(patch) ? (diferencaUteis(origem[chave], patchOrigem[chave]) || 0) : 0
 
-  if (delta) {
-    const movidas = new Set([id])
-    const fila = [id]
-    const mover = (tid, motivo) => {
-      if (movidas.has(tid)) return
-      const t = porId.get(tid)
-      if (!aberta(t)) return
-      movidas.add(tid)
-      const p = {}
-      for (const k of DATAS) if (t[k]) p[k] = deslocarUteis(t[k], delta)
-      if (Object.keys(p).length) { novos.set(tid, datasCoerentes(t, p)); motivos.set(tid, motivo) }
-      fila.push(tid)
-    }
+  // quem anda leva as subtarefas e as dependentes junto, na mesma distância; um pai recalculado
+  // (abaixo) leva só as dependentes, porque as filhas é que o moveram
+  const movidas = new Set([id])
+  const propagar = (de, d, comFilhas) => {
+    const fila = [[de, comFilhas]]
     while (fila.length) {
-      const tid = fila.shift()
-      for (const f of filhos.get(tid) || []) mover(f, 'subtarefa')
-      for (const b of bloqueia.get(tid) || []) mover(b, 'dependente')
+      const [tid, filhas] = fila.shift()
+      const proximas = [
+        ...(filhas ? (filhos.get(tid) || []).map((f) => [f, 'subtarefa']) : []),
+        ...(bloqueia.get(tid) || []).map((b) => [b, 'dependente']),
+      ]
+      for (const [x, motivo] of proximas) {
+        const t = porId.get(x)
+        if (movidas.has(x) || !aberta(t)) continue
+        movidas.add(x)
+        const p = {}
+        for (const k of DATAS) if (t[k]) p[k] = deslocarUteis(t[k], d)
+        if (Object.keys(p).length) { novos.set(x, datasCoerentes(t, p)); motivos.set(x, motivo) }
+        fila.push([x, true])
+      }
     }
   }
+  if (delta) propagar(id, delta, true)
 
-  // pais de quem mudou, do mais fundo para cima; a origem não é recalculada (a pessoa escolheu)
+  // pai de quem mudou é recalculado pelas filhas, do mais fundo para cima (a origem não: a pessoa
+  // escolheu). Pai cujo vencimento mudou empurra quem depende dele pela mesma distância (a etapa
+  // atrasou, a próxima etapa atrasa junto), e o que isso move pode recalcular outros pais: repete.
   const profundidade = (tid) => { let n = 0; for (let p = porId.get(tid)?.parent_id; p && porId.has(p); p = porId.get(p).parent_id) n++; return n }
-  const pais = new Set()
-  for (const tid of novos.keys()) {
-    for (let p = porId.get(tid)?.parent_id; p && porId.has(p); p = porId.get(p).parent_id) if (p !== id) pais.add(p)
-  }
-  for (const pid of [...pais].sort((a, b) => profundidade(b) - profundidade(a))) {
-    if (!aberta(porId.get(pid))) continue
+  const recalcular = (pid) => {
+    if (!aberta(porId.get(pid))) return
     const fs = (filhos.get(pid) || []).map(atual)
     const pai = atual(pid)
     const p = {}
@@ -136,6 +138,27 @@ export function planejarCascata({ itens, relacoes = [], id, patch, deslocar = tr
       novos.set(pid, { ...(novos.get(pid) || {}), ...datasCoerentes(pai, p) })
       if (!motivos.has(pid)) motivos.set(pid, 'pai')
     }
+  }
+  const propagados = new Set()
+  for (let volta = 0; volta < 20; volta++) {
+    const pais = new Set()
+    for (const tid of novos.keys()) {
+      for (let p = porId.get(tid)?.parent_id; p && porId.has(p); p = porId.get(p).parent_id) if (p !== id) pais.add(p)
+    }
+    const ordem = [...pais].sort((a, b) => profundidade(b) - profundidade(a))
+    for (const pid of ordem) recalcular(pid)
+    let andou = false
+    if (deslocar) {
+      for (const pid of ordem) {
+        if (propagados.has(pid) || movidas.has(pid) || !novos.has(pid)) continue
+        const d = diferencaUteis(porId.get(pid).data_vencimento, novos.get(pid).data_vencimento)
+        if (!d) continue
+        propagados.add(pid)
+        propagar(pid, d, false)
+        andou = true
+      }
+    }
+    if (!andou) break
   }
 
   const outras = []

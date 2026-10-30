@@ -95,7 +95,7 @@ export function useCascata({ carregarGrafo, gravar, confirmar, avisar }) {
       const pai = plano.outras.filter((o) => o.motivo === 'pai').at(-1)
       const nDep = andam.filter((o) => o.motivo === 'dependente').length
       const nSub = andam.length - nDep
-      const quem = [nDep && plural(nDep, 'tarefa que depende dela', 'tarefas que dependem dela'), nSub && plural(nSub, 'subtarefa aberta', 'subtarefas abertas')].filter(Boolean).join(' e ')
+      const quem = [nDep && plural(nDep, 'tarefa seguinte', 'tarefas seguintes'), nSub && plural(nSub, 'subtarefa aberta', 'subtarefas abertas')].filter(Boolean).join(' e ')
       const resp = await confirmar({
         icone: CalendarClock,
         titulo: `${plano.delta > 0 ? 'Empurrar' : 'Antecipar'} ${nDep ? 'as tarefas seguintes' : 'as subtarefas'}?`,
