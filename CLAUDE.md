@@ -1069,6 +1069,11 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     o webhook relê a tarefa (a data do evento é mais nova; campo do histórico com `depend|link` nunca cai no
     atalho de eco) e a rodada incremental só vê a relação de tarefa que mudou por outro motivo (o `--completo`
     passa por todas). Carga inicial das relações antigas: `node scripts/enviar_relacoes_clickup.mjs [--dry]`.
+    As relações são gravadas fora do `useTarefas` (painel da tarefa, rascunho de tarefa nova, template): quem
+    grava chama `agendarPush` (exposto pelo hook), senão o pedido espera a próxima edição ou o cron. Testado em
+    30/10/2026 pela tela em produção com tarefas de teste na lista Geral da Revenue Lab: apagar "bloqueia", criar
+    "bloqueia" e apagar "relacionada" chegaram ao ClickUp em 3–4 s; "Duplicada de" não entrou na fila; a volta só
+    registrou eventos "sem mudança" (sem eco, sem reenvio).
     O ClickApp **Reagendar dependências** (Reschedule dependencies) está **desligado** no workspace
     (Centro de aplicativos → Agendamento e datas, conferido em 30/10/2026; "Ignorar dias não úteis" também).
     ⚠ O `GET /space/{id}` devolve `features.remap_dependency_settings.enabled: true` mesmo assim: esse campo não
