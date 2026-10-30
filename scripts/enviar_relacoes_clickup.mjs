@@ -6,10 +6,6 @@
 //   node scripts/enviar_relacoes_clickup.mjs --dry   # só mostra o plano
 //   node scripts/enviar_relacoes_clickup.mjs         # envia
 //
-// Antes de enviar, confere nos spaces das tarefas se a opção "Reschedule dependencies" do
-// ClickUp está ligada: com ela, criar a dependência pode remarcar as datas da tarefa
-// dependente lá, e a remarcação volta para o VertaTask pelo webhook.
-//
 // Lê SUPABASE_URL, SUPABASE_SECRET_KEY (ou SERVICE_ROLE) e CLICKUP_API_TOKEN de .env e .env.local.
 import fs from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
@@ -62,19 +58,6 @@ const nome = (t) => (t?.titulo || '?').slice(0, 48)
 console.log(`${rels.length} relações: ${enviar.length} para enviar, ${puladas.length} puladas\n`)
 for (const { r, a, b, chamada } of enviar) console.log(`  ${r.tipo.padEnd(11)} "${nome(a)}" → "${nome(b)}"   ${chamada.method} ${chamada.path}${chamada.body ? ' ' + JSON.stringify(chamada.body) : ''}`)
 if (puladas.length) { console.log('\nPuladas:'); for (const { r, a, b, motivo } of puladas) console.log(`  ${r.tipo.padEnd(11)} "${nome(a)}" → "${nome(b)}"   (${motivo})`) }
-
-// "Reschedule dependencies" nos spaces das tarefas
-const listas = [...new Set(enviar.flatMap(({ a, b }) => [a.lista_id, b.lista_id]))]
-const { data: ls } = listas.length ? await sb.from('tarefas_listas').select('id, clickup_space_id').in('id', listas) : { data: [] }
-const spaces = [...new Set((ls || []).map((l) => l.clickup_space_id).filter(Boolean))]
-let remarca = false
-for (const sid of spaces) {
-  const s = await cu('GET', `/space/${sid}`).catch(() => null)
-  const r = s?.features?.remap_dependency_settings
-  if (r?.enabled) remarca = true
-  console.log(`\nspace ${s?.name || sid}: Reschedule dependencies ${r?.enabled ? 'LIGADO' : 'desligado'}${r ? ` (${JSON.stringify(r)})` : ''}`)
-}
-if (remarca) console.log('\n⚠ Com "Reschedule dependencies" ligado, o ClickUp pode remarcar as datas das tarefas dependentes ao criar a dependência.')
 
 if (dry) { console.log('\n--dry: nada enviado.'); process.exit(0) }
 

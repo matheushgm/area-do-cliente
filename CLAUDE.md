@@ -1069,11 +1069,12 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     o webhook relê a tarefa (a data do evento é mais nova; campo do histórico com `depend|link` nunca cai no
     atalho de eco) e a rodada incremental só vê a relação de tarefa que mudou por outro motivo (o `--completo`
     passa por todas). Carga inicial das relações antigas: `node scripts/enviar_relacoes_clickup.mjs [--dry]`.
-    Os spaces Clientes, Operações e PROMPTS têm o ClickApp **Reschedule dependencies** ligado
-    (`remap_dependency_settings.enabled`, `enforcement_mode: 2`, inclusive concluídas). Testado em 30/10/2026:
-    data mudada **pela API** (o push) não remarca as dependentes, nem quando passa a se sobrepor a elas; criar
-    a dependência pela API também não. Pela tela do ClickUp não foi testado: se remarcar lá, cada dependente
-    remarcada chega pelo webhook como mudança de data comum (sem cascata aqui, pelo plano).
+    O ClickApp **Reagendar dependências** (Reschedule dependencies) está **desligado** no workspace
+    (Centro de aplicativos → Agendamento e datas, conferido em 30/10/2026; "Ignorar dias não úteis" também).
+    ⚠ O `GET /space/{id}` devolve `features.remap_dependency_settings.enabled: true` mesmo assim: esse campo não
+    reflete o ClickApp, não use. Teste do mesmo dia: data de quem bloqueia mudada pela API e pela tela não
+    remarcou a dependente. Se alguém ligar o ClickApp, a cascata passa a ser feita em dois lugares (o ClickUp em
+    dias corridos, a Área em dias úteis), e o push das datas pode chegar antes ou depois da remarcação de lá.
   - **Duplicação corrigida em 2026-10-26 (migration 110).** Em 23/10, aplicar um template e
     editar em massa logo depois criou 26 tarefas no ClickUp para 14 do template. Duas causas:
     (1) o push não marcava o que estava processando, e as invocações paralelas da Vercel (uma
