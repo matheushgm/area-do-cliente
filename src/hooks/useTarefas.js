@@ -445,5 +445,7 @@ export function useTarefas(user) {
     criarTarefa, atualizarTarefa, mudarStatus, excluirTarefa, arquivarTarefa,
     criarPasta, atualizarPasta, criarLista, atualizarLista,
     carregarComentarios, criarComentario, excluirComentario,
+    // relações (tarefas_relacoes) são gravadas fora do hook: quem grava pede o envio ao ClickUp
+    agendarPush,
   }
 }

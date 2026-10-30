@@ -329,7 +329,7 @@ const nomeDe = (s) => s.titulo || 'Sem título'
 
 export default function TarefaPanel({
   item, subtarefas, ancestrais = [], irmas = null, statuses, membros, membrosMap, comentarios, user, ciclos = [], etiquetas = [], ciclosMap = new Map(), etiquetasMap = new Map(), onCriarEtiqueta,
-  onAtualizar, onMudarStatus, onCriarSub, onAbrir, onComentar, onExcluirComentario, onCarregarComentarios, onErro,
+  onAtualizar, onMudarStatus, onCriarSub, onAbrir, onComentar, onExcluirComentario, onCarregarComentarios, onErro, onRelacoesMudaram,
 }) {
   const [titulo, setTitulo] = useState(item?.titulo || '')
   const tituloRef = useRef(null)
@@ -422,7 +422,7 @@ export default function TarefaPanel({
       </Secao>
 
       <Secao titulo="Relações">
-        <RelacoesSecao tarefaId={item.id} user={user} onAbrir={onAbrir} onErro={onErro} />
+        <RelacoesSecao tarefaId={item.id} user={user} onAbrir={onAbrir} onErro={onErro} onMudou={onRelacoesMudaram} />
       </Secao>
 
       <Secao titulo="Checklists">

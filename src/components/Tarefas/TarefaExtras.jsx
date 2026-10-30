@@ -70,7 +70,8 @@ export const TIPOS_RELACAO = [{ value: 'relacionada', label: 'Relacionada a' }, 
 export const ROTULO_DIRETO = { bloqueia: 'Bloqueia', duplica: 'Duplicada de', relacionada: 'Relacionada a' }
 const ROTULO_INVERSO = { bloqueia: 'Bloqueada por', duplica: 'Tem a duplicata', relacionada: 'Relacionada a' }
 
-export function RelacoesSecao({ tarefaId, user, onAbrir, onErro }) {
+// `onMudou`: chamado depois de criar ou apagar, para a fila ir ao ClickUp (migration 126)
+export function RelacoesSecao({ tarefaId, user, onAbrir, onErro, onMudou }) {
   const [linhas, setLinhas] = useState([])
   const [titulos, setTitulos] = useState({})
 
@@ -94,12 +95,13 @@ export function RelacoesSecao({ tarefaId, user, onAbrir, onErro }) {
     // "Bloqueia" e "duplica" gravam tarefa → alvo; "relacionada" também.
     const { error } = await supabase.from('tarefas_relacoes').insert({ tarefa_id: tarefaId, relacionada_id: alvo.id, tipo, criado_por: user?.id || null })
     if (error) { onErro?.(error.code === '23505' ? 'Essa relação já existe.' : error.message); return false }
+    onMudou?.()
     carregar()
     return true
   }
   async function remover(id) {
     const { error } = await supabase.from('tarefas_relacoes').delete().eq('id', id)
-    if (error) onErro?.(error.message); else setLinhas((l) => l.filter((x) => x.id !== id))
+    if (error) onErro?.(error.message); else { setLinhas((l) => l.filter((x) => x.id !== id)); onMudou?.() }
   }
 
   return (

@@ -387,6 +387,7 @@ export default function AreaTarefas({
       .filter((g) => g.listas.length)
       .sort((a, b) => a.pasta.nome.localeCompare(b.pasta.nome, 'pt-BR'))
   }, [listasEscopo, sel.tipo, t.pastas, t.listas, t.pastasMap])
+  const agendarPush = t.agendarPush
   // cria a tarefa e, depois, as subtarefas (na mesma lista) e as relações do rascunho
   const criarDoRascunho = useCallback(async ({ subtarefas = [], relacoes = [], ...payload }) => {
     const r = await onCriar(payload)
@@ -400,12 +401,13 @@ export default function AreaTarefas({
     if (relacoes.length) {
       const { error } = await supabase.from('tarefas_relacoes').insert(relacoes.map((x) => ({ tarefa_id: id, relacionada_id: x.alvo.id, tipo: x.tipo, criado_por: user?.id || null })))
       if (error) falhas += relacoes.length
+      else agendarPush?.()
     }
     setNovaInicial(null)
     abrirTarefa(id)
     showToast(falhas ? `Tarefa criada, mas ${falhas} subtarefa(s)/relação(ões) falharam` : 'Tarefa criada', falhas ? 'error' : undefined)
     return r
-  }, [onCriar, abrirTarefa, showToast, user])
+  }, [onCriar, abrirTarefa, showToast, user, agendarPush])
 
   // `intake`: pedido do Intake que originou a aplicação (o pedido vai para a descrição da tarefa
   // raiz e sai da fila como aceito).
@@ -440,6 +442,7 @@ export default function AreaTarefas({
     if (relacoes.length) {
       const { error } = await supabase.from('tarefas_relacoes').insert(relacoes)
       if (error) showToast(`Tarefas criadas, mas as dependências falharam: ${error.message}`, 'error')
+      else t.agendarPush?.()
     }
     const raizes = plano.filter((l) => !l.paiId)
     if (intake) {
@@ -870,6 +873,7 @@ export default function AreaTarefas({
                   onExcluirComentario={async (tarefaId, id) => { const r = await t.excluirComentario(tarefaId, id); if (r.error) showToast(r.error, 'error') }}
                   onCarregarComentarios={t.carregarComentarios}
                   onErro={(m) => showToast(m, 'error')}
+                  onRelacoesMudaram={() => t.agendarPush?.()}
                 />
               ) : (
                 <div className="flex items-center justify-center py-20 text-ln-t4"><Loader2 className="w-4 h-4 animate-spin" /></div>
