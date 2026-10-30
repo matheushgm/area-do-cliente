@@ -77,7 +77,9 @@ export default function CampaignPlanner({ project, onSave }) {
   // Só as contas deste projeto: o canal inteiro é pesado demais para a Edge.
   // 62 dias: o "Puxar do dashboard" lê o mês corrente e os últimos 7 dias com dado
   // (pullFromDashboard), e o histórico inteiro só pesava.
-  const dash = useDashboardData({ source: 'api', projectId: project.id, dias: 62 })
+  // `canais`: o painel Resultados de Tráfego abaixo monta as pílulas e o iframe por
+  // canal; sem isso ele diz que as contas vinculadas não têm dado.
+  const dash = useDashboardData({ source: 'api', projectId: project.id, dias: 62, canais: true })
 
   const [accounts,  setAccounts]  = useState(() => initAccounts(project.campaignPlan))
   const [activeIdx, setActiveIdx] = useState(0)
