@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
   Plus, Save, AlertCircle, CheckCircle2, CalendarDays, DollarSign, FileDown, X,
-  Link2, Check, BarChart3, DownloadCloud,
+  Link2, Check, BarChart3, DownloadCloud, ChevronDown,
 } from 'lucide-react'
 import { exportCampaignPDF } from '../utils/exportPDF'
 import { useApp } from '../context/AppContext'
@@ -78,6 +78,16 @@ export default function CampaignPlanner({ project, onSave }) {
   const { toast, showToast } = useToast()
   const isMounted = useRef(false)
   const [copied, setCopied] = useState(false)
+
+  // Resultados de Tráfego minimizável: o dashboard ocupa a tela toda e empurra o
+  // orçamento lá para baixo. A escolha fica no navegador de quem usa.
+  const [dashAberto, setDashAberto] = useState(() => {
+    try { return localStorage.getItem('rl_planner_dash') !== 'fechado' } catch { return true }
+  })
+  const toggleDash = () => setDashAberto((v) => {
+    try { localStorage.setItem('rl_planner_dash', v ? 'fechado' : 'aberto') } catch { /* ignore */ }
+    return !v
+  })
 
   // Mesma fonte usada pelo módulo Resultados (dash_insights via /api) — dá pra
   // ver o gasto real das contas vinculadas antes de preencher o orçamento à mão.
@@ -556,16 +566,24 @@ export default function CampaignPlanner({ project, onSave }) {
 
       {/* Contas de anúncio vinculadas + resultados reais — mesmo componente do módulo Resultados */}
       <section className="space-y-4">
-        <div className="flex items-center gap-3">
+        <button
+          onClick={toggleDash}
+          aria-expanded={dashAberto}
+          className="w-full flex items-center gap-3 text-left group"
+        >
           <div className="w-9 h-9 rounded-xl bg-rl-purple/10 flex items-center justify-center shrink-0">
             <BarChart3 size={18} className="text-rl-purple" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-rl-text leading-tight">Resultados de Tráfego</h2>
             <p className="text-xs text-rl-muted">Dados reais das contas de anúncio vinculadas a este projeto</p>
           </div>
-        </div>
-        <ProjectTrafficDashboard project={project} dash={dash} />
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rl-border text-xs font-semibold text-rl-muted group-hover:text-rl-text group-hover:bg-rl-surface transition-colors shrink-0">
+            {dashAberto ? 'Minimizar' : 'Mostrar dashboard'}
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${dashAberto ? 'rotate-180' : ''}`} />
+          </span>
+        </button>
+        {dashAberto && <ProjectTrafficDashboard project={project} dash={dash} />}
       </section>
 
       {/* Budget + date info */}
