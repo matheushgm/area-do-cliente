@@ -119,11 +119,12 @@ async function gravarTarefa(t, ctx, profundidade) {
   const row = mapTarefa(t, perfilDe)
 
   if (ex) {
-    const editadaNaArea = ex.clickup_sync_at && new Date(ex.updated_at).getTime() > new Date(ex.clickup_sync_at).getTime() + 1000
-    if (editadaNaArea && new Date(row.clickup_updated_at).getTime() <= new Date(ex.updated_at).getTime()) return { acao: 'pulada_conflito', id: ex.id }
+    // Mesma versão antes do conflito: a versão que já está aqui não é mudança do ClickUp (ver a rodada).
     const mesmaVersao = ex.clickup_updated_at && new Date(row.clickup_updated_at).getTime() <= new Date(ex.clickup_updated_at).getTime()
     const mesmaEstrutura = ex.lista_id === lista.id && (ex.parent_id || null) === parentId
     if (mesmaVersao && mesmaEstrutura && !(ex.arquivada && !row.arquivada)) return { acao: 'sem_mudanca', id: ex.id }
+    const editadaNaArea = ex.clickup_sync_at && new Date(ex.updated_at).getTime() > new Date(ex.clickup_sync_at).getTime() + 1000
+    if (editadaNaArea && new Date(row.clickup_updated_at).getTime() <= new Date(ex.updated_at).getTime()) return { acao: 'pulada_conflito', id: ex.id }
   }
 
   // anexos do ClickUp vêm no GET /task: troca só os de source 'clickup', mantém os locais

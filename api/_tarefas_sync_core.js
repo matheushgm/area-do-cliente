@@ -250,18 +250,21 @@ export async function sincronizar({
     const ex = existentes.get(t.id)
     const row = mapTarefa(t, perfilDe)
     if (ex) {
+      // nada novo? (em `completo` ainda confere se lista/pai mudaram ou se estava marcada como removida).
+      // Vem antes do conflito: a mesma versão que já está aqui não é mudança do ClickUp, e contá-la
+      // como conflito acendia "Mudança do ClickUp não aplicada" no painel sem haver mudança nenhuma
+      // (a janela da rodada se sobrepõe à anterior e traz de novo tarefas já sincronizadas).
+      const mesmaVersao = ex.clickup_updated_at && new Date(row.clickup_updated_at).getTime() <= new Date(ex.clickup_updated_at).getTime()
+      const paiEsperado = t.parent ? (existentes.get(t.parent)?.id || idDe.get(t.parent) || null) : null
+      const estruturaIgual = ex.lista_id === lista.id && (ex.parent_id || null) === paiEsperado
+      if (mesmaVersao && estruturaIgual && !(ex.arquivada && !row.arquivada) && !completo) continue
+      if (mesmaVersao && estruturaIgual && !(ex.arquivada && !row.arquivada) && completo && ex.status_tipo === row.status_tipo) continue
       const editadaNaArea = ex.clickup_sync_at && new Date(ex.updated_at).getTime() > new Date(ex.clickup_sync_at).getTime() + 1000
       if (editadaNaArea && new Date(row.clickup_updated_at).getTime() <= new Date(ex.updated_at).getTime()) {
         resumo.puladas_conflito++
         eventos?.push({ origem: 'rodada', evento: 'rodada', acao: 'pulada_conflito', tarefa_id: ex.id, clickup_task_id: String(t.id), motivo: 'editada no VertaTask depois da última sincronização e o ClickUp não é mais novo' })
         continue
       }
-      // nada novo? (em `completo` ainda confere se lista/pai mudaram ou se estava marcada como removida)
-      const mesmaVersao = ex.clickup_updated_at && new Date(row.clickup_updated_at).getTime() <= new Date(ex.clickup_updated_at).getTime()
-      const paiEsperado = t.parent ? (existentes.get(t.parent)?.id || idDe.get(t.parent) || null) : null
-      const estruturaIgual = ex.lista_id === lista.id && (ex.parent_id || null) === paiEsperado
-      if (mesmaVersao && estruturaIgual && !(ex.arquivada && !row.arquivada) && !completo) continue
-      if (mesmaVersao && estruturaIgual && !(ex.arquivada && !row.arquivada) && completo && ex.status_tipo === row.status_tipo) continue
       resumo.atualizadas++
     } else {
       resumo.criadas++
