@@ -22,6 +22,20 @@ export default function ProjectTrafficDashboard({ project, dash, viewerExtra = '
   const [cheia, setCheia] = useState(false)
   const [altura, setAltura] = useState(1600)
   const iframeRef = useRef(null)
+  // Período escolhido no viewer (aviso `rl-embed-periodo`). Fica num ref e só entra
+  // na URL ao trocar de conta (`periodoAoAbrir`): na URL direto, cada mudança de
+  // período recarregaria o iframe que acabou de mudar.
+  const periodoRef = useRef(null)
+  const [periodoAoAbrir, setPeriodoAoAbrir] = useState(null)
+  useEffect(() => {
+    const h = (e) => {
+      if (e.origin !== window.location.origin || e.source !== iframeRef.current?.contentWindow) return
+      if (e.data?.type === 'rl-embed-periodo') periodoRef.current = { days: e.data.days, from: e.data.from, to: e.data.to }
+    }
+    window.addEventListener('message', h)
+    return () => window.removeEventListener('message', h)
+  }, [])
+  const trocarConta = (i) => { setPeriodoAoAbrir(periodoRef.current); setAtiva(i) }
 
   // Contas vinculadas a este projeto (nome → resolução). Set de nomes p/ filtro.
   const projectAccountNames = useMemo(() => {
@@ -43,7 +57,9 @@ export default function ProjectTrafficDashboard({ project, dash, viewerExtra = '
   const c = contas[idx]
   // `contas` = todas as do projeto: o viewer pede ao servidor só elas, em vez da carteira inteira.
   const contasQs = useMemo(() => encodeURIComponent(JSON.stringify(contas)), [contas])
-  const src = c ? `/dash-teste/viewer.html?embed=1&cliente=${encodeURIComponent(c.conta)}&canal=${c.canal}&contas=${contasQs}${viewerExtra}` : null
+  const p = periodoAoAbrir
+  const periodoQs = !p ? '' : `&dias=${encodeURIComponent(p.days)}${p.days === 0 ? `&de=${p.from}&ate=${p.to}` : ''}`
+  const src = c ? `/dash-teste/viewer.html?embed=1&cliente=${encodeURIComponent(c.conta)}&canal=${c.canal}&contas=${contasQs}${periodoQs}${viewerExtra}` : null
 
   // Tela cheia: o mesmo iframe só muda de posição (fixed), sem recarregar.
   useEffect(() => {
@@ -94,7 +110,7 @@ export default function ProjectTrafficDashboard({ project, dash, viewerExtra = '
     <div className={cheia ? 'fx fixed inset-0 z-[70] bg-rl-bg flex flex-col' : 'space-y-3'}>
       <div className={`flex items-center gap-1.5 flex-wrap ${cheia ? 'px-4 py-2.5 border-b border-rl-border bg-rl-card shrink-0' : ''}`}>
         {contas.length > 1 && contas.map((x, i) => (
-          <button key={x.canal + x.conta} onClick={() => setAtiva(i)}
+          <button key={x.canal + x.conta} onClick={() => trocarConta(i)}
             className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm transition-colors ${i === idx ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple font-semibold' : 'bg-rl-card border-rl-border text-rl-subtle hover:text-rl-text'}`}>
             <CanalLogo canal={x.canal} className="w-3.5 h-3.5" /> {CHANNEL_LABEL[x.canal]} · {x.conta}
           </button>

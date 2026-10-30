@@ -1394,6 +1394,18 @@ const EMBED = !SHARED && _q.get('embed') === '1'
   ? { client: (_q.get('cliente')||'').trim(), channel: _q.get('canal')==='google'?'google':'meta', lista: EMBED_LISTA }
   : null
 if (EMBED) document.body.classList.add('embed')
+// ?dias=<atalho>[&de=yyyy-mm-dd&ate=yyyy-mm-dd]: período com que a conta embutida abre. A página
+// do cliente repassa o período ao trocar de conta (ela ouve o aviso `rl-embed-periodo` de DP.client.gravar).
+const EMBED_PERIODO = (() => {
+  if (!EMBED || EMBED_LISTA || EMBED_BENCH || !_q.has('dias')) return null
+  const raw = _q.get('dias')
+  const days = PRESET_STRINGS.has(raw) ? raw : Number(raw)
+  if (days === 0) {
+    const de = _q.get('de') || '', ate = _q.get('ate') || '', iso = /^\d{4}-\d{2}-\d{2}$/
+    return iso.test(de) && iso.test(ate) && de <= ate ? { days: 0, from: de, to: ate } : null
+  }
+  return PRESET_STRINGS.has(days) || (Number.isInteger(days) && days > 0) ? { days, from: '', to: '' } : null
+})()
 // Contas que o servidor deve devolver em cada canal (null = todas). Só na lista e na
 // conta embutidas: sem isso a página do cliente baixava o rollup da carteira inteira.
 // O benchmark fica de fora porque compara o cliente com a carteira. A lista do
@@ -1488,6 +1500,11 @@ async function load(fresh) {
       state.channel = EMBED.channel
       state.openClient = { client: EMBED.client, channel: EMBED.channel }
       if (!state.tab || state.tab === 'resultados') state.tab = 'campanhas'
+      // Só na 1ª carga: o "Atualizar" passa por aqui de novo e não pode desfazer o período escolhido.
+      if (EMBED_PERIODO && !state._periodoEmbed) {
+        state._periodoEmbed = true
+        state.cDays = EMBED_PERIODO.days; state.cFrom = EMBED_PERIODO.from; state.cTo = EMBED_PERIODO.to
+      }
     } else if (!state._navRestored) { restoreNav(); state._navRestored = true }
     // Navegação restaurada (ou mantida) num cliente: as linhas cruas dele são
     // baixadas antes de desenhar, já que não vêm mais no boot.
@@ -2232,6 +2249,9 @@ const DP = {
       state.cDays = d.days
       if (d.days === 0) { state.cFrom = d.from; state.cTo = d.to }
       state.cPeriod = DP.client.periodo(d.days, d.from, d.to)
+      if (EMBED && !EMBED_LISTA && window.parent !== window) {
+        window.parent.postMessage({ type: 'rl-embed-periodo', days: d.days, from: d.days === 0 ? d.from : '', to: d.days === 0 ? d.to : '' }, location.origin)
+      }
     },
     periodo: (days, from, to) => {
       const o = state.openClient; if (!o) return null
