@@ -66,8 +66,16 @@ export function EtiquetasCampo({ valor = [], etiquetas, onChange, onCriar }) {
 
 // ── Relações ────────────────────────────────────────────────────────────────
 
-export const TIPOS_RELACAO = [{ value: 'relacionada', label: 'Relacionada a' }, { value: 'bloqueia', label: 'Bloqueia' }, { value: 'duplica', label: 'Duplicada de' }]
-export const ROTULO_DIRETO = { bloqueia: 'Bloqueia', duplica: 'Duplicada de', relacionada: 'Relacionada a' }
+// 'bloqueada' só existe no formulário: grava "alvo bloqueia esta tarefa" (linhaRelacao)
+export const TIPOS_RELACAO = [
+  { value: 'bloqueada', label: 'Bloqueada por' }, { value: 'bloqueia', label: 'Bloqueia' },
+  { value: 'relacionada', label: 'Relacionada a' }, { value: 'duplica', label: 'Duplicada de' },
+]
+export const ROTULO_DIRETO = { bloqueia: 'Bloqueia', duplica: 'Duplicada de', relacionada: 'Relacionada a', bloqueada: 'Bloqueada por' }
+/** Linha de tarefas_relacoes para o tipo escolhido no formulário (quem bloqueia fica em tarefa_id). */
+export const linhaRelacao = (tarefaId, tipo, alvoId) => (tipo === 'bloqueada'
+  ? { tarefa_id: alvoId, relacionada_id: tarefaId, tipo: 'bloqueia' }
+  : { tarefa_id: tarefaId, relacionada_id: alvoId, tipo })
 const ROTULO_INVERSO = { bloqueia: 'Bloqueada por', duplica: 'Tem a duplicata', relacionada: 'Relacionada a' }
 
 // `onMudou`: chamado depois de criar ou apagar, para a fila ir ao ClickUp (migration 126)
@@ -92,8 +100,7 @@ export function RelacoesSecao({ tarefaId, user, onAbrir, onErro, onMudou }) {
     return data || []
   }
   async function adicionar(tipo, alvo) {
-    // "Bloqueia" e "duplica" gravam tarefa → alvo; "relacionada" também.
-    const { error } = await supabase.from('tarefas_relacoes').insert({ tarefa_id: tarefaId, relacionada_id: alvo.id, tipo, criado_por: user?.id || null })
+    const { error } = await supabase.from('tarefas_relacoes').insert({ ...linhaRelacao(tarefaId, tipo, alvo.id), criado_por: user?.id || null })
     if (error) { onErro?.(error.code === '23505' ? 'Essa relação já existe.' : error.message); return false }
     onMudou?.()
     carregar()

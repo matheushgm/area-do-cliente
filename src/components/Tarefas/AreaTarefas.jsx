@@ -38,7 +38,7 @@ import { FOCO, StatusCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, Estimat
 import BarraSelecao, { BotaoBarra, ResponsaveisEmMassa, aplicarDiferenca } from './BarraSelecao'
 import { contarTarefas, useConfirmar } from './Confirmacao'
 import { ID_RASCUNHO_TEMPLATE, guardarRascunhoTemplate } from '../../lib/rascunhoTemplate'
-import { MenuTarefa, MenuContextoTarefa } from './TarefaExtras'
+import { MenuTarefa, MenuContextoTarefa, linhaRelacao } from './TarefaExtras'
 
 export const PAINEL_LARGURA = 480 // padrão do painel da tarefa; quem usa arrasta a borda esquerda (tarefas.larguraPainel)
 const PAINEL_MIN = 380
@@ -399,7 +399,7 @@ export default function AreaTarefas({
       if (rs?.error) falhas++
     }
     if (relacoes.length) {
-      const { error } = await supabase.from('tarefas_relacoes').insert(relacoes.map((x) => ({ tarefa_id: id, relacionada_id: x.alvo.id, tipo: x.tipo, criado_por: user?.id || null })))
+      const { error } = await supabase.from('tarefas_relacoes').insert(relacoes.map((x) => ({ ...linhaRelacao(id, x.tipo, x.alvo.id), criado_por: user?.id || null })))
       if (error) falhas += relacoes.length
       else agendarPush?.()
     }

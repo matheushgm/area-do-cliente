@@ -921,6 +921,8 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     chips no quadro.
   - **Relações** (`tarefas_relacoes`: bloqueia, duplica, relacionada; o inverso é calculado na tela).
     Sincronizadas com o ClickUp desde a migration 126 (dependência / link; ver "Relações ⇄ ClickUp").
+    O formulário (`ListaRelacoes`) oferece também "Bloqueada por" (`linhaRelacao` grava "alvo bloqueia esta") e
+    fica aberto depois de cada escolha, para adicionar várias em seguida (Esc ou ✕ fecha).
   - **Histórico** (`tarefas_atividade`, preenchida por trigger `tarefas_log_atividade`; só registra edição
     de pessoa logada, a sincronização do ClickUp usa chave de serviço e fica de fora) e **seguidores**
     (`tarefas_seguidores`, quem comenta ou recebe a tarefa passa a seguir). Trigger de comentário e de

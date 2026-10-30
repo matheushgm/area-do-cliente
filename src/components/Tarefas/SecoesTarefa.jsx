@@ -3,7 +3,7 @@
 // `Secao` (título + extra), `ListaSubtarefas` (uma linha por subtarefa, abre ao clicar,
 // "Adicionar subtarefa") e `ListaRelacoes` (rótulo + tarefa, remover no hover,
 // "Adicionar relação" com tipo e busca). Só apresentação: os dados vêm de quem usa.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CornerDownRight, Link2, Search, X } from 'lucide-react'
 import { AdicionarInline, FOCO } from './Campos'
 
@@ -66,18 +66,21 @@ export function ListaRelacoes({ linhas, tipos, buscar, minBusca = 2, onAdicionar
   const [tipo, setTipo] = useState(tipos?.[0]?.value)
   const [q, setQ] = useState('')
   const [achados, setAchados] = useState([])
+  const busca = useRef(null)
+  const [rodada, setRodada] = useState(0) // refaz a busca depois de adicionar (a lista muda)
 
   useEffect(() => {
     if (!adicionando || q.trim().length < minBusca) { setAchados([]); return undefined }
     let vivo = true
     const h = setTimeout(async () => { const r = await buscar(q.trim()); if (vivo) setAchados(r || []) }, minBusca ? 250 : 0)
     return () => { vivo = false; clearTimeout(h) }
-  }, [q, adicionando, minBusca]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [q, adicionando, minBusca, rodada]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fechar = () => { setAdicionando(false); setQ(''); setAchados([]) }
+  // o formulário continua aberto, com o mesmo tipo, para adicionar várias em seguida
   async function escolher(alvo) {
     const ok = await onAdicionar(tipo, alvo)
-    if (ok !== false) fechar()
+    if (ok !== false) { setQ(''); setRodada((n) => n + 1); busca.current?.focus() }
   }
 
   return (
@@ -97,9 +100,9 @@ export function ListaRelacoes({ linhas, tipos, buscar, minBusca = 2, onAdicionar
             </select>
             <div className="ln-input !h-8 flex items-center gap-1.5 flex-1">
               <Search className="w-3.5 h-3.5 text-ln-t4" />
-              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} className="flex-1 min-w-0 bg-transparent outline-none text-xs" />
+              <input ref={busca} autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); fechar() } }} placeholder={placeholder} className="flex-1 min-w-0 bg-transparent outline-none text-xs" />
             </div>
-            <button type="button" onClick={fechar} className="ln-iconbtn" aria-label="Cancelar"><X className="w-3.5 h-3.5" /></button>
+            <button type="button" onClick={fechar} className="ln-iconbtn" aria-label="Fechar" title="Fechar (Esc)"><X className="w-3.5 h-3.5" /></button>
           </div>
           {achados.map((a) => (
             <button key={a.id} type="button" onClick={() => escolher(a)} className="text-left text-[13px] px-2 h-8 rounded-md hover:bg-ln-ink/5 text-ln-t2 truncate">{a.titulo || 'Sem título'}</button>
