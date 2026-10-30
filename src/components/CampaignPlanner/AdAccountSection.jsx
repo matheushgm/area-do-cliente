@@ -1,9 +1,8 @@
-import { ChevronDown, ChevronUp, Trash2, CheckCircle2, AlertCircle, Building2 } from 'lucide-react'
-import { STAGE_KEYS, stageSum } from './campaignHelpers'
+import { ChevronDown, Trash2, Building2 } from 'lucide-react'
+import { stageSum, fmtBRL } from './campaignHelpers'
 import PctInput from './PctInput'
 import ValueInput from './ValueInput'
-import ValueCell from './ValueCell'
-import StageSection from './StageSection'
+import FunnelTable from './FunnelTable'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Conta de anúncio dentro de um canal. Só aparece em cliente que tem mais de
@@ -16,45 +15,48 @@ export default function AdAccountSection({
   onUpdate, onDelete, onUpdateStage, onAddCampaign, onUpdateCampaign, onDeleteCampaign,
 }) {
   const sum   = stageSum(account.stages)
-  const valid = sum === 100
+  const falta = Math.round((100 - sum) * 100) / 100
+  const open  = !!account.expanded
 
   return (
-    <div className="rounded-xl border border-rl-border bg-rl-surface/40 overflow-hidden">
+    <div className="rounded-xl border border-rl-border overflow-hidden">
       {/* Cabeçalho da conta */}
-      <div className="flex items-center gap-2 flex-wrap px-3 py-2.5">
+      <div className="flex items-center gap-2 flex-wrap px-3 py-2 bg-rl-surface/60">
+        <button
+          onClick={() => onUpdate({ expanded: !open })}
+          className="p-1 text-rl-muted hover:text-rl-text transition-colors shrink-0"
+          title={open ? 'Recolher' : 'Expandir'}
+          aria-expanded={open}
+        >
+          <ChevronDown className={`w-4 h-4 transition-transform ${open ? '' : '-rotate-90'}`} />
+        </button>
         <Building2 className="w-3.5 h-3.5 text-rl-muted shrink-0" />
         <input
           type="text"
           value={account.name}
           onChange={(e) => onUpdate({ name: e.target.value })}
           placeholder="Nome da conta de anúncio"
-          className="input-field py-1.5 text-sm font-semibold flex-1 min-w-[140px]"
+          className="flex-1 min-w-[140px] bg-transparent border border-transparent hover:border-rl-border focus:border-rl-purple rounded-md px-2 py-1 text-sm font-semibold text-rl-text outline-none transition-colors"
         />
-
-        <div className="w-[88px] shrink-0">
-          <PctInput value={account.percentage} onChange={(v) => onUpdate({ percentage: v })} />
+        {falta !== 0 && (
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-rl-gold/10 text-rl-gold border border-rl-gold/20 whitespace-nowrap">
+            funil: {falta > 0 ? `falta ${falta}%` : `passou ${-falta}%`}
+          </span>
+        )}
+        <div className="w-[76px] shrink-0">
+          <PctInput size="sm" value={account.percentage} onChange={(v) => onUpdate({ percentage: v })} />
         </div>
-
-        <div className="w-[140px] shrink-0">
+        <div className="w-[124px] shrink-0">
           <ValueInput
+            size="sm"
             value={derived.monthly}
             parentBudget={channelMonthly}
             onChange={(newPct) => onUpdate({ percentage: newPct })}
           />
         </div>
-
-        <div className="hidden sm:flex items-center gap-4">
-          <ValueCell label="Diário" value={derived.daily} />
-        </div>
-
-        <button
-          onClick={() => onUpdate({ expanded: !account.expanded })}
-          className="p-1.5 text-rl-muted hover:text-rl-text transition-colors shrink-0"
-          title={account.expanded ? 'Recolher' : 'Expandir'}
-        >
-          {account.expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-
+        <span className="hidden sm:block w-[96px] text-right text-sm font-semibold text-rl-text tabular-nums">
+          {fmtBRL(derived.daily)}<span className="text-[10px] font-medium text-rl-muted">/dia</span>
+        </span>
         <button
           onClick={onDelete}
           className="p-1.5 text-rl-muted hover:text-red-400 transition-colors shrink-0"
@@ -65,38 +67,18 @@ export default function AdAccountSection({
       </div>
 
       {/* Funil da conta */}
-      {account.expanded && (
-        <div className="px-3 pb-3 space-y-2 border-t border-rl-border/60 pt-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider">
-              Distribuição do Funil
-            </p>
-            <div className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
-              valid
-                ? 'bg-rl-green/10 border-rl-green/20 text-rl-green'
-                : 'bg-rl-gold/10 border-rl-gold/20 text-rl-gold'
-            }`}>
-              {valid
-                ? <><CheckCircle2 className="w-3 h-3" /> 100% distribuído</>
-                : <><AlertCircle className="w-3 h-3" /> Restante: {100 - sum}%</>
-              }
-            </div>
-          </div>
-
-          {STAGE_KEYS.map((key) => (
-            <StageSection
-              key={key}
-              stageKey={key}
-              stage={account.stages[key]}
-              derived={derived.stages[key]}
-              channelMonthly={derived.monthly}
-              daysLeft={daysLeft}
-              onUpdateStage={(patch) => onUpdateStage(key, patch)}
-              onAddCampaign={() => onAddCampaign(key)}
-              onUpdateCampaign={(campId, patch) => onUpdateCampaign(key, campId, patch)}
-              onDeleteCampaign={(campId) => onDeleteCampaign(key, campId)}
-            />
-          ))}
+      {open && (
+        <div className="px-2 pt-2 pb-1">
+          <FunnelTable
+            stages={account.stages}
+            derived={derived.stages}
+            parentMonthly={derived.monthly}
+            daysLeft={daysLeft}
+            onUpdateStage={onUpdateStage}
+            onAddCampaign={onAddCampaign}
+            onUpdateCampaign={onUpdateCampaign}
+            onDeleteCampaign={onDeleteCampaign}
+          />
         </div>
       )}
     </div>

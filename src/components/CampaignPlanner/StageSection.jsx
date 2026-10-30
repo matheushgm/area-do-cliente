@@ -1,81 +1,61 @@
 import { Plus } from 'lucide-react'
-import { CheckCircle2, AlertCircle } from 'lucide-react'
-import { STAGE_META } from './campaignHelpers'
+import { STAGE_META, fmtBRL, FUNNEL_GRID, FUNNEL_NAME } from './campaignHelpers'
 import PctInput from './PctInput'
 import ValueInput from './ValueInput'
-import ValueCell from './ValueCell'
 import CampaignRow from './CampaignRow'
 
+// Uma etapa do funil dentro da FunnelTable: a linha da etapa (bolinha da cor,
+// %, valor, por dia) e as campanhas dela recuadas logo abaixo. Etapa zerada e
+// sem campanha fica apagada, para o olho ir direto no que tem verba.
 export default function StageSection({ stageKey, stage, derived, channelMonthly, daysLeft, onUpdateStage, onAddCampaign, onUpdateCampaign, onDeleteCampaign }) {
   const meta = STAGE_META[stageKey]
   const campSum = stage.campaigns.reduce((s, c) => s + (c.percentage || 0), 0)
-  const campRemaining = 100 - campSum
+  const campRemaining = Math.round((100 - campSum) * 100) / 100
+  const vazia = !(stage.percentage > 0) && stage.campaigns.length === 0
 
   return (
-    <div className={`rounded-xl border ${meta.borderClass} ${meta.bgClass} overflow-hidden`}>
-      {/* Stage header */}
-      <div className="flex items-center justify-between gap-2 flex-wrap px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className={`text-xs font-bold ${meta.colorClass}`}>{meta.label}</span>
+    <div className={vazia ? 'opacity-60 hover:opacity-100 transition-opacity' : ''}>
+      {/* Linha da etapa */}
+      <div className={`${FUNNEL_GRID} px-2 py-2`}>
+        <div className={`${FUNNEL_NAME} flex items-center gap-2 min-w-0`}>
+          <span className={`w-2 h-2 rounded-full shrink-0 ${meta.dotClass}`} />
+          <span className={`text-sm font-semibold ${meta.colorClass}`}>{meta.label}</span>
+          {stage.campaigns.length > 0 && campRemaining !== 0 && (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-rl-gold/10 text-rl-gold border border-rl-gold/20 whitespace-nowrap">
+              campanhas: falta {campRemaining}%
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="w-[88px]">
-            <PctInput value={stage.percentage} onChange={(v) => onUpdateStage({ percentage: v })} />
-          </div>
-          <div className="w-[140px]">
-            <ValueInput
-              value={derived.monthly}
-              parentBudget={channelMonthly}
-              onChange={(newPct) => onUpdateStage({ percentage: newPct })}
-            />
-          </div>
-          <div className="hidden sm:flex items-center gap-4">
-            <ValueCell label="Diário" value={derived.daily} />
-          </div>
-        </div>
+        <PctInput size="sm" value={stage.percentage} onChange={(v) => onUpdateStage({ percentage: v })} />
+        <ValueInput
+          size="sm"
+          value={derived.monthly}
+          parentBudget={channelMonthly}
+          onChange={(newPct) => onUpdateStage({ percentage: newPct })}
+        />
+        <span className="hidden sm:block text-right text-sm font-semibold text-rl-text tabular-nums">{fmtBRL(derived.daily)}</span>
+        <span />
       </div>
 
-      {/* Campaigns — visible whenever stage has % set */}
-      {stage.percentage > 0 && (
-        <div className="px-4 pb-3 border-t border-current/10">
-          {/* Campaign header + validation indicator */}
-          <div className="flex items-center justify-between py-2 mb-1">
-            <p className="text-[10px] text-rl-muted uppercase tracking-wider">Campanhas</p>
-            {stage.campaigns.length > 0 && (
-              <div className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
-                campRemaining === 0
-                  ? 'bg-rl-green/10 border-rl-green/20 text-rl-green'
-                  : 'bg-rl-gold/10 border-rl-gold/20 text-rl-gold'
-              }`}>
-                {campRemaining === 0
-                  ? <><CheckCircle2 className="w-3 h-3" /> 100%</>
-                  : <><AlertCircle className="w-3 h-3" /> Restante: {campRemaining}%</>
-                }
-              </div>
-            )}
-          </div>
-
-          {/* Campaign rows */}
-          <div>
-            {derived.campaigns.map((camp) => (
-              <CampaignRow
-                key={camp.id}
-                campaign={camp}
-                stageMonthly={derived.monthly}
-                daysLeft={daysLeft}
-                onUpdate={(patch) => onUpdateCampaign(camp.id, patch)}
-                onDelete={() => onDeleteCampaign(camp.id)}
-              />
-            ))}
-          </div>
-
-          {/* Add campaign */}
+      {/* Campanhas da etapa (só quando a etapa tem verba ou já tem campanha) */}
+      {(stage.percentage > 0 || stage.campaigns.length > 0) && (
+        <div className="pb-2">
+          {derived.campaigns.map((camp) => (
+            <CampaignRow
+              key={camp.id}
+              campaign={camp}
+              stageMonthly={derived.monthly}
+              daysLeft={daysLeft}
+              onUpdate={(patch) => onUpdateCampaign(camp.id, patch)}
+              onDelete={() => onDeleteCampaign(camp.id)}
+            />
+          ))}
           <button
             onClick={onAddCampaign}
-            className="mt-2 flex items-center gap-1.5 text-xs text-rl-muted hover:text-rl-text transition-colors"
+            className="ml-6 mt-1 flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            Adicionar campanha
+            Campanha em {meta.short}
           </button>
         </div>
       )}

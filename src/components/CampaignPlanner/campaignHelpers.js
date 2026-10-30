@@ -3,10 +3,29 @@ export const CHANNEL_OPTIONS = ['Meta Ads', 'Google Ads', 'LinkedIn Ads', 'TikTo
 
 export const STAGE_KEYS = ['topo', 'meio', 'fundo']
 
+// Identidade de cada canal no planejador: logo (quando existe no viewer) e a cor
+// da faixa lateral do cartão e da barra de distribuição. É o que separa Meta de
+// Google à primeira vista; antes os cartões eram iguais e só o select mudava.
+export const CHANNEL_STYLE = {
+  'Meta Ads':     { logo: '/dash-teste/vendor/logos/meta.svg',       color: '#0866FF' },
+  'Google Ads':   { logo: '/dash-teste/vendor/logos/google-ads.svg', color: '#F9AB00' },
+  'LinkedIn Ads': { logo: null, color: '#0A66C2' },
+  'TikTok Ads':   { logo: null, color: '#EE1D52' },
+  'YouTube Ads':  { logo: null, color: '#FF0000' },
+}
+// Colunas compartilhadas por etapa e campanha na FunnelTable: nome · % · valor · por dia · ações.
+// No celular o nome (FUNNEL_NAME) ocupa a linha de cima e % · valor · ações ficam
+// embaixo; a coluna "por dia" some (o valor do período continua).
+export const FUNNEL_GRID =
+  'grid items-center gap-x-2 gap-y-1 grid-cols-[72px_minmax(0,1fr)_56px] sm:grid-cols-[minmax(0,1fr)_76px_124px_96px_60px]'
+export const FUNNEL_NAME = 'col-span-3 sm:col-span-1'
+
+export const channelStyle = (name) => CHANNEL_STYLE[name] || { logo: null, color: '#64748B' }
+
 export const STAGE_META = {
-  topo:  { label: 'Topo de Funil',  colorClass: 'text-rl-cyan',   bgClass: 'bg-rl-cyan/10',   borderClass: 'border-rl-cyan/20'   },
-  meio:  { label: 'Meio de Funil',  colorClass: 'text-rl-purple', bgClass: 'bg-rl-purple/10', borderClass: 'border-rl-purple/20' },
-  fundo: { label: 'Fundo de Funil', colorClass: 'text-rl-green',  bgClass: 'bg-rl-green/10',  borderClass: 'border-rl-green/20'  },
+  topo:  { label: 'Topo de Funil',  short: 'Topo',  colorClass: 'text-rl-cyan',   bgClass: 'bg-rl-cyan/10',   borderClass: 'border-rl-cyan/20',   dotClass: 'bg-rl-cyan'   },
+  meio:  { label: 'Meio de Funil',  short: 'Meio',  colorClass: 'text-rl-purple', bgClass: 'bg-rl-purple/10', borderClass: 'border-rl-purple/20', dotClass: 'bg-rl-purple' },
+  fundo: { label: 'Fundo de Funil', short: 'Fundo', colorClass: 'text-rl-green',  bgClass: 'bg-rl-green/10',  borderClass: 'border-rl-green/20',  dotClass: 'bg-rl-green'  },
 }
 
 export function getDaysLeft() {

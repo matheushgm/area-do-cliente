@@ -12,7 +12,7 @@ import { useDashboardData } from '../hooks/useDashboardData'
 import ProjectTrafficDashboard from './Resultados/ProjectTrafficDashboard'
 import {
   fmtBRL, makeChannel, makeCampaign, makeAdAccount, deriveStages, stageSum, emptyStages,
-  CHANNEL_OPTIONS,
+  CHANNEL_OPTIONS, channelStyle,
   defaultEndDateISO, todayISO, getDaysBetween, getPeriodLabel,
 } from './CampaignPlanner/campaignHelpers'
 import ChannelRow from './CampaignPlanner/ChannelRow'
@@ -39,6 +39,13 @@ function newAccount(label = '') {
   }
 }
 
+// Ao abrir o planejamento os canais vêm fechados (só o resumo de cada um): com
+// tudo aberto, Meta e Google viravam uma parede de campos e se confundiam. Canal
+// único já abre, não há o que comparar.
+function collapseChannels(channels = []) {
+  return channels.map((ch) => ({ ...ch, expanded: channels.length === 1 }))
+}
+
 /**
  * Migra o formato legado (plan com orcamentoTotal/channels na raiz)
  * para o novo formato com array de contas.
@@ -50,7 +57,7 @@ function initAccounts(campaignPlan) {
   if (Array.isArray(campaignPlan.accounts) && campaignPlan.accounts.length > 0) {
     return campaignPlan.accounts.map((a) => ({
       ...a,
-      channels: (a.channels || []).map((ch) => ({ ...ch, expanded: true })),
+      channels: collapseChannels(a.channels),
     }))
   }
 
@@ -60,7 +67,7 @@ function initAccounts(campaignPlan) {
     name:           'Conta Principal',
     orcamentoTotal: campaignPlan.orcamentoTotal ?? campaignPlan.totalBudget ?? 0,
     valorJaUsado:   campaignPlan.valorJaUsado || 0,
-    channels:       (campaignPlan.channels || []).map((ch) => ({ ...ch, expanded: true })),
+    channels:       collapseChannels(campaignPlan.channels),
   }]
 }
 
@@ -703,8 +710,21 @@ export default function CampaignPlanner({ project, onSave }) {
 
       {/* Channels section */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-rl-text">Canais</p>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <p className="text-sm font-semibold text-rl-text">Canais</p>
+            {channels.length > 1 && (
+              <button
+                onClick={() => {
+                  const abrir = !channels.every((ch) => ch.expanded)
+                  setChannels((prev) => prev.map((ch) => ({ ...ch, expanded: abrir })))
+                }}
+                className="text-[11px] font-medium text-rl-muted hover:text-rl-text transition-colors"
+              >
+                {channels.every((ch) => ch.expanded) ? 'Fechar todos' : 'Abrir todos'}
+              </button>
+            )}
+          </div>
           {channels.length > 0 && (
             <div className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border ${
               validation.chValid
@@ -718,6 +738,26 @@ export default function CampaignPlanner({ project, onSave }) {
             </div>
           )}
         </div>
+
+        {/* Divisão do orçamento entre canais, na cor de cada um */}
+        {channels.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex h-2.5 rounded-full overflow-hidden bg-rl-border/60">
+              {derived.filter((ch) => ch.percentage > 0).map((ch) => (
+                <span key={ch.id} title={`${ch.name}: ${Math.round(ch.percentage)}%`}
+                  style={{ width: `${Math.min(ch.percentage, 100)}%`, background: channelStyle(ch.name).color }} />
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {derived.map((ch) => (
+                <span key={ch.id} className="flex items-center gap-1.5 text-[11px] text-rl-muted">
+                  <span className="w-2 h-2 rounded-full" style={{ background: channelStyle(ch.name).color }} />
+                  <b className="font-semibold text-rl-text">{ch.name}</b> {Math.round(ch.percentage)}% · {fmtBRL(ch.monthlyBruto)}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {channels.length === 0 && (
           <div className="glass-card p-8 text-center">

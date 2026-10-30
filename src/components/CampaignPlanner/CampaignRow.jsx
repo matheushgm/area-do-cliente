@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { CalendarDays, Trash2, X } from 'lucide-react'
-import { formatCampaignPeriod, getDaysBetween } from './campaignHelpers'
+import { formatCampaignPeriod, getDaysBetween, fmtBRL, FUNNEL_GRID, FUNNEL_NAME } from './campaignHelpers'
 import PctInput from './PctInput'
 import ValueInput from './ValueInput'
-import ValueCell from './ValueCell'
 
+// Campanha dentro de uma etapa da FunnelTable: mesma grade da etapa, nome
+// recuado e sem caixa (vira campo só no hover/foco), para não competir com a
+// linha da etapa. O calendário abre o período próprio da campanha.
 export default function CampaignRow({ campaign, stageMonthly, daysLeft, onUpdate, onDelete }) {
   const monthly = stageMonthly * (campaign.percentage / 100)
   const hasOwnPeriod = !!(campaign.startDate && campaign.endDate)
@@ -12,73 +14,65 @@ export default function CampaignRow({ campaign, stageMonthly, daysLeft, onUpdate
   const daily = hasOwnPeriod ? monthly / ownDays : monthly / daysLeft
   const periodLabel = formatCampaignPeriod(campaign.startDate, campaign.endDate)
 
-  const [datesOpen, setDatesOpen] = useState(hasOwnPeriod)
-
-  function toggleDates() {
-    if (datesOpen && hasOwnPeriod) {
-      // Fechar e limpar as datas (campanha volta ao período global)
-      onUpdate({ startDate: null, endDate: null })
-    }
-    setDatesOpen((v) => !v)
-  }
+  const [datesOpen, setDatesOpen] = useState(false)
 
   return (
-    <div className="py-2 border-b border-rl-border/50 last:border-0">
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Name */}
-        <input
-          type="text"
-          placeholder="Nome da campanha"
-          value={campaign.name}
-          onChange={(e) => onUpdate({ name: e.target.value })}
-          className="input-field flex-1 min-w-[150px] text-sm"
-        />
-
-        {/* Datas — toggle */}
-        <button
-          onClick={toggleDates}
-          title={hasOwnPeriod ? `Período próprio: ${periodLabel}` : 'Definir período específico para esta campanha'}
-          className={`p-1.5 rounded-lg border transition-all shrink-0 ${
-            hasOwnPeriod
-              ? 'bg-rl-purple/10 border-rl-purple/40 text-rl-purple'
-              : 'border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/30'
-          }`}
-        >
-          <CalendarDays className="w-3.5 h-3.5" />
-        </button>
-
-        {/* Percentage */}
-        <div className="w-[88px] shrink-0">
-          <PctInput value={campaign.percentage} onChange={(v) => onUpdate({ percentage: v })} />
-        </div>
-
-        {/* Valor mensal — editável (back-calcula percentage) */}
-        <div className="w-[140px] shrink-0">
-          <ValueInput
-            value={monthly}
-            parentBudget={stageMonthly}
-            onChange={(newPct) => onUpdate({ percentage: newPct })}
+    <div className="group">
+      <div className={`${FUNNEL_GRID} px-2 py-1 sm:py-0.5`}>
+        <div className={`${FUNNEL_NAME} flex items-center gap-1 min-w-0 pl-4 border-l border-rl-border/80 ml-1`}>
+          <input
+            type="text"
+            placeholder="Nome da campanha"
+            value={campaign.name}
+            onChange={(e) => onUpdate({ name: e.target.value })}
+            className="flex-1 min-w-0 bg-transparent border border-transparent hover:border-rl-border focus:border-rl-purple rounded-md px-2 py-1.5 text-sm text-rl-text placeholder-rl-muted outline-none transition-colors"
           />
+          {hasOwnPeriod && (
+            <button
+              onClick={() => setDatesOpen((v) => !v)}
+              className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-rl-purple/10 text-rl-purple border border-rl-purple/30 whitespace-nowrap"
+              title="Período próprio desta campanha"
+            >
+              {periodLabel}
+            </button>
+          )}
         </div>
-
-        {/* Daily (read-only) */}
-        <div className="hidden sm:flex items-center gap-4">
-          <ValueCell label={hasOwnPeriod ? `Diário (${ownDays}d)` : 'Diário'} value={daily} />
-        </div>
-
-        {/* Delete */}
-        <button
-          onClick={onDelete}
-          className="p-1.5 text-rl-muted hover:text-red-400 transition-colors shrink-0"
-          title="Remover campanha"
+        <PctInput size="sm" value={campaign.percentage} onChange={(v) => onUpdate({ percentage: v })} />
+        <ValueInput
+          size="sm"
+          value={monthly}
+          parentBudget={stageMonthly}
+          onChange={(newPct) => onUpdate({ percentage: newPct })}
+        />
+        <span
+          className="hidden sm:block text-right text-sm text-rl-muted tabular-nums"
+          title={hasOwnPeriod ? `Por dia em ${ownDays} ${ownDays === 1 ? 'dia' : 'dias'} do período próprio` : undefined}
         >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+          {fmtBRL(daily)}
+        </span>
+        <div className="flex items-center justify-end gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
+          {!hasOwnPeriod && (
+            <button
+              onClick={() => setDatesOpen((v) => !v)}
+              className="p-1 rounded text-rl-muted hover:text-rl-purple transition-colors"
+              title="Definir período específico para esta campanha"
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button
+            onClick={onDelete}
+            className="p-1 rounded text-rl-muted hover:text-red-400 transition-colors"
+            title="Remover campanha"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
-      {/* Sub-row: datas próprias */}
+      {/* Período próprio da campanha */}
       {datesOpen && (
-        <div className="mt-2 ml-1 flex flex-wrap items-end gap-2 px-3 py-2.5 rounded-lg bg-rl-purple/5 border border-rl-purple/20">
+        <div className="ml-8 mr-2 mb-1.5 flex flex-wrap items-end gap-2 px-3 py-2 rounded-lg bg-rl-purple/5 border border-rl-purple/20">
           <div className="flex flex-col">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">Início</label>
             <input
@@ -91,7 +85,7 @@ export default function CampaignRow({ campaign, stageMonthly, daysLeft, onUpdate
                 if (v && campaign.endDate && v > campaign.endDate) patch.endDate = null
                 onUpdate(patch)
               }}
-              className="input-field text-xs h-8"
+              className="input-field text-xs py-1.5"
             />
           </div>
           <div className="flex flex-col">
@@ -101,7 +95,7 @@ export default function CampaignRow({ campaign, stageMonthly, daysLeft, onUpdate
               value={campaign.endDate || ''}
               min={campaign.startDate || undefined}
               onChange={(e) => onUpdate({ endDate: e.target.value || null })}
-              className="input-field text-xs h-8"
+              className="input-field text-xs py-1.5"
             />
           </div>
           {hasOwnPeriod && (

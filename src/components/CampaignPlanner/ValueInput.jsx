@@ -9,7 +9,7 @@ const fmtBR = (n) =>
  * dispara `onChange(novoPct)`. Ao perder o foco, formata o número no padrão
  * pt-BR (`3.836,70`); ao focar, mostra o valor sem máscara para edição.
  */
-export default function ValueInput({ value, parentBudget, onChange, className = '', disabled = false }) {
+export default function ValueInput({ value, parentBudget, onChange, className = '', disabled = false, size }) {
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState(false)
 
@@ -54,7 +54,7 @@ export default function ValueInput({ value, parentBudget, onChange, className = 
         onBlur={() => setEditing(false)}
         onChange={handleChange}
         disabled={disabled || parentBudget <= 0}
-        className="input-field pl-9 pr-2.5 text-right w-full text-sm tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
+        className={`input-field pl-9 pr-2.5 text-right w-full text-sm tabular-nums disabled:opacity-50 disabled:cursor-not-allowed ${size === 'sm' ? 'py-1.5' : ''}`}
         placeholder="0,00"
       />
     </div>
