@@ -15,11 +15,16 @@
 //  * `reconciliar`: compara as tarefas abertas aqui com as abertas no ClickUp;
 //    o que sumiu de lá é rebuscado uma a uma: fechada/movida → atualiza,
 //    apagada (404) → arquivada aqui com clickup_removida_at;
-//  * comentários das tarefas abertas que mudaram (até `maxComentarios`).
+//  * comentários das tarefas abertas que mudaram (até `maxComentarios`);
+//  * relações (dependência / link) de toda tarefa lida, com o ClickUp como verdade
+//    (api/_tarefas_relacoes.js). Mudar dependência no ClickUp não muda o date_updated, então
+//    a rodada incremental só vê a relação de tarefa que mudou por outro motivo; o caminho
+//    normal é o webhook, e o `completo` passa por todas.
 //
 // Conflito: tarefa editada na Área depois da última sincronização
 // (updated_at > clickup_sync_at) só é sobrescrita se o ClickUp for mais novo.
 import { STATUSES_PADRAO, mapStatuses, mapTarefa, mapComentario, mapLista, mapPasta, fazPerfilDe, projetoDaPasta } from './_tarefas_clickup_map.js'
+import { reconciliarRelacoes } from './_tarefas_relacoes.js'
 
 const CLICKUP_BASE = 'https://api.clickup.com/api/v2'
 export const SPACES_PADRAO = ['90090377342', '90090377343', '90130165565'] // Clientes, Operações, PROMPTS
@@ -87,7 +92,7 @@ export async function sincronizar({
     desde: completo ? null : desde?.toISOString?.() ?? null, completo, reconciliar, spaces,
     pastas_novas: 0, pastas_atualizadas: 0, listas_novas: 0, listas_atualizadas: 0,
     tarefas_recebidas: 0, pais_buscados: 0, criadas: 0, atualizadas: 0, puladas_conflito: 0, sem_pai: 0,
-    reconciliadas: 0, removidas: 0, comentarios: 0, anexos: 0, avisos: [],
+    reconciliadas: 0, removidas: 0, comentarios: 0, anexos: 0, relacoes_criadas: 0, relacoes_removidas: 0, avisos: [],
     // true = a lista de tarefas alteradas não foi lida inteira (tempo ou limite de páginas): quem
     // chama NÃO avança o ponto de partida, e a próxima rodada cobre o mesmo intervalo de novo
     incompleto: false,
@@ -317,6 +322,12 @@ export async function sincronizar({
     }
   }
   log(`${resumo.criadas} criadas, ${resumo.atualizadas} atualizadas, ${resumo.puladas_conflito} puladas por conflito, ${resumo.sem_pai} sem pai`)
+
+  // ── Relações das tarefas lidas (inclusive as que não mudaram: a dependência não muda o date_updated)
+  try {
+    const rel = await reconciliarRelacoes(sb, [...recebidas.values()], { log })
+    resumo.relacoes_criadas = rel.criadas; resumo.relacoes_removidas = rel.removidas
+  } catch (e) { aviso(`relações: ${e.message}`) }
 
   // ── Reconciliação: o que está aberto aqui mas sumiu do ClickUp ───────────
   if (reconciliar && !estourou()) {

@@ -16,8 +16,11 @@
 //    webhook taskCreated já tiver inserido uma cópia, ela é absorvida pela original.
 // A criação manda os campos personalizados no próprio POST (1 chamada por tarefa) e
 // `resumo.restantes` diz quanto ficou na fila, para o chamador continuar.
+// Relações (migration 126): 'relacionar'/'desrelacionar' viram dependência ou link no ClickUp
+// (ver api/_tarefas_relacoes.js); esperam a criação das duas tarefas.
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { mapStatuses, mapChecklists } from './_tarefas_clickup_map.js'
+import { chamadaRelacao, chavePar, ehLink } from './_tarefas_relacoes.js'
 
 const CLICKUP_BASE = 'https://api.clickup.com/api/v2'
 const SPACE_CLIENTES = '90090377342'
@@ -98,8 +101,10 @@ function dataClickUp(iso, comHora) {
 // chamadas, 69 min para esvaziar). Os 'atualizar' da mesma tarefa viram UMA unidade com a união
 // dos campos (um PUT, uma leitura de responsáveis), na posição do último deles; 'criar', 'excluir'
 // e 'comentar' seguem um por unidade. 'atualizar' de tarefa que tem 'excluir' na mesma rodada é
-// cancelado (a tarefa vai sumir do ClickUp). O push lê o estado ATUAL da linha, então a união dos
-// campos manda o valor final de cada um. Pura, para testar com Node.
+// cancelado (a tarefa vai sumir do ClickUp), e o mesmo vale para 'relacionar'/'desrelacionar' que
+// toca uma tarefa excluída (a exclusão leva a dependência junto). O push lê o estado ATUAL da
+// linha, então a união dos campos manda o valor final de cada um. Pura, para testar com Node.
+export const ehRelacao = (it) => it?.operacao === 'relacionar' || it?.operacao === 'desrelacionar'
 export function agruparFila(fila) {
   const ordem = [...(fila || [])].sort((a, b) => a.id - b.id)
   const excluidas = new Set(ordem.filter((i) => i.operacao === 'excluir' && i.tarefa_id).map((i) => i.tarefa_id))
@@ -107,6 +112,7 @@ export function agruparFila(fila) {
   const grupos = new Map() // tarefa_id → itens 'atualizar'
   const soltas = []
   for (const it of ordem) {
+    if (ehRelacao(it) && (excluidas.has(it.payload?.tarefa_id) || excluidas.has(it.payload?.relacionada_id))) { canceladas.push(it); continue }
     if (it.operacao === 'atualizar' && it.tarefa_id) {
       if (excluidas.has(it.tarefa_id)) { canceladas.push(it); continue }
       if (!grupos.has(it.tarefa_id)) grupos.set(it.tarefa_id, [])
@@ -128,7 +134,7 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
   const inicio = Date.now()
   const cu = fazClickup(token, inicio + orcamentoMs)
   const estourou = () => Date.now() - inicio > orcamentoMs
-  const resumo = { processadas: 0, criadas: 0, atualizadas: 0, excluidas: 0, comentadas: 0, erros: 0, devolvidas: 0, agrupadas: 0, canceladas: 0, copias_absorvidas: 0, pastas_criadas: 0, listas_criadas: 0, avisos: [] }
+  const resumo = { processadas: 0, criadas: 0, atualizadas: 0, excluidas: 0, comentadas: 0, relacoes: 0, erros: 0, devolvidas: 0, agrupadas: 0, canceladas: 0, copias_absorvidas: 0, pastas_criadas: 0, listas_criadas: 0, avisos: [] }
   // avisos do item em processamento vão também para tarefas_outbox.avisos (painel Sincronização);
   // com envios em paralelo, cada unidade tem os seus (AsyncLocalStorage segue a cadeia de awaits)
   const doItem = new AsyncLocalStorage()
@@ -336,6 +342,50 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
     }
   }
 
+  // Relação: as duas tarefas precisam existir no ClickUp. Sem o id de uma delas, com a criação
+  // na fila, o item volta sem gastar tentativa; sem criação a caminho (lista que não existe no
+  // ClickUp, criação que desistiu), não há o que mandar e o item é cancelado com o motivo.
+  async function relacao(item, u) {
+    const p = item.payload || {}
+    if (!p.tarefa_id || !p.relacionada_id || !p.tipo) throw Object.assign(new Error('relação sem payload'), { status: 400 })
+    const desfazer = item.operacao === 'desrelacionar'
+    const { data: rows } = await sb.from('tarefas_itens').select('id, titulo, clickup_task_id').in('id', [p.tarefa_id, p.relacionada_id])
+    const de = (rows || []).find((r) => r.id === p.tarefa_id)
+    const para = (rows || []).find((r) => r.id === p.relacionada_id)
+    if (!de || !para) {
+      // tarefa excluída: a exclusão no ClickUp leva a relação junto
+      await marcar(u.ids, { status: desfazer ? 'ok' : 'cancelado', erro: desfazer ? null : 'tarefa não existe mais' }); return 'marcada'
+    }
+    if (!desfazer) {
+      // a relação foi apagada enquanto este item esperava: o 'desrelacionar' vem atrás dele
+      const { data: ainda } = await sb.from('tarefas_relacoes').select('id').eq('id', p.relacao_id).maybeSingle()
+      if (!ainda) { aviso(`relação ${p.tipo} entre "${de.titulo}" e "${para.titulo}" foi apagada antes do envio; nada mandado`); await marcar(u.ids, { status: 'ok', erro: null }); return 'marcada' }
+    }
+    const semId = [de, para].filter((r) => !r.clickup_task_id)
+    if (semId.length) {
+      const { data: criando } = await sb.from('tarefas_outbox').select('id').in('tarefa_id', semId.map((r) => r.id))
+        .eq('operacao', 'criar').in('status', ['pendente', 'processando']).limit(1)
+      if (criando?.length) { await devolver(u.ids); resumo.devolvidas++; return 'devolvida' }
+      await marcar(u.ids, { status: 'cancelado', erro: `tarefa "${semId[0].titulo}" não existe no ClickUp; a relação fica só no VertaTask` }); return 'marcada'
+    }
+    if (desfazer && ehLink(p.tipo)) {
+      // 'relacionada' e 'duplica' viram o mesmo link lá: só desfaz se não sobrou outra do par
+      const { data: outras } = await sb.from('tarefas_relacoes').select('id')
+        .in('tarefa_id', [de.id, para.id]).in('relacionada_id', [de.id, para.id]).in('tipo', ['relacionada', 'duplica'])
+      if (outras?.length) { aviso(`o par "${de.titulo}" / "${para.titulo}" ainda tem outra relação que vira link no ClickUp; o link fica`); resumo.relacoes++; return }
+    }
+    if (!desfazer && p.tipo === 'duplica') aviso('"Duplicada de" não existe no ClickUp: foi como tarefa relacionada (link)')
+    const c = chamadaRelacao(p.tipo, de.clickup_task_id, para.clickup_task_id, desfazer)
+    try { await cu(c.method, c.path, c.body) }
+    catch (e) {
+      if (e.semTempo) throw e
+      // já existe (criar) ou já não existe (desfazer) = o ClickUp já está como queremos
+      const jaEsta = desfazer ? (e.status === 404 || e.status === 401) : (e.ecode === 'DEPENDS_010' || /already exists/i.test(e.message))
+      if (!jaEsta) { if (e.status === 401) e.status = 404; throw e } // 401 = tarefa sem acesso/apagada lá: não adianta tentar de novo
+    }
+    resumo.relacoes++
+  }
+
   const { unidades, canceladas } = agruparFila(fila)
   if (canceladas.length) {
     await sb.from('tarefas_outbox').update({ status: 'cancelado', erro: 'tarefa excluída na mesma rodada', processed_at: agora() }).in('id', canceladas.map((i) => i.id))
@@ -352,6 +402,7 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
     resumo.agrupadas += u.ids.length - 1 // itens que foram juntos com outro (só do que foi processado)
     if ((item.tentativas || 0) > 0 && item.erro) aviso(`tentativa anterior falhou: ${item.erro}`)
     const corpo = async () => {
+        if (ehRelacao(item)) return relacao(item, u)
         if (item.operacao === 'excluir') {
           await cu('DELETE', `/task/${item.clickup_task_id}`).catch((e) => { if (e.status !== 404) throw e })
           resumo.excluidas++
@@ -487,6 +538,8 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
   // dois casos que esperam tudo o que está em voo e rodam sozinhos: subtarefa cujo pai é criado
   // nesta mesma rodada (precisa do id dele; o template grava pais antes dos filhos, então o pai já
   // começou) e tarefa em lista que ainda não existe no ClickUp (a lista/pasta é criada uma vez só).
+  // Relação de tarefa criada nesta rodada também espera (precisa do id das duas); duas relações do
+  // mesmo par nunca vão juntas.
   const criaTarefa = (it) => it.operacao === 'criar' || (it.operacao === 'atualizar' && !it.clickup_task_id)
   const idsCriar = unidades.filter((u) => criaTarefa(u.item) && u.item.tarefa_id).map((u) => u.item.tarefa_id)
   const linhaCriar = new Map()
@@ -496,22 +549,24 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
   }
   const criandoAgora = new Set(idsCriar)
   const precisaSozinha = (it) => {
+    if (ehRelacao(it)) return criandoAgora.has(it.payload?.tarefa_id) || criandoAgora.has(it.payload?.relacionada_id)
     if (!criaTarefa(it)) return false
     const r = linhaCriar.get(it.tarefa_id)
     if (!r) return true // sem a linha, na dúvida, na ordem
     return (r.parent_id && criandoAgora.has(r.parent_id)) || !lista.get(r.lista_id)?.clickup_list_id
   }
-  const emVoo = new Map() // promessa → tarefa_id
+  const emVoo = new Map() // promessa → chave (tarefa_id, ou o par da relação)
   const esperarVaga = () => Promise.race(emVoo.keys())
   for (let idx = 0; idx < unidades.length && !parar; idx++) {
     if (estourou()) { aviso('tempo esgotado; o resto fica para a próxima chamada'); break }
     const item = unidades[idx].item
+    const chave = ehRelacao(item) ? `par:${chavePar(item.payload?.tarefa_id, item.payload?.relacionada_id)}` : item.tarefa_id || null
     const sozinha = precisaSozinha(item)
     if (sozinha) await Promise.all(emVoo.keys())
-    while (emVoo.size >= PARALELO || (item.tarefa_id && [...emVoo.values()].includes(item.tarefa_id))) await esperarVaga()
+    while (emVoo.size >= PARALELO || (chave && [...emVoo.values()].includes(chave))) await esperarVaga()
     if (parar) break
     const p = doItem.run({ avisos: [] }, () => processar(idx)).finally(() => emVoo.delete(p))
-    emVoo.set(p, item.tarefa_id || null)
+    emVoo.set(p, chave)
     if (sozinha) await p
   }
   await Promise.all(emVoo.keys())
@@ -523,6 +578,6 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
   // chamou continua enquanto houver, em vez de esperar a próxima escrita ou o cron
   const { count } = await sb.from('tarefas_outbox').select('id', { count: 'exact', head: true }).eq('status', 'pendente')
   resumo.restantes = count ?? 0
-  log(`push: ${resumo.agrupadas} itens juntados, ${resumo.criadas} criadas, ${resumo.atualizadas} atualizadas, ${resumo.excluidas} excluídas, ${resumo.comentadas} comentários, ${resumo.erros} erros, ${resumo.devolvidas} devolvidas, ${resumo.copias_absorvidas} cópias absorvidas`)
+  log(`push: ${resumo.agrupadas} itens juntados, ${resumo.criadas} criadas, ${resumo.atualizadas} atualizadas, ${resumo.excluidas} excluídas, ${resumo.comentadas} comentários, ${resumo.relacoes} relações, ${resumo.erros} erros, ${resumo.devolvidas} devolvidas, ${resumo.copias_absorvidas} cópias absorvidas`)
   return resumo
 }

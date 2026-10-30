@@ -12,7 +12,21 @@ export const CAMPOS = {
 }
 export const rotuloCampo = (k) => CAMPOS[k] || k
 
-export const OPERACOES = { criar: 'Criar', atualizar: 'Atualizar', excluir: 'Excluir', comentar: 'Comentar' }
+export const OPERACOES = { criar: 'Criar', atualizar: 'Atualizar', excluir: 'Excluir', comentar: 'Comentar', relacionar: 'Relacionar', desrelacionar: 'Desfazer relação' }
+
+// Relações (migration 126): como cada tipo vai para o ClickUp, do lado de payload.tarefa_id
+export const RELACOES = {
+  bloqueia: { rotulo: 'Bloqueia', clickup: 'dependência' },
+  relacionada: { rotulo: 'Relacionada a', clickup: 'link' },
+  duplica: { rotulo: 'Duplicada de', clickup: 'link' }, // o ClickUp não tem "duplicada de"
+}
+/** { rotulo, outraId, clickup } de um item 'relacionar'/'desrelacionar' (null nos outros). */
+export function descreverRelacao(it) {
+  const p = it?.payload
+  if (!p?.tipo || (it.operacao !== 'relacionar' && it.operacao !== 'desrelacionar')) return null
+  const r = RELACOES[p.tipo] || { rotulo: p.tipo, clickup: '' }
+  return { rotulo: r.rotulo, outraId: p.relacionada_id, clickup: r.clickup }
+}
 
 // Escritas próximas da mesma pessoa = um lote (template aplicado, edição em massa). O
 // trigger enfileira um item por tarefa e por escrita, então 14 tarefas de um template
@@ -106,6 +120,8 @@ export function fmtDuracao(ms) {
 // Erros que o ClickUp / o push devolvem, em português e com o que fazer.
 const ERROS = [
   [/tarefa excluída na mesma rodada/i, 'Não foi enviada: a tarefa foi excluída logo depois, então só a exclusão foi para o ClickUp.'],
+  [/não existe no ClickUp; a relação fica só no VertaTask/i, 'Uma das tarefas não existe no ClickUp (ex.: lista que não sincroniza), então a relação ficou só aqui.'],
+  [/DEPENDS_\d+|dependenc/i, 'O ClickUp recusou a dependência entre as duas tarefas. Confira se elas ainda existem lá.'],
   [/start date cannot be after due date/i, 'O ClickUp recusou: a data de início ficou depois do vencimento. Corrija as datas da tarefa e tente de novo.'],
   [/due date cannot be before start date/i, 'O ClickUp recusou: o vencimento ficou antes da data de início. Corrija as datas da tarefa e tente de novo.'],
   [/OAUTH_0\d\d|not authorized|team not authorized|unauthorized/i, 'O token do ClickUp não tem permissão para esta tarefa ou lista. Peça a um admin para conferir o acesso.'],
@@ -132,6 +148,9 @@ const AVISOS = [
   [/não deixou atribuir o responsável/i, 'O ClickUp não aceitou o responsável por este token; a tarefa foi criada sem responsável lá.'],
   [/opção "(.+)" não existe no campo (.+) desta lista/i, (m) => `A opção "${m[1]}" não existe no campo ${m[2]} dessa lista do ClickUp; o campo ficou sem valor lá.`],
   [/criado no ClickUp depois da última sincronização; mantido/i, 'Um checklist (ou item) criado no ClickUp ainda não tinha chegado aqui; foi mantido lá.'],
+  [/"Duplicada de" não existe no ClickUp/i, '"Duplicada de" não existe no ClickUp: lá as duas tarefas ficaram ligadas como relacionadas.'],
+  [/ainda tem outra relação que vira link/i, 'As duas tarefas ainda têm outra relação aqui que vira o mesmo link no ClickUp; o link continua lá.'],
+  [/foi apagada antes do envio; nada mandado/i, 'A relação foi desfeita antes de chegar ao ClickUp; nada foi mandado.'],
 ]
 export function traduzirAviso(msg) {
   for (const [re, txt] of AVISOS) { const m = String(msg).match(re); if (m) return typeof txt === 'function' ? txt(m) : txt }
@@ -155,6 +174,8 @@ export function descreverLog(l) {
     : l.acao === 'pulada_conflito' ? { rotulo: 'Mudança do ClickUp não aplicada (conflito)', tom: 'yellow' }
       : l.acao === 'sem_pai' ? { rotulo: 'Gravada sem a tarefa pai', tom: 'yellow' }
         : { rotulo: 'Rodada de sincronização', tom: 'muted' }
+  if (l.acao === 'relacao_criada') return { rotulo: `Relação criada no ClickUp (${RELACOES[l.detalhe?.tipo]?.rotulo || l.detalhe?.tipo || '?'})`, tom: 'accent' }
+  if (l.acao === 'relacao_removida') return { rotulo: `Relação desfeita no ClickUp (${RELACOES[l.detalhe?.tipo]?.rotulo || l.detalhe?.tipo || '?'})`, tom: 'accent' }
   if (l.origem === 'clickup') return l.acao === 'criada'
     ? { rotulo: 'Chegou do ClickUp (tarefa nova)', tom: 'accent' }
     : l.acao === 'removida' ? { rotulo: 'Apagada no ClickUp (arquivada aqui)', tom: 'yellow' }

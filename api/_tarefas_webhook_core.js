@@ -15,10 +15,14 @@
 //    (bug de 23/10/2026) e estados intermediários do ClickUp sobrescreviam a edição;
 //  * linha que já existe mantém created_at/criado_por (pode ter nascido na Área);
 //  * taskDeleted (ou 404 na leitura) = arquivada aqui com clickup_removida_at;
-//  * eventos de comentário relêem os comentários da tarefa (idempotente pelo id).
+//  * eventos de comentário relêem os comentários da tarefa (idempotente pelo id);
+//  * relações: dependência ou link criado/apagado no ClickUp chega como taskUpdated nas duas
+//    tarefas, sem mudar o date_updated delas; toda tarefa lida tem as relações reconciliadas
+//    (api/_tarefas_relacoes.js), mesmo quando a tarefa em si não mudou.
 // Sem HTTP nem env; `clickup` pode ser injetado (testes).
 import { STATUSES_PADRAO, mapStatuses, mapTarefa, mapComentario, mapLista, mapPasta, fazPerfilDe, projetoDaPasta } from './_tarefas_clickup_map.js'
 import { fazClickup, SPACES_PADRAO } from './_tarefas_sync_core.js'
+import { reconciliarRelacoes } from './_tarefas_relacoes.js'
 
 const EVENTOS_COMENTARIO = new Set(['taskCommentPosted', 'taskCommentUpdated'])
 // Só 404 conta como apagada: 401 também vem de token vencido, e tratar isso como
@@ -36,6 +40,12 @@ async function pushEmCurso(sb, cuId, agora) {
   const limiar = new Date(agora).getTime() - PENDENTE_RECENTE_MS
   return (fila || []).find((o) => o.status === 'processando' || new Date(o.created_at).getTime() > limiar) || null
 }
+
+// Campo do histórico que fala de dependência/link: a data dele não se compara com o date_updated
+// (que essas mudanças não alteram), então o evento é sempre lido. Os nomes não são documentados
+// pelo ClickUp; sem esse campo, a data do evento já é mais nova que o date_updated e cai na leitura.
+const RELACAO_NO_HISTORICO = /depend|link/i
+export const historicoDeRelacao = (historico) => (historico || []).some((h) => RELACAO_NO_HISTORICO.test(String(h?.field || '')))
 
 /** Data (ms) da mudança mais nova que o evento descreve (history_items[].date), ou null. */
 export function dataDoEvento(historico) {
@@ -56,7 +66,7 @@ export async function processarEventoTarefa({ sb, token, evento, taskId, histori
     // O push grava na linha o date_updated que o ClickUp devolveu; se a mudança do evento não é
     // mais nova que isso, o espelho já tem essa versão (é o eco, que chegou depois de o push
     // terminar). Sem data no evento, ou com data mais nova, lê a tarefa como sempre.
-    const quando = dataDoEvento(historico)
+    const quando = historicoDeRelacao(historico) ? null : dataDoEvento(historico)
     if (quando) {
       const { data: ex } = await sb.from('tarefas_itens').select('id, clickup_updated_at').eq('clickup_task_id', String(taskId)).maybeSingle()
       if (ex?.clickup_updated_at && quando <= new Date(ex.clickup_updated_at).getTime()) return { acao: 'sem_mudanca', id: ex.id, semLeitura: true }
@@ -76,6 +86,10 @@ export async function processarEventoTarefa({ sb, token, evento, taskId, histori
   const ctx = { sb, clickup, agora, perfilDe: fazPerfilDe(perfis || []), spaces }
   const r = await gravarTarefa(t, ctx, 0)
   if (EVENTOS_COMENTARIO.has(evento) && r.id) r.comentarios = await gravarComentarios(t.id, r.id, ctx)
+  try {
+    const rel = await reconciliarRelacoes(sb, [t])
+    if (rel.criadas || rel.removidas) r.relacoes = { criadas: rel.criadas, removidas: rel.removidas }
+  } catch (e) { r.erro_relacoes = e.message }
   return r
 }
 

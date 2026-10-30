@@ -778,8 +778,9 @@ todo `authenticated`; as quatro estão na publicação realtime).
     `updated_at > clickup_sync_at` = editada na Área; nesse caso, se o ClickUp estiver mais
     antigo que a edição, a tarefa é pulada (`puladas_conflito`), senão o mais recente vence.
   - **Não vem do ClickUp:** anexos, tempo rastreado (`time_spent` exige o endpoint de time
-    entries), dependências/links entre tarefas e tarefas arquivadas lá. Comentários só das
-    abertas que mudaram (máx. 40 no endpoint, 400 no script).
+    entries) e tarefas arquivadas lá. Comentários só das abertas que mudaram (máx. 40 no
+    endpoint, 400 no script). Dependências e links vêm desde 30/10/2026 (ver "Relações ⇄ ClickUp"
+    abaixo).
   - Auth do endpoint: `CRON_SECRET` ou JWT. Para testar local: `node scripts/sincronizar_clickup.mjs --since=<ISO>`.
   - **Trava (migration 109, 2026-10-23):** uma rodada de `/api/tarefas-sync` por vez.
     `tarefas_sync_travar('clickup', 90)` marca `tarefas_sync.rodando_desde`; quem chega com
@@ -919,6 +920,7 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   - **Etiquetas** (`tarefas_etiquetas` + `tarefas_itens.etiquetas uuid[]`; o `tags` do ClickUp segue à parte), filtro na barra,
     chips no quadro.
   - **Relações** (`tarefas_relacoes`: bloqueia, duplica, relacionada; o inverso é calculado na tela).
+    Sincronizadas com o ClickUp desde a migration 126 (dependência / link; ver "Relações ⇄ ClickUp").
   - **Histórico** (`tarefas_atividade`, preenchida por trigger `tarefas_log_atividade`; só registra edição
     de pessoa logada, a sincronização do ClickUp usa chave de serviço e fica de fora) e **seguidores**
     (`tarefas_seguidores`, quem comenta ou recebe a tarefa passa a seguir). Trigger de comentário e de
@@ -1045,6 +1047,30 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   `api/tarefas-sync.js` (empurra antes de puxar). Testado em 18/10 com criar → editar →
   comentar → excluir numa tarefa de teste na lista Geral da Revenue Lab. Fila:
   `select * from tarefas_outbox where status in ('pendente','erro')`.
+  - **Relações ⇄ ClickUp (2026-10-30, migration 126).** `tarefas_relacoes` ganhou o trigger
+    `tarefas_outbox_relacao` (insert/delete, só com `auth.uid()`): entra na fila como `relacionar` /
+    `desrelacionar`, com `payload` `{ relacao_id, tarefa_id, relacionada_id, tipo }`. Quem bloqueia é
+    `tarefa_id` (o template grava "D bloqueia X" quando X tem D em `depende_de`). Mapa, em
+    `api/_tarefas_relacoes.js`: **bloqueia A → B = dependência** (`POST /task/B/dependency { depends_on: A }`;
+    desfazer `DELETE /task/B/dependency?depends_on=A`); **relacionada = link** (`POST/DELETE /task/A/link/B`);
+    **duplica = link também** (o ClickUp não tem "duplicada de"; o push avisa, e desfazer um `duplica` não
+    apaga o link se o par ainda tem outra relação que vira link). No push: tarefa sem `clickup_task_id` com
+    `criar` na fila = item devolvido sem gastar tentativa; sem `criar` a caminho (lista sem ClickUp, criação
+    que desistiu) = `cancelado` com o motivo. "Dependency already exists" (`DEPENDS_010`) e 404/401 ao desfazer
+    contam como feito. Relação de tarefa criada na mesma rodada espera o `criar` (`precisaSozinha`), duas do
+    mesmo par nunca vão juntas, e relação de tarefa com `excluir` na rodada é cancelada (`agruparFila`).
+    Apagar a relação ainda `pendente` só cancela o `relacionar`; apagar junto com a tarefa (cascade) não
+    enfileira nada. **Volta:** `reconciliarRelacoes` roda para toda tarefa lida pela rodada e pelo webhook:
+    o ClickUp é a verdade dos pares em que as duas tarefas existem aqui (link vira `relacionada`), grava com
+    a chave de serviço (não reenfileira) e registra `relacao_criada`/`relacao_removida` em `tarefas_sync_log`.
+    Par com `relacionar`/`desrelacionar` pendente, em envio ou com erro não é mexido. No ClickUp a dependência e
+    o link aparecem nas duas tarefas e disparam `taskUpdated` nas duas, mas **não mudam o `date_updated`**:
+    o webhook relê a tarefa (a data do evento é mais nova; campo do histórico com `depend|link` nunca cai no
+    atalho de eco) e a rodada incremental só vê a relação de tarefa que mudou por outro motivo (o `--completo`
+    passa por todas). Carga inicial das relações antigas: `node scripts/enviar_relacoes_clickup.mjs [--dry]`.
+    ⚠ Os spaces Clientes, Operações e PROMPTS têm o ClickApp **Reschedule dependencies** ligado
+    (`remap_dependency_settings.enabled`): mudar a data de uma tarefa no ClickUp remarca as dependentes lá, e
+    a remarcação volta pelo webhook. O deslocamento em cascata é para ser feito pela Área do Cliente.
   - **Duplicação corrigida em 2026-10-26 (migration 110).** Em 23/10, aplicar um template e
     editar em massa logo depois criou 26 tarefas no ClickUp para 14 do template. Duas causas:
     (1) o push não marcava o que estava processando, e as invocações paralelas da Vercel (uma

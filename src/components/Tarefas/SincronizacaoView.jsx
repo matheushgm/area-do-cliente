@@ -12,7 +12,7 @@ import { useSincronizacao } from '../../hooks/useSincronizacao'
 import { fmtDataHora, fmtDataCurta, fmtEstimativa, rotuloStatus, prioridade as prioDe } from '../../lib/tarefas'
 import {
   agruparLotes, situacaoItem, saudeGeral, traduzirErro, traduzirAviso, traduzirMotivo, descreverLog, ehProblemaLog,
-  rotuloCampo, tempoRelativo, fmtDuracao, OPERACOES, FILA_ATRASADA_MS,
+  rotuloCampo, tempoRelativo, fmtDuracao, OPERACOES, FILA_ATRASADA_MS, descreverRelacao, RELACOES,
 } from '../../lib/sincronizacao'
 import { FOCO } from './Campos'
 
@@ -111,6 +111,7 @@ function ItemFila({ it, ctx, mostrarTarefa = true }) {
     if (r.error) ctx.onToast(r.error, 'error'); else ctx.onToast(ok)
   }
   const espera = it.processed_at && it.status === 'ok' ? new Date(it.processed_at) - new Date(it.created_at) : null
+  const rel = descreverRelacao(it)
   return (
     <div className="py-2.5 px-3 flex flex-col gap-1 border-t border-ln-ink/[0.06] first:border-t-0">
       <div className="flex items-center gap-2 min-w-0 text-[13px]">
@@ -121,6 +122,12 @@ function ItemFila({ it, ctx, mostrarTarefa = true }) {
         {espera != null && <span className="hidden sm:inline text-[11px] text-ln-t4 tabular whitespace-nowrap" title="Tempo entre a edição e a chegada ao ClickUp">{fmtDuracao(espera)} depois</span>}
       </div>
       {mostrarTarefa && it.campos?.length > 0 && <p className="pl-12 text-[12px] text-ln-t3">{it.campos.map(rotuloCampo).join(', ')}</p>}
+      {rel && (
+        <p className="pl-12 text-[12px] text-ln-t3 flex items-center gap-1.5 min-w-0">
+          <span className="shrink-0">{rel.rotulo}</span><NomeTarefa id={rel.outraId} ctx={ctx} className="min-w-0" />
+          <span className="hidden sm:inline shrink-0 text-ln-t4">· vira {rel.clickup} no ClickUp</span>
+        </p>
+      )}
       {it.erro && (
         <div className="pl-12 text-[12px] flex flex-col gap-0.5">
           <span className={it.status === 'erro' ? 'text-ln-red' : 'text-ln-t3'}>{traduzirErro(it.erro)}</span>
@@ -199,7 +206,12 @@ function LinhaLog({ l, ctx, mostrarTarefa = true }) {
       </div>
       <div className="pl-[136px] max-sm:pl-12">
         {l.motivo && <p className="text-[12px] text-ln-t3">{traduzirMotivo(l.motivo)}</p>}
-        {l.origem === 'clickup' && <Mudancas campos={l.campos} detalhe={l.detalhe} ctx={ctx} />}
+        {l.origem === 'clickup' && !l.acao?.startsWith('relacao_') && <Mudancas campos={l.campos} detalhe={l.detalhe} ctx={ctx} />}
+        {l.acao?.startsWith('relacao_') && l.detalhe?.relacionada_id && (
+          <p className="text-[12px] text-ln-t3 flex items-center gap-1.5 min-w-0">
+            <span className="shrink-0">{RELACOES[l.detalhe.tipo]?.rotulo || l.detalhe.tipo}</span><NomeTarefa id={l.detalhe.relacionada_id} ctx={ctx} className="min-w-0" />
+          </p>
+        )}
       </div>
     </div>
   )
@@ -212,9 +224,10 @@ function Rodada({ l }) {
   const numeros = [
     ['tarefas lidas', r.tarefas_recebidas], ['criadas', r.criadas], ['atualizadas', r.atualizadas],
     ['puladas por conflito', r.puladas_conflito], ['sem pai', r.sem_pai], ['removidas', r.removidas], ['comentários', r.comentarios],
+    ['relações criadas', r.relacoes_criadas], ['relações desfeitas', r.relacoes_removidas],
   ].filter(([, n]) => n)
   const push = r.push && !r.push.erro ? [
-    ['enviadas ao ClickUp', (r.push.criadas || 0) + (r.push.atualizadas || 0) + (r.push.excluidas || 0)],
+    ['enviadas ao ClickUp', (r.push.criadas || 0) + (r.push.atualizadas || 0) + (r.push.excluidas || 0)], ['relações enviadas', r.push.relacoes],
     ['alterações juntadas no envio', r.push.agrupadas], ['canceladas (tarefa excluída)', r.push.canceladas], ['erros no envio', r.push.erros],
   ].filter(([, n]) => n) : []
   const avisos = [...(r.avisos || []), ...(r.push?.avisos || [])]

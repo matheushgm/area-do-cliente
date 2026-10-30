@@ -36,8 +36,9 @@ export function useSincronizacao({ dias = 7, tarefaId = null, ecos = false } = {
       let qFila = supabase.from('tarefas_outbox').select('*').order('id', { ascending: false })
       let qLog = supabase.from('tarefas_sync_log').select('*').order('id', { ascending: false })
       if (tarefaId) {
-        qFila = qFila.eq('tarefa_id', tarefaId).limit(500)
-        qLog = qLog.eq('tarefa_id', tarefaId).limit(500)
+        // relações aparecem também do lado da outra tarefa (payload / detalhe.relacionada_id)
+        qFila = qFila.or(`tarefa_id.eq.${tarefaId},payload->>relacionada_id.eq.${tarefaId}`).limit(500)
+        qLog = qLog.or(`tarefa_id.eq.${tarefaId},detalhe->>relacionada_id.eq.${tarefaId}`).limit(500)
       } else {
         qFila = qFila.gte('created_at', desde).limit(3000)
         qLog = qLog.gte('created_at', desde).limit(2000)
@@ -59,7 +60,9 @@ export function useSincronizacao({ dias = 7, tarefaId = null, ecos = false } = {
       const log = rLog.error ? [] : (rLog.data || [])
 
       // títulos das tarefas citadas (pelo id e, no log sem id, pelo id do ClickUp)
-      const ids = [...new Set([...fila.map((i) => i.tarefa_id), ...log.map((l) => l.tarefa_id), tarefaId].filter(Boolean))]
+      const ids = [...new Set([
+        ...fila.flatMap((i) => [i.tarefa_id, i.payload?.relacionada_id]), ...log.flatMap((l) => [l.tarefa_id, l.detalhe?.relacionada_id]), tarefaId,
+      ].filter(Boolean))]
       const cus = [...new Set(log.filter((l) => !l.tarefa_id && l.clickup_task_id).map((l) => l.clickup_task_id))]
       const [porIds, porCu] = await Promise.all([
         emFatias(ids, (f) => supabase.from('tarefas_itens').select(COLS_TAREFA).in('id', f)),
