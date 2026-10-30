@@ -2238,7 +2238,8 @@ const DP = {
     // pode diferir entre Meta e Google — o botão mostra o do canal em foco
     // (aba Meta/Google) e, em "Todos", o do Meta.
     periodo: (days, from, to) => {
-      const ch = state.channel || ((state.raw.meta || []).length ? 'meta' : 'google')
+      // 'benchmark' não é canal de linhas (não tem CFG): a janela da lista segue a dos dados.
+      const ch = CFG[state.channel] ? state.channel : ((state.raw.meta || []).length ? 'meta' : 'google')
       return computeMainPeriod(state.raw[ch] || [], ch, days, from, to)
     },
     redesenhar: () => render(),
