@@ -330,6 +330,7 @@ const nomeDe = (s) => s.titulo || 'Sem título'
 export default function TarefaPanel({
   item, subtarefas, ancestrais = [], irmas = null, statuses, membros, membrosMap, comentarios, user, ciclos = [], etiquetas = [], ciclosMap = new Map(), etiquetasMap = new Map(), onCriarEtiqueta,
   onAtualizar, onMudarStatus, onCriarSub, onAbrir, onComentar, onExcluirComentario, onCarregarComentarios, onErro, onRelacoesMudaram,
+  entrega = null, // bloco "Entrega" (EntregaPainel), montado por quem tem os dados da família
 }) {
   const [titulo, setTitulo] = useState(item?.titulo || '')
   const tituloRef = useRef(null)
@@ -364,6 +365,8 @@ export default function TarefaPanel({
           className={`w-full bg-transparent text-xl font-semibold tracking-[-0.01em] leading-tight outline-none resize-none rounded-md -mx-1 px-1 hover:bg-ln-ink/[0.03] focus:bg-ln-ink/[0.04] ${item.status_tipo === 'closed' ? 'text-ln-t4 line-through' : 'text-ln-t2'}`}
         />
       </header>
+
+      {entrega}
 
       <section>
         <p className="ln-label">Propriedades</p>

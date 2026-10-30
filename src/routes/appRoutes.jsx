@@ -40,6 +40,7 @@ const DevEditor = lazy(() => import('../pages/DevEditor'))
 const DevLista = lazy(() => import('../pages/DevLista'))
 const DevSincronizacao = lazy(() => import('../pages/DevSincronizacao'))
 const DevTemplates = lazy(() => import('../pages/DevTemplates'))
+const DevCascata = lazy(() => import('../pages/DevCascata'))
 const DevResultados = lazy(() => import('../pages/DevResultados'))
 
 export const appRoutes = [
@@ -92,6 +93,7 @@ export const appRoutes = [
         <Route key="dev-editor" path="/dev/editor" element={<DevEditor />} />,
         <Route key="dev-lista" path="/dev/lista" element={<DevLista />} />,
         <Route key="dev-templates" path="/dev/templates" element={<DevTemplates />} />,
+        <Route key="dev-cascata" path="/dev/cascata" element={<DevCascata />} />,
         <Route key="dev-sincronizacao" path="/dev/sincronizacao" element={<DevSincronizacao />} />,
         <Route key="dev-resultados" path="/dev/resultados" element={<DevResultados />} />,
       ]

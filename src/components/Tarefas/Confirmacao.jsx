@@ -6,6 +6,7 @@
 // Uso: const [confirmar, dialogo] = useConfirmar()
 //      if (!(await confirmar({ titulo, texto, itens, acao, perigo }))) return
 //      ... e renderizar {dialogo} em algum lugar do componente.
+//      Com `acaoSecundaria` aparece um 3º botão e a promessa devolve 'secundaria' nele.
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { AlertTriangle, Archive, Trash2, X } from 'lucide-react'
@@ -13,7 +14,7 @@ import { FOCO } from './Campos'
 
 const MAX_ITENS = 3
 
-export function ConfirmarDialog({ titulo, texto = null, rotuloItens = null, itens = [], acao, perigo = false, icone = null, onConfirmar, onCancelar }) {
+export function ConfirmarDialog({ titulo, texto = null, rotuloItens = null, itens = [], maxItens = MAX_ITENS, acao, acaoSecundaria = null, perigo = false, icone = null, onConfirmar, onSecundaria, onCancelar }) {
   const cancelar = useRef(null)
   const confirmar = useRef(null)
   // `perigo` põe o foco no Cancelar: um Enter distraído não apaga nada
@@ -26,7 +27,7 @@ export function ConfirmarDialog({ titulo, texto = null, rotuloItens = null, iten
   }, [onCancelar])
   const Icone = icone || (perigo ? AlertTriangle : Archive)
   const BotaoIcone = perigo ? Trash2 : Icone
-  const resto = itens.length - MAX_ITENS
+  const resto = itens.length - maxItens
   return createPortal(
     <div className="ln vt fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onCancelar} aria-hidden="true" />
@@ -49,7 +50,7 @@ export function ConfirmarDialog({ titulo, texto = null, rotuloItens = null, iten
           <div className="mx-5 mt-4 rounded-lg border border-ln-ink/[0.08] bg-ln-ink/[0.02] px-3.5 py-2.5">
             {rotuloItens && <p className="text-[11px] text-ln-t4 mb-1">{rotuloItens}</p>}
             <ul className="space-y-0.5">
-              {itens.slice(0, MAX_ITENS).map((t, i) => (
+              {itens.slice(0, maxItens).map((t, i) => (
                 <li key={i} className={`text-[13px] font-medium truncate ${perigo ? 'text-ln-red' : 'text-ln-t1'}`}>{t}</li>
               ))}
             </ul>
@@ -58,6 +59,9 @@ export function ConfirmarDialog({ titulo, texto = null, rotuloItens = null, iten
         )}
         <div className="flex justify-end gap-2 px-5 py-4 mt-1">
           <button ref={cancelar} type="button" onClick={onCancelar} className={`inline-flex items-center h-8 px-3.5 rounded-md border border-ln-ink/[0.1] text-[13px] text-ln-t2 hover:bg-ln-ink/[0.04] ${FOCO}`}>Cancelar</button>
+          {acaoSecundaria && (
+            <button type="button" onClick={onSecundaria} className={`inline-flex items-center h-8 px-3.5 rounded-md border border-ln-ink/[0.1] text-[13px] text-ln-t1 hover:bg-ln-ink/[0.04] ${FOCO}`}>{acaoSecundaria}</button>
+          )}
           <button
             ref={confirmar} type="button" onClick={onConfirmar}
             className={`inline-flex items-center gap-1.5 h-8 px-3.5 rounded-md text-[13px] font-medium ${perigo ? 'bg-ln-red text-white hover:opacity-90' : 'ln-primary'} ${FOCO}`}
@@ -71,7 +75,7 @@ export function ConfirmarDialog({ titulo, texto = null, rotuloItens = null, iten
   )
 }
 
-/** Confirmação por promessa: `await confirmar({...})` devolve true/false. */
+/** Confirmação por promessa: `await confirmar({...})` devolve true/false ('secundaria' no 3º botão). */
 export function useConfirmar() {
   const [pedido, setPedido] = useState(null)
   const resolver = useRef(null)
@@ -86,7 +90,7 @@ export function useConfirmar() {
     setPedido(null)
   }, [])
   const cancelar = useCallback(() => responder(false), [responder])
-  const dialogo = pedido ? <ConfirmarDialog {...pedido} onConfirmar={() => responder(true)} onCancelar={cancelar} /> : null
+  const dialogo = pedido ? <ConfirmarDialog {...pedido} onConfirmar={() => responder(true)} onSecundaria={() => responder('secundaria')} onCancelar={cancelar} /> : null
   return [confirmar, dialogo]
 }
 

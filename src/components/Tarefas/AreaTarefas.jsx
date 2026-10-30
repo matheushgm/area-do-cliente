@@ -37,6 +37,8 @@ import { templateDaTarefa } from '../../lib/templates'
 import { FOCO, StatusCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, EstimativaCampo } from './Campos'
 import BarraSelecao, { BotaoBarra, ResponsaveisEmMassa, aplicarDiferenca } from './BarraSelecao'
 import { contarTarefas, useConfirmar } from './Confirmacao'
+import { useCascata, carregarGrafoCascata } from '../../hooks/useCascata'
+import EntregaPainel from './EntregaPainel'
 import { ID_RASCUNHO_TEMPLATE, guardarRascunhoTemplate } from '../../lib/rascunhoTemplate'
 import { MenuTarefa, MenuContextoTarefa, linhaRelacao } from './TarefaExtras'
 
@@ -363,10 +365,21 @@ export default function AreaTarefas({
     if (r.error) showToast(r.error, 'error')
     return r
   }, [t, sel, showToast])
+  // mexer numa data passa pela cascata (dependentes andam junto, pai recalculado; src/lib/cascata.js)
+  const gravarCascata = useCallback(async (id, patch) => {
+    if (t.itens[id]) return t.atualizarTarefa(id, patch)
+    // dependente fora da tela (outra lista, "Minhas"): grava sem pôr na tela
+    const { error } = await supabase.from('tarefas_itens').update(patch).eq('id', id)
+    if (error) return { error: error.message }
+    t.agendarPush()
+    return {}
+  }, [t])
+  const carregarGrafo = useCallback((id) => carregarGrafoCascata(supabase, id, t.itens), [t.itens])
+  const atualizarComCascata = useCascata({ carregarGrafo, gravar: gravarCascata, confirmar, avisar: showToast })
   const onAtualizar = useCallback(async (id, patch) => {
-    const r = await t.atualizarTarefa(id, patch)
-    if (r.error) showToast(r.error, 'error')
-  }, [t, showToast])
+    const r = await atualizarComCascata(id, patch)
+    if (r?.error) showToast(r.error, 'error')
+  }, [atualizarComCascata, showToast])
   const onMudarStatus = useCallback(async (item, s) => {
     const r = await t.mudarStatus(item, s)
     if (r.error) showToast(r.error, 'error')
@@ -874,6 +887,7 @@ export default function AreaTarefas({
                   onCarregarComentarios={t.carregarComentarios}
                   onErro={(m) => showToast(m, 'error')}
                   onRelacoesMudaram={() => t.agendarPush?.()}
+                  entrega={<EntregaPainel item={tarefaAberta} carregarGrafo={carregarGrafo} gravar={gravarCascata} confirmar={confirmar} avisar={showToast} />}
                 />
               ) : (
                 <div className="flex items-center justify-center py-20 text-ln-t4"><Loader2 className="w-4 h-4 animate-spin" /></div>

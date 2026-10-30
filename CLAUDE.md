@@ -1126,6 +1126,22 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     na prévia do template: a data que a pessoa mexeu fica, a outra acompanha (o toast da edição em
     massa diz quantas). A comparação usa o instante que o push manda (sem hora = 04:00 de São
     Paulo, `dataClickUp`); mudou um, mude o outro.
+- **Replanejamento em cascata (2026-10-30):** mudar a data de uma tarefa pela tela (linha, painel)
+  desloca, na mesma quantidade de **dias úteis**, as tarefas que ela bloqueia (`tarefas_relacoes` `bloqueia`, em
+  cadeia) e, se ela tem subtarefas, as subtarefas abertas; depois cada pai acima de quem mudou é recalculado pelas
+  filhas (início = o mais cedo, vencimento = o mais tarde; filha só com uma das datas conta como um ponto nela). A
+  data que a pessoa escolheu fica como ela escolheu; concluídas e arquivadas não andam. Regra pura em
+  `src/lib/cascata.js` (`planejarCascata`); `src/hooks/useCascata.js` lê a família e as dependentes
+  (`carregarGrafoCascata`), pergunta antes ("Mover N tarefas" / "Só esta tarefa" / Cancelar; só o pai mudando =
+  grava e avisa a nova entrega) e grava cada tarefa, que segue para o ClickUp pela outbox. Entra no `onAtualizar`
+  do `AreaTarefas`; edição em massa, webhook e rodada não passam por ela. Ligada para todos desde 2026-10-30. Sem login: `/dev/cascata`
+  (só em DEV), o template Landing Page em memória, com Gantt, "Hoje simulado" (troca o `Date` da página), início do
+  template e "mudança vinda do ClickUp" (grava sem cascata).
+  **Bloco Entrega** (`EntregaPainel`, prop `entrega` do `TarefaPanel`) em toda tarefa com família: data de entrega
+  (pai mais alto) e dois alertas: **Entrega em risco** (abertas vencidas; "Replanejar a partir de hoje" =
+  `planejarReplanejamento`, cada atrasada que nenhuma outra alcança passa a vencer hoje e a cascata leva as seguintes)
+  e **dependência fora de ordem** (dependente que vence antes de quem a bloqueia, típico de data mudada no ClickUp;
+  "Ajustar dependências" = `planejarAjusteConflitos`). Testes da regra: copiar `cascata.js`/`tarefas.js`/`utils.js` como módulos com extensão.
 - **Plano de 29/10 (`docs/plano-sincronizacao-clickup.md`, para não estourar as 100 chamadas/min do token):**
   - **Push agrupado por tarefa (item 1):** `agruparFila()` em `api/_tarefas_push_core.js` (pura) junta os
     `atualizar` reivindicados da mesma tarefa numa unidade (união dos `campos`, um PUT, uma leitura de
