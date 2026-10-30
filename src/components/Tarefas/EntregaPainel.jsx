@@ -1,5 +1,6 @@
 // Bloco "Entrega" no painel da tarefa (replanejamento em cascata, src/lib/cascata.js): a data de
-// entrega da família (o pai mais alto) e dois alertas com ação: tarefas atrasadas ("Replanejar a partir de hoje")
+// entrega da família (o pai mais alto) e dois alertas com ação: tarefas atrasadas ("Replanejar a partir de hoje",
+// só na tarefa pai)
 // e dependentes que vencem antes de quem as bloqueia ("Ajustar dependências", o caso típico de uma
 // data mudada no ClickUp, que não passa pela cascata). Só aparece em tarefa que tem família.
 import { useState, useEffect } from 'react'
@@ -35,7 +36,8 @@ export default function EntregaPainel({ item, carregarGrafo, gravar, confirmar, 
   const hoje = new Date()
   const raiz = itens.get(raizId)
   const atrasadas = ids.filter((x) => !filhos.has(x) && atrasadaEm(itens.get(x), hoje))
-  const replanejar = atrasadas.length ? planejarReplanejamento({ itens, relacoes, id: item.id, hoje }) : null
+  const ehPai = item.id === raizId
+  const replanejar = ehPai && atrasadas.length ? planejarReplanejamento({ itens, relacoes, id: item.id, hoje }) : null
   const novaEntrega = replanejar?.outras.find((o) => o.id === raizId)?.patch.data_vencimento
   const conflitos = conflitosDependencia({ itens, relacoes, ids })
 
@@ -58,7 +60,7 @@ export default function EntregaPainel({ item, carregarGrafo, gravar, confirmar, 
         {!atrasadas.length && !conflitos.length && <span className="inline-flex h-5 items-center px-1.5 rounded text-[11px] font-medium bg-ln-green/10 text-ln-green">em dia</span>}
       </div>
 
-      {atrasadas.length > 0 && (
+      {ehPai && atrasadas.length > 0 && (
         <div className="rounded-md bg-ln-red/[0.06] border border-ln-red/20 p-2.5 flex flex-col gap-2">
           <p className="text-xs text-ln-t2 leading-relaxed">
             <AlertTriangle className="inline w-3.5 h-3.5 -mt-0.5 mr-1 text-ln-red" />

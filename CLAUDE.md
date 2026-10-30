@@ -1143,7 +1143,7 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   (só em DEV), o template Landing Page em memória, com Gantt, "Hoje simulado" (troca o `Date` da página), início do
   template e "mudança vinda do ClickUp" (grava sem cascata).
   **Bloco Entrega** (`EntregaPainel`, prop `entrega` do `TarefaPanel`) em toda tarefa com família: data de entrega
-  (pai mais alto) e dois alertas: **Entrega em risco** (abertas vencidas; "Replanejar a partir de hoje" =
+  (pai mais alto) e dois alertas: **Entrega em risco** (só no painel da tarefa pai; abertas vencidas; "Replanejar a partir de hoje" =
   `planejarReplanejamento`, cada atrasada que nenhuma outra alcança passa a vencer hoje e a cascata leva as seguintes)
   e **dependência fora de ordem** (dependente que vence antes de quem a bloqueia, típico de data mudada no ClickUp;
   "Ajustar dependências" = `planejarAjusteConflitos`).
