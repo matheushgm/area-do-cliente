@@ -1069,9 +1069,11 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     o webhook relê a tarefa (a data do evento é mais nova; campo do histórico com `depend|link` nunca cai no
     atalho de eco) e a rodada incremental só vê a relação de tarefa que mudou por outro motivo (o `--completo`
     passa por todas). Carga inicial das relações antigas: `node scripts/enviar_relacoes_clickup.mjs [--dry]`.
-    ⚠ Os spaces Clientes, Operações e PROMPTS têm o ClickApp **Reschedule dependencies** ligado
-    (`remap_dependency_settings.enabled`): mudar a data de uma tarefa no ClickUp remarca as dependentes lá, e
-    a remarcação volta pelo webhook. O deslocamento em cascata é para ser feito pela Área do Cliente.
+    Os spaces Clientes, Operações e PROMPTS têm o ClickApp **Reschedule dependencies** ligado
+    (`remap_dependency_settings.enabled`, `enforcement_mode: 2`, inclusive concluídas). Testado em 30/10/2026:
+    data mudada **pela API** (o push) não remarca as dependentes, nem quando passa a se sobrepor a elas; criar
+    a dependência pela API também não. Pela tela do ClickUp não foi testado: se remarcar lá, cada dependente
+    remarcada chega pelo webhook como mudança de data comum (sem cascata aqui, pelo plano).
   - **Duplicação corrigida em 2026-10-26 (migration 110).** Em 23/10, aplicar um template e
     editar em massa logo depois criou 26 tarefas no ClickUp para 14 do template. Duas causas:
     (1) o push não marcava o que estava processando, e as invocações paralelas da Vercel (uma
