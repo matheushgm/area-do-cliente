@@ -3,6 +3,11 @@
 // script manda as que têm as duas tarefas no ClickUp. Idempotente: dependência que já existe
 // lá ("Dependency already exists") conta como feita, e link repetido o ClickUp ignora.
 //
+// O envio passa pela fila (tarefas_outbox, 'relacionar') e pelo mesmo push do app: enquanto o
+// item está na fila, a volta não mexe no par. Na carga de 30/10/2026, mandando direto ao ClickUp,
+// o webhook releu uma tarefa entre duas dependências da mesma cadeia, não achou a segunda lá e
+// apagou a relação daqui (a volta recriou 1,4 s depois, sem o autor original).
+//
 //   node scripts/enviar_relacoes_clickup.mjs --dry   # só mostra o plano
 //   node scripts/enviar_relacoes_clickup.mjs         # envia
 //
@@ -10,6 +15,7 @@
 import fs from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 import { chamadaRelacao, chavePar, vaiProClickup } from '../api/_tarefas_relacoes.js'
+import { empurrar } from '../api/_tarefas_push_core.js'
 
 const dry = process.argv.includes('--dry')
 function lerEnv(f) {
@@ -21,18 +27,6 @@ const TOKEN = limpo(env.CLICKUP_API_TOKEN)
 const KEY = env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY
 if (!env.SUPABASE_URL || !KEY || !TOKEN) { console.error('SUPABASE_URL / SUPABASE_SECRET_KEY / CLICKUP_API_TOKEN ausentes'); process.exit(1) }
 const sb = createClient(env.SUPABASE_URL, KEY, { auth: { persistSession: false } })
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-
-async function cu(method, path, body) {
-  for (let tent = 0; tent < 8; tent++) {
-    const res = await fetch(`https://api.clickup.com/api/v2${path}`, { method, headers: { Authorization: TOKEN, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
-    if (res.status === 429) { await sleep(Math.max((Number(res.headers.get('retry-after')) || 0) * 1000, 5000 * (tent + 1))); continue }
-    const json = await res.json().catch(() => null)
-    if (!res.ok) { const e = new Error(json?.err || `${method} ${path}: ${res.status}`); e.status = res.status; e.ecode = json?.ECODE; throw e }
-    return json
-  }
-  throw new Error(`${method} ${path}: limite de requisições`)
-}
 
 const { data: rels, error } = await sb.from('tarefas_relacoes').select('id, tarefa_id, relacionada_id, tipo, created_at').order('created_at')
 if (error) { console.error(error.message); process.exit(1) }
@@ -61,12 +55,22 @@ if (puladas.length) { console.log('\nPuladas:'); for (const { r, a, b, motivo } 
 
 if (dry) { console.log('\n--dry: nada enviado.'); process.exit(0) }
 
-let ok = 0, ja = 0, falhas = 0
-for (const { r, a, b, chamada } of enviar) {
-  try { await cu(chamada.method, chamada.path, chamada.body); ok++ }
-  catch (e) {
-    if (e.ecode === 'DEPENDS_010' || /already exists/i.test(e.message)) ja++
-    else { falhas++; console.log(`  ✗ ${r.tipo} "${nome(a)}" → "${nome(b)}": ${e.message}`) }
-  }
+// enfileira (chave de serviço: o gatilho não roda) e esvazia a fila com o push do app
+const { data: novos, error: errFila } = await sb.from('tarefas_outbox').insert(enviar.map(({ r }) => ({
+  tarefa_id: r.tarefa_id, operacao: 'relacionar',
+  payload: { relacao_id: r.id, tarefa_id: r.tarefa_id, relacionada_id: r.relacionada_id, tipo: r.tipo },
+}))).select('id')
+if (errFila) { console.error(`fila: ${errFila.message}`); process.exit(1) }
+const idsFila = novos.map((x) => x.id)
+console.log(`\n${idsFila.length} itens na fila; enviando…`)
+for (let rodada = 0; rodada < 30; rodada++) {
+  const r = await empurrar({ sb, token: TOKEN, orcamentoMs: 120_000 })
+  const { count } = await sb.from('tarefas_outbox').select('id', { count: 'exact', head: true }).in('id', idsFila).in('status', ['pendente', 'processando'])
+  console.log(`  rodada ${rodada + 1}: ${r.relacoes} relações, ${r.erros} erros; faltam ${count}`)
+  if (!count) break
 }
-console.log(`\n${ok} enviadas, ${ja} já existiam, ${falhas} falharam`)
+const { data: fim } = await sb.from('tarefas_outbox').select('status, erro').in('id', idsFila)
+const cont = {}
+for (const f of fim || []) cont[f.status] = (cont[f.status] || 0) + 1
+console.log('\nresultado:', cont)
+for (const f of (fim || []).filter((x) => x.status === 'erro')) console.log(`  ✗ ${f.erro}`)

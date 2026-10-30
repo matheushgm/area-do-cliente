@@ -1064,11 +1064,15 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     enfileira nada. **Volta:** `reconciliarRelacoes` roda para toda tarefa lida pela rodada e pelo webhook:
     o ClickUp é a verdade dos pares em que as duas tarefas existem aqui (link vira `relacionada`), grava com
     a chave de serviço (não reenfileira) e registra `relacao_criada`/`relacao_removida` em `tarefas_sync_log`.
-    Par com `relacionar`/`desrelacionar` pendente, em envio ou com erro não é mexido. No ClickUp a dependência e
+    Par com `relacionar`/`desrelacionar` pendente, em envio, com erro ou enviado nos últimos 2 min não é mexido
+    (a tarefa pode ter sido lida no ClickUp antes de o push mandar a relação). No ClickUp a dependência e
     o link aparecem nas duas tarefas e disparam `taskUpdated` nas duas, mas **não mudam o `date_updated`**:
     o webhook relê a tarefa (a data do evento é mais nova; campo do histórico com `depend|link` nunca cai no
     atalho de eco) e a rodada incremental só vê a relação de tarefa que mudou por outro motivo (o `--completo`
-    passa por todas). Carga inicial das relações antigas: `node scripts/enviar_relacoes_clickup.mjs [--dry]`.
+    passa por todas). Carga inicial das relações antigas: `node scripts/enviar_relacoes_clickup.mjs [--dry]`
+    (enfileira `relacionar` e esvazia com o push; rodada em 30/10/2026: 62 dependências enviadas, nenhuma data
+    mudou. Mandando direto ao ClickUp, como na 1ª versão, uma relação foi apagada e recriada pela volta, e a
+    rajada de ~124 eventos do webhook passou do limite de chamadas: 24 eventos falharam, sem perda).
     As relações são gravadas fora do `useTarefas` (painel da tarefa, rascunho de tarefa nova, template): quem
     grava chama `agendarPush` (exposto pelo hook), senão o pedido espera a próxima edição ou o cron. Testado em
     30/10/2026 pela tela em produção com tarefas de teste na lista Geral da Revenue Lab: apagar "bloqueia", criar

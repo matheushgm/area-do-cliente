@@ -15,6 +15,7 @@ import { registrarSyncLog } from './_tarefas_sync_log.js'
 
 /** Tipos que existem no ClickUp. */
 export const vaiProClickup = (tipo) => tipo === 'bloqueia' || tipo === 'relacionada'
+const RECENTE_MS = 2 * 60_000
 const par = (a, b) => (a < b ? `${a}|${b}` : `${b}|${a}`)
 export const chavePar = par
 
@@ -45,8 +46,9 @@ async function emFatias(ids, fn) {
 /**
  * Volta: para cada tarefa lida do ClickUp, o ClickUp é a verdade das relações dela com tarefas
  * que existem aqui (com clickup_task_id): cria o que falta, apaga o que sumiu. Grava com a chave
- * de serviço (não enfileira). Par com envio em aberto na fila (pendente, enviando ou com erro) não
- * é mexido: a mudança daqui ainda não chegou lá, ou falhou e está no painel.
+ * de serviço (não enfileira). Par com envio em aberto na fila (pendente, enviando ou com erro) ou
+ * enviado nos últimos 2 min não é mexido: a mudança daqui ainda não chegou lá, falhou e está no
+ * painel, ou chegou depois de a tarefa ter sido lida.
  * Só considera tarefas que vieram com os campos `dependencies`/`linked_tasks`.
  */
 export async function reconciliarRelacoes(sb, tarefasCu, { log = () => {} } = {}) {
@@ -76,9 +78,12 @@ export async function reconciliarRelacoes(sb, tarefasCu, { log = () => {} } = {}
   const semCu = [...new Set(locais.flatMap((r) => [r.tarefa_id, r.relacionada_id]).filter((id) => !cuDoId.has(id)))]
   for (const r of await emFatias(semCu, (f) => sb.from('tarefas_itens').select('id, clickup_task_id').in('id', f))) if (r.clickup_task_id) cuDoId.set(r.id, String(r.clickup_task_id))
 
-  // pares com envio em aberto
+  // pares com envio em aberto, ou enviados há pouco: a tarefa pode ter sido lida no ClickUp antes
+  // de o push mandar a relação e comparada depois de ele marcar 'ok' (a volta apagaria o que acabou
+  // de chegar lá; aconteceu na carga de 30/10/2026). A próxima leitura confere o par.
+  const recente = new Date(Date.now() - RECENTE_MS).toISOString()
   const { data: fila } = await sb.from('tarefas_outbox').select('payload')
-    .in('operacao', ['relacionar', 'desrelacionar']).in('status', ['pendente', 'processando', 'erro'])
+    .in('operacao', ['relacionar', 'desrelacionar']).or(`status.in.(pendente,processando,erro),processed_at.gt.${recente}`)
   const protegidos = new Set((fila || []).filter((o) => o.payload?.tarefa_id && o.payload?.relacionada_id).map((o) => par(o.payload.tarefa_id, o.payload.relacionada_id)))
 
   // o que o ClickUp diz, só entre tarefas que existem aqui
