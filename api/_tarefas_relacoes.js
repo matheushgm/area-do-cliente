@@ -5,16 +5,16 @@
 // tem D em depende_de, e o painel mostra "Bloqueia" do lado de tarefa_id):
 //   bloqueia A → B  ⇄ dependência do ClickUp { task_id: B, depends_on: A } (B espera A)
 //   relacionada     ⇄ link { task_id, link_id } (sem direção)
-//   duplica         → link também: o ClickUp não tem "duplicada de". Na volta um link vira
-//                     'relacionada'; um 'duplica' daqui que já tem o link lá é mantido.
+//   duplica         fica só no VertaTask: o ClickUp não tem "duplicada de" e um link diria outra
+//                   coisa. Não vai (o gatilho não enfileira) e a volta não mexe nele.
 // No GET /task (e na listagem de tarefas) a dependência e o link aparecem nas DUAS tarefas,
 // com o mesmo registro. Mudar dependência ou link no ClickUp dispara taskUpdated nas duas, mas
 // NÃO muda o date_updated delas: por isso a volta reconcilia as relações de toda tarefa lida,
 // mesmo quando a tarefa em si não mudou.
 import { registrarSyncLog } from './_tarefas_sync_log.js'
 
-const LINK = new Set(['relacionada', 'duplica'])
-export const ehLink = (tipo) => LINK.has(tipo)
+/** Tipos que existem no ClickUp. */
+export const vaiProClickup = (tipo) => tipo === 'bloqueia' || tipo === 'relacionada'
 const par = (a, b) => (a < b ? `${a}|${b}` : `${b}|${a}`)
 export const chavePar = par
 
@@ -97,6 +97,7 @@ export async function reconciliarRelacoes(sb, tarefasCu, { log = () => {} } = {}
   const temLink = new Set()
   const apagar = []
   for (const r of locais) {
+    if (!vaiProClickup(r.tipo)) continue // 'duplica' é só daqui
     // só compara relação com as duas pontas no ClickUp (a outra pode estar só aqui, ex.: lista sem ClickUp)
     if (!cuDoId.has(r.tarefa_id) || !cuDoId.has(r.relacionada_id)) continue
     const k = par(r.tarefa_id, r.relacionada_id)

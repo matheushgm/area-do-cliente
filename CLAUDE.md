@@ -1052,9 +1052,10 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     `desrelacionar`, com `payload` `{ relacao_id, tarefa_id, relacionada_id, tipo }`. Quem bloqueia é
     `tarefa_id` (o template grava "D bloqueia X" quando X tem D em `depende_de`). Mapa, em
     `api/_tarefas_relacoes.js`: **bloqueia A → B = dependência** (`POST /task/B/dependency { depends_on: A }`;
-    desfazer `DELETE /task/B/dependency?depends_on=A`); **relacionada = link** (`POST/DELETE /task/A/link/B`);
-    **duplica = link também** (o ClickUp não tem "duplicada de"; o push avisa, e desfazer um `duplica` não
-    apaga o link se o par ainda tem outra relação que vira link). No push: tarefa sem `clickup_task_id` com
+    desfazer `DELETE /task/B/dependency?depends_on=A`); **relacionada = link** (`POST/DELETE /task/A/link/B`;
+    desfazer não apaga o link se o par ainda é relacionado no sentido inverso); **duplica fica só no
+    VertaTask** (o ClickUp não tem "duplicada de" e um link diria outra coisa: o gatilho não enfileira e a volta
+    não mexe nele, pedido do Matheus em 30/10/2026). No push: tarefa sem `clickup_task_id` com
     `criar` na fila = item devolvido sem gastar tentativa; sem `criar` a caminho (lista sem ClickUp, criação
     que desistiu) = `cancelado` com o motivo. "Dependency already exists" (`DEPENDS_010`) e 404/401 ao desfazer
     contam como feito. Relação de tarefa criada na mesma rodada espera o `criar` (`precisaSozinha`), duas do

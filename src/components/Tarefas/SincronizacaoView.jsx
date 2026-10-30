@@ -125,7 +125,7 @@ function ItemFila({ it, ctx, mostrarTarefa = true }) {
       {rel && (
         <p className="pl-12 text-[12px] text-ln-t3 flex items-center gap-1.5 min-w-0">
           <span className="shrink-0">{rel.rotulo}</span><NomeTarefa id={rel.outraId} ctx={ctx} className="min-w-0" />
-          <span className="hidden sm:inline shrink-0 text-ln-t4">· vira {rel.clickup} no ClickUp</span>
+          <span className="hidden sm:inline shrink-0 text-ln-t4">· {rel.clickup ? `vira ${rel.clickup} no ClickUp` : 'fica só no VertaTask'}</span>
         </p>
       )}
       {it.erro && (

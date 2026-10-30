@@ -18,7 +18,7 @@ export const OPERACOES = { criar: 'Criar', atualizar: 'Atualizar', excluir: 'Exc
 export const RELACOES = {
   bloqueia: { rotulo: 'Bloqueia', clickup: 'dependência' },
   relacionada: { rotulo: 'Relacionada a', clickup: 'link' },
-  duplica: { rotulo: 'Duplicada de', clickup: 'link' }, // o ClickUp não tem "duplicada de"
+  duplica: { rotulo: 'Duplicada de', clickup: null }, // fica só no VertaTask
 }
 /** { rotulo, outraId, clickup } de um item 'relacionar'/'desrelacionar' (null nos outros). */
 export function descreverRelacao(it) {
@@ -120,6 +120,7 @@ export function fmtDuracao(ms) {
 // Erros que o ClickUp / o push devolvem, em português e com o que fazer.
 const ERROS = [
   [/tarefa excluída na mesma rodada/i, 'Não foi enviada: a tarefa foi excluída logo depois, então só a exclusão foi para o ClickUp.'],
+  [/relação "\w+" fica só no VertaTask/i, 'Essa relação não existe no ClickUp ("duplicada de"), então fica só no VertaTask.'],
   [/não existe no ClickUp; a relação fica só no VertaTask/i, 'Uma das tarefas não existe no ClickUp (ex.: lista que não sincroniza), então a relação ficou só aqui.'],
   [/DEPENDS_\d+|dependenc/i, 'O ClickUp recusou a dependência entre as duas tarefas. Confira se elas ainda existem lá.'],
   [/start date cannot be after due date/i, 'O ClickUp recusou: a data de início ficou depois do vencimento. Corrija as datas da tarefa e tente de novo.'],
@@ -148,8 +149,7 @@ const AVISOS = [
   [/não deixou atribuir o responsável/i, 'O ClickUp não aceitou o responsável por este token; a tarefa foi criada sem responsável lá.'],
   [/opção "(.+)" não existe no campo (.+) desta lista/i, (m) => `A opção "${m[1]}" não existe no campo ${m[2]} dessa lista do ClickUp; o campo ficou sem valor lá.`],
   [/criado no ClickUp depois da última sincronização; mantido/i, 'Um checklist (ou item) criado no ClickUp ainda não tinha chegado aqui; foi mantido lá.'],
-  [/"Duplicada de" não existe no ClickUp/i, '"Duplicada de" não existe no ClickUp: lá as duas tarefas ficaram ligadas como relacionadas.'],
-  [/ainda tem outra relação que vira link/i, 'As duas tarefas ainda têm outra relação aqui que vira o mesmo link no ClickUp; o link continua lá.'],
+  [/ainda é relacionado no sentido inverso/i, 'As duas tarefas ainda estão relacionadas no sentido inverso; no ClickUp é o mesmo link, então ele continua lá.'],
   [/foi apagada antes do envio; nada mandado/i, 'A relação foi desfeita antes de chegar ao ClickUp; nada foi mandado.'],
 ]
 export function traduzirAviso(msg) {

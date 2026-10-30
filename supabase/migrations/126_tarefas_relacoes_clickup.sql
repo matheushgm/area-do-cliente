@@ -5,7 +5,8 @@
 -- 'relacionar' / 'desrelacionar', e o push (api/_tarefas_push_core.js) escreve no ClickUp:
 --   bloqueia A → B  = dependência: B depende de A (POST /task/B/dependency { depends_on: A })
 --   relacionada     = link (POST /task/A/link/B)
---   duplica         = link também: o ClickUp não tem "duplicada de"; a direção se perde lá
+--   duplica         = fica só no VertaTask: o ClickUp não tem "duplicada de" e um link diria outra
+--                     coisa (pedido do Matheus em 30/10/2026); o gatilho não enfileira
 -- O payload guarda o que o push precisa mesmo depois de a linha da relação sumir:
 -- { relacao_id, tarefa_id, relacionada_id, tipo }.
 --
@@ -29,6 +30,8 @@ declare
 begin
   -- sem pessoa logada = sincronização / script: não enfileira
   if ator is null then return null; end if;
+  -- "Duplicada de" não vai para o ClickUp
+  if (case when tg_op = 'INSERT' then new.tipo else old.tipo end) = 'duplica' then return null; end if;
 
   if tg_op = 'INSERT' then
     insert into tarefas_outbox (tarefa_id, operacao, payload, ator_id)

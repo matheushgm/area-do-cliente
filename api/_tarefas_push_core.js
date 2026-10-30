@@ -20,7 +20,7 @@
 // (ver api/_tarefas_relacoes.js); esperam a criação das duas tarefas.
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { mapStatuses, mapChecklists } from './_tarefas_clickup_map.js'
-import { chamadaRelacao, chavePar, ehLink } from './_tarefas_relacoes.js'
+import { chamadaRelacao, chavePar, vaiProClickup } from './_tarefas_relacoes.js'
 
 const CLICKUP_BASE = 'https://api.clickup.com/api/v2'
 const SPACE_CLIENTES = '90090377342'
@@ -349,6 +349,8 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
     const p = item.payload || {}
     if (!p.tarefa_id || !p.relacionada_id || !p.tipo) throw Object.assign(new Error('relação sem payload'), { status: 400 })
     const desfazer = item.operacao === 'desrelacionar'
+    // 'duplica' fica só no VertaTask (o gatilho já não enfileira; isto cobre item antigo)
+    if (!vaiProClickup(p.tipo)) { await marcar(u.ids, { status: 'cancelado', erro: `relação "${p.tipo}" fica só no VertaTask` }); return 'marcada' }
     const { data: rows } = await sb.from('tarefas_itens').select('id, titulo, clickup_task_id').in('id', [p.tarefa_id, p.relacionada_id])
     const de = (rows || []).find((r) => r.id === p.tarefa_id)
     const para = (rows || []).find((r) => r.id === p.relacionada_id)
@@ -368,13 +370,12 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
       if (criando?.length) { await devolver(u.ids); resumo.devolvidas++; return 'devolvida' }
       await marcar(u.ids, { status: 'cancelado', erro: `tarefa "${semId[0].titulo}" não existe no ClickUp; a relação fica só no VertaTask` }); return 'marcada'
     }
-    if (desfazer && ehLink(p.tipo)) {
-      // 'relacionada' e 'duplica' viram o mesmo link lá: só desfaz se não sobrou outra do par
+    if (desfazer && p.tipo === 'relacionada') {
+      // o link não tem direção: "A relacionada a B" e "B relacionada a A" são o mesmo link lá
       const { data: outras } = await sb.from('tarefas_relacoes').select('id')
-        .in('tarefa_id', [de.id, para.id]).in('relacionada_id', [de.id, para.id]).in('tipo', ['relacionada', 'duplica'])
-      if (outras?.length) { aviso(`o par "${de.titulo}" / "${para.titulo}" ainda tem outra relação que vira link no ClickUp; o link fica`); resumo.relacoes++; return }
+        .in('tarefa_id', [de.id, para.id]).in('relacionada_id', [de.id, para.id]).eq('tipo', 'relacionada')
+      if (outras?.length) { aviso(`o par "${de.titulo}" / "${para.titulo}" ainda é relacionado no sentido inverso; o link fica`); resumo.relacoes++; return }
     }
-    if (!desfazer && p.tipo === 'duplica') aviso('"Duplicada de" não existe no ClickUp: foi como tarefa relacionada (link)')
     const c = chamadaRelacao(p.tipo, de.clickup_task_id, para.clickup_task_id, desfazer)
     try { await cu(c.method, c.path, c.body) }
     catch (e) {

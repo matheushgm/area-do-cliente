@@ -35,7 +35,7 @@ function montar() {
   add({ operacao: 'atualizar', ator_id: P2, tarefa_id: 't13', campos: ['titulo'], status: 'cancelado', erro: 'tarefa excluída na mesma rodada', created_at: iso(3 * 3600_000 + 40_000), processed_at: iso(3 * 3600_000 + 30_000) })
   add({ operacao: 'excluir', ator_id: P2, tarefa_id: 't13', created_at: iso(3 * 3600_000 + 30_000), processed_at: iso(3 * 3600_000 + 28_000) })
   add({ operacao: 'relacionar', ator_id: P1, tarefa_id: 't3', payload: { relacao_id: 'r1', tarefa_id: 't3', relacionada_id: 't4', tipo: 'bloqueia' }, created_at: iso(10 * 60_000), processed_at: iso(10 * 60_000 - 4000) })
-  add({ operacao: 'relacionar', ator_id: P1, tarefa_id: 't5', payload: { relacao_id: 'r2', tarefa_id: 't5', relacionada_id: 't6', tipo: 'duplica' }, created_at: iso(9 * 60_000), processed_at: iso(9 * 60_000 - 4000), avisos: ['"Duplicada de" não existe no ClickUp: foi como tarefa relacionada (link)'] })
+  add({ operacao: 'relacionar', ator_id: P1, tarefa_id: 't5', payload: { relacao_id: 'r2', tarefa_id: 't5', relacionada_id: 't6', tipo: 'relacionada' }, created_at: iso(9 * 60_000), processed_at: iso(9 * 60_000 - 4000) })
   add({ operacao: 'desrelacionar', ator_id: P1, tarefa_id: 't7', payload: { relacao_id: 'r3', tarefa_id: 't7', relacionada_id: 't8', tipo: 'relacionada' }, status: 'cancelado', erro: 'tarefa "Criar briefing" não existe no ClickUp; a relação fica só no VertaTask', created_at: iso(8 * 60_000), processed_at: iso(8 * 60_000 - 4000) })
   add({ operacao: 'criar', ator_id: P2, tarefa_id: 't14', created_at: iso(3 * 3600_000), processed_at: iso(3 * 3600_000 - 4000), avisos: ['tarefa Gravar vídeo de depoimento: o ClickUp não deixou atribuir o responsável por este token'] })
   // agora: lote em andamento (40 alterações, 12 já enviadas)

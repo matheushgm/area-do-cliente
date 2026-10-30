@@ -13,7 +13,7 @@
 // Lê SUPABASE_URL, SUPABASE_SECRET_KEY (ou SERVICE_ROLE) e CLICKUP_API_TOKEN de .env e .env.local.
 import fs from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
-import { chamadaRelacao, chavePar, ehLink } from '../api/_tarefas_relacoes.js'
+import { chamadaRelacao, chavePar, vaiProClickup } from '../api/_tarefas_relacoes.js'
 
 const dry = process.argv.includes('--dry')
 function lerEnv(f) {
@@ -52,9 +52,9 @@ const puladas = []
 const links = new Set()
 for (const r of rels) {
   const a = tarefas.get(r.tarefa_id), b = tarefas.get(r.relacionada_id)
-  const motivo = !a || !b ? 'tarefa não existe' : !a.clickup_task_id || !b.clickup_task_id ? 'tarefa sem ClickUp' : a.clickup_removida_at || b.clickup_removida_at ? 'tarefa apagada no ClickUp' : null
+  const motivo = !vaiProClickup(r.tipo) ? '"duplicada de" fica só no VertaTask' : !a || !b ? 'tarefa não existe' : !a.clickup_task_id || !b.clickup_task_id ? 'tarefa sem ClickUp' : a.clickup_removida_at || b.clickup_removida_at ? 'tarefa apagada no ClickUp' : null
   if (motivo) { puladas.push({ r, a, b, motivo }); continue }
-  if (ehLink(r.tipo)) { const k = chavePar(a.id, b.id); if (links.has(k)) { puladas.push({ r, a, b, motivo: 'mesmo link de outra relação do par' }); continue } links.add(k) }
+  if (r.tipo === 'relacionada') { const k = chavePar(a.id, b.id); if (links.has(k)) { puladas.push({ r, a, b, motivo: 'mesmo link da relação inversa' }); continue } links.add(k) }
   enviar.push({ r, a, b, chamada: chamadaRelacao(r.tipo, a.clickup_task_id, b.clickup_task_id) })
 }
 
