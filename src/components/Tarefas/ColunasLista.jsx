@@ -6,13 +6,16 @@ import { GripVertical, Eye, EyeOff, Lock } from 'lucide-react'
 import { colunasDaView, normalizarColunas } from '../../lib/viewsTarefas'
 import { FOCO } from './Campos'
 
-/** valor = config.colunas; onChange(colunas) recebe o novo { ordem, ocultas } (ou null = padrão). */
-export default function EditorColunas({ valor, onChange }) {
-  const cols = colunasDaView(valor)
+/**
+ * valor = config.colunas; onChange(colunas) recebe o novo { ordem, ocultas } (ou null = padrão).
+ * `catalogo`/`ocultasPadrao`: outro conjunto de colunas (o Gantt usa COLUNAS_GANTT); sem eles, as da Lista.
+ */
+export default function EditorColunas({ valor, onChange, catalogo, ocultasPadrao }) {
+  const cols = colunasDaView(valor, catalogo, ocultasPadrao)
   const [arrastando, setArrastando] = useState(null) // k da coluna em movimento
   const [sobre, setSobre] = useState(null) // índice onde ela vai cair
 
-  const emitir = (lista) => onChange(normalizarColunas({ ordem: lista.map((c) => c.k), ocultas: lista.filter((c) => c.oculta).map((c) => c.k) }))
+  const emitir = (lista) => onChange(normalizarColunas({ ordem: lista.map((c) => c.k), ocultas: lista.filter((c) => c.oculta).map((c) => c.k) }, catalogo, ocultasPadrao))
   const mover = (de, para) => {
     if (para < 0 || para >= cols.length || de === para) return
     const lista = [...cols]
@@ -64,7 +67,7 @@ export default function EditorColunas({ valor, onChange }) {
       </ul>
       <div className="flex items-center justify-between gap-2 pt-2 mt-1 border-t border-ln-ink/[0.06] px-1">
         <span className="text-[11px] text-ln-t4 tabular">{nVisiveis} de {cols.length} visíveis</span>
-        <button type="button" onClick={() => onChange(null)} disabled={!normalizarColunas(valor)} className={`text-xs text-ln-accent hover:underline disabled:text-ln-t4 disabled:no-underline ${FOCO}`}>Restaurar padrão</button>
+        <button type="button" onClick={() => onChange(null)} disabled={!normalizarColunas(valor, catalogo, ocultasPadrao)} className={`text-xs text-ln-accent hover:underline disabled:text-ln-t4 disabled:no-underline ${FOCO}`}>Restaurar padrão</button>
       </div>
     </div>
   )

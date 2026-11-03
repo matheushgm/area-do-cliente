@@ -15,6 +15,7 @@
     "format": "prettier --write src"
   },
   "dependencies": {
+    "@jaeungkim/gantt-chart": "1.7.0",
     "@lexical/code": "^0.52.0",
     "@lexical/html": "^0.52.0",
     "@lexical/link": "^0.52.0",

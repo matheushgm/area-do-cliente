@@ -45,6 +45,7 @@ const DevTemplates = lazy(() => import('../pages/DevTemplates'))
 const DevCascata = lazy(() => import('../pages/DevCascata'))
 const DevResultados = lazy(() => import('../pages/DevResultados'))
 const DevPlanejador = lazy(() => import('../pages/DevPlanejador'))
+const DevGantt = lazy(() => import('../pages/DevGantt'))
 
 export const appRoutes = [
   // Páginas com a sidebar global: o AppLayout monta a AppSidebar uma vez e
@@ -103,6 +104,7 @@ export const appRoutes = [
         <Route key="dev-sincronizacao" path="/dev/sincronizacao" element={<DevSincronizacao />} />,
         <Route key="dev-resultados" path="/dev/resultados" element={<DevResultados />} />,
         <Route key="dev-planejador" path="/dev/planejador" element={<DevPlanejador />} />,
+        <Route key="dev-gantt" path="/dev/gantt" element={<DevGantt />} />,
       ]
     : []),
 

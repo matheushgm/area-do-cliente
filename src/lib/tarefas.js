@@ -404,6 +404,8 @@ export function ordenarPorCampo(itens, ordenar, ctx = {}) {
       case 'criada': return it.created_at ? new Date(it.created_at).getTime() : null
       case 'concluida': return it.data_conclusao ? new Date(it.data_conclusao).getTime() : null
       case 'venc': return it.data_vencimento ? new Date(it.data_vencimento).getTime() : null
+      // início da barra do Gantt: sem início, o vencimento (a barra é só aquele dia)
+      case 'inicio': { const d = it.data_inicio || it.data_vencimento; return d ? new Date(d).getTime() : null }
       case 'prio': return it.prioridade ? ordemPrio[it.prioridade] ?? null : null
       case 'sprint': return (ctx.ciclos || []).find((c) => c.id === it.ciclo_id)?.nome?.toLocaleLowerCase('pt-BR') || null
       case 'estim': return it.estimativa_min ?? null

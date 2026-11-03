@@ -13,14 +13,13 @@
 // Intake, Templates…), `antesDaView` (acima da view: Cycles), `largura` (largura do quadro
 // medida por quem usa; sem ela a área mede a si mesma), `atalhoCriar` (tecla C),
 // `onIrParaLista(listaId, tarefaId)` (depois de aplicar um template) e `onAbrirTemplate(id)`.
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   ChevronRight, X, Loader2, Maximize2, Minimize2, CalendarDays, CircleDot, Users, Flag, Hourglass,
   Shapes, CalendarClock, CornerDownRight, CloudUpload,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import GanttView from './GanttView'
 import { AbasViews, FerramentasView } from './BarraViews'
 import { PainelConfigView, PainelNovaView } from './PainelView'
 import PainelFiltros from './PainelFiltros'
@@ -110,6 +109,9 @@ export function estaDigitando() {
   const tag = el.tagName
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
 }
+
+// a biblioteca do Gantt (~40 kB gzip) só baixa quando alguém abre a aba Gantt
+const GanttView = lazy(() => import('./GanttView'))
 
 const SEM_FILHOS = new Map() // subtarefas "Separar": cada uma vira linha própria, sem aninhar
 
@@ -511,6 +513,8 @@ export default function AreaTarefas({
     larguraNome, onLarguraNome: setLarguraNome,
     // colunas da Lista: ordem e visibilidade (rascunho da view; o "+" do cabeçalho abre o editor)
     colunas: config.colunas, onColunas: (colunas) => editarView(patchColunas(colunas, { ordenar: config.ordenar })),
+    // colunas da lista de tarefas do Gantt (rascunho da view, como as da Lista)
+    colunasGantt: config.colunasGantt, onColunasGantt: (colunasGantt) => editarView({ colunasGantt }),
     // Separar: nome da tarefa-pai para Quadro, Calendário e Gantt
     nomePai: config.subtarefas === 'separar' ? (it) => (it.parent_id ? t.itens[it.parent_id]?.titulo || null : null) : undefined,
     rotuloPai: config.subtarefas === 'separar' ? (it) => (it.parent_id && t.itens[it.parent_id] ? (
@@ -518,7 +522,7 @@ export default function AreaTarefas({
         <CornerDownRight className="w-3 h-3 shrink-0" /><span className="truncate max-w-[220px]">{t.itens[it.parent_id].titulo}</span>
       </span>
     ) : null) : undefined,
-  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, larguraNome, editarView, listasComClickup, responsaveisPadrao, renomeandoId])
+  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, config.colunasGantt, larguraNome, editarView, listasComClickup, responsaveisPadrao, renomeandoId])
 
   // ── Seleção da Lista e ações em massa (BarraSelecao) ─────────────────────
   // a seleção vale para o que está na tela: trocar de pasta, lista, seção ou visão limpa
@@ -714,7 +718,7 @@ export default function AreaTarefas({
         </>)}
 
         {/* Conteúdo rolável */}
-        <div className={`flex-1 min-h-0 bg-ln-bg ${(view === 'quadro' && !comTopo && mostrarViews) || semRolagem ? 'overflow-hidden' : 'overflow-auto'}`}>
+        <div className={`flex-1 min-h-0 bg-ln-bg ${((view === 'quadro' || view === 'gantt') && !comTopo && mostrarViews) || semRolagem ? 'overflow-hidden' : 'overflow-auto'}`}>
           {t.loadingEstrutura || vt.loading ? (
             <div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</div>
           ) : secao ? secao(api) : (
@@ -723,7 +727,12 @@ export default function AreaTarefas({
               {view === 'calendario' ? (
                 <CalendarioView itens={filtrados} ctx={ctx} />
               ) : view === 'gantt' ? (
-                <GanttView itens={filtrados} ctx={ctx} />
+                <Suspense fallback={<div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</div>}>
+                  <GanttView
+                    itens={filtrados} ctx={ctx} filhosDe={filhosVisao} mostrarConcluidas={mostrarConcluidas} altura={comTopo ? 560 : '100%'}
+                    userId={user?.id || null} agendarPush={t.agendarPush} avisar={showToast}
+                  />
+                </Suspense>
               ) : view === 'quadro' ? (
                 <div className={comTopo ? 'h-[560px]' : 'h-full'}><QuadroView grupos={grupos} filhosDe={filhosVisao} ctx={ctx} /></div>
               ) : (

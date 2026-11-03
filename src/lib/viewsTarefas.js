@@ -9,6 +9,7 @@
 //   ordenar     { campo, dir } da Lista (cabeçalho clicável) ou null = ordem manual
 //   calendario  mes (padrão) | semana: escala do Calendário
 //   colunas     colunas da Lista: { ordem: [k], ocultas: [k] } ou null = padrão (todas, na ordem do ClickUp)
+//   colunasGantt  o mesmo para a lista de tarefas do Gantt (null = Responsável, Início e Vencimento)
 // A tela trabalha sobre um rascunho da config; "Salvar visualização" grava.
 import { AGRUPAMENTOS } from './tarefas'
 import { FILTROS_VAZIOS, normalizarFiltros } from './filtrosTarefas'
@@ -39,22 +40,46 @@ export const COLUNAS_LISTA = [
   { k: 'estim', label: 'Estimativa de tempo' },
   { k: 'cliente', label: 'Cliente' },
 ]
-const CHAVES_COLUNAS = COLUNAS_LISTA.map((c) => c.k)
+// Colunas da lista de tarefas do Gantt (o Nome é fixo, como na Lista). Por padrão só Responsável,
+// Início e Vencimento aparecem: a lista divide a largura com a linha do tempo.
+export const COLUNAS_GANTT = [
+  { k: 'status', label: 'Status' },
+  { k: 'resp', label: 'Responsável' },
+  { k: 'inicio', label: 'Início' },
+  { k: 'venc', label: 'Vencimento' },
+  { k: 'duracao', label: 'Duração (dias úteis)' },
+  { k: 'prio', label: 'Prioridade' },
+  { k: 'estim', label: 'Estimativa de tempo' },
+  { k: 'tipo', label: 'Tipo de tarefa' },
+  { k: 'sprint', label: 'Sprints' },
+  { k: 'cliente', label: 'Cliente' },
+  { k: 'criada', label: 'Data criada' },
+  { k: 'concluida', label: 'Data de conclusão' },
+]
+export const OCULTAS_GANTT = ['status', 'duracao', 'prio', 'estim', 'tipo', 'sprint', 'cliente', 'criada', 'concluida']
 
-/** { ordem, ocultas } válido, ou null quando igual ao padrão. Coluna nova (que a view ainda não conhece) entra no fim, visível. */
-export function normalizarColunas(c) {
+/**
+ * { ordem, ocultas } válido, ou null quando igual ao padrão (ordem do catálogo e `ocultasPadrao`).
+ * Coluna nova (que a view ainda não conhece) entra no fim, com a visibilidade do padrão.
+ */
+export function normalizarColunas(c, catalogo = COLUNAS_LISTA, ocultasPadrao = []) {
+  const chaves = catalogo.map((x) => x.k)
   if (!c || !Array.isArray(c.ordem)) return null
-  const ordem = c.ordem.filter((k, i) => CHAVES_COLUNAS.includes(k) && c.ordem.indexOf(k) === i)
-  for (const k of CHAVES_COLUNAS) if (!ordem.includes(k)) ordem.push(k)
-  const ocultas = (Array.isArray(c.ocultas) ? c.ocultas : []).filter((k, i, a) => CHAVES_COLUNAS.includes(k) && a.indexOf(k) === i)
-  if (!ocultas.length && ordem.every((k, i) => k === CHAVES_COLUNAS[i])) return null
+  const ordem = c.ordem.filter((k, i) => chaves.includes(k) && c.ordem.indexOf(k) === i)
+  const novas = chaves.filter((k) => !ordem.includes(k))
+  ordem.push(...novas)
+  const ocultas = [...(Array.isArray(c.ocultas) ? c.ocultas : []), ...novas.filter((k) => ocultasPadrao.includes(k))]
+    .filter((k, i, a) => chaves.includes(k) && a.indexOf(k) === i)
+  const mesmasOcultas = ocultas.length === ocultasPadrao.length && ocultas.every((k) => ocultasPadrao.includes(k))
+  if (mesmasOcultas && ordem.every((k, i) => k === chaves[i])) return null
   return { ordem, ocultas: ordem.filter((k) => ocultas.includes(k)) }
 }
-/** Colunas da Lista na ordem da view: [{ k, label, oculta }]. */
-export function colunasDaView(c) {
-  const n = normalizarColunas(c)
-  const ordem = n ? n.ordem : CHAVES_COLUNAS
-  return ordem.map((k) => ({ ...COLUNAS_LISTA.find((x) => x.k === k), oculta: !!n?.ocultas.includes(k) }))
+/** Colunas na ordem da view: [{ k, label, oculta }]. */
+export function colunasDaView(c, catalogo = COLUNAS_LISTA, ocultasPadrao = []) {
+  const n = normalizarColunas(c, catalogo, ocultasPadrao)
+  const ordem = n ? n.ordem : catalogo.map((x) => x.k)
+  const ocultas = n ? n.ocultas : ocultasPadrao
+  return ordem.map((k) => ({ ...catalogo.find((x) => x.k === k), oculta: ocultas.includes(k) }))
 }
 /** Chaves das colunas visíveis, na ordem da view. */
 export const colunasVisiveis = (c) => colunasDaView(c).filter((x) => !x.oculta).map((x) => x.k)
@@ -82,7 +107,7 @@ export const rotuloSubtarefas = (v) => SUBTAREFAS.find((s) => s.key === v)?.labe
 const agrupamentoValido = (v, padrao) => (AGRUPAMENTOS.some((a) => a.value === v) ? v : padrao)
 
 export function configPadrao(tipo = 'lista') {
-  return { tipo, agrupar: tipo === 'quadro' ? 'status' : 'vencimento', subtarefas: 'recolhidas', responsaveis: [], concluidas: false, filtros: FILTROS_VAZIOS, ordenar: null, calendario: 'mes', colunas: null }
+  return { tipo, agrupar: tipo === 'quadro' ? 'status' : 'vencimento', subtarefas: 'recolhidas', responsaveis: [], concluidas: false, filtros: FILTROS_VAZIOS, ordenar: null, calendario: 'mes', colunas: null, colunasGantt: null }
 }
 
 /** Config de uma linha do banco (aceita o formato antigo: view/filtroResp/mostrarConcluidas/etiqueta). */
@@ -101,6 +126,7 @@ export function normalizarConfig(c = {}, tipoPadrao = 'lista') {
     filtros,
     calendario: c.calendario === 'semana' ? 'semana' : 'mes',
     colunas: normalizarColunas(c.colunas),
+    colunasGantt: normalizarColunas(c.colunasGantt, COLUNAS_GANTT, OCULTAS_GANTT),
     ordenar: c.ordenar?.campo ? { campo: c.ordenar.campo, dir: c.ordenar.dir === -1 ? -1 : 1 } : null,
   }
 }
@@ -110,6 +136,7 @@ export const igualConfig = (a, b) => a.tipo === b.tipo && a.agrupar === b.agrupa
   && mesmos(a.responsaveis, b.responsaveis) && a.concluidas === b.concluidas && JSON.stringify(a.filtros) === JSON.stringify(b.filtros)
   && JSON.stringify(a.ordenar || null) === JSON.stringify(b.ordenar || null) && (a.calendario || 'mes') === (b.calendario || 'mes')
   && JSON.stringify(normalizarColunas(a.colunas)) === JSON.stringify(normalizarColunas(b.colunas))
+  && JSON.stringify(normalizarColunas(a.colunasGantt, COLUNAS_GANTT, OCULTAS_GANTT)) === JSON.stringify(normalizarColunas(b.colunasGantt, COLUNAS_GANTT, OCULTAS_GANTT))
 
 /**
  * Onde as views da seleção moram: pasta (também para uma lista dela), "minhas" ou "todas".

@@ -136,7 +136,11 @@ export default function DevCascata() {
       <div key={hoje || 'real'} className="flex flex-1 min-h-0">
         <div className="flex-1 min-w-0 overflow-auto">
           <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas compacto={!!aberta} />
-          <div className="p-4"><GanttView itens={lista} ctx={ctx} /></div>
+          <GanttView
+            itens={topo} filhosDe={filhosDe} ctx={{ ...ctx, nomePai: undefined }} relacoes={relacoes} avisar={showToast}
+            onCriarRelacao={async (de, para) => { setDados((d) => ({ ...d, relacoes: [...d.relacoes, { tarefa_id: de, relacionada_id: para, tipo: 'bloqueia' }] })); return {} }}
+            onApagarRelacao={async (de, para) => { setDados((d) => ({ ...d, relacoes: d.relacoes.filter((r) => !(r.tarefa_id === de && r.relacionada_id === para)) })); return {} }}
+          />
         </div>
         {aberta && (
           <aside className="shrink-0 w-[480px] border-l border-ln-line bg-ln-panel overflow-y-auto" aria-label="Detalhe da tarefa">

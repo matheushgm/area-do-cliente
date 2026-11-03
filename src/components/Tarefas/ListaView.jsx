@@ -242,7 +242,7 @@ function BotoesMover({ item, irmasDe, primeira, ultima, ctx }) {
 
 // ── Linha ─────────────────────────────────────────────────────────────────────
 
-function Celula({ k, item, ctx }) {
+export function Celula({ k, item, ctx }) {
   const { onAtualizar, onMudarStatus } = ctx
   const statuses = ctx.statusesDe?.(item) || ctx.statuses
   const propria = ctx.renderCelula?.(k, item)

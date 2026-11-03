@@ -954,6 +954,40 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   - **Calendário:** Mês ou Semana, sempre de domingo a sábado (igual aos grupos de vencimento da Lista e
     aos períodos "Esta semana"/"Próxima semana" dos filtros). Na Semana cada dia é uma coluna com todas as
     tarefas; no Mês, "+N mais" abre a semana do dia.
+  - **Gantt (2026-11-03, `@jaeungkim/gantt-chart` 1.7.0, MIT, versão fixa):** `GanttView.jsx`, carregado sob demanda pelo
+    `AreaTarefas` (chunk próprio de ~33 kB gzip). Arrastar move, as bordas mudam a duração, os pontos nas pontas ligam
+    duas tarefas (só Fim → Início = `bloqueia`, gravado em `tarefas_relacoes` + `agendarPush`; clicar na seta apaga), clique
+    abre o painel, Ctrl+roda ou os botões trocam a escala (Dia/Semana/Mês/Trimestre, em `localStorage['tarefas.gantt.escala']`),
+    encaixa em dia útil. Toda mudança de data vai pelo `ctx.onAtualizar`, então passa pela **cascata** (o diálogo "Mover N
+    tarefas") e pela outbox; enquanto o diálogo está aberto a tela mostra o gesto e, cancelado, a barra volta. Desfazer/Ctrl+Z
+    desfaz o último gesto do Gantt regravando as datas anteriores (a cascata pergunta de novo). Subtarefas ficam sob o pai,
+    cuja barra a biblioteca calcula pelas filhas (pai **sem datas próprias** com subtarefas datadas entra mesmo assim, como
+    resumo delas e travado, `allowMove: false`: sem datas no pai não há deslocamento para a cascata; as filhas movem; sem
+    isso ele sumia e as filhas apareciam soltas); mover o pai grava só o pai (a cascata leva as subtarefas abertas) e o
+    deslocamento da barra é aplicado às datas gravadas do pai, não à barra (`patchesDeDatas` em `src/lib/gantt.js`). Ordem
+    das linhas: seletor **"Ordenar por"** na barra do Gantt (Início, Vencimento, Manual), gravado no
+    `ordenar` da view do Gantt como rascunho (acende "Salvar visualização"); sem nada gravado, ou com outra ordenação = **Início**
+    (`campo: 'inicio'` em `ordenarPorCampo`: início da barra, ou o vencimento); **Manual** = `posicao`, a mesma das setas da
+    Lista. **Lista de tarefas à esquerda é nossa** (`GanttLista.jsx`; a biblioteca não tem colunas e roda com
+    `showTaskList={false}`, só com a linha do tempo): mesmas linhas e ordem (`sequence`, sem as filhas de quem está
+    recolhido), linha de 36 px, cabeçalho da altura do da biblioteca (`.gantt-header-wrapper`), e a rolagem vertical é a
+    da biblioteca (lida em captura no contêiner, porque o elemento que rola é interno dela; a roda sobre a lista rola lá).
+    **Colunas** pelo botão "Colunas" da barra, com o mesmo editor da Lista (`EditorColunas` com `catalogo`): `COLUNAS_GANTT`
+    em `viewsTarefas.js`, gravadas em `config.colunasGantt` da view (rascunho); padrão = Responsável, Início e Vencimento
+    (`OCULTAS_GANTT`). As células são as da Lista (`Celula`, exportada), editáveis, e o Gantt tem Início, Vencimento
+    (dd/mm) e Duração (dias úteis) próprias. Largura do Nome arrastável, local (`localStorage['tarefas.gantt.larguraNome']`).
+    **Barra:** à esquerda o que muda a lista (Ordenar por, Expandir/Recolher tudo, Colunas, contagem); à direita a linha do
+    tempo (Desfazer, Hoje, Ajustar, escala). **Arrastar uma linha** pela alça da lista grava `posicao` entre a de cima e a de baixo
+    (renumera se repetidas; não vai para o ClickUp; trocar de pai é recusado) e, vindo de Início/Vencimento, **congela a ordem
+    da tela** (renumera os grupos de irmãs fora da ordem manual) e passa a view para Manual. Desfazer volta as posições e a
+    ordenação anterior. **Recolher/expandir:** começa como o modo de subtarefas da view (Recolhidas, o padrão, mostra só
+    as de cima com a barra-resumo; Expandidas abre tudo); a seta de cada linha e o botão "Expandir tudo"/"Recolher tudo"
+    mudam só a tela (`collapsedIds` controlado), e trocar o modo na view recomeça. O agrupamento
+    da view é ignorado no Gantt. Em "Separar" as linhas ficam soltas e não arrastam. A biblioteca lê
+    'YYYY-MM-DD' como meia-noite UTC e o **fim é exclusivo** (um dia = D até D+1); a conversão mora em `src/lib/gantt.js`.
+    Sem login: `/dev/gantt` (só em DEV, fixture gitignored; `?fixture=boavida` = `tarefas-boavida.json`, pasta real da Boa
+    Vida Stays com as relações; `?x=N` multiplica) e o Gantt do `/dev/cascata`. Medido no `/dev/gantt?x=40` (2.120 linhas,
+    modo dev): soltar a barra leva ~1 s; numa pasta de cliente é imediato.
   - **Minhas tarefas:** o filtro de responsável da barra e da sidebar fica travado (é sempre você); o campo
     Responsáveis dos filtros avançados continua.
   - **Status por tarefa:** Minhas/Todas misturam listas; `ctx.statusesDe(item)` faz o seletor de status
