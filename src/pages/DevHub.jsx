@@ -54,7 +54,16 @@ const project = {
   ofertaData: { nome: 'Feirão' },
   roiResult: { ok: true },
   campaignPlan: { totalBudget: 4500, channels: [{ name: 'Meta Ads' }, { name: 'Google Ads' }] },
-  debriefing: { ads: [{ id: 1, nome: 'AD001', status: 'finalizado' }, { id: 2, nome: 'AD002', status: 'em_andamento' }, { id: 3, nome: 'AD003', status: 'para_subir' }] },
+  // Datas em semanas diferentes e uma pasta, pra Central mostrar os blocos Mês › Semana › Pasta.
+  debriefing: { ads: [
+    { id: 1, nome: 'AD001', status: 'finalizado', createdAt: '2026-10-06', url: 'https://drive.google.com/file/d/ad001' },
+    { id: 2, nome: 'AD002', status: 'em_andamento', createdAt: '2026-10-20', url: 'https://drive.google.com/file/d/ad002', pasta: 'Feirão' },
+    { id: 3, nome: 'AD003', status: 'para_subir', createdAt: '2026-10-21', url: 'https://drive.google.com/file/d/ad003', pasta: 'Feirão' },
+    { id: 4, nome: 'AD004', status: 'para_subir', createdAt: '2026-11-02', url: 'https://drive.google.com/file/d/ad004' },
+    { id: 5, nome: '03.11_VID_ROT01_FeiraoDeSabado', status: 'rascunho', createdAt: '2026-11-03', copy: 'Roteiro de exemplo.' },
+    { id: 6, nome: '03.11_VID_ROT02_ColchaoQueAfunda', status: 'rascunho', createdAt: '2026-11-03', copy: 'Roteiro de exemplo.' },
+    { id: 7, nome: '27.10_VID_ROT01_TrocaDoColchao', status: 'rascunho', createdAt: '2026-10-27', copy: 'Roteiro de exemplo.' },
+  ] },
   lpCentral: { lps: [{ id: 1, nome: 'LP Feirão', status: 'no_ar', url: 'https://lp.exemplo.com/feirao' }, { id: 2, nome: 'LP Poltrona', status: 'em_producao' }] },
   attachments: [{ id: 1, name: 'Contrato assinado.pdf' }, { id: 2, name: 'Logo.png' }],
   npsMarcos: [{ nome: '30 dias', respostas: [{ score: 9 }, { score: 8 }] }],

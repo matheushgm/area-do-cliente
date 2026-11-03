@@ -109,6 +109,40 @@ export function agruparPorMes(ads) {
     })
 }
 
+// ─── Semana do mês (blocos dentro do mês) ────────────────────────────────────
+// Semana de domingo a sábado, contada dentro do mês: a Semana 1 vai do dia 1 até
+// o primeiro sábado. É a semana do calendário do VertaTask, e a rotina de
+// roteiros do Escritório roda aos domingos, então cada leva cai numa semana só.
+export function semanaDoMes(iso) {
+  const [ano, mes, dia] = String(iso || '').slice(0, 10).split('-').map(Number)
+  if (!ano || !mes || !dia) return null
+  const recuo = new Date(ano, mes - 1, 1).getDay() // 0 = o mês começa num domingo
+  const diasNoMes = new Date(ano, mes, 0).getDate()
+  const n = Math.floor((dia - 1 + recuo) / 7) + 1
+  const dd = (d) => String(d).padStart(2, '0')
+  const mm = dd(mes)
+  const inicio = Math.max(1, (n - 1) * 7 + 1 - recuo)
+  const fim = Math.min(diasNoMes, n * 7 - recuo)
+  return {
+    chave: `${ano}-${mm}|s${n}`,
+    n,
+    periodo: inicio === fim ? `${dd(inicio)}/${mm}` : `${dd(inicio)}/${mm} a ${dd(fim)}/${mm}`,
+  }
+}
+
+// Agrupa os anúncios de UM mês por semana, da mais recente pra mais antiga.
+// Dentro da semana, mantém a ordem recebida.
+export function agruparPorSemana(ads) {
+  const porSemana = new Map()
+  for (const ad of ads || []) {
+    const s = semanaDoMes(dataDoAd(ad))
+    if (!s) continue
+    if (!porSemana.has(s.chave)) porSemana.set(s.chave, { ...s, rotulo: `Semana ${s.n}`, ads: [] })
+    porSemana.get(s.chave).ads.push(ad)
+  }
+  return [...porSemana.values()].sort((a, b) => b.n - a.n)
+}
+
 // ─── Pastas (organização dentro do mês) ──────────────────────────────────────
 // ad.pasta é só um nome (texto); a mesma pasta pode ter anúncios de vários meses.
 export function normalizarPasta(v) {

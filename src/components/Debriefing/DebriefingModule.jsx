@@ -16,7 +16,8 @@ import { arquivosDoAd, resumoArquivos, FORMATOS } from './arquivosCriativo'
 import { FUNNELS } from '../Kickoff/KickoffFunnelRecommendations'
 import {
   STATUS_OPTIONS, STATUS_BY_ID, RESULTADO_BY_ID, APROVACAO_BY_ID,
-  ETAPAS, etapaDoAd, dataDoAd, agruparPorMes, agruparPorPasta, pastasDoProjeto, normalizarPasta,
+  ETAPAS, etapaDoAd, dataDoAd, agruparPorMes, agruparPorSemana, semanaDoMes, agruparPorPasta,
+  pastasDoProjeto, normalizarPasta,
   fmtDateBR, fmtDateTimeBR, todayISO,
 } from './debriefingData'
 import { linkDaLeva } from '../../lib/copyLevas'
@@ -90,13 +91,25 @@ export default function DebriefingModule({ project }) {
     })
   }
 
-  // Pastas dentro do mês (ad.pasta). Nascem recolhidas; as que a pessoa abre
-  // ficam lembradas neste navegador, por projeto.
+  // Semanas dentro do mês (chave yyyy-mm|sN); todas nascem abertas.
+  const [semanasRecolhidas, setSemanasRecolhidas] = useState(() => new Set())
+  const semanaAtual = semanaDoMes(todayISO())?.chave
+  function alternarSemana(chave) {
+    setSemanasRecolhidas((prev) => {
+      const next = new Set(prev)
+      if (next.has(chave)) next.delete(chave)
+      else next.add(chave)
+      return next
+    })
+  }
+
+  // Pastas dentro da semana (ad.pasta). Nascem recolhidas; as que a pessoa abre
+  // ficam lembradas neste navegador, por projeto. A chave é semana|pasta
+  // ('sem-data|pasta' para quem não tem data).
   const chavePastasLS = `central.pastasAbertas.${project.id}`
   const [pastasAbertas, setPastasAbertas] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem(chavePastasLS) || '[]')) } catch { return new Set() }
   })
-  const chaveDaPasta = (grupo, pasta) => `${chaveDoMes(grupo)}|${pasta || ''}`
   function mudarPastasAbertas(fn) {
     setPastasAbertas((prev) => {
       const next = fn(new Set(prev))
@@ -115,7 +128,7 @@ export default function DebriefingModule({ project }) {
   function abrirPastasDe(lista) {
     const chaves = lista
       .filter((ad) => normalizarPasta(ad.pasta))
-      .map((ad) => `${dataDoAd(ad)?.slice(0, 7) || 'sem-data'}|${normalizarPasta(ad.pasta)}`)
+      .map((ad) => `${semanaDoMes(dataDoAd(ad))?.chave || 'sem-data'}|${normalizarPasta(ad.pasta)}`)
     if (chaves.length) mudarPastasAbertas((abertas) => { chaves.forEach((c) => abertas.add(c)); return abertas })
   }
   const pastas = useMemo(() => pastasDoProjeto(ads), [ads])
@@ -469,6 +482,125 @@ export default function DebriefingModule({ project }) {
     )
   }
 
+  // ▾ Semana 1  01/11 a 07/11  10 criativos, com as pastas da semana embaixo.
+  function renderSemana(sg) {
+    const aberta = !semanasRecolhidas.has(sg.chave)
+    const ids = sg.ads.map((a) => a.id)
+    const nSel = ids.filter((id) => selecionados.has(id)).length
+    return (
+      <Fragment key={sg.chave}>
+        <tr className="border-b border-rl-border/40">
+          <td className="pl-3 py-2 w-8">
+            <Caixa
+              marcada={nSel > 0 && nSel === ids.length}
+              parcial={nSel > 0 && nSel < ids.length}
+              onChange={() => selecionar(ids, nSel < ids.length)}
+              label={`Selecionar a ${sg.rotulo}`}
+            />
+          </td>
+          <td colSpan={10} className="py-1.5 pr-3">
+            <span className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => alternarSemana(sg.chave)}
+                aria-expanded={aberta}
+                aria-label={aberta ? `Recolher a ${sg.rotulo}` : `Expandir a ${sg.rotulo}`}
+                className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-rl-surface transition-all"
+              >
+                <ChevronDown className={`w-3.5 h-3.5 text-rl-muted transition-transform duration-150 ${aberta ? '' : '-rotate-90'}`} />
+                <span className={`text-xs font-semibold ${sg.chave === semanaAtual ? 'text-rl-purple' : 'text-rl-text'}`}>
+                  {sg.rotulo}
+                </span>
+                <span className="text-xs text-rl-subtle tabular-nums">{sg.periodo}</span>
+              </button>
+              <span className="text-xs text-rl-muted tabular-nums">
+                {sg.ads.length} {sg.ads.length === 1 ? 'criativo' : 'criativos'}
+              </span>
+            </span>
+          </td>
+        </tr>
+        {aberta && renderPastas(sg.ads, sg.chave, true)}
+      </Fragment>
+    )
+  }
+
+  // Pastas de um trecho (a semana, ou "Sem data"). Sem pasta nenhuma, as
+  // linhas ficam soltas. `escopo` entra na chave da pasta aberta.
+  function renderPastas(lista, escopo, dentroDaSemana = false) {
+    return agruparPorPasta(lista).map((pg, j, todas) => {
+      if (todas.length === 1 && !pg.pasta) return pg.ads.map(renderLinha)
+      const chaveP = `${escopo}|${pg.pasta || ''}`
+      const aberta = pastasAbertas.has(chaveP)
+      const idsP = pg.ads.map((a) => a.id)
+      const nSel = idsP.filter((id) => selecionados.has(id)).length
+      return (
+        <Fragment key={chaveP}>
+          <tr className="border-b border-rl-border/40 bg-rl-surface/30">
+            <td className="pl-3 py-2 w-8">
+              <Caixa
+                marcada={nSel > 0 && nSel === idsP.length}
+                parcial={nSel > 0 && nSel < idsP.length}
+                onChange={() => selecionar(idsP, nSel < idsP.length)}
+                label={`Selecionar a pasta ${pg.rotulo}`}
+              />
+            </td>
+            <td colSpan={10} className={`py-1.5 pr-3 ${dentroDaSemana ? 'pl-5' : ''}`}>
+              <span className="group/pasta flex items-center gap-2">
+                {renomeando?.chave === chaveP ? (
+                  <span className="flex items-center gap-2">
+                    <FolderOpen className="w-4 h-4 text-rl-purple shrink-0" />
+                    <input
+                      autoFocus
+                      value={renomeando.valor}
+                      onChange={(e) => setRenomeando({ ...renomeando, valor: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.currentTarget.blur()
+                        if (e.key === 'Escape') { e.stopPropagation(); cancelouRenomeio.current = true; setRenomeando(null) }
+                      }}
+                      onBlur={() => {
+                        if (cancelouRenomeio.current) { cancelouRenomeio.current = false; return }
+                        renomearPasta(pg.pasta, renomeando.valor)
+                      }}
+                      className="input-field text-xs py-1 px-2 w-64"
+                      maxLength={60}
+                    />
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => alternarPasta(chaveP)}
+                    aria-expanded={aberta}
+                    className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-rl-surface transition-all"
+                  >
+                    <ChevronDown className={`w-3.5 h-3.5 text-rl-muted transition-transform duration-150 ${aberta ? '' : '-rotate-90'}`} />
+                    {aberta
+                      ? <FolderOpen className="w-4 h-4 text-rl-purple shrink-0" />
+                      : <Folder className="w-4 h-4 text-rl-purple shrink-0" />}
+                    <span className={`text-[13px] font-semibold ${pg.pasta ? 'text-rl-text' : 'text-rl-muted italic'}`}>{pg.rotulo}</span>
+                  </button>
+                )}
+                <span className="text-xs text-rl-muted tabular-nums">
+                  {pg.ads.length} {pg.ads.length === 1 ? 'criativo' : 'criativos'}
+                </span>
+                {pg.pasta && renomeando?.chave !== chaveP && (
+                  <button
+                    type="button"
+                    onClick={() => { cancelouRenomeio.current = false; setRenomeando({ chave: chaveP, valor: pg.pasta }) }}
+                    className="p-1 rounded text-rl-muted opacity-0 group-hover/pasta:opacity-100 hover:text-rl-purple transition-all"
+                    title="Renomear pasta (vale pra todos os meses)"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                )}
+              </span>
+            </td>
+          </tr>
+          {aberta && pg.ads.map(renderLinha)}
+        </Fragment>
+      )
+    })
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -736,79 +868,9 @@ export default function DebriefingModule({ project }) {
                       <Th className="w-20"></Th>
                     </tr>
                   )}
-                  {!recolhidos.has(chaveDoMes(grupo)) && agruparPorPasta(grupo.ads).map((pg, j, todas) => {
-                    // Mês sem pasta nenhuma: as linhas ficam soltas, como antes.
-                    if (todas.length === 1 && !pg.pasta) return pg.ads.map(renderLinha)
-                    const chaveP = chaveDaPasta(grupo, pg.pasta)
-                    const aberta = pastasAbertas.has(chaveP)
-                    const idsP = pg.ads.map((a) => a.id)
-                    const nSel = idsP.filter((id) => selecionados.has(id)).length
-                    return (
-                      <Fragment key={chaveP}>
-                        <tr className="border-b border-rl-border/40 bg-rl-surface/30">
-                          <td className="pl-3 py-2 w-8">
-                            <Caixa
-                              marcada={nSel > 0 && nSel === idsP.length}
-                              parcial={nSel > 0 && nSel < idsP.length}
-                              onChange={() => selecionar(idsP, nSel < idsP.length)}
-                              label={`Selecionar a pasta ${pg.rotulo}`}
-                            />
-                          </td>
-                          <td colSpan={10} className="py-1.5 pr-3">
-                            <span className="group/pasta flex items-center gap-2">
-                              {renomeando?.chave === chaveP ? (
-                                <span className="flex items-center gap-2">
-                                  <FolderOpen className="w-4 h-4 text-rl-purple shrink-0" />
-                                  <input
-                                    autoFocus
-                                    value={renomeando.valor}
-                                    onChange={(e) => setRenomeando({ ...renomeando, valor: e.target.value })}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') e.currentTarget.blur()
-                                      if (e.key === 'Escape') { e.stopPropagation(); cancelouRenomeio.current = true; setRenomeando(null) }
-                                    }}
-                                    onBlur={() => {
-                                      if (cancelouRenomeio.current) { cancelouRenomeio.current = false; return }
-                                      renomearPasta(pg.pasta, renomeando.valor)
-                                    }}
-                                    className="input-field text-xs py-1 px-2 w-64"
-                                    maxLength={60}
-                                  />
-                                </span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => alternarPasta(chaveP)}
-                                  aria-expanded={aberta}
-                                  className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-rl-surface transition-all"
-                                >
-                                  <ChevronDown className={`w-3.5 h-3.5 text-rl-muted transition-transform duration-150 ${aberta ? '' : '-rotate-90'}`} />
-                                  {aberta
-                                    ? <FolderOpen className="w-4 h-4 text-rl-purple shrink-0" />
-                                    : <Folder className="w-4 h-4 text-rl-purple shrink-0" />}
-                                  <span className={`text-[13px] font-semibold ${pg.pasta ? 'text-rl-text' : 'text-rl-muted italic'}`}>{pg.rotulo}</span>
-                                </button>
-                              )}
-                              <span className="text-xs text-rl-muted tabular-nums">
-                                {pg.ads.length} {pg.ads.length === 1 ? 'criativo' : 'criativos'}
-                              </span>
-                              {pg.pasta && renomeando?.chave !== chaveP && (
-                                <button
-                                  type="button"
-                                  onClick={() => { cancelouRenomeio.current = false; setRenomeando({ chave: chaveP, valor: pg.pasta }) }}
-                                  className="p-1 rounded text-rl-muted opacity-0 group-hover/pasta:opacity-100 hover:text-rl-purple transition-all"
-                                  title="Renomear pasta (vale pra todos os meses)"
-                                >
-                                  <Pencil className="w-3 h-3" />
-                                </button>
-                              )}
-                            </span>
-                          </td>
-                        </tr>
-                        {aberta && pg.ads.map(renderLinha)}
-                      </Fragment>
-                    )
-                  })}
+                  {!recolhidos.has(chaveDoMes(grupo)) && (grupo.chave
+                    ? agruparPorSemana(grupo.ads).map(renderSemana)
+                    : renderPastas(grupo.ads, 'sem-data'))}
                 </tbody>
               ))}
             </table>
