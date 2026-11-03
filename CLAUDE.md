@@ -772,8 +772,12 @@ todo `authenticated`; as quatro estão na publicação realtime).
     pastas de Clientes na seção de sempre e os outros spaces em seções com o nome do space.
   - **Estrutura:** cria pastas/listas novas e ATUALIZA nome, ordem, arquivada, datas da lista
     (`data_inicio`/`data_vencimento`), statuses e o vínculo pasta→projeto quando ainda não
-    há; pastas e listas arquivadas no ClickUp ficam `arquivada=true` (listas arquivadas dentro
-    de pasta só na rodada `--completo`, é uma chamada por pasta).
+    há; pastas e listas arquivadas no ClickUp ficam `arquivada=true`. Desde 2026-11-03 toda
+    rodada (também a do botão) arquiva aqui a pasta/lista ligada ao ClickUp que não veio entre
+    as ativas de lá, sem chamada a mais: antes, lista arquivada dentro de pasta ativa só era
+    vista no `--completo` (uma chamada por pasta) e o webhook não recebe evento de lista. Pega
+    também a apagada ou movida para um space fora da sincronização; space que volta sem nada
+    é pulado. As tarefas dessas listas não são arquivadas.
   - **Tarefas:** alteradas desde `tarefas_sync.ultimo_inicio` - 15 min (ou todas em
     `--completo`), com subtarefas e fechadas. Pais que faltam são buscados um a um em rodadas
     até fechar a hierarquia; a gravação é por **profundidade** (pais antes dos filhos, também

@@ -6,7 +6,9 @@
 //
 // O que cobre, por space (padrão: Clientes, Operações e PROMPTS):
 //  * pastas e listas: cria as novas e atualiza nome, ordem, arquivada, datas
-//    da lista, statuses e o vínculo pasta→projeto (quando ainda não tem);
+//    da lista, statuses e o vínculo pasta→projeto (quando ainda não tem); a que
+//    está ativa aqui e não veio entre as ativas de lá é arquivada (arquivada ou
+//    apagada no ClickUp);
 //  * tarefas (com subtarefas e fechadas) alteradas desde `desde`, ou TODAS em
 //    `completo`; pais que faltam são buscados um a um, em rodadas, até a
 //    hierarquia fechar; a gravação vai por profundidade (pais antes dos filhos,
@@ -119,6 +121,11 @@ export async function sincronizar({
   // ── Estrutura: pastas e listas ───────────────────────────────────────────
   const CAMPOS_PASTA = ['nome', 'posicao', 'arquivada', 'clickup_space_id', 'espaco']
   const CAMPOS_LISTA = ['pasta_id', 'nome', 'descricao', 'posicao', 'arquivada', 'data_inicio', 'data_vencimento', 'clickup_space_id']
+  // ids que o ClickUp devolveu como ATIVOS nesta rodada, em todos os spaces (lista movida de
+  // space aparece no outro); usados depois para achar o que foi arquivado lá
+  const pastasAtivasCu = new Set()
+  const listasAtivasCu = new Set()
+  const spacesLidos = new Set()
   for (const sid of spacesOk) {
     const espaco = nomeSpace.get(sid)
     const [ativas, arquivadas, soltas, soltasArq] = await Promise.all([
@@ -158,6 +165,10 @@ export async function sincronizar({
       }
     }
     const todasListas = [...soltas.map((l) => ({ ...l, _folder: null })), ...soltasArq.map((l) => ({ ...l, _folder: null, archived: true })), ...listasDePasta]
+    for (const f of ativas) pastasAtivasCu.add(String(f.id))
+    for (const l of todasListas) if (!l.archived) listasAtivasCu.add(String(l.id))
+    // space que voltou vazio (resposta estranha, permissão) não serve de base para arquivar nada
+    if (ativas.length || soltas.length) spacesLidos.add(sid)
     for (const l of todasListas) {
       const pasta = l._folder ? pastaPorCu.get(l._folder) : null
       const row = mapLista(l, { pastaId: pasta?.id || null, spaceId: sid })
@@ -179,6 +190,25 @@ export async function sincronizar({
       }
     }
     log(`space ${espaco}: ${folders.length} pastas, ${todasListas.length} listas`)
+  }
+
+  // Arquivada no ClickUp = ativa aqui que não veio entre as ativas de lá. O ClickUp não devolve as
+  // listas arquivadas de uma pasta ativa sem uma chamada por pasta (/folder/{id}/list?archived=true,
+  // só no --completo), e o webhook não recebe evento de lista; até 03/11/2026 essas listas ficavam
+  // ativas aqui. Sem chamada a mais: a lista de ativas já foi lida acima. Vale também para lista
+  // apagada ou movida para um space fora da sincronização. Só linhas ligadas ao ClickUp.
+  const sumiram = (rows, ativasCu, cuId) => (rows || []).filter((r) => r[cuId] && !r.arquivada && spacesLidos.has(String(r.clickup_space_id)) && !ativasCu.has(String(r[cuId])))
+  for (const [tabela, rows, ativasCu, cuId, chave] of [
+    ['tarefas_pastas', [...pastaPorCu.values()], pastasAtivasCu, 'clickup_folder_id', 'pastas_arquivadas'],
+    ['tarefas_listas', [...listaPorCu.values()], listasAtivasCu, 'clickup_list_id', 'listas_arquivadas'],
+  ]) {
+    const alvo = sumiram(rows, ativasCu, cuId)
+    if (!alvo.length) continue
+    const { error } = await sb.from(tabela).update({ arquivada: true }).in('id', alvo.map((r) => r.id))
+    if (error) { aviso(`${tabela}: arquivar ${alvo.length} que sumiram do ClickUp: ${error.message}`); continue }
+    for (const r of alvo) r.arquivada = true
+    resumo[chave] = alvo.length
+    log(`${tabela}: ${alvo.length} arquivada(s) no ClickUp: ${alvo.map((r) => r.nome).slice(0, 20).join(', ')}`)
   }
 
   // ── Tarefas ──────────────────────────────────────────────────────────────
