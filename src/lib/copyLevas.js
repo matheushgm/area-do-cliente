@@ -120,7 +120,11 @@ export function garantirAdsDaGeracao(project, creative) {
 // Monta a leva + marca os anúncios escolhidos como "copy pendente com o cliente".
 // Devolve o patch pronto pro updateProject (as duas colunas de uma vez, pra não
 // disparar duas escritas concorrentes no mesmo projeto).
-export function montarEnvioDeLeva({ project, ads, nome, creative = null, adsExtras = [] }) {
+//
+// `revisaoInterna` (levas da Central de anúncios): antes do cliente, alguém do
+// time aprova cada texto no link de revisão (/revisao-copy/<token>). O anúncio
+// fica em `copyAprovacao.status = 'revisao'` e o cliente só vê o que foi liberado.
+export function montarEnvioDeLeva({ project, ads, nome, creative = null, adsExtras = [], revisaoInterna = false }) {
   const now = new Date().toISOString()
   const leva = {
     id:         crypto.randomUUID(),
@@ -133,12 +137,16 @@ export function montarEnvioDeLeva({ project, ads, nome, creative = null, adsExtr
     nivelLabel: creative?.nivelLabel || null,
     criadoEm:   now,
     enviadoEm:  now,
+    ...(revisaoInterna ? { revisaoInterna: true, origem: 'central' } : {}),
     itens: ads.map((ad) => ({
       id:        crypto.randomUUID(),
       adId:      ad.id,
       titulo:    ad.nome,
       conteudo:  ad.copy || '',
       aprovacao: { status: 'pendente', motivo: null, sugestao: null, decididoEm: null },
+      ...(revisaoInterna
+        ? { revisao: { status: 'pendente', motivo: null, sugestao: null, decididoEm: null, por: null } }
+        : {}),
     })),
   }
 
@@ -167,7 +175,8 @@ export function montarEnvioDeLeva({ project, ads, nome, creative = null, adsExtr
             status: (atual.url || atual.attachmentPath) ? atual.status : DRAFT_STATUS,
             updatedAt: now,
             copyAprovacao: {
-              status:     'pendente',
+              status:     revisaoInterna ? 'revisao' : 'pendente',
+              etapa:      revisaoInterna ? 'interna' : 'cliente',
               motivo:     null,
               sugestao:   null,
               enviadoEm:  now,
@@ -185,4 +194,39 @@ export function montarEnvioDeLeva({ project, ads, nome, creative = null, adsExtr
 
 export function linkDaLeva(token) {
   return `${window.location.origin}/aprovacao-copy/${token}`
+}
+
+// Link da revisão interna (o time aprova antes do cliente; exige login).
+export function linkDaRevisao(token) {
+  return `${window.location.origin}/revisao-copy/${token}`
+}
+
+// A copy está numa leva esperando alguém: o time (revisão) ou o cliente.
+export function copyEmLeva(ad) {
+  const st = ad?.copyAprovacao?.status
+  return st === 'revisao' || st === 'pendente'
+}
+
+// Copy da Central que pode ir pra uma leva nova: tem texto, ainda não tem peça,
+// não está esperando ninguém e o cliente ainda não aprovou.
+export function podeIrPraRevisao(ad) {
+  if (!ad || !String(ad.copy || '').trim()) return false
+  if ((ad.url || '').trim() || ad.attachmentPath) return false
+  if (copyEmLeva(ad)) return false
+  return ad.copyAprovacao?.status !== 'aprovado'
+}
+
+// Conta os itens da leva por situação, com a revisão interna na frente.
+export function resumoDaLeva(leva) {
+  const acc = { revisao: 0, reprovadoInterno: 0, comCliente: 0, aprovado: 0, reprovado: 0 }
+  for (const it of leva?.itens || []) {
+    const rev = leva.revisaoInterna ? (it.revisao?.status || 'pendente') : 'aprovado'
+    const cli = it.aprovacao?.status || 'pendente'
+    if (rev === 'pendente') acc.revisao += 1
+    else if (rev === 'reprovado') acc.reprovadoInterno += 1
+    else if (cli === 'aprovado') acc.aprovado += 1
+    else if (cli === 'reprovado') acc.reprovado += 1
+    else acc.comCliente += 1
+  }
+  return acc
 }

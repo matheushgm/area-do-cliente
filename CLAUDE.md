@@ -284,6 +284,19 @@ objetos vive em `src/lib/copyLevas.js` (única fonte da verdade). Fluxo:
 4. Aprovado → anúncio em `aprovado_edicao` (fila do designer). Reprovado → volta a
    `rascunho` com motivo/sugestão à vista. Reenvio reaproveita o mesmo anúncio; copy já
    aprovada nunca é reescrita pelo reenvio.
+5. **Revisão interna (levas da Central, 2026-11-03):** na aba "Ads para aprovação" da Central, as
+   copies sem peça vão numa leva com `revisaoInterna: true` (botão da semana, "Enviar" da linha,
+   seleção ou "Link de aprovação"; modal `CentralAprovacaoModal`). Antes do cliente, alguém do time
+   decide cada texto em `/revisao-copy/:token` (mesmo token da leva, `RequireAuth`; a página é a
+   `AprovacaoCopyPublico` com `modo="interno"` e a API exige JWT de perfil ativo em `profiles`).
+   Aprovar libera no link do cliente (o anúncio passa de `copyAprovacao.status = 'revisao'` para
+   `'pendente'`, com `revisao.por`); editar e liberar troca o texto antes de o cliente ver
+   (`copyAntesDaRevisao`); reprovar pede só o motivo e deixa `'reprovado_interno'`, que pode ir numa
+   leva nova. O GET do cliente só devolve itens com `revisao.status = 'aprovado'` (mais `emRevisao`
+   para o aviso) e o POST dele recusa o resto com 403. Levas sem `revisaoInterna` (as antigas e as do
+   Criativos com IA) continuam indo direto pro cliente. Na aba de aprovação o "Enviar" não manda mais
+   copy sem peça pro `/aprovacao/:token`. Helpers em `copyLevas.js`: `podeIrPraRevisao`,
+   `copyEmLeva`, `resumoDaLeva`, `linkDaRevisao`.
 
 Não confundir com `/aprovacao/:token` (`api/anuncios-aprovacao.js`): lá o cliente aprova a
 **peça pronta** e landing pages, usando o `client_share_token` do projeto.

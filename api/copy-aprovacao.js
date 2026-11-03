@@ -1,4 +1,4 @@
-import { NO_STORE, jsonCors, preflight, sb } from './_http.js'
+import { NO_STORE, jsonCors, preflight, sb, getUser } from './_http.js'
 import { registrarIntake } from './_intake.js'
 // Edge Function pública — APROVAÇÃO DE COPY (leva de Criativos com IA).
 //
@@ -18,6 +18,13 @@ import { registrarIntake } from './_intake.js'
 // a copy do item e do anúncio; o original fica em `conteudoOriginal` (item) e
 // `copyAprovacao.copyOriginal` (anúncio), e `aprovacao.editado = true` marca
 // pro time que o cliente mexeu.
+//
+// REVISÃO INTERNA (levas com `revisaoInterna`, criadas na Central de anúncios):
+// antes do cliente, alguém do time aprova cada texto no link /revisao-copy/:token
+// (mesmo token, exige login). O cliente só enxerga, e só pode decidir, o que já
+// foi aprovado na revisão (`item.revisao.status === 'aprovado'`).
+//   GET  ?token=UUID&etapa=interna (Bearer) → a leva inteira com a revisão
+//   POST { token, itemId, decision, motivo, sugestao, conteudo, etapa: 'interna' } (Bearer)
 export const config = { runtime: 'edge' }
 
 const SUPABASE_URL = process.env.SUPABASE_URL
@@ -62,7 +69,21 @@ function sanitizeAprovacao(a) {
   }
 }
 
-function sanitizeLeva(leva, companyName) {
+// Leva sem revisão interna (as antigas e as do Criativos com IA): tudo liberado.
+const liberadoPraCliente = (leva, it) => !leva.revisaoInterna || it?.revisao?.status === 'aprovado'
+
+function sanitizeRevisao(r) {
+  return {
+    ...sanitizeAprovacao(r),
+    por: r?.por ? { id: str(r.por.id, 60), nome: str(r.por.nome, 120) } : null,
+  }
+}
+
+// `interno` = visão do time no link de revisão: todos os itens, com a decisão da
+// revisão em `aprovacao` (é o que a tela decide) e a do cliente em `cliente`.
+function sanitizeLeva(leva, companyName, { interno = false } = {}) {
+  const itens = (leva.itens || []).slice(0, 60)
+  const visiveis = interno ? itens : itens.filter((it) => liberadoPraCliente(leva, it))
   return {
     companyName,
     id:         str(leva.id, 60),
@@ -71,14 +92,34 @@ function sanitizeLeva(leva, companyName) {
     funilLabel: str(leva.funilLabel, 80) || null,
     nivelLabel: str(leva.nivelLabel, 80) || null,
     enviadoEm:  str(leva.enviadoEm || leva.criadoEm, 40) || null,
-    itens: (leva.itens || []).slice(0, 60).map((it) => ({
+    revisaoInterna: leva.revisaoInterna === true,
+    // Pro cliente: ainda há texto na revisão do time (a página avisa).
+    emRevisao: !interno && leva.revisaoInterna === true
+      && itens.some((it) => (it?.revisao?.status || 'pendente') === 'pendente'),
+    itens: visiveis.map((it) => ({
       id:        str(it.id, 60),
       titulo:    str(it.titulo, 200) || 'Criativo',
       conteudo:  str(it.conteudo, 20000),
       conteudoOriginal: it.conteudoOriginal ? str(it.conteudoOriginal, 20000) : null,
-      aprovacao: sanitizeAprovacao(it.aprovacao),
+      ...(interno
+        ? {
+            aprovacao: sanitizeRevisao(it.revisao),
+            cliente:   sanitizeAprovacao(it.aprovacao),
+            conteudoAntesDaRevisao: it.conteudoAntesDaRevisao ? str(it.conteudoAntesDaRevisao, 20000) : null,
+          }
+        : { aprovacao: sanitizeAprovacao(it.aprovacao) }),
     })),
   }
+}
+
+// Link de revisão: só quem é do time (perfil ativo em `profiles`).
+async function membroDoTime(req) {
+  const auth = await getUser(req)
+  if (!auth.ok || !auth.user?.id) return { erro: auth.message || 'Faça login.', status: 401 }
+  const { data } = await sb(`/profiles?id=eq.${encodeURIComponent(auth.user.id)}&select=id,name,disabled`)
+  const perfil = Array.isArray(data) ? data[0] : null
+  if (!perfil || perfil.disabled) return { erro: 'Só o time da Verta revisa estes textos.', status: 403 }
+  return { pessoa: { id: perfil.id, nome: perfil.name || auth.user.email || 'Time' } }
 }
 
 // Decisão do cliente gravada no anúncio que já existe na Central (o rascunho
@@ -93,6 +134,7 @@ function aplicarDecisaoNoAd(ad, { decision, motivo, sugestao, now, leva, edicao 
     ...(edicao ? { copy: edicao.texto } : {}),
     copyAprovacao: {
       status:     decision,
+      etapa:      'cliente',
       motivo:     decision === 'reprovado' ? motivo   : null,
       sugestao:   decision === 'reprovado' ? sugestao : null,
       enviadoEm:  ad?.copyAprovacao?.enviadoEm || null,
@@ -102,7 +144,37 @@ function aplicarDecisaoNoAd(ad, { decision, motivo, sugestao, now, leva, edicao 
       token:      str(leva.token, 60),
       editado:      !!edicao,
       copyOriginal: edicao ? (ad?.copy || edicao.original) : null,
+      // Quem liberou na revisão interna continua registrado.
+      revisao:    ad?.copyAprovacao?.revisao || null,
+      copyAntesDaRevisao: ad?.copyAprovacao?.copyAntesDaRevisao || null,
     },
+  }
+}
+
+// Decisão da revisão interna no anúncio da Central. Aprovado = liberado pro
+// cliente (a copy passa a aparecer no link dele); reprovado = fica com o time,
+// com o motivo à vista, e pode ir numa leva nova depois de corrigido.
+function aplicarRevisaoNoAd(ad, { decision, motivo, sugestao, now, leva, edicao, pessoa }) {
+  const base = {
+    levaId:   str(leva.id, 60),
+    levaNome: str(leva.nome, 160),
+    token:    str(leva.token, 60),
+    revisao:  { por: pessoa, decididoEm: now, editado: !!edicao },
+  }
+  return {
+    ...ad,
+    updatedAt: now,
+    ...(edicao ? { copy: edicao.texto } : {}),
+    copyAprovacao: decision === 'aprovado'
+      ? {
+          ...base, status: 'pendente', etapa: 'cliente', motivo: null, sugestao: null,
+          enviadoEm: now, decididoEm: null,
+          copyAntesDaRevisao: edicao ? (ad?.copy || edicao.original) : null,
+        }
+      : {
+          ...base, status: 'reprovado_interno', etapa: 'interna', motivo, sugestao: sugestao || null,
+          enviadoEm: ad?.copyAprovacao?.enviadoEm || null, decididoEm: now,
+        },
   }
 }
 
@@ -164,16 +236,32 @@ export default async function handler(req) {
 
   // ── GET: a leva que o cliente vai avaliar ───────────────────────────────────
   if (req.method === 'GET') {
-    const token = new URL(req.url).searchParams.get('token')
-    const found = await findLeva(str(token, 60))
+    const qs = new URL(req.url).searchParams
+    const interno = qs.get('etapa') === 'interna'
+    if (interno) {
+      const m = await membroDoTime(req)
+      if (m.erro) return json({ error: m.erro }, m.status)
+    }
+    const found = await findLeva(str(qs.get('token'), 60))
     if (!found) return json({ error: 'Link inválido ou expirado.' }, 404)
-    return json(sanitizeLeva(found.leva, found.project.company_name || ''))
+    if (interno && !found.leva.revisaoInterna) {
+      return json({ error: 'Esta leva foi direto pro cliente, sem revisão interna.' }, 409)
+    }
+    return json(sanitizeLeva(found.leva, found.project.company_name || '', { interno }))
   }
 
   // ── POST: decisão do cliente sobre uma copy ─────────────────────────────────
   if (req.method === 'POST') {
     let body
     try { body = await req.json() } catch { return json({ error: 'JSON inválido.' }, 400) }
+
+    const interno = body?.etapa === 'interna'
+    let pessoa = null
+    if (interno) {
+      const m = await membroDoTime(req)
+      if (m.erro) return json({ error: m.erro }, m.status)
+      pessoa = m.pessoa
+    }
 
     const token = str(body?.token, 60)
     const found = await findLeva(token)
@@ -188,14 +276,27 @@ export default async function handler(req) {
     if (!itemId || !['aprovado', 'reprovado'].includes(decision)) {
       return json({ error: 'Decisão inválida.' }, 400)
     }
-    if (decision === 'reprovado' && (!motivo || !sugestao)) {
-      return json({ error: 'Pra reprovar, preencha o motivo e como deveria estar.' }, 400)
+    // Na revisão interna basta o motivo; o cliente diz também como deveria estar.
+    if (decision === 'reprovado' && (!motivo || (!interno && !sugestao))) {
+      return json({
+        error: interno ? 'Pra reprovar, diga o motivo.' : 'Pra reprovar, preencha o motivo e como deveria estar.',
+      }, 400)
     }
 
     const item = (leva.itens || []).find((it) => it?.id === itemId)
     if (!item) return json({ error: 'Criativo não encontrado nesta leva.' }, 404)
-    if ((item.aprovacao?.status || 'pendente') !== 'pendente') {
-      return json({ error: 'Essa copy já foi avaliada.' }, 409)
+    if (interno) {
+      if (!leva.revisaoInterna) return json({ error: 'Esta leva foi direto pro cliente, sem revisão interna.' }, 409)
+      if ((item.revisao?.status || 'pendente') !== 'pendente') {
+        return json({ error: 'Esse texto já foi revisado.' }, 409)
+      }
+    } else {
+      if (!liberadoPraCliente(leva, item)) {
+        return json({ error: 'Esse texto ainda está em revisão pela equipe.' }, 403)
+      }
+      if ((item.aprovacao?.status || 'pendente') !== 'pendente') {
+        return json({ error: 'Essa copy já foi avaliada.' }, 409)
+      }
     }
 
     const now = new Date().toISOString()
@@ -209,6 +310,49 @@ export default async function handler(req) {
       const original = str(item.conteudo, 20000)
       if (!texto) return json({ error: 'O texto editado não pode ficar vazio.' }, 400)
       if (texto !== original) edicao = { texto, original }
+    }
+
+    // ── Revisão interna: grava no item e no anúncio, sem intake (é o próprio time) ─
+    if (interno) {
+      const debriefing = project.debriefing || {}
+      const adsAtuais  = Array.isArray(debriefing.ads) ? debriefing.ads : []
+      const store = project.copy_aprovacoes || {}
+      const patch = {
+        copy_aprovacoes: {
+          ...store,
+          levas: (store.levas || []).map((l) => (l?.id !== leva.id ? l : {
+            ...l,
+            atualizadoEm: now,
+            itens: (l.itens || []).map((it) => (it?.id !== itemId ? it : {
+              ...it,
+              // Editado na revisão: o cliente recebe o texto já ajustado.
+              ...(edicao ? { conteudo: edicao.texto, conteudoAntesDaRevisao: edicao.original } : {}),
+              revisao: {
+                status:     decision,
+                motivo:     decision === 'reprovado' ? motivo : null,
+                sugestao:   decision === 'reprovado' ? (sugestao || null) : null,
+                decididoEm: now,
+                editado:    !!edicao,
+                por:        pessoa,
+              },
+            })),
+          })),
+        },
+      }
+      if (item.adId && adsAtuais.some((a) => a?.id === item.adId)) {
+        patch.debriefing = {
+          ...debriefing,
+          ads: adsAtuais.map((a) => (a?.id !== item.adId
+            ? a
+            : aplicarRevisaoNoAd(a, { decision, motivo, sugestao, now, leva, edicao, pessoa }))),
+        }
+      }
+      const { status } = await sb(
+        `/projects_v2?id=eq.${encodeURIComponent(project.id)}`,
+        { method: 'PATCH', body: JSON.stringify(patch), headers: { Prefer: 'return=minimal' } }
+      )
+      if (status >= 400) return json({ error: 'Erro ao salvar a revisão.' }, 500)
+      return json({ success: true })
     }
 
     // O normal é o anúncio já existir na Central (rascunho criado junto com a

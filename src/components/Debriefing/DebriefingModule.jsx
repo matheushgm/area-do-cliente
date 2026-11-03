@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Megaphone, Plus, Pencil, Trash2, ExternalLink, Video, Image as ImageIcon, Layers,
   Filter, X, Clock, Play, CheckCircle2, Paperclip, FlaskConical, Link2, Send, Palette,
-  FileText, ChevronDown, Folder, FolderOpen,
+  FileText, ChevronDown, Folder, FolderOpen, ShieldCheck,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useToast } from '../../hooks/useToast'
@@ -20,7 +20,8 @@ import {
   pastasDoProjeto, normalizarPasta,
   fmtDateBR, fmtDateTimeBR, todayISO,
 } from './debriefingData'
-import { linkDaLeva } from '../../lib/copyLevas'
+import { linkDaLeva, linkDaRevisao, podeIrPraRevisao } from '../../lib/copyLevas'
+import CentralAprovacaoModal from './CentralAprovacaoModal'
 
 const ATTACHMENT_BUCKET = 'attachments'
 
@@ -42,6 +43,8 @@ export default function DebriefingModule({ project }) {
   const [editingAd, setEditingAd] = useState(null) // ad obj | {} | null
   const [showTest, setShowTest] = useState(false)  // modal "Subir teste no Meta"
   const [showGrupo, setShowGrupo] = useState(false) // modal "Grupo de anúncios"
+  // Modal "Aprovação de copy" (revisão do time e depois o cliente): ids que já vêm marcados.
+  const [aprovacaoCopy, setAprovacaoCopy] = useState(null)
   const [menuNovo, setMenuNovo] = useState(false)   // dropdown do "Novo anúncio"
   const [verArquivos, setVerArquivos] = useState(null) // { anexos, indice } na pré-visualização
   const [filterTipo,    setFilterTipo]    = useState('')
@@ -340,6 +343,8 @@ export default function DebriefingModule({ project }) {
             ad={ad}
             mostrarCopy={isAprovacao}
             onEnviar={() => {
+              // Só copy (sem peça): passa pela revisão do time antes do cliente.
+              if (isAprovacao) { setAprovacaoCopy({ ids: [ad.id] }); return }
               updateAd(ad.id, { aprovacao: { status: 'pendente', enviadoEm: new Date().toISOString() } })
               showToast('Anúncio enviado pra aprovação do cliente!')
             }}
@@ -414,11 +419,28 @@ export default function DebriefingModule({ project }) {
         </Td>
         <Td>
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Na aba de aprovação, o link útil é o que o cliente
-                recebeu: a leva da copy ou a página da peça. */}
+            {/* Na aba de aprovação, o link útil é o da etapa em que a copy
+                está: a revisão do time ou a leva que o cliente recebeu. */}
+            {isAprovacao && ad.copyAprovacao?.status === 'revisao' && ad.copyAprovacao?.token && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  copiarLink(linkDaRevisao(ad.copyAprovacao.token))
+                  showToast('Link da revisão interna copiado!')
+                }}
+                className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
+                title={`Copiar o link da revisão interna da leva "${ad.copyAprovacao.levaNome || ''}"`}
+              >
+                <Link2 className="w-3 h-3" /> Link interno
+              </button>
+            )}
             {isAprovacao && ad.copyAprovacao?.status === 'pendente' && ad.copyAprovacao?.token && (
               <button
-                onClick={(e) => { e.stopPropagation(); copiarLink(linkDaLeva(ad.copyAprovacao.token)) }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  copiarLink(linkDaLeva(ad.copyAprovacao.token))
+                  showToast('Link do cliente copiado!')
+                }}
                 className="inline-flex items-center gap-1 text-xs text-rl-purple font-semibold hover:underline"
                 title={`Copiar o link da leva "${ad.copyAprovacao.levaNome || ''}"`}
               >
@@ -487,6 +509,8 @@ export default function DebriefingModule({ project }) {
     const aberta = !semanasRecolhidas.has(sg.chave)
     const ids = sg.ads.map((a) => a.id)
     const nSel = ids.filter((id) => selecionados.has(id)).length
+    // Copies da semana que ainda não foram pra revisão (aba de aprovação).
+    const livres = isAprovacao ? sg.ads.filter(podeIrPraRevisao) : []
     return (
       <Fragment key={sg.chave}>
         <tr className="border-b border-rl-border/40">
@@ -516,6 +540,16 @@ export default function DebriefingModule({ project }) {
               <span className="text-xs text-rl-muted tabular-nums">
                 {sg.ads.length} {sg.ads.length === 1 ? 'criativo' : 'criativos'}
               </span>
+              {livres.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setAprovacaoCopy({ ids: livres.map((a) => a.id) })}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/10 transition-all"
+                  title="Cria uma leva: o time revisa primeiro e o cliente só recebe o que for aprovado"
+                >
+                  <ShieldCheck className="w-3 h-3" /> Enviar {livres.length} pra aprovação
+                </button>
+              )}
             </span>
           </td>
         </tr>
@@ -715,10 +749,14 @@ export default function DebriefingModule({ project }) {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {/* Na aba de aprovação o que existe é copy: o link passa pela revisão
+              do time. Peça pronta continua no link de sempre do cliente. */}
           <button
-            onClick={handleShareAprovacao}
+            onClick={isAprovacao ? () => setAprovacaoCopy({ ids: selecionadosVisiveis.map((ad) => ad.id) }) : handleShareAprovacao}
             className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border border-rl-border text-rl-subtle hover:text-rl-purple hover:border-rl-purple/40 transition-all"
-            title="Copiar o link em que o cliente aprova ou reprova os criativos"
+            title={isAprovacao
+              ? 'Levas de copy: o time revisa no link interno e o cliente só recebe o que for aprovado'
+              : 'Copiar o link em que o cliente aprova ou reprova os criativos'}
           >
             <Link2 className="w-4 h-4" /> Link de aprovação
           </button>
@@ -791,6 +829,15 @@ export default function DebriefingModule({ project }) {
               className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-rl-border text-rl-subtle hover:text-rl-text transition-all"
             >
               Tirar da pasta
+            </button>
+          )}
+          {isAprovacao && selecionadosVisiveis.some(podeIrPraRevisao) && (
+            <button
+              onClick={() => setAprovacaoCopy({ ids: selecionadosVisiveis.filter(podeIrPraRevisao).map((ad) => ad.id) })}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-rl-purple/40 text-rl-purple hover:bg-rl-purple/10 transition-all"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Enviar {selecionadosVisiveis.filter(podeIrPraRevisao).length} pra aprovação
             </button>
           )}
           <button
@@ -891,6 +938,15 @@ export default function DebriefingModule({ project }) {
         />
       )}
 
+      {aprovacaoCopy && (
+        <CentralAprovacaoModal
+          project={project}
+          preselecionados={aprovacaoCopy.ids}
+          onClose={() => { setAprovacaoCopy(null); setSelecionados(new Set()) }}
+          onToast={showToast}
+        />
+      )}
+
       {showTest && (
         <CreativeTestModal
           project={project}
@@ -965,6 +1021,9 @@ function MenuItem({ Icon, titulo, texto, onClick }) {
 // anúncio ainda não foi mandado pro link público de aprovação. Na aba de
 // aprovação também mostra quando quem está com o cliente é a COPY, não a peça.
 const COPY_BADGE = {
+  // Revisão interna (levas da Central): o time aprova antes do cliente ver.
+  revisao:   { label: 'Em revisão interna', cls: 'border-rl-purple/30 bg-rl-purple/10 text-rl-purple' },
+  reprovado_interno: { label: 'Reprovada na revisão', cls: 'border-red-500/30 bg-red-500/10 text-red-500' },
   pendente:  { label: 'Copy com o cliente', cls: 'border-rl-gold/30 bg-rl-gold/10 text-rl-gold' },
   aprovado:  { label: 'Copy aprovada',      cls: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500' },
   // O cliente ajustou o texto antes de aprovar: a copy do anúncio já é a dele.
@@ -981,27 +1040,49 @@ function AprovacaoCell({ ad, onEnviar, mostrarCopy = false }) {
   const copyKey = st === 'aprovado' && ad.copyAprovacao?.editado ? 'aprovado_editado' : st
   const copyBadge = mostrarCopy ? COPY_BADGE[copyKey] : null
   if (copyBadge) {
-    const marcoCopy = st === 'pendente' ? ad.copyAprovacao.enviadoEm : ad.copyAprovacao.decididoEm
-    const tooltip = st === 'reprovado'
-      ? `Motivo: ${ad.copyAprovacao.motivo || '—'}\nComo deveria estar: ${ad.copyAprovacao.sugestao || '—'}`
+    const esperando = st === 'pendente' || st === 'revisao'
+    const marcoCopy = esperando ? ad.copyAprovacao.enviadoEm : ad.copyAprovacao.decididoEm
+    const revisor = ad.copyAprovacao.revisao?.por?.nome
+    const tooltip = st === 'reprovado' || st === 'reprovado_interno'
+      ? [
+          st === 'reprovado_interno' && revisor ? `Reprovada por ${revisor}` : null,
+          `Motivo: ${ad.copyAprovacao.motivo || '—'}`,
+          `Como deveria estar: ${ad.copyAprovacao.sugestao || '—'}`,
+        ].filter(Boolean).join('\n')
       : copyKey === 'aprovado_editado'
         ? 'O cliente ajustou o texto antes de aprovar. Abra o anúncio pra ver a versão dele e o original.'
-        : undefined
+        : st === 'pendente' && revisor
+          ? `Liberada pro cliente por ${revisor}`
+          : undefined
     return (
       <div className="flex flex-col items-start gap-0.5">
         <span
           className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${copyBadge.cls}`}
           title={tooltip}
         >
-          <FileText className="w-3 h-3" /> {copyBadge.label}
+          {st === 'revisao' ? <ShieldCheck className="w-3 h-3" /> : <FileText className="w-3 h-3" />} {copyBadge.label}
         </span>
         {marcoCopy && (
           <span className="text-[9px] text-rl-muted whitespace-nowrap">
-            {st === 'pendente' ? 'desde ' : ''}{fmtDateTimeBR(marcoCopy)}
+            {esperando ? 'desde ' : ''}{fmtDateTimeBR(marcoCopy)}
           </span>
+        )}
+        {/* Reprovada (pelo time ou pelo cliente): dá pra mandar de novo depois de corrigir. */}
+        {(st === 'reprovado' || st === 'reprovado_interno') && ad.copy && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onEnviar() }}
+            className="text-[9px] font-semibold text-rl-purple hover:underline"
+          >
+            Enviar de novo
+          </button>
         )}
       </div>
     )
+  }
+
+  // Aba de aprovação sem texto: não há o que aprovar ainda.
+  if (mostrarCopy && !info && !String(ad.copy || '').trim()) {
+    return <span className="text-[10px] text-rl-muted italic" title="Escreva a copy no anúncio pra mandar pra aprovação">sem copy</span>
   }
 
   if (!info) {
@@ -1009,7 +1090,9 @@ function AprovacaoCell({ ad, onEnviar, mostrarCopy = false }) {
       <button
         onClick={(e) => { e.stopPropagation(); onEnviar() }}
         className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all whitespace-nowrap"
-        title="Enviar esse criativo pro cliente aprovar"
+        title={mostrarCopy
+          ? 'Mandar a copy pra revisão do time; o cliente só recebe depois que alguém aprovar'
+          : 'Enviar esse criativo pro cliente aprovar'}
       >
         <Send className="w-3 h-3" /> Enviar
       </button>

@@ -1,7 +1,7 @@
 // Preview sem login da página do cliente (só em DEV): /dev/hub
 // Injeta um projeto fictício, a timeline e o dash (fixture real de uma conta)
 // e renderiza o ClientProfile com um AppContext falso.
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { AppContext } from '../context/AppContext'
 import ClientProfile from './ClientProfile'
 // Fixture gitignored (dados reais de uma conta): import opcional, pra não quebrar o
@@ -60,9 +60,9 @@ const project = {
     { id: 2, nome: 'AD002', status: 'em_andamento', createdAt: '2026-10-20', url: 'https://drive.google.com/file/d/ad002', pasta: 'Feirão' },
     { id: 3, nome: 'AD003', status: 'para_subir', createdAt: '2026-10-21', url: 'https://drive.google.com/file/d/ad003', pasta: 'Feirão' },
     { id: 4, nome: 'AD004', status: 'para_subir', createdAt: '2026-11-02', url: 'https://drive.google.com/file/d/ad004' },
-    { id: 5, nome: '03.11_VID_ROT01_FeiraoDeSabado', status: 'rascunho', createdAt: '2026-11-03', copy: 'Roteiro de exemplo.' },
-    { id: 6, nome: '03.11_VID_ROT02_ColchaoQueAfunda', status: 'rascunho', createdAt: '2026-11-03', copy: 'Roteiro de exemplo.' },
-    { id: 7, nome: '27.10_VID_ROT01_TrocaDoColchao', status: 'rascunho', createdAt: '2026-10-27', copy: 'Roteiro de exemplo.' },
+    { id: 5, nome: '03.11_VID_ROT01_FeiraoDeSabado', tipo: 'video', status: 'rascunho', createdAt: '2026-11-03', copy: 'Roteiro de exemplo.' },
+    { id: 6, nome: '03.11_VID_ROT02_ColchaoQueAfunda', tipo: 'video', status: 'rascunho', createdAt: '2026-11-03', copy: 'Roteiro de exemplo.' },
+    { id: 7, nome: '27.10_VID_ROT01_TrocaDoColchao', tipo: 'video', status: 'rascunho', createdAt: '2026-10-27', copy: 'Roteiro de exemplo.' },
   ] },
   lpCentral: { lps: [{ id: 1, nome: 'LP Feirão', status: 'no_ar', url: 'https://lp.exemplo.com/feirao' }, { id: 2, nome: 'LP Poltrona', status: 'em_producao' }] },
   attachments: [{ id: 1, name: 'Contrato assinado.pdf' }, { id: 2, name: 'Logo.png' }],
@@ -106,18 +106,24 @@ const dash = {
 if (typeof window !== 'undefined') window.__DEV_HUB = { hub, dash }
 
 export default function DevHub() {
+  // O que a tela grava fica em memória (some no reload), pra testar fluxos como a
+  // leva de aprovação da Central sem banco.
+  const [proj, setProj] = useState(project)
   const value = useMemo(() => ({
-    user, projects: [project], squads, teamMembers,
+    user, projects: [proj], squads, teamMembers,
     loadingProjects: false, loadingAuth: false, isSupabaseReady: true,
-    updateProject: (id, patch) => console.log('[dev] updateProject', id, patch),
-  }), [])
+    updateProject: (id, patch) => {
+      console.log('[dev] updateProject', id, patch)
+      setProj((p) => ({ ...p, ...patch }))
+    },
+  }), [proj])
   return (
     <AppContext.Provider value={value}>
       <div className="fx min-h-screen bg-gradient-dark">
         {/* como o ProjectDetail: sem barra superior */}
         <span className="fixed top-2 right-3 z-50 text-xs text-rl-gold">preview local (fixture)</span>
         <div className="w-full min-w-0 px-4 sm:px-6 2xl:px-8 py-6">
-          <ClientProfile project={project} onVoltar={() => console.log('[dev] voltar')} />
+          <ClientProfile project={proj} onVoltar={() => console.log('[dev] voltar')} />
         </div>
       </div>
     </AppContext.Provider>

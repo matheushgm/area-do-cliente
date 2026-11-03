@@ -12,6 +12,7 @@ import AppLayout from './AppLayout'
 // ── Clientes ───────────────────────────────────────────────
 const Dashboard = lazy(() => import('../pages/Dashboard'))
 const NewOnboarding = lazy(() => import('../pages/NewOnboarding'))
+const RevisaoCopyInterna = lazy(() => import('../pages/RevisaoCopyInterna'))
 const ProjectDetail = lazy(() => import('../pages/ProjectDetail'))
 
 // ── Operação ───────────────────────────────────────────────
@@ -81,6 +82,8 @@ export const appRoutes = [
 
   // Fora do shell: o onboarding é um fluxo focado, com navegação própria.
   <Route key="cliente-novo" path="/cliente/novo" element={<RequireAuth><NewOnboarding /></RequireAuth>} />,
+  // Revisão interna de copy (antes do cliente): a tela do link do cliente, com login.
+  <Route key="revisao-copy" path="/revisao-copy/:token" element={<RequireAuth><RevisaoCopyInterna /></RequireAuth>} />,
 
   // ── Legado ───────────────────────────────────────────────
   // Paths internos renomeados não precisam de redirect (ninguém guarda esses

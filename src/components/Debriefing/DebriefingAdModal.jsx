@@ -26,6 +26,8 @@ const COPY_TITULO = {
   aprovado:  'Copy aprovada pelo cliente',
   reprovado: 'Copy reprovada pelo cliente',
   pendente:  'Copy aguardando o cliente',
+  revisao:   'Copy em revisão interna',
+  reprovado_interno: 'Copy reprovada na revisão interna',
 }
 
 function CopyAprovadaBlock({ copy, origem, aprovacao }) {

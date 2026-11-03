@@ -24,6 +24,7 @@ export const precificacao = (token) => `/precificacao/${token}`
 export const campanhas = (token) => `/campanhas/${token}`
 export const aprovacao = (token) => `/aprovacao/${token}`
 export const aprovacaoCopy = (token) => `/aprovacao-copy/${token}`
+export const revisaoCopy = (token) => `/revisao-copy/${token}`
 export const nps = (token, marco) => `/nps/${token}${marco ? `?marco=${enc(marco)}` : ''}`
 export const crm = (token) => `/crm/${token}`
 export const webinar = (token) => `/webinar/${token}`

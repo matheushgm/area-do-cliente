@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import Modal from '../UI/Modal'
 import MarkdownBlock from './MarkdownBlock'
-import { garantirAdsDaGeracao, montarEnvioDeLeva, linkDaLeva } from '../../lib/copyLevas'
+import { garantirAdsDaGeracao, montarEnvioDeLeva, linkDaLeva, copyEmLeva } from '../../lib/copyLevas'
 import { useApp } from '../../context/AppContext'
 
 const EMPTY = { levas: [] }
@@ -57,7 +57,7 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
   // anúncios. Gerações antigas (anteriores ao rascunho automático) ganham os
   // seus na hora do envio — `novos` entra junto no mesmo patch.
   const { ads, novos } = useMemo(() => garantirAdsDaGeracao(project, creative), [project, creative])
-  const disponiveis = ads.filter((ad) => (ad.copyAprovacao?.status || '') !== 'pendente')
+  const disponiveis = ads.filter((ad) => !copyEmLeva(ad))
 
   const [selected, setSelected] = useState(() => new Set(disponiveis.map((ad) => ad.id)))
   const [nome, setNome] = useState(
@@ -117,7 +117,7 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
       debriefing: {
         ...debriefing,
         ads: (debriefing.ads || []).map((ad) =>
-          ad?.copyAprovacao?.levaId === leva.id && ad.copyAprovacao.status === 'pendente'
+          ad?.copyAprovacao?.levaId === leva.id && copyEmLeva(ad)
             ? { ...ad, copyAprovacao: null, updatedAt: new Date().toISOString() }
             : ad
         ),
@@ -208,7 +208,7 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
               </div>
               <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
                 {ads.map((ad) => {
-                  const pendente = (ad.copyAprovacao?.status || '') === 'pendente'
+                  const pendente = copyEmLeva(ad)
                   return (
                     <label
                       key={ad.id}
@@ -230,7 +230,7 @@ export default function CopyAprovacaoModal({ project, creative, onClose, onToast
                       <span className="text-xs text-rl-text leading-snug flex-1">{ad.nome}</span>
                       {pendente && (
                         <span className="text-[9px] font-bold text-rl-gold shrink-0 whitespace-nowrap">
-                          já com o cliente
+                          {ad.copyAprovacao?.status === 'revisao' ? 'em revisão interna' : 'já com o cliente'}
                         </span>
                       )}
                     </label>

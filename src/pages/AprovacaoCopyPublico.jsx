@@ -7,14 +7,42 @@
 // "Editar e aprovar": pra ajuste pequeno não vale a pena devolver pro time. O
 // cliente edita o texto na hora e aprova com alterações — o texto dele vira a
 // copy aprovada e o original fica guardado pra comparação.
+//
+// `modo="interno"` é a REVISÃO do time (/revisao-copy/:token, com login): a mesma
+// tela decide a etapa anterior ao cliente. O que o time aprova é liberado no link
+// do cliente; nas levas com revisão, o cliente só vê o que já foi liberado.
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   Sparkles, Loader2, AlertTriangle, CheckCircle2, XCircle, Clock, Send, Video,
-  Image as ImageIcon, Copy, Check, Pencil, FileDown,
+  Image as ImageIcon, Copy, Check, Pencil, FileDown, Link2, ShieldCheck,
 } from 'lucide-react'
 import MarkdownView from '../components/Editor/MarkdownView'
 import MarkdownEditor from '../components/Editor/MarkdownEditor'
+import { apiFetch } from '../lib/api'
+
+const API = '/api/copy-aprovacao'
+
+// Revisão interna vai autenticada; o cliente, sem login.
+async function lerLeva(token, interno) {
+  if (interno) return apiFetch(`${API}?token=${encodeURIComponent(token)}&etapa=interna`)
+  const res  = await fetch(`${API}?token=${encodeURIComponent(token)}`)
+  const body = await res.json()
+  if (!res.ok) throw new Error(body.error || 'Erro ao carregar.')
+  return body
+}
+
+async function enviarDecisao(payload, interno) {
+  if (interno) return apiFetch(API, { body: { ...payload, etapa: 'interna' } })
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const body = await res.json()
+  if (!res.ok) throw new Error(body.error || 'Erro ao enviar.')
+  return body
+}
 
 function fmtDateTime(iso) {
   if (!iso) return ''
@@ -34,26 +62,25 @@ async function exportarPDF(fn) {
   fn(mod)
 }
 
-export default function AprovacaoCopyPublico() {
+export default function AprovacaoCopyPublico({ modo = 'cliente' }) {
+  const interno = modo === 'interno'
   const { token } = useParams()
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
   const [leva,    setLeva]    = useState(null)
   const [bulk,    setBulk]    = useState(false)
+  const [linkCopiado, setLinkCopiado] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      const res  = await fetch(`/api/copy-aprovacao?token=${encodeURIComponent(token)}`)
-      const body = await res.json()
-      if (!res.ok) throw new Error(body.error || 'Erro ao carregar.')
-      setLeva(body)
+      setLeva(await lerLeva(token, interno))
       setError(null)
     } catch (e) {
       setError(e.message)
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, interno])
 
   useEffect(() => { load() }, [load])
 
@@ -82,6 +109,8 @@ export default function AprovacaoCopyPublico() {
   const decididos  = itens.filter((it) => it.aprovacao.status !== 'pendente')
   const isVideo    = leva.tipo === 'video'
   const TipoIcon   = isVideo ? Video : ImageIcon
+  const liberados  = interno ? itens.filter((it) => it.aprovacao.status === 'aprovado').length : 0
+  const linkCliente = `${window.location.origin}/aprovacao-copy/${token}`
 
   // Aprova tudo que está pendente, um de cada vez (cada decisão é uma escrita
   // no mesmo registro — em paralelo uma sobrescreveria a outra).
@@ -90,16 +119,18 @@ export default function AprovacaoCopyPublico() {
     setBulk(true)
     try {
       for (const it of pendentes) {
-        await fetch('/api/copy-aprovacao', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, itemId: it.id, decision: 'aprovado' }),
-        })
+        await enviarDecisao({ token, itemId: it.id, decision: 'aprovado' }, interno).catch(() => {})
       }
       await load()
     } finally {
       setBulk(false)
     }
+  }
+
+  function copiarLinkCliente() {
+    navigator.clipboard?.writeText(linkCliente)
+    setLinkCopiado(true)
+    setTimeout(() => setLinkCopiado(false), 2000)
   }
 
   // A leva inteira num PDF só. Usa o texto atual de cada item (já com a edição do
@@ -124,11 +155,11 @@ export default function AprovacaoCopyPublico() {
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-rl-purple/10 flex items-center justify-center shrink-0">
-              <Sparkles className="w-5 h-5 text-rl-purple" />
+              {interno ? <ShieldCheck className="w-5 h-5 text-rl-purple" /> : <Sparkles className="w-5 h-5 text-rl-purple" />}
             </div>
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold">
-                Aprovação de {isVideo ? 'roteiros' : 'copies'} · {leva.companyName}
+                {interno ? 'Revisão interna' : 'Aprovação'} de {isVideo ? 'roteiros' : 'copies'} · {leva.companyName}
               </p>
               <h1 className="text-base font-black text-rl-text leading-tight truncate">
                 {leva.nome}
@@ -145,6 +176,32 @@ export default function AprovacaoCopyPublico() {
       </div>
 
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
+        {/* Revisão interna: o que fazer e o link que vai pro cliente */}
+        {interno && (
+          <div className="rounded-xl border border-rl-purple/30 bg-rl-purple/5 px-5 py-4 space-y-3">
+            <p className="text-sm text-rl-text">
+              Revise antes do cliente. O que você aprovar aqui é liberado no link dele; o que você
+              reprovar volta pra Central com o motivo e não chega ao cliente.
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-rl-subtle">
+                {liberados > 0
+                  ? `${liberados} ${liberados === 1 ? 'texto liberado' : 'textos liberados'} pro cliente`
+                  : 'Nenhum texto liberado ainda: o link do cliente está vazio.'}
+              </span>
+              {liberados > 0 && (
+                <button
+                  onClick={copiarLinkCliente}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-rl-purple text-white hover:bg-rl-purple/90 transition-all"
+                >
+                  {linkCopiado ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
+                  {linkCopiado ? 'Link copiado!' : 'Copiar link do cliente'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Resumo da leva */}
         <div className="glass-card px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
           <div className="text-[11px] text-rl-muted flex items-center gap-3 flex-wrap">
@@ -177,17 +234,29 @@ export default function AprovacaoCopyPublico() {
         {itens.length === 0 && (
           <div className="rounded-xl border border-dashed border-rl-border bg-rl-surface/30 py-12 px-6 text-center space-y-2">
             <Sparkles className="w-8 h-8 text-rl-muted/40 mx-auto" />
-            <p className="text-sm font-semibold text-rl-text">Nada pra aprovar nesta leva.</p>
+            <p className="text-sm font-semibold text-rl-text">
+              {leva.emRevisao
+                ? 'Os textos desta leva ainda estão sendo revisados pela equipe.'
+                : 'Nada pra aprovar nesta leva.'}
+            </p>
+            {leva.emRevisao && (
+              <p className="text-xs text-rl-muted">Assim que forem liberados, eles aparecem aqui neste mesmo link.</p>
+            )}
           </div>
+        )}
+        {itens.length > 0 && leva.emRevisao && (
+          <p className="-mt-4 text-xs text-rl-muted">
+            Outros textos desta leva ainda estão com a equipe e aparecem aqui quando forem liberados.
+          </p>
         )}
 
         {pendentes.length > 0 && (
           <section className="space-y-4">
             <h2 className="text-sm font-black text-rl-text uppercase tracking-wide">
-              Aguardando sua aprovação
+              {interno ? 'Aguardando revisão' : 'Aguardando sua aprovação'}
             </h2>
             {pendentes.map((it, i) => (
-              <CopyCard key={it.id} item={it} index={i} token={token} onDecided={load} tipo={leva.tipo} companyName={leva.companyName} />
+              <CopyCard key={it.id} item={it} index={i} token={token} onDecided={load} tipo={leva.tipo} companyName={leva.companyName} interno={interno} />
             ))}
           </section>
         )}
@@ -195,10 +264,10 @@ export default function AprovacaoCopyPublico() {
         {decididos.length > 0 && (
           <section className="space-y-4">
             <h2 className="text-sm font-black text-rl-muted uppercase tracking-wide">
-              Já avaliados
+              {interno ? 'Já revisados' : 'Já avaliados'}
             </h2>
             {decididos.map((it, i) => (
-              <CopyCard key={it.id} item={it} index={i} token={token} decided tipo={leva.tipo} companyName={leva.companyName} />
+              <CopyCard key={it.id} item={it} index={i} token={token} decided tipo={leva.tipo} companyName={leva.companyName} interno={interno} />
             ))}
           </section>
         )}
@@ -208,7 +277,7 @@ export default function AprovacaoCopyPublico() {
 }
 
 // ─── Card de uma copy ─────────────────────────────────────────────────────────
-function CopyCard({ item, index, token, onDecided, decided = false, tipo, companyName }) {
+function CopyCard({ item, index, token, onDecided, decided = false, tipo, companyName, interno = false }) {
   const [mode,       setMode]       = useState(null) // null | 'reprovando' | 'editando'
   const [motivo,     setMotivo]     = useState('')
   const [sugestao,   setSugestao]   = useState('')
@@ -226,16 +295,10 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
     setSubmitting(true)
     setError('')
     try {
-      const res = await fetch('/api/copy-aprovacao', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token, itemId: item.id, decision, motivo, sugestao,
-          ...(comAlteracoes ? { conteudo: texto } : {}),
-        }),
-      })
-      const body = await res.json()
-      if (!res.ok) throw new Error(body.error || 'Erro ao enviar.')
+      await enviarDecisao({
+        token, itemId: item.id, decision, motivo, sugestao,
+        ...(comAlteracoes ? { conteudo: texto } : {}),
+      }, interno)
       onDecided?.()
     } catch (e) {
       setError(e.message)
@@ -255,7 +318,13 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
     }))
   }
 
-  const canReprovar = motivo.trim().length > 0 && sugestao.trim().length > 0
+  // Na revisão do time basta o motivo; do cliente pedimos também como deveria estar.
+  const canReprovar = motivo.trim().length > 0 && (interno || sugestao.trim().length > 0)
+  const rotuloAprovado = interno ? 'Liberado pro cliente' : 'Aprovado'
+  const rotuloReprovado = interno ? 'Reprovado na revisão' : 'Reprovado'
+  const quem = interno && item.aprovacao.por?.nome ? ` por ${item.aprovacao.por.nome}` : ''
+  // Na revisão, depois de liberado: o que o cliente já respondeu.
+  const respostaCliente = interno && st === 'aprovado' ? item.cliente?.status : null
   const textoMudou  = texto.trim().length > 0 && texto.trim() !== (item.conteudo || '').trim()
 
   return (
@@ -287,11 +356,11 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
             st === 'aprovado' ? (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300">
                 {editado ? <Pencil className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                {editado ? 'Aprovado com alterações' : 'Aprovado'}
+                {editado ? `${rotuloAprovado} com alterações` : rotuloAprovado}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-300">
-                <XCircle className="w-3.5 h-3.5" /> Reprovado
+                <XCircle className="w-3.5 h-3.5" /> {rotuloReprovado}
               </span>
             )
           )}
@@ -306,8 +375,9 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
           </label>
           <MarkdownEditor value={texto} onChange={setTexto} minHeight={240} autoFocus />
           <p className="text-[11px] text-rl-muted">
-            O texto que você aprovar aqui é o que vai pra produção. O original fica guardado pra
-            equipe comparar.
+            {interno
+              ? 'O cliente recebe o texto já com o seu ajuste. O original fica guardado na leva.'
+              : 'O texto que você aprovar aqui é o que vai pra produção. O original fica guardado pra equipe comparar.'}
           </p>
         </div>
       ) : (
@@ -316,8 +386,20 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
         </div>
       )}
 
+      {/* Revisão: texto como chegou do copywriter, antes do ajuste do time */}
+      {interno && decided && editado && item.conteudoAntesDaRevisao && (
+        <details className="px-5 pb-4 group">
+          <summary className="text-[11px] font-semibold text-rl-muted cursor-pointer hover:text-rl-text">
+            Ver texto antes da revisão
+          </summary>
+          <div className="mt-2 rounded-xl bg-rl-surface/60 border border-rl-border px-4 py-3">
+            <MarkdownView content={item.conteudoAntesDaRevisao} />
+          </div>
+        </details>
+      )}
+
       {/* Texto original, quando o cliente aprovou com alterações */}
-      {decided && editado && item.conteudoOriginal && (
+      {!interno && decided && editado && item.conteudoOriginal && (
         <details className="px-5 pb-4 group">
           <summary className="text-[11px] font-semibold text-rl-muted cursor-pointer hover:text-rl-text">
             Ver texto original (antes da sua edição)
@@ -337,18 +419,23 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
             </p>
             <p className="text-sm text-rl-text mt-1 whitespace-pre-wrap">{item.aprovacao.motivo}</p>
           </div>
-          <div className="rounded-xl bg-rl-surface/60 border border-rl-border px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-rl-muted">
-              Como deveria estar
-            </p>
-            <p className="text-sm text-rl-text mt-1 whitespace-pre-wrap">{item.aprovacao.sugestao}</p>
-          </div>
+          {item.aprovacao.sugestao && (
+            <div className="rounded-xl bg-rl-surface/60 border border-rl-border px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-rl-muted">
+                Como deveria estar
+              </p>
+              <p className="text-sm text-rl-text mt-1 whitespace-pre-wrap">{item.aprovacao.sugestao}</p>
+            </div>
+          )}
         </div>
       )}
       {decided && item.aprovacao.decididoEm && (
         <p className="px-5 pb-4 text-[10px] text-rl-muted">
-          {st === 'aprovado' ? (editado ? 'Aprovado com alterações' : 'Aprovado') : 'Reprovado'} em{' '}
-          {fmtDateTime(item.aprovacao.decididoEm)}
+          {st === 'aprovado' ? (editado ? `${rotuloAprovado} com alterações` : rotuloAprovado) : rotuloReprovado}
+          {quem} em {fmtDateTime(item.aprovacao.decididoEm)}
+          {respostaCliente === 'pendente' && ' · aguardando o cliente'}
+          {respostaCliente === 'aprovado' && ' · o cliente aprovou'}
+          {respostaCliente === 'reprovado' && ' · o cliente reprovou'}
         </p>
       )}
 
@@ -363,15 +450,17 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
                 className="flex-1 min-w-[150px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all disabled:opacity-50"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Aprovar texto
+                {interno ? 'Aprovar e liberar' : 'Aprovar texto'}
               </button>
               <button
                 onClick={() => { setTexto(item.conteudo || ''); setMode('editando'); setError('') }}
                 disabled={submitting}
                 className="flex-1 min-w-[150px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-rl-purple/40 text-rl-purple text-sm font-bold hover:bg-rl-purple/10 transition-all disabled:opacity-50"
-                title="Faça um ajuste pequeno você mesmo e aprove, sem precisar devolver pra equipe"
+                title={interno
+                  ? 'Ajuste o texto e libere já corrigido pro cliente'
+                  : 'Faça um ajuste pequeno você mesmo e aprove, sem precisar devolver pra equipe'}
               >
-                <Pencil className="w-4 h-4" /> Editar e aprovar
+                <Pencil className="w-4 h-4" /> {interno ? 'Editar e liberar' : 'Editar e aprovar'}
               </button>
               <button
                 onClick={() => setMode('reprovando')}
@@ -400,7 +489,7 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
                   className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                  Aprovar com alterações
+                  {interno ? 'Liberar com alterações' : 'Aprovar com alterações'}
                 </button>
               </div>
             </div>
@@ -421,7 +510,8 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
               </div>
               <div>
                 <label className="text-xs font-bold text-rl-text uppercase tracking-wide mb-1 block">
-                  Como o texto deveria estar pra ser aprovado? <span className="text-red-500">*</span>
+                  Como o texto deveria estar pra ser aprovado?{' '}
+                  {interno ? <span className="text-rl-muted normal-case font-normal">(opcional)</span> : <span className="text-red-500">*</span>}
                 </label>
                 <textarea
                   value={sugestao}
