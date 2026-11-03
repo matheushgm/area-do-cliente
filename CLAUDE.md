@@ -1046,7 +1046,11 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   da linha e o do ClickUp, criando/renomeando/marcando/apagando listas e itens, e a linha recebe os ids do ClickUp), exclui e comenta (assinatura
   "(Nome, via VertaTask)"); depois grava `clickup_task_id`/`url`/`clickup_updated_at` com
   `clickup_sync_at = updated_at = agora`. Mover de lista NÃO é replicado (só aviso). Até 5
-  tentativas por item; 400/404 desistem na hora. Dispara por `api/tarefas-push.js` (o
+  tentativas por item; 400/404 desistem na hora. Exceção (2026-11-03): 404 "Task not found" num
+  item que não é `criar` = a tarefa foi apagada lá enquanto a edição esperava; o item vira
+  `cancelado` ("tarefa apagada no ClickUp") e a linha é arquivada com `clickup_removida_at`.
+  No webhook, "You do not have access to this List" (tarefa na lista privada de alguém) é
+  `ignorado`, não erro; o teste é pelo texto, porque token vencido também responde 401. Dispara por `api/tarefas-push.js` (o
   `useTarefas` chama com debounce de 1,5 s após cada escrita) e no começo de
   `api/tarefas-sync.js` (empurra antes de puxar). Testado em 18/10 com criar → editar →
   comentar → excluir numa tarefa de teste na lista Geral da Revenue Lab. Fila:

@@ -525,6 +525,19 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
         resumo.agrupadas -= u.ids.length - 1
         return
       }
+      // Tarefa apagada no ClickUp enquanto a edição daqui esperava na fila (30/10/2026: o Victor
+      // concluiu duas tarefas da ELEVE no mesmo minuto em que alguém as apagou lá). Não há o que
+      // enviar: o item é cancelado em vez de ficar em erro, e a linha é arquivada como faz o
+      // webhook no taskDeleted (com a chave de serviço, então não volta para a fila).
+      if (e.status === 404 && /task not found/i.test(e.message || '') && item.tarefa_id && item.operacao !== 'criar') {
+        await marcar(u.ids, { status: 'cancelado', erro: 'tarefa apagada no ClickUp', ...(reivindicada ? { reivindicado_em: null } : {}) })
+        await sb.from('tarefas_itens').update({ arquivada: true, clickup_removida_at: agora(), clickup_sync_at: agora(), updated_at: agora() })
+          .eq('id', item.tarefa_id).eq('arquivada', false)
+        resumo.canceladas = (resumo.canceladas || 0) + u.ids.length
+        feitas.add(idx)
+        aviso(`${item.operacao} ${item.tarefa_id}: a tarefa foi apagada no ClickUp; item cancelado e tarefa arquivada aqui`)
+        return
+      }
       resumo.erros++
       const tentativas = (item.tentativas || 0) + 1
       const desiste = tentativas >= MAX_TENTATIVAS || e.status === 404 || e.status === 400

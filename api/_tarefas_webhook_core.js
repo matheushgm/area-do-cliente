@@ -29,6 +29,11 @@ const EVENTOS_COMENTARIO = new Set(['taskCommentPosted', 'taskCommentUpdated'])
 // remoção arquivaria toda tarefa que recebesse evento. O 401 de space sem acesso
 // fica para a reconciliação da rodada periódica.
 const naoEncontrada = (e) => e?.status === 404
+// Tarefa em lista privada de alguém (ex.: a "Personal List" do Eduardo, em 30/10/2026): o
+// ClickUp manda o evento do workspace inteiro, mas o token não lê a tarefa. Não é falha da
+// sincronização, e a tarefa entra sozinha quando for movida para uma lista que o token vê.
+// Pelo texto, não pelo status: token vencido também responde 401.
+const semAcessoALista = (e) => /do not have access to this list/i.test(e?.message || '')
 const PENDENTE_RECENTE_MS = 2 * 60_000
 
 // Push em andamento para esta tarefa (item 'processando', ou 'pendente' recente: o front dispara o
@@ -78,6 +83,7 @@ export async function processarEventoTarefa({ sb, token, evento, taskId, histori
     t = await clickup(`/task/${taskId}?include_markdown_description=true`)
   } catch (e) {
     if (naoEncontrada(e)) return arquivar(sb, taskId, agora)
+    if (semAcessoALista(e)) return { acao: 'ignorado', motivo: 'lista privada, fora do alcance da sincronização' }
     throw e
   }
   if (!spaces.map(String).includes(String(t.space?.id))) return { acao: 'ignorado', motivo: `fora dos spaces sincronizados (${t.space?.id})` }
