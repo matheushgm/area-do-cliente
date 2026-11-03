@@ -49,9 +49,13 @@ const project = {
     'Feirão de colchões toda última semana do mês.',
   ].join('\n'),
   kickoff: { completedAt: '2026-08-02' },
-  personas: [{ nome: 'Casal jovem' }],
-  produtos: [{ nome: 'Colchão mola ensacada', answers: { q1: 'sim' } }],
-  ofertaData: { nome: 'Feirão' },
+  personas: [{ id: 'pe1', name: 'Casal jovem', nome: 'Casal jovem' }],
+  produtos: [{ id: 'pr1', nome: 'Colchão mola ensacada', answers: { q1: 'sim' } }],
+  ofertas: [
+    { id: 'of1', nome: 'Feirão', principal: true },
+    { id: 'of2', nome: 'Troca do colchão velho', resultadoSonho: 'Dormir sem dor nas costas' },
+  ],
+  ofertaData: { id: 'of1', nome: 'Feirão', principal: true },
   roiResult: { ok: true },
   campaignPlan: { totalBudget: 4500, channels: [{ name: 'Meta Ads' }, { name: 'Google Ads' }] },
   // Datas em semanas diferentes e uma pasta, pra Central mostrar os blocos Mês › Semana › Pasta.

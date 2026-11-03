@@ -308,6 +308,25 @@ objetos vive em `src/lib/copyLevas.js` (única fonte da verdade). Fluxo:
 Não confundir com `/aprovacao/:token` (`api/anuncios-aprovacao.js`): lá o cliente aprova a
 **peça pronta** e landing pages, usando o `client_share_token` do projeto.
 
+### Roteiros de vídeo do Criativos com IA (habilidade, 2026-11-03)
+
+O formato Vídeo do `CriativosModule` não tem mais funil, nível de consciência, ângulos nem quantidade: a
+tela é uma só, com produto, persona e oferta (`project.ofertas`; vazio = a principal, `NO_CONTEXT` = sem
+oferta, que zera `ofertaData` no `scopedProject`). O system prompt é a habilidade
+`criador-de-roteiro-de-video` inteira, em `src/lib/roteiroVideoHabilidade.js` (`HABILIDADE_ROTEIRO_VIDEO`,
+**cópia fiel** de `Processos Internos/Skills/criador-de-roteiro-de-video/SKILL.md`: mudou lá, copie aqui),
+mais o formato que a tela lê (`FORMATO_ROTEIRO_VIDEO`) e as regras de escrita (`REGRAS_ROTEIRO_VIDEO`). A
+saída tem `# ESTUDO DO PÚBLICO`, 10 roteiros (`## ROTEIRO N: tema | Gancho: X | Mensagem: Y | Etapa`, na
+ordem 3 topo, 3 meio, 2 fundo, 2 remarketing, com Quem, Quando, tabela de O quê, `**GANCHO:**`,
+`**MENSAGEM:**`, `**CTA:**`) e `# TABELA DO LABORATÓRIO`. `DIVISA_DE_BLOCO` (em `CreativeResultBlock`,
+usada também por `ResultBlock`; o PDF de vídeo tem a mesma divisa) separa o estudo e a tabela dos cards:
+sem ela a tabela grudava no último roteiro e o card sumia. `extrasDoConteudo` mostra os dois blocos
+recolhíveis em volta dos cards. O cliente vê cada roteiro só a partir do `GANCHO` (`copyParaCliente`).
+Modelo `MODELO_ROTEIRO_VIDEO` = `claude-opus-5-5` (64 mil de `max_tokens`, ~3 min): no teste com o mesmo
+prompt e contexto, o `claude-sonnet-4-5` errou ordem, tipo de gancho e tamanho em 9 dos 10 roteiros. O
+estático segue com o wizard e o `claude-sonnet-4-5`. A ferramenta pública do cliente
+(`CriativosPublico` / `api/criativos-public.js`) ainda usa o fluxo antigo de vídeo.
+
 ### Google Ads (`GoogleAdsModule`)
 
 - Entrada via **grupos de palavras-chave** — cada grupo tem `nome` editável e tabela com colunas: palavra-chave, buscas/mês e concorrência (Baixo/Médio/Alto com badge colorido)

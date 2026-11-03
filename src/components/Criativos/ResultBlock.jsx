@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Copy, CheckCheck } from 'lucide-react'
 import CreativeCard from './CreativeCard'
+import { DIVISA_DE_BLOCO } from './CreativeResultBlock'
 
 // Divide o texto em blocos de anúncio pelos cabeçalhos ## ROTEIRO N / ## ANÚNCIO N.
 // Tudo que precede o primeiro cabeçalho, ou que é tabela/insight final, vai para análise.
@@ -19,7 +20,7 @@ function isNonAdTrailing(chunk) {
 
 function splitContent(content) {
   // Divide mantendo o delimitador (lookahead) para cada cabeçalho de anúncio
-  const parts = content.split(/(?=^##\s+(?:ROTEIRO|AN[ÚU]NCIO)\s+\d+)/im)
+  const parts = content.split(DIVISA_DE_BLOCO)
 
   const ads      = []
   const analysis = []
@@ -72,7 +73,7 @@ function joinAdParts(parts) {
 // Exportado para uso em CreativeHistory e CriativosModule ao persistir edições.
 export function replaceAdInContent(content, adIndex, newAdContent) {
   // Tentativa primária: split por cabeçalhos ## ANÚNCIO / ## ROTEIRO
-  const parts = content.split(/(?=^##\s+(?:ROTEIRO|AN[ÚU]NCIO)\s+\d+)/im)
+  const parts = content.split(DIVISA_DE_BLOCO)
   let adCount  = 0
   let foundAny = false
 
@@ -107,7 +108,7 @@ export function replaceAdInContent(content, adIndex, newAdContent) {
 // os mesmos chunks na mesma ordem que o splitChunks do CreativeResultBlock,
 // senão o card excluído não é o que o usuário clicou.
 export function removeAdFromContent(content, adIndex) {
-  const parts = content.split(/(?=^##\s+(?:ROTEIRO|AN[ÚU]NCIO)\s+\d+)/im)
+  const parts = content.split(DIVISA_DE_BLOCO)
   let adCount = 0
   let foundAny = false
 

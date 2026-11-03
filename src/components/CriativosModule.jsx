@@ -42,7 +42,7 @@ import Modal from './UI/Modal'
 import MarkdownBlock from './Criativos/MarkdownBlock'
 import { FUNIS, FUNIS_BY_ID } from '../lib/funis'
 import { replaceAdInContent, removeAdFromContent } from './Criativos/ResultBlock'
-import CreativeResultBlock from './Criativos/CreativeResultBlock'
+import CreativeResultBlock, { splitChunks } from './Criativos/CreativeResultBlock'
 import ContextPreview from './Criativos/ContextPreview'
 import CreativeHistory from './Criativos/CreativeHistory'
 import VideoGuide from './VideoGuide'
@@ -51,6 +51,15 @@ import CopyAprovacaoModal from './Criativos/CopyAprovacaoModal'
 import AdWireframePanel from './Criativos/AdWireframePanel'
 import RatingSelector from './RatingSelector'
 import { exportCreativoSetPDF } from '../lib/creativoPDF'
+import {
+  HABILIDADE_ROTEIRO_VIDEO,
+  FORMATO_ROTEIRO_VIDEO,
+  REGRAS_ROTEIRO_VIDEO,
+  SEPARADOR_ROTEIRO_VIDEO,
+  solicitacaoRoteiroVideo,
+  etapasDosRoteiros,
+  MODELO_ROTEIRO_VIDEO,
+} from '../lib/roteiroVideoHabilidade'
 
 // ─── Auto-resize textarea ─────────────────────────────────────────────────────
 function AutoResizeTextarea({ value, onChange, className }) {
@@ -320,77 +329,15 @@ Diretrizes obrigatórias:
 // Diferente de '' (todos) — zera o array de produtos/personas no scopedProject.
 const NO_CONTEXT = '__none__'
 
+// Roteiro de vídeo = a habilidade criador-de-roteiro-de-video inteira
+// (src/lib/roteiroVideoHabilidade.js). Sem funil, nível de consciência nem
+// ângulos: o time escolhe produto, persona e oferta, e a habilidade decide a
+// etapa, o gancho e a mensagem de cada um dos 10 roteiros.
 const VIDEO_SYSTEM_PARTS = {
-  metodologia: `Você é um especialista em roteiros de vídeos de anúncios online de alta conversão, combinando o Laboratório de Anúncios (Revenue Lab) com o modelo de anúncio-ensaio: um raciocínio que termina em convite, não uma sequência de blocos de venda.
-
-Os vídeos têm duração entre 30 e 60 segundos e são criados para Meta Ads (Reels/Feed) e YouTube Ads.
-
-## ANTES DE ESCREVER (raciocínio interno — NÃO exiba)
-
-A partir do contexto do cliente, levante mentalmente: 8 problemas comuns, 8 sonhos, 8 objeções, 8 situações constrangedoras e 8 perguntas que esse público-alvo se faz. Identifique também uma verdade ou observação sobre o mundo desse público que ainda não foi dita para ele, o tipo de abertura que não soa a anúncio. Use tudo isso para escrever, mas NUNCA exiba essas listas.
-
-## A ESTRUTURA DO ANÚNCIO-ENSAIO (5 movimentos)
-
-**1) Gancho.** Gera emoção através de um problema, uma promessa ou um fato, sempre usando o recurso literário do ÂNGULO pedido (ver abaixo). Nos 3 PRIMEIROS SEGUNDOS a pessoa precisa se conectar. O gancho fala do mundo do público, nunca do produto.
-
-**2) Desenvolvimento.** Depois de prender a atenção, prove que o gancho é verdadeiro: dado, exemplo concreto, cena que o público reconhece. É aqui que a quebra de objeção acontece, implícita, nunca como bloco isolado — tira do ar o "funciona pra ele, não pra mim".
-
-**3) Tese — a parte mais importante do roteiro.** É o que defendemos, o pilar do anúncio. Eleve o gancho e o desenvolvimento a um princípio, uma posição clara sobre como resolver aquele problema ou alcançar aquele resultado. Sem uma tese forte, o resto do roteiro vira só uma sequência de frases bonitas.
-
-**4) Ponte.** Conecta a tese ao que a empresa oferece: o método, o produto ou serviço, o diferencial. É a única parte onde o produto pode aparecer nomeado — a transição da ideia defendida para a oferta, nunca um corte abrupto.
-
-**5) CTA.** Chamada para a transformação: reforça o que foi prometido no gancho e dá a ação exata que a pessoa deve tomar. Convite, não empurrão — o pedido vem depois de o raciocínio já ter convencido.
-
-## O ÂNGULO
-
-O ângulo é a segunda coisa mais importante do roteiro, depois da tese. Cada roteiro tem um ângulo definido pelo tipo pedido na solicitação, seja um gancho clássico (Prova, Contraste, História...) ou uma figura de linguagem (Antítese, Paradoxo, Aforismo...). O ângulo comanda a FORMA do gancho, como a emoção é despertada; a tese, a ponte e o CTA seguem o funil e a oferta informados na solicitação.`,
-
-  estrutura: (nivelId) => `
-${nivelBlock(nivelId, 'video')}
-
-## FORMATO OBRIGATÓRIO DE CADA ROTEIRO
-
-## ROTEIRO [N]: Tese: [nome curto da tese] | Ângulo: [Tipo] | Nível: ${NIVEIS_BY_ID[nivelId]?.label || ''}
-
-**GANCHO (0s – 5s):**
-[frase exata que gera emoção via problema, promessa ou fato, usando o recurso literário do ângulo. Fala do mundo do público, não do produto]
-
-**DESENVOLVIMENTO (5s – 20s):**
-[dado ou exemplo concreto que comprova o gancho; quebra de objeção integrada]
-
-**TESE (20s – 35s):**
-[a posição que defendemos, o princípio elevado a partir do gancho e do desenvolvimento — o pilar do roteiro]
-
-**PONTE (35s – 50s):**
-[conecta a tese ao que a empresa oferece: método, produto ou diferencial]
-
-**CTA (50s – 60s):**
-[reforça a promessa do gancho + a ação exata que a pessoa deve tomar]
-
-**📝 LEGENDA DO POST:** [legenda com emojis]
-
----`,
-
-  diretrizes: `Regras críticas:
-- A TESE é o pilar do roteiro — não pule do gancho direto pra oferta sem defender uma posição clara
-- No cabeçalho do roteiro, o campo Tese é um nome curto (até 8 palavras) que resume a posição defendida no bloco TESE — não repita a frase inteira, é uma etiqueta pra identificar o que aquele criativo defende. Ex.: "Quem decide antes da crise decide melhor"
-- O GANCHO usa sempre o recurso literário do ângulo pedido e fala do mundo do público, nunca do produto
-- A quebra de objeções acontece dentro do DESENVOLVIMENTO, nunca como bloco separado
-- A PONTE é a única parte onde o produto ou serviço pode aparecer nomeado
-- O CTA é um convite que reforça a promessa do gancho, não um empurrão — evite gatilho de escassez ou urgência artificial quando não fizer parte real da oferta
-- Fale a língua do negócio, nunca jargão técnico que esse público não usa no dia a dia
-- Gere EXATAMENTE a quantidade de roteiros pedida por ângulo na solicitação — nem mais, nem menos
-- Todos os roteiros são escritos no MESMO nível de consciência (o informado no system prompt)
-- Quando houver mais de um roteiro para o mesmo ângulo, cada um abre com uma cena ou observação diferente — nunca variações da mesma frase
-- Numere os roteiros sequencialmente (ROTEIRO 1, ROTEIRO 2, ...) percorrendo os ângulos na ordem da solicitação
-- Não exiba a análise de público-alvo — vá direto aos roteiros
-- Português brasileiro conversacional e específico ao negócio — evite palavras que a IA usa mas humanos não usam
-- Não use travessões (—) em nenhuma parte do output
-- Não inclua sugestões de cena ou visual em nenhuma parte do roteiro
-- Não use emojis no roteiro — use emojis apenas na LEGENDA DO POST
-- Gere APENAS os roteiros — sem tabelas, sem resumos, sem insights ao final`,
-
-  diretrizLocked: `- Separe cada roteiro com "---"`,
+  metodologia: HABILIDADE_ROTEIRO_VIDEO,
+  estrutura: () => FORMATO_ROTEIRO_VIDEO,
+  diretrizes: REGRAS_ROTEIRO_VIDEO,
+  diretrizLocked: SEPARADOR_ROTEIRO_VIDEO,
 }
 
 // ─── Parse "PRINCIPAIS DORES" from generatedProfile text ─────────────────────
@@ -605,7 +552,6 @@ export default function CriativosModule({ project }) {
   const historyCreative = historyCreativeId
     ? ((project.creatives || []).find((c) => c.id === historyCreativeId) ?? null)
     : null
-  const [adTypeConfig, setAdTypeConfig] = useState({}) // video: { [adTypeId]: quantity }
   const [dorConfig, setDorConfig] = useState({}) // static: { [dorId]: { typeQtys: {[typeId]: qty}, freeQty: number } }
   const [metodologiaOverride, setMetodologiaOverride] = useState(null)
   const [diretrizesOverride, setDiretrizesOverride] = useState(null)
@@ -623,6 +569,8 @@ export default function CriativosModule({ project }) {
   // quando o criativo vai rodar em outros funis e o produto/persona atrapalha.
   const [selectedProductId, setSelectedProductId] = useState('')
   const [selectedPersonaId, setSelectedPersonaId] = useState('')
+  // Oferta (só no vídeo): '' = a principal · id = outra · NO_CONTEXT = sem oferta
+  const [selectedOfertaId, setSelectedOfertaId] = useState('')
   // Funil em que o anúncio vai rodar — define o objetivo/CTA (entra no prompt).
   const [selectedFunil, setSelectedFunil] = useState('')
   // Nível de consciência do público para esta oferta (obrigatório). TODAS as
@@ -645,6 +593,18 @@ export default function CriativosModule({ project }) {
   const personaList = useMemo(
     () => (project.personas || []).filter((p) => (p.name || '').trim()),
     [project.personas]
+  )
+
+  // Ofertas Matadoras do projeto; `ofertaData` é a principal.
+  const ofertaList = useMemo(
+    () => (project.ofertas || []).filter((o) => o && (o.nome || o.resultadoSonho)),
+    [project.ofertas]
+  )
+  const selectedOferta = useMemo(
+    () => selectedOfertaId && selectedOfertaId !== NO_CONTEXT
+      ? (ofertaList.find((o) => o.id === selectedOfertaId) || null)
+      : null,
+    [selectedOfertaId, ofertaList]
   )
 
   // Produto selecionado (objeto) ou null se "Todos"
@@ -674,8 +634,13 @@ export default function CriativosModule({ project }) {
     else if (selectedProduct) p = { ...p, produtos: [selectedProduct] }
     if (selectedPersonaId === NO_CONTEXT) p = { ...p, personas: [] }
     else if (selectedPersona) p = { ...p, personas: [selectedPersona] }
+    if (selectedOfertaId === NO_CONTEXT) p = { ...p, ofertaData: null }
+    else if (selectedOferta) p = { ...p, ofertaData: selectedOferta }
     return p
-  }, [project, selectedProductId, selectedProduct, selectedPersonaId, selectedPersona])
+  }, [project, selectedProductId, selectedProduct, selectedPersonaId, selectedPersona, selectedOfertaId, selectedOferta])
+
+  // Nome da oferta que vai na geração (a principal quando nada foi escolhido).
+  const ofertaUsada = selectedOfertaId === NO_CONTEXT ? null : (selectedOferta || project.ofertaData || null)
 
   // ── Wizard de configuração: uma pergunta por vez, com fade ──────────────────
   // O passo "escopo" só existe se o projeto tiver produtos ou personas.
@@ -686,31 +651,6 @@ export default function CriativosModule({ project }) {
   )
   const [stepIndex, setStepIndex] = useState(0)
   const wizardStep = wizardSteps[Math.min(stepIndex, wizardSteps.length - 1)]
-
-  // ── Video: ad type config ──────────────────────────────────────────────────
-  // A quantidade é escolhida pelo usuário e distribuída entre os tipos
-  // selecionados; o valor guardado em adTypeConfig é só um marcador de seleção.
-  const selectedList = AD_TYPES.filter((t) => (adTypeConfig[t.id] || 0) > 0)
-  const totalQuantity = quantidade
-  // Quantas peças cada tipo recebe: distribute(8, 3) → [3, 3, 2]
-  const videoSplit = useMemo(
-    () => distribute(quantidade, selectedList.length),
-    [quantidade, selectedList.length]
-  )
-
-  const toggleType = useCallback((id) => {
-    setAdTypeConfig((prev) => {
-      if (prev[id]) {
-        const next = { ...prev }
-        delete next[id]
-        return next
-      }
-      return { ...prev, [id]: 1 }
-    })
-  }, [])
-
-  const selectAll = () => setAdTypeConfig(Object.fromEntries(AD_TYPES.map((t) => [t.id, 1])))
-  const clearAll = () => setAdTypeConfig({})
 
   // ── Static: dores config ───────────────────────────────────────────────────
   const [customDores, setCustomDores] = useState([])
@@ -755,7 +695,7 @@ export default function CriativosModule({ project }) {
   })()
 
   // Blocos desta geração: tipos de gancho (vídeo) ou dor x tipo (estático).
-  const blocosAtuais = isVideo ? selectedList.length : staticBlocos
+  const blocosAtuais = isVideo ? 0 : staticBlocos
   // Cada bloco precisa de pelo menos 1 peça — senão a distribuição zeraria algum.
   const qtdInsuficiente = blocosAtuais > 0 && quantidade < blocosAtuais
 
@@ -884,33 +824,12 @@ Nível ${n.num} — ${n.label}. Escreva todas as peças abaixo nesse nível, sem
       : ''
 
     if (isVideo) {
-      const typesStr = selectedList
-        .map((t, i) => `${t.emoji} ${t.label} — ${videoSplit[i]} roteiro${videoSplit[i] !== 1 ? 's' : ''}. Como usar: ${t.desc}`)
-        .join('\n')
-      const campeaoStr = variacaoRef
-        ? `## ANÚNCIO CAMPEÃO (REFERÊNCIA DE MENSAGEM — prioridade máxima)
-
-Este cliente tem um anúncio em vídeo que JÁ ESTÁ PERFORMANDO. Transcrição ("${variacaoRef.adName || 'sem nome'}"):
-
-"""
-${variacaoRef.transcription}
-"""
-
-Os roteiros desta geração são VARIAÇÕES dessa mensagem campeã:
-- MANTENHA o DNA do campeão: a promessa/benefício central, o contexto do assunto e a ação final
-- VARIE a forma: cada roteiro abre com gancho e ângulo de entrada diferentes do original e entre si
-- PROIBIDO copiar frases da transcrição — nenhuma frase igual; parafrasear trocando uma palavra também não vale
-
-`
-        : ''
-      return `---
-
-## SOLICITAÇÃO
-
-${nivelStr}${funilStr}${detStr}${campeaoStr}Ângulos a gerar, com a quantidade exata de cada um:
-${typesStr}
-
-Total: ${totalQuantity} roteiros.`
+      return solicitacaoRoteiroVideo({
+        produto: selectedProductId === NO_CONTEXT ? null : selectedProduct?.nome,
+        persona: selectedPersonaId === NO_CONTEXT ? null : selectedPersona?.name,
+        oferta: ofertaUsada?.nome,
+        campeao: variacaoRef,
+      })
     }
 
     const sections = selectedDores
@@ -937,13 +856,11 @@ ${nivelStr}${funilStr}${detStr}Para cada dor abaixo, gere um bloco por tipo de c
 ${sections}
 
 Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
-  }, [dorConfig, isVideo, nivel, selectedDores, selectedList, selectedFunil, extraDetails, staticBlocos, staticQtyByBlock, staticTotalQty, totalQuantity, videoSplit, variacaoRef])
+  }, [dorConfig, isVideo, nivel, selectedDores, selectedFunil, extraDetails, staticBlocos, staticQtyByBlock, staticTotalQty, variacaoRef, selectedProductId, selectedProduct, selectedPersonaId, selectedPersona, ofertaUsada])
 
   // ── Generate ────────────────────────────────────────────────────────────────
   const generate = useCallback(async () => {
-    if (isVideo && !selectedList.length) return
-    if (!isVideo && !selectedDores.length) return
-    if (!nivel || qtdInsuficiente) return
+    if (!isVideo && (!selectedDores.length || !nivel || qtdInsuficiente)) return
     const now = new Date().toISOString()
     setGeneratedAt(now)
     setLoading(true)
@@ -962,8 +879,8 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
         instruction: instructionOverride ?? autoInstruction,
       })
       const fullText = await streamClaude({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 32000,
+        model: isVideo ? MODELO_ROTEIRO_VIDEO : 'claude-sonnet-4-5',
+        max_tokens: isVideo ? 64000 : 32000,
         system,
         messages,
         onChunk: (text) => setResult(text.replace(/—/g, '-')),
@@ -971,38 +888,66 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
 
       const cleanText = fullText.replace(/—/g, '-')
       const newId = crypto.randomUUID()
-      const adTypeLabels = isVideo
-        ? selectedList.map((t, i) => `${t.label} ×${videoSplit[i]}`)
-        : selectedDores.map((d) => d.text.substring(0, 50))
-      const autoName = [
-        isVideo && variacaoRef ? `Variações (${(variacaoRef.adName || 'campeão').slice(0, 60)})` : isVideo ? 'Vídeo' : 'Estático',
-        '—',
-        adTypeLabels.slice(0, 2).join(', ') + (adTypeLabels.length > 2 ? '...' : ''),
-      ].join(' ')
-      const newCreative = {
-        id: newId,
-        name: autoName,
-        campaignId: null,
-        type: isVideo ? 'video' : 'estatico',
-        mode: isVideo ? 'adTypes' : 'dores',
-        adTypes: isVideo ? selectedList.map((t) => t.id) : [],
-        adTypeLabels,
-        adTypeConfig: isVideo ? { ...adTypeConfig } : {},
-        dorConfig: isVideo ? {} : { ...dorConfig },
-        quantity: isVideo ? totalQuantity : staticTotalQty,
-        // Nível de consciência em que esta geração foi escrita (id + label).
-        nivel,
-        nivelLabel: NIVEIS_BY_ID[nivel]?.label || '',
-        content: cleanText,
-        rating: null,
+      const escopo = {
         // Escopo usado nessa geração (null = geral; NO_CONTEXT = sem esse contexto)
         productId: selectedProductId === NO_CONTEXT ? NO_CONTEXT : selectedProductId || null,
         productName: selectedProductId === NO_CONTEXT ? 'Sem contexto de produto' : selectedProduct?.nome || null,
         personaId: selectedPersonaId === NO_CONTEXT ? NO_CONTEXT : selectedPersonaId || null,
         personaName: selectedPersonaId === NO_CONTEXT ? 'Sem contexto de persona' : selectedPersona?.name || null,
-        funil: selectedFunil || null,
-        funilLabel: FUNIS_BY_ID[selectedFunil]?.label || null,
         createdAt: now,
+      }
+      let newCreative
+      if (isVideo) {
+        const roteiros = splitChunks(cleanText)
+        const foco = [selectedProduct?.nome, selectedPersona?.name].filter(Boolean).join(' · ')
+        newCreative = {
+          id: newId,
+          name: `${variacaoRef ? `Variações (${(variacaoRef.adName || 'campeão').slice(0, 60)})` : 'Vídeo'} · ${foco || 'geral'}`,
+          campaignId: null,
+          type: 'video',
+          mode: 'habilidade',
+          adTypes: [],
+          adTypeLabels: etapasDosRoteiros(roteiros.map((r) => r.chunk)),
+          adTypeConfig: {},
+          dorConfig: {},
+          quantity: roteiros.length,
+          nivel: null,
+          nivelLabel: '',
+          content: cleanText,
+          rating: null,
+          ...escopo,
+          ofertaId: selectedOfertaId === NO_CONTEXT ? NO_CONTEXT : ofertaUsada?.id || null,
+          ofertaName: selectedOfertaId === NO_CONTEXT ? 'Sem oferta' : ofertaUsada?.nome || null,
+          funil: null,
+          funilLabel: null,
+        }
+      } else {
+        const adTypeLabels = selectedDores.map((d) => d.text.substring(0, 50))
+        const autoName = [
+          'Estático',
+          '—',
+          adTypeLabels.slice(0, 2).join(', ') + (adTypeLabels.length > 2 ? '...' : ''),
+        ].join(' ')
+        newCreative = {
+          id: newId,
+          name: autoName,
+          campaignId: null,
+          type: 'estatico',
+          mode: 'dores',
+          adTypes: [],
+          adTypeLabels,
+          adTypeConfig: {},
+          dorConfig: { ...dorConfig },
+          quantity: staticTotalQty,
+          // Nível de consciência em que esta geração foi escrita (id + label).
+          nivel,
+          nivelLabel: NIVEIS_BY_ID[nivel]?.label || '',
+          content: cleanText,
+          rating: null,
+          ...escopo,
+          funil: selectedFunil || null,
+          funilLabel: FUNIS_BY_ID[selectedFunil]?.label || null,
+        }
       }
       setLastCreativeId(newId)
       updateProject(project.id, {
@@ -1014,7 +959,6 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
       setLoading(false)
     }
   }, [
-    adTypeConfig,
     autoInstruction,
     dorConfig,
     instructionOverride,
@@ -1022,19 +966,18 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
     project,
     scopedProject,
     selectedDores,
-    selectedList,
     selectedProduct,
     selectedProductId,
     selectedPersona,
     selectedPersonaId,
     selectedFunil,
-    extraDetails,
     staticTotalQty,
     metodologiaOverride,
+    diretrizesOverride,
     nivel,
     qtdInsuficiente,
-    totalQuantity,
-    videoSplit,
+    selectedOfertaId,
+    ofertaUsada,
     updateProject,
     variacaoRef,
   ])
@@ -1044,18 +987,23 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
     (creativeType) => async (_chunkIndex, chunkContent, userNote, onChunk) => {
       const isVid = creativeType === 'video'
       const parts = isVid ? VIDEO_SYSTEM_PARTS : DORES_SYSTEM_PARTS
+      // O vídeo refina com a habilidade inteira; a solicitação pede um roteiro só.
       const systemPrompt = [
+        ...(isVid ? [parts.metodologia] : []),
         parts.estrutura(nivel),
         parts.diretrizes + '\n' + parts.diretrizLocked,
       ].join('\n\n')
+      const soEste = isVid
+        ? '\n\nDevolva só este roteiro reescrito, no mesmo formato do original, sem o estudo do público e sem a tabela final.'
+        : ''
       const { system, messages } = buildCachedPayload({
         systemPrompt,
         project: scopedProject,
-        instruction: `---\n\n## COPY ORIGINAL\n\n${chunkContent}\n\n---\n\n## SOLICITAÇÃO DE REFINAMENTO\n\n${userNote}`,
+        instruction: `---\n\n## COPY ORIGINAL\n\n${chunkContent}\n\n---\n\n## SOLICITAÇÃO DE REFINAMENTO\n\n${userNote}${soEste}`,
       })
       return streamClaude({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 4000,
+        model: isVid ? MODELO_ROTEIRO_VIDEO : 'claude-sonnet-4-5',
+        max_tokens: isVid ? 16000 : 4000,
         system,
         messages,
         onChunk,
@@ -1341,8 +1289,8 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               Icon: Video,
               color: 'rl-purple',
               title: 'Criativos de Vídeo',
-              desc: 'Roteiros de 30-60s com Gancho, Mensagem, Quebra de Objeção e CTA. Laboratório de Anúncios.',
-              tags: ['Reels', 'YouTube', 'Gancho', 'Roteiro', 'CTA'],
+              desc: 'Estudo do público, 10 roteiros de 30 a 60 s (topo, meio, fundo e remarketing) e a tabela do laboratório, pela habilidade de roteiro da Verta.',
+              tags: ['Reels', 'YouTube', 'Gancho', 'Roteiro', 'Remarketing'],
             },
           ].map(({ key, Icon, color, title, desc, tags }) => (
             <button
@@ -1350,7 +1298,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               onClick={() => {
                 setView(key)
                 setResult(null)
-                setAdTypeConfig({})
+                setSelectedOfertaId('')
                 setDorConfig({})
                 setCustomDores([])
                 setDorTextOverrides({})
@@ -1415,9 +1363,9 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
     const freshCreative = lastCreativeId
       ? ((project.creatives || []).find((c) => c.id === lastCreativeId) ?? null)
       : null
-    const qty = isVideo ? totalQuantity : staticTotalQty
+    const qty = isVideo ? splitChunks(result).length : staticTotalQty
     const adTypeLabels = isVideo
-      ? selectedList.map((t, i) => `${t.label} ×${videoSplit[i]}`)
+      ? (freshCreative?.adTypeLabels || etapasDosRoteiros(splitChunks(result).map((r) => r.chunk)))
       : selectedDores.map((d) => d.text.substring(0, 50))
 
 
@@ -1539,6 +1487,254 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
   }
 
   // ── View: Generator ─────────────────────────────────────────────────────────
+  // ── Peças da tela de configuração (o vídeo usa numa tela só) ────────────────
+  const selectProduto = productList.length > 0 && (
+    <div>
+      <label className="text-[11px] font-bold text-rl-text block mb-1">📦 Produto/serviço</label>
+      <select
+        value={selectedProductId}
+        onChange={(e) => setSelectedProductId(e.target.value)}
+        className="input-field w-full text-sm"
+      >
+        <option value="">Todos os produtos</option>
+        <option value={NO_CONTEXT}>🚫 Não usar contexto de produto</option>
+        {productList.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.nome}{p.tipo === 'servico' ? ' · Serviço' : p.tipo === 'produto' ? ' · Produto' : ''}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+  const selectPersona = personaList.length > 0 && (
+    <div>
+      <label className="text-[11px] font-bold text-rl-text block mb-1">👤 Persona / público</label>
+      <select
+        value={selectedPersonaId}
+        onChange={(e) => setSelectedPersonaId(e.target.value)}
+        className="input-field w-full text-sm"
+      >
+        <option value="">Todas as personas</option>
+        <option value={NO_CONTEXT}>🚫 Não usar contexto de persona</option>
+        {personaList.map((p) => (
+          <option key={p.id} value={p.id}>{p.name}</option>
+        ))}
+      </select>
+    </div>
+  )
+  const selectOferta = ofertaList.length > 0 && (
+    <div>
+      <label className="text-[11px] font-bold text-rl-text block mb-1">🎯 Oferta</label>
+      <select
+        value={selectedOfertaId}
+        onChange={(e) => setSelectedOfertaId(e.target.value)}
+        className="input-field w-full text-sm"
+      >
+        <option value="">Principal{project.ofertaData?.nome ? `: ${project.ofertaData.nome}` : ''}</option>
+        <option value={NO_CONTEXT}>🚫 Não usar oferta</option>
+        {ofertaList.filter((o) => o.id !== project.ofertaData?.id).map((o, i) => (
+          <option key={o.id} value={o.id}>{o.nome || `Oferta ${i + 2}`}</option>
+        ))}
+      </select>
+    </div>
+  )
+
+  const painelDoPrompt = (
+    <div className="space-y-4">
+              {/* Solicitação — accordion */}
+              <div className="rounded-xl border border-rl-border overflow-hidden">
+                <button
+                  onClick={() => setInstructionOpen((v) => !v)}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 bg-rl-surface/60 hover:bg-rl-surface transition-colors text-left"
+                >
+                  <span className="text-xs font-semibold text-rl-muted flex-1">Solicitação</span>
+                  {instructionOverride !== null && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rl-blue/10 border border-rl-blue/20 text-rl-blue font-medium">
+                      editado
+                    </span>
+                  )}
+                  {instructionOpen ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-rl-muted shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-rl-muted shrink-0" />
+                  )}
+                </button>
+                {instructionOpen && (
+                  <div className="px-4 py-3 border-t border-rl-border space-y-2">
+                    <AutoResizeTextarea
+                      value={instructionOverride ?? autoInstruction}
+                      onChange={(e) => setInstructionOverride(e.target.value)}
+                      className="input-field w-full text-xs font-mono"
+                    />
+                    {instructionOverride !== null && (
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-rl-blue flex items-center gap-1">
+                          <Pencil className="w-3 h-3" /> Editado manualmente
+                        </p>
+                        <button
+                          onClick={() => setInstructionOverride(null)}
+                          className="flex items-center gap-1 text-[10px] text-rl-muted hover:text-rl-blue transition-colors"
+                        >
+                          <RotateCcw className="w-3 h-3" /> Restaurar automático
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* System Prompt — accordion */}
+              <div className="rounded-xl border border-rl-border overflow-hidden">
+                <button
+                  onClick={() => setSystemOpen((v) => !v)}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 bg-rl-surface/60 hover:bg-rl-surface transition-colors text-left"
+                >
+                  <span className="text-xs font-semibold text-rl-muted flex-1">System Prompt</span>
+                  {(metodologiaOverride !== null || diretrizesOverride !== null) && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rl-blue/10 border border-rl-blue/20 text-rl-blue font-medium">
+                      editado
+                    </span>
+                  )}
+                  {systemOpen ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-rl-muted shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-rl-muted shrink-0" />
+                  )}
+                </button>
+                {systemOpen &&
+                  (() => {
+                    const parts = isVideo ? VIDEO_SYSTEM_PARTS : DORES_SYSTEM_PARTS
+                    return (
+                      <div className="border-t border-rl-border divide-y divide-rl-border/60">
+                        {/* Metodologia — editável */}
+                        <div className="px-4 py-3 space-y-2">
+                          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">
+                            {isVideo ? 'Habilidade criador-de-roteiro-de-video' : 'Metodologia'}
+                          </p>
+                          <AutoResizeTextarea
+                            value={metodologiaOverride ?? parts.metodologia}
+                            onChange={(e) => setMetodologiaOverride(e.target.value)}
+                            className="input-field w-full text-xs font-mono"
+                          />
+                          {metodologiaOverride !== null && (
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-rl-blue flex items-center gap-1">
+                                <Pencil className="w-3 h-3" /> Editado manualmente
+                              </p>
+                              <button
+                                onClick={() => setMetodologiaOverride(null)}
+                                className="flex items-center gap-1 text-[10px] text-rl-muted hover:text-rl-blue transition-colors"
+                              >
+                                <RotateCcw className="w-3 h-3" /> Restaurar padrão
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {/* Diretrizes — editável + linha bloqueada */}
+                        <div className="px-4 py-3 space-y-2">
+                          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">
+                            Diretrizes
+                          </p>
+                          <AutoResizeTextarea
+                            value={diretrizesOverride ?? parts.diretrizes}
+                            onChange={(e) => setDiretrizesOverride(e.target.value)}
+                            className="input-field w-full text-xs font-mono"
+                          />
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-rl-surface/60 border border-rl-border/40">
+                            <Lock className="w-3 h-3 text-rl-muted shrink-0" />
+                            <span className="text-xs text-rl-muted font-mono">{parts.diretrizLocked}</span>
+                          </div>
+                          {diretrizesOverride !== null && (
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-rl-blue flex items-center gap-1">
+                                <Pencil className="w-3 h-3" /> Editado manualmente
+                              </p>
+                              <button
+                                onClick={() => setDiretrizesOverride(null)}
+                                className="flex items-center gap-1 text-[10px] text-rl-muted hover:text-rl-blue transition-colors"
+                              >
+                                <RotateCcw className="w-3 h-3" /> Restaurar padrão
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {/* Estrutura — somente leitura */}
+                        <div className="px-4 py-3 space-y-2">
+                          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">
+                            {isVideo ? 'Formato que a tela lê' : 'Estrutura'}
+                          </p>
+                          <pre className="text-xs text-rl-muted font-mono leading-relaxed whitespace-pre-wrap bg-rl-surface/60 rounded-lg px-3 py-2.5 border border-rl-border/40">
+                            {parts.estrutura(nivel)}
+                          </pre>
+                        </div>
+                      </div>
+                    )
+                  })()}
+              </div>
+
+              {/* Context preview */}
+              <ContextPreview project={scopedProject} collapsed />
+
+              {/* Error */}
+              {error && (
+                <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-sm">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+              )}
+    </div>
+  )
+
+  // ── Vídeo: só produto, persona e oferta; a habilidade faz o resto ───────────
+  const videoSetup = (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-3">
+        <p className="text-[11px] text-rl-muted leading-snug">
+          A IA segue a habilidade de roteiro de vídeo da Verta: faz o estudo do público, escreve
+          10 roteiros (3 de topo, 3 de meio, 2 de fundo e 2 de remarketing) e fecha com a tabela do
+          laboratório. Você só escolhe sobre o que ela vai falar.
+        </p>
+        {productList.length || personaList.length || ofertaList.length ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {selectProduto}
+            {selectPersona}
+            {selectOferta}
+          </div>
+        ) : (
+          <p className="text-[11px] text-rl-muted leading-snug">
+            Este cliente ainda não tem produto, persona nem oferta cadastrados. A IA usa os dados
+            gerais da empresa.
+          </p>
+        )}
+      </div>
+
+      {painelDoPrompt}
+
+      <div className="flex items-center justify-end gap-3 pt-1">
+        {loading && (
+          <p className="text-[11px] text-rl-muted leading-snug text-right">
+            Leva uns 3 minutos: primeiro a IA estuda o público, depois escreve os roteiros.
+          </p>
+        )}
+        <button
+          onClick={generate}
+          disabled={loading}
+          className="btn-primary flex items-center gap-2 text-sm px-6 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" /> Gerando...
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4" /> Gerar 10 roteiros
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <div className="space-y-6">
       {/* Sub-tabs: Copy (fluxo atual) | Visual com IA (novo) */}
@@ -1614,7 +1810,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
           onClick={() => {
             setView('select')
             setResult(null)
-            setAdTypeConfig({})
+            setSelectedOfertaId('')
             setDorConfig({})
             setCustomDores([])
             setDorTextOverrides({})
@@ -1646,7 +1842,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
           </div>
           <p className="text-sm text-rl-muted mt-0.5 ml-7">
             {isVideo
-              ? 'Selecione tipos e quantidade por gancho'
+              ? 'Escolha o produto, a persona e a oferta. Saem 10 roteiros prontos, do topo ao remarketing.'
               : 'Selecione as dores da persona para gerar headlines'}
           </p>
         </div>
@@ -1662,7 +1858,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                 Variações do anúncio campeão: <span className="text-rl-purple">{variacaoRef.adName || 'sem nome'}</span>
               </p>
               <p className="text-[11px] text-rl-muted mt-0.5">
-                A transcrição entra na solicitação como referência: a IA mantém o DNA da mensagem (promessa, contexto, CTA) e varia gancho, ângulo e estrutura — sem copiar frases. Escolha o funil e os tipos de gancho normalmente.
+                A transcrição entra na solicitação como referência: a IA mantém o DNA da mensagem (promessa, contexto, CTA) e varia gancho, ângulo e estrutura — sem copiar frases. Escolha o produto, a persona e a oferta normalmente.
               </p>
             </div>
             <button
@@ -1677,7 +1873,8 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
         </div>
       )}
 
-      {/* ── Wizard: uma pergunta por vez, com fade ───────────────────────────── */}
+      {/* ── Wizard: uma pergunta por vez, com fade (só estático) ───────────── */}
+      {isVideo ? videoSetup : (
       <div className="space-y-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -1707,40 +1904,8 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                 vai rodar em outros funis).
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {productList.length > 0 && (
-                  <div>
-                    <label className="text-[11px] font-bold text-rl-text block mb-1">📦 Produto/serviço</label>
-                    <select
-                      value={selectedProductId}
-                      onChange={(e) => setSelectedProductId(e.target.value)}
-                      className="input-field w-full text-sm"
-                    >
-                      <option value="">Todos os produtos</option>
-                      <option value={NO_CONTEXT}>🚫 Não usar contexto de produto</option>
-                      {productList.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nome}{p.tipo === 'servico' ? ' · Serviço' : p.tipo === 'produto' ? ' · Produto' : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                {personaList.length > 0 && (
-                  <div>
-                    <label className="text-[11px] font-bold text-rl-text block mb-1">👤 Persona / público</label>
-                    <select
-                      value={selectedPersonaId}
-                      onChange={(e) => setSelectedPersonaId(e.target.value)}
-                      className="input-field w-full text-sm"
-                    >
-                      <option value="">Todas as personas</option>
-                      <option value={NO_CONTEXT}>🚫 Não usar contexto de persona</option>
-                      {personaList.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                {selectProduto}
+                {selectPersona}
               </div>
               {!isVideo && selectedPersona && (
                 <p className="text-[11px] text-rl-blue leading-snug">
@@ -1857,64 +2022,6 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                   </p>
                 )}
               </div>
-
-              {/* Video: ad type + per-type quantity */}
-              {isVideo && (
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="label-field">
-                      Ângulo (gancho / figura de linguagem)
-                      {selectedList.length > 0 && (
-                        <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rl-purple/20 text-rl-purple border border-rl-purple/30">
-                          {selectedList.length} ângulo{selectedList.length !== 1 ? 's' : ''} · {totalQuantity}{' '}
-                          roteiro{totalQuantity !== 1 ? 's' : ''}
-                        </span>
-                      )}
-                    </label>
-                    <div className="flex gap-2 text-xs text-rl-muted">
-                      <button onClick={selectAll} className="hover:text-rl-purple transition-colors">
-                        Selecionar todos
-                      </button>
-                      <span>·</span>
-                      <button onClick={clearAll} className="hover:text-rl-purple transition-colors">
-                        Limpar
-                      </button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                    {AD_TYPES.map((type) => {
-                      const selected = (adTypeConfig[type.id] || 0) > 0
-                      const qtdTipo = selected ? videoSplit[selectedList.findIndex((t) => t.id === type.id)] : 0
-                      return (
-                        <button
-                          key={type.id}
-                          onClick={() => toggleType(type.id)}
-                          className={`rounded-xl p-3 text-left transition-all border ${
-                            selected
-                              ? 'bg-rl-purple/10 border-rl-purple/50 text-rl-purple'
-                              : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30 hover:text-rl-text'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-base">{type.emoji}</span>
-                            <span
-                              className={`text-xs font-bold flex-1 ${selected ? 'text-rl-purple' : 'text-rl-text'}`}
-                            >
-                              {type.label}
-                            </span>
-                            {selected && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rl-purple/20 text-rl-purple border border-rl-purple/30 shrink-0">
-                                {qtdTipo} roteiro{qtdTipo !== 1 ? 's' : ''}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[10px] text-rl-muted leading-snug line-clamp-2">{type.desc}</p>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
 
               {/* Static: dores da persona */}
               {!isVideo && (
@@ -2145,150 +2252,10 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
               <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 text-[11px] text-rl-muted space-y-0.5">
                 <p><span className="text-rl-text font-semibold">Funil:</span> {FUNIS_BY_ID[selectedFunil]?.label || '—'}</p>
                 <p><span className="text-rl-text font-semibold">Nível de consciência:</span> {nivel ? `Nível ${NIVEIS_BY_ID[nivel].num} — ${NIVEIS_BY_ID[nivel].label}` : '—'}</p>
-                <p><span className="text-rl-text font-semibold">Total:</span> {isVideo ? totalQuantity : staticTotalQty} {isVideo ? 'roteiros' : 'headlines'} em {blocosAtuais} {isVideo ? 'ângulo(s)' : 'combinação(ões)'}</p>
+                <p><span className="text-rl-text font-semibold">Total:</span> {staticTotalQty} headlines em {blocosAtuais} combinação(ões)</p>
               </div>
 
-              {/* Solicitação — accordion */}
-              <div className="rounded-xl border border-rl-border overflow-hidden">
-                <button
-                  onClick={() => setInstructionOpen((v) => !v)}
-                  className="w-full flex items-center gap-2.5 px-4 py-3 bg-rl-surface/60 hover:bg-rl-surface transition-colors text-left"
-                >
-                  <span className="text-xs font-semibold text-rl-muted flex-1">Solicitação</span>
-                  {instructionOverride !== null && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rl-blue/10 border border-rl-blue/20 text-rl-blue font-medium">
-                      editado
-                    </span>
-                  )}
-                  {instructionOpen ? (
-                    <ChevronUp className="w-3.5 h-3.5 text-rl-muted shrink-0" />
-                  ) : (
-                    <ChevronDown className="w-3.5 h-3.5 text-rl-muted shrink-0" />
-                  )}
-                </button>
-                {instructionOpen && (
-                  <div className="px-4 py-3 border-t border-rl-border space-y-2">
-                    <AutoResizeTextarea
-                      value={instructionOverride ?? autoInstruction}
-                      onChange={(e) => setInstructionOverride(e.target.value)}
-                      className="input-field w-full text-xs font-mono"
-                    />
-                    {instructionOverride !== null && (
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-rl-blue flex items-center gap-1">
-                          <Pencil className="w-3 h-3" /> Editado manualmente
-                        </p>
-                        <button
-                          onClick={() => setInstructionOverride(null)}
-                          className="flex items-center gap-1 text-[10px] text-rl-muted hover:text-rl-blue transition-colors"
-                        >
-                          <RotateCcw className="w-3 h-3" /> Restaurar automático
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* System Prompt — accordion */}
-              <div className="rounded-xl border border-rl-border overflow-hidden">
-                <button
-                  onClick={() => setSystemOpen((v) => !v)}
-                  className="w-full flex items-center gap-2.5 px-4 py-3 bg-rl-surface/60 hover:bg-rl-surface transition-colors text-left"
-                >
-                  <span className="text-xs font-semibold text-rl-muted flex-1">System Prompt</span>
-                  {(metodologiaOverride !== null || diretrizesOverride !== null) && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rl-blue/10 border border-rl-blue/20 text-rl-blue font-medium">
-                      editado
-                    </span>
-                  )}
-                  {systemOpen ? (
-                    <ChevronUp className="w-3.5 h-3.5 text-rl-muted shrink-0" />
-                  ) : (
-                    <ChevronDown className="w-3.5 h-3.5 text-rl-muted shrink-0" />
-                  )}
-                </button>
-                {systemOpen &&
-                  (() => {
-                    const parts = isVideo ? VIDEO_SYSTEM_PARTS : DORES_SYSTEM_PARTS
-                    return (
-                      <div className="border-t border-rl-border divide-y divide-rl-border/60">
-                        {/* Metodologia — editável */}
-                        <div className="px-4 py-3 space-y-2">
-                          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">
-                            Metodologia
-                          </p>
-                          <AutoResizeTextarea
-                            value={metodologiaOverride ?? parts.metodologia}
-                            onChange={(e) => setMetodologiaOverride(e.target.value)}
-                            className="input-field w-full text-xs font-mono"
-                          />
-                          {metodologiaOverride !== null && (
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs text-rl-blue flex items-center gap-1">
-                                <Pencil className="w-3 h-3" /> Editado manualmente
-                              </p>
-                              <button
-                                onClick={() => setMetodologiaOverride(null)}
-                                className="flex items-center gap-1 text-[10px] text-rl-muted hover:text-rl-blue transition-colors"
-                              >
-                                <RotateCcw className="w-3 h-3" /> Restaurar padrão
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        {/* Diretrizes — editável + linha bloqueada */}
-                        <div className="px-4 py-3 space-y-2">
-                          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">
-                            Diretrizes
-                          </p>
-                          <AutoResizeTextarea
-                            value={diretrizesOverride ?? parts.diretrizes}
-                            onChange={(e) => setDiretrizesOverride(e.target.value)}
-                            className="input-field w-full text-xs font-mono"
-                          />
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-rl-surface/60 border border-rl-border/40">
-                            <Lock className="w-3 h-3 text-rl-muted shrink-0" />
-                            <span className="text-xs text-rl-muted font-mono">{parts.diretrizLocked}</span>
-                          </div>
-                          {diretrizesOverride !== null && (
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs text-rl-blue flex items-center gap-1">
-                                <Pencil className="w-3 h-3" /> Editado manualmente
-                              </p>
-                              <button
-                                onClick={() => setDiretrizesOverride(null)}
-                                className="flex items-center gap-1 text-[10px] text-rl-muted hover:text-rl-blue transition-colors"
-                              >
-                                <RotateCcw className="w-3 h-3" /> Restaurar padrão
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        {/* Estrutura — somente leitura */}
-                        <div className="px-4 py-3 space-y-2">
-                          <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wide">
-                            Estrutura
-                          </p>
-                          <pre className="text-xs text-rl-muted font-mono leading-relaxed whitespace-pre-wrap bg-rl-surface/60 rounded-lg px-3 py-2.5 border border-rl-border/40">
-                            {parts.estrutura(nivel)}
-                          </pre>
-                        </div>
-                      </div>
-                    )
-                  })()}
-              </div>
-
-              {/* Context preview */}
-              <ContextPreview project={scopedProject} collapsed />
-
-              {/* Error */}
-              {error && (
-                <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-sm">
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>{error}</span>
-                </div>
-              )}
+              {painelDoPrompt}
 
               {/* Detalhes específicos deste anúncio (opcional) */}
               <div className="rounded-xl border border-rl-border bg-rl-surface/40 p-3 space-y-1.5">
@@ -2325,20 +2292,13 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
                 !selectedFunil ||
                 !nivel ||
                 qtdInsuficiente ||
-                (isVideo
-                  ? selectedList.length === 0
-                  : selectedDores.length === 0 || dorsPendingType.length > 0) || loading
+                selectedDores.length === 0 || dorsPendingType.length > 0 || loading
               }
               className="btn-primary flex items-center gap-2 text-sm px-6 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" /> Gerando...
-                </>
-              ) : isVideo ? (
-                <>
-                  <Sparkles className="w-4 h-4" /> Gerar {totalQuantity} Roteiro
-                  {totalQuantity !== 1 ? 's' : ''}
                 </>
               ) : (
                 <>
@@ -2365,6 +2325,7 @@ Total: ${staticBlocos} blocos (${staticTotalQty} headlines).`
           )}
         </div>
       </div>
+      )}
       </>)}
     </div>
   )

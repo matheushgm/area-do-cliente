@@ -21,18 +21,38 @@ function isNonAd(chunk) {
 // Exportado: a leva de aprovação de copy precisa enxergar exatamente os mesmos
 // chunks que os cards da tela, senão o índice do item enviado ao cliente não
 // bate com o criativo que o gestor está vendo.
+// Onde começa cada bloco do texto gerado: um anúncio/roteiro ou, nos roteiros
+// de vídeo da habilidade, o estudo do público (antes) e a tabela do laboratório
+// (depois), que não são cards. Sem a divisa da tabela ela grudava no último
+// roteiro e o card inteiro sumia (isNonAd).
+export const DIVISA_DE_BLOCO = /(?=^##\s+(?:ROTEIRO|AN[ÚU]NCIO)\s+\d+|^#{1,2}\s+(?:ESTUDO|TABELA)\b)/im
+const EXTRA = /^#{1,2}\s+(ESTUDO|TABELA)\b/i
+
 export function splitChunks(content) {
-  const parts = content.split(/(?=^##\s+(?:ROTEIRO|AN[ÚU]NCIO)\s+\d+)/im)
+  const parts = content.split(DIVISA_DE_BLOCO)
   const adChunks = parts.filter((p) => {
     const t = p.trim()
     return t && AD_HEADER.test(t) && !isNonAd(t)
   })
   if (adChunks.length > 0) return adChunks.map((chunk) => ({ chunk }))
 
-  const chunks = content.split(/\n---\n/).map((c) => c.trim()).filter(Boolean)
+  // Enquanto só o estudo do público chegou (streaming), não há card ainda.
+  const chunks = content.split(/\n---\n/).map((c) => c.trim()).filter((c) => c && !EXTRA.test(c))
   if (chunks.length > 1) return chunks.map((chunk) => ({ chunk }))
+  if (EXTRA.test(content.trim())) return chunks.map((chunk) => ({ chunk }))
 
   return [{ chunk: content }]
+}
+
+// Estudo do público e tabela do laboratório de uma geração de vídeo, quando há.
+export function extrasDoConteudo(content) {
+  const extras = { estudo: '', tabela: '' }
+  for (const parte of String(content || '').split(DIVISA_DE_BLOCO)) {
+    const t = parte.trim()
+    const m = t.match(EXTRA)
+    if (m) extras[m[1].toUpperCase() === 'ESTUDO' ? 'estudo' : 'tabela'] = stripTrailingSeparator(t)
+  }
+  return extras
 }
 
 // Remove o separador "---" que o split por lookahead deixa grudado no final
@@ -366,6 +386,7 @@ function ChunkCard({ item, index, type, companyName, onChange, onRefine, onDelet
 export default function CreativeResultBlock({ content, type, companyName, onChunkChange, onRefine, onChunkDelete }) {
   const [allCopied, setAllCopied] = useState(false)
   const items = splitChunks(content)
+  const { estudo, tabela } = extrasDoConteudo(content)
 
   function copyAll() {
     navigator.clipboard.writeText(content)
@@ -388,6 +409,9 @@ export default function CreativeResultBlock({ content, type, companyName, onChun
         </button>
       </div>
 
+      {/* Aberto enquanto os roteiros não começaram a chegar; depois recolhe. */}
+      {estudo && <BlocoExtra titulo="Estudo do público" texto={estudo} aberto={items.length === 0} />}
+
       {items.map((item, i) => (
         <ChunkCard
           key={i}
@@ -402,6 +426,22 @@ export default function CreativeResultBlock({ content, type, companyName, onChun
           onDelete={onChunkDelete && items.length > 1 ? () => onChunkDelete(i) : undefined}
         />
       ))}
+
+      {tabela && <BlocoExtra titulo="Tabela do laboratório" texto={tabela} aberto />}
     </div>
+  )
+}
+
+function BlocoExtra({ titulo, texto, aberto = false }) {
+  const corpo = texto.replace(/^#{1,2}[^\n]*\n?/, '').trim()
+  return (
+    <details open={aberto} className="glass-card overflow-hidden group">
+      <summary className="px-5 py-3 text-xs font-bold text-rl-text cursor-pointer hover:bg-rl-surface/60">
+        {titulo}
+      </summary>
+      <div className="px-5 pb-4 pt-1 border-t border-rl-border/60">
+        <MarkdownView content={corpo} className="md-prose--13" />
+      </div>
+    </details>
   )
 }

@@ -157,7 +157,7 @@ function ehRoteiroDeVideo({ type, isVideo, content }) {
 }
 
 function splitIntoAds(content) {
-  const parts = content.split(/(?=^##\s+(?:ROTEIRO|AN[ÚU]NCIO)\s+\d+)/im)
+  const parts = content.split(/(?=^##\s+(?:ROTEIRO|AN[ÚU]NCIO)\s+\d+|^#{1,2}\s+(?:ESTUDO|TABELA)\b)/im)
   const ads = parts.filter((p) => /^##\s+(?:ROTEIRO|AN[ÚU]NCIO)\s+\d+/im.test(p.trim()))
   // Fallback por ---
   if (ads.length === 0) {

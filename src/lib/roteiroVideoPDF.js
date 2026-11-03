@@ -60,8 +60,10 @@ const TEM_ROTULO = /^\s*\*\*[^*\n]*\p{Lu}{3}[^*\n]*\*\*/mu
 export function splitRoteiros(content) {
   const texto = String(content || '')
 
+  // O estudo do público e a tabela do laboratório (roteiros da habilidade) viram
+  // partes próprias e saem do PDF; sem isso a tabela entrava no CTA do último.
   const partes = texto.split(
-    /(?=^#{1,4}[ \t]+(?:ROTEIRO[ \t]+\d+|\d+[.):\-—]))/im,
+    /(?=^#{1,4}[ \t]+(?:ROTEIRO[ \t]+\d+|\d+[.):\-—])|^#{1,2}[ \t]+(?:ESTUDO|TABELA)\b)/im,
   )
   const achados = partes
     .map((p) => p.trim())
