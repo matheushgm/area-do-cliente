@@ -20,6 +20,7 @@ import {
 import MarkdownView from '../components/Editor/MarkdownView'
 import MarkdownEditor from '../components/Editor/MarkdownEditor'
 import { apiFetch } from '../lib/api'
+import { separarCopy } from '../lib/copyParaCliente'
 
 const API = '/api/copy-aprovacao'
 
@@ -326,6 +327,8 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
   // Na revisão, depois de liberado: o que o cliente já respondeu.
   const respostaCliente = interno && st === 'aprovado' ? item.cliente?.status : null
   const textoMudou  = texto.trim().length > 0 && texto.trim() !== (item.conteudo || '').trim()
+  // Na revisão o roteiro chega inteiro; o cabeçalho (Quem, O quê, Quando) não vai pro cliente.
+  const { cabecalho, texto: textoFalado } = separarCopy(item.conteudo)
 
   return (
     <div className="glass-card overflow-hidden">
@@ -379,6 +382,16 @@ function CopyCard({ item, index, token, onDecided, decided = false, tipo, compan
               ? 'O cliente recebe o texto já com o seu ajuste. O original fica guardado na leva.'
               : 'O texto que você aprovar aqui é o que vai pra produção. O original fica guardado pra equipe comparar.'}
           </p>
+        </div>
+      ) : interno && cabecalho ? (
+        <div className="px-5 py-4 space-y-3">
+          <div className="rounded-xl bg-rl-surface/60 border border-dashed border-rl-border px-4 py-3">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-rl-muted mb-1.5">
+              Só o time vê. O cliente recebe a partir do Gancho.
+            </p>
+            <MarkdownView content={cabecalho} />
+          </div>
+          <MarkdownView content={textoFalado} />
         </div>
       ) : (
         <div className="px-5 py-4">

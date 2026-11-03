@@ -297,6 +297,13 @@ objetos vive em `src/lib/copyLevas.js` (única fonte da verdade). Fluxo:
    Criativos com IA) continuam indo direto pro cliente. Na aba de aprovação o "Enviar" não manda mais
    copy sem peça pro `/aprovacao/:token`. Helpers em `copyLevas.js`: `podeIrPraRevisao`,
    `copyEmLeva`, `resumoDaLeva`, `linkDaRevisao`.
+6. **O cliente não vê o cabeçalho do roteiro (2026-11-03):** a copy dos roteiros da Central começa com
+   material do time (`# ROT08 · Fundo · Gancho: … · Mensagem: …`, Quem, Quando e a tabela de O quê). O GET
+   do cliente corta tudo antes do rótulo `GANCHO` (`copyParaCliente` em `src/lib/copyParaCliente.js`,
+   também importado pela API), o que vale para o texto na tela, o Copiar e o PDF. O "Editar e aprovar" do
+   cliente compara com esse texto e grava o cabeçalho de volta na frente (`juntarCopy`), então a copy do
+   anúncio continua inteira. Copy sem o rótulo (estáticos) passa como está. Na revisão interna o cabeçalho
+   aparece num quadro "Só o time vê".
 
 Não confundir com `/aprovacao/:token` (`api/anuncios-aprovacao.js`): lá o cliente aprova a
 **peça pronta** e landing pages, usando o `client_share_token` do projeto.

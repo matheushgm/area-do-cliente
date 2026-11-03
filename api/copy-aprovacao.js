@@ -1,5 +1,6 @@
 import { NO_STORE, jsonCors, preflight, sb, getUser } from './_http.js'
 import { registrarIntake } from './_intake.js'
+import { copyParaCliente, juntarCopy, separarCopy } from '../src/lib/copyParaCliente.js'
 // Edge Function pública — APROVAÇÃO DE COPY (leva de Criativos com IA).
 //
 // Diferente de /api/anuncios-aprovacao (que usa o client_share_token do projeto
@@ -18,6 +19,10 @@ import { registrarIntake } from './_intake.js'
 // a copy do item e do anúncio; o original fica em `conteudoOriginal` (item) e
 // `copyAprovacao.copyOriginal` (anúncio), e `aprovacao.editado = true` marca
 // pro time que o cliente mexeu.
+//
+// Roteiro com cabeçalho do time (# ROT.. · etapa, Quem, Quando, tabela de O quê):
+// o cliente recebe e edita só do rótulo GANCHO em diante (`copyParaCliente`); na
+// edição dele o cabeçalho volta na frente do texto gravado.
 //
 // REVISÃO INTERNA (levas com `revisaoInterna`, criadas na Central de anúncios):
 // antes do cliente, alguém do time aprova cada texto no link /revisao-copy/:token
@@ -99,8 +104,11 @@ function sanitizeLeva(leva, companyName, { interno = false } = {}) {
     itens: visiveis.map((it) => ({
       id:        str(it.id, 60),
       titulo:    str(it.titulo, 200) || 'Criativo',
-      conteudo:  str(it.conteudo, 20000),
-      conteudoOriginal: it.conteudoOriginal ? str(it.conteudoOriginal, 20000) : null,
+      // O cliente recebe só o texto falado; o cabeçalho do roteiro fica com o time.
+      conteudo:  str(interno ? it.conteudo : copyParaCliente(it.conteudo), 20000),
+      conteudoOriginal: it.conteudoOriginal
+        ? str(interno ? it.conteudoOriginal : copyParaCliente(it.conteudoOriginal), 20000)
+        : null,
       ...(interno
         ? {
             aprovacao: sanitizeRevisao(it.revisao),
@@ -304,12 +312,19 @@ export default async function handler(req) {
     // "Aprovar com alterações": só conta como edição quando o texto veio
     // preenchido e é diferente do que foi enviado. Texto igual = aprovação
     // simples; vazio em aprovação é ignorado (não dá pra aprovar texto nenhum).
+    // O cliente edita só o texto que ele vê (sem o cabeçalho do roteiro), então a
+    // comparação é com esse texto e o cabeçalho volta na frente da edição.
     let edicao = null
     if (decision === 'aprovado' && body?.conteudo != null) {
       const texto    = str(body.conteudo, 20000)
       const original = str(item.conteudo, 20000)
       if (!texto) return json({ error: 'O texto editado não pode ficar vazio.' }, 400)
-      if (texto !== original) edicao = { texto, original }
+      if (interno) {
+        if (texto !== original) edicao = { texto, original }
+      } else {
+        const { cabecalho, texto: visto } = separarCopy(original)
+        if (texto !== str(visto, 20000)) edicao = { texto: juntarCopy(cabecalho, texto), original }
+      }
     }
 
     // ── Revisão interna: grava no item e no anúncio, sem intake (é o próprio time) ─
