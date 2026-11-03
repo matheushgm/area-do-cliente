@@ -270,7 +270,7 @@ export default function Tarefas() {
 
   const aceitarIntake = useCallback(async (it, { pastaId, responsavelId }) => {
     const lista = t.listas.find((l) => l.pasta_id === pastaId && l.nome === 'Geral') || t.listas.find((l) => l.pasta_id === pastaId)
-    if (!lista) { showToast('Essa pasta não tem lista. Crie uma lista primeiro.', 'error'); return }
+    if (!lista) { showToast('Essa pasta não tem lista. Crie a lista no ClickUp e sincronize.', 'error'); return }
     const r = await t.criarTarefa({
       lista_id: lista.id, titulo: it.titulo, prioridade: it.prioridade,
       descricao: it.descricao ? `${it.descricao}\n\nOrigem: ${it.origem}` : `Origem: ${it.origem}`,
@@ -353,7 +353,7 @@ export default function Tarefas() {
         onAplicarTemplate={(it, tpl, pastaId) => {
           // pedido com template (criativo, LP): "Aplicar template" na lista Geral do cliente
           const lista = t.listas.find((l) => l.pasta_id === pastaId && l.nome === 'Geral') || t.listas.find((l) => l.pasta_id === pastaId)
-          if (!lista) showToast('Essa pasta não tem lista. Crie uma lista primeiro.', 'error')
+          if (!lista) showToast('Essa pasta não tem lista. Crie a lista no ClickUp e sincronize.', 'error')
           else api.usarModelo(tpl, lista.id, it)
         }}
       />
@@ -396,7 +396,6 @@ export default function Tarefas() {
             <TarefasSidebar
               pastas={t.pastas} listas={t.listas} projetos={projects} sel={sel} onSel={setSel}
               onCriarPasta={(nome) => t.criarPasta({ nome })}
-              onCriarLista={(pastaId, nome) => t.criarLista({ pasta_id: pastaId, nome })}
               onAtualizarPasta={t.atualizarPasta}
               onAtualizarLista={t.atualizarLista}
               aberta={arvoreAberta} onFechar={() => setArvoreAberta(false)}

@@ -5,7 +5,7 @@ import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive
 import { CHAT_OFFLINE } from '../../lib/chat'
 import { Popover, FOCO } from './Campos'
 
-function MenuPasta({ onRenomear, onNovaLista, onArquivar }) {
+function MenuPasta({ onRenomear, onArquivar }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   return (
@@ -15,7 +15,6 @@ function MenuPasta({ onRenomear, onNovaLista, onArquivar }) {
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={190} align="right">
         <div className="p-1 text-[13px]">
-          <button type="button" onClick={() => { setOpen(false); onNovaLista() }} className="w-full flex items-center gap-2 h-8 px-2.5 rounded-md text-ln-t2 hover:bg-ln-ink/5"><Plus className="w-3.5 h-3.5 text-ln-t4" /> Nova lista</button>
           <button type="button" onClick={() => { setOpen(false); onRenomear() }} className="w-full flex items-center gap-2 h-8 px-2.5 rounded-md text-ln-t2 hover:bg-ln-ink/5"><Pencil className="w-3.5 h-3.5 text-ln-t4" /> Renomear</button>
           <button type="button" onClick={() => { setOpen(false); onArquivar() }} className="w-full flex items-center gap-2 h-8 px-2.5 rounded-md text-ln-t2 hover:bg-ln-ink/5 hover:text-ln-red"><Archive className="w-3.5 h-3.5 text-ln-t4" /> Arquivar</button>
         </div>
@@ -62,7 +61,7 @@ const SECAO = 'px-2.5 pt-4 pb-1.5 text-[11px] tracking-[0.14em] uppercase font-b
 
 export default function TarefasSidebar({
   pastas, listas, projetos, sel, onSel,
-  onCriarPasta, onCriarLista, onAtualizarPasta, onAtualizarLista,
+  onCriarPasta, onAtualizarPasta, onAtualizarLista,
   aberta, onFechar, recolhida = false,
   nav = { aba: 'tarefas', onAba: () => {}, intake: 0 }, contagem = {},
 }) {
@@ -71,7 +70,6 @@ export default function TarefasSidebar({
     try { return new Set(JSON.parse(localStorage.getItem('tarefas.expandidas') || '[]')) } catch { return new Set() }
   })
   const [novaPasta, setNovaPasta] = useState(false)
-  const [novaListaEm, setNovaListaEm] = useState(null)
   const [renomeando, setRenomeando] = useState(null)
 
   const listasPorPasta = useMemo(() => {
@@ -138,7 +136,6 @@ export default function TarefasSidebar({
                 {contagem[p.id] > 0 && <span className="text-xs text-ln-t4 tabular">{contagem[p.id]}</span>}
                 <MenuPasta
                   onRenomear={() => setRenomeando({ tipo: 'pasta', id: p.id })}
-                  onNovaLista={() => { if (!expandidas.has(p.id)) toggle(p.id); setNovaListaEm(p.id) }}
                   onArquivar={() => { if (window.confirm(`Arquivar a pasta "${p.nome}" e todas as listas dela?`)) onAtualizarPasta(p.id, { arquivada: true }) }}
                 />
               </div>
@@ -160,15 +157,8 @@ export default function TarefasSidebar({
                       </div>
                     )
                   })}
-                  {novaListaEm === p.id ? (
-                    <div className="px-1 py-1">
-                      <CampoNome placeholder="Nome da lista" onOk={async (nome) => { setNovaListaEm(null); const r = await onCriarLista(p.id, nome); if (r?.data) selLista(r.data.id) }} onCancel={() => setNovaListaEm(null)} />
-                    </div>
-                  ) : (
-                    <button type="button" onClick={() => setNovaListaEm(p.id)} className={`flex items-center gap-1.5 h-6 px-2 rounded-md text-xs text-ln-t4 hover:text-ln-t2 ${FOCO}`}>
-                      <Plus className="w-3 h-3" /> Nova lista
-                    </button>
-                  )}
+                  {/* Sem "Nova lista" (2026-11-03): lista criada aqui não ia para o ClickUp até
+                      a primeira tarefa. Lista nova se cria no ClickUp e chega pela sincronização. */}
                 </div>
               )}
             </div>

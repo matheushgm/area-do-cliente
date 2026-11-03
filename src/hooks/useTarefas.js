@@ -335,14 +335,6 @@ export function useTarefas(user) {
     return { data }
   }, [])
 
-  const criarLista = useCallback(async ({ pasta_id, nome, statuses }) => {
-    const { data, error } = await supabase.from('tarefas_listas').insert({ pasta_id, nome: nome.trim(), statuses: statuses || STATUSES_PADRAO, posicao: Date.now() }).select().single()
-    if (error) return { error: error.message }
-    setListas((prev) => [...prev, data])
-    carregadas.current.add(data.id)
-    return { data }
-  }, [])
-
   const atualizarLista = useCallback(async (id, patch) => {
     const { data, error } = await supabase.from('tarefas_listas').update(patch).eq('id', id).select().single()
     if (error) return { error: error.message }
@@ -443,7 +435,7 @@ export function useTarefas(user) {
     itens, comentarios,
     carregarEstrutura, carregarListas, carregarMinhas, carregarAbertas, carregarPorCampo, carregarTarefa, aplicarLocal,
     criarTarefa, atualizarTarefa, mudarStatus, excluirTarefa, arquivarTarefa,
-    criarPasta, atualizarPasta, criarLista, atualizarLista,
+    criarPasta, atualizarPasta, atualizarLista,
     carregarComentarios, criarComentario, excluirComentario,
     // relações (tarefas_relacoes) são gravadas fora do hook: quem grava pede o envio ao ClickUp
     agendarPush,
