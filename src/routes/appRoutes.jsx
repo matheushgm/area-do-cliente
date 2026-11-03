@@ -28,6 +28,7 @@ const RoteirosExpress = lazy(() => import('../pages/RoteirosExpress'))
 const DashboardApiTeste = lazy(() => import('../pages/DashboardApiTeste'))
 const FunilCanvas = lazy(() => import('../pages/FunilCanvas'))
 const CalculadoraROI = lazy(() => import('../pages/CalculadoraROI'))
+const SitePlataforma = lazy(() => import('../pages/SitePlataforma'))
 const AdsRoadmap = lazy(() => import('../pages/AdsRoadmap'))
 const SquadsReport = lazy(() => import('../pages/SquadsReport'))
 
@@ -66,6 +67,7 @@ export const appRoutes = [
     <Route key="dashboard" path="/dashboard" element={<DashboardApiTeste />} />
     <Route key="funil" path="/funil" element={<FunilCanvas />} />
     <Route key="calculadora-roi" path="/calculadora-roi" element={<CalculadoraROI />} />
+    <Route key="site-plataforma" path="/site-plataforma" element={<SitePlataforma />} />
     <Route key="ads-roadmap" path="/ads-roadmap" element={<AdsRoadmap />} />
     <Route key="relatorio-squads" path="/relatorio-squads" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
 
