@@ -84,7 +84,7 @@ export async function sincronizar({
   completo = false, reconciliar = false, comentarios = true,
   maxComentarios = 40, maxAnexos = 40, anexosDeTodas = false, maxPaginas = 30, orcamentoMs = 50_000, log = () => {},
   eventos = null, // array opcional: tarefas puladas nesta rodada, para tarefas_sync_log
-  arquivados = true, // false = não lista pastas/listas arquivadas (rodada do botão/página; o cron e --completo listam)
+  arquivados = true, // false = não lista pastas/listas/tarefas arquivadas (rodada do botão/página; o cron e --completo listam)
 }) {
   const inicio = Date.now()
   const clickup = fazClickup(token, inicio + orcamentoMs)
@@ -213,13 +213,18 @@ export async function sincronizar({
 
   // ── Tarefas ──────────────────────────────────────────────────────────────
   const recebidas = new Map() // clickup id → tarefa
-  const paginar = async (sid, { abertasApenas = false } = {}) => {
+  // `arquivadas`: o /team/task sem archived=true NÃO devolve tarefa arquivada, então
+  // arquivar no ClickUp não chegava pela rodada (a tarefa seguia aberta no espelho e na
+  // Capacidade do time). Com archived=true vêm só as arquivadas; arquivar atualiza o
+  // date_updated, então a passada incremental pega.
+  const paginar = async (sid, { abertasApenas = false, arquivadas = false } = {}) => {
     const ids = new Set()
     for (let page = 0; page < (completo ? 10_000 : maxPaginas); page++) {
       const qs = new URLSearchParams({
         'space_ids[]': sid, subtasks: 'true', include_markdown_description: 'true',
         order_by: 'updated', page: String(page),
       })
+      if (arquivadas) qs.set('archived', 'true')
       if (!abertasApenas) qs.set('include_closed', 'true')
       if (!completo && !abertasApenas && desde) qs.set('date_updated_gt', String(desde.getTime()))
       let r
@@ -240,6 +245,7 @@ export async function sincronizar({
   for (const sid of spacesOk) {
     if (estourou()) { resumo.incompleto = true; break }
     await paginar(sid)
+    if (arquivados && !estourou()) await paginar(sid, { arquivadas: true })
   }
   resumo.tarefas_recebidas = recebidas.size
   log(`${recebidas.size} tarefas recebidas`)

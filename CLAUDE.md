@@ -821,7 +821,10 @@ todo `authenticated`; as quatro estão na publicação realtime).
     `updated_at > clickup_sync_at` = editada na Área; nesse caso, se o ClickUp estiver mais
     antigo que a edição, a tarefa é pulada (`puladas_conflito`), senão o mais recente vence.
   - **Não vem do ClickUp:** anexos, tempo rastreado (`time_spent` exige o endpoint de time
-    entries) e tarefas arquivadas lá. Comentários só das abertas que mudaram (máx. 40 no
+    entries). Tarefa **arquivada** no ClickUp vem numa segunda passada com `archived=true`
+    (o `/team/task` sem isso não devolve arquivadas; até 2026-11-03 elas seguiam abertas no
+    espelho e contando na Capacidade do time), na rodada do cron e no script, além do webhook.
+    Comentários só das abertas que mudaram (máx. 40 no
     endpoint, 400 no script). Dependências e links vêm desde 30/10/2026 (ver "Relações ⇄ ClickUp"
     abaixo).
   - Auth do endpoint: `CRON_SECRET` ou JWT. Para testar local: `node scripts/sincronizar_clickup.mjs --since=<ISO>`.
