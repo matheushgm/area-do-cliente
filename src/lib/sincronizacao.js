@@ -12,7 +12,7 @@ export const CAMPOS = {
 }
 export const rotuloCampo = (k) => CAMPOS[k] || k
 
-export const OPERACOES = { criar: 'Criar', atualizar: 'Atualizar', excluir: 'Excluir', comentar: 'Comentar', relacionar: 'Relacionar', desrelacionar: 'Desfazer relação' }
+export const OPERACOES = { criar: 'Criar', atualizar: 'Atualizar', excluir: 'Excluir', comentar: 'Comentar', relacionar: 'Relacionar', desrelacionar: 'Desfazer relação', anexar: 'Anexar' }
 
 // Relações (migration 126): como cada tipo vai para o ClickUp, do lado de payload.tarefa_id
 export const RELACOES = {

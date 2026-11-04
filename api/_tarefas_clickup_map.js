@@ -161,6 +161,18 @@ export function mapTarefa(t, perfilDe) {
   }
 }
 
+// Anexos do ClickUp (só vêm no GET /task/{id}) no formato da coluna `anexos`.
+export const mapAnexos = (attachments) => (attachments || []).map((a) => ({
+  source: 'clickup', id: String(a.id), name: a.title || a.name || 'arquivo', url: a.url, size: Number(a.size) || null,
+  type: a.mimetype || null, thumbnail: a.thumbnail_medium || a.thumbnail_small || null, created_at: a.date ? new Date(Number(a.date)).toISOString() : null,
+}))
+// Troca só os de source 'clickup': os locais (path) ainda estão a caminho do ClickUp.
+export const comAnexosDoClickup = (anexos, doClickup) => [...(anexos || []).filter((a) => a.source !== 'clickup'), ...doClickup]
+export const mesmosAnexosDoClickup = (anexos, doClickup) => {
+  const ids = (l) => JSON.stringify(l.filter((a) => a.source === 'clickup').map((a) => a.id).sort())
+  return ids(anexos || []) === ids(doClickup)
+}
+
 export function mapComentario(c, tarefaId, perfilDe) {
   const texto = (c.comment_text || '').trim()
   if (!texto) return null

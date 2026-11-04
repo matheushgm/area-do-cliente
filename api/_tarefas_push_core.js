@@ -18,9 +18,12 @@
 // `resumo.restantes` diz quanto ficou na fila, para o chamador continuar.
 // Relações (migration 126): 'relacionar'/'desrelacionar' viram dependência ou link no ClickUp
 // (ver api/_tarefas_relacoes.js); esperam a criação das duas tarefas.
+// Anexos (migration 127): 'anexar' leva o arquivo do bucket task-attachments ao ClickUp, troca a
+// entrada local pela de lá e apaga a cópia. Excluir anexo só no ClickUp: a API não tem esse endpoint.
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { mapStatuses, mapChecklists } from './_tarefas_clickup_map.js'
+import { mapStatuses, mapChecklists, mapAnexos, comAnexosDoClickup } from './_tarefas_clickup_map.js'
 import { chamadaRelacao, chavePar, vaiProClickup } from './_tarefas_relacoes.js'
+import { LIMITE_ANEXO_BYTES, LIMITE_ANEXO_MB } from '../src/lib/anexosLimite.js'
 
 const CLICKUP_BASE = 'https://api.clickup.com/api/v2'
 const SPACE_CLIENTES = '90090377342'
@@ -38,6 +41,10 @@ const MAX_TENTATIVAS = 5
 // Três deixam folga para o webhook, a rodada e o Atividades, que dividem o mesmo token.
 const PARALELO = 3
 const TTL_PROCESSANDO_S = 300 // item 'processando' há mais que isso = rodada morreu; volta à fila
+const BUCKET_ANEXOS = 'task-attachments'
+const FOLGA_ENVIO_MS = 10_000 // o envio do arquivo pode passar do orçamento até aqui (a função tem 60 s; o orçamento é 45)
+// Tempo que um anexo precisa ter pela frente para começar (senão espera uma invocação nova)
+const tempoDoAnexo = (bytes) => 3000 + ((Number(bytes) || 0) / 1048576) * 500
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -113,6 +120,7 @@ export function agruparFila(fila) {
   const soltas = []
   for (const it of ordem) {
     if (ehRelacao(it) && (excluidas.has(it.payload?.tarefa_id) || excluidas.has(it.payload?.relacionada_id))) { canceladas.push(it); continue }
+    if (it.operacao === 'anexar' && excluidas.has(it.tarefa_id)) { canceladas.push(it); continue }
     if (it.operacao === 'atualizar' && it.tarefa_id) {
       if (excluidas.has(it.tarefa_id)) { canceladas.push(it); continue }
       if (!grupos.has(it.tarefa_id)) grupos.set(it.tarefa_id, [])
@@ -134,7 +142,8 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
   const inicio = Date.now()
   const cu = fazClickup(token, inicio + orcamentoMs)
   const estourou = () => Date.now() - inicio > orcamentoMs
-  const resumo = { processadas: 0, criadas: 0, atualizadas: 0, excluidas: 0, comentadas: 0, relacoes: 0, erros: 0, devolvidas: 0, agrupadas: 0, canceladas: 0, copias_absorvidas: 0, pastas_criadas: 0, listas_criadas: 0, avisos: [] }
+  const prazoEnvio = inicio + orcamentoMs + FOLGA_ENVIO_MS
+  const resumo = { processadas: 0, criadas: 0, atualizadas: 0, excluidas: 0, comentadas: 0, relacoes: 0, anexos: 0, erros: 0, devolvidas: 0, agrupadas: 0, canceladas: 0, copias_absorvidas: 0, pastas_criadas: 0, listas_criadas: 0, avisos: [] }
   // avisos do item em processamento vão também para tarefas_outbox.avisos (painel Sincronização);
   // com envios em paralelo, cada unidade tem os seus (AsyncLocalStorage segue a cadeia de awaits)
   const doItem = new AsyncLocalStorage()
@@ -387,6 +396,64 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
     resumo.relacoes++
   }
 
+  // POST multipart: não passa pelo cu, que manda JSON. Sem resposta até o prazo, o fetch é abortado
+  // e o item conta uma tentativa (que confere antes de mandar de novo).
+  async function enviarArquivo(taskId, arquivo, nome) {
+    const fd = new FormData()
+    fd.append('attachment', arquivo, nome)
+    const res = await fetch(`${CLICKUP_BASE}/task/${taskId}/attachment`, {
+      method: 'POST', headers: { Authorization: token }, body: fd, signal: AbortSignal.timeout(Math.max(prazoEnvio - Date.now(), 1000)),
+    })
+    if (res.status === 429) throw semTempo(`ClickUp anexo ${taskId}: limite de requisições`)
+    const txt = await res.text()
+    let json = null; try { json = JSON.parse(txt) } catch { json = null }
+    if (!res.ok) { const e = new Error(json?.err || `ClickUp anexo ${taskId}: ${res.status}`); e.status = res.status; e.ecode = json?.ECODE; throw e }
+    return json
+  }
+
+  // Anexo novo: sem a entrada na linha, o envio foi cancelado; sem o id da tarefa, espera a criação
+  // (sem criação a caminho, a tarefa não existe no ClickUp e o anexo fica aqui). `enviado` no payload
+  // evita mandar de novo se a rodada acabar depois do POST.
+  async function anexar(item, u) {
+    const p = item.payload || {}
+    const { data: row } = await sb.from('tarefas_itens').select('id, titulo, clickup_task_id, anexos').eq('id', item.tarefa_id).maybeSingle()
+    if (!row) { await marcar(u.ids, { status: 'cancelado', erro: 'tarefa não existe mais' }); return 'marcada' }
+    const local = (row.anexos || []).find((a) => a.path === p.path)
+    if (!local) { aviso(`anexo "${p.name}" de "${row.titulo}" saiu da tarefa antes do envio; nada mandado`); await marcar(u.ids, { status: 'ok', erro: null }); return 'marcada' }
+    if (!row.clickup_task_id) {
+      const { data: criando } = await sb.from('tarefas_outbox').select('id').eq('tarefa_id', row.id).eq('operacao', 'criar').in('status', ['pendente', 'processando']).limit(1)
+      if (criando?.length) { await devolver(u.ids); resumo.devolvidas++; return 'devolvida' }
+      await marcar(u.ids, { status: 'cancelado', erro: `tarefa "${row.titulo}" não existe no ClickUp; o anexo fica só no VertaTask` }); return 'marcada'
+    }
+    if (Number(local.size) > LIMITE_ANEXO_BYTES) throw Object.assign(new Error(`anexo "${local.name}" passa do limite de ${LIMITE_ANEXO_MB} MB; anexe direto no ClickUp`), { status: 400 })
+    const taskId = row.clickup_task_id
+    const nome = local.name || p.name || 'arquivo'
+    if (!p.enviado) {
+      // tentativa anterior pode ter chegado ao ClickUp sem a resposta voltar
+      const jaFoi = (item.tentativas || 0) > 0 && ((await cu('GET', `/task/${taskId}`))?.attachments || [])
+        .some((a) => (a.title || a.name) === nome && Number(a.date) >= (ms(item.created_at) || 0) - 60_000)
+      if (jaFoi) aviso(`anexo "${nome}": a tentativa anterior já tinha chegado ao ClickUp; não mandei de novo`)
+      else {
+        if (Date.now() + tempoDoAnexo(local.size) > inicio + orcamentoMs) { await devolver(u.ids); resumo.devolvidas++; return 'devolvida' }
+        const { data: arquivo, error } = await sb.storage.from(BUCKET_ANEXOS).download(local.path)
+        if (error || !arquivo) {
+          if (!/not.?found/i.test(error?.message || error?.name || '')) throw new Error(`Storage ${local.path}: ${error?.message || 'sem arquivo'}`)
+          await sb.from('tarefas_itens').update({ anexos: row.anexos.filter((a) => a.path !== local.path), clickup_sync_at: agora(), updated_at: agora() }).eq('id', row.id)
+          await marcar(u.ids, { status: 'cancelado', erro: `arquivo "${nome}" não está mais no Storage` }); return 'marcada'
+        }
+        await enviarArquivo(taskId, arquivo, nome)
+      }
+      await sb.from('tarefas_outbox').update({ payload: { ...p, enviado: true } }).in('id', u.ids)
+    }
+    const task = await fazClickup(token, prazoEnvio)('GET', `/task/${taskId}`)
+    // relê a linha: a pessoa pode ter anexado outro arquivo enquanto este subia
+    const { data: atual } = await sb.from('tarefas_itens').select('anexos').eq('id', row.id).maybeSingle()
+    await gravarEspelho(row.id, task, { anexos: comAnexosDoClickup((atual?.anexos || []).filter((a) => a.path !== local.path), mapAnexos(task.attachments)) })
+    const { error: errRemover } = await sb.storage.from(BUCKET_ANEXOS).remove([local.path])
+    if (errRemover) aviso(`anexo "${nome}": enviado, mas a cópia do Storage ficou (${errRemover.message})`)
+    resumo.anexos++
+  }
+
   const { unidades, canceladas } = agruparFila(fila)
   if (canceladas.length) {
     await sb.from('tarefas_outbox').update({ status: 'cancelado', erro: 'tarefa excluída na mesma rodada', processed_at: agora() }).in('id', canceladas.map((i) => i.id))
@@ -404,6 +471,7 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
     if ((item.tentativas || 0) > 0 && item.erro) aviso(`tentativa anterior falhou: ${item.erro}`)
     const corpo = async () => {
         if (ehRelacao(item)) return relacao(item, u)
+        if (item.operacao === 'anexar') return anexar(item, u)
         if (item.operacao === 'excluir') {
           await cu('DELETE', `/task/${item.clickup_task_id}`).catch((e) => { if (e.status !== 404) throw e })
           resumo.excluidas++
@@ -592,6 +660,6 @@ export async function empurrar({ sb, token, limite = 120, orcamentoMs = 45_000, 
   // chamou continua enquanto houver, em vez de esperar a próxima escrita ou o cron
   const { count } = await sb.from('tarefas_outbox').select('id', { count: 'exact', head: true }).eq('status', 'pendente')
   resumo.restantes = count ?? 0
-  log(`push: ${resumo.agrupadas} itens juntados, ${resumo.criadas} criadas, ${resumo.atualizadas} atualizadas, ${resumo.excluidas} excluídas, ${resumo.comentadas} comentários, ${resumo.relacoes} relações, ${resumo.erros} erros, ${resumo.devolvidas} devolvidas, ${resumo.copias_absorvidas} cópias absorvidas`)
+  log(`push: ${resumo.agrupadas} itens juntados, ${resumo.criadas} criadas, ${resumo.atualizadas} atualizadas, ${resumo.excluidas} excluídas, ${resumo.comentadas} comentários, ${resumo.relacoes} relações, ${resumo.anexos} anexos, ${resumo.erros} erros, ${resumo.devolvidas} devolvidas, ${resumo.copias_absorvidas} cópias absorvidas`)
   return resumo
 }

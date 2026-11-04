@@ -39,8 +39,10 @@ export default async function handler(req, res) {
     const inicio = Date.now()
     const ORCAMENTO = 45_000
     let r = await empurrar({ sb, token: TOKEN, orcamentoMs: ORCAMENTO })
-    while (r.restantes > 0 && Date.now() - inicio < ORCAMENTO - 10_000) {
+    let devolvidas = r.devolvidas // item devolvido (anexo sem tempo, criação em curso): uma invocação nova resolve
+    while (r.restantes > 0 && !devolvidas && Date.now() - inicio < ORCAMENTO - 10_000) {
       const r2 = await empurrar({ sb, token: TOKEN, orcamentoMs: ORCAMENTO - (Date.now() - inicio) })
+      devolvidas = r2.devolvidas
       r = somar(r, r2)
     }
     return res.status(200).json({ ok: true, ...r })

@@ -25,7 +25,7 @@
 //
 // Conflito: tarefa editada na Área depois da última sincronização
 // (updated_at > clickup_sync_at) só é sobrescrita se o ClickUp for mais novo.
-import { STATUSES_PADRAO, mapStatuses, mapTarefa, mapComentario, mapLista, mapPasta, fazPerfilDe, projetoDaPasta } from './_tarefas_clickup_map.js'
+import { STATUSES_PADRAO, mapStatuses, mapTarefa, mapComentario, mapAnexos, comAnexosDoClickup, mesmosAnexosDoClickup, mapLista, mapPasta, fazPerfilDe, projetoDaPasta } from './_tarefas_clickup_map.js'
 import { reconciliarRelacoes } from './_tarefas_relacoes.js'
 
 const CLICKUP_BASE = 'https://api.clickup.com/api/v2'
@@ -82,7 +82,7 @@ const diffCampos = (atual, novo, campos) => Object.fromEntries(campos.filter((k)
 export async function sincronizar({
   sb, token, team, spaces = SPACES_PADRAO, desde,
   completo = false, reconciliar = false, comentarios = true,
-  maxComentarios = 40, maxAnexos = 40, anexosDeTodas = false, maxPaginas = 30, orcamentoMs = 50_000, log = () => {},
+  maxComentarios = 40, maxAnexos = 40, anexosDeTodas = false, anexosDasFechadas = false, maxPaginas = 30, orcamentoMs = 50_000, log = () => {},
   eventos = null, // array opcional: tarefas puladas nesta rodada, para tarefas_sync_log
   arquivados = true, // false = não lista pastas/listas/tarefas arquivadas (rodada do botão/página; o cron e --completo listam)
 }) {
@@ -419,31 +419,28 @@ export async function sincronizar({
   }
 
   // ── Anexos do ClickUp (só vêm no GET /task/{id}): das abertas que mudaram,
-  //    ou de TODAS as abertas (anexosDeTodas, para a passada única do script).
-  //    Entram em `anexos` com source:'clickup', sem mexer nos anexos locais (path).
-  if (maxAnexos > 0 && !estourou()) {
-    let alvo = ordenadas.filter((l) => l._aberta).map((l) => ({ id: l.id, clickup_task_id: l.clickup_task_id }))
+  //    ou de TODAS as abertas (anexosDeTodas, para a passada única do script; anexosDasFechadas
+  //    inclui as fechadas, que a importação gravou sem anexos). Entram em `anexos` com
+  //    source:'clickup', sem mexer nos anexos locais (path).
+  if ((maxAnexos > 0 || anexosDeTodas) && !estourou()) {
+    let alvo = ordenadas.filter((l) => l._aberta).map((l) => ({ id: l.id, clickup_task_id: l.clickup_task_id })).slice(0, maxAnexos)
     if (anexosDeTodas) {
       alvo = []
       for (let from = 0; ; from += 1000) {
-        const { data } = await sb.from('tarefas_itens').select('id, clickup_task_id').not('clickup_task_id', 'is', null).neq('status_tipo', 'closed').eq('arquivada', false).range(from, from + 999)
+        let q = sb.from('tarefas_itens').select('id, clickup_task_id').not('clickup_task_id', 'is', null).eq('arquivada', false)
+        if (!anexosDasFechadas) q = q.neq('status_tipo', 'closed')
+        const { data } = await q.order('id').range(from, from + 999)
         alvo.push(...(data || [])); if (!data || data.length < 1000) break
       }
     }
-    for (const t of alvo.slice(0, maxAnexos)) {
+    for (const t of alvo) {
       if (estourou()) { aviso('tempo esgotado nos anexos; o resto vem na próxima rodada'); break }
       try {
         const det = await clickup(`/task/${t.clickup_task_id}`)
-        const cu = (det?.attachments || []).map((a) => ({
-          source: 'clickup', id: String(a.id), name: a.title || a.name || 'arquivo', url: a.url, size: Number(a.size) || null,
-          type: a.mimetype || null, thumbnail: a.thumbnail_medium || a.thumbnail_small || null, created_at: a.date ? new Date(Number(a.date)).toISOString() : null,
-        }))
+        const cu = mapAnexos(det?.attachments)
         const { data: row } = await sb.from('tarefas_itens').select('anexos').eq('id', t.id).maybeSingle()
-        const locais = (row?.anexos || []).filter((a) => a.source !== 'clickup')
-        const antes = JSON.stringify((row?.anexos || []).filter((a) => a.source === 'clickup').map((a) => a.id).sort())
-        const depois = JSON.stringify(cu.map((a) => a.id).sort())
-        if (antes !== depois) {
-          const { error } = await sb.from('tarefas_itens').update({ anexos: [...locais, ...cu], clickup_sync_at: agora, updated_at: agora }).eq('id', t.id)
+        if (!mesmosAnexosDoClickup(row?.anexos, cu)) {
+          const { error } = await sb.from('tarefas_itens').update({ anexos: comAnexosDoClickup(row?.anexos, cu), clickup_sync_at: agora, updated_at: agora }).eq('id', t.id)
           if (error) aviso(`anexos ${t.clickup_task_id}: ${error.message}`); else resumo.anexos += cu.length
         }
       } catch (e) { aviso(`anexos ${t.clickup_task_id}: ${e.message}`) }

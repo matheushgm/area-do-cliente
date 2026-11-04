@@ -22,7 +22,7 @@ export default function AnexoPreview({ anexos = [], indice = 0, bucket, onFechar
       const u = await urlDoAnexo(a, bucket)
       if (!vivo) return
       setUrl(u)
-      if (tipo === 'texto' && u) { try { const t = await (await fetch(u)).text(); if (vivo) setTexto(t.slice(0, 200000)) } catch { /* mostra o cartão */ } }
+      if (tipo === 'texto' && u && a?.source !== 'clickup') { try { const t = await (await fetch(u)).text(); if (vivo) setTexto(t.slice(0, 200000)) } catch { /* mostra o cartão */ } }
       setCarregando(false)
     })()
     return () => { vivo = false }
@@ -44,6 +44,9 @@ export default function AnexoPreview({ anexos = [], indice = 0, bucket, onFechar
     <div className="flex items-center justify-center h-full text-white/70"><Loader2 className="w-6 h-6 animate-spin" /></div>
   ) : !url ? (
     <Cartao nome={nome} a={a} aviso="Não consegui gerar o link deste arquivo." />
+  ) : a.source === 'clickup' && (tipo === 'pdf' || tipo === 'texto') ? (
+    // o ClickUp serve com content-disposition: attachment e sem CORS: o iframe fica em branco e o fetch falha
+    <Cartao nome={nome} a={a} url={url} aviso="Arquivos do ClickUp neste formato abrem só por download." />
   ) : tipo === 'imagem' ? (
     <img src={url} alt={nome} className="max-w-full max-h-full object-contain rounded-md shadow-2xl" />
   ) : tipo === 'video' ? (

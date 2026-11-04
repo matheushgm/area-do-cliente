@@ -820,7 +820,7 @@ todo `authenticated`; as quatro estão na publicação realtime).
     UPDATE em `tarefas_listas` por acessar `new.clickup_sync_at` fora de `tarefas_itens`).
     `updated_at > clickup_sync_at` = editada na Área; nesse caso, se o ClickUp estiver mais
     antigo que a edição, a tarefa é pulada (`puladas_conflito`), senão o mais recente vence.
-  - **Não vem do ClickUp:** anexos, tempo rastreado (`time_spent` exige o endpoint de time
+  - **Não vem do ClickUp:** tempo rastreado (`time_spent` exige o endpoint de time
     entries). Tarefa **arquivada** no ClickUp vem numa segunda passada com `archived=true`
     (o `/team/task` sem isso não devolve arquivadas; até 2026-11-03 elas seguiam abertas no
     espelho e contando na Capacidade do time), na rodada do cron e no script, além do webhook.
@@ -1287,8 +1287,18 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
   painel abre o mesmo preview e mostra também os anexos vindos do ClickUp (`anexos[]` com
   `source:'clickup'`, `url`, `thumbnail`, não removíveis aqui): a sincronização relê
   `GET /task/{id}` das abertas que mudaram (`maxAnexos`, 40 por rodada no endpoint) e o script
-  aceita `--anexos=N` / `--anexos-de-todas`. A policy antiga do bucket `task-attachments` olhava a
-  tabela legada `tasks`; a 102 liberou a pasta `<id da tarefa em tarefas_itens>` para o time.
+  aceita `--anexos=N` / `--anexos-de-todas` (mais `--anexos-das-fechadas`, ~2h20). A policy antiga do
+  bucket `task-attachments` olhava a tabela legada `tasks`; a 102 liberou a pasta `<id da tarefa em
+  tarefas_itens>` para o time.
+  - **ClickUp é a fonte dos arquivos (2026-11-04, migration 127):** o anexo escolhido no painel sobe ao
+    bucket `task-attachments` só de passagem; o trigger põe `anexar` na fila (`payload.path`) e o push manda
+    ao ClickUp (`POST /task/{id}/attachment`), troca a entrada local pela de lá e apaga a cópia. Limite de
+    `LIMITE_ANEXO_MB` (`src/lib/anexosLimite.js`, 50 MB): acima disso o painel bloqueia e avisa para anexar no
+    ClickUp. **Excluir só no ClickUp** (a API não tem endpoint): o painel leva para a tarefa lá; só o que ainda
+    não chegou pode ser retirado, e o push vê que saiu. Tarefa sem ClickUp mantém o anexo local. Com o resto da
+    tarefa em mesma versão ou conflito, o webhook grava mesmo assim os anexos do ClickUp. O ClickUp serve os
+    arquivos com `content-disposition: attachment`, sem CORS e **abertos a quem tiver o link**: PDF e texto de lá
+    aparecem como cartão com Baixar. Carga dos anexos antigos: `node scripts/enviar_anexos_clickup.mjs [--dry]`.
 - **Chat ↔ ClickUp Chat: DESLIGADO desde 2026-10-29** (plano, item 6; era o único consumo da API que nunca
   parava). O chat interno segue entre as pessoas; o `useChat` não chama mais `/api/chat-sync`, que responde
   503 (`CHAT_SYNC_DESLIGADO`), a rodada diária não roda o chat e a migration 122 desliga (`disable trigger`)

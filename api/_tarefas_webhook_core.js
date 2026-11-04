@@ -20,7 +20,7 @@
 //    tarefas, sem mudar o date_updated delas; toda tarefa lida tem as relações reconciliadas
 //    (api/_tarefas_relacoes.js), mesmo quando a tarefa em si não mudou.
 // Sem HTTP nem env; `clickup` pode ser injetado (testes).
-import { STATUSES_PADRAO, mapStatuses, mapTarefa, mapComentario, mapLista, mapPasta, fazPerfilDe, projetoDaPasta } from './_tarefas_clickup_map.js'
+import { STATUSES_PADRAO, mapStatuses, mapTarefa, mapComentario, mapAnexos, comAnexosDoClickup, mesmosAnexosDoClickup, mapLista, mapPasta, fazPerfilDe, projetoDaPasta } from './_tarefas_clickup_map.js'
 import { fazClickup, SPACES_PADRAO } from './_tarefas_sync_core.js'
 import { reconciliarRelacoes } from './_tarefas_relacoes.js'
 
@@ -137,25 +137,30 @@ async function gravarTarefa(t, ctx, profundidade) {
     if (criada?.[0]?.tarefa_id) ex = (await sb.from('tarefas_itens').select(COLS).eq('id', criada[0].tarefa_id).is('clickup_task_id', null).maybeSingle()).data || null
   }
   const row = mapTarefa(t, perfilDe)
+  // anexos do ClickUp vêm no GET /task: troca só os de source 'clickup', mantém os locais
+  const anexosCu = mapAnexos(t.attachments)
 
   if (ex) {
+    const editadaNaArea = ex.clickup_sync_at && new Date(ex.updated_at).getTime() > new Date(ex.clickup_sync_at).getTime() + 1000
+    // O ClickUp é a fonte dos arquivos: mesmo quando o resto da tarefa não é gravado (mesma versão
+    // ou conflito), os anexos dele valem. Com edição daqui pendente, não marca a linha como sincronizada.
+    const soAnexos = async (semMudanca) => {
+      if (mesmosAnexosDoClickup(ex.anexos, anexosCu)) return semMudanca
+      const patch = { anexos: comAnexosDoClickup(ex.anexos, anexosCu), ...(editadaNaArea ? {} : { clickup_sync_at: agora, updated_at: agora }) }
+      const { error } = await sb.from('tarefas_itens').update(patch).eq('id', ex.id)
+      if (error) throw new Error(`anexos ${t.id}: ${error.message}`)
+      return { acao: 'atualizada', id: ex.id }
+    }
     // Mesma versão antes do conflito: a versão que já está aqui não é mudança do ClickUp (ver a rodada).
     const mesmaVersao = ex.clickup_updated_at && new Date(row.clickup_updated_at).getTime() <= new Date(ex.clickup_updated_at).getTime()
     const mesmaEstrutura = ex.lista_id === lista.id && (ex.parent_id || null) === parentId
-    if (mesmaVersao && mesmaEstrutura && !(ex.arquivada && !row.arquivada)) return { acao: 'sem_mudanca', id: ex.id }
-    const editadaNaArea = ex.clickup_sync_at && new Date(ex.updated_at).getTime() > new Date(ex.clickup_sync_at).getTime() + 1000
-    if (editadaNaArea && new Date(row.clickup_updated_at).getTime() <= new Date(ex.updated_at).getTime()) return { acao: 'pulada_conflito', id: ex.id }
+    if (mesmaVersao && mesmaEstrutura && !(ex.arquivada && !row.arquivada)) return soAnexos({ acao: 'sem_mudanca', id: ex.id })
+    if (editadaNaArea && new Date(row.clickup_updated_at).getTime() <= new Date(ex.updated_at).getTime()) return soAnexos({ acao: 'pulada_conflito', id: ex.id })
   }
 
-  // anexos do ClickUp vêm no GET /task: troca só os de source 'clickup', mantém os locais
-  const anexosCu = (t.attachments || []).map((a) => ({
-    source: 'clickup', id: String(a.id), name: a.title || a.name || 'arquivo', url: a.url, size: Number(a.size) || null,
-    type: a.mimetype || null, thumbnail: a.thumbnail_medium || a.thumbnail_small || null, created_at: a.date ? new Date(Number(a.date)).toISOString() : null,
-  }))
-  const locais = (ex?.anexos || []).filter((a) => a.source !== 'clickup')
   const linha = {
     ...row, id: ex?.id || globalThis.crypto.randomUUID(), lista_id: lista.id, parent_id: parentId,
-    anexos: [...locais, ...anexosCu], clickup_sync_at: agora, updated_at: agora,
+    anexos: comAnexosDoClickup(ex?.anexos, anexosCu), clickup_sync_at: agora, updated_at: agora,
   }
   // quem criou a linha continua sendo o autor (o upsert antigo trocava pelo dono do token)
   if (ex) { delete linha.created_at; delete linha.criado_por; delete linha.criador_nome }
