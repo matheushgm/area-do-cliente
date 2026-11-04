@@ -1297,8 +1297,10 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     ClickUp. **Excluir só no ClickUp** (a API não tem endpoint): o painel leva para a tarefa lá; só o que ainda
     não chegou pode ser retirado, e o push vê que saiu. Tarefa sem ClickUp mantém o anexo local. Com o resto da
     tarefa em mesma versão ou conflito, o webhook grava mesmo assim os anexos do ClickUp. O ClickUp serve os
-    arquivos com `content-disposition: attachment`, sem CORS e **abertos a quem tiver o link**: PDF e texto de lá
-    aparecem como cartão com Baixar. Carga dos anexos antigos: `node scripts/enviar_anexos_clickup.mjs [--dry]`.
+    arquivos com `content-disposition: attachment`, sem CORS e **abertos a quem tiver o link, mesmo depois de
+    excluídos** (conferido minutos após a exclusão): PDF e texto de lá abrem em iframe com `?view=open`
+    (`urlParaExibir`), que responde `inline`. Excluir no ClickUp não gera evento nem muda o `date_updated`: o anexo só
+    some daqui quando a tarefa é relida por outro motivo (decisão de 04/11/2026: não gastar requisições com isso). Carga dos anexos antigos: `node scripts/enviar_anexos_clickup.mjs [--dry]`.
 - **Chat ↔ ClickUp Chat: DESLIGADO desde 2026-10-29** (plano, item 6; era o único consumo da API que nunca
   parava). O chat interno segue entre as pessoas; o `useChat` não chama mais `/api/chat-sync`, que responde
   503 (`CHAT_SYNC_DESLIGADO`), a rodada diária não roda o chat e a migration 122 desliga (`disable trigger`)

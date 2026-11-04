@@ -30,4 +30,7 @@ export async function urlDoAnexo(a, bucket) {
   return a?.url || null
 }
 
-export const nomeDoAnexo = (a) => a?.name || a?.title || (a?.path ? String(a.path).split('/').pop().replace(/^\d+-/, '') : 'arquivo')
+/** Link de anexo do ClickUp que abre na tela em vez de baixar (o mesmo do campo url_w_query da API). */
+export const urlParaExibir = (url) => `${url}${url.includes('?') ? '&' : '?'}view=open`
+
+export const nomeDoAnexo =(a) => a?.name || a?.title || (a?.path ? String(a.path).split('/').pop().replace(/^\d+-/, '') : 'arquivo')

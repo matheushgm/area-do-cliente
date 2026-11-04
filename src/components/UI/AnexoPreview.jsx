@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Download, ChevronLeft, ChevronRight, ExternalLink, FileText, Loader2 } from 'lucide-react'
-import { tipoDoAnexo, urlDoAnexo, nomeDoAnexo, fmtBytes } from '../../lib/anexos'
+import { tipoDoAnexo, urlDoAnexo, urlParaExibir, nomeDoAnexo, fmtBytes } from '../../lib/anexos'
 
 export default function AnexoPreview({ anexos = [], indice = 0, bucket, onFechar }) {
   const [i, setI] = useState(indice)
@@ -45,8 +45,9 @@ export default function AnexoPreview({ anexos = [], indice = 0, bucket, onFechar
   ) : !url ? (
     <Cartao nome={nome} a={a} aviso="Não consegui gerar o link deste arquivo." />
   ) : a.source === 'clickup' && (tipo === 'pdf' || tipo === 'texto') ? (
-    // o ClickUp serve com content-disposition: attachment e sem CORS: o iframe fica em branco e o fetch falha
-    <Cartao nome={nome} a={a} url={url} aviso="Arquivos do ClickUp neste formato abrem só por download." />
+    // o ClickUp só exibe com ?view=open (sem isso, manda baixar) e não tem CORS: o texto também vai em iframe.
+    // A cor do texto puro segue o tema do sistema, não o do app: o fundo Canvas acompanha (branco fixo sumia com ele).
+    <iframe src={urlParaExibir(url)} title={nome} className="w-[min(1000px,94vw)] h-full rounded-md shadow-2xl" style={{ colorScheme: 'light dark', background: tipo === 'pdf' ? '#fff' : 'Canvas' }} />
   ) : tipo === 'imagem' ? (
     <img src={url} alt={nome} className="max-w-full max-h-full object-contain rounded-md shadow-2xl" />
   ) : tipo === 'video' ? (
