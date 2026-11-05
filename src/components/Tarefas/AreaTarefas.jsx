@@ -270,17 +270,15 @@ export default function AreaTarefas({
     else if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force })
   }, [sel.tipo, sel.id, t.carregarPorCampo, t.carregarAbertas, listasEscopo, t.loadingEstrutura, t.carregarMinhas, t.carregarListas, recarregarTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Tarefa aberta fora do que foi carregado, ou subtarefa (uma vez por tarefa): carregarTarefa
-  // traz a tarefa, os pais até a raiz e as irmãs, que podem estar fora do escopo (em "Minhas",
-  // o pai e as irmãs de outra pessoa) e formam a Hierarquia do painel.
+  // Tarefa aberta (uma vez por tarefa): carregarTarefa traz a tarefa, as subtarefas, os pais até
+  // a raiz e as irmãs. O escopo não basta: "Minhas" só carrega o que é da pessoa e "Todas" só as
+  // abertas, então o painel mostraria parte das subtarefas e da Hierarquia.
   const hierarquiaLida = useRef(new Set())
-  const abertaTemPai = !!t.itens[tarefaAbertaId]?.parent_id
   useEffect(() => {
-    if (!tarefaAbertaId) return
-    if (t.itens[tarefaAbertaId] && (!abertaTemPai || hierarquiaLida.current.has(tarefaAbertaId))) return
+    if (!tarefaAbertaId || hierarquiaLida.current.has(tarefaAbertaId)) return
     hierarquiaLida.current.add(tarefaAbertaId)
     t.carregarTarefa(tarefaAbertaId)
-  }, [tarefaAbertaId, abertaTemPai]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tarefaAbertaId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const recarregar = useCallback(() => {
     if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true })
@@ -338,7 +336,19 @@ export default function AreaTarefas({
       .filter((it) => passaResponsaveis(it, resp))
       .filter((it) => passaFiltros(it, config.filtros, ctxFiltro))
   }, [baseFiltro, busca, mostrarConcluidas, respFiltro, config.filtros, squadDaLista])
-  const filhosVisao = separar ? SEM_FILHOS : filhosDe
+  // Em "Minhas" a lista só tem as subtarefas da pessoa; o painel recebe filhosDe, com todas
+  // (sem isso, abrir uma tarefa traria para a lista as subtarefas dos outros).
+  const filhosVisao = useMemo(() => {
+    if (separar) return SEM_FILHOS
+    if (sel.tipo !== 'minhas') return filhosDe
+    const m = new Map()
+    for (const it of itensEscopo) {
+      if (!it.parent_id) continue
+      if (!m.has(it.parent_id)) m.set(it.parent_id, [])
+      m.get(it.parent_id).push(it)
+    }
+    return m
+  }, [separar, sel.tipo, filhosDe, itensEscopo])
 
   const grupos = useMemo(() => {
     const g = agruparItens(filtrados, agrupar, { statuses, membrosMap, listasMap: t.listasMap, ciclosMap: vt.ciclosMap })

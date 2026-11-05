@@ -166,7 +166,7 @@ export function useTarefas(user) {
     const { data, error } = await supabase.from('tarefas_itens').select('*').eq('id', id).maybeSingle()
     if (error || !data) return null
     const extras = [data]
-    const { data: subs } = await supabase.from('tarefas_itens').select('*').eq('parent_id', id)
+    const { data: subs } = await supabase.from('tarefas_itens').select('*').eq('parent_id', id).eq('arquivada', false)
     if (subs) extras.push(...subs)
     // Subtarefa: a cadeia de pais até a raiz e as irmãs, para o painel mostrar onde ela fica.
     if (data.parent_id) {
