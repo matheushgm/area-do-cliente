@@ -555,6 +555,8 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, cols, versao }) {
         </button>
         {agrupar === 'status' ? (
           <StatusPillCU status={grupo.key} statuses={ctx.statuses} />
+        ) : agrupar === 'prioridade' ? (
+          <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ln-t1"><PrioridadeIcon valor={grupo.key} />{grupo.label}</span>
         ) : (
           <span className={`text-[13px] font-semibold ${corLabel}`}>{grupo.label}</span>
         )}
