@@ -1,7 +1,7 @@
 // Acompanhamento da sprint de uma pessoa durante a semana: combinado, entregue, o que falta,
 // o que entrou fora do plano e o burndown. Status e estimativa editam a própria tarefa.
 import { useMemo } from 'react'
-import { AlertTriangle, Target } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { Avatar } from './Campos'
 import { CartaoBurndown, LinhaTarefa, Tile, fmtPct } from './SprintComum'
 import { pessoaDoPerfil } from '../../lib/tarefas'
@@ -28,8 +28,7 @@ export default function SprintAcompanhar({ sprint, fase, linha, resumo, ctx, mem
       <div className="ln-card px-3 py-2.5 flex items-start gap-2.5">
         {membro && <Avatar pessoa={pessoaDoPerfil(membro)} size={24} />}
         <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-semibold text-ln-t1">Sprint de {membro?.name}</p>
-          <p className={`text-[13px] flex items-start gap-1.5 mt-0.5 ${linha.objetivo ? 'text-ln-t2' : 'text-ln-t4'}`}><Target className="w-3.5 h-3.5 mt-[3px] shrink-0" />{linha.objetivo || 'Sem objetivo definido'}</p>
+          <p className="text-[14px] font-semibold text-ln-t1">{membro?.name} nesta sprint</p>
           {linha.riscos && <p className="text-[13px] text-ln-t2 flex items-start gap-1.5 mt-0.5"><AlertTriangle className="w-3.5 h-3.5 text-ln-yellow mt-[3px] shrink-0" />{linha.riscos}</p>}
           {!resumo.confirmada && resumo.ativos.length > 0 && <p className="text-xs text-ln-yellow mt-1">Esta sprint ainda não foi confirmada: o compromisso muda junto com as tarefas.</p>}
         </div>

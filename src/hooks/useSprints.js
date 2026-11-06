@@ -17,11 +17,12 @@ export const bancoSupabase = {
     return r?.config || null
   },
   async lerSprints() {
-    const [s, p] = await Promise.all([
-      supabase.from('tarefas_sprints').select('*').order('inicio', { ascending: false }).limit(60),
+    const [s, p, m] = await Promise.all([
+      supabase.from('tarefas_sprints').select('*').order('inicio', { ascending: false }).limit(120),
       supabase.from('tarefas_sprint_pessoas').select('*').order('created_at').limit(1000),
+      supabase.from('tarefas_sprint_metas').select('*').order('posicao').limit(1000),
     ])
-    return { sprints: unico(s) || [], pessoas: unico(p) || [] }
+    return { sprints: unico(s) || [], pessoas: unico(p) || [], metas: unico(m) || [] }
   },
   async lerItens(ids) {
     if (!ids.length) return []
@@ -33,7 +34,7 @@ export const bancoSupabase = {
   rpc: async (nome, args) => { const { error } = await supabase.rpc(nome, args); if (error) throw error },
   assinar(aoMudar) {
     const ch = supabase.channel('vertatask-sprints')
-    for (const table of ['tarefas_sprints', 'tarefas_sprint_pessoas', 'tarefas_sprint_itens']) {
+    for (const table of ['tarefas_sprints', 'tarefas_sprint_pessoas', 'tarefas_sprint_itens', 'tarefas_sprint_metas']) {
       ch.on('postgres_changes', { event: '*', schema: 'public', table }, aoMudar)
     }
     ch.subscribe()
@@ -50,6 +51,7 @@ export function useSprints(user, { ativo = true, banco = bancoSupabase } = {}) {
   const [sprints, setSprints] = useState([])
   const [pessoas, setPessoas] = useState([])
   const [itens, setItens] = useState([])
+  const [metas, setMetas] = useState([])
   const [config, setConfig] = useState(CONFIG_SPRINT_PADRAO)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState(null)
@@ -59,7 +61,7 @@ export function useSprints(user, { ativo = true, banco = bancoSupabase } = {}) {
   const recarregar = useCallback(async () => {
     try {
       const r = await banco.lerSprints()
-      setSprints(r.sprints); setPessoas(r.pessoas)
+      setSprints(r.sprints); setPessoas(r.pessoas); setMetas(r.metas || [])
       if (idsItens.current.length) setItens(await banco.lerItens(idsItens.current))
       setErro(null)
     } catch (e) {
@@ -93,9 +95,9 @@ export function useSprints(user, { ativo = true, banco = bancoSupabase } = {}) {
   }, [recarregar])
 
   // ── Sprint ─────────────────────────────────────────────────────────────────
-  const criarSprint = useCallback(({ numero, nome, inicio, fim, membros, cfg, anteriores }) => tentar(async () => {
-    const [s] = await banco.inserir('tarefas_sprints', [{ numero, nome: nome.trim(), inicio, fim, criado_por: user?.id || null }])
-    const linhas = participantesDaSprint({ membros, anteriores, inicio, fim, cfg }).map((p) => ({ ...p, sprint_id: s.id }))
+  const criarSprint = useCallback(({ squad_id, numero, nome, inicio, fim, membros, cfg, ids }) => tentar(async () => {
+    const [s] = await banco.inserir('tarefas_sprints', [{ squad_id, numero, nome: nome.trim(), inicio, fim, criado_por: user?.id || null }])
+    const linhas = participantesDaSprint({ membros, ids, inicio, fim, cfg }).map((p) => ({ ...p, sprint_id: s.id }))
     const criadas = linhas.length ? await banco.inserir('tarefas_sprint_pessoas', linhas) : []
     setSprints((prev) => [s, ...prev.filter((x) => x.id !== s.id)])
     setPessoas((prev) => [...prev, ...criadas])
@@ -113,7 +115,32 @@ export function useSprints(user, { ativo = true, banco = bancoSupabase } = {}) {
     setSprints((prev) => prev.filter((x) => x.id !== id))
     setPessoas((prev) => prev.filter((x) => x.sprint_id !== id))
     setItens((prev) => prev.filter((x) => x.sprint_id !== id))
+    setMetas((prev) => prev.filter((x) => x.sprint_id !== id))
   }), [banco, tentar])
+
+  // ── Metas ──────────────────────────────────────────────────────────────────
+  const criarMeta = useCallback((sprintId, campos) => tentar(async () => {
+    const [m] = await banco.inserir('tarefas_sprint_metas', [{ sprint_id: sprintId, criado_por: user?.id || null, posicao: Date.now() / 1000, ...campos }])
+    setMetas((prev) => [...prev.filter((x) => x.id !== m.id), m])
+    return m
+  }), [banco, tentar, user?.id])
+
+  const atualizarMeta = useCallback((id, patch) => {
+    setMetas((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)))
+    return tentar(() => banco.atualizar('tarefas_sprint_metas', id, patch))
+  }, [banco, tentar])
+
+  /** As atividades continuam na sprint, só ficam sem meta. */
+  const excluirMeta = useCallback((id) => tentar(async () => {
+    await banco.apagar('tarefas_sprint_metas', id)
+    setMetas((prev) => prev.filter((x) => x.id !== id))
+    setItens((prev) => prev.map((x) => (x.meta_id === id ? { ...x, meta_id: null } : x)))
+  }), [banco, tentar])
+
+  const vincularMeta = useCallback((item, metaId) => {
+    setItens((prev) => prev.map((x) => (x.id === item.id ? { ...x, meta_id: metaId } : x)))
+    return tentar(() => banco.atualizar('tarefas_sprint_itens', item.id, { meta_id: metaId }))
+  }, [banco, tentar])
 
   // ── Sprint de cada pessoa ──────────────────────────────────────────────────
   const atualizarPessoa = useCallback((id, patch) => {
@@ -147,7 +174,7 @@ export function useSprints(user, { ativo = true, banco = bancoSupabase } = {}) {
 
   // ── Tarefas da sprint ──────────────────────────────────────────────────────
   /** Depois de confirmada, o que entra é fora do plano (o "Added" do relatório do ClickUp). */
-  const adicionarTarefas = useCallback((sprintId, linhaPessoa, tarefas, { origem = 'planejada' } = {}) => tentar(async () => {
+  const adicionarTarefas = useCallback((sprintId, linhaPessoa, tarefas, { origem = 'planejada', metaId = null } = {}) => tentar(async () => {
     const fora = !!linhaPessoa.confirmada_em
     const jaLa = itens.filter((i) => i.sprint_id === sprintId && i.pessoa_id === linhaPessoa.pessoa_id)
     const voltando = tarefas.map((t) => jaLa.find((i) => i.tarefa_id === t.id)).filter(Boolean)
@@ -156,11 +183,11 @@ export function useSprints(user, { ativo = true, banco = bancoSupabase } = {}) {
     if (novas.length) {
       inseridas = await banco.inserir('tarefas_sprint_itens', novas.map((t, k) => ({
         sprint_id: sprintId, pessoa_id: linhaPessoa.pessoa_id, tarefa_id: t.id, titulo: t.titulo, origem,
-        fora_do_plano: fora, adicionada_por: user?.id || null, posicao: Date.now() / 1000 + k,
+        fora_do_plano: fora, adicionada_por: user?.id || null, posicao: Date.now() / 1000 + k, meta_id: metaId,
       })))
     }
     const atualizadas = []
-    for (const i of voltando) atualizadas.push(await banco.atualizar('tarefas_sprint_itens', i.id, { removida_em: null, fora_do_plano: fora, adicionada_em: new Date().toISOString() }))
+    for (const i of voltando) atualizadas.push(await banco.atualizar('tarefas_sprint_itens', i.id, { removida_em: null, fora_do_plano: fora, adicionada_em: new Date().toISOString(), ...(metaId ? { meta_id: metaId } : {}) }))
     setItens((prev) => [...prev.map((x) => atualizadas.find((a) => a.id === x.id) || x), ...inseridas])
     return inseridas
   }), [banco, tentar, itens, user?.id])
@@ -187,20 +214,21 @@ export function useSprints(user, { ativo = true, banco = bancoSupabase } = {}) {
    * transação só, em tarefas_sprint_concluir. Devolve a próxima para a tela abrir.
    */
   const concluirSprint = useCallback(({ sprint, proxima, sugestao, tarefas, membros, cfg, itensDaSprint }) => tentar(async () => {
+    const metasDaSprint = metas.filter((m) => m.sprint_id === sprint.id)
     const linhas = pessoas.filter((p) => p.sprint_id === sprint.id)
     let destino = proxima
     let destinoPessoas = proxima ? pessoas.filter((p) => p.sprint_id === proxima.id) : []
     if (!destino) {
-      const [s] = await banco.inserir('tarefas_sprints', [{ numero: sugestao.numero, nome: sugestao.nome, inicio: sugestao.inicio, fim: sugestao.fim, criado_por: user?.id || null }])
+      const [s] = await banco.inserir('tarefas_sprints', [{ squad_id: sprint.squad_id, numero: sugestao.numero, nome: sugestao.nome, inicio: sugestao.inicio, fim: sugestao.fim, criado_por: user?.id || null }])
       destino = s
-      const novas = participantesDaSprint({ membros, anteriores: linhas, inicio: s.inicio, fim: s.fim, cfg }).map((p) => ({ ...p, sprint_id: s.id }))
+      const novas = participantesDaSprint({ membros, ids: linhas.map((l) => l.pessoa_id), inicio: s.inicio, fim: s.fim, cfg }).map((p) => ({ ...p, sprint_id: s.id }))
       destinoPessoas = novas.length ? await banco.inserir('tarefas_sprint_pessoas', novas) : []
     }
-    const plano = planoDeFechamento({ sprint, proxima: destino, pessoas: linhas, itens: itensDaSprint, tarefas, cfg, proximasPessoas: destinoPessoas })
-    await banco.rpc('tarefas_sprint_concluir', { p_sprint: sprint.id, p_resultados: plano.resultados, p_novos: plano.novos, p_pessoas: plano.pessoas })
+    const plano = planoDeFechamento({ sprint, proxima: destino, pessoas: linhas, itens: itensDaSprint, tarefas, metas: metasDaSprint, cfg, proximasPessoas: destinoPessoas })
+    await banco.rpc('tarefas_sprint_concluir', { p_sprint: sprint.id, p_resultados: plano.resultados, p_novos: plano.novos, p_pessoas: plano.pessoas, p_metas: plano.metas, p_novas_metas: plano.novasMetas })
     await recarregar()
     return { proxima: destino, plano }
-  }), [banco, tentar, pessoas, recarregar, user?.id])
+  }), [banco, tentar, pessoas, metas, recarregar, user?.id])
 
   const pessoasPorSprint = useMemo(() => {
     const m = new Map()
@@ -209,10 +237,11 @@ export function useSprints(user, { ativo = true, banco = bancoSupabase } = {}) {
   }, [pessoas])
 
   return {
-    sprints, pessoas, itens, config, loading, erro, pessoasPorSprint, sprintsDeItens,
+    sprints, pessoas, itens, metas, config, loading, erro, pessoasPorSprint, sprintsDeItens,
     carregarItens, recarregar,
     criarSprint, atualizarSprint, excluirSprint, concluirSprint,
     atualizarPessoa, adicionarPessoa, removerPessoa, confirmarPessoa, reabrirPessoa,
     adicionarTarefas, removerItem, decidirItem,
+    criarMeta, atualizarMeta, excluirMeta, vincularMeta,
   }
 }

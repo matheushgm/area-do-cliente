@@ -1,5 +1,5 @@
 // Fechamento da sprint de uma pessoa: combinado x entregue, decisão de cada tarefa aberta
-// (próxima sprint ou backlog, como o ClickUp pergunta ao fechar) e a retro curta.
+// (próxima sprint ou backlog, como o ClickUp pergunta ao fechar) e a retro curta. O % das metas fica em SprintMetas.
 import { Avatar, FOCO } from './Campos'
 import { CampoTexto, LinhaTarefa, Tile, fmtPct } from './SprintComum'
 import { pessoaDoPerfil } from '../../lib/tarefas'
@@ -7,7 +7,7 @@ import { fmtMin, nTarefas } from '../../lib/sprints'
 
 const ROTULO_RESULTADO = { concluida: 'Entregue', transbordou: 'Foi para a próxima', devolvida: 'Voltou ao backlog', antecipada: 'Antes do início' }
 
-function Decisao({ item, onDecidir }) {
+export function DecisaoAtividade({ item, onDecidir }) {
   const atual = item.decisao || 'proxima'
   return (
     <span className="inline-flex rounded-md ring-1 ring-inset ring-ln-line overflow-hidden shrink-0" role="group" aria-label="O que fazer com esta tarefa" onClick={(e) => e.stopPropagation()}>
@@ -29,7 +29,6 @@ export default function SprintFechar({ fase, linha, resumo, s, ctx, membrosMap }
         {membro && <Avatar pessoa={pessoaDoPerfil(membro)} size={24} />}
         <p className="text-[14px] font-semibold text-ln-t1">Fechamento de {membro?.name}</p>
       </div>
-      {linha.objetivo && <p className="text-[13px] text-ln-t2"><span className="text-ln-t4">Objetivo:</span> {linha.objetivo}</p>}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <Tile k="Combinado" v={fmtMin(resumo.compromissoMin)} sub={nTarefas(resumo.compromissoTarefas)} />
         <Tile k="Entregue" v={fmtMin(resumo.feitoMin)} sub={nTarefas(resumo.feitoTarefas)} tom={resumo.feitoTarefas ? 'green' : undefined} />
@@ -41,7 +40,7 @@ export default function SprintFechar({ fase, linha, resumo, s, ctx, membrosMap }
         <section className="ln-card !p-0 overflow-hidden">
           <p className="px-3 h-9 flex items-center text-xs font-semibold text-ln-t2 border-b border-ln-ink/[0.05]">Ficou aberta: para onde vai? <span className="ml-1.5 text-ln-t4 font-normal tabular">{resumo.abertas.length}</span></p>
           {resumo.abertas.map((c) => (
-            <LinhaTarefa key={c.item.id} tarefa={c.tarefa} titulo={c.titulo} ctx={ctx} editavel fim={<Decisao item={c.item} onDecidir={s.decidirItem} />} />
+            <LinhaTarefa key={c.item.id} tarefa={c.tarefa} titulo={c.titulo} ctx={ctx} editavel fim={<DecisaoAtividade item={c.item} onDecidir={s.decidirItem} />} />
           ))}
           {!resumo.abertas.length && <p className="py-6 text-center text-[13px] text-ln-t4">Nada aberto. Tudo que entrou nesta sprint foi entregue.</p>}
         </section>

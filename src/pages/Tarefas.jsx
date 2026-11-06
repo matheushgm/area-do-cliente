@@ -361,7 +361,7 @@ export default function Tarefas() {
         }}
       />
     ) : aba === 'sprints' ? (
-      <SprintsView s={sprints} t={t} membros={teamMembers || []} membrosMap={membrosMap} onAbrirTarefa={api.abrirTarefa} tarefaAbertaId={params.get('tarefa')} onToast={showToast} confirmar={confirmar} />
+      <SprintsView s={sprints} t={t} squads={squads} projetos={projects || []} user={user} membros={teamMembers || []} membrosMap={membrosMap} onAbrirTarefa={api.abrirTarefa} tarefaAbertaId={params.get('tarefa')} onToast={showToast} confirmar={confirmar} />
     ) : aba === 'paginas' ? (
       <PaginasView pg={pgHook} projetos={projects || []} user={user} paginaId={params.get('pagina')} onSelecionar={(id) => setParams(id ? new URLSearchParams({ aba: 'paginas', pagina: id }) : new URLSearchParams({ aba: 'paginas' }))} onToast={showToast} />
     ) : aba === 'analytics' ? (

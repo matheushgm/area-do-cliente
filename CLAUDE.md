@@ -1368,35 +1368,49 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     memória no formato dos incidentes; o hook lê `window.__DEV_SYNC`).
 - **Ainda não feito:** ligar a Central de Otimizações e o playbook ao Intake, e a decisão sobre desligar o ClickUp.
 
-#### Sprints (`/tarefas?aba=sprints`, 2026-11-06, migration 128)
+#### Sprints (`/tarefas?aba=sprints`, 2026-11-06, migrations 128 e 129)
 
-O formato do Sprints do ClickUp (planejar → confirmar o compromisso → acompanhar → tratar o transbordo), com uma
-diferença pedida pelo Matheus: **uma sprint por semana e, dentro dela, uma sprint para cada pessoa**, como a "Reunião de
-Sprint Semanal" de sexta já funciona. Na pasta Sprint do ClickUp as listas semanais (seg a dom) existem mas têm 0 tarefas
+O formato do Sprints do ClickUp (planejar → confirmar o compromisso → acompanhar → tratar o transbordo), organizado do jeito
+que o Matheus pediu: **cada squad tem a sua sprint na semana, com as pessoas escolhidas para ela; a sprint começa pelas metas;
+cada meta é explodida em atividades e o % sai delas**. Na pasta Sprint do ClickUp as listas semanais existem mas têm 0 tarefas
 (conferido com `include_timl` em 06/11/2026), então a numeração continua de lá (Sprint 30 → 31) e nada é sincronizado de volta.
 
-- **Tabelas:** `tarefas_sprints` (a semana), `tarefas_sprint_pessoas` (objetivo, risco, dias e horas por dia, confirmação,
-  retro e o retrato do resultado) e `tarefas_sprint_itens` (a tarefa que a pessoa assumiu; é tabela à parte porque a mesma
-  tarefa passa por várias sprints). RLS do time e realtime. **Nada disso entra na outbox**: quem está em qual sprint fica só
-  aqui. Status, responsável e estimativa são da própria tarefa e seguem para o ClickUp como sempre.
+- **Tabelas:** `tarefas_sprints` (uma por squad e semana: `squad_id`, número único por squad), `tarefas_sprint_pessoas` (quem
+  compõe o squad naquela sprint: risco, dias e horas por dia, confirmação, retro e o retrato do resultado; a coluna `objetivo`
+  da 128 não é mais usada), `tarefas_sprint_metas` (título, como saber que bateu, dono, cliente, decisão, retrato do %,
+  `continua_de`) e `tarefas_sprint_itens` (a tarefa que a pessoa assumiu, com `meta_id`; é tabela à parte porque a mesma tarefa
+  passa por várias sprints). RLS do time e realtime. **Nada disso entra na outbox**: quem está em qual sprint fica só aqui.
+  Status, responsável, estimativa e a tarefa criada dentro da meta são `tarefas_itens` e seguem para o ClickUp como sempre.
 - **Regras puras** em `src/lib/sprints.js`, dados em `src/hooks/useSprints.js` (o parâmetro `banco` é o único ponto que fala
   com o Supabase; o harness usa um em memória). As transações são RPCs: `tarefas_sprint_confirmar`, `_reabrir`, `_concluir`
   (a conta é `planoDeFechamento`, na tela; a RPC só aplica).
-- **Telas** (`SprintsView` + `SprintPlanejar`, `SprintAcompanhar`, `SprintFechar`, `SprintComum`), com URL
-  `?aba=sprints&sprint=<id>&pessoa=<id>&modo=planejar|acompanhar|fechar`. Sem `pessoa` = visão do time. O modo padrão segue a
-  fase (`faseDaSprint`: futura → planejar, ativa → acompanhar, passou da data sem concluir → fechar).
+- **Telas** (`SprintsView` + `SprintMetas`, `SprintBacklog`, `SprintPlanejar`, `SprintAcompanhar`, `SprintFechar`,
+  `SprintComum`), com URL `?aba=sprints&squad=<id>&sprint=<id>&pessoa=<id|time>&modo=planejar|acompanhar|fechar`. Sem `pessoa` =
+  metas, que é a tela principal; `time` = uma linha por pessoa. O modo padrão segue a fase (`faseDaSprint`: futura → planejar,
+  ativa → acompanhar, passou da data sem concluir → fechar).
+- **% da meta** (`progressoDaMeta`): atividades concluídas sobre o total, **por atividade e não por hora** (só ~23% das abertas
+  têm estimativa). Removida e `antecipada` ficam de fora; a mesma tarefa com duas pessoas conta uma vez. Meta sem atividade é 0%.
+  Depois de concluída vale o retrato gravado (`resultado_*`), que não muda se a tarefa for reaberta.
+- **Escolher atividade** (`SprintBacklog`): por padrão só tarefas de quem está no squad e de clientes deste squad ou sem squad
+  (lista → pasta → `projects_v2.squad`, `ctx.squadDe`); a aba "Todas" abre o resto. Fica com o responsável que já está no squad;
+  sem ninguém do squad, vai para a pessoa escolhida no topo, que passa a ser responsável. "Criar atividade" cria a tarefa na
+  lista escolhida (a "Geral" do cliente da meta vem marcada), vencendo no último dia útil da sprint.
+- **Pessoa nos dois squads** (André e Bárbara em 06/11/2026): a capacidade é uma só. `resumoDaPessoa` recebe `outrosMin` (o que
+  ela assumiu nas sprints de outros squads que cruzam a semana) e a barra soma; mudar dias ou horas grava nas duas linhas
+  (`acoes.capacidade`). Tarefa e média de entrega continuam separadas por squad.
 - **Horas:** `minutosDaTarefa` segue o motor do Atividades (estimativa > tipo > dificuldade > padrão, config de
-  `action=config`), mudou um, mude o outro. Só ~23% das abertas têm estimativa (192 de 848, 06/11/2026), por isso o `~` nas
-  horas inferidas. Capacidade = dias × horas por dia (padrão 5 × 6h); a marca da barra é a folga de 15% (`FOLGA_RECOMENDADA`).
-- **Confirmar** grava `min_compromisso` por item e trava o combinado. Depois disso, entrar vira `fora_do_plano`, sair vira
-  `removida_em` (fica no relatório) e reestimar não muda o combinado. Só dá para reabrir antes do início da sprint.
-- **Concluir** grava `resultado` em cada item e o retrato em `tarefas_sprint_pessoas` (daí saem a média de entrega e o "do
-  combinado, saiu"; não dependem mais das tarefas), cria a próxima sprint se não existir e leva as abertas com
-  `origem = 'transbordo'`, salvo as marcadas para o backlog. Tarefa concluída antes do início da sprint é `antecipada` e não
-  conta (a reunião é sexta e a semana termina no domingo).
-- Adicionar tarefa de fora põe a pessoa como responsável; "Passar para" (delegar) troca o responsável.
+  `action=config`), mudou um, mude o outro; o `~` marca as inferidas. Capacidade = dias × horas por dia; a marca da barra é a
+  folga de 15% (`FOLGA_RECOMENDADA`).
+- **Confirmar** (por pessoa ou o squad inteiro) grava `min_compromisso` por item e trava o combinado. Depois disso, entrar vira
+  `fora_do_plano`, sair vira `removida_em` (fica no relatório) e reestimar não muda o combinado. Só reabre antes do início.
+- **Concluir** é por squad: grava `resultado` em cada item, o retrato das metas e das pessoas (daí saem a média de entrega e o
+  "do combinado, saiu"), cria a próxima sprint do squad se não existir e leva as abertas com `origem = 'transbordo'`, salvo as
+  marcadas para o backlog. Meta que não bateu continua na próxima (`continua_de`, com as atividades que transbordaram), salvo
+  "Encerra aqui". Tarefa concluída antes do início da sprint é `antecipada` e não conta.
+- **Sugestão de data** (`sugerirSprint`): segunda seguinte, com a duração da sprint mais recente (o Matheus criou a 31 de segunda a
+  sexta, o ClickUp usa até domingo); o número é o do outro squad na mesma semana, senão o maior + 1.
 - `Cycles` continua no menu, sem nenhuma linha em `tarefas_ciclos`, e a coluna "Sprints" da Lista ainda é o `ciclo_id`.
-- Sem login: `/dev/sprints` (só em DEV, em memória; `?hoje=AAAA-MM-DD` simula o dia e `window.__hoje` muda sem recarregar).
+- Sem login: `/dev/sprints` (só em DEV, em memória, com os dois squads; `?hoje=AAAA-MM-DD` simula o dia e `window.__hoje` muda sem recarregar).
 
 ### Chat (módulo do VertaTask, `/tarefas?aba=chat`): réplica do ClickUp Chat
 
