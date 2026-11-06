@@ -130,6 +130,21 @@ export function useTarefas(user) {
     }
   }, [mesclar])
 
+  /** Tarefas por id, de qualquer lista e em qualquer status (módulo Sprints: concluídas de uma sprint). */
+  const carregarPorIds = useCallback(async (ids) => {
+    if (!supabase || !ids?.length) return
+    try {
+      for (let i = 0; i < ids.length; i += 150) {
+        const { data, error } = await supabase.from('tarefas_itens').select('*').in('id', ids.slice(i, i + 150))
+        if (error) throw error
+        if (data?.length) mesclar(data)
+      }
+    } catch (e) {
+      console.error('Erro ao carregar tarefas por id:', e)
+      setErro(e.message)
+    }
+  }, [mesclar])
+
   const carregarMinhas = useCallback(async ({ force = false } = {}) => {
     if (!supabase || !user?.id || (minhasCarregadas.current && !force)) return
     setCarregando(true)
@@ -496,7 +511,7 @@ export function useTarefas(user) {
   return {
     pastas, listas, pastasMap, listasMap, loadingEstrutura, carregando, erro,
     itens, comentarios,
-    carregarEstrutura, carregarListas, carregarMinhas, carregarAbertas, carregarPorCampo, carregarTarefa, aplicarLocal,
+    carregarEstrutura, carregarListas, carregarMinhas, carregarAbertas, carregarPorCampo, carregarPorIds, carregarTarefa, aplicarLocal,
     criarTarefa, atualizarTarefa, mudarStatus, excluirTarefa, arquivarTarefa,
     criarPasta, atualizarPasta, atualizarLista,
     carregarComentarios, criarComentario, excluirComentario,

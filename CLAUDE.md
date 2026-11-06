@@ -1368,6 +1368,36 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     memória no formato dos incidentes; o hook lê `window.__DEV_SYNC`).
 - **Ainda não feito:** ligar a Central de Otimizações e o playbook ao Intake, e a decisão sobre desligar o ClickUp.
 
+#### Sprints (`/tarefas?aba=sprints`, 2026-11-06, migration 128)
+
+O formato do Sprints do ClickUp (planejar → confirmar o compromisso → acompanhar → tratar o transbordo), com uma
+diferença pedida pelo Matheus: **uma sprint por semana e, dentro dela, uma sprint para cada pessoa**, como a "Reunião de
+Sprint Semanal" de sexta já funciona. Na pasta Sprint do ClickUp as listas semanais (seg a dom) existem mas têm 0 tarefas
+(conferido com `include_timl` em 06/11/2026), então a numeração continua de lá (Sprint 30 → 31) e nada é sincronizado de volta.
+
+- **Tabelas:** `tarefas_sprints` (a semana), `tarefas_sprint_pessoas` (objetivo, risco, dias e horas por dia, confirmação,
+  retro e o retrato do resultado) e `tarefas_sprint_itens` (a tarefa que a pessoa assumiu; é tabela à parte porque a mesma
+  tarefa passa por várias sprints). RLS do time e realtime. **Nada disso entra na outbox**: quem está em qual sprint fica só
+  aqui. Status, responsável e estimativa são da própria tarefa e seguem para o ClickUp como sempre.
+- **Regras puras** em `src/lib/sprints.js`, dados em `src/hooks/useSprints.js` (o parâmetro `banco` é o único ponto que fala
+  com o Supabase; o harness usa um em memória). As transações são RPCs: `tarefas_sprint_confirmar`, `_reabrir`, `_concluir`
+  (a conta é `planoDeFechamento`, na tela; a RPC só aplica).
+- **Telas** (`SprintsView` + `SprintPlanejar`, `SprintAcompanhar`, `SprintFechar`, `SprintComum`), com URL
+  `?aba=sprints&sprint=<id>&pessoa=<id>&modo=planejar|acompanhar|fechar`. Sem `pessoa` = visão do time. O modo padrão segue a
+  fase (`faseDaSprint`: futura → planejar, ativa → acompanhar, passou da data sem concluir → fechar).
+- **Horas:** `minutosDaTarefa` segue o motor do Atividades (estimativa > tipo > dificuldade > padrão, config de
+  `action=config`), mudou um, mude o outro. Só ~23% das abertas têm estimativa (192 de 848, 06/11/2026), por isso o `~` nas
+  horas inferidas. Capacidade = dias × horas por dia (padrão 5 × 6h); a marca da barra é a folga de 15% (`FOLGA_RECOMENDADA`).
+- **Confirmar** grava `min_compromisso` por item e trava o combinado. Depois disso, entrar vira `fora_do_plano`, sair vira
+  `removida_em` (fica no relatório) e reestimar não muda o combinado. Só dá para reabrir antes do início da sprint.
+- **Concluir** grava `resultado` em cada item e o retrato em `tarefas_sprint_pessoas` (daí saem a média de entrega e o "do
+  combinado, saiu"; não dependem mais das tarefas), cria a próxima sprint se não existir e leva as abertas com
+  `origem = 'transbordo'`, salvo as marcadas para o backlog. Tarefa concluída antes do início da sprint é `antecipada` e não
+  conta (a reunião é sexta e a semana termina no domingo).
+- Adicionar tarefa de fora põe a pessoa como responsável; "Passar para" (delegar) troca o responsável.
+- `Cycles` continua no menu, sem nenhuma linha em `tarefas_ciclos`, e a coluna "Sprints" da Lista ainda é o `ciclo_id`.
+- Sem login: `/dev/sprints` (só em DEV, em memória; `?hoje=AAAA-MM-DD` simula o dia e `window.__hoje` muda sem recarregar).
+
 ### Chat (módulo do VertaTask, `/tarefas?aba=chat`): réplica do ClickUp Chat
 
 > **Desde 2026-10-16 o Chat é uma seção do VertaTask**, no item "Chat" da coluna esquerda (com

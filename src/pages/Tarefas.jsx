@@ -26,6 +26,8 @@ import { usePaginas } from '../hooks/usePaginas'
 import { cicloPadrao } from '../lib/vertatask'
 import TarefasSidebar from '../components/Tarefas/TarefasSidebar'
 import CiclosView from '../components/Tarefas/CiclosView'
+import SprintsView from '../components/Tarefas/SprintsView'
+import { useSprints } from '../hooks/useSprints'
 import TemplatesView from '../components/Tarefas/TemplatesView'
 import TemplateEditor from '../components/Tarefas/TemplateEditor'
 import { clonarItens, itensDoTemplate, resumoDoTemplate } from '../lib/templates'
@@ -160,10 +162,11 @@ export default function Tarefas() {
   useEffect(() => gravarPref('colunaRecolhida', colunaRecolhida), [colunaRecolhida])
 
   // ── Seleção (pasta / lista / minhas) via URL ─────────────────────────────
-  const aba = params.get('aba') // null = tarefas | 'intake' | 'ciclos' | 'templates' | 'paginas' | 'analytics' | 'sincronizacao' | 'chat' | 'atividades'
+  const aba = params.get('aba') // null = tarefas | 'intake' | 'sprints' | 'ciclos' | 'templates' | 'paginas' | 'analytics' | 'sincronizacao' | 'chat' | 'atividades'
+  const sprints = useSprints(user, { ativo: aba === 'sprints' })
   const sel = useMemo(() => {
     if (aba === 'ciclos') return { tipo: 'ciclo', id: params.get('ciclo') || cicloPadrao(vt.ciclos)?.id || null }
-    if (aba === 'templates' || aba === 'intake' || aba === 'chat' || aba === 'atividades' || aba === 'paginas' || aba === 'analytics' || aba === 'sincronizacao') return { tipo: 'nenhum' }
+    if (aba === 'sprints' || aba === 'templates' || aba === 'intake' || aba === 'chat' || aba === 'atividades' || aba === 'paginas' || aba === 'analytics' || aba === 'sincronizacao') return { tipo: 'nenhum' }
     if (params.get('lista')) return { tipo: 'lista', id: params.get('lista') }
     if (params.get('pasta')) return { tipo: 'pasta', id: params.get('pasta') }
     if (params.get('minhas') === '1') return { tipo: 'minhas' }
@@ -287,7 +290,7 @@ export default function Tarefas() {
   const pastaSel = sel.tipo === 'pasta' ? t.pastasMap.get(sel.id) : sel.tipo === 'lista' ? t.pastasMap.get(t.listasMap.get(sel.id)?.pasta_id) : null
   const listaSel = sel.tipo === 'lista' ? t.listasMap.get(sel.id) : null
   // seções que trocam a área de tarefas por outro conteúdo (Cycles mantém a área, com o resumo em cima)
-  const ehSecao = aba === 'intake' || aba === 'templates' || aba === 'paginas' || aba === 'analytics' || aba === 'sincronizacao'
+  const ehSecao = aba === 'intake' || aba === 'sprints' || aba === 'templates' || aba === 'paginas' || aba === 'analytics' || aba === 'sincronizacao'
 
   const cabecalho = (api) => (
     <header className="min-h-[56px] shrink-0 flex items-center justify-between gap-3 px-6 py-2 border-b border-ln-ink/[0.08]">
@@ -300,7 +303,7 @@ export default function Tarefas() {
         >
           {colunaRecolhida ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
         </button>
-        <h1 className="text-xl font-bold text-ln-t1 truncate">{{ intake: 'Intake', ciclos: 'Cycles', templates: 'Templates', paginas: 'Pages', analytics: 'Analytics', sincronizacao: 'Sincronização com o ClickUp' }[aba] || 'Tarefas'}</h1>
+        <h1 className="text-xl font-bold text-ln-t1 truncate">{{ intake: 'Intake', sprints: 'Sprints', ciclos: 'Cycles', templates: 'Templates', paginas: 'Pages', analytics: 'Analytics', sincronizacao: 'Sincronização com o ClickUp' }[aba] || 'Tarefas'}</h1>
         {!aba && (
           <div className="hidden sm:flex items-center gap-1.5 text-[13px] text-ln-t3 min-w-0">
             {pastaSel && (<>
@@ -357,6 +360,8 @@ export default function Tarefas() {
           else api.usarModelo(tpl, lista.id, it)
         }}
       />
+    ) : aba === 'sprints' ? (
+      <SprintsView s={sprints} t={t} membros={teamMembers || []} membrosMap={membrosMap} onAbrirTarefa={api.abrirTarefa} tarefaAbertaId={params.get('tarefa')} onToast={showToast} confirmar={confirmar} />
     ) : aba === 'paginas' ? (
       <PaginasView pg={pgHook} projetos={projects || []} user={user} paginaId={params.get('pagina')} onSelecionar={(id) => setParams(id ? new URLSearchParams({ aba: 'paginas', pagina: id }) : new URLSearchParams({ aba: 'paginas' }))} onToast={showToast} />
     ) : aba === 'analytics' ? (
@@ -413,7 +418,7 @@ export default function Tarefas() {
                 antesDaView={aba === 'ciclos' ? (
                   <CiclosView ciclos={vt.ciclos} ciclo={sel.id ? vt.ciclosMap.get(sel.id) : null} itens={todos} onSel={(id) => irAba('ciclos', { ciclo: id })} vt={vt} onToast={showToast} unidade={unidadeBurn} onUnidade={setUnidadeBurn} membros={teamMembers || []} onMoverPendentes={moverPendentes} />
                 ) : null}
-                semRolagem={aba === 'paginas' || aba === 'templates'}
+                semRolagem={aba === 'paginas' || aba === 'templates' || aba === 'sprints'}
                 atalhoCriar={aba !== 'paginas' && aba !== 'templates'}
                 onIrParaLista={irParaLista} onAbrirTemplate={abrirTemplate}
               />
