@@ -598,8 +598,16 @@ views com filter tabs, listas densas de 13px, painel lateral de 480px e painel f
   `.ln-tab`/`.ln-tab-active`, `.ln-primary`, `.ln-input`, `.ln-label`, `.ln-row-hover`,
   `.ln-kbd`, `.ln-hatch`, `.ln-shimmer`, `.tabular`. Atenção: `.ln-card` e companhia ficam
   fora de `@layer`, então para sobrescrever borda/fundo delas use `!border-...`.
+- **Tempo real (2026-11-06):** a Capacidade do time e as Concluídas assinam `tarefas_itens`
+  (canal único em `src/lib/tarefasItensRealtime.js`; regras puras em `src/lib/atividadesRealtime.js`).
+  A mudança relê só as pessoas afetadas em ~2 s (Concluídas: o período em ~3 s), sem indicador na
+  tela; a releitura de 5 min ficou só como garantia. O evento traz da linha antiga só o `id`
+  (REPLICA IDENTITY DEFAULT), por isso `useCargaTime` guarda um índice tarefa → responsáveis para
+  saber quem perdeu a tarefa. Toda leitura da carga passa pela fila `criarFilaCarga`: pedido novo
+  não cancela o anterior, e leitura em segundo plano que falha não apaga o dado bom. O cache de
+  sessão só pinta a abertura; ao montar sempre relê, então o F5 não mostra dado velho.
 - **Página:** `src/pages/Atividades.jsx` orquestra: `useCargaTime` (carga do time em lotes de
-  3 pessoas, progressivo, cache de 10 min em sessionStorage), `usePlanejador` (todo o fluxo
+  3 pessoas, progressivo, cache de 5 min em sessionStorage), `usePlanejador` (todo o fluxo
   formulário → cálculo → comparação → aprovação, extraído sem mudar regra), estado de UI
   (painel lateral com 3 modos: pessoa / atividade / nova; dia selecionado na linha de calor;
   filtro por saúde; agrupamento), atalhos (`C` nova atividade, `Esc` fecha) e o

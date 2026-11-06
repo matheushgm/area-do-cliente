@@ -1,15 +1,19 @@
 // Tarefas concluídas num intervalo de dias (relatório do módulo Atividades).
-// Recebe o intervalo que a tela precisa e lê o ClickUp só quando o que já
-// está carregado não cobre esse intervalo (os filtros Hoje / Ontem cabem
+// Recebe o intervalo que a tela precisa e lê as tarefas_* (espelho do ClickUp) quando
+// o que já está carregado não cobre esse intervalo (os filtros Hoje / Ontem cabem
 // dentro dos 7 dias; o personalizado pede o que for). A API aceita 31 dias por
 // chamada, então intervalos maiores são lidos em fatias e juntados.
-// Cache de sessão de 5 minutos para a aba abrir já preenchida.
+// Tempo real: mudança em tarefas_itens que afeta o período relê em cerca de 3 s, sem indicador.
+// O cache de sessão de 5 minutos só serve para a aba abrir preenchida: ao abrir, sempre relê.
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { tarefasConcluidas } from '../lib/atividades'
 import { hojeISO } from '../lib/atividadesCarga'
 import { addDias } from '../lib/atividadesConcluidas'
+import { eventoMudaConcluidas } from '../lib/atividadesRealtime'
+import { assinarTarefasItens } from '../lib/tarefasItensRealtime'
 
 const TTL_MS = 5 * 60 * 1000
+const ESPERA_REALTIME_MS = 3000
 const KEY = 'atividades_concluidas_v2'
 const FATIA_DIAS = 31
 
@@ -58,18 +62,29 @@ export function useConcluidas(ativo, intervalo) {
   const { desde, ate } = intervalo
   const cobre = !!dados && dados.desde <= desde && dados.ate >= ate
 
-  const carregar = useCallback(async ({ refresh = false } = {}) => {
+  const dadosRef = useRef(dados)
+  dadosRef.current = dados
+
+  // Silenciosa: sem indicador e sem trocar dado bom por erro. Mantém todo o período já
+  // carregado, para a troca de filtro continuar sem nova leitura.
+  const carregar = useCallback(async ({ refresh = false, silencioso = false } = {}) => {
     const minha = ++seq.current
-    setLoading(true)
-    setErro(null)
+    if (!silencioso) {
+      setLoading(true)
+      setErro(null)
+    }
     try {
-      const c = await lerIntervalo(desde, ate, refresh)
+      const atual = silencioso ? dadosRef.current : null
+      const de = atual?.desde && atual.desde < desde ? atual.desde : desde
+      const a = atual?.ate && atual.ate > ate ? atual.ate : ate
+      const c = await lerIntervalo(de, a, refresh)
       if (seq.current !== minha) return
       setDados(c)
       gravarCache(c)
     } catch (e) {
       if (seq.current !== minha) return
-      setErro(e?.message || 'Falha ao ler o ClickUp')
+      if (silencioso) console.warn('[Atividades] releitura das concluídas falhou:', e?.message)
+      else setErro(e?.message || 'Falha ao ler as tarefas concluídas')
     } finally {
       if (seq.current === minha) setLoading(false)
     }
@@ -83,21 +98,60 @@ export function useConcluidas(ativo, intervalo) {
     const chave = `${desde}:${ate}`
     if (erro && falhou.current === chave) return
     const c = lerCache(desde, ate)
-    if (c) { setDados(c); return }
+    if (c) {
+      // pinta na hora e busca o dado novo, para o F5 nunca mostrar leitura velha
+      dadosRef.current = c
+      setDados(c)
+      carregar({ refresh: true, silencioso: true })
+      return
+    }
     falhou.current = chave
     carregar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativo, cobre, desde, ate])
 
-  // relê sozinho quando a leitura envelhece e a aba está visível
-  const dadosRef = useRef(dados)
-  dadosRef.current = dados
   const carregarRef = useRef(carregar)
   carregarRef.current = carregar
+
+  // Tempo real: relê quando a mudança afeta o período carregado. Com a aba escondida, relê ao voltar.
+  useEffect(() => {
+    if (!ativo) return
+    let timer = null
+    let mudou = false
+    let base = null
+    let carregado = null
+    const visivel = () => document.visibilityState === 'visible'
+    const disparar = () => {
+      timer = null
+      if (!mudou || !visivel()) return
+      mudou = false
+      carregarRef.current({ refresh: true, silencioso: true })
+    }
+    const agendar = () => { if (!timer && mudou && visivel()) timer = setTimeout(disparar, ESPERA_REALTIME_MS) }
+    const cancelar = assinarTarefasItens({
+      aoMudar: (evento) => {
+        const d = dadosRef.current
+        if (d !== base) {
+          base = d
+          carregado = d ? { desde: d.desde, ate: d.ate, ids: new Set(d.tarefas.map((t) => t.id)) } : null
+        }
+        if (eventoMudaConcluidas(carregado, evento)) { mudou = true; agendar() }
+      },
+      aoReconectar: () => { mudou = true; agendar() },
+    })
+    document.addEventListener('visibilitychange', agendar)
+    return () => {
+      cancelar()
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', agendar)
+    }
+  }, [ativo])
+
+  // Garantia caso o canal caia: relê sem indicador quando a leitura envelhece e a aba está visível
   useEffect(() => {
     if (!ativo) return
     const velho = () => !dadosRef.current?.geradoEm || Date.now() - new Date(dadosRef.current.geradoEm).getTime() >= TTL_MS
-    const tick = () => { if (document.visibilityState === 'visible' && velho()) carregarRef.current({ refresh: true }) }
+    const tick = () => { if (document.visibilityState === 'visible' && velho()) carregarRef.current({ refresh: true, silencioso: true }) }
     const timer = setInterval(tick, 60 * 1000)
     document.addEventListener('visibilitychange', tick)
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', tick) }
