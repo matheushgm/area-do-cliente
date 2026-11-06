@@ -264,7 +264,7 @@ export default function AreaTarefas({
   useEffect(() => {
     if (t.loadingEstrutura) return
     const force = recarregarTick > 0
-    if (sel.tipo === 'minhas') t.carregarMinhas()
+    if (sel.tipo === 'minhas') t.carregarMinhas({ force })
     else if (sel.tipo === 'todas') t.carregarAbertas({ force })
     else if (sel.tipo === 'ciclo' && sel.id) t.carregarPorCampo('ciclo_id', sel.id, { force })
     else if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force })
@@ -283,7 +283,9 @@ export default function AreaTarefas({
   const recarregar = useCallback(() => {
     if (listasEscopo.length) t.carregarListas(listasEscopo.map((l) => l.id), { force: true })
     else if (sel.tipo === 'todas') t.carregarAbertas({ force: true })
-  }, [t, listasEscopo, sel.tipo])
+    else if (sel.tipo === 'minhas') t.carregarMinhas({ force: true })
+    else if (sel.tipo === 'ciclo' && sel.id) t.carregarPorCampo('ciclo_id', sel.id, { force: true })
+  }, [t, listasEscopo, sel.tipo, sel.id])
 
   const statuses = useMemo(() => {
     if (sel.tipo === 'lista') return listasEscopo[0] ? statusDaLista(listasEscopo[0]) : STATUSES_PADRAO

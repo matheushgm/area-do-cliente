@@ -745,6 +745,14 @@ todo `authenticated`; as quatro estão na publicação realtime).
 - **Dados** `src/hooks/useTarefas.js`: lê a estrutura inteira e as tarefas só da pasta/lista
   aberta (paginado de 1000 em 1000), atualização otimista e canal realtime. Trocar status
   passa por `mudarStatus` (calcula `status_tipo` e `data_conclusao`).
+- **Realtime e recuperação (2026-11-06):** evento de tarefa só entra na tela se `tarefaEntraNaCarga`
+  (`src/lib/tarefas.js`) disser que ela pertence ao que foi carregado: lista, ciclo, "Todas" (aberta) ou
+  "Minhas" (responsável). **Carga nova precisa de uma condição lá**, senão a tarefa criada ou editada no
+  ClickUp só aparece ao recarregar a página. O realtime não reenvia o que passou com a conexão fora: a cada
+  (re)conexão do canal, e ao voltar para a aba (no máximo a cada 30 s), `recuperar` busca as tarefas por
+  `updated_at` desde a última conferência (com 5 min de folga) e as passa pelo mesmo filtro; depois de 2 min
+  sem conferir, relê também pastas e listas, sem indicador de carregamento. Exclusão definitiva feita aqui por
+  outra pessoa durante a queda não é vista (no ClickUp ela vira `arquivada`, que é); a linha some ao recarregar.
 - **Desempenho da Lista (2026-10-27; "Todas" tem ~2.200 abertas, ~900 de topo):** cada grupo desenha 50 linhas e
   mais 50 quando o fim chega a ~600 px da área visível (`MaisLinhas`, `IntersectionObserver` no contêiner que rola;
   o botão "Mostrar mais (N)" é a reserva). A `Linha` é memorizada (`igualLinha`): o ctx muda a cada tarefa alterada,

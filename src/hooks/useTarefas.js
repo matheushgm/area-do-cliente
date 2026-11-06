@@ -4,9 +4,15 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { apiFetch } from '../lib/api'
 import { supabase } from '../lib/supabase'
-import { STATUSES_PADRAO, statusDaLista, statusInicial, datasCoerentes } from '../lib/tarefas'
+import { STATUSES_PADRAO, statusDaLista, statusInicial, datasCoerentes, tarefaEntraNaCarga } from '../lib/tarefas'
 
 const PAGINA = 1000
+// Recuperação depois de uma queda do realtime: folga para relógio do navegador adiantado e
+// para escrita em andamento; intervalo mínimo entre conferências ao voltar para a aba; e a
+// partir de que intervalo vale conferir também pastas e listas.
+const RECUPERA_FOLGA_MS = 5 * 60_000
+const RECUPERA_INTERVALO_MS = 30_000
+const RECUPERA_ESTRUTURA_MS = 2 * 60_000
 
 async function selectPaginado(query) {
   const out = []
@@ -50,8 +56,8 @@ export function useTarefas(user) {
   const pastasMap = useMemo(() => new Map(pastas.map((p) => [p.id, p])), [pastas])
 
   // ── Estrutura ──────────────────────────────────────────────────────────────
-  const carregarEstrutura = useCallback(async () => {
-    setLoadingEstrutura(true)
+  const carregarEstrutura = useCallback(async ({ silencioso = false } = {}) => {
+    if (!silencioso) setLoadingEstrutura(true)
     try {
       const [{ data: p, error: e1 }, { data: l, error: e2 }] = await Promise.all([
         supabase.from('tarefas_pastas').select('*').eq('arquivada', false).order('posicao').order('nome'),
@@ -63,9 +69,9 @@ export function useTarefas(user) {
       setListas(l || [])
     } catch (e) {
       console.error('Erro ao carregar estrutura de tarefas:', e)
-      setErro(e.message)
+      if (!silencioso) setErro(e.message)
     } finally {
-      setLoadingEstrutura(false)
+      if (!silencioso) setLoadingEstrutura(false)
     }
   }, [])
 
@@ -124,8 +130,8 @@ export function useTarefas(user) {
     }
   }, [mesclar])
 
-  const carregarMinhas = useCallback(async () => {
-    if (!supabase || !user?.id || minhasCarregadas.current) return
+  const carregarMinhas = useCallback(async ({ force = false } = {}) => {
+    if (!supabase || !user?.id || (minhasCarregadas.current && !force)) return
     setCarregando(true)
     try {
       const rows = await selectPaginado(
@@ -373,6 +379,9 @@ export function useTarefas(user) {
   }, [])
 
   // ── Realtime ───────────────────────────────────────────────────────────────
+  const usuarioId = useRef(user?.id)
+  useEffect(() => { usuarioId.current = user?.id }, [user?.id])
+
   useEffect(() => {
     // Eventos de tarefa em lote: a sincronização e o push gravam dezenas de linhas de uma vez,
     // e cada setItens recalculava filtros, grupos e a lista inteira. Junta o que chega em
@@ -385,23 +394,69 @@ export function useTarefas(user) {
       setItens((prev) => {
         let n = prev
         const editavel = () => { if (n === prev) n = { ...prev } }
-        for (const { eventType, row, old } of lote) {
+        for (const { eventType, row, old, recuperada } of lote) {
           if (eventType === 'DELETE') { if (n[old.id]) { editavel(); delete n[old.id] } continue }
-          const conhecida = carregadas.current.has(row.lista_id) || !!n[row.id] || (row.parent_id && !!n[row.parent_id])
-            || (row.ciclo_id && camposCarregados.current.ciclo_id.has(row.ciclo_id))
-          if (!conhecida) continue
+          if (row.arquivada) { if (n[row.id]) { editavel(); delete n[row.id] } continue }
+          // linha da recuperação pode ser mais velha que um evento que chegou enquanto ela era lida
+          const atual = n[row.id]
+          if (recuperada && atual && new Date(atual.updated_at) >= new Date(row.updated_at)) continue
+          const entra = tarefaEntraNaCarga(row, {
+            itens: n,
+            listas: carregadas.current,
+            ciclos: camposCarregados.current.ciclo_id,
+            abertas: abertasCarregadas.current,
+            minhasDe: minhasCarregadas.current ? usuarioId.current : null,
+          })
+          if (!entra) continue
           editavel()
-          if (row.arquivada) delete n[row.id]
-          else n[row.id] = row
+          n[row.id] = row
         }
         return n
       })
     }
+    const enfileirar = (evento) => {
+      fila.push(evento)
+      if (!timer) timer = setTimeout(aplicarLote, 150)
+    }
+
+    // O realtime não reenvia o que passou enquanto a conexão estava fora (aba em segundo plano,
+    // computador suspenso, rede). Ao reconectar ou voltar para a aba, busca as tarefas gravadas
+    // desde a última conferência e as passa pelo mesmo caminho dos eventos. Toda escrita, da
+    // pessoa ou da sincronização, atualiza `updated_at`; tarefa removida no ClickUp vem como arquivada.
+    let conferidoEm = Date.now()
+    let conferindo = false
+    let encerrado = false
+    const recuperar = async () => {
+      if (conferindo || encerrado) return
+      conferindo = true
+      const inicio = Date.now()
+      const intervalo = inicio - conferidoEm
+      try {
+        const rows = await selectPaginado(
+          supabase.from('tarefas_itens').select('*').gte('updated_at', new Date(conferidoEm - RECUPERA_FOLGA_MS).toISOString()).order('updated_at').order('id'),
+        )
+        if (encerrado) return
+        conferidoEm = inicio
+        for (const row of rows) enfileirar({ eventType: 'UPDATE', row, recuperada: true })
+        if (intervalo >= RECUPERA_ESTRUTURA_MS) carregarEstrutura({ silencioso: true })
+      } catch (e) {
+        console.warn('Tarefas: não foi possível recuperar as mudanças; tenta na próxima conferência.', e)
+      } finally {
+        conferindo = false
+      }
+    }
+    const aoVoltar = () => {
+      if (document.visibilityState !== 'visible') return
+      if (Date.now() - conferidoEm >= RECUPERA_INTERVALO_MS) recuperar()
+    }
+    document.addEventListener('visibilitychange', aoVoltar)
+    window.addEventListener('focus', aoVoltar)
+    window.addEventListener('online', aoVoltar)
+
     const ch = supabase
       .channel('tarefas-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tarefas_itens' }, ({ eventType, new: row, old }) => {
-        fila.push({ eventType, row, old })
-        if (!timer) timer = setTimeout(aplicarLote, 150)
+        enfileirar({ eventType, row, old })
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tarefas_comentarios' }, ({ new: row }) => {
         setComentarios((prev) => {
@@ -426,9 +481,17 @@ export function useTarefas(user) {
           const n = [...prev]; n[i] = row; return n
         })
       })
-      .subscribe()
-    return () => { if (timer) clearTimeout(timer); supabase.removeChannel(ch) }
-  }, [])
+      // chamado a cada (re)conexão: a 1ª cobre o que mudou entre a carga da tela e o canal abrir
+      .subscribe((status) => { if (status === 'SUBSCRIBED') recuperar() })
+    return () => {
+      encerrado = true
+      if (timer) clearTimeout(timer)
+      document.removeEventListener('visibilitychange', aoVoltar)
+      window.removeEventListener('focus', aoVoltar)
+      window.removeEventListener('online', aoVoltar)
+      supabase.removeChannel(ch)
+    }
+  }, [carregarEstrutura])
 
   return {
     pastas, listas, pastasMap, listasMap, loadingEstrutura, carregando, erro,

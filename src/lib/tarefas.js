@@ -470,6 +470,20 @@ export function progressoChecklists(checklists) {
   return { total, feitos }
 }
 
+/**
+ * Uma tarefa que chegou pelo realtime pertence ao que esta tela já carregou? Vale para as cargas
+ * por lista, por ciclo, de "Todas" (abertas) e de "Minhas" (responsável): cada carga nova precisa
+ * de uma condição aqui, senão as tarefas novas dela só aparecem ao recarregar a página.
+ */
+export function tarefaEntraNaCarga(row, { itens, listas, ciclos, abertas, minhasDe }) {
+  return listas.has(row.lista_id)
+    || !!itens[row.id]
+    || (!!row.parent_id && !!itens[row.parent_id])
+    || (!!row.ciclo_id && ciclos.has(row.ciclo_id))
+    || (abertas && row.status_tipo !== 'closed')
+    || (!!minhasDe && (row.responsaveis || []).includes(minhasDe))
+}
+
 export function novoId() {
   return (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
