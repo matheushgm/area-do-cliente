@@ -2,13 +2,19 @@
 // Shell do Wizard de Oferta Matadora — trilha de passos + corpo + navegação.
 // Usado pela página interna (OfertaMatadora) e pela pública (/oferta/:token).
 // A tela final é injetada via `finalContent` (interna = IA; pública = envio).
+//
+// Dois modos (escolha salva em localStorage `oferta.wizard.modo`):
+//  • 'uma'  (padrão): uma pergunta por vez; ao fim de cada passo aparece a
+//    prévia com tudo que foi preenchido nele (StepReview), com "Editar".
+//  • 'tudo': o passo inteiro numa tela só (comportamento antigo).
 // ─────────────────────────────────────────────────────────────────────────────
-import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { ChevronLeft, ChevronRight, Check, Eye, ListChecks, Rows3 } from 'lucide-react'
 import { STEP_META } from './ofertaShared'
 import {
   StepDiagnostico, StepSonho, StepProblemas, StepSolucoes, StepEntrega,
   StepNucleo, StepEscassez, StepBonus, StepGarantia, StepNome,
+  StepReview, questionCount,
 } from './StepComponents'
 
 const STEP_COMPONENTS = {
@@ -22,6 +28,16 @@ const STEP_COMPONENTS = {
   bonus: StepBonus,
   garantia: StepGarantia,
   nome: StepNome,
+}
+
+const REVIEW = 'review'
+const MODO_KEY = 'oferta.wizard.modo'
+
+function lerModo() {
+  try { return localStorage.getItem(MODO_KEY) === 'tudo' ? 'tudo' : 'uma' } catch { return 'uma' }
+}
+function gravarModo(m) {
+  try { localStorage.setItem(MODO_KEY, m) } catch { /* sem storage: só não lembra */ }
 }
 
 // Progresso de preenchimento por passo (checks da trilha)
@@ -48,6 +64,12 @@ export default function OfertaWizardShell({
   finalFooter = null,    // node no rodapé da última tela (ex.: Concluir)
 }) {
   const [stepIndex, setStepIndex] = useState(0)
+  const [qIndex, setQIndex] = useState(0)        // número da pergunta ou REVIEW
+  const [modo, setModo] = useState(lerModo)
+  const autoTimer = useRef(null)
+  const topRef = useRef(null)
+
+  useEffect(() => () => clearTimeout(autoTimer.current), [])
 
   const meta = useMemo(() => (
     publicMode
@@ -62,73 +84,190 @@ export default function OfertaWizardShell({
   const StepComp = STEP_COMPONENTS[step.id]
   const filledMap = useMemo(() => computeFilledMap(oferta), [oferta])
 
-  const goTo = (i) => {
-    setStepIndex(Math.max(0, Math.min(meta.length - 1, i)))
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  const umaPorVez = modo === 'uma'
+  const total = isFinal ? 0 : questionCount(step.id, oferta)
+  const inReview = umaPorVez && !isFinal && qIndex === REVIEW
+  // Se a contagem encolher (ex.: apagou uma objeção), não deixa o índice estourar
+  const q = umaPorVez && !isFinal && !inReview ? Math.min(qIndex, Math.max(0, total - 1)) : undefined
+
+  const scrollTop = () => {
+    const el = topRef.current
+    if (el) {
+      const y = el.getBoundingClientRect().top + window.scrollY - 16
+      if (window.scrollY > y) window.scrollTo({ top: y, behavior: 'smooth' })
+    }
   }
 
+  const goStep = (i, qi = 0) => {
+    clearTimeout(autoTimer.current)
+    setStepIndex(Math.max(0, Math.min(meta.length - 1, i)))
+    setQIndex(qi)
+    scrollTop()
+  }
+  const goQ = (qi) => {
+    clearTimeout(autoTimer.current)
+    setQIndex(qi)
+    scrollTop()
+  }
+
+  // Abrir um passo pela trilha: se já tem resposta, abre direto na prévia
+  const openStep = (i) => {
+    const id = meta[i].id
+    goStep(i, umaPorVez && id !== 'final' && filledMap[id] ? REVIEW : 0)
+  }
+
+  const next = () => {
+    if (!umaPorVez || isFinal) return goStep(stepIndex + 1)
+    if (inReview) return goStep(stepIndex + 1)
+    if (q < total - 1) return goQ(q + 1)
+    return goQ(REVIEW)
+  }
+
+  const prev = () => {
+    if (!umaPorVez) return goStep(stepIndex - 1)
+    if (inReview) return goQ(Math.max(0, total - 1))
+    if (!isFinal && q > 0) return goQ(q - 1)
+    if (stepIndex === 0) return
+    const prevId = meta[stepIndex - 1].id
+    return goStep(stepIndex - 1, prevId === 'final' ? 0 : REVIEW)
+  }
+
+  // Escolha única (diagnóstico) avança sozinha, com uma pausa pra ver a marcação
+  const avancar = umaPorVez && !inReview && !isFinal
+    ? () => { clearTimeout(autoTimer.current); autoTimer.current = setTimeout(next, 350) }
+    : undefined
+
+  const trocarModo = (m) => {
+    setModo(m); gravarModo(m); setQIndex(0)
+  }
+
+  const canPrev = umaPorVez ? !(stepIndex === 0 && (q ?? 0) === 0 && !inReview) : stepIndex > 0
+  const nextLabel = !umaPorVez
+    ? 'Continuar'
+    : inReview
+      ? (meta[stepIndex + 1]?.id === 'final' ? (publicMode ? 'Revisar e enviar' : 'Ir para Gerar oferta') : 'Próxima etapa')
+      : q === total - 1 ? 'Ver prévia da etapa' : 'Próxima pergunta'
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" ref={topRef}>
       {/* Trilha de passos */}
       <div className="glass-card p-3">
-        <div className="flex items-center gap-1 overflow-x-auto pb-1">
-          {meta.map((s, i) => {
-            const active = i === stepIndex
-            const filled = filledMap[s.id]
-            return (
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 overflow-x-auto pb-1 flex-1 min-w-0">
+            {meta.map((s, i) => {
+              const active = i === stepIndex
+              const filled = filledMap[s.id]
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => openStep(i)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all shrink-0 ${
+                    active ? 'bg-rl-gold/15 text-rl-text font-semibold' : 'text-rl-muted hover:bg-rl-border/40'
+                  }`}
+                >
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                    filled ? 'bg-green-500 text-white' : active ? 'bg-rl-gold text-white' : 'bg-rl-border text-rl-muted'
+                  }`}>
+                    {filled ? <Check className="w-2.5 h-2.5" /> : i}
+                  </span>
+                  {s.title}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Modo de preenchimento */}
+          <div className="hidden sm:flex items-center shrink-0 rounded-lg border border-rl-border p-0.5 text-[11px]">
+            {[
+              { v: 'uma', l: 'Uma por vez', I: ListChecks },
+              { v: 'tudo', l: 'Tudo junto', I: Rows3 },
+            ].map(({ v, l, I }) => (
               <button
-                key={s.id}
-                onClick={() => goTo(i)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all shrink-0 ${
-                  active ? 'bg-rl-gold/15 text-rl-text font-semibold' : 'text-rl-muted hover:bg-rl-border/40'
+                key={v}
+                onClick={() => trocarModo(v)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all ${
+                  modo === v ? 'bg-rl-gold/15 text-rl-text font-semibold' : 'text-rl-muted hover:text-rl-text'
                 }`}
+                title={v === 'uma' ? 'Uma pergunta por tela, com prévia no fim de cada etapa' : 'A etapa inteira numa tela só'}
               >
-                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
-                  filled ? 'bg-green-500 text-white' : active ? 'bg-rl-gold text-white' : 'bg-rl-border text-rl-muted'
-                }`}>
-                  {filled ? <Check className="w-2.5 h-2.5" /> : i}
-                </span>
-                {s.title}
+                <I className="w-3.5 h-3.5" /> {l}
               </button>
-            )
-          })}
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Corpo do passo */}
       <div className="glass-card p-5 lg:p-6">
-        <div className="mb-4">
-          <p className="text-[11px] uppercase tracking-wide text-rl-gold font-semibold">
-            Passo {stepIndex} de {meta.length - 1}{step.optional && ' · opcional'}
-          </p>
-          <h3 className="text-lg font-bold text-rl-text">{step.title}</h3>
-          <p className="text-xs text-rl-muted">{step.subtitle}</p>
+        <div className="mb-4 space-y-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-rl-gold font-semibold">
+              Passo {stepIndex} de {meta.length - 1}{step.optional && ' · opcional'}
+              {umaPorVez && !isFinal && (
+                inReview
+                  ? <> · Prévia da etapa</>
+                  : <> · Pergunta {q + 1} de {total}</>
+              )}
+            </p>
+            <h3 className="text-lg font-bold text-rl-text flex items-center gap-2">
+              {inReview && <Eye className="w-4 h-4 text-rl-gold" />}
+              {inReview ? `Prévia: ${step.title}` : step.title}
+            </h3>
+            <p className="text-xs text-rl-muted">{step.subtitle}</p>
+          </div>
+
+          {/* Barra de perguntas da etapa (clicável) + prévia */}
+          {umaPorVez && !isFinal && total > 0 && (
+            <div className="flex items-center gap-1">
+              {Array.from({ length: total }).map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => goQ(i)}
+                  title={`Pergunta ${i + 1}`}
+                  className={`h-1.5 flex-1 rounded-full transition-all ${
+                    !inReview && i === q ? 'bg-rl-gold' : (inReview || i < q) ? 'bg-rl-gold/40' : 'bg-rl-border'
+                  }`}
+                />
+              ))}
+              <button
+                onClick={() => goQ(REVIEW)}
+                title="Prévia da etapa"
+                className={`ml-1 flex items-center justify-center w-6 h-6 rounded-full border transition-all ${
+                  inReview ? 'border-rl-gold bg-rl-gold/15 text-rl-gold' : 'border-rl-border text-rl-muted hover:text-rl-text'
+                }`}
+              >
+                <Eye className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </div>
 
         {isFinal
           ? finalContent
-          : <StepComp oferta={oferta} set={set} project={project} publicMode={publicMode} />}
+          : inReview
+            ? <StepReview stepId={step.id} title={step.title} oferta={oferta} onEdit={goQ} />
+            : <StepComp oferta={oferta} set={set} project={project} publicMode={publicMode} q={q} avancar={avancar} />}
       </div>
 
       {/* Navegação */}
       <div className="flex items-center justify-between">
         <button
-          onClick={() => goTo(stepIndex - 1)}
-          disabled={stepIndex === 0}
+          onClick={prev}
+          disabled={!canPrev}
           className="btn-secondary flex items-center gap-1.5 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="w-4 h-4" /> Voltar
         </button>
 
         <div className="flex items-center gap-2">
-          {step.optional && !isFinal && (
-            <button onClick={() => goTo(stepIndex + 1)} className="text-sm text-rl-muted hover:text-rl-text px-3 py-2">
-              Pular
+          {step.optional && !isFinal && !inReview && (
+            <button onClick={() => goStep(stepIndex + 1)} className="text-sm text-rl-muted hover:text-rl-text px-3 py-2">
+              Pular etapa
             </button>
           )}
           {!isFinal ? (
-            <button onClick={() => goTo(stepIndex + 1)} className="btn-primary flex items-center gap-1.5">
-              Continuar <ChevronRight className="w-4 h-4" />
+            <button onClick={next} className="btn-primary flex items-center gap-1.5">
+              {nextLabel} <ChevronRight className="w-4 h-4" />
             </button>
           ) : (
             finalFooter
