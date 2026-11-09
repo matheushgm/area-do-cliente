@@ -5,7 +5,8 @@
 // "Adicionar relação" com tipo e busca). Só apresentação: os dados vêm de quem usa.
 import { useEffect, useRef, useState } from 'react'
 import { CornerDownRight, Link2, Search, X } from 'lucide-react'
-import { AdicionarInline, FOCO } from './Campos'
+import { AdicionarInline, FOCO, StatusIcon, Avatares } from './Campos'
+import { fmtVencimentoClickUp } from '../../lib/tarefas'
 
 export function Secao({ titulo, extra, children }) {
   return (
@@ -62,7 +63,40 @@ export function IconeRelacao({ rotulo, tamanho = 'w-3.5 h-3.5' }) {
   return null
 }
 
-export function ListaRelacoes({ linhas, tipos, buscar, minBusca = 2, onAdicionar, placeholder = 'Buscar tarefa pelo título' }) {
+/**
+ * Resultado da busca de relação. Com contexto (buscaRelacao.js): cliente › lista, "↳ pai", status,
+ * vencimento e responsáveis numa 2ª linha; sem ele (templates), só o título.
+ */
+function Achado({ a, membrosMap, onEscolher }) {
+  const temContexto = a.lista || a.pai || a.status
+  if (!temContexto) return (
+    <button type="button" onClick={onEscolher} className="text-left text-[13px] px-2 h-8 rounded-md hover:bg-ln-ink/5 text-ln-t2 truncate">{a.titulo || 'Sem título'}</button>
+  )
+  const venc = a.data_vencimento ? fmtVencimentoClickUp(a.data_vencimento, a) : null
+  const local = [a.lista?.pasta?.nome, a.lista?.nome].filter(Boolean).join(' › ')
+  return (
+    <button type="button" onClick={onEscolher} className={`text-left px-2 py-1.5 rounded-md hover:bg-ln-ink/5 flex items-start gap-2 min-w-0 ${FOCO}`}>
+      <StatusIcon status={a.status} statuses={a.lista?.statuses} size={14} className="mt-[3px]" />
+      <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+        <span className={`text-[13px] truncate ${a.status_tipo === 'closed' ? 'text-ln-t4 line-through' : 'text-ln-t2'}`}>{a.titulo || 'Sem título'}</span>
+        <span className="flex items-center gap-1.5 min-w-0 text-[11px] text-ln-t4">
+          {a.familia && <span className="shrink-0 px-1 rounded bg-ln-accent/10 text-ln-accent">mesma entrega</span>}
+          {a.pelo === 'link' && <span className="shrink-0 px-1 rounded bg-ln-ink/5">pelo link</span>}
+          {local && <span className="truncate" title={local}>{local}</span>}
+          {a.pai?.titulo && <span className="inline-flex items-center gap-0.5 min-w-0" title={`Subtarefa de ${a.pai.titulo}`}><CornerDownRight className="w-3 h-3 shrink-0" /><span className="truncate max-w-[160px]">{a.pai.titulo}</span></span>}
+          {venc?.texto && <span className={`shrink-0 ${venc.classe}`}>{venc.texto}</span>}
+        </span>
+      </span>
+      {membrosMap && <span className="shrink-0 mt-0.5"><Avatares item={a} membrosMap={membrosMap} size={16} max={2} vazio={false} /></span>}
+    </button>
+  )
+}
+
+/**
+ * escopo (opcional): { rotulo, ativo, alternar } = filtro ao lado da busca ("Só deste cliente").
+ * membrosMap (opcional): avatares dos responsáveis nos resultados.
+ */
+export function ListaRelacoes({ linhas, tipos, buscar, minBusca = 2, onAdicionar, placeholder = 'Buscar tarefa pelo título', escopo = null, membrosMap = null }) {
   const [adicionando, setAdicionando] = useState(false)
   const [tipo, setTipo] = useState(tipos?.[0]?.value)
   const [q, setQ] = useState('')
@@ -75,7 +109,7 @@ export function ListaRelacoes({ linhas, tipos, buscar, minBusca = 2, onAdicionar
     let vivo = true
     const h = setTimeout(async () => { const r = await buscar(q.trim()); if (vivo) setAchados(r || []) }, minBusca ? 250 : 0)
     return () => { vivo = false; clearTimeout(h) }
-  }, [q, adicionando, minBusca, rodada]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [q, adicionando, minBusca, rodada, escopo?.ativo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fechar = () => { setAdicionando(false); setQ(''); setAchados([]) }
   // o formulário continua aberto, com o mesmo tipo, para adicionar várias em seguida
@@ -105,10 +139,16 @@ export function ListaRelacoes({ linhas, tipos, buscar, minBusca = 2, onAdicionar
             </div>
             <button type="button" onClick={fechar} className="ln-iconbtn" aria-label="Fechar" title="Fechar (Esc)"><X className="w-3.5 h-3.5" /></button>
           </div>
-          {achados.map((a) => (
-            <button key={a.id} type="button" onClick={() => escolher(a)} className="text-left text-[13px] px-2 h-8 rounded-md hover:bg-ln-ink/5 text-ln-t2 truncate">{a.titulo || 'Sem título'}</button>
-          ))}
-          {q.trim().length >= minBusca && !achados.length && <p className="px-2 text-xs text-ln-t4">Nada encontrado.</p>}
+          {escopo && (
+            <label className="self-start inline-flex items-center gap-1.5 text-[11px] text-ln-t3 cursor-pointer select-none">
+              <input type="checkbox" checked={escopo.ativo} onChange={escopo.alternar} className="accent-[rgb(var(--ln-accent))]" />
+              {escopo.rotulo}
+            </label>
+          )}
+          {achados.map((a) => <Achado key={a.id} a={a} membrosMap={membrosMap} onEscolher={() => escolher(a)} />)}
+          {q.trim().length >= minBusca && !achados.length && (escopo?.ativo ? (
+            <p className="px-2 text-xs text-ln-t4">Nada neste cliente. <button type="button" onClick={escopo.alternar} className="text-ln-accent hover:underline">Buscar em todos</button></p>
+          ) : <p className="px-2 text-xs text-ln-t4">Nada encontrado.</p>)}
         </div>
       ) : (
         <button type="button" onClick={() => setAdicionando(true)} className={`self-start inline-flex items-center gap-1.5 h-7 px-2 -mx-2 rounded-md text-xs text-ln-t4 hover:text-ln-t2 hover:bg-ln-ink/[0.03] ${FOCO}`}><Link2 className="w-3.5 h-3.5" /> Adicionar relação</button>

@@ -4,12 +4,12 @@
 // Subtarefas, relações e checklists também ficam no rascunho e são criados junto (AreaTarefas).
 import { useMemo, useRef, useState, useEffect } from 'react'
 import { Loader2, ChevronDown, Folder, X } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
 import MarkdownEditor from '../Editor/MarkdownEditor'
 import { StatusCampo, ResponsavelCampo, PrioridadeCampo, DataCampo, limitesInicio, limitesVencimento, EstimativaCampo, TipoTarefaCampo, Popover, ItemMenu, BuscaMenu, FOCO } from './Campos'
 import { Propriedade, DepartamentoCampo, Checklists } from './TarefaPanel'
 import { Secao, ListaSubtarefas, ListaRelacoes } from './SecoesTarefa'
 import { TIPOS_RELACAO, ROTULO_DIRETO } from './TarefaExtras'
+import { useBuscaRelacao } from '../../hooks/useBuscaRelacao'
 import { statusDaLista, statusInicial, novoId } from '../../lib/tarefas'
 
 const semAcento = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -76,6 +76,8 @@ export default function NovaTarefaPanel({ grupos, listasMap, inicial, membros, m
   const mudar = (patch) => { setF((p) => ({ ...p, ...patch })); setErro('') }
 
   const lista = f.lista_id ? listasMap.get(f.lista_id) : null
+  // relações: a busca conhece o cliente pela lista escolhida (a tarefa ainda não existe)
+  const busca = useBuscaRelacao({ listaId: f.lista_id || null })
   const statuses = useMemo(() => (lista ? statusDaLista(lista) : []), [lista])
   // status escolhido que não existe na lista nova volta ao inicial dela
   const status = statuses.find((s) => s.key === f.status) || statusInicial(statuses)
@@ -153,7 +155,7 @@ export default function NovaTarefaPanel({ grupos, listasMap, inicial, membros, m
               onRemover: () => mudar({ relacoes: f.relacoes.filter((x) => x.key !== r.key) }),
             }))}
             tipos={TIPOS_RELACAO}
-            buscar={async (q) => (await supabase.from('tarefas_itens').select('id,titulo,status_tipo').ilike('titulo', `%${q}%`).eq('arquivada', false).limit(8)).data || []}
+            buscar={busca.buscar} escopo={busca.escopo} placeholder={busca.placeholder} membrosMap={membrosMap}
             onAdicionar={async (tipo, alvo) => {
               if (f.relacoes.some((r) => r.tipo === tipo && r.alvo.id === alvo.id)) { setErro('Essa relação já está na lista'); return false }
               mudar({ relacoes: [...f.relacoes, { key: novoId(), tipo, alvo }] })

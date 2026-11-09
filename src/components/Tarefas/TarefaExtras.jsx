@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { fmtDataHora, fmtDataNumerica, rotuloStatus, prioridade as prioDe } from '../../lib/tarefas'
 import { Popover, ItemMenu, FOCO } from './Campos'
 import { ListaRelacoes } from './SecoesTarefa'
+import { useBuscaRelacao } from '../../hooks/useBuscaRelacao'
 
 const PALETA = ['#2A25F0', '#518CFF', '#1F8A5B', '#C99A2E', '#E2564B', '#8B5CF6', '#EC4899', '#5A6072']
 
@@ -79,7 +80,8 @@ export const linhaRelacao = (tarefaId, tipo, alvoId) => (tipo === 'bloqueada'
 const ROTULO_INVERSO = { bloqueia: 'Bloqueada por', duplica: 'Tem a duplicata', relacionada: 'Relacionada a' }
 
 // `onMudou`: chamado depois de criar ou apagar, para a fila ir ao ClickUp (migration 126)
-export function RelacoesSecao({ tarefaId, user, onAbrir, onErro, onMudou }) {
+export function RelacoesSecao({ tarefaId, user, onAbrir, onErro, onMudou, membrosMap }) {
+  const busca = useBuscaRelacao({ tarefaId })
   const [linhas, setLinhas] = useState([])
   const [titulos, setTitulos] = useState({})
 
@@ -95,10 +97,6 @@ export function RelacoesSecao({ tarefaId, user, onAbrir, onErro, onMudou }) {
   }, [tarefaId])
   useEffect(() => { carregar() }, [carregar])
 
-  const buscar = async (q) => {
-    const { data } = await supabase.from('tarefas_itens').select('id,titulo,status_tipo').ilike('titulo', `%${q}%`).neq('id', tarefaId).eq('arquivada', false).limit(8)
-    return data || []
-  }
   async function adicionar(tipo, alvo) {
     const { error } = await supabase.from('tarefas_relacoes').insert({ ...linhaRelacao(tarefaId, tipo, alvo.id), criado_por: user?.id || null })
     if (error) { onErro?.(error.code === '23505' ? 'Essa relação já existe.' : error.message); return false }
@@ -122,7 +120,7 @@ export function RelacoesSecao({ tarefaId, user, onAbrir, onErro, onMudou }) {
         }
       })}
       tipos={TIPOS_RELACAO}
-      buscar={buscar} onAdicionar={adicionar}
+      buscar={busca.buscar} escopo={busca.escopo} placeholder={busca.placeholder} membrosMap={membrosMap} onAdicionar={adicionar}
     />
   )
 }

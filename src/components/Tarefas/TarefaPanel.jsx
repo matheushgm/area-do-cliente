@@ -436,7 +436,7 @@ export default function TarefaPanel({
       </Secao>
 
       <Secao titulo="Relações">
-        <RelacoesSecao tarefaId={item.id} user={user} onAbrir={onAbrir} onErro={onErro} onMudou={onRelacoesMudaram} />
+        <RelacoesSecao tarefaId={item.id} user={user} onAbrir={onAbrir} onErro={onErro} onMudou={onRelacoesMudaram} membrosMap={membrosMap} />
       </Secao>
 
       <Secao titulo="Checklists">

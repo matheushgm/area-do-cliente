@@ -1023,6 +1023,13 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     Sincronizadas com o ClickUp desde a migration 126 (dependência / link; ver "Relações ⇄ ClickUp").
     O formulário (`ListaRelacoes`) oferece também "Bloqueada por" (`linhaRelacao` grava "alvo bloqueia esta") e
     fica aberto depois de cada escolha, para adicionar várias em seguida (Esc ou ✕ fecha).
+    **Busca da relação (2026-11-09, `src/lib/buscaRelacao.js` + `useBuscaRelacao`, no painel e na tarefa nova):**
+    aceita título (todas as palavras, qualquer ordem, sem acento: o ilike troca vogais e "c" por `_` e o filtro exato
+    é feito no navegador), link do VertaTask/uuid, link do ClickUp ou o id do ClickUp. Cada resultado mostra status,
+    cliente › lista, "↳ pai", vencimento e responsáveis; ordem: abertas antes de concluídas, depois família
+    ("mesma entrega": pai, irmãs, subtarefas), mesmo cliente e o resto. "Só deste cliente" vem ligado quando a
+    tarefa tem pasta; desligado, a pasta é lida à parte para o limite de 200 da busca geral não cortá-la. O
+    `ListaRelacoes` aceita `escopo` e `membrosMap`; sem contexto nos resultados (templates) mostra só o título.
     **Bloqueada na Lista (2026-11-09):** a linha mostra o mesmo triângulo amarelo do "Bloqueada por" do painel (`IconeRelacao` de `SecoesTarefa.jsx`, com o número, se for mais de uma;
     o title lista quem) quando alguma tarefa que a bloqueia ainda está aberta (não concluída nem arquivada).
     `useBloqueios(supabase, t.itens)` no `AreaTarefas` lê as relações `bloqueia` das tarefas carregadas (só os ids
