@@ -34,6 +34,21 @@ const statuses = statusDasListas(listasEscopo)
 const itensMap = Object.fromEntries(itens.map((i) => [i.id, i]))
 const projetos = fixture.projetos.map((p) => ({ id: p.id, company_name: p.company_name }))
 const ciclos = [{ id: 'c1', nome: 'Sprint 42' }]
+// tarefas bloqueadas (ícone na linha): as relações da fixture, se houver, mais duas fictícias
+// (a 1ª aberta bloqueia a 2ª; a 1ª e a 3ª bloqueiam a 4ª), no formato do useBloqueios
+const abertasTopo = topo.filter((i) => i.status_tipo !== 'closed')
+const relDev = [...(fixture.relacoes || [])]
+if (abertasTopo.length >= 4) relDev.push(
+  { tarefa_id: abertasTopo[0].id, relacionada_id: abertasTopo[1].id, tipo: 'bloqueia' },
+  { tarefa_id: abertasTopo[0].id, relacionada_id: abertasTopo[3].id, tipo: 'bloqueia' },
+  { tarefa_id: abertasTopo[2].id, relacionada_id: abertasTopo[3].id, tipo: 'bloqueia' },
+)
+const bloqueadasPor = {}
+for (const r of relDev) {
+  const b = itensMap[r.tarefa_id]
+  if (r.tipo !== 'bloqueia' || !b || b.status_tipo === 'closed' || b.arquivada) continue
+  ;(bloqueadasPor[r.relacionada_id] ||= []).push({ id: b.id, titulo: b.titulo })
+}
 
 export default function DevLista() {
   const [agrupar, setAgrupar] = useState('vencimento')
@@ -69,7 +84,7 @@ export default function DevLista() {
     statuses, membros, membrosMap, itensMap, listaPadraoId: listasEscopo[0]?.id, agrupar,
     contagemComentarios: {}, selecionadaId: abertaId, onAbrir: setAbertaId, onAtualizar: (id, patch) => console.log('atualizar', id, patch),
     onMudarStatus: (it, s) => console.log('status', it.id, s.key), onCriar: async (row) => { console.log('criar', row); return {} },
-    listas, pastas: fixture.pastas, projetos, ciclos, selecao,
+    listas, pastas: fixture.pastas, projetos, ciclos, selecao, bloqueadasPor,
     larguraNome, onLarguraNome: (w) => { console.log('larguraNome', w); setLarguraNome(w) },
     colunas, onColunas: (c) => { console.log('colunas', c); setColunas(c) },
     onMenuTarefa: (item, x, y) => setMenu({ item, x, y }), renomeandoId, onFimRenomear: () => setRenomeandoId(null),

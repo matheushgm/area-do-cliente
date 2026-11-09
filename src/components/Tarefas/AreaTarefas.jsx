@@ -37,6 +37,7 @@ import { FOCO, StatusCampo, DataCampo, PrioridadeCampo, TipoTarefaCampo, Estimat
 import BarraSelecao, { BotaoBarra, ResponsaveisEmMassa, aplicarDiferenca } from './BarraSelecao'
 import { contarTarefas, useConfirmar } from './Confirmacao'
 import { useCascata, carregarGrafoCascata } from '../../hooks/useCascata'
+import { useBloqueios } from '../../hooks/useBloqueios'
 import EntregaPainel from './EntregaPainel'
 import { ID_RASCUNHO_TEMPLATE, guardarRascunhoTemplate } from '../../lib/rascunhoTemplate'
 import { MenuTarefa, MenuContextoTarefa, linhaRelacao } from './TarefaExtras'
@@ -500,6 +501,8 @@ export default function AreaTarefas({
     return () => window.removeEventListener('keydown', h)
   }, [tarefaAbertaId, painelExpandido, fecharPainel, novaTarefa, atalhoCriar, aplicandoTpl, selecionadas.size, mostrarViews, alterada, podeEditarView, salvarVisualizacao, painelView, novaInicial])
 
+  // quem bloqueia cada tarefa carregada (ícone de bloqueada na Lista)
+  const bloqueadasPor = useBloqueios(supabase, t.itens)
   // listas que existem no ClickUp: só nelas uma tarefa sem clickup_task_id está "aguardando ClickUp"
   const listasComClickup = useMemo(() => new Set(t.listas.filter((l) => l.clickup_list_id).map((l) => l.id)), [t.listas])
   // "Adicionar tarefa" da Lista: em Minhas tarefas o responsável já é você
@@ -508,7 +511,7 @@ export default function AreaTarefas({
   const ctx = useMemo(() => ({
     statuses, membros: teamMembers || [], membrosMap, itensMap: t.itens, listaPadraoId, agrupar, contagemComentarios, selecionadaId: tarefaAbertaId,
     onAbrir: abrirTarefa, onAtualizar, onMudarStatus, onCriar, etiquetasMap: vt.etiquetasMap, listasComClickup,
-    responsaveisPadrao,
+    responsaveisPadrao, bloqueadasPor,
     // clique direito numa tarefa (Lista, Quadro, Calendário) e "Renomear" na linha
     onMenuTarefa: (item, x, y, origem) => setMenuTarefa({ item, x, y, origem }),
     renomeandoId, onFimRenomear: () => setRenomeandoId(null),
@@ -534,7 +537,7 @@ export default function AreaTarefas({
         <CornerDownRight className="w-3 h-3 shrink-0" /><span className="truncate max-w-[220px]">{t.itens[it.parent_id].titulo}</span>
       </span>
     ) : null) : undefined,
-  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, config.colunasGantt, larguraNome, editarView, listasComClickup, responsaveisPadrao, renomeandoId])
+  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, config.colunasGantt, larguraNome, editarView, listasComClickup, responsaveisPadrao, renomeandoId, bloqueadasPor])
 
   // ── Seleção da Lista e ações em massa (BarraSelecao) ─────────────────────
   // a seleção vale para o que está na tela: trocar de pasta, lista, seção ou visão limpa

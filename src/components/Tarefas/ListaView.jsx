@@ -30,6 +30,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, mem
 import { colunasVisiveis, normalizarLarguraNome } from '../../lib/viewsTarefas'
 import EditorColunas from './ColunasLista'
 import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Hourglass, CloudUpload } from 'lucide-react'
+import { IconeRelacao } from './SecoesTarefa'
 import { ordenarItens, ordenarPorCampo, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa, deInputDate, paraInputDate } from '../../lib/tarefas'
 import {
   StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, limitesVencimento, PrioridadeCampo, PrioridadeIcon, TipoTarefaCampo, EstimativaCampo, AdicionarInline, Popover, ItemMenu, FOCO,
@@ -315,6 +316,17 @@ function TituloEditavel({ item, onSalvar, onFim }) {
   )
 }
 
+/** Selo de tarefa bloqueada (o mesmo "Bloqueada por" do painel da tarefa); o title lista quem bloqueia. */
+function BloqueadaIcone({ por }) {
+  const nomes = por.map((b) => b.titulo || 'Sem título')
+  const titulo = `Bloqueada por: ${nomes.slice(0, 5).join(', ')}${nomes.length > 5 ? ` e mais ${nomes.length - 5}` : ''}`
+  return (
+    <span className="inline-flex items-center gap-0.5" title={titulo} aria-label={titulo}>
+      <IconeRelacao rotulo="Bloqueada por" tamanho="w-3 h-3" />{por.length > 1 ? por.length : null}
+    </span>
+  )
+}
+
 const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, onToggle, ctx, cols, irmasDe, primeira, ultima, selecionada, marcada, caixas, nComent, renomeando = false }) {
   const { onAbrir, onMudarStatus } = ctx
   const statuses = ctx.statusesDe?.(item) || ctx.statuses
@@ -364,6 +376,8 @@ const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, o
           {!sub && nFilhos > 0 && <span className="inline-flex items-center gap-0.5" title="Subtarefas"><CornerDownRight className="w-3 h-3" />{nFilhos}</span>}
           {check.total > 0 && <span className="inline-flex items-center gap-0.5" title="Checklist"><ListChecks className="w-3 h-3" />{check.feitos}/{check.total}</span>}
           {nComent > 0 && <span className="inline-flex items-center gap-0.5" title="Comentários"><MessageSquare className="w-3 h-3" />{nComent}</span>}
+          {/* bloqueada: alguma tarefa que a bloqueia (relação "bloqueia") ainda está aberta */}
+          {!concluida && ctx.bloqueadasPor?.[item.id] && <BloqueadaIcone por={ctx.bloqueadasPor[item.id]} />}
           {/* ainda não chegou ao ClickUp (fila do push); some sozinho pelo realtime quando o vínculo é gravado */}
           {!item.clickup_task_id && ctx.listasComClickup?.has(item.lista_id) && <CloudUpload className="w-3 h-3 text-ln-yellow" aria-label="Aguardando ClickUp" title="Ainda não foi para o ClickUp" />}
         </span>
@@ -669,7 +683,7 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, co
   if (ctx.selecao) ctxLinhas.onSelecionarLinha = selecionarLinha
   const colsChave = cols.map((c) => c.k).join(',')
   const versao = useMemo(() => ({}), [ // eslint-disable-line react-hooks/exhaustive-deps
-    ctx.statuses, ctx.membros, ctx.membrosMap, ctx.ciclos, ctx.listas, ctx.pastas, ctx.projetos, ctx.listasComClickup, ctx.ordenar,
+    ctx.statuses, ctx.membros, ctx.membrosMap, ctx.ciclos, ctx.listas, ctx.pastas, ctx.projetos, ctx.listasComClickup, ctx.ordenar, ctx.bloqueadasPor,
     ctx.expandirTudo, ctx.semStatus, ctx.acoesHover, ctx.renderCelula, ctx.acaoLinha, ctx.rotuloPai, ctx.numeroLinha, ctx.renderAcoesHover, larguraNome, colsChave,
   ])
   if (!grupos.length && vazio) return vazio

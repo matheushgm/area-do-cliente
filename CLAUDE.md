@@ -28,6 +28,10 @@ npm run format     # Prettier em src/
 
 Não há testes automatizados. ESLint 9 (flat config) + Prettier estão configurados — ver `eslint.config.js` e `.prettierrc`.
 
+## ClickUp
+
+Board ClickUp: 901305801336 (Clientes › Revenue Lab › Geral)
+
 ## Variáveis de ambiente
 
 Crie um `.env` a partir de `.env.example`:
@@ -1019,6 +1023,11 @@ tarefa de um cliente fica na pasta/lista dele. Ver "Templates" abaixo e a migrat
     Sincronizadas com o ClickUp desde a migration 126 (dependência / link; ver "Relações ⇄ ClickUp").
     O formulário (`ListaRelacoes`) oferece também "Bloqueada por" (`linhaRelacao` grava "alvo bloqueia esta") e
     fica aberto depois de cada escolha, para adicionar várias em seguida (Esc ou ✕ fecha).
+    **Bloqueada na Lista (2026-11-09):** a linha mostra o mesmo triângulo amarelo do "Bloqueada por" do painel (`IconeRelacao` de `SecoesTarefa.jsx`, com o número, se for mais de uma;
+    o title lista quem) quando alguma tarefa que a bloqueia ainda está aberta (não concluída nem arquivada).
+    `useBloqueios(supabase, t.itens)` no `AreaTarefas` lê as relações `bloqueia` das tarefas carregadas (só os ids
+    novos a cada carga, com a bloqueadora embutida) e relê pelo realtime de `tarefas_relacoes`; a situação da
+    bloqueadora vem de `t.itens` quando ela está carregada. Vai no ctx como `bloqueadasPor` (está em `versao`).
   - **Histórico** (`tarefas_atividade`, preenchida por trigger `tarefas_log_atividade`; só registra edição
     de pessoa logada, a sincronização do ClickUp usa chave de serviço e fica de fora) e **seguidores**
     (`tarefas_seguidores`, quem comenta ou recebe a tarefa passa a seguir). Trigger de comentário e de

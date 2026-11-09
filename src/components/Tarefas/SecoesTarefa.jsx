@@ -43,16 +43,17 @@ export function ListaSubtarefas({ itens, onAbrir, onAdicionar, inicio, fim }) {
  * (minBusca caracteres antes de buscar; 0 = mostra tudo ao abrir) e onAdicionar(tipo, alvo).
  */
 // Ícones de bloqueio iguais aos do ClickUp: disco vermelho com traço ("Bloqueia") e triângulo
-// amarelo com "!" ("Bloqueada por"). Os outros tipos ficam sem ícone.
-function IconeRelacao({ rotulo }) {
+// amarelo com "!" ("Bloqueada por"). Os outros tipos ficam sem ícone. A Lista usa o
+// "Bloqueada por" na linha da tarefa bloqueada (tamanho por `tamanho`).
+export function IconeRelacao({ rotulo, tamanho = 'w-3.5 h-3.5' }) {
   if (rotulo === 'Bloqueia') return (
-    <svg viewBox="0 0 14 14" className="w-3.5 h-3.5 shrink-0 text-ln-red" aria-hidden="true">
+    <svg viewBox="0 0 14 14" className={`${tamanho} shrink-0 text-ln-red`} aria-hidden="true">
       <circle cx="7" cy="7" r="7" fill="currentColor" />
       <rect x="3.5" y="6.1" width="7" height="1.8" rx="0.9" fill="#fff" />
     </svg>
   )
   if (rotulo === 'Bloqueada por') return (
-    <svg viewBox="0 0 14 14" className="w-3.5 h-3.5 shrink-0 text-ln-yellow" aria-hidden="true">
+    <svg viewBox="0 0 14 14" className={`${tamanho} shrink-0 text-ln-yellow`} aria-hidden="true">
       <path d="M6.13 1.5a1 1 0 0 1 1.74 0l5.6 9.75A1 1 0 0 1 12.6 12.75H1.4a1 1 0 0 1-.87-1.5Z" fill="currentColor" />
       <rect x="6.25" y="4.6" width="1.5" height="4.2" rx="0.75" fill="#1f1f1f" />
       <circle cx="7" cy="10.4" r="0.85" fill="#1f1f1f" />
