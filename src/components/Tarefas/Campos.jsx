@@ -6,12 +6,16 @@ import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, Search, X, Clock3, Plus, User, Flag, CalendarDays } from 'lucide-react'
 import {
-  PRIORIDADES, TIPOS_TAREFA, DIFICULDADES, rotuloStatus, statusInicial, pessoasDaTarefa, pessoaDoPerfil, pessoaExtra,
+  PRIORIDADES, TIPOS_TAREFA, DIFICULDADES, rotuloStatus, rotuloPrioridade, rotuloTipoTarefa, rotuloDificuldade, statusInicial, pessoasDaTarefa, pessoaDoPerfil, pessoaExtra,
   fmtDataNumerica, fmtDataCurta, paraInputDate, deInputDate, fmtEstimativa, parseEstimativa, paraData, inicioDoDia,
 } from '../../lib/tarefas'
 import { PopoverCalendario } from './Calendario'
+import { useI18n, t as tAgora } from '../../i18n'
 
 export const FOCO = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ln-t2'
+
+// Nome do status para a tela: o `label`/`key` vem do ClickUp (dado); rotuloStatus traduz os conhecidos.
+const nomeStatus = (s) => rotuloStatus(s.label || s.key)
 
 // ─── Popover ──────────────────────────────────────────────────────────────────
 
@@ -60,7 +64,8 @@ export function Popover({ anchorRef, open, onClose, children, width = 240, align
   )
 }
 
-export function BuscaMenu({ valor, onChange, placeholder = 'Buscar...' }) {
+export function BuscaMenu({ valor, onChange, placeholder }) {
+  const { t } = useI18n()
   return (
     <div className="flex items-center gap-2 h-9 px-3 border-b border-ln-ink/5">
       <Search className="w-3.5 h-3.5 text-ln-t4 shrink-0" />
@@ -68,7 +73,7 @@ export function BuscaMenu({ valor, onChange, placeholder = 'Buscar...' }) {
         autoFocus
         value={valor}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t('comum.buscarPlaceholder')}
         className="flex-1 min-w-0 bg-transparent outline-none text-[13px] text-ln-t1 placeholder:text-ln-t4"
       />
     </div>
@@ -92,8 +97,9 @@ export function ItemMenu({ ativo, onClick, children, className = '' }) {
 
 /** Círculo de status como no Linear: vazio (aberto), meio (em andamento), check (concluído). */
 export function StatusIcon({ status, statuses, size = 16, className = '' }) {
-  const s = statuses?.find((x) => x.key === status) || { key: status, label: rotuloStatus(status), cor: '#87909e', tipo: 'custom' }
-  const label = s.label || rotuloStatus(s.key)
+  useI18n() // redesenha o rótulo na troca de idioma
+  const s = statuses?.find((x) => x.key === status) || { key: status, label: status, cor: '#87909e', tipo: 'custom' }
+  const label = nomeStatus(s)
   return (
     <svg viewBox="0 0 16 16" width={size} height={size} role="img" aria-label={label} className={`shrink-0 ${className}`} style={{ color: s.cor }}>
       <title>{label}</title>
@@ -115,21 +121,23 @@ export function StatusIcon({ status, statuses, size = 16, className = '' }) {
 }
 
 export function StatusPill({ status, statuses, className = '' }) {
-  const s = statuses?.find((x) => x.key === status) || { key: status, label: rotuloStatus(status), cor: '#87909e', tipo: 'custom' }
+  useI18n()
+  const s = statuses?.find((x) => x.key === status) || { key: status, label: status, cor: '#87909e', tipo: 'custom' }
   return (
-    <span className={`inline-flex items-center gap-1.5 h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t2 whitespace-nowrap max-w-full ${className}`} title={s.label || rotuloStatus(s.key)}>
+    <span className={`inline-flex items-center gap-1.5 h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t2 whitespace-nowrap max-w-full ${className}`} title={nomeStatus(s)}>
       <StatusIcon status={status} statuses={statuses} size={13} />
-      <span className="truncate">{s.label || rotuloStatus(s.key)}</span>
+      <span className="truncate">{nomeStatus(s)}</span>
     </span>
   )
 }
 
 export function StatusCampo({ item, statuses, onChange, modo = 'pill', render = null, className = '' }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   return (
     <>
-      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center max-w-full rounded-md ${FOCO} ${className}`} title="Mudar status">
+      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center max-w-full rounded-md ${FOCO} ${className}`} title={t('tarefaCampos.mudarStatus')}>
         {render ? render : modo === 'icon' ? <StatusIcon status={item.status} statuses={statuses} /> : <StatusPill status={item.status} statuses={statuses} />}
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={220}>
@@ -137,7 +145,7 @@ export function StatusCampo({ item, statuses, onChange, modo = 'pill', render = 
           {statuses.map((s) => (
             <ItemMenu key={s.key} ativo={s.key === item.status} onClick={() => { setOpen(false); onChange(s) }}>
               <StatusIcon status={s.key} statuses={statuses} size={14} />
-              <span className="truncate">{s.label || rotuloStatus(s.key)}</span>
+              <span className="truncate">{nomeStatus(s)}</span>
             </ItemMenu>
           ))}
         </div>
@@ -175,10 +183,11 @@ export function Avatar({ pessoa, size = 20, className = '' }) {
 }
 
 export function Avatares({ item, membrosMap, size = 20, max = 3, vazio = true }) {
+  const { t } = useI18n()
   const pessoas = pessoasDaTarefa(item, membrosMap)
   if (!pessoas.length) {
     return vazio ? (
-      <span className="inline-flex items-center justify-center rounded-full border border-dashed border-ln-t4/60 text-ln-t4" style={{ width: size, height: size }} title="Sem responsável">
+      <span className="inline-flex items-center justify-center rounded-full border border-dashed border-ln-t4/60 text-ln-t4" style={{ width: size, height: size }} title={t('tarefaCampos.semResponsavel')}>
         <User style={{ width: size * 0.55, height: size * 0.55 }} />
       </span>
     ) : null
@@ -196,6 +205,7 @@ export function Avatares({ item, membrosMap, size = 20, max = 3, vazio = true })
 }
 
 export function ResponsavelCampo({ item, membros, membrosMap, onChange, size = 20, max = 3, comNome = false, render = null, className = '' }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [busca, setBusca] = useState('')
   const ref = useRef(null)
@@ -208,16 +218,16 @@ export function ResponsavelCampo({ item, membros, membrosMap, onChange, size = 2
   }
   return (
     <>
-      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center gap-1.5 rounded-md min-w-0 ${FOCO} ${className}`} title="Responsáveis">
+      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center gap-1.5 rounded-md min-w-0 ${FOCO} ${className}`} title={t('tarefaCampos.responsaveis')}>
         {render || <Avatares item={item} membrosMap={membrosMap} size={size} max={max} />}
         {!render && comNome && (
           <span className={`text-xs truncate ${pessoas.length ? 'text-ln-t2' : 'text-ln-t4'}`}>
-            {pessoas.length ? pessoas.map((p) => p.nome.split(' ')[0]).join(', ') : 'sem responsável'}
+            {pessoas.length ? pessoas.map((p) => p.nome.split(' ')[0]).join(', ') : t('tarefaCampos.semResponsavelMin')}
           </span>
         )}
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => { setOpen(false); setBusca('') }} width={260}>
-        <BuscaMenu valor={busca} onChange={setBusca} placeholder="Buscar pessoa..." />
+        <BuscaMenu valor={busca} onChange={setBusca} placeholder={t('tarefaCampos.buscarPessoa')} />
         <div className="p-1 overflow-y-auto">
           {lista.map((m) => {
             const p = pessoaDoPerfil(m)
@@ -229,18 +239,18 @@ export function ResponsavelCampo({ item, membros, membrosMap, onChange, size = 2
             )
           })}
           {(item.responsaveis_extra || []).length > 0 && (
-            <div className="px-2.5 pt-2 pb-1 text-[10px] uppercase tracking-wide text-ln-t4">Do ClickUp (sem perfil)</div>
+            <div className="px-2.5 pt-2 pb-1 text-[10px] uppercase tracking-wide text-ln-t4">{t('tarefaCampos.doClickupSemPerfil')}</div>
           )}
           {(item.responsaveis_extra || []).map((e) => (
             <div key={e.clickup_id} className="flex items-center gap-2.5 h-8 px-2.5 text-[13px] text-ln-t3">
               <Avatar pessoa={pessoaExtra(e)} size={18} />
               <span className="truncate flex-1">{e.nome}</span>
-              <button type="button" className="ln-iconbtn !w-6 !h-6" title="Remover" onClick={() => onChange(item.responsaveis || [], (item.responsaveis_extra || []).filter((x) => x.clickup_id !== e.clickup_id))}>
+              <button type="button" className="ln-iconbtn !w-6 !h-6" title={t('comum.remover')} onClick={() => onChange(item.responsaveis || [], (item.responsaveis_extra || []).filter((x) => x.clickup_id !== e.clickup_id))}>
                 <X className="w-3 h-3" />
               </button>
             </div>
           ))}
-          {!lista.length && <div className="px-2.5 py-3 text-xs text-ln-t4">Ninguém encontrado.</div>}
+          {!lista.length && <div className="px-2.5 py-3 text-xs text-ln-t4">{t('tarefaCampos.ninguemEncontrado')}</div>}
         </div>
       </Popover>
     </>
@@ -261,7 +271,9 @@ function corDaData(valor, item) {
 
 /** `min`/`max` (datas da própria tarefa) bloqueiam no calendário os dias que deixariam o
  *  início depois do vencimento; `motivoMin`/`motivoMax` dizem por quê. */
-export function DataCampo({ valor, onChange, item, formato = 'numerica', placeholder = 'sem data', render = null, limpavel = true, className = '', min = null, max = null, motivoMin = '', motivoMax = '' }) {
+export function DataCampo({ valor, onChange, item, formato = 'numerica', placeholder: placeholderPedido, render = null, limpavel = true, className = '', min = null, max = null, motivoMin = '', motivoMax = '' }) {
+  const { t } = useI18n()
+  const placeholder = placeholderPedido ?? t('tarefaCampos.semData')
   const ref = useRef(null)
   const [aberto, setAberto] = useState(false)
   const texto = valor ? (formato === 'curta' ? fmtDataCurta(valor) : fmtDataNumerica(valor)) : ''
@@ -277,7 +289,7 @@ export function DataCampo({ valor, onChange, item, formato = 'numerica', placeho
         {render ? render : (texto || placeholder || <span className="inline-block w-8 h-3 rounded bg-ln-ink/[0.04]" aria-hidden="true" />)}
       </button>
       {texto && limpavel && (
-        <button type="button" onClick={() => onChange(null)} className="opacity-0 group-hover/data:opacity-100 text-ln-t4 hover:text-ln-red transition" title="Limpar" aria-label="Limpar data">
+        <button type="button" onClick={() => onChange(null)} className="opacity-0 group-hover/data:opacity-100 text-ln-t4 hover:text-ln-red transition" title={t('comum.limpar')} aria-label={t('tarefaCampos.limparData')}>
           <X className="w-3 h-3" />
         </button>
       )}
@@ -288,14 +300,16 @@ export function DataCampo({ valor, onChange, item, formato = 'numerica', placeho
 }
 
 /** Limites prontos para os dois campos de data de uma tarefa (ou rascunho). */
-export const limitesInicio = (t) => ({ max: t?.data_vencimento || null, motivoMax: 'Depois do vencimento' })
-export const limitesVencimento = (t) => ({ min: t?.data_inicio || null, motivoMin: 'Antes do início' })
+// motivo traduzido na hora da chamada (no render de quem usa)
+export const limitesInicio = (x) => ({ max: x?.data_vencimento || null, motivoMax: tAgora('tarefaCampos.depoisDoVencimento') })
+export const limitesVencimento = (x) => ({ min: x?.data_inicio || null, motivoMin: tAgora('tarefaCampos.antesDoInicio') })
 
 // ─── Prioridade (bandeira na cor do ClickUp, o padrão em todo o VertaTask e no Atividades) ───
 
 export function PrioridadeIcon({ valor, className = '' }) {
+  const { t } = useI18n()
   const p = PRIORIDADES.find((x) => x.key === valor)
-  const label = p ? `Prioridade: ${p.label}` : 'Sem prioridade'
+  const label = p ? t('tarefaCampos.prioridadeDe', { nome: rotuloPrioridade(p.key) }) : t('tarefaCampos.semPrioridade')
   return (
     <Flag role="img" aria-label={label} className={`w-3.5 h-3.5 shrink-0 ${className}`}
       style={p ? { color: p.cor, fill: p.cor } : { color: 'rgb(var(--ln-t4))' }} />
@@ -303,15 +317,16 @@ export function PrioridadeIcon({ valor, className = '' }) {
 }
 
 export function PrioridadeCampo({ valor, onChange, comTexto = true, render = null, className = '' }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const p = PRIORIDADES.find((x) => x.key === valor)
   return (
     <>
-      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center gap-1.5 rounded-md text-xs ${p ? 'text-ln-t2' : 'text-ln-t4'} ${FOCO} ${className}`} title="Prioridade">
+      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center gap-1.5 rounded-md text-xs ${p ? 'text-ln-t2' : 'text-ln-t4'} ${FOCO} ${className}`} title={t('tarefaCampos.prioridade')}>
         {render ? render : (<>
           <PrioridadeIcon valor={valor} />
-          {comTexto && <span className="truncate">{p ? p.label : 'sem prioridade'}</span>}
+          {comTexto && <span className="truncate">{p ? rotuloPrioridade(p.key) : t('tarefaCampos.semPrioridadeMin')}</span>}
         </>)}
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={190}>
@@ -319,12 +334,12 @@ export function PrioridadeCampo({ valor, onChange, comTexto = true, render = nul
           {PRIORIDADES.map((x) => (
             <ItemMenu key={x.key} ativo={x.key === valor} onClick={() => { setOpen(false); onChange(x.key) }}>
               <PrioridadeIcon valor={x.key} />
-              {x.label}
+              {rotuloPrioridade(x.key)}
             </ItemMenu>
           ))}
           <div className="border-t border-ln-ink/5 my-1" />
           <ItemMenu ativo={!valor} onClick={() => { setOpen(false); onChange(null) }}>
-            <PrioridadeIcon valor={null} /> Sem prioridade
+            <PrioridadeIcon valor={null} /> {t('tarefaCampos.semPrioridade')}
           </ItemMenu>
         </div>
       </Popover>
@@ -344,31 +359,33 @@ export function Chip({ texto, cor, className = '' }) {
   )
 }
 
-export function OpcaoCampo({ valor, opcoes, onChange, placeholder = 'não informado', render = null, className = '' }) {
+/** `rotulo(key)` traduz a opção para a tela; o valor gravado (`key`, do ClickUp) não muda. */
+export function OpcaoCampo({ valor, opcoes, onChange, placeholder, render = null, className = '', rotulo = (k) => k }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const atual = opcoes.find((o) => o.key === valor) || (valor ? { key: valor, cor: '#87909e' } : null)
   return (
     <>
       <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center max-w-full rounded-md ${FOCO} ${className}`}>
-        {render ? render : atual ? <Chip texto={atual.key} cor={atual.cor} /> : <span className="text-xs text-ln-t4">{placeholder}</span>}
+        {render ? render : atual ? <Chip texto={rotulo(atual.key)} cor={atual.cor} /> : <span className="text-xs text-ln-t4">{placeholder ?? t('tarefaCampos.naoInformado')}</span>}
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={230}>
         <div className="p-1 overflow-y-auto">
           {opcoes.map((o) => (
             <ItemMenu key={o.key} ativo={o.key === valor} onClick={() => { setOpen(false); onChange(o.key) }}>
               <i className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: o.cor }} />
-              <span className="truncate">{o.key}</span>
+              <span className="truncate">{rotulo(o.key)}</span>
             </ItemMenu>
           ))}
           {valor && !opcoes.some((o) => o.key === valor) && (
             <ItemMenu ativo onClick={() => setOpen(false)}>
-              <i className="w-2 h-2 rounded-full shrink-0 bg-ln-t4" />{valor}
+              <i className="w-2 h-2 rounded-full shrink-0 bg-ln-t4" />{rotulo(valor)}
             </ItemMenu>
           )}
           <div className="border-t border-ln-ink/5 my-1" />
           <ItemMenu ativo={!valor} onClick={() => { setOpen(false); onChange(null) }}>
-            <X className="w-3.5 h-3.5 text-ln-t4" /> Limpar
+            <X className="w-3.5 h-3.5 text-ln-t4" /> {t('comum.limpar')}
           </ItemMenu>
         </div>
       </Popover>
@@ -376,12 +393,14 @@ export function OpcaoCampo({ valor, opcoes, onChange, placeholder = 'não inform
   )
 }
 
-export function TipoTarefaCampo(props) { return <OpcaoCampo opcoes={TIPOS_TAREFA} {...props} /> }
-export function DificuldadeCampo(props) { return <OpcaoCampo opcoes={DIFICULDADES} {...props} /> }
+export function TipoTarefaCampo(props) { return <OpcaoCampo opcoes={TIPOS_TAREFA} rotulo={rotuloTipoTarefa} {...props} /> }
+export function DificuldadeCampo(props) { return <OpcaoCampo opcoes={DIFICULDADES} rotulo={rotuloDificuldade} {...props} /> }
 
 // ─── Estimativa ───────────────────────────────────────────────────────────────
 
-export function EstimativaCampo({ valor, onChange, vazio = 'sem estimativa', render = null, className = '' }) {
+export function EstimativaCampo({ valor, onChange, vazio: vazioPedido, render = null, className = '' }) {
+  const { t } = useI18n()
+  const vazio = vazioPedido ?? t('tarefaCampos.semEstimativa')
   const [editando, setEditando] = useState(false)
   const [txt, setTxt] = useState('')
   function abrir(e) { e.stopPropagation(); setTxt(fmtEstimativa(valor)); setEditando(true) }
@@ -399,13 +418,13 @@ export function EstimativaCampo({ valor, onChange, vazio = 'sem estimativa', ren
         onBlur={salvar}
         onKeyDown={(e) => { if (e.key === 'Enter') salvar(); if (e.key === 'Escape') { e.stopPropagation(); setEditando(false) } }}
         onClick={(e) => e.stopPropagation()}
-        placeholder="ex: 1h 30m"
+        placeholder={t('tarefaCampos.estimativaExemplo')}
         className="ln-input !w-20 !h-6 !px-1.5 !text-xs tabular"
       />
     )
   }
   return (
-    <button type="button" onClick={abrir} className={`inline-flex items-center gap-1.5 text-xs tabular whitespace-nowrap rounded ${valor ? 'text-ln-t3' : 'text-ln-t4'} hover:text-ln-t1 ${FOCO} ${className}`} title="Estimativa de tempo">
+    <button type="button" onClick={abrir} className={`inline-flex items-center gap-1.5 text-xs tabular whitespace-nowrap rounded ${valor ? 'text-ln-t3' : 'text-ln-t4'} hover:text-ln-t1 ${FOCO} ${className}`} title={t('tarefaCampos.estimativaTempo')}>
       {render || (<>
         {(valor || vazio) && <Clock3 className="w-3.5 h-3.5 text-ln-t4" />}
         {valor ? fmtEstimativa(valor) : vazio}
@@ -419,7 +438,9 @@ export function EstimativaCampo({ valor, onChange, vazio = 'sem estimativa', ren
 // Com `campos` ({ statuses, membros, membrosMap, padrao }) a linha também escolhe status,
 // responsáveis, vencimento e prioridade antes de salvar, como no ClickUp; `padrao` vem do
 // grupo em que se está criando. onCriar(titulo, extras) recebe esses campos no 2º argumento.
-export function AdicionarInline({ onCriar, placeholder = 'Adicionar tarefa', className = '', autoFocus = false, campos = null }) {
+export function AdicionarInline({ onCriar, placeholder: placeholderPedido, className = '', autoFocus = false, campos = null }) {
+  const { t } = useI18n()
+  const placeholder = placeholderPedido ?? t('tarefaCampos.adicionarTarefa')
   const [aberto, setAberto] = useState(autoFocus)
   const [titulo, setTitulo] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -433,11 +454,11 @@ export function AdicionarInline({ onCriar, placeholder = 'Adicionar tarefa', cla
   }
   function fechar() { setAberto(false); setTitulo(''); setExtras(inicial()) }
   async function salvar(continuar) {
-    const t = titulo.trim()
-    if (!t) { fechar(); return }
+    const nome = titulo.trim()
+    if (!nome) { fechar(); return }
     setSalvando(true)
     const limpos = campos ? Object.fromEntries(Object.entries(extras).filter(([, v]) => v != null && !(Array.isArray(v) && !v.length))) : undefined
-    await onCriar(t, limpos)
+    await onCriar(nome, limpos)
     setSalvando(false)
     setTitulo('')
     setExtras(inicial())
@@ -475,7 +496,7 @@ export function AdicionarInline({ onCriar, placeholder = 'Adicionar tarefa', cla
           if (alvo && (wrap.current?.contains(alvo) || alvo.closest?.('[data-popover]'))) return
           if (!titulo.trim()) fechar()
         }}
-        placeholder="Nome da tarefa (Enter salva)"
+        placeholder={t('tarefaCampos.nomeTarefaEnter')}
         className="ln-input !h-7 flex-1 min-w-0"
       />
       {campos && (
@@ -483,22 +504,22 @@ export function AdicionarInline({ onCriar, placeholder = 'Adicionar tarefa', cla
           <ResponsavelCampo
             item={{ responsaveis: extras.responsaveis }} membros={campos.membros || []} membrosMap={campos.membrosMap || new Map()}
             onChange={(ids) => mudar({ responsaveis: ids }, false)}
-            render={comPessoa ? <Avatares item={{ responsaveis: extras.responsaveis }} membrosMap={campos.membrosMap || new Map()} size={20} max={2} /> : <BotaoCampo titulo="Responsável"><User className="w-3.5 h-3.5" /></BotaoCampo>}
+            render={comPessoa ? <Avatares item={{ responsaveis: extras.responsaveis }} membrosMap={campos.membrosMap || new Map()} size={20} max={2} /> : <BotaoCampo titulo={t('tarefaCampos.responsavel')}><User className="w-3.5 h-3.5" /></BotaoCampo>}
           />
           <DataCampo
             valor={extras.data_vencimento} onChange={(v) => mudar({ data_vencimento: v })} formato="curta" limpavel={false}
             render={extras.data_vencimento
               ? <span className="inline-flex items-center h-7 px-2 rounded-md border border-ln-ink/[0.08] text-xs text-ln-t2">{fmtDataCurta(extras.data_vencimento)}</span>
-              : <BotaoCampo titulo="Data de vencimento"><CalendarDays className="w-3.5 h-3.5" /></BotaoCampo>}
+              : <BotaoCampo titulo={t('tarefaCampos.dataVencimento')}><CalendarDays className="w-3.5 h-3.5" /></BotaoCampo>}
           />
           <PrioridadeCampo
             valor={extras.prioridade} onChange={(v) => mudar({ prioridade: v })}
-            render={<BotaoCampo titulo="Prioridade"><PrioridadeIcon valor={extras.prioridade} /></BotaoCampo>}
+            render={<BotaoCampo titulo={t('tarefaCampos.prioridade')}><PrioridadeIcon valor={extras.prioridade} /></BotaoCampo>}
           />
         </div>
       )}
-      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={fechar} className="ln-pill shrink-0">Cancelar</button>
-      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => salvar(false)} disabled={salvando || !titulo.trim()} className="ln-primary shrink-0">Salvar</button>
+      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={fechar} className="ln-pill shrink-0">{t('comum.cancelar')}</button>
+      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => salvar(false)} disabled={salvando || !titulo.trim()} className="ln-primary shrink-0">{t('comum.salvar')}</button>
     </div>
   )
 }

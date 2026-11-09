@@ -11,6 +11,7 @@ import { StatusCampo, DataCampo, limitesInicio, limitesVencimento, FOCO } from '
 import { fmtDataNumerica } from '../../lib/tarefas'
 import { diasUteisEntre } from '../../lib/templates'
 import { diasDaTarefa } from '../../lib/gantt'
+import { useI18n } from '../../i18n'
 
 export const LARGURA_COLUNA = { status: 120, resp: 96, inicio: 96, venc: 96, duracao: 84, prio: 100, estim: 96, tipo: 140, sprint: 120, cliente: 140, criada: 96, concluida: 96 }
 const NOME = { padrao: 300, min: 180, max: 600 }
@@ -18,6 +19,7 @@ const CHAVE_NOME = 'tarefas.gantt.larguraNome'
 const lerNome = () => { try { const v = Number(localStorage.getItem(CHAVE_NOME)); return v >= NOME.min && v <= NOME.max ? v : NOME.padrao } catch { return NOME.padrao } }
 
 function CelulaGantt({ k, item, ctx }) {
+  const { t } = useI18n()
   if (k === 'inicio' || k === 'venc') {
     const campo = k === 'inicio' ? 'data_inicio' : 'data_vencimento'
     const lim = k === 'inicio' ? limitesInicio(item) : limitesVencimento(item)
@@ -28,7 +30,7 @@ function CelulaGantt({ k, item, ctx }) {
   }
   if (k === 'duracao') {
     const d = diasDaTarefa(item)
-    return <span className="text-[13px] tabular text-ln-t2">{d ? `${diasUteisEntre(d.a, d.b) + 1} d` : ''}</span>
+    return <span className="text-[13px] tabular text-ln-t2">{d ? t('tarefas.gantt.diasUteis', { n: diasUteisEntre(d.a, d.b) + 1 }) : ''}</span>
   }
   return <Celula k={k} item={item} ctx={ctx} />
 }
@@ -39,6 +41,7 @@ function CelulaGantt({ k, item, ctx }) {
  * toParentId, toIndex, afterId, beforeId }) ou null quando a reordenação está desligada.
  */
 export default function GanttLista({ linhas, cols, ctx, alturaLinha, cabecalho, scrollTop, altura, onRolar, onAlternar, onMover }) {
+  const { t } = useI18n()
   const [larguraNome, setLarguraNome] = useState(lerNome)
   const [arrastando, setArrastando] = useState(null) // { id, parentId }
   const [alvo, setAlvo] = useState(null) // { id, depois }
@@ -83,11 +86,11 @@ export default function GanttLista({ linhas, cols, ctx, alturaLinha, cabecalho, 
       <div style={{ width: largura }} className="h-full flex flex-col">
         <div className="grid shrink-0 items-end border-b border-ln-border bg-ln-panel text-[11px] font-semibold uppercase tracking-wide text-ln-t4" style={{ gridTemplateColumns: grade, height: cabecalho }}>
           <div className="relative flex items-end self-stretch px-3">
-            <span className="flex items-center h-9">Tarefa</span>
-            <span ref={alca} role="separator" aria-orientation="vertical" aria-label="Largura da coluna Tarefa" tabIndex={0}
+            <span className="flex items-center h-9">{t('tarefas.gantt.tarefa')}</span>
+            <span ref={alca} role="separator" aria-orientation="vertical" aria-label={t('tarefas.gantt.larguraTarefa')} tabIndex={0}
               onPointerDown={iniciarAlca} onDoubleClick={() => { setLarguraNome(NOME.padrao); try { localStorage.removeItem(CHAVE_NOME) } catch { /* sem storage */ } }}
               onKeyDown={(e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const w = Math.min(NOME.max, Math.max(NOME.min, larguraNome + (e.key === 'ArrowRight' ? 20 : -20))); setLarguraNome(w); try { localStorage.setItem(CHAVE_NOME, String(w)) } catch { /* sem storage */ } } }}
-              className={`group/alca absolute -right-1.5 top-0 bottom-0 z-10 flex w-3 cursor-col-resize justify-center ${FOCO}`} title="Arraste para mudar a largura · duplo clique: padrão">
+              className={`group/alca absolute -right-1.5 top-0 bottom-0 z-10 flex w-3 cursor-col-resize justify-center ${FOCO}`} title={t('tarefas.gantt.larguraTitulo')}>
               <span className={`h-full w-px transition-all ${redimensionando ? 'w-0.5 bg-ln-accent' : 'bg-ln-border group-hover/alca:w-0.5 group-hover/alca:bg-ln-accent group-focus-visible/alca:w-0.5 group-focus-visible/alca:bg-ln-accent'}`} />
             </span>
           </div>
@@ -112,12 +115,12 @@ export default function GanttLista({ linhas, cols, ctx, alturaLinha, cabecalho, 
                     {onMover ? (
                       <span draggable onDragStart={(e) => { setArrastando({ id: l.id, parentId: l.parentId }); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', l.id) }}
                         onDragEnd={() => { setArrastando(null); setAlvo(null) }}
-                        className="inline-flex items-center justify-center w-4 h-6 shrink-0 text-ln-t4 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing" title="Arraste para mudar a ordem">
+                        className="inline-flex items-center justify-center w-4 h-6 shrink-0 text-ln-t4 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing" title={t('tarefas.gantt.arrasteOrdem')}>
                         <GripVertical className="w-3.5 h-3.5" />
                       </span>
                     ) : <span className="w-4 shrink-0" />}
                     {l.temFilhos ? (
-                      <button type="button" onClick={() => onAlternar(l.id)} aria-expanded={!l.recolhido} aria-label={l.recolhido ? 'Expandir' : 'Recolher'}
+                      <button type="button" onClick={() => onAlternar(l.id)} aria-expanded={!l.recolhido} aria-label={l.recolhido ? t('tarefas.gantt.expandir') : t('tarefas.gantt.recolher')}
                         className={`inline-flex items-center justify-center w-5 h-5 shrink-0 rounded text-ln-t3 hover:bg-ln-ink/5 ${FOCO}`}>
                         <ChevronRight className={`w-3.5 h-3.5 transition-transform ${l.recolhido ? '' : 'rotate-90'}`} />
                       </button>
@@ -125,7 +128,7 @@ export default function GanttLista({ linhas, cols, ctx, alturaLinha, cabecalho, 
                     <StatusCampo item={it} statuses={ctx.statusesDe?.(it) || ctx.statuses} modo="icon" onChange={(s) => ctx.onMudarStatus?.(it, s)} className="shrink-0 mx-1" />
                     <button type="button" onClick={() => ctx.onAbrir?.(l.id)} title={it.titulo}
                       className={`min-w-0 flex-1 truncate text-left ${l.temFilhos ? 'font-semibold text-ln-t1' : 'text-ln-t2'} ${it.status_tipo === 'closed' ? 'line-through text-ln-t4' : ''} hover:text-ln-accent ${FOCO}`}>
-                      {it.titulo || 'Sem título'}
+                      {it.titulo || t('tarefas.semTitulo')}
                     </button>
                   </div>
                   {cols.map((k) => <div key={k} className="flex items-center min-w-0 px-2 overflow-hidden"><CelulaGantt k={k} item={it} ctx={ctx} /></div>)}

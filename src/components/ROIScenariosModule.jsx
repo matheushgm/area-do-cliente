@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Plus, Pencil, Trash2, Check, X, Calculator } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import ROICalculator from './ROICalculator'
+import { useI18n } from '../i18n'
 
 // Orquestra MÚLTIPLAS calculadoras de ROI (cenários) por cliente.
 // Cada cenário: { id, nome, calc, result, createdAt, updatedAt }.
@@ -9,6 +10,7 @@ import ROICalculator from './ROICalculator'
 // compatibilidade com o onboarding e o status da Jornada.
 export default function ROIScenariosModule({ project, onSave }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
 
   // Estado local: lista de cenários. Seed do legado (roiCalc) se vazio.
   const [cenarios, setCenarios] = useState(() => {
@@ -17,7 +19,8 @@ export default function ROIScenariosModule({ project, onSave }) {
     const now = new Date().toISOString()
     return [{
       id: crypto.randomUUID(),
-      nome: 'Cenário principal',
+      // Nome padrão (editável) nasce no idioma da tela.
+      nome: t('cenariosRoi.principal'),
       calc: project.roiCalc || null,
       result: project.roiResult || null,
       createdAt: now,
@@ -67,7 +70,7 @@ export default function ROIScenariosModule({ project, onSave }) {
     const now = new Date().toISOString()
     const novo = {
       id: crypto.randomUUID(),
-      nome: `Cenário ${cenarios.length + 1}`,
+      nome: t('cenariosRoi.nomePadrao', { n: cenarios.length + 1 }),
       calc: null,
       result: null,
       createdAt: now,
@@ -79,7 +82,7 @@ export default function ROIScenariosModule({ project, onSave }) {
 
   function deleteCenario(id) {
     if (cenarios.length <= 1) return
-    if (!window.confirm('Excluir este cenário de ROI? Essa ação não pode ser desfeita.')) return
+    if (!window.confirm(t('cenariosRoi.confirmarExcluir'))) return
     const next = cenarios.filter((c) => c.id !== id)
     persist(next)
     if (activeScenarioId === id) setActiveId(next[0]?.id || null)
@@ -100,7 +103,7 @@ export default function ROIScenariosModule({ project, onSave }) {
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1.5 mr-1 text-rl-muted">
           <Calculator className="w-4 h-4" />
-          <span className="text-xs font-bold uppercase tracking-wider">Cenários</span>
+          <span className="text-xs font-bold uppercase tracking-wider">{t('cenariosRoi.cenarios')}</span>
         </div>
         {cenarios.map((c) => {
           const isActive = c.id === activeScenarioId
@@ -118,10 +121,10 @@ export default function ROIScenariosModule({ project, onSave }) {
                   }}
                   className="bg-transparent text-sm text-rl-text outline-none w-28"
                 />
-                <button onClick={() => commitRename(c.id)} className="p-0.5 text-rl-green hover:bg-rl-green/10 rounded">
+                <button onClick={() => commitRename(c.id)} aria-label={t('comum.salvar')} className="p-0.5 text-rl-green hover:bg-rl-green/10 rounded">
                   <Check className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => { setRenamingId(null); setRenameValue('') }} className="p-0.5 text-rl-muted hover:bg-rl-surface rounded">
+                <button onClick={() => { setRenamingId(null); setRenameValue('') }} aria-label={t('comum.cancelar')} className="p-0.5 text-rl-muted hover:bg-rl-surface rounded">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -146,7 +149,7 @@ export default function ROIScenariosModule({ project, onSave }) {
                 <button
                   onClick={() => { setRenamingId(c.id); setRenameValue(c.nome) }}
                   className={`p-1 rounded ${isActive ? 'hover:bg-white/20' : 'hover:bg-rl-bg'}`}
-                  title="Renomear"
+                  title={t('cenariosRoi.renomear')}
                 >
                   <Pencil className="w-3 h-3" />
                 </button>
@@ -154,7 +157,7 @@ export default function ROIScenariosModule({ project, onSave }) {
                   <button
                     onClick={() => deleteCenario(c.id)}
                     className={`p-1 rounded ${isActive ? 'hover:bg-white/20' : 'hover:bg-red-400/10 hover:text-red-400'}`}
-                    title="Excluir"
+                    title={t('comum.excluir')}
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -167,7 +170,7 @@ export default function ROIScenariosModule({ project, onSave }) {
           onClick={addCenario}
           className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl border border-dashed border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all"
         >
-          <Plus className="w-3.5 h-3.5" /> Novo cenário
+          <Plus className="w-3.5 h-3.5" /> {t('cenariosRoi.novo')}
         </button>
       </div>
 

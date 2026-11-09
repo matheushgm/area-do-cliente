@@ -6,11 +6,12 @@ import { fmtCurrency } from '../lib/utils'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import { useApp } from '../context/AppContext'
 import VideoGuide from './VideoGuide'
+import { useI18n, localeAtual } from '../i18n'
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 function fmt(n) {
   if (n == null || isNaN(n) || !isFinite(n)) return '—'
-  return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+  return n.toLocaleString(localeAtual(), { maximumFractionDigits: 0 })
 }
 
 // ─── Number input ─────────────────────────────────────────────────────────────
@@ -45,14 +46,14 @@ function NumInput({ label, value, onChange, prefix, suffix, hint, min = 0 }) {
 // ─── Benchmark data ───────────────────────────────────────────────────────────
 const BENCHMARKS = {
   b2c: [
-    { label: 'Lead → MQL', min: 20, max: 50 },
-    { label: 'MQL → SQL',  min: 25, max: 40 },
-    { label: 'SQL → Venda',min: 10, max: 30 },
+    { label: 'roi.calc.taxas.lead2mql', min: 20, max: 50 },
+    { label: 'roi.calc.taxas.mql2sql',  min: 25, max: 40 },
+    { label: 'roi.calc.taxas.sql2venda', min: 10, max: 30 },
   ],
   b2b: [
-    { label: 'Lead → MQL', min: 10, max: 40 },
-    { label: 'MQL → SQL',  min: 15, max: 40 },
-    { label: 'SQL → Venda',min: 15, max: 35 },
+    { label: 'roi.calc.taxas.lead2mql', min: 10, max: 40 },
+    { label: 'roi.calc.taxas.mql2sql',  min: 15, max: 40 },
+    { label: 'roi.calc.taxas.sql2venda', min: 15, max: 35 },
   ],
 }
 
@@ -63,12 +64,13 @@ const BENCHMARKS = {
 // de escrever direto em project.roiCalc. Sem eles, comportamento original.
 export default function ROICalculator({ project, onSave, overrideCalc = undefined, onPersist = undefined }) {
   const { updateProject } = useApp()
+  const { t, lang, locale } = useI18n()
   const [benchmarkType, setBenchmarkType] = useState(null)
   const [activeTab, setActiveTab] = useState('calculadora')
 
   const now = new Date()
   const numSemanas = getWeekRanges(now.getFullYear(), now.getMonth()).length
-  const mesAtual   = MONTH_NAMES[now.getMonth()]
+  const mesAtual   = lang === 'pt' ? MONTH_NAMES[now.getMonth()] : now.toLocaleDateString(locale, { month: 'long' })
 
   const [calc, setCalc] = useState(() => ({
     mediaOrcamento:  Number(project.mediaBudget)    || 5000,
@@ -167,17 +169,17 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
   return (
     <div className="space-y-6">
 
-      <VideoGuide videoId="6oF8IB03pvg" label="Como preencher a Calculadora de ROI" />
+      <VideoGuide videoId="6oF8IB03pvg" label={t('roi.calc.video')} />
 
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
             <Calculator className="w-5 h-5 text-rl-purple" />
-            Calculadora de ROI
+            {t('roi.titulo')}
           </h2>
           <p className="text-sm text-rl-muted mt-0.5">
-            Defina seu ROI alvo e descubra quantos leads, MQLs, SQLs e vendas você precisa gerar
+            {t('roi.calc.subtitulo')}
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -188,7 +190,7 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
               : exportROIPDF(calc, result, project)}
             disabled={!result}
             className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-            title={activeTab === 'metas' ? 'Exportar PDF das Metas Semanais' : 'Exportar PDF'}
+            title={activeTab === 'metas' ? t('roi.calc.pdfMetas') : t('roi.calc.pdf')}
           >
             <FileDown className="w-4 h-4" />
             PDF
@@ -199,8 +201,8 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
       {/* ── Tabs ─────────────────────────────────────────── */}
       <div className="flex gap-1 p-1 bg-rl-surface rounded-xl border border-rl-border w-fit">
         {[
-          { id: 'calculadora', label: 'Calculadora',    Icon: Calculator },
-          { id: 'metas',       label: 'Metas Semanais', Icon: CalendarDays },
+          { id: 'calculadora', label: 'roi.calc.abas.calculadora', Icon: Calculator },
+          { id: 'metas',       label: 'roi.calc.abas.metas',       Icon: CalendarDays },
         ].map(({ id, label, Icon }) => (
           <button
             key={id}
@@ -212,7 +214,7 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
             }`}
           >
             <Icon className="w-3.5 h-3.5" />
-            {label}
+            {t(label)}
           </button>
         ))}
       </div>
@@ -223,7 +225,7 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
           {!result ? (
             <div className="glass-card p-8 text-center">
               <AlertCircle className="w-8 h-8 text-rl-muted/40 mx-auto mb-2" />
-              <p className="text-rl-muted text-sm">Preencha a calculadora primeiro para ver as metas semanais</p>
+              <p className="text-rl-muted text-sm">{t('roi.calc.metasSemResultado')}</p>
             </div>
           ) : (
             <>
@@ -233,23 +235,23 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
                   <CalendarDays className="w-4 h-4 text-rl-purple" />
                   <span className="text-sm font-semibold text-rl-text">{mesAtual}</span>
                 </div>
-                <span className="text-sm font-bold text-rl-purple">{numSemanas} semanas</span>
+                <span className="text-sm font-bold text-rl-purple">{t('roi.calc.semanas', { n: numSemanas })}</span>
               </div>
 
               {/* Weekly target cards */}
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { label: 'Leads / semana',  value: Math.ceil(result.leadsNecessarios  / numSemanas), color: 'rl-purple', bg: 'bg-rl-purple/5',  border: 'border-rl-purple/20', icon: '👥' },
-                  { label: 'MQLs / semana',   value: Math.ceil(result.mqlsNecessarios   / numSemanas), color: 'rl-blue',   bg: 'bg-rl-blue/5',    border: 'border-rl-blue/20',   icon: '🎯' },
-                  { label: 'SQLs / semana',   value: Math.ceil(result.sqlsNecessarios   / numSemanas), color: 'rl-cyan',   bg: 'bg-rl-cyan/5',    border: 'border-rl-cyan/20',   icon: '💎' },
-                  { label: 'Vendas / semana', value: Math.ceil(result.vendasNecessarias / numSemanas), color: 'rl-green',  bg: 'bg-rl-green/5',   border: 'border-rl-green/20',  icon: '🏆' },
+                  { label: t('roi.calc.leadsSemana'),  value: Math.ceil(result.leadsNecessarios  / numSemanas), color: 'rl-purple', bg: 'bg-rl-purple/5',  border: 'border-rl-purple/20', icon: '👥' },
+                  { label: t('roi.calc.mqlsSemana'),   value: Math.ceil(result.mqlsNecessarios   / numSemanas), color: 'rl-blue',   bg: 'bg-rl-blue/5',    border: 'border-rl-blue/20',   icon: '🎯' },
+                  { label: t('roi.calc.sqlsSemana'),   value: Math.ceil(result.sqlsNecessarios   / numSemanas), color: 'rl-cyan',   bg: 'bg-rl-cyan/5',    border: 'border-rl-cyan/20',   icon: '💎' },
+                  { label: t('roi.calc.vendasSemana'), value: Math.ceil(result.vendasNecessarias / numSemanas), color: 'rl-green',  bg: 'bg-rl-green/5',   border: 'border-rl-green/20',  icon: '🏆' },
                 ].map(({ label, value, color, bg, border, icon }) => (
                   <div key={label} className={`glass-card p-5 ${bg} border ${border} text-center`}>
                     <div className="text-2xl mb-1">{icon}</div>
                     <div className={`text-4xl font-black text-${color} mb-1`}>{fmt(value)}</div>
                     <div className="text-xs text-rl-muted font-medium">{label}</div>
                     <div className={`text-[10px] text-${color}/70 mt-1`}>
-                      {fmt(value * numSemanas)} / mês
+                      {t('roi.calc.porMes', { n: fmt(value * numSemanas) })}
                     </div>
                   </div>
                 ))}
@@ -258,8 +260,8 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
               {/* Custo de Marketing/semana */}
               <div className="glass-card p-4 flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-rl-muted">Custo de Marketing / semana</p>
-                  <p className="text-[10px] text-rl-muted/70">{fmtCurrency(calc.custoMarketing)} ÷ {numSemanas} semanas</p>
+                  <p className="text-xs text-rl-muted">{t('roi.calc.custoMarketingSemana')}</p>
+                  <p className="text-[10px] text-rl-muted/70">{t('roi.calc.divisaoSemanas', { valor: fmtCurrency(calc.custoMarketing), n: numSemanas })}</p>
                 </div>
                 <span className="text-lg font-bold text-rl-gold">
                   {fmtCurrency(calc.custoMarketing / numSemanas)}
@@ -279,27 +281,27 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
           {/* Investimento */}
           <div className="glass-card p-5 space-y-4">
             <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider flex items-center gap-2">
-              <DollarSign className="w-3.5 h-3.5" /> Investimento
+              <DollarSign className="w-3.5 h-3.5" /> {t('roi.calc.investimento')}
             </p>
             <div className="grid grid-cols-2 gap-3">
               <NumInput
-                label="Orçamento em Mídia"
+                label={t('roi.calc.orcamentoMidia')}
                 value={calc.mediaOrcamento}
                 onChange={(v) => set('mediaOrcamento', v)}
                 prefix="R$"
-                hint="Verba para anúncios"
+                hint={t('roi.calc.verbaAnuncios')}
               />
               <NumInput
-                label="Custo de Marketing"
+                label={t('roi.calc.custoMarketing')}
                 value={calc.custoMarketing}
                 onChange={(v) => set('custoMarketing', v)}
                 prefix="R$"
-                hint="Fee de gestão / assessoria"
+                hint={t('roi.calc.feeGestao')}
               />
             </div>
             {result && (
               <div className="flex items-center justify-between rounded-lg bg-rl-surface px-4 py-2.5">
-                <span className="text-xs text-rl-muted">Total investido</span>
+                <span className="text-xs text-rl-muted">{t('roi.calc.totalInvestido')}</span>
                 <span className="text-sm font-bold text-rl-text">{fmtCurrency(result.totalInvestimento)}</span>
               </div>
             )}
@@ -308,35 +310,35 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
           {/* Produto */}
           <div className="glass-card p-5 space-y-4">
             <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider flex items-center gap-2">
-              <BarChart3 className="w-3.5 h-3.5" /> Produto / Serviço
+              <BarChart3 className="w-3.5 h-3.5" /> {t('roi.calc.produto')}
             </p>
             <div className="grid grid-cols-2 gap-3">
               <NumInput
-                label="Ticket Médio"
+                label={t('roi.calc.ticketMedio')}
                 value={calc.ticketMedio}
                 onChange={(v) => set('ticketMedio', v)}
                 prefix="R$"
               />
               <NumInput
-                label="Compras por cliente (LT)"
+                label={t('roi.calc.compras')}
                 value={calc.qtdCompras}
                 onChange={(v) => set('qtdCompras', v)}
                 min={1}
-                hint="Lifetime do cliente"
+                hint={t('roi.calc.lifetime')}
               />
               <div className="col-span-2">
                 <NumInput
-                  label="Margem Bruta"
+                  label={t('roi.calc.margem')}
                   value={calc.margemBruta}
                   onChange={(v) => set('margemBruta', v)}
                   suffix="%"
-                  hint="% que sobra do ticket após custos do produto"
+                  hint={t('roi.calc.margemDica')}
                 />
               </div>
             </div>
             {result && (
               <div className="flex items-center justify-between rounded-lg bg-rl-surface px-4 py-2.5">
-                <span className="text-xs text-rl-muted">Lucro por venda</span>
+                <span className="text-xs text-rl-muted">{t('roi.calc.lucroVenda')}</span>
                 <span className="text-sm font-bold text-rl-green">{fmtCurrency(result.lucroPorVenda)}</span>
               </div>
             )}
@@ -345,12 +347,12 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
           {/* ROI Alvo */}
           <div className="glass-card p-5 space-y-3">
             <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider flex items-center gap-2">
-              <Target className="w-3.5 h-3.5" /> ROI Desejado
+              <Target className="w-3.5 h-3.5" /> {t('roi.calc.roiDesejado')}
             </p>
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-rl-muted">
-                  {calc.roiDesejado === 0 ? 'Ponto de equilíbrio' : `Retorno de ${calc.roiDesejado}% sobre o investimento`}
+                  {calc.roiDesejado === 0 ? t('roi.calc.pontoEquilibrio') : t('roi.calc.retornoDe', { roi: calc.roiDesejado })}
                 </span>
                 <span className="text-lg font-bold text-rl-purple">{calc.roiDesejado}%</span>
               </div>
@@ -381,7 +383,7 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
                       : 'bg-rl-surface text-rl-muted hover:text-rl-text'
                   }`}
                 >
-                  {v === 0 ? 'Equilíbrio' : `ROI ${v}%`}
+                  {v === 0 ? t('roi.calc.equilibrio') : t('roi.calc.roiN', { v })}
                 </button>
               ))}
             </div>
@@ -392,10 +394,10 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
             {/* Header + toggle B2B/B2C */}
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider flex items-center gap-2">
-                <TrendingUp className="w-3.5 h-3.5" /> Taxas de Conversão do Funil
+                <TrendingUp className="w-3.5 h-3.5" /> {t('roi.calc.taxasFunil')}
               </p>
               <div className="flex items-center gap-1">
-                <span className="text-[10px] text-rl-muted mr-1">Benchmark:</span>
+                <span className="text-[10px] text-rl-muted mr-1">{t('roi.calc.benchmark')}</span>
                 {['b2c', 'b2b'].map((type) => (
                   <button
                     key={type}
@@ -414,21 +416,21 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
 
             {/* Inputs */}
             <div className="space-y-3">
-              <NumInput label="Lead → MQL"   value={calc.taxaLead2MQL}  onChange={(v) => set('taxaLead2MQL', v)}  suffix="%" />
-              <NumInput label="MQL → SQL"    value={calc.taxaMQL2SQL}   onChange={(v) => set('taxaMQL2SQL', v)}   suffix="%" />
-              <NumInput label="SQL → Venda"  value={calc.taxaSQL2Venda} onChange={(v) => set('taxaSQL2Venda', v)} suffix="%" />
+              <NumInput label={t('roi.calc.taxas.lead2mql')}   value={calc.taxaLead2MQL}  onChange={(v) => set('taxaLead2MQL', v)}  suffix="%" />
+              <NumInput label={t('roi.calc.taxas.mql2sql')}    value={calc.taxaMQL2SQL}   onChange={(v) => set('taxaMQL2SQL', v)}   suffix="%" />
+              <NumInput label={t('roi.calc.taxas.sql2venda')}  value={calc.taxaSQL2Venda} onChange={(v) => set('taxaSQL2Venda', v)} suffix="%" />
             </div>
 
             {/* Benchmark panel */}
             {benchmarkType && (
               <div className="rounded-xl border border-rl-purple/20 bg-rl-purple/5 p-3 space-y-2">
                 <p className="text-[10px] font-bold text-rl-purple uppercase tracking-wider">
-                  Referência de mercado — {benchmarkType.toUpperCase()}
+                  {t('roi.calc.referencia', { tipo: benchmarkType.toUpperCase() })}
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {BENCHMARKS[benchmarkType].map((b) => (
                     <div key={b.label} className="rounded-lg bg-rl-surface p-2.5 text-center">
-                      <p className="text-[10px] text-rl-muted mb-1">{b.label}</p>
+                      <p className="text-[10px] text-rl-muted mb-1">{t(b.label)}</p>
                       <p className="text-sm font-bold text-rl-text">
                         {b.min}%<span className="text-rl-muted font-normal"> – </span>{b.max}%
                       </p>
@@ -447,19 +449,19 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
             <div className="glass-card p-5 border border-rl-purple/20">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm font-semibold text-rl-text">
-                  Meta para ROI de <span className="text-rl-purple">{calc.roiDesejado}%</span>
+                  {t('roi.calc.metaRoiAntes')} <span className="text-rl-purple">{calc.roiDesejado}%</span>{t('roi.calc.metaRoiDepois')}
                 </p>
                 <span className="text-xs bg-rl-purple/10 text-rl-purple border border-rl-purple/20 px-2.5 py-1 rounded-full">
-                  {fmt(result.vendasNecessarias)} vendas/mês
+                  {t('roi.calc.vendasMes', { n: fmt(result.vendasNecessarias) })}
                 </span>
               </div>
 
               <div className="space-y-2 mb-4">
                 {[
-                  { label: 'Leads necessários',  value: result.leadsNecessarios,  cost: result.custoPorLead, costLabel: 'CPL (mídia)',      color: 'text-rl-purple', bg: 'bg-rl-purple/10', border: 'border-rl-purple/20', rate: null },
-                  { label: 'MQLs necessários',   value: result.mqlsNecessarios,   cost: result.custoPorMQL,  costLabel: 'Custo MQL (mídia)', color: 'text-rl-blue',   bg: 'bg-rl-blue/10',   border: 'border-rl-blue/20',   rate: calc.taxaLead2MQL },
-                  { label: 'SQLs necessários',   value: result.sqlsNecessarios,   cost: result.custoPorSQL,  costLabel: 'Custo SQL (mídia)', color: 'text-rl-cyan',   bg: 'bg-rl-cyan/10',   border: 'border-rl-cyan/20',   rate: calc.taxaMQL2SQL },
-                  { label: 'Vendas necessárias', value: result.vendasNecessarias, cost: result.cac,          costLabel: 'CAC (mídia)',      color: 'text-rl-green',  bg: 'bg-rl-green/10',  border: 'border-rl-green/20',  rate: calc.taxaSQL2Venda },
+                  { label: t('roi.calc.leadsNec'),  value: result.leadsNecessarios,  cost: result.custoPorLead, costLabel: t('roi.calc.cplMidia'),      color: 'text-rl-purple', bg: 'bg-rl-purple/10', border: 'border-rl-purple/20', rate: null },
+                  { label: t('roi.calc.mqlsNec'),   value: result.mqlsNecessarios,   cost: result.custoPorMQL,  costLabel: t('roi.calc.custoMqlMidia'), color: 'text-rl-blue',   bg: 'bg-rl-blue/10',   border: 'border-rl-blue/20',   rate: calc.taxaLead2MQL },
+                  { label: t('roi.calc.sqlsNec'),   value: result.sqlsNecessarios,   cost: result.custoPorSQL,  costLabel: t('roi.calc.custoSqlMidia'), color: 'text-rl-cyan',   bg: 'bg-rl-cyan/10',   border: 'border-rl-cyan/20',   rate: calc.taxaMQL2SQL },
+                  { label: t('roi.calc.vendasNec'), value: result.vendasNecessarias, cost: result.cac,          costLabel: t('roi.calc.cacMidia'),      color: 'text-rl-green',  bg: 'bg-rl-green/10',  border: 'border-rl-green/20',  rate: calc.taxaSQL2Venda },
                 ].map((row) => (
                   <div key={row.label} className={`flex items-center justify-between rounded-xl px-4 py-3 border ${row.border} ${row.bg}`}>
                     <div>
@@ -471,7 +473,7 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
                       <span className="text-[10px] text-rl-muted">{row.costLabel}</span>
                       {row.rate !== null && (
                         <span className="text-[10px] text-rl-muted bg-rl-surface px-1.5 py-0.5 rounded-md">
-                          {row.rate}% conv.
+                          {t('roi.calc.conv', { taxa: row.rate })}
                         </span>
                       )}
                     </div>
@@ -479,44 +481,44 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
                 ))}
               </div>
               <p className="text-xs text-rl-muted text-center">
-                ↑ calculado de baixo para cima com base nas suas taxas de conversão
+                {t('roi.calc.calculadoBaixo')}
               </p>
             </div>
           )}
 
           {result && (
             <div className="glass-card p-5 space-y-3">
-              <p className="text-sm font-semibold text-rl-text mb-1">Financeiro Projetado</p>
+              <p className="text-sm font-semibold text-rl-text mb-1">{t('roi.calc.financeiro')}</p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-rl-surface p-3">
-                  <p className="text-xs text-rl-muted mb-1">Total Investido</p>
+                  <p className="text-xs text-rl-muted mb-1">{t('roi.calc.totalInvestidoCard')}</p>
                   <p className="text-base font-bold text-rl-text">{fmtCurrency(result.totalInvestimento)}</p>
                 </div>
                 <div className="rounded-xl bg-rl-surface p-3">
-                  <p className="text-xs text-rl-muted mb-1">Faturamento Alvo</p>
+                  <p className="text-xs text-rl-muted mb-1">{t('roi.calc.faturamentoAlvo')}</p>
                   <p className="text-base font-bold text-rl-purple">{fmtCurrency(result.faturamento)}</p>
                 </div>
                 <div className="rounded-xl bg-rl-surface p-3">
-                  <p className="text-xs text-rl-muted mb-1">Lucro Bruto</p>
+                  <p className="text-xs text-rl-muted mb-1">{t('roi.calc.lucroBruto')}</p>
                   <p className="text-base font-bold text-rl-cyan">{fmtCurrency(result.lucroBruto)}</p>
                 </div>
                 <div className={`rounded-xl p-3 ${result.lucroLiquido >= 0 ? 'bg-rl-green/10' : 'bg-rl-red/10'}`}>
-                  <p className="text-xs text-rl-muted mb-1">Lucro Líquido</p>
+                  <p className="text-xs text-rl-muted mb-1">{t('roi.calc.lucroLiquido')}</p>
                   <p className={`text-base font-bold ${result.lucroLiquido >= 0 ? 'text-rl-green' : 'text-rl-red'}`}>
                     {fmtCurrency(result.lucroLiquido)}
                   </p>
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-lg bg-rl-surface px-4 py-2.5 mt-1">
-                <span className="text-xs text-rl-muted">CAC (custo de aquisição — mídia)</span>
+                <span className="text-xs text-rl-muted">{t('roi.calc.cacCompleto')}</span>
                 <span className="text-sm font-bold text-rl-gold">{fmtCurrency(result.cac)}</span>
               </div>
               <div className="rounded-lg border border-rl-border px-4 py-2.5 flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-rl-muted">Ponto de equilíbrio (ROI 0%)</p>
-                  <p className="text-xs text-rl-muted">Mínimo de vendas para cobrir o investimento</p>
+                  <p className="text-xs text-rl-muted">{t('roi.calc.equilibrioRoi0')}</p>
+                  <p className="text-xs text-rl-muted">{t('roi.calc.minimoVendas')}</p>
                 </div>
-                <span className="text-sm font-bold text-rl-text">{fmt(result.vendasBreakeven)} vendas</span>
+                <span className="text-sm font-bold text-rl-text">{t('roi.calc.nVendas', { n: fmt(result.vendasBreakeven) })}</span>
               </div>
             </div>
           )}
@@ -524,7 +526,7 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
           {!result && (
             <div className="glass-card p-8 text-center">
               <AlertCircle className="w-8 h-8 text-rl-muted/40 mx-auto mb-2" />
-              <p className="text-rl-muted text-sm">Preencha os dados para ver os resultados</p>
+              <p className="text-rl-muted text-sm">{t('roi.calc.preencha')}</p>
             </div>
           )}
         </div>
@@ -539,7 +541,7 @@ export default function ROICalculator({ project, onSave, overrideCalc = undefine
             className="btn-primary flex items-center gap-2"
           >
             <Save className="w-4 h-4" />
-            Salvar Calculadora
+            {t('roi.calc.salvar')}
           </button>
         </div>
       )}

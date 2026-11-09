@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react'
+import { useI18n } from '../../i18n'
 
 // PercentInput: input numérico em % (0-100) com sufixo visual `%`.
 // Opcionalmente mostra um botão "Não sei calcular" que marca o valor como
@@ -10,12 +11,15 @@ import { Check } from 'lucide-react'
 export default function PercentInput({
   value,
   onChange,
-  placeholder = 'Ex: 45',
-  unknownLabel = 'Não sei calcular',
+  placeholder: placeholderProp,
+  unknownLabel: unknownLabelProp,
   showUnknownToggle = false,
   maxWidth = 'max-w-xs',
   max = 100,
 }) {
+  const { t } = useI18n()
+  const placeholder = placeholderProp ?? t('ui.percent.placeholder')
+  const unknownLabel = unknownLabelProp ?? t('ui.percent.naoSei')
   const isUnknown = value === 'unknown'
   const displayValue = isUnknown || value == null || value === '' ? '' : String(value)
 

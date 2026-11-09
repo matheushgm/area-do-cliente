@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { linhaDecisao } from './useSugestoesGlobais'
 import { useApp } from '../context/AppContext'
+import { useI18n } from '../i18n'
 
 const iso = (d) => (d ? String(d).slice(0, 10) : null)
 // Preview sem login (/dev/hub): a página injeta window.__DEV_HUB.hub com os dados
@@ -13,6 +14,7 @@ const devFixture = () => (import.meta.env.DEV && typeof window !== 'undefined' ?
 
 export function useProjetoHub(projectId) {
   const { user } = useApp()
+  const { t: tr } = useI18n()
   const [otimizacoes, setOtimizacoes] = useState([])
   const [sugestoesStatus, setSugestoesStatus] = useState([])
   const [planejadas, setPlanejadas] = useState([])
@@ -142,11 +144,11 @@ export function useProjetoHub(projectId) {
     for (const a of atas) {
       itens.push({
         id: `a:${a.id}`, kind: 'reuniao', data: iso(a.meeting_date) || iso(a.created_at), ts: a.created_at,
-        titulo: a.title || 'Reunião', registro: a,
+        titulo: a.title || tr('hub.tipos.reuniao'), registro: a,
       })
     }
     return itens.sort((x, y) => ((y.data || '') + (y.ts || '')).localeCompare((x.data || '') + (x.ts || '')))
-  }, [otimizacoes, planejadas, tarefas, atas])
+  }, [otimizacoes, planejadas, tarefas, atas, tr])
 
   return {
     loading, erro, recarregar: carregar,

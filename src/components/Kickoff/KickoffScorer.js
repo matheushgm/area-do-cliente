@@ -2,7 +2,7 @@
 // Sem dependência de React. Recebe respostas + lista de perguntas e devolve
 // scores por pilar, score geral, estágio e próximos passos.
 
-import { PILLARS, getStage, NEXT_STEPS } from './KickoffQuestions'
+import { PILLARS, getStage, NEXT_STEPS, textoPt } from './KickoffQuestions'
 
 // ─── Score de uma única resposta ──────────────────────────────────────────────
 // Retorna número 0-100 ou null se a pergunta não está respondida.
@@ -158,5 +158,14 @@ export function fullDiagnosis(answers, questions, businessType) {
     weaknesses: weaknesses.map((w) => w.id),
     weaknessesDetail: weaknesses,
     nextSteps,
+    // Os rótulos acima saem no idioma da tela; o que é gravado no projeto
+    // (kickoff.stageLabel/stageDesc/nextSteps, lido também pelo portal) fica em português.
+    gravar: {
+      stageLabel: textoPt(`estagios.${stage.id}.label`),
+      stageDesc:  textoPt(`estagios.${stage.id}.desc`),
+      nextSteps:  weaknesses
+        .map((w) => textoPt(`proximosPassos.${w.id}.${businessType}`))
+        .filter(Boolean),
+    },
   }
 }

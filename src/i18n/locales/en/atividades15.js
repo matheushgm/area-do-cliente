@@ -1,0 +1,21 @@
+export default {
+  titulo: '15-min Activities',
+  subtitulo: 'Log what you did every 15 minutes and flag what actually moves the needle.',
+  soVoce: 'Only you can see yours',
+  abrirMenu: 'Open navigation menu',
+  diaAnterior: 'Previous day',
+  proximoDia: 'Next day',
+  voltarHoje: 'Back to today',
+  escolherData: 'Pick a date',
+  doTempo: '{pct}% of the time',
+  horas: '{n}h',
+  altaDica: 'High — moves the needle',
+  rodape: { one: '{count} block filled • saved automatically', other: '{count} blocks filled • saved automatically' },
+  erroCarregar: 'Couldn’t load activities',
+  erroSalvar: 'Couldn’t save',
+  prioridade: {
+    alta: 'High',
+    media: 'Medium',
+    baixa: 'Low',
+  },
+}

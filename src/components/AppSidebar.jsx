@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { useTheme } from '../hooks/useTheme'
+import { useI18n, IDIOMAS } from '../i18n'
 import { canViewSquadsReport } from '../lib/utils'
 import { baseProjectsOf, sidebarCounts } from '../lib/dashboardCounts'
 import { Sparkles,
@@ -10,7 +11,7 @@ import { Sparkles,
   LogOut, Cloud, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, BarChart3, DollarSign,
   Sun, Moon, Clapperboard, Timer, Layout, PanelLeftClose, PanelLeftOpen, Waypoints, Users2,
-  ChevronUp, ChevronDown, Wrench, Percent, Globe,
+  ChevronUp, ChevronDown, Wrench, Percent, Globe, Languages,
 } from 'lucide-react'
 
 // Sidebar recolhida (só ícones) para sobrar espaço aos módulos. O estado é
@@ -60,55 +61,64 @@ export function useSidebarCollapsed() {
 // própria página de Clientes (Dashboard.jsx), ao lado de "Onboarding (90d)".
 // O Dashboard é rota normal e convive no mesmo bloco.
 const NAV_ITEMS = [
-  { id: 'all',       label: 'Clientes',       Icon: Layers,       type: 'filter' },
-  { id: 'dashboard', label: 'Dashboard',      Icon: BarChart3,    type: 'route', to: '/dashboard', badge: 'API' },
+  { id: 'all',       label: 'sidebar.clientes', Icon: Layers,       type: 'filter' },
+  { id: 'dashboard', label: 'sidebar.dashboard', Icon: BarChart3,    type: 'route', to: '/dashboard', badge: 'API' },
 ]
 
 // Menu agrupado por área. Cada seção vira um rótulo na sidebar expandida e um
 // separador na recolhida. `gate` esconde o item de quem não tem acesso.
 const NAV_SECTIONS = [
   {
-    label: 'Operação',
+    label: 'sidebar.secoes.operacao',
     items: [
-      { id: 'otimizacoes', label: 'Otimizações',       Icon: Sparkles,      type: 'route', to: '/otimizacoes' },
-      { id: 'tarefas',     label: 'VertaTask',         Icon: CheckSquare,   type: 'route', to: '/tarefas' },
+      { id: 'otimizacoes', label: 'sidebar.itens.otimizacoes', Icon: Sparkles,      type: 'route', to: '/otimizacoes' },
+      { id: 'tarefas',     label: 'sidebar.itens.vertatask', Icon: CheckSquare,   type: 'route', to: '/tarefas' },
       // Grupo com dropdown. Novas ferramentas entram em `children` e aparecem
       // no mesmo dropdown.
-      { id: 'ferramentas', label: 'Ferramentas',       Icon: Wrench,        type: 'group', children: [
-        { id: 'atividades',  label: 'Atividades 15min',  Icon: Timer,         type: 'route', to: '/atividades-15min' },
-        { id: 'roteiros',    label: 'Roteiros Express',  Icon: Clapperboard,  type: 'route', to: '/roteiros-express' },
-        { id: 'funil',       label: 'Funil de Vendas',   Icon: GitFork,       type: 'route', to: '/funil' },
-        { id: 'calculadora-roi', label: 'Calculadora de ROI', Icon: Percent,    type: 'route', to: '/calculadora-roi' },
-        { id: 'site-plataforma', label: 'Site da Plataforma', Icon: Globe,      type: 'route', to: '/site-plataforma' },
-        { id: 'precificacao',label: 'Precificação',      Icon: DollarSign,    type: 'route', to: '/ferramenta-precificacao' },
+      { id: 'ferramentas', label: 'sidebar.itens.ferramentas', Icon: Wrench,        type: 'group', children: [
+        { id: 'atividades',  label: 'sidebar.itens.atividades15', Icon: Timer,         type: 'route', to: '/atividades-15min' },
+        { id: 'roteiros',    label: 'sidebar.itens.roteiros', Icon: Clapperboard,  type: 'route', to: '/roteiros-express' },
+        { id: 'funil',       label: 'sidebar.itens.funil', Icon: GitFork,       type: 'route', to: '/funil' },
+        { id: 'calculadora-roi', label: 'sidebar.itens.calculadoraRoi', Icon: Percent,    type: 'route', to: '/calculadora-roi' },
+        { id: 'site-plataforma', label: 'sidebar.itens.sitePlataforma', Icon: Globe,      type: 'route', to: '/site-plataforma' },
+        { id: 'precificacao',label: 'sidebar.itens.precificacao', Icon: DollarSign,    type: 'route', to: '/ferramenta-precificacao' },
       ] },
     ],
   },
   {
-    label: 'Biblioteca',
+    label: 'sidebar.secoes.biblioteca',
     items: [
-      { id: 'banco',       label: 'Banco de Anúncios', Icon: Library,       type: 'route', to: '/banco-de-anuncios' },
-      { id: 'banco-lps',   label: 'Banco de LP',       Icon: Layout,        type: 'route', to: '/banco-de-lps' },
-      { id: 'playbook',    label: 'Playbook',          Icon: BookOpen,      type: 'external', href: 'https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173' },
+      { id: 'banco',       label: 'sidebar.itens.bancoAnuncios', Icon: Library,       type: 'route', to: '/banco-de-anuncios' },
+      { id: 'banco-lps',   label: 'sidebar.itens.bancoLp', Icon: Layout,        type: 'route', to: '/banco-de-lps' },
+      { id: 'playbook',    label: 'sidebar.itens.playbook', Icon: BookOpen,      type: 'external', href: 'https://app.clickup.com/9009170774/v/dc/8cfu2ap-40333/8cfu2ap-18173' },
     ],
   },
   {
-    label: 'Dados',
+    label: 'sidebar.secoes.dados',
     items: [
-      { id: 'ads-roadmap', label: 'ADS Roadmap',       Icon: Waypoints,     type: 'route', to: '/ads-roadmap' },
+      { id: 'ads-roadmap', label: 'sidebar.itens.adsRoadmap', Icon: Waypoints,     type: 'route', to: '/ads-roadmap' },
       // Antes só existia como botão dentro do Dashboard — ninguém achava.
-      { id: 'squads',      label: 'Relatório de Squads', Icon: Users2,      type: 'route', to: '/relatorio-squads', gate: canViewSquadsReport },
+      { id: 'squads',      label: 'sidebar.itens.relatorioSquads', Icon: Users2,      type: 'route', to: '/relatorio-squads', gate: canViewSquadsReport },
     ],
   },
 ]
 
+// Os rótulos acima são chaves do i18n; aqui viram texto no idioma atual.
+const traduzItem = (t) => (it) => ({
+  ...it,
+  label: t(it.label),
+  ...(it.children ? { children: it.children.map(traduzItem(t)) } : {}),
+})
+
 // Lista achatada — usada pelo modo recolhido, que não mostra rótulo de seção.
-const navItemsFor = (user) => NAV_SECTIONS.map((sec) => ({
+const navItemsFor = (user, t) => NAV_SECTIONS.map((sec) => ({
   ...sec,
+  label: t(sec.label),
   items: sec.items
     .filter((it) => !it.gate || it.gate(user))
     .map((it) => it.type !== 'group' ? it : { ...it, children: it.children.filter((c) => !c.gate || c.gate(user)) })
-    .filter((it) => it.type !== 'group' || it.children.length > 0),
+    .filter((it) => it.type !== 'group' || it.children.length > 0)
+    .map(traduzItem(t)),
 })).filter((sec) => sec.items.length > 0)
 
 // Grupo está "ativo" quando a rota atual é de um dos filhos.
@@ -128,6 +138,9 @@ function UserMenu({ anchorRef, open, onClose, user, logout, loadingProjects, nav
   const ref = useRef(null)
   const [pos, setPos] = useState(null)
   const { theme, toggleTheme } = useTheme()
+  const { t, lang } = useI18n()
+  // Grava também no perfil (profiles.idioma), para valer em qualquer navegador.
+  const { mudarIdioma } = useApp()
   const isAdmin = user?.role === 'admin'
 
   useLayoutEffect(() => {
@@ -168,7 +181,7 @@ function UserMenu({ anchorRef, open, onClose, user, logout, loadingProjects, nav
     <div
       ref={ref}
       role="menu"
-      aria-label="Menu do usuário"
+      aria-label={t('sidebar.menuUsuario')}
       style={{ position: 'fixed', left: pos.left, bottom: pos.bottom, width: MENU_WIDTH, zIndex: 90 }}
       className={`${pos.fx ? 'fx ' : ''}rounded-xl border border-rl-border bg-rl-surface shadow-glow overflow-hidden py-1`}
     >
@@ -181,8 +194,8 @@ function UserMenu({ anchorRef, open, onClose, user, logout, loadingProjects, nav
       {/* Status da sincronização — informativo, não clicável */}
       <div className={`${item} ${loadingProjects ? 'text-rl-gold' : 'text-rl-green'}`}>
         {loadingProjects
-          ? <><Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /><span>Sincronizando...</span></>
-          : <><Cloud className="w-3.5 h-3.5 shrink-0" /><span>Dados na nuvem</span></>}
+          ? <><Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /><span>{t('comum.sincronizando')}</span></>
+          : <><Cloud className="w-3.5 h-3.5 shrink-0" /><span>{t('sidebar.dadosNuvem')}</span></>}
       </div>
 
       <div className="border-t border-rl-border/60 my-1" />
@@ -193,9 +206,31 @@ function UserMenu({ anchorRef, open, onClose, user, logout, loadingProjects, nav
         className={`${item} text-rl-muted hover:bg-rl-bg hover:text-rl-text`}
       >
         {theme === 'dark'
-          ? <><Sun className="w-3.5 h-3.5 shrink-0" /><span>Tema claro</span></>
-          : <><Moon className="w-3.5 h-3.5 shrink-0" /><span>Tema escuro</span></>}
+          ? <><Sun className="w-3.5 h-3.5 shrink-0" /><span>{t('sidebar.temaClaro')}</span></>
+          : <><Moon className="w-3.5 h-3.5 shrink-0" /><span>{t('sidebar.temaEscuro')}</span></>}
       </button>
+
+      {/* Idioma: troca na hora e não fecha o menu, para a pessoa ver o efeito. */}
+      <div className={`${item} text-rl-muted`}>
+        <Languages className="w-3.5 h-3.5 shrink-0" />
+        <span className="flex-1">{t('idioma.titulo')}</span>
+        <div role="radiogroup" aria-label={t('idioma.titulo')} className="flex rounded-lg border border-rl-border p-0.5 gap-0.5">
+          {IDIOMAS.map((i) => (
+            <button
+              key={i.id}
+              role="radio"
+              aria-checked={lang === i.id}
+              title={i.rotulo}
+              onClick={() => mudarIdioma(i.id)}
+              className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold transition-colors ${
+                lang === i.id ? 'bg-rl-purple/15 text-rl-purple' : 'text-rl-muted hover:text-rl-text'
+              }`}
+            >
+              {i.curto}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {isAdmin && (
         <button
@@ -208,7 +243,7 @@ function UserMenu({ anchorRef, open, onClose, user, logout, loadingProjects, nav
           }`}
         >
           <UserCog className="w-3.5 h-3.5 shrink-0" />
-          <span>Usuários</span>
+          <span>{t('sidebar.usuarios')}</span>
         </button>
       )}
 
@@ -220,7 +255,7 @@ function UserMenu({ anchorRef, open, onClose, user, logout, loadingProjects, nav
         className={`${item} text-rl-muted hover:bg-red-400/10 hover:text-red-400`}
       >
         <LogOut className="w-3.5 h-3.5 shrink-0" />
-        <span>Sair</span>
+        <span>{t('sidebar.sair')}</span>
       </button>
     </div>,
     document.body,
@@ -235,6 +270,7 @@ function SidebarContent({
   navigate, location,
   collapsed = false, onToggleCollapse,
 }) {
+  const { t } = useI18n()
   const avatarRef = useRef(null)
   const [menuOpen, setMenuOpen] = useState(false)
   // Dropdowns dos grupos (ex.: Ferramentas). Sem valor salvo, o grupo começa
@@ -250,10 +286,11 @@ function SidebarContent({
     return (
       <div className="flex flex-col items-center h-full py-4 px-2 gap-1">
         <img src="/verta/simbolo.png" alt="Verta" className="w-8 h-8 shrink-0 object-contain mb-2" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-        <button onClick={onToggleCollapse} aria-label="Expandir menu" title="Expandir menu ( [ )" className={iconBtn(false)}>
+        <button onClick={onToggleCollapse} aria-label={t('sidebar.expandir')} title={`${t('sidebar.expandir')} ( [ )`} className={iconBtn(false)}>
           <PanelLeftOpen className="w-4 h-4" />
         </button>
-        {NAV_ITEMS.map(({ id, label, Icon, type, to }) => {
+        {NAV_ITEMS.map(({ id, label: chave, Icon, type, to }) => {
+          const label = t(chave)
           const ativo = type === 'filter'
             ? filter === id && location.pathname === '/'
             : location.pathname === to
@@ -291,8 +328,8 @@ function SidebarContent({
           onClick={() => setMenuOpen((v) => !v)}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          aria-label="Abrir menu do usuário"
-          title={`${user.name} · ${user.role}`}
+          aria-label={t('sidebar.abrirMenuUsuario')}
+          title={`${user.name} · ${t(`papeis.${user.role}`)}`}
           className="relative shrink-0 rounded-full"
         >
           <div className="w-8 h-8 rounded-full bg-gradient-rl flex items-center justify-center text-xs font-bold text-white">
@@ -341,14 +378,14 @@ function SidebarContent({
             className="h-7 w-auto shrink-0 object-contain hidden dark:block"
           />
           <div>
-            <p className="text-[10px] text-rl-muted mt-0.5">Internal Tool</p>
+            <p className="text-[10px] text-rl-muted mt-0.5">{t('sidebar.internalTool')}</p>
           </div>
         </div>
         {/* Recolher (desktop) */}
         <button
           onClick={onToggleCollapse}
-          aria-label="Recolher menu"
-          title="Recolher menu ( [ )"
+          aria-label={t('sidebar.recolher')}
+          title={`${t('sidebar.recolher')} ( [ )`}
           className="hidden lg:inline-flex p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
         >
           <PanelLeftClose className="w-4 h-4" />
@@ -356,7 +393,7 @@ function SidebarContent({
         {/* Mobile close */}
         <button
           onClick={onClose}
-          aria-label="Fechar menu de navegação"
+          aria-label={t('sidebar.fecharNavegacao')}
           className="lg:hidden p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
         >
           <X className="w-4 h-4" />
@@ -365,7 +402,8 @@ function SidebarContent({
 
       {/* ── Navigation ──────────────────────────────────── */}
       <nav className="space-y-0.5 mb-2">
-        {NAV_ITEMS.map(({ id, label, Icon, type, to, badge }) => {
+        {NAV_ITEMS.map(({ id, label: chave, Icon, type, to, badge }) => {
+          const label = t(chave)
           const isFiltro = type === 'filter'
           const count = isFiltro ? (counts?.[id] ?? 0) : 0
           const active = isFiltro
@@ -516,7 +554,7 @@ function SidebarContent({
         onClick={() => setMenuOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
-        aria-label="Abrir menu do usuário"
+        aria-label={t('sidebar.abrirMenuUsuario')}
         className={`flex items-center gap-2 px-2 py-1.5 mx-0.5 rounded-xl border transition-all ${
           menuOpen
             ? 'bg-rl-bg border-rl-border'
@@ -530,7 +568,7 @@ function SidebarContent({
           {/* O indicador de sincronização mudou de lugar para dentro do menu;
               o ponto mantém o sinal visível sem precisar abrir nada. */}
           <span
-            title={loadingProjects ? 'Sincronizando...' : 'Dados na nuvem'}
+            title={loadingProjects ? t('comum.sincronizando') : t('sidebar.dadosNuvem')}
             className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-rl-surface ${
               loadingProjects ? 'bg-rl-gold animate-pulse' : 'bg-rl-green'
             }`}
@@ -538,7 +576,7 @@ function SidebarContent({
         </div>
         <div className="flex-1 min-w-0 text-left">
           <p className="text-xs font-semibold text-rl-text leading-none truncate">{user.name.split(' ')[0]}</p>
-          <p className="text-[10px] text-rl-muted capitalize mt-0.5">{user.role}</p>
+          <p className="text-[10px] text-rl-muted capitalize mt-0.5">{t(`papeis.${user.role}`)}</p>
         </div>
         <ChevronUp className={`w-3.5 h-3.5 shrink-0 text-rl-muted transition-transform ${menuOpen ? '' : 'rotate-180'}`} />
       </button>
@@ -568,13 +606,14 @@ export default function AppSidebar({ open, onClose }) {
   const [searchParams] = useSearchParams()
   const { user, logout, loadingProjects, projects, squads } = useApp()
   const [collapsed, setCollapsed] = useSidebarCollapsed()
+  const { t } = useI18n()
 
   const filter = searchParams.get('lista') || 'all'
   const counts = useMemo(
     () => sidebarCounts(baseProjectsOf(projects, squads)),
     [projects, squads],
   )
-  const sections = useMemo(() => navItemsFor(user), [user])
+  const sections = useMemo(() => navItemsFor(user, t), [user, t])
 
   // `replace` para que alternar filtro não encha o histórico de voltas.
   const handleNav = (id) => {

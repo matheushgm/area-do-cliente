@@ -3,8 +3,11 @@
 import { useState, useRef } from 'react'
 import { Check, X } from 'lucide-react'
 import { Popover, FOCO } from './Campos'
+import { useI18n } from '../../i18n'
 
-export default function RelacaoCampo({ valor, opcoes, onChange, vazio = 'nenhum', cor = '#7b68ee' }) {
+export default function RelacaoCampo({ valor, opcoes, onChange, vazio: vazioPedido, cor = '#7b68ee' }) {
+  const { t } = useI18n()
+  const vazio = vazioPedido ?? t('tarefaPainel.nenhum')
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const atual = opcoes.find((o) => o.id === valor)
@@ -20,7 +23,7 @@ export default function RelacaoCampo({ valor, opcoes, onChange, vazio = 'nenhum'
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={260}>
         <div className="p-1 overflow-y-auto">
-          {opcoes.length === 0 && <p className="px-2.5 py-2 text-xs text-ln-t4">Nada criado ainda.</p>}
+          {opcoes.length === 0 && <p className="px-2.5 py-2 text-xs text-ln-t4">{t('tarefaPainel.nadaCriado')}</p>}
           {opcoes.map((o) => (
             <button key={o.id} type="button" onClick={() => { setOpen(false); onChange(o.id) }} className={`w-full flex items-center gap-2 h-8 px-2.5 rounded-md text-[13px] hover:bg-ln-ink/5 ${o.id === valor ? 'text-ln-t1' : 'text-ln-t2'}`}>
               <i className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cor }} />
@@ -33,7 +36,7 @@ export default function RelacaoCampo({ valor, opcoes, onChange, vazio = 'nenhum'
             <>
               <div className="border-t border-ln-ink/5 my-1" />
               <button type="button" onClick={() => { setOpen(false); onChange(null) }} className="w-full flex items-center gap-2 h-8 px-2.5 rounded-md text-[13px] text-ln-t2 hover:bg-ln-ink/5">
-                <X className="w-3.5 h-3.5 text-ln-t4" /> Limpar
+                <X className="w-3.5 h-3.5 text-ln-t4" /> {t('comum.limpar')}
               </button>
             </>
           )}

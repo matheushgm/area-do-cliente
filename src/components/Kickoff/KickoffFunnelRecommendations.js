@@ -1,81 +1,36 @@
 // Catálogo de funis + lógica de recomendação. Roda no fim do diagnóstico
 // Kickoff e devolve quais funis fazem sentido pra esse cliente, com a
 // justificativa de cada match.
+//
+// Nome, descrição de cada funil e as razões moram em
+// src/i18n/locales/{pt,en}/kickoffRecomendacoes.js. `label` e `desc` são getters (traduzem
+// no idioma de agora a cada leitura), então quem importa FUNNELS (Central de anúncios,
+// Central de LPs) continua lendo `f.label` / `f.desc`. As razões são traduzidas na hora em
+// que a recomendação é calculada (o painel recalcula ao trocar o idioma).
+import { t } from '../../i18n'
+import { ligarCampo } from './KickoffQuestions'
+
+const razao = (funil, chave) => t(`kickoffRecomendacoes.razoes.${funil}.${chave}`)
 
 export const FUNNELS = [
-  {
-    id: 'webinar',
-    label: 'Funil de Webinar',
-    icon: '🎥',
-    desc: 'Ideal pra produtos/serviços com baixa consciência do lead e marcas que ainda não são autoridade. O webinar prende o lead por horas e constrói confiança.',
-  },
-  {
-    id: 'diagnostico',
-    label: 'Funil de Diagnóstico',
-    icon: '🔍',
-    desc: 'Excelente pra SaaS que querem agendar demonstração e pra empresas B2B que entregam diagnóstico específico (ex: saúde financeira da empresa).',
-  },
-  {
-    id: 'webinar_pago',
-    label: 'Funil de Webinar Pago',
-    icon: '💎',
-    desc: 'Funcionou muito bem pra infoprodutores e coaches/mentores que querem qualificar a audiência cobrando uma entrada simbólica.',
-  },
-  {
-    id: 'vsl',
-    label: 'Funil de VSL',
-    icon: '📹',
-    desc: 'Alternativa ao webinar. Brilha quando o lead já tem dor latente mas ainda não conhece uma solução específica pro problema dele.',
-  },
-  {
-    id: 'lancamento',
-    label: 'Funil de Lançamento',
-    icon: '🚀',
-    desc: 'Estratégia clássica de infoprodutos. Constrói antecipação, faz o lead chegar quente no carrinho e maximiza conversão em janela curta.',
-  },
-  {
-    id: 'wymb',
-    label: 'Funil Win-Your-Money-Back',
-    icon: '🛡️',
-    desc: 'Excelente pra prestadores de serviços: garantia de devolução total se o cliente não tiver o resultado prometido. Quebra objeção de risco com força.',
-  },
-  {
-    id: 'aplicacao',
-    label: 'Funil de Aplicação',
-    icon: '📋',
-    desc: 'Pra marcas que já têm autoridade e querem filtrar leads antes de mandar pro comercial. Funciona bem em ticket alto B2B.',
-  },
-  {
-    id: 'ecommerce',
-    label: 'Funil de E-commerce',
-    icon: '🛒',
-    desc: 'Estrutura padrão pra venda direta de produtos físicos online: anúncio → produto → checkout → upsell.',
-  },
-  {
-    id: 'isca_digital',
-    label: 'Funil de Isca Digital',
-    icon: '🧲',
-    desc: 'Roda em paralelo a outro funil que já está performando. Capta leads via material gratuito (eBook, kit, planilha) pro comercial trabalhar.',
-  },
-  {
-    id: 'quiz',
-    label: 'Funil de Quiz',
-    icon: '❓',
-    desc: 'Indicado pra empresas B2B que querem diagnosticar o lead enquanto coletam mais informações pra qualificação posterior.',
-  },
-  {
-    id: 'whatsapp',
-    label: 'Funil de Mensagem no WhatsApp',
-    icon: '💬',
-    desc: 'O funil do negócio local: o anúncio abre a conversa direto (click-to-WhatsApp) ou a página só tem botões que levam ao WhatsApp, sem formulário. A venda acontece no atendimento.',
-  },
-  {
-    id: 'desafio',
-    label: 'Funil de Desafio',
-    icon: '🏆',
-    desc: 'Funciona pra prestadores de serviços, coaches e mentores. Engaja o lead num desafio de poucos dias e gera prova social ao vivo.',
-  },
+  { id: 'webinar', icon: '🎥' },
+  { id: 'diagnostico', icon: '🔍' },
+  { id: 'webinar_pago', icon: '💎' },
+  { id: 'vsl', icon: '📹' },
+  { id: 'lancamento', icon: '🚀' },
+  { id: 'wymb', icon: '🛡️' },
+  { id: 'aplicacao', icon: '📋' },
+  { id: 'ecommerce', icon: '🛒' },
+  { id: 'isca_digital', icon: '🧲' },
+  { id: 'quiz', icon: '❓' },
+  { id: 'whatsapp', icon: '💬' },
+  { id: 'desafio', icon: '🏆' },
 ]
+
+for (const f of FUNNELS) {
+  ligarCampo(f, 'label', `kickoffRecomendacoes.funis.${f.id}.label`)
+  ligarCampo(f, 'desc', `kickoffRecomendacoes.funis.${f.id}.desc`)
+}
 
 export const FUNNELS_BY_ID = Object.fromEntries(FUNNELS.map((f) => [f.id, f]))
 
@@ -111,85 +66,86 @@ export function recommendFunnels({ answers = {}, ofertaMatadora = null } = {}) {
   const jaInvesteEmTrafego  = investimentoPassado > 0
 
   const matches = {}
+  // `reason` é a chave do texto em kickoffRecomendacoes.razoes.<funil>.
   function add(funnelId, points, reason) {
     if (!matches[funnelId]) matches[funnelId] = { score: 0, reasons: [] }
     matches[funnelId].score += points
-    if (points > 0) matches[funnelId].reasons.push(reason)
+    if (points > 0) matches[funnelId].reasons.push(razao(funnelId, reason))
   }
 
   // ── Funil de Webinar ──────────────────────────────────────────────────────
-  if (baixaConsciencia) add('webinar', 3, 'Lead com baixa consciência do problema/solução')
-  if (baixaAutoridade)  add('webinar', 3, 'Marca ainda construindo autoridade')
-  if (modelo === 'consultoria') add('webinar', 2, 'Consultoria/assessoria educa o lead enquanto vende')
-  if (modelo === 'whatsapp')    add('webinar', 1, 'Aquecimento antes da conversa no WhatsApp')
+  if (baixaConsciencia) add('webinar', 3, 'baixaConsciencia')
+  if (baixaAutoridade)  add('webinar', 3, 'baixaAutoridade')
+  if (modelo === 'consultoria') add('webinar', 2, 'consultoria')
+  if (modelo === 'whatsapp')    add('webinar', 1, 'whatsapp')
   if (modelo === 'ecommerce') add('webinar', -2)
 
   // ── Funil de Diagnóstico ──────────────────────────────────────────────────
-  if (modelo === 'saas')        add('diagnostico', 3, 'Modelo SaaS — diagnóstico ajuda a marcar demo')
-  if (modelo === 'servicos')    add('diagnostico', 2, 'Serviços B2B podem entregar diagnóstico inicial')
-  if (modelo === 'consultoria') add('diagnostico', 3, 'Consultoria/assessoria vive de diagnosticar — entrega de valor antecipada')
+  if (modelo === 'saas')        add('diagnostico', 3, 'saas')
+  if (modelo === 'servicos')    add('diagnostico', 2, 'servicos')
+  if (modelo === 'consultoria') add('diagnostico', 3, 'consultoria')
   if (modelo === 'ecommerce') add('diagnostico', -2)
 
   // ── Funil de Webinar Pago ─────────────────────────────────────────────────
-  if (modelo === 'infoproduto') add('webinar_pago', 3, 'Infoprodutos respondem bem ao filtro de webinar pago')
-  if (modelo === 'coach')       add('webinar_pago', 3, 'Coaches/mentores filtram bem com webinar pago')
-  if (modelo === 'consultoria') add('webinar_pago', 1, 'Filtro premium pode pré-qualificar audiência de consultoria')
+  if (modelo === 'infoproduto') add('webinar_pago', 3, 'infoproduto')
+  if (modelo === 'coach')       add('webinar_pago', 3, 'coach')
+  if (modelo === 'consultoria') add('webinar_pago', 1, 'consultoria')
 
   // ── Funil de VSL ──────────────────────────────────────────────────────────
-  if (dorForte && consciencia === 'problema') add('vsl', 3, 'Lead com dor latente sem conhecer solução específica')
-  if (modelo === 'infoproduto' || modelo === 'coach') add('vsl', 1, 'Modelo combina com VSL pra qualificar')
-  if (modelo === 'consultoria') add('vsl', 1, 'VSL educativo apresenta o método de consultoria')
+  if (dorForte && consciencia === 'problema') add('vsl', 3, 'dorLatente')
+  if (modelo === 'infoproduto' || modelo === 'coach') add('vsl', 1, 'infoCoach')
+  if (modelo === 'consultoria') add('vsl', 1, 'consultoria')
 
   // ── Funil de Lançamento ───────────────────────────────────────────────────
-  if (modelo === 'infoproduto') add('lancamento', 3, 'Estratégia clássica de infoprodutos')
-  if (modelo === 'coach')       add('lancamento', 2, 'Mentorias respondem bem a lançamentos')
+  if (modelo === 'infoproduto') add('lancamento', 3, 'infoproduto')
+  if (modelo === 'coach')       add('lancamento', 2, 'coach')
 
   // ── Funil Win-Your-Money-Back ─────────────────────────────────────────────
-  if (modelo === 'servicos')    add('wymb', 3, 'Prestadores de serviços conseguem entregar garantia total')
-  if (modelo === 'consultoria') add('wymb', 2, 'Garantia de resultado funciona pra quebrar objeção em consultoria')
+  if (modelo === 'servicos')    add('wymb', 3, 'servicos')
+  if (modelo === 'consultoria') add('wymb', 2, 'consultoria')
 
   // ── Funil de Aplicação ────────────────────────────────────────────────────
-  if (altaAutoridade) add('aplicacao', 3, 'Marca consolidada — pode filtrar leads via aplicação')
-  if (modelo === 'saas' || modelo === 'servicos') add('aplicacao', 2, 'Modelo aceita filtro pré-comercial')
-  if (modelo === 'consultoria') add('aplicacao', 3, 'Consultoria de ticket alto — aplicação filtra leads sérios pro comercial')
+  if (altaAutoridade) add('aplicacao', 3, 'altaAutoridade')
+  if (modelo === 'saas' || modelo === 'servicos') add('aplicacao', 2, 'saasServicos')
+  if (modelo === 'consultoria') add('aplicacao', 3, 'consultoria')
   if (modelo === 'ecommerce') add('aplicacao', -2)
 
   // ── Funil de E-commerce ───────────────────────────────────────────────────
-  if (modelo === 'ecommerce') add('ecommerce', 3, 'Venda direta de produto físico online')
-  if (modelo === 'whatsapp')  add('ecommerce', 2, 'Estrutura de e-commerce pode redirecionar leads pro atendimento WhatsApp')
+  if (modelo === 'ecommerce') add('ecommerce', 3, 'ecommerce')
+  if (modelo === 'whatsapp')  add('ecommerce', 2, 'whatsapp')
 
   // ── Funil de Isca Digital ─────────────────────────────────────────────────
-  if (jaInvesteEmTrafego) add('isca_digital', 3, 'Já investe em tráfego — paralelo a um funil ativo')
-  if (modelo === 'saas' || modelo === 'servicos') add('isca_digital', 1, 'Bom canal de leads pro comercial')
-  if (modelo === 'consultoria') add('isca_digital', 2, 'Material gratuito (whitepaper/diagnóstico) capta leads B2B qualificados')
-  if (modelo === 'whatsapp')    add('isca_digital', 3, 'Isca digital + click-to-WhatsApp é o combo natural pra venda conversacional')
+  if (jaInvesteEmTrafego) add('isca_digital', 3, 'jaInveste')
+  if (modelo === 'saas' || modelo === 'servicos') add('isca_digital', 1, 'saasServicos')
+  if (modelo === 'consultoria') add('isca_digital', 2, 'consultoria')
+  if (modelo === 'whatsapp')    add('isca_digital', 3, 'whatsapp')
 
   // ── Funil de Quiz ─────────────────────────────────────────────────────────
   // Quiz é mais B2B — checamos se o businessType passou via answers
   // ou via flag explícita. (O businessType vem do orquestrador.)
   // Como recommendFunnels não recebe businessType direto, vamos confiar no modelo.
-  if (modelo === 'saas' || modelo === 'servicos') add('quiz', 2, 'Quiz qualifica e coleta dados antes do comercial')
-  if (modelo === 'consultoria') add('quiz', 2, 'Quiz funciona como mini-diagnóstico antes da call comercial')
-  if (modelo === 'whatsapp')    add('quiz', 2, 'Quiz qualifica e segmenta o lead antes de entrar no WhatsApp')
-  if (altaConsciencia) add('quiz', 1, 'Lead já maduro responde quiz com profundidade')
+  if (modelo === 'saas' || modelo === 'servicos') add('quiz', 2, 'saasServicos')
+  if (modelo === 'consultoria') add('quiz', 2, 'consultoria')
+  if (modelo === 'whatsapp')    add('quiz', 2, 'whatsapp')
+  if (altaConsciencia) add('quiz', 1, 'altaConsciencia')
 
   // ── Funil de Mensagem no WhatsApp ─────────────────────────────────────────
-  if (modelo === 'whatsapp')    add('whatsapp', 3, 'Venda via WhatsApp: o funil natural é levar direto pra conversa')
-  if (modelo === 'servicos')    add('whatsapp', 3, 'Prestador de serviço/negócio local fecha por atendimento, não por formulário')
-  if (modelo === 'ecommerce')   add('whatsapp', 1, 'Atendimento por mensagem ajuda no ticket maior e na dúvida antes da compra')
-  if (altaConsciencia)          add('whatsapp', 2, 'Lead maduro já quer preço/disponibilidade: mandar mensagem é o caminho mais curto')
-  if (dorForte)                 add('whatsapp', 1, 'Dor aguda pede resposta rápida, e o WhatsApp entrega isso na hora')
+  if (modelo === 'whatsapp')    add('whatsapp', 3, 'whatsapp')
+  if (modelo === 'servicos')    add('whatsapp', 3, 'servicos')
+  if (modelo === 'ecommerce')   add('whatsapp', 1, 'ecommerce')
+  if (altaConsciencia)          add('whatsapp', 2, 'altaConsciencia')
+  if (dorForte)                 add('whatsapp', 1, 'dorForte')
   if (modelo === 'infoproduto' || modelo === 'coach') add('whatsapp', -2)
 
   // ── Funil de Desafio ──────────────────────────────────────────────────────
-  if (modelo === 'servicos')    add('desafio', 2, 'Prestadores de serviço conseguem entregar desafio')
-  if (modelo === 'coach')       add('desafio', 3, 'Coaches/mentores brilham em desafios ao vivo')
-  if (modelo === 'consultoria') add('desafio', 1, 'Desafio funciona pra consultoria com formato advisory de curta duração')
+  if (modelo === 'servicos')    add('desafio', 2, 'servicos')
+  if (modelo === 'coach')       add('desafio', 3, 'coach')
+  if (modelo === 'consultoria') add('desafio', 1, 'consultoria')
 
   // ── Funil de Lançamento ───────────────────────────────────────────────────
   // (Continua principalmente pra infoprodutos/coaches — já mapeado acima,
   //  mas reforçamos pra WhatsApp que aproveita lista de transmissão.)
-  if (modelo === 'whatsapp')    add('lancamento', 2, 'Lista de transmissão WhatsApp é tração natural pra lançamento')
+  if (modelo === 'whatsapp')    add('lancamento', 2, 'whatsapp')
 
   // Constrói lista final ordenada
   return FUNNELS
@@ -215,14 +171,14 @@ export function recommendFunnelsWithBusiness({ answers, ofertaMatadora, business
     const quiz = baseList.find((f) => f.id === 'quiz')
     if (quiz) {
       quiz.score += 1
-      quiz.reasons.unshift('Modelo B2B/Híbrido — quiz qualifica e diagnostica antes do comercial')
+      quiz.reasons.unshift(razao('quiz', 'b2bHibrido'))
       if (quiz.score >= 3) quiz.tier = 'top'
     } else {
       // Insere mesmo se não tinha entrado
       baseList.push({
         ...FUNNELS_BY_ID.quiz,
         score: 2,
-        reasons: ['Modelo B2B/Híbrido — quiz qualifica e diagnostica antes do comercial'],
+        reasons: [razao('quiz', 'b2bHibrido')],
         tier: 'consider',
       })
     }

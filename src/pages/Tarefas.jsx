@@ -37,6 +37,7 @@ import IntakeView from '../components/Tarefas/IntakeView'
 import { FOCO } from '../components/Tarefas/Campos'
 import { urlClickUpPasta, urlClickUpLista } from '../lib/tarefas'
 import AreaTarefas, { lerPref, gravarPref, useLarguraDoConteudo } from '../components/Tarefas/AreaTarefas'
+import { useI18n, t as tr } from '../i18n'
 
 // Sincronização incremental com o ClickUp (api/tarefas-sync.js): botão na barra e disparo
 // automático ao abrir a página. Com o webhook entregando, a rodada de 30 em 30 min quase não
@@ -67,7 +68,7 @@ function useSyncClickup({ ativo, aoTerminar }) {
     setErro(null)
     try {
       const json = await apiFetch('/api/tarefas-sync', { body: {} })
-      if (json.ok === false) throw new Error(json.error || 'Falha na sincronização.')
+      if (json.ok === false) throw new Error(json.error || tr('tarefas.pagina.falhaSync'))
       await lerEstado()
       aoTerminar?.(json)
     } catch (e) {
@@ -93,14 +94,15 @@ function useSyncClickup({ ativo, aoTerminar }) {
   return { estado, webhook, avisoWebhook, rodando, erro, sincronizar }
 }
 
+// chamado no render: o `tr` lê o idioma da hora, e a página redesenha na troca (useI18n)
 function tempoRelativo(iso) {
-  if (!iso) return 'nunca'
+  if (!iso) return tr('tarefas.pagina.nunca')
   const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
-  if (min < 1) return 'agora'
-  if (min < 60) return `há ${min} min`
+  if (min < 1) return tr('tarefas.pagina.agora')
+  if (min < 60) return tr('tarefas.pagina.haMin', { n: min })
   const h = Math.round(min / 60)
-  if (h < 48) return `há ${h} h`
-  return `há ${Math.round(h / 24)} dias`
+  if (h < 48) return tr('tarefas.pagina.haH', { n: h })
+  return tr('tarefas.pagina.haDias', { count: Math.round(h / 24) })
 }
 
 // Itens da fila VertaTask → ClickUp que pararam em erro: contador no item "Sincronização"
@@ -132,6 +134,7 @@ function LinkClickUp({ href, titulo }) {
 
 export default function Tarefas() {
   const { user, projects, teamMembers, squads } = useApp()
+  const { t: tt } = useI18n() // `t` é o useTarefas, logo abaixo
   const { toast, showToast } = useToast()
   const [confirmar, dialogoConfirmar] = useConfirmar()
   const { openSidebar } = useOutletContext()
@@ -151,11 +154,11 @@ export default function Tarefas() {
   const sync = useSyncClickup({
     ativo: !t.loadingEstrutura,
     aoTerminar: useCallback((r) => {
-      if (r?.emAndamento) { showToast('O ClickUp já está sendo sincronizado agora'); return }
+      if (r?.emAndamento) { showToast(tt('tarefas.pagina.syncEmAndamento')); return }
       const n = (r?.criadas || 0) + (r?.atualizadas || 0)
       if (n > 0) { t.carregarEstrutura(); setRecarregarTick((x) => x + 1) }
-      showToast(n > 0 ? `ClickUp sincronizado: ${n} tarefa(s) atualizada(s)` : 'ClickUp sincronizado, nada novo')
-    }, [t, showToast]),
+      showToast(n > 0 ? tt('tarefas.pagina.syncOk', { count: n }) : tt('tarefas.pagina.syncNadaNovo'))
+    }, [t, showToast, tt]),
   })
 
   useEffect(() => gravarPref('burn', unidadeBurn), [unidadeBurn])
@@ -210,39 +213,40 @@ export default function Tarefas() {
   const abrirTemplate = useCallback((id) => irAba('templates', id ? { template: id } : {}), [irAba])
   const abrirRascunho = useCallback((t) => { guardarRascunhoTemplate(t); abrirTemplate(ID_RASCUNHO_TEMPLATE) }, [abrirTemplate])
 
-  const novoTemplate = useCallback(() => abrirRascunho({ nome: 'Novo template', itens: [] }), [abrirRascunho])
+  // nome sugerido no rascunho (a pessoa edita antes de salvar; template não vai para o ClickUp)
+  const novoTemplate = useCallback(() => abrirRascunho({ nome: tt('templates.novoTemplate'), itens: [] }), [abrirRascunho, tt])
 
   const duplicarTemplate = useCallback((m) => {
-    abrirRascunho({ nome: `${m.nome} (cópia)`, descricao: m.descricao || null, itens: clonarItens(itensDoTemplate(m)) })
-  }, [abrirRascunho])
+    abrirRascunho({ nome: tt('templates.copia', { nome: m.nome }), descricao: m.descricao || null, itens: clonarItens(itensDoTemplate(m)) })
+  }, [abrirRascunho, tt])
 
   const excluirTemplate = useCallback(async (m) => {
     const n = resumoDoTemplate(itensDoTemplate(m)).total
     const ok = await confirmar({
-      perigo: true, titulo: 'Excluir template?', acao: 'Excluir',
-      texto: 'As tarefas já criadas com ele continuam. O template não pode ser recuperado.',
-      rotuloItens: 'Template a ser excluído', itens: [`${m.nome}${n ? ` · ${n === 1 ? '1 tarefa' : `${n} tarefas`}` : ''}`],
+      perigo: true, titulo: tt('tarefas.pagina.excluirTemplateTitulo'), acao: tt('comum.excluir'),
+      texto: tt('tarefas.pagina.excluirTemplateTexto'),
+      rotuloItens: tt('tarefas.pagina.templateASerExcluido'), itens: [`${m.nome}${n ? ` · ${tt('tarefas.modelos.nTarefas', { count: n })}` : ''}`],
     })
     if (!ok) return
     const r = await vt.excluirModelo(m.id)
     if (r.error) { showToast(r.error, 'error'); return }
-    showToast('Template excluído')
+    showToast(tt('tarefas.pagina.templateExcluido'))
     if (templateAbertoId === m.id) abrirTemplate(null)
-  }, [vt, showToast, templateAbertoId, abrirTemplate, confirmar])
+  }, [vt, showToast, templateAbertoId, abrirTemplate, confirmar, tt])
 
   const salvarTemplate = useCallback(async (id, patch) => {
     if (id === ID_RASCUNHO_TEMPLATE) {
       const r = await vt.criarModelo(patch)
       if (r.error) { showToast(r.error, 'error'); return r }
       limparRascunhoTemplate()
-      showToast('Template criado')
+      showToast(tt('tarefas.pagina.templateCriado'))
       abrirTemplate(r.data.id)
       return r
     }
     const r = await vt.atualizarModelo(id, patch)
-    if (r.error) showToast(r.error, 'error'); else showToast('Template salvo')
+    if (r.error) showToast(r.error, 'error'); else showToast(tt('tarefas.pagina.templateSalvo'))
     return r
-  }, [vt, showToast, abrirTemplate])
+  }, [vt, showToast, abrirTemplate, tt])
 
   const moverPendentes = useCallback(async (origem, destino) => {
     const ids = Object.values(t.itens).filter((it) => it.ciclo_id === origem && !it.parent_id && it.status_tipo !== 'closed').map((i) => i.id)
@@ -250,8 +254,8 @@ export default function Tarefas() {
     const { error } = await supabase.from('tarefas_itens').update({ ciclo_id: destino }).in('id', ids)
     if (error) { showToast(error.message, 'error'); return }
     t.aplicarLocal(ids, { ciclo_id: destino })
-    showToast(`${ids.length} tarefa(s) passaram para o outro cycle`)
-  }, [t, showToast])
+    showToast(tt('tarefas.pagina.movidasCycle', { count: ids.length }))
+  }, [t, showToast, tt])
 
   useEffect(() => {
     if (t.loadingEstrutura) return
@@ -273,7 +277,7 @@ export default function Tarefas() {
 
   const aceitarIntake = useCallback(async (it, { pastaId, responsavelId }) => {
     const lista = t.listas.find((l) => l.pasta_id === pastaId && l.nome === 'Geral') || t.listas.find((l) => l.pasta_id === pastaId)
-    if (!lista) { showToast('Essa pasta não tem lista. Crie a lista no ClickUp e sincronize.', 'error'); return }
+    if (!lista) { showToast(tt('tarefas.pagina.pastaSemLista'), 'error'); return }
     const r = await t.criarTarefa({
       lista_id: lista.id, titulo: it.titulo, prioridade: it.prioridade,
       descricao: it.descricao ? `${it.descricao}\n\nOrigem: ${it.origem}` : `Origem: ${it.origem}`,
@@ -283,8 +287,8 @@ export default function Tarefas() {
     if (r.error) { showToast(r.error, 'error'); return }
     const d = await vt.decidirIntake(it.id, { status: 'aceito', tarefa_id: r.data.id })
     if (d.error) showToast(d.error, 'error')
-    else showToast(`Tarefa criada em ${lista.nome}`)
-  }, [t, vt, showToast])
+    else showToast(tt('tarefas.pagina.tarefaCriadaEm', { lista: lista.nome }))
+  }, [t, vt, showToast, tt])
 
   // ── Cabeçalho ────────────────────────────────────────────────────────────
   const pastaSel = sel.tipo === 'pasta' ? t.pastasMap.get(sel.id) : sel.tipo === 'lista' ? t.pastasMap.get(t.listasMap.get(sel.id)?.pasta_id) : null
@@ -295,31 +299,31 @@ export default function Tarefas() {
   const cabecalho = (api) => (
     <header className="min-h-[56px] shrink-0 flex items-center justify-between gap-3 px-6 py-2 border-b border-ln-ink/[0.08]">
       <div className="flex items-center gap-2 min-w-0">
-        <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
-        <button onClick={() => setArvoreAberta(true)} aria-label="Abrir pastas" className="ln-iconbtn md:hidden"><PanelLeft className="w-4 h-4" /></button>
+        <button onClick={openSidebar} aria-label={tt('tarefas.pagina.abrirMenu')} className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
+        <button onClick={() => setArvoreAberta(true)} aria-label={tt('tarefas.pagina.abrirPastas')} className="ln-iconbtn md:hidden"><PanelLeft className="w-4 h-4" /></button>
         <button
           type="button" onClick={() => setColunaRecolhida((v) => !v)} className="ln-iconbtn hidden md:inline-flex"
-          aria-label={colunaRecolhida ? 'Mostrar a coluna do VertaTask' : 'Recolher a coluna do VertaTask'} title={colunaRecolhida ? 'Mostrar a coluna' : 'Recolher a coluna'}
+          aria-label={colunaRecolhida ? tt('tarefas.pagina.mostrarColunaAria') : tt('tarefas.pagina.recolherColunaAria')} title={colunaRecolhida ? tt('tarefas.pagina.mostrarColuna') : tt('tarefas.pagina.recolherColuna')}
         >
           {colunaRecolhida ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
         </button>
-        <h1 className="text-xl font-bold text-ln-t1 truncate">{{ intake: 'Intake', sprints: 'Sprints', ciclos: 'Cycles', templates: 'Templates', paginas: 'Pages', analytics: 'Analytics', sincronizacao: 'Sincronização com o ClickUp' }[aba] || 'Tarefas'}</h1>
+        <h1 className="text-xl font-bold text-ln-t1 truncate">{['intake', 'sprints', 'ciclos', 'templates', 'paginas', 'analytics', 'sincronizacao'].includes(aba) ? tt(`tarefas.pagina.titulo.${aba}`) : tt('tarefas.pagina.titulo.tarefas')}</h1>
         {!aba && (
           <div className="hidden sm:flex items-center gap-1.5 text-[13px] text-ln-t3 min-w-0">
             {pastaSel && (<>
               <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
               <button type="button" onClick={() => setSel({ tipo: 'pasta', id: pastaSel.id })} className={`truncate max-w-[200px] rounded ${listaSel ? 'hover:text-ln-t1' : 'text-ln-t2'} ${FOCO}`}>{pastaSel.nome}</button>
-              <LinkClickUp href={urlClickUpPasta(pastaSel)} titulo="Abrir a pasta no ClickUp" />
+              <LinkClickUp href={urlClickUpPasta(pastaSel)} titulo={tt('tarefas.pagina.abrirPastaClickup')} />
             </>)}
             {listaSel && (<>
               <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="truncate max-w-[200px] text-ln-t2">{listaSel.nome}</span>
-              <LinkClickUp href={urlClickUpLista(listaSel)} titulo="Abrir a lista no ClickUp" />
+              <LinkClickUp href={urlClickUpLista(listaSel)} titulo={tt('tarefas.pagina.abrirListaClickup')} />
             </>)}
-            {sel.tipo === 'minhas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">Minhas tarefas</span></>)}
-            {sel.tipo === 'todas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">Todas as abertas</span></>)}
+            {sel.tipo === 'minhas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">{tt('tarefas.pagina.minhas')}</span></>)}
+            {sel.tipo === 'todas' && (<><ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" /><span className="text-ln-t2">{tt('tarefas.pagina.todasAbertas')}</span></>)}
           </div>
         )}
-        {(!aba || aba === 'ciclos') && <span className="hidden xl:inline text-xs text-ln-t4 tabular whitespace-nowrap">{api.totalAbertas} abertas</span>}
+        {(!aba || aba === 'ciclos') && <span className="hidden xl:inline text-xs text-ln-t4 tabular whitespace-nowrap">{tt('tarefas.pagina.nAbertas', { count: api.totalAbertas })}</span>}
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {t.carregando && <Loader2 className="w-3.5 h-3.5 animate-spin text-ln-t4" />}
@@ -327,21 +331,21 @@ export default function Tarefas() {
           type="button"
           onClick={sync.sincronizar}
           disabled={sync.rodando}
-          title={sync.erro ? `Erro na última sincronização: ${sync.erro}` : [
-            `Última rodada com o ClickUp: ${tempoRelativo(sync.estado?.ultimo_fim || sync.estado?.ultimo_inicio)}${sync.estado?.ultimo_ok === false ? ' (com erro)' : sync.estado?.resumo?.incompleto ? ' (incompleta, a próxima cobre o resto)' : ''}`,
-            `Último evento do webhook: ${tempoRelativo(sync.webhook?.ultimo_fim)}`,
+          title={sync.erro ? tt('tarefas.pagina.erroUltimaSync', { erro: sync.erro }) : [
+            `${tt('tarefas.pagina.ultimaRodada', { quando: tempoRelativo(sync.estado?.ultimo_fim || sync.estado?.ultimo_inicio) })}${sync.estado?.ultimo_ok === false ? tt('tarefas.pagina.comErro') : sync.estado?.resumo?.incompleto ? tt('tarefas.pagina.incompleta') : ''}`,
+            tt('tarefas.pagina.ultimoWebhook', { quando: tempoRelativo(sync.webhook?.ultimo_fim) }),
             sync.avisoWebhook,
           ].filter(Boolean).join('\n')}
           className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${sync.erro || sync.estado?.ultimo_ok === false ? 'text-ln-red' : sync.avisoWebhook ? 'text-ln-yellow' : 'text-ln-t4 hover:text-ln-t2'} disabled:opacity-60 ${FOCO} rounded`}
         >
           {sync.avisoWebhook && !sync.rodando ? <AlertTriangle className="w-3 h-3" /> : <RefreshCw className={`w-3 h-3 ${sync.rodando ? 'animate-spin' : ''}`} />}
-          {sync.rodando ? 'sincronizando ClickUp…' : `ClickUp ${tempoRelativo(sync.estado?.ultimo_fim || sync.estado?.ultimo_inicio)}`}
-          {!sync.rodando && api.aguardandoClickup > 0 && <span className="inline-flex items-center gap-1 text-ln-yellow" title="Tarefas desta tela que ainda não foram para o ClickUp"><CloudUpload className="w-3 h-3" />{api.aguardandoClickup} aguardando</span>}
+          {sync.rodando ? tt('tarefas.pagina.sincronizandoClickup') : tt('tarefas.pagina.clickupQuando', { quando: tempoRelativo(sync.estado?.ultimo_fim || sync.estado?.ultimo_inicio) })}
+          {!sync.rodando && api.aguardandoClickup > 0 && <span className="inline-flex items-center gap-1 text-ln-yellow" title={tt('tarefas.pagina.aindaNaoForam')}><CloudUpload className="w-3 h-3" />{tt('tarefas.pagina.nAguardando', { n: api.aguardandoClickup })}</span>}
         </button>
-        <button onClick={api.recarregar} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
+        <button onClick={api.recarregar} className="ln-iconbtn" aria-label={tt('tarefas.pagina.recarregar')} title={tt('tarefas.pagina.recarregar')}><RefreshCw className="w-3.5 h-3.5" /></button>
         {aba !== 'templates' && !api.mostrarViews && (
-          <button onClick={api.novaTarefa} className="ln-primary" title="Nova tarefa (C)">
-            <Plus className="w-3.5 h-3.5" /> Nova tarefa
+          <button onClick={api.novaTarefa} className="ln-primary" title={tt('tarefas.pagina.novaTarefaAtalho')}>
+            <Plus className="w-3.5 h-3.5" /> {tt('tarefas.pagina.novaTarefa')}
           </button>
         )}
       </div>
@@ -356,7 +360,7 @@ export default function Tarefas() {
         onAplicarTemplate={(it, tpl, pastaId) => {
           // pedido com template (criativo, LP): "Aplicar template" na lista Geral do cliente
           const lista = t.listas.find((l) => l.pasta_id === pastaId && l.nome === 'Geral') || t.listas.find((l) => l.pasta_id === pastaId)
-          if (!lista) showToast('Essa pasta não tem lista. Crie a lista no ClickUp e sincronize.', 'error')
+          if (!lista) showToast(tt('tarefas.pagina.pastaSemLista'), 'error')
           else api.usarModelo(tpl, lista.id, it)
         }}
       />
@@ -385,7 +389,7 @@ export default function Tarefas() {
           onDuplicar={duplicarTemplate} onExcluir={excluirTemplate}
         />
       ) : (
-        <div className="text-center text-[13px] text-ln-t4 py-20">Template não encontrado. <button type="button" onClick={() => abrirTemplate(null)} className="text-ln-accent hover:underline">Ver todos</button></div>
+        <div className="text-center text-[13px] text-ln-t4 py-20">{tt('tarefas.pagina.templateNaoEncontrado')} <button type="button" onClick={() => abrirTemplate(null)} className="text-ln-accent hover:underline">{tt('tarefas.pagina.verTodos')}</button></div>
       )
     ) : (
       <TemplatesView modelos={vt.modelos} membrosMap={membrosMap} onNovo={novoTemplate} onAbrir={abrirTemplate} onAplicar={(m) => api.usarModelo(m)} onDuplicar={duplicarTemplate} onExcluir={excluirTemplate} />

@@ -1,17 +1,21 @@
 import { useMemo } from 'react'
 import { Workflow, Star, Check } from 'lucide-react'
 import { recommendFunnelsWithBusiness } from './KickoffFunnelRecommendations'
+import { useI18n } from '../../i18n'
 
 // Painel embutido na tela de resultado do Kickoff. Mostra os funis sugeridos
 // pra esse cliente, ranqueados pela compatibilidade com as respostas dadas.
 export default function KickoffFunnelRecommendationsPanel({ kickoff }) {
+  const { t, lang } = useI18n()
+  // `lang`: nome, descrição e razões dos funis saem no idioma da tela.
   const recs = useMemo(
     () => recommendFunnelsWithBusiness({
       answers:        kickoff?.answers || {},
       ofertaMatadora: kickoff?.ofertaMatadora || null,
       businessType:   kickoff?.businessType,
     }),
-    [kickoff]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [kickoff, lang]
   )
 
   const top     = recs.filter((r) => r.tier === 'top')
@@ -22,10 +26,10 @@ export default function KickoffFunnelRecommendationsPanel({ kickoff }) {
     <div className="glass-card p-5 space-y-5">
       <div className="flex items-center gap-2">
         <Workflow className="w-4 h-4 text-rl-blue" />
-        <h3 className="text-sm font-bold text-rl-text">Funis recomendados pra esse cliente</h3>
+        <h3 className="text-sm font-bold text-rl-text">{t('kickoffRecomendacoes.painel.titulo')}</h3>
         {hasData && (
           <span className="text-[10px] text-rl-muted ml-auto">
-            {recs.length} compatível{recs.length !== 1 ? 'eis' : ''} com o diagnóstico
+            {t('kickoffRecomendacoes.painel.compativeis', { count: recs.length })}
           </span>
         )}
       </div>
@@ -33,11 +37,10 @@ export default function KickoffFunnelRecommendationsPanel({ kickoff }) {
       {!hasData && (
         <div className="rounded-xl border border-dashed border-rl-border p-6 text-center">
           <p className="text-sm text-rl-muted">
-            Sem sinais suficientes pra recomendar um funil específico.
+            {t('kickoffRecomendacoes.painel.semSinais')}
           </p>
           <p className="text-xs text-rl-muted/80 mt-1">
-            Preencha o &ldquo;Modelo do produto/serviço&rdquo; e a análise de Oferta Matadora
-            (acima) pra desbloquear as recomendações.
+            {t('kickoffRecomendacoes.painel.semSinaisDica')}
           </p>
         </div>
       )}
@@ -48,7 +51,7 @@ export default function KickoffFunnelRecommendationsPanel({ kickoff }) {
           <div className="flex items-center gap-2">
             <Star className="w-3.5 h-3.5 text-rl-green fill-rl-green" />
             <p className="text-[10px] uppercase tracking-wider text-rl-subtle font-bold">
-              Recomendados pra começar
+              {t('kickoffRecomendacoes.painel.recomendados')}
             </p>
           </div>
           {top.map((funnel) => (
@@ -61,7 +64,7 @@ export default function KickoffFunnelRecommendationsPanel({ kickoff }) {
       {others.length > 0 && (
         <div className="space-y-3">
           <p className="text-[10px] uppercase tracking-wider text-rl-subtle font-bold">
-            Também vale considerar
+            {t('kickoffRecomendacoes.painel.considerar')}
           </p>
           {others.map((funnel) => (
             <FunnelCard key={funnel.id} funnel={funnel} />
@@ -73,6 +76,7 @@ export default function KickoffFunnelRecommendationsPanel({ kickoff }) {
 }
 
 function FunnelCard({ funnel, highlighted = false }) {
+  const { t } = useI18n()
   return (
     <div
       className={`rounded-xl p-4 border transition-all ${
@@ -101,14 +105,14 @@ function FunnelCard({ funnel, highlighted = false }) {
                   : 'bg-rl-surface text-rl-muted border border-rl-border'
               }`}
             >
-              match {funnel.score}
+              {t('kickoffRecomendacoes.painel.match', { n: funnel.score })}
             </span>
           </div>
           <p className="text-xs text-rl-subtle mt-1 leading-relaxed">{funnel.desc}</p>
           {funnel.reasons.length > 0 && (
             <div className="mt-3 space-y-1">
               <p className="text-[10px] font-bold uppercase tracking-wide text-rl-muted">
-                Por que faz sentido aqui
+                {t('kickoffRecomendacoes.painel.porQue')}
               </p>
               <ul className="space-y-0.5">
                 {funnel.reasons.map((reason, i) => (

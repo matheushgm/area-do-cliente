@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { apiFetch } from '../lib/api'
 import { CONFIG_SPRINT_PADRAO, participantesDaSprint, planoDeFechamento } from '../lib/sprints'
+import { t } from '../i18n'
 
 const unico = (r) => { if (r.error) throw r.error; return r.data }
 
@@ -43,8 +44,8 @@ export const bancoSupabase = {
 }
 
 const msg = (e) => {
-  if (e?.code === '23505') return 'Essa sprint já existe. Recarregue a página.'
-  return e?.message || 'Não foi possível salvar.'
+  if (e?.code === '23505') return t('sprints.erros.jaExiste')
+  return e?.message || t('sprints.erros.naoSalvou')
 }
 
 export function useSprints(user, { ativo = true, banco = bancoSupabase } = {}) {

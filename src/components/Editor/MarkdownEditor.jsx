@@ -15,6 +15,7 @@
 // fica à vista no lugar do editor.
 import { lazy, Suspense, useState } from 'react'
 import { Code2, Eye } from 'lucide-react'
+import { useI18n } from '../../i18n'
 
 const Lexical = lazy(() => import('./LexicalMarkdownEditor'))
 
@@ -49,10 +50,12 @@ export default function MarkdownEditor(props) {
     minHeight = 200,
     className = '',
     readOnly = false,
-    placeholder = 'Escreva aqui…',
+    placeholder: placeholderProp,
     autoFocus = false,
     codigo = true,
   } = props
+  const { t } = useI18n()
+  const placeholder = placeholderProp ?? t('ui.editor.escrevaAqui')
   const [modo, setModo] = useState(() => (codigo ? lerModo() : 'visual'))
   // Depois de uma troca manual, o modo novo recebe o foco (o autoFocus da
   // montagem só vale pra primeira abertura).
@@ -73,16 +76,16 @@ export default function MarkdownEditor(props) {
       style={{ '--md-min-h': `${minHeight}px` }}
     >
       {codigo && !readOnly && (
-        <div className="md-editor-bar" role="tablist" aria-label="Modo de edição">
+        <div className="md-editor-bar" role="tablist" aria-label={t('ui.editor.modo')}>
           <button
             type="button"
             role="tab"
             aria-selected={!emCodigo}
             className={!emCodigo ? 'ativo' : ''}
             onClick={() => trocar('visual')}
-            title="Editar com formatação"
+            title={t('ui.editor.visualTitulo')}
           >
-            <Eye /> Visual
+            <Eye /> {t('ui.editor.visual')}
           </button>
           <button
             type="button"
@@ -90,7 +93,7 @@ export default function MarkdownEditor(props) {
             aria-selected={emCodigo}
             className={emCodigo ? 'ativo' : ''}
             onClick={() => trocar('codigo')}
-            title="Editar o Markdown cru"
+            title={t('ui.editor.markdownTitulo')}
           >
             <Code2 /> Markdown
           </button>
@@ -105,11 +108,11 @@ export default function MarkdownEditor(props) {
           placeholder={placeholder}
           autoFocus={autoFocus || trocado}
           spellCheck={false}
-          aria-label="Markdown"
+          aria-label={t('ui.editor.markdown')}
         />
       ) : (
         <Suspense fallback={<Carregando value={value} />}>
-          <Lexical {...props} autoFocus={autoFocus || trocado} />
+          <Lexical {...props} placeholder={placeholder} autoFocus={autoFocus || trocado} />
         </Suspense>
       )}
     </div>

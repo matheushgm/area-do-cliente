@@ -3,9 +3,10 @@
 // Dados do Cliente.
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Info, Pencil } from 'lucide-react'
-import { BUSINESS_LABELS, CONTRACT_MODEL_LABELS, CONTRACT_PAYMENT_LABELS, MATURITY_LABELS, PLAN_TYPE_LABELS, BILLING_MODE_LABELS } from '../../lib/constants'
+import { rotuloNegocio, rotuloSegmento, rotuloMaturidade, rotuloModeloContrato, rotuloPagamento, rotuloTipoPlano, rotuloCobranca } from '../../lib/constants'
 import { fmtCurrency } from '../../lib/utils'
 import { ObservacoesLeitura } from '../UI/ObservacoesCampo'
+import { useI18n } from '../../i18n'
 
 function Campo({ label, valor }) {
   if (valor == null || valor === '') return null
@@ -18,35 +19,36 @@ function Campo({ label, valor }) {
 }
 
 export default function HubInformacoes({ project, onEditar }) {
+  const { t, locale } = useI18n()
   const [aberto, setAberto] = useState(true)
   const dataContrato = project.contractDate
-    ? new Date(project.contractDate + (String(project.contractDate).length === 10 ? 'T12:00:00' : '')).toLocaleDateString('pt-BR')
+    ? new Date(project.contractDate + (String(project.contractDate).length === 10 ? 'T12:00:00' : '')).toLocaleDateString(locale)
     : null
   const campos = [
-    ['Tipo de negócio', BUSINESS_LABELS[project.businessType] || project.businessType],
-    ['Segmento', project.segmento],
-    ['Maturidade', MATURITY_LABELS?.[project.digitalMaturity] || project.digitalMaturity],
-    ['Responsável', project.responsibleName],
-    ['Cargo', project.responsibleRole],
-    ['Modelo de contrato', String(CONTRACT_MODEL_LABELS[project.contractModel] || project.contractModel || '').replace(/^[^\p{L}\d]+/u, '')],
-    ['Pagamento', CONTRACT_PAYMENT_LABELS?.[project.contractPaymentType] || project.contractPaymentType],
-    ['Programa ou plano', PLAN_TYPE_LABELS[project.planType]],
-    ['Pré ou pós-pago', BILLING_MODE_LABELS[project.billingMode]],
-    ['Valor', project.contractValue ? fmtCurrency(project.contractValue) + (project.contractModel === 'assessoria' ? '/mês' : '') : null],
-    ['Início do contrato', dataContrato],
-    ['Pasta no ClickUp', project.clickupFolderId ? `#${project.clickupFolderId}` : 'não vinculada'],
+    [t('hub.info.tipoNegocio'), rotuloNegocio(project.businessType)],
+    [t('hub.info.segmento'), rotuloSegmento(project.segmento)],
+    [t('hub.info.maturidade'), rotuloMaturidade(project.digitalMaturity)],
+    [t('hub.info.responsavel'), project.responsibleName],
+    [t('hub.info.cargo'), project.responsibleRole],
+    [t('hub.info.modeloContrato'), String(rotuloModeloContrato(project.contractModel) || '').replace(/^[^\p{L}\d]+/u, '')],
+    [t('hub.info.pagamento'), rotuloPagamento(project.contractPaymentType)],
+    [t('hub.info.programaPlano'), project.planType ? rotuloTipoPlano(project.planType) : null],
+    [t('hub.info.prePos'), project.billingMode ? rotuloCobranca(project.billingMode) : null],
+    [t('hub.info.valor'), project.contractValue ? fmtCurrency(project.contractValue) + (project.contractModel === 'assessoria' ? t('hub.info.porMes') : '') : null],
+    [t('hub.info.inicioContrato'), dataContrato],
+    [t('hub.info.pastaClickup'), project.clickupFolderId ? `#${project.clickupFolderId}` : t('hub.info.naoVinculada')],
   ].filter(([, v]) => v != null && v !== '')
 
   return (
     <div className="glass-card border border-rl-border/60">
       <div className="flex items-center gap-2 px-4 py-3">
         <Info className="w-4 h-4 text-rl-cyan" />
-        <span className="text-sm font-semibold text-rl-text flex-1">Informações do projeto</span>
+        <span className="text-sm font-semibold text-rl-text flex-1">{t('hub.info.titulo')}</span>
         <span className="text-[11px] text-rl-muted">({campos.length})</span>
-        <button onClick={onEditar} className="flex items-center gap-1 text-xs text-rl-subtle hover:text-rl-purple px-1.5 py-1 rounded-md hover:bg-rl-surface" title="Editar em Dados do Cliente">
-          <Pencil className="w-3 h-3" /> Editar
+        <button onClick={onEditar} className="flex items-center gap-1 text-xs text-rl-subtle hover:text-rl-purple px-1.5 py-1 rounded-md hover:bg-rl-surface" title={t('hub.info.editarEmDados')}>
+          <Pencil className="w-3 h-3" /> {t('comum.editar')}
         </button>
-        <button onClick={() => setAberto((v) => !v)} className="p-1 rounded-md text-rl-muted hover:text-rl-text hover:bg-rl-surface" aria-label={aberto ? 'Recolher' : 'Expandir'}>
+        <button onClick={() => setAberto((v) => !v)} className="p-1 rounded-md text-rl-muted hover:text-rl-text hover:bg-rl-surface" aria-label={aberto ? t('hub.recolher') : t('hub.expandir')}>
           {aberto ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
       </div>
@@ -55,7 +57,7 @@ export default function HubInformacoes({ project, onEditar }) {
           {campos.map(([l, v]) => <Campo key={l} label={l} valor={v} />)}
           {project.observacoes && (
             <div className="py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">Observações</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">{t('hub.info.observacoes')}</p>
               <ObservacoesLeitura texto={project.observacoes} />
             </div>
           )}

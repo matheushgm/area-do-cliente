@@ -10,17 +10,19 @@ import { Maximize2, X } from 'lucide-react'
 import Modal from './Modal'
 import MarkdownEditor from '../Editor/MarkdownEditor'
 import MarkdownView from '../Editor/MarkdownView'
+import { useI18n } from '../../i18n'
 
 const LINHAS_RECOLHIDO = 8
 
 function Cabecalho({ titulo, onClose }) {
+  const { t } = useI18n()
   return (
     <div className="flex items-center justify-between mb-3">
       <p className="text-sm font-semibold text-rl-text">{titulo}</p>
       <button
         onClick={onClose}
         className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface"
-        aria-label="Fechar"
+        aria-label={t('comum.fechar')}
       >
         <X className="w-4 h-4" />
       </button>
@@ -35,9 +37,11 @@ export function ObservacoesEditor({
   onChange,
   rows = 6,
   placeholder,
-  titulo = 'Observações',
+  titulo: tituloProp,
   rodape,
 }) {
+  const { t } = useI18n()
+  const titulo = tituloProp ?? t('ui.observacoes.titulo')
   const [ampliado, setAmpliado] = useState(false)
   const emitir = (md) => onChange({ target: { value: md } })
   const alturaModal = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.6) : 480
@@ -48,10 +52,10 @@ export function ObservacoesEditor({
           type="button"
           onClick={() => setAmpliado(true)}
           className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-surface transition-colors"
-          title="Ampliar"
-          aria-label="Ampliar observações"
+          title={t('ui.observacoes.ampliar')}
+          aria-label={t('ui.observacoes.ampliarObservacoes')}
         >
-          <Maximize2 className="w-3.5 h-3.5" /> Ampliar
+          <Maximize2 className="w-3.5 h-3.5" /> {t('ui.observacoes.ampliar')}
         </button>
       </div>
       {!ampliado && (
@@ -87,7 +91,7 @@ export function ObservacoesEditor({
               onClick={() => setAmpliado(false)}
               className="btn-primary text-sm"
             >
-              Concluir
+              {t('ui.observacoes.concluir')}
             </button>
           </div>
         </Modal>
@@ -96,7 +100,9 @@ export function ObservacoesEditor({
   )
 }
 
-export function ObservacoesLeitura({ texto, titulo = 'Observações' }) {
+export function ObservacoesLeitura({ texto, titulo: tituloProp }) {
+  const { t } = useI18n()
+  const titulo = tituloProp ?? t('ui.observacoes.titulo')
   const [tudo, setTudo] = useState(false)
   const [ampliado, setAmpliado] = useState(false)
   if (!texto) return null
@@ -114,8 +120,8 @@ export function ObservacoesLeitura({ texto, titulo = 'Observações' }) {
         <button
           onClick={() => setAmpliado(true)}
           className="shrink-0 p-1 rounded-md text-rl-muted hover:text-rl-purple hover:bg-rl-surface"
-          title="Ampliar"
-          aria-label="Ampliar observações"
+          title={t('ui.observacoes.ampliar')}
+          aria-label={t('ui.observacoes.ampliarObservacoes')}
         >
           <Maximize2 className="w-3.5 h-3.5" />
         </button>
@@ -125,7 +131,7 @@ export function ObservacoesLeitura({ texto, titulo = 'Observações' }) {
           onClick={() => setTudo((v) => !v)}
           className="text-xs text-rl-purple hover:text-rl-purple/80 mt-1"
         >
-          {tudo ? 'Ver menos' : 'Ver tudo'}
+          {tudo ? t('ui.observacoes.verMenos') : t('ui.observacoes.verTudo')}
         </button>
       )}
 

@@ -4,6 +4,7 @@ import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
+import { useI18n, t as tSolto, localeAtual } from '../i18n'
 import {
   Menu, Timer, ChevronLeft, ChevronRight, CalendarDays, Lock,
   Loader2, TrendingUp, Minus, TrendingDown,
@@ -29,16 +30,17 @@ function buildSlots() {
 const SLOTS = buildSlots()
 
 // ── Prioridade: "mexe o ponteiro?" ───────────────────────────────────────────
+// `label` é a chave do rótulo (traduzida no render); o `id` é o valor gravado.
 const PRIORIDADES = [
-  { id: 'alta',  label: 'Alta',  Icon: TrendingUp,   cls: 'text-rl-green bg-rl-green/15 border-rl-green/40',       dot: 'bg-rl-green' },
-  { id: 'media', label: 'Média', Icon: Minus,        cls: 'text-rl-gold bg-rl-gold/15 border-rl-gold/40',         dot: 'bg-rl-gold' },
-  { id: 'baixa', label: 'Baixa', Icon: TrendingDown, cls: 'text-red-400 bg-red-400/10 border-red-400/30',         dot: 'bg-red-400' },
+  { id: 'alta',  label: 'atividades15.prioridade.alta',  Icon: TrendingUp,   cls: 'text-rl-green bg-rl-green/15 border-rl-green/40',       dot: 'bg-rl-green' },
+  { id: 'media', label: 'atividades15.prioridade.media', Icon: Minus,        cls: 'text-rl-gold bg-rl-gold/15 border-rl-gold/40',         dot: 'bg-rl-gold' },
+  { id: 'baixa', label: 'atividades15.prioridade.baixa', Icon: TrendingDown, cls: 'text-red-400 bg-red-400/10 border-red-400/30',         dot: 'bg-red-400' },
 ]
 
 const toISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 const fmtDiaLongo = (iso) => {
   const [y, m, d] = iso.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('pt-BR', {
+  return new Date(y, m - 1, d).toLocaleDateString(localeAtual(), {
     weekday: 'long', day: '2-digit', month: 'long',
   })
 }
@@ -47,6 +49,7 @@ export default function Atividades15min() {
   const { openSidebar } = useOutletContext()
   const { user } = useApp()
   const { toast, showToast } = useToast()
+  const { t, locale } = useI18n()
 
   const [dia, setDia] = useState(() => toISO(new Date()))
   const [loading, setLoading] = useState(true)
@@ -66,7 +69,7 @@ export default function Atividades15min() {
       if (cancelled) return
       if (error) {
         console.error('[Atividades15min] load:', error.message)
-        showToast('Erro ao carregar atividades', 'error')
+        showToast(tSolto('atividades15.erroCarregar'), 'error')
         setRows({})
       } else {
         const map = {}
@@ -116,7 +119,7 @@ export default function Atividades15min() {
       }
     } catch (e) {
       console.error('[Atividades15min] persist:', e.message)
-      showToast('Erro ao salvar', 'error')
+      showToast(tSolto('atividades15.erroSalvar'), 'error')
     }
   }, [dia, user, showToast])
 
@@ -150,10 +153,11 @@ export default function Atividades15min() {
       if (r.prioridade && counts[r.prioridade] != null) counts[r.prioridade]++
     }
     const comPrioridade = counts.alta + counts.media + counts.baixa
-    const horas = (n) => (n * 15 / 60).toFixed(1).replace('.', ',')
     const pct = (n) => (comPrioridade ? Math.round((n / comPrioridade) * 100) : 0)
-    return { counts, preenchidos, comPrioridade, horas, pct }
+    return { counts, preenchidos, comPrioridade, pct }
   }, [rows])
+  // Fora do useMemo: a casa decimal segue o idioma.
+  const horas = (n) => (n * 15 / 60).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 
   const shiftDay = (delta) => {
     const [y, m, d] = dia.split('-').map(Number)
@@ -167,7 +171,7 @@ export default function Atividades15min() {
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile top bar */}
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
-          <button onClick={openSidebar} aria-label="Abrir menu de navegação"
+          <button onClick={openSidebar} aria-label={t('atividades15.abrirMenu')}
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
             <Menu className="w-5 h-5" />
           </button>
@@ -175,7 +179,7 @@ export default function Atividades15min() {
             <div className="w-6 h-6 rounded-md bg-gradient-rl flex items-center justify-center">
               <Timer className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="font-bold text-rl-text text-sm">Atividades 15min</span>
+            <span className="font-bold text-rl-text text-sm">{t('atividades15.titulo')}</span>
           </div>
         </div>
 
@@ -187,21 +191,21 @@ export default function Atividades15min() {
               <div>
                 <h1 className="text-2xl font-bold text-rl-text flex items-center gap-2.5">
                   <Timer className="w-6 h-6 text-rl-purple" />
-                  Atividades 15min
+                  {t('atividades15.titulo')}
                 </h1>
                 <p className="text-sm text-rl-muted mt-1">
-                  Registre o que você fez a cada 15 minutos e marque o que mexe o ponteiro.
+                  {t('atividades15.subtitulo')}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 text-[11px] text-rl-muted bg-rl-surface border border-rl-border rounded-full px-3 py-1.5">
                 <Lock className="w-3.5 h-3.5 text-rl-green" />
-                Só você vê o seu
+                {t('atividades15.soVoce')}
               </div>
             </div>
 
             {/* ── Navegação de data ──────────────────────────── */}
             <div className="glass-card p-3 flex items-center justify-between gap-3">
-              <button onClick={() => shiftDay(-1)} aria-label="Dia anterior"
+              <button onClick={() => shiftDay(-1)} aria-label={t('atividades15.diaAnterior')}
                 className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -211,17 +215,17 @@ export default function Atividades15min() {
                   {dia !== toISO(new Date()) && (
                     <button onClick={() => setDia(toISO(new Date()))}
                       className="text-[11px] text-rl-purple hover:underline mt-0.5">
-                      Voltar para hoje
+                      {t('atividades15.voltarHoje')}
                     </button>
                   )}
                 </div>
                 <label className="relative cursor-pointer text-rl-muted hover:text-rl-text transition-all">
                   <CalendarDays className="w-4 h-4" />
                   <input type="date" value={dia} onChange={(e) => e.target.value && setDia(e.target.value)}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" aria-label="Escolher data" />
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" aria-label={t('atividades15.escolherData')} />
                 </label>
               </div>
-              <button onClick={() => shiftDay(1)} aria-label="Próximo dia"
+              <button onClick={() => shiftDay(1)} aria-label={t('atividades15.proximoDia')}
                 className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -233,10 +237,10 @@ export default function Atividades15min() {
                 <div key={id} className="glass-card p-3">
                   <div className="flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${dot}`} />
-                    <span className="text-[11px] text-rl-muted">{label}</span>
+                    <span className="text-[11px] text-rl-muted">{t(label)}</span>
                   </div>
-                  <p className={`text-xl font-bold mt-1 ${cls.split(' ')[0]}`}>{resumo.horas(resumo.counts[id])}h</p>
-                  <p className="text-[10px] text-rl-muted">{resumo.pct(resumo.counts[id])}% do tempo</p>
+                  <p className={`text-xl font-bold mt-1 ${cls.split(' ')[0]}`}>{t('atividades15.horas', { n: horas(resumo.counts[id]) })}</p>
+                  <p className="text-[10px] text-rl-muted">{t('atividades15.doTempo', { pct: resumo.pct(resumo.counts[id]) })}</p>
                 </div>
               ))}
             </div>
@@ -244,7 +248,7 @@ export default function Atividades15min() {
             {/* ── Grade de blocos ────────────────────────────── */}
             {loading ? (
               <div className="glass-card p-10 flex items-center justify-center text-rl-muted">
-                <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando…
+                <Loader2 className="w-5 h-5 animate-spin mr-2" /> {t('comum.carregando')}
               </div>
             ) : (
               <div className="glass-card overflow-hidden divide-y divide-rl-border/60">
@@ -270,7 +274,7 @@ export default function Atividades15min() {
                           return (
                             <button
                               key={id}
-                              title={id === 'alta' ? 'Alta — mexe o ponteiro' : label}
+                              title={id === 'alta' ? t('atividades15.altaDica') : t(label)}
                               onClick={() => updateRow(intervalo, { prioridade: active ? null : id }, true)}
                               className={`flex items-center justify-center rounded-md border transition-all h-7 w-7 sm:w-auto sm:px-2 sm:gap-1 ${
                                 active
@@ -279,7 +283,7 @@ export default function Atividades15min() {
                               }`}
                             >
                               <Icon className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline text-[11px] font-medium">{label}</span>
+                              <span className="hidden sm:inline text-[11px] font-medium">{t(label)}</span>
                             </button>
                           )
                         })}
@@ -291,7 +295,7 @@ export default function Atividades15min() {
             )}
 
             <p className="text-center text-[11px] text-rl-muted pb-4">
-              {resumo.preenchidos} blocos preenchidos • salvo automaticamente
+              {t('atividades15.rodape', { count: resumo.preenchidos })}
             </p>
           </div>
         </main>

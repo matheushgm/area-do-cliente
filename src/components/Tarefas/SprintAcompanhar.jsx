@@ -6,6 +6,7 @@ import { Avatar } from './Campos'
 import { CartaoBurndown, LinhaTarefa, Tile, fmtPct } from './SprintComum'
 import { pessoaDoPerfil } from '../../lib/tarefas'
 import { calcularBurndownSprint, fmtMin, nTarefas } from '../../lib/sprints'
+import { useI18n } from '../../i18n'
 
 function Grupo({ titulo, itens, ctx, editavel, etiqueta }) {
   if (!itens.length) return null
@@ -18,6 +19,7 @@ function Grupo({ titulo, itens, ctx, editavel, etiqueta }) {
 }
 
 export default function SprintAcompanhar({ sprint, fase, linha, resumo, ctx, membrosMap, config }) {
+  const { t } = useI18n()
   const membro = membrosMap.get(linha.pessoa_id)
   const bd = useMemo(() => calcularBurndownSprint(sprint, resumo.lista, config, undefined, resumo.confirmada), [sprint, resumo.lista, resumo.confirmada, config])
   const editavel = fase !== 'concluida'
@@ -28,24 +30,24 @@ export default function SprintAcompanhar({ sprint, fase, linha, resumo, ctx, mem
       <div className="ln-card px-3 py-2.5 flex items-start gap-2.5">
         {membro && <Avatar pessoa={pessoaDoPerfil(membro)} size={24} />}
         <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-semibold text-ln-t1">{membro?.name} nesta sprint</p>
+          <p className="text-[14px] font-semibold text-ln-t1">{t('sprints.nomeNestaSprint', { nome: membro?.name || '' })}</p>
           {linha.riscos && <p className="text-[13px] text-ln-t2 flex items-start gap-1.5 mt-0.5"><AlertTriangle className="w-3.5 h-3.5 text-ln-yellow mt-[3px] shrink-0" />{linha.riscos}</p>}
-          {!resumo.confirmada && resumo.ativos.length > 0 && <p className="text-xs text-ln-yellow mt-1">Esta sprint ainda não foi confirmada: o compromisso muda junto com as tarefas.</p>}
+          {!resumo.confirmada && resumo.ativos.length > 0 && <p className="text-xs text-ln-yellow mt-1">{t('sprints.acompanhar.naoConfirmada')}</p>}
         </div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-        <Tile k="Combinado" v={fmtMin(resumo.compromissoMin)} sub={nTarefas(resumo.compromissoTarefas)} dica="Horas travadas ao confirmar a sprint" />
-        <Tile k="Entregue" v={fmtMin(resumo.feitoMin)} sub={nTarefas(resumo.feitoTarefas)} tom={resumo.feitoTarefas ? 'green' : undefined} />
-        <Tile k="Falta" v={fmtMin(resumo.restanteMin)} sub={nTarefas(resumo.abertas.length)} />
-        <Tile k="Fora do plano" v={fmtMin(resumo.foraMin)} sub={nTarefas(resumo.foras.length)} tom={resumo.foras.length ? 'yellow' : undefined} dica="Entrou depois de confirmar a sprint" />
-        <Tile k="Do combinado, saiu" v={fmtPct(resumo.sayDo)} dica="Horas entregues do que foi confirmado, dividido pelas horas confirmadas" />
+        <Tile k={t('sprints.tile.combinado')} v={fmtMin(resumo.compromissoMin)} sub={nTarefas(resumo.compromissoTarefas)} dica={t('sprints.tile.combinadoDica')} />
+        <Tile k={t('sprints.tile.entregue')} v={fmtMin(resumo.feitoMin)} sub={nTarefas(resumo.feitoTarefas)} tom={resumo.feitoTarefas ? 'green' : undefined} />
+        <Tile k={t('sprints.tile.falta')} v={fmtMin(resumo.restanteMin)} sub={nTarefas(resumo.abertas.length)} />
+        <Tile k={t('sprints.tile.foraDoPlano')} v={fmtMin(resumo.foraMin)} sub={nTarefas(resumo.foras.length)} tom={resumo.foras.length ? 'yellow' : undefined} dica={t('sprints.foraDoPlanoDica')} />
+        <Tile k={t('sprints.tile.sayDo')} v={fmtPct(resumo.sayDo)} dica={t('sprints.tile.sayDoDica')} />
       </div>
       <CartaoBurndown bd={bd} nome={`${sprint.nome}, ${membro?.name || ''}`} />
-      <Grupo titulo="Falta entregar" itens={planejadas} ctx={ctx} editavel={editavel} etiqueta={(c) => c.transbordo ? <span className="ln-pill !h-5 !px-1.5 text-[10px] shrink-0">Transbordo</span> : null} />
-      <Grupo titulo="Entrou fora do plano" itens={foraAbertas} ctx={ctx} editavel={editavel} />
-      <Grupo titulo="Entregue" itens={resumo.feitos} ctx={ctx} editavel={editavel} etiqueta={(c) => c.fora ? <span className="ln-pill !h-5 !px-1.5 text-[10px] !text-ln-orange shrink-0">Fora do plano</span> : null} />
-      <Grupo titulo="Tiradas depois de confirmar" itens={resumo.removidas} ctx={ctx} />
-      {!resumo.lista.length && <p className="py-10 text-center text-[13px] text-ln-t4">Nenhuma tarefa nesta sprint.</p>}
+      <Grupo titulo={t('sprints.acompanhar.faltaEntregar')} itens={planejadas} ctx={ctx} editavel={editavel} etiqueta={(c) => c.transbordo ? <span className="ln-pill !h-5 !px-1.5 text-[10px] shrink-0">{t('sprints.transbordo')}</span> : null} />
+      <Grupo titulo={t('sprints.acompanhar.entrouFora')} itens={foraAbertas} ctx={ctx} editavel={editavel} />
+      <Grupo titulo={t('sprints.tile.entregue')} itens={resumo.feitos} ctx={ctx} editavel={editavel} etiqueta={(c) => c.fora ? <span className="ln-pill !h-5 !px-1.5 text-[10px] !text-ln-orange shrink-0">{t('sprints.tile.foraDoPlano')}</span> : null} />
+      <Grupo titulo={t('sprints.tiradasDepois')} itens={resumo.removidas} ctx={ctx} />
+      {!resumo.lista.length && <p className="py-10 text-center text-[13px] text-ln-t4">{t('sprints.nenhumaTarefa')}</p>}
     </div>
   )
 }

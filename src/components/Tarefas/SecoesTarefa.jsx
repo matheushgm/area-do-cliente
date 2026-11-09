@@ -7,6 +7,17 @@ import { useEffect, useRef, useState } from 'react'
 import { CornerDownRight, Link2, Search, X } from 'lucide-react'
 import { AdicionarInline, FOCO, StatusIcon, Avatares } from './Campos'
 import { fmtVencimentoClickUp } from '../../lib/tarefas'
+import { useI18n, t as tAgora } from '../../i18n'
+
+// Rótulos de relação: quem usa passa o rótulo em português (é também o que IconeRelacao compara)
+// e os tipos com `value`; a tela traduz pelos dois. Rótulo desconhecido aparece como veio.
+const CHAVE_DO_ROTULO = {
+  'Bloqueada por': 'bloqueadaPor', 'Bloqueia': 'bloqueia', 'Relacionada a': 'relacionadaA',
+  'Duplicada de': 'duplicadaDe', 'Tem a duplicata': 'temDuplicata',
+}
+const CHAVE_DO_TIPO = { bloqueada: 'bloqueadaPor', bloqueia: 'bloqueia', relacionada: 'relacionadaA', duplica: 'duplicadaDe' }
+export const rotuloRelacao = (rotulo) => (CHAVE_DO_ROTULO[rotulo] ? tAgora(`tarefaPainel.relacao.${CHAVE_DO_ROTULO[rotulo]}`) : rotulo)
+const rotuloTipoRelacao = (tp) => (CHAVE_DO_TIPO[tp.value] ? tAgora(`tarefaPainel.relacao.${CHAVE_DO_TIPO[tp.value]}`) : tp.label)
 
 export function Secao({ titulo, extra, children }) {
   return (
@@ -22,18 +33,19 @@ export function Secao({ titulo, extra, children }) {
 
 /** itens: [{ id, titulo, concluida }]; inicio/fim(item) = o que vai antes/depois do título. */
 export function ListaSubtarefas({ itens, onAbrir, onAdicionar, inicio, fim }) {
+  const { t } = useI18n()
   return (
     <div className="flex flex-col">
       {itens.map((s) => (
         <div key={s.id} role="button" tabIndex={0} onClick={() => onAbrir(s.id)} onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(s.id) }} className={`ln-row-hover flex items-center gap-2 h-8 -mx-2 px-2 cursor-pointer ${FOCO}`}>
           <CornerDownRight className="w-3 h-3 text-ln-t4 shrink-0" />
           {inicio?.(s)}
-          <span className={`text-[13px] flex-1 min-w-0 truncate ${s.concluida ? 'line-through text-ln-t4' : 'text-ln-t2'}`}>{s.titulo || 'Sem título'}</span>
+          <span className={`text-[13px] flex-1 min-w-0 truncate ${s.concluida ? 'line-through text-ln-t4' : 'text-ln-t2'}`}>{s.titulo || t('tarefaPainel.semTitulo')}</span>
           {fim && <span className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>{fim(s)}</span>}
         </div>
       ))}
-      {!itens.length && !onAdicionar && <p className="text-xs text-ln-t4">Nenhuma subtarefa.</p>}
-      {onAdicionar && <div className="-mx-2"><AdicionarInline placeholder="Adicionar subtarefa" onCriar={onAdicionar} /></div>}
+      {!itens.length && !onAdicionar && <p className="text-xs text-ln-t4">{t('tarefaPainel.nenhumaSubtarefa')}</p>}
+      {onAdicionar && <div className="-mx-2"><AdicionarInline placeholder={t('tarefaPainel.adicionarSubtarefa')} onCriar={onAdicionar} /></div>}
     </div>
   )
 }
@@ -68,9 +80,10 @@ export function IconeRelacao({ rotulo, tamanho = 'w-3.5 h-3.5' }) {
  * vencimento e responsáveis numa 2ª linha; sem ele (templates), só o título.
  */
 function Achado({ a, membrosMap, onEscolher }) {
+  const { t } = useI18n()
   const temContexto = a.lista || a.pai || a.status
   if (!temContexto) return (
-    <button type="button" onClick={onEscolher} className="text-left text-[13px] px-2 h-8 rounded-md hover:bg-ln-ink/5 text-ln-t2 truncate">{a.titulo || 'Sem título'}</button>
+    <button type="button" onClick={onEscolher} className="text-left text-[13px] px-2 h-8 rounded-md hover:bg-ln-ink/5 text-ln-t2 truncate">{a.titulo || t('tarefaPainel.semTitulo')}</button>
   )
   const venc = a.data_vencimento ? fmtVencimentoClickUp(a.data_vencimento, a) : null
   const local = [a.lista?.pasta?.nome, a.lista?.nome].filter(Boolean).join(' › ')
@@ -78,12 +91,12 @@ function Achado({ a, membrosMap, onEscolher }) {
     <button type="button" onClick={onEscolher} className={`text-left px-2 py-1.5 rounded-md hover:bg-ln-ink/5 flex items-start gap-2 min-w-0 ${FOCO}`}>
       <StatusIcon status={a.status} statuses={a.lista?.statuses} size={14} className="mt-[3px]" />
       <span className="flex-1 min-w-0 flex flex-col gap-0.5">
-        <span className={`text-[13px] truncate ${a.status_tipo === 'closed' ? 'text-ln-t4 line-through' : 'text-ln-t2'}`}>{a.titulo || 'Sem título'}</span>
+        <span className={`text-[13px] truncate ${a.status_tipo === 'closed' ? 'text-ln-t4 line-through' : 'text-ln-t2'}`}>{a.titulo || t('tarefaPainel.semTitulo')}</span>
         <span className="flex items-center gap-1.5 min-w-0 text-[11px] text-ln-t4">
-          {a.familia && <span className="shrink-0 px-1 rounded bg-ln-accent/10 text-ln-accent">mesma entrega</span>}
-          {a.pelo === 'link' && <span className="shrink-0 px-1 rounded bg-ln-ink/5">pelo link</span>}
+          {a.familia && <span className="shrink-0 px-1 rounded bg-ln-accent/10 text-ln-accent">{t('tarefaPainel.busca.mesmaEntrega')}</span>}
+          {a.pelo === 'link' && <span className="shrink-0 px-1 rounded bg-ln-ink/5">{t('tarefaPainel.busca.peloLink')}</span>}
           {local && <span className="truncate" title={local}>{local}</span>}
-          {a.pai?.titulo && <span className="inline-flex items-center gap-0.5 min-w-0" title={`Subtarefa de ${a.pai.titulo}`}><CornerDownRight className="w-3 h-3 shrink-0" /><span className="truncate max-w-[160px]">{a.pai.titulo}</span></span>}
+          {a.pai?.titulo && <span className="inline-flex items-center gap-0.5 min-w-0" title={t('tarefaPainel.busca.subtarefaDe', { titulo: a.pai.titulo })}><CornerDownRight className="w-3 h-3 shrink-0" /><span className="truncate max-w-[160px]">{a.pai.titulo}</span></span>}
           {venc?.texto && <span className={`shrink-0 ${venc.classe}`}>{venc.texto}</span>}
         </span>
       </span>
@@ -96,7 +109,8 @@ function Achado({ a, membrosMap, onEscolher }) {
  * escopo (opcional): { rotulo, ativo, alternar } = filtro ao lado da busca ("Só deste cliente").
  * membrosMap (opcional): avatares dos responsáveis nos resultados.
  */
-export function ListaRelacoes({ linhas, tipos, buscar, minBusca = 2, onAdicionar, placeholder = 'Buscar tarefa pelo título', escopo = null, membrosMap = null }) {
+export function ListaRelacoes({ linhas, tipos, buscar, minBusca = 2, onAdicionar, placeholder, escopo = null, membrosMap = null }) {
+  const { t } = useI18n()
   const [adicionando, setAdicionando] = useState(false)
   const [tipo, setTipo] = useState(tipos?.[0]?.value)
   const [q, setQ] = useState('')
@@ -122,22 +136,22 @@ export function ListaRelacoes({ linhas, tipos, buscar, minBusca = 2, onAdicionar
     <div className="flex flex-col">
       {linhas.map((r) => (
         <div key={r.key} className="group/rel flex items-center gap-2 h-8 -mx-2 px-2 rounded-lg hover:bg-ln-ink/[0.03]">
-          <span className="text-[11px] text-ln-t4 w-[110px] shrink-0 inline-flex items-center gap-1.5"><IconeRelacao rotulo={r.rotulo} />{r.rotulo}</span>
-          <button type="button" onClick={r.onAbrir} disabled={!r.onAbrir} className={`flex-1 min-w-0 truncate text-left text-[13px] hover:text-ln-accent disabled:hover:text-inherit ${r.concluida ? 'line-through text-ln-t4' : 'text-ln-t2'} ${FOCO}`}>{r.titulo || 'Tarefa removida'}</button>
-          {r.onRemover && <button type="button" onClick={r.onRemover} className="ln-iconbtn !w-5 !h-5 opacity-0 group-hover/rel:opacity-100 focus-visible:opacity-100" aria-label="Remover relação"><X className="w-3 h-3" /></button>}
+          <span className="text-[11px] text-ln-t4 w-[110px] shrink-0 inline-flex items-center gap-1.5"><IconeRelacao rotulo={r.rotulo} />{rotuloRelacao(r.rotulo)}</span>
+          <button type="button" onClick={r.onAbrir} disabled={!r.onAbrir} className={`flex-1 min-w-0 truncate text-left text-[13px] hover:text-ln-accent disabled:hover:text-inherit ${r.concluida ? 'line-through text-ln-t4' : 'text-ln-t2'} ${FOCO}`}>{r.titulo || t('tarefaPainel.tarefaRemovida')}</button>
+          {r.onRemover && <button type="button" onClick={r.onRemover} className="ln-iconbtn !w-5 !h-5 opacity-0 group-hover/rel:opacity-100 focus-visible:opacity-100" aria-label={t('tarefaPainel.removerRelacao')}><X className="w-3 h-3" /></button>}
         </div>
       ))}
       {!onAdicionar ? null : adicionando ? (
         <div className="mt-1 flex flex-col gap-1.5">
           <div className="flex gap-1.5">
-            <select className="ln-input !h-8 !w-[150px]" value={tipo} onChange={(e) => setTipo(e.target.value)} aria-label="Tipo de relação">
-              {tipos.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            <select className="ln-input !h-8 !w-[150px]" value={tipo} onChange={(e) => setTipo(e.target.value)} aria-label={t('tarefaPainel.tipoRelacao')}>
+              {tipos.map((tp) => <option key={tp.value} value={tp.value}>{rotuloTipoRelacao(tp)}</option>)}
             </select>
             <div className="ln-input !h-8 flex items-center gap-1.5 flex-1">
               <Search className="w-3.5 h-3.5 text-ln-t4" />
-              <input ref={busca} autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); fechar() } }} placeholder={placeholder} className="flex-1 min-w-0 bg-transparent outline-none text-xs" />
+              <input ref={busca} autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); fechar() } }} placeholder={placeholder ?? t('tarefaPainel.busca.placeholderTitulo')} className="flex-1 min-w-0 bg-transparent outline-none text-xs" />
             </div>
-            <button type="button" onClick={fechar} className="ln-iconbtn" aria-label="Fechar" title="Fechar (Esc)"><X className="w-3.5 h-3.5" /></button>
+            <button type="button" onClick={fechar} className="ln-iconbtn" aria-label={t('comum.fechar')} title={t('tarefaPainel.fecharEsc')}><X className="w-3.5 h-3.5" /></button>
           </div>
           {escopo && (
             <label className="self-start inline-flex items-center gap-1.5 text-[11px] text-ln-t3 cursor-pointer select-none">
@@ -147,13 +161,13 @@ export function ListaRelacoes({ linhas, tipos, buscar, minBusca = 2, onAdicionar
           )}
           {achados.map((a) => <Achado key={a.id} a={a} membrosMap={membrosMap} onEscolher={() => escolher(a)} />)}
           {q.trim().length >= minBusca && !achados.length && (escopo?.ativo ? (
-            <p className="px-2 text-xs text-ln-t4">Nada neste cliente. <button type="button" onClick={escopo.alternar} className="text-ln-accent hover:underline">Buscar em todos</button></p>
-          ) : <p className="px-2 text-xs text-ln-t4">Nada encontrado.</p>)}
+            <p className="px-2 text-xs text-ln-t4">{t('tarefaPainel.busca.nadaCliente')} <button type="button" onClick={escopo.alternar} className="text-ln-accent hover:underline">{t('tarefaPainel.busca.buscarTodos')}</button></p>
+          ) : <p className="px-2 text-xs text-ln-t4">{t('tarefaPainel.busca.nadaEncontrado')}</p>)}
         </div>
       ) : (
-        <button type="button" onClick={() => setAdicionando(true)} className={`self-start inline-flex items-center gap-1.5 h-7 px-2 -mx-2 rounded-md text-xs text-ln-t4 hover:text-ln-t2 hover:bg-ln-ink/[0.03] ${FOCO}`}><Link2 className="w-3.5 h-3.5" /> Adicionar relação</button>
+        <button type="button" onClick={() => setAdicionando(true)} className={`self-start inline-flex items-center gap-1.5 h-7 px-2 -mx-2 rounded-md text-xs text-ln-t4 hover:text-ln-t2 hover:bg-ln-ink/[0.03] ${FOCO}`}><Link2 className="w-3.5 h-3.5" /> {t('tarefaPainel.adicionarRelacao')}</button>
       )}
-      {!onAdicionar && !linhas.length && <p className="text-xs text-ln-t4">Nenhuma relação.</p>}
+      {!onAdicionar && !linhas.length && <p className="text-xs text-ln-t4">{t('tarefaPainel.nenhumaRelacao')}</p>}
     </div>
   )
 }

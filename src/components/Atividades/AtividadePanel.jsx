@@ -6,12 +6,15 @@ import CargaDiaria from './CargaDiaria'
 import MarkdownView from '../Editor/MarkdownView'
 import { Avatar, PrioridadeIcon, PRIORIDADE_LABEL, StatusIcon, dotDepartamento } from './IssueList'
 import {
-  chaveAtividade, fmtDiaCurto, fmtHora, fmtHoras, fmtLonga, fmtPct, fmtRelativo,
+  chaveAtividade, fmtDiaCurto, fmtHora, fmtHoras, fmtLonga, fmtPct, fmtRelativo, fmtData,
 } from '../../lib/atividadesCarga'
+import { useI18n, t as tr } from '../../i18n'
+import { rotuloTipoTarefa, rotuloDepartamento } from '../../lib/tarefas'
 
+// rótulo em atividades.atividade.badge.<status>
 const STATUS_BADGE = {
-  criada: { label: 'Criada no ClickUp', cls: 'bg-ln-green/15 text-ln-green' },
-  erro:   { label: 'Erro ao criar',     cls: 'bg-ln-red/15 text-ln-red' },
+  criada: { cls: 'bg-ln-green/15 text-ln-green' },
+  erro:   { cls: 'bg-ln-red/15 text-ln-red' },
 }
 
 const FOCO = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ln-t2'
@@ -25,15 +28,15 @@ function Propriedade({ label, title, children }) {
   )
 }
 
-function Vazio({ children = 'não informado' }) {
-  return <span className="text-ln-t4">{children}</span>
+function Vazio({ children }) {
+  const { t } = useI18n()
+  return <span className="text-ln-t4">{children ?? t('atividades.atividade.naoInformado')}</span>
 }
 
 function tituloCriacao(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return `${d.toLocaleDateString('pt-BR')} às ${fmtHora(iso)}`
+  const data = fmtData(iso)
+  if (!data) return ''
+  return tr('atividades.atividade.dataHora', { data, hora: fmtHora(iso) })
 }
 
 /**
@@ -44,8 +47,9 @@ function tituloCriacao(iso) {
  * @param {number} [p.agora]      timestamp de referência para "há 2 h" (padrão: agora)
  */
 export default function AtividadePanel({ registro, nomeProjeto, nomeMembro, agora = undefined }) {
+  const { t } = useI18n()
   if (!registro) {
-    return <p className="p-4 text-[13px] text-ln-t4">Selecione uma atividade na lista.</p>
+    return <p className="p-4 text-[13px] text-ln-t4">{t('atividades.atividade.selecione')}</p>
   }
 
   const r = registro
@@ -66,26 +70,26 @@ export default function AtividadePanel({ registro, nomeProjeto, nomeMembro, agor
           <StatusIcon registro={r} />
           <span className="tabular">{chaveAtividade(r.id)}</span>
           {badge && (
-            <span className={`inline-flex items-center h-5 px-1.5 rounded-full text-[11px] font-medium ${badge.cls}`}>{badge.label}</span>
+            <span className={`inline-flex items-center h-5 px-1.5 rounded-full text-[11px] font-medium ${badge.cls}`}>{t(`atividades.atividade.badge.${r.status}`)}</span>
           )}
         </div>
         <h2 className="mt-1.5 text-xl font-semibold text-ln-t2 tracking-[-0.01em] leading-tight break-words">
-          {r.titulo || <span className="text-ln-t4 font-normal">Sem título</span>}
+          {r.titulo || <span className="text-ln-t4 font-normal">{t('atividades.semTitulo')}</span>}
         </h2>
         {r.descricao ? (
           <MarkdownView content={r.descricao} className="md-prose--13 mt-2 text-ln-t3 break-words" />
         ) : (
-          <p className="mt-2 text-sm text-ln-t4">Sem briefing</p>
+          <p className="mt-2 text-sm text-ln-t4">{t('atividades.atividade.semBriefing')}</p>
         )}
       </header>
 
       {r.sobrecarga && (
         <div className="ln-card !border-ln-red/40 p-3">
           <p className="text-xs font-medium text-ln-red">
-            Sobrecarga assumida: {fmtHoras(r.horas_excedentes)} além da capacidade do dia
+            {t('atividades.atividade.sobrecarga', { horas: fmtHoras(r.horas_excedentes) })}
           </p>
           <p className="mt-1 text-xs text-ln-t3">
-            <span className="text-ln-t4">Justificativa:</span> {r.justificativa || 'não informada'}
+            <span className="text-ln-t4">{t('atividades.atividade.justificativa')}</span> {r.justificativa || t('atividades.atividade.naoInformada')}
           </p>
         </div>
       )}
@@ -98,52 +102,52 @@ export default function AtividadePanel({ registro, nomeProjeto, nomeMembro, agor
       )}
 
       <section>
-        <p className="ln-label">Propriedades</p>
+        <p className="ln-label">{t('atividades.atividade.propriedades')}</p>
         <dl className="flex flex-col">
-          <Propriedade label="Cliente">
-            {cliente ? <span className="truncate">{cliente}</span> : <Vazio>cliente não identificado</Vazio>}
+          <Propriedade label={t('atividades.atividade.prop.cliente')}>
+            {cliente ? <span className="truncate">{cliente}</span> : <Vazio>{t('atividades.atividade.clienteNaoIdentificado')}</Vazio>}
           </Propriedade>
-          <Propriedade label="Lista" title={r.clickup_list_id ? 'ID da lista no ClickUp' : undefined}>
-            {r.clickup_list_id ? <span className="text-ln-t3 tabular">ID {r.clickup_list_id}</span> : <Vazio>não informada</Vazio>}
+          <Propriedade label={t('atividades.atividade.prop.lista')} title={r.clickup_list_id ? t('atividades.atividade.idListaTitle') : undefined}>
+            {r.clickup_list_id ? <span className="text-ln-t3 tabular">{t('atividades.atividade.id', { id: r.clickup_list_id })}</span> : <Vazio>{t('atividades.atividade.naoInformada')}</Vazio>}
           </Propriedade>
-          <Propriedade label="Tipo">
+          <Propriedade label={t('atividades.atividade.prop.tipo')}>
             {r.tipo_tarefa ? (
               <>
                 <i className={`w-2 h-2 rounded-full shrink-0 ${dotDepartamento(r.departamento)}`} />
-                <span className="truncate">{r.tipo_tarefa}</span>
+                <span className="truncate">{rotuloTipoTarefa(r.tipo_tarefa)}</span>
               </>
             ) : <Vazio />}
           </Propriedade>
-          <Propriedade label="Departamento">
-            {r.departamento ? <span className="truncate">{r.departamento}</span> : <Vazio />}
+          <Propriedade label={t('atividades.atividade.prop.departamento')}>
+            {r.departamento ? <span className="truncate">{rotuloDepartamento(r.departamento)}</span> : <Vazio />}
           </Propriedade>
-          <Propriedade label="Responsável">
+          <Propriedade label={t('atividades.atividade.prop.responsavel')}>
             <Avatar nome={responsavel} tamanho={14} />
-            {responsavel ? <span className="truncate">{responsavel}</span> : <Vazio>sem responsável</Vazio>}
+            {responsavel ? <span className="truncate">{responsavel}</span> : <Vazio>{t('atividades.atividade.semResponsavelMinusc')}</Vazio>}
           </Propriedade>
-          <Propriedade label="Horas">
+          <Propriedade label={t('atividades.atividade.prop.horas')}>
             <span className="tabular">{fmtHoras(r.horas_estimadas)}</span>
           </Propriedade>
-          <Propriedade label="Prioridade">
+          <Propriedade label={t('atividades.atividade.prop.prioridade')}>
             <PrioridadeIcon prioridade={prioridade} />
-            <span>{PRIORIDADE_LABEL[prioridade]}</span>
+            <span>{t(`atividades.prioridade.${prioridade}`)}</span>
           </Propriedade>
-          <Propriedade label="Início" title={r.data_inicio_sugerida ? fmtLonga(r.data_inicio_sugerida) : undefined}>
+          <Propriedade label={t('atividades.atividade.prop.inicio')} title={r.data_inicio_sugerida ? fmtLonga(r.data_inicio_sugerida) : undefined}>
             {r.data_inicio_sugerida ? <span className="tabular">{fmtDiaCurto(r.data_inicio_sugerida)}</span> : <Vazio />}
           </Propriedade>
-          <Propriedade label="Sugerida" title={r.data_sugerida ? fmtLonga(r.data_sugerida) : undefined}>
-            {r.data_sugerida ? <span className="tabular">{fmtDiaCurto(r.data_sugerida)}</span> : <Vazio>não coube no horizonte</Vazio>}
+          <Propriedade label={t('atividades.atividade.prop.sugerida')} title={r.data_sugerida ? fmtLonga(r.data_sugerida) : undefined}>
+            {r.data_sugerida ? <span className="tabular">{fmtDiaCurto(r.data_sugerida)}</span> : <Vazio>{t('atividades.atividade.naoCoube')}</Vazio>}
           </Propriedade>
-          <Propriedade label="Entrega" title={r.data_escolhida ? fmtLonga(r.data_escolhida) : undefined}>
+          <Propriedade label={t('atividades.atividade.prop.entrega')} title={r.data_escolhida ? fmtLonga(r.data_escolhida) : undefined}>
             {r.data_escolhida ? (
               <>
                 <span className={`tabular ${r.sobrecarga ? 'text-ln-red font-medium' : ''}`}>{fmtDiaCurto(r.data_escolhida)}</span>
-                {r.sobrecarga && <span className="text-[10px] font-semibold uppercase tracking-wide text-ln-red">forçada</span>}
+                {r.sobrecarga && <span className="text-[10px] font-semibold uppercase tracking-wide text-ln-red">{t('atividades.atividade.forcada')}</span>}
               </>
-            ) : <Vazio>sem data</Vazio>}
+            ) : <Vazio>{t('atividades.semDataMinusc')}</Vazio>}
           </Propriedade>
-          <Propriedade label="Criada por" title={tituloCriacao(r.created_at)}>
-            {criadaPor ? <span className="truncate">{criadaPor}</span> : <Vazio>autor não identificado</Vazio>}
+          <Propriedade label={t('atividades.atividade.prop.criadaPor')} title={tituloCriacao(r.created_at)}>
+            {criadaPor ? <span className="truncate">{criadaPor}</span> : <Vazio>{t('atividades.atividade.autorNaoIdentificado')}</Vazio>}
             {r.created_at && <span className="text-ln-t4 tabular whitespace-nowrap">{fmtRelativo(r.created_at, agora)}</span>}
           </Propriedade>
           <Propriedade label="ClickUp">
@@ -152,22 +156,22 @@ export default function AtividadePanel({ registro, nomeProjeto, nomeMembro, agor
                 href={r.clickup_task_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Abrir a tarefa no ClickUp"
+                title={t('atividades.atividade.abrirTarefaTitle')}
                 className={`inline-flex items-center gap-1 text-ln-accent hover:underline rounded ${FOCO}`}
               >
-                Abrir tarefa <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                {t('atividades.atividade.abrirTarefa')} <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
               </a>
             ) : r.status === 'erro' ? (
-              <span className="text-ln-red">tarefa não criada</span>
+              <span className="text-ln-red">{t('atividades.atividade.naoCriada')}</span>
             ) : (
-              <Vazio>sem link</Vazio>
+              <Vazio>{t('atividades.atividade.semLink')}</Vazio>
             )}
           </Propriedade>
         </dl>
       </section>
 
       <section>
-        <p className="ln-label">Carga no momento da aprovação</p>
+        <p className="ln-label">{t('atividades.atividade.cargaAprovacao')}</p>
         {temSnapshot ? (
           <>
             <CargaDiaria
@@ -180,14 +184,14 @@ export default function AtividadePanel({ registro, nomeProjeto, nomeMembro, agor
             />
             {totais && (
               <p className="mt-2 text-[11px] text-ln-t4 tabular">
-                Agenda de {responsavel || 'responsável'} lida em {fmtDiaCurto(snap.hoje)}: {fmtPct(totais.ocupacaoProximosDias)} ocupada nos 10 dias úteis
-                {' · '}{Number(totais.atrasadas) || 0} atrasadas
-                {' · '}{foraDoCalculo} fora do cálculo
+                {t('atividades.atividade.agendaLida', { nome: responsavel || t('atividades.atividade.responsavelMinusc'), dia: fmtDiaCurto(snap.hoje), pct: fmtPct(totais.ocupacaoProximosDias) })}
+                {' · '}{t('atividades.atividade.nAtrasadas', { n: Number(totais.atrasadas) || 0 })}
+                {' · '}{t('atividades.atividade.nFora', { n: foraDoCalculo })}
               </p>
             )}
           </>
         ) : (
-          <p className="text-xs text-ln-t4">Sem registro da carga no momento da aprovação.</p>
+          <p className="text-xs text-ln-t4">{t('atividades.atividade.semSnapshot')}</p>
         )}
       </section>
     </div>

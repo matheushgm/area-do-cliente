@@ -15,6 +15,7 @@ import { Pencil, Check, X, Sparkles, Loader2, AlertTriangle } from 'lucide-react
 import MarkdownView from './MarkdownView'
 import MarkdownEditor from './MarkdownEditor'
 import { refinarMarkdown } from '../../lib/refinarMarkdown'
+import { useI18n } from '../../i18n'
 
 const BTN =
   'flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg transition-all disabled:opacity-50'
@@ -44,6 +45,7 @@ export default function TextoEditavelIA({
   const [editando, setEditando] = useState(false)
   const [rascunho, setRascunho] = useState('')
   const [refino, setRefino] = useState(null)
+  const { t } = useI18n()
 
   const podeEditar = typeof onSalvar === 'function'
   const podeRefinar = podeEditar && !semIA
@@ -76,7 +78,7 @@ export default function TextoEditavelIA({
   async function enviarRefino() {
     if (!refino || !refino.instrucao.trim() || refino.carregando) return
     setRefino((r) => ({ ...r, carregando: true, streaming: '', resultado: null, erro: null }))
-    const aoChegar = (t) => setRefino((r) => (r ? { ...r, streaming: t } : r))
+    const aoChegar = (parcial) => setRefino((r) => (r ? { ...r, streaming: parcial } : r))
     try {
       const fn =
         onRefinar ||
@@ -87,7 +89,7 @@ export default function TextoEditavelIA({
     } catch (e) {
       console.error('[TextoEditavelIA] refino:', e)
       setRefino((r) =>
-        r ? { ...r, carregando: false, streaming: '', erro: e?.message || 'Erro ao refinar.' } : r
+        r ? { ...r, carregando: false, streaming: '', erro: e?.message || t('ui.refino.erro') } : r
       )
     }
   }
@@ -106,10 +108,10 @@ export default function TextoEditavelIA({
           {editando ? (
             <>
               <button type="button" onClick={salvar} className={BTN_ROXO}>
-                <Check className={ico} /> Salvar
+                <Check className={ico} /> {t('comum.salvar')}
               </button>
               <button type="button" onClick={cancelar} className={BTN_NEUTRO}>
-                <X className={ico} /> Cancelar
+                <X className={ico} /> {t('comum.cancelar')}
               </button>
             </>
           ) : (
@@ -120,13 +122,13 @@ export default function TextoEditavelIA({
                     type="button"
                     onClick={abrirRefino}
                     className={BTN_ROXO}
-                    title="Peça uma alteração e aprove o resultado"
+                    title={t('ui.refino.dica')}
                   >
-                    <Sparkles className={ico} /> Refinar com IA
+                    <Sparkles className={ico} /> {t('ui.refino.refinarComIA')}
                   </button>
                 )}
                 <button type="button" onClick={abrirEdicao} className={BTN_NEUTRO}>
-                  <Pencil className={ico} /> Editar
+                  <Pencil className={ico} /> {t('comum.editar')}
                 </button>
               </>
             )
@@ -152,7 +154,7 @@ export default function TextoEditavelIA({
           {!refino.resultado && !refino.carregando && (
             <>
               <p className="text-[10px] font-semibold text-rl-purple uppercase tracking-wide pt-3">
-                {refino.trecho ? 'O que mudar neste trecho?' : 'O que deseja melhorar?'}
+                {refino.trecho ? t('ui.refino.oQueMudarTrecho') : t('ui.refino.oQueMelhorar')}
               </p>
               {refino.trecho && (
                 <blockquote className="text-xs text-rl-muted italic border-l-2 border-rl-purple/40 pl-3 max-h-24 overflow-y-auto whitespace-pre-wrap">
@@ -165,7 +167,7 @@ export default function TextoEditavelIA({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) enviarRefino()
                 }}
-                placeholder="Ex: deixe mais direto, troque o exemplo, encurte, enfatize o prazo..."
+                placeholder={t('ui.refino.placeholder')}
                 rows={3}
                 className="w-full bg-rl-surface/60 border border-rl-purple/30 rounded-xl p-3 text-xs text-rl-text leading-relaxed resize-none focus:outline-none focus:border-rl-purple/60 transition-colors placeholder:text-rl-muted/60"
                 autoFocus
@@ -182,14 +184,14 @@ export default function TextoEditavelIA({
                   disabled={!refino.instrucao.trim()}
                   className={`${BTN_ROXO} px-3 py-1.5`}
                 >
-                  <Sparkles className={ico} /> Refinar
+                  <Sparkles className={ico} /> {t('ui.refino.refinar')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setRefino(null)}
                   className="text-[10px] px-2.5 py-1 text-rl-muted hover:text-rl-text transition-all"
                 >
-                  Cancelar
+                  {t('comum.cancelar')}
                 </button>
               </div>
             </>
@@ -198,7 +200,7 @@ export default function TextoEditavelIA({
           {refino.carregando && (
             <>
               <p className="text-[10px] font-semibold text-rl-purple uppercase tracking-wide pt-3 flex items-center gap-1.5">
-                <Loader2 className={`${ico} animate-spin`} /> Refinando...
+                <Loader2 className={`${ico} animate-spin`} /> {t('ui.refino.refinando')}
               </p>
               {refino.streaming && (
                 <div className="bg-rl-surface/60 border border-rl-purple/20 rounded-xl p-3">
@@ -211,7 +213,7 @@ export default function TextoEditavelIA({
           {refino.resultado && !refino.carregando && (
             <>
               <p className="text-[10px] font-semibold text-rl-purple uppercase tracking-wide pt-3">
-                Versão refinada
+                {t('ui.refino.versaoRefinada')}
               </p>
               <div className="bg-rl-purple/5 border border-rl-purple/30 rounded-xl p-3">
                 <MarkdownView content={refino.resultado} className={xs ? 'md-prose--xs' : ''} />
@@ -222,14 +224,14 @@ export default function TextoEditavelIA({
                   onClick={aprovar}
                   className={`${BTN} px-3 py-1.5 bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20`}
                 >
-                  <Check className={ico} /> Aprovar
+                  <Check className={ico} /> {t('ui.refino.aprovar')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setRefino((r) => ({ ...r, resultado: null }))}
                   className={`${BTN} px-3 py-1.5 bg-rl-surface text-rl-muted hover:text-red-400`}
                 >
-                  <X className={ico} /> Recusar e tentar novamente
+                  <X className={ico} /> {t('ui.refino.recusar')}
                 </button>
               </div>
             </>

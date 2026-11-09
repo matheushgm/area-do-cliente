@@ -8,6 +8,7 @@ import {
 } from "react";
 import { supabase } from "../lib/supabase";
 import { limparCacheDash } from "../lib/dashCache";
+import { t, definirIdioma, idiomaSalvoLocal } from "../i18n";
 
 const AppContext = createContext();
 export { AppContext };
@@ -952,7 +953,7 @@ export function AppProvider({ children }) {
         syncProfileIfExists(session.user).then((exists) => {
           if (!exists) {
             supabase.auth.signOut();
-            setAuthError("Acesso não autorizado. Entre em contato com o administrador.");
+            setAuthError(t('login.naoAutorizado'));
           } else {
             setAuthError(null);
             setUser(enrichUser(session.user));
@@ -1074,6 +1075,37 @@ export function AppProvider({ children }) {
     if (error) return { ok: false, error: error.message };
     return { ok: true, user: enrichUser(data.user) };
   }, []);
+
+  // ── Idioma da interface (profiles.idioma, migration 130) ──────────────────
+  // No login, o que está no perfil vale sobre o do navegador. Perfil sem idioma
+  // e navegador com escolha salva: copia a escolha para o perfil.
+  const userId = user?.id;
+  useEffect(() => {
+    if (!supabase || !userId) return;
+    let vivo = true;
+    supabase
+      .from("profiles")
+      .select("idioma")
+      .eq("id", userId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!vivo || error || !data) return;
+        if (data.idioma) definirIdioma(data.idioma);
+        else if (idiomaSalvoLocal()) {
+          supabase.from("profiles").update({ idioma: idiomaSalvoLocal() }).eq("id", userId)
+            .then(({ error: e }) => { if (e) console.error("[Supabase] idioma:", e.message); });
+        }
+      });
+    return () => { vivo = false; };
+  }, [userId]);
+
+  // Troca pelo menu do avatar: aplica na hora e grava no perfil.
+  const mudarIdioma = useCallback(async (id) => {
+    definirIdioma(id);
+    if (!supabase || !userId) return;
+    const { error } = await supabase.from("profiles").update({ idioma: id }).eq("id", userId);
+    if (error) console.error("[Supabase] idioma:", error.message);
+  }, [userId]);
 
   const logout = useCallback(async () => {
     localStorage.removeItem(LS_KEY);
@@ -1434,6 +1466,7 @@ export function AppProvider({ children }) {
     login,
     logout,
     loginWithGoogle,
+    mudarIdioma,
     addProject,
     updateProject,
     carregarDetalhe,

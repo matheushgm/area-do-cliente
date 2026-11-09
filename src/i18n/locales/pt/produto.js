@@ -1,0 +1,113 @@
+// Produto / Serviço (módulo da página do cliente; as perguntas também aparecem no portal)
+export default {
+  titulo: 'Produto / Serviço',
+  subtitulo: 'Documente os detalhes do produto ou serviço para embasar anúncios e estratégias',
+  gerando: 'Gerando...',
+  gerarResumo: 'Gerar Resumo',
+  video: 'Como preencher o módulo de Produto / Serviço',
+  nomePadrao: 'Produto {n}',
+  novoProduto: 'Novo Produto',
+  remover: 'Remover produto',
+  nome: 'Nome do Produto / Serviço',
+  nomePlaceholder: 'Ex: Curso Online de Marketing Digital...',
+  tipo: 'Tipo',
+  produtoFisico: 'Produto Físico',
+  servico: 'Serviço',
+  progresso: '{n}/{total} perguntas',
+  verOrientacao: 'Ver orientação',
+  exemplo: 'Exemplo: ',
+  respostaPlaceholder: 'Digite sua resposta...',
+  minimoPerguntas: 'Preencha pelo menos 5 perguntas antes de gerar o resumo.',
+  erroGerar: 'Erro ao gerar resumo. Tente novamente.',
+  briefing: 'Briefing do Produto / Serviço',
+  copiado: 'Copiado!',
+  copiar: 'Copiar',
+  salvar: 'Salvar Produtos / Serviços',
+  perguntas: {
+    q1: {
+      label: 'O que seu produto resolve?',
+      ajuda: 'Descreva o problema principal que o seu produto ou serviço elimina da vida do cliente. Seja objetivo: qual é a dor, a dificuldade ou o incômodo que existia antes e que o seu produto veio resolver? Evite falar sobre funcionalidades ou características técnicas aqui. Foque no problema real que a pessoa tinha.',
+      exemplo: '"Meu produto resolve a dificuldade de pequenos empresários em controlar o estoque sem perder tempo com planilhas manuais."',
+    },
+    q2: {
+      label: 'Por que e em que momento o seu cliente precisa do seu produto/serviço?',
+      ajuda: 'Pense no contexto de vida ou de trabalho do seu cliente. Qual é a situação específica que faz ele perceber que precisa do que você oferece? Existe um gatilho, uma data, uma fase ou um evento que antecede a compra? Quanto mais preciso você for aqui, mais certeiros serão os anúncios.',
+      exemplo: '"Ele percebe que precisa quando começa a perder vendas por falta de controle ou quando vai abrir uma segunda unidade."',
+    },
+    q3: {
+      label: 'Como é a vida dele depois de usar seu produto/serviço?',
+      ajuda: 'Descreva a transformação. Como o dia a dia do seu cliente muda depois que ele começa a usar o que você vende? O que ele consegue fazer que antes não conseguia? Como ele se sente? Pense na vida ideal que ele conquista, não nas funções do produto.',
+      exemplo: '"Ele consegue ver o estoque em tempo real pelo celular, para de perder vendas e dorme mais tranquilo sabendo que tudo está sob controle."',
+    },
+    q4: {
+      label: 'Por que vou usar seu produto/serviço e não o do concorrente?',
+      ajuda: 'Quais são os diferenciais reais que separam você da concorrência? Pense em atendimento, metodologia, resultado, prazo, garantia, exclusividade, experiência ou qualquer fator que faz um cliente que pesquisou as opções escolher você. Seja honesto e específico.',
+      exemplo: '"Somos os únicos que oferecem implementação em 48h com suporte por WhatsApp incluso no plano básico."',
+    },
+    q5: {
+      label: 'Por que eu preciso comprar agora?',
+      ajuda: 'O que cria urgência real na decisão do seu cliente? Pode ser uma janela de oportunidade, um custo crescente de não resolver o problema, uma limitação de vagas ou estoque, uma promoção com prazo ou simplesmente o prejuízo acumulado de adiar. Liste o que você usa ou poderia usar para justificar a compra imediata.',
+      exemplo: '"Cada mês sem controle de estoque significa perda média de R$3.000 em mercadoria não rastreada."',
+    },
+    q6: {
+      label: 'Como é a vida sem o seu produto/serviço?',
+      ajuda: 'Descreva a realidade do cliente antes da sua solução. Quais são as frustrações do dia a dia, os riscos que ele corre, as perdas que ele tem? Seja específico sobre as consequências de não resolver esse problema. Essa resposta é muito importante para criar empatia nos anúncios.',
+      exemplo: '"Ele perde tempo recontando estoque manualmente, descobre rupturas tarde demais e perde vendas sem saber exatamente onde está o erro."',
+    },
+    q7: {
+      label: 'Quais são as principais desculpas que os clientes dão para não comprar?',
+      ajuda: 'Liste as objeções mais comuns que você ouve no momento da venda: preço, tempo, "vou pensar", "não é o momento certo", "já tentei algo assim antes". Cada objeção que você listar vira uma resposta nos nossos anúncios e nas páginas de vendas.',
+      exemplo: '"É caro", "Minha equipe não vai adotar", "Agora não é o momento".',
+    },
+    q8: {
+      label: 'Já tentou resolver esse problema de outra forma antes? O que não funcionou?',
+      ajuda: 'Antes de chegar até você, o seu cliente provavelmente tentou outras soluções: planilhas, concorrentes, soluções caseiras, consultores. O que não deu certo? Por quê? Essa informação ajuda a mostrar que você entende a jornada do cliente e que sua solução é diferente do que ele já experimentou.',
+      exemplo: '"Já usou planilha no Excel, mas ninguém atualizava. Já contratou um sistema mais barato, mas o suporte era ruim."',
+    },
+    q9: {
+      label: 'O que faz o cliente desconfiar de produtos como o seu?',
+      ajuda: 'Existe algum histórico negativo no seu mercado? Promessas que não foram cumpridas por outros players? Mitos, medos ou preconceitos que fazem o cliente hesitar? Conhecendo essa desconfiança, criamos anúncios que antecipam e quebram essas barreiras antes mesmo do primeiro contato.',
+      exemplo: '"Clientes desconfiam porque já viram sistemas que prometem muito e na hora de usar são complicados demais."',
+    },
+    q10: {
+      label: 'Tem cases de clientes com resultado mensurável?',
+      ajuda: 'Relate resultados reais de clientes, com números sempre que possível. Quanto economizaram? Quanto cresceram? Em quanto tempo? Se tiver depoimentos ou prints de resultados, melhor ainda. Essa é a prova social mais poderosa que existe em anúncios.',
+      exemplo: '"A empresa X reduziu em 40% as perdas de estoque em 3 meses. A empresa Y cresceu 25% nas vendas no primeiro trimestre."',
+    },
+    q11: {
+      label: 'Quanto tempo leva para o cliente sentir o primeiro resultado?',
+      ajuda: 'Qual é o "tempo até o primeiro ganho"? Pode ser em horas, dias ou semanas. Esse dado é fundamental para reduzir o medo de comprar, porque ninguém quer esperar meses para ver se valeu a pena. Se tiver marcos intermediários de resultado, descreva-os.',
+      exemplo: '"Em até 48h após a implementação, o gestor já consegue ver o estoque completo em tempo real pelo app."',
+    },
+    q12: {
+      label: 'O que seus clientes mais elogiam espontaneamente?',
+      ajuda: 'Pense nos comentários que você mais ouve no pós-venda, nas avaliações, nas mensagens de WhatsApp. O que os clientes falam quando recomendam você para alguém? Essas palavras são ouro para os nossos anúncios porque são a voz real do seu público.',
+      exemplo: '"Facilidade de uso", "Suporte muito rápido", "Finalmente consegui ter controle de verdade".',
+    },
+    q13: {
+      label: 'O que você faz que nenhum concorrente faz ou consegue copiar facilmente?',
+      ajuda: 'Aqui buscamos seu diferencial mais profundo: pode ser uma metodologia proprietária, uma combinação única de serviços, uma tecnologia exclusiva, um processo, um time especializado ou até uma posição de mercado difícil de replicar. Seja específico e honesto.',
+      exemplo: '"Somos os únicos com integração nativa ao sistema fiscal do cliente, sem necessidade de customização."',
+    },
+    q14: {
+      label: 'O que acontece se o cliente esperar mais 3 meses para resolver isso?',
+      ajuda: 'Qual é o custo real da inação? Descreva as consequências concretas de postergar a decisão: prejuízos financeiros, problemas que se agravam, oportunidades perdidas, riscos que aumentam. Essa resposta ajuda a criar urgência verdadeira, sem precisar de pressão falsa.',
+      exemplo: '"Em 3 meses ele terá perdido em média R$9.000 em rupturas não rastreadas e processado mais uma safra com dado errado."',
+    },
+    q15: {
+      label: 'Existe alguma sazonalidade ou janela de oportunidade no seu mercado?',
+      ajuda: 'Há épocas do ano em que a demanda pelo seu produto aumenta ou diminui? Existe alguma data, período ou evento que cria uma janela de oportunidade para comprar? Isso influencia diretamente o calendário das campanhas e as mensagens de urgência que usamos.',
+      exemplo: '"O pico de procura é em março, antes do início do segundo semestre. Quem não contrata até fevereiro geralmente espera mais um ano."',
+    },
+    q16: {
+      label: 'Você oferece alguma garantia hoje? Se não, o que te impede?',
+      ajuda: 'Descreva qualquer garantia formal ou informal que você já pratica: devolução do dinheiro, garantia de resultado, período de teste, retrabalho sem custo. Se não oferece nenhuma, explique o que te impede, pois isso pode ser um ponto importante a trabalhar para aumentar a conversão.',
+      exemplo: '"Oferecemos 15 dias de teste gratuito sem cartão de crédito e reembolso total em até 30 dias sem questionamentos."',
+    },
+    q17: {
+      label: 'Se der errado, o que você faz pelo cliente?',
+      ajuda: 'Descreva seu protocolo real quando algo não sai como esperado. O que você faz concretamente para corrigir, compensar ou resolver a situação? Essa resposta mostra responsabilidade e reduz o medo de comprar, especialmente em clientes que já tiveram experiências ruins no passado.',
+      exemplo: '"Se o resultado não for alcançado no prazo prometido, refazemos a implementação sem custo adicional e acompanhamos até funcionar."',
+    },
+  },
+}

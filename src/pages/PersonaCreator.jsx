@@ -8,64 +8,34 @@ import { exportPersonasPDF } from '../utils/exportPDF'
 import { streamClaude } from '../lib/claude'
 import { AutoSaveIndicator } from '../hooks/useAutoSave.jsx'
 import VideoGuide from '../components/VideoGuide'
+import { t as tSolto, useI18n } from '../i18n'
+import TEXTOS_PT from '../i18n/locales/pt/personas.js'
 
 // ─── Questions ────────────────────────────────────────────────────────────────
+// Enunciado e ajuda moram em src/i18n/locales/{pt,en}/personas.js (`perguntas.<id>`).
+// `label` e `hint` são getters (traduzem no idioma de agora a cada leitura); o portal,
+// que importa QUESTIONS, continua lendo `q.label`. O prompt da IA usa sempre o pt.
 export const QUESTIONS = [
-  {
-    id:    'sonhos',
-    emoji: '✨',
-    label: 'Quais são OS SONHOS do seu cliente que sua empresa consegue realizar?',
-    hint:  'Essa pergunta é sobre o resultado emocional e de vida que o cliente espera quando contrata você. Aqui vai além de métricas, pense em algo pessoal.',
-  },
-  {
-    id:    'resultado',
-    emoji: '🎯',
-    label: 'Qual é o resultado percebido após usar o produto ou serviço?',
-    hint:  'Conte como é a vida do seu cliente depois que ele usa de fato seu produto / serviço. Uma ideia é trazer comentários que os clientes fazem após o seu produto/serviço ser implementado.',
-  },
-  {
-    id:    'acoes',
-    emoji: '⚡',
-    label: 'O que ele PRECISA FAZER para alcançar o resultado?',
-    hint:  'O que o seu cliente precisa ter/fazer para que o resultado que ele queira seja alcançado.',
-  },
-  {
-    id:    'tempo',
-    emoji: '⏱️',
-    label: 'Em quanto tempo o cliente consegue alcançar o resultado?',
-    hint:  'O ideal é trazer em quanto tempo ele tem o primeiro resultado e também quanto tempo para ter a transformação real.',
-  },
-  {
-    id:    'objecoes',
-    emoji: '🚧',
-    label: 'Quais são as objeções que eles usam como justificativa para não fazer o que é necessário?',
-    hint:  null,
-  },
-  {
-    id:    'erros',
-    emoji: '❌',
-    label: 'Quais são ERROS que seu cliente comete e que afasta ele do resultado sonhado?',
-    hint:  'Esses erros são cometidos antes de ele te contratar ou comprar o seu produto.',
-  },
-  {
-    id:    'medos',
-    emoji: '😰',
-    label: 'Quais são OS MEDOS do seu cliente que podem se tornar realidade?',
-    hint:  'Aqui são medos pessoais mesmo, mais intrínsecos ao dia-a-dia como ser humano.',
-  },
-  {
-    id:    'sinais',
-    emoji: '🔍',
-    label: 'Seu cliente VÊ SINAIS DO PROBLEMA. Quais sinais são esse?',
-    hint:  'Quais são os problemas que ele percebe que começam a fazer com que ele busque uma solução / ajuda.',
-  },
-  {
-    id:    'habitos',
-    emoji: '🔄',
-    label: 'Hábitos do seu cliente',
-    hint:  'Quais são os hábitos dentro e fora do trabalho.',
-  },
+  { id: 'sonhos', emoji: '✨' },
+  { id: 'resultado', emoji: '🎯' },
+  { id: 'acoes', emoji: '⚡' },
+  { id: 'tempo', emoji: '⏱️' },
+  { id: 'objecoes', emoji: '🚧' },
+  { id: 'erros', emoji: '❌' },
+  { id: 'medos', emoji: '😰' },
+  { id: 'sinais', emoji: '🔍' },
+  { id: 'habitos', emoji: '🔄' },
 ]
+
+for (const q of QUESTIONS) {
+  const tx = TEXTOS_PT.perguntas[q.id] || {}
+  for (const campo of ['label', 'hint']) {
+    Object.defineProperty(q, campo, {
+      enumerable: true, configurable: true,
+      get: () => (tx[campo] != null ? tSolto(`personas.perguntas.${q.id}.${campo}`) : null),
+    })
+  }
+}
 
 // ─── AI System Prompt (criador-de-persona-v2) ────────────────────────────────
 const SYSTEM_PROMPT = `Você é um estrategista de marketing especializado em construção de personas de comprador para o mercado brasileiro.
@@ -213,6 +183,7 @@ function newPersona(label = '') {
 
 // ─── Multi-answer input ───────────────────────────────────────────────────────
 function MultiAnswerInput({ answers, onChange }) {
+  const { t } = useI18n()
   const add    = () => answers.length < 10 && onChange([...answers, ''])
   const remove = (i) => onChange(answers.filter((_, idx) => idx !== i))
   const update = (i, val) => { const n = [...answers]; n[i] = val; onChange(n) }
@@ -226,12 +197,13 @@ function MultiAnswerInput({ answers, onChange }) {
             type="text"
             value={ans}
             onChange={(e) => update(i, e.target.value)}
-            placeholder="Digite uma resposta..."
+            placeholder={t('personas.respostaPlaceholder')}
             className="input-field flex-1 py-2 text-sm"
           />
           {answers.length > 1 && (
             <button
               onClick={() => remove(i)}
+              aria-label={t('personas.removerResposta')}
               className="p-1.5 rounded-lg text-rl-muted hover:text-rl-red hover:bg-rl-red/10 transition-all shrink-0"
             >
               <X className="w-3.5 h-3.5" />
@@ -245,7 +217,7 @@ function MultiAnswerInput({ answers, onChange }) {
           className="flex items-center gap-1.5 text-xs text-rl-purple hover:text-rl-purple/80 transition-colors mt-1"
         >
           <Plus className="w-3.5 h-3.5" />
-          Adicionar resposta {answers.length > 0 && <span className="text-rl-muted">({answers.length}/10)</span>}
+          {t('personas.adicionarResposta')} {answers.length > 0 && <span className="text-rl-muted">({answers.length}/10)</span>}
         </button>
       )}
     </div>
@@ -305,8 +277,10 @@ function PersonaResult({ text }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function PersonaCreator({ project, onSave }) {
   const { updateProject } = useApp()
+  const { t } = useI18n()
+  // O nome padrão é só o ponto de partida (a pessoa edita); nasce no idioma da tela.
   const [personas, setPersonas] = useState(() => {
-    return project.personas?.length ? project.personas : [newPersona('Persona 1')]
+    return project.personas?.length ? project.personas : [newPersona(t('personas.nomePadrao', { n: 1 }))]
   })
   const [activeIdx, setActiveIdx] = useState(0)
   const [loading, setLoading]     = useState(false)
@@ -330,7 +304,7 @@ export default function PersonaCreator({ project, onSave }) {
   }, [activeIdx, personas, project.id, updateProject])
 
   const addPersona = () => {
-    const next = newPersona(`Persona ${personas.length + 1}`)
+    const next = newPersona(t('personas.nomePadrao', { n: personas.length + 1 }))
     setPersonas((prev) => [...prev, next])
     setActiveIdx(personas.length)
     setError(null)
@@ -346,7 +320,7 @@ export default function PersonaCreator({ project, onSave }) {
     const sections = QUESTIONS.map((q) => {
       const answers = (persona.answers[q.id] || []).filter((a) => a.trim())
       if (!answers.length) return null
-      return `**${q.emoji} ${q.label}**\n${answers.map((a, i) => `${i + 1}. ${a}`).join('\n')}`
+      return `**${q.emoji} ${TEXTOS_PT.perguntas[q.id].label}**\n${answers.map((a, i) => `${i + 1}. ${a}`).join('\n')}`
     }).filter(Boolean)
 
     return `Crie a persona de buyer para o cliente **${project.companyName}** (${project.businessType || 'empresa'}).
@@ -366,6 +340,9 @@ ${sections.join('\n\n')}`
       const profile = await streamClaude({
         model: 'claude-sonnet-4-5',
         max_tokens: 16000,
+        // Sem instrucaoDeIdioma(): o perfil é lido por regex em rótulos em português
+        // ("PRINCIPAIS DORES", "- Dor:", "- Nome:") pelo Criativos com IA e por
+        // api/criativos-public.js, e alimenta copy que vai para aprovação do cliente.
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: buildPrompt() }],
         onChunk: (text) => setStreaming(text),
@@ -392,10 +369,10 @@ ${sections.join('\n\n')}`
         <div>
           <h2 className="text-xl font-bold text-rl-text flex items-center gap-2">
             <User className="w-5 h-5 text-rl-purple" />
-            Criador de Persona
+            {t('personas.titulo')}
           </h2>
           <p className="text-sm text-rl-muted mt-0.5">
-            Defina o cliente ideal e gere um perfil psicológico profundo com IA
+            {t('personas.subtitulo')}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -403,20 +380,20 @@ ${sections.join('\n\n')}`
           <button
             onClick={() => exportPersonasPDF(personas, project)}
             className="btn-secondary flex items-center gap-2 text-sm"
-            title="Exportar PDF"
+            title={t('personas.exportarPdf')}
           >
             <FileDown className="w-4 h-4" />
             PDF
           </button>
           <button onClick={addPersona} className="btn-secondary flex items-center gap-2 text-sm">
             <UserPlus className="w-4 h-4" />
-            Nova Persona
+            {t('personas.nova')}
           </button>
         </div>
       </div>
 
       {/* Vídeo guia */}
-      <VideoGuide videoId="hpMy2Th9YrA" label="Como preencher o módulo de Personas" />
+      <VideoGuide videoId="hpMy2Th9YrA" label={t('personas.video')} />
 
       {/* Persona tabs */}
       {personas.length > 1 && (
@@ -431,10 +408,11 @@ ${sections.join('\n\n')}`
                     : 'bg-rl-surface text-rl-muted hover:text-rl-text'
                 }`}
               >
-                {p.name || `Persona ${i + 1}`}
+                {p.name || t('personas.nomePadrao', { n: i + 1 })}
               </button>
               <button
                 onClick={() => removePersona(i)}
+                aria-label={t('personas.remover')}
                 className="p-1 rounded text-rl-muted/50 hover:text-rl-red transition-colors"
               >
                 <X className="w-3 h-3" />
@@ -451,12 +429,12 @@ ${sections.join('\n\n')}`
 
           {/* Name */}
           <div className="glass-card p-5">
-            <label className="label-field">Nome da Persona</label>
+            <label className="label-field">{t('personas.nome')}</label>
             <input
               type="text"
               value={persona.name}
               onChange={(e) => updatePersona({ name: e.target.value })}
-              placeholder="Ex: Ana, empreendedora 35-45 anos..."
+              placeholder={t('personas.nomePlaceholder')}
               className="input-field"
             />
           </div>
@@ -490,10 +468,10 @@ ${sections.join('\n\n')}`
           <div className="glass-card p-5 border border-rl-purple/20">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-4 h-4 text-rl-purple" />
-              <p className="text-sm font-semibold text-rl-text">Gerar com IA</p>
+              <p className="text-sm font-semibold text-rl-text">{t('personas.gerarComIa')}</p>
             </div>
             <p className="text-xs text-rl-muted mb-4">
-              Preencha as perguntas e clique em gerar para criar o perfil psicológico completo da persona.
+              {t('personas.gerarDescricao')}
             </p>
             <button
               onClick={generate}
@@ -501,9 +479,9 @@ ${sections.join('\n\n')}`
               className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Gerando persona...</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> {t('personas.gerando')}</>
               ) : (
-                <><Sparkles className="w-4 h-4" /> Gerar Persona com IA</>
+                <><Sparkles className="w-4 h-4" /> {t('personas.gerar')}</>
               )}
             </button>
           </div>
@@ -524,7 +502,7 @@ ${sections.join('\n\n')}`
               <div className="flex items-center gap-2 mb-4">
                 <CheckCircle2 className="w-4 h-4 text-rl-green" />
                 <p className="text-sm font-semibold text-rl-text">
-                  {persona.name || 'Persona'} — Perfil Gerado
+                  {t('personas.perfilGerado', { nome: persona.name || t('personas.persona') })}
                 </p>
               </div>
               <PersonaResult text={currentProfile} />
@@ -536,7 +514,7 @@ ${sections.join('\n\n')}`
             <div className="glass-card p-8 text-center">
               <User className="w-8 h-8 text-rl-muted/30 mx-auto mb-3" />
               <p className="text-rl-muted text-sm">
-                Preencha as perguntas e clique em "Gerar Persona com IA" para criar o perfil detalhado.
+                {t('personas.vazio')}
               </p>
             </div>
           )}
@@ -551,7 +529,7 @@ ${sections.join('\n\n')}`
             className="btn-primary flex items-center gap-2"
           >
             <CheckCircle2 className="w-4 h-4" />
-            Concluir Criação de Personas
+            {t('personas.concluir')}
           </button>
         </div>
       )}

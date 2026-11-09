@@ -14,11 +14,13 @@ import { CalendarCheck, ChevronsDownUp, ChevronsUpDown, Columns3, Maximize2, Und
 import { supabase } from '../../lib/supabase'
 import { acharStatus, ordenarItens, ordenarPorCampo } from '../../lib/tarefas'
 import { paraTasks, patchesDeDatas, chavesDependencias } from '../../lib/gantt'
-import { COLUNAS_GANTT, OCULTAS_GANTT, colunasDaView } from '../../lib/viewsTarefas'
+import { COLUNAS_GANTT, OCULTAS_GANTT, colunasDaView, rotuloColuna } from '../../lib/viewsTarefas'
+import { useI18n } from '../../i18n'
 import GanttLista from './GanttLista'
 import EditorColunas from './ColunasLista'
 import { Popover } from './Campos'
 
+// `l` fica como referência; a tela mostra tarefas.gantt.escala.<v>
 const ESCALAS = [{ v: 'day', l: 'Dia' }, { v: 'week', l: 'Semana' }, { v: 'month', l: 'Mês' }, { v: 'quarter', l: 'Trimestre' }]
 const CHAVE_ESCALA = 'tarefas.gantt.escala'
 const lerEscala = () => { try { const v = localStorage.getItem(CHAVE_ESCALA); return ESCALAS.some((e) => e.v === v) ? v : 'week' } catch { return 'week' } }
@@ -29,7 +31,8 @@ const ALTURA_LINHA = 36
 // ordenação gravada (ou com uma que o Gantt não oferece) = Início, a ordem natural de um cronograma;
 // Manual = `posicao`, a mesma das setas da Lista. Arrastar uma linha em Início ou Vencimento passa
 // para Manual, congelando a ordem que está na tela.
-const ORDENS = [{ v: 'inicio', l: 'Início' }, { v: 'venc', l: 'Vencimento' }, { v: 'manual', l: 'Manual' }]
+const ORDENS = [{ v: 'inicio', l: 'Início' }, { v: 'venc', l: 'Vencimento' }, { v: 'manual', l: 'Manual' }] // rótulo: tarefas.gantt.ordem.<v>
+const COLUNAS_CURTAS = new Set(['inicio', 'venc', 'duracao', 'estim', 'tipo', 'concluida', 'criada'])
 const ORDEM_PADRAO = { campo: 'inicio', dir: 1 }
 const posDe = (it) => Number(it?.posicao) || 0
 const PASSO = 1000
@@ -83,6 +86,7 @@ export default function GanttView({
   itens, ctx, filhosDe = null, mostrarConcluidas = true, altura = 560, userId = null, agendarPush, avisar,
   relacoes: relacoesFixas = null, onCriarRelacao, onApagarRelacao,
 }) {
+  const { t, lang, locale } = useI18n()
   const ref = useRef(null)
   const escuro = useEscuro()
   const [escala, setEscala] = useState(lerEscala)
@@ -140,8 +144,8 @@ export default function GanttView({
     listasMap: new Map((ctx.listas || []).map((l) => [l.id, l])),
     pastasMap: new Map((ctx.pastas || []).map((p) => [p.id, p])),
     projetosMap: new Map((ctx.projetos || []).map((p) => [p.id, p])),
-    rotuloColuna: (k) => ({ inicio: 'Início', venc: 'Vencimento', duracao: 'Duração', estim: 'Estimativa', tipo: 'Tipo', concluida: 'Conclusão', criada: 'Criada' })[k] || COLUNAS_GANTT.find((c) => c.k === k)?.label || k,
-  }), [ctx])
+    rotuloColuna: (k) => (COLUNAS_CURTAS.has(k) ? t(`tarefas.gantt.colCurta.${k}`) : rotuloColuna(k, COLUNAS_GANTT)),
+  }), [ctx, t])
   const [colunasAbertas, setColunasAbertas] = useState(false)
   const botaoColunas = useRef(null)
 
@@ -234,25 +238,25 @@ export default function GanttView({
       }
       for (const [de, para] of novas) {
         const r = await criarRelacao(de, para)
-        if (r?.error) avisar?.(`Não deu para ligar as tarefas: ${r.error}`, 'error'); else desfazer.push({ tipo: 'rel+', de, para })
+        if (r?.error) avisar?.(t('tarefas.gantt.naoLigou', { erro: r.error }), 'error'); else desfazer.push({ tipo: 'rel+', de, para })
       }
       for (const [de, para] of removidas) {
         const r = await apagarRelacao(de, para)
-        if (r?.error) avisar?.(`Não deu para apagar a ligação: ${r.error}`, 'error'); else desfazer.push({ tipo: 'rel-', de, para })
+        if (r?.error) avisar?.(t('tarefas.gantt.naoApagou', { erro: r.error }), 'error'); else desfazer.push({ tipo: 'rel-', de, para })
       }
       if (desfazer.length) setPilha((p) => [...p.slice(-19), desfazer])
     } finally {
       setOtimista(null)
       ocupado.current = false
     }
-  }, [base, mapa, ctx, criarRelacao, apagarRelacao, avisar])
+  }, [base, mapa, ctx, criarRelacao, apagarRelacao, avisar, t])
 
   // Arrastar uma linha (só entre irmãs): grava `posicao` entre a de cima e a de baixo, como as setas
   // da Lista; posições repetidas (comum em tarefas criadas aqui) renumeram as irmãs na ordem nova.
   // Em Início/Vencimento, a ordem da tela vira a ordem manual (renumera cada grupo de irmãs que
   // estiver fora dela) e a view passa para Manual. Trocar de pai é recusado.
   const aoMoverLinha = useCallback((c) => {
-    if (c.toParentId !== c.fromParentId) { avisar?.('Para trocar uma tarefa de pai, use o painel da tarefa.', 'error'); return false }
+    if (c.toParentId !== c.fromParentId) { avisar?.(t('tarefas.gantt.trocarPai'), 'error'); return false }
     const seq = (s) => s.split('.').map(Number)
     const porSeq = (a, b) => { const x = seq(a.sequence), y = seq(b.sequence); for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0); return 0 }
     const grupos = new Map()
@@ -280,7 +284,7 @@ export default function GanttView({
     if (!manual) ctx.onOrdenar?.({ campo: 'manual', dir: 1 })
     setPilha((pl) => [...pl.slice(-19), [{ tipo: 'posicao', antes, ordemAntes }]])
     return true
-  }, [manual, base, mapa, ctx, avisar])
+  }, [manual, base, mapa, ctx, avisar, t])
 
   const desfazer = useCallback(async () => {
     const ultimo = pilha.at(-1)
@@ -322,44 +326,44 @@ export default function GanttView({
     <div className="flex flex-col h-full p-3 gap-2" style={altura === '100%' ? undefined : { height: altura }}>
       <div className="flex flex-wrap items-center gap-2 shrink-0">
         {/* o que aparece na lista: ordem, recolher e colunas */}
-        <label className="flex items-center gap-1.5 text-xs text-ln-t3" title="Arrastar uma linha passa para Manual, a mesma ordem das setas da Lista">
-          Ordenar por
+        <label className="flex items-center gap-1.5 text-xs text-ln-t3" title={t('tarefas.gantt.arrastarManual')}>
+          {t('tarefas.gantt.ordenarPor')}
           <select value={ordem.campo} onChange={(e) => mudarOrdem(e.target.value)} disabled={!ctx.onOrdenar}
             className="h-7 rounded-md border border-ln-border bg-ln-panel px-1.5 text-xs text-ln-t1">
-            {ORDENS.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
+            {ORDENS.map((o) => <option key={o.v} value={o.v}>{t(`tarefas.gantt.ordem.${o.v}`)}</option>)}
           </select>
         </label>
         {!plano && pais.length > 0 && (
           <button type="button" className="ln-pill" onClick={() => setRecolhidos(algumRecolhido ? [] : pais)}>
-            {algumRecolhido ? <><ChevronsUpDown className="w-3.5 h-3.5" /> Expandir tudo</> : <><ChevronsDownUp className="w-3.5 h-3.5" /> Recolher tudo</>}
+            {algumRecolhido ? <><ChevronsUpDown className="w-3.5 h-3.5" /> {t('tarefas.gantt.expandirTudo')}</> : <><ChevronsDownUp className="w-3.5 h-3.5" /> {t('tarefas.gantt.recolherTudo')}</>}
           </button>
         )}
         {ctx.onColunasGantt && (<>
           <button ref={botaoColunas} type="button" className="ln-pill" onClick={() => setColunasAbertas((v) => !v)} aria-expanded={colunasAbertas}>
-            <Columns3 className="w-3.5 h-3.5" /> Colunas{colsVisiveis.length ? ` (${colsVisiveis.length})` : ''}
+            <Columns3 className="w-3.5 h-3.5" /> {t('tarefas.gantt.colunas')}{colsVisiveis.length ? ` (${colsVisiveis.length})` : ''}
           </button>
           <Popover anchorRef={botaoColunas} open={colunasAbertas} onClose={() => setColunasAbertas(false)} width={280} alturaMax={460}>
             <div className="p-2"><EditorColunas valor={ctx.colunasGantt} onChange={ctx.onColunasGantt} catalogo={COLUNAS_GANTT} ocultasPadrao={OCULTAS_GANTT} /></div>
           </Popover>
         </>)}
-        <span className="text-xs text-ln-t4 tabular">{base.length} {base.length === 1 ? 'tarefa' : 'tarefas'}{semDatas > 0 ? ` · ${semDatas} sem datas` : ''}</span>
+        <span className="text-xs text-ln-t4 tabular">{t('tarefas.gantt.nTarefas', { count: base.length })}{semDatas > 0 ? t('tarefas.gantt.semDatas', { n: semDatas }) : ''}</span>
 
         {/* a linha do tempo: desfazer, navegar e escala */}
         <div className="ml-auto flex items-center gap-2">
-          <button type="button" className="ln-iconbtn" disabled={!pilha.length} onClick={desfazer} title="Desfazer o último gesto no Gantt (Ctrl+Z)" aria-label="Desfazer"><Undo2 className="w-4 h-4" /></button>
+          <button type="button" className="ln-iconbtn" disabled={!pilha.length} onClick={desfazer} title={t('tarefas.gantt.desfazerTitulo')} aria-label={t('tarefas.gantt.desfazer')}><Undo2 className="w-4 h-4" /></button>
           <span className="w-px h-5 bg-ln-border" aria-hidden="true" />
-          <button type="button" className="ln-pill" onClick={() => ref.current?.scrollToToday({ smooth: true, align: 'center' })}><CalendarCheck className="w-3.5 h-3.5" /> Hoje</button>
-          <button type="button" className="ln-iconbtn" onClick={() => ref.current?.zoomToFit()} title="Mostrar todas as tarefas" aria-label="Ajustar à tela"><Maximize2 className="w-4 h-4" /></button>
-          <div className={seg} role="group" aria-label="Escala">
+          <button type="button" className="ln-pill" onClick={() => ref.current?.scrollToToday({ smooth: true, align: 'center' })}><CalendarCheck className="w-3.5 h-3.5" /> {t('tarefas.gantt.hoje')}</button>
+          <button type="button" className="ln-iconbtn" onClick={() => ref.current?.zoomToFit()} title={t('tarefas.gantt.mostrarTodas')} aria-label={t('tarefas.gantt.ajustar')}><Maximize2 className="w-4 h-4" /></button>
+          <div className={seg} role="group" aria-label={t('tarefas.gantt.escalaAria')}>
             {ESCALAS.map((e) => (
-              <button key={e.v} type="button" onClick={() => { mudarEscala(e.v); ref.current?.setScale(e.v) }} aria-pressed={escala === e.v} className={segBtn(escala === e.v)}>{e.l}</button>
+              <button key={e.v} type="button" onClick={() => { mudarEscala(e.v); ref.current?.setScale(e.v) }} aria-pressed={escala === e.v} className={segBtn(escala === e.v)}>{t(`tarefas.gantt.escala.${e.v}`)}</button>
             ))}
           </div>
         </div>
       </div>
       <div className="flex-1 min-h-0 ln-card overflow-hidden flex">
         {!base.length ? (
-          <p className="flex-1 py-12 text-center text-[13px] text-ln-t4">Nenhuma tarefa com datas{semDatas ? `: ${semDatas} sem início nem vencimento` : ''}.</p>
+          <p className="flex-1 py-12 text-center text-[13px] text-ln-t4">{t('tarefas.gantt.nenhumaComDatas')}{semDatas ? t('tarefas.gantt.semInicioNemVenc', { n: semDatas }) : ''}.</p>
         ) : (<>
           <GanttLista
             linhas={visiveis} cols={colsVisiveis} ctx={ctxLista} alturaLinha={ALTURA_LINHA} cabecalho={rolagem.cabecalho}
@@ -374,7 +378,8 @@ export default function GanttView({
             height="100%"
             theme={escuro ? 'dark' : 'light'}
             style={TEMA}
-            locale="pt-BR"
+            key={lang} // a biblioteca lê o locale ao montar
+            locale={locale}
             firstDayOfWeek={0}
             defaultScale={escala}
             onScaleChange={mudarEscala}
@@ -391,7 +396,7 @@ export default function GanttView({
             allowLinkCreate
             allowLinkDelete
             onDependencyCreate={(c) => {
-              if (c.type !== 'FS') { avisar?.('Só dá para ligar o fim de uma tarefa ao início de outra (é o "bloqueia").', 'error'); return false }
+              if (c.type !== 'FS') { avisar?.(t('tarefas.gantt.soFimInicio'), 'error'); return false }
               return undefined
             }}
             onTaskClick={(t) => ctx.onAbrir?.(t.id)}

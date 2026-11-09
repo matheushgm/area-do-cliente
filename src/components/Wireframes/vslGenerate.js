@@ -5,6 +5,11 @@
 // legível (usada na visão "texto" e no copiar).
 
 import { VSL_WIREFRAME } from './vslSchema'
+import { t } from '../../i18n'
+
+// Rótulos da versão em texto (no idioma de quem está usando): wireframes.texto.* e wireframes.secao.*
+const R = (k, vars) => t(`wireframes.texto.${k}`, vars)
+const S = (k, quebra) => `${quebra ? '\n' : ''}## ${t(`wireframes.secao.${k}`).toUpperCase()}`
 
 export const VSL_SYSTEM = `Você é um especialista em copy de alta conversão para páginas de VENDA ancoradas em vídeo (VSL — Video Sales Letter), usando a metodologia Revenue Lab.
 
@@ -111,42 +116,42 @@ export function vslToText(content) {
   const lines = []
   const push = (label, val) => { if (val?.trim?.()) lines.push(`**${label}:** ${val.trim()}`) }
 
-  lines.push('## HERO')
-  push('Barra de aviso', c.announcement)
-  push('Headline', c.headline)
-  push('Subtítulo', c.subheadline)
-  push('CTA', c.heroCta)
+  lines.push(S('hero'))
+  push(R('barraAviso'), c.announcement)
+  push(R('headline'), c.headline)
+  push(R('subtitulo'), c.subheadline)
+  push(R('cta'), c.heroCta)
 
-  lines.push('\n## PARA QUEM É A OFERTA')
-  push('Título', c.forWhomTitle)
+  lines.push(S('paraQuem', true))
+  push(R('titulo'), c.forWhomTitle)
   ;(c.cards || []).forEach((card, i) => {
     if (card.title?.trim() || card.desc?.trim()) {
-      lines.push(`- **${card.title || `Card ${i + 1}`}** — ${card.desc || ''}`.trim())
+      lines.push(`- **${card.title || R('card', { n: i + 1 })}** — ${card.desc || ''}`.trim())
     }
   })
 
-  lines.push('\n## OFERTA')
-  push('Título', c.offerTitle)
-  push('Texto', c.offerText)
-  push('Desconto', [c.discountValue, c.discountLabel].filter(Boolean).join(' '))
-  push('CTA', c.offerCta)
+  lines.push(S('oferta', true))
+  push(R('titulo'), c.offerTitle)
+  push(R('texto'), c.offerText)
+  push(R('desconto'), [c.discountValue, c.discountLabel].filter(Boolean).join(' '))
+  push(R('cta'), c.offerCta)
 
-  lines.push('\n## PROVA SOCIAL')
-  push('Título', c.storyTitle)
-  push('História', c.storyText)
+  lines.push(S('provaSocial', true))
+  push(R('titulo'), c.storyTitle)
+  push(R('historia'), c.storyText)
 
-  lines.push('\n## PREÇO')
-  push('Título', c.opportunityTitle)
+  lines.push(S('preco', true))
+  push(R('titulo'), c.opportunityTitle)
   ;(c.bullets || []).forEach((b) => { if (b?.trim()) lines.push(`- ${b.trim()}`) })
-  push('Linha acima', c.priceLabel)
-  push('Preço', c.price)
-  push('Linha abaixo', c.priceSecondary)
-  push('CTA', c.priceCta)
+  push(R('linhaAcima'), c.priceLabel)
+  push(R('preco'), c.price)
+  push(R('linhaAbaixo'), c.priceSecondary)
+  push(R('cta'), c.priceCta)
 
-  lines.push('\n## DEPOIMENTOS')
-  ;(c.testimonials || []).forEach((t, i) => {
-    if (t.name?.trim() || t.text?.trim()) {
-      lines.push(`- **${t.name || `Depoimento ${i + 1}`}** (${t.role || ''}): ${t.text || ''}`.trim())
+  lines.push(S('depoimentos', true))
+  ;(c.testimonials || []).forEach((d, i) => {
+    if (d.name?.trim() || d.text?.trim()) {
+      lines.push(`- **${d.name || R('depoimento', { n: i + 1 })}** (${d.role || ''}): ${d.text || ''}`.trim())
     }
   })
 

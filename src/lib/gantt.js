@@ -7,6 +7,7 @@
 // início D, fim D+1). Aqui os dias são locais (America/Sao_Paulo), como no resto do VertaTask.
 import { paraISODia, somarDias, diasEntre } from './vertatask'
 import { acharStatus, deInputDate } from './tarefas'
+import { t as tr } from '../i18n'
 
 const diaDe = (v) => (v ? paraISODia(new Date(v)) : null)
 const diaDaLib = (s) => String(s).slice(0, 10)
@@ -65,7 +66,7 @@ export function paraTasks(itens, { statuses = [], relacoes = [], ordenar = porIn
     const { a, b } = diasDaTarefa(it) || resumoSemDatas.get(it.id)
     return {
       id: it.id,
-      name: it.titulo || 'Sem título',
+      name: it.titulo || tr('tarefas.semTitulo'),
       startDate: a,
       endDate: somarDias(b, 1),
       parentId: paiDe(it),

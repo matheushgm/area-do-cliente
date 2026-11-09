@@ -27,16 +27,18 @@
 // mais 50 quando o fim do que está desenhado chega perto da tela (MaisLinhas), e a linha é
 // memorizada (igualLinha): só redesenha quando a própria tarefa ou o que ela mostra muda.
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, memo } from 'react'
-import { colunasVisiveis, normalizarLarguraNome } from '../../lib/viewsTarefas'
+import { colunasVisiveis, normalizarLarguraNome, rotuloColuna } from '../../lib/viewsTarefas'
+import { useI18n } from '../../i18n'
 import EditorColunas from './ColunasLista'
 import { ChevronRight, ChevronDown, ArrowUp, ArrowDown, CornerDownRight, MessageSquare, ListChecks, Plus, MoreHorizontal, Hourglass, CloudUpload } from 'lucide-react'
 import { IconeRelacao } from './SecoesTarefa'
-import { ordenarItens, ordenarPorCampo, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa, deInputDate, paraInputDate } from '../../lib/tarefas'
+import { ordenarItens, ordenarPorCampo, fmtDataNumerica, fmtVencimentoClickUp, progressoChecklists, rotuloStatus, rotuloPrioridade, rotuloTipoTarefa, PRIORIDADES, TIPOS_TAREFA, pessoasDaTarefa, deInputDate, paraInputDate } from '../../lib/tarefas'
 import {
   StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, limitesVencimento, PrioridadeCampo, PrioridadeIcon, TipoTarefaCampo, EstimativaCampo, AdicionarInline, Popover, ItemMenu, FOCO,
 } from './Campos'
 
 // ── Colunas (larguras fixas como no ClickUp; o Nome ocupa o resto) ────────────
+// `label` fica em português (referência); o cabeçalho mostra `rotuloDaColuna`, traduzido.
 const COLS = {
   cheia: [
     { k: 'status',     label: 'Status',              w: 140 },
@@ -63,6 +65,11 @@ const POR_CHAVE = { cheia: new Map(COLS.cheia.map((c) => [c.k, c])), compacta: n
 const colunasDaLista = (cfg, compacto) => {
   const m = POR_CHAVE[compacto ? 'compacta' : 'cheia']
   return colunasVisiveis(cfg).filter((k) => m.has(k)).map((k) => m.get(k))
+}
+// colunas próprias (templates) trazem o label pronto; as daqui saem traduzidas
+const rotuloDaColuna = (c, t) => {
+  if (POR_CHAVE.compacta.get(c.k) === c && c.k === 'estim') return t('tarefas.lista.estimativa')
+  return POR_CHAVE.cheia.get(c.k) === c || POR_CHAVE.compacta.get(c.k) === c ? rotuloColuna(c.k) : c.label
 }
 const NOME_MIN = 420 // largura mínima do Nome no automático (sem largura arrastada)
 const grid = (cols, larguraNome) => `${larguraNome ? `${larguraNome}px` : `minmax(${NOME_MIN}px, 1fr)`} ${cols.map((c) => `${c.w}px`).join(' ')} 40px`
@@ -112,12 +119,12 @@ function corTexto(bg) {
 function StatusPillCU({ status, statuses }) {
   const s = statuses?.find((x) => x.key === status) || { key: status, label: rotuloStatus(status), cor: '#87909e', tipo: 'custom' }
   const aberto = s.tipo === 'open'
-  const label = (s.label || rotuloStatus(s.key)).replace(/^[^\p{L}\p{N}]+/u, '')
+  const label = rotuloStatus(s.label || s.key).replace(/^[^\p{L}\p{N}]+/u, '')
   return (
     <span
       className="inline-flex items-center gap-1.5 h-[22px] px-2 rounded-md text-[11px] font-bold uppercase tracking-wide whitespace-nowrap max-w-full"
       style={aberto ? { background: 'rgb(var(--ln-level2))', color: 'rgb(var(--ln-t2))' } : { background: hex(s.cor), color: '#fff' }}
-      title={s.label || rotuloStatus(s.key)}
+      title={rotuloStatus(s.label || s.key)}
     >
       <StatusIcon status={status} statuses={statuses} size={12} className={aberto ? '' : '!text-white'} />
       <span className="truncate">{label}</span>
@@ -130,41 +137,43 @@ function TipoPillCU({ valor }) {
   const o = TIPOS_TAREFA.find((t) => t.key === valor)
   const bg = hex(o?.cor)
   return (
-    <span className="inline-flex items-center gap-1 h-[22px] pl-2 pr-1.5 rounded-md text-xs font-medium whitespace-nowrap max-w-full" style={{ background: bg, color: corTexto(bg) }} title={valor}>
-      <span className="truncate">{valor}</span>
+    <span className="inline-flex items-center gap-1 h-[22px] pl-2 pr-1.5 rounded-md text-xs font-medium whitespace-nowrap max-w-full" style={{ background: bg, color: corTexto(bg) }} title={rotuloTipoTarefa(valor)}>
+      <span className="truncate">{rotuloTipoTarefa(valor)}</span>
       <ChevronDown className="w-3 h-3 shrink-0 opacity-70" />
     </span>
   )
 }
 
 function PrioridadeCU({ valor }) {
+  const { t } = useI18n()
   const p = PRIORIDADES.find((x) => x.key === valor)
   return (
-    <span className={`inline-flex items-center gap-1.5 text-[13px] whitespace-nowrap ${p ? 'text-ln-t2' : 'text-ln-t4'}`} title={p ? p.label : 'Sem prioridade'}>
+    <span className={`inline-flex items-center gap-1.5 text-[13px] whitespace-nowrap ${p ? 'text-ln-t2' : 'text-ln-t4'}`} title={p ? rotuloPrioridade(p.key) : t('tarefas.lista.semPrioridade')}>
       <PrioridadeIcon valor={valor} />
-      {p && <span>{p.label}</span>}
+      {p && <span>{rotuloPrioridade(p.key)}</span>}
     </span>
   )
 }
 
 function SprintCampo({ item, ciclos, onChange }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const atual = (ciclos || []).find((c) => c.id === item.ciclo_id)
   return (
     <>
-      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center h-[22px] px-2 rounded-md text-xs whitespace-nowrap max-w-full ${atual ? 'bg-ln-accent/10 text-ln-accent font-medium' : 'ring-1 ring-inset ring-ln-line text-ln-t3 hover:bg-ln-level2'} ${FOCO}`} title={atual ? `Sprint: ${atual.nome}` : 'Adicionar ao sprint'}>
-        <span className="truncate">{atual ? atual.nome : 'Adicionar ao sprint'}</span>
+      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center h-[22px] px-2 rounded-md text-xs whitespace-nowrap max-w-full ${atual ? 'bg-ln-accent/10 text-ln-accent font-medium' : 'ring-1 ring-inset ring-ln-line text-ln-t3 hover:bg-ln-level2'} ${FOCO}`} title={atual ? t('tarefas.lista.sprintDe', { nome: atual.nome }) : t('tarefas.lista.adicionarSprint')}>
+        <span className="truncate">{atual ? atual.nome : t('tarefas.lista.adicionarSprint')}</span>
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={240}>
         <div className="p-1 overflow-y-auto">
-          {(ciclos || []).length === 0 && <p className="px-2 py-1.5 text-xs text-ln-t4">Nenhum cycle criado ainda.</p>}
+          {(ciclos || []).length === 0 && <p className="px-2 py-1.5 text-xs text-ln-t4">{t('tarefas.lista.nenhumCycle')}</p>}
           {(ciclos || []).map((c) => (
             <ItemMenu key={c.id} ativo={c.id === item.ciclo_id} onClick={() => { setOpen(false); onChange(c.id) }}>
               <span className="truncate">{c.nome}</span>
             </ItemMenu>
           ))}
-          {item.ciclo_id && (<><div className="border-t border-ln-ink/5 my-1" /><ItemMenu onClick={() => { setOpen(false); onChange(null) }}>Remover do sprint</ItemMenu></>)}
+          {item.ciclo_id && (<><div className="border-t border-ln-ink/5 my-1" /><ItemMenu onClick={() => { setOpen(false); onChange(null) }}>{t('tarefas.lista.removerSprint')}</ItemMenu></>)}
         </div>
       </Popover>
     </>
@@ -233,11 +242,12 @@ function mover(item, irmas, dir, ctx) {
 // irmasDe() e ctx.atual() são lidos na hora do clique: a linha memorizada pode ter sido
 // desenhada antes de a ordem mudar.
 function BotoesMover({ item, irmasDe, primeira, ultima, ctx }) {
-  const dica = ctx.ordenar?.campo ? ' (a ordem da tela vira a ordem manual)' : ''
+  const { t } = useI18n()
+  const dica = ctx.ordenar?.campo ? t('tarefas.lista.dicaOrdem') : ''
   const clicar = (e, dir) => { e.stopPropagation(); mover(item, irmasDe(), dir, ctx.atual?.() || ctx) }
   return (<>
-    <button type="button" disabled={primeira} onClick={(e) => clicar(e, -1)} className="ln-iconbtn !w-5 !h-5 !rounded disabled:opacity-30" title={`Mover para cima${dica}`} aria-label="Mover para cima"><ArrowUp className="w-3 h-3" /></button>
-    <button type="button" disabled={ultima} onClick={(e) => clicar(e, 1)} className="ln-iconbtn !w-5 !h-5 !rounded disabled:opacity-30" title={`Mover para baixo${dica}`} aria-label="Mover para baixo"><ArrowDown className="w-3 h-3" /></button>
+    <button type="button" disabled={primeira} onClick={(e) => clicar(e, -1)} className="ln-iconbtn !w-5 !h-5 !rounded disabled:opacity-30" title={`${t('tarefas.lista.moverCima')}${dica}`} aria-label={t('tarefas.lista.moverCima')}><ArrowUp className="w-3 h-3" /></button>
+    <button type="button" disabled={ultima} onClick={(e) => clicar(e, 1)} className="ln-iconbtn !w-5 !h-5 !rounded disabled:opacity-30" title={`${t('tarefas.lista.moverBaixo')}${dica}`} aria-label={t('tarefas.lista.moverBaixo')}><ArrowDown className="w-3 h-3" /></button>
   </>)
 }
 
@@ -290,6 +300,7 @@ const igualLinha = (a, b) => a.item === b.item && a.versao === b.versao && a.sub
 // "Renomear" do menu: o título vira campo na própria linha. Enter ou sair do campo salva,
 // Esc desiste; o campo não deixa o clique e as teclas chegarem na linha.
 function TituloEditavel({ item, onSalvar, onFim }) {
+  const { t: tr } = useI18n()
   const [valor, setValor] = useState(item.titulo || '')
   const feito = useRef(false)
   const terminar = (salvar) => {
@@ -301,7 +312,7 @@ function TituloEditavel({ item, onSalvar, onFim }) {
   }
   return (
     <input
-      autoFocus value={valor} aria-label="Nome da tarefa"
+      autoFocus value={valor} aria-label={tr('tarefas.lista.nomeTarefa')}
       onChange={(e) => setValor(e.target.value)}
       onFocus={(e) => e.target.select()}
       onClick={(e) => e.stopPropagation()}
@@ -318,8 +329,9 @@ function TituloEditavel({ item, onSalvar, onFim }) {
 
 /** Selo de tarefa bloqueada (o mesmo "Bloqueada por" do painel da tarefa); o title lista quem bloqueia. */
 function BloqueadaIcone({ por }) {
-  const nomes = por.map((b) => b.titulo || 'Sem título')
-  const titulo = `Bloqueada por: ${nomes.slice(0, 5).join(', ')}${nomes.length > 5 ? ` e mais ${nomes.length - 5}` : ''}`
+  const { t } = useI18n()
+  const nomes = por.map((b) => b.titulo || t('tarefas.semTitulo'))
+  const titulo = `${t('tarefas.lista.bloqueadaPor', { nomes: nomes.slice(0, 5).join(', ') })}${nomes.length > 5 ? t('tarefas.lista.eMais', { n: nomes.length - 5 }) : ''}`
   return (
     <span className="inline-flex items-center gap-0.5" title={titulo} aria-label={titulo}>
       <IconeRelacao rotulo="Bloqueada por" tamanho="w-3 h-3" />{por.length > 1 ? por.length : null}
@@ -328,6 +340,7 @@ function BloqueadaIcone({ por }) {
 }
 
 const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, onToggle, ctx, cols, irmasDe, primeira, ultima, selecionada, marcada, caixas, nComent, renomeando = false }) {
+  const { t } = useI18n() // também redesenha a linha memorizada quando o idioma muda
   const { onAbrir, onMudarStatus } = ctx
   const statuses = ctx.statusesDe?.(item) || ctx.statuses
   const check = progressoChecklists(item.checklists)
@@ -354,12 +367,12 @@ const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, o
         <span aria-hidden="true" className={`absolute inset-0 -z-10 ${destaque || 'group-hover/linha:bg-ln-level2/60'}`} />
         {ctx.selecao && (
           <span className="inline-flex items-center justify-center w-5 shrink-0">
-            <Caixa marcada={marcada} visivel={caixas} onClique={(shift) => ctx.onSelecionarLinha(item.id, shift)} label={`Selecionar ${item.titulo || 'tarefa'}`} />
+            <Caixa marcada={marcada} visivel={caixas} onClique={(shift) => ctx.onSelecionarLinha(item.id, shift)} label={t('tarefas.lista.selecionar', { titulo: item.titulo || t('tarefas.lista.tarefa') })} />
           </span>
         )}
         <span className="inline-flex items-center justify-center w-4 h-4 shrink-0">
           {!sub && nFilhos > 0 ? (
-            <button type="button" onClick={(e) => { e.stopPropagation(); onToggle() }} className="ln-iconbtn !w-4 !h-4 !rounded" title={`${nFilhos} subtarefa(s)`} aria-label={expandido ? 'Recolher subtarefas' : 'Expandir subtarefas'}>
+            <button type="button" onClick={(e) => { e.stopPropagation(); onToggle() }} className="ln-iconbtn !w-4 !h-4 !rounded" title={t('tarefas.lista.nSubtarefas', { count: nFilhos })} aria-label={expandido ? t('tarefas.lista.recolherSubs') : t('tarefas.lista.expandirSubs')}>
               <ChevronRight className={`w-3 h-3 transition-transform duration-150 ${expandido ? 'rotate-90' : ''}`} />
             </button>
           ) : null}
@@ -373,19 +386,19 @@ const Linha = memo(function Linha({ item, sub = false, nFilhos = 0, expandido, o
         )}
         {ctx.rotuloPai?.(item)}
         <span className="flex items-center gap-2 text-[11px] text-ln-t4 shrink-0 tabular ml-1.5">
-          {!sub && nFilhos > 0 && <span className="inline-flex items-center gap-0.5" title="Subtarefas"><CornerDownRight className="w-3 h-3" />{nFilhos}</span>}
-          {check.total > 0 && <span className="inline-flex items-center gap-0.5" title="Checklist"><ListChecks className="w-3 h-3" />{check.feitos}/{check.total}</span>}
-          {nComent > 0 && <span className="inline-flex items-center gap-0.5" title="Comentários"><MessageSquare className="w-3 h-3" />{nComent}</span>}
+          {!sub && nFilhos > 0 && <span className="inline-flex items-center gap-0.5" title={t('tarefas.lista.subtarefas')}><CornerDownRight className="w-3 h-3" />{nFilhos}</span>}
+          {check.total > 0 && <span className="inline-flex items-center gap-0.5" title={t('tarefas.lista.checklist')}><ListChecks className="w-3 h-3" />{check.feitos}/{check.total}</span>}
+          {nComent > 0 && <span className="inline-flex items-center gap-0.5" title={t('tarefas.lista.comentarios')}><MessageSquare className="w-3 h-3" />{nComent}</span>}
           {/* bloqueada: alguma tarefa que a bloqueia (relação "bloqueia") ainda está aberta */}
           {!concluida && ctx.bloqueadasPor?.[item.id] && <BloqueadaIcone por={ctx.bloqueadasPor[item.id]} />}
           {/* ainda não chegou ao ClickUp (fila do push); some sozinho pelo realtime quando o vínculo é gravado */}
-          {!item.clickup_task_id && ctx.listasComClickup?.has(item.lista_id) && <CloudUpload className="w-3 h-3 text-ln-yellow" aria-label="Aguardando ClickUp" title="Ainda não foi para o ClickUp" />}
+          {!item.clickup_task_id && ctx.listasComClickup?.has(item.lista_id) && <CloudUpload className="w-3 h-3 text-ln-yellow" aria-label={t('tarefas.lista.aguardandoClickup')} title={t('tarefas.lista.aindaNaoFoi')} />}
         </span>
         {/* ações de hover sobrepostas à direita (não roubam largura do título) */}
         {ctx.acoesHover !== false && <span className="absolute right-2 top-0 bottom-0 hidden md:inline-flex items-center gap-0.5 pl-6 bg-gradient-to-r from-transparent via-ln-level2/60 to-ln-level2/60 opacity-0 group-hover/linha:opacity-100 transition-opacity">
           {ctx.renderAcoesHover ? <span className="inline-flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>{ctx.renderAcoesHover(item)}</span> : (<>
             <BotoesMover item={item} irmasDe={irmasDe} primeira={primeira} ultima={ultima} ctx={ctx} />
-            <button type="button" onClick={(e) => { e.stopPropagation(); ctx.onCriar({ lista_id: item.lista_id, parent_id: item.parent_id || item.id, titulo: 'Nova subtarefa' }) }} className="ln-iconbtn !w-5 !h-5 !rounded" title="Adicionar subtarefa"><Plus className="w-3 h-3" /></button>
+            <button type="button" onClick={(e) => { e.stopPropagation(); ctx.onCriar({ lista_id: item.lista_id, parent_id: item.parent_id || item.id, titulo: 'Nova subtarefa' }) }} className="ln-iconbtn !w-5 !h-5 !rounded" title={t('tarefas.lista.adicionarSubtarefa')}><Plus className="w-3 h-3" /></button>
           </>)}
         </span>}
       </div>
@@ -419,6 +432,7 @@ const rolavel = (el) => { const o = getComputedStyle(el).overflowY; return (o ==
  * (onMais). O botão fica de reserva (sem IntersectionObserver, ou para quem usa teclado).
  */
 function MaisLinhas({ restantes, onMais, ctx }) {
+  const { t } = useI18n()
   const ref = useRef(null)
   useEffect(() => {
     const el = ref.current
@@ -433,7 +447,7 @@ function MaisLinhas({ restantes, onMais, ctx }) {
   return (
     <div ref={ref} className={`flex items-center h-8 ${recuo(ctx)} border-b border-ln-line/70`}>
       <button type="button" onClick={onMais} className={`sticky left-2 text-xs text-ln-t4 hover:text-ln-t2 rounded ${FOCO}`}>
-        Mostrar mais ({restantes})
+        {t('tarefas.lista.mostrarMais', { n: restantes })}
       </button>
     </div>
   )
@@ -443,6 +457,7 @@ function MaisLinhas({ restantes, onMais, ctx }) {
 const ORDENAVEIS = new Set(['nome', 'status', 'tipo', 'resp', 'criada', 'venc', 'concluida', 'prio', 'sprint', 'estim', 'cliente'])
 /** Alça na borda direita do cabeçalho do Nome: arrastar muda a largura ao vivo (todos os grupos) e grava ao soltar. */
 function AlcaNome({ ctx }) {
+  const { t } = useI18n()
   const [arrastando, setArrastando] = useState(false)
   const gravar = (w) => ctx.onLarguraNome(normalizarLarguraNome(w))
   const iniciar = (e) => {
@@ -470,8 +485,8 @@ function AlcaNome({ ctx }) {
   }
   return (
     <span
-      role="separator" aria-orientation="vertical" aria-label="Largura da coluna Nome (setas ← →; duplo clique volta ao automático)" tabIndex={0}
-      title="Arraste para mudar a largura · duplo clique: automático"
+      role="separator" aria-orientation="vertical" aria-label={t('tarefas.lista.larguraNomeAria')} tabIndex={0}
+      title={t('tarefas.lista.larguraNomeTitulo')}
       onPointerDown={iniciar} onKeyDown={teclado} onDoubleClick={() => ctx.onLarguraNome(null)} onClick={(e) => e.stopPropagation()}
       className={`absolute -right-1.5 top-0 bottom-0 z-[2] w-3 flex items-center justify-center cursor-col-resize group/alca ${FOCO}`}
     >
@@ -485,14 +500,15 @@ function AlcaNome({ ctx }) {
 
 /** "+" no fim do cabeçalho: ordem e visibilidade das colunas (rascunho da view, como a ordenação). */
 function MaisColunas({ ctx }) {
+  const { t } = useI18n()
   const ref = useRef(null)
   const [aberto, setAberto] = useState(false)
   return (
     <>
-      <button ref={ref} type="button" onClick={() => setAberto((x) => !x)} aria-expanded={aberto} className={`ln-iconbtn !w-6 !h-6 !rounded ${aberto ? 'bg-ln-ink/5 text-ln-t1' : 'text-ln-t4'} ${FOCO}`} title="Colunas: ordem e visibilidade" aria-label="Colunas: ordem e visibilidade"><Plus className="w-3.5 h-3.5" /></button>
+      <button ref={ref} type="button" onClick={() => setAberto((x) => !x)} aria-expanded={aberto} className={`ln-iconbtn !w-6 !h-6 !rounded ${aberto ? 'bg-ln-ink/5 text-ln-t1' : 'text-ln-t4'} ${FOCO}`} title={t('tarefas.lista.colunasOrdem')} aria-label={t('tarefas.lista.colunasOrdem')}><Plus className="w-3.5 h-3.5" /></button>
       <Popover anchorRef={ref} open={aberto} onClose={() => setAberto(false)} width={260} align="right" alturaMax={460}>
         <div className="p-1.5">
-          <p className="px-2 pt-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ln-t4">Colunas</p>
+          <p className="px-2 pt-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ln-t4">{t('tarefas.lista.colunas')}</p>
           <EditorColunas valor={ctx.colunas} onChange={ctx.onColunas} />
         </div>
       </Popover>
@@ -501,11 +517,12 @@ function MaisColunas({ ctx }) {
 }
 
 function TituloColuna({ k, label, ctx, ordenavel = true }) {
+  const { t } = useI18n()
   if (!ctx.onOrdenar || !ordenavel || !ORDENAVEIS.has(k)) return <span className="truncate" aria-hidden="true">{label}</span>
   const ativo = ctx.ordenar?.campo === k
   const proximo = !ativo ? { campo: k, dir: 1 } : ctx.ordenar.dir === 1 ? { campo: k, dir: -1 } : null
   return (
-    <button type="button" onClick={() => ctx.onOrdenar(proximo)} title={!ativo ? `Ordenar por ${label}` : ctx.ordenar.dir === 1 ? 'Inverter a ordem' : 'Tirar a ordenação'}
+    <button type="button" onClick={() => ctx.onOrdenar(proximo)} title={!ativo ? t('tarefas.lista.ordenarPor', { coluna: label }) : ctx.ordenar.dir === 1 ? t('tarefas.lista.inverter') : t('tarefas.lista.tirarOrdenacao')}
       className={`inline-flex items-center gap-1 min-w-0 rounded hover:text-ln-t2 ${ativo ? 'text-ln-t2 font-medium' : ''} ${FOCO}`}>
       <span className="truncate">{label}</span>{ativo && (ctx.ordenar.dir === 1 ? <ArrowUp className="w-3 h-3 shrink-0" /> : <ArrowDown className="w-3 h-3 shrink-0" />)}
     </button>
@@ -529,6 +546,7 @@ function padraoDoGrupo(agrupar, chave, responsaveisPadrao = []) {
 }
 
 function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, cols, versao }) {
+  const { t } = useI18n()
   const [aberto, setAberto] = useState(true)
   // com ctx.expandirTudo o conjunto guarda as RECOLHIDAS (tudo nasce aberto); sem ele, as abertas
   const [expandidos, setExpandidos] = useState(() => new Set())
@@ -564,7 +582,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, cols, versao }) {
     <section className="mb-6" aria-label={grupo.label}>
       {/* Cabeçalho do grupo: ▾ Em atraso 47 ··· + */}
       {!ctx.simples && <div className="sticky left-0 w-fit flex items-center gap-2 h-9 px-3">
-        <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} className={`ln-iconbtn !w-5 !h-5 !rounded ${FOCO}`} aria-label={aberto ? 'Recolher grupo' : 'Expandir grupo'}>
+        <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} className={`ln-iconbtn !w-5 !h-5 !rounded ${FOCO}`} aria-label={aberto ? t('tarefas.lista.recolherGrupo') : t('tarefas.lista.expandirGrupo')}>
           <ChevronDown className={`w-3.5 h-3.5 text-ln-t3 transition-transform duration-150 ${aberto ? '' : '-rotate-90'}`} />
         </button>
         {agrupar === 'status' ? (
@@ -575,9 +593,9 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, cols, versao }) {
           <span className={`text-[13px] font-semibold ${corLabel}`}>{grupo.label}</span>
         )}
         <span className="text-xs text-ln-t3 tabular">{itens.length}</span>
-        <button type="button" className={`ln-iconbtn !w-5 !h-5 !rounded text-ln-t4 ${FOCO}`} title="Mais opções" aria-label="Mais opções"><MoreHorizontal className="w-3.5 h-3.5" /></button>
+        <button type="button" className={`ln-iconbtn !w-5 !h-5 !rounded text-ln-t4 ${FOCO}`} title={t('tarefas.lista.maisOpcoes')} aria-label={t('tarefas.lista.maisOpcoes')}><MoreHorizontal className="w-3.5 h-3.5" /></button>
         {listaPadraoId && (
-          <button type="button" onClick={() => { setAberto(true); setNovaTarefa(true) }} className={`ln-iconbtn !w-5 !h-5 !rounded text-ln-t4 ${FOCO}`} title="Adicionar tarefa" aria-label="Adicionar tarefa"><Plus className="w-3.5 h-3.5" /></button>
+          <button type="button" onClick={() => { setAberto(true); setNovaTarefa(true) }} className={`ln-iconbtn !w-5 !h-5 !rounded text-ln-t4 ${FOCO}`} title={t('tarefas.lista.adicionarTarefa')} aria-label={t('tarefas.lista.adicionarTarefa')}><Plus className="w-3.5 h-3.5" /></button>
         )}
       </div>}
       {(aberto || ctx.simples) && (
@@ -589,15 +607,15 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, cols, versao }) {
                 <span className="inline-flex items-center justify-center w-5 shrink-0">
                   <Caixa
                     marcada={idsDoGrupo.length > 0 && nMarcadas === idsDoGrupo.length} parcial={nMarcadas > 0} visivel={ctx.selecao.ids.size > 0}
-                    onChange={() => ctx.selecao.definir(idsDoGrupo, nMarcadas < idsDoGrupo.length)} label="Selecionar todas"
+                    onChange={() => ctx.selecao.definir(idsDoGrupo, nMarcadas < idsDoGrupo.length)} label={t('tarefas.lista.selecionarTodas')}
                   />
                 </span>
               )}
               <span className="w-4 shrink-0" aria-hidden="true" />
-              <TituloColuna k="nome" label="Nome" ctx={ctx} />
+              <TituloColuna k="nome" label={t('tarefas.lista.nome')} ctx={ctx} />
               {ctx.onLarguraNome && <AlcaNome ctx={ctx} />}
             </span>
-            {cols.map((c) => <span key={c.k} className="px-2 min-w-0 flex"><TituloColuna k={c.k} label={c.label} ctx={ctx} ordenavel={!c.editavel || ORDENAVEIS.has(c.k)} /></span>)}
+            {cols.map((c) => <span key={c.k} className="px-2 min-w-0 flex"><TituloColuna k={c.k} label={rotuloDaColuna(c, t)} ctx={ctx} ordenavel={!c.editavel || ORDENAVEIS.has(c.k)} /></span>)}
             {/* "+" das colunas preso à borda direita (como o Nome à esquerda): a grade passa de 1.900 px e ele sumia ao rolar */}
             {!ctx.simples && ctx.onColunas ? (
               <span className="sticky right-0 z-[1] h-full inline-flex items-center justify-center text-ln-t4 bg-ln-panel border-l border-ln-line/70 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
@@ -616,7 +634,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, cols, versao }) {
                 {exp && filhos.map((f, j) => <Linha key={f.id} item={f} sub irmasDe={irmasDe(it.id)} primeira={j === 0} ultima={j === filhos.length - 1} {...deLinha(f)} />)}
                 {exp && ctx.acoesHover !== false && (
                   <div className={`flex items-center h-8 ${recuo(ctx)} border-b border-ln-line/70`}>
-                    <AdicionarInline placeholder="Adicionar subtarefa" campos={camposNova(it.lista_id, true)} onCriar={(t, extras) => onCriar({ lista_id: it.lista_id, parent_id: it.id, titulo: t, ...extras })} />
+                    <AdicionarInline placeholder={t('tarefas.lista.adicionarSubtarefa')} campos={camposNova(it.lista_id, true)} onCriar={(titulo, extras) => onCriar({ lista_id: it.lista_id, parent_id: it.id, titulo, ...extras })} />
                   </div>
                 )}
               </div>
@@ -625,7 +643,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, cols, versao }) {
           {itens.length > limite && <MaisLinhas restantes={itens.length - limite} onMais={mais} ctx={ctx} />}
           {listaPadraoId && (
             <div className={`flex items-center h-8 ${recuo(ctx)}`}>
-              <AdicionarInline autoFocus={novaTarefa} placeholder="Adicionar tarefa" campos={camposNova(listaPadraoId)} onCriar={(t, extras) => { setNovaTarefa(false); return onCriar({ lista_id: listaPadraoId, titulo: t, ...extras }) }} />
+              <AdicionarInline autoFocus={novaTarefa} placeholder={t('tarefas.lista.adicionarTarefa')} campos={camposNova(listaPadraoId)} onCriar={(titulo, extras) => { setNovaTarefa(false); return onCriar({ lista_id: listaPadraoId, titulo, ...extras }) }} />
             </div>
           )}
         </div>
@@ -635,6 +653,7 @@ function Grupo({ grupo, ctx, filhosDe, mostrarConcluidas, cols, versao }) {
 }
 
 export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, compacto = false, colunas = null, vazio = null }) {
+  const { t, lang } = useI18n()
   const cols = colunas || colunasDaLista(ctx.colunas, compacto)
   // largura mínima do grid (o Nome tem 420 px no mínimo); acompanha as colunas visíveis
   // largura do Nome enquanto a alça é arrastada (vale para todos os grupos); ao soltar vira ctx.larguraNome
@@ -684,21 +703,21 @@ export default function ListaView({ grupos, filhosDe, ctx, mostrarConcluidas, co
   const colsChave = cols.map((c) => c.k).join(',')
   const versao = useMemo(() => ({}), [ // eslint-disable-line react-hooks/exhaustive-deps
     ctx.statuses, ctx.membros, ctx.membrosMap, ctx.ciclos, ctx.listas, ctx.pastas, ctx.projetos, ctx.listasComClickup, ctx.ordenar, ctx.bloqueadasPor,
-    ctx.expandirTudo, ctx.semStatus, ctx.acoesHover, ctx.renderCelula, ctx.acaoLinha, ctx.rotuloPai, ctx.numeroLinha, ctx.renderAcoesHover, larguraNome, colsChave,
+    ctx.expandirTudo, ctx.semStatus, ctx.acoesHover, ctx.renderCelula, ctx.acaoLinha, ctx.rotuloPai, ctx.numeroLinha, ctx.renderAcoesHover, larguraNome, colsChave, lang,
   ])
   if (!grupos.length && vazio) return vazio
   if (!grupos.length) {
     return (
       <div className="flex flex-col items-center justify-center gap-1.5 py-16 text-center">
-        <p className="text-[13px] text-ln-t4">Nenhuma tarefa aqui ainda</p>
+        <p className="text-[13px] text-ln-t4">{t('tarefas.lista.nenhumaTarefa')}</p>
         {ctx.listaPadraoId ? (
           <AdicionarInline
-            placeholder="Adicionar a primeira tarefa"
+            placeholder={t('tarefas.lista.adicionarPrimeira')}
             campos={{ statuses: ctx.statusesDe ? ctx.statusesDe({ lista_id: ctx.listaPadraoId }) : ctx.statuses, membros: ctx.membros, membrosMap: ctx.membrosMap, padrao: padraoDoGrupo(null, null, ctx.responsaveisPadrao) }}
-            onCriar={(t, extras) => ctx.onCriar({ lista_id: ctx.listaPadraoId, titulo: t, ...extras })}
+            onCriar={(titulo, extras) => ctx.onCriar({ lista_id: ctx.listaPadraoId, titulo, ...extras })}
           />
         ) : (
-          <p className="text-xs text-ln-t4">Escolha uma pasta ou lista à esquerda</p>
+          <p className="text-xs text-ln-t4">{t('tarefas.lista.escolhaPasta')}</p>
         )}
       </div>
     )

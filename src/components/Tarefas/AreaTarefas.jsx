@@ -25,7 +25,8 @@ import { PainelConfigView, PainelNovaView } from './PainelView'
 import PainelFiltros from './PainelFiltros'
 import { escopoDaSelecao, chaveEscopo, viewsDoEscopo, igualConfig, passaResponsaveis, nomeResponsavelFiltro, patchColunas, normalizarLarguraNome } from '../../lib/viewsTarefas'
 import { passaFiltros, contarRegras } from '../../lib/filtrosTarefas'
-import { statusDaLista, statusDasListas, agruparItens, filtrarItens, STATUSES_PADRAO, novoId } from '../../lib/tarefas'
+import { statusDaLista, statusDasListas, agruparItens, filtrarItens, STATUSES_PADRAO, novoId, rotuloStatus } from '../../lib/tarefas'
+import { useI18n } from '../../i18n'
 import ListaView from './ListaView'
 import QuadroView from './QuadroView'
 import TarefaPanel from './TarefaPanel'
@@ -49,6 +50,7 @@ export const limitarPainel = (w) => (Number.isFinite(w) ? Math.round(Math.min(PA
 
 /** Alça na borda esquerda do painel da tarefa: arrastar, ← → de 20 px com foco, duplo clique volta ao padrão. */
 export function AlcaPainel({ largura, onLargura }) {
+  const { t } = useI18n()
   const [arrastando, setArrastando] = useState(false)
   const iniciar = (e) => {
     if (e.button !== 0) return
@@ -72,8 +74,8 @@ export function AlcaPainel({ largura, onLargura }) {
   }
   return (
     <span
-      role="separator" aria-orientation="vertical" aria-label="Largura do painel da tarefa (setas ← →; duplo clique volta ao padrão)" tabIndex={0}
-      title="Arraste para mudar a largura · duplo clique: padrão"
+      role="separator" aria-orientation="vertical" aria-label={t('tarefas.area.larguraPainelAria')} tabIndex={0}
+      title={t('tarefas.area.larguraPainelTitulo')}
       onPointerDown={iniciar} onKeyDown={teclado} onDoubleClick={() => onLargura(PAINEL_LARGURA)}
       className={`absolute -left-1.5 inset-y-0 z-10 w-3 flex justify-center cursor-col-resize group/alcap ${FOCO}`}
     >
@@ -132,6 +134,7 @@ export default function AreaTarefas({
   semRolagem = false, atalhoCriar = true, onIrParaLista, onAbrirTemplate,
 }) {
   const [params, setParams] = useSearchParams()
+  const { t: tr, lang } = useI18n() // `t` é o useTarefas (prop)
   const navigate = useNavigate()
   const areaRef = useRef(null)
   const larguraPropria = useLarguraDoConteudo(areaRef)
@@ -167,7 +170,7 @@ export default function AreaTarefas({
   const escopoViews = useMemo(() => escopoDaSelecao(sel, t.listasMap), [sel, t.listasMap])
   const chaveEsc = chaveEscopo(escopoViews)
   const persistente = !!escopoViews
-  const { padrao: viewsPadrao, salvas: viewsSalvas } = useMemo(() => viewsDoEscopo(vt.views, escopoViews, user?.id), [vt.views, escopoViews, user?.id])
+  const { padrao: viewsPadrao, salvas: viewsSalvas } = useMemo(() => viewsDoEscopo(vt.views, escopoViews, user?.id), [vt.views, escopoViews, user?.id, lang]) // eslint-disable-line react-hooks/exhaustive-deps
   const viewParam = params.get('view')
   const viewAtiva = useMemo(() => {
     const todasV = [...viewsPadrao, ...viewsSalvas]
@@ -195,9 +198,9 @@ export default function AreaTarefas({
   const salvarVisualizacao = useCallback(async () => {
     if (!podeEditarView || !alterada) return
     const r = await gravarView({ config })
-    if (r.error) showToast(r.error, 'error'); else { setRascunhoView(null); showToast(`"${viewAtiva.nome}" salva`) }
-  }, [podeEditarView, alterada, gravarView, config, viewAtiva.nome, showToast])
-  const reverterView = useCallback(() => { setRascunhoView(null); showToast('Alterações revertidas') }, [showToast])
+    if (r.error) showToast(r.error, 'error'); else { setRascunhoView(null); showToast(tr('tarefas.area.viewSalva', { nome: viewAtiva.rotulo ?? viewAtiva.nome })) }
+  }, [podeEditarView, alterada, gravarView, config, viewAtiva.rotulo, viewAtiva.nome, showToast, tr])
+  const reverterView = useCallback(() => { setRascunhoView(null); showToast(tr('tarefas.area.alteracoesRevertidas')) }, [showToast, tr])
   // sidebar de configurações: grava na hora (levando junto o que estava pendente na barra)
   const editarViewNaSidebar = useCallback(async (patch) => {
     const novo = { ...config, ...patch }
@@ -209,8 +212,8 @@ export default function AreaTarefas({
   const metaView = useCallback(async (patch) => {
     const r = await gravarView(patch)
     if (r.error) showToast(r.error, 'error')
-    else if (patch.acesso) showToast(patch.acesso === 'privada' ? 'Agora só você vê esta visualização' : 'Visualização compartilhada com o time')
-  }, [gravarView, showToast])
+    else if (patch.acesso) showToast(patch.acesso === 'privada' ? tr('tarefas.area.soVoceVeAgora') : tr('tarefas.area.compartilhadaTime'))
+  }, [gravarView, showToast, tr])
   const abrirView = useCallback((v) => {
     gravarPref(`viewAtiva.${chaveEsc}`, v.chave)
     setRascunhoView(null)
@@ -224,24 +227,24 @@ export default function AreaTarefas({
     if (r.error) { showToast(r.error, 'error'); return r }
     abrirView({ chave: r.data.id })
     setPainelView('config')
-    showToast(`Visualização "${nome}" criada`)
+    showToast(tr('tarefas.area.viewCriada', { nome }))
     return r
-  }, [vt, config, escopoViews, abrirView, showToast])
+  }, [vt, config, escopoViews, abrirView, showToast, tr])
   const excluirVisualizacao = useCallback(async () => {
     if (viewAtiva.padrao) return
     const r = await vt.excluirView(viewAtiva.row.id)
     if (r.error) { showToast(r.error, 'error'); return }
     setPainelView(null)
     abrirView(viewsPadrao[0])
-    showToast('Visualização excluída')
-  }, [vt, viewAtiva, viewsPadrao, abrirView, showToast])
+    showToast(tr('tarefas.area.viewExcluida'))
+  }, [vt, viewAtiva, viewsPadrao, abrirView, showToast, tr])
 
   // abre no construtor um rascunho com a tarefa e as subtarefas; nada é gravado até o
   // Salvar de lá, onde nome, prazos e responsáveis são ajustados
   const salvarComoModelo = useCallback((item, subs = []) => {
-    guardarRascunhoTemplate({ nome: item.titulo?.trim() || 'Novo template', itens: templateDaTarefa(item, subs) })
+    guardarRascunhoTemplate({ nome: item.titulo?.trim() || tr('templates.novoTemplate'), itens: templateDaTarefa(item, subs) })
     abrirTemplate(ID_RASCUNHO_TEMPLATE)
-  }, [abrirTemplate])
+  }, [abrirTemplate, tr])
 
   const abrirTarefa = useCallback((id) => {
     if (id) { setPainelView(null); setNovaInicial(null) }
@@ -359,10 +362,10 @@ export default function AreaTarefas({
       const existentes = new Map(g.map((x) => [x.key, x]))
       return statuses
         .filter((s) => mostrarConcluidas || s.tipo !== 'closed')
-        .map((s) => existentes.get(s.key) || { key: s.key, label: s.label, cor: s.cor, itens: [] })
+        .map((s) => existentes.get(s.key) || { key: s.key, label: rotuloStatus(s.label || s.key), cor: s.cor, itens: [] })
     }
     return g
-  }, [filtrados, agrupar, statuses, membrosMap, t.listasMap, vt.ciclosMap, view, mostrarConcluidas])
+  }, [filtrados, agrupar, statuses, membrosMap, t.listasMap, vt.ciclosMap, view, mostrarConcluidas, lang]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const contagemComentarios = useMemo(() => {
     const m = {}
@@ -433,9 +436,9 @@ export default function AreaTarefas({
     }
     setNovaInicial(null)
     abrirTarefa(id)
-    showToast(falhas ? `Tarefa criada, mas ${falhas} subtarefa(s)/relação(ões) falharam` : 'Tarefa criada', falhas ? 'error' : undefined)
+    showToast(falhas ? tr('tarefas.area.tarefaCriadaFalhas', { n: falhas }) : tr('tarefas.area.tarefaCriada'), falhas ? 'error' : undefined)
     return r
-  }, [onCriar, abrirTarefa, showToast, user, agendarPush])
+  }, [onCriar, abrirTarefa, showToast, user, agendarPush, tr])
 
   // `intake`: pedido do Intake que originou a aplicação (o pedido vai para a descrição da tarefa
   // raiz e sai da fila como aceito).
@@ -459,7 +462,7 @@ export default function AreaTarefas({
         checklists: it.checklists.map((c) => ({ ...c, id: novoId(), itens: (c.itens || []).map((x) => ({ ...x, id: novoId(), feito: false })) })),
       })
       if (r.error) {
-        showToast(`Parou em "${l.titulo}" (${r.error}). ${mapa.size} tarefa(s) já criada(s).`, 'error')
+        showToast(tr('tarefas.area.parouEm', { titulo: l.titulo, erro: r.error, n: mapa.size }), 'error')
         return { error: r.error }
       }
       mapa.set(it.id, r.data.id)
@@ -469,21 +472,21 @@ export default function AreaTarefas({
       .map((d) => ({ tarefa_id: mapa.get(d), relacionada_id: mapa.get(l.item.id), tipo: 'bloqueia', criado_por: user?.id || null })))
     if (relacoes.length) {
       const { error } = await supabase.from('tarefas_relacoes').insert(relacoes)
-      if (error) showToast(`Tarefas criadas, mas as dependências falharam: ${error.message}`, 'error')
+      if (error) showToast(tr('tarefas.area.dependenciasFalharam', { erro: error.message }), 'error')
       else t.agendarPush?.()
     }
     const raizes = plano.filter((l) => !l.paiId)
     if (intake) {
       const d = await vt.decidirIntake(intake.id, { status: 'aceito', tarefa_id: mapa.get(raizes[0]?.item.id) || null })
-      if (d.error) showToast(`Tarefas criadas, mas o pedido não saiu da fila: ${d.error}`, 'error')
+      if (d.error) showToast(tr('tarefas.area.pedidoNaoSaiu', { erro: d.error }), 'error')
     }
     setAplicandoTpl(null)
     const tarefaId = raizes.length === 1 ? mapa.get(raizes[0].item.id) || null : null
     if (onIrParaLista) onIrParaLista(listaId, tarefaId)
     else if (tarefaId) abrirTarefa(tarefaId)
-    showToast(`${mapa.size} tarefa(s) criada(s) a partir do template`)
+    showToast(tr('tarefas.area.criadasDoTemplate', { count: mapa.size }))
     return {}
-  }, [t, vt, aplicandoTpl, user?.id, showToast, onIrParaLista, abrirTarefa])
+  }, [t, vt, aplicandoTpl, user?.id, showToast, onIrParaLista, abrirTarefa, tr])
 
   // Atalhos: C cria, Esc fecha o painel (fora de campos de texto).
   useEffect(() => {
@@ -533,11 +536,11 @@ export default function AreaTarefas({
     // Separar: nome da tarefa-pai para Quadro, Calendário e Gantt
     nomePai: config.subtarefas === 'separar' ? (it) => (it.parent_id ? t.itens[it.parent_id]?.titulo || null : null) : undefined,
     rotuloPai: config.subtarefas === 'separar' ? (it) => (it.parent_id && t.itens[it.parent_id] ? (
-      <span className="inline-flex items-center gap-1 ml-1.5 min-w-0 text-[11px] text-ln-t4" title={`Subtarefa de ${t.itens[it.parent_id].titulo}`}>
+      <span className="inline-flex items-center gap-1 ml-1.5 min-w-0 text-[11px] text-ln-t4" title={tr('tarefas.area.subtarefaDe', { titulo: t.itens[it.parent_id].titulo })}>
         <CornerDownRight className="w-3 h-3 shrink-0" /><span className="truncate max-w-[220px]">{t.itens[it.parent_id].titulo}</span>
       </span>
     ) : null) : undefined,
-  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, config.colunasGantt, larguraNome, editarView, listasComClickup, responsaveisPadrao, renomeandoId, bloqueadasPor])
+  }), [vt.etiquetasMap, vt.ciclos, statuses, teamMembers, membrosMap, t.itens, t.listas, t.pastas, projects, listaPadraoId, agrupar, contagemComentarios, tarefaAbertaId, abrirTarefa, onAtualizar, onMudarStatus, onCriar, config.subtarefas, t.listasMap, config.ordenar, config.calendario, config.colunas, config.colunasGantt, larguraNome, editarView, listasComClickup, responsaveisPadrao, renomeandoId, bloqueadasPor, tr])
 
   // ── Seleção da Lista e ações em massa (BarraSelecao) ─────────────────────
   // a seleção vale para o que está na tela: trocar de pasta, lista, seção ou visão limpa
@@ -551,8 +554,9 @@ export default function AreaTarefas({
   // subtarefa cujo pai também está selecionado vai junto com o pai (duplicar/excluir)
   const raizesSel = useMemo(() => itensSel.filter((it) => !(it.parent_id && selecionadas.has(it.parent_id))), [itensSel, selecionadas])
 
-  /** Roda fn em cada selecionada, uma de cada vez; fn devolve null para "pulada". */
-  const emLote = useCallback(async (fn, rotulo) => {
+  /** Roda fn em cada selecionada, uma de cada vez; fn devolve null para "pulada". campo = chave em tarefas.area.campo. */
+  const emLote = useCallback(async (fn, campo) => {
+    const rotulo = tr(`tarefas.area.campo.${campo}`)
     setEmMassa(true)
     let ok = 0, puladas = 0, falhas = 0, ajustadas = 0
     for (const it of itensSel) {
@@ -563,12 +567,13 @@ export default function AreaTarefas({
     }
     setEmMassa(false)
     const extra = [
-      ajustadas && `${ajustadas} com ${rotulo === 'Início' ? 'o vencimento' : 'o início'} ajustado para não ficar o início depois do vencimento`,
-      puladas && `${puladas} sem esse status na lista`, falhas && `${falhas} com erro`,
+      ajustadas && tr(campo === 'inicio' ? 'tarefas.area.loteAjustadasVenc' : 'tarefas.area.loteAjustadasIni', { n: ajustadas }),
+      puladas && tr('tarefas.area.lotePuladas', { n: puladas }), falhas && tr('tarefas.area.loteFalhas', { n: falhas }),
     ].filter(Boolean).join(', ')
-    showToast(`${rotulo}: ${ok} tarefa(s)${extra ? ` (${extra})` : ''}`, falhas ? 'error' : undefined)
-  }, [itensSel, showToast])
-  const atualizarSel = useCallback((patch, rotulo) => emLote((it) => t.atualizarTarefa(it.id, typeof patch === 'function' ? patch(it) : patch), rotulo), [emLote, t])
+    const resumo = tr('tarefas.area.loteResumo', { rotulo, count: ok })
+    showToast(extra ? tr('tarefas.area.loteResumoExtra', { resumo, extra }) : resumo, falhas ? 'error' : undefined)
+  }, [itensSel, showToast, tr])
+  const atualizarSel = useCallback((patch, campo) => emLote((it) => t.atualizarTarefa(it.id, typeof patch === 'function' ? patch(it) : patch), campo), [emLote, t])
 
   const copiaDe = (it, extra) => ({
     lista_id: it.lista_id, parent_id: it.parent_id, titulo: it.titulo, descricao: it.descricao, status: it.status, prioridade: it.prioridade,
@@ -595,26 +600,26 @@ export default function AreaTarefas({
     const { n, falhas } = await duplicarTarefas(raizesSel)
     setEmMassa(false)
     setSelecionadas(new Set())
-    showToast(`${n} tarefa(s) duplicada(s)${falhas ? `, ${falhas} com erro` : ''}`, falhas ? 'error' : undefined)
-  }, [raizesSel, duplicarTarefas, showToast])
+    showToast(`${tr('tarefas.area.duplicadas', { count: n })}${falhas ? tr('tarefas.area.comErroSufixo', { n: falhas }) : ''}`, falhas ? 'error' : undefined)
+  }, [raizesSel, duplicarTarefas, showToast, tr])
   // diálogo de arquivar/excluir (menu ⋯ do painel e barra de seleção)
   const pedirConfirmacao = useCallback((qual, tarefas) => {
     const nSubs = tarefas.reduce((a, it) => a + (filhosDe.get(it.id) || []).length, 0)
-    const qtd = tarefas.length === 1 ? `esta tarefa${nSubs ? ` e ${nSubs === 1 ? 'a subtarefa' : `as ${nSubs} subtarefas`}` : ''}` : contarTarefas(tarefas.length, nSubs)
+    const qtd = tarefas.length === 1 ? (nSubs ? tr('tarefas.area.estaTarefaESub', { count: nSubs }) : tr('tarefas.area.estaTarefa')) : contarTarefas(tarefas.length, nSubs)
     const itens = tarefas.map((it) => it.titulo)
     if (qual === 'excluir') {
       return confirmar({
-        perigo: true, titulo: `Excluir ${qtd}?`, acao: 'Excluir',
-        texto: 'A exclusão também acontece no ClickUp e não pode ser desfeita.',
-        rotuloItens: tarefas.length === 1 ? 'Tarefa a ser excluída' : 'Tarefas a serem excluídas', itens,
+        perigo: true, titulo: tr('tarefas.area.excluirQtd', { qtd }), acao: tr('comum.excluir'),
+        texto: tr('tarefas.area.excluirTexto'),
+        rotuloItens: tarefas.length === 1 ? tr('tarefas.area.tarefaASerExcluida') : tr('tarefas.area.tarefasASeremExcluidas'), itens,
       })
     }
     return confirmar({
-      titulo: `Arquivar ${qtd}?`, acao: 'Arquivar',
-      texto: 'Saem das listas do VertaTask e ficam arquivadas no ClickUp. Nada é apagado.',
-      rotuloItens: tarefas.length === 1 ? 'Tarefa a ser arquivada' : 'Tarefas a serem arquivadas', itens,
+      titulo: tr('tarefas.area.arquivarQtd', { qtd }), acao: tr('tarefas.area.arquivar'),
+      texto: tr('tarefas.area.arquivarTexto'),
+      rotuloItens: tarefas.length === 1 ? tr('tarefas.area.tarefaASerArquivada') : tr('tarefas.area.tarefasASeremArquivadas'), itens,
     })
-  }, [confirmar, filhosDe])
+  }, [confirmar, filhosDe, tr])
   const excluirSel = useCallback(async () => {
     if (!(await pedirConfirmacao('excluir', raizesSel))) return
     setEmMassa(true)
@@ -623,8 +628,8 @@ export default function AreaTarefas({
     setEmMassa(false)
     if (tarefaAbertaId && selecionadas.has(tarefaAbertaId)) fecharPainel()
     setSelecionadas(new Set())
-    showToast(`${n} tarefa(s) excluída(s)${falhas ? `, ${falhas} com erro` : ''}`, falhas ? 'error' : undefined)
-  }, [raizesSel, t, showToast, tarefaAbertaId, selecionadas, fecharPainel, pedirConfirmacao])
+    showToast(`${tr('tarefas.area.excluidas', { count: n })}${falhas ? tr('tarefas.area.comErroSufixo', { n: falhas }) : ''}`, falhas ? 'error' : undefined)
+  }, [raizesSel, t, showToast, tarefaAbertaId, selecionadas, fecharPainel, pedirConfirmacao, tr])
   const arquivarSel = useCallback(async () => {
     if (!(await pedirConfirmacao('arquivar', raizesSel))) return
     setEmMassa(true)
@@ -633,12 +638,12 @@ export default function AreaTarefas({
     setEmMassa(false)
     if (tarefaAbertaId && selecionadas.has(tarefaAbertaId)) fecharPainel()
     setSelecionadas(new Set())
-    showToast(`${n} tarefa(s) arquivada(s)${falhas ? `, ${falhas} com erro` : ''}`, falhas ? 'error' : undefined)
-  }, [raizesSel, t, showToast, tarefaAbertaId, selecionadas, fecharPainel, pedirConfirmacao])
+    showToast(`${tr('tarefas.area.arquivadas', { count: n })}${falhas ? tr('tarefas.area.comErroSufixo', { n: falhas }) : ''}`, falhas ? 'error' : undefined)
+  }, [raizesSel, t, showToast, tarefaAbertaId, selecionadas, fecharPainel, pedirConfirmacao, tr])
   // ── Menu de uma tarefa (⋯ do painel e clique direito) ──────────────────
   const copiar = useCallback(async (texto, ok) => {
-    try { await navigator.clipboard.writeText(texto); showToast(ok) } catch { showToast('Não foi possível copiar', 'error') }
-  }, [showToast])
+    try { await navigator.clipboard.writeText(texto); showToast(ok) } catch { showToast(tr('tarefas.area.naoCopiou'), 'error') }
+  }, [showToast, tr])
   // título do painel em foco e selecionado (Renomear no Quadro, Calendário e no ⋯ do painel)
   const focarTituloPainel = useCallback((id) => {
     let tentativas = 20
@@ -653,7 +658,7 @@ export default function AreaTarefas({
     setSelecionadas((p) => { if (!p.has(it.id)) return p; const n = new Set(p); n.delete(it.id); return n })
   }, [tarefaAbertaId, fecharPainel])
   const acoesTarefa = (origem) => ({
-    copiarLink: (it) => copiar(`${window.location.origin}/tarefas?tarefa=${it.id}`, 'Link copiado'),
+    copiarLink: (it) => copiar(`${window.location.origin}/tarefas?tarefa=${it.id}`, tr('tarefas.area.linkCopiado')),
     abrirClickup: (it) => window.open(it.clickup_url, '_blank', 'noopener'),
     renomear: (it) => {
       if (origem === 'lista') { setRenomeandoId(it.id); return }
@@ -662,19 +667,19 @@ export default function AreaTarefas({
     },
     duplicar: async (it) => {
       const { n, falhas } = await duplicarTarefas([it])
-      showToast(falhas ? `${n} criada(s), ${falhas} com erro` : 'Tarefa duplicada', falhas ? 'error' : undefined)
+      showToast(falhas ? tr('tarefas.area.criadasComErro', { n, falhas }) : tr('tarefas.area.tarefaDuplicada'), falhas ? 'error' : undefined)
     },
     salvarTemplate: (it) => salvarComoModelo(it, filhosDe.get(it.id) || []),
     historico: (it) => navigate(`/tarefas?aba=sincronizacao&sync_tarefa=${it.id}`),
     arquivar: async (it) => {
       if (!(await pedirConfirmacao('arquivar', [it]))) return
       const r = await t.arquivarTarefa(it.id)
-      if (r.error) showToast(r.error, 'error'); else { tirarDaTela(it); showToast('Tarefa arquivada') }
+      if (r.error) showToast(r.error, 'error'); else { tirarDaTela(it); showToast(tr('tarefas.area.tarefaArquivada')) }
     },
     excluir: async (it) => {
       if (!(await pedirConfirmacao('excluir', [it]))) return
       const r = await t.excluirTarefa(it.id)
-      if (r.error) showToast(r.error, 'error'); else { tirarDaTela(it); showToast('Tarefa excluída') }
+      if (r.error) showToast(r.error, 'error'); else { tirarDaTela(it); showToast(tr('tarefas.area.tarefaExcluida')) }
     },
   })
   const statusComum = itensSel.length && itensSel.every((i) => i.status === itensSel[0].status) ? itensSel[0].status : null
@@ -735,14 +740,14 @@ export default function AreaTarefas({
         {/* Conteúdo rolável */}
         <div className={`flex-1 min-h-0 bg-ln-bg ${((view === 'quadro' || view === 'gantt') && !comTopo && mostrarViews) || semRolagem ? 'overflow-hidden' : 'overflow-auto'}`}>
           {t.loadingEstrutura || vt.loading ? (
-            <div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</div>
+            <div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {tr('tarefas.area.carregando')}</div>
           ) : secao ? secao(api) : (
             <>
               {antesDaView}
               {view === 'calendario' ? (
                 <CalendarioView itens={filtrados} ctx={ctx} />
               ) : view === 'gantt' ? (
-                <Suspense fallback={<div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</div>}>
+                <Suspense fallback={<div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {tr('tarefas.area.carregando')}</div>}>
                   <GanttView
                     itens={filtrados} ctx={ctx} filhosDe={filhosVisao} mostrarConcluidas={mostrarConcluidas} altura={comTopo ? 560 : '100%'}
                     userId={user?.id || null} agendarPush={t.agendarPush} avisar={showToast}
@@ -761,23 +766,23 @@ export default function AreaTarefas({
           <BarraSelecao n={itensSel.length} onLimpar={() => setSelecionadas(new Set())} onDuplicar={duplicarSel} onArquivar={arquivarSel} onExcluir={excluirSel} ocupado={emMassa}>
             <StatusCampo
               item={{ status: statusComum }} statuses={statuses}
-              onChange={(s) => emLote((it) => { const st = statusDaLista(t.listasMap.get(it.lista_id)).find((x) => x.key === s.key); return st ? t.mudarStatus(it, st) : null }, 'Status')}
-              render={<BotaoBarra icon={CircleDot}>Status</BotaoBarra>}
+              onChange={(s) => emLote((it) => { const st = statusDaLista(t.listasMap.get(it.lista_id)).find((x) => x.key === s.key); return st ? t.mudarStatus(it, st) : null }, 'status')}
+              render={<BotaoBarra icon={CircleDot}>{tr('tarefas.area.campo.status')}</BotaoBarra>}
             />
             <ResponsaveisEmMassa listas={itensSel.map((i) => i.responsaveis)} membros={teamMembers || []} membrosMap={membrosMap} icon={Users}
-              onAplicar={(d) => atualizarSel((it) => ({ responsaveis: aplicarDiferenca(it.responsaveis, d) }), 'Responsáveis')} />
-            <DataCampo valor={null} onChange={(v) => atualizarSel({ data_inicio: v }, 'Início')} render={<BotaoBarra icon={CalendarDays}>Início</BotaoBarra>} />
-            <DataCampo valor={null} onChange={(v) => atualizarSel({ data_vencimento: v }, 'Vencimento')} render={<BotaoBarra icon={CalendarClock}>Vencimento</BotaoBarra>} />
-            <PrioridadeCampo valor={null} onChange={(v) => atualizarSel({ prioridade: v }, 'Prioridade')} render={<BotaoBarra icon={Flag}>Prioridade</BotaoBarra>} />
-            <TipoTarefaCampo valor={null} onChange={(v) => atualizarSel({ tipo_tarefa: v }, 'Tipo')} render={<BotaoBarra icon={Shapes}>Tipo</BotaoBarra>} />
-            <EstimativaCampo valor={null} onChange={(v) => atualizarSel({ estimativa_min: v }, 'Estimativa')} render={<BotaoBarra icon={Hourglass}>Estimativa</BotaoBarra>} />
+              onAplicar={(d) => atualizarSel((it) => ({ responsaveis: aplicarDiferenca(it.responsaveis, d) }), 'responsaveis')} />
+            <DataCampo valor={null} onChange={(v) => atualizarSel({ data_inicio: v }, 'inicio')} render={<BotaoBarra icon={CalendarDays}>{tr('tarefas.area.campo.inicio')}</BotaoBarra>} />
+            <DataCampo valor={null} onChange={(v) => atualizarSel({ data_vencimento: v }, 'vencimento')} render={<BotaoBarra icon={CalendarClock}>{tr('tarefas.area.campo.vencimento')}</BotaoBarra>} />
+            <PrioridadeCampo valor={null} onChange={(v) => atualizarSel({ prioridade: v }, 'prioridade')} render={<BotaoBarra icon={Flag}>{tr('tarefas.area.campo.prioridade')}</BotaoBarra>} />
+            <TipoTarefaCampo valor={null} onChange={(v) => atualizarSel({ tipo_tarefa: v }, 'tipo')} render={<BotaoBarra icon={Shapes}>{tr('tarefas.area.campo.tipo')}</BotaoBarra>} />
+            <EstimativaCampo valor={null} onChange={(v) => atualizarSel({ estimativa_min: v }, 'estimativa')} render={<BotaoBarra icon={Hourglass}>{tr('tarefas.area.campo.estimativa')}</BotaoBarra>} />
           </BarraSelecao>
         )}
       </div>
 
       {/* ── Aplicar template: cobre a área inteira, como a tarefa expandida ── */}
       {aplicandoTpl && (
-        <div className="absolute inset-0 z-40 flex flex-col bg-ln-panel" role="dialog" aria-label={`Aplicar ${aplicandoTpl.template.nome}`}>
+        <div className="absolute inset-0 z-40 flex flex-col bg-ln-panel" role="dialog" aria-label={tr('tarefas.area.aplicarTemplate', { nome: aplicandoTpl.template.nome })}>
           <AplicarTemplateView
             key={aplicandoTpl.template.id}
             template={aplicandoTpl.template} listaInicialId={aplicandoTpl.listaId}
@@ -798,28 +803,28 @@ export default function AreaTarefas({
             <aside
               className={`${empurra ? 'relative shrink-0' : 'absolute inset-y-0 right-0 z-40 shadow-2xl'} border-l border-ln-ink/[0.08] flex flex-col min-h-0 bg-ln-panel`}
               style={{ width: empurra ? larg : `min(${larg}px, 100%)` }}
-              aria-label={painelView === 'filtros' ? 'Filtros' : painelView === 'nova' ? 'Nova visualização' : 'Configurações da visualização'}
+              aria-label={painelView === 'filtros' ? tr('tarefas.area.filtros') : painelView === 'nova' ? tr('tarefas.area.novaVisualizacao') : tr('tarefas.area.configuracoesVisualizacao')}
             >
               {painelView === 'filtros' ? (
                 <PainelFiltros
                   filtros={config.filtros} onChange={(filtros) => editarView({ filtros })}
                   ctx={{ statuses, membros: teamMembers || [], etiquetas: vt.etiquetas, ciclos: vt.ciclos, listas: listasEscopo.length ? listasEscopo : t.listas, pastas: t.pastas, projetos: projects || [], squads: squads || [], escopo: escopoViews?.escopo }}
                   barra={[
-                    respFiltro.length && `Responsáveis: ${respFiltro.map((id) => nomeResponsavelFiltro(id, teamMembers || [])).join(', ')}`,
-                    !config.concluidas && 'Sem concluídas',
-                    busca.trim() && `Nome contém “${busca.trim()}”`,
+                    respFiltro.length && tr('tarefas.area.barraResponsaveis', { nomes: respFiltro.map((id) => nomeResponsavelFiltro(id, teamMembers || [])).join(', ') }),
+                    !config.concluidas && tr('tarefas.area.barraSemConcluidas'),
+                    busca.trim() && tr('tarefas.area.barraNomeContem', { busca: busca.trim() }),
                   ].filter(Boolean)}
                   total={baseFiltro.length} mostrando={filtrados.length} persistente={persistente}
                   alterados={JSON.stringify(config.filtros) !== JSON.stringify(viewAtiva.config.filtros)} podeEditar={podeEditarView}
                   onSalvar={salvarVisualizacao} onReverter={() => editarView({ filtros: viewAtiva.config.filtros })} onFechar={() => setPainelView(null)}
                 />
               ) : painelView === 'nova' ? (
-                <PainelNovaView config={config} origem={viewAtiva.nome} membros={teamMembers || []} onCriar={criarVisualizacao} onFechar={() => setPainelView(null)} />
+                <PainelNovaView config={config} origem={viewAtiva.rotulo ?? viewAtiva.nome} membros={teamMembers || []} onCriar={criarVisualizacao} onFechar={() => setPainelView(null)} />
               ) : (
                 <PainelConfigView
                   key={chaveRascunho} v={viewAtiva} config={config} podeEditar={podeEditarView} souDono={souDonoView} membros={teamMembers || []} respBloqueado={respBloqueado}
                   onEditar={editarViewNaSidebar} onMeta={metaView} onAbrirFiltros={() => setPainelView('filtros')}
-                  onDuplicar={() => criarVisualizacao({ nome: `${viewAtiva.nome} (cópia)`, publica: true })}
+                  onDuplicar={() => criarVisualizacao({ nome: tr('tarefas.pagina.copia', { nome: viewAtiva.rotulo ?? viewAtiva.nome }), publica: true })}
                   onExcluir={excluirVisualizacao} onFechar={() => setPainelView(null)}
                 />
               )}
@@ -832,11 +837,11 @@ export default function AreaTarefas({
       {!!novaInicial && !tarefaAbertaId && !aplicandoTpl && (
         <>
           {painelComFundo && <div className="absolute inset-0 z-30 bg-black/30" onClick={() => setNovaInicial(null)} aria-hidden="true" />}
-          <aside className="absolute inset-y-0 right-0 z-40 shadow-2xl border-l border-ln-ink/[0.08] flex flex-col bg-ln-panel" style={{ width: `min(${larguraPainel}px, 100%)` }} aria-label="Nova tarefa">
+          <aside className="absolute inset-y-0 right-0 z-40 shadow-2xl border-l border-ln-ink/[0.08] flex flex-col bg-ln-panel" style={{ width: `min(${larguraPainel}px, 100%)` }} aria-label={tr('tarefas.area.novaTarefa')}>
             <AlcaPainel largura={larguraPainel} onLargura={setLarguraPainel} />
             <div className="h-11 shrink-0 flex items-center justify-between gap-2 px-3 border-b border-ln-ink/5">
-              <span className="text-xs font-medium text-ln-t2">Nova tarefa</span>
-              <button onClick={() => setNovaInicial(null)} className="ln-iconbtn" aria-label="Descartar a tarefa nova" title="Descartar (Esc)"><X className="w-4 h-4" /></button>
+              <span className="text-xs font-medium text-ln-t2">{tr('tarefas.area.novaTarefa')}</span>
+              <button onClick={() => setNovaInicial(null)} className="ln-iconbtn" aria-label={tr('tarefas.area.descartarNova')} title={tr('tarefas.area.descartarEsc')}><X className="w-4 h-4" /></button>
             </div>
             <div className="flex-1 min-h-0">
               <NovaTarefaPanel
@@ -856,7 +861,7 @@ export default function AreaTarefas({
           <aside
             className={`${painelExpandido ? 'absolute inset-0 z-40' : 'absolute inset-y-0 right-0 z-40 shadow-2xl border-l border-ln-ink/[0.08]'} flex flex-col bg-ln-panel`}
             style={painelExpandido ? undefined : { width: `min(${larguraPainel}px, 100%)` }}
-            aria-label="Detalhe da tarefa"
+            aria-label={tr('tarefas.area.detalheTarefa')}
           >
             {!painelExpandido && <AlcaPainel largura={larguraPainel} onLargura={setLarguraPainel} />}
             <div className="h-11 shrink-0 flex items-center justify-between gap-2 px-3 border-b border-ln-ink/5">
@@ -871,17 +876,17 @@ export default function AreaTarefas({
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {tarefaAberta && !tarefaAberta.clickup_task_id && listasComClickup.has(tarefaAberta.lista_id) && (
-                  <span className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-ln-yellow" title="Está na fila para ir ao ClickUp; o link aparece assim que chegar lá">
-                    <CloudUpload className="w-3 h-3" /> aguardando ClickUp
+                  <span className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-ln-yellow" title={tr('tarefas.area.naFilaClickup')}>
+                    <CloudUpload className="w-3 h-3" /> {tr('tarefas.area.aguardandoClickup')}
                   </span>
                 )}
                 {tarefaAberta && (
                   <MenuTarefa key={tarefaAberta.id} item={tarefaAberta} user={user} acoes={acoesTarefa('painel')} />
                 )}
-                <button onClick={() => setPainelExpandido((v) => !v)} className="ln-iconbtn" aria-label={painelExpandido ? 'Voltar ao painel lateral' : 'Expandir em tela cheia'} title={painelExpandido ? 'Voltar ao painel lateral (Esc)' : 'Expandir em tela cheia'}>
+                <button onClick={() => setPainelExpandido((v) => !v)} className="ln-iconbtn" aria-label={painelExpandido ? tr('tarefas.area.voltarPainel') : tr('tarefas.area.expandirTelaCheia')} title={painelExpandido ? tr('tarefas.area.voltarPainelEsc') : tr('tarefas.area.expandirTelaCheia')}>
                   {painelExpandido ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
                 </button>
-                <button onClick={fecharPainel} className="ln-iconbtn" aria-label="Fechar painel" title="Fechar (Esc)"><X className="w-4 h-4" /></button>
+                <button onClick={fecharPainel} className="ln-iconbtn" aria-label={tr('tarefas.area.fecharPainel')} title={tr('tarefas.area.fecharEsc')}><X className="w-4 h-4" /></button>
               </div>
             </div>
             <div className={`flex-1 min-h-0 overflow-y-auto ${painelExpandido ? '[&>*]:max-w-4xl [&>*]:mx-auto [&>*]:w-full' : ''}`}>

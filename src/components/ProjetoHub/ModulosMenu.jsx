@@ -2,10 +2,12 @@
 // busca por nome em todos os itens dos menus (abas do hub e módulos).
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, CheckCircle2 } from 'lucide-react'
+import { useI18n } from '../../i18n'
 
 const normalizar = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 export default function ModulosMenu({ modulos = [], onAbrir }) {
+  const { t } = useI18n()
   const [aberto, setAberto] = useState(false)
   const [busca, setBusca] = useState('')
   const [cursor, setCursor] = useState(0)
@@ -25,10 +27,10 @@ export default function ModulosMenu({ modulos = [], onAbrir }) {
 
   useEffect(() => {
     if (!aberto) return
-    const t = setTimeout(() => inputRef.current?.focus(), 0)
+    const tm = setTimeout(() => inputRef.current?.focus(), 0)
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setAberto(false) }
     document.addEventListener('mousedown', h)
-    return () => { clearTimeout(t); document.removeEventListener('mousedown', h) }
+    return () => { clearTimeout(tm); document.removeEventListener('mousedown', h) }
   }, [aberto])
 
   // Mantém o item destacado visível ao navegar pelo teclado
@@ -56,10 +58,10 @@ export default function ModulosMenu({ modulos = [], onAbrir }) {
         className={`flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap transition-colors ${aberto ? 'text-rl-text font-semibold' : 'text-rl-subtle hover:text-rl-text'}`}
         aria-haspopup="listbox"
         aria-expanded={aberto}
-        title="Buscar módulo"
+        title={t('hub.menu.buscarModulo')}
       >
         <Search className="w-3.5 h-3.5" />
-        <span className="hidden 2xl:inline">Buscar</span>
+        <span className="hidden 2xl:inline">{t('comum.buscar')}</span>
       </button>
       {aberto && (
         <div className="absolute right-0 mt-1 w-72 glass-card border border-rl-border shadow-xl z-30 p-1.5">
@@ -70,13 +72,13 @@ export default function ModulosMenu({ modulos = [], onAbrir }) {
               value={busca}
               onChange={(e) => { setBusca(e.target.value); setCursor(0) }}
               onKeyDown={onKeyDown}
-              placeholder="Buscar no menu…"
+              placeholder={t('hub.menu.buscarNoMenu')}
               className="input-field !py-2 !pl-9 !pr-3"
             />
           </div>
           <div ref={listaRef} className="max-h-80 overflow-y-auto" role="listbox">
             {filtrados.length === 0 ? (
-              <p className="text-xs text-rl-muted text-center py-4">Nenhum módulo encontrado</p>
+              <p className="text-xs text-rl-muted text-center py-4">{t('hub.menu.nenhum')}</p>
             ) : filtrados.map((m, i) => {
               const Icon = m.icon
               const ativo = i === cursor

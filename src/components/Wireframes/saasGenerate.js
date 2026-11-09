@@ -1,5 +1,10 @@
 // ─── SaaS / Produto — geração estruturada da copy ─────────────────────────────
 import { SAAS_WIREFRAME } from './saasSchema'
+import { t } from '../../i18n'
+
+// Rótulos da versão em texto (no idioma de quem está usando): wireframes.texto.* e wireframes.secao.*
+const R = (k, vars) => t(`wireframes.texto.${k}`, vars)
+const S = (k, quebra) => `${quebra ? '\n' : ''}## ${t(`wireframes.secao.${k}`).toUpperCase()}`
 
 export const SAAS_SYSTEM = `Você é um especialista em copy de alta conversão para páginas de PRODUTO SaaS (software vendido por assinatura, com captura de e-mail para teste grátis ou cadastro na primeira dobra), usando a metodologia Revenue Lab.
 
@@ -112,64 +117,64 @@ export function saasToText(content) {
   const L = []
   const push = (label, val) => { if (val?.trim?.()) L.push(`**${label}:** ${val.trim()}`) }
 
-  L.push('## NAV')
-  push('Menu', (c.navLinks || []).filter(Boolean).join(', '))
-  push('CTA do menu', c.navCta)
+  L.push(S('nav'))
+  push(R('menu'), (c.navLinks || []).filter(Boolean).join(', '))
+  push(R('ctaMenu'), c.navCta)
 
-  L.push('\n## HERO')
-  push('Selo', c.heroBadge)
-  push('Headline', c.headline)
-  push('Subheadline', c.heroSubheadline)
-  push('Campo', c.heroFormPlaceholder)
-  push('CTA', c.heroCta)
-  push('Legenda do print', c.heroImageCaption)
+  L.push(S('hero', true))
+  push(R('selo'), c.heroBadge)
+  push(R('headline'), c.headline)
+  push(R('subheadline'), c.heroSubheadline)
+  push(R('campo'), c.heroFormPlaceholder)
+  push(R('cta'), c.heroCta)
+  push(R('legendaPrint'), c.heroImageCaption)
 
-  L.push('\n## DIFERENCIAIS')
-  push('Etiqueta', c.featuresEyebrow)
-  push('Título', c.featuresTitle)
-  push('Subtítulo', c.featuresSubtitle)
+  L.push(S('diferenciais', true))
+  push(R('etiqueta'), c.featuresEyebrow)
+  push(R('titulo'), c.featuresTitle)
+  push(R('subtitulo'), c.featuresSubtitle)
   ;(c.features || []).forEach((f) => {
     if (f.title?.trim() || f.desc?.trim()) L.push(`- ${f.title || ''}: ${f.desc || ''}`.trim())
   })
 
-  L.push('\n## RECURSOS DO PRODUTO')
-  push('Etiqueta', c.howEyebrow)
-  push('Título', c.howTitle)
-  push('Subtítulo', c.howSubtitle)
+  L.push(S('recursos', true))
+  push(R('etiqueta'), c.howEyebrow)
+  push(R('titulo'), c.howTitle)
+  push(R('subtitulo'), c.howSubtitle)
   ;(c.howItems || []).forEach((h, i) => {
-    if (h.title?.trim() || h.desc?.trim()) L.push(`- Recurso ${i + 1}: ${h.title || ''}: ${h.desc || ''}`.trim())
+    if (h.title?.trim() || h.desc?.trim()) L.push(`- ${R('recurso', { n: i + 1 })}: ${h.title || ''}: ${h.desc || ''}`.trim())
   })
 
-  L.push('\n## PROVA SOCIAL')
-  push('Etiqueta', c.proofEyebrow)
-  push('Título', c.proofTitle)
-  push('Subtítulo', c.proofSubtitle)
-  ;(c.testimonials || []).forEach((t) => {
-    if (t.quote?.trim() || t.metric?.trim()) {
-      L.push(`- ${t.metric || ''} (${t.metricLabel || ''}): "${t.quote || ''}" ${t.name || ''}, ${t.role || ''}`.trim())
+  L.push(S('provaSocial', true))
+  push(R('etiqueta'), c.proofEyebrow)
+  push(R('titulo'), c.proofTitle)
+  push(R('subtitulo'), c.proofSubtitle)
+  ;(c.testimonials || []).forEach((d) => {
+    if (d.quote?.trim() || d.metric?.trim()) {
+      L.push(`- ${d.metric || ''} (${d.metricLabel || ''}): "${d.quote || ''}" ${d.name || ''}, ${d.role || ''}`.trim())
     }
   })
 
-  L.push('\n## CTA INTERMEDIÁRIO')
-  push('Título', c.midCtaTitle)
-  push('Texto', c.midCtaText)
-  push('Botão', c.midCtaButton)
+  L.push(S('ctaIntermediario', true))
+  push(R('titulo'), c.midCtaTitle)
+  push(R('texto'), c.midCtaText)
+  push(R('botao'), c.midCtaButton)
 
-  L.push('\n## FAQ')
-  push('Etiqueta', c.faqEyebrow)
-  push('Título', c.faqTitle)
+  L.push(S('faq', true))
+  push(R('etiqueta'), c.faqEyebrow)
+  push(R('titulo'), c.faqTitle)
   ;(c.faqs || []).forEach((f) => {
     if (f.q?.trim() || f.a?.trim()) L.push(`- ${f.q || ''} → ${f.a || ''}`.trim())
   })
 
-  L.push('\n## CTA FINAL')
-  push('Título', c.finalCtaTitle)
-  push('Subtítulo', c.finalCtaSubtitle)
-  push('Botão', c.finalCtaButton)
+  L.push(S('ctaFinal', true))
+  push(R('titulo'), c.finalCtaTitle)
+  push(R('subtitulo'), c.finalCtaSubtitle)
+  push(R('botao'), c.finalCtaButton)
 
-  L.push('\n## RODAPÉ')
-  push('Chamada', c.footerTitle)
-  push('Botão', c.footerCta)
+  L.push(S('rodape', true))
+  push(R('chamada'), c.footerTitle)
+  push(R('botao'), c.footerCta)
 
   return L.join('\n')
 }

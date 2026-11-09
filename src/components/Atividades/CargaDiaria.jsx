@@ -1,6 +1,7 @@
 // Gráfico de carga por dia útil de uma pessoa (10 dias), em divs + Tailwind.
 // Usado no painel da pessoa e no planejador (com a alocação da tarefa nova).
-import { DIAS, fmtCurta, fmtHoras } from '../../lib/atividadesCarga'
+import { nomeDiaCurto, fmtCurta, fmtHoras } from '../../lib/atividadesCarga'
+import { useI18n } from '../../i18n'
 
 /**
  * @param {object} p
@@ -16,6 +17,7 @@ import { DIAS, fmtCurta, fmtHoras } from '../../lib/atividadesCarga'
  * @param {Function} [p.onSelecionarDia]  (iso|null) => void; quando existe, as barras viram botões (clique de novo limpa)
  */
 export default function CargaDiaria({ resumo = [], capacidade, hoje, sugestao = null, forcada = null, dataEscolhida = null, diaSelecionado = null, altura = 120, legenda = true, onSelecionarDia = null }) {
+  const { t } = useI18n()
   const cap = Number(capacidade) || 6
   const forcando = !!(forcada && dataEscolhida)
   const maxBar = Math.max(cap * 1.5, ...resumo.map((d) => d.carga + (d.alocadoNovaTarefa || 0) + (d.excedente || 0)))
@@ -33,18 +35,18 @@ export default function CargaDiaria({ resumo = [], capacidade, hoje, sugestao = 
       hojeCol: d.data === hoje,
       entregaCol: d.data === (forcando ? dataEscolhida : sugestao?.entrega),
       selCol: d.data === diaSelecionado,
-      title: `${DIAS[d.diaSemana]} ${fmtCurta(d.data)}: ${fmtHoras(d.carga)} na agenda${novo ? ` + ${fmtHoras(novo)} desta atividade` : ''}${excedente ? ` + ${fmtHoras(excedente)} de estouro` : ''} · ${d.tarefas} tarefa(s)`,
+      title: `${nomeDiaCurto(d.diaSemana)} ${fmtCurta(d.data)}: ${t('atividades.carga.naAgendaH', { horas: fmtHoras(d.carga) })}${novo ? ` + ${t('atividades.carga.destaAtividadeH', { horas: fmtHoras(novo) })}` : ''}${excedente ? ` + ${t('atividades.carga.estouroH', { horas: fmtHoras(excedente) })}` : ''} · ${t('atividades.nTarefas', { count: Number(d.tarefas) || 0 })}`,
     }
   })
   return (
     <div>
       {legenda && (
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[11px] text-ln-t4">Carga por dia útil · capacidade {fmtHoras(cap)}/dia</p>
+          <p className="text-[11px] text-ln-t4">{t('atividades.carga.legenda', { horas: fmtHoras(cap) })}</p>
           <div className="flex items-center gap-3 text-[11px] text-ln-t4">
-            <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-sm bg-ln-brand/70 inline-block" /> na agenda</span>
-            {temNova && <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-sm bg-ln-accent inline-block" /> esta atividade</span>}
-            <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-sm bg-ln-red/80 inline-block" /> estouro</span>
+            <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-sm bg-ln-brand/70 inline-block" /> {t('atividades.carga.naAgenda')}</span>
+            {temNova && <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-sm bg-ln-accent inline-block" /> {t('atividades.carga.estaAtividade')}</span>}
+            <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-sm bg-ln-red/80 inline-block" /> {t('atividades.carga.estouro')}</span>
           </div>
         </div>
       )}
@@ -64,7 +66,7 @@ export default function CargaDiaria({ resumo = [], capacidade, hoje, sugestao = 
               onClick={onSelecionarDia ? () => onSelecionarDia(c.selCol ? null : c.data) : undefined}
               aria-pressed={onSelecionarDia ? c.selCol : undefined}
               className={`flex-1 flex flex-col justify-end h-full min-w-0 rounded-t transition-opacity duration-150 ${onSelecionarDia ? 'cursor-pointer hover:bg-ln-ink/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-ln-t2' : ''} ${apagada ? 'opacity-45' : ''}`}
-              title={onSelecionarDia ? `${c.title}. ${c.selCol ? 'Clique para limpar o filtro' : 'Clique para ver as tarefas deste dia'}` : c.title}
+              title={onSelecionarDia ? `${c.title}. ${c.selCol ? t('atividades.carga.cliqueLimpar') : t('atividades.carga.cliqueVer')}` : c.title}
             >
               <div className={`w-full flex flex-col-reverse rounded-t overflow-hidden ${c.selCol ? 'ring-2 ring-ln-t1' : ''}`} style={{ height: `${c.hTotal}%` }}>
                 {c.carga > 0 && <div className="w-full bg-ln-brand/70" style={{ flexBasis: c.part(c.carga) }} />}
@@ -79,7 +81,7 @@ export default function CargaDiaria({ resumo = [], capacidade, hoje, sugestao = 
       <div className="flex gap-1.5 mt-1.5">
         {colunas.map((c) => (
           <p key={c.data} className={`flex-1 min-w-0 text-[10px] leading-tight text-center tabular ${c.selCol ? 'text-ln-t1 font-semibold' : c.entregaCol ? 'text-ln-accent font-semibold' : c.hojeCol ? 'text-ln-t1 font-medium' : 'text-ln-t4'}`}>
-            {DIAS[c.diaSemana]}<br />{fmtCurta(c.data)}
+            {nomeDiaCurto(c.diaSemana)}<br />{fmtCurta(c.data)}
           </p>
         ))}
       </div>

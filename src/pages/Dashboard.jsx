@@ -22,8 +22,9 @@ import { NEW_CLIENT_WINDOW_DAYS, isNewClient, baseProjectsOf } from '../lib/dash
 import Modal from '../components/UI/Modal'
 import UnsignedAtaPopups from '../components/Dashboard/UnsignedAtaPopups'
 import { CrescimentoView, fmtNet, PctNet } from '../components/Dashboard/Crescimento'
-import { netStats, MONTHS_PT } from '../lib/growth'
+import { netStats, monthName } from '../lib/growth'
 import OtimizacoesBanner from '../components/Dashboard/OtimizacoesBanner'
+import { useI18n } from '../i18n'
 
 // Base comum dos chips da lista (squad, risco, momento): mesma altura, raio e corpo.
 const CHIP = 'inline-flex items-center gap-1.5 h-[22px] px-2 rounded-full text-[11px] font-semibold whitespace-nowrap max-w-full'
@@ -32,7 +33,11 @@ const CHIP = 'inline-flex items-center gap-1.5 h-[22px] px-2 rounded-full text-[
 // cor do squad) para distinguir. A cor forte fica para risco e momento.
 // Os membros abrem num cartão em portal: dentro da tabela ele era cortado pelo
 // `overflow` do cartão do grupo (a 1ª linha abria pra cima e sumia).
+// Papel do membro no squad (valor gravado em squads.members[].role) → chave do rótulo.
+const PAPEL_SQUAD = { 'Account Manager': 'accountManager', 'Gestor de Tráfego': 'gestorTrafego', 'Designer': 'designer' }
+
 function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
+  const { t } = useI18n()
   const ref = useRef(null)
   const [pos, setPos] = useState(null)
   // Rolar a página com o cartão aberto o deixaria solto: fecha.
@@ -84,7 +89,7 @@ function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
                 : <span className={`w-2 h-2 rounded-full ${c.dot}`} />}
               <span className="text-[13px] font-semibold text-rl-text truncate">{name}</span>
               <span className="ml-auto text-[11px] text-rl-muted tabular-nums shrink-0">
-                {members.length} {members.length === 1 ? 'pessoa' : 'pessoas'}
+                {t('home.squad.pessoas', { count: members.length })}
               </span>
             </div>
             {members.length > 0 ? (
@@ -96,13 +101,13 @@ function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
                     </span>
                     <span className="min-w-0">
                       <span className="block text-xs font-medium text-rl-text truncate">{m.name}</span>
-                      {m.role && <span className="block text-[11px] text-rl-muted truncate">{m.role}</span>}
+                      {m.role && <span className="block text-[11px] text-rl-muted truncate">{PAPEL_SQUAD[m.role] ? t(`home.squad.papel.${PAPEL_SQUAD[m.role]}`) : m.role}</span>}
                     </span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="px-3 py-2.5 text-xs text-rl-muted">Nenhum membro no squad.</p>
+              <p className="px-3 py-2.5 text-xs text-rl-muted">{t('home.squad.semMembros')}</p>
             )}
           </div>
         </div>,
@@ -115,20 +120,22 @@ function SquadBadge({ name, emoji, colorIndex = 0, members = [] }) {
 // ─── Pílulas de risco / momento ───────────────────────────────────────────────
 // Tinta = texto colorido sobre fundo do mesmo tom. No escuro a tinta aproxima
 // fundo e texto, então o alfa cai (a mesma regra do `--dt-tint-*` do dashboard).
+// `label` é a chave do rótulo (traduzido no render); o valor gravado é a chave do objeto.
 const RISK_CONFIG = {
-  em_risco: { label: 'Em Risco',  className: 'text-rl-red bg-rl-red/10 dark:bg-rl-red/[.12]',       dot: 'bg-rl-red'   },
-  neutro:   { label: 'Neutro',    className: 'text-rl-gold bg-rl-gold/10 dark:bg-rl-gold/[.12]',    dot: 'bg-rl-gold'  },
-  saudavel: { label: 'Saudável',  className: 'text-rl-green bg-rl-green/10 dark:bg-rl-green/[.12]', dot: 'bg-rl-green' },
+  em_risco: { label: 'home.risco.em_risco', className: 'text-rl-red bg-rl-red/10 dark:bg-rl-red/[.12]',       dot: 'bg-rl-red'   },
+  neutro:   { label: 'home.risco.neutro',   className: 'text-rl-gold bg-rl-gold/10 dark:bg-rl-gold/[.12]',    dot: 'bg-rl-gold'  },
+  saudavel: { label: 'home.risco.saudavel', className: 'text-rl-green bg-rl-green/10 dark:bg-rl-green/[.12]', dot: 'bg-rl-green' },
 }
 
 function RiskBadge({ riskLevel }) {
+  const { t } = useI18n()
   if (!riskLevel) return null
   const cfg = RISK_CONFIG[riskLevel]
   if (!cfg) return null
   return (
     <span className={`${CHIP} ${cfg.className}`}>
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-      {cfg.label}
+      {t(cfg.label)}
     </span>
   )
 }
@@ -136,20 +143,21 @@ function RiskBadge({ riskLevel }) {
 // Onboarding segue laranja: não há token laranja e o âmbar (rl-gold) já é "Neutro".
 // `chip`: o chip da lista (só tinta, sem borda); `dot` também vai no filtro.
 const MOMENTO_OPTIONS = [
-  { value: 'onboarding',      label: 'Onboarding',      dot: 'bg-orange-500', chip: 'bg-orange-500/10 dark:bg-orange-400/[.12] text-orange-700 dark:text-orange-400' },
-  { value: 'aceleracao',      label: 'Aceleração',      dot: 'bg-rl-green', chip: 'bg-rl-green/10 dark:bg-rl-green/[.12] text-rl-green' },
-  { value: 'voo_de_cruzeiro', label: 'Voo de cruzeiro', dot: 'bg-rl-cyan', chip: 'bg-rl-cyan/10 dark:bg-rl-cyan/[.12] text-rl-cyan' },
-  { value: 'churn',           label: 'Churn',           dot: 'bg-rl-red', chip: 'bg-rl-red/10 dark:bg-rl-red/[.12] text-rl-red' },
+  { value: 'onboarding',      label: 'home.momento.onboarding',      dot: 'bg-orange-500', chip: 'bg-orange-500/10 dark:bg-orange-400/[.12] text-orange-700 dark:text-orange-400' },
+  { value: 'aceleracao',      label: 'home.momento.aceleracao',      dot: 'bg-rl-green', chip: 'bg-rl-green/10 dark:bg-rl-green/[.12] text-rl-green' },
+  { value: 'voo_de_cruzeiro', label: 'home.momento.voo_de_cruzeiro', dot: 'bg-rl-cyan', chip: 'bg-rl-cyan/10 dark:bg-rl-cyan/[.12] text-rl-cyan' },
+  { value: 'churn',           label: 'home.momento.churn',           dot: 'bg-rl-red', chip: 'bg-rl-red/10 dark:bg-rl-red/[.12] text-rl-red' },
 ]
 
 function MomentoBadge({ momento }) {
+  const { t } = useI18n()
   if (!momento) return null
   const cfg = MOMENTO_OPTIONS.find(m => m.value === momento)
   if (!cfg) return null
   return (
     <span className={`${CHIP} ${cfg.chip}`}>
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-      {cfg.label}
+      {t(cfg.label)}
     </span>
   )
 }
@@ -158,12 +166,13 @@ function MomentoBadge({ momento }) {
 // o mesmo de `activeMonths`, para bater com o LTV.
 const DIAS_MES = 30.4375
 function LtCell({ meses }) {
+  const { t } = useI18n()
   if (!(meses > 0)) return <Vazio />
   const total = Math.max(1, Math.round(meses * DIAS_MES))
   let m = Math.floor(total / DIAS_MES)
   let d = Math.round(total - m * DIAS_MES)
   if (d >= 30) { m += 1; d = 0 }
-  const txt = m === 0 ? `${d}d` : d === 0 ? `${m}m` : `${m}m ${d}d`
+  const txt = m === 0 ? t('home.lt.dias', { d }) : d === 0 ? t('home.lt.meses', { m }) : t('home.lt.mesesDias', { m, d })
   return <span className="text-rl-subtle">{txt}</span>
 }
 
@@ -214,7 +223,8 @@ function PontoOpcao({ o }) {
 }
 
 // `opcoes`: [{ value, label, dot?, emoji?, count }]. `valor` 'all' = sem filtro.
-function FiltroMenu({ icone: Icone, rotulo, valor, opcoes, onChange, todos = 'Todos' }) {
+function FiltroMenu({ icone: Icone, rotulo, valor, opcoes, onChange, todos }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -258,7 +268,7 @@ function FiltroMenu({ icone: Icone, rotulo, valor, opcoes, onChange, todos = 'To
           <button
             type="button"
             onClick={() => onChange('all')}
-            aria-label={`Limpar filtro ${rotulo}`}
+            aria-label={t('home.filtros.limparFiltro', { rotulo })}
             className={`mr-1 p-1 rounded-full text-rl-muted hover:text-rl-text hover:bg-rl-purple/10 ${FOCO}`}
           >
             <X className="w-3 h-3" />
@@ -270,7 +280,7 @@ function FiltroMenu({ icone: Icone, rotulo, valor, opcoes, onChange, todos = 'To
         <div role="menu" className="absolute left-0 top-[calc(100%+6px)] z-30 min-w-[13rem] bg-rl-card border border-rl-border shadow-xl py-1 rounded-xl">
           <ItemFiltro selecionado={!ativo} onClick={() => escolher('all')}>
             <span className="w-2 shrink-0" />
-            <span className="flex-1 text-left">{todos}</span>
+            <span className="flex-1 text-left">{todos ?? t('comum.todos')}</span>
           </ItemFiltro>
           <div className="border-t border-rl-border my-1" />
           {opcoes.map(o => (
@@ -326,9 +336,9 @@ function FiltroAtalho({ icone: Icone, rotulo, ativo, count, onClick, title }) {
 }
 
 const RISK_OPTIONS = [
-  { value: 'em_risco', label: 'Em Risco', dot: 'bg-rl-red'   },
-  { value: 'neutro',   label: 'Neutro',   dot: 'bg-rl-gold'  },
-  { value: 'saudavel', label: 'Saudável', dot: 'bg-rl-green' },
+  { value: 'em_risco', label: 'home.risco.em_risco', dot: 'bg-rl-red'   },
+  { value: 'neutro',   label: 'home.risco.neutro',   dot: 'bg-rl-gold'  },
+  { value: 'saudavel', label: 'home.risco.saudavel', dot: 'bg-rl-green' },
 ]
 
 const BIZ_MODEL_OPTIONS = [
@@ -370,16 +380,17 @@ function Kpi({ icone: Icone, rotulo, valor, cor = 'text-rl-text', extra, title, 
 // `num`: alinhado à direita (números tabulares). `hide`: some no mobile.
 // `w`: largura fixa — cada grupo de risco é uma tabela própria, e sem largura
 // fixa as colunas de um grupo não alinham com as do outro. Empresa fica com o resto.
+// `label` e `title` são chaves de tradução.
 const LIST_COLS = [
-  { key: 'companyName',   label: 'Empresa'                                                         },
-  { key: 'squadName',     label: 'Squad',         w: 'w-36', hide: 'hidden md:table-cell'           },
-  { key: 'conv7d',        label: 'Conversões 7d', w: 'w-36', hide: 'hidden lg:table-cell', num: true },
-  { key: 'riskLevel',     label: 'Risco',         w: 'w-32', semGrupo: true                         },
-  { key: 'momento',       label: 'Momento',       w: 'w-40', hide: 'hidden sm:table-cell'           },
-  { key: 'ltv',           label: 'LTV',           w: 'w-32', num: true                              },
-  { key: 'lt',            label: 'LT',            w: 'w-28', hide: 'hidden sm:table-cell', num: true, title: 'Lifetime: tempo de contrato ativo, em meses e dias (até hoje ou até o churn)' },
-  { key: 'contractValue', label: 'Contrato',      w: 'w-28', hide: 'hidden sm:table-cell', num: true },
-  { key: 'createdAt',     label: 'Criado em',     w: 'w-36', hide: 'hidden xl:table-cell', num: true },
+  { key: 'companyName',   label: 'home.colunas.empresa'                                                  },
+  { key: 'squadName',     label: 'home.colunas.squad',    w: 'w-36', hide: 'hidden md:table-cell'           },
+  { key: 'conv7d',        label: 'home.colunas.conv7d',   w: 'w-36', hide: 'hidden lg:table-cell', num: true },
+  { key: 'riskLevel',     label: 'home.colunas.risco',    w: 'w-32', semGrupo: true                         },
+  { key: 'momento',       label: 'home.colunas.momento',  w: 'w-40', hide: 'hidden sm:table-cell'           },
+  { key: 'ltv',           label: 'home.colunas.ltv',      w: 'w-32', num: true                              },
+  { key: 'lt',            label: 'home.colunas.lt',       w: 'w-28', hide: 'hidden sm:table-cell', num: true, title: 'home.colunas.ltDica' },
+  { key: 'contractValue', label: 'home.colunas.contrato', w: 'w-28', hide: 'hidden sm:table-cell', num: true },
+  { key: 'createdAt',     label: 'home.colunas.criadoEm', w: 'w-36', hide: 'hidden xl:table-cell', num: true },
 ]
 
 function SortIcon({ col, sortBy, sortDir }) {
@@ -390,23 +401,24 @@ function SortIcon({ col, sortBy, sortDir }) {
 }
 
 const RISK_GROUPS = [
-  { value: 'em_risco', label: 'Em Risco',  dot: 'bg-rl-red',   text: 'text-rl-red',   valor: 'text-rl-red',   bg: 'bg-rl-red/[.04]'   },
-  { value: 'neutro',   label: 'Neutro',    dot: 'bg-rl-gold',  text: 'text-rl-gold',  valor: 'text-rl-gold',  bg: 'bg-rl-gold/[.04]'  },
-  { value: 'saudavel', label: 'Saudável',  dot: 'bg-rl-green', text: 'text-rl-green', valor: 'text-rl-green', bg: 'bg-rl-green/[.04]' },
-  { value: null,       label: 'Sem Risco', dot: 'bg-rl-muted', text: 'text-rl-muted', valor: 'text-rl-text',  bg: 'bg-rl-surface/60'  },
+  { value: 'em_risco', label: 'home.risco.em_risco', dot: 'bg-rl-red',   text: 'text-rl-red',   valor: 'text-rl-red',   bg: 'bg-rl-red/[.04]'   },
+  { value: 'neutro',   label: 'home.risco.neutro',   dot: 'bg-rl-gold',  text: 'text-rl-gold',  valor: 'text-rl-gold',  bg: 'bg-rl-gold/[.04]'  },
+  { value: 'saudavel', label: 'home.risco.saudavel', dot: 'bg-rl-green', text: 'text-rl-green', valor: 'text-rl-green', bg: 'bg-rl-green/[.04]' },
+  { value: null,       label: 'home.risco.semRisco', dot: 'bg-rl-muted', text: 'text-rl-muted', valor: 'text-rl-text',  bg: 'bg-rl-surface/60'  },
 ]
 
 
 // Célula de Conversões 7d: número + seta de tendência (vs 7 dias anteriores).
-function ConvCell({ t, loading }) {
-  if (!t) return <Vazio>{loading ? '·' : '—'}</Vazio>
-  const { conv, prev } = t
+function ConvCell({ trend, loading }) {
+  const { t } = useI18n()
+  if (!trend) return <Vazio>{loading ? '·' : '—'}</Vazio>
+  const { conv, prev } = trend
   if (conv === 0 && prev === 0) return <Vazio />
   const dir = conv > prev ? 'up' : conv < prev ? 'down' : 'flat'
   const pct = prev > 0 ? Math.round(((conv - prev) / prev) * 100) : null
   const color = dir === 'up' ? 'text-rl-green' : dir === 'down' ? 'text-rl-red' : 'text-rl-muted'
   const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '▬'
-  const label = pct == null ? 'novo' : `${pct > 0 ? '+' : ''}${pct}%`
+  const label = pct == null ? t('home.convNovo') : `${pct > 0 ? '+' : ''}${pct}%`
   return (
     <div className="flex items-center justify-end gap-2 whitespace-nowrap">
       <span className="text-rl-text font-medium">{fmtNum(conv)}</span>
@@ -416,6 +428,7 @@ function ConvCell({ t, loading }) {
 }
 
 function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false, dash }) {
+  const { t, locale } = useI18n()
   const [sortBy,  setSortBy]  = useState('createdAt')
   const [sortDir, setSortDir] = useState('desc')
   const logoDe = useLogosAssinados(projects.map(p => p.logoUrl))
@@ -496,7 +509,7 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false, 
 
   function renderRow(p) {
     const createdStr = p.createdAt
-      ? new Date(p.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+      ? new Date(p.createdAt).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
       : null
     const ltv = calcLTV(p)
     const logo = logoDe(p.logoUrl)
@@ -516,7 +529,7 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false, 
         </div>
       ),
       squadName: <SquadBadge name={p.squadName} emoji={p.squadEmoji} colorIndex={p.squadColorIndex} members={p.squadMembers ?? []} />,
-      conv7d: <ConvCell t={trafficByProject[p.id]} loading={dash.loading} />,
+      conv7d: <ConvCell trend={trafficByProject[p.id]} loading={dash.loading} />,
       riskLevel: p.riskLevel ? <RiskBadge riskLevel={p.riskLevel} /> : <Vazio />,
       momento: p.momento ? <MomentoBadge momento={p.momento} /> : <Vazio />,
       ltv: ltv > 0 ? <span className="font-semibold text-rl-text">{fmtCurrency(ltv)}</span> : <Vazio />,
@@ -536,8 +549,8 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false, 
         <td className="pl-1 pr-3 py-2.5 w-10" onClick={e => e.stopPropagation()}>
           <button
             onClick={() => onDelete(p)}
-            aria-label={`Excluir ${p.companyName}`}
-            title="Excluir projeto"
+            aria-label={t('home.linha.excluirAria', { nome: p.companyName })}
+            title={t('home.linha.excluirDica')}
             className="p-1.5 rounded-lg text-rl-muted md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 hover:text-rl-red hover:bg-rl-red/10 transition-all"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -564,17 +577,17 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false, 
                   >
                     <button
                       type="button"
-                      title={col.title}
+                      title={col.title ? t(col.title) : undefined}
                       onClick={() => handleSort(col.key)}
                       className={`group/th inline-flex items-center gap-1 text-[11px] uppercase tracking-wider transition-colors hover:text-rl-text ${ativo ? 'text-rl-text' : 'text-rl-muted'} ${col.num ? 'flex-row-reverse' : ''}`}
                     >
-                      {col.label}
+                      {t(col.label)}
                       <SortIcon col={col.key} sortBy={sortBy} sortDir={sortDir} />
                     </button>
                   </th>
                 )
               })}
-              <th className="w-10"><span className="sr-only">Ações</span></th>
+              <th className="w-10"><span className="sr-only">{t('home.colunas.acoes')}</span></th>
             </tr>
           </thead>
           <tbody>
@@ -596,26 +609,26 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false, 
   return (
     <div className="space-y-5">
       {groups.map(g => (
-        <section key={g.value ?? 'sem_risco'} className="glass-card overflow-hidden" aria-label={g.label}>
+        <section key={g.value ?? 'sem_risco'} className="glass-card overflow-hidden" aria-label={t(g.label)}>
           <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 border-b border-rl-border ${g.bg}`}>
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${g.dot}`} />
-              <h3 className={`text-xs font-bold uppercase tracking-wider ${g.text}`}>{g.label}</h3>
+              <h3 className={`text-xs font-bold uppercase tracking-wider ${g.text}`}>{t(g.label)}</h3>
               <span className="text-[11px] font-semibold text-rl-muted bg-rl-card border border-rl-border px-2 py-0.5 rounded-full tabular-nums">
-                {g.rows.length} {g.rows.length === 1 ? 'cliente' : 'clientes'}
+                {t('home.grupo.clientes', { count: g.rows.length })}
               </span>
             </div>
             {/* Totais do grupo: valor grande, na cor do grupo (o "Sem risco" fica no texto) */}
             <dl className="ml-auto flex items-center gap-6 sm:gap-8">
               {g.totalVal > 0 && (
                 <div className="text-right">
-                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">Contrato cheio</dt>
+                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">{t('home.grupo.contratoCheio')}</dt>
                   <dd className={`text-lg font-bold tabular-nums leading-tight ${g.valor}`}>{fmtCurrency(g.totalVal)}</dd>
                 </div>
               )}
               {g.totalMRR > 0 && (
                 <div className="text-right">
-                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">MRR</dt>
+                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">{t('home.grupo.mrr')}</dt>
                   <dd className={`text-lg font-bold tabular-nums leading-tight ${g.valor}`}>{fmtCurrency(g.totalMRR)}</dd>
                 </div>
               )}
@@ -629,6 +642,7 @@ function ProjectListView({ projects, onNavigate, onDelete, groupByRisk = false, 
 }
 
 function DeleteConfirmModal({ project, onConfirm, onCancel }) {
+  const { t } = useI18n()
   const [typed, setTyped] = useState('')
   const canDelete = typed === 'DELETE'
 
@@ -640,14 +654,14 @@ function DeleteConfirmModal({ project, onConfirm, onCancel }) {
             <AlertTriangle className="w-5 h-5 text-red-400" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-rl-text">Excluir cliente</h2>
-            <p className="text-xs text-rl-muted mt-0.5">Esta ação é permanente e não pode ser desfeita.</p>
+            <h2 className="text-base font-bold text-rl-text">{t('home.excluir.titulo')}</h2>
+            <p className="text-xs text-rl-muted mt-0.5">{t('home.excluir.aviso')}</p>
           </div>
         </div>
 
         {/* Project name */}
         <div className="rounded-xl bg-rl-surface border border-rl-border px-4 py-3 mb-5">
-          <p className="text-[11px] text-rl-muted mb-0.5">Cliente a ser excluído</p>
+          <p className="text-[11px] text-rl-muted mb-0.5">{t('home.excluir.alvo')}</p>
           <p className="text-sm font-bold text-red-400">{project.companyName}</p>
           {project.responsibleName && (
             <p className="text-xs text-rl-muted mt-0.5">{project.responsibleName} · {project.responsibleRole}</p>
@@ -657,7 +671,7 @@ function DeleteConfirmModal({ project, onConfirm, onCancel }) {
         {/* Confirmation input */}
         <div className="space-y-2 mb-6">
           <label className="text-sm text-rl-text">
-            Digite <span className="font-mono font-bold text-red-400">DELETE</span> para confirmar:
+            {t('home.excluir.digite')} <span className="font-mono font-bold text-red-400">DELETE</span> {t('home.excluir.paraConfirmar')}
           </label>
           <input
             type="text"
@@ -673,7 +687,7 @@ function DeleteConfirmModal({ project, onConfirm, onCancel }) {
         {/* Actions */}
         <div className="flex gap-3">
           <button onClick={onCancel} className="flex-1 btn-ghost">
-            Cancelar
+            {t('comum.cancelar')}
           </button>
           <button
             onClick={onConfirm}
@@ -681,7 +695,7 @@ function DeleteConfirmModal({ project, onConfirm, onCancel }) {
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 font-semibold text-sm transition-all hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Trash2 className="w-4 h-4" />
-            Excluir cliente
+            {t('home.excluir.botao')}
           </button>
         </div>
     </Modal>
@@ -689,18 +703,19 @@ function DeleteConfirmModal({ project, onConfirm, onCancel }) {
 }
 
 function EmptyState({ onNew }) {
+  const { t } = useI18n()
   return (
     <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
       <div className="w-16 h-16 rounded-2xl bg-rl-purple/10 flex items-center justify-center mb-4 animate-float">
         <Layers className="w-8 h-8 text-rl-purple/60" />
       </div>
-      <h3 className="text-lg font-semibold text-rl-text mb-2">Nenhum cliente ainda</h3>
+      <h3 className="text-lg font-semibold text-rl-text mb-2">{t('home.vazio.titulo')}</h3>
       <p className="text-rl-muted text-sm mb-6 max-w-xs">
-        Adicione seu primeiro cliente para começar a gerenciar sua carteira.
+        {t('home.vazio.texto')}
       </p>
       <button onClick={onNew} className="btn-primary flex items-center gap-2">
         <Plus className="w-4 h-4" />
-        Novo Cliente
+        {t('home.vazio.botao')}
       </button>
     </div>
   )
@@ -712,6 +727,7 @@ export default function Dashboard() {
     loadingProjects, teamMembers, squads,
   } = useApp()
   const navigate = useNavigate()
+  const { t } = useI18n()
   const { openSidebar } = useOutletContext()
   const dash = useDashboardData({ source: 'api', dias: 20 })
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -782,7 +798,7 @@ export default function Dashboard() {
     const squadIdx     = squads.findIndex(s => String(s.id) === String(p.squad))
     const squad        = squadIdx >= 0 ? squads[squadIdx] : null
     const squadMembers = (squad?.members ?? []).map(m => {
-      const profile = teamMembers.find(t => String(t.id) === String(m.profile_id))
+      const profile = teamMembers.find(tm => String(tm.id) === String(m.profile_id))
       return profile ? { name: profile.name, role: m.role } : null
     }).filter(Boolean)
     return {
@@ -830,20 +846,20 @@ export default function Dashboard() {
   }
 
   const pageTitle = (() => {
-    if (filter === 'all')        return 'Clientes'
-    if (filter === 'churn')      return 'Churn'
-    if (filter === 'novos')      return `Novos Clientes (últimos ${NEW_CLIENT_WINDOW_DAYS} dias)`
-    if (filter === 'onboarding') return 'Em Onboarding'
-    if (filter === 'active')     return 'Perfis Ativos'
+    if (filter === 'all')        return t('home.listas.clientes')
+    if (filter === 'churn')      return t('home.listas.churn')
+    if (filter === 'novos')      return t('home.listas.novos', { dias: NEW_CLIENT_WINDOW_DAYS })
+    if (filter === 'onboarding') return t('home.listas.onboarding')
+    if (filter === 'active')     return t('home.listas.ativos')
     const member = teamMembers.find(m => String(m.id) === String(filter))
-    return member ? `Clientes de ${member.name.split(' ')[0]}` : 'Clientes'
+    return member ? t('home.listas.doMembro', { nome: member.name.split(' ')[0] }) : t('home.listas.clientes')
   })()
 
   // ── Resumo financeiro + churn do mês corrente ─────────────────────────────
 const _now      = new Date()
   const _yyyy     = _now.getFullYear()
   const _mm       = _now.getMonth()
-  const monthLabel = MONTHS_PT[_mm]
+  const monthLabel = monthName(_mm)
 
   const activeBase  = baseProjects.filter(p => p.momento !== 'churn')
   const totalContract = activeBase.reduce((acc, p) => acc + (Number(p.contractValue) || 0), 0)
@@ -875,7 +891,7 @@ const _now      = new Date()
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
           <button
             onClick={openSidebar}
-            aria-label="Abrir menu de navegação"
+            aria-label={t('home.abrirMenu')}
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
           >
             <Menu className="w-5 h-5" />
@@ -884,7 +900,7 @@ const _now      = new Date()
             <div className="w-6 h-6 rounded-md bg-gradient-rl flex items-center justify-center">
               <Zap className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="font-bold text-rl-text text-sm">Verta</span>
+            <span className="font-bold text-rl-text text-sm">{t('home.verta')}</span>
           </div>
         </div>
 
@@ -907,13 +923,13 @@ const _now      = new Date()
           {/* Cabeçalho: escopo do que a pessoa vê + ações da página */}
           <div className="flex flex-wrap items-center gap-3 animate-slide-up">
             <div className="flex items-center gap-2.5 flex-wrap mr-auto min-w-0">
-              <h1 className="text-2xl font-bold text-rl-text">Visão geral</h1>
+              <h1 className="text-2xl font-bold text-rl-text">{t('home.titulo')}</h1>
               <span
-                title={isAdmin ? 'Você é admin: vê os clientes de todos os squads' : 'Você vê os clientes dos squads de que faz parte'}
+                title={isAdmin ? t('home.escopoAdminDica') : t('home.escopoMembroDica')}
                 className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11px] font-semibold bg-rl-surface border border-rl-border text-rl-subtle"
               >
                 {isAdmin ? <ShieldCheck className="w-3.5 h-3.5 text-rl-purple" /> : <Users className="w-3.5 h-3.5 text-rl-purple" />}
-                {isAdmin ? 'Admin · todos os squads' : 'Seus squads'}
+                {isAdmin ? t('home.escopoAdmin') : t('home.escopoMembro')}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -921,10 +937,10 @@ const _now      = new Date()
                 <button
                   onClick={() => navigate('/relatorio-squads')}
                   className="btn-secondary inline-flex items-center gap-2 h-[38px] px-3 text-sm whitespace-nowrap"
-                  title="Abrir relatório por squad"
+                  title={t('home.dashboardSquadsDica')}
                 >
                   <Users2 className="w-4 h-4" />
-                  <span className="hidden md:inline">Dashboard de Squads</span>
+                  <span className="hidden md:inline">{t('home.dashboardSquads')}</span>
                 </button>
               )}
               <button
@@ -932,7 +948,7 @@ const _now      = new Date()
                 className="btn-primary inline-flex items-center gap-2 h-[38px] px-4 py-0 text-sm whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
-                Novo cliente
+                {t('home.novoCliente')}
               </button>
             </div>
           </div>
@@ -940,30 +956,30 @@ const _now      = new Date()
           {/* Indicadores: a carteira hoje + o saldo do mês. O detalhe de
               entradas e saídas mora em `/?visao=crescimento`. */}
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 animate-slide-up" style={{ animationDelay: '0.05s' }}>
-            <Kpi icone={DollarSign} rotulo="MRR" valor={fmtCurrency(totalMRR)}>
-              Contrato cheio <span className="font-semibold text-rl-text">{fmtCurrency(totalContract)}</span>
+            <Kpi icone={DollarSign} rotulo={t('home.kpi.mrr')} valor={fmtCurrency(totalMRR)}>
+              {t('home.kpi.contratoCheio')} <span className="font-semibold text-rl-text">{fmtCurrency(totalContract)}</span>
             </Kpi>
-            <Kpi icone={Users} rotulo="Clientes ativos" valor={activeBase.length}>
+            <Kpi icone={Users} rotulo={t('home.kpi.clientesAtivos')} valor={activeBase.length}>
               {billedClients.length > 0
-                ? <>Ticket médio <span className="font-semibold text-rl-text">{fmtCurrency(avgTicketMRR)}</span>/mês</>
-                : 'Sem valor de contrato'}
+                ? <>{t('home.kpi.ticketMedio')} <span className="font-semibold text-rl-text">{fmtCurrency(avgTicketMRR)}</span>{t('home.kpi.porMes')}</>
+                : t('home.kpi.semValorContrato')}
             </Kpi>
             <Kpi
               icone={Wallet}
-              rotulo="LTV médio"
+              rotulo={t('home.kpi.ltvMedio')}
               valor={ltvClients.length ? fmtCurrency(avgLTV) : '—'}
-              title="Média do LTV dos clientes com data de assinatura, ativos e churn"
+              title={t('home.kpi.ltvMedioDica')}
             >
-              {ltvClients.length} {ltvClients.length === 1 ? 'cliente' : 'clientes'}, ativos e churn
+              {t('home.kpi.ltvClientes', { count: ltvClients.length })}
             </Kpi>
             <Kpi
               icone={net.net < 0 ? TrendingDown : TrendingUp}
-              rotulo={`Net MRR · ${monthLabel}`}
+              rotulo={t('home.kpi.netMrr', { mes: monthLabel })}
               valor={fmtNet(net.net)}
               extra={<PctNet valor={net.growthPct} />}
               cor={net.net > 0 ? 'text-rl-green' : net.net < 0 ? 'text-rl-red' : 'text-rl-text'}
               onClick={() => abrirCrescimento()}
-              acao="Ver crescimento"
+              acao={t('home.kpi.verCrescimento')}
             >
               <span className="text-rl-green font-semibold">+{fmtCurrency(net.novos.mrr)}</span> ({net.novos.count})
               {' · '}
@@ -979,7 +995,7 @@ const _now      = new Date()
           {/* Projects */}
           <div className="animate-slide-up" style={{ animationDelay: '0.15s' }}>
             {/* Título, filtros e busca numa linha só (quebra quando falta largura) */}
-            <div className="flex flex-wrap items-center gap-2 mb-4" role="group" aria-label="Filtros da lista">
+            <div className="flex flex-wrap items-center gap-2 mb-4" role="group" aria-label={t('home.filtros.grupo')}>
               <div className="flex items-center gap-2 mr-2 min-w-0">
                 <h2 className="text-lg font-semibold text-rl-text truncate">{pageTitle}</h2>
                 {visibleProjects.length > 0 && (
@@ -991,8 +1007,8 @@ const _now      = new Date()
               {squads.length > 0 && (
                 <FiltroMenu
                   icone={Users}
-                  rotulo="Squad"
-                  todos="Todos os squads"
+                  rotulo={t('home.filtros.squad')}
+                  todos={t('home.filtros.todosSquads')}
                   valor={squadFilter}
                   onChange={setSquadFilter}
                   opcoes={squads.map((s, idx) => ({
@@ -1006,24 +1022,24 @@ const _now      = new Date()
               )}
               <FiltroMenu
                 icone={Building2}
-                rotulo="Modelo"
+                rotulo={t('home.filtros.modelo')}
                 valor={bizFilter}
                 onChange={setBizFilter}
                 opcoes={BIZ_MODEL_OPTIONS.map(o => ({ ...o, count: counts.businessModels?.[o.value] }))}
               />
               <FiltroMenu
                 icone={ShieldAlert}
-                rotulo="Risco"
+                rotulo={t('home.filtros.risco')}
                 valor={riskFilter}
                 onChange={setRiskFilter}
-                opcoes={RISK_OPTIONS.map(o => ({ ...o, count: counts.risks?.[o.value] }))}
+                opcoes={RISK_OPTIONS.map(o => ({ ...o, label: t(o.label), count: counts.risks?.[o.value] }))}
               />
               <FiltroMenu
                 icone={Target}
-                rotulo="Momento"
+                rotulo={t('home.filtros.momento')}
                 valor={momentoFilter}
                 onChange={setMomentoFilter}
-                opcoes={MOMENTO_OPTIONS.map(o => ({ value: o.value, label: o.label, dot: o.dot, count: counts.momentos?.[o.value] }))}
+                opcoes={MOMENTO_OPTIONS.map(o => ({ value: o.value, label: t(o.label), dot: o.dot, count: counts.momentos?.[o.value] }))}
               />
 
               <span className="hidden sm:block w-px h-5 bg-rl-border mx-1" aria-hidden="true" />
@@ -1033,18 +1049,18 @@ const _now      = new Date()
                   para a lista completa. */}
               <FiltroAtalho
                 icone={UserPlus}
-                rotulo={`Novos (${NEW_CLIENT_WINDOW_DAYS}d)`}
+                rotulo={t('home.filtros.novos', { dias: NEW_CLIENT_WINDOW_DAYS })}
                 ativo={filter === 'novos'}
                 count={counts.novos}
-                title={`Clientes que entraram nos últimos ${NEW_CLIENT_WINDOW_DAYS} dias`}
+                title={t('home.filtros.novosDica', { dias: NEW_CLIENT_WINDOW_DAYS })}
                 onClick={() => navigate(filter === 'novos' ? '/' : '/?lista=novos', { replace: true })}
               />
               <FiltroAtalho
                 icone={TrendingDown}
-                rotulo="Churn"
+                rotulo={t('home.filtros.churn')}
                 ativo={filter === 'churn'}
                 count={counts.churn}
-                title="Clientes que deram churn"
+                title={t('home.filtros.churnDica')}
                 onClick={() => navigate(filter === 'churn' ? '/' : '/?lista=churn', { replace: true })}
               />
 
@@ -1054,7 +1070,7 @@ const _now      = new Date()
                   onClick={limparFiltros}
                   className="h-8 px-2 text-[13px] font-medium text-rl-muted hover:text-rl-text underline-offset-2 hover:underline"
                 >
-                  Limpar filtros ({filtrosAtivos})
+                  {t('home.filtros.limparFiltrosN', { count: filtrosAtivos })}
                 </button>
               )}
               {/* Busca à direita */}
@@ -1064,14 +1080,14 @@ const _now      = new Date()
                   type="text"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Buscar por nome..."
-                  aria-label="Buscar cliente"
+                  placeholder={t('home.filtros.buscarPlaceholder')}
+                  aria-label={t('home.filtros.buscarAria')}
                   className="input-field w-full h-8 pl-8 pr-8 py-0 text-sm"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    aria-label="Limpar busca"
+                    aria-label={t('home.filtros.limparBusca')}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-rl-muted hover:text-rl-text transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -1085,15 +1101,15 @@ const _now      = new Date()
             {loadingProjects && !projects.length ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-rl-muted">
                 <Loader2 className="w-8 h-8 animate-spin text-rl-purple" />
-                <p className="text-sm">Carregando projetos da nuvem...</p>
+                <p className="text-sm">{t('home.carregandoNuvem')}</p>
               </div>
             ) : visibleProjects.length === 0 && !query && filtrosAtivos > 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Search className="w-10 h-10 text-rl-muted/30 mb-3" />
-                <p className="text-rl-text font-semibold mb-1">Nenhum cliente com esses filtros</p>
-                <p className="text-rl-muted text-sm">Tire um filtro ou limpe todos.</p>
+                <p className="text-rl-text font-semibold mb-1">{t('home.semFiltrados')}</p>
+                <p className="text-rl-muted text-sm">{t('home.semFiltradosDica')}</p>
                 <button onClick={limparFiltros} className="mt-4 text-xs text-rl-purple hover:underline">
-                  Limpar filtros
+                  {t('home.filtros.limparFiltros')}
                 </button>
               </div>
             ) : visibleProjects.length === 0 && !query ? (
@@ -1103,13 +1119,13 @@ const _now      = new Date()
             ) : visibleProjects.length === 0 && query ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Search className="w-10 h-10 text-rl-muted/30 mb-3" />
-                <p className="text-rl-text font-semibold mb-1">Nenhum resultado para "{searchQuery}"</p>
-                <p className="text-rl-muted text-sm">Tente outro nome ou responsável.</p>
+                <p className="text-rl-text font-semibold mb-1">{t('home.semResultado', { busca: searchQuery })}</p>
+                <p className="text-rl-muted text-sm">{t('home.semResultadoDica')}</p>
                 <button
                   onClick={() => setSearchQuery('')}
                   className="mt-4 text-xs text-rl-purple hover:underline"
                 >
-                  Limpar busca
+                  {t('home.filtros.limparBusca')}
                 </button>
               </div>
             ) : (

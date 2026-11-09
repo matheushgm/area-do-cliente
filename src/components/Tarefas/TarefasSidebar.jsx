@@ -4,19 +4,21 @@ import { useState, useMemo, useRef, Fragment } from 'react'
 import { ChevronRight, List, Plus, Search, User, MoreHorizontal, Pencil, Archive, X, Inbox, Repeat, LayoutTemplate, ListChecks, MessageSquare, CalendarCheck, FileText, BarChart3, ArrowLeftRight, Zap } from 'lucide-react'
 import { CHAT_OFFLINE } from '../../lib/chat'
 import { Popover, FOCO } from './Campos'
+import { useI18n } from '../../i18n'
 
 function MenuPasta({ onRenomear, onArquivar }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   return (
     <>
-      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/pasta:opacity-100 focus-visible:opacity-100" title="Opções" aria-label="Opções da pasta">
+      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/pasta:opacity-100 focus-visible:opacity-100" title={t('tarefas.sidebar.opcoes')} aria-label={t('tarefas.sidebar.opcoesPasta')}>
         <MoreHorizontal className="w-3.5 h-3.5" />
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={190} align="right">
         <div className="p-1 text-[13px]">
-          <button type="button" onClick={() => { setOpen(false); onRenomear() }} className="w-full flex items-center gap-2 h-8 px-2.5 rounded-md text-ln-t2 hover:bg-ln-ink/5"><Pencil className="w-3.5 h-3.5 text-ln-t4" /> Renomear</button>
-          <button type="button" onClick={() => { setOpen(false); onArquivar() }} className="w-full flex items-center gap-2 h-8 px-2.5 rounded-md text-ln-t2 hover:bg-ln-ink/5 hover:text-ln-red"><Archive className="w-3.5 h-3.5 text-ln-t4" /> Arquivar</button>
+          <button type="button" onClick={() => { setOpen(false); onRenomear() }} className="w-full flex items-center gap-2 h-8 px-2.5 rounded-md text-ln-t2 hover:bg-ln-ink/5"><Pencil className="w-3.5 h-3.5 text-ln-t4" /> {t('tarefas.sidebar.renomear')}</button>
+          <button type="button" onClick={() => { setOpen(false); onArquivar() }} className="w-full flex items-center gap-2 h-8 px-2.5 rounded-md text-ln-t2 hover:bg-ln-ink/5 hover:text-ln-red"><Archive className="w-3.5 h-3.5 text-ln-t4" /> {t('tarefas.sidebar.arquivar')}</button>
         </div>
       </Popover>
     </>
@@ -65,6 +67,7 @@ export default function TarefasSidebar({
   aberta, onFechar, recolhida = false,
   nav = { aba: 'tarefas', onAba: () => {}, intake: 0 }, contagem = {},
 }) {
+  const { t } = useI18n()
   const [busca, setBusca] = useState('')
   const [expandidas, setExpandidas] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('tarefas.expandidas') || '[]')) } catch { return new Set() }
@@ -124,7 +127,7 @@ export default function TarefasSidebar({
           return (
             <div key={p.id}>
               <div role="button" tabIndex={0} onClick={() => selPasta(p.id)} onKeyDown={(e) => { if (e.key === 'Enter') selPasta(p.id) }} className={itemCls(ativa)}>
-                <button type="button" onClick={(e) => { e.stopPropagation(); toggle(p.id) }} className="ln-iconbtn !w-5 !h-5 !rounded" aria-label={abertaP ? 'Recolher' : 'Expandir'}>
+                <button type="button" onClick={(e) => { e.stopPropagation(); toggle(p.id) }} className="ln-iconbtn !w-5 !h-5 !rounded" aria-label={abertaP ? t('tarefas.sidebar.recolher') : t('tarefas.sidebar.expandir')}>
                   <ChevronRight className={`w-3 h-3 transition-transform duration-150 ${abertaP ? 'rotate-90' : ''}`} />
                 </button>
                 <i className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: corDaPasta(p.nome) }} />
@@ -136,7 +139,7 @@ export default function TarefasSidebar({
                 {contagem[p.id] > 0 && <span className="text-xs text-ln-t4 tabular">{contagem[p.id]}</span>}
                 <MenuPasta
                   onRenomear={() => setRenomeando({ tipo: 'pasta', id: p.id })}
-                  onArquivar={() => { if (window.confirm(`Arquivar a pasta "${p.nome}" e todas as listas dela?`)) onAtualizarPasta(p.id, { arquivada: true }) }}
+                  onArquivar={() => { if (window.confirm(t('tarefas.sidebar.arquivarPastaConfirm', { nome: p.nome }))) onAtualizarPasta(p.id, { arquivada: true }) }}
                 />
               </div>
               {abertaP && (
@@ -151,7 +154,7 @@ export default function TarefasSidebar({
                         ) : (
                           <span className="flex-1 min-w-0 truncate">{l.nome}</span>
                         )}
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setRenomeando({ tipo: 'lista', id: l.id }) }} className="ln-iconbtn !w-5 !h-5 !rounded opacity-0 group-hover/lista:opacity-100 focus-visible:opacity-100" title="Renomear" aria-label="Renomear lista">
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setRenomeando({ tipo: 'lista', id: l.id }) }} className="ln-iconbtn !w-5 !h-5 !rounded opacity-0 group-hover/lista:opacity-100 focus-visible:opacity-100" title={t('tarefas.sidebar.renomear')} aria-label={t('tarefas.sidebar.renomearLista')}>
                           <Pencil className="w-3 h-3" />
                         </button>
                       </div>
@@ -170,37 +173,37 @@ export default function TarefasSidebar({
       <div className="flex items-center gap-2.5 px-[18px] pt-[18px] pb-3">
         <img src="/vertatask-simbolo.png" alt="" className="w-[26px] h-[26px]" />
         <span className="vt-display font-bold text-[17px] text-ln-t1 tracking-tight">Verta<span className="font-medium text-ln-accent">Task</span></span>
-        <button type="button" onClick={onFechar} className="ln-iconbtn md:hidden ml-auto" aria-label="Fechar"><X className="w-4 h-4" /></button>
+        <button type="button" onClick={onFechar} className="ln-iconbtn md:hidden ml-auto" aria-label={t('comum.fechar')}><X className="w-4 h-4" /></button>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-2.5 pb-3">
-        <NavItem icon={Inbox} ativo={nav.aba === 'intake'} onClick={() => { nav.onAba('intake'); onFechar?.() }} badge={nav.intake}>Intake</NavItem>
-        <NavItem icon={User} ativo={nav.aba === 'tarefas' && sel.tipo === 'minhas'} onClick={() => { onSel({ tipo: 'minhas' }); onFechar?.() }}>Minhas tarefas</NavItem>
-        <NavItem icon={ListChecks} ativo={nav.aba === 'tarefas' && sel.tipo === 'todas'} onClick={() => { onSel({ tipo: 'todas' }); onFechar?.() }}>Todas as tarefas</NavItem>
-        <NavItem icon={Zap} ativo={nav.aba === 'sprints'} onClick={() => { nav.onAba('sprints'); onFechar?.() }}>Sprints</NavItem>
-        <NavItem icon={Repeat} ativo={nav.aba === 'ciclos'} onClick={() => { nav.onAba('ciclos'); onFechar?.() }}>Cycles</NavItem>
-        <NavItem icon={LayoutTemplate} ativo={nav.aba === 'templates'} onClick={() => { nav.onAba('templates'); onFechar?.() }}>Templates</NavItem>
-        <NavItem icon={FileText} ativo={nav.aba === 'paginas'} onClick={() => { nav.onAba('paginas'); onFechar?.() }}>Pages</NavItem>
-        <NavItem icon={BarChart3} ativo={nav.aba === 'analytics'} onClick={() => { nav.onAba('analytics'); onFechar?.() }}>Analytics</NavItem>
-        <NavItem icon={ArrowLeftRight} ativo={nav.aba === 'sincronizacao'} onClick={() => { nav.onAba('sincronizacao'); onFechar?.() }} badge={nav.syncErros}>Sincronização</NavItem>
-        <NavItem icon={CalendarCheck} ativo={nav.aba === 'atividades'} onClick={() => { nav.onAba('atividades'); onFechar?.() }}>Atividades</NavItem>
+        <NavItem icon={Inbox} ativo={nav.aba === 'intake'} onClick={() => { nav.onAba('intake'); onFechar?.() }} badge={nav.intake}>{t('tarefas.sidebar.intake')}</NavItem>
+        <NavItem icon={User} ativo={nav.aba === 'tarefas' && sel.tipo === 'minhas'} onClick={() => { onSel({ tipo: 'minhas' }); onFechar?.() }}>{t('tarefas.sidebar.minhas')}</NavItem>
+        <NavItem icon={ListChecks} ativo={nav.aba === 'tarefas' && sel.tipo === 'todas'} onClick={() => { onSel({ tipo: 'todas' }); onFechar?.() }}>{t('tarefas.sidebar.todas')}</NavItem>
+        <NavItem icon={Zap} ativo={nav.aba === 'sprints'} onClick={() => { nav.onAba('sprints'); onFechar?.() }}>{t('tarefas.sidebar.sprints')}</NavItem>
+        <NavItem icon={Repeat} ativo={nav.aba === 'ciclos'} onClick={() => { nav.onAba('ciclos'); onFechar?.() }}>{t('tarefas.sidebar.cycles')}</NavItem>
+        <NavItem icon={LayoutTemplate} ativo={nav.aba === 'templates'} onClick={() => { nav.onAba('templates'); onFechar?.() }}>{t('tarefas.sidebar.templates')}</NavItem>
+        <NavItem icon={FileText} ativo={nav.aba === 'paginas'} onClick={() => { nav.onAba('paginas'); onFechar?.() }}>{t('tarefas.sidebar.pages')}</NavItem>
+        <NavItem icon={BarChart3} ativo={nav.aba === 'analytics'} onClick={() => { nav.onAba('analytics'); onFechar?.() }}>{t('tarefas.sidebar.analytics')}</NavItem>
+        <NavItem icon={ArrowLeftRight} ativo={nav.aba === 'sincronizacao'} onClick={() => { nav.onAba('sincronizacao'); onFechar?.() }} badge={nav.syncErros}>{t('tarefas.sidebar.sincronizacao')}</NavItem>
+        <NavItem icon={CalendarCheck} ativo={nav.aba === 'atividades'} onClick={() => { nav.onAba('atividades'); onFechar?.() }}>{t('tarefas.sidebar.atividades')}</NavItem>
         <NavItem icon={MessageSquare} ativo={nav.aba === 'chat'} onClick={() => { nav.onAba('chat'); onFechar?.() }} badge={nav.chat}
-          selo={CHAT_OFFLINE ? <span className="ln-pill !h-5 !px-1.5 text-[10px] uppercase tracking-wide" title="Sem sincronização com o ClickUp. As mensagens ficam só aqui.">offline</span> : null}
-        >Chat</NavItem>
+          selo={CHAT_OFFLINE ? <span className="ln-pill !h-5 !px-1.5 text-[10px] uppercase tracking-wide" title={t('tarefas.sidebar.chatOfflineTitulo')}>{t('tarefas.sidebar.offline')}</span> : null}
+        >{t('tarefas.sidebar.chat')}</NavItem>
 
         <div className={`${SECAO} flex items-center justify-between !pr-1`}>
-          Clientes
-          <button type="button" onClick={() => setNovaPasta(true)} className="ln-iconbtn !w-6 !h-6" title="Nova pasta" aria-label="Nova pasta"><Plus className="w-3.5 h-3.5" /></button>
+          {t('tarefas.sidebar.clientes')}
+          <button type="button" onClick={() => setNovaPasta(true)} className="ln-iconbtn !w-6 !h-6" title={t('tarefas.sidebar.novaPasta')} aria-label={t('tarefas.sidebar.novaPasta')}><Plus className="w-3.5 h-3.5" /></button>
         </div>
         <div className="ln-input !h-8 flex items-center gap-1.5 mb-1.5">
           <Search className="w-3.5 h-3.5 text-ln-t4 shrink-0" />
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente ou lista" className="flex-1 min-w-0 bg-transparent outline-none text-xs text-ln-t1 placeholder:text-ln-t4" />
-          {busca && <button type="button" onClick={() => setBusca('')} className="text-ln-t4 hover:text-ln-t2" aria-label="Limpar busca"><X className="w-3 h-3" /></button>}
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={t('tarefas.sidebar.buscarClienteLista')} className="flex-1 min-w-0 bg-transparent outline-none text-xs text-ln-t1 placeholder:text-ln-t4" />
+          {busca && <button type="button" onClick={() => setBusca('')} className="text-ln-t4 hover:text-ln-t2" aria-label={t('tarefas.sidebar.limparBusca')}><X className="w-3 h-3" /></button>}
         </div>
 
         {novaPasta && (
           <div className="px-1 py-1">
-            <CampoNome placeholder="Nome da pasta" onOk={async (nome) => { setNovaPasta(false); const r = await onCriarPasta(nome); if (r?.data) selPasta(r.data.id) }} onCancel={() => setNovaPasta(false)} />
+            <CampoNome placeholder={t('tarefas.sidebar.nomePasta')} onOk={async (nome) => { setNovaPasta(false); const r = await onCriarPasta(nome); if (r?.data) selPasta(r.data.id) }} onCancel={() => setNovaPasta(false)} />
           </div>
         )}
 
@@ -214,7 +217,7 @@ export default function TarefasSidebar({
 
         {soltas.length > 0 && (
           <>
-            <div className="h-8 px-2 mt-2 flex items-center text-[11px] font-medium text-ln-t4">Listas soltas</div>
+            <div className="h-8 px-2 mt-2 flex items-center text-[11px] font-medium text-ln-t4">{t('tarefas.sidebar.listasSoltas')}</div>
             {soltas.map((l) => {
               const ativaL = sel.tipo === 'lista' && sel.id === l.id
               return (
@@ -228,7 +231,7 @@ export default function TarefasSidebar({
         )}
 
         {!pastasVisiveis.length && !soltas.length && (
-          <p className="px-3 py-6 text-xs text-ln-t4 text-center">Nenhuma pasta encontrada.</p>
+          <p className="px-3 py-6 text-xs text-ln-t4 text-center">{t('tarefas.sidebar.nenhumaPasta')}</p>
         )}
       </div>
     </div>

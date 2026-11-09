@@ -6,24 +6,27 @@ import { createPortal } from 'react-dom'
 import { ChevronDown, ChevronRight, Loader2, MoreHorizontal, PanelRight, Plus, RefreshCw } from 'lucide-react'
 import { Avatar } from './IssueList'
 import {
-  NIVEIS, DIAS, weekday, agruparPessoas, diaDe, tomOcupacao,
-  fmtHoras, fmtPct, fmtDiaCurto, iniciais, primeiroNome,
+  NIVEIS, nomeDiaCurto, weekday, agruparPessoas, diaDe, tomOcupacao,
+  fmtHoras, fmtPct, fmtDiaCurto, iniciais, primeiroNome, rotuloNivel, textoSaude,
 } from '../../lib/atividadesCarga'
+import { useI18n, idiomaAtual, t as tr } from '../../i18n'
+import { rotuloDepartamento } from '../../lib/tarefas'
 
 // ─── Colunas ─────────────────────────────────────────────────────────────────
 
+// `label` = chave em atividades.colunas (vazio = coluna sem título)
 const COLUNAS = [
   { id: 'saude',     label: '',              w: 24 },
-  { id: 'pessoa',    label: 'Pessoa',        w: 240 },
-  { id: 'ocupacao',  label: 'Ocupação 10d',  w: 160 },
-  { id: 'dias',      label: '10 dias',       w: 96 },
-  { id: 'hoje',      label: 'Hoje',          w: 84, dir: 'right' },
-  { id: 'fila',      label: 'Fila',          w: 88, dir: 'right' },
-  { id: 'atrasadas', label: 'Atrasadas',     w: 88, dir: 'right' },
-  { id: 'semdata',   label: 'Sem data',      w: 64, dir: 'right' },
-  { id: 'zumbis',    label: 'Zumbis',        w: 64, dir: 'right' },
-  { id: 'proxlivre', label: 'Próx. livre',   w: 96 },
-  { id: 'alem',      label: 'Além',          w: 64, dir: 'right' },
+  { id: 'pessoa',    label: 'pessoa',        w: 240 },
+  { id: 'ocupacao',  label: 'ocupacao10d',   w: 160 },
+  { id: 'dias',      label: 'dez',           w: 96 },
+  { id: 'hoje',      label: 'hoje',          w: 84, dir: 'right' },
+  { id: 'fila',      label: 'fila',          w: 88, dir: 'right' },
+  { id: 'atrasadas', label: 'atrasadas',     w: 88, dir: 'right' },
+  { id: 'semdata',   label: 'semData',       w: 64, dir: 'right' },
+  { id: 'zumbis',    label: 'zumbis',        w: 64, dir: 'right' },
+  { id: 'proxlivre', label: 'proxLivre',     w: 96 },
+  { id: 'alem',      label: 'alem',          w: 64, dir: 'right' },
   { id: 'acoes',     label: '',              w: 28 },
 ]
 const OCULTAVEIS = new Set(['semdata', 'zumbis', 'alem', 'proxlivre', 'hoje'])
@@ -40,15 +43,13 @@ const MENU_ALTURA = 96
 
 /** '2026-09-19' → 'sex 19' (título da coluna Hoje quando há dia selecionado). */
 function rotuloDia(iso) {
-  if (!iso) return 'Hoje'
-  return `${DIAS[weekday(iso)].toLowerCase()} ${Number(String(iso).slice(8, 10))}`
+  if (!iso) return tr('atividades.colunas.hoje')
+  const dia = nomeDiaCurto(weekday(iso))
+  return `${idiomaAtual() === 'pt' ? dia.toLowerCase() : dia} ${Number(String(iso).slice(8, 10))}`
 }
 /** 5.5 → '5,5' (sem o "h", para o formato "5,5 / 6h"). */
 function semH(h) {
   return fmtHoras(h).replace(/h$/, '')
-}
-function plural(n, um, varios) {
-  return `${n} ${n === 1 ? um : varios}`
 }
 
 // ─── Peças ───────────────────────────────────────────────────────────────────
@@ -57,7 +58,7 @@ function plural(n, um, varios) {
 export function HealthDot({ saude, className = '' }) {
   const nivel = saude?.nivel || 'sem_leitura'
   const cfg = NIVEIS[nivel] || NIVEIS.sem_leitura
-  const texto = saude?.texto || cfg.label
+  const texto = textoSaude(saude) || rotuloNivel(NIVEIS[nivel] ? nivel : 'sem_leitura')
   if (nivel === 'sem_leitura') {
     return <span role="img" aria-label={texto} title={texto} className={`inline-block w-2 h-2 rounded-full border border-dashed border-ln-t4 ${className}`} />
   }
@@ -76,6 +77,7 @@ const ESCALA_BARRA = 130
 
 /** Barra de ocupação dos próximos 10 dias úteis: atrasadas + carga futura até 100%, excedente hachurado até 130%. */
 export function OccupancyBar({ totais, className = '' }) {
+  const { t } = useI18n()
   const cap = Number(totais?.capacidadeProximosDias) || 0
   const horas = Number(totais?.horasProximosDias) || 0
   const atrasadas = Math.min(Number(totais?.horasAtrasadas) || 0, horas)
@@ -88,7 +90,7 @@ export function OccupancyBar({ totais, className = '' }) {
   const pos = (v) => `${(v / ESCALA_BARRA) * 100}%`
   const tom = tomOcupacao(pct)
   const rotulo = fmtPct(totais?.ocupacaoProximosDias ?? pct)
-  const title = `${rotulo} dos próximos 10 dias úteis · ${fmtHoras(horas)} de ${fmtHoras(cap)}${atrasadas > 0 ? ` · ${fmtHoras(atrasadas)} atrasadas contadas em hoje` : ''}`
+  const title = `${t('atividades.time.pctProximos10', { pct: rotulo })} · ${t('atividades.hDeH', { a: fmtHoras(horas), b: fmtHoras(cap) })}${atrasadas > 0 ? ` · ${t('atividades.time.atrasadasEmHoje', { horas: fmtHoras(atrasadas) })}` : ''}`
   return (
     <div className={`flex items-center gap-2 ${className}`} title={title}>
       <div className="relative w-[100px] h-3 shrink-0">
@@ -108,6 +110,7 @@ const FILL_BARRA = { vazia: 'fill-ln-t4/30', normal: 'fill-ln-brand/60', cheia: 
 
 /** Dez barrinhas de carga/capacidade por dia útil (svg 96x20). */
 export function SparkBars10d({ spark = [], resumo = [], hoje = null, diaSelecionado = null, className = '' }) {
+  const { t } = useI18n()
   const n = Math.min(10, Math.max(spark?.length || 0, resumo?.length || 0))
   const yCap = 20 - 20 / 1.3
   const barras = []
@@ -119,10 +122,10 @@ export function SparkBars10d({ spark = [], resumo = [], hoje = null, diaSelecion
     const tipo = v <= 0 ? 'vazia' : (d?.excedente || 0) > 0 ? 'estouro' : v >= 1 ? 'cheia' : 'normal'
     const apagada = !!diaSelecionado && d?.data !== diaSelecionado
     const title = d
-      ? `${fmtDiaCurto(d.data)} · ${fmtHoras(d.carga)} de ${fmtHoras(d.capacidade)} · ${plural(d.tarefas || 0, 'tarefa', 'tarefas')}`
-      : `Dia ${i + 1} · ${fmtPct(v * 100)}`
+      ? `${fmtDiaCurto(d.data)} · ${t('atividades.hDeH', { a: fmtHoras(d.carga), b: fmtHoras(d.capacidade) })} · ${t('atividades.nTarefas', { count: d.tarefas || 0 })}`
+      : `${t('atividades.time.diaN', { n: i + 1 })} · ${fmtPct(v * 100)}`
     // inicial do dia da semana embaixo da barra (S T Q Q S)
-    const letra = d?.data ? DIAS[weekday(d.data)][0] : ''
+    const letra = d?.data ? nomeDiaCurto(weekday(d.data))[0] : ''
     barras.push({ i, x: i * 9, h, tipo, apagada, title, letra, hoje: !!hoje && d?.data === hoje, selecionado: !!diaSelecionado && d?.data === diaSelecionado })
   }
   return (
@@ -131,7 +134,7 @@ export function SparkBars10d({ spark = [], resumo = [], hoje = null, diaSelecion
       width="96"
       height="28"
       role="img"
-      aria-label={n ? `Carga dos próximos ${plural(n, 'dia útil', 'dias úteis')}` : 'Sem leitura da agenda'}
+      aria-label={n ? t('atividades.time.cargaProximos', { dias: t('atividades.diasUteis', { count: n }) }) : t('atividades.time.semLeituraAgenda')}
       className={`overflow-visible shrink-0 ${className}`}
     >
       {n > 0 && <line x1="0" y1={yCap} x2="87" y2={yCap} strokeWidth="1" strokeDasharray="2 2" className="stroke-ln-t4/50" />}
@@ -162,19 +165,22 @@ export function SparkBars10d({ spark = [], resumo = [], hoje = null, diaSelecion
 // ─── Cabeçalho de grupo, item de menu, linha ─────────────────────────────────
 
 function GrupoHeader({ grupo, aberto, onToggle }) {
+  const { t } = useI18n()
   const cfg = grupo.nivel ? NIVEIS[grupo.nivel] : null
+  // nível: rótulo traduzido; departamento (dado do squad): traduzido se conhecido
+  const rotulo = grupo.nivel ? rotuloNivel(grupo.nivel) : rotuloDepartamento(grupo.label)
   return (
     <div className="px-2">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={aberto}
-        title={aberto ? `Recolher ${grupo.label}` : `Expandir ${grupo.label}`}
+        title={aberto ? t('atividades.recolherX', { nome: rotulo }) : t('atividades.expandirX', { nome: rotulo })}
         className={`w-full h-9 px-2 rounded-lg flex items-center gap-2 text-left transition-colors duration-150 hover:bg-ln-ink/[0.03] ${FOCO}`}
       >
         {aberto ? <ChevronDown className="w-3.5 h-3.5 text-ln-t4 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-ln-t4 shrink-0" />}
         {cfg && <span aria-hidden="true" className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />}
-        <span className="text-[13px] font-medium text-ln-t2 truncate">{grupo.label}</span>
+        <span className="text-[13px] font-medium text-ln-t2 truncate">{rotulo}</span>
         <span className="text-[13px] text-ln-t3 tabular">{grupo.pessoas.length}</span>
       </button>
     </div>
@@ -220,8 +226,9 @@ function LinhaSkeleton({ colunas, gridStyle }) {
 }
 
 function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, loading, menuAberto, onAbrir, onNova, onRecarregar, onMenu }) {
-  const t = pessoa.totais || {}
-  const nome = pessoa.nome || 'Sem nome'
+  const { t } = useI18n()
+  const tot = pessoa.totais || {}
+  const nome = pessoa.nome || t('atividades.semNome')
   const estado = pessoa.erro ? 'erro' : pessoa.api ? 'ok' : loading ? 'carregando' : 'sem_api'
   const hojeRef = hoje || pessoa.hoje || null
   const departamento = pessoa.departamentos?.[0] || ''
@@ -230,46 +237,46 @@ function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, 
   const celulaOk = (col) => {
     switch (col.id) {
       case 'ocupacao':
-        return <OccupancyBar totais={t} />
+        return <OccupancyBar totais={tot} />
       case 'dias':
         return <SparkBars10d spark={pessoa.spark} resumo={pessoa.resumo} hoje={hojeRef} diaSelecionado={diaSelecionado} />
       case 'hoje': {
         const dia = diaSelecionado ? diaDe(pessoa, diaSelecionado) : pessoa.diaHoje || null
-        if (!dia) return <span className="text-xs text-ln-t4 truncate">{diaSelecionado ? 'sem dado' : 'fim de semana'}</span>
+        if (!dia) return <span className="text-xs text-ln-t4 truncate">{diaSelecionado ? t('atividades.time.semDado') : t('atividades.time.fimDeSemana')}</span>
         const estourou = dia.carga > dia.capacidade
-        const title = `${fmtDiaCurto(dia.data)} · ${plural(dia.tarefas || 0, 'tarefa', 'tarefas')}${dia.excedente > 0 ? ` · ${fmtHoras(dia.excedente)} de estouro` : ''}`
+        const title = `${fmtDiaCurto(dia.data)} · ${t('atividades.nTarefas', { count: dia.tarefas || 0 })}${dia.excedente > 0 ? ` · ${t('atividades.carga.estouroH', { horas: fmtHoras(dia.excedente) })}` : ''}`
         return <span className={`text-xs tabular whitespace-nowrap ${estourou ? 'text-ln-red' : 'text-ln-t3'}`} title={title}>{semH(dia.carga)} / {fmtHoras(dia.capacidade)}</span>
       }
       case 'fila': {
-        const n = Number(t.consideradas) || 0
+        const n = Number(tot.consideradas) || 0
         const semEst = (pessoa.pctSemEstimativa || 0) > 30
         return (
-          <button type="button" onClick={abrir('fila')} title={`${plural(n, 'tarefa', 'tarefas')} com data nos próximos 10 dias úteis · abrir a fila`} className={`text-xs tabular whitespace-nowrap text-ln-t3 hover:text-ln-t1 rounded transition-colors duration-150 ${FOCO}`}>
-            {n} · {fmtHoras(t.horasConsideradas)}
-            {semEst && <span className="text-ln-t4" title={`${pessoa.pctSemEstimativa}% da fila sem estimativa no ClickUp: horas estimadas pelo tipo ou dificuldade`}>*</span>}
+          <button type="button" onClick={abrir('fila')} title={t('atividades.time.filaTitle', { tarefas: t('atividades.nTarefas', { count: n }) })} className={`text-xs tabular whitespace-nowrap text-ln-t3 hover:text-ln-t1 rounded transition-colors duration-150 ${FOCO}`}>
+            {n} · {fmtHoras(tot.horasConsideradas)}
+            {semEst && <span className="text-ln-t4" title={t('atividades.time.semEstimativaTitle', { pct: pessoa.pctSemEstimativa })}>*</span>}
           </button>
         )
       }
       case 'atrasadas': {
-        const n = Number(t.atrasadas) || 0
+        const n = Number(tot.atrasadas) || 0
         return (
-          <button type="button" onClick={abrir('atrasadas')} title="Atrasadas contadas: caem em hoje no cálculo · abrir a lista" className={`text-xs tabular whitespace-nowrap rounded transition-colors duration-150 ${n > 0 ? 'text-ln-red hover:text-ln-red' : 'text-ln-t4 hover:text-ln-t2'} ${FOCO}`}>
-            {n > 0 ? `${n} · ${fmtHoras(t.horasAtrasadas)}` : '0'}
+          <button type="button" onClick={abrir('atrasadas')} title={t('atividades.time.atrasadasTitle')} className={`text-xs tabular whitespace-nowrap rounded transition-colors duration-150 ${n > 0 ? 'text-ln-red hover:text-ln-red' : 'text-ln-t4 hover:text-ln-t2'} ${FOCO}`}>
+            {n > 0 ? `${n} · ${fmtHoras(tot.horasAtrasadas)}` : '0'}
           </button>
         )
       }
       case 'semdata': {
-        const n = Number(t.semData) || 0
+        const n = Number(tot.semData) || 0
         return (
-          <button type="button" onClick={abrir('semdata')} title="Tarefas sem data, fora do cálculo · abrir a lista" className={`text-xs tabular rounded transition-colors duration-150 ${n > 0 ? 'text-ln-t3 hover:text-ln-t1' : 'text-ln-t4 hover:text-ln-t2'} ${FOCO}`}>
+          <button type="button" onClick={abrir('semdata')} title={t('atividades.time.semDataTitle')} className={`text-xs tabular rounded transition-colors duration-150 ${n > 0 ? 'text-ln-t3 hover:text-ln-t1' : 'text-ln-t4 hover:text-ln-t2'} ${FOCO}`}>
             {n}
           </button>
         )
       }
       case 'zumbis': {
-        const n = Number(t.zumbis) || 0
+        const n = Number(tot.zumbis) || 0
         return (
-          <button type="button" onClick={abrir('zumbis')} title="Atrasadas há tempo demais, fora do cálculo · abrir a lista" className={`rounded transition-colors duration-150 ${FOCO}`}>
+          <button type="button" onClick={abrir('zumbis')} title={t('atividades.time.zumbisTitle')} className={`rounded transition-colors duration-150 ${FOCO}`}>
             {n > 0
               ? <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-medium tabular bg-ln-orange/15 text-ln-orange">{n}</span>
               : <span className="text-xs tabular text-ln-t4">0</span>}
@@ -278,13 +285,13 @@ function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, 
       }
       case 'proxlivre':
         return pessoa.proximoDiaLivre
-          ? <span className="text-xs tabular text-ln-t3 whitespace-nowrap" title="Primeiro dia útil com folga na agenda">{fmtDiaCurto(pessoa.proximoDiaLivre)}</span>
-          : <span className="text-xs text-ln-t4 whitespace-nowrap" title="Nenhum dia com folga nos próximos 10 dias úteis">10+ dias</span>
+          ? <span className="text-xs tabular text-ln-t3 whitespace-nowrap" title={t('atividades.time.proxLivreTitle')}>{fmtDiaCurto(pessoa.proximoDiaLivre)}</span>
+          : <span className="text-xs text-ln-t4 whitespace-nowrap" title={t('atividades.time.semFolgaTitle')}>{t('atividades.time.dezMaisDias')}</span>
       case 'alem': {
-        const alem = Number(t.alemDoHorizonte) || 0
-        const sobra = Number(t.sobraFinal) || 0
-        if (sobra > 0) return <span className="text-xs tabular text-ln-red" title={`Não cabe nem em 60 dias úteis: ${fmtHoras(sobra)} sobram`}>{fmtHoras(alem)}</span>
-        return <span className="text-xs tabular text-ln-t4" title="Horas que não cabem nos próximos 10 dias úteis">{fmtHoras(alem)}</span>
+        const alem = Number(tot.alemDoHorizonte) || 0
+        const sobra = Number(tot.sobraFinal) || 0
+        if (sobra > 0) return <span className="text-xs tabular text-ln-red" title={t('atividades.time.alemSobraTitle', { horas: fmtHoras(sobra) })}>{fmtHoras(alem)}</span>
+        return <span className="text-xs tabular text-ln-t4" title={t('atividades.time.alemTitle')}>{fmtHoras(alem)}</span>
       }
       default:
         return null
@@ -304,17 +311,17 @@ function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, 
             </span>
           )}
           <div className="flex items-baseline gap-1 min-w-0 whitespace-nowrap">
-            <button type="button" onClick={abrir()} title={`Abrir ${nome}`} className={`truncate text-[13px] font-medium text-ln-t2 hover:text-ln-t1 rounded transition-colors duration-150 ${FOCO}`}>
+            <button type="button" onClick={abrir()} title={t('atividades.abrirX', { nome })} className={`truncate text-[13px] font-medium text-ln-t2 hover:text-ln-t1 rounded transition-colors duration-150 ${FOCO}`}>
               {nome}
             </button>
-            {departamento && <span className="text-xs text-ln-t3 truncate max-w-[104px]">· {departamento}</span>}
+            {departamento && <span className="text-xs text-ln-t3 truncate max-w-[104px]">· {rotuloDepartamento(departamento)}</span>}
             <span className="text-xs text-ln-t4 shrink-0 tabular">{fmtHoras(pessoa.capacidadeDia || 6)}/d</span>
           </div>
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onNova?.(pessoa) }}
-            title={`Nova atividade para ${primeiroNome(nome)}`}
-            aria-label={`Nova atividade para ${nome}`}
+            title={t('atividades.novaParaX', { nome: primeiroNome(nome) })}
+            aria-label={t('atividades.novaParaX', { nome })}
             className={`ml-auto shrink-0 w-5 h-5 rounded flex items-center justify-center text-ln-t3 bg-ln-ink/5 hover:bg-ln-ink/10 hover:text-ln-t2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150 ${FOCO}`}
           >
             <Plus className="w-3 h-3" />
@@ -331,8 +338,8 @@ function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, 
             onClick={(e) => onMenu(e, pessoa)}
             aria-haspopup="menu"
             aria-expanded={menuAberto}
-            aria-label={`Ações de ${nome}`}
-            title="Ações"
+            aria-label={t('atividades.time.acoesDe', { nome })}
+            title={t('atividades.time.acoes')}
             className={`ln-iconbtn w-6 h-6 transition-opacity ${menuAberto ? 'opacity-100 bg-ln-ink/5' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'} ${FOCO}`}
           >
             <MoreHorizontal className="w-3.5 h-3.5" />
@@ -351,7 +358,7 @@ function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, 
   }
 
   const semLeitura = estado === 'erro' || estado === 'sem_api'
-  const textoSemLeitura = estado === 'erro' ? 'Não consegui ler as tarefas' : pessoa.saude?.texto || 'Sem leitura'
+  const textoSemLeitura = estado === 'erro' ? t('atividades.time.naoLeuTarefas') : textoSaude(pessoa.saude) || rotuloNivel('sem_leitura')
   const podeRecarregar = true
 
   return (
@@ -367,13 +374,13 @@ function Linha({ pessoa, colunas, gridStyle, hoje, diaSelecionado, selecionada, 
             {celula(colunas[0])}
             {celula(colunas[1])}
             <div className="flex items-center gap-1.5 min-w-0" style={{ gridColumn: '3 / -2' }}>
-              <span className="text-xs text-ln-t4 truncate" title={pessoa.erro || pessoa.saude?.texto || ''}>{textoSemLeitura}</span>
+              <span className="text-xs text-ln-t4 truncate" title={pessoa.erro || textoSaude(pessoa.saude) || ''}>{textoSemLeitura}</span>
               {podeRecarregar && (
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onRecarregar?.(pessoa) }}
-                  title={`Recarregar ${primeiroNome(nome)} do ClickUp`}
-                  aria-label={`Recarregar ${nome} do ClickUp`}
+                  title={t('atividades.time.recarregarX', { nome: primeiroNome(nome) })}
+                  aria-label={t('atividades.time.recarregarX', { nome })}
                   className={`ln-iconbtn w-6 h-6 shrink-0 ${FOCO}`}
                 >
                   <RefreshCw className="w-3 h-3" />
@@ -408,6 +415,7 @@ export default function TeamTable({
   pessoas = [], hoje = null, loading = false, agrupar = 'saude', filtroNivel = null, diaSelecionado = null,
   selecionadaId = null, onAbrirPessoa, onNovaAtividadePara, onRecarregar, colunasOcultas = SEM_OCULTAS,
 }) {
+  const { t, lang } = useI18n()
   const [aberta, setAberta] = useState(true)
   const [recolhidos, setRecolhidos] = useState({})
   const [menu, setMenu] = useState(null)
@@ -418,7 +426,9 @@ export default function TeamTable({
     [colunasOcultas],
   )
   const gridStyle = useMemo(() => ({ gridTemplateColumns: colunas.map((c) => `${c.w}px`).join(' ') }), [colunas])
-  const grupos = useMemo(() => agruparPessoas(pessoas, agrupar, filtroNivel), [pessoas, agrupar, filtroNivel])
+  // lang: o rótulo dos grupos é traduzido no cálculo
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const grupos = useMemo(() => agruparPessoas(pessoas, agrupar, filtroNivel), [pessoas, agrupar, filtroNivel, lang])
   const total = grupos.reduce((s, g) => s + g.pessoas.length, 0)
   const lidas = pessoas.filter((p) => p.api).length
   const pessoaMenu = menu ? pessoas.find((p) => p.profileId === menu.id) || null : null
@@ -468,17 +478,17 @@ export default function TeamTable({
           type="button"
           onClick={() => setAberta((v) => !v)}
           aria-expanded={aberta}
-          aria-label={aberta ? 'Recolher capacidade do time' : 'Expandir capacidade do time'}
-          title={aberta ? 'Recolher' : 'Expandir'}
+          aria-label={aberta ? t('atividades.time.recolherCapacidade') : t('atividades.time.expandirCapacidade')}
+          title={aberta ? t('atividades.recolher') : t('atividades.expandir')}
           className={`ln-iconbtn w-5 h-5 ${FOCO}`}
         >
           {aberta ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
         </button>
-        <span className="text-[13px] font-medium text-ln-t2">Capacidade do time</span>
+        <span className="text-[13px] font-medium text-ln-t2">{t('atividades.capacidadeTime')}</span>
         <span className="text-[13px] text-ln-t3 tabular">· {total}</span>
         {loading && (
           <span className="ml-auto flex items-center gap-1.5 text-[11px] text-ln-t4 tabular whitespace-nowrap">
-            <Loader2 className="w-3 h-3 animate-spin" /> lendo as tarefas · {lidas} de {pessoas.length}
+            <Loader2 className="w-3 h-3 animate-spin" /> {t('atividades.time.lendoTarefas', { lidas, total: pessoas.length })}
           </span>
         )}
       </div>
@@ -489,7 +499,7 @@ export default function TeamTable({
             <div className="grid items-center gap-x-2 px-4 h-7 border-b border-ln-ink/5" style={gridStyle}>
               {colunas.map((c) => (
                 <div key={c.id} className={`text-[11px] font-medium text-ln-t4 truncate ${ALINHA[c.dir || 'left']}`} title={c.id === 'hoje' && diaSelecionado ? fmtDiaCurto(diaSelecionado) : undefined}>
-                  {c.id === 'hoje' ? rotuloDia(diaSelecionado) : c.label}
+                  {c.id === 'hoje' ? rotuloDia(diaSelecionado) : c.label ? t(`atividades.colunas.${c.label}`) : ''}
                 </div>
               ))}
             </div>
@@ -497,7 +507,7 @@ export default function TeamTable({
             {carregandoVazio && [0, 1, 2].map((i) => <LinhaSkeleton key={i} colunas={colunas} gridStyle={gridStyle} />)}
 
             {!carregandoVazio && total === 0 && (
-              <div className="h-10 flex items-center px-4 text-xs text-ln-t4">Ninguém neste grupo</div>
+              <div className="h-10 flex items-center px-4 text-xs text-ln-t4">{t('atividades.time.ninguemNoGrupo')}</div>
             )}
 
             {grupos.map((g) => (
@@ -530,13 +540,13 @@ export default function TeamTable({
         <div
           ref={menuRef}
           role="menu"
-          aria-label={`Ações de ${pessoaMenu.nome}`}
+          aria-label={t('atividades.time.acoesDe', { nome: pessoaMenu.nome })}
           className="ln ln-card fixed z-50 p-1"
           style={{ top: menu.top, left: menu.left, width: MENU_LARGURA, boxShadow: 'var(--ln-shadow-panel)' }}
         >
-          <ItemMenu icone={PanelRight} onClick={acaoMenu(() => onAbrirPessoa?.(pessoaMenu))}>Abrir painel</ItemMenu>
-          <ItemMenu icone={Plus} onClick={acaoMenu(() => onNovaAtividadePara?.(pessoaMenu))}>Nova atividade para esta pessoa</ItemMenu>
-          <ItemMenu icone={RefreshCw} onClick={acaoMenu(() => onRecarregar?.(pessoaMenu))}>Recarregar do ClickUp</ItemMenu>
+          <ItemMenu icone={PanelRight} onClick={acaoMenu(() => onAbrirPessoa?.(pessoaMenu))}>{t('atividades.time.abrirPainel')}</ItemMenu>
+          <ItemMenu icone={Plus} onClick={acaoMenu(() => onNovaAtividadePara?.(pessoaMenu))}>{t('atividades.time.novaParaPessoa')}</ItemMenu>
+          <ItemMenu icone={RefreshCw} onClick={acaoMenu(() => onRecarregar?.(pessoaMenu))}>{t('atividades.recarregarClickup')}</ItemMenu>
         </div>,
         document.body,
       )}

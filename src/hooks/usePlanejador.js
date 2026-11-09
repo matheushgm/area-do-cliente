@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { sugerirAtividade, listarListasClickUp, criarAtividade } from '../lib/atividades'
 import { hojeISO } from '../lib/atividadesCarga'
 import { DEPARTAMENTO_ALIAS_SQUAD } from '../lib/constants'
+import { t } from '../i18n'
 
 // Tipo de tarefa (campo do ClickUp) → departamento que normalmente executa
 export const TIPO_PARA_DEPARTAMENTO = {
@@ -36,6 +37,7 @@ export const DEPARTAMENTOS = [
   'Web Designer', 'Designer', 'Account Manager', 'Tecnologia',
 ]
 // No squad da Área do Cliente o departamento de tecnologia ainda se chama assim
+// `label` fica em português (o NovaTarefaClickUpModal também lê); o Atividades traduz pelo `value`.
 export const PRIORIDADES = [
   { value: 'urgent', label: 'Urgente' },
   { value: 'high',   label: 'Alta' },
@@ -180,7 +182,7 @@ export function usePlanejador({ projects, teamMembers, squads, config, showToast
       })
       if (seq !== calcSeq.current) return
       const res = r?.resultados?.[0]
-      if (!res) throw new Error(r?.erros?.[0]?.error || 'Sem resultado para o responsável.')
+      if (!res) throw new Error(r?.erros?.[0]?.error || t('atividadesPlanejador.semResultado'))
       setResultado(res)
       if (!silencioso) {
         const entrega = res.sugestao?.entrega || ''
@@ -277,7 +279,7 @@ export function usePlanejador({ projects, teamMembers, squads, config, showToast
         snapshot: { hoje: resultado.hoje, capacidadeDia: resultado.capacidadeDia, totais: resultado.totais, resumo: resultado.resumo, sugestao: resultado.sugestao },
       })
       setCriada({ ...r, titulo: form.titulo.trim(), responsavel: responsavel.nome, data: dataEscolhida })
-      showToast?.('Tarefa criada no ClickUp')
+      showToast?.(t('atividadesPlanejador.tarefaCriada'))
       onCriada?.(r)
     } catch (e) {
       showToast?.(e.message, 'error')

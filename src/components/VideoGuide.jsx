@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { PlayCircle, ChevronDown, X } from 'lucide-react'
+import { useI18n } from '../i18n'
 
 // `defaultOpen` deixa o vídeo já expandido ao montar — usado onde o conteúdo é
 // pré-requisito pra preencher direito e não pode depender de o usuário clicar.
 export default function VideoGuide({
   videoId,
-  label = 'Ver como preencher este módulo',
+  label: labelProp,
   defaultOpen = false,
 }) {
+  const { t } = useI18n()
+  const label = labelProp ?? t('ui.video.rotulo')
   const [open, setOpen] = useState(defaultOpen)
 
   return (
@@ -25,7 +28,7 @@ export default function VideoGuide({
           </div>
           <div>
             <p className="text-sm font-semibold text-white">{label}</p>
-            <p className="text-xs text-blue-300">{open ? 'Clique para fechar' : 'Assista ao vídeo explicativo antes de preencher'}</p>
+            <p className="text-xs text-blue-300">{open ? t('ui.video.fechar') : t('ui.video.assista')}</p>
           </div>
         </div>
         {open

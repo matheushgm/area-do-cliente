@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import { gerarSugestoesProjeto, pendente, PRIORIDADE_ORDEM } from '../lib/playbookSugestoes'
 import { hojeISO } from '../lib/atividadesCarga'
+import { useI18n } from '../i18n'
 
 // Só entra na fila do robô o que ele sabe fazer sozinho: pausar/trocar um anúncio
 // identificado pelo ad_id. O resto (subir criativo, investigar, Google) já vira
@@ -45,6 +46,8 @@ export function linhaDecisao(sug, status, { projectId, user, motivo = null, extr
 
 export function useSugestoesGlobais(dash) {
   const { user, projects } = useApp()
+  // O texto das sugestões é gerado no idioma da tela: trocar o idioma regera.
+  const { t, lang, locale } = useI18n()
   const [decisoes, setDecisoes] = useState([])
   const [loadingDecisoes, setLoadingDecisoes] = useState(true)
   const [erro, setErro] = useState(null)
@@ -89,7 +92,7 @@ export function useSugestoesGlobais(dash) {
       for (const s of sugs) out.push({ ...s, projectId: pid })
     }
     return out
-  }, [porProjeto, dash.accounts])
+  }, [porProjeto, dash.accounts, lang]) // eslint-disable-line react-hooks/exhaustive-deps -- lang: o motor lê o idioma na hora, então regera o texto na troca
 
   const hoje = hojeISO()
   const statusPorChave = useMemo(() => {
@@ -116,13 +119,13 @@ export function useSugestoesGlobais(dash) {
         const p = projetoPorId.get(projectId)
         return {
           projectId,
-          nome: p?.companyName || p?.company_name || sugestoes[0]?.conta || 'Cliente',
+          nome: p?.companyName || p?.company_name || sugestoes[0]?.conta || t('otimizacoes.cliente'),
           responsavel: p?.responsibleName || p?.responsible_name || null,
           sugestoes: sugestoes.slice().sort((a, b) => PRIORIDADE_ORDEM[a.prioridade] - PRIORIDADE_ORDEM[b.prioridade]),
         }
       })
-      .sort((a, b) => score(a.sugestoes) - score(b.sugestoes) || b.sugestoes.length - a.sugestoes.length || a.nome.localeCompare(b.nome, 'pt-BR'))
-  }, [pendentes, projetoPorId])
+      .sort((a, b) => score(a.sugestoes) - score(b.sugestoes) || b.sugestoes.length - a.sugestoes.length || a.nome.localeCompare(b.nome, locale))
+  }, [pendentes, projetoPorId, t, locale])
 
   const decidir = useCallback(async (sug, status, { motivo = null, extra = {} } = {}) => {
     const row = linhaDecisao(sug, status, { projectId: sug.projectId, user, motivo, extra })
@@ -152,8 +155,8 @@ export function useSugestoesGlobais(dash) {
 
   const historico = useMemo(() => decisoes.map((d) => ({
     ...d,
-    nomeCliente: projetoPorId.get(d.project_id)?.companyName || projetoPorId.get(d.project_id)?.company_name || d.conta || 'Cliente',
-  })), [decisoes, projetoPorId])
+    nomeCliente: projetoPorId.get(d.project_id)?.companyName || projetoPorId.get(d.project_id)?.company_name || d.conta || t('otimizacoes.cliente'),
+  })), [decisoes, projetoPorId, t])
 
   const recarregarDecisoes = useCallback(() => { setLoadingDecisoes(true); return carregarDecisoes() }, [carregarDecisoes])
 

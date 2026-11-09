@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Sparkles, Loader2, AlertTriangle, RotateCcw } from 'lucide-react'
-import { streamClaude } from '../../lib/claude'
+import { streamClaude, instrucaoDeIdioma } from '../../lib/claude'
 import { buildCachedPayload } from '../../lib/buildContext'
 import MarkdownView from '../Editor/MarkdownView'
 import TextoEditavelIA from '../Editor/TextoEditavelIA'
-import { PILLARS_BY_ID } from './KickoffQuestions'
+import { textoPt } from './KickoffQuestions'
+import { useI18n } from '../../i18n'
 
 const SYSTEM_PROMPT = `Você é um consultor sênior de Revenue Lab analisando o diagnóstico de kickoff de um cliente. Receberá: tipo de negócio, respostas do questionário, scores por pilar (0-100), pilares mais fracos e ações sugeridas.
 
@@ -16,6 +17,10 @@ Sua tarefa: aprofundar cada um dos 3 pilares mais fracos com:
 
 Não use travessões. Português brasileiro consultivo, direto, sem jargão vazio. Saída em markdown com \`## Pilar: [nome]\` por bloco.`
 
+// O prompt (e os rótulos que entram nele) fica em português, em qualquer idioma da tela;
+// a resposta segue o idioma de quem gera via instrucaoDeIdioma().
+const pilarPt = (pid) => textoPt(`pilares.${pid}.label`) || pid
+
 function formatInstruction({ project, kickoff, questions }) {
   const answersTable = questions
     .map((q) => {
@@ -26,31 +31,29 @@ function formatInstruction({ project, kickoff, questions }) {
         : typeof raw === 'string' || typeof raw === 'number'
           ? String(raw)
           : JSON.stringify(raw)
-      return `- ${q.label}\n  → ${display}`
+      return `- ${textoPt(`perguntas.${q.id}.label`) || q.id}\n  → ${display}`
     })
     .filter(Boolean)
     .join('\n')
 
   const scoresTable = Object.entries(kickoff.scores || {})
     .map(([pid, score]) => {
-      const pillar = PILLARS_BY_ID[pid]
-      return `- ${pillar?.label || pid}: ${score}/100`
+      return `- ${pilarPt(pid)}: ${score}/100`
     })
     .join('\n')
 
   const weaknessesTable = (kickoff.weaknesses || [])
     .map((wid, i) => {
-      const pillar = PILLARS_BY_ID[wid]
       const score = kickoff.scores?.[wid] ?? 0
-      const action = kickoff.nextSteps?.[i] || ''
-      return `${i + 1}. ${pillar?.label || wid} — score ${score} — ação sugerida: ${action}`
+      const action = textoPt(`proximosPassos.${wid}.${kickoff.businessType}`) || kickoff.nextSteps?.[i] || ''
+      return `${i + 1}. ${pilarPt(wid)} — score ${score} — ação sugerida: ${action}`
     })
     .join('\n')
 
   return [
     `Empresa: ${project.companyName || project.company_name || 'Cliente'}`,
     `Tipo de negócio: ${kickoff.businessType}`,
-    `Score geral: ${kickoff.totalScore}/100 (${kickoff.stageLabel})`,
+    `Score geral: ${kickoff.totalScore}/100 (${textoPt(`estagios.${kickoff.stageId}.label`) || kickoff.stageLabel})`,
     '',
     '## Respostas',
     answersTable || '(sem respostas)',
@@ -72,6 +75,7 @@ export default function KickoffAIAnalysisPanel({
   existing,
   onSave,
 }) {
+  const { t } = useI18n()
   const [streaming, setStreaming] = useState('')
   const [loading,   setLoading]   = useState(false)
   const [error,     setError]     = useState(null)
@@ -82,7 +86,9 @@ export default function KickoffAIAnalysisPanel({
     setStreaming('')
     try {
       const { system, messages } = buildCachedPayload({
-        systemPrompt: SYSTEM_PROMPT,
+        // Saída só é exibida (markdown na tela, no PDF e no portal), sem leitura por rótulo:
+        // o idioma vale também para os títulos.
+        systemPrompt: SYSTEM_PROMPT + instrucaoDeIdioma({ rotulos: true }),
         project,
         instruction: formatInstruction({ project, kickoff, questions }),
       })
@@ -96,7 +102,7 @@ export default function KickoffAIAnalysisPanel({
       onSave(fullText)
     } catch (e) {
       console.error('[KickoffAI]', e)
-      setError(e?.message || 'Erro ao gerar análise.')
+      setError(e?.message || t('kickoff.ia.erro'))
     } finally {
       setLoading(false)
       setStreaming('')
@@ -111,14 +117,14 @@ export default function KickoffAIAnalysisPanel({
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-rl-purple" />
-            <h3 className="text-sm font-bold text-rl-text">Análise aprofundada (IA)</h3>
+            <h3 className="text-sm font-bold text-rl-text">{t('kickoff.ia.tituloSalva')}</h3>
           </div>
           <button
             onClick={handleGenerate}
             disabled={loading}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all disabled:opacity-50"
           >
-            <RotateCcw className="w-3.5 h-3.5" /> Regenerar
+            <RotateCcw className="w-3.5 h-3.5" /> {t('kickoff.ia.regenerar')}
           </button>
         </div>
         <div className="border-t border-rl-border/60 pt-4">
@@ -134,7 +140,7 @@ export default function KickoffAIAnalysisPanel({
       <div className="glass-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Loader2 className="w-4 h-4 text-rl-purple animate-spin" />
-          <h3 className="text-sm font-bold text-rl-text">Gerando análise...</h3>
+          <h3 className="text-sm font-bold text-rl-text">{t('kickoff.ia.gerando')}</h3>
         </div>
         {streaming && (
           <div className="border-t border-rl-border/60 pt-4">
@@ -150,10 +156,9 @@ export default function KickoffAIAnalysisPanel({
     <div className="glass-card p-5 border-2 border-dashed border-rl-purple/30 text-center space-y-3">
       <Sparkles className="w-8 h-8 text-rl-purple mx-auto" />
       <div>
-        <h3 className="text-sm font-bold text-rl-text">Análise aprofundada com IA</h3>
+        <h3 className="text-sm font-bold text-rl-text">{t('kickoff.ia.tituloCta')}</h3>
         <p className="text-xs text-rl-muted mt-1 max-w-md mx-auto">
-          O Claude analisa as respostas e aprofunda os 3 pilares mais fracos com diagnóstico,
-          raiz do problema, plano de ação e riscos. ~10 segundos.
+          {t('kickoff.ia.descricao')}
         </p>
       </div>
       <button
@@ -161,7 +166,7 @@ export default function KickoffAIAnalysisPanel({
         className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
       >
         <Sparkles className="w-4 h-4" />
-        Gerar análise com IA
+        {t('kickoff.ia.gerar')}
       </button>
       {error && (
         <div className="flex items-center gap-2 justify-center text-xs text-red-400">

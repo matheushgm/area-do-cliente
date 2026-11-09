@@ -4,6 +4,7 @@ import { cliente } from '../../routes/paths'
 import { X, AlertCircle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useApp } from '../../context/AppContext'
+import { useI18n } from '../../i18n'
 
 // Popup amarelo no canto inferior direito do dashboard, com nome do cliente
 // grande e mensagem de aviso. Re-aparece a cada 1h enquanto a ata não estiver
@@ -59,9 +60,10 @@ export default function UnsignedAtaPopups({ projects = [] }) {
         id:          m.id,
         projectId:   m.project_id,
         title:       m.title,
+        // Sem nome: o rótulo genérico entra no render, no idioma atual.
         projectName: projectById[m.project_id]?.companyName
                   || projectById[m.project_id]?.company_name
-                  || 'Cliente',
+                  || null,
       }))
 
     if (!toShow.length) return
@@ -110,6 +112,7 @@ export default function UnsignedAtaPopups({ projects = [] }) {
 
 // ─── Popup individual ─────────────────────────────────────────────────────────
 function AtaPopup({ popup, onClick, onDismiss }) {
+  const { t } = useI18n()
   return (
     <div
       role="alert"
@@ -119,7 +122,7 @@ function AtaPopup({ popup, onClick, onDismiss }) {
       <button
         onClick={(e) => { e.stopPropagation(); onDismiss() }}
         className="absolute top-2 right-2 p-1 rounded-lg text-yellow-700 hover:bg-yellow-100"
-        aria-label="Fechar"
+        aria-label={t('comum.fechar')}
       >
         <X className="w-3.5 h-3.5" />
       </button>
@@ -130,13 +133,13 @@ function AtaPopup({ popup, onClick, onDismiss }) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[10px] uppercase tracking-wider font-bold text-yellow-700 mb-0.5">
-            Nova ata de reunião
+            {t('home.atas.titulo')}
           </p>
           <p className="text-xl font-black text-yellow-900 leading-tight truncate">
-            {popup.projectName}
+            {popup.projectName || t('home.atas.cliente')}
           </p>
           <p className="text-sm font-semibold text-yellow-800 mt-1.5 leading-snug">
-            Existe uma nova ata de reunião pra você assinar.
+            {t('home.atas.texto')}
           </p>
           {popup.title && (
             <p className="text-[11px] text-yellow-700/80 mt-1 truncate italic">

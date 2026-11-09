@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { apiFetch } from '../lib/api'
+import { t } from '../i18n'
 
 const POLL_MS = 15_000
 const COLS_TAREFA = 'id, titulo, lista_id, parent_id, clickup_task_id, clickup_url, arquivada, status, status_tipo'
@@ -103,7 +104,7 @@ export function useSincronizacao({ dias = 7, tarefaId = null, ecos = false } = {
   const rpc = useCallback(async (nome, args, empurrarDepois = true) => {
     const dev = import.meta.env.DEV ? window.__DEV_SYNC : null
     const { data, error } = dev ? dev.rpc(nome, args) : await supabase.rpc(nome, args)
-    if (error) return { error: /could not find the function/i.test(error.message) ? 'Aplique a migration 121 para usar esta ação.' : error.message }
+    if (error) return { error: /could not find the function/i.test(error.message) ? t('sincronizacao.aplicarMigration') : error.message }
     carregar()
     if (empurrarDepois) empurrar()
     return { data }

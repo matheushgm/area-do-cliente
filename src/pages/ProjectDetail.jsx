@@ -5,10 +5,12 @@ import { Loader2 } from 'lucide-react'
 import { sectionFromSlug, slugFromSection } from '../lib/clientSections'
 import { cliente } from '../routes/paths'
 import ClientProfile from './ClientProfile'
+import { useI18n } from '../i18n'
 
 export default function ProjectDetail() {
   const { id, secao } = useParams()
   const navigate = useNavigate()
+  const { t } = useI18n()
   const { openSidebar } = useOutletContext()
   const { projects, loadingProjects, loadingAuth, carregarDetalhe } = useApp()
 
@@ -45,9 +47,9 @@ export default function ProjectDetail() {
     return (
       <div className="flex-1 min-w-0 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-rl-muted">Não foi possível carregar este cliente.</p>
+          <p className="text-rl-muted">{t('cliente.erroCarregar')}</p>
           <button onClick={() => setTentativa((n) => n + 1)} className="btn-primary mt-4">
-            Tentar de novo
+            {t('cliente.tentarDeNovo')}
           </button>
         </div>
       </div>
@@ -62,7 +64,7 @@ export default function ProjectDetail() {
       <div className="flex-1 min-w-0 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-rl-muted">
           <Loader2 className="w-8 h-8 animate-spin text-rl-purple" />
-          <p className="text-sm">Carregando projeto...</p>
+          <p className="text-sm">{t('cliente.carregandoProjeto')}</p>
         </div>
       </div>
     )
@@ -77,9 +79,9 @@ export default function ProjectDetail() {
     return (
       <div className="flex-1 min-w-0 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-rl-muted text-lg">Projeto não encontrado.</p>
+          <p className="text-rl-muted text-lg">{t('cliente.naoEncontrado')}</p>
           <button onClick={() => navigate('/')} className="btn-primary mt-4">
-            Voltar ao Dashboard
+            {t('cliente.voltarDashboard')}
           </button>
         </div>
       </div>

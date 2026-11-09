@@ -11,6 +11,7 @@ import { hojeISO } from '../lib/atividadesCarga'
 import { addDias } from '../lib/atividadesConcluidas'
 import { eventoMudaConcluidas } from '../lib/atividadesRealtime'
 import { assinarTarefasItens } from '../lib/tarefasItensRealtime'
+import { t } from '../i18n'
 
 const TTL_MS = 5 * 60 * 1000
 const ESPERA_REALTIME_MS = 3000
@@ -84,7 +85,7 @@ export function useConcluidas(ativo, intervalo) {
     } catch (e) {
       if (seq.current !== minha) return
       if (silencioso) console.warn('[Atividades] releitura das concluídas falhou:', e?.message)
-      else setErro(e?.message || 'Falha ao ler as tarefas concluídas')
+      else setErro(e?.message || t('atividadesConcluidas.falhaLeitura'))
     } finally {
       if (seq.current === minha) setLoading(false)
     }

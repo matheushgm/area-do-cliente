@@ -1,4 +1,5 @@
 import { fmtCurrency, fmtNum, escapeHtml } from '../lib/utils'
+import { t, localeAtual } from '../i18n'
 import { printDocument, docHeader, markdownToHtml, PAGE_CSS } from '../lib/printDoc'
 import { BUSINESS_LABELS, MATURITY_LABELS } from '../lib/constants'
 import { PROPOSTA_SECTIONS } from '../lib/propostaComercial'
@@ -266,63 +267,70 @@ export function exportOnboardingPDF(project) {
 
 // ─── ROI Calculator PDF ───────────────────────────────────────────────────────
 
+// Rótulos do PDF de ROI, Metas Semanais, Personas e Produto/Serviço saem no idioma de
+// quem gera (namespace `pdf`); o que foi gravado e o que a IA gerou aparecem como estão.
+const L = (chave, vars) => esc(t(`pdf.${chave}`, vars))
+const pctLocal = (n) => (n == null || n === '' || isNaN(Number(n))
+  ? '—'
+  : `${Number(n).toLocaleString(localeAtual(), { maximumFractionDigits: 2 })}%`)
+
 export function exportROIPDF(calc, result, project) {
   if (!result) return
 
   const body = `
     <section>
-      <div class="section-title">💰 Investimento</div>
+      <div class="section-title">💰 ${L('roi.investimento')}</div>
       <div class="grid grid-3">
-        <div class="field"><div class="field-label">Orçamento em Mídia</div><div class="field-value purple">${fmtBRL(calc.mediaOrcamento)}</div></div>
-        <div class="field"><div class="field-label">Custo de Marketing</div><div class="field-value">${fmtBRL(calc.custoMarketing)}</div></div>
-        <div class="field"><div class="field-label">Total Investido</div><div class="field-value" style="font-size:16px">${fmtBRL(result.totalInvestimento)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.orcamentoMidia')}</div><div class="field-value purple">${fmtBRL(calc.mediaOrcamento)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.custoMarketing')}</div><div class="field-value">${fmtBRL(calc.custoMarketing)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.totalInvestido')}</div><div class="field-value" style="font-size:16px">${fmtBRL(result.totalInvestimento)}</div></div>
       </div>
     </section>
     <section>
-      <div class="section-title">📦 Produto / Serviço</div>
+      <div class="section-title">📦 ${L('roi.produtoServico')}</div>
       <div class="grid grid-4">
-        <div class="field"><div class="field-label">Ticket Médio</div><div class="field-value">${fmtBRL(calc.ticketMedio)}</div></div>
-        <div class="field"><div class="field-label">Compras (LT)</div><div class="field-value">${calc.qtdCompras}x</div></div>
-        <div class="field"><div class="field-label">Margem Bruta</div><div class="field-value">${calc.margemBruta}%</div></div>
-        <div class="field"><div class="field-label">Lucro por Venda</div><div class="field-value green">${fmtBRL(result.lucroPorVenda)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.ticketMedio')}</div><div class="field-value">${fmtBRL(calc.ticketMedio)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.compras')}</div><div class="field-value">${calc.qtdCompras}x</div></div>
+        <div class="field"><div class="field-label">${L('roi.margemBruta')}</div><div class="field-value">${pctLocal(calc.margemBruta)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.lucroPorVenda')}</div><div class="field-value green">${fmtBRL(result.lucroPorVenda)}</div></div>
       </div>
     </section>
     <section>
-      <div class="section-title">🎯 Taxas de Conversão</div>
+      <div class="section-title">🎯 ${L('roi.taxasConversao')}</div>
       <div class="grid grid-3">
-        <div class="field"><div class="field-label">Lead → MQL</div><div class="field-value">${calc.taxaLead2MQL}%</div></div>
-        <div class="field"><div class="field-label">MQL → SQL</div><div class="field-value">${calc.taxaMQL2SQL}%</div></div>
-        <div class="field"><div class="field-label">SQL → Venda</div><div class="field-value">${calc.taxaSQL2Venda}%</div></div>
+        <div class="field"><div class="field-label">Lead → MQL</div><div class="field-value">${pctLocal(calc.taxaLead2MQL)}</div></div>
+        <div class="field"><div class="field-label">MQL → SQL</div><div class="field-value">${pctLocal(calc.taxaMQL2SQL)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.sqlVenda')}</div><div class="field-value">${pctLocal(calc.taxaSQL2Venda)}</div></div>
       </div>
     </section>
     <section>
-      <div class="section-title">📊 Metas para ROI de ${calc.roiDesejado}%</div>
+      <div class="section-title">📊 ${L('roi.metasPara', { roi: pctLocal(calc.roiDesejado) })}</div>
       <div class="grid grid-4">
-        <div class="field"><div class="field-label">Leads Necessários</div><div class="field-value purple" style="font-size:20px">${fmtNum(result.leadsNecessarios)}</div><div class="field-label" style="margin-top:4px">CPL: ${fmtBRL(result.custoPorLead)}</div></div>
-        <div class="field"><div class="field-label">MQLs Necessários</div><div class="field-value cyan" style="font-size:20px">${fmtNum(result.mqlsNecessarios)}</div><div class="field-label" style="margin-top:4px">CPM: ${fmtBRL(result.custoPorMQL)}</div></div>
-        <div class="field"><div class="field-label">SQLs Necessários</div><div class="field-value" style="font-size:20px;color:#0891b2">${fmtNum(result.sqlsNecessarios)}</div><div class="field-label" style="margin-top:4px">CPS: ${fmtBRL(result.custoPorSQL)}</div></div>
-        <div class="field"><div class="field-label">Vendas Necessárias</div><div class="field-value green" style="font-size:20px">${fmtNum(result.vendasNecessarias)}</div><div class="field-label" style="margin-top:4px">CAC: ${fmtBRL(result.cac)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.leadsNecessarios')}</div><div class="field-value purple" style="font-size:20px">${fmtNum(result.leadsNecessarios)}</div><div class="field-label" style="margin-top:4px">CPL: ${fmtBRL(result.custoPorLead)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.mqlsNecessarios')}</div><div class="field-value cyan" style="font-size:20px">${fmtNum(result.mqlsNecessarios)}</div><div class="field-label" style="margin-top:4px">CPM: ${fmtBRL(result.custoPorMQL)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.sqlsNecessarios')}</div><div class="field-value" style="font-size:20px;color:#0891b2">${fmtNum(result.sqlsNecessarios)}</div><div class="field-label" style="margin-top:4px">CPS: ${fmtBRL(result.custoPorSQL)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.vendasNecessarias')}</div><div class="field-value green" style="font-size:20px">${fmtNum(result.vendasNecessarias)}</div><div class="field-label" style="margin-top:4px">CAC: ${fmtBRL(result.cac)}</div></div>
       </div>
     </section>
     <section>
-      <div class="section-title">💹 Financeiro Projetado</div>
+      <div class="section-title">💹 ${L('roi.financeiro')}</div>
       <div class="grid grid-4">
-        <div class="field"><div class="field-label">Total Investido</div><div class="field-value">${fmtBRL(result.totalInvestimento)}</div></div>
-        <div class="field"><div class="field-label">Faturamento Alvo</div><div class="field-value purple">${fmtBRL(result.faturamento)}</div></div>
-        <div class="field"><div class="field-label">Lucro Bruto</div><div class="field-value cyan">${fmtBRL(result.lucroBruto)}</div></div>
-        <div class="field"><div class="field-label">Lucro Líquido</div><div class="field-value ${result.lucroLiquido >= 0 ? 'green' : 'red'}">${fmtBRL(result.lucroLiquido)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.totalInvestido')}</div><div class="field-value">${fmtBRL(result.totalInvestimento)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.faturamentoAlvo')}</div><div class="field-value purple">${fmtBRL(result.faturamento)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.lucroBruto')}</div><div class="field-value cyan">${fmtBRL(result.lucroBruto)}</div></div>
+        <div class="field"><div class="field-label">${L('roi.lucroLiquido')}</div><div class="field-value ${result.lucroLiquido >= 0 ? 'green' : 'red'}">${fmtBRL(result.lucroLiquido)}</div></div>
       </div>
     </section>
     <section>
-      <div class="section-title">⚖️ Ponto de Equilíbrio</div>
+      <div class="section-title">⚖️ ${L('roi.pontoEquilibrio')}</div>
       <div class="grid grid-2">
-        <div class="field"><div class="field-label">Vendas mínimas (ROI 0%)</div><div class="field-value gold" style="font-size:18px">${fmtNum(result.vendasBreakeven)} vendas</div></div>
+        <div class="field"><div class="field-label">${L('roi.vendasMinimas')}</div><div class="field-value gold" style="font-size:18px">${L('roi.nVendas', { count: result.vendasBreakeven, n: fmtNum(result.vendasBreakeven) })}</div></div>
         <div class="field"><div class="field-label">CAC</div><div class="field-value gold" style="font-size:18px">${fmtBRL(result.cac)}</div></div>
       </div>
     </section>
   `
 
-  printHTML('Calculadora de ROI', project.companyName, body)
+  printHTML(t('pdf.roi.titulo'), project.companyName, body)
 }
 
 // ─── Metas Semanais PDF ───────────────────────────────────────────────────────
@@ -337,42 +345,42 @@ export function exportMetasSemanaisPDF(calc, result, project, numSemanas, mesAtu
   const semanas = Math.max(Number(numSemanas) || 1, 1)
 
   const metas = [
-    { label: 'Leads / semana',  total: result.leadsNecessarios,  color: 'purple' },
-    { label: 'MQLs / semana',   total: result.mqlsNecessarios,   color: 'cyan'   },
-    { label: 'SQLs / semana',   total: result.sqlsNecessarios,   color: 'cyan'   },
-    { label: 'Vendas / semana', total: result.vendasNecessarias, color: 'green'  },
+    { label: t('pdf.metas.leadsSemana'),  total: result.leadsNecessarios,  color: 'purple' },
+    { label: t('pdf.metas.mqlsSemana'),   total: result.mqlsNecessarios,   color: 'cyan'   },
+    { label: t('pdf.metas.sqlsSemana'),   total: result.sqlsNecessarios,   color: 'cyan'   },
+    { label: t('pdf.metas.vendasSemana'), total: result.vendasNecessarias, color: 'green'  },
   ].map((m) => ({ ...m, semanal: Math.ceil(m.total / semanas) }))
 
   const cardsHTML = metas.map((m) => `
     <div class="field" style="text-align:center">
       <div class="field-value ${m.color}" style="font-size:28px">${fmtNum(m.semanal)}</div>
       <div class="field-label" style="margin-top:4px">${esc(m.label)}</div>
-      <div class="field-label" style="margin-top:2px;color:#94A3B8">${fmtNum(m.semanal * semanas)} / mês</div>
+      <div class="field-label" style="margin-top:2px;color:#94A3B8">${L('metas.porMes', { n: fmtNum(m.semanal * semanas) })}</div>
     </div>`).join('')
 
   const body = `
     <section>
-      <div class="section-title">🗓️ Período</div>
+      <div class="section-title">🗓️ ${L('metas.periodo')}</div>
       <div class="grid grid-3">
-        <div class="field"><div class="field-label">Mês</div><div class="field-value">${esc(mesAtual || '—')}</div></div>
-        <div class="field"><div class="field-label">Semanas no mês</div><div class="field-value purple">${fmtNum(semanas)} semanas</div></div>
-        <div class="field"><div class="field-label">ROI Alvo</div><div class="field-value">${calc.roiDesejado}%</div></div>
+        <div class="field"><div class="field-label">${L('metas.mes')}</div><div class="field-value">${esc(mesAtual || '—')}</div></div>
+        <div class="field"><div class="field-label">${L('metas.semanasNoMes')}</div><div class="field-value purple">${L('metas.nSemanas', { count: semanas, n: fmtNum(semanas) })}</div></div>
+        <div class="field"><div class="field-label">${L('metas.roiAlvo')}</div><div class="field-value">${pctLocal(calc.roiDesejado)}</div></div>
       </div>
     </section>
     <section>
-      <div class="section-title">🎯 Metas Semanais</div>
+      <div class="section-title">🎯 ${L('metas.titulo')}</div>
       <div class="grid grid-4">${cardsHTML}</div>
     </section>
     <section>
-      <div class="section-title">💸 Custo de Marketing</div>
+      <div class="section-title">💸 ${L('roi.custoMarketing')}</div>
       <div class="grid grid-2">
-        <div class="field"><div class="field-label">Por semana</div><div class="field-value gold" style="font-size:18px">${fmtBRL(calc.custoMarketing / semanas)}</div></div>
-        <div class="field"><div class="field-label">Total no mês</div><div class="field-value">${fmtBRL(calc.custoMarketing)}</div></div>
+        <div class="field"><div class="field-label">${L('metas.porSemana')}</div><div class="field-value gold" style="font-size:18px">${fmtBRL(calc.custoMarketing / semanas)}</div></div>
+        <div class="field"><div class="field-label">${L('metas.totalNoMes')}</div><div class="field-value">${fmtBRL(calc.custoMarketing)}</div></div>
       </div>
     </section>
   `
 
-  printHTML('Metas Semanais', project.companyName, body)
+  printHTML(t('pdf.metas.titulo'), project.companyName, body)
 }
 
 // ─── Personas PDF ─────────────────────────────────────────────────────────────
@@ -404,16 +412,16 @@ export function exportPersonasPDF(personas, project) {
     .filter((p) => p.generatedProfile)
     .map((persona) => `
       <div class="persona-block">
-        <div class="persona-name">${esc(persona.name || 'Persona')}</div>
+        <div class="persona-name">${esc(persona.name || t('pdf.personas.persona'))}</div>
         <div class="prose">${plainTextToHTML(persona.generatedProfile)}</div>
       </div>
     `).join('')
 
   const empty = !blocksHTML
-    ? '<p style="color:#9ca3af;font-size:13px;text-align:center;padding:32px 0">Nenhum perfil gerado ainda.</p>'
+    ? '<p style="color:#9ca3af;font-size:13px;text-align:center;padding:32px 0">' + L('personas.vazio') + '</p>'
     : ''
 
-  printHTML('Perfil Ideal de Cliente', project.companyName, blocksHTML + empty)
+  printHTML(t('pdf.personas.titulo'), project.companyName, blocksHTML + empty)
 }
 
 // ─── Oferta Matadora PDF ──────────────────────────────────────────────────────
@@ -1482,42 +1490,43 @@ export function exportEstrategiaV2PDF(project, data) {
 
 // ─── Produto / Serviço PDF ────────────────────────────────────────────────────
 
+// Enunciados em produto.perguntas.qN (mesmo dicionário do ProdutoServicoModule).
 const PRODUTO_QUESTIONS = [
-  { id: 'q1',  emoji: '🎯', label: 'O que seu produto resolve?' },
-  { id: 'q2',  emoji: '⏰', label: 'Por que e em que momento o seu cliente precisa do seu produto/serviço?' },
-  { id: 'q3',  emoji: '✨', label: 'Como é a vida dele depois de usar seu produto/serviço?' },
-  { id: 'q4',  emoji: '🏆', label: 'Por que vou usar seu produto/serviço e não o do concorrente?' },
-  { id: 'q5',  emoji: '🔥', label: 'Por que eu preciso comprar agora?' },
-  { id: 'q6',  emoji: '😔', label: 'Como é a vida sem o seu produto/serviço?' },
-  { id: 'q7',  emoji: '🚧', label: 'Quais são as principais desculpas que os clientes dão para não comprar?' },
-  { id: 'q8',  emoji: '🔄', label: 'Já tentou resolver esse problema de outra forma antes? O que não funcionou?' },
-  { id: 'q9',  emoji: '🤔', label: 'O que faz o cliente desconfiar de produtos como o seu?' },
-  { id: 'q10', emoji: '📊', label: 'Tem cases de clientes com resultado mensurável?' },
-  { id: 'q11', emoji: '⏱️', label: 'Quanto tempo leva para o cliente sentir o primeiro resultado?' },
-  { id: 'q12', emoji: '💬', label: 'O que seus clientes mais elogiam espontaneamente?' },
-  { id: 'q13', emoji: '💡', label: 'O que você faz que nenhum concorrente faz ou consegue copiar facilmente?' },
-  { id: 'q14', emoji: '⚠️', label: 'O que acontece se o cliente esperar mais 3 meses para resolver isso?' },
-  { id: 'q15', emoji: '📅', label: 'Existe alguma sazonalidade ou janela de oportunidade no seu mercado?' },
-  { id: 'q16', emoji: '🛡️', label: 'Você oferece alguma garantia hoje? Se não, o que te impede?' },
-  { id: 'q17', emoji: '🤝', label: 'Se der errado, o que você faz pelo cliente?' },
+  { id: 'q1',  emoji: '🎯' },
+  { id: 'q2',  emoji: '⏰' },
+  { id: 'q3',  emoji: '✨' },
+  { id: 'q4',  emoji: '🏆' },
+  { id: 'q5',  emoji: '🔥' },
+  { id: 'q6',  emoji: '😔' },
+  { id: 'q7',  emoji: '🚧' },
+  { id: 'q8',  emoji: '🔄' },
+  { id: 'q9',  emoji: '🤔' },
+  { id: 'q10', emoji: '📊' },
+  { id: 'q11', emoji: '⏱️' },
+  { id: 'q12', emoji: '💬' },
+  { id: 'q13', emoji: '💡' },
+  { id: 'q14', emoji: '⚠️' },
+  { id: 'q15', emoji: '📅' },
+  { id: 'q16', emoji: '🛡️' },
+  { id: 'q17', emoji: '🤝' },
 ]
 
 export function exportProdutoServicoPDF(project) {
   const produtos = project.produtos || []
-  if (!produtos.length) { alert('Nenhum produto/serviço cadastrado.'); return }
+  if (!produtos.length) { alert(t('pdf.produto.nenhum')); return }
 
   const produtosHTML = produtos.map((p, idx) => {
-    const tipo = p.tipo === 'servico' ? 'Serviço' : 'Produto Físico'
+    const tipo = p.tipo === 'servico' ? t('produto.servico') : t('produto.produtoFisico')
     const tipoColor = p.tipo === 'servico' ? '#0284C7' : '#D97706'
 
     const answeredQuestions = PRODUTO_QUESTIONS.filter((q) => p.answers?.[q.id]?.trim())
 
     const questionsHTML = answeredQuestions.length === 0
-      ? '<p style="color:#94A3B8;font-style:italic;font-size:12px">Nenhuma pergunta respondida.</p>'
+      ? '<p style="color:#94A3B8;font-style:italic;font-size:12px">' + L('produto.nenhumaResposta') + '</p>'
       : answeredQuestions.map((q) => `
           <div class="qa-item" style="margin-bottom:14px;padding:12px 14px;background:#F2F5FB;border:1px solid #D8E0F0;border-radius:8px;page-break-inside:avoid">
             <div class="qa-label" style="font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px">
-              ${esc(q.emoji)} ${esc(q.label)}
+              ${esc(q.emoji)} ${esc(t(`produto.perguntas.${q.id}.label`))}
             </div>
             <div style="font-size:13px;color:#0F172A;line-height:1.6;white-space:pre-wrap">${esc(p.answers[q.id])}</div>
           </div>
@@ -1527,7 +1536,7 @@ export function exportProdutoServicoPDF(project) {
       <div style="margin-bottom:36px;page-break-inside:avoid">
         <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #D8E0F0;padding-bottom:10px;margin-bottom:18px">
           <div>
-            <div style="font-size:18px;font-weight:800;color:#0F172A">${esc(p.nome || `Produto ${idx + 1}`)}</div>
+            <div style="font-size:18px;font-weight:800;color:#0F172A">${esc(p.nome || t('produto.nomePadrao', { n: idx + 1 }))}</div>
             <div style="margin-top:4px">
               <span style="display:inline-block;padding:3px 12px;border-radius:99px;font-size:11px;font-weight:700;background:${tipoColor}18;color:${tipoColor};border:1px solid ${tipoColor}40">
                 ${esc(tipo)}
@@ -1535,13 +1544,13 @@ export function exportProdutoServicoPDF(project) {
             </div>
           </div>
           <div style="text-align:right;font-size:11px;color:#94A3B8">
-            ${answeredQuestions.length} / ${PRODUTO_QUESTIONS.length} perguntas respondidas
+            ${L('produto.respondidas', { n: answeredQuestions.length, total: PRODUTO_QUESTIONS.length })}
           </div>
         </div>
         ${questionsHTML}
         ${p.summary ? `
           <div style="margin-top:18px;page-break-inside:avoid">
-            <div class="qa-label" style="font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Briefing gerado pela IA</div>
+            <div class="qa-label" style="font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">${L('produto.briefingIa')}</div>
             <div style="font-size:13px;color:#0F172A;line-height:1.6">${markdownToHtml(p.summary)}</div>
           </div>` : ''}
       </div>
@@ -1550,14 +1559,14 @@ export function exportProdutoServicoPDF(project) {
 
   const bodyHTML = `
     <section>
-      <div class="section-title">Produtos &amp; Serviços — ${esc(project.company_name || project.companyName || '')}</div>
+      <div class="section-title">${L('produto.secao')} — ${esc(project.company_name || project.companyName || '')}</div>
       ${produtosHTML}
     </section>
   `
 
   printHTML(
-    'Produto / Serviço',
-    project.company_name || project.companyName || 'Cliente',
+    t('produto.titulo'),
+    project.company_name || project.companyName || t('pdf.produto.cliente'),
     bodyHTML
   )
 }

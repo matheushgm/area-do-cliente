@@ -3,6 +3,7 @@
 // gerenciador de anúncios (Meta e Google) comparando a semana com a anterior.
 // Funções puras sobre as linhas do dash_insights.
 import { num, fmtDate, addDays, maxDate, CFG, googleImpr } from './dashboardData'
+import { t, localeAtual } from '../i18n'
 
 const META_STATUS_AD = 'Status do Aúncio'
 const isPaused = (s) => /paus|inativ|off|disabled|archiv/i.test(s || '')
@@ -72,13 +73,14 @@ function ultimoStatus(rows) {
   for (const r of rows) if (!best || r._d > best._d) best = r
   return best?.[META_STATUS_AD] || ''
 }
-const fmtMoney = (n) => 'R$ ' + (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+const fmtMoney = (n) => 'R$ ' + (n ?? 0).toLocaleString(localeAtual(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 const fmtPct = (n) => (n >= 0 ? '+' : '') + Math.round(n) + '%'
 
 /**
  * Grandes alterações no gerenciador nos últimos 7 dias, inferidas dos dados:
  * campanhas/anúncios novos, pausados ou que pararam de rodar, e mudanças de
  * verba (gasto da campanha variou 30%+ vs a semana anterior).
+ * O `texto` sai no idioma atual (quem chama num useMemo põe `lang` nas dependências).
  * @returns {{ meta: Array<{tipo, texto}>, google: Array<{tipo, texto}> }}
  */
 export function alteracoesGerenciador({ meta = [], google = [] }) {
@@ -91,17 +93,17 @@ export function alteracoesGerenciador({ meta = [], google = [] }) {
     const campAnt = agrupar(w.anterior, (r) => r['Nome da campanha'])
     for (const [camp, rs] of campAtual) {
       const a = soma(rs, 'meta'), b = campAnt.has(camp) ? soma(campAnt.get(camp), 'meta') : null
-      if (!b && a.spend > 0) out.meta.push({ tipo: 'nova', texto: `Campanha nova no ar: "${camp}" (${fmtMoney(a.spend)} na semana)` })
+      if (!b && a.spend > 0) out.meta.push({ tipo: 'nova', texto: t('hub.alteracoes.campanhaNova', { camp, valor: fmtMoney(a.spend) }) })
       else if (b && b.spend >= 30 && a.spend >= 30) {
         const v = varPct(a.spend, b.spend)
-        if (v >= 30) out.meta.push({ tipo: 'verba', texto: `Verba da campanha "${camp}" subiu ${fmtPct(v)} (${fmtMoney(b.spend)} → ${fmtMoney(a.spend)})` })
-        else if (v <= -30) out.meta.push({ tipo: 'verba', texto: `Verba da campanha "${camp}" caiu ${fmtPct(v)} (${fmtMoney(b.spend)} → ${fmtMoney(a.spend)})` })
+        if (v >= 30) out.meta.push({ tipo: 'verba', texto: t('hub.alteracoes.verbaSubiu', { camp, pct: fmtPct(v), de: fmtMoney(b.spend), para: fmtMoney(a.spend) }) })
+        else if (v <= -30) out.meta.push({ tipo: 'verba', texto: t('hub.alteracoes.verbaCaiu', { camp, pct: fmtPct(v), de: fmtMoney(b.spend), para: fmtMoney(a.spend) }) })
       }
     }
     for (const [camp, rs] of campAnt) {
       if (campAtual.has(camp) && soma(campAtual.get(camp), 'meta').spend > 0) continue
       const b = soma(rs, 'meta')
-      if (b.spend >= 30) out.meta.push({ tipo: 'parou', texto: `Campanha "${camp}" parou de rodar (gastava ${fmtMoney(b.spend)}/semana)` })
+      if (b.spend >= 30) out.meta.push({ tipo: 'parou', texto: t('hub.alteracoes.campanhaParou', { camp, valor: fmtMoney(b.spend) }) })
     }
     const adAtual = agrupar(w.atual, (r) => r['Nome do Anúncio'])
     const adAnt = agrupar(w.anterior, (r) => r['Nome do Anúncio'])
@@ -114,8 +116,9 @@ export function alteracoesGerenciador({ meta = [], google = [] }) {
       if (adAtual.has(ad)) continue
       if (soma(rs, 'meta').spend >= 20) pausados.push(ad)
     }
-    if (novos.length) out.meta.push({ tipo: 'nova', texto: `${novos.length} anúncio${novos.length > 1 ? 's' : ''} novo${novos.length > 1 ? 's' : ''}: ${novos.slice(0, 4).map((n) => `"${n}"`).join(', ')}${novos.length > 4 ? ` e mais ${novos.length - 4}` : ''}` })
-    if (pausados.length) out.meta.push({ tipo: 'parou', texto: `${pausados.length} anúncio${pausados.length > 1 ? 's' : ''} pausado${pausados.length > 1 ? 's' : ''} ou sem entrega: ${pausados.slice(0, 4).map((n) => `"${n}"`).join(', ')}${pausados.length > 4 ? ` e mais ${pausados.length - 4}` : ''}` })
+    const lista = (xs) => xs.slice(0, 4).map((n) => `"${n}"`).join(', ') + (xs.length > 4 ? t('hub.alteracoes.eMais', { n: xs.length - 4 }) : '')
+    if (novos.length) out.meta.push({ tipo: 'nova', texto: t('hub.alteracoes.anunciosNovos', { count: novos.length, lista: lista(novos) }) })
+    if (pausados.length) out.meta.push({ tipo: 'parou', texto: t('hub.alteracoes.anunciosPausados', { count: pausados.length, lista: lista(pausados) }) })
   }
 
   // ── Google ──────────────────────────────────────────────────────────────
@@ -125,19 +128,19 @@ export function alteracoesGerenciador({ meta = [], google = [] }) {
     const campAnt = agrupar(w.anterior, (r) => r['Campanha'])
     for (const [camp, rs] of campAtual) {
       const a = soma(rs, 'google'), b = campAnt.has(camp) ? soma(campAnt.get(camp), 'google') : null
-      if (!b && a.spend > 0) out.google.push({ tipo: 'nova', texto: `Campanha nova no ar: "${camp}" (${fmtMoney(a.spend)} na semana)` })
+      if (!b && a.spend > 0) out.google.push({ tipo: 'nova', texto: t('hub.alteracoes.campanhaNova', { camp, valor: fmtMoney(a.spend) }) })
       else if (b && b.spend >= 30 && a.spend >= 30) {
         const v = varPct(a.spend, b.spend)
-        if (v >= 30) out.google.push({ tipo: 'verba', texto: `Verba da campanha "${camp}" subiu ${fmtPct(v)} (${fmtMoney(b.spend)} → ${fmtMoney(a.spend)})` })
-        else if (v <= -30) out.google.push({ tipo: 'verba', texto: `Verba da campanha "${camp}" caiu ${fmtPct(v)} (${fmtMoney(b.spend)} → ${fmtMoney(a.spend)})` })
+        if (v >= 30) out.google.push({ tipo: 'verba', texto: t('hub.alteracoes.verbaSubiu', { camp, pct: fmtPct(v), de: fmtMoney(b.spend), para: fmtMoney(a.spend) }) })
+        else if (v <= -30) out.google.push({ tipo: 'verba', texto: t('hub.alteracoes.verbaCaiu', { camp, pct: fmtPct(v), de: fmtMoney(b.spend), para: fmtMoney(a.spend) }) })
       }
       const imps = rs.reduce((s, r) => s + googleImpr(r), 0)
-      if (b && b.spend >= 30 && a.spend > 0 && imps === 0) out.google.push({ tipo: 'parou', texto: `Campanha "${camp}" sem impressões na semana` })
+      if (b && b.spend >= 30 && a.spend > 0 && imps === 0) out.google.push({ tipo: 'parou', texto: t('hub.alteracoes.semImpressoes', { camp }) })
     }
     for (const [camp, rs] of campAnt) {
       if (campAtual.has(camp) && soma(campAtual.get(camp), 'google').spend > 0) continue
       const b = soma(rs, 'google')
-      if (b.spend >= 30) out.google.push({ tipo: 'parou', texto: `Campanha "${camp}" parou de rodar (gastava ${fmtMoney(b.spend)}/semana)` })
+      if (b.spend >= 30) out.google.push({ tipo: 'parou', texto: t('hub.alteracoes.campanhaParou', { camp, valor: fmtMoney(b.spend) }) })
     }
   }
   return out

@@ -4,6 +4,7 @@ import Modal from '../components/UI/Modal'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
 import { fmtCurrency } from '../lib/utils'
+import { useI18n, t as tSolto } from '../i18n'
 import {
   GitFork, Zap, Menu, Plus, Trash2, Copy,
   AlertCircle, ChevronDown, ChevronUp,
@@ -23,28 +24,28 @@ const CANVAS_H      = 2000
 
 const NODE_TYPES = [
   // ── Traffic sources ──────────────────────────────────────────────────────────
-  { type: 'meta',        label: 'Meta Ads',             accent: 'border-blue-300 bg-blue-50',        text: 'text-blue-600'     },
-  { type: 'google',      label: 'Google Ads',            accent: 'border-red-300 bg-red-50',          text: 'text-red-600'      },
-  { type: 'remarketing', label: 'Remarketing Meta',      accent: 'border-sky-300 bg-sky-50',          text: 'text-sky-600'      },
+  { type: 'meta',        label: 'funil.nos.meta',             accent: 'border-blue-300 bg-blue-50',        text: 'text-blue-600'     },
+  { type: 'google',      label: 'funil.nos.google',            accent: 'border-red-300 bg-red-50',          text: 'text-red-600'      },
+  { type: 'remarketing', label: 'funil.nos.remarketing',      accent: 'border-sky-300 bg-sky-50',          text: 'text-sky-600'      },
   // ── Pages ────────────────────────────────────────────────────────────────────
-  { type: 'optinpage',   label: 'Opt-in / Captação',    accent: 'border-purple-300 bg-purple-50',    text: 'text-purple-600'   },
-  { type: 'thankyou',    label: 'Obrigado',              accent: 'border-green-300 bg-green-50',      text: 'text-green-600'    },
-  { type: 'salespage',   label: 'Página de Vendas',      accent: 'border-yellow-300 bg-yellow-50',    text: 'text-yellow-600'   },
-  { type: 'apppage',     label: 'Pág. de Aplicação',     accent: 'border-amber-300 bg-amber-50',      text: 'text-amber-600'    },
-  { type: 'custompage',  label: 'Página Personalizada',  accent: 'border-fuchsia-300 bg-fuchsia-50',  text: 'text-fuchsia-600'  },
+  { type: 'optinpage',   label: 'funil.nos.optinpage',    accent: 'border-purple-300 bg-purple-50',    text: 'text-purple-600'   },
+  { type: 'thankyou',    label: 'funil.nos.thankyou',              accent: 'border-green-300 bg-green-50',      text: 'text-green-600'    },
+  { type: 'salespage',   label: 'funil.nos.salespage',      accent: 'border-yellow-300 bg-yellow-50',    text: 'text-yellow-600'   },
+  { type: 'apppage',     label: 'funil.nos.apppage',     accent: 'border-amber-300 bg-amber-50',      text: 'text-amber-600'    },
+  { type: 'custompage',  label: 'funil.nos.custompage',  accent: 'border-fuchsia-300 bg-fuchsia-50',  text: 'text-fuchsia-600'  },
   // ── Sales & checkout ─────────────────────────────────────────────────────────
-  { type: 'orderform',   label: 'Order Form / Compra',   accent: 'border-emerald-300 bg-emerald-50',  text: 'text-emerald-600'  },
+  { type: 'orderform',   label: 'funil.nos.orderform',   accent: 'border-emerald-300 bg-emerald-50',  text: 'text-emerald-600'  },
   // ── Communication ────────────────────────────────────────────────────────────
-  { type: 'email',       label: 'E-mail',                accent: 'border-cyan-300 bg-cyan-50',        text: 'text-cyan-600'     },
-  { type: 'whatsapp',    label: 'WhatsApp',              accent: 'border-green-400 bg-green-50',      text: 'text-green-700'    },
-  { type: 'call',        label: 'Ligação',               accent: 'border-lime-300 bg-lime-50',        text: 'text-lime-700'     },
-  { type: 'webinar',     label: 'Webinar',               accent: 'border-violet-300 bg-violet-50',    text: 'text-violet-600'   },
-  { type: 'meeting',     label: 'Reunião de Venda',      accent: 'border-indigo-300 bg-indigo-50',    text: 'text-indigo-600'   },
+  { type: 'email',       label: 'funil.nos.email',                accent: 'border-cyan-300 bg-cyan-50',        text: 'text-cyan-600'     },
+  { type: 'whatsapp',    label: 'funil.nos.whatsapp',              accent: 'border-green-400 bg-green-50',      text: 'text-green-700'    },
+  { type: 'call',        label: 'funil.nos.call',               accent: 'border-lime-300 bg-lime-50',        text: 'text-lime-700'     },
+  { type: 'webinar',     label: 'funil.nos.webinar',               accent: 'border-violet-300 bg-violet-50',    text: 'text-violet-600'   },
+  { type: 'meeting',     label: 'funil.nos.meeting',      accent: 'border-indigo-300 bg-indigo-50',    text: 'text-indigo-600'   },
   // ── Utilities ────────────────────────────────────────────────────────────────
-  { type: 'wait',        label: 'Aguardar',              accent: 'border-gray-300 bg-gray-50',        text: 'text-gray-500'     },
-  { type: 'upsell',      label: 'Upsell',                accent: 'border-orange-300 bg-orange-50',    text: 'text-orange-600'   },
-  { type: 'downsell',    label: 'Downsell',              accent: 'border-teal-300 bg-teal-50',        text: 'text-teal-600'     },
-  { type: 'textlabel',   label: 'Texto Personalizado',   accent: 'border-slate-300 bg-slate-50',      text: 'text-slate-500'    },
+  { type: 'wait',        label: 'funil.nos.wait',              accent: 'border-gray-300 bg-gray-50',        text: 'text-gray-500'     },
+  { type: 'upsell',      label: 'funil.nos.upsell',                accent: 'border-orange-300 bg-orange-50',    text: 'text-orange-600'   },
+  { type: 'downsell',    label: 'funil.nos.downsell',              accent: 'border-teal-300 bg-teal-50',        text: 'text-teal-600'     },
+  { type: 'textlabel',   label: 'funil.nos.textlabel',   accent: 'border-slate-300 bg-slate-50',      text: 'text-slate-500'    },
 ]
 
 // Traffic source types (no input port, appear at the top of the funnel)
@@ -74,6 +75,7 @@ function getNodeDef(type) {
 
 // ─── NodeIcon — wireframe SVG icons (Geru-style) ──────────────────────────────
 function NodeIcon({ type, size = 36 }) {
+  const { t } = useI18n()
   const W = 40, H = 52   // page-type viewBox
 
   // ── Browser frame shared elements ──
@@ -119,7 +121,7 @@ function NodeIcon({ type, size = 36 }) {
     <svg viewBox="0 0 40 40" width={size} height={size}>
       <circle cx="20" cy="20" r="18.25" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="1.5"/>
       <text x="20" y="19" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="sans-serif" fill="#4B5563">X</text>
-      <text x="20" y="29" textAnchor="middle" fontSize="7.5" fontWeight="600" fontFamily="sans-serif" fill="#6B7280">DIAS</text>
+      <text x="20" y="29" textAnchor="middle" fontSize="7.5" fontWeight="600" fontFamily="sans-serif" fill="#6B7280">{t('funil.iconeDias')}</text>
     </svg>
   )
 
@@ -371,7 +373,7 @@ function initFunnels() {
     if (Array.isArray(data.scenarios) && data.scenarios.length) {
       return [{
         id: crypto.randomUUID(),
-        name: 'Meu Funil',
+        name: tSolto('funil.lista.meuFunil'),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         scenarios: data.scenarios,
@@ -387,7 +389,7 @@ function saveFunnelsToLS(funnels) {
   } catch { /* quota exceeded */ }
 }
 
-function makeScenario(name = 'Cenário 1') {
+function makeScenario(name = tSolto('funil.cenarios.nomePadrao', { n: 1 })) {
   return {
     id: crypto.randomUUID(),
     name,
@@ -551,24 +553,25 @@ function NumInput({ label, value, onChange, prefix, suffix, min = 0, step = 1 })
 
 // ─── PalettePanel ─────────────────────────────────────────────────────────────
 const PALETTE_GROUPS = [
-  { label: 'Tráfego',        types: ['meta', 'google', 'remarketing'] },
-  { label: 'Páginas',        types: ['optinpage', 'thankyou', 'salespage', 'apppage', 'custompage'] },
-  { label: 'Vendas',         types: ['orderform', 'meeting'] },
-  { label: 'Comunicação',    types: ['email', 'whatsapp', 'call', 'webinar'] },
-  { label: 'Utilidades',     types: ['wait', 'upsell', 'downsell', 'textlabel'] },
+  { label: 'funil.grupos.trafego',        types: ['meta', 'google', 'remarketing'] },
+  { label: 'funil.grupos.paginas',        types: ['optinpage', 'thankyou', 'salespage', 'apppage', 'custompage'] },
+  { label: 'funil.grupos.vendas',         types: ['orderform', 'meeting'] },
+  { label: 'funil.grupos.comunicacao',    types: ['email', 'whatsapp', 'call', 'webinar'] },
+  { label: 'funil.grupos.utilidades',     types: ['wait', 'upsell', 'downsell', 'textlabel'] },
 ]
 
 function PalettePanel({ onAddNode }) {
+  const { t } = useI18n()
   return (
     <div className="w-44 shrink-0 flex flex-col border-r border-rl-border bg-rl-surface overflow-y-auto scroll-hide">
       <div className="px-3 py-2.5 border-b border-rl-border">
-        <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">Elementos</p>
+        <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider">{t('funil.paleta.titulo')}</p>
       </div>
       <div className="p-2 space-y-3">
         {PALETTE_GROUPS.map(group => (
           <div key={group.label}>
             <p className="text-[9px] font-bold text-rl-muted/60 uppercase tracking-widest px-1 pb-1">
-              {group.label}
+              {t(group.label)}
             </p>
             <div className="space-y-0.5">
               {group.types.map(type => {
@@ -581,10 +584,10 @@ function PalettePanel({ onAddNode }) {
                     onDragStart={e => e.dataTransfer.setData('nodeType', nt.type)}
                     onClick={() => onAddNode(nt.type, 300, 200)}
                     className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border cursor-grab active:cursor-grabbing select-none transition-all hover:shadow-sm ${nt.accent}`}
-                    title="Arraste para o canvas ou clique para adicionar"
+                    title={t('funil.paleta.dica')}
                   >
                     <NodeIcon type={nt.type} size={28} />
-                    <span className={`text-[10px] font-semibold leading-tight ${nt.text}`}>{nt.label}</span>
+                    <span className={`text-[10px] font-semibold leading-tight ${nt.text}`}>{t(nt.label)}</span>
                   </div>
                 )
               })}
@@ -604,6 +607,7 @@ function FunnelNode({
   onDoubleClick, onDelete,
 }) {
   const def        = getNodeDef(node.type)
+  const { t, locale } = useI18n()
   const hasInput   = !NO_INPUT_TYPES.includes(node.type)
   const showZeroWarn = node.conversionRate === 0 && !TRAFFIC_TYPES.includes(node.type)
 
@@ -642,13 +646,13 @@ function FunnelNode({
           data-port="delete"
           onClick={e => { e.stopPropagation(); onDelete() }}
           className="absolute top-1.5 right-1.5 p-0.5 rounded text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-          title="Excluir nó"
+          title={t('funil.no.excluir')}
         >
           <X className="w-3 h-3" />
         </button>
         <NodeIcon type={node.type} size={54} />
         <span className={`text-[11px] font-bold mt-2 text-center leading-tight px-2 ${def.text}`}>
-          {node.label || def.label}
+          {node.label || t(def.label)}
         </span>
       </div>
 
@@ -656,7 +660,7 @@ function FunnelNode({
       <div className="px-3 pt-2 pb-2.5 space-y-1.5 border-t border-gray-100">
         {!TRAFFIC_TYPES.includes(node.type) && (
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-rl-muted whitespace-nowrap">Taxa conv.:</span>
+            <span className="text-[10px] text-rl-muted whitespace-nowrap">{t('funil.no.taxaConv')}</span>
             <input
               type="number"
               min={0}
@@ -678,20 +682,20 @@ function FunnelNode({
         {visitorCount != null && (
           <div className="text-[10px] text-rl-muted space-y-0.5">
             <div className="flex justify-between">
-              <span>Entram:</span>
-              <span className="font-semibold text-rl-text">{visitorCount.toLocaleString('pt-BR')}</span>
+              <span>{t('funil.no.entram')}</span>
+              <span className="font-semibold text-rl-text">{visitorCount.toLocaleString(locale)}</span>
             </div>
             {!TRAFFIC_TYPES.includes(node.type) && (
               <div className="flex justify-between">
-                <span>Convertem:</span>
+                <span>{t('funil.no.convertem')}</span>
                 <span className={`font-semibold ${convertedCount === 0 ? 'text-red-500' : 'text-green-600'}`}>
-                  {convertedCount?.toLocaleString('pt-BR')}
+                  {convertedCount?.toLocaleString(locale)}
                 </span>
               </div>
             )}
             {cpl != null && cpl > 0 && (
               <div className="flex justify-between pt-0.5 mt-0.5 border-t border-dashed border-orange-200">
-                <span className="text-orange-500 font-medium">Custo/lead:</span>
+                <span className="text-orange-500 font-medium">{t('funil.no.custoLead')}</span>
                 <span className="font-bold text-orange-500">{fmtCurrency(cpl)}</span>
               </div>
             )}
@@ -701,7 +705,7 @@ function FunnelNode({
         {showZeroWarn && (
           <div className="flex items-center gap-1 text-amber-500">
             <AlertCircle className="w-3 h-3 shrink-0" />
-            <span className="text-[9px]">Taxa 0% — nenhuma conversão</span>
+            <span className="text-[9px]">{t('funil.no.taxaZero')}</span>
           </div>
         )}
       </div>
@@ -716,9 +720,11 @@ function FunnelNode({
             ? 'bg-green-500 border-green-500 text-white scale-110 shadow-sm'
             : 'bg-white border-green-400 text-green-600 hover:bg-green-50 hover:border-green-500 hover:shadow-sm'
         }`}
-        title={`SIM — leads convertidos${!TRAFFIC_TYPES.includes(node.type) ? ` (${node.conversionRate ?? DEFAULT_CONV[node.type] ?? 100}%)` : ''}`}
+        title={!TRAFFIC_TYPES.includes(node.type)
+          ? t('funil.no.simTituloTaxa', { taxa: node.conversionRate ?? DEFAULT_CONV[node.type] ?? 100 })
+          : t('funil.no.simTitulo')}
       >
-        SIM
+        {t('funil.no.sim')}
       </button>
 
       {/* NÃO port — bottom center (non-converted leads) */}
@@ -732,9 +738,9 @@ function FunnelNode({
               ? 'bg-red-500 border-red-500 text-white scale-110 shadow-sm'
               : 'bg-white border-red-400 text-red-500 hover:bg-red-50 hover:border-red-500 hover:shadow-sm'
           }`}
-          title={`NÃO — leads não convertidos (${100 - (node.conversionRate ?? DEFAULT_CONV[node.type] ?? 100)}%)`}
+          title={t('funil.no.naoTitulo', { taxa: 100 - (node.conversionRate ?? DEFAULT_CONV[node.type] ?? 100) })}
         >
-          NÃO
+          {t('funil.no.nao')}
         </button>
       )}
     </div>
@@ -830,6 +836,7 @@ function SVGConnections({ connections, nodes, selectedConnId, onSelectConn }) {
 
 // ─── CalcSidebar ──────────────────────────────────────────────────────────────
 function CalcSidebar({ scenario, metrics, onUpdateCalc }) {
+  const { t, locale } = useI18n()
   const { calc, nodes } = scenario
   const { stages, summary, disconnectedCount } = metrics
 
@@ -853,21 +860,21 @@ function CalcSidebar({ scenario, metrics, onUpdateCalc }) {
       <div className="px-3 py-3 border-b border-rl-border">
         <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider flex items-center gap-1.5">
           <BarChart3 className="w-3 h-3" />
-          Calculadora
+          {t('funil.calc.titulo')}
         </p>
       </div>
 
       {/* ── Resultado (topo) ── */}
       <div className="px-3 pt-3 pb-3 border-b border-rl-border space-y-1.5">
-        <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-2">Resultado</p>
+        <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-2">{t('funil.calc.resultado')}</p>
         {summary ? (
           <>
             <div className="flex justify-between text-xs">
-              <span className="text-rl-muted">Faturamento</span>
+              <span className="text-rl-muted">{t('funil.metricas.faturamento')}</span>
               <span className="font-semibold text-rl-text">{fmtCurrency(summary.revenue)}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-rl-muted">Lucro Líquido</span>
+              <span className="text-rl-muted">{t('funil.metricas.lucroLiquido')}</span>
               <span className={`font-bold ${summary.netProfit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                 {fmtCurrency(summary.netProfit)}
               </span>
@@ -885,12 +892,12 @@ function CalcSidebar({ scenario, metrics, onUpdateCalc }) {
               <span className="font-semibold text-rl-text">{summary.leads > 0 ? fmtCurrency(summary.cpl) : '—'}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-rl-muted">Vendas</span>
-              <span className="font-semibold text-rl-text">{summary.finalSales.toLocaleString('pt-BR')}</span>
+              <span className="text-rl-muted">{t('funil.metricas.vendas')}</span>
+              <span className="font-semibold text-rl-text">{summary.finalSales.toLocaleString(locale)}</span>
             </div>
           </>
         ) : (
-          <p className="text-xs text-rl-muted">Monte o funil para ver os resultados</p>
+          <p className="text-xs text-rl-muted">{t('funil.calc.semResultado')}</p>
         )}
       </div>
 
@@ -905,7 +912,7 @@ function CalcSidebar({ scenario, metrics, onUpdateCalc }) {
               Meta Ads
             </p>
             <NumInput
-              label="Valor Investido em Mídia"
+              label={t('funil.calc.investido')}
               value={calc.metaInvestido ?? 5000}
               onChange={v => onUpdateCalc('metaInvestido', v)}
               prefix="R$" min={0} step={100}
@@ -917,18 +924,18 @@ function CalcSidebar({ scenario, metrics, onUpdateCalc }) {
               prefix="R$" min={0.01} step={0.5}
             />
             <div className="flex justify-between items-center bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
-              <span className="text-xs text-rl-muted">Impressões</span>
-              <span className="text-xs font-bold text-blue-600">{metaImpressoes.toLocaleString('pt-BR')}</span>
+              <span className="text-xs text-rl-muted">{t('funil.calc.impressoes')}</span>
+              <span className="text-xs font-bold text-blue-600">{metaImpressoes.toLocaleString(locale)}</span>
             </div>
             <NumInput
-              label="CTR no Link"
+              label={t('funil.calc.ctrLink')}
               value={calc.metaCTR ?? 2}
               onChange={v => onUpdateCalc('metaCTR', Math.min(100, Math.max(0, v)))}
               suffix="%" min={0} max={100} step={0.1}
             />
             <div className="flex justify-between items-center bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
-              <span className="text-xs text-rl-muted">Cliques</span>
-              <span className="text-xs font-bold text-blue-600">{metaCliques.toLocaleString('pt-BR')}</span>
+              <span className="text-xs text-rl-muted">{t('funil.calc.cliques')}</span>
+              <span className="text-xs font-bold text-blue-600">{metaCliques.toLocaleString(locale)}</span>
             </div>
           </>
         )}
@@ -946,7 +953,7 @@ function CalcSidebar({ scenario, metrics, onUpdateCalc }) {
               Google Ads
             </p>
             <NumInput
-              label="Valor Investido em Mídia"
+              label={t('funil.calc.investido')}
               value={calc.googleInvestido ?? 3000}
               onChange={v => onUpdateCalc('googleInvestido', v)}
               prefix="R$" min={0} step={100}
@@ -958,8 +965,8 @@ function CalcSidebar({ scenario, metrics, onUpdateCalc }) {
               prefix="R$" min={0.01} step={0.5}
             />
             <div className="flex justify-between items-center bg-red-50 border border-red-100 rounded-xl px-3 py-2">
-              <span className="text-xs text-rl-muted">Cliques</span>
-              <span className="text-xs font-bold text-red-600">{googleCliques.toLocaleString('pt-BR')}</span>
+              <span className="text-xs text-rl-muted">{t('funil.calc.cliques')}</span>
+              <span className="text-xs font-bold text-red-600">{googleCliques.toLocaleString(locale)}</span>
             </div>
           </>
         )}
@@ -969,7 +976,7 @@ function CalcSidebar({ scenario, metrics, onUpdateCalc }) {
           <div className="flex flex-col items-center text-center py-3 gap-1">
             <BarChart3 className="w-5 h-5 text-rl-muted/40" />
             <p className="text-[11px] text-rl-muted leading-snug">
-              Adicione <strong>Meta Ads</strong> ou <strong>Google Ads</strong> ao canvas para ver os dados de tráfego
+              {t('funil.calc.semTrafegoAntes')} <strong>Meta Ads</strong> {t('comum.ou')} <strong>Google Ads</strong> {t('funil.calc.semTrafegoDepois')}
             </p>
           </div>
         )}
@@ -977,13 +984,13 @@ function CalcSidebar({ scenario, metrics, onUpdateCalc }) {
         {/* ── Common fields ── */}
         <div className={`space-y-2.5 ${hasAnyTraffic ? 'pt-2 border-t border-rl-border/60' : ''}`}>
           <NumInput
-            label="Ticket Médio"
+            label={t('funil.calc.ticketMedio')}
             value={calc.ticketMedio}
             onChange={v => onUpdateCalc('ticketMedio', v)}
             prefix="R$" min={0}
           />
           <NumInput
-            label="Margem Bruta"
+            label={t('funil.calc.margemBruta')}
             value={calc.margemBruta}
             onChange={v => onUpdateCalc('margemBruta', Math.min(100, Math.max(0, v)))}
             suffix="%" min={0} max={100}
@@ -996,11 +1003,11 @@ function CalcSidebar({ scenario, metrics, onUpdateCalc }) {
         {stages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <GitFork className="w-8 h-8 text-rl-muted/40 mb-2" />
-            <p className="text-xs text-rl-muted">Adicione nós ao canvas e conecte-os para ver as métricas</p>
+            <p className="text-xs text-rl-muted">{t('funil.calc.semNos')}</p>
           </div>
         ) : (
           <div className="space-y-1">
-            <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-2">Funil</p>
+            <p className="text-[10px] font-bold text-rl-muted uppercase tracking-wider mb-2">{t('funil.calc.funil')}</p>
             {stages.map((s, i) => {
               const def = getNodeDef(s.node.type)
               return (
@@ -1008,16 +1015,16 @@ function CalcSidebar({ scenario, metrics, onUpdateCalc }) {
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <NodeIcon type={s.node.type} size={24} />
                     <span className={`text-[11px] font-semibold truncate flex-1 ${def.text}`}>
-                      {s.node.label || def.label}
+                      {s.node.label || t(def.label)}
                     </span>
                     {!TRAFFIC_TYPES.includes(s.node.type) && (
                       <span className="text-[10px] font-bold text-rl-muted">{s.convRate}%</span>
                     )}
                   </div>
                   <div className="flex items-center justify-between text-[10px] text-rl-muted">
-                    <span>{s.visitors.toLocaleString('pt-BR')} entram</span>
+                    <span>{t('funil.calc.entram', { n: s.visitors.toLocaleString(locale) })}</span>
                     {!TRAFFIC_TYPES.includes(s.node.type) && (
-                      <span className="font-semibold text-rl-text">→ {s.converted.toLocaleString('pt-BR')}</span>
+                      <span className="font-semibold text-rl-text">→ {s.converted.toLocaleString(locale)}</span>
                     )}
                   </div>
                 </div>
@@ -1027,7 +1034,7 @@ function CalcSidebar({ scenario, metrics, onUpdateCalc }) {
             {disconnectedCount > 0 && (
               <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2 mt-2">
                 <AlertCircle className="w-3 h-3 shrink-0" />
-                <span className="text-[10px]">{disconnectedCount} nó(s) desconectado(s)</span>
+                <span className="text-[10px]">{t(disconnectedCount === 1 ? 'funil.calc.desconectados.um' : 'funil.calc.desconectados.outros', { n: disconnectedCount })}</span>
               </div>
             )}
           </div>
@@ -1040,14 +1047,15 @@ function CalcSidebar({ scenario, metrics, onUpdateCalc }) {
 
 // ─── MetricsView ──────────────────────────────────────────────────────────────
 function MetricsView({ metrics, scenarioName }) {
+  const { t, locale } = useI18n()
   const { stages, summary, disconnectedCount } = metrics
 
   if (!stages.length) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
         <GitFork className="w-12 h-12 text-rl-muted/30 mb-3" />
-        <h3 className="text-base font-semibold text-rl-text mb-1">Funil vazio</h3>
-        <p className="text-sm text-rl-muted">Vá para Canvas e adicione nós conectados para visualizar as métricas.</p>
+        <h3 className="text-base font-semibold text-rl-text mb-1">{t('funil.visao.vazio')}</h3>
+        <p className="text-sm text-rl-muted">{t('funil.visao.vazioDica')}</p>
       </div>
     )
   }
@@ -1058,13 +1066,13 @@ function MetricsView({ metrics, scenarioName }) {
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
       <div>
         <h2 className="text-lg font-bold text-rl-text">{scenarioName}</h2>
-        <p className="text-sm text-rl-muted">Cascata de conversão do funil</p>
+        <p className="text-sm text-rl-muted">{t('funil.visao.cascata')}</p>
       </div>
 
       {disconnectedCount > 0 && (
         <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-          <p className="text-sm text-amber-700">{disconnectedCount} nó(s) desconectado(s) não aparecem nas métricas.</p>
+          <p className="text-sm text-amber-700">{t(disconnectedCount === 1 ? 'funil.visao.desconectados.um' : 'funil.visao.desconectados.outros', { n: disconnectedCount })}</p>
         </div>
       )}
 
@@ -1083,7 +1091,7 @@ function MetricsView({ metrics, scenarioName }) {
               >
                 <div className="flex items-center gap-2 mb-1">
                   <NodeIcon type={s.node.type} size={28} />
-                  <span className={`font-semibold text-sm ${def.text}`}>{s.node.label || def.label}</span>
+                  <span className={`font-semibold text-sm ${def.text}`}>{s.node.label || t(def.label)}</span>
                   {!TRAFFIC_TYPES.includes(s.node.type) && (
                     <span className="ml-auto text-xs font-bold text-rl-muted bg-white/60 px-2 py-0.5 rounded-full border border-white">
                       {s.convRate}%
@@ -1091,9 +1099,9 @@ function MetricsView({ metrics, scenarioName }) {
                   )}
                 </div>
                 <div className="flex gap-4 text-xs text-rl-muted">
-                  <span><strong className="text-rl-text">{s.visitors.toLocaleString('pt-BR')}</strong> entram</span>
+                  <span><strong className="text-rl-text">{s.visitors.toLocaleString(locale)}</strong> {t('funil.visao.entram')}</span>
                   {!TRAFFIC_TYPES.includes(s.node.type) && (
-                    <span><strong className={s.converted === 0 ? 'text-red-500' : 'text-green-600'}>{s.converted.toLocaleString('pt-BR')}</strong> convertem</span>
+                    <span><strong className={s.converted === 0 ? 'text-red-500' : 'text-green-600'}>{s.converted.toLocaleString(locale)}</strong> {t('funil.visao.convertem')}</span>
                   )}
                 </div>
               </div>
@@ -1111,12 +1119,12 @@ function MetricsView({ metrics, scenarioName }) {
       {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
           {[
-            { label: 'Faturamento', value: fmtCurrency(summary.revenue), color: 'text-blue-600' },
-            { label: 'Lucro Líquido', value: fmtCurrency(summary.netProfit), color: summary.netProfit >= 0 ? 'text-green-600' : 'text-red-500' },
+            { label: t('funil.metricas.faturamento'), value: fmtCurrency(summary.revenue), color: 'text-blue-600' },
+            { label: t('funil.metricas.lucroLiquido'), value: fmtCurrency(summary.netProfit), color: summary.netProfit >= 0 ? 'text-green-600' : 'text-red-500' },
             { label: 'ROAS', value: `${summary.roas.toFixed(2)}×`, color: 'text-purple-600' },
             { label: 'CAC', value: summary.finalSales > 0 ? fmtCurrency(summary.cac) : '—', color: 'text-orange-600' },
             { label: 'CPL', value: summary.leads > 0 ? fmtCurrency(summary.cpl) : '—', color: 'text-cyan-600' },
-            { label: 'Vendas', value: summary.finalSales.toLocaleString('pt-BR'), color: 'text-emerald-600' },
+            { label: t('funil.metricas.vendas'), value: summary.finalSales.toLocaleString(locale), color: 'text-emerald-600' },
           ].map(c => (
             <div key={c.label} className="glass-card p-3 text-center">
               <p className={`text-base font-bold ${c.color}`}>{c.value}</p>
@@ -1131,27 +1139,28 @@ function MetricsView({ metrics, scenarioName }) {
 
 // ─── ScenariosView ────────────────────────────────────────────────────────────
 function ScenariosView({ scenarios, activeId, onSwitch, onDuplicate, onDelete, onRename }) {
+  const { t, locale } = useI18n()
   const [editingId, setEditingId] = useState(null)
   const [draftName, setDraftName] = useState('')
 
   const allMetrics = scenarios.map(s => ({ id: s.id, name: s.name, metrics: computeMetrics(s) }))
 
   const ROWS = [
-    { label: 'Faturamento',    key: s => s.summary ? fmtCurrency(s.summary.revenue)    : '—' },
-    { label: 'Lucro Líquido',  key: s => s.summary ? fmtCurrency(s.summary.netProfit)  : '—', colorFn: s => s.summary?.netProfit >= 0 ? 'text-green-600' : 'text-red-500' },
+    { label: t('funil.metricas.faturamento'), key: s => s.summary ? fmtCurrency(s.summary.revenue)    : '—' },
+    { label: t('funil.metricas.lucroLiquido'), key: s => s.summary ? fmtCurrency(s.summary.netProfit)  : '—', colorFn: s => s.summary?.netProfit >= 0 ? 'text-green-600' : 'text-red-500' },
     { label: 'ROAS',           key: s => s.summary ? `${s.summary.roas.toFixed(2)}×`   : '—' },
     { label: 'CAC',            key: s => s.summary?.finalSales > 0 ? fmtCurrency(s.summary.cac) : '—' },
     { label: 'CPL',            key: s => s.summary?.leads > 0 ? fmtCurrency(s.summary.cpl) : '—' },
-    { label: 'Vendas',         key: s => s.summary ? s.summary.finalSales.toLocaleString('pt-BR') : '—' },
-    { label: 'Nós no funil',   key: (_, sc) => sc.nodes.length.toString() },
+    { label: t('funil.metricas.vendas'), key: s => s.summary ? s.summary.finalSales.toLocaleString(locale) : '—' },
+    { label: t('funil.cenarios.nosNoFunil'), key: (_, sc) => sc.nodes.length.toString() },
   ]
 
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-rl-text">Comparação de Cenários</h2>
-          <p className="text-sm text-rl-muted">Compare até {MAX_SCENARIOS} cenários lado a lado</p>
+          <h2 className="text-lg font-bold text-rl-text">{t('funil.cenarios.titulo')}</h2>
+          <p className="text-sm text-rl-muted">{t('funil.cenarios.subtitulo', { max: MAX_SCENARIOS })}</p>
         </div>
         <button
           onClick={onDuplicate}
@@ -1159,7 +1168,7 @@ function ScenariosView({ scenarios, activeId, onSwitch, onDuplicate, onDelete, o
           className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text hover:border-rl-purple/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Copy className="w-3.5 h-3.5" />
-          Duplicar cenário atual
+          {t('funil.cenarios.duplicar')}
         </button>
       </div>
 
@@ -1168,7 +1177,7 @@ function ScenariosView({ scenarios, activeId, onSwitch, onDuplicate, onDelete, o
         <table className="w-full">
           <thead>
             <tr className="border-b border-rl-border bg-rl-surface/60">
-              <th className="px-4 py-3 text-left text-[11px] font-bold text-rl-muted uppercase tracking-wider w-36">Métrica</th>
+              <th className="px-4 py-3 text-left text-[11px] font-bold text-rl-muted uppercase tracking-wider w-36">{t('funil.cenarios.metrica')}</th>
               {scenarios.map(s => (
                 <th key={s.id} className="px-4 py-3 text-center">
                   <div className="flex flex-col items-center gap-1.5">
@@ -1203,14 +1212,14 @@ function ScenariosView({ scenarios, activeId, onSwitch, onDuplicate, onDelete, o
                         onClick={() => { setEditingId(s.id); setDraftName(s.name) }}
                         className="text-[10px] text-rl-muted hover:text-rl-text transition-colors"
                       >
-                        Renomear
+                        {t('funil.cenarios.renomear')}
                       </button>
                       {scenarios.length > 1 && (
                         <button
                           onClick={() => onDelete(s.id)}
                           className="text-[10px] text-rl-muted hover:text-red-500 transition-colors"
                         >
-                          · Excluir
+                          {t('funil.cenarios.excluir')}
                         </button>
                       )}
                     </div>
@@ -1245,7 +1254,8 @@ function ScenariosView({ scenarios, activeId, onSwitch, onDuplicate, onDelete, o
 // ─── NodeEditModal ─────────────────────────────────────────────────────────────
 function NodeEditModal({ node, onSave, onClose }) {
   const def = getNodeDef(node.type)
-  const [label, setLabel]   = useState(node.label || def.label)
+  const { t } = useI18n()
+  const [label, setLabel]   = useState(node.label || t(def.label))
   const [conv,  setConv]    = useState(node.conversionRate ?? DEFAULT_CONV[node.type] ?? 100)
   const [notes, setNotes]   = useState(node.notes || '')
 
@@ -1254,18 +1264,18 @@ function NodeEditModal({ node, onSave, onClose }) {
       <div className="flex items-center gap-3 mb-5">
         <NodeIcon type={node.type} size={40} />
         <div>
-          <h2 className="text-base font-bold text-rl-text">Editar Nó</h2>
-          <p className="text-xs text-rl-muted">{def.label}</p>
+          <h2 className="text-base font-bold text-rl-text">{t('funil.editar.titulo')}</h2>
+          <p className="text-xs text-rl-muted">{t(def.label)}</p>
         </div>
       </div>
 
       <div className="space-y-4">
         <div>
-          <label className="label-field">Rótulo</label>
+          <label className="label-field">{t('funil.editar.rotulo')}</label>
           <input
             value={label}
             onChange={e => setLabel(e.target.value)}
-            placeholder={def.label}
+            placeholder={t(def.label)}
             className="input-field w-full"
             autoFocus
           />
@@ -1273,7 +1283,7 @@ function NodeEditModal({ node, onSave, onClose }) {
 
         {!TRAFFIC_TYPES.includes(node.type) && (
           <NumInput
-            label="Taxa de Conversão (%)"
+            label={t('funil.editar.taxa')}
             value={conv}
             onChange={v => setConv(Math.min(100, Math.max(0, v)))}
             suffix="%"
@@ -1283,24 +1293,24 @@ function NodeEditModal({ node, onSave, onClose }) {
         )}
 
         <div>
-          <label className="label-field">Observações (opcional)</label>
+          <label className="label-field">{t('funil.editar.observacoes')}</label>
           <textarea
             value={notes}
             onChange={e => setNotes(e.target.value)}
             rows={2}
-            placeholder="Contexto, referências, resultados esperados..."
+            placeholder={t('funil.editar.observacoesPh')}
             className="input-field w-full resize-none"
           />
         </div>
       </div>
 
       <div className="flex gap-3 mt-6">
-        <button onClick={onClose} className="flex-1 btn-ghost">Cancelar</button>
+        <button onClick={onClose} className="flex-1 btn-ghost">{t('comum.cancelar')}</button>
         <button
-          onClick={() => { onSave({ label: label.trim() || def.label, conversionRate: conv, notes }); onClose() }}
+          onClick={() => { onSave({ label: label.trim() || t(def.label), conversionRate: conv, notes }); onClose() }}
           className="flex-1 btn-primary"
         >
-          Salvar
+          {t('comum.salvar')}
         </button>
       </div>
     </Modal>
@@ -1309,6 +1319,7 @@ function NodeEditModal({ node, onSave, onClose }) {
 
 // ─── FunnelList — library / home view ────────────────────────────────────────
 function FunnelList({ funnels, onOpen, onCreate, onDuplicate, onRename, onDelete }) {
+  const { t, locale } = useI18n()
   const [renamingId, setRenamingId] = useState(null)
   const [renameVal,  setRenameVal]  = useState('')
 
@@ -1320,7 +1331,7 @@ function FunnelList({ funnels, onOpen, onCreate, onDuplicate, onRename, onDelete
 
   function fmtDate(iso) {
     try {
-      return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+      return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
     } catch { return '—' }
   }
 
@@ -1330,14 +1341,14 @@ function FunnelList({ funnels, onOpen, onCreate, onDuplicate, onRename, onDelete
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-rl-text flex items-center gap-2">
-            <Layers className="w-5 h-5 text-rl-purple" /> Meus Funis
+            <Layers className="w-5 h-5 text-rl-purple" /> {t('funil.lista.titulo')}
           </h1>
           <p className="text-sm text-rl-muted mt-0.5">
-            {funnels.length} funil{funnels.length !== 1 ? 's' : ''} salvo{funnels.length !== 1 ? 's' : ''}
+            {t(funnels.length === 1 ? 'funil.lista.salvos.um' : 'funil.lista.salvos.outros', { n: funnels.length })}
           </p>
         </div>
         <button onClick={onCreate} className="btn-primary flex items-center gap-2 text-sm py-2.5 px-4">
-          <Plus className="w-4 h-4" /> Novo Funil
+          <Plus className="w-4 h-4" /> {t('funil.lista.novo')}
         </button>
       </div>
 
@@ -1346,12 +1357,12 @@ function FunnelList({ funnels, onOpen, onCreate, onDuplicate, onRename, onDelete
           <div className="w-16 h-16 rounded-2xl bg-rl-purple/10 flex items-center justify-center mb-4">
             <GitFork className="w-8 h-8 text-rl-purple/50" />
           </div>
-          <h3 className="font-semibold text-rl-text mb-1">Nenhum funil criado ainda</h3>
+          <h3 className="font-semibold text-rl-text mb-1">{t('funil.lista.nenhum')}</h3>
           <p className="text-sm text-rl-muted mb-6 max-w-xs">
-            Crie funis de vendas visuais e reutilize-os com diferentes clientes
+            {t('funil.lista.nenhumDica')}
           </p>
           <button onClick={onCreate} className="btn-primary flex items-center gap-2 text-sm">
-            <Plus className="w-4 h-4" /> Criar Primeiro Funil
+            <Plus className="w-4 h-4" /> {t('funil.lista.criarPrimeiro')}
           </button>
         </div>
       ) : (
@@ -1387,7 +1398,7 @@ function FunnelList({ funnels, onOpen, onCreate, onDuplicate, onRename, onDelete
                     <button
                       onClick={() => startRename(f)}
                       className="p-1 rounded text-rl-muted hover:text-rl-text opacity-0 group-hover:opacity-100 transition-all shrink-0 mt-0.5"
-                      title="Renomear"
+                      title={t('funil.lista.renomear')}
                     >
                       <Pencil className="w-3 h-3" />
                     </button>
@@ -1398,16 +1409,16 @@ function FunnelList({ funnels, onOpen, onCreate, onDuplicate, onRename, onDelete
                 <div className="flex gap-3 text-[11px] text-rl-muted">
                   <span className="flex items-center gap-1">
                     <GitFork className="w-3 h-3" />
-                    {scenCount} cenário{scenCount !== 1 ? 's' : ''}
+                    {t(scenCount === 1 ? 'funil.lista.cenarios.um' : 'funil.lista.cenarios.outros', { n: scenCount })}
                   </span>
                   <span className="flex items-center gap-1">
                     <Layers className="w-3 h-3" />
-                    {totalNodes} nó{totalNodes !== 1 ? 's' : ''}
+                    {t(totalNodes === 1 ? 'funil.lista.nos.um' : 'funil.lista.nos.outros', { n: totalNodes })}
                   </span>
                 </div>
 
                 <p className="text-[10px] text-rl-muted/70">
-                  Editado em {fmtDate(f.updatedAt)}
+                  {t('funil.lista.editadoEm', { data: fmtDate(f.updatedAt) })}
                 </p>
 
                 {/* Actions */}
@@ -1416,18 +1427,18 @@ function FunnelList({ funnels, onOpen, onCreate, onDuplicate, onRename, onDelete
                     onClick={() => onOpen(f.id)}
                     className="flex-1 btn-primary text-xs py-1.5 px-3"
                   >
-                    Abrir
+                    {t('comum.abrir')}
                   </button>
                   <button
                     onClick={() => onDuplicate(f.id)}
-                    title="Duplicar funil"
+                    title={t('funil.lista.duplicar')}
                     className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all border border-transparent hover:border-rl-border"
                   >
                     <Copy className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => onDelete(f.id)}
-                    title="Excluir funil"
+                    title={t('funil.lista.excluir')}
                     className="p-1.5 rounded-lg text-rl-muted hover:text-red-500 hover:bg-red-50 transition-all border border-transparent hover:border-red-100"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -1446,6 +1457,7 @@ function FunnelList({ funnels, onOpen, onCreate, onDuplicate, onRename, onDelete
 export default function FunilCanvas() {
   const { openSidebar } = useOutletContext()
   const { toast, showToast } = useToast()
+  const { t } = useI18n()
 
   // ── Funnel library state ─────────────────────────────────────────────────────
   const [funnels,         setFunnels]         = useState(() => initFunnels())
@@ -1498,11 +1510,11 @@ export default function FunilCanvas() {
   // ── Funnel CRUD ───────────────────────────────────────────────────────────────
   function createFunnel() {
     const id      = crypto.randomUUID()
-    const scen    = makeScenario('Cenário 1')
+    const scen    = makeScenario(t('funil.cenarios.nomePadrao', { n: 1 }))
     const num     = funnels.length + 1
     const funnel  = {
       id,
-      name:      `Novo Funil ${num}`,
+      name:      t('funil.lista.nomePadrao', { n: num }),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       scenarios: [scen],
@@ -1542,13 +1554,13 @@ export default function FunilCanvas() {
       const newConns = (s.connections ?? []).map(c => ({ ...c, id: crypto.randomUUID(), fromId: nodeMap.get(c.fromId) ?? c.fromId, toId: nodeMap.get(c.toId) ?? c.toId }))
       return { ...s, id: crypto.randomUUID(), nodes: newNodes, connections: newConns }
     })
-    const copy = { id: newId, name: `${src.name} (cópia)`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), scenarios: newScenarios }
+    const copy = { id: newId, name: t('funil.lista.copia', { nome: src.name }), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), scenarios: newScenarios }
     setFunnels(prev => { const next = [...prev, copy]; debouncedSave(next); return next })
-    showToast('Funil duplicado!')
+    showToast(t('funil.lista.duplicado'))
   }
 
   function deleteFunnel(funnelId) {
-    if (!window.confirm('Excluir este funil? Esta ação não pode ser desfeita.')) return
+    if (!window.confirm(t('funil.lista.confirmarExcluir'))) return
     setFunnels(prev => { const next = prev.filter(f => f.id !== funnelId); debouncedSave(next); return next })
     if (activeFunnelId === funnelId) closeFunnel()
   }
@@ -1570,10 +1582,10 @@ export default function FunilCanvas() {
   function addNode(type, x, y) {
     if (TRAFFIC_TYPES.includes(type)) {
       const hasSameType = activeScenario?.nodes.some(n => n.type === type)
-      if (hasSameType) { showToast(`Já existe um nó de ${getNodeDef(type).label} neste cenário`, 'error'); return }
+      if (hasSameType) { showToast(t('funil.conexao.trafegoDuplicado', { tipo: t(getNodeDef(type).label) }), 'error'); return }
     }
     const def     = getNodeDef(type)
-    const newNode = { id: crypto.randomUUID(), type, label: def.label, x: Math.max(0, x - NODE_W / 2), y: Math.max(0, y - NODE_H / 2), conversionRate: DEFAULT_CONV[type] ?? 100, notes: '' }
+    const newNode = { id: crypto.randomUUID(), type, label: t(def.label), x: Math.max(0, x - NODE_W / 2), y: Math.max(0, y - NODE_H / 2), conversionRate: DEFAULT_CONV[type] ?? 100, notes: '' }
     patchScenario(activeId, s => ({ ...s, nodes: [...s.nodes, newNode] }))
   }
 
@@ -1592,12 +1604,12 @@ export default function FunilCanvas() {
     const conns = activeScenario.connections
     // Each output port may have only one outgoing connection
     if (conns.some(c => c.fromId === fromId && (c.fromPort || 'yes') === fromPort)) {
-      showToast('Esta porta já está conectada', 'error'); setConnectingFrom(null); return
+      showToast(t('funil.conexao.portaOcupada'), 'error'); setConnectingFrom(null); return
     }
     if (conns.some(c => c.fromId === fromId && (c.fromPort || 'yes') === fromPort && c.toId === toId)) {
-      showToast('Conexão já existe', 'error'); setConnectingFrom(null); return
+      showToast(t('funil.conexao.jaExiste'), 'error'); setConnectingFrom(null); return
     }
-    if (canReach(toId, fromId, conns)) { showToast('Conexão circular não é permitida', 'error'); setConnectingFrom(null); return }
+    if (canReach(toId, fromId, conns)) { showToast(t('funil.conexao.circular'), 'error'); setConnectingFrom(null); return }
     patchScenario(activeId, s => ({ ...s, connections: [...s.connections, { id: crypto.randomUUID(), fromId, fromPort, toId }] }))
     setConnectingFrom(null)
   }
@@ -1613,22 +1625,22 @@ export default function FunilCanvas() {
 
   // ── Scenario management ──────────────────────────────────────────────────────
   function addScenario() {
-    if (scenarios.length >= MAX_SCENARIOS) { showToast(`Máximo de ${MAX_SCENARIOS} cenários`, 'error'); return }
-    const s = makeScenario(`Cenário ${scenarios.length + 1}`)
+    if (scenarios.length >= MAX_SCENARIOS) { showToast(t('funil.cenarios.maximo', { max: MAX_SCENARIOS }), 'error'); return }
+    const s = makeScenario(t('funil.cenarios.nomePadrao', { n: scenarios.length + 1 }))
     patchActiveFunnel(f => ({ ...f, scenarios: [...f.scenarios, s] }))
     setActiveScenId(s.id)
   }
 
   function duplicateScenario() {
-    if (scenarios.length >= MAX_SCENARIOS) { showToast(`Máximo de ${MAX_SCENARIOS} cenários`, 'error'); return }
+    if (scenarios.length >= MAX_SCENARIOS) { showToast(t('funil.cenarios.maximo', { max: MAX_SCENARIOS }), 'error'); return }
     const src = activeScenario
-    const dup = { ...JSON.parse(JSON.stringify(src)), id: crypto.randomUUID(), name: `${src.name} (cópia)` }
+    const dup = { ...JSON.parse(JSON.stringify(src)), id: crypto.randomUUID(), name: t('funil.cenarios.copia', { nome: src.name }) }
     patchActiveFunnel(f => ({ ...f, scenarios: [...f.scenarios, dup] }))
     setActiveScenId(dup.id)
   }
 
   function deleteScenario(id) {
-    if (scenarios.length <= 1) { showToast('Deve existir ao menos 1 cenário', 'error'); return }
+    if (scenarios.length <= 1) { showToast(t('funil.cenarios.minimo'), 'error'); return }
     const next    = scenarios.filter(s => s.id !== id)
     const nextAct = id === activeId ? next[0].id : activeId
     patchActiveFunnel(f => ({ ...f, scenarios: next }))
@@ -1734,9 +1746,9 @@ export default function FunilCanvas() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   const VIEW_TABS = [
-    { id: 'canvas',    label: 'Canvas' },
-    { id: 'metrics',   label: 'Métricas' },
-    { id: 'scenarios', label: 'Cenários' },
+    { id: 'canvas',    label: t('funil.cabecalho.abas.canvas') },
+    { id: 'metrics',   label: t('funil.cabecalho.abas.metricas') },
+    { id: 'scenarios', label: t('funil.cabecalho.abas.cenarios') },
   ]
 
   return (
@@ -1755,7 +1767,7 @@ export default function FunilCanvas() {
               <GitFork className="w-3.5 h-3.5 text-white" />
             </div>
             <span className="font-bold text-rl-text text-sm">
-              {activeFunnel ? activeFunnel.name : 'Funil de Vendas'}
+              {activeFunnel ? activeFunnel.name : t('funil.titulo')}
             </span>
           </div>
         </div>
@@ -1769,7 +1781,7 @@ export default function FunilCanvas() {
                 <div className="w-7 h-7 rounded-lg bg-gradient-rl flex items-center justify-center">
                   <GitFork className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="font-bold text-sm text-rl-text">Funil de Vendas</span>
+                <span className="font-bold text-sm text-rl-text">{t('funil.titulo')}</span>
               </div>
             </div>
             <FunnelList
@@ -1793,10 +1805,10 @@ export default function FunilCanvas() {
               <button
                 onClick={closeFunnel}
                 className="hidden lg:flex items-center gap-1.5 text-rl-muted hover:text-rl-text transition-colors group"
-                title="Voltar à lista de funis"
+                title={t('funil.cabecalho.voltarLista')}
               >
                 <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-                <span className="text-xs font-medium">Funis</span>
+                <span className="text-xs font-medium">{t('funil.cabecalho.funis')}</span>
               </button>
 
               <div className="hidden lg:block w-px h-5 bg-rl-border" />
@@ -1818,7 +1830,7 @@ export default function FunilCanvas() {
                 <button
                   onClick={() => { setFunnelNameDraft(activeFunnel.name); setRenamingFunnel(true) }}
                   className="hidden lg:flex items-center gap-1.5 group"
-                  title="Renomear funil"
+                  title={t('funil.cabecalho.renomearFunil')}
                 >
                   <span className="text-sm font-bold text-rl-text">{activeFunnel.name}</span>
                   <Pencil className="w-3 h-3 text-rl-muted opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -1829,15 +1841,15 @@ export default function FunilCanvas() {
 
               {/* View tabs */}
               <div className="flex items-center gap-0.5 p-0.5 bg-rl-bg rounded-lg border border-rl-border">
-                {VIEW_TABS.map(t => (
+                {VIEW_TABS.map(tab => (
                   <button
-                    key={t.id}
-                    onClick={() => setView(t.id)}
+                    key={tab.id}
+                    onClick={() => setView(tab.id)}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                      view === t.id ? 'bg-white shadow text-rl-text' : 'text-rl-muted hover:text-rl-text'
+                      view === tab.id ? 'bg-white shadow text-rl-text' : 'text-rl-muted hover:text-rl-text'
                     }`}
                   >
-                    {t.label}
+                    {tab.label}
                   </button>
                 ))}
               </div>
@@ -1860,7 +1872,7 @@ export default function FunilCanvas() {
                   </button>
                 ))}
                 {scenarios.length < MAX_SCENARIOS && (
-                  <button onClick={addScenario} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all" title="Adicionar cenário">
+                  <button onClick={addScenario} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all" title={t('funil.cenarios.adicionar')}>
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                 )}
@@ -1871,11 +1883,11 @@ export default function FunilCanvas() {
               {/* Keyboard hints */}
               {view === 'canvas' && (
                 <div className="hidden xl:flex items-center gap-3 text-[10px] text-rl-muted">
-                  <span className="text-green-600 font-medium">SIM</span><span>→ convertidos</span>
-                  <span className="text-red-500 font-medium">NÃO</span><span>→ não convertidos</span>
-                  <span>2× clique → editar</span>
-                  <span>Del → excluir</span>
-                  <span>Esc → cancelar</span>
+                  <span className="text-green-600 font-medium">{t('funil.no.sim')}</span><span>{t('funil.cabecalho.convertidos')}</span>
+                  <span className="text-red-500 font-medium">{t('funil.no.nao')}</span><span>{t('funil.cabecalho.naoConvertidos')}</span>
+                  <span>{t('funil.cabecalho.duploClique')}</span>
+                  <span>{t('funil.cabecalho.del')}</span>
+                  <span>{t('funil.cabecalho.esc')}</span>
                 </div>
               )}
             </div>
@@ -1916,15 +1928,15 @@ export default function FunilCanvas() {
                     <button
                       onClick={zoomOut}
                       disabled={zoom <= ZOOM_MIN + 0.001}
-                      title="Diminuir zoom (−)"
-                      aria-label="Diminuir zoom"
+                      title={t('funil.zoom.diminuir')}
+                      aria-label={t('funil.zoom.diminuirAria')}
                       className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                     >
                       <ZoomOut className="w-4 h-4" />
                     </button>
                     <button
                       onClick={zoomReset}
-                      title="Resetar zoom (100%)"
+                      title={t('funil.zoom.resetar')}
                       className="px-2 py-1 rounded-lg text-xs font-semibold tabular-nums text-rl-text hover:bg-rl-surface transition-all min-w-[44px]"
                     >
                       {Math.round(zoom * 100)}%
@@ -1932,8 +1944,8 @@ export default function FunilCanvas() {
                     <button
                       onClick={zoomIn}
                       disabled={zoom >= ZOOM_MAX - 0.001}
-                      title="Aumentar zoom (+)"
-                      aria-label="Aumentar zoom"
+                      title={t('funil.zoom.aumentar')}
+                      aria-label={t('funil.zoom.aumentarAria')}
                       className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                     >
                       <ZoomIn className="w-4 h-4" />
@@ -1941,8 +1953,8 @@ export default function FunilCanvas() {
                     <div className="w-px h-5 bg-rl-border mx-0.5" />
                     <button
                       onClick={zoomReset}
-                      title="Ajustar à tela (100%)"
-                      aria-label="Resetar zoom"
+                      title={t('funil.zoom.ajustar')}
+                      aria-label={t('funil.zoom.resetarAria')}
                       className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
                     >
                       <Maximize2 className="w-3.5 h-3.5" />
@@ -2013,8 +2025,8 @@ export default function FunilCanvas() {
                     {activeScenario.nodes.length === 0 && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
                         <GitFork className="w-12 h-12 text-rl-muted/30 mb-3" />
-                        <h3 className="text-base font-semibold text-rl-muted/60 mb-1">Canvas vazio</h3>
-                        <p className="text-sm text-rl-muted/40 mb-4">Arraste elementos da paleta à esquerda ou clique para começar</p>
+                        <h3 className="text-base font-semibold text-rl-muted/60 mb-1">{t('funil.vazio.titulo')}</h3>
+                        <p className="text-sm text-rl-muted/40 mb-4">{t('funil.vazio.dica')}</p>
                         <div className="pointer-events-auto flex gap-2">
                           <button onClick={() => addNode('meta', 300, 200)} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-blue-200 text-sm font-semibold text-blue-600 hover:bg-blue-50 transition-all shadow-sm">
                             <NodeIcon type="meta" size={18} /> Meta Ads

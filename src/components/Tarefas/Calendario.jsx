@@ -9,17 +9,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { Popover, FOCO } from './Campos'
+import { useI18n, idiomaAtual, localeAtual } from '../../i18n'
 
+// Em português os nomes são os de sempre (cravados); nos outros idiomas saem do Intl.
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 const DOW = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 const DOW_CURTO = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
+const ehPt = () => idiomaAtual() === 'pt'
+const nomeMes = (m) => (ehPt() ? MESES[m] : new Date(2024, m, 1).toLocaleDateString(localeAtual(), { month: 'long' }))
+// 2024-09-01 é domingo
+const inicialDia = (i) => (ehPt() ? DOW[i] : new Date(2024, 8, 1 + i).toLocaleDateString(localeAtual(), { weekday: 'narrow' }))
+const diaCurto = (d) => (ehPt() ? DOW_CURTO[d.getDay()] : d.toLocaleDateString(localeAtual(), { weekday: 'short' }))
 
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const deYmd = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d) }
 const somaDias = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x }
 const ymAdd = (ym, n) => { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); return ymd(d).slice(0, 7) }
-const fmtCurto = (s) => { const d = deYmd(s); return `${DOW_CURTO[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}` }
-export const fmtDataLonga = (s) => { const d = deYmd(s); return `${DOW_CURTO[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}` }
+const fmtCurto = (s) => { const d = deYmd(s); return ehPt() ? `${DOW_CURTO[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}` : `${diaCurto(d)} ${d.getMonth() + 1}/${d.getDate()}` }
+export const fmtDataLonga = (s) => {
+  const d = deYmd(s)
+  if (!ehPt()) return d.toLocaleDateString(localeAtual(), { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })
+  return `${DOW_CURTO[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`
+}
 
 /** Atalhos de prazo, calculados a partir de hoje. */
 function atalhos(hoje) {
@@ -29,22 +40,24 @@ function atalhos(hoje) {
   const sexta = dow <= 4 ? somaDias(hoje, 5 - dow) : null
   const umMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, Math.min(hoje.getDate(), new Date(hoje.getFullYear(), hoje.getMonth() + 2, 0).getDate()))
   return [
-    ['Hoje', hoje], ['Amanhã', somaDias(hoje, 1)], ['Esta sexta', sexta], ['Próxima segunda', proxSegunda],
-    ['Em 1 semana', somaDias(hoje, 7)], ['Em 2 semanas', somaDias(hoje, 14)], ['Em 1 mês', umMes],
-  ].filter(([, d]) => d).map(([rotulo, d]) => ({ rotulo, valor: ymd(d) }))
+    ['hoje', hoje], ['amanha', somaDias(hoje, 1)], ['sexta', sexta], ['segunda', proxSegunda],
+    ['semana1', somaDias(hoje, 7)], ['semana2', somaDias(hoje, 14)], ['mes1', umMes],
+  ].filter(([, d]) => d).map(([chave, d]) => ({ chave, valor: ymd(d) }))
 }
 
-/** "23/10", "23/10/26" ou "23/10/2026" → 'yyyy-mm-dd' (ano omitido = este ano). */
+/** "23/10", "23/10/26" ou "23/10/2026" → 'yyyy-mm-dd' (ano omitido = este ano). Em inglês, mês antes do dia (10/23). */
 function lerDigitada(txt, hoje) {
   const m = String(txt).trim().match(/^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2}|\d{4}))?$/)
   if (!m) return null
+  const [dia, mes] = ehPt() ? [Number(m[1]), Number(m[2])] : [Number(m[2]), Number(m[1])]
   const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : hoje.getFullYear()
-  const d = new Date(y, Number(m[2]) - 1, Number(m[1]))
-  return d.getDate() === Number(m[1]) && d.getMonth() === Number(m[2]) - 1 ? ymd(d) : null
+  const d = new Date(y, mes - 1, dia)
+  return d.getDate() === dia && d.getMonth() === mes - 1 ? ymd(d) : null
 }
 
 /** valor: 'yyyy-mm-dd' ou ''; onEscolher('yyyy-mm-dd' | '') — '' = sem data. */
 export function CalendarioPrazo({ valor, onEscolher, min = '', max = '', motivoMin = '', motivoMax = '' }) {
+  const { t } = useI18n()
   const hoje = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }, [])
   const hojeS = ymd(hoje)
   const [mes, setMes] = useState((valor || hojeS).slice(0, 7))
@@ -53,8 +66,8 @@ export function CalendarioPrazo({ valor, onEscolher, min = '', max = '', motivoM
   const [erro, setErro] = useState(false)
   const gridRef = useRef(null)
   const lista = useMemo(() => atalhos(hoje), [hoje])
-  const textoMin = min ? (motivoMin ? `${motivoMin} (${fmtCurto(min)})` : `Antes de ${fmtCurto(min)}`) : ''
-  const textoMax = max ? (motivoMax ? `${motivoMax} (${fmtCurto(max)})` : `Depois de ${fmtCurto(max)}`) : ''
+  const textoMin = min ? (motivoMin ? t('tarefas.calendario.motivoData', { motivo: motivoMin, data: fmtCurto(min) }) : t('tarefas.calendario.antesDe', { data: fmtCurto(min) })) : ''
+  const textoMax = max ? (motivoMax ? t('tarefas.calendario.motivoData', { motivo: motivoMax, data: fmtCurto(max) }) : t('tarefas.calendario.depoisDe', { data: fmtCurto(max) })) : ''
   const foraDoIntervalo = (dia) => (min && dia < min ? textoMin : max && dia > max ? textoMax : '')
 
   // abre com o foco no dia escolhido (ou hoje): Enter confirma, setas andam
@@ -94,28 +107,28 @@ export function CalendarioPrazo({ valor, onEscolher, min = '', max = '', motivoM
           const bloqueio = foraDoIntervalo(a.valor)
           return (
             <button
-              key={a.rotulo} type="button" onClick={() => onEscolher(a.valor)} disabled={!!bloqueio} title={bloqueio || undefined}
+              key={a.chave} type="button" onClick={() => onEscolher(a.valor)} disabled={!!bloqueio} title={bloqueio || undefined}
               className={`shrink-0 flex items-center justify-between gap-3 h-8 px-2.5 rounded-md text-[12px] font-medium text-left whitespace-nowrap transition-colors duration-150 ${bloqueio ? 'text-ln-t4 opacity-50 cursor-not-allowed' : a.valor === valor ? 'bg-ln-accent/10 text-ln-accent' : 'text-ln-t2 hover:bg-ln-accent/[0.07] hover:text-ln-accent'} ${FOCO}`}
             >
-              {a.rotulo}<span className="hidden sm:inline text-[11px] text-ln-t4 tabular">{fmtCurto(a.valor)}</span>
+              {t(`tarefas.calendario.atalho.${a.chave}`)}<span className="hidden sm:inline text-[11px] text-ln-t4 tabular">{fmtCurto(a.valor)}</span>
             </button>
           )
         })}
         {valor && (
           <button type="button" onClick={() => onEscolher('')} className={`shrink-0 flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[12px] font-medium text-ln-t3 hover:bg-ln-red/[0.07] hover:text-ln-red sm:mt-auto ${FOCO}`}>
-            <X className="w-3 h-3" /> Sem data
+            <X className="w-3 h-3" /> {t('tarefas.calendario.semData')}
           </button>
         )}
       </div>
 
       <div className="flex flex-col w-[248px] max-w-full mx-auto sm:mx-0">
         <div className="flex items-center justify-between px-3 pt-3 pb-2">
-          <button type="button" onClick={() => setMes(ymAdd(mes, -1))} className="ln-iconbtn !w-6 !h-6 border border-ln-ink/[0.08]" aria-label="Mês anterior"><ChevronLeft className="w-3.5 h-3.5" /></button>
-          <span className="text-[12.5px] font-semibold text-ln-t1 capitalize">{MESES[m - 1]} {y}</span>
-          <button type="button" onClick={() => setMes(ymAdd(mes, 1))} className="ln-iconbtn !w-6 !h-6 border border-ln-ink/[0.08]" aria-label="Mês seguinte"><ChevronRight className="w-3.5 h-3.5" /></button>
+          <button type="button" onClick={() => setMes(ymAdd(mes, -1))} className="ln-iconbtn !w-6 !h-6 border border-ln-ink/[0.08]" aria-label={t('tarefas.calendario.mesAnterior')}><ChevronLeft className="w-3.5 h-3.5" /></button>
+          <span className="text-[12.5px] font-semibold text-ln-t1 capitalize">{nomeMes(m - 1)} {y}</span>
+          <button type="button" onClick={() => setMes(ymAdd(mes, 1))} className="ln-iconbtn !w-6 !h-6 border border-ln-ink/[0.08]" aria-label={t('tarefas.calendario.mesSeguinte')}><ChevronRight className="w-3.5 h-3.5" /></button>
         </div>
-        <div ref={gridRef} role="grid" aria-label={`${MESES[m - 1]} ${y}`} onKeyDown={onTecla} className="grid grid-cols-7 gap-y-0.5 px-3">
-          {DOW.map((d, i) => <span key={i} className="text-center text-[10px] font-semibold uppercase text-ln-t4 pb-1">{d}</span>)}
+        <div ref={gridRef} role="grid" aria-label={`${nomeMes(m - 1)} ${y}`} onKeyDown={onTecla} className="grid grid-cols-7 gap-y-0.5 px-3">
+          {DOW.map((d, i) => <span key={i} className="text-center text-[10px] font-semibold uppercase text-ln-t4 pb-1">{inicialDia(i)}</span>)}
           {Array.from({ length: vazios }, (_, i) => <span key={`v${i}`} />)}
           {Array.from({ length: diasNoMes }, (_, i) => {
             const dia = `${mes}-${String(i + 1).padStart(2, '0')}`
@@ -144,16 +157,16 @@ export function CalendarioPrazo({ valor, onEscolher, min = '', max = '', motivoM
           <input
             value={digitado} onChange={(e) => { setDigitado(e.target.value); setErro(false) }}
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmarDigitada() } }}
-            placeholder="dd/mm/aaaa" aria-label="Digitar data" aria-invalid={!!erro} title={typeof erro === 'string' ? erro : undefined}
+            placeholder={t('tarefas.calendario.formatoData')} aria-label={t('tarefas.calendario.digitarData')} aria-invalid={!!erro} title={typeof erro === 'string' ? erro : undefined}
             className={`ln-input !h-7 !text-[12px] flex-1 min-w-0 tabular ${erro ? '!border-ln-red' : ''}`}
           />
           {mes !== hojeS.slice(0, 7) && (
-            <button type="button" onClick={() => { setMes(hojeS.slice(0, 7)); setFoco(hojeS) }} className={`h-7 px-2 rounded-md text-[12px] font-medium text-ln-t3 hover:text-ln-accent hover:bg-ln-accent/[0.07] ${FOCO}`}>Hoje</button>
+            <button type="button" onClick={() => { setMes(hojeS.slice(0, 7)); setFoco(hojeS) }} className={`h-7 px-2 rounded-md text-[12px] font-medium text-ln-t3 hover:text-ln-accent hover:bg-ln-accent/[0.07] ${FOCO}`}>{t('tarefas.calendario.hoje')}</button>
           )}
         </div>
         {(min || max) && (
           <p className="px-3 pb-2.5 -mt-1 text-[11px] leading-snug text-ln-t4">
-            {[textoMin, textoMax].filter(Boolean).join(' · ')}: bloqueado.
+            {t('tarefas.calendario.bloqueado', { textos: [textoMin, textoMax].filter(Boolean).join(' · ') })}
           </p>
         )}
       </div>
@@ -173,7 +186,8 @@ export function PopoverCalendario({ anchorRef, open, onClose, valor, onEscolher,
 }
 
 /** Substituto do <input type="date">: mesmo valor 'yyyy-mm-dd', com o calendário acima. */
-export function DataInput({ value, onChange, placeholder = 'Escolher data', className = '', 'aria-label': ariaLabel }) {
+export function DataInput({ value, onChange, placeholder = null, className = '', 'aria-label': ariaLabel }) {
+  const { t } = useI18n()
   const ref = useRef(null)
   const [aberto, setAberto] = useState(false)
   return (
@@ -183,11 +197,15 @@ export function DataInput({ value, onChange, placeholder = 'Escolher data', clas
         className={`ln-input flex items-center gap-2 text-left ${aberto ? '!border-ln-accent' : ''} ${className}`}
       >
         <CalendarDays className="w-3.5 h-3.5 text-ln-t4 shrink-0" />
-        <span className={`truncate ${value ? 'text-ln-t1' : 'text-ln-t4'}`}>{value ? fmtCurtoAno(value) : placeholder}</span>
+        <span className={`truncate ${value ? 'text-ln-t1' : 'text-ln-t4'}`}>{value ? fmtCurtoAno(value) : (placeholder ?? t('tarefas.calendario.escolherData'))}</span>
       </button>
       <PopoverCalendario anchorRef={ref} open={aberto} onClose={() => setAberto(false)} valor={value || ''} onEscolher={(v) => onChange(v)} />
     </>
   )
 }
 
-const fmtCurtoAno = (s) => { const d = deYmd(s); return `${DOW_CURTO[d.getDay()]}, ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` }
+const fmtCurtoAno = (s) => {
+  const d = deYmd(s)
+  const dd = String(d.getDate()).padStart(2, '0'), mm = String(d.getMonth() + 1).padStart(2, '0')
+  return ehPt() ? `${DOW_CURTO[d.getDay()]}, ${dd}/${mm}/${d.getFullYear()}` : `${diaCurto(d)}, ${mm}/${dd}/${d.getFullYear()}`
+}

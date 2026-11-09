@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { Eye, EyeOff, Zap, Lock, Mail, CheckCircle2 } from 'lucide-react'
+import { useI18n } from '../i18n'
 
 export default function Login() {
   const { login, loginWithGoogle, authError } = useApp()
   const navigate = useNavigate()
+  const { t } = useI18n()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -55,11 +57,11 @@ export default function Login() {
     try {
       const result = await loginWithGoogle()
       if (!result.ok) {
-        setError(result.error || 'Falha no login com Google. Tente novamente.')
+        setError(result.error || t('login.falhaGoogle'))
       }
       // On success, Supabase redirects the page — no navigate() needed
     } catch {
-      setError('Falha no login com Google. Tente novamente.')
+      setError(t('login.falhaGoogle'))
     } finally {
       setLoadingGoogle(false)
     }
@@ -79,10 +81,10 @@ export default function Login() {
         <div className="text-center mb-8">
           <img
             src="/verta/logo-vertical.png"
-            alt="Verta, aceleradora de receitas"
+            alt={t('login.logoAlt')}
             className="h-28 w-auto mx-auto mb-4 animate-float object-contain"
           />
-          <p className="text-rl-muted text-sm mt-1">Internal · Área Restrita</p>
+          <p className="text-rl-muted text-sm mt-1">{t('login.subtitulo')}</p>
         </div>
 
         {/* Card */}
@@ -92,27 +94,27 @@ export default function Login() {
             forgotSent ? (
               <div className="flex flex-col items-center gap-4 py-4 text-center">
                 <CheckCircle2 className="w-12 h-12 text-rl-green" />
-                <p className="text-rl-text font-semibold">E-mail enviado!</p>
-                <p className="text-rl-muted text-sm">Verifique sua caixa de entrada e clique no link para redefinir sua senha.</p>
+                <p className="text-rl-text font-semibold">{t('login.emailEnviado')}</p>
+                <p className="text-rl-muted text-sm">{t('login.emailEnviadoTexto')}</p>
                 <button onClick={() => { setForgotMode(false); setForgotSent(false); setForgotEmail('') }} className="mt-2 text-sm text-rl-purple hover:underline">
-                  Voltar ao login
+                  {t('login.voltarLogin')}
                 </button>
               </div>
             ) : (
               <>
-                <h2 className="text-lg font-semibold text-rl-text mb-1">Esqueci minha senha</h2>
-                <p className="text-rl-muted text-sm mb-6">Informe seu e-mail e enviaremos um link para redefinir a senha.</p>
+                <h2 className="text-lg font-semibold text-rl-text mb-1">{t('login.esqueci')}</h2>
+                <p className="text-rl-muted text-sm mb-6">{t('login.esqueciInstrucao')}</p>
 
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div>
-                    <label className="label-field">E-mail</label>
+                    <label className="label-field">{t('login.email')}</label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rl-muted" />
                       <input
                         type="email"
                         value={forgotEmail}
                         onChange={e => setForgotEmail(e.target.value)}
-                        placeholder="seu@revenuelab.com"
+                        placeholder={t('login.emailPlaceholder')}
                         className="input-field pl-10"
                         required
                         autoFocus
@@ -137,13 +139,13 @@ export default function Login() {
                     ) : (
                       <Mail className="w-4 h-4" />
                     )}
-                    Enviar link de redefinição
+                    {t('login.enviarLink')}
                   </button>
                 </form>
 
                 <div className="mt-5 text-center">
                   <button onClick={() => setForgotMode(false)} className="text-sm text-rl-muted hover:text-rl-text transition-colors">
-                    ← Voltar ao login
+                    ← {t('login.voltarLogin')}
                   </button>
                 </div>
               </>
@@ -151,20 +153,20 @@ export default function Login() {
           ) : (
             /* ── Login normal ── */
             <>
-              <h2 className="text-lg font-semibold text-rl-text mb-1">Bem-vindo de volta</h2>
-              <p className="text-rl-muted text-sm mb-6">Entre com suas credenciais para acessar o sistema.</p>
+              <h2 className="text-lg font-semibold text-rl-text mb-1">{t('login.bemVindo')}</h2>
+              <p className="text-rl-muted text-sm mb-6">{t('login.instrucao')}</p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Email */}
                 <div>
-                  <label className="label-field">E-mail</label>
+                  <label className="label-field">{t('login.email')}</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rl-muted" />
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="seu@revenuelab.com"
+                      placeholder={t('login.emailPlaceholder')}
                       className="input-field pl-10"
                       required
                     />
@@ -174,13 +176,13 @@ export default function Login() {
                 {/* Password */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="label-field !mb-0">Senha</label>
+                    <label className="label-field !mb-0">{t('login.senha')}</label>
                     <button
                       type="button"
                       onClick={() => setForgotMode(true)}
                       className="text-xs text-rl-muted hover:text-rl-purple transition-colors"
                     >
-                      Esqueci minha senha
+                      {t('login.esqueci')}
                     </button>
                   </div>
                   <div className="relative">
@@ -196,6 +198,7 @@ export default function Login() {
                     <button
                       type="button"
                       onClick={() => setShowPass(!showPass)}
+                      aria-label={showPass ? t('login.ocultarSenha') : t('login.mostrarSenha')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-rl-muted hover:text-rl-subtle transition-colors"
                     >
                       {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -220,12 +223,12 @@ export default function Login() {
                   {loading ? (
                     <>
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Entrando...
+                      {t('login.entrando')}
                     </>
                   ) : (
                     <>
                       <Zap className="w-4 h-4" />
-                      Entrar no Sistema
+                      {t('login.entrar')}
                     </>
                   )}
                 </button>
@@ -235,7 +238,7 @@ export default function Login() {
               <div className="mt-4">
                   <div className="relative flex items-center gap-3 my-4">
                     <div className="flex-1 h-px bg-rl-border" />
-                    <span className="text-rl-muted text-xs">ou</span>
+                    <span className="text-rl-muted text-xs">{t('login.ou')}</span>
                     <div className="flex-1 h-px bg-rl-border" />
                   </div>
                   <button
@@ -254,14 +257,14 @@ export default function Login() {
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                       </svg>
                     )}
-                    Entrar com Google
+                    {t('login.entrarGoogle')}
                   </button>
               </div>
 
               {/* Footer */}
               <div className="mt-6 pt-5 border-t border-rl-border text-center">
                 <p className="text-rl-muted text-xs">
-                  Credenciais de acesso fornecidas pelo administrador.
+                  {t('login.credenciais')}
                 </p>
               </div>
             </>
@@ -269,7 +272,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-rl-muted/40 text-xs mt-6">
-          Verta Internal v0.1 · Acesso apenas para colaboradores
+          {t('login.rodape')}
         </p>
       </div>
 

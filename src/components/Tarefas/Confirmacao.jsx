@@ -11,10 +11,12 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { AlertTriangle, Archive, Trash2, X } from 'lucide-react'
 import { FOCO } from './Campos'
+import { useI18n, t as tr } from '../../i18n'
 
 const MAX_ITENS = 3
 
 export function ConfirmarDialog({ titulo, texto = null, rotuloItens = null, itens = [], maxItens = MAX_ITENS, acao, acaoSecundaria = null, perigo = false, icone = null, onConfirmar, onSecundaria, onCancelar }) {
+  const { t } = useI18n()
   const cancelar = useRef(null)
   const confirmar = useRef(null)
   // `perigo` põe o foco no Cancelar: um Enter distraído não apaga nada
@@ -44,21 +46,21 @@ export function ConfirmarDialog({ titulo, texto = null, rotuloItens = null, iten
             <h2 id="confirmar-titulo" className="text-[15px] font-semibold text-ln-t1">{titulo}</h2>
             {texto && <p className="text-[13px] leading-relaxed text-ln-t3 mt-1">{texto}</p>}
           </div>
-          <button type="button" onClick={onCancelar} className={`ln-iconbtn -mr-1.5 -mt-1 ${FOCO}`} aria-label="Fechar"><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onCancelar} className={`ln-iconbtn -mr-1.5 -mt-1 ${FOCO}`} aria-label={t('comum.fechar')}><X className="w-4 h-4" /></button>
         </div>
         {itens.length > 0 && (
           <div className="mx-5 mt-4 rounded-lg border border-ln-ink/[0.08] bg-ln-ink/[0.02] px-3.5 py-2.5">
             {rotuloItens && <p className="text-[11px] text-ln-t4 mb-1">{rotuloItens}</p>}
             <ul className="space-y-0.5">
-              {itens.slice(0, maxItens).map((t, i) => (
-                <li key={i} className={`text-[13px] font-medium truncate ${perigo ? 'text-ln-red' : 'text-ln-t1'}`}>{t}</li>
+              {itens.slice(0, maxItens).map((it, i) => (
+                <li key={i} className={`text-[13px] font-medium truncate ${perigo ? 'text-ln-red' : 'text-ln-t1'}`}>{it}</li>
               ))}
             </ul>
-            {resto > 0 && <p className="text-xs text-ln-t4 mt-1">e mais {resto}</p>}
+            {resto > 0 && <p className="text-xs text-ln-t4 mt-1">{t('tarefas.confirmacao.eMais', { n: resto })}</p>}
           </div>
         )}
         <div className="flex justify-end gap-2 px-5 py-4 mt-1">
-          <button ref={cancelar} type="button" onClick={onCancelar} className={`inline-flex items-center h-8 px-3.5 rounded-md border border-ln-ink/[0.1] text-[13px] text-ln-t2 hover:bg-ln-ink/[0.04] ${FOCO}`}>Cancelar</button>
+          <button ref={cancelar} type="button" onClick={onCancelar} className={`inline-flex items-center h-8 px-3.5 rounded-md border border-ln-ink/[0.1] text-[13px] text-ln-t2 hover:bg-ln-ink/[0.04] ${FOCO}`}>{t('comum.cancelar')}</button>
           {acaoSecundaria && (
             <button type="button" onClick={onSecundaria} className={`inline-flex items-center h-8 px-3.5 rounded-md border border-ln-ink/[0.1] text-[13px] text-ln-t1 hover:bg-ln-ink/[0.04] ${FOCO}`}>{acaoSecundaria}</button>
           )}
@@ -96,6 +98,6 @@ export function useConfirmar() {
 
 /** "1 tarefa" / "3 tarefas" e, se houver, " e 2 subtarefas". */
 export function contarTarefas(n, nSubs = 0) {
-  const t = n === 1 ? '1 tarefa' : `${n} tarefas`
-  return nSubs ? `${t} e ${nSubs === 1 ? '1 subtarefa' : `${nSubs} subtarefas`}` : t
+  const tarefas = tr('tarefas.confirmacao.nTarefas', { count: n })
+  return nSubs ? tr('tarefas.confirmacao.tarefasESubs', { tarefas, subs: tr('tarefas.confirmacao.nSubtarefas', { count: nSubs }) }) : tarefas
 }

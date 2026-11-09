@@ -19,23 +19,30 @@ import RegistroModal from './RegistroModal'
 // sob demanda: o VertaTask só é baixado quando a aba Tarefas abre
 const TarefasDoCliente = lazy(() => import('../Tarefas/TarefasDoCliente'))
 import NovaTarefaClickUpModal from './NovaTarefaClickUpModal'
+import { useI18n, localeAtual } from '../../i18n'
+import { rotuloStatus } from '../../lib/tarefas'
 
-const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-const CANAL_LABEL = { meta: 'Meta Ads', google: 'Google Ads', ambos: 'Meta + Google', outro: 'Outro' }
+const CANAL_LABEL = { meta: 'Meta Ads', google: 'Google Ads', ambos: 'Meta + Google', outro: 'hub.canais.outro' }
 const fmtData = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '')
 const fmtDataHora = (ts) => {
   if (!ts) return ''
   const d = new Date(ts)
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
-const mesLabel = (iso) => (iso ? `${MESES[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}` : 'Sem data')
+// Rótulo do mês no idioma atual ("Novembro 2026" / "November 2026"); quem agrupa num useMemo põe `lang` nas dependências.
+const mesLabel = (iso, semData) => {
+  if (!iso) return semData
+  const m = new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, 1).toLocaleDateString(localeAtual(), { month: 'long' })
+  return `${m.charAt(0).toUpperCase()}${m.slice(1)} ${iso.slice(0, 4)}`
+}
 
+// O rótulo de cada tipo é `hub.tipos.<kind>`
 const KIND = {
-  otimizacao: { label: 'Otimização', Icon: Wrench, cls: 'fx-soft' },
-  anotacao: { label: 'Anotação', Icon: StickyNote, cls: 'fx-soft' },
-  planejada: { label: 'Tarefa planejada', Icon: Kanban, cls: 'fx-soft' },
-  tarefa: { label: 'Tarefa', Icon: ListChecks, cls: 'fx-soft' },
-  reuniao: { label: 'Reunião', Icon: Users, cls: 'fx-soft' },
+  otimizacao: { Icon: Wrench, cls: 'fx-soft' },
+  anotacao: { Icon: StickyNote, cls: 'fx-soft' },
+  planejada: { Icon: Kanban, cls: 'fx-soft' },
+  tarefa: { Icon: ListChecks, cls: 'fx-soft' },
+  reuniao: { Icon: Users, cls: 'fx-soft' },
 }
 
 // Abas que listam a timeline (filtrada por tipo). Resumo, Tarefas e Sugestões têm tela própria;
@@ -50,9 +57,11 @@ const TAB_KINDS = {
 // Sugestões do playbook pendentes e já decididas. Fica no ClientProfile (o menu mostra o
 // número de pendentes mesmo com um módulo aberto) e desce pro HubCentro.
 export function useSugestoesHub(dash, hub) {
+  // `lang`: o texto das sugestões sai no idioma atual, então a troca de idioma regera.
+  const { lang } = useI18n()
   const todas = useMemo(() => gerarSugestoesProjeto({
     meta: dash.raw?.meta || [], google: dash.raw?.google || [], accounts: dash.accounts || {},
-  }), [dash.raw, dash.accounts])
+  }), [dash.raw, dash.accounts, lang]) // eslint-disable-line react-hooks/exhaustive-deps
   const hoje = hojeISO()
   const statusPorChave = useMemo(() => new Map(hub.sugestoesStatus.map((s) => [s.chave, s])), [hub.sugestoesStatus])
   const pendentes = useMemo(() => todas.filter((s) => {
@@ -69,6 +78,7 @@ export function useSugestoesHub(dash, hub) {
 
 
 function Item({ item, expandido = false, nomes, onEditar, onNavigate }) {
+  const { t, locale } = useI18n()
   const [aberto, setAberto] = useState(false)
   const mostrar = expandido || aberto
   const k = KIND[item.kind]
@@ -77,19 +87,19 @@ function Item({ item, expandido = false, nomes, onEditar, onNavigate }) {
 
   let sub = null, corpo = null
   if (item.kind === 'otimizacao') {
-    sub = [CANAL_LABEL[r.canal], r.campanha, r.autor_nome].filter(Boolean).join(' · ')
+    sub = [CANAL_LABEL[r.canal]?.startsWith('hub.') ? t(CANAL_LABEL[r.canal]) : CANAL_LABEL[r.canal], r.campanha, r.autor_nome].filter(Boolean).join(' · ')
     corpo = (
       <div className="space-y-1.5">
         {r.motivo && <p className="text-xs text-rl-subtle whitespace-pre-wrap">{r.motivo}</p>}
         {r.metricas_antes && (
           <div className="flex flex-wrap gap-1.5">
             {Object.entries(r.metricas_antes).map(([m, v]) => (
-              <span key={m} className="text-[11px] px-2 py-0.5 rounded-md bg-rl-surface border border-rl-border text-rl-subtle">antes · {m.toUpperCase()}: <span className="text-rl-text font-medium">{typeof v === 'number' ? v.toLocaleString('pt-BR') : v}</span></span>
+              <span key={m} className="text-[11px] px-2 py-0.5 rounded-md bg-rl-surface border border-rl-border text-rl-subtle">{t('hub.item.antes')} · {m.toUpperCase()}: <span className="text-rl-text font-medium">{typeof v === 'number' ? v.toLocaleString(locale) : v}</span></span>
             ))}
           </div>
         )}
-        {r.resultado && <p className="text-xs text-rl-green">Resultado: {r.resultado}</p>}
-        {r.origem === 'sugestao' && <p className="text-[11px] text-rl-muted flex items-center gap-1"><Sparkles className="w-3 h-3" /> originada de uma sugestão do playbook</p>}
+        {r.resultado && <p className="text-xs text-rl-green">{t('hub.item.resultado', { resultado: r.resultado })}</p>}
+        {r.origem === 'sugestao' && <p className="text-[11px] text-rl-muted flex items-center gap-1"><Sparkles className="w-3 h-3" /> {t('hub.item.origemSugestao')}</p>}
       </div>
     )
   } else if (item.kind === 'anotacao') {
@@ -97,19 +107,19 @@ function Item({ item, expandido = false, nomes, onEditar, onNavigate }) {
     corpo = r.motivo ? <p className="text-xs text-rl-subtle whitespace-pre-wrap">{r.motivo}</p> : null
   } else if (item.kind === 'planejada') {
     const resp = nomes.get(r.responsavel_profile_id)
-    sub = [resp, r.tipo_tarefa, item.prazo ? `entrega ${fmtData(item.prazo)}` : null, r.status === 'erro' ? 'erro ao criar' : null].filter(Boolean).join(' · ')
+    sub = [resp, r.tipo_tarefa, item.prazo ? t('hub.item.entrega', { data: fmtData(item.prazo) }) : null, r.status === 'erro' ? t('hub.item.erroCriar') : null].filter(Boolean).join(' · ')
     // Briefing em markdown, recortado na altura (line-clamp não funciona com blocos aninhados)
     corpo = r.descricao ? <div className="text-rl-subtle max-h-28 overflow-hidden"><MarkdownView content={r.descricao} className="md-prose--xs" /></div> : null
   } else if (item.kind === 'tarefa') {
     const resp = (r.responsaveis || []).map((id) => nomes.get(id)).filter(Boolean).concat((r.responsaveis_extra || []).map((x) => x.nome)).join(', ')
-    sub = [item.lista, resp, r.status, item.prazo ? `vence ${fmtData(item.prazo)}` : null].filter(Boolean).join(' · ')
+    sub = [item.lista, resp, rotuloStatus(r.status), item.prazo ? t('hub.item.vence', { data: fmtData(item.prazo) }) : null].filter(Boolean).join(' · ')
   } else if (item.kind === 'reuniao') {
     const acoes = Array.isArray(r.next_actions) ? r.next_actions : []
-    sub = [item.data ? fmtLonga(item.data) : null, acoes.length ? `${acoes.length} próxima${acoes.length > 1 ? 's' : ''} ação${acoes.length > 1 ? 'ões' : ''}` : null].filter(Boolean).join(' · ')
+    sub = [item.data ? fmtLonga(item.data) : null, acoes.length ? t('hub.item.proximasAcoes', { count: acoes.length }) : null].filter(Boolean).join(' · ')
     corpo = (
       <div className="space-y-1">
         {acoes.slice(0, 5).map((a, i) => <p key={i} className="text-xs text-rl-subtle">• {typeof a === 'string' ? a : a.text || a.acao || a.title || JSON.stringify(a)}</p>)}
-        <button onClick={() => onNavigate('atas')} className="text-xs text-rl-purple hover:underline">Abrir ata</button>
+        <button onClick={() => onNavigate('atas')} className="text-xs text-rl-purple hover:underline">{t('hub.item.abrirAta')}</button>
       </div>
     )
   }
@@ -117,7 +127,7 @@ function Item({ item, expandido = false, nomes, onEditar, onNavigate }) {
   return (
     <div className="glass-card border border-rl-border/60 px-4 py-3">
       <div className="flex items-start gap-3">
-        <button onClick={() => setAberto((v) => !v)} className="mt-1 p-0.5 rounded text-rl-muted hover:text-rl-text" aria-label="Expandir">
+        <button onClick={() => setAberto((v) => !v)} className="mt-1 p-0.5 rounded text-rl-muted hover:text-rl-text" aria-label={t('hub.expandir')}>
           {mostrar ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
         <span className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${k.cls}`}><k.Icon className="w-4 h-4" /></span>
@@ -126,13 +136,13 @@ function Item({ item, expandido = false, nomes, onEditar, onNavigate }) {
             <p className={`text-sm font-semibold text-rl-text truncate ${item.fechada ? 'line-through opacity-60' : ''}`}>{item.titulo}</p>
             {item.kind === 'tarefa' && (item.fechada ? <CheckCircle2 className="w-3.5 h-3.5 text-rl-green shrink-0" /> : <Clock className="w-3.5 h-3.5 text-rl-muted shrink-0" />)}
           </div>
-          <p className="text-[11px] text-rl-muted mt-0.5 truncate">{k.label}{sub ? ` · ${sub}` : ''}</p>
+          <p className="text-[11px] text-rl-muted mt-0.5 truncate">{t(`hub.tipos.${item.kind}`)}{sub ? ` · ${sub}` : ''}</p>
           {mostrar && corpo && <div className="mt-2">{corpo}</div>}
         </div>
         <div className="flex items-center gap-1 shrink-0 text-[11px] text-rl-muted">
           <span title={item.ts}>{item.kind === 'otimizacao' || item.kind === 'anotacao' ? fmtData(item.data) : fmtDataHora(item.ts)}</span>
-          {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-rl-surface hover:text-rl-purple" title="Abrir no ClickUp"><ExternalLink className="w-3.5 h-3.5" /></a>}
-          {editavel && <button onClick={() => onEditar(r)} className="p-1 rounded-md hover:bg-rl-surface hover:text-rl-text" title="Editar"><Pencil className="w-3.5 h-3.5" /></button>}
+          {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-rl-surface hover:text-rl-purple" title={t('hub.abrirClickup')}><ExternalLink className="w-3.5 h-3.5" /></a>}
+          {editavel && <button onClick={() => onEditar(r)} className="p-1 rounded-md hover:bg-rl-surface hover:text-rl-text" title={t('comum.editar')}><Pencil className="w-3.5 h-3.5" /></button>}
         </div>
       </div>
     </div>
@@ -142,6 +152,7 @@ function Item({ item, expandido = false, nomes, onEditar, onNavigate }) {
 // Espelho do Dashboard de Tráfego (API) travado na conta do projeto: o mesmo
 // viewer de /dashboard-teste, em modo ?embed=1 (sem "Voltar", sem gravar navegação).
 export function ResultadosEmbed({ contas, ativa, onTrocar, loading, apresentacao = false }) {
+  const { t } = useI18n()
   // Tela cheia: o mesmo iframe muda só de posição (fixed) pra não recarregar o dashboard
   const [cheia, setCheia] = useState(false)
   useEffect(() => {
@@ -153,13 +164,13 @@ export function ResultadosEmbed({ contas, ativa, onTrocar, loading, apresentacao
   }, [cheia])
 
   if (loading && contas.length === 0) {
-    return <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Lendo o dashboard de tráfego…</div>
+    return <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> {t('hub.lendoDashboard')}</div>
   }
   if (contas.length === 0) {
     return (
       <div className="text-center py-10">
-        <p className="text-sm text-rl-subtle">Nenhuma conta de anúncio vinculada a este projeto no dashboard.</p>
-        <p className="text-xs text-rl-muted mt-1">Vincule a conta em Dashboard de Tráfego → conta → projeto.</p>
+        <p className="text-sm text-rl-subtle">{t('hub.semConta')}</p>
+        <p className="text-xs text-rl-muted mt-1">{t('hub.embed.vincular')}</p>
       </div>
     )
   }
@@ -173,9 +184,9 @@ export function ResultadosEmbed({ contas, ativa, onTrocar, loading, apresentacao
     </button>
   ))
   const botao = (
-    <button onClick={() => setCheia((v) => !v)} className="btn-secondary text-xs flex items-center gap-1.5 !px-3 !py-1.5 ml-auto" title={cheia ? 'Minimizar (Esc)' : 'Ver em tela cheia'}>
+    <button onClick={() => setCheia((v) => !v)} className="btn-secondary text-xs flex items-center gap-1.5 !px-3 !py-1.5 ml-auto" title={cheia ? t('hub.embed.minimizarEsc') : t('hub.embed.verTelaCheia')}>
       {cheia ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-      {cheia ? 'Minimizar' : 'Tela cheia'}
+      {cheia ? t('hub.embed.minimizar') : t('hub.embed.telaCheia')}
     </button>
   )
   return (
@@ -189,7 +200,7 @@ export function ResultadosEmbed({ contas, ativa, onTrocar, loading, apresentacao
         <iframe
           key={src}
           src={src}
-          title={`Dashboard de Tráfego · ${c.conta}`}
+          title={t('hub.embed.iframeTitulo', { conta: c.conta })}
           className="w-full border-0 block"
           style={cheia ? { height: '100%' } : { minHeight: 'calc(100vh - 230px)', height: 1600 }}
         />
@@ -199,6 +210,7 @@ export function ResultadosEmbed({ contas, ativa, onTrocar, loading, apresentacao
 }
 
 export default function HubCentro({ project, hub, dash, config, showToast, onNavigate, acaoRapida = null, tab = 'resumo', onAbrirTab, sugestoes }) {
+  const { t, lang } = useI18n()
   const { teamMembers } = useApp()
   const [modal, setModal] = useState(null) // { tipo:'registro', registro?, tipoInicial } | { tipo:'tarefa', sugestao? }
 
@@ -222,15 +234,15 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
   // as abas agrupam por mês
   const grupos = useMemo(() => {
     const m = new Map()
-    for (const it of itens) { const k = mesLabel(it.data); if (!m.has(k)) m.set(k, []); m.get(k).push(it) }
+    for (const it of itens) { const k = mesLabel(it.data, t('hub.semData')); if (!m.has(k)) m.set(k, []); m.get(k).push(it) }
     return [...m.entries()]
-  }, [itens])
+  }, [itens, t, lang]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Ações ─────────────────────────────────────────────────────────────────
   async function descartar(s) {
     try {
       await hub.marcarSugestao(s, 'descartada', { valida_ate: addDays(hoje, 14) })
-      showToast('Sugestão descartada por 14 dias')
+      showToast(t('hub.toast.descartada'))
     } catch (e) { showToast(e.message, 'error') }
   }
   async function tarefaCriada(r, sugestao) {
@@ -248,7 +260,7 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
         <ResumoHub dash={dash} timeline={hub.timeline} sugestoesPendentes={sugestoesPendentes.length} onAbrirSugestoes={() => onAbrirTab('sugestoes')}
           onAbrirTab={(id) => (id === 'resultados' ? onNavigate('trafego') : onAbrirTab(id))} />
       ) : tab === 'tarefas' ? (
-        <Suspense fallback={<div className="flex items-center justify-center gap-2 py-20 text-sm text-rl-muted"><Loader2 className="w-4 h-4 animate-spin" /> Carregando tarefas…</div>}>
+        <Suspense fallback={<div className="flex items-center justify-center gap-2 py-20 text-sm text-rl-muted"><Loader2 className="w-4 h-4 animate-spin" /> {t('hub.carregandoTarefas')}</div>}>
           <TarefasDoCliente project={project} />
         </Suspense>
       ) : tab === 'sugestoes' ? (
@@ -262,11 +274,11 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
           onRecarregar={dash.reload}
         />
       ) : hub.loading && hub.timeline.length === 0 ? (
-        <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Carregando atividades…</div>
+        <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> {t('hub.carregandoAtividades')}</div>
       ) : itens.length === 0 ? (
         <div className="text-center py-10">
-          <p className="text-sm text-rl-subtle">Nada por aqui ainda.</p>
-          <p className="text-xs text-rl-muted mt-1">Use as ações rápidas da coluna à esquerda pra registrar uma otimização, anotação ou tarefa.</p>
+          <p className="text-sm text-rl-subtle">{t('hub.vazio')}</p>
+          <p className="text-xs text-rl-muted mt-1">{t('hub.vazioDica')}</p>
         </div>
       ) : (
         <div className="space-y-5">
@@ -293,10 +305,10 @@ export default function HubCentro({ project, hub, dash, config, showToast, onNav
           tipoInicial={modal.tipoInicial}
           onClose={() => setModal(null)}
           onSalvar={async (dados) => {
-            if (modal.registro) { await hub.atualizarRegistro(modal.registro.id, dados); showToast('Registro atualizado') }
-            else { await hub.adicionarRegistro(dados); showToast(dados.tipo === 'anotacao' ? 'Anotação salva' : 'Otimização registrada') }
+            if (modal.registro) { await hub.atualizarRegistro(modal.registro.id, dados); showToast(t('hub.toast.atualizado')) }
+            else { await hub.adicionarRegistro(dados); showToast(dados.tipo === 'anotacao' ? t('hub.toast.anotacaoSalva') : t('hub.toast.otimizacaoRegistrada')) }
           }}
-          onExcluir={modal.registro ? (id) => hub.removerRegistro(id).then(() => showToast('Registro excluído')) : null}
+          onExcluir={modal.registro ? (id) => hub.removerRegistro(id).then(() => showToast(t('hub.toast.excluido'))) : null}
         />
       )}
       {modal?.tipo === 'tarefa' && (

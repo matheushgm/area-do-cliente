@@ -10,56 +10,63 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronDown, CheckCircle2, LayoutDashboard, Kanban, StickyNote, Sparkles, Wrench } from 'lucide-react'
 import ModulosMenu from './ModulosMenu'
+import { t, useI18n } from '../../i18n'
 
 const ABAS = {
-  'aba:resumo': { label: 'Visão geral', icon: LayoutDashboard, color: 'text-rl-purple' },
-  'aba:tarefas': { label: 'Tarefas', icon: Kanban, color: 'text-rl-purple' },
-  'aba:anotacoes': { label: 'Anotações', icon: StickyNote, color: 'text-rl-gold' },
-  'aba:sugestoes': { label: 'Sugestões', icon: Sparkles, color: 'text-rl-purple' },
-  'aba:otimizacoes': { label: 'Otimizações', icon: Wrench, color: 'text-rl-cyan' },
+  'aba:resumo': { label: 'menuCliente.visaoGeral', icon: LayoutDashboard, color: 'text-rl-purple' },
+  'aba:tarefas': { label: 'menuCliente.tarefas', icon: Kanban, color: 'text-rl-purple' },
+  'aba:anotacoes': { label: 'menuCliente.anotacoes', icon: StickyNote, color: 'text-rl-gold' },
+  'aba:sugestoes': { label: 'menuCliente.sugestoes', icon: Sparkles, color: 'text-rl-purple' },
+  'aba:otimizacoes': { label: 'menuCliente.otimizacoes', icon: Wrench, color: 'text-rl-cyan' },
 }
 
+// Os rótulos de menu, grupo, item e de ABAS são chaves do i18n; montarMenu traduz.
 export const MENU_CLIENTE = [
   // Ordem pedida pelo Matheus (2026-10-27): Cliente, Projetos, Resultados, Planejamento, Criação.
-  { id: 'cliente', label: 'Cliente', grupos: [
-    { label: 'Cadastro', itens: ['dados', 'banco-midia', 'links', 'anexos'] },
-    { label: 'Estratégia', itens: ['kickoff', 'produtos', 'icp', 'oferta', 'estrategiav2', 'ferramentas'] },
+  { id: 'cliente', label: 'menuCliente.menus.cliente', grupos: [
+    { label: 'menuCliente.grupos.cadastro', itens: ['dados', 'banco-midia', 'links', 'anexos'] },
+    { label: 'menuCliente.grupos.estrategia', itens: ['kickoff', 'produtos', 'icp', 'oferta', 'estrategiav2', 'ferramentas'] },
   ] },
-  { id: 'projeto', label: 'Projetos', grupos: [
-    { itens: ['aba:tarefas', { id: 'atas', label: 'Reuniões' }, 'aba:anotacoes', 'jornada', 'nps'] },
+  { id: 'projeto', label: 'menuCliente.menus.projetos', grupos: [
+    { itens: ['aba:tarefas', { id: 'atas', label: 'menuCliente.itens.reunioes' }, 'aba:anotacoes', 'jornada', 'nps'] },
   ] },
   // Otimização logo depois do desempenho: ler o resultado e agir.
   // `colunas: 1` = grupos um embaixo do outro (painel estreito, abre para a direita do botão)
-  { id: 'resultados', label: 'Resultados', colunas: 1, grupos: [
-    { label: 'Desempenho', itens: [{ id: 'trafego', label: 'Resultados de Tráfego' }, { id: 'resultados', label: 'Resultados de Funil' }] },
-    { label: 'Otimização', itens: ['aba:sugestoes', 'aba:otimizacoes'] },
-    { label: 'Leads e vendas', itens: [{ id: 'crm', beta: true }, 'bancodados'] },
+  { id: 'resultados', label: 'menuCliente.menus.resultados', colunas: 1, grupos: [
+    { label: 'menuCliente.grupos.desempenho', itens: [{ id: 'trafego', label: 'menuCliente.itens.trafego' }, { id: 'resultados', label: 'menuCliente.itens.funil' }] },
+    { label: 'menuCliente.grupos.otimizacao', itens: ['aba:sugestoes', 'aba:otimizacoes'] },
+    { label: 'menuCliente.grupos.leadsVendas', itens: [{ id: 'crm', beta: true }, 'bancodados'] },
   ] },
-  { id: 'planejamento', label: 'Planejamento', grupos: [
+  { id: 'planejamento', label: 'menuCliente.menus.planejamento', grupos: [
     { itens: [
-      { id: 'roi', label: 'Calc. de ROI' },
-      { id: 'campaign', label: 'Plan. de campanhas' },
-      { id: 'metalab', label: 'Lab. Meta Ads' },
-      { id: 'googleads', label: 'Lab. Google Ads' },
+      { id: 'roi', label: 'menuCliente.itens.roi' },
+      { id: 'campaign', label: 'menuCliente.itens.campanhas' },
+      { id: 'metalab', label: 'menuCliente.itens.metaLab' },
+      { id: 'googleads', label: 'menuCliente.itens.googleLab' },
     ] },
   ] },
-  { id: 'criacao', label: 'Criação', grupos: [
-    { label: 'Anúncios', itens: ['criativos', 'debriefing'] },
-    { label: 'Landing pages', itens: [{ id: 'landingpage', label: 'Criação de LP' }, { id: 'lpcentral', label: 'Central de LPs' }, { id: 'clarity', beta: true }] },
+  { id: 'criacao', label: 'menuCliente.menus.criacao', grupos: [
+    { label: 'menuCliente.grupos.anuncios', itens: ['criativos', 'debriefing'] },
+    { label: 'menuCliente.grupos.landingPages', itens: [{ id: 'landingpage', label: 'menuCliente.itens.criacaoLp' }, { id: 'lpcentral', label: 'menuCliente.itens.centralLps' }, { id: 'clarity', beta: true }] },
   ] },
 ]
 
-// Resolve o menu com ícone, cor e "preenchido" de cada módulo (NAV_ITEMS do ClientProfile)
+// Resolve o menu com ícone, cor e "preenchido" de cada módulo (NAV_ITEMS do ClientProfile).
+// Devolve os rótulos já traduzidos (no idioma atual): chame no render de quem usa useI18n.
+// O rótulo dos módulos (NAV_ITEMS) vem pronto de quem chama.
 export function montarMenu(modulos) {
   const porId = new Map(modulos.map((m) => [m.id, m]))
   return MENU_CLIENTE.map((menu) => ({
     ...menu,
+    label: t(menu.label),
     grupos: menu.grupos.map((g) => ({
       ...g,
+      label: g.label ? t(g.label) : g.label,
       itens: g.itens.map((it) => {
         const id = typeof it === 'string' ? it : it.id
-        const base = ABAS[id] || porId.get(id) || { label: id }
-        return { ...base, id, label: (typeof it === 'object' && it.label) || base.label, beta: typeof it === 'object' && !!it.beta }
+        const aba = ABAS[id] && { ...ABAS[id], label: t(ABAS[id].label) }
+        const base = aba || porId.get(id) || { label: id }
+        return { ...base, id, label: (typeof it === 'object' && it.label && t(it.label)) || base.label, beta: typeof it === 'object' && !!it.beta }
       }),
     })),
   }))
@@ -80,6 +87,7 @@ function Badge({ n, destaque }) {
 }
 
 function ItemMenu({ item, ativo, contagens, onClick }) {
+  const { t } = useI18n()
   const Icon = item.icon
   const n = contagens[item.id] || 0
   return (
@@ -89,7 +97,7 @@ function ItemMenu({ item, ativo, contagens, onClick }) {
     >
       {Icon && <Icon className={`w-4 h-4 shrink-0 ${ativo ? 'text-rl-purple' : item.color || 'text-rl-muted'}`} />}
       <span className="flex-1 min-w-0">{item.label}</span>
-      {item.beta && <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-rl-gold/15 text-rl-gold">Beta</span>}
+      {item.beta && <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-rl-gold/15 text-rl-gold">{t('menuCliente.beta')}</span>}
       <Badge n={n} destaque={item.id === 'aba:sugestoes'} />
       {item.filled && !ativo && <CheckCircle2 className="w-3 h-3 shrink-0 text-rl-green opacity-80" />}
     </button>
@@ -157,6 +165,7 @@ function Painel({ largura, children }) {
 // Barra do desktop (e tablet): cada menu abre um painel com os grupos lado a lado.
 // Com um menu aberto, passar o mouse em outro troca (como uma barra de menus).
 export default function MenuCliente({ menus, ativa, contagens = {}, onEscolher, antes = null }) {
+  const { t } = useI18n()
   const [aberto, setAberto] = useState(null)
   const ref = useRef(null)
 
@@ -179,7 +188,7 @@ export default function MenuCliente({ menus, ativa, contagens = {}, onEscolher, 
       {antes}
       <div className="flex flex-wrap items-center gap-0.5 min-w-0 flex-1">
         <Gatilho ativo={ativa === 'aba:resumo'} onClick={() => escolher('aba:resumo')}>
-          <LayoutDashboard className="w-3.5 h-3.5" /> Visão geral
+          <LayoutDashboard className="w-3.5 h-3.5" /> {t('menuCliente.visaoGeral')}
         </Gatilho>
         {menus.map((menu) => {
           const n = totalMenu(menu)
@@ -212,9 +221,10 @@ export default function MenuCliente({ menus, ativa, contagens = {}, onEscolher, 
 
 // Versão em lista (drawer do mobile): os mesmos menus, um embaixo do outro
 export function MenuClienteLista({ menus, ativa, contagens = {}, onEscolher }) {
+  const { t } = useI18n()
   return (
     <div className="p-2 space-y-3">
-      <ItemMenu item={{ id: 'aba:resumo', ...ABAS['aba:resumo'] }} ativo={ativa === 'aba:resumo'} contagens={contagens} onClick={() => onEscolher('aba:resumo')} />
+      <ItemMenu item={{ id: 'aba:resumo', ...ABAS['aba:resumo'], label: t(ABAS['aba:resumo'].label) }} ativo={ativa === 'aba:resumo'} contagens={contagens} onClick={() => onEscolher('aba:resumo')} />
       {menus.map((menu) => (
         <div key={menu.id}>
           <p className="px-2.5 pb-1 text-xs font-semibold text-rl-text flex items-center gap-1.5">

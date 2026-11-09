@@ -1,5 +1,10 @@
 // ─── Aplicação direta — geração estruturada da copy ───────────────────────────
 import { APLICACAO_WIREFRAME } from './aplicacaoSchema'
+import { t } from '../../i18n'
+
+// Rótulos da versão em texto (no idioma de quem está usando): wireframes.texto.* e wireframes.secao.*
+const R = (k, vars) => t(`wireframes.texto.${k}`, vars)
+const S = (k, quebra) => `${quebra ? '\n' : ''}## ${t(`wireframes.secao.${k}`).toUpperCase()}`
 
 export const APLICACAO_SYSTEM = `Você é um especialista em copy de alta conversão para páginas de APLICAÇÃO DIRETA (captação com formulário na primeira dobra para agendar reunião estratégica), usando a metodologia Revenue Lab.
 
@@ -119,66 +124,66 @@ export function aplicacaoToText(content) {
   const L = []
   const push = (label, val) => { if (val?.trim?.()) L.push(`**${label}:** ${val.trim()}`) }
 
-  L.push('## HERO')
-  push('Selo', c.heroBadge)
-  push('Headline', c.headline)
+  L.push(S('hero'))
+  push(R('selo'), c.heroBadge)
+  push(R('headline'), c.headline)
   ;(c.heroBullets || []).forEach((b) => { if (b?.trim()) L.push(`- ${b.trim()}`) })
-  push('Garantia', c.heroGuarantee)
-  push('Tags', (c.heroTags || []).filter(Boolean).join(', '))
-  push('Formulário (título)', c.heroFormTitle)
-  push('Formulário (CTA)', c.heroFormCta)
+  push(R('garantia'), c.heroGuarantee)
+  push(R('tags'), (c.heroTags || []).filter(Boolean).join(', '))
+  push(R('formTitulo'), c.heroFormTitle)
+  push(R('formCta'), c.heroFormCta)
 
-  L.push('\n## DORES & SOLUÇÕES')
-  push('Título', c.painsTitle)
-  push('Subtítulo', c.painsSubtitle)
+  L.push(S('doresSolucoes', true))
+  push(R('titulo'), c.painsTitle)
+  push(R('subtitulo'), c.painsSubtitle)
   ;(c.pains || []).forEach((p, i) => {
-    if (p.pain?.trim() || p.solution?.trim()) L.push(`- Dor ${i + 1}: ${p.pain || ''} → ${p.solution || ''}`.trim())
+    if (p.pain?.trim() || p.solution?.trim()) L.push(`- ${R('dor', { n: i + 1 })}: ${p.pain || ''} → ${p.solution || ''}`.trim())
   })
 
-  L.push('\n## SEM × COM')
-  push('Título', c.comparisonTitle)
-  push('Coluna negativa', c.withoutTitle)
-  ;(c.without || []).forEach((x) => { if (x?.trim()) L.push(`- (sem) ${x.trim()}`) })
-  push('Coluna positiva', c.withTitle)
-  ;(c.with || []).forEach((x) => { if (x?.trim()) L.push(`- (com) ${x.trim()}`) })
+  L.push(S('semCom', true))
+  push(R('titulo'), c.comparisonTitle)
+  push(R('colunaNegativa'), c.withoutTitle)
+  ;(c.without || []).forEach((x) => { if (x?.trim()) L.push(`- ${R('sem')} ${x.trim()}`) })
+  push(R('colunaPositiva'), c.withTitle)
+  ;(c.with || []).forEach((x) => { if (x?.trim()) L.push(`- ${R('com')} ${x.trim()}`) })
 
-  L.push('\n## O SISTEMA')
-  push('Título', c.systemTitle)
-  push('Subtítulo', c.systemSubtitle)
+  L.push(S('sistema', true))
+  push(R('titulo'), c.systemTitle)
+  push(R('subtitulo'), c.systemSubtitle)
   ;(c.systemPillars || []).forEach((p) => {
     if (p.tag?.trim() || p.title?.trim() || p.desc?.trim()) L.push(`- ${p.tag || ''}: ${p.title || ''} — ${p.desc || ''}`.trim())
   })
-  push('Núcleo (selo)', c.systemCoreBadge)
-  push('Núcleo (título)', c.systemCoreTitle)
-  push('Núcleo (texto)', c.systemCoreText)
+  push(R('nucleoSelo'), c.systemCoreBadge)
+  push(R('nucleoTitulo'), c.systemCoreTitle)
+  push(R('nucleoTexto'), c.systemCoreText)
 
-  L.push('\n## AUTORIDADE & PROVA')
-  push('Título', c.authorityTitle)
-  push('Texto', c.authorityText)
-  push('Legenda', c.authorityCaption)
-  push('Cases', c.resultsTitle)
+  L.push(S('autoridade', true))
+  push(R('titulo'), c.authorityTitle)
+  push(R('texto'), c.authorityText)
+  push(R('legenda'), c.authorityCaption)
+  push(R('cases'), c.resultsTitle)
   ;(c.results || []).forEach((r) => {
     if (r.value?.trim() || r.desc?.trim()) L.push(`- ${r.value || ''}: ${r.desc || ''}`.trim())
   })
 
-  L.push('\n## O QUE RECEBE NA REUNIÃO')
-  push('Título', c.methodTitle)
-  push('Subtítulo', c.methodSubtitle)
+  L.push(S('oQueRecebe', true))
+  push(R('titulo'), c.methodTitle)
+  push(R('subtitulo'), c.methodSubtitle)
   ;(c.steps || []).forEach((s, i) => {
-    if (s.title?.trim() || s.desc?.trim()) L.push(`- Passo ${i + 1} (${s.tag || ''}): ${s.title || ''} — ${s.desc || ''}`.trim())
+    if (s.title?.trim() || s.desc?.trim()) L.push(`- ${R('passo', { n: i + 1 })} (${s.tag || ''}): ${s.title || ''} — ${s.desc || ''}`.trim())
   })
 
-  L.push('\n## OBJEÇÕES')
-  push('Título', c.objectionsTitle)
+  L.push(S('objecoes', true))
+  push(R('titulo'), c.objectionsTitle)
   ;(c.objections || []).forEach((o) => {
     if (o.objection?.trim() || o.rebuttal?.trim()) L.push(`- "${o.objection || ''}" → ${o.rebuttal || ''}`.trim())
   })
 
-  L.push('\n## FORMULÁRIO / CTA FINAL')
-  push('Título', c.ctaTitle)
-  push('Subtítulo', c.ctaSubtitle)
-  push('CTA', c.formCta)
-  push('Rodapé', c.footerNote)
+  L.push(S('formFinal', true))
+  push(R('titulo'), c.ctaTitle)
+  push(R('subtitulo'), c.ctaSubtitle)
+  push(R('cta'), c.formCta)
+  push(R('rodape'), c.footerNote)
 
   return L.join('\n')
 }

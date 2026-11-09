@@ -2,6 +2,8 @@
 // compromisso → acompanhar → tratar o transbordo), com uma sprint para cada pessoa por semana.
 // Horas sempre em minutos aqui dentro; datas de sprint são 'YYYY-MM-DD' locais, como em vertatask.js.
 import { paraDiaLocal, paraISODia, hojeISO, somarDias, diasEntre, fmtDiaMes, fmtHoras } from './vertatask'
+import { rotuloTipoTarefa, rotuloDificuldade } from './tarefas'
+import { t, localeAtual } from '../i18n'
 
 // Espelho do DEFAULT_CONFIG de api/_atividades_engine.js, só para a tela não quebrar sem a API.
 // A fonte de verdade é a action=config de /api/atividades, a mesma da Capacidade do time.
@@ -16,8 +18,9 @@ export const FOLGA_RECOMENDADA = 0.15
 export const fmtMin = (min) => fmtHoras((min || 0) / 60)
 const norm = (s) => String(s || '').trim().toLowerCase()
 const diaDe = (v) => (v ? paraISODia(new Date(v)) : null)
-export const nTarefas = (n) => `${n} ${n === 1 ? 'tarefa' : 'tarefas'}`
-export const fmtPeriodo = (s) => `${fmtDiaMes(s.inicio)} a ${fmtDiaMes(s.fim)}`
+// textos da tela: `t` lê o idioma na hora da chamada (quem desenha usa useI18n e redesenha)
+export const nTarefas = (n) => t('sprints.nTarefas', { count: n })
+export const fmtPeriodo = (s) => t('sprints.periodo', { inicio: fmtDiaMes(s.inicio), fim: fmtDiaMes(s.fim) })
 
 /** Horas da tarefa, na mesma ordem do motor do Atividades: estimativa > tipo > dificuldade > padrão. */
 export function minutosDaTarefa(tarefa, cfg = CONFIG_SPRINT_PADRAO) {
@@ -54,6 +57,18 @@ export function faseDaSprint(s, hoje = hojeISO()) {
   return 'ativa'
 }
 export const ROTULO_FASE_SPRINT = { futura: 'Em planejamento', ativa: 'Em andamento', encerrada: 'Falta concluir', concluida: 'Concluída' }
+/** Rótulo traduzido da fase (ROTULO_FASE_SPRINT fica como referência em português). */
+export const rotuloFaseSprint = (fase) => (ROTULO_FASE_SPRINT[fase] ? t(`sprints.fase.${fase}`) : '')
+
+/** De onde vieram as horas de uma tarefa sem estimativa (origem de minutosDaTarefa), para a tela. */
+export function rotuloOrigemHoras(origem) {
+  const o = String(origem || '')
+  if (o.startsWith('tipo: ')) return t('sprints.origem.tipo', { valor: rotuloTipoTarefa(o.slice(6)) })
+  if (o.startsWith('dificuldade: ')) return t('sprints.origem.dificuldade', { valor: rotuloDificuldade(o.slice(13)) })
+  if (o === 'padrão') return t('sprints.origem.padrao')
+  if (o === 'estimativa') return t('sprints.origem.estimativa')
+  return o
+}
 
 /** Modo que a tela abre em cada fase da sprint. */
 export const modoPadrao = (fase) => (fase === 'futura' ? 'planejar' : fase === 'encerrada' ? 'fechar' : 'acompanhar')
@@ -214,7 +229,7 @@ function comparaBacklog(a, b) {
   const va = diaDe(a.data_vencimento) || '9999'
   const vb = diaDe(b.data_vencimento) || '9999'
   if (va !== vb) return va.localeCompare(vb)
-  return (a.titulo || '').localeCompare(b.titulo || '', 'pt-BR')
+  return (a.titulo || '').localeCompare(b.titulo || '', localeAtual())
 }
 
 /**
@@ -226,13 +241,13 @@ function comparaBacklog(a, b) {
 export function gruposDoBacklog(tarefas, { sprint, idsNaSprint = new Set(), idsTransbordo = new Set(), hoje = hojeISO(), cfg = CONFIG_SPRINT_PADRAO }) {
   const limiteZumbi = somarDias(hoje, -Number(cfg.dias_atraso_maximo ?? 14))
   const grupos = {
-    transbordo: { key: 'transbordo', titulo: 'Da sprint anterior, ainda abertas', aberto: true, tarefas: [] },
-    atrasadas: { key: 'atrasadas', titulo: 'Atrasadas', aberto: true, tarefas: [] },
-    antes: { key: 'antes', titulo: 'Vencem antes de a sprint começar', aberto: true, tarefas: [] },
-    semana: { key: 'semana', titulo: 'Vencem nesta sprint', aberto: true, tarefas: [] },
-    semData: { key: 'semData', titulo: 'Sem data', aberto: false, tarefas: [] },
-    depois: { key: 'depois', titulo: 'Vencem depois da sprint', aberto: false, tarefas: [] },
-    zumbis: { key: 'zumbis', titulo: `Atrasadas há mais de ${cfg.dias_atraso_maximo ?? 14} dias`, aberto: false, tarefas: [] },
+    transbordo: { key: 'transbordo', titulo: t('sprints.backlog.grupo.transbordo'), aberto: true, tarefas: [] },
+    atrasadas: { key: 'atrasadas', titulo: t('sprints.backlog.grupo.atrasadas'), aberto: true, tarefas: [] },
+    antes: { key: 'antes', titulo: t('sprints.backlog.grupo.antes'), aberto: true, tarefas: [] },
+    semana: { key: 'semana', titulo: t('sprints.backlog.grupo.semana'), aberto: true, tarefas: [] },
+    semData: { key: 'semData', titulo: t('sprints.backlog.grupo.semData'), aberto: false, tarefas: [] },
+    depois: { key: 'depois', titulo: t('sprints.backlog.grupo.depois'), aberto: false, tarefas: [] },
+    zumbis: { key: 'zumbis', titulo: t('sprints.backlog.grupo.zumbis', { count: cfg.dias_atraso_maximo ?? 14 }), aberto: false, tarefas: [] },
   }
   for (const t of tarefas) {
     if (t.status_tipo === 'closed' || t.arquivada || idsNaSprint.has(t.id)) continue

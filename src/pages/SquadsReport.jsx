@@ -6,16 +6,18 @@ import { SQUAD_COLORS } from '../lib/constants'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
+import { useI18n, localeAtual } from '../i18n'
 import {
   ArrowLeft, Users2, Pencil, Check, X, TrendingUp, TrendingDown,
   DollarSign, Wallet, Activity, ArrowUpDown,
 } from 'lucide-react'
 
-const MONTHS_PT = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-]
-const MONTHS_PT_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+// Nome do mês no idioma atual, com inicial maiúscula ("Novembro" / "November";
+// curto: "Nov"). O ponto que o pt-BR põe na abreviação ("nov.") sai.
+function nomeMes(month, formato = 'long') {
+  const s = new Date(2000, month, 1).toLocaleDateString(localeAtual(), { month: formato }).replace('.', '')
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
 
 function isChurnedThisMonth(p, year, month) {
   if (p.momento !== 'churn' || !p.churnDate) return false
@@ -41,6 +43,7 @@ function SummaryCard({ icon: Icon, label, value, valueClass = 'text-rl-text', su
 }
 
 function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, monthLabel, onSaveCost, isAdmin }) {
+  const { t } = useI18n()
   const c = SQUAD_COLORS[colorIndex % SQUAD_COLORS.length]
 
   // Projetos deste squad (qualquer status — usado pelos gráficos históricos)
@@ -155,7 +158,7 @@ function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, mon
         {squad.emoji && <span className="text-base leading-none">{squad.emoji}</span>}
         <span className={`text-sm font-bold uppercase tracking-wider ${c.text}`}>{squad.name}</span>
         <span className="text-xs text-rl-muted bg-rl-surface border border-rl-border px-2 py-0.5 rounded-full ml-auto">
-          {activeClients.length} {activeClients.length === 1 ? 'cliente' : 'clientes'}
+          {t('squads.clientes', { count: activeClients.length })}
         </span>
       </div>
 
@@ -164,14 +167,14 @@ function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, mon
         {/* Valores */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">Contrato Cheio</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">{t('squads.contratoCheio')}</p>
             <p className="text-xl font-bold text-rl-text mt-0.5">{fmtCurrency(totalContract)}</p>
           </div>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">MRR</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">{t('squads.mrr')}</p>
             <p className="text-xl font-bold text-rl-text mt-0.5">{fmtCurrency(totalMRR)}</p>
             <p className="text-[11px] text-rl-muted mt-0.5">
-              Ticket médio: <span className="font-semibold text-rl-text">{fmtCurrency(ticketMedio)}</span>
+              {t('squads.ticketMedio')} <span className="font-semibold text-rl-text">{fmtCurrency(ticketMedio)}</span>
             </p>
           </div>
         </div>
@@ -179,7 +182,7 @@ function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, mon
         {/* Custo + Margem */}
         <div className="border-t border-rl-border/60 pt-4 space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-rl-muted">Custo do Squad</span>
+            <span className="text-xs text-rl-muted">{t('squads.custoSquad')}</span>
             {editing ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-rl-muted">R$</span>
@@ -192,20 +195,20 @@ function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, mon
                   onChange={(e) => setCostInput(e.target.value)}
                   onKeyDown={handleKey}
                   className="w-32 px-2 py-1 text-sm rounded-lg bg-rl-surface border border-rl-purple/40 text-rl-text focus:outline-none"
-                  placeholder="0,00"
+                  placeholder={t('squads.custoPlaceholder')}
                 />
                 <button
                   onClick={confirmEdit}
                   disabled={saving}
                   className="p-1.5 rounded-lg text-rl-green hover:bg-rl-green/10 disabled:opacity-50"
-                  title="Confirmar"
+                  title={t('comum.confirmar')}
                 >
                   <Check className="w-4 h-4" />
                 </button>
                 <button
                   onClick={cancelEdit}
                   className="p-1.5 rounded-lg text-rl-muted hover:bg-rl-surface"
-                  title="Cancelar"
+                  title={t('comum.cancelar')}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -213,13 +216,13 @@ function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, mon
             ) : (
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-rl-text">
-                  {squad.monthlyCost != null ? fmtCurrency(cost) : <span className="text-rl-muted italic">não definido</span>}
+                  {squad.monthlyCost != null ? fmtCurrency(cost) : <span className="text-rl-muted italic">{t('squads.naoDefinido')}</span>}
                 </span>
                 {isAdmin && (
                   <button
                     onClick={startEdit}
                     className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-                    title="Editar custo"
+                    title={t('squads.editarCusto')}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
@@ -229,7 +232,7 @@ function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, mon
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-rl-muted">Margem Operacional</span>
+            <span className="text-xs text-rl-muted">{t('squads.margemOperacional')}</span>
             <div className="flex items-baseline gap-2">
               <span className={`text-lg font-bold ${marginPositive ? 'text-rl-green' : 'text-red-400'}`}>
                 {fmtCurrency(margin)}
@@ -248,24 +251,24 @@ function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, mon
           <div className="flex items-center gap-2 mb-3">
             <TrendingDown className="w-3.5 h-3.5 text-red-400" />
             <span className="text-[10px] font-semibold uppercase tracking-wider text-red-400">
-              Churn — {monthLabel}
+              {t('squads.churnMes', { mes: monthLabel })}
             </span>
           </div>
           <div className="space-y-1.5 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-rl-muted">Clientes churnados</span>
+              <span className="text-xs text-rl-muted">{t('squads.clientesChurnados')}</span>
               <span className={`font-semibold ${churnCount > 0 ? 'text-red-400' : 'text-rl-muted'}`}>
                 {churnCount}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-rl-muted">MRR perdido</span>
+              <span className="text-xs text-rl-muted">{t('squads.mrrPerdido')}</span>
               <span className={`font-semibold ${churnMRR > 0 ? 'text-red-400' : 'text-rl-muted'}`}>
                 {fmtCurrency(churnMRR)}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-rl-muted">Contrato cheio perdido</span>
+              <span className="text-xs text-rl-muted">{t('squads.contratoCheioPerdido')}</span>
               <span className={`font-semibold ${churnContract > 0 ? 'text-red-400' : 'text-rl-muted'}`}>
                 {fmtCurrency(churnContract)}
               </span>
@@ -280,10 +283,10 @@ function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, mon
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-1.5">
                 <TrendingDown className="w-3 h-3 text-red-400" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-red-400">Churn 12m</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-red-400">{t('squads.churn12m')}</span>
               </div>
               <span className="text-[10px] text-rl-muted tabular-nums">
-                Total: {fmtCurrency(churnYearData.reduce((acc, d) => acc + d.value, 0))}
+                {t('squads.total', { valor: fmtCurrency(churnYearData.reduce((acc, d) => acc + d.value, 0)) })}
               </span>
             </div>
             <BarChart
@@ -301,7 +304,7 @@ function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, mon
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-1.5">
                 <Activity className="w-3 h-3 text-rl-purple" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-purple">MRR 12m</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-purple">{t('squads.mrr12m')}</span>
               </div>
               {prevMRR > 0 ? (
                 <span className={`text-[10px] tabular-nums font-semibold inline-flex items-center gap-0.5 ${mrrDelta >= 0 ? 'text-rl-green' : 'text-red-400'}`}>
@@ -327,7 +330,7 @@ function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, mon
             <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
               <div className="flex items-center gap-1.5">
                 <ArrowUpDown className="w-3 h-3 text-rl-text" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-text">Upsell / Downsell 12m</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-rl-text">{t('squads.upDown12m')}</span>
               </div>
               <div className="flex items-center gap-3 text-[10px] tabular-nums font-semibold">
                 <span className="inline-flex items-center gap-1 text-rl-green">
@@ -337,17 +340,17 @@ function SquadCard({ squad, colorIndex, projects, valueHistory, year, month, mon
                   <TrendingDown className="w-2.5 h-2.5" />−{fmtCurrency(totalDown)}
                 </span>
                 <span className={`inline-flex items-center gap-1 ${totalNet >= 0 ? 'text-rl-green' : 'text-red-400'}`}>
-                  Net: {totalNet >= 0 ? '+' : '−'}{fmtCurrency(Math.abs(totalNet))}
+                  {t('squads.net', { valor: `${totalNet >= 0 ? '+' : '−'}${fmtCurrency(Math.abs(totalNet))}` })}
                 </span>
               </div>
             </div>
             {totalUp === 0 && totalDown === 0 ? (
               <div className="rounded-lg border border-dashed border-rl-border bg-rl-surface/40 py-6 text-center">
                 <p className="text-[10px] text-rl-muted">
-                  Nenhuma mudança de valor de contrato registrada nos últimos 12 meses.
+                  {t('squads.semMudancas')}
                 </p>
                 <p className="text-[9px] text-rl-muted/70 mt-1">
-                  Edite o valor de um contrato em qualquer cliente deste squad pra começar a registrar.
+                  {t('squads.semMudancasDica')}
                 </p>
               </div>
             ) : (
@@ -384,7 +387,7 @@ function buildLast12Months(refYear, refMonth) {
     out.push({
       yyyy: d.getFullYear(),
       mm: d.getMonth(),
-      label: `${MONTHS_PT_SHORT[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`,
+      label: `${nomeMes(d.getMonth(), 'short')}/${String(d.getFullYear()).slice(2)}`,
       key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
     })
   }
@@ -408,6 +411,7 @@ function wasActiveAtEndOfMonth(project, year, month) {
 // Gráfico de barras vertical simples (sem lib externa).
 // items: [{ key, label, value, count?, highlight? }], maxValue: número
 function BarChart({ items, maxValue, formatValue, barColorClass = 'bg-rl-purple', highlightColorClass = 'bg-red-400', compact = false }) {
+  const { t } = useI18n()
   const safeMax = Math.max(maxValue, 1)
   const barAreaH = compact ? 'h-16' : 'h-28'
   const wrapperH = compact ? 'h-24' : 'h-40'
@@ -425,7 +429,7 @@ function BarChart({ items, maxValue, formatValue, barColorClass = 'bg-rl-purple'
               <div
                 className={`w-full rounded-t transition-all ${cls}`}
                 style={{ height: it.value > 0 ? `${Math.max(heightPct, 4)}%` : '2px' }}
-                title={`${it.label}: ${formatValue(it.value)}${it.count != null ? ` · ${it.count} cliente${it.count === 1 ? '' : 's'}` : ''}`}
+                title={`${it.label}: ${formatValue(it.value)}${it.count != null ? t('squads.barraClientes', { count: it.count }) : ''}`}
               />
             </div>
             <span className="text-[9px] text-rl-muted truncate leading-tight">{it.label}</span>
@@ -439,6 +443,7 @@ function BarChart({ items, maxValue, formatValue, barColorClass = 'bg-rl-purple'
 // Gráfico de barras com valores positivos e negativos (upsell verde acima
 // da linha zero, downsell vermelho abaixo). Items: [{ key, label, up, down }].
 function BarChartSigned({ items, maxAbs, formatValue, compact = false }) {
+  const { t } = useI18n()
   const safeMax = Math.max(maxAbs, 1)
   const halfH   = compact ? 'h-10' : 'h-14'
   const wrapperH = compact ? 'h-28' : 'h-44'
@@ -458,7 +463,7 @@ function BarChartSigned({ items, maxAbs, formatValue, compact = false }) {
                 <div
                   className="w-full rounded-t bg-rl-green transition-all"
                   style={{ height: `${Math.max(upPct, 4)}%` }}
-                  title={`${it.label}: +${formatValue(it.up)} em upsell${it.upCount ? ` (${it.upCount} ${it.upCount === 1 ? 'mudança' : 'mudanças'})` : ''}`}
+                  title={t('squads.barraUpsell', { mes: it.label, valor: formatValue(it.up), mudancas: it.upCount ? t('squads.mudancas', { count: it.upCount }) : '' })}
                 />
               ) : (
                 <div className="w-full" />
@@ -470,7 +475,7 @@ function BarChartSigned({ items, maxAbs, formatValue, compact = false }) {
                 <div
                   className="w-full rounded-b bg-red-400 transition-all"
                   style={{ height: `${Math.max(downPct, 4)}%` }}
-                  title={`${it.label}: -${formatValue(it.down)} em downsell${it.downCount ? ` (${it.downCount} ${it.downCount === 1 ? 'mudança' : 'mudanças'})` : ''}`}
+                  title={t('squads.barraDownsell', { mes: it.label, valor: formatValue(it.down), mudancas: it.downCount ? t('squads.mudancas', { count: it.downCount }) : '' })}
                 />
               ) : (
                 <div className="w-full" />
@@ -491,12 +496,13 @@ export default function SquadsReport() {
   const { user, projects, squads, updateSquad } = useApp()
   const navigate = useNavigate()
   const { toast, showToast } = useToast()
+  const { t } = useI18n()
   const isAdmin = user?.role === 'admin'
 
   const now = new Date()
   const year  = now.getFullYear()
   const month = now.getMonth()
-  const monthLabel = `${MONTHS_PT[month]} ${year}`
+  const monthLabel = `${nomeMes(month)} ${year}`
 
   // ── Histórico de upsell/downsell ────────────────────────────────────────────
   // Busca apenas eventos do tipo upsell/downsell (ignora 'initial' e 'no_change')
@@ -539,9 +545,9 @@ export default function SquadsReport() {
       monthly_cost: newCost,
     })
     if (res?.error) {
-      showToast('Erro ao salvar custo', 'error')
+      showToast(t('squads.erroSalvarCusto'), 'error')
     } else {
-      showToast('Custo do squad atualizado')
+      showToast(t('squads.custoAtualizado'))
     }
   }
 
@@ -556,15 +562,15 @@ export default function SquadsReport() {
               className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
             >
               <ArrowLeft className="w-4 h-4" />
-              Voltar
+              {t('comum.voltar')}
             </button>
             <div>
               <div className="flex items-center gap-2.5">
                 <Users2 className="w-6 h-6 text-rl-purple" />
-                <h1 className="text-2xl font-bold text-rl-text">Dashboard de Squads</h1>
+                <h1 className="text-2xl font-bold text-rl-text">{t('squads.titulo')}</h1>
               </div>
               <p className="text-rl-muted mt-1 text-sm">
-                {squads.length} {squads.length === 1 ? 'squad' : 'squads'} · Mês de referência: {monthLabel}
+                {t('squads.subtitulo', { count: squads.length, mes: monthLabel })}
               </p>
             </div>
           </div>
@@ -573,20 +579,20 @@ export default function SquadsReport() {
         {/* Totais consolidados */}
         {squads.length > 0 && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up" style={{ animationDelay: '0.05s' }}>
-            <SummaryCard icon={Users2}     label="Clientes ativos (com squad)" value={totalActive} />
+            <SummaryCard icon={Users2}     label={t('squads.resumo.clientesAtivos')} value={totalActive} />
             <SummaryCard
               icon={DollarSign}
-              label="MRR total"
+              label={t('squads.resumo.mrrTotal')}
               value={fmtCurrency(totalMRRAll)}
-              sublabel={`Ticket médio: ${fmtCurrency(ticketMedioAll)}`}
+              sublabel={t('squads.ticketMedioValor', { valor: fmtCurrency(ticketMedioAll) })}
             />
-            <SummaryCard icon={Wallet}     label="Custo total"                value={fmtCurrency(totalCostAll)} />
+            <SummaryCard icon={Wallet}     label={t('squads.resumo.custoTotal')}                value={fmtCurrency(totalCostAll)} />
             <SummaryCard
               icon={totalMarginAll >= 0 ? TrendingUp : TrendingDown}
-              label="Margem total"
+              label={t('squads.resumo.margemTotal')}
               value={fmtCurrency(totalMarginAll)}
               valueClass={totalMarginAll >= 0 ? 'text-rl-green' : 'text-red-400'}
-              sublabel={totalChurnMRR > 0 ? `MRR perdido em ${monthLabel}: ${fmtCurrency(totalChurnMRR)}` : null}
+              sublabel={totalChurnMRR > 0 ? t('squads.resumo.mrrPerdidoEm', { mes: monthLabel, valor: fmtCurrency(totalChurnMRR) }) : null}
             />
           </div>
         )}
@@ -595,8 +601,8 @@ export default function SquadsReport() {
         {squads.length === 0 ? (
           <div className="glass-card p-12 flex flex-col items-center justify-center text-center">
             <Activity className="w-12 h-12 text-rl-muted/30 mb-3" />
-            <p className="text-rl-text font-semibold mb-1">Nenhum squad cadastrado</p>
-            <p className="text-rl-muted text-sm">Crie squads na página de Usuários para ver as métricas aqui.</p>
+            <p className="text-rl-text font-semibold mb-1">{t('squads.semSquads')}</p>
+            <p className="text-rl-muted text-sm">{t('squads.semSquadsDica')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-slide-up" style={{ animationDelay: '0.1s' }}>

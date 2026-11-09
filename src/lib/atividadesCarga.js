@@ -1,4 +1,6 @@
 import { iniciais } from './utils'
+import { t as tr, idiomaAtual, localeAtual } from '../i18n'
+import { rotuloTipoTarefa, rotuloDificuldade } from './tarefas'
 // Funções puras do painel de capacidade do time (módulo Atividades).
 // Recebem o que a action `carga` (ou `sugerir` sem horas) devolve por pessoa
 // e devolvem o que a UI mostra: sinal de saúde, agregados do time, formatação.
@@ -6,6 +8,23 @@ import { iniciais } from './utils'
 export const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 export const DIAS_LONGO = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado']
 export const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+// Nomes de dia e mês no idioma da tela. Em português ficam as listas acima
+// (o formato de sempre); nos outros idiomas, o Intl.
+function emPortugues() { return idiomaAtual() === 'pt' }
+function intl(opcoes, dataUTC) {
+  return new Intl.DateTimeFormat(localeAtual(), { ...opcoes, timeZone: 'UTC' }).format(dataUTC)
+}
+/** Dia da semana curto (0 = domingo): 'Seg' / 'Mon'. */
+export function nomeDiaCurto(wd) {
+  if (emPortugues()) return DIAS[wd]
+  return intl({ weekday: 'short' }, new Date(Date.UTC(2023, 0, 1 + wd))) // 01/01/2023 foi domingo
+}
+/** Mês curto (0 = janeiro): 'set' / 'Sep'. */
+export function nomeMesCurto(m0) {
+  if (emPortugues()) return MESES[m0]
+  return intl({ month: 'short' }, new Date(Date.UTC(2023, m0, 1)))
+}
 
 export function hojeISO() {
   const d = new Date()
@@ -16,29 +35,32 @@ export function weekday(iso) {
   const [y, m, d] = String(iso).split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay()
 }
-/** '2026-09-17' → '17/09' */
+/** '2026-09-17' → '17/09' (em inglês, '09/17') */
 export function fmtCurta(iso) {
   if (!iso) return ''
   const [, m, d] = String(iso).split('-')
-  return `${d}/${m}`
+  return emPortugues() ? `${d}/${m}` : `${m}/${d}`
 }
-/** '2026-09-17' → 'qui 17/09' */
+/** '2026-09-17' → 'qui 17/09' (em inglês, 'Thu 09/17') */
 export function fmtDiaCurto(iso) {
   if (!iso) return ''
-  return `${DIAS[weekday(iso)].toLowerCase()} ${fmtCurta(iso)}`
+  const dia = nomeDiaCurto(weekday(iso))
+  return `${emPortugues() ? dia.toLowerCase() : dia} ${fmtCurta(iso)}`
 }
-/** '2026-09-17' → 'quinta, 17/09/2026' */
+/** '2026-09-17' → 'quinta, 17/09/2026' (em inglês, 'Thursday, 09/17/2026') */
 export function fmtLonga(iso) {
   if (!iso) return ''
   const [y, m, d] = String(iso).split('-')
+  if (!emPortugues()) return intl({ weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }, new Date(Date.UTC(Number(y), Number(m) - 1, Number(d))))
   return `${DIAS_LONGO[weekday(iso)]}, ${d}/${m}/${y}`
 }
-/** 5.5 → '5,5h'; 6 → '6h'; 0.5 → '30 min' */
+/** 5.5 → '5,5h' (em inglês, '5.5h'); 6 → '6h'; 0.5 → '30 min' */
 export function fmtHoras(h) {
   const n = Number(h) || 0
   if (n > 0 && n < 1) return `${Math.round(n * 60)} min`
   if (Number.isInteger(n)) return `${n}h`
-  return `${n.toFixed(1).replace('.', ',')}h`
+  const txt = n.toFixed(1)
+  return `${emPortugues() ? txt.replace('.', ',') : txt}h`
 }
 
 /**
@@ -62,22 +84,42 @@ export function primeiroNome(nome) {
   return String(nome || '').split(' ')[0]
 }
 export { iniciais }
-/** ISO timestamp → 'há 3 min' / 'há 2 h' */
+/** ISO timestamp → 'há 3 min' / 'há 2 h' (em inglês, '3 min ago') */
 export function fmtRelativo(iso, agora = Date.now()) {
   if (!iso) return ''
   const diff = Math.max(0, agora - new Date(iso).getTime())
   const min = Math.round(diff / 60000)
-  if (min < 1) return 'agora'
-  if (min < 60) return `há ${min} min`
+  if (min < 1) return tr('atividades.relativo.agora')
+  if (min < 60) return tr('atividades.relativo.min', { n: min })
   const h = Math.round(min / 60)
-  if (h < 24) return `há ${h} h`
+  if (h < 24) return tr('atividades.relativo.h', { n: h })
   const d = Math.round(h / 24)
-  return `há ${d} d`
+  return tr('atividades.relativo.d', { n: d })
 }
 /** ISO timestamp → '14:02' */
 export function fmtHora(iso) {
   if (!iso) return ''
-  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString(localeAtual(), { hour: '2-digit', minute: '2-digit' })
+}
+/** ISO timestamp → data curta no idioma da tela ('17/09/2026' / '9/17/2026'). */
+export function fmtData(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(localeAtual())
+}
+
+/**
+ * De onde vieram as horas da tarefa (`origem` do motor: 'estimativa',
+ * 'tipo: X', 'dificuldade: X', 'padrão'). X é o valor do ClickUp, traduzido só na tela.
+ */
+export function rotuloOrigem(origem) {
+  const o = String(origem || '')
+  if (o === 'estimativa') return tr('atividades.origem.estimativa')
+  if (o === 'padrão') return tr('atividades.origem.padrao')
+  let m
+  if ((m = o.match(/^tipo:\s*(.*)$/))) return tr('atividades.origem.tipo', { valor: rotuloTipoTarefa(m[1]) })
+  if ((m = o.match(/^dificuldade:\s*(.*)$/))) return tr('atividades.origem.dificuldade', { valor: rotuloDificuldade(m[1]) })
+  return o
 }
 
 // ─── Saúde por pessoa ────────────────────────────────────────────────────────
@@ -90,6 +132,36 @@ export const NIVEIS = {
   sem_leitura:    { ordem: 4, label: 'Sem leitura',    dot: 'bg-ln-t4', text: 'text-ln-t4', bg: 'bg-ln-ink/5', ring: 'ring-ln-ink/10' },
 }
 export const ORDEM_NIVEIS = Object.keys(NIVEIS).sort((a, b) => NIVEIS[a].ordem - NIVEIS[b].ordem)
+/** Rótulo do nível no idioma da tela (o `label` de NIVEIS fica em português). */
+export function rotuloNivel(nivel) {
+  return NIVEIS[nivel] ? tr(`atividades.nivel.${nivel}`) : String(nivel || '')
+}
+
+/**
+ * Texto da saúde no idioma da tela, montado do `motivo` que saudeDe guarda
+ * (a mensagem de erro da API, quando há, vem como chegou).
+ */
+export function textoSaude(saude) {
+  const m = saude?.motivo
+  if (!m) return saude?.texto || ''
+  switch (m.tipo) {
+    case 'semClickup': return tr('atividades.saude.semClickup')
+    case 'erro': return m.erro || tr('atividades.saude.naoLeu')
+    case 'zero': return tr('atividades.saude.zero')
+    case 'sobrecarregado': {
+      const partes = []
+      if (m.diasEstourados) partes.push(tr('atividades.saude.diasEstourados', { count: m.diasEstourados }))
+      if (m.horasAtrasadas) partes.push(tr('atividades.saude.horasAtrasadas', { horas: fmtHoras(m.horasAtrasadas) }))
+      if (m.sobra > 0) partes.push(tr('atividades.saude.naoCabem60', { horas: fmtHoras(m.sobra) }))
+      return tr('atividades.saude.naoCabeNada', { detalhe: partes.join(', ') || tr('atividades.saude.pctOcupado', { pct: m.ocupacao }) })
+    }
+    case 'no_limite': return tr('atividades.saude.noLimite')
+    case 'ok': return m.proximoDiaLivre ? tr('atividades.saude.okComDia', { dia: fmtDiaCurto(m.proximoDiaLivre) }) : tr('atividades.saude.ok')
+    case 'livre': return tr('atividades.saude.livre')
+    default: return saude?.texto || ''
+  }
+}
+function comTexto(s) { return { ...s, texto: textoSaude(s) } }
 
 /**
  * Classifica uma pessoa. `p` é o objeto de planejarParaPessoa; `erro` é a
@@ -97,8 +169,8 @@ export const ORDEM_NIVEIS = Object.keys(NIVEIS).sort((a, b) => NIVEIS[a].ordem -
  * não tem clickup_user_id.
  */
 export function saudeDe(p, { erro = null, semClickup = false } = {}) {
-  if (semClickup) return { nivel: 'sem_leitura', score: -2, texto: 'Sem ClickUp mapeado no perfil desta pessoa', suspeito: false }
-  if (erro || !p) return { nivel: 'sem_leitura', score: -1, texto: erro || 'Não consegui ler o ClickUp desta pessoa', suspeito: false }
+  if (semClickup) return comTexto({ nivel: 'sem_leitura', score: -2, suspeito: false, motivo: { tipo: 'semClickup' } })
+  if (erro || !p) return comTexto({ nivel: 'sem_leitura', score: -1, suspeito: false, motivo: { tipo: 'erro', erro: erro || null } })
   const t = p.totais || {}
   const cap = Number(p.capacidadeDia) || 6
   const ocupacao = Number(t.ocupacaoProximosDias) || 0
@@ -110,22 +182,18 @@ export function saudeDe(p, { erro = null, semClickup = false } = {}) {
   const score = Math.round(ocupacao + 15 * diasEstourados + 10 * (horasAtrasadas / cap) + (alem > 0 || sobra > 0 ? 50 : 0))
 
   if ((t.abertas || 0) === 0) {
-    return { nivel: 'livre', score: 0, texto: 'Zero tarefas abertas no ClickUp: confira o clickup_user_id no perfil', suspeito: true }
+    return comTexto({ nivel: 'livre', score: 0, suspeito: true, motivo: { tipo: 'zero' } })
   }
   if (ocupacao >= 100 || diasEstourados >= 3 || horasAtrasadas >= 2 * cap || alem > 0 || sobra > 0) {
-    const partes = []
-    if (diasEstourados) partes.push(`${diasEstourados} dia(s) estourado(s)`)
-    if (horasAtrasadas) partes.push(`${fmtHoras(horasAtrasadas)} atrasadas`)
-    if (sobra > 0) partes.push(`${fmtHoras(sobra)} não cabem nem em 60 dias úteis`)
-    return { nivel: 'sobrecarregado', score, texto: `Não cabe nada novo: ${partes.join(', ') || `${ocupacao}% ocupado`}`, suspeito: false }
+    return comTexto({ nivel: 'sobrecarregado', score, suspeito: false, motivo: { tipo: 'sobrecarregado', diasEstourados, horasAtrasadas, sobra, ocupacao } })
   }
   if (ocupacao >= 75 || diasEstourados >= 1 || horasAtrasadas > cap) {
-    return { nivel: 'no_limite', score, texto: 'Cabe tarefa pequena; qualquer imprevisto atrasa', suspeito: false }
+    return comTexto({ nivel: 'no_limite', score, suspeito: false, motivo: { tipo: 'no_limite' } })
   }
   if (ocupacao >= 40) {
-    return { nivel: 'ok', score, texto: `Carga saudável${p.proximoDiaLivre ? `, primeiro dia livre ${fmtDiaCurto(p.proximoDiaLivre)}` : ''}`, suspeito: false }
+    return comTexto({ nivel: 'ok', score, suspeito: false, motivo: { tipo: 'ok', proximoDiaLivre: p.proximoDiaLivre || null } })
   }
-  return { nivel: 'livre', score, texto: 'Pode receber tarefa hoje', suspeito: false }
+  return comTexto({ nivel: 'livre', score, suspeito: false, motivo: { tipo: 'livre' } })
 }
 
 // ─── Enriquecimento por pessoa (API + perfil) ────────────────────────────────
@@ -267,10 +335,11 @@ export function agruparPessoas(pessoas, agrupar = 'saude', filtroNivel = null) {
       if (!map.has(k)) map.set(k, [])
       map.get(k).push(p)
     }
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], 'pt-BR')).map(([k, v]) => ({ id: k, label: k, pessoas: ordenar(v) }))
+    // o id fica em português; só o rótulo do grupo sem departamento se traduz
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], 'pt-BR')).map(([k, v]) => ({ id: k, label: k === 'Sem departamento' ? tr('atividades.semDepartamento') : k, pessoas: ordenar(v) }))
   }
   return ORDEM_NIVEIS
-    .map((nivel) => ({ id: nivel, label: NIVEIS[nivel].label, nivel, pessoas: ordenar(lista.filter((p) => p.saude.nivel === nivel)) }))
+    .map((nivel) => ({ id: nivel, label: rotuloNivel(nivel), nivel, pessoas: ordenar(lista.filter((p) => p.saude.nivel === nivel)) }))
     .filter((g) => g.pessoas.length > 0)
 }
 
@@ -288,14 +357,14 @@ export function inicioDaSemana(iso) {
   return dt.toISOString().slice(0, 10)
 }
 export function rotuloSemana(inicioISO, hoje = hojeISO()) {
-  if (!inicioISO) return 'Sem data'
+  if (!inicioISO) return tr('atividades.semana.semData')
   const h = inicioDaSemana(hoje)
-  if (inicioISO === h) return 'Esta semana'
+  if (inicioISO === h) return tr('atividades.semana.esta')
   const [y, m, d] = inicioISO.split('-').map(Number)
   const prox = new Date(Date.UTC(y, m - 1, d + 7)).toISOString().slice(0, 10)
   const ant = new Date(Date.UTC(y, m - 1, d - 7)).toISOString().slice(0, 10)
-  if (h === ant) return 'Próxima semana'
-  if (h === prox) return 'Semana passada'
-  if (inicioISO < h) return `Semana de ${fmtCurta(inicioISO)} (passada)`
-  return `Semana de ${fmtCurta(inicioISO)}`
+  if (h === ant) return tr('atividades.semana.proxima')
+  if (h === prox) return tr('atividades.semana.passada')
+  if (inicioISO < h) return tr('atividades.semana.dePassada', { data: fmtCurta(inicioISO) })
+  return tr('atividades.semana.de', { data: fmtCurta(inicioISO) })
 }

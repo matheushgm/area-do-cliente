@@ -9,15 +9,18 @@
 //     inicio_dia, vencimento_dia,  // dias úteis depois da data de início; null = sem data
 //     depende_de[],                // ids de outros itens: viram "bloqueia" ao aplicar
 //     subtarefas[] }               // mesmos campos, sem subtarefas próprias
-import { novoId, deInputDate } from './tarefas'
+import { novoId, deInputDate, rotuloDepartamento } from './tarefas'
 import { paraDiaLocal, paraISODia, hojeISO } from './vertatask'
 import { DEPARTAMENTO_ALIAS_SQUAD, CLICKUP_USUARIO_CLIENTE } from './constants'
+import { t } from '../i18n'
 
 export const MODOS_RESPONSAVEL = [
   { key: 'departamento', label: 'Pelo departamento (squad do cliente)' },
   { key: 'pessoa', label: 'Pessoa fixa' },
   { key: 'nenhum', label: 'Sem responsável' },
 ]
+/** Rótulo do modo no idioma de quem vê (o `label` acima fica em português). */
+export const rotuloModoResponsavel = (key) => t(`templates.modos.${key}`)
 
 export function novoItem(patch = {}) {
   return {
@@ -194,13 +197,13 @@ export function duplicarItem(itens, id) {
   if (i >= 0) {
     const [copia] = clonarItens([itens[i]])
     copia.depende_de = []
-    const n = [...itens]; n.splice(i + 1, 0, { ...copia, titulo: `${copia.titulo} (cópia)` }); return n
+    const n = [...itens]; n.splice(i + 1, 0, { ...copia, titulo: t('templates.copia', { nome: copia.titulo }) }); return n
   }
   return itens.map((it) => {
     const j = it.subtarefas.findIndex((s) => s.id === id)
     if (j < 0) return it
     const subs = [...it.subtarefas]
-    subs.splice(j + 1, 0, { ...it.subtarefas[j], id: novoId(), depende_de: [], titulo: `${it.subtarefas[j].titulo} (cópia)` })
+    subs.splice(j + 1, 0, { ...it.subtarefas[j], id: novoId(), depende_de: [], titulo: t('templates.copia', { nome: it.subtarefas[j].titulo }) })
     return { ...it, subtarefas: subs }
   })
 }
@@ -211,9 +214,10 @@ export function validarItens(itens) {
   const plano = achatar(itens)
   const porId = new Map(plano.map((p) => [p.item.id, p.item]))
   for (const { item } of plano) {
-    if (!item.titulo.trim()) erros.push({ id: item.id, msg: 'Tarefa sem título' })
-    if (item.inicio_dia != null && item.vencimento_dia != null && item.vencimento_dia < item.inicio_dia) erros.push({ id: item.id, msg: `"${item.titulo || 'Sem título'}" vence antes de começar` })
-    if (item.responsavel.modo === 'pessoa' && !item.responsavel.pessoa_id) erros.push({ id: item.id, msg: `"${item.titulo || 'Sem título'}" está como pessoa fixa sem pessoa escolhida` })
+    const nome = item.titulo || t('templates.semTitulo')
+    if (!item.titulo.trim()) erros.push({ id: item.id, msg: t('templates.erros.semTitulo') })
+    if (item.inicio_dia != null && item.vencimento_dia != null && item.vencimento_dia < item.inicio_dia) erros.push({ id: item.id, msg: t('templates.erros.venceAntes', { nome }) })
+    if (item.responsavel.modo === 'pessoa' && !item.responsavel.pessoa_id) erros.push({ id: item.id, msg: t('templates.erros.semPessoa', { nome }) })
   }
   // ciclo em depende_de
   const estado = new Map()
@@ -225,7 +229,7 @@ export function validarItens(itens) {
     estado.set(id, 2)
     return false
   }
-  for (const id of porId.keys()) if (visita(id)) { erros.push({ id, msg: 'Há uma dependência circular entre as tarefas' }); break }
+  for (const id of porId.keys()) if (visita(id)) { erros.push({ id, msg: t('templates.erros.circular') }); break }
   return erros
 }
 
@@ -248,8 +252,8 @@ export function perfilDoUsuarioCliente(membros = []) {
 export function responsaveisDoItem(item, squad, usuarioClienteId = null, ativos = null) {
   const r = item.responsavel || {}
   if (r.modo === 'nenhum') return { ids: [], aviso: null }
-  if (r.modo === 'pessoa') return { ids: r.pessoa_id ? [r.pessoa_id] : [], aviso: r.pessoa_id ? null : 'Pessoa não escolhida' }
-  if (!item.departamento.length) return { ids: [], aviso: 'Sem departamento' }
+  if (r.modo === 'pessoa') return { ids: r.pessoa_id ? [r.pessoa_id] : [], aviso: r.pessoa_id ? null : t('templates.avisos.pessoaNaoEscolhida') }
+  if (!item.departamento.length) return { ids: [], aviso: t('templates.avisos.semDepartamento') }
   const asg = squad?.department_assignments || squad?.departmentAssignments || {}
   const ids = []
   const faltam = []
@@ -262,9 +266,9 @@ export function responsaveisDoItem(item, squad, usuarioClienteId = null, ativos 
   if (!faltam.length && !desativados.length) return { ids, aviso: null }
   const doSquad = faltam.filter((d) => d !== DEPARTAMENTO_CLIENTE)
   const avisos = []
-  if (faltam.includes(DEPARTAMENTO_CLIENTE)) avisos.push('Usuário Cliente não encontrado')
-  if (doSquad.length) avisos.push(squad ? `Squad sem ${doSquad.join(', ')}` : 'Cliente sem squad')
-  if (desativados.length) avisos.push(`Squad aponta pessoa desativada em ${desativados.join(', ')}`)
+  if (faltam.includes(DEPARTAMENTO_CLIENTE)) avisos.push(t('templates.avisos.semUsuarioCliente'))
+  if (doSquad.length) avisos.push(squad ? t('templates.avisos.squadSem', { deps: doSquad.map(rotuloDepartamento).join(', ') }) : t('templates.avisos.clienteSemSquad'))
+  if (desativados.length) avisos.push(t('templates.avisos.pessoaDesativada', { deps: desativados.map(rotuloDepartamento).join(', ') }))
   return { ids, aviso: avisos.join(' · ') }
 }
 

@@ -5,8 +5,10 @@ import { AlertTriangle, ChevronRight } from 'lucide-react'
 import { PrioridadeIcon as BandeiraPrioridade } from '../Tarefas/Campos'
 import {
   chaveAtividade, fmtCurta, fmtDiaCurto, fmtHoras, fmtLonga, fmtRelativo, fmtHora,
-  hojeISO, inicioDaSemana, iniciais, rotuloSemana,
+  hojeISO, inicioDaSemana, iniciais, rotuloSemana, fmtData,
 } from '../../lib/atividadesCarga'
+import { useI18n, t as tr } from '../../i18n'
+import { rotuloTipoTarefa, rotuloDepartamento } from '../../lib/tarefas'
 
 // ─── Mapas estáticos (Tailwind precisa ver as classes literalmente) ──────────
 
@@ -24,6 +26,7 @@ export function dotDepartamento(departamento) {
   return DOT_DEPARTAMENTO[departamento] || 'bg-ln-t4'
 }
 
+// Rótulos em português (as chaves dizem quais prioridades existem); a tela traduz por atividades.prioridade.<chave>
 export const PRIORIDADE_LABEL = { urgent: 'Urgente', high: 'Alta', normal: 'Normal', low: 'Baixa' }
 
 const AVATAR_TAMANHO = {
@@ -42,6 +45,7 @@ const COLUNAS = '16px 72px 16px minmax(120px, 1fr) minmax(0, max-content) 40px 7
 
 /** `foto`: a do ClickUp (profiles.foto_url); sem ela, as iniciais. */
 export function Avatar({ nome, foto = null, tamanho = 16, className = '' }) {
+  const { t } = useI18n()
   const cls = AVATAR_TAMANHO[tamanho] || AVATAR_TAMANHO[16]
   const [falhou, setFalhou] = useState(null)
   if (foto && falhou !== foto) {
@@ -49,7 +53,7 @@ export function Avatar({ nome, foto = null, tamanho = 16, className = '' }) {
   }
   return (
     <span
-      title={nome || 'Sem responsável'}
+      title={nome || t('atividades.semResponsavel')}
       className={`inline-flex items-center justify-center rounded-full font-semibold leading-none shrink-0 ${nome ? 'bg-ln-brand/20 text-ln-brand' : 'bg-ln-ink/5 text-ln-t4'} ${cls} ${className}`}
     >
       {nome ? iniciais(nome) : '?'}
@@ -63,12 +67,13 @@ export function PrioridadeIcon({ prioridade, className = '' }) {
 }
 
 export function StatusIcon({ registro, className = '' }) {
+  const { t } = useI18n()
   const sobrecarga = !!registro?.sobrecarga
   const criada = registro?.status === 'criada'
   const erro = registro?.status === 'erro'
   const label = sobrecarga
-    ? 'Entrega forçada com sobrecarga'
-    : criada ? 'Criada no ClickUp' : erro ? 'Erro ao criar no ClickUp' : 'Planejada'
+    ? t('atividades.lista.status.forcada')
+    : criada ? t('atividades.lista.status.criada') : erro ? t('atividades.lista.status.erro') : t('atividades.lista.status.planejada')
   return (
     <svg viewBox="0 0 16 16" width="16" height="16" role="img" aria-label={label} className={`shrink-0 ${className}`}>
       <title>{label}</title>
@@ -119,9 +124,9 @@ export function agruparRegistros(registros, agrupar, { nomeMembro, hoje } = {}) 
   const lista = registros || []
   if (agrupar === 'status') {
     return [
-      { id: 'erro',   label: 'Com erro no ClickUp', registros: ordenarRegistros(lista.filter((r) => r.status === 'erro')) },
-      { id: 'criada', label: 'Criadas no ClickUp',  registros: ordenarRegistros(lista.filter((r) => r.status === 'criada')) },
-      { id: 'outras', label: 'Outras',              registros: ordenarRegistros(lista.filter((r) => r.status !== 'erro' && r.status !== 'criada')) },
+      { id: 'erro',   label: tr('atividades.lista.grupos.erro'),   registros: ordenarRegistros(lista.filter((r) => r.status === 'erro')) },
+      { id: 'criada', label: tr('atividades.lista.grupos.criada'), registros: ordenarRegistros(lista.filter((r) => r.status === 'criada')) },
+      { id: 'outras', label: tr('atividades.lista.grupos.outras'), registros: ordenarRegistros(lista.filter((r) => r.status !== 'erro' && r.status !== 'criada')) },
     ].filter((g) => g.registros.length > 0)
   }
   if (agrupar === 'responsavel') {
@@ -134,7 +139,7 @@ export function agruparRegistros(registros, agrupar, { nomeMembro, hoje } = {}) 
     return Array.from(map.entries())
       .map(([k, v]) => ({
         id: k,
-        label: k === 'sem' ? 'Sem responsável' : (nomeMembro?.get(k) || 'Responsável não identificado'),
+        label: k === 'sem' ? tr('atividades.semResponsavel') : (nomeMembro?.get(k) || tr('atividades.lista.responsavelNaoIdentificado')),
         registros: ordenarRegistros(v),
       }))
       .sort((a, b) => (a.id === 'sem') - (b.id === 'sem') || a.label.localeCompare(b.label, 'pt-BR'))
@@ -149,7 +154,7 @@ export function agruparRegistros(registros, agrupar, { nomeMembro, hoje } = {}) 
   }
   const faixa = (id) => (id === 'sem' ? 2 : semanaAtual && id < semanaAtual ? 1 : 0)
   return Array.from(map.entries())
-    .map(([k, v]) => ({ id: k, label: k === 'sem' ? 'Sem data' : rotuloSemana(k, hoje), registros: ordenarRegistros(v) }))
+    .map(([k, v]) => ({ id: k, label: k === 'sem' ? tr('atividades.semana.semData') : rotuloSemana(k, hoje), registros: ordenarRegistros(v) }))
     .sort((a, b) => {
       const fa = faixa(a.id)
       const fb = faixa(b.id)
@@ -178,16 +183,16 @@ function LinhaSkeleton() {
 }
 
 function tituloCriacao(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return `Criada em ${d.toLocaleDateString('pt-BR')} às ${fmtHora(iso)}`
+  const data = fmtData(iso)
+  if (!data) return ''
+  return tr('atividades.lista.criadaEm', { data, hora: fmtHora(iso) })
 }
 
 function LinhaRegistro({ registro: r, cliente, responsavel, selecionada, onAbrir, agora }) {
+  const { t } = useI18n()
   const tituloData = r.sobrecarga && r.data_sugerida
-    ? `Sugerida ${fmtLonga(r.data_sugerida)}, forçada para ${fmtLonga(r.data_escolhida)}`
-    : r.data_escolhida ? `Entrega ${fmtLonga(r.data_escolhida)}` : 'Sem data de entrega'
+    ? t('atividades.lista.sugeridaForcada', { sugerida: fmtLonga(r.data_sugerida), escolhida: fmtLonga(r.data_escolhida) })
+    : r.data_escolhida ? t('atividades.lista.entrega', { data: fmtLonga(r.data_escolhida) }) : t('atividades.lista.semDataEntrega')
   return (
     <button
       type="button"
@@ -203,7 +208,7 @@ function LinhaRegistro({ registro: r, cliente, responsavel, selecionada, onAbrir
       <PrioridadeIcon prioridade={r.prioridade} />
 
       <span className="text-[13px] font-medium text-ln-t2 truncate min-w-0" title={r.titulo || ''}>
-        {r.titulo || <span className="text-ln-t4 font-normal">Sem título</span>}
+        {r.titulo || <span className="text-ln-t4 font-normal">{t('atividades.semTitulo')}</span>}
       </span>
 
       <span className="flex items-center gap-1.5 min-w-0 overflow-hidden">
@@ -215,10 +220,10 @@ function LinhaRegistro({ registro: r, cliente, responsavel, selecionada, onAbrir
         {r.tipo_tarefa && (
           <span
             className="inline-flex items-center gap-1.5 h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t3 max-w-[170px] shrink-0"
-            title={r.departamento ? `${r.tipo_tarefa} · ${r.departamento}` : r.tipo_tarefa}
+            title={r.departamento ? `${rotuloTipoTarefa(r.tipo_tarefa)} · ${rotuloDepartamento(r.departamento)}` : rotuloTipoTarefa(r.tipo_tarefa)}
           >
             <i className={`w-2 h-2 rounded-full shrink-0 ${dotDepartamento(r.departamento)}`} />
-            <span className="truncate">{r.tipo_tarefa}</span>
+            <span className="truncate">{rotuloTipoTarefa(r.tipo_tarefa)}</span>
           </span>
         )}
       </span>
@@ -229,10 +234,10 @@ function LinhaRegistro({ registro: r, cliente, responsavel, selecionada, onAbrir
         {r.sobrecarga ? (
           <span className="flex flex-col">
             {r.data_sugerida && <s className="text-ln-t4">{fmtCurta(r.data_sugerida)}</s>}
-            <span className="text-ln-red">{fmtDiaCurto(r.data_escolhida) || 'sem data'}</span>
+            <span className="text-ln-red">{fmtDiaCurto(r.data_escolhida) || t('atividades.semDataMinusc')}</span>
           </span>
         ) : (
-          <span className={r.data_escolhida ? 'text-ln-t3' : 'text-ln-t4'}>{fmtDiaCurto(r.data_escolhida) || 'sem data'}</span>
+          <span className={r.data_escolhida ? 'text-ln-t3' : 'text-ln-t4'}>{fmtDiaCurto(r.data_escolhida) || t('atividades.semDataMinusc')}</span>
         )}
       </span>
 
@@ -240,7 +245,7 @@ function LinhaRegistro({ registro: r, cliente, responsavel, selecionada, onAbrir
 
       <span className="inline-flex items-center justify-center w-4 h-4">
         {r.aviso ? (
-          <span title={r.aviso} aria-label={`Aviso: ${r.aviso}`} className="inline-flex">
+          <span title={r.aviso} aria-label={t('atividades.lista.aviso', { aviso: r.aviso })} className="inline-flex">
             <AlertTriangle className="w-3.5 h-3.5 text-ln-yellow" />
           </span>
         ) : null}
@@ -280,15 +285,18 @@ export default function IssueList({
   hoje = null,
   agora = undefined,
 }) {
+  const { t, lang } = useI18n()
   const [hojeMount] = useState(hojeISO)
   const hojeRef = hoje || hojeMount
   const [recolhida, setRecolhida] = useState(false)
   const [fechados, setFechados] = useState(() => new Set())
 
   const lista = useMemo(() => filtrarRegistros(registros, filtro, hojeRef), [registros, filtro, hojeRef])
+  // lang: os rótulos dos grupos são traduzidos no cálculo
   const grupos = useMemo(
     () => agruparRegistros(lista, agrupar, { nomeMembro, hoje: hojeRef }),
-    [lista, agrupar, nomeMembro, hojeRef],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lista, agrupar, nomeMembro, hojeRef, lang],
   )
 
   const total = (registros || []).length
@@ -304,22 +312,22 @@ export default function IssueList({
   }
 
   return (
-    <section className="ln-issue-list" aria-label="Atividades planejadas">
+    <section className="ln-issue-list" aria-label={t('atividades.atividadesPlanejadas')}>
       <div className="sticky top-0 z-20 flex items-center gap-1.5 h-9 px-2 bg-ln-panel border-b border-ln-ink/5">
         <button
           type="button"
           onClick={() => setRecolhida((v) => !v)}
           aria-expanded={!recolhida}
-          aria-label={recolhida ? 'Expandir atividades planejadas' : 'Recolher atividades planejadas'}
-          title={recolhida ? 'Expandir' : 'Recolher'}
+          aria-label={recolhida ? t('atividades.lista.expandirLista') : t('atividades.lista.recolherLista')}
+          title={recolhida ? t('atividades.expandir') : t('atividades.recolher')}
           className={`ln-iconbtn ${FOCO}`}
         >
           <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-150 ${recolhida ? '' : 'rotate-90'}`} />
         </button>
-        <span className="text-[13px] font-medium text-ln-t2">Atividades planejadas</span>
+        <span className="text-[13px] font-medium text-ln-t2">{t('atividades.atividadesPlanejadas')}</span>
         <span className="text-[13px] text-ln-t3 tabular">· {carregandoVazio ? '…' : lista.length}</span>
         {!carregandoVazio && lista.length !== total && (
-          <span className="text-[11px] text-ln-t4 tabular">de {total}</span>
+          <span className="text-[11px] text-ln-t4 tabular">{t('atividades.lista.deTotal', { total })}</span>
         )}
       </div>
 
@@ -333,15 +341,15 @@ export default function IssueList({
             </div>
           ) : total === 0 ? (
             <div className="flex flex-col items-center justify-center gap-1.5 py-10 text-center">
-              <p className="text-[13px] text-ln-t4">Nenhuma atividade planejada ainda</p>
+              <p className="text-[13px] text-ln-t4">{t('atividades.lista.vazia')}</p>
               <p className="text-xs text-ln-t4 flex items-center gap-1">
-                Pressione <kbd className="ln-kbd">C</kbd> para planejar a primeira
+                {t('atividades.lista.pressione')} <kbd className="ln-kbd">C</kbd> {t('atividades.lista.paraPlanejar')}
               </p>
             </div>
           ) : lista.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-1 py-10 text-center">
-              <p className="text-[13px] text-ln-t4">Nenhuma atividade neste filtro</p>
-              <p className="text-xs text-ln-t4 tabular">{total} no total</p>
+              <p className="text-[13px] text-ln-t4">{t('atividades.lista.nadaNoFiltro')}</p>
+              <p className="text-xs text-ln-t4 tabular">{t('atividades.lista.noTotal', { total })}</p>
             </div>
           ) : (
             grupos.map((g) => {
@@ -353,7 +361,7 @@ export default function IssueList({
                     type="button"
                     onClick={() => alternarGrupo(chave)}
                     aria-expanded={!fechado}
-                    title={fechado ? `Expandir ${g.label}` : `Recolher ${g.label}`}
+                    title={fechado ? t('atividades.expandirX', { nome: g.label }) : t('atividades.recolherX', { nome: g.label })}
                     className={`sticky top-9 z-10 w-full flex items-center gap-1.5 h-9 px-2 rounded-lg bg-ln-panel text-left transition-colors duration-150 hover:bg-ln-ink/[0.03] ${FOCO}`}
                   >
                     <ChevronRight className={`w-3.5 h-3.5 text-ln-t4 transition-transform duration-150 ${fechado ? '' : 'rotate-90'}`} />

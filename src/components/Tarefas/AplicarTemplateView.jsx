@@ -17,21 +17,24 @@ import ListaView from './ListaView'
 import { PainelLateral } from './TemplateEditor'
 import BarraSelecao, { BotaoBarra, ResponsaveisEmMassa, aplicarDiferenca } from './BarraSelecao'
 import { DataInput } from './Calendario'
+import { useI18n } from '../../i18n'
 
 const nomeProjeto = (p) => p?.company_name || p?.companyName || ''
 
+// label = chave de templates.campos, traduzida no render
 const COLUNAS = [
-  { k: 'resp', label: 'Responsável', w: 130 },
-  { k: 'ini', label: 'Início', w: 110, editavel: true },
-  { k: 'venc', label: 'Vencimento', w: 120 },
-  { k: 'prio', label: 'Prioridade', w: 120 },
-  { k: 'tipo', label: 'Tipo de tarefa', w: 150 },
-  { k: 'estim', label: 'Estimativa', w: 110 },
-  { k: 'deps', label: 'Depende de', w: 110 },
-  { k: 'aviso', label: 'Atenção', w: 200 },
+  { k: 'resp', label: 'responsavel', w: 130 },
+  { k: 'ini', label: 'inicio', w: 110, editavel: true },
+  { k: 'venc', label: 'vencimento', w: 120 },
+  { k: 'prio', label: 'prioridade', w: 120 },
+  { k: 'tipo', label: 'tipoTarefa', w: 150 },
+  { k: 'estim', label: 'estimativa', w: 110 },
+  { k: 'deps', label: 'dependeDe', w: 110 },
+  { k: 'aviso', label: 'atencao', w: 200 },
 ]
 
 export default function AplicarTemplateView({ template, pastas, listas, projetos, squads, membros, membrosMap, listaInicialId, onAplicar, onCancelar }) {
+  const { t, lang, locale } = useI18n()
   const listaInicial = listas.find((l) => l.id === listaInicialId)
   const pastasAtivas = useMemo(() => pastas.filter((p) => !p.arquivada).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [pastas])
   const [pastaId, setPastaId] = useState(listaInicial?.pasta_id || '')
@@ -60,7 +63,8 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
   const itens = useMemo(() => itensDoTemplate(template), [template])
   const calculado = useMemo(
     () => planejarAplicacao(itens, { dataInicio, squad, cliente, usuarioClienteId, ativos }),
-    [itens, dataInicio, squad, cliente, usuarioClienteId, ativos],
+    // lang: os avisos da regra de responsável saem no idioma de quem vê
+    [itens, dataInicio, squad, cliente, usuarioClienteId, ativos, lang], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   // linhas no formato de tarefa (o que a ListaView lê), com os ajustes por cima. A ordem é
@@ -160,7 +164,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
   }
 
   const topo = linhas.filter((r) => !r.parent_id)
-  const grupos = [{ key: 'previa', label: cliente ? `Tarefas para ${cliente}` : 'Tarefas que serão criadas', cor: '#2A25F0', itens: topo }]
+  const grupos = [{ key: 'previa', label: cliente ? t('templates.aplicarTela.tarefasPara', { cliente }) : t('templates.aplicarTela.tarefasQueSeraoCriadas'), cor: '#2A25F0', itens: topo }]
   const filhosDe = new Map(topo.map((r) => [r.id, linhas.filter((x) => x.parent_id === r.id)]))
   const ctx = {
     statuses: STATUSES_PADRAO, membros, membrosMap, itensMap: {}, listaPadraoId: null, agrupar: 'nenhum',
@@ -171,11 +175,11 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
     onMudarStatus: () => {},
     onCriar: () => Promise.resolve({}),
     renderCelula: (k, r) => {
-      if (k === 'ini') return <DataCampo valor={r.data_inicio} placeholder="" {...limitesInicio(r)} onChange={(v) => editar(r.id, { data_inicio: v })} render={<span className={`text-[13px] tabular whitespace-nowrap ${r.data_inicio ? 'text-ln-t2' : 'text-ln-t4 pl-1'}`}>{r.data_inicio ? new Date(r.data_inicio).toLocaleDateString('pt-BR', { day: 'numeric', month: 'numeric', year: '2-digit' }) : '–'}</span>} />
+      if (k === 'ini') return <DataCampo valor={r.data_inicio} placeholder="" {...limitesInicio(r)} onChange={(v) => editar(r.id, { data_inicio: v })} render={<span className={`text-[13px] tabular whitespace-nowrap ${r.data_inicio ? 'text-ln-t2' : 'text-ln-t4 pl-1'}`}>{r.data_inicio ? new Date(r.data_inicio).toLocaleDateString(locale, { day: 'numeric', month: 'numeric', year: '2-digit' }) : '–'}</span>} />
       if (k === 'deps') {
         const deps = r.depende_de.filter((d) => porId.has(d))
         return deps.length
-          ? <span className="text-[13px] text-ln-t3 tabular truncate" title={deps.map((d) => `${num.get(d)} ${titulosPorId.get(d)}`).join('\n')}>após {deps.map((d) => num.get(d)).join(', ')}</span>
+          ? <span className="text-[13px] text-ln-t3 tabular truncate" title={deps.map((d) => `${num.get(d)} ${titulosPorId.get(d)}`).join('\n')}>{t('templates.apos', { nums: deps.map((d) => num.get(d)).join(', ') })}</span>
           : <span className="text-[13px] text-ln-t4 pl-1">–</span>
       }
       if (k === 'aviso') {
@@ -186,7 +190,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
       return undefined
     },
     acaoLinha: (r) => (
-      <button type="button" onClick={() => remover(r.id)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/linha:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" aria-label={`Não criar ${r.titulo}`} title={r.parent_id ? 'Não criar esta subtarefa' : 'Não criar esta tarefa (e as subtarefas)'}><Trash2 className="w-3.5 h-3.5" /></button>
+      <button type="button" onClick={() => remover(r.id)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/linha:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" aria-label={t('templates.aplicarTela.naoCriarNome', { nome: r.titulo })} title={r.parent_id ? t('templates.aplicarTela.naoCriarSub') : t('templates.aplicarTela.naoCriarComSubs')}><Trash2 className="w-3.5 h-3.5" /></button>
     ),
   }
   const sel = selId ? porId.get(selId) : null
@@ -195,84 +199,84 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
     <div className="flex flex-col h-full min-h-0">
       <div className="shrink-0 px-4 sm:px-6 pt-3 pb-3 border-b border-ln-ink/[0.08] bg-ln-panel">
         <div className="flex items-center gap-2 flex-wrap">
-          <button type="button" onClick={onCancelar} disabled={!!aplicando} className={`inline-flex items-center gap-1 text-xs text-ln-t3 hover:text-ln-t1 rounded ${FOCO}`}><ArrowLeft className="w-3 h-3" /> Voltar</button>
+          <button type="button" onClick={onCancelar} disabled={!!aplicando} className={`inline-flex items-center gap-1 text-xs text-ln-t3 hover:text-ln-t1 rounded ${FOCO}`}><ArrowLeft className="w-3 h-3" /> {t('comum.voltar')}</button>
           <span className="flex-1" />
-          {aplicando && <span className="text-xs text-ln-t3 tabular inline-flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Criando {aplicando.feitas} de {aplicando.total}…</span>}
-          <button type="button" onClick={onCancelar} disabled={!!aplicando} className="ln-pill">Cancelar</button>
-          <button type="button" onClick={aplicar} disabled={!pronto} className="ln-primary disabled:opacity-50"><Play className="w-3 h-3" /> Criar {linhas.length} tarefa{linhas.length === 1 ? '' : 's'}</button>
+          {aplicando && <span className="text-xs text-ln-t3 tabular inline-flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('templates.aplicarTela.criando', { feitas: aplicando.feitas, total: aplicando.total })}</span>}
+          <button type="button" onClick={onCancelar} disabled={!!aplicando} className="ln-pill">{t('comum.cancelar')}</button>
+          <button type="button" onClick={aplicar} disabled={!pronto} className="ln-primary disabled:opacity-50"><Play className="w-3 h-3" /> {t('templates.aplicarTela.criarN', { count: linhas.length })}</button>
         </div>
-        <h2 className="mt-2 text-2xl font-bold text-ln-t1 vt-display truncate">Aplicar “{template.nome}”</h2>
+        <h2 className="mt-2 text-2xl font-bold text-ln-t1 vt-display truncate">{t('templates.aplicarTela.titulo', { nome: template.nome })}</h2>
         <div className="mt-3 flex items-end gap-3 flex-wrap">
-          <label className="grid gap-1 text-xs text-ln-t3 w-[260px] max-w-full">Cliente
+          <label className="grid gap-1 text-xs text-ln-t3 w-[260px] max-w-full">{t('templates.aplicarTela.cliente')}
             <select className="ln-input !h-9" value={pastaId} onChange={(e) => escolherPasta(e.target.value)}>
-              <option value="">Escolha o cliente</option>
+              <option value="">{t('templates.aplicarTela.escolhaCliente')}</option>
               {pastasAtivas.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </label>
-          <label className="grid gap-1 text-xs text-ln-t3 w-[200px] max-w-full">Lista
+          <label className="grid gap-1 text-xs text-ln-t3 w-[200px] max-w-full">{t('templates.aplicarTela.lista')}
             <select className="ln-input !h-9" value={listaId} onChange={(e) => setListaId(e.target.value)} disabled={!pastaId}>
-              {!listasDaPasta.length && <option value="">{pastaId ? 'Pasta sem lista' : '—'}</option>}
+              {!listasDaPasta.length && <option value="">{pastaId ? t('templates.aplicarTela.pastaSemLista') : '—'}</option>}
               {listasDaPasta.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
             </select>
           </label>
-          <label className="grid gap-1 text-xs text-ln-t3 w-[170px]">Data de início
-            <DataInput className="!h-9" value={dataInicio} onChange={(v) => v && setDataInicio(v)} aria-label="Data de início" />
+          <label className="grid gap-1 text-xs text-ln-t3 w-[170px]">{t('templates.aplicarTela.dataInicio')}
+            <DataInput className="!h-9" value={dataInicio} onChange={(v) => v && setDataInicio(v)} aria-label={t('templates.aplicarTela.dataInicio')} />
           </label>
           <div className="flex items-center gap-3 flex-wrap text-xs text-ln-t3 pb-2">
-            {pastaId && (squad ? <span>Squad <b className="text-ln-t2">{squad.emoji} {squad.name}</b></span> : <span className="text-ln-orange">Cliente sem squad</span>)}
-            <span className="tabular">{linhas.length} tarefa{linhas.length === 1 ? '' : 's'}{minutos ? ` · ${fmtEstimativa(minutos)}` : ''}</span>
-            {pastaId && semResp > 0 && <span className="text-ln-orange inline-flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {semResp} sem responsável</span>}
-            {nAjustes > 0 && <button type="button" onClick={() => setEdicoes({})} className="inline-flex items-center gap-1 text-ln-t3 hover:text-ln-t1"><RotateCcw className="w-3 h-3" /> desfazer {nAjustes} ajuste{nAjustes === 1 ? '' : 's'}</button>}
-            {removidos.size > 0 && <button type="button" onClick={() => setRemovidos(new Set())} className="inline-flex items-center gap-1 text-ln-t3 hover:text-ln-t1"><RotateCcw className="w-3 h-3" /> trazer de volta {removidos.size} removida{removidos.size === 1 ? '' : 's'}</button>}
-            {copias.length > 0 && <button type="button" onClick={() => setCopias([])} className="inline-flex items-center gap-1 text-ln-t3 hover:text-ln-t1"><RotateCcw className="w-3 h-3" /> desfazer {copias.length} cópia{copias.length === 1 ? '' : 's'}</button>}
+            {pastaId && (squad ? <span>{t('templates.aplicarTela.squad')} <b className="text-ln-t2">{squad.emoji} {squad.name}</b></span> : <span className="text-ln-orange">{t('templates.avisos.clienteSemSquad')}</span>)}
+            <span className="tabular">{t('templates.nTarefas', { count: linhas.length })}{minutos ? ` · ${fmtEstimativa(minutos)}` : ''}</span>
+            {pastaId && semResp > 0 && <span className="text-ln-orange inline-flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {t('templates.aplicarTela.semResponsavel', { count: semResp })}</span>}
+            {nAjustes > 0 && <button type="button" onClick={() => setEdicoes({})} className="inline-flex items-center gap-1 text-ln-t3 hover:text-ln-t1"><RotateCcw className="w-3 h-3" /> {t('templates.aplicarTela.desfazerAjustes', { count: nAjustes })}</button>}
+            {removidos.size > 0 && <button type="button" onClick={() => setRemovidos(new Set())} className="inline-flex items-center gap-1 text-ln-t3 hover:text-ln-t1"><RotateCcw className="w-3 h-3" /> {t('templates.aplicarTela.trazerDeVolta', { count: removidos.size })}</button>}
+            {copias.length > 0 && <button type="button" onClick={() => setCopias([])} className="inline-flex items-center gap-1 text-ln-t3 hover:text-ln-t1"><RotateCcw className="w-3 h-3" /> {t('templates.aplicarTela.desfazerCopias', { count: copias.length })}</button>}
           </div>
         </div>
-        <p className="mt-1 text-[11px] text-ln-t4">Clique numa célula para ajustar só aquela tarefa, ou na linha para editar nome, descrição e checklists. Fim de semana conta como o próximo dia útil.</p>
+        <p className="mt-1 text-[11px] text-ln-t4">{t('templates.aplicarTela.ajuda')}</p>
       </div>
 
       <div className="relative flex-1 min-h-0 flex">
         <div className="flex-1 min-w-0 overflow-auto bg-ln-panel">
-          <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas colunas={COLUNAS}
-            vazio={<p className="text-[13px] text-ln-t4 py-16 text-center">Todas as tarefas foram tiradas. Use “trazer de volta” no topo.</p>} />
+          <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas colunas={COLUNAS.map((c) => ({ ...c, label: t(`templates.campos.${c.label}`) }))}
+            vazio={<p className="text-[13px] text-ln-t4 py-16 text-center">{t('templates.aplicarTela.todasTiradas')}</p>} />
         </div>
 
         <BarraSelecao n={linhasSel.length} onLimpar={() => setSelecionadas(new Set())} onDuplicar={duplicarSel} onExcluir={removerSel}>
           <ResponsaveisEmMassa listas={linhasSel.map((r) => r.responsaveis)} membros={membros} membrosMap={membrosMap} icon={Users}
             onAplicar={(d) => editarSel((r) => ({ responsaveis: aplicarDiferenca(r.responsaveis, d) }))} />
-          <DataCampo valor={null} onChange={(v) => editarSel({ data_inicio: v })} render={<BotaoBarra icon={CalendarDays}>Início</BotaoBarra>} />
-          <DataCampo valor={null} onChange={(v) => editarSel({ data_vencimento: v })} render={<BotaoBarra icon={CalendarClock}>Vencimento</BotaoBarra>} />
-          <PrioridadeCampo valor={null} onChange={(v) => editarSel({ prioridade: v })} render={<BotaoBarra icon={Flag}>Prioridade</BotaoBarra>} />
-          <TipoTarefaCampo valor={null} onChange={(v) => editarSel({ tipo_tarefa: v })} render={<BotaoBarra icon={Shapes}>Tipo</BotaoBarra>} />
-          <EstimativaCampo valor={null} onChange={(v) => editarSel({ estimativa_min: v })} render={<BotaoBarra icon={Hourglass}>Estimativa</BotaoBarra>} />
+          <DataCampo valor={null} onChange={(v) => editarSel({ data_inicio: v })} render={<BotaoBarra icon={CalendarDays}>{t('templates.campos.inicio')}</BotaoBarra>} />
+          <DataCampo valor={null} onChange={(v) => editarSel({ data_vencimento: v })} render={<BotaoBarra icon={CalendarClock}>{t('templates.campos.vencimento')}</BotaoBarra>} />
+          <PrioridadeCampo valor={null} onChange={(v) => editarSel({ prioridade: v })} render={<BotaoBarra icon={Flag}>{t('templates.campos.prioridade')}</BotaoBarra>} />
+          <TipoTarefaCampo valor={null} onChange={(v) => editarSel({ tipo_tarefa: v })} render={<BotaoBarra icon={Shapes}>{t('templates.campos.tipo')}</BotaoBarra>} />
+          <EstimativaCampo valor={null} onChange={(v) => editarSel({ estimativa_min: v })} render={<BotaoBarra icon={Hourglass}>{t('templates.campos.estimativa')}</BotaoBarra>} />
         </BarraSelecao>
 
         {sel && (
-          <PainelLateral label="Tarefa da prévia" titulo={sel.parent_id ? 'Subtarefa que será criada' : 'Tarefa que será criada'} onFechar={() => setSelId(null)}
-            acoes={<button type="button" onClick={() => remover(sel.id)} className="ln-iconbtn hover:!text-ln-red" aria-label="Não criar" title="Não criar esta tarefa"><Trash2 className="w-3.5 h-3.5" /></button>}>
+          <PainelLateral label={t('templates.aplicarTela.tarefaDaPrevia')} titulo={sel.parent_id ? t('templates.aplicarTela.subtarefaSeraCriada') : t('templates.aplicarTela.tarefaSeraCriada')} onFechar={() => setSelId(null)}
+            acoes={<button type="button" onClick={() => remover(sel.id)} className="ln-iconbtn hover:!text-ln-red" aria-label={t('templates.aplicarTela.naoCriar')} title={t('templates.aplicarTela.naoCriarEsta')}><Trash2 className="w-3.5 h-3.5" /></button>}>
             <div className="flex flex-col gap-5">
               <input
-                value={sel.titulo} onChange={(e) => editar(sel.id, { titulo: e.target.value })} aria-label="Nome da tarefa"
+                value={sel.titulo} onChange={(e) => editar(sel.id, { titulo: e.target.value })} aria-label={t('templates.nomeTarefa')}
                 className="w-full bg-transparent text-xl font-semibold tracking-[-0.01em] text-ln-t1 outline-none rounded-md -mx-1 px-1 hover:bg-ln-ink/[0.03] focus:bg-ln-ink/[0.04]"
               />
               <section>
-                <p className="ln-label">Propriedades</p>
+                <p className="ln-label">{t('templates.propriedades')}</p>
                 <dl className="mt-1.5 flex flex-col gap-0.5">
-                  <Propriedade label="Responsáveis"><ResponsavelCampo item={sel} membros={membros} membrosMap={membrosMap} comNome onChange={(ids) => editar(sel.id, { responsaveis: ids })} /></Propriedade>
-                  <Propriedade label="Início"><DataCampo valor={sel.data_inicio} placeholder="definir" {...limitesInicio(sel)} onChange={(v) => editar(sel.id, { data_inicio: v })} /></Propriedade>
-                  <Propriedade label="Vencimento"><DataCampo valor={sel.data_vencimento} item={sel} placeholder="definir" {...limitesVencimento(sel)} onChange={(v) => editar(sel.id, { data_vencimento: v })} /></Propriedade>
-                  <Propriedade label="Prioridade"><PrioridadeCampo valor={sel.prioridade} onChange={(v) => editar(sel.id, { prioridade: v })} /></Propriedade>
-                  <Propriedade label="Tipo"><TipoTarefaCampo valor={sel.tipo_tarefa} onChange={(v) => editar(sel.id, { tipo_tarefa: v })} /></Propriedade>
-                  <Propriedade label="Estimativa"><EstimativaCampo valor={sel.estimativa_min} onChange={(v) => editar(sel.id, { estimativa_min: v })} /></Propriedade>
+                  <Propriedade label={t('templates.campos.responsaveis')}><ResponsavelCampo item={sel} membros={membros} membrosMap={membrosMap} comNome onChange={(ids) => editar(sel.id, { responsaveis: ids })} /></Propriedade>
+                  <Propriedade label={t('templates.campos.inicio')}><DataCampo valor={sel.data_inicio} placeholder={t('templates.definir')} {...limitesInicio(sel)} onChange={(v) => editar(sel.id, { data_inicio: v })} /></Propriedade>
+                  <Propriedade label={t('templates.campos.vencimento')}><DataCampo valor={sel.data_vencimento} item={sel} placeholder={t('templates.definir')} {...limitesVencimento(sel)} onChange={(v) => editar(sel.id, { data_vencimento: v })} /></Propriedade>
+                  <Propriedade label={t('templates.campos.prioridade')}><PrioridadeCampo valor={sel.prioridade} onChange={(v) => editar(sel.id, { prioridade: v })} /></Propriedade>
+                  <Propriedade label={t('templates.campos.tipo')}><TipoTarefaCampo valor={sel.tipo_tarefa} onChange={(v) => editar(sel.id, { tipo_tarefa: v })} /></Propriedade>
+                  <Propriedade label={t('templates.campos.estimativa')}><EstimativaCampo valor={sel.estimativa_min} onChange={(v) => editar(sel.id, { estimativa_min: v })} /></Propriedade>
                 </dl>
                 {!sel.responsaveis.length && sel.avisoRegra && <p className="mt-2 text-[11px] text-ln-orange flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {sel.avisoRegra}</p>}
               </section>
-              <Secao titulo="Descrição">
+              <Secao titulo={t('templates.secoes.descricao')}>
                 <Descricao key={sel.id} valor={sel.descricao} onSalvar={(v) => editar(sel.id, { descricao: v })} />
               </Secao>
               {!sel.parent_id && (() => {
                 const subs = linhas.filter((x) => x.parent_id === sel.id).sort((a, b) => a.posicao - b.posicao)
                 return (
-                  <Secao titulo="Subtarefas" extra={subs.length > 0 && <span className="text-[11px] text-ln-t4 tabular">{subs.length}</span>}>
+                  <Secao titulo={t('templates.secoes.subtarefas')} extra={subs.length > 0 && <span className="text-[11px] text-ln-t4 tabular">{subs.length}</span>}>
                     <ListaSubtarefas
                       itens={subs} onAbrir={(id) => setSelId(id)}
                       fim={(x) => (<>
@@ -283,20 +287,20 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
                   </Secao>
                 )
               })()}
-              <Secao titulo="Relações">
+              <Secao titulo={t('templates.secoes.relacoes')}>
                 <ListaRelacoes
                   linhas={[
                     ...sel.depende_de.filter((d) => porId.has(d)).map((d) => ({
-                      key: `por-${d}`, rotulo: 'Bloqueada por', titulo: porId.get(d).titulo, onAbrir: () => setSelId(d),
+                      key: `por-${d}`, rotulo: t('templates.bloqueadaPor'), titulo: porId.get(d).titulo, onAbrir: () => setSelId(d),
                       onRemover: () => editar(sel.id, { depende_de: sel.depende_de.filter((x) => x !== d) }),
                     })),
                     ...linhas.filter((x) => x.depende_de.includes(sel.id)).map((x) => ({
-                      key: `bloqueia-${x.id}`, rotulo: 'Bloqueia', titulo: x.titulo, onAbrir: () => setSelId(x.id),
+                      key: `bloqueia-${x.id}`, rotulo: t('templates.bloqueia'), titulo: x.titulo, onAbrir: () => setSelId(x.id),
                       onRemover: () => editar(x.id, { depende_de: x.depende_de.filter((d) => d !== sel.id) }),
                     })),
                   ]}
-                  tipos={[{ value: 'bloqueada', label: 'Bloqueada por' }, { value: 'bloqueia', label: 'Bloqueia' }]}
-                  minBusca={0} placeholder="Buscar tarefa da prévia"
+                  tipos={[{ value: 'bloqueada', label: t('templates.bloqueadaPor') }, { value: 'bloqueia', label: t('templates.bloqueia') }]}
+                  minBusca={0} placeholder={t('templates.aplicarTela.buscarTarefa')}
                   buscar={async (q) => linhas.filter((x) => x.id !== sel.id && x.parent_id !== sel.id && (!q || (x.titulo || '').toLowerCase().includes(q.toLowerCase())))}
                   onAdicionar={(tipo, alvo) => {
                     if (tipo === 'bloqueada') editar(sel.id, { depende_de: [...new Set([...sel.depende_de, alvo.id])] })
@@ -304,7 +308,7 @@ export default function AplicarTemplateView({ template, pastas, listas, projetos
                   }}
                 />
               </Secao>
-              <Secao titulo="Checklists">
+              <Secao titulo={t('templates.secoes.checklists')}>
                 <Checklists checklists={sel.checklists || []} onChange={(v) => editar(sel.id, { checklists: v })} />
               </Secao>
             </div>

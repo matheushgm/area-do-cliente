@@ -19,9 +19,10 @@ import { carregarConfigAtividades, estimarTarefa, tiparTarefa } from '../../lib/
 import { useCargaTime } from '../../hooks/useCargaTime'
 import { usePlanejador } from '../../hooks/usePlanejador'
 import { useConcluidas } from '../../hooks/useConcluidas'
-import { PERIODOS, SEM_RESPONSAVEL_KEY, MAX_DIAS_CUSTOM, intervaloDoPeriodo, customPadrao, diasEntre, isoValido } from '../../lib/atividadesConcluidas'
+import { PERIODOS, SEM_RESPONSAVEL_KEY, MAX_DIAS_CUSTOM, intervaloDoPeriodo, customPadrao, diasEntre, isoValido, rotuloPeriodo, nomeCliente } from '../../lib/atividadesConcluidas'
 import { hojeISO } from '../../lib/atividadesCarga'
-import { fmtHora, chaveAtividade } from '../../lib/atividadesCarga'
+import { fmtHora, fmtHoras, chaveAtividade, rotuloNivel } from '../../lib/atividadesCarga'
+import { useI18n } from '../../i18n'
 import KpiStrip from './KpiStrip'
 import TeamHeatLine from './TeamHeatLine'
 import TeamTable from './TeamTable'
@@ -44,21 +45,22 @@ const CONFIG_FALLBACK = {
 const PAINEL_LARGURA = 480
 const EMPURRA_A_PARTIR_DE = 1200 // px de largura da área de conteúdo: abaixo disso o painel vira overlay
 
+// rótulos em atividades.modulo.agrupar.<value> e atividades.modulo.filtros.<value>
 const AGRUPAR_TIME = [
-  { value: 'saude', label: 'saúde' },
-  { value: 'departamento', label: 'departamento' },
-  { value: 'nenhum', label: 'nenhum' },
+  { value: 'saude' },
+  { value: 'departamento' },
+  { value: 'nenhum' },
 ]
 const AGRUPAR_LISTA = [
-  { value: 'semana', label: 'semana' },
-  { value: 'status', label: 'status' },
-  { value: 'responsavel', label: 'responsável' },
+  { value: 'semana' },
+  { value: 'status' },
+  { value: 'responsavel' },
 ]
 const FILTROS_LISTA = [
-  { value: 'todas', label: 'Todas' },
-  { value: 'semana', label: 'Esta semana' },
-  { value: 'forcadas', label: 'Forçadas' },
-  { value: 'aviso', label: 'Com aviso' },
+  { value: 'todas' },
+  { value: 'semana' },
+  { value: 'forcadas' },
+  { value: 'aviso' },
 ]
 
 function useLarguraDoConteudo(ref) {
@@ -83,6 +85,7 @@ function estaDigitando() {
 export default function AtividadesModulo({ onAbrirMenu }) {
   const openSidebar = onAbrirMenu || (() => {})
   const { user, projects, teamMembers, squads } = useApp()
+  const { t } = useI18n()
   const { toast, showToast } = useToast()
   const isAdmin = user?.role === 'admin'
 
@@ -151,10 +154,10 @@ export default function AtividadesModulo({ onAbrirMenu }) {
   const [filtrosConcl, setFiltrosConcl] = useState({ pessoa: null, cliente: null, dia: null })
   // intervalo válido do personalizado: só muda quando as duas datas fazem sentido
   const customErro = periodo !== 'custom' ? null
-    : !isoValido(custom.desde) || !isoValido(custom.ate) ? 'Informe as duas datas.'
-    : custom.desde > custom.ate ? 'A data inicial é depois da final.'
-    : custom.ate > hojeISO() ? 'A data final está no futuro.'
-    : diasEntre(custom.desde, custom.ate) > MAX_DIAS_CUSTOM ? `No máximo ${MAX_DIAS_CUSTOM} dias por vez.`
+    : !isoValido(custom.desde) || !isoValido(custom.ate) ? t('atividades.modulo.custom.duasDatas')
+    : custom.desde > custom.ate ? t('atividades.modulo.custom.inicialDepois')
+    : custom.ate > hojeISO() ? t('atividades.modulo.custom.futuro')
+    : diasEntre(custom.desde, custom.ate) > MAX_DIAS_CUSTOM ? t('atividades.modulo.custom.maximo', { n: MAX_DIAS_CUSTOM })
     : null
   const [customAplicado, setCustomAplicado] = useState(custom)
   useEffect(() => { if (periodo === 'custom' && !customErro) setCustomAplicado(custom) }, [periodo, custom, customErro])
@@ -163,7 +166,7 @@ export default function AtividadesModulo({ onAbrirMenu }) {
   const intervaloPedido = useMemo(() => (periodo === 'custom' ? intervaloConcl : intervaloDoPeriodo('7dias', hojeISO())), [periodo, intervaloConcl])
   const concl = useConcluidas(view === 'concluidas', intervaloPedido)
   const nomeFiltroPessoa = filtrosConcl.pessoa
-    ? (filtrosConcl.pessoa === SEM_RESPONSAVEL_KEY ? 'Sem responsável' : (membros.find((m) => `p:${m.id}` === filtrosConcl.pessoa)?.nome || filtrosConcl.pessoa.replace(/^c:/, 'ClickUp ')))
+    ? (filtrosConcl.pessoa === SEM_RESPONSAVEL_KEY ? t('atividades.semResponsavel') : (membros.find((m) => `p:${m.id}` === filtrosConcl.pessoa)?.nome || filtrosConcl.pessoa.replace(/^c:/, 'ClickUp ')))
     : null
 
   const conteudoRef = useRef(null)
@@ -221,18 +224,18 @@ export default function AtividadesModulo({ onAbrirMenu }) {
   // Edição inline das horas no painel da pessoa: grava no ClickUp e relê a agenda dela
   const estimar = useCallback(async (pessoa, tarefa, horas) => {
     await estimarTarefa({ taskId: tarefa.id, horas, assigneeClickupId: pessoa?.clickupId || null })
-    showToast(`Estimativa de ${tarefa.nome?.slice(0, 40) || 'tarefa'} salva no ClickUp`)
+    showToast(t('atividades.modulo.toast.estimativa', { nome: tarefa.nome?.slice(0, 40) || t('atividades.tarefa') }))
     { const k = pessoa?.clickupId || pessoa?.profileId; if (k) refreshCarga([k]) }
-  }, [refreshCarga, showToast])
+  }, [refreshCarga, showToast, t])
 
   // Tipo de tarefa inline: grava o campo no ClickUp (e as horas do tipo) e relê a agenda
   const tipar = useCallback(async (pessoa, tarefa, tipo) => {
     const r = await tiparTarefa({ taskId: tarefa.id, tipo, assigneeClickupId: pessoa?.clickupId || null })
     const h = Number(r?.horas)
-    showToast(`${tarefa.nome?.slice(0, 40) || 'Tarefa'}: tipo "${r?.tipo || tipo}"${h > 0 ? ` (${h < 1 ? `${Math.round(h * 60)} min` : `${String(h).replace('.', ',')}h`})` : ''} salvo no ClickUp`)
+    showToast(t('atividades.modulo.toast.tipo', { nome: tarefa.nome?.slice(0, 40) || t('atividades.tarefaMaiusc'), tipo: r?.tipo || tipo, horas: h > 0 ? ` (${fmtHoras(h)})` : '' }))
     { const k = pessoa?.clickupId || pessoa?.profileId; if (k) refreshCarga([k]) }
     return r
-  }, [refreshCarga, showToast])
+  }, [refreshCarga, showToast, t])
 
   // atalhos: C nova atividade, Esc fecha painel, setas no contador
   useEffect(() => {
@@ -265,9 +268,9 @@ export default function AtividadesModulo({ onAbrirMenu }) {
     return { i: -1, n: carga.pessoas.length, ir: () => {} }
   }, [painel, carga.pessoas, historico])
 
-  const tituloPainel = painel?.tipo === 'pessoa' ? (pessoaAberta?.nome || 'Pessoa')
-    : painel?.tipo === 'atividade' ? (atividadeAberta ? chaveAtividade(atividadeAberta.id) : 'Atividade')
-    : painel?.tipo === 'nova' ? 'Nova atividade' : ''
+  const tituloPainel = painel?.tipo === 'pessoa' ? (pessoaAberta?.nome || t('atividades.colunas.pessoa'))
+    : painel?.tipo === 'atividade' ? (atividadeAberta ? chaveAtividade(atividadeAberta.id) : t('atividades.modulo.atividade'))
+    : painel?.tipo === 'nova' ? t('atividades.novaAtividade') : ''
 
   const plannerOffset = painel && painelEmpurra && !painelExpandido ? PAINEL_LARGURA + 16 : 16
 
@@ -283,34 +286,34 @@ export default function AtividadesModulo({ onAbrirMenu }) {
               {/* Barra superior */}
               <header className="min-h-[56px] shrink-0 flex items-center justify-between gap-3 px-6 py-2 border-b border-ln-ink/[0.08]">
                 <div className="flex items-center gap-2 min-w-0">
-                  <button onClick={openSidebar} aria-label="Abrir menu de navegação" className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
-                  <h1 className="text-xl font-bold text-ln-t1 truncate">Atividades</h1>
+                  <button onClick={openSidebar} aria-label={t('atividades.modulo.abrirMenu')} className="ln-iconbtn lg:hidden"><Menu className="w-4 h-4" /></button>
+                  <h1 className="text-xl font-bold text-ln-t1 truncate">{t('atividades.modulo.titulo')}</h1>
                   <div className="hidden sm:flex items-center gap-1.5 text-[13px] text-ln-t3 min-w-0">
                     <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
-                    <span className="truncate text-ln-t2">{view === 'time' ? 'Capacidade do time' : view === 'concluidas' ? 'Tarefas concluídas' : 'Atividades planejadas'}</span>
+                    <span className="truncate text-ln-t2">{view === 'time' ? t('atividades.capacidadeTime') : view === 'concluidas' ? t('atividadesConcluidas.titulo') : t('atividades.atividadesPlanejadas')}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${carga.envelhecido ? 'text-ln-yellow' : 'text-ln-t4'}`} title={carga.geradoEm ? `Carga lida do ClickUp às ${fmtHora(carga.geradoEm)}` : 'Ainda não li o ClickUp'}>
+                  <span className={`hidden sm:inline-flex items-center gap-1.5 text-xs ${carga.envelhecido ? 'text-ln-yellow' : 'text-ln-t4'}`} title={carga.geradoEm ? t('atividades.modulo.cargaLida', { hora: fmtHora(carga.geradoEm) }) : t('atividades.modulo.aindaNaoLi')}>
                     {carga.loading
-                      ? <><Loader2 className="w-3 h-3 animate-spin" /> Lendo {carga.progresso.lidas} de {carga.progresso.total}…</>
-                      : carga.geradoEm ? `atualizado ${fmtHora(carga.geradoEm)}` : 'sem leitura'}
+                      ? <><Loader2 className="w-3 h-3 animate-spin" /> {t('atividades.modulo.lendoNDe', { lidas: carga.progresso.lidas, total: carga.progresso.total })}</>
+                      : carga.geradoEm ? t('atividades.modulo.atualizado', { hora: fmtHora(carga.geradoEm) }) : t('atividades.modulo.semLeitura')}
                   </span>
                   <span className="hidden md:inline-flex items-center text-xs text-ln-t4 tabular">
                     {contador.i >= 0 ? `${contador.i + 1} / ${contador.n}` : `${carga.lidas} / ${carga.pessoas.length}`}
                   </span>
                   <div className="hidden md:flex items-center">
-                    <button onClick={() => contador.ir(contador.i - 1)} disabled={contador.i <= 0} className="ln-iconbtn" aria-label="Anterior"><ChevronUp className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => contador.ir(contador.i + 1)} disabled={contador.i < 0 || contador.i >= contador.n - 1} className="ln-iconbtn" aria-label="Próximo"><ChevronDown className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => contador.ir(contador.i - 1)} disabled={contador.i <= 0} className="ln-iconbtn" aria-label={t('atividades.modulo.anterior')}><ChevronUp className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => contador.ir(contador.i + 1)} disabled={contador.i < 0 || contador.i >= contador.n - 1} className="ln-iconbtn" aria-label={t('atividades.modulo.proximo')}><ChevronDown className="w-3.5 h-3.5" /></button>
                   </div>
-                  <button onClick={() => carga.refresh()} disabled={carga.loading} className="ln-iconbtn" aria-label="Recarregar do ClickUp" title="Recarregar do ClickUp">
+                  <button onClick={() => carga.refresh()} disabled={carga.loading} className="ln-iconbtn" aria-label={t('atividades.recarregarClickup')} title={t('atividades.recarregarClickup')}>
                     <RefreshCw className={`w-3.5 h-3.5 ${carga.loading ? 'animate-spin' : ''}`} />
                   </button>
                   {isAdmin && (
-                    <button onClick={() => setShowConfig(true)} className="ln-iconbtn" aria-label="Capacidade e horas padrão" title="Capacidade e horas padrão"><Settings className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => setShowConfig(true)} className="ln-iconbtn" aria-label={t('atividades.config.titulo')} title={t('atividades.config.titulo')}><Settings className="w-3.5 h-3.5" /></button>
                   )}
-                  <button onClick={() => novaAtividade()} className="ln-primary" title="Nova atividade (C)">
-                    <Plus className="w-3.5 h-3.5" /> Nova atividade
+                  <button onClick={() => novaAtividade()} className="ln-primary" title={t('atividades.modulo.novaAtalho')}>
+                    <Plus className="w-3.5 h-3.5" /> {t('atividades.novaAtividade')}
                   </button>
                 </div>
               </header>
@@ -318,49 +321,49 @@ export default function AtividadesModulo({ onAbrirMenu }) {
               {/* Barra de views */}
               <div className="h-11 shrink-0 flex items-center justify-between gap-3 px-3 border-b border-ln-ink/5">
                 <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto scroll-hide">
-                  <button onClick={() => irPara('time')} className={`ln-tab ${view === 'time' ? 'ln-tab-active' : ''}`}><Users className="w-3.5 h-3.5" /> Time</button>
-                  <button onClick={() => irPara('atividades')} className={`ln-tab ${view === 'atividades' ? 'ln-tab-active' : ''}`}><ListChecks className="w-3.5 h-3.5" /> Atividades</button>
-                  <button onClick={() => irPara('concluidas')} className={`ln-tab ${view === 'concluidas' ? 'ln-tab-active' : ''}`} title="Relatório do que foi concluído no ClickUp"><CheckCircle2 className="w-3.5 h-3.5" /> Concluídas</button>
+                  <button onClick={() => irPara('time')} className={`ln-tab ${view === 'time' ? 'ln-tab-active' : ''}`}><Users className="w-3.5 h-3.5" /> {t('atividades.modulo.abas.time')}</button>
+                  <button onClick={() => irPara('atividades')} className={`ln-tab ${view === 'atividades' ? 'ln-tab-active' : ''}`}><ListChecks className="w-3.5 h-3.5" /> {t('atividades.modulo.abas.atividades')}</button>
+                  <button onClick={() => irPara('concluidas')} className={`ln-tab ${view === 'concluidas' ? 'ln-tab-active' : ''}`} title={t('atividades.modulo.abas.concluidasTitle')}><CheckCircle2 className="w-3.5 h-3.5" /> {t('atividades.modulo.abas.concluidas')}</button>
                   <span className="w-px h-4 bg-ln-line mx-1 shrink-0" />
                   {view === 'concluidas'
                     ? (<>
                       {PERIODOS.map((f) => (
-                        <button key={f.value} onClick={() => { setPeriodo(f.value); setFiltrosConcl((x) => ({ ...x, dia: null })) }} className={`ln-tab whitespace-nowrap shrink-0 ${periodo === f.value ? 'ln-tab-active' : ''}`} aria-pressed={periodo === f.value} title={f.value === 'custom' ? 'Escolher o intervalo de datas' : undefined}>
-                          {f.value === 'custom' && <CalendarRange className="w-3.5 h-3.5" />}{f.label}
+                        <button key={f.value} onClick={() => { setPeriodo(f.value); setFiltrosConcl((x) => ({ ...x, dia: null })) }} className={`ln-tab whitespace-nowrap shrink-0 ${periodo === f.value ? 'ln-tab-active' : ''}`} aria-pressed={periodo === f.value} title={f.value === 'custom' ? t('atividades.modulo.custom.escolher') : undefined}>
+                          {f.value === 'custom' && <CalendarRange className="w-3.5 h-3.5" />}{rotuloPeriodo(f.value)}
                         </button>
                       ))}
                       {periodo === 'custom' && (
-                        <span className="inline-flex items-center gap-1.5 shrink-0 ml-1" role="group" aria-label="Intervalo personalizado">
-                          <input type="date" value={custom.desde} max={custom.ate || hojeISO()} onChange={(e) => { setCustom((c) => ({ ...c, desde: e.target.value })); setFiltrosConcl((x) => ({ ...x, dia: null })) }} className="ln-input !w-auto !h-7 !text-xs tabular" aria-label="Data inicial" />
-                          <span className="text-[11px] text-ln-t4">até</span>
-                          <input type="date" value={custom.ate} min={custom.desde} max={hojeISO()} onChange={(e) => { setCustom((c) => ({ ...c, ate: e.target.value })); setFiltrosConcl((x) => ({ ...x, dia: null })) }} className="ln-input !w-auto !h-7 !text-xs tabular" aria-label="Data final" />
+                        <span className="inline-flex items-center gap-1.5 shrink-0 ml-1" role="group" aria-label={t('atividades.modulo.custom.aria')}>
+                          <input type="date" value={custom.desde} max={custom.ate || hojeISO()} onChange={(e) => { setCustom((c) => ({ ...c, desde: e.target.value })); setFiltrosConcl((x) => ({ ...x, dia: null })) }} className="ln-input !w-auto !h-7 !text-xs tabular" aria-label={t('atividades.modulo.custom.inicial')} />
+                          <span className="text-[11px] text-ln-t4">{t('atividades.modulo.custom.ate')}</span>
+                          <input type="date" value={custom.ate} min={custom.desde} max={hojeISO()} onChange={(e) => { setCustom((c) => ({ ...c, ate: e.target.value })); setFiltrosConcl((x) => ({ ...x, dia: null })) }} className="ln-input !w-auto !h-7 !text-xs tabular" aria-label={t('atividades.modulo.custom.final')} />
                           {customErro
                             ? <span className="text-[11px] text-ln-red whitespace-nowrap" role="alert">{customErro}</span>
-                            : <span className="text-[11px] text-ln-t4 whitespace-nowrap tabular">{diasEntre(custom.desde, custom.ate)} {diasEntre(custom.desde, custom.ate) === 1 ? 'dia' : 'dias'}</span>}
+                            : <span className="text-[11px] text-ln-t4 whitespace-nowrap tabular">{t('comum.dias', { count: diasEntre(custom.desde, custom.ate) })}</span>}
                         </span>
                       )}
                     </>)
                     : FILTROS_LISTA.map((f) => (
-                      <button key={f.value} onClick={() => { setFiltroLista(f.value); if (f.value !== 'todas') irPara('atividades') }} className={`ln-tab ${filtroLista === f.value ? 'ln-tab-active' : ''}`}>{f.label}</button>
+                      <button key={f.value} onClick={() => { setFiltroLista(f.value); if (f.value !== 'todas') irPara('atividades') }} className={`ln-tab ${filtroLista === f.value ? 'ln-tab-active' : ''}`}>{t(`atividades.modulo.filtros.${f.value}`)}</button>
                     ))}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {view === 'concluidas' ? (
                     <>
-                      {nomeFiltroPessoa && <button onClick={() => setFiltrosConcl((x) => ({ ...x, pessoa: null }))} className="ln-pill max-w-[200px]" title={`Pessoa: ${nomeFiltroPessoa} (limpar)`}><span className="truncate">Pessoa: {nomeFiltroPessoa}</span> <X className="w-3 h-3 shrink-0" /></button>}
-                      {filtrosConcl.cliente && <button onClick={() => setFiltrosConcl((x) => ({ ...x, cliente: null }))} className="ln-pill max-w-[200px]" title={`Cliente: ${filtrosConcl.cliente} (limpar)`}><span className="truncate">Cliente: {filtrosConcl.cliente}</span> <X className="w-3 h-3 shrink-0" /></button>}
+                      {nomeFiltroPessoa && <button onClick={() => setFiltrosConcl((x) => ({ ...x, pessoa: null }))} className="ln-pill max-w-[200px]" title={t('atividades.modulo.filtroPessoaLimpar', { nome: nomeFiltroPessoa })}><span className="truncate">{t('atividades.modulo.filtroPessoa', { nome: nomeFiltroPessoa })}</span> <X className="w-3 h-3 shrink-0" /></button>}
+                      {filtrosConcl.cliente && <button onClick={() => setFiltrosConcl((x) => ({ ...x, cliente: null }))} className="ln-pill max-w-[200px]" title={t('atividades.modulo.filtroClienteLimpar', { nome: nomeCliente(filtrosConcl.cliente) })}><span className="truncate">{t('atividades.modulo.filtroCliente', { nome: nomeCliente(filtrosConcl.cliente) })}</span> <X className="w-3 h-3 shrink-0" /></button>}
                     </>
                   ) : view === 'time' ? (
-                    <button onClick={() => setAgrupar(AGRUPAR_TIME[(AGRUPAR_TIME.findIndex((a) => a.value === agrupar) + 1) % AGRUPAR_TIME.length].value)} className="ln-pill" title="Agrupar a tabela do time">
-                      <Layers className="w-3.5 h-3.5" /> Agrupar: {AGRUPAR_TIME.find((a) => a.value === agrupar)?.label} <ChevronDown className="w-3 h-3" />
+                    <button onClick={() => setAgrupar(AGRUPAR_TIME[(AGRUPAR_TIME.findIndex((a) => a.value === agrupar) + 1) % AGRUPAR_TIME.length].value)} className="ln-pill" title={t('atividades.modulo.agruparTimeTitle')}>
+                      <Layers className="w-3.5 h-3.5" /> {t('atividades.modulo.agrupar', { valor: t(`atividades.modulo.agruparPor.${agrupar}`) })} <ChevronDown className="w-3 h-3" />
                     </button>
                   ) : (
-                    <button onClick={() => setAgruparLista(AGRUPAR_LISTA[(AGRUPAR_LISTA.findIndex((a) => a.value === agruparLista) + 1) % AGRUPAR_LISTA.length].value)} className="ln-pill" title="Agrupar a lista de atividades">
-                      <Layers className="w-3.5 h-3.5" /> Agrupar: {AGRUPAR_LISTA.find((a) => a.value === agruparLista)?.label} <ChevronDown className="w-3 h-3" />
+                    <button onClick={() => setAgruparLista(AGRUPAR_LISTA[(AGRUPAR_LISTA.findIndex((a) => a.value === agruparLista) + 1) % AGRUPAR_LISTA.length].value)} className="ln-pill" title={t('atividades.modulo.agruparListaTitle')}>
+                      <Layers className="w-3.5 h-3.5" /> {t('atividades.modulo.agrupar', { valor: t(`atividades.modulo.agruparPor.${agruparLista}`) })} <ChevronDown className="w-3 h-3" />
                     </button>
                   )}
                   {filtroNivel && (
-                    <button onClick={() => setFiltroNivel(null)} className="ln-pill" title="Limpar filtro de saúde">Filtro: {filtroNivel.replace('_', ' ')} <X className="w-3 h-3" /></button>
+                    <button onClick={() => setFiltroNivel(null)} className="ln-pill" title={t('atividades.modulo.limparFiltroSaude')}>{t('atividades.modulo.filtroNivel', { nivel: rotuloNivel(filtroNivel).toLowerCase() })} <X className="w-3 h-3" /></button>
                   )}
                 </div>
               </div>
@@ -437,7 +440,7 @@ export default function AtividadesModulo({ onAbrirMenu }) {
                 >
                   <div className="h-11 shrink-0 flex items-center justify-between gap-2 px-3 border-b border-ln-ink/5">
                     <div className="flex items-center gap-2 text-xs font-medium text-ln-t2 min-w-0">
-                      <span className="text-ln-t4">Atividades</span>
+                      <span className="text-ln-t4">{t('atividades.modulo.titulo')}</span>
                       <ChevronRight className="w-3 h-3 text-ln-t4 shrink-0" />
                       <span className="truncate">{tituloPainel}</span>
                     </div>
@@ -445,19 +448,19 @@ export default function AtividadesModulo({ onAbrirMenu }) {
                       {contador.i >= 0 && (
                         <>
                           <span className="text-xs text-ln-t4 tabular mr-1">{contador.i + 1} / {contador.n}</span>
-                          <button onClick={() => contador.ir(contador.i - 1)} disabled={contador.i <= 0} className="ln-iconbtn" aria-label="Anterior"><ChevronUp className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => contador.ir(contador.i + 1)} disabled={contador.i >= contador.n - 1} className="ln-iconbtn" aria-label="Próximo"><ChevronDown className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => contador.ir(contador.i - 1)} disabled={contador.i <= 0} className="ln-iconbtn" aria-label={t('atividades.modulo.anterior')}><ChevronUp className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => contador.ir(contador.i + 1)} disabled={contador.i >= contador.n - 1} className="ln-iconbtn" aria-label={t('atividades.modulo.proximo')}><ChevronDown className="w-3.5 h-3.5" /></button>
                         </>
                       )}
                       <button
                         onClick={() => setPainelExpandido((v) => !v)}
                         className="ln-iconbtn"
-                        aria-label={painelExpandido ? 'Voltar ao painel lateral' : 'Expandir em tela cheia'}
-                        title={painelExpandido ? 'Voltar ao painel lateral (Esc)' : 'Expandir em tela cheia'}
+                        aria-label={painelExpandido ? t('atividades.modulo.voltarPainel') : t('atividades.modulo.telaCheia')}
+                        title={painelExpandido ? t('atividades.modulo.voltarPainelEsc') : t('atividades.modulo.telaCheia')}
                       >
                         {painelExpandido ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
                       </button>
-                      <button onClick={fecharPainel} className="ln-iconbtn" aria-label="Fechar painel" title="Fechar (Esc)"><X className="w-4 h-4" /></button>
+                      <button onClick={fecharPainel} className="ln-iconbtn" aria-label={t('atividades.modulo.fecharPainel')} title={t('atividades.modulo.fecharEsc')}><X className="w-4 h-4" /></button>
                     </div>
                   </div>
                   <div className={`flex-1 min-h-0 overflow-y-auto ${painelExpandido ? '[&>*]:max-w-6xl [&>*]:mx-auto [&>*]:w-full' : ''}`}>
@@ -504,7 +507,7 @@ export default function AtividadesModulo({ onAbrirMenu }) {
           responsaveis={pl.responsaveis}
           userId={user?.id}
           onClose={() => setShowConfig(false)}
-          onSaved={(cfg) => { setConfig(cfg); setShowConfig(false); showToast('Configuração salva'); carga.refresh() }}
+          onSaved={(cfg) => { setConfig(cfg); setShowConfig(false); showToast(t('atividades.config.salva')); carga.refresh() }}
           onError={(m) => showToast(m, 'error')}
         />
       )}

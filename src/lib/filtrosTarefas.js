@@ -3,7 +3,8 @@
 // Dentro de um grupo as regras se ligam pelo op do grupo; os grupos, pelo op de fora.
 // Regra incompleta (sem campo ou sem valor) é ignorada até ser completada. Quem usa soma
 // (E) o resultado com os filtros da barra (busca, responsáveis, concluídas).
-import { PRIORIDADES, TIPOS_TAREFA, DIFICULDADES, DEPARTAMENTOS } from './tarefas'
+import { PRIORIDADES, TIPOS_TAREFA, DIFICULDADES, DEPARTAMENTOS, rotuloStatus, rotuloPrioridade, rotuloTipoTarefa, rotuloDificuldade, rotuloDepartamento } from './tarefas'
+import { t } from '../i18n'
 
 export const FILTROS_VAZIOS = { op: 'e', grupos: [] }
 
@@ -42,9 +43,14 @@ export const PERIODOS = [
 ]
 
 export const campoFiltro = (k) => CAMPOS_FILTRO.find((c) => c.key === k) || null
+// Os `label` acima ficam em português (são a referência); a tela mostra estes, traduzidos.
+export const rotuloCampoFiltro = (k) => (campoFiltro(k) ? t(`tarefasFiltros.campo.${k}`) : k)
+export const rotuloPeriodo = (k) => (PERIODOS.some(([p]) => p === k) ? t(`tarefasFiltros.periodo.${k}`) : k)
 /** Campos oferecidos no escopo da view ('pasta' | 'minhas' | 'todas'; sem escopo = Cycles, lista solta). */
 export const camposDoEscopo = (escopo) => CAMPOS_FILTRO.filter((c) => !c.escopos || c.escopos.includes(escopo))
-export const operadoresDe = (c) => (c ? OPERADORES[c.tipo].filter(([k]) => (k !== 'atrasada' || c.atrasada) && (!['definido', 'vazio'].includes(k) || c.tipo !== 'opcao' || c.vazio)) : [])
+export const operadoresDe = (c) => (c ? OPERADORES[c.tipo]
+  .filter(([k]) => (k !== 'atrasada' || c.atrasada) && (!['definido', 'vazio'].includes(k) || c.tipo !== 'opcao' || c.vazio))
+  .map(([k]) => [k, t(`tarefasFiltros.op.${c.tipo}.${k}`)]) : [])
 const idLocal = () => Math.random().toString(36).slice(2, 9)
 export const novaRegra = () => ({ id: idLocal(), campo: '', operador: '', valor: null })
 export const novoGrupo = (regra = novaRegra()) => ({ id: idLocal(), op: 'e', regras: [regra] })
@@ -168,12 +174,12 @@ function opcoesDeLista(listas, pastas, projetos) {
  *  `detalhe` aparece apagado ao lado do rótulo e `busca` é o texto pesquisado (padrão: o rótulo). */
 export function opcoesDoCampo(campo, { statuses = [], membros = [], etiquetas = [], ciclos = [], listas = [], pastas = [], projetos = [], squads = [] } = {}) {
   switch (campo) {
-    case 'status': return statuses.map((s) => ({ value: s.key, label: s.label, cor: s.cor }))
-    case 'prioridade': return PRIORIDADES.map((p) => ({ value: p.key, label: p.label, cor: p.cor, bandeira: true }))
+    case 'status': return statuses.map((s) => ({ value: s.key, label: rotuloStatus(s.label || s.key), cor: s.cor, busca: `${rotuloStatus(s.label || s.key)} ${s.label || s.key}` }))
+    case 'prioridade': return PRIORIDADES.map((p) => ({ value: p.key, label: rotuloPrioridade(p.key), cor: p.cor, bandeira: true }))
     case 'responsaveis': return membros.filter((m) => !m.disabled).map((m) => ({ value: m.id, label: m.name, pessoa: m }))
-    case 'tipo': return TIPOS_TAREFA.map((t) => ({ value: t.key.trim(), label: t.key.trim(), cor: t.cor }))
-    case 'dificuldade': return DIFICULDADES.map((d) => ({ value: d.key, label: d.key, cor: d.cor }))
-    case 'departamento': return DEPARTAMENTOS.map((d) => ({ value: d, label: d }))
+    case 'tipo': return TIPOS_TAREFA.map((x) => ({ value: x.key.trim(), label: rotuloTipoTarefa(x.key), cor: x.cor, busca: `${rotuloTipoTarefa(x.key)} ${x.key.trim()}` }))
+    case 'dificuldade': return DIFICULDADES.map((d) => ({ value: d.key, label: rotuloDificuldade(d.key), cor: d.cor }))
+    case 'departamento': return DEPARTAMENTOS.map((d) => ({ value: d, label: rotuloDepartamento(d), busca: `${rotuloDepartamento(d)} ${d}` }))
     case 'etiquetas': return etiquetas.map((e) => ({ value: e.id, label: e.nome, cor: e.cor }))
     case 'ciclo': return ciclos.map((c) => ({ value: c.id, label: c.nome }))
     case 'lista': return opcoesDeLista(listas, pastas, projetos)

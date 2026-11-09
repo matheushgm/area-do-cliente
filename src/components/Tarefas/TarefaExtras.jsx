@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Plus, X, Check, Bell, BellOff, Loader2, MoreHorizontal, LayoutTemplate, Trash2, History, Archive, Link2, ExternalLink, Pencil, Copy } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { fmtDataHora, fmtDataNumerica, rotuloStatus, prioridade as prioDe } from '../../lib/tarefas'
+import { fmtDataHora, fmtDataNumerica, rotuloStatus, rotuloPrioridade } from '../../lib/tarefas'
+import { useI18n } from '../../i18n'
 import { Popover, ItemMenu, FOCO } from './Campos'
 import { ListaRelacoes } from './SecoesTarefa'
 import { useBuscaRelacao } from '../../hooks/useBuscaRelacao'
@@ -11,17 +12,19 @@ import { useBuscaRelacao } from '../../hooks/useBuscaRelacao'
 const PALETA = ['#2A25F0', '#518CFF', '#1F8A5B', '#C99A2E', '#E2564B', '#8B5CF6', '#EC4899', '#5A6072']
 
 export function EtiquetaChip({ etiqueta, onRemover }) {
+  const { t } = useI18n()
   if (!etiqueta) return null
   return (
     <span className="inline-flex items-center gap-1.5 h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t3 max-w-full">
       <i className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: etiqueta.cor }} />
       <span className="truncate">{etiqueta.nome}</span>
-      {onRemover && <button type="button" onClick={onRemover} className="text-ln-t4 hover:text-ln-t1" aria-label={`Remover ${etiqueta.nome}`}><X className="w-3 h-3" /></button>}
+      {onRemover && <button type="button" onClick={onRemover} className="text-ln-t4 hover:text-ln-t1" aria-label={t('tarefaPainel.removerNome', { nome: etiqueta.nome })}><X className="w-3 h-3" /></button>}
     </span>
   )
 }
 
 export function EtiquetasCampo({ valor = [], etiquetas, onChange, onCriar }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [nome, setNome] = useState('')
   const [cor, setCor] = useState(PALETA[0])
@@ -38,7 +41,7 @@ export function EtiquetasCampo({ valor = [], etiquetas, onChange, onCriar }) {
   return (
     <>
       <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`flex flex-wrap gap-1 text-left rounded-md ${FOCO}`}>
-        {valor.length ? valor.map((id) => <EtiquetaChip key={id} etiqueta={map.get(id)} />) : <span className="text-ln-t4 text-xs">nenhuma</span>}
+        {valor.length ? valor.map((id) => <EtiquetaChip key={id} etiqueta={map.get(id)} />) : <span className="text-ln-t4 text-xs">{t('tarefaPainel.nenhumaEtiqueta')}</span>}
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={250}>
         <div className="p-1 max-h-[260px] overflow-y-auto">
@@ -49,15 +52,15 @@ export function EtiquetasCampo({ valor = [], etiquetas, onChange, onCriar }) {
               {sel.has(e.id) && <Check className="w-3.5 h-3.5 ml-auto text-ln-accent" />}
             </button>
           ))}
-          {!etiquetas.length && <p className="px-2.5 py-2 text-xs text-ln-t4">Nenhuma etiqueta ainda. Crie a primeira abaixo.</p>}
+          {!etiquetas.length && <p className="px-2.5 py-2 text-xs text-ln-t4">{t('tarefaPainel.semEtiquetas')}</p>}
         </div>
         <form onSubmit={criar} className="border-t border-ln-ink/5 p-2 flex flex-col gap-2">
-          <input className="ln-input !h-8" placeholder="Nova etiqueta" value={nome} onChange={(e) => setNome(e.target.value)} />
+          <input className="ln-input !h-8" placeholder={t('tarefaPainel.novaEtiqueta')} value={nome} onChange={(e) => setNome(e.target.value)} />
           <div className="flex items-center gap-1.5">
             {PALETA.map((c) => (
-              <button key={c} type="button" onClick={() => setCor(c)} aria-label={`Cor ${c}`} className={`w-5 h-5 rounded-full ${cor === c ? 'ring-2 ring-offset-1 ring-ln-t2' : ''}`} style={{ backgroundColor: c }} />
+              <button key={c} type="button" onClick={() => setCor(c)} aria-label={t('tarefaPainel.cor', { cor: c })} className={`w-5 h-5 rounded-full ${cor === c ? 'ring-2 ring-offset-1 ring-ln-t2' : ''}`} style={{ backgroundColor: c }} />
             ))}
-            <button type="submit" disabled={!nome.trim()} className="ln-primary !h-7 ml-auto disabled:opacity-50"><Plus className="w-3 h-3" /> Criar</button>
+            <button type="submit" disabled={!nome.trim()} className="ln-primary !h-7 ml-auto disabled:opacity-50"><Plus className="w-3 h-3" /> {t('tarefaPainel.criar')}</button>
           </div>
         </form>
       </Popover>
@@ -67,7 +70,9 @@ export function EtiquetasCampo({ valor = [], etiquetas, onChange, onCriar }) {
 
 // ── Relações ────────────────────────────────────────────────────────────────
 
-// 'bloqueada' só existe no formulário: grava "alvo bloqueia esta tarefa" (linhaRelacao)
+// 'bloqueada' só existe no formulário: grava "alvo bloqueia esta tarefa" (linhaRelacao).
+// Os `label` ficam em português (são também o identificador do ícone em IconeRelacao); a tela
+// traduz pelo `value` / pelo rótulo (rotuloRelacao, em SecoesTarefa).
 export const TIPOS_RELACAO = [
   { value: 'bloqueada', label: 'Bloqueada por' }, { value: 'bloqueia', label: 'Bloqueia' },
   { value: 'relacionada', label: 'Relacionada a' }, { value: 'duplica', label: 'Duplicada de' },
@@ -81,6 +86,7 @@ const ROTULO_INVERSO = { bloqueia: 'Bloqueada por', duplica: 'Tem a duplicata', 
 
 // `onMudou`: chamado depois de criar ou apagar, para a fila ir ao ClickUp (migration 126)
 export function RelacoesSecao({ tarefaId, user, onAbrir, onErro, onMudou, membrosMap }) {
+  const { t } = useI18n()
   const busca = useBuscaRelacao({ tarefaId })
   const [linhas, setLinhas] = useState([])
   const [titulos, setTitulos] = useState({})
@@ -99,7 +105,7 @@ export function RelacoesSecao({ tarefaId, user, onAbrir, onErro, onMudou, membro
 
   async function adicionar(tipo, alvo) {
     const { error } = await supabase.from('tarefas_relacoes').insert({ ...linhaRelacao(tarefaId, tipo, alvo.id), criado_por: user?.id || null })
-    if (error) { onErro?.(error.code === '23505' ? 'Essa relação já existe.' : error.message); return false }
+    if (error) { onErro?.(error.code === '23505' ? t('tarefaPainel.relacaoJaExiste') : error.message); return false }
     onMudou?.()
     carregar()
     return true
@@ -128,6 +134,7 @@ export function RelacoesSecao({ tarefaId, user, onAbrir, onErro, onMudou, membro
 // ── Histórico ───────────────────────────────────────────────────────────────
 
 export function HistoricoSecao({ tarefaId, versao, membrosMap, ciclosMap, etiquetasMap }) {
+  const { t, locale } = useI18n()
   const [linhas, setLinhas] = useState(null)
   useEffect(() => {
     let vivo = true
@@ -137,35 +144,35 @@ export function HistoricoSecao({ tarefaId, versao, membrosMap, ciclosMap, etique
   }, [tarefaId, versao])
 
   const nomes = useCallback((csv, mapa, campo) => {
-    if (!csv) return 'ninguém'
+    if (!csv) return t('tarefaPainel.hist.ninguem')
     return csv.split(',').map((id) => (campo === 'm' ? mapa.get(id)?.name : mapa.get(id)?.nome) || '?').join(', ')
-  }, [])
+  }, [t])
 
   const texto = useMemo(() => (a) => {
     const de = a.valor_antigo, para = a.valor_novo
     switch (a.campo) {
-      case 'criada': return 'criou a tarefa'
-      case 'titulo': return `renomeou a tarefa para "${para}"`
-      case 'status': return `mudou o status de ${rotuloStatus(de)} para ${rotuloStatus(para)}`
-      case 'prioridade': return `mudou a prioridade para ${prioDe(para)?.label || 'sem prioridade'}`
-      case 'data_inicio': return para ? `definiu o início para ${fmtDataNumerica(para)}` : 'removeu a data de início'
-      case 'data_vencimento': return para ? `definiu o vencimento para ${fmtDataNumerica(para)}` : 'removeu o vencimento'
-      case 'estimativa_min': return para ? `estimou em ${Math.round(Number(para) / 6) / 10}h` : 'removeu a estimativa'
-      case 'ciclo': return para ? `colocou no cycle ${ciclosMap.get(para)?.nome || ''}` : 'tirou do cycle'
-      case 'responsaveis': return `mudou os responsáveis para ${nomes(para, membrosMap, 'm')}`
-      case 'etiquetas': return para ? `mudou as etiquetas para ${nomes(para, etiquetasMap)}` : 'removeu as etiquetas'
-      default: return `alterou ${a.campo}`
+      case 'criada': return t('tarefaPainel.hist.criou')
+      case 'titulo': return t('tarefaPainel.hist.renomeou', { titulo: para })
+      case 'status': return t('tarefaPainel.hist.status', { de: rotuloStatus(de), para: rotuloStatus(para) })
+      case 'prioridade': return t('tarefaPainel.hist.prioridade', { nome: rotuloPrioridade(para) || t('tarefaCampos.semPrioridadeMin') })
+      case 'data_inicio': return para ? t('tarefaPainel.hist.inicio', { data: fmtDataNumerica(para) }) : t('tarefaPainel.hist.semInicio')
+      case 'data_vencimento': return para ? t('tarefaPainel.hist.vencimento', { data: fmtDataNumerica(para) }) : t('tarefaPainel.hist.semVencimento')
+      case 'estimativa_min': return para ? t('tarefaPainel.hist.estimou', { horas: (Math.round(Number(para) / 6) / 10).toLocaleString(locale) }) : t('tarefaPainel.hist.semEstimativa')
+      case 'ciclo': return para ? t('tarefaPainel.hist.cycle', { nome: ciclosMap.get(para)?.nome || '' }) : t('tarefaPainel.hist.semCycle')
+      case 'responsaveis': return t('tarefaPainel.hist.responsaveis', { nomes: nomes(para, membrosMap, 'm') })
+      case 'etiquetas': return para ? t('tarefaPainel.hist.etiquetas', { nomes: nomes(para, etiquetasMap) }) : t('tarefaPainel.hist.semEtiquetas')
+      default: return t('tarefaPainel.hist.alterou', { campo: a.campo })
     }
-  }, [ciclosMap, membrosMap, etiquetasMap, nomes])
+  }, [ciclosMap, membrosMap, etiquetasMap, nomes, t, locale])
 
   if (linhas === null) return <div className="py-2 text-ln-t4"><Loader2 className="w-3.5 h-3.5 animate-spin" /></div>
-  if (!linhas.length) return <p className="text-xs text-ln-t4">Sem alterações registradas. O histórico começa a partir de agora e não inclui o que veio do ClickUp.</p>
+  if (!linhas.length) return <p className="text-xs text-ln-t4">{t('tarefaPainel.hist.vazio')}</p>
   return (
     <ol className="flex flex-col gap-1.5">
       {linhas.map((a) => (
         <li key={a.id} className="flex items-baseline gap-2 text-[13px] text-ln-t3">
           <i className="w-1.5 h-1.5 rounded-full bg-ln-t4 shrink-0 translate-y-[-2px]" />
-          <span className="min-w-0"><b className="font-semibold text-ln-t2">{a.ator_nome || 'Alguém'}</b> {texto(a)}</span>
+          <span className="min-w-0"><b className="font-semibold text-ln-t2">{a.ator_nome || t('tarefaPainel.alguem')}</b> {texto(a)}</span>
           <span className="ml-auto text-[11px] text-ln-t4 whitespace-nowrap tabular">{fmtDataHora(a.created_at)}</span>
         </li>
       ))}
@@ -207,6 +214,7 @@ const BOTAO_TOPO = `inline-flex items-center justify-center gap-1.5 h-7 px-1 rou
  *  Calendário). `acoes` traz as funções, cada uma recebe a tarefa; a que faltar some.
  *  Arquivar e excluir pedem confirmação em quem os passa (useConfirmar). */
 function ItensMenuTarefa({ item, user, acoes, fechar }) {
+  const { t } = useI18n()
   const { seguindo, total, alternar } = useSeguir(item.id, user)
   const rodar = (fn) => () => { fechar(); fn(item) }
   const sep = <div className="border-t border-ln-ink/5 my-1" />
@@ -216,23 +224,23 @@ function ItensMenuTarefa({ item, user, acoes, fechar }) {
       {/* topo em dois botões, como no ClickUp; sem vínculo com o ClickUp o link ocupa a linha toda */}
       {(acoes.copiarLink || clickup) && (
         <div className={`grid ${acoes.copiarLink && clickup ? 'grid-cols-2' : 'grid-cols-1'} gap-1 p-0.5 pb-1`}>
-          {acoes.copiarLink && <button type="button" role="menuitem" onClick={rodar(acoes.copiarLink)} className={BOTAO_TOPO}><Link2 className="w-3.5 h-3.5 text-ln-t4" /> Copiar link</button>}
-          {clickup && <button type="button" role="menuitem" onClick={rodar(acoes.abrirClickup)} className={BOTAO_TOPO} title="Abrir no ClickUp"><ExternalLink className="w-3.5 h-3.5 text-ln-t4" /> ClickUp</button>}
+          {acoes.copiarLink && <button type="button" role="menuitem" onClick={rodar(acoes.copiarLink)} className={BOTAO_TOPO}><Link2 className="w-3.5 h-3.5 text-ln-t4" /> {t('tarefaPainel.menu.copiarLink')}</button>}
+          {clickup && <button type="button" role="menuitem" onClick={rodar(acoes.abrirClickup)} className={BOTAO_TOPO} title={t('tarefaPainel.menu.abrirClickup')}><ExternalLink className="w-3.5 h-3.5 text-ln-t4" /> ClickUp</button>}
         </div>
       )}
       {(acoes.copiarLink || clickup) && sep}
-      {acoes.renomear && <ItemMenu onClick={rodar(acoes.renomear)}><Pencil className="w-3.5 h-3.5 text-ln-t4" /> Renomear</ItemMenu>}
+      {acoes.renomear && <ItemMenu onClick={rodar(acoes.renomear)}><Pencil className="w-3.5 h-3.5 text-ln-t4" /> {t('tarefaPainel.menu.renomear')}</ItemMenu>}
       <ItemMenu onClick={() => { fechar(); alternar() }}>
         {seguindo ? <BellOff className="w-3.5 h-3.5 text-ln-t4" /> : <Bell className="w-3.5 h-3.5 text-ln-t4" />}
-        <span className="flex-1">{seguindo ? 'Deixar de seguir' : 'Seguir tarefa'}</span>
-        {total > 0 && <span className="text-[11px] text-ln-t4 tabular" title={`${total} pessoa(s) seguindo`}>{total}</span>}
+        <span className="flex-1">{seguindo ? t('tarefaPainel.menu.deixarSeguir') : t('tarefaPainel.menu.seguir')}</span>
+        {total > 0 && <span className="text-[11px] text-ln-t4 tabular" title={t('tarefaPainel.menu.seguindo', { count: total })}>{total}</span>}
       </ItemMenu>
-      {acoes.duplicar && <ItemMenu onClick={rodar(acoes.duplicar)}><Copy className="w-3.5 h-3.5 text-ln-t4" /> Duplicar</ItemMenu>}
-      {acoes.salvarTemplate && <ItemMenu onClick={rodar(acoes.salvarTemplate)}><LayoutTemplate className="w-3.5 h-3.5 text-ln-t4" /> Salvar como template</ItemMenu>}
-      {acoes.historico && <ItemMenu onClick={rodar(acoes.historico)}><History className="w-3.5 h-3.5 text-ln-t4" /> Histórico de sincronização</ItemMenu>}
+      {acoes.duplicar && <ItemMenu onClick={rodar(acoes.duplicar)}><Copy className="w-3.5 h-3.5 text-ln-t4" /> {t('tarefaPainel.menu.duplicar')}</ItemMenu>}
+      {acoes.salvarTemplate && <ItemMenu onClick={rodar(acoes.salvarTemplate)}><LayoutTemplate className="w-3.5 h-3.5 text-ln-t4" /> {t('tarefaPainel.menu.salvarTemplate')}</ItemMenu>}
+      {acoes.historico && <ItemMenu onClick={rodar(acoes.historico)}><History className="w-3.5 h-3.5 text-ln-t4" /> {t('tarefaPainel.menu.historicoSync')}</ItemMenu>}
       {(acoes.arquivar || acoes.excluir) && sep}
-      {acoes.arquivar && <ItemMenu onClick={rodar(acoes.arquivar)}><Archive className="w-3.5 h-3.5 text-ln-t4" /> Arquivar</ItemMenu>}
-      {acoes.excluir && <ItemMenu onClick={rodar(acoes.excluir)} className="!text-ln-red"><Trash2 className="w-3.5 h-3.5" /> Excluir</ItemMenu>}
+      {acoes.arquivar && <ItemMenu onClick={rodar(acoes.arquivar)}><Archive className="w-3.5 h-3.5 text-ln-t4" /> {t('tarefaPainel.menu.arquivar')}</ItemMenu>}
+      {acoes.excluir && <ItemMenu onClick={rodar(acoes.excluir)} className="!text-ln-red"><Trash2 className="w-3.5 h-3.5" /> {t('comum.excluir')}</ItemMenu>}
     </div>
   )
 }
@@ -241,11 +249,12 @@ const LARGURA_MENU = 264
 
 /** Botão ⋯ do painel da tarefa com o menu de ações. */
 export function MenuTarefa({ item, user, acoes }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   return (
     <>
-      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`ln-iconbtn ${open ? 'bg-ln-ink/[0.08] text-ln-t1' : ''} ${FOCO}`} aria-label="Mais ações" title="Mais ações" aria-haspopup="menu" aria-expanded={open}>
+      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`ln-iconbtn ${open ? 'bg-ln-ink/[0.08] text-ln-t1' : ''} ${FOCO}`} aria-label={t('tarefaPainel.menu.maisAcoes')} title={t('tarefaPainel.menu.maisAcoes')} aria-haspopup="menu" aria-expanded={open}>
         <MoreHorizontal className="w-4 h-4" />
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={LARGURA_MENU} align="right" alturaMax={520}>

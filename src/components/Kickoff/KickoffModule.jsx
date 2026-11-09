@@ -11,26 +11,23 @@ import KickoffResultView from './KickoffResultView'
 import { exportKickoffPDF } from '../../lib/kickoffPDF'
 import { useToast } from '../../hooks/useToast'
 import Toast from '../UI/Toast'
+import { useI18n } from '../../i18n'
 
 const BUSINESS_OPTIONS = [
   {
     value: 'b2b',
     label: 'B2B',
-    desc: 'Vende para outras empresas (PJ). Ciclo de venda complexo, ticket alto.',
     Icon: Building2,
     color: 'rl-blue',
   },
   {
     value: 'b2c',
     label: 'B2C',
-    desc: 'Vende para pessoas físicas (PF). Volume alto, decisão mais rápida.',
     Icon: Users,
     color: 'rl-green',
   },
   {
     value: 'hibrido',
-    label: 'Híbrido',
-    desc: 'Vende para PF e PJ. Diagnóstico cobre as duas trilhas.',
     Icon: Layers,
     color: 'rl-purple',
   },
@@ -39,6 +36,7 @@ const BUSINESS_OPTIONS = [
 export default function KickoffModule({ project }) {
   const { updateProject } = useApp()
   const { toast, showToast } = useToast()
+  const { t, lang } = useI18n()
 
   // Carrega kickoff existente (se houver) ou estado vazio
   const persisted = project.kickoff || null
@@ -67,7 +65,9 @@ export default function KickoffModule({ project }) {
   const diagnosis = useMemo(() => {
     if (!businessType) return null
     return fullDiagnosis(answers, allQuestions, businessType)
-  }, [answers, allQuestions, businessType])
+    // `lang`: os rótulos de estágio e próximos passos saem no idioma da tela.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, allQuestions, businessType, lang])
 
   // ── Persistência ──────────────────────────────────────────────────────────
   const persist = useCallback(
@@ -117,19 +117,20 @@ export default function KickoffModule({ project }) {
       scores:     d.scores,
       totalScore: d.totalScore,
       stageId:    d.stageId,
-      stageLabel: d.stageLabel,
+      // Rótulos gravados em português (o portal lê kickoff.stageLabel/nextSteps).
+      stageLabel: d.gravar.stageLabel,
       stageColor: d.stageColor,
-      stageDesc:  d.stageDesc,
+      stageDesc:  d.gravar.stageDesc,
       weaknesses: d.weaknesses,
-      nextSteps:  d.nextSteps,
+      nextSteps:  d.gravar.nextSteps,
       completedAt: persisted?.completedAt || new Date().toISOString(),
     })
     setPhase('result')
-    showToast('Diagnóstico salvo!')
+    showToast(t('kickoff.toast.diagnosticoSalvo'))
   }
 
   function restart() {
-    if (!window.confirm('Refazer o diagnóstico do zero apaga as respostas atuais. Continuar?')) return
+    if (!window.confirm(t('kickoff.confirmarRefazer'))) return
     setAnswers({})
     setBusinessType(null)
     setStepIndex(0)
@@ -148,13 +149,13 @@ export default function KickoffModule({ project }) {
     if (next) {
       // o updateProject persiste; o realtime/local update já refresca o project
     }
-    showToast('Análise IA salva!')
+    showToast(t('kickoff.toast.analiseSalva'))
   }
 
   function saveOfertaMatadora(diagnosis) {
     // diagnosis === null = reset; objeto = diagnóstico computado
     persist({ ofertaMatadora: diagnosis })
-    if (diagnosis) showToast('Análise de Oferta Matadora salva!')
+    if (diagnosis) showToast(t('kickoff.toast.ofertaSalva'))
   }
 
   function exportPdf() {
@@ -185,14 +186,12 @@ export default function KickoffModule({ project }) {
       <div className="space-y-6">
         <div className="flex items-center gap-2">
           <Compass className="w-5 h-5 text-rl-cyan" />
-          <h2 className="text-xl font-bold text-rl-text">Kickoff — Diagnóstico inicial</h2>
+          <h2 className="text-xl font-bold text-rl-text">{t('kickoff.intro.titulo')}</h2>
         </div>
 
         <div className="glass-card p-6 space-y-4">
           <p className="text-sm text-rl-text leading-relaxed">
-            Um questionário guiado pra primeira reunião com o cliente. Você responde junto com ele
-            e ao final ganhamos um score em 9 pilares fundamentais, um estágio de maturidade do negócio
-            e um mapa visual de fraquezas — tudo exportável em PDF.
+            {t('kickoff.intro.descricao')}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {PILLARS.map((p) => (
@@ -205,7 +204,7 @@ export default function KickoffModule({ project }) {
         </div>
 
         <div>
-          <h3 className="text-sm font-bold text-rl-text mb-3">Como o cliente vende?</h3>
+          <h3 className="text-sm font-bold text-rl-text mb-3">{t('kickoff.intro.comoVende')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {BUSINESS_OPTIONS.map((opt) => {
               const Icon = opt.Icon
@@ -218,8 +217,8 @@ export default function KickoffModule({ project }) {
                   <div className={`w-11 h-11 rounded-xl bg-${opt.color}/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
                     <Icon className={`w-5 h-5 text-${opt.color}`} />
                   </div>
-                  <h4 className="text-base font-bold text-rl-text mb-1">{opt.label}</h4>
-                  <p className="text-xs text-rl-muted leading-relaxed">{opt.desc}</p>
+                  <h4 className="text-base font-bold text-rl-text mb-1">{opt.label || t(`kickoff.tipos.${opt.value}.label`)}</h4>
+                  <p className="text-xs text-rl-muted leading-relaxed">{t(`kickoff.tipos.${opt.value}.desc`)}</p>
                 </button>
               )
             })}
@@ -230,13 +229,13 @@ export default function KickoffModule({ project }) {
           <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-rl-purple/5 border border-rl-purple/30">
             <div className="flex items-center gap-2 text-sm">
               <Sparkles className="w-4 h-4 text-rl-purple" />
-              <span className="text-rl-text">Já existe um diagnóstico anterior salvo.</span>
+              <span className="text-rl-text">{t('kickoff.intro.jaExiste')}</span>
             </div>
             <button
               onClick={() => setPhase('result')}
               className="text-xs px-3 py-1.5 rounded-lg bg-rl-purple text-white font-semibold hover:bg-rl-purple/90 transition-all"
             >
-              Abrir
+              {t('kickoff.intro.abrir')}
             </button>
           </div>
         )}
@@ -259,10 +258,10 @@ export default function KickoffModule({ project }) {
             onClick={prevStep}
             className="flex items-center gap-1 text-xs text-rl-muted hover:text-rl-text transition-colors"
           >
-            <ChevronLeft className="w-4 h-4" /> Voltar
+            <ChevronLeft className="w-4 h-4" /> {t('comum.voltar')}
           </button>
           <div className="text-xs text-rl-muted font-semibold">
-            Pergunta {safeStepIndex + 1} de {total}
+            {t('kickoff.perguntaXdeY', { n: safeStepIndex + 1, total })}
           </div>
           <div className="flex-1" />
         </div>
@@ -287,7 +286,7 @@ export default function KickoffModule({ project }) {
               onChange={(v) => setAnswer(q.id, v)}
             />
           ) : (
-            <p className="text-sm text-rl-muted">Sem perguntas para este tipo.</p>
+            <p className="text-sm text-rl-muted">{t('kickoff.semPerguntas')}</p>
           )}
         </div>
 
@@ -298,11 +297,11 @@ export default function KickoffModule({ project }) {
             disabled={safeStepIndex === 0}
             className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+            <ChevronLeft className="w-3.5 h-3.5" /> {t('kickoff.anterior')}
           </button>
 
           <p className="text-[10px] text-rl-muted">
-            {answered ? '✓ Respondida' : 'Você pode pular e voltar depois'}
+            {answered ? t('kickoff.respondida') : t('kickoff.podePular')}
           </p>
 
           {safeStepIndex < questions.length - 1 ? (
@@ -310,14 +309,14 @@ export default function KickoffModule({ project }) {
               onClick={nextStep}
               className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-purple text-white shadow-glow hover:bg-rl-purple/90 transition-all"
             >
-              Próxima <ChevronRight className="w-4 h-4" />
+              {t('kickoff.proxima')} <ChevronRight className="w-4 h-4" />
             </button>
           ) : (
             <button
               onClick={finish}
               className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-rl-green text-white shadow-glow hover:bg-rl-green/90 transition-all"
             >
-              <Sparkles className="w-4 h-4" /> Ver diagnóstico
+              <Sparkles className="w-4 h-4" /> {t('kickoff.verDiagnostico')}
             </button>
           )}
         </div>

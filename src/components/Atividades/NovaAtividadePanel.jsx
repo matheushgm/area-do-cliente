@@ -5,6 +5,8 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { CheckCircle2, ChevronDown, ExternalLink, Loader2 } from 'lucide-react'
 import { fmtLonga, hojeISO } from '../../lib/atividadesCarga'
 import MarkdownEditor from '../Editor/MarkdownEditor'
+import { useI18n } from '../../i18n'
+import { rotuloTipoTarefa, rotuloDepartamento } from '../../lib/tarefas'
 
 export const FOCO = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ln-t2'
 
@@ -40,17 +42,18 @@ export function Seletor({ id, value, onChange, disabled = false, children }) {
 
 /** Card verde de "tarefa criada", usado no painel lateral e no planejador flutuante. */
 export function CriadaCard({ criada, onNova }) {
+  const { t } = useI18n()
   if (!criada) return null
   return (
     <div className="bg-ln-card border border-ln-green/40 rounded-[9px] p-4" style={{ boxShadow: 'var(--ln-ring-card)' }}>
       <div className="flex items-start gap-3">
         <CheckCircle2 className="w-5 h-5 text-ln-green shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-medium text-ln-t2">Tarefa criada no ClickUp</p>
+          <p className="text-[13px] font-medium text-ln-t2">{t('atividadesPlanejador.tarefaCriada')}</p>
           {criada.titulo && <p className="text-sm text-ln-t1 mt-1.5 break-words">{criada.titulo}</p>}
           <p className="text-xs text-ln-t3 mt-1 tabular">
-            {criada.responsavel || 'Sem responsável'}
-            {criada.data ? ` · entrega ${fmtLonga(criada.data)}` : ''}
+            {criada.responsavel || t('atividades.semResponsavel')}
+            {criada.data ? ` · ${t('atividadesPlanejador.entregaData', { data: fmtLonga(criada.data) })}` : ''}
           </p>
           {criada.aviso && (
             <p className="text-xs text-ln-yellow mt-2 rounded-md bg-ln-yellow/10 px-2 py-1.5">{criada.aviso}</p>
@@ -58,10 +61,10 @@ export function CriadaCard({ criada, onNova }) {
           <div className="flex flex-wrap items-center gap-2 mt-3">
             {criada.url && (
               <a href={criada.url} target="_blank" rel="noopener noreferrer" className={`ln-primary ${FOCO}`}>
-                Abrir no ClickUp <ExternalLink className="w-3.5 h-3.5" />
+                {t('atividadesPlanejador.abrirClickup')} <ExternalLink className="w-3.5 h-3.5" />
               </a>
             )}
-            <button type="button" onClick={onNova} className={`ln-pill ${FOCO}`}>Nova atividade</button>
+            <button type="button" onClick={onNova} className={`ln-pill ${FOCO}`}>{t('atividades.novaAtividade')}</button>
           </div>
         </div>
       </div>
@@ -76,6 +79,7 @@ export function CriadaCard({ criada, onNova }) {
  * @param {Function} p.onCalculado            chamado depois de pl.calcular() terminar
  */
 export default function NovaAtividadePanel({ pl, responsavelInicial = null, onCalculado }) {
+  const { t } = useI18n()
   const uid = useId()
   const [hoje] = useState(hojeISO)
   const aplicado = useRef(null)
@@ -133,8 +137,8 @@ export default function NovaAtividadePanel({ pl, responsavelInicial = null, onCa
             id={id('titulo')}
             value={form.titulo || ''}
             onChange={set('titulo')}
-            placeholder="Título da atividade"
-            aria-label="Título da atividade"
+            placeholder={t('atividadesPlanejador.nova.titulo')}
+            aria-label={t('atividadesPlanejador.nova.titulo')}
             autoComplete="off"
             className="w-full bg-transparent border-0 p-0 text-[20px] leading-7 font-semibold tracking-[-0.01em] text-ln-t2 placeholder:text-ln-t4 outline-none"
           />
@@ -143,7 +147,7 @@ export default function NovaAtividadePanel({ pl, responsavelInicial = null, onCa
             value={form.descricao || ''}
             onChange={(md) => pl.set?.('descricao', md)}
             minHeight={60}
-            placeholder="Briefing, referências, onde estão os materiais…"
+            placeholder={t('atividadesPlanejador.nova.briefing')}
             className="md-editor--nu text-ln-t2"
           />
         </div>
@@ -152,18 +156,18 @@ export default function NovaAtividadePanel({ pl, responsavelInicial = null, onCa
 
         {/* Propriedades */}
         <div className="grid grid-cols-2 gap-x-3 gap-y-3">
-          <Campo id={id('cliente')} label="Cliente">
+          <Campo id={id('cliente')} label={t('atividadesPlanejador.nova.cliente')}>
             <Seletor id={id('cliente')} value={form.projectId} onChange={(e) => pl.setProjectId?.(e.target.value)}>
-              <option value="">Selecione o cliente</option>
+              <option value="">{t('atividadesPlanejador.nova.selecioneCliente')}</option>
               {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </Seletor>
-            {clientes.length === 0 && <p className="text-[11px] text-ln-yellow mt-1">Nenhum cliente com pasta do ClickUp vinculada.</p>}
+            {clientes.length === 0 && <p className="text-[11px] text-ln-yellow mt-1">{t('atividadesPlanejador.nova.semClientes')}</p>}
           </Campo>
 
-          <Campo id={id('lista')} label="Lista no ClickUp">
+          <Campo id={id('lista')} label={t('atividadesPlanejador.nova.lista')}>
             {pl.loadingListas ? (
               <div className="ln-input flex items-center gap-2 text-ln-t4 cursor-default" aria-live="polite">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando listas…
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('atividadesPlanejador.nova.buscandoListas')}
               </div>
             ) : listaComoTexto ? (
               <input
@@ -171,7 +175,7 @@ export default function NovaAtividadePanel({ pl, responsavelInicial = null, onCa
                 value={form.listId || ''}
                 onChange={set('listId')}
                 disabled={semCliente}
-                placeholder={semCliente ? 'Escolha o cliente primeiro' : 'ID da lista do ClickUp'}
+                placeholder={semCliente ? t('atividadesPlanejador.nova.escolhaCliente') : t('atividadesPlanejador.nova.idLista')}
                 className={`ln-input disabled:opacity-50 disabled:cursor-not-allowed ${FOCO}`}
               />
             ) : (
@@ -182,28 +186,28 @@ export default function NovaAtividadePanel({ pl, responsavelInicial = null, onCa
             {pl.listasErro && <p className="text-[11px] text-ln-red mt-1 break-words">{pl.listasErro}</p>}
           </Campo>
 
-          <Campo id={id('tipo')} label="Tipo de tarefa">
+          <Campo id={id('tipo')} label={t('atividadesPlanejador.nova.tipo')}>
             <Seletor id={id('tipo')} value={form.tipo} onChange={(e) => pl.setTipo?.(e.target.value)}>
-              <option value="">Selecione</option>
-              {tipos.map((t) => <option key={t} value={t}>{t}</option>)}
+              <option value="">{t('atividadesPlanejador.nova.selecione')}</option>
+              {tipos.map((tipo) => <option key={tipo} value={tipo}>{rotuloTipoTarefa(tipo)}</option>)}
             </Seletor>
           </Campo>
 
-          <Campo id={id('departamento')} label="Departamento">
+          <Campo id={id('departamento')} label={t('atividadesPlanejador.nova.departamento')}>
             <Seletor id={id('departamento')} value={form.departamento} onChange={set('departamento')}>
-              <option value="">Selecione</option>
-              {departamentos.map((d) => <option key={d} value={d}>{d}</option>)}
+              <option value="">{t('atividadesPlanejador.nova.selecione')}</option>
+              {departamentos.map((d) => <option key={d} value={d}>{rotuloDepartamento(d)}</option>)}
             </Seletor>
           </Campo>
 
-          <Campo id={id('responsavel')} label="Responsável" hint={pl.cliente && form.departamento ? 'sugerido pelo squad' : null}>
+          <Campo id={id('responsavel')} label={t('atividadesPlanejador.nova.responsavel')} hint={pl.cliente && form.departamento ? t('atividadesPlanejador.nova.sugeridoSquad') : null}>
             <Seletor id={id('responsavel')} value={form.responsavelId} onChange={(e) => pl.setResponsavelId?.(e.target.value)}>
-              <option value="">Quem executa</option>
+              <option value="">{t('atividadesPlanejador.nova.quemExecuta')}</option>
               {responsaveis.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
             </Seletor>
           </Campo>
 
-          <Campo id={id('horas')} label="Horas estimadas" hint={form.tipo && pl.config?.horas_por_tipo?.[form.tipo] != null && String(pl.config.horas_por_tipo[form.tipo]) === String(form.horas) ? 'padrão do tipo' : null}>
+          <Campo id={id('horas')} label={t('atividadesPlanejador.nova.horas')} hint={form.tipo && pl.config?.horas_por_tipo?.[form.tipo] != null && String(pl.config.horas_por_tipo[form.tipo]) === String(form.horas) ? t('atividadesPlanejador.nova.padraoTipo') : null}>
             <input
               id={id('horas')}
               type="number"
@@ -212,18 +216,18 @@ export default function NovaAtividadePanel({ pl, responsavelInicial = null, onCa
               inputMode="decimal"
               value={form.horas ?? ''}
               onChange={set('horas')}
-              placeholder="ex.: 2"
+              placeholder={t('atividadesPlanejador.nova.exHoras')}
               className={`ln-input tabular ${FOCO}`}
             />
           </Campo>
 
-          <Campo id={id('prioridade')} label="Prioridade">
+          <Campo id={id('prioridade')} label={t('atividadesPlanejador.nova.prioridade')}>
             <Seletor id={id('prioridade')} value={form.prioridade || 'normal'} onChange={set('prioridade')}>
-              {prioridades.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+              {prioridades.map((p) => <option key={p.value} value={p.value}>{t(`atividades.prioridade.${p.value}`)}</option>)}
             </Seletor>
           </Campo>
 
-          <Campo id={id('naoAntesDe')} label="Não começar antes de">
+          <Campo id={id('naoAntesDe')} label={t('atividadesPlanejador.nova.naoAntesDe')}>
             <input
               id={id('naoAntesDe')}
               type="date"
@@ -234,7 +238,7 @@ export default function NovaAtividadePanel({ pl, responsavelInicial = null, onCa
             />
           </Campo>
 
-          <Campo id={id('dataDesejada')} label="Prazo pedido pelo cliente" hint="opcional. Antes do que cabe, o sistema mostra a sobrecarga" className="col-span-2">
+          <Campo id={id('dataDesejada')} label={t('atividadesPlanejador.nova.prazo')} hint={t('atividadesPlanejador.nova.prazoHint')} className="col-span-2">
             <input
               id={id('dataDesejada')}
               type="date"
@@ -252,21 +256,21 @@ export default function NovaAtividadePanel({ pl, responsavelInicial = null, onCa
         {formOk ? (
           <p className="text-[11px] text-ln-t4 flex items-center gap-1">
             <kbd className="ln-kbd">⌘</kbd><span>/</span><kbd className="ln-kbd">Ctrl</kbd><span>+</span><kbd className="ln-kbd">Enter</kbd>
-            <span className="ml-1">calcula</span>
+            <span className="ml-1">{t('atividadesPlanejador.nova.calcula')}</span>
           </p>
         ) : (
-          <p className="text-[11px] text-ln-t4">Faltam cliente, título, responsável ou horas</p>
+          <p className="text-[11px] text-ln-t4">{t('atividadesPlanejador.nova.faltam')}</p>
         )}
         <button
           type="button"
           onClick={calcular}
           disabled={!formOk || calculando}
-          title="Calcular data de entrega"
+          title={t('atividadesPlanejador.nova.calcular')}
           className={`ln-primary shrink-0 ${FOCO}`}
         >
           {calculando ? (
-            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Lendo a agenda no ClickUp…</>
-          ) : 'Calcular data de entrega'}
+            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('atividadesPlanejador.nova.lendoAgenda')}</>
+          ) : t('atividadesPlanejador.nova.calcular')}
         </button>
       </div>
     </div>

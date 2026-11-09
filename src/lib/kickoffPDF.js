@@ -5,7 +5,8 @@ import { printDocument, docHeader, markdownToHtml, PAGE_CSS } from './printDoc'
 
 import { PILLARS, PILLARS_BY_ID } from '../components/Kickoff/KickoffQuestions'
 import { extractScore } from '../components/Kickoff/KickoffScorer'
-import { formatAnswer } from '../components/Kickoff/kickoffViewHelpers'
+import { formatAnswer, nivelSeveridade } from '../components/Kickoff/kickoffViewHelpers'
+import { t, localeAtual } from '../i18n'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -19,19 +20,13 @@ function severityColor(score) {
   return '#15803D'
 }
 
+// Rótulos do PDF saem no idioma de quem gera; respostas e análise da IA, como estão.
 function severityLabel(score) {
-  if (score < 31) return 'Crítico'
-  if (score < 51) return 'Frágil'
-  if (score < 71) return 'Em estruturação'
-  if (score < 86) return 'Saudável'
-  return 'Excelente'
+  return t(`kickoff.severidade.${nivelSeveridade(score)}.curto`)
 }
 
-const BUSINESS_LABELS = {
-  b2b: 'B2B',
-  b2c: 'B2C',
-  hibrido: 'Híbrido (B2B + B2C)',
-}
+const businessLabelDe = (tipo) =>
+  (['b2b', 'b2c', 'hibrido'].includes(tipo) ? t(`kickoff.tipos.${tipo}.completo`) : tipo)
 
 // ─── SVG do radar pra dentro do HTML (clone do KickoffRadar em theme light) ───
 function radarSvg(scores, width = 460) {
@@ -172,8 +167,8 @@ const KICKOFF_CSS = PAGE_CSS + `
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function exportKickoffPDF({ project, kickoff, questions = [] }) {
-  const companyName = project.companyName || project.company_name || 'Cliente'
-  const businessLabel = BUSINESS_LABELS[kickoff.businessType] || kickoff.businessType
+  const companyName = project.companyName || project.company_name || t('kickoff.pdf.clientePadrao')
+  const businessLabel = businessLabelDe(kickoff.businessType)
   const stageColor = kickoff.stageColor || '#7C3AED'
 
   const sortedRows = [...PILLARS]
@@ -222,21 +217,21 @@ export function exportKickoffPDF({ project, kickoff, questions = [] }) {
             ${isAnswered ? partial : '—'}<span class="qa-score-suffix"> /100</span>
           </div>
         </div>
-        <div class="qa-answer-label">Resposta</div>
+        <div class="qa-answer-label">${esc(t('kickoff.respostas.resposta'))}</div>
         <div class="qa-answer${isAnswered ? '' : ' empty'}">${esc(formatted)}</div>
       </div>
     `
   }).join('')
 
-  const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const today = new Date().toLocaleDateString(localeAtual(), { day: '2-digit', month: 'long', year: 'numeric' })
 
   printDocument({
-    title: `Diagnóstico Kickoff — ${companyName}`,
+    title: t('kickoff.pdf.tituloArquivo', { cliente: companyName }),
     css: KICKOFF_CSS,
-    body: docHeader({ title: 'Diagnóstico de Kickoff', subtitle: `${companyName} · ${businessLabel}`, date: today }) + `
+    body: docHeader({ title: t('kickoff.pdf.titulo'), subtitle: `${companyName} · ${businessLabel}`, date: today }) + `
   <div class="stage-card" style="--stage-color:${stageColor}">
     <div>
-      <div class="stage-label-tag">Estágio do negócio</div>
+      <div class="stage-label-tag">${esc(t('kickoff.pdf.estagio'))}</div>
       <div class="stage-name">${esc(kickoff.stageLabel)}</div>
       <div class="stage-desc">${esc(kickoff.stageDesc || '')}</div>
     </div>
@@ -248,22 +243,22 @@ export function exportKickoffPDF({ project, kickoff, questions = [] }) {
 
   <div class="grid-2">
     <div>
-      <div class="section-title">Radar dos 9 pilares</div>
+      <div class="section-title">${esc(t('kickoff.resultado.radar'))}</div>
       <div class="radar-card">${radarHtml}</div>
     </div>
     <div>
-      <div class="section-title">Mapa de fraquezas</div>
+      <div class="section-title">${esc(t('kickoff.resultado.mapaFraquezas'))}</div>
       <div class="bars">${barsHtml}</div>
     </div>
   </div>
 
   <section class="qa-section">
-    <h1>Perguntas e respostas</h1>
+    <h1>${esc(t('kickoff.pdf.perguntasRespostas'))}</h1>
     ${qaHtml}
   </section>
 ${kickoff.aiAnalysis ? `
   <section class="qa-section">
-    <h1>Análise aprofundada (IA)</h1>
+    <h1>${esc(t('kickoff.ia.tituloSalva'))}</h1>
     <div style="font-size:13px;line-height:1.6">${markdownToHtml(kickoff.aiAnalysis)}</div>
   </section>
 ` : ''}`,

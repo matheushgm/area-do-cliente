@@ -11,8 +11,9 @@ import AnexoPreview from '../UI/AnexoPreview'
 import { tipoDoAnexo, nomeDoAnexo } from '../../lib/anexos'
 import { LIMITE_ANEXO_BYTES, LIMITE_ANEXO_MB } from '../../lib/anexosLimite'
 import {
-  ordenarPorCriacao, fmtDataHora, fmtDataNumerica, descricaoVazia, novoId, progressoChecklists, corDaPessoa, iniciais, DEPARTAMENTOS,
+  ordenarPorCriacao, fmtDataHora, fmtDataNumerica, descricaoVazia, novoId, progressoChecklists, corDaPessoa, iniciais, DEPARTAMENTOS, rotuloDepartamento,
 } from '../../lib/tarefas'
+import { useI18n } from '../../i18n'
 import {
   StatusCampo, StatusIcon, ResponsavelCampo, DataCampo, limitesInicio, limitesVencimento, PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, AdicionarInline,
   Avatar, Avatares, Popover, FOCO,
@@ -20,7 +21,7 @@ import {
 import RelacaoCampo from './RelacaoCampo'
 import { Secao, ListaSubtarefas } from './SecoesTarefa'
 import { EtiquetasCampo, RelacoesSecao, HistoricoSecao } from './TarefaExtras'
-import { faseDoCiclo, fmtDiaMes, ROTULO_FASE } from '../../lib/vertatask'
+import { faseDoCiclo, fmtDiaMes } from '../../lib/vertatask'
 
 const BUCKET = 'task-attachments'
 
@@ -40,19 +41,21 @@ export function Propriedade({ label, children }) {
   )
 }
 
-function Vazio({ children = 'não informado' }) {
-  return <span className="text-ln-t4">{children}</span>
+function Vazio({ children }) {
+  const { t } = useI18n()
+  return <span className="text-ln-t4">{children ?? t('tarefaCampos.naoInformado')}</span>
 }
 
 /** `compacto`: uma linha só (o primeiro departamento e "+N"), para célula de lista. */
 export function DepartamentoCampo({ valor = [], onChange, compacto = false, render = null }) {
+  useI18n() // rotuloDepartamento lê o idioma na hora; o hook redesenha na troca
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const sel = new Set(valor)
-  const chip = (d) => <span key={d} className="inline-flex items-center h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t3 whitespace-nowrap min-w-0 truncate">{d}</span>
+  const chip = (d) => <span key={d} className="inline-flex items-center h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t3 whitespace-nowrap min-w-0 truncate">{rotuloDepartamento(d)}</span>
   return (
     <>
-      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} title={valor.join(', ') || undefined}
+      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} title={valor.map(rotuloDepartamento).join(', ') || undefined}
         className={`${compacto ? 'flex flex-nowrap items-center gap-1 min-w-0 max-w-full overflow-hidden' : 'flex flex-wrap gap-1'} text-left rounded-md ${FOCO}`}>
         {render || (!valor.length ? <Vazio>{compacto ? '–' : undefined}</Vazio>
           : compacto ? (<>{chip(valor[0])}{valor.length > 1 && <span className="text-xs text-ln-t4 tabular shrink-0">+{valor.length - 1}</span>}</>)
@@ -63,7 +66,7 @@ export function DepartamentoCampo({ valor = [], onChange, compacto = false, rend
           {DEPARTAMENTOS.map((d) => (
             <button key={d} type="button" onClick={() => onChange(sel.has(d) ? valor.filter((x) => x !== d) : [...valor, d])} className="w-full flex items-center gap-2 h-8 px-2.5 rounded-md text-[13px] text-ln-t2 hover:bg-ln-ink/5">
               {sel.has(d) ? <CheckSquare className="w-3.5 h-3.5 text-ln-accent" /> : <Square className="w-3.5 h-3.5 text-ln-t4" />}
-              {d}
+              {rotuloDepartamento(d)}
             </button>
           ))}
         </div>
@@ -73,6 +76,7 @@ export function DepartamentoCampo({ valor = [], onChange, compacto = false, rend
 }
 
 export function Descricao({ valor, onSalvar }) {
+  const { t } = useI18n()
   const [editando, setEditando] = useState(false)
   const [txt, setTxt] = useState('')
   const abrir = () => { setTxt(valor || ''); setEditando(true) }
@@ -88,13 +92,13 @@ export function Descricao({ valor, onSalvar }) {
           onChange={setTxt}
           minHeight={140}
           autoFocus
-          placeholder="Escreva a descrição (aceita markdown)..."
+          placeholder={t('tarefaPainel.descricaoPlaceholder')}
           className="md-editor--13 text-ln-t2"
         />
         <div className="flex items-center gap-2 mt-2">
-          <button type="button" onClick={salvar} className="ln-primary">Salvar</button>
-          <button type="button" onClick={() => setEditando(false)} className="ln-pill">Cancelar</button>
-          <span className="text-[11px] text-ln-t4 ml-auto flex items-center gap-1"><kbd className="ln-kbd">⌘</kbd><span>/</span><kbd className="ln-kbd">Ctrl</kbd>+<kbd className="ln-kbd">Enter</kbd> salva</span>
+          <button type="button" onClick={salvar} className="ln-primary">{t('comum.salvar')}</button>
+          <button type="button" onClick={() => setEditando(false)} className="ln-pill">{t('comum.cancelar')}</button>
+          <span className="text-[11px] text-ln-t4 ml-auto flex items-center gap-1"><kbd className="ln-kbd">⌘</kbd><span>/</span><kbd className="ln-kbd">Ctrl</kbd>+<kbd className="ln-kbd">Enter</kbd> {t('tarefaPainel.atalhoSalva')}</span>
         </div>
       </div>
     )
@@ -102,13 +106,14 @@ export function Descricao({ valor, onSalvar }) {
   return (
     <div role="button" tabIndex={0} onClick={abrir} onKeyDown={(e) => { if (e.key === 'Enter') abrir() }} className={`min-h-[44px] -mx-2 px-2 py-1.5 rounded-lg cursor-text transition-colors duration-150 hover:bg-ln-ink/[0.03] ${FOCO}`}>
       {descricaoVazia(valor)
-        ? <p className="text-sm text-ln-t4">Sem descrição. Clique para escrever.</p>
+        ? <p className="text-sm text-ln-t4">{t('tarefaPainel.semDescricao')}</p>
         : <MarkdownView content={valor} className="md-prose--13 text-ln-t2" />}
     </div>
   )
 }
 
 export function Checklists({ checklists = [], onChange }) {
+  const { t } = useI18n()
   const [novaLista, setNovaLista] = useState(false)
   const [novoItemEm, setNovoItemEm] = useState(null)
   const set = (next) => onChange(next)
@@ -123,44 +128,47 @@ export function Checklists({ checklists = [], onChange }) {
         return (
           <div key={c.id} className="group/cl">
             <div className="flex items-center gap-2 h-6">
-              <span className="text-xs font-medium text-ln-t2">{c.nome || 'Checklist'}</span>
+              <span className="text-xs font-medium text-ln-t2">{c.nome || t('tarefaPainel.checklist')}</span>
               <span className="text-[11px] text-ln-t4 tabular">{p.feitos}/{p.total}</span>
-              <button type="button" onClick={() => delLista(c.id)} className="ln-iconbtn !w-6 !h-6 ml-auto opacity-0 group-hover/cl:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" title="Excluir checklist" aria-label="Excluir checklist"><Trash2 className="w-3 h-3" /></button>
+              <button type="button" onClick={() => delLista(c.id)} className="ln-iconbtn !w-6 !h-6 ml-auto opacity-0 group-hover/cl:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" title={t('tarefaPainel.excluirChecklist')} aria-label={t('tarefaPainel.excluirChecklist')}><Trash2 className="w-3 h-3" /></button>
             </div>
             <ul>
               {(c.itens || []).map((i) => (
                 <li key={i.id} className="group/ci flex items-center gap-2 h-7 -mx-1 px-1 rounded-md hover:bg-ln-ink/[0.03]">
-                  <button type="button" onClick={() => toggleItem(c.id, i.id)} className={`w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center shrink-0 transition-colors ${i.feito ? 'bg-ln-green border-ln-green text-white' : 'border-ln-t4/60'} ${FOCO}`} aria-label={i.feito ? 'Desmarcar' : 'Marcar'}>{i.feito && <Check className="w-2.5 h-2.5" />}</button>
+                  <button type="button" onClick={() => toggleItem(c.id, i.id)} className={`w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center shrink-0 transition-colors ${i.feito ? 'bg-ln-green border-ln-green text-white' : 'border-ln-t4/60'} ${FOCO}`} aria-label={i.feito ? t('tarefaPainel.desmarcar') : t('tarefaPainel.marcar')}>{i.feito && <Check className="w-2.5 h-2.5" />}</button>
                   <span className={`text-[13px] flex-1 min-w-0 truncate ${i.feito ? 'line-through text-ln-t4' : 'text-ln-t2'}`}>{i.nome}</span>
-                  <button type="button" onClick={() => delItem(c.id, i.id)} className="ln-iconbtn !w-5 !h-5 opacity-0 group-hover/ci:opacity-100 focus-visible:opacity-100" aria-label="Remover item"><X className="w-3 h-3" /></button>
+                  <button type="button" onClick={() => delItem(c.id, i.id)} className="ln-iconbtn !w-5 !h-5 opacity-0 group-hover/ci:opacity-100 focus-visible:opacity-100" aria-label={t('tarefaPainel.removerItem')}><X className="w-3 h-3" /></button>
                 </li>
               ))}
             </ul>
             {novoItemEm === c.id ? (
-              <div className="pt-1"><AdicionarInline autoFocus placeholder="Novo item" onCriar={async (t) => addItem(c.id, t)} /></div>
+              <div className="pt-1"><AdicionarInline autoFocus placeholder={t('tarefaPainel.novoItem')} onCriar={async (nome) => addItem(c.id, nome)} /></div>
             ) : (
-              <button type="button" onClick={() => setNovoItemEm(c.id)} className={`flex items-center gap-1 h-6 px-1 -mx-1 rounded-md text-xs text-ln-t4 hover:text-ln-t2 ${FOCO}`}><Plus className="w-3 h-3" /> Novo item</button>
+              <button type="button" onClick={() => setNovoItemEm(c.id)} className={`flex items-center gap-1 h-6 px-1 -mx-1 rounded-md text-xs text-ln-t4 hover:text-ln-t2 ${FOCO}`}><Plus className="w-3 h-3" /> {t('tarefaPainel.novoItem')}</button>
             )}
           </div>
         )
       })}
       {novaLista ? (
-        <AdicionarInline autoFocus placeholder="Nome do checklist" onCriar={async (t) => { set([...checklists, { id: novoId(), nome: t, itens: [] }]); setNovaLista(false) }} />
+        <AdicionarInline autoFocus placeholder={t('tarefaPainel.nomeChecklist')} onCriar={async (nome) => { set([...checklists, { id: novoId(), nome, itens: [] }]); setNovaLista(false) }} />
       ) : (
-        <button type="button" onClick={() => setNovaLista(true)} className={`self-start inline-flex items-center gap-1.5 h-7 px-2 -mx-2 rounded-md text-xs text-ln-t4 hover:text-ln-t2 hover:bg-ln-ink/[0.03] ${FOCO}`}><Plus className="w-3.5 h-3.5" /> Adicionar checklist</button>
+        <button type="button" onClick={() => setNovaLista(true)} className={`self-start inline-flex items-center gap-1.5 h-7 px-2 -mx-2 rounded-md text-xs text-ln-t4 hover:text-ln-t2 hover:bg-ln-ink/[0.03] ${FOCO}`}><Plus className="w-3.5 h-3.5" /> {t('tarefaPainel.adicionarChecklist')}</button>
       )}
     </div>
   )
 }
 
 function Anexos({ item, onChange, onErro }) {
+  const { t } = useI18n()
   const [enviando, setEnviando] = useState(false)
   const [aberto, setAberto] = useState(null) // índice do anexo em pré-visualização
   async function upload(e) {
     const escolhidos = Array.from(e.target.files || [])
     e.target.value = ''
     const grandes = escolhidos.filter((f) => f.size > LIMITE_ANEXO_BYTES)
-    if (grandes.length) onErro?.(`${grandes.length > 1 ? `${grandes.length} arquivos passam` : `"${grandes[0].name}" passa`} do limite de ${LIMITE_ANEXO_MB} MB. Anexe direto no ClickUp.`)
+    if (grandes.length) onErro?.(grandes.length > 1
+      ? t('tarefaPainel.anexoGrandeVarios', { n: grandes.length, mb: LIMITE_ANEXO_MB })
+      : t('tarefaPainel.anexoGrandeUm', { nome: grandes[0].name, mb: LIMITE_ANEXO_MB }))
     const files = escolhidos.filter((f) => f.size <= LIMITE_ANEXO_BYTES)
     if (!files.length) return
     setEnviando(true)
@@ -170,7 +178,7 @@ function Anexos({ item, onChange, onErro }) {
       const path = `${item.id}/${Date.now()}-${safe}`
       const url = await uploadFile(BUCKET, path, f)
       if (url) novos.push({ path, name: f.name, type: f.type, size: f.size })
-      else onErro?.(`Falha ao enviar ${f.name}`)
+      else onErro?.(t('tarefaPainel.falhaEnviar', { nome: f.name }))
     }
     if (novos.length) onChange([...(await anexosAtuais()), ...novos])
     setEnviando(false)
@@ -195,18 +203,18 @@ function Anexos({ item, onChange, onErro }) {
         return (
           <div key={a.path || a.url || a.id || i} className="group/an ln-card flex items-center gap-2 h-9 px-2.5 text-xs">
             {imagem ? <img src={a.thumbnail || a.url} alt="" className="w-6 h-6 rounded object-cover shrink-0" loading="lazy" /> : <Paperclip className="w-3.5 h-3.5 text-ln-t4 shrink-0" />}
-            <button type="button" onClick={() => setAberto(i)} className={`flex-1 min-w-0 text-left truncate text-ln-t2 hover:text-ln-accent ${FOCO}`} title="Pré-visualizar">{nomeDoAnexo(a)}</button>
-            {!doClickUp && item.clickup_task_id && <span className="inline-flex items-center gap-1 text-[10px] text-ln-yellow shrink-0" title="Indo para o ClickUp"><CloudUpload className="w-3 h-3" /> enviando</span>}
+            <button type="button" onClick={() => setAberto(i)} className={`flex-1 min-w-0 text-left truncate text-ln-t2 hover:text-ln-accent ${FOCO}`} title={t('tarefaPainel.preVisualizar')}>{nomeDoAnexo(a)}</button>
+            {!doClickUp && item.clickup_task_id && <span className="inline-flex items-center gap-1 text-[10px] text-ln-yellow shrink-0" title={t('tarefaPainel.indoClickup')}><CloudUpload className="w-3 h-3" /> {t('tarefaPainel.enviandoMin')}</span>}
             <span className="text-[11px] text-ln-t4 tabular">{fmtBytes(a.size)}</span>
-            {doClickUp && item.clickup_url && <a href={item.clickup_url} target="_blank" rel="noopener noreferrer" className="ln-iconbtn !w-5 !h-5 opacity-0 group-hover/an:opacity-100 focus-visible:opacity-100" title="Para excluir, abra a tarefa no ClickUp" aria-label="Abrir no ClickUp para excluir o anexo"><ExternalLink className="w-3 h-3" /></a>}
-            {!doClickUp && <button type="button" onClick={() => remover(a)} className="ln-iconbtn !w-5 !h-5 opacity-0 group-hover/an:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" title={item.clickup_task_id ? 'Cancelar envio' : 'Remover anexo'} aria-label={item.clickup_task_id ? 'Cancelar envio do anexo' : 'Remover anexo'}><X className="w-3 h-3" /></button>}
+            {doClickUp && item.clickup_url && <a href={item.clickup_url} target="_blank" rel="noopener noreferrer" className="ln-iconbtn !w-5 !h-5 opacity-0 group-hover/an:opacity-100 focus-visible:opacity-100" title={t('tarefaPainel.excluirNoClickup')} aria-label={t('tarefaPainel.abrirClickupExcluir')}><ExternalLink className="w-3 h-3" /></a>}
+            {!doClickUp && <button type="button" onClick={() => remover(a)} className="ln-iconbtn !w-5 !h-5 opacity-0 group-hover/an:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" title={item.clickup_task_id ? t('tarefaPainel.cancelarEnvio') : t('tarefaPainel.removerAnexo')} aria-label={item.clickup_task_id ? t('tarefaPainel.cancelarEnvioAnexo') : t('tarefaPainel.removerAnexo')}><X className="w-3 h-3" /></button>}
           </div>
         )
       })}
       {aberto != null && <AnexoPreview anexos={anexos} indice={aberto} bucket={BUCKET} onFechar={() => setAberto(null)} />}
       <label className={`self-start inline-flex items-center gap-1.5 h-7 px-2 -mx-2 rounded-md text-xs text-ln-t4 hover:text-ln-t2 hover:bg-ln-ink/[0.03] cursor-pointer ${FOCO}`}>
         {enviando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-        {enviando ? 'Enviando...' : 'Anexar arquivo'}
+        {enviando ? t('tarefaPainel.enviando') : t('tarefaPainel.anexarArquivo')}
         <input type="file" multiple className="hidden" onChange={upload} disabled={enviando} />
       </label>
     </div>
@@ -214,6 +222,7 @@ function Anexos({ item, onChange, onErro }) {
 }
 
 function Comentarios({ item, comentarios, user, membrosMap, onComentar, onExcluir }) {
+  const { t } = useI18n()
   const [txt, setTxt] = useState('')
   const [enviando, setEnviando] = useState(false)
   async function enviar() {
@@ -226,12 +235,12 @@ function Comentarios({ item, comentarios, user, membrosMap, onComentar, onExclui
   return (
     <div className="flex flex-col gap-4">
       <p className="text-xs text-ln-t4">
-        Criada por <span className="text-ln-t3">{item.criador_nome || membrosMap.get(item.criado_por)?.name || 'alguém'}</span> em {fmtDataHora(item.created_at)}
+        {t('tarefaPainel.criadaPor')} <span className="text-ln-t3">{item.criador_nome || membrosMap.get(item.criado_por)?.name || t('tarefaPainel.alguemMin')}</span> {t('tarefaPainel.criadaEm', { quando: fmtDataHora(item.created_at) })}
       </p>
-      {!comentarios && <p className="text-xs text-ln-t4 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Carregando comentários...</p>}
+      {!comentarios && <p className="text-xs text-ln-t4 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('tarefaPainel.carregandoComentarios')}</p>}
       {comentarios?.map((c) => {
         const m = c.autor_id ? membrosMap.get(c.autor_id) : null
-        const nome = m?.name || c.autor_nome || 'Alguém'
+        const nome = m?.name || c.autor_nome || t('tarefaPainel.alguem')
         const p = { nome, iniciais: m?.avatar || iniciais(nome), cor: corDaPessoa(c.autor_id || nome) }
         const meu = c.autor_id && c.autor_id === user?.id
         return (
@@ -241,14 +250,14 @@ function Comentarios({ item, comentarios, user, membrosMap, onComentar, onExclui
               <div className="flex items-baseline gap-2">
                 <span className="text-xs font-medium text-ln-t2">{nome}</span>
                 <span className="text-[11px] text-ln-t4 tabular">{fmtDataHora(c.created_at)}</span>
-                {meu && <button type="button" onClick={() => onExcluir(c.id)} className="ln-iconbtn !w-5 !h-5 ml-auto opacity-0 group-hover/com:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" title="Excluir" aria-label="Excluir comentário"><Trash2 className="w-3 h-3" /></button>}
+                {meu && <button type="button" onClick={() => onExcluir(c.id)} className="ln-iconbtn !w-5 !h-5 ml-auto opacity-0 group-hover/com:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" title={t('comum.excluir')} aria-label={t('tarefaPainel.excluirComentario')}><Trash2 className="w-3 h-3" /></button>}
               </div>
               <MarkdownView content={c.texto} className="md-prose--13 text-ln-t2 mt-0.5" />
             </div>
           </div>
         )
       })}
-      {comentarios && !comentarios.length && <p className="text-xs text-ln-t4">Sem comentários. Use este espaço para anotar o andamento.</p>}
+      {comentarios && !comentarios.length && <p className="text-xs text-ln-t4">{t('tarefaPainel.semComentarios')}</p>}
       <div
         className="ln-card flex items-end gap-2 px-3 py-2 focus-within:border-ln-accent/60"
         onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); enviar() } }}
@@ -257,10 +266,10 @@ function Comentarios({ item, comentarios, user, membrosMap, onComentar, onExclui
           value={txt}
           onChange={setTxt}
           minHeight={24}
-          placeholder="Escreva um comentário..."
+          placeholder={t('tarefaPainel.escrevaComentario')}
           className="md-editor--nu md-editor--13 flex-1 min-w-0 text-ln-t1"
         />
-        <button type="button" onClick={enviar} disabled={enviando || !txt.trim()} className="ln-primary !px-2" title="Enviar (⌘/Ctrl + Enter)" aria-label="Enviar comentário">
+        <button type="button" onClick={enviar} disabled={enviando || !txt.trim()} className="ln-primary !px-2" title={t('tarefaPainel.enviarAtalho')} aria-label={t('tarefaPainel.enviarComentario')}>
           {enviando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
         </button>
       </div>
@@ -284,6 +293,7 @@ const RECUO = 18
  * da lista com esta destacada no meio delas, e as subtarefas desta logo abaixo dela.
  */
 function Hierarquia({ item, subs, ancestrais, irmas, statuses, membrosMap, onAbrir, onAtualizar, onMudarStatus, onCriarSub }) {
+  const { t } = useI18n()
   const nivel = ancestrais.length
   const lista = ordenarPorCriacao(irmas?.length ? irmas : [item])
   const recuo = (n) => ({ paddingLeft: 8 + n * RECUO })
@@ -292,12 +302,12 @@ function Hierarquia({ item, subs, ancestrais, irmas, statuses, membrosMap, onAbr
       {ancestrais.map((a, i) => (
         <div
           key={a.id} role="button" tabIndex={0} onClick={() => onAbrir(a.id)} onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(a.id) }}
-          className={`ln-row-hover flex items-center gap-2 h-8 -mx-2 pr-2 cursor-pointer ${FOCO}`} style={recuo(i)} title="Abrir esta tarefa"
+          className={`ln-row-hover flex items-center gap-2 h-8 -mx-2 pr-2 cursor-pointer ${FOCO}`} style={recuo(i)} title={t('tarefaPainel.abrirEstaTarefa')}
         >
           {i > 0 && <CornerDownRight className="w-3 h-3 text-ln-t4 shrink-0" />}
           <StatusIcon status={a.status} statuses={statuses} />
-          <span className={`text-[13px] flex-1 min-w-0 truncate ${a.status_tipo === 'closed' ? 'line-through text-ln-t4' : 'text-ln-t3'}`}>{a.titulo || 'Sem título'}</span>
-          {i === nivel - 1 && <span className="text-[11px] text-ln-t4 shrink-0">pai</span>}
+          <span className={`text-[13px] flex-1 min-w-0 truncate ${a.status_tipo === 'closed' ? 'line-through text-ln-t4' : 'text-ln-t3'}`}>{a.titulo || t('tarefaPainel.semTitulo')}</span>
+          {i === nivel - 1 && <span className="text-[11px] text-ln-t4 shrink-0">{t('tarefaPainel.pai')}</span>}
         </div>
       ))}
       {lista.map((s) => s.id === item.id ? (
@@ -305,8 +315,8 @@ function Hierarquia({ item, subs, ancestrais, irmas, statuses, membrosMap, onAbr
           <div className="flex items-center gap-2 h-8 -mx-2 pr-2 rounded-md bg-ln-accent/[0.07]" style={recuo(nivel)} aria-current="true">
             <CornerDownRight className="w-3 h-3 text-ln-accent shrink-0" />
             <StatusIcon status={s.status} statuses={statuses} />
-            <span className={`text-[13px] font-medium flex-1 min-w-0 truncate ${s.status_tipo === 'closed' ? 'line-through text-ln-t4' : 'text-ln-t1'}`}>{nomeDe(s)}</span>
-            <span className="text-[11px] text-ln-accent shrink-0">esta tarefa</span>
+            <span className={`text-[13px] font-medium flex-1 min-w-0 truncate ${s.status_tipo === 'closed' ? 'line-through text-ln-t4' : 'text-ln-t1'}`}>{nomeDe(s, t)}</span>
+            <span className="text-[11px] text-ln-accent shrink-0">{t('tarefaPainel.estaTarefa')}</span>
           </div>
           {subs.length > 0 && (
             <div style={{ paddingLeft: (nivel + 1) * RECUO }}>
@@ -325,24 +335,25 @@ function Hierarquia({ item, subs, ancestrais, irmas, statuses, membrosMap, onAbr
         >
           <CornerDownRight className="w-3 h-3 text-ln-t4 shrink-0" />
           {inicioSub(s, statuses, onMudarStatus)}
-          <span className={`text-[13px] flex-1 min-w-0 truncate ${s.status_tipo === 'closed' ? 'line-through text-ln-t4' : 'text-ln-t2'}`}>{nomeDe(s)}</span>
+          <span className={`text-[13px] flex-1 min-w-0 truncate ${s.status_tipo === 'closed' ? 'line-through text-ln-t4' : 'text-ln-t2'}`}>{nomeDe(s, t)}</span>
           <span className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>{fimSub(s, membrosMap, onAtualizar)}</span>
         </div>
       ))}
       {/* Cria irmã (subtarefa do pai), não neta: o pai pode não estar em `ancestrais`, então monta pelo parent_id. */}
       <div className="-mx-2" style={recuo(nivel)}>
-        <AdicionarInline placeholder="Adicionar subtarefa" onCriar={(t) => onCriarSub({ id: item.parent_id, lista_id: item.lista_id }, t)} />
+        <AdicionarInline placeholder={t('tarefaPainel.adicionarSubtarefa')} onCriar={(nome) => onCriarSub({ id: item.parent_id, lista_id: item.lista_id }, nome)} />
       </div>
     </div>
   )
 }
-const nomeDe = (s) => s.titulo || 'Sem título'
+const nomeDe = (s, t) => s.titulo || t('tarefaPainel.semTitulo')
 
 export default function TarefaPanel({
   item, subtarefas, ancestrais = [], irmas = null, statuses, membros, membrosMap, comentarios, user, ciclos = [], etiquetas = [], ciclosMap = new Map(), etiquetasMap = new Map(), onCriarEtiqueta,
   onAtualizar, onMudarStatus, onCriarSub, onAbrir, onComentar, onExcluirComentario, onCarregarComentarios, onErro, onRelacoesMudaram,
   entrega = null, // bloco "Entrega" (EntregaPainel), montado por quem tem os dados da família
 }) {
+  const { t } = useI18n()
   const [titulo, setTitulo] = useState(item?.titulo || '')
   const tituloRef = useRef(null)
   useEffect(() => { if (item?.id) onCarregarComentarios(item.id) }, [item?.id, onCarregarComentarios])
@@ -351,14 +362,14 @@ export default function TarefaPanel({
     if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px` }
   }, [titulo])
 
-  if (!item) return <p className="p-4 text-[13px] text-ln-t4">Selecione uma tarefa na lista.</p>
+  if (!item) return <p className="p-4 text-[13px] text-ln-t4">{t('tarefaPainel.selecioneTarefa')}</p>
   const subs = ordenarPorCriacao(subtarefas || [])
   const feitas = subs.filter((s) => s.status_tipo === 'closed').length
 
   function salvarTitulo() {
-    const t = titulo.trim()
-    if (!t) { setTitulo(item.titulo); return }
-    if (t !== item.titulo) onAtualizar(item.id, { titulo: t })
+    const novo = titulo.trim()
+    if (!novo) { setTitulo(item.titulo); return }
+    if (novo !== item.titulo) onAtualizar(item.id, { titulo: novo })
   }
 
   return (
@@ -372,7 +383,7 @@ export default function TarefaPanel({
           onBlur={salvarTitulo}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur() } if (e.key === 'Escape') { e.stopPropagation(); setTitulo(item.titulo); e.target.blur() } }}
           rows={1}
-          aria-label="Título da tarefa"
+          aria-label={t('tarefaPainel.tituloTarefa')}
           className={`w-full bg-transparent text-xl font-semibold tracking-[-0.01em] leading-tight outline-none resize-none rounded-md -mx-1 px-1 hover:bg-ln-ink/[0.03] focus:bg-ln-ink/[0.04] ${item.status_tipo === 'closed' ? 'text-ln-t4 line-through' : 'text-ln-t2'}`}
         />
       </header>
@@ -380,32 +391,32 @@ export default function TarefaPanel({
       {entrega}
 
       <section>
-        <p className="ln-label">Propriedades</p>
+        <p className="ln-label">{t('tarefaPainel.propriedades')}</p>
         <dl className="flex flex-col">
-          <Propriedade label="Status"><StatusCampo item={item} statuses={statuses} onChange={(s) => onMudarStatus(item, s)} /></Propriedade>
-          <Propriedade label="Responsáveis">
+          <Propriedade label={t('tarefaPainel.prop.status')}><StatusCampo item={item} statuses={statuses} onChange={(s) => onMudarStatus(item, s)} /></Propriedade>
+          <Propriedade label={t('tarefaPainel.prop.responsaveis')}>
             <ResponsavelCampo item={item} membros={membros} membrosMap={membrosMap} size={16} max={4} comNome onChange={(ids, extra) => onAtualizar(item.id, extra ? { responsaveis: ids, responsaveis_extra: extra } : { responsaveis: ids })} />
           </Propriedade>
-          <Propriedade label="Prioridade"><PrioridadeCampo valor={item.prioridade} onChange={(v) => onAtualizar(item.id, { prioridade: v })} /></Propriedade>
-          <Propriedade label="Início"><DataCampo valor={item.data_inicio} placeholder="definir" {...limitesInicio(item)} onChange={(v) => onAtualizar(item.id, { data_inicio: v })} /></Propriedade>
-          <Propriedade label="Vencimento"><DataCampo valor={item.data_vencimento} item={item} placeholder="definir" {...limitesVencimento(item)} onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} /></Propriedade>
-          <Propriedade label="Cycle">
+          <Propriedade label={t('tarefaPainel.prop.prioridade')}><PrioridadeCampo valor={item.prioridade} onChange={(v) => onAtualizar(item.id, { prioridade: v })} /></Propriedade>
+          <Propriedade label={t('tarefaPainel.prop.inicio')}><DataCampo valor={item.data_inicio} placeholder={t('tarefaPainel.definir')} {...limitesInicio(item)} onChange={(v) => onAtualizar(item.id, { data_inicio: v })} /></Propriedade>
+          <Propriedade label={t('tarefaPainel.prop.vencimento')}><DataCampo valor={item.data_vencimento} item={item} placeholder={t('tarefaPainel.definir')} {...limitesVencimento(item)} onChange={(v) => onAtualizar(item.id, { data_vencimento: v })} /></Propriedade>
+          <Propriedade label={t('tarefaPainel.prop.cycle')}>
             <RelacaoCampo
-              valor={item.ciclo_id} cor="#2A25F0" vazio="nenhum"
-              opcoes={ciclos.map((c) => ({ id: c.id, rotulo: c.nome, sub: `${fmtDiaMes(c.inicio)} a ${fmtDiaMes(c.fim)} · ${ROTULO_FASE[faseDoCiclo(c)]}` }))}
+              valor={item.ciclo_id} cor="#2A25F0" vazio={t('tarefaPainel.nenhumCycle')}
+              opcoes={ciclos.map((c) => ({ id: c.id, rotulo: c.nome, sub: t('tarefaPainel.periodoCycle', { inicio: fmtDiaMes(c.inicio), fim: fmtDiaMes(c.fim), fase: t(`tarefaPainel.faseCycle.${faseDoCiclo(c)}`) }) }))}
               onChange={(v) => onAtualizar(item.id, { ciclo_id: v })}
             />
           </Propriedade>
-          <Propriedade label="Etiquetas">
+          <Propriedade label={t('tarefaPainel.prop.etiquetas')}>
             <EtiquetasCampo valor={item.etiquetas || []} etiquetas={etiquetas} onChange={(v) => onAtualizar(item.id, { etiquetas: v })} onCriar={onCriarEtiqueta} />
           </Propriedade>
-          <Propriedade label="Estimativa"><EstimativaCampo valor={item.estimativa_min} onChange={(v) => onAtualizar(item.id, { estimativa_min: v })} /></Propriedade>
-          <Propriedade label="Tipo"><TipoTarefaCampo valor={item.tipo_tarefa} onChange={(v) => onAtualizar(item.id, { tipo_tarefa: v })} /></Propriedade>
-          <Propriedade label="Dificuldade"><DificuldadeCampo valor={item.dificuldade} onChange={(v) => onAtualizar(item.id, { dificuldade: v })} /></Propriedade>
-          <Propriedade label="Departamento"><DepartamentoCampo valor={item.departamento || []} onChange={(v) => onAtualizar(item.id, { departamento: v })} /></Propriedade>
-          <Propriedade label="Concluída">{item.data_conclusao ? <span className="tabular">{fmtDataNumerica(item.data_conclusao)}</span> : <Vazio>em aberto</Vazio>}</Propriedade>
+          <Propriedade label={t('tarefaPainel.prop.estimativa')}><EstimativaCampo valor={item.estimativa_min} onChange={(v) => onAtualizar(item.id, { estimativa_min: v })} /></Propriedade>
+          <Propriedade label={t('tarefaPainel.prop.tipo')}><TipoTarefaCampo valor={item.tipo_tarefa} onChange={(v) => onAtualizar(item.id, { tipo_tarefa: v })} /></Propriedade>
+          <Propriedade label={t('tarefaPainel.prop.dificuldade')}><DificuldadeCampo valor={item.dificuldade} onChange={(v) => onAtualizar(item.id, { dificuldade: v })} /></Propriedade>
+          <Propriedade label={t('tarefaPainel.prop.departamento')}><DepartamentoCampo valor={item.departamento || []} onChange={(v) => onAtualizar(item.id, { departamento: v })} /></Propriedade>
+          <Propriedade label={t('tarefaPainel.prop.concluida')}>{item.data_conclusao ? <span className="tabular">{fmtDataNumerica(item.data_conclusao)}</span> : <Vazio>{t('tarefaPainel.emAberto')}</Vazio>}</Propriedade>
           {(item.tags || []).length > 0 && (
-            <Propriedade label="Tags"><span className="flex flex-wrap gap-1">{item.tags.map((t) => <span key={t} className="inline-flex items-center h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t3">{t}</span>)}</span></Propriedade>
+            <Propriedade label={t('tarefaPainel.prop.tags')}><span className="flex flex-wrap gap-1">{item.tags.map((tag) => <span key={tag} className="inline-flex items-center h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t3">{tag}</span>)}</span></Propriedade>
           )}
           {item.campos && Object.entries(item.campos).map(([k, v]) => (
             <Propriedade key={k} label={k}><span className="truncate">{Array.isArray(v) ? v.join(', ') : String(v)}</span></Propriedade>
@@ -413,13 +424,13 @@ export default function TarefaPanel({
         </dl>
       </section>
 
-      <Secao titulo="Descrição">
+      <Secao titulo={t('tarefaPainel.secao.descricao')}>
         <Descricao valor={item.descricao} onSalvar={(v) => onAtualizar(item.id, { descricao: v })} />
       </Secao>
 
       <Secao
-        titulo={item.parent_id ? 'Hierarquia' : 'Subtarefas'}
-        extra={subs.length > 0 && <span className="text-[11px] text-ln-t4 tabular" title="Subtarefas desta tarefa concluídas">{feitas}/{subs.length}</span>}
+        titulo={item.parent_id ? t('tarefaPainel.secao.hierarquia') : t('tarefaPainel.secao.subtarefas')}
+        extra={subs.length > 0 && <span className="text-[11px] text-ln-t4 tabular" title={t('tarefaPainel.subtarefasConcluidas')}>{feitas}/{subs.length}</span>}
       >
         {item.parent_id ? (
           <Hierarquia
@@ -435,24 +446,24 @@ export default function TarefaPanel({
         )}
       </Secao>
 
-      <Secao titulo="Relações">
+      <Secao titulo={t('tarefaPainel.secao.relacoes')}>
         <RelacoesSecao tarefaId={item.id} user={user} onAbrir={onAbrir} onErro={onErro} onMudou={onRelacoesMudaram} membrosMap={membrosMap} />
       </Secao>
 
-      <Secao titulo="Checklists">
+      <Secao titulo={t('tarefaPainel.secao.checklists')}>
         <Checklists checklists={item.checklists || []} onChange={(v) => onAtualizar(item.id, { checklists: v })} />
       </Secao>
 
-      <Secao titulo="Anexos">
+      <Secao titulo={t('tarefaPainel.secao.anexos')}>
         <Anexos item={item} onChange={(v) => onAtualizar(item.id, { anexos: v })} onErro={onErro} />
       </Secao>
 
-      <Secao titulo="Histórico">
+      <Secao titulo={t('tarefaPainel.secao.historico')}>
         <HistoricoSecao tarefaId={item.id} versao={item.updated_at} membrosMap={membrosMap} ciclosMap={ciclosMap} etiquetasMap={etiquetasMap} />
       </Secao>
 
-      <Secao titulo="Atividade">
-        <Comentarios item={item} comentarios={comentarios} user={user} membrosMap={membrosMap} onComentar={(t) => onComentar(item.id, t)} onExcluir={(id) => onExcluirComentario(item.id, id)} />
+      <Secao titulo={t('tarefaPainel.secao.atividade')}>
+        <Comentarios item={item} comentarios={comentarios} user={user} membrosMap={membrosMap} onComentar={(txt) => onComentar(item.id, txt)} onExcluir={(id) => onExcluirComentario(item.id, id)} />
       </Secao>
     </div>
   )

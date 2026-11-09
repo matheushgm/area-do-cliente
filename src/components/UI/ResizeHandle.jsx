@@ -1,11 +1,14 @@
+import { useI18n } from '../../i18n'
+
 // Alça de redimensionar coluna: fica na borda direita de um <th position:relative>.
 // Arrastar muda a largura; duplo clique volta ao padrão. Ver useColumnWidths.
 export default function ResizeHandle({ onPointerDown, onDoubleClick, className = '' }) {
+  const { t } = useI18n()
   return (
     <span
       role="separator"
       aria-orientation="vertical"
-      title="Arraste para ajustar a largura (duplo clique volta ao padrão)"
+      title={t('ui.redimensionar')}
       onPointerDown={onPointerDown}
       onDoubleClick={onDoubleClick}
       onClick={(e) => e.stopPropagation()}

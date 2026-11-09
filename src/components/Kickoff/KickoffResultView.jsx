@@ -9,6 +9,7 @@ import KickoffOfertaMatadoraPanel from './KickoffOfertaMatadoraPanel'
 import KickoffAnswersModal from './KickoffAnswersModal'
 import KickoffFunnelRecommendationsPanel from './KickoffFunnelRecommendationsPanel'
 import { PILLARS_BY_ID } from './KickoffQuestions'
+import { useI18n } from '../../i18n'
 
 export default function KickoffResultView({
   project,
@@ -20,13 +21,12 @@ export default function KickoffResultView({
   onSaveOfertaMatadora,
   onExportPdf,
 }) {
+  const { t } = useI18n()
   const [answersModalOpen, setAnswersModalOpen] = useState(false)
   const stageColor = kickoff.stageColor || '#7C3AED'
-  const businessLabel = {
-    b2b: 'B2B',
-    b2c: 'B2C',
-    hibrido: 'Híbrido (B2B + B2C)',
-  }[kickoff.businessType] || kickoff.businessType
+  const businessLabel = ['b2b', 'b2c', 'hibrido'].includes(kickoff.businessType)
+    ? t(`kickoff.tipos.${kickoff.businessType}.completo`)
+    : kickoff.businessType
 
   return (
     <div className="space-y-6">
@@ -39,7 +39,7 @@ export default function KickoffResultView({
         <div className="pl-3 flex items-start justify-between gap-4 flex-wrap">
           <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase tracking-wider text-rl-muted font-semibold mb-1">
-              Diagnóstico Kickoff · {businessLabel}
+              {t('kickoff.resultado.tag', { tipo: businessLabel })}
             </p>
             <h2 className="text-2xl font-black text-rl-text leading-tight">
               {kickoff.stageLabel}
@@ -65,26 +65,26 @@ export default function KickoffResultView({
             onClick={() => setAnswersModalOpen(true)}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-purple/10 border border-rl-purple/30 text-rl-purple hover:bg-rl-purple/15 transition-all font-semibold"
           >
-            <ListChecks className="w-3.5 h-3.5" /> Ver respostas
+            <ListChecks className="w-3.5 h-3.5" /> {t('kickoff.resultado.verRespostas')}
           </button>
           <button
             onClick={onEdit}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
           >
-            <Pencil className="w-3.5 h-3.5" /> Editar respostas
+            <Pencil className="w-3.5 h-3.5" /> {t('kickoff.resultado.editarRespostas')}
           </button>
           <button
             onClick={onRestart}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all"
           >
-            <RotateCcw className="w-3.5 h-3.5" /> Refazer
+            <RotateCcw className="w-3.5 h-3.5" /> {t('kickoff.refazer')}
           </button>
           <div className="flex-1" />
           <button
             onClick={onExportPdf}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/30 transition-all"
           >
-            <FileDown className="w-3.5 h-3.5" /> Exportar PDF
+            <FileDown className="w-3.5 h-3.5" /> {t('kickoff.resultado.exportarPdf')}
           </button>
         </div>
       </div>
@@ -94,7 +94,7 @@ export default function KickoffResultView({
         <div className="glass-card p-5">
           <div className="flex items-center gap-2 mb-3">
             <Compass className="w-4 h-4 text-rl-cyan" />
-            <h3 className="text-sm font-bold text-rl-text">Radar dos 9 pilares</h3>
+            <h3 className="text-sm font-bold text-rl-text">{t('kickoff.resultado.radar')}</h3>
           </div>
           <KickoffRadar
             pillarScores={kickoff.scores}
@@ -107,8 +107,8 @@ export default function KickoffResultView({
         <div className="glass-card p-5">
           <div className="flex items-center gap-2 mb-3">
             <Target className="w-4 h-4 text-rl-gold" />
-            <h3 className="text-sm font-bold text-rl-text">Mapa de fraquezas</h3>
-            <span className="text-[10px] text-rl-muted ml-auto">ordenado do pior pro melhor</span>
+            <h3 className="text-sm font-bold text-rl-text">{t('kickoff.resultado.mapaFraquezas')}</h3>
+            <span className="text-[10px] text-rl-muted ml-auto">{t('kickoff.resultado.ordenado')}</span>
           </div>
           <KickoffPillarBars
             pillarScores={kickoff.scores}
@@ -122,8 +122,8 @@ export default function KickoffResultView({
       <div className="glass-card p-5">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-4 h-4 text-rl-purple" />
-          <h3 className="text-sm font-bold text-rl-text">Próximos passos prioritários</h3>
-          <span className="text-[10px] text-rl-muted ml-auto">3 pilares mais fracos</span>
+          <h3 className="text-sm font-bold text-rl-text">{t('kickoff.resultado.proximosPassos')}</h3>
+          <span className="text-[10px] text-rl-muted ml-auto">{t('kickoff.resultado.tresFracos')}</span>
         </div>
         <ol className="space-y-3">
           {kickoff.nextSteps?.map((step, i) => {
@@ -137,7 +137,7 @@ export default function KickoffResultView({
                 <div>
                   {pillar && (
                     <p className="text-[10px] uppercase tracking-wide text-rl-muted font-semibold mb-0.5">
-                      Pilar: {pillar.label} · score {kickoff.scores?.[weakness] ?? 0}
+                      {t('kickoff.resultado.pilarScore', { pilar: pillar.label, score: kickoff.scores?.[weakness] ?? 0 })}
                     </p>
                   )}
                   <p className="text-sm text-rl-text leading-snug">{step}</p>

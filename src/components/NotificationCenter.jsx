@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import { AtSign, X } from 'lucide-react'
+import { useI18n } from '../i18n'
 
 // Toast popup global mostrado quando uma nova notificação chega via realtime.
 // Empilha múltiplas notificações; cada uma auto-dismiss em 8s.
 export default function NotificationCenter() {
   const { user } = useApp()
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [popups, setPopups] = useState([]) // [{ id, title, body, link }]
 
   function dismiss(id) {
@@ -36,7 +38,7 @@ export default function NotificationCenter() {
         ({ new: row }) => {
           setPopups((prev) => [...prev, {
             id: row.id,
-            title: row.title || 'Nova notificação',
+            title: row.title || t('ui.notificacao.nova'),
             body: row.body || '',
             link: row.link,
           }])
@@ -46,7 +48,7 @@ export default function NotificationCenter() {
       )
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [user?.id])
+  }, [user?.id, t])
 
   if (popups.length === 0) return null
 
@@ -70,7 +72,7 @@ export default function NotificationCenter() {
             tabIndex={-1}
             onClick={(e) => { e.stopPropagation(); dismiss(p.id) }}
             className="p-1 rounded text-rl-muted hover:text-rl-text shrink-0"
-            aria-label="Fechar"
+            aria-label={t('comum.fechar')}
           >
             <X className="w-3.5 h-3.5" />
           </span>

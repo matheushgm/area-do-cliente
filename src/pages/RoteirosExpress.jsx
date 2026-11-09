@@ -3,7 +3,8 @@ import { useOutletContext } from 'react-router-dom'
 import MarkdownBlock from '../components/Criativos/MarkdownBlock'
 import Toast from '../components/UI/Toast'
 import { useToast } from '../hooks/useToast'
-import { streamClaude } from '../lib/claude'
+import { streamClaude, instrucaoDeIdioma } from '../lib/claude'
+import { useI18n } from '../i18n'
 import { supabase } from '../lib/supabase'
 import {
   PRODUTO_QS, CLIENTE_QS, ALL_QS, EMPTY_ANSWERS, SPLIT,
@@ -19,14 +20,14 @@ import {
 // Persistência local do rascunho de criação manual.
 const STORAGE_KEY = 'rl_roteiros_express_v1'
 const STATUS_BADGE = {
-  novo:      { label: 'Novo',      cls: 'text-rl-blue bg-rl-blue/10 border-rl-blue/30' },
-  gerado:    { label: 'Gerado',    cls: 'text-rl-green bg-rl-green/10 border-rl-green/30' },
-  arquivado: { label: 'Arquivado', cls: 'text-rl-muted bg-rl-surface border-rl-border' },
+  novo:      { label: 'roteiros.status.novo',      cls: 'text-rl-blue bg-rl-blue/10 border-rl-blue/30' },
+  gerado:    { label: 'roteiros.status.gerado',    cls: 'text-rl-green bg-rl-green/10 border-rl-green/30' },
+  arquivado: { label: 'roteiros.status.arquivado', cls: 'text-rl-muted bg-rl-surface border-rl-border' },
 }
 
-function fmtDate(iso) {
+function fmtDate(iso, locale) {
   if (!iso) return ''
-  return new Date(iso).toLocaleDateString('pt-BR', {
+  return new Date(iso).toLocaleDateString(locale, {
     day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
   })
 }
@@ -35,6 +36,7 @@ function fmtDate(iso) {
 export default function RoteirosExpress() {
   const { openSidebar } = useOutletContext()
   const { toast, showToast } = useToast()
+  const { t, locale } = useI18n()
   const [tab, setTab] = useState('criar') // 'criar' | 'respostas'
 
   // ── Estado de criação ──────────────────────────────────────────────────────
@@ -86,10 +88,10 @@ export default function RoteirosExpress() {
       .from('roteiros_express')
       .select('*')
       .order('created_at', { ascending: false })
-    if (err) showToast('Erro ao carregar respostas', 'error')
+    if (err) showToast(t('roteiros.toast.erroCarregar'), 'error')
     else setResponses(data || [])
     setLoadingResponses(false)
-  }, [showToast])
+  }, [showToast, t])
 
   useEffect(() => {
     if (tab === 'respostas') fetchResponses()
@@ -112,9 +114,10 @@ export default function RoteirosExpress() {
       const fullText = await streamClaude({
         model: 'claude-sonnet-4-5',
         max_tokens: 8000,
-        system: SYSTEM_GERAR,
+        // O texto é dividido só pelo delimitador [[ROTEIRO]], que não depende do idioma.
+        system: SYSTEM_GERAR + instrucaoDeIdioma({ rotulos: true }),
         messages: [{ role: 'user', content: buildUserBrief(src) }],
-        onChunk: (t) => setStreamingText(t.replace(/—/g, '-')),
+        onChunk: (txt) => setStreamingText(txt.replace(/—/g, '-')),
       })
       const clean = fullText.replace(/—/g, '-')
       const parts = clean.split(SPLIT).map((s) => s.trim()).filter(Boolean).slice(0, 2)
@@ -131,13 +134,13 @@ export default function RoteirosExpress() {
           r.id === respId ? { ...r, status: 'gerado', scripts: newScripts } : r))
       }
     } catch (e) {
-      setError(e.message || 'Erro ao gerar os roteiros.')
+      setError(e.message || t('roteiros.toast.erroGerar'))
       setStep('form')
     } finally {
       setLoading(false)
       setStreamingText('')
     }
-  }, [answers, loading])
+  }, [answers, loading, t])
 
   // ── Refinar um roteiro (1x por roteiro) ────────────────────────────────────
   const startRefine = (idx) => { setRefiningIdx(idx); setRefineNote(''); setRefineStream('') }
@@ -153,28 +156,28 @@ export default function RoteirosExpress() {
       const fullText = await streamClaude({
         model: 'claude-sonnet-4-5',
         max_tokens: 4000,
-        system: SYSTEM_REFINAR,
+        system: SYSTEM_REFINAR + instrucaoDeIdioma({ rotulos: true }),
         messages: [{ role: 'user', content: `## ROTEIRO ORIGINAL\n\n${original}\n\n## PEDIDO DE REFINAMENTO\n\n${note}` }],
-        onChunk: (t) => setRefineStream(t.replace(/—/g, '-')),
+        onChunk: (txt) => setRefineStream(txt.replace(/—/g, '-')),
       })
       const clean = fullText.replace(/—/g, '-').trim()
       const updated = scripts.map((s, i) => (i === idx ? { content: clean, refineUsed: true } : s))
       setScripts(updated)
       setRefiningIdx(null); setRefineNote(''); setRefineStream('')
-      showToast('Roteiro refinado!')
+      showToast(t('roteiros.toast.refinado'))
       if (sourceResponseId && supabase) {
         await supabase.from('roteiros_express').update({ scripts: updated }).eq('id', sourceResponseId)
       }
     } catch (e) {
-      setError(e.message || 'Erro ao refinar o roteiro.')
+      setError(e.message || t('roteiros.toast.erroRefinar'))
     } finally {
       setLoading(false)
     }
-  }, [refineNote, scripts, loading, showToast, sourceResponseId])
+  }, [refineNote, scripts, loading, showToast, sourceResponseId, t])
 
   // ── Recomeçar ──────────────────────────────────────────────────────────────
   const reset = () => {
-    if (!window.confirm('Começar um novo roteiro? Isto vai limpar as respostas e os 2 roteiros atuais.')) return
+    if (!window.confirm(t('roteiros.toast.confirmarNovo'))) return
     setAnswers(EMPTY_ANSWERS); setScripts([]); setStep('form'); setError(null)
     setRefiningIdx(null); setRefineNote(''); setSourceResponseId(null)
     try { localStorage.removeItem(STORAGE_KEY) } catch { /* noop */ }
@@ -194,7 +197,7 @@ export default function RoteirosExpress() {
   }
 
   const deleteResponse = async (r) => {
-    if (!window.confirm('Excluir esta resposta do banco?')) return
+    if (!window.confirm(t('roteiros.toast.confirmarExcluir'))) return
     if (supabase) await supabase.from('roteiros_express').delete().eq('id', r.id)
     setResponses((prev) => prev.filter((x) => x.id !== r.id))
   }
@@ -203,10 +206,10 @@ export default function RoteirosExpress() {
     try {
       await navigator.clipboard.writeText(shareUrl)
       setCopied(true)
-      showToast('Link copiado!')
+      showToast(t('roteiros.link.linkCopiado'))
       setTimeout(() => setCopied(false), 1800)
     } catch {
-      showToast('Não foi possível copiar', 'error')
+      showToast(t('roteiros.link.naoCopiou'), 'error')
     }
   }
 
@@ -216,7 +219,7 @@ export default function RoteirosExpress() {
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile top bar */}
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
-          <button onClick={openSidebar} aria-label="Abrir menu de navegação"
+          <button onClick={openSidebar} aria-label={t('roteiros.abrirMenu')}
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
             <Menu className="w-5 h-5" />
           </button>
@@ -224,7 +227,7 @@ export default function RoteirosExpress() {
             <div className="w-6 h-6 rounded-md bg-gradient-rl flex items-center justify-center">
               <Clapperboard className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="font-bold text-rl-text text-sm">Roteiros Express</span>
+            <span className="font-bold text-rl-text text-sm">{t('roteiros.titulo')}</span>
           </div>
         </div>
 
@@ -237,16 +240,16 @@ export default function RoteirosExpress() {
                   <Clapperboard className="w-5 h-5 text-rl-purple" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-rl-text">Roteiros Express</h1>
+                  <h1 className="text-xl font-bold text-rl-text">{t('roteiros.titulo')}</h1>
                   <p className="text-sm text-rl-muted">
-                    10 perguntas rápidas e a IA cria 2 roteiros de vídeo prontos para anunciar.
+                    {t('roteiros.subtitulo')}
                   </p>
                 </div>
               </div>
               {tab === 'criar' && step === 'result' && (
                 <button onClick={reset} disabled={loading}
                   className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all disabled:opacity-50">
-                  <RotateCcw className="w-3.5 h-3.5" /> Novo roteiro
+                  <RotateCcw className="w-3.5 h-3.5" /> {t('roteiros.novoRoteiro')}
                 </button>
               )}
             </div>
@@ -257,9 +260,9 @@ export default function RoteirosExpress() {
                 <Link2 className="w-4 h-4 text-rl-purple" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-rl-text">Link para o cliente responder</p>
+                <p className="text-[13px] font-semibold text-rl-text">{t('roteiros.link.titulo')}</p>
                 <p className="text-[11px] text-rl-muted mb-2">
-                  O cliente preenche as 10 perguntas e recebe 2 roteiros na hora. As respostas e os roteiros ficam na aba de respostas recebidas.
+                  {t('roteiros.link.descricao')}
                 </p>
                 <div className="flex items-center gap-2">
                   <input
@@ -271,7 +274,7 @@ export default function RoteirosExpress() {
                   <button onClick={copyLink}
                     className="btn-primary flex items-center gap-1.5 text-xs px-3 py-2 shrink-0">
                     {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copied ? 'Copiado' : 'Copiar'}
+                    {copied ? t('roteiros.link.copiado') : t('comum.copiar')}
                   </button>
                 </div>
               </div>
@@ -279,9 +282,9 @@ export default function RoteirosExpress() {
 
             {/* ── Abas ───────────────────────────────────────── */}
             <div className="flex items-center gap-1 border-b border-rl-border">
-              <TabBtn active={tab === 'criar'} onClick={() => setTab('criar')} Icon={PenSquare} label="Criar roteiro" />
+              <TabBtn active={tab === 'criar'} onClick={() => setTab('criar')} Icon={PenSquare} label={t('roteiros.abas.criar')} />
               <TabBtn active={tab === 'respostas'} onClick={() => setTab('respostas')} Icon={Inbox}
-                label={`Respostas recebidas${responses.length ? ` (${responses.length})` : ''}`} />
+                label={responses.length ? t('roteiros.abas.respostasN', { n: responses.length }) : t('roteiros.abas.respostas')} />
             </div>
 
             {error && (
@@ -295,20 +298,20 @@ export default function RoteirosExpress() {
             {tab === 'criar' && step === 'form' && (
               <>
                 {sourceResponseId && (
-                  <p className="text-[11px] text-rl-blue">Gerando a partir de uma resposta recebida.</p>
+                  <p className="text-[11px] text-rl-blue">{t('roteiros.form.aPartirDeResposta')}</p>
                 )}
-                <QuestionGroup Icon={Package} title="Sobre o produto ou serviço"
+                <QuestionGroup Icon={Package} title={t('roteiros.form.grupoProduto')}
                   questions={PRODUTO_QS} answers={answers} onChange={setAnswer} />
-                <QuestionGroup Icon={Users} title="Sobre o seu cliente"
+                <QuestionGroup Icon={Users} title={t('roteiros.form.grupoCliente')}
                   questions={CLIENTE_QS} answers={answers} onChange={setAnswer} />
                 <div className="flex items-center justify-between gap-3 flex-wrap pt-1">
                   <p className="text-xs text-rl-muted">
-                    {allFilled ? 'Tudo preenchido. Gere seus 2 roteiros.' : 'Preencha as 10 perguntas para liberar a geração.'}
+                    {allFilled ? t('roteiros.form.tudoPreenchido') : t('roteiros.form.preencha')}
                   </p>
                   <button onClick={() => generate(answers, sourceResponseId)} disabled={!allFilled || loading}
                     className="btn-primary flex items-center gap-2 text-sm px-5 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed">
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                    Gerar meus 2 roteiros
+                    {t('roteiros.form.gerar')}
                   </button>
                 </div>
               </>
@@ -320,9 +323,9 @@ export default function RoteirosExpress() {
                   <div className="glass-card p-5">
                     <div className="flex items-center gap-2 mb-3 text-rl-purple">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-xs font-bold uppercase tracking-wider">Escrevendo seus roteiros...</span>
+                      <span className="text-xs font-bold uppercase tracking-wider">{t('roteiros.resultado.escrevendo')}</span>
                     </div>
-                    <MarkdownBlock content={streamingText || 'Analisando o público e montando os ganchos...'} />
+                    <MarkdownBlock content={streamingText || t('roteiros.resultado.analisando')} />
                   </div>
                 )}
 
@@ -333,15 +336,15 @@ export default function RoteirosExpress() {
                     <div key={idx} className="glass-card p-5 space-y-4">
                       <div className="flex items-center justify-between gap-2">
                         <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full text-rl-purple bg-rl-purple/10 border border-rl-purple/30">
-                          <Clapperboard className="w-3 h-3" /> ROTEIRO {idx + 1}
+                          <Clapperboard className="w-3 h-3" /> {t('roteiros.resultado.roteiroN', { n: idx + 1 })}
                         </span>
                         {script.refineUsed ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-medium text-rl-green">
-                            <CheckCircle2 className="w-3 h-3" /> Refinado
+                            <CheckCircle2 className="w-3 h-3" /> {t('roteiros.resultado.refinado')}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-[10px] text-rl-muted">
-                            <Wand2 className="w-3 h-3" /> 1 refinamento disponível
+                            <Wand2 className="w-3 h-3" /> {t('roteiros.resultado.refinoDisponivel')}
                           </span>
                         )}
                       </div>
@@ -353,36 +356,36 @@ export default function RoteirosExpress() {
                           <div className="rounded-xl border border-rl-purple/30 bg-rl-purple/5 p-3 space-y-2">
                             <label className="text-[11px] font-bold text-rl-text flex items-center gap-1.5">
                               <PenLine className="w-3.5 h-3.5 text-rl-purple" />
-                              O que você quer ajustar neste roteiro?
+                              {t('roteiros.resultado.ajustar')}
                             </label>
                             <textarea autoFocus value={refineNote} onChange={(e) => setRefineNote(e.target.value)}
-                              rows={3} placeholder="Ex.: deixe o gancho mais agressivo e cite o preço promocional."
+                              rows={3} placeholder={t('roteiros.resultado.ajustarPh')}
                               className="input-field w-full text-sm resize-none" />
                             <p className="text-[10px] text-rl-muted">
-                              Atenção: você tem apenas <strong>1 refinamento</strong> por roteiro.
+                              {t('roteiros.resultado.atencaoAntes')} <strong>{t('roteiros.resultado.atencaoNegrito')}</strong> {t('roteiros.resultado.atencaoDepois')}
                             </p>
                             <div className="flex items-center gap-2">
                               <button onClick={() => applyRefine(idx)} disabled={!refineNote.trim()}
                                 className="btn-primary flex items-center gap-1.5 text-xs px-3 py-1.5 disabled:opacity-50">
-                                <Send className="w-3.5 h-3.5" /> Aplicar refinamento
+                                <Send className="w-3.5 h-3.5" /> {t('roteiros.resultado.aplicar')}
                               </button>
                               <button onClick={() => { setRefiningIdx(null); setRefineNote('') }}
                                 className="text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-text transition-all">
-                                Cancelar
+                                {t('comum.cancelar')}
                               </button>
                             </div>
                           </div>
                         ) : (
                           <button onClick={() => startRefine(idx)}
                             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-muted hover:text-rl-purple hover:border-rl-purple/40 transition-all">
-                            <Wand2 className="w-3.5 h-3.5" /> Refinar este roteiro
+                            <Wand2 className="w-3.5 h-3.5" /> {t('roteiros.resultado.refinar')}
                           </button>
                         )
                       )}
 
                       {script.refineUsed && (
                         <div className="flex items-center gap-1.5 text-[11px] text-rl-muted">
-                          <Lock className="w-3 h-3" /> Refinamento já utilizado neste roteiro.
+                          <Lock className="w-3 h-3" /> {t('roteiros.resultado.refinoUsado')}
                         </div>
                       )}
                     </div>
@@ -396,19 +399,19 @@ export default function RoteirosExpress() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-rl-muted">
-                    {loadingResponses ? 'Carregando...' : `${responses.length} resposta${responses.length !== 1 ? 's' : ''} no banco`}
+                    {loadingResponses ? t('comum.carregando') : t(responses.length === 1 ? 'roteiros.respostas.noBanco.um' : 'roteiros.respostas.noBanco.outros', { n: responses.length })}
                   </p>
                   <button onClick={fetchResponses} disabled={loadingResponses}
                     className="flex items-center gap-1.5 text-xs text-rl-muted hover:text-rl-text transition-all disabled:opacity-50">
-                    <RefreshCw className={`w-3.5 h-3.5 ${loadingResponses ? 'animate-spin' : ''}`} /> Atualizar
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingResponses ? 'animate-spin' : ''}`} /> {t('roteiros.respostas.atualizar')}
                   </button>
                 </div>
 
                 {!loadingResponses && responses.length === 0 && (
                   <div className="glass-card p-10 text-center">
                     <Inbox className="w-10 h-10 text-rl-muted mx-auto mb-3 opacity-50" />
-                    <p className="text-sm text-rl-muted">Nenhuma resposta ainda.</p>
-                    <p className="text-xs text-rl-muted mt-1">Compartilhe o link acima para começar a receber.</p>
+                    <p className="text-sm text-rl-muted">{t('roteiros.respostas.nenhuma')}</p>
+                    <p className="text-xs text-rl-muted mt-1">{t('roteiros.respostas.compartilhe')}</p>
                   </div>
                 )}
 
@@ -421,7 +424,7 @@ export default function RoteirosExpress() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-bold text-rl-text truncate">
-                              {r.nome || 'Sem identificação'}
+                              {r.nome || t('roteiros.respostas.semIdentificacao')}
                             </span>
                             {r.empresa && (
                               <span className="inline-flex items-center gap-1 text-[10px] text-rl-blue bg-rl-blue/10 border border-rl-blue/30 px-1.5 py-0.5 rounded-full">
@@ -429,25 +432,25 @@ export default function RoteirosExpress() {
                               </span>
                             )}
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${badge.cls}`}>
-                              {badge.label}
+                              {t(badge.label)}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 mt-1 flex-wrap text-[11px] text-rl-muted">
-                            <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> {fmtDate(r.created_at)}</span>
+                            <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> {fmtDate(r.created_at, locale)}</span>
                             {r.email && <span className="inline-flex items-center gap-1"><Mail className="w-3 h-3" /> {r.email}</span>}
                             {r.telefone && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" /> {r.telefone}</span>}
                           </div>
                           <p className="text-xs text-rl-muted mt-1.5 line-clamp-1">
-                            <span className="text-rl-text/70 font-medium">Vende:</span> {r.answers?.p1 || '—'}
+                            <span className="text-rl-text/70 font-medium">{t('roteiros.respostas.vende')}</span> {r.answers?.p1 || '—'}
                           </p>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <button onClick={() => setExpandedId(expanded ? null : r.id)}
-                            title="Ver respostas"
+                            title={t('roteiros.respostas.verRespostas')}
                             className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
                             <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
                           </button>
-                          <button onClick={() => deleteResponse(r)} title="Excluir"
+                          <button onClick={() => deleteResponse(r)} title={t('comum.excluir')}
                             className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all">
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -456,15 +459,15 @@ export default function RoteirosExpress() {
 
                       {expanded && (
                         <div className="border-t border-rl-border px-4 py-4 space-y-3 bg-rl-surface/30">
-                          <AnswerList Icon={Package} title="Produto / serviço" qs={PRODUTO_QS} answers={r.answers} />
-                          <AnswerList Icon={Users} title="Cliente" qs={CLIENTE_QS} answers={r.answers} />
+                          <AnswerList Icon={Package} title={t('roteiros.respostas.produtoServico')} qs={PRODUTO_QS} answers={r.answers} />
+                          <AnswerList Icon={Users} title={t('roteiros.respostas.cliente')} qs={CLIENTE_QS} answers={r.answers} />
 
                           {Array.isArray(r.scripts) && r.scripts.length > 0 && (
                             <div className="space-y-2 pt-1">
                               <div className="flex items-center gap-1.5">
                                 <Clapperboard className="w-3.5 h-3.5 text-rl-purple" />
                                 <h4 className="text-[10px] font-bold text-rl-purple uppercase tracking-wider">
-                                  Roteiros que o cliente recebeu
+                                  {t('roteiros.respostas.roteirosRecebidos')}
                                 </h4>
                               </div>
                               {r.scripts.map((s, i) => (
@@ -479,11 +482,11 @@ export default function RoteirosExpress() {
                             <button onClick={() => runFromResponse(r)} disabled={loading}
                               className="btn-primary flex items-center gap-1.5 text-xs px-3 py-1.5 disabled:opacity-50">
                               <Sparkles className="w-3.5 h-3.5" />
-                              {r.status === 'gerado' ? 'Gerar novamente' : 'Gerar 2 roteiros'}
+                              {r.status === 'gerado' ? t('roteiros.respostas.gerarNovamente') : t('roteiros.respostas.gerar2')}
                             </button>
                             {r.status === 'gerado' && (
                               <span className="text-[10px] text-rl-green inline-flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Roteiros já gerados
+                                <CheckCircle2 className="w-3 h-3" /> {t('roteiros.respostas.jaGerados')}
                               </span>
                             )}
                           </div>
@@ -516,6 +519,7 @@ function TabBtn({ active, onClick, Icon, label }) {
 }
 
 function QuestionGroup({ Icon, title, questions, answers, onChange }) {
+  const { t } = useI18n()
   return (
     <div className="glass-card p-5 space-y-4">
       <div className="flex items-center gap-2">
@@ -528,11 +532,11 @@ function QuestionGroup({ Icon, title, questions, answers, onChange }) {
         {questions.map((q, i) => (
           <div key={q.id}>
             <label className="text-[13px] font-semibold text-rl-text block">
-              <span className="text-rl-purple mr-1">{i + 1}.</span>{q.label}
+              <span className="text-rl-purple mr-1">{i + 1}.</span>{t(`roteiros.perguntas.${q.id}.label`)}
             </label>
-            {q.hint && <p className="text-[11px] text-rl-muted mb-1.5">{q.hint}</p>}
+            {q.hint && <p className="text-[11px] text-rl-muted mb-1.5">{t(`roteiros.perguntas.${q.id}.hint`)}</p>}
             <textarea value={answers[q.id]} onChange={(e) => onChange(q.id, e.target.value)}
-              rows={2} placeholder={q.ph} className="input-field w-full text-sm resize-none" />
+              rows={2} placeholder={t(`roteiros.perguntas.${q.id}.ph`)} className="input-field w-full text-sm resize-none" />
           </div>
         ))}
       </div>
@@ -541,6 +545,7 @@ function QuestionGroup({ Icon, title, questions, answers, onChange }) {
 }
 
 function AnswerList({ Icon, title, qs, answers }) {
+  const { t } = useI18n()
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-1.5">
@@ -550,7 +555,7 @@ function AnswerList({ Icon, title, qs, answers }) {
       <div className="space-y-2">
         {qs.map((q) => (
           <div key={q.id}>
-            <p className="text-[11px] font-semibold text-rl-muted">{q.label}</p>
+            <p className="text-[11px] font-semibold text-rl-muted">{t(`roteiros.perguntas.${q.id}.label`)}</p>
             <p className="text-sm text-rl-text">{answers?.[q.id] || '—'}</p>
           </div>
         ))}

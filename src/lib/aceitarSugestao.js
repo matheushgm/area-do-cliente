@@ -2,11 +2,13 @@
 // cliente sem abrir modal. É o mesmo caminho do planejador (lista "Geral" da
 // pasta, responsável pelo departamento no squad, data pela carga real do time),
 // só que com os padrões da própria sugestão: tipo, horas, prioridade e o
-// briefing em markdown (já com o caminho e o link do gerenciador).
+// briefing em markdown (já com o caminho e o link do gerenciador). O título e o
+// briefing saem no idioma de quem aceita: o motor gera no idioma da tela.
 import { sugerirAtividade, listarListasClickUp, criarAtividade } from './atividades'
 import { hojeISO } from './atividadesCarga'
 import { PRIORIDADE_CLICKUP } from './playbookSugestoes'
 import { TIPO_PARA_DEPARTAMENTO } from '../hooks/usePlanejador'
+import { t } from '../i18n'
 
 // No squad da Área do Cliente o departamento de tecnologia ainda tem outro nome
 const DEPARTAMENTO_ALIAS_SQUAD = { 'Tecnologia': 'Automação / Integração' }
@@ -48,20 +50,20 @@ function escolherResponsavel({ departamento, projeto, squads, teamMembers, user 
  */
 export async function criarTarefaDaSugestao({ sug, projeto, squads, teamMembers, user, config }) {
   const folderId = projeto?.clickupFolderId || projeto?.clickup_folder_id
-  if (!folderId) throw new Error('O cliente não tem pasta do ClickUp vinculada.')
+  if (!folderId) throw new Error(t('otimizacoes.erros.semPasta'))
   const listId = await listaGeral(folderId, projeto.clickupListId || projeto.clickup_list_id || null)
-  if (!listId) throw new Error('A pasta do cliente no ClickUp não tem nenhuma lista.')
+  if (!listId) throw new Error(t('otimizacoes.erros.semLista'))
 
   const tipo = sug.tipo || 'Otimização'
   const departamento = TIPO_PARA_DEPARTAMENTO[tipo] || 'Gestor de tráfego'
   const resp = escolherResponsavel({ departamento, projeto, squads, teamMembers, user })
-  if (!resp) throw new Error(`Ninguém com ClickUp vinculado para ${departamento} neste cliente. Defina o responsável no squad.`)
+  if (!resp) throw new Error(t('otimizacoes.erros.semResponsavel', { departamento }))
 
   const horas = Number(sug.horas ?? config?.horas_por_tipo?.[tipo] ?? 1)
   const calc = await sugerirAtividade({ assignees: [resp.clickupId], horas, naoAntesDe: hojeISO() })
   const res = calc?.resultados?.[0]
   const entrega = res?.sugestao?.entrega
-  if (!res || !entrega) throw new Error(calc?.erros?.[0]?.error || 'Não consegui calcular a data de entrega.')
+  if (!res || !entrega) throw new Error(calc?.erros?.[0]?.error || t('otimizacoes.erros.semData'))
 
   const titulo = sug.titulo
   const r = await criarAtividade({
@@ -102,7 +104,7 @@ export async function criarTarefaDaSugestao({ sug, projeto, squads, teamMembers,
 export async function aceitarComTarefa({ sug, projeto, ctx, gravarDecisao }) {
   let tarefa = null, erroTarefa = null
   try { tarefa = await criarTarefaDaSugestao({ sug, projeto, ...ctx }) }
-  catch (e) { erroTarefa = e.message || 'Falha ao criar a tarefa no ClickUp.' }
+  catch (e) { erroTarefa = e.message || t('otimizacoes.erros.falhaTarefa') }
   let decisao
   try {
     decisao = await gravarDecisao(sug, 'aceita', {

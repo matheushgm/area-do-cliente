@@ -5,8 +5,10 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Download, ChevronLeft, ChevronRight, ExternalLink, FileText, Loader2 } from 'lucide-react'
 import { tipoDoAnexo, urlDoAnexo, urlParaExibir, nomeDoAnexo, fmtBytes } from '../../lib/anexos'
+import { useI18n } from '../../i18n'
 
 export default function AnexoPreview({ anexos = [], indice = 0, bucket, onFechar }) {
+  const { t } = useI18n()
   const [i, setI] = useState(indice)
   const [url, setUrl] = useState(null)
   const [texto, setTexto] = useState(null)
@@ -43,7 +45,7 @@ export default function AnexoPreview({ anexos = [], indice = 0, bucket, onFechar
   const corpo = carregando ? (
     <div className="flex items-center justify-center h-full text-white/70"><Loader2 className="w-6 h-6 animate-spin" /></div>
   ) : !url ? (
-    <Cartao nome={nome} a={a} aviso="Não consegui gerar o link deste arquivo." />
+    <Cartao nome={nome} a={a} aviso={t('ui.anexo.semLink')} />
   ) : a.source === 'clickup' && (tipo === 'pdf' || tipo === 'texto') ? (
     // o ClickUp só exibe com ?view=open (sem isso, manda baixar) e não tem CORS: o texto também vai em iframe.
     // A cor do texto puro segue o tema do sistema, não o do app: o fundo Canvas acompanha (branco fixo sumia com ele).
@@ -63,24 +65,24 @@ export default function AnexoPreview({ anexos = [], indice = 0, bucket, onFechar
   )
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] bg-black/85 flex flex-col" onClick={onFechar} role="dialog" aria-modal="true" aria-label={`Pré-visualização de ${nome}`}>
+    <div className="fixed inset-0 z-[100] bg-black/85 flex flex-col" onClick={onFechar} role="dialog" aria-modal="true" aria-label={t('ui.anexo.previa', { nome })}>
       <div className="flex items-center gap-3 h-12 px-4 text-white shrink-0" onClick={(e) => e.stopPropagation()}>
         <FileText className="w-4 h-4 opacity-70 shrink-0" />
         <span className="text-sm font-medium truncate">{nome}</span>
         <span className="text-xs text-white/60 tabular">{fmtBytes(a.size)}</span>
         {anexos.length > 1 && <span className="text-xs text-white/60 tabular">{i + 1} / {anexos.length}</span>}
         <div className="flex-1" />
-        {url && <a href={url} download={nome} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-white/10 hover:bg-white/20 text-xs"><Download className="w-3.5 h-3.5" /> Baixar</a>}
-        {url && <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-white/10 hover:bg-white/20" title="Abrir em nova aba"><ExternalLink className="w-3.5 h-3.5" /></a>}
-        <button type="button" onClick={onFechar} className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-white/10 hover:bg-white/20" aria-label="Fechar"><X className="w-4 h-4" /></button>
+        {url && <a href={url} download={nome} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-white/10 hover:bg-white/20 text-xs"><Download className="w-3.5 h-3.5" /> {t('ui.anexo.baixar')}</a>}
+        {url && <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-white/10 hover:bg-white/20" title={t('ui.anexo.novaAba')}><ExternalLink className="w-3.5 h-3.5" /></a>}
+        <button type="button" onClick={onFechar} className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-white/10 hover:bg-white/20" aria-label={t('comum.fechar')}><X className="w-4 h-4" /></button>
       </div>
       <div className="flex-1 min-h-0 flex items-center justify-center px-14 pb-6" onClick={(e) => e.stopPropagation()}>
         {corpo}
       </div>
       {anexos.length > 1 && (
         <>
-          <button type="button" disabled={i === 0} onClick={(e) => { e.stopPropagation(); setI(i - 1) }} className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white inline-flex items-center justify-center" aria-label="Anterior"><ChevronLeft className="w-5 h-5" /></button>
-          <button type="button" disabled={i === anexos.length - 1} onClick={(e) => { e.stopPropagation(); setI(i + 1) }} className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white inline-flex items-center justify-center" aria-label="Próximo"><ChevronRight className="w-5 h-5" /></button>
+          <button type="button" disabled={i === 0} onClick={(e) => { e.stopPropagation(); setI(i - 1) }} className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white inline-flex items-center justify-center" aria-label={t('ui.anexo.anterior')}><ChevronLeft className="w-5 h-5" /></button>
+          <button type="button" disabled={i === anexos.length - 1} onClick={(e) => { e.stopPropagation(); setI(i + 1) }} className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white inline-flex items-center justify-center" aria-label={t('ui.anexo.proximo')}><ChevronRight className="w-5 h-5" /></button>
         </>
       )}
     </div>,
@@ -89,13 +91,14 @@ export default function AnexoPreview({ anexos = [], indice = 0, bucket, onFechar
 }
 
 function Cartao({ nome, a, url, aviso }) {
+  const { t } = useI18n()
   return (
     <div className="bg-white rounded-xl p-6 w-[min(460px,90vw)] text-center shadow-2xl">
       <FileText className="w-10 h-10 mx-auto text-gray-400" />
       <p className="mt-3 text-sm font-medium text-gray-900 truncate">{nome}</p>
       <p className="text-xs text-gray-500 mt-0.5">{fmtBytes(a.size)}{a.type ? ` · ${a.type}` : ''}</p>
-      {aviso ? <p className="text-xs text-red-500 mt-3">{aviso}</p> : <p className="text-xs text-gray-500 mt-3">Este tipo de arquivo não tem pré-visualização.</p>}
-      {url && <a href={url} download={nome} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-gray-900 text-white text-sm"><Download className="w-4 h-4" /> Baixar</a>}
+      {aviso ? <p className="text-xs text-red-500 mt-3">{aviso}</p> : <p className="text-xs text-gray-500 mt-3">{t('ui.anexo.semPrevia')}</p>}
+      {url && <a href={url} download={nome} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-gray-900 text-white text-sm"><Download className="w-4 h-4" /> {t('ui.anexo.baixar')}</a>}
     </div>
   )
 }

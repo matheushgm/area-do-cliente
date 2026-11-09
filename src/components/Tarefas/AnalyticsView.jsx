@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { rotuloStatus, prioridade as prioDe } from '../../lib/tarefas'
+import { rotuloStatus, rotuloPrioridade } from '../../lib/tarefas'
 import { fmtDiaMes } from '../../lib/vertatask'
+import { useI18n } from '../../i18n'
 
-const PERIODOS = [[7, '7 dias'], [14, '14 dias'], [30, '30 dias'], [90, '90 dias']]
+const PERIODOS = [7, 14, 30, 90]
 const COR_PRIO = { urgent: '#E2564B', high: '#C99A2E', normal: '#518CFF', low: '#9AA0B2', sem: '#C2C6D2' }
 
 function Tile({ k, v, sub, alerta }) {
@@ -23,9 +24,10 @@ function Cartao({ titulo, children, className = '' }) {
   return <section className={`ln-card p-4 ${className}`}><h3 className="text-[13px] font-bold text-ln-t1 mb-3">{titulo}</h3>{children}</section>
 }
 
-function BarrasH({ linhas, cor = 'rgb(var(--ln-accent))', vazio = 'Sem dados no período.' }) {
+function BarrasH({ linhas, cor = 'rgb(var(--ln-accent))', vazio }) {
+  const { t } = useI18n()
   const max = Math.max(1, ...linhas.map((l) => l.valor))
-  if (!linhas.length) return <p className="text-xs text-ln-t4">{vazio}</p>
+  if (!linhas.length) return <p className="text-xs text-ln-t4">{vazio || t('analytics.semDados')}</p>
   return (
     <div className="flex flex-col gap-2">
       {linhas.map((l) => (
@@ -40,11 +42,12 @@ function BarrasH({ linhas, cor = 'rgb(var(--ln-accent))', vazio = 'Sem dados no 
 }
 
 function BarrasDuplas({ linhas }) {
+  const { t } = useI18n()
   const max = Math.max(1, ...linhas.flatMap((l) => [l.a, l.b]))
-  if (!linhas.length) return <p className="text-xs text-ln-t4">Sem dados no período.</p>
+  if (!linhas.length) return <p className="text-xs text-ln-t4">{t('analytics.semDados')}</p>
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="flex gap-4 text-[11px] text-ln-t4"><span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-ln-accent" />Abertas</span><span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-ln-green" />Concluídas no período</span></div>
+      <div className="flex gap-4 text-[11px] text-ln-t4"><span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-ln-accent" />{t('analytics.legenda.abertas')}</span><span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-ln-green" />{t('analytics.legenda.concluidasPeriodo')}</span></div>
       {linhas.map((l) => (
         <div key={l.rotulo} className="flex items-center gap-2 text-[13px]">
           <span className="w-[130px] shrink-0 truncate text-ln-t2" title={l.rotulo}>{l.rotulo}</span>
@@ -60,8 +63,9 @@ function BarrasDuplas({ linhas }) {
 }
 
 function Serie({ serie }) {
+  const { t } = useI18n()
   const W = 760, H = 180, L = 28, B = 22, T = 8, R = 8
-  if (!serie.length) return <p className="text-xs text-ln-t4">Sem dados no período.</p>
+  if (!serie.length) return <p className="text-xs text-ln-t4">{t('analytics.semDados')}</p>
   const max = Math.max(1, ...serie.flatMap((d) => [d.criadas, d.concluidas]))
   const x = (i) => L + (serie.length > 1 ? (i * (W - L - R)) / (serie.length - 1) : 0)
   const y = (v) => T + (H - T - B) * (1 - v / max)
@@ -69,8 +73,8 @@ function Serie({ serie }) {
   const passo = Math.max(1, Math.ceil(serie.length / 8))
   return (
     <div>
-      <div className="flex gap-4 text-[11px] text-ln-t4 mb-1"><span className="inline-flex items-center gap-1.5"><i className="w-3 h-0.5 bg-ln-accent" />Criadas</span><span className="inline-flex items-center gap-1.5"><i className="w-3 h-0.5 bg-ln-green" />Concluídas</span></div>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Tarefas criadas e concluídas por dia">
+      <div className="flex gap-4 text-[11px] text-ln-t4 mb-1"><span className="inline-flex items-center gap-1.5"><i className="w-3 h-0.5 bg-ln-accent" />{t('analytics.legenda.criadas')}</span><span className="inline-flex items-center gap-1.5"><i className="w-3 h-0.5 bg-ln-green" />{t('analytics.legenda.concluidas')}</span></div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={t('analytics.serieAria')}>
         {[0, 0.5, 1].map((f) => <g key={f}><line x1={L} x2={W - R} y1={y(max * f)} y2={y(max * f)} stroke="rgb(var(--ln-ink) / 0.08)" /><text x={L - 5} y={y(max * f) + 3} textAnchor="end" fontSize="10" fill="rgb(var(--ln-ink) / 0.45)">{Math.round(max * f)}</text></g>)}
         {serie.map((d, i) => (i % passo === 0 || i === serie.length - 1) && <text key={d.dia} x={x(i)} y={H - 6} textAnchor="middle" fontSize="10" fill="rgb(var(--ln-ink) / 0.45)">{fmtDiaMes(d.dia)}</text>)}
         <polyline points={pl('criadas')} fill="none" stroke="rgb(var(--ln-accent))" strokeWidth="2.2" strokeLinejoin="round" />
@@ -81,6 +85,7 @@ function Serie({ serie }) {
 }
 
 export default function AnalyticsView() {
+  const { t, locale } = useI18n()
   const [dias, setDias] = useState(30)
   const [d, setD] = useState(null)
   const [erro, setErro] = useState(null)
@@ -98,38 +103,38 @@ export default function AnalyticsView() {
   return (
     <div className="p-5 flex flex-col gap-4 max-w-6xl">
       <div className="flex items-center gap-1.5 flex-wrap">
-        {PERIODOS.map(([n, rot]) => <button key={n} type="button" onClick={() => setDias(n)} className={`ln-tab ${dias === n ? 'ln-tab-active' : ''}`}>{rot}</button>)}
-        <span className="text-xs text-ln-t4 ml-2">Só tarefas de topo, sem subtarefas.</span>
+        {PERIODOS.map((n) => <button key={n} type="button" onClick={() => setDias(n)} className={`ln-tab ${dias === n ? 'ln-tab-active' : ''}`}>{t('comum.dias', { count: n })}</button>)}
+        <span className="text-xs text-ln-t4 ml-2">{t('analytics.soTopo')}</span>
       </div>
-      {erro && <p className="text-[13px] text-ln-red">Não consegui carregar: {erro}</p>}
+      {erro && <p className="text-[13px] text-ln-red">{t('analytics.erroCarregar', { erro })}</p>}
       {!d && !erro && <div className="py-16 flex justify-center text-ln-t4"><Loader2 className="w-4 h-4 animate-spin" /></div>}
       {d && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            <Tile k="Abertas agora" v={d.abertas} />
-            <Tile k="Atrasadas" v={d.atrasadas} alerta={d.atrasadas > 0} sub={d.abertas ? `${Math.round((d.atrasadas / d.abertas) * 100)}% das abertas` : ''} />
-            <Tile k="Criadas" v={d.criadas} sub={`últimos ${d.dias} dias`} />
-            <Tile k="Concluídas" v={d.concluidas} sub={`últimos ${d.dias} dias`} />
-            <Tile k="Tempo até concluir" v={d.tempo_medio_dias != null ? `${String(d.tempo_medio_dias).replace('.', ',')} d` : '-'} sub="média, criação a conclusão" />
+            <Tile k={t('analytics.tiles.abertas')} v={d.abertas} />
+            <Tile k={t('analytics.tiles.atrasadas')} v={d.atrasadas} alerta={d.atrasadas > 0} sub={d.abertas ? t('analytics.tiles.pctAbertas', { pct: Math.round((d.atrasadas / d.abertas) * 100) }) : ''} />
+            <Tile k={t('analytics.tiles.criadas')} v={d.criadas} sub={t('analytics.tiles.ultimosDias', { count: d.dias })} />
+            <Tile k={t('analytics.tiles.concluidas')} v={d.concluidas} sub={t('analytics.tiles.ultimosDias', { count: d.dias })} />
+            <Tile k={t('analytics.tiles.tempo')} v={d.tempo_medio_dias != null ? t('analytics.tiles.tempoValor', { n: Number(d.tempo_medio_dias).toLocaleString(locale) }) : '-'} sub={t('analytics.tiles.tempoSub')} />
           </div>
-          <Cartao titulo="Criadas e concluídas por dia"><Serie serie={d.serie || []} /></Cartao>
+          <Cartao titulo={t('analytics.cartoes.porDia')}><Serie serie={d.serie || []} /></Cartao>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Cartao titulo="Abertas por status"><BarrasH linhas={(d.por_status || []).slice(0, 10).map((s) => ({ rotulo: rotuloStatus(s.status), valor: s.total }))} /></Cartao>
-            <Cartao titulo="Abertas por prioridade"><BarrasH linhas={(d.por_prioridade || []).map((p) => ({ rotulo: p.prioridade === 'sem' ? 'Sem prioridade' : prioDe(p.prioridade)?.label || p.prioridade, valor: p.total, cor: COR_PRIO[p.prioridade] }))} /></Cartao>
-            <Cartao titulo="Por pessoa"><BarrasDuplas linhas={(d.por_responsavel || []).map((r) => ({ rotulo: r.nome, a: r.abertas, b: r.concluidas }))} /></Cartao>
-            <Cartao titulo="Por cliente"><BarrasDuplas linhas={(d.por_cliente || []).map((r) => ({ rotulo: r.nome, a: r.abertas, b: r.concluidas }))} /></Cartao>
+            <Cartao titulo={t('analytics.cartoes.porStatus')}><BarrasH linhas={(d.por_status || []).slice(0, 10).map((s) => ({ rotulo: rotuloStatus(s.status), valor: s.total }))} /></Cartao>
+            <Cartao titulo={t('analytics.cartoes.porPrioridade')}><BarrasH linhas={(d.por_prioridade || []).map((p) => ({ rotulo: p.prioridade === 'sem' ? t('analytics.semPrioridade') : rotuloPrioridade(p.prioridade), valor: p.total, cor: COR_PRIO[p.prioridade] }))} /></Cartao>
+            <Cartao titulo={t('analytics.cartoes.porPessoa')}><BarrasDuplas linhas={(d.por_responsavel || []).map((r) => ({ rotulo: r.nome, a: r.abertas, b: r.concluidas }))} /></Cartao>
+            <Cartao titulo={t('analytics.cartoes.porCliente')}><BarrasDuplas linhas={(d.por_cliente || []).map((r) => ({ rotulo: r.nome, a: r.abertas, b: r.concluidas }))} /></Cartao>
           </div>
-          <Cartao titulo="Cycles: o que entrou e o que fechou">
-            {(d.ciclos || []).length === 0 ? <p className="text-xs text-ln-t4">Nenhum cycle criado ainda.</p> : (
+          <Cartao titulo={t('analytics.cartoes.ciclos')}>
+            {(d.ciclos || []).length === 0 ? <p className="text-xs text-ln-t4">{t('analytics.semCiclos')}</p> : (
               <div className="flex flex-col gap-2.5">
                 {d.ciclos.map((c) => {
                   const pct = c.total ? Math.round((c.concluidas / c.total) * 100) : 0
                   return (
                     <div key={c.nome + c.inicio} className="flex items-center gap-3 text-[13px]">
                       <span className="w-[130px] shrink-0 truncate text-ln-t2">{c.nome}</span>
-                      <span className="w-[96px] shrink-0 text-xs text-ln-t4 tabular">{fmtDiaMes(c.inicio)} a {fmtDiaMes(c.fim)}</span>
+                      <span className="w-[96px] shrink-0 text-xs text-ln-t4 tabular">{t('ciclos.periodo', { inicio: fmtDiaMes(c.inicio), fim: fmtDiaMes(c.fim) })}</span>
                       <div className="flex-1 h-2.5 rounded-full bg-ln-ink/[0.06] overflow-hidden"><i className="block h-full rounded-full bg-ln-accent" style={{ width: `${pct}%` }} /></div>
-                      <span className="w-[110px] text-right tabular text-ln-t3 text-xs">{c.concluidas} de {c.total} · {pct}%</span>
+                      <span className="w-[110px] text-right tabular text-ln-t3 text-xs">{t('analytics.ciclosValor', { feitas: c.concluidas, total: c.total, pct })}</span>
                     </div>
                   )
                 })}

@@ -2,7 +2,8 @@ import { downloadUrl } from '../lib/utils'
 import { useState, useEffect, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { BANCO_FUNIS as FUNILS } from '../lib/constants'
+import { BANCO_FUNIS as FUNILS, rotuloFunil } from '../lib/constants'
+import { useI18n } from '../i18n'
 import {
   Library, Plus, Image, X, Upload,
   Share2, Loader2, Check, Trash2,
@@ -10,11 +11,12 @@ import {
   Download, Maximize2, Menu, Zap,
 } from 'lucide-react'
 
-const fmtPctBR   = (n) => (n == null ? '—' : `${Number(n).toFixed(1).replace('.', ',')}%`)
-const fmtMoneyBR = (n) => (n == null ? '—' : `R$ ${Number(n).toFixed(2).replace('.', ',')}`)
-const fmtDateBR  = (d) => { if (!d) return ''; const [y, m, day] = String(d).slice(0, 10).split('-'); return `${day}/${m}/${y}` }
+const fmtPctBR   = (n, locale) => (n == null ? '—' : `${Number(n).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`)
+const fmtMoneyBR = (n, locale) => (n == null ? '—' : Number(n).toLocaleString(locale, { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+const fmtDateBR  = (d, locale) => { if (!d) return ''; const [y, m, day] = String(d).slice(0, 10).split('-'); return new Date(Number(y), Number(m) - 1, Number(day)).toLocaleDateString(locale) }
 
 function AdCard({ ad, onDelete }) {
+  const { t, locale } = useI18n()
   const [deleting, setDeleting] = useState(false)
 
   async function handleDelete() {
@@ -24,7 +26,7 @@ function AdCard({ ad, onDelete }) {
 
   function handleDownload() {
     const ext  = ad.url.split('.').pop().split('?')[0] || (ad.type === 'video' ? 'mp4' : 'jpg')
-    const name = (ad.title || `anuncio-${ad.id.slice(0, 8)}`).replace(/\s+/g, '-') + '.' + ext
+    const name = (ad.title || `${t('bancoAnuncios.nomeArquivo')}-${ad.id.slice(0, 8)}`).replace(/\s+/g, '-') + '.' + ext
     downloadUrl(ad.url, name)
   }
 
@@ -42,7 +44,7 @@ function AdCard({ ad, onDelete }) {
         ) : (
           <img
             src={ad.url}
-            alt={ad.title || 'Anúncio estático'}
+            alt={ad.title || t('bancoAnuncios.altEstatico')}
             className="w-full h-full object-cover"
           />
         )}
@@ -54,7 +56,7 @@ function AdCard({ ad, onDelete }) {
             href={ad.url}
             target="_blank"
             rel="noopener noreferrer"
-            title="Visualizar"
+            title={t('bancoAnuncios.visualizar')}
             className="p-1.5 rounded-lg bg-black/60 text-white hover:bg-rl-purple/80 transition-colors"
           >
             <Maximize2 className="w-3.5 h-3.5" />
@@ -62,7 +64,7 @@ function AdCard({ ad, onDelete }) {
           {/* Download */}
           <button
             onClick={handleDownload}
-            title="Baixar arquivo"
+            title={t('bancoAnuncios.baixarArquivo')}
             className="p-1.5 rounded-lg bg-black/60 text-white hover:bg-rl-blue/80 transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
@@ -71,7 +73,7 @@ function AdCard({ ad, onDelete }) {
           <button
             onClick={handleDelete}
             disabled={deleting}
-            title="Excluir"
+            title={t('comum.excluir')}
             className="p-1.5 rounded-lg bg-black/60 text-white hover:bg-red-500/80 transition-colors"
           >
             {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
@@ -87,10 +89,10 @@ function AdCard({ ad, onDelete }) {
               ? 'bg-rl-purple/10 text-rl-purple border-rl-purple/25'
               : 'bg-rl-blue/10 text-rl-blue border-rl-blue/25'
           }`}>
-            {ad.type === 'video' ? 'Vídeo' : 'Estático'}
+            {ad.type === 'video' ? t('bancoAnuncios.tipos.video') : t('bancoAnuncios.tipos.estatico')}
           </span>
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-rl-gold/10 text-rl-gold border border-rl-gold/25 truncate max-w-[180px]">
-            {ad.funil}
+            {rotuloFunil(ad.funil)}
           </span>
         </div>
         {ad.title && (
@@ -102,37 +104,37 @@ function AdCard({ ad, onDelete }) {
         {(ad.ctr_link != null || ad.conv_rate != null || ad.hook_rate != null) && (
           <div className="flex items-center gap-1 flex-wrap pt-0.5">
             {ad.ctr_link != null && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">CTR link <b className="text-rl-text">{fmtPctBR(ad.ctr_link)}</b></span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">{t('bancoAnuncios.metricas.ctrLink')} <b className="text-rl-text">{fmtPctBR(ad.ctr_link, locale)}</b></span>
             )}
             {ad.conv_rate != null && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">Tx. conv. <b className="text-rl-text">{fmtPctBR(ad.conv_rate)}</b></span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">{t('bancoAnuncios.metricas.taxaConv')} <b className="text-rl-text">{fmtPctBR(ad.conv_rate, locale)}</b></span>
             )}
             {ad.hook_rate != null && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">Hook <b className="text-rl-text">{fmtPctBR(ad.hook_rate)}</b></span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">{t('bancoAnuncios.metricas.hook')} <b className="text-rl-text">{fmtPctBR(ad.hook_rate, locale)}</b></span>
             )}
           </div>
         )}
         {(ad.conversions != null || ad.leads != null || ad.purchases != null || ad.cost_per_conv != null || ad.spend != null) && (
           <div className="flex items-center gap-1 flex-wrap">
             {ad.conversions != null && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-green/10 text-rl-green border border-rl-green/25">Conv. <b>{ad.conversions}</b></span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-green/10 text-rl-green border border-rl-green/25">{t('bancoAnuncios.metricas.conv')} <b>{ad.conversions}</b></span>
             )}
             {ad.cost_per_conv != null && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">Custo/conv. <b className="text-rl-text">{fmtMoneyBR(ad.cost_per_conv)}</b></span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">{t('bancoAnuncios.metricas.custoConv')} <b className="text-rl-text">{fmtMoneyBR(ad.cost_per_conv, locale)}</b></span>
             )}
             {ad.leads != null && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">Leads <b className="text-rl-text">{ad.leads}</b></span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">{t('bancoAnuncios.metricas.leads')} <b className="text-rl-text">{ad.leads}</b></span>
             )}
             {ad.purchases != null && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">Compras <b className="text-rl-text">{ad.purchases}</b></span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">{t('bancoAnuncios.metricas.compras')} <b className="text-rl-text">{ad.purchases}</b></span>
             )}
             {ad.spend != null && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">Gasto <b className="text-rl-text">{fmtMoneyBR(ad.spend)}</b></span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rl-surface text-rl-muted border border-rl-border">{t('bancoAnuncios.metricas.gasto')} <b className="text-rl-text">{fmtMoneyBR(ad.spend, locale)}</b></span>
             )}
           </div>
         )}
         {(ad.ref_from || ad.ref_to) && (
-          <p className="text-[10px] text-rl-muted">📅 {fmtDateBR(ad.ref_from)}{ad.ref_to && ad.ref_to !== ad.ref_from ? ` – ${fmtDateBR(ad.ref_to)}` : ''}</p>
+          <p className="text-[10px] text-rl-muted">📅 {fmtDateBR(ad.ref_from, locale)}{ad.ref_to && ad.ref_to !== ad.ref_from ? ` – ${fmtDateBR(ad.ref_to, locale)}` : ''}</p>
         )}
         {ad.dest_link && (
           <a href={ad.dest_link} target="_blank" rel="noopener noreferrer" title={ad.dest_link} className="text-[10px] text-rl-blue truncate hover:underline">🔗 {ad.dest_link}</a>
@@ -143,12 +145,13 @@ function AdCard({ ad, onDelete }) {
 }
 
 function UploadZone({ type, file, preview, onSelect, onClear }) {
+  const { t } = useI18n()
   const [dragging, setDragging] = useState(false)
   const fileRef = useRef()
 
   const accept   = type === 'video' ? 'video/*' : 'image/*'
   const isVideo  = type === 'video'
-  const maxLabel = isVideo ? 'MP4, MOV, WEBM — máx. 200 MB' : 'PNG, JPG, WEBP — máx. 10 MB'
+  const maxLabel = isVideo ? t('bancoAnuncios.upload.limiteVideo') : t('bancoAnuncios.upload.limiteImagem')
 
   function handleFile(f) {
     if (!f) return
@@ -176,7 +179,7 @@ function UploadZone({ type, file, preview, onSelect, onClear }) {
           {isVideo ? (
             <video src={preview} controls className="w-full max-h-56 rounded-2xl object-cover" />
           ) : (
-            <img src={preview} alt="Preview" className="w-full max-h-56 object-cover rounded-2xl" />
+            <img src={preview} alt={t('bancoAnuncios.upload.previa')} className="w-full max-h-56 object-cover rounded-2xl" />
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onClear() }}
@@ -188,14 +191,14 @@ function UploadZone({ type, file, preview, onSelect, onClear }) {
             onClick={(e) => { e.stopPropagation(); fileRef.current?.click() }}
             className="absolute bottom-2 right-2 text-[10px] px-2 py-1 rounded-lg bg-black/50 text-white hover:bg-black/70"
           >
-            Trocar arquivo
+            {t('bancoAnuncios.upload.trocar')}
           </button>
         </>
       ) : (
         <div className="flex flex-col items-center gap-2 text-rl-muted p-6">
           {isVideo ? <Play className="w-8 h-8" /> : <Upload className="w-8 h-8" />}
           <p className="text-sm font-medium text-rl-text">
-            {isVideo ? 'Arraste o vídeo ou clique para enviar' : 'Arraste a imagem ou clique para enviar'}
+            {isVideo ? t('bancoAnuncios.upload.arrasteVideo') : t('bancoAnuncios.upload.arrasteImagem')}
           </p>
           <p className="text-xs">{maxLabel}</p>
         </div>
@@ -213,6 +216,7 @@ function UploadZone({ type, file, preview, onSelect, onClear }) {
 
 export default function BancoDeAnuncios() {
   const { openSidebar } = useOutletContext()
+  const { t } = useI18n()
 
 
   // ── Form state
@@ -335,7 +339,7 @@ export default function BancoDeAnuncios() {
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
           <button
             onClick={openSidebar}
-            aria-label="Abrir menu de navegação"
+            aria-label={t('bancoAnuncios.abrirMenu')}
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
           >
             <Menu className="w-5 h-5" />
@@ -344,7 +348,7 @@ export default function BancoDeAnuncios() {
             <div className="w-6 h-6 rounded-md bg-gradient-rl flex items-center justify-center">
               <Zap className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="font-bold text-rl-text text-sm">Banco de Anúncios</span>
+            <span className="font-bold text-rl-text text-sm">{t('bancoAnuncios.titulo')}</span>
           </div>
         </div>
 
@@ -357,15 +361,15 @@ export default function BancoDeAnuncios() {
             <Library className="w-5 h-5 text-rl-cyan" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-rl-text">Banco de Anúncios</h1>
-            <p className="text-sm text-rl-muted">Arsenal de referência para criativos por funil</p>
+            <h1 className="text-xl font-bold text-rl-text">{t('bancoAnuncios.titulo')}</h1>
+            <p className="text-sm text-rl-muted">{t('bancoAnuncios.subtitulo')}</p>
           </div>
         </div>
 
         {/* ── Add Form ──────────────────────────────────────── */}
         <div className="glass-card p-5">
           <h2 className="text-sm font-bold text-rl-text mb-4 flex items-center gap-2">
-            <Plus className="w-4 h-4 text-rl-cyan" /> Adicionar anúncio
+            <Plus className="w-4 h-4 text-rl-cyan" /> {t('bancoAnuncios.adicionarAnuncio')}
           </h2>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -383,11 +387,11 @@ export default function BancoDeAnuncios() {
             <div className="space-y-3">
               {/* Type toggle */}
               <div>
-                <label className="label-field mb-2">Tipo</label>
+                <label className="label-field mb-2">{t('bancoAnuncios.form.tipo')}</label>
                 <div className="flex gap-2">
                   {[
-                    { id: 'video',    Icon: Film,  label: 'Vídeo' },
-                    { id: 'estatico', Icon: Image, label: 'Estático' },
+                    { id: 'video',    Icon: Film,  label: t('bancoAnuncios.tipos.video') },
+                    { id: 'estatico', Icon: Image, label: t('bancoAnuncios.tipos.estatico') },
                   ].map(({ id, Icon, label }) => (
                     <button
                       key={id}
@@ -407,15 +411,15 @@ export default function BancoDeAnuncios() {
 
               {/* Funil */}
               <div>
-                <label className="label-field mb-2">Funil</label>
+                <label className="label-field mb-2">{t('bancoAnuncios.form.funil')}</label>
                 <div className="relative">
                   <select
                     value={funil}
                     onChange={(e) => setFunil(e.target.value)}
                     className="input-field w-full text-sm appearance-none pr-8"
                   >
-                    <option value="">Selecione o funil...</option>
-                    {FUNILS.map((f) => <option key={f} value={f}>{f}</option>)}
+                    <option value="">{t('bancoAnuncios.form.selecioneFunil')}</option>
+                    {FUNILS.map((f) => <option key={f} value={f}>{rotuloFunil(f)}</option>)}
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rl-muted pointer-events-none" />
                 </div>
@@ -424,13 +428,13 @@ export default function BancoDeAnuncios() {
               {/* Title */}
               <div>
                 <label className="label-field mb-2">
-                  Título <span className="text-rl-muted font-normal">(opcional)</span>
+                  {t('bancoAnuncios.form.titulo')} <span className="text-rl-muted font-normal">{t('bancoAnuncios.form.opcional')}</span>
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ex: VSL produto X - Versão 3"
+                  placeholder={t('bancoAnuncios.form.tituloPlaceholder')}
                   className="input-field w-full text-sm"
                 />
               </div>
@@ -438,12 +442,12 @@ export default function BancoDeAnuncios() {
               {/* Notes */}
               <div>
                 <label className="label-field mb-2">
-                  Observações <span className="text-rl-muted font-normal">(opcional)</span>
+                  {t('bancoAnuncios.form.observacoes')} <span className="text-rl-muted font-normal">{t('bancoAnuncios.form.opcional')}</span>
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Referências, contexto, resultado..."
+                  placeholder={t('bancoAnuncios.form.observacoesPlaceholder')}
                   rows={2}
                   className="input-field w-full text-sm resize-none"
                 />
@@ -459,8 +463,8 @@ export default function BancoDeAnuncios() {
                 className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {saving
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
-                  : <><Plus className="w-4 h-4" /> Adicionar ao banco</>
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('bancoAnuncios.form.enviando')}</>
+                  : <><Plus className="w-4 h-4" /> {t('bancoAnuncios.form.adicionarAoBanco')}</>
                 }
               </button>
             </div>
@@ -472,10 +476,10 @@ export default function BancoDeAnuncios() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <h2 className="text-base font-bold text-rl-text flex items-center gap-2">
               <Filter className="w-4 h-4 text-rl-muted" />
-              Biblioteca
+              {t('bancoAnuncios.biblioteca')}
               {!loading && (
                 <span className="text-xs font-normal text-rl-muted">
-                  ({filtered.length} anúncio{filtered.length !== 1 ? 's' : ''})
+                  ({t('bancoAnuncios.contagem', { count: filtered.length })})
                 </span>
               )}
             </h2>
@@ -485,7 +489,7 @@ export default function BancoDeAnuncios() {
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-rl-cyan/10 border border-rl-cyan/30 text-rl-cyan hover:bg-rl-cyan/20 transition-all"
             >
               {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
-              {copied ? 'Link copiado!' : 'Compartilhar com cliente'}
+              {copied ? t('bancoAnuncios.linkCopiado') : t('bancoAnuncios.compartilhar')}
             </button>
           </div>
 
@@ -493,9 +497,9 @@ export default function BancoDeAnuncios() {
           <div className="flex flex-wrap gap-2 items-center">
             <div className="flex gap-1.5 p-1 bg-rl-surface rounded-xl border border-rl-border">
               {[
-                { id: 'todos',    label: 'Todos' },
-                { id: 'video',    label: 'Vídeo' },
-                { id: 'estatico', label: 'Estático' },
+                { id: 'todos',    label: t('comum.todos') },
+                { id: 'video',    label: t('bancoAnuncios.tipos.video') },
+                { id: 'estatico', label: t('bancoAnuncios.tipos.estatico') },
               ].map(({ id, label }) => (
                 <button
                   key={id}
@@ -517,8 +521,8 @@ export default function BancoDeAnuncios() {
                 onChange={(e) => setFilterFunil(e.target.value)}
                 className="input-field text-xs py-1.5 pr-7 appearance-none cursor-pointer min-w-[180px]"
               >
-                <option value="todos">Todos os funis</option>
-                {FUNILS.map((f) => <option key={f} value={f}>{f}</option>)}
+                <option value="todos">{t('bancoAnuncios.todosFunis')}</option>
+                {FUNILS.map((f) => <option key={f} value={f}>{rotuloFunil(f)}</option>)}
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-rl-muted pointer-events-none" />
             </div>
@@ -528,12 +532,12 @@ export default function BancoDeAnuncios() {
           {loading ? (
             <div className="flex items-center justify-center py-16 text-rl-muted gap-2">
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">Carregando biblioteca...</span>
+              <span className="text-sm">{t('bancoAnuncios.carregando')}</span>
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-rl-muted gap-3">
               <Library className="w-10 h-10 opacity-30" />
-              <p className="text-sm">Nenhum anúncio encontrado com esses filtros</p>
+              <p className="text-sm">{t('bancoAnuncios.vazio')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

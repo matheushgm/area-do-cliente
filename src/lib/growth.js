@@ -9,20 +9,31 @@
 // - MRR normalizado por mrrValue (programas de aceleração viram /3).
 
 import { mrrValue, entryDate } from './utils'
+import { idiomaAtual, localeAtual } from '../i18n'
 
+// Lista fixa em português, mantida para quem ainda importa. Para exibir, use
+// monthName / monthLabel, que seguem o idioma atual (Intl).
 export const MONTHS_PT = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
 
-// "Setembro 2026"
-export function monthLabel(yyyy, mm) {
-  return `${MONTHS_PT[mm]} ${yyyy}`
+const maiuscula = (s) => s.charAt(0).toUpperCase() + s.slice(1)
+
+// "Setembro" / "September" (mm = 0-11)
+export function monthName(mm) {
+  return maiuscula(new Intl.DateTimeFormat(localeAtual(), { month: 'long' }).format(new Date(2000, mm, 1)))
 }
 
-// "set/26" — para eixos de gráfico
+// "Setembro 2026" / "September 2026"
+export function monthLabel(yyyy, mm) {
+  return `${monthName(mm)} ${yyyy}`
+}
+
+// "set/26" / "Sep/26" — para eixos de gráfico
 export function monthLabelShort(yyyy, mm) {
-  return `${MONTHS_PT[mm].slice(0, 3).toLowerCase()}/${String(yyyy).slice(2)}`
+  const curto = new Intl.DateTimeFormat(localeAtual(), { month: 'short' }).format(new Date(2000, mm, 1)).replace('.', '')
+  return `${idiomaAtual() === 'pt' ? curto.toLowerCase() : maiuscula(curto)}/${String(yyyy).slice(2)}`
 }
 
 // yyyy-mm

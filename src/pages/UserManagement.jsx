@@ -3,12 +3,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
-import { SQUAD_COLORS, CLICKUP_DEPARTMENTS } from '../lib/constants'
+import { SQUAD_COLORS, CLICKUP_DEPARTMENTS, rotuloDepartamento } from '../lib/constants'
 import { initials } from '../lib/utils'
 import { listClickUpMembers } from '../lib/clickup'
 import { useToast } from '../hooks/useToast'
 import Toast from '../components/UI/Toast'
 import Modal from '../components/UI/Modal'
+import { useI18n, t as tSolto } from '../i18n'
 import {
   Users, Plus, Pencil, UserX, UserCheck,
   X, AlertTriangle, Loader2, Menu,
@@ -20,7 +21,7 @@ async function callAdminAPI(action, payload) {
   try {
     return await apiFetch('/api/admin-users', { body: { action, ...payload } })
   } catch (err) {
-    return { error: err.message || 'Erro de comunicação com o servidor.' }
+    return { error: err.message || tSolto('usuarios.erroServidor') }
   }
 }
 
@@ -30,6 +31,7 @@ function PasswordModal({ user, onSave, onClose, saving }) {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm]   = useState('')
   const [showPass, setShowPass] = useState(false)
+  const { t } = useI18n()
 
   const mismatch = confirm.length > 0 && password !== confirm
   const valid    = password.length >= 6 && password === confirm
@@ -39,64 +41,64 @@ function PasswordModal({ user, onSave, onClose, saving }) {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <KeyRound className="w-5 h-5 text-rl-purple" />
-          <h2 className="text-base font-bold text-rl-text">Redefinir senha</h2>
+          <h2 className="text-base font-bold text-rl-text">{t('usuarios.redefinirSenha')}</h2>
         </div>
-        <button onClick={onClose} aria-label="Fechar" className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+        <button onClick={onClose} aria-label={t('comum.fechar')} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
           <X className="w-4 h-4" />
         </button>
       </div>
 
       <div className="rounded-xl bg-rl-surface border border-rl-border px-4 py-3 mb-5">
-        <p className="text-[11px] text-rl-muted mb-0.5">Usuário</p>
+        <p className="text-[11px] text-rl-muted mb-0.5">{t('usuarios.senha.usuario')}</p>
         <p className="text-sm font-bold text-rl-text">{user.name}</p>
         <p className="text-xs text-rl-muted mt-0.5">{user.email}</p>
       </div>
 
       <div className="space-y-4 mb-6">
         <div>
-          <label htmlFor="pwd-new" className="block text-xs font-semibold text-rl-text mb-1.5">Nova senha</label>
+          <label htmlFor="pwd-new" className="block text-xs font-semibold text-rl-text mb-1.5">{t('usuarios.senha.nova')}</label>
           <div className="relative">
             <input
               id="pwd-new"
               type={showPass ? 'text' : 'password'}
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
+              placeholder={t('usuarios.senha.minimo')}
               className="input-field w-full pr-10"
               autoFocus
             />
-            <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-rl-muted hover:text-rl-subtle transition-colors">
+            <button type="button" onClick={() => setShowPass(v => !v)} aria-label={showPass ? t('usuarios.senha.ocultar') : t('usuarios.senha.mostrar')} className="absolute right-3 top-1/2 -translate-y-1/2 text-rl-muted hover:text-rl-subtle transition-colors">
               {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
           {password.length > 0 && password.length < 6 && (
-            <p className="text-xs text-rl-red mt-1">Mínimo 6 caracteres</p>
+            <p className="text-xs text-rl-red mt-1">{t('usuarios.senha.minimo')}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="pwd-confirm" className="block text-xs font-semibold text-rl-text mb-1.5">Confirmar senha</label>
+          <label htmlFor="pwd-confirm" className="block text-xs font-semibold text-rl-text mb-1.5">{t('usuarios.senha.confirmar')}</label>
           <input
             id="pwd-confirm"
             type={showPass ? 'text' : 'password'}
             value={confirm}
             onChange={e => setConfirm(e.target.value)}
-            placeholder="Repita a senha"
+            placeholder={t('usuarios.senha.repita')}
             className="input-field w-full"
           />
-          {mismatch && <p className="text-xs text-rl-red mt-1">As senhas não coincidem</p>}
+          {mismatch && <p className="text-xs text-rl-red mt-1">{t('usuarios.senha.naoCoincidem')}</p>}
         </div>
       </div>
 
       <div className="flex gap-3">
-        <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>Cancelar</button>
+        <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>{t('comum.cancelar')}</button>
         <button
           onClick={() => onSave(password)}
           disabled={!valid || saving}
           className="flex-1 btn-primary disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
-          Salvar senha
+          {t('usuarios.senha.salvar')}
         </button>
       </div>
     </Modal>
@@ -112,6 +114,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers
     clickup_user_id: initial?.clickup_user_id ?? initial?.clickupUserId ?? '',
   })
   const isCreate = !initial
+  const { t } = useI18n()
 
   const valid = form.name.trim() && form.email.trim() &&
     (!isCreate || form.password.length >= 6)
@@ -129,7 +132,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers
             <Users className="w-5 h-5 text-rl-purple" />
             <h2 className="text-base font-bold text-rl-text">{title}</h2>
           </div>
-          <button onClick={onClose} aria-label="Fechar formulário" className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+          <button onClick={onClose} aria-label={t('usuarios.form.fechar')} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -137,57 +140,57 @@ function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers
         {/* Fields */}
         <div className="space-y-4 mb-6">
           <div>
-            <label htmlFor="field-name" className="block text-xs font-semibold text-rl-text mb-1.5">Nome completo</label>
+            <label htmlFor="field-name" className="block text-xs font-semibold text-rl-text mb-1.5">{t('usuarios.form.nome')}</label>
             <input
               id="field-name"
               type="text"
               value={form.name}
               onChange={e => set('name', e.target.value)}
-              placeholder="Ex: João Silva"
+              placeholder={t('usuarios.form.nomePlaceholder')}
               className="input-field w-full"
               autoFocus
             />
           </div>
 
           <div>
-            <label htmlFor="field-email" className="block text-xs font-semibold text-rl-text mb-1.5">E-mail</label>
+            <label htmlFor="field-email" className="block text-xs font-semibold text-rl-text mb-1.5">{t('usuarios.form.email')}</label>
             <input
               id="field-email"
               type="email"
               value={form.email}
               onChange={e => set('email', e.target.value)}
-              placeholder="joao@revenuelab.com.br"
+              placeholder={t('usuarios.form.emailPlaceholder')}
               className="input-field w-full"
             />
           </div>
 
           {isCreate && (
             <div>
-              <label htmlFor="field-password" className="block text-xs font-semibold text-rl-text mb-1.5">Senha inicial</label>
+              <label htmlFor="field-password" className="block text-xs font-semibold text-rl-text mb-1.5">{t('usuarios.form.senhaInicial')}</label>
               <input
                 id="field-password"
                 type="password"
                 value={form.password}
                 onChange={e => set('password', e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                placeholder={t('usuarios.senha.minimo')}
                 className="input-field w-full"
               />
               {form.password && form.password.length < 6 && (
-                <p className="text-xs text-rl-red mt-1">Mínimo 6 caracteres</p>
+                <p className="text-xs text-rl-red mt-1">{t('usuarios.senha.minimo')}</p>
               )}
             </div>
           )}
 
           <div>
-            <label htmlFor="field-role" className="block text-xs font-semibold text-rl-text mb-1.5">Permissão</label>
+            <label htmlFor="field-role" className="block text-xs font-semibold text-rl-text mb-1.5">{t('usuarios.form.permissao')}</label>
             <select
               id="field-role"
               value={form.role}
               onChange={e => set('role', e.target.value)}
               className="input-field w-full"
             >
-              <option value="member">Membro</option>
-              <option value="admin">Admin</option>
+              <option value="member">{t('usuarios.papel.member')}</option>
+              <option value="admin">{t('usuarios.papel.admin')}</option>
             </select>
           </div>
 
@@ -195,7 +198,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers
           {!isCreate && (
             <div>
               <label htmlFor="field-clickup" className="block text-xs font-semibold text-rl-text mb-1.5">
-                Usuário no ClickUp
+                {t('usuarios.form.clickup')}
               </label>
               <select
                 id="field-clickup"
@@ -204,7 +207,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers
                 className="input-field w-full"
                 disabled={loadingMembers}
               >
-                <option value="">— Não vinculado —</option>
+                <option value="">{t('usuarios.form.naoVinculado')}</option>
                 {(clickupMembers || []).map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name}{m.email ? ` (${m.email})` : ''}
@@ -213,8 +216,8 @@ function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers
               </select>
               <p className="text-[10px] text-rl-muted mt-1">
                 {loadingMembers
-                  ? 'Carregando membros do ClickUp...'
-                  : 'Vincular ao ClickUp permite que tarefas criadas automaticamente recebam este usuário como responsável.'}
+                  ? t('usuarios.form.carregandoClickup')
+                  : t('usuarios.form.clickupDica')}
               </p>
             </div>
           )}
@@ -223,7 +226,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers
         {/* Actions */}
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>
-            Cancelar
+            {t('comum.cancelar')}
           </button>
           <button
             onClick={() => onSave(form)}
@@ -231,7 +234,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers
             className="flex-1 btn-primary disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {isCreate ? 'Criar usuário' : 'Salvar alterações'}
+            {isCreate ? t('usuarios.form.criar') : t('usuarios.form.salvarAlteracoes')}
           </button>
         </div>
 
@@ -241,6 +244,7 @@ function UserFormModal({ title, initial, onSave, onClose, saving, clickupMembers
 
 function ToggleConfirmModal({ user, onConfirm, onClose, saving }) {
   const isDisabling = !user.disabled
+  const { t } = useI18n()
   return (
     <Modal onClose={onClose} maxWidth="sm" className={isDisabling ? 'border-red-500/30' : 'border-rl-green/30'}>
         <div className="flex items-center gap-3 mb-5">
@@ -254,25 +258,25 @@ function ToggleConfirmModal({ user, onConfirm, onClose, saving }) {
           </div>
           <div>
             <h2 className="text-base font-bold text-rl-text">
-              {isDisabling ? 'Desativar usuário' : 'Reativar usuário'}
+              {isDisabling ? t('usuarios.desativarUsuario') : t('usuarios.reativarUsuario')}
             </h2>
             <p className="text-xs text-rl-muted mt-0.5">
               {isDisabling
-                ? 'O usuário não conseguirá mais fazer login.'
-                : 'O usuário voltará a ter acesso normalmente.'}
+                ? t('usuarios.toggle.desativarTexto')
+                : t('usuarios.toggle.reativarTexto')}
             </p>
           </div>
         </div>
 
         <div className="rounded-xl bg-rl-surface border border-rl-border px-4 py-3 mb-5">
-          <p className="text-[11px] text-rl-muted mb-0.5">Usuário</p>
+          <p className="text-[11px] text-rl-muted mb-0.5">{t('usuarios.senha.usuario')}</p>
           <p className="text-sm font-bold text-rl-text">{user.name}</p>
           <p className="text-xs text-rl-muted mt-0.5">{user.email}</p>
         </div>
 
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>
-            Cancelar
+            {t('comum.cancelar')}
           </button>
           <button
             onClick={onConfirm}
@@ -284,7 +288,7 @@ function ToggleConfirmModal({ user, onConfirm, onClose, saving }) {
             }`}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : isDisabling ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-            {isDisabling ? 'Desativar' : 'Reativar'}
+            {isDisabling ? t('usuarios.desativar') : t('usuarios.reativar')}
           </button>
         </div>
     </Modal>
@@ -293,11 +297,18 @@ function ToggleConfirmModal({ user, onConfirm, onClose, saving }) {
 
 
 const SQUAD_MEMBER_ROLES = ['Account Manager', 'Gestor de Tráfego', 'Designer']
+// Valor gravado em squads.members[].role → chave do rótulo (só a tela traduz).
+const PAPEL_EQUIPE_CHAVE = { 'Account Manager': 'accountManager', 'Gestor de Tráfego': 'gestorTrafego', 'Designer': 'designer' }
+function rotuloPapelEquipe(t, role) {
+  const k = PAPEL_EQUIPE_CHAVE[role]
+  return k ? t(`usuarios.papelEquipe.${k}`) : role
+}
 
 // ── SquadFormModal ──────────────────────────────────────────────────────────
 
 function SquadFormModal({ initial, teamMembers, perfis, onSave, onClose, saving }) {
   const isCreate = !initial
+  const { t } = useI18n()
   const [form, setForm] = useState({
     name:    initial?.name    || '',
     emoji:   initial?.emoji   || '',
@@ -306,7 +317,7 @@ function SquadFormModal({ initial, teamMembers, perfis, onSave, onClose, saving 
 
   const valid = form.name.trim().length > 0
   // membros gravados na equipe que não estão entre os ativos (desativados ou apagados)
-  const inativos = form.members.filter((m) => !teamMembers.some((t) => t.id === m.profile_id))
+  const inativos = form.members.filter((m) => !teamMembers.some((tm) => tm.id === m.profile_id))
 
   function toggleMember(profileId) {
     setForm((prev) => {
@@ -332,9 +343,9 @@ function SquadFormModal({ initial, teamMembers, perfis, onSave, onClose, saving 
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Users2 className="w-5 h-5 text-rl-cyan" />
-            <h2 className="text-base font-bold text-rl-text">{isCreate ? 'Nova Equipe' : 'Editar Equipe'}</h2>
+            <h2 className="text-base font-bold text-rl-text">{isCreate ? t('usuarios.novaEquipe') : t('usuarios.editarEquipe')}</h2>
           </div>
-          <button onClick={onClose} aria-label="Fechar" className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+          <button onClick={onClose} aria-label={t('comum.fechar')} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -342,13 +353,13 @@ function SquadFormModal({ initial, teamMembers, perfis, onSave, onClose, saving 
         <div className="space-y-4 mb-6">
           {/* Nome */}
           <div>
-            <label htmlFor="field-squad-name" className="block text-xs font-semibold text-rl-text mb-1.5">Nome da equipe</label>
+            <label htmlFor="field-squad-name" className="block text-xs font-semibold text-rl-text mb-1.5">{t('usuarios.equipe.nome')}</label>
             <input
               id="field-squad-name"
               type="text"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Ex: Caça ROI"
+              placeholder={t('usuarios.equipe.nomePlaceholder')}
               className="input-field w-full"
               autoFocus
             />
@@ -356,13 +367,13 @@ function SquadFormModal({ initial, teamMembers, perfis, onSave, onClose, saving 
 
           {/* Emoji */}
           <div>
-            <label htmlFor="field-squad-emoji" className="block text-xs font-semibold text-rl-text mb-1.5">Emoji <span className="text-rl-muted font-normal">(opcional)</span></label>
+            <label htmlFor="field-squad-emoji" className="block text-xs font-semibold text-rl-text mb-1.5">{t('usuarios.equipe.emoji')} <span className="text-rl-muted font-normal">{t('usuarios.equipe.opcional')}</span></label>
             <input
               id="field-squad-emoji"
               type="text"
               value={form.emoji}
               onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))}
-              placeholder="Ex: 🏹"
+              placeholder={t('usuarios.equipe.emojiPlaceholder')}
               className="input-field w-full"
               maxLength={4}
             />
@@ -370,52 +381,52 @@ function SquadFormModal({ initial, teamMembers, perfis, onSave, onClose, saving 
 
           {/* Membros */}
           <div>
-            <label className="block text-xs font-semibold text-rl-text mb-2">Membros</label>
+            <label className="block text-xs font-semibold text-rl-text mb-2">{t('usuarios.equipe.membros')}</label>
             <div className="space-y-2">
               {inativos.length > 0 && (
                 <p className="text-[11px] text-red-400">
-                  {inativos.length === 1 ? 'Esta pessoa não está ativa' : 'Estas pessoas não estão ativas'} e segue{inativos.length === 1 ? '' : 'm'} na equipe. Desmarque para tirar.
+                  {t('usuarios.equipe.inativosAviso', { count: inativos.length })}
                 </p>
               )}
               {inativos.map((m) => {
                 const info = rotuloInativo(perfis, m.profile_id)
                 return (
                   <div key={m.profile_id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-red-500/30 bg-red-500/5 cursor-pointer" onClick={() => toggleMember(m.profile_id)}>
-                    <input type="checkbox" checked onChange={() => toggleMember(m.profile_id)} onClick={(e) => e.stopPropagation()} className="w-4 h-4 accent-rl-purple shrink-0" aria-label={`Tirar ${info.nome} da equipe`} />
+                    <input type="checkbox" checked onChange={() => toggleMember(m.profile_id)} onClick={(e) => e.stopPropagation()} className="w-4 h-4 accent-rl-purple shrink-0" aria-label={t('usuarios.equipe.tirar', { nome: info.nome })} />
                     <div className="w-8 h-8 rounded-full bg-rl-surface border border-rl-border flex items-center justify-center text-xs font-bold text-rl-muted shrink-0">{initials(info.nome)}</div>
                     <span className="text-base text-rl-muted flex-1 min-w-0 truncate leading-none line-through">{info.nome}</span>
                     <SeloInativo motivo={info.motivo} />
-                    <span className="text-xs text-rl-muted w-48 shrink-0 truncate">{m.role}</span>
+                    <span className="text-xs text-rl-muted w-48 shrink-0 truncate">{rotuloPapelEquipe(t, m.role)}</span>
                   </div>
                 )
               })}
-              {teamMembers.map((t) => {
-                const memberEntry = form.members.find((m) => m.profile_id === t.id)
+              {teamMembers.map((tm) => {
+                const memberEntry = form.members.find((m) => m.profile_id === tm.id)
                 const checked     = !!memberEntry
                 return (
-                  <div key={t.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${checked ? 'bg-rl-surface border-rl-purple/30' : 'border-rl-border hover:border-rl-border/60'}`}
-                    onClick={() => toggleMember(t.id)}
+                  <div key={tm.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${checked ? 'bg-rl-surface border-rl-purple/30' : 'border-rl-border hover:border-rl-border/60'}`}
+                    onClick={() => toggleMember(tm.id)}
                   >
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => toggleMember(t.id)}
+                      onChange={() => toggleMember(tm.id)}
                       onClick={(e) => e.stopPropagation()}
                       className="w-4 h-4 accent-rl-purple shrink-0"
                     />
                     <div className="w-8 h-8 rounded-full bg-gradient-rl flex items-center justify-center text-xs font-bold text-white shrink-0">
-                      {t.avatar || initials(t.name)}
+                      {tm.avatar || initials(tm.name)}
                     </div>
-                    <span className="text-base text-rl-text flex-1 min-w-0 truncate leading-none">{t.name}</span>
+                    <span className="text-base text-rl-text flex-1 min-w-0 truncate leading-none">{tm.name}</span>
                     {checked && (
                       <select
                         value={memberEntry.role}
-                        onChange={(e) => { e.stopPropagation(); setMemberRole(t.id, e.target.value) }}
+                        onChange={(e) => { e.stopPropagation(); setMemberRole(tm.id, e.target.value) }}
                         onClick={(e) => e.stopPropagation()}
                         className="input-field text-xs py-1 px-2 h-auto w-48 shrink-0"
                       >
                         {SQUAD_MEMBER_ROLES.map((r) => (
-                          <option key={r} value={r}>{r}</option>
+                          <option key={r} value={r}>{rotuloPapelEquipe(t, r)}</option>
                         ))}
                       </select>
                     )}
@@ -423,21 +434,21 @@ function SquadFormModal({ initial, teamMembers, perfis, onSave, onClose, saving 
                 )
               })}
               {teamMembers.length === 0 && (
-                <p className="text-xs text-rl-muted py-2">Nenhum membro disponível.</p>
+                <p className="text-xs text-rl-muted py-2">{t('usuarios.equipe.semMembros')}</p>
               )}
             </div>
           </div>
         </div>
 
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>Cancelar</button>
+          <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>{t('comum.cancelar')}</button>
           <button
             onClick={() => onSave(form)}
             disabled={!valid || saving}
             className="flex-1 btn-primary disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {isCreate ? 'Criar equipe' : 'Salvar alterações'}
+            {isCreate ? t('usuarios.equipe.criar') : t('usuarios.form.salvarAlteracoes')}
           </button>
         </div>
     </Modal>
@@ -448,13 +459,14 @@ function SquadFormModal({ initial, teamMembers, perfis, onSave, onClose, saving 
 // `perfis` = todos os profiles (ativos e desativados), carregados pela página.
 function rotuloInativo(perfis, id) {
   const p = perfis?.get(id)
-  return p ? { nome: p.name || p.email || 'Sem nome', motivo: 'desativado' } : { nome: `Perfil removido (${String(id).slice(0, 8)})`, motivo: 'removido' }
+  return p ? { nome: p.name || p.email || tSolto('usuarios.inativo.semNome'), motivo: 'desativado' } : { nome: tSolto('usuarios.inativo.perfilRemovido', { id: String(id).slice(0, 8) }), motivo: 'removido' }
 }
 
 function SeloInativo({ motivo }) {
+  const { t } = useI18n()
   return (
     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border border-red-500/30 bg-red-500/10 text-red-400 whitespace-nowrap">
-      {motivo === 'removido' ? 'removido' : 'desativado'}
+      {motivo === 'removido' ? t('usuarios.inativo.removido') : t('usuarios.inativo.desativado')}
     </span>
   )
 }
@@ -462,6 +474,7 @@ function SeloInativo({ motivo }) {
 // ── DeleteSquadModal ────────────────────────────────────────────────────────
 
 function DeleteSquadModal({ squad, onConfirm, onClose, saving }) {
+  const { t } = useI18n()
   return (
     <Modal onClose={onClose} maxWidth="sm" className="border-red-500/30">
         <div className="flex items-center gap-3 mb-5">
@@ -469,23 +482,23 @@ function DeleteSquadModal({ squad, onConfirm, onClose, saving }) {
             <Trash2 className="w-5 h-5 text-red-400" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-rl-text">Excluir equipe</h2>
-            <p className="text-xs text-rl-muted mt-0.5">Projetos vinculados perderão o squad.</p>
+            <h2 className="text-base font-bold text-rl-text">{t('usuarios.excluirEquipe.titulo')}</h2>
+            <p className="text-xs text-rl-muted mt-0.5">{t('usuarios.excluirEquipe.texto')}</p>
           </div>
         </div>
         <div className="rounded-xl bg-rl-surface border border-rl-border px-4 py-3 mb-5">
-          <p className="text-[11px] text-rl-muted mb-0.5">Equipe</p>
+          <p className="text-[11px] text-rl-muted mb-0.5">{t('usuarios.excluirEquipe.equipe')}</p>
           <p className="text-sm font-bold text-rl-text">{squad.emoji} {squad.name}</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>Cancelar</button>
+          <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>{t('comum.cancelar')}</button>
           <button
             onClick={onConfirm}
             disabled={saving}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-40"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-            Excluir
+            {t('comum.excluir')}
           </button>
         </div>
     </Modal>
@@ -498,6 +511,7 @@ function DeleteSquadModal({ squad, onConfirm, onClose, saving }) {
 // preenchido, o sistema atribui o responsável conforme essa matriz.
 
 function SquadDepartmentsModal({ squad, teamMembers, perfis, onSave, onClose, saving }) {
+  const { t } = useI18n()
   // assignments: { [departmentName]: profile_uuid | '' }
   const [assignments, setAssignments] = useState(() => {
     const initial = squad.departmentAssignments || squad.department_assignments || {}
@@ -532,16 +546,14 @@ function SquadDepartmentsModal({ squad, teamMembers, perfis, onSave, onClose, sa
           </div>
           <div className="min-w-0">
             <h2 className="text-base font-bold text-rl-text truncate">
-              Departamentos · {squad.emoji} {squad.name}
+              {t('usuarios.departamentos.titulo', { equipe: `${squad.emoji || ''} ${squad.name}`.trim() })}
             </h2>
             <p className="text-xs text-rl-muted mt-0.5">
-              Defina o responsável padrão de cada departamento. Ao criar um cliente neste squad,
-              tarefas no ClickUp com o campo &quot;Departamento&quot; preenchido serão atribuídas
-              ao usuário escolhido aqui.
+              {t('usuarios.departamentos.texto')}
             </p>
           </div>
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all" aria-label="Fechar">
+        <button onClick={onClose} className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all" aria-label={t('comum.fechar')}>
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -556,7 +568,7 @@ function SquadDepartmentsModal({ squad, teamMembers, perfis, onSave, onClose, sa
             <div key={dep.id} className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2.5 rounded-xl border ${inativo ? 'border-red-500/30 bg-red-500/5' : 'border-rl-border bg-rl-surface/40'}`}>
               <div className="flex items-center gap-2 sm:w-44 shrink-0">
                 <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: dep.color }} />
-                <span className="text-sm font-semibold text-rl-text truncate">{dep.name}</span>
+                <span className="text-sm font-semibold text-rl-text truncate">{rotuloDepartamento(dep.name)}</span>
               </div>
               <div className="flex-1 min-w-0 flex items-center gap-2">
                 <select
@@ -564,16 +576,16 @@ function SquadDepartmentsModal({ squad, teamMembers, perfis, onSave, onClose, sa
                   onChange={(e) => set(dep.name, e.target.value)}
                   className="input-field flex-1 text-sm"
                 >
-                  <option value="">— Não atribuído —</option>
-                  {inativo && <option value={value}>{inativo.nome} ({inativo.motivo})</option>}
+                  <option value="">{t('usuarios.departamentos.naoAtribuido')}</option>
+                  {inativo && <option value={value}>{inativo.nome} ({t(`usuarios.inativo.${inativo.motivo}`)})</option>}
                   {sortedMembers.map((m) => (
                     <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
                 {inativo && <SeloInativo motivo={inativo.motivo} />}
                 {noClickup && (
-                  <span title="Esse usuário ainda não tem ClickUp ID vinculado" className="text-[10px] text-rl-gold font-semibold whitespace-nowrap">
-                    ⚠ sem ClickUp
+                  <span title={t('usuarios.departamentos.semClickupDica')} className="text-[10px] text-rl-gold font-semibold whitespace-nowrap">
+                    {t('usuarios.departamentos.semClickup')}
                   </span>
                 )}
               </div>
@@ -583,10 +595,10 @@ function SquadDepartmentsModal({ squad, teamMembers, perfis, onSave, onClose, sa
       </div>
 
       <div className="flex gap-3 mt-5">
-        <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>Cancelar</button>
+        <button onClick={onClose} className="flex-1 btn-ghost" disabled={saving}>{t('comum.cancelar')}</button>
         <button onClick={handleSave} disabled={saving} className="flex-1 btn-primary flex items-center justify-center gap-2">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-          Salvar departamentos
+          {t('usuarios.departamentos.salvar')}
         </button>
       </div>
     </Modal>
@@ -608,6 +620,7 @@ export default function UserManagement() {
   const [toggleTarget, setToggleTarget] = useState(null)
   const [saving, setSaving] = useState(false)
   const { toast, showToast } = useToast()
+  const { t } = useI18n()
 
   // Password reset state
   const [passwordTarget, setPasswordTarget] = useState(null)
@@ -653,7 +666,7 @@ export default function UserManagement() {
           setClickupMembers(res.members)
         } else {
           console.error('[ClickUp] erro ao listar membros:', res.error)
-          showToast('Não foi possível carregar membros do ClickUp', 'error')
+          showToast(tSolto('usuarios.toast.erroClickup'), 'error')
         }
         setClickupMembersLoaded(true)
       })
@@ -686,7 +699,7 @@ export default function UserManagement() {
         role: form.role,
         disabled: false,
       })
-      showToast(`Usuário ${form.name} criado com sucesso.`)
+      showToast(t('usuarios.toast.usuarioCriado', { nome: form.name }))
       setShowCreate(false)
       loadUsers()
     }
@@ -715,7 +728,7 @@ export default function UserManagement() {
         role: form.role,
         clickup_user_id: clickupId,
       }).eq('id', editTarget.id)
-      showToast('Usuário atualizado com sucesso.')
+      showToast(t('usuarios.toast.usuarioAtualizado'))
       setEditTarget(null)
       loadUsers()
     }
@@ -732,7 +745,7 @@ export default function UserManagement() {
       showToast(result.error, 'error')
     } else {
       await supabase.from('profiles').update({ disabled: !toggleTarget.disabled }).eq('id', toggleTarget.id)
-      showToast(toggleTarget.disabled ? 'Usuário reativado.' : 'Usuário desativado.', 'success', 6000)
+      showToast(toggleTarget.disabled ? t('usuarios.toast.usuarioReativado') : t('usuarios.toast.usuarioDesativado'), 'success', 6000)
       setToggleTarget(null)
       loadUsers()
     }
@@ -743,7 +756,7 @@ export default function UserManagement() {
     admin:  'text-rl-purple bg-rl-purple/10 border-rl-purple/30',
     member: 'text-rl-blue   bg-rl-blue/10   border-rl-blue/30',
   }
-  const ROLE_LABEL = { admin: 'Admin', member: 'Membro' }
+  const ROLE_LABEL = { admin: t('usuarios.papel.admin'), member: t('usuarios.papel.member') }
 
   async function handleResetPassword(password) {
     setSaving(true)
@@ -751,7 +764,7 @@ export default function UserManagement() {
     if (result.error) {
       showToast(result.error, 'error')
     } else {
-      showToast(`Senha de ${passwordTarget.name} redefinida.`)
+      showToast(t('usuarios.toast.senhaRedefinida', { nome: passwordTarget.name }))
       setPasswordTarget(null)
     }
     setSaving(false)
@@ -761,7 +774,7 @@ export default function UserManagement() {
     setSavingSquad(true)
     const result = await addSquad(form)
     if (result.error) showToast(result.error, 'error')
-    else { showToast('Equipe criada com sucesso.'); setShowCreateSquad(false) }
+    else { showToast(t('usuarios.toast.equipeCriada')); setShowCreateSquad(false) }
     setSavingSquad(false)
   }
 
@@ -769,7 +782,7 @@ export default function UserManagement() {
     setSavingSquad(true)
     const result = await updateSquad(editSquadTarget.id, form)
     if (result.error) showToast(result.error, 'error')
-    else { showToast('Equipe atualizada.'); setEditSquadTarget(null) }
+    else { showToast(t('usuarios.toast.equipeAtualizada')); setEditSquadTarget(null) }
     setSavingSquad(false)
   }
 
@@ -784,7 +797,7 @@ export default function UserManagement() {
       department_assignments: patch.department_assignments,
     })
     if (result.error) showToast(result.error, 'error')
-    else { showToast('Departamentos atualizados.'); setDepartmentSquadTarget(null) }
+    else { showToast(t('usuarios.toast.departamentosAtualizados')); setDepartmentSquadTarget(null) }
     setSavingSquad(false)
   }
 
@@ -792,7 +805,7 @@ export default function UserManagement() {
     setSavingSquad(true)
     const result = await deleteSquad(deleteSquadTarget.id)
     if (result.error) showToast(result.error, 'error')
-    else { showToast('Equipe excluída.'); setDeleteSquadTarget(null) }
+    else { showToast(t('usuarios.toast.equipeExcluida')); setDeleteSquadTarget(null) }
     setSavingSquad(false)
   }
 
@@ -807,12 +820,12 @@ export default function UserManagement() {
         <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
           <button
             onClick={openSidebar}
-            aria-label="Abrir menu de navegação"
+            aria-label={t('usuarios.abrirMenu')}
             className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-bold text-rl-text text-sm">Gestão de Usuários</span>
+          <span className="font-bold text-rl-text text-sm">{t('usuarios.topo')}</span>
         </div>
 
         <main className="flex-1 px-6 py-8 max-w-4xl w-full mx-auto space-y-6">
@@ -820,8 +833,8 @@ export default function UserManagement() {
           {/* Header */}
           <div className="flex items-center justify-between animate-slide-up">
             <div>
-              <h1 className="text-2xl font-bold text-rl-text">Configurações</h1>
-              <p className="text-rl-muted text-sm mt-1">Gerencie usuários e equipes do time.</p>
+              <h1 className="text-2xl font-bold text-rl-text">{t('usuarios.titulo')}</h1>
+              <p className="text-rl-muted text-sm mt-1">{t('usuarios.subtitulo')}</p>
             </div>
             {activeTab === 'users' ? (
               <button
@@ -829,7 +842,7 @@ export default function UserManagement() {
                 className="btn-primary flex items-center gap-2 whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
-                Novo Usuário
+                {t('usuarios.novoUsuario')}
               </button>
             ) : (
               <button
@@ -837,7 +850,7 @@ export default function UserManagement() {
                 className="btn-primary flex items-center gap-2 whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
-                Nova Equipe
+                {t('usuarios.novaEquipe')}
               </button>
             )}
           </div>
@@ -853,7 +866,7 @@ export default function UserManagement() {
               }`}
             >
               <Users className="w-4 h-4" />
-              Usuários
+              {t('usuarios.abas.usuarios')}
             </button>
             <button
               onClick={() => setActiveTab('squads')}
@@ -864,7 +877,7 @@ export default function UserManagement() {
               }`}
             >
               <Users2 className="w-4 h-4" />
-              Equipes
+              {t('usuarios.abas.equipes')}
             </button>
           </div>
 
@@ -874,7 +887,7 @@ export default function UserManagement() {
             {loading ? (
               <div className="flex items-center justify-center py-16 gap-3 text-rl-muted">
                 <Loader2 className="w-6 h-6 animate-spin text-rl-purple" />
-                <span className="text-sm">Carregando usuários...</span>
+                <span className="text-sm">{t('usuarios.carregandoUsuarios')}</span>
               </div>
             ) : error ? (
               <div className="flex flex-col items-center gap-3 px-6 py-8 text-red-400">
@@ -883,22 +896,22 @@ export default function UserManagement() {
                   <p className="text-sm">{error}</p>
                 </div>
                 <button onClick={loadUsers} className="btn-ghost text-sm text-rl-muted hover:text-rl-text">
-                  Tentar novamente
+                  {t('comum.tenteNovamente')}
                 </button>
               </div>
             ) : users.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-rl-muted">
                 <Users className="w-10 h-10 mb-3 opacity-30" />
-                <p className="text-sm">Nenhum usuário encontrado.</p>
+                <p className="text-sm">{t('usuarios.semUsuarios')}</p>
               </div>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-rl-border">
-                    <th className="text-left px-5 py-3 text-[11px] font-bold text-rl-muted uppercase tracking-wider">Usuário</th>
-                    <th className="text-left px-5 py-3 text-[11px] font-bold text-rl-muted uppercase tracking-wider hidden md:table-cell">E-mail</th>
-                    <th className="text-left px-5 py-3 text-[11px] font-bold text-rl-muted uppercase tracking-wider">Permissão</th>
-                    <th className="text-left px-5 py-3 text-[11px] font-bold text-rl-muted uppercase tracking-wider">Status</th>
+                    <th className="text-left px-5 py-3 text-[11px] font-bold text-rl-muted uppercase tracking-wider">{t('usuarios.tabela.usuario')}</th>
+                    <th className="text-left px-5 py-3 text-[11px] font-bold text-rl-muted uppercase tracking-wider hidden md:table-cell">{t('usuarios.tabela.email')}</th>
+                    <th className="text-left px-5 py-3 text-[11px] font-bold text-rl-muted uppercase tracking-wider">{t('usuarios.tabela.permissao')}</th>
+                    <th className="text-left px-5 py-3 text-[11px] font-bold text-rl-muted uppercase tracking-wider">{t('usuarios.tabela.status')}</th>
                     <th className="px-5 py-3" />
                   </tr>
                 </thead>
@@ -916,7 +929,7 @@ export default function UserManagement() {
                             <p className="text-rl-muted text-xs mt-0.5 md:hidden">{u.email}</p>
                           </div>
                           {u.id === currentUser?.id && (
-                            <span className="text-[10px] text-rl-muted border border-rl-border px-1.5 py-0.5 rounded-full">você</span>
+                            <span className="text-[10px] text-rl-muted border border-rl-border px-1.5 py-0.5 rounded-full">{t('usuarios.voce')}</span>
                           )}
                         </div>
                       </td>
@@ -936,7 +949,7 @@ export default function UserManagement() {
                             ? 'text-rl-muted bg-rl-surface border-rl-border'
                             : 'text-rl-green bg-rl-green/10 border-rl-green/30'
                         }`}>
-                          {u.disabled ? 'Desativado' : 'Ativo'}
+                          {u.disabled ? t('usuarios.status.desativado') : t('usuarios.status.ativo')}
                         </span>
                       </td>
                       {/* Ações */}
@@ -944,17 +957,17 @@ export default function UserManagement() {
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => setEditTarget(u)}
-                            aria-label="Editar usuário"
+                            aria-label={t('usuarios.editar')}
                             className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-                            title="Editar"
+                            title={t('comum.editar')}
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => setPasswordTarget(u)}
-                            aria-label="Redefinir senha"
+                            aria-label={t('usuarios.redefinirSenha')}
                             className="p-1.5 rounded-lg text-rl-muted hover:text-rl-cyan hover:bg-rl-cyan/10 transition-all"
-                            title="Redefinir senha"
+                            title={t('usuarios.redefinirSenha')}
                           >
                             <KeyRound className="w-3.5 h-3.5" />
                           </button>
@@ -966,8 +979,8 @@ export default function UserManagement() {
                                   ? 'text-rl-muted hover:text-rl-green hover:bg-rl-green/10'
                                   : 'text-rl-muted hover:text-red-400 hover:bg-red-400/10'
                               }`}
-                              aria-label={u.disabled ? 'Reativar usuário' : 'Desativar usuário'}
-                              title={u.disabled ? 'Reativar' : 'Desativar'}
+                              aria-label={u.disabled ? t('usuarios.reativarUsuario') : t('usuarios.desativarUsuario')}
+                              title={u.disabled ? t('usuarios.reativar') : t('usuarios.desativar')}
                             >
                               {u.disabled ? <UserCheck className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}
                             </button>
@@ -988,9 +1001,9 @@ export default function UserManagement() {
               {squads.length === 0 ? (
                 <div className="glass-card flex flex-col items-center justify-center py-16 text-rl-muted">
                   <Users2 className="w-10 h-10 mb-3 opacity-30" />
-                  <p className="text-sm">Nenhuma equipe cadastrada.</p>
+                  <p className="text-sm">{t('usuarios.equipe.semEquipes')}</p>
                   <button onClick={() => setShowCreateSquad(true)} className="mt-4 btn-ghost text-sm">
-                    Criar primeira equipe
+                    {t('usuarios.equipe.criarPrimeira')}
                   </button>
                 </div>
               ) : (
@@ -998,13 +1011,13 @@ export default function UserManagement() {
                   {squads.map((sq, idx) => {
                     const colors   = SQUAD_COLORS[idx % SQUAD_COLORS.length]
                     const members  = (sq.members || []).map((m) => {
-                      const profile = teamMembers.find((t) => t.id === m.profile_id)
+                      const profile = teamMembers.find((tm) => tm.id === m.profile_id)
                       if (profile) return { id: m.profile_id, name: profile.name, role: m.role, avatar: profile.avatar }
                       const info = rotuloInativo(perfis, m.profile_id)
                       return { id: m.profile_id, name: info.nome, role: m.role, inativo: info.motivo }
                     })
                     const asg = sq.department_assignments || sq.departmentAssignments || {}
-                    const depsInativos = Object.entries(asg).filter(([, id]) => id && !teamMembers.some((t) => t.id === id)).map(([d]) => d)
+                    const depsInativos = Object.entries(asg).filter(([, id]) => id && !teamMembers.some((tm) => tm.id === id)).map(([d]) => d)
                     const ativos = members.filter((m) => !m.inativo).length
                     return (
                       <div key={sq.id} className={`glass-card p-5 border ${colors.border} space-y-4`}>
@@ -1016,31 +1029,31 @@ export default function UserManagement() {
                             </div>
                             <div>
                               <p className={`font-bold text-sm ${colors.text}`}>{sq.name}</p>
-                              <p className="text-xs text-rl-muted">{ativos} membro{ativos !== 1 ? 's' : ''}{members.length > ativos ? ` · ${members.length - ativos} inativo${members.length - ativos !== 1 ? 's' : ''}` : ''}</p>
+                              <p className="text-xs text-rl-muted">{t('usuarios.equipe.contagemMembros', { count: ativos })}{members.length > ativos ? t('usuarios.equipe.contagemInativos', { count: members.length - ativos }) : ''}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={() => setDepartmentSquadTarget(sq)}
-                              aria-label="Configurar departamentos"
+                              aria-label={t('usuarios.equipe.configurarDepartamentos')}
                               className="p-1.5 rounded-lg text-rl-muted hover:text-rl-cyan hover:bg-rl-cyan/10 transition-all"
-                              title="Configurar departamentos (responsáveis no ClickUp)"
+                              title={t('usuarios.equipe.configurarDepartamentosDica')}
                             >
                               <Layers className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => setEditSquadTarget(sq)}
-                              aria-label="Editar equipe"
+                              aria-label={t('usuarios.equipe.editar')}
                               className="p-1.5 rounded-lg text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-                              title="Editar"
+                              title={t('comum.editar')}
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => setDeleteSquadTarget(sq)}
-                              aria-label="Excluir equipe"
+                              aria-label={t('usuarios.equipe.excluir')}
                               className="p-1.5 rounded-lg text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all"
-                              title="Excluir"
+                              title={t('comum.excluir')}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1057,7 +1070,7 @@ export default function UserManagement() {
                                 </div>
                                 <span className={`text-xs ${m.inativo ? 'text-rl-muted line-through' : 'text-rl-text'}`}>{m.name}</span>
                                 {m.inativo && <SeloInativo motivo={m.inativo} />}
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>{m.role}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>{rotuloPapelEquipe(t, m.role)}</span>
                               </div>
                             ))}
                           </div>
@@ -1065,7 +1078,7 @@ export default function UserManagement() {
 
                         {depsInativos.length > 0 && (
                           <button type="button" onClick={() => setDepartmentSquadTarget(sq)} className="w-full text-left text-[11px] text-red-400 px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 transition-all">
-                            Departamento{depsInativos.length > 1 ? 's' : ''} com pessoa inativa: {depsInativos.join(', ')}. Tarefas desses departamentos ficam sem responsável até trocar. Clique para ajustar.
+                            {t('usuarios.equipe.depsInativos', { count: depsInativos.length, lista: depsInativos.map((d) => rotuloDepartamento(d)).join(', ') })}
                           </button>
                         )}
                       </div>
@@ -1084,7 +1097,7 @@ export default function UserManagement() {
       {/* Modais — Usuários */}
       {showCreate && (
         <UserFormModal
-          title="Novo Usuário"
+          title={t('usuarios.novoUsuario')}
           initial={null}
           onSave={handleCreate}
           onClose={() => setShowCreate(false)}
@@ -1093,7 +1106,7 @@ export default function UserManagement() {
       )}
       {editTarget && (
         <UserFormModal
-          title="Editar Usuário"
+          title={t('usuarios.editarUsuario')}
           initial={editTarget}
           onSave={handleUpdate}
           onClose={() => setEditTarget(null)}

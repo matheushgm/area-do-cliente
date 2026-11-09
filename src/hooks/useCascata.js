@@ -5,6 +5,7 @@
 import { useCallback } from 'react'
 import { CalendarClock } from 'lucide-react'
 import { planejarCascata, mexeEmData, fmtDia, rotuloDelta } from '../lib/cascata'
+import { t } from '../i18n'
 
 const COLS = 'id,parent_id,titulo,status_tipo,arquivada,data_inicio,data_vencimento,inicio_com_hora,vencimento_com_hora'
 const CAMPOS = COLS.split(',')
@@ -88,24 +89,24 @@ export function useCascata({ carregarGrafo, gravar, confirmar, avisar }) {
       return gravar(id, patch)
     }
     let plano = planejarCascata({ ...grafo, id, patch })
-    const nome = (tid) => grafo.itens.get(tid)?.titulo || 'Sem título'
+    const nome = (tid) => grafo.itens.get(tid)?.titulo || t('tarefaPainel.semTitulo')
     const andam = plano.outras.filter((o) => o.motivo !== 'pai')
     if (andam.length) {
       // a entrega = o pai mais alto que muda
       const pai = plano.outras.filter((o) => o.motivo === 'pai').at(-1)
       const nDep = andam.filter((o) => o.motivo === 'dependente').length
       const nSub = andam.length - nDep
-      const quem = [nDep && plural(nDep, 'tarefa seguinte', 'tarefas seguintes'), nSub && plural(nSub, 'subtarefa aberta', 'subtarefas abertas')].filter(Boolean).join(' e ')
+      const quem = [nDep && t('cascata.tarefasSeguintes', { count: nDep }), nSub && t('cascata.subtarefasAbertas', { count: nSub })].filter(Boolean).join(t('cascata.e'))
       const resp = await confirmar({
         icone: CalendarClock,
-        titulo: `${plano.delta > 0 ? 'Empurrar' : 'Antecipar'} ${nDep ? 'as tarefas seguintes' : 'as subtarefas'}?`,
-        texto: `“${nome(id)}” mudou ${rotuloDelta(plano.delta)}. ${quem[0].toUpperCase()}${quem.slice(1)} ${andam.length === 1 ? 'anda' : 'andam'} junto, mantendo a distância entre elas.`
-          + (pai ? ` A entrega “${nome(pai.id)}” passa de ${fmtDia(dataPrincipal({}, pai.antes))} para ${fmtDia(dataPrincipal(pai.patch, pai.antes))}.` : ''),
-        rotuloItens: 'Novas datas',
+        titulo: t(`cascata.titulo.${plano.delta > 0 ? 'empurrar' : 'antecipar'}${nDep ? 'Seguintes' : 'Subtarefas'}`),
+        texto: `${t('cascata.mudou', { nome: nome(id), delta: rotuloDelta(plano.delta) })} ${t('cascata.andamJunto', { quem: `${quem[0].toUpperCase()}${quem.slice(1)}`, count: andam.length })}`
+          + (pai ? ` ${t('cascata.entregaPassa', { nome: nome(pai.id), de: fmtDia(dataPrincipal({}, pai.antes)), para: fmtDia(dataPrincipal(pai.patch, pai.antes)) })}` : ''),
+        rotuloItens: t('cascata.novasDatas'),
         itens: linhasDoPlano(andam, nome),
         maxItens: 6,
-        acao: `Mover ${plural(andam.length, 'tarefa', 'tarefas')}`,
-        acaoSecundaria: 'Só esta tarefa',
+        acao: t('cascata.mover', { count: andam.length }),
+        acaoSecundaria: t('cascata.soEsta'),
       })
       if (!resp) return { cancelado: true }
       if (resp === 'secundaria') plano = planejarCascata({ ...grafo, id, patch, deslocar: false })
@@ -113,12 +114,12 @@ export function useCascata({ carregarGrafo, gravar, confirmar, avisar }) {
     const r = await gravar(id, plano.origem)
     if (r?.error) return r
     const { falhas, erro } = await gravarTudo(plano.outras, gravar)
-    if (falhas) { avisar?.(`${plural(falhas, 'tarefa não foi atualizada', 'tarefas não foram atualizadas')}: ${erro}`, 'error'); return {} }
+    if (falhas) { avisar?.(t('cascata.falhas', { count: falhas, erro }), 'error'); return {} }
     const movidas = plano.outras.filter((o) => o.motivo !== 'pai').length
     const pai = plano.outras.filter((o) => o.motivo === 'pai').at(-1)
-    const entrega = pai ? `entrega “${nome(pai.id)}” em ${fmtDia(dataPrincipal(pai.patch, pai.antes))}` : ''
-    if (movidas) avisar?.(`${plural(movidas, 'tarefa movida', 'tarefas movidas')} ${rotuloDelta(plano.delta)}${entrega ? ` · ${entrega}` : ''}`)
-    else if (entrega) avisar?.(`${entrega[0].toUpperCase()}${entrega.slice(1)}`)
+    const entregaVars = pai ? { nome: nome(pai.id), data: fmtDia(dataPrincipal(pai.patch, pai.antes)) } : null
+    if (movidas) avisar?.(`${t('cascata.movidas', { count: movidas })} ${rotuloDelta(plano.delta)}${entregaVars ? ` · ${t('cascata.entregaEm', entregaVars)}` : ''}`)
+    else if (entregaVars) avisar?.(t('cascata.entregaEmInicio', entregaVars))
     return {}
   }, [carregarGrafo, gravar, confirmar, avisar])
 }

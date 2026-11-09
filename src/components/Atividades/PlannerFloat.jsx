@@ -7,10 +7,12 @@ import { AlertTriangle, ArrowRight, Info, Loader2, Minus, Sparkles, Users, X } f
 import CargaDiaria from './CargaDiaria'
 import { AREA_CLS, CriadaCard, FOCO } from './NovaAtividadePanel'
 import { fmtCurta, fmtDiaCurto, fmtHora, fmtHoras, fmtLonga, fmtPct, iniciais, primeiroNome, tomOcupacao } from '../../lib/atividadesCarga'
+import { useI18n } from '../../i18n'
 
 const LARGURA = 380
 const ALTURA_MAX = 520
 
+// `texto` fica em português; a tela usa atividadesPlanejador.status.<chave>
 export const STATUS = {
   ocioso:     { dot: 'bg-ln-t4',     texto: 'ocioso' },
   calculando: { dot: 'bg-ln-yellow', texto: 'lendo agenda…' },
@@ -26,10 +28,6 @@ export function statusDo(pl) {
   if (pl.erroCalculo) return 'erro'
   if (pl.resultado) return 'calculado'
   return 'ocioso'
-}
-
-function plural(n, um, varios) {
-  return `${n} ${n === 1 ? um : varios}`
 }
 
 function Avatar({ nome, avatar, foto = null, tamanho = 16 }) {
@@ -58,64 +56,65 @@ function MiniKpi({ label, valor, sub, tom = 'text-ln-t1', title }) {
 
 /** Card com a data sugerida, os KPIs da agenda, o gráfico e a data que vai pro ClickUp. */
 export function ResultadoCard({ pl, hoje }) {
+  const { t } = useI18n()
   const inputId = useId()
   const r = pl?.resultado
   if (!r) return null
   const s = r.sugestao || null
-  const t = r.totais || {}
+  const tot = r.totais || {}
   const resumo = r.resumo || []
-  const nome = primeiroNome(pl.responsavel?.nome) || 'a pessoa'
+  const nome = primeiroNome(pl.responsavel?.nome) || t('atividadesPlanejador.aPessoa')
   const horizonte = pl.config?.horizonte_dias_uteis ?? 60
   const hojeRef = hoje || r.hoje || null
   const cabe = !!(s?.cabe && s?.entrega)
-  const ocup = Number(t.ocupacaoProximosDias) || 0
+  const ocup = Number(tot.ocupacaoProximosDias) || 0
   const tom = tomOcupacao(ocup)
-  const atrasadas = Number(t.atrasadas) || 0
-  const zumbis = Number(t.zumbis) || 0
-  const semData = Number(t.semData) || 0
+  const atrasadas = Number(tot.atrasadas) || 0
+  const zumbis = Number(tot.zumbis) || 0
+  const semData = Number(tot.semData) || 0
   const diasAloc = s?.alocacao?.length || 0
   const diferente = !!(pl.sugerida && pl.dataEscolhida && pl.dataEscolhida !== pl.sugerida)
 
   return (
     <div className="ln-card p-3">
-      <p className="text-[11px] text-ln-t4">Entrega possível sem sobrecarregar {nome}</p>
+      <p className="text-[11px] text-ln-t4">{t('atividadesPlanejador.resultado.entregaPossivel', { nome })}</p>
       {cabe ? (
         <>
           <p className="text-base font-semibold text-ln-t1 mt-0.5 capitalize tabular">{fmtLonga(s.entrega)}</p>
           <p className="text-xs text-ln-t3 mt-0.5 tabular">
-            Começa {s.inicio && s.inicio !== hojeRef ? fmtCurta(s.inicio) : 'hoje'}
-            {' · '}{plural(Number(s.diasUteisAteEntrega) || diasAloc, 'dia útil', 'dias úteis')}
-            {' · '}{fmtHoras(pl.horasNum)} em {plural(diasAloc, 'dia', 'dias')}
+            {t('atividadesPlanejador.resultado.comeca', { quando: s.inicio && s.inicio !== hojeRef ? fmtCurta(s.inicio) : t('atividades.calor.hojeMinusc') })}
+            {' · '}{t('atividades.diasUteis', { count: Number(s.diasUteisAteEntrega) || diasAloc })}
+            {' · '}{t('atividadesPlanejador.resultado.horasEmDias', { horas: fmtHoras(pl.horasNum), dias: t('comum.dias', { count: diasAloc }) })}
           </p>
         </>
       ) : (
         <>
-          <p className="text-base font-semibold text-ln-red mt-0.5">Não cabe nos próximos {horizonte} dias úteis</p>
-          <p className="text-xs text-ln-t3 mt-0.5">A agenda de {nome} está tomada. Compare com o time ou redistribua tarefas.</p>
+          <p className="text-base font-semibold text-ln-red mt-0.5">{t('atividadesPlanejador.resultado.naoCabe', { dias: horizonte })}</p>
+          <p className="text-xs text-ln-t3 mt-0.5">{t('atividadesPlanejador.resultado.agendaTomada', { nome })}</p>
         </>
       )}
 
       <div className="grid grid-cols-3 gap-2 mt-3">
         <MiniKpi
-          label="Ocupação 10d"
+          label={t('atividades.colunas.ocupacao10d')}
           valor={fmtPct(ocup)}
           tom={tom.text}
-          sub={`${fmtHoras(t.horasProximosDias)} de ${fmtHoras(t.capacidadeProximosDias)}`}
-          title="Horas já na agenda nos próximos 10 dias úteis, sobre a capacidade"
+          sub={t('atividades.hDeH', { a: fmtHoras(tot.horasProximosDias), b: fmtHoras(tot.capacidadeProximosDias) })}
+          title={t('atividadesPlanejador.resultado.ocupacaoTitle')}
         />
         <MiniKpi
-          label="Atrasadas contadas"
-          valor={`${atrasadas} · ${fmtHoras(t.horasAtrasadas)}`}
+          label={t('atividades.kpi.atrasadasContadas')}
+          valor={`${atrasadas} · ${fmtHoras(tot.horasAtrasadas)}`}
           tom={atrasadas > 0 ? 'text-ln-yellow' : 'text-ln-t1'}
-          sub="caem em hoje"
-          title="Tarefas vencidas que ainda entram no cálculo (caem em hoje)"
+          sub={t('atividadesPlanejador.resultado.caemEmHoje')}
+          title={t('atividadesPlanejador.resultado.atrasadasTitle')}
         />
         <MiniKpi
-          label="Fora do cálculo"
+          label={t('atividades.foraDoCalculo')}
           valor={zumbis + semData}
           tom={zumbis > 0 ? 'text-ln-orange' : 'text-ln-t1'}
-          sub={`${zumbis} zumbis · ${semData} sem data`}
-          title="Atrasadas há tempo demais e tarefas sem data: aparecem, mas não ocupam a agenda"
+          sub={t('atividadesPlanejador.resultado.foraSub', { zumbis, semData })}
+          title={t('atividadesPlanejador.resultado.foraTitle')}
         />
       </div>
 
@@ -135,7 +134,7 @@ export function ResultadoCard({ pl, hoje }) {
       )}
 
       <div className="mt-3 flex items-center gap-2 flex-wrap">
-        <label htmlFor={inputId} className="text-xs text-ln-t3 shrink-0">Data que vai pro ClickUp</label>
+        <label htmlFor={inputId} className="text-xs text-ln-t3 shrink-0">{t('atividadesPlanejador.resultado.dataClickup')}</label>
         <div className="w-36">
           <input
             id={inputId}
@@ -151,9 +150,9 @@ export function ResultadoCard({ pl, hoje }) {
             type="button"
             onClick={() => pl.setDataEscolhida?.(pl.sugerida)}
             className={`ln-pill tabular ${FOCO}`}
-            title={`Voltar para ${fmtLonga(pl.sugerida)}`}
+            title={t('atividadesPlanejador.resultado.voltarPara', { data: fmtLonga(pl.sugerida) })}
           >
-            Voltar para a sugerida ({fmtCurta(pl.sugerida)})
+            {t('atividadesPlanejador.resultado.voltarSugerida', { data: fmtCurta(pl.sugerida) })}
           </button>
         )}
       </div>
@@ -163,16 +162,17 @@ export function ResultadoCard({ pl, hoje }) {
 
 /** Aviso quando a data escolhida é antes da sugerida. */
 export function BlocoDataForcada({ pl }) {
+  const { t } = useI18n()
   if (!pl?.forcandoData) return null
   const f = pl.forcada
-  const nome = primeiroNome(pl.responsavel?.nome) || 'a pessoa'
+  const nome = primeiroNome(pl.responsavel?.nome) || t('atividadesPlanejador.aPessoa')
   const cap = pl.resultado?.capacidadeDia
   const data = fmtCurta(pl.dataEscolhida)
 
   if (!f) {
     return (
       <div className="rounded-lg ring-1 ring-ln-ink/5 bg-ln-ink/[0.02] p-2.5 text-xs text-ln-t3 flex items-center gap-2" aria-live="polite">
-        <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> Avaliando a data…
+        <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> {t('atividadesPlanejador.forcada.avaliando')}
       </div>
     )
   }
@@ -180,23 +180,23 @@ export function BlocoDataForcada({ pl }) {
     return (
       <div className="rounded-lg ring-1 ring-ln-yellow/30 bg-ln-yellow/5 p-2.5 text-xs text-ln-yellow flex items-start gap-2">
         <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-        <span>Cabe até {data} sem estourar, mas usando toda a folga desses dias. Qualquer imprevisto atrasa.</span>
+        <span>{t('atividadesPlanejador.forcada.cabe', { data })}</span>
       </div>
     )
   }
-  const detalheDia = f.cargaNoDia != null && cap ? `: o dia fica com ${fmtHoras(f.cargaNoDia)} para ${fmtHoras(cap)}` : ''
+  const detalheDia = f.cargaNoDia != null && cap ? t('atividadesPlanejador.forcada.detalheDia', { carga: fmtHoras(f.cargaNoDia), cap: fmtHoras(cap) }) : ''
   return (
     <div className="rounded-lg ring-1 ring-ln-red/30 bg-ln-red/5 p-2.5 space-y-2">
       <p className="text-xs text-ln-red flex items-start gap-2">
         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-        <span>Entregar em {data} estoura {fmtHoras(f.horasExcedentes)} da capacidade de {nome}{detalheDia}. Ou alguém faz hora extra, ou outra tarefa atrasa.</span>
+        <span>{t('atividadesPlanejador.forcada.estoura', { data, horas: fmtHoras(f.horasExcedentes), nome, detalhe: detalheDia })}</span>
       </p>
       <textarea
         rows={2}
         value={pl.justificativa || ''}
         onChange={(e) => pl.setJustificativa?.(e.target.value)}
-        placeholder="Justifique a data forçada (obrigatório)"
-        aria-label="Justificativa da data forçada"
+        placeholder={t('atividadesPlanejador.forcada.justifique')}
+        aria-label={t('atividadesPlanejador.forcada.justificativa')}
         className={AREA_CLS}
       />
     </div>
@@ -205,6 +205,7 @@ export function BlocoDataForcada({ pl }) {
 
 /** Botão "Comparar com o time" e a lista de quem entrega antes. */
 export function Comparacao({ pl }) {
+  const { t } = useI18n()
   const c = pl?.comparacao || null
   const rows = c?.rows || []
   const erros = c?.erros || []
@@ -215,20 +216,20 @@ export function Comparacao({ pl }) {
         type="button"
         onClick={() => pl?.comparar?.()}
         disabled={!!pl?.comparando}
-        title="Compara a mesma tarefa na agenda de todo o time"
+        title={t('atividadesPlanejador.comparar.title')}
         className={`ln-pill disabled:opacity-50 disabled:cursor-not-allowed ${FOCO}`}
       >
         {pl?.comparando
-          ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Lendo o time…</>
-          : <><Users className="w-3.5 h-3.5" /> Comparar com o time</>}
+          ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('atividadesPlanejador.comparar.lendo')}</>
+          : <><Users className="w-3.5 h-3.5" /> {t('atividadesPlanejador.comparar.botao')}</>}
       </button>
 
       {c && (
         <div className="mt-2 divide-y divide-ln-ink/5">
-          {rows.length === 0 && <p className="text-xs text-ln-t4 py-2">Ninguém do time pôde ser lido.</p>}
+          {rows.length === 0 && <p className="text-xs text-ln-t4 py-2">{t('atividadesPlanejador.comparar.ninguem')}</p>}
           {rows.map((row) => {
             const s = row.resultado?.sugestao || null
-            const t = row.resultado?.totais || {}
+            const tot = row.resultado?.totais || {}
             const atual = !!atualId && row.pessoa?.id === atualId
             return (
               <div key={row.pessoa?.id || row.pessoa?.clickupId} className="flex items-center gap-2 py-1.5">
@@ -236,23 +237,23 @@ export function Comparacao({ pl }) {
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] leading-4 text-ln-t2 truncate">
                     {row.pessoa?.nome}
-                    {atual && <span className="ml-1.5 text-[10px] font-semibold text-ln-accent">atual</span>}
+                    {atual && <span className="ml-1.5 text-[10px] font-semibold text-ln-accent">{t('atividadesPlanejador.comparar.atual')}</span>}
                   </p>
                   <p className="text-[11px] leading-4 text-ln-t3 tabular">
-                    {fmtPct(t.ocupacaoProximosDias)} ocupado · {Number(t.consideradas) || 0} na fila
+                    {t('atividadesPlanejador.comparar.ocupadoFila', { pct: fmtPct(tot.ocupacaoProximosDias), n: Number(tot.consideradas) || 0 })}
                   </p>
                 </div>
                 <p className={`text-xs font-semibold tabular shrink-0 ${s?.entrega ? 'text-ln-t1' : 'text-ln-red'}`}>
-                  {s?.entrega ? fmtDiaCurto(s.entrega) : 'não cabe'}
+                  {s?.entrega ? fmtDiaCurto(s.entrega) : t('atividadesPlanejador.comparar.naoCabe')}
                 </p>
                 {!atual && s?.entrega && (
                   <button
                     type="button"
                     onClick={() => pl.escolherAlternativa?.(row)}
-                    title={`Usar ${primeiroNome(row.pessoa?.nome)} como responsável`}
+                    title={t('atividadesPlanejador.comparar.usarTitle', { nome: primeiroNome(row.pessoa?.nome) })}
                     className={`text-[11px] text-ln-accent hover:underline shrink-0 inline-flex items-center gap-0.5 rounded ${FOCO}`}
                   >
-                    usar <ArrowRight className="w-3 h-3" />
+                    {t('atividadesPlanejador.comparar.usar')} <ArrowRight className="w-3 h-3" />
                   </button>
                 )}
               </div>
@@ -260,7 +261,7 @@ export function Comparacao({ pl }) {
           })}
           {erros.length > 0 && (
             <p className="text-[11px] text-ln-t4 pt-2" title={erros.map((e) => `${e.clickupUserId}: ${e.error}`).join('; ')}>
-              {plural(erros.length, 'pessoa não pôde', 'pessoas não puderam')} ser lida(s) no ClickUp.
+              {t('atividadesPlanejador.comparar.erros', { count: erros.length })}
             </p>
           )}
         </div>
@@ -280,13 +281,14 @@ export function Comparacao({ pl }) {
  * @param {string} p.hoje            yyyy-mm-dd
  */
 export default function PlannerFloat({ pl, aberto, minimizado = false, onMinimizar, onFechar, offsetRight = 16, hoje = null }) {
+  const { t } = useI18n()
   if (!aberto || !pl) return null
 
   const status = statusDo(pl)
   const st = STATUS[status]
   // O hook ainda não guarda a hora do cálculo; quando guardar, aparece aqui
   const calculadoEm = pl.calculadoEm || pl.resultado?.calculadoEm || null
-  const textoStatus = status === 'calculado' && calculadoEm ? `calculado ${fmtHora(calculadoEm)}` : st.texto
+  const textoStatus = status === 'calculado' && calculadoEm ? t('atividadesPlanejador.status.calculadoEm', { hora: fmtHora(calculadoEm) }) : t(`atividadesPlanejador.status.${status}`)
   const right = Number(offsetRight) || 16
 
   if (minimizado) {
@@ -295,12 +297,12 @@ export default function PlannerFloat({ pl, aberto, minimizado = false, onMinimiz
         <button
           type="button"
           onClick={() => onMinimizar?.(false)}
-          aria-label="Reabrir o planejador"
-          title="Reabrir o planejador"
+          aria-label={t('atividadesPlanejador.reabrir')}
+          title={t('atividadesPlanejador.reabrir')}
           className={`ln-pill ${FOCO}`}
         >
           <span className={`w-2 h-2 rounded-full ${st.dot}`} aria-hidden="true" />
-          <span className="text-ln-t2">Planejador</span>
+          <span className="text-ln-t2">{t('atividadesPlanejador.planejador')}</span>
           <span className="text-ln-t4 tabular">· {textoStatus}</span>
         </button>
       </div>
@@ -310,27 +312,27 @@ export default function PlannerFloat({ pl, aberto, minimizado = false, onMinimiz
   const cliente = pl.cliente?.nome || ''
   const lista = (pl.listas || []).find((l) => l.id === pl.form?.listId)?.name || pl.form?.listId || ''
   const responsavel = pl.responsavel?.nome || ''
-  const titulo = String(pl.form?.titulo || '').trim() || 'Atividade sem título'
+  const titulo = String(pl.form?.titulo || '').trim() || t('atividadesPlanejador.semTitulo')
   const mostrarPedido = !!(pl.resultado || pl.calculando)
   const mostrarRodape = !!pl.resultado && !pl.criada
 
   return (
     <section
       role="dialog"
-      aria-label="Planejador ClickUp"
+      aria-label={t('atividadesPlanejador.ariaDialog')}
       className="fixed bottom-4 z-50 flex flex-col overflow-hidden rounded-xl bg-ln-card border border-ln-ink/[0.12] max-w-[calc(100vw-2rem)]"
       style={{ right, width: LARGURA, maxHeight: ALTURA_MAX, boxShadow: 'var(--ln-ring-card), var(--ln-shadow-panel)' }}
     >
       {/* Header */}
       <div className="h-11 shrink-0 flex items-center gap-2 px-3 border-b border-ln-ink/5">
         <Sparkles className="w-4 h-4 text-ln-accent shrink-0" />
-        <span className="text-[13px] font-medium text-ln-t2 shrink-0">Planejador · ClickUp</span>
+        <span className="text-[13px] font-medium text-ln-t2 shrink-0">{t('atividadesPlanejador.tituloPainel')}</span>
         <span className={`w-2 h-2 rounded-full shrink-0 ${st.dot}`} aria-hidden="true" />
         <span className="text-xs text-ln-t3 truncate flex-1 min-w-0 tabular" aria-live="polite">{textoStatus}</span>
-        <button type="button" onClick={() => onMinimizar?.(true)} aria-label="Minimizar o planejador" title="Minimizar" className={`ln-iconbtn ${FOCO}`}>
+        <button type="button" onClick={() => onMinimizar?.(true)} aria-label={t('atividadesPlanejador.minimizarAria')} title={t('atividadesPlanejador.minimizar')} className={`ln-iconbtn ${FOCO}`}>
           <Minus className="w-4 h-4" />
         </button>
-        <button type="button" onClick={onFechar} aria-label="Fechar o planejador" title="Fechar" className={`ln-iconbtn ${FOCO}`}>
+        <button type="button" onClick={onFechar} aria-label={t('atividadesPlanejador.fecharAria')} title={t('comum.fechar')} className={`ln-iconbtn ${FOCO}`}>
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -353,14 +355,14 @@ export default function PlannerFloat({ pl, aberto, minimizado = false, onMinimiz
 
             {cliente && (
               <p className="text-xs text-ln-t4 truncate" title={`${cliente} › ${lista}`}>
-                {cliente}{lista ? ` › ${lista}` : ''} adicionado ao contexto
+                {t('atividadesPlanejador.contexto', { nome: `${cliente}${lista ? ` › ${lista}` : ''}` })}
               </p>
             )}
 
             {pl.calculando ? (
               <p className="text-ln-t2 flex items-center gap-2" aria-live="polite">
                 <Loader2 className="w-4 h-4 animate-spin text-ln-accent shrink-0" />
-                Lendo as tarefas abertas de {primeiroNome(responsavel) || 'quem executa'} no ClickUp…
+                {t('atividadesPlanejador.lendoAbertas', { nome: primeiroNome(responsavel) || t('atividadesPlanejador.quemExecuta') })}
               </p>
             ) : pl.erroCalculo ? (
               <p className="text-ln-red flex items-start gap-2" role="alert">
@@ -375,7 +377,7 @@ export default function PlannerFloat({ pl, aberto, minimizado = false, onMinimiz
               </>
             ) : (
               <p className="text-xs text-ln-t4">
-                Preencha a atividade no painel e calcule a data de entrega. A leitura da agenda no ClickUp aparece aqui.
+                {t('atividadesPlanejador.instrucao')}
               </p>
             )}
           </>
@@ -386,21 +388,21 @@ export default function PlannerFloat({ pl, aberto, minimizado = false, onMinimiz
       {mostrarRodape && (
         <div className="shrink-0 border-t border-ln-ink/[0.08] px-3 py-2.5 space-y-2">
           <p className="text-xs text-ln-t3 leading-4">
-            Vai para <span className="text-ln-t2 font-medium">{lista || 'lista a definir'}</span> de{' '}
-            <span className="text-ln-t2 font-medium">{cliente || 'cliente a definir'}</span>, {responsavel || 'sem responsável'},{' '}
-            <span className="tabular">{fmtHoras(pl.horasNum)}</span>, entrega{' '}
-            <span className="text-ln-t2 font-medium tabular">{pl.dataEscolhida ? fmtLonga(pl.dataEscolhida) : 'a definir'}</span>
+            {t('atividadesPlanejador.rodape.vaiPara')} <span className="text-ln-t2 font-medium">{lista || t('atividadesPlanejador.rodape.listaDefinir')}</span> {t('atividadesPlanejador.rodape.de')}{' '}
+            <span className="text-ln-t2 font-medium">{cliente || t('atividadesPlanejador.rodape.clienteDefinir')}</span>, {responsavel || t('atividades.atividade.semResponsavelMinusc')},{' '}
+            <span className="tabular">{fmtHoras(pl.horasNum)}</span>, {t('atividadesPlanejador.rodape.entrega')}{' '}
+            <span className="text-ln-t2 font-medium tabular">{pl.dataEscolhida ? fmtLonga(pl.dataEscolhida) : t('atividadesPlanejador.rodape.aDefinir')}</span>
           </p>
           <button
             type="button"
             onClick={() => pl.aprovar?.()}
             disabled={!pl.podeCriar}
-            title={pl.podeCriar ? 'Cria a tarefa no ClickUp com essa data' : 'Preencha o que falta (e a justificativa, se a data for forçada)'}
+            title={pl.podeCriar ? t('atividadesPlanejador.rodape.criaTitle') : t('atividadesPlanejador.rodape.preenchaTitle')}
             className={`ln-primary w-full justify-center ${FOCO}`}
           >
             {pl.criando
-              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Criando…</>
-              : 'Aprovar e criar no ClickUp'}
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('atividadesPlanejador.rodape.criando')}</>
+              : t('atividadesPlanejador.rodape.aprovar')}
           </button>
         </div>
       )}

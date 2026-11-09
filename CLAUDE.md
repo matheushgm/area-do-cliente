@@ -178,7 +178,7 @@ monta o `Authorization: Bearer` das chamadas a `/api/*`.
 
 - **`projects_v2`** — projetos com schema normalizado; UUID PK gerado via `crypto.randomUUID()` no browser antes do INSERT. Contém campos da empresa, contrato, equipe e serviços. Inclui `dashboard_url` (TEXT nullable) para link do Looker Studio editável inline no `ClientProfile`.
   - RLS admins: acessam todos os projetos — lido de `auth.jwt()->'app_metadata'->>'role' = 'admin'`
-  - **Importante:** a role usa `app_metadata` (não `user_metadata`) — migration `021` corrigiu isso para impedir autopromação; `enrichUser()` no frontend também lê de `app_metadata.role`
+  - **Importante:** a role usa `app_metadata` (não `user_metadata`, que o próprio usuário escreve com `supabase.auth.updateUser`), para impedir autopromoção; `enrichUser()` no frontend também lê de `app_metadata.role`. As migrations `021`/`022` fizeram a troca só no repositório: até 09/11/2026 o banco ainda tinha 21 policies de admin lendo `user_metadata` (`projects_v2` e filhas, `produtos`, `squads`, `profiles_admin_write` e 4 do Storage). A `131` refez todas com `using` + `with check` em `app_metadata` e falha se sobrar alguma; **policy nova de admin usa `auth.jwt() -> 'app_metadata' ->> 'role'`**. Conferir: `select * from pg_policies where qual ilike '%user_metadata%' or with_check ilike '%user_metadata%'` (tem que voltar vazio).
   - RLS members — **acesso via squad** (migration `020`); role renomeada de `account` para `member` na migration `023`:
     - SELECT/UPDATE/DELETE/INSERT: via `is_squad_member(squad)` — função já existente no banco
     - INSERT também requer: `account_id = auth.uid()` (registra o autor)
@@ -190,7 +190,7 @@ monta o `Authorization: Bearer` das chamadas a `/api/*`.
     `avatar` continua sendo as iniciais. O `Avatar` do VertaTask (`pessoaDoPerfil`/`pessoaExtra` em `src/lib/tarefas.js`),
     o `ChatAvatar` e os do Atividades mostram a foto e voltam às iniciais sem ela ou se a imagem falhar;
     `responsaveis_extra[].foto` vem da tarefa na sincronização.
-  - RLS: leitura para qualquer autenticado; admins podem escrever qualquer perfil; cada usuário só escreve o próprio
+  - RLS: leitura para qualquer autenticado (`profiles_select`); admins (`app_metadata.role = 'admin'`, migration 131) escrevem qualquer perfil (`profiles_admin_write`, `profiles_admin_insert`); cada usuário só escreve o próprio (`profiles_upsert`). Testado em 09/11/2026 com membro que pôs `role: 'admin'` no `user_metadata`: edita o próprio perfil, não edita o de mais ninguém e só vê os projetos dos seus squads. ⚠️ `profiles_upsert` ainda deixa a pessoa trocar `role`/`disabled` da própria linha; hoje nenhuma policy nem a API confia em `profiles.role` para autorizar, então não confie nela
 - **`squads`** — entidades de equipe gerenciáveis; `members` é JSONB array `[{ profile_id, role }]`; `projects_v2.squad` referencia por UUID com `ON DELETE SET NULL`
   - RLS: leitura para qualquer autenticado; escrita apenas para admins
 
@@ -700,6 +700,45 @@ o toggle do app ao vivo, sem reload.
 eram usados como texto *e* como fundo de botão preenchido. No escuro isso não inverte junto —
 quem preenche virou `--fx-fill`, `--fx-fill-2` e `--fx-fill-hover`, que precisam ficar escuros
 o bastante para o texto branco por cima (hoje 5.8:1 e 13.4:1).
+
+### Idioma (i18n, 2026-11-09)
+
+Português (padrão) e inglês, por pessoa: o seletor PT | EN fica no menu do avatar da `AppSidebar` e chama
+`mudarIdioma` do `AppContext`, que aplica na hora (sem recarregar) e grava em `profiles.idioma` (migration 130,
+`pt | en | null`). No login o idioma do perfil vale sobre o do navegador; perfil sem idioma recebe o que o
+navegador tiver em `localStorage['rl_lang']`. Outra aba acompanha pelo evento `storage`. Sem biblioteca:
+`src/i18n/index.js` é um store com `useSyncExternalStore`.
+
+**Progresso:** `docs/i18n-checklist.md` (ondas, arquivo a arquivo, com as decisões em aberto: páginas públicas,
+mensagens da `/api`, texto da IA). `node scripts/i18n_inventario.mjs [pasta | --arquivo x | --md]` estima quantos
+textos em português restam por arquivo; ao traduzir um arquivo, marque no checklist no mesmo commit.
+
+- Dicionários por tela em `src/i18n/locales/pt/<namespace>.js` (fonte) e `locales/en/<namespace>.js`, carregados
+  por `import.meta.glob`; a chave começa pelo nome do arquivo (`login.entrar`). `comum.js` tem as ações repetidas.
+  Chave que falta no inglês aparece em português; que falta nos dois aparece como a própria chave e avisa no
+  console em DEV. Plural `{ one, other }` (+ `zero` opcional; o 0 nunca cai no singular).
+- Em componente: `const { t, locale } = useI18n()`; `t('login.entrar')`, `t('x', { nome })`, plural com valor
+  `{ one, other }` e `vars.count`. Fora de componente, `t` importado de `src/i18n` (não redesenha na troca).
+- Rótulo em constante de módulo guarda a **chave** e é traduzido no render (ver `NAV_SECTIONS` na `AppSidebar`).
+- Valor gravado ou comparado nunca se traduz, só o rótulo: `rotulo*` de `src/lib/constants.js` (segmento, negócio,
+  maturidade, contrato, serviço, funil, departamento) devolve o rótulo do valor em português.
+- `fmtCurrency`/`fmtNum`/`fmtDate` (`src/lib/utils.js`) formatam no locale atual (moeda sempre BRL). Ainda há
+  `'pt-BR'` cravado nas telas não migradas; ao migrar, troque pelo `locale` do hook.
+- **`/api`:** `apiFetch` e `streamClaude` mandam `X-Idioma`; nas funções, `idiomaDe(req)` / `msg(req, { pt, en })`
+  de `api/_http.js`.
+- **IA:** a resposta segue o idioma de quem gera via `instrucaoDeIdioma()` (`src/lib/claude.js`) concatenado ao
+  `system`, ligado módulo a módulo: só onde a leitura da saída não depende de rótulos em português (regex de
+  `# DOR`, `**GANCHO:**`…). Por padrão mantém os rótulos do formato como o prompt escreveu; `{ rotulos: true }`
+  traduz também os rótulos (telas que só exibem o texto). Ligado no Roteiros Express (com rótulos) e nos
+  wireframes de LP.
+- Código que vai para o viewer do Dashboard (`public/dash-teste/vendor/`) não importa `src/i18n`: lê
+  `localStorage.rl_lang` (ex.: `src/lib/playbookTextos.js`). O `site-plataforma/index.html` tem mini-i18n próprio.
+- Páginas públicas (sem login, onda 4): `?lang=` → navegador → português, com seletor na página.
+- Fora do Vite (regras copiadas para rodar no Node: `cascata.js`, `sprints.js`, `tarefas.js`…) não há
+  `import.meta.glob`: os dicionários ficam vazios e `t()` devolve a própria chave, sem quebrar o teste.
+- VertaTask: valor que vem do ClickUp nunca se traduz; a tela usa `rotuloStatus`/`rotuloPrioridade`/
+  `rotuloTipoTarefa`/`rotuloDificuldade`/`rotuloDepartamento` (`src/lib/tarefas.js`), que em pt devolvem o valor
+  como veio. O Chat não é traduzido (vai ser removido).
 
 ### Estilo
 

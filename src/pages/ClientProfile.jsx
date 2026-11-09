@@ -11,9 +11,10 @@ import ModoApresentacao from '../components/ModoApresentacao/ModoApresentacao'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { supabase, getSignedUrl, deleteFile } from '../lib/supabase'
-import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, BUSINESS_LABELS, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, MATURITY_LABELS, CONTRACT_MODEL_LABELS, CONTRACT_PAYMENT_LABELS, PLAN_TYPE_OPTIONS, BILLING_MODE_OPTIONS, PLAN_TYPE_LABELS, BILLING_MODE_LABELS } from '../lib/constants'
+import { SQUAD_COLORS, SERVICES_CONFIG, SEGMENTOS, EDIT_BUSINESS_TYPES, EDIT_MATURITY_OPTIONS, PLAN_TYPE_OPTIONS, BILLING_MODE_OPTIONS, rotuloNegocio, rotuloSegmento, rotuloMaturidade, rotuloModeloContrato, rotuloTipoPlano, rotuloCobranca, rotuloPagamento, rotuloServico, rotuloSubServico, rotuloOpcaoServico } from '../lib/constants'
 import { fmtCurrency, initials, calcLTV, activeMonths, ltvStartSource, accelerationMonths } from '../lib/utils'
 import { useToast } from '../hooks/useToast'
+import { useI18n } from '../i18n'
 import Toast from '../components/UI/Toast'
 import Modal from '../components/UI/Modal'
 import { ObservacoesEditor } from '../components/UI/ObservacoesCampo'
@@ -58,24 +59,34 @@ import { exportOnboardingPDF, exportProdutoServicoPDF } from '../utils/exportPDF
 // ─── Momento ──────────────────────────────────────────────────────────────────
 
 const MOMENTO_CONFIG = [
-  { value: 'onboarding',     label: 'Onboarding',     bg: 'bg-orange-400/10',  border: 'border-orange-400/40',  text: 'text-orange-400',  dot: 'bg-orange-400'  },
-  { value: 'aceleracao',     label: 'Aceleração',     bg: 'bg-rl-green/10',    border: 'border-rl-green/40',    text: 'text-rl-green',    dot: 'bg-rl-green'    },
-  { value: 'voo_de_cruzeiro',label: 'Voo de cruzeiro',bg: 'bg-rl-cyan/10',     border: 'border-rl-cyan/40',     text: 'text-rl-cyan',     dot: 'bg-rl-cyan'     },
-  { value: 'churn',          label: 'Churn',          bg: 'bg-red-700/10',     border: 'border-red-700/40',     text: 'text-red-600',     dot: 'bg-red-600'     },
+  { value: 'onboarding',     label: 'home.momento.onboarding',      bg: 'bg-orange-400/10',  border: 'border-orange-400/40',  text: 'text-orange-400',  dot: 'bg-orange-400'  },
+  { value: 'aceleracao',     label: 'home.momento.aceleracao',      bg: 'bg-rl-green/10',    border: 'border-rl-green/40',    text: 'text-rl-green',    dot: 'bg-rl-green'    },
+  { value: 'voo_de_cruzeiro',label: 'home.momento.voo_de_cruzeiro', bg: 'bg-rl-cyan/10',     border: 'border-rl-cyan/40',     text: 'text-rl-cyan',     dot: 'bg-rl-cyan'     },
+  { value: 'churn',          label: 'home.momento.churn',           bg: 'bg-red-700/10',     border: 'border-red-700/40',     text: 'text-red-600',     dot: 'bg-red-600'     },
 ]
 
 // ─── Risk levels ──────────────────────────────────────────────────────────────
 
 const RISK_CONFIG = [
-  { value: 'em_risco', label: 'Em Risco',  bg: 'bg-red-400/10',    border: 'border-red-400/40',    text: 'text-red-400',    dot: 'bg-red-400'    },
-  { value: 'neutro',   label: 'Neutro',    bg: 'bg-rl-gold/10',    border: 'border-rl-gold/40',    text: 'text-rl-gold',    dot: 'bg-rl-gold'    },
-  { value: 'saudavel', label: 'Saudável',  bg: 'bg-rl-green/10',   border: 'border-rl-green/40',   text: 'text-rl-green',   dot: 'bg-rl-green'   },
+  { value: 'em_risco', label: 'home.risco.em_risco', bg: 'bg-red-400/10',    border: 'border-red-400/40',    text: 'text-red-400',    dot: 'bg-red-400'    },
+  { value: 'neutro',   label: 'home.risco.neutro',   bg: 'bg-rl-gold/10',    border: 'border-rl-gold/40',    text: 'text-rl-gold',    dot: 'bg-rl-gold'    },
+  { value: 'saudavel', label: 'home.risco.saudavel', bg: 'bg-rl-green/10',   border: 'border-rl-green/40',   text: 'text-rl-green',   dot: 'bg-rl-green'   },
 ]
+
+// Papel do membro no squad (valor gravado em squads.members[].role) → chave do rótulo.
+const PAPEL_SQUAD = { 'Account Manager': 'accountManager', 'Gestor de Tráfego': 'gestorTrafego', 'Designer': 'designer' }
+
+// Serviço gravado em project.services (rótulo em pt) → rótulo no idioma atual.
+const rotuloServicoGravado = (label) => {
+  const id = SERVICES_CONFIG.find((s) => s.label === label)?.id
+  return id ? rotuloServico(id) : label
+}
 
 // ─── Onboarding Edit Form ─────────────────────────────────────────────────────
 // Pergunta curta no cartão do cliente: sem resposta mostra as opções como
 // botões; respondida mostra o valor, e um clique reabre as opções para trocar.
 function InlineChoice({ value, options, onChange }) {
+  const { t } = useI18n()
   const [editando, setEditando] = useState(false)
   const atual = options.find((o) => o.value === value)
   if (atual && !editando) {
@@ -84,7 +95,7 @@ function InlineChoice({ value, options, onChange }) {
         type="button"
         onClick={() => setEditando(true)}
         className="inline-flex items-center gap-1 text-rl-subtle hover:text-rl-text transition-colors"
-        title="Alterar"
+        title={t('cliente.alterar')}
       >
         {atual.label}
         <ChevronDown className="w-3 h-3 opacity-50" />
@@ -112,6 +123,7 @@ function InlineChoice({ value, options, onChange }) {
 }
 
 function OnboardingEditForm({ project, onSave, onCancel }) {
+  const { t } = useI18n()
   // Map stored service labels → IDs for the checkboxes
   const initialServiceIds = (project.services || [])
     .map((label) => SERVICES_CONFIG.find((s) => s.label === label)?.id)
@@ -246,7 +258,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
           : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30'
       }`}
     >
-      {val ? '✅ Sim' : '❌ Não'}
+      {val ? t('cliente.dados.sim') : t('cliente.dados.nao')}
     </button>
   )
 
@@ -255,23 +267,23 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
 
       {/* Top action bar */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-rl-muted">Edite os dados do onboarding abaixo</p>
+        <p className="text-sm text-rl-muted">{t('cliente.dados.editeAbaixo')}</p>
         <div className="flex gap-2">
-          <button onClick={onCancel} className="btn-ghost text-sm">Cancelar</button>
+          <button onClick={onCancel} className="btn-ghost text-sm">{t('comum.cancelar')}</button>
           <button onClick={handleSave} className="btn-primary flex items-center gap-2 text-sm">
             <CheckCircle2 className="w-4 h-4" />
-            Salvar Alterações
+            {t('cliente.dados.salvarAlteracoes')}
           </button>
         </div>
       </div>
 
       {/* 🏢 Empresa */}
       <div className="space-y-4">
-        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">🏢 Empresa</p>
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">{t('cliente.dados.secaoEmpresa')}</p>
 
         {/* Business type */}
         <div>
-          <label className="label-field">Tipo de Negócio</label>
+          <label className="label-field">{t('cliente.dados.tipoNegocio')}</label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {EDIT_BUSINESS_TYPES.map((bt) => (
               <button
@@ -284,7 +296,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
                 }`}
               >
                 <span className="text-xl">{bt.icon}</span>
-                <span className="text-xs font-semibold">{bt.label}</span>
+                <span className="text-xs font-semibold">{rotuloNegocio(bt.value)}</span>
               </button>
             ))}
           </div>
@@ -293,30 +305,30 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
         {/* Company fields */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="label-field">Nome da Empresa</label>
+            <label className="label-field">{t('cliente.dados.nomeEmpresa')}</label>
             <input value={form.companyName} onChange={(e) => set('companyName', e.target.value)} className="input-field" />
           </div>
           <div>
-            <label className="label-field">CNPJ</label>
+            <label className="label-field">{t('cliente.dados.cnpj')}</label>
             <input value={form.cnpj} onChange={(e) => set('cnpj', e.target.value)} placeholder="00.000.000/0000-00" className="input-field" />
           </div>
           <div>
-            <label className="label-field">Responsável</label>
+            <label className="label-field">{t('cliente.dados.responsavel')}</label>
             <input value={form.responsibleName} onChange={(e) => set('responsibleName', e.target.value)} className="input-field" />
           </div>
           <div>
-            <label className="label-field">Cargo</label>
+            <label className="label-field">{t('cliente.dados.cargo')}</label>
             <input value={form.responsibleRole} onChange={(e) => set('responsibleRole', e.target.value)} className="input-field" />
           </div>
         </div>
 
         {/* Segmento */}
         <div>
-          <label className="label-field">Segmento</label>
+          <label className="label-field">{t('cliente.dados.segmento')}</label>
           <input
             value={form.segmento}
             onChange={(e) => set('segmento', e.target.value)}
-            placeholder="Ex: Beleza e Estética..."
+            placeholder={t('cliente.dados.segmentoPh')}
             className="input-field mb-2"
           />
           <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
@@ -330,7 +342,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
                     : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30 hover:text-rl-text'
                 }`}
               >
-                {s}
+                {rotuloSegmento(s)}
               </button>
             ))}
           </div>
@@ -339,7 +351,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
 
       {/* ⚙️ Serviços */}
       <div className="space-y-3">
-        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">⚙️ Serviços Contratados</p>
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">{t('cliente.dados.secaoServicos')}</p>
         <div className="flex flex-wrap gap-2">
           {SERVICES_CONFIG.map((svc) => (
             <button
@@ -352,7 +364,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
               }`}
             >
               <span>{svc.emoji}</span>
-              {svc.label}
+              {rotuloServico(svc.id)}
             </button>
           ))}
         </div>
@@ -360,15 +372,15 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
 
       {/* 📋 Contrato */}
       <div className="space-y-4">
-        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">📋 Contrato</p>
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">{t('cliente.dados.secaoContrato')}</p>
 
         {/* Modelo */}
         <div>
-          <label className="label-field">Modelo de Contratação</label>
+          <label className="label-field">{t('cliente.dados.modeloContratacao')}</label>
           <div className="flex gap-3">
             {[
-              { value: 'aceleracao', label: '🚀 Programa de Aceleração' },
-              { value: 'assessoria', label: '📅 Assessoria Mensal' },
+              { value: 'aceleracao', label: rotuloModeloContrato('aceleracao') },
+              { value: 'assessoria', label: rotuloModeloContrato('assessoria') },
             ].map((m) => (
               <button
                 key={m.value}
@@ -388,8 +400,8 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
         {/* Programa ou plano · Pré-pago ou pós-pago */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
-            { key: 'planType',    label: 'Programa ou plano?',     options: PLAN_TYPE_OPTIONS    },
-            { key: 'billingMode', label: 'Pré-pago ou pós-pago?',  options: BILLING_MODE_OPTIONS },
+            { key: 'planType',    label: t('cliente.dados.programaOuPlano'), options: PLAN_TYPE_OPTIONS,    rotular: rotuloTipoPlano },
+            { key: 'billingMode', label: t('cliente.dados.prePosPergunta'),  options: BILLING_MODE_OPTIONS, rotular: rotuloCobranca },
           ].map((q) => (
             <div key={q.key}>
               <label className="label-field">{q.label}</label>
@@ -404,7 +416,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
                         : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30'
                     }`}
                   >
-                    {o.label}
+                    {q.rotular(o.value)}
                   </button>
                 ))}
               </div>
@@ -416,11 +428,11 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
         {form.contractModel === 'aceleracao' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="label-field">Tipo de Pagamento</label>
+              <label className="label-field">{t('cliente.dados.tipoPagamento')}</label>
               <div className="flex gap-3">
                 {[
-                  { value: 'unico',  label: 'Valor Único' },
-                  { value: 'mensal', label: 'Parcelado (Mensal)' },
+                  { value: 'unico',  label: rotuloPagamento('unico') },
+                  { value: 'mensal', label: rotuloPagamento('mensal') },
                 ].map((pt) => (
                   <button
                     key={pt.value}
@@ -437,7 +449,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
               </div>
             </div>
             <div>
-              <label className="label-field">Duração do Programa (meses)</label>
+              <label className="label-field">{t('cliente.dados.duracaoPrograma')}</label>
               <input
                 type="number" min="1" step="1"
                 value={form.contractDurationMonths}
@@ -453,7 +465,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="label-field">
-              {form.contractModel === 'aceleracao' ? 'Valor do Contrato (R$)' : 'Valor Mensal (R$)'}
+              {form.contractModel === 'aceleracao' ? t('cliente.dados.valorContratoRs') : t('cliente.dados.valorMensalRs')}
             </label>
             <input
               type="number" min="0"
@@ -464,7 +476,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
             />
           </div>
           <div>
-            <label className="label-field">Data de Assinatura</label>
+            <label className="label-field">{t('cliente.dados.dataAssinatura')}</label>
             <input
               type="date"
               value={form.contractDate}
@@ -477,7 +489,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
 
       {/* ⚔️ Concorrentes */}
       <div className="space-y-3">
-        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">⚔️ Concorrentes</p>
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">{t('cliente.dados.secaoConcorrentes')}</p>
         <div className="space-y-2">
           {form.competitors.map((c, i) => (
             <div key={i} className="flex gap-2">
@@ -486,7 +498,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
                 onChange={(e) => {
                   const n = [...form.competitors]; n[i] = e.target.value; set('competitors', n)
                 }}
-                placeholder="Nome do concorrente"
+                placeholder={t('cliente.dados.nomeConcorrente')}
                 className="input-field flex-1"
               />
               <button
@@ -501,24 +513,24 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
             onClick={() => set('competitors', [...form.competitors, ''])}
             className="flex items-center gap-2 text-sm text-rl-purple hover:text-rl-purple/80 transition-colors"
           >
-            <Plus className="w-4 h-4" /> Adicionar concorrente
+            <Plus className="w-4 h-4" /> {t('cliente.dados.adicionarConcorrente')}
           </button>
         </div>
       </div>
 
       {/* 👥 Equipe & Potencial */}
       <div className="space-y-4">
-        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">👥 Equipe & Potencial</p>
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">{t('cliente.dados.secaoEquipePotencial')}</p>
 
         {/* Time de vendas */}
         <div>
-          <label className="label-field">Time de Vendas Interno</label>
+          <label className="label-field">{t('cliente.dados.timeVendasInterno')}</label>
           <div className="flex gap-3">{yesNoBtn('hasSalesTeam', true)}{yesNoBtn('hasSalesTeam', false)}</div>
         </div>
 
         {/* Maturidade digital */}
         <div>
-          <label className="label-field">Maturidade Digital</label>
+          <label className="label-field">{t('cliente.dados.maturidadeDigital')}</label>
           <div className="flex flex-wrap gap-2">
             {EDIT_MATURITY_OPTIONS.map((m) => (
               <button
@@ -530,7 +542,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
                     : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30'
                 }`}
               >
-                {m.label}
+                {rotuloMaturidade(m.value, { curta: true })}
               </button>
             ))}
           </div>
@@ -538,26 +550,26 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
 
         {/* Potencial de upsell */}
         <div>
-          <label className="label-field">Potencial de Upsell</label>
+          <label className="label-field">{t('cliente.dados.potencialUpsell')}</label>
           <div className="flex gap-3">{yesNoBtn('upsellPotential', true)}{yesNoBtn('upsellPotential', false)}</div>
         </div>
 
         {form.upsellPotential === true && (
           <div>
-            <label className="label-field">Obs. sobre Upsell</label>
+            <label className="label-field">{t('cliente.dados.obsUpsell')}</label>
             <textarea
               value={form.upsellNotes}
               onChange={(e) => set('upsellNotes', e.target.value)}
               rows={2}
               className="input-field resize-none text-sm"
-              placeholder="Descreva o potencial de upsell..."
+              placeholder={t('cliente.dados.upsellPh')}
             />
           </div>
         )}
 
         {/* Outras pessoas */}
         <div>
-          <label className="label-field">Outras Pessoas Envolvidas</label>
+          <label className="label-field">{t('cliente.dados.outrasPessoas')}</label>
           <div className="space-y-2">
             {form.otherPeople.map((person, i) => (
               <div key={i} className="flex gap-2">
@@ -566,7 +578,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
                   onChange={(e) => {
                     const n = [...form.otherPeople]; n[i] = { ...n[i], name: e.target.value }; set('otherPeople', n)
                   }}
-                  placeholder="Nome"
+                  placeholder={t('cliente.dados.nome')}
                   className="input-field flex-1"
                 />
                 <input
@@ -574,7 +586,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
                   onChange={(e) => {
                     const n = [...form.otherPeople]; n[i] = { ...n[i], role: e.target.value }; set('otherPeople', n)
                   }}
-                  placeholder="Cargo"
+                  placeholder={t('cliente.dados.cargo')}
                   className="input-field flex-1"
                 />
                 <button
@@ -589,41 +601,41 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
               onClick={() => set('otherPeople', [...form.otherPeople, { name: '', role: '' }])}
               className="flex items-center gap-2 text-sm text-rl-purple hover:text-rl-purple/80 transition-colors"
             >
-              <Plus className="w-4 h-4" /> Adicionar pessoa
+              <Plus className="w-4 h-4" /> {t('cliente.dados.adicionarPessoa')}
             </button>
           </div>
         </div>
 
         {/* Observações */}
         <div>
-          <label className="label-field">Observações</label>
+          <label className="label-field">{t('cliente.dados.observacoes')}</label>
           <ObservacoesEditor
             value={form.observacoes}
             onChange={(e) => set('observacoes', e.target.value)}
             rows={6}
-            placeholder="Informações adicionais sobre o cliente..."
+            placeholder={t('cliente.dados.observacoesPh')}
           />
         </div>
       </div>
 
       {/* 📁 Documentos */}
       <div className="space-y-3">
-        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">📁 Documentos</p>
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider">{t('cliente.dados.secaoDocumentos')}</p>
 
         {/* Raio-X */}
         <div className="flex items-center gap-3 bg-rl-surface border border-rl-border rounded-xl px-4 py-3">
           <FileText className="w-4 h-4 text-rl-purple shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] text-rl-muted">Raio-X do Cliente</p>
+            <p className="text-[11px] text-rl-muted">{t('cliente.dados.raioXCliente')}</p>
             <p className={`text-xs truncate ${currentRaioX ? 'text-rl-text' : 'text-rl-muted italic'}`}>
-              {currentRaioX || 'Nenhum arquivo'}
+              {currentRaioX || t('cliente.dados.nenhumArquivo')}
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
             {signedUrls.raioX && !raioXRemoved && !raioXNewFile && (
               <a href={signedUrls.raioX} target="_blank" rel="noopener noreferrer"
                 className="text-[11px] font-medium text-rl-purple hover:underline">
-                Abrir
+                {t('comum.abrir')}
               </a>
             )}
             <button
@@ -631,7 +643,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
               onClick={() => raioXInputRef.current?.click()}
               className="text-[11px] font-medium text-rl-purple hover:text-rl-purple/80 transition-colors"
             >
-              {currentRaioX ? 'Alterar' : 'Anexar'}
+              {currentRaioX ? t('cliente.alterar') : t('cliente.dados.anexar')}
             </button>
             {currentRaioX && (
               <button
@@ -639,7 +651,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
                 onClick={() => { setRaioXRemoved(true); setRaioXNewFile(null) }}
                 className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
               >
-                Remover
+                {t('comum.remover')}
               </button>
             )}
           </div>
@@ -656,16 +668,16 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
         <div className="flex items-center gap-3 bg-rl-surface border border-rl-border rounded-xl px-4 py-3">
           <FileText className="w-4 h-4 text-rl-cyan shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] text-rl-muted">SLA — Passagem de Bastão</p>
+            <p className="text-[11px] text-rl-muted">{t('cliente.dados.slaPassagem')}</p>
             <p className={`text-xs truncate ${currentSla ? 'text-rl-text' : 'text-rl-muted italic'}`}>
-              {currentSla || 'Nenhum arquivo'}
+              {currentSla || t('cliente.dados.nenhumArquivo')}
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
             {signedUrls.sla && !slaRemoved && !slaNewFile && (
               <a href={signedUrls.sla} target="_blank" rel="noopener noreferrer"
                 className="text-[11px] font-medium text-rl-cyan hover:underline">
-                Abrir
+                {t('comum.abrir')}
               </a>
             )}
             <button
@@ -673,7 +685,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
               onClick={() => slaInputRef.current?.click()}
               className="text-[11px] font-medium text-rl-cyan hover:text-rl-cyan/80 transition-colors"
             >
-              {currentSla ? 'Alterar' : 'Anexar'}
+              {currentSla ? t('cliente.alterar') : t('cliente.dados.anexar')}
             </button>
             {currentSla && (
               <button
@@ -681,7 +693,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
                 onClick={() => { setSlaRemoved(true); setSlaNewFile(null) }}
                 className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
               >
-                Remover
+                {t('comum.remover')}
               </button>
             )}
           </div>
@@ -697,10 +709,10 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
 
       {/* Bottom action bar */}
       <div className="flex justify-end gap-3 pt-4 border-t border-rl-border">
-        <button onClick={onCancel} className="btn-ghost text-sm" disabled={savingFiles}>Cancelar</button>
+        <button onClick={onCancel} className="btn-ghost text-sm" disabled={savingFiles}>{t('comum.cancelar')}</button>
         <button onClick={handleSave} className="btn-primary flex items-center gap-2" disabled={savingFiles}>
           <CheckCircle2 className="w-4 h-4" />
-          {savingFiles ? 'Salvando...' : 'Salvar Alterações'}
+          {savingFiles ? t('comum.salvando') : t('cliente.dados.salvarAlteracoes')}
         </button>
       </div>
     </div>
@@ -710,6 +722,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
 // ─── Onboarding modal content ─────────────────────────────────────────────────
 function OnboardingContent({ project, onSave, showToast }) {
   const { updateProject } = useApp()
+  const { t, locale } = useI18n()
   const [isEditing, setIsEditing] = useState(false)
   const [editingServices,  setEditingServices]  = useState(false)
   const [editServicesData, setEditServicesData] = useState({})
@@ -773,37 +786,37 @@ function OnboardingContent({ project, onSave, showToast }) {
           className="btn-ghost flex items-center gap-2 text-sm"
         >
           <Pencil className="w-4 h-4" />
-          Editar Dados
+          {t('cliente.dados.editarDados')}
         </button>
         <button
           onClick={handleClientLink}
           className="btn-ghost flex items-center gap-2 text-sm"
-          title="Copiar link do cliente"
+          title={t('cliente.dados.copiarLink')}
         >
           {clientLinkCopied ? <Check className="w-4 h-4 text-green-400" /> : <Link2 className="w-4 h-4" />}
-          {clientLinkCopied ? 'Link copiado!' : 'Link do Cliente'}
+          {clientLinkCopied ? t('cliente.dados.linkCopiado') : t('cliente.dados.linkCliente')}
         </button>
         <button
           onClick={() => exportOnboardingPDF(project)}
           className="btn-secondary flex items-center gap-2 text-sm"
-          title="Exportar PDF"
+          title={t('cliente.dados.exportarPdf')}
         >
           <FileDown className="w-4 h-4" />
-          Exportar PDF
+          {t('cliente.dados.exportarPdf')}
         </button>
       </div>
 
       {/* Empresa */}
       <div>
-        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">🏢 Empresa</p>
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">{t('cliente.dados.secaoEmpresa')}</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <Field label="Tipo de Negócio"  value={BUSINESS_LABELS[project.businessType] || project.businessType} />
-          <Field label="Segmento"         value={project.segmento} />
-          <Field label="CNPJ"             value={project.cnpj} />
-          <Field label="Responsável"      value={project.responsibleName} />
-          <Field label="Cargo"            value={project.responsibleRole} />
-          <Field label="Data do Contrato" value={project.contractDate
-            ? new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')
+          <Field label={t('cliente.dados.tipoNegocio')}  value={rotuloNegocio(project.businessType)} />
+          <Field label={t('cliente.dados.segmento')}     value={rotuloSegmento(project.segmento)} />
+          <Field label={t('cliente.dados.cnpj')}         value={project.cnpj} />
+          <Field label={t('cliente.dados.responsavel')}  value={project.responsibleName} />
+          <Field label={t('cliente.dados.cargo')}        value={project.responsibleRole} />
+          <Field label={t('cliente.dados.dataContrato')} value={project.contractDate
+            ? new Date(project.contractDate + 'T00:00:00').toLocaleDateString(locale)
             : null} />
         </div>
       </div>
@@ -811,19 +824,19 @@ function OnboardingContent({ project, onSave, showToast }) {
       {/* Modelo de Contrato */}
       {(project.contractModel || project.contractValue) && (
         <div>
-          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📋 Modelo de Contrato</p>
+          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">{t('cliente.dados.secaoModeloContrato')}</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <Field label="Modelo"           value={CONTRACT_MODEL_LABELS[project.contractModel]} />
-            <Field label="Programa ou plano" value={PLAN_TYPE_LABELS[project.planType]} />
-            <Field label="Pré ou pós-pago"   value={BILLING_MODE_LABELS[project.billingMode]} />
+            <Field label={t('cliente.dados.modelo')}               value={rotuloModeloContrato(project.contractModel)} />
+            <Field label={t('cliente.dados.programaOuPlanoCampo')} value={rotuloTipoPlano(project.planType)} />
+            <Field label={t('cliente.dados.prePos')}               value={rotuloCobranca(project.billingMode)} />
             {project.contractModel === 'aceleracao' && (
               <>
-                <Field label="Tipo de Pagamento" value={CONTRACT_PAYMENT_LABELS[project.contractPaymentType]} />
-                <Field label="Duração" value={`${accelerationMonths(project)} meses`} />
+                <Field label={t('cliente.dados.tipoPagamento')} value={rotuloPagamento(project.contractPaymentType)} />
+                <Field label={t('cliente.dados.duracao')} value={t('cliente.dados.meses', { count: accelerationMonths(project) })} />
               </>
             )}
             <Field
-              label={project.contractModel === 'aceleracao' ? 'Valor do Contrato' : 'Valor Mensal'}
+              label={project.contractModel === 'aceleracao' ? t('cliente.dados.valorContrato') : t('cliente.dados.valorMensal')}
               value={project.contractValue ? fmtCurrency(project.contractValue) : null}
             />
           </div>
@@ -833,7 +846,7 @@ function OnboardingContent({ project, onSave, showToast }) {
       {/* Produto (backward compat — only show if exists) */}
       {project.productDescription && (
         <div>
-          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">🛍️ Produto / Serviço</p>
+          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">{t('cliente.dados.secaoProduto')}</p>
           <div className="rounded-xl bg-rl-surface p-4">
             <p className="text-sm text-rl-text leading-relaxed">{project.productDescription}</p>
           </div>
@@ -845,13 +858,13 @@ function OnboardingContent({ project, onSave, showToast }) {
         <div>
           {project.services?.length > 0 && (
             <>
-              <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">⚙️ Serviços Contratados</p>
+              <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">{t('cliente.dados.secaoServicos')}</p>
 
               {/* Service chips */}
               <div className="flex flex-wrap gap-2 mb-4">
                 {project.services.map((s) => (
                   <span key={s} className="px-3 py-1.5 rounded-full text-xs font-medium bg-rl-purple/10 text-rl-purple border border-rl-purple/20">
-                    {s}
+                    {rotuloServicoGravado(s)}
                   </span>
                 ))}
               </div>
@@ -861,16 +874,16 @@ function OnboardingContent({ project, onSave, showToast }) {
           {/* Deliverable cards — per service with sub-fields */}
           {(() => {
             const DELIVERABLE_META = {
-              imagemQty:    { label: 'Imagens',   icon: '📸', color: 'text-rl-gold   bg-rl-gold/10   border-rl-gold/20' },
-              videoQty:     { label: 'Vídeos',    icon: '🎬', color: 'text-rl-purple bg-rl-purple/10 border-rl-purple/20' },
-              estaticosQty: { label: 'Estáticos', icon: '🖼️', color: 'text-rl-blue  bg-rl-blue/10   border-rl-blue/20' },
-              qty:          { label: 'Páginas',   icon: '📄', color: 'text-rl-cyan  bg-rl-cyan/10   border-rl-cyan/20' },
-              nivel:        { label: 'Nível',     icon: '⭐', color: 'text-rl-gold   bg-rl-gold/10   border-rl-gold/20' },
-              carrosselQty: { label: 'Carrossel', icon: '🎠', color: 'text-rl-cyan   bg-rl-cyan/10   border-rl-cyan/20' },
-              reelsQty:     { label: 'Reels',     icon: '🎥', color: 'text-rl-purple bg-rl-purple/10 border-rl-purple/20' },
-              estaticaQty:  { label: 'Estática',  icon: '🖼️', color: 'text-rl-blue  bg-rl-blue/10   border-rl-blue/20' },
-              storiesQty:   { label: 'Stories',   icon: '📲', color: 'text-rl-gold  bg-rl-gold/10   border-rl-gold/20' },
-              storiesFreq:  { label: 'Freq. Stories', icon: '🔁', color: 'text-rl-cyan bg-rl-cyan/10 border-rl-cyan/20' },
+              imagemQty:    { icon: '📸', color: 'text-rl-gold   bg-rl-gold/10   border-rl-gold/20' },
+              videoQty:     { icon: '🎬', color: 'text-rl-purple bg-rl-purple/10 border-rl-purple/20' },
+              estaticosQty: { icon: '🖼️', color: 'text-rl-blue  bg-rl-blue/10   border-rl-blue/20' },
+              qty:          { icon: '📄', color: 'text-rl-cyan  bg-rl-cyan/10   border-rl-cyan/20' },
+              nivel:        { icon: '⭐', color: 'text-rl-gold   bg-rl-gold/10   border-rl-gold/20' },
+              carrosselQty: { icon: '🎠', color: 'text-rl-cyan   bg-rl-cyan/10   border-rl-cyan/20' },
+              reelsQty:     { icon: '🎥', color: 'text-rl-purple bg-rl-purple/10 border-rl-purple/20' },
+              estaticaQty:  { icon: '🖼️', color: 'text-rl-blue  bg-rl-blue/10   border-rl-blue/20' },
+              storiesQty:   { icon: '📲', color: 'text-rl-gold  bg-rl-gold/10   border-rl-gold/20' },
+              storiesFreq:  { icon: '🔁', color: 'text-rl-cyan bg-rl-cyan/10 border-rl-cyan/20' },
             }
 
             // Serviços contratados que têm sub-campos editáveis
@@ -901,7 +914,7 @@ function OnboardingContent({ project, onSave, showToast }) {
 
                 {/* Header com botão Editar / Salvar */}
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider">📦 Entregáveis por Serviço</p>
+                  <p className="text-[10px] font-semibold text-rl-muted uppercase tracking-wider">{t('cliente.dados.secaoEntregaveis')}</p>
                   {!editingServices ? (
                     <button
                       onClick={() => {
@@ -911,7 +924,7 @@ function OnboardingContent({ project, onSave, showToast }) {
                       className="flex items-center gap-1 text-[11px] text-rl-muted hover:text-rl-purple transition-colors"
                     >
                       <Pencil className="w-3 h-3" />
-                      Editar
+                      {t('comum.editar')}
                     </button>
                   ) : (
                     <div className="flex items-center gap-3">
@@ -919,18 +932,18 @@ function OnboardingContent({ project, onSave, showToast }) {
                         onClick={() => {
                           updateProject(project.id, { servicesData: editServicesData })
                           setEditingServices(false)
-                          showToast('Entregáveis atualizados!')
+                          showToast(t('cliente.toast.entregaveisAtualizados'))
                         }}
                         className="flex items-center gap-1 text-[11px] text-rl-green font-semibold hover:text-rl-green/80 transition-colors"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        Salvar
+                        {t('comum.salvar')}
                       </button>
                       <button
                         onClick={() => setEditingServices(false)}
                         className="text-[11px] text-rl-muted hover:text-rl-text transition-colors"
                       >
-                        Cancelar
+                        {t('comum.cancelar')}
                       </button>
                     </div>
                   )}
@@ -942,12 +955,12 @@ function OnboardingContent({ project, onSave, showToast }) {
                     {editableServices.map((svcConfig) => (
                       <div key={svcConfig.id} className="rounded-xl border border-rl-purple/20 bg-rl-purple/5 px-3 py-3">
                         <p className="text-xs font-semibold text-rl-text mb-2.5">
-                          {svcConfig.emoji} {svcConfig.label}
+                          {svcConfig.emoji} {rotuloServico(svcConfig.id)}
                         </p>
                         <div className="flex flex-wrap gap-3">
-                          {svcConfig.sub.map(({ key, label, type, options, placeholder }) => (
+                          {svcConfig.sub.map(({ key, type, options, placeholder }) => (
                             <div key={key} className="flex flex-col gap-1">
-                              <span className="text-[10px] text-rl-muted font-medium">{label}</span>
+                              <span className="text-[10px] text-rl-muted font-medium">{rotuloSubServico(key)}</span>
                               {type === 'select' ? (
                                 <select
                                   value={editServicesData[svcConfig.id]?.[key] || ''}
@@ -958,7 +971,7 @@ function OnboardingContent({ project, onSave, showToast }) {
                                   className="input-field text-sm h-8 px-2 w-28"
                                 >
                                   <option value="">—</option>
-                                  {options.map((o) => <option key={o} value={o}>{o}</option>)}
+                                  {options.map((o) => <option key={o} value={o}>{rotuloOpcaoServico(o)}</option>)}
                                 </select>
                               ) : (
                                 <input
@@ -985,7 +998,7 @@ function OnboardingContent({ project, onSave, showToast }) {
                     serviceRows.map(({ svcConfig, items }) => (
                       <div key={svcConfig.id} className="rounded-xl border border-rl-border bg-rl-surface/50 px-3 py-3">
                         <p className="text-xs font-semibold text-rl-text mb-2">
-                          {svcConfig.emoji} {svcConfig.label}
+                          {svcConfig.emoji} {rotuloServico(svcConfig.id)}
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {items.map(({ key, value }) => {
@@ -997,10 +1010,10 @@ function OnboardingContent({ project, onSave, showToast }) {
                                 <span className="text-base leading-none">{meta.icon}</span>
                                 <div className="leading-tight">
                                   {isText
-                                    ? <p className="text-xs font-bold">{value}</p>
+                                    ? <p className="text-xs font-bold">{rotuloOpcaoServico(value)}</p>
                                     : <p className="text-xl font-extrabold leading-none">{value}</p>
                                   }
-                                  <p className="text-[10px] opacity-60">{meta.label}</p>
+                                  <p className="text-[10px] opacity-60">{t(`cliente.dados.entregaveis.${key}`)}</p>
                                 </div>
                               </div>
                             )
@@ -1009,7 +1022,7 @@ function OnboardingContent({ project, onSave, showToast }) {
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-rl-muted italic">Nenhum entregável configurado. Clique em Editar para definir.</p>
+                    <p className="text-xs text-rl-muted italic">{t('cliente.dados.nenhumEntregavel')}</p>
                   )
                 )}
               </div>
@@ -1021,7 +1034,7 @@ function OnboardingContent({ project, onSave, showToast }) {
       {/* Público-alvo (backward compat) */}
       {project.targetAudience && (
         <div>
-          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">🎯 Público-Alvo</p>
+          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">{t('cliente.dados.secaoPublico')}</p>
           <div className="rounded-xl bg-rl-surface p-4">
             <p className="text-sm text-rl-text leading-relaxed">{project.targetAudience}</p>
           </div>
@@ -1030,15 +1043,15 @@ function OnboardingContent({ project, onSave, showToast }) {
 
       {/* Equipe */}
       <div>
-        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">👥 Equipe & Maturidade</p>
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">{t('cliente.dados.secaoEquipeMaturidade')}</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <Field label="Time de Vendas"      value={project.hasSalesTeam === true ? 'Sim' : project.hasSalesTeam === false ? 'Não' : null} />
-          <Field label="Maturidade Digital"  value={MATURITY_LABELS[project.digitalMaturity]} />
-          <Field label="Potencial de Upsell" value={project.upsellPotential === true ? 'Sim' : project.upsellPotential === false ? 'Não' : null} />
+          <Field label={t('cliente.dados.timeVendas')}        value={project.hasSalesTeam === true ? t('comum.sim') : project.hasSalesTeam === false ? t('comum.nao') : null} />
+          <Field label={t('cliente.dados.maturidadeDigital')} value={rotuloMaturidade(project.digitalMaturity)} />
+          <Field label={t('cliente.dados.potencialUpsell')}   value={project.upsellPotential === true ? t('comum.sim') : project.upsellPotential === false ? t('comum.nao') : null} />
         </div>
         {project.upsellNotes && (
           <div className="mt-3 rounded-xl bg-rl-surface p-4">
-            <p className="text-[11px] text-rl-muted mb-1">Obs. Upsell</p>
+            <p className="text-[11px] text-rl-muted mb-1">{t('cliente.dados.obsUpsellCurta')}</p>
             <p className="text-sm text-rl-text">{project.upsellNotes}</p>
           </div>
         )}
@@ -1047,7 +1060,7 @@ function OnboardingContent({ project, onSave, showToast }) {
       {/* Outras pessoas */}
       {otherPeople.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">👤 Outras Pessoas Envolvidas</p>
+          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">{t('cliente.dados.secaoOutrasPessoas')}</p>
           <div className="flex flex-wrap gap-2">
             {otherPeople.map((p, i) => (
               <span key={i} className="px-3 py-1.5 rounded-full text-xs bg-rl-surface text-rl-text border border-rl-border">
@@ -1061,7 +1074,7 @@ function OnboardingContent({ project, onSave, showToast }) {
       {/* Concorrentes */}
       {competitors.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">⚔️ Concorrentes</p>
+          <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">{t('cliente.dados.secaoConcorrentes')}</p>
           <div className="flex flex-wrap gap-2">
             {competitors.map((c, i) => (
               <span key={i} className="px-3 py-1.5 rounded-full text-xs bg-rl-surface text-rl-muted border border-rl-border font-mono">
@@ -1074,13 +1087,13 @@ function OnboardingContent({ project, onSave, showToast }) {
 
       {/* Observações — edição inline com autosave */}
       <div>
-        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📝 Observações</p>
+        <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">{t('cliente.dados.secaoObservacoes')}</p>
         <ObservacoesEditor
           value={observacoes}
           onChange={handleObservacoesChange}
           rows={8}
-          placeholder="Comece a digitar informações adicionais sobre o cliente..."
-          rodape="As alterações são salvas automaticamente."
+          placeholder={t('cliente.dados.observacoesInlinePh')}
+          rodape={t('cliente.dados.salvasAuto')}
         />
       </div>
 
@@ -1092,6 +1105,7 @@ function OnboardingContent({ project, onSave, showToast }) {
 
 // ─── Project Docs ─────────────────────────────────────────────────────────────
 function ProjectDocs({ project }) {
+  const { t } = useI18n()
   const [urls, setUrls] = useState({ raioX: null, sla: null })
 
   useEffect(() => {
@@ -1123,7 +1137,7 @@ function ProjectDocs({ project }) {
             rel="noopener noreferrer"
             className="ml-auto text-[10px] font-medium text-rl-purple hover:underline whitespace-nowrap"
           >
-            Abrir
+            {t('comum.abrir')}
           </a>
         )}
       </div>
@@ -1132,13 +1146,13 @@ function ProjectDocs({ project }) {
 
   return (
     <div>
-      <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">📁 Documentos</p>
+      <p className="text-xs font-semibold text-rl-muted uppercase tracking-wider mb-3">{t('cliente.dados.secaoDocumentos')}</p>
       <div className="flex flex-wrap gap-3">
         {project.raioXFileName && (
-          <DocChip label="Raio-X" path={project.raioXFileName} url={urls.raioX} color="text-rl-purple" />
+          <DocChip label={t('cliente.dados.raioX')} path={project.raioXFileName} url={urls.raioX} color="text-rl-purple" />
         )}
         {project.slaFileName && (
-          <DocChip label="SLA" path={project.slaFileName} url={urls.sla} color="text-rl-cyan" />
+          <DocChip label={t('cliente.dados.sla')} path={project.slaFileName} url={urls.sla} color="text-rl-cyan" />
         )}
       </div>
     </div>
@@ -1151,6 +1165,7 @@ function ProjectDocs({ project }) {
 // estado local — é o que mantém o /dev/hub, que renderiza fora de rota.
 export default function ClientProfile({ project: projectProp, section, onSectionChange, onVoltar, onAbrirMenu }) {
   const { updateProject, projects, squads, teamMembers } = useApp()
+  const { t, locale } = useI18n()
   const logoInputRef = useRef(null)
 
   const project = projects.find((p) => p.id === projectProp.id) || projectProp
@@ -1317,14 +1332,14 @@ export default function ClientProfile({ project: projectProp, section, onSection
     updateProject(project.id, { logoUrl: path })
   }
 
-  function handleSaveOnboarding(data) { updateProject(project.id, data); showToast('Dados do cliente salvos!') }
-  function handleSaveROI(calc, result) { updateProject(project.id, { roiCalc: calc, roiResult: result }); showToast('ROI salvo!') }
-  function handleSavePersonas(personas) { updateProject(project.id, { personas }); setActiveSection('produtos'); showToast('Personas salvas!') }
-  function handleSaveProdutos(produtos) { updateProject(project.id, { produtos }); showToast('Produtos salvos!') }
-  function handleSaveOferta(ofertas) { updateProject(project.id, { ofertas }); showToast('Oferta salva!') }
-  function handleSaveCampaign(plan) { updateProject(project.id, { campaignPlan: plan }); showToast('Planejamento salvo!') }
-  function handleSaveEstrategiaV2(data) { updateProject(project.id, { estrategiaV2: data }); showToast('Análise salva!') }
-  function handleSaveLinks(links) { updateProject(project.id, { links }); showToast('Links salvos!') }
+  function handleSaveOnboarding(data) { updateProject(project.id, data); showToast(t('cliente.toast.dadosSalvos')) }
+  function handleSaveROI(calc, result) { updateProject(project.id, { roiCalc: calc, roiResult: result }); showToast(t('cliente.toast.roiSalvo')) }
+  function handleSavePersonas(personas) { updateProject(project.id, { personas }); setActiveSection('produtos'); showToast(t('cliente.toast.personasSalvas')) }
+  function handleSaveProdutos(produtos) { updateProject(project.id, { produtos }); showToast(t('cliente.toast.produtosSalvos')) }
+  function handleSaveOferta(ofertas) { updateProject(project.id, { ofertas }); showToast(t('cliente.toast.ofertaSalva')) }
+  function handleSaveCampaign(plan) { updateProject(project.id, { campaignPlan: plan }); showToast(t('cliente.toast.planejamentoSalvo')) }
+  function handleSaveEstrategiaV2(data) { updateProject(project.id, { estrategiaV2: data }); showToast(t('cliente.toast.analiseSalva')) }
+  function handleSaveLinks(links) { updateProject(project.id, { links }); showToast(t('cliente.toast.linksSalvos')) }
 
 
   function resetLinkState() {
@@ -1338,7 +1353,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
     if (linkPickedType === 'dashboard') {
       updateProject(project.id, { dashboardUrl: url })
     } else if (linkPickedType === 'outro') {
-      updateProject(project.id, { links: { ...lnk, outros: [...(lnk.outros || []), { label: linkLabel || 'Link', url }] } })
+      updateProject(project.id, { links: { ...lnk, outros: [...(lnk.outros || []), { label: linkLabel || t('cliente.links.link'), url }] } })
     } else {
       updateProject(project.id, { links: { ...lnk, [linkPickedType]: url } })
     }
@@ -1361,33 +1376,33 @@ export default function ClientProfile({ project: projectProp, section, onSection
   const hasResultados   = !!project.resultados?.modelo
 
   const NAV_ITEMS = [
-    { id: 'jornada',      label: 'Jornada',                  icon: MapIcon,        color: 'text-rl-cyan',   filled: true },
-    { id: 'dados',        label: 'Dados do Cliente',        icon: ClipboardList,  color: 'text-rl-cyan',   filled: true },
-    { id: 'kickoff',      label: 'Kickoff',                  icon: Compass,        color: 'text-rl-cyan',   filled: !!project.kickoff?.completedAt },
-    { id: 'debriefing',   label: 'Central de anúncios',      icon: Megaphone,      color: 'text-rl-purple', filled: !!(project.debriefing?.ads?.length) },
-    { id: 'lpcentral',    label: 'Central de Landing Pages', icon: LayoutTemplate, color: 'text-rl-green',  filled: !!(project.lpCentral?.lps?.length) },
-    { id: 'produtos',     label: 'Produto / Serviço',        icon: Package,        color: 'text-rl-gold',   filled: hasProdutos },
-    { id: 'icp',          label: 'Personas',                 icon: Users,          color: 'text-rl-blue',   filled: hasPersonas },
-    { id: 'oferta',       label: 'Oferta Matadora',          icon: Zap,            color: 'text-rl-gold',   filled: hasOferta },
-    { id: 'roi',          label: 'Calculadora de ROI',       icon: BarChart3,      color: 'text-rl-purple', filled: hasROI },
-    { id: 'campaign',     label: 'Campanhas',                icon: CalendarDays,   color: 'text-rl-green',  filled: hasCampaignPlan },
-    { id: 'anexos',       label: 'Anexos',                   icon: Paperclip,      color: 'text-rl-gold',   filled: hasAnexos },
-    { id: 'criativos',    label: 'Criação de anúncios',      icon: Clapperboard,   color: 'text-rl-cyan',   filled: false },
-    { id: 'landingpage',  label: 'Criação de landing page',  icon: LayoutTemplate, color: 'text-rl-green',  filled: hasLandingPages },
-    { id: 'trafego',      label: 'Resultados de Tráfego',    icon: BarChart3,      color: 'text-rl-blue',   filled: false },
-    { id: 'resultados',   label: 'Resultados de Funil',      icon: Activity,       color: 'text-rl-purple', filled: hasResultados },
-    { id: 'clarity',      label: 'Comportamento na LP',      icon: MousePointerClick, color: 'text-rl-cyan', filled: false },
-    { id: 'metalab',      label: 'Lab. Meta Ads',            icon: FlaskConical,   color: 'text-rl-purple', filled: !!project.metaLabBudget },
-    { id: 'googleads',    label: 'Google Ads com IA',        icon: Search,         color: 'text-rl-cyan',   filled: hasGoogleAds },
-    { id: 'banco-midia',   label: 'Banco de Mídia',           icon: ImagePlay,      color: 'text-rl-blue',   filled: hasBancoMidia },
-    { id: 'estrategiav2', label: 'Estratégia',               icon: Map,            color: 'text-rl-blue',   filled: hasEstrategiaV2 },
-    { id: 'links',        label: 'Links Importantes',        icon: Link2,          color: 'text-rl-cyan',   filled: hasLinks },
-    { id: 'nps',          label: 'NPS',                       icon: Star,           color: 'text-rl-gold',   filled: (project.npsMarcos || []).some((m) => (m.respostas || []).length > 0) },
-    { id: 'crm',          label: 'CRM',                       icon: Kanban,         color: 'text-rl-cyan',   filled: !!(project.crmData?.contacts?.length) },
-    { id: 'bancodados',   label: 'Banco de Dados',            icon: Database,       color: 'text-rl-purple', filled: false },
-    { id: 'atas',         label: 'Ata de Reunião',            icon: NotebookPen,    color: 'text-rl-purple', filled: false },
-    { id: 'ferramentas',  label: 'Ferramentas',               icon: Wrench,         color: 'text-rl-gold',   filled: false },
-    { id: 'compartilhar', label: 'Compartilhamento',          icon: Share2,         color: 'text-rl-cyan',   filled: false },
+    { id: 'jornada',      label: t('cliente.modulos.jornada'), icon: MapIcon,        color: 'text-rl-cyan',   filled: true },
+    { id: 'dados',        label: t('cliente.modulos.dados'),icon: ClipboardList,  color: 'text-rl-cyan',   filled: true },
+    { id: 'kickoff',      label: t('cliente.modulos.kickoff'), icon: Compass,        color: 'text-rl-cyan',   filled: !!project.kickoff?.completedAt },
+    { id: 'debriefing',   label: t('cliente.modulos.debriefing'), icon: Megaphone,      color: 'text-rl-purple', filled: !!(project.debriefing?.ads?.length) },
+    { id: 'lpcentral',    label: t('cliente.modulos.lpcentral'), icon: LayoutTemplate, color: 'text-rl-green',  filled: !!(project.lpCentral?.lps?.length) },
+    { id: 'produtos',     label: t('cliente.modulos.produtos'), icon: Package,        color: 'text-rl-gold',   filled: hasProdutos },
+    { id: 'icp',          label: t('cliente.modulos.icp'), icon: Users,          color: 'text-rl-blue',   filled: hasPersonas },
+    { id: 'oferta',       label: t('cliente.modulos.oferta'), icon: Zap,            color: 'text-rl-gold',   filled: hasOferta },
+    { id: 'roi',          label: t('cliente.modulos.roi'), icon: BarChart3,      color: 'text-rl-purple', filled: hasROI },
+    { id: 'campaign',     label: t('cliente.modulos.campaign'), icon: CalendarDays,   color: 'text-rl-green',  filled: hasCampaignPlan },
+    { id: 'anexos',       label: t('cliente.modulos.anexos'), icon: Paperclip,      color: 'text-rl-gold',   filled: hasAnexos },
+    { id: 'criativos',    label: t('cliente.modulos.criativos'), icon: Clapperboard,   color: 'text-rl-cyan',   filled: false },
+    { id: 'landingpage',  label: t('cliente.modulos.landingpage'), icon: LayoutTemplate, color: 'text-rl-green',  filled: hasLandingPages },
+    { id: 'trafego',      label: t('cliente.modulos.trafego'), icon: BarChart3,      color: 'text-rl-blue',   filled: false },
+    { id: 'resultados',   label: t('cliente.modulos.resultados'), icon: Activity,       color: 'text-rl-purple', filled: hasResultados },
+    { id: 'clarity',      label: t('cliente.modulos.clarity'), icon: MousePointerClick, color: 'text-rl-cyan', filled: false },
+    { id: 'metalab',      label: t('cliente.modulos.metalab'), icon: FlaskConical,   color: 'text-rl-purple', filled: !!project.metaLabBudget },
+    { id: 'googleads',    label: t('cliente.modulos.googleads'), icon: Search,         color: 'text-rl-cyan',   filled: hasGoogleAds },
+    { id: 'banco-midia',   label: t('cliente.modulos.bancoMidia'), icon: ImagePlay,      color: 'text-rl-blue',   filled: hasBancoMidia },
+    { id: 'estrategiav2', label: t('cliente.modulos.estrategiav2'), icon: Map,            color: 'text-rl-blue',   filled: hasEstrategiaV2 },
+    { id: 'links',        label: t('cliente.modulos.links'), icon: Link2,          color: 'text-rl-cyan',   filled: hasLinks },
+    { id: 'nps',          label: t('cliente.modulos.nps'), icon: Star,           color: 'text-rl-gold',   filled: (project.npsMarcos || []).some((m) => (m.respostas || []).length > 0) },
+    { id: 'crm',          label: t('cliente.modulos.crm'), icon: Kanban,         color: 'text-rl-cyan',   filled: !!(project.crmData?.contacts?.length) },
+    { id: 'bancodados',   label: t('cliente.modulos.bancodados'), icon: Database,       color: 'text-rl-purple', filled: false },
+    { id: 'atas',         label: t('cliente.modulos.atas'), icon: NotebookPen,    color: 'text-rl-purple', filled: false },
+    { id: 'ferramentas',  label: t('cliente.modulos.ferramentas'), icon: Wrench,         color: 'text-rl-gold',   filled: false },
+    { id: 'compartilhar', label: t('cliente.modulos.compartilhar'), icon: Share2,         color: 'text-rl-cyan',   filled: false },
   ]
 
   // Menu da página (MenuCliente): abas do hub + módulos em cinco menus suspensos
@@ -1418,7 +1433,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                 className="btn-secondary flex items-center gap-2 text-sm"
               >
                 <FileDown className="w-4 h-4" />
-                Exportar PDF
+                {t('cliente.dados.exportarPdf')}
               </button>
             </div>
           )}
@@ -1454,24 +1469,24 @@ export default function ClientProfile({ project: projectProp, section, onSection
       {/* ── Mobile top bar (hambúrguer + nome do cliente) ────────────────── */}
       <div className="xl:hidden sticky top-0 z-40 -mx-4 sm:-mx-6 -mt-6 mb-4 flex items-center gap-1 px-4 h-14 border-b border-rl-border bg-rl-bg/90 backdrop-blur-xl">
         {onAbrirMenu && (
-          <button onClick={onAbrirMenu} aria-label="Abrir menu de navegação" className="lg:hidden p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+          <button onClick={onAbrirMenu} aria-label={t('cliente.topo.abrirNavegacao')} className="lg:hidden p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
             <Menu className="w-5 h-5" />
           </button>
         )}
         {onVoltar && (
-          <button onClick={onVoltar} aria-label="Voltar à lista de clientes" className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
+          <button onClick={onVoltar} aria-label={t('cliente.topo.voltarLista')} className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all">
             <ArrowLeft className="w-4 h-4" />
           </button>
         )}
         <button
           onClick={() => setSidebarVisible(true)}
-          aria-label="Abrir menu de módulos"
+          aria-label={t('cliente.topo.abrirModulos')}
           className="p-2 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
         >
           <Menu className="w-5 h-5" />
         </button>
         <span className="font-semibold text-rl-text text-sm truncate flex-1 min-w-0">
-          {project.companyName || 'Cliente'}
+          {project.companyName || t('cliente.clienteFallback')}
         </span>
       </div>
 
@@ -1486,25 +1501,25 @@ export default function ClientProfile({ project: projectProp, section, onSection
           {onVoltar && (
             <button
               onClick={onVoltar}
-              aria-label="Voltar à lista de clientes" title="Voltar à lista de clientes"
+              aria-label={t('cliente.topo.voltarLista')} title={t('cliente.topo.voltarLista')}
               className="hidden xl:flex shrink-0 items-center justify-center gap-1.5 px-3.5 rounded-xl glass-card border border-rl-border/60 text-sm font-medium text-rl-subtle hover:text-rl-text transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" /> Voltar
+              <ArrowLeft className="w-4 h-4" /> {t('comum.voltar')}
             </button>
           )}
           <button
             onClick={() => setApresentando(true)}
             className="flex-1 min-w-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rl-purple text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
           >
-            <Presentation className="w-4 h-4" /> Modo Apresentação
+            <Presentation className="w-4 h-4" /> {t('cliente.topo.modoApresentacao')}
           </button>
           <button
             onClick={() => handleSidebarClick('compartilhar')}
-            aria-label="Compartilhamento" title="Compartilhamento (portal do cliente)"
+            aria-label={t('cliente.topo.compartilhamento')} title={t('cliente.topo.compartilhamentoDica')}
             className={`shrink-0 flex items-center justify-center gap-1.5 px-3 rounded-xl glass-card border text-sm font-medium transition-colors ${activeSection === 'compartilhar' ? 'border-rl-purple/60 text-rl-purple' : 'border-rl-border/60 text-rl-subtle hover:text-rl-text'}`}
           >
             {/* só ícone na coluna estreita; o texto entra a partir de 2200px (coluna de 420px) */}
-            <Share2 className="w-4 h-4" /><span className="hidden min-[2200px]:inline">Compartilhar</span>
+            <Share2 className="w-4 h-4" /><span className="hidden min-[2200px]:inline">{t('cliente.topo.compartilhar')}</span>
           </button>
         </div>
         <div className="glass-card border border-rl-border/60">
@@ -1514,7 +1529,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
             />
             <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-white/15 px-2.5 py-1 rounded-full">
               <CheckCircle2 className="w-3 h-3 text-white" />
-              <span className="text-[11px] font-semibold text-white">Onboarding completo</span>
+              <span className="text-[11px] font-semibold text-white">{t('cliente.topo.onboardingCompleto')}</span>
             </div>
           </div>
 
@@ -1523,14 +1538,14 @@ export default function ClientProfile({ project: projectProp, section, onSection
               <div className="relative group">
                 <div className="w-20 h-20 rounded-2xl border-4 border-rl-card bg-rl-card shadow-card overflow-hidden flex items-center justify-center shadow-xl">
                   {logoSignedUrl
-                    ? <img src={logoSignedUrl} alt="Logo" className="w-full h-full object-cover" />
+                    ? <img src={logoSignedUrl} alt={t('cliente.topo.logoAlt')} className="w-full h-full object-cover" />
                     : <span className="text-2xl font-black text-rl-purple">{companyInitials}</span>
                   }
                 </div>
                 <button
                   onClick={() => logoInputRef.current?.click()}
                   className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Alterar logo"
+                  title={t('cliente.topo.alterarLogo')}
                 >
                   <Camera className="w-6 h-6 text-white" />
                 </button>
@@ -1543,7 +1558,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                 <div>
                   <h1 className="text-xl font-black text-rl-text leading-tight">{project.companyName}</h1>
                   <p className="text-sm text-rl-muted mt-0.5">
-                    {BUSINESS_LABELS[project.businessType] || project.businessType}
+                    {rotuloNegocio(project.businessType)}
                     {project.responsibleName && ` · ${project.responsibleName}`}
                     {project.responsibleRole && ` · ${project.responsibleRole}`}
                   </p>
@@ -1553,23 +1568,23 @@ export default function ClientProfile({ project: projectProp, section, onSection
                     const isChurned = project.momento === 'churn' && project.churnDate
                     const estimado = ltvStartSource(project) === 'created'
                     const linhas = [
-                      project.contractDate && ['Início', new Date(project.contractDate + 'T00:00:00').toLocaleDateString('pt-BR')],
-                      project.contractModel && ['Modelo', String(CONTRACT_MODEL_LABELS[project.contractModel] || project.contractModel).replace(/^[^\p{L}\d]+/u, '')],
-                      project.contractValue && ['Valor', `${fmtCurrency(project.contractValue)}${project.contractModel === 'assessoria' ? '/mês' : ''}`],
-                      ['Tipo', (
-                        <InlineChoice key="tipo" value={project.planType} options={PLAN_TYPE_OPTIONS}
+                      project.contractDate && [t('cliente.cartao.inicio'), new Date(project.contractDate + 'T00:00:00').toLocaleDateString(locale)],
+                      project.contractModel && [t('cliente.cartao.modelo'), String(rotuloModeloContrato(project.contractModel)).replace(/^[^\p{L}\d]+/u, '')],
+                      project.contractValue && [t('cliente.cartao.valor'), `${fmtCurrency(project.contractValue)}${project.contractModel === 'assessoria' ? t('hub.info.porMes') : ''}`],
+                      [t('cliente.cartao.tipo'), (
+                        <InlineChoice key="tipo" value={project.planType} options={PLAN_TYPE_OPTIONS.map((o) => ({ ...o, label: rotuloTipoPlano(o.value) }))}
                           onChange={(v) => updateProject(project.id, { planType: v })} />
                       )],
-                      ['Pagamento', (
-                        <InlineChoice key="pagamento" value={project.billingMode} options={BILLING_MODE_OPTIONS}
+                      [t('cliente.cartao.pagamento'), (
+                        <InlineChoice key="pagamento" value={project.billingMode} options={BILLING_MODE_OPTIONS.map((o) => ({ ...o, label: rotuloCobranca(o.value) }))}
                           onChange={(v) => updateProject(project.id, { billingMode: v })} />
                       )],
-                      ltv > 0 && months > 0 && ['LTV', (
+                      ltv > 0 && months > 0 && [t('cliente.cartao.ltv'), (
                         <span key="ltv">
                           <span className="font-semibold text-rl-text tabular-nums">{fmtCurrency(ltv)}</span>
-                          <span className="text-rl-muted"> · {months >= 1 ? `${months.toFixed(1)} ${months < 2 ? 'mês' : 'meses'}` : `${Math.max(1, Math.round(months * 30))} dia${Math.round(months * 30) === 1 ? '' : 's'}`}</span>
-                          {isChurned && <span className="text-rl-muted"> · encerrado</span>}
-                          {estimado && <span className="text-rl-muted" title="Calculado a partir da data de cadastro pois a Data de Assinatura ainda não foi preenchida"> · estimado</span>}
+                          <span className="text-rl-muted"> · {months >= 1 ? t('cliente.cartao.meses', { count: months < 2 ? 1 : 2, n: months.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }) : t('comum.dias', { count: Math.max(1, Math.round(months * 30)) })}</span>
+                          {isChurned && <span className="text-rl-muted"> · {t('cliente.cartao.encerrado')}</span>}
+                          {estimado && <span className="text-rl-muted" title={t('cliente.cartao.estimadoDica')}> · {t('cliente.cartao.estimado')}</span>}
                         </span>
                       )],
                     ].filter(Boolean)
@@ -1592,7 +1607,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                     const resolveMembers = (sq) =>
                       (sq.members || []).map((m) => {
                         const profile = teamMembers.find((t) => t.id === m.profile_id)
-                        return { name: profile?.name || m.profile_id, role: m.role }
+                        return { name: profile?.name || m.profile_id, role: PAPEL_SQUAD[m.role] ? t(`home.squad.papel.${PAPEL_SQUAD[m.role]}`) : m.role }
                       })
 
                     return (
@@ -1638,7 +1653,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                             className="flex items-center gap-1.5 text-xs text-rl-muted border border-dashed border-rl-border px-3 py-1.5 rounded-full hover:border-rl-purple/40 hover:text-rl-purple transition-all"
                           >
                             <Users2 className="w-3.5 h-3.5" />
-                            Designar Squad
+                            {t('cliente.squad.designar')}
                           </button>
                         )}
 
@@ -1646,7 +1661,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                         {squadOpen && (
                           <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px] glass-card border border-rl-border shadow-2xl p-1.5 space-y-0.5">
                             {squads.length === 0 && (
-                              <p className="px-3 py-2 text-xs text-rl-muted">Nenhum squad cadastrado.</p>
+                              <p className="px-3 py-2 text-xs text-rl-muted">{t('cliente.squad.nenhum')}</p>
                             )}
                             {squads.map((sq, idx) => {
                               const colors = SQUAD_COLORS[idx % SQUAD_COLORS.length]
@@ -1678,7 +1693,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                                 className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
                               >
                                 <X className="w-3.5 h-3.5" />
-                                Remover Squad
+                                {t('cliente.squad.remover')}
                               </button>
                             )}
                           </div>
@@ -1701,9 +1716,9 @@ export default function ClientProfile({ project: projectProp, section, onSection
                           }`}
                         >
                           {current ? (
-                            <><span className={`w-2 h-2 rounded-full shrink-0 ${current.dot}`} />{current.label}</>
+                            <><span className={`w-2 h-2 rounded-full shrink-0 ${current.dot}`} />{t(current.label)}</>
                           ) : (
-                            <>⚡ Definir Risco</>
+                            <>{t('cliente.risco.definir')}</>
                           )}
                           <ChevronDown className="w-3 h-3 opacity-60" />
                         </button>
@@ -1721,7 +1736,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                                 }`}
                               >
                                 <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${r.dot}`} />
-                                {r.label}
+                                {t(r.label)}
                                 {project.riskLevel === r.value && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
                               </button>
                             ))}
@@ -1731,7 +1746,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                                 className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
                               >
                                 <X className="w-3.5 h-3.5" />
-                                Remover Status
+                                {t('cliente.risco.remover')}
                               </button>
                             )}
                           </div>
@@ -1756,15 +1771,15 @@ export default function ClientProfile({ project: projectProp, section, onSection
                           {current ? (
                             <>
                               <span className={`w-2 h-2 rounded-full shrink-0 ${current.dot}`} />
-                              {current.label}
+                              {t(current.label)}
                               {current.value === 'churn' && project.churnDate && (
                                 <span className="opacity-70 font-normal">
-                                  · {new Date(project.churnDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                  · {new Date(project.churnDate + 'T00:00:00').toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                 </span>
                               )}
                             </>
                           ) : (
-                            <>🎯 Definir Momento</>
+                            <>{t('cliente.momento.definir')}</>
                           )}
                           <ChevronDown className="w-3 h-3 opacity-60" />
                         </button>
@@ -1798,7 +1813,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                                 }`}
                               >
                                 <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${m.dot}`} />
-                                {m.label}
+                                {t(m.label)}
                                 {project.momento === m.value && <CheckCircle2 className="w-3.5 h-3.5 ml-auto shrink-0" />}
                               </button>
                             ))}
@@ -1814,7 +1829,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                                 className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rl-muted hover:bg-rl-surface transition-all"
                               >
                                 <X className="w-3.5 h-3.5" />
-                                Remover Momento
+                                {t('cliente.momento.remover')}
                               </button>
                             )}
                           </div>
@@ -1856,7 +1871,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                         onRemove: () => updateProject(project.id, { links: { ...lnk, googleDrive: '' } }),
                       },
                       ...(lnk.outros || []).filter(o => o.url).map((outro, i) => ({
-                        key: `outro-${i}`, label: outro.label || 'Link', href: outro.url.startsWith('http') ? outro.url : `https://${outro.url}`,
+                        key: `outro-${i}`, label: outro.label || t('cliente.links.link'), href: outro.url.startsWith('http') ? outro.url : `https://${outro.url}`,
                         Icon: Link2, pill: 'bg-rl-surface border-rl-border text-rl-text hover:border-rl-muted/60',
                         onRemove: () => updateProject(project.id, { links: { ...lnk, outros: (lnk.outros || []).filter((_, idx) => idx !== i) } }),
                       })),
@@ -1872,7 +1887,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                             <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity pr-3">
                               <Icon className="w-3.5 h-3.5 text-rl-muted" />{label}
                             </a>
-                            <button onClick={onRemove} className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 bg-rl-card text-rl-muted opacity-0 group-hover:opacity-100 hover:text-rl-red transition-all" title="Remover"><X className="w-3 h-3" /></button>
+                            <button onClick={onRemove} className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 bg-rl-card text-rl-muted opacity-0 group-hover:opacity-100 hover:text-rl-red transition-all" title={t('comum.remover')}><X className="w-3 h-3" /></button>
                           </div>
                         ))}
 
@@ -1883,7 +1898,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                               onClick={() => setOverflowOpen(o => !o)}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-rl-subtle text-xs font-medium hover:border-rl-muted/60 hover:text-rl-text transition-all"
                             >
-                              <ChevronDown className="w-3 h-3" />Mais {overflow.length}
+                              <ChevronDown className="w-3 h-3" />{t('cliente.links.mais', { n: overflow.length })}
                             </button>
                             {overflowOpen && (
                               <div className="absolute left-0 top-full mt-1 z-50 glass-card p-1 min-w-[180px] shadow-lg border border-rl-border">
@@ -1893,7 +1908,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                                       <Icon className="w-4 h-4 shrink-0" />
                                       <span className="truncate">{label}</span>
                                     </a>
-                                    <button onClick={() => { onRemove(); if (overflow.length === 1) setOverflowOpen(false) }} className="shrink-0 rounded p-0.5 text-rl-muted/50 hover:text-red-400 transition-colors" title="Remover"><X className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => { onRemove(); if (overflow.length === 1) setOverflowOpen(false) }} className="shrink-0 rounded p-0.5 text-rl-muted/50 hover:text-red-400 transition-colors" title={t('comum.remover')}><X className="w-3.5 h-3.5" /></button>
                                   </div>
                                 ))}
                               </div>
@@ -1918,7 +1933,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                                 { id: 'website',     label: 'Website',      Icon: Globe,           color: 'text-blue-400',  hide: !!lnk.website          },
                                 { id: 'googleDrive', label: 'Google Drive', Icon: HardDrive,       color: 'text-green-400', hide: !!lnk.googleDrive      },
                                 { id: 'dashboard',   label: 'Dashboard',    Icon: LayoutDashboard, color: 'text-rl-cyan',   hide: !!project.dashboardUrl },
-                                { id: 'outro',       label: 'Personalizado', Icon: Link2,          color: 'text-rl-purple', hide: false                  },
+                                { id: 'outro',       label: t('cliente.links.personalizado'), Icon: Link2, color: 'text-rl-purple', hide: false     },
                               ].filter(o => !o.hide).map(({ id, label, Icon, color }) => (
                                 <button
                                   key={id}
@@ -1935,10 +1950,10 @@ export default function ClientProfile({ project: projectProp, section, onSection
                           {linkStep === 'input' && (() => {
                             const opts = [
                               { id: 'instagram',   label: 'Instagram',    Icon: Instagram,       color: 'text-pink-400',  placeholder: 'https://instagram.com/...' },
-                              { id: 'website',     label: 'Website',      Icon: Globe,           color: 'text-blue-400',  placeholder: 'https://www.empresa.com.br' },
+                              { id: 'website',     label: 'Website',      Icon: Globe,           color: 'text-blue-400',  placeholder: t('cliente.links.websitePh') },
                               { id: 'googleDrive', label: 'Google Drive', Icon: HardDrive,       color: 'text-green-400', placeholder: 'https://drive.google.com/...' },
                               { id: 'dashboard',   label: 'Dashboard',    Icon: LayoutDashboard, color: 'text-rl-cyan',   placeholder: 'https://lookerstudio.google.com/...' },
-                              { id: 'outro',       label: 'Personalizado', Icon: Link2,          color: 'text-rl-purple', placeholder: 'https://...' },
+                              { id: 'outro',       label: t('cliente.links.personalizado'), Icon: Link2, color: 'text-rl-purple', placeholder: 'https://...' },
                             ]
                             const opt = opts.find(o => o.id === linkPickedType) || opts[0]
                             return (
@@ -1947,7 +1962,7 @@ export default function ClientProfile({ project: projectProp, section, onSection
                                   <opt.Icon className="w-4 h-4" />{opt.label}
                                 </p>
                                 {linkPickedType === 'outro' && (
-                                  <input value={linkLabel} onChange={(e) => setLinkLabel(e.target.value)} placeholder="Nome da plataforma..." className="input-field w-full" />
+                                  <input value={linkLabel} onChange={(e) => setLinkLabel(e.target.value)} placeholder={t('cliente.links.nomePlataforma')} className="input-field w-full" />
                                 )}
                                 <div className="flex gap-2 items-center">
                                   <input
@@ -1977,10 +1992,10 @@ export default function ClientProfile({ project: projectProp, section, onSection
         {/* Ações rápidas */}
         <div className="glass-card border border-rl-border/60 grid grid-cols-4 divide-x divide-rl-border/60">
           {[
-            { id: 'otimizacao', label: 'Otimização', Icon: Wrench },
-            { id: 'anotacao', label: 'Anotação', Icon: StickyNote },
-            { id: 'tarefa', label: 'Tarefa', Icon: Kanban },
-            { id: 'reuniao', label: 'Reunião', Icon: CalendarDays },
+            { id: 'otimizacao', label: t('hub.tipos.otimizacao'), Icon: Wrench },
+            { id: 'anotacao', label: t('hub.tipos.anotacao'), Icon: StickyNote },
+            { id: 'tarefa', label: t('hub.tipos.tarefa'), Icon: Kanban },
+            { id: 'reuniao', label: t('hub.tipos.reuniao'), Icon: CalendarDays },
           ].map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -2002,10 +2017,10 @@ export default function ClientProfile({ project: projectProp, section, onSection
             <div className="absolute inset-0 bg-black/60" onClick={() => setSidebarVisible(false)} />
             <aside className="relative z-10 flex flex-col w-72 max-w-[85vw] h-full bg-rl-card border-r border-rl-border overflow-y-auto animate-slide-up">
               <div className="flex items-center justify-between px-4 py-3 border-b border-rl-border sticky top-0 bg-rl-card z-10">
-                <span className="text-sm font-semibold text-rl-text">Módulos</span>
+                <span className="text-sm font-semibold text-rl-text">{t('cliente.topo.modulos')}</span>
                 <button
                   onClick={() => setSidebarVisible(false)}
-                  aria-label="Fechar menu"
+                  aria-label={t('cliente.topo.fecharMenu')}
                   className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
                 >
                   <X className="w-4 h-4" />
@@ -2028,8 +2043,8 @@ export default function ClientProfile({ project: projectProp, section, onSection
               <div className="hidden xl:flex items-center gap-1 shrink-0">
                 <button
                   onClick={toggleInfoRecolhida}
-                  title={infoRecolhida ? 'Mostrar informações do cliente' : 'Recolher informações do cliente'}
-                  aria-label={infoRecolhida ? 'Mostrar informações do cliente' : 'Recolher informações do cliente'}
+                  title={infoRecolhida ? t('cliente.topo.mostrarInfo') : t('cliente.topo.recolherInfo')}
+                  aria-label={infoRecolhida ? t('cliente.topo.mostrarInfo') : t('cliente.topo.recolherInfo')}
                   className="p-1.5 rounded-lg text-rl-subtle hover:text-rl-purple hover:bg-rl-surface transition-colors"
                 >
                   {infoRecolhida ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
@@ -2038,14 +2053,14 @@ export default function ClientProfile({ project: projectProp, section, onSection
                 {infoRecolhida && (
                   <>
                     {onVoltar && (
-                      <button onClick={onVoltar} title="Voltar à lista de clientes" aria-label="Voltar à lista de clientes"
+                      <button onClick={onVoltar} title={t('cliente.topo.voltarLista')} aria-label={t('cliente.topo.voltarLista')}
                         className="p-1.5 rounded-lg text-rl-subtle hover:text-rl-purple hover:bg-rl-surface transition-colors">
                         <ArrowLeft className="w-4 h-4" />
                       </button>
                     )}
-                    <button onClick={toggleInfoRecolhida} title="Mostrar informações do cliente"
+                    <button onClick={toggleInfoRecolhida} title={t('cliente.topo.mostrarInfo')}
                       className="max-w-[200px] truncate px-2 py-1 rounded-lg text-sm font-semibold text-rl-text hover:bg-rl-surface transition-colors">
-                      {project.companyName || 'Cliente'}
+                      {project.companyName || t('cliente.clienteFallback')}
                     </button>
                     <span className="w-px h-5 bg-rl-border mx-1" />
                   </>
@@ -2068,11 +2083,11 @@ export default function ClientProfile({ project: projectProp, section, onSection
             />
           ) : (
             <div className="space-y-3">
-              <nav aria-label="Você está em" className="flex items-center gap-1.5 flex-wrap px-1 text-sm">
-                <button onClick={() => abrirAba('resumo')} className="text-rl-subtle hover:text-rl-purple transition-colors">Visão geral</button>
-                {[noMenu?.menu.label, noMenu?.grupo.label].filter(Boolean).map((t) => (
-                  <span key={t} className="flex items-center gap-1.5 text-rl-subtle">
-                    <ChevronRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />{t}
+              <nav aria-label={t('cliente.topo.voceEstaEm')} className="flex items-center gap-1.5 flex-wrap px-1 text-sm">
+                <button onClick={() => abrirAba('resumo')} className="text-rl-subtle hover:text-rl-purple transition-colors">{t('menuCliente.visaoGeral')}</button>
+                {[noMenu?.menu.label, noMenu?.grupo.label].filter(Boolean).map((rot) => (
+                  <span key={rot} className="flex items-center gap-1.5 text-rl-subtle">
+                    <ChevronRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />{rot}
                   </span>
                 ))}
                 <ChevronRight className="w-3.5 h-3.5 shrink-0 text-rl-subtle" aria-hidden="true" />
@@ -2100,13 +2115,13 @@ export default function ClientProfile({ project: projectProp, section, onSection
               <CalendarDays className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-rl-text">Marcar como Churn</h3>
-              <p className="text-xs text-rl-muted">Em que dia o contrato com este cliente foi finalizado?</p>
+              <h3 className="text-base font-bold text-rl-text">{t('cliente.churn.titulo')}</h3>
+              <p className="text-xs text-rl-muted">{t('cliente.churn.pergunta')}</p>
             </div>
           </div>
 
           <label htmlFor="churn-date-input" className="block text-xs font-semibold text-rl-muted uppercase tracking-wider mb-2">
-            Data de saída
+            {t('cliente.churn.dataSaida')}
           </label>
           <input
             id="churn-date-input"
@@ -2123,19 +2138,19 @@ export default function ClientProfile({ project: projectProp, section, onSection
               onClick={() => setChurnModalOpen(false)}
               className="px-4 py-2 rounded-xl text-sm font-medium text-rl-muted hover:bg-rl-surface transition-all"
             >
-              Cancelar
+              {t('comum.cancelar')}
             </button>
             <button
               onClick={() => {
                 if (!churnDateInput) return
                 updateProject(project.id, { momento: 'churn', churnDate: churnDateInput })
                 setChurnModalOpen(false)
-                showToast('Cliente marcado como Churn')
+                showToast(t('cliente.churn.marcado'))
               }}
               disabled={!churnDateInput}
               className="px-4 py-2 rounded-xl text-sm font-semibold bg-red-700/10 border border-red-700/40 text-red-600 hover:bg-red-700/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
-              Confirmar Churn
+              {t('cliente.churn.confirmar')}
             </button>
           </div>
         </Modal>

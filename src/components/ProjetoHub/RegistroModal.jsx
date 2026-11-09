@@ -4,18 +4,20 @@ import { useState } from 'react'
 import { Wrench, StickyNote, Trash2, Loader2 } from 'lucide-react'
 import Modal from '../UI/Modal'
 import { hojeISO } from '../../lib/atividadesCarga'
+import { useI18n } from '../../i18n'
 
 const CANAIS = [
   { value: 'meta', label: 'Meta Ads' },
   { value: 'google', label: 'Google Ads' },
   { value: 'ambos', label: 'Meta + Google' },
-  { value: 'outro', label: 'Outro' },
+  { value: 'outro', label: 'hub.canais.outro' },
 ]
 
 const INPUT = 'w-full px-3 py-2 rounded-lg bg-rl-surface border border-rl-border text-sm text-rl-text placeholder:text-rl-muted focus:outline-none focus:border-rl-purple/50 transition-colors'
 const LABEL = 'block text-[11px] font-semibold uppercase tracking-wider text-rl-muted mb-1'
 
 export default function RegistroModal({ registro = null, tipoInicial = 'otimizacao', preset = {}, onSalvar, onExcluir, onClose }) {
+  const { t } = useI18n()
   const editando = !!registro
   const [tipo, setTipo] = useState(registro?.tipo || tipoInicial)
   const [form, setForm] = useState({
@@ -71,13 +73,13 @@ export default function RegistroModal({ registro = null, tipoInicial = 'otimizac
           {ehOtimizacao ? <Wrench className="w-5 h-5" /> : <StickyNote className="w-5 h-5" />}
         </div>
         <div className="flex-1">
-          <h3 className="text-base font-bold text-rl-text">{editando ? 'Editar registro' : ehOtimizacao ? 'Registrar otimização' : 'Nova anotação'}</h3>
-          <p className="text-xs text-rl-muted">{ehOtimizacao ? 'O que foi feito na conta, por quê e como estava antes.' : 'Uma observação sobre o projeto, visível pra todo o time.'}</p>
+          <h3 className="text-base font-bold text-rl-text">{editando ? t('hub.registro.editar') : ehOtimizacao ? t('hub.registro.registrarOtimizacao') : t('hub.registro.novaAnotacao')}</h3>
+          <p className="text-xs text-rl-muted">{ehOtimizacao ? t('hub.registro.subOtimizacao') : t('hub.registro.subAnotacao')}</p>
         </div>
         {!editando && (
           <div className="flex rounded-lg border border-rl-border overflow-hidden text-xs">
-            <button onClick={() => setTipo('otimizacao')} className={`px-3 py-1.5 ${ehOtimizacao ? 'bg-rl-purple text-white' : 'text-rl-subtle hover:bg-rl-surface'}`}>Otimização</button>
-            <button onClick={() => setTipo('anotacao')} className={`px-3 py-1.5 ${!ehOtimizacao ? 'bg-rl-purple text-white' : 'text-rl-subtle hover:bg-rl-surface'}`}>Anotação</button>
+            <button onClick={() => setTipo('otimizacao')} className={`px-3 py-1.5 ${ehOtimizacao ? 'bg-rl-purple text-white' : 'text-rl-subtle hover:bg-rl-surface'}`}>{t('hub.tipos.otimizacao')}</button>
+            <button onClick={() => setTipo('anotacao')} className={`px-3 py-1.5 ${!ehOtimizacao ? 'bg-rl-purple text-white' : 'text-rl-subtle hover:bg-rl-surface'}`}>{t('hub.tipos.anotacao')}</button>
           </div>
         )}
       </div>
@@ -85,37 +87,37 @@ export default function RegistroModal({ registro = null, tipoInicial = 'otimizac
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={LABEL}>Data</label>
+            <label className={LABEL}>{t('hub.registro.data')}</label>
             <input type="date" value={form.data} onChange={set('data')} max={hojeISO()} className={INPUT} />
           </div>
           {ehOtimizacao && (
             <div>
-              <label className={LABEL}>Canal</label>
+              <label className={LABEL}>{t('hub.registro.canal')}</label>
               <select value={form.canal} onChange={set('canal')} className={INPUT}>
-                {CANAIS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                {CANAIS.map((c) => <option key={c.value} value={c.value}>{c.label.startsWith('hub.') ? t(c.label) : c.label}</option>)}
               </select>
             </div>
           )}
         </div>
         {ehOtimizacao && (
           <div>
-            <label className={LABEL}>Campanha / conjunto / anúncio</label>
-            <input value={form.campanha} onChange={set('campanha')} placeholder="Ex.: AF_FUNDO_CBO · Conj. Frio · AD003" className={INPUT} />
+            <label className={LABEL}>{t('hub.registro.campanha')}</label>
+            <input value={form.campanha} onChange={set('campanha')} placeholder={t('hub.registro.campanhaPh')} className={INPUT} />
           </div>
         )}
         <div>
-          <label className={LABEL}>{ehOtimizacao ? 'O que foi feito' : 'Título'}</label>
-          <input value={form.acao} onChange={set('acao')} autoFocus placeholder={ehOtimizacao ? 'Ex.: Desliguei o AD003 e subi 3 criativos novos' : 'Ex.: Cliente pediu pausa nas campanhas na semana do feriado'} className={INPUT} />
+          <label className={LABEL}>{ehOtimizacao ? t('hub.registro.oQueFoiFeito') : t('hub.registro.titulo')}</label>
+          <input value={form.acao} onChange={set('acao')} autoFocus placeholder={ehOtimizacao ? t('hub.registro.acaoPhOtimizacao') : t('hub.registro.acaoPhAnotacao')} className={INPUT} />
         </div>
         <div>
-          <label className={LABEL}>{ehOtimizacao ? 'Por quê' : 'Detalhes'}</label>
-          <textarea value={form.motivo} onChange={set('motivo')} rows={3} placeholder={ehOtimizacao ? 'Ex.: CPL do anúncio 2,4× a meta com R$ 180 gastos' : ''} className={INPUT + ' resize-y'} />
+          <label className={LABEL}>{ehOtimizacao ? t('hub.registro.porque') : t('hub.registro.detalhes')}</label>
+          <textarea value={form.motivo} onChange={set('motivo')} rows={3} placeholder={ehOtimizacao ? t('hub.registro.motivoPh') : ''} className={INPUT + ' resize-y'} />
         </div>
         {ehOtimizacao && (
           <div>
-            <label className={LABEL}>Como estava antes (opcional)</label>
+            <label className={LABEL}>{t('hub.registro.antes')}</label>
             <div className="grid grid-cols-4 gap-2">
-              {[['gasto', 'Gasto R$'], ['conv', 'Conversões'], ['cpl', 'CPL R$'], ['ctr', 'CTR %']].map(([k, ph]) => (
+              {[['gasto', t('hub.registro.phGasto')], ['conv', t('hub.registro.phConv')], ['cpl', t('hub.registro.phCpl')], ['ctr', t('hub.registro.phCtr')]].map(([k, ph]) => (
                 <input key={k} value={form[k]} onChange={set(k)} placeholder={ph} inputMode="decimal" className={INPUT} />
               ))}
             </div>
@@ -123,8 +125,8 @@ export default function RegistroModal({ registro = null, tipoInicial = 'otimizac
         )}
         {(editando || ehOtimizacao) && (
           <div>
-            <label className={LABEL}>Resultado observado depois (opcional)</label>
-            <input value={form.resultado} onChange={set('resultado')} placeholder="Ex.: CPL caiu de R$ 62 pra R$ 38 em 4 dias" className={INPUT} />
+            <label className={LABEL}>{t('hub.registro.resultado')}</label>
+            <input value={form.resultado} onChange={set('resultado')} placeholder={t('hub.registro.resultadoPh')} className={INPUT} />
           </div>
         )}
         {erro && <p className="text-xs text-rl-red">{erro}</p>}
@@ -133,16 +135,16 @@ export default function RegistroModal({ registro = null, tipoInicial = 'otimizac
       <div className="flex items-center justify-between gap-2 mt-5">
         <div>
           {editando && onExcluir && (
-            <button onClick={() => { if (window.confirm('Excluir este registro?')) onExcluir(registro.id).then(onClose) }} className="flex items-center gap-1.5 text-xs text-rl-red hover:bg-rl-red/10 px-2 py-1.5 rounded-lg">
-              <Trash2 className="w-3.5 h-3.5" /> Excluir
+            <button onClick={() => { if (window.confirm(t('hub.registro.confirmarExcluir'))) onExcluir(registro.id).then(onClose) }} className="flex items-center gap-1.5 text-xs text-rl-red hover:bg-rl-red/10 px-2 py-1.5 rounded-lg">
+              <Trash2 className="w-3.5 h-3.5" /> {t('comum.excluir')}
             </button>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium text-rl-muted hover:bg-rl-surface">Cancelar</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium text-rl-muted hover:bg-rl-surface">{t('comum.cancelar')}</button>
           <button onClick={salvar} disabled={!ok || salvando} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
             {salvando && <Loader2 className="w-4 h-4 animate-spin" />}
-            {editando ? 'Salvar' : 'Registrar'}
+            {editando ? t('comum.salvar') : t('hub.registro.registrar')}
           </button>
         </div>
       </div>

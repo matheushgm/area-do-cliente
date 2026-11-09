@@ -13,6 +13,7 @@ import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { linhaDecisao } from '../hooks/useSugestoesGlobais'
 import { aceitarComTarefa, criarTarefaDaSugestao } from '../lib/aceitarSugestao'
+import { t } from '../i18n'
 
 // O que o painel precisa saber da tarefa criada (o resto fica no registro).
 const resumoTarefa = (t, titulo) => (t ? { titulo, responsavel: t.responsavel, data: t.data, url: t.url, aviso: t.aviso || null } : null)
@@ -49,7 +50,7 @@ export default function OtimizacoesBridge() {
 
       /** Recusa com motivo (obrigatório, fica no histórico). */
       async recusar(sug, motivo) {
-        if (!String(motivo || '').trim()) throw new Error('Informe o motivo da recusa.')
+        if (!String(motivo || '').trim()) throw new Error(t('ui.otimizacao.informeMotivo'))
         return { decisao: await gravar(sug, 'recusada', { motivo: String(motivo).trim() }) }
       },
 
@@ -63,7 +64,7 @@ export default function OtimizacoesBridge() {
           .eq('id', decisao.id)
           .select()
           .single()
-        if (error) throw new Error(`${error.message} A tarefa foi criada no ClickUp: ${tarefa.url}`)
+        if (error) throw new Error(t('ui.otimizacao.tarefaCriada', { erro: error.message, url: tarefa.url }))
         return { decisao: data, tarefa: resumoTarefa(tarefa, sug.titulo) }
       },
 

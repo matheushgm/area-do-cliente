@@ -1,4 +1,5 @@
 import { iniciais } from './utils'
+import { t, idiomaAtual, localeAtual } from '../i18n'
 // Helpers puros do módulo Tarefas (réplica do ClickUp): statuses, prioridades,
 // agrupamentos, formatação de datas e cores. Sem React, sem Supabase.
 
@@ -105,11 +106,87 @@ export function statusInicial(statuses) {
   return statuses.find((s) => s.tipo === 'open') || statuses[0] || STATUSES_PADRAO[0]
 }
 
-export function rotuloStatus(key) {
-  if (!key) return ''
+// ─── Rótulos traduzidos ───────────────────────────────────────────────────────
+// Status, tipo, dificuldade e departamento vêm do ClickUp: são DADO (gravado, comparado e
+// devolvido ao ClickUp pela outbox) e nunca mudam. Os helpers abaixo só traduzem, na tela, os
+// valores conhecidos; o que não conhecem volta como está. Comparação por `norm` (sem acento,
+// minúsculas, sem espaço nas pontas: o ClickUp tem opções como "Otimização ").
+
+const norm = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+
+// nome normalizado → chave em tarefasCampos.status
+const STATUS_CONHECIDOS = {
+  'backlog': 'backlog', 'a fazer': 'aFazer', 'to do': 'aFazer', 'em progresso': 'emProgresso', 'in progress': 'emProgresso',
+  'em revisao': 'emRevisao', 'complete': 'concluido', 'closed': 'concluido', 'concluido': 'concluido', 'concluida': 'concluido',
+  'na fila': 'naFila', 'executando': 'executando', 'aguardando aprovacao': 'aguardandoAprovacao', 'erro': 'erro',
+  'cancelada': 'cancelada', 'cancelado': 'cancelada', 'criacao de copy': 'criacaoCopy', 'criacao do design': 'criacaoDesign',
+  'revisao interna': 'revisaoInterna', 'aprovacao do cliente': 'aprovacaoCliente', 'para publicar': 'paraPublicar',
+  'coleta de cadastro': 'coletaCadastro', 'coleta de curriculo': 'coletaCurriculo', 'reuniao online': 'reuniaoOnline',
+  'reuniao presencial': 'reuniaoPresencial', 'envio de contrato': 'envioContrato', 'open': 'aberto', 'aberto': 'aberto',
+  'pausado': 'pausado', 'bloqueado': 'bloqueado', 'aguardando': 'aguardando',
+}
+
+function rotuloStatusPt(key) {
   if (key === 'complete' || key === 'closed' || key === 'concluido') return 'Concluído'
   return key.charAt(0).toUpperCase() + key.slice(1)
 }
+
+/**
+ * Rótulo de um status (o nome/`key` do ClickUp ou o `label` gravado na lista). Em português é o
+ * comportamento de sempre (primeira letra maiúscula, "complete" = "Concluído"); nos outros
+ * idiomas traduz os status conhecidos, mantendo o emoji da frente ("💡 backlog").
+ */
+export function rotuloStatus(key) {
+  if (!key) return ''
+  if (idiomaAtual() === 'pt') return rotuloStatusPt(key)
+  const m = String(key).match(/^([^\p{L}\p{N}]*)(.*)$/u)
+  const chave = STATUS_CONHECIDOS[norm(m[2])]
+  return chave ? `${m[1]}${t(`tarefasCampos.status.${chave}`)}` : rotuloStatusPt(key)
+}
+
+/** Rótulo da prioridade pelo id do ClickUp (urgent/high/normal/low). */
+export function rotuloPrioridade(id) {
+  if (!id) return ''
+  return PRIORIDADES.some((p) => p.key === id) ? t(`tarefasCampos.prioridade.${id}`) : String(id)
+}
+
+function tradutorDeOpcoes(grupo, mapa) {
+  const porNome = Object.fromEntries(Object.entries(mapa).map(([nome, chave]) => [norm(nome), chave]))
+  return (nome) => {
+    if (nome == null || nome === '') return ''
+    // Em português a tela mostra o valor como veio do ClickUp, igual a antes da tradução.
+    if (idiomaAtual() === 'pt') return String(nome)
+    const chave = porNome[norm(nome)]
+    return chave ? t(`tarefasCampos.${grupo}.${chave}`) : String(nome)
+  }
+}
+
+/** Rótulo de uma opção do campo "Tipo de tarefa" (desconhecida volta como está). */
+export const rotuloTipoTarefa = tradutorDeOpcoes('tipo', {
+  'Criação de Arte Estática': 'arteEstatica', 'Criação de Landing Page': 'landingPage', 'Relatório': 'relatorio',
+  'Edição de vídeo': 'edicaoVideo', 'Integração': 'integracao', 'Copy de anúncio': 'copyAnuncio',
+  'Copy de Landing Page': 'copyLandingPage', 'Estratégia': 'estrategia', 'Traqueamento': 'traqueamento', 'Reunião': 'reuniao',
+  'Preenchimento de resultado': 'preenchimentoResultado', 'Otimização': 'otimizacao', 'Subir Criativo': 'subirCriativo',
+  'Criar Campanha': 'criarCampanha', 'Gravação de vídeo': 'gravacaoVideo', 'Fotografia': 'fotografia',
+  'Edição de fotografia': 'edicaoFotografia', 'Mídia Offline': 'midiaOffline', 'Motion design': 'motionDesign',
+  'Projeto de identidade visual': 'identidadeVisual', 'Branding (estratégia)': 'branding',
+})
+
+/** Rótulo de uma opção do campo "Dificuldade". */
+export const rotuloDificuldade = tradutorDeOpcoes('dificuldade', { 'Baixa': 'baixa', 'Regular': 'regular', 'Complexa': 'complexa' })
+
+/** Rótulo de um departamento (DEPARTAMENTOS). */
+export const rotuloDepartamento = tradutorDeOpcoes('departamento', {
+  'Account Manager': 'accountManager', 'Gestor de tráfego': 'gestorTrafego', 'Estrategista': 'estrategista',
+  'Copywriter': 'copywriter', 'Designer': 'designer', 'Web Designer': 'webDesigner', 'Comercial': 'comercial',
+  'Tecnologia': 'tecnologia', 'Cliente': 'cliente',
+})
+
+/** Rótulo de um agrupamento (AGRUPAMENTOS[].value). */
+export const rotuloAgrupamento = (v) => (AGRUPAMENTOS.some((a) => a.value === v) ? t(`tarefasCampos.agrupar.${v}`) : String(v ?? ''))
+
+/** Rótulo de um grupo de vencimento (BUCKETS_VENC[].key). */
+export const rotuloBucketVenc = (k) => (BUCKETS_VENC.some((b) => b.key === k) ? t(`tarefasCampos.venc.${k}`) : String(k ?? ''))
 
 export function prioridade(key) {
   return PRIORIDADES.find((p) => p.key === key) || null
@@ -131,10 +208,11 @@ export function inicioDoDia(d = new Date()) {
   return x
 }
 
-/** "18/8/26" (formato da coluna de lista do ClickUp). */
+/** "18/8/26" (formato da coluna de lista do ClickUp; em inglês, "8/18/26"). */
 export function fmtDataNumerica(v) {
   const d = paraData(v)
   if (!d) return ''
+  if (idiomaAtual() !== 'pt') return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`
   return `${d.getDate()}/${d.getMonth() + 1}/${String(d.getFullYear()).slice(2)}`
 }
 
@@ -145,10 +223,13 @@ export function fmtDataCurta(v) {
   const hoje = new Date()
   const dia = inicioDoDia(d).getTime()
   const h0 = inicioDoDia(hoje).getTime()
-  if (dia === h0) return 'Hoje'
-  if (dia === h0 + 86400000) return 'Amanhã'
-  if (dia === h0 - 86400000) return 'Ontem'
-  if (d.getFullYear() === hoje.getFullYear()) return `${d.getDate()} ${MESES[d.getMonth()]}`
+  if (dia === h0) return t('comum.hoje')
+  if (dia === h0 + 86400000) return t('comum.amanha')
+  if (dia === h0 - 86400000) return t('comum.ontem')
+  if (d.getFullYear() === hoje.getFullYear()) {
+    if (idiomaAtual() !== 'pt') return d.toLocaleDateString(localeAtual(), { day: 'numeric', month: 'short' })
+    return `${d.getDate()} ${MESES[d.getMonth()]}`
+  }
   return fmtDataNumerica(d)
 }
 
@@ -164,10 +245,10 @@ export function fmtVencimentoClickUp(v, item) {
   const concluida = item?.status_tipo === 'closed'
   const dias = Math.round((h0 - dia) / 86400000)
   if (concluida) return { texto: fmtDataNumerica(d), classe: 'text-ln-t4' }
-  if (dias === 0) return { texto: 'Hoje', classe: 'text-ln-green' }
-  if (dias === -1) return { texto: 'Amanhã', classe: 'text-ln-yellow' }
-  if (dias === 1) return { texto: 'ontem', classe: 'text-ln-red' }
-  if (dias > 1 && dias <= 7) return { texto: `há ${dias} dias`, classe: 'text-ln-red' }
+  if (dias === 0) return { texto: t('comum.hoje'), classe: 'text-ln-green' }
+  if (dias === -1) return { texto: t('comum.amanha'), classe: 'text-ln-yellow' }
+  if (dias === 1) return { texto: t('tarefasCampos.data.ontem'), classe: 'text-ln-red' }
+  if (dias > 1 && dias <= 7) return { texto: t('tarefasCampos.data.haDias', { count: dias }), classe: 'text-ln-red' }
   if (dias > 7) return { texto: fmtDataNumerica(d), classe: 'text-ln-red' }
   return { texto: fmtDataNumerica(d), classe: 'text-ln-t2' }
 }
@@ -175,6 +256,7 @@ export function fmtVencimentoClickUp(v, item) {
 export function fmtDataHora(v) {
   const d = paraData(v)
   if (!d) return ''
+  if (idiomaAtual() !== 'pt') return d.toLocaleString(localeAtual(), { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
   return `${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
@@ -338,39 +420,39 @@ export function agruparItens(itens, modo, { statuses = [], membrosMap = new Map(
     switch (modo) {
       case 'status': {
         const s = acharStatus(statuses, it.status)
-        push(s.key, s.label || rotuloStatus(s.key), s.cor, it)
+        push(s.key, rotuloStatus(s.label || s.key), s.cor, it)
         break
       }
       case 'vencimento': {
         const b = BUCKETS_VENC.find((x) => x.key === bucketVencimento(it))
-        push(b.key, b.label, b.cor, it)
+        push(b.key, rotuloBucketVenc(b.key), b.cor, it)
         break
       }
       case 'responsavel': {
         const pessoas = pessoasDaTarefa(it, membrosMap)
-        if (!pessoas.length) push('nenhum', 'Sem responsável', '#87909e', it)
+        if (!pessoas.length) push('nenhum', t('tarefasCampos.grupo.semResponsavel'), '#87909e', it)
         else pessoas.forEach((p) => push(p.id, p.nome, p.cor, it))
         break
       }
       case 'prioridade': {
         const p = prioridade(it.prioridade)
-        if (p) push(p.key, p.label, p.cor, it)
-        else push('nenhuma', 'Sem prioridade', '#87909e', it)
+        if (p) push(p.key, rotuloPrioridade(p.key), p.cor, it)
+        else push('nenhuma', t('tarefasCampos.grupo.semPrioridade'), '#87909e', it)
         break
       }
       case 'lista': {
         const l = listasMap.get(it.lista_id)
-        push(it.lista_id, l?.nome || 'Lista', '#7b68ee', it)
+        push(it.lista_id, l?.nome || t('tarefasCampos.grupo.lista'), '#7b68ee', it)
         break
       }
       case 'ciclo': {
         const c = ciclosMap.get(it.ciclo_id)
         if (c) push(c.id, c.nome, '#2A25F0', it)
-        else push('nenhum', 'Sem cycle', '#87909e', it)
+        else push('nenhum', t('tarefasCampos.grupo.semCycle'), '#87909e', it)
         break
       }
       default:
-        push('todas', 'Tarefas', '#87909e', it)
+        push('todas', t('tarefasCampos.grupo.tarefas'), '#87909e', it)
     }
   }
 

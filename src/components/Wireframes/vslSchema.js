@@ -47,30 +47,5 @@ export const VSL_WIREFRAME = {
     ],
   },
 
-  // Textos-guia por slot (mostrados quando vazio).
-  placeholders: {
-    announcement: 'Barra de aviso (ex: oferta por tempo limitado) — opcional',
-    headline: 'Headline principal — a promessa da VSL (use **negrito** para destacar)',
-    subheadline: 'Subtítulo — reforça a promessa e o mecanismo único',
-    heroCta: 'Botão principal (ex: Quero saber mais)',
-    forWhomTitle: 'Título da seção "Para quem é a oferta"',
-    cardTitle: 'Título do card',
-    cardDesc: 'Descrição curta do benefício/dor',
-    offerTitle: 'Título da oferta / desconto',
-    offerText: 'Parágrafo que apresenta a oferta',
-    discountValue: '40%',
-    discountLabel: 'de desconto',
-    offerCta: 'Botão da oferta (ex: Ver oferta)',
-    storyTitle: 'Título da história de sucesso (ex: Veja a história de quem já ajudamos)',
-    storyText: 'Depoimento/história em prosa — prova social',
-    opportunityTitle: 'Título da seção de preço (ex: Oportunidade única)',
-    bullet: 'Benefício incluído na oferta',
-    priceLabel: 'Linha acima do preço (ex: ou 12x de)',
-    price: 'R$ 49,90',
-    priceSecondary: 'ou R$ 588 à vista',
-    priceCta: 'Botão de compra (ex: Quero aprender)',
-    testimonialName: 'Nome',
-    testimonialRole: 'Cargo / contexto',
-    testimonialText: 'Depoimento curto',
-  },
+  // Textos-guia de cada slot vazio: src/i18n/locales/{pt,en}/wireframes.js (vsl.ph).
 }

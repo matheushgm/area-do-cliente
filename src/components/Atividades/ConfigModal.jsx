@@ -5,8 +5,11 @@ import { X, Loader2 } from 'lucide-react'
 import Modal from '../UI/Modal'
 import { supabase } from '../../lib/supabase'
 import { TIPOS_TAREFA } from '../../hooks/usePlanejador'
+import { useI18n } from '../../i18n'
+import { rotuloTipoTarefa } from '../../lib/tarefas'
 
 export default function ConfigModal({ config, responsaveis, userId, onClose, onSaved, onError }) {
+  const { t } = useI18n()
   const [capPadrao, setCapPadrao] = useState(String(config.capacidade_padrao_horas_dia))
   const [capPessoa, setCapPessoa] = useState(() => ({ ...(config.capacidade_por_pessoa || {}) }))
   const [diasAtraso, setDiasAtraso] = useState(String(config.dias_atraso_maximo))
@@ -42,36 +45,36 @@ export default function ConfigModal({ config, responsaveis, userId, onClose, onS
     <Modal onClose={onClose} maxWidth="2xl" className="ln max-h-[90vh] overflow-y-auto !bg-ln-panel !border-ln-ink/[0.12] !rounded-xl">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-[15px] font-semibold text-ln-t1">Capacidade e horas padrão</h2>
-          <p className="text-xs text-ln-t3 mt-0.5">Regras do cálculo de data. Valem para o time inteiro.</p>
+          <h2 className="text-[15px] font-semibold text-ln-t1">{t('atividades.config.titulo')}</h2>
+          <p className="text-xs text-ln-t3 mt-0.5">{t('atividades.config.subtitulo')}</p>
         </div>
-        <button onClick={onClose} className="ln-iconbtn" aria-label="Fechar"><X className="w-4 h-4" /></button>
+        <button onClick={onClose} className="ln-iconbtn" aria-label={t('comum.fechar')}><X className="w-4 h-4" /></button>
       </div>
       <div className="space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className="ln-label">Horas produtivas por dia</label>
+            <label className="ln-label">{t('atividades.config.horasDia')}</label>
             <input type="number" min="1" max="12" step="0.5" value={capPadrao} onChange={(e) => setCapPadrao(e.target.value)} className="ln-input tabular" />
-            <p className="text-[11px] text-ln-t4 mt-1">padrão para quem não tem valor próprio</p>
+            <p className="text-[11px] text-ln-t4 mt-1">{t('atividades.config.horasDiaHint')}</p>
           </div>
           <div>
-            <label className="ln-label">Ignorar atrasadas há mais de (dias)</label>
+            <label className="ln-label">{t('atividades.config.ignorarAtrasadas')}</label>
             <input type="number" min="0" step="1" value={diasAtraso} onChange={(e) => setDiasAtraso(e.target.value)} className="ln-input tabular" />
-            <p className="text-[11px] text-ln-t4 mt-1">viram alerta, não bloqueiam a agenda</p>
+            <p className="text-[11px] text-ln-t4 mt-1">{t('atividades.config.ignorarAtrasadasHint')}</p>
           </div>
           <div>
-            <label className="ln-label">Horas de tarefa sem estimativa</label>
+            <label className="ln-label">{t('atividades.config.semEstimativa')}</label>
             <input type="number" min="0.25" step="0.25" value={padraoSem} onChange={(e) => setPadraoSem(e.target.value)} className="ln-input tabular" />
-            <p className="text-[11px] text-ln-t4 mt-1">sem tipo nem dificuldade no ClickUp</p>
+            <p className="text-[11px] text-ln-t4 mt-1">{t('atividades.config.semEstimativaHint')}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-4 text-[13px] text-ln-t2">
-          <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={backlog} onChange={(e) => setBacklog(e.target.checked)} className="w-3.5 h-3.5 accent-[#5e6ad2]" /> Tarefas em backlog (com data) contam na agenda</label>
-          <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={semData} onChange={(e) => setSemData(e.target.checked)} className="w-3.5 h-3.5 accent-[#5e6ad2]" /> Tarefas sem data contam em hoje</label>
+          <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={backlog} onChange={(e) => setBacklog(e.target.checked)} className="w-3.5 h-3.5 accent-[#5e6ad2]" /> {t('atividades.config.backlog')}</label>
+          <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={semData} onChange={(e) => setSemData(e.target.checked)} className="w-3.5 h-3.5 accent-[#5e6ad2]" /> {t('atividades.config.semData')}</label>
         </div>
 
         <div>
-          <p className="text-[11px] font-medium text-ln-t4 uppercase tracking-wider mb-2">Capacidade por pessoa (h/dia)</p>
+          <p className="text-[11px] font-medium text-ln-t4 uppercase tracking-wider mb-2">{t('atividades.config.capacidadePessoa')}</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {responsaveis.map((r) => (
               <label key={r.id} className="flex items-center gap-2 text-xs text-ln-t2">
@@ -83,21 +86,21 @@ export default function ConfigModal({ config, responsaveis, userId, onClose, onS
         </div>
 
         <div>
-          <p className="text-[11px] font-medium text-ln-t4 uppercase tracking-wider mb-2">Horas por tipo de tarefa (quando a task do ClickUp não tem estimativa)</p>
+          <p className="text-[11px] font-medium text-ln-t4 uppercase tracking-wider mb-2">{t('atividades.config.horasTipo')}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {TIPOS_TAREFA.map((t) => (
-              <label key={t} className="flex items-center gap-2 text-xs text-ln-t2">
-                <span className="flex-1 truncate">{t}</span>
-                <input type="number" min="0.25" step="0.25" value={horasTipo[t] ?? ''} onChange={(e) => setHorasTipo((p) => ({ ...p, [t]: e.target.value }))} className={num} />
+            {TIPOS_TAREFA.map((tipo) => (
+              <label key={tipo} className="flex items-center gap-2 text-xs text-ln-t2">
+                <span className="flex-1 truncate">{rotuloTipoTarefa(tipo)}</span>
+                <input type="number" min="0.25" step="0.25" value={horasTipo[tipo] ?? ''} onChange={(e) => setHorasTipo((p) => ({ ...p, [tipo]: e.target.value }))} className={num} />
               </label>
             ))}
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-ln-ink/5">
-          <button onClick={onClose} className="ln-pill">Cancelar</button>
+          <button onClick={onClose} className="ln-pill">{t('comum.cancelar')}</button>
           <button onClick={salvar} disabled={saving} className="ln-primary">
-            {saving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Salvando…</> : 'Salvar'}
+            {saving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('comum.salvando')}</> : t('comum.salvar')}
           </button>
         </div>
       </div>

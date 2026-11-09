@@ -1,4 +1,5 @@
 import { PILLARS } from './KickoffQuestions'
+import { useI18n } from '../../i18n'
 
 // Radar/aranha dos 9 pilares em SVG puro. Sem dep externa.
 // Pode ser usado na tela (com bg do design system) e dentro do HTML do PDF
@@ -9,6 +10,7 @@ export default function KickoffRadar({
   height = 420,
   fillColor = '#7C3AED',
 }) {
+  const { t } = useI18n()
   const cx = width / 2
   const cy = height / 2
   const radius = Math.min(width, height) / 2 - 60  // padding pros labels
@@ -58,7 +60,7 @@ export default function KickoffRadar({
       height={height}
       className="block mx-auto"
       role="img"
-      aria-label="Mapa visual de pilares"
+      aria-label={t('kickoff.resultado.radarAria')}
     >
       {/* Rings de referência */}
       {rings.map((r) => (

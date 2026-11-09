@@ -6,10 +6,11 @@ import { useMemo } from 'react'
 import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react'
 import { fmtCurrency, mrrValue, entryDate } from '../../lib/utils'
 import { netStats, netSeries, monthOptions, monthKey } from '../../lib/growth'
+import { useI18n, localeAtual } from '../../i18n'
 
 const MESES = 12
 
-const fmtData = (d) => (d ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')
+const fmtData = (d) => (d ? d.toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')
 const dataChurn = (p) => (p.churnDate ? new Date(p.churnDate + 'T00:00:00') : null)
 
 // "+R$ 4.600" / "−R$ 700" / "R$ 0"
@@ -18,11 +19,12 @@ export function fmtNet(v) {
   return `${v > 0 ? '+' : '−'}${fmtCurrency(Math.abs(v))}`
 }
 const corNet = (v) => (v > 0 ? 'text-rl-green' : v < 0 ? 'text-rl-red' : 'text-rl-text')
-export const fmtPct = (v) => (v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1).replace('.', ',')}%`)
+export const fmtPct = (v) => (v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toLocaleString(localeAtual(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`)
 
 // ─── Barras: Net MRR por mês (positivo acima, negativo abaixo) ──────────────
 // Cada barra é um botão que escolhe o mês.
 function NetBars({ series, selKey, onSelect }) {
+  const { t } = useI18n()
   const max = Math.max(...series.map(s => Math.abs(s.net)), 1)
   return (
     <div className="flex items-stretch justify-between gap-1.5 sm:gap-2">
@@ -39,7 +41,14 @@ function NetBars({ series, selKey, onSelect }) {
             type="button"
             onClick={() => onSelect(key)}
             aria-pressed={sel}
-            title={`${s.label}: ${s.novos.count} entrada(s) ${fmtCurrency(s.novos.mrr)} · ${s.churn.count} saída(s) ${fmtCurrency(s.churn.mrr)} · net ${fmtNet(s.net)}`}
+            title={t('crescimento.barra', {
+              mes: s.label,
+              entradas: t('crescimento.entradas', { count: s.novos.count }),
+              entrou: fmtCurrency(s.novos.mrr),
+              saidas: t('crescimento.saidas', { count: s.churn.count }),
+              saiu: fmtCurrency(s.churn.mrr),
+              net: fmtNet(s.net),
+            })}
             className={`flex-1 min-w-0 flex flex-col items-center rounded-lg pt-1 pb-1.5 transition-colors ${sel ? 'bg-rl-surface' : 'hover:bg-rl-surface/60'}`}
           >
             <div className="w-full h-16 flex items-end justify-center px-1">
@@ -77,32 +86,36 @@ function Tile({ rotulo, valor, cor = 'text-rl-text', extra, children }) {
 
 // Percentual de crescimento do Net MRR sobre o MRR do início do mês, ao lado do valor.
 export function PctNet({ valor }) {
+  const { t } = useI18n()
   if (valor == null) return null
   return (
-    <span className={`text-sm font-semibold tabular-nums ${corNet(valor)}`} title="Crescimento sobre o MRR do início do mês">
+    <span className={`text-sm font-semibold tabular-nums ${corNet(valor)}`} title={t('crescimento.crescimentoDica')}>
       {fmtPct(valor)}
     </span>
   )
 }
 
 function Delta({ valor, bom = 'sobe' }) {
-  if (!valor) return <span className="text-rl-muted">igual ao mês anterior</span>
+  const { t } = useI18n()
+  if (!valor) return <span className="text-rl-muted">{t('crescimento.igualMesAnterior')}</span>
   const sobe = valor > 0
   const ok = bom === 'sobe' ? sobe : !sobe
   const Icone = sobe ? TrendingUp : TrendingDown
   return (
     <span className={`inline-flex items-center gap-1 font-semibold ${ok ? 'text-rl-green' : 'text-rl-red'}`}>
       <Icone className="w-3 h-3" />
-      {fmtNet(valor)} vs. mês anterior
+      {t('crescimento.vsMesAnterior', { valor: fmtNet(valor) })}
     </span>
   )
 }
 
 // `mes`: 'yyyy-mm' escolhido (null = mês corrente). `aba`: 'novos' | 'churn'.
 export function CrescimentoView({ projects, squads, yyyy, mm, mes, aba = 'novos', onMes, onAba, onVoltar, onOpenProject }) {
+  const { t, lang } = useI18n()
   const options = monthOptions(yyyy, mm, MESES)
   const sel = options.find(o => o.key === mes) || options[0]
-  const series = useMemo(() => netSeries(projects, yyyy, mm, MESES), [projects, yyyy, mm])
+  // `lang` nas dependências: os rótulos dos meses (s.label) saem no idioma atual.
+  const series = useMemo(() => netSeries(projects, yyyy, mm, MESES), [projects, yyyy, mm, lang]) // eslint-disable-line react-hooks/exhaustive-deps
   const cur = netStats(projects, sel.yyyy, sel.mm)
   const idx = series.findIndex(s => monthKey(s.yyyy, s.mm) === sel.key)
   const prev = idx > 0 ? series[idx - 1] : netStats(projects, new Date(sel.yyyy, sel.mm - 1, 1).getFullYear(), new Date(sel.yyyy, sel.mm - 1, 1).getMonth())
@@ -124,16 +137,16 @@ export function CrescimentoView({ projects, squads, yyyy, mm, mes, aba = 'novos'
             onClick={onVoltar}
             className="inline-flex items-center gap-1.5 text-xs font-medium text-rl-muted hover:text-rl-text mb-2"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Clientes
+            <ArrowLeft className="w-3.5 h-3.5" /> {t('crescimento.voltar')}
           </button>
-          <h1 className="text-2xl font-bold text-rl-text">Crescimento da base</h1>
+          <h1 className="text-2xl font-bold text-rl-text">{t('crescimento.titulo')}</h1>
           <p className="text-sm text-rl-muted mt-0.5">
-            MRR que entrou menos o que saiu, mês a mês. Acumulado em {MESES} meses:{' '}
+            {t('crescimento.subtitulo', { meses: MESES })}{' '}
             <span className={`font-semibold ${corNet(acumulado)}`}>{fmtNet(acumulado)}</span>
           </p>
         </div>
         <select
-          aria-label="Mês de referência"
+          aria-label={t('crescimento.mesReferencia')}
           value={sel.key}
           onChange={(e) => onMes(e.target.value)}
           className="input-field w-full sm:w-56"
@@ -144,42 +157,42 @@ export function CrescimentoView({ projects, squads, yyyy, mm, mes, aba = 'novos'
 
       {/* O mês escolhido */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Tile rotulo="MRR no início do mês" valor={fmtCurrency(cur.mrrInicial)}>
-          {sel.key === options[0].key ? 'Hoje' : 'Fechou o mês em'} <span className="font-semibold text-rl-text">{fmtCurrency(cur.mrrFinal)}</span>
+        <Tile rotulo={t('crescimento.mrrInicio')} valor={fmtCurrency(cur.mrrInicial)}>
+          {sel.key === options[0].key ? t('crescimento.hoje') : t('crescimento.fechouEm')} <span className="font-semibold text-rl-text">{fmtCurrency(cur.mrrFinal)}</span>
         </Tile>
-        <Tile rotulo={`Entraram · ${cur.novos.count}`} valor={`+${fmtCurrency(cur.novos.mrr)}`} cor={cur.novos.mrr ? 'text-rl-green' : 'text-rl-text'}>
+        <Tile rotulo={t('crescimento.entraramN', { count: cur.novos.count })} valor={`+${fmtCurrency(cur.novos.mrr)}`} cor={cur.novos.mrr ? 'text-rl-green' : 'text-rl-text'}>
           <Delta valor={cur.novos.mrr - prev.novos.mrr} bom="sobe" />
         </Tile>
-        <Tile rotulo={`Saíram · ${cur.churn.count}`} valor={`−${fmtCurrency(cur.churn.mrr)}`} cor={cur.churn.mrr ? 'text-rl-red' : 'text-rl-text'}>
-          {cur.churnRatePct != null ? `${fmtPct(cur.churnRatePct).replace('+', '')} da base · ` : ''}
+        <Tile rotulo={t('crescimento.sairamN', { count: cur.churn.count })} valor={`−${fmtCurrency(cur.churn.mrr)}`} cor={cur.churn.mrr ? 'text-rl-red' : 'text-rl-text'}>
+          {cur.churnRatePct != null ? t('crescimento.daBase', { pct: fmtPct(cur.churnRatePct).replace('+', '') }) : ''}
           <Delta valor={cur.churn.mrr - prev.churn.mrr} bom="desce" />
         </Tile>
-        <Tile rotulo={`Net MRR · ${cur.label}`} valor={fmtNet(cur.net)} cor={corNet(cur.net)} extra={<PctNet valor={cur.growthPct} />}>
-          crescimento sobre o MRR do início do mês
+        <Tile rotulo={t('crescimento.netMrrMes', { mes: cur.label })} valor={fmtNet(cur.net)} cor={corNet(cur.net)} extra={<PctNet valor={cur.growthPct} />}>
+          {t('crescimento.crescimentoSobreInicio')}
         </Tile>
       </div>
 
       {/* Série */}
-      <section className="glass-card p-5" aria-label="Net MRR por mês">
+      <section className="glass-card p-5" aria-label={t('crescimento.netPorMes')}>
         <div className="flex items-baseline justify-between gap-3 mb-3">
-          <h2 className="text-sm font-semibold text-rl-text">Net MRR por mês</h2>
-          <span className="text-[11px] text-rl-muted">últimos {MESES} meses · clique num mês para ver o detalhe</span>
+          <h2 className="text-sm font-semibold text-rl-text">{t('crescimento.netPorMes')}</h2>
+          <span className="text-[11px] text-rl-muted">{t('crescimento.netPorMesDica', { meses: MESES })}</span>
         </div>
         <NetBars series={series} selKey={sel.key} onSelect={onMes} />
       </section>
 
       {/* Mês a mês */}
-      <section className="glass-card overflow-hidden" aria-label="Mês a mês">
+      <section className="glass-card overflow-hidden" aria-label={t('crescimento.mesAMes')}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[40rem] text-sm">
             <thead>
               <tr className="bg-rl-surface/60 border-b border-rl-border text-[11px] font-semibold uppercase tracking-wider text-rl-muted">
-                <th className="text-left px-4 py-2.5">Mês</th>
-                <th className="text-right px-4 py-2.5">MRR no início</th>
-                <th className="text-right px-4 py-2.5">Entraram</th>
-                <th className="text-right px-4 py-2.5">Saíram</th>
-                <th className="text-right px-4 py-2.5">Net MRR</th>
-                <th className="text-right px-4 py-2.5">Crescimento</th>
+                <th className="text-left px-4 py-2.5">{t('crescimento.colunas.mes')}</th>
+                <th className="text-right px-4 py-2.5">{t('crescimento.colunas.mrrInicio')}</th>
+                <th className="text-right px-4 py-2.5">{t('crescimento.colunas.entraram')}</th>
+                <th className="text-right px-4 py-2.5">{t('crescimento.colunas.sairam')}</th>
+                <th className="text-right px-4 py-2.5">{t('crescimento.colunas.netMrr')}</th>
+                <th className="text-right px-4 py-2.5">{t('crescimento.colunas.crescimento')}</th>
               </tr>
             </thead>
             <tbody>
@@ -213,26 +226,26 @@ export function CrescimentoView({ projects, squads, yyyy, mm, mes, aba = 'novos'
       </section>
 
       {/* Quem entrou / saiu no mês */}
-      <section className="glass-card overflow-hidden" aria-label={`Clientes de ${cur.label}`}>
+      <section className="glass-card overflow-hidden" aria-label={t('crescimento.clientesDe', { mes: cur.label })}>
         <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-rl-border">
           <h2 className="text-sm font-semibold text-rl-text mr-auto">{cur.label}</h2>
           <div className="flex items-center gap-1 p-1 rounded-xl bg-rl-surface border border-rl-border" role="tablist">
             {[
-              { id: 'novos', rotulo: 'Entraram', n: cur.novos.count },
-              { id: 'churn', rotulo: 'Saíram',   n: cur.churn.count },
-            ].map(t => (
+              { id: 'novos', rotulo: t('crescimento.entraram'), n: cur.novos.count },
+              { id: 'churn', rotulo: t('crescimento.sairam'),   n: cur.churn.count },
+            ].map(tab => (
               <button
-                key={t.id}
+                key={tab.id}
                 type="button"
                 role="tab"
-                aria-selected={aba === t.id}
-                onClick={() => onAba(t.id)}
+                aria-selected={aba === tab.id}
+                onClick={() => onAba(tab.id)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                  aba === t.id ? 'bg-rl-card text-rl-text shadow-sm' : 'text-rl-muted hover:text-rl-text'
+                  aba === tab.id ? 'bg-rl-card text-rl-text shadow-sm' : 'text-rl-muted hover:text-rl-text'
                 }`}
               >
-                {t.rotulo}
-                <span className="tabular-nums text-rl-muted">{t.n}</span>
+                {tab.rotulo}
+                <span className="tabular-nums text-rl-muted">{tab.n}</span>
               </button>
             ))}
           </div>
@@ -240,7 +253,7 @@ export function CrescimentoView({ projects, squads, yyyy, mm, mes, aba = 'novos'
 
         {lista.length === 0 ? (
           <p className="text-sm text-rl-muted py-8 text-center">
-            {aba === 'churn' ? 'Nenhum cliente saiu neste mês.' : 'Nenhum cliente entrou neste mês.'}
+            {aba === 'churn' ? t('crescimento.nenhumSaiu') : t('crescimento.nenhumEntrou')}
           </p>
         ) : (
           <ul>
@@ -256,13 +269,13 @@ export function CrescimentoView({ projects, squads, yyyy, mm, mes, aba = 'novos'
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-rl-text truncate">{p.companyName || '—'}</p>
                       <p className="text-[11px] text-rl-muted truncate">
-                        {sq ? `${sq.emoji ? sq.emoji + ' ' : ''}${sq.name}` : 'sem squad'} ·{' '}
-                        {aba === 'churn' ? `saiu em ${fmtData(dataChurn(p))}` : `entrou em ${fmtData(entryDate(p))}`}
+                        {sq ? `${sq.emoji ? sq.emoji + ' ' : ''}${sq.name}` : t('crescimento.semSquad')} ·{' '}
+                        {aba === 'churn' ? t('crescimento.saiuEm', { data: fmtData(dataChurn(p)) }) : t('crescimento.entrouEm', { data: fmtData(entryDate(p)) })}
                       </p>
                     </div>
                     <div className="text-right tabular-nums shrink-0">
-                      <p className={`text-sm font-bold ${aba === 'churn' ? 'text-rl-red' : 'text-rl-green'}`}>{fmtCurrency(mrrValue(p))}<span className="text-[11px] font-medium text-rl-muted">/mês</span></p>
-                      <p className="text-[11px] text-rl-muted">contrato {fmtCurrency(Number(p.contractValue) || 0)}</p>
+                      <p className={`text-sm font-bold ${aba === 'churn' ? 'text-rl-red' : 'text-rl-green'}`}>{fmtCurrency(mrrValue(p))}<span className="text-[11px] font-medium text-rl-muted">{t('crescimento.porMes')}</span></p>
+                      <p className="text-[11px] text-rl-muted">{t('crescimento.contrato', { valor: fmtCurrency(Number(p.contractValue) || 0) })}</p>
                     </div>
                   </button>
                 </li>

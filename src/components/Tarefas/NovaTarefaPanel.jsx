@@ -11,11 +11,13 @@ import { Secao, ListaSubtarefas, ListaRelacoes } from './SecoesTarefa'
 import { TIPOS_RELACAO, ROTULO_DIRETO } from './TarefaExtras'
 import { useBuscaRelacao } from '../../hooks/useBuscaRelacao'
 import { statusDaLista, statusInicial, novoId } from '../../lib/tarefas'
+import { useI18n } from '../../i18n'
 
 const semAcento = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 /** Lista da tarefa com busca pelo nome do cliente (pasta) ou da lista. */
 function ListaCampo({ grupos, valor, onChange }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [busca, setBusca] = useState('')
   const ref = useRef(null)
@@ -32,20 +34,20 @@ function ListaCampo({ grupos, valor, onChange }) {
   const fechar = () => { setOpen(false); setBusca('') }
   return (
     <>
-      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`inline-flex items-center gap-1 min-w-0 max-w-full h-7 px-1.5 -mx-1.5 rounded-md text-xs hover:bg-ln-ink/[0.04] ${atual ? 'text-ln-t2' : 'text-ln-t4'} ${FOCO}`} aria-label="Lista da tarefa" aria-haspopup="listbox" aria-expanded={open}>
+      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className={`inline-flex items-center gap-1 min-w-0 max-w-full h-7 px-1.5 -mx-1.5 rounded-md text-xs hover:bg-ln-ink/[0.04] ${atual ? 'text-ln-t2' : 'text-ln-t4'} ${FOCO}`} aria-label={t('tarefaPainel.nova.listaTarefa')} aria-haspopup="listbox" aria-expanded={open}>
         {atual ? (<>
           {atual.pasta && <span className="truncate text-ln-t3">{atual.pasta.nome}</span>}
           {atual.pasta && <span className="text-ln-t4">/</span>}
           <span className="truncate">{atual.lista.nome}</span>
-        </>) : 'escolher lista'}
+        </>) : t('tarefaPainel.nova.escolherLista')}
         <ChevronDown className="w-3 h-3 shrink-0 text-ln-t4" />
       </button>
       <Popover anchorRef={ref} open={open} onClose={fechar} width={300} alturaMax={380}>
-        <BuscaMenu valor={busca} onChange={setBusca} placeholder="Buscar cliente ou lista..." />
+        <BuscaMenu valor={busca} onChange={setBusca} placeholder={t('tarefaPainel.nova.buscarClienteLista')} />
         <div className="p-1 overflow-y-auto" role="listbox">
           {filtrados.map((g) => (
             <div key={g.pasta?.id || 'soltas'}>
-              <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1 text-[11px] text-ln-t4"><Folder className="w-3 h-3" /><span className="truncate">{g.pasta?.nome || 'Sem pasta'}</span></div>
+              <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1 text-[11px] text-ln-t4"><Folder className="w-3 h-3" /><span className="truncate">{g.pasta?.nome || t('tarefaPainel.nova.semPasta')}</span></div>
               {g.listas.map((l) => (
                 <ItemMenu key={l.id} ativo={l.id === valor} onClick={() => { onChange(l.id); fechar() }}>
                   <span className="truncate pl-4">{l.nome}</span>
@@ -53,7 +55,7 @@ function ListaCampo({ grupos, valor, onChange }) {
               ))}
             </div>
           ))}
-          {!filtrados.length && <div className="px-2.5 py-3 text-xs text-ln-t4">Nenhum cliente ou lista encontrado.</div>}
+          {!filtrados.length && <div className="px-2.5 py-3 text-xs text-ln-t4">{t('tarefaPainel.nova.nadaEncontrado')}</div>}
         </div>
       </Popover>
     </>
@@ -65,6 +67,7 @@ function ListaCampo({ grupos, valor, onChange }) {
  * pré-preenchidos (lista_id, responsaveis). onCriar(payload) devolve { data } ou { error }.
  */
 export default function NovaTarefaPanel({ grupos, listasMap, inicial, membros, membrosMap, onCriar, onCancelar }) {
+  const { t } = useI18n()
   const [f, setF] = useState(() => ({
     titulo: '', descricao: '', prioridade: null, data_inicio: null, data_vencimento: null, estimativa_min: null,
     tipo_tarefa: null, departamento: [], responsaveis: [], status: null, subtarefas: [], relacoes: [], checklists: [], ...inicial,
@@ -84,8 +87,8 @@ export default function NovaTarefaPanel({ grupos, listasMap, inicial, membros, m
 
   async function criar() {
     if (salvando) return
-    if (!f.lista_id) { setErro('Escolha a lista da tarefa'); return }
-    if (!f.titulo.trim()) { setErro('Dê um nome à tarefa'); tituloRef.current?.focus(); return }
+    if (!f.lista_id) { setErro(t('tarefaPainel.nova.erroLista')); return }
+    if (!f.titulo.trim()) { setErro(t('tarefaPainel.nova.erroNome')); tituloRef.current?.focus(); return }
     setSalvando(true)
     const r = await onCriar({ ...f, titulo: f.titulo.trim(), descricao: f.descricao?.trim() || null, status: status?.key })
     setSalvando(false)
@@ -107,48 +110,48 @@ export default function NovaTarefaPanel({ grupos, listasMap, inicial, membros, m
             onChange={(e) => mudar({ titulo: e.target.value })}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) e.preventDefault() }}
             rows={1}
-            placeholder="Nome da tarefa"
-            aria-label="Título da tarefa"
+            placeholder={t('tarefaPainel.nova.nomeTarefa')}
+            aria-label={t('tarefaPainel.tituloTarefa')}
             className="w-full bg-transparent text-xl font-semibold tracking-[-0.01em] leading-tight outline-none resize-none rounded-md -mx-1 px-1 text-ln-t1 placeholder:text-ln-t4 hover:bg-ln-ink/[0.03] focus:bg-ln-ink/[0.04]"
           />
         </header>
 
         <section>
-          <p className="ln-label">Propriedades</p>
+          <p className="ln-label">{t('tarefaPainel.propriedades')}</p>
           <dl className="flex flex-col">
-            <Propriedade label="Lista">
+            <Propriedade label={t('tarefaPainel.prop.lista')}>
               <ListaCampo grupos={grupos} valor={f.lista_id} onChange={(id) => mudar({ lista_id: id })} />
             </Propriedade>
-            <Propriedade label="Status">
-              {lista ? <StatusCampo item={{ status: status?.key }} statuses={statuses} onChange={(s) => mudar({ status: s.key })} /> : <span className="text-ln-t4">escolha a lista</span>}
+            <Propriedade label={t('tarefaPainel.prop.status')}>
+              {lista ? <StatusCampo item={{ status: status?.key }} statuses={statuses} onChange={(s) => mudar({ status: s.key })} /> : <span className="text-ln-t4">{t('tarefaPainel.nova.escolhaLista')}</span>}
             </Propriedade>
-            <Propriedade label="Responsáveis">
+            <Propriedade label={t('tarefaPainel.prop.responsaveis')}>
               <ResponsavelCampo item={{ responsaveis: f.responsaveis, responsaveis_extra: [] }} membros={membros} membrosMap={membrosMap} size={16} max={4} comNome onChange={(ids) => mudar({ responsaveis: ids })} />
             </Propriedade>
-            <Propriedade label="Prioridade"><PrioridadeCampo valor={f.prioridade} onChange={(v) => mudar({ prioridade: v })} /></Propriedade>
-            <Propriedade label="Início"><DataCampo valor={f.data_inicio} placeholder="definir" {...limitesInicio(f)} onChange={(v) => mudar({ data_inicio: v })} /></Propriedade>
-            <Propriedade label="Vencimento"><DataCampo valor={f.data_vencimento} placeholder="definir" {...limitesVencimento(f)} onChange={(v) => mudar({ data_vencimento: v })} /></Propriedade>
-            <Propriedade label="Estimativa"><EstimativaCampo valor={f.estimativa_min} onChange={(v) => mudar({ estimativa_min: v })} /></Propriedade>
-            <Propriedade label="Tipo"><TipoTarefaCampo valor={f.tipo_tarefa} onChange={(v) => mudar({ tipo_tarefa: v })} /></Propriedade>
-            <Propriedade label="Departamento"><DepartamentoCampo valor={f.departamento} onChange={(v) => mudar({ departamento: v })} /></Propriedade>
+            <Propriedade label={t('tarefaPainel.prop.prioridade')}><PrioridadeCampo valor={f.prioridade} onChange={(v) => mudar({ prioridade: v })} /></Propriedade>
+            <Propriedade label={t('tarefaPainel.prop.inicio')}><DataCampo valor={f.data_inicio} placeholder={t('tarefaPainel.definir')} {...limitesInicio(f)} onChange={(v) => mudar({ data_inicio: v })} /></Propriedade>
+            <Propriedade label={t('tarefaPainel.prop.vencimento')}><DataCampo valor={f.data_vencimento} placeholder={t('tarefaPainel.definir')} {...limitesVencimento(f)} onChange={(v) => mudar({ data_vencimento: v })} /></Propriedade>
+            <Propriedade label={t('tarefaPainel.prop.estimativa')}><EstimativaCampo valor={f.estimativa_min} onChange={(v) => mudar({ estimativa_min: v })} /></Propriedade>
+            <Propriedade label={t('tarefaPainel.prop.tipo')}><TipoTarefaCampo valor={f.tipo_tarefa} onChange={(v) => mudar({ tipo_tarefa: v })} /></Propriedade>
+            <Propriedade label={t('tarefaPainel.prop.departamento')}><DepartamentoCampo valor={f.departamento} onChange={(v) => mudar({ departamento: v })} /></Propriedade>
           </dl>
         </section>
 
         <section>
-          <p className="ln-label">Descrição</p>
-          <MarkdownEditor value={f.descricao} onChange={(v) => mudar({ descricao: v })} minHeight={120} placeholder="Escreva a descrição (aceita markdown)..." className="md-editor--13 text-ln-t2" />
+          <p className="ln-label">{t('tarefaPainel.secao.descricao')}</p>
+          <MarkdownEditor value={f.descricao} onChange={(v) => mudar({ descricao: v })} minHeight={120} placeholder={t('tarefaPainel.descricaoPlaceholder')} className="md-editor--13 text-ln-t2" />
         </section>
 
-        <Secao titulo="Subtarefas">
+        <Secao titulo={t('tarefaPainel.secao.subtarefas')}>
           <ListaSubtarefas
             itens={f.subtarefas}
             onAbrir={() => {}}
             onAdicionar={async (titulo) => mudar({ subtarefas: [...f.subtarefas, { id: novoId(), titulo }] })}
-            fim={(s) => <button type="button" onClick={() => mudar({ subtarefas: f.subtarefas.filter((x) => x.id !== s.id) })} className="ln-iconbtn !w-5 !h-5" aria-label={`Tirar a subtarefa ${s.titulo}`}><X className="w-3 h-3" /></button>}
+            fim={(s) => <button type="button" onClick={() => mudar({ subtarefas: f.subtarefas.filter((x) => x.id !== s.id) })} className="ln-iconbtn !w-5 !h-5" aria-label={t('tarefaPainel.nova.tirarSubtarefa', { titulo: s.titulo })}><X className="w-3 h-3" /></button>}
           />
         </Secao>
 
-        <Secao titulo="Relações">
+        <Secao titulo={t('tarefaPainel.secao.relacoes')}>
           <ListaRelacoes
             linhas={f.relacoes.map((r) => ({
               key: r.key, rotulo: ROTULO_DIRETO[r.tipo], titulo: r.alvo.titulo, concluida: r.alvo.status_tipo === 'closed',
@@ -157,14 +160,14 @@ export default function NovaTarefaPanel({ grupos, listasMap, inicial, membros, m
             tipos={TIPOS_RELACAO}
             buscar={busca.buscar} escopo={busca.escopo} placeholder={busca.placeholder} membrosMap={membrosMap}
             onAdicionar={async (tipo, alvo) => {
-              if (f.relacoes.some((r) => r.tipo === tipo && r.alvo.id === alvo.id)) { setErro('Essa relação já está na lista'); return false }
+              if (f.relacoes.some((r) => r.tipo === tipo && r.alvo.id === alvo.id)) { setErro(t('tarefaPainel.nova.relacaoNaLista')); return false }
               mudar({ relacoes: [...f.relacoes, { key: novoId(), tipo, alvo }] })
               return true
             }}
           />
         </Secao>
 
-        <Secao titulo="Checklists">
+        <Secao titulo={t('tarefaPainel.secao.checklists')}>
           <Checklists checklists={f.checklists} onChange={(v) => mudar({ checklists: v })} />
         </Secao>
       </div>
@@ -172,9 +175,9 @@ export default function NovaTarefaPanel({ grupos, listasMap, inicial, membros, m
       <div className="shrink-0 flex items-center gap-2 px-4 py-3 border-t border-ln-ink/[0.06]">
         {erro && <span className="text-xs text-ln-red truncate" role="alert">{erro}</span>}
         <span className="ml-auto text-[11px] text-ln-t4 hidden sm:inline-flex items-center gap-1"><kbd className="ln-kbd">Ctrl</kbd>+<kbd className="ln-kbd">Enter</kbd></span>
-        <button type="button" onClick={onCancelar} className="ln-pill">Cancelar</button>
+        <button type="button" onClick={onCancelar} className="ln-pill">{t('comum.cancelar')}</button>
         <button type="button" onClick={criar} disabled={salvando} className="ln-primary inline-flex items-center gap-1.5 disabled:opacity-60">
-          {salvando && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Criar tarefa
+          {salvando && <Loader2 className="w-3.5 h-3.5 animate-spin" />} {t('tarefaPainel.nova.criarTarefa')}
         </button>
       </div>
     </div>

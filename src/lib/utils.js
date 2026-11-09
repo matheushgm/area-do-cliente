@@ -1,4 +1,5 @@
 // Funções utilitárias puras compartilhadas entre páginas e componentes
+import { t, localeAtual } from '../i18n'
 
 export function initials(name = '') {
   return name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('')
@@ -12,30 +13,30 @@ export function iniciais(nome) {
   return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase()
 }
 
-// Moeda BRL; `decimals` = casas decimais (0 por padrão). Vazio/NaN/∞ → '—'.
+// Moeda BRL no formato do idioma atual; `decimals` = casas decimais (0 por padrão). Vazio/NaN/∞ → '—'.
 export function fmtCurrency(n, decimals = 0) {
   const v = Number(n)
   if (n == null || n === '' || isNaN(v) || !isFinite(v)) return '—'
-  return v.toLocaleString('pt-BR', {
+  return v.toLocaleString(localeAtual(), {
     style: 'currency', currency: 'BRL', minimumFractionDigits: decimals, maximumFractionDigits: decimals,
   })
 }
 
-// Inteiro no padrão BR ("12.345"); ∞ vira "∞".
+// Inteiro no formato do idioma atual ("12.345" / "12,345"); ∞ vira "∞".
 export function fmtNum(n) {
   if (n == null || isNaN(n)) return '—'
   if (!isFinite(n)) return '∞'
-  return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+  return n.toLocaleString(localeAtual(), { maximumFractionDigits: 0 })
 }
 
-// Data curta em pt-BR ("14 de set. de 2026"). Aceita ISO completo ou yyyy-mm-dd
+// Data curta no idioma atual ("14 de set. de 2026" / "Sep 14, 2026"). Aceita ISO completo ou yyyy-mm-dd
 // (interpretado como data local, senão o fuso joga para o dia anterior).
 // `time` inclui hora:minuto; `year: false` omite o ano. Vazio/inválido → ''.
 export function fmtDate(iso, { time = false, year = true } = {}) {
   if (!iso) return ''
   const d = new Date(typeof iso === 'string' && iso.length === 10 ? iso + 'T00:00:00' : iso)
   if (isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('pt-BR', {
+  return d.toLocaleDateString(localeAtual(), {
     day: '2-digit', month: 'short',
     ...(year ? { year: 'numeric' } : {}),
     ...(time ? { hour: '2-digit', minute: '2-digit' } : {}),
@@ -160,8 +161,8 @@ export function ltvBreakdown(project) {
       installmentValue: totalContract,
       cobrancas: 1,
       installments: 1,
-      label: 'Pagamento integral à vista',
-      explainFormula: '1 pagamento único',
+      label: t('constantes.ltv.integral'),
+      explainFormula: t('constantes.ltv.umPagamento'),
     }
   }
 
@@ -182,8 +183,8 @@ export function ltvBreakdown(project) {
       installmentValue,
       cobrancas,
       installments: cap,
-      label: `Parcela ${cobrancas} de ${cap}`,
-      explainFormula: `${cobrancas} de ${cap} parcelas`,
+      label: t('constantes.ltv.parcela', { atual: cobrancas, total: cap }),
+      explainFormula: t('constantes.ltv.parcelas', { atual: cobrancas, total: cap }),
     }
   }
 
@@ -196,8 +197,8 @@ export function ltvBreakdown(project) {
     installmentValue: totalContract,
     cobrancas: cobrancasNominais,
     installments: null, // sem cap
-    label: `${cobrancasNominais} ${cobrancasNominais === 1 ? 'cobrança mensal' : 'cobranças mensais'}`,
-    explainFormula: `${cobrancasNominais} ${cobrancasNominais === 1 ? 'cobrança' : 'cobranças'}`,
+    label: t('constantes.ltv.cobrancasMensais', { count: cobrancasNominais }),
+    explainFormula: t('constantes.ltv.cobrancas', { count: cobrancasNominais }),
   }
 }
 

@@ -13,6 +13,11 @@
 //  campanha  { nome, tipo: 'CBO'|'ABO'|'', verba, sub, opcional, nota, conjuntos[] }
 //  conjunto  { nome, sub, opcional, ads[], nota }
 //  ads       string[] (rótulos dos anúncios; "…" vira reticências)
+//
+// Inglês: src/lib/adsRoadmap.en.js tem o mesmo conteúdo na mesma estrutura.
+// Mexeu aqui, mexe lá. A tela pega o idioma certo por roadmapNoIdioma(lang).
+
+import * as EN from './adsRoadmap.en.js'
 
 export const LINKS = {
   roadmapClickUp: 'https://app.clickup.com/9009170774/docs/8cfu2ap-40333/8cfu2ap-33313',
@@ -287,7 +292,7 @@ export const BENCHMARK_INTERNO = {
 }
 
 // ─── Faixas de verba ─────────────────────────────────────────────────────────
-const NAO_FAZ = 'Não faz'
+export const NAO_FAZ = 'Não faz'
 
 export const FAIXAS = [
   // ── até R$ 1.000 ──────────────────────────────────────────────────────────
@@ -839,3 +844,53 @@ export const FAIXAS = [
     },
   },
 ]
+
+// ─── Conteúdo no idioma da tela ──────────────────────────────────────────────
+// Os exports acima continuam em português (são a fonte). Em inglês, os textos vêm
+// de adsRoadmap.en.js; os números do benchmark interno são os mesmos daqui, só com
+// a pontuação trocada (11.779 → 11,779 e 0,53% → 0.53%).
+const pontuacaoEn = (v) => (typeof v === 'string'
+  ? v.replace(/(\d)([.,])(?=\d)/g, (_, d, sep) => d + (sep === '.' ? ',' : '.'))
+  : v)
+const linhasEn = (rows) => rows.map((r) => r.map(pontuacaoEn))
+
+const BENCHMARK_INTERNO_EN = (() => {
+  const B = BENCHMARK_INTERNO
+  const T = EN.BENCHMARK_INTERNO_TEXTOS
+  const canal = (c) => ({ b2b: linhasEn([B.mediana[c].b2b])[0], b2c: linhasEn([B.mediana[c].b2c])[0] })
+  return {
+    ...B,
+    periodo: T.periodo,
+    fonte: T.fonte,
+    comoUsar: T.comoUsar,
+    definicoes: T.definicoes,
+    ressalvas: T.ressalvas,
+    mediana: {
+      meta: { cols: T.colsMediana.meta, ...canal('meta') },
+      google: { cols: T.colsMediana.google, ...canal('google') },
+    },
+    ponderada: {
+      meta: { b2b: linhasEn([B.ponderada.meta.b2b])[0], b2c: linhasEn([B.ponderada.meta.b2c])[0] },
+      google: { b2b: linhasEn([B.ponderada.google.b2b])[0], b2c: linhasEn([B.ponderada.google.b2c])[0] },
+    },
+    meta: { cols: T.colsContas.meta, b2b: linhasEn(B.meta.b2b), b2c: linhasEn(B.meta.b2c) },
+    google: { cols: T.colsContas.google, b2b: linhasEn(B.google.b2b), b2c: linhasEn(B.google.b2c) },
+  }
+})()
+
+const CONTEUDO = {
+  pt: { FAIXAS, REGRAS, BENCHMARKS, BENCHMARK_INTERNO, NOMENCLATURA, VISUALIZACOES, NAO_FAZ },
+  en: {
+    FAIXAS: EN.FAIXAS,
+    REGRAS: EN.REGRAS,
+    BENCHMARKS: EN.BENCHMARKS,
+    BENCHMARK_INTERNO: BENCHMARK_INTERNO_EN,
+    NOMENCLATURA: EN.NOMENCLATURA,
+    VISUALIZACOES: EN.VISUALIZACOES,
+    NAO_FAZ: EN.NAO_FAZ,
+  },
+}
+
+export function roadmapNoIdioma(lang) {
+  return CONTEUDO[lang] || CONTEUDO.pt
+}

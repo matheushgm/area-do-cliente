@@ -5,6 +5,7 @@
 // escolheu. Concluídas e arquivadas não andam. Puro: quem chama carrega o grafo, confirma com a
 // pessoa e grava (useCascata). Dia útil = segunda a sexta, como nos templates.
 import { paraData, datasCoerentes } from './tarefas'
+import { t, localeAtual } from '../i18n'
 
 const DATAS = ['data_inicio', 'data_vencimento']
 const COM_HORA = { data_inicio: 'inicio_com_hora', data_vencimento: 'vencimento_com_hora' }
@@ -170,13 +171,15 @@ export function planejarCascata({ itens, relacoes = [], id, patch, deslocar = tr
   return { origem: patchOrigem, delta, outras }
 }
 
-const DIA = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' })
-export const fmtDia = (v) => (paraData(v) ? DIA.format(paraData(v)) : 'sem data')
+// texto da tela: segue o idioma de quem está vendo (um formatador por locale)
+const FORMATOS_DIA = {}
+const formatoDia = (locale) => (FORMATOS_DIA[locale] ||= new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit' }))
+export const fmtDia = (v) => (paraData(v) ? formatoDia(localeAtual()).format(paraData(v)) : t('cascata.semData'))
 
 /** "+3 dias úteis" / "-1 dia útil". */
 export function rotuloDelta(n) {
   const abs = Math.abs(n)
-  return `${n > 0 ? '+' : '-'}${abs} ${abs === 1 ? 'dia útil' : 'dias úteis'}`
+  return `${n > 0 ? '+' : '-'}${t('cascata.diasUteis', { count: abs })}`
 }
 
 // ─── Entrega: atrasadas e conflitos de dependência ──────────────────────────────

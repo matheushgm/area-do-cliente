@@ -2,6 +2,9 @@
 // fila VertaTask → ClickUp (tarefas_outbox) em "lotes" (uma ação em massa ou um template
 // viram um lote só), traduz erros e avisos para quem não conhece a sincronização e
 // descreve o rastro da volta (tarefas_sync_log, migration 121). Sem React nem Supabase.
+// Os textos saem no idioma de quem vê (namespace `sincronizacao`); os objetos em português
+// abaixo ficam como referência das chaves e dos valores gravados.
+import { t as tr } from '../i18n'
 
 export const CAMPOS = {
   titulo: 'Título', descricao: 'Descrição', status: 'Status', prioridade: 'Prioridade',
@@ -10,9 +13,10 @@ export const CAMPOS = {
   departamento: 'Departamento', tags: 'Tags', checklists: 'Checklists', parent_id: 'Tarefa pai',
   lista_id: 'Lista', arquivada: 'Arquivada', cliente: 'Cliente',
 }
-export const rotuloCampo = (k) => CAMPOS[k] || k
+export const rotuloCampo = (k) => (CAMPOS[k] ? tr(`sincronizacao.campos.${k}`) : k)
 
 export const OPERACOES = { criar: 'Criar', atualizar: 'Atualizar', excluir: 'Excluir', comentar: 'Comentar', relacionar: 'Relacionar', desrelacionar: 'Desfazer relação', anexar: 'Anexar' }
+export const rotuloOperacao = (op) => (OPERACOES[op] ? tr(`sincronizacao.operacoes.${op}`) : op || '')
 
 // Relações (migration 126): como cada tipo vai para o ClickUp, do lado de payload.tarefa_id
 export const RELACOES = {
@@ -20,12 +24,14 @@ export const RELACOES = {
   relacionada: { rotulo: 'Relacionada a', clickup: 'link' },
   duplica: { rotulo: 'Duplicada de', clickup: null }, // fica só no VertaTask
 }
+export const rotuloRelacao = (tipo) => (RELACOES[tipo] ? tr(`sincronizacao.relacoes.${tipo}`) : tipo)
 /** { rotulo, outraId, clickup } de um item 'relacionar'/'desrelacionar' (null nos outros). */
 export function descreverRelacao(it) {
   const p = it?.payload
   if (!p?.tipo || (it.operacao !== 'relacionar' && it.operacao !== 'desrelacionar')) return null
-  const r = RELACOES[p.tipo] || { rotulo: p.tipo, clickup: '' }
-  return { rotulo: r.rotulo, outraId: p.relacionada_id, clickup: r.clickup }
+  const r = RELACOES[p.tipo]
+  const clickup = r ? (r.clickup ? tr(`sincronizacao.relacoesClickup.${p.tipo}`) : null) : ''
+  return { rotulo: rotuloRelacao(p.tipo), outraId: p.relacionada_id, clickup }
 }
 
 // Escritas próximas da mesma pessoa = um lote (template aplicado, edição em massa). O
@@ -40,14 +46,14 @@ const t = (iso) => (iso ? new Date(iso).getTime() : null)
 
 /** Situação de um item da fila, em palavras: { chave, rotulo, tom }. */
 export function situacaoItem(it) {
-  if (it.status === 'ok') return { chave: 'ok', rotulo: 'Enviado', tom: 'green' }
-  if (it.status === 'processando') return { chave: 'enviando', rotulo: 'Enviando', tom: 'accent' }
-  if (it.status === 'erro') return { chave: 'erro', rotulo: 'Falhou', tom: 'red' }
+  if (it.status === 'ok') return { chave: 'ok', rotulo: tr('sincronizacao.situacao.ok'), tom: 'green' }
+  if (it.status === 'processando') return { chave: 'enviando', rotulo: tr('sincronizacao.situacao.enviando'), tom: 'accent' }
+  if (it.status === 'erro') return { chave: 'erro', rotulo: tr('sincronizacao.situacao.erro'), tom: 'red' }
   if (it.status === 'cancelado') return it.resolvido_por
-    ? { chave: 'ignorado', rotulo: 'Ignorado', tom: 'muted' }
-    : { chave: 'cancelado', rotulo: 'Cancelado', tom: 'muted' }
-  if ((it.tentativas || 0) > 0) return { chave: 'retentar', rotulo: `Vai tentar de novo (${it.tentativas + 1}ª de ${MAX_TENTATIVAS})`, tom: 'yellow' }
-  return { chave: 'fila', rotulo: 'Na fila', tom: 'yellow' }
+    ? { chave: 'ignorado', rotulo: tr('sincronizacao.situacao.ignorado'), tom: 'muted' }
+    : { chave: 'cancelado', rotulo: tr('sincronizacao.situacao.cancelado'), tom: 'muted' }
+  if ((it.tentativas || 0) > 0) return { chave: 'retentar', rotulo: tr('sincronizacao.situacao.retentar', { n: it.tentativas + 1, max: MAX_TENTATIVAS }), tom: 'yellow' }
+  return { chave: 'fila', rotulo: tr('sincronizacao.situacao.fila'), tom: 'yellow' }
 }
 
 /** Agrupa os itens da fila em lotes (mais recente primeiro). */
@@ -97,13 +103,13 @@ export function resumirLote(l) {
 
 /** "agora", "há 5 min", "há 3 h", "há 2 dias". */
 export function tempoRelativo(iso, agora = Date.now()) {
-  if (!iso) return 'nunca'
+  if (!iso) return tr('sincronizacao.tempo.nunca')
   const min = Math.round((agora - t(iso)) / 60000)
-  if (min < 1) return 'agora'
-  if (min < 60) return `há ${min} min`
+  if (min < 1) return tr('sincronizacao.tempo.agora')
+  if (min < 60) return tr('sincronizacao.tempo.haMin', { n: min })
   const h = Math.round(min / 60)
-  if (h < 48) return `há ${h} h`
-  return `há ${Math.round(h / 24)} dias`
+  if (h < 48) return tr('sincronizacao.tempo.haH', { n: h })
+  return tr('sincronizacao.tempo.haDias', { n: Math.round(h / 24) })
 }
 
 /** 42 s, 3 min, 1 h 12 min. */
@@ -117,74 +123,76 @@ export function fmtDuracao(ms) {
   return m % 60 ? `${h} h ${m % 60} min` : `${h} h`
 }
 
-// Erros que o ClickUp / o push devolvem, em português e com o que fazer.
+// Erros que o ClickUp / o push devolvem, em linguagem de gente e com o que fazer
+// (chave em sincronizacao.erros / sincronizacao.avisos). O texto cru continua na tela ao lado.
 const ERROS = [
-  [/tarefa excluída na mesma rodada/i, 'Não foi enviada: a tarefa foi excluída logo depois, então só a exclusão foi para o ClickUp.'],
-  [/relação "\w+" fica só no VertaTask/i, 'Essa relação não existe no ClickUp ("duplicada de"), então fica só no VertaTask.'],
-  [/não existe no ClickUp; a relação fica só no VertaTask/i, 'Uma das tarefas não existe no ClickUp (ex.: lista que não sincroniza), então a relação ficou só aqui.'],
-  [/DEPENDS_\d+|dependenc/i, 'O ClickUp recusou a dependência entre as duas tarefas. Confira se elas ainda existem lá.'],
-  [/start date cannot be after due date/i, 'O ClickUp recusou: a data de início ficou depois do vencimento. Corrija as datas da tarefa e tente de novo.'],
-  [/due date cannot be before start date/i, 'O ClickUp recusou: o vencimento ficou antes da data de início. Corrija as datas da tarefa e tente de novo.'],
-  [/OAUTH_0\d\d|not authorized|team not authorized|unauthorized/i, 'O token do ClickUp não tem permissão para esta tarefa ou lista. Peça a um admin para conferir o acesso.'],
-  [/limite de requisições/i, 'O ClickUp limitou as requisições (muitas alterações de uma vez). O envio tenta de novo sozinho.'],
-  [/sem tempo/i, 'A rodada de envio acabou o tempo antes deste item; ele foi para a próxima.'],
-  [/tarefa não existe mais/i, 'A tarefa foi excluída no VertaTask antes de ir para o ClickUp.'],
-  [/comentário não existe mais/i, 'O comentário foi apagado antes de ir para o ClickUp.'],
-  [/lista não encontrada/i, 'A lista da tarefa não existe mais.'],
-  [/criação pendente/i, 'O comentário espera a tarefa ser criada no ClickUp; vai sozinho em seguida.'],
-  [/: 404\b|not found/i, 'A tarefa não existe mais no ClickUp (foi apagada lá).'],
-  [/status .* não existe/i, 'O status escolhido não existe nessa lista do ClickUp.'],
+  [/tarefa excluída na mesma rodada/i, 'excluidaNaRodada'],
+  [/relação "\w+" fica só no VertaTask/i, 'relacaoSoVertaTask'],
+  [/não existe no ClickUp; a relação fica só no VertaTask/i, 'tarefaForaDoClickUp'],
+  [/DEPENDS_\d+|dependenc/i, 'dependenciaRecusada'],
+  [/start date cannot be after due date/i, 'inicioDepoisVencimento'],
+  [/due date cannot be before start date/i, 'vencimentoAntesInicio'],
+  [/OAUTH_0\d\d|not authorized|team not authorized|unauthorized/i, 'semPermissao'],
+  [/limite de requisições/i, 'limiteRequisicoes'],
+  [/sem tempo/i, 'semTempo'],
+  [/tarefa não existe mais/i, 'tarefaExcluida'],
+  [/comentário não existe mais/i, 'comentarioApagado'],
+  [/lista não encontrada/i, 'listaNaoExiste'],
+  [/criação pendente/i, 'criacaoPendente'],
+  [/: 404\b|not found/i, 'apagadaNoClickUp'],
+  [/status .* não existe/i, 'statusNaoExiste'],
 ]
 export function traduzirErro(msg) {
   if (!msg) return ''
-  for (const [re, txt] of ERROS) if (re.test(msg)) return txt
+  for (const [re, k] of ERROS) if (re.test(msg)) return tr(`sincronizacao.erros.${k}`)
   return msg
 }
 
-// Avisos do push que merecem explicação
+// Avisos do push que merecem explicação; a função monta as variáveis do texto
 const AVISOS = [
-  [/mover de lista não é replicado/i, 'Mover de lista não vai para o ClickUp: mova a tarefa lá também.'],
-  [/status "(.+)" não existe na lista do ClickUp/i, (m) => `O status "${m[1]}" não existe nessa lista do ClickUp; o status lá não mudou.`],
-  [/cópia absorvida/i, 'O webhook do ClickUp criou uma cópia da tarefa antes do vínculo; a cópia foi juntada à original (nada se perdeu).'],
-  [/não deixou atribuir o responsável/i, 'O ClickUp não aceitou o responsável por este token; a tarefa foi criada sem responsável lá.'],
-  [/opção "(.+)" não existe no campo (.+) desta lista/i, (m) => `A opção "${m[1]}" não existe no campo ${m[2]} dessa lista do ClickUp; o campo ficou sem valor lá.`],
-  [/criado no ClickUp depois da última sincronização; mantido/i, 'Um checklist (ou item) criado no ClickUp ainda não tinha chegado aqui; foi mantido lá.'],
-  [/ainda é relacionado no sentido inverso/i, 'As duas tarefas ainda estão relacionadas no sentido inverso; no ClickUp é o mesmo link, então ele continua lá.'],
-  [/foi apagada antes do envio; nada mandado/i, 'A relação foi desfeita antes de chegar ao ClickUp; nada foi mandado.'],
+  [/mover de lista não é replicado/i, 'moverLista'],
+  [/status "(.+)" não existe na lista do ClickUp/i, 'statusNaoExiste', (m) => ({ status: m[1] })],
+  [/cópia absorvida/i, 'copiaAbsorvida'],
+  [/não deixou atribuir o responsável/i, 'semResponsavel'],
+  [/opção "(.+)" não existe no campo (.+) desta lista/i, 'opcaoNaoExiste', (m) => ({ opcao: m[1], campo: m[2] })],
+  [/criado no ClickUp depois da última sincronização; mantido/i, 'checklistMantido'],
+  [/ainda é relacionado no sentido inverso/i, 'relacaoInversa'],
+  [/foi apagada antes do envio; nada mandado/i, 'relacaoDesfeita'],
 ]
 export function traduzirAviso(msg) {
-  for (const [re, txt] of AVISOS) { const m = String(msg).match(re); if (m) return typeof txt === 'function' ? txt(m) : txt }
+  for (const [re, k, vars] of AVISOS) { const m = String(msg).match(re); if (m) return tr(`sincronizacao.avisos.${k}`, vars ? vars(m) : undefined) }
   return msg
 }
 
 // ── Volta (tarefas_sync_log) ─────────────────────────────────────────────────
 const MOTIVOS = [
-  [/push em andamento/i, 'o VertaTask estava enviando esta tarefa ao ClickUp; o envio grava a versão final'],
-  [/fora dos spaces/i, 'a tarefa é de um space do ClickUp que não sincroniza'],
-  [/não está no espelho/i, 'a tarefa não existe no VertaTask'],
-  [/evento sem tarefa/i, 'evento sem tarefa'],
-  [/editada no VertaTask depois/i, 'a tarefa foi editada no VertaTask depois e o ClickUp não era mais novo; vale a edição daqui'],
+  [/push em andamento/i, 'pushEmAndamento'],
+  [/fora dos spaces/i, 'foraDosSpaces'],
+  [/não está no espelho/i, 'naoEstaNoEspelho'],
+  [/evento sem tarefa/i, 'semTarefa'],
+  [/editada no VertaTask depois/i, 'editadaDepois'],
 ]
-export const traduzirMotivo = (m) => { for (const [re, txt] of MOTIVOS) if (re.test(m || '')) return txt; return m || '' }
+export const traduzirMotivo = (m) => { for (const [re, k] of MOTIVOS) if (re.test(m || '')) return tr(`sincronizacao.motivos.${k}`); return m || '' }
 
 /** { rotulo, tom, ruido } de uma linha do log da volta. ruido = escondida por padrão. */
 export function descreverLog(l) {
+  const k = (c, vars) => tr(`sincronizacao.log.${c}`, vars)
   if (l.origem === 'rodada') return l.acao === 'erro'
-    ? { rotulo: 'Rodada de sincronização falhou', tom: 'red' }
-    : l.acao === 'pulada_conflito' ? { rotulo: 'Mudança do ClickUp não aplicada (conflito)', tom: 'yellow' }
-      : l.acao === 'sem_pai' ? { rotulo: 'Gravada sem a tarefa pai', tom: 'yellow' }
-        : { rotulo: 'Rodada de sincronização', tom: 'muted' }
-  if (l.acao === 'relacao_criada') return { rotulo: `Relação criada no ClickUp (${RELACOES[l.detalhe?.tipo]?.rotulo || l.detalhe?.tipo || '?'})`, tom: 'accent' }
-  if (l.acao === 'relacao_removida') return { rotulo: `Relação desfeita no ClickUp (${RELACOES[l.detalhe?.tipo]?.rotulo || l.detalhe?.tipo || '?'})`, tom: 'accent' }
+    ? { rotulo: k('rodadaFalhou'), tom: 'red' }
+    : l.acao === 'pulada_conflito' ? { rotulo: k('conflito'), tom: 'yellow' }
+      : l.acao === 'sem_pai' ? { rotulo: k('semPai'), tom: 'yellow' }
+        : { rotulo: k('rodada'), tom: 'muted' }
+  if (l.acao === 'relacao_criada') return { rotulo: k('relacaoCriada', { tipo: (l.detalhe?.tipo && rotuloRelacao(l.detalhe.tipo)) || '?' }), tom: 'accent' }
+  if (l.acao === 'relacao_removida') return { rotulo: k('relacaoRemovida', { tipo: (l.detalhe?.tipo && rotuloRelacao(l.detalhe.tipo)) || '?' }), tom: 'accent' }
   if (l.origem === 'clickup') return l.acao === 'criada'
-    ? { rotulo: 'Chegou do ClickUp (tarefa nova)', tom: 'accent' }
-    : l.acao === 'removida' ? { rotulo: 'Apagada no ClickUp (arquivada aqui)', tom: 'yellow' }
-      : { rotulo: 'Chegou do ClickUp', tom: 'accent' }
+    ? { rotulo: k('chegouNova'), tom: 'accent' }
+    : l.acao === 'removida' ? { rotulo: k('apagadaNoClickUp'), tom: 'yellow' }
+      : { rotulo: k('chegou'), tom: 'accent' }
   // webhook
-  if (l.acao === 'sem_mudanca') return { rotulo: 'Evento sem mudança (eco de uma edição daqui)', tom: 'muted', ruido: true }
-  if (l.acao === 'pulada_conflito') return { rotulo: 'Mudança do ClickUp não aplicada (conflito)', tom: 'yellow' }
-  if (l.acao === 'erro') return { rotulo: 'Erro ao receber evento do ClickUp', tom: 'red' }
-  return { rotulo: 'Evento do ClickUp ignorado', tom: 'muted' }
+  if (l.acao === 'sem_mudanca') return { rotulo: k('semMudanca'), tom: 'muted', ruido: true }
+  if (l.acao === 'pulada_conflito') return { rotulo: k('conflito'), tom: 'yellow' }
+  if (l.acao === 'erro') return { rotulo: k('erroEvento'), tom: 'red' }
+  return { rotulo: k('ignorado'), tom: 'muted' }
 }
 
 export const ehProblemaLog = (l) => l.acao === 'erro' || l.acao === 'pulada_conflito' || l.acao === 'sem_pai'
@@ -193,13 +201,15 @@ export const ehProblemaLog = (l) => l.acao === 'erro' || l.acao === 'pulada_conf
 export function saudeGeral({ fila = [], erros = 0, webhook = null, rodada = null, agora = Date.now() }) {
   const emAberto = fila.filter((i) => i.status === 'pendente' || i.status === 'processando')
   const maisAntigo = emAberto.reduce((m, i) => Math.min(m, t(i.created_at)), Infinity)
-  if (erros > 0) return { tom: 'red', titulo: `${erros} ${erros === 1 ? 'alteração não chegou' : 'alterações não chegaram'} ao ClickUp`, texto: 'Veja em Problemas o motivo de cada uma e tente de novo ou ignore.' }
-  if (emAberto.length && agora - maisAntigo > FILA_ATRASADA_MS) return { tom: 'yellow', titulo: `Fila atrasada: ${emAberto.length} ${emAberto.length === 1 ? 'alteração esperando' : 'alterações esperando'} há ${fmtDuracao(agora - maisAntigo)}`, texto: 'O ClickUp limita as requisições; muitas alterações de uma vez levam alguns minutos. Enquanto isso, o ClickUp mostra a versão antiga.' }
-  if (emAberto.length) return { tom: 'accent', titulo: `Enviando ${emAberto.length} ${emAberto.length === 1 ? 'alteração' : 'alterações'} ao ClickUp`, texto: 'Assim que terminar, o ClickUp fica igual ao VertaTask.' }
+  const k = (c, vars) => tr(`sincronizacao.saude.${c}`, vars)
+  if (erros > 0) return { tom: 'red', titulo: k('errosTitulo', { count: erros }), texto: k('errosTexto') }
+  if (emAberto.length && agora - maisAntigo > FILA_ATRASADA_MS) return { tom: 'yellow', titulo: k('atrasadaTitulo', { count: emAberto.length, tempo: fmtDuracao(agora - maisAntigo) }), texto: k('atrasadaTexto') }
+  if (emAberto.length) return { tom: 'accent', titulo: k('enviandoTitulo', { count: emAberto.length }), texto: k('enviandoTexto') }
   const wh = rodada?.resumo?.webhook
-  if (wh && wh.status !== 'active' && !wh.ok) return { tom: 'yellow', titulo: 'O webhook do ClickUp não está ativo', texto: `${wh.aviso || ''} Enquanto isso, as mudanças feitas no ClickUp só chegam pelas rodadas.`.trim() }
-  if (rodada && rodada.ultimo_ok === false) return { tom: 'yellow', titulo: 'A última rodada de sincronização falhou', texto: rodada.resumo?.erro || 'Rode de novo pelo botão "Sincronizar agora".' }
+  // wh.aviso vem do servidor como está
+  if (wh && wh.status !== 'active' && !wh.ok) return { tom: 'yellow', titulo: k('webhookInativoTitulo'), texto: `${wh.aviso || ''} ${k('webhookInativoTexto')}`.trim() }
+  if (rodada && rodada.ultimo_ok === false) return { tom: 'yellow', titulo: k('rodadaFalhouTitulo'), texto: rodada.resumo?.erro || k('rodadaFalhouTexto') }
   const ultimaNoticia = Math.max(t(webhook?.ultimo_fim) || 0, t(rodada?.ultimo_fim) || 0)
-  if (ultimaNoticia && agora - ultimaNoticia > 26 * 3600_000) return { tom: 'yellow', titulo: 'Sem notícias do ClickUp há mais de um dia', texto: 'O webhook pode estar suspenso. Rode "Sincronizar agora" e, se continuar, peça a um admin para conferir o webhook.' }
-  return { tom: 'green', titulo: 'Tudo sincronizado', texto: 'Nada na fila para o ClickUp e nenhum erro pendente.' }
+  if (ultimaNoticia && agora - ultimaNoticia > 26 * 3600_000) return { tom: 'yellow', titulo: k('semNoticiasTitulo'), texto: k('semNoticiasTexto') }
+  return { tom: 'green', titulo: k('okTitulo'), texto: k('okTexto') }
 }

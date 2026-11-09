@@ -4,11 +4,14 @@
 // sessionStorage para sobreviver a um F5 e para a aba Tarefas da página do cliente
 // conseguir mandar o rascunho para o /tarefas; sem storage, fica só na memória.
 
+import { t } from '../i18n'
+
 export const ID_RASCUNHO_TEMPLATE = 'novo'
 const CHAVE = 'tarefas.rascunhoTemplate'
 let memoria = null
 
-export function guardarRascunhoTemplate({ nome = 'Novo template', descricao = null, itens = [] } = {}) {
+// sem `nome`, o rascunho nasce com o nome padrão no idioma de quem cria
+export function guardarRascunhoTemplate({ nome = t('templates.novoTemplate'), descricao = null, itens = [] } = {}) {
   // `chave` muda a cada rascunho novo: o construtor remonta mesmo com a mesma URL
   memoria = { nome, descricao, itens, chave: Date.now() }
   try { sessionStorage.setItem(CHAVE, JSON.stringify(memoria)) } catch { /* sem storage: fica na memória */ }

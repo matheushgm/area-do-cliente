@@ -1,7 +1,8 @@
 // Faixa de 6 KPIs do time (módulo Atividades, visual do Linear).
 // Recebe as pessoas já enriquecidas (enriquecerPessoa) e resume com kpisDoTime.
 import { useMemo } from 'react'
-import { NIVEIS, ORDEM_NIVEIS, kpisDoTime, calorDoTime, fmtHoras, fmtPct, fmtDiaCurto } from '../../lib/atividadesCarga'
+import { NIVEIS, ORDEM_NIVEIS, kpisDoTime, calorDoTime, fmtHoras, fmtPct, fmtDiaCurto, rotuloNivel } from '../../lib/atividadesCarga'
+import { useI18n } from '../../i18n'
 
 const TOM_VALOR = {
   padrao: 'text-ln-t1',
@@ -20,10 +21,6 @@ function tomPorPct(pct) {
   if (pct >= 100) return 'vermelho'
   if (pct >= 90) return 'ambar'
   return 'padrao'
-}
-
-function plural(n, singular, pluralTxt) {
-  return n === 1 ? singular : pluralTxt
 }
 
 export function Tile({ label, valor, sub, tom = 'padrao', title, ariaLabel, onClick, ativo = false, children }) {
@@ -70,14 +67,15 @@ export function TileSkeleton() {
 
 /** Mini barra segmentada (4px) com a quantidade de pessoas em cada nível de saúde. */
 export function BarraNiveis({ porNivel = {}, total = 0 }) {
+  const { t } = useI18n()
   if (!total) return <div className="h-1 mt-1 rounded-full bg-ln-ink/[0.06]" aria-hidden="true" />
-  const resumo = ORDEM_NIVEIS.filter((n) => porNivel[n]).map((n) => `${NIVEIS[n].label}: ${porNivel[n]}`).join(', ')
+  const resumo = ORDEM_NIVEIS.filter((n) => porNivel[n]).map((n) => `${rotuloNivel(n)}: ${porNivel[n]}`).join(', ')
   return (
-    <div className="flex h-1 mt-1 gap-px rounded-full overflow-hidden bg-ln-ink/[0.06]" role="img" aria-label={`Pessoas por nível. ${resumo}`}>
+    <div className="flex h-1 mt-1 gap-px rounded-full overflow-hidden bg-ln-ink/[0.06]" role="img" aria-label={t('atividades.kpi.pessoasPorNivel', { resumo })}>
       {ORDEM_NIVEIS.map((n) => {
         const q = porNivel[n] || 0
         if (!q) return null
-        return <span key={n} className={`h-full ${NIVEIS[n].dot}`} style={{ width: `${(q / total) * 100}%` }} title={`${NIVEIS[n].label}: ${q}`} />
+        return <span key={n} className={`h-full ${NIVEIS[n].dot}`} style={{ width: `${(q / total) * 100}%` }} title={`${rotuloNivel(n)}: ${q}`} />
       })}
     </div>
   )
@@ -101,6 +99,7 @@ const GRID = {
 }
 
 export default function KpiStrip({ pessoas = [], hoje, diaSelecionado = null, filtroNivel = null, onFiltrarNivel, onSelecionarDia, loading = false, progresso = null, diasAtrasoMaximo = 14, colunas = 6 }) {
+  const { t } = useI18n()
   const gridCls = GRID[colunas] || GRID[6]
   const k = useMemo(() => kpisDoTime(pessoas || []), [pessoas])
   const dias = useMemo(() => calorDoTime(pessoas || []).length || 10, [pessoas])
@@ -111,23 +110,23 @@ export default function KpiStrip({ pessoas = [], hoje, diaSelecionado = null, fi
 
   if (loading && lidas === 0) {
     return (
-      <div className={gridCls} aria-busy="true" aria-label="Lendo o time no ClickUp">
+      <div className={gridCls} aria-busy="true" aria-label={t('atividades.kpi.lendoTime')}>
         {IDS_SKELETON.map((id) => <TileSkeleton key={id} />)}
       </div>
     )
   }
 
   // 1. Ocupação do time
-  const labelOcupacao = loading ? `Ocupação do time · lendo ${lidas}/${total}` : 'Ocupação do time'
-  const subOcupacao = semDados ? 'nenhuma pessoa lida ainda' : `${fmtHoras(k.horas)} de ${fmtHoras(k.capacidade)} · ${dias} ${plural(dias, 'dia útil', 'dias úteis')}`
+  const labelOcupacao = loading ? t('atividades.kpi.ocupacaoLendo', { lidas, total }) : t('atividades.kpi.ocupacao')
+  const subOcupacao = semDados ? t('atividades.kpi.ninguemLido') : `${t('atividades.hDeH', { a: fmtHoras(k.horas), b: fmtHoras(k.capacidade) })} · ${t('atividades.diasUteis', { count: dias })}`
 
   // 2. No vermelho
   const vermelhos = k.sobrecarregados || []
   const filtroAtivo = filtroNivel === 'sobrecarregado'
   const nomesVermelhos = vermelhos.map((p) => p.nome).join(', ')
   const subVermelho = filtroAtivo
-    ? 'filtro ativo, clique para limpar'
-    : vermelhos.length > 0 ? 'clique para filtrar a tabela' : 'ninguém sobrecarregado'
+    ? t('atividades.kpi.filtroAtivo')
+    : vermelhos.length > 0 ? t('atividades.kpi.cliqueFiltrar') : t('atividades.kpi.ninguemSobrecarregado')
 
   // 3. Atrasadas contadas
   const atrasadas = k.atrasadas || 0
@@ -139,7 +138,7 @@ export default function KpiStrip({ pessoas = [], hoje, diaSelecionado = null, fi
   // 5. Além do horizonte
   const alem = k.alemDoHorizonte || 0
   const sobra = k.sobraFinal || 0
-  const subAlem = sobra > 0 ? `+${fmtHoras(sobra)} não cabem em 60 dias` : `não cabem nos ${dias} dias`
+  const subAlem = sobra > 0 ? t('atividades.kpi.alemSobra', { horas: fmtHoras(sobra) }) : t('atividades.kpi.alemNaoCabem', { dias })
 
   // 6. Dia mais crítico
   const critico = k.critico || null
@@ -147,10 +146,10 @@ export default function KpiStrip({ pessoas = [], hoje, diaSelecionado = null, fi
   const estouram = critico?.estouram || []
   const subCritico = !critico
     ? ''
-    : `${critico.data === hoje ? 'hoje · ' : ''}${estouram.length > 0 ? `${estouram.length} ${plural(estouram.length, 'pessoa estoura', 'pessoas estouram')}` : 'ninguém estoura'}`
+    : `${critico.data === hoje ? `${t('atividades.calor.hojeMinusc')} · ` : ''}${estouram.length > 0 ? t('atividades.pessoasEstouram', { count: estouram.length }) : t('atividades.kpi.ninguemEstoura')}`
   const titleCritico = !critico
-    ? 'Sem leitura do time'
-    : `${fmtDiaCurto(critico.data)} · ${fmtPct(critico.pct)} do time (${fmtHoras(critico.carga)} de ${fmtHoras(critico.capacidade)})${estouram.length ? `\nEstouram: ${estouram.join(', ')}` : ''}\n${criticoSelecionado ? 'Clique para limpar a seleção' : 'Clique para destacar este dia'}`
+    ? t('atividades.kpi.semLeituraTime')
+    : `${fmtDiaCurto(critico.data)} · ${t('atividades.calor.pctDoTime', { pct: Math.round(Number(critico.pct) || 0), carga: fmtHoras(critico.carga), cap: fmtHoras(critico.capacidade) })}${estouram.length ? `\n${t('atividades.estouram', { nomes: estouram.join(', ') })}` : ''}\n${criticoSelecionado ? t('atividades.cliqueLimparSelecao') : t('atividades.cliqueDestacarDia')}`
 
   return (
     <div className={gridCls} aria-busy={loading || undefined}>
@@ -159,59 +158,59 @@ export default function KpiStrip({ pessoas = [], hoje, diaSelecionado = null, fi
         valor={semDados ? <span className="text-ln-t4">·</span> : fmtPct(k.ocupacao)}
         sub={subOcupacao}
         tom={semDados ? 'padrao' : tomPorPct(k.ocupacao)}
-        title={`Ocupação do time: ${fmtPct(k.ocupacao)} · ${subOcupacao}`}
+        title={`${t('atividades.kpi.ocupacao')}: ${fmtPct(k.ocupacao)} · ${subOcupacao}`}
       >
         <BarraNiveis porNivel={k.porNivel} total={k.total} />
       </Tile>
 
       <Tile
-        label="No vermelho"
-        valor={`${vermelhos.length} de ${k.total}`}
+        label={t('atividades.kpi.noVermelho')}
+        valor={t('atividades.nDeTotal', { n: vermelhos.length, total: k.total })}
         sub={subVermelho}
         tom={vermelhos.length > 0 ? 'vermelho' : 'padrao'}
-        title={vermelhos.length > 0 ? `Sobrecarregados: ${nomesVermelhos}` : 'Ninguém sobrecarregado no momento'}
-        ariaLabel={`No vermelho: ${vermelhos.length} de ${k.total}. ${filtroAtivo ? 'Limpar filtro' : 'Filtrar sobrecarregados'}`}
+        title={vermelhos.length > 0 ? t('atividades.kpi.sobrecarregados', { nomes: nomesVermelhos }) : t('atividades.kpi.ninguemSobrecarregadoAgora')}
+        ariaLabel={`${t('atividades.kpi.noVermelho')}: ${t('atividades.nDeTotal', { n: vermelhos.length, total: k.total })}. ${filtroAtivo ? t('atividades.kpi.limparFiltro') : t('atividades.kpi.filtrarSobrecarregados')}`}
         ativo={filtroAtivo}
         onClick={() => onFiltrarNivel?.(filtroAtivo ? null : 'sobrecarregado')}
       />
 
       <Tile
-        label="Atrasadas contadas"
+        label={t('atividades.kpi.atrasadasContadas')}
         valor={`${atrasadas} · ${fmtHoras(k.horasAtrasadas)}`}
-        sub="caem em hoje no cálculo"
+        sub={t('atividades.caemEmHojeCalculo')}
         tom={atrasadas > 0 ? 'ambar' : 'padrao'}
-        title={`${atrasadas} ${plural(atrasadas, 'tarefa atrasada', 'tarefas atrasadas')} (${fmtHoras(k.horasAtrasadas)}) entram na carga de hoje`}
+        title={t('atividades.kpi.atrasadasTitle', { count: atrasadas, horas: fmtHoras(k.horasAtrasadas) })}
       />
 
       <Tile
-        label="Fora do cálculo"
+        label={t('atividades.foraDoCalculo')}
         valor={zumbis + semData}
-        sub={`${zumbis} atrasadas há +${diasAtrasoMaximo}d · ${semData} sem data`}
+        sub={t('atividades.kpi.foraSub', { zumbis, dias: diasAtrasoMaximo, semData })}
         tom={zumbis > 0 ? 'laranja' : 'padrao'}
-        title={`${zumbis} atrasadas há mais de ${diasAtrasoMaximo} dias (zumbis) e ${semData} sem data: não entram na agenda`}
+        title={t('atividades.kpi.foraTitle', { zumbis, dias: diasAtrasoMaximo, semData })}
       />
 
       <Tile
-        label="Além do horizonte"
+        label={t('atividades.kpi.alemHorizonte')}
         valor={fmtHoras(alem)}
         sub={subAlem}
         tom={sobra > 0 ? 'vermelho' : alem > 0 ? 'ambar' : 'padrao'}
-        title={sobra > 0 ? `${fmtHoras(alem)} passam dos ${dias} dias úteis e ${fmtHoras(sobra)} não cabem nem em 60 dias úteis` : `${fmtHoras(alem)} não cabem nos ${dias} dias úteis`}
+        title={sobra > 0 ? t('atividades.kpi.alemTitleSobra', { alem: fmtHoras(alem), dias, sobra: fmtHoras(sobra) }) : t('atividades.kpi.alemTitle', { alem: fmtHoras(alem), dias })}
       />
 
       <Tile
-        label="Dia mais crítico"
+        label={t('atividades.kpi.diaCritico')}
         valor={critico ? (
           <span className="flex items-baseline gap-1.5 min-w-0">
             <span className="text-sm font-medium text-ln-t2 truncate">{fmtDiaCurto(critico.data)}</span>
             <span className="text-ln-t4 font-normal">·</span>
             <span>{fmtPct(critico.pct)}</span>
           </span>
-        ) : <span className="text-sm font-medium text-ln-t4">sem dados</span>}
+        ) : <span className="text-sm font-medium text-ln-t4">{t('atividades.kpi.semDados')}</span>}
         sub={subCritico}
         tom={critico ? tomPorPct(critico.pct) : 'padrao'}
         title={titleCritico}
-        ariaLabel={critico ? `Dia mais crítico: ${fmtDiaCurto(critico.data)}, ${fmtPct(critico.pct)}. ${criticoSelecionado ? 'Limpar seleção' : 'Destacar este dia'}` : 'Dia mais crítico: sem dados'}
+        ariaLabel={critico ? `${t('atividades.kpi.diaCritico')}: ${fmtDiaCurto(critico.data)}, ${fmtPct(critico.pct)}. ${criticoSelecionado ? t('atividades.kpi.limparSelecao') : t('atividades.kpi.destacarDia')}` : `${t('atividades.kpi.diaCritico')}: ${t('atividades.kpi.semDados')}`}
         ativo={criticoSelecionado}
         onClick={critico ? () => onSelecionarDia?.(criticoSelecionado ? null : critico.data) : undefined}
       />

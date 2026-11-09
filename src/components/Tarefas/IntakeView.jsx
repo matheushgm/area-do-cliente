@@ -4,10 +4,10 @@
 import { useMemo, useState, useEffect } from 'react'
 import { Plus, Undo2, ExternalLink, Clock, Copy, Link2, Search, CheckCircle2, LayoutTemplate } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { PRIORIDADES, fmtDataHora } from '../../lib/tarefas'
-import { ORIGENS_INTAKE } from '../../lib/vertatask'
+import { PRIORIDADES, fmtDataHora, rotuloPrioridade } from '../../lib/tarefas'
+import { ORIGENS_INTAKE, rotuloOrigemIntake } from '../../lib/vertatask'
+import { useI18n, t as tr } from '../../i18n'
 
-const ROTULO_PRIO = Object.fromEntries(PRIORIDADES.map((p) => [p.key, p.label]))
 // pílula de prioridade do protótipo: urgente vermelho, alta âmbar, normal azul, baixa cinza
 const PILULA_PRIO = {
   urgent: 'bg-ln-red/10 text-ln-red',
@@ -16,9 +16,10 @@ const PILULA_PRIO = {
   low: 'bg-ln-ink/[0.06] text-ln-t3',
 }
 
-function nomeProjeto(p) { return p?.company_name || p?.companyName || p?.name || 'Sem nome' }
+function nomeProjeto(p) { return p?.company_name || p?.companyName || p?.name || tr('intake.semNome') }
 
 function BuscaDuplicada({ onEscolher, onCancelar }) {
+  const { t } = useI18n()
   const [q, setQ] = useState('')
   const [achados, setAchados] = useState([])
   useEffect(() => {
@@ -31,15 +32,16 @@ function BuscaDuplicada({ onEscolher, onCancelar }) {
   }, [q])
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="ln-input !h-9 flex items-center gap-1.5"><Search className="w-3.5 h-3.5 text-ln-t4" /><input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Duplicada de qual tarefa?" className="flex-1 min-w-0 bg-transparent outline-none text-xs" /></div>
+      <div className="ln-input !h-9 flex items-center gap-1.5"><Search className="w-3.5 h-3.5 text-ln-t4" /><input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('intake.duplicadaDeQual')} className="flex-1 min-w-0 bg-transparent outline-none text-xs" /></div>
       {q.trim().length >= 2 && achados.map((a) => <button key={a.id} type="button" onClick={() => onEscolher(a)} className="text-left text-xs px-2 h-8 rounded-md hover:bg-ln-ink/5 truncate text-ln-t2">{a.titulo}</button>)}
-      <button type="button" onClick={onCancelar} className="ln-pill !h-8 justify-center">Voltar</button>
+      <button type="button" onClick={onCancelar} className="ln-pill !h-8 justify-center">{t('comum.voltar')}</button>
     </div>
   )
 }
 
 // Respostas do pedido feito pelo link /pedido (payload.itens, ver src/lib/pedidoTipos.js).
 function RespostasPedido({ itens }) {
+  const { t } = useI18n()
   return (
     <dl className="mt-2.5 mb-1 grid gap-x-4 gap-y-1.5 sm:grid-cols-[140px_1fr] text-[13px]">
       {itens.filter((i) => !['urgente', 'prazo', 'nome', 'contato'].includes(i.k)).map((i) => (
@@ -49,8 +51,8 @@ function RespostasPedido({ itens }) {
             {i.tipo === 'link' || i.tipo === 'drive'
               ? <a href={i.valor} target="_blank" rel="noreferrer" className="text-ln-accent hover:underline break-all">{i.drive?.nome || i.valor}</a>
               : i.valor}
-            {i.drive?.publico === true && <span className="ml-1.5 inline-flex items-center gap-1 text-[11.5px] font-semibold text-ln-green"><CheckCircle2 className="w-3 h-3" /> aberto</span>}
-            {i.drive && i.drive.publico !== true && <span className="ml-1.5 text-[11.5px] text-ln-t4">acesso não conferido</span>}
+            {i.drive?.publico === true && <span className="ml-1.5 inline-flex items-center gap-1 text-[11.5px] font-semibold text-ln-green"><CheckCircle2 className="w-3 h-3" /> {t('intake.driveAberto')}</span>}
+            {i.drive && i.drive.publico !== true && <span className="ml-1.5 text-[11.5px] text-ln-t4">{t('intake.driveNaoConferido')}</span>}
           </dd>
         </div>
       ))}
@@ -59,6 +61,7 @@ function RespostasPedido({ itens }) {
 }
 
 function Cartao({ it, pastas, listas, projetos, membros, modelos, onAceitar, onAplicarTemplate, onRecusar, onAdiar, onDuplicada }) {
+  const { t, locale } = useI18n()
   const pastaDoProjeto = useMemo(() => pastas.find((p) => p.project_id && p.project_id === it.project_id)?.id || '', [pastas, it.project_id])
   const [pastaId, setPastaId] = useState(pastaDoProjeto)
   const [resp, setResp] = useState('')
@@ -86,55 +89,55 @@ function Cartao({ it, pastas, listas, projetos, membros, modelos, onAceitar, onA
   return (
     <div className="ln-card px-[18px] py-4 grid gap-4 md:grid-cols-[1fr_220px] max-w-[880px]">
       <div className="min-w-0">
-        <p className="text-[11px] uppercase tracking-[0.12em] text-ln-accent font-bold">{it.origem}{pedido?.tipo_nome ? ` · ${pedido.tipo_nome}` : ''} · {fmtDataHora(it.created_at)}</p>
+        <p className="text-[11px] uppercase tracking-[0.12em] text-ln-accent font-bold">{rotuloOrigemIntake(it.origem)}{pedido?.tipo_nome ? ` · ${pedido.tipo_nome}` : ''} · {fmtDataHora(it.created_at)}</p>
         <h3 className="text-[15px] font-bold text-ln-t1 mt-1">{it.titulo}</h3>
         {pedido ? <RespostasPedido itens={pedido.itens} />
           : it.descricao && <p className="text-sm text-ln-t2 mt-1.5 mb-2.5 whitespace-pre-line">{it.descricao}</p>}
         <div className="flex items-center gap-2 mt-2 text-xs text-ln-t3 flex-wrap">
-          {it.prioridade && it.prioridade !== 'normal' && <span className={`px-2 py-0.5 rounded-full text-[11.5px] font-bold ${PILULA_PRIO[it.prioridade] || PILULA_PRIO.low}`}>{pedido && it.prioridade === 'high' ? 'Urgente' : ROTULO_PRIO[it.prioridade]}</span>}
-          {pedido?.prazo && <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> para {new Date(`${pedido.prazo}T12:00:00`).toLocaleDateString('pt-BR')}</span>}
+          {it.prioridade && it.prioridade !== 'normal' && <span className={`px-2 py-0.5 rounded-full text-[11.5px] font-bold ${PILULA_PRIO[it.prioridade] || PILULA_PRIO.low}`}>{pedido && it.prioridade === 'high' ? t('intake.urgente') : rotuloPrioridade(it.prioridade)}</span>}
+          {pedido?.prazo && <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> {t('intake.paraData', { data: new Date(`${pedido.prazo}T12:00:00`).toLocaleDateString(locale) })}</span>}
           {projeto && <span>{nomeProjeto(projeto)}</span>}
-          {it.contato && <span>Contato: {it.contato}</span>}
+          {it.contato && <span>{t('intake.contato', { contato: it.contato })}</span>}
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <select className="ln-input !h-9" value={pastaId} onChange={(e) => setPastaId(e.target.value)} aria-label="Cliente">
-          <option value="">Escolha o cliente</option>
+        <select className="ln-input !h-9" value={pastaId} onChange={(e) => setPastaId(e.target.value)} aria-label={t('intake.cliente')}>
+          <option value="">{t('intake.escolhaCliente')}</option>
           {pastas.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
         </select>
-        <select className="ln-input !h-9" value={resp} onChange={(e) => setResp(e.target.value)} aria-label="Responsável">
-          <option value="">Sem responsável</option>
+        <select className="ln-input !h-9" value={resp} onChange={(e) => setResp(e.target.value)} aria-label={t('intake.responsavel')}>
+          <option value="">{t('intake.semResponsavel')}</option>
           {membros.filter((m) => !m.disabled).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
         {duplicando ? (
           <BuscaDuplicada onEscolher={async (a) => { setBusy(true); await onDuplicada(it, a); setBusy(false) }} onCancelar={() => setDuplicando(false)} />
         ) : adiando ? (
           <div className="flex flex-col gap-1.5">
-            {[[1, 'Amanhã'], [3, 'Em 3 dias'], [7, 'Em 1 semana'], [14, 'Em 2 semanas']].map(([n, rot]) => (
+            {[[1, t('comum.amanha')], [3, t('intake.adiar.em3dias')], [7, t('intake.adiar.em1semana')], [14, t('intake.adiar.em2semanas')]].map(([n, rot]) => (
               <button key={n} type="button" disabled={busy} onClick={async () => { setBusy(true); await onAdiar(it, n); setBusy(false) }} className="ln-pill !h-8 justify-center">{rot}</button>
             ))}
-            <button type="button" onClick={() => setAdiando(false)} className="ln-pill !h-8 justify-center">Voltar</button>
+            <button type="button" onClick={() => setAdiando(false)} className="ln-pill !h-8 justify-center">{t('comum.voltar')}</button>
           </div>
         ) : recusando ? (
           <>
-            <input className="ln-input !h-8" placeholder="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} autoFocus />
+            <input className="ln-input !h-8" placeholder={t('intake.motivoOpcional')} value={motivo} onChange={(e) => setMotivo(e.target.value)} autoFocus />
             <div className="flex gap-2">
-              <button type="button" disabled={busy} onClick={recusar} className="ln-primary !bg-ln-red">Recusar</button>
-              <button type="button" onClick={() => setRecusando(false)} className="ln-pill">Voltar</button>
+              <button type="button" disabled={busy} onClick={recusar} className="ln-primary !bg-ln-red">{t('intake.recusar')}</button>
+              <button type="button" onClick={() => setRecusando(false)} className="ln-pill">{t('comum.voltar')}</button>
             </div>
           </>
         ) : (
           <div className="flex flex-col gap-2">
             {template && (
-              <button type="button" disabled={busy || !temLista} onClick={() => onAplicarTemplate(it, template, pastaId)} className="ln-primary !h-9 w-full justify-center disabled:opacity-50" title={temLista ? `Cria as tarefas do template ${template.nome} com o pedido na descrição` : 'Escolha um cliente com pasta'}>
-                <LayoutTemplate className="w-3.5 h-3.5" /> Aplicar template
+              <button type="button" disabled={busy || !temLista} onClick={() => onAplicarTemplate(it, template, pastaId)} className="ln-primary !h-9 w-full justify-center disabled:opacity-50" title={temLista ? t('intake.aplicarTemplateTitle', { nome: template.nome }) : t('intake.escolhaClienteComPasta')}>
+                <LayoutTemplate className="w-3.5 h-3.5" /> {t('intake.aplicarTemplate')}
               </button>
             )}
-            <button type="button" disabled={busy || !temLista} onClick={aceitar} className={`${template ? 'ln-pill !text-ln-t1' : 'ln-primary'} !h-9 w-full justify-center disabled:opacity-50`} title={temLista ? '' : 'Escolha um cliente com pasta'}>{template ? 'Só uma tarefa' : 'Aceitar como tarefa'}</button>
-            <button type="button" disabled={busy} onClick={() => setRecusando(true)} className="ln-pill !h-9 w-full justify-center !text-ln-t1 hover:!text-ln-red">Recusar</button>
+            <button type="button" disabled={busy || !temLista} onClick={aceitar} className={`${template ? 'ln-pill !text-ln-t1' : 'ln-primary'} !h-9 w-full justify-center disabled:opacity-50`} title={temLista ? '' : t('intake.escolhaClienteComPasta')}>{template ? t('intake.soUmaTarefa') : t('intake.aceitarComoTarefa')}</button>
+            <button type="button" disabled={busy} onClick={() => setRecusando(true)} className="ln-pill !h-9 w-full justify-center !text-ln-t1 hover:!text-ln-red">{t('intake.recusar')}</button>
             <div className="flex gap-2">
-              <button type="button" disabled={busy} onClick={() => setAdiando(true)} className="ln-pill !h-8 flex-1 justify-center" title="Tirar da fila e voltar numa data"><Clock className="w-3.5 h-3.5" /> Adiar</button>
-              <button type="button" disabled={busy} onClick={() => setDuplicando(true)} className="ln-pill !h-8 flex-1 justify-center" title="Já existe uma tarefa igual"><Copy className="w-3.5 h-3.5" /> Duplicada</button>
+              <button type="button" disabled={busy} onClick={() => setAdiando(true)} className="ln-pill !h-8 flex-1 justify-center" title={t('intake.adiarTitle')}><Clock className="w-3.5 h-3.5" /> {t('intake.adiarBotao')}</button>
+              <button type="button" disabled={busy} onClick={() => setDuplicando(true)} className="ln-pill !h-8 flex-1 justify-center" title={t('intake.duplicadaTitle')}><Copy className="w-3.5 h-3.5" /> {t('intake.duplicadaBotao')}</button>
             </div>
           </div>
         )}
@@ -144,6 +147,7 @@ function Cartao({ it, pastas, listas, projetos, membros, modelos, onAceitar, onA
 }
 
 function NovoPedido({ pastas, projetos, onCriar, onCancelar }) {
+  const { t } = useI18n()
   const [f, setF] = useState({ titulo: '', descricao: '', origem: 'Cliente', project_id: '', prioridade: '' })
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }))
   const projetosComPasta = projetos.filter((p) => pastas.some((pa) => pa.project_id === p.id))
@@ -152,49 +156,51 @@ function NovoPedido({ pastas, projetos, onCriar, onCancelar }) {
       onSubmit={(e) => { e.preventDefault(); if (f.titulo.trim()) onCriar(f) }}
       className="ln-card p-4 flex flex-col gap-2 max-w-4xl"
     >
-      <input className="ln-input !h-8" placeholder="O que o cliente ou o time está pedindo" value={f.titulo} onChange={(e) => set('titulo', e.target.value)} autoFocus />
-      <textarea className="ln-input !h-auto py-2 resize-y" rows={3} placeholder="Contexto, links, o que seria o pronto (opcional)" value={f.descricao} onChange={(e) => set('descricao', e.target.value)} />
+      <input className="ln-input !h-8" placeholder={t('intake.novo.tituloPlaceholder')} value={f.titulo} onChange={(e) => set('titulo', e.target.value)} autoFocus />
+      <textarea className="ln-input !h-auto py-2 resize-y" rows={3} placeholder={t('intake.novo.descricaoPlaceholder')} value={f.descricao} onChange={(e) => set('descricao', e.target.value)} />
       <div className="flex gap-2 flex-wrap">
-        <select className="ln-input !h-8 !w-[190px]" value={f.origem} onChange={(e) => set('origem', e.target.value)} aria-label="Origem">
-          {ORIGENS_INTAKE.map((o) => <option key={o}>{o}</option>)}
+        <select className="ln-input !h-8 !w-[190px]" value={f.origem} onChange={(e) => set('origem', e.target.value)} aria-label={t('intake.novo.origem')}>
+          {ORIGENS_INTAKE.map((o) => <option key={o} value={o}>{rotuloOrigemIntake(o)}</option>)}
         </select>
-        <select className="ln-input !h-8 !w-[220px]" value={f.project_id} onChange={(e) => set('project_id', e.target.value)} aria-label="Cliente">
-          <option value="">Cliente (opcional)</option>
+        <select className="ln-input !h-8 !w-[220px]" value={f.project_id} onChange={(e) => set('project_id', e.target.value)} aria-label={t('intake.cliente')}>
+          <option value="">{t('intake.novo.clienteOpcional')}</option>
           {projetosComPasta.map((p) => <option key={p.id} value={p.id}>{nomeProjeto(p)}</option>)}
         </select>
-        <select className="ln-input !h-8 !w-[150px]" value={f.prioridade} onChange={(e) => set('prioridade', e.target.value)} aria-label="Prioridade">
-          <option value="">Prioridade</option>
-          {PRIORIDADES.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+        <select className="ln-input !h-8 !w-[150px]" value={f.prioridade} onChange={(e) => set('prioridade', e.target.value)} aria-label={t('intake.novo.prioridade')}>
+          <option value="">{t('intake.novo.prioridade')}</option>
+          {PRIORIDADES.map((p) => <option key={p.key} value={p.key}>{rotuloPrioridade(p.key)}</option>)}
         </select>
       </div>
       <div className="flex gap-2 mt-1">
-        <button type="submit" className="ln-primary"><Plus className="w-3.5 h-3.5" /> Adicionar à fila</button>
-        <button type="button" onClick={onCancelar} className="ln-pill">Cancelar</button>
+        <button type="submit" className="ln-primary"><Plus className="w-3.5 h-3.5" /> {t('intake.novo.adicionar')}</button>
+        <button type="button" onClick={onCancelar} className="ln-pill">{t('comum.cancelar')}</button>
       </div>
     </form>
   )
 }
 
 function LinkCliente({ projetos, pastas, onToast }) {
+  const { t } = useI18n()
   const [id, setId] = useState('')
   const lista = projetos.filter((p) => p.clientShareToken && pastas.some((pa) => pa.project_id === p.id))
   async function copiar() {
     const p = projetos.find((x) => x.id === id)
     if (!p?.clientShareToken) return
     const url = `${window.location.origin}/pedido/${p.clientShareToken}`
-    try { await navigator.clipboard.writeText(url); onToast('Link copiado. Mande para o cliente.') } catch { window.prompt('Copie o link', url) }
+    try { await navigator.clipboard.writeText(url); onToast(t('intake.link.copiado')) } catch { window.prompt(t('intake.link.copieOLink'), url) }
   }
   return (
     <div className="ln-card px-4 py-3 max-w-[880px] flex items-center gap-2 flex-wrap">
       <Link2 className="w-4 h-4 text-ln-accent shrink-0" />
-      <span className="text-[13px] text-ln-t2 mr-1">Link para o cliente mandar pedidos direto para esta fila:</span>
-      <select className="ln-input !h-8 !w-[220px]" value={id} onChange={(e) => setId(e.target.value)} aria-label="Cliente"><option value="">Escolha o cliente</option>{lista.map((p) => <option key={p.id} value={p.id}>{nomeProjeto(p)}</option>)}</select>
-      <button type="button" disabled={!id} onClick={copiar} className="ln-pill disabled:opacity-50"><Copy className="w-3.5 h-3.5" /> Copiar link</button>
+      <span className="text-[13px] text-ln-t2 mr-1">{t('intake.link.texto')}</span>
+      <select className="ln-input !h-8 !w-[220px]" value={id} onChange={(e) => setId(e.target.value)} aria-label={t('intake.cliente')}><option value="">{t('intake.escolhaCliente')}</option>{lista.map((p) => <option key={p.id} value={p.id}>{nomeProjeto(p)}</option>)}</select>
+      <button type="button" disabled={!id} onClick={copiar} className="ln-pill disabled:opacity-50"><Copy className="w-3.5 h-3.5" /> {t('intake.link.copiar')}</button>
     </div>
   )
 }
 
 export default function IntakeView({ vt, pastas, listas, projetos, membros, modelos, onAceitar, onAplicarTemplate, onToast, onAbrirTarefa }) {
+  const { t, locale } = useI18n()
   const [criando, setCriando] = useState(false)
   const pendentes = vt.intakePendentes
   const recentes = useMemo(() => vt.intake.filter((i) => ['aceito', 'recusado', 'duplicado'].includes(i.status)).slice(0, 15), [vt.intake])
@@ -203,32 +209,32 @@ export default function IntakeView({ vt, pastas, listas, projetos, membros, mode
     const r = await vt.criarIntake(f)
     if (r.error) { onToast(r.error, 'error'); return }
     setCriando(false)
-    onToast('Pedido na fila')
+    onToast(t('intake.toast.naFila'))
   }
   async function adiar(it, dias) {
     const ate = new Date(); ate.setDate(ate.getDate() + dias); ate.setHours(8, 0, 0, 0)
     const r = await vt.decidirIntake(it.id, { status: 'adiado', adiado_ate: ate.toISOString() })
-    if (r.error) onToast(r.error, 'error'); else onToast(`Volta para a fila em ${ate.toLocaleDateString('pt-BR')}`)
+    if (r.error) onToast(r.error, 'error'); else onToast(t('intake.toast.voltaEm', { data: ate.toLocaleDateString(locale) }))
   }
   async function duplicada(it, alvo) {
     const r = await vt.decidirIntake(it.id, { status: 'duplicado', duplicada_de: alvo.id, tarefa_id: alvo.id })
-    if (r.error) onToast(r.error, 'error'); else onToast('Marcado como duplicado')
+    if (r.error) onToast(r.error, 'error'); else onToast(t('intake.toast.duplicado'))
   }
   async function recusar(it, motivo) {
     const r = await vt.decidirIntake(it.id, { status: 'recusado', motivo_recusa: motivo })
-    if (r.error) onToast(r.error, 'error'); else onToast('Pedido recusado')
+    if (r.error) onToast(r.error, 'error'); else onToast(t('intake.toast.recusado'))
   }
 
   return (
     <div className="p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3 max-w-4xl">
-        <p className="text-[13px] text-ln-t3 max-w-2xl">Pedidos de clientes, reprovações de anúncio e sugestões do playbook caem aqui antes de virar tarefa. Escolha o cliente e o responsável e aceite, ou recuse.</p>
-        {!criando && <button type="button" onClick={() => setCriando(true)} className="ln-pill shrink-0"><Plus className="w-3.5 h-3.5" /> Novo pedido</button>}
+        <p className="text-[13px] text-ln-t3 max-w-2xl">{t('intake.intro')}</p>
+        {!criando && <button type="button" onClick={() => setCriando(true)} className="ln-pill shrink-0"><Plus className="w-3.5 h-3.5" /> {t('intake.novoPedido')}</button>}
       </div>
       <LinkCliente projetos={projetos} pastas={pastas} onToast={onToast} />
       {criando && <NovoPedido pastas={pastas} projetos={projetos} onCriar={criar} onCancelar={() => setCriando(false)} />}
       {!pendentes.length && !criando && (
-        <div className="rounded-lg border border-dashed border-ln-ink/15 p-10 text-center text-[13px] text-ln-t4 max-w-4xl">Fila vazia. Tudo que chegou já virou tarefa ou foi recusado.</div>
+        <div className="rounded-lg border border-dashed border-ln-ink/15 p-10 text-center text-[13px] text-ln-t4 max-w-4xl">{t('intake.filaVazia')}</div>
       )}
       {pendentes.map((it) => (
         <Cartao key={it.id} it={it} pastas={pastas} listas={listas} projetos={projetos} membros={membros} modelos={modelos} onAceitar={onAceitar} onAplicarTemplate={onAplicarTemplate} onRecusar={recusar} onAdiar={adiar} onDuplicada={duplicada} />
@@ -236,14 +242,14 @@ export default function IntakeView({ vt, pastas, listas, projetos, membros, mode
 
       {vt.intakeAdiados.length > 0 && (
         <section className="max-w-4xl mt-2">
-          <p className="ln-label">Adiados</p>
+          <p className="ln-label">{t('intake.adiados')}</p>
           <div className="ln-card">
             {vt.intakeAdiados.map((it) => (
               <div key={it.id} className="flex items-center gap-3 h-10 px-3 border-b border-ln-ink/5 last:border-0 text-[13px]">
                 <Clock className="w-3.5 h-3.5 text-ln-t4" />
                 <span className="flex-1 min-w-0 truncate text-ln-t2">{it.titulo}</span>
-                <span className="text-xs text-ln-t4 tabular">volta em {new Date(it.adiado_ate).toLocaleDateString('pt-BR')}</span>
-                <button type="button" onClick={async () => { const r = await vt.reabrirIntake(it.id); if (r.error) onToast(r.error, 'error') }} className="ln-iconbtn" title="Voltar para a fila agora" aria-label="Voltar para a fila"><Undo2 className="w-3.5 h-3.5" /></button>
+                <span className="text-xs text-ln-t4 tabular">{t('intake.voltaEm', { data: new Date(it.adiado_ate).toLocaleDateString(locale) })}</span>
+                <button type="button" onClick={async () => { const r = await vt.reabrirIntake(it.id); if (r.error) onToast(r.error, 'error') }} className="ln-iconbtn" title={t('intake.voltarParaFilaAgora')} aria-label={t('intake.voltarParaFila')}><Undo2 className="w-3.5 h-3.5" /></button>
               </div>
             ))}
           </div>
@@ -252,15 +258,15 @@ export default function IntakeView({ vt, pastas, listas, projetos, membros, mode
 
       {recentes.length > 0 && (
         <section className="max-w-4xl mt-4">
-          <p className="ln-label">Decididos recentemente</p>
+          <p className="ln-label">{t('intake.decididos')}</p>
           <div className="ln-card">
             {recentes.map((it) => (
               <div key={it.id} className="flex items-center gap-3 h-10 px-3 border-b border-ln-ink/5 last:border-0 text-[13px]">
-                <span className={`text-[11px] uppercase tracking-wider font-medium w-20 ${it.status === 'aceito' ? 'text-ln-green' : 'text-ln-t4'}`}>{{ aceito: 'Aceito', recusado: 'Recusado', duplicado: 'Duplicado' }[it.status]}</span>
+                <span className={`text-[11px] uppercase tracking-wider font-medium w-20 ${it.status === 'aceito' ? 'text-ln-green' : 'text-ln-t4'}`}>{t(`intake.status.${it.status}`)}</span>
                 <span className="flex-1 min-w-0 truncate text-ln-t2">{it.titulo}</span>
                 {it.motivo_recusa && <span className="text-xs text-ln-t4 truncate max-w-[220px]">{it.motivo_recusa}</span>}
-                {it.tarefa_id && <button type="button" onClick={() => onAbrirTarefa(it.tarefa_id)} className="ln-iconbtn" title="Abrir a tarefa" aria-label="Abrir a tarefa"><ExternalLink className="w-3.5 h-3.5" /></button>}
-                {['recusado', 'duplicado'].includes(it.status) && <button type="button" onClick={async () => { const r = await vt.reabrirIntake(it.id); if (r.error) onToast(r.error, 'error') }} className="ln-iconbtn" title="Voltar para a fila" aria-label="Voltar para a fila"><Undo2 className="w-3.5 h-3.5" /></button>}
+                {it.tarefa_id && <button type="button" onClick={() => onAbrirTarefa(it.tarefa_id)} className="ln-iconbtn" title={t('intake.abrirTarefa')} aria-label={t('intake.abrirTarefa')}><ExternalLink className="w-3.5 h-3.5" /></button>}
+                {['recusado', 'duplicado'].includes(it.status) && <button type="button" onClick={async () => { const r = await vt.reabrirIntake(it.id); if (r.error) onToast(r.error, 'error') }} className="ln-iconbtn" title={t('intake.voltarParaFila')} aria-label={t('intake.voltarParaFila')}><Undo2 className="w-3.5 h-3.5" /></button>}
               </div>
             ))}
           </div>

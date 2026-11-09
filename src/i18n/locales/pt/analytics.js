@@ -1,0 +1,35 @@
+// VertaTask › Analytics (/tarefas?aba=analytics): números do time nas tarefas.
+export default {
+  soTopo: 'Só tarefas de topo, sem subtarefas.',
+  erroCarregar: 'Não consegui carregar: {erro}',
+  semDados: 'Sem dados no período.',
+  semPrioridade: 'Sem prioridade',
+  semCiclos: 'Nenhum cycle criado ainda.',
+  serieAria: 'Tarefas criadas e concluídas por dia',
+  ciclosValor: '{feitas} de {total} · {pct}%',
+  legenda: {
+    abertas: 'Abertas',
+    concluidasPeriodo: 'Concluídas no período',
+    criadas: 'Criadas',
+    concluidas: 'Concluídas',
+  },
+  tiles: {
+    abertas: 'Abertas agora',
+    atrasadas: 'Atrasadas',
+    pctAbertas: '{pct}% das abertas',
+    criadas: 'Criadas',
+    concluidas: 'Concluídas',
+    ultimosDias: { one: 'último dia', other: 'últimos {count} dias' },
+    tempo: 'Tempo até concluir',
+    tempoValor: '{n} d',
+    tempoSub: 'média, criação a conclusão',
+  },
+  cartoes: {
+    porDia: 'Criadas e concluídas por dia',
+    porStatus: 'Abertas por status',
+    porPrioridade: 'Abertas por prioridade',
+    porPessoa: 'Por pessoa',
+    porCliente: 'Por cliente',
+    ciclos: 'Cycles: o que entrou e o que fechou',
+  },
+}

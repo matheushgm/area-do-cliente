@@ -2,20 +2,28 @@
 // anúncios (inferido do dash_insights) e o que o time registrou na timeline em
 // categorias que um leigo entende. Funções puras.
 import { num, fmtDate, addDays, diffDays, CFG, googleImpr } from './dashboardData'
+import { t, localeAtual } from '../i18n'
 
+// `label` e `porque` são getters: traduzem no idioma de agora a cada leitura, sem mudar o
+// formato da constante (quem lê `c.label` continua igual).
+const categoria = (id, icone) => ({
+  id, icone,
+  get label() { return t(`otimizacoes.leigo.categorias.${id}.label`) },
+  get porque() { return t(`otimizacoes.leigo.categorias.${id}.porque`) },
+})
 export const CATEGORIAS = [
-  { id: 'orcamento', label: 'Orçamento', icone: 'Wallet', porque: 'Colocamos mais dinheiro no que está dando resultado e tiramos do que não está.' },
-  { id: 'pausou', label: 'Anúncios pausados', icone: 'PauseCircle', porque: 'Desligamos o que estava gastando sem trazer retorno, pra o dinheiro render mais.' },
-  { id: 'novoAnuncio', label: 'Anúncios novos', icone: 'ImagePlus', porque: 'Colocamos novas peças no ar pra testar o que o público responde melhor.' },
-  { id: 'publico', label: 'Novos públicos', icone: 'Users', porque: 'Testamos outros grupos de pessoas pra achar quem mais compra ou entra em contato.' },
-  { id: 'estrutura', label: 'Campanhas e conjuntos novos', icone: 'Layers', porque: 'Abrimos novas frentes de anúncio pra alcançar mais gente ou testar uma estratégia diferente.' },
-  { id: 'outras', label: 'Outros ajustes', icone: 'Wrench', porque: 'Ajustes finos feitos pelo time na conta.' },
+  categoria('orcamento', 'Wallet'),
+  categoria('pausou', 'PauseCircle'),
+  categoria('novoAnuncio', 'ImagePlus'),
+  categoria('publico', 'Users'),
+  categoria('estrutura', 'Layers'),
+  categoria('outras', 'Wrench'),
 ]
 
 const META_STATUS_AD = 'Status do Aúncio'
 const isPaused = (s) => /paus|inativ|off|disabled|archiv/i.test(s || '')
 const spendOf = (r, ch) => num(r[ch === 'meta' ? 'Valor investido' : 'Gasto'])
-const brl = (n) => 'R$ ' + (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+const brl = (n) => 'R$ ' + (n ?? 0).toLocaleString(localeAtual(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 const varPct = (a, b) => (b > 0 ? ((a - b) / b) * 100 : null)
 
 function janela(rows, ch, de, ate) {
@@ -46,8 +54,8 @@ function ultimoStatus(rows) {
   for (const r of rows) if (!best || r._d > best._d) best = r
   return best?.[META_STATUS_AD] || ''
 }
-const lista = (nomes, max = 3) => nomes.slice(0, max).map((n) => `"${n}"`).join(', ') + (nomes.length > max ? ` e mais ${nomes.length - max}` : '')
-const plural = (n, s, p) => (n === 1 ? s : p)
+const lista = (nomes, max = 3) => nomes.slice(0, max).map((n) => `"${n}"`).join(', ') + (nomes.length > max ? t('otimizacoes.leigo.eMais', { n: nomes.length - max }) : '')
+const L = (k, vars) => t(`otimizacoes.leigo.${k}`, vars)
 
 /**
  * Mudanças detectadas nos dados de mídia entre [de, ate] e a janela anterior de
@@ -65,23 +73,23 @@ export function mudancasDoGerenciador({ meta = [], google = [] }, de, ate) {
     for (const [camp, rs] of campAt) {
       const a = soma(rs, 'meta')
       const b = campAnt.has(camp) ? soma(campAnt.get(camp), 'meta') : null
-      if (b == null && a > 0) add('estrutura', 'meta', `Campanha nova no ar: "${camp}".`)
+      if (b == null && a > 0) add('estrutura', 'meta', L('meta.campanhaNova', { camp }))
       else if (b != null && b >= 30 && a >= 30) {
         const v = varPct(a, b)
-        if (v >= 30) add('orcamento', 'meta', `Aumentamos o investimento na campanha "${camp}" em cerca de ${Math.round(v)}% (de ${brl(b)} para ${brl(a)} no período).`)
-        else if (v <= -30) add('orcamento', 'meta', `Reduzimos o investimento na campanha "${camp}" em cerca de ${Math.round(-v)}% (de ${brl(b)} para ${brl(a)} no período).`)
+        if (v >= 30) add('orcamento', 'meta', L('meta.aumentou', { camp, pct: Math.round(v), de: brl(b), para: brl(a) }))
+        else if (v <= -30) add('orcamento', 'meta', L('meta.reduziu', { camp, pct: Math.round(-v), de: brl(b), para: brl(a) }))
       }
       // Conjuntos novos dentro de campanhas que já existiam
       if (b != null) {
         const conjAt = agrupar(rs, (r) => r['Conjunto de Anúncio'])
         const conjAnt = agrupar(campAnt.get(camp), (r) => r['Conjunto de Anúncio'])
         const novos = [...conjAt].filter(([n, x]) => !conjAnt.has(n) && soma(x, 'meta') > 0).map(([n]) => n)
-        if (novos.length) add('publico', 'meta', `Testamos ${novos.length} ${plural(novos.length, 'novo público/conjunto', 'novos públicos/conjuntos')} na campanha "${camp}": ${lista(novos)}.`)
+        if (novos.length) add('publico', 'meta', L('meta.publicos', { count: novos.length, camp, lista: lista(novos) }))
       }
     }
     for (const [camp, rs] of campAnt) {
       if (campAt.has(camp) && soma(campAt.get(camp), 'meta') > 0) continue
-      if (soma(rs, 'meta') >= 30) add('pausou', 'meta', `Encerramos a campanha "${camp}" (não estava trazendo o retorno esperado ou foi substituída).`)
+      if (soma(rs, 'meta') >= 30) add('pausou', 'meta', L('meta.encerrou', { camp }))
     }
     const adAt = agrupar(w.atual, (r) => r['Nome do Anúncio'])
     const adAnt = agrupar(w.anterior, (r) => r['Nome do Anúncio'])
@@ -91,8 +99,8 @@ export function mudancasDoGerenciador({ meta = [], google = [] }, de, ate) {
       else if (isPaused(ultimoStatus(rs)) && !isPaused(ultimoStatus(adAnt.get(ad) || []))) pausados.push(ad)
     }
     for (const [ad, rs] of adAnt) if (!adAt.has(ad) && soma(rs, 'meta') >= 20) pausados.push(ad)
-    if (novos.length) add('novoAnuncio', 'meta', `${novos.length} ${plural(novos.length, 'anúncio novo subiu', 'anúncios novos subiram')}: ${lista(novos)}.`)
-    if (pausados.length) add('pausou', 'meta', `${pausados.length} ${plural(pausados.length, 'anúncio foi pausado', 'anúncios foram pausados')}: ${lista(pausados)}.`)
+    if (novos.length) add('novoAnuncio', 'meta', L('meta.anunciosNovos', { count: novos.length, lista: lista(novos) }))
+    if (pausados.length) add('pausou', 'meta', L('meta.anunciosPausados', { count: pausados.length, lista: lista(pausados) }))
   }
 
   // ── Google ────────────────────────────────────────────────────────────────
@@ -103,17 +111,17 @@ export function mudancasDoGerenciador({ meta = [], google = [] }, de, ate) {
     for (const [camp, rs] of campAt) {
       const a = soma(rs, 'google')
       const b = campAnt.has(camp) ? soma(campAnt.get(camp), 'google') : null
-      if (b == null && a > 0) add('estrutura', 'google', `Campanha nova no Google: "${camp}".`)
+      if (b == null && a > 0) add('estrutura', 'google', L('google.campanhaNova', { camp }))
       else if (b != null && b >= 30 && a >= 30) {
         const v = varPct(a, b)
-        if (v >= 30) add('orcamento', 'google', `Aumentamos o investimento na campanha "${camp}" do Google em cerca de ${Math.round(v)}% (de ${brl(b)} para ${brl(a)} no período).`)
-        else if (v <= -30) add('orcamento', 'google', `Reduzimos o investimento na campanha "${camp}" do Google em cerca de ${Math.round(-v)}% (de ${brl(b)} para ${brl(a)} no período).`)
+        if (v >= 30) add('orcamento', 'google', L('google.aumentou', { camp, pct: Math.round(v), de: brl(b), para: brl(a) }))
+        else if (v <= -30) add('orcamento', 'google', L('google.reduziu', { camp, pct: Math.round(-v), de: brl(b), para: brl(a) }))
       }
-      if (b != null && b >= 30 && a > 0 && rs.reduce((s, r) => s + googleImpr(r), 0) === 0) add('pausou', 'google', `A campanha "${camp}" do Google ficou sem aparecer pro público no período.`)
+      if (b != null && b >= 30 && a > 0 && rs.reduce((s, r) => s + googleImpr(r), 0) === 0) add('pausou', 'google', L('google.semAparecer', { camp }))
     }
     for (const [camp, rs] of campAnt) {
       if (campAt.has(camp) && soma(campAt.get(camp), 'google') > 0) continue
-      if (soma(rs, 'google') >= 30) add('pausou', 'google', `Encerramos a campanha "${camp}" do Google.`)
+      if (soma(rs, 'google') >= 30) add('pausou', 'google', L('google.encerrou', { camp }))
     }
   }
   return out
@@ -122,11 +130,11 @@ export function mudancasDoGerenciador({ meta = [], google = [] }, de, ate) {
 /** Classifica um registro manual do time (projeto_otimizacoes) numa categoria. */
 export function categoriaDoRegistro(texto) {
   const t = String(texto || '').toLowerCase()
-  if (/or[çc]amento|verba|budget|invest|escal/.test(t)) return 'orcamento'
-  if (/paus|desativ|desligou|desligar|encerr/.test(t)) return 'pausou'
-  if (/p[úu]blico|lookalike|semelhante|segmenta|interesse|audi[êe]ncia/.test(t)) return 'publico'
-  if (/an[úu]ncio|criativo|v[íi]deo|imagem|copy|subi/.test(t)) return 'novoAnuncio'
-  if (/campanha|conjunto/.test(t)) return 'estrutura'
+  if (/or[çc]amento|verba|budget|invest|escal|scal/.test(t)) return 'orcamento'
+  if (/paus|desativ|desligou|desligar|encerr|turn(ed)? off|stopp?ed/.test(t)) return 'pausou'
+  if (/p[úu]blico|lookalike|semelhante|segmenta|interesse|audi[êe]ncia|interest/.test(t)) return 'publico'
+  if (/an[úu]ncio|criativo|v[íi]deo|imagem|copy|subi|\bads?\b(?! set)|creative|image/.test(t)) return 'novoAnuncio'
+  if (/campanha|conjunto|campaign|ad set/.test(t)) return 'estrutura'
   return 'outras'
 }
 

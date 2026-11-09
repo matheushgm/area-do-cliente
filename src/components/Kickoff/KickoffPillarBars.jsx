@@ -4,6 +4,7 @@ import { PILLARS, PILLARS_BY_ID } from './KickoffQuestions'
 import { extractScore } from './KickoffScorer'
 import Modal from '../UI/Modal'
 import { formatAnswer, severityColor, severityLabel } from './kickoffViewHelpers'
+import { useI18n } from '../../i18n'
 
 // Barras horizontais 0-100 por pilar, coloridas por severidade.
 // O app inteiro é light theme (rl-bg = #EEF2F9). Mantemos o param `theme`
@@ -18,6 +19,7 @@ export default function KickoffPillarBars({
   questions = [],
   answers = {},
 }) {
+  const { t } = useI18n()
   const trackColor = '#E2E8F0'
   const labelColor = '#0F172A'
   const subColor   = '#334155'
@@ -48,7 +50,7 @@ export default function KickoffPillarBars({
                     type="button"
                     onClick={() => setOpenPillar(p.id)}
                     className="p-1 rounded-md text-rl-muted hover:text-rl-purple hover:bg-rl-purple/10 transition-all"
-                    title="Ver perguntas e respostas deste pilar"
+                    title={t('kickoff.pilar.verPerguntas')}
                   >
                     <Eye className="w-3.5 h-3.5" />
                   </button>
@@ -86,6 +88,7 @@ export default function KickoffPillarBars({
 
 // ─── Modal de detalhamento ────────────────────────────────────────────────────
 function PillarDetailModal({ pillarId, questions, answers, score, onClose }) {
+  const { t } = useI18n()
   const pillar = PILLARS_BY_ID[pillarId]
   // Filtra só as perguntas que afetam este pilar
   const related = questions.filter((q) => (q.pillarIds || []).includes(pillarId))
@@ -97,14 +100,13 @@ function PillarDetailModal({ pillarId, questions, answers, score, onClose }) {
       <div className="flex items-start justify-between gap-4 mb-4 pb-4 border-b border-rl-border">
         <div className="flex-1 min-w-0">
           <p className="text-[10px] uppercase tracking-wider text-rl-muted font-bold mb-1">
-            Pilar
+            {t('kickoff.pilar.rotulo')}
           </p>
           <h3 className="text-lg font-black text-rl-text leading-tight">
             {pillar?.label || pillarId}
           </h3>
           <p className="text-xs text-rl-subtle mt-1">
-            {related.length} pergunta{related.length !== 1 ? 's' : ''} contribu
-            {related.length !== 1 ? 'em' : 'i'} pra este pilar
+            {t('kickoff.pilar.contribuem', { count: related.length })}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -115,7 +117,7 @@ function PillarDetailModal({ pillarId, questions, answers, score, onClose }) {
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all"
-            aria-label="Fechar"
+            aria-label={t('comum.fechar')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -126,7 +128,7 @@ function PillarDetailModal({ pillarId, questions, answers, score, onClose }) {
       <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
         {related.length === 0 && (
           <p className="text-sm text-rl-muted text-center py-8">
-            Nenhuma pergunta cadastrada pra este pilar.
+            {t('kickoff.pilar.nenhuma')}
           </p>
         )}
         {related.map((q, i) => {
@@ -159,12 +161,12 @@ function PillarDetailModal({ pillarId, questions, answers, score, onClose }) {
               </div>
               <div className="mt-2 pt-2 border-t border-rl-border/60">
                 <p className="text-[10px] uppercase tracking-wide text-rl-muted font-semibold mb-0.5">
-                  Resposta
+                  {t('kickoff.respostas.resposta')}
                 </p>
                 {isAnswered ? (
                   <p className="text-sm text-rl-text leading-snug">{formatted}</p>
                 ) : (
-                  <p className="text-sm italic text-rl-muted">— sem resposta —</p>
+                  <p className="text-sm italic text-rl-muted">{t('kickoff.respostas.semResposta')}</p>
                 )}
               </div>
             </div>
@@ -175,8 +177,7 @@ function PillarDetailModal({ pillarId, questions, answers, score, onClose }) {
       {/* Footer */}
       <div className="mt-4 pt-3 border-t border-rl-border">
         <p className="text-xs text-rl-muted leading-relaxed">
-          O score do pilar é a média ponderada dos scores parciais das perguntas
-          respondidas. Perguntas em branco não entram na média.
+          {t('kickoff.pilar.explicacao')}
         </p>
       </div>
     </Modal>

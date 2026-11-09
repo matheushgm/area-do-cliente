@@ -1,3 +1,20 @@
+// ─── Tradução dos rótulos (i18n) ─────────────────────────────────────────────
+// Os exports abaixo continuam em português e com o mesmo formato: são valores
+// gravados e comparados por dezenas de telas. Para EXIBIR o rótulo no idioma
+// atual, use os helpers do fim do arquivo (dicionário `constantes` em
+// src/i18n/locales/<idioma>/constantes.js):
+//   rotulo('BUSINESS_LABELS', 'b2b')        → genérico: nome da tabela + id/valor
+//   rotuloNegocio(id)      BUSINESS_LABELS / EDIT_BUSINESS_TYPES
+//   rotuloSegmento(valor)  SEGMENTOS (o valor gravado é o texto em português)
+//   rotuloMaturidade(id, { curta })  MATURITY_LABELS / EDIT_MATURITY_OPTIONS
+//   rotuloModeloContrato(id), rotuloTipoPlano(v), rotuloCobranca(v), rotuloPagamento(v)
+//   rotuloServico(id), rotuloSubServico(key), rotuloOpcaoServico(valor)  SERVICES_CONFIG
+//   rotuloFunil(valor)     BANCO_FUNIS
+//   rotuloDepartamento(idOuNome)  CLICKUP_DEPARTMENTS
+// Valor que não está na tabela (texto livre, legado) volta como veio. O `t` lê o
+// idioma na hora: chame no render de um componente que use `useI18n()`.
+import { t } from '../i18n'
+
 // ─── Banco de Anúncios / Banco de LP — classificação por funil ───────────────
 // Fonte única de verdade da lista de funis. Reusada pelo Banco de Anúncios
 // (estáticos/vídeos) e pelo Banco de LP (landing pages).
@@ -231,3 +248,63 @@ export const ANUNCIOS_POR_UNIDADE = {
 export function getUnidades(projectId) {
   return UNIDADES_POR_PROJETO[projectId] || null
 }
+
+// ─── Helpers de tradução (ver o topo do arquivo) ─────────────────────────────
+
+// Texto em português → chave camelCase do dicionário ("Funil de VSL" → "funilDeVsl").
+function chaveDe(texto) {
+  const partes = String(texto)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9]+/g, ' ').trim().split(' ').filter(Boolean)
+  return partes.map((p, i) => (i === 0 ? p.toLowerCase() : p[0].toUpperCase() + p.slice(1).toLowerCase())).join('')
+}
+
+const porId = (obj) => (v) => (Object.prototype.hasOwnProperty.call(obj, String(v)) ? String(v) : null)
+const porTexto = (lista) => (v) => (lista.includes(v) ? chaveDe(v) : null)
+const SUB_KEYS = new Set(SERVICES_CONFIG.flatMap((s) => (s.sub || []).map((x) => x.key)))
+const SUB_OPCOES = SERVICES_CONFIG.flatMap((s) => (s.sub || []).flatMap((x) => x.options || []))
+
+// Tabela → [grupo no dicionário `constantes`, valor → chave (null = fora da tabela)]
+const ROTULOS = {
+  BUSINESS_LABELS:         ['negocio',         porId(BUSINESS_LABELS)],
+  EDIT_BUSINESS_TYPES:     ['negocio',         porId(BUSINESS_LABELS)],
+  SEGMENTOS:               ['segmentos',       porTexto(SEGMENTOS)],
+  MATURITY_LABELS:         ['maturidade',      porId(MATURITY_LABELS)],
+  EDIT_MATURITY_OPTIONS:   ['maturidadeCurta', porId(MATURITY_LABELS)],
+  CONTRACT_MODEL_LABELS:   ['modeloContrato',  porId(CONTRACT_MODEL_LABELS)],
+  PLAN_TYPE_OPTIONS:       ['tipoPlano',       porId(PLAN_TYPE_LABELS)],
+  PLAN_TYPE_LABELS:        ['tipoPlano',       porId(PLAN_TYPE_LABELS)],
+  BILLING_MODE_OPTIONS:    ['cobranca',        porId(BILLING_MODE_LABELS)],
+  BILLING_MODE_LABELS:     ['cobranca',        porId(BILLING_MODE_LABELS)],
+  CONTRACT_PAYMENT_LABELS: ['pagamento',       porId(CONTRACT_PAYMENT_LABELS)],
+  SERVICES_CONFIG:         ['servicos',        (v) => (SERVICES_CONFIG.some((s) => s.id === v) ? v : null)],
+  SERVICES_SUB:            ['servicosSub',     (v) => (SUB_KEYS.has(v) ? v : null)],
+  SERVICES_OPCOES:         ['servicosOpcoes',  porTexto(SUB_OPCOES)],
+  BANCO_FUNIS:             ['funis',           porTexto(BANCO_FUNIS)],
+  CLICKUP_DEPARTMENTS:     ['departamentos',   (v) => {
+    const d = CLICKUP_DEPARTMENTS.find((x) => x.id === v || x.name === String(v).trim())
+    return d ? chaveDe(d.name) : null
+  }],
+}
+
+// Rótulo de `valor` da `tabela` no idioma atual. Fora da tabela: `fallback` ou o próprio valor.
+export function rotulo(tabela, valor, fallback) {
+  const r = ROTULOS[tabela]
+  if (!r || valor == null || valor === '') return fallback ?? (valor == null ? '' : String(valor))
+  const chave = r[1](valor)
+  if (chave == null) return fallback ?? String(valor)
+  return t(`constantes.${r[0]}.${chave}`)
+}
+
+export const rotuloNegocio        = (id) => rotulo('BUSINESS_LABELS', id)
+export const rotuloSegmento       = (valor) => rotulo('SEGMENTOS', valor)
+export const rotuloMaturidade     = (id, { curta = false } = {}) => rotulo(curta ? 'EDIT_MATURITY_OPTIONS' : 'MATURITY_LABELS', id)
+export const rotuloModeloContrato = (id) => rotulo('CONTRACT_MODEL_LABELS', id)
+export const rotuloTipoPlano      = (v) => rotulo('PLAN_TYPE_LABELS', v)
+export const rotuloCobranca       = (v) => rotulo('BILLING_MODE_LABELS', v)
+export const rotuloPagamento      = (v) => rotulo('CONTRACT_PAYMENT_LABELS', v)
+export const rotuloServico        = (id) => rotulo('SERVICES_CONFIG', id)
+export const rotuloSubServico     = (key) => rotulo('SERVICES_SUB', key)
+export const rotuloOpcaoServico   = (valor) => rotulo('SERVICES_OPCOES', valor)
+export const rotuloFunil          = (valor) => rotulo('BANCO_FUNIS', valor)
+export const rotuloDepartamento   = (idOuNome) => rotulo('CLICKUP_DEPARTMENTS', idOuNome)

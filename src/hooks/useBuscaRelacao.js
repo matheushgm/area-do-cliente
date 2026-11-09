@@ -4,10 +4,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { buscarTarefasRelacao, contextoDaRelacao } from '../lib/buscaRelacao'
+import { useI18n } from '../i18n'
 
-export const PLACEHOLDER_RELACAO = 'Título, link ou ID da tarefa'
+export const PLACEHOLDER_RELACAO = 'Título, link ou ID da tarefa' // texto em português; a tela usa a tradução abaixo
 
 export function useBuscaRelacao({ tarefaId = null, listaId = null } = {}) {
+  const { t } = useI18n()
   const [ctx, setCtx] = useState(null)
   const [soCliente, setSoCliente] = useState(true)
 
@@ -24,8 +26,8 @@ export function useBuscaRelacao({ tarefaId = null, listaId = null } = {}) {
     [ctx, filtrar, tarefaId],
   )
   const escopo = useMemo(
-    () => (ctx?.pastaId ? { rotulo: 'Só deste cliente', ativo: soCliente, alternar: () => setSoCliente((v) => !v) } : null),
-    [ctx?.pastaId, soCliente],
+    () => (ctx?.pastaId ? { rotulo: t('tarefaPainel.busca.soCliente'), ativo: soCliente, alternar: () => setSoCliente((v) => !v) } : null),
+    [ctx?.pastaId, soCliente, t],
   )
-  return { buscar, escopo, placeholder: PLACEHOLDER_RELACAO }
+  return { buscar, escopo, placeholder: t('tarefaPainel.busca.placeholderRelacao') }
 }

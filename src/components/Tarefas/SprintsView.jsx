@@ -16,31 +16,29 @@ import SprintFechar from './SprintFechar'
 import { deInputDate, pessoaDoPerfil } from '../../lib/tarefas'
 import { hojeISO } from '../../lib/vertatask'
 import {
-  ROTULO_FASE_SPRINT, calcularBurndownSprint, classificarItem, diasUteisDoPeriodo, faseDaSprint, fmtMin, fmtPeriodo, modoPadrao,
+  rotuloFaseSprint, calcularBurndownSprint, classificarItem, diasUteisDoPeriodo, faseDaSprint, fmtMin, fmtPeriodo, modoPadrao,
   nTarefas, participantesDaSprint, pessoasPadraoDoSquad, planoDeFechamento, resumoDaPessoa, resumoDasMetas, resumoDoTime, sprintPadrao, sugerirSprint, velocidadeDaPessoa,
 } from '../../lib/sprints'
+import { useI18n } from '../../i18n'
 
 const PREF_SQUAD = 'tarefas.sprints.squad'
-const MODOS = [['fechar', 'Fechar'], ['planejar', 'Planejar'], ['acompanhar', 'Acompanhar']]
-const ROTEIRO = [
-  ['Resultado da semana', 'Em Fechar, meta por meta: quanto bateu, o que ficou aberto e o que entrou fora do plano. Depois a retro de cada pessoa.'],
-  ['Concluir a sprint', 'Meta que não bateu continua na próxima ou encerra aqui. Cada atividade aberta vai junto ou volta para o backlog.'],
-  ['Pessoas do squad', 'Na sprint nova, escolha quem compõe o squad naquela semana. Quem está nos dois squads tem uma capacidade só.'],
-  ['Metas', 'Em Planejar, comece pelas grandes metas: o que precisa estar de pé até o fim da sprint, e como saber que foi batido.'],
-  ['Atividades', 'Explode cada meta em atividades, escolhendo do backlog ou criando na hora. Olhe a carga de cada pessoa, pare na marca dos 85% e confirme.'],
-]
+// modo da URL → chave do rótulo (sprints.modo.*)
+const MODOS = ['fechar', 'planejar', 'acompanhar']
+// passos do roteiro da reunião (sprints.roteiro.<passo>.titulo / .texto)
+const ROTEIRO = ['resultado', 'concluir', 'pessoas', 'metas', 'atividades']
 
 function lerPref(chave, padrao) { try { return localStorage.getItem(chave) ?? padrao } catch { return padrao } }
 function gravarPref(chave, v) { try { localStorage.setItem(chave, v) } catch { /* noop */ } }
 
 function Roteiro({ onFechar }) {
+  const { t } = useI18n()
   return (
     <section className="ln-card p-3 relative">
-      {onFechar && <button type="button" onClick={onFechar} className="ln-iconbtn !w-6 !h-6 absolute top-2 right-2" aria-label="Fechar o roteiro"><X className="w-3.5 h-3.5" /></button>}
-      <p className="text-[13px] font-semibold text-ln-t1">Roteiro da reunião de sexta <span className="font-normal text-ln-t4">até 2 horas</span></p>
+      {onFechar && <button type="button" onClick={onFechar} className="ln-iconbtn !w-6 !h-6 absolute top-2 right-2" aria-label={t('sprints.roteiro.fechar')}><X className="w-3.5 h-3.5" /></button>}
+      <p className="text-[13px] font-semibold text-ln-t1">{t('sprints.roteiro.titulo')} <span className="font-normal text-ln-t4">{t('sprints.roteiro.duracao')}</span></p>
       <ol className="mt-2 grid gap-x-4 gap-y-2 md:grid-cols-2 xl:grid-cols-5">
-        {ROTEIRO.map(([t, d], i) => (
-          <li key={t} className="text-xs text-ln-t3 leading-relaxed"><span className="font-semibold text-ln-t2">{i + 1}. {t}.</span> {d}</li>
+        {ROTEIRO.map((k, i) => (
+          <li key={k} className="text-xs text-ln-t3 leading-relaxed"><span className="font-semibold text-ln-t2">{i + 1}. {t(`sprints.roteiro.${k}.titulo`)}.</span> {t(`sprints.roteiro.${k}.texto`)}</li>
         ))}
       </ol>
     </section>
@@ -48,20 +46,21 @@ function Roteiro({ onFechar }) {
 }
 
 function FormNovaSprint({ inicial, membros, idsIniciais, onCriar, onCancelar, ocupado, nomeSquad }) {
+  const { t, locale } = useI18n()
   const [f, setF] = useState(inicial)
   const [ids, setIds] = useState(() => new Set(idsIniciais))
-  const opcoes = useMemo(() => (membros || []).filter((m) => !m.disabled && m.name?.trim().toLowerCase() !== 'cliente').sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')), [membros])
+  const opcoes = useMemo(() => (membros || []).filter((m) => !m.disabled && m.name?.trim().toLowerCase() !== 'cliente').sort((a, b) => a.name.localeCompare(b.name, locale)), [membros, locale])
   const valido = f.nome.trim() && f.inicio && f.fim && f.fim >= f.inicio && ids.size > 0
   const alternar = (id) => setIds((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
   return (
     <form onSubmit={(e) => { e.preventDefault(); if (valido) onCriar({ ...f, ids: [...ids] }) }} className="ln-card p-3 flex flex-col gap-3">
       <div className="flex items-end gap-2 flex-wrap">
-        <label className="flex flex-col gap-1 text-xs text-ln-t3">Nome<input className="ln-input !h-8 !w-[160px]" value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} /></label>
-        <label className="flex flex-col gap-1 text-xs text-ln-t3">Início<DataInput className="!h-8" value={f.inicio} onChange={(v) => setF({ ...f, inicio: v })} /></label>
-        <label className="flex flex-col gap-1 text-xs text-ln-t3">Fim<DataInput className="!h-8" value={f.fim} onChange={(v) => setF({ ...f, fim: v })} /></label>
+        <label className="flex flex-col gap-1 text-xs text-ln-t3">{t('sprints.nova.nome')}<input className="ln-input !h-8 !w-[160px]" value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} /></label>
+        <label className="flex flex-col gap-1 text-xs text-ln-t3">{t('sprints.nova.inicio')}<DataInput className="!h-8" value={f.inicio} onChange={(v) => setF({ ...f, inicio: v })} /></label>
+        <label className="flex flex-col gap-1 text-xs text-ln-t3">{t('sprints.nova.fim')}<DataInput className="!h-8" value={f.fim} onChange={(v) => setF({ ...f, fim: v })} /></label>
       </div>
       <fieldset>
-        <legend className="text-xs text-ln-t3 mb-1.5">Quem compõe o {nomeSquad} nesta sprint</legend>
+        <legend className="text-xs text-ln-t3 mb-1.5">{t('sprints.nova.quemCompoe', { squad: nomeSquad })}</legend>
         <div className="flex flex-wrap gap-1.5">
           {opcoes.map((m) => {
             const marcado = ids.has(m.id)
@@ -74,33 +73,35 @@ function FormNovaSprint({ inicial, membros, idsIniciais, onCriar, onCancelar, oc
         </div>
       </fieldset>
       <div className="flex items-center gap-2">
-        <button type="submit" disabled={!valido || ocupado} className="ln-primary disabled:opacity-50"><Check className="w-3.5 h-3.5" /> Criar sprint</button>
-        {onCancelar && <button type="button" onClick={onCancelar} className="ln-pill"><X className="w-3.5 h-3.5" /> Cancelar</button>}
-        {!ids.size && <span className="text-xs text-ln-t4">Escolha ao menos uma pessoa.</span>}
+        <button type="submit" disabled={!valido || ocupado} className="ln-primary disabled:opacity-50"><Check className="w-3.5 h-3.5" /> {t('sprints.nova.criar')}</button>
+        {onCancelar && <button type="button" onClick={onCancelar} className="ln-pill"><X className="w-3.5 h-3.5" /> {t('comum.cancelar')}</button>}
+        {!ids.size && <span className="text-xs text-ln-t4">{t('sprints.nova.escolhaPessoa')}</span>}
       </div>
     </form>
   )
 }
 
 function ChipPessoa({ ativo, onClick, pessoa, resumo, modo }) {
+  const { t } = useI18n()
   const texto = modo === 'planejar' ? `${fmtMin(resumo.totalMin)}/${fmtMin(resumo.capMin)}` : `${resumo.feitoTarefas}/${resumo.ativos.length}`
   return (
     <button type="button" onClick={onClick} aria-current={ativo || undefined} className={`inline-flex items-center gap-1.5 h-8 pl-1 pr-2 rounded-full text-xs whitespace-nowrap ring-1 ring-inset transition-colors ${ativo ? 'bg-ln-accent/10 ring-ln-accent/40 text-ln-accent font-semibold' : 'ring-ln-line text-ln-t2 hover:bg-ln-ink/[0.04]'} ${FOCO}`}>
       <Avatar pessoa={pessoa} size={22} />
       {pessoa.nome.split(' ')[0]}
       <span className={`tabular ${modo === 'planejar' ? TEXTO_CARGA[resumo.saude.nivel] : 'text-ln-t4'}`}>{texto}</span>
-      {resumo.confirmada && <Lock className="w-3 h-3 text-ln-green" aria-label="Confirmada" />}
+      {resumo.confirmada && <Lock className="w-3 h-3 text-ln-green" aria-label={t('sprints.confirmada')} />}
     </button>
   )
 }
 
 function AdicionarPessoa({ membros, onEscolher }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   if (!membros.length) return null
   return (
     <>
-      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className="ln-iconbtn !w-8 !h-8 !rounded-full ring-1 ring-inset ring-ln-line" aria-label="Colocar outra pessoa no squad nesta sprint" title="Colocar outra pessoa no squad nesta sprint"><Plus className="w-3.5 h-3.5" /></button>
+      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className="ln-iconbtn !w-8 !h-8 !rounded-full ring-1 ring-inset ring-ln-line" aria-label={t('sprints.colocarPessoa')} title={t('sprints.colocarPessoa')}><Plus className="w-3.5 h-3.5" /></button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={220}>
         <div className="p-1 overflow-y-auto">
           {membros.map((m) => <ItemMenu key={m.id} onClick={() => { setOpen(false); onEscolher(m) }}><Avatar pessoa={pessoaDoPerfil(m)} size={18} /><span className="truncate">{m.name}</span></ItemMenu>)}
@@ -111,21 +112,22 @@ function AdicionarPessoa({ membros, onEscolher }) {
 }
 
 function CartaoConcluir({ sprint, fase, time, metas, onConcluir, ocupado }) {
+  const { t } = useI18n()
   return (
     <div className="ln-card p-3 flex items-center gap-3 flex-wrap">
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-semibold text-ln-t1">{fase === 'concluida' ? `${sprint.nome} concluída` : `Concluir ${sprint.nome}`}</p>
+        <p className="text-[13px] font-semibold text-ln-t1">{fase === 'concluida' ? t('sprints.concluir.concluida', { nome: sprint.nome }) : t('sprints.concluir.concluirNome', { nome: sprint.nome })}</p>
         <p className="text-xs text-ln-t3 mt-0.5">
           {fase === 'concluida'
-            ? `${metas.batidas} de ${metas.metas} metas batidas. O resultado está guardado e alimenta a média de entrega de cada pessoa.`
+            ? t('sprints.concluir.textoConcluida', { batidas: metas.batidas, metas: metas.metas })
             : fase === 'ativa'
-              ? 'A sprint ainda não terminou. Concluir agora congela o % das metas, e o que for entregue depois disso não conta nesta sprint.'
-              : `${time.abertas === 1 ? '1 tarefa aberta segue' : `${time.abertas} tarefas abertas seguem`} a decisão de cada uma: próxima sprint ou backlog.`}
+              ? t('sprints.concluir.textoAtiva')
+              : t('sprints.concluir.textoAbertas', { count: time.abertas })}
         </p>
       </div>
       {fase !== 'concluida' && (
         <button type="button" onClick={onConcluir} disabled={ocupado} className="ln-primary disabled:opacity-50">
-          {ocupado ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />} Concluir sprint
+          {ocupado ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />} {t('sprints.concluir.botao')}
         </button>
       )}
     </div>
@@ -134,6 +136,7 @@ function CartaoConcluir({ sprint, fase, time, metas, onConcluir, ocupado }) {
 
 /** Visão do time: uma linha por pessoa do squad. */
 function VisaoTime({ sprint, fase, modo, linhas, resumos, time, membrosMap, s, sprintsDoSquad, onPessoa, config, topo }) {
+  const { t } = useI18n()
   const todas = useMemo(() => linhas.flatMap((l) => resumos.get(l.pessoa_id)?.lista || []), [linhas, resumos])
   const bd = useMemo(() => calcularBurndownSprint(sprint, todas, config), [sprint, todas, config])
   return (
@@ -141,37 +144,37 @@ function VisaoTime({ sprint, fase, modo, linhas, resumos, time, membrosMap, s, s
       {topo}
       {modo === 'planejar' && (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-          <Tile k="Planejado neste squad" v={fmtMin(time.planejadoMin)} sub={nTarefas(time.ativos)} />
-          <Tile k="Confirmadas" v={`${time.confirmadas}/${linhas.length}`} tom={linhas.length && time.confirmadas === linhas.length ? 'green' : undefined} />
-          <Tile k="Horas pelo tipo" v={String(time.semEstimativa)} sub="sem estimativa" dica="Tarefas sem estimativa contam as horas do tipo de tarefa, como na Capacidade do time" />
+          <Tile k={t('sprints.time.planejado')} v={fmtMin(time.planejadoMin)} sub={nTarefas(time.ativos)} />
+          <Tile k={t('sprints.tile.confirmadas')} v={`${time.confirmadas}/${linhas.length}`} tom={linhas.length && time.confirmadas === linhas.length ? 'green' : undefined} />
+          <Tile k={t('sprints.time.horasPeloTipo')} v={String(time.semEstimativa)} sub={t('sprints.time.semEstimativa')} dica={t('sprints.time.horasPeloTipoDica')} />
         </div>
       )}
       {modo === 'acompanhar' && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-            <Tile k="Combinado" v={fmtMin(time.compromissoMin)} sub={nTarefas(time.compromissoTarefas)} />
-            <Tile k="Entregue" v={fmtMin(time.feitoMin)} sub={nTarefas(time.feitoTarefas)} tom={time.feitoTarefas ? 'green' : undefined} />
-            <Tile k="Falta" v={fmtMin(time.restanteMin)} sub={nTarefas(time.abertas)} />
-            <Tile k="Fora do plano" v={fmtMin(time.foraMin)} sub={nTarefas(time.foras)} tom={time.foras ? 'yellow' : undefined} />
-            <Tile k="Do combinado, saiu" v={fmtPct(time.sayDo)} />
+            <Tile k={t('sprints.tile.combinado')} v={fmtMin(time.compromissoMin)} sub={nTarefas(time.compromissoTarefas)} />
+            <Tile k={t('sprints.tile.entregue')} v={fmtMin(time.feitoMin)} sub={nTarefas(time.feitoTarefas)} tom={time.feitoTarefas ? 'green' : undefined} />
+            <Tile k={t('sprints.tile.falta')} v={fmtMin(time.restanteMin)} sub={nTarefas(time.abertas)} />
+            <Tile k={t('sprints.tile.foraDoPlano')} v={fmtMin(time.foraMin)} sub={nTarefas(time.foras)} tom={time.foras ? 'yellow' : undefined} />
+            <Tile k={t('sprints.tile.sayDo')} v={fmtPct(time.sayDo)} />
           </div>
-          <CartaoBurndown bd={bd} nome={`${sprint.nome}, time`} />
+          <CartaoBurndown bd={bd} nome={t('sprints.time.burndownNome', { nome: sprint.nome })} />
         </>
       )}
       <div className="ln-card !p-0 overflow-x-auto">
         <table className="w-full text-[13px] min-w-[760px]">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wider text-ln-t4 border-b border-ln-ink/[0.06]">
-              <th scope="col" className="font-medium py-2 px-3">Pessoa</th>
-              {modo === 'planejar' && <th scope="col" className="font-medium py-2 px-2 w-[240px]">Carga da semana</th>}
-              <th scope="col" className="font-medium py-2 px-2 text-right">Em metas</th>
-              {modo !== 'planejar' && <th scope="col" className="font-medium py-2 px-2 text-right">Combinado</th>}
-              {modo !== 'planejar' && <th scope="col" className="font-medium py-2 px-2 text-right">Entregue</th>}
-              {modo !== 'planejar' && <th scope="col" className="font-medium py-2 px-2 text-right">Saiu</th>}
-              {modo !== 'planejar' && <th scope="col" className="font-medium py-2 px-2 text-right">Fora do plano</th>}
-              {modo !== 'planejar' && <th scope="col" className="font-medium py-2 px-2 text-right">Abertas</th>}
-              {modo === 'planejar' && <th scope="col" className="font-medium py-2 px-2 text-right">Média entregue</th>}
-              <th scope="col" className="font-medium py-2 px-3 text-right">{modo === 'fechar' ? 'Retro' : 'Situação'}</th>
+              <th scope="col" className="font-medium py-2 px-3">{t('sprints.time.col.pessoa')}</th>
+              {modo === 'planejar' && <th scope="col" className="font-medium py-2 px-2 w-[240px]">{t('sprints.time.col.carga')}</th>}
+              <th scope="col" className="font-medium py-2 px-2 text-right">{t('sprints.time.col.emMetas')}</th>
+              {modo !== 'planejar' && <th scope="col" className="font-medium py-2 px-2 text-right">{t('sprints.tile.combinado')}</th>}
+              {modo !== 'planejar' && <th scope="col" className="font-medium py-2 px-2 text-right">{t('sprints.tile.entregue')}</th>}
+              {modo !== 'planejar' && <th scope="col" className="font-medium py-2 px-2 text-right">{t('sprints.time.col.saiu')}</th>}
+              {modo !== 'planejar' && <th scope="col" className="font-medium py-2 px-2 text-right">{t('sprints.tile.foraDoPlano')}</th>}
+              {modo !== 'planejar' && <th scope="col" className="font-medium py-2 px-2 text-right">{t('sprints.time.col.abertas')}</th>}
+              {modo === 'planejar' && <th scope="col" className="font-medium py-2 px-2 text-right">{t('sprints.time.col.media')}</th>}
+              <th scope="col" className="font-medium py-2 px-3 text-right">{modo === 'fechar' ? t('sprints.fechar.retro') : t('sprints.time.col.situacao')}</th>
             </tr>
           </thead>
           <tbody>
@@ -190,7 +193,7 @@ function VisaoTime({ sprint, fase, modo, linhas, resumos, time, membrosMap, s, s
                     <td className="py-2 px-2">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 min-w-[80px]"><BarraCarga saude={r.saude} altura={6} /></div>
-                        <span className={`text-xs tabular whitespace-nowrap ${TEXTO_CARGA[r.saude.nivel]}`} title={r.outrosMin ? `Inclui ${fmtMin(r.outrosMin)} no outro squad` : undefined}>{fmtMin(r.totalMin)}<span className="text-ln-t4"> / {fmtMin(r.capMin)}</span></span>
+                        <span className={`text-xs tabular whitespace-nowrap ${TEXTO_CARGA[r.saude.nivel]}`} title={r.outrosMin ? t('sprints.time.incluiOutro', { horas: fmtMin(r.outrosMin) }) : undefined}>{fmtMin(r.totalMin)}<span className="text-ln-t4"> / {fmtMin(r.capMin)}</span></span>
                       </div>
                     </td>
                   )}
@@ -203,22 +206,24 @@ function VisaoTime({ sprint, fase, modo, linhas, resumos, time, membrosMap, s, s
                   {modo === 'planejar' && <td className="py-2 px-2 text-right tabular text-ln-t3">{vel ? fmtMin(vel.mediaEntregueMin) : '-'}</td>}
                   <td className="py-2 px-3 text-right whitespace-nowrap">
                     {modo === 'fechar'
-                      ? (l.retro_mudanca ? <span className="text-xs text-ln-green">Feita</span> : <span className="text-xs text-ln-t4">Falta</span>)
-                      : (r.confirmada ? <span className="inline-flex items-center gap-1 text-xs text-ln-green"><Lock className="w-3 h-3" />Confirmada</span> : <span className="text-xs text-ln-t4">{r.ativos.length ? 'Rascunho' : 'Vazia'}</span>)}
+                      ? (l.retro_mudanca ? <span className="text-xs text-ln-green">{t('sprints.time.retroFeita')}</span> : <span className="text-xs text-ln-t4">{t('sprints.time.retroFalta')}</span>)
+                      : (r.confirmada ? <span className="inline-flex items-center gap-1 text-xs text-ln-green"><Lock className="w-3 h-3" />{t('sprints.confirmada')}</span> : <span className="text-xs text-ln-t4">{r.ativos.length ? t('sprints.time.rascunho') : t('sprints.time.vazia')}</span>)}
                   </td>
                 </tr>
               )
             })}
-            {!linhas.length && <tr><td colSpan={8} className="py-8 text-center text-ln-t4">Ninguém nesta sprint ainda.</td></tr>}
+            {!linhas.length && <tr><td colSpan={8} className="py-8 text-center text-ln-t4">{t('sprints.time.ninguem')}</td></tr>}
           </tbody>
         </table>
       </div>
-      {fase === 'futura' && !linhas.length && <p className="text-xs text-ln-t4">Use o + ao lado das pessoas para compor o squad.</p>}
+      {fase === 'futura' && !linhas.length && <p className="text-xs text-ln-t4">{t('sprints.time.useMais')}</p>}
     </div>
   )
 }
 
 export default function SprintsView({ s, t, squads, projetos, membros, membrosMap, user, onAbrirTarefa, tarefaAbertaId, onToast, confirmar }) {
+  // `t` aqui é o useTarefas; a tradução é `tr`
+  const { t: tr, locale } = useI18n()
   const [params, setParams] = useSearchParams()
   const [roteiro, setRoteiro] = useState(null) // null = sozinho: aberto só enquanto a sprint não tem meta
   const [criando, setCriando] = useState(false)
@@ -241,7 +246,7 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
   const proxima = idx >= 0 && idx < ordenadas.length - 1 ? ordenadas[idx + 1] : null
   const fase = faseDaSprint(sprint, hoje)
   const modoUrl = params.get('modo')
-  const modo = MODOS.some(([k]) => k === modoUrl) && !(fase === 'concluida' && modoUrl === 'planejar') && !(fase === 'futura' && modoUrl === 'fechar') ? modoUrl : modoPadrao(fase)
+  const modo = MODOS.includes(modoUrl) && !(fase === 'concluida' && modoUrl === 'planejar') && !(fase === 'futura' && modoUrl === 'fechar') ? modoUrl : modoPadrao(fase)
   const pessoaParam = params.get('pessoa')
 
   const ir = (patch) => {
@@ -270,8 +275,8 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
 
   const linhas = useMemo(() => {
     const ls = sprint ? (s.pessoasPorSprint.get(sprint.id) || []) : []
-    return [...ls].sort((a, b) => (membrosMap.get(a.pessoa_id)?.name || '').localeCompare(membrosMap.get(b.pessoa_id)?.name || '', 'pt-BR'))
-  }, [sprint, s.pessoasPorSprint, membrosMap])
+    return [...ls].sort((a, b) => (membrosMap.get(a.pessoa_id)?.name || '').localeCompare(membrosMap.get(b.pessoa_id)?.name || '', locale))
+  }, [sprint, s.pessoasPorSprint, membrosMap, locale])
   const itensDaSprint = useMemo(() => s.itens.filter((i) => i.sprint_id === sprint?.id), [s.itens, sprint?.id])
   const itensAnterior = useMemo(() => s.itens.filter((i) => i.sprint_id === anterior?.id), [s.itens, anterior?.id])
   const metas = useMemo(() => s.metas.filter((m) => m.sprint_id === sprint?.id), [s.metas, sprint?.id])
@@ -280,7 +285,7 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
   const outros = useMemo(() => {
     const m = new Map()
     for (const o of outrasDaSemana) {
-      const nomeSq = squadsAtivos.find((x) => x.id === o.squad_id)?.name || 'outro squad'
+      const nomeSq = squadsAtivos.find((x) => x.id === o.squad_id)?.name || tr('sprints.outroSquad')
       for (const l of s.pessoasPorSprint.get(o.id) || []) {
         if (!m.has(l.pessoa_id)) m.set(l.pessoa_id, { min: 0, nomes: [], linhas: [] })
         const e = m.get(l.pessoa_id)
@@ -294,7 +299,7 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
       }
     }
     return m
-  }, [outrasDaSemana, s.pessoasPorSprint, s.itens, tarefasMap, s.config, squadsAtivos])
+  }, [outrasDaSemana, s.pessoasPorSprint, s.itens, tarefasMap, s.config, squadsAtivos, tr])
 
   const resumos = useMemo(() => {
     const m = new Map()
@@ -323,7 +328,7 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
     const doProjeto = new Map((projetos || []).map((p) => [p.id, p.squad || null]))
     return new Map(t.pastas.map((p) => [p.id, p.project_id ? doProjeto.get(p.project_id) || null : null]))
   }, [projetos, t.pastas])
-  const pastasOrdenadas = useMemo(() => [...t.pastas].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [t.pastas])
+  const pastasOrdenadas = useMemo(() => [...t.pastas].sort((a, b) => a.nome.localeCompare(b.nome, locale)), [t.pastas, locale])
   const squadAtualId = squad?.id
   const todasListas = t.listas
   const opcoesLista = useMemo(() => {
@@ -356,7 +361,7 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
       const r = await s.adicionarTarefas(sprint.id, linha, tarefas)
       if (r.error) { onToast(r.error, 'error'); return }
       for (const x of tarefas) await atribuir(x, linha.pessoa_id)
-      if (tarefas.length > 1) onToast(`${nTarefas(tarefas.length)} na sprint`)
+      if (tarefas.length > 1) onToast(tr('sprints.toast.naSprint', { tarefas: nTarefas(tarefas.length) }))
     },
     remover: async (c, linha) => {
       const r = await s.removerItem(c.item, linha)
@@ -370,7 +375,7 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
       const resp = (c.tarefa.responsaveis || []).filter((id) => id !== de.pessoa_id)
       const u = await t.atualizarTarefa(c.tarefa.id, { responsaveis: resp.includes(para.pessoa_id) ? resp : [...resp, para.pessoa_id] })
       if (u?.error) onToast(u.error, 'error')
-      else onToast(`Passou para ${membrosMap.get(para.pessoa_id)?.name?.split(' ')[0] || 'outra pessoa'}`)
+      else onToast(tr('sprints.toast.passouPara', { nome: membrosMap.get(para.pessoa_id)?.name?.split(' ')[0] || tr('sprints.outraPessoa') }))
     },
     // quem já é responsável e está no squad fica com a tarefa; sem ninguém do squad, vai para quem foi escolhido
     adicionarNaMeta: async (meta, tarefas, quemFaz) => {
@@ -382,12 +387,12 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
       }
       for (const [pessoaId, lista] of porPessoa) {
         const linha = linhas.find((l) => l.pessoa_id === pessoaId)
-        if (!linha) { onToast('Coloque alguém no squad antes de escolher atividades', 'error'); return }
+        if (!linha) { onToast(tr('sprints.toast.coloqueAlguem'), 'error'); return }
         const r = await s.adicionarTarefas(sprint.id, linha, lista, { metaId: meta.id })
         if (r.error) { onToast(r.error, 'error'); return }
         for (const x of lista) await atribuir(x, pessoaId)
       }
-      if (tarefas.length > 1) onToast(`${nTarefas(tarefas.length)} na meta`)
+      if (tarefas.length > 1) onToast(tr('sprints.toast.naMeta', { tarefas: nTarefas(tarefas.length) }))
     },
     // vence no último dia útil da sprint; muda na própria tarefa se precisar. Segue para o ClickUp.
     criarAtividade: async (meta, { titulo, lista_id, pessoa_id }) => {
@@ -407,8 +412,8 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
     },
     excluirMeta: async (meta, n) => {
       const ok = await confirmar({
-        perigo: true, titulo: 'Excluir esta meta?', acao: 'Excluir', itens: [meta.titulo], rotuloItens: 'Meta a ser excluída',
-        texto: n ? `As ${n === 1 ? 'tarefa continua' : `${n} tarefas continuam`} na sprint, só ficam sem meta.` : 'Ela ainda não tem atividades.',
+        perigo: true, titulo: tr('sprints.dialogo.excluirMetaTitulo'), acao: tr('comum.excluir'), itens: [meta.titulo], rotuloItens: tr('sprints.dialogo.metaExcluida'),
+        texto: n ? tr('sprints.dialogo.excluirMetaTexto', { count: n }) : tr('sprints.dialogo.excluirMetaVazia'),
       })
       if (!ok) return
       const r = await s.excluirMeta(meta.id)
@@ -421,43 +426,43 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
     },
     confirmarPessoa: async (linha, resumo) => {
       const avisos = []
-      if (resumo.semMeta) avisos.push(`${resumo.semMeta === 1 ? '1 tarefa não ajuda' : `${resumo.semMeta} tarefas não ajudam`} a bater nenhuma meta`)
-      if (resumo.saude.nivel === 'passou') avisos.push(`Passou da capacidade: ${fmtMin(resumo.totalMin)} de ${fmtMin(resumo.capMin)}`)
-      else if (resumo.saude.nivel === 'justa') avisos.push(`Sem folga para imprevisto: ${fmtMin(resumo.totalMin)} de ${fmtMin(resumo.capMin)}`)
-      if (resumo.semEstimativa) avisos.push(`${resumo.semEstimativa} sem estimativa, contando as horas pelo tipo de tarefa`)
-      const nome = membrosMap.get(linha.pessoa_id)?.name || 'pessoa'
+      if (resumo.semMeta) avisos.push(tr('sprints.dialogo.semMeta', { count: resumo.semMeta }))
+      if (resumo.saude.nivel === 'passou') avisos.push(tr('sprints.dialogo.passouCapacidade', { horas: fmtMin(resumo.totalMin), cap: fmtMin(resumo.capMin) }))
+      else if (resumo.saude.nivel === 'justa') avisos.push(tr('sprints.dialogo.semFolga', { horas: fmtMin(resumo.totalMin), cap: fmtMin(resumo.capMin) }))
+      if (resumo.semEstimativa) avisos.push(tr('sprints.dialogo.semEstimativa', { n: resumo.semEstimativa }))
+      const nome = membrosMap.get(linha.pessoa_id)?.name || tr('sprints.pessoa')
       const ok = await confirmar({
-        titulo: `Confirmar a sprint de ${nome}?`, acao: 'Confirmar', icone: Lock,
-        texto: `${fmtMin(resumo.planejadoMin)} em ${nTarefas(resumo.ativos.length)} viram o compromisso da semana. O que entrar depois fica marcado como fora do plano.`,
-        ...(avisos.length ? { rotuloItens: 'Vale olhar antes', itens: avisos } : {}),
+        titulo: tr('sprints.dialogo.confirmarPessoaTitulo', { nome }), acao: tr('comum.confirmar'), icone: Lock,
+        texto: tr('sprints.dialogo.confirmarPessoaTexto', { horas: fmtMin(resumo.planejadoMin), tarefas: nTarefas(resumo.ativos.length) }),
+        ...(avisos.length ? { rotuloItens: tr('sprints.dialogo.valeOlhar'), itens: avisos } : {}),
       })
       if (!ok) return
       const r = await confirmarLinha(linha, resumo)
-      if (r.error) onToast(r.error, 'error'); else onToast(`Sprint de ${nome.split(' ')[0]} confirmada`)
+      if (r.error) onToast(r.error, 'error'); else onToast(tr('sprints.toast.pessoaConfirmada', { nome: nome.split(' ')[0] }))
     },
     confirmarSquad: async () => {
       const faltam = linhas.filter((l) => !resumos.get(l.pessoa_id)?.confirmada && resumos.get(l.pessoa_id)?.ativos.length)
       const passaram = faltam.filter((l) => resumos.get(l.pessoa_id).saude.nivel === 'passou').map((l) => membrosMap.get(l.pessoa_id)?.name?.split(' ')[0]).filter(Boolean)
       const avisos = []
-      if (time.semMeta) avisos.push(`${time.semMeta === 1 ? '1 tarefa não ajuda' : `${time.semMeta} tarefas não ajudam`} a bater nenhuma meta`)
-      if (passaram.length) avisos.push(`Passou da capacidade: ${passaram.join(', ')}`)
+      if (time.semMeta) avisos.push(tr('sprints.dialogo.semMeta', { count: time.semMeta }))
+      if (passaram.length) avisos.push(tr('sprints.dialogo.passaramCapacidade', { nomes: passaram.join(', ') }))
       const vazias = metas.filter((m) => !classificados.some((c) => c.item.meta_id === m.id && !c.removida)).length
-      if (vazias) avisos.push(`${vazias === 1 ? '1 meta sem atividade' : `${vazias} metas sem atividade`}`)
+      if (vazias) avisos.push(tr('sprints.dialogo.metasVazias', { count: vazias }))
       const ok = await confirmar({
-        titulo: `Confirmar a sprint do ${squad?.name}?`, acao: 'Confirmar', icone: Lock,
-        texto: `${faltam.length === 1 ? '1 pessoa confirma' : `${faltam.length} pessoas confirmam`} o compromisso da semana. O que entrar depois fica marcado como fora do plano.`,
-        ...(avisos.length ? { rotuloItens: 'Vale olhar antes', itens: avisos } : {}),
+        titulo: tr('sprints.dialogo.confirmarSquadTitulo', { squad: squad?.name }), acao: tr('comum.confirmar'), icone: Lock,
+        texto: tr('sprints.dialogo.confirmarSquadTexto', { count: faltam.length }),
+        ...(avisos.length ? { rotuloItens: tr('sprints.dialogo.valeOlhar'), itens: avisos } : {}),
       })
       if (!ok) return
       for (const l of faltam) {
         const r = await confirmarLinha(l, resumos.get(l.pessoa_id))
         if (r.error) { onToast(r.error, 'error'); return }
       }
-      onToast('Sprint do squad confirmada')
+      onToast(tr('sprints.toast.squadConfirmada'))
     },
     reabrirPessoa: async (linha) => {
       const r = await s.reabrirPessoa(linha)
-      if (r.error) onToast(r.error, 'error'); else onToast('Planejamento reaberto')
+      if (r.error) onToast(r.error, 'error'); else onToast(tr('sprints.toast.reaberto'))
     },
     removerPessoa: async (linha) => {
       const r = await s.removerPessoa(linha)
@@ -479,12 +484,12 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
   const excluir = async () => {
     const n = itensDaSprint.length
     const ok = await confirmar({
-      perigo: true, titulo: `Excluir ${sprint.nome} do ${squad?.name}?`, acao: 'Excluir',
-      texto: `As tarefas continuam onde estão${n ? `, só saem da sprint (${n})` : ''}. As metas e a retro de cada pessoa são apagadas.`,
+      perigo: true, titulo: tr('sprints.dialogo.excluirSprintTitulo', { nome: sprint.nome, squad: squad?.name }), acao: tr('comum.excluir'),
+      texto: n ? tr('sprints.dialogo.excluirSprintTextoN', { n }) : tr('sprints.dialogo.excluirSprintTexto'),
     })
     if (!ok) return
     const r = await s.excluirSprint(sprint.id)
-    if (r.error) onToast(r.error, 'error'); else { onToast('Sprint excluída'); ir({ sprint: null, modo: null, pessoa: null }) }
+    if (r.error) onToast(r.error, 'error'); else { onToast(tr('sprints.toast.excluida')); ir({ sprint: null, modo: null, pessoa: null }) }
   }
 
   const concluir = async () => {
@@ -492,27 +497,27 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
     const destino = proxima?.nome || sugestao.nome
     const semRetro = linhas.filter((l) => !l.retro_mudanca?.trim()).map((l) => membrosMap.get(l.pessoa_id)?.name?.split(' ')[0]).filter(Boolean)
     const itens = [
-      ...(metas.length ? [`${previa.batidas} de ${metas.length} metas batidas, ${previa.novasMetas.length} ${previa.novasMetas.length === 1 ? 'continua' : 'continuam'} na ${destino}`] : []),
-      `${previa.transbordo === 1 ? '1 tarefa vai' : `${previa.transbordo} tarefas vão`} para a ${destino}, ${previa.devolvidas === 1 ? '1 volta' : `${previa.devolvidas} voltam`} ao backlog`,
-      ...(semRetro.length ? [`Retro sem a mudança combinada: ${semRetro.join(', ')}`] : []),
+      ...(metas.length ? [`${tr('sprints.dialogo.metasBatidas', { batidas: previa.batidas, total: metas.length })}, ${tr('sprints.dialogo.metasContinuam', { count: previa.novasMetas.length, destino })}`] : []),
+      `${tr('sprints.dialogo.tarefasVao', { count: previa.transbordo, destino })}, ${tr('sprints.dialogo.voltamBacklog', { count: previa.devolvidas })}`,
+      ...(semRetro.length ? [tr('sprints.dialogo.semRetro', { nomes: semRetro.join(', ') })] : []),
     ]
     const ok = await confirmar({
-      titulo: `Concluir ${sprint.nome} do ${squad?.name}?`, acao: 'Concluir', icone: CheckCircle2,
-      texto: `Andamento das metas: ${resumoMetas.pct}%. Entregue: ${fmtMin(time.feitoMin)} de ${fmtMin(time.compromissoMin)} combinadas. O resultado fica guardado e não muda mais.`,
-      rotuloItens: 'O que acontece', itens,
+      titulo: tr('sprints.dialogo.concluirTitulo', { nome: sprint.nome, squad: squad?.name }), acao: tr('sprints.dialogo.concluir'), icone: CheckCircle2,
+      texto: tr('sprints.dialogo.concluirTexto', { pct: resumoMetas.pct, feito: fmtMin(time.feitoMin), combinado: fmtMin(time.compromissoMin) }),
+      rotuloItens: tr('sprints.dialogo.oQueAcontece'), itens,
     })
     if (!ok) return
     setOcupado(true)
     const r = await s.concluirSprint({ sprint, proxima, sugestao, tarefas: tarefasMap, membros, cfg: s.config, itensDaSprint })
     setOcupado(false)
     if (r.error) { onToast(r.error, 'error'); return }
-    onToast(`${sprint.nome} concluída`)
+    onToast(tr('sprints.concluir.concluida', { nome: sprint.nome }))
     ir({ sprint: r.data.proxima.id, modo: 'planejar', pessoa: null })
   }
 
   const adicionarPessoa = async (m) => {
     const [linha] = participantesDaSprint({ membros: [m], inicio: sprint.inicio, fim: sprint.fim, cfg: s.config })
-    if (!linha) { onToast('Esse perfil não entra em sprint', 'error'); return }
+    if (!linha) { onToast(tr('sprints.toast.perfilNaoEntra'), 'error'); return }
     // quem já está no outro squad na semana mantém a mesma capacidade
     const noOutro = outros.get(m.id)?.linhas[0]
     const r = await s.adicionarPessoa(sprint.id, noOutro ? { ...linha, dias_disponiveis: noOutro.dias_disponiveis, horas_dia: noOutro.horas_dia } : linha)
@@ -522,7 +527,7 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
 
   // ── Tela ─────────────────────────────────────────────────────────────────
   const barraSquads = squadsAtivos.length > 0 && (
-    <div className="inline-flex rounded-lg ring-1 ring-inset ring-ln-line p-0.5" role="group" aria-label="Squad">
+    <div className="inline-flex rounded-lg ring-1 ring-inset ring-ln-line p-0.5" role="group" aria-label={tr('sprints.squad')}>
       {squadsAtivos.map((q) => (
         <button key={q.id} type="button" aria-pressed={q.id === squad?.id} onClick={() => { setCriando(false); ir({ squad: q.id, sprint: null, pessoa: null, modo: null }) }} className={`h-7 px-3 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${q.id === squad?.id ? 'bg-ln-accent text-white' : 'text-ln-t2 hover:bg-ln-ink/5'} ${FOCO}`}>
           {q.emoji ? `${q.emoji} ` : ''}{q.name}
@@ -532,8 +537,8 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
   )
   const idsPadrao = pessoasPadraoDoSquad(squad, ordenadas.length ? (s.pessoasPorSprint.get(ordenadas[ordenadas.length - 1].id) || []) : [])
 
-  if (s.loading) return <div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando sprints…</div>
-  if (!squad) return <p className="py-20 text-center text-[13px] text-ln-t4">Nenhum squad cadastrado. Crie um em Usuários, na aba Equipes.</p>
+  if (s.loading) return <div className="flex items-center justify-center py-20 text-ln-t4 text-[13px] gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {tr('sprints.carregando')}</div>
+  if (!squad) return <p className="py-20 text-center text-[13px] text-ln-t4">{tr('sprints.semSquad')}</p>
 
   if (!sprint) {
     return (
@@ -541,8 +546,8 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
         <div>{barraSquads}</div>
         <div className="ln-card p-5 max-w-3xl flex flex-col gap-3">
           <div>
-            <p className="text-[15px] font-semibold text-ln-t1 flex items-center gap-2"><BookOpenCheck className="w-4 h-4 text-ln-accent" /> Primeira sprint do {squad.name}</p>
-            <p className="text-[13px] text-ln-t3 mt-1">A numeração continua a da pasta Sprint do ClickUp, a mesma para os dois squads. Depois de criar, a sprint começa pelas metas.</p>
+            <p className="text-[15px] font-semibold text-ln-t1 flex items-center gap-2"><BookOpenCheck className="w-4 h-4 text-ln-accent" /> {tr('sprints.primeira.titulo', { squad: squad.name })}</p>
+            <p className="text-[13px] text-ln-t3 mt-1">{tr('sprints.primeira.texto')}</p>
           </div>
           <FormNovaSprint key={squad.id} inicial={sugestao} membros={membros} idsIniciais={idsPadrao} onCriar={criar} ocupado={ocupado} nomeSquad={squad.name} />
           {s.erro && <p className="text-xs text-ln-red">{s.erro}</p>}
@@ -555,7 +560,7 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
   const verMetas = !verTime && !linhaSel
   const verRoteiro = roteiro ?? (verMetas && !metas.length)
   const alternarRoteiro = () => setRoteiro(!verRoteiro)
-  const modosVisiveis = MODOS.filter(([k]) => !(fase === 'concluida' && k === 'planejar') && !(fase === 'futura' && k === 'fechar'))
+  const modosVisiveis = MODOS.filter((k) => !(fase === 'concluida' && k === 'planejar') && !(fase === 'futura' && k === 'fechar'))
   const visiveis = ordenadas.slice(-6)
   const chipAtivo = (ativo) => `inline-flex items-center gap-1.5 h-8 px-2.5 rounded-full text-xs whitespace-nowrap ring-1 ring-inset ${ativo ? 'bg-ln-accent/10 ring-ln-accent/40 text-ln-accent font-semibold' : 'ring-ln-line text-ln-t2 hover:bg-ln-ink/[0.04]'} ${FOCO}`
   const cartaoConcluir = modo === 'fechar' ? <CartaoConcluir sprint={sprint} fase={fase} time={time} metas={resumoMetas} onConcluir={concluir} ocupado={ocupado} /> : null
@@ -567,19 +572,19 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
           {barraSquads}
           {visiveis.map((x) => (
             <button key={x.id} type="button" onClick={() => ir({ sprint: x.id, modo: null })} aria-current={x.id === sprint.id || undefined} className={`ln-tab ${x.id === sprint.id ? 'ln-tab-active' : ''} ${FOCO}`}>
-              {x.concluida_em && <CheckCircle2 className="w-3 h-3 text-ln-green" aria-label="Concluída" />}{x.nome} <span className="text-ln-t4 font-normal">{fmtPeriodo(x)}</span>
+              {x.concluida_em && <CheckCircle2 className="w-3 h-3 text-ln-green" aria-label={tr('sprints.fase.concluida')} />}{x.nome} <span className="text-ln-t4 font-normal">{fmtPeriodo(x)}</span>
             </button>
           ))}
-          {!criando && <button type="button" onClick={() => setCriando(true)} className="ln-pill"><Plus className="w-3.5 h-3.5" /> Nova sprint</button>}
-          <span className={`ln-pill !h-6 text-[11px] ${fase === 'ativa' ? '!text-ln-green' : fase === 'encerrada' ? '!text-ln-yellow' : ''}`}>{ROTULO_FASE_SPRINT[fase]}</span>
+          {!criando && <button type="button" onClick={() => setCriando(true)} className="ln-pill"><Plus className="w-3.5 h-3.5" /> {tr('sprints.novaSprint')}</button>}
+          <span className={`ln-pill !h-6 text-[11px] ${fase === 'ativa' ? '!text-ln-green' : fase === 'encerrada' ? '!text-ln-yellow' : ''}`}>{rotuloFaseSprint(fase)}</span>
           {fase === 'futura' && (
-            <button type="button" onClick={excluir} className="ln-iconbtn !w-7 !h-7 hover:!text-ln-red" aria-label={`Excluir ${sprint.nome}`} title="Excluir esta sprint"><Trash2 className="w-3.5 h-3.5" /></button>
+            <button type="button" onClick={excluir} className="ln-iconbtn !w-7 !h-7 hover:!text-ln-red" aria-label={tr('sprints.excluirNome', { nome: sprint.nome })} title={tr('sprints.excluirEsta')}><Trash2 className="w-3.5 h-3.5" /></button>
           )}
           <div className="ml-auto flex items-center gap-1.5">
-            <button type="button" onClick={alternarRoteiro} aria-expanded={verRoteiro} className="ln-pill"><BookOpenCheck className="w-3.5 h-3.5" /> Roteiro <ChevronDown className={`w-3 h-3 transition-transform ${verRoteiro ? 'rotate-180' : ''}`} /></button>
-            <div className="inline-flex rounded-lg ring-1 ring-inset ring-ln-line p-0.5" role="group" aria-label="Etapa da sprint">
-              {modosVisiveis.map(([k, r]) => (
-                <button key={k} type="button" aria-pressed={modo === k} onClick={() => ir({ modo: k })} className={`h-7 px-3 rounded-md text-xs font-medium transition-colors ${modo === k ? 'bg-ln-ink/[0.08] text-ln-t1' : 'text-ln-t3 hover:bg-ln-ink/5'} ${FOCO}`}>{r}</button>
+            <button type="button" onClick={alternarRoteiro} aria-expanded={verRoteiro} className="ln-pill"><BookOpenCheck className="w-3.5 h-3.5" /> {tr('sprints.roteiro.botao')} <ChevronDown className={`w-3 h-3 transition-transform ${verRoteiro ? 'rotate-180' : ''}`} /></button>
+            <div className="inline-flex rounded-lg ring-1 ring-inset ring-ln-line p-0.5" role="group" aria-label={tr('sprints.etapa')}>
+              {modosVisiveis.map((k) => (
+                <button key={k} type="button" aria-pressed={modo === k} onClick={() => ir({ modo: k })} className={`h-7 px-3 rounded-md text-xs font-medium transition-colors ${modo === k ? 'bg-ln-ink/[0.08] text-ln-t1' : 'text-ln-t3 hover:bg-ln-ink/5'} ${FOCO}`}>{tr(`sprints.modo.${k}`)}</button>
               ))}
             </div>
           </div>
@@ -587,8 +592,8 @@ export default function SprintsView({ s, t, squads, projetos, membros, membrosMa
         {criando && <FormNovaSprint key={sugestao.inicio} inicial={sugestao} membros={membros} idsIniciais={idsPadrao} onCriar={criar} onCancelar={() => setCriando(false)} ocupado={ocupado} nomeSquad={squad.name} />}
         {verRoteiro && <Roteiro onFechar={alternarRoteiro} />}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-          <button type="button" onClick={() => ir({ pessoa: null })} aria-current={verMetas || undefined} className={chipAtivo(verMetas)}><Target className="w-3.5 h-3.5" /> Metas <span className="tabular text-ln-t4 font-normal">{resumoMetas.pct}%</span></button>
-          <button type="button" onClick={() => ir({ pessoa: 'time' })} aria-current={verTime || undefined} className={chipAtivo(verTime)}><Users className="w-3.5 h-3.5" /> Time</button>
+          <button type="button" onClick={() => ir({ pessoa: null })} aria-current={verMetas || undefined} className={chipAtivo(verMetas)}><Target className="w-3.5 h-3.5" /> {tr('sprints.metasChip')} <span className="tabular text-ln-t4 font-normal">{resumoMetas.pct}%</span></button>
+          <button type="button" onClick={() => ir({ pessoa: 'time' })} aria-current={verTime || undefined} className={chipAtivo(verTime)}><Users className="w-3.5 h-3.5" /> {tr('sprints.timeChip')}</button>
           <span className="w-px h-5 bg-ln-ink/10 mx-0.5 shrink-0" aria-hidden="true" />
           {linhas.map((l) => {
             const m = membrosMap.get(l.pessoa_id)

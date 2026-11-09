@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { colunasEscopo, padraoPessoal } from '../lib/viewsTarefas'
+import { t } from '../i18n'
 
 const porNome = (a, b) => a.nome.localeCompare(b.nome, 'pt-BR')
 
@@ -94,7 +95,7 @@ export function useVertaTask(user) {
   // ── Etiquetas ──────────────────────────────────────────────────────────────
   const criarEtiqueta = useCallback(async ({ nome, cor }) => {
     const { data, error } = await supabase.from('tarefas_etiquetas').insert({ nome: nome.trim(), cor: cor || '#2A25F0' }).select().single()
-    if (error) return { error: error.code === '23505' ? 'Já existe uma etiqueta com esse nome.' : error.message }
+    if (error) return { error: error.code === '23505' ? t('templates.etiquetaDuplicada') : error.message }
     setEtiquetas((prev) => (prev.some((e) => e.id === data.id) ? prev : [...prev, data].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))))
     return { data }
   }, [])

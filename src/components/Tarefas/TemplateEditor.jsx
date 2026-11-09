@@ -9,8 +9,9 @@ import {
 } from 'lucide-react'
 import {
   itensDoTemplate, resumoDoTemplate, achatar, novoItem, atualizarItem, removerItem, moverItem, duplicarItem, validarItens,
-  MODOS_RESPONSAVEL, VARIAVEL_CLIENTE, numeracao,
+  MODOS_RESPONSAVEL, rotuloModoResponsavel, VARIAVEL_CLIENTE, numeracao,
 } from '../../lib/templates'
+import { useI18n, t as tr } from '../../i18n'
 import { fmtEstimativa, pessoaDoPerfil, STATUSES_PADRAO } from '../../lib/tarefas'
 import { PrioridadeCampo, TipoTarefaCampo, DificuldadeCampo, EstimativaCampo, Popover, Avatar, ItemMenu, FOCO } from './Campos'
 import ListaView from './ListaView'
@@ -23,6 +24,7 @@ import { contarTarefas, useConfirmar } from './Confirmacao'
 // ─── Campos próprios do template ─────────────────────────────────────────────
 
 function DiaCampo({ valor, onChange, rotulo }) {
+  const { t } = useI18n()
   const [txt, setTxt] = useState(valor ?? '')
   useEffect(() => { setTxt(valor ?? '') }, [valor])
   const salvar = () => {
@@ -38,22 +40,23 @@ function DiaCampo({ valor, onChange, rotulo }) {
         onChange={(e) => setTxt(e.target.value)} onBlur={salvar} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
         aria-label={rotulo} className="ln-input !h-6 !w-16 !px-1.5 !text-xs tabular"
       />
-      <span className="text-ln-t4">dia{valor === 1 ? '' : 's'} út{valor === 1 ? 'il' : 'eis'}</span>
-      {valor != null && <button type="button" onClick={() => onChange(null)} className="text-ln-t4 hover:text-ln-red" aria-label={`Limpar ${rotulo}`} title="Sem data"><X className="w-3 h-3" /></button>}
+      <span className="text-ln-t4">{t('templates.diasUteis', { count: valor ?? 0 })}</span>
+      {valor != null && <button type="button" onClick={() => onChange(null)} className="text-ln-t4 hover:text-ln-red" aria-label={t('templates.limparCampo', { campo: rotulo })} title={t('templates.semData')}><X className="w-3 h-3" /></button>}
     </span>
   )
 }
 
 function ResponsavelTemplateCampo({ valor, membros, onChange }) {
+  const { t } = useI18n()
   const modo = valor?.modo || 'departamento'
   return (
     <span className="flex flex-wrap items-center gap-1.5 min-w-0">
-      <select className="ln-input !h-7 !w-auto !text-xs" value={modo} onChange={(e) => onChange({ modo: e.target.value, pessoa_id: e.target.value === 'pessoa' ? valor?.pessoa_id || null : null })} aria-label="Regra do responsável">
-        {MODOS_RESPONSAVEL.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+      <select className="ln-input !h-7 !w-auto !text-xs" value={modo} onChange={(e) => onChange({ modo: e.target.value, pessoa_id: e.target.value === 'pessoa' ? valor?.pessoa_id || null : null })} aria-label={t('templates.regraResponsavel')}>
+        {MODOS_RESPONSAVEL.map((m) => <option key={m.key} value={m.key}>{rotuloModoResponsavel(m.key)}</option>)}
       </select>
       {modo === 'pessoa' && (
-        <select className="ln-input !h-7 !w-auto !text-xs" value={valor?.pessoa_id || ''} onChange={(e) => onChange({ modo: 'pessoa', pessoa_id: e.target.value || null })} aria-label="Pessoa">
-          <option value="">Escolha a pessoa</option>
+        <select className="ln-input !h-7 !w-auto !text-xs" value={valor?.pessoa_id || ''} onChange={(e) => onChange({ modo: 'pessoa', pessoa_id: e.target.value || null })} aria-label={t('templates.pessoa')}>
+          <option value="">{t('templates.escolhaPessoa')}</option>
           {membros.filter((m) => !m.disabled).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       )}
@@ -62,6 +65,7 @@ function ResponsavelTemplateCampo({ valor, membros, onChange }) {
 }
 
 function DependeCampo({ item, itens, num, onChange, compacto = false }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const sel = new Set(item.depende_de)
@@ -72,21 +76,21 @@ function DependeCampo({ item, itens, num, onChange, compacto = false }) {
       <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`flex flex-wrap gap-1 text-left rounded-md min-w-0 ${FOCO}`}>
         {compacto ? (
           nomes.length
-            ? <span className="text-[13px] text-ln-t2 tabular truncate" title={nomes.map((o) => `${num.get(o.id)} ${o.titulo}`).join('\n')}>após {nomes.map((o) => num.get(o.id)).join(', ')}</span>
+            ? <span className="text-[13px] text-ln-t2 tabular truncate" title={nomes.map((o) => `${num.get(o.id)} ${o.titulo}`).join('\n')}>{t('templates.apos', { nums: nomes.map((o) => num.get(o.id)).join(', ') })}</span>
             : <span className="text-[13px] text-ln-t4 pl-1">–</span>
         ) : nomes.length ? nomes.map((o) => (
-          <span key={o.id} className="inline-flex items-center gap-1 h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t3 max-w-[220px]"><span className="tabular text-ln-t4">{num.get(o.id)}</span><span className="truncate">{o.titulo || 'Sem título'}</span></span>
-        )) : <span className="text-ln-t4">nenhuma</span>}
+          <span key={o.id} className="inline-flex items-center gap-1 h-6 px-2 rounded-full ring-1 ring-inset ring-ln-line text-xs text-ln-t3 max-w-[220px]"><span className="tabular text-ln-t4">{num.get(o.id)}</span><span className="truncate">{o.titulo || t('templates.semTitulo')}</span></span>
+        )) : <span className="text-ln-t4">{t('templates.nenhuma')}</span>}
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={300}>
-        <p className="px-3 pt-2.5 pb-1 text-[11px] text-ln-t4">Esta tarefa só começa depois de:</p>
+        <p className="px-3 pt-2.5 pb-1 text-[11px] text-ln-t4">{t('templates.soComecaDepois')}</p>
         <div className="p-1 overflow-y-auto">
-          {opcoes.length === 0 && <p className="px-2.5 py-2 text-xs text-ln-t4">Não há outras tarefas no template.</p>}
+          {opcoes.length === 0 && <p className="px-2.5 py-2 text-xs text-ln-t4">{t('templates.semOutras')}</p>}
           {opcoes.map((o) => (
             <button key={o.id} type="button" onClick={() => onChange(sel.has(o.id) ? item.depende_de.filter((d) => d !== o.id) : [...item.depende_de, o.id])} className="w-full flex items-center gap-2 h-8 px-2.5 rounded-md text-[13px] text-ln-t2 hover:bg-ln-ink/5 text-left">
               {sel.has(o.id) ? <CheckSquare className="w-3.5 h-3.5 text-ln-accent shrink-0" /> : <Square className="w-3.5 h-3.5 text-ln-t4 shrink-0" />}
               <span className="tabular text-ln-t4 w-7 shrink-0">{num.get(o.id)}</span>
-              <span className="truncate">{o.titulo || 'Sem título'}</span>
+              <span className="truncate">{o.titulo || t('templates.semTitulo')}</span>
             </button>
           ))}
         </div>
@@ -101,14 +105,14 @@ function DependeCampo({ item, itens, num, onChange, compacto = false }) {
 function relacoesDoItem(item, itens, num, { onAbrir, set, onPatchOutro }) {
   const plano = achatar(itens).map((p) => p.item)
   const porId = new Map(plano.map((x) => [x.id, x]))
-  const rotulo = (x) => `${num.get(x.id)}  ${x.titulo || 'Sem título'}`
+  const rotulo = (x) => `${num.get(x.id)}  ${x.titulo || tr('templates.semTitulo')}`
   const linhas = [
     ...item.depende_de.filter((d) => porId.has(d)).map((d) => ({
-      key: `por-${d}`, rotulo: 'Bloqueada por', titulo: rotulo(porId.get(d)), onAbrir: () => onAbrir(d),
+      key: `por-${d}`, rotulo: tr('templates.bloqueadaPor'), titulo: rotulo(porId.get(d)), onAbrir: () => onAbrir(d),
       onRemover: () => set({ depende_de: item.depende_de.filter((x) => x !== d) }),
     })),
     ...plano.filter((x) => x.depende_de.includes(item.id)).map((x) => ({
-      key: `bloqueia-${x.id}`, rotulo: 'Bloqueia', titulo: rotulo(x), onAbrir: () => onAbrir(x.id),
+      key: `bloqueia-${x.id}`, rotulo: tr('templates.bloqueia'), titulo: rotulo(x), onAbrir: () => onAbrir(x.id),
       onRemover: () => onPatchOutro(x.id, (o) => ({ depende_de: o.depende_de.filter((d) => d !== item.id) })),
     })),
   ]
@@ -118,48 +122,49 @@ function relacoesDoItem(item, itens, num, { onAbrir, set, onPatchOutro }) {
     if (tipo === 'bloqueada') set({ depende_de: [...new Set([...item.depende_de, alvo.id])] })
     else onPatchOutro(alvo.id, (o) => ({ depende_de: [...new Set([...o.depende_de, item.id])] }))
   }
-  return { linhas, buscar, onAdicionar, tipos: [{ value: 'bloqueada', label: 'Bloqueada por' }, { value: 'bloqueia', label: 'Bloqueia' }] }
+  return { linhas, buscar, onAdicionar, tipos: [{ value: 'bloqueada', label: tr('templates.bloqueadaPor') }, { value: 'bloqueia', label: tr('templates.bloqueia') }] }
 }
 
 function ItemForm({ item, itens, num, membros, etiquetas, onCriarEtiqueta, onPatch, ehSub, onAbrir, onAdicionarSub, onPatchOutro }) {
+  const { t } = useI18n()
   const set = (patch) => onPatch(patch)
   const rel = relacoesDoItem(item, itens, num, { onAbrir, set, onPatchOutro })
   return (
     <div className="flex flex-col gap-5">
       <div>
         <input
-          value={item.titulo} onChange={(e) => set({ titulo: e.target.value })} placeholder="Nome da tarefa"
-          aria-label="Nome da tarefa" autoFocus={!item.titulo}
+          value={item.titulo} onChange={(e) => set({ titulo: e.target.value })} placeholder={t('templates.nomeTarefa')}
+          aria-label={t('templates.nomeTarefa')} autoFocus={!item.titulo}
           className="w-full bg-transparent text-xl font-semibold tracking-[-0.01em] text-ln-t1 outline-none rounded-md -mx-1 px-1 hover:bg-ln-ink/[0.03] focus:bg-ln-ink/[0.04]"
         />
-        <p className="mt-1 text-[11px] text-ln-t4">Use <code className="ln-kbd">{VARIAVEL_CLIENTE}</code> no nome ou na descrição para entrar o nome do cliente ao aplicar.</p>
+        <p className="mt-1 text-[11px] text-ln-t4">{t('templates.variavelAntes')}<code className="ln-kbd">{VARIAVEL_CLIENTE}</code>{t('templates.variavelDepois')}</p>
       </div>
 
       <section>
-        <p className="ln-label">Propriedades</p>
+        <p className="ln-label">{t('templates.propriedades')}</p>
         <dl className="mt-1.5 flex flex-col gap-0.5">
-          <Propriedade label="Responsável"><ResponsavelTemplateCampo valor={item.responsavel} membros={membros} onChange={(v) => set({ responsavel: v })} /></Propriedade>
-          <Propriedade label="Departamento"><DepartamentoCampo valor={item.departamento} onChange={(v) => set({ departamento: v })} /></Propriedade>
-          <Propriedade label="Início"><DiaCampo valor={item.inicio_dia} rotulo="Início" onChange={(v) => set({ inicio_dia: v })} /></Propriedade>
-          <Propriedade label="Vencimento"><DiaCampo valor={item.vencimento_dia} rotulo="Vencimento" onChange={(v) => set({ vencimento_dia: v })} /></Propriedade>
-          <Propriedade label="Prioridade"><PrioridadeCampo valor={item.prioridade} onChange={(v) => set({ prioridade: v })} /></Propriedade>
-          <Propriedade label="Tipo"><TipoTarefaCampo valor={item.tipo_tarefa} onChange={(v) => set({ tipo_tarefa: v })} /></Propriedade>
-          <Propriedade label="Dificuldade"><DificuldadeCampo valor={item.dificuldade} onChange={(v) => set({ dificuldade: v })} /></Propriedade>
-          <Propriedade label="Estimativa"><EstimativaCampo valor={item.estimativa_min} onChange={(v) => set({ estimativa_min: v })} /></Propriedade>
-          <Propriedade label="Etiquetas"><EtiquetasCampo valor={item.etiquetas} etiquetas={etiquetas} onChange={(v) => set({ etiquetas: v })} onCriar={onCriarEtiqueta} /></Propriedade>
+          <Propriedade label={t('templates.campos.responsavel')}><ResponsavelTemplateCampo valor={item.responsavel} membros={membros} onChange={(v) => set({ responsavel: v })} /></Propriedade>
+          <Propriedade label={t('templates.campos.departamento')}><DepartamentoCampo valor={item.departamento} onChange={(v) => set({ departamento: v })} /></Propriedade>
+          <Propriedade label={t('templates.campos.inicio')}><DiaCampo valor={item.inicio_dia} rotulo={t('templates.campos.inicio')} onChange={(v) => set({ inicio_dia: v })} /></Propriedade>
+          <Propriedade label={t('templates.campos.vencimento')}><DiaCampo valor={item.vencimento_dia} rotulo={t('templates.campos.vencimento')} onChange={(v) => set({ vencimento_dia: v })} /></Propriedade>
+          <Propriedade label={t('templates.campos.prioridade')}><PrioridadeCampo valor={item.prioridade} onChange={(v) => set({ prioridade: v })} /></Propriedade>
+          <Propriedade label={t('templates.campos.tipo')}><TipoTarefaCampo valor={item.tipo_tarefa} onChange={(v) => set({ tipo_tarefa: v })} /></Propriedade>
+          <Propriedade label={t('templates.campos.dificuldade')}><DificuldadeCampo valor={item.dificuldade} onChange={(v) => set({ dificuldade: v })} /></Propriedade>
+          <Propriedade label={t('templates.campos.estimativa')}><EstimativaCampo valor={item.estimativa_min} onChange={(v) => set({ estimativa_min: v })} /></Propriedade>
+          <Propriedade label={t('templates.campos.etiquetas')}><EtiquetasCampo valor={item.etiquetas} etiquetas={etiquetas} onChange={(v) => set({ etiquetas: v })} onCriar={onCriarEtiqueta} /></Propriedade>
         </dl>
         <p className="mt-2 text-[11px] text-ln-t4 flex items-start gap-1.5">
           <Info className="w-3 h-3 mt-px shrink-0" />
-          <span>Prazos contam dias úteis a partir da data de início escolhida ao aplicar (D+0 é o próprio dia). Pelo departamento, o responsável sai do squad do cliente, configurado em Usuários → Equipes; o departamento Cliente vai para o usuário Cliente do ClickUp.</span>
+          <span>{t('templates.ajudaPrazos')}</span>
         </p>
       </section>
 
-      <Secao titulo="Descrição">
+      <Secao titulo={t('templates.secoes.descricao')}>
         <Descricao key={item.id} valor={item.descricao} onSalvar={(v) => set({ descricao: v || '' })} />
       </Secao>
 
       {!ehSub && (
-        <Secao titulo="Subtarefas" extra={item.subtarefas.length > 0 && <span className="text-[11px] text-ln-t4 tabular">{item.subtarefas.length}</span>}>
+        <Secao titulo={t('templates.secoes.subtarefas')} extra={item.subtarefas.length > 0 && <span className="text-[11px] text-ln-t4 tabular">{item.subtarefas.length}</span>}>
           <ListaSubtarefas
             itens={item.subtarefas} onAbrir={onAbrir} onAdicionar={(t) => onAdicionarSub(item.id, t)}
             fim={(s) => <span className="text-[11px] text-ln-t4 tabular">{s.vencimento_dia != null ? `D+${s.vencimento_dia}` : ''}</span>}
@@ -167,11 +172,11 @@ function ItemForm({ item, itens, num, membros, etiquetas, onCriarEtiqueta, onPat
         </Secao>
       )}
 
-      <Secao titulo="Relações">
-        <ListaRelacoes linhas={rel.linhas} tipos={rel.tipos} buscar={rel.buscar} minBusca={0} onAdicionar={rel.onAdicionar} placeholder="Buscar tarefa do template" />
+      <Secao titulo={t('templates.secoes.relacoes')}>
+        <ListaRelacoes linhas={rel.linhas} tipos={rel.tipos} buscar={rel.buscar} minBusca={0} onAdicionar={rel.onAdicionar} placeholder={t('templates.buscarTarefa')} />
       </Secao>
 
-      <Secao titulo="Checklists">
+      <Secao titulo={t('templates.secoes.checklists')}>
         <Checklists checklists={item.checklists} onChange={(v) => set({ checklists: v })} />
       </Secao>
     </div>
@@ -182,6 +187,7 @@ function ItemForm({ item, itens, num, membros, etiquetas, onCriarEtiqueta, onPat
 
 /** "D+3" na célula; clique abre o campo numérico (dias úteis depois da data de início). */
 function DiaCelula({ valor, onChange, rotulo }) {
+  const { t } = useI18n()
   const [editando, setEditando] = useState(false)
   const [txt, setTxt] = useState('')
   const salvar = () => {
@@ -203,7 +209,7 @@ function DiaCelula({ valor, onChange, rotulo }) {
     )
   }
   return (
-    <button type="button" onClick={(e) => { e.stopPropagation(); setTxt(valor ?? ''); setEditando(true) }} className={`text-[13px] tabular whitespace-nowrap rounded hover:text-ln-t1 ${valor == null ? 'text-ln-t4 pl-1' : 'text-ln-t2'} ${FOCO}`} title={`${rotulo}: dias úteis depois da data de início`}>
+    <button type="button" onClick={(e) => { e.stopPropagation(); setTxt(valor ?? ''); setEditando(true) }} className={`text-[13px] tabular whitespace-nowrap rounded hover:text-ln-t1 ${valor == null ? 'text-ln-t4 pl-1' : 'text-ln-t2'} ${FOCO}`} title={t('templates.diaCelulaTitle', { campo: rotulo })}>
       {valor == null ? '–' : `D+${valor}`}
     </button>
   )
@@ -211,25 +217,26 @@ function DiaCelula({ valor, onChange, rotulo }) {
 
 /** Regra do responsável na célula: "Pelo squad", a pessoa fixa ou "–". */
 export function RegraCelula({ valor, membros, membrosMap, onChange, render = null }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const modo = valor?.modo || 'departamento'
   const pessoa = modo === 'pessoa' ? membrosMap.get(valor?.pessoa_id) : null
   return (
     <>
-      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center gap-1.5 min-w-0 rounded-md ${FOCO}`} title="Quem recebe a tarefa ao aplicar">
+      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className={`inline-flex items-center gap-1.5 min-w-0 rounded-md ${FOCO}`} title={t('templates.regraTitle')}>
         {render}
-        {!render && modo === 'departamento' && <span className="inline-flex items-center gap-1 h-[22px] px-2 rounded-md text-xs text-ln-t2 bg-ln-level2 whitespace-nowrap"><Users className="w-3 h-3 text-ln-t4" /> Pelo squad</span>}
+        {!render && modo === 'departamento' && <span className="inline-flex items-center gap-1 h-[22px] px-2 rounded-md text-xs text-ln-t2 bg-ln-level2 whitespace-nowrap"><Users className="w-3 h-3 text-ln-t4" /> {t('templates.peloSquad')}</span>}
         {!render && modo === 'pessoa' && (pessoa
           ? <><Avatar pessoa={pessoaDoPerfil(pessoa)} size={22} /><span className="text-[13px] text-ln-t2 truncate">{pessoa.name.split(' ')[0]}</span></>
-          : <span className="text-[13px] text-ln-orange">escolher pessoa</span>)}
+          : <span className="text-[13px] text-ln-orange">{t('templates.escolherPessoa')}</span>)}
         {!render && modo === 'nenhum' && <span className="text-[13px] text-ln-t4 pl-1">–</span>}
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={260}>
         <div className="p-1 overflow-y-auto">
-          <ItemMenu ativo={modo === 'departamento'} onClick={() => { setOpen(false); onChange({ modo: 'departamento', pessoa_id: null }) }}><Users className="w-3.5 h-3.5 text-ln-t4" /> Pelo departamento (squad)</ItemMenu>
-          <ItemMenu ativo={modo === 'nenhum'} onClick={() => { setOpen(false); onChange({ modo: 'nenhum', pessoa_id: null }) }}><User className="w-3.5 h-3.5 text-ln-t4" /> Sem responsável</ItemMenu>
-          <div className="px-2.5 pt-2 pb-1 text-[10px] uppercase tracking-wide text-ln-t4">Pessoa fixa</div>
+          <ItemMenu ativo={modo === 'departamento'} onClick={() => { setOpen(false); onChange({ modo: 'departamento', pessoa_id: null }) }}><Users className="w-3.5 h-3.5 text-ln-t4" /> {t('templates.peloDepartamento')}</ItemMenu>
+          <ItemMenu ativo={modo === 'nenhum'} onClick={() => { setOpen(false); onChange({ modo: 'nenhum', pessoa_id: null }) }}><User className="w-3.5 h-3.5 text-ln-t4" /> {t('templates.modos.nenhum')}</ItemMenu>
+          <div className="px-2.5 pt-2 pb-1 text-[10px] uppercase tracking-wide text-ln-t4">{t('templates.modos.pessoa')}</div>
           {membros.filter((m) => !m.disabled).map((m) => (
             <ItemMenu key={m.id} ativo={modo === 'pessoa' && valor?.pessoa_id === m.id} onClick={() => { setOpen(false); onChange({ modo: 'pessoa', pessoa_id: m.id }) }}>
               <Avatar pessoa={pessoaDoPerfil(m)} size={18} />
@@ -244,6 +251,7 @@ export function RegraCelula({ valor, membros, membrosMap, onChange, render = nul
 
 /** Prazo em massa: início e/ou vencimento em D+N para todas as selecionadas. */
 function PrazoEmMassa({ onAplicar }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [ini, setIni] = useState('')
   const [venc, setVenc] = useState('')
@@ -265,28 +273,29 @@ function PrazoEmMassa({ onAplicar }) {
   )
   return (
     <>
-      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className="rounded-lg"><BotaoBarra icon={CalendarRange}>Prazo</BotaoBarra></button>
+      <button ref={ref} type="button" onClick={() => setOpen((v) => !v)} className="rounded-lg"><BotaoBarra icon={CalendarRange}>{t('templates.prazo')}</BotaoBarra></button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={240}>
         <div className="p-3 flex flex-col gap-2">
-          <p className="text-[11px] text-ln-t4">Dias úteis depois da data de início. Em branco = não muda.</p>
-          {campo('Início', ini, setIni)}
-          {campo('Vencimento', venc, setVenc)}
-          <button type="button" onClick={aplicar} disabled={!pronto} className="ln-primary !h-7 justify-center disabled:opacity-50">Aplicar</button>
+          <p className="text-[11px] text-ln-t4">{t('templates.prazoAjuda')}</p>
+          {campo(t('templates.campos.inicio'), ini, setIni)}
+          {campo(t('templates.campos.vencimento'), venc, setVenc)}
+          <button type="button" onClick={aplicar} disabled={!pronto} className="ln-primary !h-7 justify-center disabled:opacity-50">{t('templates.aplicar')}</button>
         </div>
       </Popover>
     </>
   )
 }
 
+// label = chave de templates.campos, traduzida no render
 const COLUNAS_TEMPLATE = [
-  { k: 'depto', label: 'Departamento', w: 180, editavel: true },
-  { k: 'resp', label: 'Responsável', w: 150 },
-  { k: 'ini', label: 'Início', w: 90, editavel: true },
-  { k: 'venc', label: 'Vencimento', w: 100 },
-  { k: 'prio', label: 'Prioridade', w: 120 },
-  { k: 'tipo', label: 'Tipo de tarefa', w: 150 },
-  { k: 'estim', label: 'Estimativa', w: 110 },
-  { k: 'deps', label: 'Depende de', w: 120, editavel: true },
+  { k: 'depto', label: 'departamento', w: 180, editavel: true },
+  { k: 'resp', label: 'responsavel', w: 150 },
+  { k: 'ini', label: 'inicio', w: 90, editavel: true },
+  { k: 'venc', label: 'vencimento', w: 100 },
+  { k: 'prio', label: 'prioridade', w: 120 },
+  { k: 'tipo', label: 'tipoTarefa', w: 150 },
+  { k: 'estim', label: 'estimativa', w: 110 },
+  { k: 'deps', label: 'dependeDe', w: 120, editavel: true },
 ]
 
 /** Item do template no formato de tarefa que a ListaView lê. */
@@ -298,6 +307,7 @@ const comoLinha = (it, i, paiId = null) => ({
 // ─── Painel lateral (mesmo chrome do painel da tarefa) ───────────────────────
 
 export function PainelLateral({ titulo, acoes, onFechar, children, label }) {
+  const { t } = useI18n()
   return (
     <>
       <div className="absolute inset-0 z-30 bg-black/30 xl:hidden" onClick={onFechar} aria-hidden="true" />
@@ -306,7 +316,7 @@ export function PainelLateral({ titulo, acoes, onFechar, children, label }) {
           <div className="text-xs font-medium text-ln-t3 truncate">{titulo}</div>
           <div className="flex items-center gap-1 shrink-0">
             {acoes}
-            <button type="button" onClick={onFechar} className="ln-iconbtn" aria-label="Fechar painel" title="Fechar (Esc)"><X className="w-4 h-4" /></button>
+            <button type="button" onClick={onFechar} className="ln-iconbtn" aria-label={t('templates.fecharPainel')} title={t('templates.fecharEsc')}><X className="w-4 h-4" /></button>
           </div>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">{children}</div>
@@ -320,6 +330,7 @@ export function PainelLateral({ titulo, acoes, onFechar, children, label }) {
 // `novo`: rascunho ainda não gravado (só o Salvar grava); nasce "não salvo" e não tem
 // Duplicar nem Apagar.
 export default function TemplateEditor({ template, novo = false, membros, membrosMap, etiquetas, onCriarEtiqueta, onSalvar, onVoltar, onAplicar, onDuplicar, onExcluir }) {
+  const { t, lang } = useI18n()
   const [nome, setNome] = useState(template.nome || '')
   const [descricao, setDescricao] = useState(template.descricao || '')
   const [itens, setItens] = useState(() => itensDoTemplate(template))
@@ -361,7 +372,7 @@ export default function TemplateEditor({ template, novo = false, membros, membro
 
   const num = useMemo(() => numeracao(itens), [itens])
   const resumo = useMemo(() => resumoDoTemplate(itens), [itens])
-  const erros = useMemo(() => validarItens(itens), [itens])
+  const erros = useMemo(() => validarItens(itens), [itens, lang]) // eslint-disable-line react-hooks/exhaustive-deps
   const plano = useMemo(() => achatar(itens), [itens])
   const sel = plano.find((p) => p.item.id === selId)
 
@@ -381,9 +392,9 @@ export default function TemplateEditor({ template, novo = false, membros, membro
   const nSubsSel = plano.filter((p) => raizesSel.includes(p.item.id) && p.nivel === 0).reduce((a, p) => a + p.item.subtarefas.length, 0)
   const excluirSel = async () => {
     const ok = await confirmar({
-      perigo: true, titulo: `Excluir ${contarTarefas(raizesSel.length, nSubsSel)} do template?`, acao: 'Excluir',
-      texto: 'Saem do template quando você salvar. Tarefas já criadas com ele continuam.',
-      rotuloItens: 'Do template', itens: plano.filter((p) => raizesSel.includes(p.item.id)).map((p) => p.item.titulo || 'Sem título'),
+      perigo: true, titulo: t('templates.excluirSelTitulo', { qtd: contarTarefas(raizesSel.length, nSubsSel) }), acao: t('comum.excluir'),
+      texto: t('templates.excluirSelTexto'),
+      rotuloItens: t('templates.doTemplate'), itens: plano.filter((p) => raizesSel.includes(p.item.id)).map((p) => p.item.titulo || t('templates.semTitulo')),
     })
     if (!ok) return
     setItens((prev) => raizesSel.reduce((acc, id) => removerItem(acc, id), prev))
@@ -399,13 +410,13 @@ export default function TemplateEditor({ template, novo = false, membros, membro
   const excluir = (id) => {
     const alvo = plano.find((p) => p.item.id === id)
     const n = alvo?.nivel === 0 ? alvo.item.subtarefas.length : 0
-    if (n && !window.confirm(`Excluir a tarefa e as ${n} subtarefa(s) dela?`)) return
+    if (n && !window.confirm(t('templates.excluirComSubs', { count: n }))) return
     setItens((prev) => removerItem(prev, id))
     if (selId === id || alvo?.item.subtarefas.some((s) => s.id === selId)) setSelId(null)
   }
 
   async function salvar() {
-    if (!nome.trim()) { window.alert('Dê um nome ao template.'); return false }
+    if (!nome.trim()) { window.alert(t('templates.deUmNome')); return false }
     setSalvando(true)
     const r = await onSalvar({ nome: nome.trim(), descricao: descricao.trim() || null, itens })
     setSalvando(false)
@@ -416,14 +427,14 @@ export default function TemplateEditor({ template, novo = false, membros, membro
   async function voltar() {
     if (sujo) {
       const ok = await confirmar(novo
-        ? { perigo: true, titulo: 'Descartar este template?', texto: 'Ele ainda não foi salvo. Saindo agora, nada fica gravado.', acao: 'Descartar' }
-        : { perigo: true, titulo: 'Sair sem salvar?', texto: 'As alterações deste template se perdem.', acao: 'Sair sem salvar' })
+        ? { perigo: true, titulo: t('templates.descartarTitulo'), texto: t('templates.descartarTexto'), acao: t('templates.descartar') }
+        : { perigo: true, titulo: t('templates.sairSemSalvarTitulo'), texto: t('templates.sairSemSalvarTexto'), acao: t('templates.sairSemSalvar') })
       if (!ok) return
     }
     onVoltar()
   }
   async function aplicar() {
-    if (erros.length) { window.alert(`Corrija antes de aplicar:\n\n${[...new Set(erros.map((e) => e.msg))].join('\n')}`); return }
+    if (erros.length) { window.alert(`${t('templates.corrijaAntes')}\n\n${[...new Set(erros.map((e) => e.msg))].join('\n')}`); return }
     let salvo = template
     if (sujo) {
       const r = await salvar()
@@ -434,7 +445,8 @@ export default function TemplateEditor({ template, novo = false, membros, membro
   }
 
   // ── ListaView: um grupo só, subtarefas abertas, colunas do template ──
-  const grupos = [{ key: 'template', label: 'Tarefas do template', cor: '#2A25F0', itens: itens.map((it, i) => comoLinha(it, i)) }]
+  const colunas = COLUNAS_TEMPLATE.map((c) => ({ ...c, label: t(`templates.campos.${c.label}`) }))
+  const grupos = [{ key: 'template', label: t('templates.tarefasDoTemplate'), cor: '#2A25F0', itens: itens.map((it, i) => comoLinha(it, i)) }]
   const filhosDe = new Map(itens.map((it) => [it.id, it.subtarefas.map((s, j) => comoLinha(s, j, it.id))]))
   const ctx = {
     statuses: STATUSES_PADRAO, membros, membrosMap, itensMap: {}, listaPadraoId: 'template', agrupar: 'nenhum',
@@ -452,8 +464,8 @@ export default function TemplateEditor({ template, novo = false, membros, membro
       switch (k) {
         case 'depto': return <DepartamentoCampo compacto valor={it.departamento} onChange={(v) => patch(it.id, { departamento: v })} />
         case 'resp': return <RegraCelula valor={it.responsavel} membros={membros} membrosMap={membrosMap} onChange={(v) => patch(it.id, { responsavel: v })} />
-        case 'ini': return <DiaCelula valor={it.inicio_dia} rotulo="Início" onChange={(v) => patch(it.id, { inicio_dia: v })} />
-        case 'venc': return <DiaCelula valor={it.vencimento_dia} rotulo="Vencimento" onChange={(v) => patch(it.id, { vencimento_dia: v })} />
+        case 'ini': return <DiaCelula valor={it.inicio_dia} rotulo={t('templates.campos.inicio')} onChange={(v) => patch(it.id, { inicio_dia: v })} />
+        case 'venc': return <DiaCelula valor={it.vencimento_dia} rotulo={t('templates.campos.vencimento')} onChange={(v) => patch(it.id, { vencimento_dia: v })} />
         case 'deps': return <DependeCampo compacto item={it} itens={itens} num={num} onChange={(v) => patch(it.id, { depende_de: v })} />
         default: return undefined
       }
@@ -465,16 +477,16 @@ export default function TemplateEditor({ template, novo = false, membros, membro
       const btn = 'ln-iconbtn !w-5 !h-5 !rounded disabled:opacity-30 disabled:pointer-events-none'
       return (
         <>
-          <button type="button" onClick={() => setItens((p) => moverItem(p, it.id, -1))} disabled={i <= 0} className={btn} title="Subir" aria-label="Subir"><ChevronUp className="w-3 h-3" /></button>
-          <button type="button" onClick={() => setItens((p) => moverItem(p, it.id, 1))} disabled={i === irmas.length - 1} className={btn} title="Descer" aria-label="Descer"><ChevronDown className="w-3 h-3" /></button>
+          <button type="button" onClick={() => setItens((p) => moverItem(p, it.id, -1))} disabled={i <= 0} className={btn} title={t('templates.subir')} aria-label={t('templates.subir')}><ChevronUp className="w-3 h-3" /></button>
+          <button type="button" onClick={() => setItens((p) => moverItem(p, it.id, 1))} disabled={i === irmas.length - 1} className={btn} title={t('templates.descer')} aria-label={t('templates.descer')}><ChevronDown className="w-3 h-3" /></button>
           {!it.parent_id && (
-            <button type="button" onClick={() => { const s = addSub(it.id, ''); setSelId(s.id) }} className={btn} title="Adicionar subtarefa" aria-label="Adicionar subtarefa"><Plus className="w-3 h-3" /></button>
+            <button type="button" onClick={() => { const s = addSub(it.id, ''); setSelId(s.id) }} className={btn} title={t('templates.adicionarSubtarefa')} aria-label={t('templates.adicionarSubtarefa')}><Plus className="w-3 h-3" /></button>
           )}
         </>
       )
     },
     acaoLinha: (it) => (
-      <button type="button" onClick={() => excluir(it.id)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/linha:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" aria-label={`Excluir ${it.titulo || 'tarefa'}`} title="Excluir"><Trash2 className="w-3.5 h-3.5" /></button>
+      <button type="button" onClick={() => excluir(it.id)} className="ln-iconbtn !w-6 !h-6 opacity-0 group-hover/linha:opacity-100 focus-visible:opacity-100 hover:!text-ln-red" aria-label={t('templates.excluirNome', { nome: it.titulo || t('templates.tarefa') })} title={t('comum.excluir')}><Trash2 className="w-3.5 h-3.5" /></button>
     ),
   }
 
@@ -487,51 +499,51 @@ export default function TemplateEditor({ template, novo = false, membros, membro
       {/* cabeçalho do template */}
       <div className="shrink-0 px-4 sm:px-6 pt-3 pb-3 border-b border-ln-ink/[0.08] bg-ln-panel">
         <div className="flex items-center gap-2 flex-wrap">
-          <button type="button" onClick={voltar} className={`inline-flex items-center gap-1 text-xs text-ln-t3 hover:text-ln-t1 rounded ${FOCO}`}><ArrowLeft className="w-3 h-3" /> Templates</button>
+          <button type="button" onClick={voltar} className={`inline-flex items-center gap-1 text-xs text-ln-t3 hover:text-ln-t1 rounded ${FOCO}`}><ArrowLeft className="w-3 h-3" /> {t('templates.grupo')}</button>
           <span className="flex-1" />
           <span className="text-[11px] text-ln-t4 tabular hidden sm:inline">
-            {resumo.total} tarefa{resumo.total === 1 ? '' : 's'}{resumo.estimativaMin ? ` · ${fmtEstimativa(resumo.estimativaMin)}` : ''}
+            {t('templates.nTarefas', { count: resumo.total })}{resumo.estimativaMin ? ` · ${fmtEstimativa(resumo.estimativaMin)}` : ''}
           </span>
           {erros.length > 0 && (
             <button type="button" onClick={() => setSelId(erros[0].id)} className="inline-flex items-center gap-1 text-[11px] text-ln-orange" title={[...new Set(erros.map((e) => e.msg))].join('\n')}>
-              <AlertTriangle className="w-3 h-3" /> {erros.length} pendência{erros.length === 1 ? '' : 's'}
+              <AlertTriangle className="w-3 h-3" /> {t('templates.pendencias', { count: erros.length })}
             </button>
           )}
-          {sujo && <span className="text-[11px] font-semibold text-ln-orange">{novo ? 'Ainda não salvo' : 'Alterações não salvas'}</span>}
-          {!novo && <button type="button" onClick={() => onDuplicar({ ...template, nome, descricao, itens })} className="ln-iconbtn" aria-label="Duplicar template" title="Duplicar"><Copy className="w-3.5 h-3.5" /></button>}
-          {!novo && <button type="button" onClick={() => onExcluir(template)} className="ln-iconbtn hover:!text-ln-red" aria-label="Apagar template" title="Apagar"><Trash2 className="w-3.5 h-3.5" /></button>}
-          <button type="button" onClick={aplicar} disabled={!resumo.total} className="ln-pill disabled:opacity-50"><Play className="w-3 h-3" /> Aplicar</button>
-          <button type="button" onClick={salvar} disabled={!sujo || salvando} className="ln-primary disabled:opacity-50"><Save className="w-3.5 h-3.5" /> {salvando ? 'Salvando…' : 'Salvar'}</button>
+          {sujo && <span className="text-[11px] font-semibold text-ln-orange">{novo ? t('templates.aindaNaoSalvo') : t('templates.alteracoesNaoSalvas')}</span>}
+          {!novo && <button type="button" onClick={() => onDuplicar({ ...template, nome, descricao, itens })} className="ln-iconbtn" aria-label={t('templates.duplicarTemplate')} title={t('templates.duplicar')}><Copy className="w-3.5 h-3.5" /></button>}
+          {!novo && <button type="button" onClick={() => onExcluir(template)} className="ln-iconbtn hover:!text-ln-red" aria-label={t('templates.apagarTemplate')} title={t('templates.apagar')}><Trash2 className="w-3.5 h-3.5" /></button>}
+          <button type="button" onClick={aplicar} disabled={!resumo.total} className="ln-pill disabled:opacity-50"><Play className="w-3 h-3" /> {t('templates.aplicar')}</button>
+          <button type="button" onClick={salvar} disabled={!sujo || salvando} className="ln-primary disabled:opacity-50"><Save className="w-3.5 h-3.5" /> {salvando ? t('comum.salvando') : t('comum.salvar')}</button>
         </div>
-        <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do template" aria-label="Nome do template" className="mt-2 w-full bg-transparent outline-none text-2xl font-bold text-ln-t1 vt-display" />
-        <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Para que serve este template (opcional)" aria-label="Descrição do template" className="mt-0.5 w-full bg-transparent outline-none text-[13px] text-ln-t3 placeholder:text-ln-t4" />
+        <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder={t('templates.nomeTemplate')} aria-label={t('templates.nomeTemplate')} className="mt-2 w-full bg-transparent outline-none text-2xl font-bold text-ln-t1 vt-display" />
+        <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder={t('templates.descricaoPlaceholder')} aria-label={t('templates.descricaoTemplate')} className="mt-0.5 w-full bg-transparent outline-none text-[13px] text-ln-t3 placeholder:text-ln-t4" />
       </div>
 
       <div className="relative flex-1 min-h-0 flex">
         <div className="flex-1 min-w-0 overflow-auto bg-ln-panel">
-          <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas colunas={COLUNAS_TEMPLATE} />
+          <ListaView grupos={grupos} filhosDe={filhosDe} ctx={ctx} mostrarConcluidas colunas={colunas} />
         </div>
 
         <BarraSelecao n={idsSel.length} onLimpar={() => setSelecionadas(new Set())} onDuplicar={duplicarSel} onExcluir={excluirSel}>
-          <RegraCelula valor={null} membros={membros} membrosMap={membrosMap} onChange={(v) => patchSel({ responsavel: v })} render={<BotaoBarra icon={Users}>Responsável</BotaoBarra>} />
+          <RegraCelula valor={null} membros={membros} membrosMap={membrosMap} onChange={(v) => patchSel({ responsavel: v })} render={<BotaoBarra icon={Users}>{t('templates.campos.responsavel')}</BotaoBarra>} />
           <DepartamentosEmMassa listas={itensSel.map((i) => i.departamento)} icon={Layers} onAplicar={(d) => patchSel((it) => ({ departamento: aplicarDiferenca(it.departamento, d) }))} />
           <PrazoEmMassa onAplicar={(p) => patchSel(p)} />
-          <PrioridadeCampo valor={null} onChange={(v) => patchSel({ prioridade: v })} render={<BotaoBarra icon={Flag}>Prioridade</BotaoBarra>} />
-          <TipoTarefaCampo valor={null} onChange={(v) => patchSel({ tipo_tarefa: v })} render={<BotaoBarra icon={Shapes}>Tipo</BotaoBarra>} />
-          <EstimativaCampo valor={null} onChange={(v) => patchSel({ estimativa_min: v })} render={<BotaoBarra icon={Hourglass}>Estimativa</BotaoBarra>} />
+          <PrioridadeCampo valor={null} onChange={(v) => patchSel({ prioridade: v })} render={<BotaoBarra icon={Flag}>{t('templates.campos.prioridade')}</BotaoBarra>} />
+          <TipoTarefaCampo valor={null} onChange={(v) => patchSel({ tipo_tarefa: v })} render={<BotaoBarra icon={Shapes}>{t('templates.campos.tipo')}</BotaoBarra>} />
+          <EstimativaCampo valor={null} onChange={(v) => patchSel({ estimativa_min: v })} render={<BotaoBarra icon={Hourglass}>{t('templates.campos.estimativa')}</BotaoBarra>} />
         </BarraSelecao>
 
         {sel && (
           <PainelLateral
-            label="Tarefa do template"
-            titulo={`${sel.nivel === 0 ? 'Tarefa' : `Subtarefa de ${num.get(sel.pai.id)}`} ${num.get(sel.item.id)}`}
+            label={t('templates.tarefaDoTemplate')}
+            titulo={sel.nivel === 0 ? t('templates.painelTarefa', { num: num.get(sel.item.id) }) : t('templates.painelSubtarefa', { pai: num.get(sel.pai.id), num: num.get(sel.item.id) })}
             onFechar={() => setSelId(null)}
             acoes={(
               <>
-                <button type="button" onClick={() => setItens((p) => moverItem(p, sel.item.id, -1))} disabled={idx <= 0} className="ln-iconbtn disabled:opacity-30" aria-label="Subir" title="Subir"><ChevronUp className="w-3.5 h-3.5" /></button>
-                <button type="button" onClick={() => setItens((p) => moverItem(p, sel.item.id, 1))} disabled={idx === irmaos.length - 1} className="ln-iconbtn disabled:opacity-30" aria-label="Descer" title="Descer"><ChevronDown className="w-3.5 h-3.5" /></button>
-                <button type="button" onClick={() => setItens((p) => duplicarItem(p, sel.item.id))} className="ln-iconbtn" aria-label="Duplicar" title="Duplicar"><Copy className="w-3.5 h-3.5" /></button>
-                <button type="button" onClick={() => excluir(sel.item.id)} className="ln-iconbtn hover:!text-ln-red" aria-label="Excluir" title="Excluir"><Trash2 className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={() => setItens((p) => moverItem(p, sel.item.id, -1))} disabled={idx <= 0} className="ln-iconbtn disabled:opacity-30" aria-label={t('templates.subir')} title={t('templates.subir')}><ChevronUp className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={() => setItens((p) => moverItem(p, sel.item.id, 1))} disabled={idx === irmaos.length - 1} className="ln-iconbtn disabled:opacity-30" aria-label={t('templates.descer')} title={t('templates.descer')}><ChevronDown className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={() => setItens((p) => duplicarItem(p, sel.item.id))} className="ln-iconbtn" aria-label={t('templates.duplicar')} title={t('templates.duplicar')}><Copy className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={() => excluir(sel.item.id)} className="ln-iconbtn hover:!text-ln-red" aria-label={t('comum.excluir')} title={t('comum.excluir')}><Trash2 className="w-3.5 h-3.5" /></button>
               </>
             )}
           >

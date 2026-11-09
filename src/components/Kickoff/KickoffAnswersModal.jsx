@@ -3,10 +3,12 @@ import Modal from '../UI/Modal'
 import { PILLARS_BY_ID } from './KickoffQuestions'
 import { extractScore } from './KickoffScorer'
 import { formatAnswer, severityColor } from './kickoffViewHelpers'
+import { useI18n } from '../../i18n'
 
 // Lista única com todas as perguntas + respostas do questionário, em ordem.
 // Conta também respostas em branco (mostradas com "— sem resposta —").
 export default function KickoffAnswersModal({ questions = [], answers = {}, onClose }) {
+  const { t } = useI18n()
   const answeredCount = questions.filter((q) => {
     const a = answers[q.id]
     return a != null && a !== '' && !(Array.isArray(a) && !a.length)
@@ -22,17 +24,17 @@ export default function KickoffAnswersModal({ questions = [], answers = {}, onCl
           </div>
           <div className="min-w-0">
             <h3 className="text-lg font-black text-rl-text leading-tight">
-              Todas as respostas
+              {t('kickoff.respostas.titulo')}
             </h3>
             <p className="text-xs text-rl-subtle mt-0.5">
-              {answeredCount} de {questions.length} pergunta{questions.length !== 1 ? 's' : ''} respondida{answeredCount !== 1 ? 's' : ''}
+              {t('kickoff.respostas.contagem', { count: questions.length, n: answeredCount })}
             </p>
           </div>
         </div>
         <button
           onClick={onClose}
           className="p-1.5 rounded-lg text-rl-muted hover:text-rl-text hover:bg-rl-surface transition-all shrink-0"
-          aria-label="Fechar"
+          aria-label={t('comum.fechar')}
         >
           <X className="w-4 h-4" />
         </button>
@@ -42,7 +44,7 @@ export default function KickoffAnswersModal({ questions = [], answers = {}, onCl
       <div className="space-y-2.5 max-h-[68vh] overflow-y-auto pr-1">
         {questions.length === 0 && (
           <p className="text-sm text-rl-muted text-center py-8">
-            Nenhuma pergunta cadastrada.
+            {t('kickoff.respostas.nenhuma')}
           </p>
         )}
         {questions.map((q, i) => {
@@ -84,14 +86,14 @@ export default function KickoffAnswersModal({ questions = [], answers = {}, onCl
               </div>
               <div className="mt-2 pt-2 border-t border-rl-border/60">
                 <p className="text-[10px] uppercase tracking-wide text-rl-muted font-semibold mb-0.5">
-                  Resposta
+                  {t('kickoff.respostas.resposta')}
                 </p>
                 {isAnswered ? (
                   <p className="text-sm text-rl-text leading-snug whitespace-pre-wrap break-words">
                     {formatted}
                   </p>
                 ) : (
-                  <p className="text-sm italic text-rl-muted">— sem resposta —</p>
+                  <p className="text-sm italic text-rl-muted">{t('kickoff.respostas.semResposta')}</p>
                 )}
               </div>
             </div>
@@ -104,7 +106,7 @@ export default function KickoffAnswersModal({ questions = [], answers = {}, onCl
           onClick={onClose}
           className="text-xs px-4 py-2 rounded-xl bg-rl-purple text-white font-semibold hover:bg-rl-purple/90 transition-all"
         >
-          Fechar
+          {t('comum.fechar')}
         </button>
       </div>
     </Modal>

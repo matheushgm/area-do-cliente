@@ -15,6 +15,7 @@ import remarkGfm from 'remark-gfm'
 import remarkBreaks from 'remark-breaks'
 import rehypeSanitize from 'rehype-sanitize'
 import { Code2, Eye } from 'lucide-react'
+import { useI18n } from '../../i18n'
 
 const REMARK = [remarkGfm, remarkBreaks]
 const REHYPE = [rehypeSanitize]
@@ -31,6 +32,7 @@ const components = {
 
 export default function MarkdownView({ content, className = '', codigo = true }) {
   const [cru, setCru] = useState(false)
+  const { t } = useI18n()
   if (!content) return null
   const texto = String(content)
   return (
@@ -41,8 +43,8 @@ export default function MarkdownView({ content, className = '', codigo = true })
           className="md-toggle"
           onClick={() => setCru((v) => !v)}
           aria-pressed={cru}
-          title={cru ? 'Ver formatado' : 'Ver o Markdown'}
-          aria-label={cru ? 'Ver formatado' : 'Ver o Markdown'}
+          title={cru ? t('ui.editor.verFormatado') : t('ui.editor.verMarkdown')}
+          aria-label={cru ? t('ui.editor.verFormatado') : t('ui.editor.verMarkdown')}
         >
           {cru ? <Eye /> : <Code2 />}
         </button>

@@ -2,11 +2,13 @@ import { useMemo } from 'react'
 import { Check } from 'lucide-react'
 import MoneyInput from '../UI/MoneyInput'
 import PercentInput from '../UI/PercentInput'
+import { useI18n } from '../../i18n'
 
 // Renderiza o input de UMA pergunta, despachando pelo `type`.
 // - value/onChange: estado controlado pelo orquestrador (KickoffModule).
 // - Mantém apenas a estética; lógica de score fica no KickoffScorer.
 export default function KickoffQuestionForm({ question, value, onChange }) {
+  const { t } = useI18n()
   if (!question) return null
   const { type, label, hint, options } = question
 
@@ -21,7 +23,7 @@ export default function KickoffQuestionForm({ question, value, onChange }) {
       {type === 'yesno'   && <YesNo        question={question} options={options} value={value} onChange={onChange} />}
       {type === 'scale'   && <Scale        options={options} value={value} onChange={onChange} />}
       {type === 'multi'   && <MultiSelect  options={options} value={value} onChange={onChange} />}
-      {type === 'number'  && <NumberInput  value={value} onChange={onChange} placeholder="Ex: 30" />}
+      {type === 'number'  && <NumberInput  value={value} onChange={onChange} placeholder={t('kickoff.form.exemploNumero')} />}
       {type === 'money'   && <MoneyInput   value={value} onChange={onChange} />}
       {type === 'percent' && <PercentInput value={value} onChange={onChange} unknownLabel={question.unknownLabel} showUnknownToggle />}
       {type === 'text'    && <TextInput    value={value} onChange={onChange} />}
@@ -35,6 +37,7 @@ export default function KickoffQuestionForm({ question, value, onChange }) {
 // (lista de valores que disparam a caixa de descrição inline). Quando ativo,
 // armazena o valor como objeto { value, description }.
 function SingleSelect({ question = {}, options = [], value, onChange }) {
+  const { t } = useI18n()
   const askDesc = !!question.askDescription
   const triggers = Array.isArray(question.descriptionWhen) ? question.descriptionWhen : []
   const isObj   = value && typeof value === 'object' && !Array.isArray(value)
@@ -86,13 +89,13 @@ function SingleSelect({ question = {}, options = [], value, onChange }) {
       {shouldShowDesc && (
         <div className="pt-1">
           <label className="text-xs font-semibold text-rl-subtle mb-1.5 block">
-            {question.descriptionLabel || 'Descreva (opcional)'}
+            {question.descriptionLabel || t('kickoff.form.descreva')}
           </label>
           <textarea
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
             rows={3}
-            placeholder={question.descriptionPlaceholder || 'Detalhe a resposta...'}
+            placeholder={question.descriptionPlaceholder || t('kickoff.form.detalhe')}
             className="input-field w-full resize-none"
           />
         </div>
@@ -107,6 +110,7 @@ function SingleSelect({ question = {}, options = [], value, onChange }) {
 //  - Com subQuestions:  inputs estruturados de %. Valor: { value, subAnswers }
 // Sem askDescription continua string ('sim' | 'nao').
 function YesNo({ question = {}, options = [], value, onChange }) {
+  const { t } = useI18n()
   const askDesc = !!question.askDescription
   const subQs   = Array.isArray(question.subQuestions) ? question.subQuestions : null
   const isObj   = value && typeof value === 'object' && !Array.isArray(value)
@@ -165,7 +169,7 @@ function YesNo({ question = {}, options = [], value, onChange }) {
       {askDesc && current === 'sim' && subQs && (
         <div className="pt-1">
           <label className="text-xs font-semibold text-rl-subtle mb-2 block">
-            {question.descriptionLabel || 'Informe os valores'}
+            {question.descriptionLabel || t('kickoff.form.informeValores')}
           </label>
           <div className="space-y-2">
             {subQs.map((sq) => (
@@ -184,13 +188,13 @@ function YesNo({ question = {}, options = [], value, onChange }) {
       {askDesc && current === 'sim' && !subQs && (
         <div className="pt-1">
           <label className="text-xs font-semibold text-rl-subtle mb-1.5 block">
-            {question.descriptionLabel || 'Descreva (opcional)'}
+            {question.descriptionLabel || t('kickoff.form.descreva')}
           </label>
           <textarea
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
             rows={3}
-            placeholder={question.descriptionPlaceholder || 'Detalhe a resposta...'}
+            placeholder={question.descriptionPlaceholder || t('kickoff.form.detalhe')}
             className="input-field w-full resize-none"
           />
         </div>
@@ -202,6 +206,7 @@ function YesNo({ question = {}, options = [], value, onChange }) {
 // SubPercentInput: input compacto de % com botão "Não sei" inline. Usado
 // dentro do YesNo quando a pergunta tem subQuestions estruturadas.
 function SubPercentInput({ label, value, onChange, placeholder }) {
+  const { t } = useI18n()
   const isUnknown = value === 'unknown'
   const displayValue = isUnknown || value == null || value === '' ? '' : String(value)
 
@@ -242,7 +247,7 @@ function SubPercentInput({ label, value, onChange, placeholder }) {
         }`}
       >
         {isUnknown && <Check className="w-3 h-3" />}
-        Não sei
+        {t('kickoff.form.naoSei')}
       </button>
     </div>
   )
@@ -322,12 +327,13 @@ function NumberInput({ value, onChange, placeholder }) {
 }
 
 function TextInput({ value, onChange }) {
+  const { t } = useI18n()
   return (
     <textarea
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value)}
       rows={4}
-      placeholder="Digite aqui..."
+      placeholder={t('kickoff.form.digiteAqui')}
       className="input-field w-full resize-none"
     />
   )

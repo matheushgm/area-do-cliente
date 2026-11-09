@@ -5,12 +5,14 @@ import { useState } from 'react'
 import { GripVertical, Eye, EyeOff, Lock } from 'lucide-react'
 import { colunasDaView, normalizarColunas } from '../../lib/viewsTarefas'
 import { FOCO } from './Campos'
+import { useI18n } from '../../i18n'
 
 /**
  * valor = config.colunas; onChange(colunas) recebe o novo { ordem, ocultas } (ou null = padrão).
  * `catalogo`/`ocultasPadrao`: outro conjunto de colunas (o Gantt usa COLUNAS_GANTT); sem eles, as da Lista.
  */
 export default function EditorColunas({ valor, onChange, catalogo, ocultasPadrao }) {
+  const { t } = useI18n()
   const cols = colunasDaView(valor, catalogo, ocultasPadrao)
   const [arrastando, setArrastando] = useState(null) // k da coluna em movimento
   const [sobre, setSobre] = useState(null) // índice onde ela vai cair
@@ -36,7 +38,7 @@ export default function EditorColunas({ valor, onChange, catalogo, ocultasPadrao
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-2 h-8 px-2 text-[13px] text-ln-t3">
-        <Lock className="w-3.5 h-3.5 text-ln-t4" /><span className="flex-1">Nome</span><span className="text-[11px] text-ln-t4">sempre visível</span>
+        <Lock className="w-3.5 h-3.5 text-ln-t4" /><span className="flex-1">{t('tarefas.colunas.nome')}</span><span className="text-[11px] text-ln-t4">{t('tarefas.colunas.sempreVisivel')}</span>
       </div>
       <ul className="flex flex-col" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); soltar() }}>
         {cols.map((c, i) => (
@@ -54,20 +56,20 @@ export default function EditorColunas({ valor, onChange, catalogo, ocultasPadrao
               type="button"
               onKeyDown={(e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); mover(i, i + (e.key === 'ArrowUp' ? -1 : 1)) } }}
               className={`inline-flex items-center justify-center w-5 h-6 rounded text-ln-t4 cursor-grab active:cursor-grabbing hover:text-ln-t2 ${FOCO}`}
-              aria-label={`Mover ${c.label} (setas para cima e para baixo)`} title="Arraste para mudar a ordem"
+              aria-label={t('tarefas.colunas.mover', { coluna: c.label })} title={t('tarefas.colunas.arraste')}
             ><GripVertical className="w-3.5 h-3.5" /></button>
             <span className={`flex-1 truncate text-[13px] ${c.oculta ? 'text-ln-t4' : 'text-ln-t1'}`}>{c.label}</span>
             <button
               type="button" onClick={() => alternar(c.k)} disabled={!c.oculta && nVisiveis === 1}
               className={`inline-flex items-center justify-center w-7 h-6 rounded disabled:opacity-30 ${c.oculta ? 'text-ln-t4 hover:text-ln-t2' : 'text-ln-accent hover:bg-ln-accent/10'} ${FOCO}`}
-              aria-pressed={!c.oculta} aria-label={c.oculta ? `Mostrar ${c.label}` : `Ocultar ${c.label}`} title={c.oculta ? 'Oculta: clique para mostrar' : 'Visível: clique para ocultar'}
+              aria-pressed={!c.oculta} aria-label={c.oculta ? t('tarefas.colunas.mostrarCol', { coluna: c.label }) : t('tarefas.colunas.ocultarCol', { coluna: c.label })} title={c.oculta ? t('tarefas.colunas.ocultaClique') : t('tarefas.colunas.visivelClique')}
             >{c.oculta ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}</button>
           </li>
         ))}
       </ul>
       <div className="flex items-center justify-between gap-2 pt-2 mt-1 border-t border-ln-ink/[0.06] px-1">
-        <span className="text-[11px] text-ln-t4 tabular">{nVisiveis} de {cols.length} visíveis</span>
-        <button type="button" onClick={() => onChange(null)} disabled={!normalizarColunas(valor, catalogo, ocultasPadrao)} className={`text-xs text-ln-accent hover:underline disabled:text-ln-t4 disabled:no-underline ${FOCO}`}>Restaurar padrão</button>
+        <span className="text-[11px] text-ln-t4 tabular">{t('tarefas.colunas.visiveis', { n: nVisiveis, total: cols.length })}</span>
+        <button type="button" onClick={() => onChange(null)} disabled={!normalizarColunas(valor, catalogo, ocultasPadrao)} className={`text-xs text-ln-accent hover:underline disabled:text-ln-t4 disabled:no-underline ${FOCO}`}>{t('tarefas.colunas.restaurar')}</button>
       </div>
     </div>
   )

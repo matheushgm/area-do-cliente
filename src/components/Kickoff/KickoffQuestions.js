@@ -1,28 +1,64 @@
 // Banco de perguntas, pilares e estágios do diagnóstico Kickoff.
 // Sem dependência de React — usado pelo KickoffModule, KickoffScorer e kickoffPDF.
+//
+// Os textos (enunciado, ajuda, placeholder, rótulo de opção, pilar, estágio e próximos
+// passos) moram em src/i18n/locales/{pt,en}/kickoffPerguntas.js. No fim deste arquivo
+// cada campo de texto vira um getter que traduz no idioma de agora a cada leitura, então
+// quem lê `q.label` / `o.label` / `p.short` continua igual (o portal também). Ids,
+// pilares, valores de opção e scores ficam aqui e não mudam: são o que vai pra
+// `kickoff.answers` e o que o KickoffScorer usa.
+import { t } from '../../i18n'
+import TEXTOS_PT from '../../i18n/locales/pt/kickoffPerguntas.js'
+
+export function lerCaminho(dic, caminho) {
+  return caminho.split('.').reduce((v, p) => (v == null ? undefined : v[p]), dic)
+}
+
+/** Texto sempre em português (o que é gravado no projeto ou vai pro prompt da IA). */
+export function textoPt(caminho) {
+  return lerCaminho(TEXTOS_PT, caminho) ?? ''
+}
+
+/** Trecho do dicionário pt (objeto), para saber quais campos de texto ligar. */
+export function textosPt(caminho) {
+  return lerCaminho(TEXTOS_PT, caminho) || {}
+}
+
+/** Troca `alvo[campo]` por um getter que lê `t(chave)` no idioma de agora. */
+export function ligarCampo(alvo, campo, chave) {
+  Object.defineProperty(alvo, campo, { enumerable: true, configurable: true, get: () => t(chave) })
+}
+
+/** Liga, de uma vez, todo campo de texto que existe em `textos` (o dicionário pt). */
+export function ligarTextos(alvo, textos, chave) {
+  for (const [campo, v] of Object.entries(textos || {})) {
+    if (typeof v === 'string') ligarCampo(alvo, campo, `${chave}.${campo}`)
+  }
+  return alvo
+}
 
 // ─── Os 9 pilares ─────────────────────────────────────────────────────────────
 export const PILLARS = [
-  { id: 'margem_lucro',         label: 'Margem de lucro',          short: 'Margem',         color: 'rl-gold'   },
-  { id: 'oferta_entrada',       label: 'Oferta de entrada',        short: 'Oferta entrada', color: 'rl-purple' },
-  { id: 'conjunto_ofertas',     label: 'Conjunto de ofertas',      short: 'Recompra',       color: 'rl-cyan'   },
-  { id: 'grande_promessa',      label: 'Grande promessa',          short: 'Promessa',       color: 'rl-blue'   },
-  { id: 'posicionamento',       label: 'Posicionamento',           short: 'Posicionamento', color: 'rl-purple' },
-  { id: 'autoridade',           label: 'Autoridade no mercado',    short: 'Autoridade',     color: 'rl-green'  },
-  { id: 'processo_comercial',   label: 'Processo comercial',       short: 'Comercial',      color: 'rl-blue'   },
-  { id: 'funil_previsivel',     label: 'Funil previsível',         short: 'Funil',          color: 'rl-cyan'   },
-  { id: 'empilhamento_canais',  label: 'Empilhamento de canais',   short: 'Canais',         color: 'rl-gold'   },
+  { id: 'margem_lucro',         color: 'rl-gold'   },
+  { id: 'oferta_entrada',       color: 'rl-purple' },
+  { id: 'conjunto_ofertas',     color: 'rl-cyan'   },
+  { id: 'grande_promessa',      color: 'rl-blue'   },
+  { id: 'posicionamento',       color: 'rl-purple' },
+  { id: 'autoridade',           color: 'rl-green'  },
+  { id: 'processo_comercial',   color: 'rl-blue'   },
+  { id: 'funil_previsivel',     color: 'rl-cyan'   },
+  { id: 'empilhamento_canais',  color: 'rl-gold'   },
 ]
 
 export const PILLARS_BY_ID = Object.fromEntries(PILLARS.map((p) => [p.id, p]))
 
 // ─── Estágios de maturidade ───────────────────────────────────────────────────
 export const STAGES = [
-  { id: 0, label: 'Caos',          range: [0, 30],   color: '#EF4444', desc: 'Negócio sem fundação estruturada — várias frentes simultâneas a atacar.' },
-  { id: 1, label: 'Validação',     range: [31, 50],  color: '#F59E0B', desc: 'Tem produto e algumas vendas, mas sem previsibilidade nem processos.' },
-  { id: 2, label: 'Estruturação',  range: [51, 70],  color: '#EAB308', desc: 'Bases comerciais existem; falta padronizar e empilhar canais.' },
-  { id: 3, label: 'Aceleração',    range: [71, 85],  color: '#22C55E', desc: 'Pronto para escalar — funis previsíveis, oferta validada.' },
-  { id: 4, label: 'Escala',        range: [86, 100], color: '#15803D', desc: 'Negócio maduro, com canais empilhados e ofertas estruturadas.' },
+  { id: 0, range: [0, 30],   color: '#EF4444' },
+  { id: 1, range: [31, 50],  color: '#F59E0B' },
+  { id: 2, range: [51, 70],  color: '#EAB308' },
+  { id: 3, range: [71, 85],  color: '#22C55E' },
+  { id: 4, range: [86, 100], color: '#15803D' },
 ]
 
 // ─── Helpers de scoreFn ───────────────────────────────────────────────────────
@@ -156,74 +192,57 @@ const SHARED = [
     id: 'modelo_produto',
     pillarIds: ['posicionamento'],
     type: 'single',
-    label: 'Qual é o modelo do produto/serviço?',
-    hint: 'Vai ajudar a definir quais tipos de funil fazem mais sentido pra esse cliente.',
     options: [
-      { value: 'ecommerce',   label: 'E-commerce / produto físico online',   score: 100 },
-      { value: 'whatsapp',    label: 'Venda via WhatsApp',                    score: 100 },
-      { value: 'saas',        label: 'SaaS / Software como serviço',          score: 100 },
-      { value: 'servicos',    label: 'Prestador de serviços',                 score: 100 },
-      { value: 'consultoria', label: 'Consultoria / Assessoria',              score: 100 },
-      { value: 'infoproduto', label: 'Infoproduto / curso online',            score: 100 },
-      { value: 'coach',       label: 'Coach / Mentor',                        score: 100 },
-      { value: 'outro',       label: 'Outro',                                 score: 50  },
+      { value: 'ecommerce',   score: 100 },
+      { value: 'whatsapp',    score: 100 },
+      { value: 'saas',        score: 100 },
+      { value: 'servicos',    score: 100 },
+      { value: 'consultoria', score: 100 },
+      { value: 'infoproduto', score: 100 },
+      { value: 'coach',       score: 100 },
+      { value: 'outro',       score: 50  },
     ],
   },
   {
     id: 'grande_promessa',
     pillarIds: ['grande_promessa'],
     type: 'text',
-    label: 'Qual é a grande promessa do seu produto/serviço?',
-    hint: 'Idealmente específica, mensurável e com prazo. Ex: "Triplicamos o ROI do seu tráfego em 90 dias".',
     scoreFn: promiseScore,
   },
   {
     id: 'porque_voce',
     pillarIds: ['posicionamento'],
     type: 'text',
-    label: 'Por que o cliente deve escolher a sua empresa e não a do concorrente?',
-    hint: 'Liste os diferenciais concretos — experiência, metodologia, resultados, especialização, garantia, tecnologia, etc. Quanto mais específico e múltiplos motivos, melhor.',
     scoreFn: differentiatorScore,
   },
   {
     id: 'concorrentes',
     pillarIds: ['posicionamento'],
     type: 'text',
-    label: 'Quem são seus 3 principais concorrentes?',
-    hint: 'Um por linha. Quanto mais específico, melhor.',
     scoreFn: competitorsScore,
   },
   {
     id: 'cliente_ideal_qualificado',
     pillarIds: ['posicionamento', 'processo_comercial'],
     type: 'text',
-    label: 'Quem é o cliente ideal e o que valida claramente que geramos um lead qualificado?',
-    hint: 'Descreva o perfil (cargo, segmento, tamanho/faturamento, dor principal) + os critérios objetivos que tornam um lead pronto pra venda. Ex.: "Gestor de tráfego de e-commerce com R$50k+/mês de faturamento, que já investe em Meta Ads e quer escalar — qualificado se tem cargo decisor e budget mínimo de R$10k/mês".',
     scoreFn: qualifiedLeadScore,
   },
   {
     id: 'margem_bruta',
     pillarIds: ['margem_lucro'],
     type: 'percent',
-    label: 'Qual a margem bruta média por venda/contrato?',
-    hint: 'Margem BRUTA = (Receita - Custo direto do produto/serviço) / Receita. Considera só o que é diretamente atribuível à entrega (ex: matéria-prima, mão de obra de execução, taxa de plataforma). NÃO subtrai custos administrativos, salários fixos, aluguel ou marketing — isso é margem LÍQUIDA. Queremos a BRUTA porque é ela que define quanto sobra pra investir em aquisição (marketing/tráfego).',
-    unknownLabel: 'Não sei calcular',
     scoreFn: grossMarginScore,
   },
   {
     id: 'ticket_medio',
     pillarIds: ['margem_lucro'],
     type: 'money',
-    label: 'Qual o ticket médio das suas vendas?',
-    hint: 'Valor médio por venda/contrato fechado.',
     scoreFn: (val) => (Number(val) > 0 ? 100 : 0),
   },
   {
     id: 'faturamento_mensal',
     pillarIds: ['margem_lucro'],
     type: 'money',
-    label: 'Qual foi o faturamento do último mês?',
-    hint: 'Receita total no mês anterior — soma de todas as vendas/contratos.',
     scoreFn: (val) => {
       const n = Number(val) || 0
       if (n === 0) return 0
@@ -238,40 +257,32 @@ const SHARED = [
     id: 'cac_ltv',
     pillarIds: ['margem_lucro', 'funil_previsivel'],
     type: 'money',
-    label: 'Qual o CAC máximo que você está disposto a pagar por cliente?',
-    hint: 'CAC máximo aceitável = o teto de quanto custar uma aquisição mantendo o negócio saudável (regra prática: CAC < 1/3 do LTV). Esse número é o que define a previsibilidade do funil — sem ele, a cada real investido em tráfego você não sabe se ainda está no positivo. É ele que estabelece o teto de CPL em cada canal e o ponto em que escalar deixa de ser rentável. Se não tiver esse número, deixe em branco e priorize calcular antes da próxima rodada de investimento.',
     scoreFn: (val) => (Number(val) > 0 ? 100 : 0),
   },
   {
     id: 'conteudo',
     pillarIds: ['autoridade'],
     type: 'single',
-    label: 'Você produz conteúdo orgânico regularmente?',
     options: [
-      { value: 'forte',  label: 'Sim, semanalmente em 2+ canais',     score: 100 },
-      { value: 'medio',  label: 'Sim, esporadicamente em 1 canal',    score: 50  },
-      { value: 'nenhum', label: 'Não produzo',                         score: 0   },
+      { value: 'forte',  score: 100 },
+      { value: 'medio',  score: 50  },
+      { value: 'nenhum', score: 0   },
     ],
   },
   {
     id: 'lead_magnet',
     pillarIds: ['autoridade'],
     type: 'yesno',
-    label: 'Você tem isca digital / lead magnet (eBook, webinar, kit, amostra)?',
     askDescription: true,
-    descriptionLabel: 'Descreva a isca atual',
-    descriptionPlaceholder: 'Ex: eBook sobre tráfego pago captado via formulário no site...',
     options: [
-      { value: 'sim', label: 'Sim', score: 80 },
-      { value: 'nao', label: 'Não', score: 20 },
+      { value: 'sim', score: 80 },
+      { value: 'nao', score: 20 },
     ],
   },
   {
     id: 'investimento_passado',
     pillarIds: ['funil_previsivel'],
     type: 'money',
-    label: 'Quanto investiu em tráfego no mês passado?',
-    hint: 'Some Meta + Google + outras plataformas no mês anterior.',
     scoreFn: rangeScore([
       [0, 0, 0],
       [1, 1999, 20],
@@ -284,8 +295,6 @@ const SHARED = [
     id: 'investimento_futuro',
     pillarIds: ['funil_previsivel'],
     type: 'money',
-    label: 'Quanto pretende investir em tráfego por mês conosco?',
-    hint: 'Budget mensal estimado de mídia paga / aquisição daqui pra frente.',
     scoreFn: rangeScore([
       [0, 0, 0],
       [1, 4999, 30],
@@ -298,20 +307,19 @@ const SHARED = [
     id: 'canais_ativos',
     pillarIds: ['empilhamento_canais'],
     type: 'multi',
-    label: 'Quais canais de aquisição você usa hoje? (marque todos)',
     options: [
-      { value: 'meta',        label: 'Meta Ads',           score: 100 },
-      { value: 'google',      label: 'Google Ads',         score: 100 },
-      { value: 'tiktok',      label: 'TikTok Ads',         score: 100 },
-      { value: 'linkedin',    label: 'LinkedIn Ads',       score: 100 },
-      { value: 'youtube',     label: 'YouTube Ads',        score: 100 },
-      { value: 'organico',    label: 'Orgânico (IG/TT/YT)', score: 100 },
-      { value: 'email',       label: 'Email marketing',    score: 100 },
-      { value: 'whatsapp',    label: 'WhatsApp / SMS',     score: 100 },
-      { value: 'indicacao',   label: 'Indicação',          score: 100 },
-      { value: 'outbound',    label: 'Outbound / cold',    score: 100 },
-      { value: 'eventos',     label: 'Eventos',            score: 100 },
-      { value: 'influencia',  label: 'Influenciadores',    score: 100 },
+      { value: 'meta',        score: 100 },
+      { value: 'google',      score: 100 },
+      { value: 'tiktok',      score: 100 },
+      { value: 'linkedin',    score: 100 },
+      { value: 'youtube',     score: 100 },
+      { value: 'organico',    score: 100 },
+      { value: 'email',       score: 100 },
+      { value: 'whatsapp',    score: 100 },
+      { value: 'indicacao',   score: 100 },
+      { value: 'outbound',    score: 100 },
+      { value: 'eventos',     score: 100 },
+      { value: 'influencia',  score: 100 },
     ],
     scoreFn: countScore(20, 100),
   },
@@ -319,16 +327,12 @@ const SHARED = [
     id: 'oferta_entrada',
     pillarIds: ['oferta_entrada'],
     type: 'single',
-    label: 'Você tem alguma oferta de entrada, garantia ou bônus diferenciado pra captar a primeira venda?',
-    hint: 'Conta como oferta de entrada: preço promocional, kit/combo, trial/demo, garantia incondicional, bônus exclusivo na primeira compra, frete grátis, etc.',
     askDescription: true,
     descriptionWhen: ['sim_testada', 'sim'],
-    descriptionLabel: 'Descreva a oferta de entrada',
-    descriptionPlaceholder: 'Ex: 30% off na primeira compra + frete grátis + garantia de 7 dias...',
     options: [
-      { value: 'sim_testada', label: 'Sim, estruturada e testada',    score: 100 },
-      { value: 'sim',         label: 'Sim, mas não testada',          score: 60  },
-      { value: 'nao',         label: 'Não tenho',                      score: 10  },
+      { value: 'sim_testada', score: 100 },
+      { value: 'sim',         score: 60  },
+      { value: 'nao',         score: 10  },
     ],
   },
 ]
@@ -339,14 +343,13 @@ const B2B = [
     id: 'b2b_demanda',
     pillarIds: ['funil_previsivel'],
     type: 'multi',
-    label: 'Como você gera demanda hoje? (processo atual, marque todos)',
     options: [
-      { value: 'outbound',   label: 'Outbound / Cold call',    score: 100 },
-      { value: 'inbound',    label: 'Inbound (orgânico + ads)', score: 100 },
-      { value: 'eventos',    label: 'Eventos / palestras',      score: 100 },
-      { value: 'parceria',   label: 'Parcerias / canais',       score: 100 },
-      { value: 'indicacao',  label: 'Indicação',                score: 100 },
-      { value: 'nenhum',     label: 'Não tenho processo',       score: 0   },
+      { value: 'outbound',   score: 100 },
+      { value: 'inbound',    score: 100 },
+      { value: 'eventos',    score: 100 },
+      { value: 'parceria',   score: 100 },
+      { value: 'indicacao',  score: 100 },
+      { value: 'nenhum',     score: 0   },
     ],
     scoreFn: countScore(25, 100),
   },
@@ -354,7 +357,6 @@ const B2B = [
     id: 'b2b_clientes_base',
     pillarIds: ['processo_comercial'],
     type: 'number',
-    label: 'Quantos clientes ativos tem na base hoje?',
     scoreFn: rangeScore([
       [0, 0, 0],
       [1, 5, 30],
@@ -367,42 +369,37 @@ const B2B = [
     id: 'b2b_recompra',
     pillarIds: ['conjunto_ofertas'],
     type: 'single',
-    label: 'Seu modelo de negócio tem recompra ou recorrência?',
     options: [
-      { value: 'recorrente',  label: 'Recorrência mensal/anual (SaaS, contrato)', score: 100 },
-      { value: 'recompra',    label: 'Recompra natural (consumível)',              score: 75  },
-      { value: 'unica',       label: 'Compra única',                                score: 30  },
+      { value: 'recorrente',  score: 100 },
+      { value: 'recompra',    score: 75  },
+      { value: 'unica',       score: 30  },
     ],
   },
   {
     id: 'b2b_precificacao',
     pillarIds: ['margem_lucro', 'grande_promessa'],
     type: 'single',
-    label: 'Como você precifica seu produto/serviço hoje?',
     options: [
-      { value: 'valor',     label: 'Baseado em valor entregue (ROI)', score: 100 },
-      { value: 'hora',      label: 'Baseado em hora/projeto',          score: 60  },
-      { value: 'mercado',   label: 'Cópia da concorrência',            score: 30  },
-      { value: 'unknown',   label: 'Não sei bem',                       score: 0   },
+      { value: 'valor',     score: 100 },
+      { value: 'hora',      score: 60  },
+      { value: 'mercado',   score: 30  },
+      { value: 'unknown',   score: 0   },
     ],
   },
   {
     id: 'b2b_crm',
     pillarIds: ['processo_comercial'],
     type: 'single',
-    label: 'Onde você gerencia sua base de clientes hoje?',
     options: [
-      { value: 'crm',       label: 'CRM dedicado (RD, Pipedrive, HubSpot, Salesforce)', score: 100 },
-      { value: 'planilha',  label: 'Planilha estruturada',                              score: 50  },
-      { value: 'whats',     label: 'WhatsApp / email / memória',                        score: 10  },
+      { value: 'crm',       score: 100 },
+      { value: 'planilha',  score: 50  },
+      { value: 'whats',     score: 10  },
     ],
   },
   {
     id: 'b2b_ciclo_venda',
     pillarIds: ['processo_comercial'],
     type: 'number',
-    label: 'Qual o ciclo médio de venda em dias?',
-    hint: 'Da entrada do lead ao fechamento.',
     scoreFn: rangeScore([
       [0, 0, 0],
       [1, 14, 100],
@@ -416,31 +413,28 @@ const B2B = [
     id: 'b2b_processo_comercial',
     pillarIds: ['processo_comercial'],
     type: 'single',
-    label: 'Qual seu processo comercial após o lead entrar?',
     options: [
-      { value: 'sdr_closer',  label: 'SDR qualifica, closer fecha, etapas no CRM', score: 100 },
-      { value: 'unico',       label: 'Vendedor único cuida do ciclo todo',          score: 65  },
-      { value: 'nenhum',      label: 'Não tenho processo definido',                  score: 15  },
+      { value: 'sdr_closer',  score: 100 },
+      { value: 'unico',       score: 65  },
+      { value: 'nenhum',      score: 15  },
     ],
   },
   {
     id: 'b2b_taxas_conversao',
     pillarIds: ['funil_previsivel', 'processo_comercial'],
     type: 'yesno',
-    label: 'Você conhece as taxas de conversão do seu funil (lead→MQL→SQL→venda)?',
     askDescription: true,
-    descriptionLabel: 'Informe as taxas atuais (em %)',
     // Em vez de uma textarea livre, mostra 3 inputs de % estruturados,
     // cada um com botão "Não sei". As respostas viram um objeto:
     //   subAnswers: { lead_mql: 30, mql_sql: 'unknown', sql_venda: 25 }
     subQuestions: [
-      { id: 'lead_mql',  label: 'Lead → MQL',   placeholder: 'Ex: 30' },
-      { id: 'mql_sql',   label: 'MQL → SQL',    placeholder: 'Ex: 50' },
-      { id: 'sql_venda', label: 'SQL → Venda',  placeholder: 'Ex: 25' },
+      { id: 'lead_mql' },
+      { id: 'mql_sql' },
+      { id: 'sql_venda' },
     ],
     options: [
-      { value: 'sim', label: 'Sim', score: 100 },
-      { value: 'nao', label: 'Não', score: 20  },
+      { value: 'sim', score: 100 },
+      { value: 'nao', score: 20  },
     ],
   },
 ]
@@ -451,15 +445,14 @@ const B2C = [
     id: 'b2c_demanda',
     pillarIds: ['funil_previsivel'],
     type: 'multi',
-    label: 'Como você gera demanda hoje? (marque todos)',
     options: [
-      { value: 'meta',        label: 'Meta Ads',           score: 100 },
-      { value: 'google',      label: 'Google Shopping',    score: 100 },
-      { value: 'influencia',  label: 'Influenciadores',    score: 100 },
-      { value: 'email',       label: 'Email / WhatsApp',   score: 100 },
-      { value: 'indicacao',   label: 'Indicação',          score: 100 },
-      { value: 'fisica',      label: 'Loja física',        score: 100 },
-      { value: 'nenhum',      label: 'Não tenho processo', score: 0   },
+      { value: 'meta',        score: 100 },
+      { value: 'google',      score: 100 },
+      { value: 'influencia',  score: 100 },
+      { value: 'email',       score: 100 },
+      { value: 'indicacao',   score: 100 },
+      { value: 'fisica',      score: 100 },
+      { value: 'nenhum',      score: 0   },
     ],
     scoreFn: countScore(20, 100),
   },
@@ -467,7 +460,6 @@ const B2C = [
     id: 'b2c_clientes_base',
     pillarIds: ['processo_comercial'],
     type: 'number',
-    label: 'Quantos clientes ativos tem na base?',
     scoreFn: rangeScore([
       [0, 0, 0],
       [1, 50, 30],
@@ -480,44 +472,37 @@ const B2C = [
     id: 'b2c_atendimento',
     pillarIds: ['processo_comercial'],
     type: 'single',
-    label: 'Qual seu processo de atendimento ao cliente?',
     options: [
-      { value: 'dedicado',  label: 'Equipe dedicada com SLA + script',  score: 100 },
-      { value: 'proprio',   label: 'Atendimento próprio sem padrão',    score: 50  },
-      { value: 'reativo',   label: 'Reativo, conforme aparece',          score: 15  },
+      { value: 'dedicado',  score: 100 },
+      { value: 'proprio',   score: 50  },
+      { value: 'reativo',   score: 15  },
     ],
   },
   {
     id: 'b2c_recompra',
     pillarIds: ['conjunto_ofertas'],
     type: 'single',
-    label: 'Seu produto permite recompra? Como você estimula isso hoje?',
     options: [
-      { value: 'fidelidade',  label: 'Sim, com programa de fidelidade/recorrência', score: 100 },
-      { value: 'email',       label: 'Sim, com email/WhatsApp pós-venda',           score: 70  },
-      { value: 'passivo',     label: 'Sim, mas não estimulo',                        score: 35  },
-      { value: 'nao_permite', label: 'Não permite recompra',                          score: 50  },
+      { value: 'fidelidade',  score: 100 },
+      { value: 'email',       score: 70  },
+      { value: 'passivo',     score: 35  },
+      { value: 'nao_permite', score: 50  },
     ],
   },
   {
     id: 'b2c_upsell',
     pillarIds: ['conjunto_ofertas'],
     type: 'yesno',
-    label: 'Você tem ofertas de upsell/cross-sell no checkout ou pós-venda?',
     askDescription: true,
-    descriptionLabel: 'Quais ofertas?',
-    descriptionPlaceholder: 'Ex: Cross-sell de acessórios no checkout, email com produto complementar 7 dias após compra...',
     options: [
-      { value: 'sim', label: 'Sim', score: 85 },
-      { value: 'nao', label: 'Não', score: 20 },
+      { value: 'sim', score: 85 },
+      { value: 'nao', score: 20 },
     ],
   },
   {
     id: 'b2c_frequencia_recompra',
     pillarIds: ['conjunto_ofertas'],
     type: 'number',
-    label: 'Qual sua frequência média de recompra (em dias)?',
-    hint: 'Deixe em branco se não permite recompra.',
     showWhen: (a) => a.b2c_recompra && a.b2c_recompra !== 'nao_permite',
     scoreFn: (val) => {
       const n = Number(val) || 0
@@ -542,53 +527,8 @@ export const QUESTIONS_BY_TYPE = {
 
 // ─── Próximos passos sugeridos ────────────────────────────────────────────────
 // Mapeia { pillarId × businessType } → ação concreta (1-2 frases).
-export const NEXT_STEPS = {
-  margem_lucro: {
-    b2b:    'Mapear CAC e LTV por canal nos próximos 30 dias; revisar precificação baseada em valor entregue.',
-    b2c:    'Calcular margem por SKU, identificar produtos âncora vs sangradores e reprecificar o portfólio.',
-    hibrido:'Mapear margem por linha de receita e CAC/LTV por canal; reprecificar com base em valor entregue.',
-  },
-  oferta_entrada: {
-    b2b:    'Estruturar uma oferta de entrada (POC, projeto-piloto ou trial 14d) com escopo, prazo e garantia.',
-    b2c:    'Lançar uma oferta de entrada testável (kit/desconto/garantia) e validar com 2 anúncios em A/B por 14 dias.',
-    hibrido:'Criar duas ofertas de entrada (uma B2B, uma B2C) com gatilho de urgência e teste A/B em 30 dias.',
-  },
-  conjunto_ofertas: {
-    b2b:    'Estruturar plano de upsell/cross-sell e pacotes recorrentes; implementar QBR pra retenção.',
-    b2c:    'Implementar fluxo de pós-venda (email + WhatsApp) com upsell, programa de fidelidade e cross-sell no checkout.',
-    hibrido:'Mapear oportunidades de recompra em ambas as linhas e lançar 1 upsell por linha nos próximos 60 dias.',
-  },
-  grande_promessa: {
-    b2b:    'Reescrever a promessa com métrica + prazo + garantia; validar com 5 clientes atuais.',
-    b2c:    'Reescrever a promessa com benefício específico + prazo + prova social; testar em 2 criativos.',
-    hibrido:'Definir uma promessa única por linha de negócio e padronizar em site, ads e materiais comerciais.',
-  },
-  posicionamento: {
-    b2b:    'Definir nicho de atuação e ICP (Ideal Customer Profile); mapear 3 concorrentes e diferenciais claros.',
-    b2c:    'Construir narrativa de marca e diferenciais visuais/verbais; auditar concorrência diretamente.',
-    hibrido:'Posicionar cada linha com proposta única; mapear ICP B2B e persona B2C separadamente.',
-  },
-  autoridade: {
-    b2b:    'Plano editorial de 12 semanas no LinkedIn + 1 isca digital (eBook ou webinar) lançado em 30 dias.',
-    b2c:    'Calendário de conteúdo orgânico (IG/TikTok) 3x por semana + 1 lead magnet (kit, amostra) em 30 dias.',
-    hibrido:'Plano editorial duplo: LinkedIn pro B2B, IG/TT pro B2C; 1 lead magnet por linha em 45 dias.',
-  },
-  processo_comercial: {
-    b2b:    'Implementar CRM, definir etapas do funil, criar SLA SDR↔Closer e dashboard semanal de pipeline.',
-    b2c:    'Padronizar atendimento com script, SLA de resposta (<5 min) e ferramenta única (WhatsApp Business + planilha).',
-    hibrido:'CRM unificado com pipelines separados; processo comercial por linha + dashboard mensal de conversão.',
-  },
-  funil_previsivel: {
-    b2b:    'Investir em mídia paga (Meta + LinkedIn) com R$15k+/mês e medir CAC por canal nos próximos 90 dias.',
-    b2c:    'Aumentar investimento em Meta + Google Shopping; medir ROAS por anúncio e por SKU semanalmente.',
-    hibrido:'Distribuir budget entre canais B2B e B2C; tracking de funil com origem por canal em 30 dias.',
-  },
-  empilhamento_canais: {
-    b2b:    'Adicionar 2 canais (ex: LinkedIn Ads + Email outbound) e testar por 60 dias com tracking dedicado.',
-    b2c:    'Adicionar 2 canais (ex: TikTok + Email + Influência) e validar performance por 60 dias.',
-    hibrido:'Empilhar canais por linha: B2B (LinkedIn, Outbound, Eventos) + B2C (Meta, TikTok, Influência).',
-  },
-}
+// Textos em kickoffPerguntas.proximosPassos; os getters entram em ligarTextosDasPerguntas().
+export const NEXT_STEPS = Object.fromEntries(PILLARS.map((p) => [p.id, {}]))
 
 // ─── Helpers públicos ─────────────────────────────────────────────────────────
 
@@ -604,3 +544,23 @@ export function getStage(overallScore) {
   }
   return STAGES[0]
 }
+
+// ─── Textos traduzidos (getters) ──────────────────────────────────────────────
+function ligarTextosDasPerguntas() {
+  const NS = 'kickoffPerguntas'
+  for (const p of PILLARS) ligarTextos(p, TEXTOS_PT.pilares[p.id], `${NS}.pilares.${p.id}`)
+  for (const s of STAGES) ligarTextos(s, TEXTOS_PT.estagios[s.id], `${NS}.estagios.${s.id}`)
+  for (const q of [...SHARED, ...B2B, ...B2C]) {
+    const base = `${NS}.perguntas.${q.id}`
+    const tx = TEXTOS_PT.perguntas[q.id] || {}
+    ligarTextos(q, tx, base)
+    for (const o of q.options || []) {
+      if (tx.opcoes?.[o.value] != null) ligarCampo(o, 'label', `${base}.opcoes.${o.value}`)
+    }
+    for (const sq of q.subQuestions || []) ligarTextos(sq, tx.sub?.[sq.id], `${base}.sub.${sq.id}`)
+  }
+  for (const [pid, porTipo] of Object.entries(TEXTOS_PT.proximosPassos)) {
+    if (NEXT_STEPS[pid]) ligarTextos(NEXT_STEPS[pid], porTipo, `${NS}.proximosPassos.${pid}`)
+  }
+}
+ligarTextosDasPerguntas()

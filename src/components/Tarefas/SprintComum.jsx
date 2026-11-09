@@ -5,7 +5,8 @@ import { CornerDownRight, ArrowRightLeft } from 'lucide-react'
 import { Avatar, FOCO, ItemMenu, Popover, PrioridadeIcon, StatusCampo, StatusIcon, EstimativaCampo } from './Campos'
 import { fmtVencimentoClickUp, pessoaDoPerfil, statusDaLista } from '../../lib/tarefas'
 import { fmtDiaMes } from '../../lib/vertatask'
-import { FOLGA_RECOMENDADA, fmtMin, minutosDaTarefa } from '../../lib/sprints'
+import { FOLGA_RECOMENDADA, fmtMin, minutosDaTarefa, rotuloOrigemHoras } from '../../lib/sprints'
+import { useI18n } from '../../i18n'
 
 export function Tile({ k, v, sub, tom, dica }) {
   const cor = tom === 'red' ? 'text-ln-red' : tom === 'green' ? 'text-ln-green' : tom === 'yellow' ? 'text-ln-yellow' : 'text-ln-t1'
@@ -22,17 +23,19 @@ export const TEXTO_CARGA = { folga: 'text-ln-green', justa: 'text-ln-yellow', pa
 
 /** Barra de carga x capacidade, com a marca da folga recomendada. */
 export function BarraCarga({ saude, altura = 8 }) {
+  const { t } = useI18n()
   const larg = Math.min(100, Math.round((saude.pct || 0) * 100))
   return (
-    <div className="relative rounded-full bg-ln-ink/[0.07] w-full" style={{ height: altura }} role="img" aria-label={`${Math.round((saude.pct || 0) * 100)}% da capacidade`}>
+    <div className="relative rounded-full bg-ln-ink/[0.07] w-full" style={{ height: altura }} role="img" aria-label={t('sprints.pctCapacidade', { pct: Math.round((saude.pct || 0) * 100) })}>
       <div className={`h-full rounded-full transition-[width] duration-200 ${COR_CARGA[saude.nivel]}`} style={{ width: `${larg}%` }} />
-      <i className="absolute inset-y-[-2px] w-px bg-ln-ink/40" style={{ left: `${(1 - FOLGA_RECOMENDADA) * 100}%` }} title="Até aqui sobra folga para imprevisto" />
+      <i className="absolute inset-y-[-2px] w-px bg-ln-ink/40" style={{ left: `${(1 - FOLGA_RECOMENDADA) * 100}%` }} title={t('sprints.marcaFolga')} />
     </div>
   )
 }
 
 /** Texto ou objetivo que grava ao sair do campo. */
 export function CampoTexto({ valor, onSalvar, placeholder, linhas = 1, className = '', rotulo, somenteLeitura = false }) {
+  const { t } = useI18n()
   // fora de foco mostra o valor gravado, para a edição de outra pessoa aparecer na hora
   const [txt, setTxt] = useState('')
   const [focado, setFocado] = useState(false)
@@ -42,7 +45,7 @@ export function CampoTexto({ valor, onSalvar, placeholder, linhas = 1, className
     const novo = txt.trim()
     if (novo !== (valor || '').trim()) onSalvar(novo || null)
   }
-  if (somenteLeitura) return <p className={`text-[13px] whitespace-pre-wrap ${valor ? 'text-ln-t2' : 'text-ln-t4'} ${className}`}>{valor || 'Não preenchido'}</p>
+  if (somenteLeitura) return <p className={`text-[13px] whitespace-pre-wrap ${valor ? 'text-ln-t2' : 'text-ln-t4'} ${className}`}>{valor || t('sprints.naoPreenchido')}</p>
   const comum = {
     value: focado ? txt : (valor || ''), placeholder, 'aria-label': rotulo || placeholder,
     onChange: (e) => { setTxt(e.target.value); setFocado(true) }, onFocus: () => { setTxt(valor || ''); setFocado(true) }, onBlur: salvar,
@@ -54,16 +57,17 @@ export function CampoTexto({ valor, onSalvar, placeholder, linhas = 1, className
 
 /** Popover para passar a tarefa a outra pessoa da sprint. */
 export function BotaoDelegar({ pessoas, membrosMap, onEscolher }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   return (
     <>
-      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className="ln-iconbtn !w-6 !h-6" aria-label="Passar para outra pessoa" title="Passar para outra pessoa">
+      <button ref={ref} type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }} className="ln-iconbtn !w-6 !h-6" aria-label={t('sprints.passarOutra')} title={t('sprints.passarOutra')}>
         <ArrowRightLeft className="w-3.5 h-3.5" />
       </button>
       <Popover anchorRef={ref} open={open} onClose={() => setOpen(false)} width={220} align="right">
         <div className="p-1 overflow-y-auto">
-          <p className="px-2.5 py-1.5 text-[11px] text-ln-t4">Passar para</p>
+          <p className="px-2.5 py-1.5 text-[11px] text-ln-t4">{t('sprints.passarPara')}</p>
           {pessoas.map((p) => {
             const m = membrosMap.get(p.pessoa_id)
             if (!m) return null
@@ -80,10 +84,12 @@ export function BotaoDelegar({ pessoas, membrosMap, onEscolher }) {
  * `editavel` liga os editores de status e estimativa, que gravam na própria tarefa.
  */
 export function LinhaTarefa({ tarefa, titulo, ctx, inicio = null, fim = null, editavel = false, etiqueta = null, apagada = false }) {
+  const { t } = useI18n()
   if (!tarefa) {
+    // 'Tarefa removida' é o título que classificarItem põe (e grava no transbordo): só a tela traduz
     return (
       <div className="flex items-center gap-2 h-10 px-3 text-[13px] text-ln-t4">
-        {inicio}<span className="truncate flex-1">{titulo || 'Tarefa removida'}</span>{fim}
+        {inicio}<span className="truncate flex-1">{!titulo || titulo === 'Tarefa removida' ? t('sprints.tarefaRemovida') : titulo}</span>{fim}
       </div>
     )
   }
@@ -115,7 +121,7 @@ export function LinhaTarefa({ tarefa, titulo, ctx, inicio = null, fim = null, ed
       {etiqueta}
       <span className={`w-[58px] text-right text-xs tabular whitespace-nowrap shrink-0 ${venc.classe}`}>{venc.texto}</span>
       <span className="w-4 shrink-0 inline-flex justify-center"><PrioridadeIcon valor={tarefa.prioridade} /></span>
-      <span className="w-[50px] text-right shrink-0" onClick={(e) => e.stopPropagation()} title={inferida ? `Sem estimativa: conta ${fmtMin(min)} (${origem}). Clique para estimar.` : undefined}>
+      <span className="w-[50px] text-right shrink-0" onClick={(e) => e.stopPropagation()} title={inferida ? t('sprints.semEstimativaConta', { horas: fmtMin(min), origem: rotuloOrigemHoras(origem) }) : undefined}>
         {editavel
           ? <EstimativaCampo valor={tarefa.estimativa_min} onChange={(v) => ctx.onEstimativa(tarefa, v)} render={<span className={inferida ? 'text-ln-t4' : 'text-ln-t2'}>{inferida ? '~' : ''}{fmtMin(min)}</span>} />
           : <span className={`text-xs tabular ${inferida ? 'text-ln-t4' : 'text-ln-t2'}`}>{inferida ? '~' : ''}{fmtMin(min)}</span>}
@@ -127,6 +133,7 @@ export function LinhaTarefa({ tarefa, titulo, ctx, inicio = null, fim = null, ed
 
 /** Burndown em dias úteis: guia reta a partir do compromisso e o que falta de verdade. */
 export function GraficoBurndown({ bd, nome }) {
+  const { t } = useI18n()
   const W = 860, H = 200, L = 40, B = 24, T = 10, R = 20
   const n = bd.ideal.length
   const x = (i) => L + (n > 1 ? (i * (W - L - R)) / (n - 1) : 0)
@@ -135,7 +142,7 @@ export function GraficoBurndown({ bd, nome }) {
   const grade = [0, 1, 2, 3, 4].map((k) => (bd.maximo * k) / 4)
   const ultimo = bd.real.length - 1
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Burndown de ${nome}`}>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={t('sprints.burndownDe', { nome })}>
       {grade.map((v) => (
         <g key={v}>
           <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="rgb(var(--ln-ink) / 0.08)" />
@@ -143,7 +150,7 @@ export function GraficoBurndown({ bd, nome }) {
         </g>
       ))}
       {bd.dias.map((d, i) => <text key={d} x={x(i + 1)} y={H - 7} textAnchor="middle" fontSize="10" fill="rgb(var(--ln-ink) / 0.45)">{fmtDiaMes(d)}</text>)}
-      <text x={x(0)} y={H - 7} textAnchor="middle" fontSize="10" fill="rgb(var(--ln-ink) / 0.45)">início</text>
+      <text x={x(0)} y={H - 7} textAnchor="middle" fontSize="10" fill="rgb(var(--ln-ink) / 0.45)">{t('sprints.inicioGrafico')}</text>
       <polyline points={pl(bd.ideal)} fill="none" stroke="rgb(var(--ln-ink) / 0.25)" strokeWidth="2" strokeDasharray="5 4" />
       {bd.real.length > 0 && (
         <>
@@ -156,18 +163,19 @@ export function GraficoBurndown({ bd, nome }) {
 }
 
 export function CartaoBurndown({ bd, nome }) {
+  const { t } = useI18n()
   return (
     <div className="ln-card p-3">
       <div className="flex items-center justify-between mb-1 gap-3 flex-wrap">
-        <p className="text-[13px] font-medium text-ln-t2">Burndown em horas</p>
+        <p className="text-[13px] font-medium text-ln-t2">{t('sprints.burndownHoras')}</p>
         <div className="flex items-center gap-3 text-[11px] text-ln-t4">
-          <span className="inline-flex items-center gap-1.5"><i className="w-3 h-0.5 bg-ln-ink/25" />Ritmo ideal</span>
-          <span className="inline-flex items-center gap-1.5"><i className="w-3 h-0.5 bg-ln-accent" />O que falta</span>
+          <span className="inline-flex items-center gap-1.5"><i className="w-3 h-0.5 bg-ln-ink/25" />{t('sprints.ritmoIdeal')}</span>
+          <span className="inline-flex items-center gap-1.5"><i className="w-3 h-0.5 bg-ln-accent" />{t('sprints.oQueFalta')}</span>
         </div>
       </div>
       {bd.compromisso > 0
         ? <GraficoBurndown bd={bd} nome={nome} />
-        : <p className="py-8 text-center text-[13px] text-ln-t4">Nenhuma tarefa nesta sprint ainda.</p>}
+        : <p className="py-8 text-center text-[13px] text-ln-t4">{t('sprints.nenhumaTarefaAinda')}</p>}
     </div>
   )
 }

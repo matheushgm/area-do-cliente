@@ -17,25 +17,27 @@ import { bucketVencimento, paraData, inicioDoDia } from '../../lib/tarefas'
 import { hojeISO } from '../../lib/atividadesCarga'
 import { addDays, fmtBR } from '../../lib/dashboardData'
 import { apiFetch } from '../../lib/api'
+import { useI18n, localeAtual } from '../../i18n'
 
 const ICONES = { Wallet, PauseCircle, ImagePlus, Users, Layers, Wrench }
+// Rótulos = chaves do i18n, traduzidas no render.
 const TABS = [
-  { id: 'resultados', label: 'Resultados', Icon: BarChart3 },
-  { id: 'otimizacoes', label: 'Otimizações', Icon: Wrench },
-  { id: 'tarefas', label: 'Tarefas', Icon: ListChecks },
-  { id: 'benchmark', label: 'Benchmark', Icon: Gauge },
+  { id: 'resultados', label: 'apresentacao.abas.resultados', Icon: BarChart3 },
+  { id: 'otimizacoes', label: 'apresentacao.abas.otimizacoes', Icon: Wrench },
+  { id: 'tarefas', label: 'apresentacao.abas.tarefas', Icon: ListChecks },
+  { id: 'benchmark', label: 'apresentacao.abas.benchmark', Icon: Gauge },
 ]
 const PERIODOS = [
-  { id: '7', label: '7 dias', dias: 7 },
-  { id: '14', label: '14 dias', dias: 14 },
-  { id: '30', label: '30 dias', dias: 30 },
-  { id: 'custom', label: 'Outro período' },
+  { id: '7', label: 'apresentacao.periodos.d7', dias: 7 },
+  { id: '14', label: 'apresentacao.periodos.d14', dias: 14 },
+  { id: '30', label: 'apresentacao.periodos.d30', dias: 30 },
+  { id: 'custom', label: 'apresentacao.periodos.outro' },
 ]
 const INPUT = 'px-2.5 py-1.5 rounded-lg bg-rl-surface border border-rl-border text-xs text-rl-text focus:outline-none focus:border-rl-purple/50'
 
 const fmtDia = (v) => {
   const d = paraData(v)
-  return d ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}` : ''
+  return d ? d.toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit' }) : ''
 }
 const diasDeAtraso = (v) => {
   const d = paraData(v)
@@ -43,18 +45,19 @@ const diasDeAtraso = (v) => {
 }
 
 function SeletorPeriodo({ periodo, setPeriodo, de, ate, setDe, setAte }) {
+  const { t } = useI18n()
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       {PERIODOS.map((p) => (
         <button key={p.id} onClick={() => setPeriodo(p.id)}
           className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${periodo === p.id ? 'bg-rl-text text-white border-rl-text' : 'bg-rl-card border-rl-border text-rl-subtle hover:text-rl-text'}`}>
-          {p.label}
+          {t(p.label)}
         </button>
       ))}
       {periodo === 'custom' && (
         <span className="flex items-center gap-1.5 ml-1">
           <input type="date" value={de} max={ate} onChange={(e) => setDe(e.target.value)} className={INPUT} />
-          <span className="text-xs text-rl-muted">até</span>
+          <span className="text-xs text-rl-muted">{t('apresentacao.ate')}</span>
           <input type="date" value={ate} min={de} max={hojeISO()} onChange={(e) => setAte(e.target.value)} className={INPUT} />
         </span>
       )}
@@ -93,13 +96,14 @@ function ViewerAutoAltura({ src, title }) {
 
 // Tela 1: a lista da tela principal do dashboard, só com as contas do cliente
 function VisaoGeralContas({ contas, loading }) {
+  const { t } = useI18n()
   const src = useMemo(() => `/dash-teste/viewer.html?embed=1&lista=1&contas=${encodeURIComponent(JSON.stringify(contas))}&apresentacao=1`, [contas])
   if (loading && contas.length === 0) return null
   if (contas.length === 0) return null
   return (
     <section>
-      <p className="text-sm font-semibold text-rl-text px-1 mb-2">Visão geral das contas <span className="text-rl-muted font-normal">· Meta Ads + Google Ads</span></p>
-      <div className="glass-card overflow-hidden"><ViewerAutoAltura src={src} title="Visão geral das contas" /></div>
+      <p className="text-sm font-semibold text-rl-text px-1 mb-2">{t('apresentacao.visaoGeral')} <span className="text-rl-muted font-normal">· Meta Ads + Google Ads</span></p>
+      <div className="glass-card overflow-hidden"><ViewerAutoAltura src={src} title={t('apresentacao.visaoGeral')} /></div>
     </section>
   )
 }
@@ -107,19 +111,20 @@ function VisaoGeralContas({ contas, loading }) {
 // Tela 4: como as contas do cliente se posicionam contra a carteira da agência.
 // O viewer não mostra o nome dos outros clientes neste modo.
 function TelaBenchmark({ contas, loading }) {
+  const { t } = useI18n()
   const src = useMemo(() => `/dash-teste/viewer.html?embed=1&benchmark=1&contas=${encodeURIComponent(JSON.stringify(contas))}&apresentacao=1`, [contas])
   return (
     <div className="max-w-[1600px] mx-auto space-y-4">
       <div>
-        <h2 className="text-2xl font-bold text-rl-text">Como você se compara</h2>
-        <p className="text-sm text-rl-subtle mt-1">Suas contas contra a média dos clientes que a gente acompanha, nos mesmos tipos de campanha. Verde: igual ou melhor que a mediana. Vermelho: pelo menos 50% pior.</p>
+        <h2 className="text-2xl font-bold text-rl-text">{t('apresentacao.benchmarkTitulo')}</h2>
+        <p className="text-sm text-rl-subtle mt-1">{t('apresentacao.benchmarkTexto')}</p>
       </div>
       {loading && contas.length === 0 ? (
-        <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Lendo o dashboard de tráfego…</div>
+        <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> {t('apresentacao.lendoDash')}</div>
       ) : contas.length === 0 ? (
-        <div className="glass-card p-4 text-sm text-rl-subtle">Nenhuma conta de anúncio vinculada a este projeto no dashboard.</div>
+        <div className="glass-card p-4 text-sm text-rl-subtle">{t('apresentacao.semContas')}</div>
       ) : (
-        <div className="glass-card overflow-hidden p-3"><ViewerAutoAltura src={src} title="Benchmark" /></div>
+        <div className="glass-card overflow-hidden p-3"><ViewerAutoAltura src={src} title={t('apresentacao.abas.benchmark')} /></div>
       )}
     </div>
   )
@@ -127,6 +132,8 @@ function TelaBenchmark({ contas, loading }) {
 
 // ── Tela 2: Otimizações ─────────────────────────────────────────────────────
 function TelaOtimizacoes({ dash, hub, contas = [] }) {
+  // Os rótulos das categorias (otimizacoesLeigo) leem o idioma na hora: `lang` faz redesenhar.
+  const { lang, t } = useI18n()
   const per = usePeriodo('7')
   const { faixa } = per
   const raw = dash.raw
@@ -157,7 +164,7 @@ function TelaOtimizacoes({ dash, hub, contas = [] }) {
       ...log.itens.filter((i) => i.data >= faixa.de && i.data <= faixa.ate),
       ...mudancasRegistradas(hub.otimizacoes, faixa.de, faixa.ate),
     ]
-  }, [raw, hub.otimizacoes, faixa, log])
+  }, [raw, hub.otimizacoes, faixa, log, lang]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const porCat = useMemo(() => {
     const m = new Map(CATEGORIAS.map((c) => [c.id, []]))
@@ -170,14 +177,14 @@ function TelaOtimizacoes({ dash, hub, contas = [] }) {
     <div className="max-w-5xl mx-auto space-y-5">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold text-rl-text">O que mudou nas suas campanhas</h2>
-          <p className="text-sm text-rl-subtle mt-1">De {fmtBR(faixa.de)} a {fmtBR(faixa.ate)}, comparado com o período anterior de mesmo tamanho.</p>
+          <h2 className="text-2xl font-bold text-rl-text">{t('apresentacao.otmTitulo')}</h2>
+          <p className="text-sm text-rl-subtle mt-1">{t('apresentacao.otmSub', { de: fmtBR(faixa.de), ate: fmtBR(faixa.ate) })}</p>
         </div>
         <SeletorPeriodo {...per} />
       </div>
 
       {(dash.loading && !temDados) || (log.loading && log.itens.length === 0) ? (
-        <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Lendo o gerenciador de anúncios…</div>
+        <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> {t('apresentacao.lendoGerenciador')}</div>
       ) : (
         <>
           {/* Resumo por categoria */}
@@ -198,8 +205,8 @@ function TelaOtimizacoes({ dash, hub, contas = [] }) {
           {comItens.length === 0 ? (
             <div className="glass-card p-8 text-center">
               <CheckCircle2 className="w-8 h-8 text-rl-green mx-auto mb-2" />
-              <p className="text-base font-semibold text-rl-text">Nenhuma mudança relevante neste período</p>
-              <p className="text-sm text-rl-subtle mt-1">As campanhas seguiram estáveis: mesmas peças no ar e investimento no mesmo ritmo.</p>
+              <p className="text-base font-semibold text-rl-text">{t('apresentacao.otmVazioTitulo')}</p>
+              <p className="text-sm text-rl-subtle mt-1">{t('apresentacao.otmVazioTexto')}</p>
             </div>
           ) : comItens.map((c) => {
             const Icon = ICONES[c.icone]
@@ -219,9 +226,9 @@ function TelaOtimizacoes({ dash, hub, contas = [] }) {
                       <span className="w-1.5 h-1.5 rounded-full bg-rl-purple mt-2 shrink-0" />
                       <span className="min-w-0">
                         {i.texto}
-                        <span className="text-[11px] text-rl-muted"> · {i.canal === 'meta' ? 'Meta Ads' : i.canal === 'google' ? 'Google Ads' : i.canal === 'ambos' ? 'Meta + Google' : 'Conta'}{i.data ? ` · ${fmtBR(i.data)}` : ''}</span>
-                        {i.motivo && <span className="block text-xs text-rl-subtle mt-0.5">Por quê: {i.motivo}</span>}
-                        {i.resultado && <span className="block text-xs text-rl-subtle">Resultado: {i.resultado}</span>}
+                        <span className="text-[11px] text-rl-muted"> · {i.canal === 'meta' ? 'Meta Ads' : i.canal === 'google' ? 'Google Ads' : i.canal === 'ambos' ? 'Meta + Google' : t('apresentacao.conta')}{i.data ? ` · ${fmtBR(i.data)}` : ''}</span>
+                        {i.motivo && <span className="block text-xs text-rl-subtle mt-0.5">{t('apresentacao.porQue', { motivo: i.motivo })}</span>}
+                        {i.resultado && <span className="block text-xs text-rl-subtle">{t('apresentacao.resultado', { resultado: i.resultado })}</span>}
                       </span>
                     </li>
                   ))}
@@ -237,16 +244,17 @@ function TelaOtimizacoes({ dash, hub, contas = [] }) {
 
 // ── Tela 3: Tarefas ─────────────────────────────────────────────────────────
 const GRUPOS_ABERTAS = [
-  { id: 'atrasado', label: 'Em atraso', buckets: ['atrasado'], tom: 'neg' },
-  { id: 'hoje', label: 'Hoje', buckets: ['hoje'], tom: 'pos' },
-  { id: 'semana', label: 'Ainda esta semana', buckets: ['amanha', 'semana'], tom: 'neutro' },
-  { id: 'proxima', label: 'Próxima semana', buckets: ['proxima'], tom: 'neutro' },
-  { id: 'depois', label: 'Mais adiante', buckets: ['futuro', 'semdata'], tom: 'neutro' },
+  { id: 'atrasado', label: 'apresentacao.grupos.atrasado', buckets: ['atrasado'], tom: 'neg' },
+  { id: 'hoje', label: 'apresentacao.grupos.hoje', buckets: ['hoje'], tom: 'pos' },
+  { id: 'semana', label: 'apresentacao.grupos.semana', buckets: ['amanha', 'semana'], tom: 'neutro' },
+  { id: 'proxima', label: 'apresentacao.grupos.proxima', buckets: ['proxima'], tom: 'neutro' },
+  { id: 'depois', label: 'apresentacao.grupos.depois', buckets: ['futuro', 'semdata'], tom: 'neutro' },
 ]
 
 function LinhaTarefa({ t, nomePorId, concluida = false, doCliente = false }) {
+  const { t: tr } = useI18n()
   const resp = doCliente
-    ? 'Você'
+    ? tr('apresentacao.voce')
     : [...(t.responsaveis || []).map((id) => nomePorId.get(id)), ...(t.responsaveis_extra || []).map((x) => x.nome)].filter(Boolean).join(', ')
   const atraso = !concluida && bucketVencimento(t) === 'atrasado' ? diasDeAtraso(t.data_vencimento) : 0
   return (
@@ -258,10 +266,10 @@ function LinhaTarefa({ t, nomePorId, concluida = false, doCliente = false }) {
         <p className="text-sm text-rl-text">{t.titulo}</p>
         <p className="text-[11px] text-rl-muted flex items-center gap-x-3 gap-y-0.5 flex-wrap mt-0.5">
           {resp && <span className="flex items-center gap-1"><UserRound className="w-3 h-3" /> {resp}</span>}
-          {concluida && t.data_conclusao && <span>Entregue em {fmtDia(t.data_conclusao)}</span>}
+          {concluida && t.data_conclusao && <span>{tr('apresentacao.entregueEm', { data: fmtDia(t.data_conclusao) })}</span>}
           {!concluida && t.data_vencimento && (
             <span className={`flex items-center gap-1 ${atraso ? 'text-[var(--fx-neg-fg)] font-semibold' : ''}`}>
-              <CalendarDays className="w-3 h-3" /> {fmtDia(t.data_vencimento)}{atraso ? ` · ${atraso} ${atraso > 1 ? 'dias' : 'dia'} de atraso` : ''}
+              <CalendarDays className="w-3 h-3" /> {fmtDia(t.data_vencimento)}{atraso ? ` · ${tr('apresentacao.diasAtraso', { count: atraso })}` : ''}
             </span>
           )}
         </p>
@@ -272,6 +280,7 @@ function LinhaTarefa({ t, nomePorId, concluida = false, doCliente = false }) {
 
 function TelaTarefas({ project, config, showToast }) {
   const { teamMembers } = useApp()
+  const { t: tr } = useI18n()
   const per = usePeriodo('7')
   const { faixa } = per
   const t = useApresentacaoTarefas(project.id, faixa.de)
@@ -295,24 +304,24 @@ function TelaTarefas({ project, config, showToast }) {
     <div className="max-w-5xl mx-auto space-y-5">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold text-rl-text">Tarefas e entregas</h2>
-          <p className="text-sm text-rl-subtle mt-1">O que já foi entregue, o que está vindo e o que precisamos de você.</p>
+          <h2 className="text-2xl font-bold text-rl-text">{tr('apresentacao.tarefasTitulo')}</h2>
+          <p className="text-sm text-rl-subtle mt-1">{tr('apresentacao.tarefasSub')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={() => setModal({ dependeCliente: true })} disabled={semPasta}
-            className="btn-secondary text-xs flex items-center gap-1.5 !px-3 !py-1.5 disabled:opacity-50" title={semPasta ? 'Projeto sem pasta do ClickUp vinculada' : ''}>
-            <Hand className="w-3.5 h-3.5" /> Nova demanda do cliente
+            className="btn-secondary text-xs flex items-center gap-1.5 !px-3 !py-1.5 disabled:opacity-50" title={semPasta ? tr('apresentacao.semPasta') : ''}>
+            <Hand className="w-3.5 h-3.5" /> {tr('apresentacao.novaDemanda')}
           </button>
           <button onClick={() => setModal({ dependeCliente: false })} disabled={semPasta}
-            className="btn-primary text-xs flex items-center gap-1.5 !px-3 !py-1.5 disabled:opacity-50" title={semPasta ? 'Projeto sem pasta do ClickUp vinculada' : ''}>
-            <Plus className="w-3.5 h-3.5" /> Nova atividade
+            className="btn-primary text-xs flex items-center gap-1.5 !px-3 !py-1.5 disabled:opacity-50" title={semPasta ? tr('apresentacao.semPasta') : ''}>
+            <Plus className="w-3.5 h-3.5" /> {tr('apresentacao.novaAtividade')}
           </button>
         </div>
       </div>
 
       {t.erro && <p className="text-sm text-rl-red">{t.erro}</p>}
       {t.loading && t.abertas.length === 0 && finalizadas.length === 0 ? (
-        <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Carregando tarefas…</div>
+        <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> {tr('apresentacao.carregandoTarefas')}</div>
       ) : (
         <>
           {/* Demandas que dependem do cliente */}
@@ -320,17 +329,17 @@ function TelaTarefas({ project, config, showToast }) {
             <div className="flex items-start gap-3 mb-2">
               <span className="w-10 h-10 rounded-full bg-rl-gold/15 text-rl-gold flex items-center justify-center shrink-0"><Hand className="w-5 h-5" /></span>
               <div className="min-w-0 flex-1">
-                <p className="text-base font-bold text-rl-text">Demandas que dependem de você <span className="text-rl-muted font-medium">({doCliente.length})</span></p>
-                <p className="text-sm text-rl-subtle">Itens que só andam quando você envia, aprova ou libera. Quanto antes, mais rápido seguimos.</p>
+                <p className="text-base font-bold text-rl-text">{tr('apresentacao.dependemVoce')} <span className="text-rl-muted font-medium">({doCliente.length})</span></p>
+                <p className="text-sm text-rl-subtle">{tr('apresentacao.dependemVoceTexto')}</p>
               </div>
               {clienteAtrasadas > 0 && (
                 <span className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-[var(--fx-neg-bg)] text-[var(--fx-neg-fg)] shrink-0">
-                  <AlertTriangle className="w-3 h-3" /> {clienteAtrasadas} em atraso
+                  <AlertTriangle className="w-3 h-3" /> {tr('apresentacao.nAtraso', { count: clienteAtrasadas })}
                 </span>
               )}
             </div>
             {doCliente.length === 0 ? (
-              <p className="text-sm text-rl-subtle py-2">Nada pendente com você no momento.</p>
+              <p className="text-sm text-rl-subtle py-2">{tr('apresentacao.nadaPendente')}</p>
             ) : (
               <ul>{doCliente.map((x) => <LinhaTarefa key={x.id} t={x} nomePorId={nomePorId} doCliente />)}</ul>
             )}
@@ -340,13 +349,13 @@ function TelaTarefas({ project, config, showToast }) {
           <div className="glass-card p-5">
             <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
               <p className="text-base font-bold text-rl-text flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-rl-green" /> Finalizado <span className="text-rl-muted font-medium">({finalizadas.length})</span>
+                <CheckCircle2 className="w-5 h-5 text-rl-green" /> {tr('apresentacao.finalizado')} <span className="text-rl-muted font-medium">({finalizadas.length})</span>
               </p>
               <SeletorPeriodo {...per} />
             </div>
-            <p className="text-[11px] text-rl-muted mb-2">Entregas de {fmtBR(faixa.de)} a {fmtBR(faixa.ate)}</p>
+            <p className="text-[11px] text-rl-muted mb-2">{tr('apresentacao.entregasDe', { de: fmtBR(faixa.de), ate: fmtBR(faixa.ate) })}</p>
             {finalizadas.length === 0
-              ? <p className="text-sm text-rl-subtle py-2">Nenhuma entrega concluída neste período.</p>
+              ? <p className="text-sm text-rl-subtle py-2">{tr('apresentacao.semEntregas')}</p>
               : <ul>{finalizadas.map((x) => <LinhaTarefa key={x.id} t={x} nomePorId={nomePorId} concluida />)}</ul>}
           </div>
 
@@ -354,12 +363,12 @@ function TelaTarefas({ project, config, showToast }) {
           {grupos.map((g) => (
             <div key={g.id} className="glass-card p-5">
               <p className={`text-base font-bold mb-2 flex items-center gap-2 ${g.tom === 'neg' ? 'text-[var(--fx-neg-fg)]' : 'text-rl-text'}`}>
-                {g.tom === 'neg' && <AlertTriangle className="w-4 h-4" />}{g.label} <span className="text-rl-muted font-medium">({g.itens.length})</span>
+                {g.tom === 'neg' && <AlertTriangle className="w-4 h-4" />}{tr(g.label)} <span className="text-rl-muted font-medium">({g.itens.length})</span>
               </p>
               <ul>{g.itens.map((x) => <LinhaTarefa key={x.id} t={x} nomePorId={nomePorId} />)}</ul>
             </div>
           ))}
-          {grupos.length === 0 && <div className="glass-card p-5 text-sm text-rl-subtle">Nenhuma tarefa do time em aberto.</div>}
+          {grupos.length === 0 && <div className="glass-card p-5 text-sm text-rl-subtle">{tr('apresentacao.semTarefasTime')}</div>}
         </>
       )}
 
@@ -379,6 +388,7 @@ function TelaTarefas({ project, config, showToast }) {
 
 // ── Shell ───────────────────────────────────────────────────────────────────
 export default function ModoApresentacao({ project, hub, config, showToast, onClose }) {
+  const { t } = useI18n()
   const [tab, setTab] = useState('resultados')
   const dash = useDashboardData({ source: 'api', projectId: project.id, dias: 75 })
   const [contaAtiva, setContaAtiva] = useState(0)
@@ -415,19 +425,19 @@ export default function ModoApresentacao({ project, hub, config, showToast, onCl
     <div className="fx fixed inset-0 z-[60] bg-rl-bg flex flex-col">
       <header className="shrink-0 flex items-center gap-4 px-4 sm:px-6 h-16 border-b border-rl-border bg-rl-card">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">Modo Apresentação</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-rl-muted">{t('apresentacao.titulo')}</p>
           <p className="text-sm font-bold text-rl-text truncate">{project.companyName}</p>
         </div>
         <nav className="flex items-center gap-1 mx-auto">
           {TABS.map(({ id, label, Icon }, i) => (
             <button key={id} onClick={() => setTab(id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === id ? 'bg-rl-purple text-white shadow-sm' : 'text-rl-subtle hover:bg-rl-surface hover:text-rl-text'}`}>
-              <span className="text-[11px] opacity-70">{i + 1}</span><Icon className="w-4 h-4" /> <span className="hidden sm:inline">{label}</span>
+              <span className="text-[11px] opacity-70">{i + 1}</span><Icon className="w-4 h-4" /> <span className="hidden sm:inline">{t(label)}</span>
             </button>
           ))}
         </nav>
-        <button onClick={onClose} className="btn-secondary text-xs flex items-center gap-1.5 !px-3 !py-1.5 shrink-0" title="Sair do modo apresentação (Esc)">
-          <X className="w-3.5 h-3.5" /> Sair
+        <button onClick={onClose} className="btn-secondary text-xs flex items-center gap-1.5 !px-3 !py-1.5 shrink-0" title={t('apresentacao.sairTitulo')}>
+          <X className="w-3.5 h-3.5" /> {t('apresentacao.sair')}
         </button>
       </header>
 
@@ -435,7 +445,7 @@ export default function ModoApresentacao({ project, hub, config, showToast, onCl
         {tab === 'resultados' && (
           <div className="max-w-[1600px] mx-auto space-y-6">
             <VisaoGeralContas contas={contasDash} loading={dash.loading} />
-            {contasDash.length > 0 && <p className="text-sm font-semibold text-rl-text px-1 -mb-3">Detalhe por conta</p>}
+            {contasDash.length > 0 && <p className="text-sm font-semibold text-rl-text px-1 -mb-3">{t('apresentacao.detalheConta')}</p>}
             <ResultadosEmbed apresentacao contas={contasDash} ativa={contaAtiva} onTrocar={setContaAtiva} loading={dash.loading} />
           </div>
         )}
@@ -446,11 +456,11 @@ export default function ModoApresentacao({ project, hub, config, showToast, onCl
 
       <footer className="shrink-0 flex items-center justify-between px-4 sm:px-6 h-12 border-t border-rl-border bg-rl-card">
         <button onClick={() => idx > 0 && setTab(TABS[idx - 1].id)} disabled={idx === 0} className="flex items-center gap-1 text-sm text-rl-subtle hover:text-rl-text disabled:opacity-30">
-          <ChevronLeft className="w-4 h-4" /> {idx > 0 ? TABS[idx - 1].label : ''}
+          <ChevronLeft className="w-4 h-4" /> {idx > 0 ? t(TABS[idx - 1].label) : ''}
         </button>
-        <span className="text-[11px] text-rl-muted">{idx + 1} de {TABS.length} · use ← → pra navegar, Esc pra sair</span>
+        <span className="text-[11px] text-rl-muted">{t('apresentacao.rodape', { n: idx + 1, total: TABS.length })}</span>
         <button onClick={() => idx < TABS.length - 1 && setTab(TABS[idx + 1].id)} disabled={idx === TABS.length - 1} className="flex items-center gap-1 text-sm text-rl-subtle hover:text-rl-text disabled:opacity-30">
-          {idx < TABS.length - 1 ? TABS[idx + 1].label : ''} <ChevronRight className="w-4 h-4" />
+          {idx < TABS.length - 1 ? t(TABS[idx + 1].label) : ''} <ChevronRight className="w-4 h-4" />
         </button>
       </footer>
     </div>

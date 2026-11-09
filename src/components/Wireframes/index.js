@@ -17,56 +17,62 @@ import { APLICACAO_SYSTEM, buildAplicacaoInstruction, parseAplicacaoContent, apl
 import SaasWireframe from './SaasWireframe'
 import { SAAS_WIREFRAME } from './saasSchema'
 import { SAAS_SYSTEM, buildSaasInstruction, parseSaasContent, saasToText } from './saasGenerate'
+import { t } from '../../i18n'
+import { instrucaoDeIdioma } from '../../lib/claude'
+
+// name/label/description são getters: traduzem no idioma atual a cada leitura
+// (wireframes.tipos.*). `system` também: a copy sai em JSON lido pelas CHAVES, então
+// os valores podem vir no idioma de quem gera (instrucaoDeIdioma).
 
 export const WIREFRAMES = {
   vsl: {
     id: 'vsl',
-    name: 'VSL',
-    label: 'VSL — Video Sales Letter',
-    description: 'Página de vendas ancorada em vídeo. Hero com VSL + CTA, prova, oferta e preço.',
+    get name() { return t('wireframes.tipos.vsl.nome') },
+    get label() { return t('wireframes.tipos.vsl.rotulo') },
+    get description() { return t('wireframes.tipos.vsl.descricao') },
     ready: true,
     Component: VSLWireframe,
     emptyContent: VSL_WIREFRAME.emptyContent,
-    system: VSL_SYSTEM,
+    get system() { return VSL_SYSTEM + instrucaoDeIdioma() },
     buildInstruction: buildVslInstruction,
     parse: parseVslContent,
     toText: vslToText,
   },
   webinar: {
     id: 'webinar',
-    name: 'Webinar',
-    label: 'Webinar — Captação de reunião',
-    description: 'Página de captação para reunião/webinar. Hero, dores, comparação, autoridade, método e formulário.',
+    get name() { return t('wireframes.tipos.webinar.nome') },
+    get label() { return t('wireframes.tipos.webinar.rotulo') },
+    get description() { return t('wireframes.tipos.webinar.descricao') },
     ready: true,
     Component: WebinarWireframe,
     emptyContent: WEBINAR_WIREFRAME.emptyContent,
-    system: WEBINAR_SYSTEM,
+    get system() { return WEBINAR_SYSTEM + instrucaoDeIdioma() },
     buildInstruction: buildWebinarInstruction,
     parse: parseWebinarContent,
     toText: webinarToText,
   },
   aplicacao: {
     id: 'aplicacao',
-    name: 'Aplicação direta',
-    label: 'Aplicação direta — Formulário no topo',
-    description: 'Página de aplicação direta com formulário (nome/e-mail/telefone) na primeira dobra. Hero, dores, comparação, autoridade, método e CTA final.',
+    get name() { return t('wireframes.tipos.aplicacao.nome') },
+    get label() { return t('wireframes.tipos.aplicacao.rotulo') },
+    get description() { return t('wireframes.tipos.aplicacao.descricao') },
     ready: true,
     Component: AplicacaoWireframe,
     emptyContent: APLICACAO_WIREFRAME.emptyContent,
-    system: APLICACAO_SYSTEM,
+    get system() { return APLICACAO_SYSTEM + instrucaoDeIdioma() },
     buildInstruction: buildAplicacaoInstruction,
     parse: parseAplicacaoContent,
     toText: aplicacaoToText,
   },
   saas: {
     id: 'saas',
-    name: 'SaaS / Produto',
-    label: 'SaaS / Produto — Teste grátis',
-    description: 'Página de produto SaaS com captura de e-mail no hero e screenshot da ferramenta. Diferenciais, recursos, prova com métrica, FAQ e CTA final.',
+    get name() { return t('wireframes.tipos.saas.nome') },
+    get label() { return t('wireframes.tipos.saas.rotulo') },
+    get description() { return t('wireframes.tipos.saas.descricao') },
     ready: true,
     Component: SaasWireframe,
     emptyContent: SAAS_WIREFRAME.emptyContent,
-    system: SAAS_SYSTEM,
+    get system() { return SAAS_SYSTEM + instrucaoDeIdioma() },
     buildInstruction: buildSaasInstruction,
     parse: parseSaasContent,
     toText: saasToText,
@@ -76,15 +82,15 @@ export const WIREFRAMES = {
 // Ordem e rótulos de TODOS os tipos previstos (inclui os que ainda não estão prontos,
 // mostrados como "em breve" no seletor).
 export const WIREFRAME_TYPES = [
-  { id: 'vsl', label: 'VSL', ready: true },
-  { id: 'webinar', label: 'Webinar', ready: true },
-  { id: 'aplicacao', label: 'Aplicação direta', ready: true },
-  { id: 'saas', label: 'SaaS / Produto', ready: true },
-  { id: 'quiz', label: 'Quiz', ready: false },
-  { id: 'vendas', label: 'Página de Vendas', ready: false },
-  { id: 'material', label: 'Material Rico', ready: false },
-  { id: 'lancamento', label: 'Lançamento', ready: false },
-  { id: 'local', label: 'Negócio Local', ready: false },
+  { id: 'vsl', get label() { return t('wireframes.tipos.vsl.nome') }, ready: true },
+  { id: 'webinar', get label() { return t('wireframes.tipos.webinar.nome') }, ready: true },
+  { id: 'aplicacao', get label() { return t('wireframes.tipos.aplicacao.nome') }, ready: true },
+  { id: 'saas', get label() { return t('wireframes.tipos.saas.nome') }, ready: true },
+  { id: 'quiz', get label() { return t('wireframes.tipos.quiz.nome') }, ready: false },
+  { id: 'vendas', get label() { return t('wireframes.tipos.vendas.nome') }, ready: false },
+  { id: 'material', get label() { return t('wireframes.tipos.material.nome') }, ready: false },
+  { id: 'lancamento', get label() { return t('wireframes.tipos.lancamento.nome') }, ready: false },
+  { id: 'local', get label() { return t('wireframes.tipos.local.nome') }, ready: false },
 ]
 
 export function getWireframe(type) {

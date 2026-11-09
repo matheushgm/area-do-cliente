@@ -5,7 +5,7 @@
 export const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Idioma',
 }
 export const NO_STORE = { 'Cache-Control': 'no-store' }
 
@@ -26,6 +26,18 @@ export function jsonErr(message, status = 400, extra) {
 
 export function preflight() {
   return new Response(null, { headers: CORS })
+}
+
+// Idioma de quem chamou: a tela manda `X-Idioma: pt | en` (src/lib/api.js e src/lib/claude.js).
+// Sem o header (cron, webhook, link antigo), português.
+export function idiomaDe(req) {
+  const h = typeof req.headers?.get === 'function' ? req.headers.get('x-idioma') : req.headers?.['x-idioma']
+  return h === 'en' ? 'en' : 'pt'
+}
+
+// Mensagem no idioma de quem chamou: msg(req, { pt: 'Senha incorreta.', en: 'Wrong password.' }).
+export function msg(req, textos) {
+  return textos[idiomaDe(req)] ?? textos.pt
 }
 
 // Token do header Authorization (Request do edge ou req do Node).

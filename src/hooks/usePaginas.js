@@ -2,6 +2,7 @@
 // subpáginas, bloqueio, arquivo e histórico de versões. RLS na migration 095.
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import { t } from '../i18n'
 
 const COLS_LISTA = 'id,titulo,project_id,pai_id,acesso,dono_id,bloqueada,arquivada,posicao,created_at,updated_at'
 const INTERVALO_VERSAO = 5 * 60 * 1000
@@ -45,7 +46,8 @@ export function usePaginas(user) {
     return data
   }, [])
 
-  const criar = useCallback(async ({ titulo = 'Sem título', project_id = null, pai_id = null, conteudo = '' }) => {
+  // título padrão no idioma de quem cria a página
+  const criar = useCallback(async ({ titulo = t('paginas.semTitulo'), project_id = null, pai_id = null, conteudo = '' }) => {
     const { data, error } = await supabase.from('tarefas_paginas').insert({ titulo, conteudo, project_id, pai_id, dono_id: user?.id, posicao: Date.now() }).select().single()
     if (error) return { error: error.message }
     const { conteudo: _c, ...lista } = data

@@ -3,10 +3,11 @@
 // (lista única com todas as perguntas/respostas).
 
 import { fmtMoney } from '../Resultados/resultadosHelpers'
+import { t } from '../../i18n'
 
 /**
  * Converte uma resposta crua em texto formatado pra exibição.
- * Retorna 'Sem resposta' como string padrão quando a resposta está vazia.
+ * Retorna o texto de "sem resposta" (no idioma da tela) quando a resposta está vazia.
  */
 export function formatAnswer(question, answer) {
   // Detecta objeto yesno-com-descrição: { value, description }
@@ -19,7 +20,7 @@ export function formatAnswer(question, answer) {
     (Array.isArray(answer) && !answer.length) ||
     (isYesNoObj && !answer.value)
   ) {
-    return '— sem resposta —'
+    return t('kickoff.respostas.semResposta')
   }
   const { type, options } = question
 
@@ -43,7 +44,7 @@ export function formatAnswer(question, answer) {
           .map((sq) => {
             const val = sub[sq.id]
             if (val == null || val === '') return null
-            const display = val === 'unknown' ? 'Não sei' : `${val}%`
+            const display = val === 'unknown' ? t('kickoff.form.naoSei') : `${val}%`
             return `${sq.label}: ${display}`
           })
           .filter(Boolean)
@@ -61,10 +62,10 @@ export function formatAnswer(question, answer) {
     }
     case 'money': {
       const n = Number(answer) || 0
-      return n > 0 ? fmtMoney(n) : '— sem valor —'
+      return n > 0 ? fmtMoney(n) : t('kickoff.respostas.semValor')
     }
     case 'percent': {
-      if (answer === 'unknown') return 'Não sei calcular'
+      if (answer === 'unknown') return t('kickoff.respostas.naoSeiCalcular')
       const n = Number(answer)
       return isNaN(n) ? String(answer) : `${n}%`
     }
@@ -88,9 +89,14 @@ export function severityColor(score) {
 
 /** Texto humanizado da severidade do score. */
 export function severityLabel(score) {
-  if (score < 31) return 'Crítico — precisa de atenção imediata'
-  if (score < 51) return 'Frágil — risco no curto prazo'
-  if (score < 71) return 'Em estruturação — base existente, falta padronizar'
-  if (score < 86) return 'Saudável — pronto pra acelerar'
-  return 'Excelente — vantagem competitiva clara'
+  return t(`kickoff.severidade.${nivelSeveridade(score)}.longo`)
+}
+
+/** Nível da severidade (chave de `kickoff.severidade`). */
+export function nivelSeveridade(score) {
+  if (score < 31) return 'critico'
+  if (score < 51) return 'fragil'
+  if (score < 71) return 'estruturacao'
+  if (score < 86) return 'saudavel'
+  return 'excelente'
 }

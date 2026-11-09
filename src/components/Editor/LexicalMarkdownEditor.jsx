@@ -26,6 +26,7 @@ import {
 } from './markdownConfig'
 import theme from './theme'
 import FloatingToolbarPlugin from './FloatingToolbarPlugin'
+import { useI18n } from '../../i18n'
 
 // Sincroniza a string de markdown com o documento nos dois sentidos:
 //   editor → fora: a cada mudança de conteúdo exporta e chama onChange(md);
@@ -80,10 +81,12 @@ export default function LexicalMarkdownEditor({
   value = '',
   onChange,
   readOnly = false,
-  placeholder = 'Escreva aqui…',
+  placeholder: placeholderProp,
   autoFocus = false,
   onAI,
 }) {
+  const { t } = useI18n()
+  const placeholder = placeholderProp ?? t('ui.editor.escrevaAqui')
   // initialConfig só é lido na montagem; useState com inicializador garante
   // que o markdown inicial é importado uma vez só.
   const [initialConfig] = useState(() => ({

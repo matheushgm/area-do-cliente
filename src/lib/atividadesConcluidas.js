@@ -2,19 +2,30 @@
 // Recebem a lista que a action `concluidas` devolve e montam o que a UI mostra:
 // recorte por período (hoje / ontem / 7 dias), ranking por colaborador e por
 // cliente, e o relatório de cada pessoa dividido por dia.
-import { DIAS, MESES, weekday, fmtCurta } from './atividadesCarga'
+import { nomeDiaCurto, nomeMesCurto, weekday, fmtCurta } from './atividadesCarga'
+import { t as tr, idiomaAtual } from '../i18n'
 
+// `label` fica em português (formato de sempre); a tela usa rotuloPeriodo(value).
 export const PERIODOS = [
   { value: 'hoje', label: 'Hoje' },
   { value: 'ontem', label: 'Ontem' },
   { value: '7dias', label: 'Últimos 7 dias' },
   { value: 'custom', label: 'Personalizado' },
 ]
+export function rotuloPeriodo(value) {
+  return tr(`atividadesConcluidas.periodo.${value}`)
+}
 // Intervalo personalizado: no máximo este tanto de dias (3 chamadas de 31 dias)
 export const MAX_DIAS_CUSTOM = 93
 
 const SEM_RESPONSAVEL = 'sem'
 export const SEM_RESPONSAVEL_KEY = SEM_RESPONSAVEL
+
+// Valor usado como chave (agrupa e filtra): fica em português; a tela traduz com nomeCliente.
+export const SEM_CLIENTE = 'Sem cliente'
+export function nomeCliente(nome) {
+  return nome === SEM_CLIENTE ? tr('atividadesConcluidas.semCliente') : nome
+}
 
 export function addDias(iso, n) {
   const [y, m, d] = String(iso).split('-').map(Number)
@@ -65,20 +76,27 @@ export function diasDoIntervalo({ desde, ate }) {
   return out
 }
 
+/** Só o dia: 'seg 15 set' (em inglês, 'Mon Sep 15'). */
+export function rotuloDiaBase(iso) {
+  if (!iso) return ''
+  const [, m, d] = String(iso).split('-')
+  if (idiomaAtual() !== 'pt') return `${nomeDiaCurto(weekday(iso))} ${nomeMesCurto(Number(m) - 1)} ${Number(d)}`
+  return `${nomeDiaCurto(weekday(iso)).toLowerCase()} ${Number(d)} ${nomeMesCurto(Number(m) - 1)}`
+}
+
 /** '2026-09-15' → 'Hoje · seg 15 set' / 'Ontem · dom 14 set' / 'sex 12 set' */
 export function rotuloDia(iso, hoje) {
   if (!iso) return ''
-  const [, m, d] = String(iso).split('-')
-  const base = `${DIAS[weekday(iso)].toLowerCase()} ${Number(d)} ${MESES[Number(m) - 1]}`
-  if (iso === hoje) return `Hoje · ${base}`
-  if (iso === addDias(hoje, -1)) return `Ontem · ${base}`
+  const base = rotuloDiaBase(iso)
+  if (iso === hoje) return `${tr('comum.hoje')} · ${base}`
+  if (iso === addDias(hoje, -1)) return `${tr('comum.ontem')} · ${base}`
   return base
 }
 
 /** Texto do período para o cabeçalho: '15/09' ou '09/09 a 15/09'. */
 export function rotuloIntervalo({ desde, ate }) {
   if (!desde || !ate) return ''
-  return desde === ate ? fmtCurta(desde) : `${fmtCurta(desde)} a ${fmtCurta(ate)}`
+  return desde === ate ? fmtCurta(desde) : tr('atividadesConcluidas.intervalo', { desde: fmtCurta(desde), ate: fmtCurta(ate) })
 }
 
 export function filtrarPorPeriodo(tarefas, periodo, hoje, custom = null) {
@@ -109,7 +127,7 @@ export function resolverCliente(t, projetosPorPasta) {
   if (proj) return nomeBonito(proj)
   if (t.pasta && t.pasta !== 'hidden') return nomeBonito(t.pasta)
   if (t.clienteCf) return t.clienteCf
-  return t.lista || 'Sem cliente'
+  return t.lista || SEM_CLIENTE
 }
 
 /**

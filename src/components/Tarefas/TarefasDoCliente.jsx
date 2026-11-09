@@ -13,6 +13,7 @@ import { useVertaTask } from '../../hooks/useVertaTask'
 import Toast from '../UI/Toast'
 import { FOCO } from './Campos'
 import AreaTarefas from './AreaTarefas'
+import { useI18n } from '../../i18n'
 
 const MARGEM_INFERIOR = 24 // a mesma do py-6 da página do cliente
 const ALTURA_MIN = 480
@@ -35,6 +36,7 @@ function useAlturaAteOFim(ref) {
 }
 
 export default function TarefasDoCliente({ project }) {
+  const { t: tr } = useI18n()
   const { user, projects, teamMembers, squads } = useApp()
   const { toast, showToast } = useToast()
   const [params, setParams] = useSearchParams()
@@ -66,18 +68,18 @@ export default function TarefasDoCliente({ project }) {
 
   const cabecalho = (api) => (
     <header className="min-h-[52px] shrink-0 flex items-center justify-between gap-3 px-4 py-2 border-b border-ln-ink/[0.08]">
-      <div className="flex items-center gap-1 min-w-0 overflow-x-auto" role="tablist" aria-label="Listas do cliente">
-        <button type="button" role="tab" aria-selected={!listaId} onClick={() => escolherLista(null)} className={pilula(!listaId)}>Todas as listas</button>
+      <div className="flex items-center gap-1 min-w-0 overflow-x-auto" role="tablist" aria-label={tr('hub.tarefasCliente.listas')}>
+        <button type="button" role="tab" aria-selected={!listaId} onClick={() => escolherLista(null)} className={pilula(!listaId)}>{tr('hub.tarefasCliente.todasListas')}</button>
         {listas.map((l) => (
           <button key={l.id} type="button" role="tab" aria-selected={listaId === l.id} onClick={() => escolherLista(l.id)} className={pilula(listaId === l.id)}>{l.nome}</button>
         ))}
-        <span className="text-xs text-ln-t4 tabular whitespace-nowrap ml-2">{api.totalAbertas} abertas</span>
+        <span className="text-xs text-ln-t4 tabular whitespace-nowrap ml-2">{tr('hub.tarefasCliente.abertas', { count: api.totalAbertas })}</span>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
         {t.carregando && <Loader2 className="w-3.5 h-3.5 animate-spin text-ln-t4" />}
-        {api.aguardandoClickup > 0 && <span className="inline-flex items-center gap-1 text-xs text-ln-yellow" title="Tarefas deste cliente que ainda não foram para o ClickUp"><CloudUpload className="w-3 h-3" />{api.aguardandoClickup} aguardando</span>}
-        <button onClick={api.recarregar} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar"><RefreshCw className="w-3.5 h-3.5" /></button>
-        <Link to={`/tarefas?${listaId ? `lista=${listaId}` : `pasta=${pasta.id}`}`} className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs text-ln-t3 hover:text-ln-t1 hover:bg-ln-ink/[0.04] ${FOCO}`} title="Abrir esta pasta no VertaTask">
+        {api.aguardandoClickup > 0 && <span className="inline-flex items-center gap-1 text-xs text-ln-yellow" title={tr('hub.tarefasCliente.aguardandoDica')}><CloudUpload className="w-3 h-3" />{tr('hub.tarefasCliente.aguardando', { count: api.aguardandoClickup })}</span>}
+        <button onClick={api.recarregar} className="ln-iconbtn" aria-label={tr('hub.tarefasCliente.recarregar')} title={tr('hub.tarefasCliente.recarregar')}><RefreshCw className="w-3.5 h-3.5" /></button>
+        <Link to={`/tarefas?${listaId ? `lista=${listaId}` : `pasta=${pasta.id}`}`} className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs text-ln-t3 hover:text-ln-t1 hover:bg-ln-ink/[0.04] ${FOCO}`} title={tr('hub.tarefasCliente.abrirPasta')}>
           VertaTask <ExternalLink className="w-3 h-3" />
         </Link>
       </div>
@@ -87,13 +89,13 @@ export default function TarefasDoCliente({ project }) {
   return (
     <div ref={quadroRef} style={{ height: altura ?? undefined }} className="ln vt h-[calc(100vh-200px)] rounded-2xl border border-ln-ink/[0.08] overflow-hidden bg-ln-panel flex">
       {t.loadingEstrutura ? (
-        <div className="flex-1 flex items-center justify-center gap-2 text-[13px] text-ln-t4"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</div>
+        <div className="flex-1 flex items-center justify-center gap-2 text-[13px] text-ln-t4"><Loader2 className="w-4 h-4 animate-spin" /> {tr('comum.carregando')}</div>
       ) : !pasta ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-6">
           <FolderX className="w-6 h-6 text-ln-t4" />
-          <p className="text-[13px] text-ln-t1 font-medium">Este cliente ainda não tem pasta no VertaTask</p>
-          <p className="text-xs text-ln-t4 max-w-sm">A pasta liga as tarefas ao cliente. Crie pela coluna de clientes do VertaTask ou peça a sincronização com o ClickUp.</p>
-          <Link to="/tarefas" className="ln-primary mt-1">Abrir o VertaTask</Link>
+          <p className="text-[13px] text-ln-t1 font-medium">{tr('hub.tarefasCliente.semPasta')}</p>
+          <p className="text-xs text-ln-t4 max-w-sm">{tr('hub.tarefasCliente.semPastaDica')}</p>
+          <Link to="/tarefas" className="ln-primary mt-1">{tr('hub.tarefasCliente.abrirVertaTask')}</Link>
         </div>
       ) : (
         <AreaTarefas

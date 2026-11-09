@@ -3,40 +3,41 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { cliente } from '../routes/paths'
 import { supabase } from '../lib/supabase'
-import { SERVICES_CONFIG, SEGMENTOS, SQUAD_COLORS, PLAN_TYPE_OPTIONS, BILLING_MODE_OPTIONS } from '../lib/constants'
+import {
+  SERVICES_CONFIG, SEGMENTOS, SQUAD_COLORS, PLAN_TYPE_OPTIONS, BILLING_MODE_OPTIONS,
+  rotuloSegmento, rotuloServico, rotuloSubServico, rotuloOpcaoServico, rotuloTipoPlano, rotuloCobranca,
+} from '../lib/constants'
 import { fmtCurrency, mrrValue } from '../lib/utils'
 import { createClickUpClientFolder } from '../lib/clickup'
 import { notifyNewClient } from '../lib/slack'
+import { useI18n, localeAtual } from '../i18n'
 import {
   ArrowLeft, ArrowRight, Check, Zap, Building2, FileText,
   Briefcase, DollarSign, Users, Calendar, Plus, X, Upload,
   Sparkles, Rocket, ChevronDown, ChevronUp,
 } from 'lucide-react'
 
+// Rótulos e descrições ficam em `onboarding.*` (src/i18n/locales/<idioma>/onboarding.js)
+// e são traduzidos no render; `value` é o que vai para projects_v2.
+
 // ─── Business types ───────────────────────────────────────────────────────────
 const BUSINESS_TYPES = [
-  { value: 'b2b',         label: 'B2B',           desc: 'Vende para outras empresas',          icon: '🏢' },
-  { value: 'local',       label: 'Negócio Local',  desc: 'Atende clientes na região física',    icon: '📍' },
-  { value: 'ecommerce',   label: 'E-commerce',     desc: 'Vendas online / loja virtual',        icon: '🛒' },
-  { value: 'infoproduto', label: 'Infoproduto',    desc: 'Cursos, mentorias, conteúdo digital', icon: '🎓' },
+  { value: 'b2b',         icon: '🏢' },
+  { value: 'local',       icon: '📍' },
+  { value: 'ecommerce',   icon: '🛒' },
+  { value: 'infoproduto', icon: '🎓' },
 ]
 
 // ─── Maturity options ─────────────────────────────────────────────────────────
-const MATURITY_OPTIONS = [
-  { value: '1', label: 'Nunca anunciou online',  desc: 'Primeiro contato com mídia paga' },
-  { value: '2', label: 'Iniciante',               desc: 'Já anunciou, mas sem resultados consistentes' },
-  { value: '3', label: 'Intermediário',            desc: 'Tem resultados, quer escalar' },
-  { value: '4', label: 'Avançado',                desc: 'Anunciante experiente, busca otimização' },
-  { value: '5', label: 'Expert',                  desc: 'Estrutura sólida, foco em performance máxima' },
-]
+const MATURITY_OPTIONS = ['1', '2', '3', '4', '5'].map((value) => ({ value }))
 
 // ─── Step definitions ─────────────────────────────────────────────────────────
 const STEPS = [
-  { id: 1, label: 'Empresa',    icon: Building2,  title: 'Dados da Empresa',        sub: 'Informações básicas e segmento do cliente' },
-  { id: 2, label: 'Documentos', icon: FileText,   title: 'Documentos',              sub: 'Anexe os arquivos enviados pelo vendedor' },
-  { id: 3, label: 'Serviços',   icon: Briefcase,  title: 'Serviços Contratados',    sub: 'Selecione os serviços e configure quantidades' },
-  { id: 4, label: 'Contrato',   icon: Calendar,   title: 'Contrato & Concorrência', sub: 'Modelo de contratação, valores e data de assinatura' },
-  { id: 5, label: 'Equipe',     icon: Users,      title: 'Equipe & Potencial',      sub: 'Estrutura interna e oportunidades futuras' },
+  { id: 1, chave: 'empresa',    icon: Building2 },
+  { id: 2, chave: 'documentos', icon: FileText },
+  { id: 3, chave: 'servicos',   icon: Briefcase },
+  { id: 4, chave: 'contrato',   icon: Calendar },
+  { id: 5, chave: 'equipe',     icon: Users },
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ function formatCNPJ(v) {
 function formatCurrency(v) {
   const n = v.replace(/\D/g, '')
   if (!n) return ''
-  return (parseInt(n, 10) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  return (parseInt(n, 10) / 100).toLocaleString(localeAtual(), { style: 'currency', currency: 'BRL' })
 }
 
 function parseCurrencyToNumber(v) {
@@ -61,12 +62,13 @@ function parseCurrencyToNumber(v) {
 
 // ─── Segmento Field ───────────────────────────────────────────────────────────
 function SegmentoField({ value, onChange }) {
+  const { t } = useI18n()
   return (
     <div>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Ex: Beleza e Estética, Saúde, E-commerce..."
+        placeholder={t('onboarding.segmentoPlaceholder')}
         className="input-field mb-3"
       />
       <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-1">
@@ -81,7 +83,7 @@ function SegmentoField({ value, onChange }) {
                 : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30 hover:text-rl-text'
             }`}
           >
-            {s}
+            {rotuloSegmento(s)}
           </button>
         ))}
       </div>
@@ -107,7 +109,7 @@ function ServiceCard({ config, selected, data, onToggle, onDataChange }) {
       >
         <span className="text-lg shrink-0 leading-none">{config.emoji}</span>
         <span className={`text-sm font-medium flex-1 leading-tight ${selected ? 'text-rl-purple' : 'text-rl-text'}`}>
-          {config.label}
+          {rotuloServico(config.id)}
         </span>
         {selected && !hasSubfields && <Check className="w-4 h-4 text-rl-purple shrink-0" />}
         {hasSubfields && (
@@ -122,7 +124,7 @@ function ServiceCard({ config, selected, data, onToggle, onDataChange }) {
         <div className="px-4 pb-4 pt-3 border-t border-rl-border/40 bg-rl-bg/40 space-y-3">
           {config.sub.map((field) => (
             <div key={field.key}>
-              <label className="text-xs font-semibold text-rl-muted mb-1.5 block">{field.label}</label>
+              <label className="text-xs font-semibold text-rl-muted mb-1.5 block">{rotuloSubServico(field.key)}</label>
               {field.type === 'select' ? (
                 <div className="flex flex-wrap gap-2">
                   {field.options.map((opt) => (
@@ -136,7 +138,7 @@ function ServiceCard({ config, selected, data, onToggle, onDataChange }) {
                           : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/30'
                       }`}
                     >
-                      {opt}
+                      {rotuloOpcaoServico(opt)}
                     </button>
                   ))}
                 </div>
@@ -159,7 +161,8 @@ function ServiceCard({ config, selected, data, onToggle, onDataChange }) {
 }
 
 // ─── Dynamic List ─────────────────────────────────────────────────────────────
-function DynamicList({ items, onChange, placeholder, withRole = false, roleLabel = 'Cargo' }) {
+function DynamicList({ items, onChange, placeholder, withRole = false, roleLabel }) {
+  const { t } = useI18n()
   function add()        { onChange([...items, withRole ? { name: '', role: '' } : '']) }
   function remove(i)    { onChange(items.filter((_, idx) => idx !== i)) }
   function update(i, v) { const n = [...items]; n[i] = v; onChange(n) }
@@ -171,20 +174,20 @@ function DynamicList({ items, onChange, placeholder, withRole = false, roleLabel
         <div key={i} className={`flex gap-2 ${withRole ? 'flex-col sm:flex-row' : ''}`}>
           {withRole ? (
             <>
-              <input value={item.name} onChange={(e) => updateField(i, 'name', e.target.value)} placeholder="Nome" className="input-field flex-1" />
-              <input value={item.role} onChange={(e) => updateField(i, 'role', e.target.value)} placeholder={roleLabel} className="input-field flex-1" />
+              <input value={item.name} onChange={(e) => updateField(i, 'name', e.target.value)} placeholder={t('onboarding.nome')} className="input-field flex-1" />
+              <input value={item.role} onChange={(e) => updateField(i, 'role', e.target.value)} placeholder={roleLabel || t('onboarding.cargo')} className="input-field flex-1" />
             </>
           ) : (
             <input value={item} onChange={(e) => update(i, e.target.value)} placeholder={placeholder} className="input-field flex-1" />
           )}
-          <button type="button" onClick={() => remove(i)} className="p-2.5 rounded-xl text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0">
+          <button type="button" onClick={() => remove(i)} aria-label={t('comum.remover')} className="p-2.5 rounded-xl text-rl-muted hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0">
             <X className="w-4 h-4" />
           </button>
         </div>
       ))}
       <button type="button" onClick={add} className="flex items-center gap-2 text-sm text-rl-purple hover:text-rl-purple/80 transition-colors">
         <Plus className="w-4 h-4" />
-        Adicionar {withRole ? 'pessoa' : 'item'}
+        {withRole ? t('onboarding.adicionarPessoa') : t('onboarding.adicionarItem')}
       </button>
     </div>
   )
@@ -193,6 +196,7 @@ function DynamicList({ items, onChange, placeholder, withRole = false, roleLabel
 // ─── File Upload ──────────────────────────────────────────────────────────────
 function FileUpload({ label, file, onChange, description }) {
   const ref = useRef()
+  const { t, locale } = useI18n()
   function handleDrop(e) { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) onChange(f) }
 
   return (
@@ -215,9 +219,9 @@ function FileUpload({ label, file, onChange, description }) {
             </div>
             <div>
               <p className="text-sm font-medium text-rl-text">{file.name}</p>
-              <p className="text-xs text-rl-muted">{(file.size / 1024).toFixed(1)} KB</p>
+              <p className="text-xs text-rl-muted">{t('onboarding.kb', { n: (file.size / 1024).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })}</p>
             </div>
-            <button type="button" onClick={(e) => { e.stopPropagation(); onChange(null) }} className="ml-auto p-1 rounded text-rl-muted hover:text-red-400">
+            <button type="button" onClick={(e) => { e.stopPropagation(); onChange(null) }} aria-label={t('onboarding.removerArquivo')} className="ml-auto p-1 rounded text-rl-muted hover:text-red-400">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -227,7 +231,7 @@ function FileUpload({ label, file, onChange, description }) {
               <Upload className="w-5 h-5 text-rl-purple/60" />
             </div>
             <p className="text-sm text-rl-muted">
-              <span className="text-rl-purple font-medium">Clique para enviar</span> ou arraste o arquivo
+              <span className="text-rl-purple font-medium">{t('onboarding.cliqueEnviar')}</span> {t('onboarding.ouArraste')}
             </p>
             <p className="text-xs text-rl-muted/60">{description}</p>
           </div>
@@ -294,6 +298,7 @@ const initialForm = {
 export default function NewOnboarding() {
   const { user, addProject, updateProject, squads, projects, teamMembers } = useApp()
   const navigate = useNavigate()
+  const { t } = useI18n()
 
   const draft = loadDraft()
   const [step, setStep]                   = useState(draft?.step ?? 0)
@@ -359,34 +364,35 @@ export default function NewOnboarding() {
   function validate(s) {
     const e = {}
     if (s === 0) {
-      if (!form.businessType)               e.businessType    = 'Selecione o tipo de negócio'
-      if (!form.companyName.trim())         e.companyName     = 'Nome da empresa é obrigatório'
-      if (!form.cnpj.trim())                e.cnpj            = 'CNPJ é obrigatório'
-      if (!form.responsibleName.trim())     e.responsibleName = 'Nome do responsável é obrigatório'
-      if (!form.responsibleRole.trim())     e.responsibleRole = 'Cargo do responsável é obrigatório'
-      if (!form.segmento.trim())            e.segmento        = 'Selecione ou informe o segmento'
+      if (!form.businessType)               e.businessType    = t('onboarding.erros.businessType')
+      if (!form.companyName.trim())         e.companyName     = t('onboarding.erros.companyName')
+      if (!form.cnpj.trim())                e.cnpj            = t('onboarding.erros.cnpj')
+      if (!form.responsibleName.trim())     e.responsibleName = t('onboarding.erros.responsibleName')
+      if (!form.responsibleRole.trim())     e.responsibleRole = t('onboarding.erros.responsibleRole')
+      if (!form.segmento.trim())            e.segmento        = t('onboarding.erros.segmento')
     }
     if (s === 1) {
+      // Documentos são opcionais: nada a validar.
     }
     if (s === 2) {
-      if (form.services.length === 0) e.services = 'Selecione ao menos um serviço'
+      if (form.services.length === 0) e.services = t('onboarding.erros.services')
     }
     if (s === 3) {
-      if (!form.contractModel)  e.contractModel = 'Selecione o modelo de contratação'
-      if (!form.contractDate)   e.contractDate  = 'Informe a data de assinatura'
-      if (!form.contractValue.trim()) e.contractValue = 'Informe o valor do contrato'
+      if (!form.contractModel)  e.contractModel = t('onboarding.erros.contractModel')
+      if (!form.contractDate)   e.contractDate  = t('onboarding.erros.contractDate')
+      if (!form.contractValue.trim()) e.contractValue = t('onboarding.erros.contractValue')
       if (form.contractModel === 'aceleracao' && !form.contractPaymentType)
-        e.contractPaymentType = 'Selecione o tipo de pagamento'
-      if (!form.planType)    e.planType    = 'Informe se o cliente é programa ou plano'
-      if (!form.billingMode) e.billingMode = 'Informe se o pagamento é pré-pago ou pós-pago'
+        e.contractPaymentType = t('onboarding.erros.contractPaymentType')
+      if (!form.planType)    e.planType    = t('onboarding.erros.planType')
+      if (!form.billingMode) e.billingMode = t('onboarding.erros.billingMode')
     }
     if (s === 4) {
-      if (squads.length > 0 && !form.squad) e.squad           = 'Selecione o squad responsável'
-      if (form.hasSalesTeam === null)        e.hasSalesTeam    = 'Informe se tem equipe comercial'
-      if (!form.digitalMaturity)             e.digitalMaturity = 'Selecione a maturidade digital'
-      if (form.upsellPotential === null)     e.upsellPotential = 'Informe o potencial de upsell'
+      if (squads.length > 0 && !form.squad) e.squad           = t('onboarding.erros.squad')
+      if (form.hasSalesTeam === null)        e.hasSalesTeam    = t('onboarding.erros.hasSalesTeam')
+      if (!form.digitalMaturity)             e.digitalMaturity = t('onboarding.erros.digitalMaturity')
+      if (form.upsellPotential === null)     e.upsellPotential = t('onboarding.erros.upsellPotential')
       if (form.upsellPotential === true && !form.upsellNotes.trim())
-        e.upsellNotes = 'Descreva as observações sobre o upsell'
+        e.upsellNotes = t('onboarding.erros.upsellNotes')
     }
     return e
   }
@@ -539,21 +545,21 @@ export default function NewOnboarding() {
             </div>
           </div>
 
-          <h1 className="text-3xl font-bold text-rl-text mb-2">Cliente cadastrado!</h1>
+          <h1 className="text-3xl font-bold text-rl-text mb-2">{t('onboarding.cadastrado')}</h1>
           <p className="text-rl-muted mb-6">
-            O cliente <span className="text-rl-text font-semibold">{form.companyName}</span> foi adicionado com sucesso.
+            {t('onboarding.cadastradoAntes')}<span className="text-rl-text font-semibold">{form.companyName}</span>{t('onboarding.cadastradoDepois')}
           </p>
 
           <div className="flex gap-3 justify-center">
             <button onClick={() => navigate('/')} className="btn-ghost flex items-center gap-2">
-              <ArrowLeft className="w-4 h-4" /> Dashboard
+              <ArrowLeft className="w-4 h-4" /> {t('onboarding.dashboard')}
             </button>
             {createdId && (
               <button
                 onClick={() => navigate(cliente(createdId))}
                 className="btn-primary flex items-center gap-2"
               >
-                Ver Projeto <ArrowRight className="w-4 h-4" />
+                {t('onboarding.verProjeto')} <ArrowRight className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -574,11 +580,11 @@ export default function NewOnboarding() {
           <div className="h-14 flex items-center justify-between gap-4">
             <button onClick={prev} className="flex items-center gap-2 text-rl-muted hover:text-rl-text transition-colors text-sm">
               <ArrowLeft className="w-4 h-4" />
-              {step === 0 ? 'Cancelar' : 'Voltar'}
+              {step === 0 ? t('comum.cancelar') : t('comum.voltar')}
             </button>
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-rl-purple" />
-              <span className="text-sm font-semibold text-rl-text">Novo Cliente</span>
+              <span className="text-sm font-semibold text-rl-text">{t('onboarding.novoCliente')}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-rl-muted text-sm">{step + 1}/{STEPS.length}</span>
@@ -598,13 +604,13 @@ export default function NewOnboarding() {
         <div className="max-w-2xl mx-auto px-6 pt-4">
           <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-rl-purple/10 border border-rl-purple/20">
             <p className="text-xs text-rl-purple font-medium">
-              📋 Rascunho recuperado — continuando de onde você parou.
+              {t('onboarding.rascunho')}
             </p>
             <button
               onClick={() => { clearDraft(); setForm(initialForm); setStep(0); setCompletedSteps([]) }}
               className="text-xs text-rl-muted hover:text-rl-text transition-colors whitespace-nowrap"
             >
-              Limpar
+              {t('comum.limpar')}
             </button>
           </div>
         </div>
@@ -628,7 +634,7 @@ export default function NewOnboarding() {
                     {isCompleted ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
                   </div>
                   <span className={`text-[10px] font-medium whitespace-nowrap ${isCurrent ? 'text-rl-purple' : isCompleted ? 'text-rl-green' : 'text-rl-muted'}`}>
-                    {s.label}
+                    {t(`onboarding.passos.${s.chave}.label`)}
                   </span>
                 </div>
                 {i < STEPS.length - 1 && (
@@ -650,8 +656,8 @@ export default function NewOnboarding() {
               <StepIcon className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-rl-text">{currentStep.title}</h2>
-              <p className="text-rl-muted text-sm">{currentStep.sub}</p>
+              <h2 className="text-xl font-bold text-rl-text">{t(`onboarding.passos.${currentStep.chave}.titulo`)}</h2>
+              <p className="text-rl-muted text-sm">{t(`onboarding.passos.${currentStep.chave}.sub`)}</p>
             </div>
           </div>
 
@@ -661,7 +667,7 @@ export default function NewOnboarding() {
 
               {/* Tipo de Negócio */}
               <div>
-                <label className="label-field">Tipo de Negócio <span className="text-rl-red">*</span></label>
+                <label className="label-field">{t('onboarding.tipoNegocio')} <span className="text-rl-red">*</span></label>
                 <div className="grid grid-cols-2 gap-3">
                   {BUSINESS_TYPES.map((bt) => (
                     <button
@@ -674,8 +680,8 @@ export default function NewOnboarding() {
                       }`}
                     >
                       <span className="text-2xl">{bt.icon}</span>
-                      <span className="text-sm font-semibold">{bt.label}</span>
-                      <span className="text-xs opacity-75 leading-tight">{bt.desc}</span>
+                      <span className="text-sm font-semibold">{t(`onboarding.negocio.${bt.value}.label`)}</span>
+                      <span className="text-xs opacity-75 leading-tight">{t(`onboarding.negocio.${bt.value}.desc`)}</span>
                     </button>
                   ))}
                 </div>
@@ -684,11 +690,11 @@ export default function NewOnboarding() {
 
               {/* Nome da Empresa */}
               <div>
-                <label className="label-field">Nome da Empresa <span className="text-rl-red">*</span></label>
+                <label className="label-field">{t('onboarding.nomeEmpresa')} <span className="text-rl-red">*</span></label>
                 <input
                   value={form.companyName}
                   onChange={(e) => set('companyName', e.target.value)}
-                  placeholder="Ex: Bio Cosméticos LTDA"
+                  placeholder={t('onboarding.nomeEmpresaPlaceholder')}
                   className={`input-field ${errors.companyName ? 'border-rl-red' : ''}`}
                 />
                 {errors.companyName && <p className="text-rl-red text-xs mt-1">{errors.companyName}</p>}
@@ -696,11 +702,11 @@ export default function NewOnboarding() {
 
               {/* CNPJ */}
               <div>
-                <label className="label-field">CNPJ <span className="text-rl-red">*</span></label>
+                <label className="label-field">{t('onboarding.cnpj')} <span className="text-rl-red">*</span></label>
                 <input
                   value={form.cnpj}
                   onChange={(e) => set('cnpj', formatCNPJ(e.target.value))}
-                  placeholder="00.000.000/0001-00"
+                  placeholder={t('onboarding.cnpjPlaceholder')}
                   className={`input-field ${errors.cnpj ? 'border-rl-red' : ''}`}
                 />
                 {errors.cnpj && <p className="text-rl-red text-xs mt-1">{errors.cnpj}</p>}
@@ -709,21 +715,21 @@ export default function NewOnboarding() {
               {/* Responsável + Cargo */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="label-field">Nome do Responsável <span className="text-rl-red">*</span></label>
+                  <label className="label-field">{t('onboarding.nomeResponsavel')} <span className="text-rl-red">*</span></label>
                   <input
                     value={form.responsibleName}
                     onChange={(e) => set('responsibleName', e.target.value)}
-                    placeholder="Ex: João Silva"
+                    placeholder={t('onboarding.nomeResponsavelPlaceholder')}
                     className={`input-field ${errors.responsibleName ? 'border-rl-red' : ''}`}
                   />
                   {errors.responsibleName && <p className="text-rl-red text-xs mt-1">{errors.responsibleName}</p>}
                 </div>
                 <div>
-                  <label className="label-field">Cargo do Responsável <span className="text-rl-red">*</span></label>
+                  <label className="label-field">{t('onboarding.cargoResponsavel')} <span className="text-rl-red">*</span></label>
                   <input
                     value={form.responsibleRole}
                     onChange={(e) => set('responsibleRole', e.target.value)}
-                    placeholder="Ex: Diretor de Marketing"
+                    placeholder={t('onboarding.cargoResponsavelPlaceholder')}
                     className={`input-field ${errors.responsibleRole ? 'border-rl-red' : ''}`}
                   />
                   {errors.responsibleRole && <p className="text-rl-red text-xs mt-1">{errors.responsibleRole}</p>}
@@ -732,8 +738,8 @@ export default function NewOnboarding() {
 
               {/* Segmento */}
               <div>
-                <label className="label-field">Segmento <span className="text-rl-red">*</span></label>
-                <p className="text-xs text-rl-muted mb-2">Digite ou clique em uma sugestão.</p>
+                <label className="label-field">{t('onboarding.segmento')} <span className="text-rl-red">*</span></label>
+                <p className="text-xs text-rl-muted mb-2">{t('onboarding.segmentoDica')}</p>
                 <SegmentoField value={form.segmento} onChange={(v) => set('segmento', v)} />
                 {errors.segmento && <p className="text-rl-red text-xs mt-1">{errors.segmento}</p>}
               </div>
@@ -746,24 +752,23 @@ export default function NewOnboarding() {
               <div className="flex items-start gap-3 bg-rl-purple/5 border border-rl-purple/20 rounded-xl p-4">
                 <FileText className="w-5 h-5 text-rl-purple mt-0.5 shrink-0" />
                 <p className="text-sm text-rl-muted">
-                  Anexe os documentos enviados pelo vendedor durante a passagem de bastão.
-                  Formatos aceitos: PDF, DOC, DOCX, PNG, JPG.
+                  {t('onboarding.documentosAviso')}
                 </p>
               </div>
               <div>
                 <FileUpload
-                  label="Raio-X do Cliente"
+                  label={t('onboarding.raioX')}
                   file={form.raioXFile}
                   onChange={(f) => set('raioXFile', f)}
-                  description="PDF ou DOCX · Diagnóstico inicial do cliente (opcional)"
+                  description={t('onboarding.raioXDesc')}
                 />
               </div>
               <div>
                 <FileUpload
-                  label="SLA — Passagem de Bastão"
+                  label={t('onboarding.sla')}
                   file={form.slaFile}
                   onChange={(f) => set('slaFile', f)}
-                  description="PDF ou DOCX · Acordo de nível de serviço (opcional)"
+                  description={t('onboarding.slaDesc')}
                 />
               </div>
             </div>
@@ -774,11 +779,11 @@ export default function NewOnboarding() {
             <div className="space-y-3">
               <div className="flex items-center justify-between mb-1">
                 <label className="label-field">
-                  Serviços Contratados <span className="text-rl-red">*</span>
+                  {t('onboarding.servicosContratados')} <span className="text-rl-red">*</span>
                 </label>
                 {form.services.length > 0 && (
                   <span className="text-[11px] font-semibold text-rl-purple bg-rl-purple/10 border border-rl-purple/20 px-2.5 py-1 rounded-full">
-                    {form.services.length} selecionado{form.services.length !== 1 ? 's' : ''}
+                    {t('onboarding.selecionados', { count: form.services.length })}
                   </span>
                 )}
               </div>
@@ -805,12 +810,12 @@ export default function NewOnboarding() {
               {/* Modelo de Contratação */}
               <div>
                 <label className="label-field">
-                  Modelo de Contratação <span className="text-rl-red">*</span>
+                  {t('onboarding.modeloContratacao')} <span className="text-rl-red">*</span>
                 </label>
                 <div className="grid grid-cols-2 gap-3 mt-2">
                   {[
-                    { value: 'aceleracao', label: 'Programa de Aceleração', emoji: '🚀', desc: 'Contrato por período determinado' },
-                    { value: 'assessoria', label: 'Assessoria Mensal',       emoji: '📅', desc: 'Contrato mensal recorrente'      },
+                    { value: 'aceleracao', emoji: '🚀' },
+                    { value: 'assessoria', emoji: '📅' },
                   ].map((opt) => (
                     <button
                       key={opt.value} type="button"
@@ -822,8 +827,8 @@ export default function NewOnboarding() {
                       }`}
                     >
                       <span className="text-2xl">{opt.emoji}</span>
-                      <span className="text-sm font-semibold">{opt.label}</span>
-                      <span className="text-xs opacity-75 leading-tight">{opt.desc}</span>
+                      <span className="text-sm font-semibold">{t(`onboarding.modelo.${opt.value}.label`)}</span>
+                      <span className="text-xs opacity-75 leading-tight">{t(`onboarding.modelo.${opt.value}.desc`)}</span>
                     </button>
                   ))}
                 </div>
@@ -833,7 +838,7 @@ export default function NewOnboarding() {
                 {form.contractModel === 'aceleracao' && (
                   <div className="mt-4 p-4 rounded-xl bg-rl-surface border border-rl-border/60 space-y-4">
                     <div>
-                      <label className="label-field">Duração do Programa (meses)</label>
+                      <label className="label-field">{t('onboarding.duracao')}</label>
                       <input
                         type="number" min="1" step="1"
                         value={form.contractDurationMonths}
@@ -841,14 +846,14 @@ export default function NewOnboarding() {
                         placeholder="3"
                         className="input-field mt-1"
                       />
-                      <p className="text-xs text-rl-muted mt-1">Padrão: 3 meses. Usado para calcular MRR e parcelas.</p>
+                      <p className="text-xs text-rl-muted mt-1">{t('onboarding.duracaoDica')}</p>
                     </div>
                     <div>
-                      <label className="label-field mb-2">Tipo de Pagamento <span className="text-rl-red">*</span></label>
+                      <label className="label-field mb-2">{t('onboarding.tipoPagamento')} <span className="text-rl-red">*</span></label>
                       <div className="flex gap-3">
                         {[
-                          { label: 'Valor Único',        value: 'unico'  },
-                          { label: 'Parcelado (Mensal)', value: 'mensal' },
+                          { value: 'unico'  },
+                          { value: 'mensal' },
                         ].map((opt) => (
                           <button
                             key={opt.value} type="button"
@@ -859,7 +864,7 @@ export default function NewOnboarding() {
                                 : 'bg-rl-bg border-rl-border text-rl-muted hover:border-rl-purple/40'
                             }`}
                           >
-                            {opt.label}
+                            {t(`onboarding.pagamento.${opt.value}`)}
                           </button>
                         ))}
                       </div>
@@ -867,14 +872,14 @@ export default function NewOnboarding() {
                     </div>
                     <div>
                       <label className="label-field">
-                        {form.contractPaymentType === 'mensal' ? 'Valor Mensal' : 'Valor do Contrato'} <span className="text-rl-red">*</span>
+                        {form.contractPaymentType === 'mensal' ? t('onboarding.valorMensal') : t('onboarding.valorContrato')} <span className="text-rl-red">*</span>
                       </label>
                       <div className="relative mt-1">
                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rl-muted" />
                         <input
                           value={form.contractValue}
                           onChange={(e) => set('contractValue', formatCurrency(e.target.value))}
-                          placeholder="R$ 0,00"
+                          placeholder={t('onboarding.valorPlaceholder')}
                           className={`input-field pl-9 ${errors.contractValue ? 'border-rl-red' : ''}`}
                         />
                       </div>
@@ -886,13 +891,13 @@ export default function NewOnboarding() {
                 {/* Assessoria Mensal — sub-field */}
                 {form.contractModel === 'assessoria' && (
                   <div className="mt-4 p-4 rounded-xl bg-rl-surface border border-rl-border/60">
-                    <label className="label-field">Valor Mensal <span className="text-rl-red">*</span></label>
+                    <label className="label-field">{t('onboarding.valorMensal')} <span className="text-rl-red">*</span></label>
                     <div className="relative mt-1">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rl-muted" />
                       <input
                         value={form.contractValue}
                         onChange={(e) => set('contractValue', formatCurrency(e.target.value))}
-                        placeholder="R$ 0,00"
+                        placeholder={t('onboarding.valorPlaceholder')}
                         className={`input-field pl-9 ${errors.contractValue ? 'border-rl-red' : ''}`}
                       />
                     </div>
@@ -903,8 +908,8 @@ export default function NewOnboarding() {
 
               {/* Programa ou plano · Pré-pago ou pós-pago */}
               {[
-                { key: 'planType',    label: 'Esse cliente é programa ou plano?',             options: PLAN_TYPE_OPTIONS    },
-                { key: 'billingMode', label: 'O pagamento dele é pré-pago ou pós-pago?',      options: BILLING_MODE_OPTIONS },
+                { key: 'planType',    label: t('onboarding.perguntaPlano'),    options: PLAN_TYPE_OPTIONS,    rotulo: rotuloTipoPlano },
+                { key: 'billingMode', label: t('onboarding.perguntaCobranca'), options: BILLING_MODE_OPTIONS, rotulo: rotuloCobranca  },
               ].map((q) => (
                 <div key={q.key}>
                   <label className="label-field">
@@ -921,7 +926,7 @@ export default function NewOnboarding() {
                             : 'bg-rl-surface border-rl-border text-rl-muted hover:border-rl-purple/40 hover:text-rl-text'
                         }`}
                       >
-                        {opt.label}
+                        {q.rotulo(opt.value)}
                       </button>
                     ))}
                   </div>
@@ -932,7 +937,7 @@ export default function NewOnboarding() {
               {/* Data de Assinatura */}
               <div>
                 <label className="label-field">
-                  Data de Assinatura do Contrato <span className="text-rl-red">*</span>
+                  {t('onboarding.dataAssinatura')} <span className="text-rl-red">*</span>
                 </label>
                 <div className="relative mt-1">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rl-muted pointer-events-none" />
@@ -986,9 +991,9 @@ export default function NewOnboarding() {
 
                 return (
                   <div>
-                    <label className="label-field">Squad Responsável <span className="text-rl-red">*</span></label>
+                    <label className="label-field">{t('onboarding.squadResponsavel')} <span className="text-rl-red">*</span></label>
                     <p className="text-xs text-rl-muted mb-3">
-                      Selecione a equipe que irá gerenciar este cliente. A equipe com menor carteira em gestão é recomendada.
+                      {t('onboarding.squadDica')}
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {squadMetrics.map(({ squad: sq, clientsCount, totalMRR, memberNames }) => {
@@ -1010,7 +1015,7 @@ export default function NewOnboarding() {
                             {/* Badge de recomendação no canto — fica visível mesmo selecionado */}
                             {recommended && (
                               <span className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rl-green text-white shadow-sm">
-                                ★ Recomendado
+                                {t('onboarding.recomendado')}
                               </span>
                             )}
 
@@ -1036,19 +1041,19 @@ export default function NewOnboarding() {
                                 ))}
                               </div>
                             ) : (
-                              <span className="text-[10px] text-rl-muted italic">sem membros cadastrados</span>
+                              <span className="text-[10px] text-rl-muted italic">{t('onboarding.semMembros')}</span>
                             )}
 
                             {/* Linha 3: métricas em duas colunas */}
                             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-rl-border/60">
                               <div>
-                                <p className="text-[9px] uppercase tracking-wider text-rl-muted font-semibold">Clientes</p>
+                                <p className="text-[9px] uppercase tracking-wider text-rl-muted font-semibold">{t('onboarding.clientes')}</p>
                                 <p className={`text-base font-bold tabular-nums ${selected ? c.text : 'text-rl-text'}`}>
                                   {clientsCount}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-[9px] uppercase tracking-wider text-rl-muted font-semibold">MRR gerenciado</p>
+                                <p className="text-[9px] uppercase tracking-wider text-rl-muted font-semibold">{t('onboarding.mrrGerenciado')}</p>
                                 <p className={`text-base font-bold tabular-nums ${selected ? c.text : 'text-rl-text'}`}>
                                   {fmtCurrency(totalMRR)}
                                 </p>
@@ -1065,9 +1070,9 @@ export default function NewOnboarding() {
 
               {/* Equipe Comercial */}
               <div>
-                <label className="label-field">Tem equipe comercial? <span className="text-rl-red">*</span></label>
+                <label className="label-field">{t('onboarding.equipeComercial')} <span className="text-rl-red">*</span></label>
                 <div className="flex gap-3 mt-2">
-                  {[{ label: 'Sim', value: true }, { label: 'Não', value: false }].map((opt) => (
+                  {[{ label: t('comum.sim'), value: true }, { label: t('comum.nao'), value: false }].map((opt) => (
                     <button
                       key={String(opt.value)} type="button"
                       onClick={() => set('hasSalesTeam', opt.value)}
@@ -1086,7 +1091,7 @@ export default function NewOnboarding() {
 
               {/* Maturidade Digital */}
               <div>
-                <label className="label-field">Maturidade Digital <span className="text-rl-red">*</span></label>
+                <label className="label-field">{t('onboarding.maturidadeDigital')} <span className="text-rl-red">*</span></label>
                 <div className="space-y-2 mt-2">
                   {MATURITY_OPTIONS.map((opt) => (
                     <button
@@ -1105,9 +1110,9 @@ export default function NewOnboarding() {
                       </div>
                       <div>
                         <p className={`text-sm font-medium ${form.digitalMaturity === opt.value ? 'text-rl-purple' : 'text-rl-text'}`}>
-                          Nível {opt.value} — {opt.label}
+                          {t('onboarding.maturidade.nivel', { n: opt.value, label: t(`onboarding.maturidade.${opt.value}.label`) })}
                         </p>
-                        <p className="text-xs text-rl-muted">{opt.desc}</p>
+                        <p className="text-xs text-rl-muted">{t(`onboarding.maturidade.${opt.value}.desc`)}</p>
                       </div>
                     </button>
                   ))}
@@ -1117,24 +1122,24 @@ export default function NewOnboarding() {
 
               {/* Outras pessoas */}
               <div>
-                <label className="label-field">Outras Pessoas Envolvidas no Projeto</label>
-                <p className="text-xs text-rl-muted mb-3">Adicione outros stakeholders que participarão do projeto.</p>
+                <label className="label-field">{t('onboarding.outrasPessoas')}</label>
+                <p className="text-xs text-rl-muted mb-3">{t('onboarding.outrasPessoasDica')}</p>
                 <DynamicList
                   items={form.otherPeople.length > 0 ? form.otherPeople : []}
                   onChange={(v) => set('otherPeople', v)}
                   withRole
-                  placeholder="Nome"
-                  roleLabel="Cargo / Função"
+                  placeholder={t('onboarding.nome')}
+                  roleLabel={t('onboarding.cargoFuncao')}
                 />
               </div>
 
               {/* Upsell */}
               <div>
-                <label className="label-field">Possibilidade de Upsell? <span className="text-rl-red">*</span></label>
+                <label className="label-field">{t('onboarding.upsell')} <span className="text-rl-red">*</span></label>
                 <div className="flex gap-3 mt-2 mb-3">
                   {[
-                    { label: 'Sim, tem potencial', value: true  },
-                    { label: 'Não por enquanto',   value: false },
+                    { label: t('onboarding.upsellSim'), value: true  },
+                    { label: t('onboarding.upsellNao'), value: false },
                   ].map((opt) => (
                     <button
                       key={String(opt.value)} type="button"
@@ -1155,11 +1160,11 @@ export default function NewOnboarding() {
 
                 {form.upsellPotential === true && (
                   <div>
-                    <label className="label-field">Observações sobre o Upsell</label>
+                    <label className="label-field">{t('onboarding.upsellObs')}</label>
                     <textarea
                       value={form.upsellNotes}
                       onChange={(e) => set('upsellNotes', e.target.value)}
-                      placeholder="Descreva quais serviços podem ser adicionados futuramente..."
+                      placeholder={t('onboarding.upsellObsPlaceholder')}
                       rows={3}
                       className="input-field resize-none mt-1"
                     />
@@ -1173,7 +1178,7 @@ export default function NewOnboarding() {
           <div className="flex items-center justify-between mt-8 pt-6 border-t border-rl-border">
             <button onClick={prev} className="btn-secondary flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" />
-              {step === 0 ? 'Cancelar' : 'Anterior'}
+              {step === 0 ? t('comum.cancelar') : t('onboarding.anterior')}
             </button>
 
             <div className="flex items-center gap-1">
@@ -1189,8 +1194,8 @@ export default function NewOnboarding() {
 
             <button onClick={next} className="btn-primary flex items-center gap-2">
               {step === STEPS.length - 1
-                ? <><Rocket className="w-4 h-4" /> Criar Projeto</>
-                : <>Próximo <ArrowRight className="w-4 h-4" /></>
+                ? <><Rocket className="w-4 h-4" /> {t('onboarding.criarProjeto')}</>
+                : <>{t('onboarding.proximo')} <ArrowRight className="w-4 h-4" /></>
               }
             </button>
           </div>

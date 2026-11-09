@@ -1,5 +1,6 @@
 // Regras puras do VertaTask: ciclos (datas, burndown).
 // Datas de ciclo são 'YYYY-MM-DD' em horário local, sem fuso.
+import { t, idiomaAtual, localeAtual } from '../i18n'
 
 const DIA = 86400000
 
@@ -26,9 +27,10 @@ export function diasEntre(a, b) {
   return Math.round((paraDiaLocal(b) - paraDiaLocal(a)) / DIA)
 }
 
+// "09/11" em pt-BR, "11/09" em en-US: segue o idioma de quem vê
 export function fmtDiaMes(iso) {
   const d = paraDiaLocal(iso)
-  return d ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}` : ''
+  return d ? d.toLocaleDateString(localeAtual(), { day: '2-digit', month: '2-digit' }) : ''
 }
 
 /** 'atual' | 'proximo' | 'passado' */
@@ -39,6 +41,8 @@ export function faseDoCiclo(c, hoje = hojeISO()) {
 }
 
 export const ROTULO_FASE = { atual: 'Atual', proximo: 'Próximo', passado: 'Encerrado' }
+/** Rótulo da fase no idioma de quem vê (ROTULO_FASE fica para quem ainda lê o português). */
+export const rotuloFase = (fase) => (ROTULO_FASE[fase] ? t(`ciclos.fase.${fase}`) : fase)
 
 /** Ciclo a abrir por padrão: o atual, senão o próximo mais perto, senão o último. */
 export function cicloPadrao(ciclos, hoje = hojeISO()) {
@@ -61,7 +65,7 @@ export function sugerirCiclo(ciclos) {
     d.setDate(d.getDate() + dias)
     inicio = paraISODia(d)
   }
-  return { nome: `Ciclo ${ciclos.length + 1}`, inicio, fim: somarDias(inicio, 13) }
+  return { nome: t('ciclos.nomePadrao', { n: ciclos.length + 1 }), inicio, fim: somarDias(inicio, 13) }
 }
 
 /** Peso de uma tarefa na unidade escolhida: 'tarefas' (1) ou 'horas' (estimativa). */
@@ -99,7 +103,13 @@ export function calcularBurndown(ciclo, itens, unidade = 'tarefas', hoje = hojeI
 
 export function fmtHoras(h) {
   if (!h) return '0h'
-  return h >= 10 ? `${Math.round(h)}h` : `${Math.round(h * 10) / 10}h`.replace('.', ',')
+  if (h >= 10) return `${Math.round(h)}h`
+  const txt = `${Math.round(h * 10) / 10}h`
+  return idiomaAtual() === 'pt' ? txt.replace('.', ',') : txt
 }
 
+// valores gravados em tarefas_intake.origem: não mudam; a tela mostra rotuloOrigemIntake
 export const ORIGENS_INTAKE = ['Cliente', 'Aprovação de anúncios', 'Central de Otimizações', 'Playbook', 'Interno', 'Manual']
+const CHAVE_ORIGEM = { Cliente: 'cliente', 'Aprovação de anúncios': 'aprovacaoAnuncios', 'Central de Otimizações': 'centralOtimizacoes', Playbook: 'playbook', Interno: 'interno', Manual: 'manual' }
+/** Origem conhecida traduzida; a que não conhecemos (gravada por outra rota) aparece como veio. */
+export const rotuloOrigemIntake = (o) => (CHAVE_ORIGEM[o] ? t(`intake.origens.${CHAVE_ORIGEM[o]}`) : o)

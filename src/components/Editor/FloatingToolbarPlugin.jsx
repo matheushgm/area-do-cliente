@@ -28,12 +28,14 @@ import {
   Pilcrow,
   Sparkles,
 } from 'lucide-react'
+import { useI18n } from '../../i18n'
 
 const OCULTO = { visivel: false }
 
 export default function FloatingToolbarPlugin({ onAI }) {
   const [editor] = useLexicalComposerContext()
   const [estado, setEstado] = useState(OCULTO)
+  const { t } = useI18n()
   const textoSelecionado = useRef('')
 
   const atualizar = useCallback(() => {
@@ -120,7 +122,7 @@ export default function FloatingToolbarPlugin({ onAI }) {
       editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
       return
     }
-    const url = window.prompt('Endereço do link (https://…)')
+    const url = window.prompt(t('ui.editor.enderecoLink'))
     if (!url) return
     editor.dispatchCommand(TOGGLE_LINK_COMMAND, {
       url: /^https?:\/\//i.test(url) ? url : `https://${url}`,
@@ -139,7 +141,7 @@ export default function FloatingToolbarPlugin({ onAI }) {
     >
       <button
         type="button"
-        title="Parágrafo"
+        title={t('ui.editor.paragrafo')}
         className={estado.bloco === 'p' ? 'ativo' : ''}
         onClick={() => bloco('p')}
       >
@@ -147,7 +149,7 @@ export default function FloatingToolbarPlugin({ onAI }) {
       </button>
       <button
         type="button"
-        title="Título 2"
+        title={t('ui.editor.titulo2')}
         className={estado.bloco === 'h2' ? 'ativo' : ''}
         onClick={() => bloco('h2')}
       >
@@ -155,7 +157,7 @@ export default function FloatingToolbarPlugin({ onAI }) {
       </button>
       <button
         type="button"
-        title="Título 3"
+        title={t('ui.editor.titulo3')}
         className={estado.bloco === 'h3' ? 'ativo' : ''}
         onClick={() => bloco('h3')}
       >
@@ -163,7 +165,7 @@ export default function FloatingToolbarPlugin({ onAI }) {
       </button>
       <button
         type="button"
-        title="Lista"
+        title={t('ui.editor.lista')}
         className={estado.bloco === 'lista' ? 'ativo' : ''}
         onClick={lista}
       >
@@ -172,7 +174,7 @@ export default function FloatingToolbarPlugin({ onAI }) {
       <span className="sep" />
       <button
         type="button"
-        title="Negrito (Ctrl+B)"
+        title={t('ui.editor.negrito')}
         className={estado.bold ? 'ativo' : ''}
         onClick={() => formatar('bold')}
       >
@@ -180,7 +182,7 @@ export default function FloatingToolbarPlugin({ onAI }) {
       </button>
       <button
         type="button"
-        title="Itálico (Ctrl+I)"
+        title={t('ui.editor.italico')}
         className={estado.italic ? 'ativo' : ''}
         onClick={() => formatar('italic')}
       >
@@ -188,7 +190,7 @@ export default function FloatingToolbarPlugin({ onAI }) {
       </button>
       <button
         type="button"
-        title="Tachado"
+        title={t('ui.editor.tachado')}
         className={estado.strike ? 'ativo' : ''}
         onClick={() => formatar('strikethrough')}
       >
@@ -196,7 +198,7 @@ export default function FloatingToolbarPlugin({ onAI }) {
       </button>
       <button
         type="button"
-        title={estado.link ? 'Remover link' : 'Link'}
+        title={estado.link ? t('ui.editor.removerLink') : t('ui.editor.link')}
         className={estado.link ? 'ativo' : ''}
         onClick={link}
       >
@@ -208,10 +210,10 @@ export default function FloatingToolbarPlugin({ onAI }) {
           <button
             type="button"
             className="ia"
-            title="Refinar este trecho com IA"
+            title={t('ui.editor.refinarTrecho')}
             onClick={() => onAI(textoSelecionado.current)}
           >
-            <Sparkles /> IA
+            <Sparkles /> {t('ui.editor.ia')}
           </button>
         </>
       )}

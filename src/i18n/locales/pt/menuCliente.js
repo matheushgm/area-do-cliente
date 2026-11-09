@@ -1,0 +1,36 @@
+// Menu da página do cliente (MenuCliente.jsx)
+export default {
+  visaoGeral: 'Visão geral',
+  tarefas: 'Tarefas',
+  anotacoes: 'Anotações',
+  sugestoes: 'Sugestões',
+  otimizacoes: 'Otimizações',
+  beta: 'Beta',
+  menus: {
+    cliente: 'Cliente',
+    projetos: 'Projetos',
+    resultados: 'Resultados',
+    planejamento: 'Planejamento',
+    criacao: 'Criação',
+  },
+  grupos: {
+    cadastro: 'Cadastro',
+    estrategia: 'Estratégia',
+    desempenho: 'Desempenho',
+    otimizacao: 'Otimização',
+    leadsVendas: 'Leads e vendas',
+    anuncios: 'Anúncios',
+    landingPages: 'Landing pages',
+  },
+  itens: {
+    reunioes: 'Reuniões',
+    trafego: 'Resultados de Tráfego',
+    funil: 'Resultados de Funil',
+    roi: 'Calc. de ROI',
+    campanhas: 'Plan. de campanhas',
+    metaLab: 'Lab. Meta Ads',
+    googleLab: 'Lab. Google Ads',
+    criacaoLp: 'Criação de LP',
+    centralLps: 'Central de LPs',
+  },
+}

@@ -13,6 +13,7 @@
 // A tela trabalha sobre um rascunho da config; "Salvar visualização" grava.
 import { AGRUPAMENTOS } from './tarefas'
 import { FILTROS_VAZIOS, normalizarFiltros } from './filtrosTarefas'
+import { t as tr } from '../i18n'
 
 export const TIPOS_VIEW = [
   { key: 'lista', label: 'Lista' },
@@ -25,7 +26,7 @@ export const SEM_RESPONSAVEL = '__nenhum__'
 export const temResponsavel = (it) => (it.responsaveis || []).length > 0 || (it.responsaveis_extra || []).length > 0
 /** Passa no filtro de responsáveis da barra (lista vazia = todos). */
 export const passaResponsaveis = (it, ids) => !ids.length || ids.some((id) => (id === SEM_RESPONSAVEL ? !temResponsavel(it) : (it.responsaveis || []).includes(id)))
-export const nomeResponsavelFiltro = (id, membros) => (id === SEM_RESPONSAVEL ? 'Sem responsável' : membros.find((m) => m.id === id)?.name || '—')
+export const nomeResponsavelFiltro = (id, membros) => (id === SEM_RESPONSAVEL ? tr('tarefasCampos.grupo.semResponsavel') : membros.find((m) => m.id === id)?.name || '—')
 
 // Colunas da Lista, na ordem padrão (a do ClickUp). O Nome é fixo: sempre a primeira e sempre visível.
 export const COLUNAS_LISTA = [
@@ -79,7 +80,12 @@ export function colunasDaView(c, catalogo = COLUNAS_LISTA, ocultasPadrao = []) {
   const n = normalizarColunas(c, catalogo, ocultasPadrao)
   const ordem = n ? n.ordem : catalogo.map((x) => x.k)
   const ocultas = n ? n.ocultas : ocultasPadrao
-  return ordem.map((k) => ({ ...catalogo.find((x) => x.k === k), oculta: ocultas.includes(k) }))
+  return ordem.map((k) => ({ ...catalogo.find((x) => x.k === k), label: rotuloColuna(k, catalogo), oculta: ocultas.includes(k) }))
+}
+/** Rótulo traduzido de uma coluna do catálogo (o `label` dos catálogos fica em português). */
+export function rotuloColuna(k, catalogo = COLUNAS_LISTA) {
+  const grupo = catalogo === COLUNAS_GANTT ? 'colunasGantt' : 'colunasLista'
+  return catalogo.some((x) => x.k === k) ? tr(`tarefas.${grupo}.${k}`) : k
 }
 /** Chaves das colunas visíveis, na ordem da view. */
 export const colunasVisiveis = (c) => colunasDaView(c).filter((x) => !x.oculta).map((x) => x.k)
@@ -95,14 +101,16 @@ export function patchColunas(colunas, config) {
   return campo && campo !== 'nome' && !colunasVisiveis(colunas).includes(campo) ? { colunas, ordenar: null } : { colunas }
 }
 
-export const rotuloTipo = (tipo) => TIPOS_VIEW.find((t) => t.key === tipo)?.label || tipo
+export const rotuloTipo = (tipo) => (TIPOS_VIEW.some((t) => t.key === tipo) ? tr(`tarefas.views.tipo.${tipo}`) : tipo)
 
 export const SUBTAREFAS = [
   { key: 'recolhidas', label: 'Recolhidas', extra: '(padrão)', desc: 'Sob a tarefa-pai, fechadas. Filtros e agrupamento olham só o pai.' },
   { key: 'expandidas', label: 'Expandidas', desc: 'Sob a tarefa-pai, já abertas. Filtros e agrupamento olham só o pai.' },
   { key: 'separar', label: 'Separar', desc: 'Cada subtarefa vira uma linha própria, filtrada e agrupada pelos campos dela. Use para filtrar subtarefas.' },
 ]
-export const rotuloSubtarefas = (v) => SUBTAREFAS.find((s) => s.key === v)?.label || v
+export const rotuloSubtarefas = (v) => (SUBTAREFAS.some((s) => s.key === v) ? tr(`tarefas.subtarefas.${v}.rotulo`) : v)
+/** Descrição traduzida do modo de subtarefas. */
+export const descSubtarefas = (v) => (SUBTAREFAS.some((s) => s.key === v) ? tr(`tarefas.subtarefas.${v}.desc`) : '')
 
 const agrupamentoValido = (v, padrao) => (AGRUPAMENTOS.some((a) => a.value === v) ? v : padrao)
 
@@ -152,19 +160,22 @@ export const chaveEscopo = (e) => (e ? (e.escopo === 'pasta' ? `pasta:${e.pastaI
 const doEscopo = (row, e) => !!e && row.escopo === e.escopo && (e.escopo !== 'pasta' || row.pasta_id === e.pastaId)
 
 /**
- * Views do escopo prontas para as abas. Cada uma: { chave, nome, padrao, row, config, acesso, donoId }.
+ * Views do escopo prontas para as abas. Cada uma: { chave, nome, rotulo, padrao, row, config, acesso, donoId }.
  * chave = tipo nas padrão (estável, mesmo antes da linha existir) e o id nas salvas.
+ * `nome` é o dado (o gravado, ou o nome padrão em português, que é o que se grava); `rotulo` é o
+ * que a aba mostra: a padrão sem nome personalizado sai traduzida.
  */
 export function viewsDoEscopo(rows, e, userId) {
   const doEsc = (rows || []).filter((r) => doEscopo(r, e))
   const pessoal = padraoPessoal(e)
   const padrao = TIPOS_VIEW.map((t) => {
     const row = doEsc.find((r) => r.padrao_tipo === t.key && (!pessoal || r.dono_id === userId)) || null
-    return { chave: t.key, nome: row?.nome || t.label, padrao: true, pessoal, row, config: row ? normalizarConfig({ ...row.config, tipo: t.key }, t.key) : configPadrao(t.key), acesso: pessoal ? 'privada' : 'publica', donoId: row?.dono_id || null }
+    const personalizado = !!row?.nome && row.nome !== t.label
+    return { chave: t.key, nome: row?.nome || t.label, rotulo: personalizado ? row.nome : rotuloTipo(t.key), padrao: true, pessoal, row, config: row ? normalizarConfig({ ...row.config, tipo: t.key }, t.key) : configPadrao(t.key), acesso: pessoal ? 'privada' : 'publica', donoId: row?.dono_id || null }
   })
   const salvas = doEsc.filter((r) => !r.padrao_tipo)
     .sort((a, b) => (Number(a.posicao) - Number(b.posicao)) || String(a.created_at).localeCompare(String(b.created_at)))
-    .map((row) => ({ chave: row.id, nome: row.nome, padrao: false, row, config: normalizarConfig(row.config), acesso: row.acesso, donoId: row.dono_id }))
+    .map((row) => ({ chave: row.id, nome: row.nome, rotulo: row.nome, padrao: false, row, config: normalizarConfig(row.config), acesso: row.acesso, donoId: row.dono_id }))
   return { padrao, salvas }
 }
 

@@ -9,14 +9,15 @@ import {
   ExternalLink, HelpCircle, History, Loader2, RefreshCw, RotateCcw, Search, Send, Webhook, X,
 } from 'lucide-react'
 import { useSincronizacao } from '../../hooks/useSincronizacao'
-import { fmtDataHora, fmtDataCurta, fmtEstimativa, rotuloStatus, prioridade as prioDe } from '../../lib/tarefas'
+import { fmtDataHora, fmtDataCurta, fmtEstimativa, rotuloStatus, rotuloPrioridade, rotuloTipoTarefa, rotuloDificuldade, rotuloDepartamento } from '../../lib/tarefas'
 import {
   agruparLotes, situacaoItem, saudeGeral, traduzirErro, traduzirAviso, traduzirMotivo, descreverLog, ehProblemaLog,
-  rotuloCampo, tempoRelativo, fmtDuracao, OPERACOES, FILA_ATRASADA_MS, descreverRelacao, RELACOES,
+  rotuloCampo, tempoRelativo, fmtDuracao, rotuloOperacao, FILA_ATRASADA_MS, descreverRelacao, rotuloRelacao,
 } from '../../lib/sincronizacao'
+import { useI18n, t as tr } from '../../i18n'
 import { FOCO } from './Campos'
 
-const PERIODOS = [[1, '24 h'], [7, '7 dias'], [30, '30 dias']]
+const PERIODOS = [1, 7, 30] // dias; 1 aparece como "24 h"
 const TOM = {
   green: 'bg-ln-green/10 text-ln-green',
   red: 'bg-ln-red/10 text-ln-red',
@@ -45,20 +46,26 @@ function Tile({ icone: Icone, k, v, sub, tom, acao }) {
 
 // ── valores legíveis do antes/depois ────────────────────────────────────────
 function valorLegivel(campo, v, ctx) {
-  if (v == null || v === '' || (Array.isArray(v) && !v.length)) return '(vazio)'
+  const vazio = tr('sincronizacao.valor.vazio')
+  if (v == null || v === '' || (Array.isArray(v) && !v.length)) return vazio
   if (campo === 'status') return rotuloStatus(v)
-  if (campo === 'prioridade') return prioDe(v)?.label || v
+  if (campo === 'prioridade') return rotuloPrioridade(v)
+  // opções do ClickUp: as conhecidas traduzidas, as outras como vieram
+  if (campo === 'tipo_tarefa') return rotuloTipoTarefa(v)
+  if (campo === 'dificuldade') return rotuloDificuldade(v)
+  if (campo === 'departamento') return (Array.isArray(v) ? v : String(v).split(',')).map((d) => rotuloDepartamento(String(d).trim())).join(', ')
   if (campo === 'data_inicio' || campo === 'data_vencimento') return fmtDataCurta(v)
-  if (campo === 'estimativa_min') return fmtEstimativa(v) || '(vazio)'
-  if (campo === 'responsaveis') return v.map((id) => ctx.membrosMap.get(id)?.name?.split(' ')[0] || 'alguém').join(', ')
-  if (campo === 'lista_id') return ctx.listasMap.get(v)?.nome || 'outra lista'
-  if (campo === 'parent_id') return ctx.tarefas.get(v)?.titulo || 'outra tarefa'
-  if (campo === 'arquivada') return v ? 'sim' : 'não'
+  if (campo === 'estimativa_min') return fmtEstimativa(v) || vazio
+  if (campo === 'responsaveis') return v.map((id) => ctx.membrosMap.get(id)?.name?.split(' ')[0] || tr('sincronizacao.valor.alguem')).join(', ')
+  if (campo === 'lista_id') return ctx.listasMap.get(v)?.nome || tr('sincronizacao.valor.outraLista')
+  if (campo === 'parent_id') return ctx.tarefas.get(v)?.titulo || tr('sincronizacao.valor.outraTarefa')
+  if (campo === 'arquivada') return v ? tr('sincronizacao.valor.sim') : tr('sincronizacao.valor.nao')
   if (Array.isArray(v)) return v.join(', ')
   return String(v)
 }
 
 function Mudancas({ campos, detalhe, ctx }) {
+  const { t } = useI18n()
   if (!campos?.length) return null
   return (
     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
@@ -67,7 +74,7 @@ function Mudancas({ campos, detalhe, ctx }) {
         return (
           <span key={c} className="text-[12px] text-ln-t3">
             <span className="text-ln-t2 font-medium">{rotuloCampo(c)}</span>
-            {d ? <>: <span className="line-through decoration-ln-t4/60">{valorLegivel(c, d.de, ctx)}</span> → <span className="text-ln-t1">{valorLegivel(c, d.para, ctx)}</span></> : <span className="text-ln-t4"> alterada</span>}
+            {d ? <>: <span className="line-through decoration-ln-t4/60">{valorLegivel(c, d.de, ctx)}</span> → <span className="text-ln-t1">{valorLegivel(c, d.para, ctx)}</span></> : <span className="text-ln-t4"> {t('sincronizacao.alterada')}</span>}
           </span>
         )
       })}
@@ -77,31 +84,34 @@ function Mudancas({ campos, detalhe, ctx }) {
 
 // linha de tarefas_atividade (edição de pessoa): valores vêm como texto; responsáveis separados por vírgula
 function EdicaoTexto({ a, ctx }) {
-  if (a.campo === 'criada') return <span className="text-ln-t3">criou a tarefa</span>
+  const { t } = useI18n()
+  if (a.campo === 'criada') return <span className="text-ln-t3">{t('sincronizacao.criouTarefa')}</span>
   const val = (v) => valorLegivel(a.campo, a.campo === 'responsaveis' && v ? String(v).split(',') : v, ctx)
   const curto = (v) => String(v).slice(0, 60)
   return (
-    <span className="text-ln-t3">mudou {rotuloCampo(a.campo)}{a.campo === 'descricao' ? '' : <>: <span className="line-through decoration-ln-t4/60">{curto(val(a.valor_antigo))}</span> → <span className="text-ln-t2">{curto(val(a.valor_novo))}</span></>}</span>
+    <span className="text-ln-t3">{t('sincronizacao.mudou', { campo: rotuloCampo(a.campo) })}{a.campo === 'descricao' ? '' : <>: <span className="line-through decoration-ln-t4/60">{curto(val(a.valor_antigo))}</span> → <span className="text-ln-t2">{curto(val(a.valor_novo))}</span></>}</span>
   )
 }
 
 function NomeTarefa({ id, cu, ctx, className = '' }) {
+  const { t: tt } = useI18n()
   const t = (id && ctx.tarefas.get(id)) || (cu && ctx.tarefas.get(`cu:${cu}`))
-  if (!t) return <span className={`text-ln-t4 italic ${className}`}>{id || cu ? 'tarefa que não existe mais' : '—'}</span>
+  if (!t) return <span className={`text-ln-t4 italic ${className}`}>{id || cu ? tt('sincronizacao.tarefaNaoExiste') : '—'}</span>
   const lista = ctx.listasMap.get(t.lista_id)
   const pasta = lista ? ctx.pastasMap.get(lista.pasta_id) : null
   return (
     <span className={`min-w-0 inline-flex items-center gap-1.5 ${className}`}>
-      <button type="button" onClick={() => ctx.onAbrirTarefa(t.id)} className={`truncate text-left text-ln-t1 hover:text-ln-accent rounded ${FOCO}`} title={`Abrir: ${t.titulo}`}>{t.titulo}</button>
+      <button type="button" onClick={() => ctx.onAbrirTarefa(t.id)} className={`truncate text-left text-ln-t1 hover:text-ln-accent rounded ${FOCO}`} title={tt('sincronizacao.abrirNome', { nome: t.titulo })}>{t.titulo}</button>
       {pasta && <span className="hidden md:inline text-[11px] text-ln-t4 truncate max-w-[140px] shrink-0" title={`${pasta.nome} › ${lista.nome}`}>{pasta.nome}</span>}
-      {t.arquivada && <Pilula>arquivada</Pilula>}
-      <button type="button" onClick={() => ctx.onFiltrarTarefa(t.id)} className={`ln-iconbtn !w-6 !h-6 shrink-0 ${FOCO}`} title="Histórico de sincronização desta tarefa" aria-label="Histórico de sincronização desta tarefa"><History className="w-3.5 h-3.5" /></button>
+      {t.arquivada && <Pilula>{tt('sincronizacao.arquivada')}</Pilula>}
+      <button type="button" onClick={() => ctx.onFiltrarTarefa(t.id)} className={`ln-iconbtn !w-6 !h-6 shrink-0 ${FOCO}`} title={tt('sincronizacao.historicoDaTarefa')} aria-label={tt('sincronizacao.historicoDaTarefa')}><History className="w-3.5 h-3.5" /></button>
     </span>
   )
 }
 
 // ── ida: um item da fila ─────────────────────────────────────────────────────
 function ItemFila({ it, ctx, mostrarTarefa = true }) {
+  const { t } = useI18n()
   const s = situacaoItem(it)
   const [ocupado, setOcupado] = useState(false)
   const agir = async (fn, ok) => {
@@ -116,16 +126,16 @@ function ItemFila({ it, ctx, mostrarTarefa = true }) {
     <div className="py-2.5 px-3 flex flex-col gap-1 border-t border-ln-ink/[0.06] first:border-t-0">
       <div className="flex items-center gap-2 min-w-0 text-[13px]">
         <span className="text-[11px] text-ln-t4 tabular w-10 shrink-0">{hora(it.created_at)}</span>
-        <Pilula tom="muted">{OPERACOES[it.operacao] || it.operacao}</Pilula>
-        {mostrarTarefa ? <NomeTarefa id={it.tarefa_id} ctx={ctx} className="flex-1" /> : <span className="flex-1 text-ln-t3 text-[12px]">{it.campos?.length ? it.campos.map(rotuloCampo).join(', ') : it.operacao === 'criar' ? 'tarefa inteira' : ''}</span>}
-        <Pilula tom={s.tom} title={it.processed_at ? `Última tentativa: ${fmtDataHora(it.processed_at)}` : undefined}>{s.rotulo}</Pilula>
-        {espera != null && <span className="hidden sm:inline text-[11px] text-ln-t4 tabular whitespace-nowrap" title="Tempo entre a edição e a chegada ao ClickUp">{fmtDuracao(espera)} depois</span>}
+        <Pilula tom="muted">{rotuloOperacao(it.operacao)}</Pilula>
+        {mostrarTarefa ? <NomeTarefa id={it.tarefa_id} ctx={ctx} className="flex-1" /> : <span className="flex-1 text-ln-t3 text-[12px]">{it.campos?.length ? it.campos.map(rotuloCampo).join(', ') : it.operacao === 'criar' ? t('sincronizacao.tarefaInteira') : ''}</span>}
+        <Pilula tom={s.tom} title={it.processed_at ? t('sincronizacao.ultimaTentativa', { data: fmtDataHora(it.processed_at) }) : undefined}>{s.rotulo}</Pilula>
+        {espera != null && <span className="hidden sm:inline text-[11px] text-ln-t4 tabular whitespace-nowrap" title={t('sincronizacao.tempoAteClickup')}>{t('sincronizacao.depois', { tempo: fmtDuracao(espera) })}</span>}
       </div>
       {mostrarTarefa && it.campos?.length > 0 && <p className="pl-12 text-[12px] text-ln-t3">{it.campos.map(rotuloCampo).join(', ')}</p>}
       {rel && (
         <p className="pl-12 text-[12px] text-ln-t3 flex items-center gap-1.5 min-w-0">
           <span className="shrink-0">{rel.rotulo}</span><NomeTarefa id={rel.outraId} ctx={ctx} className="min-w-0" />
-          <span className="hidden sm:inline shrink-0 text-ln-t4">· {rel.clickup ? `vira ${rel.clickup} no ClickUp` : 'fica só no VertaTask'}</span>
+          <span className="hidden sm:inline shrink-0 text-ln-t4">· {rel.clickup ? t('sincronizacao.viraNoClickup', { tipo: rel.clickup }) : t('sincronizacao.soNoVertaTask')}</span>
         </p>
       )}
       {it.erro && (
@@ -135,11 +145,11 @@ function ItemFila({ it, ctx, mostrarTarefa = true }) {
         </div>
       )}
       {it.avisos?.map((a, i) => <p key={i} className="pl-12 text-[12px] text-[#8a6a14] dark:text-ln-yellow inline-flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 mt-px shrink-0" />{traduzirAviso(a)}</p>)}
-      {it.resolvido_por && <p className="pl-12 text-[11px] text-ln-t4">{it.status === 'cancelado' ? 'Ignorado' : 'Mandado de novo'} por {ctx.membrosMap.get(it.resolvido_por)?.name || 'alguém'} {tempoRelativo(it.resolvido_em)}</p>}
+      {it.resolvido_por && <p className="pl-12 text-[11px] text-ln-t4">{t(it.status === 'cancelado' ? 'sincronizacao.ignoradoPor' : 'sincronizacao.reenviadoPor', { nome: ctx.membrosMap.get(it.resolvido_por)?.name || t('sincronizacao.valor.alguem'), quando: tempoRelativo(it.resolvido_em) })}</p>}
       {it.status === 'erro' && (
         <div className="pl-12 flex gap-2 mt-0.5">
-          <button type="button" disabled={ocupado} onClick={() => agir(ctx.sync.reenviar, 'De volta à fila; enviando ao ClickUp')} className="ln-pill !h-6 disabled:opacity-50"><RotateCcw className="w-3 h-3" /> Tentar de novo</button>
-          <button type="button" disabled={ocupado} onClick={() => agir(ctx.sync.ignorar, 'Erro ignorado')} className="ln-pill !h-6 disabled:opacity-50"><X className="w-3 h-3" /> Ignorar</button>
+          <button type="button" disabled={ocupado} onClick={() => agir(ctx.sync.reenviar, t('sincronizacao.toast.deVolta'))} className="ln-pill !h-6 disabled:opacity-50"><RotateCcw className="w-3 h-3" /> {t('sincronizacao.tentarDeNovo')}</button>
+          <button type="button" disabled={ocupado} onClick={() => agir(ctx.sync.ignorar, t('sincronizacao.toast.ignorado'))} className="ln-pill !h-6 disabled:opacity-50"><X className="w-3 h-3" /> {t('sincronizacao.ignorar')}</button>
         </div>
       )}
     </div>
@@ -148,16 +158,17 @@ function ItemFila({ it, ctx, mostrarTarefa = true }) {
 
 // ── ida: um lote (template, edição em massa ou edição avulsa) ────────────────
 function Lote({ lote, ctx, abertoInicial = false }) {
+  const { t, locale } = useI18n()
   const [aberto, setAberto] = useState(abertoInicial)
-  const autor = lote.ator_id ? (ctx.membrosMap.get(lote.ator_id)?.name || 'Alguém do time') : 'Autor não registrado'
+  const autor = lote.ator_id ? (ctx.membrosMap.get(lote.ator_id)?.name || t('sincronizacao.lote.alguemDoTime')) : t('sincronizacao.lote.semAutor')
   const { cont } = lote
-  const ops = Object.entries(lote.ops).map(([k, n]) => `${n} ${(OPERACOES[k] || k).toLowerCase()}`).join(' · ')
+  const ops = Object.entries(lote.ops).map(([k, n]) => `${n} ${rotuloOperacao(k).toLocaleLowerCase(locale)}`).join(' · ')
   const tom = cont.erro ? 'red' : lote.emAberto ? (lote.esperaMs > FILA_ATRASADA_MS ? 'yellow' : 'accent') : 'green'
   const status = cont.erro
-    ? `${cont.erro} ${cont.erro === 1 ? 'falhou' : 'falharam'}`
+    ? t('sincronizacao.lote.falharam', { count: cont.erro })
     : lote.emAberto
-      ? `Enviando: ${cont.ok} de ${lote.total - cont.ignorado - cont.cancelado} (${fmtDuracao(lote.esperaMs)} até agora)`
-      : lote.duracaoMs != null ? `No ClickUp em ${fmtDuracao(lote.duracaoMs)}` : (cont.cancelado || cont.ignorado) === lote.total ? 'Cancelado' : 'No ClickUp'
+      ? t('sincronizacao.lote.enviando', { ok: cont.ok, total: lote.total - cont.ignorado - cont.cancelado, tempo: fmtDuracao(lote.esperaMs) })
+      : lote.duracaoMs != null ? t('sincronizacao.lote.noClickupEm', { tempo: fmtDuracao(lote.duracaoMs) }) : (cont.cancelado || cont.ignorado) === lote.total ? t('sincronizacao.lote.cancelado') : t('sincronizacao.lote.noClickup')
   const comErro = lote.itens.filter((i) => i.status === 'erro').map((i) => i.id)
   return (
     <div className={`ln-card overflow-hidden border-l-[3px] ${BORDA[tom]}`}>
@@ -167,9 +178,9 @@ function Lote({ lote, ctx, abertoInicial = false }) {
         <span className="min-w-0 flex-1 flex flex-col">
           <span className="text-[13px] text-ln-t1 truncate">
             <b className="font-semibold">{autor}</b>{' '}
-            {lote.total === 1 ? <>· {(OPERACOES[lote.itens[0].operacao] || '').toLowerCase()} <span className="text-ln-t2">{ctx.tarefas.get(lote.itens[0].tarefa_id)?.titulo || 'tarefa'}</span></> : <>· {lote.total} alterações em {lote.tarefas} {lote.tarefas === 1 ? 'tarefa' : 'tarefas'}</>}
+            {lote.total === 1 ? <>· {rotuloOperacao(lote.itens[0].operacao).toLocaleLowerCase(locale)} <span className="text-ln-t2">{ctx.tarefas.get(lote.itens[0].tarefa_id)?.titulo || t('sincronizacao.lote.tarefa')}</span></> : <>· {t('sincronizacao.lote.alteracoesEm', { n: lote.total, tarefas: t('sincronizacao.lote.nTarefas', { count: lote.tarefas }) })}</>}
           </span>
-          <span className="text-[11px] text-ln-t4 truncate">{ops}{lote.campos.length ? ` · ${lote.campos.slice(0, 5).map(rotuloCampo).join(', ')}${lote.campos.length > 5 ? ` +${lote.campos.length - 5}` : ''}` : ''}{lote.avisos ? ` · ${lote.avisos} com aviso` : ''}</span>
+          <span className="text-[11px] text-ln-t4 truncate">{ops}{lote.campos.length ? ` · ${lote.campos.slice(0, 5).map(rotuloCampo).join(', ')}${lote.campos.length > 5 ? ` +${lote.campos.length - 5}` : ''}` : ''}{lote.avisos ? ` · ${t('sincronizacao.lote.comAviso', { count: lote.avisos })}` : ''}</span>
         </span>
         {lote.emAberto > 0 && lote.total > 1 && (
           <span className="hidden sm:block w-24 h-1.5 rounded-full bg-ln-ink/[0.08] overflow-hidden shrink-0" aria-hidden="true"><i className="block h-full bg-ln-accent" style={{ width: `${Math.round(lote.progresso * 100)}%` }} /></span>
@@ -180,8 +191,8 @@ function Lote({ lote, ctx, abertoInicial = false }) {
         <div className="border-t border-ln-ink/[0.08] bg-ln-ink/[0.012]">
           {comErro.length > 1 && (
             <div className="px-3 py-2 flex items-center gap-2 border-b border-ln-ink/[0.06]">
-              <span className="text-[12px] text-ln-red flex-1">{comErro.length} alterações deste lote falharam.</span>
-              <button type="button" onClick={async () => { const r = await ctx.sync.reenviar(comErro); ctx.onToast(r.error || `${comErro.length} de volta à fila`, r.error ? 'error' : undefined) }} className="ln-pill !h-6"><RotateCcw className="w-3 h-3" /> Tentar de novo todas</button>
+              <span className="text-[12px] text-ln-red flex-1">{t('sincronizacao.lote.falharamNoLote', { count: comErro.length })}</span>
+              <button type="button" onClick={async () => { const r = await ctx.sync.reenviar(comErro); ctx.onToast(r.error || t('sincronizacao.toast.nDeVolta', { count: comErro.length }), r.error ? 'error' : undefined) }} className="ln-pill !h-6"><RotateCcw className="w-3 h-3" /> {t('sincronizacao.tentarTodas')}</button>
             </div>
           )}
           {lote.itens.slice().sort((a, b) => b.id - a.id).map((it) => <ItemFila key={it.id} it={it} ctx={ctx} />)}
@@ -192,10 +203,12 @@ function Lote({ lote, ctx, abertoInicial = false }) {
 }
 
 // ── volta: uma linha do log ──────────────────────────────────────────────────
-const ORIGEM = { clickup: ['Gravado', ArrowDownLeft], webhook: ['Webhook', Webhook], rodada: ['Rodada', RefreshCw] }
+// rótulo = chave de sincronizacao.origem
+const ORIGEM = { clickup: ['gravado', ArrowDownLeft], webhook: ['webhook', Webhook], rodada: ['rodada', RefreshCw] }
 function LinhaLog({ l, ctx, mostrarTarefa = true }) {
+  const { t } = useI18n()
   const d = descreverLog(l)
-  const [rot, Icone] = ORIGEM[l.origem] || [l.origem, CircleDot]
+  const [rot, Icone] = ORIGEM[l.origem] ? [t(`sincronizacao.origem.${ORIGEM[l.origem][0]}`), ORIGEM[l.origem][1]] : [l.origem, CircleDot]
   return (
     <div className="py-2.5 px-3 flex flex-col gap-0.5 border-t border-ln-ink/[0.06] first:border-t-0">
       <div className="flex items-center gap-2 min-w-0 text-[13px]">
@@ -209,7 +222,7 @@ function LinhaLog({ l, ctx, mostrarTarefa = true }) {
         {l.origem === 'clickup' && !l.acao?.startsWith('relacao_') && <Mudancas campos={l.campos} detalhe={l.detalhe} ctx={ctx} />}
         {l.acao?.startsWith('relacao_') && l.detalhe?.relacionada_id && (
           <p className="text-[12px] text-ln-t3 flex items-center gap-1.5 min-w-0">
-            <span className="shrink-0">{RELACOES[l.detalhe.tipo]?.rotulo || l.detalhe.tipo}</span><NomeTarefa id={l.detalhe.relacionada_id} ctx={ctx} className="min-w-0" />
+            <span className="shrink-0">{rotuloRelacao(l.detalhe.tipo)}</span><NomeTarefa id={l.detalhe.relacionada_id} ctx={ctx} className="min-w-0" />
           </p>
         )}
       </div>
@@ -218,17 +231,19 @@ function LinhaLog({ l, ctx, mostrarTarefa = true }) {
 }
 
 function Rodada({ l }) {
+  const { t, locale } = useI18n()
   const [aberto, setAberto] = useState(false)
   const r = l.detalhe || {}
-  const via = r.via === 'user' ? (r.por?.nome ? `por ${r.por.nome}` : 'pelo VertaTask') : ({ cron: 'automática (todo dia)', script: 'pelo script local' }[r.via] || r.via || '—')
+  const via = r.via === 'user' ? (r.por?.nome ? t('sincronizacao.rodada.porNome', { nome: r.por.nome }) : t('sincronizacao.rodada.peloVertaTask')) : (r.via === 'cron' || r.via === 'script' ? t(`sincronizacao.rodada.via.${r.via}`) : r.via || '—')
+  // chave de sincronizacao.rodada.numeros, valor
   const numeros = [
-    ['tarefas lidas', r.tarefas_recebidas], ['criadas', r.criadas], ['atualizadas', r.atualizadas],
-    ['puladas por conflito', r.puladas_conflito], ['sem pai', r.sem_pai], ['removidas', r.removidas], ['comentários', r.comentarios],
-    ['relações criadas', r.relacoes_criadas], ['relações desfeitas', r.relacoes_removidas],
+    ['lidas', r.tarefas_recebidas], ['criadas', r.criadas], ['atualizadas', r.atualizadas],
+    ['puladasConflito', r.puladas_conflito], ['semPai', r.sem_pai], ['removidas', r.removidas], ['comentarios', r.comentarios],
+    ['relacoesCriadas', r.relacoes_criadas], ['relacoesDesfeitas', r.relacoes_removidas],
   ].filter(([, n]) => n)
   const push = r.push && !r.push.erro ? [
-    ['enviadas ao ClickUp', (r.push.criadas || 0) + (r.push.atualizadas || 0) + (r.push.excluidas || 0)], ['relações enviadas', r.push.relacoes],
-    ['alterações juntadas no envio', r.push.agrupadas], ['canceladas (tarefa excluída)', r.push.canceladas], ['erros no envio', r.push.erros],
+    ['enviadas', (r.push.criadas || 0) + (r.push.atualizadas || 0) + (r.push.excluidas || 0)], ['relacoesEnviadas', r.push.relacoes],
+    ['juntadas', r.push.agrupadas], ['canceladas', r.push.canceladas], ['errosEnvio', r.push.erros],
   ].filter(([, n]) => n) : []
   const avisos = [...(r.avisos || []), ...(r.push?.avisos || [])]
   return (
@@ -236,13 +251,13 @@ function Rodada({ l }) {
       <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} disabled={!avisos.length && l.acao !== 'erro'} className={`w-full text-left px-3 py-2.5 flex items-center gap-3 ${FOCO}`}>
         <span className="text-[12px] text-ln-t4 tabular w-10 shrink-0">{hora(l.created_at)}</span>
         <span className="min-w-0 flex-1 flex flex-col">
-          <span className="text-[13px] text-ln-t1">Rodada {via}{r.duracao_s ? <span className="text-ln-t4"> · {String(r.duracao_s).replace('.', ',')} s</span> : null}</span>
-          <span className="text-[11px] text-ln-t4">{l.acao === 'erro' ? (l.motivo || 'falhou') : [...numeros, ...push].map(([k, n]) => `${Number(n).toLocaleString('pt-BR')} ${k}`).join(' · ') || 'nada novo'}</span>
+          <span className="text-[13px] text-ln-t1">{t('sincronizacao.rodada.titulo', { via })}{r.duracao_s ? <span className="text-ln-t4"> · {Number(r.duracao_s).toLocaleString(locale)} s</span> : null}</span>
+          <span className="text-[11px] text-ln-t4">{l.acao === 'erro' ? (l.motivo || t('sincronizacao.rodada.falhou')) : [...numeros, ...push].map(([k, n]) => `${Number(n).toLocaleString(locale)} ${t(`sincronizacao.rodada.numeros.${k}`)}`).join(' · ') || t('sincronizacao.rodada.nadaNovo')}</span>
         </span>
-        {r.webhook && r.webhook.status !== 'active' && <Pilula tom="yellow" title={r.webhook.aviso}>{r.webhook.reativado ? 'webhook reativado' : `webhook ${r.webhook.status}`}</Pilula>}
-        {r.reconciliar && <Pilula tom="muted" title="Conferiu o que sumiu do ClickUp (apagadas ou fechadas lá)">reconciliação</Pilula>}
-        {avisos.length > 0 && <Pilula tom="yellow">{avisos.length} {avisos.length === 1 ? 'aviso' : 'avisos'}</Pilula>}
-        {l.acao === 'erro' ? <Pilula tom="red">falhou</Pilula> : r.incompleto ? <Pilula tom="yellow" title="Não leu todas as tarefas alteradas a tempo; a próxima rodada cobre o mesmo intervalo">incompleta</Pilula> : <Pilula tom="green">ok</Pilula>}
+        {r.webhook && r.webhook.status !== 'active' && <Pilula tom="yellow" title={r.webhook.aviso}>{r.webhook.reativado ? t('sincronizacao.rodada.webhookReativado') : `webhook ${r.webhook.status}`}</Pilula>}
+        {r.reconciliar && <Pilula tom="muted" title={t('sincronizacao.rodada.reconciliacaoTitle')}>{t('sincronizacao.rodada.reconciliacao')}</Pilula>}
+        {avisos.length > 0 && <Pilula tom="yellow">{t('sincronizacao.rodada.avisos', { count: avisos.length })}</Pilula>}
+        {l.acao === 'erro' ? <Pilula tom="red">{t('sincronizacao.rodada.falhou')}</Pilula> : r.incompleto ? <Pilula tom="yellow" title={t('sincronizacao.rodada.incompletaTitle')}>{t('sincronizacao.rodada.incompleta')}</Pilula> : <Pilula tom="green">{t('sincronizacao.rodada.ok')}</Pilula>}
       </button>
       {aberto && avisos.length > 0 && (
         <ul className="border-t border-ln-ink/[0.08] px-4 py-2 flex flex-col gap-1 text-[12px] text-ln-t3">
@@ -253,37 +268,32 @@ function Rodada({ l }) {
   )
 }
 
+// texto do dicionário com **negrito** marcado
+const negrito = (txt) => String(txt).split(/\*\*(.+?)\*\*/).map((p, i) => (i % 2 ? <b key={i}>{p}</b> : p))
+const ITENS_IDA = ['fila', 'lote', 'mesmaTarefa', 'tentativas', 'moverLista']
+const ITENS_VOLTA = ['webhook', 'rodada', 'leve', 'incompleta', 'ignorados', 'conflito', 'naoVem', 'chat']
+
 function ComoFunciona() {
+  const { t } = useI18n()
   const [aberto, setAberto] = useState(false)
   return (
     <section className="ln-card overflow-hidden">
       <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} className={`w-full text-left px-4 py-2.5 flex items-center gap-2 text-[13px] font-semibold text-ln-t1 ${FOCO}`}>
-        <HelpCircle className="w-4 h-4 text-ln-accent" /> Como a sincronização com o ClickUp funciona
+        <HelpCircle className="w-4 h-4 text-ln-accent" /> {t('sincronizacao.como.titulo')}
         {aberto ? <ChevronDown className="w-4 h-4 text-ln-t4 ml-auto" /> : <ChevronRight className="w-4 h-4 text-ln-t4 ml-auto" />}
       </button>
       {aberto && (
         <div className="border-t border-ln-ink/[0.08] px-4 py-3 grid gap-3 md:grid-cols-2 text-[13px] text-ln-t2 leading-relaxed">
           <div>
-            <p className="font-semibold text-ln-t1 inline-flex items-center gap-1.5 mb-1"><ArrowUpRight className="w-4 h-4 text-ln-accent" /> Daqui para o ClickUp</p>
+            <p className="font-semibold text-ln-t1 inline-flex items-center gap-1.5 mb-1"><ArrowUpRight className="w-4 h-4 text-ln-accent" /> {t('sincronizacao.como.ida')}</p>
             <ul className="list-disc pl-5 flex flex-col gap-1">
-              <li>Toda edição feita aqui entra numa fila e costuma chegar ao ClickUp em segundos.</li>
-              <li><b>Template e edição em massa</b> viram muitas alterações de uma vez. O ClickUp aceita cerca de 100 chamadas por minuto, então um lote grande leva minutos. Enquanto o lote não termina, o ClickUp mostra a versão antiga.</li>
-              <li>Alterações seguidas na <b>mesma tarefa</b> vão juntas, num envio só, com o valor final de cada campo. Por isso várias linhas de um lote podem chegar ao ClickUp no mesmo segundo.</li>
-              <li>Cada alteração tenta até 5 vezes. Se o ClickUp recusar (data de início depois do vencimento, opção que não existe na lista), ela para em <b>Problemas</b> e o ClickUp fica diferente daqui até alguém resolver.</li>
-              <li>Mover a tarefa de lista <b>não</b> vai para o ClickUp: mova lá também.</li>
+              {ITENS_IDA.map((k) => <li key={k}>{negrito(t(`sincronizacao.como.itensIda.${k}`))}</li>)}
             </ul>
           </div>
           <div>
-            <p className="font-semibold text-ln-t1 inline-flex items-center gap-1.5 mb-1"><ArrowDownLeft className="w-4 h-4 text-ln-accent" /> Do ClickUp para cá</p>
+            <p className="font-semibold text-ln-t1 inline-flex items-center gap-1.5 mb-1"><ArrowDownLeft className="w-4 h-4 text-ln-accent" /> {t('sincronizacao.como.volta')}</p>
             <ul className="list-disc pl-5 flex flex-col gap-1">
-              <li>Mudanças feitas no ClickUp chegam pelo <b>webhook</b>, em segundos.</li>
-              <li>Uma <b>rodada</b> confere o que o webhook perdeu. A do dia (6h) é completa: traz comentários e anexos, confere se o webhook está ativo (e o reativa se o ClickUp o suspendeu) e, aos domingos, procura tarefas apagadas lá.</li>
-              <li>Ao abrir o VertaTask roda uma versão leve, só se o webhook está calado há mais de 30 min ou a última rodada tem mais de 3 h. O botão &ldquo;Sincronizar agora&rdquo; roda a mesma versão leve na hora.</li>
-              <li>Se a rodada não der conta de ler tudo a tempo, ela fica <b>incompleta</b> e a próxima confere o mesmo período de novo: nada fica para trás.</li>
-              <li>Enquanto uma tarefa está sendo enviada daqui, os eventos dela vindos do ClickUp são <b>ignorados</b>: quem grava a versão final é o envio. É o que evita tarefa duplicada.</li>
-              <li><b>Conflito:</b> se a tarefa foi editada aqui depois da última sincronização e o ClickUp não é mais novo, vale a edição daqui.</li>
-              <li>Não vêm do ClickUp: tempo rastreado, dependências e tarefas arquivadas lá.</li>
-              <li>O <b>Chat</b> não sincroniza mais com o ClickUp (desde 29/10): as mensagens ficam só no VertaTask.</li>
+              {ITENS_VOLTA.map((k) => <li key={k}>{negrito(t(`sincronizacao.como.itensVolta.${k}`))}</li>)}
             </ul>
           </div>
         </div>
@@ -308,11 +318,13 @@ function PorDia({ itens, render }) {
 }
 
 // resultado do último evento do webhook, no quadro do topo
-const ACAO_CURTA = { atualizada: 'tarefa atualizada', criada: 'tarefa nova', removida: 'tarefa removida', sem_mudanca: 'sem mudança', ignorado: 'ignorado', pulada_conflito: 'conflito', erro: 'erro' }
+// chaves de sincronizacao.acaoCurta
+const ACAO_CURTA = new Set(['atualizada', 'criada', 'removida', 'sem_mudanca', 'ignorado', 'pulada_conflito', 'erro'])
 
 const Vazio = ({ children }) => <p className="ln-card px-4 py-8 text-center text-[13px] text-ln-t4">{children}</p>
 
 export default function SincronizacaoView({ membrosMap, listasMap, pastasMap, tarefaFiltro, onFiltrarTarefa, onAbrirTarefa, onToast }) {
+  const { t, lang } = useI18n()
   const [dias, setDias] = useState(7)
   const [aba, setAba] = useState('problemas')
   const [ecos, setEcos] = useState(false)
@@ -365,7 +377,7 @@ export default function SincronizacaoView({ membrosMap, listasMap, pastasMap, ta
     setRodando(true)
     try {
       const r = await sync.sincronizarAgora()
-      onToast(r?.emAndamento ? 'Já há uma rodada em andamento' : 'Rodada concluída')
+      onToast(r?.emAndamento ? t('sincronizacao.toast.emAndamento') : t('sincronizacao.toast.rodadaConcluida'))
     } catch (e) { onToast(e.message, 'error') } finally { setRodando(false) }
   }
 
@@ -373,21 +385,21 @@ export default function SincronizacaoView({ membrosMap, listasMap, pastasMap, ta
   const rodada = sync.estado.clickup
   // última conferência da saúde do webhook (rodada do cron); null = ativo ou não conferido
   const saudeWebhook = rodada?.resumo?.webhook && rodada.resumo.webhook.status !== 'active' ? rodada.resumo.webhook : null
-  const membros = useMemo(() => [...new Set(sync.fila.map((i) => i.ator_id).filter(Boolean))].map((id) => ({ id, nome: membrosMap.get(id)?.name || 'Alguém' })).sort((a, b) => a.nome.localeCompare(b.nome)), [sync.fila, membrosMap])
+  const membros = useMemo(() => [...new Set(sync.fila.map((i) => i.ator_id).filter(Boolean))].map((id) => ({ id, nome: membrosMap.get(id)?.name || t('sincronizacao.valor.alguemMaiusculo') })).sort((a, b) => a.nome.localeCompare(b.nome)), [sync.fila, membrosMap, lang]) // eslint-disable-line react-hooks/exhaustive-deps
   const tarefaAlvo = tarefaFiltro ? sync.tarefas.get(tarefaFiltro) : null
 
   const ABAS = [
-    ['problemas', 'Problemas', problemas.length],
-    ['envios', 'Enviados ao ClickUp', null],
-    ['recebidos', 'Recebidos do ClickUp', null],
-    ['rodadas', 'Rodadas', null],
+    ['problemas', t('sincronizacao.abas.problemas'), problemas.length],
+    ['envios', t('sincronizacao.abas.envios'), null],
+    ['recebidos', t('sincronizacao.abas.recebidos'), null],
+    ['rodadas', t('sincronizacao.abas.rodadas'), null],
   ]
 
   return (
     <div className="p-5 flex flex-col gap-4 max-w-6xl">
-      {sync.erro && <p className="text-[13px] text-ln-red">Não consegui carregar: {sync.erro}</p>}
+      {sync.erro && <p className="text-[13px] text-ln-red">{t('sincronizacao.erroCarregar', { erro: sync.erro })}</p>}
       {sync.logIndisponivel && (
-        <p className="ln-card px-4 py-2.5 text-[12px] text-[#8a6a14] dark:text-ln-yellow inline-flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" />O rastro do que chega do ClickUp ainda não está ligado (migration 121). Os envios daqui aparecem normalmente.</p>
+        <p className="ln-card px-4 py-2.5 text-[12px] text-[#8a6a14] dark:text-ln-yellow inline-flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" />{t('sincronizacao.logIndisponivel')}</p>
       )}
 
       {/* ── saúde + números ── */}
@@ -400,14 +412,14 @@ export default function SincronizacaoView({ membrosMap, listasMap, pastasMap, ta
           </div>
         </section>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Tile icone={Send} k="Fila para o ClickUp" v={emAberto.length} tom={emAberto.length && Date.now() - Math.min(...emAberto.map((i) => new Date(i.created_at))) > FILA_ATRASADA_MS ? 'yellow' : undefined}
-            sub={emAberto.length ? `mais antiga ${tempoRelativo(emAberto.reduce((m, i) => (i.created_at < m ? i.created_at : m), emAberto[0].created_at))}` : 'vazia'} />
-          <Tile icone={AlertTriangle} k="Com erro" v={erros.length} tom={erros.length ? 'red' : undefined} sub={erros.length ? 'não chegaram ao ClickUp' : 'nenhum'} />
-          <Tile icone={Webhook} k="Último evento do ClickUp" v={tempoRelativo(webhook?.ultimo_fim)} tom={webhook?.ultimo_ok === false || saudeWebhook ? 'yellow' : undefined}
-            sub={saudeWebhook ? (saudeWebhook.reativado ? 'webhook reativado na última rodada' : `webhook ${saudeWebhook.status}`) : webhook?.resumo ? `${webhook.resumo.evento || 'evento'} · ${ACAO_CURTA[webhook.resumo.acao] || webhook.resumo.acao || ''}` : 'webhook'} />
-          <Tile icone={RefreshCw} k="Última rodada" v={tempoRelativo(rodada?.ultimo_fim || rodada?.ultimo_inicio)} tom={rodada?.ultimo_ok === false ? 'yellow' : undefined}
-            sub={rodada?.ultimo_ok === false ? 'com erro' : rodada?.resumo?.incompleto ? 'incompleta: a próxima cobre o resto' : rodada?.resumo ? `${rodada.resumo.por?.nome ? `por ${rodada.resumo.por.nome.split(' ')[0]} · ` : ''}${(rodada.resumo.criadas || 0) + (rodada.resumo.atualizadas || 0)} tarefas atualizadas` : ''}
-            acao={<button type="button" onClick={sincronizarAgora} disabled={rodando} className="ln-pill !h-6 mt-1 self-start disabled:opacity-50"><RefreshCw className={`w-3 h-3 ${rodando ? 'animate-spin' : ''}`} />{rodando ? 'Sincronizando…' : 'Sincronizar agora'}</button>} />
+          <Tile icone={Send} k={t('sincronizacao.tiles.fila')} v={emAberto.length} tom={emAberto.length && Date.now() - Math.min(...emAberto.map((i) => new Date(i.created_at))) > FILA_ATRASADA_MS ? 'yellow' : undefined}
+            sub={emAberto.length ? t('sincronizacao.tiles.maisAntiga', { quando: tempoRelativo(emAberto.reduce((m, i) => (i.created_at < m ? i.created_at : m), emAberto[0].created_at)) }) : t('sincronizacao.tiles.vazia')} />
+          <Tile icone={AlertTriangle} k={t('sincronizacao.tiles.comErro')} v={erros.length} tom={erros.length ? 'red' : undefined} sub={erros.length ? t('sincronizacao.tiles.naoChegaram') : t('sincronizacao.tiles.nenhum')} />
+          <Tile icone={Webhook} k={t('sincronizacao.tiles.ultimoEvento')} v={tempoRelativo(webhook?.ultimo_fim)} tom={webhook?.ultimo_ok === false || saudeWebhook ? 'yellow' : undefined}
+            sub={saudeWebhook ? (saudeWebhook.reativado ? t('sincronizacao.tiles.webhookReativado') : `webhook ${saudeWebhook.status}`) : webhook?.resumo ? `${webhook.resumo.evento || t('sincronizacao.tiles.evento')} · ${ACAO_CURTA.has(webhook.resumo.acao) ? t(`sincronizacao.acaoCurta.${webhook.resumo.acao}`) : webhook.resumo.acao || ''}` : 'webhook'} />
+          <Tile icone={RefreshCw} k={t('sincronizacao.tiles.ultimaRodada')} v={tempoRelativo(rodada?.ultimo_fim || rodada?.ultimo_inicio)} tom={rodada?.ultimo_ok === false ? 'yellow' : undefined}
+            sub={rodada?.ultimo_ok === false ? t('sincronizacao.tiles.comErroMinusculo') : rodada?.resumo?.incompleto ? t('sincronizacao.tiles.incompleta') : rodada?.resumo ? `${rodada.resumo.por?.nome ? `${t('sincronizacao.rodada.porNome', { nome: rodada.resumo.por.nome.split(' ')[0] })} · ` : ''}${t('sincronizacao.tiles.tarefasAtualizadas', { count: (rodada.resumo.criadas || 0) + (rodada.resumo.atualizadas || 0) })}` : ''}
+            acao={<button type="button" onClick={sincronizarAgora} disabled={rodando} className="ln-pill !h-6 mt-1 self-start disabled:opacity-50"><RefreshCw className={`w-3 h-3 ${rodando ? 'animate-spin' : ''}`} />{rodando ? t('comum.sincronizando') : t('sincronizacao.sincronizarAgora')}</button>} />
         </div>
         <ComoFunciona />
       </>)}
@@ -416,31 +428,31 @@ export default function SincronizacaoView({ membrosMap, listasMap, pastasMap, ta
       {tarefaFiltro ? (
         <section className="flex flex-col gap-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <button type="button" onClick={() => onFiltrarTarefa(null)} className="ln-pill"><X className="w-3.5 h-3.5" /> Ver tudo</button>
-            <h2 className="text-[15px] font-bold text-ln-t1 truncate flex-1 min-w-0">Histórico de sincronização{tarefaAlvo ? <>: <span className="font-semibold">{tarefaAlvo.titulo}</span></> : ''}</h2>
-            {tarefaAlvo && <button type="button" onClick={() => onAbrirTarefa(tarefaAlvo.id)} className="ln-pill">Abrir tarefa</button>}
+            <button type="button" onClick={() => onFiltrarTarefa(null)} className="ln-pill"><X className="w-3.5 h-3.5" /> {t('sincronizacao.historico.verTudo')}</button>
+            <h2 className="text-[15px] font-bold text-ln-t1 truncate flex-1 min-w-0">{t('sincronizacao.historico.titulo')}{tarefaAlvo ? <>: <span className="font-semibold">{tarefaAlvo.titulo}</span></> : ''}</h2>
+            {tarefaAlvo && <button type="button" onClick={() => onAbrirTarefa(tarefaAlvo.id)} className="ln-pill">{t('sincronizacao.historico.abrirTarefa')}</button>}
             {tarefaAlvo?.clickup_url && <a href={tarefaAlvo.clickup_url} target="_blank" rel="noopener noreferrer" className="ln-pill">ClickUp <ExternalLink className="w-3 h-3" /></a>}
             {tarefaAlvo && (
               <button
                 type="button" className="ln-pill"
-                title="Manda todos os campos desta tarefa para o ClickUp"
+                title={t('sincronizacao.historico.forcarTitle')}
                 onClick={async () => {
-                  if (!window.confirm('Mandar a tarefa inteira (todos os campos) para o ClickUp? O que estiver diferente lá será sobrescrito pela versão daqui.')) return
+                  if (!window.confirm(t('sincronizacao.historico.forcarConfirmar'))) return
                   const r = await sync.forcar(tarefaAlvo.id)
-                  onToast(r.error || 'Tarefa na fila para o ClickUp', r.error ? 'error' : undefined)
+                  onToast(r.error || t('sincronizacao.toast.tarefaNaFila'), r.error ? 'error' : undefined)
                 }}
-              ><Send className="w-3.5 h-3.5" /> Forçar envio ao ClickUp</button>
+              ><Send className="w-3.5 h-3.5" /> {t('sincronizacao.historico.forcar')}</button>
             )}
           </div>
-          <p className="text-[12px] text-ln-t4">Edições feitas aqui, o que foi para o ClickUp e o que veio de lá, do mais recente para o mais antigo.</p>
+          <p className="text-[12px] text-ln-t4">{t('sincronizacao.historico.ajuda')}</p>
           {sync.carregando && !historico.length ? <div className="py-12 flex justify-center text-ln-t4"><Loader2 className="w-4 h-4 animate-spin" /></div>
-            : !historico.length ? <Vazio>Nada registrado para esta tarefa.</Vazio>
+            : !historico.length ? <Vazio>{t('sincronizacao.historico.vazio')}</Vazio>
               : (
                 <div className="flex flex-col gap-2">
                   <PorDia itens={historico} render={(h) => (
                     <div key={`${h.tipo}-${h.x.id}`} className="ln-card overflow-hidden flex">
                       <span className={`w-[92px] shrink-0 px-2 py-2.5 text-[11px] font-semibold inline-flex items-start gap-1 ${h.tipo === 'edicao' ? 'text-ln-t3' : h.tipo === 'fila' ? 'text-ln-accent' : 'text-[#2a7a4f] dark:text-ln-green'}`}>
-                        {h.tipo === 'edicao' ? <><CircleDot className="w-3 h-3 mt-px" />Edição aqui</> : h.tipo === 'fila' ? <><ArrowUpRight className="w-3 h-3 mt-px" />Para o ClickUp</> : <><ArrowDownLeft className="w-3 h-3 mt-px" />Do ClickUp</>}
+                        {h.tipo === 'edicao' ? <><CircleDot className="w-3 h-3 mt-px" />{t('sincronizacao.historico.edicaoAqui')}</> : h.tipo === 'fila' ? <><ArrowUpRight className="w-3 h-3 mt-px" />{t('sincronizacao.historico.paraClickup')}</> : <><ArrowDownLeft className="w-3 h-3 mt-px" />{t('sincronizacao.historico.doClickup')}</>}
                       </span>
                       <div className="flex-1 min-w-0">
                         {h.tipo === 'fila' ? <ItemFila it={h.x} ctx={ctx} mostrarTarefa={false} />
@@ -448,7 +460,7 @@ export default function SincronizacaoView({ membrosMap, listasMap, pastasMap, ta
                             : (
                               <div className="py-2.5 px-3 text-[13px] flex items-center gap-2 min-w-0">
                                 <span className="text-[11px] text-ln-t4 tabular w-10 shrink-0">{hora(h.x.created_at)}</span>
-                                <span className="truncate"><b className="font-semibold text-ln-t1">{h.x.ator_nome || 'Alguém'}</b> <EdicaoTexto a={h.x} ctx={ctx} /></span>
+                                <span className="truncate"><b className="font-semibold text-ln-t1">{h.x.ator_nome || t('sincronizacao.valor.alguemMaiusculo')}</b> <EdicaoTexto a={h.x} ctx={ctx} /></span>
                               </div>
                             )}
                       </div>
@@ -466,24 +478,24 @@ export default function SincronizacaoView({ membrosMap, listasMap, pastasMap, ta
               </button>
             ))}
             <span className="w-px h-5 bg-ln-ink/10 mx-1" />
-            {PERIODOS.map(([n, rot]) => <button key={n} type="button" onClick={() => setDias(n)} className={`ln-tab ${dias === n ? 'ln-tab-active' : ''}`} aria-pressed={dias === n}>{rot}</button>)}
+            {PERIODOS.map((n) => <button key={n} type="button" onClick={() => setDias(n)} className={`ln-tab ${dias === n ? 'ln-tab-active' : ''}`} aria-pressed={dias === n}>{n === 1 ? '24 h' : t('comum.dias', { count: n })}</button>)}
             <div className="ml-auto flex items-center gap-2">
               {aba === 'envios' && membros.length > 0 && (
-                <select className="ln-input !h-7 !w-[150px] text-xs" value={pessoa} onChange={(e) => setPessoa(e.target.value)} aria-label="Quem fez">
-                  <option value="">Todas as pessoas</option>
+                <select className="ln-input !h-7 !w-[150px] text-xs" value={pessoa} onChange={(e) => setPessoa(e.target.value)} aria-label={t('sincronizacao.filtros.quemFez')}>
+                  <option value="">{t('sincronizacao.filtros.todasPessoas')}</option>
                   {membros.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
                 </select>
               )}
               {aba === 'recebidos' && (
-                <label className="inline-flex items-center gap-1.5 text-xs text-ln-t3 cursor-pointer" title="Eventos do ClickUp que não mudaram nada (a volta das edições feitas aqui)">
-                  <input type="checkbox" checked={ecos} onChange={(e) => setEcos(e.target.checked)} /> Mostrar ecos
+                <label className="inline-flex items-center gap-1.5 text-xs text-ln-t3 cursor-pointer" title={t('sincronizacao.filtros.ecosTitle')}>
+                  <input type="checkbox" checked={ecos} onChange={(e) => setEcos(e.target.checked)} /> {t('sincronizacao.filtros.mostrarEcos')}
                 </label>
               )}
               <label className="relative">
                 <Search className="w-3.5 h-3.5 text-ln-t4 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input className="ln-input !h-7 !w-[190px] !pl-7 text-xs" placeholder="Buscar tarefa" value={busca} onChange={(e) => setBusca(e.target.value)} aria-label="Buscar tarefa" />
+                <input className="ln-input !h-7 !w-[190px] !pl-7 text-xs" placeholder={t('sincronizacao.filtros.buscarTarefa')} value={busca} onChange={(e) => setBusca(e.target.value)} aria-label={t('sincronizacao.filtros.buscarTarefa')} />
               </label>
-              <button type="button" onClick={sync.recarregar} className="ln-iconbtn" aria-label="Recarregar" title="Recarregar (atualiza sozinho a cada 15 s)">
+              <button type="button" onClick={sync.recarregar} className="ln-iconbtn" aria-label={t('sincronizacao.filtros.recarregar')} title={t('sincronizacao.filtros.recarregarTitle')}>
                 {sync.carregando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
               </button>
             </div>
@@ -492,44 +504,44 @@ export default function SincronizacaoView({ membrosMap, listasMap, pastasMap, ta
           {sync.carregando && !sync.fila.length && !sync.log.length ? (
             <div className="py-16 flex justify-center text-ln-t4"><Loader2 className="w-4 h-4 animate-spin" /></div>
           ) : aba === 'problemas' ? (
-            !problemas.length ? <Vazio><CheckCircle2 className="w-5 h-5 text-ln-green mx-auto mb-1" />Nenhum problema {dias === 1 ? 'nas últimas 24 h' : `nos últimos ${dias} dias`}.</Vazio> : (
+            !problemas.length ? <Vazio><CheckCircle2 className="w-5 h-5 text-ln-green mx-auto mb-1" />{dias === 1 ? t('sincronizacao.vazios.problemas24h') : t('sincronizacao.vazios.problemasDias', { count: dias })}</Vazio> : (
               <div className="flex flex-col gap-2">
                 {erros.length > 1 && (
                   <div className="ln-card px-3 py-2 flex items-center gap-2">
-                    <span className="text-[13px] text-ln-t2 flex-1">{erros.length} alterações com erro.</span>
-                    <button type="button" onClick={async () => { const r = await sync.reenviar(erros.map((i) => i.id)); onToast(r.error || `${erros.length} de volta à fila`, r.error ? 'error' : undefined) }} className="ln-pill"><RotateCcw className="w-3.5 h-3.5" /> Tentar de novo todas</button>
+                    <span className="text-[13px] text-ln-t2 flex-1">{t('sincronizacao.nComErro', { count: erros.length })}</span>
+                    <button type="button" onClick={async () => { const r = await sync.reenviar(erros.map((i) => i.id)); onToast(r.error || t('sincronizacao.toast.nDeVolta', { count: erros.length }), r.error ? 'error' : undefined) }} className="ln-pill"><RotateCcw className="w-3.5 h-3.5" /> {t('sincronizacao.tentarTodas')}</button>
                   </div>
                 )}
                 <PorDia itens={problemas} render={(p) => (
                   <div key={`${p.tipo}-${p.x.id}`} className={`ln-card overflow-hidden border-l-[3px] ${p.tipo === 'fila' && p.x.status === 'erro' ? BORDA.red : BORDA.yellow}`}>
-                    <p className="px-3 pt-2 text-[11px] font-semibold text-ln-t4 inline-flex items-center gap-1">{p.tipo === 'fila' ? <><ArrowUpRight className="w-3 h-3" />Daqui para o ClickUp</> : <><ArrowDownLeft className="w-3 h-3" />Do ClickUp para cá</>}</p>
+                    <p className="px-3 pt-2 text-[11px] font-semibold text-ln-t4 inline-flex items-center gap-1">{p.tipo === 'fila' ? <><ArrowUpRight className="w-3 h-3" />{t('sincronizacao.como.ida')}</> : <><ArrowDownLeft className="w-3 h-3" />{t('sincronizacao.como.volta')}</>}</p>
                     {p.tipo === 'fila' ? <ItemFila it={p.x} ctx={ctx} /> : <LinhaLog l={p.x} ctx={ctx} />}
                   </div>
                 )} />
               </div>
             )
           ) : aba === 'envios' ? (
-            !lotes.length ? <Vazio>Nenhuma alteração enviada ao ClickUp no período.</Vazio> : (
+            !lotes.length ? <Vazio>{t('sincronizacao.vazios.envios')}</Vazio> : (
               <div className="flex flex-col gap-2">
-                <p className="text-[12px] text-ln-t4">Cada linha é um lote: edições seguidas da mesma pessoa (um template aplicado, uma edição em massa) ficam juntas. Abra para ver tarefa por tarefa.</p>
+                <p className="text-[12px] text-ln-t4">{t('sincronizacao.ajudaLotes')}</p>
                 <PorDia itens={lotes.slice(0, 300)} render={(l) => <Lote key={l.id} lote={l} ctx={ctx} abertoInicial={l.cont.erro > 0 && l.total <= 5} />} />
               </div>
             )
           ) : aba === 'recebidos' ? (
-            sync.logIndisponivel ? <Vazio>Disponível depois da migration 121.</Vazio> : !recebidos.length ? <Vazio>Nada recebido do ClickUp no período.</Vazio> : (
+            sync.logIndisponivel ? <Vazio>{t('sincronizacao.vazios.migration')}</Vazio> : !recebidos.length ? <Vazio>{t('sincronizacao.vazios.recebidos')}</Vazio> : (
               <div className="flex flex-col gap-2">
-                <p className="text-[12px] text-ln-t4"><b>Gravado</b> = o ClickUp mudou a tarefa aqui (com o antes e o depois). <b>Webhook</b> = evento que chegou e não mudou nada, com o motivo.</p>
+                <p className="text-[12px] text-ln-t4">{negrito(t('sincronizacao.ajudaRecebidos'))}</p>
                 <PorDia itens={recebidos.slice(0, 500)} render={(l) => <div key={l.id} className="ln-card overflow-hidden"><LinhaLog l={l} ctx={ctx} /></div>} />
               </div>
             )
           ) : (
-            sync.logIndisponivel ? <Vazio>Disponível depois da migration 121.</Vazio> : !rodadas.length ? <Vazio>Nenhuma rodada registrada no período.</Vazio> : (
+            sync.logIndisponivel ? <Vazio>{t('sincronizacao.vazios.migration')}</Vazio> : !rodadas.length ? <Vazio>{t('sincronizacao.vazios.rodadas')}</Vazio> : (
               <div className="flex flex-col gap-2"><PorDia itens={rodadas} render={(l) => <Rodada key={l.id} l={l} />} /></div>
             )
           )}
         </section>
       )}
-      <p className="text-[11px] text-ln-t4 inline-flex items-center gap-1.5"><Clock className="w-3 h-3" />Atualiza sozinho a cada 15 s. O rastro do que chega do ClickUp fica guardado por 30 dias.</p>
+      <p className="text-[11px] text-ln-t4 inline-flex items-center gap-1.5"><Clock className="w-3 h-3" />{t('sincronizacao.rodape')}</p>
     </div>
   )
 }
