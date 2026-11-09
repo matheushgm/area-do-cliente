@@ -80,7 +80,7 @@ const NAV_SECTIONS = [
         { id: 'funil',       label: 'Funil de Vendas',   Icon: GitFork,       type: 'route', to: '/funil' },
         { id: 'calculadora-roi', label: 'Calculadora de ROI', Icon: Percent,    type: 'route', to: '/calculadora-roi' },
         { id: 'site-plataforma', label: 'Site da Plataforma', Icon: Globe,      type: 'route', to: '/site-plataforma' },
-        { id: 'precificacao',label: 'Precificação',      Icon: DollarSign,    type: 'external', href: 'https://vvmkxurb.manus.space/' },
+        { id: 'precificacao',label: 'Precificação',      Icon: DollarSign,    type: 'route', to: '/ferramenta-precificacao' },
       ] },
     ],
   },
