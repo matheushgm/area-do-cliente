@@ -17,6 +17,7 @@ export default {
     calculadoraRoi: 'ROI Calculator',
     sitePlataforma: 'Platform Website',
     precificacao: 'Pricing',
+    dashboardComercial: 'Sales Dashboard',
     bancoAnuncios: 'Ad Library',
     bancoLp: 'Landing Page Library',
     playbook: 'Playbook',

@@ -17,6 +17,7 @@ export default {
     calculadoraRoi: 'Calculadora de ROI',
     sitePlataforma: 'Site da Plataforma',
     precificacao: 'Precificação',
+    dashboardComercial: 'Dashboard Comercial',
     bancoAnuncios: 'Banco de Anúncios',
     bancoLp: 'Banco de LP',
     playbook: 'Playbook',
