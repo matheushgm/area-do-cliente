@@ -283,8 +283,8 @@ p{text-wrap:pretty}
   .pd-capa__body .pd-eye{font-size:8.5pt;margin-bottom:6mm}
   .pd-capa h1{font-weight:800;font-size:40pt;line-height:1.02;letter-spacing:-.03em;max-width:160mm;margin-bottom:6mm}
   .pd-capa__lead{font-size:12pt;line-height:1.6;color:rgba(255,255,255,.78);max-width:128mm}
-  .pd-meta{position:relative;margin-top:16mm;display:grid;grid-template-columns:1.35fr .75fr 1fr 1fr;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:rgba(7,2,48,.35)}
-  .pd-meta div{padding:4.5mm 5mm;border-left:1px solid rgba(255,255,255,.12)}
+  .pd-meta{position:relative;margin-top:16mm;display:flex;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:rgba(7,2,48,.35)}
+  .pd-meta div{flex:1;padding:4.5mm 5mm;border-left:1px solid rgba(255,255,255,.12)}
   .pd-meta div:first-child{border-left:0}
   .pd-meta small{display:block;font-family:Sora,sans-serif;font-weight:700;font-size:6.3pt;letter-spacing:.2em;text-transform:uppercase;color:#8FA6FF;margin-bottom:1.6mm}
   .pd-meta b{font-weight:600;font-size:10pt;color:#fff;font-variant-numeric:tabular-nums}
@@ -352,18 +352,9 @@ p{text-wrap:pretty}
   .pd-note svg{flex:none;width:3.4mm;height:3.4mm;margin-top:.5mm;color:#2A25F0}
   .pd-link{margin-top:3mm;font-size:8.4pt;font-weight:600;color:#2A25F0!important;text-decoration:none}
 
-  /* fechamento */
-  .pd-fim__body{position:relative;margin-top:30mm}
-  .pd-fim__body .pd-eye{margin-bottom:4mm}
-  .pd-fim h2{font-weight:800;font-size:28pt;letter-spacing:-.03em;margin-bottom:5mm}
-  .pd-fim__body p{font-size:11.5pt;line-height:1.6;color:rgba(255,255,255,.78);max-width:130mm}
-  .pd-cta{display:inline-block;margin-top:8mm;font-family:Sora,sans-serif;font-weight:700;font-size:10pt;color:#0B0B14!important;background:#fff;border-radius:999px;padding:3.4mm 7mm;text-decoration:none}
-  .pd-cond{position:relative;margin-top:auto;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:rgba(7,2,48,.35);padding:5.5mm 6mm}
-  .pd-cond li{font-size:9pt;color:rgba(255,255,255,.78);padding:.9mm 0 .9mm 4.5mm;position:relative}
-  .pd-cond li::before{content:"";position:absolute;left:0;top:2.9mm;width:1.4mm;height:1.4mm;border-radius:50%;background:#8FA6FF}
-  .pd-cond .pd-eye{margin-bottom:2.5mm}
-  .pd-fim__foot{position:relative;margin-top:12mm;display:flex;justify-content:space-between;align-items:center}
-  .pd-fim__foot span{font-family:Sora,sans-serif;font-weight:700;font-size:8pt;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+  /* fechamento: só o logo centralizado */
+  .pd-fim{align-items:center;justify-content:center}
+  .pd-fim__logo{height:16mm;width:auto}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
@@ -1040,18 +1031,26 @@ function iconSVG(name) {
           <h1>${esc(nome || "Proposta de serviços")}</h1>
           <p class="pd-capa__lead">Serviços de marketing, comercial e tecnologia para acelerar a receita da sua empresa.</p>
           <div class="pd-meta">
+            ${nome ? `<div><small>Preparada para</small><b>${esc(nome)}</b></div>` : ""}
             <div><small>Data</small><b>${hoje}</b></div>
-            <div><small>Serviços</small><b>${list.length}</b></div>
-            <div><small>Mensal</small><b>${brl(t.m)}</b></div>
-            <div><small>Primeiro mês</small><b>${brl(t.m + t.u)}</b></div>
+            <div><small>Serviços</small><b>${list.length} ${list.length > 1 ? "serviços" : "serviço"}</b></div>
           </div>
         </div>
       </section>
 
       <section class="pd-sec">
         <div class="pd-head">
+          <div class="pd-eye">Escopo</div>
+          <h2><span>01</span>O que cada serviço entrega</h2>
+          <p>Os entregáveis de cada plano escolhido: o que está incluso, o que fica de fora e os adicionais contratados.</p>
+        </div>
+        ${list.map(printDetail).join("")}
+      </section>
+
+      <section class="pd-sec">
+        <div class="pd-head">
           <div class="pd-eye">Investimento</div>
-          <h2><span>01</span>Resumo do investimento</h2>
+          <h2><span>02</span>Resumo do investimento</h2>
           <p>${list.length} ${list.length > 1 ? "serviços selecionados" : "serviço selecionado"}, com o plano e os valores de cada um.</p>
         </div>
         <div class="pd-total">
@@ -1067,33 +1066,8 @@ function iconSVG(name) {
         </table>
       </section>
 
-      <section class="pd-sec">
-        <div class="pd-head">
-          <div class="pd-eye">Escopo</div>
-          <h2><span>02</span>O que cada serviço entrega</h2>
-          <p>Os entregáveis de cada plano escolhido: o que está incluso, o que fica de fora e os adicionais contratados.</p>
-        </div>
-        ${list.map(printDetail).join("")}
-      </section>
-
       <section class="pd-dark pd-fim">
-        <img class="pd-mark" src="${mark}" alt="">
-        <img class="pd-logo" src="${branco}" alt="Verta">
-        <div class="pd-fim__body">
-          <div class="pd-eye">Próximo passo</div>
-          <h2>Vamos conversar sobre esta proposta</h2>
-          <p>Na conversa revisamos cada serviço com você, ajustamos o que for preciso e definimos a data de início.</p>
-          <a class="pd-cta" href="${CONTATO_URL}">Agendar conversa →</a>
-        </div>
-        <div class="pd-cond">
-          <div class="pd-eye">Condições</div>
-          <ul>
-            <li>Valores de referência em reais, gerados em ${hoje}.</li>
-            <li>Verbas de mídia, tokens de IA e custos de terceiros indicados nos serviços não estão inclusos.</li>
-            <li>Condições finais na proposta formal.</li>
-          </ul>
-        </div>
-        <div class="pd-fim__foot"><span>Aceleradora de receitas</span><span>Marketing · Vendas · Tecnologia</span></div>
+        <img class="pd-fim__logo" src="${branco}" alt="Verta">
       </section>
     </div>`;
   }
