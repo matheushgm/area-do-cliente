@@ -164,6 +164,8 @@ export default {
     valorContrato: 'Valor do Contrato',
     valorMensal: 'Valor Mensal',
     dataAssinatura: 'Data de Assinatura',
+    clienteDesde: 'Cliente desde (1º contrato)',
+    clienteDesdeDica: 'Na renovação, troque só a Data de Assinatura: esta data fica no primeiro contrato e a renovação não conta como cliente novo no Crescimento. Em branco, vale a Data de Assinatura.',
     nomeConcorrente: 'Nome do concorrente',
     adicionarConcorrente: 'Adicionar concorrente',
     timeVendasInterno: 'Time de Vendas Interno',

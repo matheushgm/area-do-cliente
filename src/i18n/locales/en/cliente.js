@@ -163,6 +163,8 @@ export default {
     valorContrato: 'Contract Value',
     valorMensal: 'Monthly Fee',
     dataAssinatura: 'Signing Date',
+    clienteDesde: 'Client since (first contract)',
+    clienteDesdeDica: 'On renewal, change only the Signing Date: this date stays on the first contract so the renewal is not counted as a new client in Growth. Blank means the Signing Date.',
     nomeConcorrente: 'Competitor name',
     adicionarConcorrente: 'Add competitor',
     timeVendasInterno: 'In-house Sales Team',

@@ -3,8 +3,9 @@
 // Novos Clientes e Net MRR da home.
 //
 // Convenções:
-// - "entrada" = contractDate (assinatura) com fallback pra createdAt — mesma
-//   resolução usada pelo LTV e pela barra de 90 dias (ver lib/utils.js).
+// - "entrada" = clientSince (primeiro contrato) → contractDate (assinatura) →
+//   createdAt (ver entryDate em lib/utils.js). Renovação muda só a
+//   contractDate e não conta como cliente novo.
 // - "saída" = churnDate, e só conta quando momento === 'churn'.
 // - MRR normalizado por mrrValue (programas de aceleração viram /3).
 

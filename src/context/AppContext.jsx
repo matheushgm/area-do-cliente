@@ -26,7 +26,7 @@ const LS_KEY_ANTIGA = "rl_projects_v2";
 const LISTA_COLS = [
   "id", "legacy_id", "company_name", "cnpj", "business_type", "segmento",
   "responsible_name", "responsible_role", "contract_model", "contract_payment_type",
-  "contract_value", "contract_date", "contract_duration_months", "plan_type", "billing_mode",
+  "contract_value", "contract_date", "client_since", "contract_duration_months", "plan_type", "billing_mode",
   "competitors", "has_sales_team", "digital_maturity", "upsell_potential", "upsell_notes",
   "other_people", "services", "services_data", "raio_x_file_url", "sla_file_url",
   "account_id", "status", "completed_steps", "created_at", "updated_at", "logo_url",
@@ -169,6 +169,7 @@ function assembleProject(row, rel = {}) {
     contractPaymentType:  row.contract_payment_type,
     contractValue:        row.contract_value,
     contractDate:         row.contract_date,
+    clientSince:          row.client_since || null,
     contractDurationMonths: row.contract_duration_months,
     planType:             row.plan_type,
     billingMode:          row.billing_mode,
@@ -459,6 +460,7 @@ const PROJECT_FIELD_MAP = {
   contractPaymentType: "contract_payment_type",
   contractValue:       "contract_value",
   contractDate:        "contract_date",
+  clientSince:         "client_since",
   contractDurationMonths: "contract_duration_months",
   planType:            "plan_type",
   billingMode:         "billing_mode",
@@ -500,6 +502,7 @@ const PROJECT_FIELD_MAP = {
   contract_payment_type:"contract_payment_type",
   contract_value:       "contract_value",
   contract_date:        "contract_date",
+  client_since:         "client_since",
   contract_duration_months: "contract_duration_months",
   plan_type:            "plan_type",
   billing_mode:         "billing_mode",
@@ -541,6 +544,7 @@ const PROJECT_FIELD_MAP = {
 // — inclusive o contract_value. Para essas colunas, '' precisa virar null.
 const EMPTY_TO_NULL_COLS = new Set([
   "contract_date",   // date
+  "client_since",    // date
   "churn_date",      // date
   "contract_value",  // numeric
   "meta_lab_budget", // numeric

@@ -228,10 +228,14 @@ export function ltvStartSource(project) {
   return _resolveStart(project).source
 }
 
-// Data de entrada do cliente na base: contractDate (assinatura) com fallback
-// para createdAt — a mesma resolução usada pelo LTV e pela barra de 90 dias.
+// Data de entrada do cliente na base: clientSince (primeiro contrato) quando
+// o cliente já renovou; senão contractDate (assinatura), com fallback para
+// createdAt. Renovação troca a contractDate (novo ciclo), mas não é cliente
+// novo: por isso o Crescimento e os contadores de novos leem esta função.
 // Retorna Date ou null.
 export function entryDate(project) {
+  const desde = _parseDateMillis(project?.clientSince ?? project?.client_since)
+  if (!isNaN(desde)) return new Date(desde)
   const { startTime } = _resolveStart(project)
   return isNaN(startTime) ? null : new Date(startTime)
 }

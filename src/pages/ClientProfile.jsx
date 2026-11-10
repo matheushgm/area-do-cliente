@@ -143,6 +143,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
     contractValue:       project.contractValue       ?? '',
     contractDurationMonths: project.contractDurationMonths ?? '',
     contractDate:        project.contractDate        || '',
+    clientSince:         project.clientSince         || '',
     planType:            project.planType            || '',
     billingMode:         project.billingMode         || '',
     competitors:         project.competitors?.length ? [...project.competitors] : [''],
@@ -235,6 +236,7 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
       contractValue:       Number(form.contractValue) || null,
       contractDurationMonths: form.contractDurationMonths ? Number(form.contractDurationMonths) : null,
       contractDate:        form.contractDate,
+      clientSince:         form.clientSince,
       planType:            form.planType,
       billingMode:         form.billingMode,
       competitors:         form.competitors.filter(Boolean),
@@ -483,6 +485,16 @@ function OnboardingEditForm({ project, onSave, onCancel }) {
               onChange={(e) => set('contractDate', e.target.value)}
               className="input-field"
             />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label-field">{t('cliente.dados.clienteDesde')}</label>
+            <input
+              type="date"
+              value={form.clientSince}
+              onChange={(e) => set('clientSince', e.target.value)}
+              className="input-field sm:max-w-[50%]"
+            />
+            <p className="text-[11px] text-rl-muted mt-1">{t('cliente.dados.clienteDesdeDica')}</p>
           </div>
         </div>
       </div>
@@ -818,6 +830,9 @@ function OnboardingContent({ project, onSave, showToast }) {
           <Field label={t('cliente.dados.dataContrato')} value={project.contractDate
             ? new Date(project.contractDate + 'T00:00:00').toLocaleDateString(locale)
             : null} />
+          {project.clientSince && project.clientSince !== project.contractDate && (
+            <Field label={t('cliente.dados.clienteDesde')} value={new Date(project.clientSince + 'T00:00:00').toLocaleDateString(locale)} />
+          )}
         </div>
       </div>
 
