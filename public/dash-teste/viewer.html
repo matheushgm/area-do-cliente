@@ -426,7 +426,12 @@
   .adp-save button:disabled { opacity:.6; cursor:default; }
   .adp-save-dates { flex-basis:100%; font-size:12px; font-weight:600; color:rgb(var(--dt-text-3)); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .adp-save-dates input { padding:4px 8px; border:1px solid rgb(var(--rl-border)); border-radius:7px; font:600 12px/1 ui-sans-serif,system-ui; color:rgb(var(--rl-subtle)); }
+  .adp-share { flex-basis:100%; display:flex; align-items:center; gap:8px; min-width:0; }
+  .adp-share .adp-share-url { flex:1; min-width:0; padding:6px 8px; border:1px solid rgb(var(--rl-border)); border-radius:8px;
+    font:500 12px/1.2 ui-sans-serif,system-ui; color:rgb(var(--rl-subtle)); background:rgb(var(--dt-tint-2)); }
+  .adp-save .adp-share button.adp-share-copy { background:rgb(var(--rl-card)); color:rgb(var(--rl-purple)); border:1px solid rgb(var(--rl-purple)); }
   .adp-save-msg { flex-basis:100%; font-size:12px; color:rgb(var(--dt-text-2)); }
+  .adp-save-msg:empty { display:none; }
   .adp-save-msg.ok { color:rgb(var(--rl-green)); font-weight:600; }
   .adp-save-msg.err { color:rgb(var(--rl-red)); font-weight:600; }
   .adp-trans { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:12px 18px; border-top:1px solid rgb(var(--rl-scroll-track)); }
@@ -3826,7 +3831,13 @@ function openAdPreview(adId, adName){
     <div class="adp-tabs">${AD_PREVIEW_FORMATS.map(([l,f],i)=>`<button class="adp-fmt${i===0?' active':''}" data-fmt="${f}">${l}</button>`).join('')}</div>
     <div class="adp-body" id="adpBody"></div>
     ${SHARED ? '' : `<div class="adp-save">
-      <div class="adp-save-dates">📅 Dados de <input type="date" id="adpFrom" value="${pf}"> até <input type="date" id="adpTo" value="${pt}"></div>
+      <div class="adp-save-dates">📅 Período de <input type="date" id="adpFrom" value="${pf}"> até <input type="date" id="adpTo" value="${pt}"></div>
+      <div class="adp-share">
+        <button id="adpShareBtn" type="button" title="Gera um link que qualquer pessoa abre sem login, com o anúncio e o CTR, CPM, taxa de conversão e CPL do período acima">🔗 Gerar link público</button>
+        <input id="adpShareUrl" class="adp-share-url" readonly hidden aria-label="Link público do anúncio">
+        <button id="adpShareCopy" type="button" class="adp-share-copy" hidden>Copiar</button>
+      </div>
+      <span id="adpShareMsg" class="adp-save-msg"></span>
       <select id="adpFunil"><option value="">Salvar no Banco — selecione o funil…</option>${BANCO_FUNIS.map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join('')}</select>
       <button id="adpSaveBtn">💾 Salvar no Banco</button>
       <span id="adpSaveMsg" class="adp-save-msg"></span>
@@ -3869,6 +3880,39 @@ function openAdPreview(adId, adName){
   ov.querySelectorAll('.adp-fmt').forEach(b=>b.onclick=()=>{
     ov.querySelectorAll('.adp-fmt').forEach(x=>x.classList.remove('active')); b.classList.add('active'); load(b.dataset.fmt)
   })
+  // Link público do anúncio: preview + CTR/CPM/taxa de conversão/CPL do período
+  // escolhido nas datas acima. O período vai assinado no link (/api/anuncio-publico),
+  // então quem recebe não consegue trocar. Mudar as datas pede um link novo.
+  const shareBtn = ov.querySelector('#adpShareBtn'), shareUrl = ov.querySelector('#adpShareUrl')
+  const shareCopy = ov.querySelector('#adpShareCopy'), shareMsg = ov.querySelector('#adpShareMsg')
+  const copiar = async (txt) => {
+    try { await navigator.clipboard.writeText(txt); return true }
+    catch { try { shareUrl.select(); return document.execCommand('copy') } catch { return false } }
+  }
+  if (shareBtn) {
+    const limpar = () => { shareUrl.hidden = true; shareCopy.hidden = true; shareUrl.value = ''; shareMsg.textContent = ''; shareMsg.className = 'adp-save-msg' }
+    ov.querySelector('#adpFrom').addEventListener('change', limpar)
+    ov.querySelector('#adpTo').addEventListener('change', limpar)
+    shareBtn.onclick = async ()=>{
+      const de = ov.querySelector('#adpFrom').value, ate = ov.querySelector('#adpTo').value
+      if(!de||!ate||de>ate){ shareMsg.textContent='Escolha o período (de/até) que vai aparecer no link.'; shareMsg.className='adp-save-msg err'; return }
+      const token = supabaseToken()
+      if(!token){ shareMsg.textContent='Disponível só no app autenticado.'; shareMsg.className='adp-save-msg err'; return }
+      shareBtn.disabled = true; shareMsg.textContent = 'Gerando link…'; shareMsg.className = 'adp-save-msg'
+      try{
+        const r = await fetch('/api/anuncio-publico', { method:'POST', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json' },
+          body: JSON.stringify({ cliente: state.openClient?.client || '', ad_id: adId, de, ate }) })
+        const data = await r.json().catch(()=>({}))
+        if(!r.ok || !data.url) throw new Error(data?.error?.message || ('Erro '+r.status))
+        shareUrl.value = data.url; shareUrl.hidden = false; shareCopy.hidden = false
+        const ok = await copiar(data.url)
+        shareMsg.textContent = `${ok ? '✅ Link copiado.' : '✅ Link gerado.'} Mostra o anúncio e as métricas de ${fmtBR(de)} a ${fmtBR(ate)}.`
+        shareMsg.className = 'adp-save-msg ok'
+      }catch(e){ shareMsg.textContent='❌ '+e.message; shareMsg.className='adp-save-msg err' }
+      finally{ shareBtn.disabled = false }
+    }
+    shareCopy.onclick = async ()=>{ const ok = await copiar(shareUrl.value); shareCopy.textContent = ok ? 'Copiado' : 'Copie o link ao lado'; setTimeout(()=>{ shareCopy.textContent='Copiar' }, 1800) }
+  }
   // Salvar a mídia do anúncio no Banco de Anúncios (vídeo ou imagem)
   // Os blocos abaixo (Banco/transcrição) não são renderizados no modo SHARED —
   // daí o guard: sem ele o null quebraria openAdPreview antes do load() do preview.

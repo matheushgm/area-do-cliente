@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/anuncio/:token",
+      "destination": "/dash-teste/anuncio.html"
+    },
+    {
       "source": "/((?!api/|@vite|@react-refresh|src/|node_modules/)[^.]*)",
       "destination": "/index.html"
     }
