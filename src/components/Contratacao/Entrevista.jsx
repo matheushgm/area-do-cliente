@@ -51,17 +51,23 @@ function PerguntaCard({ p, indice, resposta, notaIA, onNota, onObs }) {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
+      {/* Checklist: uma linha por nível, uma escolha só (clicar de novo desmarca). */}
+      <div role="radiogroup" aria-label="Nota da resposta" className="rounded-xl border border-rl-border divide-y divide-rl-border/70 overflow-hidden">
         {NOTAS.map((n) => {
           const ativo = nota === n.valor
           const c = COR[NOTA_COR[n.valor]]
           return (
-            <button key={n.valor} type="button" onClick={() => onNota(ativo ? null : n.valor)}
-              className={`relative text-left rounded-xl border p-3 transition-all ${ativo ? `${c.borda} ${c.bg} ring-1 ring-inset ${c.borda}` : 'border-rl-border hover:border-rl-text/30 hover:bg-rl-surface/60'}`}>
-              <span className={`text-xs font-black ${ativo ? c.txt : 'text-rl-text'}`}>{n.valor} · {n.rotulo}</span>
-              <span className="block text-[11px] leading-snug text-rl-subtle mt-1">{p.regua[n.valor]}</span>
+            <button key={n.valor} type="button" role="radio" aria-checked={ativo} onClick={() => onNota(ativo ? null : n.valor)}
+              className={`w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors ${ativo ? c.bg : 'hover:bg-rl-surface/60'}`}>
+              <span className={`mt-0.5 w-5 h-5 shrink-0 rounded-md border-2 flex items-center justify-center transition-all ${ativo ? `${c.solido} border-transparent text-white` : 'border-rl-border bg-rl-card'}`}>
+                {ativo && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+              </span>
+              <span className="flex-1 min-w-0 text-sm leading-snug">
+                <span className={`font-bold ${ativo ? c.txt : 'text-rl-text'}`}>{n.valor} · {n.rotulo}</span>
+                <span className={`ml-2 ${ativo ? 'text-rl-text' : 'text-rl-subtle'}`}>{p.regua[n.valor]}</span>
+              </span>
               {notaIA === n.valor && (
-                <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 text-[10px] font-semibold text-rl-purple" title="Nota que a IA daria pela transcrição">
+                <span className="mt-0.5 shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold text-rl-purple" title="Nota que a IA daria pela transcrição">
                   <Sparkle className="w-3 h-3" /> IA
                 </span>
               )}
