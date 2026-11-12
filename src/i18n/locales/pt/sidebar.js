@@ -6,6 +6,7 @@ export default {
     operacao: 'Operação',
     biblioteca: 'Biblioteca',
     dados: 'Dados',
+    time: 'Time',
   },
   itens: {
     otimizacoes: 'Otimizações',
@@ -23,6 +24,7 @@ export default {
     playbook: 'Playbook',
     adsRoadmap: 'ADS Roadmap',
     relatorioSquads: 'Relatório de Squads',
+    contratacao: 'Contratação',
   },
   expandir: 'Expandir menu',
   recolher: 'Recolher menu',

@@ -11,7 +11,7 @@ import { Sparkles,
   LogOut, Cloud, Loader2,
   X, UserCog, BookOpen, Library, ExternalLink, GitFork, CheckSquare, BarChart3, DollarSign,
   Sun, Moon, Clapperboard, Timer, Layout, PanelLeftClose, PanelLeftOpen, Waypoints, Users2,
-  ChevronUp, ChevronDown, Wrench, Percent, Globe, Languages, TrendingUp,
+  ChevronUp, ChevronDown, Wrench, Percent, Globe, Languages, TrendingUp, Briefcase,
 } from 'lucide-react'
 
 // Sidebar recolhida (só ícones) para sobrar espaço aos módulos. O estado é
@@ -102,6 +102,13 @@ const NAV_SECTIONS = [
       { id: 'squads',      label: 'sidebar.itens.relatorioSquads', Icon: Users2,      type: 'route', to: '/relatorio-squads', gate: canViewSquadsReport },
     ],
   },
+  {
+    label: 'sidebar.secoes.time',
+    items: [
+      // Entrevistas pontuadas + banco de talentos. Só admin (dados de candidatos).
+      { id: 'contratacao', label: 'sidebar.itens.contratacao', Icon: Briefcase,     type: 'route', to: '/contratacao', gate: (u) => u?.role === 'admin' },
+    ],
+  },
 ]
 
 // Os rótulos acima são chaves do i18n; aqui viram texto no idioma atual.
@@ -121,6 +128,9 @@ const navItemsFor = (user, t) => NAV_SECTIONS.map((sec) => ({
     .filter((it) => it.type !== 'group' || it.children.length > 0)
     .map(traduzItem(t)),
 })).filter((sec) => sec.items.length > 0)
+
+// Rota ativa também nas subpáginas (/contratacao/gestor-trafego/... acende Contratação).
+const rotaAtiva = (pathname, to) => pathname === to || (!!to && pathname.startsWith(`${to}/`))
 
 // Grupo está "ativo" quando a rota atual é de um dos filhos.
 const grupoAtivo = (item, pathname) => item.children.some((c) => c.to === pathname)
@@ -319,7 +329,7 @@ function SidebarContent({
             ).map(({ id, label, Icon, type, to, href }) => (
               type === 'external'
                 ? <a key={id} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label} className={iconBtn(false)}><Icon className="w-4 h-4" /></a>
-                : <button key={id} onClick={() => { navigate(to); onClose() }} aria-label={label} title={label} className={iconBtn(location.pathname === to)}><Icon className="w-4 h-4" /></button>
+                : <button key={id} onClick={() => { navigate(to); onClose() }} aria-label={label} title={label} className={iconBtn(rotaAtiva(location.pathname, to))}><Icon className="w-4 h-4" /></button>
             ))}
           </Fragment>
         ))}
@@ -506,7 +516,7 @@ function SidebarContent({
                   </div>
                 )
               }
-              const active = type === 'route' && location.pathname === to
+              const active = type === 'route' && rotaAtiva(location.pathname, to)
               const baseClass = `w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group border ${
                 active
                   ? 'bg-rl-purple/15 text-rl-purple border-rl-purple/25'

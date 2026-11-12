@@ -37,6 +37,7 @@ const SquadsReport = lazy(() => import('../pages/SquadsReport'))
 
 // ── Administração ──────────────────────────────────────────
 const UserManagement = lazy(() => import('../pages/UserManagement'))
+const Contratacao = lazy(() => import('../pages/Contratacao'))
 
 // ── Dev (só no build de desenvolvimento) ───────────────────
 const DevHub = lazy(() => import('../pages/DevHub'))
@@ -79,6 +80,14 @@ export const appRoutes = [
     <Route key="relatorio-squads" path="/relatorio-squads" element={<RequireSquadsAccess><SquadsReport /></RequireSquadsAccess>} />
 
     <Route key="usuarios" path="/usuarios" element={<RequireAdmin><UserManagement /></RequireAdmin>} />
+
+    {/* Contratação: dados pessoais de candidatos, só admin (RLS igual). */}
+    <Route key="contratacao" path="/contratacao" element={<RequireAdmin><Contratacao /></RequireAdmin>} />
+    <Route key="contratacao-cargo" path="/contratacao/:cargo" element={<RequireAdmin><Contratacao /></RequireAdmin>} />
+    <Route key="contratacao-nova" path="/contratacao/:cargo/nova" element={<RequireAdmin><Contratacao view="nova" /></RequireAdmin>} />
+    <Route key="contratacao-entrevista" path="/contratacao/:cargo/entrevista/:id" element={<RequireAdmin><Contratacao view="entrevista" /></RequireAdmin>} />
+    <Route key="contratacao-talentos" path="/contratacao/:cargo/talentos" element={<RequireAdmin><Contratacao view="talentos" /></RequireAdmin>} />
+    <Route key="contratacao-candidato" path="/contratacao/:cargo/candidato/:id" element={<RequireAdmin><Contratacao view="candidato" /></RequireAdmin>} />
 
     {/* O segmento de seção é opcional, mas o `?` do path saiu no react-router
         v6 — por isso as duas declarações. Sem seção = hub. */}

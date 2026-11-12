@@ -1685,3 +1685,28 @@ Atas) foi removida em 2026-10-26 a pedido do Matheus. Abaixo de `xl` as colunas 
   prioridade da sugestão. Exige `clickup_folder_id` no projeto.
 - Testar o motor com Node: copiar `playbookSugestoes.js` e `dashboardData.js` como `.mjs`
   no scratchpad e alimentar com `json_agg(data)` de `dash_insights` de uma conta.
+
+### Contratação (`/contratacao`): entrevista pontuada + banco de talentos (2026-11-12)
+
+Só admin (rotas com `RequireAdmin`, item "Contratação" na seção Time da sidebar e RLS por
+`app_metadata.role = 'admin'`), porque guarda dados pessoais de candidatos.
+
+- **Cargos e régua:** `src/lib/contratacao.js` (`CARGOS`). Hoje só Gestor de Tráfego, montado a
+  partir do playbook do cargo (salário, carteira e clientes por nível). Cada pergunta tem peso
+  (1 a 3) e régua de 0 a 3 (não demonstrou / Júnior / Pleno / Sênior). `calcularResultado`
+  devolve pontuação 0-100 (média ponderada; pergunta sem nota fica fora), nível, médias e selos
+  por competência e "o que faltou". Nível = pontuação mínima (Jr 25, Pl 55, Sr 75) **e portões**:
+  Pleno exige nota ≥ 2 em multicanal e jornada; Sênior exige nota 3 em 2 de CRM / planejamento
+  ROI / teste A/B. Novo cargo = nova entrada em `CARGOS`.
+- **Telas** (`src/components/Contratacao/`, despachadas por `src/pages/Contratacao.jsx`): cargos
+  em quadrados → hub do cargo → `nova` (candidato + currículo) → `entrevista/:id` (Aquecimento,
+  Atividades, Transcrição e IA, Resultado, com placar fixo, selos e "+N" ao pontuar; grava sozinho
+  com debounce) → `talentos` (filtros, chave "Já empregado?") → `candidato/:id` (perfil e histórico).
+- **IA:** `ResumoIA.jsx` manda transcrição + notas + régua para `/api/anthropic`
+  (`MODELO_RESUMO = claude-opus-5-5`). A resposta é markdown + bloco ```json com as notas
+  sugeridas e o nível (`separarResumo`); vai para `resumo_ia` / `sugestao_ia`. As notas da IA
+  podem preencher as perguntas sem nota ou substituir todas.
+- **Banco (migration 133):** `contratacao_candidatos` (status, `empregado` + `empregado_onde` +
+  `empregado_atualizado_em`, currículo) e `contratacao_entrevistas` (`respostas`, `contexto`,
+  `pontuacao`, `nivel`, `detalhe`, `transcricao`, `resumo_ia`, `sugestao_ia`, `finalizada`).
+  Currículo no bucket privado `contratacao` (`<candidato_id>/<arquivo>`, URL assinada).
