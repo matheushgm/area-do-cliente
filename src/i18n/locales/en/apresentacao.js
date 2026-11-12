@@ -1,12 +1,10 @@
 export default {
   titulo: 'Presentation mode',
-  abas: { resultados: 'Results', otimizacoes: 'Optimizations', tarefas: 'Tasks', benchmark: 'Benchmark' },
+  abas: { resultados: 'Results', otimizacoes: 'Optimizations', tarefas: 'Tasks' },
   periodos: { d7: '7 days', d14: '14 days', d30: '30 days', outro: 'Custom range' },
   ate: 'to',
   visaoGeral: 'Accounts overview',
   detalheConta: 'By account',
-  benchmarkTitulo: 'How you compare',
-  benchmarkTexto: 'Your accounts against the average of the clients we manage, on the same campaign types. Green: at or better than the median. Red: at least 50% worse.',
   lendoDash: 'Reading the traffic dashboard…',
   semContas: 'No ad accounts linked to this project in the dashboard.',
   otmTitulo: 'What changed in your campaigns',

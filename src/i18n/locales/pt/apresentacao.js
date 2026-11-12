@@ -1,13 +1,11 @@
 // Modo Apresentação da página do cliente (tela cheia em 4 telas).
 export default {
   titulo: 'Modo Apresentação',
-  abas: { resultados: 'Resultados', otimizacoes: 'Otimizações', tarefas: 'Tarefas', benchmark: 'Benchmark' },
+  abas: { resultados: 'Resultados', otimizacoes: 'Otimizações', tarefas: 'Tarefas' },
   periodos: { d7: '7 dias', d14: '14 dias', d30: '30 dias', outro: 'Outro período' },
   ate: 'até',
   visaoGeral: 'Visão geral das contas',
   detalheConta: 'Detalhe por conta',
-  benchmarkTitulo: 'Como você se compara',
-  benchmarkTexto: 'Suas contas contra a média dos clientes que a gente acompanha, nos mesmos tipos de campanha. Verde: igual ou melhor que a mediana. Vermelho: pelo menos 50% pior.',
   lendoDash: 'Lendo o dashboard de tráfego…',
   semContas: 'Nenhuma conta de anúncio vinculada a este projeto no dashboard.',
   otmTitulo: 'O que mudou nas suas campanhas',

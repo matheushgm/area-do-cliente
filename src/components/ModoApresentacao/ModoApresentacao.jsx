@@ -5,7 +5,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import {
   X, BarChart3, Wrench, ListChecks, Wallet, PauseCircle, ImagePlus, Users, Layers,
-  Plus, Loader2, CheckCircle2, Gauge, AlertTriangle, CalendarDays, UserRound, ChevronLeft, ChevronRight, Hand,
+  Plus, Loader2, CheckCircle2, AlertTriangle, CalendarDays, UserRound, ChevronLeft, ChevronRight, Hand,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useDashboardData } from '../../hooks/useDashboardData'
@@ -25,7 +25,6 @@ const TABS = [
   { id: 'resultados', label: 'apresentacao.abas.resultados', Icon: BarChart3 },
   { id: 'otimizacoes', label: 'apresentacao.abas.otimizacoes', Icon: Wrench },
   { id: 'tarefas', label: 'apresentacao.abas.tarefas', Icon: ListChecks },
-  { id: 'benchmark', label: 'apresentacao.abas.benchmark', Icon: Gauge },
 ]
 const PERIODOS = [
   { id: '7', label: 'apresentacao.periodos.d7', dias: 7 },
@@ -105,28 +104,6 @@ function VisaoGeralContas({ contas, loading }) {
       <p className="text-sm font-semibold text-rl-text px-1 mb-2">{t('apresentacao.visaoGeral')} <span className="text-rl-muted font-normal">· Meta Ads + Google Ads</span></p>
       <div className="glass-card overflow-hidden"><ViewerAutoAltura src={src} title={t('apresentacao.visaoGeral')} /></div>
     </section>
-  )
-}
-
-// Tela 4: como as contas do cliente se posicionam contra a carteira da agência.
-// O viewer não mostra o nome dos outros clientes neste modo.
-function TelaBenchmark({ contas, loading }) {
-  const { t } = useI18n()
-  const src = useMemo(() => `/dash-teste/viewer.html?embed=1&benchmark=1&contas=${encodeURIComponent(JSON.stringify(contas))}&apresentacao=1`, [contas])
-  return (
-    <div className="max-w-[1600px] mx-auto space-y-4">
-      <div>
-        <h2 className="text-2xl font-bold text-rl-text">{t('apresentacao.benchmarkTitulo')}</h2>
-        <p className="text-sm text-rl-subtle mt-1">{t('apresentacao.benchmarkTexto')}</p>
-      </div>
-      {loading && contas.length === 0 ? (
-        <div className="flex items-center gap-2 text-sm text-rl-muted py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> {t('apresentacao.lendoDash')}</div>
-      ) : contas.length === 0 ? (
-        <div className="glass-card p-4 text-sm text-rl-subtle">{t('apresentacao.semContas')}</div>
-      ) : (
-        <div className="glass-card overflow-hidden p-3"><ViewerAutoAltura src={src} title={t('apresentacao.abas.benchmark')} /></div>
-      )}
-    </div>
   )
 }
 
@@ -451,7 +428,6 @@ export default function ModoApresentacao({ project, hub, config, showToast, onCl
         )}
         {tab === 'otimizacoes' && <TelaOtimizacoes dash={dash} hub={hub} contas={contasDash} />}
         {tab === 'tarefas' && <TelaTarefas project={project} config={config} showToast={showToast} />}
-        {tab === 'benchmark' && <TelaBenchmark contas={contasDash} loading={dash.loading} />}
       </main>
 
       <footer className="shrink-0 flex items-center justify-between px-4 sm:px-6 h-12 border-t border-rl-border bg-rl-card">
