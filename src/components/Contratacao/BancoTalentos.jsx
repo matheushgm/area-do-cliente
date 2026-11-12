@@ -3,16 +3,25 @@ import { useNavigate } from 'react-router-dom'
 import { Search, Loader2, Plus, FileText, Sparkles } from 'lucide-react'
 import { cargoPorId, NIVEL_ROTULO, STATUS_CANDIDATO } from '../../lib/contratacao'
 import { abrirCurriculo, atualizarCandidato, listarCandidatos, ultimaEntrevista } from './data'
-import { Pagina, NivelBadge, StatusBadge, fmtData } from './ui'
+import { Pagina, NivelBadge, StatusBadge, TriagemBadge, fmtData } from './ui'
+import { RESULTADOS_TRIAGEM } from '../../lib/triagemVaga'
 
 const ORDENS = [
   { id: 'pontuacao', rotulo: 'Maior pontuação' },
+  { id: 'triagem', rotulo: 'Melhor triagem' },
   { id: 'recentes', rotulo: 'Entrevista mais recente' },
   { id: 'nome', rotulo: 'Nome' },
 ]
 
-const presencialDe = (c) => {
+// Presencial vem da inscrição do Meta (formulario) ou, se não houver, do formulário da vaga (triagem).
+const presencialBool = (c) => {
   const v = c.formulario?.respostas?.presencial
+  if (typeof v === 'boolean') return v
+  const t = c.triagem?.respostas?.presencial
+  return t === 'sim' ? true : t === 'nao' ? false : undefined
+}
+const presencialDe = (c) => {
+  const v = presencialBool(c)
   return v === true ? 'Sim' : v === false ? 'Não' : '-'
 }
 
@@ -26,6 +35,7 @@ export default function BancoTalentos({ cargoId, showToast }) {
   const [disp, setDisp] = useState('disponiveis') // todos | disponiveis | empregados
   const [status, setStatus] = useState('')
   const [presencial, setPresencial] = useState('') // '' | sim | nao
+  const [triagem, setTriagem] = useState('') // '' | avanca | talvez | nao_avanca | sem
   const [ordem, setOrdem] = useState('pontuacao')
 
   useEffect(() => {
@@ -40,18 +50,20 @@ export default function BancoTalentos({ cargoId, showToast }) {
       .filter(({ e }) => !nivel || e?.nivel === nivel)
       .filter(({ c }) => disp === 'todos' || (disp === 'disponiveis' ? !c.empregado : c.empregado))
       .filter(({ c }) => !status || c.status === status)
+      .filter(({ c }) => !triagem || (triagem === 'sem' ? !c.triagem : c.triagem?.resultado === triagem))
       .filter(({ c }) => {
         if (!presencial) return true
-        const v = c.formulario?.respostas?.presencial
+        const v = presencialBool(c)
         return presencial === 'sim' ? v === true : v === false
       })
     rows.sort((a, b) => {
       if (ordem === 'nome') return a.c.nome.localeCompare(b.c.nome)
+      if (ordem === 'triagem') return (b.c.triagem?.pontos ?? -1) - (a.c.triagem?.pontos ?? -1)
       if (ordem === 'recentes') return String(b.e?.data || '').localeCompare(String(a.e?.data || ''))
       return (b.e?.pontuacao ?? -1) - (a.e?.pontuacao ?? -1)
     })
     return rows
-  }, [lista, busca, nivel, disp, status, presencial, ordem])
+  }, [lista, busca, nivel, disp, status, presencial, triagem, ordem])
 
   async function alternarEmpregado(c) {
     const empregado = !c.empregado
@@ -97,6 +109,11 @@ export default function BancoTalentos({ cargoId, showToast }) {
           <option value="">Todos os status</option>
           {STATUS_CANDIDATO.map((s) => <option key={s.id} value={s.id}>{s.rotulo}</option>)}
         </select>
+        <select className="input-field w-auto text-sm" value={triagem} onChange={(e) => setTriagem(e.target.value)} title="Resultado do formulário da vaga">
+          <option value="">Triagem: todas</option>
+          {RESULTADOS_TRIAGEM.map((r) => <option key={r.id} value={r.id}>{r.rotulo}</option>)}
+          <option value="sem">Sem formulário</option>
+        </select>
         <select className="input-field w-auto text-sm" value={presencial} onChange={(e) => setPresencial(e.target.value)} title="Resposta do formulário de inscrição">
           <option value="">Presencial: todos</option>
           <option value="sim">Pode 100% presencial</option>
@@ -115,13 +132,14 @@ export default function BancoTalentos({ cargoId, showToast }) {
         </div>
       ) : (
         <div className="glass-card overflow-x-auto">
-          <table className="w-full text-sm min-w-[840px]">
+          <table className="w-full text-sm min-w-[940px]">
             <thead>
               <tr className="text-[11px] uppercase tracking-wide text-rl-muted border-b border-rl-border">
                 <th className="text-left font-semibold px-4 py-3">Candidato</th>
                 <th className="text-right font-semibold px-2 py-3">Pontos</th>
                 <th className="text-left font-semibold px-2 py-3">Nível</th>
                 <th className="text-left font-semibold px-2 py-3">Status</th>
+                <th className="text-left font-semibold px-2 py-3">Triagem</th>
                 <th className="text-left font-semibold px-2 py-3">Entrevista</th>
                 <th className="text-left font-semibold px-2 py-3">Presencial</th>
                 <th className="text-left font-semibold px-2 py-3">Pretensão</th>
@@ -147,6 +165,7 @@ export default function BancoTalentos({ cargoId, showToast }) {
                   <td className="px-2 py-3 text-right font-black tabular-nums text-rl-text">{e?.pontuacao ?? '-'}</td>
                   <td className="px-2 py-3"><NivelBadge nivel={e?.nivel} />{e && !e.finalizada && <span className="block text-[10px] text-rl-gold mt-0.5">em andamento</span>}</td>
                   <td className="px-2 py-3"><StatusBadge status={c.status} /></td>
+                  <td className="px-2 py-3">{c.triagem ? <TriagemBadge triagem={c.triagem} comPontos /> : <span className="text-xs text-rl-muted">-</span>}</td>
                   <td className="px-2 py-3 text-xs text-rl-subtle">{fmtData(e?.data)}</td>
                   <td className="px-2 py-3 text-xs text-rl-subtle">{presencialDe(c)}</td>
                   <td className="px-2 py-3 text-xs text-rl-subtle">{c.pretensao_salarial ? Number(c.pretensao_salarial).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) : '-'}</td>

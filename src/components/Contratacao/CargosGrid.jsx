@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Briefcase, Users, ClipboardCheck, Database, ArrowRight, Loader2 } from 'lucide-react'
+import { Briefcase, Users, ClipboardCheck, Database, ArrowRight, Loader2, Link2, Check, ExternalLink } from 'lucide-react'
 import { CARGOS, cargoPorId } from '../../lib/contratacao'
 import { contarPorCargo, listarCandidatos, ultimaEntrevista } from './data'
 import { Pagina, NivelBadge, DisponivelBadge, fmtData } from './ui'
+import { linkFormulario, triagemDoCargo } from '../../lib/triagemVaga'
 
 /** /contratacao: um quadrado por cargo. */
 export function CargosGrid() {
@@ -92,6 +93,8 @@ export function CargoHub({ cargoId }) {
         ))}
       </div>
 
+      <LinkDaVaga cargoId={cargo.id} />
+
       <section className="glass-card p-5">
         <h3 className="text-sm font-bold text-rl-text mb-3">Últimos candidatos</h3>
         {recentes == null ? (
@@ -119,5 +122,31 @@ export function CargoHub({ cargoId }) {
         )}
       </section>
     </Pagina>
+  )
+}
+
+/** Link aberto do formulário da vaga, para anúncio, bio ou grupo. Sem ?ref: cria ou acha o candidato pelo e-mail/celular. */
+function LinkDaVaga({ cargoId }) {
+  const [copiado, setCopiado] = useState(false)
+  if (!triagemDoCargo(cargoId)) return null
+  const link = linkFormulario(window.location.origin, cargoId)
+  async function copiar() {
+    try { await navigator.clipboard.writeText(link); setCopiado(true); setTimeout(() => setCopiado(false), 1800) } catch { /* sem permissão */ }
+  }
+  return (
+    <section className="glass-card p-5 flex items-center gap-4 flex-wrap">
+      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-rl-purple bg-rl-purple/10 shrink-0"><Link2 className="w-5 h-5" /></div>
+      <div className="flex-1 min-w-[220px]">
+        <h3 className="text-sm font-bold text-rl-text">Formulário da vaga (1ª etapa)</h3>
+        <p className="text-xs text-rl-subtle mt-0.5">Link aberto para qualquer pessoa. As respostas viram a triagem no banco de talentos. No perfil, o número do candidato já manda este link pelo WhatsApp.</p>
+        <p className="text-xs font-mono text-rl-muted mt-1 truncate">{link}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={copiar} className="btn-secondary text-sm inline-flex items-center gap-1.5">
+          {copiado ? <Check className="w-4 h-4 text-rl-green" /> : <Link2 className="w-4 h-4" />} {copiado ? 'Copiado' : 'Copiar link'}
+        </button>
+        <a href={link} target="_blank" rel="noreferrer" className="btn-ghost text-sm inline-flex items-center gap-1.5"><ExternalLink className="w-4 h-4" /> Abrir</a>
+      </div>
+    </section>
   )
 }

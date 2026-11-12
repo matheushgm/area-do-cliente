@@ -1716,3 +1716,14 @@ Só admin (rotas com `RequireAdmin`, item "Contratação" na seção Time da sid
   `inscricoes[]` = todas com data, lead e plataforma; campos em `CAMPOS_FORMULARIO`), mostradas no quadro
   "Formulário de inscrição" do perfil e no filtro/coluna "Presencial" do banco de talentos. Os 101 da
   campanha Vaga_Gesto_Forms (Meta, anúncio VAGA_GESTOR_IMG_29.07) entraram assim.
+- **Formulário da vaga + triagem (migration 135, 2026-11-12):** página pública `/vaga/:cargo`
+  (`VagaPublica.jsx`, sem login) é a 1ª etapa do processo. Perguntas, pontos, eliminatórias e cortes
+  (Avança ≥ 60, Talvez 35 a 59, Não avança < 35) em `src/lib/triagemVaga.js` (`TRIAGENS`, um por cargo),
+  lido também por `api/vaga-publica.js` (edge, chave de serviço), que valida, recalcula e grava em
+  `contratacao_candidatos.triagem` (jsonb; resposta repetida guarda as anteriores em `anteriores`). Quem é o
+  candidato: `?ref=<id>` do link → mesmo e-mail ou mesmos 8 últimos dígitos do celular no cargo → candidato
+  novo `inscrito`. O time vê a triagem no perfil (quadro com respostas, pontos por pergunta, eliminatórias
+  e alertas), na coluna/filtro "Triagem" e na ordem "Melhor triagem" do banco. **Número no perfil** abre o
+  WhatsApp com `MENSAGEM_CONVITE` ({nome} = primeiro nome, {vaga}, {link} com `?ref`); depois de responder,
+  abre sem texto. O hub do cargo tem o link aberto (sem `ref`) para anúncio e bio. Limite: 40 respostas/h
+  por cargo, campo escondido `site` contra robô.

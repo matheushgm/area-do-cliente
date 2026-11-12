@@ -2,6 +2,7 @@
 import { useOutletContext, Link } from 'react-router-dom'
 import { Menu, ChevronRight } from 'lucide-react'
 import { NIVEL_ROTULO, NIVEL_COR, STATUS_CANDIDATO } from '../../lib/contratacao'
+import { RESULTADOS_TRIAGEM } from '../../lib/triagemVaga'
 
 // Classes literais (o Tailwind não enxerga classe montada por template).
 export const COR = {
@@ -30,6 +31,13 @@ export function NivelBadge({ nivel, className = '' }) {
 export function StatusBadge({ status }) {
   const s = STATUS_CANDIDATO.find((x) => x.id === status) || STATUS_CANDIDATO.find((x) => x.id === 'entrevistado')
   return <Pill cor={s.cor}>{s.rotulo}</Pill>
+}
+
+/** Resultado da triagem do formulário da vaga. Sem triagem = "Sem formulário". */
+export function TriagemBadge({ triagem, comPontos = false }) {
+  if (!triagem?.resultado) return <Pill>Sem formulário</Pill>
+  const r = RESULTADOS_TRIAGEM.find((x) => x.id === triagem.resultado) || RESULTADOS_TRIAGEM[2]
+  return <Pill cor={r.cor}>{r.rotulo}{comPontos && triagem.pontos != null ? ` · ${triagem.pontos}` : ''}</Pill>
 }
 
 export function DisponivelBadge({ empregado }) {

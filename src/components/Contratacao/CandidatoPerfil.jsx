@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Loader2, FileText, Upload, Mail, Phone, Linkedin, MapPin, Wallet, Plus, Trash2, ChevronDown, ChevronRight, Sparkles, ClipboardList,
+  Loader2, FileText, Upload, Mail, Phone, Link2, Check, AlertTriangle, Ban, Linkedin, MapPin, Wallet, Plus, Trash2, ChevronDown, ChevronRight, Sparkles, ClipboardList,
 } from 'lucide-react'
 import MarkdownView from '../Editor/MarkdownView'
 import { calcularResultado, cargoPorId, CAMPOS_FORMULARIO, fmtBRL, fmtResposta, STATUS_CANDIDATO } from '../../lib/contratacao'
@@ -9,7 +9,8 @@ import {
   abrirCurriculo, atualizarCandidato, buscarCandidato, criarEntrevista, enviarCurriculo, excluirCandidato, excluirEntrevista,
 } from './data'
 import { useApp } from '../../context/AppContext'
-import { Pagina, NivelBadge, StatusBadge, fmtData } from './ui'
+import { Pagina, NivelBadge, StatusBadge, TriagemBadge, fmtData } from './ui'
+import { linkFormulario, linkWhatsApp, mensagemConvite, respostaTexto, triagemDoCargo } from '../../lib/triagemVaga'
 import { Selos } from './ResultadoPainel'
 
 function Campo({ Icon, valor, href }) {
@@ -111,6 +112,44 @@ function FormularioInscricao({ f }) {
   )
 }
 
+/** Respostas do formulário da vaga (/vaga/:cargo) e a triagem automática. */
+function TriagemQuadro({ cargoId, t }) {
+  const def = triagemDoCargo(cargoId)
+  if (!def || !t?.respostas) return null
+  const r = t.respostas
+  return (
+    <div className="rounded-xl border border-rl-border p-4 space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <ClipboardList className="w-4 h-4 text-rl-purple" />
+        <span className="text-sm font-bold text-rl-text">Triagem do formulário da vaga</span>
+        <TriagemBadge triagem={t} comPontos />
+        <span className="text-[11px] text-rl-muted">respondido em {fmtDataHora(t.respondido_em)}{t.anteriores?.length ? ` · respondeu ${t.anteriores.length + 1} vezes` : ''}</span>
+      </div>
+      {(t.eliminatorias?.length > 0 || t.alertas?.length > 0) && (
+        <ul className="space-y-1">
+          {(t.eliminatorias || []).map((m) => <li key={m} className="text-xs text-rl-red flex items-center gap-1.5"><Ban className="w-3.5 h-3.5 shrink-0" /> {m}</li>)}
+          {(t.alertas || []).map((m) => <li key={m} className="text-xs text-rl-gold flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {m}</li>)}
+        </ul>
+      )}
+      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+        {def.perguntas.map((p) => {
+          const pp = t.por_pergunta?.[p.k]
+          const longo = p.tipo === 'textarea'
+          return (
+            <div key={p.k} className={longo ? 'sm:col-span-2' : ''}>
+              <dt className="text-[11px] text-rl-muted">{p.rotulo}</dt>
+              <dd className={`text-sm text-rl-text ${longo ? 'whitespace-pre-wrap font-normal' : 'font-semibold'}`}>
+                {respostaTexto(p, r[p.k])}
+                {pp && <span className="ml-1.5 text-[10px] font-normal text-rl-muted tabular-nums">{pp.pontos}/{pp.max}</span>}
+              </dd>
+            </div>
+          )
+        })}
+      </dl>
+    </div>
+  )
+}
+
 /** /contratacao/:cargo/candidato/:id: perfil + histórico de entrevistas. */
 export default function CandidatoPerfil({ cargoId, candidatoId, showToast }) {
   const navigate = useNavigate()
@@ -120,6 +159,7 @@ export default function CandidatoPerfil({ cargoId, candidatoId, showToast }) {
   const [aberta, setAberta] = useState(null)
   const [enviando, setEnviando] = useState(false)
   const [obs, setObs] = useState('')
+  const [copiado, setCopiado] = useState(false)
 
   useEffect(() => {
     buscarCandidato(candidatoId)
@@ -176,6 +216,13 @@ export default function CandidatoPerfil({ cargoId, candidatoId, showToast }) {
   if (!c || !cargo) return <div className="flex-1 flex justify-center py-24 text-rl-muted"><Loader2 className="w-5 h-5 animate-spin" /></div>
 
   const ultima = c.contratacao_entrevistas[0]
+  // Número do candidato abre o WhatsApp com o convite pronto para o formulário da vaga.
+  // Depois que ele respondeu, abre a conversa sem texto.
+  const linkForm = triagemDoCargo(cargo.id) ? linkFormulario(window.location.origin, cargo.id, c.id) : null
+  const zap = linkWhatsApp(c.telefone, linkForm && !c.triagem ? mensagemConvite({ nome: c.nome, vaga: cargo.nome, link: linkForm }) : null)
+  async function copiarLink() {
+    try { await navigator.clipboard.writeText(linkForm); setCopiado(true); setTimeout(() => setCopiado(false), 1800) } catch { showToast('Não consegui copiar.', 'error') }
+  }
 
   return (
     <Pagina
@@ -193,11 +240,19 @@ export default function CandidatoPerfil({ cargoId, candidatoId, showToast }) {
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-2xl font-black text-rl-text">{c.nome}</h2>
               <StatusBadge status={c.status} />
+              {c.triagem && <TriagemBadge triagem={c.triagem} comPontos />}
               {ultima && <NivelBadge nivel={ultima.nivel} />}
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               <Campo Icon={Mail} valor={c.email} href={c.email ? `mailto:${c.email}` : null} />
-              <Campo Icon={Phone} valor={c.telefone} href={c.telefone ? `https://wa.me/55${c.telefone.replace(/\D/g, '').replace(/^55/, '')}` : null} />
+              <Campo Icon={Phone} valor={c.telefone} href={zap} />
+              {linkForm && (
+                <button type="button" onClick={copiarLink} title="Copia o link do formulário da vaga, ligado a este candidato"
+                  className="inline-flex items-center gap-1.5 text-xs text-rl-subtle hover:text-rl-purple">
+                  {copiado ? <Check className="w-3.5 h-3.5 text-rl-green" /> : <Link2 className="w-3.5 h-3.5 text-rl-muted" />}
+                  {copiado ? 'Link copiado' : 'Link do formulário'}
+                </button>
+              )}
               <Campo Icon={Linkedin} valor={c.linkedin} href={c.linkedin ? (c.linkedin.startsWith('http') ? c.linkedin : `https://${c.linkedin}`) : null} />
               <Campo Icon={MapPin} valor={c.cidade} />
               <Campo Icon={Wallet} valor={c.pretensao_salarial ? `Pretensão ${fmtBRL(c.pretensao_salarial)}` : null} />
@@ -253,6 +308,7 @@ export default function CandidatoPerfil({ cargoId, candidatoId, showToast }) {
           </div>
         </div>
 
+        <TriagemQuadro cargoId={cargo.id} t={c.triagem} />
         <FormularioInscricao f={c.formulario} />
 
         <label className="block">
