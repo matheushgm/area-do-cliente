@@ -11,6 +11,11 @@ const ORDENS = [
   { id: 'nome', rotulo: 'Nome' },
 ]
 
+const presencialDe = (c) => {
+  const v = c.formulario?.respostas?.presencial
+  return v === true ? 'Sim' : v === false ? 'Não' : '-'
+}
+
 /** /contratacao/:cargo/talentos: todo mundo que passou pelo processo do cargo. */
 export default function BancoTalentos({ cargoId, showToast }) {
   const navigate = useNavigate()
@@ -20,6 +25,7 @@ export default function BancoTalentos({ cargoId, showToast }) {
   const [nivel, setNivel] = useState('')
   const [disp, setDisp] = useState('disponiveis') // todos | disponiveis | empregados
   const [status, setStatus] = useState('')
+  const [presencial, setPresencial] = useState('') // '' | sim | nao
   const [ordem, setOrdem] = useState('pontuacao')
 
   useEffect(() => {
@@ -34,13 +40,18 @@ export default function BancoTalentos({ cargoId, showToast }) {
       .filter(({ e }) => !nivel || e?.nivel === nivel)
       .filter(({ c }) => disp === 'todos' || (disp === 'disponiveis' ? !c.empregado : c.empregado))
       .filter(({ c }) => !status || c.status === status)
+      .filter(({ c }) => {
+        if (!presencial) return true
+        const v = c.formulario?.respostas?.presencial
+        return presencial === 'sim' ? v === true : v === false
+      })
     rows.sort((a, b) => {
       if (ordem === 'nome') return a.c.nome.localeCompare(b.c.nome)
       if (ordem === 'recentes') return String(b.e?.data || '').localeCompare(String(a.e?.data || ''))
       return (b.e?.pontuacao ?? -1) - (a.e?.pontuacao ?? -1)
     })
     return rows
-  }, [lista, busca, nivel, disp, status, ordem])
+  }, [lista, busca, nivel, disp, status, presencial, ordem])
 
   async function alternarEmpregado(c) {
     const empregado = !c.empregado
@@ -86,6 +97,11 @@ export default function BancoTalentos({ cargoId, showToast }) {
           <option value="">Todos os status</option>
           {STATUS_CANDIDATO.map((s) => <option key={s.id} value={s.id}>{s.rotulo}</option>)}
         </select>
+        <select className="input-field w-auto text-sm" value={presencial} onChange={(e) => setPresencial(e.target.value)} title="Resposta do formulário de inscrição">
+          <option value="">Presencial: todos</option>
+          <option value="sim">Pode 100% presencial</option>
+          <option value="nao">Não pode presencial</option>
+        </select>
         <select className="input-field w-auto text-sm" value={ordem} onChange={(e) => setOrdem(e.target.value)}>
           {ORDENS.map((o) => <option key={o.id} value={o.id}>{o.rotulo}</option>)}
         </select>
@@ -99,7 +115,7 @@ export default function BancoTalentos({ cargoId, showToast }) {
         </div>
       ) : (
         <div className="glass-card overflow-x-auto">
-          <table className="w-full text-sm min-w-[760px]">
+          <table className="w-full text-sm min-w-[840px]">
             <thead>
               <tr className="text-[11px] uppercase tracking-wide text-rl-muted border-b border-rl-border">
                 <th className="text-left font-semibold px-4 py-3">Candidato</th>
@@ -107,6 +123,7 @@ export default function BancoTalentos({ cargoId, showToast }) {
                 <th className="text-left font-semibold px-2 py-3">Nível</th>
                 <th className="text-left font-semibold px-2 py-3">Status</th>
                 <th className="text-left font-semibold px-2 py-3">Entrevista</th>
+                <th className="text-left font-semibold px-2 py-3">Presencial</th>
                 <th className="text-left font-semibold px-2 py-3">Pretensão</th>
                 <th className="text-center font-semibold px-4 py-3">Já empregado?</th>
               </tr>
@@ -131,6 +148,7 @@ export default function BancoTalentos({ cargoId, showToast }) {
                   <td className="px-2 py-3"><NivelBadge nivel={e?.nivel} />{e && !e.finalizada && <span className="block text-[10px] text-rl-gold mt-0.5">em andamento</span>}</td>
                   <td className="px-2 py-3"><StatusBadge status={c.status} /></td>
                   <td className="px-2 py-3 text-xs text-rl-subtle">{fmtData(e?.data)}</td>
+                  <td className="px-2 py-3 text-xs text-rl-subtle">{presencialDe(c)}</td>
                   <td className="px-2 py-3 text-xs text-rl-subtle">{c.pretensao_salarial ? Number(c.pretensao_salarial).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) : '-'}</td>
                   <td className="px-4 py-3 text-center" onClick={(ev) => ev.stopPropagation()}>
                     <button type="button" role="switch" aria-checked={c.empregado} onClick={() => alternarEmpregado(c)}

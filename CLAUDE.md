@@ -1710,3 +1710,9 @@ Só admin (rotas com `RequireAdmin`, item "Contratação" na seção Time da sid
   `empregado_atualizado_em`, currículo) e `contratacao_entrevistas` (`respostas`, `contexto`,
   `pontuacao`, `nivel`, `detalhe`, `transcricao`, `resumo_ia`, `sugestao_ia`, `finalizada`).
   Currículo no bucket privado `contratacao` (`<candidato_id>/<arquivo>`, URL assinada).
+- **Inscritos (migration 134, 2026-11-12):** status `inscrito` = veio do formulário da vaga e ainda não
+  foi entrevistado; vira `entrevistado` ao abrir a primeira entrevista (perfil ou "Nova entrevista" com
+  candidato existente). As respostas da inscrição ficam em `formulario` jsonb (`respostas` = última,
+  `inscricoes[]` = todas com data, lead e plataforma; campos em `CAMPOS_FORMULARIO`), mostradas no quadro
+  "Formulário de inscrição" do perfil e no filtro/coluna "Presencial" do banco de talentos. Os 101 da
+  campanha Vaga_Gesto_Forms (Meta, anúncio VAGA_GESTOR_IMG_29.07) entraram assim.

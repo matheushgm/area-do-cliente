@@ -4,7 +4,7 @@ import {
   Loader2, FileText, Upload, Mail, Phone, Linkedin, MapPin, Wallet, Plus, Trash2, ChevronDown, ChevronRight, Sparkles, ClipboardList,
 } from 'lucide-react'
 import MarkdownView from '../Editor/MarkdownView'
-import { calcularResultado, cargoPorId, fmtBRL, STATUS_CANDIDATO } from '../../lib/contratacao'
+import { calcularResultado, cargoPorId, CAMPOS_FORMULARIO, fmtBRL, fmtResposta, STATUS_CANDIDATO } from '../../lib/contratacao'
 import {
   abrirCurriculo, atualizarCandidato, buscarCandidato, criarEntrevista, enviarCurriculo, excluirCandidato, excluirEntrevista,
 } from './data'
@@ -64,6 +64,53 @@ function EntrevistaItem({ cargo, e, aberta, onToggle, onAbrir, onExcluir }) {
   )
 }
 
+const fmtDataHora = (iso) => {
+  if (!iso) return '-'
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? String(iso) : d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+}
+
+/** Respostas da inscrição (formulário da vaga). Some quando o candidato veio direto para a entrevista. */
+function FormularioInscricao({ f }) {
+  if (!f?.respostas) return null
+  const inscricoes = f.inscricoes || []
+  const ultima = inscricoes[inscricoes.length - 1]
+  const anteriores = inscricoes.slice(0, -1)
+  return (
+    <div className="rounded-xl border border-rl-border p-4 space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <ClipboardList className="w-4 h-4 text-rl-purple" />
+        <span className="text-sm font-bold text-rl-text">Formulário de inscrição</span>
+        <span className="text-[11px] text-rl-muted">
+          {inscricoes.length > 1
+            ? `${inscricoes.length} inscrições: ${inscricoes.map((i) => fmtDataHora(i.data)).join(', ')}`
+            : `em ${fmtDataHora(ultima?.data)}`}
+          {f.anuncio ? ` · anúncio ${f.anuncio}` : ''}
+        </span>
+      </div>
+      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+        {CAMPOS_FORMULARIO.map((campo) => {
+          const v = f.respostas[campo.id]
+          const antes = [...new Set(anteriores
+            .map((i) => i.respostas?.[campo.id])
+            .filter((a) => a != null && String(a).toLowerCase() !== String(v).toLowerCase())
+            .map((a) => fmtResposta(campo, a)))]
+          return (
+            <div key={campo.id}>
+              <dt className="text-[11px] text-rl-muted">{campo.rotulo}</dt>
+              <dd className="text-sm font-semibold text-rl-text">
+                {fmtResposta(campo, v)}
+                {antes.length > 0 && <span className="ml-1.5 text-[11px] font-normal text-rl-muted">antes: {antes.join(', ')}</span>}
+              </dd>
+            </div>
+          )
+        })}
+      </dl>
+      {f.campanha && <p className="text-[10px] text-rl-muted">Campanha {f.campanha}{ultima?.plataforma ? ` · veio pelo ${ultima.plataforma}` : ''}</p>}
+    </div>
+  )
+}
+
 /** /contratacao/:cargo/candidato/:id: perfil + histórico de entrevistas. */
 export default function CandidatoPerfil({ cargoId, candidatoId, showToast }) {
   const navigate = useNavigate()
@@ -104,6 +151,8 @@ export default function CandidatoPerfil({ cargoId, candidatoId, showToast }) {
   async function novaEntrevista() {
     try {
       const e = await criarEntrevista({ candidato_id: c.id, cargo: cargo.id, entrevistador_nome: user?.name || null })
+      // Quem só tinha se inscrito passa a entrevistado ao abrir a primeira entrevista.
+      if (c.status === 'inscrito') await atualizarCandidato(c.id, { status: 'entrevistado' })
       navigate(`/contratacao/${cargo.id}/entrevista/${e.id}`)
     } catch (e) { showToast(e.message, 'error') }
   }
@@ -203,6 +252,8 @@ export default function CandidatoPerfil({ cargoId, candidatoId, showToast }) {
             </div>
           </div>
         </div>
+
+        <FormularioInscricao f={c.formulario} />
 
         <label className="block">
           <span className="label-field">Observações gerais</span>

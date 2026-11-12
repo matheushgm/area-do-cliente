@@ -28,7 +28,7 @@ export function NivelBadge({ nivel, className = '' }) {
 }
 
 export function StatusBadge({ status }) {
-  const s = STATUS_CANDIDATO.find((x) => x.id === status) || STATUS_CANDIDATO[0]
+  const s = STATUS_CANDIDATO.find((x) => x.id === status) || STATUS_CANDIDATO.find((x) => x.id === 'entrevistado')
   return <Pill cor={s.cor}>{s.rotulo}</Pill>
 }
 

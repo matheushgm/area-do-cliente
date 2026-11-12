@@ -17,12 +17,29 @@ export const NOTAS = [
 ]
 
 export const STATUS_CANDIDATO = [
+  { id: 'inscrito', rotulo: 'Inscrito', cor: 'purple' },
   { id: 'entrevistado', rotulo: 'Entrevistado', cor: 'muted' },
   { id: 'em_espera', rotulo: 'Em espera', cor: 'gold' },
   { id: 'aprovado', rotulo: 'Aprovado', cor: 'cyan' },
   { id: 'contratado', rotulo: 'Contratado', cor: 'green' },
   { id: 'reprovado', rotulo: 'Reprovado', cor: 'red' },
 ]
+
+// Respostas do formulário de inscrição (coluna `formulario.respostas`, migration 134).
+// tipo 'simnao' = booleano; o resto é texto como a pessoa escreveu.
+export const CAMPOS_FORMULARIO = [
+  { id: 'presencial', rotulo: 'Pode trabalhar 100% presencial?', tipo: 'simnao' },
+  { id: 'dominio', rotulo: 'Domínio de tráfego' },
+  { id: 'gtm', rotulo: 'Domina GTM?', tipo: 'simnao' },
+  { id: 'experiencia', rotulo: 'Tempo de experiência com tráfego pago' },
+  { id: 'contas', rotulo: 'Contas que já gerenciou ao mesmo tempo' },
+]
+
+export const fmtResposta = (campo, v) => {
+  if (v == null || v === '') return '-'
+  if (campo.tipo === 'simnao') return v ? 'Sim' : 'Não'
+  return String(v)
+}
 
 const GESTOR_TRAFEGO = {
   id: 'gestor-trafego',

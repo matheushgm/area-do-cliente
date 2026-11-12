@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Upload, FileText, Loader2, Play, Search, UserPlus, UserCheck } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { cargoPorId } from '../../lib/contratacao'
-import { criarCandidato, criarEntrevista, enviarCurriculo, listarCandidatos } from './data'
+import { atualizarCandidato, criarCandidato, criarEntrevista, enviarCurriculo, listarCandidatos } from './data'
 import { Pagina, DisponivelBadge } from './ui'
 
 const VAZIO = { nome: '', email: '', telefone: '', linkedin: '', cidade: '', pretensao_salarial: '' }
@@ -56,6 +56,8 @@ export default function NovaEntrevista({ cargoId, showToast }) {
           pretensao_salarial: form.pretensao_salarial ? Number(String(form.pretensao_salarial).replace(/\D/g, '')) : null,
         })
       }
+      // Quem veio do formulário da vaga vira entrevistado quando a entrevista começa.
+      if (cand.status === 'inscrito') cand = await atualizarCandidato(cand.id, { status: 'entrevistado' })
       if (arquivo) cand = await enviarCurriculo(cand, arquivo)
       const ent = await criarEntrevista({
         candidato_id: cand.id,
