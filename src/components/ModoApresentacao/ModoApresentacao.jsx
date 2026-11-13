@@ -1,5 +1,5 @@
 // Modo Apresentação: tela cheia pro account percorrer o cliente em 3 telas.
-//   1. Resultados: o dashboard de tráfego (API) travado na conta do cliente
+//   1. Resultados: o dashboard de tráfego (API) travado na conta do cliente + Resultados do Funil
 //   2. Otimizações: o que mudou no gerenciador, em linguagem de leigo
 //   3. Tarefas: o que foi entregue, o que vem aí e o que depende do cliente
 import { useMemo, useState, useEffect, useRef } from 'react'
@@ -11,6 +11,7 @@ import { useApp } from '../../context/AppContext'
 import { useDashboardData } from '../../hooks/useDashboardData'
 import { useApresentacaoTarefas, dependeDoCliente } from '../../hooks/useApresentacaoTarefas'
 import { ResultadosEmbed } from '../ProjetoHub/HubCentro'
+import { ResultadosConteudo } from '../ResultadosModule'
 import NovaTarefaClickUpModal from '../ProjetoHub/NovaTarefaClickUpModal'
 import { CATEGORIAS, mudancasDoGerenciador, mudancasRegistradas } from '../../lib/otimizacoesLeigo'
 import { bucketVencimento, paraData, inicioDoDia } from '../../lib/tarefas'
@@ -424,6 +425,7 @@ export default function ModoApresentacao({ project, hub, config, showToast, onCl
             <VisaoGeralContas contas={contasDash} loading={dash.loading} />
             {contasDash.length > 0 && <p className="text-sm font-semibold text-rl-text px-1 -mb-3">{t('apresentacao.detalheConta')}</p>}
             <ResultadosEmbed apresentacao contas={contasDash} ativa={contaAtiva} onTrocar={setContaAtiva} loading={dash.loading} />
+            <ResultadosConteudo project={project} dash={dash} />
           </div>
         )}
         {tab === 'otimizacoes' && <TelaOtimizacoes dash={dash} hub={hub} contas={contasDash} />}
